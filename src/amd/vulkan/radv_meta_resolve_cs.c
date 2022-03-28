@@ -781,7 +781,7 @@ radv_cmd_buffer_resolve_subpass_cs(struct radv_cmd_buffer *cmd_buffer)
    struct radv_framebuffer *fb = cmd_buffer->state.framebuffer;
    const struct radv_subpass *subpass = cmd_buffer->state.subpass;
    struct radv_subpass_barrier barrier;
-   uint32_t layer_count = fb->layers;
+   uint32_t layer_count = fb->vk.layers;
 
    if (subpass->view_mask)
       layer_count = util_last_bit(subpass->view_mask);
@@ -806,7 +806,7 @@ radv_cmd_buffer_resolve_subpass_cs(struct radv_cmd_buffer *cmd_buffer)
 
       VkImageResolve2KHR region = {
          .sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2_KHR,
-         .extent = (VkExtent3D){fb->width, fb->height, 1},
+         .extent = (VkExtent3D){fb->vk.width, fb->vk.height, 1},
          .srcSubresource =
             (VkImageSubresourceLayers){
                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -843,7 +843,7 @@ radv_depth_stencil_resolve_subpass_cs(struct radv_cmd_buffer *cmd_buffer,
    struct radv_framebuffer *fb = cmd_buffer->state.framebuffer;
    const struct radv_subpass *subpass = cmd_buffer->state.subpass;
    struct radv_meta_saved_state saved_state;
-   uint32_t layer_count = fb->layers;
+   uint32_t layer_count = fb->vk.layers;
 
    if (subpass->view_mask)
       layer_count = util_last_bit(subpass->view_mask);
@@ -913,7 +913,7 @@ radv_depth_stencil_resolve_subpass_cs(struct radv_cmd_buffer *cmd_buffer,
                         NULL);
 
    emit_depth_stencil_resolve(cmd_buffer, &tsrc_iview, &tdst_iview,
-                              &(VkExtent3D){fb->width, fb->height, layer_count}, aspects,
+                              &(VkExtent3D){fb->vk.width, fb->vk.height, layer_count}, aspects,
                               resolve_mode);
 
    cmd_buffer->state.flush_bits |=

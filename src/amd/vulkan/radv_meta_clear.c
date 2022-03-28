@@ -1867,7 +1867,7 @@ radv_subpass_clear_attachment(struct radv_cmd_buffer *cmd_buffer,
    VkClearRect clear_rect = {
       .rect = cmd_state->render_area,
       .baseArrayLayer = 0,
-      .layerCount = cmd_state->framebuffer->layers,
+      .layerCount = cmd_state->framebuffer->vk.layers,
    };
 
    radv_describe_begin_render_pass_clear(cmd_buffer, clear_att->aspectMask);

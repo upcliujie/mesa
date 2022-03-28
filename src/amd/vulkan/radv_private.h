@@ -67,6 +67,7 @@
 #include "vk_queue.h"
 #include "vk_util.h"
 #include "vk_image.h"
+#include "vk_framebuffer.h"
 
 #include "ac_binary.h"
 #include "ac_gpu_info.h"
@@ -2489,14 +2490,7 @@ struct radv_sampler {
 };
 
 struct radv_framebuffer {
-   struct vk_object_base base;
-   uint32_t width;
-   uint32_t height;
-   uint32_t layers;
-
-
-   uint32_t attachment_count;
-   struct radv_image_view *attachments[0];
+   struct vk_framebuffer vk;
 };
 
 struct radv_subpass_barrier {
@@ -2933,7 +2927,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(radv_descriptor_update_template, base,
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_device_memory, base, VkDeviceMemory,
                                VK_OBJECT_TYPE_DEVICE_MEMORY)
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
-VK_DEFINE_NONDISP_HANDLE_CASTS(radv_framebuffer, base, VkFramebuffer,
+VK_DEFINE_NONDISP_HANDLE_CASTS(radv_framebuffer, vk.base, VkFramebuffer,
                                VK_OBJECT_TYPE_FRAMEBUFFER)
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_image, base, VkImage, VK_OBJECT_TYPE_IMAGE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_image_view, base, VkImageView,

@@ -35,6 +35,7 @@
 #include "vk_format.h"
 #include "vk_util.h"
 #include "vk_enum_defines.h"
+#include "vk_common_entrypoints.h"
 
 #include "ac_debug.h"
 
@@ -2600,7 +2601,7 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
       radeon_emit(cmd_buffer->cs, S_028044_FORMAT(V_028044_STENCIL_INVALID)); /* DB_STENCIL_INFO */
    }
    radeon_set_context_reg(cmd_buffer->cs, R_028208_PA_SC_WINDOW_SCISSOR_BR,
-                          S_028208_BR_X(framebuffer->width) | S_028208_BR_Y(framebuffer->height));
+                          S_028208_BR_X(framebuffer->vk.width) | S_028208_BR_Y(framebuffer->vk.height));
 
    if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX8) {
       bool disable_constant_encode =
@@ -4174,7 +4175,7 @@ radv_handle_subpass_image_transition(struct radv_cmd_buffer *cmd_buffer,
    range.baseMipLevel = view->base_mip;
    range.levelCount = 1;
    range.baseArrayLayer = view->base_layer;
-   range.layerCount = cmd_buffer->state.framebuffer->layers;
+   range.layerCount = cmd_buffer->state.framebuffer->vk.layers;
 
    if (cmd_buffer->state.subpass->view_mask) {
       /* If the current subpass uses multiview, the driver might have
@@ -4377,7 +4378,7 @@ radv_cmd_state_setup_attachments(struct radv_cmd_buffer *cmd_buffer, struct radv
       if (attachment_info && attachment_info->attachmentCount > i) {
          iview = radv_image_view_from_handle(attachment_info->pAttachments[i]);
       } else {
-         iview = state->framebuffer->attachments[i];
+         iview = radv_image_view_from_handle(state->framebuffer->vk.attachments[i]);
       }
 
       state->attachments[i].iview = iview;
@@ -5898,8 +5899,8 @@ radv_cmd_buffer_begin_subpass(struct radv_cmd_buffer *cmd_buffer, uint32_t subpa
             struct radv_buffer *htile_buffer = cmd_buffer->device->vrs.buffer;
 
             VkExtent2D extent = {
-               .width = MIN2(fb->width, ds_image->info.width),
-               .height = MIN2(fb->height, ds_image->info.height),
+               .width = MIN2(fb->vk.width, ds_image->info.width),
+               .height = MIN2(fb->vk.height, ds_image->info.height),
             };
 
             /* Copy the VRS rates to the HTILE buffer. */
@@ -7953,7 +7954,7 @@ radv_CmdBeginRenderingKHR(VkCommandBuffer commandBuffer, const VkRenderingInfoKH
 
    VkFramebuffer fb;
    result =
-      radv_CreateFramebuffer(radv_device_to_handle(cmd_buffer->device), &fb_create_info, NULL, &fb);
+      vk_common_CreateFramebuffer(radv_device_to_handle(cmd_buffer->device), &fb_create_info, NULL, &fb);
    if (result != VK_SUCCESS) {
       radv_DestroyRenderPass(radv_device_to_handle(cmd_buffer->device), rp, NULL);
       cmd_buffer->record_result = result;
@@ -7986,8 +7987,8 @@ radv_CmdEndRenderingKHR(VkCommandBuffer commandBuffer)
 
    radv_CmdEndRenderPass2(commandBuffer, NULL);
 
-   radv_DestroyFramebuffer(radv_device_to_handle(cmd_buffer->device),
-                           radv_framebuffer_to_handle(framebuffer), NULL);
+   vk_common_DestroyFramebuffer(radv_device_to_handle(cmd_buffer->device),
+                                radv_framebuffer_to_handle(framebuffer), NULL);
    radv_DestroyRenderPass(radv_device_to_handle(cmd_buffer->device),
                           radv_render_pass_to_handle(pass), NULL);
 }
