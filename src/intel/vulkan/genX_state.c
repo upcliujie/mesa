@@ -771,7 +771,7 @@ genX(emit_shading_rate)(struct anv_batch *batch,
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
 
    bool cps_enable = wm_prog_data &&
-      brw_wm_prog_data_is_coarse(wm_prog_data, 0);
+      brw_wm_prog_data_is_coarse(wm_prog_data, pipeline->fs_msaa_flags);
 
 #if GFX_VER == 11
    anv_batch_emit(batch, GENX(3DSTATE_CPS), cps) {
