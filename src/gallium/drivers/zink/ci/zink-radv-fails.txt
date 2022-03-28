@@ -233,11 +233,6 @@ glx@glx-visuals-stencil -pixmap,Crash
 
 GTF-GL46.gtf21.GL.atan.atan_vec3_frag_xvary,Fail
 GTF-GL46.gtf21.GL.atan.atan_vec3_frag_xvaryyvary,Fail
-GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test1,Fail
-GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test2,Fail
-GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test3,Fail
-GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test4,Fail
-GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test5,Fail
 GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test7,Fail
 GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test8,Fail
 GTF-GL46.gtf30.GL3Tests.conditional_render.conditional_render_test9,Fail
