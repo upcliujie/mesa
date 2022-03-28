@@ -636,7 +636,7 @@ radv_cmd_buffer_resolve_subpass_hw(struct radv_cmd_buffer *cmd_buffer)
       }
 
       emit_resolve(cmd_buffer, src_img, dst_img, dest_iview->vk_format, &(VkOffset2D){0, 0},
-                   &(VkExtent2D){fb->width, fb->height});
+                   &(VkExtent2D){fb->vk.width, fb->vk.height});
 
       radv_cmd_buffer_restore_subpass(cmd_buffer, subpass);
    }
@@ -770,7 +770,7 @@ radv_decompress_resolve_subpass_src(struct radv_cmd_buffer *cmd_buffer)
 {
    const struct radv_subpass *subpass = cmd_buffer->state.subpass;
    struct radv_framebuffer *fb = cmd_buffer->state.framebuffer;
-   uint32_t layer_count = fb->layers;
+   uint32_t layer_count = fb->vk.layers;
 
    if (subpass->view_mask)
       layer_count = util_last_bit(subpass->view_mask);
