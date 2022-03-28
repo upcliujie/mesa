@@ -37,7 +37,8 @@ typedef nir_ssa_def *(*nir_handler)(struct vtn_builder *b,
                                     struct vtn_type **src_types,
                                     const struct vtn_type *dest_type);
 
-static int to_llvm_address_space(SpvStorageClass mode)
+static int to_llvm_address_space(SpvStorageClass mode,
+                                 bool allow_generic_storage_as)
 {
    switch (mode) {
    case SpvStorageClassPrivate:
@@ -46,7 +47,7 @@ static int to_llvm_address_space(SpvStorageClass mode)
    case SpvStorageClassUniform:
    case SpvStorageClassUniformConstant: return 2;
    case SpvStorageClassWorkgroup: return 3;
-   case SpvStorageClassGeneric: return 4;
+   case SpvStorageClassGeneric: return allow_generic_storage_as ? 4 : -1;
    default: return -1;
    }
 }
@@ -56,6 +57,7 @@ static void
 vtn_opencl_mangle(const char *in_name,
                   uint32_t const_mask,
                   int ntypes, struct vtn_type **src_types,
+                  bool allow_generic_storage_as,
                   char **outstring)
 {
    char local_name[256] = "";
@@ -66,7 +68,8 @@ vtn_opencl_mangle(const char *in_name,
       enum vtn_base_type base_type = src_types[i]->base_type;
       if (src_types[i]->base_type == vtn_base_type_pointer) {
          *(args_str++) = 'P';
-         int address_space = to_llvm_address_space(src_types[i]->storage_class);
+         int address_space = to_llvm_address_space(src_types[i]->storage_class,
+                                                   allow_generic_storage_as);
          if (address_space > 0)
             args_str += sprintf(args_str, "U3AS%d", address_space);
 
@@ -136,12 +139,14 @@ static nir_function *mangle_and_find(struct vtn_builder *b,
                                      const char *name,
                                      uint32_t const_mask,
                                      uint32_t num_srcs,
-                                     struct vtn_type **src_types)
+                                     struct vtn_type **src_types,
+                                     bool allow_generic_storage_as)
 {
    char *mname;
    nir_function *found = NULL;
 
-   vtn_opencl_mangle(name, const_mask, num_srcs, src_types, &mname);
+   vtn_opencl_mangle(name, const_mask, num_srcs, src_types,
+                     allow_generic_storage_as, &mname);
    /* try and find in current shader first. */
    nir_foreach_function(funcs, b->shader) {
       if (!strcmp(funcs->name, mname)) {
@@ -180,9 +185,12 @@ static bool call_mangled_function(struct vtn_builder *b,
                                   struct vtn_type **src_types,
                                   const struct vtn_type *dest_type,
                                   nir_ssa_def **srcs,
+                                  bool allow_generic_storage_as,
                                   nir_deref_instr **ret_deref_ptr)
 {
-   nir_function *found = mangle_and_find(b, name, const_mask, num_srcs, src_types);
+   nir_function *found = mangle_and_find(b, name, const_mask,
+                                         num_srcs, src_types,
+                                         allow_generic_storage_as);
    if (!found)
       return false;
 
@@ -469,7 +477,9 @@ handle_clc_fn(struct vtn_builder *b, enum OpenCLstd_Entrypoints opcode,
    nir_deref_instr *ret_deref = NULL;
 
    if (!call_mangled_function(b, name, 0, num_srcs, src_types,
-                              dest_type, srcs, &ret_deref))
+                              dest_type, srcs,
+                              false /* allow_generic_storage_as */,
+                              &ret_deref))
       return NULL;
 
    return ret_deref ? nir_load_deref(&b->nb, ret_deref) : NULL;
@@ -598,13 +608,19 @@ handle_core(struct vtn_builder *b, uint32_t opcode,
                                 src_types[i]->storage_class);
          }
       }
-      if (!call_mangled_function(b, "async_work_group_strided_copy", (1 << 1), num_srcs, src_types, dest_type, srcs, &ret_deref))
+      if (!call_mangled_function(b, "async_work_group_strided_copy",
+                                 (1 << 1), num_srcs, src_types, dest_type, srcs,
+                                 true /* allow_generic_storage_as */,
+                                 &ret_deref))
          return NULL;
       break;
    }
    case SpvOpGroupWaitEvents: {
       src_types[0] = get_vtn_type_for_glsl_type(b, glsl_int_type());
-      if (!call_mangled_function(b, "wait_group_events", 0, num_srcs, src_types, dest_type, srcs, &ret_deref))
+      if (!call_mangled_function(b, "wait_group_events",
+                                 0, num_srcs, src_types, dest_type, srcs,
+                                 true /* allow_generic_storage_as */,
+                                 &ret_deref))
          return NULL;
       break;
    }
