@@ -557,7 +557,7 @@ anv_cmd_buffer_current_batch_bo(struct anv_cmd_buffer *cmd_buffer)
 }
 
 struct anv_address
-anv_cmd_buffer_surface_base_address(struct anv_cmd_buffer *cmd_buffer)
+anv_cmd_buffer_bt_pool_base_address(struct anv_cmd_buffer *cmd_buffer)
 {
    struct anv_state_pool *pool = anv_binding_table_pool(cmd_buffer->device);
    struct anv_state *bt_block = u_vector_head(&cmd_buffer->bt_block_states);
@@ -780,8 +780,8 @@ anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
                                    uint32_t entries, uint32_t *state_offset)
 {
    struct anv_state *bt_block = u_vector_head(&cmd_buffer->bt_block_states);
-
-   uint32_t bt_size = align_u32(entries * 4, 32);
+   uint32_t bt_align = 32 << anv_bt_offset_shift(cmd_buffer->device);
+   uint32_t bt_size = align_u32(entries * 4, bt_align);
 
    struct anv_state state = cmd_buffer->bt_next;
    if (bt_size > state.alloc_size)
@@ -792,8 +792,16 @@ anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
    cmd_buffer->bt_next.map += bt_size;
    cmd_buffer->bt_next.alloc_size -= bt_size;
 
-   assert(bt_block->offset < 0);
-   *state_offset = -bt_block->offset;
+   if (cmd_buffer->device->info.ver >= 11) {
+      /* Starting with Gen11, we have BINDING_TABLE_POOL_ALLOC which lets us
+       * have separate surface and binding table base addresses so we no
+       * longer need any sort of offsetting.
+       */
+      *state_offset = 0;
+   } else {
+      assert(bt_block->offset < 0);
+      *state_offset = -bt_block->offset;
+   }
 
    return state;
 }

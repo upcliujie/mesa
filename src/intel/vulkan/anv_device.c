@@ -922,6 +922,15 @@ anv_physical_device_try_create(struct anv_instance *instance,
    assert(st_idx <= ARRAY_SIZE(device->sync_types));
    device->vk.supported_sync_types = device->sync_types;
 
+   device->use_256B_binding_tables =
+      device->info.verx10 >= 110 && device->info.verx10 <= 120;
+
+   /* TODO: We could increase this to 1MB on info.verx10 >= 125 */
+   if (device->info.ver >= 11)
+      device->bt_block_size = 512 * 1024;
+   else
+      device->bt_block_size = 64 * 1024;
+
    device->always_use_bindless =
       env_var_as_boolean("ANV_ALWAYS_BINDLESS", false);
 
@@ -3271,13 +3280,13 @@ VkResult anv_CreateDevice(
     */
    result = anv_state_pool_init(&device->general_state_pool, device,
                                 "general pool",
-                                0, GENERAL_STATE_POOL_MIN_ADDRESS, 16384);
+                                0, GENERAL_STATE_POOL_MIN_ADDRESS, 65536);
    if (result != VK_SUCCESS)
       goto fail_batch_bo_pool;
 
    result = anv_state_pool_init(&device->dynamic_state_pool, device,
                                 "dynamic pool",
-                                DYNAMIC_STATE_POOL_MIN_ADDRESS, 0, 16384);
+                                DYNAMIC_STATE_POOL_MIN_ADDRESS, 0, 65536);
    if (result != VK_SUCCESS)
       goto fail_general_state_pool;
 
@@ -3296,27 +3305,58 @@ VkResult anv_CreateDevice(
 
    result = anv_state_pool_init(&device->instruction_state_pool, device,
                                 "instruction pool",
-                                INSTRUCTION_STATE_POOL_MIN_ADDRESS, 0, 16384);
+                                INSTRUCTION_STATE_POOL_MIN_ADDRESS, 0, 65536);
    if (result != VK_SUCCESS)
       goto fail_dynamic_state_pool;
 
-   result = anv_state_pool_init(&device->surface_state_pool, device,
-                                "surface state pool",
-                                SURFACE_STATE_POOL_MIN_ADDRESS, 0, 4096);
-   if (result != VK_SUCCESS)
-      goto fail_instruction_state_pool;
+   if (device->info.ver >= 11) {
+      assert(physical_device->use_softpin);
 
-   if (!anv_use_relocations(physical_device)) {
-      int64_t bt_pool_offset = (int64_t)BINDING_TABLE_POOL_MIN_ADDRESS -
-                               (int64_t)SURFACE_STATE_POOL_MIN_ADDRESS;
-      assert(INT32_MIN < bt_pool_offset && bt_pool_offset < 0);
+      /* On Gfx11+, the binding table has its own base address provided via
+       * 3DSTATE_BINDING_TABLE_POOL_ALLOC.  We allocate separate 4GB ranges
+       * for surface states and binding tables.
+       */
+      result = anv_state_pool_init(&device->surface_state_pool, device,
+                                   "surface state pool",
+                                   SURFACE_STATE_POOL_MIN_ADDRESS, 0, 65536);
+      if (result != VK_SUCCESS)
+         goto fail_instruction_state_pool;
+
       result = anv_state_pool_init(&device->binding_table_pool, device,
                                    "binding table pool",
-                                   SURFACE_STATE_POOL_MIN_ADDRESS,
-                                   bt_pool_offset,
-                                   BINDING_TABLE_POOL_BLOCK_SIZE);
+                                   GFX11_BINDING_TABLE_POOL_MIN_ADDRESS, 0,
+                                   device->physical->bt_block_size);
       if (result != VK_SUCCESS)
          goto fail_surface_state_pool;
+   } else if (!anv_use_relocations(physical_device)) {
+      /* On Gfx8-9 with softpin, we allocate binding tables and surface
+       * states from a single combined 4GB range.  Binding tables live
+       * in the lower 2GB half, while surface states live in the upper 2GB.
+       * We require that binding tables live at lower addresses than surface
+       * states for our offsetting tricks to work.
+       */
+      uint64_t midpoint = SURFACE_STATE_POOL_MIN_ADDRESS - INT32_MIN;
+
+      result = anv_state_pool_init(&device->surface_state_pool, device,
+                                   "surface state pool", midpoint, 0, 65536);
+      if (result != VK_SUCCESS)
+         goto fail_instruction_state_pool;
+
+      result = anv_state_pool_init(&device->binding_table_pool, device,
+                                   "binding table pool", midpoint, INT32_MIN,
+                                   device->physical->bt_block_size);
+      if (result != VK_SUCCESS)
+         goto fail_surface_state_pool;
+   } else {
+      /* On Gfx7.x, we allocate a single surface state pool and don't use the
+       * separate binding table pool.  No offsetting tricks are done; we just
+       * use relocations.
+       */
+      result = anv_state_pool_init(&device->surface_state_pool, device,
+                                   "surface state pool",
+                                   SURFACE_STATE_POOL_MIN_ADDRESS, 0, 65536);
+      if (result != VK_SUCCESS)
+         goto fail_instruction_state_pool;
    }
 
    if (device->info.has_aux_map) {

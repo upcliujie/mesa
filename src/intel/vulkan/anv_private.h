@@ -141,21 +141,21 @@ struct intel_perf_query_result;
  * various reasons. This healthy margin prevents reads from wrapping around
  * 48-bit addresses.
  */
-#define GENERAL_STATE_POOL_MIN_ADDRESS     0x000000200000ULL /* 2 MiB */
-#define GENERAL_STATE_POOL_MAX_ADDRESS     0x00003fffffffULL
-#define LOW_HEAP_MIN_ADDRESS               0x000040000000ULL /* 1 GiB */
-#define LOW_HEAP_MAX_ADDRESS               0x00007fffffffULL
-#define DYNAMIC_STATE_POOL_MIN_ADDRESS     0x0000c0000000ULL /* 3 GiB */
-#define DYNAMIC_STATE_POOL_MAX_ADDRESS     0x0000ffffffffULL
-#define BINDING_TABLE_POOL_MIN_ADDRESS     0x000100000000ULL /* 4 GiB */
-#define BINDING_TABLE_POOL_MAX_ADDRESS     0x00013fffffffULL
-#define SURFACE_STATE_POOL_MIN_ADDRESS     0x000140000000ULL /* 5 GiB */
-#define SURFACE_STATE_POOL_MAX_ADDRESS     0x00017fffffffULL
-#define INSTRUCTION_STATE_POOL_MIN_ADDRESS 0x000180000000ULL /* 6 GiB */
-#define INSTRUCTION_STATE_POOL_MAX_ADDRESS 0x0001bfffffffULL
-#define CLIENT_VISIBLE_HEAP_MIN_ADDRESS    0x0001c0000000ULL /* 7 GiB */
-#define CLIENT_VISIBLE_HEAP_MAX_ADDRESS    0x0002bfffffffULL
-#define HIGH_HEAP_MIN_ADDRESS              0x0002c0000000ULL /* 11 GiB */
+#define GENERAL_STATE_POOL_MIN_ADDRESS       0x000000200000ULL /* 2 MiB */
+#define GENERAL_STATE_POOL_MAX_ADDRESS       0x00003fffffffULL
+#define LOW_HEAP_MIN_ADDRESS                 0x000040000000ULL /* 1 GiB */
+#define LOW_HEAP_MAX_ADDRESS                 0x00007fffffffULL
+#define DYNAMIC_STATE_POOL_MIN_ADDRESS       0x0000c0000000ULL /* 3 GiB */
+#define DYNAMIC_STATE_POOL_MAX_ADDRESS       0x0000ffffffffULL
+#define INSTRUCTION_STATE_POOL_MIN_ADDRESS   0x000100000000ULL /* 4 GiB */
+#define INSTRUCTION_STATE_POOL_MAX_ADDRESS   0x0001fffff000ULL
+#define CLIENT_VISIBLE_HEAP_MIN_ADDRESS      0x000200000000ULL /* 8 GiB */
+#define CLIENT_VISIBLE_HEAP_MAX_ADDRESS      0x0002ffffffffULL
+#define SURFACE_STATE_POOL_MIN_ADDRESS       0x000300000000ULL /* 12 GiB */
+#define SURFACE_STATE_POOL_MAX_ADDRESS       0x0003fffff000ULL
+#define GFX11_BINDING_TABLE_POOL_MIN_ADDRESS 0x000400000000ULL /* 16 GiB */
+#define GFX11_BINDING_TABLE_POOL_MAX_ADDRESS 0x0004fffff000ULL
+#define HIGH_HEAP_MIN_ADDRESS                0x000500000000ULL /* 20 GiB */
 
 #define GENERAL_STATE_POOL_SIZE     \
    (GENERAL_STATE_POOL_MAX_ADDRESS - GENERAL_STATE_POOL_MIN_ADDRESS + 1)
@@ -163,9 +163,8 @@ struct intel_perf_query_result;
    (LOW_HEAP_MAX_ADDRESS - LOW_HEAP_MIN_ADDRESS + 1)
 #define DYNAMIC_STATE_POOL_SIZE     \
    (DYNAMIC_STATE_POOL_MAX_ADDRESS - DYNAMIC_STATE_POOL_MIN_ADDRESS + 1)
-#define BINDING_TABLE_POOL_SIZE     \
-   (BINDING_TABLE_POOL_MAX_ADDRESS - BINDING_TABLE_POOL_MIN_ADDRESS + 1)
-#define BINDING_TABLE_POOL_BLOCK_SIZE (65536)
+#define GFX11_BINDING_TABLE_POOL_SIZE \
+   (GFX11_BINDING_TABLE_POOL_MAX_ADDRESS - GFX11_BINDING_TABLE_POOL_MIN_ADDRESS + 1)
 #define SURFACE_STATE_POOL_SIZE     \
    (SURFACE_STATE_POOL_MAX_ADDRESS - SURFACE_STATE_POOL_MIN_ADDRESS + 1)
 #define INSTRUCTION_STATE_POOL_SIZE \
@@ -994,7 +993,21 @@ struct anv_physical_device {
     uint64_t                                    gtt_size;
 
     bool                                        use_relocations;
+
+    /** Size of a binding table block */
+    uint32_t                                    bt_block_size;
+
     bool                                        use_softpin;
+
+    /** True if we are using 256B-aligned binding table mode on Gfx11-12.0
+     *
+     * Gfx11-12.0 have a bit in GT_MODE which lets us select 256B-aligned
+     * binding table mode.  This gives us larger binding table pointers at
+     * the expense of having higher alignment requirements.  In this mode,
+     * we have to shift binding table pointers by 3 bits.
+     */
+    bool                                        use_256B_binding_tables;
+
     bool                                        always_use_bindless;
     bool                                        use_call_secondary;
 
@@ -1337,6 +1350,19 @@ anv_mocs(const struct anv_device *device,
          isl_surf_usage_flags_t usage)
 {
    return isl_mocs(&device->isl_dev, usage, bo && bo->is_external);
+}
+
+/* On Ice Lake and Tiger Lake, we have a bit in GT_MODE which lets us select
+ * 256B-aligned binding table mode.  This gives us larger binding table
+ * pointers at the expense of having higher alignment requirements.  In
+ * this mode, we have to shift binding table pointers by 3 bits.  Starting
+ * with GFX version 12.5, this flag is dropped in favor adding 5 more bits to
+ * 3DSTATE_BINDING_TABLE_POINTERS_*.
+ */
+static inline uint32_t
+anv_bt_offset_shift(const struct anv_device *device)
+{
+   return device->physical->use_256B_binding_tables ? 3 : 0;
 }
 
 void anv_device_init_blorp(struct anv_device *device);
@@ -3158,7 +3184,7 @@ struct anv_state anv_cmd_buffer_merge_dynamic(struct anv_cmd_buffer *cmd_buffer,
                                               uint32_t dwords, uint32_t alignment);
 
 struct anv_address
-anv_cmd_buffer_surface_base_address(struct anv_cmd_buffer *cmd_buffer);
+anv_cmd_buffer_bt_pool_base_address(struct anv_cmd_buffer *cmd_buffer);
 struct anv_state
 anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
                                    uint32_t entries, uint32_t *state_offset);
