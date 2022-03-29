@@ -179,6 +179,13 @@ fi
 EXTRA_MESON_ARGS+=" -D prefix=/libdrm"
 . .gitlab-ci/container/build-libdrm.sh
 
+
+############### Build local stuff
+if [[ -e ".gitlab-ci/local/build-rootfs.sh" ]]; then
+    . .gitlab-ci/local/build-rootfs.sh
+fi
+
+
 ############### Build kernel
 . .gitlab-ci/container/build-kernel.sh
 
