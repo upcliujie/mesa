@@ -1943,11 +1943,6 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
    device->instance = instance;
    device->pdevice = physical_device;
 
-   if (pAllocator)
-      device->vk.alloc = *pAllocator;
-   else
-      device->vk.alloc = physical_device->vk.instance->alloc;
-
    pthread_mutex_init(&device->mutex, NULL);
 
    result = queue_init(device, &device->queue,
