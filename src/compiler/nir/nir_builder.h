@@ -668,6 +668,12 @@ nir_ieq_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
    return nir_ieq(build, x, nir_imm_intN_t(build, y, x->bit_size));
 }
 
+static inline nir_ssa_def *
+nir_ine_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
+{
+  return nir_ine(build, x, nir_imm_intN_t(build, y, x->bit_size));
+}
+
 /* Use nir_iadd(x, -y) for reversing parameter ordering */
 static inline nir_ssa_def *
 nir_isub_imm(nir_builder *build, uint64_t y, nir_ssa_def *x)
