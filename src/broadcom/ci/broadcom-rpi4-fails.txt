@@ -414,7 +414,6 @@ dEQP-VK.api.copy_and_blit.dedicated_allocation.blit_image.all_formats.color.2d.a
 
 # https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/3510
 dEQP-VK.api.external.semaphore.opaque_fd.info_timeline,Fail
-dEQP-VK.api.external.semaphore.sync_fd.info_timeline,Fail
 
 dEQP-VK.draw.renderpass.inverted_depth_ranges.nodepthclamp_deltazero,Fail
 
