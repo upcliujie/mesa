@@ -1675,9 +1675,6 @@ populate_format_props(struct zink_screen *screen)
                                                                 VK_IMAGE_TILING_OPTIMAL,
                                                                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                                                                 0, &image_props);
-   if (ret != VK_SUCCESS) {
-      mesa_loge("ZINK: vkGetPhysicalDeviceImageFormatProperties failed");
-   }
    screen->need_2D_zs = ret != VK_SUCCESS;
 }
 
