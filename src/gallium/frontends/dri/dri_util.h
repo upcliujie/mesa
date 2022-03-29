@@ -142,9 +142,6 @@ struct __DriverAPIRec {
                           int w, int h);
 };
 
-extern const struct __DriverAPIRec driDriverAPI;
-extern const struct __DriverAPIRec *globalDriverAPI;
-
 /**
  * Per-screen private driver information.
  */
