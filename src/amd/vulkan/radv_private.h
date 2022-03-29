@@ -665,6 +665,7 @@ struct radv_meta_state {
       VkPipeline pipeline_statistics_query_pipeline;
       VkPipeline tfb_query_pipeline;
       VkPipeline timestamp_query_pipeline;
+      VkPipeline pg_query_pipeline;
    } query;
 
    struct {
@@ -1444,6 +1445,7 @@ struct radv_cmd_state {
    bool perfect_occlusion_queries_enabled;
    unsigned active_pipeline_queries;
    unsigned active_pipeline_gds_queries;
+   bool prims_gen_query_enabled;
    uint32_t trace_id;
    uint32_t last_ia_multi_vgt_param;
 
