@@ -47,6 +47,12 @@ radv_suspend_queries(struct radv_cmd_buffer *cmd_buffer)
    if (cmd_buffer->state.active_occlusion_queries > 0) {
       radv_set_db_count_control(cmd_buffer, false);
    }
+
+   /* Primitives generated queries. */
+   if (cmd_buffer->state.prims_gen_query_enabled) {
+      cmd_buffer->state.suspend_streamout = true;
+      radv_emit_streamout_enable(cmd_buffer);
+   }
 }
 
 static void
@@ -61,6 +67,12 @@ radv_resume_queries(struct radv_cmd_buffer *cmd_buffer)
    /* Occlusion queries. */
    if (cmd_buffer->state.active_occlusion_queries > 0) {
       radv_set_db_count_control(cmd_buffer, true);
+   }
+
+   /* Primitives generated queries. */
+   if (cmd_buffer->state.prims_gen_query_enabled) {
+      cmd_buffer->state.suspend_streamout = false;
+      radv_emit_streamout_enable(cmd_buffer);
    }
 }
 
