@@ -35,6 +35,7 @@
 #include "os_time.h"
 #include "detect_os.h"
 
+#include "util/macros.h"
 #include "util/u_atomic.h"
 
 #if DETECT_OS_UNIX
@@ -131,6 +132,35 @@ os_time_get_absolute_timeout(uint64_t timeout)
       return OS_TIMEOUT_INFINITE;
 
    return abs_timeout;
+}
+
+
+#define NSEC_PER_SEC 1000000000ull
+
+bool
+os_timespec_add_ns_overflow(struct timespec ts, uint64_t ns,
+                            struct timespec *ts_out)
+{
+   STATIC_ASSERT(sizeof(ts.tv_sec) <= sizeof(uint64_t));
+
+   /* We don't know so assume it's signed */
+   const uint64_t max_tv_sec = u_intN_max(sizeof(ts.tv_sec) * 8);
+
+   if (ns / NSEC_PER_SEC > max_tv_sec)
+      return true;
+
+   if (ts.tv_sec > max_tv_sec - ns / NSEC_PER_SEC)
+      return true;
+
+   ts.tv_sec += ns / NSEC_PER_SEC,
+   ts.tv_nsec += ns % NSEC_PER_SEC,
+
+   ts.tv_sec += ts.tv_nsec / NSEC_PER_SEC;
+   ts.tv_nsec = ts.tv_nsec % NSEC_PER_SEC;
+
+   *ts_out = ts;
+
+   return false;
 }
 
 

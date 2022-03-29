@@ -420,34 +420,6 @@ vk_sync_timeline_get_value(struct vk_device *device,
    return VK_SUCCESS;
 }
 
-#define NSEC_PER_SEC 1000000000ull
-
-static bool
-timespec_add_ns_overflow(struct timespec ts, uint64_t ns,
-                         struct timespec *ts_out)
-{
-   STATIC_ASSERT(sizeof(ts.tv_sec) <= sizeof(uint64_t));
-
-   /* We don't know so assume it's signed */
-   const uint64_t max_tv_sec = u_intN_max(sizeof(ts.tv_sec) * 8);
-
-   if (ns / NSEC_PER_SEC > max_tv_sec)
-      return true;
-
-   if (ts.tv_sec > max_tv_sec - ns / NSEC_PER_SEC)
-      return true;
-
-   ts.tv_sec += ns / NSEC_PER_SEC,
-   ts.tv_nsec += ns % NSEC_PER_SEC,
-
-   ts.tv_sec += ts.tv_nsec / NSEC_PER_SEC;
-   ts.tv_nsec = ts.tv_nsec % NSEC_PER_SEC;
-
-   *ts_out = ts;
-
-   return false;
-}
-
 static VkResult
 vk_sync_timeline_wait_locked(struct vk_device *device,
                              struct vk_sync_timeline *timeline,
@@ -477,7 +449,7 @@ vk_sync_timeline_wait_locked(struct vk_device *device,
 
          struct timespec abstime;
          timespec_get(&abstime, TIME_UTC);
-         if (timespec_add_ns_overflow(abstime, rel_timeout_ns, &abstime)) {
+         if (os_timespec_add_ns_overflow(abstime, rel_timeout_ns, &abstime)) {
             /* Overflowed; may as well be infinite */
             ret = cnd_wait(&timeline->cond, &timeline->mutex);
          } else {

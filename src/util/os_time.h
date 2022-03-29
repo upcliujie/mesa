@@ -108,6 +108,14 @@ os_time_timeout(int64_t start,
 int64_t
 os_time_get_absolute_timeout(uint64_t timeout);
 
+/** Adds the given number of nanoseconds to the given timespec
+ *
+ * Returns true if the calculation overflowed.
+ */
+bool
+os_timespec_add_ns_overflow(struct timespec ts, uint64_t ns,
+                            struct timespec *ts_out);
+
 
 /**
  * Wait until the variable at the given memory location is zero.
