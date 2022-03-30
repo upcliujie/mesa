@@ -357,6 +357,19 @@ enum pipe_control_flags
     PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE | \
     PIPE_CONTROL_INSTRUCTION_INVALIDATE)
 
+#define PIPE_CONTROL_INVALID_COMPUTE_BITS \
+   (PIPE_CONTROL_RENDER_TARGET_FLUSH |          \
+    PIPE_CONTROL_DEPTH_CACHE_FLUSH |            \
+    PIPE_CONTROL_TILE_CACHE_FLUSH |             \
+    PIPE_CONTROL_DEPTH_STALL |                  \
+    PIPE_CONTROL_STALL_AT_SCOREBOARD |          \
+    PIPE_CONTROL_PSS_STALL_SYNC |               \
+    PIPE_CONTROL_VF_CACHE_INVALIDATE |          \
+    PIPE_CONTROL_GLOBAL_SNAPSHOT_COUNT_RESET)
+
+#define PIPE_CONTROL_FILTER_INVALID_COMPUTE_BITS \
+   ~PIPE_CONTROL_INVALID_COMPUTE_BITS;
+
 enum iris_predicate_state {
    /* The first two states are used if we can determine whether to draw
     * without having to look at the values in the query object buffer. This

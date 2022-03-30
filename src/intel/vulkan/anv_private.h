@@ -2445,6 +2445,15 @@ enum anv_pipe_bits {
    ANV_PIPE_INSTRUCTION_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_AUX_TABLE_INVALIDATE_BIT)
 
+#define ANV_PIPE_INVALID_COMPUTE_BITS ( \
+   ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT | \
+   ANV_PIPE_DEPTH_CACHE_FLUSH_BIT | \
+   ANV_PIPE_TILE_CACHE_FLUSH_BIT | \
+   ANV_PIPE_DEPTH_STALL_BIT | \
+   ANV_PIPE_STALL_AT_SCOREBOARD_BIT | \
+   ANV_PIPE_PSS_STALL_SYNC_BIT | \
+   ANV_PIPE_VF_CACHE_INVALIDATE_BIT)
+
 enum intel_ds_stall_flag
 anv_pipe_flush_bit_to_ds_stall_flag(enum anv_pipe_bits bits);
 
@@ -4474,11 +4483,19 @@ anv_get_device_dispatch_table(const struct intel_device_info *devinfo);
 void
 anv_dump_pipe_bits(enum anv_pipe_bits bits);
 
+/* Add pipe bits to the the command buffer
+   Note: This function will filter out invalid bits for compute batches on Gen12+
+*/
 static inline void
 anv_add_pending_pipe_bits(struct anv_cmd_buffer* cmd_buffer,
                           enum anv_pipe_bits bits,
                           const char* reason)
 {
+   /* Filter out invalid compute bits for TGL and above */
+   if (cmd_buffer->device->info.ver >= 12 &&
+       cmd_buffer->state.current_pipeline == 2)
+      bits &= ~(ANV_PIPE_INVALID_COMPUTE_BITS);
+
    cmd_buffer->state.pending_pipe_bits |= bits;
    if (INTEL_DEBUG(DEBUG_PIPE_CONTROL) && bits)
    {
