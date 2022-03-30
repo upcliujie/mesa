@@ -2090,11 +2090,23 @@ init_driver_workarounds(struct zink_screen *screen)
       screen->driver_workarounds.depth_clip_control_missing = true;
    }
    /* until an extension is released which lets us control this... */
-
-   /* if dEQP-GLES3.functional.polygon_offset.*_render_with_units fails, look here */
-   screen->driver_workarounds.depth_bias_factor[0] = 2.0;
-   screen->driver_workarounds.depth_bias_factor[1] = 2.0;
-   screen->driver_workarounds.depth_bias_factor[2] = 2.0;
+   switch (screen->info.driver_props.driverID) {
+   case VK_DRIVER_ID_AMD_OPEN_SOURCE:
+   case VK_DRIVER_ID_AMD_PROPRIETARY:
+   case VK_DRIVER_ID_MESA_RADV:
+      screen->driver_workarounds.depth_bias_factor[0] = 4.0;
+      screen->driver_workarounds.depth_bias_factor[1] = 2.0;
+      screen->driver_workarounds.depth_bias_factor[2] = 1.0;
+      break;
+   case VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA:
+   case VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS:
+   default:
+      /* if dEQP-GLES3.functional.polygon_offset.*_render_with_units fails, look here */
+      screen->driver_workarounds.depth_bias_factor[0] = 2.0;
+      screen->driver_workarounds.depth_bias_factor[1] = 2.0;
+      screen->driver_workarounds.depth_bias_factor[2] = 2.0;
+      break;
+   }
 }
 
 static struct zink_screen *
