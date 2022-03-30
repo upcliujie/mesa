@@ -834,28 +834,45 @@ nir_align_pot(nir_builder *b, nir_ssa_def *val, unsigned pot)
 static nir_ssa_def *
 get_padded_count(nir_builder *b, nir_ssa_def *val, nir_ssa_def **packed)
 {
-        nir_ssa_def *one = nir_imm_int(b, 1);
-        nir_ssa_def *zero = nir_imm_int(b, 0);
-        nir_ssa_def *eleven = nir_imm_int(b, 11);
-        nir_ssa_def *four = nir_imm_int(b, 4);
+        /* Padded count is expressed with:
+         *
+         *  (base * 2 + 1) << exp
+         *
+         * where base lies in the [0:4] range, and exp in the [0:31] range.
+         * The padded count must be greater than or equal to the original
+         * value.
+         */
 
+        /* Keep the 4 most significant bits. */
         nir_ssa_def *exp =
-                nir_usub_sat(b, nir_imax(b, nir_ufind_msb(b, val), zero), four);
+                nir_usub_sat(b, nir_imax(b, nir_ufind_msb(b, val), nir_imm_int(b, 0)),
+                             nir_imm_int(b, 3));
         nir_ssa_def *base = nir_ushr(b, val, exp);
 
+        /* If we lost bits after the shift, let's increment the base so we
+         * match the padded_count >= count rule.
+         */
         base = nir_iadd(b, base,
-                        nir_bcsel(b, nir_ine(b, val, nir_ishl(b, base, exp)), one, zero));
+                        nir_b2i32(b, nir_ine(b, val, nir_ishl(b, base, exp))));
 
-        nir_ssa_def *rshift = nir_imax(b, nir_find_lsb(b, base), zero);
+        /* Now let's make sure our intermediate base, which is equal to
+         * (final_base * 2 + 1), is in the [0:9] range so the final values
+         * lies in the [0:4] range. If the value is not in this range, and
+         * the LSB is one, we add one to the base, which will give us a
+         * value that can be shifted to fit in the valid range.
+         */
+        base = nir_iadd(b, base,
+                        nir_iand(b, nir_iand_imm(b, base, 1),
+                                 nir_b2i32(b, nir_uge(b, base, nir_imm_int(b, 10)))));
+
+        nir_ssa_def *rshift = nir_imax(b, nir_find_lsb(b, base), nir_imm_int(b, 0));
         exp = nir_iadd(b, exp, rshift);
         base = nir_ushr(b, base, rshift);
-        base = nir_iadd(b, base, nir_bcsel(b, nir_uge(b, base, eleven), one, zero));
-        rshift = nir_imax(b, nir_find_lsb(b, base), zero);
-        exp = nir_iadd(b, exp, rshift);
-        base = nir_ushr(b, base, rshift);
 
-        *packed = nir_ior(b, exp,
-                          nir_ishl(b, nir_ushr_imm(b, base, 1), nir_imm_int(b, 5)));
+        /* Shift by one to get the encoded base value. */
+        nir_ssa_def *final_base = nir_ushr_imm(b, base, 1);
+
+        *packed = nir_ior(b, exp, nir_ishl(b, final_base, nir_imm_int(b, 5)));
         return nir_ishl(b, base, exp);
 }
 
