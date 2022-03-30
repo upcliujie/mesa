@@ -44,7 +44,7 @@
 static ALWAYS_INLINE void
 point_size(struct gl_context *ctx, GLfloat size, bool no_error)
 {
-   if (ctx->Point.Size == size)
+   if (fabs(ctx->Point.Size - size) < FLT_EPSILON)
       return;
 
    if (!no_error && size <= 0.0F) {
