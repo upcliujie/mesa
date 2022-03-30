@@ -526,6 +526,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .EXT_shader_subgroup_ballot = true,
       .EXT_shader_subgroup_vote = true,
       .EXT_shader_viewport_index_layer = true,
+      .EXT_separate_stencil_usage = true,
       .EXT_subgroup_size_control = true,
       .EXT_texel_buffer_alignment = true,
       .EXT_transform_feedback = true,
