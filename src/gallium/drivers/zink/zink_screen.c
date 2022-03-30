@@ -2098,6 +2098,11 @@ init_driver_workarounds(struct zink_screen *screen)
       screen->driver_workarounds.depth_bias_factor[1] = 2.0;
       screen->driver_workarounds.depth_bias_factor[2] = 1.0;
       break;
+   case VK_DRIVER_ID_NVIDIA_PROPRIETARY:
+      screen->driver_workarounds.depth_bias_factor[0] = 1.0;
+      screen->driver_workarounds.depth_bias_factor[1] = 2.0;
+      screen->driver_workarounds.depth_bias_unorm = true;
+      break;
    case VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA:
    case VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS:
    default:

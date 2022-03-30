@@ -181,6 +181,7 @@ struct zink_screen {
    struct {
       bool color_write_missing;
       bool depth_clip_control_missing;
+      bool depth_bias_unorm;
       float depth_bias_factor[3]; //16, 24, 32
    } driver_workarounds;
 };
