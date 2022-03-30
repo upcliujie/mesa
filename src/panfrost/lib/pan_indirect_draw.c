@@ -460,12 +460,14 @@ update_job(struct indirect_draw_shader_builder *builder, enum mali_job_type type
 
         update_dcd(builder, job_ptr, draw_offset);
 
+#if PAN_ARCH >= 6
         if (builder->flags & PAN_INDIRECT_DRAW_IDVS) {
                 assert(type == MALI_JOB_TYPE_TILER);
 
                 update_dcd(builder, job_ptr,
                            pan_section_offset(INDEXED_VERTEX_JOB, VERTEX_DRAW));
         }
+#endif
 }
 
 static void
