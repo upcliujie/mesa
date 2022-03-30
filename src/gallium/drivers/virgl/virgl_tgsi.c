@@ -360,7 +360,7 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
 struct tgsi_token *virgl_tgsi_transform(struct virgl_screen *vscreen, const struct tgsi_token *tokens_in)
 {
    struct virgl_transform_context transform;
-   const uint newLen = tgsi_num_tokens(tokens_in) * 2 /* XXX: how many to allocate? */;
+   const uint newLen = tgsi_num_tokens(tokens_in) * 3 /* XXX: how many to allocate? */;
    struct tgsi_token *new_tokens;
 
    new_tokens = tgsi_alloc_tokens(newLen);
