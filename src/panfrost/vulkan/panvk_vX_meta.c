@@ -26,6 +26,7 @@
 #include "nir/nir_builder.h"
 #include "pan_encoder.h"
 #include "pan_shader.h"
+#include "pan_indirect_draw.h"
 
 #include "panvk_private.h"
 
@@ -58,11 +59,13 @@ panvk_per_arch(meta_init)(struct panvk_physical_device *dev)
    panvk_per_arch(meta_blit_init)(dev);
    panvk_per_arch(meta_copy_init)(dev);
    panvk_per_arch(meta_clear_init)(dev);
+   GENX(panfrost_init_indirect_draw_shaders)(&dev->pdev, &dev->meta.bin_pool.base);
 }
 
 void
 panvk_per_arch(meta_cleanup)(struct panvk_physical_device *dev)
 {
+   GENX(panfrost_cleanup_indirect_draw_shaders)(&dev->pdev);
    panvk_per_arch(meta_blit_cleanup)(dev);
    panvk_pool_cleanup(&dev->meta.desc_pool);
    panvk_pool_cleanup(&dev->meta.bin_pool);
