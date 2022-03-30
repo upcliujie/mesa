@@ -1229,12 +1229,11 @@ anv_pipeline_compile_fs(const struct brw_compiler *compiler,
        !fs_stage->prog_data.wm.uses_kill &&
        fs_stage->prog_data.wm.computed_depth_mode == BRW_PSCDEPTH_OFF &&
        !fs_stage->prog_data.wm.computed_stencil) {
-      /* This fragment shader has no outputs and no side effects.  Go ahead
-       * and return the code pointer so we don't accidentally think the
-       * compile failed but zero out prog_data which will set program_size to
-       * zero and disable the stage.
+      /* This fragment shader has no outputs and no side effects. Go ahead and
+       * return the code pointer so we don't accidentally think the compile
+       * failed but set program_size to zero to disable the stage.
        */
-      memset(&fs_stage->prog_data, 0, sizeof(fs_stage->prog_data));
+      fs_stage->prog_data.base.program_size = 0;
       memset(&fs_stage->bind_map, 0, sizeof(fs_stage->bind_map));
    }
 }
