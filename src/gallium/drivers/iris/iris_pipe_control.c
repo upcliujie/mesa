@@ -274,6 +274,9 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
       if (bits & PIPE_CONTROL_CACHE_FLUSH_BITS)
          bits &= ~PIPE_CONTROL_STALL_AT_SCOREBOARD;
 
+      if (batch->name == IRIS_BATCH_COMPUTE)
+         bits &= PIPE_CONTROL_FILTER_INVALID_COMPUTE_BITS;
+
       /* Emit any required flushes and invalidations. */
       if (bits & all_flush_bits)
          iris_emit_end_of_pipe_sync(batch, "cache tracker: flush",
@@ -358,6 +361,9 @@ iris_memory_barrier(struct pipe_context *ctx, unsigned flags)
    }
 
    iris_foreach_batch(ice, batch) {
+      if (batch->name == IRIS_BATCH_COMPUTE)
+         bits &= PIPE_CONTROL_FILTER_INVALID_COMPUTE_BITS;
+
       if (batch->contains_draw) {
          iris_batch_maybe_flush(batch, 24);
          iris_emit_pipe_control_flush(batch, "API: memory barrier", bits);
