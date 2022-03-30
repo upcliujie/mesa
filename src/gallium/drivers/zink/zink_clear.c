@@ -188,6 +188,13 @@ get_clear_data(struct zink_context *ctx, struct zink_framebuffer_clear *fb_clear
    return clear;
 }
 
+static inline float
+z24_unorm_to_z32_float(uint32_t z)
+{
+   const double scale = 1.0 / 0xffffff;
+   return (float)(z * scale);
+}
+
 void
 zink_clear(struct pipe_context *pctx,
            unsigned buffers,
@@ -245,8 +252,12 @@ zink_clear(struct pipe_context *pctx,
       clear->has_scissor = needs_rp;
       if (scissor_state && needs_rp)
          clear->scissor = *scissor_state;
-      if (buffers & PIPE_CLEAR_DEPTH)
+      if (buffers & PIPE_CLEAR_DEPTH) {
+         if ((!zink_screen(pctx->screen)->have_D24_UNORM_S8_UINT && fb->zsbuf->format == PIPE_FORMAT_Z24_UNORM_S8_UINT) ||
+             (!zink_screen(pctx->screen)->have_X8_D24_UNORM_PACK32 && fb->zsbuf->format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT))
+             depth = z24_unorm_to_z32_float(fui(depth));
          clear->zs.depth = depth;
+      }
       if (buffers & PIPE_CLEAR_STENCIL)
          clear->zs.stencil = stencil;
       clear->zs.bits |= (buffers & PIPE_CLEAR_DEPTHSTENCIL);
