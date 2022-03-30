@@ -256,7 +256,7 @@ brw_kernel_from_spirv(struct brw_compiler *compiler,
                       void *log_data, void *mem_ctx,
                       const uint32_t *spirv, size_t spirv_size,
                       const char *entrypoint_name,
-                      char **error_str)
+                      const char **error_str)
 {
    const struct intel_device_info *devinfo = compiler->devinfo;
    const nir_shader_compiler_options *nir_options =
@@ -456,11 +456,12 @@ brw_kernel_from_spirv(struct brw_compiler *compiler,
       .prog_data = &kernel->prog_data,
       .stats = &kernel->stats,
       .log_data = log_data,
+      .error_str = 0
    };
 
    kernel->code = brw_compile_cs(compiler, mem_ctx, &params);
 
-   if (error_str)
+   if (error_str && params.error_str)
       *error_str = params.error_str;
 
    return kernel->code != NULL;

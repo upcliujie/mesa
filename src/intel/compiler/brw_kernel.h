@@ -65,7 +65,7 @@ brw_kernel_from_spirv(struct brw_compiler *compiler,
                       void *log_data, void *mem_ctx,
                       const uint32_t *spirv, size_t spirv_size,
                       const char *entrypoint_name,
-                      char **error_str);
+                      const char **error_str);
 
 #ifdef __cplusplus
 } /* extern "C" */
