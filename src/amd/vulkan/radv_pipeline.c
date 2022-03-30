@@ -4186,7 +4186,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
    }
 
    if (!stages[MESA_SHADER_FRAGMENT].module && !stages[MESA_SHADER_COMPUTE].module) {
-      nir_builder fs_b = radv_meta_init_shader(MESA_SHADER_FRAGMENT, "noop_fs");
+      nir_builder fs_b = radv_meta_init_shader(device, MESA_SHADER_FRAGMENT, "noop_fs");
       fs_m = vk_shader_module_from_nir(fs_b.shader);
 
       stages[MESA_SHADER_FRAGMENT] = (struct radv_pipeline_stage) {
