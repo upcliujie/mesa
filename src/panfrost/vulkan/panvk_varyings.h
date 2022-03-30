@@ -144,7 +144,8 @@ panvk_varyings_buf_count(struct panvk_varyings_info *varyings)
 static inline void
 panvk_varyings_alloc(struct panvk_varyings_info *varyings,
                      struct pan_pool *varying_mem_pool,
-                     unsigned vertex_count)
+                     unsigned vertex_count,
+                     bool indirect)
 {
    for (unsigned i = 0; i < PANVK_VARY_BUF_MAX; i++) {
       if (!(varyings->buf_mask & (1 << i))) continue;
@@ -154,8 +155,12 @@ panvk_varyings_alloc(struct panvk_varyings_info *varyings,
       if (!size)
          continue;
 
-      struct panfrost_ptr ptr =
-         pan_pool_alloc_aligned(varying_mem_pool, size, 64);
+      struct panfrost_ptr ptr;
+
+      if (!indirect)
+         ptr = pan_pool_alloc_aligned(varying_mem_pool, size, 64);
+      else
+         memset(&ptr, 0, sizeof(ptr));
 
       varyings->buf[buf_idx].size = size;
       varyings->buf[buf_idx].address = ptr.gpu;
