@@ -474,6 +474,9 @@ find_type_for_ops(const struct vk_physical_device *pdevice,
    const struct vk_pipeline_cache_object_ops *const *import_ops =
       pdevice->pipeline_cache_import_ops;
 
+   if (import_ops == NULL)
+      return -1;
+
    for (int32_t i = 0; import_ops[i]; i++) {
       if (import_ops[i] == ops)
          return i;
@@ -488,6 +491,9 @@ find_ops_for_type(const struct vk_physical_device *pdevice,
 {
    const struct vk_pipeline_cache_object_ops *const *import_ops =
       pdevice->pipeline_cache_import_ops;
+
+   if (import_ops == NULL)
+      return NULL;
 
    if (type < 0)
       return NULL;

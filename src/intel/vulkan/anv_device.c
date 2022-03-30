@@ -925,7 +925,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
    assert(st_idx <= ARRAY_SIZE(device->sync_types));
    device->vk.supported_sync_types = device->sync_types;
 
-   device->vk.pipeline_cache_import_ops = anv_cache_import_ops;
+//   device->vk.pipeline_cache_import_ops = anv_cache_import_ops;
 
    device->always_use_bindless =
       env_var_as_boolean("ANV_ALWAYS_BINDLESS", false);
