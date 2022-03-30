@@ -30,6 +30,7 @@ function build_arch {
 git clone https://github.com/HansKristian-Work/vkd3d-proton.git --single-branch -b "v$VKD3D_PROTON_VERSION" --no-checkout "$VKD3D_PROTON_SRC_DIR"
 pushd "$VKD3D_PROTON_SRC_DIR"
 git checkout "$VKD3D_PROTON_COMMIT"
+git config --global url."https://".insteadOf "git://"
 git submodule update --init --recursive
 git submodule update --recursive
 build_arch 64 --cross-file build-win64.txt
