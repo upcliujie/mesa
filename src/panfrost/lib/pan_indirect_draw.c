@@ -535,8 +535,7 @@ zero_attrib_buf_stride(struct indirect_draw_shader_builder *builder,
 
 static void
 adjust_attrib_offset(struct indirect_draw_shader_builder *builder,
-                     nir_ssa_def *attrib_ptr, nir_ssa_def *attrib_buf_ptr,
-                     nir_ssa_def *instance_div)
+                     nir_ssa_def *attrib_ptr, nir_ssa_def *attrib_buf_ptr)
 {
         nir_builder *b = &builder->b;
         nir_ssa_def *zero = nir_imm_int(b, 0);
@@ -546,8 +545,7 @@ adjust_attrib_offset(struct indirect_draw_shader_builder *builder,
                          nir_uge(b, builder->draw.instance_count, two));
 
         nir_ssa_def *add_base_inst_offset =
-                nir_iand(b, nir_ine(b, builder->draw.start_instance, zero),
-                         nir_ine(b, instance_div, zero));
+                nir_ine(b, builder->draw.start_instance, zero);
 
         IF (nir_ior(b, sub_cur_offset, add_base_inst_offset)) {
                 nir_ssa_def *offset =
@@ -561,10 +559,7 @@ adjust_attrib_offset(struct indirect_draw_shader_builder *builder,
 
                 IF (add_base_inst_offset) {
                         offset = nir_iadd(b, offset,
-                                          nir_idiv(b,
-                                                   nir_imul(b, stride,
-                                                            builder->draw.start_instance),
-                                                   instance_div));
+                                          nir_imul(b, stride, builder->draw.start_instance));
                 } ENDIF
 
                 IF (sub_cur_offset) {
@@ -623,7 +618,7 @@ update_vertex_attribs(struct indirect_draw_shader_builder *builder)
                 nir_ssa_def *attrib_buf_ptr =
                          get_address(b, builder->attribs.attrib_bufs,
                                      nir_imul_imm(b, attrib_buf_idx,
-                                                  2 * pan_size(ATTRIBUTE_BUFFER)));
+                                                  pan_size(ATTRIBUTE_BUFFER)));
 
 #if PAN_ARCH <= 5
                 IF (nir_ieq_imm(b, attrib_idx, PAN_VERTEX_ID)) {
@@ -664,13 +659,17 @@ update_vertex_attribs(struct indirect_draw_shader_builder *builder)
                         CONTINUE;
                 } ENDIF
 #endif
-                nir_ssa_def *instance_div =
-                        load_global(b, get_address_imm(b, attrib_buf_ptr, WORD(7)), 1, 32);
+                nir_ssa_def *cont_attrib_buf_ptr =
+                         get_address_imm(b, attrib_buf_ptr, pan_size(ATTRIBUTE_BUFFER));
+                nir_ssa_def *cont_attrib_buf_type =
+                         nir_iand_imm(b, load_global(b, cont_attrib_buf_ptr, 1, 32),
+                                      BITFIELD_MASK(6));
+                nir_ssa_def *per_instance =
+                         nir_ieq_imm(b, cont_attrib_buf_type,
+                                     MALI_ATTRIBUTE_TYPE_CONTINUATION);
 
-                nir_ssa_def *div = nir_imul(b, instance_div, builder->instance_size.padded);
-
-                IF (nir_ine(b, div, nir_imm_int(b, 0)))
-                        adjust_attrib_offset(builder, attrib_ptr, attrib_buf_ptr, instance_div);
+                IF (per_instance)
+                        adjust_attrib_offset(builder, attrib_ptr, attrib_buf_ptr);
                 ENDIF
 
                 nir_ssa_def *attrib_buf_mask =
@@ -688,49 +687,64 @@ update_vertex_attribs(struct indirect_draw_shader_builder *builder)
                         BREAK;
                 ENDIF
 
-                nir_ssa_def *attrib_buf_idx = nir_find_lsb(b, attrib_bufs);
+                nir_ssa_def *attrib_buf_idx = nir_ufind_msb(b, attrib_bufs);
                 nir_ssa_def *attrib_buf_mask =
                         nir_ishl(b, nir_imm_int(b, 1), attrib_buf_idx);
                 nir_ssa_def *attrib_buf_ptr =
                          get_address(b, builder->attribs.attrib_bufs,
                                      nir_imul_imm(b, attrib_buf_idx,
-                                                  2 * pan_size(ATTRIBUTE_BUFFER)));
-
+                                                  pan_size(ATTRIBUTE_BUFFER)));
+                nir_ssa_def *cont_attrib_buf_ptr =
+                         get_address_imm(b, attrib_buf_ptr, pan_size(ATTRIBUTE_BUFFER));
+                nir_ssa_def *cont_attrib_buf_type =
+                         nir_iand_imm(b, load_global(b, cont_attrib_buf_ptr, 1, 32),
+                                      BITFIELD_MASK(6));
+                nir_ssa_def *per_instance =
+                         nir_ieq_imm(b, cont_attrib_buf_type,
+                                     MALI_ATTRIBUTE_TYPE_CONTINUATION);
                 nir_ssa_def *instance_div =
-                        load_global(b, get_address_imm(b, attrib_buf_ptr, WORD(7)), 1, 32);
+                        nir_bcsel(b, per_instance,
+                                  load_global(b, get_address_imm(b, cont_attrib_buf_ptr, WORD(3)), 1, 32),
+                                  nir_imm_int(b, 0));
 
                 nir_ssa_def *div = nir_imul(b, instance_div, builder->instance_size.padded);
 
                 nir_ssa_def *multi_instance =
                         nir_uge(b, builder->draw.instance_count, nir_imm_int(b, 2));
 
-                IF (nir_ine(b, div, nir_imm_int(b, 0))) {
-                        IF (multi_instance) {
-                                IF (nir_is_power_of_two_or_zero(b, div)) {
-                                        nir_ssa_def *exp =
-                                                nir_imax(b, nir_ufind_msb(b, div),
-                                                         nir_imm_int(b, 0));
-                                        update_vertex_attrib_buf(builder, attrib_buf_ptr,
-                                                                 MALI_ATTRIBUTE_TYPE_1D_POT_DIVISOR,
-                                                                 exp, NULL);
-                                } ELSE {
-                                        nir_ssa_def *r_e, *d;
+                IF (multi_instance) {
+                        IF (per_instance) {
+                                IF (nir_ine(b, div, nir_imm_int(b, 0))) {
+                                        IF (nir_is_power_of_two_or_zero(b, div)) {
+                                                nir_ssa_def *exp =
+                                                        nir_imax(b, nir_ufind_msb(b, div),
+                                                                 nir_imm_int(b, 0));
+                                                update_vertex_attrib_buf(builder, attrib_buf_ptr,
+                                                                         MALI_ATTRIBUTE_TYPE_1D_POT_DIVISOR,
+                                                                         exp, NULL);
+                                        } ELSE {
+                                                nir_ssa_def *r_e, *d;
 
-                                        split_div(b, div, &r_e, &d);
-                                        update_vertex_attrib_buf(builder, attrib_buf_ptr,
-                                                                 MALI_ATTRIBUTE_TYPE_1D_NPOT_DIVISOR,
-                                                                 r_e, d);
+                                                split_div(b, div, &r_e, &d);
+                                                update_vertex_attrib_buf(builder, attrib_buf_ptr,
+                                                                         MALI_ATTRIBUTE_TYPE_1D_NPOT_DIVISOR,
+                                                                         r_e, d);
+                                        } ENDIF
+                                } ELSE {
+                                        zero_attrib_buf_stride(builder, attrib_buf_ptr);
                                 } ENDIF
                         } ELSE {
+                                update_vertex_attrib_buf(builder, attrib_buf_ptr,
+                                                         MALI_ATTRIBUTE_TYPE_1D_MODULUS,
+                                                         builder->instance_size.packed, NULL);
+                        } ENDIF
+                } ELSE {
+                        IF (per_instance) {
                                 /* Single instance with a non-0 divisor: all
                                  * accesses should point to attribute 0 */
                                 zero_attrib_buf_stride(builder, attrib_buf_ptr);
                         } ENDIF
-                } ELSE IF (multi_instance) {
-                        update_vertex_attrib_buf(builder, attrib_buf_ptr,
-                                        MALI_ATTRIBUTE_TYPE_1D_MODULUS,
-                                        builder->instance_size.packed, NULL);
-                } ENDIF ENDIF
+                } ENDIF
 
                 nir_store_var(b, attrib_bufs_var,
                               nir_iand(b, attrib_bufs,
