@@ -6,10 +6,13 @@ git config --global user.email "mesa@example.com"
 git config --global user.name "Mesa CI"
 git clone \
     https://github.com/KhronosGroup/VK-GL-CTS.git \
-    -b vulkan-cts-1.3.1.0 \
+    -b vulkan-cts-1.3.1.1 \
     --depth 1 \
     /VK-GL-CTS
 pushd /VK-GL-CTS
+
+# Fix Zlib dependency
+wget -q -O- https://github.com/KhronosGroup/VK-GL-CTS/commit/08f0e1f360fec787ae8de7022cef29a0c3319d18.patch | git am
 
 # --insecure is due to SSL cert failures hitting sourceforge for zlib and
 # libpng (sigh).  The archives get their checksums checked anyway, and git
