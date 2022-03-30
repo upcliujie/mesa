@@ -742,10 +742,13 @@ zink_draw(struct pipe_context *pctx,
          else
             debug_printf("BUG: wide lines not supported, needs fallback!");
       }
-      if (depth_bias)
-         VKCTX(CmdSetDepthBias)(batch->state->cmdbuf, rast_state->offset_units, rast_state->offset_clamp, rast_state->offset_scale);
-      else
+      if (depth_bias) {
+         assert(ctx->fb_state.zsbuf);
+         float bias_factor = rast_state->offset_units * screen->driver_workarounds.depth_bias_factor[ctx->depth_bias_factor_idx];
+         VKCTX(CmdSetDepthBias)(batch->state->cmdbuf, bias_factor, rast_state->offset_clamp, rast_state->offset_scale);
+      } else {
          VKCTX(CmdSetDepthBias)(batch->state->cmdbuf, 0.0f, 0.0f, 0.0f);
+      }
    }
    ctx->rast_state_changed = false;
 

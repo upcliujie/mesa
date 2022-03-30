@@ -225,6 +225,7 @@ struct zink_context {
    struct hash_table desc_set_layouts[ZINK_DESCRIPTOR_TYPES];
    struct set desc_pool_keys[ZINK_DESCRIPTOR_TYPES];
    bool pipeline_changed[2]; //gfx, compute
+   uint8_t depth_bias_factor_idx; // driver_workarounds::depth_bias_factor
 
    struct zink_shader *gfx_stages[ZINK_SHADER_COUNT];
    struct zink_shader *last_vertex_stage;

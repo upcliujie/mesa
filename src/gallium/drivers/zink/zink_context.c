@@ -2660,6 +2660,27 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
       if (!samples)
          samples = MAX3(transient ? transient->base.nr_samples : 1, surf->texture->nr_samples, 1);
       zink_resource(surf->texture)->fb_binds++;
+      switch (surf->format) {
+      case PIPE_FORMAT_Z16_UNORM:
+      case PIPE_FORMAT_Z16_UNORM_S8_UINT:
+         ctx->depth_bias_factor_idx = 0;
+         break;
+      case PIPE_FORMAT_Z24X8_UNORM:
+      case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      case PIPE_FORMAT_X24S8_UINT:
+      case PIPE_FORMAT_X8Z24_UNORM:
+         ctx->depth_bias_factor_idx = 1;
+         break;
+      case PIPE_FORMAT_Z32_FLOAT:
+      case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+      case PIPE_FORMAT_Z32_UNORM:
+         ctx->depth_bias_factor_idx = 2;
+         break;
+      default:
+         unreachable("unhandled depth format!");
+      }
+   } else {
+      ctx->depth_bias_factor_idx = 0;
    }
    rebind_fb_state(ctx, NULL, true);
    ctx->fb_state.samples = MAX2(samples, 1);
