@@ -2089,6 +2089,12 @@ init_driver_workarounds(struct zink_screen *screen)
       /* #6186 */
       screen->driver_workarounds.depth_clip_control_missing = true;
    }
+   /* until an extension is released which lets us control this... */
+
+   /* if dEQP-GLES3.functional.polygon_offset.*_render_with_units fails, look here */
+   screen->driver_workarounds.depth_bias_factor[0] = 2.0;
+   screen->driver_workarounds.depth_bias_factor[1] = 2.0;
+   screen->driver_workarounds.depth_bias_factor[2] = 2.0;
 }
 
 static struct zink_screen *
