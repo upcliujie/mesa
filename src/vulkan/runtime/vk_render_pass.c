@@ -1765,7 +1765,8 @@ vk_common_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
        *    VkImageViewCreateInfo::format equal to the corresponding value of
        *    VkAttachmentDescription::format in renderPass"
        */
-      assert(image_view->format == pass_att->format);
+      assert(!(framebuffer->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT) ||
+             image_view->format == pass_att->format);
 
       /* From the Vulkan 1.3.204 spec:
        *
@@ -1779,7 +1780,8 @@ vk_common_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
        *    VkImageCreateInfo::samples equal to the corresponding value of
        *    VkAttachmentDescription::samples in renderPass"
        */
-      assert(image_view->image->samples == pass_att->samples);
+      assert(!(framebuffer->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT) ||
+             image_view->image->samples == pass_att->samples);
 
       /* From the Vulkan 1.3.204 spec:
        *
