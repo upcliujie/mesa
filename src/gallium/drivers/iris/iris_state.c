@@ -374,6 +374,8 @@ emit_state(struct iris_batch *batch,
    return offset;
 }
 
+#define IS_COMPUTE_PIPELINE(batch) (batch->name == IRIS_BATCH_COMPUTE)
+
 /**
  * Did field 'x' change between 'old_cso' and 'new_cso'?
  *
@@ -407,11 +409,15 @@ flush_before_state_base_change(struct iris_batch *batch)
     * other processes are definitely complete before we try to do our own
     * rendering.  It's a bit of a big hammer but it appears to work.
     */
+
+   enum pipe_control_flags flags = PIPE_CONTROL_DATA_CACHE_FLUSH;
+   if (!IS_COMPUTE_PIPELINE(batch))
+      flags |= PIPE_CONTROL_RENDER_TARGET_FLUSH |
+               PIPE_CONTROL_DEPTH_CACHE_FLUSH;
+
    iris_emit_end_of_pipe_sync(batch,
                               "change STATE_BASE_ADDRESS (flushes)",
-                              PIPE_CONTROL_RENDER_TARGET_FLUSH |
-                              PIPE_CONTROL_DEPTH_CACHE_FLUSH |
-                              PIPE_CONTROL_DATA_CACHE_FLUSH);
+                              flags);
 }
 
 static void
@@ -649,12 +655,15 @@ emit_pipeline_select(struct iris_batch *batch, uint32_t pipeline)
     *     command to invalidate read only caches prior to programming
     *     MI_PIPELINE_SELECT command to change the Pipeline Select Mode."
     */
+
+    enum pipe_control_flags flags = PIPE_CONTROL_DATA_CACHE_FLUSH | PIPE_CONTROL_CS_STALL;
+    if (!IS_COMPUTE_PIPELINE(batch))
+      flags |= PIPE_CONTROL_RENDER_TARGET_FLUSH |
+               PIPE_CONTROL_DEPTH_CACHE_FLUSH;
+
     iris_emit_pipe_control_flush(batch,
                                  "workaround: PIPELINE_SELECT flushes (1/2)",
-                                 PIPE_CONTROL_RENDER_TARGET_FLUSH |
-                                 PIPE_CONTROL_DEPTH_CACHE_FLUSH |
-                                 PIPE_CONTROL_DATA_CACHE_FLUSH |
-                                 PIPE_CONTROL_CS_STALL);
+                                 flags);
 
     iris_emit_pipe_control_flush(batch,
                                  "workaround: PIPELINE_SELECT flushes (2/2)",
@@ -7679,8 +7688,6 @@ get_post_sync_flags(enum pipe_control_flags flags)
    return flags;
 }
 
-#define IS_COMPUTE_PIPELINE(batch) (batch->name == IRIS_BATCH_COMPUTE)
-
 /**
  * Emit a series of PIPE_CONTROL commands, taking into account any
  * workarounds necessary to actually accomplish the caller's request.
@@ -7707,6 +7714,22 @@ iris_emit_raw_pipe_control(struct iris_batch *batch,
       post_sync_flags & ~PIPE_CONTROL_LRI_POST_SYNC_OP;
 
 #if GFX_VER >= 12
+   /* BSpec: 47112
+      Following bits must not be set when programmed for ComputeCS
+         "Render Target Cache Flush Enable", "Depth Cache Flush Enable" and "Tile Cache Flush Enable"
+         "Depth Stall Enable", Stall at Pixel Scoreboard and "PSD Sync Enable".
+         "OVR Tile 0 Flush", "TBIMR Force Batch Closure", "AMFS Flush Enable" "VF Cache Invalidation Enable" and "Global Snapshot Count Reset".
+   */
+   if (IS_COMPUTE_PIPELINE(batch))
+      assert(!(flags & (PIPE_CONTROL_RENDER_TARGET_FLUSH |
+                        PIPE_CONTROL_DEPTH_CACHE_FLUSH |
+                        PIPE_CONTROL_TILE_CACHE_FLUSH |
+                        PIPE_CONTROL_DEPTH_STALL |
+                        PIPE_CONTROL_STALL_AT_SCOREBOARD |
+                        PIPE_CONTROL_PSS_STALL_SYNC |
+                        PIPE_CONTROL_VF_CACHE_INVALIDATE |
+                        PIPE_CONTROL_GLOBAL_SNAPSHOT_COUNT_RESET)));
+
    if (batch->name == IRIS_BATCH_BLITTER) {
       batch_mark_sync_for_pipe_control(batch, flags);
       iris_batch_sync_region_start(batch);
@@ -7758,7 +7781,8 @@ iris_emit_raw_pipe_control(struct iris_batch *batch,
    /* Wa_1409226450, Wait for EU to be idle before pipe control which
     * invalidates the instruction cache
     */
-   if (GFX_VER == 12 && (flags & PIPE_CONTROL_INSTRUCTION_INVALIDATE)) {
+   if (GFX_VER == 12 && (flags & PIPE_CONTROL_INSTRUCTION_INVALIDATE) &&
+       !IS_COMPUTE_PIPELINE(batch)) {
       iris_emit_raw_pipe_control(batch,
                                  "workaround: CS stall before instruction "
                                  "cache invalidate",
