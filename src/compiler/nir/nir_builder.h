@@ -802,6 +802,18 @@ nir_udiv_imm(nir_builder *build, nir_ssa_def *x, uint64_t y)
 }
 
 static inline nir_ssa_def *
+nir_ibfe_imm(nir_builder *build, nir_ssa_def *x, uint32_t offset, uint32_t size)
+{
+   return nir_ibfe(build, x, nir_imm_int(build, offset), nir_imm_int(build, size));
+}
+
+static inline nir_ssa_def *
+nir_ubfe_imm(nir_builder *build, nir_ssa_def *x, uint32_t offset, uint32_t size)
+{
+   return nir_ubfe(build, x, nir_imm_int(build, offset), nir_imm_int(build, size));
+}
+
+static inline nir_ssa_def *
 nir_fclamp(nir_builder *b,
            nir_ssa_def *x, nir_ssa_def *min_val, nir_ssa_def *max_val)
 {
