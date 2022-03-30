@@ -2107,6 +2107,11 @@ init_driver_workarounds(struct zink_screen *screen)
       screen->driver_workarounds.depth_bias_factor[1] = 2.0;
       screen->driver_workarounds.depth_bias_factor[2] = 2.0;
       break;
+   case VK_DRIVER_ID_NVIDIA_PROPRIETARY:
+      screen->driver_workarounds.depth_bias_factor[0] = 1.0;
+      screen->driver_workarounds.depth_bias_factor[1] = 2.0;
+      screen->driver_workarounds.depth_bias_unorm = true;
+      break;
    default:
       /* if dEQP-GLES3.functional.polygon_offset.*_render_with_units fails, look here */
       screen->driver_workarounds.depth_bias_factor[0] = 1.0;

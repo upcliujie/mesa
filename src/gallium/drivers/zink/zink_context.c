@@ -2662,24 +2662,28 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
          samples = MAX3(transient ? transient->base.nr_samples : 1, surf->texture->nr_samples, 1);
       res->fb_binds++;
       if (res->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) {
-         switch (surf->format) {
-         case PIPE_FORMAT_Z16_UNORM:
-         case PIPE_FORMAT_Z16_UNORM_S8_UINT:
-            ctx->depth_bias_factor_idx = 0;
-            break;
-         case PIPE_FORMAT_Z24X8_UNORM:
-         case PIPE_FORMAT_Z24_UNORM_S8_UINT:
-         case PIPE_FORMAT_X24S8_UINT:
-         case PIPE_FORMAT_X8Z24_UNORM:
-            ctx->depth_bias_factor_idx = 1;
-            break;
-         case PIPE_FORMAT_Z32_FLOAT:
-         case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
-         case PIPE_FORMAT_Z32_UNORM:
-            ctx->depth_bias_factor_idx = 2;
-            break;
-         default:
-            unreachable("unhandled depth format!");
+         if (zink_screen(ctx->base.screen)->driver_workarounds.depth_bias_unorm) {
+            ctx->depth_bias_factor_idx = util_format_is_unorm(surf->format);
+         } else {
+            switch (surf->format) {
+            case PIPE_FORMAT_Z16_UNORM:
+            case PIPE_FORMAT_Z16_UNORM_S8_UINT:
+               ctx->depth_bias_factor_idx = 0;
+               break;
+            case PIPE_FORMAT_Z24X8_UNORM:
+            case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+            case PIPE_FORMAT_X24S8_UINT:
+            case PIPE_FORMAT_X8Z24_UNORM:
+               ctx->depth_bias_factor_idx = 1;
+               break;
+            case PIPE_FORMAT_Z32_FLOAT:
+            case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+            case PIPE_FORMAT_Z32_UNORM:
+               ctx->depth_bias_factor_idx = 2;
+               break;
+            default:
+               unreachable("unhandled depth format!");
+            }
          }
       } else {
          ctx->depth_bias_factor_idx = 0;
