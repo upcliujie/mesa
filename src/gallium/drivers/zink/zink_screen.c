@@ -2092,6 +2092,12 @@ init_driver_workarounds(struct zink_screen *screen)
    /* #6185 */
    if (screen->info.driver_props.driverID == VK_DRIVER_ID_MESA_RADV)
       screen->driver_workarounds.color_write_missing = true;
+   /* until an extension is released which lets us control this... */
+
+   /* if dEQP-GLES3.functional.polygon_offset.*_render_with_units fails, look here */
+   screen->driver_workarounds.depth_bias_factor[0] = 1.0;
+   screen->driver_workarounds.depth_bias_factor[1] = 1.0;
+   screen->driver_workarounds.depth_bias_factor[2] = 1.0;
 }
 
 static struct zink_screen *
