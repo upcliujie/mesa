@@ -34,6 +34,7 @@
 #include "pan_blitter.h"
 #include "pan_cs.h"
 #include "pan_encoder.h"
+#include "pan_indirect_draw.h"
 
 #include "util/rounding.h"
 #include "util/u_pack_color.h"
@@ -333,7 +334,7 @@ static void
 panvk_cmd_upload_sysval(struct panvk_cmd_buffer *cmdbuf,
                         unsigned id,
                         struct panvk_cmd_bind_point_state *bind_point_state,
-                        union panvk_sysval_data *data)
+                        union panvk_sysval_data *data, mali_ptr gpu_address)
 {
    switch (PAN_SYSVAL_TYPE(id)) {
    case PAN_SYSVAL_VIEWPORT_SCALE:
@@ -346,6 +347,7 @@ panvk_cmd_upload_sysval(struct panvk_cmd_buffer *cmdbuf,
       data->u32[0] = cmdbuf->state.ib.first_vertex;
       data->u32[1] = cmdbuf->state.ib.base_vertex;
       data->u32[2] = cmdbuf->state.ib.base_instance;
+      cmdbuf->state.indirect_draw.vertex_sysvals = gpu_address;
       break;
    case PAN_SYSVAL_BLEND_CONSTANTS:
       memcpy(data->f32, cmdbuf->state.blend.constants, sizeof(data->f32));
@@ -397,7 +399,8 @@ panvk_cmd_prepare_sysvals(struct panvk_cmd_buffer *cmdbuf,
 
       for (unsigned s = 0; s < pipeline->sysvals[i].ids.sysval_count; s++) {
          panvk_cmd_upload_sysval(cmdbuf, pipeline->sysvals[i].ids.sysvals[s],
-                                 bind_point_state, &data[s]);
+                                 bind_point_state, &data[s],
+                                 sysvals.gpu + (16 * s));
       }
 
       desc_state->sysvals[i] = sysvals.gpu;
@@ -644,7 +647,8 @@ panvk_draw_prepare_varyings(struct panvk_cmd_buffer *cmdbuf,
    struct panvk_varyings_info *varyings = &cmdbuf->state.varyings;
 
    panvk_varyings_alloc(varyings, &cmdbuf->varying_pool.base,
-                        draw->padded_vertex_count * draw->instance_count);
+                        draw->padded_vertex_count * draw->instance_count,
+                        draw->indirect.buf != 0);
 
    unsigned buf_count = panvk_varyings_buf_count(varyings);
    struct panfrost_ptr bufs =
@@ -934,9 +938,13 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf,
    draw->samplers = desc_state->samplers;
 
    STATIC_ASSERT(sizeof(draw->invocation) >= sizeof(struct mali_invocation_packed));
-   panfrost_pack_work_groups_compute((struct mali_invocation_packed *)&draw->invocation,
-                                      1, draw->vertex_range, draw->instance_count,
-                                      1, 1, 1, true, false);
+   if (draw->indirect.buf != 0) {
+      memset(&draw->invocation, 0, sizeof(draw->invocation));
+   } else {
+      panfrost_pack_work_groups_compute((struct mali_invocation_packed *)&draw->invocation,
+                                         1, draw->vertex_range, draw->instance_count,
+                                         1, 1, 1, true, false);
+   }
 
    panvk_draw_prepare_fs_rsd(cmdbuf, draw);
    panvk_draw_prepare_varyings(cmdbuf, draw);
@@ -948,9 +956,49 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf,
    batch->tlsinfo.tls.size = MAX2(pipeline->tls_size, batch->tlsinfo.tls.size);
    assert(!pipeline->wls_size);
 
+   unsigned vertex_job_dep = 0;
+
+   if (draw->indirect.buf) {
+      struct pan_indirect_draw_info indirect_info = {
+         .draw_buf = draw->indirect.buf,
+         .index_buf = draw->index_size > 0 ? draw->indices : 0,
+         .vertex_job = draw->jobs.vertex.gpu,
+         .tiler_job = draw->jobs.tiler.gpu,
+         .attrib_bufs = draw->stages[MESA_SHADER_VERTEX].attribute_bufs,
+         .attribs = draw->stages[MESA_SHADER_VERTEX].attributes,
+         .varying_bufs = draw->varying_bufs,
+         .attrib_count = pipeline->attribs.attrib_count,
+         .restart_index = (1ULL << draw->index_size) - 1,
+         .index_size = draw->index_size / 8,
+         .last_indirect_draw = cmdbuf->state.indirect_draw.last_job_id,
+      };
+
+      if (cmdbuf->state.indirect_draw.vertex_sysvals != 0) {
+         indirect_info.first_vertex_sysval = cmdbuf->state.indirect_draw.vertex_sysvals;
+         indirect_info.base_vertex_sysval = cmdbuf->state.indirect_draw.vertex_sysvals + 4;
+         indirect_info.base_instance_sysval = cmdbuf->state.indirect_draw.vertex_sysvals + 8;
+      }
+
+      if (pipeline->varyings.buf_mask & PANVK_VARY_BUF_PSIZ)
+         indirect_info.flags |= PAN_INDIRECT_DRAW_HAS_PSIZ;
+
+      if (pipeline->ia.writes_point_size)
+         indirect_info.flags |= PAN_INDIRECT_DRAW_UPDATE_PRIM_SIZE;
+
+      if (pipeline->ia.primitive_restart)
+         indirect_info.flags |= PAN_INDIRECT_DRAW_PRIMITIVE_RESTART;
+
+      cmdbuf->state.indirect_draw.last_job_id =
+         GENX(panfrost_emit_indirect_draw)(&cmdbuf->desc_pool.base,
+                                           &batch->scoreboard,
+                                           &indirect_info,
+                                           &cmdbuf->state.indirect_draw.ctx);
+      vertex_job_dep = cmdbuf->state.indirect_draw.last_job_id;
+   }
+
    unsigned vjob_id =
       panfrost_add_job(&cmdbuf->desc_pool.base, &batch->scoreboard,
-                       MALI_JOB_TYPE_VERTEX, false, false, 0, 0,
+                       MALI_JOB_TYPE_VERTEX, false, false, vertex_job_dep, 0,
                        &draw->jobs.vertex, false);
 
    if (pipeline->fs.required) {
@@ -1069,6 +1117,67 @@ panvk_per_arch(CmdDrawIndexed)(VkCommandBuffer commandBuffer,
    };
 
    panvk_cmd_draw(cmdbuf, &draw);
+}
+
+void
+panvk_per_arch(CmdDrawIndirect)(VkCommandBuffer commandBuffer,
+                                VkBuffer buffer,
+                                VkDeviceSize offset,
+                                uint32_t drawCount,
+                                uint32_t stride)
+{
+   VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
+   VK_FROM_HANDLE(panvk_buffer, buf, buffer);
+
+   for (uint32_t d = 0; d < drawCount; d++) {
+      struct panvk_draw_info draw = {
+         .first_index = 0,
+         .index_count = 0,
+         .vertex_offset = 0,
+         .first_instance = 0,
+         .instance_count = 0,
+         .vertex_range = 0,
+         .vertex_count = 0,
+         .padded_vertex_count = 0,
+         .offset_start = 0,
+         .indices = 0,
+         .indirect.buf = buf->bo->ptr.gpu + buf->bo_offset + offset + (stride * d),
+      };
+
+      panvk_cmd_draw(cmdbuf, &draw);
+   }
+}
+
+void
+panvk_per_arch(CmdDrawIndexedIndirect)(VkCommandBuffer commandBuffer,
+                                       VkBuffer buffer,
+                                       VkDeviceSize offset,
+                                       uint32_t drawCount,
+                                       uint32_t stride)
+{
+   VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
+   VK_FROM_HANDLE(panvk_buffer, buf, buffer);
+
+   for (uint32_t d = 0; d < drawCount; d++) {
+      struct panvk_draw_info draw = {
+         .index_size = cmdbuf->state.ib.index_size,
+         .first_index = 0,
+         .index_count = 0,
+         .vertex_offset = 0,
+         .first_instance = 0,
+         .instance_count = 0,
+         .vertex_range = 0,
+         .vertex_count = 0,
+         .padded_vertex_count = 0,
+         .offset_start = 0,
+         .indices = cmdbuf->state.ib.buffer->bo->ptr.gpu +
+                    cmdbuf->state.ib.buffer->bo_offset +
+                    cmdbuf->state.ib.offset,
+         .indirect.buf = buf->bo->ptr.gpu + buf->bo_offset + offset + (stride * d),
+      };
+
+      panvk_cmd_draw(cmdbuf, &draw);
+   }
 }
 
 VkResult

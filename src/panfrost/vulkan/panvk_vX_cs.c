@@ -234,6 +234,34 @@ panvk_emit_attrib_buf(const struct panvk_attribs_info *info,
    const struct panvk_attrib_buf *buf = &bufs[idx];
    mali_ptr addr = buf->address & ~63ULL;
    unsigned size = buf->size + (buf->address & 63);
+
+   if (draw->indirect.buf != 0) {
+      /* With indirect draws we can't guess the vertex_count.
+       * Pre-set the address, stride and size fields, the
+       * compute shader do the rest.
+       */
+      pan_pack(desc, ATTRIBUTE_BUFFER, cfg) {
+         cfg.type = MALI_ATTRIBUTE_TYPE_1D;
+         cfg.pointer = addr;
+         cfg.stride = buf_info->stride;
+         cfg.size = size;
+      }
+
+      /* We store the unmodified divisor in the continuation
+       * slot so the compute shader can retrieve it.
+       */
+      if (buf_info->per_instance) {
+         pan_pack(desc + pan_size(ATTRIBUTE_BUFFER),
+                  ATTRIBUTE_BUFFER_CONTINUATION_NPOT, cfg) {
+            cfg.divisor = buf_info->per_instance ? buf_info->instance_divisor : 0;
+         }
+      } else {
+         memcpy(desc + pan_size(ATTRIBUTE_BUFFER), desc, pan_size(ATTRIBUTE_BUFFER));
+      }
+
+      return;
+   }
+
    unsigned divisor =
       draw->padded_vertex_count * buf_info->instance_divisor;
 
@@ -515,7 +543,7 @@ panvk_emit_tiler_primitive(const struct panvk_pipeline *pipeline,
       cfg.job_task_split = 6;
 
       if (draw->index_size) {
-         cfg.index_count = draw->index_count;
+         cfg.index_count = draw->indirect.buf != 0 ? 1 : draw->index_count;
          cfg.indices = draw->indices;
          cfg.base_vertex_offset = draw->vertex_offset - draw->offset_start;
 
@@ -526,7 +554,7 @@ panvk_emit_tiler_primitive(const struct panvk_pipeline *pipeline,
          default: unreachable("Invalid index size");
          }
       } else {
-         cfg.index_count = draw->vertex_count;
+         cfg.index_count = draw->indirect.buf != 0 ? 1 : draw->vertex_count;
          cfg.index_type = MALI_INDEX_TYPE_NONE;
       }
    }

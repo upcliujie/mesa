@@ -582,10 +582,13 @@ struct panvk_draw_info {
    const struct pan_tiler_context *tiler_ctx;
    mali_ptr fs_rsd;
    mali_ptr viewport;
+   unsigned vertex_job_id;
    struct {
-      struct panfrost_ptr vertex;
-      struct panfrost_ptr tiler;
+      struct panfrost_ptr vertex, tiler, indirect;
    } jobs;
+   struct {
+      mali_ptr buf;
+   } indirect;
 };
 
 struct panvk_dispatch_info {
@@ -682,6 +685,12 @@ struct panvk_cmd_state {
    const struct panvk_subpass *subpass;
    const struct panvk_framebuffer *framebuffer;
    VkRect2D render_area;
+
+   struct {
+      struct panfrost_ptr ctx;
+      unsigned last_job_id;
+      mali_ptr vertex_sysvals;
+   } indirect_draw;
 
    struct panvk_clear_value *clear;
 

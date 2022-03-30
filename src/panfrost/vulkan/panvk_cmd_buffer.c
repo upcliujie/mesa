@@ -539,27 +539,8 @@ panvk_cmd_open_batch(struct panvk_cmd_buffer *cmdbuf)
                                    sizeof(*cmdbuf->state.batch), 8,
                                    VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
    assert(cmdbuf->state.batch);
+   memset(&cmdbuf->state.indirect_draw, 0, sizeof(cmdbuf->state.indirect_draw));
    return cmdbuf->state.batch;
-}
-
-void
-panvk_CmdDrawIndirect(VkCommandBuffer commandBuffer,
-                      VkBuffer _buffer,
-                      VkDeviceSize offset,
-                      uint32_t drawCount,
-                      uint32_t stride)
-{
-   panvk_stub();
-}
-
-void
-panvk_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
-                             VkBuffer _buffer,
-                             VkDeviceSize offset,
-                             uint32_t drawCount,
-                             uint32_t stride)
-{
-   panvk_stub();
 }
 
 void
