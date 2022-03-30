@@ -267,6 +267,18 @@ try_copy_region(struct pipe_context *pctx, const struct pipe_blit_info *info)
        new_info.render_condition_enable &&
        !ctx->render_condition_active)
       new_info.render_condition_enable = false;
+   if (!zink_screen(pctx->screen)->have_D24_UNORM_S8_UINT) {
+      /* this is z24 in z32 and can't be copied */
+      if (info->src.format == PIPE_FORMAT_Z24_UNORM_S8_UINT ||
+          info->dst.format == PIPE_FORMAT_Z24_UNORM_S8_UINT)
+         return false;
+   }
+   if (!zink_screen(pctx->screen)->have_X8_D24_UNORM_PACK32) {
+      /* this is z24 in z32 and can't be copied */
+      if (info->src.format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT ||
+          info->dst.format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT)
+         return false;
+   }
 
    return util_try_blit_via_copy_region(pctx, &new_info, ctx->render_condition_active);
 }
