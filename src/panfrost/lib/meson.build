@@ -56,7 +56,7 @@ foreach ver : ['4', '5', '6', '7']
   )
 endforeach
 
-foreach ver : ['7']
+foreach ver : ['5', '6', '7']
   libpanfrost_per_arch += static_library(
     'pan-arch-indirect-v' + ver,
     [
