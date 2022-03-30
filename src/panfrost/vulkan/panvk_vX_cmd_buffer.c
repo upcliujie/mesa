@@ -1038,47 +1038,6 @@ panvk_per_arch(CmdDraw)(VkCommandBuffer commandBuffer,
    panvk_cmd_draw(cmdbuf, &draw);
 }
 
-static void
-panvk_index_minmax_search(struct panvk_cmd_buffer *cmdbuf,
-                          uint32_t start, uint32_t count,
-                          uint32_t *min, uint32_t *max)
-{
-   void *ptr = cmdbuf->state.ib.buffer->bo->ptr.cpu +
-               cmdbuf->state.ib.buffer->bo_offset +
-               cmdbuf->state.ib.offset;
-
-   fprintf(stderr, "WARNING: Crawling index buffers from the CPU isn't valid in Vulkan\n");
-
-   assert(cmdbuf->state.ib.buffer);
-   assert(cmdbuf->state.ib.buffer->bo);
-   assert(cmdbuf->state.ib.buffer->bo->ptr.cpu);
-
-   *max = 0;
-
-   /* TODO: Use panfrost_minmax_cache */
-   /* TODO: Read full cacheline of data to mitigate the uncached
-    * mapping slowness.
-    */
-   switch (cmdbuf->state.ib.index_size) {
-#define MINMAX_SEARCH_CASE(sz) \
-   case sz: { \
-      uint ## sz ## _t *indices = ptr; \
-      *min = UINT ## sz ## _MAX; \
-      for (uint32_t i = 0; i < count; i++) { \
-         *min = MIN2(indices[i + start], *min); \
-         *max = MAX2(indices[i + start], *max); \
-      } \
-      break; \
-   }
-   MINMAX_SEARCH_CASE(32)
-   MINMAX_SEARCH_CASE(16)
-   MINMAX_SEARCH_CASE(8)
-#undef MINMAX_SEARCH_CASE
-   default:
-      unreachable("Invalid index size");
-   }
-}
-
 void
 panvk_per_arch(CmdDrawIndexed)(VkCommandBuffer commandBuffer,
                                uint32_t indexCount,
@@ -1088,32 +1047,35 @@ panvk_per_arch(CmdDrawIndexed)(VkCommandBuffer commandBuffer,
                                uint32_t firstInstance)
 {
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
-   uint32_t min_vertex, max_vertex;
 
    if (instanceCount == 0 || indexCount == 0)
       return;
 
-   panvk_index_minmax_search(cmdbuf, firstIndex, indexCount,
-                             &min_vertex, &max_vertex);
+   const VkDrawIndexedIndirectCommand indirect_draw = {
+      .indexCount = indexCount,
+      .instanceCount = instanceCount,
+      .firstIndex = firstIndex,
+      .vertexOffset = vertexOffset,
+      .firstInstance = firstInstance,
+   };
 
-   unsigned vertex_range = max_vertex - min_vertex + 1;
    struct panvk_draw_info draw = {
       .index_size = cmdbuf->state.ib.index_size,
-      .first_index = firstIndex,
-      .index_count = indexCount,
-      .vertex_offset = vertexOffset,
-      .first_instance = firstInstance,
-      .instance_count = instanceCount,
-      .vertex_range = vertex_range,
-      .vertex_count = indexCount + abs(vertexOffset),
-      .padded_vertex_count = instanceCount > 1 ?
-                             panfrost_padded_vertex_count(vertex_range) :
-                             vertex_range,
-      .offset_start = min_vertex + vertexOffset,
+      .first_index = 0,
+      .index_count = 0,
+      .vertex_offset = 0,
+      .first_instance = 0,
+      .instance_count = 0,
+      .vertex_range = 0,
+      .vertex_count = 0,
+      .padded_vertex_count = 0,
+      .offset_start = 0,
       .indices = cmdbuf->state.ib.buffer->bo->ptr.gpu +
                  cmdbuf->state.ib.buffer->bo_offset +
-                 cmdbuf->state.ib.offset +
-                 (firstIndex * (cmdbuf->state.ib.index_size / 8)),
+                 cmdbuf->state.ib.offset,
+      .indirect.buf =
+         pan_pool_upload_aligned(&cmdbuf->desc_pool.base, &indirect_draw,
+                                 sizeof(indirect_draw), sizeof(uint32_t)),
    };
 
    panvk_cmd_draw(cmdbuf, &draw);
