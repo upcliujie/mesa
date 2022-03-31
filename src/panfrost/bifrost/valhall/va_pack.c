@@ -758,7 +758,7 @@ va_pack_instr(const bi_instr *I)
    case BI_OPCODE_TEX_GATHER:
    {
       /* Image to read from */
-      hex |= ((uint64_t) va_pack_src(I->src[1])) << 0;
+      hex |= ((uint64_t) va_pack_src(I->src[2])) << 0;
 
       assert(!(I->op == BI_OPCODE_TEX_FETCH && I->shadow));
 
