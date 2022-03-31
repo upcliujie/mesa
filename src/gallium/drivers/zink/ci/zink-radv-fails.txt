@@ -1,7 +1,3 @@
-#6231
-spec@arb_gl_spirv@execution@ssbo@unsized-array,Fail
-spec@arb_gl_spirv@execution@xfb@vs_block_array,Fail
-
 #4562
 dEQP-GLES31.functional.image_load_store.3d.load_store.r32f_single_layer,Fail
 dEQP-GLES31.functional.image_load_store.3d.load_store.r32i_single_layer,Fail
