@@ -12,8 +12,9 @@ git clone \
 pushd /VK-GL-CTS
 
 # Cherry-pick fix for zlib dependency
-git fetch origin main
-git cherry-pick -x ec1804831b654ac55bd2a7a5dd27a556afe05030
+wget -q -O- \
+    https://github.com/KhronosGroup/VK-GL-CTS/commit/08f0e1f360fec787ae8de7022cef29a0c3319d18.patch \
+    | git am
 
 # --insecure is due to SSL cert failures hitting sourceforge for zlib and
 # libpng (sigh).  The archives get their checksums checked anyway, and git
