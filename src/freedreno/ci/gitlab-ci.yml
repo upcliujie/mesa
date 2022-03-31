@@ -288,6 +288,8 @@ a630-traces-restricted:
   variables:
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/restricted-traces-freedreno.yml"
     PIGLIT_REPLAY_EXTRA_ARGS:  --keep-image --db-path ${CI_PROJECT_DIR}/replayer-db/ --minio_host=minio-packet.freedesktop.org --minio_bucket=mesa-tracie-private --role-session-name=${CI_PROJECT_PATH}:${CI_JOB_ID} --jwt-file=${CI_JOB_JWT_FILE}
+    # Reduce concurrency further to avoid OOM
+    FDO_CI_CONCURRENT: 1
   allow_failure: true
 
 a630-traces-performance:
