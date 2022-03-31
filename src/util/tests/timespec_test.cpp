@@ -114,41 +114,94 @@ TEST(timespec_test, millihz_to_nsec)
    EXPECT_EQ(millihz_to_nsec(60000), 16666666);
 }
 
+TEST(timespec_test, time_t_max)
+{
+   /* We assume it's no more than 64 bits */
+   EXPECT_LE(sizeof(time_t), sizeof(uint64_t));
+
+   time_t t = TIME_T_MAX;
+   EXPECT_EQ((uint64_t)t, (uint64_t)TIME_T_MAX);
+
+   /* Compare increasingly large possible max values.  Doing this with shifts
+    * also means a compile failure if we end up on an insane C implementation
+    * where time_t isn't an integer type.
+    */
+   t = 1;
+   for (unsigned i = 0; i < sizeof(time_t) * 8; i++) {
+      EXPECT_LE(t, TIME_T_MAX);
+      t = (t << 1) | 1;
+   }
+   EXPECT_EQ(t, (t << 1) | 1);
+
+   /* The C spec has some weird wording here:
+    *
+    *    "The tv_sec member is a linear count of seconds and may not have the
+    *    normal semantics of a time_t. The semantics of the members and their
+    *    normal ranges are expressed in the comments."
+    *
+    * Assert some sanity here by doing it all again with an actual timespec.
+    */
+   struct timespec ts;
+   EXPECT_EQ(sizeof(ts.tv_sec), sizeof(time_t));
+   ts.tv_sec = TIME_T_MAX;
+   EXPECT_EQ(ts.tv_sec, (uint64_t)TIME_T_MAX);
+
+   ts.tv_sec = 1;
+   for (unsigned i = 0; i < sizeof(time_t) * 8; i++) {
+      EXPECT_LE(ts.tv_sec, TIME_T_MAX);
+      ts.tv_sec = (ts.tv_sec << 1) | 1;
+   }
+   EXPECT_EQ(ts.tv_sec, (ts.tv_sec << 1) | 1);
+}
+
 TEST(timespec_test, timespec_add_nsec)
 {
    struct timespec a, r;
 
    a.tv_sec = 0;
    a.tv_nsec = NSEC_PER_SEC - 1;
-   timespec_add_nsec(&r, &a, 1);
+   EXPECT_FALSE(timespec_add_nsec(&r, &a, 1));
    EXPECT_EQ(1, r.tv_sec);
    EXPECT_EQ(0, r.tv_nsec);
 
-   timespec_add_nsec(&r, &a, 2);
+   EXPECT_FALSE(timespec_add_nsec(&r, &a, 2));
    EXPECT_EQ(1, r.tv_sec);
    EXPECT_EQ(1, r.tv_nsec);
 
-   timespec_add_nsec(&r, &a, (NSEC_PER_SEC * 2ULL));
+   EXPECT_FALSE(timespec_add_nsec(&r, &a, (NSEC_PER_SEC * 2ULL)));
    EXPECT_EQ(2, r.tv_sec);
    EXPECT_EQ(NSEC_PER_SEC - 1, r.tv_nsec);
 
-   timespec_add_nsec(&r, &a, (NSEC_PER_SEC * 2ULL) + 2);
+   EXPECT_FALSE(timespec_add_nsec(&r, &a, (NSEC_PER_SEC * 2ULL) + 2));
    EXPECT_EQ(r.tv_sec, 3);
    EXPECT_EQ(r.tv_nsec, 1);
 
    r.tv_sec = 4;
    r.tv_nsec = 0;
-   timespec_add_nsec(&r, &r, NSEC_PER_SEC + 10ULL);
+   EXPECT_FALSE(timespec_add_nsec(&r, &r, NSEC_PER_SEC + 10ULL));
    EXPECT_EQ(5, r.tv_sec);
    EXPECT_EQ(10, r.tv_nsec);
 
-   timespec_add_nsec(&r, &r, (NSEC_PER_SEC * 3ULL) - 9ULL);
+   EXPECT_FALSE(timespec_add_nsec(&r, &r, (NSEC_PER_SEC * 3ULL) - 9ULL));
    EXPECT_EQ(8, r.tv_sec);
    EXPECT_EQ(1, r.tv_nsec);
 
-   timespec_add_nsec(&r, &r, (NSEC_PER_SEC * 7ULL) + (NSEC_PER_SEC - 1ULL));
+   EXPECT_FALSE(timespec_add_nsec(&r, &r, (NSEC_PER_SEC * 7ULL) +
+                                          (NSEC_PER_SEC - 1ULL)));
    EXPECT_EQ(16, r.tv_sec);
    EXPECT_EQ(0, r.tv_nsec);
+
+   a.tv_sec = TIME_T_MAX;
+   a.tv_nsec = 0;
+   EXPECT_TRUE(timespec_add_nsec(&r, &a, UINT64_MAX));
+
+   a.tv_sec = TIME_T_MAX;
+   a.tv_nsec = 0;
+   EXPECT_TRUE(timespec_add_nsec(&r, &a, NSEC_PER_SEC));
+
+   a.tv_sec = TIME_T_MAX;
+   a.tv_nsec = NSEC_PER_SEC / 2;
+   EXPECT_TRUE(timespec_add_nsec(&r, &a, NSEC_PER_SEC / 2));
 }
 
 TEST(timespec_test, timespec_add_msec)
