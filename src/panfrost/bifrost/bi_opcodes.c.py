@@ -32,8 +32,10 @@ struct bi_op_props bi_opcode_props[BI_NUM_OPCODES] = {
         size = typesize(opcode)
         message = add["message"].upper() if add else "NONE"
         sr_count = add["staging_count"].upper() if add else "0"
-        sr_read = int(add["staging"] in ["r", "rw"] if add else False)
-        sr_write = int(add["staging"] in ["w", "rw"] if add else False)
+        sr_read = int("r" in add["staging"].lower() if add else False)
+        sr_read_split = int("R" in add["staging"] if add else False)
+        sr_write = int("w" in add["staging"].lower() if add else False)
+        sr_write_split = int("W" in add["staging"] if add else False)
         last = int(bool(add["last"]) if add else False)
         table = int(bool(add["table"]) if add else False)
         branch = int(opcode.startswith('BRANCH'))
@@ -48,7 +50,8 @@ struct bi_op_props bi_opcode_props[BI_NUM_OPCODES] = {
     %>
     [BI_OPCODE_${opcode.replace('.', '_').upper()}] = {
         "${opcode}", BIFROST_MESSAGE_${message}, BI_SIZE_${size},
-        BI_SR_COUNT_${sr_count}, ${sr_read}, ${sr_write}, ${last}, ${branch},
+        BI_SR_COUNT_${sr_count}, ${sr_read}, ${sr_read_split},
+        ${sr_write}, ${sr_write_split}, ${last}, ${branch},
         ${table}, ${has_fma}, ${has_add}, ${clamp}, ${not_result}, ${abs},
         ${neg}, ${m_not},
     },

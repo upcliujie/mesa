@@ -226,7 +226,9 @@ def pack_variant(opname, states):
     # constant across states.
     staging = states[0][1].get("staging", "")
     offset = 0
-    if staging in ["r", "rw"]:
+    if "R" in staging:
+        offset += 2
+    elif "r" in staging:
         offset += 1
 
     pack_sources(states[0][1].get("srcs", []), common_body, pack_exprs, offset, opname[0] == '*')

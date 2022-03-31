@@ -90,7 +90,9 @@ bi_count_read_registers(const bi_instr *ins, unsigned s)
         if (s == 0 && ins->op == BI_OPCODE_ATOM_RETURN_I32)
                 return (ins->atom_opc == BI_ATOM_OPC_ACMPXCHG) ? 2 : 1;
         else if (s == 0 && bi_opcode_props[ins->op].sr_read)
-                return bi_count_staging_registers(ins);
+                return MIN2(bi_count_staging_registers(ins), 4);
+        else if (s == 1 && bi_opcode_props[ins->op].sr_read_split)
+                return MAX2(bi_count_staging_registers(ins), 4) - 4;
         else if (s == 4 && ins->op == BI_OPCODE_BLEND)
                 return ins->sr_count_2; /* Dual source blending */
         else
