@@ -265,7 +265,7 @@ meta_emit_blit(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_image,
    unsigned fs_key = 0;
    VkFormat format = VK_FORMAT_UNDEFINED;
 
-   VkRenderingAttachmentInfo color_att = {}, depth_att = {}, stencil_att = {};
+   VkRenderingAttachmentInfo color_att = {0}, depth_att = {0}, stencil_att = {0};
 
    switch (src_iview->aspect_mask) {
    case VK_IMAGE_ASPECT_COLOR_BIT: {
