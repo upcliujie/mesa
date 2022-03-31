@@ -988,12 +988,12 @@ dzn_physical_device_supports_bc(dzn_physical_device *pdev)
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
-                              VkPhysicalDeviceFeatures *pFeatures)
+dzn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
+                               VkPhysicalDeviceFeatures2 *pFeatures)
 {
    VK_FROM_HANDLE(dzn_physical_device, pdev, physicalDevice);
 
-   *pFeatures = VkPhysicalDeviceFeatures {
+   pFeatures->features = VkPhysicalDeviceFeatures {
       .robustBufferAccess = true, /* This feature is mandatory */
       .fullDrawIndexUint32 = false,
       .imageCubeArray = true,
@@ -1050,13 +1050,7 @@ dzn_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
       .variableMultisampleRate = false,
       .inheritedQueries = false,
    };
-}
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
-                               VkPhysicalDeviceFeatures2 *pFeatures)
-{
-   dzn_GetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
 
    vk_foreach_struct(ext, pFeatures->pNext) {
       dzn_debug_ignored_stype(ext->sType);
@@ -1573,8 +1567,12 @@ static VkResult
 check_physical_device_features(VkPhysicalDevice physicalDevice,
                                const VkPhysicalDeviceFeatures *features)
 {
+   VK_FROM_HANDLE(dzn_physical_device, pdev, physicalDevice);
+
    VkPhysicalDeviceFeatures supported_features;
-   dzn_GetPhysicalDeviceFeatures(physicalDevice, &supported_features);
+
+   pdev->vk.dispatch_table.GetPhysicalDeviceFeatures(physicalDevice, &supported_features);
+
    VkBool32 *supported_feature = (VkBool32 *)&supported_features;
    VkBool32 *enabled_feature = (VkBool32 *)features;
    unsigned num_features = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
