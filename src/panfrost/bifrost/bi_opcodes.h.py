@@ -83,7 +83,9 @@ struct bi_op_props {
         enum bi_size size : 3;
         enum bi_sr_count sr_count : 3;
         bool sr_read : 1;
+        bool sr_read_split : 1;
         bool sr_write : 1;
+        bool sr_write_split : 1;
         bool last : 1;
         bool branch : 1;
         bool table : 1;
