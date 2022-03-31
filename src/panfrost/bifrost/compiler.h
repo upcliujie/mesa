@@ -150,6 +150,9 @@ typedef struct {
 static inline bi_index
 bi_get_index(unsigned value, bool is_reg, unsigned offset)
 {
+        /* Make sure the struct doesn't have too much padding */
+        STATIC_ASSERT(sizeof(bi_index) == 8);
+
         return (bi_index) {
                 .value = value,
                 .swizzle = BI_SWIZZLE_H01,
