@@ -3324,9 +3324,12 @@ bi_emit_tex_valhall(bi_builder *b, nir_tex_instr *instr)
         }
 
         bi_index idx = sr_count ? bi_temp(b->shader) : bi_null();
+        bi_index idx2 = sr_count > 4 ? bi_temp(b->shader) : bi_null();
 
         if (sr_count)
-                bi_make_vec_to(b, idx, sregs, NULL, sr_count, 32);
+                bi_make_vec_to(b, idx, sregs, NULL, MIN2(sr_count, 4), 32);
+        if (sr_count > 4)
+                bi_make_vec_to(b, idx2, sregs + 4, NULL, sr_count - 4, 32);
 
         bi_index image_src = bi_imm_u32(tables);
         image_src = bi_lshift_or_i32(b, sampler, image_src, bi_imm_u8(0));
@@ -3346,17 +3349,17 @@ bi_emit_tex_valhall(bi_builder *b, nir_tex_instr *instr)
         case nir_texop_tex:
         case nir_texop_txl:
         case nir_texop_txb:
-                bi_tex_single_to(b, dest, idx, rsrc, rsrc_hi, instr->is_array,
+                bi_tex_single_to(b, dest, idx, idx2, rsrc, rsrc_hi, instr->is_array,
                                  dim, regfmt, instr->is_shadow, explicit_offset,
                                  lod_mode, mask, sr_count);
                 break;
         case nir_texop_txf:
         case nir_texop_txf_ms:
-                bi_tex_fetch_to(b, dest, idx, rsrc, rsrc_hi, instr->is_array,
+                bi_tex_fetch_to(b, dest, idx, idx2, rsrc, rsrc_hi, instr->is_array,
                                  dim, regfmt, explicit_offset, mask, sr_count);
                 break;
         case nir_texop_tg4:
-                bi_tex_gather_to(b, dest, idx, rsrc, rsrc_hi, instr->is_array,
+                bi_tex_gather_to(b, dest, idx, idx2, rsrc, rsrc_hi, instr->is_array,
                                  dim, instr->component, false, regfmt,
                                  instr->is_shadow, explicit_offset, mask,
                                  sr_count);

@@ -8421,7 +8421,7 @@
     </mod>
   </ins>
 
-  <ins name="+TEX_SINGLE" staging="rw=sr_count" message="tex" pseudo="true">
+  <ins name="+TEX_SINGLE" staging="Rw=sr_count" message="tex" pseudo="true">
     <src start="0"/>
     <src start="1"/>
     <immediate name="sr_count" size="4" pseudo="true"/>
@@ -8470,7 +8470,7 @@
     </mod>
   </ins>
 
-  <ins name="+TEX_FETCH" staging="rw=sr_count" message="tex" pseudo="true">
+  <ins name="+TEX_FETCH" staging="Rw=sr_count" message="tex" pseudo="true">
     <src start="0"/>
     <src start="1"/>
     <immediate name="sr_count" size="4" pseudo="true"/>
@@ -8511,7 +8511,7 @@
     </mod>
   </ins>
 
-  <ins name="+TEX_GATHER" staging="rw=sr_count" message="tex" pseudo="true">
+  <ins name="+TEX_GATHER" staging="Rw=sr_count" message="tex" pseudo="true">
     <src start="0"/>
     <src start="1"/>
     <immediate name="sr_count" size="4" pseudo="true"/>
