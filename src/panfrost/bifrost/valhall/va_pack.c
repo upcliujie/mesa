@@ -626,11 +626,15 @@ va_pack_instr(const bi_instr *I)
 
    if (info.sr_count) {
       bool read = bi_opcode_props[I->op].sr_read;
+      bool read_split = bi_opcode_props[I->op].sr_read_split;
       bi_index sr = read ? I->src[0] : I->dest[0];
 
       unsigned count = read ?
          bi_count_read_registers(I, 0) :
          bi_count_write_registers(I, 0);
+
+      if (read_split)
+              count += bi_count_read_registers(I, 1);
 
       hex |= ((uint64_t) count << 33);
       hex |= (uint64_t) va_pack_reg(sr) << 40;
