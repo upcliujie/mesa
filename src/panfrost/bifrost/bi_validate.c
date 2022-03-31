@@ -40,15 +40,20 @@ bi_validate_initialization(bi_context *ctx)
 
         /* Calculate the live set */
         bi_block *entry = bi_entry_block(ctx);
-        unsigned temp_count = bi_max_temp(ctx);
         bi_invalidate_liveness(ctx);
         bi_compute_liveness(ctx);
 
-        /* Validate that the live set is indeed empty */
-        for (unsigned i = 0; i < temp_count; ++i) {
-                if (nodearray_get(&entry->live_in, i) == 0) continue;
+        assert(nodearray_sparse(&entry->live_in));
 
-                fprintf(stderr, "%s%u\n", (i & PAN_IS_REG) ? "r" : "", i >> 1);
+        /* Validate that the live set is indeed empty */
+        nodearray_sparse_foreach(&entry->live_in, elem) {
+                uint8_t value = nodearray_value(elem);
+                if (!value)
+                        continue;
+
+                unsigned i = nodearray_key(elem);
+                fprintf(stderr, "error: %s%u mask 0x%x\n",
+                        (i & PAN_IS_REG) ? "r" : "", i >> 1, value);
                 success = false;
         }
 
