@@ -343,7 +343,12 @@ def order_modifiers(ir_instructions):
 # Count sources for a simplified (IR) instruction, including a source for a
 # staging register if necessary
 def src_count(op):
-    staging = 1 if (op["staging"] in ["r", "rw"]) else 0
+    if "R" in op["staging"]:
+        staging = 2
+    elif "r" in op["staging"]:
+        staging = 1
+    else:
+        staging = 0
     return op["srcs"] + staging
 
 # Parses out the size part of an opocde name

@@ -480,6 +480,9 @@ bi_mark_interference(bi_block *block, struct lcra_state *l, nodearray *live, uin
                         }
                 }
 
+                if (bi_opcode_props[ins->op].sr_read_split)
+                        bi_set_srcs_adjacent(l, ins, 0, 1);
+
                 /* Update live_in */
                 preload_live = bi_postra_liveness_ins(preload_live, ins);
                 bi_liveness_ins_update(live, ins, node_count);
