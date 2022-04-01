@@ -4780,6 +4780,72 @@ bi_fp32_varying_mask(nir_shader *nir)
 }
 
 static void
+panfrost_nir_lower_xfb_output(struct nir_builder *b, nir_intrinsic_instr *intr,
+                             unsigned start_component, unsigned num_components,
+                             unsigned buffer, unsigned offset_words)
+{
+        assert(buffer < MAX_XFB_BUFFERS);
+
+        assert(nir_intrinsic_component(intr) == 0); // TODO
+
+        /* Transform feedback info in units of words, convert to bytes. */
+        uint16_t stride = b->shader->info.xfb_stride[buffer] * 4;
+        assert(stride != 0);
+
+        uint16_t offset = offset_words * 4;
+
+        nir_ssa_def *index = nir_iadd(b,
+                nir_imul(b, nir_load_instance_id(b),
+                            nir_load_num_vertices(b)),
+                nir_load_vertex_id_zero_base(b));
+
+        nir_ssa_def *buf = nir_load_xfb_address(b, 1, 64, .base = buffer);
+        nir_ssa_def *addr =
+                nir_iadd(b, buf, nir_u2u64(b,
+                                    nir_iadd_imm(b,
+                                                 nir_imul_imm(b, index, stride),
+                                                 offset)));
+
+        assert(intr->src[0].is_ssa && "must lower XFB before lowering SSA");
+        nir_ssa_def *src = intr->src[0].ssa;
+        nir_ssa_def *value = nir_channels(b, src, BITFIELD_MASK(num_components) << start_component);
+        nir_store_global(b, addr, 4, value, BITFIELD_MASK(num_components));
+}
+
+static bool
+panfrost_nir_lower_xfb(struct nir_builder *b, nir_instr *instr, UNUSED void *data)
+{
+        if (instr->type != nir_instr_type_intrinsic)
+                return false;
+
+        nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+        if (intr->intrinsic != nir_intrinsic_store_output)
+                return false;
+
+        bool progress = false;
+
+        b->cursor = nir_before_instr(&intr->instr);
+
+        for (unsigned i = 0; i < 2; ++i) {
+                nir_io_xfb xfb = i ? nir_intrinsic_io_xfb2(intr) : nir_intrinsic_io_xfb(intr);
+                for (unsigned j = 0; j < 2; ++j) {
+                        if (!xfb.out[j].num_components) continue;
+
+                        panfrost_nir_lower_xfb_output(b, intr, i*2 + j,
+                                                     xfb.out[j].num_components,
+                                                     xfb.out[j].buffer,
+                                                     xfb.out[j].offset);
+                        progress = true;
+                }
+        }
+
+        nir_instr_remove(instr);
+        return progress;
+}
+
+
+
+static void
 bi_finalize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
 {
         /* Lower gl_Position pre-optimisation, but after lowering vars to ssa
@@ -4846,6 +4912,17 @@ bi_finalize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
         if (nir->info.stage == MESA_SHADER_FRAGMENT) {
                 NIR_PASS_V(nir, nir_shader_instructions_pass,
                                 bifrost_nir_lower_i8_frag,
+                                nir_metadata_block_index | nir_metadata_dominance,
+                                NULL);
+        }
+
+        if (nir->xfb_info != NULL && nir->info.internal) {
+                NIR_PASS_V(nir, nir_io_add_const_offset_to_base,
+                           nir_var_shader_in | nir_var_shader_out);
+                NIR_PASS_V(nir, nir_io_add_intrinsic_xfb_info);
+
+                NIR_PASS_V(nir, nir_shader_instructions_pass,
+                                panfrost_nir_lower_xfb,
                                 nir_metadata_block_index | nir_metadata_dominance,
                                 NULL);
         }
@@ -5161,6 +5238,7 @@ bi_compile_variant(nir_shader *nir,
         }
 
         if (idvs == BI_IDVS_POSITION &&
+            !nir->info.internal &&
             nir->info.outputs_written & BITFIELD_BIT(VARYING_SLOT_PSIZ)) {
                 /* Find the psiz write */
                 bi_instr *write = NULL;
