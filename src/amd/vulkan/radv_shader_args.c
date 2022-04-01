@@ -168,7 +168,7 @@ allocate_user_sgprs(enum chip_class chip_class, const struct radv_shader_info *i
       if (info->cs.uses_grid_size)
          user_sgpr_count += args->load_grid_size_from_user_sgpr ? 3 : 2;
       if (info->cs.uses_ray_launch_size)
-         user_sgpr_count += 3;
+         user_sgpr_count++;
       break;
    case MESA_SHADER_FRAGMENT:
       break;
@@ -548,7 +548,7 @@ radv_declare_shader_args(enum chip_class chip_class, const struct radv_pipeline_
       }
 
       if (info->cs.uses_ray_launch_size) {
-         ac_add_arg(&args->ac, AC_ARG_SGPR, 3, AC_ARG_INT, &args->ac.ray_launch_size);
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_CONST_PTR, &args->ac.ray_launch_size_addr);
       }
 
       for (int i = 0; i < 3; i++) {
@@ -772,8 +772,8 @@ radv_declare_shader_args(enum chip_class chip_class, const struct radv_pipeline_
          set_loc_shader(args, AC_UD_CS_GRID_SIZE, &user_sgpr_idx,
                         args->load_grid_size_from_user_sgpr ? 3 : 2);
       }
-      if (args->ac.ray_launch_size.used) {
-         set_loc_shader(args, AC_UD_CS_RAY_LAUNCH_SIZE, &user_sgpr_idx, 3);
+      if (args->ac.ray_launch_size_addr.used) {
+         set_loc_shader_ptr(args, AC_UD_CS_RAY_LAUNCH_SIZE_ADDR, &user_sgpr_idx);
       }
       break;
    case MESA_SHADER_VERTEX:
