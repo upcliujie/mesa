@@ -2278,7 +2278,8 @@ genX(emit_apply_pipe_flushes)(struct anv_batch *batch,
          }
       }
 
-      bits &= ~(ANV_PIPE_FLUSH_BITS | ANV_PIPE_STALL_BITS |
+      bits &= ~(ANV_PIPE_FLUSH_BITS |
+                ANV_PIPE_STALL_BITS |
                 ANV_PIPE_END_OF_PIPE_SYNC_BIT);
    }
 
