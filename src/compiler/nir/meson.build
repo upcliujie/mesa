@@ -397,6 +397,7 @@ if with_tests
       gnu_symbol_visibility : 'hidden',
       include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
+      override_options: ['cpp_std=c++20'],
     ),
     suite : ['compiler', 'nir'],
     protocol : gtest_test_protocol,
