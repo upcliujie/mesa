@@ -835,6 +835,9 @@ system_value("ray_geometry_index", 1)
 system_value("ray_instance_custom_index", 1)
 system_value("shader_record_ptr", 1, bit_sizes=[64])
 
+# Used by RADV for TraceRaysIndirect.
+system_value("ray_launch_size_addr_amd", 1, bit_sizes=[64])
+
 # Driver-specific viewport scale/offset parameters.
 #
 # VC4 and V3D need to emit a scaled version of the position in the vertex
