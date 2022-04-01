@@ -4906,6 +4906,11 @@ bi_finalize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
                                 NULL);
         }
 
+        if (nir->xfb_info != NULL && nir->info.internal) {
+                NIR_PASS_V(nir, nir_io_add_intrinsic_xfb_info);
+                NIR_PASS_V(nir, bifrost_nir_lower_xfb);
+        }
+
         bi_optimize_nir(nir, gpu_id, is_blend);
 }
 

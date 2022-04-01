@@ -32,6 +32,7 @@
 #include "pan_util.h"
 
 #include "compiler/nir/nir.h"
+#include "compiler/nir/nir_builder.h"
 #include "util/u_dynarray.h"
 #include "util/u_upload_mgr.h"
 
@@ -46,6 +47,16 @@ panfrost_shader_compile(struct pipe_screen *pscreen,
         struct panfrost_device *dev = pan_device(pscreen);
 
         nir_shader *s = nir_shader_clone(NULL, ir);
+
+        if (dev->arch >= 6 && s->xfb_info && !s->info.internal) {
+                /* Create compute shader doing transform feedback */
+                nir_shader *xfb = nir_shader_clone(NULL, s);
+                xfb->info.name = ralloc_asprintf(xfb, "%s@xfb", xfb->info.name);
+                xfb->info.internal = true;
+
+                state->xfb = rzalloc(NULL, struct panfrost_shader_state); // XXX: leaks
+                panfrost_shader_compile(pscreen, shader_pool, desc_pool, xfb, state->xfb);
+        }
 
         /* Lower this early so the backends don't have to worry about it */
         if (s->info.stage == MESA_SHADER_FRAGMENT) {
