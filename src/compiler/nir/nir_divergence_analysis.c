@@ -138,6 +138,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_line_width:
    case nir_intrinsic_load_aa_line_width:
    case nir_intrinsic_load_xfb_address:
+   case nir_intrinsic_load_num_vertices:
    case nir_intrinsic_load_fb_layers_v3d:
    case nir_intrinsic_load_tcs_num_patches_amd:
    case nir_intrinsic_load_ring_tess_factors_amd:
