@@ -939,9 +939,9 @@ v3dv_queue_driver_submit(struct vk_queue *vk_queue,
       last_job = queue->noop_job;
    }
 
-   if (v3dv_job_type_is_gpu(last_job)) {
-      process_signals(queue, sync_info.signal_count, sync_info.signals);
-   } else {
+   process_signals(queue, sync_info.signal_count, sync_info.signals);
+
+   if (queue->device->pdevice->caps.multisync) {
       /* If the last job was a CPU job, signal everything manually */
       for (uint32_t i = 0; i < sync_info.signal_count; i++) {
          result = vk_sync_signal(&queue->device->vk,
