@@ -152,6 +152,8 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_task_ib_addr:
    case nir_intrinsic_load_task_ib_stride:
    case nir_intrinsic_load_sample_positions_pan:
+   case nir_intrinsic_load_xfb_address_pan:
+   case nir_intrinsic_load_num_vertices_pan:
    case nir_intrinsic_load_workgroup_num_input_vertices_amd:
    case nir_intrinsic_load_workgroup_num_input_primitives_amd:
    case nir_intrinsic_load_shader_query_enabled_amd:
