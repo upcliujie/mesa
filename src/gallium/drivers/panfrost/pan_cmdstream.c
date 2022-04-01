@@ -2767,6 +2767,76 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
 }
 
 static void
+panfrost_launch_xfb(struct panfrost_batch *batch,
+                    const struct pipe_draw_info *info,
+                    mali_ptr attribs, mali_ptr attrib_bufs,
+                    unsigned count)
+{
+        struct panfrost_context *ctx = batch->ctx;
+
+        struct panfrost_ptr t =
+                pan_pool_alloc_desc(&batch->pool.base, COMPUTE_JOB);
+
+        void *xfb_invocation =
+                pan_section_ptr(t.cpu, COMPUTE_JOB, INVOCATION);
+
+        /* TODO: XFB with index buffers */
+        //assert(info->index_size == 0);
+        u_trim_pipe_prim(info->mode, &count);
+
+        if (count == 0)
+                return;
+
+        panfrost_pack_work_groups_compute(xfb_invocation,
+                        1, count, info->instance_count,
+                        1, 1, 1, false, false);
+
+        pan_section_pack(t.cpu, COMPUTE_JOB, PARAMETERS, cfg) {
+                cfg.job_task_split = 3;
+        }
+
+        struct panfrost_shader_state *vs = panfrost_get_shader_state(ctx, PIPE_SHADER_VERTEX);
+
+        struct panfrost_shader_variants *saved_vs = ctx->shader[PIPE_SHADER_VERTEX];
+
+        struct panfrost_shader_variants v = {
+                .active_variant = 0,
+                .variants = vs->xfb
+        };
+
+        vs->xfb->stream_output = vs->stream_output;
+
+        ctx->shader[PIPE_SHADER_VERTEX] = &v;
+
+        mali_ptr push = 0;
+        mali_ptr ubo = panfrost_emit_const_buf(batch, PIPE_SHADER_VERTEX,
+                        &push);
+
+        pan_section_pack(t.cpu, COMPUTE_JOB, DRAW, cfg) {
+                cfg.state = panfrost_emit_compute_shader_meta(batch, PIPE_SHADER_VERTEX);
+                cfg.attributes = attribs;
+                cfg.attribute_buffers = attrib_bufs;
+                cfg.thread_storage = batch->tls.gpu;
+
+                /* So attribute access works */
+                cfg.offset_start = ctx->offset_start;
+                cfg.instance_size = ctx->instance_count > 1 ?
+                        ctx->padded_count : 1;
+
+                cfg.uniform_buffers = ubo;
+                cfg.push_uniforms = push;
+                cfg.textures = batch->textures[PIPE_SHADER_VERTEX];
+                cfg.samplers = batch->samplers[PIPE_SHADER_VERTEX];
+        }
+
+        panfrost_add_job(&batch->pool.base, &batch->scoreboard,
+                        MALI_JOB_TYPE_COMPUTE, true, false,
+                        0, 0, &t, false);
+
+        ctx->shader[PIPE_SHADER_VERTEX] = saved_vs;
+}
+
+static void
 panfrost_direct_draw(struct panfrost_batch *batch,
                      const struct pipe_draw_info *info,
                      unsigned drawid_offset,
@@ -2872,6 +2942,9 @@ panfrost_direct_draw(struct panfrost_batch *batch,
         panfrost_update_state_vs(batch);
         panfrost_update_state_fs(batch);
         panfrost_clean_state_3d(ctx);
+
+        if (vs->xfb)
+                panfrost_launch_xfb(batch, info, attribs, attrib_bufs, draw->count);
 
         /* Fire off the draw itself */
         panfrost_draw_emit_tiler(batch, info, draw, &invocation, indices,
