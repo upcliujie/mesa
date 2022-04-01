@@ -381,6 +381,15 @@ process_waits(struct v3dv_queue *queue,
       return VK_SUCCESS;
 
    int fd = -1;
+   err = drmSyncobjExportSyncFile(device->pdevice->render_fd,
+                                  queue->last_job_syncs.syncs[V3DV_QUEUE_ANY],
+                                  &fd);
+   if (err) {
+      result = vk_errorf(queue, VK_ERROR_UNKNOWN,
+                         "sync file export failed: %m");
+      goto fail;
+   }
+
    for (uint32_t i = 0; i < count; i++) {
       uint32_t syncobj = vk_sync_as_drm_syncobj(waits[i].sync)->syncobj;
       int wait_fd = -1;
