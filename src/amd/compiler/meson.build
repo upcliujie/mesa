@@ -84,6 +84,11 @@ libaco_files = files(
 
 cpp_args_aco = cpp.get_supported_arguments(['-fno-exceptions', '-fno-rtti', '-Wimplicit-fallthrough', '-Wshadow', '-DNOMINMAX'])
 
+cpp_std = 'cpp_std=c++latest'
+if meson.version().version_compare('>= 0.60')
+  cpp_std = 'cpp_std=c++20'
+endif
+
 _libaco = static_library(
   'aco',
   [libaco_files, aco_opcodes_c, aco_opcodes_h, aco_builder_h],
@@ -96,7 +101,7 @@ _libaco = static_library(
   gnu_symbol_visibility : 'hidden',
   build_by_default : true,
   cpp_args : [cpp_args_aco, cpp_msvc_compat_args],
-  override_options: ['cpp_std=c++20'],
+  override_options: [cpp_std],
 )
 
 # Also link with aco
