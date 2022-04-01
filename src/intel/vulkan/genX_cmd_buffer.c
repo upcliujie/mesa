@@ -5987,8 +5987,9 @@ genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
     * PIPE_CONTROLs.
     */
    anv_add_pending_pipe_bits(cmd_buffer,
-                             ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
-                             ANV_PIPE_DEPTH_CACHE_FLUSH_BIT |
+                             (cmd_buffer->state.current_pipeline == _3D ?
+                              (ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
+                               ANV_PIPE_DEPTH_CACHE_FLUSH_BIT) : 0) |
                              ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
                              ANV_PIPE_CS_STALL_BIT |
                              ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT |
