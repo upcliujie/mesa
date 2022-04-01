@@ -71,52 +71,39 @@ v3dv_clif_dump(struct v3dv_device *device,
 
 static VkResult
 queue_wait_before_cpu_job(struct v3dv_queue *queue,
-                          struct v3dv_submit_sync_info *sync_info,
-                          bool wait_until_idle)
+                          struct v3dv_submit_sync_info *sync_info)
 {
    bool first = true;
-   uint32_t syncobjs[3], n_syncobjs = 0;
+   uint32_t *syncobjs, n_syncobjs;
    if (queue->device->pdevice->caps.multisync) {
+      syncobjs = queue->last_job_syncs.syncs;
+      n_syncobjs = 3;
+
       for (int i = 0; i < 3; i++) {
          if (!queue->last_job_syncs.first[i])
             first = false;
-
-         /* If we've been asked to wait until the queue is fully idle, wait on
-          * everything.  Otherwise, if we're the first job on this queue type,
-          * we need to wait on any previous submits anyway on this queue to
-          * ensure queue ordering.  A previous submit may have waited on some
-          * semaphores that block this submit.
-          */
-         if (queue->last_job_syncs.first[i] || wait_until_idle) {
-            syncobjs[n_syncobjs++] = queue->last_job_syncs.syncs[i];
-            queue->last_job_syncs.first[i] = false;
-         }
+         queue->last_job_syncs.first[i] = false;
       }
    } else {
+      syncobjs = &queue->last_job_syncs.syncs[V3DV_QUEUE_ANY];
+      n_syncobjs = 1;
+
       first = queue->last_job_syncs.first[V3DV_QUEUE_ANY];
-
-      /* See above */
-      if (queue->last_job_syncs.first[V3DV_QUEUE_ANY] || wait_until_idle) {
-         syncobjs[n_syncobjs++] = queue->last_job_syncs.syncs[V3DV_QUEUE_ANY];
-         queue->last_job_syncs.first[V3DV_QUEUE_ANY] = false;
-      }
+      queue->last_job_syncs.first[V3DV_QUEUE_ANY] = false;
    }
 
-   if (n_syncobjs > 0) {
-      int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
-                               syncobjs, n_syncobjs,
-                               INT64_MAX, 0, NULL);
-      if (ret) {
-         return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
-                          "syncobj wait failed: %m");
-      }
+   int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
+                            syncobjs, n_syncobjs, INT64_MAX, 0, NULL);
+   if (ret) {
+      return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
+                       "syncobj wait failed: %m");
    }
 
-   /* If we're not the first job and we're doing wait_until_idle, that means
-    * we're waiting on some per-queue-type syncobj which transitively waited
-    * on the semaphores so we can skip the semaphore wait.
+   /* If we're not the first job, that means we're waiting on some
+    * per-queue-type syncobj which transitively waited on the semaphores so we
+    * can skip the semaphore wait.
     */
-   if (first || !wait_until_idle) {
+   if (first) {
       VkResult result = vk_sync_wait_many(&queue->device->vk,
                                           sync_info->wait_count,
                                           sync_info->waits,
@@ -136,7 +123,7 @@ handle_reset_query_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
    struct v3dv_reset_query_cpu_job_info *info = &job->cpu.query_reset;
    assert(info->pool);
 
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info, false);
+   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -220,7 +207,7 @@ handle_set_event_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
     *        submission thread.
     */
 
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info, true);
+   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -268,7 +255,7 @@ handle_copy_buffer_to_image_cpu_job(struct v3dv_queue *queue,
    /* Wait for all GPU work to finish first, since we may be accessing
     * the BOs involved in the operation.
     */
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info, true);
+   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -317,7 +304,7 @@ handle_timestamp_query_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
    struct v3dv_timestamp_query_cpu_job_info *info = &job->cpu.query_timestamp;
 
    /* Wait for completion of all work queued before the timestamp query */
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info, true);
+   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -352,7 +339,7 @@ handle_csd_indirect_cpu_job(struct v3dv_queue *queue,
    struct v3dv_csd_indirect_cpu_job_info *info = &job->cpu.csd_indirect;
    assert(info->csd_job);
 
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info, false);
+   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
