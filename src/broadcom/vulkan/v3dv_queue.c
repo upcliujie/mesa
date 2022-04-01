@@ -136,8 +136,7 @@ handle_reset_query_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
     * FIXME: we could avoid blocking the main thread for this if we use
     *        submission thread.
     */
-   if (info->pool->query_type == VK_QUERY_TYPE_OCCLUSION)
-         v3dv_bo_wait(job->device, info->pool->bo, PIPE_TIMEOUT_INFINITE);
+   assert(v3dv_bo_wait(job->device, info->pool->bo, 0));
 
    v3dv_reset_query_pools(job->device, info->pool, info->first, info->count);
 
@@ -347,7 +346,7 @@ handle_csd_indirect_cpu_job(struct v3dv_queue *queue,
 
    /* Make sure the GPU is no longer using the indirect buffer*/
    assert(info->buffer && info->buffer->mem && info->buffer->mem->bo);
-   v3dv_bo_wait(queue->device, info->buffer->mem->bo, PIPE_TIMEOUT_INFINITE);
+   assert(v3dv_bo_wait(queue->device, info->buffer->mem->bo, 0));
 
    /* Map the indirect buffer and read the dispatch parameters */
    assert(info->buffer && info->buffer->mem && info->buffer->mem->bo);
