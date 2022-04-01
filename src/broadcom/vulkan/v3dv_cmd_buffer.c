@@ -3571,6 +3571,7 @@ cmd_buffer_dispatch_indirect(struct v3dv_cmd_buffer *cmd_buffer,
       job->cpu.csd_indirect.wg_uniform_offsets[2];
 
    list_addtail(&job->list_link, &cmd_buffer->jobs);
+   list_addtail(&csd_job->list_link, &cmd_buffer->jobs);
    cmd_buffer->state.job = NULL;
 }
 
