@@ -64,6 +64,11 @@ if with_platform_windows
   dzn_flags += '-DVK_USE_PLATFORM_WIN32_KHR'
 endif
 
+cpp_std = 'cpp_std=c++latest'
+if meson.version().version_compare('>= 0.60')
+  cpp_std = 'cpp_std=c++20'
+endif
+
 libvulkan_dzn = shared_library(
   'vulkan_dzn',
   [libdzn_files, dzn_entrypoints, sha1_h],
@@ -78,7 +83,8 @@ libvulkan_dzn = shared_library(
   gnu_symbol_visibility : 'hidden',
   link_args : [ld_args_bsymbolic, ld_args_gc_sections],
   name_prefix : host_machine.system() == 'windows' ? '' : 'lib',
-  install : true
+  install : true,
+  override_options: [cpp_std]
 )
 
 icd_file_name = 'libvulkan_dzn.so'
