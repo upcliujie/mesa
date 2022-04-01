@@ -70,23 +70,22 @@ v3dv_clif_dump(struct v3dv_device *device,
 }
 
 static VkResult
-queue_wait_before_cpu_job(struct v3dv_queue *queue,
-                          struct v3dv_submit_sync_info *sync_info)
+queue_wait_idle(struct v3dv_queue *queue,
+                struct v3dv_submit_sync_info *sync_info)
 {
    if (queue->device->pdevice->caps.multisync) {
-      bool first = true;
-      for (int i = 0; i < 3; i++) {
-         if (!queue->last_job_syncs.first[i])
-            first = false;
-         queue->last_job_syncs.first[i] = false;
-      }
-
       int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
                                queue->last_job_syncs.syncs, 3,
                                INT64_MAX, 0, NULL);
       if (ret) {
          return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
                           "syncobj wait failed: %m");
+      }
+
+      bool first = true;
+      for (int i = 0; i < 3; i++) {
+         if (!queue->last_job_syncs.first[i])
+            first = false;
       }
 
       /* If we're not the first job, that means we're waiting on some
@@ -102,6 +101,9 @@ queue_wait_before_cpu_job(struct v3dv_queue *queue,
          if (result != VK_SUCCESS)
             return result;
       }
+
+      for (int i = 0; i < 3; i++)
+         queue->last_job_syncs.first[i] = false;
    } else {
       /* Without multisync, all the semaphores are baked into the one syncobj
        * at the start of each submit so we only need to wait on the one.
@@ -148,9 +150,15 @@ handle_reset_query_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
    struct v3dv_reset_query_cpu_job_info *info = &job->cpu.query_reset;
    assert(info->pool);
 
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
-   if (result != VK_SUCCESS)
-      return result;
+   /* We are about to reset query counters so we need to make sure that
+    * The GPU is not using them. The exception is timestamp queries, since
+    * we handle those in the CPU.
+    *
+    * FIXME: we could avoid blocking the main thread for this if we use
+    *        submission thread.
+    */
+   if (info->pool->query_type == VK_QUERY_TYPE_OCCLUSION)
+         v3dv_bo_wait(job->device, info->pool->bo, PIPE_TIMEOUT_INFINITE);
 
    assert(v3dv_bo_wait(job->device, info->pool->bo, 0));
    v3dv_reset_query_pools(job->device, info->pool, info->first, info->count);
@@ -223,7 +231,7 @@ handle_set_event_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
     *        submission thread.
     */
 
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
+   VkResult result = queue_wait_idle(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -271,7 +279,7 @@ handle_copy_buffer_to_image_cpu_job(struct v3dv_queue *queue,
    /* Wait for all GPU work to finish first, since we may be accessing
     * the BOs involved in the operation.
     */
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
+   VkResult result = queue_wait_idle(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -320,7 +328,7 @@ handle_timestamp_query_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
    struct v3dv_timestamp_query_cpu_job_info *info = &job->cpu.query_timestamp;
 
    /* Wait for completion of all work queued before the timestamp query */
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
+   VkResult result = queue_wait_idle(queue, sync_info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -348,13 +356,9 @@ handle_csd_indirect_cpu_job(struct v3dv_queue *queue,
    struct v3dv_csd_indirect_cpu_job_info *info = &job->cpu.csd_indirect;
    assert(info->csd_job);
 
-   VkResult result = queue_wait_before_cpu_job(queue, sync_info);
-   if (result != VK_SUCCESS)
-      return result;
-
    /* Make sure the GPU is no longer using the indirect buffer*/
    assert(info->buffer && info->buffer->mem && info->buffer->mem->bo);
-   assert(v3dv_bo_wait(queue->device, info->buffer->mem->bo, 0));
+   v3dv_bo_wait(queue->device, info->buffer->mem->bo, PIPE_TIMEOUT_INFINITE);
 
    /* Map the indirect buffer and read the dispatch parameters */
    assert(info->buffer && info->buffer->mem && info->buffer->mem->bo);
