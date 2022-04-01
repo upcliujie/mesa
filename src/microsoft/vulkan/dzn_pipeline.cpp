@@ -372,7 +372,7 @@ dzn_graphics_pipeline_translate_rast(dzn_graphics_pipeline *pipeline,
    const VkPipelineRasterizationStateCreateInfo *in_rast =
       in->pRasterizationState;
    const VkPipelineViewportStateCreateInfo *in_vp =
-      in->pViewportState;
+      in_rast->rasterizerDiscardEnable ? NULL : in->pViewportState;
 
    if (in_vp) {
       pipeline->vp.count = in_vp->viewportCount;
@@ -407,8 +407,10 @@ dzn_graphics_pipeline_translate_ms(dzn_graphics_pipeline *pipeline,
                                    D3D12_GRAPHICS_PIPELINE_STATE_DESC *out,
                                    const VkGraphicsPipelineCreateInfo *in)
 {
+   const VkPipelineRasterizationStateCreateInfo *in_rast =
+      in->pRasterizationState;
    const VkPipelineMultisampleStateCreateInfo *in_ms =
-      in->pMultisampleState;
+      in_rast->rasterizerDiscardEnable ? NULL : in->pMultisampleState;
 
    /* TODO: sampleShadingEnable, minSampleShading,
     *       alphaToOneEnable
@@ -552,8 +554,10 @@ dzn_graphics_pipeline_translate_zsa(dzn_graphics_pipeline *pipeline,
                                     D3D12_GRAPHICS_PIPELINE_STATE_DESC *out,
                                     const VkGraphicsPipelineCreateInfo *in)
 {
+   const VkPipelineRasterizationStateCreateInfo *in_rast =
+      in->pRasterizationState;
    const VkPipelineDepthStencilStateCreateInfo *in_zsa =
-      in->pDepthStencilState;
+      in_rast->rasterizerDiscardEnable ? NULL : in->pDepthStencilState;
 
    if (!in_zsa)
       return;
@@ -669,10 +673,12 @@ dzn_graphics_pipeline_translate_blend(dzn_graphics_pipeline *pipeline,
                                       D3D12_GRAPHICS_PIPELINE_STATE_DESC *out,
                                       const VkGraphicsPipelineCreateInfo *in)
 {
+   const VkPipelineRasterizationStateCreateInfo *in_rast =
+      in->pRasterizationState;
    const VkPipelineColorBlendStateCreateInfo *in_blend =
-      in->pColorBlendState;
+      in_rast->rasterizerDiscardEnable ? NULL : in->pColorBlendState;
    const VkPipelineMultisampleStateCreateInfo *in_ms =
-      in->pMultisampleState;
+      in_rast->rasterizerDiscardEnable ? NULL : in->pMultisampleState;
 
    if (!in_blend || !in_ms)
       return;
@@ -796,6 +802,11 @@ dzn_graphics_pipeline_create(dzn_device *device,
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
    };
 
+   const VkPipelineViewportStateCreateInfo *vp_info =
+      pCreateInfo->pRasterizationState->rasterizerDiscardEnable ?
+      NULL : pCreateInfo->pViewportState;
+
+
    ret = dzn_graphics_pipeline_translate_vi(pipeline, pAllocator, &desc, pCreateInfo, &inputs);
    if (ret != VK_SUCCESS)
       goto out;
@@ -881,10 +892,7 @@ dzn_graphics_pipeline_create(dzn_device *device,
           !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT))) {
          if (pipeline->vp.dynamic) {
             yz_flip_mode = DXIL_SPIRV_YZ_FLIP_CONDITIONAL;
-         } else if (pCreateInfo->pViewportState) {
-            const VkPipelineViewportStateCreateInfo *vp_info =
-               pCreateInfo->pViewportState;
-
+         } else if (vp_info) {
             for (uint32_t i = 0; vp_info->pViewports && i < vp_info->viewportCount; i++) {
                if (vp_info->pViewports[i].height > 0)
                   y_flip_mask |= BITFIELD_BIT(i);
