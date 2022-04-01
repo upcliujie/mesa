@@ -73,44 +73,46 @@ static VkResult
 queue_wait_before_cpu_job(struct v3dv_queue *queue,
                           struct v3dv_submit_sync_info *sync_info)
 {
-   bool first = true;
-   uint32_t *syncobjs, n_syncobjs;
    if (queue->device->pdevice->caps.multisync) {
-      syncobjs = queue->last_job_syncs.syncs;
-      n_syncobjs = 3;
-
+      bool first = true;
       for (int i = 0; i < 3; i++) {
          if (!queue->last_job_syncs.first[i])
             first = false;
          queue->last_job_syncs.first[i] = false;
       }
+
+      int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
+                               queue->last_job_syncs.syncs, 3,
+                               INT64_MAX, 0, NULL);
+      if (ret) {
+         return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
+                          "syncobj wait failed: %m");
+      }
+
+      /* If we're not the first job, that means we're waiting on some
+       * per-queue-type syncobj which transitively waited on the semaphores
+       * so we can skip the semaphore wait.
+       */
+      if (first) {
+         VkResult result = vk_sync_wait_many(&queue->device->vk,
+                                             sync_info->wait_count,
+                                             sync_info->waits,
+                                             VK_SYNC_WAIT_COMPLETE,
+                                             UINT64_MAX);
+         if (result != VK_SUCCESS)
+            return result;
+      }
    } else {
-      syncobjs = &queue->last_job_syncs.syncs[V3DV_QUEUE_ANY];
-      n_syncobjs = 1;
-
-      first = queue->last_job_syncs.first[V3DV_QUEUE_ANY];
-      queue->last_job_syncs.first[V3DV_QUEUE_ANY] = false;
-   }
-
-   int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
-                            syncobjs, n_syncobjs, INT64_MAX, 0, NULL);
-   if (ret) {
-      return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
-                       "syncobj wait failed: %m");
-   }
-
-   /* If we're not the first job, that means we're waiting on some
-    * per-queue-type syncobj which transitively waited on the semaphores so we
-    * can skip the semaphore wait.
-    */
-   if (first) {
-      VkResult result = vk_sync_wait_many(&queue->device->vk,
-                                          sync_info->wait_count,
-                                          sync_info->waits,
-                                          VK_SYNC_WAIT_COMPLETE,
-                                          UINT64_MAX);
-      if (result != VK_SUCCESS)
-         return result;
+      /* Without multisync, all the semaphores are baked into the one syncobj
+       * at the start of each submit so we only need to wait on the one.
+       */
+      int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
+                               &queue->last_job_syncs.syncs[V3DV_QUEUE_ANY], 1,
+                               INT64_MAX, 0, NULL);
+      if (ret) {
+         return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
+                          "syncobj wait failed: %m");
+      }
    }
 
    return VK_SUCCESS;
