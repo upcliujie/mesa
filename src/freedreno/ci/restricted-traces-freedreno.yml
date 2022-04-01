@@ -2,7 +2,6 @@ traces-db:
   download-url: "http://10.42.0.1:8888/cache/?uri=https://minio-packet.freedesktop.org/mesa-tracie-private/"
 
 traces:
-# Crashes
   - path: alien-isolation/AlienIsolation.bin.1-trim--k-f2000-v20201203.trace
     expectations:
       - device: freedreno-a630
@@ -19,7 +18,6 @@ traces:
     expectations:
       - device: freedreno-a630
         checksum: e72925568412a8ebdbac68c929972a55
-# Crashes
   - path: ksp/KSP-trim--f4800-v20201203.trace
     expectations:
       - device: freedreno-a630
@@ -46,7 +44,6 @@ traces:
       - device: freedreno-a630
         checksum: 0
 
-# Crashes
   - path: Antichamber/antichamber-f240.trace
     expectations:
       - device: freedreno-a630
@@ -68,15 +65,11 @@ traces:
       - device: freedreno-a630
         checksum: 67694d4c5ddd2e353786b7400f26eae9
 
-# Crashes with:
-# metro.bin: ../src/gallium/drivers/freedreno/freedreno_resource.c:274: fd_replace_buffer_storage: Assertion `!fd_batch_references(batch, src)' failed.
   - path: MetroLLRedux/metro-ll-redux-kf480.trace
     expectations:
       - device: freedreno-a630
         checksum: 0
 
-# Hangs the machine after:
-# msm ae00000.mdss: [drm:adreno_wait_ring] *ERROR* timeout waiting for space in ringbuffer 0
   - path: OilRush/OilRush-f14000.trace
     expectations:
       - device: freedreno-a630
@@ -109,17 +102,26 @@ traces:
       - device: freedreno-a630
         checksum: 803a5b74ca684def0737fe9d96f6f66e
 
-# Hangs the machine after (note the fsr):
-# arm-smmu 5040000.iommu: Unhandled context fault: fsr=0x402, iova=0x68de31e8da00, fsynr=0x0, cbfrsynra=0x0, cb=0
   - path: SpecOps/specops-s0-1088-f1300.trace
     expectations:
       - device: freedreno-a630
         checksum: 0
 
-  - path: stellaris/Stellaris-trim--f722-v20201203.trace
-    expectations:
-      - device: freedreno-a630
-        checksum: 0
+# Causes the machine to hang and reboot with:
+# [ 1492.803666] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
+# [ 1492.813343] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     completed fence: 71555
+# [ 1492.822187] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     submitted fence: 71557
+# [ 1492.831138] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: hangcheck recover!
+# [ 1492.839073] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: offending task: eglretrace:sq0 (eglretrace --headless --snapshot=1341336 --snapshot-prefix=/results/trace/freedreno-a630/stellaris/Stellaris-trim--f722-v20201203.trace- /builds/tomeu/mesa/replayer-db/stellaris/Stellaris-trim--f722-v20201203.trace)
+# [1537.403070 power state 3 = S0, in 0x001c]
+# [1537.403747 power state 3 = S0, in 0x001d]
+# [1537.471816 power state 3 = S0, in 0x001c]
+# [1537.472445 power state 3 = S0, in 0x001e]
+# coreboot-0.0.20 Tue Jan 15 22:01:37 UTC 2019 bootblock starting...
+#   - path: stellaris/Stellaris-trim--f722-v20201203.trace
+#     expectations:
+#       - device: freedreno-a630
+#         checksum: 0
   - path: Superhot/superhot-f8100.trace
     expectations:
       - device: freedreno-a630
