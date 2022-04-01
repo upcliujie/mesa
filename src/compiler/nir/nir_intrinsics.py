@@ -1225,12 +1225,18 @@ store("raw_output_pan", [], [])
 store("combined_output_pan", [1, 1, 1, 4], [COMPONENT, SRC_TYPE, DEST_TYPE])
 load("raw_output_pan", [1], [BASE], [CAN_ELIMINATE, CAN_REORDER])
 
+# Load address of given transform feedback buffer
+load("xfb_address_pan", [], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
+
 # Loads the sampler paramaters <min_lod, max_lod, lod_bias>
 # src[] = { sampler_index }
 load("sampler_lod_parameters_pan", [1], flags=[CAN_ELIMINATE, CAN_REORDER])
 
 # Loads the sample position array on Bifrost, in a packed Arm-specific format
 system_value("sample_positions_pan", 1, bit_sizes=[64])
+
+# Load the number of vertices in a transform feedback shader
+system_value("num_vertices_pan", 1)
 
 # R600 specific instrincs
 #
