@@ -1212,6 +1212,9 @@ store("raw_output_pan", [], [])
 store("combined_output_pan", [1, 1, 1, 4], [COMPONENT, SRC_TYPE, DEST_TYPE])
 load("raw_output_pan", [1], [BASE], [CAN_ELIMINATE, CAN_REORDER])
 
+# Load address of given transform feedback buffer
+load("xfb_address", [], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
+
 # Loads the sampler paramaters <min_lod, max_lod, lod_bias>
 # src[] = { sampler_index }
 load("sampler_lod_parameters_pan", [1], flags=[CAN_ELIMINATE, CAN_REORDER])
