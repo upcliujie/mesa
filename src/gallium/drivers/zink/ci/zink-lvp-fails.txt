@@ -3,6 +3,23 @@ spec@ext_framebuffer_object@fbo-blending-format-quirks,Fail
 
 KHR-GL46.texture_view.view_sampling,Fail
 
+#kopper regressions/changes
+fast_color_clear@fcc-front-buffer-distraction,Fail
+glx@extension string sanity,Fail
+glx@glx-tfp,Fail
+glx@glx_arb_create_context@invalid flag,Fail
+spec@!opengl 1.0@gl-1.0-drawbuffer-modes,Fail
+spec@!opengl 1.0@gl-1.0-front-invalidate-back,Fail
+spec@arb_framebuffer_srgb@framebuffer-srgb,Crash
+spec@egl 1.4@egl-copy-buffers,Crash
+spec@egl_chromium_sync_control@conformance,Fail
+spec@egl_chromium_sync_control@conformance@eglGetSyncValuesCHROMIUM_msc_and_sbc_test,Fail
+spec@egl_chromium_sync_control@conformance@eglGetSyncValuesCHROMIUM_ust_test,Fail
+spec@egl_khr_gl_colorspace@srgb,Crash
+spec@ext_framebuffer_blit@fbo-sys-blit,Fail
+spec@ext_framebuffer_blit@fbo-sys-sub-blit,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-export-tex,Crash
+
 dEQP-GLES2.functional.clipping.point.wide_point_clip,Fail
 dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_center,Fail
 dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_corner,Fail
@@ -98,8 +115,6 @@ dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_p
 glx@glx-copy-sub-buffer,Fail
 glx@glx-copy-sub-buffer samples=2,Fail
 glx@glx-copy-sub-buffer samples=4,Fail
-glx@glx-multithread-texture,Fail
-glx@glx-swap-copy,Fail
 glx@glx-swap-pixmap-bad,Fail
 glx@glx-visuals-depth,Crash
 glx@glx-visuals-depth -pixmap,Crash
@@ -150,12 +165,6 @@ spec@!opengl 1.1@polygon-mode-offset@config 5: Expected blue pixel in center,Fai
 spec@!opengl 1.1@polygon-mode-offset@config 6: Expected blue pixel in center,Fail
 spec@!opengl 1.1@polygon-mode-offset@config 6: Expected white pixel on right edge,Fail
 spec@!opengl 1.1@polygon-mode-offset@config 6: Expected white pixel on top edge,Fail
-spec@!opengl 1.1@read-front,Fail
-spec@!opengl 1.1@read-front clear-front-first,Fail
-spec@!opengl 1.1@read-front clear-front-first samples=2,Fail
-spec@!opengl 1.1@read-front clear-front-first samples=4,Fail
-spec@!opengl 1.1@read-front samples=2,Fail
-spec@!opengl 1.1@read-front samples=4,Fail
 spec@!opengl 1.2@copyteximage 3d,Fail
 spec@!opengl 2.0@depth-tex-modes-glsl,Fail
 spec@!opengl 2.0@gl-2.0-edgeflag,Fail
