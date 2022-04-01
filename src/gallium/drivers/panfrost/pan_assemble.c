@@ -54,7 +54,11 @@ panfrost_nir_lower_xfb_output(struct nir_builder *b, nir_intrinsic_instr *intr,
 
         uint16_t offset = offset_words * 4;
 
-        nir_ssa_def *index = nir_load_vertex_id_zero_base(b);
+        nir_ssa_def *index = nir_iadd(b,
+                nir_imul(b, nir_load_instance_id(b),
+                            nir_load_num_vertices(b)),
+                nir_load_vertex_id_zero_base(b));
+
         nir_ssa_def *buf = nir_load_xfb_address(b, 1, 64, .base = buffer);
         nir_ssa_def *addr =
                 nir_iadd(b, buf, nir_u2u64(b,

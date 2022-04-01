@@ -89,6 +89,8 @@ panfrost_nir_sysval_for_intrinsic(nir_intrinsic_instr *instr)
                 return panfrost_sysval_for_ssbo(instr);
         case nir_intrinsic_load_xfb_address:
                 return PAN_SYSVAL(XFB, nir_intrinsic_base(instr));
+        case nir_intrinsic_load_num_vertices:
+                return PAN_SYSVAL_NUM_VERTICES;
         case nir_intrinsic_load_sampler_lod_parameters_pan:
                 return panfrost_sysval_for_sampler(instr);
         case nir_intrinsic_image_size:
