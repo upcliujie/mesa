@@ -7,7 +7,6 @@ use crate::core::device::*;
 use crate::core::event::*;
 use crate::impl_cl_type_trait;
 
-use self::mesa_rust::pipe::context::*;
 use self::mesa_rust::pipe::screen::*;
 use self::rusticl_opencl_gen::*;
 
@@ -23,7 +22,6 @@ pub struct Queue {
     pub context: Arc<Context>,
     pub device: Arc<Device>,
     pub props: cl_command_queue_properties,
-    pipe: Arc<PipeContext>,
     pending: Mutex<Vec<Arc<Event>>>,
     _thrd: Option<JoinHandle<()>>,
     chan_in: mpsc::Sender<Vec<Arc<Event>>>,
@@ -37,18 +35,15 @@ impl Queue {
         device: &Arc<Device>,
         props: cl_command_queue_properties,
     ) -> CLResult<Arc<Queue>> {
+        // we assume that memory allocation is the only possible failure. Any other failure reason
+        // should be detected earlier (e.g.: checking for CAPs).
+        let pipe = device.screen.create_context().unwrap();
         let (tx_q, rx_t) = mpsc::channel::<Vec<Arc<Event>>>();
         Ok(Arc::new(Self {
             base: CLObjectBase::new(),
             context: context.clone(),
             device: device.clone(),
             props: props,
-            // we assume that memory allocation is the only possible failure. Any other failure reason
-            // should be detected earlier (e.g.: checking for CAPs).
-            pipe: device
-                .screen()
-                .create_context()
-                .ok_or(CL_OUT_OF_HOST_MEMORY)?,
             pending: Mutex::new(Vec::new()),
             _thrd: Some(
                 thread::Builder::new()
@@ -67,7 +62,7 @@ impl Queue {
                                 // if a dependency failed, fail this event as well
                                 e.set_user_status(err);
                             } else {
-                                e.call();
+                                e.call(&pipe);
                             }
                         }
                         for e in new_events {
@@ -78,10 +73,6 @@ impl Queue {
             ),
             chan_in: tx_q,
         }))
-    }
-
-    pub fn context(&self) -> &Arc<PipeContext> {
-        &self.pipe
     }
 
     pub fn queue(&self, e: &Arc<Event>) {

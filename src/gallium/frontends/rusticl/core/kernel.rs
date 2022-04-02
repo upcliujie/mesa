@@ -687,7 +687,7 @@ impl KernelRef for Arc<Kernel> {
                         if arg.kind == KernelArgType::Image {
                             iviews.push(res.pipe_image_view())
                         } else {
-                            sviews.push(q.context().create_sampler_view(res))
+                            sviews.push(q.device.helper_ctx().create_sampler_view(res))
                         }
                     }
                 }
@@ -697,7 +697,7 @@ impl KernelRef for Arc<Kernel> {
                     local_size += *size as u32;
                 }
                 KernelArgValue::Sampler(sampler) => {
-                    samplers.push(q.context().create_sampler_state(&sampler.pipe()));
+                    samplers.push(q.device.helper_ctx().create_sampler_state(&sampler.pipe()));
                 }
                 KernelArgValue::None => {
                     assert!(
@@ -725,7 +725,7 @@ impl KernelRef for Arc<Kernel> {
                             .resource_create_buffer(buf.len() as u32)
                             .unwrap(),
                     );
-                    q.device.helper_ctx.buffer_subdata(
+                    q.device.helper_ctx().buffer_subdata(
                         &res,
                         0,
                         buf.as_ptr().cast(),
@@ -746,13 +746,17 @@ impl KernelRef for Arc<Kernel> {
                     printf_buf = Some(buf);
                 }
                 InternalKernelArgType::InlineSampler(cl) => {
-                    samplers.push(q.context().create_sampler_state(&Sampler::cl_to_pipe(cl)));
+                    samplers.push(
+                        q.device
+                            .helper_ctx()
+                            .create_sampler_state(&Sampler::cl_to_pipe(cl)),
+                    );
                 }
             }
         }
 
         let k = self.clone();
-        Ok(Box::new(move |q| {
+        Ok(Box::new(move |q, ctx| {
             let nir = k.nirs.get(&q.device).unwrap();
             let mut input = input.clone();
             let mut resources = Vec::with_capacity(resource_info.len());
@@ -769,45 +773,36 @@ impl KernelRef for Arc<Kernel> {
 
             if let Some(printf_buf) = &printf_buf {
                 let init_data: [u8; 1] = [4];
-                q.context().clear_buffer(&printf_buf, &[0], 0, printf_size);
-                q.context().buffer_subdata(
+                ctx.clear_buffer(&printf_buf, &[0], 0, printf_size);
+                ctx.buffer_subdata(
                     &printf_buf,
                     0,
                     init_data.as_ptr().cast(),
                     init_data.len() as u32,
                 );
             }
-            let cso = q
-                .context()
-                .create_compute_state(nir, input.len() as u32, local_size);
+            let cso = ctx.create_compute_state(nir, input.len() as u32, local_size);
 
-            q.context().bind_compute_state(cso);
-            q.context().bind_sampler_states(&samplers);
-            q.context().set_sampler_views(&mut sviews);
-            q.context().set_shader_images(&iviews);
-            q.context()
-                .set_global_binding(resources.as_slice(), &mut globals);
+            ctx.bind_compute_state(cso);
+            ctx.bind_sampler_states(&samplers);
+            ctx.set_sampler_views(&mut sviews);
+            ctx.set_shader_images(&iviews);
+            ctx.set_global_binding(resources.as_slice(), &mut globals);
 
-            q.context().launch_grid(work_dim, block, grid, &input);
+            ctx.launch_grid(work_dim, block, grid, &input);
 
-            q.context().clear_global_binding(globals.len() as u32);
-            q.context().clear_shader_images(iviews.len() as u32);
-            q.context().clear_sampler_views(sviews.len() as u32);
-            q.context().clear_sampler_states(samplers.len() as u32);
-            q.context().delete_compute_state(cso);
-            q.context().memory_barrier(PIPE_BARRIER_GLOBAL_BUFFER);
+            ctx.clear_global_binding(globals.len() as u32);
+            ctx.clear_shader_images(iviews.len() as u32);
+            ctx.clear_sampler_views(sviews.len() as u32);
+            ctx.clear_sampler_states(samplers.len() as u32);
+            ctx.delete_compute_state(cso);
+            ctx.memory_barrier(PIPE_BARRIER_GLOBAL_BUFFER);
 
-            samplers
-                .iter()
-                .for_each(|s| q.context().delete_sampler_state(*s));
-            sviews
-                .iter()
-                .for_each(|v| q.context().sampler_view_destroy(*v));
+            samplers.iter().for_each(|s| ctx.delete_sampler_state(*s));
+            sviews.iter().for_each(|v| ctx.sampler_view_destroy(*v));
 
             if let Some(printf_buf) = &printf_buf {
-                let tx = q
-                    .context()
-                    .buffer_map(&printf_buf, 0, printf_size as i32, true);
+                let tx = ctx.buffer_map(&printf_buf, 0, printf_size as i32, true);
                 let mut buf: &[u8] =
                     unsafe { slice::from_raw_parts(tx.ptr().cast(), printf_size as usize) };
                 let length = u32::from_ne_bytes(*extract(&mut buf));

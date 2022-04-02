@@ -27,7 +27,7 @@ static_assert!(CL_RUNNING == 1);
 static_assert!(CL_SUBMITTED == 2);
 static_assert!(CL_QUEUED == 3);
 
-pub type EventSig = Box<dyn Fn(&Arc<Queue>) -> CLResult<()>>;
+pub type EventSig = Box<dyn Fn(&Arc<Queue>, &Arc<PipeContext>) -> CLResult<()>>;
 
 struct EventMutState {
     status: cl_int,
@@ -161,7 +161,7 @@ impl Event {
     // We always assume that work here simply submits stuff to the hardware even if it's just doing
     // sw emulation or nothing at all.
     // If anything requets waiting, we will update the status through fencing later.
-    pub fn call(&self) -> cl_int {
+    pub fn call(&self, ctx: &Arc<PipeContext>) -> cl_int {
         let mut lock = self.state();
         let status = lock.status;
         if status == CL_QUEUED as cl_int {
@@ -169,12 +169,12 @@ impl Event {
                 // if there is no work
                 CL_SUBMITTED as cl_int,
                 |w| {
-                    let res = w(&self.queue.as_ref().unwrap()).err().map_or(
+                    let res = w(&self.queue.as_ref().unwrap(), ctx).err().map_or(
                         // if there is an error, negate it
                         CL_SUBMITTED as cl_int,
                         |e| e,
                     );
-                    lock.fence = Some(self.queue.as_ref().unwrap().context().flush());
+                    lock.fence = Some(ctx.flush());
                     res
                 },
             );
