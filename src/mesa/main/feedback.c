@@ -649,8 +649,8 @@ _mesa_RenderMode( GLenum mode )
 	 return 0;
    }
 
-   ctx->RenderMode = mode;
    st_RenderMode( ctx, mode );
+   ctx->RenderMode = mode;
 
    return result;
 }
