@@ -493,6 +493,12 @@ agxdecode_cmdstream(unsigned cmdbuf_handle, unsigned map_handle, bool verbose)
             "Depth clear pipeline", agxdecode_pipeline, verbose);
    }
 
+   assert((clearzs.depth_store_pipeline_unk & 0xF) == 0x4);
+   if (clearzs.depth_store_pipeline) {
+      agxdecode_stateful(clearzs.depth_store_pipeline,
+            "Depth store pipeline", agxdecode_pipeline, verbose);
+   }
+
    agxdecode_map_read_write();
 }
 
