@@ -229,7 +229,7 @@ demo_cmdbuf(uint64_t *buf, size_t size,
    agx_pack(map + 292, IOGPU_CLEAR_Z_S, cfg) {
       cfg.depth_clear_value = fui(clear_depth);
       cfg.stencil_clear_value = clear_stencil;
-      cfg.unk_pipeline = pipeline_null | 0x4;
+      cfg.depth_clear_pipeline = pipeline_null | 0x4;
       cfg.unk_pipeline_2 = pipeline_store | 0x4;
    }
 
