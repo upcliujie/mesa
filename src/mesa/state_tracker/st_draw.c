@@ -42,6 +42,7 @@
 #include "main/bufferobj.h"
 #include "main/macros.h"
 #include "main/varray.h"
+#include "main/context.h"
 
 #include "compiler/glsl/ir_uniform.h"
 
@@ -182,6 +183,10 @@ st_draw_gallium(struct gl_context *ctx,
    if (!prepare_indexed_draw(st, ctx, info, draws, num_draws))
       return;
 
+   if (!st_draw_hw_select_prepare_common(ctx) ||
+       !st_draw_hw_select_prepare_mode(ctx, info))
+      return;
+
    cso_multi_draw(st->cso_context, info, drawid_offset, draws, num_draws);
 }
 
@@ -199,6 +204,9 @@ st_draw_gallium_multimode(struct gl_context *ctx,
    if (!prepare_indexed_draw(st, ctx, info, draws, num_draws))
       return;
 
+   if (!st_draw_hw_select_prepare_common(ctx))
+      return;
+
    unsigned i, first;
    struct cso_context *cso = st->cso_context;
 
@@ -206,7 +214,10 @@ st_draw_gallium_multimode(struct gl_context *ctx,
    for (i = 0, first = 0; i <= num_draws; i++) {
       if (i == num_draws || mode[i] != mode[first]) {
          info->mode = mode[first];
-         cso_multi_draw(cso, info, 0, &draws[first], i - first);
+
+         if (st_draw_hw_select_prepare_mode(ctx, info))
+            cso_multi_draw(cso, info, 0, &draws[first], i - first);
+
          first = i;
 
          /* We can pass the reference only once. st_buffer_object keeps

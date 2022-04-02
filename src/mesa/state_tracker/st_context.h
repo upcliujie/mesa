@@ -382,6 +382,8 @@ struct st_context
       struct st_zombie_shader_node list;
       simple_mtx_t mutex;
    } zombie_shaders;
+
+   struct hash_table *hw_select_shaders;
 };
 
 
