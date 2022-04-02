@@ -479,8 +479,12 @@ impl Kernel {
                             .resource_create_buffer(buf.len() as u32)
                             .unwrap(),
                     );
-                    q.context()
-                        .buffer_subdata(&res, 0, buf.as_ptr().cast(), buf.len() as u32);
+                    q.device.helper_ctx().buffer_subdata(
+                        &res,
+                        0,
+                        buf.as_ptr().cast(),
+                        buf.len() as u32,
+                    );
                     resource_info.push((Some(res), arg.offset));
                 }
                 InternalKernelArgType::GlobalWorkOffsets => {
@@ -499,7 +503,7 @@ impl Kernel {
         }
 
         let k = self.clone();
-        Ok(Box::new(move |q| {
+        Ok(Box::new(move |q, ctx| {
             let nir = k.nirs.get(&q.device).unwrap();
             let mut input = input.clone();
             let mut resources = Vec::with_capacity(resource_info.len());
@@ -514,29 +518,24 @@ impl Kernel {
 
             if let Some(printf_buf) = &printf_buf {
                 let init_data: [u8; 1] = [4];
-                q.context().buffer_subdata(
+                ctx.buffer_subdata(
                     &printf_buf,
                     0,
                     init_data.as_ptr().cast(),
                     init_data.len() as u32,
                 );
             }
-            let cso = q
-                .context()
-                .create_compute_state(nir, input.len() as u32, local_size);
+            let cso = ctx.create_compute_state(nir, input.len() as u32, local_size);
 
-            q.context().bind_compute_state(cso);
-            q.context()
-                .set_global_binding(resources.as_slice(), &mut globals);
-            q.context().launch_grid(work_dim, block, grid, &input);
-            q.context().clear_global_binding(globals.len() as u32);
-            q.context().delete_compute_state(cso);
-            q.context().memory_barrier(PIPE_BARRIER_GLOBAL_BUFFER);
+            ctx.bind_compute_state(cso);
+            ctx.set_global_binding(resources.as_slice(), &mut globals);
+            ctx.launch_grid(work_dim, block, grid, &input);
+            ctx.clear_global_binding(globals.len() as u32);
+            ctx.delete_compute_state(cso);
+            ctx.memory_barrier(PIPE_BARRIER_GLOBAL_BUFFER);
 
             if let Some(printf_buf) = &printf_buf {
-                let tx = q
-                    .context()
-                    .buffer_map(&printf_buf, 0, printf_size as i32, true);
+                let tx = ctx.buffer_map(&printf_buf, 0, printf_size as i32, true);
                 let mut buf: &[u8] =
                     unsafe { slice::from_raw_parts(tx.ptr().cast(), printf_size as usize) };
                 let length = u32::from_ne_bytes(*extract(&mut buf));
