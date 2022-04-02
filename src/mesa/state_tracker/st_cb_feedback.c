@@ -316,4 +316,8 @@ st_RenderMode(struct gl_context *ctx, GLenum newMode )
       if (vp)
          st->dirty |= ST_NEW_VERTEX_PROGRAM(st, vp);
    }
+
+   /* Restore geometry shader states when leaving GL_SELECT mode. */
+   if (ctx->RenderMode == GL_SELECT && ctx->Const.HardwareAcceleratedSelect)
+      st->dirty |= ST_NEW_GS_SSBOS | ST_NEW_GS_CONSTANTS | ST_NEW_GS_STATE;
 }
