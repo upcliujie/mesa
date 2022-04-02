@@ -67,7 +67,7 @@ vc4-rpi3-piglit-quick_shader:armhf:
     - .use-debian/arm_test
   variables:
     HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
-    BM_BOOTFS: /boot/raspberrypi_armhf
+    BM_BOOTFS: https://people.igalia.com/itoral/pi.5.16.12.multisync.tgz
     BM_POE_TIMEOUT: 300
     FLAKES_CHANNEL: "#videocore-ci"
     GPU_VERSION: broadcom-rpi4
