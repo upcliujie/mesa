@@ -12,6 +12,7 @@ use crate::core::format::*;
 use crate::core::queue::*;
 use crate::impl_cl_type_trait;
 
+use self::mesa_rust::pipe::context::*;
 use self::mesa_rust::pipe::resource::*;
 use self::mesa_rust::pipe::transfer::*;
 use self::mesa_rust_gen::*;
@@ -209,7 +210,7 @@ impl Mem {
             for (d, r) in &buffer {
                 unsafe {
                     (**d)
-                        .helper_ctx
+                        .helper_ctx()
                         .buffer_subdata(r, 0, host_ptr, size.try_into().unwrap());
                 }
             }
@@ -313,7 +314,7 @@ impl Mem {
             for (d, r) in &texture {
                 unsafe {
                     (**d)
-                        .helper_ctx
+                        .helper_ctx()
                         .texture_subdata(r, &bx, host_ptr, stride, layer_stride);
                 }
             }
@@ -351,6 +352,7 @@ impl Mem {
     fn tx(
         &self,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         mut offset: usize,
         size: usize,
         blocking: bool,
@@ -360,7 +362,7 @@ impl Mem {
 
         assert!(self.is_buffer());
 
-        Ok(q.context().buffer_map(
+        Ok(ctx.buffer_map(
             r,
             offset.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?,
             size.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?,
@@ -368,11 +370,17 @@ impl Mem {
         ))
     }
 
-    fn tx_image(&self, q: &Arc<Queue>, bx: &pipe_box, blocking: bool) -> CLResult<PipeTransfer> {
+    fn tx_image(
+        &self,
+        q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
+        bx: &pipe_box,
+        blocking: bool,
+    ) -> CLResult<PipeTransfer> {
         assert!(!self.is_buffer());
 
         let r = self.get_res()?.get(&Arc::as_ptr(&q.device)).unwrap();
-        Ok(q.context().texture_map(r, bx, blocking))
+        Ok(ctx.texture_map(r, bx, blocking))
     }
 
     pub fn has_same_parent(&self, other: &Self) -> bool {
@@ -406,13 +414,14 @@ impl Mem {
     pub fn read_to_user(
         &self,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         offset: usize,
         ptr: *mut c_void,
         size: usize,
     ) -> CLResult<()> {
         assert!(self.is_buffer());
 
-        let tx = self.tx(q, offset, size, true)?;
+        let tx = self.tx(q, ctx, offset, size, true)?;
 
         unsafe {
             ptr::copy_nonoverlapping(tx.ptr(), ptr, size);
@@ -424,6 +433,7 @@ impl Mem {
     pub fn write_from_user(
         &self,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         mut offset: usize,
         ptr: *const c_void,
         size: usize,
@@ -432,7 +442,7 @@ impl Mem {
 
         let b = self.to_parent(&mut offset);
         let r = b.get_res()?.get(&Arc::as_ptr(&q.device)).unwrap();
-        q.context().buffer_subdata(
+        ctx.buffer_subdata(
             r,
             offset.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?,
             ptr,
@@ -444,6 +454,7 @@ impl Mem {
     pub fn copy_to(
         &self,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         dst: &Arc<Mem>,
         mut src_origin: CLVec<usize>,
         mut dst_origin: CLVec<usize>,
@@ -461,8 +472,13 @@ impl Mem {
 
             if self.is_buffer() {
                 let bpp = dst.image_format.pixel_size().unwrap() as usize;
-                tx_src = self.tx(q, src_origin[0], region.pixels() * bpp, true)?;
-                tx_dst = dst.tx_image(q, &create_box(&dst_origin, &region, dst.mem_type)?, true)?;
+                tx_src = self.tx(q, ctx, src_origin[0], region.pixels() * bpp, true)?;
+                tx_dst = dst.tx_image(
+                    q,
+                    ctx,
+                    &create_box(&dst_origin, &region, dst.mem_type)?,
+                    true,
+                )?;
 
                 sw_copy(
                     tx_src.ptr(),
@@ -478,9 +494,13 @@ impl Mem {
                 )
             } else {
                 let bpp = self.image_format.pixel_size().unwrap() as usize;
-                tx_src =
-                    self.tx_image(q, &create_box(&src_origin, &region, self.mem_type)?, true)?;
-                tx_dst = dst.tx(q, dst_origin[0], region.pixels() * bpp, true)?;
+                tx_src = self.tx_image(
+                    q,
+                    ctx,
+                    &create_box(&src_origin, &region, self.mem_type)?,
+                    true,
+                )?;
+                tx_dst = dst.tx(q, ctx, dst_origin[0], region.pixels() * bpp, true)?;
 
                 sw_copy(
                     tx_src.ptr(),
@@ -503,8 +523,7 @@ impl Mem {
                 (dst_origin[1], dst_origin[2]) = (dst_origin[2], dst_origin[1]);
             }
 
-            q.context()
-                .resource_copy_region(src_res, dst_res, &dst_origin, &bx);
+            ctx.resource_copy_region(src_res, dst_res, &dst_origin, &bx);
         }
         Ok(())
     }
@@ -512,6 +531,7 @@ impl Mem {
     pub fn fill(
         &self,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         pattern: &[u8],
         mut offset: usize,
         size: usize,
@@ -520,7 +540,7 @@ impl Mem {
 
         let b = self.to_parent(&mut offset);
         let res = b.get_res()?.get(&Arc::as_ptr(&q.device)).unwrap();
-        q.context().clear_buffer(
+        ctx.clear_buffer(
             res,
             pattern,
             offset.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?,
@@ -532,6 +552,7 @@ impl Mem {
     pub fn fill_image(
         &self,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         pattern: &[u32],
         origin: &CLVec<usize>,
         region: &CLVec<usize>,
@@ -551,7 +572,7 @@ impl Mem {
             );
         }
 
-        q.context().clear_texture(res, &new_pattern, &bx);
+        ctx.clear_texture(res, &new_pattern, &bx);
 
         Ok(())
     }
@@ -560,6 +581,7 @@ impl Mem {
         &self,
         src: *const c_void,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -569,7 +591,7 @@ impl Mem {
         dst_slice_pitch: usize,
     ) -> CLResult<()> {
         if self.is_buffer() {
-            let tx = self.tx(q, 0, self.size, true)?;
+            let tx = self.tx(q, ctx, 0, self.size, true)?;
             sw_copy(
                 src,
                 tx.ptr(),
@@ -594,7 +616,7 @@ impl Mem {
                 src_slice_pitch = src_row_pitch;
             }
 
-            q.context().texture_subdata(
+            ctx.texture_subdata(
                 &res,
                 &bx,
                 src,
@@ -613,6 +635,7 @@ impl Mem {
         &self,
         dst: *mut c_void,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         mut src_row_pitch: usize,
@@ -625,13 +648,13 @@ impl Mem {
         let pixel_size;
 
         if self.is_buffer() {
-            tx = self.tx(q, 0, self.size, true)?;
+            tx = self.tx(q, ctx, 0, self.size, true)?;
             pixel_size = 1;
         } else {
             assert!(dst_origin == &CLVec::default());
 
             let bx = create_box(src_origin, region, self.mem_type)?;
-            tx = self.tx_image(q, &bx, true)?;
+            tx = self.tx_image(q, ctx, &bx, true)?;
             src_row_pitch = tx.row_pitch() as usize;
             src_slice_pitch = tx.slice_pitch() as usize;
 
@@ -656,6 +679,7 @@ impl Mem {
         &self,
         dst: &Self,
         q: &Arc<Queue>,
+        ctx: &Arc<PipeContext>,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -667,8 +691,8 @@ impl Mem {
         assert!(self.is_buffer());
         assert!(dst.is_buffer());
 
-        let tx_src = self.tx(q, 0, self.size, true)?;
-        let tx_dst = dst.tx(q, 0, self.size, true)?;
+        let tx_src = self.tx(q, ctx, 0, self.size, true)?;
+        let tx_dst = dst.tx(q, ctx, 0, self.size, true)?;
 
         // TODO check to use hw accelerated paths (e.g. resource_copy_region or blits)
         Ok(sw_copy(
@@ -694,7 +718,7 @@ impl Mem {
     ) -> CLResult<*mut c_void> {
         assert!(self.is_buffer());
 
-        let tx = self.tx(q, offset, size, block)?;
+        let tx = self.tx(q, &q.device.helper_ctx(), offset, size, block)?;
         let ptr = tx.ptr();
 
         let mut lock = self.maps.lock().unwrap();
@@ -720,7 +744,7 @@ impl Mem {
         block: bool,
     ) -> CLResult<*mut c_void> {
         let bx = create_box(origin, region, self.mem_type)?;
-        let tx = self.tx_image(q, &bx, block)?;
+        let tx = self.tx_image(q, &q.device.helper_ctx(), &bx, block)?;
         let ptr = tx.ptr();
 
         *row_pitch = tx.row_pitch() as usize;
