@@ -148,11 +148,15 @@ void r600_bytecode_init(struct r600_bytecode *bc,
 	if ((chip_class == R600) &&
 	    (family != CHIP_RV670 && family != CHIP_RS780 && family != CHIP_RS880)) {
 		bc->ar_handling = AR_HANDLE_RV6XX;
-		bc->r6xx_nop_after_rel_dst = 1;
 	} else {
 		bc->ar_handling = AR_HANDLE_NORMAL;
-		bc->r6xx_nop_after_rel_dst = 0;
 	}
+	/* This used to be set only in the AR_HANDLE_RV6XX case (r600, rv610,
+	 * rv630), but we don't have anything else ensuring that the read of a
+	 * tmp array write has landed besides emitting a NOP.  We could do
+	 * better by checking if any of the sources are in the same temp array.
+	 */
+	bc->r6xx_nop_after_rel_dst = 1;
 
 	list_inithead(&bc->cf);
 	bc->chip_class = chip_class;
