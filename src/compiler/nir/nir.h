@@ -4691,13 +4691,28 @@ bool nir_lower_explicit_io(nir_shader *shader,
                            nir_variable_mode modes,
                            nir_address_format);
 
-bool
-nir_lower_shader_calls(nir_shader *shader,
-                       nir_address_format address_format,
-                       unsigned stack_alignment,
-                       nir_shader ***resume_shaders_out,
-                       uint32_t *num_resume_shaders_out,
-                       void *mem_ctx);
+typedef bool (*nir_split_instr_cb)(nir_instr *instr);
+typedef void (*nir_split_rewrite_instr_cb)(struct nir_builder *b,
+                                           nir_instr *instr,
+                                           unsigned call_idx,
+                                           unsigned offset,
+                                           void *data);
+
+bool nir_lower_shader_split(nir_shader *shader,
+                            nir_split_instr_cb split_instr_cb,
+                            nir_split_rewrite_instr_cb rewrite_instr_cb,
+                            void *rewrite_instr_data,
+                            nir_address_format address_format,
+                            unsigned stack_alignment,
+                            unsigned *num_splits_out);
+nir_instr *nir_shader_call_lower_resume(nir_function_impl *shader, int call_idx);
+
+bool nir_lower_shader_calls(nir_shader *shader,
+                            nir_address_format address_format,
+                            unsigned stack_alignment,
+                            nir_shader ***resume_shaders_out,
+                            uint32_t *num_resume_shaders_out,
+                            void *mem_ctx);
 
 nir_src *nir_get_io_offset_src(nir_intrinsic_instr *instr);
 nir_src *nir_get_io_arrayed_index_src(nir_intrinsic_instr *instr);

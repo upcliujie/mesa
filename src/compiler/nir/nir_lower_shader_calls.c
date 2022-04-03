@@ -66,18 +66,6 @@ move_system_values_to_top(nir_shader *shader)
    return progress;
 }
 
-static bool
-instr_is_shader_call(nir_instr *instr)
-{
-   if (instr->type != nir_instr_type_intrinsic)
-      return false;
-
-   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
-   return intrin->intrinsic == nir_intrinsic_trace_ray ||
-          intrin->intrinsic == nir_intrinsic_report_ray_intersection ||
-          intrin->intrinsic == nir_intrinsic_execute_callable;
-}
-
 /* Previously named bitset, it had to be renamed as FreeBSD defines a struct
  * named bitset in sys/_bitset.h required by pthread_np.h which is included
  * from src/util/u_thread.h that is indirectly included by this file.
@@ -294,7 +282,11 @@ spill_fill(nir_builder *before, nir_builder *after, nir_ssa_def *def, unsigned o
 }
 
 static void
-spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
+spill_ssa_defs_and_lower_shader_calls(nir_shader *shader,
+                                      nir_split_instr_cb split_instr_cb,
+                                      nir_split_rewrite_instr_cb rewrite_instr_cb,
+                                      void *rewrite_instr_data,
+                                      uint32_t num_calls,
                                       nir_address_format address_format,
                                       unsigned stack_alignment)
 {
@@ -354,7 +346,7 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
    unsigned call_idx = 0;
    nir_foreach_block(block, impl) {
       nir_foreach_instr(instr, block) {
-         if (!instr_is_shader_call(instr))
+         if (!split_instr_cb(instr))
             continue;
 
          call_block_indices[call_idx] = block->index;
@@ -391,7 +383,7 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
             }
          }
 
-         if (!instr_is_shader_call(instr))
+         if (!split_instr_cb(instr))
             continue;
 
          const BITSET_WORD *live = call_live[call_idx];
@@ -465,39 +457,8 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
          offset = ALIGN(offset, stack_alignment);
          max_scratch_size = MAX2(max_scratch_size, offset);
 
-         /* First thing on the called shader's stack is the resume address
-          * followed by a pointer to the payload.
-          */
-         nir_intrinsic_instr *call = nir_instr_as_intrinsic(instr);
-
-         /* Lower to generic intrinsics with information about the stack & resume shader. */
-         switch (call->intrinsic) {
-         case nir_intrinsic_trace_ray: {
-            nir_rt_trace_ray(b, call->src[0].ssa, call->src[1].ssa,
-                              call->src[2].ssa, call->src[3].ssa,
-                              call->src[4].ssa, call->src[5].ssa,
-                              call->src[6].ssa, call->src[7].ssa,
-                              call->src[8].ssa, call->src[9].ssa,
-                              call->src[10].ssa,
-                              .call_idx = call_idx, .stack_size = offset);
-            break;
-         }
-
-         case nir_intrinsic_report_ray_intersection:
-            unreachable("Any-hit shaders must be inlined");
-
-         case nir_intrinsic_execute_callable: {
-            nir_rt_execute_callable(b, call->src[0].ssa, call->src[1].ssa, .call_idx = call_idx, .stack_size = offset);
-            break;
-         }
-
-         default:
-            unreachable("Invalid shader call instruction");
-         }
-
-         nir_rt_resume(b, .call_idx = call_idx, .stack_size = offset);
-
-         nir_instr_remove(&call->instr);
+         /* Let the caller lower/rewrite the instruction if it needs to */
+         rewrite_instr_cb(b, instr, call_idx, offset, rewrite_instr_data);
 
          call_idx++;
       }
@@ -1036,20 +997,19 @@ found_resume:
    return true;
 }
 
-static nir_instr *
-lower_resume(nir_shader *shader, int call_idx)
+nir_instr *
+nir_shader_call_lower_resume(nir_function_impl *impl, int call_idx)
 {
-   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
-
    nir_instr *resume_instr = find_resume_instr(impl, call_idx);
 
    if (duplicate_loop_bodies(impl, resume_instr)) {
-      nir_validate_shader(shader, "after duplicate_loop_bodies in "
-                                  "brw_nir_lower_shader_calls");
+      nir_validate_shader(impl->function->shader,
+                          "after duplicate_loop_bodies in "
+                          "nir_lower_shader_calls");
       /* If we duplicated the bodies of any loops, run regs_to_ssa to get rid
        * of all those pesky registers we just added.
        */
-      NIR_PASS_V(shader, nir_lower_regs_to_ssa);
+      NIR_PASS_V(impl->function->shader, nir_lower_regs_to_ssa);
    }
 
    /* Re-index nir_ssa_def::index.  We don't care about actual liveness in
@@ -1060,7 +1020,7 @@ lower_resume(nir_shader *shader, int call_idx)
     */
    nir_index_ssa_defs(impl);
 
-   void *mem_ctx = ralloc_context(shader);
+   void *mem_ctx = ralloc_context(impl->function->shader);
 
    /* Used to track which things may have been assumed to be re-materialized
     * by the spilling pass and which we shouldn't delete.
@@ -1085,8 +1045,9 @@ lower_resume(nir_shader *shader, int call_idx)
 
    ralloc_free(mem_ctx);
 
-   nir_validate_shader(shader, "after flatten_resume_if_ladder in "
-                               "brw_nir_lower_shader_calls");
+   nir_validate_shader(impl->function->shader,
+                       "after flatten_resume_if_ladder in "
+                       "nir_lower_shader_calls");
 
    nir_metadata_preserve(impl, nir_metadata_none);
 
@@ -1130,6 +1091,110 @@ replace_resume_with_halt(nir_shader *shader, nir_instr *keep)
    }
 }
 
+bool
+nir_lower_shader_split(nir_shader *shader,
+                       nir_split_instr_cb split_instr_cb,
+                       nir_split_rewrite_instr_cb rewrite_instr_cb,
+                       void *rewrite_instr_data,
+                       nir_address_format address_format,
+                       unsigned stack_alignment,
+                       unsigned *num_splits_out)
+{
+   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
+
+   nir_builder b;
+   nir_builder_init(&b, impl);
+
+   int num_calls = 0;
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr_safe(instr, block) {
+         if (split_instr_cb(instr))
+            num_calls++;
+      }
+   }
+
+   if (num_calls == 0) {
+      nir_shader_preserve_all_metadata(shader);
+      *num_splits_out = 0;
+      return false;
+   }
+
+   /* Some intrinsics not only can't be re-materialized but aren't preserved
+    * when moving to the continuation shader.  We have to move them to the top
+    * to ensure they get spilled as needed.
+    */
+   {
+      bool progress = false;
+      NIR_PASS(progress, shader, move_system_values_to_top);
+      if (progress)
+         NIR_PASS(progress, shader, nir_opt_cse);
+   }
+
+   NIR_PASS_V(shader, spill_ssa_defs_and_lower_shader_calls,
+              split_instr_cb, rewrite_instr_cb, rewrite_instr_data,
+              num_calls, address_format, stack_alignment);
+
+   nir_opt_remove_phis(shader);
+
+   *num_splits_out = num_calls;
+
+   return true;
+}
+
+static bool
+instr_is_shader_call(nir_instr *instr)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+   return intrin->intrinsic == nir_intrinsic_trace_ray ||
+          intrin->intrinsic == nir_intrinsic_report_ray_intersection ||
+          intrin->intrinsic == nir_intrinsic_execute_callable;
+}
+
+static void
+instr_rewrite_shader_call(struct nir_builder *b,
+                          nir_instr *instr,
+                          unsigned call_idx,
+                          unsigned offset,
+                          void *data)
+{
+   /* First thing on the called shader's stack is the resume address followed
+    * by a pointer to the payload.
+    */
+   nir_intrinsic_instr *call = nir_instr_as_intrinsic(instr);
+
+   /* Lower to generic intrinsics with information about the stack & resume shader. */
+   switch (call->intrinsic) {
+   case nir_intrinsic_trace_ray: {
+      nir_rt_trace_ray(b, call->src[0].ssa, call->src[1].ssa,
+                       call->src[2].ssa, call->src[3].ssa,
+                       call->src[4].ssa, call->src[5].ssa,
+                       call->src[6].ssa, call->src[7].ssa,
+                       call->src[8].ssa, call->src[9].ssa,
+                       call->src[10].ssa,
+                       .call_idx = call_idx, .stack_size = offset);
+      break;
+   }
+
+   case nir_intrinsic_report_ray_intersection:
+      unreachable("Any-hit shaders must be inlined");
+
+   case nir_intrinsic_execute_callable: {
+      nir_rt_execute_callable(b, call->src[0].ssa, call->src[1].ssa, .call_idx = call_idx, .stack_size = offset);
+      break;
+   }
+
+   default:
+      unreachable("Invalid shader call instruction");
+   }
+
+   nir_rt_resume(b, .call_idx = call_idx, .stack_size = offset);
+
+   nir_instr_remove(&call->instr);
+}
+
 /** Lower shader call instructions to split shaders.
  *
  * Shader calls can be split into an initial shader and a series of "resume"
@@ -1160,40 +1225,16 @@ nir_lower_shader_calls(nir_shader *shader,
                        uint32_t *num_resume_shaders_out,
                        void *mem_ctx)
 {
-   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
+   unsigned num_calls;
 
-   nir_builder b;
-   nir_builder_init(&b, impl);
-
-   int num_calls = 0;
-   nir_foreach_block(block, impl) {
-      nir_foreach_instr_safe(instr, block) {
-         if (instr_is_shader_call(instr))
-            num_calls++;
-      }
-   }
-
-   if (num_calls == 0) {
-      nir_shader_preserve_all_metadata(shader);
-      *num_resume_shaders_out = 0;
+   if (!nir_lower_shader_split(shader,
+                               instr_is_shader_call,
+                               instr_rewrite_shader_call,
+                               NULL /* rewrite_call_data */,
+                               address_format,
+                               stack_alignment,
+                               &num_calls))
       return false;
-   }
-
-   /* Some intrinsics not only can't be re-materialized but aren't preserved
-    * when moving to the continuation shader.  We have to move them to the top
-    * to ensure they get spilled as needed.
-    */
-   {
-      bool progress = false;
-      NIR_PASS(progress, shader, move_system_values_to_top);
-      if (progress)
-         NIR_PASS(progress, shader, nir_opt_cse);
-   }
-
-   NIR_PASS_V(shader, spill_ssa_defs_and_lower_shader_calls,
-              num_calls, address_format, stack_alignment);
-
-   nir_opt_remove_phis(shader);
 
    /* Make N copies of our shader */
    nir_shader **resume_shaders = ralloc_array(mem_ctx, nir_shader *, num_calls);
@@ -1210,7 +1251,9 @@ nir_lower_shader_calls(nir_shader *shader,
 
    replace_resume_with_halt(shader, NULL);
    for (unsigned i = 0; i < num_calls; i++) {
-      nir_instr *resume_instr = lower_resume(resume_shaders[i], i);
+      nir_instr *resume_instr =
+         nir_shader_call_lower_resume(
+            nir_shader_get_entrypoint(resume_shaders[i]), i);
       replace_resume_with_halt(resume_shaders[i], resume_instr);
       nir_opt_remove_phis(resume_shaders[i]);
       /* Remove the dummy blocks added by flatten_resume_if_ladder() */
