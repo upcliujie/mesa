@@ -410,7 +410,6 @@ spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat2-index-col-row-wr,F
 spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat2-index-col-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat2-index-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat2-index-wr,Fail
-spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat2-row-rd,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat2-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat2-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat3-col-row-wr,Fail
@@ -431,7 +430,6 @@ spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat4-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat4-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat2-col-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat2-col-wr,Fail
-spec@glsl-1.10@execution@variable-indexing@fs-temp-mat2-row-rd,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat2-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat2-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat3-col-row-wr,Fail
@@ -505,7 +503,6 @@ spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat2-index-col-row-wr,F
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat2-index-col-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat2-index-row-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat2-index-wr,Fail
-spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat2-row-rd,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat2-row-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat2-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat3-col-row-wr,Fail
@@ -526,7 +523,6 @@ spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat4-row-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat4-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-mat2-col-row-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-mat2-col-wr,Fail
-spec@glsl-1.20@execution@variable-indexing@fs-temp-mat2-row-rd,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-mat2-row-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-mat2-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-mat3-col-row-wr,Fail
