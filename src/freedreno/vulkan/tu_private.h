@@ -267,6 +267,7 @@ enum tu_debug_flags
    TU_DEBUG_DONT_CARE_AS_LOAD = 1 << 12,
    TU_DEBUG_GMEM = 1 << 13,
    TU_DEBUG_RAST_ORDER = 1 << 14,
+   TU_DEBUG_PROFILE_AUTOTUNE = 1 << 15,
 };
 
 struct tu_instance
@@ -1181,9 +1182,11 @@ struct tu_cmd_buffer
    struct u_trace trace;
    struct u_trace_iterator trace_renderpass_start;
    struct u_trace_iterator trace_renderpass_end;
+   bool skip_tracepoints_in_renderpass;
 
    struct list_head renderpass_autotune_results;
    struct tu_autotune_results_buffer* autotune_buffer;
+   uint64_t dbg_renderpass_hash;
 
    VkCommandBufferUsageFlags usage_flags;
    enum tu_cmd_buffer_status status;

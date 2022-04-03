@@ -335,6 +335,7 @@ static const struct debug_control tu_debug_options[] = {
    { "syncdraw", TU_DEBUG_SYNCDRAW },
    { "dontcare_as_load", TU_DEBUG_DONT_CARE_AS_LOAD },
    { "rast_order", TU_DEBUG_RAST_ORDER },
+   { "profile_autotune", TU_DEBUG_PROFILE_AUTOTUNE},
    { NULL, 0 }
 };
 

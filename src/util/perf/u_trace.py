@@ -53,6 +53,8 @@ class Tracepoint(object):
         self.args = args
         if tp_struct is None:
            tp_struct = args
+        else:
+           tp_struct += [x for x in args if isinstance(x, TracepointArg)]
         self.tp_struct = tp_struct
         self.tp_print = tp_print
         self.tp_perfetto = tp_perfetto

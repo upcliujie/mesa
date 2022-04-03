@@ -592,9 +592,6 @@ static bool
 use_sysmem_rendering(struct tu_cmd_buffer *cmd,
                      struct tu_renderpass_result **autotune_result)
 {
-   if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_SYSMEM))
-      return true;
-
    /* can't fit attachments into gmem */
    if (!cmd->state.pass->gmem_pixels)
       return true;
@@ -617,14 +614,17 @@ use_sysmem_rendering(struct tu_cmd_buffer *cmd,
    if (cmd->state.xfb_used && !is_hw_binning_possible(cmd->state.framebuffer))
       return true;
 
-   if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_GMEM))
-      return false;
-
    bool use_sysmem = tu_autotune_use_bypass(&cmd->device->autotune,
                                             cmd, autotune_result);
    if (*autotune_result) {
       list_addtail(&(*autotune_result)->node, &cmd->renderpass_autotune_results);
    }
+
+   if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_SYSMEM))
+      return true;
+
+   if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_GMEM))
+      return false;
 
    return use_sysmem;
 }
@@ -1378,6 +1378,47 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 }
 
 static void
+tu_trace_end_render_pass(struct tu_cmd_buffer *cmd)
+{
+   if (!u_trace_context_instrumenting(&cmd->device->trace_context))
+      return;
+
+   const struct tu_framebuffer *fb = cmd->state.framebuffer;
+   uint32_t loadCPP = 0;
+   uint32_t storeCPP = 0;
+   uint32_t clearCPP = 0;
+   for (uint32_t i = 0; i < cmd->state.pass->attachment_count; ++i) {
+      const struct tu_render_pass_attachment *attachment =
+         &cmd->state.pass->attachments[i];
+      if (attachment->load) {
+         loadCPP += attachment->cpp;
+      }
+
+      if (attachment->store) {
+         storeCPP += attachment->cpp;
+      }
+
+      if (attachment->clear_mask) {
+         clearCPP += attachment->cpp;
+      }
+   }
+
+   uint32_t max_samples = 0;
+   for (unsigned i = 0; i < cmd->state.pass->subpass_count; i++) {
+      max_samples = MAX2(max_samples, cmd->state.pass->subpasses[i].samples);
+   }
+
+   if (cmd->skip_tracepoints_in_renderpass) {
+      cmd->trace.enabled = true;
+   }
+
+   trace_end_render_pass(&cmd->trace, &cmd->cs, fb, cmd->dbg_renderpass_hash,
+                         max_samples, clearCPP, loadCPP, storeCPP,
+                         cmd->state.drawcall_count,
+                         cmd->state.total_drawcalls_cost);
+}
+
+static void
 tu_cmd_render_tiles(struct tu_cmd_buffer *cmd,
                     struct tu_renderpass_result *autotune_result)
 {
@@ -1407,7 +1448,7 @@ tu_cmd_render_tiles(struct tu_cmd_buffer *cmd,
 
    tu6_tile_render_end(cmd, &cmd->cs, autotune_result);
 
-   trace_end_render_pass(&cmd->trace, &cmd->cs, fb);
+   tu_trace_end_render_pass(cmd);
 
    if (!u_trace_iterator_equal(cmd->trace_renderpass_start, cmd->trace_renderpass_end))
       u_trace_disable_event_range(cmd->trace_renderpass_start,
@@ -1428,7 +1469,7 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd,
 
    tu6_sysmem_render_end(cmd, &cmd->cs, autotune_result);
 
-   trace_end_render_pass(&cmd->trace, &cmd->cs, cmd->state.framebuffer);
+   tu_trace_end_render_pass(cmd);
 }
 
 static VkResult
@@ -3306,6 +3347,14 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
 
    trace_start_render_pass(&cmd->trace, &cmd->cs);
 
+   if (unlikely(cmd->device->instance->debug_flags & TU_DEBUG_PROFILE_AUTOTUNE)) {
+      /* We don't want measure anything inside th renderpass
+       * if we are gathering autotune stats.
+       */
+      cmd->skip_tracepoints_in_renderpass = cmd->trace.enabled;
+      cmd->trace.enabled = false;
+   }
+
    /* Note: because this is external, any flushes will happen before draw_cs
     * gets called. However deferred flushes could have to happen later as part
     * of the subpass.
@@ -4561,6 +4610,11 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
    tu_cs_end(&cmd_buffer->draw_epilogue_cs);
 
    cmd_buffer->trace_renderpass_end = u_trace_end_iterator(&cmd_buffer->trace);
+
+   if (unlikely(cmd_buffer->device->instance->debug_flags & TU_DEBUG_PROFILE_AUTOTUNE)) {
+      static uint32_t rp_counter = 0;
+      cmd_buffer->dbg_renderpass_hash = p_atomic_inc_return(&rp_counter);
+   }
 
    struct tu_renderpass_result *autotune_result = NULL;
    if (use_sysmem_rendering(cmd_buffer, &autotune_result))
