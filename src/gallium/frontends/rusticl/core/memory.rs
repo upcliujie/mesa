@@ -190,7 +190,7 @@ fn create_box(
 
 impl Mem {
     pub fn new_buffer(
-        context: &Arc<Context>,
+        context: Arc<Context>,
         flags: cl_mem_flags,
         size: usize,
         host_ptr: *mut c_void,
@@ -224,7 +224,7 @@ impl Mem {
 
         Ok(Arc::new(Self {
             base: CLObjectBase::new(),
-            context: context.clone(),
+            context: context,
             parent: None,
             mem_type: CL_MEM_OBJECT_BUFFER,
             flags: flags,
@@ -242,7 +242,7 @@ impl Mem {
     }
 
     pub fn new_sub_buffer(
-        parent: &Arc<Mem>,
+        parent: Arc<Mem>,
         flags: cl_mem_flags,
         offset: usize,
         size: usize,
@@ -256,7 +256,7 @@ impl Mem {
         Arc::new(Self {
             base: CLObjectBase::new(),
             context: parent.context.clone(),
-            parent: Some(parent.clone()),
+            parent: Some(parent),
             mem_type: CL_MEM_OBJECT_BUFFER,
             flags: flags,
             size: size,
@@ -273,7 +273,7 @@ impl Mem {
     }
 
     pub fn new_image(
-        context: &Arc<Context>,
+        context: Arc<Context>,
         mem_type: cl_mem_object_type,
         flags: cl_mem_flags,
         image_format: &cl_image_format,
@@ -328,7 +328,7 @@ impl Mem {
 
         Ok(Arc::new(Self {
             base: CLObjectBase::new(),
-            context: context.clone(),
+            context: context,
             parent: None,
             mem_type: mem_type,
             flags: flags,
@@ -804,7 +804,7 @@ impl_cl_type_trait!(cl_sampler, Sampler, CL_INVALID_SAMPLER);
 
 impl Sampler {
     pub fn new(
-        context: &Arc<Context>,
+        context: Arc<Context>,
         normalized_coords: bool,
         addressing_mode: cl_addressing_mode,
         filter_mode: cl_filter_mode,
@@ -812,7 +812,7 @@ impl Sampler {
     ) -> Arc<Sampler> {
         Arc::new(Self {
             base: CLObjectBase::new(),
-            context: context.clone(),
+            context: context,
             normalized_coords: normalized_coords,
             addressing_mode: addressing_mode,
             filter_mode: filter_mode,
