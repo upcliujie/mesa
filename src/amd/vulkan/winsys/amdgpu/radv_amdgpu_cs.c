@@ -1561,9 +1561,21 @@ radv_amdgpu_ctx_create(struct radeon_winsys *_ws, enum radeon_ctx_priority prior
       goto fail_alloc;
    }
 
+   if (ws->info.has_explicit_sync_contexts) {
+      r = amdgpu_cs_ctx_stable_pstate(ctx->ctx, AMDGPU_CTX_OP_SET_IMPLICIT_SYNC, 0, NULL);
+      if (r) {
+         fprintf(stderr, "radv/amdgpu: failed to set the context to implicit sync %d %s\n", r,
+                 strerror(r));
+         result = VK_ERROR_UNKNOWN;
+         goto fail_sync;
+      }
+   }
+
    *rctx = (struct radeon_winsys_ctx *)ctx;
    return VK_SUCCESS;
 
+fail_sync:
+   ctx->ws->base.buffer_destroy(&ctx->ws->base, ctx->fence_bo);
 fail_alloc:
    amdgpu_cs_ctx_free(ctx->ctx);
 fail_create:
