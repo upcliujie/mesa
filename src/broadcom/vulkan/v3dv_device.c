@@ -145,6 +145,7 @@ get_device_extensions(const struct v3dv_physical_device *device,
       .KHR_shader_non_semantic_info        = true,
       .KHR_sampler_mirror_clamp_to_edge    = true,
       .KHR_storage_buffer_storage_class    = true,
+      .KHR_timeline_semaphore              = true,
       .KHR_uniform_buffer_standard_layout  = true,
 #ifdef V3DV_USE_WSI_PLATFORM
       .KHR_swapchain                       = true,
@@ -879,8 +880,12 @@ physical_device_init(struct v3dv_physical_device *device,
    device->drm_syncobj_type.import_sync_file = NULL;
    device->drm_syncobj_type.export_sync_file = NULL;
 
+   device->sync_timeline_type =
+      vk_sync_timeline_get_type(&device->drm_syncobj_type);
+
    device->sync_types[0] = &device->drm_syncobj_type;
-   device->sync_types[1] = NULL;
+   device->sync_types[1] = &device->sync_timeline_type.sync;
+   device->sync_types[2] = NULL;
    device->vk.supported_sync_types = device->sync_types;
 
    result = v3dv_wsi_init(device);
@@ -1160,6 +1165,7 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       .scalarBlockLayout = false,
       .storageBuffer8BitAccess = true,
       .storagePushConstant8 = true,
+      .timelineSemaphore = true,
    };
 
    VkPhysicalDeviceVulkan11Features vk11 = {
