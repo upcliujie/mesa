@@ -1079,6 +1079,7 @@ struct anv_instance {
     struct list_head                            physical_devices;
 
     bool                                        pipeline_cache_enabled;
+    bool                                        empty_fragment_shader_disable;
 
     struct driOptionCache                       dri_options;
     struct driOptionCache                       available_dri_options;

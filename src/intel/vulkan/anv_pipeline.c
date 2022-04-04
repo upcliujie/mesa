@@ -614,6 +614,10 @@ anv_pipeline_hash_graphics(struct anv_graphics_pipeline *pipeline,
    if (layout)
       _mesa_sha1_update(&ctx, layout->sha1, sizeof(layout->sha1));
 
+   const bool empty_fs_disable =
+      pipeline->base.device->physical->instance->empty_fragment_shader_disable;
+   _mesa_sha1_update(&ctx, &empty_fs_disable, sizeof(empty_fs_disable));
+
    const bool rba = pipeline->base.device->robust_buffer_access;
    _mesa_sha1_update(&ctx, &rba, sizeof(rba));
 
@@ -1210,7 +1214,8 @@ anv_pipeline_compile_fs(const struct brw_compiler *compiler,
                          (uint32_t)fs_stage->prog_data.wm.dispatch_16 +
                          (uint32_t)fs_stage->prog_data.wm.dispatch_32;
 
-   if (fs_stage->key.wm.color_outputs_valid == 0 &&
+   if (device->physical->instance->empty_fragment_shader_disable &&
+       fs_stage->key.wm.color_outputs_valid == 0 &&
        !fs_stage->prog_data.wm.has_side_effects &&
        !fs_stage->prog_data.wm.uses_omask &&
        !fs_stage->key.wm.alpha_to_coverage &&
