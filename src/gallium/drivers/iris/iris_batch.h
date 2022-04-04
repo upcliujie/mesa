@@ -183,6 +183,11 @@ struct iris_batch {
     */
    uint32_t sync_region_depth;
 
+   /**
+    * Accumulated PIPE_CONTROL bits sent since the last sync region boundary.
+    */
+   uint32_t flushes_since_last_sync_boundary;
+
    uint32_t last_aux_map_state;
    struct iris_measure_batch *measure;
 
@@ -340,6 +345,8 @@ iris_batch_sync_boundary(struct iris_batch *batch)
       batch->contains_draw_with_next_seqno = false;
       batch->next_seqno = p_atomic_inc_return(&batch->screen->last_seqno);
       assert(batch->next_seqno > 0);
+
+      batch->flushes_since_last_sync_boundary = 0;
    }
 }
 

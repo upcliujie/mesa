@@ -7586,8 +7586,10 @@ iris_rebind_buffer(struct iris_context *ice,
  * specified flags.
  */
 static void
-batch_mark_sync_for_pipe_control(struct iris_batch *batch, uint32_t flags)
+batch_mark_sync_for_pipe_control(struct iris_batch *batch)
 {
+   uint32_t flags = batch->flushes_since_last_sync_boundary;
+
    iris_batch_sync_boundary(batch);
 
    if ((flags & PIPE_CONTROL_CS_STALL)) {
@@ -7693,7 +7695,8 @@ iris_emit_raw_pipe_control(struct iris_batch *batch,
 
 #if GFX_VER >= 12
    if (batch->name == IRIS_BATCH_BLITTER) {
-      batch_mark_sync_for_pipe_control(batch, flags);
+      batch->flushes_since_last_sync_boundary |= flags;
+      batch_mark_sync_for_pipe_control(batch);
       iris_batch_sync_region_start(batch);
 
       assert(!(flags & PIPE_CONTROL_WRITE_DEPTH_COUNT));
@@ -8066,7 +8069,8 @@ iris_emit_raw_pipe_control(struct iris_batch *batch,
               imm, reason);
    }
 
-   batch_mark_sync_for_pipe_control(batch, flags);
+   batch->flushes_since_last_sync_boundary |= flags;
+   batch_mark_sync_for_pipe_control(batch);
    iris_batch_sync_region_start(batch);
 
    const bool trace_pc =
