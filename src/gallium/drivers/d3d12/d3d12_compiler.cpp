@@ -64,8 +64,6 @@ struct d3d12_validation_tools
 
    void disassemble(struct blob *dxil);
 
-   void load_dxil_dll();
-
    struct HModule {
       HModule();
       ~HModule();
@@ -1468,42 +1466,9 @@ d3d12_shader_free(struct d3d12_shader_selector *sel)
    ralloc_free(sel);
 }
 
-#ifdef _WIN32
-// Used to get path to self
-extern "C" extern IMAGE_DOS_HEADER __ImageBase;
-#endif
-
-void d3d12_validation_tools::load_dxil_dll()
-{
-   if (!dxil_module.load(UTIL_DL_PREFIX "dxil" UTIL_DL_EXT)) {
-#ifdef _WIN32
-      char selfPath[MAX_PATH] = "";
-      uint32_t pathSize = GetModuleFileNameA((HINSTANCE)&__ImageBase, selfPath, sizeof(selfPath));
-      if (pathSize == 0 || pathSize == sizeof(selfPath)) {
-         debug_printf("D3D12: Unable to get path to self");
-         return;
-      }
-
-      auto lastSlash = strrchr(selfPath, '\\');
-      if (!lastSlash) {
-         debug_printf("D3D12: Unable to get path to self");
-         return;
-      }
-
-      *(lastSlash + 1) = '\0';
-      if (strcat_s(selfPath, "dxil.dll") != 0) {
-         debug_printf("D3D12: Unable to get path to dxil.dll next to self");
-         return;
-      }
-
-      dxil_module.load(selfPath);
-#endif
-   }
-}
-
 d3d12_validation_tools::d3d12_validation_tools()
 {
-   load_dxil_dll();
+   dxil_module.load(UTIL_DL_PREFIX "dxil" UTIL_DL_EXT);
    DxcCreateInstanceProc dxil_create_func = (DxcCreateInstanceProc)util_dl_get_proc_address(dxil_module, "DxcCreateInstance");
 
    if (dxil_create_func) {
