@@ -702,7 +702,7 @@ lower_packed_varyings_visitor::lower_arraylike(ir_rvalue *rvalue,
  * create it and add it to the shader before returning it.
  *
  * The newly created varying inherits its interpolation parameters from \c
- * unpacked_var.  Its base type is ivec4 if we are lowering a flat varying,
+ * unpacked_var.  Its base type is ivec4/uvec4 if we are lowering a flat varying,
  * vec4 otherwise.
  *
  * \param vertex_index: if we are lowering geometry shader inputs, then this
@@ -719,10 +719,15 @@ lower_packed_varyings_visitor::get_packed_varying_deref(
       char *packed_name = ralloc_asprintf(this->mem_ctx, "packed:%s", name);
       const glsl_type *packed_type;
       assert(components[slot] != 0);
-      if (unpacked_var->is_interpolation_flat())
-         packed_type = glsl_type::get_instance(GLSL_TYPE_INT, components[slot], 1);
-      else
+      if (unpacked_var->is_interpolation_flat()) {
+         const struct glsl_type *base_type = unpacked_var->type->without_array();
+         if (base_type->is_integer())
+            packed_type = glsl_type::get_instance(base_type->base_type, components[slot], 1);
+         else
+            packed_type = glsl_type::get_instance(GLSL_TYPE_INT, components[slot], 1);
+      } else {
          packed_type = glsl_type::get_instance(GLSL_TYPE_FLOAT, components[slot], 1);
+      }
       if (this->gs_input_vertices != 0) {
          packed_type =
             glsl_type::get_array_instance(packed_type,
