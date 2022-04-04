@@ -1134,6 +1134,9 @@ VkResult anv_CreateInstance(
    instance->pipeline_cache_enabled =
       env_var_as_boolean("ANV_ENABLE_PIPELINE_CACHE", true);
 
+   instance->empty_fragment_shader_disable =
+      env_var_as_boolean("ANV_ENABLE_EMPTY_FRAGMENT_SHADER_DISABLE", true);
+
    VG(VALGRIND_CREATE_MEMPOOL(instance, 0, false));
 
    anv_init_dri_options(instance);
