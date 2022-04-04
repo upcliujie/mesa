@@ -1997,6 +1997,7 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
 
 fail:
    destroy_device_syncs(device, physical_device->render_fd);
+   mtx_destroy(&device->mutex);
    vk_device_finish(&device->vk);
    vk_free(&device->vk.alloc, device);
 
