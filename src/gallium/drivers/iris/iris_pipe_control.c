@@ -267,12 +267,10 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
       for (unsigned i = IRIS_DOMAIN_VF_READ; i < NUM_IRIS_DOMAINS; i++) {
          assert(iris_domain_is_read_only(i));
          const uint64_t seqno = READ_ONCE(bo->last_seqnos[i]);
-         uint64_t last_visible_seqno;
 
-         if (access_via_l3 && iris_domain_is_l3_coherent(devinfo, i))
-            last_visible_seqno = batch->l3_coherent_seqnos[i];
-         else
-            last_visible_seqno = batch->coherent_seqnos[i][i];
+         uint64_t last_visible_seqno =
+            iris_domain_is_l3_coherent(devinfo, i) ?
+            batch->l3_coherent_seqnos[i] : batch->coherent_seqnos[i][i];
 
          /* Flush if the most recent access from this domain occurred
           * after its most recent flush.
