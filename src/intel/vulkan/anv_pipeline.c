@@ -1114,7 +1114,8 @@ anv_pipeline_compile_mesh(const struct brw_compiler *compiler,
 
 static void
 anv_pipeline_link_fs(const struct brw_compiler *compiler,
-                     struct anv_pipeline_stage *stage)
+                     struct anv_pipeline_stage *stage,
+                     const VkPipelineRenderingCreateInfo *rendering_info)
 {
    /* Initially the valid outputs value is set to all possible render targets
     * valid (see populate_wm_prog_key()), before we look at the shader
@@ -1133,6 +1134,8 @@ anv_pipeline_link_fs(const struct brw_compiler *compiler,
 
       stage->key.wm.color_outputs_valid |= BITFIELD_RANGE(rt, array_len);
    }
+   stage->key.wm.color_outputs_valid &=
+      (1u << rendering_info->colorAttachmentCount) - 1;
    stage->key.wm.nr_color_regions =
       util_last_bit(stage->key.wm.color_outputs_valid);
 
@@ -1693,7 +1696,7 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
          anv_pipeline_link_mesh(compiler, &stages[s], next_stage);
          break;
       case MESA_SHADER_FRAGMENT:
-         anv_pipeline_link_fs(compiler, &stages[s]);
+         anv_pipeline_link_fs(compiler, &stages[s], rendering_info);
          break;
       default:
          unreachable("Invalid graphics shader stage");
