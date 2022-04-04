@@ -438,7 +438,7 @@ panfrost_get_shader_param(struct pipe_screen *screen,
                 return (1 << PIPE_SHADER_IR_NIR) | (1 << PIPE_SHADER_IR_NIR_SERIALIZED);
 
         case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
-                return 16;
+                return shader == PIPE_SHADER_VERTEX ? 0 : 16;
 
         case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
                 return PIPE_MAX_SHADER_IMAGES;
