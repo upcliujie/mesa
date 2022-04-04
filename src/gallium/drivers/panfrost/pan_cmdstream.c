@@ -2279,6 +2279,11 @@ panfrost_emit_varying_descriptor(struct panfrost_batch *batch,
         *fs_attribs = linkage->consumer;
 }
 
+/*
+ * Emit jobs required for the rasterization pipeline. If there are side effects
+ * from the vertex shader, these are handled ahead-of-time with a compute
+ * shader. This function should not be called if rasterization is skipped.
+ */
 static void
 panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,
                                 const struct panfrost_ptr *vertex_job,
@@ -2286,19 +2291,15 @@ panfrost_emit_vertex_tiler_jobs(struct panfrost_batch *batch,
 {
         struct panfrost_context *ctx = batch->ctx;
 
-        /* If rasterizer discard is enable, only submit the vertex. XXX - set
-         * job_barrier in case buffers get ping-ponged and we need to enforce
-         * ordering, this has a perf hit! See
-         * KHR-GLES31.core.vertex_attrib_binding.advanced-iterations */
-
+        /* XXX - set job_barrier in case buffers get ping-ponged and we need to
+         * enforce ordering, this has a perf hit! See
+         * KHR-GLES31.core.vertex_attrib_binding.advanced-iterations
+         */
         unsigned vertex = panfrost_add_job(&batch->pool.base, &batch->scoreboard,
                                            MALI_JOB_TYPE_VERTEX, true, false,
                                            ctx->indirect_draw ?
                                            batch->indirect_draw_job_id : 0,
                                            0, vertex_job, false);
-
-        if (panfrost_batch_skip_rasterization(batch))
-                return;
 
         panfrost_add_job(&batch->pool.base, &batch->scoreboard,
                          MALI_JOB_TYPE_TILER, false, false,
@@ -2934,26 +2935,31 @@ panfrost_direct_draw(struct panfrost_batch *batch,
         if (vs->xfb)
                 panfrost_launch_xfb(batch, info, attribs, attrib_bufs, draw->count);
 
-        /* Fire off the draw itself */
-        panfrost_draw_emit_tiler(batch, info, draw, &invocation, indices,
-                                 fs_vary, varyings, pos, psiz, secondary_shader,
-                                 tiler.cpu);
+        /* Any side effects must be handled by the XFB shader, so we only need
+         * to run vertex shaders if we need rasterization.
+         */
+        if (!panfrost_batch_skip_rasterization(batch)) {
+                /* Fire off the draw itself */
+                panfrost_draw_emit_tiler(batch, info, draw, &invocation, indices,
+                                         fs_vary, varyings, pos, psiz, secondary_shader,
+                                         tiler.cpu);
 
-        if (idvs) {
+                if (idvs) {
 #if PAN_ARCH >= 6
-                panfrost_draw_emit_vertex_section(batch,
-                                  vs_vary, varyings,
-                                  attribs, attrib_bufs,
-                                  pan_section_ptr(tiler.cpu, INDEXED_VERTEX_JOB, VERTEX_DRAW));
+                        panfrost_draw_emit_vertex_section(batch,
+                                          vs_vary, varyings,
+                                          attribs, attrib_bufs,
+                                          pan_section_ptr(tiler.cpu, INDEXED_VERTEX_JOB, VERTEX_DRAW));
 
-                panfrost_add_job(&batch->pool.base, &batch->scoreboard,
-                                 MALI_JOB_TYPE_INDEXED_VERTEX, false, false,
-                                 0, 0, &tiler, false);
+                        panfrost_add_job(&batch->pool.base, &batch->scoreboard,
+                                         MALI_JOB_TYPE_INDEXED_VERTEX, false, false,
+                                         0, 0, &tiler, false);
 #endif
-        } else {
-                panfrost_draw_emit_vertex(batch, info, &invocation,
-                                          vs_vary, varyings, attribs, attrib_bufs, vertex.cpu);
-                panfrost_emit_vertex_tiler_jobs(batch, &vertex, &tiler);
+                } else {
+                        panfrost_draw_emit_vertex(batch, info, &invocation,
+                                                  vs_vary, varyings, attribs, attrib_bufs, vertex.cpu);
+                        panfrost_emit_vertex_tiler_jobs(batch, &vertex, &tiler);
+                }
         }
 
         /* Increment transform feedback offsets */
@@ -3160,22 +3166,6 @@ panfrost_draw_vbo(struct pipe_context *pipe,
          */
         if (ctx->dirty & (PAN_DIRTY_VIEWPORT | PAN_DIRTY_SCISSOR))
                 batch->viewport = panfrost_emit_viewport(batch);
-
-        /* If rasterization discard is enabled but the vertex shader does not
-         * have side effects (including transform feedback), skip the draw
-         * altogether. This is always an optimization. Additionally, this is
-         * required for Index-Driven Vertex Shading, since IDVS always
-         * rasterizes. The compiler will not use IDVS if the vertex shader has
-         * side effects. So the only problem case is rasterizer discard with a
-         * shader without side effects -- but these draws are useless.
-         */
-        if (panfrost_batch_skip_rasterization(batch)) {
-                struct panfrost_shader_state *vs =
-                        panfrost_get_shader_state(ctx, PIPE_SHADER_VERTEX);
-
-                if (!vs->info.writes_global)
-                        return;
-        }
 
         unsigned zs_draws = ctx->depth_stencil->draws;
         batch->draws |= zs_draws;
