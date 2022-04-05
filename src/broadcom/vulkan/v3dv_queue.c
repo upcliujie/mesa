@@ -77,7 +77,8 @@ queue_wait_idle(struct v3dv_queue *queue,
    if (queue->device->pdevice->caps.multisync) {
       int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
                                queue->last_job_syncs.syncs, 3,
-                               INT64_MAX, 0, NULL);
+                               INT64_MAX, DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
+                               NULL);
       if (ret) {
          return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
                           "syncobj wait failed: %m");
@@ -111,7 +112,8 @@ queue_wait_idle(struct v3dv_queue *queue,
        */
       int ret = drmSyncobjWait(queue->device->pdevice->render_fd,
                                &queue->last_job_syncs.syncs[V3DV_QUEUE_ANY], 1,
-                               INT64_MAX, 0, NULL);
+                               INT64_MAX, DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
+                               NULL);
       if (ret) {
          return vk_errorf(queue, VK_ERROR_DEVICE_LOST,
                           "syncobj wait failed: %m");
