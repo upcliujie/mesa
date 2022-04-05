@@ -811,15 +811,14 @@ convert_rt_stage(VkShaderStageFlagBits vk_stage)
 }
 
 static nir_shader *
-parse_rt_stage(struct radv_device *device, struct radv_pipeline_layout *layout,
-               const VkPipelineShaderStageCreateInfo *stage)
+parse_rt_stage(struct radv_device *device, const VkPipelineShaderStageCreateInfo *stage)
 {
    struct radv_pipeline_key key;
    memset(&key, 0, sizeof(key));
 
    nir_shader *shader = radv_shader_compile_to_nir(
       device, vk_shader_module_from_handle(stage->module), stage->pName,
-      convert_rt_stage(stage->stage), stage->pSpecializationInfo, layout, &key);
+      convert_rt_stage(stage->stage), stage->pSpecializationInfo, &key);
 
    if (shader->info.stage == MESA_SHADER_RAYGEN || shader->info.stage == MESA_SHADER_CLOSEST_HIT ||
        shader->info.stage == MESA_SHADER_CALLABLE || shader->info.stage == MESA_SHADER_MISS) {
@@ -1088,7 +1087,6 @@ visit_any_hit_shaders(struct radv_device *device,
                       const VkRayTracingPipelineCreateInfoKHR *pCreateInfo, nir_builder *b,
                       struct rt_variables *vars)
 {
-   RADV_FROM_HANDLE(radv_pipeline_layout, layout, pCreateInfo->layout);
    nir_ssa_def *sbt_idx = nir_load_var(b, vars->idx);
 
    nir_push_if(b, nir_ine(b, sbt_idx, nir_imm_int(b, 0)));
@@ -1107,7 +1105,7 @@ visit_any_hit_shaders(struct radv_device *device,
          continue;
 
       const VkPipelineShaderStageCreateInfo *stage = &pCreateInfo->pStages[shader_id];
-      nir_shader *nir_stage = parse_rt_stage(device, layout, stage);
+      nir_shader *nir_stage = parse_rt_stage(device, stage);
 
       vars->group_idx = i;
       insert_rt_case(b, nir_stage, vars, sbt_idx, 0, i + 2);
@@ -1266,8 +1264,6 @@ insert_traversal_aabb_case(struct radv_device *device,
                            const struct rt_variables *vars,
                            const struct rt_traversal_vars *trav_vars, nir_ssa_def *bvh_node)
 {
-   RADV_FROM_HANDLE(radv_pipeline_layout, layout, pCreateInfo->layout);
-
    nir_ssa_def *node_addr = build_node_to_addr(device, b, bvh_node);
    nir_ssa_def *triangle_info =
       nir_build_load_global(b, 2, 32, nir_iadd(b, node_addr, nir_imm_int64(b, 24)));
@@ -1332,12 +1328,12 @@ insert_traversal_aabb_case(struct radv_device *device,
             continue;
 
          const VkPipelineShaderStageCreateInfo *stage = &pCreateInfo->pStages[shader_id];
-         nir_shader *nir_stage = parse_rt_stage(device, layout, stage);
+         nir_shader *nir_stage = parse_rt_stage(device, stage);
 
          nir_shader *any_hit_stage = NULL;
          if (any_hit_shader_id != VK_SHADER_UNUSED_KHR) {
             stage = &pCreateInfo->pStages[any_hit_shader_id];
-            any_hit_stage = parse_rt_stage(device, layout, stage);
+            any_hit_stage = parse_rt_stage(device, stage);
 
             nir_lower_intersection_shader(nir_stage, any_hit_stage);
             ralloc_free(any_hit_stage);
@@ -1712,7 +1708,6 @@ static nir_shader *
 create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInfoKHR *pCreateInfo,
                  struct radv_pipeline_shader_stack_size *stack_sizes)
 {
-   RADV_FROM_HANDLE(radv_pipeline_layout, layout, pCreateInfo->layout);
    struct radv_pipeline_key key;
    memset(&key, 0, sizeof(key));
 
@@ -1769,7 +1764,7 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
          continue;
 
       const VkPipelineShaderStageCreateInfo *stage = &pCreateInfo->pStages[shader_id];
-      nir_shader *nir_stage = parse_rt_stage(device, layout, stage);
+      nir_shader *nir_stage = parse_rt_stage(device, stage);
 
       b.shader->options = nir_stage->options;
 
