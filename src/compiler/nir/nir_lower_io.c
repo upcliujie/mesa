@@ -2970,16 +2970,10 @@ nir_add_xfb_info(nir_shader *nir, nir_xfb_info *info)
    return progress;
 }
 
-static int
-type_size_vec4(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 void
 nir_lower_io_passes(nir_shader *nir, nir_xfb_info *xfb)
 {
-   if (!nir->options->lower_io_variables)
+   if (!nir->options->lower_io_cb)
       return;
 
    /* Ignore transform feedback for stages that can't have it. */
@@ -3008,23 +3002,8 @@ nir_lower_io_passes(nir_shader *nir, nir_xfb_info *xfb)
       NIR_PASS_V(nir, nir_lower_global_vars_to_local);
    }
 
-   if (nir->info.stage == MESA_SHADER_FRAGMENT &&
-       nir->options->lower_fs_color_inputs)
-      NIR_PASS_V(nir, nir_lower_color_inputs);
-
-   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_out | nir_var_shader_in,
-              type_size_vec4, nir_lower_io_lower_64bit_to_32);
-
-   /* nir_io_add_const_offset_to_base needs actual constants. */
-   NIR_PASS_V(nir, nir_opt_constant_folding);
-   NIR_PASS_V(nir, nir_io_add_const_offset_to_base, nir_var_shader_in |
-                                                    nir_var_shader_out);
-
-   /* Lower and remove dead derefs and variables to clean up the IR. */
-   NIR_PASS_V(nir, nir_lower_vars_to_ssa);
-   NIR_PASS_V(nir, nir_opt_dce);
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp |
-              nir_var_shader_in | nir_var_shader_out, NULL);
+   /* Must call early passes, nir_lower_io, and late cleanup passes */
+   nir->options->lower_io_cb(nir);
 
    if (xfb)
       NIR_PASS_V(nir, nir_add_xfb_info, xfb);
