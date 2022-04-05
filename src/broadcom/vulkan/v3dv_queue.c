@@ -172,10 +172,6 @@ handle_copy_query_results_cpu_job(struct v3dv_job *job)
    if (!bo->map && !v3dv_bo_map(job->device, bo, bo->size))
       return vk_error(job->device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   /* FIXME: if flags includes VK_QUERY_RESULT_WAIT_BIT this could trigger a
-    * sync wait on the CPU for the corresponding GPU jobs to finish. We might
-    * want to use a submission thread to avoid blocking on the main thread.
-    */
    uint8_t *offset = ((uint8_t *) bo->map) +
                      info->offset + info->dst->mem_offset;
    v3dv_get_query_pool_results_cpu(job->device,
