@@ -122,29 +122,6 @@ queue_wait_idle(struct v3dv_queue *queue,
 }
 
 static VkResult
-queue_signal_after_cpu_job(struct v3dv_queue *queue,
-                           struct v3dv_submit_sync_info *sync_info)
-{
-   /* If we're not using multisync, process_signals will fill them all with
-    * the sync_file from the queue which will already be signaled since the
-    * GPU job paused everything.
-    */
-   if (!queue->device->pdevice->caps.multisync)
-      return VK_SUCCESS;
-
-   /* If the last job was a CPU job, signal everything manually */
-   for (uint32_t i = 0; i < sync_info->signal_count; i++) {
-      VkResult result = vk_sync_signal(&queue->device->vk,
-                                       sync_info->signals[i].sync,
-                                       sync_info->signals[i].signal_value);
-      if (result != VK_SUCCESS)
-         return result;
-   }
-
-   return VK_SUCCESS;
-}
-
-static VkResult
 handle_reset_query_cpu_job(struct v3dv_queue *queue, struct v3dv_job *job,
                            struct v3dv_submit_sync_info *sync_info)
 {
@@ -949,7 +926,7 @@ v3dv_queue_driver_submit(struct vk_queue *vk_queue,
       }
    }
 
-   if (!last_job) {
+   if (!last_job || !v3dv_job_type_is_gpu(last_job)) {
       if (!queue->noop_job) {
          result = queue_create_noop_job(queue);
          if (result != VK_SUCCESS)
@@ -961,12 +938,6 @@ v3dv_queue_driver_submit(struct vk_queue *vk_queue,
          return result;
 
       last_job = queue->noop_job;
-   }
-
-   if (!v3dv_job_type_is_gpu(last_job)) {
-      result = queue_signal_after_cpu_job(queue, &sync_info);
-      if (result != VK_SUCCESS)
-         return result;
    }
 
    process_signals(queue, sync_info.signal_count, sync_info.signals);
