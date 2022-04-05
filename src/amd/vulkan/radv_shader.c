@@ -469,9 +469,11 @@ radv_force_primitive_shading_rate(nir_shader *nir, struct radv_device *device)
 }
 
 bool
-radv_lower_fs_intrinsics(nir_shader *nir, const struct radv_shader_info *info,
-                         const struct radv_shader_args *args, const struct radv_pipeline_key *key)
+radv_lower_fs_intrinsics(nir_shader *nir, const struct radv_pipeline_stage *fs_stage,
+                         const struct radv_pipeline_key *key)
 {
+   const struct radv_shader_info *info = &fs_stage->info;
+   const struct radv_shader_args *args = &fs_stage->args;
    nir_function_impl *impl = nir_shader_get_entrypoint(nir);
    bool progress = false;
 
@@ -552,17 +554,17 @@ radv_lower_fs_intrinsics(nir_shader *nir, const struct radv_shader_info *info,
 }
 
 nir_shader *
-radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *module,
-                           const char *entrypoint_name, gl_shader_stage stage,
-                           const VkSpecializationInfo *spec_info,
+radv_shader_compile_to_nir(struct radv_device *device, const struct radv_pipeline_stage *stage,
                            const struct radv_pipeline_key *key)
 {
+   struct vk_shader_module *module = stage->module;
+
    unsigned subgroup_size = 64, ballot_bit_size = 64;
    if (key->cs.compute_subgroup_size) {
       /* Only compute shaders currently support requiring a
        * specific subgroup size.
        */
-      assert(stage == MESA_SHADER_COMPUTE);
+      assert(stage->stage == MESA_SHADER_COMPUTE);
       subgroup_size = key->cs.compute_subgroup_size;
       ballot_bit_size = key->cs.compute_subgroup_size;
    }
@@ -575,7 +577,7 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
        * and just use the NIR shader.  We don't want to alter meta and RT
        * shaders IR directly, so clone it first. */
       nir = nir_shader_clone(NULL, module->nir);
-      nir->options = &device->physical_device->nir_options[stage];
+      nir->options = &device->physical_device->nir_options[stage->stage];
       nir_validate_shader(nir, "in internal shader");
 
       assert(exec_list_length(&nir->functions) == 1);
@@ -588,7 +590,7 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
 
       uint32_t num_spec_entries = 0;
       struct nir_spirv_specialization *spec_entries =
-         vk_spec_info_to_nir_spirv(spec_info, &num_spec_entries);
+         vk_spec_info_to_nir_spirv(stage->spec_info, &num_spec_entries);
       struct radv_shader_debug_data spirv_debug_data = {
          .device = device,
          .module = module,
@@ -669,10 +671,10 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
                .private_data = &spirv_debug_data,
             },
       };
-      nir = spirv_to_nir(spirv, module->size / 4, spec_entries, num_spec_entries, stage,
-                         entrypoint_name, &spirv_options,
-                         &device->physical_device->nir_options[stage]);
-      assert(nir->info.stage == stage);
+      nir = spirv_to_nir(spirv, module->size / 4, spec_entries, num_spec_entries, stage->stage,
+                         stage->entrypoint, &spirv_options,
+                         &device->physical_device->nir_options[stage->stage]);
+      assert(nir->info.stage == stage->stage);
       nir_validate_shader(nir, "after spirv_to_nir");
 
       free(spec_entries);
@@ -782,7 +784,7 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
    if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
 
-      if (key->use_ngg && !radv_use_llvm_for_stage(device, stage)) {
+      if (key->use_ngg && !radv_use_llvm_for_stage(device, stage->stage)) {
          /* ACO needs NIR to do some of the hard lifting */
          nir_gs_flags |= nir_lower_gs_intrinsics_count_primitives |
                          nir_lower_gs_intrinsics_count_vertices_per_primitive |
@@ -1003,9 +1005,12 @@ radv_lower_io(struct radv_device *device, nir_shader *nir)
 }
 
 bool
-radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
-                     const struct radv_shader_info *info, const struct radv_pipeline_key *pl_key)
+radv_lower_io_to_mem(struct radv_device *device, struct radv_pipeline_stage *stage,
+                     const struct radv_pipeline_key *pl_key)
 {
+   const struct radv_shader_info *info = &stage->info;
+   nir_shader *nir = stage->nir;
+
    if (nir->info.stage == MESA_SHADER_VERTEX) {
       if (info->vs.as_ls) {
          ac_nir_lower_ls_outputs_to_mem(nir, info->vs.tcs_in_out_eq,
@@ -1105,10 +1110,12 @@ radv_consider_culling(struct radv_device *device, struct nir_shader *nir, uint64
    return true;
 }
 
-void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
-                    const struct radv_shader_info *info,
+void radv_lower_ngg(struct radv_device *device, struct radv_pipeline_stage *ngg_stage,
                     const struct radv_pipeline_key *pl_key)
 {
+   const struct radv_shader_info *info = &ngg_stage->info;
+   nir_shader *nir = ngg_stage->nir;
+
    /* TODO: support the LLVM backend with the NIR lowering */
    assert(!radv_use_llvm_for_stage(device, nir->info.stage));
 
@@ -1940,7 +1947,7 @@ radv_dump_nir_shaders(struct nir_shader *const *shaders, int shader_count)
 static struct radv_shader *
 shader_compile(struct radv_device *device, struct vk_shader_module *module,
                struct nir_shader *const *shaders, int shader_count, gl_shader_stage stage,
-               struct radv_shader_info *info, const struct radv_shader_args *args,
+               const struct radv_shader_info *info, const struct radv_shader_args *args,
                struct radv_nir_compiler_options *options, bool gs_copy_shader,
                bool trap_handler_shader, bool keep_shader_info, bool keep_statistic_info,
                struct radv_shader_binary **binary_out)
@@ -2021,10 +2028,9 @@ shader_compile(struct radv_device *device, struct vk_shader_module *module,
 }
 
 struct radv_shader *
-radv_shader_compile(struct radv_device *device, struct vk_shader_module *module,
+radv_shader_compile(struct radv_device *device, const struct radv_pipeline_stage *pl_stage,
                     struct nir_shader *const *shaders, int shader_count,
-                    const struct radv_pipeline_key *key, struct radv_shader_info *info,
-                    const struct radv_shader_args *args, bool keep_shader_info,
+                    const struct radv_pipeline_key *key, bool keep_shader_info,
                     bool keep_statistic_info, struct radv_shader_binary **binary_out)
 {
    gl_shader_stage stage = shaders[shader_count - 1]->info.stage;
@@ -2034,10 +2040,11 @@ radv_shader_compile(struct radv_device *device, struct vk_shader_module *module,
       options.key = *key;
 
    options.robust_buffer_access = device->robust_buffer_access;
-   options.wgp_mode = radv_should_use_wgp_mode(device, stage, info);
+   options.wgp_mode = radv_should_use_wgp_mode(device, stage, &pl_stage->info);
 
-   return shader_compile(device, module, shaders, shader_count, stage, info, args, &options, false,
-                         false, keep_shader_info, keep_statistic_info, binary_out);
+   return shader_compile(device, pl_stage->module, shaders, shader_count, stage, &pl_stage->info,
+                         &pl_stage->args, &options, false, false, keep_shader_info,
+                         keep_statistic_info, binary_out);
 }
 
 struct radv_shader *
