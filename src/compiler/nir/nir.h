@@ -3228,6 +3228,12 @@ typedef enum {
  */
 typedef bool (*nir_instr_filter_cb)(const nir_instr *, const void *);
 
+/** An I/O lowering callback.
+ *
+ * Should call early passes and nir_lower_io.
+ */
+typedef void (*nir_lower_io_cb)(struct nir_shader *);
+
 typedef struct nir_shader_compiler_options {
    bool lower_fdiv;
    bool lower_ffma16;
@@ -3596,17 +3602,10 @@ typedef struct nir_shader_compiler_options {
    nir_pack_varying_options pack_varying_options;
 
    /**
-    * Lower load_deref/store_deref of inputs and outputs into
-    * load_input/store_input intrinsics. This is used by nir_lower_io_passes.
+    * Set of passes to lower I/O. If non-NULL, this will be called by mesa/st.
+    * It must be used for NIR-based transform feedback.
     */
-   bool lower_io_variables;
-
-   /**
-    * Lower color inputs to load_colorN that are kind of like system values
-    * if lower_io_variables is also set. shader_info will contain
-    * the interpolation settings. This is used by nir_lower_io_passes.
-    */
-   bool lower_fs_color_inputs;
+   nir_lower_io_cb lower_io_cb;
 
    /**
     * The masks of shader stages that support indirect indexing with

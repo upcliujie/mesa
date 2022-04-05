@@ -996,6 +996,45 @@ static void si_init_renderer_string(struct si_screen *sscreen)
             sscreen->info.drm_major, sscreen->info.drm_minor, kernel_version);
 }
 
+static int
+type_size_vec4(const struct glsl_type *type, bool bindless)
+{
+   return glsl_count_attribute_slots(type, false);
+}
+
+static void si_lower_io_cb(nir_shader *nir)
+{
+   NIR_PASS_V(nir, nir_lower_color_inputs);
+
+   /* Lower large arrays to scratch and small arrays to bcsel (TODO: tune
+    * threshold, but not until addresses / csel is optimized better) */
+   NIR_PASS_V(nir, nir_lower_vars_to_scratch, nir_var_function_temp, 16,
+              glsl_get_natural_size_align_bytes);
+
+   NIR_PASS_V(nir, nir_lower_indirect_derefs, nir_var_function_temp, ~0);
+
+   NIR_PASS_V(nir, nir_split_var_copies);
+   NIR_PASS_V(nir, nir_lower_global_vars_to_local);
+   NIR_PASS_V(nir, nir_lower_var_copies);
+   NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+
+   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_out | nir_var_shader_in,
+              type_size_vec4, nir_lower_io_lower_64bit_to_32);
+
+   /* nir_io_add_const_offset_to_base needs actual constants. */
+   NIR_PASS_V(nir, nir_opt_constant_folding);
+   NIR_PASS_V(nir, nir_io_add_const_offset_to_base, nir_var_shader_in |
+              nir_var_shader_out);
+
+   /* Lower and remove dead derefs and variables to clean up the IR. */
+   NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+   NIR_PASS_V(nir, nir_opt_dce);
+   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp |
+              nir_var_shader_in | nir_var_shader_out, NULL);
+
+   nir->info.io_lowered = true;
+}
+
 void si_init_screen_get_functions(struct si_screen *sscreen)
 {
    sscreen->b.get_name = si_get_name;
@@ -1091,8 +1130,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
          nir_pack_varying_interp_loc_center |
          nir_pack_varying_interp_loc_sample |
          nir_pack_varying_interp_loc_centroid,
-      .lower_io_variables = true,
-      .lower_fs_color_inputs = true,
+      .lower_io_cb = si_lower_io_cb,
       /* HW supports indirect indexing for: | Enabled in driver
        * -------------------------------------------------------
        * TCS inputs                         | Yes
