@@ -2505,6 +2505,7 @@ void lp_build_opt_nir(struct nir_shader *nir)
       NIR_PASS(progress, nir, nir_opt_constant_folding);
       NIR_PASS(progress, nir, nir_opt_algebraic);
       NIR_PASS(progress, nir, nir_lower_pack);
+      NIR_PASS(progress, nir, nir_opt_copy_prop_vars);
 
       nir_lower_tex_options options = { 0, };
       NIR_PASS_V(nir, nir_lower_tex, &options);
