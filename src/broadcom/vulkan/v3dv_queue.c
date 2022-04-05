@@ -84,26 +84,6 @@ queue_wait_idle(struct v3dv_queue *queue,
                           "syncobj wait failed: %m");
       }
 
-      bool first = true;
-      for (int i = 0; i < 3; i++) {
-         if (!queue->last_job_syncs.first[i])
-            first = false;
-      }
-
-      /* If we're not the first job, that means we're waiting on some
-       * per-queue-type syncobj which transitively waited on the semaphores
-       * so we can skip the semaphore wait.
-       */
-      if (first) {
-         VkResult result = vk_sync_wait_many(&queue->device->vk,
-                                             sync_info->wait_count,
-                                             sync_info->waits,
-                                             VK_SYNC_WAIT_COMPLETE,
-                                             UINT64_MAX);
-         if (result != VK_SUCCESS)
-            return result;
-      }
-
       for (int i = 0; i < 3; i++)
          queue->last_job_syncs.first[i] = false;
    } else {
