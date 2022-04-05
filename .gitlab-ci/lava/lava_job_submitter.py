@@ -74,7 +74,7 @@ def generate_lava_yaml(args):
         'visibility': { 'group': [ args.visibility_group ] },
         'priority': 75,
         'context': {
-            'extra_nfsroot_args': ' init=/init rootwait minio_results={}'.format(args.job_artifacts_base)
+            'extra_nfsroot_args': ' init=/init rootwait minio_results={} usbcore.quirks=0bda:8153:k'.format(args.job_artifacts_base)
         },
         'timeouts': {
             'job': {
