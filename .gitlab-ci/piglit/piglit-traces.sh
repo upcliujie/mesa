@@ -178,7 +178,7 @@ PIGLIT_OPTIONS=$(printf "%s" "$PIGLIT_OPTIONS")
 
 PIGLIT_TESTS=$(printf "%s" "$PIGLIT_TESTS")
 
-PIGLIT_CMD="./piglit run --timeout 300 -j${FDO_CI_CONCURRENT:-4} $PIGLIT_OPTIONS $PIGLIT_TESTS replay "$(/usr/bin/printf "%q" "$RESULTS")
+PIGLIT_CMD="strace -f -e execve ./piglit run --timeout 300 -j${FDO_CI_CONCURRENT:-4} $PIGLIT_OPTIONS $PIGLIT_TESTS replay "$(/usr/bin/printf "%q" "$RESULTS")
 
 RUN_CMD="export LD_LIBRARY_PATH=$__LD_LIBRARY_PATH; $SANITY_MESA_VERSION_CMD && $HANG_DETECTION_CMD $PIGLIT_CMD"
 
@@ -194,6 +194,8 @@ ci-fairy minio login $MINIO_ARGS --token-file "${CI_JOB_JWT_FILE}"
 # have), you could get a corrupted local trace that would spuriously fail the
 # run.
 rm -rf replayer-db
+
+
 
 eval $RUN_CMD
 
