@@ -1828,15 +1828,6 @@ queue_finish(struct v3dv_queue *queue)
    vk_queue_finish(&queue->vk);
 }
 
-static VkResult
-v3dv_create_sync_for_memory(struct vk_device *device,
-                            VkDeviceMemory memory,
-                            bool signal_memory,
-                            struct vk_sync **sync_out)
-{
-   return vk_sync_create(device, &vk_sync_dummy_type, 0, 1, sync_out);
-}
-
 static void
 init_device_meta(struct v3dv_device *device)
 {
@@ -1901,7 +1892,6 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
    mtx_init(&device->query_mutex, mtx_plain);
    cnd_init(&device->query_ended);
 
-   device->vk.create_sync_for_memory = v3dv_create_sync_for_memory;
    vk_device_set_drm_fd(&device->vk, physical_device->render_fd);
    vk_device_enable_threaded_submit(&device->vk);
 
