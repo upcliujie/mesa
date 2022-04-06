@@ -2255,7 +2255,7 @@ dzn_cmd_buffer_update_pipeline(struct dzn_cmd_buffer *cmdbuf, uint32_t bindpoint
    if (cmdbuf->state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_PIPELINE) {
       if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
          const struct dzn_graphics_pipeline *gfx =
-            reinterpret_cast<const struct dzn_graphics_pipeline *>(pipeline);
+            (const struct dzn_graphics_pipeline *)pipeline;
          ID3D12GraphicsCommandList1_SetGraphicsRootSignature(cmdbuf->cmdlist, pipeline->root.sig);
          ID3D12GraphicsCommandList1_IASetPrimitiveTopology(cmdbuf->cmdlist, gfx->ia.topology);
       } else {
@@ -2398,7 +2398,7 @@ static void
 dzn_cmd_buffer_update_viewports(struct dzn_cmd_buffer *cmdbuf)
 {
    const struct dzn_graphics_pipeline *pipeline =
-      reinterpret_cast<const struct dzn_graphics_pipeline *>(cmdbuf->state.pipeline);
+      (const struct dzn_graphics_pipeline *)cmdbuf->state.pipeline;
 
    if (!(cmdbuf->state.dirty & DZN_CMD_DIRTY_VIEWPORTS) ||
        !pipeline->vp.count)
@@ -2411,7 +2411,7 @@ static void
 dzn_cmd_buffer_update_scissors(struct dzn_cmd_buffer *cmdbuf)
 {
    const struct dzn_graphics_pipeline *pipeline =
-      reinterpret_cast<const struct dzn_graphics_pipeline *>(cmdbuf->state.pipeline);
+      (const struct dzn_graphics_pipeline *)cmdbuf->state.pipeline;
 
    if (!(cmdbuf->state.dirty & DZN_CMD_DIRTY_SCISSORS))
       return;
@@ -2440,7 +2440,7 @@ static void
 dzn_cmd_buffer_update_vbviews(struct dzn_cmd_buffer *cmdbuf)
 {
    const struct dzn_graphics_pipeline *pipeline =
-      reinterpret_cast<const struct dzn_graphics_pipeline *>(cmdbuf->state.pipeline);
+      (const struct dzn_graphics_pipeline *)cmdbuf->state.pipeline;
    unsigned start, end;
 
    BITSET_FOREACH_RANGE(start, end, cmdbuf->state.vb.dirty, MAX_VBS)
