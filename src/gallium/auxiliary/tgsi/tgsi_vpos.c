@@ -95,13 +95,9 @@ tgsi_write_vpos(const struct tgsi_token *tokens_in,
 
    transform.imm_index = num_immediates;
 
-   /* allocate new tokens buffer */
-   new_tokens = tgsi_alloc_tokens(new_len);
-   if (!new_tokens)
-      return NULL;
-
    /* transform the shader */
-   tgsi_transform_shader(tokens_in, new_tokens, new_len, &transform.base);
+   if (!tgsi_transform_shader(tokens_in, &new_tokens, new_len, &transform.base))
+      return NULL;
 
    return new_tokens;
 }

@@ -90,6 +90,7 @@ struct tgsi_transform_context
    uint max_tokens_out;
    struct tgsi_token *tokens_out;
    uint ti;
+   bool fail;
 };
 
 
@@ -572,10 +573,10 @@ tgsi_transform_tex_inst(struct tgsi_transform_context *ctx,
 }
 
 
-extern int
+extern bool
 tgsi_transform_shader(const struct tgsi_token *tokens_in,
-                      struct tgsi_token *tokens_out,
-                      uint max_tokens_out,
+                      struct tgsi_token **tokens_out,
+                      uint initial_tokens_out,
                       struct tgsi_transform_context *ctx);
 
 

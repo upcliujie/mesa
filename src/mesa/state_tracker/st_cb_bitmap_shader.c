@@ -147,10 +147,8 @@ st_get_bitmap_shader(const struct tgsi_token *tokens,
    tgsi_scan_shader(tokens, &ctx.info);
 
    newlen = tgsi_num_tokens(tokens) + 20;
-   newtoks = tgsi_alloc_tokens(newlen);
-   if (!newtoks)
-      return NULL;
 
-   tgsi_transform_shader(tokens, newtoks, newlen, &ctx.base);
+   if (!tgsi_transform_shader(tokens, &newtoks, newlen, &ctx.base))
+      return NULL;
    return newtoks;
 }

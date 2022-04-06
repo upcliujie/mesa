@@ -442,11 +442,9 @@ st_tgsi_lower_yuv(const struct tgsi_token *tokens, unsigned free_slots,
     * this is a pain about tgsi_transform :-/
     */
    newlen = tgsi_num_tokens(tokens) + 300;
-   newtoks = tgsi_alloc_tokens(newlen);
-   if (!newtoks)
-      return NULL;
 
-   tgsi_transform_shader(tokens, newtoks, newlen, &ctx.base);
+   if (!tgsi_transform_shader(tokens, &newtoks, newlen, &ctx.base))
+      return NULL;
 
 //   tgsi_dump(newtoks, 0);
 //   debug_printf("\n");

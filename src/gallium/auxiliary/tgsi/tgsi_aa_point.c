@@ -278,11 +278,6 @@ tgsi_add_aa_point(const struct tgsi_token *tokens_in,
    const uint new_len = tgsi_num_tokens(tokens_in) + num_new_tokens;
    struct tgsi_token *new_tokens;
 
-   /* allocate new tokens buffer */
-   new_tokens = tgsi_alloc_tokens(new_len);
-   if (!new_tokens)
-      return NULL;
-
    /* setup transformation context */
    memset(&transform, 0, sizeof(transform));
    transform.base.transform_declaration = aa_decl;
@@ -303,7 +298,8 @@ tgsi_add_aa_point(const struct tgsi_token *tokens_in,
    transform.num_input = 0;
 
    /* transform the shader */
-   tgsi_transform_shader(tokens_in, new_tokens, new_len, &transform.base);
+   if (!tgsi_transform_shader(tokens_in, &new_tokens, new_len, &transform.base))
+      return NULL;
 
    return new_tokens;
 }

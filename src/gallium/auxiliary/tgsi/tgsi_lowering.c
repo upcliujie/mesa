@@ -1573,11 +1573,8 @@ tgsi_transform_lowering(const struct tgsi_lowering_config *config,
    newlen += 2 * numtmp;
    newlen += 5;        /* immediate */
 
-   newtoks = tgsi_alloc_tokens(newlen);
-   if (!newtoks)
+   if (!tgsi_transform_shader(tokens, &newtoks, newlen, &ctx.base))
       return NULL;
-
-   tgsi_transform_shader(tokens, newtoks, newlen, &ctx.base);
 
    tgsi_scan_shader(newtoks, info);
 
