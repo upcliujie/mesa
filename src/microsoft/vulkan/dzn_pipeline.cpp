@@ -923,7 +923,7 @@ out:
    return ret;
 }
 
-#define DZN_INDIRECT_CMD_SIG_MAX_ARGS 3
+#define DZN_INDIRECT_CMD_SIG_MAX_ARGS 4
 
 ID3D12CommandSignature *
 dzn_graphics_pipeline_get_indirect_cmd_sig(dzn_graphics_pipeline *pipeline,
@@ -956,6 +956,15 @@ dzn_graphics_pipeline_get_indirect_cmd_sig(dzn_graphics_pipeline *pipeline,
          .RootParameterIndex = pipeline->base.root.sysval_cbv_param_idx,
          .DestOffsetIn32BitValues = offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex) / 4,
          .Num32BitValuesToSet = 2,
+      },
+   };
+
+   cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
+      .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
+      .Constant = {
+         .RootParameterIndex = pipeline->base.root.sysval_cbv_param_idx,
+         .DestOffsetIn32BitValues = offsetof(struct dxil_spirv_vertex_runtime_data, draw_id) / 4,
+         .Num32BitValuesToSet = 1,
       },
    };
 
