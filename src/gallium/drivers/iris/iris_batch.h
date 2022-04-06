@@ -165,7 +165,7 @@ struct iris_batch {
    /**
     * A vector representing the cache coherency status of the L3.  For each
     * cache domain i, l3_coherent_seqnos[i] denotes the seqno of the most
-    * recent flush of that domain which is visible to L3.
+    * recent flush of that domain which is visible to L3 clients.
     */
    uint64_t l3_coherent_seqnos[NUM_IRIS_DOMAINS];
 
@@ -382,14 +382,24 @@ iris_batch_mark_invalidate_sync(struct iris_batch *batch,
          continue;
 
       if (iris_domain_is_l3_coherent(devinfo, access)) {
-         /* Invalidating L3-coherent domain "access" also triggers an
-          * invalidation of any matching L3 cachelines as well.  If
-          * domain 'i' is L3-coherent, it sees the latest data in L3,
-          * otherwise it sees the latest globally-observable data.
-          */
-         batch->coherent_seqnos[access][i] =
-            iris_domain_is_l3_coherent(devinfo, i) ?
-            batch->l3_coherent_seqnos[i] : batch->coherent_seqnos[i][i];
+         if (iris_domain_is_read_only(access)) {
+            /* Invalidating a L3-coherent read-only domain "access" also
+             * triggers an invalidation of any matching L3 cachelines as well.
+             *
+             * If domain 'i' is L3-coherent, it sees the latest data in L3,
+             * otherwise it sees the latest globally-observable data.
+             */
+            batch->coherent_seqnos[access][i] =
+               iris_domain_is_l3_coherent(devinfo, i) ?
+               batch->l3_coherent_seqnos[i] : batch->coherent_seqnos[i][i];
+         } else {
+            /* Invalidating L3-coherent write domains does not trigger
+             * an invalidation of any matching L3 cachelines, however.
+             *
+             * It sees the latest data from domain i visible to L3 clients.
+             */
+            batch->coherent_seqnos[access][i] = batch->l3_coherent_seqnos[i];
+         }
       } else {
          /* "access" isn't L3-coherent, so invalidating it means it sees the
           * most recent globally-observable data from domain i.

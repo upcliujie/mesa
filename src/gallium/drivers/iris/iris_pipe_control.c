@@ -300,12 +300,15 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
    if (seqno > batch->coherent_seqnos[access][i]) {
       bits |= invalidate_bits[access];
 
-      /* There is an access via OTHER_WRITE that isn't visible to the
-       * specified domain.  If the access is via L3, then we need to
-       * invalidate any stale L3 cachelines that it might see.
+      /* There is a non-L3-coherent write that isn't visible to the
+       * specified domain.  If the access is via L3, then it might see
+       * stale L3 data that was loaded before that write.  In this case,
+       * we try to invalidate all read-only sections of the L3 cache.
        */
-      if (access_via_l3)
-         bits |= l3_flush_bits[access];
+      if (access_via_l3 && seqno > batch->l3_coherent_seqnos[i]) {
+         bits |= PIPE_CONTROL_L3_READ_ONLY_CACHE_INVALIDATE |
+                 PIPE_CONTROL_CONST_CACHE_INVALIDATE;
+      }
 
       if (seqno > batch->coherent_seqnos[i][i])
          bits |= flush_bits[i];

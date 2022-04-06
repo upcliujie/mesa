@@ -7675,6 +7675,16 @@ batch_mark_sync_for_pipe_control(struct iris_batch *batch, uint32_t flags)
       iris_batch_mark_invalidate_sync(batch, IRIS_DOMAIN_PULL_CONSTANT_READ);
 
    /* IRIS_DOMAIN_OTHER_READ no longer uses any caches. */
+
+   /* We may have updated coherent_seqnos above.  For each non-L3-coherent
+    * domain, the latest flush of that domain is the one visible to memory,
+    * and because it isn't L3-coherent, it's also the one visible to any
+    * L3 clients.  So update l3_coherent_seqnos to match.
+    */
+   for (unsigned i = 0; i < NUM_IRIS_DOMAINS; i++) {
+      if (!iris_domain_is_l3_coherent(devinfo, i))
+         batch->l3_coherent_seqnos[i] = batch->coherent_seqnos[i][i];
+   }
 }
 
 static unsigned
