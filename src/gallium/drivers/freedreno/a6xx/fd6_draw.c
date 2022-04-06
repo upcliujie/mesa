@@ -73,18 +73,16 @@ static void
 draw_emit_indirect(struct fd_ringbuffer *ring,
                    struct CP_DRAW_INDX_OFFSET_0 *draw0,
                    const struct pipe_draw_info *info,
-                   const struct pipe_draw_indirect_info *indirect,
-                   unsigned index_offset)
+                   const struct pipe_draw_indirect_info *indirect)
 {
    struct fd_resource *ind = fd_resource(indirect->buffer);
 
    if (info->index_size) {
       struct pipe_resource *idx = info->index.resource;
-      unsigned max_indices = (idx->width0 - index_offset) / info->index_size;
+      unsigned max_indices = idx->width0 / info->index_size;
 
       OUT_PKT(ring, CP_DRAW_INDX_INDIRECT, pack_CP_DRAW_INDX_OFFSET_0(*draw0),
-              A5XX_CP_DRAW_INDX_INDIRECT_INDX_BASE(fd_resource(idx)->bo,
-                                                   index_offset),
+              A5XX_CP_DRAW_INDX_INDIRECT_INDX_BASE(fd_resource(idx)->bo, 0),
               A5XX_CP_DRAW_INDX_INDIRECT_3(.max_indices = max_indices),
               A5XX_CP_DRAW_INDX_INDIRECT_INDIRECT(ind->bo, indirect->offset));
    } else {
@@ -96,21 +94,19 @@ draw_emit_indirect(struct fd_ringbuffer *ring,
 static void
 draw_emit(struct fd_ringbuffer *ring, struct CP_DRAW_INDX_OFFSET_0 *draw0,
           const struct pipe_draw_info *info,
-          const struct pipe_draw_start_count_bias *draw, unsigned index_offset)
+          const struct pipe_draw_start_count_bias *draw)
 {
    if (info->index_size) {
       assert(!info->has_user_indices);
 
       struct pipe_resource *idx_buffer = info->index.resource;
-      unsigned max_indices =
-         (idx_buffer->width0 - index_offset) / info->index_size;
+      unsigned max_indices = idx_buffer->width0 / info->index_size;
 
       OUT_PKT(ring, CP_DRAW_INDX_OFFSET, pack_CP_DRAW_INDX_OFFSET_0(*draw0),
               CP_DRAW_INDX_OFFSET_1(.num_instances = info->instance_count),
               CP_DRAW_INDX_OFFSET_2(.num_indices = draw->count),
               CP_DRAW_INDX_OFFSET_3(.first_indx = draw->start),
-              A5XX_CP_DRAW_INDX_OFFSET_INDX_BASE(fd_resource(idx_buffer)->bo,
-                                                 index_offset),
+              A5XX_CP_DRAW_INDX_OFFSET_INDX_BASE(fd_resource(idx_buffer)->bo, 0),
               A5XX_CP_DRAW_INDX_OFFSET_6(.max_indices = max_indices));
    } else {
       OUT_PKT(ring, CP_DRAW_INDX_OFFSET, pack_CP_DRAW_INDX_OFFSET_0(*draw0),
@@ -134,8 +130,7 @@ static bool
 fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
              unsigned drawid_offset,
              const struct pipe_draw_indirect_info *indirect,
-             const struct pipe_draw_start_count_bias *draw,
-             unsigned index_offset) assert_dt
+             const struct pipe_draw_start_count_bias *draw) assert_dt
 {
    struct fd6_context *fd6_ctx = fd6_context(ctx);
    struct shader_info *gs_info = ir3_get_shader_info(ctx->prog.gs);
@@ -311,10 +306,10 @@ fd6_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
       if (indirect->count_from_stream_output) {
          draw_emit_xfb(ring, &draw0, info, indirect);
       } else {
-         draw_emit_indirect(ring, &draw0, info, indirect, index_offset);
+         draw_emit_indirect(ring, &draw0, info, indirect);
       }
    } else {
-      draw_emit(ring, &draw0, info, draw, index_offset);
+      draw_emit(ring, &draw0, info, draw);
    }
 
    emit_marker6(ring, 7);

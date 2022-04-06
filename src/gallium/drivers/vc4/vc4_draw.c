@@ -26,6 +26,7 @@
 #include "util/u_draw.h"
 #include "util/u_prim.h"
 #include "util/format/u_format.h"
+#include "util/u_helpers.h"
 #include "util/u_pack_color.h"
 #include "util/u_split_draw.h"
 #include "util/u_upload_mgr.h"
@@ -366,27 +367,17 @@ vc4_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
          * definitions, up to but not including QUADS.
          */
         if (info->index_size) {
-                uint32_t index_size = info->index_size;
-                uint32_t offset = draws[0].start * index_size;
-                struct pipe_resource *prsc;
+                struct pipe_draw_info tmp_info;
+                struct pipe_draw_start_count_bias tmp_draw;
+                tmp_info.index.resource = NULL;
                 if (info->index_size == 4) {
-                        prsc = vc4_get_shadow_index_buffer(pctx, info,
-                                                           offset,
-                                                           draws[0].count, &offset);
-                        index_size = 2;
+                        if (!vc4_get_shadow_index_buffer(pctx, &info, &tmp_info))
+                                return;
                 } else {
-                        if (info->has_user_indices) {
-                                unsigned start_offset = draws[0].start * info->index_size;
-                                prsc = NULL;
-                                u_upload_data(vc4->uploader, start_offset,
-                                              draws[0].count * index_size, 4,
-                                              (char*)info->index.user + start_offset,
-                                              &offset, &prsc);
-                        } else {
-                                prsc = info->index.resource;
-                        }
+                        if (!util_upload_index_buffer(pctx, &info, &tmp_info, &draws[0], &tmp_draw))
+                                return;
                 }
-                struct vc4_resource *rsc = vc4_resource(prsc);
+                struct vc4_resource *rsc = vc4_resource(info->index.resource);
 
                 struct vc4_cl_out *bcl = cl_start(&job->bcl);
 
@@ -411,18 +402,17 @@ vc4_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
                 cl_u8(&bcl, VC4_PACKET_GL_INDEXED_PRIMITIVE);
                 cl_u8(&bcl,
                       info->mode |
-                      (index_size == 2 ?
+                      (info->index_size == 2 ?
                        VC4_INDEX_BUFFER_U16:
                        VC4_INDEX_BUFFER_U8));
                 cl_u32(&bcl, draws[0].count);
-                cl_u32(&bcl, offset);
+                cl_u32(&bcl, draws[0].start * info->index_size);
                 cl_u32(&bcl, vc4->max_index);
 
                 cl_end(&job->bcl, bcl);
                 job->draw_calls_queued++;
 
-                if (info->index_size == 4 || info->has_user_indices)
-                        pipe_resource_reference(&prsc, NULL);
+                pipe_resource_reference(&tmp_info.index.resource, NULL);
         } else {
                 uint32_t count = draws[0].count;
                 uint32_t start = draws[0].start;

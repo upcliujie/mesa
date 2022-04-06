@@ -41,7 +41,7 @@
 
 static void
 draw_impl(struct fd_context *ctx, struct fd_ringbuffer *ring,
-          struct fd4_emit *emit, unsigned index_offset) assert_dt
+          struct fd4_emit *emit) assert_dt
 {
    const struct pipe_draw_info *info = emit->info;
    enum pc_di_primtype primtype = ctx->screen->primtypes[info->mode];
@@ -68,15 +68,14 @@ draw_impl(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
    fd4_draw_emit(ctx->batch, ring, primtype,
                  emit->binning_pass ? IGNORE_VISIBILITY : USE_VISIBILITY, info,
-                 emit->indirect, emit->draw, index_offset);
+                 emit->indirect, emit->draw);
 }
 
 static bool
 fd4_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
              unsigned drawid_offset,
              const struct pipe_draw_indirect_info *indirect,
-             const struct pipe_draw_start_count_bias *draw,
-             unsigned index_offset) in_dt
+             const struct pipe_draw_start_count_bias *draw) in_dt
 {
    struct fd4_context *fd4_ctx = fd4_context(ctx);
    struct fd4_emit emit = {
@@ -154,7 +153,7 @@ fd4_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
       OUT_RING(ring, A4XX_RB_RENDER_CONTROL_DISABLE_COLOR_PIPE);
    }
 
-   draw_impl(ctx, ctx->batch->draw, &emit, index_offset);
+   draw_impl(ctx, ctx->batch->draw, &emit);
 
    if (ctx->rasterizer->rasterizer_discard) {
       fd_wfi(ctx->batch, ring);
@@ -169,7 +168,7 @@ fd4_draw_vbo(struct fd_context *ctx, const struct pipe_draw_info *info,
    emit.dirty = dirty & ~(FD_DIRTY_BLEND);
    emit.vs = NULL; /* we changed key so need to refetch vs */
    emit.fs = NULL;
-   draw_impl(ctx, ctx->batch->binning, &emit, index_offset);
+   draw_impl(ctx, ctx->batch->binning, &emit);
 
    fd_context_all_clean(ctx);
 

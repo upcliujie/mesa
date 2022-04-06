@@ -1077,35 +1077,45 @@ vc4_update_shadow_baselevel_texture(struct pipe_context *pctx,
  * was in user memory, it would be nice to not have uploaded it to a VBO
  * before translating.
  */
-struct pipe_resource *
+bool
 vc4_get_shadow_index_buffer(struct pipe_context *pctx,
-                            const struct pipe_draw_info *info,
-                            uint32_t offset,
-                            uint32_t count,
-                            uint32_t *shadow_offset)
+                            const struct pipe_draw_info **info,
+                            struct pipe_draw_info *tmp_info,
+                            const struct pipe_draw_start_count_bias **draw,
+                            struct pipe_draw_start_count_bias *tmp_draw)
 {
         struct vc4_context *vc4 = vc4_context(pctx);
-        struct vc4_resource *orig = vc4_resource(info->index.resource);
-        perf_debug("Fallback conversion for %d uint indices\n", count);
+        perf_debug("Fallback conversion for %d uint indices\n", (*info)->count);
+
+        *tmp_info = **info;
+        tmp_info->has_user_indices = false;
+        tmp_info->index.resource = NULL;
+        tmp_info->index_size = 2;
+        *tmp_draw = **draw;
 
         void *data;
-        struct pipe_resource *shadow_rsc = NULL;
-        u_upload_alloc(vc4->uploader, 0, count * 2, 4,
-                       shadow_offset, &shadow_rsc, &data);
+        uint32_t upload_offset;
+        u_upload_alloc(vc4->uploader, 0,
+                       tmp_draw->count * tmp_info->index_size, 4,
+                       &upload_offset, &tmp_info->index.resource, &data);
+        if (!data)
+                return false;
+
+        tmp_draw->start = upload_offset / tmp_info->index_size;
         uint16_t *dst = data;
 
         struct pipe_transfer *src_transfer = NULL;
         const uint32_t *src;
-        if (info->has_user_indices) {
-                src = (uint32_t*)((char*)info->index.user + offset);
+        if ((*info)->has_user_indices) {
+                src = (*info)->index.user;
         } else {
-                src = pipe_buffer_map_range(pctx, &orig->base,
-                                            offset,
-                                            count * 4,
-                                            PIPE_MAP_READ, &src_transfer);
+                src = pipe_buffer_map_range(pctx, (*info)->index.resource,
+                                            tmp_draw->start * 4,
+                                            tmp_draw->count * 4,
+                                            PIPE_TRANSFER_READ, &src_transfer);
         }
 
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < tmp_draw->count; i++) {
                 uint32_t src_index = src[i];
                 assert(src_index <= 0xffff);
                 dst[i] = src_index;
@@ -1114,7 +1124,9 @@ vc4_get_shadow_index_buffer(struct pipe_context *pctx,
         if (src_transfer)
                 pctx->buffer_unmap(pctx, src_transfer);
 
-        return shadow_rsc;
+        *info = tmp_info;
+
+        return true;
 }
 
 static const struct u_transfer_vtbl transfer_vtbl = {

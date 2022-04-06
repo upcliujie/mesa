@@ -143,7 +143,7 @@ static inline void
 fd_draw_emit(struct fd_batch *batch, struct fd_ringbuffer *ring,
              enum pc_di_primtype primtype, enum pc_di_vis_cull_mode vismode,
              const struct pipe_draw_info *info,
-             const struct pipe_draw_start_count_bias *draw, unsigned index_offset)
+             const struct pipe_draw_start_count_bias *draw)
 {
    struct pipe_resource *idx_buffer = NULL;
    enum pc_di_index_size idx_type = INDEX_SIZE_IGN;
@@ -156,7 +156,7 @@ fd_draw_emit(struct fd_batch *batch, struct fd_ringbuffer *ring,
       idx_buffer = info->index.resource;
       idx_type = size2indextype(info->index_size);
       idx_size = info->index_size * draw->count;
-      idx_offset = index_offset + draw->start * info->index_size;
+      idx_offset = draw->start * info->index_size;
       src_sel = DI_SRC_SEL_DMA;
    } else {
       idx_buffer = NULL;

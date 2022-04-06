@@ -297,25 +297,15 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
       return;
 
    /* Upload a user index buffer. */
-   struct pipe_resource *indexbuf = NULL;
-   unsigned index_offset = 0;
-   struct pipe_draw_info new_info;
-   if (info->index_size) {
-      if (info->has_user_indices) {
-         if (num_draws > 1) {
-            util_draw_multi(pctx, info, drawid_offset, indirect, draws, num_draws);
-            return;
-         }
-         if (!util_upload_index_buffer(pctx, info, &draws[0], &indexbuf,
-                                       &index_offset, 4))
-            return;
-         new_info = *info;
-         new_info.index.resource = indexbuf;
-         new_info.has_user_indices = false;
-         info = &new_info;
-      } else {
-         indexbuf = info->index.resource;
+   struct pipe_draw_info tmp_info = { .index = { .resource = NULL }};
+   struct pipe_draw_start_count_bias tmp_draw;
+   if (info->index_size && info->has_user_indices) {
+      if (num_draws > 1) {
+         util_draw_multi(pctx, info, drawid_offset, indirect, draws, num_draws);
+         return;
       }
+      if (!util_upload_index_buffer(pctx, &info, &tmp_info, &draws, &tmp_draw, 4))
+         return;
    }
 
    if ((ctx->streamout.num_targets > 0) && (num_draws > 1)) {
@@ -355,7 +345,7 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
    batch->cost += ctx->draw_cost;
 
    for (unsigned i = 0; i < num_draws; i++) {
-      ctx->draw_vbo(ctx, info, drawid_offset, indirect, &draws[i], index_offset);
+      ctx->draw_vbo(ctx, info, drawid_offset, indirect, &draws[i]);
 
       batch->num_vertices += draws[i].count * info->instance_count;
    }
@@ -377,8 +367,7 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
    fd_batch_check_size(batch);
    fd_batch_reference(&batch, NULL);
 
-   if (info == &new_info)
-      pipe_resource_reference(&indexbuf, NULL);
+   pipe_resource_reference(&tmp_info.index.resource, NULL);
 }
 
 static void

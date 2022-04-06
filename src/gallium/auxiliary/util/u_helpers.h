@@ -57,10 +57,11 @@ void util_set_shader_buffers_mask(struct pipe_shader_buffer *dst,
                                   unsigned start_slot, unsigned count);
 
 bool util_upload_index_buffer(struct pipe_context *pipe,
-                              const struct pipe_draw_info *info,
-                              const struct pipe_draw_start_count_bias *draw,
-                              struct pipe_resource **out_buffer,
-                              unsigned *out_offset, unsigned alignment);
+                              const struct pipe_draw_info **inout_info,
+                              struct pipe_draw_info *tmp_info,
+                              const struct pipe_draw_start_count_bias **inout_count,
+                              struct pipe_draw_start_count_bias *tmp_count,
+                              unsigned alignment);
 
 void
 util_lower_uint64_vertex_elements(const struct pipe_vertex_element **velems,

@@ -524,18 +524,20 @@ zink_draw(struct pipe_context *pctx,
 
    unsigned index_offset = 0;
    unsigned index_size = dinfo->index_size;
+   const struct pipe_draw_start_count_bias *orig_draws = draws;
    struct pipe_resource *index_buffer = NULL;
+   struct pipe_draw_info tmp_info;
+   struct pipe_draw_start_count_bias tmp_draw;
+   if (!util_upload_index_buffer(pctx, &dinfo, &tmp_info, &draws, &tmp_draw, 4)) {
+      debug_printf("util_upload_index_buffer() failed\n");
+      return;
+   }
+   /* XXX: zink does not really want the new helper, and honestly we should make the new helper be more like what zink/freedreno wants. */
+   index_offset = (draws[0].start - orig_draws[0].start) / index_size;
+
    if (index_size > 0) {
-      if (dinfo->has_user_indices) {
-         if (!util_upload_index_buffer(pctx, dinfo, &draws[0], &index_buffer, &index_offset, 4)) {
-            debug_printf("util_upload_index_buffer() failed\n");
-            return;
-         }
-         zink_batch_reference_resource_move(batch, zink_resource(index_buffer));
-      } else {
-         index_buffer = dinfo->index.resource;
-         zink_batch_reference_resource_rw(batch, zink_resource(index_buffer), false);
-      }
+      index_buffer = dinfo->index.resource;
+      zink_batch_reference_resource_rw(batch, zink_resource(index_buffer), false);
       assert(index_size <= 4 && index_size != 3);
       assert(index_size != 1 || screen->info.have_EXT_index_type_uint8);
    }
@@ -892,6 +894,9 @@ zink_draw(struct pipe_context *pctx,
       }
       VKCTX(CmdEndTransformFeedbackEXT)(batch->state->cmdbuf, 0, ctx->num_so_targets, counter_buffers, counter_buffer_offsets);
    }
+
+   pipe_resource_reference(&tmp_info.index.resource, NULL);
+
    batch->has_work = true;
    batch->last_was_compute = false;
    ctx->batch.work_count = work_count;
