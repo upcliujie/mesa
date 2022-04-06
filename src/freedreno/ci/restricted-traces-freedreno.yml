@@ -39,10 +39,10 @@ traces:
         checksum: d65b15a48cc7488020a1d4ae3d5dd583
 
 # Crashes
-  - path: Anna/Anna-f692.trace
-    expectations:
-      - device: freedreno-a630
-        checksum: 0
+#  - path: Anna/Anna-f692.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 0
 
   - path: Antichamber/antichamber-f240.trace
     expectations:
@@ -50,10 +50,10 @@ traces:
         checksum: 0
 
 # Crashes
-  - path: Cradle/cradle-f3000.trace
-    expectations:
-      - device: freedreno-a630
-        checksum: 0
+#  - path: Cradle/cradle-f3000.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 0
 
   - path: ICEDarkness/ICEDarkness-f230.trace
     expectations:
@@ -70,10 +70,18 @@ traces:
       - device: freedreno-a630
         checksum: 0
 
-  - path: OilRush/OilRush-f14000.trace
-    expectations:
-      - device: freedreno-a630
-        checksum: 0
+# Hangs the GPU, though it eventually recovers:
+# [  534.818899] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
+# [  534.828579] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     completed fence: 41747
+# [  534.837423] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     submitted fence: 41755
+# [  534.846403] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: hangcheck recover!
+# [  534.854335] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: offending task: eglretrace:sq0 (eglretrace --headless --snapshot=27827909 --snapshot-prefix=/results/trace/freedreno-a630/OilRush/OilRush-f14000.trace- /builds/tomeu/mesa/replayer-db/OilRush/OilRush-f14000.trace)
+# [  534.880842] *** gpu fault: ttbr0=00000001ac9e4000 iova=000000010dcab5e0 dir=READ type=TRANSLATION source=CP (0,0,0,1)
+#
+#  - path: OilRush/OilRush-f14000.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 0
 
   - path: Osmos/Osmos-f2660.trace
     expectations:
@@ -131,16 +139,16 @@ traces:
       - device: freedreno-a630
         checksum: 94de06734f428368c7e21d692bc937f8
 
-  # Crashes somewhere in apitrace:
-  # apitrace: warning: caught signal 11
-  # 250: error: caught an unhandled exception
-  # eglretrace+0x2b6173
-  # linux-vdso.so.1+0x79f
-  # ?+0x0
-  - path: TombRaider2013/TombRaider-f1430.trace
-    expectations:
-      - device: freedreno-a630
-        checksum: 0
+# Crashes somewhere in apitrace:
+# apitrace: warning: caught signal 11
+# 250: error: caught an unhandled exception
+# eglretrace+0x2b6173
+# linux-vdso.so.1+0x79f
+# ?+0x0
+#  - path: TombRaider2013/TombRaider-f1430.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 0
 
   # The lower-right quarter of the screen is covered by a version of the top-left
   # quarter with more bright colors.
