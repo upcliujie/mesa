@@ -222,6 +222,8 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
       [IRIS_DOMAIN_DEPTH_WRITE] = PIPE_CONTROL_TILE_CACHE_FLUSH,
       [IRIS_DOMAIN_DATA_WRITE] = PIPE_CONTROL_DATA_CACHE_FLUSH,
    };
+   const uint32_t l3_invalidate_bits = PIPE_CONTROL_TILE_CACHE_FLUSH |
+                                       PIPE_CONTROL_DATA_CACHE_FLUSH;
    uint32_t bits = 0;
 
    /* Iterate over all read/write domains first in order to handle RaW
@@ -302,10 +304,11 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
 
       /* There is an access via OTHER_WRITE that isn't visible to the
        * specified domain.  If the access is via L3, then we need to
-       * invalidate any stale L3 cachelines that it might see.
+       * invalidate any stale L3 cachelines that it might see.  Note
+       * that this includes the _entire_ L3.
        */
-      if (access_via_l3)
-         bits |= l3_flush_bits[access];
+      if (access_via_l3 && seqno > batch->l3_coherent_seqnos[i])
+         bits |= l3_invalidate_bits;
 
       if (seqno > batch->coherent_seqnos[i][i])
          bits |= flush_bits[i];
