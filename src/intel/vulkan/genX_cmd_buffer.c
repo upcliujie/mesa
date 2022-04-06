@@ -2576,7 +2576,6 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
     */
    const bool need_client_mem_relocs =
       anv_use_relocations(cmd_buffer->device->physical);
-   struct anv_push_constants *push = &pipe_state->push_constants;
 
    for (uint32_t s = 0; s < map->surface_count; s++) {
       struct anv_pipeline_binding *binding = &map->surface_to_descriptor[s];
@@ -2773,7 +2772,8 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
             if (desc->buffer) {
                /* Compute the offset within the buffer */
                uint32_t dynamic_offset =
-                  push->dynamic_offsets[binding->dynamic_offset_index];
+                  pipe_state->dynamic_offsets[
+                     binding->set].offsets[binding->dynamic_offset_index];
                uint64_t offset = desc->offset + dynamic_offset;
                /* Clamp to the buffer size */
                offset = MIN2(offset, desc->buffer->size);
@@ -3043,10 +3043,10 @@ get_push_range_address(struct anv_cmd_buffer *cmd_buffer,
       } else {
          assert(desc->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
          if (desc->buffer) {
-            const struct anv_push_constants *push =
-               &gfx_state->base.push_constants;
+            const struct anv_cmd_pipeline_state *pipe_state = &gfx_state->base;
             uint32_t dynamic_offset =
-               push->dynamic_offsets[range->dynamic_offset_index];
+               pipe_state->dynamic_offsets[
+                  range->set].offsets[range->dynamic_offset_index];
             return anv_address_add(desc->buffer->address,
                                    desc->offset + dynamic_offset);
          }
@@ -3119,10 +3119,10 @@ get_push_range_bound_size(struct anv_cmd_buffer *cmd_buffer,
 
          assert(desc->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
          /* Compute the offset within the buffer */
-         const struct anv_push_constants *push =
-            &gfx_state->base.push_constants;
+         const struct anv_cmd_pipeline_state *pipe_state = &gfx_state->base;
          uint32_t dynamic_offset =
-            push->dynamic_offsets[range->dynamic_offset_index];
+            pipe_state->dynamic_offsets[
+               range->set].offsets[range->dynamic_offset_index];
          uint64_t offset = desc->offset + dynamic_offset;
          /* Clamp to the buffer size */
          offset = MIN2(offset, desc->buffer->size);
@@ -3300,10 +3300,14 @@ cmd_buffer_flush_push_constants(struct anv_cmd_buffer *cmd_buffer,
    VkShaderStageFlags flushed = 0;
    struct anv_cmd_graphics_state *gfx_state = &cmd_buffer->state.gfx;
    const struct anv_graphics_pipeline *pipeline = gfx_state->pipeline;
+   const struct anv_pipeline_sets_layout *layout = &pipeline->base.base.layout;
 
 #if GFX_VER >= 12
    uint32_t nobuffer_stages = 0;
 #endif
+
+   if (layout->num_dynamic_buffers > 0)
+      anv_cmd_pipeline_state_write_dynamic_offsets(&gfx_state->base, layout);
 
    /* Compute robust pushed register access mask for each stage. */
    if (cmd_buffer->device->robust_buffer_access) {
@@ -5700,6 +5704,7 @@ cmd_buffer_trace_rays(struct anv_cmd_buffer *cmd_buffer,
 {
    struct anv_cmd_ray_tracing_state *rt = &cmd_buffer->state.rt;
    struct anv_ray_tracing_pipeline *pipeline = rt->pipeline;
+   const struct anv_pipeline_sets_layout *layout = &pipeline->base.layout;
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
@@ -5715,6 +5720,11 @@ cmd_buffer_trace_rays(struct anv_cmd_buffer *cmd_buffer,
    cmd_buffer->state.rt.pipeline_dirty = false;
 
    genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+
+   if (layout->num_dynamic_buffers > 0) {
+      anv_cmd_pipeline_state_write_dynamic_offsets(&cmd_buffer->state.rt.base,
+                                                   layout);
+   }
 
    /* Add these to the reloc list as they're internal buffers that don't
     * actually have relocs to pick them up manually.
