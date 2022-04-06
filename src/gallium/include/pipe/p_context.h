@@ -1000,6 +1000,12 @@ struct pipe_context {
    /*@}*/
 
    /**
+    * Return an equivalent canonical format without "X" channels.
+    */
+   enum pipe_format (*get_canonical_format)(struct pipe_context *context,
+                                            enum pipe_format format);
+
+   /**
     * Get the default sample position for an individual sample point.
     *
     * \param sample_count - total number of samples
