@@ -74,6 +74,7 @@ static void
 dzn_physical_device_get_extensions(dzn_physical_device *pdev)
 {
    pdev->vk.supported_extensions = vk_device_extension_table {
+      .KHR_shader_draw_parameters            = true,
 #ifdef DZN_USE_WSI_PLATFORM
       .KHR_swapchain                         = true,
 #endif
@@ -1056,7 +1057,7 @@ dzn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       .variablePointers                   = true,
       .protectedMemory                    = false,
       .samplerYcbcrConversion             = false,
-      .shaderDrawParameters               = false,
+      .shaderDrawParameters               = true,
    };
 
    const VkPhysicalDeviceVulkan12Features core_1_2 = {
