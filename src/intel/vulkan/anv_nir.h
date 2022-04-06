@@ -38,7 +38,7 @@ bool anv_nir_lower_multiview(nir_shader *shader,
                              struct anv_graphics_pipeline_base *pipeline);
 
 bool anv_nir_lower_ycbcr_textures(nir_shader *shader,
-                                  const struct anv_pipeline_layout *layout);
+                                  const struct anv_pipeline_sets_layout *layout);
 
 static inline nir_address_format
 anv_nir_ssbo_addr_format(const struct anv_physical_device *pdevice,
@@ -72,7 +72,8 @@ bool anv_nir_lower_ubo_loads(nir_shader *shader);
 
 void anv_nir_apply_pipeline_layout(const struct anv_physical_device *pdevice,
                                    bool robust_buffer_access,
-                                   const struct anv_pipeline_layout *layout,
+                                   bool independent_sets,
+                                   const struct anv_pipeline_sets_layout *layout,
                                    nir_shader *shader,
                                    struct anv_pipeline_bind_map *map);
 
