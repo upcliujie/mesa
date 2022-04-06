@@ -256,13 +256,6 @@ ir3_compiler_create(struct fd_device *dev, const struct fd_dev_id *dev_id,
 
       compiler->has_dp2acc = dev_info->a6xx.has_dp2acc;
       compiler->has_dp4acc = dev_info->a6xx.has_dp4acc;
-
-      if (options->shared_const_enable) {
-         /* Consider the length of shared consts, which is 8 vec4. */
-         compiler->max_const_frag -= 8;
-         compiler->max_const_geom -= 8;
-         compiler->max_const_compute -= 8;
-      }
    } else {
       compiler->max_const_pipeline = 512;
       compiler->max_const_geom = 512;
