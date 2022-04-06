@@ -203,7 +203,7 @@ anv_nir_lower_ycbcr_textures_instr(nir_builder *builder,
                                    nir_instr *instr,
                                    void *cb_data)
 {
-   const struct anv_pipeline_layout *layout = cb_data;
+   const struct anv_pipeline_sets_layout *layout = cb_data;
 
    if (instr->type != nir_instr_type_tex)
       return false;
@@ -339,7 +339,7 @@ anv_nir_lower_ycbcr_textures_instr(nir_builder *builder,
 
 bool
 anv_nir_lower_ycbcr_textures(nir_shader *shader,
-                             const struct anv_pipeline_layout *layout)
+                             const struct anv_pipeline_sets_layout *layout)
 {
    return nir_shader_instructions_pass(shader,
                                        anv_nir_lower_ycbcr_textures_instr,

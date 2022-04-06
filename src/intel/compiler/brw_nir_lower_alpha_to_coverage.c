@@ -173,24 +173,18 @@ brw_nir_lower_alpha_to_coverage(nir_shader *shader,
    /* Combine dither_mask and the gl_SampleMask value */
    b.cursor = nir_before_instr(&sample_mask_write->instr);
 
-   assert(key->alpha_to_coverage == BRW_SOMETIMES ||
-          key->alpha_to_coverage == BRW_ALWAYS);
-   if (key->alpha_to_coverage == BRW_SOMETIMES) {
-      nir_ssa_def *push_flags =
-         nir_load_uniform(&b, 1, 32, nir_imm_int(&b, prog_data->msaa_flags_param));
-      nir_ssa_def *alpha_to_coverage =
-         nir_i2b(&b,
-                 nir_iadd_imm(&b, push_flags,
-                              BRW_WM_MSAA_FLAG_ALPHA_TO_COVERAGE));
-      nir_push_if(&b, alpha_to_coverage);
-   }
-
    nir_ssa_def *dither_mask = build_dither_mask(&b, color0);
    dither_mask = nir_iand(&b, sample_mask, dither_mask);
 
    if (key->alpha_to_coverage == BRW_SOMETIMES) {
-      nir_pop_if(&b, NULL);
-      dither_mask = nir_if_phi(&b, dither_mask, sample_mask_write->src[0].ssa);
+      nir_ssa_def *push_flags =
+         nir_load_uniform(&b, 1, 32, nir_imm_int(&b, prog_data->msaa_flags_param * 4));
+      nir_ssa_def *alpha_to_coverage =
+         nir_i2b(&b,
+                 nir_iadd_imm(&b, push_flags,
+                              BRW_WM_MSAA_FLAG_ALPHA_TO_COVERAGE));
+      dither_mask = nir_bcsel(&b, alpha_to_coverage,
+                              dither_mask, sample_mask_write->src[0].ssa);
    }
 
    nir_instr_rewrite_src(&sample_mask_write->instr,

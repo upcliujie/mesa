@@ -598,6 +598,27 @@ void anv_CmdBindPipeline(
 
       state = &cmd_buffer->state.gfx.base;
       stages = gfx_pipeline->base.active_stages;
+
+      /* When the pipeline is using independent states and dynamic buffers,
+       * this will trigger an update of anv_push_constants::dynamic_base_index
+       * & anv_push_constants::dynamic_offsets.
+       */
+      struct anv_push_constants *push =
+         &cmd_buffer->state.gfx.base.push_constants;
+      struct anv_pipeline_sets_layout *layout = &gfx_pipeline->base.base.layout;
+      if (layout->independent_sets && layout->num_dynamic_buffers > 0) {
+         bool modified = false;
+         for (uint32_t s = 0; s < layout->num_sets; s++) {
+            assert(layout->set[s].dynamic_offset_start < MAX_DYNAMIC_BUFFERS);
+            if (push->dynamic_base_index[s] !=
+                layout->set[s].dynamic_offset_start) {
+               push->dynamic_base_index[s] = layout->set[s].dynamic_offset_start;
+               modified = true;
+            }
+         }
+         if (modified)
+            cmd_buffer->state.push_constants_dirty |= stages;
+      }
       break;
    }
 
@@ -985,10 +1006,30 @@ void anv_CmdSetStencilOpEXT(
    cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
 }
 
+void
+anv_cmd_pipeline_state_write_dynamic_offsets(struct anv_cmd_pipeline_state *state,
+                                             const struct anv_pipeline_sets_layout *layout)
+{
+   struct anv_push_constants *push = &state->push_constants;
+
+   /* anv_pipeline_sets_layout_print(layout); */
+
+   for (uint32_t s = 0; s < layout->num_sets; s++) {
+      if (layout->set[s].layout->dynamic_offset_count > 0) {
+         uint32_t start = layout->set[s].dynamic_offset_start;
+         uint32_t count = layout->set[s].layout->dynamic_offset_count;
+
+         memcpy(&push->dynamic_offsets[start],
+                state->dynamic_offsets[s].offsets,
+                count * sizeof(push->dynamic_offsets[0]));
+      }
+   }
+}
+
 static void
 anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
                                    VkPipelineBindPoint bind_point,
-                                   struct anv_pipeline_layout *layout,
+                                   struct anv_pipeline_sets_layout *layout,
                                    uint32_t set_index,
                                    struct anv_descriptor_set *set,
                                    uint32_t *dynamic_offset_count,
@@ -1079,30 +1120,20 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
 
    if (dynamic_offsets) {
       if (set_layout->dynamic_offset_count > 0) {
-         struct anv_push_constants *push = &pipe_state->push_constants;
-         uint32_t dynamic_offset_start =
-            layout->set[set_index].dynamic_offset_start;
-         uint32_t *push_offsets =
-            &push->dynamic_offsets[dynamic_offset_start];
+         uint32_t count = MIN2(*dynamic_offset_count,
+                               set_layout->dynamic_offset_count);
 
-         /* Assert that everything is in range */
-         assert(set_layout->dynamic_offset_count <= *dynamic_offset_count);
-         assert(dynamic_offset_start + set_layout->dynamic_offset_count <=
-                ARRAY_SIZE(push->dynamic_offsets));
+         if (memcmp(pipe_state->dynamic_offsets[set_index].offsets,
+                    *dynamic_offsets, count * sizeof(uint32_t))) {
+            memcpy(pipe_state->dynamic_offsets[set_index].offsets,
+                   *dynamic_offsets, count * sizeof(uint32_t));
 
-         for (uint32_t i = 0; i < set_layout->dynamic_offset_count; i++) {
-            if (push_offsets[i] != (*dynamic_offsets)[i]) {
-               push_offsets[i] = (*dynamic_offsets)[i];
-               /* dynamic_offset_stages[] elements could contain blanket
-                * values like VK_SHADER_STAGE_ALL, so limit this to the
-                * binding point's bits.
-                */
+            for (uint32_t i = 0; i < count; i++)
                dirty_stages |= set_layout->dynamic_offset_stages[i] & stages;
-            }
          }
 
-         *dynamic_offsets += set_layout->dynamic_offset_count;
-         *dynamic_offset_count -= set_layout->dynamic_offset_count;
+         *dynamic_offsets += count;
+         *dynamic_offset_count -= count;
       }
    }
 
@@ -1121,7 +1152,8 @@ void anv_CmdBindDescriptorSets(
     const uint32_t*                             pDynamicOffsets)
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
-   ANV_FROM_HANDLE(anv_pipeline_layout, layout, _layout);
+   ANV_FROM_HANDLE(anv_pipeline_layout, pipeline_layout, _layout);
+   struct anv_pipeline_sets_layout *layout = &pipeline_layout->sets_layout;
 
    assert(firstSet + descriptorSetCount <= MAX_SETS);
 
@@ -1276,9 +1308,10 @@ struct anv_state
 anv_cmd_buffer_cs_push_constants(struct anv_cmd_buffer *cmd_buffer)
 {
    const struct intel_device_info *devinfo = &cmd_buffer->device->info;
-   struct anv_push_constants *data =
-      &cmd_buffer->state.compute.base.push_constants;
+   struct anv_cmd_pipeline_state *pipe_state = &cmd_buffer->state.compute.base;
+   struct anv_push_constants *data = &pipe_state->push_constants;
    struct anv_compute_pipeline *pipeline = cmd_buffer->state.compute.pipeline;
+   const struct anv_pipeline_sets_layout *layout = &pipeline->base.layout;
    const struct brw_cs_prog_data *cs_prog_data = get_cs_prog_data(pipeline);
    const struct anv_push_range *range = &pipeline->cs->bind_map.push_ranges[0];
 
@@ -1288,6 +1321,9 @@ anv_cmd_buffer_cs_push_constants(struct anv_cmd_buffer *cmd_buffer)
       brw_cs_push_const_total_size(cs_prog_data, dispatch.threads);
    if (total_push_constants_size == 0)
       return (struct anv_state) { .offset = 0 };
+
+   if (layout->num_dynamic_buffers > 0)
+      anv_cmd_pipeline_state_write_dynamic_offsets(pipe_state, layout);
 
    const unsigned push_constant_alignment =
       cmd_buffer->device->info.ver < 8 ? 32 : 64;
@@ -1468,7 +1504,8 @@ void anv_CmdPushDescriptorSetKHR(
     const VkWriteDescriptorSet* pDescriptorWrites)
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
-   ANV_FROM_HANDLE(anv_pipeline_layout, layout, _layout);
+   ANV_FROM_HANDLE(anv_pipeline_layout, pipeline_layout, _layout);
+   struct anv_pipeline_sets_layout *layout = &pipeline_layout->sets_layout;
 
    assert(_set < MAX_SETS);
 
@@ -1566,7 +1603,8 @@ void anv_CmdPushDescriptorSetWithTemplateKHR(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_descriptor_update_template, template,
                    descriptorUpdateTemplate);
-   ANV_FROM_HANDLE(anv_pipeline_layout, layout, _layout);
+   ANV_FROM_HANDLE(anv_pipeline_layout, pipeline_layout, _layout);
+   struct anv_pipeline_sets_layout *layout = &pipeline_layout->sets_layout;
 
    assert(_set < MAX_PUSH_DESCRIPTORS);
 
