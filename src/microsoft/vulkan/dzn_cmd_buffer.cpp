@@ -1207,8 +1207,8 @@ dzn_cmd_buffer_clear_attachment(struct dzn_cmd_buffer *cmdbuf,
          flags |= D3D12_CLEAR_FLAG_STENCIL;
 
       if (flags != 0) {
-         auto desc = dzn_image_get_dsv_desc(image, &range, 0);
-         auto handle = dzn_cmd_buffer_get_dsv(cmdbuf, image, &desc);
+         D3D12_DEPTH_STENCIL_VIEW_DESC desc = dzn_image_get_dsv_desc(image, &range, 0);
+         D3D12_CPU_DESCRIPTOR_HANDLE handle = dzn_cmd_buffer_get_dsv(cmdbuf, image, &desc);
          ID3D12GraphicsCommandList1_ClearDepthStencilView(cmdbuf->cmdlist, handle, flags,
                                                 value->depthStencil.depth,
                                                 value->depthStencil.stencil,
@@ -1246,8 +1246,8 @@ dzn_cmd_buffer_clear_attachment(struct dzn_cmd_buffer *cmdbuf,
                                               &value->color,
                                               &range, rect_count, rects);
       } else {
-         auto desc = dzn_image_get_rtv_desc(image, &range, 0);
-         auto handle = dzn_cmd_buffer_get_rtv(cmdbuf, image, &desc);
+         D3D12_RENDER_TARGET_VIEW_DESC desc = dzn_image_get_rtv_desc(image, &range, 0);
+         D3D12_CPU_DESCRIPTOR_HANDLE handle = dzn_cmd_buffer_get_rtv(cmdbuf, image, &desc);
          ID3D12GraphicsCommandList1_ClearRenderTargetView(cmdbuf->cmdlist, handle, vals, rect_count, rects);
       }
    }
@@ -1325,8 +1325,8 @@ dzn_cmd_buffer_clear_color(struct dzn_cmd_buffer *cmdbuf,
             view_range.layerCount = u_minify(image->vk.extent.depth, range->baseMipLevel + lvl);
          }
 
-         auto desc = dzn_image_get_rtv_desc(image, &view_range, lvl);
-         auto handle = dzn_cmd_buffer_get_rtv(cmdbuf, image, &desc);
+         D3D12_RENDER_TARGET_VIEW_DESC desc = dzn_image_get_rtv_desc(image, &view_range, lvl);
+         D3D12_CPU_DESCRIPTOR_HANDLE handle = dzn_cmd_buffer_get_rtv(cmdbuf, image, &desc);
          ID3D12GraphicsCommandList1_ClearRenderTargetView(cmdbuf->cmdlist, handle, clear_vals, 0, NULL);
 
          if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
@@ -1398,8 +1398,8 @@ dzn_cmd_buffer_clear_zs(struct dzn_cmd_buffer *cmdbuf,
             }
          }
 
-         auto desc = dzn_image_get_dsv_desc(image, range, lvl);
-         auto handle = dzn_cmd_buffer_get_dsv(cmdbuf, image, &desc);
+         D3D12_DEPTH_STENCIL_VIEW_DESC desc = dzn_image_get_dsv_desc(image, range, lvl);
+         D3D12_CPU_DESCRIPTOR_HANDLE handle = dzn_cmd_buffer_get_dsv(cmdbuf, image, &desc);
          ID3D12GraphicsCommandList1_ClearDepthStencilView(cmdbuf->cmdlist,
                                                           handle, flags,
                                                           zs->depth,
@@ -1627,8 +1627,8 @@ dzn_cmd_buffer_copy_img_chunk(struct dzn_cmd_buffer *cmdbuf,
       assert(src_subres->layerCount == dst_subres->layerCount);
    }
 
-   auto dst_loc = dzn_image_get_copy_loc(dst, dst_subres, aspect, dst_l);
-   auto src_loc = dzn_image_get_copy_loc(src, src_subres, aspect, src_l);
+   D3D12_TEXTURE_COPY_LOCATION dst_loc = dzn_image_get_copy_loc(dst, dst_subres, aspect, dst_l);
+   D3D12_TEXTURE_COPY_LOCATION src_loc = dzn_image_get_copy_loc(src, src_subres, aspect, src_l);
 
    D3D12_BOX src_box = {
       .left = (UINT)MAX2(region->srcOffset.x, 0),
@@ -1791,12 +1791,12 @@ dzn_cmd_buffer_blit_prepare_dst_view(struct dzn_cmd_buffer *cmdbuf,
    };
 
    if (ds) {
-      auto desc = dzn_image_get_dsv_desc(img, &range, 0);
-      auto handle = dzn_cmd_buffer_get_dsv(cmdbuf, img, &desc);
+      D3D12_DEPTH_STENCIL_VIEW_DESC desc = dzn_image_get_dsv_desc(img, &range, 0);
+      D3D12_CPU_DESCRIPTOR_HANDLE handle = dzn_cmd_buffer_get_dsv(cmdbuf, img, &desc);
       ID3D12GraphicsCommandList1_OMSetRenderTargets(cmdbuf->cmdlist, 0, NULL, TRUE, &handle);
    } else {
-      auto desc = dzn_image_get_rtv_desc(img, &range, 0);
-      auto handle = dzn_cmd_buffer_get_rtv(cmdbuf, img, &desc);
+      D3D12_RENDER_TARGET_VIEW_DESC desc = dzn_image_get_rtv_desc(img, &range, 0);
+      D3D12_CPU_DESCRIPTOR_HANDLE handle = dzn_cmd_buffer_get_rtv(cmdbuf, img, &desc);
       ID3D12GraphicsCommandList1_OMSetRenderTargets(cmdbuf->cmdlist, 1, &handle, FALSE, NULL);
    }
 }
@@ -2899,7 +2899,7 @@ dzn_cmd_buffer_indirect_draw(struct dzn_cmd_buffer *cmdbuf,
    D3D12_INDEX_BUFFER_VIEW ib_view = {};
 
    if (triangle_fan_exec_buf) {
-      auto index_type =
+      enum dzn_index_type index_type =
          indexed ?
          dzn_index_type_from_dxgi_format(cmdbuf->state.ib.view.Format) :
          DZN_NO_INDEX;
@@ -3012,7 +3012,7 @@ dzn_CmdCopyBuffer2(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_buffer, dst_buffer, info->dstBuffer);
 
    for (int i = 0; i < info->regionCount; i++) {
-      auto &region = info->pRegions[i];
+      const VkBufferCopy2 &region = info->pRegions[i];
 
       ID3D12GraphicsCommandList1_CopyBufferRegion(cmdbuf->cmdlist, dst_buffer->res, region.dstOffset,
                                         src_buffer->res, region.srcOffset,
