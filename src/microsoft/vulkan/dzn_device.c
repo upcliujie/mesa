@@ -559,7 +559,7 @@ dzn_physical_device_get_format_properties(struct dzn_physical_device *pdev,
    }
 
    if (dfmt_info.Format == DXGI_FORMAT_UNKNOWN) {
-      *base_props = VkFormatProperties { };
+      *base_props = (VkFormatProperties) { 0 };
       return;
    }
 
@@ -857,7 +857,7 @@ dzn_GetPhysicalDeviceImageFormatProperties(VkPhysicalDevice physicalDevice,
       .flags = createFlags,
    };
 
-   VkImageFormatProperties2 props = {};
+   VkImageFormatProperties2 props = { 0 };
 
    VkResult result =
       dzn_GetPhysicalDeviceImageFormatProperties2(physicalDevice, &info, &props);
@@ -960,7 +960,7 @@ dzn_physical_device_supports_compressed_format(struct dzn_physical_device *pdev,
          VK_FORMAT_FEATURE_BLIT_SRC_BIT | \
          VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)
    for (uint32_t i = 0; i < format_count; i++) {
-      VkFormatProperties2 props = {};
+      VkFormatProperties2 props = { 0 };
       dzn_physical_device_get_format_properties(pdev, formats[i], &props);
       if ((props.formatProperties.optimalTilingFeatures & REQUIRED_COMPRESSED_CAPS) != REQUIRED_COMPRESSED_CAPS)
          return false;
@@ -1759,7 +1759,7 @@ dzn_device_create(struct dzn_physical_device *pdev,
          D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
       };
 
-      D3D12_INFO_QUEUE_FILTER NewFilter = {};
+      D3D12_INFO_QUEUE_FILTER NewFilter = { 0 };
       NewFilter.DenyList.NumSeverities = ARRAY_SIZE(severities);
       NewFilter.DenyList.pSeverityList = severities;
       NewFilter.DenyList.NumIDs = ARRAY_SIZE(msg_ids);
@@ -1936,7 +1936,7 @@ dzn_device_memory_create(struct dzn_device *device,
    const VkMemoryType *mem_type =
       &pdevice->memory.memoryTypes[pAllocateInfo->memoryTypeIndex];
 
-   D3D12_HEAP_DESC heap_desc = {};
+   D3D12_HEAP_DESC heap_desc = { 0 };
    // TODO: fix all of these:
    heap_desc.SizeInBytes = pAllocateInfo->allocationSize;
    heap_desc.Alignment =
@@ -1971,7 +1971,7 @@ dzn_device_memory_create(struct dzn_device *device,
 
    if ((mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
        !(heap_desc.Flags & D3D12_HEAP_FLAG_DENY_BUFFERS)){
-      D3D12_RESOURCE_DESC res_desc = {};
+      D3D12_RESOURCE_DESC res_desc = { 0 };
       res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
       res_desc.Format = DXGI_FORMAT_UNKNOWN;
       res_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -2046,7 +2046,7 @@ dzn_MapMemory(VkDevice _device,
    assert(offset + size <= mem->size);
 
    assert(mem->map_res);
-   D3D12_RANGE range = {};
+   D3D12_RANGE range = { 0 };
    range.Begin = offset;
    range.End = offset + size;
    void *map = NULL;
