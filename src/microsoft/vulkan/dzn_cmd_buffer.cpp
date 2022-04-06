@@ -593,7 +593,7 @@ dzn_cmd_buffer_collect_query_ops(struct dzn_cmd_buffer *cmdbuf,
    uint32_t start, end;
 
    BITSET_FOREACH_RANGE(start, end, bitset, nbits) {
-      struct dzn_cmd_buffer_query_range range { qpool, start, end - start };
+      struct dzn_cmd_buffer_query_range range = { qpool, start, end - start };
       struct dzn_cmd_buffer_query_range *entry = (struct dzn_cmd_buffer_query_range *)
          util_dynarray_grow(ops_array, struct dzn_cmd_buffer_query_range, 1);
 
@@ -770,7 +770,7 @@ dzn_cmd_buffer_get_dsv(struct dzn_cmd_buffer *cmdbuf,
                        const D3D12_DEPTH_STENCIL_VIEW_DESC *desc)
 {
    struct dzn_device *device = container_of(cmdbuf->vk.base.device, struct dzn_device, vk);
-   struct dzn_cmd_buffer_dsv_key key { image, *desc };
+   struct dzn_cmd_buffer_dsv_key key = { image, *desc };
    struct hash_entry *he = _mesa_hash_table_search(cmdbuf->dsvs.ht, &key);
    struct dzn_cmd_buffer_dsv_entry *dsve;
 
@@ -800,7 +800,7 @@ dzn_cmd_buffer_get_rtv(struct dzn_cmd_buffer *cmdbuf,
                        const D3D12_RENDER_TARGET_VIEW_DESC *desc)
 {
    struct dzn_device *device = container_of(cmdbuf->vk.base.device, struct dzn_device, vk);
-   struct dzn_cmd_buffer_rtv_key key { image, *desc };
+   struct dzn_cmd_buffer_rtv_key key = { image, *desc };
    struct hash_entry *he = _mesa_hash_table_search(cmdbuf->rtvs.ht, &key);
    struct dzn_cmd_buffer_rtv_entry *rtve;
 
