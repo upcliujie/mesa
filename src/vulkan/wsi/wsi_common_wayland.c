@@ -705,8 +705,13 @@ wsi_wl_surface_get_capabilities(VkIcdSurfaceBase *surface,
     *  2) One to have queued for scan-out
     *  3) One to be currently held by the Wayland compositor
     *  4) One to render to
+    * So for mailbox on swapchain creation,
+    * we will take MAX(minImageCount, 4) for the image count to avoid stalls.
+    *
+    * Right now there is no async acquire so we will expose a
+    * minImageCount of 3.
     */
-   caps->minImageCount = 4;
+   caps->minImageCount = 3;
    /* There is no real maximum */
    caps->maxImageCount = 0;
 
@@ -1239,6 +1244,12 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 
    int num_images = pCreateInfo->minImageCount;
+
+   /* If the swapchain is MAILBOX, ensure we have 4 images to
+    * avoid stalling.
+    */
+   if (pCreateInfo->presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+      num_images = MAX2(num_images, 4);
 
    size_t size = sizeof(*chain) + num_images * sizeof(chain->images[0]);
    chain = vk_zalloc(pAllocator, size, 8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
