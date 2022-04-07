@@ -123,7 +123,7 @@ dzn_meta_indirect_draw_init(struct dzn_device *device,
    uint32_t root_param_count = 0;
    D3D12_ROOT_PARAMETER1 root_params[DZN_META_INDIRECT_DRAW_MAX_PARAM_COUNT];
 
-   root_params[root_param_count++] = D3D12_ROOT_PARAMETER1 {
+   root_params[root_param_count++] = (D3D12_ROOT_PARAMETER1) {
       .ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
       .Constants = {
          .ShaderRegister = 0,
@@ -133,7 +133,7 @@ dzn_meta_indirect_draw_init(struct dzn_device *device,
       .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
    };
 
-   root_params[root_param_count++] = D3D12_ROOT_PARAMETER1 {
+   root_params[root_param_count++] = (D3D12_ROOT_PARAMETER1) {
       .ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV,
       .Descriptor = {
          .ShaderRegister = 1,
@@ -143,7 +143,7 @@ dzn_meta_indirect_draw_init(struct dzn_device *device,
       .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
    };
 
-   root_params[root_param_count++] = D3D12_ROOT_PARAMETER1 {
+   root_params[root_param_count++] = (D3D12_ROOT_PARAMETER1) {
       .ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV,
       .Descriptor = {
          .ShaderRegister = 2,
@@ -155,7 +155,7 @@ dzn_meta_indirect_draw_init(struct dzn_device *device,
 
 
    if (triangle_fan) {
-      root_params[root_param_count++] = D3D12_ROOT_PARAMETER1 {
+      root_params[root_param_count++] = (D3D12_ROOT_PARAMETER1) {
          .ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV,
          .Descriptor = {
             .ShaderRegister = 3,
@@ -244,7 +244,7 @@ dzn_meta_triangle_fan_rewrite_index_init(struct dzn_device *device,
    uint32_t root_param_count = 0;
    D3D12_ROOT_PARAMETER1 root_params[DZN_META_TRIANGLE_FAN_REWRITE_IDX_MAX_PARAM_COUNT];
 
-   root_params[root_param_count++] = D3D12_ROOT_PARAMETER1 {
+   root_params[root_param_count++] = (D3D12_ROOT_PARAMETER1) {
       .ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV,
       .Descriptor = {
          .ShaderRegister = 1,
@@ -254,7 +254,7 @@ dzn_meta_triangle_fan_rewrite_index_init(struct dzn_device *device,
       .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
    };
 
-   root_params[root_param_count++] = D3D12_ROOT_PARAMETER1 {
+   root_params[root_param_count++] = (D3D12_ROOT_PARAMETER1) {
       .ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
       .Constants = {
          .ShaderRegister = 0,
@@ -265,7 +265,7 @@ dzn_meta_triangle_fan_rewrite_index_init(struct dzn_device *device,
    };
 
    if (old_index_type != DZN_NO_INDEX) {
-      root_params[root_param_count++] = D3D12_ROOT_PARAMETER1 {
+      root_params[root_param_count++] = (D3D12_ROOT_PARAMETER1) {
          .ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV,
          .Descriptor = {
             .ShaderRegister = 2,
