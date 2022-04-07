@@ -419,7 +419,7 @@ panfrost_should_tile(struct panfrost_device *dev,
                 PIPE_BIND_SCANOUT |
                 PIPE_BIND_SHARED;
 
-        bool can_tile = panfrost_is_2d(pres)
+        bool can_tile = (pres->base.target != PIPE_BUFFER)
                 && ((pres->base.bind & ~valid_binding) == 0);
 
         return can_tile && (pres->base.usage != PIPE_USAGE_STREAM);
