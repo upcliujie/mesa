@@ -1567,7 +1567,7 @@ varying_matches_assign_temp_locations(struct varying_matches *vm,
       nir_variable *consumer_var = vm->matches[i].consumer_var;
 
       while (tmp_loc < MAX_VARYINGS_INCL_PATCH) {
-         if (reserved_slots & UINT64_C(1) << tmp_loc)
+         if (reserved_slots & (UINT64_C(1) << tmp_loc))
             tmp_loc++;
          else
             break;
