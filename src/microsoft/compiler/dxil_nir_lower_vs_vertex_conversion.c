@@ -21,7 +21,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "d3d12_nir_passes.h"
+#include "dxil_nir.h"
 
 #include "nir_builder.h"
 #include "nir_builtin_builder.h"
@@ -99,6 +99,26 @@ lshift_bgra(nir_builder *b)
 }
 
 static nir_ssa_def *
+from_8_8_8_8_scaled(nir_builder *b, nir_ssa_def *src,
+                    nir_ssa_def *lshift, shift_right_func shr)
+{
+   nir_ssa_def *rshift = nir_imm_ivec4(b, 24, 24, 24, 24);
+   return nir_i2f32(b, shr(b, nir_ishl(b, src, lshift), rshift));
+}
+
+inline static nir_ssa_def *
+lshift_rgba8(nir_builder *b)
+{
+   return nir_imm_ivec4(b, 24, 16, 8, 0);
+}
+
+inline static nir_ssa_def *
+lshift_bgra8(nir_builder *b)
+{
+   return nir_imm_ivec4(b, 8, 16, 24, 0);
+}
+
+static nir_ssa_def *
 lower_vs_vertex_conversion_impl(nir_builder *b, nir_instr *instr, void *options)
 {
    nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
@@ -132,6 +152,18 @@ lower_vs_vertex_conversion_impl(nir_builder *b, nir_instr *instr, void *options)
          return from_10_10_10_2_scaled(b, src, lshift_rgba(b), nir_ushr);
       case PIPE_FORMAT_B10G10R10A2_USCALED:
          return from_10_10_10_2_scaled(b, src, lshift_bgra(b), nir_ushr);
+      case PIPE_FORMAT_R8G8B8A8_USCALED:
+         return from_8_8_8_8_scaled(b, src, lshift_rgba8(b), nir_ushr);
+      case PIPE_FORMAT_R8G8B8A8_SSCALED:
+         return from_8_8_8_8_scaled(b, src, lshift_rgba8(b), nir_ishr);
+      case PIPE_FORMAT_B8G8R8A8_USCALED:
+         return from_8_8_8_8_scaled(b, src, lshift_bgra8(b), nir_ushr);
+      case PIPE_FORMAT_B8G8R8A8_SSCALED:
+         return from_8_8_8_8_scaled(b, src, lshift_bgra8(b), nir_ishr);
+      case PIPE_FORMAT_R16G16B16A16_USCALED:
+         return nir_u2f32(b, &intr->dest.ssa);
+      case PIPE_FORMAT_R16G16B16A16_SSCALED:
+         return nir_i2f32(b, &intr->dest.ssa);
 
       default:
          unreachable("Unsupported emulated vertex format");
@@ -147,7 +179,7 @@ lower_vs_vertex_conversion_impl(nir_builder *b, nir_instr *instr, void *options)
  * or PIPE_FORMAT_NONE if no conversion is needed
  */
 bool
-d3d12_nir_lower_vs_vertex_conversion(nir_shader *s,
+dxil_nir_lower_vs_vertex_conversion(nir_shader *s,
                                      enum pipe_format target_formats[])
 {
    assert(s->info.stage == MESA_SHADER_VERTEX);

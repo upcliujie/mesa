@@ -659,6 +659,12 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    NIR_PASS_V(nir, nir_lower_var_copies);
    NIR_PASS_V(nir, nir_lower_io_arrays_to_elements_no_indirects, false);
 
+   if (conf->target_formats) {
+      assert(stage == MESA_SHADER_VERTEX);
+      NIR_PASS_V(nir,
+                 dxil_nir_lower_vs_vertex_conversion,
+                 conf->target_formats);
+   }
 
    if (conf->yz_flip.mode != DXIL_SPIRV_YZ_FLIP_NONE) {
       assert(stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_GEOMETRY);

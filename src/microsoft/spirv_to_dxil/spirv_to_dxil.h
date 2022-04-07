@@ -149,6 +149,8 @@ struct dxil_spirv_runtime_conf {
    uint32_t descriptor_set_count;
    struct dxil_spirv_vulkan_descriptor_set *descriptor_sets;
 
+   enum pipe_format *target_formats;
+
    // Set true if vertex and instance ids have already been converted to
    // zero-based. Otherwise, runtime_data will be required to lower them.
    bool zero_based_vertex_instance_id;
