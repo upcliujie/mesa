@@ -804,7 +804,7 @@ dzn_descriptor_heap_init(struct dzn_descriptor_heap *heap,
 D3D12_CPU_DESCRIPTOR_HANDLE
 dzn_descriptor_heap_get_cpu_handle(const struct dzn_descriptor_heap *heap, uint32_t desc_offset)
 {
-   return D3D12_CPU_DESCRIPTOR_HANDLE {
+   return (D3D12_CPU_DESCRIPTOR_HANDLE) {
       .ptr = heap->cpu_base + (desc_offset * heap->desc_sz),
    };
 }
@@ -812,7 +812,7 @@ dzn_descriptor_heap_get_cpu_handle(const struct dzn_descriptor_heap *heap, uint3
 D3D12_GPU_DESCRIPTOR_HANDLE
 dzn_descriptor_heap_get_gpu_handle(const struct dzn_descriptor_heap *heap, uint32_t desc_offset)
 {
-   return D3D12_GPU_DESCRIPTOR_HANDLE {
+   return (D3D12_GPU_DESCRIPTOR_HANDLE) {
       .ptr = heap->gpu_base ? heap->gpu_base + (desc_offset * heap->desc_sz) : 0,
    };
 }
