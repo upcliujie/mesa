@@ -93,10 +93,10 @@ traces:
         checksum: a3cc3e461c15d0469d258c5c6dcd6cbb
 
 # Very flaky, at each rendering some pixels in the shrubs along the path change slightly
-  - path: ShadowWarrior/ShadowWarrior-f3952.trace
-    expectations:
-      - device: freedreno-a630
-        checksum: 805c120051acc74629d50bcd595a348f
+#  - path: ShadowWarrior/ShadowWarrior-f3952.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 805c120051acc74629d50bcd595a348f
 
   - path: SirYouAreBeingHunted/sir-f750.trace
     expectations:
