@@ -1046,18 +1046,35 @@ void
 zink_query_update_gs_states(struct zink_context *ctx, bool was_line_loop)
 {
    struct zink_query *query;
+   bool suspendall = false;
+   bool have_gs = !!ctx->gfx_stages[PIPE_SHADER_GEOMETRY];
+   bool have_xfb = !!ctx->num_so_targets;
+
    LIST_FOR_EACH_ENTRY(query, &ctx->primitives_generated_queries, stats_list) {
       struct zink_query_start *last_start = util_dynarray_top_ptr(&query->starts, struct zink_query_start);
       assert(query->active);
-      bool have_gs = !!ctx->gfx_stages[PIPE_SHADER_GEOMETRY];
-      bool have_xfb = !!ctx->num_so_targets;
       if (query->has_draws) {
          if (last_start->have_gs != have_gs ||
              last_start->have_xfb != have_xfb) {
-            suspend_query(ctx, query);
-            begin_query(ctx, &ctx->batch, query);
+	   suspendall = true;
          }
       }
+   }
+
+   if (ctx->vertices_query) {
+      query = ctx->vertices_query;
+      struct zink_query_start *last_start = util_dynarray_top_ptr(&query->starts, struct zink_query_start);
+      assert(query->active);
+      if (last_start->was_line_loop != was_line_loop) {
+	suspendall = true;
+      }
+   }
+   if (suspendall) {
+     zink_suspend_queries(ctx, &ctx->batch);
+     zink_resume_queries(ctx, &ctx->batch);
+   }
+
+   LIST_FOR_EACH_ENTRY(query, &ctx->primitives_generated_queries, stats_list) {
       int num_queries = get_num_queries(query->type);
       int num_elements = get_num_starts(query);
       for (unsigned i = 0; i < num_queries; i++) {
@@ -1069,12 +1086,6 @@ zink_query_update_gs_states(struct zink_context *ctx, bool was_line_loop)
    }
    if (ctx->vertices_query) {
       query = ctx->vertices_query;
-      struct zink_query_start *last_start = util_dynarray_top_ptr(&query->starts, struct zink_query_start);
-      assert(query->active);
-      if (last_start->was_line_loop != was_line_loop) {
-         suspend_query(ctx, query);
-         begin_query(ctx, &ctx->batch, query);
-      }
       int num_queries = get_num_queries(query->type);
       int num_elements = get_num_starts(query);
       for (unsigned i = 0; i < num_queries; i++) {
