@@ -1333,8 +1333,9 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
          progress = lower_offset(b, tex) || progress;
       }
 
-      if ((tex->sampler_dim == GLSL_SAMPLER_DIM_RECT) && options->lower_rect &&
-          tex->op != nir_texop_txf && !nir_tex_instr_is_query(tex)) {
+      if ((tex->sampler_dim == GLSL_SAMPLER_DIM_RECT) && tex->op != nir_texop_txf &&
+          !nir_tex_instr_is_query(tex) &&
+          (options->lower_rect || (options->lower_rect_lod && nir_tex_instr_src_index(tex, nir_tex_src_lod) != -1))) {
 
          if (compiler_options->has_txs)
             lower_rect(b, tex);
@@ -1481,6 +1482,12 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
       if (nir_tex_instr_has_implicit_derivative(tex) &&
           !nir_shader_supports_implicit_lod(b->shader)) {
          lower_zero_lod(b, tex);
+         if (tex->sampler_dim == GLSL_SAMPLER_DIM_RECT && options->lower_rect_lod) {
+            if (compiler_options->has_txs)
+               lower_rect(b, tex);
+            else
+               lower_rect_tex_scale(b, tex);
+         }
          progress = true;
       }
 

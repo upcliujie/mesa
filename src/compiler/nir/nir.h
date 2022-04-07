@@ -4844,6 +4844,13 @@ typedef struct nir_lower_tex_options {
    bool lower_rect;
 
    /**
+    * If true, lower rect textures that use LOD to 2D, using txs to fetch the
+    * texture dimensions and dividing the texture coords by the
+    * texture dims to normalize.
+    */
+   bool lower_rect_lod;
+
+   /**
     * If true, convert yuv to rgb.
     */
    unsigned lower_y_uv_external;
