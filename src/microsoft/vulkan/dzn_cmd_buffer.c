@@ -1371,7 +1371,7 @@ dzn_cmd_buffer_clear_zs(struct dzn_cmd_buffer *cmdbuf,
 
          dzn_foreach_aspect(aspect, range->aspectMask) {
             barrier_aspects[barrier_count] = aspect;
-            barriers[barrier_count] = D3D12_RESOURCE_BARRIER {
+            barriers[barrier_count] = (D3D12_RESOURCE_BARRIER) {
                .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
                .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
                .Transition = {
@@ -2233,7 +2233,7 @@ dzn_cmd_buffer_resolve_attachment(struct dzn_cmd_buffer *cmdbuf, uint32_t i)
 
    /* TODO: 2DArrays/3D */
    if (subpass->colors[i].during != D3D12_RESOURCE_STATE_RESOLVE_SOURCE) {
-      barriers[barrier_count++] = D3D12_RESOURCE_BARRIER {
+      barriers[barrier_count++] = (D3D12_RESOURCE_BARRIER) {
          .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
@@ -2246,7 +2246,7 @@ dzn_cmd_buffer_resolve_attachment(struct dzn_cmd_buffer *cmdbuf, uint32_t i)
    }
 
    if (subpass->resolve[i].during != D3D12_RESOURCE_STATE_RESOLVE_DEST) {
-      barriers[barrier_count++] = D3D12_RESOURCE_BARRIER {
+      barriers[barrier_count++] = (D3D12_RESOURCE_BARRIER) {
          .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
@@ -3101,7 +3101,7 @@ dzn_CmdCopyImage2(VkCommandBuffer commandBuffer,
       };
 
       for (uint32_t r = 0; r < info->regionCount; r++) {
-         blit_regions[r] = VkImageBlit2 {
+         blit_regions[r] = (VkImageBlit2) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
             .srcSubresource = info->pRegions[r].srcSubresource,
             .srcOffsets = {
@@ -3423,7 +3423,7 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    assert(pass->attachment_count == framebuffer->attachment_count);
 
    cmdbuf->state.framebuffer = framebuffer;
-   cmdbuf->state.render_area = D3D12_RECT {
+   cmdbuf->state.render_area = (D3D12_RECT) {
       .left = pRenderPassBeginInfo->renderArea.offset.x,
       .top = pRenderPassBeginInfo->renderArea.offset.y,
       .right = (LONG)(pRenderPassBeginInfo->renderArea.offset.x + pRenderPassBeginInfo->renderArea.extent.width),
