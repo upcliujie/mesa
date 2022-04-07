@@ -21,11 +21,11 @@ traces:
   - path: ksp/KSP-trim--f4800-v20201203.trace
     expectations:
       - device: freedreno-a630
-        checksum: 59da6ef5c9509616d595d1613fdac42e
+        checksum: 2f60f3514e1717e26b03ed3b685a0ad8
   - path: overcooked2/Overcooked2-trim--f3301-v20201203.trace
     expectations:
       - device: freedreno-a630
-        checksum: f5cf383154f328e626baf7c4515e170b
+        checksum: 358c723a5f1807fafea2d68bcd32040e
 
 # Renders all black
   - path: plague-inc-evolved/PlagueIncEvolved-trim--f1200-v20201203.trace
@@ -47,7 +47,7 @@ traces:
   - path: Antichamber/antichamber-f240.trace
     expectations:
       - device: freedreno-a630
-        checksum: 0
+        checksum: 2df47f6dffc78e01ba94ff6600e54bfa
 
 # Crashes
 #  - path: Cradle/cradle-f3000.trace
@@ -68,7 +68,7 @@ traces:
   - path: MetroLLRedux/metro-ll-redux-kf480.trace
     expectations:
       - device: freedreno-a630
-        checksum: 0
+        checksum: 93e55922e9925255c27770c2ba727524
 
 # Hangs the GPU, though it eventually recovers:
 # [  534.818899] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
@@ -96,7 +96,7 @@ traces:
   - path: ShadowWarrior/ShadowWarrior-f3952.trace
     expectations:
       - device: freedreno-a630
-        checksum: b529f6ca057c3475acb3eb156bf4f82e
+        checksum: 805c120051acc74629d50bcd595a348f
 
   - path: SirYouAreBeingHunted/sir-f750.trace
     expectations:
@@ -113,7 +113,7 @@ traces:
   - path: SpecOps/specops-s0-1088-f1300.trace
     expectations:
       - device: freedreno-a630
-        checksum: 0
+        checksum: bc713b9457393f11347302a23bf3942d
 
 # Causes the machine to hang and reboot with:
 # [ 1492.803666] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
@@ -130,6 +130,7 @@ traces:
 #     expectations:
 #       - device: freedreno-a630
 #         checksum: 0
+
   - path: Superhot/superhot-f8100.trace
     expectations:
       - device: freedreno-a630
@@ -137,7 +138,7 @@ traces:
   - path: TheRavenRemastered/Raven-f10900.trace
     expectations:
       - device: freedreno-a630
-        checksum: 94de06734f428368c7e21d692bc937f8
+        checksum: 8ed1975d6914142dd0cc7b1cf9cf9434
 
 # Crashes somewhere in apitrace:
 # apitrace: warning: caught signal 11
@@ -155,4 +156,4 @@ traces:
   - path: Witcher2/witcher2-s0-1970-f2038.trace
     expectations:
       - device: freedreno-a630
-        checksum: 9e5a15117a751d146f1303a8d3f8e0aa
+        checksum: 3c766640f3ceaead9395ec2ece01e55f
