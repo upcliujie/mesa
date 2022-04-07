@@ -891,8 +891,8 @@ dzn_graphics_pipeline_create(struct dzn_device *device,
 
 
    hres = ID3D12Device1_CreateGraphicsPipelineState(device->dev, &desc,
-                                                    IID_ID3D12PipelineState,
-                                                    (void **)&pipeline->base.state);
+                                                    &IID_ID3D12PipelineState,
+                                                    &pipeline->base.state);
    if (FAILED(hres)) {
       ret = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto out;
@@ -972,8 +972,8 @@ dzn_graphics_pipeline_get_indirect_cmd_sig(struct dzn_graphics_pipeline *pipelin
    HRESULT hres =
       ID3D12Device1_CreateCommandSignature(device->dev, &cmd_sig_desc,
                                            pipeline->base.root.sig,
-                                           IID_ID3D12CommandSignature,
-                                           (void **)&cmdsig);
+                                           &IID_ID3D12CommandSignature,
+                                           &cmdsig);
    if (FAILED(hres))
       return NULL;
 
@@ -1066,8 +1066,8 @@ dzn_compute_pipeline_create(struct dzn_device *device,
       goto out;
 
    if (FAILED(ID3D12Device1_CreateComputePipelineState(device->dev, &desc,
-                                                       IID_ID3D12PipelineState,
-                                                       (void **)&pipeline->base.state))) {
+                                                       &IID_ID3D12PipelineState,
+                                                       &pipeline->base.state))) {
       ret = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto out;
    }
@@ -1114,8 +1114,8 @@ dzn_compute_pipeline_get_indirect_cmd_sig(struct dzn_compute_pipeline *pipeline)
    HRESULT hres =
       ID3D12Device1_CreateCommandSignature(device->dev, &indirect_dispatch_desc,
                                            pipeline->base.root.sig,
-                                           IID_ID3D12CommandSignature,
-                                           (void **)&pipeline->indirect_cmd_sig);
+                                           &IID_ID3D12CommandSignature,
+                                           &pipeline->indirect_cmd_sig);
    if (FAILED(hres))
       return NULL;
 

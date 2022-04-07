@@ -182,16 +182,16 @@ dzn_cmd_buffer_create(const VkCommandBufferAllocateInfo *info,
    cmdbuf->vk.destroy = dzn_cmd_buffer_destroy;
 
    if (FAILED(ID3D12Device1_CreateCommandAllocator(device->dev, type,
-                                                   IID_ID3D12CommandAllocator,
-                                                   (void **)&cmdbuf->cmdalloc))) {
+                                                   &IID_ID3D12CommandAllocator,
+                                                   &cmdbuf->cmdalloc))) {
       result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto out;
    }
 
    if (FAILED(ID3D12Device1_CreateCommandList(device->dev, 0, type,
                                               cmdbuf->cmdalloc, NULL,
-                                              IID_ID3D12GraphicsCommandList1,
-                                              (void **)&cmdbuf->cmdlist))) {
+                                              &IID_ID3D12GraphicsCommandList1,
+                                              &cmdbuf->cmdlist))) {
       result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto out;
    }
@@ -260,8 +260,8 @@ dzn_cmd_buffer_reset(struct dzn_cmd_buffer *cmdbuf)
    if (FAILED(ID3D12Device1_CreateCommandList(device->dev, 0,
                                               D3D12_COMMAND_LIST_TYPE_DIRECT,
                                               cmdbuf->cmdalloc, NULL,
-                                              IID_ID3D12GraphicsCommandList1,
-                                              (void **)&cmdbuf->cmdlist))) {
+                                              &IID_ID3D12GraphicsCommandList1,
+                                              &cmdbuf->cmdlist))) {
       cmdbuf->error = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
@@ -857,8 +857,8 @@ dzn_cmd_buffer_alloc_internal_buf(struct dzn_cmd_buffer *cmdbuf,
       ID3D12Device1_CreateCommittedResource(device->dev, &hprops,
                                             D3D12_HEAP_FLAG_NONE, &rdesc,
                                             init_state, NULL,
-                                            IID_ID3D12Resource,
-                                            (void **)&res);
+                                            &IID_ID3D12Resource,
+                                            &res);
    if (FAILED(hres)) {
       cmdbuf->error = vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
       return cmdbuf->error;
