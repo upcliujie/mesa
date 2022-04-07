@@ -946,7 +946,7 @@ resource_create(struct pipe_screen *pscreen,
       res->format = zink_get_format(screen, templ->format);
       res->need_2D_zs = screen->need_2D_zs && util_format_is_depth_or_stencil(templ->format) &&
                         (templ->target == PIPE_TEXTURE_1D || templ->target == PIPE_TEXTURE_1D_ARRAY);
-      res->dmabuf_acquire = whandle && whandle->type == WINSYS_HANDLE_TYPE_FD;
+      res->dmabuf = res->dmabuf_acquire = whandle && whandle->type == WINSYS_HANDLE_TYPE_FD;
       res->layout = res->dmabuf_acquire ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED;
       res->optimal_tiling = optimal_tiling;
       res->aspect = aspect_from_format(templ->format);
