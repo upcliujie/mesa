@@ -1057,6 +1057,7 @@ clc_spirv_to_dxil(struct clc_libclc *lib,
    }
 
    // Needs to come before lower_explicit_io
+   nir_print_shader(nir, stdout);
    NIR_PASS_V(nir, nir_lower_readonly_images_to_tex, false);
    struct clc_image_lower_context image_lower_context = { metadata, &srv_id, &uav_id };
    NIR_PASS_V(nir, clc_lower_images, &image_lower_context);
