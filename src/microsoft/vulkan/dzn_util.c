@@ -153,6 +153,24 @@ dzn_pipe_to_dxgi_format(enum pipe_format in)
    return formats[in];
 }
 
+enum pipe_format
+dzn_translate_vtx_format(VkFormat format)
+{
+   switch (format) {
+   case VK_FORMAT_A2R10G10B10_SNORM_PACK32:
+   case VK_FORMAT_A2R10G10B10_UNORM_PACK32:
+   case VK_FORMAT_A2R10G10B10_SSCALED_PACK32:
+   case VK_FORMAT_A2R10G10B10_USCALED_PACK32:
+   case VK_FORMAT_A2B10G10R10_SNORM_PACK32:
+   case VK_FORMAT_A2B10G10R10_SSCALED_PACK32:
+   case VK_FORMAT_A2B10G10R10_USCALED_PACK32:
+      return PIPE_FORMAT_R32_UINT;
+
+   default:
+      return PIPE_FORMAT_NONE;
+   }
+}
+
 struct dzn_sampler_filter_info {
    VkFilter min, mag;
    VkSamplerMipmapMode mipmap;

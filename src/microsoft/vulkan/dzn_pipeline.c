@@ -55,6 +55,7 @@ dzn_pipeline_compile_shader(struct dzn_device *device,
                             enum dxil_spirv_yz_flip_mode yz_flip_mode,
                             uint16_t y_flip_mask, uint16_t z_flip_mask,
                             bool force_sample_rate_shading,
+                            enum pipe_format *vertex_input_formats,
                             D3D12_SHADER_BYTECODE *slot)
 {
    struct dzn_instance *instance =
@@ -115,6 +116,7 @@ dzn_pipeline_compile_shader(struct dzn_device *device,
       },
       .descriptor_set_count = layout->set_count,
       .descriptor_sets = layout->binding_translation,
+      .vertex_input_formats = vertex_input_formats,
       .zero_based_vertex_instance_id = false,
       .yz_flip = {
          .mode = yz_flip_mode,
@@ -196,7 +198,9 @@ dzn_graphics_pipeline_translate_vi(struct dzn_graphics_pipeline *pipeline,
                                    const VkAllocationCallbacks *alloc,
                                    D3D12_GRAPHICS_PIPELINE_STATE_DESC *out,
                                    const VkGraphicsPipelineCreateInfo *in,
-                                   D3D12_INPUT_ELEMENT_DESC **input_elems)
+                                   D3D12_INPUT_ELEMENT_DESC **input_elems,
+                                   bool *needs_vi_conversion,
+                                   enum pipe_format *vi_formats)
 {
    struct dzn_device *device =
       container_of(pipeline->base.base.device, struct dzn_device, vk);
@@ -239,10 +243,22 @@ dzn_graphics_pipeline_translate_vi(struct dzn_graphics_pipeline *pipeline,
       const VkVertexInputAttributeDescription *attr =
          &in_vi->pVertexAttributeDescriptions[i];
 
+      enum pipe_format vtx_format = dzn_translate_vtx_format(attr->format);
+      DXGI_FORMAT dxgi_format;
+
+      if (vtx_format != PIPE_FORMAT_NONE) {
+         *needs_vi_conversion = TRUE;
+         vi_formats[attr->location] = vk_format_to_pipe_format(attr->format);
+         dxgi_format = dzn_pipe_to_dxgi_format(vtx_format);
+      } else {
+         vi_formats[attr->location] = PIPE_FORMAT_NONE;
+         dxgi_format = dzn_buffer_get_dxgi_format(attr->format);
+      }
+
       /* nir_to_dxil() name all vertex inputs as TEXCOORDx */
       inputs[i].SemanticName = "TEXCOORD";
       inputs[i].SemanticIndex = attr->location;
-      inputs[i].Format = dzn_buffer_get_dxgi_format(attr->format);
+      inputs[i].Format = dxgi_format;
       inputs[i].InputSlot = attr->binding;
       inputs[i].InputSlotClass = slot_class[attr->binding];
       inputs[i].InstanceDataStepRate =
@@ -777,6 +793,8 @@ dzn_graphics_pipeline_create(struct dzn_device *device,
                      VK_PIPELINE_BIND_POINT_GRAPHICS,
                      layout);
    D3D12_INPUT_ELEMENT_DESC *inputs = NULL;
+   bool needs_vi_conversion = FALSE;
+   enum pipe_format orig_vi_formats[D3D12_STANDARD_VERTEX_ELEMENT_COUNT];
    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {
       .pRootSignature = pipeline->base.root.sig,
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
@@ -787,7 +805,8 @@ dzn_graphics_pipeline_create(struct dzn_device *device,
       NULL : pCreateInfo->pViewportState;
 
 
-   ret = dzn_graphics_pipeline_translate_vi(pipeline, pAllocator, &desc, pCreateInfo, &inputs);
+   ret = dzn_graphics_pipeline_translate_vi(pipeline, pAllocator, &desc, pCreateInfo,
+                                            &inputs, &needs_vi_conversion, orig_vi_formats);
    if (ret != VK_SUCCESS)
       goto out;
 
@@ -866,6 +885,7 @@ dzn_graphics_pipeline_create(struct dzn_device *device,
          dzn_pipeline_get_gfx_shader_slot(&desc, pCreateInfo->pStages[i].stage);
       enum dxil_spirv_yz_flip_mode yz_flip_mode = DXIL_SPIRV_YZ_FLIP_NONE;
       uint16_t y_flip_mask = 0, z_flip_mask = 0;
+      enum pipe_format *vertex_input_formats = NULL;
 
       if (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_GEOMETRY_BIT ||
           (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT &&
@@ -895,10 +915,14 @@ dzn_graphics_pipeline_create(struct dzn_device *device,
          pCreateInfo->pMultisampleState &&
          pCreateInfo->pMultisampleState->sampleShadingEnable;
 
+      if (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT && needs_vi_conversion)
+         vertex_input_formats = orig_vi_formats;
+
       ret = dzn_pipeline_compile_shader(device, pAllocator,
                                         layout, &pCreateInfo->pStages[i],
                                         yz_flip_mode, y_flip_mask, z_flip_mask,
-                                        force_sample_rate_shading, slot);
+                                        force_sample_rate_shading,
+                                        vertex_input_formats, slot);
       if (ret != VK_SUCCESS)
          goto out;
    }
@@ -1075,7 +1099,7 @@ dzn_compute_pipeline_create(struct dzn_device *device,
       dzn_pipeline_compile_shader(device, pAllocator, layout,
                                   &pCreateInfo->stage,
                                   DXIL_SPIRV_YZ_FLIP_NONE, 0, 0,
-                                  false, &desc.CS);
+                                  false, NULL, &desc.CS);
    if (ret != VK_SUCCESS)
       goto out;
 

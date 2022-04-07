@@ -495,6 +495,16 @@ dzn_physical_device_get_format_support(struct dzn_physical_device *pdev,
       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0;
    VkImageAspectFlags aspects = 0;
 
+   enum pipe_format vtx_format = dzn_translate_vtx_format(format);
+   if (vtx_format != DXGI_FORMAT_UNKNOWN) {
+      D3D12_FEATURE_DATA_FORMAT_SUPPORT dfmt_info = {
+         .Format = dzn_pipe_to_dxgi_format(vtx_format),
+         .Support1 = D3D12_FORMAT_SUPPORT1_IA_VERTEX_BUFFER,
+      };
+
+      return dfmt_info;
+   }
+
    if (vk_format_has_depth(format))
       aspects = VK_IMAGE_ASPECT_DEPTH_BIT;
    if (vk_format_has_stencil(format))
