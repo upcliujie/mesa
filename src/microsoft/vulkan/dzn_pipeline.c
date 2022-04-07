@@ -952,12 +952,12 @@ dzn_graphics_pipeline_get_indirect_cmd_sig(struct dzn_graphics_pipeline *pipelin
    D3D12_INDIRECT_ARGUMENT_DESC cmd_args[DZN_INDIRECT_CMD_SIG_MAX_ARGS];
 
    if (triangle_fan) {
-      cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
+      cmd_args[cmd_arg_count++] = (D3D12_INDIRECT_ARGUMENT_DESC) {
          .Type = D3D12_INDIRECT_ARGUMENT_TYPE_INDEX_BUFFER_VIEW,
       };
    }
 
-   cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
+   cmd_args[cmd_arg_count++] = (D3D12_INDIRECT_ARGUMENT_DESC) {
       .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
       .Constant = {
          .RootParameterIndex = pipeline->base.root.sysval_cbv_param_idx,
@@ -966,7 +966,7 @@ dzn_graphics_pipeline_get_indirect_cmd_sig(struct dzn_graphics_pipeline *pipelin
       },
    };
 
-   cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
+   cmd_args[cmd_arg_count++] = (D3D12_INDIRECT_ARGUMENT_DESC) {
       .Type = indexed ?
               D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED :
               D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
