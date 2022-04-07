@@ -1481,6 +1481,12 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
       if (nir_tex_instr_has_implicit_derivative(tex) &&
           !nir_shader_supports_implicit_lod(b->shader)) {
          lower_zero_lod(b, tex);
+         if (tex->sampler_dim == GLSL_SAMPLER_DIM_RECT) {
+            if (compiler_options->has_txs)
+               lower_rect(b, tex);
+            else
+               lower_rect_tex_scale(b, tex);
+         }
          progress = true;
       }
 
