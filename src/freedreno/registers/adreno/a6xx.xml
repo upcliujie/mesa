@@ -3024,7 +3024,7 @@ to upconvert to 32b float internally?
 	<reg32 offset="0xa83d" name="SP_HS_PVT_MEM_HW_STACK_OFFSET" type="a6xx_sp_xs_pvt_mem_hw_stack_offset"/>
 
 	<reg32 offset="0xa840" name="SP_DS_CTRL_REG0" type="a6xx_sp_xs_ctrl_reg0">
-		<bitfield name="MERGEDREGS" pos="20" type="boolean"/>
+		<bitfield name="<UNK20" pos="20" type="boolean"/> <!-- something preamble6-related -->
 	</reg32>
 	<reg32 offset="0xa841" name="SP_DS_BRANCH_COND" type="hex"/>
 
