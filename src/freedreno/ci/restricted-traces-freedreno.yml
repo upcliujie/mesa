@@ -110,10 +110,11 @@ traces:
       - device: freedreno-a630
         checksum: 803a5b74ca684def0737fe9d96f6f66e
 
-  - path: SpecOps/specops-s0-1088-f1300.trace
-    expectations:
-      - device: freedreno-a630
-        checksum: ade980d9679297221aacf0567e38c2de
+# Very flaky, but haven't figured out what the difference is
+#  - path: SpecOps/specops-s0-1088-f1300.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: ade980d9679297221aacf0567e38c2de
 
 # Causes the machine to hang and reboot with:
 # [ 1492.803666] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
