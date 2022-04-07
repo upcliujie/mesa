@@ -79,7 +79,7 @@ static const struct vk_instance_extension_table instance_extensions = {
 static void
 dzn_physical_device_get_extensions(struct dzn_physical_device *pdev)
 {
-   pdev->vk.supported_extensions = vk_device_extension_table {
+   pdev->vk.supported_extensions = (struct vk_device_extension_table) {
 #ifdef DZN_USE_WSI_PLATFORM
       .KHR_swapchain                         = true,
 #endif
@@ -358,17 +358,17 @@ dzn_physical_device_init_memory(struct dzn_physical_device *pdev)
    const DXGI_ADAPTER_DESC1 *desc = &pdev->adapter_desc;
 
    mem->memoryHeapCount = 1;
-   mem->memoryHeaps[0] = VkMemoryHeap {
+   mem->memoryHeaps[0] = (VkMemoryHeap) {
       .size = desc->SharedSystemMemory,
       .flags = 0,
    };
 
-   mem->memoryTypes[mem->memoryTypeCount++] = VkMemoryType {
+   mem->memoryTypes[mem->memoryTypeCount++] = (VkMemoryType) {
       .propertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
       .heapIndex = 0,
    };
-   mem->memoryTypes[mem->memoryTypeCount++] = VkMemoryType {
+   mem->memoryTypes[mem->memoryTypeCount++] = (VkMemoryType) {
       .propertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                        VK_MEMORY_PROPERTY_HOST_CACHED_BIT |
                        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -376,11 +376,11 @@ dzn_physical_device_init_memory(struct dzn_physical_device *pdev)
    };
 
    if (!pdev->architecture.UMA) {
-      mem->memoryHeaps[mem->memoryHeapCount++] = VkMemoryHeap {
+      mem->memoryHeaps[mem->memoryHeapCount++] = (VkMemoryHeap) {
          .size = desc->DedicatedVideoMemory,
          .flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
       };
-      mem->memoryTypes[mem->memoryTypeCount++] = VkMemoryType {
+      mem->memoryTypes[mem->memoryTypeCount++] = (VkMemoryType) {
          .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
          .heapIndex = mem->memoryHeapCount - 1,
       };
@@ -564,7 +564,7 @@ dzn_physical_device_get_format_properties(struct dzn_physical_device *pdev,
 
    ID3D12Device1 *dev = dzn_physical_device_get_d3d12_dev(pdev);
 
-   *base_props = VkFormatProperties {
+   *base_props = (VkFormatProperties) {
       .linearTilingFeatures = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
       .optimalTilingFeatures = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
       .bufferFeatures = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
@@ -652,7 +652,7 @@ dzn_physical_device_get_image_format_properties(struct dzn_physical_device *pdev
    const VkPhysicalDeviceExternalImageFormatInfo *external_info = NULL;
    VkExternalImageFormatProperties *external_props = NULL;
 
-   *properties = VkImageFormatProperties2 {
+   *properties = (VkImageFormatProperties2) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
    };
 
@@ -889,7 +889,7 @@ dzn_GetPhysicalDeviceExternalBufferProperties(VkPhysicalDevice physicalDevice,
                                               VkExternalBufferProperties *pExternalBufferProperties)
 {
    pExternalBufferProperties->externalMemoryProperties =
-      VkExternalMemoryProperties {
+      (VkExternalMemoryProperties) {
          .compatibleHandleTypes = (VkExternalMemoryHandleTypeFlags)pExternalBufferInfo->handleType,
       };
 }
@@ -995,7 +995,7 @@ dzn_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
 {
    VK_FROM_HANDLE(dzn_physical_device, pdev, physicalDevice);
 
-   *pFeatures = VkPhysicalDeviceFeatures {
+   *pFeatures = (VkPhysicalDeviceFeatures) {
       .robustBufferAccess = true, /* This feature is mandatory */
       .fullDrawIndexUint32 = false,
       .imageCubeArray = true,
@@ -1297,7 +1297,7 @@ dzn_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
       devtype = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
    }
 
-   *pProperties = VkPhysicalDeviceProperties {
+   *pProperties = (VkPhysicalDeviceProperties) {
       .apiVersion = DZN_API_VERSION,
       .driverVersion = vk_get_driver_version(),
 
