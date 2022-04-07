@@ -1296,10 +1296,10 @@ varying_matches_record(void *mem_ctx, struct varying_matches *vm,
 {
    assert(producer_var != NULL || consumer_var != NULL);
 
-   if ((producer_var && (is_gl_identifier(producer_var->name) ||
-       producer_var->data.explicit_location || producer_var->data.location != -1)) ||
-       (consumer_var && (is_gl_identifier(consumer_var->name) ||
-       consumer_var->data.explicit_location || consumer_var->data.location != -1))) {
+   if ((producer_var &&
+       (producer_var->data.explicit_location || producer_var->data.location != -1)) ||
+       (consumer_var &&
+        (consumer_var->data.explicit_location || consumer_var->data.location != -1))) {
       /* Either a location already exists for this variable (since it is part
        * of fixed functionality), or it has already been assigned explicitly.
        */
