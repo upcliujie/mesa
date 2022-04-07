@@ -900,40 +900,30 @@ v3dv_queue_driver_submit(struct vk_queue *vk_queue,
    if (result != VK_SUCCESS)
       return result;
 
-   struct v3dv_job *last_job = NULL;
-   if (submit->command_buffer_count) {
-      struct v3dv_cmd_buffer *cmd_buffer =
-         container_of(submit->command_buffers[submit->command_buffer_count - 1],
-                      struct v3dv_cmd_buffer, vk);
-      if (!list_is_empty(&cmd_buffer->jobs)) {
-         last_job = list_last_entry(&cmd_buffer->jobs,
-                                    struct v3dv_job, list_link);
-      }
-   }
-
    for (uint32_t i = 0; i < submit->command_buffer_count; i++) {
       struct v3dv_cmd_buffer *cmd_buffer =
          container_of(submit->command_buffers[i], struct v3dv_cmd_buffer, vk);
       list_for_each_entry_safe(struct v3dv_job, job,
                                &cmd_buffer->jobs, list_link) {
 
-         result = queue_handle_job(queue, job, &sync_info, job == last_job);
+         result = queue_handle_job(queue, job, &sync_info, false);
          if (result != VK_SUCCESS)
             return result;
       }
    }
 
-   if (!last_job || !v3dv_job_type_is_gpu(last_job)) {
-      if (!queue->noop_job) {
-         result = queue_create_noop_job(queue);
-         if (result != VK_SUCCESS)
-            return result;
-      }
-
-      result = queue_handle_job(queue, queue->noop_job, &sync_info, true);
+   /* Finish by submitting a no-op job that synchronizes across all queues.
+    * This will ensure that the signal semaphores don't get triggered until
+    * all work on any queue completes.
+    */
+   if (!queue->noop_job) {
+      result = queue_create_noop_job(queue);
       if (result != VK_SUCCESS)
          return result;
    }
+   result = queue_handle_job(queue, queue->noop_job, &sync_info, true);
+   if (result != VK_SUCCESS)
+      return result;
 
    process_signals(queue, sync_info.signal_count, sync_info.signals);
 
