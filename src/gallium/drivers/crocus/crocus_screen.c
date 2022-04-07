@@ -769,6 +769,7 @@ crocus_screen_create(int fd, const struct pipe_screen_config *config)
    screen->precompile = env_var_as_boolean("shader_precompile", true);
 
    isl_device_init(&screen->isl_dev, &screen->devinfo);
+   screen->isl_dev.gfx7_allow_sint_multisample = true;
 
    screen->compiler = brw_compiler_create(screen, &screen->devinfo);
    screen->compiler->shader_debug_log = crocus_shader_debug_log;

@@ -882,9 +882,10 @@ isl_format_supports_ccs_e(const struct intel_device_info *devinfo,
 }
 
 bool
-isl_format_supports_multisampling(const struct intel_device_info *devinfo,
+isl_format_supports_multisampling(const struct isl_device *dev,
                                   enum isl_format format)
 {
+   const struct intel_device_info *devinfo = dev->info;
    /* From the Sandybridge PRM, Volume 4 Part 1 p72, SURFACE_STATE, Surface
     * Format:
     *
@@ -922,7 +923,7 @@ isl_format_supports_multisampling(const struct intel_device_info *devinfo,
        * Disable multisampling support now as we don't handle the case when
        * one of the render target channels is disabled.
        */
-      return false;
+      return dev->gfx7_allow_sint_multisample;
    } else if (devinfo->ver < 7 && isl_format_get_layout(format)->bpb > 64) {
       return false;
    } else if (isl_format_is_compressed(format)) {

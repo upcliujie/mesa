@@ -38,7 +38,7 @@ isl_gfx6_choose_msaa_layout(const struct isl_device *dev,
       return true;
    }
 
-   if (!isl_format_supports_multisampling(dev->info, info->format))
+   if (!isl_format_supports_multisampling(dev, info->format))
       return false;
 
    /* From the Sandybridge PRM, Volume 4 Part 1 p85, SURFACE_STATE, Number of

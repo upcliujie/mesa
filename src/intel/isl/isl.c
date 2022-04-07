@@ -1071,7 +1071,7 @@ isl_calc_phys_level0_extent_sa(const struct isl_device *dev,
       case ISL_MSAA_LAYOUT_ARRAY:
          assert(info->depth == 1);
          assert(info->levels == 1);
-         assert(isl_format_supports_multisampling(dev->info, info->format));
+         assert(isl_format_supports_multisampling(dev, info->format));
          assert(fmtl->bw == 1 && fmtl->bh == 1);
 
          *phys_level0_sa = (struct isl_extent4d) {
@@ -1085,7 +1085,7 @@ isl_calc_phys_level0_extent_sa(const struct isl_device *dev,
       case ISL_MSAA_LAYOUT_INTERLEAVED:
          assert(info->depth == 1);
          assert(info->levels == 1);
-         assert(isl_format_supports_multisampling(dev->info, info->format));
+         assert(isl_format_supports_multisampling(dev, info->format));
 
          *phys_level0_sa = (struct isl_extent4d) {
             .w = info->width,
@@ -2102,7 +2102,7 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
    assert(surf->dim == ISL_SURF_DIM_2D);
    assert(surf->levels == 1);
    assert(surf->logical_level0_px.depth == 1);
-   assert(isl_format_supports_multisampling(dev->info, surf->format));
+   assert(isl_format_supports_multisampling(dev, surf->format));
 
    enum isl_format mcs_format;
    switch (surf->samples) {
