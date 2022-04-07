@@ -1479,6 +1479,7 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
        * use an explicit LOD of 0.
        */
       if (nir_tex_instr_has_implicit_derivative(tex) &&
+          tex->sampler_dim != GLSL_SAMPLER_DIM_RECT &&
           !nir_shader_supports_implicit_lod(b->shader)) {
          lower_zero_lod(b, tex);
          progress = true;
