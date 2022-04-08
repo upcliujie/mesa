@@ -173,7 +173,7 @@ struct dzn_physical_device {
    DXGI_ADAPTER_DESC1 adapter_desc;
 
    uint32_t queue_family_count;
-   struct {
+   struct dzn_queue_family {
       VkQueueFamilyProperties props;
       D3D12_COMMAND_QUEUE_DESC desc;
    } queue_families[MAX_QUEUE_FAMILIES];
