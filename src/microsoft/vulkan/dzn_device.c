@@ -293,7 +293,7 @@ dzn_physical_device_cache_caps(struct dzn_physical_device *pdev)
    ID3D12Device1_CheckFeatureSupport(pdev->dev, D3D12_FEATURE_ARCHITECTURE1, &pdev->architecture, sizeof(pdev->architecture));
    ID3D12Device1_CheckFeatureSupport(pdev->dev, D3D12_FEATURE_D3D12_OPTIONS, &pdev->options, sizeof(pdev->options));
 
-   pdev->queue_families[pdev->queue_family_count++] = {
+   pdev->queue_families[pdev->queue_family_count++] = (struct dzn_queue_family) {
       .props = {
          .queueFlags = VK_QUEUE_GRAPHICS_BIT |
                        VK_QUEUE_COMPUTE_BIT |
@@ -307,7 +307,7 @@ dzn_physical_device_cache_caps(struct dzn_physical_device *pdev)
       },
    };
 
-   pdev->queue_families[pdev->queue_family_count++] = {
+   pdev->queue_families[pdev->queue_family_count++] = (struct dzn_queue_family) {
       .props = {
          .queueFlags = VK_QUEUE_COMPUTE_BIT |
                        VK_QUEUE_TRANSFER_BIT,
@@ -320,7 +320,7 @@ dzn_physical_device_cache_caps(struct dzn_physical_device *pdev)
       },
    };
 
-   pdev->queue_families[pdev->queue_family_count++] = {
+   pdev->queue_families[pdev->queue_family_count++] = (struct dzn_queue_family) {
       .props = {
          .queueFlags = VK_QUEUE_TRANSFER_BIT,
          .queueCount = 1,
