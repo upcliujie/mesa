@@ -202,36 +202,6 @@ glx@glx-visuals-stencil -pixmap,Crash
 
 GTF-GL46.gtf30.GL3Tests.transform_feedback.transform_feedback_builtins,Fail
 
-KHR-GL46.blend_equation_advanced.blend_all.GL_COLORBURN_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_COLORDODGE_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_DARKEN_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_DIFFERENCE_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_EXCLUSION_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_HARDLIGHT_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_HSL_COLOR_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_HSL_HUE_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_HSL_LUMINOSITY_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_HSL_SATURATION_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_LIGHTEN_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_MULTIPLY_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_OVERLAY_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_SCREEN_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_all.GL_SOFTLIGHT_KHR_all_qualifier,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_COLORBURN_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_COLORDODGE_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_DARKEN_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_DIFFERENCE_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_EXCLUSION_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_HARDLIGHT_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_HSL_COLOR_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_HSL_HUE_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_HSL_LUMINOSITY_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_HSL_SATURATION_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_LIGHTEN_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_MULTIPLY_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_OVERLAY_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_SCREEN_KHR,Fail
-KHR-GL46.blend_equation_advanced.blend_specific.GL_SOFTLIGHT_KHR,Fail
 KHR-GL46.gpu_shader_fp64.fp64.varyings,Fail
 KHR-GL46.shader_ballot_tests.ShaderBallotFunctionRead,Fail
 KHR-GL46.shader_image_load_store.basic-allTargets-atomicCS,Fail
