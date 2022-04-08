@@ -889,6 +889,20 @@ dzn_GetPhysicalDeviceExternalBufferProperties(VkPhysicalDevice physicalDevice,
       };
 }
 
+static VkResult
+dzn_instance_add_physical_device(struct dzn_instance *instance,
+                                 IDXGIAdapter1 *adapter)
+{
+   DXGI_ADAPTER_DESC1 desc;
+   IDXGIAdapter1_GetDesc1(adapter, &desc);
+
+   if ((instance->debug_flags & DZN_DEBUG_WARP) &&
+       !(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))
+      return VK_SUCCESS;
+
+    return dzn_physical_device_create(instance, adapter, &desc);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_EnumeratePhysicalDevices(VkInstance inst,
                              uint32_t *pPhysicalDeviceCount,
@@ -900,24 +914,15 @@ dzn_EnumeratePhysicalDevices(VkInstance inst,
       IDXGIFactory4 *factory = dxgi_get_factory(false);
       IDXGIAdapter1 *adapter = NULL;
       for (UINT i = 0; SUCCEEDED(IDXGIFactory4_EnumAdapters1(factory, i, &adapter)); ++i) {
-         DXGI_ADAPTER_DESC1 desc;
-         IDXGIAdapter1_GetDesc1(adapter, &desc);
-         if (instance->debug_flags & DZN_DEBUG_WARP) {
-            if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0) {
-               IDXGIAdapter1_Release(adapter);
-               continue;
-            }
-         }
-
          VkResult result =
-            dzn_physical_device_create(instance, adapter, &desc);
+            dzn_instance_add_physical_device(instance, adapter);
 
          IDXGIAdapter1_Release(adapter);
-         if (result != VK_SUCCESS) {
-            IDXGIFactory4_Release(factory);
-            return result;
-         }
+
+         if (result != VK_SUCCESS)
+            break;
       }
+
       IDXGIFactory4_Release(factory);
    }
 
@@ -1806,7 +1811,8 @@ dzn_device_create_root_sig(struct dzn_device *device,
 {
    struct dzn_instance *instance =
       container_of(device->vk.physical->instance, struct dzn_instance, vk);
-   ID3D10Blob *sig, *error;
+   ID3D12RootSignature *root_sig = NULL;
+   ID3DBlob *sig = NULL, *error = NULL;
 
    if (FAILED(instance->d3d12.serialize_root_sig(desc,
                                                  &sig, &error))) {
@@ -1819,21 +1825,22 @@ dzn_device_create_root_sig(struct dzn_device *device,
                  error_msg);
       }
 
+      goto out;
+   }
+
+   ID3D12Device1_CreateRootSignature(device->dev, 0,
+                                     ID3D10Blob_GetBufferPointer(sig),
+                                     ID3D10Blob_GetBufferSize(sig),
+                                     &IID_ID3D12RootSignature,
+                                     &root_sig);
+
+out:
+   if (error)
       ID3D10Blob_Release(error);
-      return NULL;
-   }
 
-   ID3D12RootSignature *root_sig;
-   if (FAILED(ID3D12Device1_CreateRootSignature(device->dev, 0,
-                                                ID3D10Blob_GetBufferPointer(sig),
-                                                ID3D10Blob_GetBufferSize(sig),
-                                                &IID_ID3D12RootSignature,
-                                                &root_sig))) {
+   if (sig)
       ID3D10Blob_Release(sig);
-      return NULL;
-   }
 
-   ID3D10Blob_Release(sig);
    return root_sig;
 }
 
