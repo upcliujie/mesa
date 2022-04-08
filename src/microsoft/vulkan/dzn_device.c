@@ -291,44 +291,41 @@ dzn_physical_device_cache_caps(struct dzn_physical_device *pdev)
    ID3D12Device1_CheckFeatureSupport(pdev->dev, D3D12_FEATURE_ARCHITECTURE1, &pdev->architecture, sizeof(pdev->architecture));
    ID3D12Device1_CheckFeatureSupport(pdev->dev, D3D12_FEATURE_D3D12_OPTIONS, &pdev->options, sizeof(pdev->options));
 
-   pdev->queue_families[pdev->queue_family_count++] = {
-      .props = {
-         .queueFlags = VK_QUEUE_GRAPHICS_BIT |
-                       VK_QUEUE_COMPUTE_BIT |
-                       VK_QUEUE_TRANSFER_BIT,
-         .queueCount = 1,
-         .timestampValidBits = 64,
-         .minImageTransferGranularity = { 0, 0, 0 },
-      },
-      .desc = {
-         .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
-      },
+   pdev->queue_families[pdev->queue_family_count].props = (VkQueueFamilyProperties) {
+      .queueFlags = VK_QUEUE_GRAPHICS_BIT |
+                     VK_QUEUE_COMPUTE_BIT |
+                     VK_QUEUE_TRANSFER_BIT,
+      .queueCount = 1,
+      .timestampValidBits = 64,
+      .minImageTransferGranularity = { 0, 0, 0 },
+   },
+   pdev->queue_families[pdev->queue_family_count].desc = (D3D12_COMMAND_QUEUE_DESC) {
+      .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
    };
+   pdev->queue_family_count++;
 
-   pdev->queue_families[pdev->queue_family_count++] = {
-      .props = {
-         .queueFlags = VK_QUEUE_COMPUTE_BIT |
-                       VK_QUEUE_TRANSFER_BIT,
-         .queueCount = 8,
-         .timestampValidBits = 64,
-         .minImageTransferGranularity = { 0, 0, 0 },
-      },
-      .desc = {
-         .Type = D3D12_COMMAND_LIST_TYPE_COMPUTE,
-      },
+   pdev->queue_families[pdev->queue_family_count].props = (VkQueueFamilyProperties) {
+      .queueFlags = VK_QUEUE_COMPUTE_BIT |
+                     VK_QUEUE_TRANSFER_BIT,
+      .queueCount = 8,
+      .timestampValidBits = 64,
+      .minImageTransferGranularity = { 0, 0, 0 },
    };
+   pdev->queue_families[pdev->queue_family_count].desc = (D3D12_COMMAND_QUEUE_DESC) {
+      .Type = D3D12_COMMAND_LIST_TYPE_COMPUTE,
+   };
+   pdev->queue_family_count++;
 
-   pdev->queue_families[pdev->queue_family_count++] = {
-      .props = {
-         .queueFlags = VK_QUEUE_TRANSFER_BIT,
-         .queueCount = 1,
-         .timestampValidBits = 0,
-         .minImageTransferGranularity = { 0, 0, 0 },
-      },
-      .desc = {
-         .Type = D3D12_COMMAND_LIST_TYPE_COPY,
-      },
+   pdev->queue_families[pdev->queue_family_count].props = (VkQueueFamilyProperties) {
+      .queueFlags = VK_QUEUE_TRANSFER_BIT,
+      .queueCount = 1,
+      .timestampValidBits = 0,
+      .minImageTransferGranularity = { 0, 0, 0 },
    };
+   pdev->queue_families[pdev->queue_family_count].desc = (D3D12_COMMAND_QUEUE_DESC) {
+      .Type = D3D12_COMMAND_LIST_TYPE_COPY,
+   };
+   pdev->queue_family_count++;
 
    assert(pdev->queue_family_count <= ARRAY_SIZE(pdev->queue_families));
 
