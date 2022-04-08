@@ -4019,8 +4019,10 @@ radv_dst_access_flush(struct radv_cmd_buffer *cmd_buffer, VkAccessFlags2 dst_fla
       case VK_ACCESS_2_UNIFORM_READ_BIT:
          flush_bits |= RADV_CMD_FLAG_INV_VCACHE | RADV_CMD_FLAG_INV_SCACHE;
          break;
-      case VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT:
       case VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT:
+         flush_bits |= RADV_CMD_FLAG_FLUSH_AND_INV_CB;
+         FALLTHROUGH;
+      case VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT:
       case VK_ACCESS_2_TRANSFER_READ_BIT:
       case VK_ACCESS_2_TRANSFER_WRITE_BIT:
          flush_bits |= RADV_CMD_FLAG_INV_VCACHE;
