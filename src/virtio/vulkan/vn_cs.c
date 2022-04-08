@@ -16,6 +16,9 @@ static void
 vn_cs_renderer_protocol_info_init_once(struct vn_instance *instance)
 {
    const struct vn_renderer_info *renderer_info = &instance->renderer->info;
+   /* assume renderer protocol supports all extensions if bit 0 is not set */
+   const bool support_all_exts =
+      !vn_info_extension_mask_test(renderer_info->vk_extension_mask, 0);
 
    _vn_cs_renderer_protocol_info.api_version = renderer_info->vk_xml_version;
 
@@ -24,7 +27,8 @@ vn_cs_renderer_protocol_info_init_once(struct vn_instance *instance)
 
    for (uint32_t i = 1; i <= VN_INFO_EXTENSION_MAX_NUMBER; i++) {
       /* use protocl helper to ensure mask decoding matches encoding */
-      if (vn_info_extension_mask_test(renderer_info->vk_extension_mask, i))
+      if (support_all_exts ||
+          vn_info_extension_mask_test(renderer_info->vk_extension_mask, i))
          BITSET_SET(_vn_cs_renderer_protocol_info.extension_bitset, i);
    }
 }
