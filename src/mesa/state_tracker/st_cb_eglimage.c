@@ -252,7 +252,9 @@ st_egl_image_target_renderbuffer_storage(struct gl_context *ctx,
 
       rb->Format = st_pipe_format_to_mesa_format(ps->format);
       rb->_BaseFormat = st_pipe_format_to_base_format(ps->format);
-      rb->InternalFormat = rb->_BaseFormat;
+      rb->InternalFormat = st_pipe_format_to_gl_internal(ps->format);
+      if (!rb->InternalFormat)
+         rb->InternalFormat = rb->_BaseFormat;
 
       st_set_ws_renderbuffer_surface(rb, ps);
       pipe_surface_reference(&ps, NULL);
@@ -268,15 +270,18 @@ st_bind_egl_image(struct gl_context *ctx,
                   bool native_supported)
 {
    struct st_context *st = st_context(ctx);
-   GLenum internalFormat;
    mesa_format texFormat;
 
-   /* map pipe format to base format */
-   if (util_format_get_component_bits(stimg->format,
-                                      UTIL_FORMAT_COLORSPACE_RGB, 3) > 0)
-      internalFormat = GL_RGBA;
-   else
-      internalFormat = GL_RGB;
+   GLenum internalFormat = st_pipe_format_to_gl_internal(stimg->format);
+
+   /* map pipe format to base format if we can't get a sized one */
+   if (!internalFormat) {
+      if (util_format_get_component_bits(stimg->format,
+                                         UTIL_FORMAT_COLORSPACE_RGB, 3) > 0)
+         internalFormat = GL_RGBA;
+      else
+         internalFormat = GL_RGB;
+   }
 
    /* switch to surface based */
    if (!texObj->surface_based) {
