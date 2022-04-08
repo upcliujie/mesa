@@ -232,7 +232,6 @@ KHR-GL46.blend_equation_advanced.blend_specific.GL_MULTIPLY_KHR,Fail
 KHR-GL46.blend_equation_advanced.blend_specific.GL_OVERLAY_KHR,Fail
 KHR-GL46.blend_equation_advanced.blend_specific.GL_SCREEN_KHR,Fail
 KHR-GL46.blend_equation_advanced.blend_specific.GL_SOFTLIGHT_KHR,Fail
-KHR-GL46.gpu_shader_fp64.fp64.varyings,Fail
 KHR-GL46.shader_ballot_tests.ShaderBallotFunctionRead,Fail
 KHR-GL46.shader_image_load_store.basic-allTargets-atomicCS,Fail
 KHR-GL46.shader_image_load_store.basic-allTargets-atomicGS,Fail
