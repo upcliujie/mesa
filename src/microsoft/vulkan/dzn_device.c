@@ -149,7 +149,7 @@ dzn_instance_create(const VkInstanceCreateInfo *pCreateInfo,
                     const VkAllocationCallbacks *pAllocator,
                     VkInstance *out)
 {
-   struct dzn_instance *instance = (struct dzn_instance *)
+   struct dzn_instance *instance =
       vk_zalloc2(vk_default_allocator(), pAllocator, sizeof(*instance), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
    if (!instance)
@@ -212,7 +212,7 @@ dzn_physical_device_create(struct dzn_instance *instance,
                            IDXGIAdapter1 *adapter,
                            const DXGI_ADAPTER_DESC1 *adapter_desc)
 {
-   struct dzn_physical_device *pdev = (struct dzn_physical_device *)
+   struct dzn_physical_device *pdev =
       vk_zalloc(&instance->vk.alloc, sizeof(*pdev), 8,
                 VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
 
@@ -1921,7 +1921,7 @@ dzn_device_memory_create(struct dzn_device *device,
    struct dzn_physical_device *pdevice =
       container_of(device->vk.physical, struct dzn_physical_device, vk);
 
-   struct dzn_device_memory *mem = (struct dzn_device_memory *)
+   struct dzn_device_memory *mem =
       vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*mem), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!mem)
@@ -2125,7 +2125,7 @@ dzn_buffer_create(struct dzn_device *device,
                   const VkAllocationCallbacks *pAllocator,
                   VkBuffer *out)
 {
-   struct dzn_buffer *buf = (struct dzn_buffer *)
+   struct dzn_buffer *buf =
       vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*buf), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!buf)
@@ -2442,7 +2442,7 @@ dzn_event_create(struct dzn_device *device,
                  const VkAllocationCallbacks *pAllocator,
                  VkEvent *out)
 {
-   struct dzn_event *event = (struct dzn_event *)
+   struct dzn_event *event =
       vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*event), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!event)
@@ -2569,7 +2569,7 @@ dzn_sampler_create(struct dzn_device *device,
                    const VkAllocationCallbacks *pAllocator,
                    VkSampler *out)
 {
-   struct dzn_sampler *sampler = (struct dzn_sampler *)
+   struct dzn_sampler *sampler =
       vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*sampler), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!sampler)
