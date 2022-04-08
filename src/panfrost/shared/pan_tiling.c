@@ -30,14 +30,9 @@
 #include "util/macros.h"
 #include "util/bitscan.h"
 
-/* This file implements software encode/decode of the tiling format used for
- * textures and framebuffers primarily on Utgard GPUs. Names for this format
- * include "Utgard-style tiling", "(Mali) swizzled textures", and
- * "U-interleaved" (the former two names being used in the community
- * Lima/Panfrost drivers; the latter name used internally at Arm).
- * Conceptually, like any tiling scheme, the pixel reordering attempts to 2D
- * spatial locality, to improve cache locality in both horizontal and vertical
- * directions.
+/* This file implements software encode/decode of 16x16 u-interleaved textures,
+ * originating on Utgard-series Mali GPUs. Like z-interleaving, u-interleaving
+ * improves cache locality in both horizontal and vertical directions.
  *
  * This format is tiled: first, the image dimensions must be aligned to 16
  * pixels in each axis. Once aligned, the image is divided into 16x16 tiles.
