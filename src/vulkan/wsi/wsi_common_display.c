@@ -106,6 +106,11 @@ struct wsi_display {
    /* Used with syncobj imported from driver side. */
    int                          syncobj_fd;
 
+   /* Drivers that allocate GEM objects for swapchain images directly on the
+    * display fd must set this to True to prevent double-free.
+    */
+   bool                         owns_swapchain_memory;
+
    pthread_mutex_t              wait_mutex;
    pthread_cond_t               wait_cond;
    pthread_t                    wait_thread;
@@ -1069,6 +1074,9 @@ static void
 wsi_display_destroy_buffer(struct wsi_display *wsi,
                            uint32_t buffer)
 {
+   if (!wsi->owns_swapchain_memory)
+      return;
+
    (void) drmIoctl(wsi->fd, DRM_IOCTL_GEM_CLOSE,
                    &((struct drm_gem_close) { .handle = buffer }));
 }
@@ -2162,6 +2170,8 @@ wsi_display_init_wsi(struct wsi_device *wsi_device,
 
    wsi->alloc = alloc;
 
+   wsi->owns_swapchain_memory = true;
+
    list_inithead(&wsi->connectors);
 
    int ret = pthread_mutex_init(&wsi->wait_mutex, NULL);
@@ -2230,6 +2240,16 @@ wsi_display_finish_wsi(struct wsi_device *wsi_device,
 
       vk_free(alloc, wsi);
    }
+}
+
+void
+wsi_display_set_swapchain_memory_ownership(struct wsi_device *wsi_device,
+                                           bool owns_memory)
+{
+   struct wsi_display *wsi =
+      (struct wsi_display *) wsi_device->wsi[VK_ICD_WSI_PLATFORM_DISPLAY];
+
+   wsi->owns_swapchain_memory = owns_memory;
 }
 
 /*

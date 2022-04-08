@@ -65,6 +65,11 @@ v3dv_wsi_init(struct v3dv_physical_device *physical_device)
 
    physical_device->vk.wsi_device = &physical_device->wsi_device;
 
+#ifdef VK_USE_PLATFORM_DISPLAY_KHR
+   wsi_display_set_swapchain_memory_ownership(physical_device->vk.wsi_device,
+                                              false);
+#endif
+
    return VK_SUCCESS;
 }
 

@@ -290,6 +290,12 @@ wsi_common_bind_swapchain_image(const struct wsi_device *wsi,
                                 VkSwapchainKHR _swapchain,
                                 uint32_t image_idx);
 
+#ifdef VK_USE_PLATFORM_DISPLAY_KHR
+void
+wsi_display_set_swapchain_memory_ownership(struct wsi_device *wsi_device,
+                                           bool owns_memory);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
