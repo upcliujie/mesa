@@ -136,6 +136,83 @@ st_pipe_format_to_mesa_format(enum pipe_format format)
 }
 
 /**
+ * Translate Gallium format to GL internal format.
+ */
+GLenum
+st_pipe_format_to_gl_internal(enum pipe_format format)
+{
+   switch (format) {
+   case PIPE_FORMAT_B10G10R10A2_UNORM:
+   case PIPE_FORMAT_R10G10B10A2_UNORM:
+      return GL_RGB10_A2;
+   case PIPE_FORMAT_R10G10B10X2_UNORM:
+   case PIPE_FORMAT_B10G10R10X2_UNORM:
+      return GL_RGB10;
+   case PIPE_FORMAT_R8G8B8A8_UNORM:
+   case PIPE_FORMAT_B8G8R8A8_UNORM:
+   case PIPE_FORMAT_A8R8G8B8_UNORM:
+      return GL_RGBA8;
+   case PIPE_FORMAT_R8G8B8X8_UNORM:
+   case PIPE_FORMAT_B8G8R8X8_UNORM:
+   case PIPE_FORMAT_X8R8G8B8_UNORM:
+   case PIPE_FORMAT_R8G8B8_UNORM:
+      return GL_RGB8;
+   case PIPE_FORMAT_R8G8B8A8_SRGB:
+   case PIPE_FORMAT_B8G8R8A8_SRGB:
+   case PIPE_FORMAT_A8R8G8B8_SRGB:
+      return GL_SRGB8_ALPHA8;
+   case PIPE_FORMAT_R8G8B8X8_SRGB:
+   case PIPE_FORMAT_B8G8R8X8_SRGB:
+   case PIPE_FORMAT_X8R8G8B8_SRGB:
+      return GL_SRGB8;
+   case PIPE_FORMAT_B5G5R5A1_UNORM:
+      return GL_RGB5_A1;
+   case PIPE_FORMAT_B4G4R4A4_UNORM:
+      return GL_RGBA4;
+   case PIPE_FORMAT_B5G6R5_UNORM:
+      return GL_RGB565;
+   case PIPE_FORMAT_Z16_UNORM:
+      return GL_DEPTH_COMPONENT16;
+   case PIPE_FORMAT_Z32_UNORM:
+      return GL_DEPTH_COMPONENT32;
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+   case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+      return GL_DEPTH24_STENCIL8_EXT;
+   case PIPE_FORMAT_Z24X8_UNORM:
+   case PIPE_FORMAT_X8Z24_UNORM:
+      return GL_DEPTH_COMPONENT24;
+   case PIPE_FORMAT_S8_UINT:
+      return GL_STENCIL_INDEX8_EXT;
+   case PIPE_FORMAT_R16G16B16A16_SNORM:
+      /* accum buffer */
+      return GL_RGBA16_SNORM;
+   case PIPE_FORMAT_R16G16B16A16_UNORM:
+      return GL_RGBA16;
+   case PIPE_FORMAT_R16G16B16_UNORM:
+      return GL_RGB16;
+   case PIPE_FORMAT_R8_UNORM:
+      return GL_R8;
+   case PIPE_FORMAT_R8G8_UNORM:
+      return GL_RG8;
+   case PIPE_FORMAT_R16_UNORM:
+      return GL_R16;
+   case PIPE_FORMAT_R16G16_UNORM:
+      return GL_RG16;
+   case PIPE_FORMAT_R32G32B32A32_FLOAT:
+      return GL_RGBA32F;
+   case PIPE_FORMAT_R32G32B32X32_FLOAT:
+   case PIPE_FORMAT_R32G32B32_FLOAT:
+      return GL_RGB32F;
+   case PIPE_FORMAT_R16G16B16A16_FLOAT:
+      return GL_RGBA16F;
+   case PIPE_FORMAT_R16G16B16X16_FLOAT:
+      return GL_RGB16F;
+   default:
+      return 0;
+   }
+}
+
+/**
  * Map GL texture formats to Gallium pipe formats.
  */
 struct format_mapping

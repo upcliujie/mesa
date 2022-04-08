@@ -50,6 +50,8 @@ st_mesa_format_to_pipe_format(const struct st_context *st, mesa_format mesaForma
 extern mesa_format
 st_pipe_format_to_mesa_format(enum pipe_format pipeFormat);
 
+GLenum
+st_pipe_format_to_gl_internal(enum pipe_format pipeFormat);
 
 extern enum pipe_format
 st_choose_format(struct st_context *st, GLenum internalFormat,
