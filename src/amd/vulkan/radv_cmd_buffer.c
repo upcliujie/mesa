@@ -8947,6 +8947,8 @@ radv_emit_streamout_end(struct radv_cmd_buffer *cmd_buffer, uint32_t firstCounte
    struct radv_streamout_state *so = &cmd_buffer->state.streamout;
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
 
+   radeon_emit(cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
+   radeon_emit(cs, EVENT_TYPE(V_028A90_VS_PARTIAL_FLUSH) | EVENT_INDEX(4));
    radv_flush_vgt_streamout(cmd_buffer);
 
    assert(firstCounterBuffer + counterBufferCount <= MAX_SO_BUFFERS);
