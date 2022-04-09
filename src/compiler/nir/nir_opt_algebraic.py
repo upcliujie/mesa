@@ -2292,6 +2292,39 @@ def bitfield_reverse_cp2077(u):
 optimizations += [(bitfield_reverse_ue4('x@32'), ('bitfield_reverse', 'x'), '!options->lower_bitfield_reverse')]
 optimizations += [(bitfield_reverse_cp2077('x@32'), ('bitfield_reverse', 'x'), '!options->lower_bitfield_reverse')]
 
+# VKD3D-Proton DXBC f32 to f16 conversion implements a float conversion
+# with round-to-zero semantics. There is no suitable SPIR-V opcode,
+# so the following sequence is used.
+
+# Input is f32, output is u32 that has the f16 packed into its low bits.
+def vkd3d_proton_packed_f2f16_rtz_lo(a):
+    packed_half = ('pack_half_2x16_split', a, 0)
+    packed_half_minus1 = ('iadd', packed_half, 0xffffffff)
+    f32_was_not_inf = ('ine', ('fabs', a), 0x7f800000)
+    f16_is_now_inf = ('ieq', ('iand', packed_half, 0x7fff), 0x7c00)
+    return ('bcsel', ('iand', f32_was_not_inf, f16_is_now_inf), packed_half_minus1, packed_half)
+
+# Same as the above, but with fneg.
+def vkd3d_proton_packed_f2f16_rtz_neg_lo(a):
+    packed_half = ('pack_half_2x16_split', ('fneg', a), 0)
+    packed_half_minus1 = ('iadd', packed_half, 0xffffffff)
+    f32_was_not_inf = ('ine', ('fabs', a), 0x7f800000)
+    f16_is_now_inf = ('ieq', ('iand', packed_half, 0x7fff), 0x7c00)
+    return ('bcsel', ('iand', f32_was_not_inf, f16_is_now_inf), packed_half_minus1, packed_half)
+
+# This is for when two of the above are packed.
+def repack_2x16_packed(a, b):
+    packed_a = ('pack_32_2x16', ('vec2', a, 0))
+    packed_b = ('pack_32_2x16', ('vec2', b, 0))
+    shifted_b = ('ishl', packed_b, 16)
+    return ('iadd', packed_a, shifted_b)
+
+optimizations += [
+   (vkd3d_proton_packed_f2f16_rtz_lo('x@32'), ('pack_32_2x16', ('vec2', ('f2f16_rtz', 'x'), 0))),
+   (vkd3d_proton_packed_f2f16_rtz_neg_lo('x@32'), ('pack_32_2x16', ('vec2', ('f2f16_rtz', ('fneg', 'x')), 0))),
+   (repack_2x16_packed('a@16', 'b@16'), ('pack_32_2x16', ('vec2', 'a', 'b'))),
+]
+
 # "all_equal(eq(a, b), vec(~0))" is the same as "all_equal(a, b)"
 # "any_nequal(neq(a, b), vec(0))" is the same as "any_nequal(a, b)"
 for ncomp in [2, 3, 4, 8, 16]:
