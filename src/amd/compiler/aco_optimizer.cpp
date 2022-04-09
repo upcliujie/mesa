@@ -1469,6 +1469,40 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          break;
       }
 
+      /* Special case for when a vector is created that repacks the outputs
+       * from two v_cvt_pkrtz instructions. This can be done with just a single
+       * v_cvt_pkrtz instruction then.
+       */
+      if (instr->operands.size() == 2 &&
+          instr->definitions[0].bytes() == 4 &&
+          instr->operands[0].isTemp() &&
+          instr->operands[1].isTemp() &&
+          ctx.info[instr->operands[0].tempId()].is_usedef() &&
+          ctx.info[instr->operands[1].tempId()].is_usedef()) {
+         Instruction *op0_instr = ctx.info[instr->operands[0].tempId()].instr;
+         Instruction *op1_instr = ctx.info[instr->operands[1].tempId()].instr;
+
+         if ((op0_instr->opcode == aco_opcode::v_cvt_pkrtz_f16_f32 ||
+              op0_instr->opcode == aco_opcode::v_cvt_pkrtz_f16_f32_e64) &&
+             (op1_instr->opcode == aco_opcode::v_cvt_pkrtz_f16_f32 ||
+              op1_instr->opcode == aco_opcode::v_cvt_pkrtz_f16_f32_e64)) {
+            Definition def = instr->definitions[0];
+
+            /* Prefer VOP2 when both operands are VGPRs. */
+            if (op0_instr->operands[0].regClass().type() == RegType::vgpr &&
+                op1_instr->operands[0].regClass().type() == RegType::vgpr)
+               instr.reset(create_instruction<VOP3_instruction>(aco_opcode::v_cvt_pkrtz_f16_f32,
+                                                               Format::VOP2, 2, 1));
+            else
+               instr.reset(create_instruction<VOP3_instruction>(aco_opcode::v_cvt_pkrtz_f16_f32_e64,
+                                                               Format::VOP3, 2, 1));
+            instr->operands[0] = op0_instr->operands[0];
+            instr->operands[1] = op1_instr->operands[0];
+            instr->definitions[0] = def;
+            break;
+         }
+      }
+
       /* expand vector operands */
       std::vector<Operand> ops;
       unsigned offset = 0;
@@ -1922,6 +1956,10 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       if (instr->operands[0].isTemp())
          ctx.info[instr->definitions[0].tempId()].set_f2f32(instr.get());
       break;
+   }
+   case aco_opcode::v_cvt_pkrtz_f16_f32:
+   case aco_opcode::v_cvt_pkrtz_f16_f32_e64: {
+      ctx.info[instr->definitions[0].tempId()].set_usedef(instr.get());
    }
    default: break;
    }
