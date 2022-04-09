@@ -479,12 +479,12 @@ impl Kernel {
                             .resource_create_buffer(buf.len() as u32)
                             .unwrap(),
                     );
-                    q.device.helper_ctx().buffer_subdata(
-                        &res,
-                        0,
-                        buf.as_ptr().cast(),
-                        buf.len() as u32,
-                    );
+                    q.device
+                        .helper_ctx()
+                        .exec(|ctx| {
+                            ctx.buffer_subdata(&res, 0, buf.as_ptr().cast(), buf.len() as u32)
+                        })
+                        .wait();
                     resource_info.push((Some(res), arg.offset));
                 }
                 InternalKernelArgType::GlobalWorkOffsets => {
@@ -535,7 +535,9 @@ impl Kernel {
             ctx.memory_barrier(PIPE_BARRIER_GLOBAL_BUFFER);
 
             if let Some(printf_buf) = &printf_buf {
-                let tx = ctx.buffer_map(&printf_buf, 0, printf_size as i32, true);
+                let tx = ctx
+                    .buffer_map(&printf_buf, 0, printf_size as i32, true)
+                    .with_ctx(ctx);
                 let mut buf: &[u8] =
                     unsafe { slice::from_raw_parts(tx.ptr().cast(), printf_size as usize) };
                 let length = u32::from_ne_bytes(*extract(&mut buf));
@@ -546,8 +548,6 @@ impl Kernel {
                 unsafe {
                     u_printf(buf.as_ptr().cast(), buf.len(), printf_format.as_ptr());
                 }
-
-                drop(tx);
             }
 
             Ok(())
