@@ -298,6 +298,7 @@ static const enum virgl_formats virgl_formats_conv_table[PIPE_FORMAT_COUNT] = {
    CONV_FORMAT(ASTC_10x10_SRGB)
    CONV_FORMAT(ASTC_12x10_SRGB)
    CONV_FORMAT(ASTC_12x12_SRGB)
+   CONV_FORMAT(A1B5G5R5_UNORM)
 };
 
 enum virgl_formats pipe_to_virgl_format(enum pipe_format format)
