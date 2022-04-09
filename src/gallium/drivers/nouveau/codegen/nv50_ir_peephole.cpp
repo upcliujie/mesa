@@ -4061,6 +4061,65 @@ DeadCodeElim::checkSplitLoad(Instruction *ld1)
 
 // =============================================================================
 
+// Any exports in a fragment shader need to go at the end of the shader; more
+// specifically, we can't place any operations after them that might write to a
+// temporary or RA can try to allocate the temporary to an export register.
+//
+// By the time we get here, the exports are guaranteed to be in the correct
+// basic block, (eg. st_glsl_to_nir calls nir_lower_io_to_temporaries), but
+// other opts might have changed the order of insns in the bb. This pass moves
+// the exports back to the end of their containing bb.
+class FragmentExportFixup : public Pass
+{
+public:
+   FragmentExportFixup() {}
+
+   bool runFixup(Program *prog) {
+      if (prog->getType() == Program::TYPE_FRAGMENT) {
+         this->run(prog);
+      }
+      return true;
+   }
+
+private:
+   virtual bool visit(BasicBlock *);
+};
+
+bool
+FragmentExportFixup::visit(BasicBlock *bb)
+{
+   #define IS_FRAG_EXPORT(x) (x->op == OP_MOV && \
+                              x->subOp == NV50_IR_SUBOP_MOV_FINAL)
+
+   Instruction *i = bb->getExit();
+
+   // Skip over final control flow and fragment exports
+   for (; i; i = i->prev) {
+      if (!IS_FRAG_EXPORT(i) && !i->asFlow() && i->op != OP_EXIT) {
+         break;
+      }
+   }
+   if (!i) return true;
+
+   // Move any other fragment exports after other ops
+   Instruction *const insert_point = i;
+
+   for (Instruction *prev; i; i = prev) {
+      prev = i->prev;
+
+      if (IS_FRAG_EXPORT(i)) {
+         bb->remove(i);
+         bb->insertAfter(insert_point, i);
+      }
+   }
+
+   #undef IS_FRAG_EXPORT
+
+   return true;
+}
+
+// =============================================================================
+
 #define RUN_PASS(l, n, f)                       \
    if (level >= (l)) {                          \
       if (dbgFlags & NV50_IR_DEBUG_VERBOSE)     \
@@ -4088,6 +4147,7 @@ Program::optimizeSSA(int level)
    RUN_PASS(2, MemoryOpt, run);
    RUN_PASS(2, LocalCSE, run);
    RUN_PASS(0, DeadCodeElim, buryAll);
+   RUN_PASS(0, FragmentExportFixup, runFixup);
 
    return true;
 }
