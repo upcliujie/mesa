@@ -1319,9 +1319,9 @@ iris_compile_vs(struct iris_screen *screen,
 
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
+      nir_lower_io_to_temporaries(nir, impl, true, false);
       nir_lower_clip_vs(nir, (1 << key->vue.nr_userclip_plane_consts) - 1,
                         true, false, NULL);
-      nir_lower_io_to_temporaries(nir, impl, true, false);
       nir_lower_global_vars_to_local(nir);
       nir_lower_vars_to_ssa(nir);
       nir_shader_gather_info(nir, impl);
@@ -1688,9 +1688,9 @@ iris_compile_tes(struct iris_screen *screen,
 
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
+      nir_lower_io_to_temporaries(nir, impl, true, false);
       nir_lower_clip_vs(nir, (1 << key->vue.nr_userclip_plane_consts) - 1,
                         true, false, NULL);
-      nir_lower_io_to_temporaries(nir, impl, true, false);
       nir_lower_global_vars_to_local(nir);
       nir_lower_vars_to_ssa(nir);
       nir_shader_gather_info(nir, impl);
@@ -1827,9 +1827,9 @@ iris_compile_gs(struct iris_screen *screen,
 
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
+      nir_lower_io_to_temporaries(nir, impl, true, false);
       nir_lower_clip_gs(nir, (1 << key->vue.nr_userclip_plane_consts) - 1,
                         false, NULL);
-      nir_lower_io_to_temporaries(nir, impl, true, false);
       nir_lower_global_vars_to_local(nir);
       nir_lower_vars_to_ssa(nir);
       nir_shader_gather_info(nir, impl);
