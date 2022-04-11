@@ -1352,11 +1352,27 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
 
    uint32_t index_max_size = 0;
    uint64_t index_va = 0;
+   bool disable_instance_packing = false;
 
    radeon_begin(cs);
 
+   if (GFX_VERSION == GFX10_3) {
+      /* Workaround for incorrect stats with adjacent primitive types
+       * (see PAL's waDisableInstancePacking).
+       */
+      if (sctx->num_active_hw_queries &&
+          (instance_count > 1 || indirect) &&
+          (info->mode == PIPE_PRIM_LINES_ADJACENCY ||
+           info->mode == PIPE_PRIM_LINE_STRIP_ADJACENCY ||
+           info->mode == PIPE_PRIM_TRIANGLES_ADJACENCY ||
+           info->mode == PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY)) {
+         disable_instance_packing = true;
+      }
+   }
+
    /* draw packet */
-   if (index_size) {
+   if (index_size ||
+       disable_instance_packing != G_028A7C_DISABLE_INSTANCE_PACKING(sctx->last_index_type)) {
       unsigned index_type;
 
       /* Index type computation. When we look at how we need to translate index_size,
@@ -1374,6 +1390,8 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
                                        : V_028A7C_VGT_DMA_SWAP_32_BIT;
       }
 
+      index_type |= S_028A7C_DISABLE_INSTANCE_PACKING(disable_instance_packing);
+
       /* Register shadowing doesn't shadow INDEX_TYPE. */
       if (index_type != sctx->last_index_type || sctx->shadowed_regs) {
          if (GFX_VERSION >= GFX9) {
@@ -1387,25 +1405,27 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
          sctx->last_index_type = index_type;
       }
 
-      index_max_size = (indexbuf->width0 - index_offset) >> util_logbase2(index_size);
-      /* Skip draw calls with 0-sized index buffers.
-       * They cause a hang on some chips, like Navi10-14.
-       */
-      if (!index_max_size) {
-         radeon_end();
-         return;
-      }
+      if (index_size) {
+         index_max_size = (indexbuf->width0 - index_offset) >> util_logbase2(index_size);
+         /* Skip draw calls with 0-sized index buffers.
+          * They cause a hang on some chips, like Navi10-14.
+          */
+         if (!index_max_size) {
+            radeon_end();
+            return;
+         }
 
-      index_va = si_resource(indexbuf)->gpu_address + index_offset;
+         index_va = si_resource(indexbuf)->gpu_address + index_offset;
 
-      radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, si_resource(indexbuf),
+         radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, si_resource(indexbuf),
                                 RADEON_USAGE_READ | RADEON_PRIO_INDEX_BUFFER);
+      }
    } else {
       /* On GFX7 and later, non-indexed draws overwrite VGT_INDEX_TYPE,
        * so the state must be re-emitted before the next indexed draw.
        */
       if (GFX_VERSION >= GFX7)
-         sctx->last_index_type = -1;
+         sctx->last_index_type = C_028A7C_DISABLE_INSTANCE_PACKING;
    }
 
    unsigned sh_base_reg = sctx->shader_pointers.sh_base[PIPE_SHADER_VERTEX];
