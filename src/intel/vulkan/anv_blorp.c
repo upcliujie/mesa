@@ -88,6 +88,18 @@ upload_blorp_shader(struct blorp_batch *batch, uint32_t stage,
    return true;
 }
 
+static uint8_t count_emitted_3dprimitives(struct blorp_batch *batch)
+{
+   struct anv_cmd_buffer *cmd_buffer = batch->driver_batch;
+   return cmd_buffer->batch.num_3d_primitives_emitted;
+}
+
+static void reset_3dprimitive_count(struct blorp_batch *batch)
+{
+   struct anv_cmd_buffer *cmd_buffer = batch->driver_batch;
+   cmd_buffer->batch.num_3d_primitives_emitted = 0;
+}
+
 void
 anv_device_init_blorp(struct anv_device *device)
 {
@@ -99,6 +111,8 @@ anv_device_init_blorp(struct anv_device *device)
    device->blorp.compiler = device->physical->compiler;
    device->blorp.lookup_shader = lookup_blorp_shader;
    device->blorp.upload_shader = upload_blorp_shader;
+   device->blorp.reset_emitted_3dprimitives = reset_3dprimitive_count;
+   device->blorp.count_emitted_3dprimitives = count_emitted_3dprimitives;
    switch (device->info->verx10) {
    case 90:
       device->blorp.exec = gfx9_blorp_exec;

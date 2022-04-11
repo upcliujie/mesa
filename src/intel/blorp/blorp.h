@@ -78,6 +78,9 @@ struct blorp_context {
                          uint32_t *kernel_out, void *prog_data_out);
    void (*exec)(struct blorp_batch *batch, const struct blorp_params *params);
 
+   void (*reset_emitted_3dprimitives)(struct blorp_batch *batch);
+   uint8_t (*count_emitted_3dprimitives)(struct blorp_batch *batch);
+
    struct blorp_config config;
 };
 

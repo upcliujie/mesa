@@ -488,6 +488,18 @@ blorp_measure_end(struct blorp_batch *blorp_batch,
                          params->src.view.format);
 }
 
+static uint8_t iris_count_emitted_3dprimitives(struct blorp_batch *batch)
+{
+   struct iris_batch *driver_batch = batch->driver_batch;
+   return driver_batch->num_3d_primitives_emitted;
+}
+
+static void iris_reset_3dprimitive_count(struct blorp_batch *batch)
+{
+   struct iris_batch *driver_batch = batch->driver_batch;
+   driver_batch->num_3d_primitives_emitted = 0;
+}
+
 void
 genX(init_blorp)(struct iris_context *ice)
 {
@@ -497,6 +509,8 @@ genX(init_blorp)(struct iris_context *ice)
    ice->blorp.compiler = screen->compiler;
    ice->blorp.lookup_shader = iris_blorp_lookup_shader;
    ice->blorp.upload_shader = iris_blorp_upload_shader;
+   ice->blorp.reset_emitted_3dprimitives = iris_reset_3dprimitive_count;
+   ice->blorp.count_emitted_3dprimitives = iris_count_emitted_3dprimitives;
    ice->blorp.exec = iris_blorp_exec;
 }
 

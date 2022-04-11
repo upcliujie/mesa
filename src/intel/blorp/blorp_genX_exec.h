@@ -2057,6 +2057,18 @@ blorp_exec_3d(struct blorp_batch *batch, const struct blorp_params *params)
       prim.VertexCountPerInstance = 3;
       prim.InstanceCount = params->num_layers;
    }
+
+#if INTEL_NEEDS_WA_16014538804
+   assert(batch->blorp->count_emitted_3dprimitives(batch) < 3);
+   /* Wa_16014538804 - Send empty/dummy pipe control after 3 3DPRIMITIVE. */
+   const struct intel_device_info *devinfo = batch->blorp->compiler->devinfo;
+   if (intel_needs_workaround(devinfo, 16014538804) &&
+       batch->blorp->count_emitted_3dprimitives(batch) == 2) {
+      blorp_emit(batch, GENX(PIPE_CONTROL), pc) { };
+      batch->blorp->reset_emitted_3dprimitives(batch);
+   }
+#endif
+
    blorp_emit_breakpoint_post_draw(batch);
    blorp_measure_end(batch, params);
 }
