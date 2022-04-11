@@ -511,6 +511,7 @@ genX(emit_simple_shader_dispatch)(struct anv_simple_shader *state,
          prim.VertexCountPerInstance   = 3;
          prim.InstanceCount            = 1;
       }
+      genX(batch_emit_post_3dprimitive_was)(batch, device, _3DPRIM_RECTLIST, 3);
       genX(emit_breakpoint)(batch, device, false);
    } else {
       const struct intel_device_info *devinfo = device->info;

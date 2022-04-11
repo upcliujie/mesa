@@ -1884,6 +1884,11 @@ struct anv_batch {
     * of the driver.
     */
    VkResult                                     status;
+
+   /**
+    * Number of 3DPRIMITIVE's emitted for WA 16014538804
+    */
+   uint8_t num_3d_primitives_emitted;
 };
 
 void *anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords);
