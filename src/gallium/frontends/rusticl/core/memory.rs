@@ -434,7 +434,7 @@ impl Mem {
     pub fn read_to_user(
         &self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         offset: usize,
         ptr: *mut c_void,
         size: usize,
@@ -563,7 +563,7 @@ impl Mem {
     pub fn fill_image(
         &self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         pattern: &[u32],
         origin: &CLVec<usize>,
         region: &CLVec<usize>,
@@ -592,7 +592,7 @@ impl Mem {
         &self,
         src: *const c_void,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -646,7 +646,7 @@ impl Mem {
         &self,
         dst: *mut c_void,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         mut src_row_pitch: usize,
@@ -692,7 +692,7 @@ impl Mem {
         &self,
         dst: &Self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -809,7 +809,7 @@ impl Mem {
         self.maps.lock().unwrap().maps.contains_key(&ptr)
     }
 
-    pub fn unmap(&self, q: &Arc<Queue>, ctx: &Arc<PipeContext>, ptr: *mut c_void) {
+    pub fn unmap(&self, q: &Arc<Queue>, ctx: &PipeContext, ptr: *mut c_void) {
         let mut lock = self.maps.lock().unwrap();
         let e = lock.maps.get_mut(&ptr).unwrap();
 
