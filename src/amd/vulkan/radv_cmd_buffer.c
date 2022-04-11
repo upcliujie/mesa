@@ -5594,8 +5594,30 @@ radv_CmdSetVertexInputEXT(VkCommandBuffer commandBuffer, uint32_t vertexBindingD
       cmd_buffer->vertex_bindings[attrib->binding].stride = binding->stride;
       state->offsets[loc] = attrib->offset;
 
-      radv_translate_vertex_format(cmd_buffer->device->physical_device, attrib->format, format_desc,
-                                   &dfmt, &nfmt, &post_shuffle, &alpha_adjust);
+      unsigned vf;
+      for (vf = 0; vf < VF_CACHE; vf++) {
+         if (cmd_buffer->cached_vf[vf].format == VK_FORMAT_UNDEFINED)
+            break;
+         if (cmd_buffer->cached_vf[vf].format == attrib->format)
+            break;
+      }
+      if (vf < VF_CACHE && cmd_buffer->cached_vf[vf].format == attrib->format) {
+         dfmt = cmd_buffer->cached_vf[vf].dfmt;
+         nfmt = cmd_buffer->cached_vf[vf].nfmt;
+         post_shuffle = cmd_buffer->cached_vf[vf].post_shuffle;
+         alpha_adjust = cmd_buffer->cached_vf[vf].alpha_adjust;
+      } else {
+         radv_translate_vertex_format(cmd_buffer->device->physical_device, attrib->format, format_desc,
+                                      &dfmt, &nfmt, &post_shuffle, &alpha_adjust);
+         if (vf < VF_CACHE) {
+            cmd_buffer->cached_vf[vf].format = attrib->format;
+            cmd_buffer->cached_vf[vf].dfmt = dfmt;
+            cmd_buffer->cached_vf[vf].nfmt = nfmt;
+            cmd_buffer->cached_vf[vf].post_shuffle = post_shuffle;
+            cmd_buffer->cached_vf[vf].alpha_adjust = alpha_adjust;
+         }
+      }
+
 
       state->formats[loc] = dfmt | (nfmt << 4);
       const uint8_t format_align_req_minus_1 = format_desc->channel[0].size >= 32 ? 3 :

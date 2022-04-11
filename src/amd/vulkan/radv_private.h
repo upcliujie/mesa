@@ -1510,6 +1510,14 @@ enum radv_cmd_buffer_status {
    RADV_CMD_BUFFER_STATUS_PENDING,
 };
 
+struct dynamic_vertex_format_cache {
+   VkFormat format;
+   uint32_t nfmt, dfmt;
+   bool post_shuffle;
+   enum radv_vs_input_alpha_adjust alpha_adjust;
+};
+
+#define VF_CACHE 4
 struct radv_cmd_buffer {
    struct vk_command_buffer vk;
 
@@ -1518,6 +1526,7 @@ struct radv_cmd_buffer {
    struct radv_cmd_pool *pool;
    struct list_head pool_link;
 
+   struct dynamic_vertex_format_cache cached_vf[VF_CACHE];
    VkCommandBufferUsageFlags usage_flags;
    enum radv_cmd_buffer_status status;
    struct radeon_cmdbuf *cs;
