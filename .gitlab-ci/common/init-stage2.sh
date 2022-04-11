@@ -95,6 +95,8 @@ if [ -n "$HWCI_START_XORG" ]; then
   export DISPLAY=:0
 fi
 
+find /piglit/
+
 sh -c "$HWCI_TEST_SCRIPT" && RESULT=pass || RESULT=fail
 
 # Let's make sure the results are always stored in current working directory
