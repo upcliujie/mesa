@@ -1135,7 +1135,7 @@ struct si_context {
    /* Emitted draw state. */
    bool ngg : 1;
    uint16_t ngg_culling;
-   unsigned last_index_size;
+   unsigned last_index_type;
    int last_base_vertex;
    unsigned last_start_instance;
    unsigned last_instance_count;

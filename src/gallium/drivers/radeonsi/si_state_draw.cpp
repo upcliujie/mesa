@@ -1357,25 +1357,25 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
 
    /* draw packet */
    if (index_size) {
+      unsigned index_type;
+
+      /* Index type computation. When we look at how we need to translate index_size,
+       * we can see that we just need 2 shifts to get the hw value.
+       *
+       * 1 = 001b --> 10b = 2
+       * 2 = 010b --> 00b = 0
+       * 4 = 100b --> 01b = 1
+       */
+      index_type = ((index_size >> 2) | (index_size << 1)) & 0x3;
+
+      if (GFX_VERSION <= GFX7 && SI_BIG_ENDIAN) {
+         /* GFX7 doesn't support ubyte indices. */
+         index_type |= index_size == 2 ? V_028A7C_VGT_DMA_SWAP_16_BIT
+                                       : V_028A7C_VGT_DMA_SWAP_32_BIT;
+      }
+
       /* Register shadowing doesn't shadow INDEX_TYPE. */
-      if (index_size != sctx->last_index_size || sctx->shadowed_regs) {
-         unsigned index_type;
-
-         /* Index type computation. When we look at how we need to translate index_size,
-          * we can see that we just need 2 shifts to get the hw value.
-          *
-          * 1 = 001b --> 10b = 2
-          * 2 = 010b --> 00b = 0
-          * 4 = 100b --> 01b = 1
-          */
-         index_type = ((index_size >> 2) | (index_size << 1)) & 0x3;
-
-         if (GFX_VERSION <= GFX7 && SI_BIG_ENDIAN) {
-            /* GFX7 doesn't support ubyte indices. */
-            index_type |= index_size == 2 ? V_028A7C_VGT_DMA_SWAP_16_BIT
-                                          : V_028A7C_VGT_DMA_SWAP_32_BIT;
-         }
-
+      if (index_type != sctx->last_index_type || sctx->shadowed_regs) {
          if (GFX_VERSION >= GFX9) {
             radeon_set_uconfig_reg_idx(sctx->screen, GFX_VERSION,
                                        R_03090C_VGT_INDEX_TYPE, 2, index_type);
@@ -1384,7 +1384,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
             radeon_emit(index_type);
          }
 
-         sctx->last_index_size = index_size;
+         sctx->last_index_type = index_type;
       }
 
       index_max_size = (indexbuf->width0 - index_offset) >> util_logbase2(index_size);
@@ -1405,7 +1405,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
        * so the state must be re-emitted before the next indexed draw.
        */
       if (GFX_VERSION >= GFX7)
-         sctx->last_index_size = -1;
+         sctx->last_index_type = -1;
    }
 
    unsigned sh_base_reg = sctx->shader_pointers.sh_base[PIPE_SHADER_VERTEX];
