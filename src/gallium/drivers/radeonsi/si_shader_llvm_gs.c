@@ -539,8 +539,6 @@ struct si_shader *si_generate_gs_copy_shader(struct si_screen *sscreen,
 
       if (!ctx.shader->config.scratch_bytes_per_wave)
          ok = si_shader_binary_upload(sscreen, ctx.shader, 0);
-      else
-         ok = true;
    }
 
    si_llvm_dispose(&ctx);
