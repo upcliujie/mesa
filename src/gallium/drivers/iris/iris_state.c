@@ -7971,6 +7971,16 @@ iris_upload_render_state(struct iris_context *ice,
       }
    }
 
+#if INTEL_NEEDS_WA_16014538804
+   batch->num_3d_primitives_emitted++;
+   /* Wa_16014538804 - Send empty/dummy pipe control after 3 3DPRIMITIVE. */
+   if (intel_needs_workaround(devinfo, 16014538804) &&
+       batch->num_3d_primitives_emitted == 3) {
+      iris_emit_pipe_control_flush(batch, "Wa_16014538804", 0);
+      batch->num_3d_primitives_emitted = 0;
+   }
+#endif
+
    genX(maybe_emit_breakpoint)(batch, false);
 
 #if GFX_VERx10 == 125
