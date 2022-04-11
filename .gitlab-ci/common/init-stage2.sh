@@ -95,6 +95,9 @@ if [ -n "$HWCI_START_XORG" ]; then
   export DISPLAY=:0
 fi
 
+find /piglit/framework/
+wget https://gitlab.freedesktop.org/tomeu/piglit/-/raw/download-logging/framework/test/piglit_test.py?inline=false -O /piglit/framework/test/piglit_test.py
+
 sh -c "$HWCI_TEST_SCRIPT" && RESULT=pass || RESULT=fail
 
 # Let's make sure the results are always stored in current working directory
