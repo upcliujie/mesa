@@ -1265,6 +1265,8 @@ struct si_context {
    struct list_head shader_query_buffers;
    unsigned num_active_shader_queries;
 
+   unsigned num_active_hw_queries;
+
    bool force_cb_shader_coherent;
 
    struct si_tracked_regs tracked_regs;
