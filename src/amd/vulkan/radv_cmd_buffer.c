@@ -523,7 +523,8 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 
    cmd_buffer->record_result = VK_SUCCESS;
 
-   memset(cmd_buffer->vertex_bindings, 0, sizeof(cmd_buffer->vertex_bindings));
+   memset(cmd_buffer->vertex_bindings, 0, sizeof(struct radv_vertex_binding) * cmd_buffer->used_vertex_bindings);
+   cmd_buffer->used_vertex_bindings = 0;
 
    for (unsigned i = 0; i < MAX_BIND_POINTS; i++) {
       cmd_buffer->descriptors[i].dirty = 0;
@@ -4673,6 +4674,10 @@ radv_CmdBindVertexBuffers2(VkCommandBuffer commandBuffer, uint32_t firstBinding,
    assert(firstBinding + bindingCount <= MAX_VBS);
    cmd_buffer->state.vbo_misaligned_mask = state->misaligned_mask;
    enum chip_class chip = cmd_buffer->device->physical_device->rad_info.chip_class;
+
+   if (firstBinding + bindingCount > cmd_buffer->used_vertex_bindings)
+      cmd_buffer->used_vertex_bindings = firstBinding + bindingCount;
+
    for (uint32_t i = 0; i < bindingCount; i++) {
       RADV_FROM_HANDLE(radv_buffer, buffer, pBuffers[i]);
       uint32_t idx = firstBinding + i;
