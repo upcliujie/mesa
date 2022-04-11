@@ -53,9 +53,14 @@
 
 #include "compiler/glsl_types.h"
 #include "ir.h"
+#include "ir_builder.h"
+#include "util/bitset.h"
 #include "util/set.h"
 #include "util/hash_table.h" /* Needed for the hashing functions */
 #include "main/macros.h" /* for MAX2 */
+#include "program/prog_instruction.h"
+
+using namespace ir_builder;
 
 namespace {
 
@@ -200,11 +205,46 @@ move_block_to_cond_assign(void *mem_ctx,
                                              cond_expr->clone(mem_ctx, NULL),
                                              assign->rhs);
             } else {
+               ir_rvalue *swiz_lhs =
+                  assign->lhs->as_dereference()->clone(mem_ctx, NULL);
+               const unsigned count = assign->rhs->type->vector_elements;
+
+               if (assign->rhs->type != assign->lhs->type) {
+                  /* This is for cases like
+                   *
+                   *    vec4 a;
+                   *    ...
+                   *    if (condition)
+                   *        a.w = some_scalar;
+                   *
+                   * The original LHS has to be swizzled to select the correct
+                   * elements based on the original write mask.
+                   */
+                  assert(assign->lhs->type->vector_elements >
+                         assign->rhs->type->vector_elements);
+
+                  unsigned j = 0;
+                  unsigned swiz[4] = { 0 };
+
+                  for (unsigned i = 0; i < 4; i++) {
+                     if ((assign->write_mask & (1u << i)) != 0)
+                        swiz[j++] = i;
+                  }
+
+                  swiz_lhs = new(mem_ctx) ir_swizzle(swiz_lhs, swiz, count);
+               }
+
+               assert(cond_expr->type->is_scalar());
+
+               ir_rvalue *swiz_cond = cond_expr->clone(mem_ctx, NULL);
+               if (count != 1)
+                  swiz_cond = swizzle(swiz_cond, SWIZZLE_XXXX, count);
+
+               assert(swiz_cond->type->vector_elements == count);
+
                assign->rhs =
                   new(mem_ctx) ir_expression(ir_triop_csel,
-                                             cond_expr->clone(mem_ctx, NULL),
-                                             assign->rhs,
-                                             assign->lhs->as_dereference());
+                                             swiz_cond, assign->rhs, swiz_lhs);
             }
          }
       }
