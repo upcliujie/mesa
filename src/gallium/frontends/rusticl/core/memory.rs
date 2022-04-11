@@ -345,7 +345,7 @@ impl Mem {
     fn tx_raw(
         &self,
         q: &Arc<Queue>,
-        ctx: Option<&Arc<PipeContext>>,
+        ctx: Option<&PipeContext>,
         mut offset: usize,
         size: usize,
     ) -> CLResult<PipeTransfer> {
@@ -373,7 +373,7 @@ impl Mem {
     fn tx<'a>(
         &self,
         q: &Arc<Queue>,
-        ctx: &'a Arc<PipeContext>,
+        ctx: &'a PipeContext,
         offset: usize,
         size: usize,
     ) -> CLResult<GuardedPipeTransfer<'a>> {
@@ -383,7 +383,7 @@ impl Mem {
     fn tx_image_raw(
         &self,
         q: &Arc<Queue>,
-        ctx: Option<&Arc<PipeContext>>,
+        ctx: Option<&PipeContext>,
         bx: &pipe_box,
     ) -> CLResult<PipeTransfer> {
         assert!(!self.is_buffer());
@@ -399,7 +399,7 @@ impl Mem {
     fn tx_image<'a>(
         &self,
         q: &Arc<Queue>,
-        ctx: &'a Arc<PipeContext>,
+        ctx: &'a PipeContext,
         bx: &pipe_box,
     ) -> CLResult<GuardedPipeTransfer<'a>> {
         Ok(self.tx_image_raw(q, Some(ctx), bx)?.with_ctx(ctx))
@@ -436,7 +436,7 @@ impl Mem {
     pub fn read_to_user(
         &self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         offset: usize,
         ptr: *mut c_void,
         size: usize,
@@ -455,7 +455,7 @@ impl Mem {
     pub fn write_from_user(
         &self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         mut offset: usize,
         ptr: *const c_void,
         size: usize,
@@ -476,7 +476,7 @@ impl Mem {
     pub fn copy_to(
         &self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         dst: &Arc<Mem>,
         mut src_origin: CLVec<usize>,
         mut dst_origin: CLVec<usize>,
@@ -544,7 +544,7 @@ impl Mem {
     pub fn fill(
         &self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         pattern: &[u8],
         mut offset: usize,
         size: usize,
@@ -565,7 +565,7 @@ impl Mem {
     pub fn fill_image(
         &self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         pattern: &[u32],
         origin: &CLVec<usize>,
         region: &CLVec<usize>,
@@ -594,7 +594,7 @@ impl Mem {
         &self,
         src: *const c_void,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -648,7 +648,7 @@ impl Mem {
         &self,
         dst: *mut c_void,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         mut src_row_pitch: usize,
@@ -694,7 +694,7 @@ impl Mem {
         &self,
         dst: &Self,
         q: &Arc<Queue>,
-        ctx: &Arc<PipeContext>,
+        ctx: &PipeContext,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -729,7 +729,7 @@ impl Mem {
     fn map<'a>(
         &self,
         q: &Arc<Queue>,
-        ctx: Option<&Arc<PipeContext>>,
+        ctx: Option<&PipeContext>,
         lock: &'a mut MutexGuard<Mappings>,
     ) -> CLResult<&'a PipeTransfer> {
         if !lock.tx.contains_key(&q.device) {
@@ -752,7 +752,7 @@ impl Mem {
     pub fn map_buffer(
         &self,
         q: &Arc<Queue>,
-        ctx: Option<&Arc<PipeContext>>,
+        ctx: Option<&PipeContext>,
         offset: usize,
         _size: usize,
     ) -> CLResult<*mut c_void> {
@@ -774,7 +774,7 @@ impl Mem {
     pub fn map_image(
         &self,
         q: &Arc<Queue>,
-        ctx: Option<&Arc<PipeContext>>,
+        ctx: Option<&PipeContext>,
         origin: &CLVec<usize>,
         _region: &CLVec<usize>,
         row_pitch: &mut usize,
@@ -811,7 +811,7 @@ impl Mem {
         self.maps.lock().unwrap().maps.contains_key(&ptr)
     }
 
-    pub fn unmap(&self, q: &Arc<Queue>, ctx: &Arc<PipeContext>, ptr: *mut c_void) {
+    pub fn unmap(&self, q: &Arc<Queue>, ctx: &PipeContext, ptr: *mut c_void) {
         let mut lock = self.maps.lock().unwrap();
         let e = lock.maps.get_mut(&ptr).unwrap();
 
