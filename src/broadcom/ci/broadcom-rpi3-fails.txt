@@ -1590,13 +1590,9 @@ spec@glsl-1.20@execution@tex-miplevel-selection gl2:textureproj(bias) 2d_projvec
 spec@glsl-1.20@execution@tex-miplevel-selection gl2:textureproj(bias) 2dshadow,Fail
 spec@glsl-1.20@execution@tex-miplevel-selection gl2:textureproj(bias) 3d,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat4-index-col-row-wr,Fail
-spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat4-index-col-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat4-index-row-wr,Fail
-spec@glsl-1.20@execution@variable-indexing@fs-temp-array-mat4-index-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@vs-temp-array-mat4-index-col-row-wr,Fail
-spec@glsl-1.20@execution@variable-indexing@vs-temp-array-mat4-index-col-wr,Fail
 spec@glsl-1.20@execution@variable-indexing@vs-temp-array-mat4-index-row-wr,Fail
-spec@glsl-1.20@execution@variable-indexing@vs-temp-array-mat4-index-wr,Fail
 spec@glsl-1.20@execution@vs-nan-builtin-max,Fail
 spec@glsl-1.20@execution@vs-nan-builtin-min,Fail
 spec@intel_performance_query@intel_performance_query-issue_2235,Fail
