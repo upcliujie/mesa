@@ -163,6 +163,32 @@ lower_indirect_derefs_block(nir_block *block, nir_builder *b,
       if (builtins_only && strncmp(base->var->name, "gl_", 3))
          continue;
 
+      /* The input array size is unknown at compiler time for non-patch
+       * inputs in TCS and TES. The arrays are sized to
+       * the implementation-dependent limit "gl_MaxPatchVertices", but
+       * the real size is stored in the "gl_PatchVerticesIn" built-in
+       * uniform.
+       *
+       * The TCS input array size is specified by
+       * glPatchParameteri(GL_PATCH_VERTICES).
+       *
+       * The TES input array size is specified by the "vertices" output
+       * layout qualifier in TCS.
+       */
+      if (base->var->data.mode == nir_var_shader_in &&
+          (b->shader->info.stage == MESA_SHADER_TESS_CTRL ||
+           b->shader->info.stage == MESA_SHADER_TESS_EVAL) &&
+          !base->var->data.patch)
+         continue;
+
+      /* TCS non-patch outputs can only be indexed with "gl_InvocationID".
+       * Other expressions are not allowed.
+       */
+      if (base->var->data.mode == nir_var_shader_out &&
+          b->shader->info.stage == MESA_SHADER_TESS_CTRL &&
+          !base->var->data.patch)
+         continue;
+
       b->cursor = nir_instr_remove(&intrin->instr);
 
       nir_deref_path path;
