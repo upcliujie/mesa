@@ -2523,7 +2523,7 @@ radv_lower_multiview(nir_shader *nir)
 
          if (nir->info.stage == MESA_SHADER_GEOMETRY) {
             nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-            if (intr->intrinsic != nir_intrinsic_emit_vertex_with_counter)
+            if (intr->intrinsic != nir_intrinsic_emit_vertex)
                continue;
 
             b.cursor = nir_before_instr(instr);
@@ -4400,6 +4400,20 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
          nir_opt_sink(stages[i].nir, nir_move_load_input | nir_move_const_undef | nir_move_copies);
          nir_opt_move(stages[i].nir, nir_move_load_input | nir_move_const_undef | nir_move_copies);
+
+         if (i == MESA_SHADER_GEOMETRY) {
+            unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
+
+            if (pipeline_has_ngg && !radv_use_llvm_for_stage(device, MESA_SHADER_GEOMETRY)) {
+               /* ACO needs NIR to do some of the hard lifting */
+               nir_gs_flags |= nir_lower_gs_intrinsics_count_primitives |
+                               nir_lower_gs_intrinsics_count_vertices_per_primitive |
+                               nir_lower_gs_intrinsics_overwrite_incomplete;
+            }
+
+            if (nir_lower_gs_intrinsics(stages[i].nir, nir_gs_flags))
+               nir_lower_vars_to_ssa(stages[i].nir);
+         }
 
          /* Lower I/O intrinsics to memory instructions. */
          bool io_to_mem = radv_lower_io_to_mem(device, &stages[i], pipeline_key);
