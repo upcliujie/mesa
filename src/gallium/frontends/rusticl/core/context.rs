@@ -45,23 +45,38 @@ impl Context {
         &self,
         size: usize,
         user_ptr: *mut c_void,
+        copy: bool,
     ) -> CLResult<HashMap<Arc<Device>, Arc<PipeResource>>> {
         let adj_size: u32 = size.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?;
         let mut res = HashMap::new();
         for dev in &self.devs {
-            let resource = dev
-                .screen()
-                .resource_create_buffer(adj_size)
-                .ok_or(CL_OUT_OF_RESOURCES);
+            let mut resource = None;
+
+            if !user_ptr.is_null() && !copy {
+                resource = dev
+                    .screen()
+                    .resource_create_buffer_from_user(adj_size, user_ptr)
+            }
+
+            if resource.is_none() {
+                resource = dev.screen().resource_create_buffer(adj_size)
+            }
+
+            let resource = resource.ok_or(CL_OUT_OF_RESOURCES);
             res.insert(Arc::clone(dev), Arc::new(resource?));
         }
 
         if !user_ptr.is_null() {
             let fences: Vec<_> = res
                 .iter()
-                .map(|(d, r)| {
-                    d.helper_ctx()
-                        .exec(|ctx| ctx.buffer_subdata(r, 0, user_ptr, size.try_into().unwrap()))
+                .filter_map(|(d, r)| {
+                    if copy || !r.is_user {
+                        Some(d.helper_ctx().exec(|ctx| {
+                            ctx.buffer_subdata(r, 0, user_ptr, size.try_into().unwrap())
+                        }))
+                    } else {
+                        None
+                    }
                 })
                 .collect();
             fences.iter().for_each(|f| f.wait());
@@ -70,28 +85,12 @@ impl Context {
         Ok(res)
     }
 
-    pub fn create_buffer_from_user(
-        &self,
-        size: usize,
-        user_ptr: *mut c_void,
-    ) -> CLResult<HashMap<Arc<Device>, Arc<PipeResource>>> {
-        let adj_size: u32 = size.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?;
-        let mut res = HashMap::new();
-        for dev in &self.devs {
-            let resource = dev
-                .screen()
-                .resource_create_buffer_from_user(adj_size, user_ptr)
-                .ok_or(CL_OUT_OF_RESOURCES);
-            res.insert(Arc::clone(dev), Arc::new(resource?));
-        }
-        Ok(res)
-    }
-
     pub fn create_texture(
         &self,
         desc: &cl_image_desc,
         format: &cl_image_format,
         user_ptr: *mut c_void,
+        copy: bool,
     ) -> CLResult<HashMap<Arc<Device>, Arc<PipeResource>>> {
         let width = desc
             .image_width
@@ -114,10 +113,21 @@ impl Context {
 
         let mut res = HashMap::new();
         for dev in &self.devs {
-            let resource = dev
-                .screen()
-                .resource_create_texture(width, height, depth, array_size, target, format)
-                .ok_or(CL_OUT_OF_RESOURCES);
+            let mut resource = None;
+
+            if !user_ptr.is_null() && !copy {
+                resource = dev.screen().resource_create_texture_from_user(
+                    width, height, depth, array_size, target, format, user_ptr,
+                )
+            }
+
+            if resource.is_none() {
+                resource = dev
+                    .screen()
+                    .resource_create_texture(width, height, depth, array_size, target, format)
+            }
+
+            let resource = resource.ok_or(CL_OUT_OF_RESOURCES);
             res.insert(Arc::clone(dev), Arc::new(resource?));
         }
 
@@ -128,52 +138,19 @@ impl Context {
 
             let fences: Vec<_> = res
                 .iter()
-                .map(|(d, r)| {
-                    d.helper_ctx()
-                        .exec(|ctx| ctx.texture_subdata(r, &bx, user_ptr, stride, layer_stride))
+                .filter_map(|(d, r)| {
+                    if copy || !r.is_user {
+                        Some(d.helper_ctx().exec(|ctx| {
+                            ctx.texture_subdata(r, &bx, user_ptr, stride, layer_stride)
+                        }))
+                    } else {
+                        None
+                    }
                 })
                 .collect();
             fences.iter().for_each(|f| f.wait());
         }
 
-        Ok(res)
-    }
-
-    pub fn create_texture_from_user(
-        &self,
-        desc: &cl_image_desc,
-        format: &cl_image_format,
-        user_ptr: *mut c_void,
-    ) -> CLResult<HashMap<Arc<Device>, Arc<PipeResource>>> {
-        let width = desc
-            .image_width
-            .try_into()
-            .map_err(|_| CL_OUT_OF_HOST_MEMORY)?;
-        let height = desc
-            .image_height
-            .try_into()
-            .map_err(|_| CL_OUT_OF_HOST_MEMORY)?;
-        let depth = desc
-            .image_depth
-            .try_into()
-            .map_err(|_| CL_OUT_OF_HOST_MEMORY)?;
-        let array_size = desc
-            .image_array_size
-            .try_into()
-            .map_err(|_| CL_OUT_OF_HOST_MEMORY)?;
-        let target = cl_mem_type_to_texture_target(desc.image_type);
-        let format = format.to_pipe_format().unwrap();
-
-        let mut res = HashMap::new();
-        for dev in &self.devs {
-            let resource = dev
-                .screen()
-                .resource_create_texture_from_user(
-                    width, height, depth, array_size, target, format, user_ptr,
-                )
-                .ok_or(CL_OUT_OF_RESOURCES);
-            res.insert(Arc::clone(dev), Arc::new(resource?));
-        }
         Ok(res)
     }
 }
