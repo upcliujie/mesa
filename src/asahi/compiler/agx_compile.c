@@ -1625,7 +1625,16 @@ agx_compile_shader_nir(nir_shader *nir,
    if (agx_debug & AGX_DBG_SHADERS && !skip_internal)
       agx_print_shader(ctx, stdout);
 
+   unsigned start = binary->size;
    agx_pack_binary(ctx, binary);
+
+   if ((agx_debug & AGX_DBG_SHADERS) && !skip_internal) {
+      FILE *fp = fopen("/tmp/dump.bin", "wb");
+      fwrite(binary->data + start, 1, binary->size - start, fp);
+      fclose(fp);
+      fflush(stdout);
+      system("python3 ~/applegpu/disassemble.py /tmp/dump.bin");
+   }
 
    if ((agx_debug & AGX_DBG_SHADERDB) && !skip_internal)
       agx_print_stats(ctx, binary->size, stderr);
