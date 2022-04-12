@@ -86,7 +86,10 @@ impl PipeScreen {
     }
 
     fn resource_create(&self, tmpl: &pipe_resource) -> Option<PipeResource> {
-        PipeResource::new(unsafe { (*self.screen).resource_create.unwrap()(self.screen, tmpl) })
+        PipeResource::new(
+            unsafe { (*self.screen).resource_create.unwrap()(self.screen, tmpl) },
+            false,
+        )
     }
 
     fn resource_create_from_user(
@@ -94,9 +97,10 @@ impl PipeScreen {
         tmpl: &pipe_resource,
         mem: *mut c_void,
     ) -> Option<PipeResource> {
-        PipeResource::new(unsafe {
-            (*self.screen).resource_from_user_memory.unwrap()(self.screen, tmpl, mem)
-        })
+        PipeResource::new(
+            unsafe { (*self.screen).resource_from_user_memory.unwrap()(self.screen, tmpl, mem) },
+            true,
+        )
     }
 
     pub fn resource_create_buffer(&self, size: u32) -> Option<PipeResource> {
