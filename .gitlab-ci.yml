@@ -48,25 +48,7 @@ include:
   - local: '.gitlab-ci/image-tags.yml'
   - local: '.gitlab-ci/lava/lava-gitlab-ci.yml'
   - local: '.gitlab-ci/test-source-dep.yml'
-  - local: 'src/amd/ci/gitlab-ci.yml'
-  - local: 'src/broadcom/ci/gitlab-ci.yml'
-  - local: 'src/etnaviv/ci/gitlab-ci.yml'
-  - local: 'src/freedreno/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/crocus/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/d3d12/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/i915/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/iris/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/lima/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/llvmpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/nouveau/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/radeonsi/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/softpipe/ci/gitlab-ci.yml'
   - local: 'src/gallium/drivers/virgl/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/zink/ci/gitlab-ci.yml'
-  - local: 'src/gallium/frontends/lavapipe/ci/gitlab-ci.yml'
-  - local: 'src/intel/ci/gitlab-ci.yml'
-  - local: 'src/microsoft/ci/gitlab-ci.yml'
-  - local: 'src/panfrost/ci/gitlab-ci.yml'
 
 stages:
   - sanity
@@ -314,6 +296,8 @@ debian/x86_build-base:
     - .container
   variables:
     MESA_IMAGE_TAG: &debian-x86_build-base ${DEBIAN_BASE_TAG}
+  rules:
+    - when: always
 
 .use-debian/x86_build-base:
   extends:
@@ -416,6 +400,8 @@ debian/x86_test-base:
   extends: debian/x86_build-base
   variables:
     MESA_IMAGE_TAG: &debian-x86_test-base ${DEBIAN_BASE_TAG}
+  rules:
+    - when: always
 
 .use-debian/x86_test-base:
   extends:
@@ -1106,111 +1092,6 @@ windows-vs2019:
     paths:
       - _build/meson-logs/*.txt
       - _install/
-
-debian-clover:
-  extends: .meson-build
-  variables:
-    UNWIND: "enabled"
-    DRI_LOADERS: >
-      -D glx=disabled
-      -D egl=disabled
-      -D gbm=disabled
-    GALLIUM_DRIVERS: "r600,radeonsi"
-    GALLIUM_ST: >
-      -D dri3=disabled
-      -D gallium-vdpau=disabled
-      -D gallium-xvmc=disabled
-      -D gallium-omx=disabled
-      -D gallium-va=disabled
-      -D gallium-xa=disabled
-      -D gallium-nine=false
-      -D gallium-opencl=icd
-    EXTRA_OPTION: >
-      -D valgrind=false
-  script:
-    - LLVM_VERSION=9 GALLIUM_DRIVERS=r600,swrast .gitlab-ci/meson/build.sh
-    - .gitlab-ci/meson/build.sh
-
-debian-vulkan:
-  extends: .meson-build
-  variables:
-    UNWIND: "disabled"
-    DRI_LOADERS: >
-      -D glx=disabled
-      -D gbm=disabled
-      -D egl=disabled
-      -D platforms=x11,wayland
-      -D osmesa=false
-    GALLIUM_ST: >
-      -D dri3=enabled
-      -D gallium-vdpau=disabled
-      -D gallium-xvmc=disabled
-      -D gallium-omx=disabled
-      -D gallium-va=disabled
-      -D gallium-xa=disabled
-      -D gallium-nine=false
-      -D gallium-opencl=disabled
-      -D b_sanitize=undefined
-      -D c_args=-fno-sanitize-recover=all
-      -D cpp_args=-fno-sanitize-recover=all
-    UBSAN_OPTIONS: "print_stacktrace=1"
-    VULKAN_DRIVERS: intel,amd,freedreno,broadcom,virtio-experimental,imagination-experimental
-    EXTRA_OPTION: >
-      -D vulkan-layers=device-select,overlay
-      -D build-aco-tests=true
-      -D intel-clc=enabled
-      -D imagination-srv=true
-
-debian-i386:
-  extends:
-    - .meson-cross
-    - .use-debian/i386_build
-  variables:
-    CROSS: i386
-    VULKAN_DRIVERS: intel,amd,swrast,virtio-experimental
-    GALLIUM_DRIVERS: "iris,nouveau,r300,r600,radeonsi,swrast,virgl,zink,crocus"
-    EXTRA_OPTION: >
-      -D vulkan-layers=device-select,overlay
-
-debian-s390x:
-  extends:
-    - debian-ppc64el
-    - .use-debian/s390x_build
-    - .s390x-rules
-  tags:
-    - kvm
-  variables:
-    CROSS: s390x
-    GALLIUM_DRIVERS: "swrast,zink"
-    # The lp_test_blend test times out with LLVM 11
-    LLVM_VERSION: 9
-    VULKAN_DRIVERS: "swrast"
-
-debian-ppc64el:
-  extends:
-    - .meson-cross
-    - .use-debian/ppc64el_build
-    - .ppc64el-rules
-  variables:
-    CROSS: ppc64el
-    GALLIUM_DRIVERS: "nouveau,radeonsi,swrast,virgl,zink"
-    VULKAN_DRIVERS: "amd,swrast"
-
-debian-mingw32-x86_64:
-  extends: .meson-build
-  stage: build-misc
-  variables:
-    UNWIND: "disabled"
-    C_ARGS: >
-      -Wno-error=format
-      -Wno-error=format-extra-args
-    CPP_ARGS: $C_ARGS
-    GALLIUM_DRIVERS: "swrast"
-    EXTRA_OPTION: >
-      -Dllvm=disabled
-      -Dzlib=disabled
-      -Dosmesa=true
-      --cross-file=.gitlab-ci/x86_64-w64-mingw32
 
 .test:
   extends:
