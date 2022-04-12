@@ -333,6 +333,8 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
     * so we have to first write to a temporary */
    if ((inst->Src[0].Register.File == TGSI_FILE_CONSTANT ||
         inst->Src[0].Register.File == TGSI_FILE_IMMEDIATE) &&
+       !tgsi_get_opcode_info(inst->Instruction.Opcode)->is_tex &&
+       !tgsi_get_opcode_info(inst->Instruction.Opcode)->is_store &&
        inst->Dst[0].Register.File == TGSI_FILE_OUTPUT &&
        tgsi_opcode_infer_dst_type(inst->Instruction.Opcode, 0) != TGSI_TYPE_FLOAT)  {
       struct tgsi_full_instruction op_to_temp = *inst;
@@ -341,10 +343,11 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
       ctx->emit_instruction(ctx, &op_to_temp);
 
       inst->Instruction.Opcode = TGSI_OPCODE_MOV;
+      inst->Instruction.NumSrcRegs = 1;
+
+      memset(&inst->Src[0], 0, sizeof(inst->Src[0]));
       inst->Src[0].Register.File = TGSI_FILE_TEMPORARY;
       inst->Src[0].Register.Index = vtctx->src_temp;
-      inst->Src[0].Register.Indirect = 0;
-      inst->Src[0].Register.SwizzleX = 0;
       inst->Src[0].Register.SwizzleY = 1;
       inst->Src[0].Register.SwizzleZ = 2;
       inst->Src[0].Register.SwizzleW = 3;
