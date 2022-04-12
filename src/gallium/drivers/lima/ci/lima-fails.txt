@@ -442,9 +442,7 @@ spec@glsl-1.10@execution@variable-indexing@fs-temp-mat4-col-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat4-col-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat4-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-temp-mat4-wr,Fail
-spec@glsl-1.10@execution@variable-indexing@vs-temp-array-mat4-index-col-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@vs-temp-array-mat4-index-col-wr,Fail
-spec@glsl-1.10@execution@variable-indexing@vs-temp-array-mat4-index-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@vs-temp-array-mat4-index-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@vs-varying-array-mat2-col-row-wr,Fail
 spec@glsl-1.10@execution@variable-indexing@vs-varying-array-mat2-col-wr,Fail
