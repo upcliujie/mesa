@@ -3131,6 +3131,7 @@ static void
 ntt_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
 {
    bool progress;
+   bool first_run = true;
    unsigned pipe_stage = pipe_shader_type_from_mesa(s->info.stage);
    unsigned control_flow_depth =
       screen->get_shader_param(screen, pipe_stage,
@@ -3148,7 +3149,13 @@ ntt_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
       NIR_PASS(progress, s, nir_opt_dce);
       NIR_PASS(progress, s, nir_opt_dead_cf);
       NIR_PASS(progress, s, nir_opt_cse);
-      NIR_PASS(progress, s, nir_opt_find_array_copies);
+      if (first_run) {
+         /* Only run this pass the first time. most drivers seem to do this, and
+          * it avoids an endless optimization loop that introduces more and more
+          * copies of the same arrays. */
+         NIR_PASS(progress, s, nir_opt_find_array_copies);
+         NIR_PASS_V(s, nir_lower_var_copies);
+      }
       NIR_PASS(progress, s, nir_opt_if, true);
       NIR_PASS(progress, s, nir_opt_peephole_select,
                control_flow_depth == 0 ? ~0 : 8, true, true);
@@ -3182,6 +3189,7 @@ ntt_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
       };
       NIR_PASS(progress, s, nir_opt_offsets, &offset_options);
 
+      first_run = false;
    } while (progress);
 }
 
