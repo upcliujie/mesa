@@ -40,6 +40,7 @@ pub struct Device {
     pub embedded: bool,
     pub extension_string: String,
     pub extensions: Vec<cl_name_version>,
+    pub clc_features: Vec<cl_name_version>,
     pub formats: HashMap<cl_image_format, HashMap<cl_mem_object_type, cl_mem_flags>>,
     pub lib_clc: NirShader,
     helper_ctx: Mutex<PipeContext>,
@@ -130,6 +131,7 @@ impl Device {
             embedded: false,
             extension_string: String::from(""),
             extensions: Vec::new(),
+            clc_features: Vec::new(),
             formats: HashMap::new(),
             lib_clc: lib_clc.unwrap(),
         };
@@ -388,38 +390,59 @@ impl Device {
     fn fill_extensions(&mut self) {
         let mut exts_str: Vec<String> = Vec::new();
         let mut exts = Vec::new();
-        let mut add_ext = |major, minor, patch, ext| {
+        let mut feats = Vec::new();
+        let mut add_ext = |major, minor, patch, ext, feat| {
             let s = String::from(ext);
-            exts.push(mk_cl_version_ext(major, minor, patch, s.as_bytes()));
-            exts_str.push(s);
+
+            if !s.is_empty() {
+                exts.push(mk_cl_version_ext(major, minor, patch, s.as_bytes()));
+                exts_str.push(s);
+            }
+
+            let f = String::from(feat);
+            if !f.is_empty() {
+                feats.push(mk_cl_version_ext(major, minor, patch, f.as_bytes()));
+            }
         };
 
         // add extensions all drivers support
-        add_ext(1, 0, 0, "cl_khr_byte_addressable_store");
-        add_ext(1, 0, 0, "cl_khr_global_int32_base_atomics");
-        add_ext(1, 0, 0, "cl_khr_global_int32_extended_atomics");
-        add_ext(1, 0, 0, "cl_khr_local_int32_base_atomics");
-        add_ext(1, 0, 0, "cl_khr_local_int32_extended_atomics");
+        add_ext(1, 0, 0, "cl_khr_byte_addressable_store", "");
+        add_ext(1, 0, 0, "cl_khr_global_int32_base_atomics", "");
+        add_ext(1, 0, 0, "cl_khr_global_int32_extended_atomics", "");
+        add_ext(1, 0, 0, "cl_khr_local_int32_base_atomics", "");
+        add_ext(1, 0, 0, "cl_khr_local_int32_extended_atomics", "");
 
         if self.doubles_supported() {
-            add_ext(1, 0, 0, "cl_khr_fp64");
+            add_ext(1, 0, 0, "cl_khr_fp64", "__opencl_c_fp64");
         }
 
-        if !FORMATS
-            .iter()
-            .filter(|f| f.req_for_3d_image_write_ext)
-            .map(|f| self.formats.get(&f.cl_image_format).unwrap())
-            .map(|f| f.get(&CL_MEM_OBJECT_IMAGE3D).unwrap())
-            .any(|f| *f & cl_mem_flags::from(CL_MEM_WRITE_ONLY) == 0)
-        {
-            add_ext(1, 0, 0, "cl_khr_3d_image_writes");
+        if self.long_supported() {
+            let ext = if self.embedded { "cles_khr_int64" } else { "" };
+
+            add_ext(1, 0, 0, ext, "__opencl_c_int64");
+        }
+
+        if self.image_supported() {
+            add_ext(1, 0, 0, "", "__opencl_c_images");
+
+            if !FORMATS
+                .iter()
+                .filter(|f| f.req_for_3d_image_write_ext)
+                .map(|f| self.formats.get(&f.cl_image_format).unwrap())
+                .map(|f| f.get(&CL_MEM_OBJECT_IMAGE3D).unwrap())
+                .any(|f| *f & cl_mem_flags::from(CL_MEM_WRITE_ONLY) == 0)
+            {
+                add_ext(
+                    1,
+                    0,
+                    0,
+                    "cl_khr_3d_image_writes",
+                    "__opencl_c_3d_image_writes",
+                );
+            }
         }
 
         if self.embedded {
-            if self.long_supported() {
-                add_ext(1, 0, 0, "cles_khr_int64");
-            }
-
             if !FORMATS
                 .iter()
                 .filter(|f| f.req_for_full_read_or_write)
@@ -427,11 +450,12 @@ impl Device {
                 .map(|f| f.get(&CL_MEM_OBJECT_IMAGE2D_ARRAY).unwrap())
                 .any(|f| *f & cl_mem_flags::from(CL_MEM_WRITE_ONLY) == 0)
             {
-                add_ext(1, 0, 0, "cles_khr_2d_image_array_writes");
+                add_ext(1, 0, 0, "cles_khr_2d_image_array_writes", "");
             }
         }
 
         self.extensions = exts;
+        self.clc_features = feats;
         self.extension_string = exts_str.join(" ");
     }
 
