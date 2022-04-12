@@ -3185,71 +3185,6 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
          stages[MESA_SHADER_VERTEX].info.vs.as_es = true;
    }
 
-   if (pipeline_key->use_ngg) {
-      if (stages[MESA_SHADER_TESS_CTRL].nir) {
-         stages[MESA_SHADER_TESS_EVAL].info.is_ngg = true;
-      } else if (stages[MESA_SHADER_VERTEX].nir) {
-         stages[MESA_SHADER_VERTEX].info.is_ngg = true;
-      } else if (stages[MESA_SHADER_MESH].nir) {
-         stages[MESA_SHADER_MESH].info.is_ngg = true;
-      }
-
-      if (stages[MESA_SHADER_TESS_CTRL].nir && stages[MESA_SHADER_GEOMETRY].nir &&
-          stages[MESA_SHADER_GEOMETRY].nir->info.gs.invocations *
-                stages[MESA_SHADER_GEOMETRY].nir->info.gs.vertices_out >
-             256) {
-         /* Fallback to the legacy path if tessellation is
-          * enabled with extreme geometry because
-          * EN_MAX_VERT_OUT_PER_GS_INSTANCE doesn't work and it
-          * might hang.
-          */
-         stages[MESA_SHADER_TESS_EVAL].info.is_ngg = false;
-      }
-
-      if (stages[MESA_SHADER_GEOMETRY].nir &&
-          stages[MESA_SHADER_GEOMETRY].nir->info.gs.vertices_out >= 9) {
-         /* GS has suboptimal number of output vertices. In this case,
-          * the occupancy of NGG GS is very low, and API GS invocations
-          * can't even occupy a single Wave32 wave.
-          * Therefore the legacy pipeline performs better here.
-          */
-         if (stages[MESA_SHADER_TESS_EVAL].nir)
-            stages[MESA_SHADER_TESS_EVAL].info.is_ngg = false;
-         else
-            stages[MESA_SHADER_VERTEX].info.is_ngg = false;
-      }
-
-      gl_shader_stage last_xfb_stage = MESA_SHADER_VERTEX;
-
-      for (int i = MESA_SHADER_VERTEX; i <= MESA_SHADER_GEOMETRY; i++) {
-         if (stages[i].nir)
-            last_xfb_stage = i;
-      }
-
-      bool uses_xfb = stages[last_xfb_stage].nir &&
-                      radv_nir_stage_uses_xfb(stages[last_xfb_stage].nir);
-
-      if (!device->physical_device->use_ngg_streamout && uses_xfb) {
-         if (stages[MESA_SHADER_TESS_CTRL].nir)
-           stages[MESA_SHADER_TESS_EVAL].info.is_ngg = false;
-         else
-           stages[MESA_SHADER_VERTEX].info.is_ngg = false;
-      }
-
-      /* Determine if the pipeline is eligible for the NGG passthrough
-       * mode. It can't be enabled for geometry shaders, for NGG
-       * streamout or for vertex shaders that export the primitive ID
-       * (this is checked later because we don't have the info here.)
-       */
-      if (!stages[MESA_SHADER_GEOMETRY].nir && !uses_xfb) {
-         if (stages[MESA_SHADER_TESS_CTRL].nir && stages[MESA_SHADER_TESS_EVAL].info.is_ngg) {
-            stages[MESA_SHADER_TESS_EVAL].info.is_ngg_passthrough = true;
-         } else if (stages[MESA_SHADER_VERTEX].nir && stages[MESA_SHADER_VERTEX].info.is_ngg) {
-            stages[MESA_SHADER_VERTEX].info.is_ngg_passthrough = true;
-         }
-      }
-   }
-
    if (stages[MESA_SHADER_FRAGMENT].nir) {
       radv_nir_shader_info_init(&stages[MESA_SHADER_FRAGMENT].info);
       radv_nir_shader_info_pass(pipeline->device, stages[MESA_SHADER_FRAGMENT].nir, pipeline_layout,
@@ -3381,6 +3316,81 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
       stages[MESA_SHADER_COMPUTE].info.workgroup_size =
          ac_compute_cs_workgroup_size(
             stages[MESA_SHADER_COMPUTE].nir->info.workgroup_size, false, UINT32_MAX);
+   }
+}
+
+/* TODO: Cleanup this mess about NGG. */
+static void
+radv_fill_shader_info_ngg(struct radv_pipeline *pipeline,
+                          struct radv_pipeline_layout *pipeline_layout,
+                          const struct radv_pipeline_key *pipeline_key,
+                          struct radv_pipeline_stage *stages)
+{
+   struct radv_device *device = pipeline->device;
+
+   if (pipeline_key->use_ngg) {
+      if (stages[MESA_SHADER_TESS_CTRL].nir) {
+         stages[MESA_SHADER_TESS_EVAL].info.is_ngg = true;
+      } else if (stages[MESA_SHADER_VERTEX].nir) {
+         stages[MESA_SHADER_VERTEX].info.is_ngg = true;
+      } else if (stages[MESA_SHADER_MESH].nir) {
+         stages[MESA_SHADER_MESH].info.is_ngg = true;
+      }
+
+      if (stages[MESA_SHADER_TESS_CTRL].nir && stages[MESA_SHADER_GEOMETRY].nir &&
+          stages[MESA_SHADER_GEOMETRY].nir->info.gs.invocations *
+                stages[MESA_SHADER_GEOMETRY].nir->info.gs.vertices_out >
+             256) {
+         /* Fallback to the legacy path if tessellation is
+          * enabled with extreme geometry because
+          * EN_MAX_VERT_OUT_PER_GS_INSTANCE doesn't work and it
+          * might hang.
+          */
+         stages[MESA_SHADER_TESS_EVAL].info.is_ngg = false;
+      }
+
+      if (stages[MESA_SHADER_GEOMETRY].nir &&
+          stages[MESA_SHADER_GEOMETRY].nir->info.gs.vertices_out >= 9) {
+         /* GS has suboptimal number of output vertices. In this case,
+          * the occupancy of NGG GS is very low, and API GS invocations
+          * can't even occupy a single Wave32 wave.
+          * Therefore the legacy pipeline performs better here.
+          */
+         if (stages[MESA_SHADER_TESS_EVAL].nir)
+            stages[MESA_SHADER_TESS_EVAL].info.is_ngg = false;
+         else
+            stages[MESA_SHADER_VERTEX].info.is_ngg = false;
+      }
+
+      gl_shader_stage last_xfb_stage = MESA_SHADER_VERTEX;
+
+      for (int i = MESA_SHADER_VERTEX; i <= MESA_SHADER_GEOMETRY; i++) {
+         if (stages[i].nir)
+            last_xfb_stage = i;
+      }
+
+      bool uses_xfb = stages[last_xfb_stage].nir &&
+                      radv_nir_stage_uses_xfb(stages[last_xfb_stage].nir);
+
+      if (!device->physical_device->use_ngg_streamout && uses_xfb) {
+         if (stages[MESA_SHADER_TESS_CTRL].nir)
+           stages[MESA_SHADER_TESS_EVAL].info.is_ngg = false;
+         else
+           stages[MESA_SHADER_VERTEX].info.is_ngg = false;
+      }
+
+      /* Determine if the pipeline is eligible for the NGG passthrough
+       * mode. It can't be enabled for geometry shaders, for NGG
+       * streamout or for vertex shaders that export the primitive ID
+       * (this is checked later because we don't have the info here.)
+       */
+      if (!stages[MESA_SHADER_GEOMETRY].nir && !uses_xfb) {
+         if (stages[MESA_SHADER_TESS_CTRL].nir && stages[MESA_SHADER_TESS_EVAL].info.is_ngg) {
+            stages[MESA_SHADER_TESS_EVAL].info.is_ngg_passthrough = true;
+         } else if (stages[MESA_SHADER_VERTEX].nir && stages[MESA_SHADER_VERTEX].info.is_ngg) {
+            stages[MESA_SHADER_VERTEX].info.is_ngg_passthrough = true;
+         }
+      }
    }
 }
 
@@ -4259,6 +4269,25 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
       NIR_PASS_V(last_vgt_shader, radv_force_primitive_shading_rate, device);
    }
 
+   radv_fill_shader_info_ngg(pipeline, pipeline_layout, pipeline_key, stages);
+
+   bool pipeline_has_ngg = (stages[MESA_SHADER_VERTEX].nir && stages[MESA_SHADER_VERTEX].info.is_ngg) ||
+                           (stages[MESA_SHADER_TESS_EVAL].nir && stages[MESA_SHADER_TESS_EVAL].info.is_ngg) ||
+                           (stages[MESA_SHADER_MESH].nir && stages[MESA_SHADER_MESH].info.is_ngg);
+
+   if (stages[MESA_SHADER_GEOMETRY].nir) {
+      unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
+
+      if (pipeline_has_ngg && !radv_use_llvm_for_stage(device, MESA_SHADER_GEOMETRY)) {
+         /* ACO needs NIR to do some of the hard lifting */
+         nir_gs_flags |= nir_lower_gs_intrinsics_count_primitives |
+                         nir_lower_gs_intrinsics_count_vertices_per_primitive |
+                         nir_lower_gs_intrinsics_overwrite_incomplete;
+      }
+
+      nir_lower_gs_intrinsics(stages[MESA_SHADER_GEOMETRY].nir, nir_gs_flags);
+   }
+
    bool optimize_conservatively = pipeline_key->optimisations_disabled;
 
    radv_link_shaders(pipeline, pipeline_key, stages, optimize_conservatively);
@@ -4294,10 +4323,6 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
    }
 
    radv_fill_shader_info(pipeline, pipeline_layout, pipeline_key, stages);
-
-   bool pipeline_has_ngg = (stages[MESA_SHADER_VERTEX].nir && stages[MESA_SHADER_VERTEX].info.is_ngg) ||
-                           (stages[MESA_SHADER_TESS_EVAL].nir && stages[MESA_SHADER_TESS_EVAL].info.is_ngg) ||
-                           (stages[MESA_SHADER_MESH].nir && stages[MESA_SHADER_MESH].info.is_ngg);
 
    if (pipeline_has_ngg) {
       struct gfx10_ngg_info *ngg_info;
