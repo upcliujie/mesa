@@ -3664,6 +3664,58 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
+dzn_CmdDrawMultiEXT(VkCommandBuffer commandBuffer,
+                    uint32_t drawCount,
+                    const VkMultiDrawInfoEXT *pVertexInfo,
+                    uint32_t instanceCount,
+                    uint32_t firstInstance,
+                    uint32_t stride)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
+
+   const dzn_graphics_pipeline *pipeline = (const dzn_graphics_pipeline *)
+      cmdbuf->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline;
+   D3D12_INDEX_BUFFER_VIEW ib_view = cmdbuf->state.ib.view;
+
+   cmdbuf->state.sysvals.gfx.base_instance = firstInstance;
+   cmdbuf->state.sysvals.gfx.is_indexed_draw = pipeline->ia.triangle_fan;
+   dzn_cmd_buffer_prepare_draw(cmdbuf, false);
+
+   for (uint32_t d = 0; d < drawCount; d++) {
+      uint32_t firstVertex = pVertexInfo->firstVertex;
+      uint32_t vertexCount = pVertexInfo->vertexCount;
+
+      cmdbuf->state.sysvals.gfx.draw_id = d;
+      cmdbuf->state.sysvals.gfx.first_vertex = firstVertex;
+      cmdbuf->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+      dzn_cmd_buffer_update_sysvals(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS);
+
+      if (pipeline->ia.triangle_fan) {
+         VkResult result =
+            dzn_cmd_buffer_triangle_fan_create_index(cmdbuf, &vertexCount);
+         if (result != VK_SUCCESS || !vertexCount)
+            return;
+
+         dzn_cmd_buffer_update_ibview(cmdbuf);
+         cmdbuf->cmdlist->DrawIndexedInstanced(vertexCount, instanceCount, 0,
+                                               firstVertex, firstInstance);
+      } else {
+         cmdbuf->cmdlist->DrawInstanced(vertexCount, instanceCount,
+                                        firstVertex, firstInstance);
+      }
+
+      pVertexInfo = (const VkMultiDrawInfoEXT *)((const uint8_t *)pVertexInfo + stride);
+   }
+
+   /* Restore the IB view if we modified it when lowering triangle fans. */
+   if (pipeline->ia.triangle_fan && ib_view.SizeInBytes > 0) {
+      cmdbuf->state.ib.view = ib_view;
+      cmdbuf->state.dirty |= DZN_CMD_DIRTY_IB;
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
                    uint32_t indexCount,
                    uint32_t instanceCount,
@@ -3694,6 +3746,61 @@ dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
    dzn_cmd_buffer_prepare_draw(cmdbuf, true);
    cmdbuf->cmdlist->DrawIndexedInstanced(indexCount, instanceCount, firstIndex,
                                          vertexOffset, firstInstance);
+
+   /* Restore the IB view if we modified it when lowering triangle fans. */
+   if (pipeline->ia.triangle_fan && ib_view.SizeInBytes) {
+      cmdbuf->state.ib.view = ib_view;
+      cmdbuf->state.dirty |= DZN_CMD_DIRTY_IB;
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdDrawMultiIndexedEXT(VkCommandBuffer commandBuffer,
+                           uint32_t drawCount,
+                           const VkMultiDrawIndexedInfoEXT *pIndexInfo,
+                           uint32_t instanceCount,
+                           uint32_t firstInstance,
+                           uint32_t stride,
+                           const int32_t *pVertexOffset)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
+
+   const dzn_graphics_pipeline *pipeline = (const dzn_graphics_pipeline *)
+      cmdbuf->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline;
+
+   cmdbuf->state.sysvals.gfx.base_instance = firstInstance;
+   cmdbuf->state.sysvals.gfx.is_indexed_draw = true;
+
+   D3D12_INDEX_BUFFER_VIEW ib_view = cmdbuf->state.ib.view;
+
+   dzn_cmd_buffer_prepare_draw(cmdbuf, !pipeline->ia.triangle_fan);
+
+   for (uint32_t d = 0; d < drawCount; d++) {
+      uint32_t firstIndex = pIndexInfo->firstIndex;
+      uint32_t indexCount = pIndexInfo->indexCount;
+      int32_t vertexOffset =
+         pVertexOffset ? *pVertexOffset : pIndexInfo->vertexOffset;
+
+      cmdbuf->state.sysvals.gfx.draw_id = d;
+      cmdbuf->state.sysvals.gfx.first_vertex = vertexOffset;
+      cmdbuf->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+      dzn_cmd_buffer_update_sysvals(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS);
+
+      if (pipeline->ia.triangle_fan) {
+         VkResult result =
+            dzn_cmd_buffer_triangle_fan_rewrite_index(cmdbuf, &indexCount, &firstIndex);
+         if (result != VK_SUCCESS || !indexCount)
+            return;
+
+         dzn_cmd_buffer_update_ibview(cmdbuf);
+      }
+
+      cmdbuf->cmdlist->DrawIndexedInstanced(indexCount, instanceCount, firstIndex,
+                                            vertexOffset, firstInstance);
+
+      pIndexInfo = (const VkMultiDrawIndexedInfoEXT *)((const uint8_t *)pIndexInfo + stride);
+   }
 
    /* Restore the IB view if we modified it when lowering triangle fans. */
    if (pipeline->ia.triangle_fan && ib_view.SizeInBytes) {
