@@ -1380,6 +1380,11 @@ ttn_tex(struct ttn_compile *c, nir_alu_dest dest, nir_ssa_def **src)
       op = nir_texop_lod;
       num_srcs = 1;
       break;
+   case TGSI_OPCODE_TG4:
+     op = nir_texop_tg4;
+     num_srcs = 1;
+     samp = 2;
+     break;
 
    default:
       fprintf(stderr, "unknown TGSI tex op %d\n", tgsi_inst->Instruction.Opcode);
