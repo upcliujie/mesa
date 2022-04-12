@@ -4397,6 +4397,19 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          nir_opt_sink(stages[i].nir, nir_move_load_input | nir_move_const_undef | nir_move_copies);
          nir_opt_move(stages[i].nir, nir_move_load_input | nir_move_const_undef | nir_move_copies);
 
+         if (i == MESA_SHADER_GEOMETRY) {
+            unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
+
+            if (pipeline_has_ngg && !radv_use_llvm_for_stage(device, MESA_SHADER_GEOMETRY)) {
+               /* ACO needs NIR to do some of the hard lifting */
+               nir_gs_flags |= nir_lower_gs_intrinsics_count_primitives |
+                               nir_lower_gs_intrinsics_count_vertices_per_primitive |
+                               nir_lower_gs_intrinsics_overwrite_incomplete;
+            }
+
+            nir_lower_gs_intrinsics(stages[i].nir, nir_gs_flags);
+         }
+
          /* Lower I/O intrinsics to memory instructions. */
          bool io_to_mem = radv_lower_io_to_mem(device, &stages[i], pipeline_key);
          bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage &&
