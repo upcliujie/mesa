@@ -32,6 +32,7 @@
 #include "vk_image.h"
 #include "vk_log.h"
 #include "vk_physical_device.h"
+#include "vk_render_pass.h"
 #include "vk_sync.h"
 #include "vk_queue.h"
 #include "vk_shader_module.h"
@@ -318,33 +319,6 @@ struct dzn_cmd_event_signal {
 
 struct dzn_cmd_buffer;
 
-struct dzn_attachment {
-   uint32_t idx;
-   VkFormat format;
-   uint32_t samples;
-   union {
-      bool color;
-      struct {
-         bool depth;
-         bool stencil;
-      };
-   } clear;
-   VkImageAspectFlags aspects;
-   D3D12_RESOURCE_STATES before, last, after;
-   struct {
-      D3D12_RESOURCE_STATES before, last, after;
-   } stencil;
-};
-
-struct dzn_attachment_ref {
-   uint32_t idx;
-   D3D12_RESOURCE_STATES before, during;
-   struct {
-      D3D12_RESOURCE_STATES before, during;
-   } stencil;
-   VkImageAspectFlags aspects;
-};
-
 struct dzn_descriptor_state {
    struct {
       const struct dzn_descriptor_set *set;
@@ -457,12 +431,33 @@ struct dzn_cmd_buffer_push_constant_state {
    uint32_t values[MAX_PUSH_CONSTANT_DWORDS];
 };
 
+struct dzn_rendering_attachment {
+   dzn_image_view *iview;
+   VkImageLayout layout;
+   struct {
+      VkResolveModeFlagBits mode;
+      dzn_image_view *iview;
+      VkImageLayout layout;
+   } resolve;
+   VkAttachmentStoreOp store_op;
+};
+
+#define MAX_RTS D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT
+
 struct dzn_cmd_buffer_state {
-   struct dzn_framebuffer *framebuffer;
-   D3D12_RECT render_area;
    const struct dzn_pipeline *pipeline;
    dzn_descriptor_heap *heaps[NUM_POOL_TYPES];
-   struct dzn_render_pass *pass;
+   struct {
+      VkRenderingFlags flags;
+      D3D12_RECT area;
+      uint32_t layer_count;
+      uint32_t view_mask;
+      struct {
+         uint32_t color_count;
+         dzn_rendering_attachment colors[MAX_RTS];
+         dzn_rendering_attachment depth, stencil;
+      } attachments;
+   } render;
    struct {
       BITSET_DECLARE(dirty, MAX_VBS);
       D3D12_VERTEX_BUFFER_VIEW views[MAX_VBS];
@@ -486,7 +481,6 @@ struct dzn_cmd_buffer_state {
       struct dzn_cmd_buffer_push_constant_state gfx, compute;
    } push_constant;
    uint32_t dirty;
-   uint32_t subpass;
    struct {
       struct dzn_pipeline *pipeline;
       struct dzn_descriptor_state desc_state;
@@ -637,24 +631,28 @@ dzn_pipeline_layout_ref(dzn_pipeline_layout *layout);
 void
 dzn_pipeline_layout_unref(dzn_pipeline_layout *layout);
 
-#define MAX_RTS 8
-#define MAX_INPUT_ATTACHMENTS 4
-
-struct dzn_subpass {
-   uint32_t color_count;
-   struct dzn_attachment_ref colors[MAX_RTS];
-   struct dzn_attachment_ref resolve[MAX_RTS];
-   struct dzn_attachment_ref zs;
-   uint32_t input_count;
-   struct dzn_attachment_ref inputs[MAX_INPUT_ATTACHMENTS];
+struct dzn_descriptor_update_template_entry {
+   VkDescriptorType type;
+   uint32_t desc_count;
+   union {
+      struct {
+         uint32_t cbv_srv_uav;
+         union {
+            uint32_t sampler, extra_uav;
+         };
+      } heap_offsets;
+      uint32_t dynamic_buffer_idx;
+   };
+   struct {
+      size_t offset;
+      size_t stride;
+   } user_data;
 };
 
-struct dzn_render_pass {
+struct dzn_descriptor_update_template {
    struct vk_object_base base;
-   uint32_t attachment_count;
-   struct dzn_attachment *attachments;
-   uint32_t subpass_count;
-   struct dzn_subpass *subpasses;
+   uint32_t entry_count;
+   const dzn_descriptor_update_template_entry *entries;
 };
 
 struct dzn_pipeline_cache {
@@ -871,15 +869,6 @@ struct dzn_buffer_view {
    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc;
 };
 
-struct dzn_framebuffer {
-   struct vk_object_base base;
-
-   uint32_t width, height, layers;
-
-   uint32_t attachment_count;
-   struct dzn_image_view **attachments;
-};
-
 struct dzn_sampler {
    struct vk_object_base base;
    D3D12_SAMPLER_DESC desc;
@@ -1007,7 +996,6 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_pool, base, VkDescriptorPool, VK_O
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set, base, VkDescriptorSet, VK_OBJECT_TYPE_DESCRIPTOR_SET)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set_layout, base, VkDescriptorSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
-VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_framebuffer, base, VkFramebuffer, VK_OBJECT_TYPE_FRAMEBUFFER)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image, vk.base, VkImage, VK_OBJECT_TYPE_IMAGE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, vk.base, VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline, base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
@@ -1016,7 +1004,6 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_compute_pipeline, base.base, VkPipeline, VK_O
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_cache, base, VkPipelineCache, VK_OBJECT_TYPE_PIPELINE_CACHE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_layout, base, VkPipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, base, VkQueryPool, VK_OBJECT_TYPE_QUERY_POOL)
-VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_render_pass, base, VkRenderPass, VK_OBJECT_TYPE_RENDER_PASS)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_sampler, base, VkSampler, VK_OBJECT_TYPE_SAMPLER)
 
 #endif /* DZN_PRIVATE_H */
