@@ -392,9 +392,10 @@ dzn_graphics_pipeline_translate_ms(dzn_graphics_pipeline *pipeline,
    const VkPipelineMultisampleStateCreateInfo *in_ms =
       in_rast->rasterizerDiscardEnable ? NULL : in->pMultisampleState;
 
-   /* TODO: sampleShadingEnable, minSampleShading,
-    *       alphaToOneEnable
+   /* sampleShadingEnable is controlled by the presence of SV_SampleIndex in
+    * the pixel shader.
     */
+   /* TODO: minSampleShading (use VRS), alphaToOneEnable */
    out->SampleDesc.Count = in_ms ? in_ms->rasterizationSamples : 1;
    out->SampleDesc.Quality = 0;
    out->SampleMask = in_ms && in_ms->pSampleMask ?
