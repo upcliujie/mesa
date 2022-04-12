@@ -1139,6 +1139,14 @@ bool si_query_hw_begin(struct si_context *sctx, struct si_query *squery)
    list_addtail(&query->b.active_list, &sctx->active_queries);
    sctx->num_cs_dw_queries_suspend += query->b.num_cs_dw_suspend;
    sctx->num_active_hw_queries++;
+   if (squery->type == PIPE_QUERY_PIPELINE_STATISTICS) {
+      sctx->num_active_pipeline_queries++;
+      if (si_update_ngg(sctx)) {
+         si_shader_change_notify(sctx);
+         sctx->do_update_shaders = true;
+      }
+   }
+
    return true;
 }
 
@@ -1168,6 +1176,13 @@ bool si_query_hw_end(struct si_context *sctx, struct si_query *squery)
       return false;
 
    sctx->num_active_hw_queries--;
+   if (squery->type == PIPE_QUERY_PIPELINE_STATISTICS) {
+      sctx->num_active_pipeline_queries--;
+      if (sctx->num_active_pipeline_queries == 0 && si_update_ngg(sctx)) {
+         si_shader_change_notify(sctx);
+         sctx->do_update_shaders = true;
+      }
+   }
 
    return true;
 }

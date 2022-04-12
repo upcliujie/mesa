@@ -3434,11 +3434,17 @@ bool si_update_ngg(struct si_context *sctx)
 
    if (sctx->shader.gs.cso && sctx->shader.tes.cso && sctx->shader.gs.cso->tess_turns_off_ngg) {
       new_ngg = false;
-   } else if (!sctx->screen->use_ngg_streamout) {
-      struct si_shader_selector *last = si_get_vs(sctx)->cso;
+   } else {
+      if (!sctx->screen->use_ngg_streamout) {
+         struct si_shader_selector *last = si_get_vs(sctx)->cso;
 
-      if ((last && last->so.num_outputs) || sctx->streamout.prims_gen_query_enabled)
+         if ((last && last->so.num_outputs) || sctx->streamout.prims_gen_query_enabled)
+            new_ngg = false;
+      }
+      if (sctx->num_active_pipeline_queries > 0) {
+         /* TODO: fix ngg + GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED_ARB */
          new_ngg = false;
+      }
    }
 
    if (new_ngg != sctx->ngg) {

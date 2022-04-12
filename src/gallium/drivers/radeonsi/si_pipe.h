@@ -1266,6 +1266,7 @@ struct si_context {
    unsigned num_active_shader_queries;
 
    unsigned num_active_hw_queries;
+   unsigned num_active_pipeline_queries;
 
    bool force_cb_shader_coherent;
 
