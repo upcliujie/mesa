@@ -183,6 +183,13 @@ blorp_buffer_copy(struct blorp_batch *batch,
                   uint64_t size);
 
 void
+blorp_buffer_copy_repeat(struct blorp_batch *batch,
+                         struct blorp_address src,
+                         uint64_t src_size,
+                         struct blorp_address dst,
+                         uint64_t dst_size);
+
+void
 blorp_buffer_fill(struct blorp_batch *batch,
                   struct blorp_address dst,
                   const void *data, uint32_t data_size,
