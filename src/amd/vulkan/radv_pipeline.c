@@ -4606,7 +4606,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
       if (!pipeline->shaders[MESA_SHADER_FRAGMENT]) {
          int64_t stage_start = os_time_get_nano();
 
-         pipeline->shaders[MESA_SHADER_FRAGMENT] = radv_shader_compile(
+         pipeline->shaders[MESA_SHADER_FRAGMENT] = radv_shader_compile_to_asm(
             device, &stages[MESA_SHADER_FRAGMENT], &stages[MESA_SHADER_FRAGMENT].nir, 1,
             pipeline_key, keep_executable_info, keep_statistic_info, &binaries[MESA_SHADER_FRAGMENT]);
 
@@ -4621,7 +4621,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          struct nir_shader *combined_nir[] = {stages[MESA_SHADER_VERTEX].nir, stages[MESA_SHADER_TESS_CTRL].nir};
          int64_t stage_start = os_time_get_nano();
 
-         pipeline->shaders[MESA_SHADER_TESS_CTRL] = radv_shader_compile(
+         pipeline->shaders[MESA_SHADER_TESS_CTRL] = radv_shader_compile_to_asm(
             device, &stages[MESA_SHADER_TESS_CTRL], combined_nir, 2, pipeline_key, keep_executable_info,
             keep_statistic_info, &binaries[MESA_SHADER_TESS_CTRL]);
 
@@ -4640,7 +4640,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
          int64_t stage_start = os_time_get_nano();
 
-         pipeline->shaders[MESA_SHADER_GEOMETRY] = radv_shader_compile(
+         pipeline->shaders[MESA_SHADER_GEOMETRY] = radv_shader_compile_to_asm(
             device, &stages[MESA_SHADER_GEOMETRY], combined_nir, 2, pipeline_key, keep_executable_info,
             keep_statistic_info, &binaries[MESA_SHADER_GEOMETRY]);
 
@@ -4655,7 +4655,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
       if (!pipeline->shaders[i]) {
          int64_t stage_start = os_time_get_nano();
 
-         pipeline->shaders[i] = radv_shader_compile(
+         pipeline->shaders[i] = radv_shader_compile_to_asm(
             device, &stages[i], &stages[i].nir, 1, pipeline_key,
             keep_executable_info, keep_statistic_info, &binaries[i]);
 

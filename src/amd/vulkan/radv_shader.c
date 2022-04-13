@@ -2046,10 +2046,10 @@ shader_compile(struct radv_device *device, struct nir_shader *const *shaders, in
 }
 
 struct radv_shader *
-radv_shader_compile(struct radv_device *device, struct radv_pipeline_stage *pl_stage,
-                    struct nir_shader *const *shaders, int shader_count,
-                    const struct radv_pipeline_key *key, bool keep_shader_info,
-                    bool keep_statistic_info, struct radv_shader_binary **binary_out)
+radv_shader_compile_to_asm(struct radv_device *device, struct radv_pipeline_stage *pl_stage,
+                           struct nir_shader *const *shaders, int shader_count,
+                           const struct radv_pipeline_key *key, bool keep_shader_info,
+                           bool keep_statistic_info, struct radv_shader_binary **binary_out)
 {
    gl_shader_stage stage = shaders[shader_count - 1]->info.stage;
    struct radv_nir_compiler_options options = {0};
