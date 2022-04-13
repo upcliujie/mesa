@@ -2034,7 +2034,7 @@ shader_compile(struct radv_device *device, struct nir_shader *const *shaders, in
       fprintf(stderr, "\ndisasm:\n%s\n", shader->disasm_string);
    }
 
-   if (keep_shader_info) {
+   if (keep_shader_info && !gs_copy_shader) {
       shader->nir_string = radv_dump_nir_shaders(shaders, shader_count);
    }
 
