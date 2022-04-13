@@ -362,6 +362,28 @@ mi_value_half(struct mi_value value, bool top_32_bits)
 }
 
 static inline void
+_mi_lrm_no_unref(struct mi_builder *b,
+                 struct mi_value dst, struct mi_value src)
+{
+   assert(dst.type == MI_VALUE_TYPE_REG32);
+   assert(src.type == MI_VALUE_TYPE_MEM32 ||
+          src.type == MI_VALUE_TYPE_MEM64);
+
+#if GFX_VER >= 7
+   mi_builder_emit(b, GENX(MI_LOAD_REGISTER_MEM), lrm) {
+      struct mi_reg_num reg = mi_adjust_reg_num(dst.reg);
+      lrm.RegisterAddress = reg.num;
+#if GFX_VER >= 11
+      lrm.AddCSMMIOStartOffset = reg.cs;
+#endif
+      lrm.MemoryAddress = src.addr;
+   }
+#else
+   unreachable("Cannot load do mem -> reg copy on SNB and earlier");
+#endif
+}
+
+static inline void
 _mi_copy_no_unref(struct mi_builder *b,
                   struct mi_value dst, struct mi_value src)
 {
@@ -499,18 +521,7 @@ _mi_copy_no_unref(struct mi_builder *b,
 
       case MI_VALUE_TYPE_MEM32:
       case MI_VALUE_TYPE_MEM64:
-#if GFX_VER >= 7
-         mi_builder_emit(b, GENX(MI_LOAD_REGISTER_MEM), lrm) {
-            struct mi_reg_num reg = mi_adjust_reg_num(dst.reg);
-            lrm.RegisterAddress = reg.num;
-#if GFX_VER >= 11
-            lrm.AddCSMMIOStartOffset = reg.cs;
-#endif
-            lrm.MemoryAddress = src.addr;
-         }
-#else
-         unreachable("Cannot load do mem -> reg copy on SNB and earlier");
-#endif
+         _mi_lrm_no_unref(b, dst, src);
          break;
 
       case MI_VALUE_TYPE_REG32:
