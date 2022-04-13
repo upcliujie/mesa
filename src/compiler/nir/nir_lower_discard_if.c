@@ -25,23 +25,28 @@
 #include "compiler/nir/nir_builder.h"
 
 static bool
-lower_discard_if_instr(nir_builder *b, nir_instr *instr_, UNUSED void *cb_data)
+lower_discard_if_instr(nir_builder *b, nir_instr *instr_, void *cb_data)
 {
+   nir_lower_discard_if_options options = *(nir_lower_discard_if_options *)cb_data;
+
    if (instr_->type != nir_instr_type_intrinsic)
       return false;
 
    nir_intrinsic_instr *instr = nir_instr_as_intrinsic(instr_);
 
-   if (instr->intrinsic == nir_intrinsic_discard_if) {
+   if ((instr->intrinsic == nir_intrinsic_discard_if && (options & nir_lower_discard_if_to_cf)) ||
+       (instr->intrinsic == nir_intrinsic_demote_if && (options & nir_lower_demote_if_to_cf))) {
       b->cursor = nir_before_instr(&instr->instr);
 
       nir_if *if_stmt = nir_push_if(b, nir_ssa_for_src(b, instr->src[0], 1));
-      nir_discard(b);
+      if (instr->intrinsic == nir_intrinsic_discard_if)
+         nir_discard(b);
+      else
+         nir_demote(b);
       nir_pop_if(b, if_stmt);
       nir_instr_remove(&instr->instr);
       return true;
-   } else if (instr->intrinsic == nir_intrinsic_terminate_if ||
-              instr->intrinsic == nir_intrinsic_demote_if) {
+   } else if (instr->intrinsic == nir_intrinsic_terminate_if) {
       unreachable("todo: handle terminates and demotes for Vulkan");
    }
 
@@ -94,10 +99,10 @@ lower_discard_if_instr(nir_builder *b, nir_instr *instr_, UNUSED void *cb_data)
 }
 
 bool
-nir_lower_discard_if(nir_shader *shader)
+nir_lower_discard_if(nir_shader *shader, nir_lower_discard_if_options options)
 {
    return nir_shader_instructions_pass(shader,
                                        lower_discard_if_instr,
                                        nir_metadata_none,
-                                       NULL);
+                                       &options);
 }
