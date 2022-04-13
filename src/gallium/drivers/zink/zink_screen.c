@@ -334,6 +334,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    switch (param) {
    case PIPE_CAP_TEXRECT:
+   case PIPE_CAP_MULTI_DRAW_INDIRECT_MISALIGNED:
       return 0;
    case PIPE_CAP_ANISOTROPIC_FILTER:
       return screen->info.feats.features.samplerAnisotropy;
