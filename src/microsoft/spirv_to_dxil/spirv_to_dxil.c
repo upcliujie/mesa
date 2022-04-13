@@ -565,6 +565,12 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    NIR_PASS_V(nir, nir_lower_system_values);
 
+   // Force sample-rate shading if we're asked to.
+   if (stage == MESA_SHADER_FRAGMENT && conf->force_sample_rate_shading) {
+      nir_foreach_shader_in_variable(var, nir)
+         var->data.sample = true;
+   }
+
    if (conf->zero_based_vertex_instance_id) {
       // vertex_id and instance_id should have already been transformed to
       // base zero before spirv_to_dxil was called. Therefore, we can zero out
