@@ -3101,8 +3101,10 @@ do_buffer_copy(struct blorp_batch *batch,
       .addr = *dst,
    };
 
-   blorp_copy(batch, &src_blorp_surf, 0, 0, &dst_blorp_surf, 0, 0,
-              0, 0, 0, 0, width, height);
+   blorp_blit(batch, &src_blorp_surf, 0, 0, format, ISL_SWIZZLE_IDENTITY,
+              &dst_blorp_surf, 0, 0, format, ISL_SWIZZLE_IDENTITY,
+              0, 0, width, height, 0, 0, width, height,
+              BLORP_FILTER_NONE, false, false);
 }
 
 void
