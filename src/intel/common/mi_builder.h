@@ -448,8 +448,19 @@ _mi_copy_no_unref(struct mi_builder *b,
          _mi_copy_no_unref(b, mi_value_half(dst, true),
                               mi_imm(0));
          break;
-      case MI_VALUE_TYPE_REG64:
       case MI_VALUE_TYPE_MEM64:
+         if (dst.type == MI_VALUE_TYPE_REG64) {
+            _mi_lrm_no_unref(b, mi_value_half(dst, false),
+                                mi_value_half(src, false),
+                             true /* AsyncModeEnable */);
+         } else {
+            _mi_copy_no_unref(b, mi_value_half(dst, false),
+                                 mi_value_half(src, false));
+         }
+         _mi_copy_no_unref(b, mi_value_half(dst, true),
+                              mi_value_half(src, true));
+         break;
+      case MI_VALUE_TYPE_REG64:
          _mi_copy_no_unref(b, mi_value_half(dst, false),
                               mi_value_half(src, false));
          _mi_copy_no_unref(b, mi_value_half(dst, true),
