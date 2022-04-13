@@ -674,6 +674,14 @@ void agx_pack_binary(agx_context *ctx, struct util_dynarray *emission);
 
 unsigned agx_write_registers(agx_instr *I, unsigned d);
 
+struct agx_copy {
+   unsigned dest, src;
+   enum agx_size size;
+};
+
+void
+agx_emit_parallel_copies(agx_builder *b, struct agx_copy *copies, unsigned n);
+
 void agx_compute_liveness(agx_context *ctx);
 void agx_liveness_ins_update(BITSET_WORD *live, agx_instr *I);
 
