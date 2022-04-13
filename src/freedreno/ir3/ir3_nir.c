@@ -840,6 +840,7 @@ ir3_setup_const_state(nir_shader *nir, struct ir3_shader_variant *v,
    }
 
    const_state->num_ubos = nir->info.num_ubos;
+   const_state->shared_consts_enable = v->shader->shared_consts_enable;
 
    debug_assert((const_state->ubo_state.size % 16) == 0);
    unsigned constoff = v->shader->num_reserved_user_consts +
