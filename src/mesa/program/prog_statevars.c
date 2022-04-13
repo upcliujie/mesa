@@ -1608,6 +1608,8 @@ _mesa_optimize_state_parameters(struct gl_constants *consts,
                num_attribs = 6;
                base_attrib = MAT_ATTRIB_FRONT_AMBIENT;
                attrib_incr = 1;
+            } else {
+               unreachable("Invalid state token");
             }
 
             /* Find all attributes for one light. */

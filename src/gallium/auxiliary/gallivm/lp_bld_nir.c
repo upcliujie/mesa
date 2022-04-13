@@ -1314,8 +1314,8 @@ static void visit_load_var(struct lp_build_nir_context *bld_base,
    nir_variable *var = nir_deref_instr_get_variable(deref);
    assert(util_bitcount(deref->modes) == 1);
    nir_variable_mode mode = deref->modes;
-   unsigned const_index;
-   LLVMValueRef indir_index;
+   unsigned const_index = 0;
+   LLVMValueRef indir_index = NULL;
    LLVMValueRef indir_vertex_index = NULL;
    unsigned vertex_index = 0;
    unsigned nc = nir_dest_num_components(instr->dest);
@@ -1352,7 +1352,7 @@ visit_store_var(struct lp_build_nir_context *bld_base,
    unsigned bit_size = nir_src_bit_size(instr->src[1]);
    LLVMValueRef src = get_src(bld_base, instr->src[1]);
    unsigned const_index = 0;
-   LLVMValueRef indir_index, indir_vertex_index = NULL;
+   LLVMValueRef indir_index = NULL, indir_vertex_index = NULL;
    if (var) {
       bool tcs_out = bld_base->shader->info.stage == MESA_SHADER_TESS_CTRL &&
          var->data.mode == nir_var_shader_out && !var->data.patch;
