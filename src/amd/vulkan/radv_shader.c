@@ -1686,8 +1686,12 @@ radv_postprocess_config(const struct radv_device *device, const struct ac_shader
        */
       bool need_gs_vtx_offset2 = !info->is_ngg_passthrough || info->gs.vertices_in >= 3;
 
+      /* When TES is in point mode or lines mode, it doesn't need vertex offset 2
+       * because there is only 1 or 2 vertices.
+       */
       if (stage == MESA_SHADER_TESS_EVAL)
-         need_gs_vtx_offset2 &= info->tes._primitive_mode != TESS_PRIMITIVE_ISOLINES;
+         need_gs_vtx_offset2 &= info->tes._primitive_mode == TESS_PRIMITIVE_TRIANGLES ||
+                                info->tes._primitive_mode == TESS_PRIMITIVE_QUADS;
 
       if (info->uses_invocation_id) {
          gs_vgpr_comp_cnt = 3; /* VGPR3 contains InvocationID. */
