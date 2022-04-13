@@ -1165,6 +1165,7 @@ else
     '-fno-trapping-math',
     '-Qunused-arguments',
     '-fno-common',
+    '-Woverride-init',
     # Clang
     '-Wno-microsoft-enum-value',
   ]

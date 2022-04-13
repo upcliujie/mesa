@@ -1073,7 +1073,6 @@ debian-clang:
       -Wno-error=constant-conversion
       -Wno-error=enum-conversion
       -Wno-error=implicit-const-int-float-conversion
-      -Wno-error=initializer-overrides
       -Wno-error=sometimes-uninitialized
       -Wno-error=unused-function
     CPP_ARGS: >
