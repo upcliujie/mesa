@@ -1192,6 +1192,8 @@ struct tu_cmd_state
    VkRect2D render_area;
 
    const struct tu_image_view **attachments;
+   /* Tracks whether attachment was cleared by vkCmdClearAttachments */
+   bool *attachment_cmd_clear;
 
    bool xfb_used;
    bool has_tess;
@@ -1286,6 +1288,7 @@ struct tu_cmd_buffer
    VkResult record_result;
 
    struct tu_cs cs;
+   struct tu_cs tile_load_cs;
    struct tu_cs draw_cs;
    struct tu_cs tile_store_cs;
    struct tu_cs draw_epilogue_cs;
@@ -1572,6 +1575,7 @@ void
 tu_load_gmem_attachment(struct tu_cmd_buffer *cmd,
                         struct tu_cs *cs,
                         uint32_t a,
+                        bool cond_exec_allowed,
                         bool force_load);
 
 /* expose this function to be able to emit load without checking LOAD_OP */
@@ -1583,7 +1587,8 @@ void
 tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
                          struct tu_cs *cs,
                          uint32_t a,
-                         uint32_t gmem_a);
+                         uint32_t gmem_a,
+                         bool cond_exec_allowed);
 
 enum pipe_format tu_vk_format_to_pipe_format(VkFormat vk_format);
 
@@ -1853,6 +1858,7 @@ struct tu_render_pass_attachment
    bool load;
    bool store;
    int32_t gmem_offset;
+   bool will_be_resolved;
    /* for D32S8 separate stencil: */
    bool load_stencil;
    bool store_stencil;
