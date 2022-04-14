@@ -47,7 +47,7 @@
 #include "nir_builder.h"
 
 static bool
-shrink_dest_to_read_mask(nir_ssa_def *def)
+trim_trailing_unused(nir_ssa_def *def)
 {
    /* early out if there's nothing to do. */
    if (def->num_components == 1)
@@ -72,6 +72,75 @@ shrink_dest_to_read_mask(nir_ssa_def *def)
    }
 
    return false;
+}
+
+static bool
+shrink_to_used_components(nir_builder *b,
+                          nir_intrinsic_instr *intrin)
+{
+   /* When the intrinsic doesn't have a component index,
+    * fall back to the old method and just trim unused
+    * components at the end.
+    */
+   if (!nir_intrinsic_has_component(intrin)) {
+      bool progress = trim_trailing_unused(&intrin->dest.ssa);
+      if (progress)
+         intrin->num_components = intrin->dest.ssa.num_components;
+
+      return progress;
+   }
+
+   /* If there is only 1 component, there is nothing to trim.
+    * In case this is not used, DCE can delete it.
+    */
+   nir_ssa_def *def = &intrin->dest.ssa;
+   if (def->num_components == 1)
+      return false;
+
+   /* Check which components are read.
+    * If none are, DCE can delete this.
+    */
+   unsigned mask = nir_ssa_def_components_read(def);
+   if (!mask)
+      return false;
+
+   /* Find out how many components can we trim
+    * from the start and end. If none, return early.
+    */
+   int trim_start = ffs(mask) - 1;
+   int trim_end = def->num_components - util_last_bit(mask);
+
+   if (!trim_start && !trim_end)
+      return false;
+
+   /* Adjust component offset and num_components
+    * in the intrinsic to account for the trimmed components.
+    */
+   unsigned old_component = nir_intrinsic_component(intrin);
+   unsigned dest_num_components = def->num_components;
+   nir_intrinsic_set_component(intrin, old_component + trim_start);
+   def->num_components = dest_num_components - trim_start - trim_end;
+
+   /* Create a new SSA def where we fill the space left
+    * by the unused components with undefs.
+    */
+   b->cursor = nir_after_instr(def->parent_instr);
+   nir_ssa_def *undef_start =
+      trim_start ? nir_ssa_undef(b, trim_start, def->bit_size) : NULL;
+   nir_ssa_def *undef_end =
+      trim_end ? nir_ssa_undef(b, trim_end, def->bit_size) : NULL;
+   nir_ssa_def *all_srcs[3] = {undef_start, def, undef_end};
+   nir_ssa_def *replacement =
+      nir_extract_bits(b, trim_start ? all_srcs : &all_srcs[1],
+                          !!trim_start + 1 + !!trim_end, 0,
+                          dest_num_components, def->bit_size);
+
+   /* Finally, replace all uses of the old SSA def with the
+    * replacement that now uses the shrunk vector.
+    */
+   nir_ssa_def_rewrite_uses_after(def, replacement, replacement->parent_instr);
+
+   return true;
 }
 
 static void
@@ -241,13 +310,7 @@ opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr)
    /* Must be a vectorized intrinsic that we can resize. */
    assert(instr->num_components != 0);
 
-   /* Trim the dest to the used channels */
-   if (shrink_dest_to_read_mask(&instr->dest.ssa)) {
-      instr->num_components = instr->dest.ssa.num_components;
-      return true;
-   }
-
-   return false;
+   return shrink_to_used_components(b, instr);
 }
 
 static bool
@@ -303,7 +366,7 @@ opt_shrink_vectors_load_const(nir_load_const_instr *instr)
 static bool
 opt_shrink_vectors_ssa_undef(nir_ssa_undef_instr *instr)
 {
-   return shrink_dest_to_read_mask(&instr->def);
+   return trim_trailing_unused(&instr->def);
 }
 
 static bool
@@ -344,7 +407,7 @@ nir_opt_shrink_vectors(nir_shader *shader)
       nir_builder_init(&b, function->impl);
 
       nir_foreach_block_reverse(block, function->impl) {
-         nir_foreach_instr_reverse(instr, block) {
+         nir_foreach_instr_reverse_safe(instr, block) {
             progress |= opt_shrink_vectors_instr(&b, instr);
          }
       }
