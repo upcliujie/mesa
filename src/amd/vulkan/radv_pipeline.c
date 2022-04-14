@@ -3912,6 +3912,11 @@ radv_lower_vs_input(nir_shader *nir, const struct radv_pipeline_key *pipeline_ke
       }
    }
 
+   if (progress)
+      nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
+   else
+      nir_metadata_preserve(impl, nir_metadata_all);
+
    return progress;
 }
 
@@ -4074,6 +4079,11 @@ radv_lower_fs_output(nir_shader *nir, const struct radv_pipeline_key *pipeline_k
          progress = true;
       }
    }
+
+   if (progress)
+      nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
+   else
+      nir_metadata_preserve(impl, nir_metadata_all);
 
    return progress;
 }
