@@ -89,6 +89,9 @@ KHR-GL43.shader_ballot_tests.ShaderBallotFunctionRead,Fail
 shaders@glsl-bug-110796,Crash
 
 shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges,Fail
+shaders@point-vertex-id divisor,Fail
+shaders@point-vertex-id gl_instanceid,Fail
+shaders@point-vertex-id gl_instanceid divisor,Fail
 shaders@point-vertex-id gl_vertexid,Fail
 shaders@point-vertex-id gl_vertexid divisor,Fail
 shaders@point-vertex-id gl_vertexid gl_instanceid,Fail
