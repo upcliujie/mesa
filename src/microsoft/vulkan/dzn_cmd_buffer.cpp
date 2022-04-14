@@ -576,7 +576,7 @@ dzn_cmd_buffer_collect_queries(struct dzn_cmd_buffer *cmdbuf,
       dzn_cmd_buffer_dynbitset_clear_range(cmdbuf, &state->collect, start, count);
    }
 
-   DZN_SWAP(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+   DZN_SWAP(D3D12_RESOURCE_STATES, barrier.Transition.StateBefore, barrier.Transition.StateAfter);
    ID3D12GraphicsCommandList1_ResourceBarrier(cmdbuf->cmdlist, 1, &barrier);
    return VK_SUCCESS;
 }
@@ -1024,8 +1024,8 @@ adjust_clear_color(VkFormat format, const VkClearColorValue &col)
    // D3D12 doesn't support bgra4, so we map it to rgba4 and swizzle things
    // manually where it matters, like here, in the clear path.
    if (format == VK_FORMAT_B4G4R4A4_UNORM_PACK16) {
-      DZN_SWAP(out.float32[0], out.float32[1]);
-      DZN_SWAP(out.float32[2], out.float32[3]);
+      DZN_SWAP(float, out.float32[0], out.float32[1]);
+      DZN_SWAP(float, out.float32[2], out.float32[3]);
    }
 
    return out;
@@ -1330,7 +1330,7 @@ dzn_cmd_buffer_clear_color(struct dzn_cmd_buffer *cmdbuf,
          ID3D12GraphicsCommandList1_ClearRenderTargetView(cmdbuf->cmdlist, handle, clear_vals, 0, NULL);
 
          if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
-            DZN_SWAP(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+            DZN_SWAP(D3D12_RESOURCE_STATES, barrier.Transition.StateBefore, barrier.Transition.StateAfter);
 
             for (uint32_t layer = 0; layer < layer_count; layer++) {
                barrier.Transition.Subresource =
@@ -1408,7 +1408,7 @@ dzn_cmd_buffer_clear_zs(struct dzn_cmd_buffer *cmdbuf,
 
          if (barrier_count > 0) {
             for (uint32_t b = 0; b < barrier_count; b++)
-               DZN_SWAP(barriers[b].Transition.StateBefore, barriers[b].Transition.StateAfter);
+               DZN_SWAP(D3D12_RESOURCE_STATES, barriers[b].Transition.StateBefore, barriers[b].Transition.StateAfter);
 
             for (uint32_t layer = 0; layer < layer_count; layer++) {
                for (uint32_t b = 0; b < barrier_count; b++) {
@@ -1676,7 +1676,7 @@ dzn_cmd_buffer_copy_img_chunk(struct dzn_cmd_buffer *cmdbuf,
 
    ID3D12GraphicsCommandList1_CopyTextureRegion(cmdlist, tmp_loc, 0, 0, 0, &src_loc, &src_box);
 
-   DZN_SWAP(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+   DZN_SWAP(D3D12_RESOURCE_STATES, barrier.Transition.StateBefore, barrier.Transition.StateAfter);
    ID3D12GraphicsCommandList1_ResourceBarrier(cmdlist, 1, &barrier);
 
    tmp_desc->Format =
@@ -1938,8 +1938,8 @@ dzn_cmd_buffer_blit_issue_barriers(struct dzn_cmd_buffer *cmdbuf,
    };
 
    if (post) {
-      DZN_SWAP(barriers[0].Transition.StateBefore, barriers[0].Transition.StateAfter);
-      DZN_SWAP(barriers[1].Transition.StateBefore, barriers[1].Transition.StateAfter);
+      DZN_SWAP(D3D12_RESOURCE_STATES, barriers[0].Transition.StateBefore, barriers[0].Transition.StateAfter);
+      DZN_SWAP(D3D12_RESOURCE_STATES, barriers[1].Transition.StateBefore, barriers[1].Transition.StateAfter);
    }
 
    uint32_t layer_count = dzn_get_layer_count(src, src_subres);
@@ -2266,7 +2266,7 @@ dzn_cmd_buffer_resolve_attachment(struct dzn_cmd_buffer *cmdbuf, uint32_t i)
                                        dst->srv_desc.Format);
 
    for (uint32_t b = 0; b < barrier_count; b++)
-      DZN_SWAP(barriers[b].Transition.StateBefore, barriers[b].Transition.StateAfter);
+      DZN_SWAP(D3D12_RESOURCE_STATES, barriers[b].Transition.StateBefore, barriers[b].Transition.StateAfter);
 
    if (barrier_count)
       ID3D12GraphicsCommandList1_ResourceBarrier(cmdbuf->cmdlist, barrier_count, barriers);
@@ -4121,7 +4121,7 @@ dzn_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
       }
    }
 
-   DZN_SWAP(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+   DZN_SWAP(D3D12_RESOURCE_STATES, barrier.Transition.StateBefore, barrier.Transition.StateAfter);
    ID3D12GraphicsCommandList1_ResourceBarrier(cmdbuf->cmdlist, 1, &barrier);
 }
 
