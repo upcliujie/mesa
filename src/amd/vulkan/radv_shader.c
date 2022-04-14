@@ -398,10 +398,17 @@ radv_lower_primitive_shading_rate(nir_shader *nir)
          nir_instr_rewrite_src(&intr->instr, &intr->src[1], nir_src_for_ssa(out));
 
          progress = true;
-         if (nir->info.stage == MESA_SHADER_VERTEX)
+         if (nir->info.stage == MESA_SHADER_VERTEX) {
+            nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
             return progress;
+         }
       }
    }
+
+   if (progress)
+      nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
+   else
+      nir_metadata_preserve(impl, nir_metadata_all);
 
    return progress;
 }
@@ -456,11 +463,18 @@ radv_force_primitive_shading_rate(nir_shader *nir, struct radv_device *device)
             nir->info.outputs_written |= BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_SHADING_RATE);
 
             progress = true;
-            if (nir->info.stage == MESA_SHADER_VERTEX)
+            if (nir->info.stage == MESA_SHADER_VERTEX) {
+               nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
                return progress;
+            }
          }
       }
    }
+
+   if (progress)
+      nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
+   else
+      nir_metadata_preserve(impl, nir_metadata_all);
 
    return progress;
 }
@@ -546,6 +560,11 @@ radv_lower_fs_intrinsics(nir_shader *nir, const struct radv_pipeline_stage *fs_s
          }
       }
    }
+
+   if (progress)
+      nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
+   else
+      nir_metadata_preserve(impl, nir_metadata_all);
 
    return progress;
 }
@@ -971,6 +990,11 @@ lower_view_index(nir_shader *nir)
          progress = true;
       }
    }
+
+   if (progress)
+      nir_metadata_preserve(entry, nir_metadata_block_index | nir_metadata_dominance);
+   else
+      nir_metadata_preserve(entry, nir_metadata_all);
 
    return progress;
 }
