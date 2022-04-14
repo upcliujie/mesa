@@ -891,6 +891,9 @@ st_link_nir(struct gl_context *ctx,
 
          if (ctx->Const.ShaderCompilerOptions[shader->Stage].NirOptions->vectorize_io)
             st_nir_vectorize_io(prev_shader->nir, nir);
+      } else {
+         if (ctx->Const.ShaderCompilerOptions[shader->Stage].NirOptions->vectorize_io)
+            NIR_PASS_V(nir, nir_opt_combine_stores, nir_var_shader_out);
       }
    }
 
