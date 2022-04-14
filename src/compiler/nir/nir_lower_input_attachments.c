@@ -191,6 +191,7 @@ nir_lower_input_attachments(nir_shader *shader,
       if (!function->impl)
          continue;
 
+      bool impl_progress = false;
       nir_foreach_block(block, function->impl) {
          nir_foreach_instr_safe(instr, block) {
             switch (instr->type) {
@@ -199,8 +200,8 @@ nir_lower_input_attachments(nir_shader *shader,
 
                if (tex->op == nir_texop_fragment_mask_fetch_amd ||
                    tex->op == nir_texop_fragment_fetch_amd) {
-                  progress |= try_lower_input_texop(function->impl, tex,
-                                                    options);
+                  impl_progress |= try_lower_input_texop(function->impl, tex,
+                                                         options);
                }
                break;
             }
@@ -209,8 +210,8 @@ nir_lower_input_attachments(nir_shader *shader,
 
                if (load->intrinsic == nir_intrinsic_image_deref_load ||
                    load->intrinsic == nir_intrinsic_image_deref_sparse_load) {
-                  progress |= try_lower_input_load(function->impl, load,
-                                                   options);
+                  impl_progress |= try_lower_input_load(function->impl, load,
+                                                        options);
                }
                break;
             }
@@ -219,6 +220,12 @@ nir_lower_input_attachments(nir_shader *shader,
             }
          }
       }
+
+      if (impl_progress)
+         nir_metadata_preserve(function->impl, nir_metadata_block_index | nir_metadata_dominance);
+      else
+         nir_metadata_preserve(function->impl, nir_metadata_all);
+      progress |= impl_progress;
    }
 
    return progress;
