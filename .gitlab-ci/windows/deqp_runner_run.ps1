@@ -17,7 +17,7 @@ $deqp_options = @("--deqp-surface-width", 256, "--deqp-surface-height", 256, "--
 $deqp_module = "C:\deqp\external\vulkancts\modules\vulkan\deqp-vk.exe"
 $caselist = "C:\deqp\mustpass\vk-master.txt"
 $baseline = ".\_install\warp-fails.txt"
-$includes = @("-t", "dEQP-VK.api.*", "-t", "dEQP-VK.info.*", "-t", "dEQP-VK.draw.*", "-t", "dEQP-VK.query_pool.*", "-t", "dEQP-VK.memory.*")
+$includes = @("-t", "dEQP-VK.api.*", "-t", "dEQP-VK.info.*", "-t", "dEQP-VK.draw.*", "-t", "dEQP-VK.query_pool.*", "-t", "dEQP-VK.memory.*", "-t", "dEQP-VK.pipeline.vertex_input.*")
 
 $env:DZN_DEBUG = "warp"
 deqp-runner run --deqp $($deqp_module) --output $($results) --caselist $($caselist) --baseline $($baseline) $($includes) --testlog-to-xml C:\deqp\executor\testlog-to-xml.exe --jobs 4 -- $($deqp_options)
