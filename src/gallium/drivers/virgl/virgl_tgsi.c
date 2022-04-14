@@ -365,7 +365,7 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
          temp_inst.Instruction.NumDstRegs = 1;
          temp_inst.Dst[0].Register.File = TGSI_FILE_TEMPORARY,
          temp_inst.Dst[0].Register.Index = vtctx->src_temp + i;
-         temp_inst.Dst[0].Register.WriteMask = TGSI_WRITEMASK_XYZ;
+         temp_inst.Dst[0].Register.WriteMask = TGSI_WRITEMASK_XY;
          temp_inst.Instruction.NumSrcRegs = 1;
          tgsi_transform_src_reg_xyzw(&temp_inst.Src[0], inst->Src[i].Register.File, inst->Src[i].Register.Index);
          temp_inst.Src[0].Register.SwizzleX = inst->Src[i].Register.SwizzleX;
