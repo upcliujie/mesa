@@ -4652,57 +4652,97 @@ void genX(CmdDrawIndirectByteCountEXT)(
 #endif /* GFX_VERx10 >= 75 */
 }
 
-static void
-load_indirect_parameters(struct anv_cmd_buffer *cmd_buffer,
-                         struct anv_address addr,
-                         bool indexed,
-                         uint32_t draw_id)
+static inline void
+cmd_buffer_emit_3dprim_indirect(struct anv_cmd_buffer *cmd_buffer,
+                                uint32_t access_type,
+                                struct mi_value draw_vertex_count,
+                                struct mi_value draw_start_vertex,
+                                struct mi_value draw_instance_count,
+                                struct mi_value draw_start_instance,
+                                struct mi_value draw_vertex_offset,
+                                struct mi_value arg_base_vertex,
+                                uint32_t draw_id,
+                                bool predicate_enable)
 {
+   struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
+   const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
+
    struct mi_builder b;
    mi_builder_init(&b, &cmd_buffer->device->info, &cmd_buffer->batch);
 
-   mi_store(&b, mi_reg32(GFX7_3DPRIM_VERTEX_COUNT),
-                mi_mem32(anv_address_add(addr, 0)));
+   mi_store(&b, mi_reg32(GFX7_3DPRIM_VERTEX_COUNT), draw_vertex_count);
 
-   struct mi_value instance_count = mi_mem32(anv_address_add(addr, 4));
    unsigned view_count = anv_cmd_buffer_get_view_count(cmd_buffer);
    if (view_count > 1) {
 #if GFX_VERx10 >= 75
-      instance_count = mi_imul_imm(&b, instance_count, view_count);
+      draw_instance_count = mi_imul_imm(&b, draw_instance_count, view_count);
 #else
       anv_finishme("Multiview + indirect draw requires MI_MATH; "
                    "MI_MATH is not supported on Ivy Bridge");
 #endif
    }
-   mi_store(&b, mi_reg32(GFX7_3DPRIM_INSTANCE_COUNT), instance_count);
+   mi_store(&b, mi_reg32(GFX7_3DPRIM_INSTANCE_COUNT), draw_instance_count);
 
-   mi_store(&b, mi_reg32(GFX7_3DPRIM_START_VERTEX),
-                mi_mem32(anv_address_add(addr, 8)));
+   mi_store(&b, mi_reg32(GFX7_3DPRIM_START_VERTEX), draw_start_vertex);
+   mi_store(&b, mi_reg32(GFX7_3DPRIM_BASE_VERTEX), draw_vertex_offset);
+   mi_store(&b, mi_reg32(GFX7_3DPRIM_START_INSTANCE), draw_start_instance);
+#if GFX_VER >= 11
+   if (vs_prog_data->uses_firstvertex)
+      mi_store(&b, mi_reg32(GFX11_3DPRIM_XP_BASE_VERTEX), arg_base_vertex);
+   /* GFX11_3DPRIM_XP_BASE_INSTANCE is implicit */
+   if (vs_prog_data->uses_drawid)
+      mi_store(&b, mi_reg32(GFX11_3DPRIM_XP_DRAW_ID), mi_imm(draw_id));
+#endif
 
-   if (indexed) {
-      mi_store(&b, mi_reg32(GFX7_3DPRIM_BASE_VERTEX),
-                   mi_mem32(anv_address_add(addr, 12)));
-      mi_store(&b, mi_reg32(GFX7_3DPRIM_START_INSTANCE),
-                   mi_mem32(anv_address_add(addr, 16)));
-#if GFX_VER >= 11
-      mi_store(&b, mi_reg32(GFX11_3DPRIM_XP_BASE_VERTEX),
-                   mi_mem32(anv_address_add(addr, 12)));
-      /* GFX11_3DPRIM_XP_BASE_INSTANCE is implicit */
-#endif
-   } else {
-      mi_store(&b, mi_reg32(GFX7_3DPRIM_START_INSTANCE),
-                   mi_mem32(anv_address_add(addr, 12)));
-      mi_store(&b, mi_reg32(GFX7_3DPRIM_BASE_VERTEX), mi_imm(0));
-#if GFX_VER >= 11
-      mi_store(&b, mi_reg32(GFX11_3DPRIM_XP_BASE_VERTEX),
-                   mi_mem32(anv_address_add(addr, 8)));
-      /* GFX11_3DPRIM_XP_BASE_INSTANCE is implicit */
-#endif
+#if GFX_VER < 11
+   /* Emitting draw index or vertex index BOs may result in needing
+    * additional VF cache flushes.
+    */
+   genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+
+   /* We use the address of arg_base_vertex assuming arg_base_vertex &
+    * base_instance are contiguous in memory.
+    */
+   if (vs_prog_data->uses_firstvertex ||
+       vs_prog_data->uses_baseinstance)
+      emit_base_vertex_instance_bo(cmd_buffer, arg_base_vertex.addr);
+   if (vs_prog_data->uses_drawid)
+      emit_draw_index(cmd_buffer, draw_id);
+
+   anv_batch_emit(&cmd_buffer->batch, GENX(3DPRIMITIVE), prim) {
+      prim.IndirectParameterEnable  = true;
+      prim.VertexAccessType         = access_type;
+      prim.PredicateEnable          = predicate_enable ||
+                                      cmd_buffer->state.conditional_render_enabled;
+      prim.PrimitiveTopologyType    = cmd_buffer->state.gfx.primitive_topology;
    }
 
-#if GFX_VER >= 11
-   mi_store(&b, mi_reg32(GFX11_3DPRIM_XP_DRAW_ID),
-                mi_imm(draw_id));
+   update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, access_type);
+#else
+   if (vs_prog_data->uses_firstvertex ||
+       vs_prog_data->uses_baseinstance ||
+       vs_prog_data->uses_drawid) {
+      /* It's not clear why we need to define the extended parameters in the
+       * 3DPRIMITIVE to 0. Otherwise we're failing CTS tests. But the HW
+       * should source values from register, not the command. What's going on?
+       */
+      anv_batch_emit(&cmd_buffer->batch, GENX(3DPRIMITIVE_EXTENDED), prim) {
+         prim.IndirectParameterEnable   = true;
+         prim.ExtendedParametersPresent = true;
+         prim.VertexAccessType          = access_type;
+         prim.PredicateEnable           = predicate_enable ||
+                                          cmd_buffer->state.conditional_render_enabled;
+         prim.PrimitiveTopologyType     = cmd_buffer->state.gfx.primitive_topology;
+      }
+   } else {
+      anv_batch_emit(&cmd_buffer->batch, GENX(3DPRIMITIVE), prim) {
+         prim.IndirectParameterEnable  = true;
+         prim.VertexAccessType         = access_type;
+         prim.PredicateEnable          = predicate_enable ||
+                                         cmd_buffer->state.conditional_render_enabled;
+         prim.PrimitiveTopologyType    = cmd_buffer->state.gfx.primitive_topology;
+      }
+   }
 #endif
 }
 
@@ -4715,10 +4755,6 @@ void genX(CmdDrawIndirect)(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
-#if GFX_VER < 11
-   struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
-   const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
-#endif
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
@@ -4737,35 +4773,20 @@ void genX(CmdDrawIndirect)(
    for (uint32_t i = 0; i < drawCount; i++) {
       struct anv_address draw = anv_address_add(buffer->address, offset);
 
-#if GFX_VER < 11
-      if (vs_prog_data->uses_firstvertex ||
-          vs_prog_data->uses_baseinstance)
-         emit_base_vertex_instance_bo(cmd_buffer, anv_address_add(draw, 8));
-      if (vs_prog_data->uses_drawid)
-         emit_draw_index(cmd_buffer, i);
-# endif
+#define indirect_arg_to_value(addr, field) \
+   mi_mem32(anv_address_add(addr, offsetof(VkDrawIndirectCommand, field)))
 
-      /* Emitting draw index or vertex index BOs may result in needing
-       * additional VF cache flushes.
-       */
-      genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+      cmd_buffer_emit_3dprim_indirect(
+         cmd_buffer, SEQUENTIAL,
+         indirect_arg_to_value(draw, vertexCount),
+         indirect_arg_to_value(draw, firstVertex),
+         indirect_arg_to_value(draw, instanceCount),
+         indirect_arg_to_value(draw, firstInstance),
+         mi_imm(0),
+         indirect_arg_to_value(draw, firstVertex),
+         i, false /* predicate_enable */);
 
-      load_indirect_parameters(cmd_buffer, draw, false, i);
-
-      anv_batch_emit(&cmd_buffer->batch,
-#if GFX_VER < 11
-                     GENX(3DPRIMITIVE),
-#else
-                     GENX(3DPRIMITIVE_EXTENDED),
-#endif
-                     prim) {
-         prim.IndirectParameterEnable  = true;
-         prim.PredicateEnable          = cmd_buffer->state.conditional_render_enabled;
-         prim.VertexAccessType         = SEQUENTIAL;
-         prim.PrimitiveTopologyType    = cmd_buffer->state.gfx.primitive_topology;
-      }
-
-      update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, SEQUENTIAL);
+#undef indirect_arg_to_value
 
       offset += stride;
    }
@@ -4782,7 +4803,6 @@ void genX(CmdDrawIndexedIndirect)(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
-   struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
@@ -4801,37 +4821,20 @@ void genX(CmdDrawIndexedIndirect)(
    for (uint32_t i = 0; i < drawCount; i++) {
       struct anv_address draw = anv_address_add(buffer->address, offset);
 
-#if GFX_VER < 11
-      const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
-      /* TODO: We need to stomp base vertex to 0 somehow */
-      if (vs_prog_data->uses_firstvertex ||
-          vs_prog_data->uses_baseinstance)
-         emit_base_vertex_instance_bo(cmd_buffer, anv_address_add(draw, 12));
-      if (vs_prog_data->uses_drawid)
-         emit_draw_index(cmd_buffer, i);
-#endif
+#define indirect_arg_to_value(addr, field) \
+   mi_mem32(anv_address_add(addr, offsetof(VkDrawIndexedIndirectCommand, field)))
 
-      /* Emitting draw index or vertex index BOs may result in needing
-       * additional VF cache flushes.
-       */
-      genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+      cmd_buffer_emit_3dprim_indirect(
+         cmd_buffer, RANDOM,
+         indirect_arg_to_value(draw, indexCount),
+         indirect_arg_to_value(draw, firstIndex),
+         indirect_arg_to_value(draw, instanceCount),
+         indirect_arg_to_value(draw, firstInstance),
+         indirect_arg_to_value(draw, vertexOffset),
+         indirect_arg_to_value(draw, vertexOffset),
+         i, false /* predicate_enable */);
 
-      load_indirect_parameters(cmd_buffer, draw, true, i);
-
-      anv_batch_emit(&cmd_buffer->batch,
-#if GFX_VER < 11
-                     GENX(3DPRIMITIVE),
-#else
-                     GENX(3DPRIMITIVE_EXTENDED),
-#endif
-                     prim) {
-         prim.IndirectParameterEnable  = true;
-         prim.PredicateEnable          = cmd_buffer->state.conditional_render_enabled;
-         prim.VertexAccessType         = RANDOM;
-         prim.PrimitiveTopologyType    = cmd_buffer->state.gfx.primitive_topology;
-      }
-
-      update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, RANDOM);
+#undef indirect_arg_to_value
 
       offset += stride;
    }
@@ -4956,11 +4959,6 @@ void genX(CmdDrawIndirectCount)(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
    ANV_FROM_HANDLE(anv_buffer, count_buffer, _countBuffer);
-#if GFX_VER < 11
-   struct anv_cmd_state *cmd_state = &cmd_buffer->state;
-   struct anv_graphics_pipeline *pipeline = cmd_state->gfx.pipeline;
-   const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
-#endif
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
@@ -4984,35 +4982,20 @@ void genX(CmdDrawIndirectCount)(
 
       emit_draw_count_predicate_cond(cmd_buffer, &b, i, max);
 
-#if GFX_VER < 11
-      if (vs_prog_data->uses_firstvertex ||
-          vs_prog_data->uses_baseinstance)
-         emit_base_vertex_instance_bo(cmd_buffer, anv_address_add(draw, 8));
-      if (vs_prog_data->uses_drawid)
-         emit_draw_index(cmd_buffer, i);
-#endif
+#define indirect_arg_to_value(addr, field) \
+   mi_mem32(anv_address_add(addr, offsetof(VkDrawIndirectCommand, field)))
 
-      /* Emitting draw index or vertex index BOs may result in needing
-       * additional VF cache flushes.
-       */
-      genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+      cmd_buffer_emit_3dprim_indirect(
+         cmd_buffer, SEQUENTIAL,
+         indirect_arg_to_value(draw, vertexCount),
+         indirect_arg_to_value(draw, firstVertex),
+         indirect_arg_to_value(draw, instanceCount),
+         indirect_arg_to_value(draw, firstInstance),
+         indirect_arg_to_value(draw, firstVertex),
+         indirect_arg_to_value(draw, firstVertex),
+         i /* draw_id */, true /* predicate_enable */);
 
-      load_indirect_parameters(cmd_buffer, draw, false, i);
-
-      anv_batch_emit(&cmd_buffer->batch,
-#if GFX_VER < 11
-                     GENX(3DPRIMITIVE),
-#else
-                     GENX(3DPRIMITIVE_EXTENDED),
-#endif
-                     prim) {
-         prim.IndirectParameterEnable  = true;
-         prim.PredicateEnable          = true;
-         prim.VertexAccessType         = SEQUENTIAL;
-         prim.PrimitiveTopologyType    = cmd_buffer->state.gfx.primitive_topology;
-      }
-
-      update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, SEQUENTIAL);
+#undef indirect_arg_to_value
 
       offset += stride;
    }
@@ -5034,11 +5017,6 @@ void genX(CmdDrawIndexedIndirectCount)(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
    ANV_FROM_HANDLE(anv_buffer, count_buffer, _countBuffer);
-#if GFX_VER < 11
-   struct anv_cmd_state *cmd_state = &cmd_buffer->state;
-   struct anv_graphics_pipeline *pipeline = cmd_state->gfx.pipeline;
-   const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
-#endif
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
@@ -5062,36 +5040,20 @@ void genX(CmdDrawIndexedIndirectCount)(
 
       emit_draw_count_predicate_cond(cmd_buffer, &b, i, max);
 
-#if GFX_VER < 11
-      /* TODO: We need to stomp base vertex to 0 somehow */
-      if (vs_prog_data->uses_firstvertex ||
-          vs_prog_data->uses_baseinstance)
-         emit_base_vertex_instance_bo(cmd_buffer, anv_address_add(draw, 12));
-      if (vs_prog_data->uses_drawid)
-         emit_draw_index(cmd_buffer, i);
-#endif
+#define indirect_arg_to_value(addr, field) \
+   mi_mem32(anv_address_add(addr, offsetof(VkDrawIndexedIndirectCommand, field)))
 
-      /* Emitting draw index or vertex index BOs may result in needing
-       * additional VF cache flushes.
-       */
-      genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+      cmd_buffer_emit_3dprim_indirect(
+         cmd_buffer, RANDOM,
+         indirect_arg_to_value(draw, indexCount),
+         indirect_arg_to_value(draw, firstIndex),
+         indirect_arg_to_value(draw, instanceCount),
+         indirect_arg_to_value(draw, firstInstance),
+         indirect_arg_to_value(draw, vertexOffset),
+         indirect_arg_to_value(draw, vertexOffset),
+         i, true /* predicate_enable */);
 
-      load_indirect_parameters(cmd_buffer, draw, true, i);
-
-      anv_batch_emit(&cmd_buffer->batch,
-#if GFX_VER < 11
-                     GENX(3DPRIMITIVE),
-#else
-                     GENX(3DPRIMITIVE_EXTENDED),
-#endif
-                     prim) {
-         prim.IndirectParameterEnable  = true;
-         prim.PredicateEnable          = true;
-         prim.VertexAccessType         = RANDOM;
-         prim.PrimitiveTopologyType    = cmd_buffer->state.gfx.primitive_topology;
-      }
-
-      update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, RANDOM);
+#undef indirect_arg_to_value
 
       offset += stride;
    }
