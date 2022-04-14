@@ -168,63 +168,6 @@ where
     res
 }
 
-struct RusticlLowerConstantBufferState {
-    base_global_invoc_id: *mut nir_variable,
-    const_buf: *mut nir_variable,
-    printf_buf: *mut nir_variable,
-}
-
-impl Default for RusticlLowerConstantBufferState {
-    fn default() -> Self {
-        Self {
-            base_global_invoc_id: ptr::null_mut(),
-            const_buf: ptr::null_mut(),
-            printf_buf: ptr::null_mut(),
-        }
-    }
-}
-
-unsafe extern "C" fn rusticl_lower_intrinsics_filter(
-    instr: *const nir_instr,
-    _: *const c_void,
-) -> bool {
-    (*instr).type_ == nir_instr_type::nir_instr_type_intrinsic
-}
-
-unsafe extern "C" fn rusticl_lower_intrinsics_instr(
-    b: *mut nir_builder,
-    instr: *mut nir_instr,
-    state: *mut c_void,
-) -> *mut nir_ssa_def {
-    let instr = &*nir_instr_as_intrinsic(instr);
-    let state: &mut RusticlLowerConstantBufferState = &mut *state.cast();
-
-    match instr.intrinsic {
-        nir_intrinsic_op::nir_intrinsic_load_base_global_invocation_id => {
-            nir_load_var(b, state.base_global_invoc_id)
-        }
-        nir_intrinsic_op::nir_intrinsic_load_constant_base_ptr => nir_load_var(b, state.const_buf),
-        nir_intrinsic_op::nir_intrinsic_load_printf_buffer_address => {
-            nir_load_var(b, state.printf_buf)
-        }
-        _ => ptr::null_mut(),
-    }
-}
-
-extern "C" fn rusticl_lower_intrinsics(
-    nir: *mut nir_shader,
-    state: *mut RusticlLowerConstantBufferState,
-) -> bool {
-    unsafe {
-        nir_shader_lower_instructions(
-            nir,
-            Some(rusticl_lower_intrinsics_filter),
-            Some(rusticl_lower_intrinsics_instr),
-            state.cast(),
-        )
-    }
-}
-
 fn opt_nir(nir: &mut NirShader, dev: &Device) {
     let nir_options = unsafe {
         &*dev
@@ -342,7 +285,7 @@ fn lower_and_optimize_nir_late(
             .screen
             .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE)
     };
-    let mut lower_state = RusticlLowerConstantBufferState::default();
+    let mut lower_state = rusticl_lower_state::default();
 
     // asign locations for inline samplers
     let mut last_loc = -1;
