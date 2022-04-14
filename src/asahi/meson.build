@@ -53,3 +53,7 @@ agx_compiler = executable(
   ],
   build_by_default : with_tools.contains('asahi')
 )
+
+if with_tools.contains('drm-shim')
+  subdir('drm-shim')
+endif
