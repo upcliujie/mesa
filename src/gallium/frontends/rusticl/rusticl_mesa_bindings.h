@@ -14,3 +14,5 @@
 
 #include "util/u_printf.h"
 #include "util/u_sampler.h"
+
+#include "rusticl_nir.h"
