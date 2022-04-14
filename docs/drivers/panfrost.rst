@@ -54,3 +54,22 @@ Chat
 Panfrost developers and users hang out on IRC at ``#panfrost`` on OFTC. Note
 that registering and authenticating with `NickServ` is required to prevent
 spam. `Join the chat. <https://webchat.oftc.net/?channels=#panfrost>`_
+
+U-interleaved tiling
+---------------------
+
+Panfrost supports u-interleaved tiling. U-interleaved tiling is
+indicated by the ``DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED`` modifier.
+
+The tiling reorders whole pixels (blocks). It does not compress or modify the
+pixels themselves, so it can be used for any image format. Internally, images
+are divided into tiles. Tiles occur in source order, but pixels (blocks) within
+each tile are reordered according to a space-filling curve.
+
+Reference routines to encode/decode u-interleaved images are available in
+``src/panfrost/shared/test/test-tiling.cpp``, which documents the space-filling
+curve. This reference implementation is used to unit test the optimized
+implementation used in production. The optimized implementation is available in
+``src/panfrost/shared/pan_tiling.c``.
+
+Although these routines are part of Panfrost, they are also used by Lima.
