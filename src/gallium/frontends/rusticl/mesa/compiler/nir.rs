@@ -145,6 +145,10 @@ impl NirShader {
         )
     }
 
+    pub fn num_images(&self) -> u8 {
+        unsafe { (*self.nir.as_ptr()).info.num_images }
+    }
+
     pub fn reset_scratch_size(&self) {
         unsafe {
             (*self.nir.as_ptr()).scratch_size = 0;
