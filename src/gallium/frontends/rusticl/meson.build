@@ -131,7 +131,9 @@ rusticl_mesa_bindings_inline_wrapper = static_library(
   'mesa_bindings_inline_wrapper',
   [
     'rusticl_mesa_inline_bindings_wrapper.c',
-    'rusticl_mesa_inline_bindings_wrapper.h'
+    'rusticl_mesa_inline_bindings_wrapper.h',
+    'rusticl_nir.c',
+    'rusticl_nir.h',
   ],
   gnu_symbol_visibility : 'hidden',
   include_directories : [
@@ -164,6 +166,7 @@ rusticl_mesa_bindings_rs = rust.bindgen(
     '--whitelist-function', 'nir_.*',
     '--whitelist-function', 'pipe_.*',
     '--whitelist-function', 'u_.*',
+    '--whitelist-function', 'rusticl_.*',
     '--whitelist-function', 'rz?alloc_.*',
     '--whitelist-function', 'spirv_.*',
     '--whitelist-function', 'u_.*',
