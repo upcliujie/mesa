@@ -870,6 +870,9 @@ nir_shader_gather_info(nir_shader *shader, nir_function_impl *entrypoint)
    shader->info.bit_sizes_float = 0;
    shader->info.bit_sizes_int = 0;
 
+   if (!entrypoint)
+      entrypoint = nir_shader_get_entrypoint(shader);
+
    nir_foreach_variable_with_modes(var, shader, nir_var_image | nir_var_uniform) {
       /* Bindless textures and images don't use non-bindless slots.
        * Interface blocks imply inputs, outputs, UBO, or SSBO, which can only
