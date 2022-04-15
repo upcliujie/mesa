@@ -1149,6 +1149,8 @@ struct si_context {
    unsigned last_gs_out_prim;
    unsigned current_vs_state;
    unsigned last_vs_state;
+   bool current_gs_stats_counter_emul;
+   bool last_gs_stats_counter_emul;
    enum pipe_prim_type current_rast_prim; /* primitive type after TES, GS */
 
    struct si_small_prim_cull_info last_small_prim_cull_info;
