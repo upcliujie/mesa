@@ -473,11 +473,11 @@ kopper_acquire(struct zink_screen *screen, struct zink_resource *res, uint64_t t
 }
 
 static void
-kill_swapchain(struct zink_context *ctx, struct zink_resource *res)
+kill_swapchain(struct zink_context *ctx, struct zink_resource *res, VkResult err)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    /* dead swapchain */
-   fprintf(stderr, "KILL %p\n", res);
+   mesa_logd("reaping dead swapchain: %s\n", vk_Result_to_str(err));
    zink_batch_reference_resource(&ctx->batch, res);
    struct pipe_resource *pres = screen->base.resource_create(&screen->base, &res->base.b);
    zink_resource_object_reference(screen, &res->obj, zink_resource(pres)->obj);
@@ -506,7 +506,7 @@ zink_kopper_acquire(struct zink_context *ctx, struct zink_resource *res, uint64_
       if (cswap != cdt->swapchain)
          ctx->swapchain_size = cdt->swapchain->scci.imageExtent;
    } else if (is_swapchain_kill(ret)) {
-      kill_swapchain(ctx, res);
+      kill_swapchain(ctx, res, ret);
    }
    return ret;
 }
@@ -647,7 +647,7 @@ zink_kopper_acquire_readback(struct zink_context *ctx, struct zink_resource *res
    if (!res->obj->acquire) {
       ret = kopper_acquire(screen, res, UINT64_MAX);
       if (is_swapchain_kill(ret)) {
-         kill_swapchain(ctx, res);
+         kill_swapchain(ctx, res, ret);
          return false;
       }
    }
@@ -661,7 +661,7 @@ zink_kopper_acquire_readback(struct zink_context *ctx, struct zink_resource *res
          ret = kopper_acquire(screen, res, 0);
       } while (!is_swapchain_kill(ret) && (ret == VK_NOT_READY || ret == VK_TIMEOUT));
       if (is_swapchain_kill(ret)) {
-         kill_swapchain(ctx, res);
+         kill_swapchain(ctx, res, ret);
          return false;
       }
    }
