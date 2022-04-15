@@ -769,7 +769,8 @@ clc_compile_to_llvm_module(LLVMContext &llvm_ctx,
       "-triple", "spir64-unknown-unknown",
       // By default, clang prefers to use modules to pull in the default headers,
       // which doesn't work with our technique of embedding the headers in our binary
-      "-finclude-default-header",
+//      "-finclude-default-header",
+      "-fdeclare-opencl-builtins", // TODO llvm-14+
       // Add a default CL compiler version. Clang will pick the last one specified
       // on the command line, so the app can override this one.
       "-cl-std=cl1.2",
@@ -849,6 +850,17 @@ clc_compile_to_llvm_module(LLVMContext &llvm_ctx,
                                     false, false);
    // Add opencl include
    c->getPreprocessorOpts().Includes.push_back("opencl-c.h");
+#endif
+
+#if LLVM_VERSION_MAJOR >= 13
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_atomic_order_acq_rel");
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_atomic_order_seq_cst");
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_device_enqueue");
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_generic_address_space");
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_program_scope_global_variables");
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_pipes");
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_read_write_images");
+   c->getTargetOpts().OpenCLExtensionsAsWritten.push_back("-__opencl_c_subgroups");
 #endif
 
    if (args->num_headers) {
