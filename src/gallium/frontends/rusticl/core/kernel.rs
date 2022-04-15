@@ -229,6 +229,7 @@ fn lower_and_optimize_nir_pre_inputs(dev: &Device, nir: &mut NirShader, lib_clc:
     nir.structurize();
     while {
         let mut progress = false;
+        nir.pass0(nir_split_var_copies);
         progress |= nir.pass0(nir_copy_prop);
         progress |= nir.pass0(nir_opt_copy_prop_vars);
         progress |= nir.pass0(nir_opt_dead_write_vars);
