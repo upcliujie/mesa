@@ -2654,3 +2654,9 @@ iris_bufmgr_get_border_color_pool(struct iris_bufmgr *bufmgr)
 {
    return &bufmgr->border_color_pool;
 }
+
+bool
+iris_using_prelim_drm(struct iris_bufmgr *bufmgr)
+{
+   return bufmgr->prelim_drm;
+}
