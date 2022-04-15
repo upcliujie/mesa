@@ -41,6 +41,8 @@
 #include "util/u_memory.h"
 #include "api_exec_decl.h"
 
+#include "state_tracker/st_context.h"
+
 /* Take advantage of how the enums are defined. */
 const enum pipe_tex_wrap wrap_to_gallium_table[32] = {
    [GL_REPEAT & 0x1f] = PIPE_TEX_WRAP_REPEAT,
@@ -163,6 +165,8 @@ _mesa_new_sampler_object(struct gl_context *ctx, GLuint name)
    struct gl_sampler_object *sampObj = CALLOC_STRUCT(gl_sampler_object);
    if (sampObj) {
       _mesa_init_sampler_object(sampObj, name);
+      if (ctx->st->lower_rect_tex)
+         sampObj->Attrib.state.normalized_coords = 1;
    }
    return sampObj;
 }
