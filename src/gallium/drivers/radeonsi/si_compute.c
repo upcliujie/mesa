@@ -149,14 +149,12 @@ static void si_create_compute_state_async(void *job, void *gdata, int thread_ind
       sel->cs_num_shaderbufs_in_user_sgprs++;
    }
 
-   /* Images in user SGPRs. */
-   unsigned non_fmask_images = u_bit_consecutive(0, sel->info.base.num_images);
+   for (unsigned i = 0; i < MIN2(3, sel->info.base.num_images); i++) {
+      /* Don't put MSAA images in SGPRs */
+      if (sscreen->info.chip_class < GFX11 &&
+          (sel->info.base.msaa_images & (1 << i))
+         break;
 
-   /* Remove images with FMASK from the bitmask. */
-   if (sscreen->info.chip_class < GFX11)
-      non_fmask_images &= ~sel->info.base.msaa_images;
-
-   for (unsigned i = 0; i < 3 && non_fmask_images & (1 << i); i++) {
       unsigned num_sgprs = sel->info.base.image_buffers & (1 << i) ? 4 : 8;
 
       if (align(user_sgprs, num_sgprs) + num_sgprs > 16)
