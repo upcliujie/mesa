@@ -948,10 +948,8 @@ _x11_swapchain_result(struct x11_swapchain *chain, VkResult result,
 
    /* If we have a new error, mark it as permanent on the chain and return. */
    if (result < 0) {
-#ifndef NDEBUG
-      fprintf(stderr, "%s:%d: Swapchain status changed to %s\n",
+      debug_printf("%s:%d: Swapchain status changed to %s\n",
               file, line, vk_Result_to_str(result));
-#endif
       chain->status = result;
       return result;
    }
@@ -964,12 +962,10 @@ _x11_swapchain_result(struct x11_swapchain *chain, VkResult result,
     * and is always returned rather than success.
     */
    if (result == VK_SUBOPTIMAL_KHR) {
-#ifndef NDEBUG
       if (chain->status != VK_SUBOPTIMAL_KHR) {
-         fprintf(stderr, "%s:%d: Swapchain status changed to %s\n",
+         debug_printf("%s:%d: Swapchain status changed to %s\n",
                  file, line, vk_Result_to_str(result));
       }
-#endif
       chain->status = result;
       return result;
    }
