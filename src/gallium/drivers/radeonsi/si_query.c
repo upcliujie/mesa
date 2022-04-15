@@ -826,12 +826,42 @@ static void si_query_hw_do_emit_start(struct si_context *sctx, struct si_query_h
                         EOP_DATA_SEL_TIMESTAMP, NULL, va, 0, query->b.type);
       break;
    case PIPE_QUERY_PIPELINE_STATISTICS: {
-      radeon_begin(cs);
-      radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
-      radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
-      radeon_emit(va);
-      radeon_emit(va >> 32);
-      radeon_end();
+      if (sctx->screen->use_ngg && query->flags & SI_QUERY_EMULATE_GS_COUNTERS) {
+         /* The hw GS primitive counter doesn't work when ngg is active.
+          * So if use_ngg is true, we don't use the hw version but instead
+          * emulate it in the GS shader.
+          * The value is written at the same position, so we don't need to
+          * change anything else.
+          * If ngg is enabled for the draw, the primitive count is written in
+          * gfx10_ngg_gs_emit_epilogue. If ngg is disabled, the number of exported
+          * vertices is stored in gs_emitted_vertices and the number of prim
+          * is computed based on the output prim type in emit_gs_epilogue.
+          */
+         struct pipe_shader_buffer sbuf;
+         sbuf.buffer = &buffer->b.b;
+         sbuf.buffer_offset = query->buffer.results_end;
+         sbuf.buffer_size = buffer->bo_size;
+         si_set_internal_shader_buffer(sctx, SI_GS_QUERY_BUF, &sbuf);
+         sctx->current_gs_stats_counter_emul = true;
+
+         const uint32_t zero = 0;
+         radeon_begin(cs);
+         /* Clear the emulated counter end value. We don't clear start because it's unused. */
+         va += (si_hw_query_dw_offset(query->index) + SI_QUERY_STATS_END_OFFSET_DW) * 4;
+         radeon_emit(PKT3(PKT3_WRITE_DATA, 2 + 1, 0));
+         radeon_emit(S_370_DST_SEL(V_370_MEM) | S_370_WR_CONFIRM(1) | S_370_ENGINE_SEL(V_370_PFP));
+         radeon_emit(va);
+         radeon_emit(va >> 32);
+         radeon_emit(zero);
+         radeon_end();
+      } else {
+         radeon_begin(cs);
+         radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
+         radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
+         radeon_emit(va);
+         radeon_emit(va >> 32);
+         radeon_end();
+      }
       break;
    }
    default:
@@ -905,14 +935,26 @@ static void si_query_hw_do_emit_stop(struct si_context *sctx, struct si_query_hw
       unsigned sample_size = (query->result_size - 8) / 2;
 
       va += sample_size;
-      radeon_begin(cs);
-      radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
-      radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
-      radeon_emit(va);
-      radeon_emit(va >> 32);
-      radeon_end();
+
+      if (sctx->screen->use_ngg && query->flags & SI_QUERY_EMULATE_GS_COUNTERS) {
+         sctx->flags |= SI_CONTEXT_PS_PARTIAL_FLUSH;
+         gfx10_emit_cache_flush(sctx, cs);
+      } else {
+         radeon_begin(cs);
+         radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
+         radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
+         radeon_emit(va);
+         radeon_emit(va >> 32);
+         radeon_end();
+      }
 
       fence_va = va + sample_size;
+
+      if (sctx->num_pipeline_stat_queries == 1) {
+         si_set_internal_shader_buffer(sctx, SI_GS_QUERY_BUF, NULL);
+         sctx->current_gs_stats_counter_emul = false;
+      }
+
       break;
    }
    default:
