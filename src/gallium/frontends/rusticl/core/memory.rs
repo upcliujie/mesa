@@ -274,6 +274,7 @@ impl Mem {
 
     pub fn new_image(
         context: Arc<Context>,
+        parent: Option<Arc<Mem>>,
         mem_type: cl_mem_object_type,
         flags: cl_mem_flags,
         image_format: &cl_image_format,
@@ -300,17 +301,21 @@ impl Mem {
             image_desc.image_array_size = 1;
         }
 
-        let texture = context.create_texture(
-            &image_desc,
-            &image_format,
-            host_ptr,
-            bit_check(flags, CL_MEM_COPY_HOST_PTR),
-        )?;
+        let texture = if parent.is_none() {
+            Some(context.create_texture(
+                &image_desc,
+                &image_format,
+                host_ptr,
+                bit_check(flags, CL_MEM_COPY_HOST_PTR),
+            )?)
+        } else {
+            None
+        };
 
         Ok(Arc::new(Self {
             base: CLObjectBase::new(),
             context: context,
-            parent: None,
+            parent: parent,
             mem_type: mem_type,
             flags: flags,
             size: image_desc.pixels() * image_format.pixel_size().unwrap() as usize,
@@ -321,7 +326,7 @@ impl Mem {
             image_elem_size: image_elem_size,
             props: props,
             cbs: Mutex::new(Vec::new()),
-            res: Some(texture),
+            res: texture,
             maps: Mappings::new(),
         }))
     }
