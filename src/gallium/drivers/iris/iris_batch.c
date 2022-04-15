@@ -882,11 +882,6 @@ update_bo_syncobjs(struct iris_batch *batch, struct iris_bo *bo, bool write)
 static void
 update_batch_syncobjs(struct iris_batch *batch)
 {
-   struct iris_bufmgr *bufmgr = batch->screen->bufmgr;
-   simple_mtx_t *bo_deps_lock = iris_bufmgr_get_bo_deps_lock(bufmgr);
-
-   simple_mtx_lock(bo_deps_lock);
-
    for (int i = 0; i < batch->exec_count; i++) {
       struct iris_bo *bo = batch->exec_bos[i];
       bool write = BITSET_TEST(batch->bos_written, i);
@@ -896,7 +891,6 @@ update_batch_syncobjs(struct iris_batch *batch)
 
       update_bo_syncobjs(batch, bo, write);
    }
-   simple_mtx_unlock(bo_deps_lock);
 }
 
 /**
@@ -984,17 +978,6 @@ submit_batch(struct iris_batch *batch)
        intel_ioctl(batch->screen->fd, DRM_IOCTL_I915_GEM_EXECBUFFER2, &execbuf))
       ret = -errno;
 
-   for (int i = 0; i < batch->exec_count; i++) {
-      struct iris_bo *bo = batch->exec_bos[i];
-
-      bo->idle = false;
-      bo->index = -1;
-
-      iris_get_backing_bo(bo)->idle = false;
-
-      iris_bo_unreference(bo);
-   }
-
    free(validation_list);
 
    return ret;
@@ -1028,6 +1011,14 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
    iris_measure_batch_end(ice, batch);
 
    iris_finish_batch(batch);
+
+   /* Take the BO deps lock.  This cannot be dropped until after we've ensured
+    * that the batch syncobj has a signal operation pending.  Otherwise, we
+    * may race between some other batch's update_batch_syncobjs and our
+    * submission of work to the kernel.
+    */
+   simple_mtx_t *bo_deps_lock = iris_bufmgr_get_bo_deps_lock(screen->bufmgr);
+   simple_mtx_lock(bo_deps_lock);
 
    update_batch_syncobjs(batch);
 
@@ -1065,6 +1056,19 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
     */
    if (ret < 0)
       iris_syncobj_signal(screen->bufmgr, iris_batch_get_signal_syncobj(batch));
+
+   simple_mtx_unlock(bo_deps_lock);
+
+   for (int i = 0; i < batch->exec_count; i++) {
+      struct iris_bo *bo = batch->exec_bos[i];
+
+      bo->idle = false;
+      bo->index = -1;
+
+      iris_get_backing_bo(bo)->idle = false;
+
+      iris_bo_unreference(bo);
+   }
 
    batch->exec_count = 0;
    batch->max_gem_handle = 0;
