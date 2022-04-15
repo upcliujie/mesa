@@ -315,8 +315,13 @@ impl Device {
 
         if self.embedded {
             if self.image_supported() {
-                if self.image_3d_size() < 2048 || !exts.contains(&"cles_khr_2d_image_array_writes")
-                {
+                let supports_array_writes = !FORMATS
+                    .iter()
+                    .filter(|f| f.req_for_embeded_read_or_write)
+                    .map(|f| self.formats.get(&f.cl_image_format).unwrap())
+                    .map(|f| f.get(&CL_MEM_OBJECT_IMAGE2D_ARRAY).unwrap())
+                    .any(|f| *f & cl_mem_flags::from(CL_MEM_WRITE_ONLY) == 0);
+                if self.image_3d_size() < 2048 || !supports_array_writes {
                     res = CLVersion::Cl1_2;
                 }
             }
@@ -439,18 +444,6 @@ impl Device {
                     "cl_khr_3d_image_writes",
                     "__opencl_c_3d_image_writes",
                 );
-            }
-        }
-
-        if self.embedded {
-            if !FORMATS
-                .iter()
-                .filter(|f| f.req_for_full_read_or_write)
-                .map(|f| self.formats.get(&f.cl_image_format).unwrap())
-                .map(|f| f.get(&CL_MEM_OBJECT_IMAGE2D_ARRAY).unwrap())
-                .any(|f| *f & cl_mem_flags::from(CL_MEM_WRITE_ONLY) == 0)
-            {
-                add_ext(1, 0, 0, "cles_khr_2d_image_array_writes", "");
             }
         }
 
