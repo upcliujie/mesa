@@ -152,10 +152,10 @@ static void si_create_compute_state_async(void *job, void *gdata, int thread_ind
    for (unsigned i = 0; i < MIN2(3, sel->info.base.num_images); i++) {
       /* Don't put MSAA images in SGPRs */
       if (sscreen->info.chip_class < GFX11 &&
-          (sel->info.base.msaa_images & (1 << i))
+          BITSET_TEST(sel->info.base.msaa_images, i))
          break;
 
-      unsigned num_sgprs = sel->info.base.image_buffers & (1 << i) ? 4 : 8;
+      unsigned num_sgprs = BITSET_TEST(sel->info.base.image_buffers, i) ? 4 : 8;
 
       if (align(user_sgprs, num_sgprs) + num_sgprs > 16)
          break;
