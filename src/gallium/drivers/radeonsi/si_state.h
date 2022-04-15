@@ -374,6 +374,7 @@ enum
 
    /* Aliases to reuse slots that are unused on other generations. */
    SI_GS_QUERY_BUF = SI_RING_ESGS,     /* gfx10+ */
+   SI_GS_QUERY_EMULATED_COUNTERS_BUF,  /* gfx10+ */
 };
 
 /* Indices into sctx->descriptors, laid out so that gfx and compute pipelines
