@@ -52,11 +52,8 @@ program/execute/atomic_int64_xor-global: skip
 program/execute/atomic_int64_xor-global-return: skip
 program/execute/atomic_int64_xor-local: skip
 program/execute/builtin/builtin-char-popcount-1.2.generated: skip
-program/execute/builtin/builtin-float-cos-1.0.generated: timeout
 program/execute/builtin/builtin-float-ldexp-1.0.generated: fail
-program/execute/builtin/builtin-float-sin-1.0.generated: timeout
 program/execute/builtin/builtin-float-sincos-1.0.generated: timeout
-program/execute/builtin/builtin-float-tan-1.0.generated: timeout
 program/execute/builtin/builtin-int-popcount-1.2.generated: skip
 program/execute/builtin/builtin-long-popcount-1.2.generated: skip
 program/execute/builtin/builtin-short-popcount-1.2.generated: skip
