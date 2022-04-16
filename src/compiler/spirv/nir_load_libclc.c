@@ -352,9 +352,22 @@ nir_load_libclc_shader(unsigned ptr_bit_size,
 
    NIR_PASS_V(nir, libclc_add_generic_variants);
 
-   /* TODO: One day, we may want to run some optimizations on the libclc
-    * shader once and cache them to save time in each shader call.
+   /* Run some optimization passesn. Those used here should be considered safe for all use cases.
+    * Also, this is about size, not speed.
     */
+   bool progress;
+   do {
+      progress = false;
+      NIR_PASS(progress, nir, nir_copy_prop);
+      NIR_PASS(progress, nir, nir_opt_copy_prop_vars);
+      NIR_PASS(progress, nir, nir_opt_dead_write_vars);
+      NIR_PASS(progress, nir, nir_lower_vars_to_ssa);
+      NIR_PASS(progress, nir, nir_opt_constant_folding);
+      NIR_PASS(progress, nir, nir_opt_cse);
+      NIR_PASS(progress, nir, nir_opt_deref);
+      NIR_PASS(progress, nir, nir_opt_dead_cf);
+      NIR_PASS(progress, nir, nir_opt_dce);
+   } while (progress);
 
 #ifdef ENABLE_SHADER_CACHE
    if (disk_cache) {
