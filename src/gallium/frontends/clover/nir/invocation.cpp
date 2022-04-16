@@ -415,7 +415,7 @@ nir_shader *clover::nir::load_libclc_nir(const device &dev, std::string &r_log)
    auto *compiler_options = dev_get_nir_compiler_options(dev);
 
    return nir_load_libclc_shader(dev.address_bits(), dev.clc_cache,
-				 &spirv_options, compiler_options);
+				 &spirv_options, compiler_options, false);
 }
 
 static bool
