@@ -39,6 +39,7 @@
 #include "util/compiler.h"
 #include "util/enum_operators.h"
 #include "util/macros.h"
+#include "util/u_printf.h"
 #include "util/format/u_format.h"
 #include "compiler/nir_types.h"
 #include "compiler/shader_enums.h"
@@ -3112,13 +3113,6 @@ typedef struct {
    uint8_t bit_size;
 } nir_parameter;
 
-typedef struct nir_printf_info {
-   unsigned num_args;
-   unsigned *arg_sizes;
-   unsigned string_size;
-   char *strings;
-} nir_printf_info;
-
 typedef struct nir_function {
    struct exec_node node;
 
@@ -3647,7 +3641,7 @@ typedef struct nir_shader {
    unsigned constant_data_size;
 
    unsigned printf_info_count;
-   nir_printf_info *printf_info;
+   u_printf_info *printf_info;
 } nir_shader;
 
 #define nir_foreach_function(func, shader) \
