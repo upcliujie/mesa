@@ -10,7 +10,6 @@ use mesa_rust_util::properties::Properties;
 use rusticl_opencl_gen::*;
 
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::os::raw::c_void;
 use std::sync::Arc;
 use std::sync::Mutex;
