@@ -652,7 +652,6 @@ tgsi_default_instruction( void )
    instruction.Texture = 0;
    instruction.Memory = 0;
    instruction.Precise = 0;
-   instruction.Padding = 0;
 
    return instruction;
 }

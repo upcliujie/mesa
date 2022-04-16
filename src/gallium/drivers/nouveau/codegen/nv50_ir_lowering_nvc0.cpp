@@ -1447,6 +1447,115 @@ NVC0LoweringPass::handleBUFQ(Instruction *bufq)
 }
 
 void
+NVC0LoweringPass::handleSharedATOMGM107(Instruction *atom)
+{
+   assert(atom->src(0).getFile() == FILE_MEMORY_SHARED);
+
+   if (typeSizeof(atom->sType) != 8)
+      return;
+   if (atom->subOp == NV50_IR_SUBOP_ATOM_EXCH ||
+       atom->subOp == NV50_IR_SUBOP_ATOM_CAS)
+      return;
+
+   operation op;
+
+   switch (atom->subOp) {
+   case NV50_IR_SUBOP_ATOM_ADD:
+      op = OP_ADD;
+      break;
+   case NV50_IR_SUBOP_ATOM_AND:
+      op = OP_AND;
+      break;
+   case NV50_IR_SUBOP_ATOM_OR:
+      op = OP_OR;
+      break;
+   case NV50_IR_SUBOP_ATOM_XOR:
+      op = OP_XOR;
+      break;
+   case NV50_IR_SUBOP_ATOM_MIN:
+      op = OP_MIN;
+      break;
+   case NV50_IR_SUBOP_ATOM_MAX:
+      op = OP_MAX;
+      break;
+   default:
+      assert(0);
+      return;
+   }
+
+   // Everything else has to be implemented in terms of CAS:
+   // oldval = load();
+   // while (true) {
+   //   val = oldval;
+   //   newval = op(val, arg);
+   //   oldval = cas(val, newval)
+   //   if (val == oldval)
+   //     break;
+   // }
+
+   BasicBlock *currBB = atom->bb;
+   BasicBlock *joinBB = atom->bb->splitAfter(atom, false);
+   BasicBlock *loopBB = new BasicBlock(func);
+
+   bld.setPosition(currBB, true);
+   bld.remove(atom);
+   Value *oldval = bld.getSSA(8);
+   bld.mkLoad(TYPE_U64, oldval, atom->getSrc(0)->asSym(),
+              atom->getIndirect(0, 0));
+   bld.mkFlow(OP_PREBREAK, joinBB, CC_ALWAYS, NULL);
+   currBB->cfg.attach(&loopBB->cfg, Graph::Edge::TREE);
+
+   bld.setPosition(loopBB, true);
+   Value *val = bld.getSSA(8), *newval = bld.getSSA(8);
+   bld.mkMov(val, oldval, atom->dType);
+
+   switch (op) {
+   case OP_ADD:
+   case OP_AND:
+   case OP_OR:
+   case OP_XOR:
+      bld.mkOp2(op, atom->dType, newval, val, atom->getSrc(1));
+      break;
+   case OP_MIN:
+   case OP_MAX: {
+      Value *src0[2], *src1[2], *dst[2];
+      Value *flag = bld.getSSA(1, FILE_FLAGS);
+      bld.mkSplit(src0, 4, val);
+      bld.mkSplit(src1, 4, atom->getSrc(1));
+      dst[0] = bld.getSSA();
+      dst[1] = bld.getSSA();
+      Instruction *minmax = bld.mkOp2(op, isSignedIntType(atom->dType) ? TYPE_S32 : TYPE_U32, dst[1], src0[1], src1[1]);
+      minmax->subOp = NV50_IR_SUBOP_MINMAX_HIGH;
+      minmax->setFlagsDef(1, flag);
+
+      minmax = bld.mkOp2(op, TYPE_U32, dst[0], src0[0], src1[0]);
+      minmax->subOp = NV50_IR_SUBOP_MINMAX_LOW;
+      minmax->setFlagsSrc(2, flag);
+      bld.mkOp2(OP_MERGE, TYPE_U64, newval, dst[0], dst[1]);
+      break;
+   }
+   default:
+      assert(0);
+   }
+
+   Instruction *cas = bld.mkOp3(OP_ATOM, TYPE_U64, oldval,
+                                atom->getSrc(0)->asSym(), val, newval);
+   cas->setIndirect(0, 0, atom->getIndirect(0, 0));
+   cas->subOp = NV50_IR_SUBOP_ATOM_CAS;
+
+   Value *cond = bld.getSSA(1, FILE_PREDICATE);
+   bld.mkCmp(OP_SET, CC_EQ, TYPE_U8, cond, TYPE_U64, val, oldval);
+   bld.mkFlow(OP_BREAK, joinBB, CC_P, cond);
+   bld.mkFlow(OP_BRA, loopBB, CC_ALWAYS, NULL);
+   loopBB->cfg.attach(&joinBB->cfg, Graph::Edge::CROSS);
+   loopBB->cfg.attach(&loopBB->cfg, Graph::Edge::BACK);
+
+   bld.setPosition(joinBB, false);
+   if (atom->getDef(0) != NULL)
+      bld.mkMov(atom->getDef(0), oldval, atom->dType);
+ }
+
+void
 NVC0LoweringPass::handleSharedATOMNVE4(Instruction *atom)
 {
    assert(atom->src(0).getFile() == FILE_MEMORY_SHARED);
@@ -1653,11 +1762,14 @@ NVC0LoweringPass::handleATOM(Instruction *atom)
       break;
    case FILE_MEMORY_SHARED:
       // For Fermi/Kepler, we have to use ld lock/st unlock to perform atomic
-      // operations on shared memory. For Maxwell, ATOMS is enough.
+      // operations on shared memory. For Maxwell, ATOMS only supports
+      // CAS/EXCH for 64-bit ops.
       if (targ->getChipset() < NVISA_GK104_CHIPSET)
          handleSharedATOM(atom);
       else if (targ->getChipset() < NVISA_GM107_CHIPSET)
          handleSharedATOMNVE4(atom);
+      else
+         handleSharedATOMGM107(atom);
       return true;
    case FILE_MEMORY_GLOBAL:
       return true;
@@ -1681,12 +1793,12 @@ NVC0LoweringPass::handleATOM(Instruction *atom)
       atom->setPredicate(CC_NOT_P, pred);
       if (atom->defExists(0)) {
          Value *zero, *dst = atom->getDef(0);
-         atom->setDef(0, bld.getSSA());
+         atom->setDef(0, bld.getSSA(typeSizeof(atom->dType)));
 
          bld.setPosition(atom, true);
-         bld.mkMov((zero = bld.getSSA()), bld.mkImm(0))
+         bld.mkMov((zero = bld.getSSA(typeSizeof(atom->dType))), bld.mkImm(0), atom->dType)
             ->setPredicate(CC_P, pred);
-         bld.mkOp2(OP_UNION, TYPE_U32, dst, atom->getDef(0), zero);
+         bld.mkOp2(OP_UNION, atom->dType, dst, atom->getDef(0), zero);
       }
 
       return true;

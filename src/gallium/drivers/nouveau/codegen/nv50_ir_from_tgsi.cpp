@@ -614,6 +614,14 @@ nv50_ir::DataType Instruction::inferSrcType() const
    case TGSI_OPCODE_U64MOD:
    case TGSI_OPCODE_U642F:
    case TGSI_OPCODE_U642D:
+   case TGSI_OPCODE_ATOMU64ADD:
+   case TGSI_OPCODE_ATOM64XCHG:
+   case TGSI_OPCODE_ATOM64CAS:
+   case TGSI_OPCODE_ATOM64AND:
+   case TGSI_OPCODE_ATOM64OR:
+   case TGSI_OPCODE_ATOM64XOR:
+   case TGSI_OPCODE_ATOMU64MIN:
+   case TGSI_OPCODE_ATOMU64MAX:
       return nv50_ir::TYPE_U64;
    case TGSI_OPCODE_I64ABS:
    case TGSI_OPCODE_I64SSG:
@@ -627,6 +635,8 @@ nv50_ir::DataType Instruction::inferSrcType() const
    case TGSI_OPCODE_I64MOD:
    case TGSI_OPCODE_I642F:
    case TGSI_OPCODE_I642D:
+   case TGSI_OPCODE_ATOMI64MIN:
+   case TGSI_OPCODE_ATOMI64MAX:
       return nv50_ir::TYPE_S64;
    default:
       return nv50_ir::TYPE_F32;
@@ -913,6 +923,17 @@ static nv50_ir::operation translateOpcode(uint opcode)
    NV50_IR_OPCODE_CASE(ATOMDEC_WRAP, ATOM);
    NV50_IR_OPCODE_CASE(ATOMINC_WRAP, ATOM);
 
+   NV50_IR_OPCODE_CASE(ATOMU64ADD, ATOM);
+   NV50_IR_OPCODE_CASE(ATOM64XCHG, ATOM);
+   NV50_IR_OPCODE_CASE(ATOM64CAS, ATOM);
+   NV50_IR_OPCODE_CASE(ATOM64AND, ATOM);
+   NV50_IR_OPCODE_CASE(ATOM64OR, ATOM);
+   NV50_IR_OPCODE_CASE(ATOM64XOR, ATOM);
+   NV50_IR_OPCODE_CASE(ATOMU64MIN, ATOM);
+   NV50_IR_OPCODE_CASE(ATOMU64MAX, ATOM);
+   NV50_IR_OPCODE_CASE(ATOMI64MIN, ATOM);
+   NV50_IR_OPCODE_CASE(ATOMI64MAX, ATOM);
+
    NV50_IR_OPCODE_CASE(TEX2, TEX);
    NV50_IR_OPCODE_CASE(TXB2, TXB);
    NV50_IR_OPCODE_CASE(TXL2, TXL);
@@ -944,15 +965,25 @@ static nv50_ir::operation translateOpcode(uint opcode)
 static uint16_t opcodeToSubOp(uint opcode)
 {
    switch (opcode) {
+   case TGSI_OPCODE_ATOMU64ADD:
    case TGSI_OPCODE_ATOMUADD: return NV50_IR_SUBOP_ATOM_ADD;
+   case TGSI_OPCODE_ATOM64XCHG:
    case TGSI_OPCODE_ATOMXCHG: return NV50_IR_SUBOP_ATOM_EXCH;
+   case TGSI_OPCODE_ATOM64CAS:
    case TGSI_OPCODE_ATOMCAS:  return NV50_IR_SUBOP_ATOM_CAS;
+   case TGSI_OPCODE_ATOM64AND:
    case TGSI_OPCODE_ATOMAND:  return NV50_IR_SUBOP_ATOM_AND;
+   case TGSI_OPCODE_ATOM64OR:
    case TGSI_OPCODE_ATOMOR:   return NV50_IR_SUBOP_ATOM_OR;
+   case TGSI_OPCODE_ATOM64XOR:
    case TGSI_OPCODE_ATOMXOR:  return NV50_IR_SUBOP_ATOM_XOR;
+   case TGSI_OPCODE_ATOMU64MIN:
    case TGSI_OPCODE_ATOMUMIN: return NV50_IR_SUBOP_ATOM_MIN;
+   case TGSI_OPCODE_ATOMI64MIN:
    case TGSI_OPCODE_ATOMIMIN: return NV50_IR_SUBOP_ATOM_MIN;
+   case TGSI_OPCODE_ATOMU64MAX:
    case TGSI_OPCODE_ATOMUMAX: return NV50_IR_SUBOP_ATOM_MAX;
+   case TGSI_OPCODE_ATOMI64MAX:
    case TGSI_OPCODE_ATOMIMAX: return NV50_IR_SUBOP_ATOM_MAX;
    case TGSI_OPCODE_ATOMFADD: return NV50_IR_SUBOP_ATOM_ADD;
    case TGSI_OPCODE_ATOMDEC_WRAP: return NV50_IR_SUBOP_ATOM_DEC;
@@ -1607,6 +1638,18 @@ bool Source::scanInstruction(const struct tgsi_full_instruction *inst)
       case TGSI_OPCODE_ATOMFADD:
       case TGSI_OPCODE_ATOMDEC_WRAP:
       case TGSI_OPCODE_ATOMINC_WRAP:
+
+      case TGSI_OPCODE_ATOMU64ADD:
+      case TGSI_OPCODE_ATOM64XCHG:
+      case TGSI_OPCODE_ATOM64CAS:
+      case TGSI_OPCODE_ATOM64AND:
+      case TGSI_OPCODE_ATOM64OR:
+      case TGSI_OPCODE_ATOM64XOR:
+      case TGSI_OPCODE_ATOMU64MIN:
+      case TGSI_OPCODE_ATOMU64MAX:
+      case TGSI_OPCODE_ATOMI64MIN:
+      case TGSI_OPCODE_ATOMI64MAX:
+
       case TGSI_OPCODE_LOAD:
          info_out->io.globalAccess |= (insn.getOpcode() == TGSI_OPCODE_LOAD) ?
             0x1 : 0x2;
@@ -2930,7 +2973,7 @@ Converter::handleATOM(Value *dst0[4], DataType ty, uint16_t subOp)
    int r = tgsi.getSrc(0).getIndex(0);
    std::vector<Value *> srcv;
    std::vector<Value *> defv;
-   LValue *dst = getScratch();
+   LValue *dst = getScratch(typeSizeof(ty));
    Value *ind = NULL;
 
    if (tgsi.getSrc(0).isIndirect(0))
@@ -2953,19 +2996,45 @@ Converter::handleATOM(Value *dst0[4], DataType ty, uint16_t subOp)
                           tgsi.getSrc(1).getValueU32(c, code->immd.data));
          else
             sym = makeSym(tgsi.getSrc(0).getFile(), r, -1, c, 0);
+
+         Value *src2, *src3 = NULL;
+         if (typeSizeof(ty) == 8) {
+            src2 = getSSA(8);
+            src3 = getSSA(8);
+            Value *tmp[2];
+            tmp[0] = fetchSrc(2, c);
+            tmp[1] = fetchSrc(2, c + 1);
+            mkOp2(OP_MERGE, TYPE_U64, src2, tmp[0], tmp[1]);
+            if (subOp == NV50_IR_SUBOP_ATOM_CAS) {
+               tmp[0] = fetchSrc(3, c);
+               tmp[1] = fetchSrc(3, c + 1);
+               mkOp2(OP_MERGE, TYPE_U64, src3, tmp[0], tmp[1]);
+            }
+         } else {
+            src2 = fetchSrc(2, c);
+            if (subOp == NV50_IR_SUBOP_ATOM_CAS)
+               src3 = fetchSrc(3, c);
+         }
+
          if (subOp == NV50_IR_SUBOP_ATOM_CAS)
-            insn = mkOp3(OP_ATOM, ty, dst, sym, fetchSrc(2, c), fetchSrc(3, c));
+            insn = mkOp3(OP_ATOM, ty, dst, sym, src2, src3);
          else
-            insn = mkOp2(OP_ATOM, ty, dst, sym, fetchSrc(2, c));
+            insn = mkOp2(OP_ATOM, ty, dst, sym, src2);
          if (tgsi.getSrc(1).getFile() != TGSI_FILE_IMMEDIATE)
             insn->setIndirect(0, 0, off);
          if (ind)
             insn->setIndirect(0, 1, ind);
          insn->subOp = subOp;
+         if (typeSizeof(ty) == 8) {
+            mkSplit(&dst0[c], 4, dst);
+            c++;
+         }
       }
-      for (int c = 0; c < 4; ++c)
-         if (dst0[c])
-            dst0[c] = dst; // not equal to rDst so handleInstruction will do mkMov
+      if (typeSizeof(ty) != 8) {
+         for (int c = 0; c < 4; ++c)
+            if (dst0[c])
+               dst0[c] = dst; // not equal to rDst so handleInstruction will do mkMov
+      }
       break;
    default: {
       r = remapImageId(r);
@@ -3813,6 +3882,16 @@ Converter::handleInstruction(const struct tgsi_full_instruction *insn)
    case TGSI_OPCODE_ATOMFADD:
    case TGSI_OPCODE_ATOMDEC_WRAP:
    case TGSI_OPCODE_ATOMINC_WRAP:
+   case TGSI_OPCODE_ATOMU64ADD:
+   case TGSI_OPCODE_ATOM64XCHG:
+   case TGSI_OPCODE_ATOM64CAS:
+   case TGSI_OPCODE_ATOM64AND:
+   case TGSI_OPCODE_ATOM64OR:
+   case TGSI_OPCODE_ATOM64XOR:
+   case TGSI_OPCODE_ATOMU64MIN:
+   case TGSI_OPCODE_ATOMU64MAX:
+   case TGSI_OPCODE_ATOMI64MIN:
+   case TGSI_OPCODE_ATOMI64MAX:
       handleATOM(dst0, dstTy, tgsi::opcodeToSubOp(tgsi.getOpcode()));
       break;
    case TGSI_OPCODE_RESQ:

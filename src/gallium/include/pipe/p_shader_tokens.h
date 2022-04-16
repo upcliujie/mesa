@@ -617,7 +617,19 @@ enum tgsi_opcode {
    TGSI_OPCODE_ATOMINC_WRAP       = 250,
    TGSI_OPCODE_ATOMDEC_WRAP       = 251,
 
-   TGSI_OPCODE_LAST               = 252,
+   TGSI_OPCODE_ATOMU64ADD         = 252,
+   TGSI_OPCODE_ATOM64XCHG         = 253,
+   TGSI_OPCODE_ATOM64CAS          = 254,
+   TGSI_OPCODE_ATOM64AND          = 255,
+   TGSI_OPCODE_ATOM64OR           = 256,
+
+   TGSI_OPCODE_ATOM64XOR          = 257,
+   TGSI_OPCODE_ATOMU64MIN         = 258,
+   TGSI_OPCODE_ATOMU64MAX         = 259,
+   TGSI_OPCODE_ATOMI64MIN         = 260,
+   TGSI_OPCODE_ATOMI64MAX         = 261,
+
+   TGSI_OPCODE_LAST               = 262,
 };
 
 
@@ -637,7 +649,7 @@ struct tgsi_instruction
 {
    unsigned Type       : 4;  /* TGSI_TOKEN_TYPE_INSTRUCTION */
    unsigned NrTokens   : 8;  /* UINT */
-   unsigned Opcode     : 8;  /* TGSI_OPCODE_ */
+   unsigned Opcode     : 9;  /* TGSI_OPCODE_ */
    unsigned Saturate   : 1;  /* BOOL */
    unsigned NumDstRegs : 2;  /* UINT */
    unsigned NumSrcRegs : 4;  /* UINT */
@@ -645,7 +657,6 @@ struct tgsi_instruction
    unsigned Texture    : 1;
    unsigned Memory     : 1;
    unsigned Precise    : 1;
-   unsigned Padding    : 1;
 };
 
 /*

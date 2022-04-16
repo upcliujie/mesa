@@ -264,6 +264,7 @@ tgsi_opcode_infer_src_type(enum tgsi_opcode opcode, uint src_idx)
 
    if (src_idx == 1 &&
        ((opcode >= TGSI_OPCODE_ATOMUADD && opcode <= TGSI_OPCODE_ATOMIMAX) ||
+        (opcode >= TGSI_OPCODE_ATOMU64ADD && opcode <= TGSI_OPCODE_ATOMI64MAX) ||
        opcode == TGSI_OPCODE_ATOMINC_WRAP || opcode == TGSI_OPCODE_ATOMDEC_WRAP))
       return TGSI_TYPE_UNSIGNED;
 

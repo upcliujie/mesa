@@ -685,8 +685,8 @@ glsl_to_tgsi_visitor::emit_asm(ir_instruction *ir, enum tgsi_opcode op,
 
    assert(num_reladdr == 0);
 
-   /* inst->op has only 8 bits. */
-   STATIC_ASSERT(TGSI_OPCODE_LAST <= 255);
+   /* inst->op has only 9 bits. */
+   STATIC_ASSERT(TGSI_OPCODE_LAST <= 511);
 
    inst->op = op;
    inst->precise = this->precise;
@@ -992,9 +992,14 @@ glsl_to_tgsi_visitor::get_opcode(enum tgsi_opcode op,
       case7(IMSB,    LAST, IMSB,    UMSB,    LAST,    LAST,    LAST);
       case7(IMUL_HI, LAST, IMUL_HI, UMUL_HI, LAST,    LAST,    LAST);
       case7(ISHR,    LAST, ISHR,    USHR,    LAST,    I64SHR,  U64SHR);
-      case7(ATOMIMAX,LAST, ATOMIMAX,ATOMUMAX,LAST,    LAST,    LAST);
-      case7(ATOMIMIN,LAST, ATOMIMIN,ATOMUMIN,LAST,    LAST,    LAST);
-      case7(ATOMUADD,ATOMFADD,ATOMUADD,ATOMUADD,LAST, LAST,    LAST);
+      case7(ATOMIMAX,LAST, ATOMIMAX,ATOMUMAX,LAST,    ATOMI64MAX, ATOMU64MAX);
+      case7(ATOMIMIN,LAST, ATOMIMIN,ATOMUMIN,LAST,    ATOMI64MIN, ATOMU64MIN);
+      case7(ATOMUADD,ATOMFADD,ATOMUADD,ATOMUADD,LAST, ATOMU64ADD, ATOMU64ADD);
+      case7(ATOMXCHG, ATOMXCHG, ATOMXCHG, ATOMXCHG, LAST, ATOM64XCHG, ATOM64XCHG);
+      case7(ATOMCAS, ATOMCAS, ATOMCAS, ATOMCAS, LAST, ATOM64CAS, ATOM64CAS);
+      case7(ATOMAND, ATOMAND, ATOMAND, ATOMAND, LAST, ATOM64AND, ATOM64AND);
+      case7(ATOMOR, ATOMOR, ATOMOR, ATOMOR, LAST, ATOM64OR, ATOM64OR);
+      case7(ATOMXOR, ATOMXOR, ATOMXOR, ATOMXOR, LAST, ATOM64XOR, ATOM64XOR);
 
       casecomp(SEQ, FSEQ, USEQ, USEQ, DSEQ, U64SEQ, U64SEQ);
       casecomp(SNE, FSNE, USNE, USNE, DSNE, U64SNE, U64SNE);
@@ -6429,6 +6434,17 @@ compile_tgsi_instruction(struct st_translate *t,
    case TGSI_OPCODE_IMG2HND:
    case TGSI_OPCODE_ATOMINC_WRAP:
    case TGSI_OPCODE_ATOMDEC_WRAP:
+   case TGSI_OPCODE_ATOMU64ADD:
+   case TGSI_OPCODE_ATOM64XCHG:
+   case TGSI_OPCODE_ATOM64CAS:
+   case TGSI_OPCODE_ATOM64AND:
+   case TGSI_OPCODE_ATOM64OR:
+   case TGSI_OPCODE_ATOM64XOR:
+   case TGSI_OPCODE_ATOMU64MIN:
+   case TGSI_OPCODE_ATOMU64MAX:
+   case TGSI_OPCODE_ATOMI64MIN:
+   case TGSI_OPCODE_ATOMI64MAX:
+
       for (i = num_src - 1; i >= 0; i--)
          src[i + 1] = src[i];
       num_src++;

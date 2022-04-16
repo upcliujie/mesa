@@ -615,6 +615,12 @@ BuildUtil::split64BitOpPostRA(Function *fn, Instruction *i,
          return NULL;
       srcNr = 2;
       break;
+   case OP_AND:
+   case OP_OR:
+   case OP_XOR:
+      carry = NULL;
+      srcNr = 2;
+      break;
    case OP_SELP: srcNr = 3; break;
    default:
       // TODO when needed
@@ -659,7 +665,7 @@ BuildUtil::split64BitOpPostRA(Function *fn, Instruction *i,
          }
       }
    }
-   if (srcNr == 2) {
+   if (srcNr == 2 && carry) {
       lo->setFlagsDef(1, carry);
       hi->setFlagsSrc(hi->srcCount(), carry);
    }
