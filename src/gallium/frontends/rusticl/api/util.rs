@@ -8,7 +8,6 @@ use mesa_rust_util::ptr::CheckedPtr;
 use rusticl_opencl_gen::*;
 
 use std::cmp;
-use std::convert::TryInto;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::mem::size_of;

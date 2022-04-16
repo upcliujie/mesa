@@ -6,7 +6,6 @@ use crate::pipe::resource::*;
 use mesa_rust_gen::*;
 use mesa_rust_util::string::*;
 
-use std::convert::TryInto;
 use std::os::raw::c_void;
 use std::ptr;
 use std::sync::Arc;
