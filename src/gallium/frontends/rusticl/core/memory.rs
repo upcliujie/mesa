@@ -16,7 +16,6 @@ use rusticl_opencl_gen::*;
 
 use std::cmp;
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::ops::AddAssign;
 use std::os::raw::c_void;
 use std::ptr;
