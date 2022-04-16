@@ -10,7 +10,6 @@ use mesa_rust_util::properties::Properties;
 use rusticl_opencl_gen::*;
 
 use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::slice;
 use std::sync::Arc;
 
