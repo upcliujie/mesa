@@ -300,7 +300,8 @@ nir_shader *
 nir_load_libclc_shader(unsigned ptr_bit_size,
                        struct disk_cache *disk_cache,
                        const struct spirv_to_nir_options *spirv_options,
-                       const nir_shader_compiler_options *nir_options)
+                       const nir_shader_compiler_options *nir_options,
+                       bool optimize)
 {
    assert(ptr_bit_size ==
           nir_address_format_bit_size(spirv_options->global_addr_format));
@@ -352,9 +353,34 @@ nir_load_libclc_shader(unsigned ptr_bit_size,
 
    NIR_PASS_V(nir, libclc_add_generic_variants);
 
-   /* TODO: One day, we may want to run some optimizations on the libclc
-    * shader once and cache them to save time in each shader call.
+   /* Run some optimization passes. Those used here should be considered safe
+    * for all use cases. Also, this is about size, not speed.
     */
+   if (disk_cache || optimize) {
+      bool progress;
+      do {
+         progress = false;
+         NIR_PASS(progress, nir, nir_opt_copy_prop_vars);
+         NIR_PASS(progress, nir, nir_lower_vars_to_ssa);
+         NIR_PASS(progress, nir, nir_copy_prop);
+         NIR_PASS(progress, nir, nir_opt_remove_phis);
+         NIR_PASS(progress, nir, nir_opt_dce);
+         NIR_PASS(progress, nir, nir_opt_dead_cf);
+         NIR_PASS(progress, nir, nir_opt_cse);
+         /* drivers run this pass, so don't be too aggressive. More aggressive
+          * values only increase effectiveness by <5%
+          */
+         NIR_PASS(progress, nir, nir_opt_peephole_select, 0, false, false);
+         /* nir_opt_algebraic does have a minor impact (~ -1%), but the runtime also
+          * increases significantly (~ +50%)
+          */
+         if (optimize)
+            NIR_PASS(progress, nir, nir_opt_algebraic);
+         NIR_PASS(progress, nir, nir_opt_undef);
+         NIR_PASS(progress, nir, nir_opt_constant_folding);
+         NIR_PASS(progress, nir, nir_opt_deref);
+      } while(progress);
+   }
 
 #ifdef ENABLE_SHADER_CACHE
    if (disk_cache) {
