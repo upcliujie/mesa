@@ -125,6 +125,8 @@ vlVaHandleVAEncSequenceParameterBufferTypeH264(vlVaDriver *drv, vlVaContext *con
    if (context->gop_coeff > VL_VA_ENC_GOP_COEFF)
       context->gop_coeff = VL_VA_ENC_GOP_COEFF;
    context->desc.h264enc.gop_size = h264->intra_idr_period * context->gop_coeff;
+   context->desc.h264enc.rate_ctrl[0].min_qp = 0;
+   context->desc.h264enc.rate_ctrl[0].max_qp = 51;
    context->desc.h264enc.rate_ctrl[0].frame_rate_num = h264->time_scale / 2;
    context->desc.h264enc.rate_ctrl[0].frame_rate_den = h264->num_units_in_tick;
    context->desc.h264enc.pic_order_cnt_type = h264->seq_fields.bits.pic_order_cnt_type;
@@ -149,6 +151,13 @@ vlVaHandleVAEncMiscParameterTypeRateControlH264(vlVaContext *context, VAEncMiscP
                  PIPE_H2645_ENC_RATE_CONTROL_METHOD_DISABLE ?
                  rc->rc_flags.bits.temporal_id :
                  0;
+
+   if (rc->min_qp != 0)
+      context->desc.h264enc.rate_ctrl[0].min_qp = rc->min_qp;
+   if (rc->max_qp != 0)
+      context->desc.h264enc.rate_ctrl[0].max_qp = rc->max_qp;
+   context->desc.h264enc.rate_ctrl[0].max_qp = MAX2(context->desc.h264enc.rate_ctrl[0].min_qp,
+                                                    context->desc.h264enc.rate_ctrl[0].max_qp);
 
    if (context->desc.h264enc.rate_ctrl[0].rate_ctrl_method ==
        PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT)
