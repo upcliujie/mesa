@@ -23,9 +23,12 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "macros.h"
+#include "u_math.h"
 #include "u_printf.h"
 
 /* Some versions of MinGW are missing _vscprintf's declaration, although they
@@ -41,6 +44,14 @@ _CRTIMP int _vscprintf(const char *format, va_list argptr);
 #define va_copy(dest, src) (dest) = (src)
 #endif
 #endif
+
+static const char*
+util_printf_prev_tok(const char *str)
+{
+   while (*str != '%')
+      str--;
+   return str;
+}
 
 size_t util_printf_next_spec_pos(const char *str, size_t pos)
 {
@@ -93,4 +104,129 @@ size_t u_printf_length(const char *fmt, va_list untouched_args)
    va_end(args);
 
    return size;
+}
+
+void u_printf(const char *buffer, size_t buffer_size, const u_printf_info *info) {
+   for (size_t buf_pos = 0; buf_pos < buffer_size;) {
+      uint32_t fmt_idx = *(uint32_t*)&buffer[buf_pos];
+      assert(fmt_idx > 0);
+
+      const u_printf_info *fmt = &info[fmt_idx - 1];
+      const char *format = fmt->strings;
+      buf_pos += sizeof(fmt_idx);
+
+      if (!fmt->num_args) {
+         printf("%s", format);
+         continue;
+      }
+
+      for (int i = 0; i < fmt->num_args; i++) {
+         int arg_size = fmt->arg_sizes[i];
+         size_t spec_pos = util_printf_next_spec_pos(format, 0);
+         size_t cur_tok = spec_pos == -1 ? strlen(format) : util_printf_prev_tok(&format[spec_pos]) - format;
+
+         // print the part before the format token
+         if (cur_tok != 0) {
+            char *tmp = strndup(format, cur_tok);
+            printf("%s", tmp);
+            free(tmp);
+         }
+
+         if (spec_pos == -1)
+            continue;
+
+         char *print_str = strndup(&format[cur_tok], spec_pos + 1 - cur_tok);
+
+         // Never pass a 'n' spec to the host printf
+         bool valid_str = strchr(print_str, 'n') == NULL;
+
+         // print the formated part
+         if (valid_str && spec_pos != -1) {
+            if (format[spec_pos] == 's') {
+               uint64_t idx;
+               memcpy(&idx, &buffer[buf_pos], 8);
+               printf(print_str, &fmt->strings[idx]);
+            } else {
+               char *vec_pos = strchr(print_str, 'v');
+               char *mod_pos = strpbrk(print_str, "hl");
+
+               int component_count = 1;
+               if (vec_pos != NULL) {
+                  size_t base = mod_pos ? mod_pos - print_str : spec_pos;
+                  size_t l = base - (vec_pos - print_str) - 1;
+                  char *vec = strndup(&vec_pos[1], l);
+                  component_count = atoi(vec);
+                  free(vec);
+
+                  // remove the vector and precision stuff
+                  memmove(&print_str[vec_pos - print_str], &print_str[spec_pos], 2);
+               }
+
+               //in fact vec3 are vec4
+               int men_components = component_count == 3 ? 4 : component_count;
+               size_t elmt_size = arg_size / men_components;
+               bool is_float = strpbrk(print_str, "fFeEgGaA") != NULL;
+
+               for (int i = 0; i < component_count; i++) {
+                  size_t elmt_buf_pos = buf_pos + i * elmt_size;
+                  switch (elmt_size) {
+                  case 1: {
+                     uint8_t v;
+                     memcpy(&v, &buffer[elmt_buf_pos], elmt_size);
+                     printf(print_str, v);
+                     break;
+                  }
+                  case 2: {
+                     uint16_t v;
+                     memcpy(&v, &buffer[elmt_buf_pos], elmt_size);
+                     printf(print_str, v);
+                     break;
+                  }
+                  case 4: {
+                     if (is_float) {
+                        float v;
+                        memcpy(&v, &buffer[elmt_buf_pos], elmt_size);
+                        printf(print_str, v);
+                     } else {
+                        uint32_t v;
+                        memcpy(&v, &buffer[elmt_buf_pos], elmt_size);
+                        printf(print_str, v);
+                     }
+                     break;
+                  }
+                  case 8: {
+                     if (is_float) {
+                        double v;
+                        memcpy(&v, &buffer[elmt_buf_pos], elmt_size);
+                        printf(print_str, v);
+                     } else {
+                        uint64_t v;
+                        memcpy(&v, &buffer[elmt_buf_pos], elmt_size);
+                        printf(print_str, v);
+                     }
+                     break;
+                  }
+                  default:
+                     assert(false);
+                     break;
+                  }
+
+                  if (i < component_count - 1)
+                     printf(",");
+               }
+            }
+         }
+
+         // rebase format
+         format = &format[spec_pos + 1];
+         free(print_str);
+
+         // print remaining
+         if (i == fmt->num_args -1)
+            printf("%s", format);
+
+         buf_pos += arg_size;
+         buf_pos = ALIGN(buf_pos, 4);
+      }
+   }
 }
