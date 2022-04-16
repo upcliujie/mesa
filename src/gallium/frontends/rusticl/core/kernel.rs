@@ -16,7 +16,6 @@ use rusticl_opencl_gen::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::convert::TryInto;
 use std::os::raw::c_void;
 use std::ptr;
 use std::slice;
@@ -157,8 +156,8 @@ impl_cl_type_trait!(cl_kernel, Kernel, CL_INVALID_KERNEL);
 
 fn create_kernel_arr<T>(vals: &[usize], val: T) -> [T; 3]
 where
-    T: std::convert::TryFrom<usize> + Copy,
-    <T as std::convert::TryFrom<usize>>::Error: std::fmt::Debug,
+    T: TryFrom<usize> + Copy,
+    <T as TryFrom<usize>>::Error: std::fmt::Debug,
 {
     let mut res = [val; 3];
     for (i, v) in vals.iter().enumerate() {

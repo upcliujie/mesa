@@ -1,6 +1,5 @@
 use mesa_rust_gen::*;
 
-use std::convert::TryInto;
 use std::ffi::c_void;
 use std::ffi::CString;
 use std::marker::PhantomData;
