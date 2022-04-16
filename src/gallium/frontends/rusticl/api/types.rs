@@ -1,7 +1,5 @@
 use rusticl_opencl_gen::*;
 
-use std::convert::TryFrom;
-use std::convert::TryInto;
 use std::ops::Mul;
 use std::slice;
 
