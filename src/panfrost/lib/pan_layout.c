@@ -220,9 +220,7 @@ pan_image_layout_init(const struct panfrost_device *dev,
         assert(depth == 1 || nr_samples == 1);
 
         bool afbc = drm_is_afbc(layout->modifier);
-        bool tiled = layout->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED;
         bool linear = layout->modifier == DRM_FORMAT_MOD_LINEAR;
-        bool should_align = tiled || afbc;
         bool is_3d = layout->dim == MALI_TEXTURE_DIMENSION_3D;
 
         unsigned oob_crc_offset = 0;
@@ -233,16 +231,8 @@ pan_image_layout_init(const struct panfrost_device *dev,
         for (unsigned l = 0; l < nr_slices; ++l) {
                 struct pan_image_slice_layout *slice = &layout->slices[l];
 
-                unsigned effective_width = width;
-                unsigned effective_height = height;
-                unsigned effective_depth = depth;
-
-                if (should_align) {
-                        effective_width = ALIGN_POT(effective_width, block_size.width);
-                        effective_height = ALIGN_POT(effective_height, block_size.height);
-
-                        /* We don't need to align depth */
-                }
+                unsigned aligned_width  = ALIGN_POT(width, block_size.width);
+                unsigned aligned_height = ALIGN_POT(height, block_size.height);
 
                 /* Align levels to cache-line as a performance improvement for
                  * linear/tiled and as a requirement for AFBC */
@@ -252,7 +242,7 @@ pan_image_layout_init(const struct panfrost_device *dev,
                 slice->offset = offset;
 
                 /* Compute the would-be stride */
-                unsigned stride = bytes_per_pixel * effective_width;
+                unsigned stride = bytes_per_pixel * aligned_width;
 
                 if (explicit_layout) {
                         /* Make sure the explicit stride is valid */
@@ -268,7 +258,7 @@ pan_image_layout_init(const struct panfrost_device *dev,
                 slice->line_stride = stride;
                 slice->row_stride = stride * block_size.height;
 
-                unsigned slice_one_size = slice->line_stride * effective_height;
+                unsigned slice_one_size = slice->line_stride * aligned_height;
 
                 /* Compute AFBC sizes if necessary */
                 if (afbc) {
@@ -277,7 +267,7 @@ pan_image_layout_init(const struct panfrost_device *dev,
 
                         /* Stride between two rows of AFBC headers */
                         slice->afbc.row_stride =
-                                (effective_width / block_size.width) *
+                                (aligned_width / block_size.width) *
                                 AFBC_HEADER_BYTES_PER_TILE;
 
                         /* AFBC body size */
@@ -290,8 +280,8 @@ pan_image_layout_init(const struct panfrost_device *dev,
                         if (is_3d) {
                                 slice->afbc.surface_stride =
                                         slice->afbc.header_size;
-                                slice->afbc.header_size *= effective_depth;
-                                slice->afbc.body_size *= effective_depth;
+                                slice->afbc.header_size *= depth;
+                                slice->afbc.body_size *= depth;
                                 offset += slice->afbc.header_size;
                         } else {
                                 slice_one_size += slice->afbc.header_size;
@@ -300,7 +290,7 @@ pan_image_layout_init(const struct panfrost_device *dev,
                 }
 
                 unsigned slice_full_size =
-                        slice_one_size * effective_depth * nr_samples;
+                        slice_one_size * depth * nr_samples;
 
                 slice->surface_stride = slice_one_size;
 
