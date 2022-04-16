@@ -27,7 +27,7 @@ project(
   ).stdout(),
   license : 'MIT',
   meson_version : '>= 0.57',
-  default_options : ['buildtype=debugoptimized', 'b_ndebug=if-release', 'c_std=c11', 'cpp_std=c++14']
+  default_options : ['buildtype=debugoptimized', 'b_ndebug=if-release', 'c_std=c11', 'cpp_std=c++14', 'rust_std=2018']
 )
 
 # In recent versions, meson can inject some extra arguments to get richer
