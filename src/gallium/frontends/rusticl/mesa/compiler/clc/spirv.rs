@@ -1,5 +1,6 @@
 use crate::compiler::nir::*;
 use crate::pipe::screen::*;
+use crate::util::disk_cache::*;
 
 use mesa_rust_gen::*;
 use mesa_rust_util::string::*;
@@ -41,7 +42,32 @@ impl SPIRVBin {
         source: &CString,
         args: &Vec<CString>,
         headers: &Vec<CLCHeader>,
+        cache: &Option<DiskCache>,
     ) -> (Option<Self>, String) {
+        let mut hash_key = None;
+        let has_includes = args.iter().any(|a| a.as_bytes()[0..2] == *b"-I");
+
+        if let Some(cache) = cache {
+            if !has_includes {
+                let mut key = Vec::new();
+
+                key.extend_from_slice(source.as_bytes());
+                args.iter()
+                    .for_each(|a| key.extend_from_slice(a.as_bytes()));
+                headers.iter().for_each(|h| {
+                    key.extend_from_slice(h.name.as_bytes());
+                    key.extend_from_slice(h.source.as_bytes());
+                });
+
+                let mut key = cache.gen_key(&key);
+                if let Some(data) = cache.get(&mut key) {
+                    return (Some(Self::from_bin(&data, false)), String::from(""));
+                }
+
+                hash_key = Some(key);
+            }
+        }
+
         let c_headers: Vec<_> = headers
             .iter()
             .map(|h| clc_named_value {
@@ -75,16 +101,27 @@ impl SPIRVBin {
         let res = unsafe { clc_compile_c_to_spirv(&args, &logger, &mut out) };
 
         let res = if res {
-            Some(SPIRVBin {
+            let spirv = SPIRVBin {
                 spirv: out,
                 info: None,
-            })
+            };
+
+            // add cache entry
+            if !has_includes {
+                if let Some(mut key) = hash_key {
+                    cache.as_ref().unwrap().put(spirv.to_bin(), &mut key);
+                }
+            }
+
+            Some(spirv)
         } else {
             None
         };
+
         (res, msgs.join("\n"))
     }
 
+    // TODO cache linking, parsing is around 25% of link time
     pub fn link(spirvs: &Vec<&SPIRVBin>, library: bool) -> (Option<Self>, String) {
         let bins: Vec<_> = spirvs.iter().map(|s| &s.spirv as *const _).collect();
 
@@ -226,7 +263,7 @@ impl SPIRVBin {
     pub fn get_lib_clc(screen: &PipeScreen) -> Option<NirShader> {
         let nir_options = screen.nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE);
         let spirv_options = Self::get_spirv_options(true, ptr::null());
-        let shader_cache = screen.shader_cache();
+        let shader_cache = DiskCacheBorrowed::as_ptr(&screen.shader_cache());
         NirShader::new(unsafe {
             nir_load_libclc_shader(
                 64,
