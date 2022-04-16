@@ -195,6 +195,7 @@ nir_lower_cl_images(nir_shader *shader)
          var->data.driver_location = num_wr_images++;
    }
    shader->info.num_textures = num_rd_images;
+   BITSET_ZERO(shader->info.samplers_used);
    BITSET_ZERO(shader->info.textures_used);
    if (num_rd_images)
       BITSET_SET_RANGE_INSIDE_WORD(shader->info.textures_used, 0, num_rd_images - 1);
@@ -215,6 +216,8 @@ nir_lower_cl_images(nir_shader *shader)
          assert(!glsl_type_is_sampler(var->type));
       }
    }
+   if (num_samplers)
+      BITSET_SET_RANGE_INSIDE_WORD(shader->info.samplers_used, 0, num_samplers - 1);
 
    nir_builder b;
    nir_builder_init(&b, impl);
