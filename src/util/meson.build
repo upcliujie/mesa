@@ -128,6 +128,8 @@ files_mesa_util = files(
   'u_fifo.h',
   'u_hash_table.c',
   'u_hash_table.h',
+  'u_lower_parallel_copy.c',
+  'u_lower_parallel_copy.h',
   'u_queue.c',
   'u_queue.h',
   'u_string.h',
