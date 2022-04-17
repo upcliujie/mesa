@@ -150,8 +150,14 @@ vk_debug_report(struct vk_instance *instance,
                 const char* pLayerPrefix,
                 const char *pMessage)
 {
-   VkDebugReportObjectTypeEXT object_type =
-      object ? object->type : VK_OBJECT_TYPE_UNKNOWN;
-   debug_report(instance, flags, object_type, (uint64_t)(uintptr_t)object,
+   VkObjectType object_type = object ? object->type : VK_OBJECT_TYPE_UNKNOWN;
+
+   /* Cast to VkDebugReportObjectTypeEXT. Note that the enums are not fully
+    * synchronized. Values after VK_OBJECT_TYPE_COMMAND_POOL start to differ.
+    */
+   VkDebugReportObjectTypeEXT report_type =
+      (VkDebugReportObjectTypeEXT)object_type;
+
+   debug_report(instance, flags, report_type, (uint64_t)(uintptr_t)object,
                 location, messageCode, pLayerPrefix, pMessage);
 }
