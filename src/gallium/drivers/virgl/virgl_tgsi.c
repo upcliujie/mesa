@@ -109,8 +109,6 @@ virgl_tgsi_transform_declaration(struct tgsi_transform_context *ctx,
                                                    TGSI_SEMANTIC_BLOCK_ID);
       virgl_tgsi_transform_declaration_input_temp(decl, &vtctx->input_temp[INPUT_TEMP_HELPER_INVOCATION],
                                                    TGSI_SEMANTIC_HELPER_INVOCATION);
-      virgl_tgsi_transform_declaration_input_temp(decl, &vtctx->input_temp[INPUT_TEMP_SAMPLEMASK],
-                                                   TGSI_SEMANTIC_SAMPLEMASK);
       break;
    case TGSI_FILE_OUTPUT:
       switch (decl->Semantic.Name) {
@@ -219,7 +217,6 @@ virgl_tgsi_transform_prolog(struct tgsi_transform_context * ctx)
     */
    virgl_mov_input_temp_sint(ctx, &vtctx->input_temp[INPUT_TEMP_LAYER]);
    virgl_mov_input_temp_sint(ctx, &vtctx->input_temp[INPUT_TEMP_VIEWPORT_INDEX]);
-   virgl_mov_input_temp_sint(ctx, &vtctx->input_temp[INPUT_TEMP_SAMPLEMASK]);
 
    /* virglrenderer also makes mistakes in the types of block id input
     * references from signed ops, so we use a temp that we do a plain MOV to at
@@ -393,6 +390,8 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
       struct tgsi_full_instruction op_to_temp = *inst;
       op_to_temp.Dst[0].Register.File = TGSI_FILE_TEMPORARY;
       op_to_temp.Dst[0].Register.Index = vtctx->src_temp;
+      op_to_temp.Dst[0].Dimension.Indirect = 0;
+      op_to_temp.Dst[0].Register.Indirect = 0;
       ctx->emit_instruction(ctx, &op_to_temp);
 
       inst->Instruction.Opcode = TGSI_OPCODE_MOV;
