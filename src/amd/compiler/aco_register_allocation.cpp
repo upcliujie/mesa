@@ -2720,6 +2720,60 @@ register_allocation(Program* program, std::vector<IDSet>& live_out_per_block, ra
             }
          }
 
+         /* try to optimize sop2 with literal source to sopk */
+         if (instr->opcode == aco_opcode::s_add_i32 || instr->opcode == aco_opcode::s_mul_i32 ||
+             instr->opcode == aco_opcode::s_cselect_b32) {
+
+            bool use_sopk = true;
+            uint32_t literal_idx = 0;
+
+            if (instr->opcode != aco_opcode::s_cselect_b32 && instr->operands[1].isLiteral())
+               literal_idx = 1;
+
+            unsigned def_id = instr->definitions[0].tempId();
+            if (ctx.assignments[def_id].affinity) {
+               assignment& affinity = ctx.assignments[ctx.assignments[def_id].affinity];
+               if (affinity.assigned && affinity.reg != instr->operands[!literal_idx].physReg() &&
+                   !register_file.test(affinity.reg, instr->operands[!literal_idx].bytes()))
+                  use_sopk = false;
+            }
+
+            if (!instr->operands[!literal_idx].isTemp() ||
+                !instr->operands[!literal_idx].isKillBeforeDef() ||
+                instr->operands[!literal_idx].getTemp().type() != RegType::sgpr)
+               use_sopk = false;
+
+            if (!instr->operands[literal_idx].isLiteral()) {
+               use_sopk = false;
+            } else {
+               const uint32_t i16_mask = 0xffff8000u;
+               uint32_t value = instr->operands[literal_idx].constantValue();
+               if ((value & i16_mask) && (value & i16_mask) != i16_mask)
+                  use_sopk = false;
+            }
+
+            if (use_sopk) {
+               static_assert(sizeof(SOPK_instruction) <= sizeof(SOP2_instruction),
+                             "Invalid direct instruction cast.");
+               instr->format = Format::SOPK;
+               SOPK_instruction* instr_sopk = &instr->sopk();
+
+               instr_sopk->imm = instr_sopk->operands[literal_idx].constantValue() & 0xffff;
+               if (literal_idx == 0)
+                  std::swap(instr_sopk->operands[0], instr_sopk->operands[1]);
+               if (instr_sopk->operands.size() > 2)
+                  std::swap(instr_sopk->operands[1], instr_sopk->operands[2]);
+               instr_sopk->operands.pop_back();
+
+               switch (instr_sopk->opcode) {
+               case aco_opcode::s_add_i32: instr_sopk->opcode = aco_opcode::s_addk_i32; break;
+               case aco_opcode::s_mul_i32: instr_sopk->opcode = aco_opcode::s_mulk_i32; break;
+               case aco_opcode::s_cselect_b32: instr_sopk->opcode = aco_opcode::s_cmovk_i32; break;
+               default: unreachable("illegal instruction");
+               }
+            }
+         }
+
          /* handle definitions which must have the same register as an operand */
          if (instr->opcode == aco_opcode::v_interp_p2_f32 ||
              instr->opcode == aco_opcode::v_mac_f32 || instr->opcode == aco_opcode::v_fmac_f32 ||
@@ -2732,7 +2786,8 @@ register_allocation(Program* program, std::vector<IDSet>& live_out_per_block, ra
              instr->opcode == aco_opcode::v_dot4c_i32_i8) {
             instr->definitions[0].setFixed(instr->operands[2].physReg());
          } else if (instr->opcode == aco_opcode::s_addk_i32 ||
-                    instr->opcode == aco_opcode::s_mulk_i32) {
+                    instr->opcode == aco_opcode::s_mulk_i32 ||
+                    instr->opcode == aco_opcode::s_cmovk_i32) {
             instr->definitions[0].setFixed(instr->operands[0].physReg());
          } else if (instr->isMUBUF() && instr->definitions.size() == 1 &&
                     instr->operands.size() == 4) {
