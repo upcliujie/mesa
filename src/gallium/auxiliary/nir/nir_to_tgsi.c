@@ -523,6 +523,14 @@ ntt_allocate_regs(struct ntt_compile *c, nir_function_impl *impl)
    }
 }
 
+static void
+ntt_allocate_regs_unoptimized(struct ntt_compile *c, nir_function_impl *impl)
+{
+   for (int i = c->first_non_array_temp; i < c->num_temps; i++)
+      ureg_DECL_temporary(c->ureg);
+}
+
+
 /**
  * Try to find an iadd of a constant value with a non-constant value in the
  * nir_src's first component, returning the constant offset and replacing *src
@@ -3013,6 +3021,7 @@ ntt_emit_impl(struct ntt_compile *c, nir_function_impl *impl)
       _mesa_hash_table_insert(c->blocks, block, ntt_block);
    }
 
+
    ntt_setup_registers(c, &impl->registers);
 
    c->cur_block = ntt_block_from_nir(c, nir_start_block(impl));
@@ -3023,7 +3032,10 @@ ntt_emit_impl(struct ntt_compile *c, nir_function_impl *impl)
    /* Emit the ntt insns */
    ntt_emit_cf_list(c, &impl->body);
 
-   ntt_allocate_regs(c, impl);
+   if (!c->options->unoptimized_ra)
+      ntt_allocate_regs(c, impl);
+   else
+      ntt_allocate_regs_unoptimized(c, impl);
 
    /* Turn the ntt insns into actual TGSI tokens */
    ntt_emit_cf_list_ureg(c, &impl->body);
