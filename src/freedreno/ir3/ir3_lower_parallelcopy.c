@@ -23,6 +23,12 @@
 
 #include "ir3_ra.h"
 #include "ir3_shader.h"
+#include "util/u_lower_parallel_copy.h"
+
+struct copy_data {
+   struct ir3_compiler *compiler;
+   struct ir3_instruction *instr;
+};
 
 struct copy_src {
    unsigned flags;
@@ -45,6 +51,36 @@ static unsigned
 copy_entry_size(const struct copy_entry *entry)
 {
    return (entry->flags & IR3_REG_HALF) ? 1 : 2;
+}
+
+static struct u_copy
+u_copy_for_entry(struct copy_entry entry)
+{
+   return (struct u_copy) {
+      .dst = entry.dst,
+      .src = entry.src.flags ? -entry.src.flags : entry.src.reg,
+      .size = copy_entry_size(&entry),
+      .user = entry.src.imm
+   };
+}
+
+static struct copy_entry
+entry_for_u_copy(struct u_copy uc)
+{
+   struct copy_entry ent = {
+      .dst = uc.dst,
+      .flags = (uc.size == 1) ? IR3_REG_HALF : 0,
+      .src = {
+         .flags = (uc.src < 0) ? -uc.src : 0,
+      }
+   };
+
+   if (ent.src.flags)
+      ent.src.imm = uc.user;
+   else
+      ent.src.reg = uc.src;
+
+   return ent;
 }
 
 static struct copy_src
@@ -102,8 +138,7 @@ do_swap(struct ir3_compiler *compiler, struct ir3_instruction *instr,
          physreg_t tmp = entry->dst < 2 ? 2 : 0;
 
          /* Swap src and the temporary */
-         do_swap(compiler, instr,
-                 &(struct copy_entry){
+         do_swap(compiler, instr, &(struct copy_entry){
                     .src = {.reg = entry->src.reg & ~1u},
                     .dst = tmp,
                     .flags = entry->flags & ~IR3_REG_HALF,
@@ -117,16 +152,14 @@ do_swap(struct ir3_compiler *compiler, struct ir3_instruction *instr,
             tmp + (entry->dst & 1u) : entry->dst;
 
          /* Do the original swap with src replaced with tmp */
-         do_swap(compiler, instr,
-                 &(struct copy_entry){
+         do_swap(compiler, instr, &(struct copy_entry){
                     .src = {.reg = tmp + (entry->src.reg & 1)},
                     .dst = dst,
                     .flags = entry->flags,
                  });
 
          /* Swap src and the temporary back */
-         do_swap(compiler, instr,
-                 &(struct copy_entry){
+         do_swap(compiler, instr, &(struct copy_entry){
                     .src = {.reg = entry->src.reg & ~1u},
                     .dst = tmp,
                     .flags = entry->flags & ~IR3_REG_HALF,
@@ -138,8 +171,7 @@ do_swap(struct ir3_compiler *compiler, struct ir3_instruction *instr,
        * let the case above handle it.
        */
       if (entry->dst >= RA_HALF_SIZE) {
-         do_swap(compiler, instr,
-                 &(struct copy_entry){
+         do_swap(compiler, instr, &(struct copy_entry){
                     .src = {.reg = entry->dst},
                     .dst = entry->src.reg,
                     .flags = entry->flags,
@@ -192,8 +224,7 @@ do_copy(struct ir3_compiler *compiler, struct ir3_instruction *instr,
          /* TODO: is there a hw instruction we can use for this case? */
          physreg_t tmp = !entry->src.flags && entry->src.reg < 2 ? 2 : 0;
 
-         do_swap(compiler, instr,
-                 &(struct copy_entry){
+         do_swap(compiler, instr, &(struct copy_entry){
                     .src = {.reg = entry->dst & ~1u},
                     .dst = tmp,
                     .flags = entry->flags & ~IR3_REG_HALF,
@@ -206,15 +237,13 @@ do_copy(struct ir3_compiler *compiler, struct ir3_instruction *instr,
          if (!src.flags && (src.reg & ~1u) == (entry->dst & ~1u))
             src.reg = tmp + (src.reg & 1u);
 
-         do_copy(compiler, instr,
-                 &(struct copy_entry){
+         do_copy(compiler, instr, &(struct copy_entry){
                     .src = src,
                     .dst = tmp + (entry->dst & 1),
                     .flags = entry->flags,
                  });
 
-         do_swap(compiler, instr,
-                 &(struct copy_entry){
+         do_swap(compiler, instr, &(struct copy_entry){
                     .src = {.reg = entry->dst & ~1u},
                     .dst = tmp,
                     .flags = entry->flags & ~IR3_REG_HALF,
@@ -267,250 +296,81 @@ do_copy(struct ir3_compiler *compiler, struct ir3_instruction *instr,
    ir3_instr_move_before(mov, instr);
 }
 
-struct copy_ctx {
-   /* For each physreg, the number of pending copy entries that use it as a
-    * source. Once this drops to zero, then the physreg is unblocked and can
-    * be moved to.
-    */
-   unsigned physreg_use_count[RA_MAX_FILE_SIZE];
-
-   /* For each physreg, the pending copy_entry that uses it as a dest. */
-   struct copy_entry *physreg_dst[RA_MAX_FILE_SIZE];
-
-   struct copy_entry entries[RA_MAX_FILE_SIZE];
-   unsigned entry_count;
-};
-
-static bool
-entry_blocked(struct copy_entry *entry, struct copy_ctx *ctx)
+static void
+handle_swap(const struct u_copy *uc, void *data)
 {
-   for (unsigned i = 0; i < copy_entry_size(entry); i++) {
-      if (ctx->physreg_use_count[entry->dst + i] != 0)
-         return true;
-   }
+   struct copy_entry entry = entry_for_u_copy(*uc);
+   struct copy_data *copy_data = data;
+   struct ir3_compiler *compiler = copy_data->compiler;
+   struct ir3_instruction *instr = copy_data->instr;
 
-   return false;
+   do_swap(compiler, instr, &entry);
 }
 
 static void
-split_32bit_copy(struct copy_ctx *ctx, struct copy_entry *entry)
+handle_copy(const struct u_copy *uc, void *data)
 {
-   assert(!entry->done);
-   assert(!(entry->src.flags & (IR3_REG_IMMED | IR3_REG_CONST)));
-   assert(copy_entry_size(entry) == 2);
-   struct copy_entry *new_entry = &ctx->entries[ctx->entry_count++];
+   struct copy_entry entry = entry_for_u_copy(*uc);
+   struct copy_data *copy_data = data;
+   struct ir3_compiler *compiler = copy_data->compiler;
+   struct ir3_instruction *instr = copy_data->instr;
 
-   new_entry->dst = entry->dst + 1;
-   new_entry->src.flags = entry->src.flags;
-   new_entry->src.reg = entry->src.reg + 1;
-   new_entry->done = false;
-   entry->flags |= IR3_REG_HALF;
-   new_entry->flags = entry->flags;
-   ctx->physreg_dst[entry->dst + 1] = new_entry;
-}
-
-static void
-_handle_copies(struct ir3_compiler *compiler, struct ir3_instruction *instr,
-               struct copy_ctx *ctx)
-{
-   /* Set up the bookkeeping */
-   memset(ctx->physreg_dst, 0, sizeof(ctx->physreg_dst));
-   memset(ctx->physreg_use_count, 0, sizeof(ctx->physreg_use_count));
-
-   for (unsigned i = 0; i < ctx->entry_count; i++) {
-      struct copy_entry *entry = &ctx->entries[i];
-      for (unsigned j = 0; j < copy_entry_size(entry); j++) {
-         if (!entry->src.flags)
-            ctx->physreg_use_count[entry->src.reg + j]++;
-
-         /* Copies should not have overlapping destinations. */
-         assert(!ctx->physreg_dst[entry->dst + j]);
-         ctx->physreg_dst[entry->dst + j] = entry;
-      }
-   }
-
-   bool progress = true;
-   while (progress) {
-      progress = false;
-
-      /* Step 1: resolve paths in the transfer graph. This means finding
-       * copies whose destination aren't blocked by something else and then
-       * emitting them, continuing this process until every copy is blocked
-       * and there are only cycles left.
-       *
-       * TODO: We should note that src is also available in dst to unblock
-       * cycles that src is involved in.
-       */
-
-      for (unsigned i = 0; i < ctx->entry_count; i++) {
-         struct copy_entry *entry = &ctx->entries[i];
-         if (!entry->done && !entry_blocked(entry, ctx)) {
-            entry->done = true;
-            progress = true;
-            do_copy(compiler, instr, entry);
-            for (unsigned j = 0; j < copy_entry_size(entry); j++) {
-               if (!entry->src.flags)
-                  ctx->physreg_use_count[entry->src.reg + j]--;
-               ctx->physreg_dst[entry->dst + j] = NULL;
-            }
-         }
-      }
-
-      if (progress)
-         continue;
-
-      /* Step 2: Find partially blocked copies and split them. In the
-       * mergedregs case, we can 32-bit copies which are only blocked on one
-       * 16-bit half, and splitting them helps get things moving.
-       *
-       * We can skip splitting copies if the source isn't a register,
-       * however, because it does not unblock anything and therefore doesn't
-       * contribute to making forward progress with step 1. These copies
-       * should still be resolved eventually in step 1 because they can't be
-       * part of a cycle.
-       */
-      for (unsigned i = 0; i < ctx->entry_count; i++) {
-         struct copy_entry *entry = &ctx->entries[i];
-         if (entry->done || entry->flags & IR3_REG_HALF)
-            continue;
-
-         if (((ctx->physreg_use_count[entry->dst] == 0 ||
-               ctx->physreg_use_count[entry->dst + 1] == 0)) &&
-             !(entry->src.flags & (IR3_REG_IMMED | IR3_REG_CONST))) {
-            split_32bit_copy(ctx, entry);
-            progress = true;
-         }
-      }
-   }
-
-   /* Step 3: resolve cycles through swapping.
-    *
-    * At this point, the transfer graph should consist of only cycles.
-    * The reason is that, given any physreg n_1 that's the source of a
-    * remaining entry, it has a destination n_2, which (because every
-    * copy is blocked) is the source of some other copy whose destination
-    * is n_3, and so we can follow the chain until we get a cycle. If we
-    * reached some other node than n_1:
-    *
-    *  n_1 -> n_2 -> ... -> n_i
-    *          ^             |
-    *          |-------------|
-    *
-    *  then n_2 would be the destination of 2 copies, which is illegal
-    *  (checked above in an assert). So n_1 must be part of a cycle:
-    *
-    *  n_1 -> n_2 -> ... -> n_i
-    *  ^                     |
-    *  |---------------------|
-    *
-    *  and this must be only cycle n_1 is involved in, because any other
-    *  path starting from n_1 would also have to end in n_1, resulting in
-    *  a node somewhere along the way being the destination of 2 copies
-    *  when the 2 paths merge.
-    *
-    *  The way we resolve the cycle is through picking a copy (n_1, n_2)
-    *  and swapping n_1 and n_2. This moves n_1 to n_2, so n_2 is taken
-    *  out of the cycle:
-    *
-    *  n_1 -> ... -> n_i
-    *  ^              |
-    *  |--------------|
-    *
-    *  and we can keep repeating this until the cycle is empty.
-    */
-
-   for (unsigned i = 0; i < ctx->entry_count; i++) {
-      struct copy_entry *entry = &ctx->entries[i];
-      if (entry->done)
-         continue;
-
-      assert(!entry->src.flags);
-
-      /* catch trivial copies */
-      if (entry->dst == entry->src.reg) {
-         entry->done = true;
-         continue;
-      }
-
-      do_swap(compiler, instr, entry);
-
-      /* Split any blocking copies whose sources are only partially
-       * contained within our destination.
-       */
-      if (entry->flags & IR3_REG_HALF) {
-         for (unsigned j = 0; j < ctx->entry_count; j++) {
-            struct copy_entry *blocking = &ctx->entries[j];
-
-            if (blocking->done)
-               continue;
-
-            if (blocking->src.reg <= entry->dst &&
-                blocking->src.reg + 1 >= entry->dst &&
-                !(blocking->flags & IR3_REG_HALF)) {
-               split_32bit_copy(ctx, blocking);
-            }
-         }
-      }
-
-      /* Update sources of blocking copies.
-       *
-       * Note: at this point, every blocking copy's source should be
-       * contained within our destination.
-       */
-      for (unsigned j = 0; j < ctx->entry_count; j++) {
-         struct copy_entry *blocking = &ctx->entries[j];
-         if (blocking->src.reg >= entry->dst &&
-             blocking->src.reg < entry->dst + copy_entry_size(entry)) {
-            blocking->src.reg =
-               entry->src.reg + (blocking->src.reg - entry->dst);
-         }
-      }
-
-      entry->done = true;
-   }
+   do_copy(compiler, instr, &entry);
 }
 
 static void
 handle_copies(struct ir3_shader_variant *v, struct ir3_instruction *instr,
               struct copy_entry *entries, unsigned entry_count)
 {
-   struct copy_ctx ctx;
+   struct copy_data data = {
+      .compiler = v->shader->compiler,
+      .instr = instr
+   };
+
+   struct lower_parallel_copy_options options = {
+      .num_regs = RA_MAX_FILE_SIZE,
+      .copy = handle_copy,
+      .swap = handle_swap,
+      .data = &data
+   };
+
+   struct u_copy copies[RA_MAX_FILE_SIZE];
+   unsigned copy_count = 0;
 
    /* handle shared copies first */
-   ctx.entry_count = 0;
    for (unsigned i = 0; i < entry_count; i++) {
       if (entries[i].flags & IR3_REG_SHARED)
-         ctx.entries[ctx.entry_count++] = entries[i];
+         copies[copy_count++] = u_copy_for_entry(entries[i]);
    }
-   _handle_copies(v->shader->compiler, instr, &ctx);
+   u_lower_parallel_copy(&options, copies, copy_count);
 
    if (v->mergedregs) {
       /* Half regs and full regs are in the same file, so handle everything
        * at once.
        */
-      ctx.entry_count = 0;
+      copy_count = 0;
       for (unsigned i = 0; i < entry_count; i++) {
          if (!(entries[i].flags & IR3_REG_SHARED))
-            ctx.entries[ctx.entry_count++] = entries[i];
+            copies[copy_count++] = u_copy_for_entry(entries[i]);
       }
-      _handle_copies(v->shader->compiler, instr, &ctx);
+      u_lower_parallel_copy(&options, copies, copy_count);
    } else {
       /* There may be both half copies and full copies, so we have to split
        * them up since they don't interfere.
        */
-      ctx.entry_count = 0;
+      copy_count = 0;
       for (unsigned i = 0; i < entry_count; i++) {
          if (entries[i].flags & IR3_REG_HALF)
-            ctx.entries[ctx.entry_count++] = entries[i];
+            copies[copy_count++] = u_copy_for_entry(entries[i]);
       }
-      _handle_copies(v->shader->compiler, instr, &ctx);
+      u_lower_parallel_copy(&options, copies, copy_count);
 
-      ctx.entry_count = 0;
+      copy_count = 0;
       for (unsigned i = 0; i < entry_count; i++) {
          if (!(entries[i].flags & (IR3_REG_HALF | IR3_REG_SHARED)))
-            ctx.entries[ctx.entry_count++] = entries[i];
+            copies[copy_count++] = u_copy_for_entry(entries[i]);
       }
-      _handle_copies(v->shader->compiler, instr, &ctx);
+      u_lower_parallel_copy(&options, copies, copy_count);
    }
 }
 
