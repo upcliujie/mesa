@@ -2360,7 +2360,9 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceRayTracingPipelinePropertiesKHR *props =
             (VkPhysicalDeviceRayTracingPipelinePropertiesKHR *)ext;
          props->shaderGroupHandleSize = RADV_RT_HANDLE_SIZE;
-         props->maxRayRecursionDepth = 31;    /* Minimum allowed for DXR. */
+         /* 31 is the minimum allowed for DXR. However amdgpu-pro currently only sets this to 1 and
+          * we should too as long as we don't properly support callables. */
+         props->maxRayRecursionDepth = 1;
          props->maxShaderGroupStride = 16384; /* dummy */
          props->shaderGroupBaseAlignment = 16;
          props->shaderGroupHandleCaptureReplaySize = 16;
