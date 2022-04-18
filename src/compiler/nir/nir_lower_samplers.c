@@ -198,7 +198,7 @@ nir_lower_cl_images(nir_shader *shader)
    BITSET_ZERO(shader->info.samplers_used);
    BITSET_ZERO(shader->info.textures_used);
    if (num_rd_images)
-      BITSET_SET_RANGE_INSIDE_WORD(shader->info.textures_used, 0, num_rd_images - 1);
+      BITSET_SET_RANGE(shader->info.textures_used, 0, num_rd_images - 1);
    shader->info.num_images = num_wr_images;
 
    last_loc = -1;
