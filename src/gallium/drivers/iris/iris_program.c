@@ -1038,11 +1038,15 @@ iris_setup_binding_table(const struct intel_device_info *devinfo,
       nir_foreach_instr (instr, block) {
          if (instr->type == nir_instr_type_tex) {
             nir_tex_instr *tex = nir_instr_as_tex(instr);
-            enum iris_surface_group group =
-               tex->texture_index < 64 ? IRIS_SURFACE_GROUP_TEXTURE_LOW64 :
-                                         IRIS_SURFACE_GROUP_TEXTURE_HIGH64;
-            tex->texture_index =
-               iris_group_index_to_bti(bt, group, tex->texture_index);
+            if (tex->texture_index < 64) {
+               tex->texture_index =
+                  iris_group_index_to_bti(bt, IRIS_SURFACE_GROUP_TEXTURE_LOW64,
+                                          tex->texture_index);
+            } else {
+               tex->texture_index =
+                  iris_group_index_to_bti(bt, IRIS_SURFACE_GROUP_TEXTURE_HIGH64,
+                                          tex->texture_index - 64);
+            }
             continue;
          }
 
