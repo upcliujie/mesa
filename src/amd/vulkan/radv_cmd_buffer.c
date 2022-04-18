@@ -2818,7 +2818,7 @@ lookup_vs_prolog(struct radv_cmd_buffer *cmd_buffer, struct radv_shader *vs_shad
       return prolog;
 
    /* if we couldn't use a pre-compiled prolog, find one in the cache or create one */
-   uint32_t key_words[16];
+   uint32_t key_words[17];
    unsigned key_size = 1;
 
    struct radv_vs_prolog_key key;
@@ -2846,6 +2846,13 @@ lookup_vs_prolog(struct radv_cmd_buffer *cmd_buffer, struct radv_shader *vs_shad
    if (*nontrivial_divisors) {
       header.nontrivial_divisors = true;
       key_words[key_size++] = *nontrivial_divisors;
+
+      uint32_t zero_divisors = 0;
+      for (uint32_t i = 0; i < MAX_VERTEX_ATTRIBS; i++) {
+         if (*nontrivial_divisors & (1 << i) && state->divisors[i] == 0)
+            zero_divisors |= 1u << i;
+      }
+      key_words[key_size++] = zero_divisors;
    }
    if (misaligned_mask) {
       header.misaligned_mask = true;
