@@ -28,13 +28,15 @@
 bool
 radv_enable_rt(const struct radv_physical_device *pdevice)
 {
-   return (pdevice->instance->perftest_flags & RADV_PERFTEST_RT) && !pdevice->use_llvm;
+   if (radv_emulate_rt(pdevice))
+      return (pdevice->instance->perftest_flags & RADV_PERFTEST_RT) && !pdevice->use_llvm;
+
+   return !pdevice->use_llvm;
 }
 
 bool
 radv_emulate_rt(const struct radv_physical_device *pdevice)
 {
-   assert(radv_enable_rt(pdevice));
    return pdevice->rad_info.chip_class < GFX10_3 ||
           (pdevice->instance->perftest_flags & RADV_PERFTEST_FORCE_EMULATE_RT);
 }
