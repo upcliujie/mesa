@@ -260,6 +260,15 @@ get_image_usage_for_feats(struct zink_screen *screen, VkFormatFeatureFlags feats
          usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
          if ((bind & (PIPE_BIND_LINEAR | PIPE_BIND_SHARED)) != (PIPE_BIND_LINEAR | PIPE_BIND_SHARED))
             usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+      } else if (templ->usage == PIPE_USAGE_STAGING && screen->info.have_NV_linear_color_attachment) {
+         VkFormatProperties2 props = {0};
+         VkFormatProperties3 props3 = {0};
+         props.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2;
+         props3.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3;
+         props.pNext = &props3;
+         VKSCR(GetPhysicalDeviceFormatProperties2)(screen->pdev, zink_get_format(screen, templ->format), &props);
+         if (props3.linearTilingFeatures & VK_FORMAT_FEATURE_2_LINEAR_COLOR_ATTACHMENT_BIT_NV)
+            usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       } else if (templ->nr_samples)
          /* this can't be populated, so we can't do it */
          return 0;
