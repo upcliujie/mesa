@@ -379,8 +379,11 @@ fn lower_and_optimize_nir_late(
 
     // asign locations for inline samplers
     let mut last_loc = -1;
-    for v in nir.variables_with_mode(nir_variable_mode::nir_var_uniform) {
+    for v in nir
+        .variables_with_mode(nir_variable_mode::nir_var_uniform | nir_variable_mode::nir_var_image)
+    {
         if unsafe { !glsl_type_is_sampler(v.type_) } {
+            last_loc = v.data.location;
             continue;
         }
         let s = unsafe { v.data.anon_1.sampler };
