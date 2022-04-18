@@ -5160,7 +5160,7 @@ iris_populate_binding_table(struct iris_context *ice,
    foreach_surface_used(i, IRIS_SURFACE_GROUP_SSBO) {
       uint32_t addr =
          use_ubo_ssbo(batch, ice, &shs->ssbo[i], &shs->ssbo_surf_state[i],
-                      shs->writable_ssbos & (1u << i), IRIS_DOMAIN_NONE);
+                      shs->writable_ssbos & (1u << i), IRIS_DOMAIN_DATA_WRITE);
       push_bt_entry(addr);
    }
 
