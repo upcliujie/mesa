@@ -916,9 +916,8 @@ static const struct debug_control radv_perftest_options[] = {{"localbos", RADV_P
                                                              {"gewave32", RADV_PERFTEST_GE_WAVE_32},
                                                              {"nosam", RADV_PERFTEST_NO_SAM},
                                                              {"sam", RADV_PERFTEST_SAM},
-                                                             {"rt", RADV_PERFTEST_RT},
                                                              {"nggc", RADV_PERFTEST_NGGC},
-                                                             {"force_emulate_rt", RADV_PERFTEST_FORCE_EMULATE_RT},
+                                                             {"emulate_rt", RADV_PERFTEST_EMULATE_RT},
                                                              {"nv_ms", RADV_PERFTEST_NV_MS},
                                                              {"rtwave64", RADV_PERFTEST_RT_WAVE_64},
                                                              {NULL, 0}};

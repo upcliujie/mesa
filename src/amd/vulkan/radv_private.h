@@ -1743,7 +1743,7 @@ struct radv_event {
 #define RADV_HASH_SHADER_USE_NGG_CULLING   (1 << 13)
 #define RADV_HASH_SHADER_ROBUST_BUFFER_ACCESS (1 << 14)
 #define RADV_HASH_SHADER_ROBUST_BUFFER_ACCESS2 (1 << 15)
-#define RADV_HASH_SHADER_FORCE_EMULATE_RT      (1 << 16)
+#define RADV_HASH_SHADER_EMULATE_RT            (1 << 16)
 #define RADV_HASH_SHADER_SPLIT_FMA             (1 << 17)
 #define RADV_HASH_SHADER_RT_WAVE64             (1 << 18)
 
