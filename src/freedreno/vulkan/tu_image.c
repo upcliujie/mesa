@@ -305,7 +305,7 @@ ubwc_possible(VkFormat format, VkImageType type, VkImageUsageFlags usage,
       return false;
 
    if (type == VK_IMAGE_TYPE_3D) {
-      tu_finishme("UBWC with 3D textures");
+      perf_debug("TODO: UBWC with 3D textures");
       return false;
    }
 
