@@ -191,6 +191,7 @@ nir_shader *brw_nir_create_passthrough_tcs(void *mem_ctx,
 
 bool brw_nir_move_interpolation_to_top(nir_shader *nir);
 bool brw_nir_demote_sample_qualifiers(nir_shader *nir);
+bool brw_nir_apply_sampler_snap_wa(nir_shader *nir);
 nir_ssa_def *brw_nir_load_global_const(nir_builder *b,
                                        nir_intrinsic_instr *load_uniform,
                                        nir_ssa_def *base_addr,
