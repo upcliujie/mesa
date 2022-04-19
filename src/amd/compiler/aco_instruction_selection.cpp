@@ -7285,7 +7285,8 @@ get_scratch_resource(isel_context* ctx)
    if (ctx->program->chip_class <= GFX8)
       rsrc_conf |= S_008F0C_ELEMENT_SIZE(1);
 
-   return bld.pseudo(aco_opcode::p_create_vector, bld.def(s4), scratch_addr, Operand::c32(-1u),
+   return bld.pseudo(aco_opcode::p_create_vector, bld.def(s4), scratch_addr,
+                     Operand::c32(ctx->program->scratch_size),
                      Operand::c32(rsrc_conf));
 }
 

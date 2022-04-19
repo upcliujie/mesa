@@ -944,6 +944,7 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
          scratch_size = std::max(scratch_size, shaders[i]->scratch_size);
    }
 
+   ctx.program->scratch_size = scratch_size;
    ctx.program->config->scratch_bytes_per_wave = align(scratch_size * ctx.program->wave_size, 1024);
 
    ctx.block = ctx.program->create_and_insert_block();
