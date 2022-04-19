@@ -217,6 +217,12 @@ zink_resource_has_binds(const struct zink_resource *res)
    return res->all_binds > 0;
 }
 
+static inline bool
+zink_is_swapchain(const struct zink_resource *res)
+{
+   return res->swapchain;
+}
+
 #ifndef __cplusplus
 #include "zink_bo.h"
 
