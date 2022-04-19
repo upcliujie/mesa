@@ -198,6 +198,8 @@ lower_rect(nir_builder *b, nir_tex_instr *tex)
     */
    tex->sampler_dim = GLSL_SAMPLER_DIM_2D;
 
+   b->cursor = nir_before_instr(&tex->instr);
+
    nir_ssa_def *txs = nir_i2f32(b, nir_get_texture_size(b, tex));
    nir_ssa_def *scale = nir_frcp(b, txs);
    int coord_index = nir_tex_instr_src_index(tex, nir_tex_src_coord);
@@ -555,6 +557,8 @@ lower_gradient_cube_map(nir_builder *b, nir_tex_instr *tex)
    assert(tex->op == nir_texop_txd);
    assert(tex->dest.is_ssa);
 
+   b->cursor = nir_before_instr(&tex->instr);
+
    /* Use textureSize() to get the width and height of LOD 0 */
    nir_ssa_def *size = nir_i2f32(b, nir_get_texture_size(b, tex));
 
@@ -721,6 +725,8 @@ lower_gradient(nir_builder *b, nir_tex_instr *tex)
       component_mask = 3;
       break;
    }
+
+   b->cursor = nir_before_instr(&tex->instr);
 
    nir_ssa_def *size =
       nir_channels(b, nir_i2f32(b, nir_get_texture_size(b, tex)),
