@@ -4123,11 +4123,11 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
        add_sample_positions) {
       uint32_t size = 0;
       if (gsvs_ring_bo || esgs_ring_bo || tess_rings_bo || add_sample_positions) {
-         size = 112; /* 2 dword + 2 padding + 4 dword * 6 */
+         size = 112; /* 4 dword (scratch or padding) + 4 dword * 6 */
          if (add_sample_positions)
             size += 128; /* 64+32+16+8 = 120 bytes */
       } else if (scratch_bo)
-         size = 8; /* 2 dword */
+         size = 16; /* 4 dword */
 
       result = queue->device->ws->buffer_create(
          queue->device->ws, size, 4096, RADEON_DOMAIN_VRAM,
@@ -4148,6 +4148,8 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
          uint32_t rsrc1 = S_008F04_BASE_ADDRESS_HI(scratch_va >> 32) | S_008F04_SWIZZLE_ENABLE(1);
          map[0] = scratch_va;
          map[1] = rsrc1;
+         map[2] = scratch_size;
+         map[3] = 0; /* not read by shaders */
       }
 
       if (esgs_ring_bo || gsvs_ring_bo || tess_rings_bo || add_sample_positions)
