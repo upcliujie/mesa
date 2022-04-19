@@ -4843,8 +4843,8 @@ resolve_excess_vmem_const_offset(Builder& bld, Temp& voffset, unsigned const_off
 
 void
 emit_single_mubuf_store(isel_context* ctx, Temp descriptor, Temp voffset, Temp soffset, Temp vdata,
-                        unsigned const_offset = 0u, memory_sync_info sync = memory_sync_info(),
-                        bool slc = false, bool swizzled = false)
+                        unsigned const_offset, memory_sync_info sync, bool glc, bool slc,
+                        bool swizzled)
 {
    assert(vdata.id());
    assert(vdata.size() != 3 || ctx->program->gfx_level != GFX6);
@@ -4856,7 +4856,7 @@ emit_single_mubuf_store(isel_context* ctx, Temp descriptor, Temp voffset, Temp s
 
    Operand voffset_op = voffset.id() ? Operand(as_vgpr(ctx, voffset)) : Operand(v1);
    Operand soffset_op = soffset.id() ? Operand(soffset) : Operand::zero();
-   bool glc = ctx->program->gfx_level < GFX11;
+   glc &= ctx->program->gfx_level < GFX11;
    Builder::Result r =
       bld.mubuf(op, Operand(descriptor), voffset_op, soffset_op, Operand(vdata), const_offset,
                 /* offen */ !voffset_op.isUndefined(), /* swizzled */ swizzled,
@@ -4869,8 +4869,7 @@ emit_single_mubuf_store(isel_context* ctx, Temp descriptor, Temp voffset, Temp s
 void
 store_vmem_mubuf(isel_context* ctx, Temp src, Temp descriptor, Temp voffset, Temp soffset,
                  unsigned base_const_offset, unsigned elem_size_bytes, unsigned write_mask,
-                 bool allow_combining = true, memory_sync_info sync = memory_sync_info(),
-                 bool slc = false)
+                 bool allow_combining, memory_sync_info sync, bool glc, bool slc)
 {
    Builder bld(ctx->program, ctx->block);
    assert(elem_size_bytes == 1 || elem_size_bytes == 2 || elem_size_bytes == 4 || elem_size_bytes == 8);
@@ -4886,7 +4885,7 @@ store_vmem_mubuf(isel_context* ctx, Temp src, Temp descriptor, Temp voffset, Tem
    for (unsigned i = 0; i < write_count; i++) {
       unsigned const_offset = offsets[i] + base_const_offset;
       emit_single_mubuf_store(ctx, descriptor, voffset, soffset, write_datas[i], const_offset, sync,
-                              slc, !allow_combining);
+                              glc, slc, !allow_combining);
    }
 }
 
@@ -4894,7 +4893,7 @@ void
 load_vmem_mubuf(isel_context* ctx, Temp dst, Temp descriptor, Temp voffset, Temp soffset,
                 unsigned base_const_offset, unsigned elem_size_bytes, unsigned num_components,
                 unsigned stride = 0u, bool allow_combining = true, bool allow_reorder = true,
-                bool slc = false, memory_sync_info sync = memory_sync_info())
+                bool glc = false, bool slc = false, memory_sync_info sync = memory_sync_info())
 {
    assert(elem_size_bytes == 1 || elem_size_bytes == 2 || elem_size_bytes == 4 || elem_size_bytes == 8);
    assert((num_components * elem_size_bytes) == dst.bytes());
@@ -4904,7 +4903,7 @@ load_vmem_mubuf(isel_context* ctx, Temp dst, Temp descriptor, Temp voffset, Temp
 
    LoadEmitInfo info = {Operand(voffset), dst, num_components, elem_size_bytes, descriptor};
    info.component_stride = allow_combining ? 0 : stride;
-   info.glc = true;
+   info.glc = glc;
    info.slc = slc;
    info.swizzle_component_size = allow_combining ? 0 : 4;
    info.align_mul = MIN2(elem_size_bytes, 4);
@@ -6963,6 +6962,7 @@ visit_load_buffer(isel_context* ctx, nir_intrinsic_instr* intrin)
    bool swizzled = nir_intrinsic_is_swizzled(intrin);
    bool reorder = nir_intrinsic_can_reorder(intrin);
    bool slc = nir_intrinsic_slc_amd(intrin);
+   bool glc = nir_intrinsic_access(intrin) & ACCESS_COHERENT;
 
    unsigned const_offset = nir_intrinsic_base(intrin);
    unsigned elem_size_bytes = intrin->dest.ssa.bit_size / 8u;
@@ -6973,7 +6973,7 @@ visit_load_buffer(isel_context* ctx, nir_intrinsic_instr* intrin)
    memory_sync_info sync(aco_storage_mode_from_nir_mem_mode(mem_mode));
 
    load_vmem_mubuf(ctx, dst, descriptor, v_offset, s_offset, const_offset, elem_size_bytes,
-                   num_components, swizzle_element_size, !swizzled, reorder, slc, sync);
+                   num_components, swizzle_element_size, !swizzled, reorder, glc, slc, sync);
 }
 
 void
@@ -6985,6 +6985,7 @@ visit_store_buffer(isel_context* ctx, nir_intrinsic_instr* intrin)
    Temp s_offset = get_ssa_temp(ctx, intrin->src[3].ssa);
 
    bool swizzled = nir_intrinsic_is_swizzled(intrin);
+   bool glc = nir_intrinsic_access(intrin) & ACCESS_COHERENT;
    bool slc = nir_intrinsic_slc_amd(intrin);
 
    unsigned const_offset = nir_intrinsic_base(intrin);
@@ -6995,7 +6996,7 @@ visit_store_buffer(isel_context* ctx, nir_intrinsic_instr* intrin)
    memory_sync_info sync(aco_storage_mode_from_nir_mem_mode(mem_mode));
 
    store_vmem_mubuf(ctx, store_src, descriptor, v_offset, s_offset, const_offset, elem_size_bytes,
-                    write_mask, !swizzled, sync, slc);
+                    write_mask, !swizzled, sync, glc, slc);
 }
 
 void
@@ -11553,7 +11554,7 @@ select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_
             Temp val = bld.tmp(v1);
             unsigned const_offset = offset * program->info.gs.vertices_out * 16 * 4;
             load_vmem_mubuf(&ctx, val, gsvs_ring, vtx_offset, Temp(), const_offset, 4, 1, 0u, true,
-                            true, true);
+                            true, true, true);
 
             ctx.outputs.mask[i] |= 1 << j;
             ctx.outputs.temps[i * 4u + j] = val;
