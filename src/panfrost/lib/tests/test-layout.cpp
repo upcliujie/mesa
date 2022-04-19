@@ -161,3 +161,34 @@ TEST(BlockSize, AFBCSuperblock64x4)
 
    EXPECT_TRUE(panfrost_afbc_is_wide(modifier));
 }
+
+/* dEQP-GLES3.functional.texture.format.compressed.etc1_2d_pot */
+TEST(Layout, ImplicitLayoutInterleavedETC2)
+{
+   struct pan_image_layout l = {
+      .modifier = DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED,
+      .format = PIPE_FORMAT_ETC2_RGB8,
+      .width = 128,
+      .height = 128,
+      .depth = 1,
+      .nr_samples = 1,
+      .dim = MALI_TEXTURE_DIMENSION_2D,
+      .nr_slices = 8
+   };
+
+   unsigned offsets[9] = {
+      0, 8192, 10240, 10752, 10880, 11008, 11136, 11264, 11392
+   };
+
+   ASSERT_TRUE(pan_image_layout_init(&l, NULL));
+
+   for (unsigned i = 0; i < 8; ++i) {
+      unsigned size = (offsets[i + 1] - offsets[i]);
+      EXPECT_EQ(l.slices[i].offset, offsets[i]);
+
+      if (size == 64)
+         EXPECT_TRUE(l.slices[i].size < 64);
+      else
+         EXPECT_EQ(l.slices[i].size, size);
+   }
+}
