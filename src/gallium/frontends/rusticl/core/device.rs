@@ -425,13 +425,7 @@ impl Device {
         if self.image_supported() {
             add_ext(1, 0, 0, "", "__opencl_c_images");
 
-            if !FORMATS
-                .iter()
-                .filter(|f| f.req_for_3d_image_write_ext)
-                .map(|f| self.formats.get(&f.cl_image_format).unwrap())
-                .map(|f| f.get(&CL_MEM_OBJECT_IMAGE3D).unwrap())
-                .any(|f| *f & cl_mem_flags::from(CL_MEM_WRITE_ONLY) == 0)
-            {
+            if self.image_3d_write_supported() {
                 add_ext(
                     1,
                     0,
@@ -544,6 +538,15 @@ impl Device {
       self.image_2d_size() >= 2048
     }
 
+    pub fn image_3d_write_supported(&self) -> bool {
+        !FORMATS
+            .iter()
+            .filter(|f| f.req_for_3d_image_write_ext)
+            .map(|f| self.formats.get(&f.cl_image_format).unwrap())
+            .map(|f| f.get(&CL_MEM_OBJECT_IMAGE3D).unwrap())
+            .any(|f| *f & cl_mem_flags::from(CL_MEM_WRITE_ONLY) == 0)
+    }
+
     pub fn image_write_count(&self) -> cl_uint {
         self.shader_param(pipe_shader_cap::PIPE_SHADER_CAP_MAX_SHADER_IMAGES) as cl_uint
     }
@@ -635,6 +638,15 @@ impl Device {
     pub fn helper_ctx(&self) -> impl HelperContextWrapper + '_ {
         HelperContext {
             lock: self.helper_ctx.lock().unwrap(),
+        }
+    }
+
+    pub fn cl_features(&self) -> clc_optional_features {
+        clc_optional_features {
+            fp64: self.doubles_supported(),
+            int64: self.long_supported(),
+            images: self.image_supported(),
+            images_write_3d: self.image_3d_write_supported(),
         }
     }
 }
