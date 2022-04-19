@@ -307,8 +307,13 @@ impl Program {
         let lib = options.contains("-create-library");
 
         let args = prepare_options(&options, dev);
-        let (spirv, log) =
-            spirv::SPIRVBin::from_clc(&self.src, &args, &Vec::new(), get_disk_cache());
+        let (spirv, log) = spirv::SPIRVBin::from_clc(
+            &self.src,
+            &args,
+            &Vec::new(),
+            get_disk_cache(),
+            dev.cl_features(),
+        );
 
         d.log = log;
         d.options = options;
@@ -353,7 +358,13 @@ impl Program {
         let d = Self::dev_build_info(&mut info, dev);
         let args = prepare_options(&options, dev);
 
-        let (spirv, log) = spirv::SPIRVBin::from_clc(&self.src, &args, headers, get_disk_cache());
+        let (spirv, log) = spirv::SPIRVBin::from_clc(
+            &self.src,
+            &args,
+            headers,
+            get_disk_cache(),
+            dev.cl_features(),
+        );
 
         d.spirv = spirv;
         d.log = log;
