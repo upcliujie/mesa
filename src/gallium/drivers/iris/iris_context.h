@@ -556,6 +556,9 @@ struct iris_shader_state {
    /** Bitfield of which sampler views are bound (non-null). */
    BITSET_DECLARE(bound_sampler_views, IRIS_MAX_TEXTURES);
 
+   /** Bitfield of which samplers need the snap workaround */
+   uint32_t samplers_need_snap_wa;
+
    /** Bitfield of which shader storage buffers are bound (non-null). */
    uint32_t bound_ssbos;
 

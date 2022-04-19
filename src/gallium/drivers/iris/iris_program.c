@@ -483,6 +483,7 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
    unsigned img_idx[PIPE_MAX_SHADER_IMAGES];
    unsigned variable_group_size_idx = -1;
    unsigned work_dim_idx = -1;
+   unsigned snap_wa_idx = -1;
    memset(ucp_idx, -1, sizeof(ucp_idx));
    memset(img_idx, -1, sizeof(img_idx));
 
@@ -642,6 +643,17 @@ iris_setup_uniforms(const struct brw_compiler *compiler,
             b.cursor = nir_before_instr(instr);
             offset = nir_iadd_imm(&b, intrin->src[0].ssa,
                                       nir_intrinsic_base(intrin));
+            break;
+         }
+         case nir_intrinsic_load_samplers_need_snap_wa_intel: {
+            if (snap_wa_idx == -1) {
+               snap_wa_idx = num_system_values++;
+               system_values[snap_wa_idx] =
+                  BRW_PARAM_BUILTIN_SAMPLERS_NEED_SNAP_WA;
+            }
+            b.cursor = nir_before_instr(instr);
+            offset = nir_imm_int(&b, system_values_start +
+                                     snap_wa_idx * sizeof(uint32_t));
             break;
          }
          default:
