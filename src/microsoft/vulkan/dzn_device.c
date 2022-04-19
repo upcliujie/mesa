@@ -80,6 +80,9 @@ dzn_physical_device_get_extensions(struct dzn_physical_device *pdev)
       .KHR_descriptor_update_template        = true,
       .KHR_draw_indirect_count               = true,
       .KHR_dynamic_rendering                 = true,
+      .KHR_maintenance1                      = true,
+      .KHR_maintenance2                      = true,
+      .KHR_maintenance3                      = true,
       .KHR_shader_draw_parameters            = true,
 #ifdef DZN_USE_WSI_PLATFORM
       .KHR_swapchain                         = true,
