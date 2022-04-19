@@ -170,6 +170,10 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
       VKSCR(FreeCommandBuffers)(screen->dev, bs->cmdpool, 1, &bs->barrier_cmdbuf);
    if (bs->cmdpool)
       VKSCR(DestroyCommandPool)(screen->dev, bs->cmdpool, NULL);
+   if (bs->host_barrier_cmdbuf)
+      VKSCR(FreeCommandBuffers)(screen->dev, bs->host_cmdpool, 1, &bs->host_barrier_cmdbuf);
+   if (bs->host_cmdpool)
+      VKSCR(DestroyCommandPool)(screen->dev, bs->host_cmdpool, NULL);
 
    util_dynarray_fini(&bs->zombie_samplers);
    util_dynarray_fini(&bs->dead_framebuffers);
@@ -196,6 +200,8 @@ create_batch_state(struct zink_context *ctx)
    cpci.queueFamilyIndex = screen->gfx_queue;
    if (VKSCR(CreateCommandPool)(screen->dev, &cpci, NULL, &bs->cmdpool) != VK_SUCCESS)
       goto fail;
+   if (VKSCR(CreateCommandPool)(screen->dev, &cpci, NULL, &bs->host_cmdpool) != VK_SUCCESS)
+      goto fail;
 
    VkCommandBufferAllocateInfo cbai = {0};
    cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -208,6 +214,25 @@ create_batch_state(struct zink_context *ctx)
 
    if (VKSCR(AllocateCommandBuffers)(screen->dev, &cbai, &bs->barrier_cmdbuf) != VK_SUCCESS)
       goto fail;
+
+   cbai.commandPool = bs->host_cmdpool;
+   if (VKSCR(AllocateCommandBuffers)(screen->dev, &cbai, &bs->host_barrier_cmdbuf) != VK_SUCCESS)
+      goto fail;
+
+   VkCommandBufferBeginInfo cbbi = {0};
+   cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+   if (VKSCR(BeginCommandBuffer)(bs->host_barrier_cmdbuf, &cbbi) != VK_SUCCESS)
+      goto fail;
+   VkMemoryBarrier mb;
+   mb.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+   mb.pNext = NULL;
+   mb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+   mb.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_HOST_READ_BIT;
+   VKSCR(CmdPipelineBarrier)(bs->host_barrier_cmdbuf,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_HOST_BIT,
+                             0, 1, &mb, 0, NULL, 0, NULL);
+   VKSCR(EndCommandBuffer)(bs->host_barrier_cmdbuf);
 
 #define SET_CREATE_OR_FAIL(ptr) \
    ptr = _mesa_pointer_set_create(bs); \
@@ -371,10 +396,11 @@ submit_queue(void *data, void *gdata, int thread_index)
    si[1].waitSemaphoreCount = util_dynarray_num_elements(&bs->wait_semaphores, VkSemaphore);
    si[1].pWaitSemaphores = bs->wait_semaphores.data;
    si[1].pWaitDstStageMask = bs->wait_semaphore_stages.data;
-   si[1].commandBufferCount = bs->has_barriers ? 2 : 1;
-   VkCommandBuffer cmdbufs[2] = {
+   si[1].commandBufferCount = bs->has_barriers ? 3 : 2;
+   VkCommandBuffer cmdbufs[] = {
       bs->barrier_cmdbuf,
       bs->cmdbuf,
+      bs->host_barrier_cmdbuf,
    };
    si[1].pCommandBuffers = bs->has_barriers ? cmdbufs : &cmdbufs[1];
 
