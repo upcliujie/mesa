@@ -874,6 +874,9 @@ system_value("color1", 4)
 # System value for internal compute shaders in radeonsi.
 system_value("user_data_amd", 4)
 
+# System value used for Intel sampler snap workaround
+system_value("samplers_need_snap_wa_intel", 1)
+
 # Barycentric coordinate intrinsics.
 #
 # These set up the barycentric coordinates for a particular interpolation.
