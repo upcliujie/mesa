@@ -7265,9 +7265,13 @@ get_scratch_resource(isel_context* ctx)
 {
    Builder bld(ctx->program, ctx->block);
    Temp scratch_addr = ctx->program->private_segment_buffer;
-   if (ctx->stage != compute_cs)
+   Temp rsrc_range = bld.copy(bld.def(s1), Operand::c32(-1u));
+   if (ctx->stage != compute_cs) {
+      rsrc_range =
+         bld.smem(aco_opcode::s_load_dword, bld.def(s1), scratch_addr, Operand::c32(8));
       scratch_addr =
          bld.smem(aco_opcode::s_load_dwordx2, bld.def(s2), scratch_addr, Operand::zero());
+   }
 
    uint32_t rsrc_conf =
       S_008F0C_ADD_TID_ENABLE(1) | S_008F0C_INDEX_STRIDE(ctx->program->wave_size == 64 ? 3 : 2);
@@ -7284,9 +7288,8 @@ get_scratch_resource(isel_context* ctx)
    /* older generations need element size = 4 bytes. element size removed in GFX9 */
    if (ctx->program->chip_class <= GFX8)
       rsrc_conf |= S_008F0C_ELEMENT_SIZE(1);
-
-   return bld.pseudo(aco_opcode::p_create_vector, bld.def(s4), scratch_addr, Operand::c32(-1u),
-                     Operand::c32(rsrc_conf));
+   return bld.pseudo(aco_opcode::p_create_vector, bld.def(s4), scratch_addr,
+                     rsrc_range, Operand::c32(rsrc_conf));
 }
 
 void
