@@ -849,6 +849,8 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
 
    OPT(nir_lower_tex, &tex_options);
    OPT(nir_normalize_cubemap_coords);
+   if (nir->info.stage == MESA_SHADER_KERNEL)
+      OPT(brw_nir_apply_sampler_snap_wa);
 
    OPT(nir_lower_global_vars_to_local);
 
