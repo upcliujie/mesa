@@ -302,9 +302,9 @@ static nir_ssa_def *
 handle_cube_gather(nir_builder *b, nir_tex_instr *tex, nir_ssa_def *coord)
 {
    tex->is_array = true;
+   b->cursor = nir_before_instr(&tex->instr);
    nir_ssa_def *tex_size = nir_get_texture_size(b, tex);
 
-   /* nir_get_texture_size puts the cursor before the tex op */
    b->cursor = nir_after_instr(coord->parent_instr);
 
    nir_ssa_def *const_05 = nir_imm_float(b, 0.5f);
