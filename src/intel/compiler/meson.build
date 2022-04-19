@@ -98,6 +98,7 @@ libintel_compiler_files = files(
   'brw_nir_rt.h',
   'brw_nir_rt.c',
   'brw_nir_rt_builder.h',
+  'brw_nir_sampler_snap_wa.c',
   'brw_nir_tcs_workarounds.c',
   'brw_nir_clamp_image_1d_2d_array_sizes.c',
   'brw_packed_float.c',
