@@ -392,6 +392,10 @@ do {                       \
 #define BITFIELD_RANGE(b, count) \
    (BITFIELD_MASK((b) + (count)) & ~BITFIELD_MASK(b))
 
+/** Set all bits up to excluding bit b */
+#define BITFIELD16_MASK(b)      \
+   (BITFIELD_BIT((b) == 16 ? 16 : (b) % 16) - 1)
+
 /** Set a single bit */
 #define BITFIELD64_BIT(b)      (1ull << (b))
 /** Set all bits up to excluding bit b */
