@@ -153,6 +153,7 @@ struct zink_resource {
       };
    };
 
+   bool swapchain;
    bool dmabuf_acquire;
    unsigned dt_stride;
 
