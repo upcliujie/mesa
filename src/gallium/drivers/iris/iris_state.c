@@ -2020,6 +2020,7 @@ wrap_mode_needs_border_color(unsigned wrap_mode)
 struct iris_sampler_state {
    union pipe_color_union border_color;
    bool needs_border_color;
+   bool needs_snap_wa;
 
    uint32_t sampler_state[GENX(SAMPLER_STATE_length)];
 
@@ -2129,6 +2130,11 @@ iris_create_sampler_state(struct pipe_context *ctx,
                              wrap_mode_needs_border_color(wrap_t) ||
                              wrap_mode_needs_border_color(wrap_r);
 
+   cso->needs_snap_wa = state->normalized_coords &&
+                        state->wrap_s == PIPE_TEX_WRAP_CLAMP_TO_EDGE &&
+                        state->wrap_t == PIPE_TEX_WRAP_CLAMP_TO_EDGE &&
+                        state->wrap_r == PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+
    fill_sampler_state(cso->sampler_state, state, state->max_anisotropy);
 
 #if GFX_VERx10 == 125
@@ -2162,12 +2168,22 @@ iris_bind_sampler_states(struct pipe_context *ctx,
       struct iris_sampler_state *state = states ? states[i] : NULL;
       if (shs->samplers[start + i] != state) {
          shs->samplers[start + i] = state;
+         if (state && state->needs_snap_wa) {
+            ice->state.shaders[stage].samplers_need_snap_wa |=
+               BITFIELD_BIT(start + i);
+         } else {
+            ice->state.shaders[stage].samplers_need_snap_wa &=
+               ~BITFIELD_BIT(start + i);
+         }
          dirty = true;
       }
    }
 
-   if (dirty)
+   if (dirty) {
       ice->state.stage_dirty |= IRIS_STAGE_DIRTY_SAMPLER_STATES_VS << stage;
+      if (p_stage == PIPE_SHADER_COMPUTE)
+         shs->sysvals_need_upload = true;
+   }
 }
 
 /**
@@ -3486,6 +3502,9 @@ upload_sysvals(struct iris_context *ice,
          value = ice->state.last_block[i];
       } else if (sysval == BRW_PARAM_BUILTIN_WORK_DIM) {
          value = grid->work_dim;
+      } else if (sysval == BRW_PARAM_BUILTIN_SAMPLERS_NEED_SNAP_WA) {
+         assert(stage == MESA_SHADER_COMPUTE);
+         value = ice->state.shaders[stage].samplers_need_snap_wa;
       } else {
          assert(!"unhandled system value");
       }
