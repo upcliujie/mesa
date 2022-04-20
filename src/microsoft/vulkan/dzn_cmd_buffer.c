@@ -4120,7 +4120,7 @@ dzn_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
                                               qpool->collect_buffer,
                                               dzn_query_pool_get_availability_offset(qpool, firstQuery + q),
                                               step);
-	 }
+         }
 
          dstOffset += stride;
       }
