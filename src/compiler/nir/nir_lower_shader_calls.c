@@ -795,6 +795,21 @@ rewrite_phis_to_pred(nir_block *block, nir_block *pred)
  * instruction.
  */
 static bool
+cursor_is_after_jump(nir_cursor cursor)
+{
+   switch (cursor.option) {
+   case nir_cursor_before_instr:
+   case nir_cursor_before_block:
+      return false;
+   case nir_cursor_after_instr:
+      return cursor.instr->type == nir_instr_type_jump;
+   case nir_cursor_after_block:
+      return nir_block_ends_in_jump(cursor.block);;
+   }
+   unreachable("Invalid cursor option");
+}
+
+static bool
 flatten_resume_if_ladder(nir_function_impl *impl,
                          nir_cursor *cursor,
                          nir_cf_node *parent_node,
@@ -951,7 +966,18 @@ found_resume:
       nir_cf_extract(&cf_list, nir_after_instr(resume_instr),
                                nir_after_cf_list(child_list));
    }
-   *cursor = nir_cf_reinsert(&cf_list, *cursor);
+
+   if (cursor_is_after_jump(*cursor)) {
+      /* If the resume instruction is in a loop, it's possible cf_list ends
+       * in a break or continue instruction, in which case we don't want to
+       * insert anything.  It's also possible we have an early return if
+       * someone hasn't lowered those yet.  In either case, nothing after that
+       * point executes in this context so we can delete it.
+       */
+      nir_cf_delete(&cf_list);
+   } else {
+      *cursor = nir_cf_reinsert(&cf_list, *cursor);
+   }
 
    if (!resume_node) {
       /* We want the resume to be the first "interesting" instruction */
