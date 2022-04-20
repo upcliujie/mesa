@@ -2922,10 +2922,16 @@ struct anv_cmd_ray_tracing_state {
    } scratch;
 };
 
+enum anv_pipeline_type {
+   ANV_PIPELINE_GRAPHICS,
+   ANV_PIPELINE_COMPUTE,
+   ANV_PIPELINE_RAY_TRACING,
+};
+
 /** State required while building cmd buffer */
 struct anv_cmd_state {
    /* PIPELINE_SELECT.PipelineSelection */
-   uint32_t                                     current_pipeline;
+   enum anv_pipeline_type                       current_pipeline;
    const struct intel_l3_config *               current_l3_config;
    uint32_t                                     last_aux_map_state;
 
@@ -3275,12 +3281,6 @@ struct anv_pipeline_executable {
 
    char *nir;
    char *disasm;
-};
-
-enum anv_pipeline_type {
-   ANV_PIPELINE_GRAPHICS,
-   ANV_PIPELINE_COMPUTE,
-   ANV_PIPELINE_RAY_TRACING,
 };
 
 struct anv_pipeline {
