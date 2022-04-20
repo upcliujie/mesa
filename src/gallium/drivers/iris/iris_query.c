@@ -173,10 +173,14 @@ write_value(struct iris_context *ice, struct iris_query *q, unsigned offset)
    struct iris_bo *bo = iris_resource_bo(q->query_state_ref.res);
 
    if (!iris_is_query_pipelined(q)) {
+      enum pipe_control_flags flags = PIPE_CONTROL_CS_STALL |
+                                      PIPE_CONTROL_STALL_AT_SCOREBOARD;
+      if (batch->name == IRIS_BATCH_COMPUTE)
+         flags &= ~PIPE_CONTROL_GRAPHICS_BITS;
+
       iris_emit_pipe_control_flush(batch,
                                    "query: non-pipelined snapshot write",
-                                   PIPE_CONTROL_CS_STALL |
-                                   PIPE_CONTROL_STALL_AT_SCOREBOARD);
+                                   flags);
       q->stalled = true;
    }
 
