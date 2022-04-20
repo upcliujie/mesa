@@ -67,6 +67,57 @@ sync_valid_fd(int fd)
 #endif
 	return true;
 }
+
+/* accumulate fd2 into fd1.  If *fd1 is not a valid fd then dup fd2,
+ * otherwise sync_merge() and close the old *fd1.  This can be used
+ * to implement the pattern:
+ *
+ *    init()
+ *    {
+ *       batch.fence_fd = -1;
+ *    }
+ *
+ *    // does *NOT* take ownership of fd
+ *    server_sync(int fd)
+ *    {
+ *       if (sync_accumulate("foo", &batch.fence_fd, fd)) {
+ *          ... error ...
+ *       }
+ *    }
+ */
+static inline int sync_accumulate(const char *name, int *fd1, int fd2)
+{
+	int ret;
+
+	assert(fd2 >= 0);
+
+	if (*fd1 < 0) {
+		*fd1 = dup(fd2);
+		return 0;
+	}
+
+#if ANDROID_API_LEVEL >= 26
+	/* sync_merge() only available in SDK 26. */
+	ret = sync_merge(name, *fd1, fd2);
+	if (ret < 0) {
+		/* leave *fd1 as it is */
+		return ret;
+	}
+#else
+	ret = sync_wait(*fd1, -1);
+	if (ret < 0) {
+		/* leave *fd1 as it is */
+		return ret;
+	}
+	ret = dup(fd2);
+#endif
+
+	close(*fd1);
+	*fd1 = ret;
+
+	return 0;
+}
+
 #else
 
 #ifndef SYNC_IOC_MERGE
@@ -157,24 +208,8 @@ sync_valid_fd(int fd)
 	return ioctl(fd, SYNC_IOC_FILE_INFO, &info) >= 0;
 }
 
-#endif /* !ANDROID */
-
 /* accumulate fd2 into fd1.  If *fd1 is not a valid fd then dup fd2,
- * otherwise sync_merge() and close the old *fd1.  This can be used
- * to implement the pattern:
- *
- *    init()
- *    {
- *       batch.fence_fd = -1;
- *    }
- *
- *    // does *NOT* take ownership of fd
- *    server_sync(int fd)
- *    {
- *       if (sync_accumulate("foo", &batch.fence_fd, fd)) {
- *          ... error ...
- *       }
- *    }
+ * otherwise sync_merge() and close the old *fd1.
  */
 static inline int sync_accumulate(const char *name, int *fd1, int fd2)
 {
@@ -198,6 +233,8 @@ static inline int sync_accumulate(const char *name, int *fd1, int fd2)
 
 	return 0;
 }
+
+#endif /* !ANDROID */
 
 /* Helper macro to complain if fd is non-negative and not a valid fence fd.
  * Sprinkle this around to help catch fd lifetime issues.
