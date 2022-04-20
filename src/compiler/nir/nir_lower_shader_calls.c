@@ -795,6 +795,41 @@ rewrite_phis_to_pred(nir_block *block, nir_block *pred)
  * instruction.
  */
 static bool
+cursor_is_after_jump(nir_cursor cursor)
+{
+   /* This is a cursor that was placed behind an instruction after stiching 2
+    * blocks. If the instruction is a jump, we should not append more
+    * instructions.
+    */
+   if (cursor.option == nir_cursor_after_instr)
+      return cursor.instr->type == nir_instr_type_jump;
+
+   /* This is a cursor that was placed behind a block after stiching 2
+    * blocks. If the last instruction of the block is a jump, we
+    * should not append more instructions.
+    */
+   if (cursor.option == nir_cursor_after_block) {
+      nir_instr *last_instr = nir_block_last_instr(cursor.block);
+      return last_instr && last_instr->type == nir_instr_type_jump;
+   }
+
+   /* This is a cursor placed before an instruction after stitching 2 blocks,
+    * the first block one being empty. The instruction should be the first in
+    * the block. The instruction and what follows should be discarded.
+    */
+   if (cursor.option == nir_cursor_before_instr) {
+      assert(nir_block_first_instr(cursor.instr->block) == cursor.instr);
+      return false;
+   }
+
+   /* If we haven't inserted anything in the current cursor, we should be at
+    * the top of the block. What follows to be discarded.
+    */
+   assert(cursor.option == nir_cursor_before_block);
+   return false;
+}
+
+static bool
 flatten_resume_if_ladder(nir_function_impl *impl,
                          nir_cursor *cursor,
                          nir_cf_node *parent_node,
@@ -963,7 +998,18 @@ found_resume:
       nir_cf_extract(&cf_list, nir_after_instr(resume_instr),
                                nir_after_cf_list(child_list));
    }
-   *cursor = nir_cf_reinsert(&cf_list, *cursor);
+
+   if (cursor_is_after_jump(*cursor)) {
+      /* If the resume instruction is in a loop, it's possible cf_list ends
+       * in a break or continue instruction, in which case we don't want to
+       * insert anything.  It's also possible we have an early return if
+       * someone hasn't lowered those yet.  In either case, nothing after that
+       * point executes in this context so we can delete it.
+       */
+      nir_cf_delete(&cf_list);
+   } else {
+      *cursor = nir_cf_reinsert(&cf_list, *cursor);
+   }
 
    if (!resume_node) {
       /* We want the resume to be the first "interesting" instruction */
