@@ -2070,6 +2070,9 @@ genX(emit_apply_pipe_flushes)(struct anv_batch *batch,
                               enum anv_pipeline_type current_pipeline,
                               enum anv_pipe_bits bits)
 {
+   if (current_pipeline == ANV_PIPELINE_COMPUTE)
+      assert(!(bits & ANV_PIPE_GRAPHICS_BITS));
+
    /*
     * From Sandybridge PRM, volume 2, "1.7.2 End-of-Pipe Synchronization":
     *
