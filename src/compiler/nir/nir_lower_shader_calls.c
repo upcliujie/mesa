@@ -919,10 +919,26 @@ flatten_resume_if_ladder(nir_function_impl *impl,
             nir_block *header = nir_loop_first_block(loop);
             nir_if *_if = nir_cf_node_as_if(nir_cf_node_next(&header->cf_node));
 
+            nir_builder b;
+            nir_builder_init(&b, impl);
+            b.cursor = nir_before_cf_list(&_if->then_list);
             /* We want to place anything re-materialized from inside the loop
              * at the top of the resume half of the loop.
+             *
+             * Because we're inside a loop, we might run into a break/continue
+             * instructions. We can't place those within a block of
+             * instructions, they need to be at the end of a block. So we
+             * build our own dummy block to place them.
              */
-            nir_cursor loop_cursor = nir_before_cf_list(&_if->then_list);
+            nir_if *dummy_if = nir_push_if(&b, nir_imm_true(&b));
+            nir_pop_if(&b, NULL);
+
+            /* Put the cursor at the end of the dummy block, this is important
+             * so that successive insertions are ordered. It is also important
+             * to detect if the last instruction is a jump (see after
+             * found_resume label).
+             */
+            nir_cursor loop_cursor = nir_after_cf_list(&dummy_if->then_list);
 
             ASSERTED bool found =
                flatten_resume_if_ladder(impl, &loop_cursor,
@@ -1005,7 +1021,18 @@ found_resume:
     * cursor.  Delete everything else.
     */
    if (child_list_contains_cursor) {
-      nir_cf_extract(&cf_list, *cursor, nir_after_cf_list(child_list));
+      /* The cursor is the location at which we insert instructions. In the
+       * cases of loops, the cursor might be inside the dummy if block.
+       *
+       * For nir_cf_extract() to work, both points need to be at the same
+       * depth in the CF. We start here by going up the CF until we have the
+       * same parent as the child_list and we put the deletion cursor after
+       * the dummy if block.
+       */
+      nir_cursor delete_cursor = *cursor;
+      while (nir_cursor_current_block(delete_cursor)->cf_node.parent != parent_node)
+         delete_cursor = nir_after_cf_node(nir_cursor_current_block(delete_cursor)->cf_node.parent);
+      nir_cf_extract(&cf_list, delete_cursor, nir_after_cf_list(child_list));
    } else {
       nir_cf_list_extract(&cf_list, child_list);
    }
@@ -1185,6 +1212,7 @@ nir_lower_shader_calls(nir_shader *shader,
       nir_instr *resume_instr = lower_resume(resume_shaders[i], i);
       replace_resume_with_halt(resume_shaders[i], resume_instr);
       nir_opt_remove_phis(resume_shaders[i]);
+      nir_opt_if(resume_shaders[i], false);
    }
 
    *resume_shaders_out = resume_shaders;
