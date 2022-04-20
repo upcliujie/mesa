@@ -4175,9 +4175,14 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       /* Currently ignored. */
       break;
    case nir_intrinsic_load_buffer_amd: {
+      bool idxen =
+         instr->src[3].ssa->parent_instr->type != nir_instr_type_load_const ||
+         nir_src_as_uint(instr->src[3]);
+
       LLVMValueRef descriptor = get_src(ctx, instr->src[0]);
       LLVMValueRef addr_voffset = get_src(ctx, instr->src[1]);
       LLVMValueRef addr_soffset = get_src(ctx, instr->src[2]);
+      LLVMValueRef vidx = idxen ? get_src(ctx, instr->src[3]) : NULL;
       unsigned num_components = instr->dest.ssa.num_components;
       unsigned const_offset = nir_intrinsic_base(instr);
       bool swizzled = nir_intrinsic_is_swizzled(instr);
@@ -4212,16 +4217,22 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
 
       LLVMValueRef voffset = LLVMBuildAdd(ctx->ac.builder, addr_voffset,
                                           LLVMConstInt(ctx->ac.i32, const_offset, 0), "");
-      result = ac_build_buffer_load(&ctx->ac, descriptor, num_components, NULL, voffset,
+      result = ac_build_buffer_load(&ctx->ac, descriptor, num_components, vidx, voffset,
                                     addr_soffset, channel_type, cache_policy, reorder, false);
+
       result = ac_to_integer(&ctx->ac, ac_trim_vector(&ctx->ac, result, num_components));
       break;
    }
    case nir_intrinsic_store_buffer_amd: {
+      bool idxen =
+         instr->src[4].ssa->parent_instr->type != nir_instr_type_load_const ||
+         nir_src_as_uint(instr->src[4]);
+
       LLVMValueRef store_data = get_src(ctx, instr->src[0]);
       LLVMValueRef descriptor = get_src(ctx, instr->src[1]);
       LLVMValueRef addr_voffset = get_src(ctx, instr->src[2]);
       LLVMValueRef addr_soffset = get_src(ctx, instr->src[3]);
+      LLVMValueRef vidx = idxen ? get_src(ctx, instr->src[4]) : NULL;
       unsigned const_offset = nir_intrinsic_base(instr);
       bool swizzled = nir_intrinsic_is_swizzled(instr);
       bool glc = nir_intrinsic_access(instr) & ACCESS_COHERENT;
@@ -4237,7 +4248,7 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
 
       LLVMValueRef voffset = LLVMBuildAdd(ctx->ac.builder, addr_voffset,
                                           LLVMConstInt(ctx->ac.i32, const_offset, 0), "");
-      ac_build_buffer_store_dword(&ctx->ac, descriptor, store_data, NULL, voffset, addr_soffset,
+      ac_build_buffer_store_dword(&ctx->ac, descriptor, store_data, vidx, voffset, addr_soffset,
                                   cache_policy);
       break;
    }
