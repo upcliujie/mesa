@@ -909,7 +909,7 @@ dzn_instance_add_physical_device(struct dzn_instance *instance,
        !(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))
       return VK_SUCCESS;
 
-    return dzn_physical_device_create(instance, adapter, &desc);
+   return dzn_physical_device_create(instance, adapter, &desc);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -954,8 +954,8 @@ dzn_EnumeratePhysicalDevices(VkInstance inst,
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_EnumerateInstanceVersion(uint32_t *pApiVersion)
 {
-    *pApiVersion = DZN_API_VERSION;
-    return VK_SUCCESS;
+   *pApiVersion = DZN_API_VERSION;
+   return VK_SUCCESS;
 }
 
 static bool
@@ -1170,7 +1170,7 @@ dzn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       }
       default:
          dzn_debug_ignored_stype(ext->sType);
-	 break;
+         break;
       }
    }
 }
