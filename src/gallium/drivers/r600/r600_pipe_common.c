@@ -576,6 +576,14 @@ static bool r600_resource_commit(struct pipe_context *pctx,
 	return ctx->ws->buffer_commit(ctx->ws, res->buf, box->x, box->width, commit);
 }
 
+static void r600_set_frontend_noop(struct pipe_context *ctx, bool enable)
+{
+   struct r600_context *rctx = (struct r600_context *)ctx;
+
+   ctx->flush(ctx, NULL, PIPE_FLUSH_ASYNC);
+   rctx->is_noop = enable;
+}
+
 bool r600_common_context_init(struct r600_common_context *rctx,
 			      struct r600_common_screen *rscreen,
 			      unsigned context_flags)
@@ -600,6 +608,7 @@ bool r600_common_context_init(struct r600_common_context *rctx,
 	rctx->b.set_debug_callback = r600_set_debug_callback;
 	rctx->b.fence_server_sync = r600_fence_server_sync;
 	rctx->dma_clear_buffer = r600_dma_clear_buffer_fallback;
+	rctx->b.set_frontend_noop = r600_set_frontend_noop;
 
 	/* evergreen_compute.c has a special codepath for global buffers.
 	 * Everything else can use the direct path.
