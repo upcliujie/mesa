@@ -635,7 +635,7 @@ dzn_pipeline_layout_ref(struct dzn_pipeline_layout *layout);
 void
 dzn_pipeline_layout_unref(struct dzn_pipeline_layout *layout);
 
-#define MAX_RTS 8
+#define MAX_RTS D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT
 #define MAX_INPUT_ATTACHMENTS 4
 
 struct dzn_subpass {
