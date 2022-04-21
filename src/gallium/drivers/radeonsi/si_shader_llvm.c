@@ -174,6 +174,9 @@ void si_llvm_create_func(struct si_shader_context *ctx, const char *name, LLVMTy
    case MESA_SHADER_COMPUTE:
       call_conv = AC_LLVM_AMDGPU_CS;
       break;
+   case MESA_SHADER_KERNEL:
+      call_conv = AC_LLVM_AMDGPU_KERNEL;
+      break;
    default:
       unreachable("Unhandle shader type");
    }
@@ -207,6 +210,38 @@ void si_llvm_create_main_func(struct si_shader_context *ctx, bool ngg_cull_shade
 
    si_llvm_create_func(ctx, ngg_cull_shader ? "ngg_cull_main" : "main", returns,
                        ctx->args.return_count, si_get_max_workgroup_size(shader));
+
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      LLVMValueRef values[3];
+      for (i = 0; i < 3; i++)
+         values[i] = ctx->ac.i32_0;
+      if (shader->selector->info.uses_block_id[0])
+         values[0] = ac_build_intrinsic(&ctx->ac,
+                                        "llvm.amdgcn.workgroup.id.x", ctx->ac.i32,
+                                        NULL, 0, AC_FUNC_ATTR_READNONE);
+      if (shader->selector->info.uses_block_id[1])
+         values[1] = ac_build_intrinsic(&ctx->ac,
+                                        "llvm.amdgcn.workgroup.id.y", ctx->ac.i32,
+                                        NULL, 0, AC_FUNC_ATTR_READNONE);
+      if (shader->selector->info.uses_block_id[2])
+         values[2] = ac_build_intrinsic(&ctx->ac,
+                                        "llvm.amdgcn.workgroup.id.z", ctx->ac.i32,
+                                        NULL, 0, AC_FUNC_ATTR_READNONE);
+
+      ctx->abi.kernel_workgroup_ids = ac_build_gather_values(&ctx->ac, values, 3);
+
+      values[0] = ac_build_intrinsic(&ctx->ac,
+                                     "llvm.amdgcn.workitem.id.x", ctx->ac.i32,
+                                     NULL, 0, AC_FUNC_ATTR_READNONE);
+      values[1] = ac_build_intrinsic(&ctx->ac,
+                                     "llvm.amdgcn.workitem.id.y", ctx->ac.i32,
+                                     NULL, 0, AC_FUNC_ATTR_READNONE);
+      values[2] = ac_build_intrinsic(&ctx->ac,
+                                     "llvm.amdgcn.workitem.id.z", ctx->ac.i32,
+                                     NULL, 0, AC_FUNC_ATTR_READNONE);
+
+      ctx->abi.kernel_local_invocation_ids = ac_build_gather_values(&ctx->ac, values, 3);
+   }
 
    /* Reserve register locations for VGPR inputs the PS prolog may need. */
    if (ctx->stage == MESA_SHADER_FRAGMENT && !ctx->shader->is_monolithic) {
@@ -414,6 +449,26 @@ static LLVMValueRef si_llvm_get_block_size(struct ac_shader_abi *abi)
 {
    struct si_shader_context *ctx = si_shader_context_from_abi(abi);
 
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      LLVMValueRef result;
+      LLVMValueRef values[3];
+      LLVMValueRef ptr = ac_build_intrinsic(&ctx->ac,
+                                            "llvm.amdgcn.dispatch.ptr",
+                                            LLVMPointerType(ctx->ac.i8, AC_ADDR_SPACE_CONST), NULL, 0,
+                                            AC_FUNC_ATTR_READNONE);
+
+      ptr = ac_cast_ptr(&ctx->ac, ptr, ctx->ac.i32);
+      result = ac_build_load(&ctx->ac, ptr, ctx->ac.i32_1);
+      values[0] = LLVMBuildAnd(ctx->ac.builder, result,
+                               LLVMConstInt(ctx->ac.i32, 0xffff, 0), "");
+      values[1] = LLVMBuildAShr(ctx->ac.builder, result, LLVMConstInt(ctx->ac.i32, 16, 0), "");
+      values[2] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 2, 0));
+      values[2] = LLVMBuildAnd(ctx->ac.builder, values[2],
+                               LLVMConstInt(ctx->ac.i32, 0xffff, 0), "");
+
+      return ac_build_gather_values(&ctx->ac, values, 3);
+   }
+
    assert(ctx->shader->selector->info.base.workgroup_size_variable &&
           ctx->shader->selector->info.uses_variable_block_size);
 
@@ -423,6 +478,27 @@ static LLVMValueRef si_llvm_get_block_size(struct ac_shader_abi *abi)
       si_unpack_param(ctx, ctx->block_size, 20, 10),
    };
    return ac_build_gather_values(&ctx->ac, chan, 3);
+}
+
+static LLVMValueRef si_llvm_get_grid_size(struct ac_shader_abi *abi)
+{
+   struct si_shader_context *ctx = si_shader_context_from_abi(abi);
+
+   if (ctx->stage == MESA_SHADER_KERNEL) {
+      LLVMValueRef values[3];
+      LLVMValueRef ptr = ac_build_intrinsic(&ctx->ac,
+                                            "llvm.amdgcn.dispatch.ptr",
+                                            LLVMPointerType(ctx->ac.i8, AC_ADDR_SPACE_CONST), NULL, 0,
+                                            AC_FUNC_ATTR_READNONE);
+
+      ptr = ac_cast_ptr(&ctx->ac, ptr, ctx->ac.i32);
+      values[0] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 3, 0));
+      values[1] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 4, 0));
+      values[2] = ac_build_load(&ctx->ac, ptr, LLVMConstInt(ctx->ac.i32, 5, 0));
+
+      return ac_build_gather_values(&ctx->ac, values, 3);
+   }
+   return NULL;
 }
 
 static void si_llvm_declare_compute_memory(struct si_shader_context *ctx)
@@ -874,7 +950,9 @@ bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shader *shad
       si_llvm_init_ps_callbacks(ctx);
       break;
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       ctx->abi.load_local_group_size = si_llvm_get_block_size;
+      ctx->abi.load_global_group_size = si_llvm_get_grid_size;
       break;
    default:
       assert(!"Unsupported shader type");
@@ -1297,7 +1375,8 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
    si_optimize_vs_outputs(&ctx);
 
    /* Make sure the input is a pointer and not integer followed by inttoptr. */
-   assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
+   if (ctx.stage != MESA_SHADER_KERNEL)
+      assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
 
    /* Compile to bytecode. */
    if (!si_compile_llvm(sscreen, &shader->binary, &shader->config, compiler, &ctx.ac, debug,

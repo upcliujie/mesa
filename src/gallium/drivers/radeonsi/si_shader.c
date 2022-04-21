@@ -223,6 +223,7 @@ unsigned si_get_max_workgroup_size(const struct si_shader *shader)
       return shader->selector->screen->info.chip_class >= GFX9 ? 128 : 0;
 
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       break; /* see below */
 
    default:
@@ -761,6 +762,10 @@ void si_init_shader_args(struct si_shader_context *ctx, bool ngg_cull_shader)
       else
          ac_add_arg(&ctx->args, AC_ARG_VGPR, 3, AC_ARG_INT, &ctx->args.local_invocation_ids);
       break;
+   case MESA_SHADER_KERNEL: {
+      si_nir_setup_kernel_args(ctx->shader->selector->nir, &ctx->args);
+      break;
+   }
    default:
       assert(0 && "unimplemented shader");
       return;
@@ -995,7 +1000,8 @@ static void si_calculate_max_simd_waves(struct si_shader *shader)
        */
       lds_per_wave = conf->lds_size * lds_increment + align(num_inputs * 48, lds_increment);
       break;
-   case MESA_SHADER_COMPUTE: {
+   case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL: {
          unsigned max_workgroup_size = si_get_max_workgroup_size(shader);
          lds_per_wave = (conf->lds_size * lds_increment) /
                         DIV_ROUND_UP(max_workgroup_size, shader->wave_size);
@@ -1028,7 +1034,8 @@ void si_shader_dump_stats_for_shader_db(struct si_screen *screen, struct si_shad
                                         struct util_debug_callback *debug)
 {
    const struct ac_shader_config *conf = &shader->config;
-   static const char *stages[] = {"VS", "TCS", "TES", "GS", "PS", "CS"};
+   static const char *stages[] = {"VS", "TCS", "TES", "GS", "PS", "CS",
+      "", "", "", "", "", "", "", "", "KERN"};
 
    if (screen->options.debug_disassembly)
       si_shader_dump_disassembly(screen, &shader->binary, shader->selector->info.stage,
@@ -1110,6 +1117,8 @@ const char *si_get_shader_name(const struct si_shader *shader)
       return "Pixel Shader";
    case MESA_SHADER_COMPUTE:
       return "Compute Shader";
+   case MESA_SHADER_KERNEL:
+      return "Kernel Shader";
    default:
       return "Unknown Shader";
    }
@@ -1229,6 +1238,7 @@ static void si_dump_shader_key(const struct si_shader *shader, FILE *f)
       break;
 
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       break;
 
    case MESA_SHADER_FRAGMENT:
@@ -1576,7 +1586,8 @@ bool si_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *compi
    }
 
    /* Validate SGPR and VGPR usage for compute to detect compiler bugs. */
-   if (sel->info.stage == MESA_SHADER_COMPUTE) {
+   if (sel->info.stage == MESA_SHADER_COMPUTE ||
+       sel->info.stage == MESA_SHADER_KERNEL) {
       unsigned max_vgprs =
          sscreen->info.num_physical_wave64_vgprs_per_simd * (shader->wave_size == 32 ? 2 : 1);
       unsigned max_sgprs = sscreen->info.num_physical_sgprs_per_simd;

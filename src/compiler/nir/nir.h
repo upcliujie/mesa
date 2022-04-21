@@ -3516,6 +3516,9 @@ typedef struct nir_shader_compiler_options {
    /** Backend supports fmulz (and ffmaz if lower_ffma32=false) */
    bool has_fmulz;
 
+   /* Pass the backend the compute kernel variables */
+   bool use_kernel_input_vars;
+
    /**
     * Is this the Intel vec4 backend?
     *
@@ -3594,6 +3597,16 @@ typedef struct nir_shader_compiler_options {
     * fragment task is far more than vertex one, so better left it disabled.
     */
    bool lower_varying_from_uniform;
+
+   /**
+    * Let global group size go to the backend.
+    */
+   bool has_global_group_size;
+
+   /**
+    * lower work dimension in frontend.
+    */
+   bool lower_work_dim;
 } nir_shader_compiler_options;
 
 typedef struct nir_shader {

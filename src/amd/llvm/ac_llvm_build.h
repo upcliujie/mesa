@@ -604,6 +604,7 @@ enum ac_llvm_calling_convention
    AC_LLVM_AMDGPU_GS = 88,
    AC_LLVM_AMDGPU_PS = 89,
    AC_LLVM_AMDGPU_CS = 90,
+   AC_LLVM_AMDGPU_KERNEL = 91,
    AC_LLVM_AMDGPU_HS = 93,
 };
 

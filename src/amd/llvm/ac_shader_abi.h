@@ -46,6 +46,9 @@ struct ac_shader_abi {
    LLVMValueRef color0, color1;
    LLVMValueRef user_data;
 
+   LLVMValueRef kernel_workgroup_ids;
+   LLVMValueRef kernel_local_invocation_ids;
+
    /* Varying -> attribute number mapping. Also NIR-only */
    unsigned fs_input_attr_indices[MAX_VARYING];
 
@@ -118,6 +121,8 @@ struct ac_shader_abi {
    LLVMValueRef (*load_sample_position)(struct ac_shader_abi *abi, LLVMValueRef sample_id);
 
    LLVMValueRef (*load_local_group_size)(struct ac_shader_abi *abi);
+
+   LLVMValueRef (*load_global_group_size)(struct ac_shader_abi *abi);
 
    LLVMValueRef (*load_sample_mask_in)(struct ac_shader_abi *abi);
 

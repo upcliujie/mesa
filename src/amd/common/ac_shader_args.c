@@ -68,3 +68,15 @@ void ac_add_return(struct ac_shader_args *info, enum ac_arg_regfile regfile)
 
    info->return_count++;
 }
+
+void ac_add_kernel_arg(struct ac_shader_args *info,
+                       unsigned num_components,
+                       unsigned arg_type,
+                       unsigned offset)
+{
+   info->args[info->arg_count].file = AC_ARG_SGPR;
+   info->args[info->arg_count].offset = offset;
+   info->args[info->arg_count].size = num_components;
+   info->args[info->arg_count].type = arg_type;
+   info->arg_count++;
+}

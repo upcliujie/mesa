@@ -41,7 +41,10 @@ enum ac_arg_regfile
 enum ac_arg_type
 {
    AC_ARG_FLOAT,
+   AC_ARG_INT8,
+   AC_ARG_INT16,
    AC_ARG_INT,
+   AC_ARG_INT64,
    AC_ARG_CONST_PTR,       /* Pointer to i8 array */
    AC_ARG_CONST_FLOAT_PTR, /* Pointer to f32 array */
    AC_ARG_CONST_PTR_PTR,   /* Pointer to pointer to i8 array */
@@ -58,10 +61,10 @@ struct ac_arg {
 
 struct ac_shader_args {
    /* Info on how to declare arguments */
-   struct {
+   struct ac_shader_arg {
       enum ac_arg_type type;
       enum ac_arg_regfile file;
-      uint8_t offset;
+      uint16_t offset;
       uint8_t size;
       bool skip;
    } args[AC_MAX_ARGS];
@@ -153,4 +156,8 @@ void ac_add_arg(struct ac_shader_args *info, enum ac_arg_regfile regfile, unsign
                 enum ac_arg_type type, struct ac_arg *arg);
 void ac_add_return(struct ac_shader_args *info, enum ac_arg_regfile regfile);
 
+void ac_add_kernel_arg(struct ac_shader_args *info,
+                       unsigned num_components,
+                       unsigned arg_type,
+                       unsigned offset);
 #endif

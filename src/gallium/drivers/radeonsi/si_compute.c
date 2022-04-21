@@ -32,6 +32,7 @@
 #include "util/u_async_debug.h"
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
+#include "compiler/nir/nir_serialize.h"
 
 #define COMPUTE_DBG(sscreen, fmt, args...)                                                         \
    do {                                                                                            \
@@ -61,7 +62,7 @@ static const amd_kernel_code_t *si_compute_get_code_object(const struct si_compu
 {
    const struct si_shader_selector *sel = &program->sel;
 
-   if (program->ir_type != PIPE_SHADER_IR_NATIVE)
+   if (program->ir_type != PIPE_SHADER_IR_NATIVE && !program->is_nir_kernel)
       return NULL;
 
    struct ac_rtld_binary rtld;
@@ -119,10 +120,13 @@ static void si_create_compute_state_async(void *job, void *gdata, int thread_ind
    assert(!debug->debug_message || debug->async);
    assert(thread_index >= 0);
    assert(thread_index < ARRAY_SIZE(sscreen->compiler));
-   compiler = &sscreen->compiler[thread_index];
+   if (sel->nir->info.stage == MESA_SHADER_KERNEL)
+      compiler = &sscreen->kernel_compiler[thread_index];
+   else
+      compiler = &sscreen->compiler[thread_index];
 
    if (!compiler->passes)
-      si_init_compiler(sscreen, compiler);
+      si_init_compiler(sscreen, compiler, sel->nir->info.stage == MESA_SHADER_KERNEL);
 
    assert(program->ir_type == PIPE_SHADER_IR_NIR);
    si_nir_scan_shader(sel->nir, &sel->info);
@@ -243,9 +247,18 @@ static void *si_create_compute_state(struct pipe_context *ctx, const struct pipe
    program->ir_type = cso->ir_type;
    program->private_size = cso->req_private_mem;
    program->input_size = cso->req_input_mem;
-
+   program->is_nir_kernel = false;
    if (cso->ir_type != PIPE_SHADER_IR_NATIVE) {
-      if (cso->ir_type == PIPE_SHADER_IR_TGSI) {
+      if (cso->ir_type == PIPE_SHADER_IR_NIR_SERIALIZED) {
+         struct blob_reader reader;
+         const struct pipe_binary_program_header *hdr = cso->prog;
+
+         blob_reader_init(&reader, hdr->blob, hdr->num_bytes);
+         sel->nir = nir_deserialize(NULL, ctx->screen->get_compiler_options(ctx->screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE), &reader);
+         si_finalize_nir(ctx->screen, sel->nir);
+         program->ir_type = PIPE_SHADER_IR_NIR;
+         program->is_nir_kernel = true;
+     } else if (cso->ir_type == PIPE_SHADER_IR_TGSI) {
          program->ir_type = PIPE_SHADER_IR_NIR;
          sel->nir = tgsi_to_nir(cso->prog, ctx->screen, true);
       } else {
@@ -496,7 +509,7 @@ static bool si_switch_compute_shader(struct si_context *sctx, struct si_compute 
    if (sctx->cs_shader_state.emitted_program == program && sctx->cs_shader_state.offset == offset)
       return true;
 
-   if (program->ir_type != PIPE_SHADER_IR_NATIVE) {
+   if (program->ir_type != PIPE_SHADER_IR_NATIVE && !program->is_nir_kernel) {
       config = &shader->config;
    } else {
       unsigned lds_blocks;
@@ -543,7 +556,7 @@ static bool si_switch_compute_shader(struct si_context *sctx, struct si_compute 
    }
 
    shader_va = shader->bo->gpu_address + offset;
-   if (program->ir_type == PIPE_SHADER_IR_NATIVE) {
+   if (program->ir_type == PIPE_SHADER_IR_NATIVE || program->is_nir_kernel) {
       /* Shader code is placed after the amd_kernel_code_t
        * struct. */
       shader_va += sizeof(amd_kernel_code_t);
@@ -976,7 +989,7 @@ static void si_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info
    si_upload_compute_shader_descriptors(sctx);
    si_emit_compute_shader_pointers(sctx);
 
-   if (program->ir_type == PIPE_SHADER_IR_NATIVE &&
+   if ((program->ir_type == PIPE_SHADER_IR_NATIVE || program->is_nir_kernel) &&
        unlikely(!si_upload_compute_input(sctx, code_object, info)))
       return;
 

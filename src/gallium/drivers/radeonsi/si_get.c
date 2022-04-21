@@ -439,16 +439,20 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
    case PIPE_SHADER_CAP_LOWER_IF_THRESHOLD:
       return 4;
 
-   case PIPE_SHADER_CAP_SUPPORTED_IRS:
+   case PIPE_SHADER_CAP_SUPPORTED_IRS: {
       if (shader == PIPE_SHADER_COMPUTE) {
-         return (1 << PIPE_SHADER_IR_NATIVE) |
-                (sscreen->info.has_indirect_compute_dispatch ?
-                    (1 << PIPE_SHADER_IR_NIR) |
-                    (1 << PIPE_SHADER_IR_TGSI) : 0);
+         int ir = 0;
+         if (getenv("AMD_CL_NIR"))
+            ir |= 1 << PIPE_SHADER_IR_NIR_SERIALIZED;
+         else
+            ir |= 1 << PIPE_SHADER_IR_NATIVE;
+         return ir | (sscreen->info.has_indirect_compute_dispatch ?
+                      (1 << PIPE_SHADER_IR_NIR) |
+                      (1 << PIPE_SHADER_IR_TGSI) : 0);
       }
       return (1 << PIPE_SHADER_IR_TGSI) |
              (1 << PIPE_SHADER_IR_NIR);
-
+   }
    /* Supported boolean features. */
    case PIPE_SHADER_CAP_CONT_SUPPORTED:
    case PIPE_SHADER_CAP_TGSI_SQRT_SUPPORTED:
@@ -1031,6 +1035,10 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .lower_flrp64 = true,
       .lower_fsat = true,
       .lower_fdiv = true,
+      .lower_hadd = true,
+      .lower_uadd_sat = true,
+      .lower_iadd_sat = true,
+      .lower_hadd64 = true,
       .lower_bitfield_insert_to_bitfield_select = true,
       .lower_bitfield_extract = true,
       /*        |---------------------------------- Performance & Availability --------------------------------|
@@ -1102,6 +1110,9 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .support_indirect_inputs = BITFIELD_BIT(MESA_SHADER_TESS_CTRL) |
                                  BITFIELD_BIT(MESA_SHADER_TESS_EVAL),
       .support_indirect_outputs = BITFIELD_BIT(MESA_SHADER_TESS_CTRL),
+      .use_kernel_input_vars = true,
+      .has_global_group_size = true,
+      .lower_work_dim = true,
    };
    sscreen->nir_options = nir_options;
 }

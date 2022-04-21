@@ -4665,6 +4665,12 @@ static LLVMTypeRef arg_llvm_type(enum ac_arg_type type, unsigned size, struct ac
       return size == 1 ? ctx->f32 : LLVMVectorType(ctx->f32, size);
    } else if (type == AC_ARG_INT) {
       return size == 1 ? ctx->i32 : LLVMVectorType(ctx->i32, size);
+   } else if (type == AC_ARG_INT8) {
+      return size == 1 ? ctx->i8 : LLVMVectorType(ctx->i8, size);
+   } else if (type == AC_ARG_INT16) {
+      return size == 1 ? ctx->i16 : LLVMVectorType(ctx->i16, size);
+   } else if (type == AC_ARG_INT64) {
+      return size == 1 ? ctx->i64 : LLVMVectorType(ctx->i64, size);
    } else {
       LLVMTypeRef ptr_type;
       switch (type) {
