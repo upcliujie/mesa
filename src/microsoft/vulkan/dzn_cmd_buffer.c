@@ -3063,7 +3063,7 @@ dzn_CmdCopyImage2(VkCommandBuffer commandBuffer,
 
    assert(src->vk.samples == dst->vk.samples);
 
-   bool requires_temp_res = src->vk.format != dst->vk.format &&
+   bool requires_temp_res = src->desc.Format != dst->desc.Format &&
                             src->vk.tiling != VK_IMAGE_TILING_LINEAR &&
                             dst->vk.tiling != VK_IMAGE_TILING_LINEAR;
    bool use_blit = false;
