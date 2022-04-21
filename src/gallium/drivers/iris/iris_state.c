@@ -2130,10 +2130,12 @@ iris_create_sampler_state(struct pipe_context *ctx,
                              wrap_mode_needs_border_color(wrap_t) ||
                              wrap_mode_needs_border_color(wrap_r);
 
-   cso->needs_snap_wa = state->normalized_coords &&
-                        state->wrap_s == PIPE_TEX_WRAP_CLAMP_TO_EDGE &&
-                        state->wrap_t == PIPE_TEX_WRAP_CLAMP_TO_EDGE &&
-                        state->wrap_r == PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+   cso->needs_snap_wa = !state->normalized_coords &&
+                        state->min_img_filter == PIPE_TEX_FILTER_NEAREST &&
+                        state->mag_img_filter == PIPE_TEX_FILTER_NEAREST &&
+                        state->wrap_s == PIPE_TEX_WRAP_CLAMP_TO_BORDER &&
+                        state->wrap_t == PIPE_TEX_WRAP_CLAMP_TO_BORDER &&
+                        state->wrap_r == PIPE_TEX_WRAP_CLAMP_TO_BORDER;
 
    fill_sampler_state(cso->sampler_state, state, state->max_anisotropy);
 
