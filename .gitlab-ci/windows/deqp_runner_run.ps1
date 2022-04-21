@@ -15,6 +15,18 @@ New-ItemProperty -Path $hkey_path -Name $hkey_name -Value 0 -PropertyType DWORD
 $results = New-Item -ItemType Directory results
 
 # Set default values if needed
+if ($env:DEQP_WIDTH -eq $null) {
+    $env:DEQP_WIDTH = 256
+}
+if ($env:DEQP_HEIGHT -eq $null) {
+    $env:DEQP_HEIGHT = 256
+}
+if ($env:DEQP_SURFACE_TYPE -eq $null) {
+    $env:DEQP_SURFACE_TYPE = "pbuffer"
+}
+if ($env:DEQP_CONFIG -eq $null) {
+    $env:DEQP_CONFIG = "rgba8888d24s8ms0"
+}
 if ($env:DEQP_FRACTION -eq $null) {
     $env:DEQP_FRACTION = 1
 }
@@ -31,10 +43,10 @@ if ($env:CI_NODE_TOTAL -ne $null) {
 }
 
 $deqp_options = @(
-    "--deqp-surface-width", 256,
-    "--deqp-surface-height", 256,
-    "--deqp-surface-type", "pbuffer",
-    "--deqp-gl-config-name", "rgba8888d24s8ms0",
+    "--deqp-surface-width", $env:DEQP_WIDTH,
+    "--deqp-surface-height", $env:DEQP_HEIGHT,
+    "--deqp-surface-type", $env:DEQP_SURFACE_TYPE,
+    "--deqp-gl-config-name", $env:DEQP_CONFIG,
     "--deqp-visibility", "hidden"
 )
 $deqp_runner_options = @(
