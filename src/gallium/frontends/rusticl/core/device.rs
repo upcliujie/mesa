@@ -459,20 +459,22 @@ impl Device {
         self.shader_param(pipe_shader_cap::PIPE_SHADER_CAP_MAX_CONST_BUFFER_SIZE) as u64
     }
 
-    pub fn device_type(&self) -> cl_device_type {
+    pub fn device_type(&self, internal: bool) -> cl_device_type {
         if self.custom {
             return CL_DEVICE_TYPE_CUSTOM as cl_device_type;
         }
-        (match self.screen.device_type() {
+        let mut res = match self.screen.device_type() {
             pipe_loader_device_type::PIPE_LOADER_DEVICE_SOFTWARE => CL_DEVICE_TYPE_CPU,
-            pipe_loader_device_type::PIPE_LOADER_DEVICE_PCI => {
-                CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_DEFAULT
-            }
-            pipe_loader_device_type::PIPE_LOADER_DEVICE_PLATFORM => {
-                CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_DEFAULT
-            }
+            pipe_loader_device_type::PIPE_LOADER_DEVICE_PCI => CL_DEVICE_TYPE_GPU,
+            pipe_loader_device_type::PIPE_LOADER_DEVICE_PLATFORM => CL_DEVICE_TYPE_GPU,
             pipe_loader_device_type::NUM_PIPE_LOADER_DEVICE_TYPES => CL_DEVICE_TYPE_CUSTOM,
-        }) as cl_device_type
+        };
+
+        if internal && res == CL_DEVICE_TYPE_GPU {
+            res |= CL_DEVICE_TYPE_DEFAULT;
+        }
+
+        res as cl_device_type
     }
 
     pub fn doubles_supported(&self) -> bool {
