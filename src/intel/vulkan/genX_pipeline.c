@@ -2701,7 +2701,11 @@ emit_task_state(struct anv_graphics_pipeline *pipeline)
       redistrib.SmallTaskThreshold = 1; /* 2^N */
       redistrib.TargetMeshBatchSize = big ? 3 : 5; /* 2^N */
       redistrib.TaskRedistributionLevel = TASKREDISTRIB_BOM;
-      redistrib.TaskRedistributionMode = TASKREDISTRIB_RR_STRICT;
+      /* HW bug: URB with task payload is not available to all mesh threads */
+      if (task_prog_data->map.size_dw > 0)
+         redistrib.TaskRedistributionMode = TASKREDISTRIB_OFF;
+      else
+         redistrib.TaskRedistributionMode = TASKREDISTRIB_RR_STRICT;
    }
 }
 
