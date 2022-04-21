@@ -1,1 +1,5 @@
 dEQP-VK.query_pool.concurrent_queries.primary_command_buffer
+dEQP-VK.draw.renderpass.multiple_interpolation.separate.no_sample_decoration.8_samples
+dEQP-VK.draw.renderpass.multiple_interpolation.structured.no_sample_decoration.16_samples
+dEQP-VK.draw.renderpass.multiple_interpolation.structured.no_sample_decoration.2_samples
+dEQP-VK.draw.renderpass.multiple_interpolation.structured.with_sample_decoration.8_samples
