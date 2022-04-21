@@ -2696,11 +2696,12 @@ emit_task_state(struct anv_graphics_pipeline *pipeline)
 
    /* Recommended values from "Task and Mesh Distribution Programming". */
    anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_REDISTRIB), redistrib) {
+      bool big = devinfo->num_slices > 2;
       redistrib.LocalBOTAccumulatorThreshold = MULTIPLIER_1;
-      redistrib.SmallTaskThreshold = MULTIPLIER_2;
-      redistrib.TargetMeshBatchSize = MULTIPLIER_4;
+      redistrib.SmallTaskThreshold = 1; /* 2^N */
+      redistrib.TargetMeshBatchSize = big ? 3 : 5; /* 2^N */
       redistrib.TaskRedistributionLevel = TASKREDISTRIB_BOM;
-      redistrib.TaskRedistributionMode = TASKREDISTRIB_RR_FREE;
+      redistrib.TaskRedistributionMode = TASKREDISTRIB_RR_STRICT;
    }
 }
 
@@ -2771,8 +2772,9 @@ emit_mesh_state(struct anv_graphics_pipeline *pipeline)
    /* Recommended values from "Task and Mesh Distribution Programming". */
    anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_DISTRIB), distrib) {
       distrib.DistributionMode = MESH_RR_FREE;
-      distrib.TaskDistributionBatchSize = 2; /* 2^2 thread groups */
-      distrib.MeshDistributionBatchSize = 3; /* 2^3 thread groups */
+      bool big = devinfo->num_slices > 2;
+      distrib.TaskDistributionBatchSize = big ? 8 : 9; /* 2^N thread groups */
+      distrib.MeshDistributionBatchSize = big ? 5 : 3; /* 2^N thread groups */
    }
 }
 #endif
