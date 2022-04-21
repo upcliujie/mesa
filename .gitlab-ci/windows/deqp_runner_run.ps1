@@ -14,6 +14,19 @@ New-ItemProperty -Path $hkey_path -Name $hkey_name -Value 0 -PropertyType DWORD
 
 $results = New-Item -ItemType Directory results
 
+# Set default values if needed
+if (!(Test-Path 'env:DEQP_FRACTION')) {
+    $env:DEQP_FRACTION = 1
+}
+if (!(Test-Path 'env:CI_NODE_INDEX')) {
+    $env:CI_NODE_INDEX = 1
+}
+
+# Adjust fraction if CI parallel mode is enabled
+if (Test-Path 'env:CI_NODE_TOTAL') {
+    $env:DEQP_FRACTION *= $env:CI_NODE_TOTAL
+}
+
 $deqp_options = @(
     "--deqp-surface-width", 256,
     "--deqp-surface-height", 256,
@@ -34,7 +47,8 @@ $deqp_runner_options = @(
     "--include-tests", "dEQP-VK.memory.*",
     "--testlog-to-xml", "C:\deqp\executor\testlog-to-xml.exe",
     "--jobs", 4,
-    "--fraction", 3
+    "--fraction-start", $env:CI_NODE_INDEX,
+    "--fraction", $env:DEQP_FRACTION
 )
 
 $env:DZN_DEBUG = "warp"
