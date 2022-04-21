@@ -3157,10 +3157,7 @@ dzn_CmdCopyImage2(VkCommandBuffer commandBuffer,
          const VkImageCopy2 *region = &info->pRegions[i];
          uint64_t region_size = 0;
 
-         tmp_desc.Format =
-            dzn_image_get_dxgi_format(src->vk.format,
-                                      VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                                      aspect);
+         tmp_desc.Format = dzn_image_get_typeless_dxgi_format(src->vk.format);
          tmp_desc.Width = region->extent.width;
          tmp_desc.Height = region->extent.height;
 

@@ -118,8 +118,7 @@ dzn_image_create(struct dzn_device *device,
          .Height = (UINT)ALIGN(image->vk.extent.height, util_format_get_blockheight(pfmt)),
          .DepthOrArraySize = 1,
          .MipLevels = 1,
-         .Format =
-            dzn_image_get_dxgi_format(pCreateInfo->format, pCreateInfo->usage, 0),
+         .Format = dzn_image_get_typeless_dxgi_format(pCreateInfo->format),
          .SampleDesc = { .Count = 1, .Quality = 0 },
          .Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
          .Flags = D3D12_RESOURCE_FLAG_NONE
@@ -140,10 +139,7 @@ dzn_image_create(struct dzn_device *device,
       image->desc.SampleDesc.Count = 1;
       image->desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
    } else {
-      image->desc.Format =
-         dzn_image_get_dxgi_format(pCreateInfo->format,
-                                   pCreateInfo->usage & ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                   0),
+      image->desc.Format = dzn_image_get_typeless_dxgi_format(pCreateInfo->format);
       image->desc.Dimension = (D3D12_RESOURCE_DIMENSION)(D3D12_RESOURCE_DIMENSION_TEXTURE1D + pCreateInfo->imageType);
       image->desc.Width = image->vk.extent.width;
       image->desc.Height = image->vk.extent.height;
@@ -199,6 +195,15 @@ dzn_image_create(struct dzn_device *device,
 
    *out = dzn_image_to_handle(image);
    return VK_SUCCESS;
+}
+
+DXGI_FORMAT
+dzn_image_get_typeless_dxgi_format(VkFormat format)
+{
+   enum pipe_format pfmt = vk_format_to_pipe_format(format);
+   DXGI_FORMAT dfmt = dzn_pipe_to_dxgi_format(pfmt);
+
+   return dzn_get_typeless_dxgi_format(dfmt);
 }
 
 DXGI_FORMAT
