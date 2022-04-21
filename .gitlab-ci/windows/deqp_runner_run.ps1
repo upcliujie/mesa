@@ -21,6 +21,9 @@ if (!(Test-Path 'env:DEQP_FRACTION')) {
 if (!(Test-Path 'env:CI_NODE_INDEX')) {
     $env:CI_NODE_INDEX = 1
 }
+if (!(Test-Path 'env:FDO_CI_CONCURRENT')) {
+    $env:FDO_CI_CONCURRENT = 4
+}
 
 # Adjust fraction if CI parallel mode is enabled
 if (Test-Path 'env:CI_NODE_TOTAL') {
@@ -46,7 +49,7 @@ $deqp_runner_options = @(
     "--include-tests", "dEQP-VK.query_pool.*",
     "--include-tests", "dEQP-VK.memory.*",
     "--testlog-to-xml", "C:\deqp\executor\testlog-to-xml.exe",
-    "--jobs", 4,
+    "--jobs", $env:FDO_CI_CONCURRENT,
     "--fraction-start", $env:CI_NODE_INDEX,
     "--fraction", $env:DEQP_FRACTION
 )
