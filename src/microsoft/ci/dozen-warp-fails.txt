@@ -883,3 +883,7 @@ dEQP-VK.draw.renderpass.output_location.array.r8g8-uint-highp-output-uint,Fail
 dEQP-VK.draw.renderpass.output_location.array.r8g8-uint-mediump,Fail
 dEQP-VK.draw.renderpass.output_location.array.r8g8-uint-mediump-output-uint,Fail
 dEQP-VK.draw.renderpass.output_location.shuffle.inputs-outputs-mod,Fail
+dEQP-VK.draw.renderpass.multiple_interpolation.separate.no_sample_decoration.8_samples,Fail
+dEQP-VK.draw.renderpass.multiple_interpolation.structured.no_sample_decoration.16_samples,Fail
+dEQP-VK.draw.renderpass.multiple_interpolation.structured.no_sample_decoration.2_samples,Fail
+dEQP-VK.draw.renderpass.multiple_interpolation.structured.with_sample_decoration.8_samples,Fail
