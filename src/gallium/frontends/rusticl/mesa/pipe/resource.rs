@@ -37,15 +37,15 @@ impl PipeResource {
             }
         } else {
             let mut tex = pipe_image_view__bindgen_ty_1__bindgen_ty_1::default();
-            let mut array_size = self.as_ref().array_size;
-
-            if array_size != 0 {
-                array_size -= 1;
-            }
-
-            tex.set_first_layer(0);
-            tex.set_last_layer(array_size.into());
             tex.set_level(0);
+            tex.set_first_layer(0);
+            if self.as_ref().target() == pipe_texture_target::PIPE_TEXTURE_3D {
+                tex.set_last_layer((self.as_ref().depth0 - 1).into());
+            } else if self.as_ref().array_size > 0 {
+                tex.set_last_layer((self.as_ref().array_size - 1).into());
+            } else {
+                tex.set_last_layer(0);
+            }
 
             pipe_image_view__bindgen_ty_1 { tex: tex }
         };
