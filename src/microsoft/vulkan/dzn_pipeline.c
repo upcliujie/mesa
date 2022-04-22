@@ -68,9 +68,9 @@ dzn_pipeline_compile_shader(struct dzn_device *device,
    uint32_t num_spec = 0;
 
    if (spec_info && spec_info->mapEntryCount) {
-      spec = vk_alloc2(&device->vk.alloc, alloc,
-                       spec_info->mapEntryCount * sizeof(*spec), 8,
-                       VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+      spec = vk_zalloc2(&device->vk.alloc, alloc,
+                        spec_info->mapEntryCount * sizeof(*spec), 8,
+                        VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
       if (!spec)
          return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
