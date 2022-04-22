@@ -57,6 +57,7 @@ struct lima_job_fb_info {
    int shift_w, shift_h;
    int block_w, block_h;
    int shift_min;
+   int flip_y;
 };
 
 struct lima_job {
