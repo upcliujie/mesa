@@ -31,17 +31,40 @@ static const struct debug_control vn_perf_options[] = {
    { "no_async_set_alloc", VN_PERF_NO_ASYNC_SET_ALLOC },
    { "no_async_buffer_create", VN_PERF_NO_ASYNC_BUFFER_CREATE },
    { "no_async_queue_submit", VN_PERF_NO_ASYNC_QUEUE_SUBMIT },
+   { "flex_draw_cmd_batch", VN_PERF_FLEX_DRAW_CMD_BATCH },
    { NULL, 0 },
 };
 
 uint64_t vn_debug;
 uint64_t vn_perf;
+uint32_t vn_perf_draw_cmd_batch_limit;
+
+static uint32_t
+vn_option_as_uint32(const char *name, uint32_t default_value)
+{
+   const char *str = os_get_option(name);
+   if (str) {
+      char *end;
+      unsigned long result;
+
+      errno = 0;
+      result = strtoul(str, &end, 0);
+      if (errno == 0 && end != str && *end == '\0')
+         return (uint32_t)result;
+   }
+   return default_value;
+}
 
 static void
 vn_debug_init_once(void)
 {
    vn_debug = parse_debug_string(os_get_option("VN_DEBUG"), vn_debug_options);
    vn_perf = parse_debug_string(os_get_option("VN_PERF"), vn_perf_options);
+
+   if (VN_PERF(FLEX_DRAW_CMD_BATCH)) {
+      vn_perf_draw_cmd_batch_limit =
+         vn_option_as_uint32("VN_PERF_DRAW_CMD_BATCH_LIMIT", UINT32_MAX);
+   }
 }
 
 void

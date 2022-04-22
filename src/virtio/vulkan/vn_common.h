@@ -146,6 +146,8 @@ enum vn_perf {
    VN_PERF_NO_ASYNC_SET_ALLOC = 1ull << 0,
    VN_PERF_NO_ASYNC_BUFFER_CREATE = 1ull << 1,
    VN_PERF_NO_ASYNC_QUEUE_SUBMIT = 1ull << 2,
+   /* TODO promote to DRAW_CMD_BATCH_ALL after size gets optimized */
+   VN_PERF_FLEX_DRAW_CMD_BATCH = 1ull << 3,
 };
 
 typedef uint64_t vn_object_id;
@@ -180,9 +182,16 @@ struct vn_refcount {
 
 extern uint64_t vn_debug;
 extern uint64_t vn_perf;
+extern uint32_t vn_perf_draw_cmd_batch_limit;
 
 void
 vn_debug_init(void);
+
+static inline bool
+vn_should_submit_cmd(uint32_t draw_cmd_batched)
+{
+   return draw_cmd_batched >= vn_perf_draw_cmd_batch_limit;
+}
 
 void
 vn_trace_init(void);
