@@ -65,7 +65,6 @@
 #include "util/format/u_format.h"
 #include "util/u_dump.h"
 #include "util/u_string.h"
-#include "util/simple_list.h"
 #include "util/u_dual_blend.h"
 #include "util/u_upload_mgr.h"
 #include "util/os_time.h"

@@ -36,7 +36,6 @@
 #include "util/u_inlines.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
-#include "util/simple_list.h"
 #include "util/u_upload_mgr.h"
 #include "lp_clear.h"
 #include "lp_context.h"

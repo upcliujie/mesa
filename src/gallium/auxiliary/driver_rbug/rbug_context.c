@@ -29,7 +29,6 @@
 #include "pipe/p_context.h"
 #include "util/u_memory.h"
 #include "util/u_inlines.h"
-#include "util/simple_list.h"
 
 #include "rbug/rbug_context.h"
 

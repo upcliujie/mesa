@@ -23,7 +23,6 @@
  *
  **************************************************************************/
 #include "util/u_memory.h"
-#include "util/simple_list.h"
 #include "util/os_time.h"
 #include "util/u_dump.h"
 #include "util/u_string.h"

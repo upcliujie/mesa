@@ -38,7 +38,6 @@
 #include "gallivm/lp_bld_limits.h"
 
 #include "pipe/p_context.h"
-#include "util/simple_list.h"
 
 
 struct draw_llvm;
