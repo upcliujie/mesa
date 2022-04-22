@@ -4276,7 +4276,7 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    case nir_intrinsic_load_workgroup_size:
    default:
       NIR_INSTR_UNSUPPORTED(&intr->instr);
-      assert("Unimplemented intrinsic instruction");
+      assert(!"Unimplemented intrinsic instruction");
       return false;
    }
 }
