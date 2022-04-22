@@ -412,17 +412,6 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
    }
 }
 
-static unsigned
-get_num_consts_robust(struct draw_context *draw, unsigned *sizes, unsigned idx)
-{
-   unsigned const_bytes = sizes[idx];
-
-   if (const_bytes < sizeof(float))
-      return 0;
-
-   return DIV_ROUND_UP(const_bytes, draw->constant_buffer_stride);
-}
-
 /**
  * Bind/update constant buffer pointers, clip planes and viewport dims.
  * These are "light weight" parameters which aren't baked into the
@@ -439,12 +428,7 @@ llvm_middle_end_bind_parameters(struct draw_pt_middle_end *middle)
    unsigned i;
 
    for (i = 0; i < ARRAY_SIZE(llvm->jit_context.vs_constants); ++i) {
-      /*
-       * There could be a potential issue with rounding this up, as the
-       * shader expects 16-byte allocations, the fix is likely to move
-       * to LOAD intrinsic in the future and remove the vec4 constraint.
-       */
-      int num_consts = get_num_consts_robust(draw, draw->pt.user.vs_constants_size, i);
+      int num_consts = draw->pt.user.vs_constants_size[i];
       llvm->jit_context.vs_constants[i] = draw->pt.user.vs_constants[i];
       llvm->jit_context.num_vs_constants[i] = num_consts;
       if (num_consts == 0) {
@@ -461,7 +445,7 @@ llvm_middle_end_bind_parameters(struct draw_pt_middle_end *middle)
    }
 
    for (i = 0; i < ARRAY_SIZE(llvm->gs_jit_context.constants); ++i) {
-      int num_consts = get_num_consts_robust(draw, draw->pt.user.gs_constants_size, i);
+      int num_consts = draw->pt.user.gs_constants_size[i];
       llvm->gs_jit_context.constants[i] = draw->pt.user.gs_constants[i];
       llvm->gs_jit_context.num_constants[i] = num_consts;
       if (num_consts == 0) {
@@ -478,7 +462,7 @@ llvm_middle_end_bind_parameters(struct draw_pt_middle_end *middle)
    }
 
    for (i = 0; i < ARRAY_SIZE(llvm->tcs_jit_context.constants); ++i) {
-      int num_consts = get_num_consts_robust(draw, draw->pt.user.tcs_constants_size, i);
+      int num_consts = draw->pt.user.tcs_constants_size[i];
       llvm->tcs_jit_context.constants[i] = draw->pt.user.tcs_constants[i];
       llvm->tcs_jit_context.num_constants[i] = num_consts;
       if (num_consts == 0) {
@@ -495,7 +479,7 @@ llvm_middle_end_bind_parameters(struct draw_pt_middle_end *middle)
    }
 
    for (i = 0; i < ARRAY_SIZE(llvm->tes_jit_context.constants); ++i) {
-      int num_consts = get_num_consts_robust(draw, draw->pt.user.tes_constants_size, i);
+      int num_consts = draw->pt.user.tes_constants_size[i];
       llvm->tes_jit_context.constants[i] = draw->pt.user.tes_constants[i];
       llvm->tes_jit_context.num_constants[i] = num_consts;
       if (num_consts == 0) {
