@@ -401,6 +401,7 @@ struct pipe_framebuffer_state
    struct pipe_surface *cbufs[PIPE_MAX_COLOR_BUFS];
 
    struct pipe_surface *zsbuf;      /**< Z/stencil buffer */
+   bool flip_y;
 };
 
 
