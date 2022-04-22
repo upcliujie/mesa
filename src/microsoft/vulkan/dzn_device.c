@@ -1455,9 +1455,11 @@ dzn_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
        * limitation factor here. All descriptor sets are merged in a single
        * heap when descriptor sets are bound to the command buffer, hence the
        * division by MAX_SETS.
+       * Vulkan 1.1 wants this value to be at least 1024, so let's hope the
+       * total number of samplers will never exceed 2048.
        */
       .maxPerSetDescriptors                  =
-         MAX_DESCS_PER_SAMPLER_HEAP / MAX_SETS,
+         MAX2(MAX_DESCS_PER_SAMPLER_HEAP / MAX_SETS, 1024),
       /* According to the spec, the maximum D3D12 resource size is
        * min(max(128MB, 0.25f * (amount of dedicated VRAM)), 2GB),
        * but the limit actually depends on the max(system_ram, VRAM) not
