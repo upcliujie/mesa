@@ -6333,6 +6333,12 @@ visit_image_size(isel_context* ctx, nir_intrinsic_instr* instr)
    mimg->dmask = (1 << instr->dest.ssa.num_components) - 1;
    mimg->da = is_array;
 
+   /* Match the resource type set in the descriptor. */
+   if (ctx->options->chip_class <= GFX8 && dim == GLSL_SAMPLER_DIM_3D) {
+      assert(mimg->dim == ac_image_2darray);
+      mimg->da = true;
+   }
+
    if (ctx->options->chip_class == GFX9 && dim == GLSL_SAMPLER_DIM_1D && is_array) {
       assert(instr->dest.ssa.num_components == 2);
       dmask = 0x5;
