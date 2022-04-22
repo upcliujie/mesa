@@ -3557,6 +3557,9 @@ emit_image_store(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    }
 
    nir_alu_type in_type = nir_intrinsic_src_type(intr);
+   if (in_type == nir_type_invalid)
+      in_type = nir_type_uint32;
+
    enum overload_type overload = get_overload(in_type, 32);
 
    assert(nir_src_bit_size(intr->src[3]) == 32);
@@ -3617,6 +3620,8 @@ emit_image_load(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    }
 
    nir_alu_type out_type = nir_intrinsic_dest_type(intr);
+   if (out_type == nir_type_invalid)
+      out_type = nir_type_uint32;
    enum overload_type overload = get_overload(out_type, 32);
 
    const struct dxil_value *load_result;
