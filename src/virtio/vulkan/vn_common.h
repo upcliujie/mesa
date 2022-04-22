@@ -45,6 +45,7 @@
 #define VN_DEFAULT_ALIGN 8
 
 #define VN_DEBUG(category) (unlikely(vn_debug & VN_DEBUG_##category))
+#define VN_PERF(category) (unlikely(vn_perf & VN_PERF_##category))
 
 #define vn_error(instance, error)                                            \
    (VN_DEBUG(RESULT) ? vn_log_result((instance), (error), __func__) : (error))
@@ -141,6 +142,10 @@ enum vn_debug {
    VN_DEBUG_NO_ABORT = 1ull << 4,
 };
 
+enum vn_perf {
+   VN_PERF_NO_ASYNC_SET_ALLOC = 1ull << 0,
+};
+
 typedef uint64_t vn_object_id;
 
 /* base class of vn_instance */
@@ -172,6 +177,7 @@ struct vn_refcount {
 };
 
 extern uint64_t vn_debug;
+extern uint64_t vn_perf;
 
 void
 vn_debug_init(void);
