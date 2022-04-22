@@ -58,6 +58,7 @@ struct vn_command_buffer {
 
    struct vn_command_buffer_builder builder;
 
+   uint32_t draw_batch_count;
    enum vn_command_buffer_state state;
    struct vn_cs_encoder cs;
 };
