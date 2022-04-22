@@ -661,6 +661,7 @@ instr_init(nir_instr *instr, nir_instr_type type)
 {
    instr->type = type;
    instr->block = NULL;
+   instr->pass_flags = 0;
    exec_node_init(&instr->node);
 }
 
