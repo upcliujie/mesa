@@ -48,9 +48,6 @@ KHR-GL46.shader_image_load_store.non-layered_binding,Fail
 # amd issue #6305
 KHR-GL46.shader_ballot_tests.ShaderBallotFunctionRead,Fail
 
-# radv issue #6301
-KHR-Single-GL46.enhanced_layouts.xfb_override_qualifiers_with_api,Fail
-
 
 
 dEQP-GLES2.functional.clipping.line.wide_line_clip_viewport_center,Fail
