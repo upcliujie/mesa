@@ -4545,11 +4545,13 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       unsigned fence_regs_count = 0;
       fs_reg fence_regs[3] = {};
 
-      const fs_builder ubld = bld.group(8, 0);
+      fs_builder ubld = bld.group(8, 0);
 
       if (devinfo->has_lsc) {
          assert(devinfo->verx10 >= 125);
          uint32_t desc = lsc_fence_descriptor_for_intrinsic(devinfo, instr);
+         ubld = bld.group(dispatch_width, 0);
+
          if (ugm_fence) {
             fence_regs[fence_regs_count++] =
                emit_fence(ubld, opcode, GFX12_SFID_UGM, desc,
