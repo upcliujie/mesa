@@ -24,6 +24,7 @@ static const struct debug_control vn_debug_options[] = {
    { "vtest", VN_DEBUG_VTEST },
    { "wsi", VN_DEBUG_WSI },
    { "no_abort", VN_DEBUG_NO_ABORT },
+   { "batch_less", VN_DEBUG_BATCH_LESS },
    { NULL, 0 },
 };
 
