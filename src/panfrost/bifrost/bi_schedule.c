@@ -1012,19 +1012,10 @@ bi_has_cross_passthrough_hazard(bi_tuple *succ, bi_instr *ins)
         return false;
 }
 
-/* Is a register written other than the staging mechanism? ATEST is special,
- * writing to both a staging register and a regular register (fixed packing).
- * BLEND is special since it has to write r48 the normal way even if it never
- * gets read. This depends on liveness analysis, as a register is not needed
- * for a write that will be discarded after one tuple. */
-
-static unsigned
-bi_write_count(bi_instr *instr, uint64_t live_after_temp)
+static uint64_t
+bi_instr_write_set(bi_instr *instr)
 {
-        if (instr->op == BI_OPCODE_ATEST || instr->op == BI_OPCODE_BLEND)
-                return 1;
-
-        unsigned count = 0;
+        uint64_t set = 0;
 
         bi_foreach_dest(instr, d) {
                 if (d == 0 && bi_opcode_props[instr->op].sr_write)
@@ -1033,12 +1024,65 @@ bi_write_count(bi_instr *instr, uint64_t live_after_temp)
                 if (bi_is_null(instr->dest[d]))
                         continue;
 
-                assert(instr->dest[0].type == BI_INDEX_REGISTER);
-                if (live_after_temp & BITFIELD64_BIT(instr->dest[0].value))
-                        count++;
+                /* DTSEL_IMM is constructed to always be promoted to a
+                 * passthrough, but this happens outside of RA.
+                 */
+                if (instr->op == BI_OPCODE_DTSEL_IMM) {
+                        assert(instr->dest[d].type != BI_INDEX_REGISTER);
+                        continue;
+                }
+
+                assert(instr->dest[d].type == BI_INDEX_REGISTER);
+                set |= BITFIELD64_BIT(instr->dest[d].value);
         }
 
-        return count;
+        return set;
+}
+
+/* Is a register written other than the staging mechanism? ATEST is special,
+ * writing to both a staging register and a regular register (fixed packing).
+ * BLEND is special since it has to write r48 the normal way even if it never
+ * gets read. This depends on liveness analysis, as a register is not needed
+ * for a write that will be discarded after one tuple.
+ *
+ * There's an edge case here, though, because we schedule after RA. Consider the
+ * conceptual Bifrost pipeline:
+ *
+ *      *... We are trying to schedule this instruction!
+ *      +ADD
+ *      ---- live_next_tuple
+ *      *FMA
+ *      +ADD
+ *      ---- live_after_temp
+ *
+ * If the candidate instruction writes a register that is overwritten entirely
+ * by the following 3 instructions, its destination will be killed and replaced
+ * by a passthrough. However, its destination will appear live in
+ * live_after_temp, due to the write from the later instruction. So we need to
+ * ignore writes that will be overwritten later in this tuple or in the next
+ * tuple.
+ *
+ * It's easy to hit this case. Consider a simple program:
+ *
+ *      a = fma x, y, z
+ *      b = fadd a, w
+ *
+ * We might allocate registers as
+ *
+ *      R0 = fma R1, R2, R3
+ *      R0 = fadd R0, R4
+ *
+ * We need to make sure we return 0 writes for the FMA, since its destination
+ * should be converted entirely into a passthrough. Yet R0 is live after the
+ * tuple.
+ */
+static unsigned
+bi_write_count(bi_instr *instr, uint64_t live_after_temp)
+{
+        if (instr->op == BI_OPCODE_ATEST || instr->op == BI_OPCODE_BLEND)
+                return 1;
+
+        return util_bitcount64(bi_instr_write_set(instr) & live_after_temp);
 }
 
 /*
@@ -1746,8 +1790,19 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st, uint
                         live_after_temp |= (BITFIELD64_MASK(nr) << clause->message->src[0].value);
                 }
 
+                if (clause->tuple_count) {
+                        bi_tuple *next_tuple = tuple + 1;
+                        if (next_tuple->add)
+                                live_after_temp &= ~bi_instr_write_set(next_tuple->add);
+                        if (next_tuple->fma)
+                                live_after_temp &= ~bi_instr_write_set(next_tuple->fma);
+                }
+
                 /* Since we schedule backwards, we schedule ADD first */
                 tuple_state.add = bi_take_instr(ctx, st, &clause_state, &tuple_state, live_after_temp, false);
+                if (tuple_state.add != NULL)
+                        live_after_temp &= ~bi_instr_write_set(tuple_state.add);
+
                 tuple->fma = bi_take_instr(ctx, st, &clause_state, &tuple_state, live_after_temp, true);
                 tuple->add = tuple_state.add;
 
