@@ -582,6 +582,7 @@ panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
                                       unsigned width, unsigned height)
 {
    struct panvk_batch *batch = cmdbuf->state.batch;
+   struct panfrost_device *pdev = &cmdbuf->device->physical_device->pdev;
 
    if (batch->tiler.descs.cpu)
       return;
@@ -593,12 +594,17 @@ panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
    STATIC_ASSERT(sizeof(batch->tiler.templ) >=
                  pan_size(TILER_CONTEXT) + pan_size(TILER_HEAP));
 
-   struct panfrost_ptr desc = {
-      .gpu = batch->tiler.descs.gpu,
-      .cpu = batch->tiler.templ,
-   };
+   pan_pack((uint8_t *) batch->tiler.templ + pan_size(TILER_CONTEXT), TILER_HEAP, cfg) {
+      cfg.size = pdev->tiler_heap->size;
+      cfg.base = pdev->tiler_heap->ptr.gpu;
+      cfg.bottom = pdev->tiler_heap->ptr.gpu;
+      cfg.top = pdev->tiler_heap->ptr.gpu + pdev->tiler_heap->size;
+   }
 
-   panvk_per_arch(emit_tiler_context)(cmdbuf->device, width, height, &desc);
+   GENX(pan_emit_tiler_ctx)(pdev, width, height, 1,
+                            batch->tiler.descs.gpu + pan_size(TILER_CONTEXT),
+                            batch->tiler.templ);
+
    memcpy(batch->tiler.descs.cpu, batch->tiler.templ,
           pan_size(TILER_CONTEXT) + pan_size(TILER_HEAP));
    batch->tiler.ctx.bifrost = batch->tiler.descs.gpu;

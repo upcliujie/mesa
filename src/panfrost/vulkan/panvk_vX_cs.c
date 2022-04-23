@@ -922,26 +922,3 @@ panvk_per_arch(emit_non_fs_rsd)(const struct panvk_device *dev,
       pan_shader_prepare_rsd(shader_info, shader_ptr, &cfg);
    }
 }
-
-void
-panvk_per_arch(emit_tiler_context)(const struct panvk_device *dev,
-                                   unsigned width, unsigned height,
-                                   const struct panfrost_ptr *descs)
-{
-#if PAN_ARCH == 5
-   unreachable("Not supported on v5");
-#else
-   const struct panfrost_device *pdev = &dev->physical_device->pdev;
-
-   pan_pack(descs->cpu + pan_size(TILER_CONTEXT), TILER_HEAP, cfg) {
-      cfg.size = pdev->tiler_heap->size;
-      cfg.base = pdev->tiler_heap->ptr.gpu;
-      cfg.bottom = pdev->tiler_heap->ptr.gpu;
-      cfg.top = pdev->tiler_heap->ptr.gpu + pdev->tiler_heap->size;
-   }
-
-   GENX(pan_emit_tiler_ctx)(pdev, width, height, 1,
-                            descs->gpu + pan_size(TILER_CONTEXT),
-                            descs->cpu);
-#endif
-}

@@ -121,8 +121,3 @@ panvk_per_arch(emit_non_fs_rsd)(const struct panvk_device *dev,
                                 const struct pan_shader_info *shader_info,
                                 mali_ptr shader_ptr,
                                 void *rsd);
-
-void
-panvk_per_arch(emit_tiler_context)(const struct panvk_device *dev,
-                                   unsigned width, unsigned height,
-                                   const struct panfrost_ptr *descs);
