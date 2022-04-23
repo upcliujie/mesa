@@ -940,11 +940,8 @@ panvk_per_arch(emit_tiler_context)(const struct panvk_device *dev,
       cfg.top = pdev->tiler_heap->ptr.gpu + pdev->tiler_heap->size;
    }
 
-   pan_pack(descs->cpu, TILER_CONTEXT, cfg) {
-      cfg.hierarchy_mask = 0x28;
-      cfg.fb_width = width;
-      cfg.fb_height = height;
-      cfg.heap = descs->gpu + pan_size(TILER_CONTEXT);
-   }
+   GENX(pan_emit_tiler_ctx)(pdev, width, height, 1,
+                            descs->gpu + pan_size(TILER_CONTEXT),
+                            descs->cpu);
 #endif
 }
