@@ -601,7 +601,7 @@ panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf)
       cfg.top = pdev->tiler_heap->ptr.gpu + pdev->tiler_heap->size;
    }
 
-   GENX(pan_emit_tiler_ctx)(pdev, fb->width, fb->height, 1,
+   GENX(pan_emit_tiler_ctx)(pdev, fb->width, fb->height, fb->nr_samples,
                             batch->tiler.descs.gpu + pan_size(TILER_CONTEXT),
                             batch->tiler.templ);
 
