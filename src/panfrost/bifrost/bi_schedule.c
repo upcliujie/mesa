@@ -1043,12 +1043,13 @@ bi_write_count(bi_instr *instr, uint64_t live_after_temp)
 
 /*
  * Test if an instruction required flush-to-zero mode. Currently only supported
- * for F16_TO_F32 to implement fquantize16
+ * for f16<-->f32 conversions to implement fquantize16
  */
 static bool
 bi_needs_ftz(bi_instr *I)
 {
-        return (I->op == BI_OPCODE_F16_TO_F32) && I->ftz;
+        return (I->op == BI_OPCODE_F16_TO_F32 ||
+                I->op == BI_OPCODE_V2F32_TO_V2F16) && I->ftz;
 }
 
 /*
