@@ -14,6 +14,7 @@ include = [
     "dEQP-VK.compute.builtin_var.*",
     "dEQP-VK.draw.renderpass.instanced.draw_indexed_vk_*",
     "dEQP-VK.glsl.builtin.function.integer.usubborrow.*",
+    "dEQP-VK.glsl.builtin.function.pack_unpack.*",
     "dEQP-VK.glsl.builtin.precision.frexp.*",
     "dEQP-VK.glsl.builtin.precision.ldexp.*",
     "dEQP-VK.glsl.conversions.*",
