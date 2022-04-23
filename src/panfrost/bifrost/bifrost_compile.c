@@ -2374,7 +2374,13 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         }
 
         case nir_op_f2f32:
-                bi_f16_to_f32_to(b, dst, s0);
+                bi_f16_to_f32_to(b, dst, s0, false);
+                break;
+
+        case nir_op_fquantize2f16:
+                bi_f16_to_f32_to(b, dst,
+                                 bi_half(bi_v2f32_to_v2f16(b, s0, s0), false),
+                                 true /* flush-to-zero */);
                 break;
 
         case nir_op_f2i32:

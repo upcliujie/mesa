@@ -3870,6 +3870,7 @@
       <opt>h0</opt>
       <opt>h1</opt>
     </mod>
+    <mod name="ftz" start="9" size="1" opt="ftz" pseudo="true"/>
   </ins>
 
   <ins name="+F16_TO_S32">
