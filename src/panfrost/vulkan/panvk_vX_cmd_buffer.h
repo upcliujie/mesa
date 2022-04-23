@@ -43,8 +43,7 @@ panvk_per_arch(cmd_get_polygon_list)(struct panvk_cmd_buffer *cmdbuf,
                                      bool has_draws);
 #else
 void
-panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
-                                      unsigned width, unsigned height);
+panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf);
 #endif
 
 void

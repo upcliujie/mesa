@@ -578,9 +578,9 @@ panvk_draw_prepare_fs_rsd(struct panvk_cmd_buffer *cmdbuf,
 
 #if PAN_ARCH >= 6
 void
-panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
-                                      unsigned width, unsigned height)
+panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf)
 {
+   const struct pan_fb_info *fb = &cmdbuf->state.fb.info;
    struct panvk_batch *batch = cmdbuf->state.batch;
    struct panfrost_device *pdev = &cmdbuf->device->physical_device->pdev;
 
@@ -601,7 +601,7 @@ panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
       cfg.top = pdev->tiler_heap->ptr.gpu + pdev->tiler_heap->size;
    }
 
-   GENX(pan_emit_tiler_ctx)(pdev, width, height, 1,
+   GENX(pan_emit_tiler_ctx)(pdev, fb->width, fb->height, 1,
                             batch->tiler.descs.gpu + pan_size(TILER_CONTEXT),
                             batch->tiler.templ);
 
@@ -614,17 +614,15 @@ panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
 void
 panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf)
 {
+#if PAN_ARCH == 5
    const struct pan_fb_info *fbinfo = &cmdbuf->state.fb.info;
 
-#if PAN_ARCH == 5
    panvk_per_arch(cmd_get_polygon_list)(cmdbuf,
                                         fbinfo->width,
                                         fbinfo->height,
                                         true);
 #else
-   panvk_per_arch(cmd_get_tiler_context)(cmdbuf,
-                                         fbinfo->width,
-                                         fbinfo->height);
+   panvk_per_arch(cmd_get_tiler_context)(cmdbuf);
 #endif
 }
 
