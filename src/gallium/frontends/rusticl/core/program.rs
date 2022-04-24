@@ -284,7 +284,7 @@ impl Program {
         ptrs.to_vec()
     }
 
-    pub fn args(&self, dev: &Arc<Device>, kernel: &String) -> Vec<spirv::SPIRVKernelArg> {
+    pub fn args(&self, dev: &Arc<Device>, kernel: &str) -> Vec<spirv::SPIRVKernelArg> {
         Self::dev_build_info(&mut self.build_info(), dev)
             .spirv
             .as_ref()
@@ -465,6 +465,20 @@ impl Program {
                 info.status == CL_BUILD_SUCCESS as cl_build_status
             })
             .collect()
+    }
+
+    pub fn attribute_str(&self, kernel: &str, d: &Arc<Device>) -> String {
+        let mut lock = self.build_info();
+        let info = Self::dev_build_info(&mut lock, d);
+
+        let attributes_strings = [
+            info.spirv.as_ref().unwrap().vec_type_hint(kernel),
+            info.spirv.as_ref().unwrap().local_size(kernel),
+            info.spirv.as_ref().unwrap().local_size_hint(kernel),
+        ];
+
+        let attributes_strings: Vec<_> = attributes_strings.into_iter().flatten().collect();
+        attributes_strings.join(",")
     }
 
     pub fn to_nir(&self, kernel: &str, d: &Arc<Device>) -> NirShader {
