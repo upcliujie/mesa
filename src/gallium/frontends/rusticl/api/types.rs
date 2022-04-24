@@ -98,6 +98,12 @@ impl<T: Copy> CLVec<T> {
     }
 }
 
+impl CLVec<usize> {
+    pub fn is_in_bound(base: Self, offset: Self, pitch: [usize; 3], size: usize) -> bool {
+        (base + offset - [1, 1, 1]) * pitch < size
+    }
+}
+
 impl<T: Default + Copy> Default for CLVec<T> {
     fn default() -> Self {
         Self {
