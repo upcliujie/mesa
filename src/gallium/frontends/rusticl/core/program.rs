@@ -467,6 +467,20 @@ impl Program {
             .collect()
     }
 
+    pub fn attribute_str(&self, kernel: &str, d: &Arc<Device>) -> String {
+        let mut lock = self.build_info();
+        let info = Self::dev_build_info(&mut lock, d);
+
+        let attributes_strings = [
+            info.spirv.as_ref().unwrap().vec_type_hint(kernel),
+            info.spirv.as_ref().unwrap().local_size(kernel),
+            info.spirv.as_ref().unwrap().local_size_hint(kernel),
+        ];
+
+        let attributes_strings: Vec<_> = attributes_strings.into_iter().filter_map(|s| s).collect();
+        attributes_strings.join(",")
+    }
+
     pub fn to_nir(&self, kernel: &String, d: &Arc<Device>) -> NirShader {
         let mut lock = self.build_info();
         let info = Self::dev_build_info(&mut lock, d);
