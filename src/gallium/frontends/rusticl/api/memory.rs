@@ -1195,7 +1195,12 @@ pub fn enqueue_read_buffer_rect(
 
     // CL_INVALID_VALUE if the region being read or written specified by (buffer_origin, region,
     // buffer_row_pitch, buffer_slice_pitch) is out of bounds.
-    if (r + buf_ori) * [1, buffer_row_pitch, buffer_slice_pitch] > buf.size {
+    if !CLVec::is_in_bound(
+        r,
+        buf_ori,
+        [1, buffer_row_pitch, buffer_slice_pitch],
+        buf.size,
+    ) {
         Err(CL_INVALID_VALUE)?
     }
 
@@ -1317,7 +1322,12 @@ pub fn enqueue_write_buffer_rect(
 
     // CL_INVALID_VALUE if the region being read or written specified by (buffer_origin, region,
     // buffer_row_pitch, buffer_slice_pitch) is out of bounds.
-    if (r + buf_ori) * [1, buffer_row_pitch, buffer_slice_pitch] > buf.size {
+    if !CLVec::is_in_bound(
+        r,
+        buf_ori,
+        [1, buffer_row_pitch, buffer_slice_pitch],
+        buf.size,
+    ) {
         Err(CL_INVALID_VALUE)?
     }
 
@@ -1435,8 +1445,8 @@ pub fn enqueue_copy_buffer_rect(
     // CL_INVALID_VALUE if (src_origin, region, src_row_pitch, src_slice_pitch) or (dst_origin,
     // region, dst_row_pitch, dst_slice_pitch) require accessing elements outside the src_buffer
     // and dst_buffer buffer objects respectively.
-    if (src_ori + r) * [1, src_row_pitch, src_slice_pitch] > src.size
-        || (dst_ori + r) * [1, dst_row_pitch, dst_slice_pitch] > dst.size
+    if !CLVec::is_in_bound(r, src_ori, [1, src_row_pitch, src_slice_pitch], src.size)
+        || !CLVec::is_in_bound(r, dst_ori, [1, dst_row_pitch, dst_slice_pitch], dst.size)
     {
         Err(CL_INVALID_VALUE)?
     }
