@@ -208,9 +208,6 @@ kopper_allocate_textures(struct dri_context *ctx,
    unsigned width, height;
    boolean resized;
    unsigned i;
-   struct __DRIimageList images;
-   __DRIdrawable *dri_drawable = drawable->dPriv;
-   const __DRIimageLoaderExtension *image = drawable->sPriv->image.loader;
    struct kopper_drawable *cdraw = (struct kopper_drawable *)drawable;
 
    width  = drawable->dPriv->w;
@@ -219,61 +216,15 @@ kopper_allocate_textures(struct dri_context *ctx,
    resized = (drawable->old_w != width ||
               drawable->old_h != height);
 
-   /* First get the buffers from the loader */
-   if (image) {
-      if (!dri_image_drawable_get_buffers(drawable, &images,
-                                          statts, statts_count))
-         return;
-   }
-
-   if (image) {
-      if (images.image_mask & __DRI_IMAGE_BUFFER_FRONT) {
-         struct pipe_resource **buf =
-            &drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
-         struct pipe_resource *texture = images.front->texture;
-
-         dri_drawable->w = texture->width0;
-         dri_drawable->h = texture->height0;
-
-         pipe_resource_reference(buf, texture);
-      }
-
-      if (images.image_mask & __DRI_IMAGE_BUFFER_BACK) {
-         struct pipe_resource **buf =
-            &drawable->textures[ST_ATTACHMENT_BACK_LEFT];
-         struct pipe_resource *texture = images.back->texture;
-
-         dri_drawable->w = texture->width0;
-         dri_drawable->h = texture->height0;
-
-         pipe_resource_reference(buf, texture);
-      }
-
-      if (images.image_mask & __DRI_IMAGE_BUFFER_SHARED) {
-         struct pipe_resource **buf =
-            &drawable->textures[ST_ATTACHMENT_BACK_LEFT];
-         struct pipe_resource *texture = images.back->texture;
-
-         dri_drawable->w = texture->width0;
-         dri_drawable->h = texture->height0;
-
-         pipe_resource_reference(buf, texture);
-
-         ctx->is_shared_buffer_bound = true;
-      } else {
-         ctx->is_shared_buffer_bound = false;
-      }
-   } else {
-      /* remove outdated textures */
-      if (resized) {
-         for (i = 0; i < ST_ATTACHMENT_COUNT; i++) {
-            if (drawable->textures[i]) {
-               drawable->textures[i]->width0 = width;
-               drawable->textures[i]->height0 = height;
-            } else
-               pipe_resource_reference(&drawable->textures[i], NULL);
-            pipe_resource_reference(&drawable->msaa_textures[i], NULL);
-         }
+   /* remove outdated textures */
+   if (resized) {
+      for (i = 0; i < ST_ATTACHMENT_COUNT; i++) {
+         if (drawable->textures[i]) {
+            drawable->textures[i]->width0 = width;
+            drawable->textures[i]->height0 = height;
+         } else
+            pipe_resource_reference(&drawable->textures[i], NULL);
+         pipe_resource_reference(&drawable->msaa_textures[i], NULL);
       }
    }
 
