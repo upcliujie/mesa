@@ -610,6 +610,7 @@ Converter::getSubOp(nir_op op)
    case nir_op_ishl:
    case nir_op_ishr:
    case nir_op_ushr:
+      /* Masks the shift count with 0x1f (for 32-bit) to match  NIR/TGSI shift semantics. */
       return NV50_IR_SUBOP_SHIFT_WRAP;
    default:
       return 0;
