@@ -5908,6 +5908,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
    }
 
    default:
+      fprintf(stderr, "intrinsic: %s\n", nir_intrinsic_infos[instr->intrinsic].name);
       unreachable("unknown intrinsic");
    }
 }
