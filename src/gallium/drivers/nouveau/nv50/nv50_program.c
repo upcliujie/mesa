@@ -405,7 +405,7 @@ nv50_program_translate(struct nv50_program *prog, uint16_t chipset,
    prog->fixups = info_out.bin.relocData;
    prog->interps = info_out.bin.fixupData;
    prog->max_gpr = MAX2(4, (info_out.bin.maxGPR >> 1) + 1);
-   prog->tls_space = info_out.bin.tlsSpace;
+   prog->tls_space = align(info_out.bin.tlsSpace, 16);
    prog->cp.smem_size = info_out.bin.smemSize;
    prog->mul_zero_wins = info->io.mul_zero_wins;
    prog->vp.need_vertex_id = info_out.io.vertexId < PIPE_MAX_SHADER_INPUTS;
