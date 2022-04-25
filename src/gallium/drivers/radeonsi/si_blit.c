@@ -978,7 +978,9 @@ void si_resource_copy_region(struct pipe_context *ctx, struct pipe_resource *dst
    util_blitter_default_dst_texture(&dst_templ, dst, dst_level, dstz);
    util_blitter_default_src_texture(sctx->blitter, &src_templ, src, src_level);
 
+   /* Note that staging copies do compressed<->UINT, so one of the formats is already UINT. */
    if (util_format_is_compressed(src->format) || util_format_is_compressed(dst->format)) {
+      enum pipe_format format = util_format_is_compressed(src->format) ? src->format : dst->format;
       unsigned blocksize = ssrc->surface.bpe;
 
       if (blocksize == 8)
@@ -994,14 +996,14 @@ void si_resource_copy_region(struct pipe_context *ctx, struct pipe_resource *dst
       src_width0 = util_format_get_nblocksx(src->format, src_width0);
       src_height0 = util_format_get_nblocksy(src->format, src_height0);
 
-      dstx = util_format_get_nblocksx(dst->format, dstx);
-      dsty = util_format_get_nblocksy(dst->format, dsty);
+      dstx = util_format_get_nblocksx(format, dstx);
+      dsty = util_format_get_nblocksy(format, dsty);
 
-      sbox.x = util_format_get_nblocksx(src->format, src_box->x);
-      sbox.y = util_format_get_nblocksy(src->format, src_box->y);
+      sbox.x = util_format_get_nblocksx(format, src_box->x);
+      sbox.y = util_format_get_nblocksy(format, src_box->y);
       sbox.z = src_box->z;
-      sbox.width = util_format_get_nblocksx(src->format, src_box->width);
-      sbox.height = util_format_get_nblocksy(src->format, src_box->height);
+      sbox.width = util_format_get_nblocksx(format, src_box->width);
+      sbox.height = util_format_get_nblocksy(format, src_box->height);
       sbox.depth = src_box->depth;
       src_box = &sbox;
 
