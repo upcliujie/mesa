@@ -789,6 +789,8 @@ struct ir3_shader {
 
    unsigned num_reserved_user_consts;
 
+   bool shared_consts_enable;
+
    /* What API-visible wavesizes are allowed. Even if only double wavesize is
     * allowed, we may still use the smaller wavesize "under the hood" and the
     * application simply sees the upper half as always disabled.
@@ -837,6 +839,13 @@ ir3_const_state(const struct ir3_shader_variant *v)
    return v->const_state;
 }
 
+static inline int32_t
+ir3_shared_const_count(const struct ir3_shader_variant *v)
+{
+   return v->shader->shared_consts_enable ?
+            v->shader->compiler->shared_consts_size : 0;
+}
+
 /* Given a variant, calculate the maximum constlen it can have.
  */
 
@@ -847,13 +856,13 @@ ir3_max_const(const struct ir3_shader_variant *v)
 
    if ((v->shader->type == MESA_SHADER_COMPUTE) ||
        (v->shader->type == MESA_SHADER_KERNEL)) {
-      return compiler->max_const_compute;
+      return compiler->max_const_compute - ir3_shared_const_count(v);
    } else if (v->key.safe_constlen) {
       return compiler->max_const_safe;
    } else if (v->shader->type == MESA_SHADER_FRAGMENT) {
-      return compiler->max_const_frag;
+      return compiler->max_const_frag - ir3_shared_const_count(v);
    } else {
-      return compiler->max_const_geom;
+      return compiler->max_const_geom - ir3_shared_const_count(v);
    }
 }
 
@@ -865,6 +874,7 @@ ir3_shader_get_variant(struct ir3_shader *shader,
 
 struct ir3_shader_options {
    unsigned reserved_user_consts;
+   bool shared_consts_enable;
    enum ir3_wavesize_option api_wavesize, real_wavesize;
 };
 

@@ -602,6 +602,7 @@ ir3_shader_from_nir(struct ir3_compiler *compiler, nir_shader *nir,
       memcpy(&shader->stream_output, stream_output,
              sizeof(shader->stream_output));
    shader->num_reserved_user_consts = options->reserved_user_consts;
+   shader->shared_consts_enable = options->shared_consts_enable;
    shader->api_wavesize = options->api_wavesize;
    shader->real_wavesize = options->real_wavesize;
    shader->nir = nir;
