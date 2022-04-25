@@ -266,7 +266,7 @@ kopper_allocate_textures(struct dri_context *ctx,
       /* remove outdated textures */
       if (resized) {
          for (i = 0; i < ST_ATTACHMENT_COUNT; i++) {
-            if (drawable->textures[i] && i < ST_ATTACHMENT_DEPTH_STENCIL) {
+            if (drawable->textures[i]) {
                drawable->textures[i]->width0 = width;
                drawable->textures[i]->height0 = height;
             } else
