@@ -232,6 +232,9 @@ libnouveau = static_library(
   ],
   gnu_symbol_visibility : 'hidden',
   dependencies : [dep_libdrm, dep_libdrm_nouveau, idep_mesautil, idep_nir_headers],
+  link_with : [
+    libglsl
+  ]
 )
 
 nouveau_compiler = executable(

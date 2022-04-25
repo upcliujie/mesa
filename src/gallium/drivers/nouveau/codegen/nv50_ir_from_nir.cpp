@@ -22,6 +22,7 @@
  * Authors: Karol Herbst <kherbst@redhat.com>
  */
 
+#include "compiler/glsl/gl_nir.h"
 #include "compiler/nir/nir.h"
 
 #include "util/u_debug.h"
@@ -3135,6 +3136,44 @@ Converter::run()
    subgroup_options.ballot_bit_size = 32;
    subgroup_options.ballot_components = 1;
    subgroup_options.lower_elect = true;
+
+   /* lower images  on NV50 */
+   if (info->target < NVISA_GF100_CHIPSET) {
+      if (prog->getType() == Program::TYPE_COMPUTE) {
+         unsigned num_globals = 0;
+
+         nir_foreach_variable_with_modes(var, nir, nir_var_mem_ssbo) {
+            assert(var->data.explicit_binding);
+            unsigned loc = var->data.binding;
+            unsigned size = MAX2(1, glsl_array_size(var->type));
+
+            for (unsigned i = 0; i < size; i++) {
+               info_out->prop.cp.gmem[loc + i] = {
+                  .valid = 1,
+                  .image = 0,
+                  .slot = loc + i,
+               };
+            }
+
+            num_globals = MAX2(loc + size, num_globals);
+         }
+
+         nir_foreach_image_variable(var, nir) {
+            assert(var->data.explicit_binding);
+            unsigned loc = var->data.binding;
+
+            info_out->prop.cp.gmem[num_globals] = {
+               .valid = 1,
+               .image = 1,
+               .slot = loc,
+            };
+
+            var->data.driver_location = num_globals++;
+         }
+      }
+
+      NIR_PASS_V(nir, gl_nir_lower_images, false);
+   }
 
    /* prepare for IO lowering */
    NIR_PASS_V(nir, nir_opt_deref);

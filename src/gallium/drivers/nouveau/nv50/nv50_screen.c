@@ -293,6 +293,10 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_FORCE_PERSAMPLE_INTERP:
       return class_3d >= NVA3_3D_CLASS;
 
+   case PIPE_CAP_NIR_IMAGES_AS_DEREF:
+      /* nv50 shares the same hw resource for buffers and images */
+      return 1;
+
    /* unsupported caps */
    case PIPE_CAP_EMULATE_NONFIXED_PRIMITIVE_RESTART:
    case PIPE_CAP_DEPTH_CLIP_DISABLE_SEPARATE:
@@ -407,7 +411,6 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_BLEND_EQUATION_ADVANCED:
    case PIPE_CAP_NO_CLIP_ON_COPY_TEX:
    case PIPE_CAP_DEVICE_PROTECTED_CONTENT:
-   case PIPE_CAP_NIR_IMAGES_AS_DEREF:
    case PIPE_CAP_SAMPLER_REDUCTION_MINMAX:
    case PIPE_CAP_SAMPLER_REDUCTION_MINMAX_ARB:
    case PIPE_CAP_DRAW_VERTEX_STATE:
