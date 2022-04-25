@@ -228,6 +228,9 @@ kopper_allocate_textures(struct dri_context *ctx,
       }
    }
 
+   drawable->old_w = width;
+   drawable->old_h = height;
+
    memset(&templ, 0, sizeof(templ));
    templ.target = screen->target;
    templ.width0 = width;
@@ -288,9 +291,6 @@ kopper_allocate_textures(struct dri_context *ctx,
                        drawable->textures[statts[i]]);
       }
    }
-
-   drawable->old_w = width;
-   drawable->old_h = height;
 }
 
 static inline void
