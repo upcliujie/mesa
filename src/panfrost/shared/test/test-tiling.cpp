@@ -140,6 +140,8 @@ test(unsigned width, unsigned height, unsigned rx, unsigned ry,
    void *linear = calloc(bpp, rw * linear_stride);
    void *ref = calloc(bpp, store ? (tiled_width * tiled_height) : (rw * linear_stride));
 
+   int result;
+
    if (store) {
       for (unsigned i = 0; i < bpp * rw * linear_stride; ++i) {
          ((uint8_t *) linear)[i] = (i & 0xFF);
@@ -160,13 +162,15 @@ test(unsigned width, unsigned height, unsigned rx, unsigned ry,
                     dst_stride, src_stride, format, store);
 
    if (store)
-      ASSERT_EQ(memcmp(ref, tiled, bpp * tiled_width * tiled_height), 0);
+      result = memcmp(ref, tiled, bpp * tiled_width * tiled_height);
    else
-      ASSERT_EQ(memcmp(ref, linear, bpp * rw * linear_stride), 0);
+      result = memcmp(ref, linear, bpp * rw * linear_stride);
 
    free(ref);
    free(tiled);
    free(linear);
+
+   ASSERT_EQ(result, 0);
 }
 
 static void
