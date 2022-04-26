@@ -1822,6 +1822,10 @@ fail_submit_thread:
 static void
 queue_finish(struct v3dv_queue *queue)
 {
+   if (queue->wakeup_thread_active) {
+      queue->wakeup_thread_active = false;
+      thrd_join(queue->wakeup_thread, NULL);
+   }
    if (queue->noop_job)
       v3dv_job_destroy(queue->noop_job);
    destroy_queue_syncs(queue);

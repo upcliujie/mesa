@@ -881,12 +881,60 @@ queue_create_noop_job(struct v3dv_queue *queue)
    return VK_SUCCESS;
 }
 
+static int
+queue_wakeup_thread_func(void *data)
+{
+   struct v3dv_queue *queue = data;
+
+   static const struct timespec interval = {
+      .tv_sec = 0,
+      .tv_nsec = 2000, /* 2 usec */
+   };
+
+   while (queue->wakeup_thread_active) {
+      if (queue->last_submit_time != 0) {
+         queue->wakeup_thread_active =
+            os_time_get() - queue->last_submit_time < 150000; /* 150 ms */
+      }
+
+      if (queue->wakeup_thread_active)
+         nanosleep(&interval, NULL);
+   }
+
+   return 0;
+}
+
+static void
+ensure_wakeup_thread(struct v3dv_queue *queue)
+{
+   static bool failed = false;
+   if (failed)
+      return;
+
+   if (!queue->wakeup_thread_active) {
+      queue->last_submit_time = 0;
+      queue->wakeup_thread_active = true;
+      int ret = thrd_create(&queue->wakeup_thread,
+                            queue_wakeup_thread_func, queue);
+      if (ret == thrd_error) {
+         perf_debug("Failed to create wakeup thread");
+         failed = true;
+         queue->wakeup_thread_active = false;
+         return;
+      }
+   }
+
+   queue->last_submit_time = os_time_get();
+}
+
 VkResult
 v3dv_queue_driver_submit(struct vk_queue *vk_queue,
                          struct vk_queue_submit *submit)
 {
    struct v3dv_queue *queue = container_of(vk_queue, struct v3dv_queue, vk);
    VkResult result;
+
+   ensure_wakeup_thread(queue);
 
    struct v3dv_submit_sync_info sync_info = {
       .wait_count = submit->wait_count,

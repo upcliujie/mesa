@@ -259,6 +259,11 @@ struct v3dv_queue {
    struct v3dv_last_job_sync last_job_syncs;
 
    struct v3dv_job *noop_job;
+
+   /* A thread used to prevent CPU throttling during syncobj waits */
+   thrd_t wakeup_thread;
+   bool wakeup_thread_active;
+   int64_t last_submit_time;
 };
 
 VkResult v3dv_queue_driver_submit(struct vk_queue *vk_queue,
