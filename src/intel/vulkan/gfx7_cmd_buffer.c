@@ -187,8 +187,7 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
       }
    }
 
-   if (anv_cmd_buffer_needs_dynamic_state(cmd_buffer,
-                                          ANV_CMD_DIRTY_DYNAMIC_LINE_STIPPLE)) {
+   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_LINE_STIPPLE) {
       anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_LINE_STIPPLE), ls) {
          ls.LineStipplePattern = d->line_stipple.pattern;
          ls.LineStippleInverseRepeatCount =
@@ -302,8 +301,7 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
       anv_batch_emit_merge(&cmd_buffer->batch, dwords, pipeline->gfx7.wm);
    }
 
-   if (anv_cmd_buffer_needs_dynamic_state(cmd_buffer,
-                                          ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
+   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS) {
       genX(emit_multisample)(&cmd_buffer->batch,
                              pipeline->rasterization_samples,
                              d->sample_locations.locations);

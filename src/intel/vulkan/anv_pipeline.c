@@ -2344,10 +2344,15 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
    pipeline->dynamic_state_mask = states;
 
    /* Mark states that can either be dynamic or fully baked into the pipeline.
+    *
+    * Explicitly avoid ANV_CMD_DIRTY_DYNAMIC_LINE_STIPPLE &
+    * ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS from this list because those are
+    * non-pipelined states. We want to limit the emission of those states by
+    * having anv_dynamic_state_copy() flag it as dirty when the values
+    * actually change.
     */
    pipeline->static_state_mask = states &
-      (ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS |
-       ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
+      (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
        ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE |
        ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE |
        ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP |
