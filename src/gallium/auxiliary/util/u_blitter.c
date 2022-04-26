@@ -785,16 +785,27 @@ void util_blitter_restore_textures(struct blitter_context *blitter)
    unsigned i;
 
    /* Fragment sampler states. */
-   pipe->bind_sampler_states(pipe, PIPE_SHADER_FRAGMENT, 0,
-                             ctx->base.saved_num_sampler_states,
-                             ctx->base.saved_sampler_states);
+   void *states[PIPE_MAX_SAMPLERS] = {NULL};
+   if (ctx->base.saved_num_sampler_states)
+      pipe->bind_sampler_states(pipe, PIPE_SHADER_FRAGMENT, 0,
+                                ctx->base.saved_num_sampler_states,
+                                ctx->base.saved_sampler_states);
+   else
+      pipe->bind_sampler_states(pipe, PIPE_SHADER_FRAGMENT, 0,
+                                PIPE_MAX_SAMPLERS,
+                                states);
 
    ctx->base.saved_num_sampler_states = ~0;
 
    /* Fragment sampler views. */
-   pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0,
-                           ctx->base.saved_num_sampler_views, 0, true,
-                           ctx->base.saved_sampler_views);
+   if (ctx->base.saved_num_sampler_views)
+      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0,
+                              ctx->base.saved_num_sampler_views, 0, true,
+                              ctx->base.saved_sampler_views);
+   else
+      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0,
+                              0, PIPE_MAX_SHADER_SAMPLER_VIEWS, true,
+                              NULL);
 
    /* Just clear them to NULL because set_sampler_views(take_ownership = true). */
    for (i = 0; i < ctx->base.saved_num_sampler_views; i++)
