@@ -367,10 +367,23 @@ kopper_update_drawable_info(struct dri_drawable *drawable)
                                 drawable->textures[ST_ATTACHMENT_BACK_LEFT] :
                                 drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
 
-   if (is_window && ptex && kscreen->base.fd == -1)
-      zink_kopper_update(screen, ptex, &dPriv->w, &dPriv->h);
-   else
+   if (!is_window || !ptex || kscreen->base.fd != -1) {
       get_drawable_info(dPriv, &x, &y, &dPriv->w, &dPriv->h);
+      return;
+   }
+   if (zink_kopper_update(screen, ptex, &dPriv->w, &dPriv->h))
+      return;
+   /* if this is nvidia, normal x errors won't be enough to kill wsi.
+    * we're gonna need a bigger boat.
+    */
+   assert(cdraw->info.bos.sType == VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR);
+#ifdef VK_USE_PLATFORM_XCB_KHR
+   mesa_loge("Kopper: generating BadWindow error from X_CreateWindow to kill zombie X connection\n");
+   xcb_connection_t *conn = cdraw->info.xcb.connection;
+   xcb_screen_t *xscreen = xcb_setup_roots_iterator(xcb_get_setup(conn)).data;
+   xcb_create_window(conn, XCB_COPY_FROM_PARENT, xcb_generate_id(conn), xcb_generate_id(conn),
+                     0, 0, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, xscreen->root_visual, 0, NULL);
+#endif
 }
 
 static inline void
