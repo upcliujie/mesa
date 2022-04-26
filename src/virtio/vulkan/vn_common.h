@@ -181,6 +181,8 @@ struct vn_refcount {
 struct vn_env {
    uint64_t debug;
    uint64_t perf;
+   /* zero means no limit */
+   uint32_t draw_cmd_batch_limit;
 };
 extern struct vn_env vn_env;
 
