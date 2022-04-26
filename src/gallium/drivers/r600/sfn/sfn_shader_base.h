@@ -73,6 +73,10 @@ public:
    void emit_export_instruction(WriteoutInstruction *ir);
    void emit_instruction(AluInstruction *ir);
 
+   bool is_arb_asm(void) {
+      return m_sel.nir->info.is_arb_asm;
+   };
+
    void split_constants(nir_alu_instr* instr);
    void remap_registers();
 

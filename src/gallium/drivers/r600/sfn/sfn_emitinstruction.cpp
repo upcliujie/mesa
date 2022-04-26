@@ -45,6 +45,11 @@ bool EmitInstruction::emit(nir_instr* instr)
    return do_emit(instr);
 }
 
+bool EmitInstruction::is_arb_asm(void)
+{
+   return m_proc.is_arb_asm();
+}
+
 PValue EmitInstruction::from_nir(const nir_src& v, unsigned component, unsigned swizzled)
 {
    return m_proc.from_nir(v, component, swizzled);
