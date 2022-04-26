@@ -986,7 +986,8 @@ found_resume:
     * cursor.  Delete everything else.
     */
    if (child_list_contains_cursor) {
-      nir_cf_extract(&cf_list, b->cursor, nir_after_cf_list(child_list));
+      b->cursor = nir_cf_extract(&cf_list, b->cursor,
+                                 nir_after_cf_list(child_list));
    } else {
       nir_cf_list_extract(&cf_list, child_list);
    }
