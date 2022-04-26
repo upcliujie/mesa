@@ -896,7 +896,7 @@ NV50LoweringPreSSA::handleTXB(TexInstruction *i)
    // We can't actually apply bias *and* do a compare for a cube
    // texture. Since the compare has to be done before the filtering, just
    // drop the bias on the floor.
-   if (i->tex.target == TEX_TARGET_CUBE_SHADOW) {
+   if (i->tex.target == TEX_TARGET_CUBE_SHADOW || i->tex.target == TEX_TARGET_2D_ARRAY_SHADOW) {
       i->op = OP_TEX;
       i->setSrc(3, i->getSrc(4));
       i->setSrc(4, NULL);
