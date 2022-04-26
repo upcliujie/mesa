@@ -3858,7 +3858,7 @@ const void *nir_to_tgsi_options(struct nir_shader *s,
    c->native_integers = native_integers;
    c->ureg = ureg_create(pipe_shader_type_from_mesa(s->info.stage));
    ureg_setup_shader_info(c->ureg, &s->info);
-   if (s->info.is_arb_asm && screen->get_param(screen, PIPE_CAP_TGSI_MUL_ZERO_WINS))
+   if (s->info.is_arb_asm && screen->get_param(screen, PIPE_CAP_MUL_ZERO_WINS))
       ureg_property(c->ureg, TGSI_PROPERTY_MUL_ZERO_WINS, 1);
 
    if (s->info.stage == MESA_SHADER_FRAGMENT) {

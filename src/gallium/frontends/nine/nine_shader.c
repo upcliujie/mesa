@@ -3666,7 +3666,7 @@ tx_ctor(struct shader_translator *tx, struct pipe_screen *screen, struct nine_sh
             ureg_property(tx->ureg, TGSI_PROPERTY_FS_COORD_PIXEL_CENTER, TGSI_FS_COORD_PIXEL_CENTER_INTEGER);
     }
 
-    tx->mul_zero_wins = GET_CAP(TGSI_MUL_ZERO_WINS);
+    tx->mul_zero_wins = GET_CAP(MUL_ZERO_WINS);
     if (tx->mul_zero_wins)
        ureg_property(tx->ureg, TGSI_PROPERTY_MUL_ZERO_WINS, 1);
 
