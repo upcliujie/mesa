@@ -70,6 +70,7 @@ enum pan_dirty_3d {
         PAN_DIRTY_MSAA           = BITFIELD_BIT(8),
         PAN_DIRTY_OQ             = BITFIELD_BIT(9),
         PAN_DIRTY_RASTERIZER     = BITFIELD_BIT(10),
+        PAN_DIRTY_POINTS         = BITFIELD_BIT(11),
 };
 
 enum pan_dirty_shader {
@@ -262,6 +263,10 @@ struct panfrost_fs_key {
          * non-blendable formats
          */
         enum pipe_format rt_formats[8];
+
+        /* From rasterize state, to lower point sprites */
+        uint16_t sprite_coord_enable;
+        bool sprite_coord_yinvert;
 };
 
 struct panfrost_shader_key {
