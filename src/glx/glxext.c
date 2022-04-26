@@ -952,9 +952,12 @@ __glXInitialize(Display * dpy)
 #endif /* HAVE_DRI3 */
       if (!env_var_as_boolean("LIBGL_DRI2_DISABLE", false))
          dpyPriv->dri2Display = dri2CreateDisplay(dpy);
+      /* zink fallback */
+      if (!dpyPriv->dri3Display && !dpyPriv->dri2Display)
+         dpyPriv->driswDisplay = driswCreateDisplay(dpy, true);
    }
 #endif /* GLX_USE_DRM */
-   if (glx_direct)
+   if (glx_direct && !dpyPriv->driswDisplay)
       dpyPriv->driswDisplay = driswCreateDisplay(dpy, zink);
 #endif /* GLX_DIRECT_RENDERING && !GLX_USE_APPLEGL */
 
