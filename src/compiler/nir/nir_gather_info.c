@@ -851,9 +851,15 @@ gather_info_block(nir_block *block, nir_shader *shader, void *dead_ctx)
       case nir_instr_type_tex:
          gather_tex_info(nir_instr_as_tex(instr), shader);
          break;
-      case nir_instr_type_call:
-         assert(!"nir_shader_gather_info only works if functions are inlined");
+      case nir_instr_type_call: {
+         nir_call_instr *call = nir_instr_as_call(instr);
+
+         assert(call->callee->impl || !"nir_shader_gather_info only works with linked shaders");
+         nir_foreach_block(block, call->callee->impl) {
+            gather_info_block(block, shader, dead_ctx);
+         }
          break;
+      }
       default:
          break;
       }
