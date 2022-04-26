@@ -307,6 +307,20 @@ typedef struct shader_info {
 
    /**
      * Is this an ARB assembly-style program.
+     *
+     * From the ARB_fragment_program specification:
+     *
+     *    "The following rules apply to multiplication:
+     *
+     *      1. <x> * <y> == <y> * <x>, for all <x> and <y>.
+     *      2. +/-0.0 * <x> = +/-0.0, at least for all <x> that correspond to
+     *         *representable numbers (IEEE "not a number" and "infinity"
+     *         *encodings may be exceptions).
+     *      3. +1.0 * <x> = <x>, for all <x>.""
+     *
+     * However, in effect this was due to DX9 semantics implying that 0*x=0 even
+     * for inf/nan if the hardware generated them instead of float_min/max.  So,
+     * you should not have an exception for inf/nan to rule 2 above.
      */
    bool is_arb_asm;
 
