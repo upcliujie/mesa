@@ -315,6 +315,11 @@ util_primconvert_draw_vbo(struct primconvert_context *pc,
             drawid++;
       }
    }
+
+   if (info->take_index_buffer_ownership) {
+      struct pipe_resource *buffer = info->index.resource;
+      pipe_resource_reference(&buffer, NULL);
+   }
 }
 
 void
