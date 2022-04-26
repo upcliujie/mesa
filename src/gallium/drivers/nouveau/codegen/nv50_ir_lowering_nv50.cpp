@@ -956,6 +956,16 @@ NV50LoweringPreSSA::handleTXB(TexInstruction *i)
 bool
 NV50LoweringPreSSA::handleTXL(TexInstruction *i)
 {
+   // We can't actually apply lod *and* do a compare for a cube/2darray
+   // texture. Since the compare has to be done before the filtering, just
+   // drop the bias on the floor.
+   if (i->tex.target == TEX_TARGET_CUBE_SHADOW || i->tex.target == TEX_TARGET_2D_ARRAY_SHADOW) {
+      i->op = OP_TEX;
+      i->setSrc(3, i->getSrc(4));
+      i->setSrc(4, NULL);
+      return handleTEX(i);
+   }
+
    handleTEX(i);
    Value *lod = i->getSrc(i->tex.target.getArgCount());
    if (lod->isUniform())
