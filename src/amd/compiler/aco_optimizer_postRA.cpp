@@ -448,6 +448,69 @@ try_combine_dpp(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
 }
 
 void
+try_reassign_split_vector(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
+{
+   /* We are looking for the following pattern:
+    *
+    * sA, sB = p_split_vector s[X:Y]
+    * ... X and Y not clobbered here ...
+    * use sA or sB <--- current instruction
+    *
+    * If possible, we propagate the registers from the p_split_vector
+    * operand into the current instruction and the above is optimized into:
+    *
+    * use sX or sY
+    *
+    * Thereby, we "break" SSA for the affected operand of the current instruction.
+    * This optimization exists because it's too difficult to solve it
+    * in RA, and should be removed after we solved this in RA.
+    */
+
+   if (!instr->isVALU() && !instr->isSALU())
+      return;
+
+   for (unsigned i = 0; i < instr->operands.size(); i++) {
+      /* Find the instruction that writes the current operand. */
+      const Operand& op = instr->operands[i];
+      Idx op_instr_idx = last_writer_idx(ctx, op);
+      if (!op_instr_idx.found())
+         continue;
+
+      /* Check if the operand is written by p_split_vector. */
+      Instruction* split_vec = ctx.get(op_instr_idx);
+      if (split_vec->opcode != aco_opcode::p_split_vector)
+         continue;
+
+      /* For the sake of simplicity, only do this when the register type
+       * of the p_split_vector operand matches the register type of the
+       * current operand.
+       */
+      if (split_vec->operands[0].regClass().type() != op.regClass().type())
+         continue;
+
+      /* Check if the p_split_vector operand's register is clobbered since. */
+      if (is_clobbered_since(ctx, split_vec->operands[0], op_instr_idx))
+         continue;
+
+      int reg_bytes = 0;
+
+      for (unsigned def_idx = 0; def_idx < split_vec->definitions.size(); ++def_idx) {
+         if (split_vec->definitions[def_idx].tempId() == op.tempId())
+            break;
+
+         reg_bytes += split_vec->definitions[def_idx].bytes();
+      }
+
+      /* Use the p_split_vector operand register directly.
+       * Note: unfortunately, this "breaks" SSA.
+       */
+      ctx.uses[op.tempId()]--;
+      PhysReg reg = split_vec->operands[0].physReg().advance(reg_bytes);
+      instr->operands[i] = Operand(reg, op.regClass());
+   }
+}
+
+void
 process_instruction(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
 {
    try_apply_branch_vcc(ctx, instr);
@@ -455,6 +518,8 @@ process_instruction(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
    try_optimize_scc_nocompare(ctx, instr);
 
    try_combine_dpp(ctx, instr);
+
+   try_reassign_split_vector(ctx, instr);
 
    if (instr)
       save_reg_writes(ctx, instr);
