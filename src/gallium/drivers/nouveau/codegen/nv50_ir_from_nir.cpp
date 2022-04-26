@@ -3037,8 +3037,21 @@ Converter::visit(nir_tex_instr *insn)
          srcs.push_back(loadImm(NULL, 0));
       if (biasIdx != -1)
          srcs.push_back(getSrc(&insn->src[biasIdx].src, 0));
-      if (lodIdx != -1)
-         srcs.push_back(getSrc(&insn->src[lodIdx].src, 0));
+      if (lodIdx != -1) {
+         /* Turn a TXL(lod == 0) back into TEX with the levelZero flag set. NVC0
+          * does this in its lowering, but this also helps on NV50 because
+          * nir_lower_tex turns implicit derivatives into explicit lods on
+          * non-implicit-lod stages, while nv50 has an implicit lod of 0 for
+          * them.  Using the explicit LOD would cost us extra tex arguments, and
+          * then we can run out of args for 2DArrayShadow and CubeArrayShadow.
+          */
+         if (op == OP_TXL && nir_src_is_const(insn->src[lodIdx].src) && nir_src_as_uint(insn->src[lodIdx].src) == 0) {
+            lz = true;
+            op = OP_TEX;
+         } else {
+            srcs.push_back(getSrc(&insn->src[lodIdx].src, 0));
+         }
+      }
       else if (op == OP_TXF)
          lz = true;
       if (msIdx != -1)
