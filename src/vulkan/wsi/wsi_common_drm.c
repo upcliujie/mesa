@@ -461,11 +461,12 @@ wsi_configure_prime_image(UNUSED const struct wsi_swapchain *chain,
                           bool use_modifier,
                           struct wsi_image_info *info)
 {
-   VkResult result =
-      wsi_configure_blit_context(chain, pCreateInfo, info);
+   VkResult result = wsi_configure_image(chain, pCreateInfo,
+                                         0 /* handle_types */, info);
    if (result != VK_SUCCESS)
       return result;
 
+   wsi_configure_blit_context(chain, pCreateInfo, info);
    info->prime_use_linear_modifier = use_modifier;
 
    const uint32_t cpp = vk_format_get_blocksize(info->create.format);

@@ -1338,21 +1338,14 @@ wsi_finish_create_blit_context(const struct wsi_swapchain *chain,
    return VK_SUCCESS;
 }
 
-VkResult
+void
 wsi_configure_blit_context(UNUSED const struct wsi_swapchain *chain,
                            const VkSwapchainCreateInfoKHR *pCreateInfo,
                            struct wsi_image_info *info)
 {
-   VkResult result = wsi_configure_image(chain, pCreateInfo,
-                                         0 /* handle_types */, info);
-   if (result != VK_SUCCESS)
-      return result;
-
    if (chain->blit.type != WSI_SWAPCHAIN_NO_BLIT)  {
       info->create.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
       info->wsi.blit_src = true;
       info->finish_create = wsi_finish_create_blit_context;
    }
-
-   return VK_SUCCESS;
 }
