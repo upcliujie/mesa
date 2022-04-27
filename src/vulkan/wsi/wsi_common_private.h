@@ -67,6 +67,7 @@ struct wsi_image_info {
 enum wsi_swapchain_blit_type {
    WSI_SWAPCHAIN_NO_BLIT,
    WSI_SWAPCHAIN_BUFFER_BLIT,
+   WSI_SWAPCHAIN_IMAGE_BLIT,
 };
 
 struct wsi_image {
@@ -75,6 +76,7 @@ struct wsi_image {
 
    struct {
       VkBuffer buffer;
+      VkImage image;
       VkDeviceMemory memory;
       VkCommandBuffer *cmd_buffers;
    } blit;
