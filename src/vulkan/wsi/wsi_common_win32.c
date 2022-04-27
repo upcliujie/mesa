@@ -33,6 +33,11 @@
 #include "wsi_common_entrypoints.h"
 #include "wsi_common_private.h"
 
+#define D3D12_IGNORE_SDK_LAYERS
+#define COBJMACROS
+#include <dxgi1_4.h>
+#include <directx/d3d12.h>
+
 #if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"      // warning: cast to pointer from integer of different size
 #endif
@@ -48,9 +53,17 @@ struct wsi_win32 {
    VkPhysicalDevice physical_device;
 };
 
+enum wsi_win32_image_state {
+   WSI_IMAGE_IDLE,
+   WSI_IMAGE_DRAWING,
+   WSI_IMAGE_QUEUED,
+};
+
 struct wsi_win32_image {
    struct wsi_image base;
+   enum wsi_win32_image_state state;
    struct wsi_win32_swapchain *chain;
+   ID3D12Resource *swapchain_res;
    HDC dc;
    HBITMAP bmp;
    int bmp_row_pitch;
@@ -60,6 +73,7 @@ struct wsi_win32_image {
 
 struct wsi_win32_swapchain {
    struct wsi_swapchain         base;
+   IDXGISwapChain1            *dxgi;
    struct wsi_win32           *wsi;
    VkIcdSurfaceWin32          *surface;
    uint64_t                     flip_sequence;
@@ -127,8 +141,18 @@ wsi_win32_surface_get_capabilities(VkIcdSurfaceBase *surf,
       return VK_ERROR_SURFACE_LOST_KHR;
 
    caps->minImageCount = 1;
-   /* There is no real maximum */
-   caps->maxImageCount = 0;
+
+   if (!wsi_device->sw && wsi_device->win32.get_d3d12_command_queue) {
+      /* DXGI doesn't support random presenting order (images need to
+       * be presented in the order they were acquired), so we can't
+       * expose more than two image per swapchain.
+       */
+      caps->minImageCount = caps->maxImageCount = 2;
+   } else {
+      caps->minImageCount = 1;
+      /* Software callbacke, there is no real maximum */
+      caps->maxImageCount = 0;
+   }
 
    caps->currentExtent = (VkExtent2D) {
       win_rect.right - win_rect.left,
@@ -326,7 +350,7 @@ select_image_memory_type(const struct wsi_device *wsi,
 
 static uint32_t
 select_buffer_memory_type(const struct wsi_device *wsi,
-                         uint32_t type_bits)
+                          uint32_t type_bits)
 {
    return select_memory_type(wsi,
                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
@@ -334,46 +358,106 @@ select_buffer_memory_type(const struct wsi_device *wsi,
 }
 
 static VkResult
-wsi_create_win32_image_mem(const struct wsi_swapchain *chain,
+wsi_create_win32_image_mem(const struct wsi_swapchain *drv_chain,
                            const struct wsi_image_info *info,
                            struct wsi_image *image)
 {
-   const struct wsi_device *wsi = chain->wsi;
+   struct wsi_win32_swapchain *chain = (struct wsi_win32_swapchain *)drv_chain;
+   const struct wsi_device *wsi = chain->base.wsi;
+
+   if (chain->base.blit.type == WSI_SWAPCHAIN_BUFFER_BLIT) {
+      VkResult result =
+         wsi_create_buffer_blit_context(&chain->base, info, image, 0, false);
+      if (result != VK_SUCCESS)
+         return result;
+
+      const VkImageSubresource image_subresource = {
+         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+         .mipLevel = 0,
+         .arrayLayer = 0,
+      };
+      VkSubresourceLayout image_layout;
+      wsi->GetImageSubresourceLayout(chain->base.device, image->image,
+                                     &image_subresource, &image_layout);
+
+      image->row_pitches[0] = image_layout.rowPitch;
+      return VK_SUCCESS;
+   }
+
+   struct wsi_win32_image *win32_image =
+      container_of(image, struct wsi_win32_image, base);
+   uint32_t image_idx =
+      ((uintptr_t)win32_image - (uintptr_t)chain->images) /
+      sizeof(*win32_image);
+   if (FAILED(IDXGISwapChain_GetBuffer(chain->dxgi, image_idx,
+                                       &IID_ID3D12Resource,
+                                       &win32_image->swapchain_res)))
+      return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+
    VkResult result =
-      wsi_create_buffer_blit_context(chain, info, image, 0, false);
+      wsi->win32.create_image_memory(chain->base.device,
+                                     win32_image->swapchain_res,
+                                     &chain->base.alloc,
+                                     chain->base.blit.type == WSI_SWAPCHAIN_NO_BLIT ?
+                                     &image->memory : &image->blit.memory);
    if (result != VK_SUCCESS)
       return result;
 
-   const VkImageSubresource image_subresource = {
-      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-      .mipLevel = 0,
-      .arrayLayer = 0,
+   if (chain->base.blit.type == WSI_SWAPCHAIN_NO_BLIT)
+      return VK_SUCCESS;
+
+   VkImageCreateInfo create = info->create;
+
+   create.usage &= ~VK_IMAGE_USAGE_STORAGE_BIT;
+
+   result = wsi->CreateImage(chain->base.device, &create,
+                             &chain->base.alloc, &image->blit.image);
+   if (result != VK_SUCCESS)
+      return result;
+
+   result = wsi->BindImageMemory(chain->base.device, image->blit.image,
+                                 image->blit.memory, 0);
+   if (result != VK_SUCCESS)
+      return result;
+
+   VkMemoryRequirements reqs;
+   wsi->GetImageMemoryRequirements(chain->base.device, image->image, &reqs);
+
+   const VkMemoryDedicatedAllocateInfo memory_dedicated_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+      .image = image->blit.image,
+      .buffer = VK_NULL_HANDLE,
    };
-   VkSubresourceLayout image_layout;
-   wsi->GetImageSubresourceLayout(chain->device, image->image,
-                                  &image_subresource, &image_layout);
+   const VkMemoryAllocateInfo memory_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .pNext = &memory_dedicated_info,
+      .allocationSize = reqs.size,
+      .memoryTypeIndex =
+         info->select_image_memory_type(wsi, reqs.memoryTypeBits),
+   };
 
-   image->row_pitches[0] = image_layout.rowPitch;
-
-   return VK_SUCCESS;
+   return wsi->AllocateMemory(chain->base.device, &memory_info,
+                              &chain->base.alloc, &image->memory);
 }
 
 #define WSI_WIN32_LINEAR_STRIDE_ALIGN 256
 
 static VkResult
-wsi_configure_win32_image(const struct wsi_swapchain *chain,
-                          const VkSwapchainCreateInfoKHR *pCreateInfo,
-                          struct wsi_image_info *info)
+wsi_configure_win32_image(struct wsi_win32_swapchain *chain,
+                          const VkSwapchainCreateInfoKHR *pCreateInfo)
 {
-   VkResult result = wsi_configure_image(chain, pCreateInfo,
-                                         0 /* handle_types */, info);
+   struct wsi_image_info *info = &chain->base.image_info;
+   VkResult result =
+      wsi_configure_image(&chain->base, pCreateInfo, 0, info);
    if (result != VK_SUCCESS)
       return result;
 
-   wsi_configure_blit_context(chain, pCreateInfo, info);
+   wsi_configure_blit_context(&chain->base, pCreateInfo, info);
    info->create_mem = wsi_create_win32_image_mem;
    info->select_image_memory_type = select_image_memory_type;
-   info->select_blit_dst_memory_type = select_buffer_memory_type;
+   info->select_blit_dst_memory_type =
+      chain->base.blit.type == WSI_SWAPCHAIN_BUFFER_BLIT ?
+      select_buffer_memory_type : select_image_memory_type;
 
    const uint32_t cpp = vk_format_get_blocksize(info->create.format);
    info->linear_stride = ALIGN_POT(info->create.extent.width * cpp,
@@ -391,7 +475,6 @@ wsi_win32_image_init(VkDevice device_h,
                      const VkAllocationCallbacks *allocator,
                      struct wsi_win32_image *image)
 {
-   assert(chain->base.blit.type == WSI_SWAPCHAIN_BUFFER_BLIT);
    VkResult result = wsi_create_image(&chain->base, &chain->base.image_info,
                                       &image->base);
    if (result != VK_SUCCESS)
@@ -432,6 +515,9 @@ wsi_win32_image_finish(struct wsi_win32_swapchain *chain,
                        const VkAllocationCallbacks *allocator,
                        struct wsi_win32_image *image)
 {
+   if (image->swapchain_res)
+      ID3D12Resource_Release(image->swapchain_res);
+
    DeleteDC(image->dc);
    if(image->bmp)
       DeleteObject(image->bmp);
@@ -477,8 +563,16 @@ wsi_win32_acquire_next_image(struct wsi_swapchain *drv_chain,
    if (chain->status != VK_SUCCESS)
       return chain->status;
 
-   *image_index = 0;
-   return VK_SUCCESS;
+   /* TODO: wait on image idleness */
+   for (uint32_t i = 0; i < chain->base.image_count; i++) {
+      if (chain->images[i].state == WSI_IMAGE_IDLE) {
+         *image_index = i;
+         chain->images[i].state = WSI_IMAGE_DRAWING;
+         return VK_SUCCESS;
+      }
+   }
+
+   return VK_TIMEOUT;
 }
 
 static VkResult
@@ -491,7 +585,43 @@ wsi_win32_queue_present(struct wsi_swapchain *drv_chain,
    struct wsi_win32_image *image = &chain->images[image_index];
    VkResult result;
 
-   assert(chain->base.blit.type == WSI_SWAPCHAIN_NO_BLIT);
+   assert(image->state == WSI_IMAGE_DRAWING);
+
+   if (chain->dxgi) {
+      uint32_t rect_count = damage ? damage->rectangleCount : 0;
+      STACK_ARRAY(RECT, rects, rect_count);
+
+      for (uint32_t r = 0; r < rect_count; r++) {
+         rects[r].left = damage->pRectangles[r].offset.x;
+         rects[r].top = damage->pRectangles[r].offset.y;
+         rects[r].right = damage->pRectangles[r].offset.x + damage->pRectangles[r].extent.width;
+         rects[r].bottom = damage->pRectangles[r].offset.y + damage->pRectangles[r].extent.height;
+      }
+
+      DXGI_PRESENT_PARAMETERS params = {
+         .DirtyRectsCount = rect_count,
+         .pDirtyRects = rects,
+      };
+
+      image->state = WSI_IMAGE_QUEUED;
+
+      HRESULT hres = IDXGISwapChain1_Present1(chain->dxgi, 0, 0, &params);
+      switch (hres) {
+      case DXGI_ERROR_DEVICE_REMOVED: return VK_ERROR_SURFACE_LOST_KHR;
+      case E_OUTOFMEMORY: return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+      default:
+         if (FAILED(hres))
+            return VK_ERROR_OUT_OF_HOST_MEMORY;
+         break;
+      }
+
+      /* Mark the other image idle */
+      chain->images[(image_index + 1) % 2].state = WSI_IMAGE_IDLE;
+      chain->status = VK_SUCCESS;
+      return VK_SUCCESS;
+   }
+
+   assert(chain->base.blit.type == WSI_SWAPCHAIN_BUFFER_BLIT);
 
    char *ptr;
    char *dptr = image->ppvBits;
@@ -513,10 +643,46 @@ wsi_win32_queue_present(struct wsi_swapchain *drv_chain,
    if (result != VK_SUCCESS)
       chain->status = result;
 
+   image->state = WSI_IMAGE_IDLE;
+
    if (result != VK_SUCCESS)
       return result;
 
    return chain->status;
+}
+
+static IDXGIFactory4 *
+dxgi_get_factory(bool debug)
+{
+   static const GUID IID_IDXGIFactory4 = {
+      0x1bc6ea02, 0xef36, 0x464f,
+      { 0xbf, 0x0c, 0x21, 0xca, 0x39, 0xe5, 0x16, 0x8a }
+   };
+
+   HMODULE dxgi_mod = LoadLibraryA("DXGI.DLL");
+   if (!dxgi_mod) {
+      return NULL;
+   }
+
+   typedef HRESULT(WINAPI *PFN_CREATE_DXGI_FACTORY2)(UINT flags, REFIID riid, void **ppFactory);
+   PFN_CREATE_DXGI_FACTORY2 CreateDXGIFactory2;
+
+   CreateDXGIFactory2 = (PFN_CREATE_DXGI_FACTORY2)GetProcAddress(dxgi_mod, "CreateDXGIFactory2");
+   if (!CreateDXGIFactory2) {
+      return NULL;
+   }
+
+   UINT flags = 0;
+   if (debug)
+      flags |= DXGI_CREATE_FACTORY_DEBUG;
+
+   IDXGIFactory4 *factory;
+   HRESULT hr = CreateDXGIFactory2(flags, &IID_IDXGIFactory4, &factory);
+   if (FAILED(hr)) {
+      return NULL;
+   }
+
+   return factory;
 }
 
 static VkResult
@@ -562,13 +728,62 @@ wsi_win32_surface_create_swapchain(
 
    chain->wsi = wsi;
    chain->status = VK_SUCCESS;
+   chain->base.blit.type = WSI_SWAPCHAIN_BUFFER_BLIT;
 
    chain->surface = surface;
 
-   assert(wsi_device->sw);
+   if (!wsi_device->sw &&
+       wsi_device->win32.get_d3d12_command_queue) {
+      ID3D12CommandQueue *queue =
+         wsi_device->win32.get_d3d12_command_queue(device);
+      IUnknown *unknown;
+      ID3D12CommandQueue_QueryInterface(queue, &IID_IUnknown, &unknown);
 
-   result = wsi_configure_win32_image(&chain->base, create_info,
-                                      &chain->base.image_info);
+      IDXGIFactory4 *factory = dxgi_get_factory(true);
+      if (!factory)
+         return VK_ERROR_INITIALIZATION_FAILED;
+
+      assert(factory);
+
+      DXGI_SWAP_CHAIN_DESC1 desc = {
+         .Width = create_info->imageExtent.width,
+         .Height = create_info->imageExtent.height,
+         .Format = create_info->imageFormat == VK_FORMAT_B8G8R8A8_SRGB ?
+                   DXGI_FORMAT_B8G8R8A8_UNORM_SRGB : DXGI_FORMAT_B8G8R8A8_UNORM,
+         .Stereo = create_info->imageArrayLayers > 1,
+         .SampleDesc = { .Count = 1 },
+	 .BufferCount = create_info->minImageCount,
+	 .Scaling = DXGI_SCALING_NONE,
+         .SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+         .AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED,
+         .Flags = 0,
+      };
+
+      if (create_info->imageUsage &
+          (VK_IMAGE_USAGE_SAMPLED_BIT |
+	   VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT))
+         desc.BufferUsage |= DXGI_USAGE_SHADER_INPUT;
+
+      if (create_info->imageUsage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+         desc.BufferUsage |= DXGI_USAGE_RENDER_TARGET_OUTPUT;
+
+      if (FAILED(IDXGIFactory2_CreateSwapChainForHwnd(factory, unknown, surface->hwnd,
+                                                      &desc, NULL, NULL, &chain->dxgi)))
+         return VK_ERROR_INITIALIZATION_FAILED;
+
+      /* Release the reference taken by QueryInterface() */
+      ID3D12CommandQueue_Release(queue);
+
+      /* d3d12 doesn't support DXGI_USAGE_UNORDERED_ACCESS, so we need an
+       * extra blit in that case.
+       */
+      chain->base.blit.type =
+         (create_info->imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) ?
+         WSI_SWAPCHAIN_IMAGE_BLIT : WSI_SWAPCHAIN_NO_BLIT;
+      chain->base.blit.type = WSI_SWAPCHAIN_IMAGE_BLIT;
+   }
+
+   result = wsi_configure_win32_image(chain, create_info);
    if (result != VK_SUCCESS) {
       vk_free(allocator, chain);
       goto fail_init_images;
