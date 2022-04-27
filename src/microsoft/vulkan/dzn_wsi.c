@@ -31,6 +31,45 @@ dzn_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
    return vk_instance_get_proc_addr_unchecked(pdevice->vk.instance, pName);
 }
 
+static void *
+dzn_wsi_get_d3d12_command_queue(VkDevice dev)
+{
+   VK_FROM_HANDLE(dzn_device, device, dev);
+   struct dzn_physical_device *pdev =
+      container_of(device->vk.physical, struct dzn_physical_device, vk);
+
+   list_for_each_entry(struct vk_queue, queue, &device->vk.queues, link) {
+      if (pdev->queue_families[queue->queue_family_index].props.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+         struct dzn_queue *dqueue = container_of(queue, struct dzn_queue, vk);
+         return dqueue->cmdqueue;
+      }
+   }
+
+   /* FIXME: Create a gfx queue if it's not been created yet? */
+   return NULL;
+}
+
+static VkResult
+dzn_wsi_create_image_memory(VkDevice dev, void *resource,
+                            const VkAllocationCallbacks *alloc,
+                            VkDeviceMemory *out)
+{
+   VK_FROM_HANDLE(dzn_device, device, dev);
+
+   struct dzn_device_memory *mem =
+      vk_zalloc2(&device->vk.alloc, alloc, sizeof(*mem), 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!mem)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   vk_object_base_init(&device->vk, &mem->base, VK_OBJECT_TYPE_DEVICE_MEMORY);
+   mem->swapchain_res = resource;
+   ID3D12Resource_AddRef(mem->swapchain_res);
+
+   *out = dzn_device_memory_to_handle(mem);
+   return VK_SUCCESS;
+}
+
 void
 dzn_wsi_finish(struct dzn_physical_device *physical_device)
 {
@@ -43,18 +82,19 @@ dzn_wsi_init(struct dzn_physical_device *physical_device)
 {
    VkResult result;
 
-   /* TODO: implement a proper, non-sw winsys for D3D12 */
-   bool sw_device = true;
-
    result = wsi_device_init(&physical_device->wsi_device,
                             dzn_physical_device_to_handle(physical_device),
                             dzn_wsi_proc_addr,
                             &physical_device->vk.instance->alloc,
-                            -1, NULL, sw_device);
+                            -1, NULL, false);
 
    if (result != VK_SUCCESS)
       return result;
 
+   physical_device->wsi_device.win32.get_d3d12_command_queue =
+      dzn_wsi_get_d3d12_command_queue;
+   physical_device->wsi_device.win32.create_image_memory =
+      dzn_wsi_create_image_memory;
    physical_device->wsi_device.supports_modifiers = false;
    physical_device->vk.wsi_device = &physical_device->wsi_device;
    physical_device->wsi_device.signal_semaphore_with_memory = true;
