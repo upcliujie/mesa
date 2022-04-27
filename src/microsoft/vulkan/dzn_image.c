@@ -630,14 +630,18 @@ dzn_BindImageMemory2(VkDevice dev,
       if (!did_bind) {
          image->mem = mem;
          image->mem_offset = bind_info->memoryOffset;
-         if (FAILED(ID3D12Device1_CreatePlacedResource(device->dev, mem->heap,
-                                                      bind_info->memoryOffset,
-                                                      &image->desc,
-                                                      mem->initial_state,
-                                                      NULL,
-                                                      &IID_ID3D12Resource,
-                                                      &image->res)))
+         if (mem->swapchain_res) {
+            image->res = mem->swapchain_res;
+            ID3D12Resource_AddRef(image->res);
+         } else if (FAILED(ID3D12Device1_CreatePlacedResource(device->dev, mem->heap,
+                                                              bind_info->memoryOffset,
+                                                              &image->desc,
+                                                              mem->initial_state,
+                                                              NULL,
+                                                              &IID_ID3D12Resource,
+                                                              &image->res))) {
             return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+         }
          did_bind = true;
       }
    }

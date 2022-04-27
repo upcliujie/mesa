@@ -2072,6 +2072,9 @@ dzn_device_memory_destroy(struct dzn_device_memory *mem,
    if (mem->heap)
       ID3D12Heap_Release(mem->heap);
 
+   if (mem->swapchain_res)
+      ID3D12Resource_Release(mem->swapchain_res);
+
    vk_object_base_finish(&mem->base);
    vk_free2(&device->vk.alloc, pAllocator, mem);
 }

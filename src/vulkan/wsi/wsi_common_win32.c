@@ -780,7 +780,6 @@ wsi_win32_surface_create_swapchain(
       chain->base.blit.type =
          (create_info->imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) ?
          WSI_SWAPCHAIN_IMAGE_BLIT : WSI_SWAPCHAIN_NO_BLIT;
-      chain->base.blit.type = WSI_SWAPCHAIN_IMAGE_BLIT;
    }
 
    result = wsi_configure_win32_image(chain, create_info);

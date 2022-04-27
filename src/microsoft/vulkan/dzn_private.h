@@ -265,6 +265,11 @@ struct dzn_device_memory {
 
    struct list_head link;
 
+   /* Swapchain image resource, NULL if the memory is not backed by
+    * a DXGI swapchain.
+    */
+   ID3D12Resource *swapchain_res;
+
    ID3D12Heap *heap;
    VkDeviceSize size;
    D3D12_RESOURCE_STATES initial_state; /* initial state for this memory type */
