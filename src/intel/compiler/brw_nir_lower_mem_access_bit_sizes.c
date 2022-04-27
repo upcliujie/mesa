@@ -80,7 +80,8 @@ dup_mem_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
 
 static bool
 lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
-                        const struct intel_device_info *devinfo)
+                        const struct intel_device_info *devinfo,
+                        int offset_factor)
 {
    const bool needs_scalar =
       intrin->intrinsic == nir_intrinsic_load_scratch;
@@ -101,7 +102,7 @@ lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
       /* The offset is constant so we can use a 32-bit load and just shift it
        * around as needed.
        */
-      const int load_offset = nir_src_as_uint(*offset_src) % 4;
+      const int load_offset = offset_factor * nir_src_as_uint(*offset_src) % 4;
       assert(load_offset % (bit_size / 8) == 0);
       const unsigned load_comps32 = DIV_ROUND_UP(bytes_read + load_offset, 4);
       /* A 16-bit vec4 is a 32-bit vec2.  We add an extra component in case
@@ -109,7 +110,8 @@ lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
        */
       assert(load_comps32 <= 3);
 
-      nir_ssa_def *load = dup_mem_intrinsic(b, intrin, NULL, -load_offset,
+      nir_ssa_def *load = dup_mem_intrinsic(b, intrin, NULL,
+                                            -load_offset / offset_factor,
                                             load_comps32, 32, 4);
       result = nir_extract_bits(b, &load, 1, load_offset * 8,
                                 num_components, bit_size);
@@ -134,7 +136,8 @@ lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
                          DIV_ROUND_UP(MIN2(bytes_left, 16), 4);
          }
 
-         loads[num_loads++] = dup_mem_intrinsic(b, intrin, NULL, load_offset,
+         loads[num_loads++] = dup_mem_intrinsic(b, intrin, NULL,
+                                                load_offset / offset_factor,
                                                 load_comps, load_bit_size,
                                                 align);
 
@@ -154,7 +157,8 @@ lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
 
 static bool
 lower_mem_store_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
-                         const struct intel_device_info *devinfo)
+                         const struct intel_device_info *devinfo,
+                         int offset_factor)
 {
    const bool needs_scalar =
       intrin->intrinsic == nir_intrinsic_store_scratch;
@@ -182,7 +186,7 @@ lower_mem_store_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
    nir_src *offset_src = nir_get_io_offset_src(intrin);
    const bool offset_is_const = nir_src_is_const(*offset_src);
    const unsigned const_offset =
-      offset_is_const ? nir_src_as_uint(*offset_src) : 0;
+      offset_is_const ? nir_src_as_uint(*offset_src) * offset_factor : 0;
 
    const unsigned byte_size = bit_size / 8;
    assert(byte_size <= sizeof(uint64_t));
@@ -228,7 +232,7 @@ lower_mem_store_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
       nir_ssa_def *packed = nir_extract_bits(b, &value, 1, start * 8,
                                              store_comps, store_bit_size);
 
-      dup_mem_intrinsic(b, intrin, packed, start,
+      dup_mem_intrinsic(b, intrin, packed, start / offset_factor,
                         store_comps, store_bit_size, store_align);
 
       BITSET_CLEAR_RANGE(mask, start, (start + store_bytes - 1));
@@ -258,15 +262,17 @@ lower_mem_access_bit_sizes_instr(nir_builder *b,
    case nir_intrinsic_load_ssbo:
    case nir_intrinsic_load_shared:
    case nir_intrinsic_load_scratch:
+      return lower_mem_load_bit_size(b, intrin, devinfo, 1);
    case nir_intrinsic_load_task_payload:
-      return lower_mem_load_bit_size(b, intrin, devinfo);
+      return lower_mem_load_bit_size(b, intrin, devinfo, 4);
 
    case nir_intrinsic_store_global:
    case nir_intrinsic_store_ssbo:
    case nir_intrinsic_store_shared:
    case nir_intrinsic_store_scratch:
+      return lower_mem_store_bit_size(b, intrin, devinfo, 1);
    case nir_intrinsic_store_task_payload:
-      return lower_mem_store_bit_size(b, intrin, devinfo);
+      return lower_mem_store_bit_size(b, intrin, devinfo, 4);
 
    default:
       return false;
