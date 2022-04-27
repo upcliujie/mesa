@@ -198,7 +198,10 @@ anv_dynamic_state_copy(struct anv_dynamic_state *dest,
    ANV_CMP_COPY(primitive_restart_enable, ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_RESTART_ENABLE);
    ANV_CMP_COPY(logic_op, ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP);
 
-   if (copy_mask & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS) {
+   if (copy_mask & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS &&
+       memcmp(dest->sample_locations.locations,
+              src->sample_locations.locations,
+              sizeof(src->sample_locations.locations)) != 0) {
       typed_memcpy(dest->sample_locations.locations,
                    src->sample_locations.locations,
                    ARRAY_SIZE(src->sample_locations.locations));
