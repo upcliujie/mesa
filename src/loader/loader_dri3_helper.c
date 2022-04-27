@@ -586,7 +586,7 @@ static bool
 dri3_wait_for_event_locked(struct loader_dri3_drawable *draw,
                            unsigned *full_sequence)
 {
-   xcb_generic_event_t *ev;
+   xcb_generic_event_t *ev = NULL;
    xcb_present_generic_event_t *ge;
 
    xcb_flush(draw->conn);
@@ -602,7 +602,18 @@ dri3_wait_for_event_locked(struct loader_dri3_drawable *draw,
       draw->has_event_waiter = true;
       /* Allow other threads access to the drawable while we're waiting. */
       mtx_unlock(&draw->mtx);
-      ev = xcb_wait_for_special_event(draw->conn, draw->special_event);
+      while (!xcb_connection_has_error(draw->conn)) {
+         xcb_get_geometry_reply_t *geometry;
+         ev = xcb_poll_for_special_event(draw->conn, draw->special_event);
+         if (ev)
+            break;
+         geometry = xcb_get_geometry_reply(draw->conn,
+                                           xcb_get_geometry(draw->conn, draw->window),
+                                           NULL);
+         if (!geometry)
+            break;
+         free(geometry);
+      }
       mtx_lock(&draw->mtx);
       draw->has_event_waiter = false;
       cnd_broadcast(&draw->event_cnd);
