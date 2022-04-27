@@ -340,7 +340,7 @@ wsi_create_win32_image_mem(const struct wsi_swapchain *chain,
 {
    const struct wsi_device *wsi = chain->wsi;
    VkResult result =
-      wsi_create_buffer_image_mem(chain, info, image, 0, false);
+      wsi_create_buffer_blit_context(chain, info, image, 0, false);
    if (result != VK_SUCCESS)
       return result;
 
@@ -366,13 +366,13 @@ wsi_configure_win32_image(const struct wsi_swapchain *chain,
                           struct wsi_image_info *info)
 {
    VkResult result =
-      wsi_configure_buffer_image(chain, pCreateInfo, info);
+      wsi_configure_blit_context(chain, pCreateInfo, info);
    if (result != VK_SUCCESS)
       return result;
 
    info->create_mem = wsi_create_win32_image_mem;
    info->select_image_memory_type = select_image_memory_type;
-   info->select_buffer_memory_type = select_buffer_memory_type;
+   info->select_blit_dst_memory_type = select_buffer_memory_type;
 
    const uint32_t cpp = vk_format_get_blocksize(info->create.format);
    info->linear_stride = ALIGN_POT(info->create.extent.width * cpp,
@@ -390,7 +390,7 @@ wsi_win32_image_init(VkDevice device_h,
                      const VkAllocationCallbacks *allocator,
                      struct wsi_win32_image *image)
 {
-   assert(chain->base.use_buffer_blit);
+   assert(chain->base.blit.type == WSI_SWAPCHAIN_BUFFER_BLIT);
    VkResult result = wsi_create_image(&chain->base, &chain->base.image_info,
                                       &image->base);
    if (result != VK_SUCCESS)
@@ -490,12 +490,12 @@ wsi_win32_queue_present(struct wsi_swapchain *drv_chain,
    struct wsi_win32_image *image = &chain->images[image_index];
    VkResult result;
 
-   assert(chain->base.use_buffer_blit);
+   assert(chain->base.blit.type == WSI_SWAPCHAIN_NO_BLIT);
 
    char *ptr;
    char *dptr = image->ppvBits;
    result = chain->base.wsi->MapMemory(chain->base.device,
-                                       image->base.buffer.memory,
+                                       image->base.blit.memory,
                                        0, image->base.sizes[0], 0, (void**)&ptr);
 
    for (unsigned h = 0; h < chain->extent.height; h++) {
@@ -508,7 +508,7 @@ wsi_win32_queue_present(struct wsi_swapchain *drv_chain,
    else
      result = VK_ERROR_MEMORY_MAP_FAILED;
 
-   chain->base.wsi->UnmapMemory(chain->base.device, image->base.buffer.memory);
+   chain->base.wsi->UnmapMemory(chain->base.device, image->base.blit.memory);
    if (result != VK_SUCCESS)
       chain->status = result;
 
@@ -544,7 +544,8 @@ wsi_win32_surface_create_swapchain(
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    VkResult result = wsi_swapchain_init(wsi_device, &chain->base, device,
-                                        create_info, allocator, true);
+                                        create_info, allocator,
+                                        WSI_SWAPCHAIN_BUFFER_BLIT);
    if (result != VK_SUCCESS) {
       vk_free(allocator, chain);
       return result;

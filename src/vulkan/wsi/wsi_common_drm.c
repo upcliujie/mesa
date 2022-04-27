@@ -431,16 +431,16 @@ wsi_create_prime_image_mem(const struct wsi_swapchain *chain,
 {
    const struct wsi_device *wsi = chain->wsi;
    VkResult result =
-      wsi_create_buffer_image_mem(chain, info, image,
-                                  VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
-                                  true);
+      wsi_create_buffer_blit_context(chain, info, image,
+                                     VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+                                     true);
    if (result != VK_SUCCESS)
       return result;
 
    const VkMemoryGetFdInfoKHR linear_memory_get_fd_info = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
       .pNext = NULL,
-      .memory = image->buffer.memory,
+      .memory = image->blit.memory,
       .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
    };
    int fd;
@@ -462,7 +462,7 @@ wsi_configure_prime_image(UNUSED const struct wsi_swapchain *chain,
                           struct wsi_image_info *info)
 {
    VkResult result =
-      wsi_configure_buffer_image(chain, pCreateInfo, info);
+      wsi_configure_blit_context(chain, pCreateInfo, info);
    if (result != VK_SUCCESS)
       return result;
 
@@ -474,7 +474,7 @@ wsi_configure_prime_image(UNUSED const struct wsi_swapchain *chain,
    info->size_align = 4096;
 
    info->create_mem = wsi_create_prime_image_mem;
-   info->select_buffer_memory_type = prime_select_buffer_memory_type;
+   info->select_blit_dst_memory_type = prime_select_buffer_memory_type;
    info->select_image_memory_type = prime_select_image_memory_type;
 
    return VK_SUCCESS;
