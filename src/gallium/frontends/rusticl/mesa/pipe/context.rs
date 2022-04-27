@@ -201,16 +201,11 @@ impl PipeContext {
         unsafe { self.pipe.as_ref().blit.unwrap()(self.pipe.as_ptr(), &blit_info) }
     }
 
-    pub fn create_compute_state(
-        &self,
-        nir: &NirShader,
-        input_mem: u32,
-        local_mem: u32,
-    ) -> *mut c_void {
+    pub fn create_compute_state(&self, nir: &NirShader, local_mem: u32) -> *mut c_void {
         let state = pipe_compute_state {
             ir_type: pipe_shader_ir::PIPE_SHADER_IR_NIR,
             prog: nir.dup_for_driver().cast(),
-            req_input_mem: input_mem,
+            req_input_mem: 0,
             req_local_mem: local_mem,
             req_private_mem: 0,
         };
@@ -258,10 +253,10 @@ impl PipeContext {
         unsafe { self.pipe.as_ref().delete_sampler_state.unwrap()(self.pipe.as_ptr(), ptr) }
     }
 
-    pub fn launch_grid(&self, work_dim: u32, block: [u32; 3], grid: [u32; 3], input: &[u8]) {
+    pub fn launch_grid(&self, work_dim: u32, block: [u32; 3], grid: [u32; 3]) {
         let info = pipe_grid_info {
             pc: 0,
-            input: input.as_ptr().cast(),
+            input: ptr::null(),
             work_dim: work_dim,
             block: block,
             last_block: [0; 3],
@@ -385,6 +380,18 @@ impl PipeContext {
             PipeFence::new(fence, &self.screen)
         }
     }
+
+    pub fn set_constant_buffer(&self, idx: u32, cb: &pipe_constant_buffer) {
+        unsafe {
+            self.pipe.as_ref().set_constant_buffer.unwrap()(
+                self.pipe.as_ptr(),
+                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                idx,
+                false,
+                cb,
+            )
+        }
+    }
 }
 
 impl Drop for PipeContext {
@@ -413,6 +420,7 @@ fn has_required_cbs(c: &pipe_context) -> bool {
         && c.memory_barrier.is_some()
         && c.resource_copy_region.is_some()
         && c.sampler_view_destroy.is_some()
+        && c.set_constant_buffer.is_some()
         && c.set_global_binding.is_some()
         && c.set_sampler_views.is_some()
         && c.set_shader_images.is_some()
