@@ -64,7 +64,9 @@
       - src/gallium/include/**/*
       - src/gallium/frontends/dri/*
       - src/gallium/frontends/glx/**/*
-      - src/gallium/targets/**/*
+      - src/gallium/targets/dri/*
+      - src/gallium/targets/libgl-xlib/*
+      - src/gallium/targets/lavapipe/*
       - src/gallium/tests/**/*
       - src/gallium/winsys/*
 
@@ -447,6 +449,7 @@
       - src/gallium/drivers/radeonsi/**/*
       - src/gallium/include/winsys/**/*
       - src/gallium/winsys/amdgpu/**/*
+      - src/gallium/targets/va/*
       - src/amd/*
       - src/amd/addrlib/**/*
       - src/amd/common/**/*
@@ -613,6 +616,7 @@
       - src/gallium/winsys/d3d12/wgl/*
       - src/gallium/targets/libgl-gdi/*
       - src/gallium/targets/libgl-d3d12/*
+      - src/gallium/targets/wgl/*
       when: on_success
     - changes:
       - src/microsoft/**/*
