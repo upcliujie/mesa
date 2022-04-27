@@ -57,6 +57,27 @@ rusticl_lower_intrinsics_instr(
         return nir_load_var(b, state->base_global_invoc_id);
     case nir_intrinsic_load_constant_base_ptr:
         return nir_load_var(b, state->const_buf);
+    case nir_intrinsic_load_kernel_input: {
+        assert(intrins->src[0].is_ssa);
+
+        nir_ssa_def *zero = nir_imm_zero(b, 1, 32);
+        nir_ssa_def *offset = intrins->src[0].ssa;
+
+        nir_intrinsic_instr *load = nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_ubo);
+        load->src[0] = nir_src_for_ssa(zero);
+        load->src[1] = nir_src_for_ssa(offset);
+
+        nir_intrinsic_set_align_mul(load, nir_intrinsic_align_mul(intrins));
+        nir_intrinsic_set_align_offset(load, nir_intrinsic_align_offset(intrins));
+        nir_intrinsic_set_range(load, -1);
+
+        load->num_components = intrins->num_components;
+        nir_ssa_dest_init(&load->instr, &load->dest, load->num_components, intrins->dest.ssa.bit_size, NULL);
+
+        nir_builder_instr_insert(b, &load->instr);
+
+        return &load->dest.ssa;
+    }
     case nir_intrinsic_load_printf_buffer_address:
         return nir_load_var(b, state->printf_buf);
     default:
