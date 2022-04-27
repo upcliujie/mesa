@@ -1644,3 +1644,8 @@ intel_perf_dump_query(struct intel_perf_context *ctx,
       break;
    }
 }
+
+struct intel_perf_config *
+intel_perf_get_cfg_from_ctx(struct intel_perf_context * ctx) {
+   return ctx->perf;
+}
