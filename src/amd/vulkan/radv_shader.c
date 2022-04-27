@@ -572,6 +572,7 @@ radv_shader_compile_to_nir(struct radv_device *device, const struct radv_pipelin
        * and just use the NIR shader.  We don't want to alter meta and RT
        * shaders IR directly, so clone it first. */
       nir = nir_shader_clone(NULL, stage->internal_nir);
+      nir->info.internal |= device->all_shaders_internal;
       nir_validate_shader(nir, "in internal shader");
 
       assert(exec_list_length(&nir->functions) == 1);
@@ -669,6 +670,7 @@ radv_shader_compile_to_nir(struct radv_device *device, const struct radv_pipelin
       nir = spirv_to_nir(spirv, stage->spirv.size / 4, spec_entries, num_spec_entries, stage->stage,
                          stage->entrypoint, &spirv_options,
                          &device->physical_device->nir_options[stage->stage]);
+      nir->info.internal |= device->all_shaders_internal;
       assert(nir->info.stage == stage->stage);
       nir_validate_shader(nir, "after spirv_to_nir");
 
