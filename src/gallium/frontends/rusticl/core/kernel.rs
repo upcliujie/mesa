@@ -528,6 +528,7 @@ fn lower_and_optimize_nir_late(
             | nir_variable_mode::nir_var_uniform,
         nir_address_format::nir_address_format_32bit_offset_as_64bit,
     );
+    nir.pass1(rusticl_lower_intrinsics, &mut lower_state);
 
     if nir_options.lower_int64_options.0 != 0 {
         nir.pass0(nir_lower_int64);
@@ -891,15 +892,23 @@ impl Kernel {
                     init_data.len() as u32,
                 );
             }
-            let cso = ctx.create_compute_state(nir, input.len() as u32, local_size);
+            let cso = ctx.create_compute_state(nir, local_size);
+
+            let cb = pipe_constant_buffer {
+                buffer: ptr::null_mut(),
+                buffer_offset: 0,
+                buffer_size: input.len() as u32,
+                user_buffer: input.as_ptr().cast(),
+            };
 
             ctx.bind_compute_state(cso);
             ctx.bind_sampler_states(&samplers);
             ctx.set_sampler_views(&mut sviews);
             ctx.set_shader_images(&iviews);
             ctx.set_global_binding(resources.as_slice(), &mut globals);
+            ctx.set_constant_buffer(0, &cb);
 
-            ctx.launch_grid(work_dim, block, grid, &input);
+            ctx.launch_grid(work_dim, block, grid);
 
             ctx.clear_global_binding(globals.len() as u32);
             ctx.clear_shader_images(iviews.len() as u32);
