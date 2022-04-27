@@ -215,8 +215,24 @@ anv_nir_lower_ycbcr_textures_instr(nir_builder *builder,
    nir_deref_instr *deref = nir_src_as_deref(tex->src[deref_src_idx].src);
 
    nir_variable *var = nir_deref_instr_get_variable(deref);
+
+   if (var->data.descriptor_set >= layout->num_sets) {
+      mesa_loge("%s:%d: invalid set=%u max_set=%u",
+                __FILE__, __LINE__, var->data.descriptor_set,
+                layout->num_sets);
+      return false;
+   }
+
    const struct anv_descriptor_set_layout *set_layout =
       layout->set[var->data.descriptor_set].layout;
+
+   if (var->data.binding >= set_layout->binding_count) {
+      mesa_loge("%s:%d: invalid binding=%u max_binding=%u",
+                __FILE__, __LINE__, var->data.binding,
+                set_layout->binding_count);
+      return false;
+   }
+
    const struct anv_descriptor_set_binding_layout *binding =
       &set_layout->binding[var->data.binding];
 
@@ -240,9 +256,15 @@ anv_nir_lower_ycbcr_textures_instr(nir_builder *builder,
       array_index = nir_src_as_uint(deref->arr.index);
       array_index = MIN2(array_index, binding->array_size - 1);
    }
-   const struct anv_sampler *sampler = binding->immutable_samplers[array_index];
 
-   if (sampler->conversion == NULL)
+   if (array_index >= binding->array_size) {
+      mesa_loge("%s:%d: invalid array idx=%u max_size=%u",
+                __FILE__, __LINE__, array_index, binding->array_size);
+      return false;
+   }
+
+   const struct anv_sampler *sampler = binding->immutable_samplers[array_index];
+   if (sampler == NULL || sampler->conversion == NULL)
       return false;
 
    struct ycbcr_state state = {
