@@ -365,11 +365,12 @@ wsi_configure_win32_image(const struct wsi_swapchain *chain,
                           const VkSwapchainCreateInfoKHR *pCreateInfo,
                           struct wsi_image_info *info)
 {
-   VkResult result =
-      wsi_configure_blit_context(chain, pCreateInfo, info);
+   VkResult result = wsi_configure_image(chain, pCreateInfo,
+                                         0 /* handle_types */, info);
    if (result != VK_SUCCESS)
       return result;
 
+   wsi_configure_blit_context(chain, pCreateInfo, info);
    info->create_mem = wsi_create_win32_image_mem;
    info->select_image_memory_type = select_image_memory_type;
    info->select_blit_dst_memory_type = select_buffer_memory_type;
