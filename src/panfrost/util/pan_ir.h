@@ -163,7 +163,9 @@ unsigned
 pan_lookup_pushed_ubo(struct panfrost_ubo_push *push, unsigned ubo, unsigned offs);
 
 struct hash_table_u64 *
-panfrost_init_sysvals(struct panfrost_sysvals *sysvals, void *memctx);
+panfrost_init_sysvals(struct panfrost_sysvals *sysvals,
+                      struct panfrost_sysvals *fixed_sysvals,
+                      void *memctx);
 
 unsigned
 pan_lookup_sysval(struct hash_table_u64 *sysval_to_id,
@@ -185,6 +187,8 @@ struct panfrost_compile_inputs {
         bool shaderdb;
         bool no_idvs;
         bool no_ubo_to_push;
+
+        struct panfrost_sysvals *fixed_sysval_layout;
 
         enum pipe_format rt_formats[8];
         uint8_t raw_fmt_mask;
