@@ -119,7 +119,7 @@ unsigned glsl_get_struct_location_offset(const struct glsl_type *type,
 
 unsigned glsl_atomic_size(const struct glsl_type *type);
 
-int glsl_get_cl_size(const struct glsl_type *type);
+unsigned glsl_get_cl_size(const struct glsl_type *type);
 
 int glsl_get_cl_alignment(const struct glsl_type *type);
 
