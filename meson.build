@@ -381,17 +381,10 @@ if with_gbm and not system_has_kms_drm
 endif
 
 _xlib_lease = get_option('xlib-lease')
-if _xlib_lease == 'true'
-  _xlib_lease = 'enabled'
-  warning('xlib_lease option "true" deprecated, please use "enabled" instead.')
-elif _xlib_lease == 'false'
-  _xlib_lease = 'disabled'
-  warning('xlib_lease option "false" deprecated, please use "disabled" instead.')
-endif
-if _xlib_lease == 'auto'
+if _xlib_lease.auto()
   with_xlib_lease = with_platform_x11 and system_has_kms_drm
 else
-  with_xlib_lease = _xlib_lease == 'enabled'
+  with_xlib_lease = _xlib_lease.eanbled()
 endif
 
 if with_platform_wayland
