@@ -1153,7 +1153,13 @@ void st_init_extensions(struct pipe_screen *screen,
    consts->PrimitiveRestartFixedIndex =
       screen->get_param(screen, PIPE_CAP_PRIMITIVE_RESTART_FIXED_INDEX);
 
-   consts->HardwareAcceleratedSelect = false;
+   consts->HardwareAcceleratedSelect =
+      !options->disable_hardware_accelerated_select &&
+      screen->get_param(screen, PIPE_CAP_ACCELERATED) &&
+      /* internal geometry shader need indirect array access */
+      !consts->ShaderCompilerOptions[MESA_SHADER_GEOMETRY].EmitNoIndirectTemp &&
+      /* internal geometry shader need SSBO support */
+      consts->Program[MESA_SHADER_GEOMETRY].MaxShaderStorageBlocks;
 
    /* Technically we are turning on the EXT_gpu_shader5 extension,
     * ARB_gpu_shader5 does not exist in GLES, but this flag is what
