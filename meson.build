@@ -617,12 +617,10 @@ _vdpau = get_option('gallium-vdpau')
 if _vdpau.enabled()
   if not system_has_kms_drm
     error('VDPAU state tracker can only be build on unix-like OSes.')
-  endif
-  if _vdpau.enabled()
+  elif not with_platform_x11
     error('VDPAU state tracker requires X11 support.')
-  endif
-  if not (with_gallium_r300 or with_gallium_r600 or with_gallium_radeonsi or
-          with_gallium_nouveau)
+  elif not (with_gallium_r300 or with_gallium_r600 or with_gallium_radeonsi or
+            with_gallium_nouveau)
     error('VDPAU state tracker requires at least one of the following gallium drivers: r300, r600, radeonsi, nouveau.')
   endif
 endif
@@ -659,40 +657,18 @@ if with_vulkan_overlay_layer or with_aco_tests or with_amd_vk
 endif
 
 _xvmc = get_option('gallium-xvmc')
-if _xvmc == 'true'
-  _xvmc = 'enabled'
-  warning('gallium-xvmc option "true" deprecated, please use "enabled" instead.')
-elif _xvmc == 'false'
-  _xvmc = 'disabled'
-  warning('gallium-xvmc option "false" deprecated, please use "disabled" instead.')
-endif
-if not system_has_kms_drm
-  if _xvmc == 'enabled'
+if _xvmc.enabled()
+  if not system_has_kms_drm
     error('XVMC state tracker can only be build on unix-like OSes.')
-  else
-    _xvmc = 'disabled'
-  endif
-elif not with_platform_x11
-  if _xvmc == 'enabled'
+  elif not with_platform_x11
     error('XVMC state tracker requires X11 support.')
-  else
-    _xvmc = 'disabled'
-  endif
-elif not (with_gallium_r600 or with_gallium_nouveau)
-  if _xvmc == 'enabled'
+  elif not (with_gallium_r600 or with_gallium_nouveau)
     error('XVMC state tracker requires at least one of the following gallium drivers: r600, nouveau.')
-  else
-    _xvmc = 'disabled'
   endif
 endif
-dep_xvmc = null_dep
-dep_xv = null_dep
-with_gallium_xvmc = false
-if _xvmc != 'disabled'
-  dep_xvmc = dependency('xvmc', version : '>= 1.0.6', required : _xvmc == 'enabled')
-  dep_xv = dependency('xv', required : _xvmc == 'enabled')
-  with_gallium_xvmc = dep_xvmc.found() and dep_xv.found()
-endif
+dep_xvmc = dependency('xvmc', version : '>= 1.0.6', required : _xvmc)
+dep_xv = dependency('xv', required : _xvmc)
+with_gallium_xvmc = dep_xvmc.found() and dep_xv.found()
 
 xvmc_drivers_path = get_option('xvmc-libs-path')
 if xvmc_drivers_path == ''
