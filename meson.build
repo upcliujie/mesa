@@ -234,7 +234,7 @@ with_gallium_kmsro = with_gallium_v3d or with_gallium_vc4 or with_gallium_etnavi
 if with_gallium and system_has_kms_drm
   _glx = get_option('glx')
   _egl = get_option('egl')
-  if _glx == 'dri' or _egl == 'enabled' or (_glx == 'disabled' and _egl != 'disabled')
+  if _glx == 'dri' or _egl.enabled() or (_glx == 'disabled' and not _egl.disabled())
     with_dri = true
   endif
 endif
@@ -433,20 +433,13 @@ if host_machine.system() == 'darwin'
 endif
 
 _egl = get_option('egl')
-if _egl == 'true'
-  _egl = 'enabled'
-  warning('egl option "true" deprecated, please use "enabled" instead.')
-elif _egl == 'false'
-  _egl = 'disabled'
-  warning('egl option "false" deprecated, please use "disabled" instead.')
-endif
-if _egl == 'auto'
+if _egl.auto()
   with_egl = (
     host_machine.system() != 'darwin' and
     (with_platform_windows or with_dri) and
     with_shared_glapi
   )
-elif _egl == 'enabled'
+elif _egl.enabled()
   if not with_dri and not with_platform_haiku and not with_platform_windows
     error('EGL requires dri, haiku, or windows')
   elif not with_shared_glapi
