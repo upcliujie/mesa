@@ -555,7 +555,6 @@ wsi_win32_surface_create_swapchain(
    chain->base.acquire_next_image = wsi_win32_acquire_next_image;
    chain->base.queue_present = wsi_win32_queue_present;
    chain->base.present_mode = wsi_swapchain_get_present_mode(wsi_device, create_info);
-   chain->base.image_count = num_images;
    chain->extent = create_info->imageExtent;
 
    chain->wsi = wsi;
@@ -568,32 +567,25 @@ wsi_win32_surface_create_swapchain(
 
    result = wsi_configure_win32_image(&chain->base, create_info,
                                       &chain->base.image_info);
-   if (result != VK_SUCCESS) {
-      vk_free(allocator, chain);
-      goto fail_init_images;
-   }
+   if (result != VK_SUCCESS)
+      goto fail;
 
-   for (uint32_t image = 0; image < chain->base.image_count; image++) {
+   for (uint32_t image = 0; image < num_images; image++) {
       result = wsi_win32_image_init(device, chain,
                                     create_info, allocator,
                                     &chain->images[image]);
-      if (result != VK_SUCCESS) {
-         while (image > 0) {
-            --image;
-            wsi_win32_image_finish(chain, allocator,
-                                   &chain->images[image]);
-         }
-         wsi_destroy_image_info(&chain->base, &chain->base.image_info);
-         vk_free(allocator, chain);
-         goto fail_init_images;
-      }
+      if (result != VK_SUCCESS)
+         goto fail;
+
+      chain->base.image_count++;
    }
 
    *swapchain_out = &chain->base;
 
    return VK_SUCCESS;
 
-fail_init_images:
+fail:
+   wsi_win32_swapchain_destroy(&chain->base, allocator);
    return result;
 }
 
