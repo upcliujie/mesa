@@ -789,7 +789,10 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
       dxil_sort_ps_outputs(nir);
    }
 
-   struct nir_to_dxil_options opts = {.environment = DXIL_ENVIRONMENT_VULKAN};
+   struct nir_to_dxil_options opts = {
+      .environment = DXIL_ENVIRONMENT_VULKAN,
+      .auto_link = true,
+   };
    struct blob dxil_blob;
    if (!nir_to_dxil(nir, &opts, &dxil_blob)) {
       if (dxil_blob.allocated)
