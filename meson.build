@@ -1531,14 +1531,6 @@ if _shared_llvm == 'auto'
 else
   _shared_llvm = (_shared_llvm == 'enabled')
 endif
-_llvm = get_option('llvm')
-if _llvm == 'true'
-  _llvm = 'enabled'
-  warning('llvm option "true" deprecated, please use "enabled" instead.')
-elif _llvm == 'false'
-  _llvm = 'disabled'
-  warning('llvm option "false" deprecated, please use "disabled" instead.')
-endif
 
 # the cmake method can only link statically, so don't attempt to use it if we
 # want to link dynamically. Before 0.54.0 meson will try cmake even when shared
@@ -1553,7 +1545,8 @@ endif
 dep_llvm = null_dep
 with_llvm = false
 draw_with_llvm = get_option('draw-use-llvm')
-if _llvm != 'disabled'
+_llvm = get_option('llvm')
+if not _llvm.disabled()
   dep_llvm = dependency(
     'llvm',
     version : _llvm_version,
@@ -1561,7 +1554,7 @@ if _llvm != 'disabled'
     optional_modules : llvm_optional_modules,
     required : (
       with_amd_vk or with_gallium_radeonsi or with_gallium_opencl or with_clc
-      or _llvm == 'enabled'
+      or _llvm.enabled()
     ),
     static : not _shared_llvm,
     method : _llvm_method,
