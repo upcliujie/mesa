@@ -932,14 +932,7 @@ endif
 
 with_shader_cache = false
 _shader_cache = get_option('shader-cache')
-if _shader_cache == 'true'
-  _shader_cache = 'enabled'
-  warning('shader_cache option "true" deprecated, please use "enabled" instead.')
-elif _shader_cache == 'false'
-  _shader_cache = 'disabled'
-  warning('shader_cache option "false" deprecated, please use "disabled" instead.')
-endif
-if _shader_cache != 'disabled'
+if not _shader_cache.disabled()
   if host_machine.system() == 'windows'
     if _shader_cache == 'enabled'
       error('Shader Cache does not currently work on Windows')
