@@ -285,13 +285,15 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
       dynamic_raster_mode =
          genX(raster_polygon_mode)(cmd_buffer->state.gfx.pipeline,
                                    primitive_topology);
+      const struct anv_cmd_graphics_state *state = &cmd_buffer->state.gfx;
 
       uint32_t dwords[GENX(3DSTATE_WM_length)];
       struct GENX(3DSTATE_WM) wm = {
          GENX(3DSTATE_WM_header),
 
          .ThreadDispatchEnable = pipeline->force_fragment_thread_dispatch ||
-                                 !anv_cmd_buffer_all_color_write_masked(cmd_buffer),
+                                 (state->pipeline->shaders[MESA_SHADER_FRAGMENT] &&
+                                  !anv_cmd_buffer_all_color_write_masked(cmd_buffer)),
          .MultisampleRasterizationMode =
                                  genX(ms_rasterization_mode)(pipeline,
                                                              dynamic_raster_mode),

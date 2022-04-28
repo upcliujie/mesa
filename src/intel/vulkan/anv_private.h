@@ -3484,6 +3484,8 @@ anv_pipeline_is_mesh(const struct anv_graphics_pipeline *pipeline)
    return anv_pipeline_has_stage(pipeline, MESA_SHADER_MESH);
 }
 
+
+
 static inline bool
 anv_cmd_buffer_all_color_write_masked(const struct anv_cmd_buffer *cmd_buffer)
 {
