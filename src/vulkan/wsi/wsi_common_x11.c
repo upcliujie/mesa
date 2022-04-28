@@ -888,6 +888,8 @@ wsi_CreateXlibSurfaceKHR(VkInstance _instance,
 struct x11_image {
    struct wsi_image                          base;
    xcb_pixmap_t                              pixmap;
+   xcb_xfixes_region_t                       update_region; /* long lived XID */
+   xcb_xfixes_region_t                       update_area;   /* the above or None */
    bool                                      busy;
    bool                                      present_queued;
    struct xshmfence *                        shm_fence;
@@ -1241,7 +1243,7 @@ x11_present_to_x11_dri3(struct x11_swapchain *chain, uint32_t image_index,
                          image->pixmap,
                          image->serial,
                          0,                                    /* valid */
-                         0,                                    /* update */
+                         image->update_area,                   /* update */
                          0,                                    /* x_off */
                          0,                                    /* y_off */
                          XCB_NONE,                             /* target_crtc */
@@ -1331,6 +1333,8 @@ x11_acquire_next_image(struct wsi_swapchain *anv_chain,
    }
 }
 
+#define MAX_DAMAGE_RECTS 64
+
 /**
  * Queue a new presentation of an image that was previously acquired by the
  * consumer.
@@ -1344,10 +1348,28 @@ x11_queue_present(struct wsi_swapchain *anv_chain,
                   const VkPresentRegionKHR *damage)
 {
    struct x11_swapchain *chain = (struct x11_swapchain *)anv_chain;
+   xcb_xfixes_region_t update_area = 0;
 
    /* If the swapchain is in an error state, don't go any further. */
    if (chain->status < 0)
       return chain->status;
+
+   if (damage && damage->pRectangles && damage->rectangleCount > 0 &&
+      damage->rectangleCount <= MAX_DAMAGE_RECTS) {
+      xcb_rectangle_t rects[MAX_DAMAGE_RECTS];
+
+      update_area = chain->images[image_index].update_region;
+      for (unsigned i = 0; i < damage->rectangleCount; i++) {
+         const VkRectLayerKHR *rect = &damage->pRectangles[i];
+         assert(rect->layer == 0);
+         rects[i].x = rect->offset.x;
+         rects[i].y = rect->offset.y;
+         rects[i].width = rect->extent.width;
+         rects[i].height = rect->extent.height;
+      }
+      xcb_xfixes_set_region(chain->conn, update_area, damage->rectangleCount, rects);
+   }
+   chain->images[image_index].update_area = update_area;
 
    chain->images[image_index].busy = true;
    if (chain->has_present_queue) {
@@ -1527,6 +1549,9 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
    if (result != VK_SUCCESS)
       return result;
 
+   image->update_region = xcb_generate_id(chain->conn);
+   xcb_xfixes_create_region(chain->conn, image->update_region, 0, NULL);
+
    if (chain->base.wsi->sw) {
       if (!chain->has_mit_shm) {
          image->busy = false;
@@ -1645,6 +1670,9 @@ x11_image_finish(struct x11_swapchain *chain,
       xshmfence_unmap_shm(image->shm_fence);
 
       cookie = xcb_free_pixmap(chain->conn, image->pixmap);
+      xcb_discard_reply(chain->conn, cookie.sequence);
+
+      cookie = xcb_xfixes_destroy_region(chain->conn, image->update_region);
       xcb_discard_reply(chain->conn, cookie.sequence);
    }
 
