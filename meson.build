@@ -371,17 +371,10 @@ if not (with_dri or with_gallium or with_glx != 'disabled')
 endif
 
 _gbm = get_option('gbm')
-if _gbm == 'true'
-  _gbm = 'enabled'
-  warning('gbm option "true" deprecated, please use "enabled" instead.')
-elif _gbm == 'false'
-  _gbm = 'disabled'
-  warning('gbm option "false" deprecated, please use "disabled" instead.')
-endif
-if _gbm == 'auto'
+if _gbm.auto()
   with_gbm = system_has_kms_drm and with_dri
 else
-  with_gbm = _gbm == 'enabled'
+  with_gbm = _gbm.enabled()
 endif
 if with_gbm and not system_has_kms_drm
   error('GBM only supports DRM/KMS platforms')
