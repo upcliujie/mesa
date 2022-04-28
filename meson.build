@@ -614,42 +614,23 @@ if with_gallium_kmsro and (with_platform_x11 and not with_dri3)
 endif
 
 _vdpau = get_option('gallium-vdpau')
-if _vdpau == 'true'
-  _vdpau = 'enabled'
-  warning('gallium-vdpau option "true" deprecated, please use "enabled" instead.')
-elif _vdpau == 'false'
-  _vdpau = 'disabled'
-  warning('gallium-vdpau option "false" deprecated, please use "disabled" instead.')
-endif
-if not system_has_kms_drm
-  if _vdpau == 'enabled'
+if _vdpau.enabled()
+  if not system_has_kms_drm
     error('VDPAU state tracker can only be build on unix-like OSes.')
-  else
-    _vdpau = 'disabled'
   endif
-elif not with_platform_x11
-  if _vdpau == 'enabled'
+  if _vdpau.enabled()
     error('VDPAU state tracker requires X11 support.')
-  else
-    _vdpau = 'disabled'
   endif
-elif not (with_gallium_r300 or with_gallium_r600 or with_gallium_radeonsi or
+  if not (with_gallium_r300 or with_gallium_r600 or with_gallium_radeonsi or
           with_gallium_nouveau)
-  if _vdpau == 'enabled'
     error('VDPAU state tracker requires at least one of the following gallium drivers: r300, r600, radeonsi, nouveau.')
-  else
-    _vdpau = 'disabled'
   endif
 endif
-dep_vdpau = null_dep
-with_gallium_vdpau = false
-if _vdpau != 'disabled'
-  dep_vdpau = dependency('vdpau', version : '>= 1.1', required : _vdpau == 'enabled')
-  if dep_vdpau.found()
-    dep_vdpau = dep_vdpau.partial_dependency(compile_args : true)
-    with_gallium_vdpau = true
-  endif
+dep_vdpau = dependency('vdpau', version : '>= 1.1', required : _vdpau)
+if dep_vdpau.found()
+  dep_vdpau = dep_vdpau.partial_dependency(compile_args : true)
 endif
+with_gallium_vdpau = dep_vdpau.found()
 
 if with_gallium_vdpau
   pre_args += '-DHAVE_ST_VDPAU'
