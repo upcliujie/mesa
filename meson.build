@@ -1518,18 +1518,11 @@ else
   _llvm_version = '>= 3.9.0'
 endif
 
-_shared_llvm = get_option('shared-llvm')
-if _shared_llvm == 'true'
-  _shared_llvm = 'enabled'
-  warning('shared_llvm option "true" deprecated, please use "enabled" instead.')
-elif _shared_llvm == 'false'
-  _shared_llvm = 'disabled'
-  warning('shared_llvm option "false" deprecated, please use "disabled" instead.')
-endif
-if _shared_llvm == 'auto'
+_shared_llvm_opt = get_option('shared-llvm')
+if _shared_llvm_opt.auto()
   _shared_llvm = (host_machine.system() != 'windows')
 else
-  _shared_llvm = (_shared_llvm == 'enabled')
+  _shared_llvm = _shared_llvm_opt.enabled()
 endif
 
 # the cmake method can only link statically, so don't attempt to use it if we
