@@ -83,8 +83,8 @@ _mesa_float_to_half_slow(float val)
       e = 31;
    }
    else if ((flt_e == 0xff) && (flt_m != 0)) {
-      /* NaN */
-      m = 1;
+      /* NaN -- set the highest bit */
+      m = 1 << 9;
       e = 31;
    }
    else {
