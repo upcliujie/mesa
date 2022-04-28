@@ -738,39 +738,22 @@ if omx_drivers_path == '' and with_gallium_omx != 'disabled'
 endif
 
 _va = get_option('gallium-va')
-if _va == 'true'
-  _va = 'enabled'
-  warning('gallium-va option "true" deprecated, please use "enabled" instead.')
-elif _va == 'false'
-  _va = 'disabled'
-  warning('gallium-va option "false" deprecated, please use "disabled" instead.')
-endif
-if not system_has_kms_drm
-  if _va == 'enabled'
+if _va.enabled()
+  if not system_has_kms_drm
     error('VA state tracker can only be built on unix-like OSes.')
-  else
-    _va = 'disabled'
-  endif
-elif not (with_gallium_r600 or with_gallium_radeonsi or with_gallium_nouveau)
-  if _va == 'enabled'
+  elif not (with_gallium_r600 or with_gallium_radeonsi or with_gallium_nouveau)
     error('VA state tracker requires at least one of the following gallium drivers: r600, radeonsi, nouveau.')
-  else
-    _va = 'disabled'
   endif
 endif
-with_gallium_va = false
-dep_va = null_dep
-if _va != 'disabled'
-  dep_va = dependency('libva', version : '>= 1.8.0', required : _va == 'enabled')
-  if dep_va.found()
-    dep_va_headers = dep_va.partial_dependency(compile_args : true)
-    with_gallium_va = true
-    if cc.has_header_symbol('va/va.h', 'VASurfaceAttribDRMFormatModifiers',
-                            dependencies: dep_va_headers)
-      pre_args += '-DHAVE_VA_SURFACE_ATTRIB_DRM_FORMAT_MODIFIERS'
-    endif
+dep_va = dependency('libva', version : '>= 1.8.0', required : _va)
+if dep_va.found()
+  dep_va_headers = dep_va.partial_dependency(compile_args : true)
+  if cc.has_header_symbol('va/va.h', 'VASurfaceAttribDRMFormatModifiers',
+                          dependencies: dep_va_headers)
+    pre_args += '-DHAVE_VA_SURFACE_ATTRIB_DRM_FORMAT_MODIFIERS'
   endif
 endif
+with_gallium_va = dep_va.found()
 
 va_drivers_path = get_option('va-libs-path')
 if va_drivers_path == ''
