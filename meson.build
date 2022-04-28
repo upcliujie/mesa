@@ -134,17 +134,10 @@ with_opengl = get_option('opengl')
 
 # Default shared glapi off for windows, on elsewhere.
 _sg = get_option('shared-glapi')
-if _sg == 'true'
-  _sg = 'enabled'
-  warning('shared-glapi option "true" deprecated, please use "enabled" instead.')
-elif _sg == 'false'
-  _sg = 'disabled'
-  warning('shared-glapi option "false" deprecated, please use "disabled" instead.')
-endif
-if _sg == 'auto'
+if _sg.auto()
   with_shared_glapi = host_machine.system() != 'windows'
 else
-  with_shared_glapi = _sg == 'enabled'
+  with_shared_glapi = _sg.enabled()
 endif
 
 # shared-glapi is required if at least two OpenGL APIs are being built
