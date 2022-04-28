@@ -37,6 +37,14 @@
 #endif
 #endif
 
+#include "util/detect_os.h"
+
+#if DETECT_OS_UNIX
+# include <sys/stat.h>
+# include <errno.h>
+# include <sys/mman.h>
+#endif
+
 #include "pipe/p_compiler.h"
 #include "pipe/p_format.h"
 #include "pipe/p_state.h"
@@ -44,10 +52,15 @@
 #include "util/format/u_format.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+#include "util/os_file.h"
 
 #include "frontend/sw_winsys.h"
 #include "dri_sw_winsys.h"
 
+#ifdef PIPE_MEMORY_FD
+#include "git_sha1.h"
+static const char *driver_id = "llvmpipe" MESA_GIT_SHA1;
+#endif
 
 struct dri_sw_displaytarget
 {
@@ -61,6 +74,11 @@ struct dri_sw_displaytarget
    void *data;
    void *mapped;
    const void *front_private;
+   /* dmabuf */
+   int fd;
+   int offset;
+   size_t size;
+   bool imported;
 };
 
 struct dri_sw_winsys
@@ -141,8 +159,10 @@ dri_sw_displaytarget_create(struct sw_winsys *winsys,
 
    nblocksy = util_format_get_nblocksy(format, height);
    size = dri_sw_dt->stride * nblocksy;
+   dri_sw_dt->size = size;
 
    dri_sw_dt->shmid = -1;
+   dri_sw_dt->fd = -1;
 
 #ifdef HAVE_SYS_SHM_H
    if (ws->lf->put_image_shm)
@@ -170,7 +190,11 @@ dri_sw_displaytarget_destroy(struct sw_winsys *ws,
 {
    struct dri_sw_displaytarget *dri_sw_dt = dri_sw_displaytarget(dt);
 
-   if (dri_sw_dt->shmid >= 0) {
+   if (dri_sw_dt->fd >= 0) {
+      if (dri_sw_dt->mapped)
+         ws->displaytarget_unmap(ws, dt);
+      close(dri_sw_dt->fd);
+   } else if (dri_sw_dt->shmid >= 0) {
 #ifdef HAVE_SYS_SHM_H
       shmdt(dri_sw_dt->data);
       shmctl(dri_sw_dt->shmid, IPC_RMID, NULL);
@@ -188,13 +212,52 @@ dri_sw_displaytarget_map(struct sw_winsys *ws,
                          unsigned flags)
 {
    struct dri_sw_displaytarget *dri_sw_dt = dri_sw_displaytarget(dt);
-   dri_sw_dt->mapped = dri_sw_dt->data;
+   dri_sw_dt->map_flags = flags;
 
+#if DETECT_OS_UNIX
+   if (dri_sw_dt->fd > -1) {
+      bool success = false;
+#ifdef PIPE_MEMORY_FD
+      success = os_import_memory_fd(dri_sw_dt->fd, (void**)&dri_sw_dt->data, &dri_sw_dt->size, driver_id);
+      if (success)
+         dri_sw_dt->imported = true;
+#endif
+      if (!success) {
+         /* if this fails, it's a dmabuf that wasn't exported by us,
+          * so it doesn't have the header that we're looking for
+          */
+         struct stat st;
+         if (fstat(dri_sw_dt->fd, &st) < 0) {
+            fprintf(stderr, "dmabuf import failed to fstat: %s\n", strerror(errno));
+            return NULL;
+         }
+         if (st.st_size == 0) {
+            fprintf(stderr, "dmabuf import failed: fd has no data\n");
+            return NULL;
+         }
+         unsigned prot = 0;
+         if (flags & PIPE_MAP_READ)
+            prot |= PROT_READ;
+         if (flags & PIPE_MAP_WRITE)
+            prot |= PROT_WRITE;
+         dri_sw_dt->size = st.st_size;
+         dri_sw_dt->data = mmap(NULL, dri_sw_dt->size, prot, MAP_SHARED, dri_sw_dt->fd, 0);
+         if (dri_sw_dt->data == MAP_FAILED) {
+            dri_sw_dt->data = NULL;
+            fprintf(stderr, "dmabuf import failed to mmap: %s\n", strerror(errno));
+         } else
+            dri_sw_dt->mapped = ((uint8_t*)dri_sw_dt->data) + dri_sw_dt->offset;
+      } else
+         dri_sw_dt->mapped = ((uint8_t*)dri_sw_dt->data) + dri_sw_dt->offset;
+   } else
+#endif
    if (dri_sw_dt->front_private && (flags & PIPE_MAP_READ)) {
       struct dri_sw_winsys *dri_sw_ws = dri_sw_winsys(ws);
       dri_sw_ws->lf->get_image((void *)dri_sw_dt->front_private, 0, 0, dri_sw_dt->width, dri_sw_dt->height, dri_sw_dt->stride, dri_sw_dt->data);
+      dri_sw_dt->mapped = dri_sw_dt->data;
+   } else {
+      dri_sw_dt->mapped = dri_sw_dt->data;
    }
-   dri_sw_dt->map_flags = flags;
    return dri_sw_dt->mapped;
 }
 
@@ -203,6 +266,15 @@ dri_sw_displaytarget_unmap(struct sw_winsys *ws,
                            struct sw_displaytarget *dt)
 {
    struct dri_sw_displaytarget *dri_sw_dt = dri_sw_displaytarget(dt);
+#if DETECT_OS_UNIX
+   if (dri_sw_dt->fd > -1) {
+      if (dri_sw_dt->imported)
+         os_free_fd(dri_sw_dt->data);
+      else
+         munmap(dri_sw_dt->data, dri_sw_dt->size);
+      dri_sw_dt->data = NULL;
+   } else
+#endif
    if (dri_sw_dt->front_private && (dri_sw_dt->map_flags & PIPE_MAP_WRITE)) {
       struct dri_sw_winsys *dri_sw_ws = dri_sw_winsys(ws);
       dri_sw_ws->lf->put_image2((void *)dri_sw_dt->front_private, dri_sw_dt->data, 0, 0, dri_sw_dt->width, dri_sw_dt->height, dri_sw_dt->stride);
@@ -217,8 +289,17 @@ dri_sw_displaytarget_from_handle(struct sw_winsys *winsys,
                                  struct winsys_handle *whandle,
                                  unsigned *stride)
 {
+#if DETECT_OS_UNIX
+   int fd = os_dupfd_cloexec(whandle->handle);
+   struct sw_displaytarget *sw = dri_sw_displaytarget_create(winsys, templ->usage, templ->format, templ->width0, templ->height0, 64, NULL, stride);
+   struct dri_sw_displaytarget *dri_sw_dt = dri_sw_displaytarget(sw);
+   dri_sw_dt->fd = fd;
+   dri_sw_dt->offset = whandle->offset;
+   return sw;
+#else
    assert(0);
    return NULL;
+#endif
 }
 
 static bool
