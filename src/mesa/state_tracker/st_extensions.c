@@ -649,7 +649,13 @@ void st_init_limits(struct pipe_screen *screen,
    c->SparseTextureFullArrayCubeMipmaps =
       screen->get_param(screen, PIPE_CAP_SPARSE_TEXTURE_FULL_ARRAY_CUBE_MIPMAPS);
 
-   c->HardwareAcceleratedSelect = false;
+   c->HardwareAcceleratedSelect =
+      debug_get_bool_option("MESA_HW_ACCEL_SELECT", true) &&
+      screen->get_param(screen, PIPE_CAP_ACCELERATED) &
+      /* internal geometry shader need indirect array access */
+      !c->ShaderCompilerOptions[MESA_SHADER_GEOMETRY].EmitNoIndirectTemp &&
+      /* internal geometry shader need SSBO support */
+      c->Program[MESA_SHADER_GEOMETRY].MaxShaderStorageBlocks;
 }
 
 
