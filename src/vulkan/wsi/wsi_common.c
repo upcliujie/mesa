@@ -362,7 +362,7 @@ wsi_configure_image(const struct wsi_swapchain *chain,
                     struct wsi_image_info *info)
 {
    memset(info, 0, sizeof(*info));
-   uint32_t *queue_family_indices;
+   uint32_t *queue_family_indices = NULL;
 
    if (pCreateInfo->imageSharingMode == VK_SHARING_MODE_CONCURRENT) {
       queue_family_indices =
