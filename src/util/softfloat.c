@@ -1452,7 +1452,11 @@ _mesa_float_to_half_rtz_slow(float val)
         if (flt_m != 0) {
             /* 'val' is a NaN, return NaN */
             e = 0x1f;
-            m = 0x1;
+            /* NaN -- set the highest bit to make it a quiet NaN in bfloat16.  GPUs
+             * don't care, but we don't want CPUs to trigger exceptions (especially
+             * when round-tripping to f32).
+             */
+            m = 1 << 9;
             return (s << 15) + (e << 10) + m;
         }
 
