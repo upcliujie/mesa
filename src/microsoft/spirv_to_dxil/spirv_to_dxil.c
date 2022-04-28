@@ -516,52 +516,12 @@ dxil_spirv_nir_fix_sample_mask_type(nir_shader *shader)
                                        nir_metadata_all, NULL);
 }
 
-
-bool
-spirv_to_dxil(const uint32_t *words, size_t word_count,
-              struct dxil_spirv_specialization *specializations,
-              unsigned int num_specializations, dxil_spirv_shader_stage stage,
-              const char *entry_point_name,
-              const struct dxil_spirv_debug_options *dgb_opts,
-              const struct dxil_spirv_runtime_conf *conf,
-              struct dxil_spirv_object *out_dxil)
+void
+dxil_spirv_nir_passes(nir_shader *nir,
+                      const struct dxil_spirv_runtime_conf *conf,
+                      bool *requires_runtime_data)
 {
-   if (stage == MESA_SHADER_NONE || stage == MESA_SHADER_KERNEL)
-      return false;
-
-   struct spirv_to_nir_options spirv_opts = {
-      .caps = {
-         .draw_parameters = true,
-      },
-      .ubo_addr_format = nir_address_format_32bit_index_offset,
-      .ssbo_addr_format = nir_address_format_32bit_index_offset,
-      .shared_addr_format = nir_address_format_32bit_offset_as_64bit,
-
-      // use_deref_buffer_array_length + nir_lower_explicit_io force
-      //  get_ssbo_size to take in the return from load_vulkan_descriptor
-      //  instead of vulkan_resource_index. This makes it much easier to
-      //  get the DXIL handle for the SSBO.
-      .use_deref_buffer_array_length = true
-   };
-
    glsl_type_singleton_init_or_ref();
-
-   struct nir_shader_compiler_options nir_options = *dxil_get_nir_compiler_options();
-   // We will manually handle base_vertex when vertex_id and instance_id have
-   // have been already converted to zero-base.
-   nir_options.lower_base_vertex = !conf->zero_based_vertex_instance_id;
-
-   nir_shader *nir = spirv_to_nir(
-      words, word_count, (struct nir_spirv_specialization *)specializations,
-      num_specializations, (gl_shader_stage)stage, entry_point_name,
-      &spirv_opts, &nir_options);
-   if (!nir) {
-      glsl_type_singleton_decref();
-      return false;
-   }
-
-   nir_validate_shader(nir,
-                       "Validate before feeding NIR to the DXIL compiler");
 
    const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
       .frag_coord = true,
@@ -573,7 +533,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    // Force sample-rate shading if we're asked to.
    if (conf->force_sample_rate_shading) {
-      assert(stage == MESA_SHADER_FRAGMENT);
+      assert(nir->info.stage == MESA_SHADER_FRAGMENT);
       nir_foreach_shader_in_variable(var, nir)
          var->data.sample = true;
    }
@@ -592,14 +552,14 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    if (conf->descriptor_set_count > 0)
       NIR_PASS_V(nir, dxil_spirv_nir_adjust_var_bindings, conf);
 
-   bool requires_runtime_data = false;
-   NIR_PASS(requires_runtime_data, nir,
+   *requires_runtime_data = false;
+   NIR_PASS(*requires_runtime_data, nir,
             dxil_spirv_nir_lower_shader_system_values,
-            spirv_opts.ubo_addr_format,
+            nir_address_format_32bit_index_offset,
             conf->runtime_data_cbv.register_space,
             conf->runtime_data_cbv.base_shader_register);
 
-   if (stage == MESA_SHADER_FRAGMENT) {
+   if (nir->info.stage == MESA_SHADER_FRAGMENT) {
       NIR_PASS_V(nir, nir_lower_input_attachments,
                  &(nir_input_attachment_options){
                      .use_fragcoord_sysval = false,
@@ -617,8 +577,6 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
       NIR_PASS_V(nir, nir_opt_access, &opt_access_options);
    }
 
-   NIR_PASS_V(nir, nir_split_per_member_structs);
-
    NIR_PASS_V(nir, dxil_spirv_nir_discard_point_size_var);
 
    NIR_PASS_V(nir, nir_remove_dead_variables,
@@ -630,7 +588,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const,
               nir_address_format_32bit_offset);
    NIR_PASS_V(nir, dxil_spirv_nir_lower_load_push_constant,
-              spirv_opts.ubo_addr_format,
+              nir_address_format_32bit_index_offset,
               conf->push_constant_cbv.register_space,
               conf->push_constant_cbv.base_shader_register,
               &push_constant_size);
@@ -645,28 +603,8 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared,
       nir_address_format_32bit_offset_as_64bit);
 
-   nir_variable_mode nir_var_function_temp =
-      nir_var_shader_in | nir_var_shader_out;
-   NIR_PASS_V(nir, nir_lower_variable_initializers,
-              nir_var_function_temp);
-   NIR_PASS_V(nir, nir_opt_deref);
-   NIR_PASS_V(nir, nir_lower_returns);
-   NIR_PASS_V(nir, nir_inline_functions);
-   NIR_PASS_V(nir, nir_lower_variable_initializers,
-              ~nir_var_function_temp);
-
-   // Pick off the single entrypoint that we want.
-   nir_function *entrypoint;
-   foreach_list_typed_safe(nir_function, func, node, &nir->functions) {
-      if (func->is_entrypoint)
-         entrypoint = func;
-      else
-         exec_node_remove(&func->node);
-   }
-   assert(exec_list_length(&nir->functions) == 1);
-
    NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
-   NIR_PASS_V(nir, nir_lower_io_to_temporaries, entrypoint->impl, true, true);
+   NIR_PASS_V(nir, nir_lower_io_to_temporaries, nir_shader_get_entrypoint(nir), true, true);
    NIR_PASS_V(nir, nir_lower_global_vars_to_local);
    NIR_PASS_V(nir, nir_split_var_copies);
    NIR_PASS_V(nir, nir_lower_var_copies);
@@ -674,13 +612,14 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
 
    if (conf->yz_flip.mode != DXIL_SPIRV_YZ_FLIP_NONE) {
-      assert(stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_GEOMETRY);
+      assert(nir->info.stage == MESA_SHADER_VERTEX ||
+             nir->info.stage == MESA_SHADER_GEOMETRY);
       NIR_PASS_V(nir,
                  dxil_spirv_nir_lower_yz_flip,
-                 conf, &requires_runtime_data);
+                 conf, requires_runtime_data);
    }
 
-   if (requires_runtime_data) {
+   if (*requires_runtime_data) {
       add_runtime_data_var(nir, conf->runtime_data_cbv.register_space,
                            conf->runtime_data_cbv.base_shader_register);
    }
@@ -735,21 +674,123 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 
+   glsl_type_singleton_decref();
+}
+
+/* Logic extracted from vk_spirv_to_nir() so we have the same preparation
+ * steps for both the vulkan driver and the lib used by the WebGL
+ * implementation.
+ * Maybe we should move those steps out of vk_spirv_to_nir() and make
+ * them vk agnosting (right, the only vk specific thing is the vk_device
+ * object that's used for the debug callback passed to spirv_to_nir()).
+ */
+static void
+spirv_to_dxil_nir_prep(nir_shader *nir)
+{
+   /* We have to lower away local constant initializers right before we
+    * inline functions.  That way they get properly initialized at the top
+    * of the function and not at the top of its caller.
+    */
+   NIR_PASS_V(nir, nir_lower_variable_initializers, nir_var_function_temp);
+   NIR_PASS_V(nir, nir_lower_returns);
+   NIR_PASS_V(nir, nir_inline_functions);
+   NIR_PASS_V(nir, nir_copy_prop);
+   NIR_PASS_V(nir, nir_opt_deref);
+
+   /* Pick off the single entrypoint that we want */
+   foreach_list_typed_safe(nir_function, func, node, &nir->functions) {
+      if (!func->is_entrypoint)
+         exec_node_remove(&func->node);
+   }
+   assert(exec_list_length(&nir->functions) == 1);
+
+   /* Now that we've deleted all but the main function, we can go ahead and
+    * lower the rest of the constant initializers.  We do this here so that
+    * nir_remove_dead_variables and split_per_member_structs below see the
+    * corresponding stores.
+    */
+   NIR_PASS_V(nir, nir_lower_variable_initializers, ~0);
+
+   /* Split member structs.  We do this before lower_io_to_temporaries so that
+    * it doesn't lower system values to temporaries by accident.
+    */
+   NIR_PASS_V(nir, nir_split_var_copies);
+   NIR_PASS_V(nir, nir_split_per_member_structs);
+
+   NIR_PASS_V(nir, nir_remove_dead_variables,
+              nir_var_shader_in | nir_var_shader_out | nir_var_system_value |
+              nir_var_shader_call_data | nir_var_ray_hit_attrib,
+              NULL);
+
+   NIR_PASS_V(nir, nir_propagate_invariant, false);
+}
+
+bool
+spirv_to_dxil(const uint32_t *words, size_t word_count,
+              struct dxil_spirv_specialization *specializations,
+              unsigned int num_specializations, dxil_spirv_shader_stage stage,
+              const char *entry_point_name,
+              const struct dxil_spirv_debug_options *dgb_opts,
+              const struct dxil_spirv_runtime_conf *conf,
+              struct dxil_spirv_object *out_dxil)
+{
+   if (stage == MESA_SHADER_NONE || stage == MESA_SHADER_KERNEL)
+      return false;
+
+   struct spirv_to_nir_options spirv_opts = {
+      .caps = {
+         .draw_parameters = true,
+      },
+      .ubo_addr_format = nir_address_format_32bit_index_offset,
+      .ssbo_addr_format = nir_address_format_32bit_index_offset,
+      .shared_addr_format = nir_address_format_32bit_offset_as_64bit,
+
+      // use_deref_buffer_array_length + nir_lower_explicit_io force
+      //  get_ssbo_size to take in the return from load_vulkan_descriptor
+      //  instead of vulkan_resource_index. This makes it much easier to
+      //  get the DXIL handle for the SSBO.
+      .use_deref_buffer_array_length = true
+   };
+
+   glsl_type_singleton_init_or_ref();
+
+   struct nir_shader_compiler_options nir_options = *dxil_get_nir_compiler_options();
+   // We will manually handle base_vertex when vertex_id and instance_id have
+   // have been already converted to zero-base.
+   nir_options.lower_base_vertex = !conf->zero_based_vertex_instance_id;
+
+   nir_shader *nir = spirv_to_nir(
+      words, word_count, (struct nir_spirv_specialization *)specializations,
+      num_specializations, (gl_shader_stage)stage, entry_point_name,
+      &spirv_opts, &nir_options);
+   if (!nir) {
+      glsl_type_singleton_decref();
+      return false;
+   }
+
+   nir_validate_shader(nir,
+                       "Validate before feeding NIR to the DXIL compiler");
+
+   spirv_to_dxil_nir_prep(nir);
+
+   bool requires_runtime_data;
+   dxil_spirv_nir_passes(nir, conf, &requires_runtime_data);
+
+   /* Dummy link step */
    nir->info.inputs_read =
       dxil_reassign_driver_locations(nir, nir_var_shader_in, 0);
 
-   if (stage != MESA_SHADER_FRAGMENT) {
+   if (nir->info.stage != MESA_SHADER_FRAGMENT) {
       nir->info.outputs_written =
          dxil_reassign_driver_locations(nir, nir_var_shader_out, 0);
    } else {
       dxil_sort_ps_outputs(nir);
    }
 
-   struct nir_to_dxil_options opts = {.environment = DXIL_ENVIRONMENT_VULKAN};
-
    if (dgb_opts->dump_nir)
       nir_print_shader(nir, stderr);
 
+   struct nir_to_dxil_options opts = {.environment = DXIL_ENVIRONMENT_VULKAN};
    struct blob dxil_blob;
    if (!nir_to_dxil(nir, &opts, &dxil_blob)) {
       if (dxil_blob.allocated)
