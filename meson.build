@@ -1813,18 +1813,13 @@ if get_option('execmem')
 endif
 
 _libunwind = get_option('libunwind')
-if _libunwind == 'true'
-  _libunwind = 'enabled'
-  warning('libunwind option "true" deprecated, please use "enabled" instead.')
-elif _libunwind == 'false'
-  _libunwind = 'disabled'
-  warning('libunwind option "false" deprecated, please use "disabled" instead.')
-endif
-if _libunwind != 'disabled' and not with_platform_android
-  if host_machine.system() == 'darwin'
+if not _libunwind.disabled()
+  if _libunwind.enabled() and with_platform_android
+    error('libunwind not support with android')
+  elif host_machine.system() == 'darwin'
     dep_unwind = meson.get_compiler('c').find_library('System')
   else
-    dep_unwind = dependency('libunwind', required : _libunwind == 'enabled')
+    dep_unwind = dependency('libunwind', required : _libunwind)
   endif
   if dep_unwind.found()
     pre_args += '-DHAVE_LIBUNWIND'
