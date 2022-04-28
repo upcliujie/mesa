@@ -83,8 +83,10 @@ _mesa_float_to_half_slow(float val)
       e = 31;
    }
    else if ((flt_e == 0xff) && (flt_m != 0)) {
-      /* NaN */
-      m = 1;
+      /* use the top 10 bits but also make sure m is non-zero */
+      m = flt_m >> 13;
+      if (!m)
+         m = 1;
       e = 31;
    }
    else {
@@ -146,14 +148,18 @@ _mesa_half_to_float_slow(uint16_t val)
    union fi magic;
    union fi f32;
 
+   /* 2^16 */
    infnan.ui = 0x8f << 23;
-   infnan.f = 65536.0f;
+
+   /* 2^112, where 112 is from (127 - 15), the difference of the float
+    * exponent bias and the half exponent bias.
+    */
    magic.ui  = 0xef << 23;
 
    /* Exponent / Mantissa */
    f32.ui = (val & 0x7fff) << 13;
 
-   /* Adjust */
+   /* Fix exponent */
    f32.f *= magic.f;
    /* XXX: The magic mul relies on denorms being available */
 
