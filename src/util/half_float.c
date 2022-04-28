@@ -145,29 +145,33 @@ _mesa_float_to_float16_rtz_slow(float val)
 float
 _mesa_half_to_float_slow(uint16_t val)
 {
-   union fi infnan;
-   union fi magic;
-   union fi f32;
+   bool sign = val & 0x8000;
+   uint32_t e = (val >> 10) & 0x1f;
+   uint32_t m = val & ((1 << 10) - 1);
 
-   infnan.ui = 0x8f << 23;
-   infnan.f = 65536.0f;
-   magic.ui  = 0xef << 23;
+   if (e == 0x1f) {
+      /* Inf/NaN: Return the same sign, exponent bits filled, and preserve the mantissa
+       * so that NaNs keep their signaling state.
+       */
+      return uif((sign << 31) | (0xff << 23) | (m << 13));
+   } else {
+      union fi magic;
+      union fi f32;
 
-   /* Exponent / Mantissa */
-   f32.ui = (val & 0x7fff) << 13;
+      magic.ui  = 0xef << 23;
 
-   /* Adjust */
-   f32.f *= magic.f;
-   /* XXX: The magic mul relies on denorms being available */
+      /* Exponent / Mantissa */
+      f32.ui = (val & 0x7fff) << 13;
 
-   /* Inf / NaN */
-   if (f32.f >= infnan.f)
-      f32.ui |= 0xff << 23;
+      /* Adjust */
+      f32.f *= magic.f;
+      /* XXX: The magic mul relies on denorms being available */
 
-   /* Sign */
-   f32.ui |= (uint32_t)(val & 0x8000) << 16;
+      /* Sign */
+      f32.ui |= sign << 31;
 
-   return f32.f;
+      return f32.f;
+   }
 }
 
 /**
