@@ -107,21 +107,7 @@ if gbm_backends_path == ''
 endif
 
 with_gles1 = get_option('gles1')
-if with_gles1 == 'true'
-  with_gles1 = 'enabled'
-  warning('gles1 option "true" deprecated, please use "enabled" instead.')
-elif with_gles1 == 'false'
-  with_gles1 = 'disabled'
-  warning('gles1 option "false" deprecated, please use "disabled" instead.')
-endif
 with_gles2 = get_option('gles2')
-if with_gles2 == 'true'
-  with_gles2 = 'enabled'
-  warning('gles2 option "true" deprecated, please use "enabled" instead.')
-elif with_gles2 == 'false'
-  with_gles2 = 'disabled'
-  warning('gles2 option "false" deprecated, please use "disabled" instead.')
-endif
 if host_machine.system() == 'windows'
   if with_gles1 == 'auto'
     with_gles1 = 'disabled'

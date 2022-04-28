@@ -253,14 +253,14 @@ option(
   'gles1',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  choices : ['auto', 'enabled', 'disabled'],
   description : 'Build support for OpenGL ES 1.x'
 )
 option(
   'gles2',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  choices : ['auto', 'enabled', 'disabled'],
   description : 'Build support for OpenGL ES 2.x and 3.x'
 )
 option(
