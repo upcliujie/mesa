@@ -83,8 +83,11 @@ _mesa_float_to_half_slow(float val)
       e = 31;
    }
    else if ((flt_e == 0xff) && (flt_m != 0)) {
-      /* NaN */
-      m = 1;
+      /* NaN -- set the highest bit to make it a quiet NaN in bfloat16.  GPUs
+       * don't care, but we don't want CPUs to trigger exceptions (especially
+       * when round-tripping to f32).
+       */
+      m = 1 << 9;
       e = 31;
    }
    else {
