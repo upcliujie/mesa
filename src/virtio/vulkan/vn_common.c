@@ -48,6 +48,8 @@ vn_env_init_once(void)
       debug_get_num_option("VN_DRAW_CMD_BATCH_LIMIT", UINT32_MAX);
    if (!vn_env.draw_cmd_batch_limit)
       vn_env.draw_cmd_batch_limit = UINT32_MAX;
+   vn_env.relax_base_sleep_us =
+      debug_get_num_option("VN_RELAX_BASE_SLEEP_US", 10);
 }
 
 void
@@ -101,7 +103,7 @@ vn_relax(uint32_t *iter, const char *reason)
     * keep doubling both sleep length and count.
     */
    const uint32_t busy_wait_order = 4;
-   const uint32_t base_sleep_us = 10;
+   const uint32_t base_sleep_us = vn_env.relax_base_sleep_us;
    const uint32_t warn_order = 12;
    const uint32_t abort_order = 14;
 
