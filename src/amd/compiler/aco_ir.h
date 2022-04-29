@@ -796,6 +796,19 @@ public:
       }
    }
 
+   /* Value if this were used with vop3/opsel or vop3p. */
+   constexpr uint16_t constantValue16(bool opsel) const noexcept
+   {
+      assert(constSize == 1 || constSize == 2);
+      if (opsel) {
+         if (constSize == 1 && reg_ > 192 && reg_ <= 208)
+            return 0xffff; /* negative 16-bit integers are sign-extended */
+         else
+            return data_.i >> 16;
+      }
+      return data_.i;
+   }
+
    constexpr bool isOfType(RegType type) const noexcept
    {
       return hasRegClass() && regClass().type() == type;
