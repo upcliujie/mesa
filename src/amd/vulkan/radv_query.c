@@ -612,7 +612,7 @@ build_pg_query_shader(struct radv_device *device)
     * 	}
     * }
     */
-   nir_builder b = radv_meta_init_shader(MESA_SHADER_COMPUTE, "pg_query");
+   nir_builder b = radv_meta_init_shader(device, MESA_SHADER_COMPUTE, "pg_query");
    b.shader->info.workgroup_size[0] = 64;
 
    /* Create and initialize local variables. */
