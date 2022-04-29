@@ -8928,7 +8928,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       unsigned cmp_bit = 0;
       Temp shader_query_enabled =
          bld.sopc(aco_opcode::s_bitcmp1_b32, bld.def(s1, scc),
-                  get_arg(ctx, ctx->args->ngg_gs_state), Operand::c32(cmp_bit));
+                  get_arg(ctx, ctx->args->ngg_query_state), Operand::c32(cmp_bit));
       bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
                bool_to_vector_condition(ctx, shader_query_enabled));
       break;
