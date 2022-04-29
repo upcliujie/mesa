@@ -552,6 +552,18 @@ tu_image_init(struct tu_device *device, struct tu_image *image,
       image->lrz_offset = image->total_size;
       unsigned lrz_size = lrz_pitch * lrz_height * 2;
       image->total_size += lrz_size;
+
+      unsigned nblocksx = DIV_ROUND_UP(DIV_ROUND_UP(width, 8), 16);
+      unsigned nblocksy = DIV_ROUND_UP(DIV_ROUND_UP(height, 8), 4);
+
+      // fast-clear buffer is 1bit/block:
+      image->lrz_fc_size = DIV_ROUND_UP(nblocksx * nblocksy, 8);
+      // TODO: disable LRZ
+      assert(image->lrz_fc_size <= 512);
+
+      image->lrz_fc_offset = image->total_size;
+      image->total_size += 512;
+      image->total_size += 4; // Direction tracking and 3 unknown bytes
    }
 
    return VK_SUCCESS;
