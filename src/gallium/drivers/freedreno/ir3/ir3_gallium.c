@@ -29,6 +29,7 @@
 #include "tgsi/tgsi_dump.h"
 #include "tgsi/tgsi_parse.h"
 #include "util/format/u_format.h"
+#include "util/u_cpu_detect.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 #include "util/u_string.h"
@@ -557,7 +558,7 @@ ir3_screen_init(struct pipe_screen *pscreen)
     * big cores.  OTOH if they are sitting idle, maybe it is useful to
     * use them?
     */
-   unsigned num_threads = sysconf(_SC_NPROCESSORS_ONLN) - 1;
+   unsigned num_threads = util_get_cpu_caps()->nr_cpus - 1;
 
    util_queue_init(&screen->compile_queue, "ir3q", 64, num_threads,
                    UTIL_QUEUE_INIT_RESIZE_IF_FULL |
