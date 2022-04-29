@@ -1281,6 +1281,26 @@ tu6_clear_lrz(struct tu_cmd_buffer *cmd,
    ops->teardown(cmd, cs);
 }
 
+void
+tu6_clear_lrz_fc(struct tu_cmd_buffer *cmd,
+                 struct tu_cs *cs,
+                 struct tu_image *image,
+                 uint32_t value)
+{
+   const struct blit_ops *ops = &r2d_ops;
+   VkClearValue clear = {.color = {.uint32[0] = value}};
+
+   /* Maximum LRZ fast-clear buffer size is 512b and its pitch is always 512b. */
+   ops->setup(cmd, cs, PIPE_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT, 0, true, false,
+              VK_SAMPLE_COUNT_1_BIT);
+   ops->clear_value(cs, PIPE_FORMAT_R32_UINT, &clear);
+   ops->dst_buffer(cs, PIPE_FORMAT_R32_UINT,
+                  image->iova + image->lrz_fc_offset, 512);
+   ops->coords(cs, &(VkOffset2D) {}, NULL, &(VkExtent2D) {128, 1});
+   ops->run(cmd, cs);
+   ops->teardown(cmd, cs);
+}
+
 static void
 tu_image_view_copy_blit(struct fdl6_view *iview,
                         struct tu_image *image,
