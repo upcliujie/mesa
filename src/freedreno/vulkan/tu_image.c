@@ -552,6 +552,26 @@ tu_image_init(struct tu_device *device, struct tu_image *image,
       image->lrz_offset = image->total_size;
       unsigned lrz_size = lrz_pitch * lrz_height * 2;
       image->total_size += lrz_size;
+
+      unsigned nblocksx = DIV_ROUND_UP(DIV_ROUND_UP(width, 8), 16);
+      unsigned nblocksy = DIV_ROUND_UP(DIV_ROUND_UP(height, 8), 4);
+
+      /* Fast-clear buffer is 1bit/block */
+      image->lrz_fc_size = DIV_ROUND_UP(nblocksx * nblocksy, 8);
+      if (image->lrz_fc_size > 512) {
+         /* Fast-clear buffer cannot be larger than 512b (HW limitation) */
+         image->lrz_fc_size = 0;
+         image->lrz_fc_offset = 0;
+      } else {
+         image->lrz_fc_offset = image->total_size;
+         image->total_size += 512;
+         if (device->physical_device->info->a6xx.has_lrz_dir_tracking) {
+            /* Direction tracking uses 1byte */
+            image->total_size += 1;
+            /* GRAS_UNKNOWN_810A writes to the three bytes after dir tracking */
+            image->total_size += 3;
+         }
+      }
    }
 
    return VK_SUCCESS;

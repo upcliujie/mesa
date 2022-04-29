@@ -341,6 +341,7 @@ static const struct debug_control tu_debug_options[] = {
    { "rast_order", TU_DEBUG_RAST_ORDER },
    { "unaligned_store", TU_DEBUG_UNALIGNED_STORE },
    { "log_skip_gmem_ops", TU_DEBUG_LOG_SKIP_GMEM_OPS },
+   { "lrz_no_cpu_dir_track", TU_DEBUG_LRZ_NO_CPU_DIR_TRACK },
    { NULL, 0 }
 };
 

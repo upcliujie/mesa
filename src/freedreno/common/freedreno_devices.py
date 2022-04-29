@@ -245,6 +245,7 @@ a6xx_gen3 = dict(
         has_ccu_flush_bug = True,
         has_8bpp_ubwc = False,
         has_dp2acc = True,
+        has_lrz_dir_tracking = True,
         magic = dict(
             # this seems to be a chicken bit that fixes cubic filtering:
             TPL1_DBG_ECO_CNTL = 0x1000000,
@@ -271,6 +272,7 @@ a6xx_gen4 = dict(
         has_getfiberid = True,
         has_dp2acc = True,
         has_dp4acc = True,
+        has_lrz_dir_tracking = True,
         magic = dict(
             TPL1_DBG_ECO_CNTL = 0x5008000,
         ),
