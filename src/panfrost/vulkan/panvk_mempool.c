@@ -26,6 +26,8 @@
 #include "pan_device.h"
 #include "panvk_mempool.h"
 
+#include <sys/mman.h>
+
 /* Knockoff u_upload_mgr. Uploads wherever we left off, allocating new entries
  * when needed.
  *
@@ -44,6 +46,8 @@ static struct panfrost_bo *
 panvk_pool_alloc_backing(struct panvk_pool *pool, size_t bo_sz)
 {
    struct panfrost_bo *bo;
+
+   assert(!pool->cpu_only);
 
    /* If there's a free BO in our BO pool, let's pick it. */
    if (pool->bo_pool && bo_sz == pool->base.slab_size &&
@@ -81,17 +85,45 @@ panvk_pool_alloc_aligned(struct panvk_pool *pool, size_t sz, unsigned alignment)
    unsigned offset = ALIGN_POT(pool->transient_offset, alignment);
 
    /* If we don't fit, allocate a new backing */
-   if (unlikely(bo == NULL || (offset + sz) >= pool->base.slab_size)) {
-      bo = panvk_pool_alloc_backing(pool,
-                                    ALIGN_POT(MAX2(pool->base.slab_size, sz),
-                                    4096));
-      offset = 0;
+   if (unlikely(bo == NULL || (offset + sz) >= bo->size)) {
+      if (pool->cpu_only) {
+         size_t old_size = bo != NULL ? bo->size : 0;
+         size_t new_size =
+            old_size + ALIGN_POT(MAX2(pool->base.slab_size, sz), 4096);
+
+         if (bo == NULL) {
+            bo = &pool->cpu_bo;
+            bo->gem_handle = -1;
+            pool->transient_bo = bo;
+            offset = 0;
+            if (!(pool->base.create_flags & PAN_BO_INVISIBLE)) {
+               bo->ptr.cpu = mmap(NULL, new_size,
+                                  PROT_READ | PROT_WRITE,
+                                  MAP_ANONYMOUS | MAP_PRIVATE,
+                                  -1, 0);
+            }
+         } else {
+            size_t new_size =
+               bo->size + ALIGN_POT(MAX2(pool->base.slab_size, sz), 4096);
+
+            if (!(pool->base.create_flags & PAN_BO_INVISIBLE)) {
+               bo->ptr.cpu = mremap(bo->ptr.cpu, bo->size, new_size, MREMAP_MAYMOVE);
+	         }
+         }
+
+         bo->size = new_size;
+      } else {
+         bo = panvk_pool_alloc_backing(pool,
+                                       ALIGN_POT(MAX2(pool->base.slab_size, sz),
+                                       4096));
+         offset = 0;
+      }
    }
 
    pool->transient_offset = offset + sz;
 
    struct panfrost_ptr ret = {
-      .cpu = bo->ptr.cpu + offset,
+      .cpu = bo->ptr.cpu ? (bo->ptr.cpu + offset) : NULL,
       .gpu = bo->ptr.gpu + offset,
    };
 
@@ -117,9 +149,42 @@ panvk_pool_init(struct panvk_pool *pool,
 }
 
 void
+panvk_cpu_pool_reserve_mem(struct panvk_pool *pool,
+                           size_t size, unsigned alignment)
+{
+   assert(pool->cpu_only);
+   uint32_t offset = pool->transient_offset;
+
+   panvk_pool_alloc_aligned(pool, size, alignment);
+   pool->transient_offset = offset;
+}
+
+void
+panvk_cpu_pool_init(struct panvk_pool *pool,
+                    struct panfrost_device *dev,
+                    unsigned create_flags,
+                    const char *label,
+                    mali_ptr fake_gpu_base)
+{
+   memset(pool, 0, sizeof(*pool));
+   pan_pool_init(&pool->base, dev, create_flags, 32 * 1024 * 1024, label);
+   pool->cpu_only = true;
+   pool->cpu_bo.ptr.gpu = fake_gpu_base;
+
+   util_dynarray_init(&pool->bos, NULL);
+   util_dynarray_init(&pool->big_bos, NULL);
+}
+
+void
 panvk_pool_reset(struct panvk_pool *pool)
 {
-   if (pool->bo_pool) {
+   if (pool->cpu_only) {
+      assert(util_dynarray_num_elements(&pool->bos, struct panfrost_bo *) == 0);
+      assert(util_dynarray_num_elements(&pool->big_bos, struct panfrost_bo *) == 0);
+
+      if (pool->cpu_bo.ptr.cpu)
+         munmap(pool->cpu_bo.ptr.cpu, pool->cpu_bo.size);
+   } else if (pool->bo_pool) {
       unsigned num_bos = panvk_pool_num_bos(pool);
       void *ptr = util_dynarray_grow(&pool->bo_pool->free_bos,
                                      struct panfrost_bo *, num_bos);
@@ -136,6 +201,7 @@ panvk_pool_reset(struct panvk_pool *pool)
    util_dynarray_clear(&pool->bos);
    util_dynarray_clear(&pool->big_bos);
    pool->transient_bo = NULL;
+   pool->transient_offset = 0;
 }
 
 void
@@ -149,6 +215,8 @@ panvk_pool_cleanup(struct panvk_pool *pool)
 void
 panvk_pool_get_bo_handles(struct panvk_pool *pool, uint32_t *handles)
 {
+   assert(!pool->cpu_only);
+
    unsigned idx = 0;
    util_dynarray_foreach(&pool->bos, struct panfrost_bo *, bo) {
       assert((*bo)->gem_handle > 0);

@@ -134,7 +134,11 @@ __gen_unpack_padded(const uint8_t *restrict cl, uint32_t start, uint32_t end)
 
 #define PREFIX1(A) MALI_ ## A
 #define PREFIX2(A, B) MALI_ ## A ## _ ## B
+#define PREFIX3(A, B, C) MALI_ ## A ## _ ## B ## _ ## C
 #define PREFIX4(A, B, C, D) MALI_ ## A ## _ ## B ## _ ## C ## _ ## D
+
+#define pan_field_byte_offset(T, F)                         \\
+        (PREFIX3(T, F, OFFSET) / 8)
 
 #define pan_prepare(dst, T)                                 \\
    *(dst) = (struct PREFIX1(T)){ PREFIX2(T, header) }
@@ -806,6 +810,8 @@ class Parser(object):
         print('#define {} {}'.format (name + "_LENGTH", self.group.length))
         if self.group.align != None:
             print('#define {} {}'.format (name + "_ALIGN", self.group.align))
+        for field in group.fields:
+            print('#define {} {}'.format (name + "_" +  field.name + "_OFFSET", field.start))
         print('struct {}_packed {{ uint32_t opaque[{}]; }};'.format(name.lower(), self.group.length // 4))
 
     def emit_unpack_function(self, name, group):
