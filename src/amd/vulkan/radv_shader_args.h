@@ -45,7 +45,7 @@ struct radv_shader_args {
    struct ac_arg streamout_buffers;
 
    /* NGG GS */
-   struct ac_arg ngg_gs_state;
+   struct ac_arg ngg_query_state;
    struct ac_arg ngg_culling_settings;
    struct ac_arg ngg_viewport_scale[2];
    struct ac_arg ngg_viewport_translate[2];
