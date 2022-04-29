@@ -850,10 +850,13 @@ tu_shader_create(struct tu_device *dev,
 
    uint32_t reserved_consts_vec4 =
       align(shader->regular_consts.dwords, 16) / 4;
+   bool use_shared_consts =
+      layout->push_constant_size > 0 && layout->push_constant_size <= 128;
 
    shader->ir3_shader =
       ir3_shader_from_nir(dev->compiler, nir, &(struct ir3_shader_options) {
                            .reserved_user_consts = reserved_consts_vec4,
+                           .shared_consts_enable = use_shared_consts,
                            .api_wavesize = api_wavesize,
                            .real_wavesize = real_wavesize,
                           }, &so_info);
