@@ -939,15 +939,23 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    bool requires_runtime_data;
    dxil_spirv_nir_passes(nir, conf, &requires_runtime_data);
 
-   /* Dummy link step */
-   nir->info.inputs_read =
-      dxil_reassign_driver_locations(nir, nir_var_shader_in, 0);
-
+   /* Dummy link step: we don't know what the next/prev stages read/write, so
+    * let's pass 0 as the other_stage_mask, which has the effect of putting
+    * all generic varying first (ordered by location), and all special ones
+    * last. That's still not guaranteeing that special varyings ordering
+    * matches between 2 stages, but that's the best we can do without knowing
+    * what the previous/next stages want.
+    * We rely on dxil_spirv_nir_link() to assign driver_location of vertex
+    * inputs and fragment outputs.
+    */
+   dxil_spirv_nir_link(nir, NULL);
    if (nir->info.stage != MESA_SHADER_FRAGMENT) {
       nir->info.outputs_written =
          dxil_reassign_driver_locations(nir, nir_var_shader_out, 0);
-   } else {
-      dxil_sort_ps_outputs(nir);
+   }
+   if (nir->info.stage != MESA_SHADER_VERTEX) {
+      nir->info.inputs_read =
+         dxil_reassign_driver_locations(nir, nir_var_shader_out, 0);
    }
 
    if (dgb_opts->dump_nir)
@@ -955,7 +963,6 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    struct nir_to_dxil_options opts = {
       .environment = DXIL_ENVIRONMENT_VULKAN,
-      .auto_link = true,
    };
    struct blob dxil_blob;
    if (!nir_to_dxil(nir, &opts, &dxil_blob)) {
