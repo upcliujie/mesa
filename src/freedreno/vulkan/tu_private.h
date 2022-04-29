@@ -270,6 +270,7 @@ enum tu_debug_flags
    TU_DEBUG_UNALIGNED_STORE = 1 << 15,
    TU_DEBUG_LAYOUT = 1 << 16,
    TU_DEBUG_LOG_SKIP_GMEM_OPS = 1 << 17,
+   TU_DEBUG_LRZ_NO_CPU_DIR_TRACK = 1 << 18,
 };
 
 struct tu_instance
@@ -1129,6 +1130,8 @@ struct tu_lrz_state
    bool valid : 1;
    /* Allows to temporary disable LRZ */
    bool enabled : 1;
+   bool fast_clear : 1;
+   bool gpu_dir_tracking : 1;
    enum tu_lrz_direction prev_direction;
 };
 
@@ -1510,6 +1513,9 @@ void
 tu6_clear_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs, struct tu_image* image, const VkClearValue *value);
 
 void
+tu6_clear_lrz_fc(struct tu_cmd_buffer *cmd, struct tu_cs *cs, struct tu_image* image, uint32_t value);
+
+void
 tu6_emit_sample_locations(struct tu_cs *cs, const VkSampleLocationsInfoEXT *samp_loc);
 
 void
@@ -1653,6 +1659,8 @@ struct tu_image
    uint32_t lrz_height;
    uint32_t lrz_pitch;
    uint32_t lrz_offset;
+   uint32_t lrz_fc_offset;
+   uint32_t lrz_fc_size;
 
    bool shareable;
 };
