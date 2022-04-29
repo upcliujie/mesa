@@ -1235,6 +1235,10 @@ is_reg_num_special(unsigned num)
    return num >= 48 * 4;
 }
 
+bool
+is_shared_consts(struct ir3_compiler *compiler,
+                 struct ir3_register *reg);
+
 /* returns defining instruction for reg */
 /* TODO better name */
 static inline struct ir3_instruction *

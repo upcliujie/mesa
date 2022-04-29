@@ -263,6 +263,22 @@ ir3_compiler_create(struct fd_device *dev, const struct fd_dev_id *dev_id,
 
       compiler->has_dp2acc = dev_info->a6xx.has_dp2acc;
       compiler->has_dp4acc = dev_info->a6xx.has_dp4acc;
+
+      if (options->shared_consts_enable) {
+         compiler->shared_consts_enable = true;
+         compiler->shared_consts_base_offset = 504;
+         compiler->shared_consts_size = 8;
+
+         /* Consider the length of shared consts, which is 8 vec4 for the fs
+          * and cs, 16 for the geometry (only 8 used actually though).
+          */
+         compiler->max_const_geom -= 16;
+         compiler->max_const_frag -= compiler->shared_consts_size;
+         compiler->max_const_compute -= compiler->shared_consts_size;
+
+         compiler->max_const_safe -= 4;
+         compiler->max_const_pipeline -= (16 + compiler->shared_consts_size);
+      }
    } else {
       compiler->max_const_pipeline = 512;
       compiler->max_const_geom = 512;
