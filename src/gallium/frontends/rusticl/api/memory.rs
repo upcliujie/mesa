@@ -1500,7 +1500,7 @@ pub fn enqueue_map_buffer(
         q.flush(true)?;
     }
 
-    b.map(&q, offset, size, block)
+    b.map_buffer(&q, offset, size, block)
     // TODO
     // CL_MISALIGNED_SUB_BUFFER_OFFSET if buffer is a sub-buffer object and offset specified when the sub-buffer object is created is not aligned to CL_DEVICE_MEM_BASE_ADDR_ALIGN value for the device associated with queue. This error code is missing before version 1.1.
     // CL_MAP_FAILURE if there is a failure to map the requested region into the host address space. This error cannot occur for buffer objects created with CL_MEM_USE_HOST_PTR or CL_MEM_ALLOC_HOST_PTR.
@@ -1729,7 +1729,7 @@ pub fn enqueue_unmap_mem_object(
         &q,
         CL_COMMAND_UNMAP_MEM_OBJECT,
         evs,
-        Box::new(move |q, _| Ok(m.unmap(q, mapped_ptr))),
+        Box::new(move |q, ctx| Ok(m.unmap(q, ctx, mapped_ptr))),
     );
     cl_event::leak_ref(event, &e);
     q.queue(&e);
