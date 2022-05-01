@@ -661,8 +661,13 @@ if __name__ == "__main__":
                 print("The extension {} does not provide a properties struct.".format(ext.name))
             ext.properties_promoted = entry.properties_promoted
 
-        if entry.promoted_in:
+        if entry.promoted_in and entry.promoted_in <= versions[-1].struct_version:
             ext.core_since = Version((*entry.promoted_in, 0))
+        else:
+            # even if it is promoted in a newer VK version, we still disable it
+            # unless there's an entry in VERSIONS that includes said version
+            ext.features_promoted = False
+            ext.properties_promoted = False
 
     if error_count > 0:
         print("zink_device_info.py: Found {} error(s) in total. Quitting.".format(error_count))
