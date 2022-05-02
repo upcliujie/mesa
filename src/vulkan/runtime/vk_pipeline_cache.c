@@ -314,10 +314,18 @@ vk_pipeline_cache_lookup_object(struct vk_pipeline_cache *cache,
          size_t data_size;
          uint8_t *data = disk_cache_get(disk_cache, cache_key, &data_size);
          if (data) {
-            object = vk_pipeline_cache_object_deserialize(cache,
-                                                          key_data, key_size,
-                                                          data, data_size,
-                                                          ops);
+            if (ops != &raw_data_object_ops) {
+               object = vk_pipeline_cache_object_deserialize(cache,
+                                                             key_data, key_size,
+                                                             data, data_size,
+                                                             ops);
+            } else {
+               struct raw_data_object *data_obj =
+                  raw_data_object_create(cache->base.device,
+                                         key_data, key_size,
+                                         data, data_size);
+               object = data_obj != NULL ? &data_obj->base : NULL;
+            }
             free(data);
             if (object != NULL)
                return vk_pipeline_cache_add_object(cache, object);
