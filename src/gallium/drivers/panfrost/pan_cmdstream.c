@@ -573,6 +573,13 @@ panfrost_prepare_fs_state(struct panfrost_context *ctx,
                         cfg.multisample_misc.evaluate_per_sample = true;
                         cfg.preload.fragment.sample_mask_id = true;
                 }
+
+                /* Flip gl_PointCoord (and point sprites) depending on API
+                 * setting on framebuffer orientation. We do not use
+                 * lower_wpos_pntc on Bifrost.
+                 */
+                cfg.properties.point_sprite_coord_origin_max_y =
+                        (rast->sprite_coord_mode == PIPE_SPRITE_COORD_LOWER_LEFT);
 #endif
 
                 cfg.stencil_mask_misc.alpha_to_coverage = alpha_to_coverage;
@@ -4371,14 +4378,7 @@ prepare_shader(struct panfrost_shader_state *state,
         pan_pack(out, RENDERER_STATE, cfg) {
                 pan_shader_prepare_rsd(&state->info, state->bin.gpu, &cfg);
 
-#if PAN_ARCH >= 6
-                /* Match the mesa/st convention. If this needs to be flipped,
-                 * nir_lower_pntc_ytransform will do so.
-                 */
-                if (state->info.stage == MESA_SHADER_FRAGMENT)
-                        cfg.properties.point_sprite_coord_origin_max_y = true;
-#endif
-        }
+       }
 #else
         assert(upload);
 
