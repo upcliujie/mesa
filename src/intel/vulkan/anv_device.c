@@ -402,34 +402,86 @@ anv_gather_meminfo(struct anv_physical_device *device, int fd, bool update)
    for(int i = 0; i < mem_regions->num_regions; i++) {
       struct drm_i915_memory_region_info *info = &mem_regions->regions[i];
 
-      struct anv_memregion *region;
+      /* Each drm_i915_memory_region_info can actually hold 2 regions. In the case of */
+      struct anv_memregion *region0, *region1;
       switch (info->region.memory_class) {
       case I915_MEMORY_CLASS_SYSTEM:
-         region = &device->sys;
+         region0 = &device->sys;
+         region1 = NULL;
          break;
       case I915_MEMORY_CLASS_DEVICE:
-         region = &device->vram;
+         /* If we have a probed_cpu_visible_size != 0 and not the whole
+          * probe_size, it means we have 2 heaps and the first one is non
+          * mappable one.
+          */
+         if (info->probed_cpu_visible_size != 0 &&
+             info->probed_cpu_visible_size != info->probed_size) {
+            region0 = &device->vram_non_mappable;
+            region1 = &device->vram_mappable;
+         } else {
+            region0 = &device->vram_mappable;
+            region1 = NULL;
+         }
          break;
       default:
          /* We don't know what kind of memory this is */
          continue;
       }
 
-      uint64_t size = info->probed_size;
+      uint64_t size_non_mappable = info->probed_size;
       if (info->region.memory_class == I915_MEMORY_CLASS_SYSTEM)
-         size = anv_compute_sys_heap_size(device, size);
+         size_non_mappable = anv_compute_sys_heap_size(device, size_non_mappable);
 
-      uint64_t available = MIN2(size, info->unallocated_size);
+      const uint64_t unknown_size = -1;
 
-      if (update) {
-         assert(region->region.memory_class == info->region.memory_class);
-         assert(region->region.memory_instance == info->region.memory_instance);
-         assert(region->size == size);
-      } else {
-         region->region = info->region;
-         region->size = size;
+      /* region0 uses info->probed_size & info->unallocated_size */
+      if (region0) {
+         if (update) {
+            assert(region0->region.memory_class == info->region.memory_class);
+            assert(region0->region.memory_instance == info->region.memory_instance);
+            assert(region0->size == info->probed_size);
+         } else {
+            region0->region = info->region;
+            region0->size = info->probed_size;
+         }
+
+         if (info->unallocated_size != unknown_size)
+            region0->available = MIN2(info->probed_size, info->unallocated_size);
+         else
+            region0->available = 0;
       }
-      region->available = available;
+
+      /* region1 uses info->probed_cpu_visible_size &
+       * info->unallocated_cpu_visible_size
+       */
+      if (region1) {
+         if (update) {
+            assert(region1->region.memory_class == info->region.memory_class);
+            assert(region1->region.memory_instance == info->region.memory_instance);
+            assert(region1->size == info->probed_cpu_visible_size);
+         } else {
+            region1->region = info->region;
+            region1->size = info->probed_cpu_visible_size;
+         }
+
+         if (info->unallocated_cpu_visible_size != unknown_size) {
+            region1->available = MIN2(info->probed_cpu_visible_size,
+                                      info->unallocated_cpu_visible_size);
+         } else {
+            region1->available = 0;
+         }
+      }
+   }
+
+   /* We're using the same drm_i915_memory_region_info for
+    * mappable/non-mappable vram.
+    */
+   if (device->vram_non_mappable.size != 0 &&
+       device->vram_mappable.size != 0) {
+      assert(device->vram_non_mappable.region.memory_class ==
+             device->vram_mappable.region.memory_class &&
+             device->vram_non_mappable.region.memory_instance ==
+             device->vram_mappable.region.memory_instance);
    }
 
    if (mem_regions != (void *)sys_mem_regions)
@@ -461,13 +513,19 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
 
    assert(device->sys.size != 0);
 
-   if (device->vram.size > 0) {
-      /* We can create 2 different heaps when we have local memory support,
-       * first heap with local memory size and second with system memory size.
+   if (anv_physical_device_has_vram(device)) {
+      /* We can create 2 or 3 different heaps when we have local memory
+       * support, first heap with local memory size and second with system
+       * memory size and the third is added only if part of the vram is
+       * mappable to the host.
        */
       device->memory.heap_count = 2;
       device->memory.heaps[0] = (struct anv_memory_heap) {
-         .size = device->vram.size,
+         /* If there is a vram_non_mappable, use that for the device only
+          * heap. Otherwise use the vram_mappable.
+          */
+         .size = device->vram_non_mappable.size != 0 ?
+                 device->vram_non_mappable.size : device->vram_mappable.size,
          .flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
          .is_local_mem = true,
       };
@@ -476,6 +534,17 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
          .flags = 0,
          .is_local_mem = false,
       };
+      /* Add an additional smaller vram mappable heap if we can't map all the
+       * vram to the host.
+       */
+      if (device->vram_non_mappable.size > 0) {
+         device->memory.heap_count++;
+         device->memory.heaps[2] = (struct anv_memory_heap) {
+            .size = device->vram_mappable.size,
+            .flags = 0,
+            .is_local_mem = true,
+         };
+      }
 
       device->memory.type_count = 3;
       device->memory.types[0] = (struct anv_memory_type) {
@@ -492,7 +561,11 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
          .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-         .heapIndex = 0,
+         /* This memory type either comes from heaps[0] if there is only
+          * mappable vram region, or from heaps[2] if there is both mappable &
+          * non-mappable vram regions.
+          */
+         .heapIndex = device->vram_non_mappable.size > 0 ? 2 : 0,
       };
    } else if (device->info.has_llc) {
       device->memory.heap_count = 1;
@@ -891,7 +964,8 @@ anv_physical_device_try_create(struct anv_instance *instance,
                                       device->gtt_size > (4ULL << 30 /* GiB */);
 
    /* Initialize memory regions struct to 0. */
-   memset(&device->vram, 0, sizeof(device->vram));
+   memset(&device->vram_non_mappable, 0, sizeof(device->vram_non_mappable));
+   memset(&device->vram_mappable, 0, sizeof(device->vram_mappable));
    memset(&device->sys, 0, sizeof(device->sys));
 
    result = anv_physical_device_init_heaps(device, fd);
@@ -2763,7 +2837,7 @@ anv_get_memory_budget(VkPhysicalDevice physicalDevice,
 
       if (device->memory.heaps[i].is_local_mem) {
          total_heaps_size = total_vram_heaps_size;
-         mem_available = device->vram.available;
+         mem_available = device->vram_non_mappable.available;
       } else {
          total_heaps_size = total_sys_heaps_size;
          mem_available = device->sys.available;
@@ -3840,6 +3914,16 @@ VkResult anv_AllocateMemory(
    if (device->physical->has_implicit_ccs && device->info.has_aux_map)
       alloc_flags |= ANV_BO_ALLOC_IMPLICIT_CCS;
 
+   /* If i915 reported a mappable/non_mappable vram regions and the
+    * application want lmem mappable, then we need to use the
+    * I915_GEM_CREATE_EXT_FLAG_NEEDS_CPU_ACCESS flag to create our BO.
+    */
+   if (pdevice->vram_mappable.size > 0 &&
+       pdevice->vram_non_mappable.size > 0 &&
+       (mem_type->propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) &&
+       (mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
+      alloc_flags |= ANV_BO_ALLOC_LOCAL_MEM_CPU_VISIBLE;
+
    if (vk_flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR)
       alloc_flags |= ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS;
 
@@ -4783,9 +4867,9 @@ vk_icdNegotiateLoaderICDInterfaceVersion(uint32_t* pSupportedVersion)
     *
     *    - Loader interface v4 differs from v3 in:
     *        - The ICD must implement vk_icdGetPhysicalDeviceProcAddr().
-    * 
+    *
     *    - Loader interface v5 differs from v4 in:
-    *        - The ICD must support Vulkan API version 1.1 and must not return 
+    *        - The ICD must support Vulkan API version 1.1 and must not return
     *          VK_ERROR_INCOMPATIBLE_DRIVER from vkCreateInstance() unless a
     *          Vulkan Loader with interface v4 or smaller is being used and the
     *          application provides an API version that is greater than 1.0.
