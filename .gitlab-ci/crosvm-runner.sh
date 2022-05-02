@@ -28,7 +28,6 @@ set_vsock_context() {
 
     local dir_prefix="/tmp-vsock."
     local cid_prefix=0
-    unset VSOCK_TEMP_DIR
 
     while [ ${cid_prefix} -lt 128 ]; do
         VSOCK_TEMP_DIR=${dir_prefix}${cid_prefix}
@@ -45,17 +44,52 @@ set_vsock_context() {
     return 0
 }
 
+# Utility to gracefully terminate a given process.
+# arg1: pid
+# arg2: timeout (ms)
+kill_pid() {
+    local pid=$1
+    local tmout=${2:-2000}
+
+    kill ${pid} >/dev/null 2>&1 || return
+    set +x
+    while [ $((tmout = tmout - 100)) -gt 0 ]; do
+        sleep 0.1
+        kill -0 ${pid} 2>/dev/null || return
+    done
+    set -x
+    kill -9 ${pid} 2>/dev/null || true
+}
+
+# Function executed on script exit.
+exit_hook() {
+    [ -z "${CROSVM_PID}" ] || kill_pid ${CROSVM_PID} 4000 &
+    [ -z "${SOCAT_PIDS}" ] || {
+        local pid
+        for pid in ${SOCAT_PIDS}; do
+            kill_pid ${pid} 2000 &
+        done
+    }
+
+    wait
+    [ -z "${VSOCK_TEMP_DIR}" ] || rm -rf ${VSOCK_TEMP_DIR}
+}
+
+# Reset global variables
+unset VSOCK_TEMP_DIR CROSVM_PID SOCAT_PIDS
+
+# Init virtio-vsock
+set_vsock_context || { echo "Could not generate crosvm vsock CID" >&2; exit 1; }
+
+# Ensure cleanup on script exit
+trap 'exit ${exit_code}' INT TERM
+trap 'exit_code=$?; exit_hook' EXIT
+
 # The dEQP binary needs to run from the directory it's in
 if [ -n "${1##*.sh}" ] && [ -z "${1##*"deqp"*}" ]; then
     DEQP_BIN_DIR=$(dirname "$1")
     export DEQP_BIN_DIR
 fi
-
-set_vsock_context || { echo "Could not generate crosvm vsock CID" >&2; exit 1; }
-
-# Ensure cleanup on script exit
-trap 'exit ${exit_code}' INT TERM
-trap 'exit_code=$?; [ -z "${CROSVM_PID}${SOCAT_PIDS}" ] || kill ${CROSVM_PID} ${SOCAT_PIDS} >/dev/null 2>&1 || true; rm -rf ${VSOCK_TEMP_DIR}' EXIT
 
 # Securely pass the current variables to the crosvm environment
 echo "Variables passed through:"
