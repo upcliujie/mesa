@@ -242,6 +242,7 @@ vn_MergePipelineCaches(VkDevice device,
 /* pipeline commands */
 
 struct vn_graphics_pipeline_create_info_fix {
+   bool ignore_tessellation_state;
    bool ignore_fragment_state;
 };
 
@@ -266,6 +267,31 @@ vn_fix_graphics_pipeline_create_info(
 
    for (uint32_t i = 0; i < create_info_count; i++) {
       const VkGraphicsPipelineCreateInfo *info = &create_infos[i];
+
+      VkShaderStageFlags stages = 0;
+      for (uint32_t i = 0; i < info->stageCount; ++i) {
+         stages |= info->pStages[i].stage;
+      }
+
+      /* The Vulkan spec says:
+       *    A complete graphics pipeline always includes pre-rasterization
+       *    shader state [...]
+       *
+       * Despite this always being true, we use it below so that the condition
+       * expressions closely resemble the VUID text.
+       */
+      bool has_pre_raster_shader_state = true;
+
+      /* Fix pTessellationState?
+       *    VUID-VkGraphicsPipelineCreateInfo-pStages-00731
+       */
+      if (info->pTessellationState &&
+          (!has_pre_raster_shader_state ||
+           !(stages & VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT) ||
+           !(stages & VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT))) {
+         fix[i].ignore_tessellation_state = true;
+         any_fix = true;
+      }
 
       /* FIXME: Condition is too eager. Make it agree with the VUIDs. */
       if (info->pRasterizationState->rasterizerDiscardEnable == VK_FALSE &&
@@ -294,6 +320,10 @@ vn_fix_graphics_pipeline_create_info(
 
    for (uint32_t i = 0; i < create_info_count; i++) {
       VkGraphicsPipelineCreateInfo *info = &infos[i];
+
+      if (fix[i].ignore_tessellation_state) {
+         info->pTessellationState = NULL;
+      }
 
       if (fix[i].ignore_fragment_state) {
          info->pViewportState = NULL;
