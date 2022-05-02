@@ -204,7 +204,7 @@ static void emit_gs_epilogue(struct si_shader_context *ctx)
    }
 
    if (ctx->screen->info.chip_class >= GFX10)
-      LLVMBuildFence(ctx->ac.builder, LLVMAtomicOrderingRelease, false, "");
+      ac_build_waitcnt(&ctx->ac, AC_WAIT_VSTORE);
 
    ac_build_sendmsg(&ctx->ac, AC_SENDMSG_GS_OP_NOP | AC_SENDMSG_GS_DONE, si_get_gs_wave_id(ctx));
 
