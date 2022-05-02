@@ -16,3 +16,13 @@ for driver in freedreno intel v3d; do
         ./run -j${FDO_CI_CONCURRENT:-4} ./shaders \
             > $ARTIFACTSDIR/${driver}-shader-db.txt
 done
+
+# Run shader-db for r300
+for gpuclass in R300 R500; do
+    echo "Running drm-shim for r300 - $gpuclass"
+    env MESA_LOADER_DRIVER_OVERRIDE=r300 \
+        LD_PRELOAD=$LIBDIR/libradeon_noop_drm_shim.so \
+        RADEON_GPU_ID=${gpuclass} \
+        ./run -j${FDO_CI_CONCURRENT:-4} ./shaders \
+            > $ARTIFACTSDIR/r300-${gpuclass}-shader-db.txt
+done
