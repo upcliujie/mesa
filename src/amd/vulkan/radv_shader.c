@@ -146,6 +146,8 @@ void
 radv_optimize_nir(struct nir_shader *shader, bool optimize_conservatively, bool allow_copies)
 {
    bool progress;
+   bool optimize_discard = shader->info.stage == MESA_SHADER_FRAGMENT &&
+                           (shader->info.fs.uses_discard || shader->info.fs.uses_demote);
 
    do {
       progress = false;
@@ -193,9 +195,15 @@ radv_optimize_nir(struct nir_shader *shader, bool optimize_conservatively, bool 
       if (shader->options->max_unroll_iterations) {
          NIR_PASS(progress, shader, nir_opt_loop_unroll);
       }
+
+      if (!progress && optimize_discard) {
+         optimize_discard = false;
+         NIR_PASS(progress, shader, nir_opt_conditional_discard);
+         NIR_PASS(progress, shader, nir_opt_move_discards_to_top);
+      }
+
    } while (progress && !optimize_conservatively);
 
-   NIR_PASS(progress, shader, nir_opt_conditional_discard);
    NIR_PASS(progress, shader, nir_opt_move, nir_move_load_ubo);
 }
 
