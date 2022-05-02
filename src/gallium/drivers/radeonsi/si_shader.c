@@ -1274,9 +1274,9 @@ static void si_dump_shader_key(const struct si_shader *shader, FILE *f)
    if ((stage == MESA_SHADER_GEOMETRY || stage == MESA_SHADER_TESS_EVAL ||
         stage == MESA_SHADER_VERTEX) &&
        !key->ge.as_es && !key->ge.as_ls) {
-      fprintf(f, "  opt.kill_outputs = 0x%" PRIx64 "\n", key->ge.opt.kill_outputs);
-      fprintf(f, "  opt.kill_pointsize = 0x%x\n", key->ge.opt.kill_pointsize);
-      fprintf(f, "  opt.kill_clip_distances = 0x%x\n", key->ge.opt.kill_clip_distances);
+      fprintf(f, "  mono.kill_outputs = 0x%" PRIx64 "\n", key->ge.mono.kill_outputs);
+      fprintf(f, "  mono.kill_pointsize = 0x%x\n", key->ge.mono.kill_pointsize);
+      fprintf(f, "  mono.kill_clip_distances = 0x%x\n", key->ge.mono.kill_clip_distances);
       fprintf(f, "  opt.ngg_culling = 0x%x\n", key->ge.opt.ngg_culling);
    }
 
@@ -1382,9 +1382,9 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
    assert(impl);
 
    if (nir->info.stage > MESA_SHADER_GEOMETRY ||
-       (!key->ge.opt.kill_outputs &&
-        !key->ge.opt.kill_pointsize &&
-        !key->ge.opt.kill_clip_distances)) {
+       (!key->ge.mono.kill_outputs &&
+        !key->ge.mono.kill_pointsize &&
+        !key->ge.mono.kill_clip_distances)) {
       nir_metadata_preserve(impl, nir_metadata_all);
       return false;
    }
@@ -1411,13 +1411,13 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
          nir_io_semantics sem = nir_intrinsic_io_semantics(intr);
 
          if (nir_slot_is_varying(sem.location) &&
-             key->ge.opt.kill_outputs &
+             key->ge.mono.kill_outputs &
              (1ull << si_shader_io_get_unique_index(sem.location, true))) {
             nir_remove_varying(intr);
             progress = true;
          }
 
-         if (key->ge.opt.kill_pointsize && sem.location == VARYING_SLOT_PSIZ) {
+         if (key->ge.mono.kill_pointsize && sem.location == VARYING_SLOT_PSIZ) {
             nir_remove_sysval_output(intr);
             progress = true;
          }
@@ -1425,20 +1425,20 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
          /* TODO: We should only kill specific clip planes as required by kill_clip_distance,
           * not whole gl_ClipVertex. Lower ClipVertex in NIR.
           */
-         if ((key->ge.opt.kill_clip_distances & SI_USER_CLIP_PLANE_MASK) == SI_USER_CLIP_PLANE_MASK &&
+         if ((key->ge.mono.kill_clip_distances & SI_USER_CLIP_PLANE_MASK) == SI_USER_CLIP_PLANE_MASK &&
              sem.location == VARYING_SLOT_CLIP_VERTEX) {
             nir_remove_sysval_output(intr);
             progress = true;
          }
 
-         if (key->ge.opt.kill_clip_distances &&
+         if (key->ge.mono.kill_clip_distances &&
              (sem.location == VARYING_SLOT_CLIP_DIST0 ||
               sem.location == VARYING_SLOT_CLIP_DIST1)) {
             assert(nir_intrinsic_src_type(intr) == nir_type_float32);
             unsigned index = (sem.location - VARYING_SLOT_CLIP_DIST0) * 4 +
                              nir_intrinsic_component(intr);
 
-            if ((key->ge.opt.kill_clip_distances >> index) & 0x1) {
+            if ((key->ge.mono.kill_clip_distances >> index) & 0x1) {
                nir_remove_sysval_output(intr);
                progress = true;
             }

@@ -1286,9 +1286,9 @@ static unsigned si_get_vs_out_cntl(const struct si_shader_selector *sel,
                                    const struct si_shader *shader, bool ngg)
 {
    /* Clip distances can be killed, but cull distances can't. */
-   unsigned clipcull_mask = (sel->info.clipdist_mask & ~shader->key.ge.opt.kill_clip_distances) |
+   unsigned clipcull_mask = (sel->info.clipdist_mask & ~shader->key.ge.mono.kill_clip_distances) |
                             sel->info.culldist_mask;
-   bool writes_psize = sel->info.writes_psize && !shader->key.ge.opt.kill_pointsize;
+   bool writes_psize = sel->info.writes_psize && !shader->key.ge.mono.kill_pointsize;
    bool misc_vec_ena = writes_psize || (sel->info.writes_edgeflag && !ngg) ||
                        sel->screen->options.vrs2x2 ||
                        sel->info.writes_layer || sel->info.writes_viewport_index;
@@ -2077,17 +2077,17 @@ void si_update_ps_inputs_read_or_disabled(struct si_context *sctx)
 static void si_get_vs_key_outputs(struct si_context *sctx, struct si_shader_selector *vs,
                                   union si_shader_key *key)
 {
-   key->ge.opt.kill_clip_distances = vs->info.clipdist_mask & ~sctx->queued.named.rasterizer->clip_plane_enable;
+   key->ge.mono.kill_clip_distances = vs->info.clipdist_mask & ~sctx->queued.named.rasterizer->clip_plane_enable;
 
    /* Find out which VS outputs aren't used by the PS. */
    uint64_t outputs_written = vs->info.outputs_written_before_ps;
    uint64_t linked = outputs_written & sctx->ps_inputs_read_or_disabled;
 
-   key->ge.opt.kill_outputs = ~linked & outputs_written;
+   key->ge.mono.kill_outputs = ~linked & outputs_written;
    key->ge.opt.ngg_culling = sctx->ngg_culling;
    key->ge.mono.u.vs_export_prim_id = vs->stage != MESA_SHADER_GEOMETRY &&
                                       sctx->shader.ps.cso && sctx->shader.ps.cso->info.uses_primid;
-   key->ge.opt.kill_pointsize = vs->info.writes_psize &&
+   key->ge.mono.kill_pointsize = vs->info.writes_psize &&
                                 sctx->current_rast_prim != PIPE_PRIM_POINTS &&
                                 !sctx->queued.named.rasterizer->polygon_mode_is_points;
 }
@@ -2095,11 +2095,11 @@ static void si_get_vs_key_outputs(struct si_context *sctx, struct si_shader_sele
 static void si_clear_vs_key_outputs(struct si_context *sctx, struct si_shader_selector *vs,
                                     union si_shader_key *key)
 {
-   key->ge.opt.kill_clip_distances = 0;
-   key->ge.opt.kill_outputs = 0;
+   key->ge.mono.kill_clip_distances = 0;
+   key->ge.mono.kill_outputs = 0;
    key->ge.opt.ngg_culling = 0;
    key->ge.mono.u.vs_export_prim_id = 0;
-   key->ge.opt.kill_pointsize = 0;
+   key->ge.mono.kill_pointsize = 0;
 }
 
 void si_ps_key_update_framebuffer(struct si_context *sctx)

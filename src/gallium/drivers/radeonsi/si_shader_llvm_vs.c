@@ -393,7 +393,7 @@ void si_llvm_clipvertex_to_clipdist(struct si_shader_context *ctx,
    LLVMValueRef constbuf_index = LLVMConstInt(ctx->ac.i32, SI_VS_CONST_CLIP_PLANES, 0);
    LLVMValueRef const_resource = ac_build_load_to_sgpr(&ctx->ac, ptr, constbuf_index);
    unsigned clipdist_mask = ctx->shader->selector->info.clipdist_mask &
-                            ~ctx->shader->key.ge.opt.kill_clip_distances;
+                            ~ctx->shader->key.ge.mono.kill_clip_distances;
 
    for (reg_index = 0; reg_index < 2; reg_index++) {
       struct ac_export_args *args = &clipdist[reg_index];
@@ -516,7 +516,7 @@ void si_llvm_build_vs_exports(struct si_shader_context *ctx,
                 viewport_index_value = NULL;
    unsigned pos_idx, index;
    unsigned clipdist_mask = (shader->selector->info.clipdist_mask &
-                             ~shader->key.ge.opt.kill_clip_distances) |
+                             ~shader->key.ge.mono.kill_clip_distances) |
                             shader->selector->info.culldist_mask;
    int i;
 
@@ -567,7 +567,7 @@ void si_llvm_build_vs_exports(struct si_shader_context *ctx,
       pos_args[0].out[3] = ctx->ac.f32_1; /* W */
    }
 
-   bool writes_psize = shader->selector->info.writes_psize && !shader->key.ge.opt.kill_pointsize;
+   bool writes_psize = shader->selector->info.writes_psize && !shader->key.ge.mono.kill_pointsize;
    bool pos_writes_edgeflag = shader->selector->info.writes_edgeflag && !shader->key.ge.as_ngg;
    bool writes_vrs = ctx->screen->options.vrs2x2;
 

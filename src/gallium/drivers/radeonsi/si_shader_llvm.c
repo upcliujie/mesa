@@ -1224,7 +1224,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
          shader_es.key.ge.opt = shader->key.ge.opt;
          shader_es.key.ge.opt.inline_uniforms = false; /* only GS can inline uniforms */
          /* kill_outputs was computed based on GS outputs so we can't use it to kill VS outputs */
-         shader_es.key.ge.opt.kill_outputs = 0;
+         shader_es.key.ge.mono.kill_outputs = 0;
          shader_es.is_monolithic = true;
 
          nir = si_get_nir_shader(es, &shader_es.key, &free_nir);

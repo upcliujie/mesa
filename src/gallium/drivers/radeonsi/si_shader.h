@@ -663,15 +663,15 @@ struct si_shader_key_ge {
          unsigned vs_export_prim_id : 1;    /* VS and TES only */
          unsigned gs_tri_strip_adj_fix : 1; /* GS only */
       } u;
-   } mono;
 
-   /* Optimization flags for asynchronous compilation only. */
-   struct {
       /* For HW VS (it can be VS, TES, GS) */
       uint64_t kill_outputs; /* "get_unique_index" bits */
       unsigned kill_clip_distances : 8;
       unsigned kill_pointsize : 1;
+   } mono;
 
+   /* Optimization flags for asynchronous compilation only. */
+   struct {
       /* For NGG VS and TES. */
       unsigned ngg_culling : 13; /* SI_NGG_CULL_* */
 
