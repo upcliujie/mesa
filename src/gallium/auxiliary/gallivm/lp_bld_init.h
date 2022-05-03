@@ -47,7 +47,9 @@ struct gallivm_state
    LLVMExecutionEngineRef engine;
    LLVMTargetDataRef target;
    LLVMPassManagerRef passmgr;
+#if GALLIVM_HAVE_CORO == 1
    LLVMPassManagerRef cgpassmgr;
+#endif
    LLVMContextRef context;
    LLVMBuilderRef builder;
    LLVMMCJITMemoryManagerRef memorymgr;
