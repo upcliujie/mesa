@@ -96,8 +96,10 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: {
       assert(addr_format == nir_address_format_32bit_index_offset);
 
+      const bool is_dynamic =
+         bind_layout->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
       const unsigned ubo_idx =
-         panvk_pipeline_layout_ubo_index(ctx->layout, set, binding, 0);
+         panvk_pipeline_layout_ubo_index(ctx->layout, set, binding, is_dynamic);
 
       const uint32_t packed = (array_size - 1) << 16 | ubo_idx;
 
