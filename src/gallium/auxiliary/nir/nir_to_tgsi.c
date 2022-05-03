@@ -1131,7 +1131,12 @@ ntt_get_load_const_src(struct ntt_compile *c, nir_load_const_instr *instr)
    } else {
       uint32_t values[4];
 
-      if (instr->def.bit_size == 32) {
+      if (instr->def.bit_size == 16) {
+         for (int i = 0; i < num_components; i++)
+            values[i] = instr->value[i].u16;
+
+         return ureg_DECL_immediate_f16(c->ureg, values, num_components);
+      } else if (instr->def.bit_size == 32) {
          for (int i = 0; i < num_components; i++)
             values[i] = instr->value[i].u32;
       } else {
