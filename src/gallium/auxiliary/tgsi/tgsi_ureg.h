@@ -267,6 +267,11 @@ ureg_DECL_immediate( struct ureg_program *,
                      unsigned nr );
 
 struct ureg_src
+ureg_DECL_immediate_f16( struct ureg_program *ureg,
+                         const unsigned *v,
+                         unsigned nr );
+
+struct ureg_src
 ureg_DECL_immediate_f64( struct ureg_program *,
                          const double *v,
                          unsigned nr );
@@ -331,6 +336,27 @@ struct ureg_dst
 ureg_DECL_array_temporary( struct ureg_program *,
                            unsigned size,
                            boolean local );
+
+struct ureg_dst
+ureg_DECL_temp_mediump( struct ureg_program * );
+
+/**
+ * Emit a temporary with the LOCAL declaration flag set.  For use when
+ * the register value is not required to be preserved across
+ * subroutine boundaries.
+ */
+struct ureg_dst
+ureg_DECL_local_temp_mediump( struct ureg_program * );
+
+/**
+ * Declare "size" continuous temporary registers.
+ */
+struct ureg_dst
+ureg_DECL_array_temp_mediump( struct ureg_program *,
+                              unsigned size,
+                              boolean local );
+
+
 
 void 
 ureg_release_temporary( struct ureg_program *ureg,
