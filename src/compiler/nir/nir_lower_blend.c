@@ -350,10 +350,17 @@ nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
    if (intr->intrinsic != nir_intrinsic_store_deref)
       return false;
 
-   nir_variable *var = nir_intrinsic_get_var(intr, 0);
-   if (var->data.mode != nir_var_shader_out ||
-         (var->data.location != FRAG_RESULT_COLOR &&
-         var->data.location < FRAG_RESULT_DATA0))
+   nir_deref_instr *deref = nir_src_as_deref(intr->src[0]);
+   if (!nir_deref_mode_is(deref, nir_var_shader_out))
+      return false;
+
+   /* Indirects must be already lowered and output variables split */
+   assert(deref && deref->deref_type == nir_deref_type_var);
+   nir_variable *var = deref->var;
+   assert(glsl_type_is_vector_or_scalar(var->type));
+
+   if (var->data.location != FRAG_RESULT_COLOR &&
+       var->data.location < FRAG_RESULT_DATA0)
       return false;
 
    /* Determine render target for per-RT blending */
