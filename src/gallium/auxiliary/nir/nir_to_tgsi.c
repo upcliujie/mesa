@@ -1081,7 +1081,9 @@ ntt_setup_registers(struct ntt_compile *c, struct exec_list *list)
    /* Permanently allocate all the array regs at the start. */
    foreach_list_typed(nir_register, nir_reg, node, list) {
       if (nir_reg->num_array_elems != 0) {
-         struct ureg_dst decl = ureg_DECL_array_temporary(c->ureg, nir_reg->num_array_elems, true);
+         struct ureg_dst decl = nir_reg->bit_size < 32 ?
+               ureg_DECL_array_temp_mediump(c->ureg, nir_reg->num_array_elems, true):
+               ureg_DECL_array_temporary(c->ureg, nir_reg->num_array_elems, true);
          c->reg_temp[nir_reg->index] = decl;
          assert(c->num_temps_highp == decl.Index);
          c->num_temps_highp += nir_reg->num_array_elems;
@@ -1105,8 +1107,9 @@ ntt_setup_registers(struct ntt_compile *c, struct exec_list *list)
 
                write_mask = ntt_64bit_write_mask(write_mask);
             }
-
-            decl = ureg_writemask(ntt_temp(c), write_mask);
+            decl = ureg_writemask(nir_reg->bit_size >= 32 ?
+                                     ntt_temp(c) : ntt_temp_mediump(c) ,
+                                  write_mask);
          }
          c->reg_temp[nir_reg->index] = decl;
       }
