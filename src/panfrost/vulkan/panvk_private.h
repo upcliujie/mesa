@@ -315,24 +315,6 @@ struct panvk_device_memory {
    struct panfrost_bo *bo;
 };
 
-struct panvk_descriptor {
-   union {
-      struct {
-         VkImageLayout layout;
-         struct panvk_image_view *view;
-         struct panvk_sampler *sampler;
-      } image;
-
-      struct {
-         struct panvk_buffer *buffer;
-         uint64_t offset;
-         uint64_t range;
-      } buffer_info;
-
-      struct panvk_buffer_view *buffer_view;
-   };
-};
-
 struct panvk_buffer_desc {
    struct panvk_buffer *buffer;
    VkDeviceSize offset;
@@ -343,7 +325,6 @@ struct panvk_descriptor_set {
    struct vk_object_base base;
    struct panvk_descriptor_pool *pool;
    const struct panvk_descriptor_set_layout *layout;
-   struct panvk_descriptor *descs;
    struct panvk_buffer_desc *dyn_ssbos;
    void *ubos;
    struct panvk_buffer_desc *dyn_ubos;
@@ -364,7 +345,6 @@ struct panvk_descriptor_set_binding_layout {
    unsigned array_size;
 
    /* Indices in the desc arrays */
-   unsigned desc_idx;
    union {
       struct {
          union {
@@ -400,7 +380,6 @@ struct panvk_descriptor_set_layout {
    /* Shader stages affected by this descriptor set */
    uint16_t shader_stages;
 
-   unsigned num_descs;
    unsigned num_samplers;
    unsigned num_textures;
    unsigned num_ubos;
