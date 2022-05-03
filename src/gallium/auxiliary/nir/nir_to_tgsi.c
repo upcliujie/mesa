@@ -1392,7 +1392,8 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
       [nir_op_fsqrt] = { 0, TGSI_OPCODE_DSQRT },
 
       /* The conversions will have one combination of src and dst bitsize. */
-      [nir_op_f2f32] = { 0, TGSI_OPCODE_D2F },
+      [nir_op_f2f16] = { TGSI_OPCODE_F32TOF16, 0 },
+      [nir_op_f2f32] = { TGSI_OPCODE_F16TOF32, TGSI_OPCODE_D2F },
       [nir_op_f2f64] = { TGSI_OPCODE_F2D },
       [nir_op_i2i64] = { TGSI_OPCODE_I2I64 },
 
