@@ -10,6 +10,7 @@ deqp_args = [
     "--deqp-visibility=hidden"
 ]
 timeout = 360.0 # Starting 8 Crosvm instances simultaneously can take some time
+term_timeout = 10
 version_check = "GL ES 3.2.*git"
 renderer_check = "virgl.*llvmpipe"
 
@@ -25,6 +26,7 @@ deqp_args = [
     "--deqp-visibility=hidden"
 ]
 timeout = 360.0 # Starting 8 Crosvm instances simultaneously can take some time
+term_timeout = 10
 
 [[deqp]]
 deqp = "/install/crosvm-runner.sh"
@@ -38,6 +40,7 @@ deqp_args = [
     "--deqp-visibility=hidden"
 ]
 timeout = 360.0 # Starting 8 Crosvm instances simultaneously can take some time
+term_timeout = 10
 
 [[deqp]]
 deqp = "/install/crosvm-runner.sh"
@@ -55,3 +58,4 @@ deqp_args = [
     "--deqp-visibility=hidden"
 ]
 timeout = 360.0 # Starting 8 Crosvm instances simultaneously can take some time
+term_timeout = 10
