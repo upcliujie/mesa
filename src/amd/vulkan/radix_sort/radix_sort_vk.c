@@ -260,7 +260,8 @@ radix_sort_vk_create(VkDevice                           device,
     {
       plci.pPushConstantRanges = pcr + ii;
 
-      vk(CreatePipelineLayout(device, &plci, NULL, rs->pipeline_layouts.handles + ii));
+      if (vkCreatePipelineLayout(device, &plci, NULL, rs->pipeline_layouts.handles + ii) != VK_SUCCESS)
+        return NULL;
     }
 
   //
@@ -282,7 +283,8 @@ radix_sort_vk_create(VkDevice                           device,
       smci.codeSize = spv_sizes[ii];
       smci.pCode    = spv[ii];
 
-      vk(CreateShaderModule(device, &smci, ac, sms + ii));
+      if (vkCreateShaderModule(device, &smci, ac, sms + ii) != VK_SUCCESS)
+        return NULL;
     }
 
     //
@@ -357,7 +359,8 @@ radix_sort_vk_create(VkDevice                           device,
   //
   // Create the compute pipelines
   //
-  vk(CreateComputePipelines(device, pc, pipeline_count, cpcis, ac, rs->pipelines.handles));
+  if (vkCreateComputePipelines(device, pc, pipeline_count, cpcis, ac, rs->pipelines.handles) != VK_SUCCESS)
+    return NULL;
 
   //
   // Shader modules can be destroyed now
