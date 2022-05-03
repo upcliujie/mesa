@@ -292,6 +292,17 @@ impl Device {
         !self.long_supported()
     }
 
+    fn parse_env_device_type() -> Option<cl_device_type> {
+        let val = env::var("RUSTICL_DEVICE_TYPE").ok()?;
+        match val.to_lowercase().as_str() {
+            "accelerator" => Some(CL_DEVICE_TYPE_ACCELERATOR.into()),
+            "cpu" => Some(CL_DEVICE_TYPE_CPU.into()),
+            "custom" => Some(CL_DEVICE_TYPE_CUSTOM.into()),
+            "gpu" => Some(CL_DEVICE_TYPE_GPU.into()),
+            _ => None,
+        }
+    }
+
     fn parse_env_version() -> Option<CLVersion> {
         let val = env::var("RUSTICL_CL_VERSION").ok()?;
         let parts: Vec<&str> = val.split('.').collect();
@@ -466,6 +477,10 @@ impl Device {
     }
 
     pub fn device_type(&self, internal: bool) -> cl_device_type {
+        if let Some(env) = Self::parse_env_device_type() {
+            return env;
+        }
+
         if self.custom {
             return CL_DEVICE_TYPE_CUSTOM as cl_device_type;
         }
