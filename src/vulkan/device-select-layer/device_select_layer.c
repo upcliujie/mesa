@@ -48,7 +48,6 @@ struct instance_info {
    PFN_vkEnumeratePhysicalDevices EnumeratePhysicalDevices;
    PFN_vkEnumeratePhysicalDeviceGroups EnumeratePhysicalDeviceGroups;
    PFN_vkGetInstanceProcAddr GetInstanceProcAddr;
-   PFN_GetPhysicalDeviceProcAddr  GetPhysicalDeviceProcAddr;
    PFN_vkEnumerateDeviceExtensionProperties EnumerateDeviceExtensionProperties;
    PFN_vkGetPhysicalDeviceProperties GetPhysicalDeviceProperties;
    PFN_vkGetPhysicalDeviceProperties2 GetPhysicalDeviceProperties2;
@@ -168,7 +167,6 @@ static VkResult device_select_CreateInstance(const VkInstanceCreateInfo *pCreate
    info->has_vulkan11 = pCreateInfo->pApplicationInfo &&
                         pCreateInfo->pApplicationInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0);
 
-   info->GetPhysicalDeviceProcAddr = (PFN_GetPhysicalDeviceProcAddr)info->GetInstanceProcAddr(*pInstance, "vk_layerGetPhysicalDeviceProcAddr");
 #define DEVSEL_GET_CB(func) info->func = (PFN_vk##func)info->GetInstanceProcAddr(*pInstance, "vk" #func)
    DEVSEL_GET_CB(DestroyInstance);
    DEVSEL_GET_CB(EnumeratePhysicalDevices);
@@ -608,12 +606,6 @@ out:
    return result;
 }
 
-static void  (*get_pdevice_proc_addr(VkInstance instance, const char* name))()
-{
-   struct instance_info *info = device_select_layer_get_instance(instance);
-   return info->GetPhysicalDeviceProcAddr(instance, name);
-}
-
 static void  (*get_instance_proc_addr(VkInstance instance, const char* name))()
 {
    if (strcmp(name, "vkGetInstanceProcAddr") == 0)
@@ -638,7 +630,6 @@ VK_LAYER_EXPORT VkResult vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayer
    pVersionStruct->loaderLayerInterfaceVersion = 2;
 
    pVersionStruct->pfnGetInstanceProcAddr = get_instance_proc_addr;
-   pVersionStruct->pfnGetPhysicalDeviceProcAddr = get_pdevice_proc_addr;
 
    return VK_SUCCESS;
 }
