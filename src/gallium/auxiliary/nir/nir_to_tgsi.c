@@ -1409,6 +1409,8 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
       [nir_op_f2i64] = { TGSI_OPCODE_F2I64, TGSI_OPCODE_D2I64 },
       [nir_op_f2u32] = { TGSI_OPCODE_F2U, TGSI_OPCODE_D2U },
       [nir_op_f2u64] = { TGSI_OPCODE_F2U64, TGSI_OPCODE_D2U64 },
+      [nir_op_i2f16] = { TGSI_OPCODE_I2F, 0},
+      [nir_op_u2f16] = { TGSI_OPCODE_U2F, 0},
       [nir_op_i2f32] = { TGSI_OPCODE_I2F, TGSI_OPCODE_I642F },
       [nir_op_i2f64] = { TGSI_OPCODE_I2D, TGSI_OPCODE_I642D },
       [nir_op_u2f32] = { TGSI_OPCODE_U2F, TGSI_OPCODE_U642F },
@@ -1574,6 +1576,7 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
          ntt_emit_scalar(c, TGSI_OPCODE_LG2, dst, src[0], ureg_src_undef());
          break;
 
+      case nir_op_b2f16:
       case nir_op_b2f32:
          ntt_AND(c, dst, src[0], ureg_imm1f(c->ureg, 1.0));
          break;
@@ -2741,6 +2744,7 @@ ntt_emit_texture(struct ntt_compile *c, nir_tex_instr *instr)
 
    enum tgsi_return_type tex_type;
    switch (instr->dest_type) {
+   case nir_type_float16:
    case nir_type_float32:
       tex_type = TGSI_RETURN_TYPE_FLOAT;
       break;
