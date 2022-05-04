@@ -3679,11 +3679,16 @@ fill_geom_tess_rings(struct radv_queue *queue, uint32_t *map, bool add_sample_po
       /* stride 0, num records - size, add tid, swizzle, elsize4,
          index stride 64 */
       desc[0] = esgs_va;
-      desc[1] = S_008F04_BASE_ADDRESS_HI(esgs_va >> 32) | S_008F04_SWIZZLE_ENABLE_GFX6(true);
+      desc[1] = S_008F04_BASE_ADDRESS_HI(esgs_va >> 32);
       desc[2] = esgs_ring_size;
       desc[3] = S_008F0C_DST_SEL_X(V_008F0C_SQ_SEL_X) | S_008F0C_DST_SEL_Y(V_008F0C_SQ_SEL_Y) |
                 S_008F0C_DST_SEL_Z(V_008F0C_SQ_SEL_Z) | S_008F0C_DST_SEL_W(V_008F0C_SQ_SEL_W) |
                 S_008F0C_INDEX_STRIDE(3) | S_008F0C_ADD_TID_ENABLE(1);
+
+      if (queue->device->physical_device->rad_info.chip_class >= GFX11)
+         desc[1] |= S_008F04_SWIZZLE_ENABLE_GFX11(1);
+      else
+         desc[1] |= S_008F04_SWIZZLE_ENABLE_GFX6(1);
 
       if (queue->device->physical_device->rad_info.chip_class >= GFX10) {
          desc[3] |= S_008F0C_FORMAT(V_008F0C_GFX10_FORMAT_32_FLOAT) |
@@ -3737,11 +3742,16 @@ fill_geom_tess_rings(struct radv_queue *queue, uint32_t *map, bool add_sample_po
          elsize 4, index stride 16 */
       /* shader will patch stride and desc[2] */
       desc[4] = gsvs_va;
-      desc[5] = S_008F04_BASE_ADDRESS_HI(gsvs_va >> 32) | S_008F04_SWIZZLE_ENABLE_GFX6(1);
+      desc[5] = S_008F04_BASE_ADDRESS_HI(gsvs_va >> 32);
       desc[6] = 0;
       desc[7] = S_008F0C_DST_SEL_X(V_008F0C_SQ_SEL_X) | S_008F0C_DST_SEL_Y(V_008F0C_SQ_SEL_Y) |
                 S_008F0C_DST_SEL_Z(V_008F0C_SQ_SEL_Z) | S_008F0C_DST_SEL_W(V_008F0C_SQ_SEL_W) |
                 S_008F0C_INDEX_STRIDE(1) | S_008F0C_ADD_TID_ENABLE(true);
+
+      if (queue->device->physical_device->rad_info.chip_class >= GFX11)
+         desc[5] |= S_008F04_SWIZZLE_ENABLE_GFX11(1);
+      else
+         desc[5] |= S_008F04_SWIZZLE_ENABLE_GFX6(1);
 
       if (queue->device->physical_device->rad_info.chip_class >= GFX10) {
          desc[7] |= S_008F0C_FORMAT(V_008F0C_GFX10_FORMAT_32_FLOAT) |
@@ -3897,11 +3907,18 @@ radv_emit_compute_scratch(struct radv_queue *queue, struct radeon_cmdbuf *cs,
 {
    struct radeon_info *info = &queue->device->physical_device->rad_info;
    uint64_t scratch_va;
+   uint32_t rsrc1;
 
    if (!compute_scratch_bo)
       return;
 
    scratch_va = radv_buffer_get_va(compute_scratch_bo);
+   rsrc1 = S_008F04_BASE_ADDRESS_HI(scratch_va >> 32);
+
+   if (queue->device->physical_device->rad_info.chip_class >= GFX11)
+      rsrc1 |= S_008F04_SWIZZLE_ENABLE_GFX11(1);
+   else
+      rsrc1 |= S_008F04_SWIZZLE_ENABLE_GFX6(1);
 
    radv_cs_add_buffer(queue->device->ws, cs, compute_scratch_bo);
 
@@ -3914,7 +3931,7 @@ radv_emit_compute_scratch(struct radv_queue *queue, struct radeon_cmdbuf *cs,
    }
 
    radeon_emit(cs, scratch_va);
-   radeon_emit(cs, S_008F04_BASE_ADDRESS_HI(scratch_va >> 32) | S_008F04_SWIZZLE_ENABLE_GFX6(1));
+   radeon_emit(cs, rsrc1);
 
    radeon_set_sh_reg(cs, R_00B860_COMPUTE_TMPRING_SIZE,
                      S_00B860_WAVES(waves) |
@@ -4169,7 +4186,13 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
 
       if (scratch_bo) {
          uint64_t scratch_va = radv_buffer_get_va(scratch_bo);
-         uint32_t rsrc1 = S_008F04_BASE_ADDRESS_HI(scratch_va >> 32) | S_008F04_SWIZZLE_ENABLE_GFX6(1);
+         uint32_t rsrc1 = S_008F04_BASE_ADDRESS_HI(scratch_va >> 32);
+
+         if (queue->device->physical_device->rad_info.chip_class >= GFX11)
+            rsrc1 |= S_008F04_SWIZZLE_ENABLE_GFX11(1);
+         else
+            rsrc1 |= S_008F04_SWIZZLE_ENABLE_GFX6(1);
+
          map[0] = scratch_va;
          map[1] = rsrc1;
       }
