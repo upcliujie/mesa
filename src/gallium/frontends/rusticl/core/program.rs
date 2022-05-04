@@ -82,13 +82,38 @@ fn prepare_options(options: &String, dev: &Arc<Device>) -> Vec<CString> {
         options,
         dev.cl_version.to_clc_string(),
     );
-    options
-        .split_whitespace()
+
+    let mut res = Vec::new();
+
+    // we seperate on a ' ' unless we hit a "
+    let mut sep = ' ';
+    let mut old = 0;
+    for (i, c) in options.chars().enumerate() {
+        if c == '"' {
+            if sep == ' ' {
+                sep = '"';
+            } else {
+                sep = ' ';
+            }
+        }
+
+        if c == '"' || c == sep {
+            // beware of double seps
+            if old != i {
+                res.push(String::from(&options[old..i]));
+            }
+            old = i + 1;
+        }
+    }
+    // add end of the string
+    res.push(String::from(&options[old..]));
+
+    res.iter()
         .map(|a| {
             if a == "-cl-denorms-are-zero" {
                 "-fdenormal-fp-math=positive-zero"
             } else {
-                a
+                &a
             }
         })
         .map(CString::new)
