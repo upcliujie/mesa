@@ -340,6 +340,9 @@ try_optimize_branching_sequence(ssa_elimination_ctx& ctx, Block& block,
        exec_copy->opcode != aco_opcode::p_parallelcopy)
       return;
 
+   if (exec_val->definitions.size() > 1)
+      return;
+
    /* If s_xxx_saveexec is used, we'll need to insert a new instruction to save the old exec. */
    bool save_original_exec = exec_copy->opcode == aco_opcode::s_and_saveexec_b32 ||
                              exec_copy->opcode == aco_opcode::s_and_saveexec_b64;
@@ -411,6 +414,14 @@ try_optimize_branching_sequence(ssa_elimination_ctx& ctx, Block& block,
       copy->definitions[0] = exec_copy_def;
       copy->operands[0] = Operand(exec, ctx.program->lane_mask);
       block.instructions.insert(it, std::move(copy));
+   }
+
+   if (exec_val->opcode == aco_opcode::p_parallelcopy &&
+       exec_val->operands[0].isConstant() && exec_val->operands[0].constantValue()) {
+      /* Remove the branch instruction when exec is constant non-zero. */
+      aco_ptr<Instruction>& branch = block.instructions.back();
+      if (branch->isBranch() && branch->operands.size() && branch->operands[0].physReg() == exec)
+         block.instructions.back().reset();
    }
 }
 
