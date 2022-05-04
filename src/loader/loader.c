@@ -414,6 +414,7 @@ int loader_get_user_preferred_fd(int default_fd, bool *different_device)
 static bool
 drm_get_pci_id_for_fd(int fd, int *vendor_id, int *chip_id)
 {
+   printf("drm_get_pci_id_for_fd\n");
    drmDevicePtr device;
 
    if (drmGetDevice2(fd, 0, &device) != 0) {
@@ -474,6 +475,7 @@ loader_get_linux_pci_id_for_fd(int fd, int *vendor_id, int *chip_id)
 bool
 loader_get_pci_id_for_fd(int fd, int *vendor_id, int *chip_id)
 {
+   printf("loader_get_pci_id_for_fd\n");
 #ifdef __linux__
    /* Implementation without causing full enumeration of DRM devices. */
    if (loader_get_linux_pci_id_for_fd(fd, vendor_id, chip_id))
@@ -501,6 +503,7 @@ loader_get_device_name_for_fd(int fd)
 static char *
 loader_get_pci_driver(int fd)
 {
+   printf("loader_get_pci_driver\n");
    int vendor_id, chip_id, i, j;
    char *driver = NULL;
 
@@ -536,6 +539,7 @@ out:
 char *
 loader_get_driver_for_fd(int fd)
 {
+   printf("loader_get_driver_for_fd\n");
    char *driver;
 
    /* Allow an environment variable to force choosing a different driver
@@ -545,6 +549,7 @@ loader_get_driver_for_fd(int fd)
     */
    if (geteuid() == getuid()) {
       driver = getenv("MESA_LOADER_DRIVER_OVERRIDE");
+      printf("MESA_LOADER_DRIVER_OVERRIDE: %s\n", driver);
       if (driver)
          return strdup(driver);
    }
