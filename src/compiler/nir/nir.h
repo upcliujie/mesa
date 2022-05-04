@@ -5319,6 +5319,7 @@ bool nir_rematerialize_derefs_in_use_blocks_impl(nir_function_impl *impl);
 bool nir_lower_samplers(nir_shader *shader);
 bool nir_lower_cl_images(nir_shader *shader);
 void nir_move_inline_samplers_to_end(nir_shader *shader);
+bool nir_dedup_const_samplers(nir_shader *shader);
 bool nir_lower_ssbo(nir_shader *shader);
 
 typedef struct nir_lower_printf_options {
