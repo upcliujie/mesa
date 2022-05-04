@@ -2084,12 +2084,17 @@ radv_get_dcc_channel_type(const struct util_format_description *desc, enum dcc_c
 
 /* Return if it's allowed to reinterpret one format as another with DCC enabled. */
 bool
-radv_dcc_formats_compatible(VkFormat format1, VkFormat format2, bool *sign_reinterpret)
+radv_dcc_formats_compatible(enum chip_class chip_class, VkFormat format1, VkFormat format2,
+                            bool *sign_reinterpret)
 {
    const struct util_format_description *desc1, *desc2;
    enum dcc_channel_type type1, type2;
    unsigned size1, size2;
    int i;
+
+   /* All formats are compatible on GFX11. */
+   if (chip_class >= GFX11)
+      return true;
 
    if (format1 == format2)
       return true;
