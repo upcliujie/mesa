@@ -652,6 +652,113 @@ get_cmp_info(aco_opcode op, CmpInfo* info)
 }
 
 aco_opcode
+v_cmp_to_cmpx(aco_opcode c)
+{
+   switch (c) {
+   case aco_opcode::v_cmp_class_f16: return aco_opcode::v_cmpx_class_f16;
+   case aco_opcode::v_cmp_class_f32: return aco_opcode::v_cmpx_class_f32;
+   case aco_opcode::v_cmp_class_f64: return aco_opcode::v_cmpx_class_f64;
+   case aco_opcode::v_cmp_eq_f16: return aco_opcode::v_cmpx_eq_f16;
+   case aco_opcode::v_cmp_eq_f32: return aco_opcode::v_cmpx_eq_f32;
+   case aco_opcode::v_cmp_eq_f64: return aco_opcode::v_cmpx_eq_f64;
+   case aco_opcode::v_cmp_eq_i16: return aco_opcode::v_cmpx_eq_i16;
+   case aco_opcode::v_cmp_eq_i32: return aco_opcode::v_cmpx_eq_i32;
+   case aco_opcode::v_cmp_eq_i64: return aco_opcode::v_cmpx_eq_i64;
+   case aco_opcode::v_cmp_eq_u16: return aco_opcode::v_cmpx_eq_u16;
+   case aco_opcode::v_cmp_eq_u32: return aco_opcode::v_cmpx_eq_u32;
+   case aco_opcode::v_cmp_eq_u64: return aco_opcode::v_cmpx_eq_u64;
+   case aco_opcode::v_cmp_f_f16: return aco_opcode::v_cmpx_f_f16;
+   case aco_opcode::v_cmp_f_f32: return aco_opcode::v_cmpx_f_f32;
+   case aco_opcode::v_cmp_f_f64: return aco_opcode::v_cmpx_f_f64;
+   case aco_opcode::v_cmp_f_i16: return aco_opcode::v_cmpx_f_i16;
+   case aco_opcode::v_cmp_f_i32: return aco_opcode::v_cmpx_f_i32;
+   case aco_opcode::v_cmp_f_i64: return aco_opcode::v_cmpx_f_i64;
+   case aco_opcode::v_cmp_f_u16: return aco_opcode::v_cmpx_f_u16;
+   case aco_opcode::v_cmp_f_u32: return aco_opcode::v_cmpx_f_u32;
+   case aco_opcode::v_cmp_f_u64: return aco_opcode::v_cmpx_f_u64;
+   case aco_opcode::v_cmp_ge_f16: return aco_opcode::v_cmpx_ge_f16;
+   case aco_opcode::v_cmp_ge_f32: return aco_opcode::v_cmpx_ge_f32;
+   case aco_opcode::v_cmp_ge_f64: return aco_opcode::v_cmpx_ge_f64;
+   case aco_opcode::v_cmp_ge_i16: return aco_opcode::v_cmpx_ge_i16;
+   case aco_opcode::v_cmp_ge_i32: return aco_opcode::v_cmpx_ge_i32;
+   case aco_opcode::v_cmp_ge_i64: return aco_opcode::v_cmpx_ge_i64;
+   case aco_opcode::v_cmp_ge_u16: return aco_opcode::v_cmpx_ge_u16;
+   case aco_opcode::v_cmp_ge_u32: return aco_opcode::v_cmpx_ge_u32;
+   case aco_opcode::v_cmp_ge_u64: return aco_opcode::v_cmpx_ge_u64;
+   case aco_opcode::v_cmp_gt_f16: return aco_opcode::v_cmpx_gt_f16;
+   case aco_opcode::v_cmp_gt_f32: return aco_opcode::v_cmpx_gt_f32;
+   case aco_opcode::v_cmp_gt_f64: return aco_opcode::v_cmpx_gt_f64;
+   case aco_opcode::v_cmp_gt_i16: return aco_opcode::v_cmpx_gt_i16;
+   case aco_opcode::v_cmp_gt_i32: return aco_opcode::v_cmpx_gt_i32;
+   case aco_opcode::v_cmp_gt_i64: return aco_opcode::v_cmpx_gt_i64;
+   case aco_opcode::v_cmp_gt_u16: return aco_opcode::v_cmpx_gt_u16;
+   case aco_opcode::v_cmp_gt_u32: return aco_opcode::v_cmpx_gt_u32;
+   case aco_opcode::v_cmp_gt_u64: return aco_opcode::v_cmpx_gt_u64;
+   case aco_opcode::v_cmp_le_f16: return aco_opcode::v_cmpx_le_f16;
+   case aco_opcode::v_cmp_le_f32: return aco_opcode::v_cmpx_le_f32;
+   case aco_opcode::v_cmp_le_f64: return aco_opcode::v_cmpx_le_f64;
+   case aco_opcode::v_cmp_le_i16: return aco_opcode::v_cmpx_le_i16;
+   case aco_opcode::v_cmp_le_i32: return aco_opcode::v_cmpx_le_i32;
+   case aco_opcode::v_cmp_le_i64: return aco_opcode::v_cmpx_le_i64;
+   case aco_opcode::v_cmp_le_u16: return aco_opcode::v_cmpx_le_u16;
+   case aco_opcode::v_cmp_le_u32: return aco_opcode::v_cmpx_le_u32;
+   case aco_opcode::v_cmp_le_u64: return aco_opcode::v_cmpx_le_u64;
+   case aco_opcode::v_cmp_lg_f16: return aco_opcode::v_cmpx_lg_f16;
+   case aco_opcode::v_cmp_lg_f32: return aco_opcode::v_cmpx_lg_f32;
+   case aco_opcode::v_cmp_lg_f64: return aco_opcode::v_cmpx_lg_f64;
+   case aco_opcode::v_cmp_lg_i16: return aco_opcode::v_cmpx_lg_i16;
+   case aco_opcode::v_cmp_lg_i32: return aco_opcode::v_cmpx_lg_i32;
+   case aco_opcode::v_cmp_lg_i64: return aco_opcode::v_cmpx_lg_i64;
+   case aco_opcode::v_cmp_lg_u16: return aco_opcode::v_cmpx_lg_u16;
+   case aco_opcode::v_cmp_lg_u32: return aco_opcode::v_cmpx_lg_u32;
+   case aco_opcode::v_cmp_lg_u64: return aco_opcode::v_cmpx_lg_u64;
+   case aco_opcode::v_cmp_lt_f16: return aco_opcode::v_cmpx_lt_f16;
+   case aco_opcode::v_cmp_lt_f32: return aco_opcode::v_cmpx_lt_f32;
+   case aco_opcode::v_cmp_lt_f64: return aco_opcode::v_cmpx_lt_f64;
+   case aco_opcode::v_cmp_lt_i16: return aco_opcode::v_cmpx_lt_i16;
+   case aco_opcode::v_cmp_lt_i32: return aco_opcode::v_cmpx_lt_i32;
+   case aco_opcode::v_cmp_lt_i64: return aco_opcode::v_cmpx_lt_i64;
+   case aco_opcode::v_cmp_lt_u16: return aco_opcode::v_cmpx_lt_u16;
+   case aco_opcode::v_cmp_lt_u32: return aco_opcode::v_cmpx_lt_u32;
+   case aco_opcode::v_cmp_lt_u64: return aco_opcode::v_cmpx_lt_u64;
+   case aco_opcode::v_cmp_neq_f16: return aco_opcode::v_cmpx_neq_f16;
+   case aco_opcode::v_cmp_neq_f32: return aco_opcode::v_cmpx_neq_f32;
+   case aco_opcode::v_cmp_neq_f64: return aco_opcode::v_cmpx_neq_f64;
+   case aco_opcode::v_cmp_nge_f16: return aco_opcode::v_cmpx_nge_f16;
+   case aco_opcode::v_cmp_nge_f32: return aco_opcode::v_cmpx_nge_f32;
+   case aco_opcode::v_cmp_nge_f64: return aco_opcode::v_cmpx_nge_f64;
+   case aco_opcode::v_cmp_ngt_f16: return aco_opcode::v_cmpx_ngt_f16;
+   case aco_opcode::v_cmp_ngt_f32: return aco_opcode::v_cmpx_ngt_f32;
+   case aco_opcode::v_cmp_ngt_f64: return aco_opcode::v_cmpx_ngt_f64;
+   case aco_opcode::v_cmp_nle_f16: return aco_opcode::v_cmpx_nle_f16;
+   case aco_opcode::v_cmp_nle_f32: return aco_opcode::v_cmpx_nle_f32;
+   case aco_opcode::v_cmp_nle_f64: return aco_opcode::v_cmpx_nle_f64;
+   case aco_opcode::v_cmp_nlg_f16: return aco_opcode::v_cmpx_nlg_f16;
+   case aco_opcode::v_cmp_nlg_f32: return aco_opcode::v_cmpx_nlg_f32;
+   case aco_opcode::v_cmp_nlg_f64: return aco_opcode::v_cmpx_nlg_f64;
+   case aco_opcode::v_cmp_nlt_f16: return aco_opcode::v_cmpx_nlt_f16;
+   case aco_opcode::v_cmp_nlt_f32: return aco_opcode::v_cmpx_nlt_f32;
+   case aco_opcode::v_cmp_nlt_f64: return aco_opcode::v_cmpx_nlt_f64;
+   case aco_opcode::v_cmp_o_f16: return aco_opcode::v_cmpx_o_f16;
+   case aco_opcode::v_cmp_o_f32: return aco_opcode::v_cmpx_o_f32;
+   case aco_opcode::v_cmp_o_f64: return aco_opcode::v_cmpx_o_f64;
+   case aco_opcode::v_cmp_tru_f16: return aco_opcode::v_cmpx_tru_f16;
+   case aco_opcode::v_cmp_tru_f32: return aco_opcode::v_cmpx_tru_f32;
+   case aco_opcode::v_cmp_tru_f64: return aco_opcode::v_cmpx_tru_f64;
+   case aco_opcode::v_cmp_tru_i16: return aco_opcode::v_cmpx_tru_i16;
+   case aco_opcode::v_cmp_tru_i32: return aco_opcode::v_cmpx_tru_i32;
+   case aco_opcode::v_cmp_tru_i64: return aco_opcode::v_cmpx_tru_i64;
+   case aco_opcode::v_cmp_tru_u16: return aco_opcode::v_cmpx_tru_u16;
+   case aco_opcode::v_cmp_tru_u32: return aco_opcode::v_cmpx_tru_u32;
+   case aco_opcode::v_cmp_tru_u64: return aco_opcode::v_cmpx_tru_u64;
+   case aco_opcode::v_cmp_u_f16: return aco_opcode::v_cmpx_u_f16;
+   case aco_opcode::v_cmp_u_f32: return aco_opcode::v_cmpx_u_f32;
+   case aco_opcode::v_cmp_u_f64: return aco_opcode::v_cmpx_u_f64;
+   default: return aco_opcode::num_opcodes;
+   }
+}
+
+aco_opcode
 get_ordered(aco_opcode op)
 {
    CmpInfo info;
