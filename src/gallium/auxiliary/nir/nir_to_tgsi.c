@@ -3089,9 +3089,9 @@ ntt_emit_impl(struct ntt_compile *c, nir_function_impl *impl)
    /* Don't do optimized RA if the driver requests it, unless the number of
     * temps is too large to be covered by the 16 bit signed int that TGSI
     * allocates for the register index */
-   if (!c->options->unoptimized_ra ||
+   if (0 && (!c->options->unoptimized_ra ||
        c->num_temps_highp > 0x7fff ||
-       c->num_temps_mediump > 0x7fff) {
+       c->num_temps_mediump > 0x7fff)) {
       struct ra_data data_highp = {
          .num_registers = c->num_temps_highp,
          .num_array_registers = c->first_non_array_temp_highp,
