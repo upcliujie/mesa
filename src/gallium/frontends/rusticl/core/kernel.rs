@@ -342,6 +342,7 @@ fn lower_and_optimize_nir_pre_inputs(dev: &Device, nir: &mut NirShader, lib_clc:
     // that should free up tons of memory
     nir.sweep_mem();
 
+    nir.pass0(nir_dedup_const_samplers);
     nir.pass0(nir_move_inline_samplers_to_end);
     nir.pass2(
         nir_lower_vars_to_explicit_types,
@@ -365,10 +366,7 @@ fn lower_and_optimize_nir_pre_inputs(dev: &Device, nir: &mut NirShader, lib_clc:
 extern "C" fn can_remove_var(var: *mut nir_variable, _: *mut c_void) -> bool {
     unsafe {
         let var = var.as_ref().unwrap();
-
-        !glsl_type_is_sampler(var.type_)
-            && !glsl_type_is_image(var.type_)
-            && !glsl_type_is_image(var.type_)
+        !glsl_type_is_image(var.type_)
     }
 }
 
@@ -384,6 +382,22 @@ fn lower_and_optimize_nir_late(
             .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE)
     };
     let mut lower_state = rusticl_lower_state::default();
+
+    nir.pass0(nir_lower_memcpy);
+
+    let dv_opts = nir_remove_dead_variables_options {
+        can_remove_var: Some(can_remove_var),
+        can_remove_var_data: ptr::null_mut(),
+    };
+    nir.pass2(
+        nir_remove_dead_variables,
+        nir_variable_mode::nir_var_uniform
+            | nir_variable_mode::nir_var_image
+            | nir_variable_mode::nir_var_mem_constant
+            | nir_variable_mode::nir_var_mem_shared
+            | nir_variable_mode::nir_var_function_temp,
+        &dv_opts,
+    );
 
     // asign locations for inline samplers
     let mut last_loc = -1;
@@ -415,21 +429,7 @@ fn lower_and_optimize_nir_late(
 
     nir.pass1(nir_lower_readonly_images_to_tex, false);
     nir.pass0(nir_lower_cl_images);
-    nir.pass0(nir_lower_memcpy);
 
-    let dv_opts = nir_remove_dead_variables_options {
-        can_remove_var: Some(can_remove_var),
-        can_remove_var_data: ptr::null_mut(),
-    };
-    nir.pass2(
-        nir_remove_dead_variables,
-        nir_variable_mode::nir_var_uniform
-            | nir_variable_mode::nir_var_image
-            | nir_variable_mode::nir_var_mem_constant
-            | nir_variable_mode::nir_var_mem_shared
-            | nir_variable_mode::nir_var_function_temp,
-        &dv_opts,
-    );
     nir.reset_scratch_size();
     nir.pass2(
         nir_lower_vars_to_explicit_types,
