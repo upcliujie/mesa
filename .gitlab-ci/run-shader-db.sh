@@ -23,6 +23,7 @@ for chipset in 0x5460 0x7140; do
     env MESA_LOADER_DRIVER_OVERRIDE=r300 \
         LD_PRELOAD=$LIBDIR/libradeon_noop_drm_shim.so \
         RADEON_GPU_ID=${chipset} \
+	LIBGL_DRI3_DISABLE=true \
         ./run -j${FDO_CI_CONCURRENT:-4} ./shaders \
             > $ARTIFACTSDIR/r300-${chipset}-shader-db.txt
 done

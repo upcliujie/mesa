@@ -122,6 +122,7 @@ get_driver_descriptor(const char *driver_name, struct util_dl_library **plib)
 static bool
 pipe_loader_drm_probe_fd_nodup(struct pipe_loader_device **dev, int fd)
 {
+   printf("pipe_loader_drm_probe_fd_nodup\n");
    struct pipe_loader_drm_device *ddev = CALLOC_STRUCT(pipe_loader_drm_device);
    int vendor_id, chip_id;
 
@@ -184,6 +185,7 @@ pipe_loader_drm_probe_fd_nodup(struct pipe_loader_device **dev, int fd)
 bool
 pipe_loader_drm_probe_fd(struct pipe_loader_device **dev, int fd)
 {
+   printf("pipe_loader_drm_probe_fd\n");
    bool ret;
    int new_fd;
 
@@ -209,6 +211,7 @@ open_drm_render_node_minor(int minor)
 int
 pipe_loader_drm_probe(struct pipe_loader_device **devs, int ndev)
 {
+   printf("pipe_loader_drm_probe\n");
    int i, j, fd;
 
    for (i = DRM_RENDER_NODE_MIN_MINOR, j = 0;
