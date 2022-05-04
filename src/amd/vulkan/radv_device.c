@@ -3951,7 +3951,15 @@ radv_emit_global_shader_pointers(struct radv_queue *queue, struct radeon_cmdbuf 
 
    radv_cs_add_buffer(queue->device->ws, cs, descriptor_bo);
 
-   if (queue->device->physical_device->rad_info.chip_class >= GFX10) {
+   if (queue->device->physical_device->rad_info.chip_class >= GFX11) {
+      uint32_t regs[] = {R_00B030_SPI_SHADER_USER_DATA_PS_0,
+                         R_00B208_SPI_SHADER_USER_DATA_ADDR_LO_GS,
+                         R_00B408_SPI_SHADER_USER_DATA_ADDR_LO_HS};
+
+      for (int i = 0; i < ARRAY_SIZE(regs); ++i) {
+         radv_emit_shader_pointer(queue->device, cs, regs[i], va, true);
+      }
+   } else if (queue->device->physical_device->rad_info.chip_class >= GFX10) {
       uint32_t regs[] = {R_00B030_SPI_SHADER_USER_DATA_PS_0, R_00B130_SPI_SHADER_USER_DATA_VS_0,
                          R_00B208_SPI_SHADER_USER_DATA_ADDR_LO_GS,
                          R_00B408_SPI_SHADER_USER_DATA_ADDR_LO_HS};
