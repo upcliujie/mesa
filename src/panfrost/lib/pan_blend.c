@@ -822,6 +822,7 @@ GENX(pan_blend_get_shader_locked)(const struct panfrost_device *dev,
                 .is_blend = true,
                 .blend.rt = shader->key.rt,
                 .blend.nr_samples = key.nr_samples,
+                .fixed_sysval_ubo = -1,
                 .rt_formats = { key.format },
         };
 
