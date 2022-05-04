@@ -606,7 +606,7 @@ radv_cmd_buffer_resolve_subpass_hw(struct radv_cmd_buffer *cmd_buffer)
       if (radv_layout_dcc_compressed(cmd_buffer->device, dst_img, dest_iview->base_mip,
                                      dst_image_layout, false, queue_mask)) {
          VkImageSubresourceRange range = {
-            .aspectMask = dest_iview->aspect_mask,
+            .aspectMask = dest_iview->image->vk.aspects,
             .baseMipLevel = dest_iview->base_mip,
             .levelCount = dest_iview->level_count,
             .baseArrayLayer = dest_iview->base_layer,
@@ -669,7 +669,7 @@ radv_cmd_buffer_resolve_subpass(struct radv_cmd_buffer *cmd_buffer)
                                       dst_iview->image, dst_iview->base_mip, dst_att.layout,
                                       dst_att.in_render_loop, cmd_buffer, &resolve_method);
 
-      if ((src_iview->aspect_mask & VK_IMAGE_ASPECT_DEPTH_BIT) &&
+      if ((src_iview->image->vk.aspects & VK_IMAGE_ASPECT_DEPTH_BIT) &&
           subpass->depth_resolve_mode != VK_RESOLVE_MODE_NONE) {
          if (resolve_method == RESOLVE_FRAGMENT) {
             radv_depth_stencil_resolve_subpass_fs(cmd_buffer, VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -681,7 +681,7 @@ radv_cmd_buffer_resolve_subpass(struct radv_cmd_buffer *cmd_buffer)
          }
       }
 
-      if ((src_iview->aspect_mask & VK_IMAGE_ASPECT_STENCIL_BIT) &&
+      if ((src_iview->image->vk.aspects & VK_IMAGE_ASPECT_STENCIL_BIT) &&
           subpass->stencil_resolve_mode != VK_RESOLVE_MODE_NONE) {
          if (resolve_method == RESOLVE_FRAGMENT) {
             radv_depth_stencil_resolve_subpass_fs(cmd_buffer, VK_IMAGE_ASPECT_STENCIL_BIT,
@@ -785,7 +785,7 @@ radv_decompress_resolve_subpass_src(struct radv_cmd_buffer *cmd_buffer)
 
       VkImageResolve2 region = {0};
       region.sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2;
-      region.srcSubresource.aspectMask = src_iview->aspect_mask;
+      region.srcSubresource.aspectMask = src_iview->image->vk.aspects;
       region.srcSubresource.mipLevel = 0;
       region.srcSubresource.baseArrayLayer = src_iview->base_layer;
       region.srcSubresource.layerCount = layer_count;
