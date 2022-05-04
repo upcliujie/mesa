@@ -1782,6 +1782,7 @@ aco_opcode get_inverse(aco_opcode op);
 aco_opcode get_f32_cmp(aco_opcode op);
 unsigned get_cmp_bitsize(aco_opcode op);
 bool is_cmp(aco_opcode op);
+aco_opcode v_cmp_to_cmpx(aco_opcode c);
 
 bool can_swap_operands(aco_ptr<Instruction>& instr, aco_opcode* new_op);
 
