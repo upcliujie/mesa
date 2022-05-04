@@ -478,18 +478,19 @@ ntt_live_regs(struct ntt_compile *c, nir_function_impl *impl,
 
 static void
 ntt_ra_check(struct ntt_compile *c, unsigned *ra_map, BITSET_WORD *released,
-             int ip, unsigned index, enum tgsi_file_type file_type)
+             int ip, unsigned index, struct ra_data *data)
 {
-   if (index < c->first_non_array_temp_highp)
+
+   if (index < data->num_array_registers)
       return;
 
    if (c->liveness[index].start == ip && ra_map[index] == ~0)
-      ra_map[index] = file_type == TGSI_FILE_TEMPORARY ?
+      ra_map[index] = data->file_type == TGSI_FILE_TEMPORARY ?
                ureg_DECL_temporary(c->ureg).Index :
                ureg_DECL_temp_mediump(c->ureg).Index;
 
    if (c->liveness[index].end == ip && !BITSET_TEST(released, index)) {
-      ureg_release_temporary(c->ureg, ureg_dst_register(file_type, ra_map[index]));
+      ureg_release_temporary(c->ureg, ureg_dst_register(data->file_type, ra_map[index]));
       BITSET_SET(released, index);
    }
 }
@@ -515,7 +516,7 @@ ntt_allocate_regs(struct ntt_compile *c, nir_function_impl *impl,
       struct ntt_block *ntt_block = ntt_block_from_nir(c, block);
 
       for (int i = 0; i < data->num_registers; i++)
-         ntt_ra_check(c, ra_map, released, ip, i, data->file_type);
+         ntt_ra_check(c, ra_map, released, ip, i, data);
 
       util_dynarray_foreach(&ntt_block->insns, struct ntt_insn, insn) {
          const struct tgsi_opcode_info *opcode_info =
@@ -523,19 +524,19 @@ ntt_allocate_regs(struct ntt_compile *c, nir_function_impl *impl,
 
          for (int i = 0; i < opcode_info->num_src; i++) {
             if (insn->src[i].File == data->file_type) {
-               ntt_ra_check(c, ra_map, released, ip, insn->src[i].Index, data->file_type);
+               ntt_ra_check(c, ra_map, released, ip, insn->src[i].Index, data);
                insn->src[i].Index = ra_map[insn->src[i].Index];
             }
          }
 
          if (insn->is_tex && insn->tex_offset.File == data->file_type) {
-            ntt_ra_check(c, ra_map, released, ip, insn->tex_offset.Index, data->file_type);
+            ntt_ra_check(c, ra_map, released, ip, insn->tex_offset.Index, data);
             insn->tex_offset.Index = ra_map[insn->tex_offset.Index];
          }
 
          for (int i = 0; i < opcode_info->num_dst; i++) {
             if (insn->dst[i].File == data->file_type) {
-               ntt_ra_check(c, ra_map, released, ip, insn->dst[i].Index, data->file_type);
+               ntt_ra_check(c, ra_map, released, ip, insn->dst[i].Index, data);
                insn->dst[i].Index = ra_map[insn->dst[i].Index];
             }
          }
@@ -543,7 +544,7 @@ ntt_allocate_regs(struct ntt_compile *c, nir_function_impl *impl,
       }
 
       for (int i = 0; i < data->num_registers; i++)
-         ntt_ra_check(c, ra_map, released, ip, i, data->file_type);
+         ntt_ra_check(c, ra_map, released, ip, i, data);
    }
 }
 
@@ -1081,15 +1082,21 @@ ntt_setup_registers(struct ntt_compile *c, struct exec_list *list)
    /* Permanently allocate all the array regs at the start. */
    foreach_list_typed(nir_register, nir_reg, node, list) {
       if (nir_reg->num_array_elems != 0) {
-         struct ureg_dst decl = nir_reg->bit_size < 32 ?
-               ureg_DECL_array_temp_mediump(c->ureg, nir_reg->num_array_elems, true):
+         if (nir_reg->bit_size < 32) {
+            struct ureg_dst decl =
+               ureg_DECL_array_temp_mediump(c->ureg, nir_reg->num_array_elems, true);
+            c->reg_temp[nir_reg->index] = decl;
+            c->num_temps_mediump += nir_reg->num_array_elems;
+         } else {
+            struct ureg_dst decl =
                ureg_DECL_array_temporary(c->ureg, nir_reg->num_array_elems, true);
-         c->reg_temp[nir_reg->index] = decl;
-         assert(c->num_temps_highp == decl.Index);
-         c->num_temps_highp += nir_reg->num_array_elems;
+            c->reg_temp[nir_reg->index] = decl;
+            c->num_temps_highp += nir_reg->num_array_elems;
+         }
       }
    }
    c->first_non_array_temp_highp = c->num_temps_highp;
+   c->first_non_array_temp_mediump = c->num_temps_mediump;
 
    /* After that, allocate non-array regs in our virtual space that we'll
     * register-allocate before ureg emit.
