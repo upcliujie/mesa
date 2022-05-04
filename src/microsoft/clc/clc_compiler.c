@@ -973,7 +973,7 @@ clc_spirv_to_dxil(struct clc_libclc *lib,
    }
 
    // Before removing dead uniforms, dedupe constant samplers to make more dead uniforms
-   NIR_PASS_V(nir, clc_nir_dedupe_const_samplers);
+   NIR_PASS_V(nir, nir_dedup_const_samplers);
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_uniform | nir_var_mem_ubo | nir_var_mem_constant | nir_var_function_temp, NULL);
 
    // Fill out inline sampler metadata, now that they've been deduped and dead ones removed
