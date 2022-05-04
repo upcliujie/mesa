@@ -206,6 +206,7 @@ struct lower_packed_varyings_state
    bool disable_varying_packing;
    bool disable_xfb_packing;
    bool xfb_enabled;
+   bool ifc_exposed_to_query_api;
 };
 
 static bool
@@ -913,7 +914,7 @@ lower_output_var(struct lower_packed_varyings_state *state, nir_variable *var)
           var->data.interpolation == INTERP_MODE_NONE ||
           !glsl_contains_integer(var->type));
 
-   if (state->prog->SeparateShader) {
+   if (state->prog->SeparateShader && state->ifc_exposed_to_query_api) {
       struct set *resource_set = _mesa_pointer_set_create(NULL);
 
       nir_add_packed_var_to_resource_list(state->consts, state->prog,
@@ -997,7 +998,7 @@ lower_packed_inputs(struct lower_packed_varyings_state *state)
       /* Program interface needs to expose varyings in case of SSO. Add the
        * variable for program resource list before it gets modified and lost.
        */
-      if (state->prog->SeparateShader) {
+      if (state->prog->SeparateShader && state->ifc_exposed_to_query_api) {
          struct set *resource_set = _mesa_pointer_set_create(NULL);
 
          nir_add_packed_var_to_resource_list(state->consts, state->prog,
@@ -1058,10 +1059,22 @@ gl_nir_lower_packed_varyings(const struct gl_constants *consts,
       (nir_variable **) rzalloc_array_size(mem_ctx, sizeof(nir_variable *),
                                            locations_used);
 
-   if (mode == nir_var_shader_in)
+   /* Determine if the shader interface is exposed to api query */
+   struct gl_linked_shader *linked_shaders[MESA_SHADER_STAGES];
+   unsigned num_shaders = 0;
+   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+      if (prog->_LinkedShaders[i])
+         linked_shaders[num_shaders++] = prog->_LinkedShaders[i];
+   }
+
+   if (mode == nir_var_shader_in) {
+      state.ifc_exposed_to_query_api = linked_shaders[0] == linked_shader;
       lower_packed_inputs(&state);
-   else
+   } else {
+      state.ifc_exposed_to_query_api =
+         linked_shaders[num_shaders - 1] == linked_shader;
       lower_packed_outputs(&state);
+   }
 
    nir_lower_global_vars_to_local(shader);
    nir_fixup_deref_modes(shader);
