@@ -433,7 +433,7 @@ lower_hs_output_load(nir_builder *b,
 }
 
 static void
-update_hs_scoped_barrier(nir_intrinsic_instr *intrin)
+update_hs_scoped_barrier(nir_shader *shader, nir_intrinsic_instr *intrin)
 {
    /* Output loads and stores are lowered to shared memory access,
     * so we have to update the barriers to also reflect this.
@@ -442,6 +442,14 @@ update_hs_scoped_barrier(nir_intrinsic_instr *intrin)
    if (mem_modes & nir_var_shader_out)
       mem_modes |= nir_var_mem_shared;
    nir_intrinsic_set_memory_modes(intrin, mem_modes);
+
+   nir_scope exec_scope = nir_intrinsic_execution_scope(intrin);
+   if (exec_scope == NIR_SCOPE_WORKGROUP && 32 % shader->info.tess.tcs_vertices_out == 0)
+      nir_intrinsic_set_execution_scope(intrin, NIR_SCOPE_SUBGROUP);
+
+   nir_scope mem_scope = nir_intrinsic_memory_scope(intrin);
+   if (mem_scope == NIR_SCOPE_WORKGROUP && 32 % shader->info.tess.tcs_vertices_out == 0)
+      nir_intrinsic_set_memory_scope(intrin, NIR_SCOPE_SUBGROUP);
 }
 
 static nir_ssa_def *
@@ -460,7 +468,7 @@ lower_hs_output_access(nir_builder *b,
               intrin->intrinsic == nir_intrinsic_load_per_vertex_output) {
       return lower_hs_output_load(b, intrin, st);
    } else if (intrin->intrinsic == nir_intrinsic_scoped_barrier) {
-      update_hs_scoped_barrier(intrin);
+      update_hs_scoped_barrier(b->shader, intrin);
       return NIR_LOWER_INSTR_PROGRESS;
    } else {
       unreachable("intrinsic not supported by lower_hs_output_access");
@@ -504,8 +512,10 @@ hs_emit_write_tess_factors(nir_shader *shader,
    nir_builder_init(b, impl);
    b->cursor = nir_after_block(last_block);
 
-   nir_scoped_barrier(b, .execution_scope=NIR_SCOPE_WORKGROUP, .memory_scope=NIR_SCOPE_WORKGROUP,
-                         .memory_semantics=NIR_MEMORY_ACQ_REL, .memory_modes=nir_var_mem_shared);
+   nir_scope scope =
+      32 % shader->info.tess.tcs_vertices_out == 0 ? NIR_SCOPE_SUBGROUP : NIR_SCOPE_WORKGROUP;
+   nir_scoped_barrier(b, .execution_scope = scope, .memory_scope = scope,
+                      .memory_semantics = NIR_MEMORY_ACQ_REL, .memory_modes = nir_var_mem_shared);
 
    nir_ssa_def *invocation_id = nir_load_invocation_id(b);
 
