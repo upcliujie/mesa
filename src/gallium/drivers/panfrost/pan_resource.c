@@ -626,8 +626,7 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
                 (bind & PIPE_BIND_SHADER_IMAGE) ? "Shader image" :
                 "Other resource";
 
-        if (dev->ro && (template->bind &
-            (PIPE_BIND_DISPLAY_TARGET | PIPE_BIND_SCANOUT | PIPE_BIND_SHARED))) {
+        if (dev->ro && (template->bind & PIPE_BIND_SCANOUT)) {
                 struct winsys_handle handle;
                 struct pipe_resource scanout_tmpl = {
                         .target = so->base.target,
