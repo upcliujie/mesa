@@ -4519,6 +4519,31 @@ struct radv_deferred_queue_submission {
    struct list_head processing_list;
 };
 
+ALWAYS_INLINE static VkResult
+radv_queue_submit_bind_sparse_memory(struct radv_device *device, struct vk_queue_submit *submission)
+{
+   for (uint32_t i = 0; i < submission->buffer_bind_count; ++i) {
+      VkResult result = radv_sparse_buffer_bind_memory(device, submission->buffer_binds + i);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   for (uint32_t i = 0; i < submission->image_opaque_bind_count; ++i) {
+      VkResult result =
+         radv_sparse_image_opaque_bind_memory(device, submission->image_opaque_binds + i);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   for (uint32_t i = 0; i < submission->image_bind_count; ++i) {
+      VkResult result = radv_sparse_image_bind_memory(device, submission->image_binds + i);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   return VK_SUCCESS;
+}
+
 static VkResult
 radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
 {
@@ -4539,32 +4564,16 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
    if (result != VK_SUCCESS)
       goto fail;
 
-   for (uint32_t i = 0; i < submission->buffer_bind_count; ++i) {
-      result = radv_sparse_buffer_bind_memory(queue->device, submission->buffer_binds + i);
-      if (result != VK_SUCCESS)
-         goto fail;
-   }
-
-   for (uint32_t i = 0; i < submission->image_opaque_bind_count; ++i) {
-      result =
-         radv_sparse_image_opaque_bind_memory(queue->device, submission->image_opaque_binds + i);
-      if (result != VK_SUCCESS)
-         goto fail;
-   }
-
-   for (uint32_t i = 0; i < submission->image_bind_count; ++i) {
-      result = radv_sparse_image_bind_memory(queue->device, submission->image_binds + i);
-      if (result != VK_SUCCESS)
-         goto fail;
-   }
+   result = radv_queue_submit_bind_sparse_memory(queue->device, submission);
+   if (result != VK_SUCCESS)
+      goto fail;
 
    if (!submission->command_buffer_count && !submission->wait_count && !submission->signal_count)
       return VK_SUCCESS;
 
    if (!submission->command_buffer_count) {
-      result = queue->device->ws->cs_submit(ctx, ring,
-                                            queue->vk.index_in_family, NULL, 0, NULL, NULL,
-                                            submission->wait_count, submission->waits,
+      result = queue->device->ws->cs_submit(ctx, ring, queue->vk.index_in_family, NULL, 0, NULL,
+                                            NULL, submission->wait_count, submission->waits,
                                             submission->signal_count, submission->signals, false);
       if (result != VK_SUCCESS)
          goto fail;
@@ -4600,10 +4609,9 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
             *queue->device->trace_id_ptr = 0;
 
          result = queue->device->ws->cs_submit(
-            ctx, ring, queue->vk.index_in_family, cs_array + j, advance,
-            initial_preamble, continue_preamble_cs, j == 0 ? submission->wait_count : 0,
-            submission->waits, last_submit ? submission->signal_count : 0, submission->signals,
-            can_patch);
+            ctx, ring, queue->vk.index_in_family, cs_array + j, advance, initial_preamble,
+            continue_preamble_cs, j == 0 ? submission->wait_count : 0, submission->waits,
+            last_submit ? submission->signal_count : 0, submission->signals, can_patch);
          if (result != VK_SUCCESS) {
             free(cs_array);
             if (queue->device->trace_bo)
