@@ -474,6 +474,7 @@ panvk_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
                                  VkPhysicalDeviceFeatures2 *pFeatures)
 {
    pFeatures->features = (VkPhysicalDeviceFeatures) {
+      .robustBufferAccess = true,
       .fullDrawIndexUint32 = true,
       .independentBlend = true,
       .wideLines = true,
