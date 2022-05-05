@@ -5083,6 +5083,15 @@ radv_EndCommandBuffer(VkCommandBuffer commandBuffer)
       if (cmd_buffer->gds_needed)
          cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_PS_PARTIAL_FLUSH;
 
+      if (cmd_buffer->device->physical_device->rad_info.gfx_level >= GFX11 &&
+          cmd_buffer->tess_rings_needed) {
+         /* If s_sendmsg is used to set tess factors to all 0 or all 1 instead of writing to the
+          * tess factor buffer, SQ_NON_EVENT needs to be emitted at the end of command buffers.
+          */
+         radeon_emit(cmd_buffer->cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
+         radeon_emit(cmd_buffer->cs, EVENT_TYPE(V_028A90_SQ_NON_EVENT) | EVENT_INDEX(0));
+      }
+
       si_emit_cache_flush(cmd_buffer);
    }
 
