@@ -3971,14 +3971,14 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (queue->qf == RADV_QUEUE_TRANSFER)
       return VK_SUCCESS;
 
-   struct radeon_winsys_bo *scratch_bo = NULL;
-   struct radeon_winsys_bo *descriptor_bo = NULL;
-   struct radeon_winsys_bo *compute_scratch_bo = NULL;
-   struct radeon_winsys_bo *esgs_ring_bo = NULL;
-   struct radeon_winsys_bo *gsvs_ring_bo = NULL;
-   struct radeon_winsys_bo *tess_rings_bo = NULL;
-   struct radeon_winsys_bo *gds_bo = NULL;
-   struct radeon_winsys_bo *gds_oa_bo = NULL;
+   struct radeon_winsys_bo *scratch_bo = queue->scratch_bo;
+   struct radeon_winsys_bo *descriptor_bo = queue->descriptor_bo;
+   struct radeon_winsys_bo *compute_scratch_bo = queue->compute_scratch_bo;
+   struct radeon_winsys_bo *esgs_ring_bo = queue->esgs_ring_bo;
+   struct radeon_winsys_bo *gsvs_ring_bo = queue->gsvs_ring_bo;
+   struct radeon_winsys_bo *tess_rings_bo = queue->tess_rings_bo;
+   struct radeon_winsys_bo *gds_bo = queue->gds_bo;
+   struct radeon_winsys_bo *gds_oa_bo = queue->gds_oa_bo;
    struct radeon_cmdbuf *dest_cs[3] = {0};
    unsigned tess_factor_ring_size = 0, tess_offchip_ring_size = 0;
    unsigned max_offchip_buffers;
@@ -4036,8 +4036,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
                                           ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, 0, &scratch_bo);
       if (result != VK_SUCCESS)
          goto fail;
-   } else
-      scratch_bo = queue->scratch_bo;
+   }
 
    uint32_t compute_scratch_size = compute_scratch_size_per_wave * compute_scratch_waves;
    uint32_t compute_queue_scratch_size =
@@ -4048,30 +4047,24 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
                                                 RADV_BO_PRIORITY_SCRATCH, 0, &compute_scratch_bo);
       if (result != VK_SUCCESS)
          goto fail;
+   }
 
-   } else
-      compute_scratch_bo = queue->compute_scratch_bo;
-
+   esgs_ring_size = MAX2(esgs_ring_size, queue->esgs_ring_size);
    if (esgs_ring_size > queue->esgs_ring_size) {
       result = queue->device->ws->buffer_create(queue->device->ws, esgs_ring_size, 4096,
                                                 RADEON_DOMAIN_VRAM, ring_bo_flags,
                                                 RADV_BO_PRIORITY_SCRATCH, 0, &esgs_ring_bo);
       if (result != VK_SUCCESS)
          goto fail;
-   } else {
-      esgs_ring_bo = queue->esgs_ring_bo;
-      esgs_ring_size = queue->esgs_ring_size;
    }
 
+   gsvs_ring_size = MAX2(gsvs_ring_size, queue->gsvs_ring_size);
    if (gsvs_ring_size > queue->gsvs_ring_size) {
       result = queue->device->ws->buffer_create(queue->device->ws, gsvs_ring_size, 4096,
                                                 RADEON_DOMAIN_VRAM, ring_bo_flags,
                                                 RADV_BO_PRIORITY_SCRATCH, 0, &gsvs_ring_bo);
       if (result != VK_SUCCESS)
          goto fail;
-   } else {
-      gsvs_ring_bo = queue->gsvs_ring_bo;
-      gsvs_ring_size = queue->gsvs_ring_size;
    }
 
    if (add_tess_rings) {
@@ -4080,8 +4073,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
          RADEON_DOMAIN_VRAM, ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, 0, &tess_rings_bo);
       if (result != VK_SUCCESS)
          goto fail;
-   } else {
-      tess_rings_bo = queue->tess_rings_bo;
    }
 
    if (add_gds) {
@@ -4095,8 +4086,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
                                           ring_bo_flags, RADV_BO_PRIORITY_SCRATCH, 0, &gds_bo);
       if (result != VK_SUCCESS)
          goto fail;
-   } else {
-      gds_bo = queue->gds_bo;
    }
 
    if (add_gds_oa) {
@@ -4107,8 +4096,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
                                           RADV_BO_PRIORITY_SCRATCH, 0, &gds_oa_bo);
       if (result != VK_SUCCESS)
          goto fail;
-   } else {
-      gds_oa_bo = queue->gds_oa_bo;
    }
 
    if (scratch_bo != queue->scratch_bo || esgs_ring_bo != queue->esgs_ring_bo ||
@@ -4129,8 +4116,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
          RADV_BO_PRIORITY_DESCRIPTOR, 0, &descriptor_bo);
       if (result != VK_SUCCESS)
          goto fail;
-   } else
-      descriptor_bo = queue->descriptor_bo;
+   }
 
    if (descriptor_bo != queue->descriptor_bo) {
       uint32_t *map = (uint32_t *)queue->device->ws->buffer_map(descriptor_bo);
