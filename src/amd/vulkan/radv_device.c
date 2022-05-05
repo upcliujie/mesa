@@ -3959,14 +3959,11 @@ radv_init_compute_state(struct radeon_cmdbuf *cs, struct radv_queue *queue)
 }
 
 static VkResult
-radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
-                     uint32_t scratch_waves, uint32_t compute_scratch_size_per_wave,
-                     uint32_t compute_scratch_waves, uint32_t esgs_ring_size,
-                     uint32_t gsvs_ring_size, bool needs_tess_rings, bool needs_gds,
-                     bool needs_gds_oa, bool needs_sample_positions,
-                     struct radeon_cmdbuf **initial_full_flush_preamble_cs,
-                     struct radeon_cmdbuf **initial_preamble_cs,
-                     struct radeon_cmdbuf **continue_preamble_cs)
+radv_update_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
+                        uint32_t scratch_waves, uint32_t compute_scratch_size_per_wave,
+                        uint32_t compute_scratch_waves, uint32_t esgs_ring_size,
+                        uint32_t gsvs_ring_size, bool needs_tess_rings, bool needs_gds,
+                        bool needs_gds_oa, bool needs_sample_positions)
 {
    if (queue->qf == RADV_QUEUE_TRANSFER)
       return VK_SUCCESS;
@@ -4018,9 +4015,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
        esgs_ring_size <= queue->esgs_ring_size && gsvs_ring_size <= queue->gsvs_ring_size &&
        !add_tess_rings && !add_gds && !add_gds_oa && !add_sample_positions &&
        queue->initial_preamble_cs) {
-      *initial_full_flush_preamble_cs = queue->initial_full_flush_preamble_cs;
-      *initial_preamble_cs = queue->initial_preamble_cs;
-      *continue_preamble_cs = queue->continue_preamble_cs;
       return VK_SUCCESS;
    }
 
@@ -4279,9 +4273,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (add_sample_positions)
       queue->has_sample_positions = true;
 
-   *initial_full_flush_preamble_cs = queue->initial_full_flush_preamble_cs;
-   *initial_preamble_cs = queue->initial_preamble_cs;
-   *continue_preamble_cs = queue->continue_preamble_cs;
    return VK_SUCCESS;
 fail:
    for (int i = 0; i < ARRAY_SIZE(dest_cs); ++i)
@@ -4421,10 +4412,8 @@ radv_sparse_image_bind_memory(struct radv_device *device, const VkSparseImageMem
 }
 
 static VkResult
-radv_get_preambles(struct radv_queue *queue, struct vk_command_buffer *const *cmd_buffers,
-                   uint32_t cmd_buffer_count, struct radeon_cmdbuf **initial_full_flush_preamble_cs,
-                   struct radeon_cmdbuf **initial_preamble_cs,
-                   struct radeon_cmdbuf **continue_preamble_cs)
+radv_update_preambles(struct radv_queue *queue, struct vk_command_buffer *const *cmd_buffers,
+                      uint32_t cmd_buffer_count)
 {
    uint32_t scratch_size_per_wave = 0, waves_wanted = 0;
    uint32_t compute_scratch_size_per_wave = 0, compute_waves_wanted = 0;
@@ -4450,11 +4439,10 @@ radv_get_preambles(struct radv_queue *queue, struct vk_command_buffer *const *cm
       sample_positions_needed |= cmd_buffer->sample_positions_needed;
    }
 
-   return radv_get_preamble_cs(queue, scratch_size_per_wave, waves_wanted,
-                               compute_scratch_size_per_wave, compute_waves_wanted, esgs_ring_size,
-                               gsvs_ring_size, tess_rings_needed, gds_needed, gds_oa_needed,
-                               sample_positions_needed, initial_full_flush_preamble_cs,
-                               initial_preamble_cs, continue_preamble_cs);
+   return radv_update_preamble_cs(queue, scratch_size_per_wave, waves_wanted,
+                                  compute_scratch_size_per_wave, compute_waves_wanted, esgs_ring_size,
+                                  gsvs_ring_size, tess_rings_needed, gds_needed, gds_oa_needed,
+                                  sample_positions_needed);
 }
 
 struct radv_deferred_queue_submission {
@@ -4535,13 +4523,8 @@ radv_queue_submit_nonempty(struct radv_queue *queue, struct vk_queue_submit *sub
    bool can_patch = true;
    uint32_t advance;
    VkResult result;
-   struct radeon_cmdbuf *initial_preamble_cs = NULL;
-   struct radeon_cmdbuf *initial_flush_preamble_cs = NULL;
-   struct radeon_cmdbuf *continue_preamble_cs = NULL;
 
-   result =
-      radv_get_preambles(queue, submission->command_buffers, submission->command_buffer_count,
-                         &initial_flush_preamble_cs, &initial_preamble_cs, &continue_preamble_cs);
+   result = radv_update_preambles(queue, submission->command_buffers, submission->command_buffer_count);
    if (result != VK_SUCCESS)
       return result;
 
@@ -4567,7 +4550,7 @@ radv_queue_submit_nonempty(struct radv_queue *queue, struct vk_queue_submit *sub
        * before starting the next cmdbuffer, so we need to do it here. */
       bool need_wait = !j && submission->wait_count > 0;
       struct radeon_cmdbuf *initial_preamble =
-         need_wait ? initial_flush_preamble_cs : initial_preamble_cs;
+         need_wait ? queue->initial_full_flush_preamble_cs : queue->initial_preamble_cs;
       advance = MIN2(max_cs_submission, submission->command_buffer_count - j);
       bool last_submit = j + advance == submission->command_buffer_count;
 
@@ -4576,7 +4559,7 @@ radv_queue_submit_nonempty(struct radv_queue *queue, struct vk_queue_submit *sub
 
       result = queue->device->ws->cs_submit(
          ctx, ring, queue->vk.index_in_family, cs_array + j, advance, initial_preamble,
-         continue_preamble_cs, j == 0 ? submission->wait_count : 0, submission->waits,
+         queue->continue_preamble_cs, j == 0 ? submission->wait_count : 0, submission->waits,
          last_submit ? submission->signal_count : 0, submission->signals, can_patch);
 
       if (result != VK_SUCCESS)
