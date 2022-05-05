@@ -3968,6 +3968,9 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
                      struct radeon_cmdbuf **initial_preamble_cs,
                      struct radeon_cmdbuf **continue_preamble_cs)
 {
+   if (queue->qf == RADV_QUEUE_TRANSFER)
+      return VK_SUCCESS;
+
    struct radeon_winsys_bo *scratch_bo = NULL;
    struct radeon_winsys_bo *descriptor_bo = NULL;
    struct radeon_winsys_bo *compute_scratch_bo = NULL;
@@ -3984,8 +3987,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    unsigned tess_offchip_ring_offset;
    uint32_t ring_bo_flags = RADEON_FLAG_NO_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING;
    VkResult result = VK_SUCCESS;
-   if (queue->qf == RADV_QUEUE_TRANSFER)
-      return VK_SUCCESS;
 
    if (!queue->has_tess_rings) {
       if (needs_tess_rings)
@@ -4186,7 +4187,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       case RADV_QUEUE_COMPUTE:
          radv_init_compute_state(cs, queue);
          break;
-      case RADV_QUEUE_TRANSFER:
       default:
          break;
       }
