@@ -1942,8 +1942,12 @@ radv_emit_fb_ds_state(struct radv_cmd_buffer *cmd_buffer, struct radv_ds_buffer_
       radeon_set_context_reg(cmd_buffer->cs, R_028014_DB_HTILE_DATA_BASE, ds->db_htile_data_base);
       radeon_set_context_reg(cmd_buffer->cs, R_02801C_DB_DEPTH_SIZE_XY, ds->db_depth_size);
 
-      radeon_set_context_reg_seq(cmd_buffer->cs, R_02803C_DB_DEPTH_INFO, 7);
-      radeon_emit(cmd_buffer->cs, S_02803C_RESOURCE_LEVEL(1));
+      if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX11) {
+         radeon_set_context_reg_seq(cmd_buffer->cs, R_028040_DB_Z_INFO, 6);
+      } else {
+         radeon_set_context_reg_seq(cmd_buffer->cs, R_02803C_DB_DEPTH_INFO, 7);
+         radeon_emit(cmd_buffer->cs, S_02803C_RESOURCE_LEVEL(1));
+      }
       radeon_emit(cmd_buffer->cs, db_z_info);
       radeon_emit(cmd_buffer->cs, db_stencil_info);
       radeon_emit(cmd_buffer->cs, ds->db_z_read_base);
@@ -2619,7 +2623,7 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
                              S_028424_OVERWRITE_COMBINER_MRT_SHARING_DISABLE(chip_class <= GFX9) |
                                 S_028424_OVERWRITE_COMBINER_WATERMARK(watermark) |
                                 S_028424_DISABLE_CONSTANT_ENCODE_AC01(disable_constant_encode_ac01) |
-                                S_028424_DISABLE_CONSTANT_ENCODE_REG(disable_constant_encode));
+                                S_028424_DISABLE_CONSTANT_ENCODE_REG(chip_class < GFX11 && disable_constant_encode));
    }
 
    cmd_buffer->state.dirty &= ~RADV_CMD_DIRTY_FRAMEBUFFER;
