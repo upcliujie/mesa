@@ -602,22 +602,6 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
 
         util_range_init(&so->valid_buffer_range);
 
-        if (template->bind & (PIPE_BIND_DISPLAY_TARGET | PIPE_BIND_SCANOUT |
-                              PIPE_BIND_SHARED)) {
-                /* For compatibility with older consumers that may not be
-                 * modifiers aware, treat INVALID as LINEAR for shared
-                 * resources.
-                 */
-                if (modifier == DRM_FORMAT_MOD_INVALID)
-                        modifier = DRM_FORMAT_MOD_LINEAR;
-
-                /* At any rate, we can't change the modifier later for shared
-                 * resources, since we have no way to propagate the modifier
-                 * change.
-                 */
-                so->modifier_constant = true;
-        }
-
         panfrost_resource_setup(dev, so, modifier, template->format);
 
         /* Guess a label based on the bind */
@@ -702,6 +686,8 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
 
                 so->image.data.bo =
                         panfrost_bo_create(dev, so->image.layout.data_size, PAN_BO_DELAY_MMAP, label);
+
+                so->constant_stencil = true;
         }
 
         if (drm_is_afbc(so->image.layout.modifier))
@@ -944,6 +930,9 @@ panfrost_ptr_map(struct pipe_context *pctx,
 
         pipe_resource_reference(&transfer->base.resource, resource);
         *out_transfer = &transfer->base;
+
+        if (usage & PIPE_MAP_WRITE)
+                rsrc->constant_stencil = false;
 
         /* We don't have s/w routines for AFBC, so use a staging texture */
         if (drm_is_afbc(rsrc->image.layout.modifier)) {
@@ -1344,6 +1333,9 @@ panfrost_invalidate_resource(struct pipe_context *pctx, struct pipe_resource *pr
 {
         struct panfrost_context *ctx = pan_context(pctx);
         struct panfrost_batch *batch = panfrost_get_batch_for_fbo(ctx);
+        struct panfrost_resource *rsrc = pan_resource(prsrc);
+
+        rsrc->constant_stencil = true;
 
         /* Handle the glInvalidateFramebuffer case */
         if (batch->key.zsbuf && batch->key.zsbuf->texture == prsrc)
