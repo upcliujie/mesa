@@ -2762,7 +2762,9 @@ radv_device_init_hs_info(struct radv_device *device)
     *
     * Follow AMDVLK here.
     */
-   if (device->physical_device->rad_info.chip_class >= GFX10) {
+   if (device->physical_device->rad_info.chip_class >= GFX11) {
+      max_offchip_buffers_per_se = 256; /* TODO: we could decrease this to reduce memory/cache usage */
+   } else if (device->physical_device->rad_info.chip_class >= GFX10) {
       max_offchip_buffers_per_se = 128;
    } else if (device->physical_device->rad_info.family == CHIP_VEGA10 ||
               device->physical_device->rad_info.chip_class == GFX7 ||
@@ -2799,7 +2801,11 @@ radv_device_init_hs_info(struct radv_device *device)
 
    device->max_offchip_buffers = max_offchip_buffers;
 
-   if (device->physical_device->rad_info.chip_class >= GFX10_3) {
+   if (device->physical_device->rad_info.chip_class >= GFX11) {
+      /* OFFCHIP_BUFFERING is per SE. */
+      hs_offchip_param = S_03093C_OFFCHIP_BUFFERING_GFX103(max_offchip_buffers_per_se - 1) |
+                         S_03093C_OFFCHIP_GRANULARITY_GFX103(offchip_granularity);
+   } else if (device->physical_device->rad_info.chip_class >= GFX10_3) {
       hs_offchip_param = S_03093C_OFFCHIP_BUFFERING_GFX103(max_offchip_buffers - 1) |
                          S_03093C_OFFCHIP_GRANULARITY_GFX103(offchip_granularity);
    } else if (device->physical_device->rad_info.chip_class >= GFX7) {
