@@ -2060,6 +2060,165 @@ radv_shader_compile(struct radv_device *device, struct radv_pipeline_stage *pl_s
 }
 
 struct radv_shader *
+radv_shader_compile_stitched(struct radv_device *device, struct radv_pipeline_stage *pl_stage,
+                             struct nir_shader *const *shaders, int shader_count,
+                             const struct radv_pipeline_key *key, bool keep_shader_info,
+                             bool keep_statistic_info, struct radv_shader_binary **binary_out)
+{
+   gl_shader_stage stage = shaders[0]->info.stage;
+   enum radeon_family chip_family = device->physical_device->rad_info.family;
+   struct radv_shader_debug_data debug_data = {
+      .device = device,
+      .object = NULL,
+   };
+   struct radv_nir_compiler_options options = {0};
+
+   if (key)
+      options.key = *key;
+   options.robust_buffer_access = device->robust_buffer_access;
+   options.wgp_mode = radv_should_use_wgp_mode(device, stage, &pl_stage->info);
+   options.family = chip_family;
+   options.chip_class = device->physical_device->rad_info.chip_class;
+   options.info = &device->physical_device->rad_info;
+   options.dump_shader = radv_can_dump_shader(device, shaders[0], false);
+   options.dump_preoptir =
+      options.dump_shader && device->instance->debug_flags & RADV_DEBUG_PREOPTIR;
+   options.record_ir = keep_shader_info;
+   options.record_stats = keep_statistic_info;
+   options.check_ir = device->instance->debug_flags & RADV_DEBUG_CHECKIR;
+   options.address32_hi = device->physical_device->rad_info.address32_hi;
+   options.has_ls_vgpr_init_bug = device->physical_device->rad_info.has_ls_vgpr_init_bug;
+   options.enable_mrt_output_nan_fixup =
+      !is_meta_shader(shaders[0]) && key->ps.enable_mrt_output_nan_fixup;
+   options.debug.func = radv_compiler_debug;
+   options.debug.private_data = &debug_data;
+
+   struct radv_shader_binary *binaries[shader_count];
+   #ifdef LLVM_AVAILABLE
+   if (radv_use_llvm_for_stage(device, stage) || options.dump_shader || options.record_ir)
+      ac_init_llvm_once();
+
+   if (radv_use_llvm_for_stage(device, stage)) {
+      for (int i = 0; i < shader_count; i++)
+         llvm_compile_shader(&options, &pl_stage->info, 1, &shaders[i], &binaries[i], &pl_stage->args);
+   #else
+   if (false) {
+   #endif
+   } else {
+      for (int i = 0; i < shader_count; i++)
+         aco_compile_shader(&options, &pl_stage->info, 1, &shaders[i], &pl_stage->args, &binaries[i]);
+   }
+
+   struct radv_shader *shader = NULL;
+   assert(binaries[0]->type == RADV_BINARY_TYPE_LEGACY && "Binary stitching only supported for legacy binaries.");
+   if (binaries[0]->type != RADV_BINARY_TYPE_LEGACY)
+      goto fail;
+
+
+   /* Stitch binaries */
+   unsigned total_size = sizeof(struct radv_shader_binary_legacy);
+   for (int i = 0; i < shader_count; i++)
+      total_size += binaries[i]->total_size - sizeof(struct radv_shader_binary_legacy);
+   if (keep_statistic_info) {
+      /* accumulate the statistics of the different binaries */
+      struct radv_shader_binary_legacy *stats_binary = (struct radv_shader_binary_legacy*)binaries[0];
+      total_size -= stats_binary->stats_size * (shader_count - 1);
+      uint32_t *stats = (uint32_t*) &stats_binary->data[0];
+      for (int i = 1; i < shader_count; i++) {
+         struct radv_shader_binary_legacy *lb = (struct radv_shader_binary_legacy*)binaries[i];
+         for (int j = 0; j < stats_binary->stats_size / sizeof(uint32_t); j++)
+            stats[j] += ((uint32_t*)&lb->data[0])[j];
+      }
+   }
+   /* subtract '\0' for IR and disasm */
+   if (keep_shader_info)
+      total_size -= 2 * (shader_count - 1);
+   else if (options.dump_shader)
+      total_size -= (shader_count - 1);
+   struct radv_shader_binary_legacy* lbinary = (struct radv_shader_binary_legacy*)calloc(total_size, 1);
+   unsigned offset = 0;
+
+   if (keep_statistic_info) {
+      struct radv_shader_binary_legacy *stats_binary = (struct radv_shader_binary_legacy*)binaries[0];
+      memcpy(&lbinary->data[offset], &stats_binary->data[0], stats_binary->stats_size);
+      offset += stats_binary->stats_size;
+      lbinary->stats_size = offset;
+   }
+
+   for (int i = 0; i < shader_count; i++) {
+      struct radv_shader_binary_legacy *binary = (struct radv_shader_binary_legacy*)binaries[i];
+      memcpy(&lbinary->data[offset], &binary->data[binary->stats_size], binary->code_size);
+      offset += binary->code_size;
+      lbinary->exec_size += binary->exec_size;
+   }
+   lbinary->code_size = offset - lbinary->stats_size;
+
+   if (keep_shader_info) {
+      unsigned offset_before = offset;
+      for (int i = 0; i < shader_count; i++) {
+         struct radv_shader_binary_legacy *binary = (struct radv_shader_binary_legacy*)binaries[i];
+         memcpy(&lbinary->data[offset], &binary->data[binary->stats_size + binary->code_size], binary->ir_size);
+         offset += binary->ir_size - 1;
+      }
+      lbinary->ir_size = ++offset - offset_before;
+   }
+   if (keep_shader_info || options.dump_shader) {
+      unsigned offset_before = offset;
+      for (int i = 0; i < shader_count; i++) {
+         struct radv_shader_binary_legacy *binary = (struct radv_shader_binary_legacy*)binaries[i];
+         memcpy(&lbinary->data[offset], &binary->data[binary->stats_size + binary->code_size + binary->ir_size], binary->disasm_size);
+         offset += binary->disasm_size - 1;
+      }
+      lbinary->disasm_size = ++offset - offset_before;
+   }
+   assert(offset + sizeof(struct radv_shader_binary_legacy) == total_size);
+
+   struct radv_shader_binary *binary = &lbinary->base;
+   binary->total_size = total_size;
+   binary->type = RADV_BINARY_TYPE_LEGACY;
+   binary->stage = stage;
+   binary->is_gs_copy_shader = false;
+   binary->info = pl_stage->info;
+   binary->config.float_mode = binaries[0]->config.float_mode;
+   binary->config.spi_ps_input_ena = binaries[0]->config.spi_ps_input_ena;
+   binary->config.spi_ps_input_addr = binaries[0]->config.spi_ps_input_addr;
+   for (int i = 0; i < shader_count; i++) {
+      binary->config.num_sgprs = MAX2(binary->config.num_sgprs, binaries[i]->config.num_sgprs);
+      binary->config.num_vgprs = MAX2(binary->config.num_vgprs, binaries[i]->config.num_vgprs);
+      binary->config.num_shared_vgprs = MAX2(binary->config.num_shared_vgprs, binaries[i]->config.num_shared_vgprs);
+      binary->config.spilled_sgprs = MAX2(binary->config.spilled_sgprs, binaries[i]->config.spilled_sgprs);
+      binary->config.spilled_vgprs = MAX2(binary->config.spilled_vgprs, binaries[i]->config.spilled_vgprs);
+      binary->config.lds_size = MAX2(binary->config.lds_size, binaries[i]->config.lds_size);
+      binary->config.scratch_bytes_per_wave = MAX2(binary->config.scratch_bytes_per_wave, binaries[i]->config.scratch_bytes_per_wave);
+   }
+
+   shader = radv_shader_create(device, binary, keep_shader_info, false, &pl_stage->args);
+   if (!shader) {
+      free(binary);
+      goto fail;
+   }
+
+   if (options.dump_shader) {
+      fprintf(stderr, "%s", radv_get_shader_name(&pl_stage->info, stage));
+      fprintf(stderr, "\ndisasm:\n%s\n", shader->disasm_string);
+   }
+
+   if (keep_shader_info) {
+      shader->nir_string = radv_dump_nir_shaders(shaders, shader_count);
+   }
+
+   /* Copy the shader binary configuration to store it in the cache. */
+   memcpy(&binary->config, &shader->config, sizeof(binary->config));
+
+   *binary_out = binary;
+
+fail:
+   for (int i = 0; i < shader_count; i++)
+      free(binaries[i]);
+   return shader;
+}
+
+struct radv_shader *
 radv_create_gs_copy_shader(struct radv_device *device, struct nir_shader *shader,
                            struct radv_shader_info *info, const struct radv_shader_args *args,
                            struct radv_shader_binary **binary_out, bool keep_shader_info,
