@@ -38,7 +38,7 @@ PFN_vkVoidFunction VKAPI_CALL vk_icdGetInstanceProcAddr(
 }
 
 ac_shader_config config;
-radv_shader_info info;
+aco_shader_info info;
 std::unique_ptr<Program> program;
 Builder bld(NULL);
 Temp inputs[16];
