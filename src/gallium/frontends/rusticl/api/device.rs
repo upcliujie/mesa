@@ -3,10 +3,12 @@ use crate::api::platform::*;
 use crate::api::util::*;
 use crate::core::device::*;
 
+use mesa_rust_gen::*;
 use mesa_rust_util::ptr::*;
 use rusticl_opencl_gen::*;
 
 use std::cmp::min;
+use std::ffi::CStr;
 use std::mem::size_of;
 use std::ptr;
 use std::sync::Arc;
@@ -192,7 +194,7 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_VERSION => {
                 cl_prop::<String>([String::from("OpenCL "), dev.cl_version.into()].join(""))
             }
-            CL_DRIVER_VERSION => cl_prop("0.1"),
+            CL_DRIVER_VERSION => cl_prop::<&CStr>(unsafe { CStr::from_ptr(mesa_version_string()) }),
             CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT => cl_prop::<bool>(false),
             // CL_INVALID_VALUE if param_name is not one of the supported values
             // CL_INVALID_VALUE [...] if param_name is a value that is available as an extension and the corresponding extension is not supported by the device.
