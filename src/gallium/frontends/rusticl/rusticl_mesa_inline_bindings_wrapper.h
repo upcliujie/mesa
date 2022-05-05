@@ -5,5 +5,6 @@
 #undef pipe_resource_reference
 #undef util_format_pack_rgba
 
+const char* mesa_version_string(void);
 void pipe_resource_reference(struct pipe_resource **dst, struct pipe_resource *src);
 void util_format_pack_rgba(enum pipe_format format, void *dst, const void *src, unsigned w);
