@@ -1977,6 +1977,20 @@ radv_pipeline_init_raster_state(struct radv_pipeline *pipeline,
       depth_clip_disable = !depth_clip_state->depthClipEnable;
    }
 
+   pipeline->graphics.depth_clamp_mode = RADV_DEPTH_CLAMP_MODE_VIEWPORT;
+   if (!pCreateInfo->pRasterizationState->depthClampEnable) {
+      /* For optimal performance, depth clamping should always be enabled except if the
+       * application disables clamping explicitly or uses depth values outside of the [0.0, 1.0]
+       * range.
+       */
+      if ((depth_clip_disable ||
+          pipeline->device->vk.enabled_extensions.EXT_depth_range_unrestricted)) {
+         pipeline->graphics.depth_clamp_mode = RADV_DEPTH_CLAMP_MODE_DISABLED;
+      } else {
+         pipeline->graphics.depth_clamp_mode = RADV_DEPTH_CLAMP_MODE_ZERO_TO_ONE;
+      }
+   }
+
    pipeline->graphics.pa_cl_clip_cntl =
       S_028810_DX_CLIP_SPACE_DEF(!pipeline->graphics.negative_one_to_one) |
       S_028810_ZCLIP_NEAR_DISABLE(depth_clip_disable ? 1 : 0) |
@@ -2012,7 +2026,6 @@ radv_pipeline_init_depth_stencil_state(struct radv_pipeline *pipeline,
       radv_pipeline_get_depth_stencil_state(pipeline, pCreateInfo);
    const VkPipelineRenderingCreateInfo *render_create_info =
       vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
-   struct radv_shader *ps = pipeline->shaders[MESA_SHADER_FRAGMENT];
    struct radv_depth_stencil_state ds_state = {0};
    uint32_t db_depth_control = 0;
 
@@ -2045,19 +2058,8 @@ radv_pipeline_init_depth_stencil_state(struct radv_pipeline *pipeline,
    ds_state.db_render_override |= S_02800C_FORCE_HIS_ENABLE0(V_02800C_FORCE_DISABLE) |
                                   S_02800C_FORCE_HIS_ENABLE1(V_02800C_FORCE_DISABLE);
 
-   if (!pCreateInfo->pRasterizationState->depthClampEnable && ps->info.ps.writes_z) {
-      /* From VK_EXT_depth_range_unrestricted spec:
-       *
-       * "The behavior described in Primitive Clipping still applies.
-       *  If depth clamping is disabled the depth values are still
-       *  clipped to 0 ≤ zc ≤ wc before the viewport transform. If
-       *  depth clamping is enabled the above equation is ignored and
-       *  the depth values are instead clamped to the VkViewport
-       *  minDepth and maxDepth values, which in the case of this
-       *  extension can be outside of the 0.0 to 1.0 range."
-       */
+   if (pipeline->graphics.depth_clamp_mode == RADV_DEPTH_CLAMP_MODE_DISABLED)
       ds_state.db_render_override |= S_02800C_DISABLE_VIEWPORT_CLAMP(1);
-   }
 
    pipeline->graphics.db_depth_control = db_depth_control;
 
