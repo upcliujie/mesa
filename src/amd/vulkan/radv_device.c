@@ -3984,8 +3984,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    unsigned tess_offchip_ring_offset;
    uint32_t ring_bo_flags = RADEON_FLAG_NO_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING;
    VkResult result = VK_SUCCESS;
-   if (queue->qf == RADV_QUEUE_TRANSFER)
-      return VK_SUCCESS;
 
    if (!queue->has_tess_rings) {
       if (needs_tess_rings)
@@ -4186,7 +4184,6 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       case RADV_QUEUE_COMPUTE:
          radv_init_compute_state(cs, queue);
          break;
-      case RADV_QUEUE_TRANSFER:
       default:
          break;
       }
@@ -4455,6 +4452,9 @@ radv_get_preambles(struct radv_queue *queue, struct vk_command_buffer *const *cm
                    struct radeon_cmdbuf **initial_preamble_cs,
                    struct radeon_cmdbuf **continue_preamble_cs)
 {
+   if (queue->qf == RADV_QUEUE_TRANSFER)
+      return VK_SUCCESS;
+
    uint32_t scratch_size_per_wave = 0, waves_wanted = 0;
    uint32_t compute_scratch_size_per_wave = 0, compute_waves_wanted = 0;
    uint32_t esgs_ring_size = 0, gsvs_ring_size = 0;
