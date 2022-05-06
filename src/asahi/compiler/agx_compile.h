@@ -228,6 +228,7 @@ static const nir_shader_compiler_options agx_nir_options = {
    .force_indirect_unrolling_sampler = true,
    .lower_int64_options = (nir_lower_int64_options) ~(nir_lower_iadd64 | nir_lower_imul_2x32_64),
    .lower_doubles_options = nir_lower_dmod,
+   .max_unroll_iterations = 32,
 };
 
 #endif
