@@ -10873,6 +10873,15 @@ export_fs_mrt_z(isel_context* ctx)
          values[1] = Operand(ctx->outputs.temps[FRAG_RESULT_SAMPLE_MASK * 4u]);
          enabled_channels |= ctx->program->chip_class >= GFX11 ? 0x2 : 0xc;
       }
+
+      if (ctx->options->key.ps.alpha_to_coverage_via_mrtz) {
+         /* MRT0 alpha should be in Y[31:16] if alpha-to-coverage is enabled and MRTZ is present. */
+         assert(ctx->program->chip_class >= GFX11);
+         Operand mrtz_alpha = Operand(ctx->outputs.temps[FRAG_RESULT_DATA0 + 3u]);
+         mrtz_alpha = bld.vop2(aco_opcode::v_lshlrev_b32, bld.def(v1), Operand::c32(16u), mrtz_alpha);
+         values[1] = bld.vop2(aco_opcode::v_or_b32, bld.def(v1), values[1], mrtz_alpha);
+         enabled_channels |= 0x2;
+      }
    } else {
       if (ctx->program->info->ps.writes_z) {
          values[0] = Operand(ctx->outputs.temps[FRAG_RESULT_DEPTH * 4u]);
@@ -10887,6 +10896,12 @@ export_fs_mrt_z(isel_context* ctx)
       if (ctx->program->info->ps.writes_sample_mask) {
          values[2] = Operand(ctx->outputs.temps[FRAG_RESULT_SAMPLE_MASK * 4u]);
          enabled_channels |= 0x4;
+      }
+
+      if (ctx->options->key.ps.alpha_to_coverage_via_mrtz) {
+         assert(ctx->program->chip_class >= GFX11);
+         values[3] = Operand(ctx->outputs.temps[FRAG_RESULT_DATA0 + 3u]);
+         enabled_channels |= 0x8;
       }
    }
 
