@@ -122,6 +122,7 @@ static const nir_shader_compiler_options i915_compiler_options = {
    .use_interpolated_input_intrinsics = true,
    .force_indirect_unrolling = nir_var_all,
    .force_indirect_unrolling_sampler = true,
+   .max_unroll_iterations = 32,
 };
 
 static const struct nir_shader_compiler_options gallivm_nir_options = {
@@ -370,8 +371,6 @@ i915_get_shader_param(struct pipe_screen *screen, enum pipe_shader_type shader,
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
          return 0;
 
-      case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-         return 32;
       default:
          debug_printf("%s: Unknown cap %u.\n", __FUNCTION__, cap);
          return 0;
