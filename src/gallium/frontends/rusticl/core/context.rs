@@ -14,11 +14,18 @@ use std::os::raw::c_void;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+pub enum GLCtx {
+    None,
+    EGL(EGLDisplay, EGLContext),
+    GLX(*mut _XDisplay, *mut __GLXcontextRec),
+}
+
 pub struct Context {
     pub base: CLObjectBase<CL_INVALID_CONTEXT>,
     pub devs: Vec<Arc<Device>>,
     pub properties: Properties<cl_context_properties>,
     pub dtors: Mutex<Vec<Box<dyn Fn(cl_context) -> ()>>>,
+    pub gl_ctx: GLCtx,
 }
 
 impl_cl_type_trait!(cl_context, Context, CL_INVALID_CONTEXT);
@@ -27,12 +34,14 @@ impl Context {
     pub fn new(
         devs: Vec<Arc<Device>>,
         properties: Properties<cl_context_properties>,
+        gl_ctx: GLCtx,
     ) -> Arc<Context> {
         Arc::new(Self {
             base: CLObjectBase::new(),
             devs: devs,
             properties: properties,
             dtors: Mutex::new(Vec::new()),
+            gl_ctx: gl_ctx,
         })
     }
 
@@ -145,6 +154,41 @@ impl Context {
                 })
                 .collect();
             fences.iter().for_each(|f| f.wait());
+        }
+
+        Ok(res)
+    }
+
+    pub fn import_gl_buffer(
+        &self,
+        handle: u32,
+        modifier: u64,
+        image_type: cl_mem_object_type,
+        format: cl_image_format,
+        width: u32,
+        height: u16,
+        depth: u16,
+        array_size: u16,
+    ) -> CLResult<HashMap<Arc<Device>, Arc<PipeResource>>> {
+        let mut res = HashMap::new();
+        let target = cl_mem_type_to_texture_target(image_type);
+
+        for dev in &self.devs {
+            let resource = dev
+                .screen()
+                .resource_import_dmabuf(
+                    handle,
+                    modifier,
+                    target,
+                    format.to_pipe_format().unwrap(),
+                    width,
+                    height,
+                    depth,
+                    array_size,
+                )
+                .ok_or(CL_OUT_OF_RESOURCES)?;
+
+            res.insert(Arc::clone(dev), Arc::new(resource));
         }
 
         Ok(res)

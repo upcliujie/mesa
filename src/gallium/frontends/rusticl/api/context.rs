@@ -10,6 +10,8 @@ use mesa_rust_util::properties::Properties;
 use rusticl_opencl_gen::*;
 
 use std::collections::HashSet;
+use std::ffi::c_void;
+use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
@@ -42,7 +44,7 @@ pub fn create_context(
     num_devices: cl_uint,
     devices: *const cl_device_id,
     pfn_notify: Option<CreateContextCB>,
-    user_data: *mut ::std::os::raw::c_void,
+    user_data: *mut c_void,
 ) -> CLResult<cl_context> {
     check_cb(&pfn_notify, user_data)?;
 
@@ -56,6 +58,10 @@ pub fn create_context(
         return Err(CL_INVALID_VALUE);
     }
 
+    let mut egl_display: EGLDisplay = ptr::null_mut();
+    let mut glx_display: *mut _XDisplay = ptr::null_mut();
+    let mut gl_context: *mut c_void = ptr::null_mut();
+
     // CL_INVALID_PROPERTY [...] if the same property name is specified more than once.
     let props = Properties::from_ptr(properties).ok_or(CL_INVALID_PROPERTY)?;
     for p in &props.props {
@@ -67,8 +73,40 @@ pub fn create_context(
             CL_CONTEXT_INTEROP_USER_SYNC => {
                 check_cl_bool(p.1).ok_or(CL_INVALID_PROPERTY)?;
             }
+            CL_EGL_DISPLAY_KHR => {
+                egl_display = p.1 as *mut _;
+            }
+            CL_GL_CONTEXT_KHR => {
+                gl_context = p.1 as *mut _;
+            }
+            CL_GLX_DISPLAY_KHR => {
+                glx_display = p.1 as *mut _;
+            }
             // CL_INVALID_PROPERTY if context property name in properties is not a supported property name
             _ => return Err(CL_INVALID_PROPERTY),
+        }
+    }
+
+    let mut info = mesa_glinterop_device_info {
+        version: 1,
+        ..Default::default()
+    };
+
+    let mut gl_ctx = GLCtx::None;
+    if !gl_context.is_null() {
+        let err = if !egl_display.is_null() {
+            gl_ctx = GLCtx::EGL(egl_display, gl_context.cast());
+            unsafe { MesaGLInteropEGLQueryDeviceInfo(egl_display, gl_context.cast(), &mut info) }
+        } else if !glx_display.is_null() {
+            gl_ctx = GLCtx::GLX(glx_display, gl_context.cast());
+            unsafe { MesaGLInteropGLXQueryDeviceInfo(glx_display, gl_context.cast(), &mut info) }
+        } else {
+            Err(CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR)?
+        };
+
+        // we don't really care about the values, we just care it succeeds
+        if err != MESA_GLINTEROP_SUCCESS as i32 {
+            Err(CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR)?
         }
     }
 
@@ -77,14 +115,14 @@ pub fn create_context(
         HashSet::from_iter(unsafe { slice::from_raw_parts(devices, num_devices as usize) }.iter());
     let devs: Result<_, _> = set.into_iter().map(cl_device_id::get_arc).collect();
 
-    Ok(cl_context::from_arc(Context::new(devs?, props)))
+    Ok(cl_context::from_arc(Context::new(devs?, props, gl_ctx)))
 }
 
 pub fn create_context_from_type(
     properties: *const cl_context_properties,
     device_type: cl_device_type,
     pfn_notify: Option<CreateContextCB>,
-    user_data: *mut ::std::os::raw::c_void,
+    user_data: *mut c_void,
 ) -> CLResult<cl_context> {
     // CL_INVALID_DEVICE_TYPE if device_type is not a valid value.
     check_cl_device_type(device_type)?;
@@ -113,7 +151,7 @@ pub fn create_context_from_type(
 pub fn set_context_destructor_callback(
     context: cl_context,
     pfn_notify: ::std::option::Option<DeleteContextCB>,
-    user_data: *mut ::std::os::raw::c_void,
+    user_data: *mut c_void,
 ) -> CLResult<()> {
     let c = context.get_ref()?;
 

@@ -1,4 +1,6 @@
 #include <CL/cl_icd.h>
+#include <GL/gl.h>
+#include "GL/mesa_glinterop.h"
 
 #define DECL_CL_STRUCT(name) struct name { const cl_icd_dispatch *dispatch; }
 DECL_CL_STRUCT(_cl_command_queue);

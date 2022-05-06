@@ -112,13 +112,15 @@ rusticl_opencl_bindings_rs = rust.bindgen(
   args : [
     rusticl_bindgen_args,
     '--disable-header-comment',
-    '--ignore-functions',
     # needed because bindgen adds *mut void fields...
     '--raw-line', 'unsafe impl std::marker::Sync for _cl_icd_dispatch {}',
     '--whitelist-type', 'cl_.*',
     '--whitelist-var', 'CL_.*',
+    '--whitelist-var', 'GL_.*',
+    '--whitelist-var', 'MESA_GLINTEROP_.*',
+    '--whitelist-function', 'MesaGLInterop.*',
     # some info types need to be strongly typed so we can implement various get_infos
-    '--new-type-alias-deref', 'cl_(mem|image|pipe)_info',
+    '--new-type-alias-deref', 'cl_(mem|image|pipe|gl_texture)_info',
     '--new-type-alias-deref', 'cl_kernel_(arg|work_group)_info',
     '--new-type-alias-deref', 'cl_(event|profiling)_info',
   ],
@@ -177,6 +179,7 @@ rusticl_mesa_bindings_rs = rust.bindgen(
     rusticl_bindgen_args,
     '--whitelist-function', 'blob_.*',
     '--whitelist-function', 'clc_.*',
+    '--whitelist-function', 'close',
     '--whitelist-function', 'disk_cache_.*',
     '--whitelist-function', 'free',
     '--whitelist-function', 'glsl_.*',
@@ -208,6 +211,7 @@ rusticl_mesa_bindings_rs = rust.bindgen(
     '--bitfield-enum', 'gl_access_qualifier',
     '--allowlist-type', 'cl_sampler_.*_mode',
     '--constified-enum-module', 'cl_sampler_.*_mode',
+    '--whitelist-var', 'WINSYS_HANDLE_TYPE_.*',
   ],
 )
 
@@ -260,6 +264,8 @@ librusticl = static_library(
   gnu_symbol_visibility : 'hidden',
   rust_crate_type : 'staticlib',
   link_with : [
+    libegl,
+    libgl,
     libmesa_rust,
     libmesa_rust_gen,
     libmesa_rust_util,

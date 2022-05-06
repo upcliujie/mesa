@@ -85,14 +85,14 @@ pub static DISPATCH: cl_icd_dispatch = cl_icd_dispatch {
     clEnqueueWaitForEvents: None,
     clEnqueueBarrier: Some(cl_enqueue_barrier),
     clGetExtensionFunctionAddress: Some(cl_get_extension_function_address),
-    clCreateFromGLBuffer: None,
-    clCreateFromGLTexture2D: None,
-    clCreateFromGLTexture3D: None,
-    clCreateFromGLRenderbuffer: None,
-    clGetGLObjectInfo: None,
-    clGetGLTextureInfo: None,
-    clEnqueueAcquireGLObjects: None,
-    clEnqueueReleaseGLObjects: None,
+    clCreateFromGLBuffer: Some(cl_create_from_gl_buffer),
+    clCreateFromGLTexture2D: Some(cl_create_from_gl_texture_2d),
+    clCreateFromGLTexture3D: Some(cl_create_from_gl_texture_3d),
+    clCreateFromGLRenderbuffer: Some(cl_create_from_gl_renderbuffer),
+    clGetGLObjectInfo: Some(cl_get_gl_object_info),
+    clGetGLTextureInfo: Some(cl_get_gl_texture_info),
+    clEnqueueAcquireGLObjects: Some(cl_enqueue_acquire_gl_objects),
+    clEnqueueReleaseGLObjects: Some(cl_enqueue_release_gl_objects),
     clGetGLContextInfoKHR: None,
     clGetDeviceIDsFromD3D10KHR: ptr::null_mut(),
     clCreateFromD3D10BufferKHR: ptr::null_mut(),
@@ -127,7 +127,7 @@ pub static DISPATCH: cl_icd_dispatch = cl_icd_dispatch {
     clEnqueueMarkerWithWaitList: Some(cl_enqueue_marker_with_wait_list),
     clEnqueueBarrierWithWaitList: Some(cl_enqueue_barrier_with_wait_list),
     clGetExtensionFunctionAddressForPlatform: Some(cl_get_extension_function_address_for_platform),
-    clCreateFromGLTexture: None,
+    clCreateFromGLTexture: Some(cl_create_from_gl_texture),
     clGetDeviceIDsFromD3D11KHR: ptr::null_mut(),
     clCreateFromD3D11BufferKHR: ptr::null_mut(),
     clCreateFromD3D11Texture2DKHR: ptr::null_mut(),
@@ -1263,11 +1263,128 @@ extern "C" fn cl_get_extension_function_address(
         return ptr::null_mut();
     }
     match unsafe { CStr::from_ptr(function_name) }.to_str().unwrap() {
+        "clCreateFromGLBuffer" => cl_create_from_gl_buffer as *mut ::std::ffi::c_void,
+        "clCreateFromGLRenderbuffer" => cl_create_from_gl_renderbuffer as *mut ::std::ffi::c_void,
+        "clCreateFromGLTexture" => cl_create_from_gl_texture as *mut ::std::ffi::c_void,
+        "clCreateFromGLTexture2D" => cl_create_from_gl_texture_2d as *mut ::std::ffi::c_void,
+        "clCreateFromGLTexture3D" => cl_create_from_gl_texture_3d as *mut ::std::ffi::c_void,
         "clCreateProgramWithILKHR" => cl_create_program_with_il as *mut ::std::ffi::c_void,
+        "clEnqueueAcquireGLObjects" => cl_enqueue_acquire_gl_objects as *mut ::std::ffi::c_void,
+        "clEnqueueReleaseGLObjects" => cl_enqueue_release_gl_objects as *mut ::std::ffi::c_void,
+        "clGetGLObjectInfo" => cl_get_gl_object_info as *mut ::std::ffi::c_void,
+        "clGetGLTextureInfo" => cl_get_gl_texture_info as *mut ::std::ffi::c_void,
         "clGetPlatformInfo" => cl_get_platform_info as *mut ::std::ffi::c_void,
         "clIcdGetPlatformIDsKHR" => cl_icd_get_platform_ids_khr as *mut ::std::ffi::c_void,
         _ => ptr::null_mut(),
     }
+}
+
+extern "C" fn cl_create_from_gl_buffer(
+    context: cl_context,
+    flags: cl_mem_flags,
+    bufobj: cl_GLuint,
+    errcode_ret: *mut ::std::os::raw::c_int,
+) -> cl_mem {
+    match_obj!(create_from_gl_buffer(context, flags, bufobj), errcode_ret)
+}
+
+extern "C" fn cl_create_from_gl_texture_2d(
+    context: cl_context,
+    flags: cl_mem_flags,
+    target: cl_GLenum,
+    miplevel: cl_GLint,
+    texture: cl_GLuint,
+    errcode_ret: *mut cl_int,
+) -> cl_mem {
+    match_obj!(
+        create_from_gl_texture(context, flags, target, miplevel, texture),
+        errcode_ret
+    )
+}
+
+extern "C" fn cl_create_from_gl_texture_3d(
+    context: cl_context,
+    flags: cl_mem_flags,
+    target: cl_GLenum,
+    miplevel: cl_GLint,
+    texture: cl_GLuint,
+    errcode_ret: *mut cl_int,
+) -> cl_mem {
+    match_obj!(
+        create_from_gl_texture(context, flags, target, miplevel, texture),
+        errcode_ret
+    )
+}
+
+extern "C" fn cl_create_from_gl_renderbuffer(
+    context: cl_context,
+    flags: cl_mem_flags,
+    renderbuffer: cl_GLuint,
+    errcode_ret: *mut cl_int,
+) -> cl_mem {
+    match_obj!(
+        create_from_gl_renderbuffer(context, flags, renderbuffer),
+        errcode_ret
+    )
+}
+
+extern "C" fn cl_get_gl_object_info(
+    memobj: cl_mem,
+    gl_object_type: *mut cl_gl_object_type,
+    gl_object_name: *mut cl_GLuint,
+) -> cl_int {
+    match_err!(get_gl_object_info(memobj, gl_object_type, gl_object_name))
+}
+
+extern "C" fn cl_get_gl_texture_info(
+    memobj: cl_mem,
+    param_name: cl_gl_texture_info,
+    param_value_size: usize,
+    param_value: *mut ::std::os::raw::c_void,
+    param_value_size_ret: *mut usize,
+) -> cl_int {
+    match_err!(memobj.get_info(
+        param_name,
+        param_value_size,
+        param_value,
+        param_value_size_ret,
+    ))
+}
+
+extern "C" fn cl_enqueue_acquire_gl_objects(
+    command_queue: cl_command_queue,
+    num_objects: cl_uint,
+    mem_objects: *const cl_mem,
+    num_events_in_wait_list: cl_uint,
+    event_wait_list: *const cl_event,
+    event: *mut cl_event,
+) -> cl_int {
+    match_err!(enqueue_acquire_gl_objects(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event
+    ))
+}
+
+extern "C" fn cl_enqueue_release_gl_objects(
+    command_queue: cl_command_queue,
+    num_objects: cl_uint,
+    mem_objects: *const cl_mem,
+    num_events_in_wait_list: cl_uint,
+    event_wait_list: *const cl_event,
+    event: *mut cl_event,
+) -> cl_int {
+    match_err!(enqueue_release_gl_objects(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event
+    ))
 }
 
 extern "C" fn cl_set_event_callback(
@@ -1599,6 +1716,20 @@ extern "C" fn cl_get_extension_function_address_for_platform(
     function_name: *const ::std::os::raw::c_char,
 ) -> *mut ::std::os::raw::c_void {
     cl_get_extension_function_address(function_name)
+}
+
+extern "C" fn cl_create_from_gl_texture(
+    context: cl_context,
+    flags: cl_mem_flags,
+    target: cl_GLenum,
+    miplevel: cl_GLint,
+    texture: cl_GLuint,
+    errcode_ret: *mut cl_int,
+) -> cl_mem {
+    match_obj!(
+        create_from_gl_texture(context, flags, target, miplevel, texture),
+        errcode_ret
+    )
 }
 
 extern "C" fn cl_create_command_queue_with_properties(

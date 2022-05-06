@@ -52,6 +52,9 @@ pub struct Mem {
     pub image_elem_size: u8,
     pub props: Vec<cl_mem_properties>,
     pub cbs: Mutex<Vec<Box<dyn Fn(cl_mem) -> ()>>>,
+    pub gl_object_target: cl_GLenum,
+    pub gl_object_type: cl_gl_object_type,
+    pub gl_object_name: cl_GLuint,
     res: Option<HashMap<Arc<Device>, Arc<PipeResource>>>,
     maps: Mutex<Mappings>,
 }
@@ -241,6 +244,9 @@ impl Mem {
             image_desc: cl_image_desc::default(),
             image_elem_size: 0,
             props: props,
+            gl_object_target: 0,
+            gl_object_type: 0,
+            gl_object_name: 0,
             cbs: Mutex::new(Vec::new()),
             res: Some(buffer),
             maps: Mappings::new(),
@@ -272,6 +278,9 @@ impl Mem {
             image_desc: cl_image_desc::default(),
             image_elem_size: 0,
             props: Vec::new(),
+            gl_object_target: 0,
+            gl_object_type: 0,
+            gl_object_name: 0,
             cbs: Mutex::new(Vec::new()),
             res: None,
             maps: Mappings::new(),
@@ -337,8 +346,93 @@ impl Mem {
             image_desc: api_image_desc,
             image_elem_size: image_elem_size,
             props: props,
+            gl_object_target: 0,
+            gl_object_type: 0,
+            gl_object_name: 0,
             cbs: Mutex::new(Vec::new()),
             res: texture,
+            maps: Mappings::new(),
+        }))
+    }
+
+    pub fn from_gl(
+        context: Arc<Context>,
+        flags: cl_mem_flags,
+        export_in: &mesa_glinterop_export_in,
+        export_out: &mesa_glinterop_export_out,
+    ) -> CLResult<Arc<Mem>> {
+        let (mem_type, gl_object_type) = match export_in.target {
+            GL_RENDERBUFFER => (CL_MEM_OBJECT_IMAGE2D, CL_GL_OBJECT_RENDERBUFFER),
+            GL_TEXTURE_1D => (CL_MEM_OBJECT_IMAGE1D, CL_GL_OBJECT_TEXTURE1D),
+            GL_TEXTURE_1D_ARRAY => (CL_MEM_OBJECT_IMAGE1D_ARRAY, CL_GL_OBJECT_TEXTURE1D_ARRAY),
+            GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+            | GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+            | GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+            | GL_TEXTURE_CUBE_MAP_POSITIVE_X
+            | GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+            | GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+            | GL_TEXTURE_2D
+            | GL_TEXTURE_RECTANGLE => (CL_MEM_OBJECT_IMAGE2D, CL_GL_OBJECT_TEXTURE2D),
+            GL_TEXTURE_2D_ARRAY => (CL_MEM_OBJECT_IMAGE2D_ARRAY, CL_GL_OBJECT_TEXTURE2D_ARRAY),
+            GL_TEXTURE_3D => (CL_MEM_OBJECT_IMAGE3D, CL_GL_OBJECT_TEXTURE3D),
+            _ => Err(CL_OUT_OF_HOST_MEMORY)?,
+        };
+
+        let image_format =
+            format_from_gl(export_out.internal_format).ok_or(CL_OUT_OF_HOST_MEMORY)?;
+        let pixel_size = image_format.pixel_size().unwrap();
+
+        let mut height = export_out.height as u16;
+        let mut depth = export_out.depth as u16;
+        let mut array_size = 1;
+
+        // some fixups
+        match export_in.target {
+            GL_TEXTURE_1D_ARRAY => {
+                array_size = height;
+                height = 1;
+                depth = 1;
+            }
+            GL_TEXTURE_2D_ARRAY => {
+                array_size = depth;
+                depth = 1;
+            }
+            _ => {}
+        }
+
+        let texture = context.import_gl_buffer(
+            export_out.dmabuf_fd as u32,
+            export_out.modifier,
+            mem_type,
+            image_format,
+            export_out.width,
+            height,
+            depth,
+            array_size,
+        )?;
+
+        Ok(Arc::new(Self {
+            base: CLObjectBase::new(),
+            context: context,
+            parent: None,
+            mem_type: mem_type,
+            flags: flags,
+            size: pixel_size as usize
+                * export_out.width as usize
+                * height as usize
+                * depth as usize
+                * array_size as usize,
+            offset: 0,
+            host_ptr: ptr::null_mut(),
+            image_format: image_format,
+            image_desc: cl_image_desc::default(),
+            image_elem_size: pixel_size,
+            props: Vec::new(),
+            gl_object_target: export_in.target,
+            gl_object_type: gl_object_type,
+            gl_object_name: export_in.obj,
+            cbs: Mutex::new(Vec::new()),
+            res: Some(texture),
             maps: Mappings::new(),
         }))
     }

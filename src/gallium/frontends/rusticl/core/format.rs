@@ -5,6 +5,7 @@ use rusticl_opencl_gen::*;
 
 pub struct RusticlImageFormat {
     pub cl_image_format: cl_image_format,
+    pub gl_format: u32,
     pub req_for_full_read_or_write: bool,
     pub req_for_embeded_read_or_write: bool,
     pub req_for_full_read_and_write: bool,
@@ -14,6 +15,7 @@ pub struct RusticlImageFormat {
 
 pub const fn rusticle_image_format(
     cl_image_format: cl_image_format,
+    gl_format: u32,
     req_for_full_read_or_write: bool,
     req_for_embeded_read_or_write: bool,
     req_for_full_read_and_write: bool,
@@ -22,6 +24,7 @@ pub const fn rusticle_image_format(
 ) -> RusticlImageFormat {
     RusticlImageFormat {
         cl_image_format: cl_image_format,
+        gl_format: gl_format,
         req_for_full_read_or_write: req_for_full_read_or_write,
         req_for_embeded_read_or_write: req_for_embeded_read_or_write,
         req_for_full_read_and_write: req_for_full_read_and_write,
@@ -33,6 +36,7 @@ pub const fn rusticle_image_format(
 pub const FORMATS: &'static [RusticlImageFormat] = &[
     rusticle_image_format(
         cl_image_format(CL_R, CL_HALF_FLOAT),
+        GL_R16F,
         false,
         false,
         true,
@@ -41,6 +45,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_FLOAT),
+        GL_R32F,
         false,
         false,
         true,
@@ -49,6 +54,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_SIGNED_INT8),
+        GL_R8I,
         false,
         false,
         true,
@@ -57,6 +63,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_SIGNED_INT16),
+        GL_R16I,
         false,
         false,
         true,
@@ -65,6 +72,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_SIGNED_INT32),
+        GL_R32I,
         false,
         false,
         true,
@@ -73,6 +81,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_UNORM_INT8),
+        GL_R8,
         false,
         false,
         true,
@@ -81,6 +90,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_UNORM_INT16),
+        GL_R16,
         false,
         false,
         false,
@@ -89,6 +99,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_UNSIGNED_INT8),
+        GL_R8UI,
         false,
         false,
         true,
@@ -97,6 +108,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_UNSIGNED_INT16),
+        GL_R16UI,
         false,
         false,
         true,
@@ -105,6 +117,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_R, CL_UNSIGNED_INT32),
+        GL_R32UI,
         false,
         false,
         true,
@@ -113,6 +126,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_HALF_FLOAT),
+        GL_RGBA16F,
         true,
         true,
         true,
@@ -121,6 +135,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_FLOAT),
+        GL_RGBA32F,
         true,
         true,
         true,
@@ -129,6 +144,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_SIGNED_INT8),
+        GL_RGBA8I,
         true,
         true,
         true,
@@ -137,6 +153,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_SIGNED_INT16),
+        GL_RGBA16I,
         true,
         true,
         true,
@@ -145,6 +162,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_SIGNED_INT32),
+        GL_RGBA32I,
         true,
         true,
         true,
@@ -153,6 +171,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_UNORM_INT8),
+        GL_RGBA,
         true,
         true,
         true,
@@ -161,6 +180,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_UNORM_INT16),
+        GL_RGBA16,
         true,
         true,
         false,
@@ -169,6 +189,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_UNSIGNED_INT8),
+        GL_RGBA8UI,
         true,
         true,
         true,
@@ -177,6 +198,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_UNSIGNED_INT16),
+        GL_RGBA16UI,
         true,
         true,
         true,
@@ -185,6 +207,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_RGBA, CL_UNSIGNED_INT32),
+        GL_RGBA32UI,
         true,
         true,
         true,
@@ -193,6 +216,7 @@ pub const FORMATS: &'static [RusticlImageFormat] = &[
     ),
     rusticle_image_format(
         cl_image_format(CL_BGRA, CL_UNORM_INT8),
+        GL_RGBA32UI,
         true,
         false,
         false,
@@ -273,4 +297,21 @@ impl CLFormatInfo for cl_image_format {
             .find(|f| f.cl_image_format == *self)
             .map(|f| f.pipe)
     }
+}
+
+pub fn format_from_gl(internal_format: u32) -> Option<cl_image_format> {
+    // uhh... 🔥🔥🔥
+    let internal_format = match internal_format {
+        // either GL_RGBA or GL_BGRA
+        GL_RGBA8 => GL_RGBA,
+        GL_UNSIGNED_INT_8_8_8_8_REV => GL_RGBA,
+        _ => internal_format,
+    };
+
+    for f in FORMATS {
+        if f.gl_format == internal_format {
+            return Some(f.cl_image_format);
+        }
+    }
+    None
 }

@@ -418,6 +418,7 @@ impl Device {
 
         // add extensions all drivers support
         add_ext(1, 0, 0, "cl_khr_byte_addressable_store", "");
+        add_ext(1, 0, 0, "cl_khr_gl_sharing", "");
         add_ext(1, 0, 0, "cl_khr_global_int32_base_atomics", "");
         add_ext(1, 0, 0, "cl_khr_global_int32_extended_atomics", "");
         // TODO spirv
