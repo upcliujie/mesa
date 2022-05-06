@@ -319,8 +319,6 @@ static int r300_get_shader_param(struct pipe_screen *pscreen,
         case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:
         case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
             return 0;
-        case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-            return 32;
         default:
             break;
         }
@@ -412,8 +410,6 @@ static int r300_get_shader_param(struct pipe_screen *pscreen,
         case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:
         case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
             return 0;
-        case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-            return 32;
         default:
             break;
         }
