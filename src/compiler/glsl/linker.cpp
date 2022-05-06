@@ -530,16 +530,6 @@ link_invalidate_variable_locations(exec_list *ir)
          var->data.location = -1;
          var->data.location_frac = 0;
       }
-
-      /* ir_variable::is_unmatched_generic_inout is used by the linker while
-       * connecting outputs from one stage to inputs of the next stage.
-       */
-      if (var->data.explicit_location &&
-          var->data.location < VARYING_SLOT_VAR0) {
-         var->data.is_unmatched_generic_inout = 0;
-      } else {
-         var->data.is_unmatched_generic_inout = 1;
-      }
    }
 }
 
@@ -2796,7 +2786,6 @@ assign_attribute_or_color_locations(void *mem_ctx,
          continue;
 
       if (var->data.explicit_location) {
-         var->data.is_unmatched_generic_inout = 0;
          if ((var->data.location >= (int)(max_index + generic_base))
              || (var->data.location < 0)) {
             linker_error(prog,
@@ -2813,7 +2802,6 @@ assign_attribute_or_color_locations(void *mem_ctx,
          if (prog->AttributeBindings->get(binding, var->name)) {
             assert(binding >= VERT_ATTRIB_GENERIC0);
             var->data.location = binding;
-            var->data.is_unmatched_generic_inout = 0;
          }
       } else if (target_index == MESA_SHADER_FRAGMENT) {
          unsigned binding;
@@ -2826,7 +2814,6 @@ assign_attribute_or_color_locations(void *mem_ctx,
             if (prog->FragDataBindings->get(binding, name)) {
                assert(binding >= FRAG_RESULT_DATA0);
                var->data.location = binding;
-               var->data.is_unmatched_generic_inout = 0;
 
                if (prog->FragDataIndexBindings->get(index, name)) {
                   var->data.index = index;
@@ -3134,7 +3121,6 @@ assign_attribute_or_color_locations(void *mem_ctx,
       }
 
       to_assign[i].var->data.location = generic_base + location;
-      to_assign[i].var->data.is_unmatched_generic_inout = 0;
       used_locations |= (use_mask << location);
 
       if (to_assign[i].var->type->without_array()->is_dual_slot())
@@ -3159,61 +3145,6 @@ assign_attribute_or_color_locations(void *mem_ctx,
    }
 
    return true;
-}
-
-/**
- * Match explicit locations of outputs to inputs and deactivate the
- * unmatch flag if found so we don't optimise them away.
- */
-static void
-match_explicit_outputs_to_inputs(gl_linked_shader *producer,
-                                 gl_linked_shader *consumer)
-{
-   glsl_symbol_table parameters;
-   ir_variable *explicit_locations[MAX_VARYINGS_INCL_PATCH][4] =
-      { {NULL, NULL} };
-
-   /* Find all shader outputs in the "producer" stage.
-    */
-   foreach_in_list(ir_instruction, node, producer->ir) {
-      ir_variable *const var = node->as_variable();
-
-      if ((var == NULL) || (var->data.mode != ir_var_shader_out))
-         continue;
-
-      if (var->data.explicit_location &&
-          var->data.location >= VARYING_SLOT_VAR0) {
-         const unsigned idx = var->data.location - VARYING_SLOT_VAR0;
-         if (explicit_locations[idx][var->data.location_frac] == NULL)
-            explicit_locations[idx][var->data.location_frac] = var;
-
-         /* Always match TCS outputs. They are shared by all invocations
-          * within a patch and can be used as shared memory.
-          */
-         if (producer->Stage == MESA_SHADER_TESS_CTRL)
-            var->data.is_unmatched_generic_inout = 0;
-      }
-   }
-
-   /* Match inputs to outputs */
-   foreach_in_list(ir_instruction, node, consumer->ir) {
-      ir_variable *const input = node->as_variable();
-
-      if ((input == NULL) || (input->data.mode != ir_var_shader_in))
-         continue;
-
-      ir_variable *output = NULL;
-      if (input->data.explicit_location
-          && input->data.location >= VARYING_SLOT_VAR0) {
-         output = explicit_locations[input->data.location - VARYING_SLOT_VAR0]
-            [input->data.location_frac];
-
-         if (output != NULL){
-            input->data.is_unmatched_generic_inout = 0;
-            output->data.is_unmatched_generic_inout = 0;
-         }
-      }
-   }
 }
 
 /**
@@ -3452,90 +3383,6 @@ check_explicit_uniform_locations(const struct gl_extensions *exts,
    prog->NumExplicitUniformLocations = entries_total;
 }
 
-/* Function checks if a variable var is a packed varying and
- * if given name is part of packed varying's list.
- *
- * If a variable is a packed varying, it has a name like
- * 'packed:a,b,c' where a, b and c are separate variables.
- */
-static bool
-included_in_packed_varying(ir_variable *var, const char *name)
-{
-   if (strncmp(var->name, "packed:", 7) != 0)
-      return false;
-
-   char *list = strdup(var->name + 7);
-   assert(list);
-
-   bool found = false;
-   char *saveptr;
-   char *token = strtok_r(list, ",", &saveptr);
-   while (token) {
-      if (strcmp(token, name) == 0) {
-         found = true;
-         break;
-      }
-      token = strtok_r(NULL, ",", &saveptr);
-   }
-   free(list);
-   return found;
-}
-
-/**
- * Function builds a stage reference bitmask from variable name.
- */
-static uint8_t
-build_stageref(struct gl_shader_program *shProg, const char *name,
-               unsigned mode)
-{
-   uint8_t stages = 0;
-
-   /* Note, that we assume MAX 8 stages, if there will be more stages, type
-    * used for reference mask in gl_program_resource will need to be changed.
-    */
-   assert(MESA_SHADER_STAGES < 8);
-
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
-      struct gl_linked_shader *sh = shProg->_LinkedShaders[i];
-      if (!sh)
-         continue;
-
-      /* Shader symbol table may contain variables that have
-       * been optimized away. Search IR for the variable instead.
-       */
-      foreach_in_list(ir_instruction, node, sh->ir) {
-         ir_variable *var = node->as_variable();
-         if (var) {
-            unsigned baselen = strlen(var->name);
-
-            if (included_in_packed_varying(var, name)) {
-                  stages |= (1 << i);
-                  break;
-            }
-
-            /* Type needs to match if specified, otherwise we might
-             * pick a variable with same name but different interface.
-             */
-            if (var->data.mode != mode)
-               continue;
-
-            if (strncmp(var->name, name, baselen) == 0) {
-               /* Check for exact name matches but also check for arrays and
-                * structs.
-                */
-               if (name[baselen] == '\0' ||
-                   name[baselen] == '[' ||
-                   name[baselen] == '.') {
-                  stages |= (1 << i);
-                  break;
-               }
-            }
-         }
-      }
-   }
-   return stages;
-}
-
 /**
  * Create gl_shader_variable from ir_variable class.
  */
@@ -3750,109 +3597,6 @@ add_shader_variable(struct gl_shader_program *shProg,
                                             programInterface, sha_v, stage_mask);
    }
    }
-}
-
-static bool
-inout_has_same_location(const ir_variable *var, unsigned stage)
-{
-   if (!var->data.patch &&
-       ((var->data.mode == ir_var_shader_out &&
-         stage == MESA_SHADER_TESS_CTRL) ||
-        (var->data.mode == ir_var_shader_in &&
-         (stage == MESA_SHADER_TESS_CTRL || stage == MESA_SHADER_TESS_EVAL ||
-          stage == MESA_SHADER_GEOMETRY))))
-      return true;
-   else
-      return false;
-}
-
-static bool
-add_packed_varyings(struct gl_shader_program *shProg,
-                    struct set *resource_set,
-                    int stage, GLenum type)
-{
-   struct gl_linked_shader *sh = shProg->_LinkedShaders[stage];
-   GLenum iface;
-
-   if (!sh || !sh->packed_varyings)
-      return true;
-
-   foreach_in_list(ir_instruction, node, sh->packed_varyings) {
-      ir_variable *var = node->as_variable();
-      if (var) {
-         switch (var->data.mode) {
-         case ir_var_shader_in:
-            iface = GL_PROGRAM_INPUT;
-            break;
-         case ir_var_shader_out:
-            iface = GL_PROGRAM_OUTPUT;
-            break;
-         default:
-            unreachable("unexpected type");
-         }
-
-         if (type == iface) {
-            const int stage_mask =
-               build_stageref(shProg, var->name, var->data.mode);
-            if (!add_shader_variable(shProg, resource_set,
-                                     stage_mask,
-                                     iface, var, var->name, var->type, false,
-                                     var->data.location - VARYING_SLOT_VAR0,
-                                     inout_has_same_location(var, stage)))
-               return false;
-         }
-      }
-   }
-   return true;
-}
-
-/**
- * Builds up a list of program resources that point to existing
- * resource data.
- */
-void
-build_program_resource_list(const struct gl_constants *consts,
-                            struct gl_shader_program *shProg)
-{
-   /* Rebuild resource list. */
-   if (shProg->data->ProgramResourceList) {
-      ralloc_free(shProg->data->ProgramResourceList);
-      shProg->data->ProgramResourceList = NULL;
-      shProg->data->NumProgramResourceList = 0;
-   }
-
-   int input_stage = MESA_SHADER_STAGES, output_stage = 0;
-
-   /* Determine first input and final output stage. These are used to
-    * detect which variables should be enumerated in the resource list
-    * for GL_PROGRAM_INPUT and GL_PROGRAM_OUTPUT.
-    */
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
-      if (!shProg->_LinkedShaders[i])
-         continue;
-      if (input_stage == MESA_SHADER_STAGES)
-         input_stage = i;
-      output_stage = i;
-   }
-
-   /* Empty shader, no resources. */
-   if (input_stage == MESA_SHADER_STAGES && output_stage == 0)
-      return;
-
-   struct set *resource_set = _mesa_pointer_set_create(NULL);
-
-   /* Program interface needs to expose varyings in case of SSO. */
-   if (shProg->SeparateShader) {
-      if (!add_packed_varyings(shProg, resource_set,
-                               input_stage, GL_PROGRAM_INPUT))
-         return;
-
-      if (!add_packed_varyings(shProg, resource_set,
-                               output_stage, GL_PROGRAM_OUTPUT))
-         return;
-   }
-
-   _mesa_set_destroy(resource_set, NULL);
 }
 
 /**
@@ -4071,16 +3815,6 @@ link_varyings_and_uniforms(unsigned first, unsigned last,
       }
    }
 
-   unsigned prev = first;
-   for (unsigned i = prev + 1; i <= MESA_SHADER_FRAGMENT; i++) {
-      if (prog->_LinkedShaders[i] == NULL)
-         continue;
-
-      match_explicit_outputs_to_inputs(prog->_LinkedShaders[prev],
-                                       prog->_LinkedShaders[i]);
-      prev = i;
-   }
-
    if (!assign_attribute_or_color_locations(mem_ctx, prog, consts,
                                             MESA_SHADER_VERTEX, true)) {
       return false;
@@ -4099,9 +3833,6 @@ link_varyings_and_uniforms(unsigned first, unsigned last,
       prog->last_vert_prog = prog->_LinkedShaders[i]->Program;
       break;
    }
-
-   if (!prog->data->LinkStatus)
-      return false;
 
    for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
       if (prog->_LinkedShaders[i] == NULL)
