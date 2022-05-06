@@ -134,12 +134,11 @@ static void si_set_es_return_value_for_gs(struct si_shader_context *ctx)
    ctx->return_value = ret;
 }
 
-void si_llvm_emit_es_epilogue(struct ac_shader_abi *abi)
+void si_llvm_es_build_end(struct si_shader_context *ctx)
 {
-   struct si_shader_context *ctx = si_shader_context_from_abi(abi);
    struct si_shader *es = ctx->shader;
    struct si_shader_info *info = &es->selector->info;
-   LLVMValueRef *addrs = abi->outputs;
+   LLVMValueRef *addrs = ctx->abi.outputs;
    LLVMValueRef lds_base = NULL;
    unsigned chan;
    int i;
@@ -200,12 +199,11 @@ static LLVMValueRef si_get_gs_wave_id(struct si_shader_context *ctx)
       return ac_get_arg(&ctx->ac, ctx->args.gs_wave_id);
 }
 
-static void emit_gs_epilogue(struct si_shader_context *ctx)
+void si_llvm_gs_build_end(struct si_shader_context *ctx)
 {
-   if (ctx->shader->key.ge.as_ngg) {
-      gfx10_ngg_gs_emit_epilogue(ctx);
-      return;
-   }
+   struct si_shader_info UNUSED *info = &ctx->shader->selector->info;
+
+   assert(info->num_outputs <= AC_LLVM_MAX_OUTPUTS);
 
    if (ctx->screen->info.chip_class >= GFX10)
       LLVMBuildFence(ctx->ac.builder, LLVMAtomicOrderingRelease, false, "");
@@ -214,16 +212,6 @@ static void emit_gs_epilogue(struct si_shader_context *ctx)
 
    if (ctx->screen->info.chip_class >= GFX9)
       ac_build_endif(&ctx->ac, ctx->merged_wrap_if_label);
-}
-
-void si_llvm_emit_gs_epilogue(struct ac_shader_abi *abi)
-{
-   struct si_shader_context *ctx = si_shader_context_from_abi(abi);
-   struct si_shader_info UNUSED *info = &ctx->shader->selector->info;
-
-   assert(info->num_outputs <= AC_LLVM_MAX_OUTPUTS);
-
-   emit_gs_epilogue(ctx);
 }
 
 /* Emit one vertex from the geometry shader */
