@@ -4,11 +4,13 @@ use crate::api::event::create_and_queue;
 use crate::api::icd::*;
 use crate::api::types::*;
 use crate::api::util::*;
+use crate::core::context::*;
 use crate::core::device::*;
 use crate::core::format::*;
 use crate::core::memory::*;
 use crate::*;
 
+use mesa_rust_gen::close;
 use mesa_rust_util::properties::Properties;
 use mesa_rust_util::ptr::*;
 use rusticl_opencl_gen::*;
@@ -2193,4 +2195,160 @@ impl CLInfo<cl_pipe_info> for cl_mem {
         // CL_INVALID_MEM_OBJECT if pipe is a not a valid pipe object.
         Err(CL_INVALID_MEM_OBJECT)
     }
+}
+
+// cl_khr_gl_sharing
+
+impl CLInfo<cl_gl_texture_info> for cl_mem {
+    fn query(&self, q: cl_gl_texture_info, _: &[u8]) -> CLResult<Vec<u8>> {
+        let mem = self.get_ref()?;
+        Ok(match *q {
+            CL_GL_MIPMAP_LEVEL => cl_prop::<cl_GLint>(0),
+            CL_GL_TEXTURE_TARGET => cl_prop::<cl_GLenum>(mem.gl_object_target),
+            _ => Err(CL_INVALID_VALUE)?,
+        })
+    }
+}
+
+pub fn create_from_gl_texture(
+    context: cl_context,
+    flags: cl_mem_flags,
+    target: cl_GLenum,
+    miplevel: cl_GLint,
+    texture: cl_GLuint,
+) -> CLResult<cl_mem> {
+    let c = context.get_arc()?;
+
+    // Implementations may return CL_INVALID_OPERATION for miplevel values > 0.
+    if miplevel > 0 {
+        Err(CL_INVALID_OPERATION)?
+    }
+
+    let mut export_out = mesa_glinterop_export_out {
+        version: 2,
+        ..Default::default()
+    };
+
+    let mut export_in = mesa_glinterop_export_in {
+        version: 1,
+        target: target,
+        obj: texture,
+        miplevel: miplevel as u32,
+        ..Default::default()
+    };
+
+    let err = unsafe {
+        match c.gl_ctx {
+            GLCtx::EGL(disp, ctx) => {
+                MesaGLInteropEGLExportObject(disp, ctx, &mut export_in, &mut export_out)
+            }
+            GLCtx::GLX(disp, ctx) => {
+                MesaGLInteropGLXExportObject(disp, ctx, &mut export_in, &mut export_out)
+            }
+            // CL_INVALID_CONTEXT if context [..] was not created from a GL context.
+            GLCtx::None => Err(CL_INVALID_CONTEXT)?,
+        }
+    };
+
+    if err != MESA_GLINTEROP_SUCCESS as i32 {
+        Err(CL_OUT_OF_RESOURCES)?
+    }
+
+    let res = cl_mem::from_arc(Mem::from_gl(c, flags, &export_in, &export_out)?);
+
+    unsafe {
+        close(export_out.dmabuf_fd);
+    }
+
+    Ok(res)
+
+    // TODO MesaGLInterop*ExportObject checks most of them, make sure it's correct
+    //• CL_INVALID_VALUE if values specified in flags are not valid or if value specified in texture_target is not one of the values specified in the description of texture_target.
+    //• CL_INVALID_MIP_LEVEL if miplevel is less than the value of levelbase (for OpenGL implementations) or zero (for OpenGL ES implementations); or greater than the value of q (for both OpenGL and OpenGL ES). levelbase and q are defined for the texture in section 3.8.10 (Texture Completeness) of the OpenGL 2.1 specification and section 3.7.10 of the OpenGL ES 2.0.
+    //• CL_INVALID_MIP_LEVEL if miplevel is greather than zero and the OpenGL implementation does not support creating from non-zero mipmap levels.
+    //• CL_INVALID_GL_OBJECT if texture is not a GL texture object whose type matches texture_target, if the specified miplevel of texture is not defined, or if the width or height of the specified miplevel is zero or if the GL texture object is incomplete.
+    //• CL_INVALID_IMAGE_FORMAT_DESCRIPTOR if the OpenGL texture internal format does not map to a supported OpenCL image format.
+    //• CL_INVALID_OPERATION if texture is a GL texture object created with a border width value greater than zero.
+}
+
+pub fn create_from_gl_buffer(
+    context: cl_context,
+    flags: cl_mem_flags,
+    bufobj: cl_GLuint,
+) -> CLResult<cl_mem> {
+    create_from_gl_texture(context, flags, GL_BUFFER, 0, bufobj)
+}
+
+pub fn create_from_gl_renderbuffer(
+    context: cl_context,
+    flags: cl_mem_flags,
+    renderbuffer: cl_GLuint,
+) -> CLResult<cl_mem> {
+    create_from_gl_texture(context, flags, GL_RENDERBUFFER, 0, renderbuffer)
+}
+
+pub fn get_gl_object_info(
+    memobj: cl_mem,
+    gl_object_type: *mut cl_gl_object_type,
+    gl_object_name: *mut cl_GLuint,
+) -> CLResult<()> {
+    let m = memobj.get_ref()?;
+
+    // CL_INVALID_GL_OBJECT if there is no GL object associated with memobj.
+    if m.gl_object_type == 0 {
+        Err(CL_INVALID_GL_OBJECT)?
+    }
+
+    gl_object_type.write_checked(m.gl_object_type);
+    gl_object_name.write_checked(m.gl_object_name);
+
+    Ok(())
+}
+
+pub fn enqueue_acquire_gl_objects(
+    command_queue: cl_command_queue,
+    num_objects: cl_uint,
+    mem_objects: *const cl_mem,
+    num_events_in_wait_list: cl_uint,
+    event_wait_list: *const cl_event,
+    event: *mut cl_event,
+) -> CLResult<()> {
+    let q = command_queue.get_arc()?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
+
+    create_and_queue(
+        q,
+        CL_COMMAND_ACQUIRE_GL_OBJECTS,
+        evs,
+        event,
+        false,
+        Box::new(|_, _| Ok(())),
+    )
+
+    //• CL_INVALID_CONTEXT if context associated with command_queue was not created from an OpenGL context
+    //• CL_INVALID_GL_OBJECT if memory objects in mem_objects have not been created from a GL object(s).
+}
+
+pub fn enqueue_release_gl_objects(
+    command_queue: cl_command_queue,
+    num_objects: cl_uint,
+    mem_objects: *const cl_mem,
+    num_events_in_wait_list: cl_uint,
+    event_wait_list: *const cl_event,
+    event: *mut cl_event,
+) -> CLResult<()> {
+    let q = command_queue.get_arc()?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
+
+    create_and_queue(
+        q,
+        CL_COMMAND_RELEASE_GL_OBJECTS,
+        evs,
+        event,
+        false,
+        Box::new(|_, _| Ok(())),
+    )
+
+    //• CL_INVALID_CONTEXT if context associated with command_queue was not created from an OpenGL context
+    //• CL_INVALID_GL_OBJECT if memory objects in mem_objects have not been created from a GL object(s).
 }

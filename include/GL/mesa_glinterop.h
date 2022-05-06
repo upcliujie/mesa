@@ -184,7 +184,7 @@ struct mesa_glinterop_export_in {
    /* Structure version 1 ends here. */
 };
 
-#define MESA_GLINTEROP_EXPORT_OUT_VERSION 1
+#define MESA_GLINTEROP_EXPORT_OUT_VERSION 2
 
 /**
  * Outputs of Mesa interop export functions.
@@ -237,6 +237,15 @@ struct mesa_glinterop_export_out {
    /* The number of bytes written to out_driver_data. */
    uint32_t out_driver_data_written;
    /* Structure version 1 ends here. */
+
+   /* Texture sizes. If the object is not a texture, default paramters will
+    * be returned.
+    */
+   uint32_t width;
+   uint32_t height;
+   uint32_t depth;
+   /* the modifier to use when reimporting the fd */
+   uint64_t modifier;
 };
 
 

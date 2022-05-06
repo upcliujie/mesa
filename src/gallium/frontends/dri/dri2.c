@@ -2087,6 +2087,12 @@ dri2_interop_export_object(__DRIcontext *_ctx,
       out->view_numlevels = 1;
       out->view_minlayer = 0;
       out->view_numlayers = 1;
+
+     if (out->version >= 2) {
+        out->width = rb->Width;
+        out->height = rb->Height;
+        out->depth = MAX2(1, rb->Depth);
+     }
    } else {
       /* Texture objects.
        *
@@ -2160,6 +2166,14 @@ dri2_interop_export_object(__DRIcontext *_ctx,
          out->view_numlevels = obj->Attrib.NumLevels;
          out->view_minlayer = obj->Attrib.MinLayer;
          out->view_numlayers = obj->Attrib.NumLayers;
+
+         if (out->version >= 2) {
+            struct gl_texture_image *image = obj->Image[0][in->miplevel];
+
+            out->width = image->Width;
+            out->height = image->Height;
+            out->depth = image->Depth;
+         }
       }
    }
 
@@ -2176,6 +2190,9 @@ dri2_interop_export_object(__DRIcontext *_ctx,
       usage = 0;
    }
 
+   // OpenCL requires explicit flushes
+   usage |= PIPE_HANDLE_USAGE_EXPLICIT_FLUSH;
+
    memset(&whandle, 0, sizeof(whandle));
    whandle.type = WINSYS_HANDLE_TYPE_FD;
 
@@ -2187,14 +2204,15 @@ dri2_interop_export_object(__DRIcontext *_ctx,
       return MESA_GLINTEROP_OUT_OF_HOST_MEMORY;
 
    out->dmabuf_fd = whandle.handle;
+   out->modifier = whandle.modifier;
    out->out_driver_data_written = 0;
 
    if (res->target == PIPE_BUFFER)
       out->buf_offset += whandle.offset;
 
    /* Instruct the caller that we support up-to version one of the interface */
-   in->version = 1;
-   out->version = 1;
+   in->version = MIN2(in->version, 1);
+   out->version = MIN2(out->version, 2);
 
    return MESA_GLINTEROP_SUCCESS;
 }
