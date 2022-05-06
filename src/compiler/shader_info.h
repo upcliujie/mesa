@@ -109,6 +109,7 @@ struct spirv_supported_capabilities {
    bool vk_memory_model_device_scope;
    bool workgroup_memory_explicit_layout;
    bool float16;
+   bool fragment_barycentric;
    bool amd_fragment_mask;
    bool amd_gcn_shader;
    bool amd_shader_ballot;

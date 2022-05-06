@@ -4840,6 +4840,10 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
          spv_check_supported(shader_viewport_mask_nv, cap);
          break;
 
+      case SpvCapabilityFragmentBarycentricKHR:
+         spv_check_supported(fragment_barycentric, cap);
+         break;
+
       default:
          vtn_fail("Unhandled capability: %s (%u)",
                   spirv_capability_to_string(cap), cap);
