@@ -348,7 +348,6 @@ struct gl_shader_compiler_options
    /*@}*/
 
    GLuint MaxIfDepth;               /**< Maximum nested IF blocks */
-   GLuint MaxUnrollIterations;
 
    /**
     * Optimize code for array of structures backends.
