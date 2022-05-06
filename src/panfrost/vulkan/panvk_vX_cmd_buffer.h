@@ -44,7 +44,8 @@ panvk_per_arch(cmd_get_polygon_list)(struct panvk_cmd_buffer *cmdbuf,
 #else
 void
 panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
-                                      unsigned width, unsigned height);
+                                      unsigned width, unsigned height,
+                                      unsigned nr_samples);
 #endif
 
 void

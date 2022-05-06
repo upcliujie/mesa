@@ -929,6 +929,7 @@ panvk_per_arch(emit_non_fs_rsd)(const struct panvk_device *dev,
 void
 panvk_per_arch(emit_tiler_context)(const struct panvk_device *dev,
                                    unsigned width, unsigned height,
+                                   unsigned nr_samples,
                                    const struct panfrost_ptr *descs)
 {
 #if PAN_ARCH == 5
@@ -943,7 +944,7 @@ panvk_per_arch(emit_tiler_context)(const struct panvk_device *dev,
       cfg.top = pdev->tiler_heap->ptr.gpu + pdev->tiler_heap->size;
    }
 
-   GENX(pan_emit_tiler_ctx)(pdev, width, height, 1,
+   GENX(pan_emit_tiler_ctx)(pdev, width, height, nr_samples,
                             descs->gpu + pan_size(TILER_CONTEXT),
                             descs->cpu);
 #endif

@@ -529,7 +529,8 @@ panvk_draw_prepare_fs_rsd(struct panvk_cmd_buffer *cmdbuf,
 #if PAN_ARCH >= 6
 void
 panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
-                                      unsigned width, unsigned height)
+                                      unsigned width, unsigned height,
+                                      unsigned nr_samples)
 {
    struct panvk_batch *batch = cmdbuf->state.batch;
 
@@ -548,7 +549,8 @@ panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
       .cpu = batch->tiler.templ,
    };
 
-   panvk_per_arch(emit_tiler_context)(cmdbuf->device, width, height, &desc);
+   panvk_per_arch(emit_tiler_context)(cmdbuf->device, width, height,
+                                      nr_samples, &desc);
    memcpy(batch->tiler.descs.cpu, batch->tiler.templ,
           pan_size(TILER_CONTEXT) + pan_size(TILER_HEAP));
    batch->tiler.ctx.bifrost = batch->tiler.descs.gpu;
@@ -568,7 +570,8 @@ panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf)
 #else
    panvk_per_arch(cmd_get_tiler_context)(cmdbuf,
                                          fbinfo->width,
-                                         fbinfo->height);
+                                         fbinfo->height,
+                                         fbinfo->nr_samples);
 #endif
 }
 

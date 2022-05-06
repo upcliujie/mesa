@@ -125,4 +125,5 @@ panvk_per_arch(emit_non_fs_rsd)(const struct panvk_device *dev,
 void
 panvk_per_arch(emit_tiler_context)(const struct panvk_device *dev,
                                    unsigned width, unsigned height,
+                                   unsigned nr_samples,
                                    const struct panfrost_ptr *descs);
