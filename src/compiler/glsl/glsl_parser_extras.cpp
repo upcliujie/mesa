@@ -38,7 +38,6 @@
 #include "glsl_parser_extras.h"
 #include "glsl_parser.h"
 #include "ir_optimization.h"
-#include "loop_analysis.h"
 #include "builtin_functions.h"
 
 /**
@@ -2438,37 +2437,6 @@ do_common_optimization(exec_list *ir, bool linked,
    if (array_split)
       do_constant_propagation(ir);
    progress |= array_split;
-
-   if (options->MaxUnrollIterations) {
-      loop_state *ls = analyze_loop_variables(ir);
-      if (ls->loop_found) {
-         bool loop_progress = unroll_loops(ir, ls, options);
-         while (loop_progress) {
-            loop_progress = false;
-            loop_progress |= do_constant_propagation(ir);
-            loop_progress |= do_if_simplification(ir);
-
-            /* Some drivers only call do_common_optimization() once rather
-             * than in a loop. So we must call do_lower_jumps() after
-             * unrolling a loop because for drivers that use LLVM validation
-             * will fail if a jump is not the last instruction in the block.
-             * For example the following will fail LLVM validation:
-             *
-             *   (loop (
-             *      ...
-             *   break
-             *   (assign  (x) (var_ref v124)  (expression int + (var_ref v124)
-             *      (constant int (1)) ) )
-             *   ))
-             */
-            loop_progress |= do_lower_jumps(ir, true, true,
-                                            options->EmitNoMainReturn,
-                                            options->EmitNoCont);
-         }
-         progress |= loop_progress;
-      }
-      delete ls;
-   }
 
    /* If the PIPE_CAP_GLSL_OPTIMIZE_CONSERVATIVELY cap is set, this pass will
     * only be called once rather than repeatedly until no further progress is
