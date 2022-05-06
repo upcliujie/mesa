@@ -555,8 +555,6 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
          return 0;
-      case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-         return 32;
       }
       /* If we get here, we failed to handle a cap above */
       debug_printf("Unexpected fragment shader query %u\n", param);
@@ -623,8 +621,6 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
          return 0;
-      case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-         return 32;
       }
       /* If we get here, we failed to handle a cap above */
       debug_printf("Unexpected vertex shader query %u\n", param);
@@ -748,8 +744,6 @@ vgpu10_get_shader_param(struct pipe_screen *screen,
    case PIPE_SHADER_CAP_TGSI_ANY_INOUT_DECL_RANGE:
    case PIPE_SHADER_CAP_INT64_ATOMICS:
       return 0;
-   case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-      return 32;
    default:
       debug_printf("Unexpected vgpu10 shader query %u\n", param);
       return 0;
@@ -775,9 +769,17 @@ vgpu10_get_shader_param(struct pipe_screen *screen,
    .lower_fmod = true,                                                        \
    .lower_fpow = true
 
-static const nir_shader_compiler_options svga_vgpu9_compiler_options = {
+static const nir_shader_compiler_options svga_vgpu9_fragment_compiler_options = {
    COMMON_OPTIONS,
    .lower_bitops = true,
+   .force_indirect_unrolling = nir_var_all,
+   .force_indirect_unrolling_sampler = true,
+};
+
+static const nir_shader_compiler_options svga_vgpu9_vertex_compiler_options = {
+   COMMON_OPTIONS,
+   .lower_bitops = true,
+   .force_indirect_unrolling = nir_var_function_temp,
    .force_indirect_unrolling_sampler = true,
 };
 
@@ -806,8 +808,12 @@ svga_get_compiler_options(struct pipe_screen *pscreen,
       return &svga_gl4_compiler_options;
    else if (sws->have_vgpu10)
       return &svga_vgpu10_compiler_options;
-   else
-      return &svga_vgpu9_compiler_options;
+   else {
+      if (shader == PIPE_SHADER_FRAGMENT)
+         return &svga_vgpu9_fragment_compiler_options;
+      else
+         return &svga_vgpu9_vertex_compiler_options;
+   }
 }
 
 static int
