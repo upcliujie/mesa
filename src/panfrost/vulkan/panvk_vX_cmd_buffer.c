@@ -317,6 +317,7 @@ panvk_cmd_prepare_draw_sysvals(struct panvk_cmd_buffer *cmdbuf,
                                struct panvk_draw_info *draw)
 {
    struct panvk_sysvals *sysvals = &bind_point_state->desc_state.sysvals;
+   const struct panvk_pipeline *pipeline = bind_point_state->pipeline;
 
    unsigned base_vertex = draw->index_size ? draw->vertex_offset : 0;
    if (sysvals->first_vertex != draw->offset_start ||
@@ -339,6 +340,11 @@ panvk_cmd_prepare_draw_sysvals(struct panvk_cmd_buffer *cmdbuf,
                                          &sysvals->viewport_scale);
       panvk_sysval_upload_viewport_offset(&cmdbuf->state.viewport,
                                           &sysvals->viewport_offset);
+      bind_point_state->desc_state.sysvals_ptr = 0;
+   }
+
+   if ((pipeline->ms.rast_samples > 1) != sysvals->multisampled.u32[0]) {
+      sysvals->multisampled.u32[0] = pipeline->ms.rast_samples > 1;
       bind_point_state->desc_state.sysvals_ptr = 0;
    }
 }
