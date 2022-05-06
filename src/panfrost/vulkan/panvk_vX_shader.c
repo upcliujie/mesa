@@ -65,6 +65,7 @@ panvk_init_sysvals(struct panfrost_sysvals *sysvals,
       INIT_SYSVAL(viewport_offset, VIEWPORT_OFFSET);
       INIT_SYSVAL(vertex_instance_offsets, VERTEX_INSTANCE_OFFSETS);
       INIT_SYSVAL(blend_constants, BLEND_CONSTANTS);
+      INIT_SYSVAL(multisampled, MULTISAMPLED);
    }
    sysvals->sysval_count = SYSVAL_SLOT(dyn_ssbos);
 

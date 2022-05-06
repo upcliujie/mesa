@@ -603,6 +603,7 @@ struct panvk_sysvals {
             };
          };
          union panvk_sysval_vec4 blend_constants;
+         union panvk_sysval_vec4 multisampled;
       };
 
       struct {
