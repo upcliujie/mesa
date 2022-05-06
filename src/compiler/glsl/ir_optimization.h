@@ -128,7 +128,6 @@ bool lower_discard(exec_list *instructions);
 void lower_discard_flow(exec_list *instructions);
 bool lower_instructions(exec_list *instructions, unsigned what_to_lower);
 bool lower_quadop_vector(exec_list *instructions);
-bool lower_const_arrays_to_uniforms(exec_list *instructions, unsigned stage, unsigned max_uniform_components);
 bool lower_clip_cull_distance(struct gl_shader_program *prog,
                               gl_linked_shader *shader);
 ir_variable * lower_xfb_varying(void *mem_ctx,
