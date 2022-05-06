@@ -717,7 +717,10 @@ ntt_output_decl(struct ntt_compile *c, nir_intrinsic_instr *instr, uint32_t *fra
          break;
       }
 
-      out = ureg_DECL_output(c->ureg, semantic_name, semantic_index);
+      out = ureg_DECL_output_layout(c->ureg, semantic_name, semantic_index,
+                                    0, base, TGSI_WRITEMASK_XYZW, 0, 1, false,
+                                    semantics.medium_precision);
+
    } else {
       unsigned semantic_name, semantic_index;
 
@@ -748,7 +751,8 @@ ntt_output_decl(struct ntt_compile *c, nir_intrinsic_instr *instr, uint32_t *fra
                                     usage_mask,
                                     array_id,
                                     semantics.num_slots,
-                                    invariant);
+                                    invariant,
+                                    semantics.medium_precision);
    }
 
    unsigned write_mask;
@@ -875,7 +879,9 @@ ntt_setup_inputs(struct ntt_compile *c)
                                                 sample_loc,
                                                 var->data.driver_location,
                                                 usage_mask,
-                                                array_id, array_len);
+                                                array_id, array_len,
+                                                var->data.precision == GLSL_PRECISION_MEDIUM ||
+                                                var->data.precision == GLSL_PRECISION_LOW);
 
       if (semantic_name == TGSI_SEMANTIC_FACE) {
          struct ureg_dst temp = ntt_temp(c);
@@ -930,7 +936,10 @@ ntt_setup_outputs(struct ntt_compile *c)
       tgsi_get_gl_frag_result_semantic(var->data.location,
                                        &semantic_name, &semantic_index);
 
-      (void)ureg_DECL_output(c->ureg, semantic_name, semantic_index);
+      (void)ureg_DECL_output_layout(c->ureg, semantic_name, semantic_index, 0, var->data.driver_location,
+                                    TGSI_WRITEMASK_XYZW, 0, 1, false,
+                                    var->data.precision == GLSL_PRECISION_MEDIUM ||
+                                    var->data.precision == GLSL_PRECISION_LOW);
    }
 }
 
@@ -2217,7 +2226,8 @@ ntt_emit_load_input(struct ntt_compile *c, nir_intrinsic_instr *instr)
                                                          instr->num_components,
                                                          is_64),
                                      array_id,
-                                     semantics.num_slots);
+                                     semantics.num_slots,
+                                     semantics.medium_precision);
    } else {
       input = c->input_index_map[base];
    }
