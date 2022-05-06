@@ -884,7 +884,7 @@ bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shader *shad
 
       /* NGG GS: Initialize LDS and insert s_barrier, which must not be inside the if statement. */
       if (ctx->stage == MESA_SHADER_GEOMETRY && shader->key.ge.as_ngg)
-         gfx10_ngg_gs_emit_prologue(ctx);
+         gfx10_ngg_gs_emit_begin(ctx);
 
       if (ctx->stage == MESA_SHADER_GEOMETRY ||
           (ctx->stage == MESA_SHADER_TESS_CTRL && !shader->is_monolithic)) {
@@ -930,7 +930,7 @@ bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shader *shad
              ~shader->selector->info.tcs_vgpr_only_inputs)
             ac_build_s_barrier(&ctx->ac);
       } else if (ctx->stage == MESA_SHADER_GEOMETRY && !shader->key.ge.as_ngg) {
-         /* gfx10_ngg_gs_emit_prologue inserts the barrier for NGG. */
+         /* gfx10_ngg_gs_emit_begin inserts the barrier for NGG. */
          ac_build_s_barrier(&ctx->ac);
       }
    }
