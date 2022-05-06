@@ -54,18 +54,12 @@ typedef struct __DRIscreenRec		__DRIscreen;
 typedef struct __DRIcontextRec		__DRIcontext;
 typedef struct __DRIdrawableRec		__DRIdrawable;
 typedef struct __DRIconfigRec		__DRIconfig;
-typedef struct __DRIframebufferRec	__DRIframebuffer;
-typedef struct __DRIversionRec		__DRIversion;
 
 typedef struct __DRIcoreExtensionRec		__DRIcoreExtension;
 typedef struct __DRIextensionRec		__DRIextension;
 typedef struct __DRIcopySubBufferExtensionRec	__DRIcopySubBufferExtension;
 typedef struct __DRIswapControlExtensionRec	__DRIswapControlExtension;
-typedef struct __DRIframeTrackingExtensionRec	__DRIframeTrackingExtension;
-typedef struct __DRImediaStreamCounterExtensionRec	__DRImediaStreamCounterExtension;
-typedef struct __DRItexOffsetExtensionRec	__DRItexOffsetExtension;
 typedef struct __DRItexBufferExtensionRec	__DRItexBufferExtension;
-typedef struct __DRIlegacyExtensionRec		__DRIlegacyExtension;
 typedef struct __DRIswrastExtensionRec		__DRIswrastExtension;
 typedef struct __DRIbufferRec			__DRIbuffer;
 typedef struct __DRIdri2ExtensionRec		__DRIdri2Extension;
@@ -81,7 +75,6 @@ typedef struct __DRIimageLoaderExtensionRec     __DRIimageLoaderExtension;
 typedef struct __DRIimageDriverExtensionRec     __DRIimageDriverExtension;
 
 /*@}*/
-
 
 /**
  * Extension struct.  Drivers 'inherit' from this struct by embedding
@@ -116,12 +109,6 @@ struct __DRIextensionRec {
  */
 
 /**
- * Used by drivers to indicate support for setting the read drawable.
- */
-#define __DRI_READ_DRAWABLE "DRI_ReadDrawable"
-#define __DRI_READ_DRAWABLE_VERSION 1
-
-/**
  * Used by drivers that implement the GLX_MESA_copy_sub_buffer extension.
  */
 #define __DRI_COPY_SUB_BUFFER "DRI_CopySubBuffer"
@@ -141,32 +128,6 @@ struct __DRIswapControlExtensionRec {
     __DRIextension base;
     void (*setSwapInterval)(__DRIdrawable *drawable, unsigned int inteval);
     unsigned int (*getSwapInterval)(__DRIdrawable *drawable);
-};
-
-/**
- * Used by drivers that implement the GLX_SGI_video_sync extension.
- */
-#define __DRI_MEDIA_STREAM_COUNTER "DRI_MediaStreamCounter"
-#define __DRI_MEDIA_STREAM_COUNTER_VERSION 1
-struct __DRImediaStreamCounterExtensionRec {
-    __DRIextension base;
-
-    /**
-     * Wait for the MSC to equal target_msc, or, if that has already passed,
-     * the next time (MSC % divisor) is equal to remainder.  If divisor is
-     * zero, the function will return as soon as MSC is greater than or equal
-     * to target_msc.
-     */
-    int (*waitForMSC)(__DRIdrawable *drawable,
-		      int64_t target_msc, int64_t divisor, int64_t remainder,
-		      int64_t * msc, int64_t * sbc);
-
-    /**
-     * Get the number of vertical refreshes since some point in time before
-     * this function was first called (i.e., system start up).
-     */
-    int (*getDrawableMSC)(__DRIscreen *screen, __DRIdrawable *drawable,
-			  int64_t *msc);
 };
 
 /* Valid values for format in the setTexBuffer2 function below.  These
@@ -480,45 +441,14 @@ struct __DRI2bufferDamageExtensionRec {
 /*@}*/
 
 /**
- * The following extensions describe loader features that the DRI
- * driver can make use of.  Some of these are mandatory, such as the
- * getDrawableInfo extension for DRI and the DRI Loader extensions for
- * DRI2, while others are optional, and if present allow the driver to
- * expose certain features.  The loader pass in a NULL terminated
- * array of these extensions to the driver in the createNewScreen
- * constructor.
+ * The following extensions describe loader features that the DRI driver can
+ * make use of.  Some of these are mandatory, such as the DRI Loader extensions
+ * for DRI2, while others are optional, and if present allow the driver to
+ * expose certain features.  The loader pass in a NULL terminated array of
+ * these extensions to the driver in the createNewScreen constructor.
  */
 
-typedef struct __DRIgetDrawableInfoExtensionRec __DRIgetDrawableInfoExtension;
-typedef struct __DRIsystemTimeExtensionRec __DRIsystemTimeExtension;
-typedef struct __DRIdamageExtensionRec __DRIdamageExtension;
-typedef struct __DRIloaderExtensionRec __DRIloaderExtension;
 typedef struct __DRIswrastLoaderExtensionRec __DRIswrastLoaderExtension;
-
-/**
- * Callback to get system time for media stream counter extensions.
- */
-#define __DRI_SYSTEM_TIME "DRI_SystemTime"
-#define __DRI_SYSTEM_TIME_VERSION 1
-struct __DRIsystemTimeExtensionRec {
-    __DRIextension base;
-
-    /**
-     * Get the 64-bit unadjusted system time (UST).
-     */
-    int (*getUST)(int64_t * ust);
-
-    /**
-     * Get the media stream counter (MSC) rate.
-     * 
-     * Matching the definition in GLX_OML_sync_control, this function returns
-     * the rate of the "media stream counter".  In practical terms, this is
-     * the frame refresh rate of the display.
-     */
-    unsigned char (*getMSCRate)(__DRIdrawable *draw,
-			    int32_t * numerator, int32_t * denominator,
-			    void *loaderPrivate);
-};
 
 #define __DRI_SWRAST_IMAGE_OP_DRAW	1
 #define __DRI_SWRAST_IMAGE_OP_CLEAR	2
@@ -810,49 +740,6 @@ struct __DRIcoreExtensionRec {
 
     int (*unbindContext)(__DRIcontext *ctx);
 };
-
-/**
- * Stored version of some component (i.e., server-side DRI module, kernel-side
- * DRM, etc.).
- * 
- * \todo
- * There are several data structures that explicitly store a major version,
- * minor version, and patch level.  These structures should be modified to
- * have a \c __DRIversionRec instead.
- */
-struct __DRIversionRec {
-    int    major;        /**< Major version number. */
-    int    minor;        /**< Minor version number. */
-    int    patch;        /**< Patch-level. */
-};
-
-/**
- * Framebuffer information record.  Used by libGL to communicate information
- * about the framebuffer to the driver's \c __driCreateNewScreen function.
- * 
- * In XFree86, most of this information is derrived from data returned by
- * calling \c XF86DRIGetDeviceInfo.
- *
- * \sa XF86DRIGetDeviceInfo __DRIdisplayRec::createNewScreen
- *     __driUtilCreateNewScreen CallCreateNewScreen
- *
- * \bug This structure could be better named.
- */
-struct __DRIframebufferRec {
-    unsigned char *base;    /**< Framebuffer base address in the CPU's
-			     * address space.  This value is calculated by
-			     * calling \c drmMap on the framebuffer handle
-			     * returned by \c XF86DRIGetDeviceInfo (or a
-			     * similar function).
-			     */
-    int size;               /**< Framebuffer size, in bytes. */
-    int stride;             /**< Number of bytes from one line to the next. */
-    int width;              /**< Pixel width of the framebuffer. */
-    int height;             /**< Pixel height of the framebuffer. */
-    int dev_priv_size;      /**< Size of the driver's dev-priv structure. */
-    void *dev_priv;         /**< Pointer to the driver's dev-priv structure. */
-};
-
 
 /**
  * This extension provides alternative screen, drawable and context
