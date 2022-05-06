@@ -2393,6 +2393,14 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
              sizeof(cmd_buffer->state.gfx.ib_dirty_range));
    }
 
+   cmd_buffer->flush_stats.tile += (bits & ANV_PIPE_TILE_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.data += (bits & ANV_PIPE_DATA_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.rc += (bits & ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.depth += (bits & ANV_PIPE_DEPTH_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.hdc += (bits & ANV_PIPE_HDC_PIPELINE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.stall += (bits & (ANV_PIPE_DEPTH_STALL_BIT |
+                                             ANV_PIPE_CS_STALL_BIT)) != 0;
+
    cmd_buffer->state.pending_pipe_bits =
       genX(emit_apply_pipe_flushes)(&cmd_buffer->batch,
                                     cmd_buffer->device,

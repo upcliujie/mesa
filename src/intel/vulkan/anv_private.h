@@ -1150,6 +1150,27 @@ anv_device_upload_nir(struct anv_device *device,
                       const struct nir_shader *nir,
                       unsigned char sha1_key[20]);
 
+struct anv_flush_stats {
+   uint32_t                                  tile;
+   uint32_t                                  hdc;
+   uint32_t                                  rc;
+   uint32_t                                  depth;
+   uint32_t                                  data;
+   uint32_t                                  stall;
+};
+
+static inline void
+anv_flush_stats_add(struct anv_flush_stats *dst,
+                    const struct anv_flush_stats *src)
+{
+   dst->tile  += src->tile;
+   dst->hdc   += src->hdc;
+   dst->data  += src->data;
+   dst->rc    += src->rc;
+   dst->depth += src->depth;
+   dst->stall += src->stall;
+}
+
 struct anv_device {
     struct vk_device                            vk;
 
@@ -1160,6 +1181,7 @@ struct anv_device {
     int                                         fd;
     bool                                        can_chain_batches;
     bool                                        robust_buffer_access;
+    bool                                        cmd_buffer_stats;
 
     pthread_mutex_t                             vma_mutex;
     struct util_vma_heap                        vma_lo;
@@ -1258,6 +1280,8 @@ struct anv_device {
     struct intel_debug_block_frame              *debug_frame_desc;
 
     struct intel_ds_device                       ds;
+
+   struct anv_flush_stats flush_stats;
 };
 
 #if defined(GFX_VERx10) && GFX_VERx10 >= 90
@@ -3216,6 +3240,8 @@ struct anv_cmd_buffer {
     *
     */
    struct u_trace                               trace;
+
+   struct anv_flush_stats                       flush_stats;
 };
 
 /* Determine whether we can chain a given cmd_buffer to another one. We need

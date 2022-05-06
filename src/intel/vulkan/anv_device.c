@@ -3258,6 +3258,7 @@ VkResult anv_CreateDevice(
     * the batch.
     */
    device->can_chain_batches = device->info.ver >= 8;
+   device->cmd_buffer_stats = env_var_as_boolean("ANV_CMD_BUFFER_STATS", false);
 
    device->robust_buffer_access = robust_buffer_access;
 
