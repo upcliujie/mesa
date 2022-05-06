@@ -129,6 +129,7 @@ nir_options = {
       nir_lower_dfloor |
       nir_lower_dceil |
       nir_lower_dround_even,
+   .max_unroll_iterations = 32, /* arbitrary */
 };
 
 const nir_shader_compiler_options*
