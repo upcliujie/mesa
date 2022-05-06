@@ -115,6 +115,8 @@ static const nir_shader_compiler_options nir_options = {
    .has_isub = true,
    .lower_wpos_pntc = true,
    .lower_cs_local_index_to_id = true,
+   .max_unroll_iterations = 32,
+   .force_indirect_unrolling = nir_var_all,
 
    /* Only needed for the spirv_to_nir() pass done in ir3_cmdline.c
     * but that should be harmless for GL since 64b is not
