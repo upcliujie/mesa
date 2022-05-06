@@ -177,6 +177,12 @@ struct vk_subpass {
     */
    VkRenderingSelfDependencyInfoMESA self_dep_info;
 
+   /** VkAttachmentSampleCountInfoAMD for this subpass
+    *
+    * This is in the pNext chain of pipeline_info and inheritance_info.
+    */
+   VkAttachmentSampleCountInfoAMD sample_count_info_amd;
+
    /** VkPipelineRenderingCreateInfo for this subpass
     *
     * Returned by vk_get_pipeline_rendering_create_info() if
