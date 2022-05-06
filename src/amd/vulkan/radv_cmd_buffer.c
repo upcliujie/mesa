@@ -8259,7 +8259,8 @@ radv_retile_transition(struct radv_cmd_buffer *cmd_buffer, struct radv_image *im
 {
    if (src_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
        (dst_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
-        (dst_queue_mask & (1u << RADV_QUEUE_FOREIGN))))
+        (dst_queue_mask & (1u << RADV_QUEUE_FOREIGN))) &&
+       (image->usage & RADV_IMAGE_USAGE_WRITE_BITS))
       radv_retile_dcc(cmd_buffer, image);
 }
 
