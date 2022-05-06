@@ -28,6 +28,7 @@
 #include "compiler/glsl/glsl_to_nir.h"
 #include "compiler/nir_types.h"
 #include "compiler/nir/nir_builder.h"
+#include "compiler/nir/nir_schedule.h"
 #include "util/u_debug.h"
 
 #include "disassemble.h"
@@ -4533,6 +4534,14 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
                 NIR_PASS_V(nir, nir_shader_instructions_pass,
                         nir_invalidate_divergence, nir_metadata_all, NULL);
         }
+
+#if 0
+        const nir_schedule_options options = {
+                .fallback = true
+        };
+
+        NIR_PASS_V(nir, nir_schedule, &options);
+#endif
 }
 
 /* The cmdstream lowers 8-bit fragment output as 16-bit, so we need to do the
@@ -5005,6 +5014,7 @@ bi_compile_variant_nir(nir_shader *nir,
                 bi_opt_fuse_dual_texture(ctx);
         }
 
+        bi_pressure_schedule(ctx);
         bi_validate(ctx, "Late lowering");
 
         bi_register_allocate(ctx);
