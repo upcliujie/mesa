@@ -554,8 +554,6 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
          return 0;
-      case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-         return 32;
       }
       /* If we get here, we failed to handle a cap above */
       debug_printf("Unexpected fragment shader query %u\n", param);
@@ -622,8 +620,6 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:
       case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
          return 0;
-      case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-         return 32;
       }
       /* If we get here, we failed to handle a cap above */
       debug_printf("Unexpected vertex shader query %u\n", param);
@@ -747,8 +743,6 @@ vgpu10_get_shader_param(struct pipe_screen *screen,
    case PIPE_SHADER_CAP_TGSI_ANY_INOUT_DECL_RANGE:
    case PIPE_SHADER_CAP_INT64_ATOMICS:
       return 0;
-   case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
-      return 32;
    default:
       debug_printf("Unexpected vgpu10 shader query %u\n", param);
       return 0;
@@ -756,19 +750,31 @@ vgpu10_get_shader_param(struct pipe_screen *screen,
    return 0;
 }
 
-static const nir_shader_compiler_options svga_compiler_options = {
-   .lower_extract_byte = true,
-   .lower_extract_word = true,
-   .lower_insert_byte = true,
-   .lower_insert_word = true,
-   .lower_fdph = true,
-   .lower_flrp64 = true,
-   .lower_rotate = true,
-   .lower_uniforms_to_ubo = true,
-   .lower_vector_cmp = true,
+#define COMMON_OPTIONS                                                        \
+   .lower_extract_byte = true,                                                \
+   .lower_extract_word = true,                                                \
+   .lower_insert_byte = true,                                                 \
+   .lower_insert_word = true,                                                 \
+   .lower_fdph = true,                                                        \
+   .lower_flrp64 = true,                                                      \
+   .lower_rotate = true,                                                      \
+   .lower_uniforms_to_ubo = true,                                             \
+   .lower_vector_cmp = true,                                                  \
+   .max_unroll_iterations = 32,                                               \
+   .use_interpolated_input_intrinsics = true
 
-   .max_unroll_iterations = 32,
-   .use_interpolated_input_intrinsics = true,
+static const nir_shader_compiler_options vgpu10_compiler_options = {
+   COMMON_OPTIONS,
+};
+
+static const nir_shader_compiler_options vgpu9_fragment_compiler_options = {
+   COMMON_OPTIONS,
+   .force_indirect_unrolling = nir_var_all,
+};
+
+static const nir_shader_compiler_options vgpu9_vertex_compiler_options = {
+   COMMON_OPTIONS,
+   .force_indirect_unrolling = nir_var_function_temp,
 };
 
 static const void *
@@ -778,7 +784,16 @@ svga_get_compiler_options(struct pipe_screen *pscreen,
 {
    assert(ir == PIPE_SHADER_IR_NIR);
 
-   return &svga_compiler_options;
+   struct svga_screen *svgascreen = svga_screen(pscreen);
+   struct svga_winsys_screen *sws = svgascreen->sws;
+   if (sws->have_vgpu10) {
+      return &vgpu10_compiler_options;
+   } else {
+      if (shader == PIPE_SHADER_FRAGMENT)
+         return &vgpu9_fragment_compiler_options;
+      else
+         return &vgpu9_vertex_compiler_options;
+   }
 }
 
 static int
