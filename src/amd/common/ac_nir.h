@@ -60,12 +60,12 @@ void
 ac_nir_lower_ls_outputs_to_mem(nir_shader *ls,
                                bool tcs_in_out_eq,
                                uint64_t tcs_temp_only_inputs,
-                               unsigned num_reserved_ls_outputs);
+                               int ls_out_vertex_stride);
 
 void
 ac_nir_lower_hs_inputs_to_mem(nir_shader *shader,
                               bool tcs_in_out_eq,
-                              unsigned num_reserved_tcs_inputs);
+                              int tcs_in_vertex_stride);
 
 void
 ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
@@ -73,7 +73,7 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
                                bool tes_reads_tessfactors,
                                uint64_t tes_inputs_read,
                                uint64_t tes_patch_inputs_read,
-                               unsigned num_reserved_tcs_inputs,
+                               int tcs_in_vertex_stride,
                                unsigned num_reserved_tcs_outputs,
                                unsigned num_reserved_tcs_patch_outputs,
                                bool emit_tess_factor_write);
