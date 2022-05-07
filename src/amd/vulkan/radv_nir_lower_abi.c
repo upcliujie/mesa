@@ -161,6 +161,13 @@ lower_abi_instr(nir_builder *b, nir_instr *instr, void *state)
    case nir_intrinsic_load_viewport_y_offset:
       return ac_nir_load_arg(b, &s->args->ac, s->args->ngg_viewport_translate[1]);
 
+   case nir_intrinsic_load_lshs_vertex_stride_amd: {
+      unsigned io_num = stage == MESA_SHADER_VERTEX ?
+         s->info->vs.num_linked_outputs :
+         s->info->tcs.num_linked_inputs;
+      return nir_imm_int(b, io_num * 16);
+   }
+
    default:
       unreachable("invalid NIR RADV ABI intrinsic.");
    }
@@ -197,7 +204,8 @@ filter_abi_instr(const nir_instr *instr,
           intrin->intrinsic == nir_intrinsic_load_viewport_x_scale ||
           intrin->intrinsic == nir_intrinsic_load_viewport_x_offset ||
           intrin->intrinsic == nir_intrinsic_load_viewport_y_scale ||
-          intrin->intrinsic == nir_intrinsic_load_viewport_y_offset;
+          intrin->intrinsic == nir_intrinsic_load_viewport_y_offset ||
+          intrin->intrinsic == nir_intrinsic_load_lshs_vertex_stride_amd;
 }
 
 void
