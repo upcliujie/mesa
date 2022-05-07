@@ -164,6 +164,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_global_const_block_intel:
    case nir_intrinsic_load_reloc_const_intel:
    case nir_intrinsic_load_global_block_intel:
+   case nir_intrinsic_load_lshs_vertex_stride_amd:
       is_divergent = false;
       break;
 
