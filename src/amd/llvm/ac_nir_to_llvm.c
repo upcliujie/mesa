@@ -4405,6 +4405,9 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       LLVMSetMetadata(result, ctx->ac.invariant_load_md_kind, ctx->ac.empty_md);
       break;
    }
+   case nir_intrinsic_load_lshs_vertex_stride_amd:
+      result = ctx->abi->load_lshs_vertex_stride(ctx->abi);
+      break;
    default:
       fprintf(stderr, "Unknown intrinsic: ");
       nir_print_instr(&instr->instr, stderr);

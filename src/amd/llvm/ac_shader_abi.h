@@ -125,6 +125,8 @@ struct ac_shader_abi {
 
    LLVMValueRef (*emit_fbfetch)(struct ac_shader_abi *abi);
 
+   LLVMValueRef (*load_lshs_vertex_stride)(struct ac_shader_abi *abi);
+
    /* Whether to clamp the shadow reference value to [0,1]on GFX8. Radeonsi currently
     * uses it due to promoting D16 to D32, but radv needs it off. */
    bool clamp_shadow_reference;
