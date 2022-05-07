@@ -1011,7 +1011,7 @@ radv_lower_io_to_mem(struct radv_device *device, struct radv_pipeline_stage *sta
       if (info->vs.as_ls) {
          ac_nir_lower_ls_outputs_to_mem(nir, info->vs.tcs_in_out_eq,
                                         info->vs.tcs_temp_only_input_mask,
-                                        info->vs.num_linked_outputs);
+                                        info->vs.num_linked_outputs * 16);
          return true;
       } else if (info->vs.as_es) {
          ac_nir_lower_es_outputs_to_mem(nir, device->physical_device->rad_info.chip_class,
@@ -1019,10 +1019,12 @@ radv_lower_io_to_mem(struct radv_device *device, struct radv_pipeline_stage *sta
          return true;
       }
    } else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
-      ac_nir_lower_hs_inputs_to_mem(nir, info->vs.tcs_in_out_eq, info->tcs.num_linked_inputs);
+      ac_nir_lower_hs_inputs_to_mem(nir, info->vs.tcs_in_out_eq,
+                                    info->tcs.num_linked_inputs * 16);
       ac_nir_lower_hs_outputs_to_mem(
          nir, device->physical_device->rad_info.chip_class, info->tcs.tes_reads_tess_factors,
-         info->tcs.tes_inputs_read, info->tcs.tes_patch_inputs_read, info->tcs.num_linked_inputs,
+         info->tcs.tes_inputs_read, info->tcs.tes_patch_inputs_read,
+         info->tcs.num_linked_inputs * 16,
          info->tcs.num_linked_outputs, info->tcs.num_linked_patch_outputs, true);
       ac_nir_lower_tess_to_const(nir, pl_key->tcs.tess_input_vertices, info->num_tess_patches,
                                  ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
