@@ -1419,7 +1419,7 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
       nir_store_var(b, trav_vars.stack, nir_iadd(b, stack_base, stack_entry_stride_def), 1);
       nir_store_shared(b, bvh_root, stack_base, .base = 0, .align_mul = stack_entry_size);
 
-      nir_store_var(b, trav_vars.top_stack, nir_imm_int(b, 0), 1);
+      nir_store_var(b, trav_vars.top_stack, stack_base, 1);
 
       nir_push_loop(b);
 
@@ -1429,7 +1429,7 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
 
       nir_push_if(
          b, nir_uge(b, nir_load_var(b, trav_vars.top_stack), nir_load_var(b, trav_vars.stack)));
-      nir_store_var(b, trav_vars.top_stack, nir_imm_int(b, 0), 1);
+      nir_store_var(b, trav_vars.top_stack, stack_base, 1);
       nir_store_var(b, trav_vars.bvh_base,
                     build_addr_to_node(b, nir_load_var(b, vars->accel_struct)), 1);
       nir_store_var(b, trav_vars.origin, nir_load_var(b, vars->origin), 7);
