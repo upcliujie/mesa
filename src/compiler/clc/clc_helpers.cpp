@@ -767,7 +767,7 @@ clc_compile_to_llvm_module(LLVMContext &llvm_ctx,
       "-triple", "spir64-unknown-unknown",
       // By default, clang prefers to use modules to pull in the default headers,
       // which doesn't work with our technique of embedding the headers in our binary
-#if LLVM_VERSION_MAJOR >= 14
+#if LLVM_VERSION_MAJOR >= 15
       "-fdeclare-opencl-builtins",
 #else
       "-finclude-default-header",
@@ -853,7 +853,11 @@ clc_compile_to_llvm_module(LLVMContext &llvm_ctx,
                                     clang::frontend::Angled,
                                     false, false);
    // Add opencl include
+#if LLVM_VERSION_MAJOR >= 15
+   c->getPreprocessorOpts().Includes.push_back("opencl-c-base.h");
+#else
    c->getPreprocessorOpts().Includes.push_back("opencl-c.h");
+#endif
 #endif
 
 #if LLVM_VERSION_MAJOR >= 14
