@@ -1023,4 +1023,5 @@ void si_llvm_init_vs_callbacks(struct si_shader_context *ctx, bool ngg_cull_shad
 
    ctx->abi.load_base_vertex = get_base_vertex;
    ctx->abi.load_inputs = si_load_vs_input;
+   ctx->abi.load_lshs_vertex_stride = si_load_lshs_vertex_stride;
 }

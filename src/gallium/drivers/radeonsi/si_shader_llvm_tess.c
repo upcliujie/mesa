@@ -636,6 +636,14 @@ static LLVMValueRef si_load_patch_vertices_in(struct ac_shader_abi *abi)
       unreachable("invalid shader stage for VERTICESIN");
 }
 
+LLVMValueRef si_load_lshs_vertex_stride(struct ac_shader_abi *abi)
+{
+   struct si_shader_context *ctx = si_shader_context_from_abi(abi);
+
+   return LLVMBuildShl(ctx->ac.builder, get_tcs_in_vertex_dw_stride(ctx),
+                       LLVMConstInt(ctx->ac.i32, 2, 0), "");
+}
+
 /**
  * Forward all outputs from the vertex shader to the TES. This is only used
  * for the fixed function TCS.
@@ -1088,6 +1096,7 @@ void si_llvm_init_tcs_callbacks(struct si_shader_context *ctx)
    ctx->abi.store_tcs_outputs = si_nir_store_output_tcs;
    ctx->abi.emit_outputs = si_llvm_emit_tcs_epilogue;
    ctx->abi.load_patch_vertices_in = si_load_patch_vertices_in;
+   ctx->abi.load_lshs_vertex_stride = si_load_lshs_vertex_stride;
 }
 
 void si_llvm_init_tes_callbacks(struct si_shader_context *ctx, bool ngg_cull_shader)
