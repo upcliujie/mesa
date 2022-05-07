@@ -853,7 +853,11 @@ clc_compile_to_llvm_module(LLVMContext &llvm_ctx,
                                     clang::frontend::Angled,
                                     false, false);
    // Add opencl include
+#if LLVM_VERSION_MAJOR >= 14
+   c->getPreprocessorOpts().Includes.push_back("opencl-c-base.h");
+#else
    c->getPreprocessorOpts().Includes.push_back("opencl-c.h");
+#endif
 #endif
 
 #if LLVM_VERSION_MAJOR >= 14
