@@ -1416,7 +1416,8 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
 
 struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
                                      const union si_shader_key *key,
-                                     bool *free_nir)
+                                     bool *free_nir,
+                                     struct si_get_nir_shader_params *params)
 {
    nir_shader *nir;
    *free_nir = false;
@@ -1605,7 +1606,10 @@ bool si_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *compi
 {
    struct si_shader_selector *sel = shader->selector;
    bool free_nir;
-   struct nir_shader *nir = si_get_nir_shader(sel, &shader->key, &free_nir);
+   struct nir_shader *nir = si_get_nir_shader(sel, &shader->key, shader, &free_nir,
+                                              &(struct si_get_nir_shader_params) {
+                                                 .is_monolithic = shader->is_monolithic,
+                                              });
 
    /* Assign param export indices. */
    if ((sel->stage == MESA_SHADER_VERTEX ||
