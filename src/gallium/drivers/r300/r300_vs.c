@@ -180,19 +180,33 @@ void r300_init_vs_outputs(struct r300_context *r300,
 
 static void r300_dummy_vertex_shader(
     struct r300_context* r300,
-    struct r300_vertex_shader* vs)
+    struct r300_vertex_shader* vs,
+    bool is_r300)
 {
     struct ureg_program *ureg;
-    struct ureg_dst dst;
+    struct ureg_dst dst, tmp;
     struct ureg_src imm;
 
     /* Make a simple vertex shader which outputs (0, 0, 0, 1),
      * effectively rendering nothing. */
     ureg = ureg_create(PIPE_SHADER_VERTEX);
     dst = ureg_DECL_output(ureg, TGSI_SEMANTIC_POSITION, 0);
-    imm = ureg_imm4f(ureg, 0, 0, 0, 1);
 
-    ureg_MOV(ureg, dst, imm);
+    /* RV370 hangs when drawing more than ~30 points when using our default dummy shader
+     * and under X. Make it a bit longer to prevent the hangs.
+     */
+    if (is_r300) {
+        tmp = ureg_DECL_temporary(ureg);
+        imm = ureg_imm4f(ureg, 0, 0, 0, 0);
+
+        ureg_EX2(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_W), ureg_scalar(imm, TGSI_SWIZZLE_W));
+        ureg_MOV(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_XYZ), ureg_scalar(imm, TGSI_SWIZZLE_X));
+        ureg_ADD(ureg, dst, ureg_src(tmp), imm);
+    } else {
+        imm = ureg_imm4f(ureg, 0, 0, 0, 1);
+
+        ureg_MOV(ureg, dst, imm);
+    }
     ureg_END(ureg);
 
     vs->state.tokens = tgsi_dup_tokens(ureg_finalize(ureg));
@@ -209,6 +223,7 @@ void r300_translate_vertex_shader(struct r300_context *r300,
     struct tgsi_to_rc ttr;
     unsigned i;
     struct r300_vertex_shader_code *vs = shader->shader;
+    bool is_r300 = !r300->screen->caps.is_r500 && !r300->screen->caps.is_r400;
 
     r300_init_vs_outputs(r300, shader);
 
@@ -246,7 +261,7 @@ void r300_translate_vertex_shader(struct r300_context *r300,
     if (ttr.error) {
         fprintf(stderr, "r300 VP: Cannot translate a shader. "
                 "Using a dummy shader instead.\n");
-        r300_dummy_vertex_shader(r300, shader);
+        r300_dummy_vertex_shader(r300, shader, is_r300);
         return;
     }
 
@@ -274,7 +289,7 @@ void r300_translate_vertex_shader(struct r300_context *r300,
         }
 
         rc_destroy(&compiler.Base);
-        r300_dummy_vertex_shader(r300, shader);
+        r300_dummy_vertex_shader(r300, shader, is_r300);
         return;
     }
 
