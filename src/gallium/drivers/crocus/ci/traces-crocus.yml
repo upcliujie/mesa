@@ -48,8 +48,8 @@ traces:
       # Requires GL4, not for G41.
       - device: crocus-hsw
         checksum: 7e4948c361528a7873dad9712f629770
-  - path: gputest/pixmark-piano.trace
-    expectations:
+  #- path: gputest/pixmark-piano.trace
+  #  expectations:
       # Looks like it probably triggers hangcheck on g41
       # - device: crocus-g41
       #   checksum: 346bae885d95f419b750a601e028378b
