@@ -657,7 +657,8 @@ static bool si_check_blend_dst_sampler_noop(struct si_context *sctx)
       struct si_shader_selector *sel = sctx->shader.ps.cso;
       bool free_nir;
       if (unlikely(sel->info.writes_1_if_tex_is_1 == 0xff)) {
-         struct nir_shader *nir = si_get_nir_shader(sel, &sctx->shader.ps.key, &free_nir);
+         struct nir_shader *nir =
+            si_get_nir_shader(sel, &sctx->shader.ps.key, &free_nir, 0);
 
          /* Determine if this fragment shader always writes vec4(1) if a specific texture
           * is all 1s.
