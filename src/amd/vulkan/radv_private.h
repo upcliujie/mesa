@@ -715,14 +715,9 @@ struct radv_queue_ring_info {
    bool sample_positions;
 };
 
-struct radv_queue {
-   struct vk_queue vk;
-   struct radv_device *device;
-   struct radeon_winsys_ctx *hw_ctx;
-   enum radeon_ctx_priority priority;
-
+struct radv_queue_ring_state {
    enum radv_queue_family qf;
-   struct radv_queue_ring_info ring_info;
+   struct radv_queue_ring_info info;
 
    struct radeon_winsys_bo *scratch_bo;
    struct radeon_winsys_bo *descriptor_bo;
@@ -732,9 +727,18 @@ struct radv_queue {
    struct radeon_winsys_bo *tess_rings_bo;
    struct radeon_winsys_bo *gds_bo;
    struct radeon_winsys_bo *gds_oa_bo;
+
    struct radeon_cmdbuf *initial_preamble_cs;
    struct radeon_cmdbuf *initial_full_flush_preamble_cs;
    struct radeon_cmdbuf *continue_preamble_cs;
+};
+
+struct radv_queue {
+   struct vk_queue vk;
+   struct radv_device *device;
+   struct radeon_winsys_ctx *hw_ctx;
+   enum radeon_ctx_priority priority;
+   struct radv_queue_ring_state state;
 };
 
 #define RADV_BORDER_COLOR_COUNT       4096
@@ -2955,7 +2959,7 @@ si_translate_blend_logic_op(VkLogicOp op)
 static inline enum amd_ip_type
 radv_queue_ring(struct radv_queue *queue)
 {
-   return radv_queue_family_to_ring(queue->device->physical_device, queue->qf);
+   return radv_queue_family_to_ring(queue->device->physical_device, queue->state.qf);
 }
 
 /**
