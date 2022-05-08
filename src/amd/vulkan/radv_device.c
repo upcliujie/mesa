@@ -2688,7 +2688,7 @@ radv_queue_init(struct radv_device *device, struct radv_queue *queue, int idx,
    queue->device = device;
    queue->priority = radv_get_queue_global_priority(global_priority);
    queue->hw_ctx = device->hw_ctx[queue->priority];
-   queue->qf = vk_queue_to_radv(device->physical_device, create_info->queueFamilyIndex);
+   queue->state.qf = vk_queue_to_radv(device->physical_device, create_info->queueFamilyIndex);
 
    VkResult result = vk_queue_init(&queue->vk, &device->vk, create_info, idx);
    if (result != VK_SUCCESS)
@@ -2700,31 +2700,36 @@ radv_queue_init(struct radv_device *device, struct radv_queue *queue, int idx,
 }
 
 static void
-radv_queue_finish(struct radv_queue *queue)
+radv_queue_state_finish(struct radv_queue_ring_state *queue, struct radeon_winsys *ws)
 {
    if (queue->initial_full_flush_preamble_cs)
-      queue->device->ws->cs_destroy(queue->initial_full_flush_preamble_cs);
+      ws->cs_destroy(queue->initial_full_flush_preamble_cs);
    if (queue->initial_preamble_cs)
-      queue->device->ws->cs_destroy(queue->initial_preamble_cs);
+      ws->cs_destroy(queue->initial_preamble_cs);
    if (queue->continue_preamble_cs)
-      queue->device->ws->cs_destroy(queue->continue_preamble_cs);
+      ws->cs_destroy(queue->continue_preamble_cs);
    if (queue->descriptor_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->descriptor_bo);
+      ws->buffer_destroy(ws, queue->descriptor_bo);
    if (queue->scratch_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->scratch_bo);
+      ws->buffer_destroy(ws, queue->scratch_bo);
    if (queue->esgs_ring_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->esgs_ring_bo);
+      ws->buffer_destroy(ws, queue->esgs_ring_bo);
    if (queue->gsvs_ring_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->gsvs_ring_bo);
+      ws->buffer_destroy(ws, queue->gsvs_ring_bo);
    if (queue->tess_rings_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->tess_rings_bo);
+      ws->buffer_destroy(ws, queue->tess_rings_bo);
    if (queue->gds_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->gds_bo);
+      ws->buffer_destroy(ws, queue->gds_bo);
    if (queue->gds_oa_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->gds_oa_bo);
+      ws->buffer_destroy(ws, queue->gds_oa_bo);
    if (queue->compute_scratch_bo)
-      queue->device->ws->buffer_destroy(queue->device->ws, queue->compute_scratch_bo);
+      ws->buffer_destroy(ws, queue->compute_scratch_bo);
+}
 
+static void
+radv_queue_finish(struct radv_queue *queue)
+{
+   radv_queue_state_finish(&queue->state, queue->device->ws);
    vk_queue_finish(&queue->vk);
 }
 
@@ -3665,8 +3670,8 @@ radv_EnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *p
 }
 
 static void
-radv_fill_shader_rings(struct radv_queue *queue, struct radv_device *device, uint32_t *map,
-                       bool add_sample_positions, uint32_t esgs_ring_size,
+radv_fill_shader_rings(struct radv_queue_ring_state *queue, struct radv_device *device,
+                       uint32_t *map, bool add_sample_positions, uint32_t esgs_ring_size,
                        struct radeon_winsys_bo *esgs_ring_bo, uint32_t gsvs_ring_size,
                        struct radeon_winsys_bo *gsvs_ring_bo,
                        struct radeon_winsys_bo *tess_rings_bo)
@@ -3802,7 +3807,7 @@ radv_fill_shader_rings(struct radv_queue *queue, struct radv_device *device, uin
 }
 
 static void
-radv_emit_gs_ring_sizes(struct radv_queue *queue, struct radv_device *device,
+radv_emit_gs_ring_sizes(struct radv_queue_ring_state *queue, struct radv_device *device,
                         struct radeon_cmdbuf *cs, struct radeon_winsys_bo *esgs_ring_bo,
                         uint32_t esgs_ring_size, struct radeon_winsys_bo *gsvs_ring_bo,
                         uint32_t gsvs_ring_size)
@@ -3828,7 +3833,7 @@ radv_emit_gs_ring_sizes(struct radv_queue *queue, struct radv_device *device,
 }
 
 static void
-radv_emit_tess_factor_ring(struct radv_queue *queue, struct radv_device *device,
+radv_emit_tess_factor_ring(struct radv_queue_ring_state *queue, struct radv_device *device,
                            struct radeon_cmdbuf *cs, struct radeon_winsys_bo *tess_rings_bo)
 {
    uint64_t tf_va;
@@ -3860,7 +3865,7 @@ radv_emit_tess_factor_ring(struct radv_queue *queue, struct radv_device *device,
 }
 
 static void
-radv_emit_graphics_scratch(struct radv_queue *queue, struct radv_device *device,
+radv_emit_graphics_scratch(struct radv_queue_ring_state *queue, struct radv_device *device,
                            struct radeon_cmdbuf *cs, uint32_t size_per_wave, uint32_t waves,
                            struct radeon_winsys_bo *scratch_bo)
 {
@@ -3878,7 +3883,7 @@ radv_emit_graphics_scratch(struct radv_queue *queue, struct radv_device *device,
 }
 
 static void
-radv_emit_compute_scratch(struct radv_queue *queue, struct radv_device *device,
+radv_emit_compute_scratch(struct radv_queue_ring_state *queue, struct radv_device *device,
                           struct radeon_cmdbuf *cs, uint32_t size_per_wave, uint32_t waves,
                           struct radeon_winsys_bo *compute_scratch_bo)
 {
@@ -3900,7 +3905,7 @@ radv_emit_compute_scratch(struct radv_queue *queue, struct radv_device *device,
 }
 
 static void
-radv_emit_global_shader_pointers(struct radv_queue *queue, struct radv_device *device,
+radv_emit_global_shader_pointers(struct radv_queue_ring_state *queue, struct radv_device *device,
                                  struct radeon_cmdbuf *cs, struct radeon_winsys_bo *descriptor_bo)
 {
    uint64_t va;
@@ -3963,10 +3968,10 @@ radv_init_compute_state(struct radeon_cmdbuf *cs, struct radv_device *device)
 }
 
 static VkResult
-radv_update_preamble_cs(struct radv_queue *queue, struct radv_device *device,
+radv_update_preamble_cs(struct radv_queue_ring_state *queue, struct radv_device *device,
                         const struct radv_queue_ring_info *needs)
 {
-   const struct radv_queue_ring_info *has = &queue->ring_info;
+   const struct radv_queue_ring_info *has = &queue->info;
    struct radeon_winsys *ws = device->ws;
    struct radeon_winsys_bo *scratch_bo = queue->scratch_bo;
    struct radeon_winsys_bo *descriptor_bo = queue->descriptor_bo;
@@ -4104,7 +4109,7 @@ radv_update_preamble_cs(struct radv_queue *queue, struct radv_device *device,
 
       enum rgp_flush_bits sqtt_flush_bits = 0;
       struct radeon_cmdbuf *cs = NULL;
-      cs = ws->cs_create(ws, radv_queue_ring(queue));
+      cs = ws->cs_create(ws, radv_queue_family_to_ring(device->physical_device, queue->qf));
       if (!cs) {
          result = VK_ERROR_OUT_OF_HOST_MEMORY;
          goto fail;
@@ -4231,7 +4236,7 @@ radv_update_preamble_cs(struct radv_queue *queue, struct radv_device *device,
       queue->descriptor_bo = descriptor_bo;
    }
 
-   queue->ring_info = *needs;
+   queue->info = *needs;
    return VK_SUCCESS;
 fail:
    for (int i = 0; i < ARRAY_SIZE(dest_cs); ++i)
@@ -4371,7 +4376,7 @@ radv_sparse_image_bind_memory(struct radv_device *device, const VkSparseImageMem
 }
 
 static VkResult
-radv_update_preambles(struct radv_queue *queue, struct radv_device *device,
+radv_update_preambles(struct radv_queue_ring_state *queue, struct radv_device *device,
                       struct vk_command_buffer *const *cmd_buffers, uint32_t cmd_buffer_count)
 {
    if (queue->qf == RADV_QUEUE_TRANSFER)
@@ -4382,7 +4387,7 @@ radv_update_preambles(struct radv_queue *queue, struct radv_device *device,
     * - Grow when the newly needed amount is larger than what we had
     * - Allocate the max size and reuse it, but don't free it until the queue is destroyed
     */
-   const struct radv_queue_ring_info *has = &queue->ring_info;
+   const struct radv_queue_ring_info *has = &queue->info;
    struct radv_queue_ring_info needs = *has;
 
    /* Go through each command buffer and update the needed states. */
@@ -4509,7 +4514,7 @@ radv_queue_submit_normal(struct radv_queue *queue, struct vk_queue_submit *submi
    uint32_t advance;
    VkResult result;
 
-   result = radv_update_preambles(queue, queue->device, submission->command_buffers,
+   result = radv_update_preambles(&queue->state, queue->device, submission->command_buffers,
                                   submission->command_buffer_count);
    if (result != VK_SUCCESS)
       return result;
@@ -4543,8 +4548,8 @@ radv_queue_submit_normal(struct radv_queue *queue, struct vk_queue_submit *submi
       .cs_array = cs_array,
       .cs_count = 0,
       .initial_preamble_cs =
-         need_wait ? queue->initial_full_flush_preamble_cs : queue->initial_preamble_cs,
-      .continue_preamble_cs = queue->continue_preamble_cs,
+         need_wait ? queue->state.initial_full_flush_preamble_cs : queue->state.initial_preamble_cs,
+      .continue_preamble_cs = queue->state.continue_preamble_cs,
    };
 
    for (uint32_t j = 0; j < submission->command_buffer_count; j += advance) {
@@ -4572,7 +4577,7 @@ radv_queue_submit_normal(struct radv_queue *queue, struct vk_queue_submit *submi
       }
 
       submit.cs_array += advance;
-      submit.initial_preamble_cs = queue->initial_preamble_cs;
+      submit.initial_preamble_cs = queue->state.initial_preamble_cs;
    }
 
 fail:
