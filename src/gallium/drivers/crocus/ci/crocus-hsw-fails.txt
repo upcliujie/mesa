@@ -188,7 +188,6 @@ spec@oes_texture_view@rendering-formats@clear GL_RGB10_A2 as GL_RG16_SNORM,Fail
 spec@oes_texture_view@rendering-formats@clear GL_RGB10_A2 as GL_RGBA8I,Fail
 spec@oes_texture_view@rendering-formats@clear GL_RGB10_A2 as GL_RGBA8_SNORM,Fail
 
-KHR-GL46.direct_state_access.renderbuffers_storage_multisample,Fail
 KHR-GL46.direct_state_access.textures_storage_multisample_2d_r16i,Fail
 KHR-GL46.direct_state_access.textures_storage_multisample_2d_r32i,Fail
 KHR-GL46.direct_state_access.textures_storage_multisample_2d_r8i,Fail
@@ -209,6 +208,7 @@ KHR-GL46.direct_state_access.textures_storage_multisample_3d_rgb32i,Fail
 KHR-GL46.direct_state_access.textures_storage_multisample_3d_rgba16i,Fail
 KHR-GL46.direct_state_access.textures_storage_multisample_3d_rgba32i,Fail
 KHR-GL46.direct_state_access.textures_storage_multisample_3d_rgba8i,Fail
+
 KHR-GL46.sample_shading.render.rgba8i.full,Fail
 KHR-GL46.sample_shading.render.rgba8i.half,Fail
 KHR-GL46.sample_shading.render.rgba8i.none,Fail
@@ -230,6 +230,7 @@ KHR-GL46.shader_multisample_interpolation.render.interpolate_at_offset_check.rgb
 KHR-GL46.shader_multisample_interpolation.render.interpolate_at_sample.rgba8i.samples_1,Fail
 KHR-GL46.shader_multisample_interpolation.render.interpolate_at_sample_check.rgba8i.samples_1,Fail
 KHR-GL46.shader_multisample_interpolation.render.sample.rgba8i.samples_1,Fail
+KHR-GL46.shading_language_420pack.binding_samplers,Crash
 KHR-GL46.texture_size_promotion.functional,Fail
 KHR-GLES31.core.sample_shading.render.rgba8i.full,Fail
 KHR-GLES31.core.sample_shading.render.rgba8i.half,Fail
@@ -252,9 +253,80 @@ KHR-GLES31.core.shader_multisample_interpolation.render.interpolate_at_offset_ch
 KHR-GLES31.core.shader_multisample_interpolation.render.interpolate_at_sample.rgba8i.samples_1,Fail
 KHR-GLES31.core.shader_multisample_interpolation.render.interpolate_at_sample_check.rgba8i.samples_1,Fail
 KHR-GLES31.core.shader_multisample_interpolation.render.sample.rgba8i.samples_1,Fail
+KHR-GLES31.core.texture_storage_multisample.APIDependencies.framebuffer_texture_layer_used_with_invalid_level_argument,Fail
 KHR-GLES31.core.texture_storage_multisample.APIDependencies.renderbuffer_storage_multisample_invalid_samples_argument_for_integer_internalformats,Fail
+KHR-GLES31.core.texture_storage_multisample.APIGLTexStorage2DMultisample.multisample_texture_tex_storage_2d_general_samples_number,Fail
+KHR-GLES31.core.texture_storage_multisample.APIGLTexStorage2DMultisample.multisample_texture_tex_storage_2d_valid_calls,Fail
+KHR-GLES31.core.texture_storage_multisample.APIGLTexStorage3DMultisample.requests_to_set_up_multisample_textures_with_valid_and_invalid_number_of_samples_test,Fail
+KHR-GLES31.core.texture_storage_multisample.APIGLTexStorage3DMultisample.valid_internalformats_are_accepted_test,Fail
+
 dEQP-GLES31.functional.shaders.builtin_functions.texture_size.samples_1_texture_int_2d,Fail
 dEQP-GLES31.functional.shaders.builtin_functions.texture_size.samples_1_texture_int_2d_array,Fail
+
+# Regressions while CI was down.  Lots of:
+# See discussion at https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/16326#note_1372694
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.alpha_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.alpha_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.alpha_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.alpha_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.blue_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.blue_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.blue_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.blue_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.depth_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.depth_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.depth_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.depth_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.green_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.green_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.green_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.green_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.internal_format_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.internal_format_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.red_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.red_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.red_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.red_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.shared_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.shared_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.stencil_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample.stencil_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.alpha_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.alpha_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.alpha_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.alpha_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.blue_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.blue_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.blue_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.blue_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.depth_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.depth_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.depth_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.depth_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.green_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.green_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.green_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.green_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.internal_format_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.internal_format_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.red_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.red_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.red_type_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.red_type_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.shared_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.shared_size_integer,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.stencil_size_float,Fail
+dEQP-GLES31.functional.state_query.texture_level.texture_2d_multisample_array.stencil_size_integer,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_base_level,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_compare_func,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_compare_mode,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_mag_filter,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_max_lod,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_min_filter,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_min_lod,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_wrap_r,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_wrap_s,Fail
+dEQP-GLES31.functional.texture.multisample.negative.texture_wrap_t,Fail
 dEQP-GLES31.functional.texture.multisample.samples_1.use_texture_int_2d,Fail
 dEQP-GLES31.functional.texture.multisample.samples_1.use_texture_int_2d_array,Fail
 
@@ -966,3 +1038,8 @@ spec@nv_copy_image@nv_copy_image-formats --samples=8@Source: GL_RGBA8UI/Destinat
 spec@nv_copy_image@nv_copy_image-formats --samples=8@Source: GL_RGBA8UI/Destination: GL_RGBA8I,Fail
 spec@nv_copy_image@nv_copy_image-formats --samples=8@Source: GL_RGBA8_SNORM/Destination: GL_RG16I,Fail
 spec@nv_copy_image@nv_copy_image-formats --samples=8@Source: GL_RGBA8_SNORM/Destination: GL_RGBA8I,Fail
+
+spec@arb_internalformat_query2@all internalformat_<x>_size pname checks,Fail
+spec@arb_internalformat_query2@all internalformat_<x>_type pname checks,Fail
+spec@arb_internalformat_query2@image_format_compatibility_type pname checks,Fail
+spec@arb_internalformat_query2@max dimensions related pname checks,Fail
