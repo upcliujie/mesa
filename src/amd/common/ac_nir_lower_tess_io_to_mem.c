@@ -128,6 +128,9 @@ typedef struct {
     */
    bool tcs_in_out_eq;
 
+   /* True if using fixed io offset in buffer. */
+   bool fixed_io_offset;
+
    /* Bit mask of TCS per-vertex inputs (VS outputs) which
     * are passed between the two stages only in temporaries (registers).
     */
@@ -197,6 +200,20 @@ tcs_output_needs_lds(nir_intrinsic_instr *intrin,
    return match_mask(MESA_SHADER_TESS_CTRL, intrin, mask, true);
 }
 
+static nir_ssa_def *
+get_lshs_fixed_io_offset(nir_builder *b, nir_intrinsic_instr *intrin)
+{
+   /* LS output/HS input does not support indirect access in radeonsi. */
+   nir_src *offset = nir_get_io_offset_src(intrin);
+   assert(nir_src_is_const(*offset) && nir_src_as_uint(*offset) == 0);
+
+   unsigned semantic = nir_intrinsic_io_semantics(intrin).location;
+   unsigned param = ac_shader_io_get_unique_index(semantic, false);
+   unsigned base = param * 16;
+   unsigned comp = nir_intrinsic_component(intrin) * 4;
+   return nir_imm_int(b, base + comp);
+}
+
 static bool
 lower_ls_output_store(nir_builder *b,
                       nir_instr *instr,
@@ -224,7 +241,9 @@ lower_ls_output_store(nir_builder *b,
       nir_imul(b, vertex_idx, nir_load_lshs_vertex_stride_amd(b)) :
       nir_imul_imm(b, vertex_idx, st->tcs_in_vertex_stride);
 
-   nir_ssa_def *io_off = nir_build_calc_io_offset(b, intrin, nir_imm_int(b, 16u), 4u);
+   nir_ssa_def *io_off = st->fixed_io_offset ? get_lshs_fixed_io_offset(b, intrin) :
+      nir_build_calc_io_offset(b, intrin, nir_imm_int(b, 16u), 4u);
+
    unsigned write_mask = nir_intrinsic_write_mask(intrin);
 
    nir_ssa_def *off = nir_iadd_nuw(b, base_off_var, io_off);
@@ -291,7 +310,8 @@ hs_per_vertex_input_lds_offset(nir_builder *b,
 
    nir_ssa_def *tcs_in_current_patch_offset = nir_imul(b, rel_patch_id, tcs_in_patch_stride);
 
-   nir_ssa_def *io_offset = nir_build_calc_io_offset(b, instr, nir_imm_int(b, 16u), 4u);
+   nir_ssa_def *io_offset = st->fixed_io_offset ? get_lshs_fixed_io_offset(b, instr) :
+      nir_build_calc_io_offset(b, instr, nir_imm_int(b, 16u), 4u);
 
    return nir_iadd_nuw(b, nir_iadd_nuw(b, tcs_in_current_patch_offset, vertex_index_off), io_offset);
 }
@@ -646,13 +666,15 @@ void
 ac_nir_lower_ls_outputs_to_mem(nir_shader *shader,
                                bool tcs_in_out_eq,
                                uint64_t tcs_temp_only_inputs,
-                               int ls_out_vertex_stride)
+                               int ls_out_vertex_stride,
+                               bool fixed_io_offset)
 {
    assert(shader->info.stage == MESA_SHADER_VERTEX);
 
    lower_tess_io_state state = {
       .tcs_in_vertex_stride = ls_out_vertex_stride,
       .tcs_in_out_eq = tcs_in_out_eq,
+      .fixed_io_offset = fixed_io_offset,
       .tcs_temp_only_inputs = tcs_in_out_eq ? tcs_temp_only_inputs : 0,
    };
 
@@ -665,12 +687,14 @@ ac_nir_lower_ls_outputs_to_mem(nir_shader *shader,
 void
 ac_nir_lower_hs_inputs_to_mem(nir_shader *shader,
                               bool tcs_in_out_eq,
-                              int tcs_in_vertex_stride)
+                              int tcs_in_vertex_stride,
+                              bool fixed_io_offset)
 {
    assert(shader->info.stage == MESA_SHADER_TESS_CTRL);
 
    lower_tess_io_state state = {
       .tcs_in_out_eq = tcs_in_out_eq,
+      .fixed_io_offset = fixed_io_offset,
       .tcs_in_vertex_stride = tcs_in_vertex_stride,
    };
 

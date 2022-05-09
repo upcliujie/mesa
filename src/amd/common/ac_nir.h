@@ -60,12 +60,14 @@ void
 ac_nir_lower_ls_outputs_to_mem(nir_shader *ls,
                                bool tcs_in_out_eq,
                                uint64_t tcs_temp_only_inputs,
-                               int ls_out_vertex_stride);
+                               int ls_out_vertex_stride,
+                               bool fixed_io_offset);
 
 void
 ac_nir_lower_hs_inputs_to_mem(nir_shader *shader,
                               bool tcs_in_out_eq,
-                              int tcs_in_vertex_stride);
+                              int tcs_in_vertex_stride,
+                              bool fixed_io_offset);
 
 void
 ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
