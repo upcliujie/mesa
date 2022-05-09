@@ -53,7 +53,7 @@ static LLVMValueRef si_llvm_load_input_gs(struct ac_shader_abi *abi, unsigned in
    unsigned param;
    LLVMValueRef value;
 
-   param = si_shader_io_get_unique_index(info->input[input_index].semantic, false);
+   param = ac_shader_io_get_unique_index(info->input[input_index].semantic, false);
 
    /* GFX9 has the ESGS ring in LDS. */
    if (ctx->screen->info.chip_class >= GFX9) {
@@ -164,7 +164,7 @@ void si_llvm_emit_es_epilogue(struct ac_shader_abi *abi)
           info->output_semantic[i] == VARYING_SLOT_LAYER)
          continue;
 
-      param = si_shader_io_get_unique_index(info->output_semantic[i], false);
+      param = ac_shader_io_get_unique_index(info->output_semantic[i], false);
 
       for (chan = 0; chan < 4; chan++) {
          if (!(info->output_usagemask[i] & (1 << chan)))

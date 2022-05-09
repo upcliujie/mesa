@@ -188,7 +188,7 @@ get_dw_address_from_generic_indices(struct si_shader_context *ctx, LLVMValueRef 
                name == VARYING_SLOT_TESS_LEVEL_INNER ||
                name == VARYING_SLOT_TESS_LEVEL_OUTER
                   ? si_shader_io_get_unique_index_patch(name)
-                  : si_shader_io_get_unique_index(name, false);
+                  : ac_shader_io_get_unique_index(name, false);
 
    /* Add the base address of the element. */
    return LLVMBuildAdd(ctx->ac.builder, base_addr, LLVMConstInt(ctx->ac.i32, param * 4, 0), "");
@@ -255,7 +255,7 @@ static LLVMValueRef get_tcs_tes_buffer_address_from_generic_indices(struct si_sh
                       name == VARYING_SLOT_TESS_LEVEL_INNER ||
                       name == VARYING_SLOT_TESS_LEVEL_OUTER
                          ? si_shader_io_get_unique_index_patch(name)
-                         : si_shader_io_get_unique_index(name, false);
+                         : ac_shader_io_get_unique_index(name, false);
 
    if (param_index) {
       param_index = LLVMBuildAdd(ctx->ac.builder, param_index,
@@ -402,7 +402,7 @@ static LLVMValueRef si_nir_load_tcs_varyings(struct ac_shader_abi *abi, LLVMType
    if (ctx->shader->key.ge.opt.same_patch_vertices &&
        load_input && vertex_index_is_invoc_id && !param_index) {
       unsigned func_param = ctx->args.tcs_rel_ids.arg_index + 1 +
-                            si_shader_io_get_unique_index(semantic, false) * 4;
+                            ac_shader_io_get_unique_index(semantic, false) * 4;
       LLVMValueRef value[4];
 
       for (unsigned i = component; i < component + num_components; i++) {
@@ -996,7 +996,7 @@ void si_llvm_emit_ls_epilogue(struct ac_shader_abi *abi)
       if (semantic == VARYING_SLOT_LAYER || semantic == VARYING_SLOT_VIEWPORT)
          continue;
 
-      int param = si_shader_io_get_unique_index(semantic, false);
+      int param = ac_shader_io_get_unique_index(semantic, false);
       LLVMValueRef dw_addr =
          LLVMBuildAdd(ctx->ac.builder, base_dw_addr, LLVMConstInt(ctx->ac.i32, param * 4, 0), "");
 
