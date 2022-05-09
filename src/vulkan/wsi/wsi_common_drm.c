@@ -292,6 +292,7 @@ wsi_create_native_image_mem(const struct wsi_swapchain *chain,
                             const struct wsi_image_info *info,
                             struct wsi_image *image)
 {
+   struct wsi_drm_image *drm_image = (struct wsi_drm_image *)image;
    const struct wsi_device *wsi = chain->wsi;
    VkResult result;
 
@@ -354,7 +355,7 @@ wsi_create_native_image_mem(const struct wsi_swapchain *chain,
       };
 
       result = wsi->GetMemoryFdKHR(chain->device, &memory_get_fd_info,
-                                   &image->dma_buf_fd);
+                                   &drm_image->dma_buf_fd);
       if (result != VK_SUCCESS)
          return result;
    }
@@ -369,11 +370,11 @@ wsi_create_native_image_mem(const struct wsi_swapchain *chain,
       if (result != VK_SUCCESS)
          return result;
 
-      image->drm_modifier = image_mod_props.drmFormatModifier;
-      assert(image->drm_modifier != DRM_FORMAT_MOD_INVALID);
+      drm_image->drm_modifier = image_mod_props.drmFormatModifier;
+      assert(drm_image->drm_modifier != DRM_FORMAT_MOD_INVALID);
 
       const struct VkDrmFormatModifierPropertiesEXT *mod_props =
-         get_modifier_props(info, image->drm_modifier);
+         get_modifier_props(info, drm_image->drm_modifier);
       image->num_planes = mod_props->drmFormatModifierPlaneCount;
 
       for (uint32_t p = 0; p < image->num_planes; p++) {
@@ -399,7 +400,7 @@ wsi_create_native_image_mem(const struct wsi_swapchain *chain,
       wsi->GetImageSubresourceLayout(chain->device, image->image,
                                      &image_subresource, &image_layout);
 
-      image->drm_modifier = DRM_FORMAT_MOD_INVALID;
+      drm_image->drm_modifier = DRM_FORMAT_MOD_INVALID;
       image->num_planes = 1;
       image->sizes[0] = reqs.size;
       image->row_pitches[0] = image_layout.rowPitch;
@@ -416,6 +417,7 @@ wsi_create_prime_image_mem(const struct wsi_swapchain *chain,
                            const struct wsi_image_info *info,
                            struct wsi_image *image)
 {
+   struct wsi_drm_image *drm_image = (struct wsi_drm_image *)image;
    const struct wsi_device *wsi = chain->wsi;
    VkResult result =
       wsi_create_buffer_image_mem(chain, info, image,
@@ -431,12 +433,12 @@ wsi_create_prime_image_mem(const struct wsi_swapchain *chain,
       .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
    };
    result = wsi->GetMemoryFdKHR(chain->device, &linear_memory_get_fd_info,
-                                &image->dma_buf_fd);
+                                &drm_image->dma_buf_fd);
    if (result != VK_SUCCESS)
       return result;
 
-   image->drm_modifier = info->prime_use_linear_modifier ?
-                         DRM_FORMAT_MOD_LINEAR : DRM_FORMAT_MOD_INVALID;
+   drm_image->drm_modifier = info->prime_use_linear_modifier ?
+                             DRM_FORMAT_MOD_LINEAR : DRM_FORMAT_MOD_INVALID;
 
    return VK_SUCCESS;
 }
@@ -464,4 +466,23 @@ wsi_configure_prime_image(UNUSED const struct wsi_swapchain *chain,
    info->select_image_memory_type = prime_select_image_memory_type;
 
    return VK_SUCCESS;
+}
+
+VkResult
+wsi_create_drm_image(const struct wsi_swapchain *chain,
+                     const struct wsi_image_info *info,
+                     struct wsi_drm_image *image)
+{
+   image->dma_buf_fd = -1;
+   return wsi_create_image(chain, info, &image->base);
+}
+
+void
+wsi_destroy_drm_image(const struct wsi_swapchain *chain,
+                      struct wsi_drm_image *image)
+{
+   if (image->dma_buf_fd >= 0)
+      close(image->dma_buf_fd);
+
+   wsi_destroy_image(chain, &image->base);
 }
