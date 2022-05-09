@@ -74,11 +74,16 @@ struct wsi_image {
       VkCommandBuffer *blit_cmd_buffers;
    } buffer;
 
-   uint64_t drm_modifier;
    int num_planes;
    uint32_t sizes[4];
    uint32_t offsets[4];
    uint32_t row_pitches[4];
+};
+
+struct wsi_drm_image {
+   struct wsi_image base;
+
+   uint64_t drm_modifier;
    int dma_buf_fd;
 };
 
@@ -189,6 +194,13 @@ void
 wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image);
 
+VkResult
+wsi_create_drm_image(const struct wsi_swapchain *chain,
+                     const struct wsi_image_info *info,
+                     struct wsi_drm_image *image);
+void
+wsi_destroy_drm_image(const struct wsi_swapchain *chain,
+                      struct wsi_drm_image *image);
 
 struct wsi_interface {
    VkResult (*get_support)(VkIcdSurfaceBase *surface,

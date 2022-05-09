@@ -476,7 +476,6 @@ wsi_create_image(const struct wsi_swapchain *chain,
    VkResult result;
 
    memset(image, 0, sizeof(*image));
-   image->dma_buf_fd = -1;
 
    result = wsi->CreateImage(chain->device, &info->create,
                              &chain->alloc, &image->image);
@@ -510,9 +509,6 @@ wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image)
 {
    const struct wsi_device *wsi = chain->wsi;
-
-   if (image->dma_buf_fd >= 0)
-      close(image->dma_buf_fd);
 
    if (image->buffer.blit_cmd_buffers) {
       for (uint32_t i = 0; i < wsi->queue_family_count; i++) {

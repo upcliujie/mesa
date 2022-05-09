@@ -133,7 +133,7 @@ enum wsi_image_state {
 };
 
 struct wsi_display_image {
-   struct wsi_image             base;
+   struct wsi_drm_image         base;
    struct wsi_display_swapchain *chain;
    enum wsi_image_state         state;
    uint32_t                     fb_id;
@@ -1096,14 +1096,14 @@ wsi_display_image_init(VkDevice device_h,
    if (drm_format == 0)
       return VK_ERROR_DEVICE_LOST;
 
-   VkResult result = wsi_create_image(&chain->base, &chain->base.image_info,
-                                      &image->base);
+   VkResult result = wsi_create_drm_image(&chain->base, &chain->base.image_info,
+                                          &image->base);
    if (result != VK_SUCCESS)
       return result;
 
    memset(image->buffer, 0, sizeof (image->buffer));
 
-   for (unsigned int i = 0; i < image->base.num_planes; i++) {
+   for (unsigned int i = 0; i < image->base.base.num_planes; i++) {
       int ret = drmPrimeFDToHandle(wsi->fd, image->base.dma_buf_fd,
                                    &image->buffer[i]);
       if (ret < 0)
@@ -1119,8 +1119,8 @@ wsi_display_image_init(VkDevice device_h,
                            create_info->imageExtent.height,
                            drm_format,
                            image->buffer,
-                           image->base.row_pitches,
-                           image->base.offsets,
+                           image->base.base.row_pitches,
+                           image->base.base.offsets,
                            &image->fb_id, 0);
 
    if (ret)
@@ -1130,12 +1130,12 @@ wsi_display_image_init(VkDevice device_h,
 
 fail_fb:
 fail_handle:
-   for (unsigned int i = 0; i < image->base.num_planes; i++) {
+   for (unsigned int i = 0; i < image->base.base.num_planes; i++) {
       if (image->buffer[i])
          wsi_display_destroy_buffer(wsi, image->buffer[i]);
    }
 
-   wsi_destroy_image(&chain->base, &image->base);
+   wsi_destroy_drm_image(&chain->base, &image->base);
 
    return VK_ERROR_OUT_OF_HOST_MEMORY;
 }
@@ -1150,9 +1150,10 @@ wsi_display_image_finish(struct wsi_swapchain *drv_chain,
    struct wsi_display *wsi = chain->wsi;
 
    drmModeRmFB(wsi->fd, image->fb_id);
-   for (unsigned int i = 0; i < image->base.num_planes; i++)
+   for (unsigned int i = 0; i < image->base.base.num_planes; i++)
       wsi_display_destroy_buffer(wsi, image->buffer[i]);
-   wsi_destroy_image(&chain->base, &image->base);
+
+   wsi_destroy_drm_image(&chain->base, &image->base);
 }
 
 static VkResult
@@ -1178,7 +1179,7 @@ wsi_display_get_wsi_image(struct wsi_swapchain *drv_chain,
    struct wsi_display_swapchain *chain =
       (struct wsi_display_swapchain *) drv_chain;
 
-   return &chain->images[image_index].base;
+   return &chain->images[image_index].base.base;
 }
 
 static void
