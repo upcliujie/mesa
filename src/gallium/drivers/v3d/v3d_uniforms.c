@@ -226,7 +226,6 @@ write_tmu_p1(struct v3d_job *job,
         struct v3d_sampler_state *sampler = v3d_sampler_state(psampler);
         struct pipe_sampler_view *psview = texstate->textures[unit];
         struct v3d_sampler_view *sview = v3d_sampler_view(psview);
-        int variant = 0;
 
         /* If we are being asked by the compiler to write parameter 1, then we
          * need that. So if we are at this point, we should expect to have a
@@ -237,7 +236,8 @@ write_tmu_p1(struct v3d_job *job,
         assert(sampler);
         assert(psampler);
 
-        if (sampler->border_color_variants)
+        int variant = sampler->border_color_variant;
+        if (sampler->border_color_variant > V3D_SAMPLER_STATE_BORDER_1111)
                 variant = sview->sampler_variant;
 
         cl_aligned_reloc(&job->indirect, uniforms,

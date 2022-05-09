@@ -579,8 +579,12 @@ v3d_upload_sampler_state_variant(void *map,
                                 sampler.maximum_anisotropy = 1;
                 }
 
-                if (variant == V3D_SAMPLER_STATE_BORDER_0) {
+                if (variant == V3D_SAMPLER_STATE_BORDER_0000) {
                         sampler.border_color_mode = V3D_BORDER_COLOR_0000;
+                } else if (variant == V3D_SAMPLER_STATE_BORDER_0001) {
+                        sampler.border_color_mode = V3D_BORDER_COLOR_0001;
+                } else if (variant == V3D_SAMPLER_STATE_BORDER_1111) {
+                        sampler.border_color_mode = V3D_BORDER_COLOR_1111;
                 } else {
                         sampler.border_color_mode = V3D_BORDER_COLOR_FOLLOWS;
 
@@ -723,20 +727,46 @@ v3d_create_sampler_state(struct pipe_context *pctx,
         enum V3DX(Wrap_Mode) wrap_t = translate_wrap(cso->wrap_t);
         enum V3DX(Wrap_Mode) wrap_r = translate_wrap(cso->wrap_r);
 
+#if V3D_VERSION >= 40
         bool uses_border_color = (wrap_s == V3D_WRAP_MODE_BORDER ||
                                   wrap_t == V3D_WRAP_MODE_BORDER ||
                                   wrap_r == V3D_WRAP_MODE_BORDER);
-        so->border_color_variants = (uses_border_color &&
-                                     (cso->border_color.ui[0] != 0 ||
-                                      cso->border_color.ui[1] != 0 ||
-                                      cso->border_color.ui[2] != 0 ||
-                                      cso->border_color.ui[3] != 0));
 
-#if V3D_VERSION >= 40
+        int num_variants;
+        int sampler_align = 8;
+
+        if (uses_border_color) {
+                if (cso->border_color.ui[0] == 0 &&
+                    cso->border_color.ui[1] == 0 &&
+                    cso->border_color.ui[2] == 0 &&
+                    cso->border_color.ui[3] == 0) {
+                        so->border_color_variant = V3D_SAMPLER_STATE_BORDER_0000;
+                        num_variants = 1;
+                } else if (cso->border_color.ui[0] == 0 &&
+                           cso->border_color.ui[1] == 0 &&
+                           cso->border_color.ui[2] == 0 &&
+                           cso->border_color.ui[3] == 0x3F800000) {
+                        so->border_color_variant = V3D_SAMPLER_STATE_BORDER_0001;
+                        num_variants = 2;
+                } else if (cso->border_color.ui[0] == 0x3F800000 &&
+                           cso->border_color.ui[1] == 0x3F800000 &&
+                           cso->border_color.ui[2] == 0x3F800000 &&
+                           cso->border_color.ui[3] == 0x3F800000) {
+                        so->border_color_variant = V3D_SAMPLER_STATE_BORDER_1111;
+                        num_variants = 3;
+                } else {
+                        /* The actual variant will be select when configuring the TMU */
+                        so->border_color_variant = V3D_SAMPLER_STATE_BORDER_1111 + 1;
+                        num_variants = ARRAY_SIZE(so->sampler_state_offset);
+                        sampler_align = 32;
+                }
+        } else {
+                so->border_color_variant = V3D_SAMPLER_STATE_BORDER_0000;
+                num_variants = 1;
+        }
+
         void *map;
-        int sampler_align = so->border_color_variants ? 32 : 8;
         int sampler_size = align(cl_packet_length(SAMPLER_STATE), sampler_align);
-        int num_variants = (so->border_color_variants ? ARRAY_SIZE(so->sampler_state_offset) : 1);
         u_upload_alloc(v3d->state_uploader, 0,
                        sampler_size * num_variants,
                        sampler_align,
