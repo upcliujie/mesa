@@ -496,7 +496,6 @@ st_glsl_to_nir_post_opts(struct st_context *st, struct gl_program *prog,
       NIR_PASS_V(nir, gl_nir_lower_atomics, shader_program, true);
 
    NIR_PASS_V(nir, nir_opt_intrinsics);
-   NIR_PASS_V(nir, nir_opt_fragdepth);
 
    /* Lower 64-bit ops. */
    if (nir->options->lower_int64_options ||
@@ -1115,6 +1114,17 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
       nir_lower_io_passes(nir, xfb);
       free(xfb);
    }
+
+   /* nir_lower_io_passes calls lower_io_to_temporaries, so we need to call it
+    * before running nir_opt_fragdepth. Otherwise gl_FragDepth = gl_FragCoord.z
+    * writes will be optimized out, then lowered to gl_FragDepth = undefined,
+    * which will produce incorrect results in general.
+    *
+    * (An alternative solution is to remove the variable in opt_fragdepth).
+    *
+    * See dEQP-GLES3.functional.shaders.fragdepth.compare.fragcoord_z
+    */
+   NIR_PASS_V(nir, nir_opt_fragdepth);
 
    /* Set num_uniforms in number of attribute slots (vec4s) */
    nir->num_uniforms = DIV_ROUND_UP(prog->Parameters->NumParameterValues, 4);
