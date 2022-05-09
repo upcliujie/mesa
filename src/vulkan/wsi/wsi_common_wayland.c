@@ -906,7 +906,7 @@ wsi_CreateWaylandSurfaceKHR(VkInstance _instance,
 }
 
 struct wsi_wl_image {
-   struct wsi_image                             base;
+   struct wsi_drm_image                         base;
    struct wl_buffer *                           buffer;
    bool                                         busy;
    void *                                       data_ptr;
@@ -943,7 +943,7 @@ wsi_wl_swapchain_get_wsi_image(struct wsi_swapchain *wsi_chain,
                                uint32_t image_index)
 {
    struct wsi_wl_swapchain *chain = (struct wsi_wl_swapchain *)wsi_chain;
-   return &chain->images[image_index].base;
+   return &chain->images[image_index].base.base;
 }
 
 static VkResult
@@ -1048,16 +1048,16 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
       void *dptr = image->data_ptr;
       void *sptr;
       chain->base.wsi->MapMemory(chain->base.device,
-                                 image->base.memory,
+                                 image->base.base.memory,
                                  0, 0, 0, &sptr);
 
       for (unsigned r = 0; r < chain->extent.height; r++) {
-         memcpy(dptr, sptr, image->base.row_pitches[0]);
-         dptr += image->base.row_pitches[0];
-         sptr += image->base.row_pitches[0];
+         memcpy(dptr, sptr, image->base.base.row_pitches[0]);
+         dptr += image->base.base.row_pitches[0];
+         sptr += image->base.base.row_pitches[0];
       }
       chain->base.wsi->UnmapMemory(chain->base.device,
-                                   image->base.memory);
+                                   image->base.base.memory);
 
    }
    if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR) {
@@ -1121,15 +1121,15 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
    struct wsi_wl_display *display = chain->display;
    VkResult result;
 
-   result = wsi_create_image(&chain->base, &chain->base.image_info,
-                             &image->base);
+   result = wsi_create_drm_image(&chain->base, &chain->base.image_info,
+                                 &image->base);
    if (result != VK_SUCCESS)
       return result;
 
    if (display->sw) {
       int fd, stride;
 
-      stride = image->base.row_pitches[0];
+      stride = image->base.base.row_pitches[0];
       image->data_size = stride * chain->extent.height;
 
       /* Create a shareable buffer */
@@ -1158,12 +1158,12 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
       if (!params)
          goto fail_image;
 
-      for (int i = 0; i < image->base.num_planes; i++) {
+      for (int i = 0; i < image->base.base.num_planes; i++) {
          zwp_linux_buffer_params_v1_add(params,
                                         image->base.dma_buf_fd,
                                         i,
-                                        image->base.offsets[i],
-                                        image->base.row_pitches[i],
+                                        image->base.base.offsets[i],
+                                        image->base.base.row_pitches[i],
                                         image->base.drm_modifier >> 32,
                                         image->base.drm_modifier & 0xffffffff);
       }
@@ -1185,7 +1185,7 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
    return VK_SUCCESS;
 
 fail_image:
-   wsi_destroy_image(&chain->base, &image->base);
+   wsi_destroy_drm_image(&chain->base, &image->base);
 
    return VK_ERROR_OUT_OF_HOST_MEMORY;
 }
@@ -1196,7 +1196,8 @@ wsi_wl_swapchain_images_free(struct wsi_wl_swapchain *chain)
    for (uint32_t i = 0; i < chain->base.image_count; i++) {
       if (chain->images[i].buffer) {
          wl_buffer_destroy(chain->images[i].buffer);
-         wsi_destroy_image(&chain->base, &chain->images[i].base);
+         wsi_destroy_drm_image(&chain->base, &chain->images[i].base);
+
          if (chain->images[i].data_ptr)
             munmap(chain->images[i].data_ptr, chain->images[i].data_size);
       }
