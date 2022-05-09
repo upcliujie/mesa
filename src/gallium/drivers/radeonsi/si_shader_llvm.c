@@ -1155,9 +1155,6 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
          si_llvm_build_tcs_epilog(&ctx, &tcs_epilog_key);
          parts[3] = ctx.main_fn;
 
-         /* VS as LS main part */
-         ctx.next_shader_sel = ctx.shader->selector;
-
          struct si_shader shader_ls = {};
          shader_ls.selector = ls;
          shader_ls.key.ge.part.vs.prolog = shader->key.ge.part.tcs.ls_prolog;
