@@ -172,6 +172,17 @@ bi_print_instr(const bi_instr *I, FILE *fp)
     if (I->table)
         fprintf(fp, ".table%u", I->table);
 
+    if (I->op == BI_OPCODE_PHI || I->op == BI_OPCODE_COLLECT_I32) {
+        for (unsigned i = 0; i < I->nr_srcs; ++i) {
+            if (i > 0)
+                fputs(", ", fp);
+            else
+                fputs(" ", fp);
+
+            bi_print_index(fp, I->src[i]);
+        }
+    }
+
     switch (I->op) {
 % for opcode in ops:
 <%
