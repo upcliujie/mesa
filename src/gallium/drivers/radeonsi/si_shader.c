@@ -1414,6 +1414,30 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
    return progress;
 }
 
+static bool si_lower_io_mem(struct si_shader_selector *sel,
+                            const union si_shader_key *key,
+                            const struct si_get_nir_shader_params *params,
+                            nir_shader *nir)
+{
+   if (nir->info.stage == MESA_SHADER_VERTEX) {
+      if (key->ge.as_ls) {
+         ac_nir_lower_ls_outputs_to_mem(nir, key->ge.opt.same_patch_vertices,
+                                        params->tcs_vgpr_only_inputs,
+                                        sel->info.lshs_vertex_stride, true);
+         return true;
+      }
+   } else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
+      /* negative stride will be lowered to intrinsic */
+      int stride = sel->screen->info.chip_class >= GFX9 && params->is_monolithic ?
+         key->ge.part.tcs.ls->info.lshs_vertex_stride : -1;
+
+      ac_nir_lower_hs_inputs_to_mem(nir, key->ge.opt.same_patch_vertices, stride, true);
+      return true;
+   }
+
+   return false;
+}
+
 struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
                                      const union si_shader_key *key,
                                      bool *free_nir,
@@ -1527,10 +1551,23 @@ struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
     * this should be done after that.
     */
    progress2 |= ac_nir_lower_indirect_derefs(nir, sel->screen->info.chip_class);
-   if (progress2)
+
+   bool opt_offsets = false;
+   opt_offsets |= si_lower_io_mem(sel, key, params, nir);
+
+   if (progress2 || opt_offsets)
       si_nir_opts(sel->screen, nir, false);
 
-   if (progress || progress2)
+   if (opt_offsets) {
+      static const nir_opt_offsets_options offset_options = {
+         .uniform_max = 0,
+         .buffer_max = ~0,
+         .shared_max = ~0,
+      };
+      NIR_PASS_V(nir, nir_opt_offsets, &offset_options);
+   }
+
+   if (progress || progress2 || opt_offsets)
       si_nir_late_opts(nir);
 
    /* This helps LLVM form VMEM clauses and thus get more GPU cache hits.
