@@ -50,6 +50,7 @@
 #include "vk_physical_device.h"
 #include "vk_util.h"
 #include "vk_enum_to_str.h"
+#include "wsi_common_drm.h"
 #include "wsi_common_entrypoints.h"
 #include "wsi_common_private.h"
 #include "wsi_common_queue.h"
@@ -906,7 +907,7 @@ wsi_CreateXlibSurfaceKHR(VkInstance _instance,
 }
 
 struct x11_image {
-   struct wsi_image                          base;
+   struct wsi_drm_image                      base;
    xcb_pixmap_t                              pixmap;
    xcb_xfixes_region_t                       update_region; /* long lived XID */
    xcb_xfixes_region_t                       update_area;   /* the above or None */
@@ -1007,7 +1008,7 @@ static struct wsi_image *
 x11_get_wsi_image(struct wsi_swapchain *wsi_chain, uint32_t image_index)
 {
    struct x11_swapchain *chain = (struct x11_swapchain *)wsi_chain;
-   return &chain->images[image_index].base;
+   return &chain->images[image_index].base.base;
 }
 
 /**
@@ -1292,19 +1293,19 @@ x11_present_to_x11_sw(struct x11_swapchain *chain, uint32_t image_index,
    xcb_void_cookie_t cookie;
    void *myptr;
    chain->base.wsi->MapMemory(chain->base.device,
-                              image->base.memory,
+                              image->base.base.memory,
                               0, 0, 0, &myptr);
 
    cookie = xcb_put_image(chain->conn, XCB_IMAGE_FORMAT_Z_PIXMAP,
                           chain->window,
                           chain->gc,
-			  image->base.row_pitches[0] / 4,
+                          image->base.base.row_pitches[0] / 4,
                           chain->extent.height,
                           0,0,0,24,
-                          image->base.row_pitches[0] * chain->extent.height,
+                          image->base.base.row_pitches[0] * chain->extent.height,
                           myptr);
 
-   chain->base.wsi->UnmapMemory(chain->base.device, image->base.memory);
+   chain->base.wsi->UnmapMemory(chain->base.device, image->base.base.memory);
    xcb_discard_reply(chain->conn, cookie.sequence);
    xcb_flush(chain->conn);
    return x11_swapchain_result(chain, VK_SUCCESS);
@@ -1619,8 +1620,8 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
    uint32_t bpp = 32;
    int fence_fd;
 
-   result = wsi_create_image(&chain->base, &chain->base.image_info,
-                             &image->base);
+   result = wsi_create_drm_image(&chain->base, &chain->base.image_info,
+                                 &image->base);
    if (result != VK_SUCCESS)
       return result;
 
@@ -1643,7 +1644,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
       cookie = xcb_shm_create_pixmap_checked(chain->conn,
                                              image->pixmap,
                                              chain->window,
-                                             image->base.row_pitches[0] / 4,
+                                             image->base.base.row_pitches[0] / 4,
                                              pCreateInfo->imageExtent.height,
                                              chain->depth,
                                              image->shmseg, 0);
@@ -1659,7 +1660,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
 
       /* XCB requires an array of file descriptors but we only have one */
       int fds[4] = { -1, -1, -1, -1 };
-      for (int i = 0; i < image->base.num_planes; i++) {
+      for (int i = 0; i < image->base.base.num_planes; i++) {
          fds[i] = os_dupfd_cloexec(image->base.dma_buf_fd);
          if (fds[i] == -1) {
             for (int j = 0; j < i; j++)
@@ -1673,17 +1674,17 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
          xcb_dri3_pixmap_from_buffers_checked(chain->conn,
                                               image->pixmap,
                                               chain->window,
-                                              image->base.num_planes,
+                                              image->base.base.num_planes,
                                               pCreateInfo->imageExtent.width,
                                               pCreateInfo->imageExtent.height,
-                                              image->base.row_pitches[0],
-                                              image->base.offsets[0],
-                                              image->base.row_pitches[1],
-                                              image->base.offsets[1],
-                                              image->base.row_pitches[2],
-                                              image->base.offsets[2],
-                                              image->base.row_pitches[3],
-                                              image->base.offsets[3],
+                                              image->base.base.row_pitches[0],
+                                              image->base.base.offsets[0],
+                                              image->base.base.row_pitches[1],
+                                              image->base.base.offsets[1],
+                                              image->base.base.row_pitches[2],
+                                              image->base.base.offsets[2],
+                                              image->base.base.row_pitches[3],
+                                              image->base.base.offsets[3],
                                               chain->depth, bpp,
                                               image->base.drm_modifier,
                                               fds);
@@ -1691,7 +1692,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
 #endif
    {
       /* Without passing modifiers, we can't have multi-plane RGB images. */
-      assert(image->base.num_planes == 1);
+      assert(image->base.base.num_planes == 1);
 
       /* XCB will take ownership of the FD we pass it. */
       int fd = os_dupfd_cloexec(image->base.dma_buf_fd);
@@ -1702,10 +1703,10 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
          xcb_dri3_pixmap_from_buffer_checked(chain->conn,
                                              image->pixmap,
                                              chain->window,
-                                             image->base.sizes[0],
+                                             image->base.base.sizes[0],
                                              pCreateInfo->imageExtent.width,
                                              pCreateInfo->imageExtent.height,
-                                             image->base.row_pitches[0],
+                                             image->base.base.row_pitches[0],
                                              chain->depth, bpp, fd);
    }
 
@@ -1739,7 +1740,7 @@ fail_pixmap:
    cookie = xcb_free_pixmap(chain->conn, image->pixmap);
    xcb_discard_reply(chain->conn, cookie.sequence);
 
-   wsi_destroy_image(&chain->base, &image->base);
+   wsi_destroy_drm_image(&chain->base, &image->base);
 
    return VK_ERROR_INITIALIZATION_FAILED;
 }
@@ -1763,7 +1764,7 @@ x11_image_finish(struct x11_swapchain *chain,
       xcb_discard_reply(chain->conn, cookie.sequence);
    }
 
-   wsi_destroy_image(&chain->base, &image->base);
+   wsi_destroy_drm_image(&chain->base, &image->base);
 #ifdef HAVE_SYS_SHM_H
    if (image->shmaddr)
       shmdt(image->shmaddr);
