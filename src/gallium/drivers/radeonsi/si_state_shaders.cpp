@@ -3013,7 +3013,7 @@ static void si_init_shader_selector_async(void *job, void *gdata, int thread_ind
                 semantic != VARYING_SLOT_PSIZ &&
                 semantic != VARYING_SLOT_CLIP_VERTEX &&
                 semantic != VARYING_SLOT_EDGE) {
-               id = si_shader_io_get_unique_index(semantic, true);
+               id = ac_shader_io_get_unique_index(semantic, true);
                sel->info.outputs_written_before_ps &= ~(1ull << id);
             }
          }

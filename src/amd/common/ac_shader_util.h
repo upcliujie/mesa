@@ -138,6 +138,8 @@ void ac_get_scratch_tmpring_size(const struct radeon_info *info, bool compute,
                                  unsigned bytes_per_wave, unsigned *max_seen_bytes_per_wave,
                                  uint32_t *tmpring_size);
 
+unsigned ac_shader_io_get_unique_index(unsigned semantic, bool is_varying);
+
 #ifdef __cplusplus
 }
 #endif
