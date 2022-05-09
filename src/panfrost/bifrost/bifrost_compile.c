@@ -4005,6 +4005,53 @@ glsl_type_size(const struct glsl_type *type, bool bindless)
         return glsl_count_attribute_slots(type, false);
 }
 
+static void
+bifrost_nir_lower_io_tail(nir_shader *nir)
+{
+        /* Lower gl_Position pre-optimization, but after lowering vars to ssa
+         * (so we don't accidentally duplicate the epilogue since mesa/st has
+         * messed with our I/O quite a bit already)
+         */
+        NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+
+        if (nir->info.stage == MESA_SHADER_VERTEX) {
+                NIR_PASS_V(nir, nir_lower_viewport_transform);
+                NIR_PASS_V(nir, nir_lower_point_size, 1.0, 0.0);
+
+                nir_variable *psiz =
+                        nir_find_variable_with_location(nir, nir_var_shader_out,
+                                                        VARYING_SLOT_PSIZ);
+                if (psiz != NULL)
+                        psiz->data.precision = GLSL_PRECISION_MEDIUM;
+        }
+
+        /* Lower large arrays to scratch and small arrays to bcsel */
+        NIR_PASS_V(nir, nir_lower_vars_to_scratch, nir_var_function_temp, 16,
+                        glsl_get_natural_size_align_bytes);
+        NIR_PASS_V(nir, nir_lower_indirect_derefs, nir_var_function_temp, ~0);
+
+        NIR_PASS_V(nir, nir_split_var_copies);
+        NIR_PASS_V(nir, nir_lower_global_vars_to_local);
+        NIR_PASS_V(nir, nir_lower_var_copies);
+        NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+        NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
+                        glsl_type_size, 0);
+
+        nir->info.io_lowered = true;
+}
+
+/*
+ * Only lower I/O early for vertex shaders, which need transform feedback
+ * information attached. Don't lower I/O early for fragment shaders, which need
+ * to lower COLOR outputs based on the shader key (after the early lowering).
+ */
+void
+bifrost_nir_lower_io(nir_shader *nir)
+{
+        if (nir->info.stage == MESA_SHADER_VERTEX)
+                bifrost_nir_lower_io_tail(nir);
+}
+
 /* Split stores to memory. We don't split stores to vertex outputs, since
  * nir_lower_io_to_temporaries will ensure there's only a single write.
  */
@@ -4526,35 +4573,8 @@ bi_pack_clauses(bi_context *ctx, struct util_dynarray *binary, unsigned offset)
 static void
 bi_finalize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
 {
-        /* Lower gl_Position pre-optimisation, but after lowering vars to ssa
-         * (so we don't accidentally duplicate the epilogue since mesa/st has
-         * messed with our I/O quite a bit already) */
-
-        NIR_PASS_V(nir, nir_lower_vars_to_ssa);
-
-        if (nir->info.stage == MESA_SHADER_VERTEX) {
-                NIR_PASS_V(nir, nir_lower_viewport_transform);
-                NIR_PASS_V(nir, nir_lower_point_size, 1.0, 0.0);
-
-                nir_variable *psiz = nir_find_variable_with_location(nir,
-                                                                     nir_var_shader_out,
-                                                                     VARYING_SLOT_PSIZ);
-                if (psiz != NULL)
-                        psiz->data.precision = GLSL_PRECISION_MEDIUM;
-        }
-
-        /* Lower large arrays to scratch and small arrays to bcsel (TODO: tune
-         * threshold, but not until addresses / csel is optimized better) */
-        NIR_PASS_V(nir, nir_lower_vars_to_scratch, nir_var_function_temp, 16,
-                        glsl_get_natural_size_align_bytes);
-        NIR_PASS_V(nir, nir_lower_indirect_derefs, nir_var_function_temp, ~0);
-
-        NIR_PASS_V(nir, nir_split_var_copies);
-        NIR_PASS_V(nir, nir_lower_global_vars_to_local);
-        NIR_PASS_V(nir, nir_lower_var_copies);
-        NIR_PASS_V(nir, nir_lower_vars_to_ssa);
-        NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-                        glsl_type_size, 0);
+        if (!nir->info.io_lowered)
+                bifrost_nir_lower_io_tail(nir);
 
         /* nir_lower[_explicit]_io is lazy and emits mul+add chains even for
          * offsets it could figure out are constant.  Do some constant folding

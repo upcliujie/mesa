@@ -34,6 +34,8 @@ bifrost_compile_shader_nir(nir_shader *nir,
                            struct util_dynarray *binary,
                            struct pan_shader_info *info);
 
+void bifrost_nir_lower_io(nir_shader *nir);
+
 static const nir_shader_compiler_options bifrost_nir_options = {
         .lower_scmp = true,
         .lower_flrp16 = true,
@@ -88,6 +90,7 @@ static const nir_shader_compiler_options bifrost_nir_options = {
         .use_interpolated_input_intrinsics = true,
 
         .lower_uniforms_to_ubo = true,
+        .lower_io_cb = bifrost_nir_lower_io,
 
         .has_cs_global_id = true,
         .lower_cs_local_index_to_id = true,
