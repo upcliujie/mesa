@@ -1417,6 +1417,7 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
 struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
                                      const union si_shader_key *key,
                                      struct si_shader *shader,
+                                     struct si_shader_selector *next_shader_sel,
                                      bool *free_nir)
 {
    nir_shader *nir;
@@ -1606,7 +1607,7 @@ bool si_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *compi
 {
    struct si_shader_selector *sel = shader->selector;
    bool free_nir;
-   struct nir_shader *nir = si_get_nir_shader(sel, &shader->key, shader, &free_nir);
+   struct nir_shader *nir = si_get_nir_shader(sel, &shader->key, shader, NULL, &free_nir);
 
    /* Assign param export indices. */
    if ((sel->stage == MESA_SHADER_VERTEX ||

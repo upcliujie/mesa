@@ -175,6 +175,7 @@ void si_get_vs_prolog_key(const struct si_shader_info *info, unsigned num_input_
 struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
                                      const union si_shader_key *key,
                                      struct si_shader *shader,
+                                     struct si_shader_selector *next_shader_sel,
                                      bool *free_nir);
 bool si_need_ps_prolog(const union si_shader_part_key *key);
 void si_get_ps_prolog_key(struct si_shader *shader, union si_shader_part_key *key,
