@@ -530,8 +530,12 @@ static bool si_nir_build_llvm(struct si_shader_context *ctx, struct nir_shader *
           nir_alu_type_get_type_size(ctx->shader->selector->info.output_type[i]) == 16)
          type = ctx->ac.f16;
 
+      /* LS output use fixed location. */
+      unsigned slot = nir->info.stage == MESA_SHADER_VERTEX && ctx->shader->key.ge.as_ls ?
+         si_shader_io_get_unique_index(info->output_semantic[i], false) : i;
+
       for (unsigned j = 0; j < 4; j++)
-         ctx->abi.outputs[i * 4 + j] = ac_build_alloca_undef(&ctx->ac, type, "");
+         ctx->abi.outputs[slot * 4 + j] = ac_build_alloca_undef(&ctx->ac, type, "");
    }
 
    ctx->abi.clamp_div_by_zero = ctx->screen->options.clamp_div_by_zero ||
@@ -1154,9 +1158,6 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
          tcs_epilog_key.tcs_epilog.states = shader->key.ge.part.tcs.epilog;
          si_llvm_build_tcs_epilog(&ctx, &tcs_epilog_key);
          parts[3] = ctx.main_fn;
-
-         /* VS as LS main part */
-         ctx.next_shader_sel = ctx.shader->selector;
 
          struct si_shader shader_ls = {};
          shader_ls.selector = ls;
