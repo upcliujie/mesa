@@ -103,7 +103,9 @@ void v3d_job_add_bo(struct v3d_job *job, struct v3d_bo *bo);
 #define MAX_JOB_SCISSORS 16
 
 enum v3d_sampler_state_variant {
-        V3D_SAMPLER_STATE_BORDER_0,
+        V3D_SAMPLER_STATE_BORDER_TRANSPARENT,
+        V3D_SAMPLER_STATE_BORDER_BLACK,
+        V3D_SAMPLER_STATE_BORDER_WHITE,
         V3D_SAMPLER_STATE_F16,
         V3D_SAMPLER_STATE_F16_UNORM,
         V3D_SAMPLER_STATE_F16_SNORM,
@@ -185,7 +187,7 @@ struct v3d_sampler_state {
         struct pipe_resource *sampler_state;
         uint32_t sampler_state_offset[V3D_SAMPLER_STATE_VARIANT_COUNT];
 
-        bool border_color_variants;
+        enum v3d_sampler_state_variant border_color_variant;
 };
 
 struct v3d_texture_stateobj {
