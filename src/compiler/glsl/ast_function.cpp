@@ -240,8 +240,7 @@ verify_parameter_modes(_mesa_glsl_parse_state *state,
       YYLTYPE loc = actual_ast->get_location();
 
       /* Verify that 'const_in' parameters are ir_constants. */
-      if (formal->data.mode == ir_var_const_in &&
-          actual->ir_type != ir_type_constant) {
+      if (formal->data.mode == ir_var_const_in && !actual->as_constant()) {
          _mesa_glsl_error(&loc, state,
                           "parameter `in %s' must be a constant expression",
                           formal->name);
