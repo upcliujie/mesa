@@ -40,6 +40,8 @@ struct nvfx_fpc {
    struct nvfx_reg* r_imm;
    unsigned nr_imm;
 
+   unsigned nr_loops;
+
    struct util_dynarray if_stack;
    //struct util_dynarray loop_stack;
    struct util_dynarray label_relocs;
@@ -812,6 +814,7 @@ nvfx_fragprog_parse_instruction(struct nvfx_fpc *fpc,
          goto nv3x_cflow;
       /* TODO: we should support using two nested REPs to allow a > 255 iteration count */
       nv40_fp_rep(fpc, 255, finst->Label.Label);
+      fpc->nr_loops++;
       break;
 
    case TGSI_OPCODE_ENDLOOP:
@@ -1061,7 +1064,8 @@ out_err:
 DEBUG_GET_ONCE_BOOL_OPTION(nvfx_dump_fp, "NVFX_DUMP_FP", false)
 
 void
-_nvfx_fragprog_translate(uint16_t oclass, struct nv30_fragprog *fp)
+_nvfx_fragprog_translate(uint16_t oclass, struct nv30_fragprog *fp,
+                         struct util_debug_callback *debug)
 {
    struct tgsi_parse_context parse;
    struct nvfx_fpc *fpc = NULL;
@@ -1150,6 +1154,8 @@ _nvfx_fragprog_translate(uint16_t oclass, struct nv30_fragprog *fp)
    }
 
    fp->translated = true;
+
+   util_debug_message(debug, SHADER_INFO, "FS shader: %d inst, %d gpr, %d loops", fp->insn_len, fpc->num_regs, fpc->nr_loops);
 
 out:
    tgsi_parse_free(&parse);

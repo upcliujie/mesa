@@ -57,6 +57,8 @@ struct nvfx_vpc {
    struct nvfx_reg *imm;
    unsigned nr_imm;
 
+   unsigned nr_loops;
+
    int hpos_idx;
    int cvtx_idx;
 
@@ -735,6 +737,7 @@ nvfx_vertprog_parse_instruction(struct nvfx_vpc *vpc,
       loop.cont_target = idx;
       loop.brk_target = finst->Label.Label + 1;
       util_dynarray_append(&vpc->loop_stack, struct nvfx_loop_entry, loop);
+      vpc->nr_loops++;
       break;
    case TGSI_OPCODE_ENDLOOP:
       loop = util_dynarray_pop(&vpc->loop_stack, struct nvfx_loop_entry);
@@ -954,8 +957,9 @@ nvfx_vertprog_prepare(struct nvfx_vpc *vpc)
 
 DEBUG_GET_ONCE_BOOL_OPTION(nvfx_dump_vp, "NVFX_DUMP_VP", false)
 
-bool
-_nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
+void
+_nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp,
+                         struct util_debug_callback *debug)
 {
    struct tgsi_parse_context parse;
    struct nvfx_vpc *vpc = NULL;
@@ -969,7 +973,7 @@ _nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
 
    vpc = CALLOC_STRUCT(nvfx_vpc);
    if (!vpc)
-      return false;
+      return;
    vpc->is_nv4x = (oclass >= NV40_3D_CLASS) ? ~0 : 0;
    vpc->vp   = vp;
    vpc->pipe = vp->pipe;
@@ -978,7 +982,7 @@ _nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
 
    if (!nvfx_vertprog_prepare(vpc)) {
       FREE(vpc);
-      return false;
+      return;
    }
 
    /* Redirect post-transform vertex position to a temp if user clip
@@ -1098,6 +1102,9 @@ _nvfx_vertprog_translate(uint16_t oclass, struct nv30_vertprog *vp)
 
    vp->translated = true;
 
+   /* Note: shader-db report.py wants the same stats in all shaders, so include dummy value */
+   util_debug_message(debug, SHADER_INFO, "VS shader: %d inst, 0 gpr, %d loops", vp->nr_insns, vpc->nr_loops);
+
 out:
    tgsi_parse_free(&parse);
    if (vpc) {
@@ -1109,6 +1116,4 @@ out:
       FREE(vpc->imm);
       FREE(vpc);
    }
-
-   return vp->translated;
 }
