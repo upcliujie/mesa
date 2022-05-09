@@ -946,6 +946,38 @@ process_loops(nir_shader *sh, nir_cf_node *cf_node, bool *has_nested_loop_out,
     */
    if (!progress && loop->control != nir_loop_control_dont_unroll) {
 
+      /* Remove the conditional break statements associated with all terminators
+       * that are associated with a fixed iteration count, except for the one
+       * associated with the limiting terminator--that one needs to stay, since
+       * it terminates the loop.
+       */
+      if (loop->info->limiting_terminator) {
+         list_for_each_entry_safe(nir_loop_terminator, t,
+                                  &loop->info->loop_terminator_list,
+                                  loop_terminator_link) {
+            if (t->exact_trip_count_unknown)
+               continue;
+
+            if (t != loop->info->limiting_terminator) {
+               /* Move the if-statements continue block to the block after the
+                * if
+                */
+               nir_cf_list tmp;
+               nir_cf_extract(&tmp, nir_before_block(t->continue_from_block),
+                              nir_after_block(t->continue_from_block));
+               nir_cf_reinsert(&tmp, nir_after_cf_node(&t->nif->cf_node));
+
+               /* Now delete the if */
+               nir_cf_node_remove(&t->nif->cf_node);
+
+               /* Also remove it from the terminator list */
+               list_del(&t->loop_terminator_link);
+
+               progress = true;
+            }
+         }
+      }
+
       /* Check for the classic
        *
        *    do {
