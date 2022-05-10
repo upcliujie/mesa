@@ -160,11 +160,19 @@ bi_${mod}_as_str(enum bi_${mod} ${mod})
 void
 bi_print_instr(const bi_instr *I, FILE *fp)
 {
-    bi_foreach_dest(I, d) {
-        if (bi_is_null(I->dest[d])) break;
-        if (d > 0) fprintf(fp, ", ");
+    if (I->op == BI_OPCODE_SPLIT_I32) {
+        for (unsigned d = 0; d < I->nr_dests; ++d) {
+            if (d > 0) fprintf(fp, ", ");
 
-        bi_print_index(fp, I->dest[d]);
+            bi_print_index(fp, I->dest[d]);
+        }
+    } else {
+        bi_foreach_dest(I, d) {
+            if (bi_is_null(I->dest[d])) break;
+            if (d > 0) fprintf(fp, ", ");
+
+            bi_print_index(fp, I->dest[d]);
+        }
     }
 
     fprintf(fp, " = %s", bi_opcode_props[I->op].name);
