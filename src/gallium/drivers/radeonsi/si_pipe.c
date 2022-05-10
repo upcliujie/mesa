@@ -490,7 +490,7 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
 
    if (sctx->chip_class == GFX7 || sctx->chip_class == GFX8 || sctx->chip_class == GFX9) {
       sctx->eop_bug_scratch = si_aligned_buffer_create(
-         &sscreen->b, SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+         &sscreen->b, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
          PIPE_USAGE_DEFAULT, 16 * sscreen->info.max_render_backends, 256);
       if (!sctx->eop_bug_scratch)
          goto fail;
@@ -670,7 +670,8 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    if (sctx->chip_class == GFX7) {
       sctx->null_const_buf.buffer =
          pipe_aligned_buffer_create(screen,
-                                    SI_RESOURCE_FLAG_32BIT | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                    PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_32BIT |
+                                    SI_RESOURCE_FLAG_DRIVER_INTERNAL,
                                     PIPE_USAGE_DEFAULT, 16,
                                     sctx->screen->info.tcc_cache_line_size);
       if (!sctx->null_const_buf.buffer)
@@ -1342,7 +1343,10 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
       unsigned attr_ring_size_per_se = align(1400000, 64 * 1024);
       unsigned attr_ring_size = attr_ring_size_per_se * sscreen->info.max_se;
       assert(attr_ring_size <= 16 * 1024 * 1024); /* maximum size */
-      sscreen->attribute_ring = si_aligned_buffer_create(&sscreen->b, SI_RESOURCE_FLAG_32BIT,
+      sscreen->attribute_ring = si_aligned_buffer_create(&sscreen->b,
+                                                         PIPE_RESOURCE_FLAG_UNMAPPABLE |
+                                                         SI_RESOURCE_FLAG_32BIT |
+                                                         SI_RESOURCE_FLAG_DRIVER_INTERNAL,
                                                          PIPE_USAGE_DEFAULT,
                                                          /* TODO: remove the overallocation */
                                                          attr_ring_size * 16, 2 * 1024 * 1024);
