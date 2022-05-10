@@ -342,7 +342,7 @@ lower_intrinsics(nir_shader *nir, const struct radv_pipeline_key *key)
 }
 
 static bool
-radv_lower_primitive_shading_rate(nir_shader *nir)
+radv_lower_primitive_shading_rate(nir_shader *nir, const struct radv_physical_device *pdevice)
 {
    nir_function_impl *impl = nir_shader_get_entrypoint(nir);
    bool progress = false;
@@ -381,25 +381,36 @@ radv_lower_primitive_shading_rate(nir_shader *nir)
 
          nir_ssa_def *out = NULL;
 
-         if (nir->info.stage == MESA_SHADER_MESH) {
-            /* MS:
-             * Primitive shading rate is a per-primitive output, it is
-             * part of the second channel of the primitive export.
-             *
-             * Bits [28:29] = VRS rate X
-             * Bits [30:31] = VRS rate Y
-             * This will be added to the other bits of that channel in the backend.
-             */
-            out = nir_ior(&b, nir_ishl_imm(&b, x_rate, 28), nir_ishl_imm(&b, y_rate, 30));
+         if (pdevice->rad_info.gfx_level >= GFX11) {
+            /* On GFX11, the range is [0, 15] and the X/Y rates use enum. */
+            if (nir->info.stage == MESA_SHADER_MESH) {
+               /* Bits [28:31] = VRS rate */
+               out = nir_ior(&b, nir_ishl_imm(&b, x_rate, 30), nir_ishl_imm(&b, y_rate, 28));
+            } else {
+               /* Bits [2:5] = VRS rate */
+               out = nir_ior(&b, nir_ishl_imm(&b, x_rate, 4), nir_ishl_imm(&b, y_rate, 2));
+            }
          } else {
-            /* VS, TES, GS:
-             * Primitive shading rate is a per-vertex output pos export.
-             *
-             * Bits [2:3] = VRS rate X
-             * Bits [4:5] = VRS rate Y
-             * HW shading rate = (xRate << 2) | (yRate << 4)
-             */
-            out = nir_ior(&b, nir_ishl_imm(&b, x_rate, 2), nir_ishl_imm(&b, y_rate, 4));
+            if (nir->info.stage == MESA_SHADER_MESH) {
+               /* MS:
+                * Primitive shading rate is a per-primitive output, it is
+                * part of the second channel of the primitive export.
+                *
+                * Bits [28:29] = VRS rate X
+                * Bits [30:31] = VRS rate Y
+                * This will be added to the other bits of that channel in the backend.
+                */
+               out = nir_ior(&b, nir_ishl_imm(&b, x_rate, 28), nir_ishl_imm(&b, y_rate, 30));
+            } else {
+               /* VS, TES, GS:
+                * Primitive shading rate is a per-vertex output pos export.
+                *
+                * Bits [2:3] = VRS rate X
+                * Bits [4:5] = VRS rate Y
+                * HW shading rate = (xRate << 2) | (yRate << 4)
+                */
+               out = nir_ior(&b, nir_ishl_imm(&b, x_rate, 2), nir_ishl_imm(&b, y_rate, 4));
+            }
          }
 
          nir_instr_rewrite_src(&intr->instr, &intr->src[1], nir_src_for_ssa(out));
@@ -937,7 +948,7 @@ radv_shader_spirv_to_nir(struct radv_device *device, const struct radv_pipeline_
         nir->info.stage == MESA_SHADER_MESH) &&
        nir->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_SHADING_RATE)) {
       /* Lower primitive shading rate to match HW requirements. */
-      NIR_PASS(_, nir, radv_lower_primitive_shading_rate);
+      NIR_PASS(_, nir, radv_lower_primitive_shading_rate, device->physical_device);
    }
 
    /* Indirect lowering must be called after the radv_optimize_nir() loop
