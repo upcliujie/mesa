@@ -147,6 +147,9 @@ void si_init_resource_fields(struct si_screen *sscreen, struct si_resource *res,
        res->b.b.flags & SI_RESOURCE_FLAG_GL2_BYPASS)
       res->flags |= RADEON_FLAG_GL2_BYPASS;
 
+   if (res->b.b.flags & SI_RESOURCE_FLAG_BEST_PLACEMENT_OR_DISCARD)
+      res->flags |= RADEON_FLAG_BEST_PLACEMENT_OR_DISCARD;
+
    /* Set expected VRAM and GART usage for the buffer. */
    res->memory_usage_kb = MAX2(1, size / 1024);
 
