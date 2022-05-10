@@ -53,8 +53,7 @@
 #ifndef _DRI_UTIL_H_
 #define _DRI_UTIL_H_
 
-#include <GL/gl.h>
-#include <GL/internal/dri_interface.h>
+#include "dri_internal.h"
 #include "kopper_interface.h"
 #include "main/formats.h"
 #include "main/glconfig.h"

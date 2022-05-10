@@ -33,6 +33,8 @@
 #ifndef DRI2_PRIV_H
 #define DRI2_PRIV_H
 
+#include "dri_internal.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
