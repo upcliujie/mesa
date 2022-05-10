@@ -397,7 +397,7 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
    xcb_get_geometry_cookie_t cookie;
    xcb_get_geometry_reply_t *reply;
    xcb_generic_error_t *error;
-   GLint vblank_mode = DRI_CONF_VBLANK_DEF_INTERVAL_1;
+   int vblank_mode = DRI_CONF_VBLANK_DEF_INTERVAL_1;
    int swap_interval;
 
    draw->conn = conn;
