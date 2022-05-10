@@ -212,6 +212,12 @@ radv_WriteAccelerationStructuresPropertiesKHR(
          case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR:
             value = header->serialization_size;
             break;
+         case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR:
+            value = header->instance_count;
+            break;
+         case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR:
+            value = accel->size;
+            break;
          default:
             unreachable("Unhandled acceleration structure query");
          }
