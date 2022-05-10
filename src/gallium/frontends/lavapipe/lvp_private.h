@@ -459,18 +459,10 @@ lvp_pipeline_layout_unref(struct lvp_device *device,
       lvp_pipeline_layout_destroy(device, layout);
 }
 
-struct lvp_access_info {
-   uint32_t images_read;
-   uint32_t images_written;
-   uint32_t buffers_written;
-};
-
 struct lvp_pipeline {
    struct vk_object_base base;
    struct lvp_device *                          device;
    struct lvp_pipeline_layout *                 layout;
-
-   struct lvp_access_info access[MESA_SHADER_STAGES];
 
    void *mem_ctx;
    bool is_compute_pipeline;
