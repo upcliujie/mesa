@@ -36,7 +36,7 @@ import urllib.parse
 import xmlrpc.client
 from datetime import datetime, timedelta
 from os import getenv
-from typing import Any, Optional
+from typing import List, Optional
 
 import lavacli
 import yaml
@@ -65,9 +65,9 @@ NUMBER_OF_RETRIES_TIMEOUT_DETECTION = int(getenv("LAVA_NUMBER_OF_RETRIES_TIMEOUT
 # How many attempts should be made when a timeout happen during LAVA device boot.
 NUMBER_OF_ATTEMPTS_LAVA_BOOT = int(getenv("LAVA_NUMBER_OF_ATTEMPTS_LAVA_BOOT", 3))
 
-
 def print_log(msg):
     print("{}: {}".format(datetime.now(), msg))
+
 
 def fatal_err(msg):
     print_log(msg)
@@ -241,6 +241,7 @@ class LAVAJob:
         self.last_log_line = 0
         self.last_log_time = None
         self.is_finished = False
+        self.status = "running"
 
     def heartbeat(self):
         self.last_log_time = datetime.now()
@@ -294,6 +295,17 @@ class LAVAJob:
                 f"Could not get LAVA job logs. Reason: {mesa_ci_err}"
             ) from mesa_ci_err
 
+    def update_job_status(self, lava_lines: list[dict[str, str]]) -> bool:
+        """Use the console log to catch if the job has completed successfully or not
+        """
+        log_lines = [l["msg"] for l in lava_lines if "msg" in l and isinstance(l, str)]
+        for line in log_lines:
+            if result := re.search(r"hwci: mesa: (\S*)", line):
+                self.is_finished = True
+                self.status = result.group(1)
+
+        return self.is_finished
+
 
 def find_exception_from_metadata(metadata, job_id):
     if "result" not in metadata or metadata["result"] != "fail":
@@ -318,36 +330,6 @@ def find_exception_from_metadata(metadata, job_id):
             f"LAVA job {job_id} failed validation (possible download error). Retry."
         )
     return metadata
-
-
-def get_job_results(proxy, job_id, test_suite):
-    # Look for infrastructure errors and retry if we see them.
-    results_yaml = _call_proxy(proxy.results.get_testjob_results_yaml, job_id)
-    results = yaml.load(results_yaml, Loader=loader(False))
-    for res in results:
-        metadata = res["metadata"]
-        find_exception_from_metadata(metadata, job_id)
-
-    results_yaml = _call_proxy(
-        proxy.results.get_testsuite_results_yaml, job_id, test_suite
-    )
-    results: list = yaml.load(results_yaml, Loader=loader(False))
-    if not results:
-        raise MesaCIException(
-            f"LAVA: no result for test_suite '{test_suite}'"
-        )
-
-    for metadata in results:
-        test_case = metadata["name"]
-        result = metadata["metadata"]["result"]
-        print_log(
-            f"LAVA: result for test_suite '{test_suite}', "
-            f"test_case '{test_case}': {result}"
-        )
-        if result != "pass":
-            return False
-
-    return True
 
 
 def show_job_data(job):
@@ -376,7 +358,7 @@ def parse_lava_lines(new_lines) -> list[str]:
     return parsed_lines
 
 
-def fetch_logs(job, max_idle_time):
+def fetch_logs(job, max_idle_time) -> bool:
     # Poll to check for new logs, assuming that a prolonged period of
     # silence means that the device has died and we should try it again
     if datetime.now() - job.last_log_time > max_idle_time:
@@ -403,10 +385,15 @@ def fetch_logs(job, max_idle_time):
     else:
         raise MesaCIParseException
 
+    if job.update_job_status(new_lines):
+        return True
+
     parsed_lines = parse_lava_lines(new_lines)
 
     for line in parsed_lines:
         print_log(line)
+
+    return False
 
 
 def follow_job_execution(job):
@@ -426,13 +413,13 @@ def follow_job_execution(job):
     # Start to check job's health
     job.heartbeat()
     while not job.is_finished:
-        fetch_logs(job, max_idle_time)
+        if fetch_logs(job, max_idle_time):
+            show_job_data(job)
+            return job.status
 
-    show_job_data(job)
-    return get_job_results(job.proxy, job.job_id, "0_mesa")
+    return "error"
 
-
-def retriable_follow_job(proxy, job_definition):
+def retriable_follow_job(proxy, job_definition) -> str:
     retry_count = NUMBER_OF_RETRIES_TIMEOUT_DETECTION
 
     for attempt_no in range(1, retry_count + 2):
@@ -477,8 +464,8 @@ def main(args):
     if args.validate_only:
         return
 
-    has_job_passed = retriable_follow_job(proxy, job_definition)
-    exit_code = 0 if has_job_passed else 1
+    job_status = retriable_follow_job(proxy, job_definition)
+    exit_code = 0 if job_status == "pass" else 1
     sys.exit(exit_code)
 
 
