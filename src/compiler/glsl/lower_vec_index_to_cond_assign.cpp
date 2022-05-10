@@ -53,8 +53,8 @@ namespace {
 
 class ir_vec_index_to_cond_assign_visitor : public ir_hierarchical_visitor {
 public:
-   ir_vec_index_to_cond_assign_visitor(bool _lower_extracts)
-      : lower_extracts(_lower_extracts), progress(false)
+   ir_vec_index_to_cond_assign_visitor()
+      : progress(false)
    {
       /* empty */
    }
@@ -73,7 +73,6 @@ public:
    virtual ir_visitor_status visit_enter(ir_call *);
    virtual ir_visitor_status visit_enter(ir_if *);
 
-   bool lower_extracts;
    bool progress;
 };
 
@@ -192,26 +191,13 @@ ir_vec_index_to_cond_assign_visitor::convert_vector_extract_to_cond_assign(ir_rv
          new(base_ir) ir_expression(expr->operation, vec_input->type,
                                     vec_input, expr->operands[1]);
 
-      if (lower_extracts) {
-         return convert_vec_index_to_cond_assign(ralloc_parent(ir),
-                                                 vec_interpolate,
-                                                 interpolant->operands[1],
-                                                 ir->type);
-      } else {
-         this->progress = true;
-         return new(base_ir) ir_expression(ir_binop_vector_extract, ir->type,
-                                           vec_interpolate,
-                                           interpolant->operands[1]);
-      }
+      this->progress = true;
+      return new(base_ir) ir_expression(ir_binop_vector_extract, ir->type,
+                                        vec_interpolate,
+                                        interpolant->operands[1]);
    }
 
-   if (!lower_extracts || expr->operation != ir_binop_vector_extract)
-      return ir;
-
-   return convert_vec_index_to_cond_assign(ralloc_parent(ir),
-                                           expr->operands[0],
-                                           expr->operands[1],
-                                           ir->type);
+   return ir;
 }
 
 ir_visitor_status
@@ -275,9 +261,9 @@ ir_vec_index_to_cond_assign_visitor::visit_enter(ir_if *ir)
 }
 
 bool
-do_vec_index_to_cond_assign(exec_list *instructions, bool lower_extracts)
+do_vec_index_to_cond_assign(exec_list *instructions)
 {
-   ir_vec_index_to_cond_assign_visitor v(lower_extracts);
+   ir_vec_index_to_cond_assign_visitor v;
 
    visit_list_elements(&v, instructions);
 
