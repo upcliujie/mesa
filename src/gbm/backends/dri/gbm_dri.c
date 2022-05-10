@@ -41,8 +41,7 @@
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 
-#include <GL/gl.h> /* dri_interface needs GL types */
-#include <GL/internal/dri_interface.h>
+#include "dri_internal.h"
 
 #include "gbm_driint.h"
 

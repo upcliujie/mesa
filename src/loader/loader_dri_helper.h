@@ -21,8 +21,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include <GL/gl.h> /* dri_interface needs GL types */
-#include <GL/internal/dri_interface.h>
+#include "dri_internal.h"
 
 __DRIimage *loader_dri_create_image(__DRIscreen *screen,
                                     const __DRIimageExtension *image,

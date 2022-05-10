@@ -38,7 +38,7 @@
 
 #ifdef GLX_DIRECT_RENDERING
 
-#include <GL/internal/dri_interface.h>
+#include "dri_internal.h"
 #include <stdbool.h>
 #include "loader.h"
 #include "util/macros.h" /* for PRINTFLIKE */
