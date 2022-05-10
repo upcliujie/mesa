@@ -631,6 +631,7 @@ radv_shader_compile_to_nir(struct radv_device *device, const struct radv_pipelin
                .multiview = true,
                .physical_storage_buffer_address = true,
                .post_depth_coverage = true,
+               .ray_cull_mask = true,
                .ray_query = true,
                .ray_tracing = true,
                .ray_traversal_primitive_culling = true,
