@@ -1871,7 +1871,7 @@ void ac_get_hs_info(struct radeon_info *info,
 
    hs->hs_offchip_param = hs_offchip_param;
 
-   hs->tess_factor_ring_size = 32768 * info->max_se;
+   hs->tess_factor_ring_size = 48 * 1024 * info->max_se;
    hs->tess_offchip_ring_offset = align(hs->tess_factor_ring_size, 64 * 1024);
    hs->tess_offchip_ring_size = hs->max_offchip_buffers * hs->tess_offchip_block_dw_size * 4;
 }
