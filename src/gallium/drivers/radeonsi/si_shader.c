@@ -1490,6 +1490,40 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
    return progress;
 }
 
+static void si_set_lshs_fixed_io_base(nir_shader *nir)
+{
+   nir_foreach_function(f, nir) {
+      if (f->impl) {
+         nir_foreach_block(block, f->impl) {
+            nir_foreach_instr(instr, block) {
+               if (instr->type != nir_instr_type_intrinsic)
+                  continue;
+
+               nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+               if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
+                  if (intrin->intrinsic != nir_intrinsic_load_input &&
+                      intrin->intrinsic != nir_intrinsic_load_per_vertex_input)
+                     continue;
+               } else {
+                  assert(nir->info.stage == MESA_SHADER_VERTEX);
+                  if (intrin->intrinsic != nir_intrinsic_store_output)
+                     continue;
+               }
+
+               /* LS output/HS input does not support indirect access. */
+               nir_src *offset = nir_get_io_offset_src(intrin);
+               assert(nir_src_is_const(*offset) && nir_src_as_uint(*offset) == 0);
+
+               unsigned semantic = nir_intrinsic_io_semantics(intrin).location;
+               unsigned param = si_shader_io_get_unique_index(semantic, false);
+               nir_intrinsic_set_base(intrin, param);
+            }
+         }
+      }
+   }
+}
+
 struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
                                      const union si_shader_key *key,
                                      bool *free_nir,
