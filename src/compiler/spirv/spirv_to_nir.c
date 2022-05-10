@@ -4782,6 +4782,10 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
          spv_check_supported(intel_subgroup_buffer_block_io, cap);
          break;
 
+      case SpvCapabilityRayCullMaskKHR:
+         spv_check_supported(ray_cull_mask, cap);
+         break;
+
       case SpvCapabilityRayTracingKHR:
          spv_check_supported(ray_tracing, cap);
          break;
