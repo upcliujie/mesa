@@ -53,6 +53,22 @@ bi_validate_initialization(bi_context *ctx)
         return success;
 }
 
+/*
+ * Validate that no destination has an offset. Collects should be used instead.
+ */
+static bool
+bi_validate_offsets(bi_context *ctx)
+{
+        bi_foreach_instr_global(ctx, I) {
+                bi_foreach_dest(I, d) {
+                        if (I->dest[d].offset != 0)
+                                return false;
+                }
+        }
+
+        return true;
+}
+
 void
 bi_validate(bi_context *ctx, const char *after)
 {
@@ -63,6 +79,11 @@ bi_validate(bi_context *ctx, const char *after)
 
         if (!bi_validate_initialization(ctx)) {
                 fprintf(stderr, "Uninitialized data read after %s\n", after);
+                fail = true;
+        }
+
+        if (!bi_validate_offsets(ctx)) {
+                fprintf(stderr, "Unexpected offset after %s\n", after);
                 fail = true;
         }
 
