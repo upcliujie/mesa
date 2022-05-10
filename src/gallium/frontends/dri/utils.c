@@ -53,6 +53,125 @@
 #define GLX_NON_CONFORMANT_CONFIG                               0x800D
 #define GLX_DONT_CARE                                           0xFFFFFFFF
 
+int
+driGetFormatMasksAndShifts(mesa_format format, const uint32_t **masks,
+			   const int **shifts)
+{
+   static const struct {
+      uint32_t masks[4];
+      int shifts[4];
+   } format_table[] = {
+      /* MESA_FORMAT_B5G6R5_UNORM */
+      {{ 0x0000F800, 0x000007E0, 0x0000001F, 0x00000000 },
+       { 11, 5, 0, -1 }},
+      /* MESA_FORMAT_B8G8R8X8_UNORM */
+      {{ 0x00FF0000, 0x0000FF00, 0x000000FF, 0x00000000 },
+       { 16, 8, 0, -1 }},
+      /* MESA_FORMAT_B8G8R8A8_UNORM */
+      {{ 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000 },
+       { 16, 8, 0, 24 }},
+      /* MESA_FORMAT_B10G10R10X2_UNORM */
+      {{ 0x3FF00000, 0x000FFC00, 0x000003FF, 0x00000000 },
+       { 20, 10, 0, -1 }},
+      /* MESA_FORMAT_B10G10R10A2_UNORM */
+      {{ 0x3FF00000, 0x000FFC00, 0x000003FF, 0xC0000000 },
+       { 20, 10, 0, 30 }},
+      /* MESA_FORMAT_R8G8B8A8_UNORM */
+      {{ 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 },
+       { 0, 8, 16, 24 }},
+      /* MESA_FORMAT_R8G8B8X8_UNORM */
+      {{ 0x000000FF, 0x0000FF00, 0x00FF0000, 0x00000000 },
+       { 0, 8, 16, -1 }},
+      /* MESA_FORMAT_R10G10B10X2_UNORM */
+      {{ 0x000003FF, 0x000FFC00, 0x3FF00000, 0x00000000 },
+       { 0, 10, 20, -1 }},
+      /* MESA_FORMAT_R10G10B10A2_UNORM */
+      {{ 0x000003FF, 0x000FFC00, 0x3FF00000, 0xC0000000 },
+       { 0, 10, 20, 30 }},
+      /* MESA_FORMAT_RGBX_FLOAT16 */
+      {{ 0, 0, 0, 0},
+       { 0, 16, 32, -1 }},
+      /* MESA_FORMAT_RGBA_FLOAT16 */
+      {{ 0, 0, 0, 0},
+       { 0, 16, 32, 48 }},
+      /* MESA_FORMAT_A8R8G8B8_UNORM */
+      {{ 0x0000FF00, 0x00FF0000, 0xFF000000, 0x000000FF },
+       { 8, 16, 24, 0 }},
+      /* MESA_FORMAT_X8R8G8B8_UNORM */
+      {{ 0x0000FF00, 0x00FF0000, 0xFF000000, 0x00000000 },
+       { 8, 16, 24, -1 }},
+   };
+
+   switch (format) {
+   case MESA_FORMAT_B5G6R5_UNORM:
+      *masks = format_table[0].masks;
+      *shifts = format_table[0].shifts;
+      break;
+   case MESA_FORMAT_B8G8R8X8_UNORM:
+   case MESA_FORMAT_B8G8R8X8_SRGB:
+      *masks = format_table[1].masks;
+      *shifts = format_table[1].shifts;
+      break;
+   case MESA_FORMAT_B8G8R8A8_UNORM:
+   case MESA_FORMAT_B8G8R8A8_SRGB:
+      *masks = format_table[2].masks;
+      *shifts = format_table[2].shifts;
+      break;
+   case MESA_FORMAT_R8G8B8A8_UNORM:
+   case MESA_FORMAT_R8G8B8A8_SRGB:
+      *masks = format_table[5].masks;
+      *shifts = format_table[5].shifts;
+      break;
+   case MESA_FORMAT_R8G8B8X8_UNORM:
+   case MESA_FORMAT_R8G8B8X8_SRGB:
+      *masks = format_table[6].masks;
+      *shifts = format_table[6].shifts;
+      break;
+   case MESA_FORMAT_B10G10R10X2_UNORM:
+      *masks = format_table[3].masks;
+      *shifts = format_table[3].shifts;
+      break;
+   case MESA_FORMAT_B10G10R10A2_UNORM:
+      *masks = format_table[4].masks;
+      *shifts = format_table[4].shifts;
+      break;
+   case MESA_FORMAT_RGBX_FLOAT16:
+      *masks = format_table[9].masks;
+      *shifts = format_table[9].shifts;
+      break;
+   case MESA_FORMAT_RGBA_FLOAT16:
+      *masks = format_table[10].masks;
+      *shifts = format_table[10].shifts;
+      break;
+   case MESA_FORMAT_R10G10B10X2_UNORM:
+      *masks = format_table[7].masks;
+      *shifts = format_table[7].shifts;
+      break;
+   case MESA_FORMAT_R10G10B10A2_UNORM:
+      *masks = format_table[8].masks;
+      *shifts = format_table[8].shifts;
+      break;
+   case MESA_FORMAT_A8R8G8B8_UNORM:
+   case MESA_FORMAT_A8R8G8B8_SRGB:
+      *masks = format_table[11].masks;
+      *shifts = format_table[11].shifts;
+      break;
+   case MESA_FORMAT_X8R8G8B8_UNORM:
+   case MESA_FORMAT_X8R8G8B8_SRGB:
+      *masks = format_table[12].masks;
+      *shifts = format_table[12].shifts;
+      break;
+   default:
+      fprintf(stderr, "[%s:%u] Unknown framebuffer type %s (%d).\n",
+              __func__, __LINE__,
+              _mesa_get_format_name(format), format);
+      return GL_FALSE;
+   }
+
+   return GL_TRUE;
+
+}
+
 /**
  * Creates a set of \c struct gl_config that a driver will expose.
  * 
@@ -122,45 +241,6 @@ driCreateConfigs(mesa_format format,
 		 const uint8_t * msaa_samples, unsigned num_msaa_modes,
 		 GLboolean enable_accum, GLboolean color_depth_match)
 {
-   static const struct {
-      uint32_t masks[4];
-      int shifts[4];
-   } format_table[] = {
-      /* MESA_FORMAT_B5G6R5_UNORM */
-      {{ 0x0000F800, 0x000007E0, 0x0000001F, 0x00000000 },
-       { 11, 5, 0, -1 }},
-      /* MESA_FORMAT_B8G8R8X8_UNORM */
-      {{ 0x00FF0000, 0x0000FF00, 0x000000FF, 0x00000000 },
-       { 16, 8, 0, -1 }},
-      /* MESA_FORMAT_B8G8R8A8_UNORM */
-      {{ 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000 },
-       { 16, 8, 0, 24 }},
-      /* MESA_FORMAT_B10G10R10X2_UNORM */
-      {{ 0x3FF00000, 0x000FFC00, 0x000003FF, 0x00000000 },
-       { 20, 10, 0, -1 }},
-      /* MESA_FORMAT_B10G10R10A2_UNORM */
-      {{ 0x3FF00000, 0x000FFC00, 0x000003FF, 0xC0000000 },
-       { 20, 10, 0, 30 }},
-      /* MESA_FORMAT_R8G8B8A8_UNORM */
-      {{ 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 },
-       { 0, 8, 16, 24 }},
-      /* MESA_FORMAT_R8G8B8X8_UNORM */
-      {{ 0x000000FF, 0x0000FF00, 0x00FF0000, 0x00000000 },
-       { 0, 8, 16, -1 }},
-      /* MESA_FORMAT_R10G10B10X2_UNORM */
-      {{ 0x000003FF, 0x000FFC00, 0x3FF00000, 0x00000000 },
-       { 0, 10, 20, -1 }},
-      /* MESA_FORMAT_R10G10B10A2_UNORM */
-      {{ 0x000003FF, 0x000FFC00, 0x3FF00000, 0xC0000000 },
-       { 0, 10, 20, 30 }},
-      /* MESA_FORMAT_RGBX_FLOAT16 */
-      {{ 0, 0, 0, 0},
-       { 0, 16, 32, -1 }},
-      /* MESA_FORMAT_RGBA_FLOAT16 */
-      {{ 0, 0, 0, 0},
-       { 0, 16, 32, 48 }},
-   };
-
    const uint32_t * masks;
    const int * shifts;
    __DRIconfig **configs, **c;
@@ -175,61 +255,8 @@ driCreateConfigs(mesa_format format,
    bool is_srgb;
    bool is_float;
 
-   switch (format) {
-   case MESA_FORMAT_B5G6R5_UNORM:
-      masks = format_table[0].masks;
-      shifts = format_table[0].shifts;
-      break;
-   case MESA_FORMAT_B8G8R8X8_UNORM:
-   case MESA_FORMAT_B8G8R8X8_SRGB:
-      masks = format_table[1].masks;
-      shifts = format_table[1].shifts;
-      break;
-   case MESA_FORMAT_B8G8R8A8_UNORM:
-   case MESA_FORMAT_B8G8R8A8_SRGB:
-      masks = format_table[2].masks;
-      shifts = format_table[2].shifts;
-      break;
-   case MESA_FORMAT_R8G8B8A8_UNORM:
-   case MESA_FORMAT_R8G8B8A8_SRGB:
-      masks = format_table[5].masks;
-      shifts = format_table[5].shifts;
-      break;
-   case MESA_FORMAT_R8G8B8X8_UNORM:
-   case MESA_FORMAT_R8G8B8X8_SRGB:
-      masks = format_table[6].masks;
-      shifts = format_table[6].shifts;
-      break;
-   case MESA_FORMAT_B10G10R10X2_UNORM:
-      masks = format_table[3].masks;
-      shifts = format_table[3].shifts;
-      break;
-   case MESA_FORMAT_B10G10R10A2_UNORM:
-      masks = format_table[4].masks;
-      shifts = format_table[4].shifts;
-      break;
-   case MESA_FORMAT_RGBX_FLOAT16:
-      masks = format_table[9].masks;
-      shifts = format_table[9].shifts;
-      break;
-   case MESA_FORMAT_RGBA_FLOAT16:
-      masks = format_table[10].masks;
-      shifts = format_table[10].shifts;
-      break;
-   case MESA_FORMAT_R10G10B10X2_UNORM:
-      masks = format_table[7].masks;
-      shifts = format_table[7].shifts;
-      break;
-   case MESA_FORMAT_R10G10B10A2_UNORM:
-      masks = format_table[8].masks;
-      shifts = format_table[8].shifts;
-      break;
-   default:
-      fprintf(stderr, "[%s:%u] Unknown framebuffer type %s (%d).\n",
-              __func__, __LINE__,
-              _mesa_get_format_name(format), format);
-      return NULL;
-   }
+   if (!driGetFormatMasksAndShifts(format, &masks, &shifts))
+       return NULL;
 
    red_bits = _mesa_get_format_bits(format, GL_RED_BITS);
    green_bits = _mesa_get_format_bits(format, GL_GREEN_BITS);

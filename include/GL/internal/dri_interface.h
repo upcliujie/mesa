@@ -528,7 +528,7 @@ struct __DRIsystemTimeExtensionRec {
  * SWRast Loader extension.
  */
 #define __DRI_SWRAST_LOADER "DRI_SWRastLoader"
-#define __DRI_SWRAST_LOADER_VERSION 6
+#define __DRI_SWRAST_LOADER_VERSION 7
 struct __DRIswrastLoaderExtensionRec {
     __DRIextension base;
 
@@ -618,6 +618,13 @@ struct __DRIswrastLoaderExtensionRec {
     unsigned char (*getImageShm2)(__DRIdrawable *readable,
                                   int x, int y, int width, int height,
                                   int shmid, void *loaderPrivate);
+
+    /**
+     * Get screen's RGB offsets
+     *
+     * \since 7
+     */
+    void (*getRGBOffsets)(void *loaderPrivate, int *offsets);
 };
 
 /**
