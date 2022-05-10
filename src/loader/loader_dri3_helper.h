@@ -31,8 +31,7 @@
 #include <xcb/dri3.h>
 #include <xcb/present.h>
 
-#include <GL/gl.h>
-#include <GL/internal/dri_interface.h>
+#include "dri_internal.h"
 #include <c11/threads.h>
 
 enum loader_dri3_buffer_type {
