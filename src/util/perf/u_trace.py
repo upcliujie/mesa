@@ -63,6 +63,9 @@ class Tracepoint(object):
     def can_generate_print(self):
         return self.args is not None and len(self.args) > 0
 
+    def can_generate_json(self):
+        return self.can_generate_print() and self.tp_print is None
+
 class TracepointArgStruct():
     """Represents struct that is being passed as an argument
     """
@@ -304,14 +307,43 @@ static void __print_${trace_name}(FILE *out, const void *arg) {
   % endif
    );
 }
+
  % else:
 #define __print_${trace_name} NULL
+ % endif
+
+ % if trace.can_generate_json():
+static void __print_json_${trace_name}(FILE *out, const void *arg) {
+   const struct trace_${trace_name} *__entry =
+      (const struct trace_${trace_name} *)arg;
+  % if trace.tp_print is None:
+   fprintf(out, ""
+   % for arg in trace.tp_struct:
+      "\\"${arg.name}\\": \\"${arg.c_format}\\""
+      % if arg != trace.tp_struct[-1]:
+         ", "
+      % endif
+   % endfor
+   % for arg in trace.tp_struct:
+    % if arg.to_prim_type:
+   ,${arg.to_prim_type.format('__entry->' + arg.name)}
+    % else:
+   ,__entry->${arg.name}
+    % endif
+   % endfor
+    );
+  % endif
+}
+
+ % else:
+#define __print_json_${trace_name} NULL
  % endif
 static const struct u_tracepoint __tp_${trace_name} = {
     ALIGN_POT(sizeof(struct trace_${trace_name}), 8),   /* keep size 64b aligned */
     "${trace_name}",
     ${"true" if trace.end_of_pipe else "false"},
     __print_${trace_name},
+    __print_json_${trace_name},
  % if trace.tp_perfetto is not None:
 #ifdef HAVE_PERFETTO
     (void (*)(void *pctx, uint64_t, const void *, const void *))${trace.tp_perfetto},
