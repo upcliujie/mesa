@@ -757,38 +757,39 @@ vgpu10_get_shader_param(struct pipe_screen *screen,
    return 0;
 }
 
-static const nir_shader_compiler_options svga_vgpu9_compiler_options = {
-   .lower_bitops = true,
-   .lower_extract_byte = true,
-   .lower_extract_word = true,
-   .lower_insert_byte = true,
-   .lower_insert_word = true,
-   .lower_fdph = true,
-   .lower_flrp64 = true,
-   .lower_rotate = true,
-   .lower_uniforms_to_ubo = true,
-   .lower_vector_cmp = true,
+#define COMMON_OPTIONS                                                        \
+   .lower_extract_byte = true,                                                \
+   .lower_extract_word = true,                                                \
+   .lower_insert_byte = true,                                                 \
+   .lower_insert_word = true,                                                 \
+   .lower_fdph = true,                                                        \
+   .lower_flrp64 = true,                                                      \
+   .lower_rotate = true,                                                      \
+   .lower_uniforms_to_ubo = true,                                             \
+   .lower_vector_cmp = true,                                                  \
+   .max_unroll_iterations = 32,                                               \
+   .use_interpolated_input_intrinsics = true
 
-   .max_unroll_iterations = 32,
-   .use_interpolated_input_intrinsics = true,
+#define VGPU10_OPTIONS                                                        \
+   .lower_doubles_options = nir_lower_dfloor,                                 \
+   .lower_fmod = true,                                                        \
+   .lower_fpow = true
+
+static const nir_shader_compiler_options svga_vgpu9_compiler_options = {
+   COMMON_OPTIONS,
+   .lower_bitops = true,
+   .force_indirect_unrolling_sampler = true,
 };
 
 static const nir_shader_compiler_options svga_vgpu10_compiler_options = {
-   .lower_doubles_options = nir_lower_dfloor,
-   .lower_extract_byte = true,
-   .lower_extract_word = true,
-   .lower_insert_byte = true,
-   .lower_insert_word = true,
-   .lower_fdph = true,
-   .lower_flrp64 = true,
-   .lower_fmod = true,
-   .lower_fpow = true,
-   .lower_rotate = true,
-   .lower_uniforms_to_ubo = true,
-   .lower_vector_cmp = true,
+   COMMON_OPTIONS,
+   VGPU10_OPTIONS,
+   .force_indirect_unrolling_sampler = true,
+};
 
-   .max_unroll_iterations = 32,
-   .use_interpolated_input_intrinsics = true,
+static const nir_shader_compiler_options svga_gl4_compiler_options = {
+   COMMON_OPTIONS,
+   VGPU10_OPTIONS,
 };
 
 static const void *
@@ -801,7 +802,9 @@ svga_get_compiler_options(struct pipe_screen *pscreen,
 
    assert(ir == PIPE_SHADER_IR_NIR);
 
-   if (sws->have_vgpu10)
+   if (sws->have_gl43 || sws->have_sm5)
+      return &svga_gl4_compiler_options;
+   else if (sws->have_vgpu10)
       return &svga_vgpu10_compiler_options;
    else
       return &svga_vgpu9_compiler_options;
