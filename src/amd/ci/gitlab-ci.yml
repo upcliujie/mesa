@@ -167,7 +167,7 @@ deqp-vangogh-valve:
     - amdgpu:codename:VANGOGH
 
 ############### Fossilize
-.radv-fossils:
+radv-fossils:
   extends:
     - .fossilize-test
     - .test-radv
