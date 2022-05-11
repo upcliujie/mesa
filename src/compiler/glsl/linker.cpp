@@ -69,6 +69,7 @@
 #include "glsl_symbol_table.h"
 #include "glsl_parser_extras.h"
 #include "ir.h"
+#include "nir.h"
 #include "program.h"
 #include "program/prog_instruction.h"
 #include "program/program.h"
@@ -3933,7 +3934,7 @@ validate_sampler_array_indexing(const struct gl_constants *consts,
          continue;
 
       bool no_dynamic_indexing =
-         consts->ShaderCompilerOptions[i].EmitNoIndirectSampler;
+         consts->ShaderCompilerOptions[i].NirOptions->force_indirect_unrolling_sampler;
 
       /* Search for array derefs in shader. */
       v.run(prog->_LinkedShaders[i]->ir);
