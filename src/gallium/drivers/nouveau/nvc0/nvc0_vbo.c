@@ -558,9 +558,9 @@ nvc0_prim_gl(unsigned prim)
 }
 
 static void
-nvc0_draw_vbo_kick_notify(struct nouveau_screen *screen)
+nvc0_draw_vbo_kick_notify(struct nouveau_context *context)
 {
-   nouveau_fence_update(screen, true);
+   nouveau_fence_update(context->screen, true);
 }
 
 static void
@@ -1046,7 +1046,7 @@ nvc0_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
                  nvc0->seamless_cube_map ? NVC0_3D_TEX_MISC_SEAMLESS_CUBE_MAP : 0);
    }
 
-   nvc0->screen->base.kick_notify = nvc0_draw_vbo_kick_notify;
+   nvc0->base.kick_notify = nvc0_draw_vbo_kick_notify;
 
    for (s = 0; s < 5 && !nvc0->cb_dirty; ++s) {
       if (nvc0->constbuf_coherent[s])
@@ -1132,7 +1132,7 @@ nvc0_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
 cleanup:
    simple_mtx_unlock(&nvc0->screen->state_lock);
 
-   nvc0->screen->base.kick_notify = nvc0_default_kick_notify;
+   nvc0->base.kick_notify = nvc0_default_kick_notify;
 
    nvc0_release_user_vbufs(nvc0);
 

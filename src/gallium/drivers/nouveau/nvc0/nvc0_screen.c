@@ -857,10 +857,11 @@ nvc0_magic_3d_init(struct nouveau_pushbuf *push, uint16_t obj_class)
 }
 
 static void
-nvc0_screen_fence_emit(struct pipe_screen *pscreen, u32 *sequence)
+nvc0_screen_fence_emit(struct pipe_context *pcontext, u32 *sequence)
 {
-   struct nvc0_screen *screen = nvc0_screen(pscreen);
-   struct nouveau_pushbuf *push = screen->base.pushbuf;
+   struct nvc0_context *nvc0 = nvc0_context(pcontext);
+   struct nvc0_screen *screen = nvc0->screen;
+   struct nouveau_pushbuf *push = nvc0->base.pushbuf;
 
    /* we need to do it after possible flush in MARK_RING */
    *sequence = ++screen->base.fence.sequence;
@@ -940,9 +941,9 @@ nvc0_screen_resize_tls_area(struct nvc0_screen *screen,
 }
 
 int
-nvc0_screen_resize_text_area(struct nvc0_screen *screen, uint64_t size)
+nvc0_screen_resize_text_area(struct nvc0_screen *screen, struct nouveau_pushbuf *push,
+                             uint64_t size)
 {
-   struct nouveau_pushbuf *push = screen->base.pushbuf;
    struct nouveau_bo *bo;
    int ret;
 
@@ -955,7 +956,7 @@ nvc0_screen_resize_text_area(struct nvc0_screen *screen, uint64_t size)
     * segment, as it may have commands that will reference it.
     */
    if (screen->text)
-      PUSH_REFN(push, screen->text,
+      PUSH_REFN(screen->base.pushbuf, screen->text,
                 NV_VRAM_DOMAIN(&screen->base) | NOUVEAU_BO_RD);
    nouveau_bo_ref(NULL, &screen->text);
    screen->text = bo;
@@ -984,12 +985,10 @@ nvc0_screen_resize_text_area(struct nvc0_screen *screen, uint64_t size)
 }
 
 void
-nvc0_screen_bind_cb_3d(struct nvc0_screen *screen, bool *can_serialize,
-                       int stage, int index, int size, uint64_t addr)
+nvc0_screen_bind_cb_3d(struct nvc0_screen *screen, struct nouveau_pushbuf *push,
+                       bool *can_serialize, int stage, int index, int size, uint64_t addr)
 {
    assert(stage != 5);
-
-   struct nouveau_pushbuf *push = screen->base.pushbuf;
 
    if (screen->base.class_3d >= GM107_3D_CLASS) {
       struct nvc0_cb_binding *binding = &screen->cb_bindings[stage][index];
@@ -1308,7 +1307,7 @@ nvc0_screen_create(struct nouveau_device *dev)
 
    nvc0_magic_3d_init(push, screen->eng3d->oclass);
 
-   ret = nvc0_screen_resize_text_area(screen, 1 << 19);
+   ret = nvc0_screen_resize_text_area(screen, push, 1 << 19);
    if (ret)
       FAIL_SCREEN_INIT("Error allocating TEXT area: %d\n", ret);
 
@@ -1522,7 +1521,7 @@ nvc0_screen_create(struct nouveau_device *dev)
 
       /* TIC and TSC entries for each unit (nve4+ only) */
       /* auxiliary constants (6 user clip planes, base instance id) */
-      nvc0_screen_bind_cb_3d(screen, NULL, i, 15, NVC0_CB_AUX_SIZE,
+      nvc0_screen_bind_cb_3d(screen, push, NULL, i, 15, NVC0_CB_AUX_SIZE,
                              screen->uniform_bo->offset + NVC0_CB_AUX_INFO(i));
       if (screen->eng3d->oclass >= NVE4_3D_CLASS) {
          unsigned j;

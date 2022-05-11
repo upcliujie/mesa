@@ -29,7 +29,6 @@ struct nouveau_screen {
    struct nouveau_object *channel;
    struct nouveau_client *client;
    struct nouveau_pushbuf *pushbuf;
-   void (*kick_notify)(struct nouveau_screen *);
 
    char chipset_name[8];
 
@@ -157,8 +156,9 @@ void nouveau_screen_fini(struct nouveau_screen *);
 void nouveau_screen_init_vdec(struct nouveau_screen *);
 
 int
-nouveau_pushbuf_create(struct nouveau_screen *, struct nouveau_object *chan, int nr,
-                       uint32_t size, bool immediate, struct nouveau_pushbuf **);
+nouveau_pushbuf_create(struct nouveau_screen *, struct nouveau_context *, struct nouveau_client *,
+                       struct nouveau_object *chan, int nr, uint32_t size, bool immediate,
+                       struct nouveau_pushbuf **);
 void nouveau_pushbuf_destroy(struct nouveau_pushbuf **);
 
 #endif
