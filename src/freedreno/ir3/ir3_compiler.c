@@ -172,6 +172,7 @@ static const nir_shader_compiler_options nir_options_a6xx = {
    .has_isub = true,
    .max_unroll_iterations = 32,
    .force_indirect_unrolling = nir_var_all,
+   .force_indirect_unrolling_sampler = true,
    .lower_wpos_pntc = true,
    .lower_cs_local_index_to_id = true,
 
