@@ -40,20 +40,21 @@ lower_split_src(bi_context *ctx, bi_instr *I, unsigned s)
       s = 2;
    }
 
-   /* Skip sources that are already split properly */
-   if (bi_is_value_equiv(I->src[s + 1], bi_word(I->src[s], 1)))
-      return;
-
    /* Allocate temporary before the instruction */
    bi_builder b = bi_init_builder(ctx, bi_before_instr(I));
    bi_index vec = bi_temp(ctx);
    bi_instr *collect = bi_collect_i32_to(&b, vec);
    collect->nr_srcs = 2;
 
+   bi_instr *split = bi_split_i32_to(&b, bi_null(), vec);
+   split->nr_dests = 2;
+
    /* Emit collect */
    for (unsigned w = 0; w < 2; ++w) {
       collect->src[w] = I->src[s + w];
-      I->src[s + w] = bi_word(vec, w);
+
+      split->dest[w] = bi_temp(ctx);
+      I->src[s + w] = split->dest[w];
    }
 }
 
