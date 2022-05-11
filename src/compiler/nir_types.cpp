@@ -441,6 +441,12 @@ glsl_type_contains_image(const struct glsl_type *type)
    return type->contains_image();
 }
 
+bool
+glsl_type_contains_sampler(const struct glsl_type *type)
+{
+   return type->contains_sampler();
+}
+
 const glsl_type *
 glsl_void_type(void)
 {
