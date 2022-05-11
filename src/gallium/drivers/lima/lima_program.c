@@ -83,7 +83,7 @@ static const nir_shader_compiler_options fs_nir_options = {
    .lower_insert_word = true,
    .lower_bitops = true,
    .lower_vector_cmp = true,
-   .force_indirect_unrolling = (nir_var_shader_in | nir_var_shader_out | nir_var_function_temp),
+   .force_indirect_unrolling = (nir_var_shader_out | nir_var_function_temp),
    .force_indirect_unrolling_sampler = true,
    .lower_varying_from_uniform = true,
 };
