@@ -8223,8 +8223,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
                                  Operand::c32(ctx->program->wave_size));
             Temp thread_id = emit_mbcnt(ctx, get_ssa_temp(ctx, &instr->dest.ssa));
 
-            bld.sop2(aco_opcode::s_add_i32, Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
-                     bld.def(s1, scc), temp, thread_id);
+            bld.vadd32(Definition(get_ssa_temp(ctx, &instr->dest.ssa)), temp, thread_id);
          } else {
             bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
                      get_arg(ctx, ctx->args->ac.vs_rel_patch_id));
