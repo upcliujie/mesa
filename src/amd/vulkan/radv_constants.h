@@ -96,6 +96,14 @@
  */
 #define RADV_TASK_PAYLOAD_ENTRY_BYTES 16384
 
+/* Size of each draw entry in the task draw ring.
+ * 4 DWORDs per entry.
+ */
+#define RADV_TASK_DRAW_ENTRY_BYTES 16
+
+/* Size of the task control buffer in dwords. */
+#define RADV_TASK_CTRLBUF_DWORDS 9
+
 /* Number of invocations in each subgroup. */
 #define RADV_SUBGROUP_SIZE 64
 
