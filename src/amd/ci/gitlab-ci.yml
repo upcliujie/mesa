@@ -167,10 +167,11 @@ deqp-vangogh-valve:
     - amdgpu:codename:VANGOGH
 
 ############### Fossilize
-.radv-fossils:
+radv-fossils:
   extends:
-    - .fossilize-test
+    - .test-vk
     - .test-radv
+    - .fossilize-test
   script:
     # Pitcairn (GFX6)
     - export RADV_FORCE_FAMILY="PITCAIRN"
