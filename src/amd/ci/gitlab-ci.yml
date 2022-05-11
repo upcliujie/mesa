@@ -190,3 +190,6 @@ radv-fossils:
     # Sienna Cichlid (GFX10)
     - export RADV_FORCE_FAMILY="SIENNA_CICHLID"
     - ./install/fossilize-runner.sh
+    # RDNA3 (GFX11)
+    - export RADV_FORCE_FAMILY="GFX1100"
+    - ./install/fossilize-runner.sh
