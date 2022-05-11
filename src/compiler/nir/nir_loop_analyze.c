@@ -77,6 +77,7 @@ typedef struct {
 
    nir_variable_mode indirect_mask;
 
+   bool force_unroll_sampler_indirect;
 } loop_info_state;
 
 static nir_loop_variable *
@@ -585,7 +586,8 @@ find_loop_terminators(loop_info_state *state)
 static unsigned
 find_array_access_via_induction(loop_info_state *state,
                                 nir_deref_instr *deref,
-                                nir_loop_variable **array_index_out)
+                                nir_loop_variable **array_index_out,
+                                bool *contains_sampler)
 {
    for (nir_deref_instr *d = deref; d; d = nir_deref_instr_parent(d)) {
       if (d->deref_type != nir_deref_type_array)
@@ -601,6 +603,10 @@ find_array_access_via_induction(loop_info_state *state,
          *array_index_out = array_index;
 
       nir_deref_instr *parent = nir_deref_instr_parent(d);
+
+      if (contains_sampler)
+         *contains_sampler = glsl_type_contains_sampler(parent->type);
+
       if (glsl_type_is_array_or_matrix(parent->type)) {
          return glsl_get_length(parent->type);
       } else {
@@ -634,7 +640,7 @@ guess_loop_limit(loop_info_state *state, nir_const_value *limit_val,
             unsigned array_size =
                find_array_access_via_induction(state,
                                                nir_src_as_deref(intrin->src[0]),
-                                               &array_idx);
+                                               &array_idx, NULL);
             if (array_idx && basic_ind.def == array_idx->def &&
                 (min_array_size == 0 || min_array_size > array_size)) {
                /* Array indices are scalars */
@@ -648,7 +654,7 @@ guess_loop_limit(loop_info_state *state, nir_const_value *limit_val,
             array_size =
                find_array_access_via_induction(state,
                                                nir_src_as_deref(intrin->src[1]),
-                                               &array_idx);
+                                               &array_idx, NULL);
             if (array_idx && basic_ind.def == array_idx->def &&
                 (min_array_size == 0 || min_array_size > array_size)) {
                /* Array indices are scalars */
@@ -1210,7 +1216,9 @@ find_trip_count(loop_info_state *state, unsigned execution_mode)
 static bool
 force_unroll_array_access(loop_info_state *state, nir_deref_instr *deref)
 {
-   unsigned array_size = find_array_access_via_induction(state, deref, NULL);
+   bool contains_sampler = false;
+   unsigned array_size =
+      find_array_access_via_induction(state, deref, NULL, &contains_sampler);
    if (array_size) {
       if ((array_size == state->loop->info->max_trip_count) &&
           nir_deref_mode_must_be(deref, nir_var_shader_in |
@@ -1220,6 +1228,9 @@ force_unroll_array_access(loop_info_state *state, nir_deref_instr *deref)
          return true;
 
       if (nir_deref_mode_must_be(deref, state->indirect_mask))
+         return true;
+
+      if (contains_sampler && state->force_unroll_sampler_indirect)
          return true;
    }
 
@@ -1343,7 +1354,8 @@ initialize_loop_info_state(nir_loop *loop, void *mem_ctx,
 }
 
 static void
-process_loops(nir_cf_node *cf_node, nir_variable_mode indirect_mask)
+process_loops(nir_cf_node *cf_node, nir_variable_mode indirect_mask,
+              bool force_unroll_sampler_indirect)
 {
    switch (cf_node->type) {
    case nir_cf_node_block:
@@ -1351,15 +1363,15 @@ process_loops(nir_cf_node *cf_node, nir_variable_mode indirect_mask)
    case nir_cf_node_if: {
       nir_if *if_stmt = nir_cf_node_as_if(cf_node);
       foreach_list_typed(nir_cf_node, nested_node, node, &if_stmt->then_list)
-         process_loops(nested_node, indirect_mask);
+         process_loops(nested_node, indirect_mask, force_unroll_sampler_indirect);
       foreach_list_typed(nir_cf_node, nested_node, node, &if_stmt->else_list)
-         process_loops(nested_node, indirect_mask);
+         process_loops(nested_node, indirect_mask, force_unroll_sampler_indirect);
       return;
    }
    case nir_cf_node_loop: {
       nir_loop *loop = nir_cf_node_as_loop(cf_node);
       foreach_list_typed(nir_cf_node, nested_node, node, &loop->body)
-         process_loops(nested_node, indirect_mask);
+         process_loops(nested_node, indirect_mask, force_unroll_sampler_indirect);
       break;
    }
    default:
@@ -1372,6 +1384,7 @@ process_loops(nir_cf_node *cf_node, nir_variable_mode indirect_mask)
 
    loop_info_state *state = initialize_loop_info_state(loop, mem_ctx, impl);
    state->indirect_mask = indirect_mask;
+   state->force_unroll_sampler_indirect = force_unroll_sampler_indirect;
 
    get_loop_info(state, impl);
 
@@ -1380,9 +1393,10 @@ process_loops(nir_cf_node *cf_node, nir_variable_mode indirect_mask)
 
 void
 nir_loop_analyze_impl(nir_function_impl *impl,
-                      nir_variable_mode indirect_mask)
+                      nir_variable_mode indirect_mask,
+                      bool force_unroll_sampler_indirect)
 {
    nir_index_ssa_defs(impl);
    foreach_list_typed(nir_cf_node, node, node, &impl->body)
-      process_loops(node, indirect_mask);
+      process_loops(node, indirect_mask, force_unroll_sampler_indirect);
 }
