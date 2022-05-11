@@ -4714,6 +4714,12 @@ bool nir_lower_shader_calls(nir_shader *shader,
                             uint32_t *num_resume_shaders_out,
                             void *mem_ctx);
 
+bool nir_lower_divergent_barrier(nir_shader *shader,
+                                 nir_address_format address_format,
+                                 unsigned stack_alignment);
+bool nir_has_divergent_barriers(nir_shader *shader);
+bool nir_remove_workgroup_barriers(nir_shader *shader);
+
 nir_src *nir_get_io_offset_src(nir_intrinsic_instr *instr);
 nir_src *nir_get_io_arrayed_index_src(nir_intrinsic_instr *instr);
 nir_src *nir_get_shader_call_payload_src(nir_intrinsic_instr *call);
