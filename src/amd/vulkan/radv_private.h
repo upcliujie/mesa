@@ -1947,6 +1947,9 @@ struct radv_pipeline {
    unsigned max_waves;
    unsigned scratch_bytes_per_wave;
 
+   /* Not NULL if graphics pipeline uses streamout. */
+   struct radv_shader *streamout_shader;
+
    /* Unique pipeline hash identifier. */
    uint64_t pipeline_hash;
 
@@ -1954,6 +1957,8 @@ struct radv_pipeline {
    uint32_t push_constant_size;
    uint32_t dynamic_offset_count;
 };
+
+struct radv_compute_pipeline;
 
 struct radv_graphics_pipeline {
    struct radv_pipeline base;
@@ -2010,6 +2015,11 @@ struct radv_graphics_pipeline {
    /* Whether the pipeline uses NGG (GFX10+). */
    bool is_ngg;
    bool has_ngg_culling;
+
+   /* Internal compute pipeline used by graphics pipelines that
+    * need some work to be submitted to an async compute queue.
+    */
+   struct radv_compute_pipeline *ace_internal_pipeline;
 
    /* Not NULL if graphics pipeline uses streamout. */
    struct radv_shader *streamout_shader;

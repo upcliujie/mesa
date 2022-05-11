@@ -217,7 +217,16 @@ void
 radv_pipeline_destroy(struct radv_device *device, struct radv_pipeline *pipeline,
                       const VkAllocationCallbacks *allocator)
 {
-   if (pipeline->type == RADV_PIPELINE_COMPUTE) {
+   if (pipeline->type == RADV_PIPELINE_GRAPHICS) {
+      struct radv_graphics_pipeline *gfx_pipeline = radv_pipeline_to_graphics(pipeline);
+      if (gfx_pipeline->ace_internal_pipeline) {
+         /* Prevent double free. */
+         gfx_pipeline->ace_internal_pipeline->base.shaders[MESA_SHADER_COMPUTE] = NULL;
+         gfx_pipeline->ace_internal_pipeline->base.slab = NULL;
+         /* Destroy the internal compute pipeline. */
+         radv_pipeline_destroy(device, &gfx_pipeline->ace_internal_pipeline->base, allocator);
+      }
+   } else if (pipeline->type == RADV_PIPELINE_COMPUTE) {
       struct radv_compute_pipeline *compute_pipeline = radv_pipeline_to_compute(pipeline);
 
       free(compute_pipeline->rt_group_handles);
@@ -6967,6 +6976,14 @@ radv_graphics_pipeline_init(struct radv_graphics_pipeline *pipeline, struct radv
 }
 
 static VkResult
+radv_compute_pipeline_create_from_task(struct radv_compute_pipeline **out_pipeline,
+                                       const VkAllocationCallbacks *pAllocator,
+                                       struct radv_device *device,
+                                       struct radv_pipeline_layout *pipeline_layout,
+                                       struct radv_pipeline_slab *slab,
+                                       struct radv_shader *task_shader);
+
+static VkResult
 radv_graphics_pipeline_create_nonlegacy(VkDevice _device, VkPipelineCache _cache,
                                         const VkGraphicsPipelineCreateInfo *pCreateInfo,
                                         const struct radv_graphics_pipeline_create_info *extra,
@@ -6986,14 +7003,35 @@ radv_graphics_pipeline_create_nonlegacy(VkDevice _device, VkPipelineCache _cache
    radv_pipeline_init(device, &pipeline->base, RADV_PIPELINE_GRAPHICS);
 
    result = radv_graphics_pipeline_init(pipeline, device, cache, pCreateInfo, extra);
-   if (result != VK_SUCCESS) {
-      radv_pipeline_destroy(device, &pipeline->base, pAllocator);
-      return result;
+
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   if (radv_pipeline_has_stage(pipeline, MESA_SHADER_TASK)) {
+      /* Create internal compute pipeline from the task shader. */
+      RADV_FROM_HANDLE(radv_pipeline_layout, pipeline_layout, pCreateInfo->layout);
+      struct radv_shader *task_shader = pipeline->base.shaders[MESA_SHADER_TASK];
+      struct radv_compute_pipeline *ace_pipeline = NULL;
+
+      result = radv_compute_pipeline_create_from_task(
+         &ace_pipeline, pAllocator, device, pipeline_layout, pipeline->base.slab, task_shader);
+      if (result != VK_SUCCESS)
+         goto fail;
+
+      assert(ace_pipeline);
+      ace_pipeline->base.dynamic_offset_count = pipeline->base.dynamic_offset_count;
+      ace_pipeline->base.push_constant_size = pipeline->base.push_constant_size;
+
+      pipeline->ace_internal_pipeline = ace_pipeline;
    }
 
    *pPipeline = radv_pipeline_to_handle(&pipeline->base);
 
    return VK_SUCCESS;
+
+fail:
+   radv_pipeline_destroy(device, &pipeline->base, pAllocator);
+   return result;
 }
 
 /* This is a wrapper for radv_graphics_pipeline_create_nonlegacy that does all legacy conversions
@@ -7255,6 +7293,29 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
    radv_compute_pipeline_finish_init(pipeline, device);
 
    *pPipeline = radv_pipeline_to_handle(&pipeline->base);
+
+   return VK_SUCCESS;
+}
+
+static VkResult
+radv_compute_pipeline_create_from_task(struct radv_compute_pipeline **out_pipeline,
+                                       const VkAllocationCallbacks *pAllocator,
+                                       struct radv_device *device,
+                                       struct radv_pipeline_layout *pipeline_layout,
+                                       struct radv_pipeline_slab *slab,
+                                       struct radv_shader *task_shader)
+{
+   VkResult result =
+      radv_compute_pipeline_start_init(out_pipeline, pAllocator, device, pipeline_layout, NULL, 0);
+   if (result != VK_SUCCESS)
+      return result;
+
+   struct radv_compute_pipeline *pipeline = *out_pipeline;
+
+   /* Use the task shader as a compute shader for this pipeline. */
+   pipeline->base.shaders[MESA_SHADER_COMPUTE] = task_shader;
+   pipeline->base.slab = slab;
+   radv_compute_pipeline_finish_init(pipeline, device);
 
    return VK_SUCCESS;
 }
