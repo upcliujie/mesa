@@ -710,6 +710,7 @@ struct radv_queue_ring_info {
    uint32_t esgs_ring_size;
    uint32_t gsvs_ring_size;
    bool tess_rings;
+   bool task_rings;
    bool gds;
    bool gds_oa;
    bool sample_positions;
@@ -725,6 +726,7 @@ struct radv_queue_ring_state {
    struct radeon_winsys_bo *esgs_ring_bo;
    struct radeon_winsys_bo *gsvs_ring_bo;
    struct radeon_winsys_bo *tess_rings_bo;
+   struct radeon_winsys_bo *task_rings_bo;
    struct radeon_winsys_bo *gds_bo;
    struct radeon_winsys_bo *gds_oa_bo;
 
@@ -787,6 +789,10 @@ struct radv_device {
 
    /* Number of entries in the task shader ring buffers. */
    uint32_t task_num_entries;
+   /* Size of the task shader draw ring buffer. */
+   uint32_t task_draw_ring_bytes;
+   /* Size of the task shader payload ring buffer. */
+   uint32_t task_payload_ring_bytes;
 
    uint32_t gs_table_depth;
    struct ac_hs_info hs;
@@ -1569,6 +1575,7 @@ struct radv_cmd_buffer {
    uint32_t esgs_ring_size_needed;
    uint32_t gsvs_ring_size_needed;
    bool tess_rings_needed;
+   bool task_rings_needed;
    bool gds_needed;    /* for GFX10 streamout and NGG GS queries */
    bool gds_oa_needed; /* for GFX10 streamout */
    bool sample_positions_needed;

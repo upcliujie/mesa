@@ -96,6 +96,9 @@
  */
 #define RADV_TASK_PAYLOAD_ENTRY_BYTES 16384
 
+/* Size of the task control buffer in dwords. */
+#define RADV_TASK_CTRLBUF_DWORDS 9
+
 /* Number of invocations in each subgroup. */
 #define RADV_SUBGROUP_SIZE 64
 
