@@ -276,16 +276,15 @@ nvc0_destroy(struct pipe_context *pipe)
 }
 
 void
-nvc0_default_kick_notify(struct nouveau_pushbuf *push)
+nvc0_default_kick_notify(struct nouveau_screen *nv)
 {
-   struct nvc0_screen *screen = push->user_priv;
+   struct nvc0_screen *screen = nvc0_screen(&nv->base);
    struct nvc0_context *nvc0 = screen->cur_ctx;
 
    if (nvc0) {
       nouveau_fence_next(&nvc0->base);
       nouveau_fence_update(&screen->base, true);
       nvc0->state.flushed = true;
-      NOUVEAU_DRV_STAT(&screen->base, pushbuf_count, 1);
    }
 }
 
@@ -498,7 +497,7 @@ nvc0_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
       screen->cur_ctx = nvc0;
       nouveau_pushbuf_bufctx(screen->base.pushbuf, nvc0->bufctx);
    }
-   screen->base.pushbuf->kick_notify = nvc0_default_kick_notify;
+   screen->base.kick_notify = nvc0_default_kick_notify;
 
    /* add permanently resident buffers to bufctxts */
 

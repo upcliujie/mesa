@@ -187,6 +187,42 @@ reserve_vma(uintptr_t start, uint64_t reserved_size)
    return reserved;
 }
 
+static void
+nouveau_pushbuf_cb(struct nouveau_pushbuf *push)
+{
+   struct nouveau_pushbuf_priv *p = (struct nouveau_pushbuf_priv *)push->user_priv;
+
+   p->screen->kick_notify(p->screen);
+   NOUVEAU_DRV_STAT(p->screen, pushbuf_count, 1);
+}
+
+int
+nouveau_pushbuf_create(struct nouveau_screen *screen, struct nouveau_object *chan, int nr,
+                       uint32_t size, bool immediate, struct nouveau_pushbuf **push)
+{
+   int ret;
+   ret = nouveau_pushbuf_new(screen->client, chan, nr, size, immediate, push);
+   if (ret)
+      return ret;
+
+   struct nouveau_pushbuf_priv *p = MALLOC_STRUCT(nouveau_pushbuf_priv);
+   if (!p) {
+      nouveau_pushbuf_del(push);
+      return -ENOMEM;
+   }
+   p->screen = screen;
+   (*push)->kick_notify = nouveau_pushbuf_cb;
+   (*push)->user_priv = p;
+   return 0;
+}
+
+void
+nouveau_pushbuf_destroy(struct nouveau_pushbuf **push)
+{
+   FREE((*push)->user_priv);
+   nouveau_pushbuf_del(push);
+}
+
 int
 nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
 {
@@ -301,9 +337,9 @@ nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
    ret = nouveau_client_new(screen->device, &screen->client);
    if (ret)
       goto err;
-   ret = nouveau_pushbuf_new(screen->client, screen->channel,
-                             4, 512 * 1024, 1,
-                             &screen->pushbuf);
+   ret = nouveau_pushbuf_create(screen, screen->channel,
+                                4, 512 * 1024, 1,
+                                &screen->pushbuf);
    if (ret)
       goto err;
 
@@ -368,7 +404,7 @@ nouveau_screen_fini(struct nouveau_screen *screen)
    nouveau_mm_destroy(screen->mm_GART);
    nouveau_mm_destroy(screen->mm_VRAM);
 
-   nouveau_pushbuf_del(&screen->pushbuf);
+   nouveau_pushbuf_destroy(&screen->pushbuf);
 
    nouveau_client_del(&screen->client);
    nouveau_object_del(&screen->channel);

@@ -715,9 +715,6 @@ nvc0_screen_destroy(struct pipe_screen *pscreen)
    if (!nouveau_drm_screen_unref(&screen->base))
       return;
 
-   if (screen->base.pushbuf)
-      screen->base.pushbuf->user_priv = NULL;
-
    if (screen->blitter)
       nvc0_blitter_destroy(screen);
    if (screen->pm.prog) {
@@ -1079,7 +1076,6 @@ nvc0_screen_create(struct nouveau_device *dev)
       FAIL_SCREEN_INIT("Base screen init failed: %d\n", ret);
    chan = screen->base.channel;
    push = screen->base.pushbuf;
-   push->user_priv = screen;
    push->rsvd_kick = 5;
 
    /* TODO: could this be higher on Kepler+? how does reclocking vs no

@@ -623,9 +623,6 @@ nv50_screen_destroy(struct pipe_screen *pscreen)
    if (!nouveau_drm_screen_unref(&screen->base))
       return;
 
-   if (screen->base.pushbuf)
-      screen->base.pushbuf->user_priv = NULL;
-
    if (screen->blitter)
       nv50_blitter_destroy(screen);
    if (screen->pm.prog) {
@@ -1027,7 +1024,6 @@ nv50_screen_create(struct nouveau_device *dev)
    screen->base.sysmem_bindings |=
       PIPE_BIND_VERTEX_BUFFER | PIPE_BIND_INDEX_BUFFER;
 
-   screen->base.pushbuf->user_priv = screen;
    screen->base.pushbuf->rsvd_kick = 5;
 
    chan = screen->base.channel;

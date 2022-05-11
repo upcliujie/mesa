@@ -133,9 +133,9 @@ nv50_emit_string_marker(struct pipe_context *pipe, const char *str, int len)
 }
 
 void
-nv50_default_kick_notify(struct nouveau_pushbuf *push)
+nv50_default_kick_notify(struct nouveau_screen *nv)
 {
-   struct nv50_screen *screen = push->user_priv;
+   struct nv50_screen *screen = nv50_screen(&nv->base);
    struct nv50_context *context = screen->cur_ctx;
 
    if (context) {
@@ -358,7 +358,7 @@ nv50_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
       screen->cur_ctx = nv50;
       nouveau_pushbuf_bufctx(screen->base.pushbuf, nv50->bufctx);
    }
-   nv50->base.pushbuf->kick_notify = nv50_default_kick_notify;
+   nv50->screen->base.kick_notify = nv50_default_kick_notify;
 
    nv50_init_query_functions(nv50);
    nv50_init_surface_functions(nv50);
