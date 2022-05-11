@@ -355,6 +355,7 @@ private:
    void emitFSETP();
    void emitFSWZADD();
    void emitMUFU();
+   void emitHMMA_16X();
 
    void emitDADD();
    void emitDFMA();

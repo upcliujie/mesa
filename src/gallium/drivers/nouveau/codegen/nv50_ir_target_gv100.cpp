@@ -159,6 +159,7 @@ OPINFO(FSWZADD  , R   , NONE, R   , NONE, NONE, NONE);
 OPINFO(I2F      , RIC , NONE, NONE, NONE, NONE, NONE);
 OPINFO(IABS     , RIC , NONE, NONE, NONE, NONE, NONE);
 OPINFO(IADD3    , R   , NEG , RIC , NEG , R   , NEG );
+OPINFO(HMMA_16X , R   , NONE, RIC , NONE, RC  , NEG );
 OPINFO(IMAD     , R   , NONE, RIC , NONE, RIC , NEG );
 OPINFO(IMAD_WIDE, R   , NONE, RIC , NONE, RC  , NEG );
 OPINFO(IPA      , NONE, NONE, NONE, NONE, NONE, NONE);
@@ -400,6 +401,7 @@ getOpInfo(const Instruction *i)
    case OP_VFETCH: return &opInfo_ALD;
    case OP_VOTE: return &opInfo_VOTE;
    case OP_WARPSYNC: return &opInfo_WARPSYNC;
+   case OP_HMMA_16X: return &opInfo_HMMA_16X;
    default:
       break;
    }
@@ -439,22 +441,24 @@ TargetGV100::isModSupported(const Instruction *i, int s, Modifier mod) const
 bool
 TargetGV100::isOpSupported(operation op, DataType ty) const
 {
-   if (op == OP_MAD || op == OP_FMA)
-      return true;
    if (ty == TYPE_F32) {
       if (op == OP_MAX)
          return true;
    }
-   if (op == OP_RSQ)
+   switch (op) {
+   case OP_RSQ:
+   case OP_SET:
+   case OP_SET_AND:
+   case OP_SET_OR:
+   case OP_SET_XOR:
+   case OP_SHLADD:
+   case OP_HMMA_16X:
+   case OP_MAD:
+   case OP_FMA:
       return true;
-   if (op == OP_SET ||
-       op == OP_SET_AND ||
-       op == OP_SET_OR ||
-       op == OP_SET_XOR)
-      return true;
-   if (op == OP_SHLADD)
-      return true;
-   return false;
+   default:
+      return false;
+   }
 }
 
 bool

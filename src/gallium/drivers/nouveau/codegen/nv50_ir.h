@@ -61,6 +61,7 @@ enum operation
    // extended multiply-add (GM107+), does a lot of things.
    // see envytools for detailed documentation
    OP_XMAD,
+   OP_HMMA_16X, // matrix multiply and add(for tensor cores)
    OP_ABS,
    OP_NEG,
    OP_NOT,
