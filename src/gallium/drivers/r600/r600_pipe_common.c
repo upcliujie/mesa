@@ -1364,6 +1364,9 @@ bool r600_common_screen_init(struct r600_common_screen *rscreen,
          * lowered code */
         rscreen->nir_options.lower_fpow = rscreen->debug_flags & DBG_NIR_PREFERRED;
 
+        if (rscreen->b.family < CHIP_CEDAR)
+           rscreen->nir_options.force_indirect_unrolling_sampler = true;
+
 	if (rscreen->info.chip_class < EVERGREEN) {
 		/* Pre-EG doesn't have these ALU ops */
 		rscreen->nir_options.lower_bit_count = true;
