@@ -4074,6 +4074,10 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
    case nir_intrinsic_load_patch_vertices_in:
       result = ctx->abi->load_patch_vertices_in(ctx->abi);
       break;
+   case nir_intrinsic_load_tess_rel_patch_id_amd:
+      assert(ctx->stage == MESA_SHADER_TESS_CTRL);
+      result = ac_unpack_param(&ctx->ac, ac_get_arg(&ctx->ac, ctx->args->tcs_rel_ids), 0, 8);
+      break;
    case nir_intrinsic_vote_all: {
       result = ac_build_vote_all(&ctx->ac, get_src(ctx, instr->src[0]));
       break;
