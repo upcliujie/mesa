@@ -1979,6 +1979,12 @@ struct radv_pipeline {
    unsigned max_waves;
    unsigned scratch_bytes_per_wave;
 
+   /* Internal compute pipeline used by graphics pipelines that
+    * need some work to be submitted to an async compute queue.
+    */
+   struct radv_pipeline *ace_internal_pipeline;
+
+
    /* Not NULL if graphics pipeline uses streamout. */
    struct radv_shader *streamout_shader;
 
