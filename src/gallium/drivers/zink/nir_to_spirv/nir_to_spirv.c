@@ -2646,7 +2646,22 @@ extract_sparse_load(struct ntv_context *ctx, SpvId result, SpvId dest_type, nir_
    uint32_t idx = 0;
    SpvId resident = spirv_builder_emit_composite_extract(&ctx->builder, spirv_builder_type_uint(&ctx->builder, 32), result, &idx, 1);
    idx = 1;
-   result = spirv_builder_emit_composite_extract(&ctx->builder, dest_type, result, &idx, 1);
+   /* normal vec4 return */
+   if (dest_ssa->num_components == 4)
+      result = spirv_builder_emit_composite_extract(&ctx->builder, dest_type, result, &idx, 1);
+   else {
+      /* shadow */
+      assert(dest_ssa->num_components == 2);
+      SpvId type = spirv_builder_type_uint(&ctx->builder, dest_ssa->bit_size);
+      SpvId val[2];
+      /* pad to 2 components: the upcoming is_sparse_texels_resident instr will always use the
+       * separate residency value, but the shader still expects this return to be a vec2,
+       * so give it a vec2
+       */
+      val[0] = spirv_builder_emit_composite_extract(&ctx->builder, type, result, &idx, 1);
+      val[1] = emit_uint_const(ctx, dest_ssa->bit_size, 0);
+      result = spirv_builder_emit_composite_construct(&ctx->builder, dest_type, val, 2);
+   }
    assert(resident != 0);
    assert(dest_ssa->index < ctx->num_defs);
    ctx->resident_defs[dest_ssa->index] = resident;
@@ -3328,7 +3343,8 @@ emit_tex(struct ntv_context *ctx, nir_tex_instr *tex)
    SpvId load = spirv_builder_emit_load(&ctx->builder, sampled_type, sampler_id);
 
    if (tex->is_sparse)
-      tex->dest.ssa.num_components--;
+      /* clamp to 2 components so that mov alu doesn't explode */
+      tex->dest.ssa.num_components = MAX2(tex->dest.ssa.num_components - 1, 2);
    SpvId dest_type = get_dest_type(ctx, &tex->dest, tex->dest_type);
 
    if (!tex_instr_is_lod_allowed(tex))
