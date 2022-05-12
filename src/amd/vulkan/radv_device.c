@@ -3025,7 +3025,7 @@ static struct radv_force_vrs_config
 radv_parse_force_vrs_config_file(const char *config_file)
 {
    struct radv_force_vrs_config force_vrs_cfg = {0};
-   char buf[4];
+   char buf[64];
    FILE *f;
 
    f = fopen(config_file, "r");
@@ -3034,9 +3034,32 @@ radv_parse_force_vrs_config_file(const char *config_file)
       return force_vrs_cfg;
    }
 
-   if (fread(buf, sizeof(buf), 1, f) == 1) {
+   if (fread(buf, 4, 1, f) == 1) {
       buf[3] = '\0';
       force_vrs_cfg.rate = radv_parse_vrs_rates(buf);
+   }
+
+   while (fgets(buf, sizeof(buf), f) != NULL) {
+      char *k = strtok(buf, "=");
+      char *v = strtok(NULL, "=");
+      if (!k || !v) {
+         fprintf(stderr, "radv: Malformed RADV_FORCE_VRS_CONFIG_FILE option, syntax is "
+                         "'key=value'.\n");
+         continue;
+      }
+
+      /* Anything different than true,TRUE,1 is considered disabled. */
+      bool enabled = !strncmp(v, "true", 4) || !strncmp(v, "TRUE", 4) || !strncmp(v, "1", 1);
+
+      if (!strncmp(k, "enable_with_discard", 19)) {
+         force_vrs_cfg.enable_with_discard = enabled;
+      } else if (!strncmp(k, "enable_with_frag_coord", 22)) {
+         force_vrs_cfg.enable_with_frag_coord = enabled;
+      } else {
+         fprintf(stderr, "radv: Unknown RADV_FORCE_VRS_CONFIG_FILE option detected ('%s').\n", k);
+         fprintf(stderr, "radv: Valid options are 'enable_with_discard' and "
+                         "'enable_with_frag_coord'.\n");
+      }
    }
 
    fclose(f);
@@ -3069,8 +3092,10 @@ radv_notifier_thread_run(void *data)
             thrd_sleep(&tm, NULL);
             device->force_vrs_cfg = radv_parse_force_vrs_config_file(file);
 
-            fprintf(stderr, "radv: Updated the per-vertex VRS rate to '%d'.\n",
-                    device->force_vrs_cfg.rate);
+            fprintf(stderr, "radv: Updated RADV_FORCE_VRS_CONFIG_FILE to rate=%d, "
+                            "enable_with_discard=%d, enable_with_frag_coord=%d.\n",
+                    device->force_vrs_cfg.rate, device->force_vrs_cfg.enable_with_discard,
+                    device->force_vrs_cfg.enable_with_frag_coord);
 
             if (event->mask & IN_DELETE_SELF) {
                inotify_rm_watch(notifier->fd, notifier->watch);

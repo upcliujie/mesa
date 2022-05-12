@@ -775,6 +775,8 @@ enum radv_vrs_rate {
 
 struct radv_force_vrs_config {
    enum radv_vrs_rate rate;
+   bool enable_with_discard;
+   bool enable_with_frag_coord;
 };
 
 struct radv_notifier {
