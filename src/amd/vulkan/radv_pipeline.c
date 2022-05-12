@@ -6686,6 +6686,8 @@ gfx103_pipeline_emit_vrs_state(struct radeon_cmdbuf *ctx_cs,
       rate_x = rate_y = 1;
    } else if (!radv_is_static_vrs_enabled(pipeline, info) && pipeline->force_vrs_per_vertex &&
               get_vs_output_info(pipeline)->writes_primitive_shading_rate) {
+      const struct radv_force_vrs_config *force_vrs_cfg = &pipeline->base.device->force_vrs_cfg;
+
       /* Otherwise, if per-draw VRS is not enabled statically, try forcing per-vertex VRS if
        * requested by the user. Note that vkd3d-proton always has to declare VRS as dynamic because
        * in DX12 it's fully dynamic.
@@ -6702,7 +6704,8 @@ gfx103_pipeline_emit_vrs_state(struct radeon_cmdbuf *ctx_cs,
        * Note that MIN allows sample shading but not coarse shading.
        */
       struct radv_shader *ps = pipeline->base.shaders[MESA_SHADER_FRAGMENT];
-      if (ps->info.ps.can_discard || ps->info.ps.reads_frag_coord_mask) {
+      if ((!force_vrs_cfg->enable_with_discard && ps->info.ps.can_discard) ||
+          (!force_vrs_cfg->enable_with_frag_coord && ps->info.ps.reads_frag_coord_mask)) {
          mode = V_028064_VRS_COMB_MODE_MIN;
       } else {
          mode = V_028064_VRS_COMB_MODE_PASSTHRU;
