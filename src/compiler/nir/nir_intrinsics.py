@@ -1299,6 +1299,9 @@ system_value("task_ring_entry_amd", 1)
 # Pointer into the draw and payload rings
 system_value("task_ib_addr", 2)
 system_value("task_ib_stride", 1)
+# Linear/Perspective center interpolation arguments.
+system_value("linear_center_interp_amd", 2)
+system_value("persp_center_interp_amd", 2)
 
 # Number of patches processed by each TCS workgroup
 system_value("tcs_num_patches_amd", 1)
