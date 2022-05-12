@@ -4566,8 +4566,20 @@ static struct pipe_sampler_view *si_create_sampler_view(struct pipe_context *ctx
 
    /* Buffer resource. */
    if (texture->target == PIPE_BUFFER) {
+      /* The spec says:
+       *    The number of texels in the texel array is then clamped to the value of
+       *    the implementation-dependent limit GL_MAX_TEXTURE_BUFFER_SIZE.
+       *
+       * So compute the number of texels, compare to GL_MAX_TEXTURE_BUFFER_SIZE and update it.
+       */
+      unsigned stride = util_format_get_blocksize(state->format);
+      unsigned num_records = MIN2(
+         sctx->screen->b.get_param(&sctx->screen->b, PIPE_CAP_MAX_TEXTURE_BUFFER_SIZE),
+         state->u.buf.size / stride);
+      uint32_t size = num_records * stride;
+
       si_make_buffer_descriptor(sctx->screen, si_resource(texture), state->format,
-                                state->u.buf.offset, state->u.buf.size, view->state);
+                                state->u.buf.offset, size, view->state);
       return &view->base;
    }
 

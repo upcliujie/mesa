@@ -755,8 +755,18 @@ static void si_set_shader_image_desc(struct si_context *ctx, const struct pipe_i
    if (res->b.b.target == PIPE_BUFFER) {
       if (view->access & PIPE_IMAGE_ACCESS_WRITE)
          si_mark_image_range_valid(view);
+      /* The spec says:
+       *    The number of texels in the texel array is then clamped to the value of
+       *    the implementation-dependent limit GL_MAX_TEXTURE_BUFFER_SIZE.
+       *
+       * So compute the number of texels, compare to GL_MAX_TEXTURE_BUFFER_SIZE and update it.
+       */
+      unsigned stride = util_format_get_blocksize(view->format);
+      unsigned num_records = MIN2(screen->b.get_param(&screen->b, PIPE_CAP_MAX_TEXTURE_BUFFER_SIZE),
+                                  view->u.buf.size / stride);
+      uint32_t size = num_records * stride;
 
-      si_make_buffer_descriptor(screen, res, view->format, view->u.buf.offset, view->u.buf.size,
+      si_make_buffer_descriptor(screen, res, view->format, view->u.buf.offset, size,
                                 desc);
       si_set_buf_desc_address(res, view->u.buf.offset, desc + 4);
    } else {
