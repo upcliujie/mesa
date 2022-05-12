@@ -353,6 +353,7 @@ impl Mem {
         ctx: Option<&PipeContext>,
         mut offset: usize,
         size: usize,
+        rw: RWFlags,
     ) -> CLResult<PipeTransfer> {
         let b = self.to_parent(&mut offset);
         let r = b.get_res()?.get(&q.device).unwrap();
@@ -365,6 +366,7 @@ impl Mem {
                 offset.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?,
                 size.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?,
                 true,
+                rw,
             )
         } else {
             q.device.helper_ctx().buffer_map_async(
@@ -381,8 +383,9 @@ impl Mem {
         ctx: &'a PipeContext,
         offset: usize,
         size: usize,
+        rw: RWFlags,
     ) -> CLResult<GuardedPipeTransfer<'a>> {
-        Ok(self.tx_raw(q, Some(ctx), offset, size)?.with_ctx(ctx))
+        Ok(self.tx_raw(q, Some(ctx), offset, size, rw)?.with_ctx(ctx))
     }
 
     fn tx_image_raw(
@@ -390,12 +393,13 @@ impl Mem {
         q: &Arc<Queue>,
         ctx: Option<&PipeContext>,
         bx: &pipe_box,
+        rw: RWFlags,
     ) -> CLResult<PipeTransfer> {
         assert!(!self.is_buffer());
 
         let r = self.get_res()?.get(&q.device).unwrap();
         Ok(if let Some(ctx) = ctx {
-            ctx.texture_map(r, bx, true)
+            ctx.texture_map(r, bx, true, rw)
         } else {
             q.device.helper_ctx().texture_map_async(r, bx)
         })
@@ -406,8 +410,9 @@ impl Mem {
         q: &Arc<Queue>,
         ctx: &'a PipeContext,
         bx: &pipe_box,
+        rw: RWFlags,
     ) -> CLResult<GuardedPipeTransfer<'a>> {
-        Ok(self.tx_image_raw(q, Some(ctx), bx)?.with_ctx(ctx))
+        Ok(self.tx_image_raw(q, Some(ctx), bx, rw)?.with_ctx(ctx))
     }
 
     pub fn has_same_parent(&self, other: &Self) -> bool {
@@ -453,7 +458,7 @@ impl Mem {
     ) -> CLResult<()> {
         assert!(self.is_buffer());
 
-        let tx = self.tx(q, ctx, offset, size)?;
+        let tx = self.tx(q, ctx, offset, size, RWFlags::RD)?;
 
         unsafe {
             ptr::copy_nonoverlapping(tx.ptr(), ptr, size);
@@ -504,8 +509,13 @@ impl Mem {
 
             if self.is_buffer() {
                 let bpp = dst.image_format.pixel_size().unwrap() as usize;
-                tx_src = self.tx(q, ctx, src_origin[0], region.pixels() * bpp)?;
-                tx_dst = dst.tx_image(q, ctx, &create_box(&dst_origin, region, dst.mem_type)?)?;
+                tx_src = self.tx(q, ctx, src_origin[0], region.pixels() * bpp, RWFlags::RD)?;
+                tx_dst = dst.tx_image(
+                    q,
+                    ctx,
+                    &create_box(&dst_origin, region, dst.mem_type)?,
+                    RWFlags::WR,
+                )?;
 
                 sw_copy(
                     tx_src.ptr(),
@@ -521,8 +531,13 @@ impl Mem {
                 )
             } else {
                 let bpp = self.image_format.pixel_size().unwrap() as usize;
-                tx_src = self.tx_image(q, ctx, &create_box(&src_origin, region, self.mem_type)?)?;
-                tx_dst = dst.tx(q, ctx, dst_origin[0], region.pixels() * bpp)?;
+                tx_src = self.tx_image(
+                    q,
+                    ctx,
+                    &create_box(&src_origin, region, self.mem_type)?,
+                    RWFlags::RD,
+                )?;
+                tx_dst = dst.tx(q, ctx, dst_origin[0], region.pixels() * bpp, RWFlags::WR)?;
 
                 sw_copy(
                     tx_src.ptr(),
@@ -615,7 +630,7 @@ impl Mem {
         if self.is_buffer() {
             let (offset, size) =
                 buffer_offset_size(dst_origin, region, dst_row_pitch, dst_slice_pitch);
-            let tx = self.tx(q, ctx, offset, size)?;
+            let tx = self.tx(q, ctx, offset, size, RWFlags::WR)?;
 
             sw_copy(
                 src,
@@ -675,13 +690,13 @@ impl Mem {
         if self.is_buffer() {
             let (offset, size) =
                 buffer_offset_size(src_origin, region, src_row_pitch, src_slice_pitch);
-            tx = self.tx(q, ctx, offset, size)?;
+            tx = self.tx(q, ctx, offset, size, RWFlags::RD)?;
             pixel_size = 1;
         } else {
             assert!(dst_origin == &CLVec::default());
 
             let bx = create_box(src_origin, region, self.mem_type)?;
-            tx = self.tx_image(q, ctx, &bx)?;
+            tx = self.tx_image(q, ctx, &bx, RWFlags::RD)?;
             src_row_pitch = tx.row_pitch() as usize;
             src_slice_pitch = tx.slice_pitch() as usize;
 
@@ -721,10 +736,10 @@ impl Mem {
         assert!(dst.is_buffer());
 
         let (offset, size) = buffer_offset_size(src_origin, region, src_row_pitch, src_slice_pitch);
-        let tx_src = self.tx(q, ctx, offset, size)?;
+        let tx_src = self.tx(q, ctx, offset, size, RWFlags::RD)?;
 
         let (offset, size) = buffer_offset_size(dst_origin, region, dst_row_pitch, dst_slice_pitch);
-        let tx_dst = dst.tx(q, ctx, offset, size)?;
+        let tx_dst = dst.tx(q, ctx, offset, size, RWFlags::WR)?;
 
         // TODO check to use hw accelerated paths (e.g. resource_copy_region or blits)
         sw_copy(
@@ -796,13 +811,14 @@ impl Mem {
         q: &Arc<Queue>,
         ctx: Option<&PipeContext>,
         lock: &'a mut MutexGuard<Mappings>,
+        rw: RWFlags,
     ) -> CLResult<&'a PipeTransfer> {
         if !lock.tx.contains_key(&q.device) {
             let tx = if self.is_buffer() {
-                self.tx_raw(q, ctx, 0, self.size)?
+                self.tx_raw(q, ctx, 0, self.size, rw)?
             } else {
                 let bx = self.image_desc.bx()?;
-                self.tx_image_raw(q, ctx, &bx)?
+                self.tx_image_raw(q, ctx, &bx, rw)?
             };
 
             lock.tx.insert(q.device.clone(), (tx, 0));
@@ -832,7 +848,7 @@ impl Mem {
 
             self.host_ptr
         } else {
-            let tx = self.map(q, ctx, &mut lock)?;
+            let tx = self.map(q, ctx, &mut lock, RWFlags::RW)?;
             tx.ptr()
         };
 
@@ -872,7 +888,7 @@ impl Mem {
 
             self.host_ptr
         } else {
-            let tx = self.map(q, ctx, &mut lock)?;
+            let tx = self.map(q, ctx, &mut lock, RWFlags::RW)?;
 
             if self.image_desc.dims() > 1 {
                 *row_pitch = tx.row_pitch() as usize;
