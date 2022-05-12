@@ -183,6 +183,9 @@ lower_abi_instr(nir_builder *b, nir_instr *instr, void *state)
       return nir_imm_int(b, io_num * 16);
    }
 
+   case nir_intrinsic_io_remap_amd:
+      return nir_imm_int(b, nir_intrinsic_base(intrin));
+
    default:
       unreachable("invalid NIR RADV ABI intrinsic.");
    }
@@ -225,7 +228,8 @@ filter_abi_instr(const nir_instr *instr,
           intrin->intrinsic == nir_intrinsic_load_task_ring_entry_amd ||
           intrin->intrinsic == nir_intrinsic_load_task_ib_addr ||
           intrin->intrinsic == nir_intrinsic_load_task_ib_stride ||
-          intrin->intrinsic == nir_intrinsic_load_lshs_vertex_stride_amd;
+          intrin->intrinsic == nir_intrinsic_load_lshs_vertex_stride_amd ||
+          intrin->intrinsic == nir_intrinsic_io_remap_amd;
 }
 
 void

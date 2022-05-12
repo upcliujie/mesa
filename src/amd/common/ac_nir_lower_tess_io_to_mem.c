@@ -194,6 +194,20 @@ tcs_output_needs_lds(nir_intrinsic_instr *intrin,
    return match_mask(MESA_SHADER_TESS_CTRL, intrin, mask, true);
 }
 
+static nir_ssa_def *
+calc_remapped_io_offset(nir_builder *b,
+                        nir_intrinsic_instr *intrin,
+                        nir_ssa_def *base_stride,
+                        unsigned component_stride)
+{
+   nir_ssa_def *base = nir_io_remap_amd(b, .base = nir_intrinsic_base(intrin));
+   nir_ssa_def *offset = nir_ssa_for_src(b, *nir_get_io_offset_src(intrin), 1);
+   nir_ssa_def *slot_offset = nir_imul(b, nir_iadd(b, base, offset), base_stride);
+   unsigned comp_offset = nir_intrinsic_component(intrin) * component_stride;
+
+   return nir_iadd_imm_nuw(b, slot_offset, comp_offset);
+}
+
 static bool
 lower_ls_output_store(nir_builder *b,
                       nir_instr *instr,
@@ -237,7 +251,7 @@ lower_ls_output_store(nir_builder *b,
    nir_ssa_def *vertex_idx = nir_load_local_invocation_index(b);
    nir_ssa_def *base_off_var = nir_imul(b, vertex_idx, nir_load_lshs_vertex_stride_amd(b));
 
-   nir_ssa_def *io_off = nir_build_calc_io_offset(b, intrin, nir_imm_int(b, 16u), 4u);
+   nir_ssa_def *io_off = calc_remapped_io_offset(b, intrin, nir_imm_int(b, 16u), 4u);
    unsigned write_mask = nir_intrinsic_write_mask(intrin);
 
    nir_ssa_def *off = nir_iadd_nuw(b, base_off_var, io_off);
@@ -297,7 +311,7 @@ hs_per_vertex_input_lds_offset(nir_builder *b,
 
    nir_ssa_def *tcs_in_current_patch_offset = nir_imul(b, rel_patch_id, tcs_in_patch_stride);
 
-   nir_ssa_def *io_offset = nir_build_calc_io_offset(b, instr, nir_imm_int(b, 16u), 4u);
+   nir_ssa_def *io_offset = calc_remapped_io_offset(b, instr, nir_imm_int(b, 16u), 4u);
 
    return nir_iadd_nuw(b, nir_iadd_nuw(b, tcs_in_current_patch_offset, vertex_index_off), io_offset);
 }
