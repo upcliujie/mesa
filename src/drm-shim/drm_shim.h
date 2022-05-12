@@ -75,6 +75,7 @@ struct shim_fd {
    mtx_t handle_lock;
    /* mapping from int gem handle to struct shim_bo *. */
    struct hash_table *handles;
+   void *driver_priv;
 };
 
 struct shim_bo {
