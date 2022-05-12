@@ -182,6 +182,12 @@ lower_abi_instr(nir_builder *b, nir_instr *instr, void *state)
    case nir_intrinsic_load_task_ib_stride:
       return ac_nir_load_arg(b, &s->args->ac, s->args->task_ib_stride);
 
+   case nir_intrinsic_load_linear_center_interp_amd:
+      return ac_nir_load_arg(b, &s->args->ac, s->args->ac.linear_center);
+
+   case nir_intrinsic_load_persp_center_interp_amd:
+      return ac_nir_load_arg(b, &s->args->ac, s->args->ac.persp_center);
+
    default:
       unreachable("invalid NIR RADV ABI intrinsic.");
    }
@@ -225,7 +231,9 @@ filter_abi_instr(const nir_instr *instr,
           intrin->intrinsic == nir_intrinsic_load_ring_task_payload_amd ||
           intrin->intrinsic == nir_intrinsic_load_task_ring_entry_amd ||
           intrin->intrinsic == nir_intrinsic_load_task_ib_addr ||
-          intrin->intrinsic == nir_intrinsic_load_task_ib_stride;
+          intrin->intrinsic == nir_intrinsic_load_task_ib_stride ||
+          intrin->intrinsic == nir_intrinsic_load_linear_center_interp_amd ||
+          intrin->intrinsic == nir_intrinsic_load_persp_center_interp_amd;
 }
 
 void
