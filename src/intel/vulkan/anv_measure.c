@@ -327,21 +327,25 @@ anv_measure_reset(struct anv_cmd_buffer *cmd_buffer)
 
    assert(cmd_buffer->device != NULL);
 
+   bool reuse_bo = measure->bo && measure->base.event_count == 0;
+
    measure->base.index = 0;
 //   measure->base.framebuffer = 0;
    measure->base.frame = 0;
    measure->base.event_count = 0;
    list_inithead(&measure->base.link);
 
-   anv_device_release_bo(device, measure->bo);
-   ASSERTED VkResult result =
-      anv_device_alloc_bo(device, "measure data",
-                          config->batch_size * sizeof(uint64_t),
-                          ANV_BO_ALLOC_MAPPED,
-                          0,
-                          (struct anv_bo**)&measure->bo);
-   measure->base.timestamps = measure->bo->map;
-   assert(result == VK_SUCCESS);
+   if (!reuse_bo) {
+      anv_device_release_bo(device, measure->bo);
+      ASSERTED VkResult result =
+         anv_device_alloc_bo(device, "measure data",
+                             config->batch_size * sizeof(uint64_t),
+                             ANV_BO_ALLOC_MAPPED,
+                             0,
+                             (struct anv_bo**)&measure->bo);
+      measure->base.timestamps = measure->bo->map;
+      assert(result == VK_SUCCESS);
+   }
 }
 
 void
