@@ -4367,6 +4367,9 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
    case nir_intrinsic_load_lshs_vertex_stride_amd:
       result = ctx->abi->load_lshs_vertex_stride(ctx->abi);
       break;
+   case nir_intrinsic_io_remap_amd:
+      result = ctx->abi->io_remap(ctx->abi, nir_intrinsic_base(instr));
+      break;
    default:
       fprintf(stderr, "Unknown intrinsic: ");
       nir_print_instr(&instr->instr, stderr);

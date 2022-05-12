@@ -248,6 +248,7 @@ void si_llvm_build_tcs_epilog(struct si_shader_context *ctx, union si_shader_par
 void si_llvm_init_tcs_callbacks(struct si_shader_context *ctx);
 void si_llvm_init_tes_callbacks(struct si_shader_context *ctx, bool ngg_cull_shader);
 LLVMValueRef si_load_lshs_vertex_stride(struct ac_shader_abi *abi);
+LLVMValueRef si_unique_io_remap(struct ac_shader_abi *abi, unsigned location);
 
 /* si_shader_llvm_ps.c */
 LLVMValueRef si_get_sample_id(struct si_shader_context *ctx);

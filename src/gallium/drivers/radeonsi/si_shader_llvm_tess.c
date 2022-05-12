@@ -644,6 +644,17 @@ LLVMValueRef si_load_lshs_vertex_stride(struct ac_shader_abi *abi)
                        LLVMConstInt(ctx->ac.i32, 2, 0), "");
 }
 
+LLVMValueRef si_unique_io_remap(struct ac_shader_abi *abi, unsigned location)
+{
+   struct si_shader_context *ctx = si_shader_context_from_abi(abi);
+   struct si_shader_info *info = &ctx->shader->selector->info;
+
+   unsigned semantic = ctx->stage == MESA_SHADER_VERTEX ?
+      info->output_semantic[location] : info->input[location].semantic;
+
+   return LLVMConstInt(ctx->ac.i32, si_shader_io_get_unique_index(semantic, false), 0);
+}
+
 /**
  * Forward all outputs from the vertex shader to the TES. This is only used
  * for the fixed function TCS.
@@ -1097,6 +1108,7 @@ void si_llvm_init_tcs_callbacks(struct si_shader_context *ctx)
    ctx->abi.emit_outputs = si_llvm_emit_tcs_epilogue;
    ctx->abi.load_patch_vertices_in = si_load_patch_vertices_in;
    ctx->abi.load_lshs_vertex_stride = si_load_lshs_vertex_stride;
+   ctx->abi.io_remap = si_unique_io_remap;
 }
 
 void si_llvm_init_tes_callbacks(struct si_shader_context *ctx, bool ngg_cull_shader)
