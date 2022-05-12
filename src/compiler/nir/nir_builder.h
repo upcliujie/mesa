@@ -1583,7 +1583,12 @@ static inline nir_ssa_def *
 nir_load_barycentric(nir_builder *build, nir_intrinsic_op op,
                      unsigned interp_mode)
 {
-   unsigned num_components = op == nir_intrinsic_load_barycentric_model ? 3 : 2;
+   unsigned num_components = 2;
+
+   if (op == nir_intrinsic_load_barycentric_model ||
+       op == nir_intrinsic_load_barycentric_coord)
+      num_components = 3;
+
    nir_intrinsic_instr *bary = nir_intrinsic_instr_create(build->shader, op);
    nir_ssa_dest_init(&bary->instr, &bary->dest, num_components, 32, NULL);
    nir_intrinsic_set_interp_mode(bary, interp_mode);

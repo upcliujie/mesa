@@ -1154,6 +1154,14 @@ vtn_get_builtin_location(struct vtn_builder *b,
       *location = SYSTEM_VALUE_MESH_VIEW_INDICES;
       set_mode_system_value(b, mode);
       break;
+   case SpvBuiltInBaryCoordKHR:
+      *location = SYSTEM_VALUE_BARYCENTRIC_PERSP_COORD;
+      set_mode_system_value(b, mode);
+      break;
+   case SpvBuiltInBaryCoordNoPerspKHR:
+      *location = SYSTEM_VALUE_BARYCENTRIC_LINEAR_COORD;
+      set_mode_system_value(b, mode);
+      break;
    default:
       vtn_fail("Unsupported builtin: %s (%u)",
                spirv_builtin_to_string(builtin), builtin);
