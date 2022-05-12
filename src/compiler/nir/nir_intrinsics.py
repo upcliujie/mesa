@@ -1375,6 +1375,9 @@ intrinsic("store_shared2_amd", [2, 1], indices=[OFFSET0, OFFSET1, ST64])
 # Vertex stride in LS-HS buffer
 system_value("lshs_vertex_stride_amd", 1)
 
+# Remap io location.
+intrinsic("io_remap_amd", dest_comp=1, bit_sizes=[32], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
+
 # V3D-specific instrinc for tile buffer color reads.
 #
 # The hardware requires that we read the samples and components of a pixel
