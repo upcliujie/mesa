@@ -144,6 +144,12 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
          info->ps.needs_sample_positions = true;
       break;
    }
+   case nir_intrinsic_load_linear_center_interp_amd:
+      info->ps.reads_linear_center = true;
+      break;
+   case nir_intrinsic_load_persp_center_interp_amd:
+      info->ps.reads_persp_center = true;
+      break;
    case nir_intrinsic_load_local_invocation_id:
    case nir_intrinsic_load_workgroup_id: {
       unsigned mask = nir_ssa_def_components_read(&instr->dest.ssa);
