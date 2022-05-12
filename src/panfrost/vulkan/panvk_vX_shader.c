@@ -390,12 +390,6 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
    NIR_PASS_V(nir, nir_opt_combine_stores, nir_var_all);
    NIR_PASS_V(nir, nir_opt_trivial_continues);
 
-   if (stage == MESA_SHADER_FRAGMENT) {
-      /* This is required for nir_lower_blend */
-      NIR_PASS_V(nir, nir_lower_io_arrays_to_elements_no_indirects, true);
-      panvk_lower_blend(pdev, nir, &inputs, blend_state, static_blend_constants);
-   }
-
    /* We need to lower nir_texop_txs with LOD before we lower descriptor
     * access because nir_texop_txs gets turned into a descriptor UBO read
     * and a bit of math by the descriptor lowering code.
@@ -438,14 +432,20 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
               nir_metadata_dominance,
               (void *)layout);
 
-   nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs, stage);
-   nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs, stage);
-
    NIR_PASS_V(nir, nir_lower_system_values);
    NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
 
    NIR_PASS_V(nir, nir_split_var_copies);
    NIR_PASS_V(nir, nir_lower_var_copies);
+
+   if (stage == MESA_SHADER_FRAGMENT) {
+      /* This is required for nir_lower_blend */
+      NIR_PASS_V(nir, nir_lower_io_arrays_to_elements_no_indirects, true);
+      panvk_lower_blend(pdev, nir, &inputs, blend_state, static_blend_constants);
+   }
+
+   nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs, stage);
+   nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs, stage);
 
    /* Needed to turn shader_temp into function_temp since the backend only
     * handles the latter for now.
