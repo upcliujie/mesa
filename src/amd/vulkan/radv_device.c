@@ -2998,21 +2998,21 @@ radv_device_finish_vrs_image(struct radv_device *device)
                      &device->meta_state.alloc);
 }
 
-static enum radv_force_vrs
+static enum radv_vrs_rate
 radv_parse_vrs_rates(const char *str)
 {
    if (!strcmp(str, "2x2")) {
-      return RADV_FORCE_VRS_2x2;
+      return RADV_VRS_RATE_2x2;
    } else if (!strcmp(str, "2x1")) {
-      return RADV_FORCE_VRS_2x1;
+      return RADV_VRS_RATE_2x1;
    } else if (!strcmp(str, "1x2")) {
-      return RADV_FORCE_VRS_1x2;
+      return RADV_VRS_RATE_1x2;
    } else if (!strcmp(str, "1x1")) {
-      return RADV_FORCE_VRS_1x1;
+      return RADV_VRS_RATE_1x1;
    }
 
    fprintf(stderr, "radv: Invalid VRS rates specified (valid values are 2x2, 2x1, 1x2 and 1x1)\n");
-   return RADV_FORCE_VRS_1x1;
+   return RADV_VRS_RATE_1x1;
 }
 
 static const char *
@@ -3021,26 +3021,26 @@ radv_get_force_vrs_config_file(void)
    return getenv("RADV_FORCE_VRS_CONFIG_FILE");
 }
 
-static enum radv_force_vrs
+static struct radv_force_vrs_config
 radv_parse_force_vrs_config_file(const char *config_file)
 {
-   enum radv_force_vrs force_vrs = RADV_FORCE_VRS_1x1;
+   struct radv_force_vrs_config force_vrs_cfg = {0};
    char buf[4];
    FILE *f;
 
    f = fopen(config_file, "r");
    if (!f) {
       fprintf(stderr, "radv: Can't open file: '%s'.\n", config_file);
-      return force_vrs;
+      return force_vrs_cfg;
    }
 
    if (fread(buf, sizeof(buf), 1, f) == 1) {
       buf[3] = '\0';
-      force_vrs = radv_parse_vrs_rates(buf);
+      force_vrs_cfg.rate = radv_parse_vrs_rates(buf);
    }
 
    fclose(f);
-   return force_vrs;
+   return force_vrs_cfg;
 }
 
 #ifdef __linux__
@@ -3067,9 +3067,10 @@ radv_notifier_thread_run(void *data)
          if (event->mask & IN_MODIFY || event->mask & IN_DELETE_SELF) {
             /* Sleep 100ms for editors that use a temporary file and delete the original. */
             thrd_sleep(&tm, NULL);
-            device->force_vrs = radv_parse_force_vrs_config_file(file);
+            device->force_vrs_cfg = radv_parse_force_vrs_config_file(file);
 
-            fprintf(stderr, "radv: Updated the per-vertex VRS rate to '%d'.\n", device->force_vrs);
+            fprintf(stderr, "radv: Updated the per-vertex VRS rate to '%d'.\n",
+                    device->force_vrs_cfg.rate);
 
             if (event->mask & IN_DELETE_SELF) {
                inotify_rm_watch(notifier->fd, notifier->watch);
@@ -3447,7 +3448,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
       if (getenv("RADV_FORCE_VRS_CONFIG_FILE")) {
          const char *file = radv_get_force_vrs_config_file();
 
-         device->force_vrs = radv_parse_force_vrs_config_file(file);
+         device->force_vrs_cfg = radv_parse_force_vrs_config_file(file);
 
          if (radv_device_init_notifier(device)) {
             device->force_vrs_enabled = true;
@@ -3457,8 +3458,8 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
       } else if (getenv("RADV_FORCE_VRS")) {
          const char *vrs_rates = getenv("RADV_FORCE_VRS");
 
-         device->force_vrs = radv_parse_vrs_rates(vrs_rates);
-         device->force_vrs_enabled = device->force_vrs != RADV_FORCE_VRS_1x1;
+         device->force_vrs_cfg.rate = radv_parse_vrs_rates(vrs_rates);
+         device->force_vrs_enabled = device->force_vrs_cfg.rate != RADV_VRS_RATE_1x1;
       }
    }
 

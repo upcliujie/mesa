@@ -3718,14 +3718,14 @@ radv_flush_force_vrs_state(struct radv_cmd_buffer *cmd_buffer)
 
    base_reg = pipeline->base.user_data_0[stage];
 
-   switch (cmd_buffer->device->force_vrs) {
-   case RADV_FORCE_VRS_2x2:
+   switch (cmd_buffer->device->force_vrs_cfg.rate) {
+   case RADV_VRS_RATE_2x2:
       vrs_rates = gfx_level >= GFX11 ? V_0283D0_VRS_SHADING_RATE_2X2 : (1u << 2) | (1u << 4);
       break;
-   case RADV_FORCE_VRS_2x1:
+   case RADV_VRS_RATE_2x1:
       vrs_rates = gfx_level >= GFX11 ? V_0283D0_VRS_SHADING_RATE_2X1 : (1u << 2) | (0u << 4);
       break;
-   case RADV_FORCE_VRS_1x2:
+   case RADV_VRS_RATE_1x2:
       vrs_rates = gfx_level >= GFX11 ? V_0283D0_VRS_SHADING_RATE_1X2 : (0u << 2) | (1u << 4);
       break;
    default:
@@ -6854,7 +6854,7 @@ radv_emit_all_graphics_states(struct radv_cmd_buffer *cmd_buffer, const struct r
       }
    }
 
-   if (cmd_buffer->device->force_vrs != RADV_FORCE_VRS_1x1) {
+   if (cmd_buffer->device->force_vrs_cfg.rate != RADV_VRS_RATE_1x1) {
       struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
       uint64_t dynamic_states =
          cmd_buffer->state.dirty & cmd_buffer->state.emitted_graphics_pipeline->needed_dynamic_state;
