@@ -903,6 +903,7 @@ barycentric("pixel", 2)
 barycentric("centroid", 2)
 barycentric("sample", 2)
 barycentric("model", 3)
+barycentric("coord", 3)
 # src[] = { sample_id }.
 barycentric("at_sample", 2, [1])
 # src[] = { offset.xy }.

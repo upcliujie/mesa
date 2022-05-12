@@ -182,6 +182,10 @@ lower_system_value_instr(nir_builder *b, nir_instr *instr, void *_state)
          return nir_load_barycentric(b, nir_intrinsic_load_barycentric_sample,
                                      INTERP_MODE_NOPERSPECTIVE);
 
+      case SYSTEM_VALUE_BARYCENTRIC_LINEAR_COORD:
+         return nir_load_barycentric(b, nir_intrinsic_load_barycentric_coord,
+                                     INTERP_MODE_NOPERSPECTIVE);
+
       case SYSTEM_VALUE_BARYCENTRIC_PERSP_PIXEL:
          return nir_load_barycentric(b, nir_intrinsic_load_barycentric_pixel,
                                      INTERP_MODE_SMOOTH);
@@ -192,6 +196,10 @@ lower_system_value_instr(nir_builder *b, nir_instr *instr, void *_state)
 
       case SYSTEM_VALUE_BARYCENTRIC_PERSP_SAMPLE:
          return nir_load_barycentric(b, nir_intrinsic_load_barycentric_sample,
+                                     INTERP_MODE_SMOOTH);
+
+      case SYSTEM_VALUE_BARYCENTRIC_PERSP_COORD:
+         return nir_load_barycentric(b, nir_intrinsic_load_barycentric_coord,
                                      INTERP_MODE_SMOOTH);
 
       case SYSTEM_VALUE_BARYCENTRIC_PULL_MODEL:
