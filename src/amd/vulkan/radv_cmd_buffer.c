@@ -7614,37 +7614,40 @@ radv_rt_dispatch(struct radv_cmd_buffer *cmd_buffer, const struct radv_dispatch_
                  VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 }
 
-static bool
-radv_rt_set_args(struct radv_cmd_buffer *cmd_buffer,
-                 const VkStridedDeviceAddressRegionKHR *tables, uint64_t launch_size_va,
-                 struct radv_dispatch_info *info)
+enum radv_rt_mode {
+   radv_rt_mode_direct,
+   radv_rt_mode_indirect,
+   radv_rt_mode_indirect2,
+};
+
+static void
+radv_trace_rays(struct radv_cmd_buffer *cmd_buffer, VkTraceRaysIndirectCommand2KHR tables,
+                uint64_t indirect_va, enum radv_rt_mode mode)
 {
    struct radv_compute_pipeline *pipeline = cmd_buffer->state.rt_pipeline;
    uint32_t base_reg = pipeline->base.user_data_0[MESA_SHADER_COMPUTE];
    void *ptr;
-   uint32_t *write_ptr;
    uint32_t offset;
 
-   info->unaligned = true;
+   if (!radv_cmd_buffer_upload_alloc(cmd_buffer, sizeof(VkTraceRaysIndirectCommand2KHR), &offset,
+                                     &ptr))
+      return;
 
-   if (!radv_cmd_buffer_upload_alloc(cmd_buffer, 64 + (launch_size_va ? 0 : 12), &offset, &ptr))
-      return false;
+   struct radv_dispatch_info info = {0};
+   info.unaligned = true;
 
-   write_ptr = ptr;
-   for (unsigned i = 0; i < 4; ++i, write_ptr += 4) {
-      write_ptr[0] = tables[i].deviceAddress;
-      write_ptr[1] = tables[i].deviceAddress >> 32;
-      write_ptr[2] = tables[i].stride;
-      write_ptr[3] = 0;
+   if (mode == radv_rt_mode_direct) {
+      info.blocks[0] = tables.width;
+      info.blocks[1] = tables.height;
+      info.blocks[2] = tables.depth;
    }
 
-   if (!launch_size_va) {
-      write_ptr[0] = info->blocks[0];
-      write_ptr[1] = info->blocks[1];
-      write_ptr[2] = info->blocks[2];
-   } else {
-      info->va = launch_size_va;
-   }
+   *((VkTraceRaysIndirectCommand2KHR *)ptr) = tables;
+
+   if (mode == radv_rt_mode_indirect)
+      info.va = indirect_va;
+   else if (mode == radv_rt_mode_indirect2)
+      info.va = indirect_va + offsetof(VkTraceRaysIndirectCommand2KHR, width);
 
    uint64_t va = radv_buffer_get_va(cmd_buffer->upload.upload_bo) + offset;
 
@@ -7658,11 +7661,15 @@ radv_rt_set_args(struct radv_cmd_buffer *cmd_buffer,
    struct radv_userdata_info *size_loc =
       radv_lookup_user_sgpr(&pipeline->base, MESA_SHADER_COMPUTE, AC_UD_CS_RAY_LAUNCH_SIZE_ADDR);
    if (size_loc->sgpr_idx != -1) {
+      uint64_t launch_size_va = (mode == radv_rt_mode_direct)
+                                   ? va + offsetof(VkTraceRaysIndirectCommand2KHR, width)
+                                   : info.va;
+
       radv_emit_shader_pointer(cmd_buffer->device, cmd_buffer->cs,
-         base_reg + size_loc->sgpr_idx * 4, launch_size_va ? launch_size_va : (va + 64), false);
+                               base_reg + size_loc->sgpr_idx * 4, launch_size_va, false);
    }
-   
-   return true;
+
+   radv_rt_dispatch(cmd_buffer, &info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -7674,23 +7681,25 @@ radv_CmdTraceRaysKHR(VkCommandBuffer commandBuffer,
                      uint32_t width, uint32_t height, uint32_t depth)
 {
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   struct radv_dispatch_info info = {0};
 
-   info.blocks[0] = width;
-   info.blocks[1] = height;
-   info.blocks[2] = depth;
-
-   const VkStridedDeviceAddressRegionKHR tables[] = {
-      *pRaygenShaderBindingTable,
-      *pMissShaderBindingTable,
-      *pHitShaderBindingTable,
-      *pCallableShaderBindingTable,
+   VkTraceRaysIndirectCommand2KHR tables = {
+      .raygenShaderRecordAddress = pRaygenShaderBindingTable->deviceAddress,
+      .raygenShaderRecordSize = pRaygenShaderBindingTable->size,
+      .missShaderBindingTableAddress = pMissShaderBindingTable->deviceAddress,
+      .missShaderBindingTableSize = pMissShaderBindingTable->size,
+      .missShaderBindingTableStride = pMissShaderBindingTable->stride,
+      .hitShaderBindingTableAddress = pHitShaderBindingTable->deviceAddress,
+      .hitShaderBindingTableSize = pHitShaderBindingTable->size,
+      .hitShaderBindingTableStride = pHitShaderBindingTable->stride,
+      .callableShaderBindingTableAddress = pCallableShaderBindingTable->deviceAddress,
+      .callableShaderBindingTableSize = pCallableShaderBindingTable->size,
+      .callableShaderBindingTableStride = pCallableShaderBindingTable->stride,
+      .width = width,
+      .height = height,
+      .depth = depth,
    };
 
-   if (!radv_rt_set_args(cmd_buffer, tables, 0, &info))
-      return;
-
-   radv_rt_dispatch(cmd_buffer, &info);
+   radv_trace_rays(cmd_buffer, tables, 0, radv_rt_mode_direct);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -7705,18 +7714,32 @@ radv_CmdTraceRaysIndirectKHR(VkCommandBuffer commandBuffer,
 
    assert(cmd_buffer->device->use_global_bo_list);
 
-   const VkStridedDeviceAddressRegionKHR tables[] = {
-      *pRaygenShaderBindingTable,
-      *pMissShaderBindingTable,
-      *pHitShaderBindingTable,
-      *pCallableShaderBindingTable,
+   VkTraceRaysIndirectCommand2KHR tables = {
+      .raygenShaderRecordAddress = pRaygenShaderBindingTable->deviceAddress,
+      .raygenShaderRecordSize = pRaygenShaderBindingTable->size,
+      .missShaderBindingTableAddress = pMissShaderBindingTable->deviceAddress,
+      .missShaderBindingTableSize = pMissShaderBindingTable->size,
+      .missShaderBindingTableStride = pMissShaderBindingTable->stride,
+      .hitShaderBindingTableAddress = pHitShaderBindingTable->deviceAddress,
+      .hitShaderBindingTableSize = pHitShaderBindingTable->size,
+      .hitShaderBindingTableStride = pHitShaderBindingTable->stride,
+      .callableShaderBindingTableAddress = pCallableShaderBindingTable->deviceAddress,
+      .callableShaderBindingTableSize = pCallableShaderBindingTable->size,
+      .callableShaderBindingTableStride = pCallableShaderBindingTable->stride,
    };
 
-   struct radv_dispatch_info info = {0};
-   if (!radv_rt_set_args(cmd_buffer, tables, indirectDeviceAddress, &info))
-      return;
+   radv_trace_rays(cmd_buffer, tables, indirectDeviceAddress, radv_rt_mode_indirect);
+}
 
-   radv_rt_dispatch(cmd_buffer, &info);
+VKAPI_ATTR void VKAPI_CALL
+radv_CmdTraceRaysIndirect2KHR(VkCommandBuffer commandBuffer, VkDeviceAddress indirectDeviceAddress)
+{
+   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+
+   assert(cmd_buffer->device->use_global_bo_list);
+
+   VkTraceRaysIndirectCommand2KHR tables;
+   radv_trace_rays(cmd_buffer, tables, indirectDeviceAddress, radv_rt_mode_indirect2);
 }
 
 static void
