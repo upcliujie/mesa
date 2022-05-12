@@ -91,7 +91,7 @@ static LLVMValueRef si_nir_emit_fbfetch(struct ac_shader_abi *abi)
    if (ctx->shader->key.ps.mono.fbfetch_msaa)
       args.coords[chan++] = si_get_sample_id(ctx);
 
-   if (ctx->screen->info.chip_class < GFX11 &&
+   if (ctx->screen->info.gfx_level < GFX11 &&
        ctx->shader->key.ps.mono.fbfetch_msaa &&
        !(ctx->screen->debug_flags & DBG(NO_FMASK))) {
       fmask = ac_build_load_to_sgpr(&ctx->ac, ptr,
@@ -302,7 +302,7 @@ static bool si_llvm_init_ps_export_args(struct si_shader_context *ctx, LLVMValue
 
    if (key->ps.part.epilog.dual_src_blend_swizzle &&
        (compacted_mrt_index == 0 || compacted_mrt_index == 1)) {
-      assert(ctx->ac.chip_class >= GFX11);
+      assert(ctx->ac.gfx_level >= GFX11);
       args->target += 21;
    }
 
@@ -329,7 +329,7 @@ static bool si_llvm_init_ps_export_args(struct si_shader_context *ctx, LLVMValue
       break;
 
    case V_028714_SPI_SHADER_32_AR:
-      if (ctx->screen->info.chip_class >= GFX10) {
+      if (ctx->screen->info.gfx_level >= GFX10) {
          args->enabled_channels = 0x3; /* writemask */
          args->out[0] = get_color_32bit(ctx, color_type, values[0]);
          args->out[1] = get_color_32bit(ctx, color_type, values[3]);
@@ -403,7 +403,7 @@ static bool si_llvm_init_ps_export_args(struct si_shader_context *ctx, LLVMValue
       }
    }
    if (packf || packi) {
-      if (ctx->screen->info.chip_class >= GFX11)
+      if (ctx->screen->info.gfx_level >= GFX11)
          args->enabled_channels = 0x3;
       else
          args->compr = 1; /* COMPR flag */
@@ -944,7 +944,7 @@ void si_llvm_build_ps_epilog(struct si_shader_context *ctx, union si_shader_part
       exp.args[exp.num - 1].done = 1;        /* DONE bit */
 
       if (key->ps_epilog.states.dual_src_blend_swizzle) {
-         assert(ctx->ac.chip_class >= GFX11);
+         assert(ctx->ac.gfx_level >= GFX11);
          assert((key->ps_epilog.colors_written & 0x3) == 0x3);
          ac_build_dual_src_blend_swizzle(&ctx->ac, &exp.args[first_color_export],
                                          &exp.args[first_color_export + 1]);

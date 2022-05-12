@@ -283,7 +283,7 @@ static void si_flush_vgt_streamout(struct si_context *sctx)
    radeon_begin(cs);
 
    /* The register is at different places on different ASICs. */
-   if (sctx->chip_class >= GFX7) {
+   if (sctx->gfx_level >= GFX7) {
       reg_strmout_cntl = R_0300FC_CP_STRMOUT_CNTL;
       radeon_set_uconfig_reg(reg_strmout_cntl, 0);
    } else {
