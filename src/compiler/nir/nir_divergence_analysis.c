@@ -172,6 +172,8 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_global_block_intel:
    case nir_intrinsic_load_btd_global_arg_addr_intel:
    case nir_intrinsic_load_btd_local_arg_addr_intel:
+   case nir_intrinsic_load_mesh_inline_data_intel:
+   case nir_intrinsic_load_task_payload:
       is_divergent = false;
       break;
 
