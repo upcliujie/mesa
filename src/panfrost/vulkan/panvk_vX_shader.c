@@ -402,6 +402,10 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
     */
    nir_lower_tex_options lower_tex_options = {
       .lower_txs_lod = true,
+      .lower_txp = ~0,
+      .lower_tg4_broadcom_swizzle = true,
+      .lower_txd = true,
+      .lower_invalid_implicit_lod = true,
    };
    NIR_PASS_V(nir, nir_lower_tex, &lower_tex_options);
 
