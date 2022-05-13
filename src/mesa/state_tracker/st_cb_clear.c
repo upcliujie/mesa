@@ -120,7 +120,7 @@ set_fragment_shader(struct st_context *st)
          unsigned interpolation[] = { INTERP_MODE_FLAT };
          st->clear.fs = st_nir_make_passthrough_shader(st, "clear FS",
                                                        MESA_SHADER_FRAGMENT,
-                                                       1, inputs, outputs,
+                                                       0, inputs, outputs,
                                                        interpolation, 0);
       } else {
          st->clear.fs =
@@ -134,6 +134,33 @@ set_fragment_shader(struct st_context *st)
    cso_set_fragment_shader_handle(st->cso_context, st->clear.fs);
 }
 
+/**
+ * Helper function to set the clear color fragment shader.
+ */
+static inline void
+set_clearcolor_fs(struct st_context *st, union pipe_color_union *color)
+{
+   struct pipe_screen *pscreen = st->screen;
+   bool use_nir = PIPE_SHADER_IR_NIR ==
+      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
+                                PIPE_SHADER_CAP_PREFERRED_IR);
+   struct pipe_constant_buffer cb = {
+      .user_buffer = color->f,
+      .buffer_size = 4 * sizeof(float),
+   };
+   st->pipe->set_constant_buffer(st->pipe, PIPE_SHADER_FRAGMENT, 0,
+                                false, &cb);
+
+   if (!st->clear.fs) {
+      if (use_nir) {
+         st->clear.fs = st_nir_make_clearcolor_shader(st);
+      } else {
+         st->clear.fs = util_make_fs_clear_all_cbufs(st->pipe);
+      }
+   }
+
+   cso_set_fragment_shader_handle(st->cso_context, st->clear.fs);
+}
 
 static void *
 make_nir_clear_vertex_shader(struct st_context *st, bool layered)
@@ -141,18 +168,16 @@ make_nir_clear_vertex_shader(struct st_context *st, bool layered)
    const char *shader_name = layered ? "layered clear VS" : "clear VS";
    unsigned inputs[] = {
       VERT_ATTRIB_POS,
-      VERT_ATTRIB_GENERIC0,
       SYSTEM_VALUE_INSTANCE_ID,
    };
    unsigned outputs[] = {
       VARYING_SLOT_POS,
-      VARYING_SLOT_VAR0,
       VARYING_SLOT_LAYER
    };
 
    return st_nir_make_passthrough_shader(st, shader_name, MESA_SHADER_VERTEX,
-                                         layered ? 3 : 2, inputs, outputs,
-                                         NULL, (1 << 2));
+                                         layered ? 2 : 1, inputs, outputs,
+                                         NULL, (1 << 1));
 }
 
 
@@ -320,7 +345,7 @@ clear_with_quad(struct gl_context *ctx, unsigned clear_buffers)
       cso_set_depth_stencil_alpha(cso, &depth_stencil);
    }
 
-   st->util_velems.count = 2;
+   st->util_velems.count = 1;
    cso_set_vertex_elements(cso, &st->util_velems);
 
    cso_set_stream_outputs(cso, 0, NULL, NULL);
@@ -333,7 +358,12 @@ clear_with_quad(struct gl_context *ctx, unsigned clear_buffers)
    cso_set_viewport_dims(st->cso_context, fb_width, fb_height,
                          _mesa_fb_orientation(fb) == Y_0_TOP);
 
-   set_fragment_shader(st);
+   /* Set constant buffer */
+   bool set_cb = clear_buffers & PIPE_CLEAR_COLOR;
+   if (set_cb)
+      set_clearcolor_fs(st, (union pipe_color_union*)&ctx->Color.ClearColor);
+   else
+      set_fragment_shader(st);
    cso_set_tessctrl_shader_handle(cso, NULL);
    cso_set_tesseval_shader_handle(cso, NULL);
 
@@ -357,6 +387,10 @@ clear_with_quad(struct gl_context *ctx, unsigned clear_buffers)
                      num_layers)) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glClear");
    }
+
+   /* Restore constant buffer */
+   if (set_cb)
+      st->dirty |= ST_NEW_FS_CONSTANTS;
 
    /* Restore pipe state */
    cso_restore_state(cso, 0);
