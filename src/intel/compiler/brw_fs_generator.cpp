@@ -2265,8 +2265,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
       case SHADER_OPCODE_SEND:
          generate_send(inst, dst, src[0], src[1], src[2],
                        inst->ex_mlen > 0 ? src[3] : brw_null_reg());
-         if ((inst->desc & 0xff) == BRW_BTI_STATELESS ||
-             (inst->desc & 0xff) == GFX8_BTI_STATELESS_NON_COHERENT) {
+         if (inst->is_scratch) {
             if (inst->size_written)
                fill_count++;
             else

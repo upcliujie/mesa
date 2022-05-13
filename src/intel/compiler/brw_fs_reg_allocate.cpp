@@ -769,6 +769,7 @@ fs_reg_alloc::emit_unspill(const fs_builder &bld, fs_reg dst,
          fs_reg srcs[] = { brw_imm_ud(0), ex_desc, header };
          unspill_inst = bld.emit(SHADER_OPCODE_SEND, dst,
                                  srcs, ARRAY_SIZE(srcs));
+         unspill_inst->is_scratch = true;
          unspill_inst->mlen = 1;
          unspill_inst->header_size = 1;
          unspill_inst->size_written = reg_size * REG_SIZE;
@@ -788,9 +789,11 @@ fs_reg_alloc::emit_unspill(const fs_builder &bld, fs_reg dst,
           * using plain old oword block reads.
           */
          unspill_inst = bld.emit(SHADER_OPCODE_GFX7_SCRATCH_READ, dst);
+         unspill_inst->is_scratch = true;
          unspill_inst->offset = spill_offset;
       } else {
          unspill_inst = bld.emit(SHADER_OPCODE_GFX4_SCRATCH_READ, dst);
+         unspill_inst->is_scratch = true;
          unspill_inst->offset = spill_offset;
          unspill_inst->base_mrf = spill_base_mrf(bld.shader);
          unspill_inst->mlen = 1; /* header contains offset */
@@ -834,6 +837,7 @@ fs_reg_alloc::emit_spill(const fs_builder &bld, fs_reg src,
          fs_reg srcs[] = { brw_imm_ud(0), ex_desc, header, src };
          spill_inst = bld.emit(SHADER_OPCODE_SEND, bld.null_reg_f(),
                                srcs, ARRAY_SIZE(srcs));
+         spill_inst->is_scratch = true;
          spill_inst->mlen = 1;
          spill_inst->ex_mlen = reg_size;
          spill_inst->size_written = 0;
@@ -848,6 +852,7 @@ fs_reg_alloc::emit_spill(const fs_builder &bld, fs_reg src,
       } else {
          spill_inst = bld.emit(SHADER_OPCODE_GFX4_SCRATCH_WRITE,
                                bld.null_reg_f(), src);
+         spill_inst->is_scratch = true;
          spill_inst->offset = spill_offset;
          spill_inst->mlen = 1 + reg_size; /* header, value */
          spill_inst->base_mrf = spill_base_mrf(bld.shader);

@@ -387,6 +387,7 @@ public:
 
    bool last_rt:1;
    bool pi_noperspective:1;   /**< Pixel interpolator noperspective flag */
+   bool is_scratch:1;
 
    tgl_swsb sched; /**< Scheduling info. */
 };
