@@ -1,1 +1,3 @@
+dEQP-VK.dynamic_rendering.basic.2_cmdbuffers_resuming
+dEQP-VK.dynamic_rendering.basic.2_secondary_cmdbuffers_resuming
 dEQP-VK.dynamic_rendering.basic.single_cmdbuffer_resuming
