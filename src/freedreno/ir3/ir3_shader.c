@@ -563,6 +563,10 @@ ir3_trim_constlen(struct ir3_shader_variant **variants,
 {
    unsigned constlens[MESA_SHADER_STAGES] = {};
 
+   /* Assuming it's on graphics stages */
+   bool shared_consts_enable =
+         variants[MESA_SHADER_VERTEX]->shader->shared_consts_enable;
+
    for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
       if (variants[i])
          constlens[i] = variants[i]->constlen;
@@ -578,11 +582,13 @@ ir3_trim_constlen(struct ir3_shader_variant **variants,
    if (compiler->gen >= 6) {
       trimmed |=
          trim_constlens(constlens, MESA_SHADER_VERTEX, MESA_SHADER_GEOMETRY,
-                        compiler->max_const_geom, compiler->max_const_safe);
+                     ir3_max_const_geom(compiler, shared_consts_enable),
+                     ir3_max_const_safe(compiler, shared_consts_enable));
    }
    trimmed |=
       trim_constlens(constlens, MESA_SHADER_VERTEX, MESA_SHADER_FRAGMENT,
-                     compiler->max_const_pipeline, compiler->max_const_safe);
+                     ir3_max_const_pipeline(compiler, shared_consts_enable),
+                     ir3_max_const_safe(compiler, shared_consts_enable));
 
    return trimmed;
 }
@@ -602,6 +608,7 @@ ir3_shader_from_nir(struct ir3_compiler *compiler, nir_shader *nir,
       memcpy(&shader->stream_output, stream_output,
              sizeof(shader->stream_output));
    shader->num_reserved_user_consts = options->reserved_user_consts;
+   shader->shared_consts_enable = options->shared_consts_enable;
    shader->api_wavesize = options->api_wavesize;
    shader->real_wavesize = options->real_wavesize;
    shader->nir = nir;
