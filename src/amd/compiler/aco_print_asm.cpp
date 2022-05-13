@@ -402,6 +402,10 @@ bool
 check_print_asm_support(Program* program)
 {
 #ifdef LLVM_AVAILABLE
+   /* GFX11 support is only available from LLVM 15+. */
+   if (program->chip_class == GFX11 && LLVM_VERSION_MAJOR < 15)
+      return false;
+
    if (program->chip_class >= GFX8) {
       /* LLVM disassembler only supports GFX8+ */
       return true;
