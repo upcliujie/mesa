@@ -172,6 +172,10 @@ remove_dead_vars(struct exec_list *var_list, nir_variable_mode modes,
           !opts->can_remove_var(var, opts->can_remove_var_data))
          continue;
 
+      /* Do not remove XFB buffers */
+      if (var->data.always_active_io)
+         continue;
+
       struct set_entry *entry = _mesa_set_search(live, var);
       if (entry == NULL) {
          /* Mark this variable as used by setting the mode to 0 */
