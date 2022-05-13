@@ -41,6 +41,7 @@
 #include <unistd.h>
 
 #include "crc32.h"
+#include "debug.h"
 #include "hash_table.h"
 #include "mesa-sha1.h"
 #include "ralloc.h"
@@ -104,6 +105,14 @@ create_foz_db_filenames(char *cache_path, char *name, char **filename,
    return true;
 }
 
+static void
+create_foz_context(struct foz_db *foz_db)
+{
+   simple_mtx_init(&foz_db->mtx, mtx_plain);
+   simple_mtx_init(&foz_db->flock_mtx, mtx_plain);
+   foz_db->mem_ctx = ralloc_context(NULL);
+   foz_db->index_db = _mesa_hash_table_u64_create(NULL);
+}
 
 /* This looks at stuff that was added to the index since the last time we looked at it. This is safe
  * to do without locking the file as we assume the file is append only */
@@ -270,36 +279,41 @@ foz_prepare(struct foz_db *foz_db, char *cache_path)
 {
    char *filename = NULL;
    char *idx_filename = NULL;
-   if (!create_foz_db_filenames(cache_path, "foz_cache", &filename, &idx_filename))
-      return false;
+   uint8_t file_idx = 0;
 
-   /* Open the default foz dbs for read/write. If the files didn't already exist
-    * create them.
-    */
-   foz_db->file[0] = fopen(filename, "a+b");
-   foz_db->db_idx = fopen(idx_filename, "a+b");
+   if (env_var_as_boolean("MESA_DISK_CACHE_SINGLE_FILE", false)) {
+      if (!create_foz_db_filenames(cache_path, "foz_cache", &filename, &idx_filename))
+         return false;
 
-   free(filename);
-   free(idx_filename);
+      /* Open the default foz dbs for read/write. If the files didn't already exist
+       * create them.
+       */
+      foz_db->file[0] = fopen(filename, "a+b");
+      foz_db->db_idx = fopen(idx_filename, "a+b");
 
-   if (!check_files_opened_successfully(foz_db->file[0], foz_db->db_idx))
-      return false;
+      free(filename);
+      free(idx_filename);
 
-   simple_mtx_init(&foz_db->mtx, mtx_plain);
-   simple_mtx_init(&foz_db->flock_mtx, mtx_plain);
-   foz_db->mem_ctx = ralloc_context(NULL);
-   foz_db->index_db = _mesa_hash_table_u64_create(NULL);
+      if (!check_files_opened_successfully(foz_db->file[0], foz_db->db_idx))
+         return false;
 
-   if (!load_foz_dbs(foz_db, foz_db->db_idx, 0, false))
-      return false;
+      create_foz_context(foz_db);
 
-   uint8_t file_idx = 1;
+      if (!load_foz_dbs(foz_db, foz_db->db_idx, 0, false))
+         return false;
+
+      file_idx = 1;
+   }
+
    char *foz_dbs = getenv("MESA_DISK_CACHE_READ_ONLY_FOZ_DBS");
    if (!foz_dbs)
       return true;
 
    for (unsigned n; n = strcspn(foz_dbs, ","), *foz_dbs;
         foz_dbs += MAX2(1, n)) {
+      if (!n)
+         continue;
+
       char *foz_db_filename = strndup(foz_dbs, n);
 
       filename = NULL;
@@ -324,6 +338,9 @@ foz_prepare(struct foz_db *foz_db, char *cache_path)
 
          continue; /* Ignore invalid user provided filename and continue */
       }
+
+      if (file_idx == 0)
+         create_foz_context(foz_db);
 
       if (!load_foz_dbs(foz_db, db_idx, file_idx, true)) {
          fclose(db_idx);
@@ -376,7 +393,7 @@ foz_read_entry(struct foz_db *foz_db, const uint8_t *cache_key_160bit,
 
    struct foz_db_entry *entry =
       _mesa_hash_table_u64_search(foz_db->index_db, hash);
-   if (!entry) {
+   if (!entry && env_var_as_boolean("MESA_DISK_CACHE_SINGLE_FILE", false)) {
       update_foz_index(foz_db, foz_db->db_idx, 0);
       entry = _mesa_hash_table_u64_search(foz_db->index_db, hash);
    }
