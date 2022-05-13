@@ -1766,6 +1766,7 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
    }
 
    prev_stage = NULL;
+   nir_xfb_info *xfb_info = NULL;
    for (unsigned i = 0; i < ARRAY_SIZE(shader_order); i++) {
       gl_shader_stage s = shader_order[i];
       if (!stages[s].entrypoint)
@@ -1775,7 +1776,6 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
 
       void *stage_ctx = ralloc_context(NULL);
 
-      nir_xfb_info *xfb_info = NULL;
       if (s == MESA_SHADER_VERTEX ||
           s == MESA_SHADER_TESS_EVAL ||
           s == MESA_SHADER_GEOMETRY)
@@ -1859,7 +1859,8 @@ done:
           !wm_prog_data->uses_omask &&
           !wm_prog_data->uses_kill &&
           wm_prog_data->computed_depth_mode == BRW_PSCDEPTH_OFF &&
-          !wm_prog_data->computed_stencil) {
+          !wm_prog_data->computed_stencil &&
+          xfb_info == NULL) {
          /* This can happen if we decided to implicitly disable the fragment
           * shader.  See anv_pipeline_compile_fs().
           */
