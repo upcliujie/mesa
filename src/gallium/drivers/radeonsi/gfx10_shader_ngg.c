@@ -1660,7 +1660,8 @@ void gfx10_ngg_build_end(struct si_shader_context *ctx)
          i++;
       }
 
-      si_llvm_build_vs_exports(ctx, outputs, i);
+      LLVMValueRef num_export_threads = si_unpack_param(ctx, ctx->args.merged_wave_info, 0, 8);
+      si_llvm_build_vs_exports(ctx, num_export_threads, outputs, i);
    }
    ac_build_endif(&ctx->ac, 6002);
 }
@@ -2211,7 +2212,8 @@ void gfx10_ngg_gs_build_end(struct si_shader_context *ctx)
    ac_build_endif(&ctx->ac, 5140);
 
    /* Export position and parameter data */
-   tmp = LLVMBuildICmp(builder, LLVMIntULT, tid, vertlive_scan.result_reduce, "");
+   LLVMValueRef num_export_threads = vertlive_scan.result_reduce;
+   tmp = LLVMBuildICmp(builder, LLVMIntULT, tid, num_export_threads, "");
    ac_build_ifcc(&ctx->ac, tmp, 5145);
    {
       struct si_shader_output_values outputs[PIPE_MAX_SHADER_OUTPUTS];
@@ -2233,7 +2235,7 @@ void gfx10_ngg_gs_build_end(struct si_shader_context *ctx)
          }
       }
 
-      si_llvm_build_vs_exports(ctx, outputs, info->num_outputs);
+      si_llvm_build_vs_exports(ctx, num_export_threads, outputs, info->num_outputs);
    }
    ac_build_endif(&ctx->ac, 5145);
 }
