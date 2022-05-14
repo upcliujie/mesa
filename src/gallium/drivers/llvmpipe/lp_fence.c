@@ -44,7 +44,7 @@
 struct lp_fence *
 lp_fence_create(unsigned rank)
 {
-   static _Atomic int fence_id;
+   static int fence_id;
    struct lp_fence *fence = CALLOC_STRUCT(lp_fence);
 
    if (!fence)
