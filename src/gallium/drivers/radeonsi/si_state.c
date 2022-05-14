@@ -5877,6 +5877,7 @@ void si_init_cs_preamble_state(struct si_context *sctx, bool uses_reg_shadowing)
                      S_028848_SAMPLE_ITER_COMBINER_MODE(V_028848_VRS_COMB_MODE_OVERRIDE));
    }
 
+   // TODO: use AMDGPU_IB_FLAG_PREAMBLE
    if (sctx->gfx_level >= GFX11) {
       si_pm4_set_reg(pm4, R_028C54_PA_SC_BINNER_CNTL_2, 0);
       si_pm4_set_reg(pm4, R_028620_PA_RATE_CNTL,
@@ -5904,4 +5905,8 @@ void si_init_cs_preamble_state(struct si_context *sctx, bool uses_reg_shadowing)
    }
 
    sctx->cs_preamble_state = pm4;
+
+   /* Make a copy of the preamble for TMZ. */
+   sctx->cs_preamble_state_tmz = (struct si_pm4_state *)CALLOC_STRUCT(si_cs_preamble);
+   memcpy(sctx->cs_preamble_state_tmz, sctx->cs_preamble_state, sizeof(struct si_cs_preamble));
 }
