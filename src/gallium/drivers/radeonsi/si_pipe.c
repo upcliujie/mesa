@@ -1354,8 +1354,7 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
       assert(attr_ring_size <= 16 * 1024 * 1024); /* maximum size */
       sscreen->attribute_ring = si_aligned_buffer_create(&sscreen->b, SI_RESOURCE_FLAG_32BIT,
                                                          PIPE_USAGE_DEFAULT,
-                                                         /* TODO: remove the overallocation */
-                                                         attr_ring_size * 16, 2 * 1024 * 1024);
+                                                         attr_ring_size, 2 * 1024 * 1024);
    }
 
    /* Create the auxiliary context. This must be done last. */
