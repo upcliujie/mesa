@@ -429,5 +429,8 @@ drm_shim_mmap(struct shim_fd *shim_fd, size_t length, int prot, int flags,
    /* The offset we pass to mmap must be aligned to the page size */
    assert((bo->mem_addr & (shim_page_size - 1)) == 0);
 
+   if (shim_device.driver_bo_mmap)
+      return shim_device.driver_bo_mmap(bo, prot, flags);
+
    return mmap(NULL, length, prot, flags, shim_device.mem_fd, bo->mem_addr);
 }
