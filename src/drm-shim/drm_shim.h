@@ -55,6 +55,8 @@ struct shim_device {
 
    void (*driver_bo_free)(struct shim_bo *bo);
 
+   void *(*driver_bo_mmap)(struct shim_bo *bo, int prot, int flags);
+
    /* Returned by drmGetVersion(). */
    const char *driver_name;
 
