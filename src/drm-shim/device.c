@@ -363,7 +363,7 @@ drm_shim_bo_get(struct shim_bo *bo)
 void
 drm_shim_bo_put(struct shim_bo *bo)
 {
-   if (p_atomic_dec_return(&bo->refcount) == 0)
+   if (p_atomic_dec_return(&bo->refcount) > 0)
       return;
 
    if (shim_device.driver_bo_free)
