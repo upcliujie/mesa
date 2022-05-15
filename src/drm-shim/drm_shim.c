@@ -297,7 +297,8 @@ PUBLIC int close(int fd)
 {
    init_shim();
 
-   drm_shim_fd_unregister(fd);
+   if (fd >= 0)
+      drm_shim_fd_unregister(fd);
 
    return real_close(fd);
 }
