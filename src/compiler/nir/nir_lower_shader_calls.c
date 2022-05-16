@@ -267,21 +267,24 @@ rewrite_instr_src_from_phi_builder(nir_src *src, void *_pbv_arr)
 
 static nir_ssa_def *
 spill_fill(nir_builder *before, nir_builder *after, nir_ssa_def *def, unsigned offset,
-           nir_address_format address_format, unsigned stack_alignment)
+           nir_address_format address_format, unsigned stack_alignment, bool do_spill)
 {
    const unsigned comp_size = def->bit_size / 8;
 
    switch(address_format) {
    case nir_address_format_32bit_offset:
-      nir_store_scratch(before, def, nir_imm_int(before, offset),
-                        .align_mul = MIN2(comp_size, stack_alignment),
-                        .write_mask = BITFIELD_MASK(def->num_components));
+      if (do_spill) {
+         nir_store_scratch(before, def, nir_imm_int(before, offset),
+                           .align_mul = MIN2(comp_size, stack_alignment),
+                           .write_mask = BITFIELD_MASK(def->num_components));
+      }
       def = nir_load_scratch(after, def->num_components, def->bit_size,
                              nir_imm_int(after, offset), .align_mul = MIN2(comp_size, stack_alignment));
       break;
    case nir_address_format_64bit_global: {
       nir_ssa_def *addr = nir_iadd_imm(before, nir_load_scratch_base_ptr(before, 1, 64, 1), offset);
-      nir_store_global(before, addr, MIN2(comp_size, stack_alignment), def, ~0);
+      if (do_spill)
+         nir_store_global(before, addr, MIN2(comp_size, stack_alignment), def, ~0);
       addr = nir_iadd_imm(after, nir_load_scratch_base_ptr(after, 1, 64, 1), offset);
       def = nir_load_global(after, addr, MIN2(comp_size, stack_alignment),
                             def->num_components, def->bit_size);
@@ -291,6 +294,21 @@ spill_fill(nir_builder *before, nir_builder *after, nir_ssa_def *def, unsigned o
       unreachable("Unimplemented address format");
    }
    return def;
+}
+
+static bool
+nir_instr_precedes(nir_instr *before, nir_instr *after)
+{
+   if (before->block != after->block)
+      return nir_block_dominates(before->block, after->block);
+
+   nir_foreach_instr(instr, before->block) {
+      if (instr == before)
+         return true;
+      if (instr == after)
+         return false;
+   }
+   unreachable("instruction not found");
 }
 
 static void
@@ -338,6 +356,18 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
     */
    nir_ssa_def ***fill_defs =
       rzalloc_array(mem_ctx, nir_ssa_def **, num_ssa_defs);
+
+   /* For each spill candidate, an array of scratch offsets used for the spill
+    * indexed by call instruction index.
+    */
+   int **spill_offsets =
+      rzalloc_array(mem_ctx, int *, num_ssa_defs);
+
+   /* Track all the call instructions so that we can figure out whether one
+    * dominates another.
+    */
+   nir_instr **call_instrs =
+      rzalloc_array(mem_ctx, nir_instr *, num_calls);
 
    /* For each call instruction, the liveness set at the call */
    const BITSET_WORD **call_live =
@@ -408,7 +438,6 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
          before.cursor = nir_before_instr(instr);
          after.cursor = nir_after_instr(instr);
 
-         unsigned offset = shader->scratch_size;
          for (unsigned w = 0; w < live_words; w++) {
             BITSET_WORD spill_mask = live[w] & ~trivial_remat.set[w];
             while (spill_mask) {
@@ -431,16 +460,46 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
                   if (is_bool)
                      def = nir_b2b32(&before, def);
 
+                  /* If we can find a call X that dominates this call and the
+                   * SSA value we want to spill/fill also precedes that X
+                   * call, then we know the X call already spilled that value
+                   * and we can avoid the spill.
+                   */
+                  bool needs_spill = true;
+                  int offset = -1;
+                  for (unsigned b = 0; b < call_idx; b++) {
+                     if (nir_instr_precedes(def->parent_instr, call_instrs[b]) &&
+                         nir_block_dominates(call_instrs[b]->block, block)) {
+                        needs_spill = false;
+                        offset = spill_offsets[index][b];
+                        assert(offset != -1);
+                        break;
+                     }
+                  }
+
+                  /* If we couldn't find a scratch offset from a previous
+                   * call, take a new offset from the scratch heap.
+                   */
                   const unsigned comp_size = def->bit_size / 8;
-                  offset = ALIGN(offset, comp_size);
+                  if (offset == -1)
+                     offset = ALIGN(max_scratch_size, comp_size);
 
                   def = spill_fill(&before, &after, def, offset,
-                                   address_format,stack_alignment);
+                                   address_format, stack_alignment,
+                                   needs_spill);
 
                   if (is_bool)
                      def = nir_b2b1(&after, def);
 
-                  offset += def->num_components * comp_size;
+                  max_scratch_size =
+                     MAX2(offset + def->num_components * comp_size,
+                          max_scratch_size);
+
+                  if (spill_offsets[index] == NULL) {
+                     spill_offsets[index] =
+                        rzalloc_array(mem_ctx, int, num_calls);
+                  }
+                  spill_offsets[index][call_idx] = offset;
                }
 
                /* Mark this SSA def as available in the remat set so that, if
@@ -462,24 +521,25 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
 
          nir_builder *b = &before;
 
-         offset = ALIGN(offset, stack_alignment);
-         max_scratch_size = MAX2(max_scratch_size, offset);
+         max_scratch_size = ALIGN(max_scratch_size, stack_alignment);
 
          /* First thing on the called shader's stack is the resume address
           * followed by a pointer to the payload.
           */
-         nir_intrinsic_instr *call = nir_instr_as_intrinsic(instr);
+           nir_intrinsic_instr *call = nir_instr_as_intrinsic(instr), *new_call;
 
          /* Lower to generic intrinsics with information about the stack & resume shader. */
          switch (call->intrinsic) {
          case nir_intrinsic_trace_ray: {
-            nir_rt_trace_ray(b, call->src[0].ssa, call->src[1].ssa,
-                              call->src[2].ssa, call->src[3].ssa,
-                              call->src[4].ssa, call->src[5].ssa,
-                              call->src[6].ssa, call->src[7].ssa,
-                              call->src[8].ssa, call->src[9].ssa,
-                              call->src[10].ssa,
-                              .call_idx = call_idx, .stack_size = offset);
+            new_call =
+               nir_rt_trace_ray(b, call->src[0].ssa, call->src[1].ssa,
+                                call->src[2].ssa, call->src[3].ssa,
+                                call->src[4].ssa, call->src[5].ssa,
+                                call->src[6].ssa, call->src[7].ssa,
+                                call->src[8].ssa, call->src[9].ssa,
+                                call->src[10].ssa,
+                                .call_idx = call_idx,
+                                .stack_size = max_scratch_size);
             break;
          }
 
@@ -487,7 +547,10 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
             unreachable("Any-hit shaders must be inlined");
 
          case nir_intrinsic_execute_callable: {
-            nir_rt_execute_callable(b, call->src[0].ssa, call->src[1].ssa, .call_idx = call_idx, .stack_size = offset);
+            new_call =
+               nir_rt_execute_callable(b, call->src[0].ssa, call->src[1].ssa,
+                                       .call_idx = call_idx,
+                                       .stack_size = max_scratch_size);
             break;
          }
 
@@ -495,9 +558,12 @@ spill_ssa_defs_and_lower_shader_calls(nir_shader *shader, uint32_t num_calls,
             unreachable("Invalid shader call instruction");
          }
 
-         nir_rt_resume(b, .call_idx = call_idx, .stack_size = offset);
+         nir_rt_resume(b, .call_idx = call_idx, .stack_size = max_scratch_size);
 
          nir_instr_remove(&call->instr);
+
+         /* Save the instruction, for the next calls. */
+         call_instrs[call_idx] = &new_call->instr;
 
          call_idx++;
       }
