@@ -375,6 +375,13 @@ def fix_lava_color_log(line):
     line["msg"] = re.sub(r"(\[\d{1,2}m)", "\x1b" + r"\1", line["msg"])
 
 
+def fix_lava_gitlab_section_log(line):
+    if match := re.match(r"\[0K(section_\w+):(\d+):(\S+)\[0K(\S+)?", line["msg"]):
+        marker, timestamp, id_collapsible, header = match.groups()
+        header = header or ""
+        line["msg"] = f"\x1b[0K{marker}:{timestamp}:{id_collapsible}\r\x1b[0K{header}"
+
+
 def parse_lava_lines(new_lines) -> list[str]:
     parsed_lines: list[str] = []
     for line in new_lines:
@@ -391,6 +398,7 @@ def parse_lava_lines(new_lines) -> list[str]:
             suffix = ""
         elif line["lvl"] == "target":
             fix_lava_color_log(line)
+            fix_lava_gitlab_section_log(line)
 
         line = f'{prefix}{line["msg"]}{suffix}'
         parsed_lines.append(line)
