@@ -156,6 +156,8 @@ can_remat_instr(nir_instr *instr, struct brw_bitset *remat)
       case nir_intrinsic_vulkan_resource_reindex:
       case nir_intrinsic_load_vulkan_descriptor:
       case nir_intrinsic_load_push_constant:
+      case nir_intrinsic_load_global_constant:
+      case nir_intrinsic_load_global_const_block_intel:
          /* These intrinsics don't need to be spilled as long as they don't
           * depend on any spilled values.
           */
