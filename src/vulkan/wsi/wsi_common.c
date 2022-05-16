@@ -38,7 +38,10 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 VkResult
 wsi_device_init(struct wsi_device *wsi,
