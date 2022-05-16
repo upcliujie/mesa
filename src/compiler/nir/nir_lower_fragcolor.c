@@ -30,6 +30,11 @@
 /**
  * This pass splits gl_FragColor into gl_FragData[0-7] for drivers which handle
  * the former but not the latter, e.g., zink.
+ *
+ * This pass needs to handle both store_deref (pre-nir_lower_io) and
+ * store_output (post-nir_lower_io), as hardware drivers need to call
+ * nir_lower_fragcolor after I/O lowering but layered drivers don't lower I/O at
+ * all.
  */
 
 /*
@@ -56,43 +61,69 @@ lower_fragcolor_instr(nir_builder *b, nir_instr *intr, void *data)
    nir_intrinsic_instr *instr = nir_instr_as_intrinsic(intr);
    unsigned *max_draw_buffers = data;
 
-   nir_variable *out;
-   if (instr->intrinsic != nir_intrinsic_store_deref)
-      return false;
+   nir_variable *out = NULL;
 
-   out = nir_deref_instr_get_variable(nir_src_as_deref(instr->src[0]));
-   if (out->data.location != FRAG_RESULT_COLOR || out->data.mode != nir_var_shader_out)
+   if (instr->intrinsic == nir_intrinsic_store_deref) {
+      out = nir_deref_instr_get_variable(nir_src_as_deref(instr->src[0]));
+
+      if (out->data.location != FRAG_RESULT_COLOR || out->data.mode != nir_var_shader_out)
+         return false;
+
+      ralloc_free(out->name);
+
+      const char *name = out->data.index == 0 ? "gl_FragData[0]" :
+         "gl_SecondaryFragDataEXT[0]";
+      out->name = ralloc_strdup(out, name);
+
+      /* translate gl_FragColor -> gl_FragData since this is already handled */
+      out->data.location = FRAG_RESULT_DATA0;
+   } else if (instr->intrinsic == nir_intrinsic_store_output) {
+      nir_io_semantics sem = nir_intrinsic_io_semantics(instr);
+      if (sem.location != FRAG_RESULT_COLOR)
+         return false;
+   } else {
       return false;
+   }
+
    b->cursor = nir_after_instr(&instr->instr);
 
-   assert(instr->src[1].is_ssa);
-   nir_ssa_def *frag_color = instr->src[1].ssa;
-   ralloc_free(out->name);
-
-   const char *name = out->data.index == 0 ? "gl_FragData[0]" :
-                                             "gl_SecondaryFragDataEXT[0]";
-   const char *name_tmpl = out->data.index == 0 ? "gl_FragData[%u]" :
-                                                  "gl_SecondaryFragDataEXT[%u]";
-
-   out->name = ralloc_strdup(out, name);
-
-   /* translate gl_FragColor -> gl_FragData since this is already handled */
-   out->data.location = FRAG_RESULT_DATA0;
-   nir_component_mask_t writemask = nir_intrinsic_write_mask(instr);
+   unsigned idx = out ? 1 : 0;
+   assert(instr->src[idx].is_ssa);
+   nir_ssa_def *frag_color = instr->src[idx].ssa;
+      nir_component_mask_t writemask = nir_intrinsic_write_mask(instr);
    b->shader->info.outputs_written &= ~BITFIELD64_BIT(FRAG_RESULT_COLOR);
    b->shader->info.outputs_written |= BITFIELD64_BIT(FRAG_RESULT_DATA0);
 
-   for (unsigned i = 1; i < *max_draw_buffers; i++) {
-      char name[28];
-      snprintf(name, sizeof(name), name_tmpl, i);
-      nir_variable *out_color = nir_variable_create(b->shader, nir_var_shader_out,
-                                                   out->type, name);
-      out_color->data.location = FRAG_RESULT_DATA0 + i;
-      out_color->data.driver_location = b->shader->num_outputs++;
-      out_color->data.index = out->data.index;
-      nir_store_var(b, out_color, frag_color, writemask);
+   for (unsigned i = (out ? 1 : 0); i < *max_draw_buffers; i++) {
+      if (out == NULL) {
+         nir_io_semantics semantics = {
+            .location = FRAG_RESULT_DATA0 + i,
+            .num_slots = 1
+         };
+
+         nir_store_output(b, frag_color, nir_ssa_for_src(b, instr->src[1], 1),
+               .src_type = nir_intrinsic_src_type(instr),
+               .write_mask = writemask,
+               .io_semantics = semantics);
+      } else {
+         char name[28];
+         const char *name_tmpl = out->data.index == 0 ? "gl_FragData[%u]" :
+            "gl_SecondaryFragDataEXT[%u]";
+         snprintf(name, sizeof(name), name_tmpl, i);
+         nir_variable *out_color = nir_variable_create(b->shader, nir_var_shader_out,
+               out->type, name);
+         out_color->data.location = FRAG_RESULT_DATA0 + i;
+         out_color->data.driver_location = b->shader->num_outputs++;
+         out_color->data.index = out->data.index;
+         nir_store_var(b, out_color, frag_color, writemask);
+      }
+
       b->shader->info.outputs_written |= BITFIELD64_BIT(FRAG_RESULT_DATA0 + i);
    }
+
+   if (out == NULL)
+      nir_instr_remove(&instr->instr);
+
    return true;
 }
 
