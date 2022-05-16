@@ -662,11 +662,50 @@ intel_measure_gather(struct intel_measure_device *measure_device,
 
       batch->index = 0;
       batch->frame = 0;
+      batch->batch_count = 0;
+      batch->event_count = 0;
       if (measure_device->release_batch)
          measure_device->release_batch(batch);
    }
 
    intel_measure_print(measure_device, info);
    pthread_mutex_unlock(&measure_device->mutex);
+}
+
+void
+intel_measure_init_batch_queue(struct intel_measure_batch_queue *queue) {
+   pthread_mutex_init(&queue->mutex, NULL);
+   list_inithead(&queue->head);
+}
+
+/**
+ * Puts the batch object on a threadsafe queue
+ */
+void
+intel_measure_push_batch(struct intel_measure_batch_queue *queue,
+                              struct intel_measure_batch *batch) {
+   pthread_mutex_lock(&queue->mutex);
+   list_addtail(&batch->link, &queue->head);
+   pthread_mutex_unlock(&queue->mutex);
+}
+
+/**
+ * Obtain a batch object from the threadsafe queue.  Returns NULL if no object
+ * is available.
+ */
+struct intel_measure_batch *
+intel_measure_pop_batch(struct intel_measure_batch_queue *queue) {
+   pthread_mutex_lock(&queue->mutex);
+
+   struct intel_measure_batch *batch = NULL;
+   if(!list_is_empty(&queue->head)) {
+      batch = list_first_entry(&queue->head,
+                               struct intel_measure_batch, link);
+      list_del(&batch->link);
+   }
+
+   pthread_mutex_unlock(&queue->mutex);
+
+   return batch;
 }
 
