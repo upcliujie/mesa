@@ -1873,7 +1873,7 @@ lower_bindless_io(nir_shader *shader)
 }
 
 static uint32_t
-zink_binding(gl_shader_stage stage, VkDescriptorType type, int index)
+zink_binding(gl_shader_stage stage, VkDescriptorType type, int index, bool compact_descriptors)
 {
    if (stage == MESA_SHADER_NONE) {
       unreachable("not supported");
@@ -1889,12 +1889,12 @@ zink_binding(gl_shader_stage stage, VkDescriptorType type, int index)
          return (stage * PIPE_MAX_SAMPLERS) + index;
 
       case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-         return stage;
+         return stage + (compact_descriptors * (ZINK_SHADER_COUNT * 2));
 
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
       case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
          assert(index < ZINK_MAX_SHADER_IMAGES);
-         return (stage * ZINK_MAX_SHADER_IMAGES) + index;
+         return (stage * ZINK_MAX_SHADER_IMAGES) + index + (compact_descriptors * (ZINK_SHADER_COUNT * PIPE_MAX_SAMPLERS));
 
       default:
          unreachable("unexpected type");
@@ -2258,7 +2258,8 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
             var->data.binding = !var->data.driver_location ? nir->info.stage :
                                 zink_binding(nir->info.stage,
                                              VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                             var->data.driver_location);
+                                             var->data.driver_location,
+                                             screen->compact_descriptors);
             assert(var->data.driver_location || var->data.binding < 10);
             VkDescriptorType vktype = !var->data.driver_location ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             int binding = var->data.binding;
@@ -2274,7 +2275,8 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
             var->data.descriptor_set = screen->desc_set_id[ztype];
             var->data.binding = zink_binding(nir->info.stage,
                                              VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                             var->data.driver_location);
+                                             var->data.driver_location,
+                                             screen->compact_descriptors);
             ret->bindings[ztype][ret->num_bindings[ztype]].index = var->data.driver_location;
             ret->bindings[ztype][ret->num_bindings[ztype]].binding = var->data.binding;
             ret->bindings[ztype][ret->num_bindings[ztype]].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -2294,7 +2296,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
                   ret->num_texel_buffers++;
                var->data.driver_location = var->data.binding;
                var->data.descriptor_set = screen->desc_set_id[ztype];
-               var->data.binding = zink_binding(nir->info.stage, vktype, var->data.driver_location);
+               var->data.binding = zink_binding(nir->info.stage, vktype, var->data.driver_location, screen->compact_descriptors);
                ret->bindings[ztype][ret->num_bindings[ztype]].index = var->data.driver_location;
                ret->bindings[ztype][ret->num_bindings[ztype]].binding = var->data.binding;
                ret->bindings[ztype][ret->num_bindings[ztype]].type = vktype;
