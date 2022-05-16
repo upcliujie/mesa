@@ -373,11 +373,10 @@ iris_measure_batch_end(struct iris_context *ice, struct iris_batch *batch)
       return;
 
    /* enqueue snapshot for gathering */
-   pthread_mutex_lock(&measure_device->mutex);
-   list_addtail(&iris_measure_batch->base.link, &measure_device->queued_snapshots);
-   batch->measure = NULL;
-   pthread_mutex_unlock(&measure_device->mutex);
+   intel_measure_push_batch(&measure_device->queued_snapshots, measure_batch);
+
    /* init new measure_batch */
+   batch->measure = NULL;
    iris_init_batch_measure(ice, batch);
 
    static int interval = 0;

@@ -216,8 +216,8 @@ intel_measure_init(struct intel_measure_device *device)
    device->config = NULL;
    device->frame = 0;
    device->release_batch = NULL;
-   pthread_mutex_init(&device->mutex, NULL);
-   list_inithead(&device->queued_snapshots);
+
+   intel_measure_init_batch_queue(&device->queued_snapshots);
 
    if (env)
       device->config = &config;
@@ -637,36 +637,92 @@ void
 intel_measure_gather(struct intel_measure_device *measure_device,
                      struct intel_device_info *info)
 {
-   pthread_mutex_lock(&measure_device->mutex);
-
    /* Iterate snapshots and collect if ready.  Each snapshot queue will be
     * in-order, but we must determine which queue has the oldest batch.
     */
    /* iterate snapshots and collect if ready */
-   while (!list_is_empty(&measure_device->queued_snapshots)) {
+   while (true) {
       struct intel_measure_batch *batch =
-         list_first_entry(&measure_device->queued_snapshots,
-                          struct intel_measure_batch, link);
+         intel_measure_pop_batch_when(&measure_device->queued_snapshots,
+                                      &intel_measure_ready);
 
-      if (!intel_measure_ready(batch)) {
-         /* command buffer has begun execution on the gpu, but has not
-          * completed.
-          */
+      if (!batch) {
+         /* no additional batches are ready for collection */
          break;
       }
 
-      list_del(&batch->link);
       assert(batch->index % 2 == 0);
 
       intel_measure_push_result(measure_device, batch);
 
       batch->index = 0;
       batch->frame = 0;
+      batch->batch_count = 0;
+      batch->event_count = 0;
       if (measure_device->release_batch)
          measure_device->release_batch(batch);
    }
 
    intel_measure_print(measure_device, info);
-   pthread_mutex_unlock(&measure_device->mutex);
 }
 
+void
+intel_measure_init_batch_queue(struct intel_measure_batch_queue *queue) {
+   pthread_mutex_init(&queue->mutex, NULL);
+   list_inithead(&queue->head);
+}
+
+/**
+ * Puts the batch object on a threadsafe queue
+ */
+void
+intel_measure_push_batch(struct intel_measure_batch_queue *queue,
+                              struct intel_measure_batch *batch) {
+   pthread_mutex_lock(&queue->mutex);
+   list_addtail(&batch->link, &queue->head);
+   pthread_mutex_unlock(&queue->mutex);
+}
+
+/**
+ * Obtain a batch object from the threadsafe queue.  Returns NULL if no object
+ * is available.
+ */
+struct intel_measure_batch *
+intel_measure_pop_batch(struct intel_measure_batch_queue *queue) {
+   pthread_mutex_lock(&queue->mutex);
+
+   struct intel_measure_batch *batch = NULL;
+   if(!list_is_empty(&queue->head)) {
+      batch = list_first_entry(&queue->head,
+                               struct intel_measure_batch, link);
+      list_del(&batch->link);
+   }
+
+   pthread_mutex_unlock(&queue->mutex);
+
+   return batch;
+}
+
+/**
+ * Obtain a batch object from the threadsafe queue it predicate succeeds.
+ * Returns NULL if no object is available or predicate fails.
+ */
+struct intel_measure_batch *
+intel_measure_pop_batch_when(struct intel_measure_batch_queue *queue,
+                             intel_measure_batch_predicate_fn predicate) {
+   pthread_mutex_lock(&queue->mutex);
+
+   struct intel_measure_batch *batch = NULL;
+   if(!list_is_empty(&queue->head)) {
+      batch = list_first_entry(&queue->head,
+                               struct intel_measure_batch, link);
+      if (predicate(batch))
+         list_del(&batch->link);
+      else
+         batch = NULL;
+   }
+
+   pthread_mutex_unlock(&queue->mutex);
+
+   return batch;
+}

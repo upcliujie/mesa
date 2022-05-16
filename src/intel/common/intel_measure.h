@@ -127,6 +127,20 @@ struct intel_measure_ringbuffer {
 /* This function will be called when enqueued snapshots have been processed */
 typedef void (*intel_measure_release_batch_cb)(struct intel_measure_batch *base);
 
+struct intel_measure_batch_queue {
+   pthread_mutex_t mutex;
+   struct list_head head;
+};
+struct intel_measure_batch_queue;
+void intel_measure_init_batch_queue(struct intel_measure_batch_queue *queue);
+void intel_measure_push_batch(struct intel_measure_batch_queue *head,
+                              struct intel_measure_batch *);
+struct intel_measure_batch * intel_measure_pop_batch(struct intel_measure_batch_queue *head);
+typedef bool (*intel_measure_batch_predicate_fn)(struct intel_measure_batch *base);
+struct intel_measure_batch *
+intel_measure_pop_batch_when(struct intel_measure_batch_queue *head,
+                             intel_measure_batch_predicate_fn predicate);
+
 struct intel_measure_device {
    struct intel_measure_config *config;
    unsigned frame;
@@ -135,8 +149,7 @@ struct intel_measure_device {
    /* Holds the list of (iris/anv)_measure_batch snapshots that have been
     * submitted for rendering, but have not completed.
     */
-   pthread_mutex_t mutex;
-   struct list_head queued_snapshots;
+   struct intel_measure_batch_queue queued_snapshots;
 
    /* Holds completed snapshots that may need to be combined before being
     * written out
