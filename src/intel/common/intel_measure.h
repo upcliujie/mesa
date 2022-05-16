@@ -127,6 +127,15 @@ struct intel_measure_ringbuffer {
 /* This function will be called when enqueued snapshots have been processed */
 typedef void (*intel_measure_release_batch_cb)(struct intel_measure_batch *base);
 
+struct intel_measure_batch_queue {
+   pthread_mutex_t mutex;
+   struct list_head head;
+};
+struct intel_measure_batch_queue;
+void intel_measure_init_batch_queue(struct intel_measure_batch_queue *queue);
+void intel_measure_push_batch(struct intel_measure_batch_queue *head,
+                              struct intel_measure_batch *);
+struct intel_measure_batch * intel_measure_pop_batch(struct intel_measure_batch_queue *head);
 struct intel_measure_device {
    struct intel_measure_config *config;
    unsigned frame;
