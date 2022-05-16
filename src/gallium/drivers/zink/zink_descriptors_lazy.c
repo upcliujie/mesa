@@ -182,6 +182,7 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
       enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
       VkShaderStageFlagBits stage_flags = zink_shader_stage(stage);
       for (int j = 0; j < ZINK_DESCRIPTOR_TYPES; j++) {
+         unsigned desc_set = screen->desc_set_id[j] - 1;
          for (int k = 0; k < shader->num_bindings[j]; k++) {
             /* dynamic ubos handled in push */
             if (shader->bindings[j][k].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
@@ -191,8 +192,8 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
                continue;
             }
 
-            assert(num_bindings[j] < ARRAY_SIZE(bindings[j]));
-            VkDescriptorSetLayoutBinding *binding = &bindings[j][num_bindings[j]];
+            assert(num_bindings[desc_set] < ARRAY_SIZE(bindings[desc_set]));
+            VkDescriptorSetLayoutBinding *binding = &bindings[desc_set][num_bindings[desc_set]];
             binding->binding = shader->bindings[j][k].binding;
             binding->descriptorType = shader->bindings[j][k].type;
             binding->descriptorCount = shader->bindings[j][k].size;
@@ -202,11 +203,11 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
             enum zink_descriptor_size_index idx = zink_vktype_to_size_idx(shader->bindings[j][k].type);
             sizes[idx].descriptorCount += shader->bindings[j][k].size;
             sizes[idx].type = shader->bindings[j][k].type;
-            init_template_entry(shader, j, k, &entries[j][entry_idx[j]], &entry_idx[j], screen->descriptor_mode == ZINK_DESCRIPTOR_MODE_LAZY);
-            num_bindings[j]++;
-            has_bindings |= BITFIELD_BIT(j);
+            init_template_entry(shader, j, k, &entries[desc_set][entry_idx[desc_set]], &entry_idx[desc_set], screen->descriptor_mode == ZINK_DESCRIPTOR_MODE_LAZY);
+            num_bindings[desc_set]++;
+            has_bindings |= BITFIELD_BIT(desc_set);
          }
-         num_type_sizes[j] = descriptor_program_num_sizes(sizes, j);
+         num_type_sizes[desc_set] = descriptor_program_num_sizes(sizes, j);
       }
       pg->dd->bindless |= shader->bindless;
    }
@@ -225,8 +226,8 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
    if (has_bindings) {
       for (unsigned i = 0; i < ARRAY_SIZE(sizes); i++)
          sizes[i].descriptorCount *= screen->descriptor_mode == ZINK_DESCRIPTOR_MODE_LAZY ? MAX_LAZY_DESCRIPTORS : ZINK_DEFAULT_MAX_DESCS;
-      u_foreach_bit(type, has_bindings) {
-         for (unsigned i = 0; i < type; i++) {
+      u_foreach_bit(desc_set, has_bindings) {
+         for (unsigned i = 0; i < desc_set; i++) {
             /* push set is always 0 */
             if (!pg->dsl[i + 1]) {
                /* inject a null dsl */
@@ -235,29 +236,31 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
             }
          }
          struct zink_descriptor_layout_key *key;
-         pg->dd->layouts[pg->num_dsl] = zink_descriptor_util_layout_get(ctx, type, bindings[type], num_bindings[type], &key);
+         pg->dd->layouts[pg->num_dsl] = zink_descriptor_util_layout_get(ctx, desc_set, bindings[desc_set], num_bindings[desc_set], &key);
          enum zink_descriptor_size_index idx = zink_descriptor_type_to_size_idx(type);
          VkDescriptorPoolSize *sz = &sizes[idx];
          if (!sz->descriptorCount)
             sz++;
-         pg->dd->pool_key[type] = zink_descriptor_util_pool_key_get(ctx, type, key, sz, num_type_sizes[type]);
-         pg->dd->pool_key[type]->use_count++;
+         pg->dd->pool_key[desc_set] = zink_descriptor_util_pool_key_get(ctx, desc_set, key, sz, num_type_sizes[desc_set]);
+         pg->dd->pool_key[desc_set]->use_count++;
          pg->dsl[pg->num_dsl] = pg->dd->layouts[pg->num_dsl]->layout;
          pg->num_dsl++;
       }
    }
    /* TODO: make this dynamic? */
    if (pg->dd->bindless) {
-      pg->num_dsl = ZINK_DESCRIPTOR_BINDLESS + 1;
-      pg->dsl[ZINK_DESCRIPTOR_BINDLESS] = ctx->dd->bindless_layout;
-      for (unsigned i = 0; i < ZINK_DESCRIPTOR_BINDLESS; i++) {
+      unsigned desc_set = screen->desc_set_id[ZINK_DESCRIPTOR_BINDLESS];
+      pg->num_dsl = desc_set + 1;
+      pg->dsl[desc_set] = ctx->dd->bindless_layout;
+      for (unsigned i = 0; i < desc_set; i++) {
          if (!pg->dsl[i]) {
             /* inject a null dsl */
             pg->dsl[i] = ctx->dd->dummy_dsl->layout;
-            if (i != ZINK_DESCRIPTOR_TYPES)
+            if (i != screen->desc_set_id[ZINK_DESCRIPTOR_TYPES])
                pg->dd->binding_usage |= BITFIELD_BIT(i);
          }
       }
+      pg->dd->binding_usage |= BITFIELD_MASK(ZINK_DESCRIPTOR_TYPES);
    }
 
    pg->layout = zink_pipeline_layout_create(screen, pg, &pg->compat_id);
@@ -276,7 +279,8 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
    unsigned wd_count[ZINK_DESCRIPTOR_TYPES + 1];
    if (push_count)
       wd_count[0] = pg->is_compute ? 1 : (ZINK_SHADER_COUNT + !!ctx->dd->has_fbfetch);
-   for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++)
+   STATIC_ASSERT(ZINK_DESCRIPTOR_TYPE_IMAGE + 1 == ZINK_DESCRIPTOR_TYPES);
+   for (unsigned i = 0; i <= screen->desc_set_id[ZINK_DESCRIPTOR_TYPE_IMAGE]; i++)
       wd_count[i + 1] = pg->dd->pool_key[i] ? pg->dd->pool_key[i]->layout->num_bindings : 0;
 
    VkDescriptorUpdateTemplateEntry *push_entries[2] = {
