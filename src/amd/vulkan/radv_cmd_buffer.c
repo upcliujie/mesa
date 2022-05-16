@@ -1851,7 +1851,7 @@ radv_emit_fb_color_state(struct radv_cmd_buffer *cmd_buffer, int index,
    if (G_028C70_DCC_ENABLE(cb_color_info)) {
       /* Drawing with DCC enabled also compresses colorbuffers. */
       VkImageSubresourceRange range = {
-         .aspectMask = iview->image->vk.aspects,
+         .aspectMask = iview->vk.aspects,
          .baseMipLevel = iview->vk.base_mip_level,
          .levelCount = iview->vk.level_count,
          .baseArrayLayer = iview->vk.base_array_layer,
@@ -2125,7 +2125,7 @@ radv_update_tc_compat_zrange_metadata(struct radv_cmd_buffer *cmd_buffer,
                                       VkClearDepthStencilValue ds_clear_value)
 {
    VkImageSubresourceRange range = {
-      .aspectMask = iview->image->vk.aspects,
+      .aspectMask = iview->vk.aspects,
       .baseMipLevel = iview->vk.base_mip_level,
       .levelCount = iview->vk.level_count,
       .baseArrayLayer = iview->vk.base_array_layer,
@@ -2150,7 +2150,7 @@ radv_update_ds_clear_metadata(struct radv_cmd_buffer *cmd_buffer,
                               VkClearDepthStencilValue ds_clear_value, VkImageAspectFlags aspects)
 {
    VkImageSubresourceRange range = {
-      .aspectMask = iview->image->vk.aspects,
+      .aspectMask = iview->vk.aspects,
       .baseMipLevel = iview->vk.base_mip_level,
       .levelCount = iview->vk.level_count,
       .baseArrayLayer = iview->vk.base_array_layer,
@@ -2341,7 +2341,7 @@ radv_update_color_clear_metadata(struct radv_cmd_buffer *cmd_buffer,
 {
    struct radv_image *image = iview->image;
    VkImageSubresourceRange range = {
-      .aspectMask = iview->image->vk.aspects,
+      .aspectMask = iview->vk.aspects,
       .baseMipLevel = iview->vk.base_mip_level,
       .levelCount = iview->vk.level_count,
       .baseArrayLayer = iview->vk.base_array_layer,
@@ -4211,7 +4211,7 @@ radv_handle_subpass_image_transition(struct radv_cmd_buffer *cmd_buffer,
    struct radv_image_view *view = cmd_buffer->state.attachments[idx].iview;
    struct radv_sample_locations_state *sample_locs;
    VkImageSubresourceRange range;
-   range.aspectMask = view->image->vk.aspects;
+   range.aspectMask = view->vk.aspects;
    range.baseMipLevel = view->vk.base_mip_level;
    range.levelCount = 1;
    range.baseArrayLayer = view->vk.base_array_layer;

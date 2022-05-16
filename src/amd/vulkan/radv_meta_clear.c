@@ -1701,7 +1701,7 @@ radv_fast_clear_color(struct radv_cmd_buffer *cmd_buffer, const struct radv_imag
    uint32_t clear_color[2], flush_bits = 0;
    uint32_t cmask_clear_value;
    VkImageSubresourceRange range = {
-      .aspectMask = iview->image->vk.aspects,
+      .aspectMask = iview->vk.aspects,
       .baseMipLevel = iview->vk.base_mip_level,
       .levelCount = iview->vk.level_count,
       .baseArrayLayer = iview->vk.base_array_layer,
