@@ -211,6 +211,7 @@ intel_measure_init(struct intel_measure_device *device)
 
    device->config = NULL;
    device->frame = 0;
+   device->release_batch = NULL;
    pthread_mutex_init(&device->mutex, NULL);
    list_inithead(&device->queued_snapshots);
 
@@ -657,6 +658,8 @@ intel_measure_gather(struct intel_measure_device *measure_device,
 
       batch->index = 0;
       batch->frame = 0;
+      if (measure_device->release_batch)
+         measure_device->release_batch(batch);
    }
 
    intel_measure_print(measure_device, info);
