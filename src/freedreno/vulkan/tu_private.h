@@ -268,6 +268,7 @@ enum tu_debug_flags
    TU_DEBUG_LOG_SKIP_GMEM_OPS = 1 << 17,
    TU_DEBUG_PERF = 1 << 18,
    TU_DEBUG_NOLRZFC = 1 << 19,
+   TU_DEBUG_LRZ_GPU_DIR_TRACK = 1 << 20,
 };
 
 struct tu_instance
@@ -1130,6 +1131,7 @@ struct tu_lrz_state
    /* Allows to temporary disable LRZ */
    bool enabled : 1;
    bool fast_clear : 1;
+   bool gpu_dir_tracking : 1;
    enum tu_lrz_direction prev_direction;
 };
 
@@ -1202,6 +1204,8 @@ struct tu_cmd_state
    const struct tu_subpass *subpass;
    const struct tu_framebuffer *framebuffer;
    VkRect2D render_area;
+
+   bool has_draws_from_secondary_cmdbuf;
 
    const struct tu_image_view **attachments;
    /* Tracks whether attachment was cleared by vkCmdClearAttachments */

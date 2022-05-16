@@ -1258,12 +1258,28 @@ tu_set_input_attachments(struct tu_cmd_buffer *cmd, const struct tu_subpass *sub
 static void
 tu_init_renderpass_lrz(struct tu_cmd_buffer *cmd)
 {
-   tu6_emit_lrz_buffer(&cmd->cs, cmd->state.lrz.image);
+   if (cmd->state.lrz.fast_clear || cmd->state.lrz.gpu_dir_tracking) {
+      /* On-gpu direction tracking allows disabling LRZ without changes to
+       * LRZ_CNTL that are already emitted, which allows to support secondary
+       * command buffers where LRZ_CNTL is emitted before it is known whether
+       * LRZ should be enabled.
+       */
 
-   if (cmd->state.lrz.fast_clear) {
+      /* Following the blob we elect to disable LRZ for the whole renderpass
+       * if it is known that LRZ is disabled somewhere in the renderpass.
+       *
+       * The sequence GRAS_UNKNOWN_810A -> LRZ_CLEAR -> GRAS_UNKNOWN_810A
+       * with GRAS_UNKNOWN_810A having non-equal values sets the direction
+       * to CUR_DIR_DISABLED instead of CUR_DIR_UNSET.
+       * (While values seem to be unimportant - we follow what blob does)
+       */
+      if (!cmd->state.lrz.valid)
+         tu_cs_emit_regs(&cmd->cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0xffffffff));
+
       tu_cs_emit_regs(&cmd->cs, A6XX_GRAS_LRZ_CNTL(
          .enable = true,
          .fc_enable = cmd->state.lrz.fast_clear,
+         .disable_on_wrong_dir = cmd->state.lrz.gpu_dir_tracking,
       ));
 
       /* LRZ_CLEAR with .fc_enable would clear fast-clear buffer, which
@@ -1271,9 +1287,22 @@ tu_init_renderpass_lrz(struct tu_cmd_buffer *cmd)
        */
       tu6_emit_event_write(cmd, &cmd->cs, LRZ_CLEAR);
       tu6_emit_event_write(cmd, &cmd->cs, LRZ_FLUSH);
-   } else {
+
+      if (!cmd->state.lrz.valid)
+         tu_cs_emit_regs(&cmd->cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0));
+   }
+
+   if (!cmd->state.lrz.fast_clear) {
       tu6_clear_lrz(cmd, &cmd->cs, cmd->state.lrz.image,
                     &cmd->state.lrz.depth_clear_value);
+
+      /* When draws are recorded in a secondary cmdbuf it is unknown
+       * whether lrz fast clear would be used.
+       */
+      if (cmd->state.lrz.image->lrz_fc_size &&
+          cmd->state.has_draws_from_secondary_cmdbuf) {
+         tu6_dirty_lrz_fc(cmd, &cmd->cs, cmd->state.lrz.image);
+      }
    }
 
    /* Clearing writes via CCU color in the PS stage, and LRZ is read via
@@ -1450,12 +1479,17 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 
    tu_cs_emit_call(cs, &cmd->draw_epilogue_cs);
 
-   if (cmd->state.lrz.fast_clear) {
+   if (cmd->state.lrz.fast_clear || cmd->state.lrz.gpu_dir_tracking) {
       tu6_emit_lrz_buffer(cs, cmd->state.lrz.image);
+
+      if (cmd->state.lrz.gpu_dir_tracking) {
+         tu_cs_emit_regs(cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0));
+      }
 
       tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_CNTL(
          .enable = true,
          .fc_enable = cmd->state.lrz.fast_clear,
+         .disable_on_wrong_dir = cmd->state.lrz.gpu_dir_tracking,
       ));
 
       /* Flushing with fc_enable flushes writes to LRZ fast-clear buffer */
@@ -1463,7 +1497,18 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
       tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_CNTL());
    }
 
-   if (!cmd->state.lrz.fast_clear) {
+   /* If gpu_dir_tracking is enabled and lrz is not valid blob, at this point,
+    * additionally clears direction buffer:
+    *  A6XX_GRAS_UNKNOWN_810A(.dword = 0)
+    *  A6XX_GRAS_UNKNOWN_810A(.dword = 0xffffffff)
+    *  A6XX_GRAS_LRZ_CNTL(.enable = true, .disable_on_wrong_dir = true)
+    *  LRZ_CLEAR
+    *  LRZ_FLUSH
+    * Since it happens after all of the rendering is done there is no known
+    * reason to do such clear.
+    */
+
+   if (!cmd->state.lrz.fast_clear && !cmd->state.lrz.gpu_dir_tracking) {
       tu_cs_emit_regs(cs,
                       A6XX_GRAS_LRZ_CNTL(0));
       tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
@@ -1749,12 +1794,25 @@ tu_is_lrz_supported(const struct tu_render_pass_attachment *att,
 
 static void
 tu_init_lrz_state(struct tu_cmd_buffer *cmd,
-                  struct tu_image *image)
+                  struct tu_image *image,
+                  bool allow_gpu_dir_tracking)
 {
    cmd->state.lrz.image = image;
    cmd->state.lrz.valid = true;
    cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
+   /* This will enable lrz fast clear in secondary cmdbufs regardless of
+    * depth clear value, this is addressed by dirtying fast clear buffer.
+    */
    cmd->state.lrz.fast_clear = image->lrz_fc_size > 0;
+
+   if (cmd->device->physical_device->info->a6xx.has_lrz_dir_tracking) {
+      cmd->state.lrz.gpu_dir_tracking = allow_gpu_dir_tracking;
+
+      if (unlikely(cmd->device->instance->debug_flags &
+                   TU_DEBUG_LRZ_GPU_DIR_TRACK)) {
+         cmd->state.lrz.gpu_dir_tracking = true;
+      }
+   }
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -1812,6 +1870,8 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
       }
 
       if (pBeginInfo->flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
+         TU_FROM_HANDLE(tu_framebuffer, fb, pBeginInfo->pInheritanceInfo->framebuffer);
+
          cmd_buffer->state.pass = tu_render_pass_from_handle(pBeginInfo->pInheritanceInfo->renderPass);
          cmd_buffer->state.subpass =
             &cmd_buffer->state.pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
@@ -1823,6 +1883,16 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
                       cmd_buffer->state.pass->attachment_count *
                          sizeof(cmd_buffer->state.attachment_cmd_clear[0]),
                       8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
+         uint32_t a = cmd_buffer->state.subpass->depth_stencil_attachment.attachment;
+         if (a != VK_ATTACHMENT_UNUSED &&
+             cmd_buffer->device->physical_device->info->a6xx.has_lrz_dir_tracking) {
+            const struct tu_render_pass_attachment *att = &cmd_buffer->state.pass->attachments[a];
+            struct tu_image *image = fb->attachments[a].attachment->image;
+            if (tu_is_lrz_supported(att, image)) {
+               tu_init_lrz_state(cmd_buffer, image, true);
+            }
+         }
       } else {
          /* When executing in the middle of another command buffer, the CCU
           * state is unknown.
@@ -3237,6 +3307,8 @@ tu_CmdExecuteCommands(VkCommandBuffer commandBuffer,
             break;
          }
 
+         cmd->state.has_draws_from_secondary_cmdbuf = true;
+
          /* Set up the tess factor address if this is the first time a tess
           * pipeline has been executed on this primary cmdbuf.
           */
@@ -3251,6 +3323,12 @@ tu_CmdExecuteCommands(VkCommandBuffer commandBuffer,
 
          cmd->state.draw_cs_writes_to_cond_pred |=
             secondary->state.draw_cs_writes_to_cond_pred;
+
+         /* If LRZ was made invalid in secondary - we should disable
+          * LRZ retroactively for the whole renderpass.
+          */
+         if (!secondary->state.lrz.valid)
+            cmd->state.lrz.valid = false;
 
          for (uint32_t i = 0; i < cmd->state.pass->attachment_count; i++) {
             cmd->state.attachment_cmd_clear[i] |=
@@ -3267,7 +3345,7 @@ tu_CmdExecuteCommands(VkCommandBuffer commandBuffer,
    }
    cmd->state.dirty = ~0u; /* TODO: set dirty only what needs to be */
 
-   if (cmd->state.pass) {
+   if (!cmd->state.lrz.gpu_dir_tracking && cmd->state.pass) {
       /* After a secondary command buffer is executed, LRZ is not valid
        * until it is cleared again.
        */
@@ -3422,6 +3500,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    cmd->state.subpass = pass->subpasses;
    cmd->state.framebuffer = fb;
    cmd->state.render_area = pRenderPassBegin->renderArea;
+   cmd->state.has_draws_from_secondary_cmdbuf = false;
 
    cmd->state.attachments =
       vk_alloc(&cmd->pool->vk.alloc, pass->attachment_count *
@@ -3472,7 +3551,15 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       const struct tu_render_pass_attachment *att = &cmd->state.pass->attachments[a];
       struct tu_image *image = cmd->state.attachments[a]->image;
       if (tu_is_lrz_supported(att, image)) {
-         tu_init_lrz_state(cmd, image);
+         /* If there are more than one subpass we cannot know
+          * whether they will use secondary command buffers.
+          */
+         bool allow_gpu_dir_tracking =
+            pSubpassBeginInfo->contents ==
+               VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS ||
+            pass->subpass_count > 1;
+
+         tu_init_lrz_state(cmd, image, allow_gpu_dir_tracking);
 
          VkClearValue clear = pRenderPassBegin->pClearValues[a];
          cmd->state.lrz.depth_clear_value = clear;
@@ -3725,6 +3812,10 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
 
    struct A6XX_GRAS_LRZ_CNTL gras_lrz_cntl = { 0 };
 
+   if (!cmd->state.lrz.valid) {
+      return gras_lrz_cntl;
+   }
+
    /* What happens in FS could affect LRZ, e.g.: writes to gl_FragDepth
     * or early fragment tests.
     */
@@ -3740,8 +3831,10 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
        (cmd->device->instance->debug_flags & TU_DEBUG_NOLRZ))
       return gras_lrz_cntl;
 
-   if (!cmd->state.attachments) {
-      /* Secondary cmdbuf - there is nothing we could do. */
+   if (!cmd->state.lrz.gpu_dir_tracking && !cmd->state.attachments) {
+      /* Without on-gpu LRZ direction tracking - there is nothing we
+       * can do to enable LRZ in secondary command buffers.
+       */
       return gras_lrz_cntl;
    }
 
@@ -3749,9 +3842,11 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
    gras_lrz_cntl.lrz_write =
       z_write_enable &&
       !(pipeline->lrz.force_disable_mask & TU_LRZ_FORCE_DISABLE_WRITE);
-   gras_lrz_cntl.z_test_enable = z_read_enable;
+   gras_lrz_cntl.z_test_enable = z_read_enable && z_write_enable;
    gras_lrz_cntl.z_bounds_enable = z_bounds_enable;
    gras_lrz_cntl.fc_enable = cmd->state.lrz.fast_clear;
+   gras_lrz_cntl.dir_write = cmd->state.lrz.gpu_dir_tracking;
+   gras_lrz_cntl.disable_on_wrong_dir = cmd->state.lrz.gpu_dir_tracking;
 
    /* LRZ is disabled until it is cleared, which means that one "wrong"
     * depth test or shader could disable LRZ until depth buffer is cleared.
@@ -3777,6 +3872,7 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
       if (z_write_enable) {
          perf_debug(cmd->device, "Invalidating LRZ due to ALWAYS/NOT_EQUAL");
          disable_lrz = true;
+         gras_lrz_cntl.dir = LRZ_DIR_INVALID;
       } else {
          perf_debug(cmd->device, "Skipping LRZ due to ALWAYS/NOT_EQUAL");
          temporary_disable_lrz = true;
@@ -3796,11 +3892,13 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
    case VK_COMPARE_OP_GREATER_OR_EQUAL:
       lrz_direction = TU_LRZ_GREATER;
       gras_lrz_cntl.greater = true;
+      gras_lrz_cntl.dir = LRZ_DIR_GE;
       break;
    case VK_COMPARE_OP_LESS:
    case VK_COMPARE_OP_LESS_OR_EQUAL:
       lrz_direction = TU_LRZ_LESS;
       gras_lrz_cntl.greater = false;
+      gras_lrz_cntl.dir = LRZ_DIR_LE;
       break;
    default:
       unreachable("bad VK_COMPARE_OP value or uninitialized");
@@ -4775,6 +4873,10 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
    tu_cs_end(&cmd_buffer->draw_epilogue_cs);
 
    cmd_buffer->trace_renderpass_end = u_trace_end_iterator(&cmd_buffer->trace);
+
+   if (cmd_buffer->state.lrz.image) {
+      tu6_emit_lrz_buffer(&cmd_buffer->cs, cmd_buffer->state.lrz.image);
+   }
 
    struct tu_renderpass_result *autotune_result = NULL;
    if (use_sysmem_rendering(cmd_buffer, &autotune_result))

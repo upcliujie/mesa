@@ -351,6 +351,7 @@ static const struct debug_control tu_debug_options[] = {
    { "nomultipos", TU_DEBUG_NOMULTIPOS },
    { "nolrz", TU_DEBUG_NOLRZ },
    { "nolrzfc", TU_DEBUG_NOLRZFC },
+   { "lrz_gpu_dir_track", TU_DEBUG_LRZ_GPU_DIR_TRACK },
    { "perf", TU_DEBUG_PERF },
    { "perfc", TU_DEBUG_PERFC },
    { "flushall", TU_DEBUG_FLUSHALL },

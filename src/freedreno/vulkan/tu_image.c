@@ -567,15 +567,26 @@ tu_image_init(struct tu_device *device, struct tu_image *image,
 
       /* Fast-clear buffer is 1bit/block */
       image->lrz_fc_size = DIV_ROUND_UP(nblocksx * nblocksy, 8);
-      if (image->lrz_fc_size > 512 ||
-          !device->physical_device->info->a6xx.enable_lrz_fast_clear ||
-          unlikely(device->physical_device->instance->debug_flags & TU_DEBUG_NOLRZFC)) {
-         /* Fast-clear buffer cannot be larger than 512 bytes (HW limitation) */
-         image->lrz_fc_size = 0;
-         image->lrz_fc_offset = 0;
-      } else {
+
+      /* Fast-clear buffer cannot be larger than 512 bytes (HW limitation) */
+      bool has_lrz_fc = image->lrz_fc_size <= 512 &&
+         device->physical_device->info->a6xx.enable_lrz_fast_clear &&
+         !unlikely(device->physical_device->instance->debug_flags & TU_DEBUG_NOLRZFC);
+
+      if (has_lrz_fc || device->physical_device->info->a6xx.has_lrz_dir_tracking) {
          image->lrz_fc_offset = image->total_size;
          image->total_size += 512;
+
+         if (device->physical_device->info->a6xx.has_lrz_dir_tracking) {
+            /* Direction tracking uses 1 byte */
+            image->total_size += 1;
+            /* GRAS_UNKNOWN_810A writes to the three bytes after dir tracking */
+            image->total_size += 3;
+         }
+      }
+
+      if (!has_lrz_fc) {
+         image->lrz_fc_size = 0;
       }
    }
 
