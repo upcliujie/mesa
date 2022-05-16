@@ -701,12 +701,8 @@ bi_emit_fragment_out(bi_builder *b, nir_intrinsic_instr *instr)
         unsigned loc = ~0;
 
         if (!combined) {
-                const nir_variable *var =
-                        nir_find_variable_with_driver_location(b->shader->nir,
-                                        nir_var_shader_out, nir_intrinsic_base(instr));
-                assert(var);
-
-                loc = var->data.location;
+                nir_io_semantics sem = nir_intrinsic_io_semantics(instr);
+                loc = sem.location;
         }
 
         bi_index src0 = bi_src_index(&instr->src[0]);
@@ -1374,10 +1370,8 @@ bi_emit_ld_tile(bi_builder *b, nir_intrinsic_instr *instr)
 
         /* Get the render target */
         if (!b->shader->inputs->is_blend) {
-                const nir_variable *var =
-                        nir_find_variable_with_driver_location(b->shader->nir,
-                                        nir_var_shader_out, nir_intrinsic_base(instr));
-                unsigned loc = var->data.location;
+                nir_io_semantics sem = nir_intrinsic_io_semantics(instr);
+                unsigned loc = sem.location;
                 assert(loc >= FRAG_RESULT_DATA0);
                 rt = (loc - FRAG_RESULT_DATA0);
         }
