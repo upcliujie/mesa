@@ -288,10 +288,11 @@ ubwc_possible(VkFormat format, VkImageType type, VkImageUsageFlags usage,
               VkImageUsageFlags stencil_usage, const struct fd_dev_info *info,
               VkSampleCountFlagBits samples)
 {
-   /* no UBWC with compressed formats, E5B9G9R9, S8_UINT
+   /* no UBWC with compressed formats, SNORM formats, E5B9G9R9, S8_UINT
     * (S8_UINT because separate stencil doesn't have UBWC-enable bit)
     */
    if (vk_format_is_compressed(format) ||
+       vk_format_is_snorm(format) ||
        format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32 ||
        format == VK_FORMAT_S8_UINT)
       return false;
