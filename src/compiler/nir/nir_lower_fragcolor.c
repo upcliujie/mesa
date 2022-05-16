@@ -30,6 +30,11 @@
 /**
  * This pass splits gl_FragColor into gl_FragData[0-7] for drivers which handle
  * the former but not the latter, e.g., zink.
+ *
+ * This pass needs to handle both store_deref (pre-nir_lower_io) and
+ * store_output (post-nir_lower_io), as hardware drivers need to call
+ * nir_lower_fragcolor after I/O lowering but layered drivers don't lower I/O at
+ * all.
  */
 
 /*
@@ -56,14 +61,23 @@ lower_fragcolor_instr(nir_builder *b, nir_instr *intr, void *data)
    nir_intrinsic_instr *instr = nir_instr_as_intrinsic(intr);
    unsigned *max_draw_buffers = data;
 
+   bool io_lowered = false;
    nir_variable *out;
-   if (instr->intrinsic != nir_intrinsic_store_deref)
-      return false;
 
-   out = nir_deref_instr_get_variable(nir_src_as_deref(instr->src[0]));
+   if (instr->intrinsic == nir_intrinsic_store_deref) {
+      out = nir_deref_instr_get_variable(nir_src_as_deref(instr->src[0]));
+   } else if (instr->intrinsic == nir_intrinsic_store_output) {
+      nir_io_semantics sem = nir_intrinsic_io_semantics(instr);
+      out = nir_find_variable_with_location(b->shader, nir_var_shader_out, sem.location);
+      io_lowered = true;
+   } else {
+      return false;
+   }
+
+   b->cursor = nir_after_instr(&instr->instr);
+
    if (out->data.location != FRAG_RESULT_COLOR || out->data.mode != nir_var_shader_out)
       return false;
-   b->cursor = nir_after_instr(&instr->instr);
 
    assert(instr->src[1].is_ssa);
    nir_ssa_def *frag_color = instr->src[1].ssa;
@@ -90,7 +104,22 @@ lower_fragcolor_instr(nir_builder *b, nir_instr *intr, void *data)
       out_color->data.location = FRAG_RESULT_DATA0 + i;
       out_color->data.driver_location = b->shader->num_outputs++;
       out_color->data.index = out->data.index;
-      nir_store_var(b, out_color, frag_color, writemask);
+
+      if (io_lowered) {
+         nir_io_semantics semantics = {
+            .location = out_color->data.location,
+            .num_slots = 1
+         };
+
+         nir_store_output(b, frag_color, nir_imm_int(b, 0),
+               .base = out_color->data.driver_location,
+               .src_type = nir_get_nir_type_for_glsl_type(out->type),
+               .write_mask = writemask,
+               .io_semantics = semantics);
+      } else {
+         nir_store_var(b, out_color, frag_color, writemask);
+      }
+
       b->shader->info.outputs_written |= BITFIELD64_BIT(FRAG_RESULT_DATA0 + i);
    }
    return true;
