@@ -1284,6 +1284,25 @@ tu6_clear_lrz(struct tu_cmd_buffer *cmd,
    ops->teardown(cmd, cs);
 }
 
+void
+tu6_dirty_lrz_fc(struct tu_cmd_buffer *cmd,
+                 struct tu_cs *cs,
+                 struct tu_image *image)
+{
+   const struct blit_ops *ops = &r2d_ops;
+   VkClearValue clear = { .color = { .uint32[0] = 0xffffffff } };
+
+   /* LRZ fast-clear buffer is always allocated with 512 bytes size. */
+   ops->setup(cmd, cs, PIPE_FORMAT_R32_UINT, VK_IMAGE_ASPECT_COLOR_BIT, 0, true, false,
+              VK_SAMPLE_COUNT_1_BIT);
+   ops->clear_value(cs, PIPE_FORMAT_R32_UINT, &clear);
+   ops->dst_buffer(cs, PIPE_FORMAT_R32_UINT,
+                   image->iova + image->lrz_fc_offset, 512);
+   ops->coords(cs, &(VkOffset2D) {}, NULL, &(VkExtent2D) {128, 1});
+   ops->run(cmd, cs);
+   ops->teardown(cmd, cs);
+}
+
 static void
 tu_image_view_copy_blit(struct fdl6_view *iview,
                         struct tu_image *image,
@@ -1505,6 +1524,10 @@ tu_CmdBlitImage2KHR(VkCommandBuffer commandBuffer,
       tu6_blit_image(cmd, src_image, dst_image, pBlitImageInfo->pRegions + i,
                      pBlitImageInfo->filter);
    }
+
+   if (dst_image->lrz_height) {
+      tu_disable_lrz(cmd, &cmd->cs, dst_image);
+   }
 }
 
 static void
@@ -1609,6 +1632,10 @@ tu_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
    for (unsigned i = 0; i < pCopyBufferToImageInfo->regionCount; ++i)
       tu_copy_buffer_to_image(cmd, src_buffer, dst_image,
                               pCopyBufferToImageInfo->pRegions + i);
+
+   if (dst_image->lrz_height) {
+      tu_disable_lrz(cmd, &cmd->cs, dst_image);
+   }
 }
 
 static void
@@ -1923,6 +1950,10 @@ tu_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
       tu_copy_image_to_image(cmd, src_image, dst_image,
                              pCopyImageInfo->pRegions + i);
    }
+
+   if (dst_image->lrz_height) {
+      tu_disable_lrz(cmd, &cmd->cs, dst_image);
+   }
 }
 
 static void
@@ -2236,6 +2267,8 @@ tu_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
 
       clear_image(cmd, image, (const VkClearValue*) pDepthStencil, range, range->aspectMask);
    }
+
+   tu_lrz_clear_depth_image(cmd, image, pDepthStencil, rangeCount, pRanges);
 }
 
 static void
@@ -2585,8 +2618,8 @@ tu_CmdClearAttachments(VkCommandBuffer commandBuffer,
    for (uint32_t j = 0; j < attachmentCount; j++) {
       if ((pAttachments[j].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) == 0)
          continue;
-      cmd->state.lrz.valid = false;
-      cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+
+      tu_lrz_disable_during_renderpass(cmd);
    }
 
    /* vkCmdClearAttachments is supposed to respect the predicate if active.
