@@ -80,6 +80,9 @@ enum zink_descriptor_mode {
    ZINK_DESCRIPTOR_MODE_NOTEMPLATES,
 };
 
+//keep in sync with zink_descriptor_type since headers can't be cross-included
+#define ZINK_MAX_DESCRIPTOR_SETS 6
+
 struct zink_modifier_prop {
     uint32_t                             drmFormatModifierCount;
     VkDrmFormatModifierPropertiesEXT*    pDrmFormatModifierProperties;
@@ -164,6 +167,7 @@ struct zink_screen {
 
    struct vk_dispatch_table vk;
 
+   uint8_t desc_set_id[ZINK_MAX_DESCRIPTOR_SETS];
    bool (*descriptor_program_init)(struct zink_context *ctx, struct zink_program *pg);
    void (*descriptor_program_deinit)(struct zink_context *ctx, struct zink_program *pg);
    void (*descriptors_update)(struct zink_context *ctx, bool is_compute);
