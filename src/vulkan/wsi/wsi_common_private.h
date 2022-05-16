@@ -79,7 +79,9 @@ struct wsi_image {
    uint32_t sizes[4];
    uint32_t offsets[4];
    uint32_t row_pitches[4];
+#ifndef _WIN32
    int dma_buf_fd;
+#endif
 };
 
 struct wsi_swapchain {
