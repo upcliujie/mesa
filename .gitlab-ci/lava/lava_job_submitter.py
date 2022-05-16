@@ -72,7 +72,8 @@ CONSOLE_LOG_COLOR_RESET = "\x1b[0m"
 
 
 def print_log(msg):
-    print("{}: {}".format(datetime.now(), msg))
+    # Reset color from timestamp, since `msg` can tint the terminal color
+    print(f"{CONSOLE_LOG_COLOR_RESET}{datetime.now()}: {msg}")
 
 
 def fatal_err(msg):
@@ -370,9 +371,16 @@ def show_job_data(job):
         print("{}\t: {}".format(field, value))
 
 
+def fix_lava_color_log(line):
+    line["msg"] = re.sub(r"(\[\d{1,2}m)", "\x1b" + r"\1", line["msg"])
+
+
 def parse_lava_lines(new_lines) -> list[str]:
     parsed_lines: list[str] = []
     for line in new_lines:
+        prefix = ""
+        suffix = ""
+
         if line["lvl"] in ["results", "feedback"]:
             continue
         elif line["lvl"] in ["warning", "error"]:
@@ -381,9 +389,9 @@ def parse_lava_lines(new_lines) -> list[str]:
         elif line["lvl"] == "input":
             prefix = "$ "
             suffix = ""
-        else:
-            prefix = ""
-            suffix = ""
+        elif line["lvl"] == "target":
+            fix_lava_color_log(line)
+
         line = f'{prefix}{line["msg"]}{suffix}'
         parsed_lines.append(line)
 
