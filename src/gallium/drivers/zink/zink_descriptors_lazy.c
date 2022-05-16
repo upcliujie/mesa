@@ -237,7 +237,7 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
          }
          struct zink_descriptor_layout_key *key;
          pg->dd->layouts[pg->num_dsl] = zink_descriptor_util_layout_get(ctx, desc_set, bindings[desc_set], num_bindings[desc_set], &key);
-         enum zink_descriptor_size_index idx = zink_descriptor_type_to_size_idx(type);
+         enum zink_descriptor_size_index idx = zink_descriptor_type_to_size_idx(desc_set);
          VkDescriptorPoolSize *sz = &sizes[idx];
          if (!sz->descriptorCount)
             sz++;
