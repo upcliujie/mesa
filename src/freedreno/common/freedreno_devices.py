@@ -138,6 +138,10 @@ class A6xxGPUInfo(GPUInfo):
         self.a6xx.has_cp_reg_write = True
         self.a6xx.has_8bpp_ubwc = True
 
+        # All a6xx gens support lrz fast-clear, however newer blob driver
+        # (v615) doesn't use it for gen1 and gen2.
+        self.a6xx.enable_lrz_fast_clear = True
+
         for name, val in template.items():
             if name == "magic": # handled above
                 continue

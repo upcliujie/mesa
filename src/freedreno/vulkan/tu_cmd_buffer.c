@@ -202,6 +202,28 @@ tu_emit_cache_flush_ccu(struct tu_cmd_buffer *cmd_buffer,
 }
 
 static void
+tu6_emit_lrz_buffer(struct tu_cs *cs, struct tu_image *depth_image)
+{
+   if (!depth_image) {
+      tu_cs_emit_regs(cs,
+                      A6XX_GRAS_LRZ_BUFFER_BASE(0),
+                      A6XX_GRAS_LRZ_BUFFER_PITCH(0),
+                      A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE(0));
+      return;
+   }
+
+   uint64_t lrz_iova = depth_image->iova + depth_image->lrz_offset;
+   uint64_t lrz_fc_iova = depth_image->iova + depth_image->lrz_fc_offset;
+   if (!depth_image->lrz_fc_offset)
+      lrz_fc_iova = 0;
+
+   tu_cs_emit_regs(cs,
+                   A6XX_GRAS_LRZ_BUFFER_BASE(.qword = lrz_iova),
+                   A6XX_GRAS_LRZ_BUFFER_PITCH(.pitch = depth_image->lrz_pitch),
+                   A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE(.qword = lrz_fc_iova));
+}
+
+static void
 tu6_emit_zs(struct tu_cmd_buffer *cmd,
             const struct tu_subpass *subpass,
             struct tu_cs *cs)
@@ -217,11 +239,6 @@ tu6_emit_zs(struct tu_cmd_buffer *cmd,
 
       tu_cs_emit_regs(cs,
                       A6XX_GRAS_SU_DEPTH_BUFFER_INFO(.depth_format = DEPTH6_NONE));
-
-      tu_cs_emit_regs(cs,
-                      A6XX_GRAS_LRZ_BUFFER_BASE(0),
-                      A6XX_GRAS_LRZ_BUFFER_PITCH(0),
-                      A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE(0));
 
       tu_cs_emit_regs(cs, A6XX_RB_STENCIL_INFO(0));
 
@@ -246,10 +263,6 @@ tu6_emit_zs(struct tu_cmd_buffer *cmd,
 
    tu_cs_emit_pkt4(cs, REG_A6XX_RB_DEPTH_FLAG_BUFFER_BASE, 3);
    tu_cs_image_flag_ref(cs, &iview->view, 0);
-
-   tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_BUFFER_BASE(.qword = iview->image->iova + iview->image->lrz_offset),
-                   A6XX_GRAS_LRZ_BUFFER_PITCH(.pitch = iview->image->lrz_pitch),
-                   A6XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE());
 
    if (attachment->format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
        attachment->format == VK_FORMAT_S8_UINT) {
@@ -1243,6 +1256,35 @@ tu_set_input_attachments(struct tu_cmd_buffer *cmd, const struct tu_subpass *sub
 }
 
 static void
+tu_init_renderpass_lrz(struct tu_cmd_buffer *cmd)
+{
+   tu6_emit_lrz_buffer(&cmd->cs, cmd->state.lrz.image);
+
+   if (cmd->state.lrz.fast_clear) {
+      tu_cs_emit_regs(&cmd->cs, A6XX_GRAS_LRZ_CNTL(
+         .enable = true,
+         .fc_enable = cmd->state.lrz.fast_clear,
+      ));
+
+      /* LRZ_CLEAR with .fc_enable would clear fast-clear buffer, which
+       * in turn allows to skip clearing of LRZ.
+       */
+      tu6_emit_event_write(cmd, &cmd->cs, LRZ_CLEAR);
+      tu6_emit_event_write(cmd, &cmd->cs, LRZ_FLUSH);
+   } else {
+      tu6_clear_lrz(cmd, &cmd->cs, cmd->state.lrz.image,
+                    &cmd->state.lrz.depth_clear_value);
+   }
+
+   /* Clearing writes via CCU color in the PS stage, and LRZ is read via
+    * UCHE in the earlier GRAS stage.
+    */
+   cmd->state.cache.flush_bits |=
+      TU_CMD_FLAG_CCU_FLUSH_COLOR | TU_CMD_FLAG_CACHE_INVALIDATE |
+      TU_CMD_FLAG_WAIT_FOR_IDLE;
+}
+
+static void
 tu_emit_renderpass_begin(struct tu_cmd_buffer *cmd,
                          const VkRenderPassBeginInfo *info)
 {
@@ -1326,7 +1368,9 @@ tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 {
    struct tu_physical_device *phys_dev = cmd->device->physical_device;
 
-   tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
+   if (cmd->state.lrz.image) {
+      tu_init_renderpass_lrz(cmd);
+   }
 
    tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
    tu_cs_emit(cs, 0x0);
@@ -1406,10 +1450,24 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 
    tu_cs_emit_call(cs, &cmd->draw_epilogue_cs);
 
-   tu_cs_emit_regs(cs,
-                   A6XX_GRAS_LRZ_CNTL(0));
+   if (cmd->state.lrz.fast_clear) {
+      tu6_emit_lrz_buffer(cs, cmd->state.lrz.image);
 
-   tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
+      tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_CNTL(
+         .enable = true,
+         .fc_enable = cmd->state.lrz.fast_clear,
+      ));
+
+      /* Flushing with fc_enable flushes writes to LRZ fast-clear buffer */
+      tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
+      tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_CNTL());
+   }
+
+   if (!cmd->state.lrz.fast_clear) {
+      tu_cs_emit_regs(cs,
+                      A6XX_GRAS_LRZ_CNTL(0));
+      tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
+   }
 
    tu6_emit_event_write(cmd, cs, PC_CCU_RESOLVE_TS);
 
@@ -1678,6 +1736,25 @@ tu_cache_init(struct tu_cache_state *cache)
 {
    cache->flush_bits = 0;
    cache->pending_flush_bits = TU_CMD_FLAG_ALL_INVALIDATE;
+}
+
+static bool
+tu_is_lrz_supported(const struct tu_render_pass_attachment *att,
+                    struct tu_image *image)
+{
+   /* If image has lrz and it isn't a stencil-only clear. */
+   return image->lrz_height &&
+          (att->clear_mask & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT));
+}
+
+static void
+tu_init_lrz_state(struct tu_cmd_buffer *cmd,
+                  struct tu_image *image)
+{
+   cmd->state.lrz.image = image;
+   cmd->state.lrz.valid = true;
+   cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
+   cmd->state.lrz.fast_clear = image->lrz_fc_size > 0;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -3389,29 +3466,26 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       cmd->state.renderpass_cache.flush_bits |= TU_CMD_FLAG_CACHE_INVALIDATE;
 
    /* Track LRZ valid state */
+   cmd->state.lrz.valid = false;
    uint32_t a = cmd->state.subpass->depth_stencil_attachment.attachment;
    if (a != VK_ATTACHMENT_UNUSED) {
       const struct tu_render_pass_attachment *att = &cmd->state.pass->attachments[a];
       struct tu_image *image = cmd->state.attachments[a]->image;
-      /* if image has lrz and it isn't a stencil-only clear: */
-      if (image->lrz_height &&
-          (att->clear_mask & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT))) {
-         cmd->state.lrz.image = image;
-         cmd->state.lrz.valid = true;
-         cmd->state.lrz.prev_direction = TU_LRZ_UNKNOWN;
+      if (tu_is_lrz_supported(att, image)) {
+         tu_init_lrz_state(cmd, image);
 
-         tu6_clear_lrz(cmd, &cmd->cs, image, &pRenderPassBegin->pClearValues[a]);
-
-         /* Clearing writes via CCU color in the PS stage, and LRZ is read via
-          * UCHE in the earlier GRAS stage.
-          */
-         cmd->state.cache.flush_bits |=
-            TU_CMD_FLAG_CCU_FLUSH_COLOR | TU_CMD_FLAG_CACHE_INVALIDATE |
-            TU_CMD_FLAG_WAIT_FOR_IDLE;
-      } else {
-         cmd->state.lrz.valid = false;
+         VkClearValue clear = pRenderPassBegin->pClearValues[a];
+         cmd->state.lrz.depth_clear_value = clear;
+         cmd->state.lrz.fast_clear = cmd->state.lrz.fast_clear &&
+                                     (clear.depthStencil.depth == 0.f ||
+                                      clear.depthStencil.depth == 1.f);
       }
       cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
+   }
+
+   if (!cmd->state.lrz.valid) {
+      memset(&cmd->state.lrz, 0, sizeof(cmd->state.lrz));
+      tu6_emit_lrz_buffer(&cmd->cs, NULL);
    }
 
    cmd->trace_renderpass_start = u_trace_end_iterator(&cmd->trace);
@@ -3677,6 +3751,7 @@ tu6_calculate_lrz_state(struct tu_cmd_buffer *cmd,
       !(pipeline->lrz.force_disable_mask & TU_LRZ_FORCE_DISABLE_WRITE);
    gras_lrz_cntl.z_test_enable = z_read_enable;
    gras_lrz_cntl.z_bounds_enable = z_bounds_enable;
+   gras_lrz_cntl.fc_enable = cmd->state.lrz.fast_clear;
 
    /* LRZ is disabled until it is cleared, which means that one "wrong"
     * depth test or shader could disable LRZ until depth buffer is cleared.
@@ -3809,12 +3884,7 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    const uint32_t a = cmd->state.subpass->depth_stencil_attachment.attachment;
    struct A6XX_GRAS_LRZ_CNTL gras_lrz_cntl = tu6_calculate_lrz_state(cmd, a);
 
-   tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_CNTL(
-      .enable = gras_lrz_cntl.enable,
-      .greater = gras_lrz_cntl.greater,
-      .lrz_write = gras_lrz_cntl.lrz_write,
-      .z_test_enable = gras_lrz_cntl.z_test_enable,
-      .z_bounds_enable = gras_lrz_cntl.z_bounds_enable));
+   tu_cs_emit_regs(cs, pack_A6XX_GRAS_LRZ_CNTL(gras_lrz_cntl));
    tu_cs_emit_regs(cs, A6XX_RB_LRZ_CNTL(.enable = gras_lrz_cntl.enable));
 }
 
