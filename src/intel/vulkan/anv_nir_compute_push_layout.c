@@ -166,7 +166,7 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
                }
 
                case nir_intrinsic_load_desc_set_address_intel: {
-                  b->cursor = nir_before_instr(&intrin->instr);
+                  b->cursor = nir_instr_remove(&intrin->instr);
                   nir_ssa_def *pc_load = nir_load_uniform(b, 1, 64,
                      nir_imul_imm(b, intrin->src[0].ssa, sizeof(uint64_t)),
                      .base = offsetof(struct anv_push_constants, desc_sets),
