@@ -39,9 +39,13 @@
  */
 static void
 measure_batch_free(struct intel_measure_batch *base) {
-   struct iris_measure_batch *batch =
-      container_of(base, struct iris_measure_batch, base);
-   iris_destroy_batch_measure(batch);
+   /* save this object on a list, so it can be re-used for a subsequent
+    * batch
+    */
+   struct iris_measure_batch *batch = container_of(base,
+                                                   struct iris_measure_batch,
+                                                   base);
+   intel_measure_push_batch(batch->free_pool, base);
 }
 
 void
@@ -105,35 +109,54 @@ iris_init_batch_measure(struct iris_context *ice, struct iris_batch *batch)
    if (!config)
       return;
 
-   /* the final member of iris_measure_batch is a zero-length array of
-    * intel_measure_snapshot objects.  Create additional space for the
-    * snapshot objects based on the run-time configurable batch_size
-    */
-   const size_t batch_bytes = sizeof(struct iris_measure_batch) +
-      config->batch_size * sizeof(struct intel_measure_snapshot);
    assert(batch->measure == NULL);
-   batch->measure = malloc(batch_bytes);
-   memset(batch->measure, 0, batch_bytes);
-   struct iris_measure_batch *measure = batch->measure;
 
-   measure->bo = iris_bo_alloc(bufmgr, "measure",
-                               config->batch_size * sizeof(uint64_t), 1,
-                               IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
-   measure->base.timestamps = iris_bo_map(NULL, measure->bo, MAP_READ);
+   /* attempt to reuse a snapshot container that was freed after use on a
+    * previous batch
+    */
+   struct iris_measure_batch *measure = NULL;
+   struct intel_measure_batch *base = intel_measure_pop_batch(&batch->measure_pool);
+   if (base) {
+      /* a suitable container was found */
+      measure = container_of(base, struct iris_measure_batch, base);
+      assert(measure->free_pool == &batch->measure_pool);
+   } else {
+      /* Allocate a new object to hold snapshot data.
+       *
+       * The final member of iris_measure_batch is a zero-length array of
+       * intel_measure_snapshot objects.  Create additional space for the
+       * snapshot objects based on the run-time configurable batch_size
+       */
+      const size_t batch_bytes = sizeof(struct iris_measure_batch) +
+         config->batch_size * sizeof(struct intel_measure_snapshot);
+      measure = malloc(batch_bytes);
+      memset(measure, 0, batch_bytes);
+      measure->free_pool = &batch->measure_pool;
+      measure->bo = iris_bo_alloc(bufmgr, "measure",
+                                  config->batch_size * sizeof(uint64_t), 1,
+                                  IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
+      measure->base.timestamps = iris_bo_map(NULL, measure->bo, MAP_READ);
+   }
+
+   batch->measure = measure;
    measure->base.framebuffer =
       (uintptr_t)util_hash_crc32(&ice->state.framebuffer,
                                  sizeof(ice->state.framebuffer));
 }
 
 void
-iris_destroy_batch_measure(struct iris_measure_batch *batch)
+iris_free_measure_pool(struct intel_measure_batch_queue *pool)
 {
-   if (!batch)
-      return;
-   iris_bo_unmap(batch->bo);
-   iris_bo_unreference(batch->bo);
-   batch->bo = NULL;
-   free(batch);
+   while (true) {
+      struct intel_measure_batch *base = intel_measure_pop_batch(pool);
+      if (!base)
+         break;
+      struct iris_measure_batch *batch = container_of(base, struct iris_measure_batch, base);
+      iris_bo_unmap(batch->bo);
+      iris_bo_unreference(batch->bo);
+      batch->bo = NULL;
+      free(batch);
+   }
 }
 
 static void
@@ -371,6 +394,12 @@ iris_measure_batch_end(struct iris_context *ice, struct iris_batch *batch)
 
    if (measure_batch->index == 0)
       return;
+
+   /* Mark the final snapshot timestamp with a zero.  INTEL_MEASURE checks the
+    * final timestamp as a sentinal to indicate when a batch has been fully
+    * rendered.
+    */
+   measure_batch->timestamps[measure_batch->index - 1] = 0;
 
    /* enqueue snapshot for gathering */
    intel_measure_push_batch(&measure_device->queued_snapshots, measure_batch);
