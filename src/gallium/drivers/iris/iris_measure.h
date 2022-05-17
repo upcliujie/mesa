@@ -29,6 +29,9 @@
 struct iris_screen;
 
 struct iris_measure_batch {
+   /* the pool where this batch will be sent for re-use */
+   struct intel_measure_batch_queue *free_pool;
+   /* buffer object for snapshot data */
    struct iris_bo *bo;
    struct intel_measure_batch base;
 };
@@ -36,7 +39,7 @@ struct iris_measure_batch {
 void iris_init_screen_measure(struct iris_screen *screen);
 void iris_init_batch_measure(struct iris_context *ice,
                              struct iris_batch *batch);
-void iris_destroy_batch_measure(struct iris_measure_batch *batch);
+void iris_free_measure_pool(struct intel_measure_batch_queue *pool);
 void iris_destroy_ctx_measure(struct iris_context *ice);
 void iris_destroy_screen_measure(struct iris_screen *screen);
 void iris_measure_frame_end(struct iris_context *ice);
