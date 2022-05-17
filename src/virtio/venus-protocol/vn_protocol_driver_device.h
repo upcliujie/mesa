@@ -15880,7 +15880,7 @@ vn_sizeof_VkDrmFormatModifierPropertiesListEXT_self_partial(const VkDrmFormatMod
 {
     size_t size = 0;
     /* skip val->{sType,pNext} */
-    /* WA1: size += vn_sizeof_uint32_t(&val->drmFormatModifierCount) */(void)0;
+    /* WA1: size += vn_sizeof_uint32_t(&val->drmFormatModifierCount); */(void)0;
     if (val->pDrmFormatModifierProperties) {
         size += vn_sizeof_array_size(val->drmFormatModifierCount);
         for (uint32_t i = 0; i < val->drmFormatModifierCount; i++)
@@ -15914,7 +15914,7 @@ static inline void
 vn_encode_VkDrmFormatModifierPropertiesListEXT_self_partial(struct vn_cs_encoder *enc, const VkDrmFormatModifierPropertiesListEXT *val)
 {
     /* skip val->{sType,pNext} */
-    /* WA1: vn_encode_uint32_t(enc, &val->drmFormatModifierCount) */(void)0;
+    /* WA1: vn_encode_uint32_t(enc, &val->drmFormatModifierCount); */(void)0;
     if (val->pDrmFormatModifierProperties) {
         vn_encode_array_size(enc, val->drmFormatModifierCount);
         for (uint32_t i = 0; i < val->drmFormatModifierCount; i++)
@@ -16171,7 +16171,7 @@ vn_sizeof_VkDrmFormatModifierPropertiesList2EXT_self_partial(const VkDrmFormatMo
 {
     size_t size = 0;
     /* skip val->{sType,pNext} */
-    /* WA1: size += vn_sizeof_uint32_t(&val->drmFormatModifierCount) */(void)0;
+    /* WA1: size += vn_sizeof_uint32_t(&val->drmFormatModifierCount); */(void)0;
     if (val->pDrmFormatModifierProperties) {
         size += vn_sizeof_array_size(val->drmFormatModifierCount);
         for (uint32_t i = 0; i < val->drmFormatModifierCount; i++)
@@ -16205,7 +16205,7 @@ static inline void
 vn_encode_VkDrmFormatModifierPropertiesList2EXT_self_partial(struct vn_cs_encoder *enc, const VkDrmFormatModifierPropertiesList2EXT *val)
 {
     /* skip val->{sType,pNext} */
-    /* WA1: vn_encode_uint32_t(enc, &val->drmFormatModifierCount) */(void)0;
+    /* WA1: vn_encode_uint32_t(enc, &val->drmFormatModifierCount); */(void)0;
     if (val->pDrmFormatModifierProperties) {
         vn_encode_array_size(enc, val->drmFormatModifierCount);
         for (uint32_t i = 0; i < val->drmFormatModifierCount; i++)
@@ -16535,7 +16535,7 @@ vn_sizeof_VkPhysicalDeviceImageDrmFormatModifierInfoEXT_self(const VkPhysicalDev
     size += vn_sizeof_uint64_t(&val->drmFormatModifier);
     size += vn_sizeof_VkSharingMode(&val->sharingMode);
     size += vn_sizeof_uint32_t(&val->queueFamilyIndexCount);
-    if (val->pQueueFamilyIndices) {
+    if (val->pQueueFamilyIndices && !(val->sharingMode == VK_SHARING_MODE_EXCLUSIVE)) {
         size += vn_sizeof_array_size(val->queueFamilyIndexCount);
         size += vn_sizeof_uint32_t_array(val->pQueueFamilyIndices, val->queueFamilyIndexCount);
     } else {
@@ -16569,10 +16569,12 @@ vn_encode_VkPhysicalDeviceImageDrmFormatModifierInfoEXT_self(struct vn_cs_encode
     /* skip val->{sType,pNext} */
     vn_encode_uint64_t(enc, &val->drmFormatModifier);
     vn_encode_VkSharingMode(enc, &val->sharingMode);
-    vn_encode_uint32_t(enc, &val->queueFamilyIndexCount);
-    if (val->pQueueFamilyIndices) {
+    if (val->sharingMode == VK_SHARING_MODE_EXCLUSIVE)
+        vn_encode_stub_uint32_t(enc);
+    else
+        vn_encode_uint32_t(enc, &val->queueFamilyIndexCount);
+    if (val->pQueueFamilyIndices && !(val->sharingMode == VK_SHARING_MODE_EXCLUSIVE)) {
         vn_encode_array_size(enc, val->queueFamilyIndexCount);
-        vn_encode_uint32_t_array(enc, val->pQueueFamilyIndices, val->queueFamilyIndexCount);
     } else {
         vn_encode_array_size(enc, 0);
     }

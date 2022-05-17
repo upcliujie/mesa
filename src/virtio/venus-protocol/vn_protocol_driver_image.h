@@ -358,6 +358,8 @@ static inline size_t
 vn_sizeof_VkImageCreateInfo_self(const VkImageCreateInfo *val)
 {
     size_t size = 0;
+    /* Just an example for multiple inline support */
+    const bool is_exclusive = val->sharingMode == VK_SHARING_MODE_EXCLUSIVE;
     /* skip val->{sType,pNext} */
     size += vn_sizeof_VkFlags(&val->flags);
     size += vn_sizeof_VkImageType(&val->imageType);
@@ -370,7 +372,7 @@ vn_sizeof_VkImageCreateInfo_self(const VkImageCreateInfo *val)
     size += vn_sizeof_VkFlags(&val->usage);
     size += vn_sizeof_VkSharingMode(&val->sharingMode);
     size += vn_sizeof_uint32_t(&val->queueFamilyIndexCount);
-    if (val->pQueueFamilyIndices) {
+    if (val->pQueueFamilyIndices && !(is_exclusive)) {
         size += vn_sizeof_array_size(val->queueFamilyIndexCount);
         size += vn_sizeof_uint32_t_array(val->pQueueFamilyIndices, val->queueFamilyIndexCount);
     } else {
@@ -446,6 +448,8 @@ vn_encode_VkImageCreateInfo_pnext(struct vn_cs_encoder *enc, const void *val)
 static inline void
 vn_encode_VkImageCreateInfo_self(struct vn_cs_encoder *enc, const VkImageCreateInfo *val)
 {
+    /* Just an example for multiple inline support */
+    const bool is_exclusive = val->sharingMode == VK_SHARING_MODE_EXCLUSIVE;
     /* skip val->{sType,pNext} */
     vn_encode_VkFlags(enc, &val->flags);
     vn_encode_VkImageType(enc, &val->imageType);
@@ -457,10 +461,12 @@ vn_encode_VkImageCreateInfo_self(struct vn_cs_encoder *enc, const VkImageCreateI
     vn_encode_VkImageTiling(enc, &val->tiling);
     vn_encode_VkFlags(enc, &val->usage);
     vn_encode_VkSharingMode(enc, &val->sharingMode);
-    vn_encode_uint32_t(enc, &val->queueFamilyIndexCount);
-    if (val->pQueueFamilyIndices) {
+    if (is_exclusive)
+        vn_encode_stub_uint32_t(enc);
+    else
+        vn_encode_uint32_t(enc, &val->queueFamilyIndexCount);
+    if (val->pQueueFamilyIndices && !(is_exclusive)) {
         vn_encode_array_size(enc, val->queueFamilyIndexCount);
-        vn_encode_uint32_t_array(enc, val->pQueueFamilyIndices, val->queueFamilyIndexCount);
     } else {
         vn_encode_array_size(enc, 0);
     }

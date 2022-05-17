@@ -299,6 +299,13 @@ vn_encode_uint32_t(struct vn_cs_encoder *enc, const uint32_t *val)
 }
 
 static inline void
+vn_encode_stub_uint32_t(struct vn_cs_encoder *enc)
+{
+    const uint32_t stub = {0};
+    vn_encode(enc, 4, &stub, sizeof(stub));
+}
+
+static inline void
 vn_decode_uint32_t(struct vn_cs_decoder *dec, uint32_t *val)
 {
     vn_decode(dec, 4, val, sizeof(*val));
