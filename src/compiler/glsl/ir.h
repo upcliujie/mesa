@@ -1167,6 +1167,7 @@ enum ir_intrinsic_id {
    ir_intrinsic_shared_atomic_comp_swap = MAKE_INTRINSIC_FOR_TYPE(atomic_comp_swap, shared),
 
    ir_intrinsic_is_sparse_texels_resident,
+   ir_intrinsic_sparse_residency_code_and,
 };
 
 /*@{*/

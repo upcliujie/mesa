@@ -1206,6 +1206,7 @@ private:
 
    B0(is_sparse_texels_resident);
    B0(is_sparse_texels_resident_intrinsic);
+   B0(sparse_residency_code_and_intrinsic);
 
 /** Flags to _texture() */
 #define TEX_PROJECT 1
@@ -1726,6 +1727,9 @@ builtin_builder::create_intrinsics()
 
    add_function("__intrinsic_is_sparse_texels_resident",
                 _is_sparse_texels_resident_intrinsic(), NULL);
+
+   add_function("__intrinsic_sparse_residency_code_and",
+                _sparse_residency_code_and_intrinsic(), NULL);
 }
 
 /**
@@ -7295,6 +7299,16 @@ builtin_builder::_is_sparse_texels_resident_intrinsic(void)
    ir_variable *code = in_var(glsl_type::int_type, "code");
    MAKE_INTRINSIC(glsl_type::bool_type, ir_intrinsic_is_sparse_texels_resident,
                   sparse_enabled, 1, code);
+   return sig;
+}
+
+ir_function_signature *
+builtin_builder::_sparse_residency_code_and_intrinsic(void)
+{
+   ir_variable *code1 = in_var(glsl_type::int_type, "code1");
+   ir_variable *code2 = in_var(glsl_type::int_type, "code2");
+   MAKE_INTRINSIC(glsl_type::bool_type, ir_intrinsic_sparse_residency_code_and,
+                  sparse_enabled, 2, code1, code2);
    return sig;
 }
 
