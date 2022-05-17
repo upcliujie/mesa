@@ -240,6 +240,7 @@ iris_init_batch(struct iris_context *ice,
          batch->decoder.engine = I915_ENGINE_CLASS_COPY;
    }
 
+   intel_measure_init_batch_queue(&batch->measure_pool);
    iris_init_batch_measure(ice, batch);
 
    u_trace_init(&batch->trace, &ice->ds.trace_context);
@@ -585,7 +586,7 @@ iris_batch_free(struct iris_batch *batch)
    if (!batch->has_engines_context)
       iris_destroy_kernel_context(bufmgr, batch->ctx_id);
 
-   iris_destroy_batch_measure(batch->measure);
+   iris_free_measure_pool(&batch->measure_pool);
    batch->measure = NULL;
 
    u_trace_fini(&batch->trace);
