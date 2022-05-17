@@ -1101,6 +1101,9 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
 
       opts.lower_rect = true;
 
+      if (!st->screen->get_param(screen, PIPE_CAP_TEXTURE_GATHER_OFFSETS))
+         opts.lower_tg4_offsets = true;
+
       NIR_PASS_V(nir, nir_lower_tex, &opts);
    }
 

@@ -2116,9 +2116,6 @@ opt_shader_and_create_symbol_table(const struct gl_constants *consts,
    do_common_optimization(shader->ir, false, false, options,
                            consts->NativeIntegers);
 
-   if (options->LowerTextureGatherOffsetArrays)
-      lower_offset_arrays(shader->ir, shader->symbols);
-
    validate_ir_tree(shader->ir);
 
    enum ir_variable_mode other;
