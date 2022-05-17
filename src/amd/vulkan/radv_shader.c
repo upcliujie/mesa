@@ -1200,6 +1200,9 @@ void radv_lower_ngg(struct radv_device *device, struct radv_pipeline_stage *ngg_
          pl_key->vs.provoking_vtx_last,
          false,
          pl_key->vs.instance_rate_inputs);
+
+      /* Increase ESGS ring size so the LLVM binary contains the correct LDS size. */
+      ngg_stage->info.ngg_info.esgs_ring_size = nir->info.shared_size;
    } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       assert(info->is_ngg);
       ac_nir_lower_ngg_gs(
@@ -1875,12 +1878,14 @@ radv_shader_create(struct radv_device *device, const struct radv_shader_binary *
 
       if (rtld_binary.lds_size > 0) {
          unsigned encode_granularity = device->physical_device->rad_info.lds_encode_granularity;
-         config.lds_size = align(rtld_binary.lds_size, encode_granularity) / encode_granularity;
+         config.lds_size = DIV_ROUND_UP(rtld_binary.lds_size, encode_granularity);
       }
       if (!config.lds_size && binary->stage == MESA_SHADER_TESS_CTRL) {
          /* This is used for reporting LDS statistics */
          config.lds_size = binary->info.tcs.num_lds_blocks;
       }
+
+      assert(!binary->info.has_ngg_culling || config.lds_size);
 
       shader->code_size = rtld_binary.rx_size;
       shader->exec_size = rtld_binary.exec_size;
