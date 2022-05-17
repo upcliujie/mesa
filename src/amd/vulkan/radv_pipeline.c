@@ -7266,7 +7266,8 @@ radv_GetPipelineExecutableStatisticsKHR(VkDevice _device,
       radv_get_shader_from_executable_index(pipeline, pExecutableInfo->executableIndex, &stage);
 
    enum amd_gfx_level gfx_level = device->physical_device->rad_info.gfx_level;
-   unsigned lds_increment = gfx_level >= GFX7 ? 512 : 256;
+   unsigned lds_increment = gfx_level >= GFX11 && stage == MESA_SHADER_FRAGMENT ? 1024 :
+                            gfx_level >= GFX7 ? 512 : 256;
    unsigned max_waves = radv_get_max_waves(device, shader, stage);
 
    VkPipelineExecutableStatisticKHR *s = pStatistics;
