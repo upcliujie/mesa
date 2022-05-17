@@ -27,6 +27,9 @@
 #include <stdbool.h>
 #include "main/image.h"
 #include "main/pbo.h"
+#ifdef USE_STREAMING_MEMCPY
+# include "main/streaming-load-memcpy.h"
+#endif
 
 #include "state_tracker/st_nir.h"
 #include "state_tracker/st_format.h"
@@ -1014,12 +1017,20 @@ copy_converted_buffer(struct gl_context * ctx,
             GLubyte *srcpx = _mesa_image_address(dim, &packing, map,
                                                  width, height, format, type,
                                                  z, y, 0);
+#ifdef USE_STREAMING_MEMCPY
+            _mesa_streaming_load_memcpy(dst, srcpx, util_format_get_stride(dst_format, width));
+#else
             memcpy(dst, srcpx, util_format_get_stride(dst_format, width));
+#endif
          }
       }
    } else {
       /* direct copy for all other cases */
+#ifdef USE_STREAMING_MEMCPY
+      _mesa_streaming_load_memcpy(pixels, map, dst->width0);
+#else
       memcpy(pixels, map, dst->width0);
+#endif
    }
 
    _mesa_unmap_pbo_dest(ctx, pack);
