@@ -192,6 +192,7 @@ struct iris_batch {
 
    uint32_t last_aux_map_state;
    struct iris_measure_batch *measure;
+   struct intel_measure_batch_queue measure_pool;
 
    /** Where tracepoints are recorded */
    struct u_trace trace;
