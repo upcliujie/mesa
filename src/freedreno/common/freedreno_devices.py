@@ -250,6 +250,7 @@ a6xx_gen3 = dict(
         has_8bpp_ubwc = False,
         has_dp2acc = True,
         has_lrz_dir_tracking = True,
+        lrz_track_quirk = True,
         magic = dict(
             # this seems to be a chicken bit that fixes cubic filtering:
             TPL1_DBG_ECO_CNTL = 0x1000000,

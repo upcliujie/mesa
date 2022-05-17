@@ -512,6 +512,21 @@ tu6_apply_depth_bounds_workaround(struct tu_device *device,
 }
 
 static void
+tu6_write_lrz_reg(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
+                  struct fd_reg_pair reg)
+{
+   if (cmd->device->physical_device->info->a6xx.lrz_track_quirk) {
+      tu_cs_emit_pkt7(cs, CP_REG_WRITE, 3);
+      tu_cs_emit(cs, CP_REG_WRITE_0_TRACKER(TRACK_LRZ));
+      tu_cs_emit(cs, reg.reg);
+      tu_cs_emit(cs, reg.value);
+   } else {
+      tu_cs_emit_pkt4(cs, reg.reg, 1);
+      tu_cs_emit(cs, reg.value);
+   }
+}
+
+static void
 tu_cs_emit_draw_state(struct tu_cs *cs, uint32_t id, struct tu_draw_state state)
 {
    uint32_t enable_mask;
@@ -1274,9 +1289,9 @@ tu_init_renderpass_lrz(struct tu_cmd_buffer *cmd)
        * (While values seem to be unimportant - we follow what blob does)
        */
       if (!cmd->state.lrz.valid)
-         tu_cs_emit_regs(&cmd->cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0xffffffff));
+         tu6_write_lrz_reg(cmd, &cmd->cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0xffffffff));
 
-      tu_cs_emit_regs(&cmd->cs, A6XX_GRAS_LRZ_CNTL(
+      tu6_write_lrz_reg(cmd, &cmd->cs, A6XX_GRAS_LRZ_CNTL(
          .enable = true,
          .fc_enable = cmd->state.lrz.fast_clear,
          .disable_on_wrong_dir = cmd->state.lrz.gpu_dir_tracking,
@@ -1289,7 +1304,7 @@ tu_init_renderpass_lrz(struct tu_cmd_buffer *cmd)
       tu6_emit_event_write(cmd, &cmd->cs, LRZ_FLUSH);
 
       if (!cmd->state.lrz.valid)
-         tu_cs_emit_regs(&cmd->cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0));
+         tu6_write_lrz_reg(cmd, &cmd->cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0));
    }
 
    if (!cmd->state.lrz.fast_clear) {
@@ -1483,10 +1498,10 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
       tu6_emit_lrz_buffer(cs, cmd->state.lrz.image);
 
       if (cmd->state.lrz.gpu_dir_tracking) {
-         tu_cs_emit_regs(cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0));
+         tu6_write_lrz_reg(cmd, cs, A6XX_GRAS_UNKNOWN_810A(.dword = 0));
       }
 
-      tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_CNTL(
+      tu6_write_lrz_reg(cmd, cs, A6XX_GRAS_LRZ_CNTL(
          .enable = true,
          .fc_enable = cmd->state.lrz.fast_clear,
          .disable_on_wrong_dir = cmd->state.lrz.gpu_dir_tracking,
@@ -1494,7 +1509,7 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 
       /* Flushing with fc_enable flushes writes to LRZ fast-clear buffer */
       tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
-      tu_cs_emit_regs(cs, A6XX_GRAS_LRZ_CNTL());
+      tu6_write_lrz_reg(cmd, cs, A6XX_GRAS_LRZ_CNTL());
    }
 
    /* If gpu_dir_tracking is enabled and lrz is not valid blob, at this point,
@@ -1509,8 +1524,7 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
     */
 
    if (!cmd->state.lrz.fast_clear && !cmd->state.lrz.gpu_dir_tracking) {
-      tu_cs_emit_regs(cs,
-                      A6XX_GRAS_LRZ_CNTL(0));
+      tu6_write_lrz_reg(cmd, cs, A6XX_GRAS_LRZ_CNTL(0));
       tu6_emit_event_write(cmd, cs, LRZ_FLUSH);
    }
 
@@ -3982,7 +3996,7 @@ tu6_build_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    const uint32_t a = cmd->state.subpass->depth_stencil_attachment.attachment;
    struct A6XX_GRAS_LRZ_CNTL gras_lrz_cntl = tu6_calculate_lrz_state(cmd, a);
 
-   tu_cs_emit_regs(cs, pack_A6XX_GRAS_LRZ_CNTL(gras_lrz_cntl));
+   tu6_write_lrz_reg(cmd, cs, pack_A6XX_GRAS_LRZ_CNTL(gras_lrz_cntl));
    tu_cs_emit_regs(cs, A6XX_RB_LRZ_CNTL(.enable = gras_lrz_cntl.enable));
 }
 
