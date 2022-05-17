@@ -36,18 +36,61 @@
 #include "ir_builder.h"
 #include "ir_optimization.h"
 #include "ir_rvalue_visitor.h"
+#include "glsl_symbol_table.h"
 
 using namespace ir_builder;
 
 class lower_offset_array_visitor : public ir_rvalue_visitor {
 public:
-   lower_offset_array_visitor()
+   lower_offset_array_visitor(glsl_symbol_table *symbols)
+      : mem_ctx(NULL), intrin(NULL), progress(false)
    {
-      progress = false;
+      intrin = symbols->get_function("__intrinsic_sparse_residency_code_and");
+   }
+
+   ir_dereference_record *
+   record_ref(ir_variable *var, const char *field)
+   {
+      return new(mem_ctx) ir_dereference_record(var, field);
+   }
+
+   ir_dereference_variable *var_ref(ir_variable *var)
+   {
+      return new(mem_ctx) ir_dereference_variable(var);
+   }
+
+   ir_call *
+   call(ir_function *f, ir_variable *ret, exec_list params)
+   {
+      exec_list actual_params;
+
+      foreach_in_list_safe(ir_instruction, ir, &params) {
+         ir_dereference_variable *d = ir->as_dereference_variable();
+         if (d != NULL) {
+            d->remove();
+            actual_params.push_tail(d);
+         } else {
+            ir_variable *var = ir->as_variable();
+            assert(var != NULL);
+            actual_params.push_tail(var_ref(var));
+         }
+      }
+
+      ir_function_signature *sig =
+         f->exact_matching_signature(NULL, &actual_params);
+      if (!sig)
+         return NULL;
+
+      ir_dereference_variable *deref =
+         (sig->return_type->is_void() ? NULL : var_ref(ret));
+
+      return new(mem_ctx) ir_call(sig, deref, &actual_params);
    }
 
    void handle_rvalue(ir_rvalue **rv);
 
+   void *mem_ctx;
+   ir_function *intrin;
    bool progress;
 };
 
@@ -63,16 +106,53 @@ lower_offset_array_visitor::handle_rvalue(ir_rvalue **rv)
 
    void *mem_ctx = ralloc_parent(ir);
 
+   this->mem_ctx = mem_ctx;
+
    ir_variable *var =
       new (mem_ctx) ir_variable(ir->type, "result", ir_var_temporary);
    base_ir->insert_before(var);
 
-   for (int i = 0; i < 4; i++) {
-      ir_texture *tex = ir->clone(mem_ctx, NULL);
-      tex->offset = new (mem_ctx) ir_dereference_array(tex->offset,
-            new (mem_ctx) ir_constant(i));
+   if (!ir->is_sparse) {
+      for (int i = 0; i < 4; i++) {
+         ir_texture *tex = ir->clone(mem_ctx, NULL);
+         tex->offset = new (mem_ctx) ir_dereference_array(tex->offset,
+                                                          new (mem_ctx) ir_constant(i));
 
-      base_ir->insert_before(assign(var, swizzle_w(tex), 1 << i));
+         base_ir->insert_before(assign(var, swizzle_w(tex), 1 << i));
+      }
+   } else {
+      ir_variable *tmp_var =
+         new (mem_ctx) ir_variable(ir->type, "tmp_var", ir_var_temporary);
+      ir_variable *tmp_code =
+         new (mem_ctx) ir_variable(glsl_type::int_type, "tmp_code", ir_var_temporary);
+
+      base_ir->insert_before(tmp_var);
+
+      for (int i = 0; i < 4; i++) {
+         ir_texture *tex = ir->clone(mem_ctx, NULL);
+         tex->offset = new (mem_ctx) ir_dereference_array(tex->offset,
+                                                          new (mem_ctx) ir_constant(i));
+
+         base_ir->insert_before(assign(tmp_var, tex));
+
+         if (i == 0) {
+            base_ir->insert_before(assign(record_ref(var, "code"),
+                                          record_ref(tmp_var, "code")));
+         } else {
+            exec_list parameters;
+
+            parameters.push_tail(record_ref(var, "code"));
+            parameters.push_tail(record_ref(tmp_var, "code"));
+
+            base_ir->insert_before(call(intrin, tmp_code, parameters));
+
+            base_ir->insert_before(assign(record_ref(var, "code"), tmp_code));
+         }
+
+         base_ir->insert_before(assign(record_ref(var, "texel"),
+                                       swizzle_w(record_ref(tmp_var, "texel")),
+                                       1 << i));
+      }
    }
 
    *rv = new (mem_ctx) ir_dereference_variable(var);
@@ -81,9 +161,9 @@ lower_offset_array_visitor::handle_rvalue(ir_rvalue **rv)
 }
 
 bool
-lower_offset_arrays(exec_list *instructions)
+lower_offset_arrays(exec_list *instructions, glsl_symbol_table *symbols)
 {
-   lower_offset_array_visitor v;
+   lower_offset_array_visitor v(symbols);
 
    visit_list_elements(&v, instructions);
 

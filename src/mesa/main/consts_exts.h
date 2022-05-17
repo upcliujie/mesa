@@ -370,6 +370,12 @@ struct gl_shader_compiler_options
    /** (driconf) Force gl_Position to be considered precise */
    GLboolean PositionAlwaysPrecise;
 
+   /**
+    * Lower textureGatherOffsets (and similar functions) to multiple calls to
+    * textureGatherOffset.
+    */
+   bool LowerTextureGatherOffsetArrays;
+
    const struct nir_shader_compiler_options *NirOptions;
 };
 
