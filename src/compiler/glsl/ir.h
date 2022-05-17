@@ -136,6 +136,9 @@ public:
              ir_type == ir_type_discard;
    }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull-compare"
+
    /**
     * \name IR instruction downcast functions
     *
@@ -189,6 +192,8 @@ public:
    AS_CHILD(discard)
    #undef AS_CHILD
    /*@}*/
+
+#pragma GCC diagnostic pop
 
    /**
     * IR equality method: Return true if the referenced instruction would
