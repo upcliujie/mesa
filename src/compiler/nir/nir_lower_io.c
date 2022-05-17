@@ -3013,8 +3013,13 @@ nir_lower_io_passes(nir_shader *nir, nir_xfb_info *xfb)
    /* Lower and remove dead derefs and variables to clean up the IR. */
    NIR_PASS_V(nir, nir_lower_vars_to_ssa);
    NIR_PASS_V(nir, nir_opt_dce);
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp |
-         nir_var_shader_in | nir_var_shader_out, NULL);
+
+   if (nir->info.stage == MESA_SHADER_VERTEX)
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp | nir_var_shader_in, NULL);
+   else if (nir->info.stage == MESA_SHADER_FRAGMENT)
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp | nir_var_shader_out, NULL);
+   else
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp | nir_var_shader_in | nir_var_shader_out, NULL);
 
    if (xfb)
       NIR_PASS_V(nir, nir_add_xfb_info, xfb);
