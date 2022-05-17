@@ -60,6 +60,7 @@ vlVaHandleVAEncPictureParameterBufferTypeHEVC(vlVaDriver *drv, vlVaContext *cont
    context->coded_buf = coded_buf;
    context->desc.h265enc.pic.log2_parallel_merge_level_minus2 = h265->log2_parallel_merge_level_minus2;
    context->desc.h265enc.pic.nal_unit_type = h265->nal_unit_type;
+   context->desc.h265enc.rc.fill_data_enable = 1;
    context->desc.h265enc.rc.quant_i_frames = h265->pic_init_qp;
 
    switch(h265->pic_fields.bits.coding_type) {
@@ -177,6 +178,8 @@ vlVaHandleVAEncMiscParameterTypeRateControlHEVC(vlVaContext *context, VAEncMiscP
       context->desc.h265enc.rc.vbv_buffer_size = MIN2((context->desc.h265enc.rc.target_bitrate * 2.75), 2000000);
    else
       context->desc.h265enc.rc.vbv_buffer_size = context->desc.h265enc.rc.target_bitrate;
+
+   context->desc.h265enc.rc.fill_data_enable = !rc->rc_flags.bits.disable_bit_stuffing;
 
    return VA_STATUS_SUCCESS;
 }
@@ -324,7 +327,6 @@ void getEncParamPresetH265(vlVaContext *context)
    //rate control
    context->desc.h265enc.rc.vbv_buffer_size = 20000000;
    context->desc.h265enc.rc.vbv_buf_lv = 48;
-   context->desc.h265enc.rc.fill_data_enable = 1;
    context->desc.h265enc.rc.enforce_hrd = 1;
    if (context->desc.h265enc.rc.frame_rate_num == 0 ||
        context->desc.h265enc.rc.frame_rate_den == 0) {
