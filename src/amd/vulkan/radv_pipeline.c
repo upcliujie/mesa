@@ -4504,8 +4504,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
          /* Lower I/O intrinsics to memory instructions. */
          bool io_to_mem = radv_lower_io_to_mem(device, &stages[i], pipeline_key);
-         bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage &&
-                            !radv_use_llvm_for_stage(device, i);
+         bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage;
          if (lowered_ngg)
             radv_lower_ngg(device, &stages[i], pipeline_key);
 

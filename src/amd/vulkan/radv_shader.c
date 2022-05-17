@@ -784,8 +784,8 @@ radv_shader_compile_to_nir(struct radv_device *device, const struct radv_pipelin
    if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
 
-      if (key->use_ngg && !radv_use_llvm_for_stage(device, stage->stage)) {
-         /* ACO needs NIR to do some of the hard lifting */
+      if (key->use_ngg) {
+         /* Needed by ac_nir_lower_ngg_gs. */
          nir_gs_flags |= nir_lower_gs_intrinsics_count_primitives |
                          nir_lower_gs_intrinsics_count_vertices_per_primitive |
                          nir_lower_gs_intrinsics_overwrite_incomplete;
@@ -1071,6 +1071,10 @@ radv_consider_culling(struct radv_device *device, struct nir_shader *nir, uint64
    if (is_meta_shader(nir))
       return false;
 
+   /* TODO: Enable culling for LLVM. */
+   if (radv_use_llvm_for_stage(device, nir->info.stage))
+      return false;
+
    /* We don't support culling with multiple viewports yet. */
    if (nir->info.outputs_written & (VARYING_BIT_VIEWPORT | VARYING_BIT_VIEWPORT_MASK))
       return false;
@@ -1125,9 +1129,6 @@ void radv_lower_ngg(struct radv_device *device, struct radv_pipeline_stage *ngg_
 {
    const struct radv_shader_info *info = &ngg_stage->info;
    nir_shader *nir = ngg_stage->nir;
-
-   /* TODO: support the LLVM backend with the NIR lowering */
-   assert(!radv_use_llvm_for_stage(device, nir->info.stage));
 
    assert(nir->info.stage == MESA_SHADER_VERTEX ||
           nir->info.stage == MESA_SHADER_TESS_EVAL ||
