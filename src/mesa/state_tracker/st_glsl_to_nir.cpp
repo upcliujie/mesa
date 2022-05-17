@@ -1096,10 +1096,14 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
    NIR_PASS_V(nir, nir_split_var_copies);
    NIR_PASS_V(nir, nir_lower_var_copies);
 
-   if (st->lower_rect_tex) {
-      struct nir_lower_tex_options opts = { 0 };
+   const bool lower_tg4_offsets =
+      !st->screen->get_param(screen, PIPE_CAP_TEXTURE_GATHER_OFFSETS);
 
-      opts.lower_rect = true;
+   if (st->lower_rect_tex || lower_tg4_offsets) {
+      const struct nir_lower_tex_options opts = {
+         .lower_rect = bool(st->lower_rect_tex),
+         .lower_tg4_offsets = lower_tg4_offsets
+      };
 
       NIR_PASS_V(nir, nir_lower_tex, &opts);
    }
