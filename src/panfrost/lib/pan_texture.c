@@ -359,6 +359,8 @@ panfrost_emit_plane(const struct pan_image_layout *layout,
         panfrost_get_surface_strides(layout, level, &row_stride, &surface_stride);
         assert(row_stride >= 0 && surface_stride >= 0 && "negative stride");
 
+        bool afbc = drm_is_afbc(layout->modifier);
+
         pan_pack(payload, PLANE, cfg) {
                 cfg.pointer = pointer;
                 cfg.row_stride = row_stride;
@@ -369,6 +371,8 @@ panfrost_emit_plane(const struct pan_image_layout *layout,
                                    panfrost_get_layer_stride(layout, level);
 
                 if (desc->layout == UTIL_FORMAT_LAYOUT_ASTC) {
+                        assert(!afbc);
+
                         if (desc->block.depth > 1) {
                                 cfg.plane_type = MALI_PLANE_TYPE_ASTC_3D;
                                 cfg.astc._3d.block_width = panfrost_astc_dim_3d(desc->block.width);
@@ -393,14 +397,22 @@ panfrost_emit_plane(const struct pan_image_layout *layout,
                          * yet.
                          */
                         cfg.astc.decode_wide = !srgb;
+                } else if (afbc) {
+                        cfg.plane_type = MALI_PLANE_TYPE_AFBC;
+                        cfg.afbc.superblock_size = MALI_AFBC_SUPERBLOCK_SIZE_16X16 /* TODO */;
+                        cfg.afbc.ytr = (layout->modifier & AFBC_FORMAT_MOD_YTR);
+                        cfg.afbc.tiled_header = (layout->modifier & AFBC_FORMAT_MOD_TILED);
+                        cfg.afbc.prefetch = true;
+                        cfg.afbc.compression_mode = pan_afbc_compression_mode(format);
+                        cfg.afbc.header_stride = layout->slices[level].afbc.header_size;
                 } else {
                         cfg.plane_type = MALI_PLANE_TYPE_GENERIC;
                         cfg.clump_format = panfrost_clump_format(format);
                 }
 
-                if (layout->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED)
+                if (!afbc && layout->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED)
                         cfg.clump_ordering = MALI_CLUMP_ORDERING_TILED_U_INTERLEAVED;
-                else
+                else if (!afbc)
                         cfg.clump_ordering = MALI_CLUMP_ORDERING_LINEAR;
         }
 }
