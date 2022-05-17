@@ -784,8 +784,8 @@ radv_shader_compile_to_nir(struct radv_device *device, const struct radv_pipelin
    if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
 
-      if (key->use_ngg && !radv_use_llvm_for_stage(device, stage->stage)) {
-         /* ACO needs NIR to do some of the hard lifting */
+      if (key->use_ngg) {
+         /* Needed by ac_nir_lower_ngg_gs. */
          nir_gs_flags |= nir_lower_gs_intrinsics_count_primitives |
                          nir_lower_gs_intrinsics_count_vertices_per_primitive |
                          nir_lower_gs_intrinsics_overwrite_incomplete;
@@ -1125,9 +1125,6 @@ void radv_lower_ngg(struct radv_device *device, struct radv_pipeline_stage *ngg_
 {
    const struct radv_shader_info *info = &ngg_stage->info;
    nir_shader *nir = ngg_stage->nir;
-
-   /* TODO: support the LLVM backend with the NIR lowering */
-   assert(!radv_use_llvm_for_stage(device, nir->info.stage));
 
    assert(nir->info.stage == MESA_SHADER_VERTEX ||
           nir->info.stage == MESA_SHADER_TESS_EVAL ||
@@ -1777,7 +1774,7 @@ radv_open_rtld_binary(struct radv_device *device, const struct radv_shader *shad
 {
    const char *elf_data = (const char *)((struct radv_shader_binary_rtld *)binary)->data;
    size_t elf_size = ((struct radv_shader_binary_rtld *)binary)->elf_size;
-   struct ac_rtld_symbol lds_symbols[2];
+   struct ac_rtld_symbol lds_symbols[3];
    unsigned num_lds_symbols = 0;
 
    if (device->physical_device->rad_info.gfx_level >= GFX9 &&
@@ -1793,6 +1790,11 @@ radv_open_rtld_binary(struct radv_device *device, const struct radv_shader *shad
       struct ac_rtld_symbol *sym = &lds_symbols[num_lds_symbols++];
       sym->name = "ngg_emit";
       sym->size = binary->info.ngg_info.ngg_emit_size * 4;
+      sym->align = 4;
+
+      sym = &lds_symbols[num_lds_symbols++];
+      sym->name = "ngg_scratch";
+      sym->size = 8;
       sym->align = 4;
    }
 
