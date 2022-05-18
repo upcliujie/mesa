@@ -50,6 +50,10 @@ bool ac_is_llvm_processor_supported(LLVMTargetMachineRef tm, const char *process
    return TM->getMCSubtargetInfo()->isCPUStringValid(processor);
 }
 
+void ac_reset_llvm_command_line_parser() {
+   llvm::cl::ResetCommandLineParser();
+}
+
 void ac_add_attr_dereferenceable(LLVMValueRef val, uint64_t bytes)
 {
    llvm::Argument *A = llvm::unwrap<llvm::Argument>(val);
