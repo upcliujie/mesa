@@ -3474,6 +3474,8 @@ VkResult anv_CreateDevice(
 
    anv_device_utrace_init(device);
 
+   intel_measure_init_batch_queue(&device->measure_pool);
+
    *pDevice = anv_device_to_handle(device);
 
    return VK_SUCCESS;
@@ -3548,6 +3550,8 @@ void anv_DestroyDevice(
       return;
 
    anv_device_utrace_finish(device);
+
+   anv_measure_device_release_pool(device);
 
    anv_device_finish_blorp(device);
 
