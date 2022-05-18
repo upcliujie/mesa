@@ -736,6 +736,8 @@ struct ir3_shader_variant {
    /* Important for compute shader to determine max reg footprint */
    bool has_barrier;
 
+   bool shared_consts_enable;
+
    /* The offset where images start in the IBO array. */
    unsigned num_ssbos;
 
@@ -842,6 +844,8 @@ struct ir3_shader {
 
    unsigned num_reserved_user_consts;
 
+   bool shared_consts_enable;
+
    /* What API-visible wavesizes are allowed. Even if only double wavesize is
     * allowed, we may still use the smaller wavesize "under the hood" and the
     * application simply sees the upper half as always disabled.
@@ -890,6 +894,55 @@ ir3_const_state(const struct ir3_shader_variant *v)
    return v->const_state;
 }
 
+static inline uint32_t
+ir3_max_const_pipeline(const struct ir3_compiler *compiler,
+                       bool shared_consts_enable)
+{
+   /* 16 vec4s for geometry stages, 8 for fragment stage */
+   uint32_t shared_const_len = shared_consts_enable ? 24 : 0;
+
+   return compiler->max_const_pipeline - shared_const_len;
+}
+
+static inline uint32_t
+ir3_max_const_geom(const struct ir3_compiler *compiler,
+                   bool shared_consts_enable)
+{
+   /* 16 vec4s for geometry stages, although 8 actullay used */
+   uint32_t shared_const_len = shared_consts_enable ? 16 : 0;
+
+   return compiler->max_const_geom - shared_const_len;
+}
+
+static inline uint32_t
+ir3_max_const_frag(const struct ir3_compiler *compiler,
+                   bool shared_consts_enable)
+{
+   uint32_t shared_const_len = shared_consts_enable ?
+         compiler->shared_consts_size : 0;
+
+   return compiler->max_const_frag - shared_const_len;
+}
+
+static inline uint32_t
+ir3_max_const_compute(const struct ir3_compiler *compiler,
+                      bool shared_consts_enable)
+{
+   uint32_t shared_const_len = shared_consts_enable ?
+         compiler->shared_consts_size : 0;
+
+   return compiler->max_const_compute - shared_const_len;
+}
+
+static inline uint32_t
+ir3_max_const_safe(const struct ir3_compiler *compiler,
+                   bool shared_consts_enable)
+{
+   uint32_t shared_const_len = shared_consts_enable ? 4: 0;
+
+   return compiler->max_const_safe - shared_const_len;
+}
+
 /* Given a variant, calculate the maximum constlen it can have.
  */
 
@@ -900,13 +953,13 @@ ir3_max_const(const struct ir3_shader_variant *v)
 
    if ((v->type == MESA_SHADER_COMPUTE) ||
        (v->type == MESA_SHADER_KERNEL)) {
-      return compiler->max_const_compute;
+      return ir3_max_const_compute(compiler, v->shared_consts_enable);
    } else if (v->key.safe_constlen) {
-      return compiler->max_const_safe;
+      return ir3_max_const_safe(compiler, v->shared_consts_enable);
    } else if (v->type == MESA_SHADER_FRAGMENT) {
-      return compiler->max_const_frag;
+      return ir3_max_const_frag(compiler, v->shared_consts_enable);
    } else {
-      return compiler->max_const_geom;
+      return ir3_max_const_geom(compiler, v->shared_consts_enable);
    }
 }
 
@@ -923,6 +976,7 @@ ir3_shader_get_variant(struct ir3_shader *shader,
 
 struct ir3_shader_options {
    unsigned reserved_user_consts;
+   bool shared_consts_enable;
    enum ir3_wavesize_option api_wavesize, real_wavesize;
 };
 
