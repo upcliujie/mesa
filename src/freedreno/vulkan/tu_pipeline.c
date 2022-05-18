@@ -2618,7 +2618,8 @@ tu_shaders_serialize(struct vk_pipeline_cache_object *object,
    struct tu_compiled_shaders *shaders =
       container_of(object, struct tu_compiled_shaders, base);
 
-   blob_write_bytes(blob, shaders->push_consts, sizeof(shaders->push_consts));
+   blob_write_bytes(blob, shaders->shared_consts, sizeof(shaders->shared_consts));
+   blob_write_bytes(blob, shaders->regular_consts, sizeof(shaders->regular_consts));
    blob_write_uint8(blob, shaders->active_desc_sets);
    blob_write_uint8(blob, shaders->multi_pos_output);
 
@@ -2646,7 +2647,8 @@ tu_shaders_deserialize(struct vk_device *_device,
    if (!shaders)
       return NULL;
 
-   blob_copy_bytes(blob, shaders->push_consts, sizeof(shaders->push_consts));
+   blob_copy_bytes(blob, shaders->shared_consts, sizeof(shaders->shared_consts));
+   blob_copy_bytes(blob, shaders->regular_consts, sizeof(shaders->regular_consts));
    shaders->active_desc_sets = blob_read_uint8(blob);
    shaders->multi_pos_output = blob_read_uint8(blob);
 
@@ -2833,14 +2835,15 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
         stage < ARRAY_SIZE(shaders); stage++) {
       if (!shaders[stage])
          continue;
-      
+
       compiled_shaders->variants[stage] =
          ir3_shader_create_variant(shaders[stage]->ir3_shader, &ir3_key,
                                    executable_info);
       if (!compiled_shaders->variants[stage])
          return VK_ERROR_OUT_OF_HOST_MEMORY;
 
-      compiled_shaders->push_consts[stage] = shaders[stage]->push_consts;
+      compiled_shaders->shared_consts[stage] = shaders[stage]->shared_consts;
+      compiled_shaders->regular_consts[stage] = shaders[stage]->regular_consts;
    }
 
    uint32_t safe_constlens = ir3_trim_constlen(compiled_shaders->variants, compiler);
@@ -3024,12 +3027,14 @@ tu_pipeline_builder_parse_dynamic(struct tu_pipeline_builder *builder,
 
 static void
 tu_pipeline_set_linkage(struct tu_program_descriptor_linkage *link,
-                        struct tu_push_constant_range *push_consts,
+                        struct tu_push_constant_range *shared_consts,
+                        struct tu_push_constant_range *regular_consts,
                         struct ir3_shader_variant *v)
 {
    link->const_state = *ir3_const_state(v);
    link->constlen = v->constlen;
-   link->push_consts = *push_consts;
+   link->shared_consts = *shared_consts;
+   link->regular_consts = *regular_consts;
 }
 
 static void
@@ -3072,7 +3077,8 @@ tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
          continue;
 
       tu_pipeline_set_linkage(&pipeline->program.link[i],
-                              &builder->shaders->push_consts[i],
+                              &builder->shaders->shared_consts[i],
+                              &builder->shaders->regular_consts[i],
                               builder->shaders->variants[i]);
    }
 }
@@ -3872,7 +3878,8 @@ tu_compute_pipeline_create(VkDevice device,
       }
 
       compiled->active_desc_sets = shader->active_desc_sets;
-      compiled->push_consts[MESA_SHADER_COMPUTE] = shader->push_consts;
+      compiled->shared_consts[MESA_SHADER_COMPUTE] = shader->shared_consts;
+      compiled->regular_consts[MESA_SHADER_COMPUTE] = shader->regular_consts;
 
       struct ir3_shader_variant *v =
          ir3_shader_create_variant(shader->ir3_shader, &ir3_key, executable_info);
@@ -3894,7 +3901,8 @@ tu_compute_pipeline_create(VkDevice device,
    struct ir3_shader_variant *v = compiled->variants[MESA_SHADER_COMPUTE];
 
    tu_pipeline_set_linkage(&pipeline->program.link[MESA_SHADER_COMPUTE],
-                           &compiled->push_consts[MESA_SHADER_COMPUTE], v);
+                           &compiled->shared_consts[MESA_SHADER_COMPUTE],
+                           &compiled->regular_consts[MESA_SHADER_COMPUTE], v);
 
    result = tu_pipeline_allocate_cs(dev, pipeline, layout, NULL, v);
    if (result != VK_SUCCESS)
