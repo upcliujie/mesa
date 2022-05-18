@@ -1797,7 +1797,6 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
                               .robust_ubo_access = robust_buffer_access2,
                               .push_ubo_with_preamble = true,
                               .disable_cache = true,
-                              .shared_consts_enable = true,
                            });
    if (!device->compiler) {
       result = vk_startup_errorf(physical_device->instance,

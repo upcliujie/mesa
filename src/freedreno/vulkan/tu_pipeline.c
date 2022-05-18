@@ -659,15 +659,27 @@ tu6_emit_xs(struct tu_cs *cs,
 }
 
 static void
+tu6_emit_shared_consts_enable(struct tu_cs *cs, bool enable)
+{
+   /* Enable/disable shared constants */
+   tu_cs_emit_regs(cs, A6XX_HLSQ_SHARED_CONSTS(.enable = enable));
+   tu_cs_emit_regs(cs, A6XX_SP_MODE_CONTROL(.constant_demotion_enable = true,
+                                            .isammode = ISAMMODE_GL,
+                                            .shared_consts_enable = enable));
+}
+
+static void
 tu6_emit_cs_config(struct tu_cs *cs,
                    const struct ir3_shader_variant *v,
                    const struct tu_pvtmem_config *pvtmem,
                    uint64_t binary_iova)
 {
+   tu6_emit_shared_consts_enable(cs, v->shared_consts_enable);
+
    tu_cs_emit_regs(cs, A6XX_HLSQ_INVALIDATE_CMD(
          .cs_state = true,
          .cs_ibo = true,
-         .cs_shared_const = true));
+         .cs_shared_const = v->shared_consts_enable));
 
    tu6_emit_xs_config(cs, MESA_SHADER_COMPUTE, v);
    tu6_emit_xs(cs, MESA_SHADER_COMPUTE, v, pvtmem, binary_iova);
@@ -1679,6 +1691,15 @@ tu6_emit_program_config(struct tu_cs *cs,
 
    STATIC_ASSERT(MESA_SHADER_VERTEX == 0);
 
+   /* Shared constants are shared between geometry and fragment
+    * stages, so they either enabled for all or for none of stages.
+    *
+    * Note that shared consts for CS is separated.
+    */
+   bool shared_consts =
+      builder->shaders->variants[MESA_SHADER_VERTEX]->shared_consts_enable;
+   tu6_emit_shared_consts_enable(cs, shared_consts);
+
    tu_cs_emit_regs(cs, A6XX_HLSQ_INVALIDATE_CMD(
          .vs_state = true,
          .hs_state = true,
@@ -1686,7 +1707,7 @@ tu6_emit_program_config(struct tu_cs *cs,
          .gs_state = true,
          .fs_state = true,
          .gfx_ibo = true,
-         .gfx_shared_const = true));
+         .gfx_shared_const = shared_consts));
    for (; stage < ARRAY_SIZE(builder->shader_iova); stage++) {
       tu6_emit_xs_config(cs, stage, builder->shaders->variants[stage]);
    }
