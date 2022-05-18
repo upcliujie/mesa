@@ -246,6 +246,7 @@ files_libnir = files(
   'nir_opt_phi_precision.c',
   'nir_opt_preamble.c',
   'nir_opt_ray_queries.c',
+  'nir_opt_ray_query_ranges.c',
   'nir_opt_rematerialize_compares.c',
   'nir_opt_remove_phis.c',
   'nir_opt_shrink_stores.c',
