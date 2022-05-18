@@ -962,6 +962,8 @@ static void si_destroy_screen(struct pipe_screen *pscreen)
    util_idalloc_mt_fini(&sscreen->buffer_ids);
    util_vertex_state_cache_deinit(&sscreen->vertex_state_cache);
 
+   ac_reset_llvm_command_line_parser();
+
    sscreen->ws->destroy(sscreen->ws);
    FREE(sscreen);
 }
