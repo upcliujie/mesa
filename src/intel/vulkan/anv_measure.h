@@ -29,6 +29,7 @@
 
 void anv_measure_device_init(struct anv_physical_device *device);
 void anv_measure_device_destroy(struct anv_physical_device *device);
+void anv_measure_device_release_pool(struct anv_device *device);
 
 void anv_measure_init(struct anv_cmd_buffer *cmd_buffer);
 void anv_measure_destroy(struct anv_cmd_buffer *cmd_buffer);
