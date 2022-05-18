@@ -1351,7 +1351,7 @@ struct tu_event
 struct tu_push_constant_range
 {
    uint32_t lo;
-   uint32_t count;
+   uint32_t dwords;
 };
 
 struct tu_shader
