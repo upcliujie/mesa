@@ -94,6 +94,7 @@ libintel_compiler_files = files(
   'brw_nir_lower_shader_calls.c',
   'brw_nir_lower_shading_rate_output.c',
   'brw_nir_lower_storage_image.c',
+  'brw_nir_opt_load_global_const_block.c',
   'brw_nir_opt_peephole_ffma.c',
   'brw_nir_rt.h',
   'brw_nir_rt.c',

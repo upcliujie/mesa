@@ -559,6 +559,8 @@ brw_nir_optimize(nir_shader *nir, const struct brw_compiler *compiler,
          OPT(nir_opt_shrink_vectors);
       }
 
+      OPT(brw_nir_opt_load_global_const_block);
+
       OPT(nir_copy_prop);
 
       if (is_scalar) {
