@@ -666,7 +666,8 @@ tu6_emit_cs_config(struct tu_cs *cs,
 {
    tu_cs_emit_regs(cs, A6XX_HLSQ_INVALIDATE_CMD(
          .cs_state = true,
-         .cs_ibo = true));
+         .cs_ibo = true,
+         .cs_shared_const = true));
 
    tu6_emit_xs_config(cs, MESA_SHADER_COMPUTE, v);
    tu6_emit_xs(cs, MESA_SHADER_COMPUTE, v, pvtmem, binary_iova);
@@ -1684,7 +1685,8 @@ tu6_emit_program_config(struct tu_cs *cs,
          .ds_state = true,
          .gs_state = true,
          .fs_state = true,
-         .gfx_ibo = true));
+         .gfx_ibo = true,
+         .gfx_shared_const = true));
    for (; stage < ARRAY_SIZE(builder->shader_iova); stage++) {
       tu6_emit_xs_config(cs, stage, builder->shaders->variants[stage]);
    }
