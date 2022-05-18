@@ -101,27 +101,35 @@ anv_measure_init(struct anv_cmd_buffer *cmd_buffer)
       return;
    }
 
-   /* the final member of anv_measure is a zero-length array of
-    * intel_measure_snapshot objects.  Create additional space for the
-    * snapshot objects based on the run-time configurable batch_size
-    */
-   const size_t batch_bytes = sizeof(struct anv_measure_batch) +
-      config->batch_size * sizeof(struct intel_measure_snapshot);
-   struct anv_measure_batch * measure =
-      vk_alloc(&cmd_buffer->vk.pool->alloc,
-               batch_bytes, 8,
-               VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   struct anv_measure_batch *measure = NULL;
+   struct intel_measure_batch *base = intel_measure_pop_batch(&device->measure_pool);
+   if (base) {
+      /* A spent object was available to recycle for this command buffer's
+       * snapshots.
+       */
+      measure = container_of(base, struct anv_measure_batch, base);
+   } else {
+      /* Allocate a new batch for snapshot data.  The final member of
+       * anv_measure is a zero-length array of intel_measure_snapshot objects.
+       * Create additional space for the snapshot objects based on the
+       * run-time configurable batch_size
+       */
+      const size_t batch_bytes = sizeof(struct anv_measure_batch) +
+         config->batch_size * sizeof(struct intel_measure_snapshot);
+      measure =
+         vk_alloc(&cmd_buffer->vk.pool->alloc,
+                  batch_bytes, 8,
+                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
 
-   memset(measure, 0, batch_bytes);
-   ASSERTED VkResult result =
-      anv_device_alloc_bo(device, "measure data",
-                          config->batch_size * sizeof(uint64_t),
-                          ANV_BO_ALLOC_MAPPED,
-                          0,
-                          (struct anv_bo**)&measure->bo);
-   measure->base.timestamps = measure->bo->map;
-   assert(result == VK_SUCCESS);
-
+      ASSERTED VkResult result =
+         anv_device_alloc_bo(device, "measure data",
+                             config->batch_size * sizeof(uint64_t),
+                             ANV_BO_ALLOC_MAPPED,
+                             0,
+                             (struct anv_bo**)&measure->bo);
+      measure->base.timestamps = measure->bo->map;
+      assert(result == VK_SUCCESS);
+   }
    cmd_buffer->measure = measure;
 }
 
@@ -307,7 +315,11 @@ anv_measure_reset(struct anv_cmd_buffer *cmd_buffer)
    if (!config)
       return;
 
-   if (!config->enabled) {
+   if (measure && !config->enabled) {
+      /* Put the snapshot data structure on a queue where it will be re-used
+       * if snapshots are re-enabled
+       */
+      intel_measure_push_batch(&device->measure_pool, &measure->base);
       cmd_buffer->measure = NULL;
       return;
    }
@@ -319,8 +331,8 @@ anv_measure_reset(struct anv_cmd_buffer *cmd_buffer)
       return anv_measure_init(cmd_buffer);
    }
 
-   /* it is possible that the command buffer contains snapshots that have not
-    * yet been processed
+   /* Ensure that any snapshots corresponding to the rendered command buffer
+    * have been processed.
     */
    intel_measure_gather(&device->physical->measure_device,
                         &device->info);
@@ -331,7 +343,6 @@ anv_measure_reset(struct anv_cmd_buffer *cmd_buffer)
 //   measure->base.framebuffer = 0;
    measure->base.frame = 0;
    measure->base.event_count = 0;
-   list_inithead(&measure->base.link);
 }
 
 void
@@ -352,8 +363,10 @@ anv_measure_destroy(struct anv_cmd_buffer *cmd_buffer)
     */
    intel_measure_gather(&physical->measure_device, &physical->info);
 
-   anv_device_release_bo(device, measure->bo);
-   vk_free(&cmd_buffer->vk.pool->alloc, measure);
+   /* Place the snapshot data structure on a queue where it can be re-used on
+    * subsequent command buffers.
+    */
+   intel_measure_push_batch(&device->measure_pool, &measure->base);
    cmd_buffer->measure = NULL;
 }
 
@@ -361,6 +374,18 @@ static struct intel_measure_config*
 config_from_device(struct anv_device *device)
 {
    return device->physical->measure_device.config;
+}
+
+void
+anv_measure_device_release_pool(struct anv_device *device) {
+   while (true) {
+      struct intel_measure_batch *base = intel_measure_pop_batch(&device->measure_pool);
+      if (!base)
+         break;
+      struct anv_measure_batch *batch = container_of(base, struct anv_measure_batch, base);
+      anv_device_release_bo(device, batch->bo);
+      vk_free(&device->vk.alloc, batch);
+   }
 }
 
 void

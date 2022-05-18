@@ -1257,6 +1257,7 @@ struct anv_device {
     struct intel_debug_block_frame              *debug_frame_desc;
 
     struct intel_ds_device                       ds;
+    struct intel_measure_batch_queue             measure_pool;
 };
 
 #if defined(GFX_VERx10) && GFX_VERx10 >= 90
