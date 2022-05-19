@@ -121,12 +121,12 @@ enum radeon_family
    CHIP_NAVI12,         /* Radeon Pro 5600M */
    CHIP_NAVI14,         /* Radeon 5300, 5500 */
    /* GFX10.3 (RDNA 2) */
-   CHIP_SIENNA_CICHLID, /* Radeon 6800, 6900 */
-   CHIP_NAVY_FLOUNDER,  /* Radeon 6700 */
+   CHIP_NAVI21,         /* Radeon 6800, 6900 */
+   CHIP_NAVI22,         /* Radeon 6700 */
    CHIP_VANGOGH,        /* Steam Deck */
-   CHIP_DIMGREY_CAVEFISH, /* Radeon 6600 */
-   CHIP_BEIGE_GOBY,     /* Radeon 6400, 6500 */
-   CHIP_YELLOW_CARP,    /* Ryzen 6000 */
+   CHIP_NAVI23,         /* Radeon 6600 */
+   CHIP_NAVI24,         /* Radeon 6400, 6500 */
+   CHIP_REMBRANDT,      /* Ryzen 6000 */
    CHIP_GFX1036,
    CHIP_GFX1100,
    CHIP_GFX1101,
