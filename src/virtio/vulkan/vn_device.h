@@ -23,6 +23,9 @@ struct vn_device {
    struct vn_physical_device *physical_device;
    struct vn_renderer *renderer;
 
+   uint32_t *queue_families;
+   uint32_t queue_family_count;
+
    struct vn_device_memory_pool memory_pools[VK_MAX_MEMORY_TYPES];
 
    struct vn_buffer_cache buffer_cache;
@@ -35,4 +38,14 @@ VK_DEFINE_HANDLE_CASTS(vn_device,
                        VkDevice,
                        VK_OBJECT_TYPE_DEVICE)
 
+static inline uint32_t
+vn_device_get_queue_family_array_index(struct vn_device *dev,
+                                       uint32_t queue_family_index)
+{
+   for (uint32_t i = 0; i < dev->queue_family_count; i++) {
+      if (dev->queue_families[i] == queue_family_index)
+         return i;
+   }
+   unreachable("bad queue family index");
+}
 #endif /* VN_DEVICE_H */
