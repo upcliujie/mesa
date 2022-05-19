@@ -163,6 +163,7 @@ files_libnir = files(
   'nir_lower_locals_to_regs.c',
   'nir_lower_idiv.c',
   'nir_lower_image.c',
+  'nir_lower_image_oob_access.c',
   'nir_lower_indirect_derefs.c',
   'nir_lower_input_attachments.c',
   'nir_lower_int64.c',
