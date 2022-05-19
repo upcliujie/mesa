@@ -1912,6 +1912,19 @@ struct radv_rasterization_info {
    VkRasterizationOrderAMD order;
 };
 
+struct radv_multisample_info {
+   VkSampleCountFlagBits raster_samples;
+   bool sample_shading_enable;
+   float min_sample_shading;
+   bool alpha_to_coverage_enable;
+   uint32_t sample_mask;
+   bool sample_locs_enable;
+   VkSampleCountFlagBits sample_locs_per_pixel;
+   VkExtent2D sample_locs_grid_size;
+   VkSampleLocationEXT sample_locs[MAX_SAMPLE_LOCATIONS];
+   uint32_t sample_locs_count;
+};
+
 struct radv_graphics_pipeline_info {
    struct radv_vertex_input_info vi;
    struct radv_input_assembly_info ia;
@@ -1919,6 +1932,8 @@ struct radv_graphics_pipeline_info {
    struct radv_tessellation_info ts;
    struct radv_viewport_info vp;
    struct radv_rasterization_info rs;
+
+   struct radv_multisample_info ms;
 };
 
 struct radv_pipeline {
