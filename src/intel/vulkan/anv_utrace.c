@@ -119,19 +119,16 @@ anv_device_utrace_flush_cmd_buffers(struct anv_queue *queue,
       goto error_sync;
 
    if (utrace_copies > 0) {
-      result =
-         anv_device_alloc_bo(device, "utrace-copy-buf", utrace_copies * 4096,
-                             ANV_BO_ALLOC_MAPPED, 0 /* explicit_address */,
-                             &flush->trace_bo);
+      result = anv_bo_pool_alloc(&device->utrace_bo_pool,
+                                 utrace_copies * 4096,
+                                 &flush->trace_bo);
       if (result != VK_SUCCESS)
          goto error_trace_buf;
 
-      result =
-         anv_device_alloc_bo(device, "utrace-copy-batch",
-                             /* 128 dwords of setup + 64 dwords per copy */
-                             align_u32(512 + 64 * utrace_copies, 4096),
-                             ANV_BO_ALLOC_MAPPED, 0 /* explicit_address */,
-                             &flush->batch_bo);
+      result = anv_bo_pool_alloc(&device->utrace_bo_pool,
+                                 /* 128 dwords of setup + 64 dwords per copy */
+                                 align_u32(512 + 64 * utrace_copies, 4096),
+                                 &flush->batch_bo);
       if (result != VK_SUCCESS)
          goto error_batch_buf;
 
@@ -283,6 +280,7 @@ queue_family_to_name(const struct anv_queue_family *family)
 void
 anv_device_utrace_init(struct anv_device *device)
 {
+   anv_bo_pool_init(&device->utrace_bo_pool, device, "utrace");
    intel_ds_device_init(&device->ds, &device->info, device->fd,
                         device->physical->local_minor - 128,
                         INTEL_DS_API_VULKAN);
@@ -309,6 +307,7 @@ anv_device_utrace_finish(struct anv_device *device)
 {
    u_trace_context_process(&device->ds.trace_context, true);
    intel_ds_device_fini(&device->ds);
+   anv_bo_pool_finish(&device->utrace_bo_pool);
 }
 
 enum intel_ds_stall_flag
