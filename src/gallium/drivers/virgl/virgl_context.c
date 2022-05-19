@@ -685,6 +685,7 @@ static void *virgl_shader_encoder(struct pipe_context *ctx,
 
    if (shader->type == PIPE_SHADER_IR_NIR) {
       nir_shader *s = nir_shader_clone(NULL, shader->ir.nir);
+      nir_lower_image_oob_access(s);
       ntt_tokens = tokens = nir_to_tgsi(s, vctx->base.screen); /* takes ownership */
    } else {
       tokens = shader->tokens;
