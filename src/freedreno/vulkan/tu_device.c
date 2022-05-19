@@ -1500,7 +1500,7 @@ tu_trace_destroy_ts_buffer(struct u_trace_context *utctx, void *timestamps)
 }
 
 static void
-tu_trace_record_ts(struct u_trace *ut, void *cs, void *timestamps,
+tu_trace_record_ts(struct u_trace *ut, void *timestamps,
                    unsigned idx, bool end_of_pipe)
 {
    struct tu_cmd_buffer *cmd_buffer =

@@ -1417,7 +1417,7 @@ tu6_blit_image(struct tu_cmd_buffer *cmd,
          unreachable("unexpected D32_S8 aspect mask in blit_image");
    }
 
-   trace_start_blit(&cmd->trace, cs);
+   trace_start_blit(&cmd->trace);
 
    ops->setup(cmd, cs, tu_vk_format_to_pipe_format(format), info->dstSubresource.aspectMask,
               blit_param, false, dst_image->layout[0].ubwc,
@@ -1472,7 +1472,7 @@ tu6_blit_image(struct tu_cmd_buffer *cmd,
 
    ops->teardown(cmd, cs);
 
-   trace_end_blit(&cmd->trace, cs,
+   trace_end_blit(&cmd->trace,
                   ops == &r3d_ops,
                   src_image->vk_format,
                   dst_image->vk_format,
@@ -2089,7 +2089,7 @@ resolve_sysmem(struct tu_cmd_buffer *cmd,
 {
    const struct blit_ops *ops = &r2d_ops;
 
-   trace_start_sysmem_resolve(&cmd->trace, cs);
+   trace_start_sysmem_resolve(&cmd->trace);
 
    ops->setup(cmd, cs, tu_vk_format_to_pipe_format(format),
               VK_IMAGE_ASPECT_COLOR_BIT, 0, false, dst->view.ubwc_enabled,
@@ -2114,7 +2114,7 @@ resolve_sysmem(struct tu_cmd_buffer *cmd,
 
    ops->teardown(cmd, cs);
 
-   trace_end_sysmem_resolve(&cmd->trace, cs, format);
+   trace_end_sysmem_resolve(&cmd->trace, format);
 }
 
 void
@@ -2256,7 +2256,7 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
    bool z_clear = false;
    bool s_clear = false;
 
-   trace_start_sysmem_clear_all(&cmd->trace, cs);
+   trace_start_sysmem_clear_all(&cmd->trace);
 
    for (uint32_t i = 0; i < attachment_count; i++) {
       uint32_t a;
@@ -2391,8 +2391,7 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
       }
    }
 
-   trace_end_sysmem_clear_all(&cmd->trace,
-                              cs, mrt_count, rect_count);
+   trace_end_sysmem_clear_all(&cmd->trace, mrt_count, rect_count);
 }
 
 static void
@@ -2510,7 +2509,7 @@ tu_emit_clear_gmem_attachment(struct tu_cmd_buffer *cmd,
    const struct tu_render_pass_attachment *att =
       &cmd->state.pass->attachments[attachment];
 
-   trace_start_gmem_clear(&cmd->trace, cs);
+   trace_start_gmem_clear(&cmd->trace);
 
    enum pipe_format format = tu_vk_format_to_pipe_format(att->format);
    if (att->format == VK_FORMAT_D32_SFLOAT_S8_UINT) {
@@ -2523,7 +2522,7 @@ tu_emit_clear_gmem_attachment(struct tu_cmd_buffer *cmd,
 
    clear_gmem_attachment(cmd, cs, format, aspect_write_mask(format, mask), att->gmem_offset, value);
 
-   trace_end_gmem_clear(&cmd->trace, cs, att->format, att->samples);
+   trace_end_gmem_clear(&cmd->trace, att->format, att->samples);
 }
 
 static void
@@ -2631,7 +2630,7 @@ clear_sysmem_attachment(struct tu_cmd_buffer *cmd,
    if (cmd->state.pass->attachments[a].samples > 1)
       ops = &r3d_ops;
 
-   trace_start_sysmem_clear(&cmd->trace, cs);
+   trace_start_sysmem_clear(&cmd->trace);
 
    ops->setup(cmd, cs, format, clear_mask, 0, true, iview->view.ubwc_enabled,
               cmd->state.pass->attachments[a].samples);
@@ -2653,7 +2652,7 @@ clear_sysmem_attachment(struct tu_cmd_buffer *cmd,
 
    ops->teardown(cmd, cs);
 
-   trace_end_sysmem_clear(&cmd->trace, cs,
+   trace_end_sysmem_clear(&cmd->trace,
                           vk_format, ops == &r3d_ops,
                           cmd->state.pass->attachments[a].samples);
 }
@@ -2874,7 +2873,7 @@ tu_load_gmem_attachment(struct tu_cmd_buffer *cmd,
    if (!load_common && !load_stencil)
       return;
 
-   trace_start_gmem_load(&cmd->trace, cs);
+   trace_start_gmem_load(&cmd->trace);
 
    /* If attachment will be cleared by vkCmdClearAttachments - it is likely
     * that it would be partially cleared, and since it is done by 2d blit
@@ -2899,7 +2898,7 @@ tu_load_gmem_attachment(struct tu_cmd_buffer *cmd,
    if (cond_exec)
       tu_end_load_store_cond_exec(cmd, cs, true);
 
-   trace_end_gmem_load(&cmd->trace, cs, attachment->format, force_load);
+   trace_end_gmem_load(&cmd->trace, attachment->format, force_load);
 }
 
 static void
@@ -3054,7 +3053,7 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
    bool store_common = dst->store && !resolve_d32s8_s8;
    bool store_separate_stencil = dst->store_stencil || resolve_d32s8_s8;
 
-   trace_start_gmem_store(&cmd->trace, cs);
+   trace_start_gmem_store(&cmd->trace);
 
    /* use fast path when render area is aligned, except for unsupported resolve cases */
    if (!unaligned && (a == gmem_a || blit_can_resolve(dst->format))) {
@@ -3067,7 +3066,7 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
          tu_end_load_store_cond_exec(cmd, cs, false);
       }
 
-      trace_end_gmem_store(&cmd->trace, cs, dst->format, true, false);
+      trace_end_gmem_store(&cmd->trace, dst->format, true, false);
       return;
    }
 
@@ -3111,5 +3110,5 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
       tu_end_load_store_cond_exec(cmd, cs, false);
    }
 
-   trace_end_gmem_store(&cmd->trace, cs, dst->format, false, unaligned);
+   trace_end_gmem_store(&cmd->trace, dst->format, false, unaligned);
 }

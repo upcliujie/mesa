@@ -210,13 +210,13 @@ void ${trace.tp_perfetto}(
 #endif
 %    endif
 void __trace_${trace_name}(
-       struct u_trace *ut, void *cs
+       struct u_trace *ut
 %    for arg in trace.args:
      , ${arg.type} ${arg.var}
 %    endfor
 );
 static inline void trace_${trace_name}(
-     struct u_trace *ut, void *cs
+     struct u_trace *ut
 %    for arg in trace.args:
    , ${arg.type} ${arg.var}
 %    endfor
@@ -228,7 +228,7 @@ static inline void trace_${trace_name}(
 %    endif
       return;
    __trace_${trace_name}(
-        ut, cs
+        ut
 %    for arg in trace.args:
       , ${arg.var}
 %    endfor
@@ -319,13 +319,13 @@ static const struct u_tracepoint __tp_${trace_name} = {
  % endif
 };
 void __trace_${trace_name}(
-     struct u_trace *ut, void *cs
+     struct u_trace *ut
  % for arg in trace.args:
    , ${arg.type} ${arg.var}
  % endfor
 ) {
    struct trace_${trace_name} *__entry =
-      (struct trace_${trace_name} *)u_trace_append(ut, cs, &__tp_${trace_name});
+      (struct trace_${trace_name} *)u_trace_append(ut, &__tp_${trace_name});
  % if len(trace.tp_struct) == 0:
    (void)__entry;
  % endif

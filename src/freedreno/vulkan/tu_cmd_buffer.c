@@ -1057,12 +1057,12 @@ tu6_emit_binning_pass(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    tu_cs_emit_regs(cs,
                    A6XX_SP_TP_WINDOW_OFFSET(.x = 0, .y = 0));
 
-   trace_start_binning_ib(&cmd->trace, cs);
+   trace_start_binning_ib(&cmd->trace);
 
    /* emit IB to binning drawcmds: */
    tu_cs_emit_call(cs, &cmd->draw_cs);
 
-   trace_end_binning_ib(&cmd->trace, cs);
+   trace_end_binning_ib(&cmd->trace);
 
    /* switching from binning pass to GMEM pass will cause a switch from
     * PROGRAM_BINNING to PROGRAM, which invalidates const state (XS_CONST states)
@@ -1425,7 +1425,7 @@ tu_cmd_render_tiles(struct tu_cmd_buffer *cmd,
    const struct tu_framebuffer *fb = cmd->state.framebuffer;
    struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
 
-   tu6_tile_render_begin(cmd, &cmd->cs, autotune_result);
+   tu6_tile_render_begin(cmd, cs, autotune_result);
 
    uint32_t pipe = 0;
    for (uint32_t py = 0; py < fb->pipe_count.height; py++) {
@@ -1439,9 +1439,9 @@ tu_cmd_render_tiles(struct tu_cmd_buffer *cmd,
             for (uint32_t tx = tx1; tx < tx2; tx++, slot++) {
                tu6_emit_tile_select(cmd, cs, tx, ty, pipe, slot);
 
-               trace_start_draw_ib_gmem(&cmd->trace, &cmd->cs);
-               trace_end_draw_ib_gmem(&cmd->trace, &cmd->cs);
+               trace_start_draw_ib_gmem(&cmd->trace);
                tu6_render_tile(cmd, cs, pipe, slot);
+               trace_end_draw_ib_gmem(&cmd->trace);
             }
          }
       }
@@ -1449,7 +1449,7 @@ tu_cmd_render_tiles(struct tu_cmd_buffer *cmd,
 
    tu6_tile_render_end(cmd, cs, autotune_result);
 
-   trace_end_render_pass(&cmd->trace, &cmd->cs, fb);
+   trace_end_render_pass(&cmd->trace, fb);
 
    if (!u_trace_iterator_equal(cmd->trace_renderpass_start, cmd->trace_renderpass_end))
       u_trace_disable_event_range(cmd->trace_renderpass_start,
@@ -1464,15 +1464,15 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd,
 
    tu6_sysmem_render_begin(cmd, cs, autotune_result);
 
-   trace_start_draw_ib_sysmem(&cmd->trace, &cmd->cs);
+   trace_start_draw_ib_sysmem(&cmd->trace);
 
    tu_cs_emit_call(cs, &cmd->draw_cs);
 
-   trace_end_draw_ib_sysmem(&cmd->trace, &cmd->cs);
+   trace_end_draw_ib_sysmem(&cmd->trace);
 
    tu6_sysmem_render_end(cmd, cs, autotune_result);
 
-   trace_end_render_pass(&cmd->trace, &cmd->cs, cmd->state.framebuffer);
+   trace_end_render_pass(&cmd->trace, cmd->state.framebuffer);
 }
 
 static VkResult
@@ -3380,7 +3380,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
          cmd->state.framebuffer->attachments[i].attachment;
    }
 
-   trace_start_render_pass(&cmd->trace, &cmd->cs);
+   trace_start_render_pass(&cmd->trace);
 
    /* Note: because this is external, any flushes will happen before draw_cs
     * gets called. However deferred flushes could have to happen later as part
@@ -4617,7 +4617,7 @@ tu_dispatch(struct tu_cmd_buffer *cmd,
                    A6XX_HLSQ_CS_KERNEL_GROUP_Y(1),
                    A6XX_HLSQ_CS_KERNEL_GROUP_Z(1));
 
-   trace_start_compute(&cmd->trace, cs);
+   trace_start_compute(&cmd->trace);
 
    if (info->indirect) {
       uint64_t iova = info->indirect->iova + info->indirect_offset;
@@ -4637,7 +4637,7 @@ tu_dispatch(struct tu_cmd_buffer *cmd,
       tu_cs_emit(cs, CP_EXEC_CS_3_NGROUPS_Z(info->blocks[2]));
    }
 
-   trace_end_compute(&cmd->trace, cs,
+   trace_end_compute(&cmd->trace,
                      info->indirect != NULL,
                      local_size[0], local_size[1], local_size[2],
                      info->blocks[0], info->blocks[1], info->blocks[2]);

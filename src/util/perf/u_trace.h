@@ -98,7 +98,7 @@ typedef void (*u_trace_delete_ts_buffer)(struct u_trace_context *utctx,
  * a fixed rate, even as the GPU freq changes.  The same source used for
  * GL_TIMESTAMP queries should be appropriate.
  */
-typedef void (*u_trace_record_ts)(struct u_trace *ut, void *cs,
+typedef void (*u_trace_record_ts)(struct u_trace *ut,
                                   void *timestamps, unsigned idx,
                                   bool end_of_pipe);
 

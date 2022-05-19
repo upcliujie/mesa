@@ -445,11 +445,11 @@ fd_get_device_reset_status(struct pipe_context *pctx)
 }
 
 static void
-fd_trace_record_ts(struct u_trace *ut, void *cs, void *timestamps,
+fd_trace_record_ts(struct u_trace *ut, void *timestamps,
                    unsigned idx, bool end_of_pipe)
 {
    struct fd_batch *batch = container_of(ut, struct fd_batch, trace);
-   struct fd_ringbuffer *ring = cs;
+   struct fd_ringbuffer *ring = batch->current_ring;
    struct pipe_resource *buffer = timestamps;
 
    if (ring->cur == batch->last_timestamp_cmd) {

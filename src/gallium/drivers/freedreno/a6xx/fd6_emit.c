@@ -1227,7 +1227,7 @@ fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
    struct fd_screen *screen = batch->ctx->screen;
 
    if (!batch->nondraw) {
-      trace_start_state_restore(&batch->trace, ring);
+      trace_start_state_restore(&batch->trace);
    }
 
    fd6_cache_inv(batch, ring);
@@ -1349,7 +1349,7 @@ fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
    }
 
    if (!batch->nondraw) {
-      trace_end_state_restore(&batch->trace, ring);
+      trace_end_state_restore(&batch->trace);
    }
 }
 

@@ -173,8 +173,8 @@ fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info) in_dt
    OUT_RING(ring, 1); /* HLSQ_CS_KERNEL_GROUP_Y */
    OUT_RING(ring, 1); /* HLSQ_CS_KERNEL_GROUP_Z */
 
-   trace_grid_info(&ctx->batch->trace, ring, info);
-   trace_start_compute(&ctx->batch->trace, ring);
+   trace_grid_info(&ctx->batch->trace, info);
+   trace_start_compute(&ctx->batch->trace);
 
    if (info->indirect) {
       struct fd_resource *rsc = fd_resource(info->indirect);
@@ -194,7 +194,7 @@ fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info) in_dt
       OUT_RING(ring, CP_EXEC_CS_3_NGROUPS_Z(info->grid[2]));
    }
 
-   trace_end_compute(&ctx->batch->trace, ring);
+   trace_end_compute(&ctx->batch->trace);
 
    OUT_WFI5(ring);
 
