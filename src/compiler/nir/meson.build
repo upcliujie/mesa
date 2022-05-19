@@ -178,6 +178,7 @@ files_libnir = files(
   'nir_lower_multiview.c',
   'nir_lower_mediump.c',
   'nir_lower_memcpy.c',
+  'nir_lower_memop_oob_access.c',
   'nir_lower_memory_model.c',
   'nir_lower_non_uniform_access.c',
   'nir_lower_packing.c',

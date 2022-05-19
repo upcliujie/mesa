@@ -5377,6 +5377,8 @@ bool nir_lower_point_size(nir_shader *shader, float min, float max);
 void nir_lower_texcoord_replace(nir_shader *s, unsigned coord_replace,
                                 bool point_coord_is_sysval, bool yinvert);
 
+bool nir_lower_memop_oob_access(nir_shader *sh, bool only_const_offsets);
+
 typedef enum {
    nir_lower_interpolation_at_sample = (1 << 1),
    nir_lower_interpolation_at_offset = (1 << 2),
