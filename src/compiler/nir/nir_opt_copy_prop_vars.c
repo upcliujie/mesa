@@ -1036,7 +1036,7 @@ copy_prop_vars_block(struct copy_prop_var_state *state,
             }
          }
 
-         if (nir_intrinsic_access(intrin) & ACCESS_VOLATILE) {
+         if (nir_intrinsic_access(intrin) & (ACCESS_COHERENT | ACCESS_VOLATILE)) {
             unsigned wrmask = nir_intrinsic_write_mask(intrin);
             kill_aliases(state, copies, &dst, wrmask);
             break;
