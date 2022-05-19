@@ -132,6 +132,7 @@ lower_instr(nir_intrinsic_instr *instr, unsigned ssbo_offset, nir_builder *b)
        */
       new_instr->num_components = instr->dest.ssa.num_components;
    }
+   nir_intrinsic_set_access(new_instr, ACCESS_VOLATILE);
 
    nir_ssa_dest_init(&new_instr->instr, &new_instr->dest,
                      instr->dest.ssa.num_components,
