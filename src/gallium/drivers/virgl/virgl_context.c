@@ -690,6 +690,7 @@ static void *virgl_shader_encoder(struct pipe_context *ctx,
          .lower_fabs = true
       };
       nir_shader *s = nir_shader_clone(NULL, shader->ir.nir);
+      nir_lower_memop_oob_access(s, true);
 
       /* Propagare the separable shader property to the host, unless
        * it is an internal shader - these are marked separable even though they are not. */
