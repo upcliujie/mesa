@@ -115,7 +115,7 @@ fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info) in_dt
 {
    struct ir3_shader_key key = {};
    struct ir3_shader_variant *v;
-   struct fd_ringbuffer *ring = ctx->batch->draw;
+   struct fd_ringbuffer *ring = fd_batch_use_ring(ctx->batch, draw);
    unsigned nglobal = 0;
 
    v = ir3_shader_variant(ir3_get_shader(ctx->compute), key, false, &ctx->debug);

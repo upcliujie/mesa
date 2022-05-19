@@ -212,6 +212,8 @@ struct fd_batch {
    struct fd_ringbuffer *tile_setup;
    struct fd_ringbuffer *tile_fini;
 
+   struct fd_ringbuffer *current_ring;
+
    union pipe_color_union clear_color[MAX_RENDER_TARGETS];
    double clear_depth;
    unsigned clear_stencil;
@@ -256,6 +258,9 @@ struct fd_batch {
    /** set of dependent batches.. holds refs to dependent batches: */
    uint32_t dependents_mask;
 };
+
+#define fd_batch_use_ring(batch, name) \
+   ((batch)->current_ring = (batch)->name)
 
 struct fd_batch *fd_batch_create(struct fd_context *ctx, bool nondraw);
 

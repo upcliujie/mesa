@@ -584,6 +584,8 @@ render_tiles(struct fd_batch *batch, struct fd_gmem_stateobj *gmem) assert_dt
 
    simple_mtx_lock(&ctx->gmem_lock);
 
+   fd_batch_use_ring(batch, gmem);
+
    ctx->emit_tile_init(batch);
 
    if (batch->restore)
@@ -631,6 +633,8 @@ render_sysmem(struct fd_batch *batch) assert_dt
 {
    struct fd_context *ctx = batch->ctx;
 
+   fd_batch_use_ring(batch, gmem);
+
    ctx->emit_sysmem_prep(batch);
 
    if (ctx->query_prepare_tile)
@@ -671,6 +675,8 @@ fd_gmem_render_tiles(struct fd_batch *batch)
    struct fd_context *ctx = batch->ctx;
    struct pipe_framebuffer_state *pfb = &batch->framebuffer;
    bool sysmem = false;
+
+   fd_batch_use_ring(batch, gmem);
 
    ctx->submit_count++;
 

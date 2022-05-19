@@ -683,7 +683,7 @@ set_bin_size(struct fd_ringbuffer *ring, uint32_t w, uint32_t h, uint32_t flag)
 static void
 emit_binning_pass(struct fd_batch *batch) assert_dt
 {
-   struct fd_ringbuffer *ring = batch->gmem;
+   struct fd_ringbuffer *ring = fd_batch_use_ring(batch, gmem);
    const struct fd_gmem_stateobj *gmem = batch->gmem_state;
    struct fd_screen *screen = batch->ctx->screen;
 
@@ -799,7 +799,7 @@ static void prepare_tile_fini_ib(struct fd_batch *batch);
 static void
 fd6_emit_tile_init(struct fd_batch *batch) assert_dt
 {
-   struct fd_ringbuffer *ring = batch->gmem;
+   struct fd_ringbuffer *ring = fd_batch_use_ring(batch, gmem);
    struct pipe_framebuffer_state *pfb = &batch->framebuffer;
    const struct fd_gmem_stateobj *gmem = batch->gmem_state;
    struct fd_screen *screen = batch->ctx->screen;
@@ -1264,6 +1264,8 @@ fd6_emit_tile_renderprep(struct fd_batch *batch, const struct fd_tile *tile)
    if (!batch->tile_setup)
       return;
 
+   fd_batch_use_ring(batch, gmem);
+
    trace_start_clear_restore(&batch->trace, batch->gmem, batch->fast_cleared);
    if (batch->fast_cleared || !use_hw_binning(batch)) {
       fd6_emit_ib(batch->gmem, batch->tile_setup);
@@ -1441,7 +1443,7 @@ fd6_emit_tile(struct fd_batch *batch, const struct fd_tile *tile)
 static void
 fd6_emit_tile_gmem2mem(struct fd_batch *batch, const struct fd_tile *tile)
 {
-   struct fd_ringbuffer *ring = batch->gmem;
+   struct fd_ringbuffer *ring = fd_batch_use_ring(batch, gmem);
 
    if (use_hw_binning(batch)) {
       OUT_PKT7(ring, CP_SET_MARKER, 1);
@@ -1555,7 +1557,7 @@ emit_sysmem_clears(struct fd_batch *batch, struct fd_ringbuffer *ring) assert_dt
 static void
 fd6_emit_sysmem_prep(struct fd_batch *batch) assert_dt
 {
-   struct fd_ringbuffer *ring = batch->gmem;
+   struct fd_ringbuffer *ring = fd_batch_use_ring(batch, gmem);
    struct fd_screen *screen = batch->ctx->screen;
 
    fd6_emit_restore(batch, ring);

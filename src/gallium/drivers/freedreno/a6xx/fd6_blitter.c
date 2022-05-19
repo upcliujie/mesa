@@ -940,6 +940,8 @@ handle_rgba_blit(struct fd_context *ctx,
 
    DBG_BLIT(info, batch);
 
+   fd_batch_use_ring(batch, draw);
+
    trace_start_blit(&batch->trace, batch->draw, info->src.resource->target,
                     info->dst.resource->target);
 
