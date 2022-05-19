@@ -29,6 +29,7 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/MC/MCSubtargetInfo.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Transforms/IPO.h>
 
 #include <cstring>
