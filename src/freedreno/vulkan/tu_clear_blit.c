@@ -1351,7 +1351,7 @@ tu6_blit_image(struct tu_cmd_buffer *cmd,
                VkFilter filter)
 {
    const struct blit_ops *ops = &r2d_ops;
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
    bool z_scale = false;
    uint32_t layers = info->dstOffsets[1].z - info->dstOffsets[0].z;
 
@@ -1539,7 +1539,7 @@ tu_copy_buffer_to_image(struct tu_cmd_buffer *cmd,
                         struct tu_image *dst_image,
                         const VkBufferImageCopy2KHR *info)
 {
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
    uint32_t layers = MAX2(info->imageExtent.depth, info->imageSubresource.layerCount);
    enum pipe_format src_format =
       copy_format(dst_image->vk_format, info->imageSubresource.aspectMask, true);
@@ -1617,7 +1617,7 @@ tu_copy_image_to_buffer(struct tu_cmd_buffer *cmd,
                         struct tu_buffer *dst_buffer,
                         const VkBufferImageCopy2KHR *info)
 {
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
    uint32_t layers = MAX2(info->imageExtent.depth, info->imageSubresource.layerCount);
    enum pipe_format dst_format =
       copy_format(src_image->vk_format, info->imageSubresource.aspectMask, true);
@@ -1724,7 +1724,7 @@ tu_copy_image_to_image(struct tu_cmd_buffer *cmd,
                        const VkImageCopy2KHR *info)
 {
    const struct blit_ops *ops = &r2d_ops;
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
 
    if (dst_image->layout[0].nr_samples > 1)
       ops = &r3d_ops;
@@ -1933,7 +1933,7 @@ copy_buffer(struct tu_cmd_buffer *cmd,
             uint32_t block_size)
 {
    const struct blit_ops *ops = &r2d_ops;
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
    enum pipe_format format = block_size == 4 ? PIPE_FORMAT_R32_UINT : PIPE_FORMAT_R8_UNORM;
    uint64_t blocks = size / block_size;
 
@@ -2006,7 +2006,7 @@ tu_CmdFillBuffer(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    TU_FROM_HANDLE(tu_buffer, buffer, dstBuffer);
    const struct blit_ops *ops = &r2d_ops;
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
 
    if (fillSize == VK_WHOLE_SIZE)
       fillSize = buffer->size - dstOffset;
@@ -2041,7 +2041,7 @@ tu_CmdResolveImage2KHR(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_image, src_image, pResolveImageInfo->srcImage);
    TU_FROM_HANDLE(tu_image, dst_image, pResolveImageInfo->dstImage);
    const struct blit_ops *ops = &r2d_ops;
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
 
    ops->setup(cmd, cs, tu_vk_format_to_pipe_format(dst_image->vk_format),
               VK_IMAGE_ASPECT_COLOR_BIT, 0, false, dst_image->layout[0].ubwc, 
@@ -2148,7 +2148,7 @@ clear_image(struct tu_cmd_buffer *cmd,
 {
    uint32_t level_count = tu_get_levelCount(image, range);
    uint32_t layer_count = tu_get_layerCount(image, range);
-   struct tu_cs *cs = &cmd->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, main);
    enum pipe_format format;
    if (image->vk_format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32) {
       format = PIPE_FORMAT_R32_UINT;
@@ -2248,7 +2248,7 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
    /* the shader path here is special, it avoids changing MRT/etc state */
    const struct tu_subpass *subpass = cmd->state.subpass;
    const uint32_t mrt_count = subpass->color_count;
-   struct tu_cs *cs = &cmd->draw_cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, draw);
    uint32_t clear_value[MAX_RTS][4];
    float z_clear_val = 0.0f;
    uint8_t s_clear_val = 0;
@@ -2534,7 +2534,7 @@ tu_clear_gmem_attachments(struct tu_cmd_buffer *cmd,
                           const VkClearRect *rects)
 {
    const struct tu_subpass *subpass = cmd->state.subpass;
-   struct tu_cs *cs = &cmd->draw_cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, draw);
 
    if (rect_count > 1)
       perf_debug(cmd->device, "TODO: Swap tu_clear_gmem_attachments() loop for smaller command stream");
@@ -2575,7 +2575,7 @@ tu_CmdClearAttachments(VkCommandBuffer commandBuffer,
                        const VkClearRect *pRects)
 {
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
-   struct tu_cs *cs = &cmd->draw_cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, draw);
 
    /* sysmem path behaves like a draw, note we don't have a way of using different
     * flushes for sysmem/gmem, so this needs to be outside of the cond_exec

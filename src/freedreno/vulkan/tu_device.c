@@ -1503,8 +1503,11 @@ static void
 tu_trace_record_ts(struct u_trace *ut, void *cs, void *timestamps,
                    unsigned idx, bool end_of_pipe)
 {
+   struct tu_cmd_buffer *cmd_buffer =
+      container_of(ut, struct tu_cmd_buffer, trace);
+   assert(cmd_buffer->current_cs != NULL);
+   struct tu_cs *ts_cs = cmd_buffer->current_cs;
    struct tu_bo *bo = timestamps;
-   struct tu_cs *ts_cs = cs;
 
    unsigned ts_offset = idx * sizeof(uint64_t);
    tu_cs_emit_pkt7(ts_cs, CP_EVENT_WRITE, 4);

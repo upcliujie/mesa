@@ -1298,16 +1298,25 @@ struct tu_cmd_buffer
 
    VkResult record_result;
 
-   struct tu_cs cs;
+   struct tu_cs main_cs;
    struct tu_cs tile_load_cs;
    struct tu_cs draw_cs;
    struct tu_cs tile_store_cs;
    struct tu_cs draw_epilogue_cs;
    struct tu_cs sub_cs;
 
+   /* Pointer to one of the fields above */
+   struct tu_cs *current_cs;
+
    uint32_t vsc_draw_strm_pitch;
    uint32_t vsc_prim_strm_pitch;
 };
+
+#define tu_cmd_select_cs(cmdbuf, name) \
+   ((cmdbuf)->current_cs = &(cmdbuf)->name##_cs)
+
+#define tu_cmd_draw_or_main_cs(cmdbuf) \
+   ((cmdbuf)->current_cs = (cmdbuf)->state.pass ? &(cmdbuf)->draw_cs : &(cmdbuf)->main_cs)
 
 /* Temporary struct for tracking a register state to be written, used by
  * a6xx-pack.h and tu_cs_emit_regs()

@@ -697,7 +697,7 @@ tu_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, commandBuffer);
    TU_FROM_HANDLE(tu_query_pool, pool, queryPool);
    TU_FROM_HANDLE(tu_buffer, buffer, dstBuffer);
-   struct tu_cs *cs = &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmdbuf, main);
    assert(firstQuery + queryCount <= pool->size);
 
    switch (pool->type) {
@@ -721,7 +721,7 @@ emit_reset_query_pool(struct tu_cmd_buffer *cmdbuf,
                       uint32_t firstQuery,
                       uint32_t queryCount)
 {
-   struct tu_cs *cs = &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmdbuf, main);
 
    for (uint32_t i = 0; i < queryCount; i++) {
       uint32_t query = firstQuery + i;
@@ -820,7 +820,7 @@ emit_begin_occlusion_query(struct tu_cmd_buffer *cmdbuf,
     * is then run on every tile during render, so we just need to accumulate
     * sample counts in slot->result to compute the query result.
     */
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
 
    uint64_t begin_iova = occlusion_query_iova(pool, query, begin);
 
@@ -839,7 +839,7 @@ emit_begin_stat_query(struct tu_cmd_buffer *cmdbuf,
                       struct tu_query_pool *pool,
                       uint32_t query)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
    uint64_t begin_iova = pipeline_stat_query_iova(pool, query, begin);
 
    tu6_emit_event_write(cmdbuf, cs, START_PRIMITIVE_CTRS);
@@ -871,7 +871,7 @@ emit_begin_perf_query(struct tu_cmd_buffer *cmdbuf,
                            struct tu_query_pool *pool,
                            uint32_t query)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
    uint32_t last_pass = ~0;
 
    if (cmdbuf->state.pass) {
@@ -950,7 +950,7 @@ emit_begin_xfb_query(struct tu_cmd_buffer *cmdbuf,
                      uint32_t query,
                      uint32_t stream_id)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
    uint64_t begin_iova = primitive_query_iova(pool, query, begin[0], 0);
 
    tu_cs_emit_regs(cs, A6XX_VPC_SO_STREAM_COUNTS(.qword = begin_iova));
@@ -962,7 +962,7 @@ emit_begin_prim_generated_query(struct tu_cmd_buffer *cmdbuf,
                                 struct tu_query_pool *pool,
                                 uint32_t query)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
    uint64_t begin_iova = primitives_generated_query_iova(pool, query, begin);
 
    tu6_emit_event_write(cmdbuf, cs, START_PRIMITIVE_CTRS);
@@ -1058,7 +1058,7 @@ emit_end_occlusion_query(struct tu_cmd_buffer *cmdbuf,
     *       draw_cs are not run until vkCmdEndRenderPass.
     */
    const struct tu_render_pass *pass = cmdbuf->state.pass;
-   struct tu_cs *cs = pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
 
    uint64_t available_iova = query_available_iova(pool, query);
    uint64_t begin_iova = occlusion_query_iova(pool, query, begin);
@@ -1104,7 +1104,7 @@ emit_end_occlusion_query(struct tu_cmd_buffer *cmdbuf,
        * vkCmdCopyQueryPoolResults and vkCmdResetQueryPool, both of which
        * cannot be invoked from inside a render pass scope.
        */
-      cs = &cmdbuf->draw_epilogue_cs;
+      cs = tu_cmd_select_cs(cmdbuf, draw_epilogue);
 
    tu_cs_emit_pkt7(cs, CP_MEM_WRITE, 4);
    tu_cs_emit_qw(cs, available_iova);
@@ -1116,7 +1116,7 @@ emit_end_stat_query(struct tu_cmd_buffer *cmdbuf,
                     struct tu_query_pool *pool,
                     uint32_t query)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
    uint64_t end_iova = pipeline_stat_query_iova(pool, query, end);
    uint64_t available_iova = query_available_iova(pool, query);
    uint64_t result_iova;
@@ -1167,7 +1167,7 @@ emit_end_perf_query(struct tu_cmd_buffer *cmdbuf,
                          struct tu_query_pool *pool,
                          uint32_t query)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
    uint64_t available_iova = query_available_iova(pool, query);
    uint64_t end_iova;
    uint64_t begin_iova;
@@ -1247,7 +1247,7 @@ emit_end_xfb_query(struct tu_cmd_buffer *cmdbuf,
                    uint32_t query,
                    uint32_t stream_id)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
 
    uint64_t end_iova = primitive_query_iova(pool, query, end[0], 0);
    uint64_t result_written_iova = query_result_iova(pool, query, uint64_t, 0);
@@ -1295,7 +1295,7 @@ emit_end_prim_generated_query(struct tu_cmd_buffer *cmdbuf,
                               struct tu_query_pool *pool,
                               uint32_t query)
 {
-   struct tu_cs *cs = cmdbuf->state.pass ? &cmdbuf->draw_cs : &cmdbuf->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmdbuf);
 
    uint64_t begin_iova = primitives_generated_query_iova(pool, query, begin);
    uint64_t end_iova = primitives_generated_query_iova(pool, query, end);
@@ -1362,7 +1362,7 @@ handle_multiview_queries(struct tu_cmd_buffer *cmd,
       return;
 
    unsigned views = util_bitcount(cmd->state.subpass->multiview_mask);
-   struct tu_cs *cs = &cmd->draw_epilogue_cs;
+   struct tu_cs *cs = tu_cmd_select_cs(cmd, draw_epilogue);
 
    for (uint32_t i = 1; i < views; i++) {
       tu_cs_emit_pkt7(cs, CP_MEM_WRITE, 4);
@@ -1441,7 +1441,7 @@ tu_CmdWriteTimestamp(VkCommandBuffer commandBuffer,
     * the user gets the last one if we use GMEM. There isn't really much
     * better we can do, and this seems to be what the blob does too.
     */
-   struct tu_cs *cs = cmd->state.pass ? &cmd->draw_cs : &cmd->cs;
+   struct tu_cs *cs = tu_cmd_draw_or_main_cs(cmd);
 
    /* Stages that will already have been executed by the time the CP executes
     * the REG_TO_MEM. DrawIndirect parameters are read by the CP, so the draw
@@ -1472,7 +1472,8 @@ tu_CmdWriteTimestamp(VkCommandBuffer commandBuffer,
    /* Only flag availability once the entire renderpass is done, similar to
     * the begin/end path.
     */
-   cs = cmd->state.pass ? &cmd->draw_epilogue_cs : &cmd->cs;
+   cs = cmd->state.pass ?
+      tu_cmd_select_cs(cmd, draw_epilogue) : tu_cmd_select_cs(cmd, main);
 
    tu_cs_emit_pkt7(cs, CP_MEM_WRITE, 4);
    tu_cs_emit_qw(cs, query_available_iova(pool, query));
