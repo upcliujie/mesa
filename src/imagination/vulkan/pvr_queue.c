@@ -50,7 +50,6 @@
 #include "vk_queue.h"
 #include "vk_semaphore.h"
 #include "vk_sync.h"
-#include "vk_sync_dummy.h"
 #include "vk_util.h"
 
 static VkResult pvr_queue_init(struct pvr_device *device,
@@ -682,9 +681,6 @@ VkResult pvr_QueueSubmit(VkQueue _queue,
       for (uint32_t j = 0U; j < desc->waitSemaphoreCount; j++) {
          VK_FROM_HANDLE(vk_semaphore, semaphore, desc->pWaitSemaphores[j]);
          struct vk_sync *sync = vk_semaphore_get_active_sync(semaphore);
-
-         if (sync->type == &vk_sync_dummy_type)
-            continue;
 
          /* We don't currently support timeline semaphores. */
          assert(!(sync->flags & VK_SYNC_IS_TIMELINE));
