@@ -2001,6 +2001,10 @@ struct radv_graphics_pipeline_info {
    struct radv_depth_stencil_info ds;
    struct radv_rendering_info ri;
    struct radv_color_blend_info cb;
+
+   /* VK_AMD_mixed_attachment_samples */
+   uint32_t color_att_samples;
+   uint32_t ds_att_samples;
 };
 
 struct radv_pipeline {
