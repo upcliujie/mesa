@@ -517,9 +517,9 @@ lower_yu_yv_external(nir_builder *b, nir_tex_instr *tex,
   nir_ssa_def *yuv = sample_plane(b, tex, 0, options);
 
   convert_yuv_to_rgb(b, tex,
+                     nir_channel(b, yuv, 0),
                      nir_channel(b, yuv, 1),
                      nir_channel(b, yuv, 2),
-                     nir_channel(b, yuv, 0),
                      nir_imm_float(b, 1.0f),
                      options,
                      texture_index);
