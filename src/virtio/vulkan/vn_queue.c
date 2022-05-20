@@ -321,8 +321,6 @@ vn_QueueSubmit(VkQueue _queue,
    VN_TRACE_FUNC();
    struct vn_queue *queue = vn_queue_from_handle(_queue);
    struct vn_device *dev = queue->device;
-   struct vn_fence *fence = vn_fence_from_handle(_fence);
-   const bool is_fence_external = fence && fence->is_external;
 
    struct vn_queue_submission submit;
    VkResult result = vn_queue_submission_prepare_submit(
@@ -340,25 +338,26 @@ vn_QueueSubmit(VkQueue _queue,
       }
    }
 
-   /* TODO defer roundtrip for external fence until the next sync operation */
-   if (!wsi_mem && !is_fence_external && !VN_PERF(NO_ASYNC_QUEUE_SUBMIT)) {
+   if (!VN_PERF(NO_ASYNC_QUEUE_SUBMIT)) {
       vn_async_vkQueueSubmit(dev->instance, submit.queue, submit.batch_count,
                              submit.submit_batches, submit.fence);
-      vn_queue_submission_cleanup(&submit);
-      return VK_SUCCESS;
-   }
-
-   result =
-      vn_call_vkQueueSubmit(dev->instance, submit.queue, submit.batch_count,
-                            submit.submit_batches, submit.fence);
-   if (result != VK_SUCCESS) {
-      vn_queue_submission_cleanup(&submit);
-      return vn_error(dev->instance, result);
+   } else {
+      result = vn_call_vkQueueSubmit(dev->instance, submit.queue,
+                                     submit.batch_count,
+                                     submit.submit_batches, submit.fence);
+      if (result != VK_SUCCESS) {
+         vn_queue_submission_cleanup(&submit);
+         return vn_error(dev->instance, result);
+      }
    }
 
    if (wsi_mem) {
       /* XXX this is always false and kills the performance */
       if (dev->instance->renderer->info.has_implicit_fencing) {
+         /* wsi bo submission must wait for queue submit */
+         if (!VN_PERF(NO_ASYNC_QUEUE_SUBMIT))
+            vn_instance_ring_wait(dev->instance);
+
          vn_renderer_submit(dev->renderer, &(const struct vn_renderer_submit){
                                               .bos = &wsi_mem->base_bo,
                                               .bo_count = 1,
@@ -742,11 +741,17 @@ vn_GetFenceFdKHR(VkDevice device,
    const bool sync_file =
       pGetFdInfo->handleType == VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
    struct vn_sync_payload *payload = fence->payload;
+   int fd = -1;
 
    assert(dev->instance->experimental.globalFencing);
    assert(sync_file);
 
-   int fd = -1;
+   /* With async queue submit to include external fence, ring has to be waited
+    * here instead.
+    */
+   if (!VN_PERF(NO_ASYNC_QUEUE_SUBMIT))
+      vn_instance_ring_wait(dev->instance);
+
    if (payload->type == VN_SYNC_TYPE_DEVICE_ONLY) {
       VkResult result = vn_create_sync_file(dev, &fd);
       if (result != VK_SUCCESS)
