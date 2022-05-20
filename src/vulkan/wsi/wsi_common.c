@@ -343,12 +343,7 @@ wsi_swapchain_finish(struct wsi_swapchain *chain)
 
       vk_free(&chain->alloc, chain->fences);
    }
-   if (chain->buffer_blit_semaphores) {
-      for (unsigned i = 0; i < chain->image_count; i++)
-         chain->wsi->DestroySemaphore(chain->device, chain->buffer_blit_semaphores[i], &chain->alloc);
-
-      vk_free(&chain->alloc, chain->buffer_blit_semaphores);
-   }
+   chain->wsi->DestroySemaphore(chain->device, chain->semaphore, &chain->alloc);
 
    int cmd_pools_count = chain->buffer_blit_queue != VK_NULL_HANDLE ?
       1 : chain->wsi->queue_family_count;
@@ -732,17 +727,6 @@ wsi_CreateSwapchainKHR(VkDevice _device,
       return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
 
-   if (swapchain->buffer_blit_queue != VK_NULL_HANDLE) {
-      swapchain->buffer_blit_semaphores = vk_zalloc(alloc,
-                                         sizeof (*swapchain->buffer_blit_semaphores) * swapchain->image_count,
-                                         sizeof (*swapchain->buffer_blit_semaphores),
-                                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-      if (!swapchain->buffer_blit_semaphores) {
-         swapchain->destroy(swapchain, alloc);
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
-      }
-   }
-
    *pSwapchain = wsi_swapchain_to_handle(swapchain);
 
    return VK_SUCCESS;
@@ -954,19 +938,6 @@ wsi_common_queue_present(const struct wsi_device *wsi,
                                    &swapchain->fences[image_index]);
          if (result != VK_SUCCESS)
             goto fail_present;
-
-         if (swapchain->use_buffer_blit && swapchain->buffer_blit_queue != VK_NULL_HANDLE) {
-            const VkSemaphoreCreateInfo sem_info = {
-               .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-               .pNext = NULL,
-               .flags = 0,
-            };
-            result = wsi->CreateSemaphore(device, &sem_info,
-                                          &swapchain->alloc,
-                                          &swapchain->buffer_blit_semaphores[image_index]);
-            if (result != VK_SUCCESS)
-               goto fail_present;
-         }
       } else {
          result =
             wsi->WaitForFences(device, 1, &swapchain->fences[image_index],
@@ -1002,14 +973,24 @@ wsi_common_queue_present(const struct wsi_device *wsi,
             submit_info.pCommandBuffers =
                &image->buffer.blit_cmd_buffers[queue_family_index];
          } else {
+            if (swapchain->semaphore == VK_NULL_HANDLE) {
+               const VkSemaphoreCreateInfo semaphore_info = {
+                  .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+               };
+               result = wsi->CreateSemaphore(device, &semaphore_info,
+                                             &swapchain->alloc,
+                                             &swapchain->semaphore);
+               if (result != VK_SUCCESS)
+                  goto fail_present;
+            }
+
             /* If we are using a blit using the driver's private queue, then
              * do an empty submit signalling a semaphore, and then submit the
              * blit waiting on that.  This ensures proper queue ordering of
              * vkQueueSubmit() calls.
              */
             submit_info.signalSemaphoreCount = 1;
-            submit_info.pSignalSemaphores =
-               &swapchain->buffer_blit_semaphores[image_index];
+            submit_info.pSignalSemaphores = &swapchain->semaphore;
 
             result = wsi->QueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE);
             if (result != VK_SUCCESS)
@@ -1020,7 +1001,7 @@ wsi_common_queue_present(const struct wsi_device *wsi,
              */
             submit_queue = swapchain->buffer_blit_queue;
             submit_info.waitSemaphoreCount = 1;
-            submit_info.pWaitSemaphores = submit_info.pSignalSemaphores;
+            submit_info.pWaitSemaphores = &swapchain->semaphore;
             submit_info.signalSemaphoreCount = 0;
             submit_info.pSignalSemaphores = NULL;
             submit_info.commandBufferCount = 1;
