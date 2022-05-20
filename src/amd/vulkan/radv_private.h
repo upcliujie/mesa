@@ -1892,6 +1892,10 @@ struct radv_tessellation_info {
 };
 
 struct radv_viewport_info {
+   VkRect2D scissors[MAX_SCISSORS];
+   uint32_t scissor_count;
+   VkViewport viewports[MAX_VIEWPORTS];
+   uint32_t viewport_count;
    bool negative_one_to_one;
 };
 
