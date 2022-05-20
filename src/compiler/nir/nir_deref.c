@@ -495,6 +495,15 @@ nir_compare_deref_paths(nir_deref_path *a_path,
              !(b_path->path[0]->modes & ~temp_var_modes))
             return nir_derefs_do_not_alias;
 
+         /* If both are SSBOs and neither are declared restrict, we have to
+          * assume we that we could have any kind of aliasing.
+          */
+         if (a_path->path[0]->modes & nir_var_mem_ssbo &&
+             b_path->path[0]->modes & nir_var_mem_ssbo &&
+             !(a_path->path[0]->var->data.access & ACCESS_RESTRICT) &&
+             !(b_path->path[0]->var->data.access & ACCESS_RESTRICT))
+            return nir_derefs_may_alias_bit;
+
          /* If they are both declared coherent or have coherent somewhere in
           * their path (due to a member of an interface being declared
           * coherent), we have to assume we that we could have any kind of
