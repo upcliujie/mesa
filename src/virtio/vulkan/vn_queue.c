@@ -727,6 +727,16 @@ vn_GetFenceFdKHR(VkDevice device,
                  const VkFenceGetFdInfoKHR *pGetFdInfo,
                  int *pFd)
 {
+   /* XXX With global fencing, the external fence sync_fd export is still a
+    * hack. It doesn't precisely insert the global sync point to be right
+    * after the external fence submission. e.g. an app can do:
+    * - external fence submission
+    * - other submissions on the same queue
+    * - external fence sync_fd export
+    * Then the payload waited includes the unrelated submissions in between.
+    * We live with this given it doesn't affect Android WSI or common WSI
+    * usage, and expect this to be fixed with multiple timelines.
+    */
    struct vn_device *dev = vn_device_from_handle(device);
    struct vn_fence *fence = vn_fence_from_handle(pGetFdInfo->fence);
    const bool sync_file =
@@ -735,6 +745,7 @@ vn_GetFenceFdKHR(VkDevice device,
 
    assert(dev->instance->experimental.globalFencing);
    assert(sync_file);
+
    int fd = -1;
    if (payload->type == VN_SYNC_TYPE_DEVICE_ONLY) {
       VkResult result = vn_create_sync_file(dev, &fd);
