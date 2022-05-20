@@ -2874,7 +2874,7 @@ ms_calculate_output_layout(unsigned api_shared_size,
    l.lds.prm_attr.mask = lds_per_primitive_output_mask;
    ms_calculate_arrayed_output_layout(&l, max_vertices, max_primitives);
 
-   while (l.lds.total_size >= 28 * 1024) {
+   while (l.lds.total_size >= 30 * 1024) {
       /* Move output attributes from LDS to VRAM.
        * Start with per-primitive attributes, those are grouped at the end.
        */
