@@ -475,7 +475,19 @@ nir_compare_deref_paths(nir_deref_path *a_path,
       return nir_derefs_may_alias_bit;
 
    if (a_path->path[0]->deref_type == nir_deref_type_var) {
-      if (a_path->path[0]->var != b_path->path[0]->var) {
+      bool different_vars = a_path->path[0]->var != b_path->path[0]->var;
+
+      /* When a SSBO/UBO is an array, then this is several bindings in the same variable. */
+      if (a_path->path[0]->var->data.mode & (nir_var_mem_ubo | nir_var_mem_ssbo)) {
+         unsigned i = 1;
+         for (; !different_vars && a_path->path[i] && b_path->path[i] &&
+                a_path->path[i]->deref_type == nir_deref_type_array; i++) {
+            assert(b_path->path[i]->deref_type == nir_deref_type_array);
+            different_vars |= a_path->path[i]->arr.index.ssa != b_path->path[i]->arr.index.ssa;
+         }
+      }
+
+      if (different_vars) {
          /* Shader and function temporaries aren't backed by memory so two
           * distinct variables never alias.
           */
