@@ -627,8 +627,13 @@ validate_intrinsic_instr(nir_intrinsic_instr *instr, validate_state *state)
       nir_deref_instr *dst = nir_src_as_deref(instr->src[0]);
       assert(dst);
       validate_assert(state, glsl_type_is_vector_or_scalar(dst->type));
-      validate_assert(state, instr->num_components ==
-                             glsl_get_vector_elements(dst->type));
+      unsigned wrmask = nir_intrinsic_write_mask(instr);
+      if (wrmask == BITFIELD_MASK(glsl_get_vector_elements(dst->type)))
+         validate_assert(state, instr->num_components ==
+                                glsl_get_vector_elements(dst->type));
+      else
+         validate_assert(state, instr->num_components <=
+                                glsl_get_vector_elements(dst->type));
       src_bit_sizes[1] = glsl_get_bit_size(dst->type);
       /* Also allow 32-bit boolean store operations */
       if (glsl_type_is_boolean(dst->type))
