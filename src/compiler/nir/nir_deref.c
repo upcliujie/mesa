@@ -442,28 +442,6 @@ modes_may_alias(nir_variable_mode a, nir_variable_mode b)
    return a & b;
 }
 
-static bool
-deref_path_contains_coherent_decoration(nir_deref_path *path)
-{
-   assert(path->path[0]->deref_type == nir_deref_type_var);
-
-   if (path->path[0]->var->data.access & ACCESS_COHERENT)
-      return true;
-
-   for (nir_deref_instr **p = &path->path[1]; *p; p++) {
-      if ((*p)->deref_type != nir_deref_type_struct)
-         continue;
-
-      const struct glsl_type *struct_type = (*(p - 1))->type;
-      const struct glsl_struct_field *field =
-         glsl_get_struct_field_data(struct_type, (*p)->strct.index);
-      if (field->memory_coherent)
-         return true;
-   }
-
-   return false;
-}
-
 nir_deref_compare_result
 nir_compare_deref_paths(nir_deref_path *a_path,
                         nir_deref_path *b_path)
@@ -504,16 +482,6 @@ nir_compare_deref_paths(nir_deref_path *a_path,
              (b_path->path[0]->modes & nir_var_mem_ssbo) &&
              !(a_path->path[0]->var->data.access & ACCESS_RESTRICT) &&
              !(b_path->path[0]->var->data.access & ACCESS_RESTRICT))
-            return nir_derefs_may_alias_bit;
-
-         /* If they are both declared coherent or have coherent somewhere in
-          * their path (due to a member of an interface being declared
-          * coherent), we have to assume we that we could have any kind of
-          * aliasing.  Otherwise, they could still alias but the client didn't
-          * tell us and that's their fault.
-          */
-         if (deref_path_contains_coherent_decoration(a_path) &&
-             deref_path_contains_coherent_decoration(b_path))
             return nir_derefs_may_alias_bit;
 
          /* Per SPV_KHR_workgroup_memory_explicit_layout and GL_EXT_shared_memory_block,
