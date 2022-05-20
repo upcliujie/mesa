@@ -34,6 +34,7 @@ apt-get -y install \
 	libasan6 \
 	libdrm-dev \
 	libelf-dev \
+	libepoxy-dev \
 	libexpat1-dev \
 	libvulkan-dev \
 	libx11-dev \
