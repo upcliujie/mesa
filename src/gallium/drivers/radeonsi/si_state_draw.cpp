@@ -107,6 +107,53 @@ static void si_emit_spi_map(struct si_context *sctx)
    radeon_end_update_context_roll(sctx);
 }
 
+struct si_fixed_func_tcs_shader_key {
+   uint64_t outputs_written;
+   uint8_t vertices_out;
+};
+
+static uint32_t si_fixed_func_tcs_shader_key_hash(const void *key)
+{
+   return _mesa_hash_data(key, sizeof(struct si_fixed_func_tcs_shader_key));
+}
+
+static bool si_fixed_func_tcs_shader_key_equals(const void *a, const void *b)
+{
+   return memcmp(a, b, sizeof(struct si_fixed_func_tcs_shader_key)) == 0;
+}
+
+static bool si_set_tcs_to_fixed_func_shader(struct si_context *sctx)
+{
+   if (!sctx->fixed_func_tcs_shader_cache) {
+      sctx->fixed_func_tcs_shader_cache = _mesa_hash_table_create(
+         NULL, si_fixed_func_tcs_shader_key_hash,
+         si_fixed_func_tcs_shader_key_equals);
+   }
+
+   struct si_fixed_func_tcs_shader_key key;
+   key.outputs_written = sctx->shader.vs.cso->info.outputs_written;
+   key.vertices_out = sctx->patch_vertices;
+
+   struct hash_entry *entry = _mesa_hash_table_search(
+      sctx->fixed_func_tcs_shader_cache, &key);
+
+   struct si_shader_selector *tcs;
+   if (entry)
+      tcs = (struct si_shader_selector *)entry->data;
+   else {
+      tcs = (struct si_shader_selector *)si_create_passthrough_tcs(sctx);
+      if (!tcs)
+         return false;
+      _mesa_hash_table_insert(sctx->fixed_func_tcs_shader_cache, &key, (void *)tcs);
+   }
+
+   sctx->shader.tcs.cso = tcs;
+   sctx->shader.tcs.key.ge.part.tcs.epilog.invoc0_tess_factors_are_def =
+      tcs->info.tessfactors_are_def_in_all_invocs;
+
+   return true;
+}
+
 template <amd_gfx_level GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG>
 static bool si_update_shaders(struct si_context *sctx)
 {
@@ -126,27 +173,15 @@ static bool si_update_shaders(struct si_context *sctx)
             return false;
       }
 
-      if (sctx->shader.tcs.cso) {
-         r = si_shader_select(ctx, &sctx->shader.tcs);
-         if (r)
+      if (!sctx->is_user_tcs) {
+         if (!si_set_tcs_to_fixed_func_shader(sctx))
             return false;
-         si_pm4_bind_state(sctx, hs, sctx->shader.tcs.current);
-      } else {
-         if (!sctx->fixed_func_tcs_shader.cso) {
-            sctx->fixed_func_tcs_shader.cso =
-               (struct si_shader_selector*)si_create_fixed_func_tcs(sctx);
-            if (!sctx->fixed_func_tcs_shader.cso)
-               return false;
-
-            sctx->fixed_func_tcs_shader.key.ge.part.tcs.epilog.invoc0_tess_factors_are_def =
-               sctx->fixed_func_tcs_shader.cso->info.tessfactors_are_def_in_all_invocs;
-         }
-
-         r = si_shader_select(ctx, &sctx->fixed_func_tcs_shader);
-         if (r)
-            return false;
-         si_pm4_bind_state(sctx, hs, sctx->fixed_func_tcs_shader.current);
       }
+
+      r = si_shader_select(ctx, &sctx->shader.tcs);
+      if (r)
+         return false;
+      si_pm4_bind_state(sctx, hs, sctx->shader.tcs.current);
 
       if (!HAS_GS || GFX_VERSION <= GFX8) {
          r = si_shader_select(ctx, &sctx->shader.tes);
@@ -164,6 +199,10 @@ static bool si_update_shaders(struct si_context *sctx)
          }
       }
    } else {
+      /* Reset TCS to clear fixed function shader. */
+      sctx->shader.tcs.cso = NULL;
+      sctx->shader.tcs.current = NULL;
+
       if (GFX_VERSION <= GFX8) {
          si_pm4_bind_state(sctx, ls, NULL);
          sctx->prefetch_L2_mask &= ~SI_PREFETCH_LS;
@@ -618,10 +657,7 @@ static void si_emit_derived_tess_state(struct si_context *sctx, unsigned *num_pa
 {
    struct si_shader *ls_current;
    struct si_shader_selector *ls;
-   /* The TES pointer will only be used for sctx->last_tcs.
-    * It would be wrong to think that TCS = TES. */
-   struct si_shader_selector *tcs =
-      sctx->shader.tcs.cso ? sctx->shader.tcs.cso : sctx->shader.tes.cso;
+   struct si_shader_selector *tcs = sctx->shader.tcs.cso;
    unsigned tess_uses_primid = sctx->ia_multi_vgt_param_key.u.tess_uses_prim_id;
    bool has_primid_instancing_bug = sctx->gfx_level == GFX6 && sctx->screen->info.max_se == 1;
    unsigned tes_sh_base = sctx->shader_pointers.sh_base[PIPE_SHADER_TESS_EVAL];
@@ -629,11 +665,7 @@ static void si_emit_derived_tess_state(struct si_context *sctx, unsigned *num_pa
 
    /* Since GFX9 has merged LS-HS in the TCS state, set LS = TCS. */
    if (sctx->gfx_level >= GFX9) {
-      if (sctx->shader.tcs.cso)
-         ls_current = sctx->shader.tcs.current;
-      else
-         ls_current = sctx->fixed_func_tcs_shader.current;
-
+      ls_current = sctx->shader.tcs.current;
       ls = ls_current->key.ge.part.tcs.ls;
    } else {
       ls_current = sctx->shader.vs.current;
@@ -655,19 +687,9 @@ static void si_emit_derived_tess_state(struct si_context *sctx, unsigned *num_pa
 
    /* This calculates how shader inputs and outputs among VS, TCS, and TES
     * are laid out in LDS. */
-   unsigned num_tcs_inputs = util_last_bit64(ls->info.outputs_written);
-   unsigned num_tcs_output_cp, num_tcs_outputs, num_tcs_patch_outputs;
-
-   if (sctx->shader.tcs.cso) {
-      num_tcs_outputs = util_last_bit64(tcs->info.outputs_written);
-      num_tcs_output_cp = tcs->info.base.tess.tcs_vertices_out;
-      num_tcs_patch_outputs = util_last_bit64(tcs->info.patch_outputs_written);
-   } else {
-      /* No TCS. Route varyings from LS to TES. */
-      num_tcs_outputs = num_tcs_inputs;
-      num_tcs_output_cp = num_tcs_input_cp;
-      num_tcs_patch_outputs = 2; /* TESSINNER + TESSOUTER */
-   }
+   unsigned num_tcs_outputs = util_last_bit64(tcs->info.outputs_written);
+   unsigned num_tcs_output_cp = tcs->info.base.tess.tcs_vertices_out;
+   unsigned num_tcs_patch_outputs = util_last_bit64(tcs->info.patch_outputs_written);
 
    unsigned input_vertex_size = ls->info.lshs_vertex_stride;
    unsigned output_vertex_size = num_tcs_outputs * 16;
@@ -2218,34 +2240,44 @@ static void si_draw(struct pipe_context *ctx,
    si_need_gfx_cs_space(sctx, num_draws);
 
    if (HAS_TESS) {
-      struct si_shader_selector *tcs = sctx->shader.tcs.cso;
+      if (sctx->is_user_tcs) {
+         struct si_shader_selector *tcs = sctx->shader.tcs.cso;
 
-      /* The rarely occuring tcs == NULL case is not optimized. */
-      bool same_patch_vertices =
-         GFX_VERSION >= GFX9 &&
-         tcs && sctx->patch_vertices == tcs->info.base.tess.tcs_vertices_out;
+         bool same_patch_vertices =
+            GFX_VERSION >= GFX9 &&
+            sctx->patch_vertices == tcs->info.base.tess.tcs_vertices_out;
 
-      if (sctx->shader.tcs.key.ge.opt.same_patch_vertices != same_patch_vertices) {
-         sctx->shader.tcs.key.ge.opt.same_patch_vertices = same_patch_vertices;
-         sctx->do_update_shaders = true;
-      }
-
-      if (GFX_VERSION == GFX9 && sctx->screen->info.has_ls_vgpr_init_bug) {
-         /* Determine whether the LS VGPR fix should be applied.
-          *
-          * It is only required when num input CPs > num output CPs,
-          * which cannot happen with the fixed function TCS. We should
-          * also update this bit when switching from TCS to fixed
-          * function TCS.
-          */
-         bool ls_vgpr_fix =
-            tcs && sctx->patch_vertices > tcs->info.base.tess.tcs_vertices_out;
-
-         if (ls_vgpr_fix != sctx->shader.tcs.key.ge.part.tcs.ls_prolog.ls_vgpr_fix) {
-            sctx->shader.tcs.key.ge.part.tcs.ls_prolog.ls_vgpr_fix = ls_vgpr_fix;
-            sctx->fixed_func_tcs_shader.key.ge.part.tcs.ls_prolog.ls_vgpr_fix = ls_vgpr_fix;
+         if (sctx->shader.tcs.key.ge.opt.same_patch_vertices != same_patch_vertices) {
+            sctx->shader.tcs.key.ge.opt.same_patch_vertices = same_patch_vertices;
             sctx->do_update_shaders = true;
          }
+
+         if (GFX_VERSION == GFX9 && sctx->screen->info.has_ls_vgpr_init_bug) {
+            /* Determine whether the LS VGPR fix should be applied.
+             *
+             * It is only required when num input CPs > num output CPs,
+             * which cannot happen with the fixed function TCS.
+             */
+            bool ls_vgpr_fix =
+               sctx->patch_vertices > tcs->info.base.tess.tcs_vertices_out;
+
+            if (ls_vgpr_fix != sctx->shader.tcs.key.ge.part.tcs.ls_prolog.ls_vgpr_fix) {
+               sctx->shader.tcs.key.ge.part.tcs.ls_prolog.ls_vgpr_fix = ls_vgpr_fix;
+               sctx->do_update_shaders = true;
+            }
+         }
+      } else {
+         /* These fields are static for fixed function TCS. So no need to set
+          * do_update_shaders between fixed-TCS draws. As fixed-TCS to user-TCS
+          * or opposite, do_update_shaders should already be set by bind state.
+          */
+         sctx->shader.tcs.key.ge.opt.same_patch_vertices = GFX_VERSION >= GFX9;
+         sctx->shader.tcs.key.ge.part.tcs.ls_prolog.ls_vgpr_fix = false;
+
+         /* User may only change patch vertices, needs to update fixed func TCS. */
+         if (sctx->shader.tcs.cso &&
+             sctx->shader.tcs.cso->info.base.tess.tcs_vertices_out != sctx->patch_vertices)
+            sctx->do_update_shaders = true;
       }
    }
 
