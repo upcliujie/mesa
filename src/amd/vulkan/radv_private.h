@@ -1979,6 +1979,24 @@ struct radv_rendering_info {
    VkFormat stencil_att_format;
 };
 
+struct radv_color_blend_info {
+   struct {
+      uint32_t color_write_mask;
+      bool blend_enable;
+      uint32_t color_blend_op;
+      uint32_t alpha_blend_op;
+      uint32_t src_color_blend_factor;
+      uint32_t dst_color_blend_factor;
+      uint32_t src_alpha_blend_factor;
+      uint32_t dst_alpha_blend_factor;
+   } att[MAX_RTS];
+   uint32_t att_count;
+   float blend_constants[4];
+   bool logic_op_enable;
+   uint32_t logic_op;
+   uint32_t color_write_enable;
+};
+
 struct radv_graphics_pipeline_info {
    struct radv_vertex_input_info vi;
    struct radv_input_assembly_info ia;
@@ -1990,6 +2008,7 @@ struct radv_graphics_pipeline_info {
    struct radv_multisample_info ms;
    struct radv_depth_stencil_info ds;
    struct radv_rendering_info ri;
+   struct radv_color_blend_info cb;
 };
 
 struct radv_pipeline {
