@@ -1971,6 +1971,14 @@ struct radv_depth_stencil_info {
    VkCompareOp depth_compare_op;
 };
 
+struct radv_rendering_info {
+   uint32_t view_mask;
+   uint32_t color_att_count;
+   VkFormat color_att_formats[MAX_RTS];
+   VkFormat depth_att_format;
+   VkFormat stencil_att_format;
+};
+
 struct radv_graphics_pipeline_info {
    struct radv_vertex_input_info vi;
    struct radv_input_assembly_info ia;
@@ -1981,6 +1989,7 @@ struct radv_graphics_pipeline_info {
 
    struct radv_multisample_info ms;
    struct radv_depth_stencil_info ds;
+   struct radv_rendering_info ri;
 };
 
 struct radv_pipeline {
