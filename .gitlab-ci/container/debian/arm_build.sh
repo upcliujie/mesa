@@ -27,6 +27,7 @@ apt-get -y install \
 	libasan6 \
 	libdrm-dev \
 	libelf-dev \
+	libepoxy-dev \
 	libexpat1-dev \
 	libx11-dev \
 	libx11-xcb-dev \

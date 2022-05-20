@@ -38,7 +38,7 @@ if [[ "$DEBIAN_ARCH" = "arm64" ]]; then
     DEVICE_TREES+=" arch/arm64/boot/dts/nvidia/tegra210-p3450-0000.dtb"
     DEVICE_TREES+=" arch/arm64/boot/dts/qcom/sc7180-trogdor-lazor-limozeen-nots-r5.dtb"
     KERNEL_IMAGE_NAME="Image"
-
+    ARCH_PACKAGES="libasound2-dev libcap-dev libfdt-dev libva-dev wayland-protocols"
 elif [[ "$DEBIAN_ARCH" = "armhf" ]]; then
     GCC_ARCH="arm-linux-gnueabihf"
     KERNEL_ARCH="arm"
@@ -173,7 +173,8 @@ if [[ "$DEBIAN_ARCH" = "amd64" ]]; then
 fi
 
 ############### Build Crosvm
-if [[ ${DEBIAN_ARCH} = "amd64" ]]; then
+if [[ "$DEBIAN_ARCH" = "arm64" ]] \
+  || [[ "$DEBIAN_ARCH" = "amd64" ]]; then
     . .gitlab-ci/container/build-crosvm.sh
     mv /usr/local/bin/crosvm /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/
     mv /usr/local/lib/$GCC_ARCH/libvirglrenderer.* /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH/
