@@ -94,7 +94,7 @@ struct wsi_swapchain {
    VkDevice device;
    VkAllocationCallbacks alloc;
    VkFence* fences;
-   VkSemaphore* buffer_blit_semaphores;
+   VkSemaphore blit_queue_semaphore;
    VkPresentModeKHR present_mode;
 
    struct wsi_image_info image_info;
