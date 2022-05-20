@@ -1894,6 +1894,24 @@ genX(EndCommandBuffer)(
    return VK_SUCCESS;
 }
 
+
+static void
+cmd_buffer_emit_copy_ts_buffer(struct u_trace_context *utctx,
+                               void *cmdstream,
+                               void *ts_from, uint32_t from_offset,
+                               void *ts_to, uint32_t to_offset,
+                               uint32_t count)
+{
+   struct anv_memcpy_state *memcpy_state = cmdstream;
+   struct anv_address from_addr = (struct anv_address) {
+      .bo = ts_from, .offset = from_offset * sizeof(uint64_t) };
+   struct anv_address to_addr = (struct anv_address) {
+      .bo = ts_to, .offset = to_offset * sizeof(uint64_t) };
+
+   genX(emit_so_memcpy)(memcpy_state, to_addr, from_addr,
+                        count * sizeof(uint64_t));
+}
+
 void
 genX(CmdExecuteCommands)(
     VkCommandBuffer                             commandBuffer,
@@ -1901,6 +1919,7 @@ genX(CmdExecuteCommands)(
     const VkCommandBuffer*                      pCmdBuffers)
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, primary, commandBuffer);
+   struct anv_device *device = primary->device;
 
    assert(primary->vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
@@ -1931,7 +1950,7 @@ genX(CmdExecuteCommands)(
              * regardless of conditional rendering being enabled in primary.
              */
             struct mi_builder b;
-            mi_builder_init(&b, &primary->device->info, &primary->batch);
+            mi_builder_init(&b, &device->info, &primary->batch);
             mi_store(&b, mi_reg64(ANV_PREDICATE_RESULT_REG),
                          mi_imm(UINT64_MAX));
          }
@@ -1945,7 +1964,7 @@ genX(CmdExecuteCommands)(
           * we allocated for them in BeginCommandBuffer.
           */
          struct anv_bo *ss_bo =
-            primary->device->surface_state_pool.block_pool.bo;
+            device->surface_state_pool.block_pool.bo;
          struct anv_state src_state = primary->state.gfx.att_states;
          struct anv_state dst_state = secondary->state.gfx.att_states;
          assert(src_state.alloc_size == dst_state.alloc_size);
@@ -2004,6 +2023,29 @@ genX(CmdExecuteCommands)(
     * address calls?
     */
    genX(cmd_buffer_emit_state_base_address)(primary);
+
+   /* Copy of utrace timestamp buffers from secondary into primary */
+   if (u_trace_context_instrumenting(&device->ds.trace_context)) {
+      trace_intel_begin_trace_copy(&primary->trace);
+
+      struct anv_memcpy_state memcpy_state;
+      genX(emit_so_memcpy_init)(&memcpy_state, device, &primary->batch);
+      for (uint32_t i = 0; i < commandBufferCount; i++) {
+         ANV_FROM_HANDLE(anv_cmd_buffer, secondary, pCmdBuffers[i]);
+
+         u_trace_clone_append(u_trace_begin_iterator(&secondary->trace),
+                              u_trace_end_iterator(&secondary->trace),
+                              &primary->trace,
+                              &memcpy_state,
+                              cmd_buffer_emit_copy_ts_buffer);
+      }
+      genX(emit_so_memcpy_fini)(&memcpy_state);
+
+      trace_intel_end_trace_copy(&primary->trace);
+
+      /* Memcpy is done using the 3D pipeline. */
+      primary->state.current_pipeline = _3D;
+   }
 }
 
 /**
