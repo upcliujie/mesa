@@ -333,5 +333,7 @@ ir3_delay_calc(struct ir3_block *block, struct ir3_instruction *instr,
          regmask_set(&mask, src);
    }
 
-   return delay_calc(block, NULL, instr, 0, &mask, mergedregs);
+   unsigned delay = delay_calc(block, NULL, instr, 0, &mask, mergedregs);
+   //return MAX2(delay, 1);
+   return delay;
 }

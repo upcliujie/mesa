@@ -461,7 +461,7 @@ struct tu_renderpass_result {
 #define TU_BORDER_COLOR_COUNT 4096
 #define TU_BORDER_COLOR_BUILTIN 6
 
-#define TU_BLIT_SHADER_SIZE 1024
+#define TU_BLIT_SHADER_SIZE 4096
 
 /* This struct defines the layout of the global_bo */
 struct tu6_global
