@@ -76,7 +76,8 @@
 #define RING_HS_TESS_OFFCHIP     6
 #define RING_TS_DRAW             7
 #define RING_TS_PAYLOAD          8
-#define RING_PS_SAMPLE_POSITIONS 9
+#define RING_MS_SCRATCH          9
+#define RING_PS_SAMPLE_POSITIONS 10
 
 /* max number of descriptor sets */
 #define MAX_SETS 32
@@ -90,6 +91,16 @@
  * of 4 bytes so we can align buffer sizes up.
  */
 #define RADV_MAX_MEMORY_ALLOCATION_SIZE 0xFFFFFFFCull
+
+/* Number of entries in the mesh shader scratch ring.
+ * This depends on VGT_GS_MAX_WAVE_ID which is set by the kernel
+ * and is impossible to query. We leave it on its maximum value
+ * because real applications are unlikely to use it.
+ */
+#define RADV_MESH_SCRATCH_NUM_ENTRIES 2048
+
+/* Size of each entry in the mesh shader scratch ring. */
+#define RADV_MESH_SCRATCH_ENTRY_BYTES (160 * 1024)
 
 /* Number of invocations in each subgroup. */
 #define RADV_SUBGROUP_SIZE 64
