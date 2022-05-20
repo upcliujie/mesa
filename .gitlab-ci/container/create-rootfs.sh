@@ -5,10 +5,16 @@ set -ex
 if [ $DEBIAN_ARCH = arm64 ]; then
     ARCH_PACKAGES="firmware-qcom-media
                    firmware-linux-nonfree
+                   inetutils-syslogd
+                   iptables
+                   libcap2
                    libfontconfig1
                    libgl1
                    libglu1-mesa
                    libvulkan-dev
+                   socat
+                   spirv-tools
+                   sysvinit-core
     "
 elif [ $DEBIAN_ARCH = amd64 ]; then
     ARCH_PACKAGES="firmware-amd-graphics
