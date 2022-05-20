@@ -570,9 +570,10 @@ radv_cmd_buffer_resolve_subpass_hw(struct radv_cmd_buffer *cmd_buffer)
 {
    const struct radv_subpass *subpass = cmd_buffer->state.subpass;
    VkRect2D resolve_area = cmd_buffer->state.render_area;
+   uint32_t layer_count = cmd_buffer->state.framebuffer->layers;
    struct radv_meta_saved_state saved_state;
 
-   radv_meta_save(&saved_state, cmd_buffer, RADV_META_SAVE_GRAPHICS_PIPELINE);
+   radv_meta_save(&saved_state, cmd_buffer, RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_PASS);
 
    for (uint32_t i = 0; i < subpass->color_count; ++i) {
       struct radv_subpass_attachment src_att = subpass->color_attachments[i];
@@ -606,13 +607,33 @@ radv_cmd_buffer_resolve_subpass_hw(struct radv_cmd_buffer *cmd_buffer)
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       }
 
-      struct radv_subpass resolve_subpass = {
-         .color_count = 2,
-         .color_attachments = (struct radv_subpass_attachment[]){src_att, dest_att},
-         .depth_stencil_attachment = NULL,
+      const VkRenderingAttachmentInfo color_atts[2] = {
+         {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = radv_image_view_to_handle(src_iview),
+            .imageLayout = cmd_buffer->state.attachments[src_att.attachment].current_layout,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+         },
+         {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = radv_image_view_to_handle(dest_iview),
+            .imageLayout = cmd_buffer->state.attachments[dest_att.attachment].current_layout,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+         },
       };
 
-      radv_cmd_buffer_set_subpass(cmd_buffer, &resolve_subpass);
+      const VkRenderingInfo rendering_info = {
+         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+         .renderArea = resolve_area,
+         .layerCount = layer_count,
+         .viewMask = subpass->view_mask,
+         .colorAttachmentCount = 2,
+         .pColorAttachments = color_atts,
+      };
+
+      radv_CmdBeginRendering(radv_cmd_buffer_to_handle(cmd_buffer), &rendering_info);
 
       VkResult ret = build_resolve_pipeline(
          cmd_buffer->device, radv_format_meta_fs_key(cmd_buffer->device, dest_iview->vk.format));
@@ -623,7 +644,7 @@ radv_cmd_buffer_resolve_subpass_hw(struct radv_cmd_buffer *cmd_buffer)
 
       emit_resolve(cmd_buffer, src_img, dst_img, dest_iview->vk.format, &resolve_area);
 
-      radv_cmd_buffer_restore_subpass(cmd_buffer, subpass);
+      radv_CmdEndRendering(radv_cmd_buffer_to_handle(cmd_buffer));
    }
 
    radv_meta_restore(&saved_state, cmd_buffer);
