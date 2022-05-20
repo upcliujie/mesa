@@ -75,10 +75,9 @@ fdl6_texswiz(const struct fdl_view_args *args, bool has_z24uint_s8uint)
       break;
    case PIPE_FORMAT_X24S8_UINT:
       if (!has_z24uint_s8uint) {
-         /* using FMT6_8_8_8_8_UINT, so need to pick out the W channel and
-          * swizzle (0,0,1) in the rest (see "Conversion to RGBA").
+         /* using FMT6_8_8_8_8_UINT so need to swizzle (0,0,1) in the rest
+          * (see "Conversion to RGBA").
           */
-         format_swiz[0] = PIPE_SWIZZLE_W;
          format_swiz[1] = PIPE_SWIZZLE_0;
          format_swiz[2] = PIPE_SWIZZLE_0;
          format_swiz[3] = PIPE_SWIZZLE_1;

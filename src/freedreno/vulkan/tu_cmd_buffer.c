@@ -1168,7 +1168,7 @@ tu_emit_input_attachments(struct tu_cmd_buffer *cmd,
             A6XX_TEX_CONST_0_SWIZ_Z__MASK | A6XX_TEX_CONST_0_SWIZ_W__MASK);
          if (!cmd->device->physical_device->info->a6xx.has_z24uint_s8uint) {
             dst[0] |= A6XX_TEX_CONST_0_FMT(FMT6_8_8_8_8_UINT) |
-               A6XX_TEX_CONST_0_SWIZ_X(A6XX_TEX_W) |
+               A6XX_TEX_CONST_0_SWIZ_X(A6XX_TEX_X) |
                A6XX_TEX_CONST_0_SWIZ_Y(A6XX_TEX_ZERO) |
                A6XX_TEX_CONST_0_SWIZ_Z(A6XX_TEX_ZERO) |
                A6XX_TEX_CONST_0_SWIZ_W(A6XX_TEX_ONE);

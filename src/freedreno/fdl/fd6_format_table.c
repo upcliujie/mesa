@@ -225,7 +225,7 @@ static const struct fd6_format formats[PIPE_FORMAT_COUNT] = {
    _T_(R9G9B9E5_FLOAT,  9_9_9_E5_FLOAT,         WZYX),
 
    _TC(Z24X8_UNORM,          Z24_UNORM_S8_UINT, WZYX),
-   _TC(X24S8_UINT,           8_8_8_8_UINT,      WZYX),
+   _TC(X24S8_UINT,           8_8_8_8_UINT,      XYZW),
    _TC(Z24_UNORM_S8_UINT,    Z24_UNORM_S8_UINT, WZYX),
    _TC(Z32_FLOAT,            32_FLOAT,          WZYX),
    _TC(Z32_FLOAT_S8X24_UINT, 32_FLOAT,          WZYX),
@@ -375,7 +375,7 @@ fd6_pipe2swap(enum pipe_format format, enum a6xx_tile_mode tile_mode)
       return WZYX;
 
    if (tile_mode)
-      return WZYX;
+      return format == PIPE_FORMAT_X24S8_UINT ? XYZW : WZYX;
 
    return formats[format].swap;
 }
