@@ -7237,6 +7237,12 @@ void genX(CmdEndRendering)(
    }
 #endif
 
+   trace_intel_end_render_pass(&cmd_buffer->trace,
+                               gfx->render_area.extent.width,
+                               gfx->render_area.extent.height,
+                               gfx->color_att_count,
+                               gfx->samples);
+
    anv_cmd_buffer_reset_rendering(cmd_buffer);
 }
 
