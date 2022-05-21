@@ -3905,6 +3905,7 @@ vtn_vector_shuffle(struct vtn_builder *b, unsigned num_components,
          vec->src[i].src = nir_src_for_ssa(src0);
          vec->src[i].swizzle[0] = index;
       } else {
+         vtn_assert(index < src0->num_components + src1->num_components);
          vec->src[i].src = nir_src_for_ssa(src1);
          vec->src[i].swizzle[0] = index - src0->num_components;
       }
