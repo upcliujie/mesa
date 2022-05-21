@@ -695,7 +695,7 @@ lower_rq_proceed(nir_builder *b, nir_ssa_def *index, struct ray_query_vars *vars
 
          nir_ssa_def *bvh_node =
             rq_load_array(b, index, vars->stack, rq_load_var(b, index, vars->trav.stack));
-         nir_ssa_def *bvh_node_type = bvh_node;
+         nir_ssa_def *bvh_node_type = nir_iand_imm(b, bvh_node, 0b111);
 
          bvh_node =
             nir_iadd(b, rq_load_var(b, index, vars->trav.bvh_base), nir_u2u(b, bvh_node, 64));
@@ -708,20 +708,51 @@ lower_rq_proceed(nir_builder *b, nir_ssa_def *index, struct ray_query_vars *vars
                rq_load_var(b, index, vars->trav.inv_dir));
          }
 
-         /* if (node.type_flags & aabb) */
-         nir_push_if(b, nir_ine_imm(b, nir_iand_imm(b, bvh_node_type, 4), 0));
+         nir_push_if(b, nir_ieq_imm(b, bvh_node_type, radv_bvh_node_internal));
          {
-            /* if (node.type_flags & leaf) */
-            nir_push_if(b, nir_ine_imm(b, nir_iand_imm(b, bvh_node_type, 2), 0));
-            {
-               /* custom */
-               nir_push_if(b, nir_ine_imm(b, nir_iand_imm(b, bvh_node_type, 1), 0));
+            nir_ssa_def *result = intrinsic_result;
+            if (!result) {
+               /* If we didn't run the intrinsic cause the hardware didn't support it,
+                * emulate ray/box intersection here */
+               result = intersect_ray_amd_software_box(device, b, bvh_node,
+                                                       rq_load_var(b, index, vars->closest.t),
+                                                       rq_load_var(b, index, vars->trav.origin),
+                                                       rq_load_var(b, index, vars->trav.direction),
+                                                       rq_load_var(b, index, vars->trav.inv_dir));
+            }
+
+            for (unsigned i = 4; i-- > 0;) {
+               nir_ssa_def *new_node = nir_vector_extract(b, result, nir_imm_int(b, i));
+               nir_push_if(b, nir_ine_imm(b, new_node, 0xffffffff));
                {
-                  insert_traversal_aabb_case(device, b, index, vars, bvh_node);
+                  rq_store_array(b, index, vars->stack, rq_load_var(b, index, vars->trav.stack),
+                                 new_node, 0x1);
+                  rq_store_var(b, index, vars->trav.stack,
+                               nir_iadd_imm(b, rq_load_var(b, index, vars->trav.stack), 1), 1);
                }
-               nir_push_else(b, NULL);
+               nir_pop_if(b, NULL);
+            }
+         }
+         nir_push_else(b, NULL);
+         {
+            nir_push_if(b, nir_ieq_imm(b, bvh_node_type, radv_bvh_node_triangle));
+            {
+               nir_ssa_def *result = intrinsic_result;
+               if (!result) {
+                  /* If we didn't run the intrinsic cause the hardware didn't support it,
+                   * emulate ray/tri intersection here */
+                  result = intersect_ray_amd_software_tri(
+                     device, b, bvh_node, rq_load_var(b, index, vars->closest.t),
+                     rq_load_var(b, index, vars->trav.origin),
+                     rq_load_var(b, index, vars->trav.direction),
+                     rq_load_var(b, index, vars->trav.inv_dir));
+               }
+               insert_traversal_triangle_case(device, b, index, result, vars, bvh_node);
+            }
+            nir_push_else(b, NULL);
+            {
+               nir_push_if(b, nir_ieq_imm(b, bvh_node_type, radv_bvh_node_instance));
                {
-                  /* instance */
                   nir_ssa_def *instance_node_addr = build_node_to_addr(device, b, bvh_node);
                   nir_ssa_def *instance_data = nir_build_load_global(
                      b, 4, 32, instance_node_addr, .align_mul = 64, .align_offset = 0);
@@ -778,49 +809,13 @@ lower_rq_proceed(nir_builder *b, nir_ssa_def *index, struct ray_query_vars *vars
                   rq_store_var(b, index, vars->candidate.instance_id, instance_id, 1);
                   rq_store_var(b, index, vars->candidate.instance_addr, instance_node_addr, 1);
                }
+               nir_push_else(b, NULL);
+               {
+                  insert_traversal_aabb_case(device, b, index, vars, bvh_node);
+               }
                nir_pop_if(b, NULL);
             }
-            nir_push_else(b, NULL);
-            {
-               nir_ssa_def *result = intrinsic_result;
-               if (!result) {
-                  /* If we didn't run the intrinsic cause the hardware didn't support it,
-                   * emulate ray/box intersection here */
-                  result = intersect_ray_amd_software_box(
-                     device, b, bvh_node, rq_load_var(b, index, vars->closest.t),
-                     rq_load_var(b, index, vars->trav.origin),
-                     rq_load_var(b, index, vars->trav.direction),
-                     rq_load_var(b, index, vars->trav.inv_dir));
-               }
-
-               /* box */
-               for (unsigned i = 4; i-- > 0;) {
-                  nir_ssa_def *new_node = nir_vector_extract(b, result, nir_imm_int(b, i));
-                  nir_push_if(b, nir_ine_imm(b, new_node, 0xffffffff));
-                  {
-                     rq_store_array(b, index, vars->stack, rq_load_var(b, index, vars->trav.stack),
-                                    new_node, 0x1);
-                     rq_store_var(b, index, vars->trav.stack,
-                                  nir_iadd_imm(b, rq_load_var(b, index, vars->trav.stack), 1), 1);
-                  }
-                  nir_pop_if(b, NULL);
-               }
-            }
             nir_pop_if(b, NULL);
-         }
-         nir_push_else(b, NULL);
-         {
-            nir_ssa_def *result = intrinsic_result;
-            if (!result) {
-               /* If we didn't run the intrinsic cause the hardware didn't support it,
-                * emulate ray/tri intersection here */
-               result = intersect_ray_amd_software_tri(device, b, bvh_node,
-                                                       rq_load_var(b, index, vars->closest.t),
-                                                       rq_load_var(b, index, vars->trav.origin),
-                                                       rq_load_var(b, index, vars->trav.direction),
-                                                       rq_load_var(b, index, vars->trav.inv_dir));
-            }
-            insert_traversal_triangle_case(device, b, index, result, vars, bvh_node);
          }
          nir_pop_if(b, NULL);
       }
