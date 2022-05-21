@@ -1473,18 +1473,50 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
             nir_load_var(b, trav_vars.inv_dir));
       }
 
-      nir_push_if(b, nir_ine_imm(b, nir_iand_imm(b, bvh_node_type, 4), 0));
+      nir_push_if(b, nir_ieq_imm(b, bvh_node_type, radv_bvh_node_internal));
       {
-         nir_push_if(b, nir_ine_imm(b, nir_iand_imm(b, bvh_node_type, 2), 0));
-         {
-            /* custom */
-            nir_push_if(b, nir_ine_imm(b, nir_iand_imm(b, bvh_node_type, 1), 0));
-            if (!(pCreateInfo->flags & VK_PIPELINE_CREATE_RAY_TRACING_SKIP_AABBS_BIT_KHR)) {
-               insert_traversal_aabb_case(device, pCreateInfo, b, vars, &trav_vars, bvh_node);
-            }
-            nir_push_else(b, NULL);
+         nir_ssa_def *result = intrinsic_result;
+         if (!result) {
+            /* If we didn't run the intrinsic cause the hardware didn't support it,
+             * emulate ray/box intersection here */
+            result = intersect_ray_amd_software_box(
+               device, b, bvh_node, nir_load_var(b, vars->tmax), nir_load_var(b, trav_vars.origin),
+               nir_load_var(b, trav_vars.dir), nir_load_var(b, trav_vars.inv_dir));
+         }
+
+         for (unsigned i = 4; i-- > 0;) {
+            nir_ssa_def *new_node = nir_vector_extract(b, result, nir_imm_int(b, i));
+            nir_push_if(b, nir_ine_imm(b, new_node, 0xffffffff));
             {
-               /* instance */
+               nir_store_shared(b, new_node, nir_load_var(b, trav_vars.stack), .base = 0,
+                                .align_mul = stack_entry_size);
+               nir_store_var(b, trav_vars.stack,
+                             nir_iadd(b, nir_load_var(b, trav_vars.stack), stack_entry_stride_def),
+                             1);
+            }
+            nir_pop_if(b, NULL);
+         }
+      }
+      nir_push_else(b, NULL);
+      {
+         nir_push_if(b, nir_ieq_imm(b, bvh_node_type, radv_bvh_node_triangle));
+         if (!(pCreateInfo->flags & VK_PIPELINE_CREATE_RAY_TRACING_SKIP_TRIANGLES_BIT_KHR)) {
+            nir_ssa_def *result = intrinsic_result;
+            if (!result) {
+               /* If we didn't run the intrinsic cause the hardware didn't support it,
+                * emulate ray/tri intersection here */
+               result = intersect_ray_amd_software_tri(
+                  device, b, bvh_node, nir_load_var(b, vars->tmax),
+                  nir_load_var(b, trav_vars.origin), nir_load_var(b, trav_vars.dir),
+                  nir_load_var(b, trav_vars.inv_dir));
+            }
+            insert_traversal_triangle_case(device, pCreateInfo, b, result, vars, &trav_vars,
+                                           bvh_node);
+         }
+         nir_push_else(b, NULL);
+         {
+            nir_push_if(b, nir_ieq_imm(b, bvh_node_type, radv_bvh_node_instance));
+            {
                nir_ssa_def *instance_node_addr = build_node_to_addr(device, b, bvh_node);
                nir_ssa_def *instance_data =
                   nir_build_load_global(b, 4, 32, instance_node_addr, .align_mul = 64);
@@ -1533,46 +1565,13 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
                nir_store_var(b, trav_vars.instance_id, instance_id, 1);
                nir_store_var(b, trav_vars.instance_addr, instance_node_addr, 1);
             }
+            nir_push_else(b, NULL);
+            if (!(pCreateInfo->flags & VK_PIPELINE_CREATE_RAY_TRACING_SKIP_AABBS_BIT_KHR)) {
+               insert_traversal_aabb_case(device, pCreateInfo, b, vars, &trav_vars, bvh_node);
+            }
             nir_pop_if(b, NULL);
          }
-         nir_push_else(b, NULL);
-         {
-            /* box */
-            nir_ssa_def *result = intrinsic_result;
-            if (!result) {
-               /* If we didn't run the intrinsic cause the hardware didn't support it,
-                * emulate ray/box intersection here */
-               result = intersect_ray_amd_software_box(device,
-                  b, bvh_node, nir_load_var(b, vars->tmax), nir_load_var(b, trav_vars.origin),
-                  nir_load_var(b, trav_vars.dir), nir_load_var(b, trav_vars.inv_dir));
-            }
-
-            for (unsigned i = 4; i-- > 0; ) {
-               nir_ssa_def *new_node = nir_vector_extract(b, result, nir_imm_int(b, i));
-               nir_push_if(b, nir_ine_imm(b, new_node, 0xffffffff));
-               {
-                  nir_store_shared(b, new_node, nir_load_var(b, trav_vars.stack), .base = 0,
-                                   .align_mul = stack_entry_size);
-                  nir_store_var(
-                     b, trav_vars.stack,
-                     nir_iadd(b, nir_load_var(b, trav_vars.stack), stack_entry_stride_def), 1);
-               }
-               nir_pop_if(b, NULL);
-            }
-         }
          nir_pop_if(b, NULL);
-      }
-      nir_push_else(b, NULL);
-      if (!(pCreateInfo->flags & VK_PIPELINE_CREATE_RAY_TRACING_SKIP_TRIANGLES_BIT_KHR)) {
-         nir_ssa_def *result = intrinsic_result;
-         if (!result) {
-            /* If we didn't run the intrinsic cause the hardware didn't support it,
-             * emulate ray/tri intersection here */
-            result = intersect_ray_amd_software_tri(device,
-               b, bvh_node, nir_load_var(b, vars->tmax), nir_load_var(b, trav_vars.origin),
-               nir_load_var(b, trav_vars.dir), nir_load_var(b, trav_vars.inv_dir));
-         }
-         insert_traversal_triangle_case(device, pCreateInfo, b, result, vars, &trav_vars, bvh_node);
       }
       nir_pop_if(b, NULL);
 
