@@ -27,11 +27,12 @@ from enum import IntEnum
 import os
 
 TRACEPOINTS = {}
+TRACEPOINTS_ENABLES = {}
 
 class Tracepoint(object):
     """Class that represents all the information about a tracepoint
     """
-    def __init__(self, name, args=[],
+    def __init__(self, name, args=[], config_name=None,
                  tp_struct=None, tp_print=None, tp_perfetto=None,
                  end_of_pipe=False):
         """Parameters:
@@ -57,11 +58,22 @@ class Tracepoint(object):
         self.tp_print = tp_print
         self.tp_perfetto = tp_perfetto
         self.end_of_pipe = end_of_pipe
+        self.config_name = config_name
 
         TRACEPOINTS[name] = self
+        if config_name is not None and config_name not in TRACEPOINTS_ENABLES:
+            TRACEPOINTS_ENABLES[config_name] = len(TRACEPOINTS_ENABLES)
 
     def can_generate_print(self):
         return self.args is not None and len(self.args) > 0
+
+    def enabled_expr(self, trace_config_name):
+        if trace_config_name is None:
+            return "true"
+        assert self.config_name is not None
+        return "({0} & {1}_{2})".format(trace_config_name,
+                                        trace_config_name.upper(),
+                                        self.config_name.upper())
 
 class TracepointArgStruct():
     """Represents struct that is being passed as an argument
@@ -179,6 +191,18 @@ extern "C" {
 ${declaration.decl};
 % endfor
 
+% if trace_config_name is not None:
+enum ${trace_config_name.lower()} {
+%    for config_name, config_id in TRACEPOINTS_ENABLES.items():
+   ${trace_config_name.upper()}_${config_name.upper()} = 1ull << ${config_id},
+%    endfor
+};
+
+extern uint64_t ${trace_config_name};
+
+void ${trace_config_name}_config_variable(void);
+% endif
+
 % for trace_name, trace in TRACEPOINTS.items():
 
 /*
@@ -228,9 +252,11 @@ static inline void trace_${trace_name}(
 %    endfor
 ) {
 %    if trace.tp_perfetto is not None:
-   if (!unlikely(ut->enabled || ut_trace_instrument || ut_perfetto_enabled))
+   if (!unlikely((ut->enabled || ut_trace_instrument || ut_perfetto_enabled) &&
+                 ${trace.enabled_expr(trace_config_name)}))
 %    else:
-   if (!unlikely(ut->enabled || ut_trace_instrument))
+   if (!unlikely((ut->enabled || ut_trace_instrument) &&
+                 ${trace.enabled_expr(trace_config_name)}))
 %    endif
       return;
    __trace_${trace_name}(
@@ -282,7 +308,41 @@ src_template = """\
 #include "${hdr}"
 
 #define __NEEDS_TRACE_PRIV
+#include "util/debug.h"
 #include "util/perf/u_trace_priv.h"
+
+% if trace_config_name is not None:
+static const struct debug_control config_control[] = {
+%    for config_name in TRACEPOINTS_ENABLES.keys():
+   { "${config_name}", ${trace_config_name.upper()}_${config_name.upper()}, },
+%    endfor
+};
+uint64_t ${trace_config_name} = 0;
+
+static void
+${trace_config_name}_variable_once(void)
+{
+   uint64_t default_value = 0
+%    for name in trace_config_default:
+     | ${trace_config_name.upper()}_${name.upper()}
+%    endfor
+     ;
+
+   ${trace_config_name} =
+      parse_enable_string(getenv("${trace_config_name.upper()}"),
+                          default_value,
+                          config_control);
+}
+
+void
+${trace_config_name}_config_variable(void)
+{
+   static once_flag process_${trace_config_name}_variable_flag = ONCE_FLAG_INIT;
+
+   call_once(&process_${trace_config_name}_variable_flag,
+             ${trace_config_name}_variable_once);
+}
+% endif
 
 % for trace_name, trace in TRACEPOINTS.items():
 /*
@@ -379,7 +439,19 @@ void __trace_${trace_name}(
 % endfor
 """
 
-def utrace_generate(cpath, hpath, ctx_param, need_cs_param=True):
+def utrace_generate(cpath, hpath, ctx_param, need_cs_param=True,
+                    trace_config_name=None, trace_config_default=[]):
+    """Parameters:
+
+    - cpath: c file to generate.
+    - hpath: h file to generate.
+    - ctx_param: type of the first parameter to the perfetto vfuncs.
+    - need_cs_param: whether tracepoint functions need an additional cs
+      parameter.
+    - trace_config_name: (optional) name of the environment variable
+      enabling/disabling tracepoints.
+    - trace_config_default: (optional) list of tracepoints enabled by default.
+    """
     cs_param_value = 'NULL'
     if need_cs_param:
         cs_param_value = 'cs'
@@ -391,8 +463,11 @@ def utrace_generate(cpath, hpath, ctx_param, need_cs_param=True):
                 ctx_param=ctx_param,
                 need_cs_param=need_cs_param,
                 cs_param_value=cs_param_value,
+                trace_config_name=trace_config_name,
+                trace_config_default=trace_config_default,
                 HEADERS=[h for h in HEADERS if h.scope & HeaderScope.SOURCE],
-                TRACEPOINTS=TRACEPOINTS))
+                TRACEPOINTS=TRACEPOINTS,
+                TRACEPOINTS_ENABLES=TRACEPOINTS_ENABLES))
 
     if hpath is not None:
         hdr = os.path.basename(hpath)
@@ -401,9 +476,11 @@ def utrace_generate(cpath, hpath, ctx_param, need_cs_param=True):
                 hdrname=hdr.rstrip('.h').upper(),
                 ctx_param=ctx_param,
                 need_cs_param=need_cs_param,
+                trace_config_name=trace_config_name,
                 HEADERS=[h for h in HEADERS if h.scope & HeaderScope.HEADER],
                 FORWARD_DECLS=FORWARD_DECLS,
-                TRACEPOINTS=TRACEPOINTS))
+                TRACEPOINTS=TRACEPOINTS,
+                TRACEPOINTS_ENABLES=TRACEPOINTS_ENABLES))
 
 
 perfetto_utils_hdr_template = """\
