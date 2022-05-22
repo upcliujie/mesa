@@ -2000,7 +2000,10 @@ radv_cmd_buffer_clear_subpass(struct radv_cmd_buffer *cmd_buffer)
       return;
 
    radv_meta_save(&saved_state, cmd_buffer,
-                  RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS);
+                  RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS | RADV_META_SAVE_PREDICATING);
+
+   /* Subpass clear should not be affected by conditional rendering. */
+   cmd_buffer->state.predicating = false;
 
    for (uint32_t i = 0; i < cmd_state->subpass->color_count; ++i) {
       uint32_t a = cmd_state->subpass->color_attachments[i].attachment;
@@ -2227,6 +2230,9 @@ radv_cmd_clear_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *imag
 
    bool disable_compression = false;
 
+   /* Clear commands (except vkCmdClearAttachments) should not be affected by conditional rendering. */
+   cmd_buffer->state.predicating = false;
+
    if (format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32) {
       bool blendable;
       if (cs ? !radv_is_storage_image_format_supported(cmd_buffer->device->physical_device, format)
@@ -2317,14 +2323,15 @@ radv_CmdClearColorImage(VkCommandBuffer commandBuffer, VkImage image_h, VkImageL
    cs = cmd_buffer->qf == RADV_QUEUE_COMPUTE ||
         !radv_image_is_renderable(cmd_buffer->device, image);
 
+   unsigned flags = RADV_META_SAVE_PREDICATING;
+
    if (cs) {
-      radv_meta_save(
-         &saved_state, cmd_buffer,
-         RADV_META_SAVE_COMPUTE_PIPELINE | RADV_META_SAVE_CONSTANTS | RADV_META_SAVE_DESCRIPTORS);
+      flags |= RADV_META_SAVE_COMPUTE_PIPELINE | RADV_META_SAVE_CONSTANTS | RADV_META_SAVE_DESCRIPTORS;
    } else {
-      radv_meta_save(&saved_state, cmd_buffer,
-                     RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS);
+      flags |= RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS;
    }
+
+   radv_meta_save(&saved_state, cmd_buffer, flags);
 
    radv_cmd_clear_image(cmd_buffer, image, imageLayout, (const VkClearValue *)pColor, rangeCount,
                         pRanges, cs);
@@ -2343,7 +2350,7 @@ radv_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer, VkImage image_h,
    struct radv_meta_saved_state saved_state;
 
    radv_meta_save(&saved_state, cmd_buffer,
-                  RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS);
+                  RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS | RADV_META_SAVE_PREDICATING);
 
    radv_cmd_clear_image(cmd_buffer, image, imageLayout, (const VkClearValue *)pDepthStencil,
                         rangeCount, pRanges, false);
