@@ -1995,12 +1995,20 @@ radv_cmd_buffer_clear_subpass(struct radv_cmd_buffer *cmd_buffer)
    struct radv_meta_saved_state saved_state;
    enum radv_cmd_flush_bits pre_flush = 0;
    enum radv_cmd_flush_bits post_flush = 0;
+   bool predicating = cmd_buffer->state.predicating;
 
    if (!radv_subpass_needs_clear(cmd_buffer))
       return;
 
    radv_meta_save(&saved_state, cmd_buffer,
                   RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS);
+
+   /* According to the Vulkan spec 21.4 "Conditional Rendering",
+    * only clearing attachments with vkCmdClearAttachments is subject to
+    * conditional rendering, and this is not it.
+    * Disable predication for subpass clears.
+    */
+   cmd_buffer->state.predicating = false;
 
    for (uint32_t i = 0; i < cmd_state->subpass->color_count; ++i) {
       uint32_t a = cmd_state->subpass->color_attachments[i].attachment;
@@ -2047,6 +2055,7 @@ radv_cmd_buffer_clear_subpass(struct radv_cmd_buffer *cmd_buffer)
    }
 
    radv_meta_restore(&saved_state, cmd_buffer);
+   cmd_buffer->state.predicating = predicating;
    cmd_buffer->state.flush_bits |= post_flush;
 }
 
