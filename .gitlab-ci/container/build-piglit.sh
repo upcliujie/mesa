@@ -2,7 +2,7 @@
 
 set -ex
 
-git clone https://gitlab.freedesktop.org/mesa/piglit.git --single-branch --no-checkout /piglit
+git clone https://gitlab.freedesktop.org/mesa/piglit.git --single-branch --no-checkout /piglit || true
 pushd /piglit
 git checkout 33c7c3c313230be47decc221c57addc59ac939dc
 patch -p1 <$OLDPWD/.gitlab-ci/piglit/disable-vs_in.diff

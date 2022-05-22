@@ -88,7 +88,7 @@ rm -rf $XORGMACROS_VERSION
 . .gitlab-ci/container/build-wayland.sh
 
 pushd /usr/local
-git clone https://gitlab.freedesktop.org/mesa/shader-db.git --depth 1
+git clone https://gitlab.freedesktop.org/mesa/shader-db.git --depth 1 || true
 rm -rf shader-db/.git
 cd shader-db
 make

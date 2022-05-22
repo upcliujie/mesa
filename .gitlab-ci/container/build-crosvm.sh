@@ -5,7 +5,7 @@ set -ex
 SCRIPT_DIR="$(pwd)"
 
 CROSVM_VERSION=c7cd0e0114c8363b884ba56d8e12adee718dcc93
-git clone --single-branch -b main --no-checkout https://chromium.googlesource.com/chromiumos/platform/crosvm /platform/crosvm
+git clone --single-branch -b main --no-checkout https://chromium.googlesource.com/chromiumos/platform/crosvm /platform/crosvm || true
 pushd /platform/crosvm
 git checkout "$CROSVM_VERSION"
 git submodule update --init
@@ -15,7 +15,7 @@ cat "$SCRIPT_DIR"/.gitlab-ci/container/build-crosvm_*.patch |
 
 VIRGLRENDERER_VERSION=1c311dc0eb4a6477ebf695ff430021adabddd518
 rm -rf third_party/virglrenderer
-git clone --single-branch -b master --no-checkout https://gitlab.freedesktop.org/virgl/virglrenderer.git third_party/virglrenderer
+git clone --single-branch -b master --no-checkout https://gitlab.freedesktop.org/virgl/virglrenderer.git third_party/virglrenderer || true
 pushd third_party/virglrenderer
 git checkout "$VIRGLRENDERER_VERSION"
 meson build/ $EXTRA_MESON_ARGS

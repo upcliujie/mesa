@@ -69,7 +69,7 @@ Pop-Location
 Get-Date
 Write-Host "Cloning Vulkan and GL Conformance Tests"
 $deqp_source = "C:\src\VK-GL-CTS\"
-git clone --no-progress --single-branch https://github.com/lfrb/VK-GL-CTS.git -b windows-flush $deqp_source
+git clone --no-progress --single-branch https://github.com/lfrb/VK-GL-CTS.git -b windows-flush $deqp_source || true
 if (!$?) {
   Write-Host "Failed to clone deqp repository"
   Exit 1

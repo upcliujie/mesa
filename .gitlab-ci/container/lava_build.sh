@@ -139,44 +139,44 @@ mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH
 ############### Build apitrace
 . .gitlab-ci/container/build-apitrace.sh
 mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/apitrace
-mv /apitrace/build /lava-files/rootfs-${DEBIAN_ARCH}/apitrace
+cp -r /apitrace/build/* /lava-files/rootfs-${DEBIAN_ARCH}/apitrace
 rm -rf /apitrace
 
 
 ############### Build dEQP runner
 . .gitlab-ci/container/build-deqp-runner.sh
 mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin
-mv /usr/local/bin/*-runner /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/.
+cp -r /usr/local/bin/**-runner /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/.
 
 
 ############### Build dEQP
 DEQP_TARGET=surfaceless . .gitlab-ci/container/build-deqp.sh
 
-mv /deqp /lava-files/rootfs-${DEBIAN_ARCH}/.
+cp -r /deqp/* /lava-files/rootfs-${DEBIAN_ARCH}/.
 
 
 ############### Build SKQP
 if [[ "$DEBIAN_ARCH" = "arm64" ]] \
   || [[ "$DEBIAN_ARCH" = "amd64" ]]; then
     . .gitlab-ci/container/build-skqp.sh
-    mv /skqp /lava-files/rootfs-${DEBIAN_ARCH}/.
+    cp -r /skqp/* /lava-files/rootfs-${DEBIAN_ARCH}/.
 fi
 
 ############### Build piglit
 PIGLIT_OPTS="-DPIGLIT_BUILD_DMA_BUF_TESTS=ON" . .gitlab-ci/container/build-piglit.sh
-mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
+cp -r /piglit/* /lava-files/rootfs-${DEBIAN_ARCH}/.
 
 ############### Build libva tests
 if [[ "$DEBIAN_ARCH" = "amd64" ]]; then
     . .gitlab-ci/container/build-va-tools.sh
-    mv /va/bin/* /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/
+    cp -r /va/bin/* /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/
 fi
 
 ############### Build Crosvm
 if [[ ${DEBIAN_ARCH} = "amd64" ]]; then
     . .gitlab-ci/container/build-crosvm.sh
-    mv /usr/local/bin/crosvm /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/
-    mv /usr/local/lib/$GCC_ARCH/libvirglrenderer.* /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH/
+    cp -r /usr/local/bin/crosvm* /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/
+    cp -r /usr/local/lib/$GCC_ARCH/libvirglrenderer.* /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH/
 fi
 
 ############### Build libdrm

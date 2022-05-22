@@ -4,7 +4,7 @@ set -ex
 
 GFXRECONSTRUCT_VERSION=3738decc2f4f9ff183818e5ab213a75a79fb7ab1
 
-git clone https://github.com/LunarG/gfxreconstruct.git --single-branch -b master --no-checkout /gfxreconstruct
+git clone https://github.com/LunarG/gfxreconstruct.git --single-branch -b master --no-checkout /gfxreconstruct || true
 pushd /gfxreconstruct
 git checkout "$GFXRECONSTRUCT_VERSION"
 git submodule update --init

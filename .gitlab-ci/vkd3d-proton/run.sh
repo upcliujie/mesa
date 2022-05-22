@@ -61,7 +61,7 @@ set -e
 if [ -d "$RESULTS" ]; then
     cd "$RESULTS" && rm -rf ..?* .[!.]* * && cd -
 else
-    mkdir "$RESULTS"
+    mkdir -p "$RESULTS"
 fi
 
 VKD3D_PROTON_TESTSUITE_CMD="wine /vkd3d-proton-tests/x64/bin/d3d12.exe >$RESULTS/vkd3d-proton.log 2>&1"

@@ -56,7 +56,7 @@ if (!$?) {
 
 Get-Date
 Write-Host "Cloning LLVM release/12.x"
-git clone -b release/12.x --depth=1 https://github.com/llvm/llvm-project llvm-project
+git clone -b release/12.x --depth=1 https://github.com/llvm/llvm-project llvm-project || true
 if (!$?) {
   Write-Host "Failed to clone LLVM repository"
   Exit 1
@@ -67,7 +67,7 @@ if (!$?) {
 # a tag matching LLVM 12.0.0
 Get-Date
 Write-Host "Cloning SPIRV-LLVM-Translator"
-git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator llvm-project/llvm/projects/SPIRV-LLVM-Translator
+git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator llvm-project/llvm/projects/SPIRV-LLVM-Translator || true
 if (!$?) {
   Write-Host "Failed to clone SPIRV-LLVM-Translator repository"
   Exit 1
@@ -106,12 +106,12 @@ Remove-Item -Recurse -Path $llvm_build
 
 Get-Date
 Write-Host "Cloning SPIRV-Tools"
-git clone https://github.com/KhronosGroup/SPIRV-Tools
+git clone https://github.com/KhronosGroup/SPIRV-Tools || true
 if (!$?) {
   Write-Host "Failed to clone SPIRV-Tools repository"
   Exit 1
 }
-git clone https://github.com/KhronosGroup/SPIRV-Headers SPIRV-Tools/external/SPIRV-Headers
+git clone https://github.com/KhronosGroup/SPIRV-Headers SPIRV-Tools/external/SPIRV-Headers || true
 if (!$?) {
   Write-Host "Failed to clone SPIRV-Headers repository"
   Exit 1

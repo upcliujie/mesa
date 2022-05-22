@@ -83,15 +83,15 @@ rm -rf $XORGMACROS_VERSION
 . .gitlab-ci/container/build-wayland.sh
 
 pushd /usr/local
-git clone https://gitlab.freedesktop.org/mesa/shader-db.git --depth 1
+git clone https://gitlab.freedesktop.org/mesa/shader-db.git --depth 1 || true
 rm -rf shader-db/.git
 cd shader-db
 make
 popd
 
-git clone https://github.com/microsoft/DirectX-Headers -b v1.602.0-r1 --depth 1
+git clone https://github.com/microsoft/DirectX-Headers -b v1.602.0-r1 --depth 1 || true
 pushd DirectX-Headers
-mkdir build
+mkdir -p build
 cd build
 meson .. --backend=ninja --buildtype=release -Dbuild-test=false
 ninja

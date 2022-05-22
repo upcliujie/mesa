@@ -9,7 +9,7 @@ clone_fossils_db()
     local repo="$1"
     local commit="$2"
     rm -rf fossils-db
-    git clone --no-checkout "$repo" fossils-db
+    git clone --no-checkout "$repo" fossils-db || true
     (cd fossils-db; git reset "$commit" || git reset "origin/$commit")
 }
 

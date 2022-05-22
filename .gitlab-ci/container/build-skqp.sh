@@ -43,7 +43,7 @@ download_skia_source() {
     SKQP_REPO=https://android.googlesource.com/platform/external/skqp
     SKQP_BRANCH=android-cts-11.0_r7
 
-    git clone --branch "${SKQP_BRANCH}" --depth 1 "${SKQP_REPO}" "${SKIA_DIR}"
+    git clone --branch "${SKQP_BRANCH}" --depth 1 "${SKQP_REPO}" "${SKIA_DIR}" || true
 }
 
 set -ex
@@ -89,7 +89,9 @@ do
 done
 
 # Move assets to the target directory, which will reside in rootfs.
-mv platform_tools/android/apps/skqp/src/main/assets/ "${SKQP_ASSETS_DIR}"
+#mv platform_tools/android/apps/skqp/src/main/assets/ "${SKQP_ASSETS_DIR}"
+mkdir -p "${SKQP_ASSETS_DIR}"
+cp -r platform_tools/android/apps/skqp/src/main/assets "${SKQP_ASSETS_DIR}"
 
 popd
 rm -Rf "${SKIA_DIR}"

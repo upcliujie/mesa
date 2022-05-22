@@ -33,7 +33,7 @@ wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
      -O /rootfs-arm64/lib/firmware/qcom/a530_pfp.fw
 
 mkdir -p /baremetal-files/jetson-nano/boot/
-ln -s \
+ln -sf \
     /baremetal-files/Image \
     /baremetal-files/tegra210-p3450-0000.dtb \
     /baremetal-files/jetson-nano/boot/

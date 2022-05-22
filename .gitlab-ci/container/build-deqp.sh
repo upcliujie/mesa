@@ -2,13 +2,13 @@
 
 set -ex
 
-git config --global user.email "mesa@example.com"
-git config --global user.name "Mesa CI"
+git-config --global user.email "mesa@example.com"
+git-config --global user.name "Mesa CI"
 git clone \
     https://github.com/KhronosGroup/VK-GL-CTS.git \
     -b vulkan-cts-1.3.1.1 \
     --depth 1 \
-    /VK-GL-CTS
+    /VK-GL-CTS || true
 pushd /VK-GL-CTS
 
 # Cherry-pick fix for zlib dependency
@@ -46,7 +46,7 @@ ninja
 mv /deqp/modules/egl/deqp-egl-x11 /deqp/modules/egl/deqp-egl
 
 # Copy out the mustpass lists we want.
-mkdir /deqp/mustpass
+mkdir -p /deqp/mustpass
 for mustpass in $(< /VK-GL-CTS/external/vulkancts/mustpass/master/vk-default.txt) ; do
     cat /VK-GL-CTS/external/vulkancts/mustpass/master/$mustpass \
         >> /deqp/mustpass/vk-master.txt
@@ -67,7 +67,7 @@ cp \
 
 # Save *some* executor utils, but otherwise strip things down
 # to reduct deqp build size:
-mkdir /deqp/executor.save
+mkdir -p /deqp/executor.save
 cp /deqp/executor/testlog-to-* /deqp/executor.save
 rm -rf /deqp/executor
 mv /deqp/executor.save /deqp/executor

@@ -27,7 +27,7 @@ function build_arch {
   install -D -m755 -t "${VKD3D_PROTON_DST_DIR}/x${arch}/bin" "$VKD3D_PROTON_BUILD_DIR/build.${arch}/tests/"*.exe
 }
 
-git clone https://github.com/HansKristian-Work/vkd3d-proton.git --single-branch -b "v$VKD3D_PROTON_VERSION" --no-checkout "$VKD3D_PROTON_SRC_DIR"
+git clone https://github.com/HansKristian-Work/vkd3d-proton.git --single-branch -b "v$VKD3D_PROTON_VERSION" --no-checkout "$VKD3D_PROTON_SRC_DIR" || true
 pushd "$VKD3D_PROTON_SRC_DIR"
 git checkout "$VKD3D_PROTON_COMMIT"
 git submodule update --init --recursive

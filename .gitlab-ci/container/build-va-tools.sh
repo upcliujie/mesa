@@ -2,13 +2,13 @@
 
 set -ex
 
-git config --global user.email "mesa@example.com"
-git config --global user.name "Mesa CI"
+git-config --global user.email "mesa@example.com"
+git-config --global user.name "Mesa CI"
 git clone \
     https://github.com/intel/libva-utils.git \
     -b 2.13.0 \
     --depth 1 \
-    /va-utils
+    /va-utils || true
 
 pushd /va-utils
 meson build -D tests=true  -Dprefix=/va $EXTRA_MESON_ARGS
