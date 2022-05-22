@@ -41,3 +41,12 @@ u_trace is controlled by environment variables:
 :envvar:`GPU_TRACE_INSTRUMENT`
    Meaningful only for Perfetto tracing. If set to ``1`` enables
    instrumentation of GPU commands before the tracing is enabled.
+
+:envvar:`INTEL_GPU_TRACEPOINT`
+
+   With Anv & Iris drivers, tracepoints can be enabled or disabled
+   using this variable. For instance
+   ``INTEL_GPU_TRACEPOINT=+cmd_buffer,-stall`` will enable the
+   ``cmd_buffer`` tracepoints and disable the ``stall`` tracepoints.
+   The list of tracepoints is visible in
+   ``src/intel/ds/intel_tracepoints.py``.
