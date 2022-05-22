@@ -481,7 +481,6 @@ intel_ds_begin_cmd_buffer_annotation(struct intel_ds_device *device,
 {
    const struct intel_ds_flush_data *flush =
       (const struct intel_ds_flush_data *) flush_data;
-   int32_t level = flush->queue->stages[INTEL_DS_QUEUE_STAGE_CMD_BUFFER].level++;
    begin_event(flush->queue, ts_ns, INTEL_DS_QUEUE_STAGE_CMD_BUFFER);
 }
 
@@ -493,7 +492,6 @@ intel_ds_end_cmd_buffer_annotation(struct intel_ds_device *device,
 {
    const struct intel_ds_flush_data *flush =
       (const struct intel_ds_flush_data *) flush_data;
-   int32_t level = --flush->queue->stages[INTEL_DS_QUEUE_STAGE_CMD_BUFFER].level;
    end_event(flush->queue, ts_ns, INTEL_DS_QUEUE_STAGE_CMD_BUFFER,
              flush->submission_id, payload->name, NULL, NULL);
 }
@@ -597,6 +595,7 @@ intel_driver_ds_init(void)
 {
    call_once(&intel_driver_ds_once_flag,
              intel_driver_ds_init_once);
+   intel_gpu_tracepoint_config_variable();
 }
 
 void
