@@ -171,13 +171,14 @@ brw_nir_adjust_task_payload_offsets_instr(struct nir_builder *b,
    }
 }
 
-static void
+static bool
 brw_nir_adjust_task_payload_offsets(nir_shader *nir)
 {
-   nir_shader_instructions_pass(nir, brw_nir_adjust_task_payload_offsets_instr,
-                                nir_metadata_block_index |
-                                nir_metadata_dominance,
-                                NULL);
+   return nir_shader_instructions_pass(nir,
+                                       brw_nir_adjust_task_payload_offsets_instr,
+                                       nir_metadata_block_index |
+                                       nir_metadata_dominance,
+                                       NULL);
 }
 
 const unsigned *
@@ -202,7 +203,6 @@ brw_compile_task(const struct brw_compiler *compiler,
       BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_DRAW_ID);
 
    NIR_PASS_V(nir, brw_nir_lower_tue_outputs, &prog_data->map);
-   NIR_PASS_V(nir, brw_nir_adjust_task_payload_offsets);
 
    const unsigned required_dispatch_width =
       brw_required_dispatch_width(&nir->info, key->base.subgroup_size_type);
@@ -225,6 +225,14 @@ brw_compile_task(const struct brw_compiler *compiler,
 
       brw_postprocess_nir(shader, compiler, true /* is_scalar */, debug_enabled,
                           key->base.robust_buffer_access);
+
+      /* Adjustment of task payload offsets must be performed *after* last pass
+       * which interprets them as bytes, because it changes their unit.
+       */
+      bool adjusted = false;
+      NIR_PASS(adjusted, shader, brw_nir_adjust_task_payload_offsets);
+      if (adjusted) /* clean up the mess created by offset adjustments */
+         brw_nir_optimize(shader, compiler, true, false);
 
       v[simd] = new fs_visitor(compiler, params->log_data, mem_ctx, &key->base,
                                &prog_data->base.base, shader, dispatch_width,
@@ -690,7 +698,6 @@ brw_compile_mesh(const struct brw_compiler *compiler,
       BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_DRAW_ID);
 
    NIR_PASS_V(nir, brw_nir_lower_tue_inputs, params->tue_map);
-   NIR_PASS_V(nir, brw_nir_adjust_task_payload_offsets);
 
    brw_compute_mue_map(nir, &prog_data->map);
    NIR_PASS_V(nir, brw_nir_lower_mue_outputs, &prog_data->map);
@@ -728,6 +735,14 @@ brw_compile_mesh(const struct brw_compiler *compiler,
 
       brw_postprocess_nir(shader, compiler, true /* is_scalar */, debug_enabled,
                           key->base.robust_buffer_access);
+
+      /* Adjustment of task payload offsets must be performed *after* last pass
+       * which interprets them as bytes, because it changes their unit.
+       */
+      bool adjusted = false;
+      NIR_PASS(adjusted, shader, brw_nir_adjust_task_payload_offsets);
+      if (adjusted) /* clean up the mess created by offset adjustments */
+         brw_nir_optimize(shader, compiler, true, false);
 
       v[simd] = new fs_visitor(compiler, params->log_data, mem_ctx, &key->base,
                                &prog_data->base.base, shader, dispatch_width,
