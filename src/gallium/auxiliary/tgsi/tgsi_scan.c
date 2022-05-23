@@ -791,10 +791,11 @@ scan_declaration(struct tgsi_shader_info *info,
          }
          break;
 
-      case TGSI_FILE_SAMPLER:
+      case TGSI_FILE_SAMPLER: {
          STATIC_ASSERT(sizeof(info->samplers_declared) * 8 >= PIPE_MAX_SAMPLERS);
          info->samplers_declared |= 1u << reg;
          break;
+      }
 
       case TGSI_FILE_SAMPLER_VIEW:
          target = fulldecl->SamplerView.Resource;
