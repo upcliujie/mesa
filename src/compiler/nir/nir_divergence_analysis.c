@@ -174,6 +174,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_btd_local_arg_addr_intel:
    case nir_intrinsic_load_mesh_inline_data_intel:
    case nir_intrinsic_load_lshs_vertex_stride_amd:
+   case nir_intrinsic_load_tcs_out_patch_data_offset_amd:
       is_divergent = false;
       break;
 
