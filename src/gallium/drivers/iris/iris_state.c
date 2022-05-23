@@ -2348,7 +2348,7 @@ alloc_surface_states(struct iris_surface_state *surf_state,
    const unsigned surf_size = 4 * GENX(RENDER_SURFACE_STATE_length);
 
    /* If this changes, update this to explicitly align pointers */
-   STATIC_ASSERT(surf_size == SURFACE_STATE_ALIGNMENT);
+   assert(surf_size == SURFACE_STATE_ALIGNMENT);
 
    assert(aux_usages != 0);
 
