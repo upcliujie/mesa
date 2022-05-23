@@ -16,143 +16,117 @@
 #include "vn_device.h"
 #include "vn_image.h"
 
-#define COUNT_PRESENT_SRC(atts, att_count, initial_count, final_count)       \
-   do {                                                                      \
-      *initial_count = 0;                                                    \
-      *final_count = 0;                                                      \
-      for (uint32_t i = 0; i < att_count; i++) {                             \
-         if (atts[i].initialLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)       \
-            (*initial_count)++;                                              \
-         if (atts[i].finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)         \
-            (*final_count)++;                                                \
+#define VN_CREATE_RENDER_PASS_COMMON(vn_async_vkCreateRenderPass_func)       \
+   struct vn_device *dev = vn_device_from_handle(device);                    \
+   const VkAllocationCallbacks *alloc =                                      \
+      pAllocator ? pAllocator : &dev->base.base.alloc;                       \
+                                                                             \
+   uint32_t att_count = pCreateInfo->attachmentCount;                        \
+   __auto_type atts = pCreateInfo->pAttachments;                             \
+                                                                             \
+   uint32_t present_acquire_count = 0;                                       \
+   uint32_t present_release_count = 0;                                       \
+                                                                             \
+   for (uint32_t i = 0; i < att_count; i++) {                                \
+      if (atts[i].initialLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)          \
+         ++present_acquire_count;                                            \
+      if (atts[i].finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)            \
+         ++present_acquire_count;                                            \
+   }                                                                         \
+                                                                             \
+   uint32_t present_count = present_acquire_count + present_release_count;   \
+                                                                             \
+   VK_MULTIALLOC(ma);                                                        \
+   VK_MULTIALLOC_DECL(&ma, struct vn_render_pass, pass, 1);                  \
+   VK_MULTIALLOC_DECL(&ma, struct vn_present_src_attachment, present_atts,   \
+                      present_count);                                        \
+                                                                             \
+   if (!vk_multialloc_zalloc(&ma, alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT)) \
+      return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);           \
+                                                                             \
+   vn_object_base_init(&pass->base, VK_OBJECT_TYPE_RENDER_PASS, &dev->base); \
+                                                                             \
+   pass->present_count = present_count;                                      \
+   pass->present_acquire_count = present_acquire_count;                      \
+   pass->present_release_count = present_release_count;                      \
+                                                                             \
+   /* For each array pointer, set it only if its count != 0.                 \
+    * This allows code elsewhere to intuitively use either condition,        \
+    * `foo_atts == NULL` or `foo_count != 0`.                                \
+    */                                                                       \
+   if (present_count)                                                        \
+      pass->present_attachments = present_atts;                              \
+   if (present_acquire_count)                                                \
+      pass->present_acquire_attachments = present_atts;                      \
+   if (present_release_count)                                                \
+      pass->present_release_attachments =                                    \
+         present_atts + present_acquire_count;                               \
+                                                                             \
+   /* Used only if we need to patch pCreateInfo. */                          \
+   vn_typeof_nonconst(*pCreateInfo) tmp_create_info;                         \
+                                                                             \
+   if (present_count) {                                                      \
+      /* Patch pCreateInfo->pAttachments. */                                 \
+      size_t atts_size = sizeof(atts[0]) * att_count;                        \
+      vn_typeof_nonconst(*atts) *tmp_atts =                                  \
+         vk_alloc(alloc, atts_size, VN_DEFAULT_ALIGN,                        \
+                  VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);                       \
+      if (!tmp_atts) {                                                       \
+         vk_free(alloc, pass);                                               \
+         return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);        \
       }                                                                      \
-   } while (false)
-
-#define REPLACE_PRESENT_SRC(pass, atts, att_count, out_atts)                 \
-   do {                                                                      \
-      struct vn_present_src_attachment *_acquire_atts =                      \
+                                                                             \
+      tmp_create_info = *pCreateInfo;                                        \
+      tmp_create_info.pAttachments = tmp_atts;                               \
+      memcpy(tmp_atts, atts, att_count * sizeof(atts[0]));                   \
+                                                                             \
+      struct vn_present_src_attachment *acquire_att =                        \
          pass->present_acquire_attachments;                                  \
-      struct vn_present_src_attachment *_release_atts =                      \
+      struct vn_present_src_attachment *release_att =                        \
          pass->present_release_attachments;                                  \
                                                                              \
-      memcpy(out_atts, atts, sizeof(*atts) * att_count);                     \
       for (uint32_t i = 0; i < att_count; i++) {                             \
-         if (out_atts[i].initialLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) { \
-            out_atts[i].initialLayout = VN_PRESENT_SRC_INTERNAL_LAYOUT;      \
-            _acquire_atts->acquire = true;                                   \
-            _acquire_atts->index = i;                                        \
-            _acquire_atts++;                                                 \
+         if (tmp_atts[i].initialLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) { \
+            tmp_atts[i].initialLayout = VN_PRESENT_SRC_INTERNAL_LAYOUT;      \
+            acquire_att->acquire = true;                                     \
+            acquire_att->index = i;                                          \
+            acquire_att->src_stage_mask =                                    \
+               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;                           \
+            acquire_att->src_access_mask = 0;                                \
+            acquire_att->dst_stage_mask =                                    \
+               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;                           \
+            acquire_att->dst_access_mask =                                   \
+               VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;       \
+            ++acquire_att;                                                   \
          }                                                                   \
-         if (out_atts[i].finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {   \
-            out_atts[i].finalLayout = VN_PRESENT_SRC_INTERNAL_LAYOUT;        \
-            _release_atts->acquire = false;                                  \
-            _release_atts->index = i;                                        \
-            _release_atts++;                                                 \
+                                                                             \
+         if (tmp_atts[i].finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {   \
+            tmp_atts[i].finalLayout = VN_PRESENT_SRC_INTERNAL_LAYOUT;        \
+            release_att->acquire = false;                                    \
+            release_att->index = i;                                          \
+            release_att->src_stage_mask =                                    \
+               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;                           \
+            release_att->src_access_mask = VK_ACCESS_MEMORY_WRITE_BIT;       \
+            release_att->dst_stage_mask =                                    \
+               VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;                         \
+            release_att->dst_access_mask = 0;                                \
+            ++release_att;                                                   \
          }                                                                   \
       }                                                                      \
-   } while (false)
-
-static void
-vn_render_pass_count_present_src(const VkRenderPassCreateInfo *create_info,
-                                 uint32_t *initial_count,
-                                 uint32_t *final_count)
-{
-   COUNT_PRESENT_SRC(create_info->pAttachments, create_info->attachmentCount,
-                     initial_count, final_count);
-}
-
-static void
-vn_render_pass_count_present_src2(const VkRenderPassCreateInfo2 *create_info,
-                                  uint32_t *initial_count,
-                                  uint32_t *final_count)
-{
-   COUNT_PRESENT_SRC(create_info->pAttachments, create_info->attachmentCount,
-                     initial_count, final_count);
-}
-
-static void
-vn_render_pass_replace_present_src(struct vn_render_pass *pass,
-                                   const VkRenderPassCreateInfo *create_info,
-                                   VkAttachmentDescription *out_atts)
-{
-   REPLACE_PRESENT_SRC(pass, create_info->pAttachments,
-                       create_info->attachmentCount, out_atts);
-}
-
-static void
-vn_render_pass_replace_present_src2(struct vn_render_pass *pass,
-                                    const VkRenderPassCreateInfo2 *create_info,
-                                    VkAttachmentDescription2 *out_atts)
-{
-   REPLACE_PRESENT_SRC(pass, create_info->pAttachments,
-                       create_info->attachmentCount, out_atts);
-}
-
-static void
-vn_render_pass_setup_present_src_barriers(struct vn_render_pass *pass)
-{
-   /* TODO parse VkSubpassDependency for more accurate barriers */
-
-   for (uint32_t i = 0; i < pass->present_acquire_count; i++) {
-      struct vn_present_src_attachment *att =
-         &pass->present_acquire_attachments[i];
-
-      att->src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-      att->src_access_mask = 0;
-      att->dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-      att->dst_access_mask =
-         VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
-   }
-
-   for (uint32_t i = 0; i < pass->present_release_count; i++) {
-      struct vn_present_src_attachment *att =
-         &pass->present_release_attachments[i];
-
-      att->src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-      att->src_access_mask = VK_ACCESS_MEMORY_WRITE_BIT;
-      att->dst_stage_mask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-      att->dst_access_mask = 0;
-   }
-}
-
-static struct vn_render_pass *
-vn_render_pass_create(struct vn_device *dev,
-                      uint32_t present_acquire_count,
-                      uint32_t present_release_count,
-                      const VkAllocationCallbacks *alloc)
-{
-   uint32_t present_count = present_acquire_count + present_release_count;
-
-   VK_MULTIALLOC(ma);
-   VK_MULTIALLOC_DECL(&ma, struct vn_render_pass, pass, 1);
-   VK_MULTIALLOC_DECL(&ma, struct vn_present_src_attachment, present_atts,
-                      present_count);
-
-   if (!vk_multialloc_zalloc(&ma, alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
-      return NULL;
-
-   vn_object_base_init(&pass->base, VK_OBJECT_TYPE_RENDER_PASS, &dev->base);
-
-   pass->present_count = present_count;
-   pass->present_acquire_count = present_acquire_count;
-   pass->present_release_count = present_release_count;
-
-   /* For each array pointer, set it only if its count != 0. This allows code
-    * elsewhere to intuitively use either condition, `foo_atts == NULL` or
-    * `foo_count != 0`.
-    */
-   if (present_count)
-      pass->present_attachments = present_atts;
-   if (present_acquire_count)
-      pass->present_acquire_attachments = present_atts;
-   if (present_release_count)
-      pass->present_release_attachments =
-         present_atts + present_acquire_count;
-
-   return pass;
-}
-
-/* render pass commands */
+                                                                             \
+      pCreateInfo = &tmp_create_info;                                        \
+   }                                                                         \
+                                                                             \
+   VkRenderPass pass_h = vn_render_pass_to_handle(pass);                     \
+   vn_async_vkCreateRenderPass_func(dev->instance, device, pCreateInfo,      \
+                                    NULL, &pass_h);                          \
+                                                                             \
+   if (pCreateInfo == &tmp_create_info)                                      \
+      vk_free(alloc, (void *)tmp_create_info.pAttachments);                  \
+                                                                             \
+   *pRenderPass = pass_h;                                                    \
+                                                                             \
+   return VK_SUCCESS;
 
 VkResult
 vn_CreateRenderPass(VkDevice device,
@@ -160,48 +134,7 @@ vn_CreateRenderPass(VkDevice device,
                     const VkAllocationCallbacks *pAllocator,
                     VkRenderPass *pRenderPass)
 {
-   struct vn_device *dev = vn_device_from_handle(device);
-   const VkAllocationCallbacks *alloc =
-      pAllocator ? pAllocator : &dev->base.base.alloc;
-
-   uint32_t acquire_count;
-   uint32_t release_count;
-   vn_render_pass_count_present_src(pCreateInfo, &acquire_count,
-                                    &release_count);
-
-   struct vn_render_pass *pass =
-      vn_render_pass_create(dev, acquire_count, release_count, alloc);
-   if (!pass)
-      return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   VkRenderPassCreateInfo local_pass_info;
-   if (pass->present_count) {
-      VkAttachmentDescription *temp_atts =
-         vk_alloc(alloc, sizeof(*temp_atts) * pCreateInfo->attachmentCount,
-                  VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-      if (!temp_atts) {
-         vk_free(alloc, pass);
-         return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-      }
-
-      vn_render_pass_replace_present_src(pass, pCreateInfo, temp_atts);
-      vn_render_pass_setup_present_src_barriers(pass);
-
-      local_pass_info = *pCreateInfo;
-      local_pass_info.pAttachments = temp_atts;
-      pCreateInfo = &local_pass_info;
-   }
-
-   VkRenderPass pass_handle = vn_render_pass_to_handle(pass);
-   vn_async_vkCreateRenderPass(dev->instance, device, pCreateInfo, NULL,
-                               &pass_handle);
-
-   if (pCreateInfo == &local_pass_info)
-      vk_free(alloc, (void *)local_pass_info.pAttachments);
-
-   *pRenderPass = pass_handle;
-
-   return VK_SUCCESS;
+   VN_CREATE_RENDER_PASS_COMMON(vn_async_vkCreateRenderPass)
 }
 
 VkResult
@@ -210,48 +143,7 @@ vn_CreateRenderPass2(VkDevice device,
                      const VkAllocationCallbacks *pAllocator,
                      VkRenderPass *pRenderPass)
 {
-   struct vn_device *dev = vn_device_from_handle(device);
-   const VkAllocationCallbacks *alloc =
-      pAllocator ? pAllocator : &dev->base.base.alloc;
-
-   uint32_t acquire_count;
-   uint32_t release_count;
-   vn_render_pass_count_present_src2(pCreateInfo, &acquire_count,
-                                     &release_count);
-
-   struct vn_render_pass *pass =
-      vn_render_pass_create(dev, acquire_count, release_count, alloc);
-   if (!pass)
-      return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   VkRenderPassCreateInfo2 local_pass_info;
-   if (pass->present_count) {
-      VkAttachmentDescription2 *temp_atts =
-         vk_alloc(alloc, sizeof(*temp_atts) * pCreateInfo->attachmentCount,
-                  VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-      if (!temp_atts) {
-         vk_free(alloc, pass);
-         return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-      }
-
-      vn_render_pass_replace_present_src2(pass, pCreateInfo, temp_atts);
-      vn_render_pass_setup_present_src_barriers(pass);
-
-      local_pass_info = *pCreateInfo;
-      local_pass_info.pAttachments = temp_atts;
-      pCreateInfo = &local_pass_info;
-   }
-
-   VkRenderPass pass_handle = vn_render_pass_to_handle(pass);
-   vn_async_vkCreateRenderPass2(dev->instance, device, pCreateInfo, NULL,
-                                &pass_handle);
-
-   if (pCreateInfo == &local_pass_info)
-      vk_free(alloc, (void *)local_pass_info.pAttachments);
-
-   *pRenderPass = pass_handle;
-
-   return VK_SUCCESS;
+   VN_CREATE_RENDER_PASS_COMMON(vn_async_vkCreateRenderPass2)
 }
 
 void

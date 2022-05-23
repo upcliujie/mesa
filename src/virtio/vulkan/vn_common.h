@@ -96,6 +96,13 @@ vn_trace_scope_end(int *scope)
 
 #endif /* __has_attribute(cleanup) && __has_attribute(unused) */
 
+/* Like __typeof__(), but strips the outermost const qualifier. */
+#define vn_typeof_nonconst(_expr)                                            \
+   __typeof__(({                                                             \
+      __auto_type _expr2 = _expr;                                            \
+      _expr2;                                                                \
+   }))
+
 #define VN_TRACE_FUNC() VN_TRACE_SCOPE(__func__)
 
 struct vn_instance;
