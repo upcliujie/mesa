@@ -17,6 +17,7 @@
 
 #include "vn_device.h"
 #include "vn_physical_device.h"
+#include "vn_render_pass.h"
 
 /* shader module commands */
 
@@ -247,9 +248,9 @@ struct vn_graphics_pipeline_create_info_fix {
    bool ignore_tessellation_state;
    bool ignore_viewport_state;
    bool ignore_multisample_state;
+   bool ignore_depth_stencil_state;
 
    /* Ignore the following:
-    *    pDepthStencilState
     *    pColorBlendState
     */
    bool ignore_raster_dedicated_states;
@@ -301,6 +302,13 @@ vn_fix_graphics_pipeline_create_info(
       bool has_fragment_state =
          info->pRasterizationState->rasterizerDiscardEnable == VK_FALSE;
 
+      const struct vn_render_pass *pass =
+         vn_render_pass_from_handle(info->renderPass);
+
+      const struct vn_subpass *subpass = NULL;
+      if (pass)
+         subpass = &pass->subpasses[info->subpass];
+
       /* Fix pVertexInputState?
        *    VUID-VkGraphicsPipelineCreateInfo-pStages-02097
        *    VUID-VkGraphicsPipelineCreateInfo-pVertexInputState-04910
@@ -344,12 +352,21 @@ vn_fix_graphics_pipeline_create_info(
          any_fix = true;
       }
 
-      /* FIXME: Conditions for ignoring pDepthStencilState and
-       * pColorBlendState miss some cases that depend on the render pass. Make
-       * them agree with the VUIDs.
+      /* Fix pDepthStencilState?
+       *    VUID-VkGraphicsPipelineCreateInfo-renderPass-06043
        */
-      if (!has_fragment_state &&
-          (info->pDepthStencilState || info->pColorBlendState)) {
+      if (info->pDepthStencilState &&
+          !(info->renderPass != VK_NULL_HANDLE && has_fragment_state &&
+            subpass->has_depth_stencil_attachment)) {
+         fix.ignore_depth_stencil_state = true;
+         any_fix = true;
+      }
+
+      /* FIXME: Conditions for ignoring
+       * pColorBlendState miss some cases that depend on the render pass. Make
+       * it agree with the VUIDs.
+       */
+      if (!has_fragment_state && info->pColorBlendState) {
          fix.ignore_raster_dedicated_states = true;
          any_fix = true;
       }
@@ -398,8 +415,10 @@ vn_fix_graphics_pipeline_create_info(
       if (fix.ignore_multisample_state)
          info->pMultisampleState = NULL;
 
-      if (fix.ignore_raster_dedicated_states) {
+      if (fix.ignore_depth_stencil_state)
          info->pDepthStencilState = NULL;
+
+      if (fix.ignore_raster_dedicated_states) {
          info->pColorBlendState = NULL;
       }
    }
