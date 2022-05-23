@@ -1467,12 +1467,13 @@ intel_get_device_info_from_pci_id(int pci_id,
    switch (pci_id) {
 #undef CHIPSET
 #define CHIPSET(_id, _family, _fam_str, _name) \
-   case _id: \
+   case _id: { \
       /* sizeof(str_literal) includes the null */ \
       STATIC_ASSERT(sizeof(_name) + sizeof(_fam_str) + 2 <= \
                     sizeof(devinfo->name)); \
       strncpy(devinfo->name, _name " (" _fam_str ")", sizeof(devinfo->name)); \
-      break;
+      break; \
+   }
 #include "pci_ids/crocus_pci_ids.h"
 #include "pci_ids/iris_pci_ids.h"
    default:
