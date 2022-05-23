@@ -176,9 +176,6 @@ util_make_tess_ctrl_passthrough_shader(struct pipe_context *pipe,
 void *
 util_make_fs_stencil_blit(struct pipe_context *pipe, bool msaa_src);
 
-void *
-util_make_fs_clear_all_cbufs(struct pipe_context *pipe);
-
 #ifdef __cplusplus
 }
 #endif

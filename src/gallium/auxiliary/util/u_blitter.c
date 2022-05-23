@@ -76,7 +76,7 @@ struct blitter_context_priv
    /* Fragment shaders. */
    void *fs_empty;
    void *fs_write_one_cbuf;
-   void *fs_clear_all_cbufs;
+   void *fs_write_all_cbufs;
 
    /* FS which outputs a color from a texture where
     * the 1st index indicates the texture type / destination type,
@@ -467,16 +467,18 @@ static void bind_fs_write_one_cbuf(struct blitter_context_priv *ctx)
    ctx->bind_fs_state(pipe, ctx->fs_write_one_cbuf);
 }
 
-static void bind_fs_clear_all_cbufs(struct blitter_context_priv *ctx)
+static void bind_fs_write_all_cbufs(struct blitter_context_priv *ctx)
 {
    struct pipe_context *pipe = ctx->base.pipe;
 
-   if (!ctx->fs_clear_all_cbufs) {
+   if (!ctx->fs_write_all_cbufs) {
       assert(!ctx->cached_all_shaders);
-      ctx->fs_clear_all_cbufs = util_make_fs_clear_all_cbufs(pipe);
+      ctx->fs_write_all_cbufs =
+         util_make_fragment_passthrough_shader(pipe, TGSI_SEMANTIC_GENERIC,
+                                               TGSI_INTERPOLATE_CONSTANT, true);
    }
 
-   ctx->bind_fs_state(pipe, ctx->fs_clear_all_cbufs);
+   ctx->bind_fs_state(pipe, ctx->fs_write_all_cbufs);
 }
 
 void util_blitter_destroy(struct blitter_context *blitter)
@@ -574,8 +576,8 @@ void util_blitter_destroy(struct blitter_context *blitter)
       ctx->delete_fs_state(pipe, ctx->fs_empty);
    if (ctx->fs_write_one_cbuf)
       ctx->delete_fs_state(pipe, ctx->fs_write_one_cbuf);
-   if (ctx->fs_clear_all_cbufs)
-      ctx->delete_fs_state(pipe, ctx->fs_clear_all_cbufs);
+   if (ctx->fs_write_all_cbufs)
+      ctx->delete_fs_state(pipe, ctx->fs_write_all_cbufs);
 
    for (i = 0; i < ARRAY_SIZE(ctx->fs_stencil_blit_fallback); ++i)
       if (ctx->fs_stencil_blit_fallback[i])
@@ -1352,7 +1354,9 @@ void util_blitter_cache_all_shaders(struct blitter_context *blitter)
       util_make_fragment_passthrough_shader(pipe, TGSI_SEMANTIC_GENERIC,
                                             TGSI_INTERPOLATE_CONSTANT, false);
 
-   ctx->fs_clear_all_cbufs = util_make_fs_clear_all_cbufs(pipe);
+   ctx->fs_write_all_cbufs =
+      util_make_fragment_passthrough_shader(pipe, TGSI_SEMANTIC_GENERIC,
+                                            TGSI_INTERPOLATE_CONSTANT, true);
 
    ctx->cached_all_shaders = true;
 }
@@ -1552,20 +1556,17 @@ static void util_blitter_clear_custom(struct blitter_context *blitter,
    sr.ref_value[0] = stencil & 0xff;
    pipe->set_stencil_ref(pipe, sr);
 
-   bool pass_generic = (clear_buffers & PIPE_CLEAR_COLOR) != 0;
-   enum blitter_attrib_type type = UTIL_BLITTER_ATTRIB_NONE;
+   union blitter_attrib attrib;
+   memcpy(attrib.color, color->ui, sizeof(color->ui));
 
-   if (pass_generic) {
-      struct pipe_constant_buffer cb = {
-         .user_buffer = color->f,
-         .buffer_size = 4 * sizeof(float),
-      };
-      pipe->set_constant_buffer(pipe, PIPE_SHADER_FRAGMENT, blitter->cb_slot,
-                                false, &cb);
-      bind_fs_clear_all_cbufs(ctx);
-   } else {
+   bool pass_generic = (clear_buffers & PIPE_CLEAR_COLOR) != 0;
+   enum blitter_attrib_type type = pass_generic ? UTIL_BLITTER_ATTRIB_COLOR :
+                                                  UTIL_BLITTER_ATTRIB_NONE;
+
+   if (pass_generic)
+      bind_fs_write_all_cbufs(ctx);
+   else
       bind_fs_empty(ctx);
-   }
 
    if (num_layers > 1 && ctx->has_layered) {
       blitter_get_vs_func get_vs = get_vs_layered;
@@ -1573,7 +1574,7 @@ static void util_blitter_clear_custom(struct blitter_context *blitter,
       blitter_set_common_draw_rect_state(ctx, false, msaa);
       blitter->draw_rectangle(blitter, ctx->velem_state, get_vs,
                               0, 0, width, height,
-                              (float) depth, num_layers, type, NULL);
+                              (float) depth, num_layers, type, &attrib);
    } else {
       blitter_get_vs_func get_vs;
 
@@ -1585,12 +1586,11 @@ static void util_blitter_clear_custom(struct blitter_context *blitter,
       blitter_set_common_draw_rect_state(ctx, false, msaa);
       blitter->draw_rectangle(blitter, ctx->velem_state, get_vs,
                               0, 0, width, height,
-                              (float) depth, 1, type, NULL);
+                              (float) depth, 1, type, &attrib);
    }
 
    util_blitter_restore_vertex_states(blitter);
    util_blitter_restore_fragment_states(blitter);
-   util_blitter_restore_constant_buffer_state(blitter);
    util_blitter_restore_render_cond(blitter);
    util_blitter_unset_running_flag(blitter);
 }
