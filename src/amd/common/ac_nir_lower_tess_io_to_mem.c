@@ -154,6 +154,9 @@ typedef struct {
     * subgroup that reads them.
     */
    bool tcs_out_patch_fits_subgroup;
+
+   /* Don't eliminate tess factor nir_store_output instruction in TCS. */
+   bool keep_tcs_tess_factor_output;
 } lower_tess_io_state;
 
 static bool
@@ -400,7 +403,7 @@ lower_hs_per_vertex_input_load(nir_builder *b,
                           .align_mul = 16u, .align_offset = (nir_intrinsic_component(intrin) * 4u) % 16u);
 }
 
-static void
+static nir_ssa_def *
 lower_hs_output_store(nir_builder *b,
                       nir_intrinsic_instr *intrin,
                       lower_tess_io_state *st)
@@ -437,6 +440,9 @@ lower_hs_output_store(nir_builder *b,
       nir_store_shared(b, store_val, lds_off, .write_mask = write_mask,
                        .align_mul = 16u, .align_offset = (nir_intrinsic_component(intrin) * 4u) % 16u);
    }
+
+   return is_tess_factor && st->keep_tcs_tess_factor_output ?
+      NIR_LOWER_INSTR_PROGRESS : NIR_LOWER_INSTR_PROGRESS_REPLACE;
 }
 
 static nir_ssa_def *
@@ -479,8 +485,7 @@ lower_hs_output_access(nir_builder *b,
 
    if (intrin->intrinsic == nir_intrinsic_store_output ||
        intrin->intrinsic == nir_intrinsic_store_per_vertex_output) {
-      lower_hs_output_store(b, intrin, st);
-      return NIR_LOWER_INSTR_PROGRESS_REPLACE;
+      return lower_hs_output_store(b, intrin, st);
    } else if (intrin->intrinsic == nir_intrinsic_load_output ||
               intrin->intrinsic == nir_intrinsic_load_per_vertex_output) {
       return lower_hs_output_load(b, intrin, st);
@@ -704,6 +709,7 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
       .tcs_num_reserved_patch_outputs = num_reserved_tcs_patch_outputs,
       .tcs_out_patch_fits_subgroup = 32 % shader->info.tess.tcs_vertices_out == 0,
       .map_io = map,
+      .keep_tcs_tess_factor_output = !emit_tess_factor_write,
    };
 
    nir_shader_lower_instructions(shader,
