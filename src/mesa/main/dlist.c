@@ -11414,10 +11414,11 @@ execute_list(struct gl_context *ctx, GLuint list)
          case OPCODE_LOAD_IDENTITY:
             CALL_LoadIdentity(ctx->Exec, ());
             break;
-         case OPCODE_LOAD_MATRIX:
+         case OPCODE_LOAD_MATRIX: {
             STATIC_ASSERT(sizeof(Node) == sizeof(GLfloat));
             CALL_LoadMatrixf(ctx->Exec, (&n[1].f));
             break;
+         }
          case OPCODE_LOAD_NAME:
             CALL_LoadName(ctx->Exec, (n[1].ui));
             break;
