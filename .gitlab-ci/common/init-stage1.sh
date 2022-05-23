@@ -14,6 +14,7 @@ mount -t devtmpfs none /dev || echo possibly already mounted
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
+mount -t tmpfs tmpfs /run
 
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 [ -z "$NFS_SERVER_IP" ] || echo "$NFS_SERVER_IP caching-proxy" >> /etc/hosts
