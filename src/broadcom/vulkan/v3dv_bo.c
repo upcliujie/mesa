@@ -118,6 +118,16 @@ bo_from_cache(struct v3dv_device *device, uint32_t size, const char *name)
 
       bo_remove_from_cache(cache, bo);
       bo->name = name;
+
+      /* Usually a bo is mapped using the full bo size. But if it was mapped
+       * with a smaller value, can cause problems if we want to reuse it
+       * assuming the full size mapping. In this case the easier solution is
+       * just to unmap the bo, and let the one reusing it to set the map size
+       * they want.
+       */
+      if (bo->map_size > 0 && bo->map_size < bo->size)
+         v3dv_bo_unmap(device, bo);
+
       p_atomic_set(&bo->refcnt, 1);
    }
    mtx_unlock(&cache->lock);
