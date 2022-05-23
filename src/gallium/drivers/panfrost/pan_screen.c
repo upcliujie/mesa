@@ -378,9 +378,10 @@ panfrost_get_shader_param(struct pipe_screen *screen,
         case PIPE_SHADER_CAP_MAX_CONST_BUFFER_SIZE:
                 return 16 * 1024 * sizeof(float);
 
-        case PIPE_SHADER_CAP_MAX_CONST_BUFFERS:
+        case PIPE_SHADER_CAP_MAX_CONST_BUFFERS: {
                 STATIC_ASSERT(PAN_MAX_CONST_BUFFERS < 0x100);
                 return PAN_MAX_CONST_BUFFERS;
+        }
 
         case PIPE_SHADER_CAP_CONT_SUPPORTED:
                 return 0;
@@ -427,13 +428,15 @@ panfrost_get_shader_param(struct pipe_screen *screen,
         case PIPE_SHADER_CAP_TGSI_ANY_INOUT_DECL_RANGE:
                 return 0;
 
-        case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
+        case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS: {
                 STATIC_ASSERT(PIPE_MAX_SAMPLERS < 0x10000);
                 return PIPE_MAX_SAMPLERS;
+        }
 
-        case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
+        case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS: {
                 STATIC_ASSERT(PIPE_MAX_SHADER_SAMPLER_VIEWS < 0x10000);
                 return PIPE_MAX_SHADER_SAMPLER_VIEWS;
+        }
 
         case PIPE_SHADER_CAP_PREFERRED_IR:
                 return PIPE_SHADER_IR_NIR;
