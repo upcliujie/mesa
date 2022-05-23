@@ -1075,7 +1075,6 @@ brw_vectorize_lower_mem_access(nir_shader *nir,
                                bool is_scalar,
                                bool robust_buffer_access)
 {
-   const struct intel_device_info *devinfo = compiler->devinfo;
    bool progress = false;
 
    if (is_scalar) {
@@ -1094,7 +1093,7 @@ brw_vectorize_lower_mem_access(nir_shader *nir,
       OPT(nir_opt_load_store_vectorize, &options);
    }
 
-   OPT(brw_nir_lower_mem_access_bit_sizes, devinfo);
+   OPT(brw_nir_lower_mem_access_bit_sizes);
 
    while (progress) {
       progress = false;

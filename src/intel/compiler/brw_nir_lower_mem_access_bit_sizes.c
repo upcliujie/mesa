@@ -79,8 +79,7 @@ dup_mem_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
 }
 
 static bool
-lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
-                        const struct intel_device_info *devinfo)
+lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin)
 {
    const bool needs_scalar =
       intrin->intrinsic == nir_intrinsic_load_scratch;
@@ -153,8 +152,7 @@ lower_mem_load_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
 }
 
 static bool
-lower_mem_store_bit_size(nir_builder *b, nir_intrinsic_instr *intrin,
-                         const struct intel_device_info *devinfo)
+lower_mem_store_bit_size(nir_builder *b, nir_intrinsic_instr *intrin)
 {
    const bool needs_scalar =
       intrin->intrinsic == nir_intrinsic_store_scratch;
@@ -244,8 +242,6 @@ lower_mem_access_bit_sizes_instr(nir_builder *b,
                                 nir_instr *instr,
                                 void *cb_data)
 {
-   const struct intel_device_info *devinfo = cb_data;
-
    if (instr->type != nir_instr_type_intrinsic)
       return false;
 
@@ -259,14 +255,14 @@ lower_mem_access_bit_sizes_instr(nir_builder *b,
    case nir_intrinsic_load_shared:
    case nir_intrinsic_load_scratch:
    case nir_intrinsic_load_task_payload:
-      return lower_mem_load_bit_size(b, intrin, devinfo);
+      return lower_mem_load_bit_size(b, intrin);
 
    case nir_intrinsic_store_global:
    case nir_intrinsic_store_ssbo:
    case nir_intrinsic_store_shared:
    case nir_intrinsic_store_scratch:
    case nir_intrinsic_store_task_payload:
-      return lower_mem_store_bit_size(b, intrin, devinfo);
+      return lower_mem_store_bit_size(b, intrin);
 
    default:
       return false;
@@ -296,11 +292,9 @@ lower_mem_access_bit_sizes_instr(nir_builder *b,
  * detail on the scratch swizzle, see fs_visitor::swizzle_nir_scratch_addr.
  */
 bool
-brw_nir_lower_mem_access_bit_sizes(nir_shader *shader,
-                                   const struct intel_device_info *devinfo)
+brw_nir_lower_mem_access_bit_sizes(nir_shader *shader)
 {
    return nir_shader_instructions_pass(shader, lower_mem_access_bit_sizes_instr,
                                        nir_metadata_block_index |
-                                       nir_metadata_dominance,
-                                       (void *)devinfo);
+                                       nir_metadata_dominance, NULL);
 }

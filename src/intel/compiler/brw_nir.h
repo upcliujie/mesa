@@ -125,9 +125,7 @@ bool brw_nir_lower_shading_rate_output(nir_shader *nir);
 bool brw_nir_lower_storage_image(nir_shader *nir,
                                  const struct intel_device_info *devinfo);
 
-bool brw_nir_lower_mem_access_bit_sizes(nir_shader *shader,
-                                        const struct
-                                        intel_device_info *devinfo);
+bool brw_nir_lower_mem_access_bit_sizes(nir_shader *shader);
 
 void brw_postprocess_nir(nir_shader *nir,
                          const struct brw_compiler *compiler,
