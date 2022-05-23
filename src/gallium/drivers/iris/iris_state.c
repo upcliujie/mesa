@@ -2348,7 +2348,7 @@ alloc_surface_states(struct iris_surface_state *surf_state,
    const unsigned surf_size = 4 * GENX(RENDER_SURFACE_STATE_length);
 
    /* If this changes, update this to explicitly align pointers */
-   STATIC_ASSERT(surf_size == SURFACE_STATE_ALIGNMENT);
+   STATIC_ASSERT(4 * GENX(RENDER_SURFACE_STATE_length) == SURFACE_STATE_ALIGNMENT);
 
    assert(aux_usages != 0);
 
@@ -6252,7 +6252,7 @@ iris_upload_dirty_render_state(struct iris_context *ice,
                 * 0xFFFFFFFF and instead emit a dword of zero directly.
                 */
                STATIC_ASSERT(GENX(3DSTATE_SO_BUFFER_StreamOffset_start) ==
-                             32 * (dwords - 1));
+                             32 * (GENX(3DSTATE_SO_BUFFER_length) - 1));
                const uint32_t zero = 0;
                iris_batch_emit(batch, so_buffers, 4 * (dwords - 1));
                iris_batch_emit(batch, &zero, sizeof(zero));
