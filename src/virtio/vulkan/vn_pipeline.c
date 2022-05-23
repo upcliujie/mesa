@@ -243,6 +243,7 @@ vn_MergePipelineCaches(VkDevice device,
 
 struct vn_graphics_pipeline_create_info_fix {
    bool ignore_vertex_input_state;
+   bool ignore_input_assembly_state;
    bool ignore_tessellation_state;
 
    /* Ignore the following:
@@ -289,6 +290,14 @@ vn_fix_graphics_pipeline_create_info(
        */
       if (info->pVertexInputState && !has_vertex_input_state) {
          fix.ignore_vertex_input_state = true;
+         any_fix = true;
+      }
+
+      /* Fix pInputAssemblyState?
+       *    VUID-VkGraphicsPipelineCreateInfo-pVertexInputState-04910
+       */
+      if (info->pInputAssemblyState && !has_vertex_input_state) {
+         fix.ignore_input_assembly_state = true;
          any_fix = true;
       }
 
@@ -346,6 +355,9 @@ vn_fix_graphics_pipeline_create_info(
 
       if (fix.ignore_vertex_input_state)
          info->pVertexInputState = NULL;
+
+      if (fix.ignore_input_assembly_state)
+         info->pInputAssemblyState = NULL;
 
       if (fix.ignore_tessellation_state)
          info->pTessellationState = NULL;
