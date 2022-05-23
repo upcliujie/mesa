@@ -21,8 +21,8 @@
  * IN THE SOFTWARE.
  */
 
-#include "brw_nir.h"
-#include "compiler/nir/nir_builder.h"
+#include "nir.h"
+#include "nir_builder.h"
 #include "util/u_math.h"
 #include "util/bitscan.h"
 
@@ -292,7 +292,7 @@ lower_mem_access_bit_sizes_instr(nir_builder *b,
  * detail on the scratch swizzle, see fs_visitor::swizzle_nir_scratch_addr.
  */
 bool
-brw_nir_lower_mem_access_bit_sizes(nir_shader *shader)
+nir_lower_mem_access_bit_sizes(nir_shader *shader)
 {
    return nir_shader_instructions_pass(shader, lower_mem_access_bit_sizes_instr,
                                        nir_metadata_block_index |

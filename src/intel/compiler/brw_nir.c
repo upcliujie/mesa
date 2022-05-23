@@ -1093,7 +1093,7 @@ brw_vectorize_lower_mem_access(nir_shader *nir,
       OPT(nir_opt_load_store_vectorize, &options);
    }
 
-   OPT(brw_nir_lower_mem_access_bit_sizes);
+   OPT(nir_lower_mem_access_bit_sizes);
 
    while (progress) {
       progress = false;
