@@ -340,6 +340,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_byte_permute_amd:
    case nir_intrinsic_load_deref:
    case nir_intrinsic_load_shared:
+   case nir_intrinsic_load_task_payload:
    case nir_intrinsic_load_shared2_amd:
    case nir_intrinsic_load_global:
    case nir_intrinsic_load_global_constant:
@@ -506,6 +507,20 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_shared_atomic_fmin:
    case nir_intrinsic_shared_atomic_fmax:
    case nir_intrinsic_shared_atomic_fcomp_swap:
+   case nir_intrinsic_task_payload_atomic_add:
+   case nir_intrinsic_task_payload_atomic_imin:
+   case nir_intrinsic_task_payload_atomic_umin:
+   case nir_intrinsic_task_payload_atomic_imax:
+   case nir_intrinsic_task_payload_atomic_umax:
+   case nir_intrinsic_task_payload_atomic_and:
+   case nir_intrinsic_task_payload_atomic_or:
+   case nir_intrinsic_task_payload_atomic_xor:
+   case nir_intrinsic_task_payload_atomic_exchange:
+   case nir_intrinsic_task_payload_atomic_comp_swap:
+   case nir_intrinsic_task_payload_atomic_fadd:
+   case nir_intrinsic_task_payload_atomic_fmin:
+   case nir_intrinsic_task_payload_atomic_fmax:
+   case nir_intrinsic_task_payload_atomic_fcomp_swap:
    case nir_intrinsic_global_atomic_add:
    case nir_intrinsic_global_atomic_imin:
    case nir_intrinsic_global_atomic_umin:
@@ -644,6 +659,7 @@ nir_variable_mode_is_uniform(nir_variable_mode mode) {
    case nir_var_mem_ubo:
    case nir_var_mem_ssbo:
    case nir_var_mem_shared:
+   case nir_var_mem_task_payload:
    case nir_var_mem_global:
    case nir_var_image:
       return true;
