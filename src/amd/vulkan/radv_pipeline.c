@@ -7378,6 +7378,14 @@ radv_GetPipelineExecutablePropertiesKHR(VkDevice _device, const VkPipelineInfoKH
          name = "Compute Shader";
          description = "Vulkan Compute Shader";
          break;
+      case MESA_SHADER_MESH:
+         name = "Compute Shader";
+         description = "Vulkan Mesh Shader";
+         break;
+      case MESA_SHADER_TASK:
+         name = "Task Shader";
+         description = "Vulkan Task Shader";
+         break;
       }
 
       pProperties[executable_idx].subgroupSize = pipeline->shaders[i]->info.wave_size;
