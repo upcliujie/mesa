@@ -242,6 +242,7 @@ vn_MergePipelineCaches(VkDevice device,
 /* pipeline commands */
 
 struct vn_graphics_pipeline_create_info_fix {
+   bool ignore_vertex_input_state;
    bool ignore_tessellation_state;
 
    /* Ignore the following:
@@ -274,6 +275,21 @@ vn_fix_graphics_pipeline_create_info(
       VkShaderStageFlags stages = 0;
       for (uint32_t i = 0; i < info->stageCount; ++i) {
          stages |= info->pStages[i].stage;
+      }
+
+      /* The Vulkan spec says:
+       *    If the pre-rasterization shader state includes a vertex shader, then
+       *    vertex input state is included in a complete graphics pipeline.
+       */
+      bool has_vertex_input_state = stages & VK_SHADER_STAGE_VERTEX_BIT;
+
+      /* Fix pVertexInputState?
+       *    VUID-VkGraphicsPipelineCreateInfo-pStages-02097
+       *    VUID-VkGraphicsPipelineCreateInfo-pVertexInputState-04910
+       */
+      if (info->pVertexInputState && !has_vertex_input_state) {
+         fix.ignore_vertex_input_state = true;
+         any_fix = true;
       }
 
       /* Fix pTessellationState?
@@ -327,6 +343,9 @@ vn_fix_graphics_pipeline_create_info(
    for (uint32_t i = 0; i < create_info_count; i++) {
       VkGraphicsPipelineCreateInfo *info = &infos[i];
       struct vn_graphics_pipeline_create_info_fix fix = fixes[i];
+
+      if (fix.ignore_vertex_input_state)
+         info->pVertexInputState = NULL;
 
       if (fix.ignore_tessellation_state)
          info->pTessellationState = NULL;
