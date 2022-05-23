@@ -40,6 +40,8 @@
    VK_MULTIALLOC_DECL(&ma, struct vn_render_pass, pass, 1);                  \
    VK_MULTIALLOC_DECL(&ma, struct vn_present_src_attachment, present_atts,   \
                       present_count);                                        \
+   VK_MULTIALLOC_DECL(&ma, struct vn_subpass, subpasses,                     \
+                      pCreateInfo->subpassCount);                            \
                                                                              \
    if (!vk_multialloc_zalloc(&ma, alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT)) \
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);           \
@@ -49,6 +51,7 @@
    pass->present_count = present_count;                                      \
    pass->present_acquire_count = present_acquire_count;                      \
    pass->present_release_count = present_release_count;                      \
+   pass->subpass_count = pCreateInfo->subpassCount;                          \
                                                                              \
    /* For each array pointer, set it only if its count != 0.                 \
     * This allows code elsewhere to intuitively use either condition,        \
@@ -61,6 +64,15 @@
    if (present_release_count)                                                \
       pass->present_release_attachments =                                    \
          present_atts + present_acquire_count;                               \
+   if (pCreateInfo->subpassCount)                                            \
+      pass->subpasses = subpasses;                                           \
+                                                                             \
+   for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++) {                \
+      pass->subpasses[i].has_color_attachment =                              \
+         (pCreateInfo->pSubpasses[i].colorAttachmentCount > 0);              \
+      pass->subpasses[i].has_depth_stencil_attachment =                      \
+         (pCreateInfo->pSubpasses[i].pDepthStencilAttachment != NULL);       \
+   }                                                                         \
                                                                              \
    /* Used only if we need to patch pCreateInfo. */                          \
    vn_typeof_nonconst(*pCreateInfo) tmp_create_info;                         \
