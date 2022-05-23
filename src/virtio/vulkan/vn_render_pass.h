@@ -24,6 +24,11 @@ struct vn_present_src_attachment {
    VkAccessFlags dst_access_mask;
 };
 
+struct vn_subpass {
+   bool has_color_attachment;
+   bool has_depth_stencil_attachment;
+};
+
 struct vn_render_pass {
    struct vn_object_base base;
 
@@ -32,6 +37,7 @@ struct vn_render_pass {
    uint32_t present_count;
    uint32_t present_acquire_count;
    uint32_t present_release_count;
+   uint32_t subpass_count;
 
    /* Attachments where initialLayout or finalLayout was
     * VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.
@@ -47,6 +53,8 @@ struct vn_render_pass {
     * VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.
     */
    struct vn_present_src_attachment *present_release_attachments;
+
+   struct vn_subpass *subpasses;
 };
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_render_pass,
