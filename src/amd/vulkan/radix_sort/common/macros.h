@@ -77,18 +77,6 @@
 //
 
 #if defined (_MSC_VER) && !defined (__clang__)
-#define STATIC_ASSERT_MACRO(c_,m_)      static_assert(c_,m_)
-#else
-#define STATIC_ASSERT_MACRO(c_,m_)      _Static_assert(c_,m_)
-#endif
-
-#define STATIC_ASSERT_MACRO_1(c_)       STATIC_ASSERT_MACRO(c_,#c_)
-
-//
-//
-//
-
-#if defined (_MSC_VER) && !defined (__clang__)
 #define POPCOUNT_MACRO(...)             __popcnt(__VA_ARGS__)
 #else
 #define POPCOUNT_MACRO(...)             __builtin_popcount(__VA_ARGS__)
