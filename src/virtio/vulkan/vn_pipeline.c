@@ -245,10 +245,10 @@ struct vn_graphics_pipeline_create_info_fix {
    bool ignore_vertex_input_state;
    bool ignore_input_assembly_state;
    bool ignore_tessellation_state;
+   bool ignore_viewport_state;
+   bool ignore_multisample_state;
 
    /* Ignore the following:
-    *    pViewportState
-    *    pMultisampleState
     *    pDepthStencilState
     *    pColorBlendState
     */
@@ -284,6 +284,23 @@ vn_fix_graphics_pipeline_create_info(
        */
       bool has_vertex_input_state = stages & VK_SHADER_STAGE_VERTEX_BIT;
 
+      /* The Vulkan spec says:
+       *    If the value of
+       *    VkPipelineRasterizationStateCreateInfo::rasterizerDiscardEnable in
+       *    the pre-rasterization shader state is VK_FALSE or the
+       *    VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE dynamic state is enabled
+       *    fragment shader state and fragment output interface state is
+       *    included in a complete graphics pipeline.
+       *
+       * Since the conditions for having fragment shader state and for having
+       * fragment output interface state are identical, we combine the two into
+       * a single flag.
+       *
+       * TODO: Update for VK_EXT_extended_dynamic_state2.
+       */
+      bool has_fragment_state =
+         info->pRasterizationState->rasterizerDiscardEnable == VK_FALSE;
+
       /* Fix pVertexInputState?
        *    VUID-VkGraphicsPipelineCreateInfo-pStages-02097
        *    VUID-VkGraphicsPipelineCreateInfo-pVertexInputState-04910
@@ -311,15 +328,28 @@ vn_fix_graphics_pipeline_create_info(
          any_fix = true;
       }
 
+      /* Fix pViewportState?
+       *    VUID-VkGraphicsPipelineCreateInfo-rasterizerDiscardEnable-00750
+       */
+      if (info->pViewportState && !has_fragment_state) {
+         fix.ignore_viewport_state = true;
+         any_fix = true;
+      }
+
+      /* Fix pMultisampleState?
+       *    VUID-VkGraphicsPipelineCreateInfo-rasterizerDiscardEnable-00751
+       */
+      if (info->pMultisampleState && !has_fragment_state) {
+         fix.ignore_multisample_state = true;
+         any_fix = true;
+      }
+
       /* FIXME: Conditions for ignoring pDepthStencilState and
        * pColorBlendState miss some cases that depend on the render pass. Make
        * them agree with the VUIDs.
-       *
-       * TODO: Update conditions for VK_EXT_extended_dynamic_state2.
        */
-      if (info->pRasterizationState->rasterizerDiscardEnable == VK_TRUE &&
-          (info->pViewportState || info->pMultisampleState ||
-           info->pDepthStencilState || info->pColorBlendState)) {
+      if (!has_fragment_state &&
+          (info->pDepthStencilState || info->pColorBlendState)) {
          fix.ignore_raster_dedicated_states = true;
          any_fix = true;
       }
@@ -362,9 +392,13 @@ vn_fix_graphics_pipeline_create_info(
       if (fix.ignore_tessellation_state)
          info->pTessellationState = NULL;
 
-      if (fix.ignore_raster_dedicated_states) {
+      if (fix.ignore_viewport_state)
          info->pViewportState = NULL;
+
+      if (fix.ignore_multisample_state)
          info->pMultisampleState = NULL;
+
+      if (fix.ignore_raster_dedicated_states) {
          info->pDepthStencilState = NULL;
          info->pColorBlendState = NULL;
       }
