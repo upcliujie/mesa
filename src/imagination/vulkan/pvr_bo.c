@@ -111,7 +111,7 @@ VkResult pvr_bo_alloc(struct pvr_device *device,
    }
 
    addr = device->ws->ops->vma_map(pvr_bo->vma, pvr_bo->bo, 0, size);
-   if (!addr.addr) {
+   if (pvr_dev_addr_is_null(addr)) {
       result = VK_ERROR_MEMORY_MAP_FAILED;
       goto err_heap_free;
    }
