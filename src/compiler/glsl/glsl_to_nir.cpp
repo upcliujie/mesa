@@ -236,7 +236,9 @@ glsl_to_nir(const struct gl_constants *consts,
     */
    nir_lower_variable_initializers(shader, nir_var_all);
    nir_lower_returns(shader);
-   nir_inline_functions(shader);
+   bool progress = nir_inline_functions(shader);
+   if (progress)
+      nir_copy_prop(shader);
    nir_opt_deref(shader);
 
    nir_validate_shader(shader, "after function inlining and return lowering");
