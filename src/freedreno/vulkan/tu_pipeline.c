@@ -2338,8 +2338,32 @@ tu_pipeline_shader_key_init(struct ir3_shader_key *key,
       key->msaa = true;
    }
 
-   /* note: not actually used by ir3, just checked in tu6_emit_fs_inputs */
-   if (msaa_info->sampleShadingEnable)
+   /* The spec says:
+    *
+    *    Sample shading can be used to specify a minimum number of unique
+    *    samples to process for each fragment. If sample shading is enabled,
+    *    an implementation must provide a minimum of
+    *
+    *       max(ceil(minSampleShadingFactor * totalSamples), 1)
+    *
+    *    unique associated data for each fragment, where
+    *    minSampleShadingFactor is the minimum fraction of sample shading.
+    *
+    * The definition is pretty much the same as OpenGL's GL_SAMPLE_SHADING.
+    * And they both require forcing sample interpolations.
+    *
+    * There are discussions to change the definition, such that
+    * sampleShadingEnable does not imply sample interpolations.  Before the
+    * discussions are settled and before apps (i.e., ANGLE) are fixed to
+    * follow the new and incompatible definition, we should stick to the
+    * current definition.
+    *
+    * Note that ir3_shader_key::sample_shading is not actually used by ir3,
+    * just checked in tu6_emit_fs_inputs.  We will also copy the value to
+    * tu_shader_key::force_sample_interp in a bit.
+    */
+   if (msaa_info->sampleShadingEnable &&
+       (msaa_info->minSampleShading * msaa_info->rasterizationSamples) > 1.0f)
       key->sample_shading = true;
 
    /* We set this after we compile to NIR because we need the prim mode */
@@ -2717,6 +2741,7 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
 
    keys[MESA_SHADER_VERTEX].multiview_mask = builder->multiview_mask;
    keys[MESA_SHADER_FRAGMENT].multiview_mask = builder->multiview_mask;
+   keys[MESA_SHADER_FRAGMENT].force_sample_interp = ir3_key.sample_shading;
 
    unsigned char pipeline_sha1[20];
    tu_hash_shaders(pipeline_sha1, stage_infos, builder->layout, keys, &ir3_key, compiler);
