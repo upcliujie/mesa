@@ -444,7 +444,6 @@ intel_measure_push_result(struct intel_measure_device *device,
       struct intel_measure_buffered_result *buffered_result =
          &rb->results[rb->head];
 
-      pthread_mutex_unlock(&rb->mutex);
       memset(buffered_result, 0, sizeof(*buffered_result));
       memcpy(&buffered_result->snapshot, begin,
              sizeof(struct intel_measure_snapshot));
@@ -457,6 +456,7 @@ intel_measure_push_result(struct intel_measure_device *device,
       buffered_result->event_index = i / 2;
       buffered_result->snapshot.event_count = end->event_count;
    }
+   pthread_mutex_unlock(&rb->mutex);
 }
 
 static unsigned
@@ -662,7 +662,6 @@ intel_measure_gather(struct intel_measure_device *measure_device,
       }
 
       assert(batch->index % 2 == 0);
-      printf("pop_batch 0x%"PRIxPTR"\n", (uintptr_t)batch);
 
       intel_measure_push_result(measure_device, batch);
 
