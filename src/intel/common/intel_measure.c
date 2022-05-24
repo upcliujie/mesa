@@ -409,6 +409,7 @@ intel_measure_push_result(struct intel_measure_device *device,
    assert(timestamps != NULL);
    assert(batch->index == 0 || timestamps[0] != 0);
 
+   pthread_mutex_lock(&rb->mutex);
    for (int i = 0; i < batch->index; i += 2) {
       const struct intel_measure_snapshot *begin = &batch->snapshots[i];
       const struct intel_measure_snapshot *end = &batch->snapshots[i+1];
@@ -443,6 +444,7 @@ intel_measure_push_result(struct intel_measure_device *device,
       struct intel_measure_buffered_result *buffered_result =
          &rb->results[rb->head];
 
+      pthread_mutex_unlock(&rb->mutex);
       memset(buffered_result, 0, sizeof(*buffered_result));
       memcpy(&buffered_result->snapshot, begin,
              sizeof(struct intel_measure_snapshot));
@@ -458,34 +460,44 @@ intel_measure_push_result(struct intel_measure_device *device,
 }
 
 static unsigned
-ringbuffer_size(const struct intel_measure_ringbuffer *rb)
+ringbuffer_size(struct intel_measure_ringbuffer *rb)
 {
+   pthread_mutex_lock(&rb->mutex);
    unsigned head = rb->head;
    if (head < rb->tail)
       head += config.buffer_size;
-   return head - rb->tail;
+   unsigned ret = head - rb->tail;
+   pthread_mutex_unlock(&rb->mutex);
+   return ret;
 }
 
 static const struct intel_measure_buffered_result *
 ringbuffer_pop(struct intel_measure_ringbuffer *rb)
 {
+   pthread_mutex_lock(&rb->mutex);
    if (rb->tail == rb->head) {
       /* encountered ringbuffer overflow while processing events */
+      pthread_mutex_unlock(&rb->mutex);
       return NULL;
    }
 
    if (++rb->tail == config.buffer_size)
       rb->tail = 0;
-   return &rb->results[rb->tail];
+   const struct intel_measure_buffered_result *ret = &rb->results[rb->tail];
+   pthread_mutex_unlock(&rb->mutex);
+   return ret;
 }
 
 static const struct intel_measure_buffered_result *
-ringbuffer_peek(const struct intel_measure_ringbuffer *rb, unsigned index)
+ringbuffer_peek(struct intel_measure_ringbuffer *rb, unsigned index)
 {
+   pthread_mutex_lock(&rb->mutex);
    int result_offset = rb->tail + index + 1;
    if (result_offset >= config.buffer_size)
       result_offset -= config.buffer_size;
-   return &rb->results[result_offset];
+   const struct intel_measure_buffered_result * ret = &rb->results[result_offset];
+   pthread_mutex_unlock(&rb->mutex);
+   return ret;
 }
 
 
@@ -496,7 +508,7 @@ ringbuffer_peek(const struct intel_measure_ringbuffer *rb, unsigned index)
 static unsigned
 buffered_event_count(struct intel_measure_device *device)
 {
-   const struct intel_measure_ringbuffer *rb = device->ringbuffer;
+   struct intel_measure_ringbuffer *rb = device->ringbuffer;
    const unsigned buffered_event_count = ringbuffer_size(rb);
    if (buffered_event_count == 0) {
       /* no events to collect */
@@ -574,7 +586,6 @@ print_combined_results(struct intel_measure_device *measure_device,
       return;
 
    struct intel_measure_ringbuffer *result_rb = measure_device->ringbuffer;
-   assert(ringbuffer_size(result_rb) >= result_count);
    const struct intel_measure_buffered_result* start_result =
       ringbuffer_pop(result_rb);
    const struct intel_measure_buffered_result* current_result = start_result;
@@ -587,7 +598,6 @@ print_combined_results(struct intel_measure_device *measure_device,
                                               current_result->end_ts);
    unsigned event_count = start_result->snapshot.event_count;
    while (result_count-- > 0) {
-      assert(ringbuffer_size(result_rb) > 0);
       current_result = ringbuffer_pop(result_rb);
       if (current_result == NULL)
          return;
@@ -652,6 +662,7 @@ intel_measure_gather(struct intel_measure_device *measure_device,
       }
 
       assert(batch->index % 2 == 0);
+      printf("pop_batch 0x%"PRIxPTR"\n", (uintptr_t)batch);
 
       intel_measure_push_result(measure_device, batch);
 

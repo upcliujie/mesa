@@ -120,6 +120,7 @@ struct intel_measure_buffered_result {
 };
 
 struct intel_measure_ringbuffer {
+   pthread_mutex_t mutex;
    unsigned head, tail;
    struct intel_measure_buffered_result results[0];
 };
