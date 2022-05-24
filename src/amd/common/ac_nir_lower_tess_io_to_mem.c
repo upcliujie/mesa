@@ -326,9 +326,7 @@ hs_output_lds_offset(nir_builder *b,
    nir_ssa_def *input_patch_size = nir_imul(b, tcs_in_vtxcnt, nir_load_lshs_vertex_stride_amd(b));
    nir_ssa_def *output_patch0_offset = nir_imul(b, input_patch_size, tcs_num_patches);
 
-   nir_ssa_def *off = intrin
-                    ? ac_nir_calc_io_offset(b, intrin, nir_imm_int(b, 16u), 4u, st->map_io)
-                    : nir_imm_int(b, 0);
+   nir_ssa_def *off = ac_nir_calc_io_offset(b, intrin, nir_imm_int(b, 16u), 4u, st->map_io);
 
    nir_ssa_def *rel_patch_id = nir_load_tess_rel_patch_id_amd(b);
    nir_ssa_def *patch_offset = nir_imul_imm(b, rel_patch_id, output_patch_stride);
@@ -377,9 +375,8 @@ hs_per_patch_output_vmem_offset(nir_builder *b,
    nir_ssa_def *tcs_num_patches = nir_load_tcs_num_patches_amd(b);
    nir_ssa_def *per_patch_data_offset = nir_load_tcs_out_patch_data_offset_amd(b);
 
-   nir_ssa_def * off = intrin
-                    ? ac_nir_calc_io_offset(b, intrin, nir_imul_imm(b, tcs_num_patches, 16u), 4u, st->map_io)
-                    : nir_imm_int(b, 0);
+   nir_ssa_def * off =
+      ac_nir_calc_io_offset(b, intrin, nir_imul_imm(b, tcs_num_patches, 16u), 4u, st->map_io);
 
    if (const_base_offset)
       off = nir_iadd_nuw(b, off, nir_imul_imm(b, tcs_num_patches, const_base_offset));
