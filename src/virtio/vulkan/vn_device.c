@@ -301,6 +301,46 @@ vn_device_fix_create_info(const struct vn_device *dev,
 }
 
 static VkResult
+vn_device_sync_pool_init(struct vn_device *dev)
+{
+   /* The feedback pool defaults to suballocate slots of 8 bytes each. Initial
+    * pool size of 4096 corresponds to a total of 512 fences, semaphores and
+    * events, which well covers the common scenarios. Pool can grow anyway.
+    */
+   static const uint32_t pool_size = 4096;
+   const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
+   struct vn_feedback_pool *sync_pool;
+   VkResult result;
+
+   if (VN_PERF(NO_EVENT_FEEDBACK))
+      return VK_SUCCESS;
+
+   sync_pool = vk_zalloc(alloc, sizeof(*sync_pool), VN_DEFAULT_ALIGN,
+                         VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   if (!sync_pool)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   result = vn_feedback_pool_init(dev, sync_pool, pool_size);
+   if (result != VK_SUCCESS) {
+      vk_free(alloc, sync_pool);
+      return result;
+   }
+
+   dev->sync_pool = sync_pool;
+
+   return VK_SUCCESS;
+}
+
+static inline void
+vn_device_sync_pool_fini(struct vn_device *dev)
+{
+   if (dev->sync_pool) {
+      vn_feedback_pool_fini(dev->sync_pool);
+      vk_free(&dev->base.base.alloc, dev->sync_pool);
+   }
+}
+
+static VkResult
 vn_device_init(struct vn_device *dev,
                struct vn_physical_device *physical_dev,
                const VkDeviceCreateInfo *create_info,
@@ -346,11 +386,18 @@ vn_device_init(struct vn_device *dev,
    if (result != VK_SUCCESS)
       goto out_memory_pool_fini;
 
-   result = vn_device_init_queues(dev, create_info);
+   result = vn_device_sync_pool_init(dev);
    if (result != VK_SUCCESS)
       goto out_buffer_cache_fini;
 
+   result = vn_device_init_queues(dev, create_info);
+   if (result != VK_SUCCESS)
+      goto out_sync_pool_fini;
+
    return VK_SUCCESS;
+
+out_sync_pool_fini:
+   vn_device_sync_pool_fini(dev);
 
 out_buffer_cache_fini:
    vn_buffer_cache_fini(dev);
@@ -422,6 +469,8 @@ vn_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 
    for (uint32_t i = 0; i < dev->queue_count; i++)
       vn_queue_fini(&dev->queues[i]);
+
+   vn_device_sync_pool_fini(dev);
 
    vn_buffer_cache_fini(dev);
 
