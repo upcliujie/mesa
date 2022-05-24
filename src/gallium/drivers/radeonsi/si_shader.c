@@ -1490,10 +1490,16 @@ static bool si_nir_kill_outputs(nir_shader *nir, const union si_shader_key *key)
 
 static unsigned si_map_io_driver_location(unsigned semantic)
 {
+   if (semantic >= VARYING_SLOT_PATCH0 ||
+       semantic == VARYING_SLOT_TESS_LEVEL_INNER ||
+       semantic == VARYING_SLOT_TESS_LEVEL_OUTER)
+      return si_shader_io_get_unique_index_patch(semantic);
+
    return si_shader_io_get_unique_index(semantic, false);
 }
 
-static bool si_lower_io_mem(const union si_shader_key *key,
+static bool si_lower_io_mem(struct si_shader_selector *sel,
+                            const union si_shader_key *key,
                             nir_shader *nir,
                             uint64_t tcs_vgpr_only_inputs)
 {
@@ -1507,6 +1513,16 @@ static bool si_lower_io_mem(const union si_shader_key *key,
    } else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
       ac_nir_lower_hs_inputs_to_mem(nir, si_map_io_driver_location,
                                     key->ge.opt.same_patch_vertices);
+      ac_nir_lower_hs_outputs_to_mem(
+         nir, si_map_io_driver_location,
+         sel->screen->info.gfx_level,
+         key->ge.part.tcs.epilog.tes_reads_tess_factors,
+         ~0ULL, ~0ULL, /* no TES inputs filter */
+         util_last_bit64(sel->info.outputs_written),
+         util_last_bit64(sel->info.patch_outputs_written), false);
+      return true;
+   } else if (nir->info.stage == MESA_SHADER_TESS_EVAL) {
+      ac_nir_lower_tes_inputs_to_mem(nir, si_map_io_driver_location);
       return true;
    }
 
@@ -1628,7 +1644,7 @@ struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
    progress2 |= ac_nir_lower_indirect_derefs(nir, sel->screen->info.gfx_level);
 
    bool opt_offsets = false;
-   opt_offsets |= si_lower_io_mem(key, nir, tcs_vgpr_only_inputs);
+   opt_offsets |= si_lower_io_mem(sel, key, nir, tcs_vgpr_only_inputs);
 
    if (progress2 || opt_offsets)
       si_nir_opts(sel->screen, nir, false);

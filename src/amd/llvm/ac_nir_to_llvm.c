@@ -2371,18 +2371,9 @@ static void visit_store_output(struct ac_nir_context *ctx, nir_intrinsic_instr *
 
    writemask <<= component;
 
-   if (ctx->stage == MESA_SHADER_TESS_CTRL) {
-      nir_src *vertex_index_src = nir_get_io_arrayed_index_src(instr);
-      LLVMValueRef vertex_index = vertex_index_src ? get_src(ctx, *vertex_index_src) : NULL;
-      unsigned location = nir_intrinsic_io_semantics(instr).location;
-
-      ctx->abi->store_tcs_outputs(ctx->abi, vertex_index, indir_index, src,
-                                  writemask, component, location, base);
-      return;
-   }
-
    /* No indirect indexing is allowed after this point. */
-   assert(!indir_index);
+   if (indir_index)
+      return;
 
    for (unsigned chan = 0; chan < 8; chan++) {
       if (!(writemask & (1 << chan)))
@@ -3610,8 +3601,6 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
    case nir_intrinsic_load_base_vertex:
    case nir_intrinsic_load_first_vertex:
    case nir_intrinsic_load_workgroup_size:
-   case nir_intrinsic_load_tess_level_outer:
-   case nir_intrinsic_load_tess_level_inner:
    case nir_intrinsic_load_tess_level_outer_default:
    case nir_intrinsic_load_tess_level_inner_default:
    case nir_intrinsic_load_tess_rel_patch_id_amd:
