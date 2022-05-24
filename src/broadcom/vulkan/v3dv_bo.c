@@ -506,6 +506,8 @@ v3dv_bo_free(struct v3dv_device *device,
       bo_dump_stats(device);
    }
    bo->name = NULL;
+   if (bo->map)
+      v3dv_bo_unmap(device, bo);
 
    free_stale_bos(device, time.tv_sec);
 
