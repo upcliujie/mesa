@@ -2709,29 +2709,6 @@ void anv_GetPhysicalDeviceQueueFamilyProperties2(
    }
 }
 
-void anv_GetPhysicalDeviceMemoryProperties(
-    VkPhysicalDevice                            physicalDevice,
-    VkPhysicalDeviceMemoryProperties*           pMemoryProperties)
-{
-   ANV_FROM_HANDLE(anv_physical_device, physical_device, physicalDevice);
-
-   pMemoryProperties->memoryTypeCount = physical_device->memory.type_count;
-   for (uint32_t i = 0; i < physical_device->memory.type_count; i++) {
-      pMemoryProperties->memoryTypes[i] = (VkMemoryType) {
-         .propertyFlags = physical_device->memory.types[i].propertyFlags,
-         .heapIndex     = physical_device->memory.types[i].heapIndex,
-      };
-   }
-
-   pMemoryProperties->memoryHeapCount = physical_device->memory.heap_count;
-   for (uint32_t i = 0; i < physical_device->memory.heap_count; i++) {
-      pMemoryProperties->memoryHeaps[i] = (VkMemoryHeap) {
-         .size    = physical_device->memory.heaps[i].size,
-         .flags   = physical_device->memory.heaps[i].flags,
-      };
-   }
-}
-
 static void
 anv_get_memory_budget(VkPhysicalDevice physicalDevice,
                       VkPhysicalDeviceMemoryBudgetPropertiesEXT *memoryBudget)
