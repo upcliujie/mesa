@@ -374,9 +374,18 @@ hs_per_patch_output_vmem_offset(nir_builder *b,
 {
    nir_ssa_def *tcs_num_patches = nir_load_tcs_num_patches_amd(b);
    nir_ssa_def *per_patch_data_offset = nir_load_tcs_out_patch_data_offset_amd(b);
+   nir_ssa_def *base_stride = nir_imul_imm(b, tcs_num_patches, 16u);
 
-   nir_ssa_def * off =
-      ac_nir_calc_io_offset(b, intrin, nir_imul_imm(b, tcs_num_patches, 16u), 4u, st->map_io);
+   nir_ssa_def * off;
+   if (intrin->intrinsic == nir_intrinsic_load_tess_level_outer ||
+       intrin->intrinsic == nir_intrinsic_load_tess_level_inner) {
+      unsigned semantic = intrin->intrinsic == nir_intrinsic_load_tess_level_outer ?
+         VARYING_SLOT_TESS_LEVEL_OUTER : VARYING_SLOT_TESS_LEVEL_INNER;
+      unsigned location = st->map_io(semantic);
+      off = nir_imul_imm(b, base_stride, location);
+   } else {
+      off = ac_nir_calc_io_offset(b, intrin, base_stride, 4u, st->map_io);
+   }
 
    if (const_base_offset)
       off = nir_iadd_nuw(b, off, nir_imul_imm(b, tcs_num_patches, const_base_offset));
@@ -643,7 +652,9 @@ filter_any_input_access(const nir_instr *instr,
 
    nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
    return intrin->intrinsic == nir_intrinsic_load_input ||
-          intrin->intrinsic == nir_intrinsic_load_per_vertex_input;
+          intrin->intrinsic == nir_intrinsic_load_per_vertex_input ||
+          intrin->intrinsic == nir_intrinsic_load_tess_level_outer ||
+          intrin->intrinsic == nir_intrinsic_load_tess_level_inner;
 }
 
 void
