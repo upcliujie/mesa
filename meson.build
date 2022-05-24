@@ -598,31 +598,20 @@ endif
 # GNU/Hurd includes egl_dri2, without drm.
 with_dri2 = (with_dri or with_any_vk) and (with_dri_platform == 'drm' or
   host_machine.system() == 'gnu')
-_dri3 = get_option('dri3')
-if _dri3 == 'true'
-  _dri3 = 'enabled'
-  warning('dri3 option "true" deprecated, please use "enabled" instead.')
-elif _dri3 == 'false'
-  _dri3 = 'disabled'
-  warning('dri3 option "false" deprecated, please use "disabled" instead.')
-endif
-if _dri3 == 'auto'
-  with_dri3 = system_has_kms_drm and with_dri2
-else
-  with_dri3 = _dri3 == 'enabled'
+with_dri3 = system_has_kms_drm and with_dri2
+
+if with_any_vk and with_platform_x11
+  with_dri3 = true
 endif
 
-if with_any_vk and (with_platform_x11 and not with_dri3)
-  error('Vulkan drivers require dri3 for X11 support')
+if with_gallium_kmsro and with_platform_x11
+  with_dri3 = true
 endif
+
 if with_dri
   if with_glx == 'disabled' and not with_egl and not with_gbm
     error('building dri drivers require at least one windowing system')
   endif
-endif
-
-if with_gallium_kmsro and (with_platform_x11 and not with_dri3)
-  error('kmsro requires dri3 for X11 support')
 endif
 
 _vdpau = get_option('gallium-vdpau')
@@ -889,9 +878,7 @@ if with_gallium_st_nine
             or with_gallium_iris or with_gallium_crocus or with_gallium_zink)
     error('The nine state tracker requires at least one non-swrast gallium driver.')
   endif
-  if not with_dri3
-    error('Using nine with wine requires dri3')
-  endif
+  with_dri3 = true
 endif
 with_gallium_st_d3d10umd =  get_option('gallium-d3d10umd')
 if with_gallium_st_d3d10umd
