@@ -312,7 +312,7 @@ vn_device_sync_pool_init(struct vn_device *dev)
    struct vn_feedback_pool *sync_pool;
    VkResult result;
 
-   if (VN_PERF(NO_EVENT_FEEDBACK))
+   if (VN_PERF(NO_EVENT_FEEDBACK) && VN_PERF(NO_FENCE_FEEDBACK))
       return VK_SUCCESS;
 
    sync_pool = vk_zalloc(alloc, sizeof(*sync_pool), VN_DEFAULT_ALIGN,
