@@ -351,6 +351,41 @@ vn_QueueSubmit(VkQueue _queue,
       }
    }
 
+   /* TODO integrate fence feedback command into the above queue submit
+    * - if submitCount is zero, add a batch
+    * - append fence feedback command to the last batch
+    *
+    * Moving it earlier will introduce the below theoretical racing case:
+    * 1 feedback slot gets updated right before fence signal op
+    * 2 app check the feedback slot and call vkResetFences
+    * 3 vkResetFences reaches the renderer and races with fence signal op
+    *
+    * Practically there's nothing between feedback slot update and the
+    * fence signal op on the queue. Unless the signal op isr gets preempted
+    * and vkResetFences reaches the driver promptly in such busy cpu load,
+    * the racing is not going to happen.
+    */
+   if (submit.fence != VK_NULL_HANDLE && !VN_PERF(NO_FENCE_FEEDBACK)) {
+      struct vn_fence *fence = vn_fence_from_handle(submit.fence);
+      const uint32_t cmd_idx =
+         vn_device_get_queue_family_array_index(dev, queue->family);
+      const VkSubmitInfo info = {
+         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+         .pNext = NULL,
+         .waitSemaphoreCount = 0,
+         .pWaitSemaphores = NULL,
+         .pWaitDstStageMask = NULL,
+         .commandBufferCount = 1,
+         .pCommandBuffers = &fence->feedback.commands[cmd_idx],
+      };
+
+      result = vn_QueueSubmit(_queue, 1, &info, VK_NULL_HANDLE);
+      if (result != VK_SUCCESS) {
+         vn_queue_submission_cleanup(&submit);
+         return vn_error(dev->instance, result);
+      }
+   }
+
    if (wsi_mem) {
       /* XXX this is always false and kills the performance */
       if (dev->instance->renderer->info.has_implicit_fencing) {
@@ -459,6 +494,78 @@ vn_fence_signal_wsi(struct vn_device *dev, struct vn_fence *fence)
    fence->payload = temp;
 }
 
+static VkResult
+vn_fence_feedback_init(struct vn_device *dev,
+                       struct vn_fence *fence,
+                       bool signaled,
+                       const VkAllocationCallbacks *alloc)
+{
+   VkDevice dev_handle = vn_device_to_handle(dev);
+   struct vn_feedback_slot *slot;
+   VkCommandBuffer *cmd_handles;
+   VkResult result;
+
+   if (VN_PERF(NO_FENCE_FEEDBACK))
+      return VK_SUCCESS;
+
+   slot = vn_feedback_pool_alloc(dev->sync_pool, VN_FEEDBACK_TYPE_FENCE);
+   if (!slot)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   vn_feedback_set_status(slot, signaled ? VK_SUCCESS : VK_NOT_READY);
+
+   cmd_handles =
+      vk_zalloc(alloc, sizeof(*cmd_handles) * dev->queue_family_count,
+                VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!cmd_handles) {
+      vn_feedback_pool_free(dev->sync_pool, slot);
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   for (uint32_t i = 0; i < dev->queue_family_count; i++) {
+      result = vn_feedback_fence_cmd_alloc(dev_handle, &dev->cmd_pools[i],
+                                           slot, &cmd_handles[i]);
+      if (result != VK_SUCCESS) {
+         for (uint32_t j = 0; j < i; j++) {
+            vn_feedback_fence_cmd_free(dev_handle, &dev->cmd_pools[j],
+                                       cmd_handles[j]);
+         }
+         break;
+      }
+   }
+
+   if (result != VK_SUCCESS) {
+      vk_free(alloc, cmd_handles);
+      vn_feedback_pool_free(dev->sync_pool, slot);
+      return result;
+   }
+
+   fence->feedback.slot = slot;
+   fence->feedback.commands = cmd_handles;
+
+   return VK_SUCCESS;
+}
+
+static void
+vn_fence_feedback_fini(struct vn_device *dev,
+                       struct vn_fence *fence,
+                       const VkAllocationCallbacks *alloc)
+{
+   VkDevice dev_handle = vn_device_to_handle(dev);
+
+   if (!fence->feedback.slot)
+      return;
+
+   for (uint32_t i = 0; i < dev->queue_family_count; i++) {
+      vn_feedback_fence_cmd_free(dev_handle, &dev->cmd_pools[i],
+                                 fence->feedback.commands[i]);
+   }
+
+   vn_feedback_pool_free(dev->sync_pool, fence->feedback.slot);
+
+   vk_free(alloc, fence->feedback.commands);
+}
+
 VkResult
 vn_CreateFence(VkDevice device,
                const VkFenceCreateInfo *pCreateInfo,
@@ -468,36 +575,49 @@ vn_CreateFence(VkDevice device,
    struct vn_device *dev = vn_device_from_handle(device);
    const VkAllocationCallbacks *alloc =
       pAllocator ? pAllocator : &dev->base.base.alloc;
-
+   const bool signaled = pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT;
+   struct vn_fence *fence;
    VkFenceCreateInfo local_create_info;
+   VkFence fence_handle;
+   VkResult result;
+
    if (vk_find_struct_const(pCreateInfo->pNext, EXPORT_FENCE_CREATE_INFO)) {
       local_create_info = *pCreateInfo;
       local_create_info.pNext = NULL;
       pCreateInfo = &local_create_info;
    }
 
-   struct vn_fence *fence = vk_zalloc(alloc, sizeof(*fence), VN_DEFAULT_ALIGN,
-                                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   fence = vk_zalloc(alloc, sizeof(*fence), VN_DEFAULT_ALIGN,
+                     VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!fence)
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vn_object_base_init(&fence->base, VK_OBJECT_TYPE_FENCE, &dev->base);
 
-   VkResult result = vn_fence_init_payloads(
-      dev, fence, pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT, alloc);
-   if (result != VK_SUCCESS) {
-      vn_object_base_fini(&fence->base);
-      vk_free(alloc, fence);
-      return vn_error(dev->instance, result);
-   }
+   result = vn_fence_init_payloads(dev, fence, signaled, alloc);
+   if (result != VK_SUCCESS)
+      goto out_object_base_fini;
 
-   VkFence fence_handle = vn_fence_to_handle(fence);
+   result = vn_fence_feedback_init(dev, fence, signaled, alloc);
+   if (result != VK_SUCCESS)
+      goto out_payloads_fini;
+
+   fence_handle = vn_fence_to_handle(fence);
    vn_async_vkCreateFence(dev->instance, device, pCreateInfo, NULL,
                           &fence_handle);
 
    *pFence = fence_handle;
 
    return VK_SUCCESS;
+
+out_payloads_fini:
+   vn_sync_payload_release(dev, &fence->permanent);
+   vn_sync_payload_release(dev, &fence->temporary);
+
+out_object_base_fini:
+   vn_object_base_fini(&fence->base);
+   vk_free(alloc, fence);
+   return vn_error(dev->instance, result);
 }
 
 void
@@ -514,6 +634,8 @@ vn_DestroyFence(VkDevice device,
       return;
 
    vn_async_vkDestroyFence(dev->instance, device, _fence, NULL);
+
+   vn_fence_feedback_fini(dev, fence, alloc);
 
    vn_sync_payload_release(dev, &fence->permanent);
    vn_sync_payload_release(dev, &fence->temporary);
@@ -541,6 +663,9 @@ vn_ResetFences(VkDevice device, uint32_t fenceCount, const VkFence *pFences)
 
       assert(perm->type == VN_SYNC_TYPE_DEVICE_ONLY);
       fence->payload = perm;
+
+      if (fence->feedback.slot)
+         vn_feedback_reset_status(fence->feedback.slot);
    }
 
    return VK_SUCCESS;
@@ -556,7 +681,10 @@ vn_GetFenceStatus(VkDevice device, VkFence _fence)
    VkResult result;
    switch (payload->type) {
    case VN_SYNC_TYPE_DEVICE_ONLY:
-      result = vn_call_vkGetFenceStatus(dev->instance, device, _fence);
+      if (fence->feedback.slot)
+         result = vn_feedback_get_status(fence->feedback.slot);
+      else
+         result = vn_call_vkGetFenceStatus(dev->instance, device, _fence);
       break;
    case VN_SYNC_TYPE_WSI_SIGNALED:
       result = VK_SUCCESS;
