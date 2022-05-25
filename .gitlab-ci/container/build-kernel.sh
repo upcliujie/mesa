@@ -20,17 +20,17 @@ export LOCALVERSION="`basename $KERNEL_URL`"
 ./scripts/kconfig/merge_config.sh ${DEFCONFIG} ../.gitlab-ci/container/${KERNEL_ARCH}.config
 make ${KERNEL_IMAGE_NAME}
 for image in ${KERNEL_IMAGE_NAME}; do
-    cp arch/${KERNEL_ARCH}/boot/${image} /lava-files/.
+    cp arch/${KERNEL_ARCH}/boot/${image} "${TMP_ROOTFS_DIR}"/.
 done
 
 if [[ -n ${DEVICE_TREES} ]]; then
     make dtbs
-    cp ${DEVICE_TREES} /lava-files/.
+    cp ${DEVICE_TREES} "${TMP_ROOTFS_DIR}"/.
 fi
 
 if [[ ${DEBIAN_ARCH} = "amd64" || ${DEBIAN_ARCH} = "arm64" ]]; then
     make modules
-    INSTALL_MOD_PATH=/lava-files/rootfs-${DEBIAN_ARCH}/ make modules_install
+    INSTALL_MOD_PATH=${TMP_ROOTFS_DIR}/rootfs-${DEBIAN_ARCH}/ make modules_install
 fi
 
 if [[ ${DEBIAN_ARCH} = "arm64" ]]; then
@@ -42,7 +42,7 @@ if [[ ${DEBIAN_ARCH} = "arm64" ]]; then
         -d arch/arm64/boot/Image.lzma \
         -C lzma\
         -b arch/arm64/boot/dts/qcom/sdm845-cheza-r3.dtb \
-        /lava-files/cheza-kernel
+        "${TMP_ROOTFS_DIR}"/cheza-kernel
     KERNEL_IMAGE_NAME+=" cheza-kernel"
 fi
 

@@ -5,6 +5,11 @@ set -o xtrace
 
 export DEBIAN_FRONTEND=noninteractive
 
+# export MINIO_HOST="localhost:9000"
+# export MINIO_LOGIN_ENDPOINT="http://localhost:9000"
+export MINIO_DIR="minio://${MINIO_HOST}/mesa-lava/${CI_PROJECT_PATH}/${DEBIAN_ARCH}"
+export TMP_ROOTFS_DIR=/tmp/rootfs
+
 check_minio()
 {
     MINIO_PATH="${MINIO_HOST}/mesa-lava/$1/${DISTRIBUTION_TAG}/${DEBIAN_ARCH}"
@@ -13,9 +18,173 @@ check_minio()
     fi
 }
 
+# Args:
+# $1: filepath
+is_file_available_in_minio()
+(
+    set +x
+    MINIO_PATH="${MINIO_DIR}/${1}"
+    if ci-fairy minio ls "${MINIO_PATH}" 1>/dev/null 2>/dev/null;
+    then
+        return 0
+    fi
+
+    # Package with this version not found
+    return 1
+)
+
+log_to_minio()
+(
+    set +x
+    # ci-fairy minio login stores credentials at .minio_credentials file.
+    # No need to login again if this files exists.
+    [ -f .minio_credentials ] && return 0
+    ENDPOINT=${MINIO_LOGIN_ENDPOINT:+--endpoint-url ${MINIO_LOGIN_ENDPOINT}}
+    ci-fairy minio login ${ENDPOINT} --token-file "${CI_JOB_JWT_FILE}"
+)
+
+# Args:
+# $1: minio path
+# $2-*: local file paths
+upload_to_minio()
+(
+    set +x
+    log_to_minio || return 1
+    MINIO_PATH="${MINIO_DIR}/${1}"
+    shift 1
+    FILES_TO_UPLOAD="${*}"
+
+    for f in $FILES_TO_UPLOAD; do
+        ci-fairy minio cp "${f}" \
+                "${MINIO_PATH}/$f"
+    done
+)
+
+# Args:
+# $1: local path
+# $2-*: remote file paths
+download_from_minio()
+(
+    set +x
+    log_to_minio || return 1
+    LOCAL_PATH="${1}"
+    shift 1
+    FILES_TO_DOWNLOAD="${*}"
+    for f in $FILES_TO_DOWNLOAD; do
+        ci-fairy minio cp "${MINIO_DIR}/$f" \
+            "${LOCAL_PATH}"
+    done
+)
+
+resolve_file_from_dep_name()
+{
+    set +x
+    export DEPENDENCY_NAME=${1}
+    export DEPENDENCY_RESOLUTION=ROOTFS_${DEPENDENCY_NAME^^}_TAG
+    export DEPENDENCY_TAG=${!DEPENDENCY_RESOLUTION}
+    : "${DEPENDENCY_TAG:?Could not found \$${DEPENDENCY_RESOLUTION}, please set image_tags.yml properly.}"
+    export DEPENDENCY_FILE=${DEPENDENCY_NAME}_${DEPENDENCY_TAG}.tar.xz
+    set -x
+}
+
+# Args
+# 1: Dependency name
+# 2: Target directory of the tarball
+artifact_repo_sync()
+{
+    mkdir -p ${TMP_ROOTFS_DIR}
+    resolve_file_from_dep_name "${1}"
+    ROOTFS_INSTALL_DIR=${2:-/lava-files/rootfs-${DEBIAN_ARCH}}
+
+    is_file_available_in_minio deps/"${DEPENDENCY_FILE}" || {
+        "build_$1"
+        mkdir -p "${ROOTFS_INSTALL_DIR}"
+        tar -cJvf "${DEPENDENCY_FILE}" -C "${TMP_ROOTFS_DIR}" .
+        upload_to_minio deps "${DEPENDENCY_FILE}"
+    } && {
+        echo "Dependency ${DEPENDENCY_NAME} for tag ${DEPENDENCY_TAG} is found on server."
+        echo "Downloading ${DEPENDENCY_FILE}"
+        download_from_minio "${INSTALL_DIR}" deps/"${DEPENDENCY_FILE}"
+    }
+
+    tar xf "${DEPENDENCY_FILE}" -C "$ROOTFS_INSTALL_DIR"
+    rm -Rf "${DEPENDENCY_FILE}" "${TMP_ROOTFS_DIR:?}"/*
+}
+
+build_apitrace() {
+    . .gitlab-ci/container/build-apitrace.sh
+    mv /apitrace/build ${TMP_ROOTFS_DIR}/apitrace
+    rm -Rf /apitrace
+}
+
+build_deqp_runner() {
+    ############### Build dEQP runner
+    . .gitlab-ci/container/build-deqp-runner.sh
+    mkdir -p ${TMP_ROOTFS_DIR}/usr/bin
+    mv /usr/local/bin/*-runner ${TMP_ROOTFS_DIR}/usr/bin/.
+}
+
+build_deqp() {
+    ############### Build dEQP
+    DEQP_TARGET=surfaceless . .gitlab-ci/container/build-deqp.sh
+    mv /deqp ${TMP_ROOTFS_DIR}
+}
+
+build_skqp() {
+    ############### Build SKQP
+    if [[ "$DEBIAN_ARCH" = "arm64" ]] \
+    || [[ "$DEBIAN_ARCH" = "amd64" ]]; then
+        . .gitlab-ci/container/build-skqp.sh
+        mv /skqp ${TMP_ROOTFS_DIR}
+    fi
+}
+
+build_piglit() {
+    ############### Build piglit
+    PIGLIT_OPTS="-DPIGLIT_BUILD_DMA_BUF_TESTS=ON" . .gitlab-ci/container/build-piglit.sh
+    mv /piglit ${TMP_ROOTFS_DIR}
+}
+
+build_libva_tests() {
+    ############### Build libva tests
+    if [[ "$DEBIAN_ARCH" = "amd64" ]]; then
+        . .gitlab-ci/container/build-va-tools.sh
+        mkdir -p ${TMP_ROOTFS_DIR}/usr/bin
+        mv /va/bin/* ${TMP_ROOTFS_DIR}/usr/bin/
+    fi
+}
+
+build_crosvm() {
+    ############### Build Crosvm
+    if [[ ${DEBIAN_ARCH} = "amd64" ]]; then
+        . .gitlab-ci/container/build-crosvm.sh
+        mkdir -p ${TMP_ROOTFS_DIR}/usr/bin
+        mkdir -p ${TMP_ROOTFS_DIR}/usr/lib/"${GCC_ARCH}"
+        mv /usr/local/bin/crosvm ${TMP_ROOTFS_DIR}/usr/bin/
+        mv /usr/local/lib/$GCC_ARCH/libvirglrenderer.* ${TMP_ROOTFS_DIR}/usr/lib/$GCC_ARCH/
+    fi
+}
+
+build_libdrm() {
+    ############### Build libdrm
+    EXTRA_MESON_ARGS+=" -D prefix=/libdrm"
+    . .gitlab-ci/container/build-libdrm.sh
+    mkdir -p ${TMP_ROOTFS_DIR}/usr/lib/"$GCC_ARCH"
+    find /libdrm/ -name lib\*\.so\* | xargs cp -t ${TMP_ROOTFS_DIR}/usr/lib/$GCC_ARCH/.
+    mkdir -p ${TMP_ROOTFS_DIR}/libdrm/
+    cp -Rp /libdrm/share ${TMP_ROOTFS_DIR}/libdrm/share
+    rm -rf /libdrm
+}
+
+build_kernel() {
+    ############### Build kernel
+    # Installing part is inside the script
+    . .gitlab-ci/container/build-kernel.sh
+}
+
 # If remote files are up-to-date, skip rebuilding them
-check_minio "${FDO_UPSTREAM_REPO}"
-check_minio "${CI_PROJECT_PATH}"
+# check_minio "${FDO_UPSTREAM_REPO}"
+# check_minio "${CI_PROJECT_PATH}"
 
 . .gitlab-ci/container/container_pre_build.sh
 
@@ -135,54 +304,13 @@ fi
 STRIP_CMD="${GCC_ARCH}-strip"
 mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH
 
+DEPS="apitrace deqp_runner deqp skqp piglit libva_tests crosvm"
+for dep in $DEPS
+do
+    artifact_repo_sync "$dep"
+done
 
-############### Build apitrace
-. .gitlab-ci/container/build-apitrace.sh
-mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/apitrace
-cp -r /apitrace/build/* /lava-files/rootfs-${DEBIAN_ARCH}/apitrace
-rm -rf /apitrace
-
-
-############### Build dEQP runner
-. .gitlab-ci/container/build-deqp-runner.sh
-mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin
-cp -r /usr/local/bin/**-runner /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/.
-
-
-############### Build dEQP
-DEQP_TARGET=surfaceless . .gitlab-ci/container/build-deqp.sh
-
-cp -r /deqp/* /lava-files/rootfs-${DEBIAN_ARCH}/.
-
-
-############### Build SKQP
-if [[ "$DEBIAN_ARCH" = "arm64" ]] \
-  || [[ "$DEBIAN_ARCH" = "amd64" ]]; then
-    . .gitlab-ci/container/build-skqp.sh
-    cp -r /skqp/* /lava-files/rootfs-${DEBIAN_ARCH}/.
-fi
-
-############### Build piglit
-PIGLIT_OPTS="-DPIGLIT_BUILD_DMA_BUF_TESTS=ON" . .gitlab-ci/container/build-piglit.sh
-cp -r /piglit/* /lava-files/rootfs-${DEBIAN_ARCH}/.
-
-############### Build libva tests
-if [[ "$DEBIAN_ARCH" = "amd64" ]]; then
-    . .gitlab-ci/container/build-va-tools.sh
-    cp -r /va/bin/* /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/
-fi
-
-############### Build Crosvm
-if [[ ${DEBIAN_ARCH} = "amd64" ]]; then
-    . .gitlab-ci/container/build-crosvm.sh
-    cp -r /usr/local/bin/crosvm* /lava-files/rootfs-${DEBIAN_ARCH}/usr/bin/
-    cp -r /usr/local/lib/$GCC_ARCH/libvirglrenderer.* /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH/
-fi
-
-############### Build libdrm
-EXTRA_MESON_ARGS+=" -D prefix=/libdrm"
-. .gitlab-ci/container/build-libdrm.sh
-
+artifact_repo_sync kernel /lava-files
 
 ############### Build local stuff for use by igt and kernel testing, which
 ############### will reuse most of our container build process from a specific
@@ -191,9 +319,6 @@ if [[ -e ".gitlab-ci/local/build-rootfs.sh" ]]; then
     . .gitlab-ci/local/build-rootfs.sh
 fi
 
-
-############### Build kernel
-. .gitlab-ci/container/build-kernel.sh
 
 ############### Delete rust, since the tests won't be compiling anything.
 rm -rf /root/.cargo
@@ -222,10 +347,7 @@ rm /lava-files/rootfs-${DEBIAN_ARCH}/create-rootfs.sh
 # Dependencies pulled during the creation of the rootfs may overwrite
 # the built libdrm. Hence, we add it after the rootfs has been already
 # created.
-find /libdrm/ -name lib\*\.so\* | xargs cp -t /lava-files/rootfs-${DEBIAN_ARCH}/usr/lib/$GCC_ARCH/.
-mkdir -p /lava-files/rootfs-${DEBIAN_ARCH}/libdrm/
-cp -Rp /libdrm/share /lava-files/rootfs-${DEBIAN_ARCH}/libdrm/share
-rm -rf /libdrm
+artifact_repo_sync libdrm
 
 
 if [ ${DEBIAN_ARCH} = arm64 ]; then
