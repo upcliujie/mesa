@@ -4224,10 +4224,27 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       if (slc)
          cache_policy |= ac_slc;
 
-      LLVMValueRef voffset = LLVMBuildAdd(ctx->ac.builder, addr_voffset,
-                                          LLVMConstInt(ctx->ac.i32, const_offset, 0), "");
-      ac_build_buffer_store_dword(&ctx->ac, descriptor, store_data, NULL, voffset, addr_soffset,
-                                  cache_policy);
+      unsigned writemask = nir_intrinsic_write_mask(instr);
+      if (writemask == (1 << instr->num_components) - 1) {
+         LLVMValueRef voffset = LLVMBuildAdd(ctx->ac.builder, addr_voffset,
+                                             LLVMConstInt(ctx->ac.i32, const_offset, 0), "");
+         ac_build_buffer_store_dword(
+            &ctx->ac, descriptor, store_data, NULL, voffset, addr_soffset, cache_policy);
+      } else {
+         for (int chan = 0; chan < instr->num_components; chan++) {
+            if (!(writemask & (1 << chan)))
+               continue;
+
+            LLVMValueRef value = ac_llvm_extract_elem(&ctx->ac, store_data, chan);
+
+            LLVMValueRef voffset = LLVMBuildAdd(
+               ctx->ac.builder, addr_voffset,
+               LLVMConstInt(ctx->ac.i32, const_offset + chan * 4, 0), "");
+
+            ac_build_buffer_store_dword(&ctx->ac, descriptor, value, NULL, voffset, addr_soffset,
+                                        cache_policy);
+         }
+      }
       break;
    }
    case nir_intrinsic_has_input_vertex_amd: {
