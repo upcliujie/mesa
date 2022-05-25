@@ -748,14 +748,21 @@ panfrost_batch_submit(struct panfrost_context *ctx,
 
                 if (batch->clear & PIPE_CLEAR_STENCIL) {
                         z_rsrc->stencil_value = batch->clear_stencil;
-                        z_rsrc->constant_stencil = true;
-                } else if (z_rsrc->constant_stencil) {
+                        z_rsrc->constant_buffers |= PIPE_CLEAR_STENCIL;
+                } else if (z_rsrc->constant_buffers & PIPE_CLEAR_STENCIL) {
                         batch->clear_stencil = z_rsrc->stencil_value;
                         batch->clear |= PIPE_CLEAR_STENCIL;
                 }
 
-                if (batch->draws & PIPE_CLEAR_STENCIL)
-                        z_rsrc->constant_stencil = false;
+                if (batch->clear & PIPE_CLEAR_DEPTH) {
+                        z_rsrc->depth_value = batch->clear_depth;
+                        z_rsrc->constant_buffers |= PIPE_CLEAR_DEPTH;
+                } else if (z_rsrc->constant_buffers & PIPE_CLEAR_DEPTH) {
+                        batch->clear_depth = z_rsrc->depth_value;
+                        batch->clear |= PIPE_CLEAR_DEPTH;
+                }
+
+                z_rsrc->constant_buffers &= ~batch->draws;
         }
 
         struct pan_fb_info fb;
