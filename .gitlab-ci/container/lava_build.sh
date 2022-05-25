@@ -5,14 +5,9 @@ set -o xtrace
 
 export DEBIAN_FRONTEND=noninteractive
 
-# Useful variables for local setup used during testing
 # export MINIO_HOST="localhost:9000"
-# export MINIO_PROTOCOL="http"
-# export MINIO_LOGIN_ENDPOINT="${MINIO_PROTOCOL:-https}://localhost:9000"
-
-export MINIO_PROTOCOL=${MINIO_PROTOCOL:-https}
-export MINIO_DIR="${MINIO_HOST}/mesa-lava/${CI_PROJECT_PATH}/${DEBIAN_ARCH}"
-export MINIO_UPLOAD_DIR="minio://${MINIO_DIR}"
+# export MINIO_LOGIN_ENDPOINT="http://localhost:9000"
+export MINIO_DIR="minio://${MINIO_HOST}/mesa-lava/${CI_PROJECT_PATH}/${DEBIAN_ARCH}"
 export TMP_ROOTFS_DIR=/tmp/rootfs
 
 check_minio()
@@ -23,29 +18,30 @@ check_minio()
     fi
 }
 
-log_to_minio()
-(
-    # set +x
-    # ci-fairy minio login stores credentials at .minio_credentials file.
-    # No need to login again if this files exists.
-    [ -f .minio_credentials ] && return 0
-    ENDPOINT=${MINIO_LOGIN_ENDPOINT:+--endpoint-url ${MINIO_LOGIN_ENDPOINT}}
-    ci-fairy minio login ${ENDPOINT} --token-file "${CI_JOB_JWT_FILE}"
-)
-
 # Args:
-# $1: remote filepath
+# $1: filepath
 is_file_available_in_minio()
 (
-    # set +x
-    log_to_minio
+    set +x
     MINIO_PATH="${MINIO_DIR}/${1}"
-    if ci-fairy minio ls minio://${MINIO_HOST}; then
+    # if ci-fairy minio ls "${MINIO_PATH}" 1>/dev/null 2>/dev/null;
+    if ci-fairy minio ls "${MINIO_PATH}";
+    then
         return 0
     fi
 
     # Package with this version not found
     return 1
+)
+
+log_to_minio()
+(
+    set +x
+    # ci-fairy minio login stores credentials at .minio_credentials file.
+    # No need to login again if this files exists.
+    [ -f .minio_credentials ] && return 0
+    ENDPOINT=${MINIO_LOGIN_ENDPOINT:+--endpoint-url ${MINIO_LOGIN_ENDPOINT}}
+    ci-fairy minio login ${ENDPOINT} --token-file "${CI_JOB_JWT_FILE}"
 )
 
 # Args:
@@ -55,7 +51,7 @@ upload_to_minio()
 (
     set +x
     log_to_minio || return 1
-    MINIO_PATH="${MINIO_UPLOAD_DIR}/${1}"
+    MINIO_PATH="${MINIO_DIR}/${1}"
     shift 1
     FILES_TO_UPLOAD="${*}"
 
@@ -76,7 +72,7 @@ download_from_minio()
     shift 1
     FILES_TO_DOWNLOAD="${*}"
     for f in $FILES_TO_DOWNLOAD; do
-        ci-fairy minio cp "${MINIO_UPLOAD_DIR}/$f" \
+        ci-fairy minio cp "${MINIO_DIR}/$f" \
             "${LOCAL_PATH}"
     done
 )
@@ -97,17 +93,11 @@ resolve_file_from_dep_name()
 # 2: Target directory of the tarball
 artifact_repo_sync()
 {
-    set +x
     mkdir -p ${TMP_ROOTFS_DIR}
     resolve_file_from_dep_name "${1}"
     ROOTFS_INSTALL_DIR=${2:-/lava-files/rootfs-${DEBIAN_ARCH}}
 
-    if is_file_available_in_minio deps/"${DEPENDENCY_FILE}"
-    then
-        echo "Dependency ${DEPENDENCY_NAME} for tag ${DEPENDENCY_TAG} is found on server."
-        echo "Downloading ${DEPENDENCY_FILE}"
-        download_from_minio "${INSTALL_DIR}" deps/"${DEPENDENCY_FILE}"
-    else
+    is_file_available_in_minio deps/"${DEPENDENCY_FILE}" || {
         echo -e "\e[0Ksection_start:$(date +%s):build_$1[collapsed=true]\r\e[0KBuilding $1..."
         set -x
         "build_$1"
@@ -116,11 +106,14 @@ artifact_repo_sync()
         mkdir -p "${ROOTFS_INSTALL_DIR}"
         tar -cJvf "${DEPENDENCY_FILE}" -C "${TMP_ROOTFS_DIR}" .
         upload_to_minio deps "${DEPENDENCY_FILE}"
-    fi
+    } && {
+        echo "Dependency ${DEPENDENCY_NAME} for tag ${DEPENDENCY_TAG} is found on server."
+        echo "Downloading ${DEPENDENCY_FILE}"
+        download_from_minio "${INSTALL_DIR}" deps/"${DEPENDENCY_FILE}"
+    }
 
     tar xf "${DEPENDENCY_FILE}" -C "$ROOTFS_INSTALL_DIR"
     rm -Rf "${DEPENDENCY_FILE}" "${TMP_ROOTFS_DIR:?}"/*
-    set -x
 }
 
 build_apitrace() {
@@ -386,8 +379,8 @@ fi
 
 for f in $FILES_TO_UPLOAD; do
     ci-fairy minio cp /lava-files/$f \
-             minio://"${MINIO_DIR}"/$f
+             minio://${MINIO_PATH}/$f
 done
 
 touch /lava-files/done
-ci-fairy minio cp /lava-files/done minio://"${MINIO_DIR}"/done
+ci-fairy minio cp /lava-files/done minio://${MINIO_PATH}/done
