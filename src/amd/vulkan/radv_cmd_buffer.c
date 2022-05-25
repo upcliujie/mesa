@@ -5647,8 +5647,8 @@ radv_CmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo *pRe
          color_att[i].resolve_layout = att_info->resolveImageLayout;
       }
 
-      assert(samples == 0 || samples == color_att[i].iview->vk.image->samples);
-      samples |= color_att[i].iview->vk.image->samples;
+      if (samples == 0)
+         samples = color_att[i].iview->vk.image->samples;
 
       VkImageLayout initial_layout = attachment_initial_layout(att_info);
       if (initial_layout != color_att[i].layout) {
