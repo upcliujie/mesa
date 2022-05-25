@@ -24,7 +24,8 @@ is_file_available_in_minio()
 (
     set +x
     MINIO_PATH="${MINIO_DIR}/${1}"
-    if ci-fairy minio ls "${MINIO_PATH}" 1>/dev/null 2>/dev/null;
+    # if ci-fairy minio ls "${MINIO_PATH}" 1>/dev/null 2>/dev/null;
+    if ci-fairy minio ls "${MINIO_PATH}";
     then
         return 0
     fi
