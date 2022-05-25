@@ -618,7 +618,7 @@ radv_cmd_buffer_resolve_rendering_hw(struct radv_cmd_buffer *cmd_buffer)
          },
       };
 
-      const VkRenderingInfo rendering_info = {
+      VkRenderingInfo rendering_info = {
          .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
          .renderArea = saved_state.render.area,
          .layerCount = saved_state.render.layer_count,
@@ -626,6 +626,18 @@ radv_cmd_buffer_resolve_rendering_hw(struct radv_cmd_buffer *cmd_buffer)
          .colorAttachmentCount = 2,
          .pColorAttachments = color_atts,
       };
+
+      VkSampleLocationsInfoEXT sample_locations_info;
+      if (saved_state.render.sample_locations.count) {
+         sample_locations_info = (VkSampleLocationsInfoEXT) {
+            .sType = VK_STRUCTURE_TYPE_SAMPLE_LOCATIONS_INFO_EXT,
+            .sampleLocationsPerPixel = saved_state.render.sample_locations.per_pixel,
+            .sampleLocationGridSize = saved_state.render.sample_locations.grid_size,
+            .sampleLocationsCount = saved_state.render.sample_locations.count,
+            .pSampleLocations = saved_state.render.sample_locations.locations,
+         };
+         __vk_append_struct(&rendering_info, &sample_locations_info);
+      }
 
       radv_CmdBeginRendering(radv_cmd_buffer_to_handle(cmd_buffer), &rendering_info);
 
