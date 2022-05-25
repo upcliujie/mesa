@@ -1997,12 +1997,9 @@ radv_cmd_buffer_clear_subpass(struct radv_cmd_buffer *cmd_buffer)
    if (!radv_subpass_needs_clear(cmd_buffer))
       return;
 
-   /* Subpass clear should not be affected by conditional rendering. */
-   bool old_predicating = cmd_buffer->state.predicating;
-   cmd_buffer->state.predicating = false;
-
    radv_meta_save(&saved_state, cmd_buffer,
-                  RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS);
+                  RADV_META_SAVE_GRAPHICS_PIPELINE | RADV_META_SAVE_CONSTANTS |
+                  RADV_META_SAVE_PREDICATING);
 
    for (uint32_t i = 0; i < cmd_state->subpass->color_count; ++i) {
       uint32_t a = cmd_state->subpass->color_attachments[i].attachment;
@@ -2049,7 +2046,6 @@ radv_cmd_buffer_clear_subpass(struct radv_cmd_buffer *cmd_buffer)
    }
 
    radv_meta_restore(&saved_state, cmd_buffer);
-   cmd_buffer->state.predicating = old_predicating;
    cmd_buffer->state.flush_bits |= post_flush;
 }
 
