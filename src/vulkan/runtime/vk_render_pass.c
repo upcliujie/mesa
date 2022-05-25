@@ -825,10 +825,9 @@ vk_get_pipeline_sample_count_info_amd(const VkGraphicsPipelineCreateInfo *info)
    return vk_find_struct_const(info->pNext, ATTACHMENT_SAMPLE_COUNT_INFO_AMD);
 }
 
-const VkCommandBufferInheritanceRenderingInfo *
-vk_get_command_buffer_inheritance_rendering_info(
-   VkCommandBufferLevel level,
-   const VkCommandBufferBeginInfo *pBeginInfo)
+static const VkCommandBufferInheritanceInfo *
+get_inheritance_info(VkCommandBufferLevel level,
+                     const VkCommandBufferBeginInfo *pBeginInfo)
 {
    /* From the Vulkan 1.3.204 spec:
     *
@@ -845,8 +844,18 @@ vk_get_command_buffer_inheritance_rendering_info(
    if (!(pBeginInfo->flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT))
       return NULL;
 
+   return pBeginInfo->pInheritanceInfo;
+}
+
+const VkCommandBufferInheritanceRenderingInfo *
+vk_get_command_buffer_inheritance_rendering_info(
+   VkCommandBufferLevel level,
+   const VkCommandBufferBeginInfo *pBeginInfo)
+{
    const VkCommandBufferInheritanceInfo *inheritance =
-      pBeginInfo->pInheritanceInfo;
+      get_inheritance_info(level, pBeginInfo);
+   if (inheritance == NULL)
+      return NULL;
 
    /* From the Vulkan 1.3.204 spec:
     *
@@ -867,6 +876,26 @@ vk_get_command_buffer_inheritance_rendering_info(
 
    return vk_find_struct_const(inheritance->pNext,
                                COMMAND_BUFFER_INHERITANCE_RENDERING_INFO);
+}
+
+const VkAttachmentSampleCountInfoAMD *
+vk_get_command_buffer_inheritance_sample_counts_info_amd(
+   VkCommandBufferLevel level,
+   const VkCommandBufferBeginInfo *pBeginInfo)
+{
+   const VkCommandBufferInheritanceInfo *inheritance =
+      get_inheritance_info(level, pBeginInfo);
+   if (inheritance == NULL)
+      return NULL;
+
+   VK_FROM_HANDLE(vk_render_pass, render_pass, inheritance->renderPass);
+   if (render_pass != NULL) {
+      assert(inheritance->subpass < render_pass->subpass_count);
+      return &render_pass->subpasses[inheritance->subpass].sample_count_info_amd;
+   }
+
+   return vk_find_struct_const(inheritance->pNext,
+                               ATTACHMENT_SAMPLE_COUNT_INFO_AMD);
 }
 
 VKAPI_ATTR void VKAPI_CALL

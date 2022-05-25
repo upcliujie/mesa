@@ -362,6 +362,25 @@ vk_get_command_buffer_inheritance_rendering_info(
    VkCommandBufferLevel level,
    const VkCommandBufferBeginInfo *pBeginInfo);
 
+/** Returns the VkAttachmentSampleCountInfoAMD for a secondary command buffer
+ *
+ * For render-pass-free drivers, this can be used in the implementaiton of
+ * vkCmdExecuteCommands to get the VkAttachmentSampleCountInfoAMD.  If
+ * VkCommandBufferInheritanceInfo::renderPass is not VK_NULL_HANDLE, it
+ * will return the sample counts from the specified subpass as a
+ * VkAttachmentSampleCountInfoAMD.  If
+ * VkCommandBufferInheritanceInfo::renderPass is VK_NULL_HANDLE and there is
+ * a VkAttachmentSampleCountInfoAMD in the pNext chain of
+ * VkGraphicsPipelineCreateInfo, it will return that.
+ *
+ * @param[in]  level       The nesting level of this command buffer
+ * @param[in]  pBeginInfo  The pBeginInfo from vkBeginCommandBuffer
+ */
+const VkAttachmentSampleCountInfoAMD *
+vk_get_command_buffer_inheritance_sample_counts_info_amd(
+   VkCommandBufferLevel level,
+   const VkCommandBufferBeginInfo *pBeginInfo);
+
 #ifdef __cplusplus
 }
 #endif
