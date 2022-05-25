@@ -21,7 +21,7 @@ int main(void) {
         
         if (ret < 0) {
                 fprintf(stderr, "failed to enable counters (%d)\n", ret);
-                fprintf(stderr, "try `# echo Y > /sys/module/panfrost/parameters/unstable_ioctls`\n");
+                fprintf(stderr, "try `echo Y | sudo tee /sys/module/panfrost/parameters/unstable_ioctls`\n");
 
                 exit(1);
         }
