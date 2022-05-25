@@ -97,7 +97,9 @@ artifact_repo_sync()
     ROOTFS_INSTALL_DIR=${2:-/lava-files/rootfs-${DEBIAN_ARCH}}
 
     is_file_available_in_minio deps/"${DEPENDENCY_FILE}" || {
+        echo -e "\e[0Ksection_start:$(date +%s):build_$1[collapsed=true]\r\e[0KBuilding $1..."
         "build_$1"
+        echo -e "\e[0Ksection_end:$(date +%s):build_$1\r\e[0K"
         mkdir -p "${ROOTFS_INSTALL_DIR}"
         tar -cJvf "${DEPENDENCY_FILE}" -C "${TMP_ROOTFS_DIR}" .
         upload_to_minio deps "${DEPENDENCY_FILE}"
