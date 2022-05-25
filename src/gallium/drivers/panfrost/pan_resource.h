@@ -82,15 +82,18 @@ struct panfrost_resource {
         /* Used to decide when to convert to another modifier */
         uint16_t modifier_updates;
 
-        /* Do all pixels have the same stencil value? */
-        bool constant_stencil;
+        /* Do all pixels have the same value? */
+        unsigned constant_buffers;
 
-        /* The stencil value if constant_stencil is set */
+        /* The depth/stencil value if constant_buffers is set */
+        float depth_value;
         uint8_t stencil_value;
 
         /* Cached min/max values for index buffers */
         struct panfrost_minmax_cache *index_cache;
 };
+
+#define PAN_RESOURCE_ALL_CONSTANT PIPE_CLEAR_DEPTHSTENCIL
 
 static inline struct panfrost_resource *
 pan_resource(struct pipe_resource *p)
