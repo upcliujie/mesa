@@ -491,6 +491,24 @@ fallback_use_bypass(const struct tu_render_pass *pass,
    return true;
 }
 
+static uint32_t
+get_render_pass_pixel_count(const struct tu_cmd_buffer *cmd)
+{
+   const VkExtent2D *extent = &cmd->state.render_area.extent;
+   return extent->width * extent->height;
+}
+
+static uint64_t
+estimate_drawcall_cost(const struct tu_cmd_buffer *cmd,
+                       uint32_t avg_sample_count)
+{
+   const struct tu_cmd_state *state = &cmd->state;
+
+   /* average sample count times average per-sample memory bandwidth cost */
+   return (uint64_t)avg_sample_count * state->total_drawcalls_cost /
+      state->drawcall_count;
+}
+
 bool
 tu_autotune_use_bypass(struct tu_autotune *at,
                        struct tu_cmd_buffer *cmd_buffer,
@@ -539,40 +557,43 @@ tu_autotune_use_bypass(struct tu_autotune *at,
 
    uint32_t avg_samples = 0;
    if (get_history(at, renderpass_key, &avg_samples)) {
-      /* TODO we should account for load/stores/clears/resolves especially
-       * with low drawcall count and ~fb_size samples passed, in D3D11 games
-       * we are seeing many renderpasses like:
-       *  - color attachment load
-       *  - single fullscreen draw
-       *  - color attachment store
+      const uint32_t pass_pixel_count =
+         get_render_pass_pixel_count(cmd_buffer);
+      uint64_t sysmem_cost =
+         (uint64_t)pass->sysmem_cost_per_pixel * pass_pixel_count;
+      uint64_t gmem_cost =
+         (uint64_t)pass->gmem_cost_per_pixel * pass_pixel_count;
+
+      const uint64_t drawcall_cost =
+         estimate_drawcall_cost(cmd_buffer, avg_samples);
+      /* drawcalls access the memory in sysmem rendering (ignoring CCU) */
+      sysmem_cost += drawcall_cost;
+
+      /* drawcalls access gmem in gmem rendering, but we do not want to ignore
+       * them completely.  The state changes between tiles also have an
+       * overhead.
        */
+      gmem_cost = (gmem_cost * 11 + drawcall_cost) / 10;
 
-      /* Low sample count could mean there was only a clear.. or there was
-       * a clear plus draws that touch no or few samples
-       */
-      if (avg_samples < 500) {
-         if (TU_AUTOTUNE_DEBUG_LOG) {
-            mesa_logi("%016"PRIx64":%u\t avg_samples=%u selecting sysmem",
-               renderpass_key, cmd_buffer->state.drawcall_count, avg_samples);
-         }
-         return true;
-      }
-
-      /* Cost-per-sample is an estimate for the average number of reads+
-       * writes for a given passed sample.
-       */
-      float sample_cost = cmd_buffer->state.total_drawcalls_cost;
-      sample_cost /= cmd_buffer->state.drawcall_count;
-
-      float single_draw_cost = (avg_samples * sample_cost) / cmd_buffer->state.drawcall_count;
-
-      bool select_sysmem = single_draw_cost < 6000.0;
-
+      const bool select_sysmem = sysmem_cost <= gmem_cost;
       if (TU_AUTOTUNE_DEBUG_LOG) {
-         mesa_logi("%016"PRIx64":%u\t avg_samples=%u, "
-             "sample_cost=%f, single_draw_cost=%f selecting %s",
-             renderpass_key, cmd_buffer->state.drawcall_count, avg_samples,
-             sample_cost, single_draw_cost, select_sysmem ? "sysmem" : "gmem");
+         const VkExtent2D *extent = &cmd_buffer->state.render_area.extent;
+
+         mesa_logi("autotune %016" PRIx64 ":%u selecting %s",
+               renderpass_key,
+               cmd_buffer->state.drawcall_count,
+               select_sysmem ? "sysmem" : "gmem");
+         mesa_logi("   avg_samples=%u, sample_cost=%.2f, drawcall_cost=%" PRIu64,
+               avg_samples,
+               (float)cmd_buffer->state.total_drawcalls_cost /
+               cmd_buffer->state.drawcall_count,
+               drawcall_cost);
+         mesa_logi("   render_area=%ux%u, sysmem_pixel_cost=%u, gmem_pixel_cost=%u",
+               extent->width, extent->height,
+               pass->sysmem_cost_per_pixel,
+               pass->gmem_cost_per_pixel);
+         mesa_logi("   sysmem_cost=%" PRIu64 ", gmem_cost=%" PRIu64,
+               sysmem_cost, gmem_cost);
       }
 
       return select_sysmem;

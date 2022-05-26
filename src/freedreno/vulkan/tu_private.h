@@ -1506,8 +1506,11 @@ struct tu_pipeline
 
    bool z_negative_one_to_one;
 
-   /* Base drawcall cost for sysmem vs gmem autotuner */
-   uint8_t drawcall_base_cost;
+   /* memory bandwidth cost (in bytes) for color attachments */
+   uint32_t color_cost_per_sample;
+
+   uint32_t depth_cpp_per_sample;
+   uint32_t stencil_cpp_per_sample;
 
    void *executables_mem_ctx;
    /* tu_pipeline_executable */
