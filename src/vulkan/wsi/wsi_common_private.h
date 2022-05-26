@@ -197,9 +197,10 @@ void
 wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image);
 
+VkResult wsi_dma_buf_init_wsi(struct wsi_device *wsi);
+
 VkResult
-wsi_prepare_signal_dma_buf_from_semaphore(struct wsi_swapchain *chain,
-                                          const struct wsi_image *image);
+wsi_prepare_signal_dma_buf_from_semaphore(struct wsi_swapchain *chain);
 VkResult
 wsi_signal_dma_buf_from_semaphore(const struct wsi_swapchain *chain,
                                   const struct wsi_image *image);

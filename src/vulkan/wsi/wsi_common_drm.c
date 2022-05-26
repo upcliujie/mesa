@@ -39,6 +39,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <xf86drm.h>
 
 struct dma_buf_export_sync_file_wsi {
@@ -54,26 +55,25 @@ struct dma_buf_import_sync_file_wsi {
 #define DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI   _IOWR(DMA_BUF_BASE, 2, struct dma_buf_export_sync_file_wsi)
 #define DMA_BUF_IOCTL_IMPORT_SYNC_FILE_WSI   _IOW(DMA_BUF_BASE, 3, struct dma_buf_import_sync_file_wsi)
 
+static bool
+wsi_dma_buf_has_sync_file_import_export(void)
+{
+   struct stat s;
+   int ret = stat("/sys/kernel/dmabuf/caps/sync_file_import_export", &s);
+   return ret == 0;
+}
+
 static VkResult
 wsi_dma_buf_export_sync_file(int dma_buf_fd, int *sync_file_fd)
 {
-   /* Don't keep trying an IOCTL that doesn't exist. */
-   static bool no_dma_buf_sync_file = false;
-   if (no_dma_buf_sync_file)
-      return VK_ERROR_FEATURE_NOT_PRESENT;
-
    struct dma_buf_export_sync_file_wsi export = {
       .flags = DMA_BUF_SYNC_RW,
       .fd = -1,
    };
    int ret = drmIoctl(dma_buf_fd, DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI, &export);
    if (ret) {
-      if (errno == ENOTTY) {
-         no_dma_buf_sync_file = true;
-         return VK_ERROR_FEATURE_NOT_PRESENT;
-      } else {
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
-      }
+      assert(errno != ENOTTY);
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
 
    *sync_file_fd = export.fd;
@@ -84,47 +84,78 @@ wsi_dma_buf_export_sync_file(int dma_buf_fd, int *sync_file_fd)
 static VkResult
 wsi_dma_buf_import_sync_file(int dma_buf_fd, int sync_file_fd)
 {
-   /* Don't keep trying an IOCTL that doesn't exist. */
-   static bool no_dma_buf_sync_file = false;
-   if (no_dma_buf_sync_file)
-      return VK_ERROR_FEATURE_NOT_PRESENT;
-
    struct dma_buf_import_sync_file_wsi import = {
       .flags = DMA_BUF_SYNC_RW,
       .fd = sync_file_fd,
    };
    int ret = drmIoctl(dma_buf_fd, DMA_BUF_IOCTL_IMPORT_SYNC_FILE_WSI, &import);
    if (ret) {
-      if (errno == ENOTTY) {
-         no_dma_buf_sync_file = true;
-         return VK_ERROR_FEATURE_NOT_PRESENT;
-      } else {
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
-      }
+      assert(errno != ENOTTY);
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
 
    return VK_SUCCESS;
 }
 
-static VkResult
-prepare_signal_dma_buf_from_semaphore(struct wsi_swapchain *chain,
-                                      const struct wsi_image *image)
+static const struct vk_sync_type *
+get_sync_file_sync_type(struct vk_physical_device *pdevice,
+                        enum vk_sync_features req_features)
 {
-   VkResult result;
+   for (const struct vk_sync_type *const *t =
+        pdevice->supported_sync_types; *t; t++) {
+      if (req_features & ~(*t)->features)
+         continue;
 
-   if (!(chain->wsi->semaphore_export_handle_types &
-         VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT))
-      return VK_ERROR_FEATURE_NOT_PRESENT;
+      if ((*t)->import_sync_file != NULL)
+         return *t;
+   }
 
-   int sync_file_fd = -1;
-   result = wsi_dma_buf_export_sync_file(image->dma_buf_fd, &sync_file_fd);
-   if (result != VK_SUCCESS)
-      return result;
+   return NULL;
+}
 
-   result = wsi_dma_buf_import_sync_file(image->dma_buf_fd, sync_file_fd);
-   close(sync_file_fd);
-   if (result != VK_SUCCESS)
-      return result;
+static bool
+test_dma_buf_explicit_sync(struct wsi_device *wsi)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, wsi->pdevice);
+
+   if (!wsi_dma_buf_has_sync_file_import_export())
+      return false;
+
+   /* Implicit signal requires that we can export a sync_file */
+   const VkPhysicalDeviceExternalSemaphoreInfo esi = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_SEMAPHORE_INFO,
+      .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+   };
+   VkExternalSemaphoreProperties esp = {
+      .sType = VK_STRUCTURE_TYPE_EXTERNAL_SEMAPHORE_PROPERTIES,
+   };
+   wsi->GetPhysicalDeviceExternalSemaphoreProperties(wsi->pdevice, &esi, &esp);
+   if (!(esp.externalSemaphoreFeatures &
+         VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT))
+      return false;
+
+   /* Implicit wait requires that we can create syncs for either a semaphore
+    * or a fence from a sync_file
+    */
+   if (!get_sync_file_sync_type(pdevice, VK_SYNC_FEATURE_GPU_WAIT) ||
+       !get_sync_file_sync_type(pdevice, VK_SYNC_FEATURE_CPU_WAIT))
+      return false;
+
+   return true;
+}
+
+VkResult
+wsi_dma_buf_init_wsi(struct wsi_device *wsi)
+{
+   wsi->has_dma_buf_explicit_sync = test_dma_buf_explicit_sync(wsi);
+   return VK_SUCCESS;
+}
+
+VkResult
+wsi_prepare_signal_dma_buf_from_semaphore(struct wsi_swapchain *chain)
+{
+   if (likely(chain->dma_buf_semaphore != VK_NULL_HANDLE))
+      return VK_SUCCESS;
 
    /* If we got here, all our checks pass.  Create the actual semaphore */
    const VkExportSemaphoreCreateInfo export_info = {
@@ -135,31 +166,9 @@ prepare_signal_dma_buf_from_semaphore(struct wsi_swapchain *chain,
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
       .pNext = &export_info,
    };
-   result = chain->wsi->CreateSemaphore(chain->device, &semaphore_info,
-                                        &chain->alloc,
-                                        &chain->dma_buf_semaphore);
-   if (result != VK_SUCCESS)
-      return result;
-
-   return VK_SUCCESS;
-}
-
-VkResult
-wsi_prepare_signal_dma_buf_from_semaphore(struct wsi_swapchain *chain,
-                                          const struct wsi_image *image)
-{
-   VkResult result;
-
-   /* We cache result - 1 in the swapchain */
-   if (unlikely(chain->signal_dma_buf_from_semaphore == 0)) {
-      result = prepare_signal_dma_buf_from_semaphore(chain, image);
-      assert(result <= 0);
-      chain->signal_dma_buf_from_semaphore = (int)result - 1;
-   } else {
-      result = (VkResult)(chain->signal_dma_buf_from_semaphore + 1);
-   }
-
-   return result;
+   return chain->wsi->CreateSemaphore(chain->device, &semaphore_info,
+                                      &chain->alloc,
+                                      &chain->dma_buf_semaphore);
 }
 
 VkResult
@@ -184,22 +193,6 @@ wsi_signal_dma_buf_from_semaphore(const struct wsi_swapchain *chain,
    return result;
 }
 
-static const struct vk_sync_type *
-get_sync_file_sync_type(struct vk_device *device,
-                        enum vk_sync_features req_features)
-{
-   for (const struct vk_sync_type *const *t =
-        device->physical->supported_sync_types; *t; t++) {
-      if (req_features & ~(*t)->features)
-         continue;
-
-      if ((*t)->import_sync_file != NULL)
-         return *t;
-   }
-
-   return NULL;
-}
-
 VkResult
 wsi_create_sync_for_dma_buf_wait(const struct wsi_swapchain *chain,
                                  const struct wsi_image *image,
@@ -209,10 +202,11 @@ wsi_create_sync_for_dma_buf_wait(const struct wsi_swapchain *chain,
    VK_FROM_HANDLE(vk_device, device, chain->device);
    VkResult result;
 
+   assert(req_features == VK_SYNC_FEATURE_GPU_WAIT ||
+          req_features == VK_SYNC_FEATURE_CPU_WAIT);
+
    const struct vk_sync_type *sync_type =
-      get_sync_file_sync_type(device, req_features);
-   if (sync_type == NULL)
-      return VK_ERROR_FEATURE_NOT_PRESENT;
+      get_sync_file_sync_type(device->physical, req_features);
 
    int sync_file_fd = -1;
    result = wsi_dma_buf_export_sync_file(image->dma_buf_fd, &sync_file_fd);
