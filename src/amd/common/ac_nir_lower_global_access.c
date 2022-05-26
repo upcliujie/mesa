@@ -41,7 +41,8 @@ try_extract_additions(nir_builder *b, nir_ssa_scalar scalar, uint64_t *out_const
       nir_ssa_scalar src = i ? src1 : src0;
       if (nir_ssa_scalar_is_const(src)) {
          *out_const += nir_ssa_scalar_as_uint(src);
-      } else if (nir_ssa_scalar_is_alu(src) && nir_ssa_scalar_alu_op(src) == nir_op_u2u64) {
+      } else if (nir_ssa_scalar_is_alu(src) && (nir_ssa_scalar_alu_op(src) == nir_op_u2u64 ||
+                                                nir_ssa_scalar_alu_op(src) == nir_op_i2i64)) {
          nir_ssa_scalar offset_scalar = nir_ssa_scalar_chase_alu_src(src, 0);
          nir_ssa_def *offset = nir_channel(b, offset_scalar.def, offset_scalar.comp);
          if (*out_offset)
