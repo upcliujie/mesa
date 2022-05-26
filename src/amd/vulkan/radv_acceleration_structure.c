@@ -2087,12 +2087,14 @@ radv_CmdBuildAccelerationStructuresKHR(
             case VK_GEOMETRY_TYPE_TRIANGLES_KHR:
                prim_consts.vertex_addr =
                   geom->geometry.triangles.vertexData.deviceAddress +
-                  ppBuildRangeInfos[i][j].firstVertex * geom->geometry.triangles.vertexStride +
-                  (geom->geometry.triangles.indexType != VK_INDEX_TYPE_NONE_KHR
-                      ? ppBuildRangeInfos[i][j].primitiveOffset
-                      : 0);
-               prim_consts.index_addr = geom->geometry.triangles.indexData.deviceAddress +
-                                        ppBuildRangeInfos[i][j].primitiveOffset;
+                  ppBuildRangeInfos[i][j].firstVertex * geom->geometry.triangles.vertexStride;
+               prim_consts.index_addr = geom->geometry.triangles.indexData.deviceAddress;
+
+               if (geom->geometry.triangles.indexType == VK_INDEX_TYPE_NONE_KHR)
+                  prim_consts.vertex_addr += ppBuildRangeInfos[i][j].primitiveOffset;
+               else
+                  prim_consts.index_addr += ppBuildRangeInfos[i][j].primitiveOffset;
+
                prim_consts.transform_addr = geom->geometry.triangles.transformData.deviceAddress +
                                             ppBuildRangeInfos[i][j].transformOffset;
                prim_consts.vertex_stride = geom->geometry.triangles.vertexStride;
@@ -2107,7 +2109,8 @@ radv_CmdBuildAccelerationStructuresKHR(
                prim_size = 64;
                break;
             case VK_GEOMETRY_TYPE_INSTANCES_KHR:
-               prim_consts.instance_data = geom->geometry.instances.data.deviceAddress;
+               prim_consts.instance_data = geom->geometry.instances.data.deviceAddress +
+                                           ppBuildRangeInfos[i][j].primitiveOffset;
                prim_consts.array_of_pointers = geom->geometry.instances.arrayOfPointers ? 1 : 0;
                prim_size = 128;
                bvh_states[i].instance_count += ppBuildRangeInfos[i][j].primitiveCount;
