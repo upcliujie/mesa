@@ -519,6 +519,8 @@ void radv_nir_apply_pipeline_layout(nir_shader *shader, struct radv_device *devi
                                     const struct radv_shader_info *info,
                                     const struct radv_shader_args *args);
 
+bool radv_nir_lower_fs_barycentric(nir_shader *shader, const struct radv_pipeline_key *pipeline_key);
+
 struct radv_pipeline_stage;
 
 nir_shader *radv_shader_spirv_to_nir(struct radv_device *device,
