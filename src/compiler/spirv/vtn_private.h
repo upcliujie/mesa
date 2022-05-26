@@ -481,6 +481,9 @@ struct vtn_access_chain {
    /* Access qualifiers */
    enum gl_access_qualifier access;
 
+   /* Whether the access is in bounds and the bounds are 32-bit. */
+   bool inbounds32;
+
    /** Struct elements and array offsets.
     *
     * This is an array of 1 so that it can conveniently be created on the

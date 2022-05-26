@@ -1519,6 +1519,9 @@ typedef struct {
    /** The dereferenced type of the resulting pointer value */
    const struct glsl_type *type;
 
+   /* Is the deref inbounds and does the offset fit into 32 bits? */
+   bool inbounds32;
+
    union {
       /** Variable being dereferenced if deref_type is a deref_var */
       nir_variable *var;

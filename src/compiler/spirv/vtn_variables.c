@@ -459,6 +459,7 @@ vtn_pointer_dereference(struct vtn_builder *b,
          tail = nir_build_deref_array(&b->nb, tail, arr_index);
          type = type->array_element;
       }
+      tail->inbounds32 = deref_chain->inbounds32;
 
       access |= type->access;
    }
@@ -2459,6 +2460,13 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
       struct vtn_type *ptr_type = vtn_get_type(b, w[1]);
 
       struct vtn_pointer *base = vtn_pointer(b, w[3]);
+
+      if (opcode == SpvOpInBoundsAccessChain || opcode == SpvOpInBoundsPtrAccessChain) {
+         unsigned size, align;
+         glsl_get_natural_size_align_bytes(base->type->type, &size, &align);
+
+         chain->inbounds32 = size <= UINT32_MAX;
+      }
 
       /* Workaround for https://gitlab.freedesktop.org/mesa/mesa/-/issues/3406 */
       access |= base->access & ACCESS_NON_UNIFORM;
