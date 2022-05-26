@@ -5614,10 +5614,6 @@ visit_load_input(isel_context* ctx, nir_intrinsic_instr* instr)
             ctx->allocated_vec.emplace(dst.id(), elems);
       }
    } else if (ctx->shader->info.stage == MESA_SHADER_FRAGMENT) {
-      if (!nir_src_is_const(offset) || nir_src_as_uint(offset))
-         isel_err(offset.ssa->parent_instr,
-                  "Unimplemented non-zero nir_intrinsic_load_input offset");
-
       Temp prim_mask = get_arg(ctx, ctx->args->ac.prim_mask);
 
       unsigned idx = nir_intrinsic_base(instr);
@@ -5626,6 +5622,10 @@ visit_load_input(isel_context* ctx, nir_intrinsic_instr* instr)
 
       if (instr->intrinsic == nir_intrinsic_load_input_vertex) {
          nir_const_value* src0 = nir_src_as_const_value(instr->src[0]);
+         nir_const_value* off = nir_src_as_const_value(offset);
+
+         idx += off->u32;
+
          switch (src0->u32) {
          case 0:
             vertex_id = 2; /* P0 */
