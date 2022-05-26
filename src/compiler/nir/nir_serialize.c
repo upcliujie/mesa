@@ -1064,6 +1064,7 @@ write_deref(write_ctx *ctx, const nir_deref_instr *deref)
          write_src(ctx, &deref->parent);
          write_src(ctx, &deref->arr.index);
       }
+      blob_write_uint8(ctx->blob, deref->arr.inbounds);
       break;
 
    case nir_deref_type_cast:
@@ -1124,6 +1125,8 @@ read_deref(read_ctx *ctx, union packed_instr header)
          read_src(ctx, &deref->parent, &deref->instr);
          read_src(ctx, &deref->arr.index, &deref->instr);
       }
+
+      deref->arr.inbounds = blob_read_uint8(ctx->blob);
 
       parent = nir_src_as_deref(deref->parent);
       if (deref->deref_type == nir_deref_type_array)

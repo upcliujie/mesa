@@ -1184,6 +1184,8 @@ opt_deref_ptr_as_array(nir_builder *b, nir_deref_instr *deref)
    assert(parent->arr.index.is_ssa);
    assert(deref->arr.index.is_ssa);
 
+   deref->arr.inbounds &= parent->arr.inbounds;
+
    nir_ssa_def *new_idx = nir_iadd(b, parent->arr.index.ssa,
                                       deref->arr.index.ssa);
 
