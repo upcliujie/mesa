@@ -461,6 +461,8 @@ files_libmesa += [
   sha1_h,
 ] + main_marshal_generated_c
 
+libmesa_sse41_cpp_args = []
+
 if with_sse41
   libmesa_sse41 = static_library(
     'mesa_sse41',
@@ -471,6 +473,7 @@ if with_sse41
   )
 else
   libmesa_sse41 = []
+  libmesa_sse41_cpp_args += ['-DUSE_STREAMING_MEMCPY=1']
 endif
 
 _mesa_windows_args = []
@@ -488,7 +491,7 @@ libmesa = static_library(
   'mesa',
   files_libmesa,
   c_args : [c_msvc_compat_args, _mesa_windows_args],
-  cpp_args : [cpp_msvc_compat_args, _mesa_windows_args],
+  cpp_args : [cpp_msvc_compat_args, _mesa_windows_args, libmesa_sse41_cpp_args],
   gnu_symbol_visibility : 'hidden',
   include_directories : [
     inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux,
