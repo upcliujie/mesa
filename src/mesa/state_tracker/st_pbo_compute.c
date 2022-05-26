@@ -620,10 +620,23 @@ create_conversion_shader(struct st_context *st, enum pipe_texture_target target,
    nir_ssa_def *iid = nir_load_local_invocation_id(&b);
    nir_ssa_def *tile = nir_imul(&b, wid, bsize);
    nir_ssa_def *global_id = nir_iadd(&b, tile, iid);
-   nir_ssa_def *start = nir_iadd(&b, global_id, sd.offset);
+   nir_ssa_def *start = nir_iadd(&b, nir_trim_vector(&b, global_id, 2), sd.offset);
 
-   nir_ssa_def *coord = nir_channels(&b, start, (1<<coord_components)-1);
-   nir_ssa_def *max = nir_iadd(&b, sd.offset, sd.range);
+   nir_ssa_def *coord;
+   if (coord_components < 3)
+      coord = start;
+   else {
+      /* pad offset vec with global_id to get correct z offset */
+      nir_ssa_def *components[4];
+      for (unsigned i = 0; i < coord_components; i++) {
+         if (i < 2)
+            components[i] = nir_channel(&b, start, i);
+         else
+            components[i] = nir_channel(&b, global_id, i);
+      }
+      coord = nir_vec(&b, components, coord_components);
+   }
+   nir_ssa_def *max = nir_iadd(&b, nir_pad_vector_imm_int(&b, sd.offset, 0, 3), sd.range);
    nir_push_if(&b, nir_ball(&b, nir_ilt(&b, coord, nir_trim_vector(&b, max, coord_components))));
    nir_tex_instr *txf = nir_tex_instr_create(b.shader, 3);
    txf->is_array = glsl_sampler_type_is_array(sampler->type);
