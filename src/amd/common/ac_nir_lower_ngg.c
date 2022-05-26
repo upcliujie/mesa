@@ -111,6 +111,7 @@ enum {
 typedef enum {
    ms_out_mode_lds,
    ms_out_mode_vram,
+   ms_out_mode_var,
 } ms_out_mode;
 
 typedef struct
@@ -134,6 +135,11 @@ typedef struct
       ms_out_part vtx_attr;
       ms_out_part prm_attr;
    } vram;
+   /* Outputs without cross-invocation access can be stored in variables. */
+   struct {
+      ms_out_part vtx_attr;
+      ms_out_part prm_attr;
+   } var;
 } ms_out_mem_layout;
 
 typedef struct
@@ -148,6 +154,7 @@ typedef struct
    unsigned hw_workgroup_size;
 
    nir_ssa_def *workgroup_index;
+   nir_variable *out_variables[VARYING_SLOT_MAX * 4];
 
    /* True if the lowering needs to insert the layer output. */
    bool insert_layer_output;
@@ -2228,6 +2235,9 @@ ms_get_out_layout_part(unsigned location,
       } else if (mask & s->layout.vram.prm_attr.mask) {
          *out_mode = ms_out_mode_vram;
          return &s->layout.vram.prm_attr;
+      } else if (mask & s->layout.var.prm_attr.mask) {
+         *out_mode = ms_out_mode_var;
+         return &s->layout.var.prm_attr;
       }
    } else {
       if (mask & s->layout.lds.vtx_attr.mask) {
@@ -2236,6 +2246,9 @@ ms_get_out_layout_part(unsigned location,
       } else if (mask & s->layout.vram.vtx_attr.mask) {
          *out_mode = ms_out_mode_vram;
          return &s->layout.vram.vtx_attr;
+      } else if (mask & s->layout.var.vtx_attr.mask) {
+         *out_mode = ms_out_mode_var;
+         return &s->layout.var.vtx_attr;
       }
    }
 
@@ -2275,6 +2288,19 @@ ms_store_arrayed_output_intrin(nir_builder *b,
                            .base = const_off,
                            .write_mask = write_mask,
                            .memory_modes = nir_var_shader_out);
+   } else if (out_mode == ms_out_mode_var) {
+      /* Split 64-bit store values to 32-bit components. */
+      if (store_val->bit_size > 32)
+         store_val =
+            nir_extract_bits(b, &store_val, 1, 0, store_val->num_components * store_val->bit_size / 32, 32);
+
+      for (unsigned comp = 0; comp < store_val->num_components; ++comp) {
+         if (!(write_mask & BITFIELD_BIT(comp)))
+            continue;
+         nir_ssa_def *val = nir_channel(b, store_val, comp);
+         unsigned idx = location * 4 + comp + component_offset;
+         nir_store_var(b, s->out_variables[idx], val, write_mask);
+      }
    } else {
       unreachable("Invalid MS output mode for store");
    }
@@ -2312,6 +2338,16 @@ ms_load_arrayed_output(nir_builder *b,
       return nir_load_buffer_amd(b, num_components, load_bit_size, ring, addr, off,
                                  .base = const_off,
                                  .memory_modes = nir_var_shader_out);
+   } else if (out_mode == ms_out_mode_var) {
+      nir_ssa_def *arr[8] = {0};
+      unsigned num_32bit_components = num_components * load_bit_size / 32;
+      for (unsigned comp = 0; comp < num_32bit_components; ++comp) {
+         unsigned idx = location * 4 + comp + component_addr_off;
+         arr[comp] = nir_load_var(b, s->out_variables[idx]);
+      }
+      if (load_bit_size > 32)
+         return nir_extract_bits(b, arr, 1, 0, num_components, load_bit_size);
+      return nir_vec(b, arr, num_components);
    } else {
       unreachable("Invalid MS output mode for load");
    }
@@ -2456,13 +2492,26 @@ ms_emit_arrayed_outputs(nir_builder *b,
 static void
 emit_ms_prelude(nir_builder *b, lower_ngg_ms_state *s)
 {
+   b->cursor = nir_before_cf_list(&b->impl->body);
+
+   /* Initialize NIR variables for same-invocation outputs. */
+   uint64_t same_invocation_output_mask = s->layout.var.prm_attr.mask | s->layout.var.vtx_attr.mask;
+   for (unsigned slot = 0; slot < VARYING_SLOT_MAX; ++slot) {
+      if (!(BITFIELD64_BIT(slot) & same_invocation_output_mask))
+         continue;
+
+      for (unsigned comp = 0; comp < 4; ++comp) {
+         unsigned idx = slot * 4 + comp;
+         s->out_variables[idx] = nir_local_variable_create(b->impl, glsl_uint_type(), "ms_var_output");
+         nir_store_var(b, s->out_variables[idx], nir_imm_int(b, 0), 0x1);
+      }
+   }
+
    bool uses_workgroup_id =
       BITSET_TEST(b->shader->info.system_values_read, SYSTEM_VALUE_WORKGROUP_ID);
 
    if (!uses_workgroup_id)
       return;
-
-   b->cursor = nir_before_cf_list(&b->impl->body);
 
    /* The HW doesn't support a proper workgroup index for vertex processing stages,
     * so we use the vertex ID which is equivalent to the index of the current workgroup
@@ -2800,15 +2849,20 @@ static ms_out_mem_layout
 ms_calculate_output_layout(unsigned api_shared_size,
                            uint64_t per_vertex_output_mask,
                            uint64_t per_primitive_output_mask,
+                           uint64_t cross_invocation_output_access,
                            unsigned max_vertices,
                            unsigned max_primitives,
                            unsigned vertices_per_prim)
 {
-   uint64_t lds_per_vertex_output_mask = per_vertex_output_mask;
-   uint64_t lds_per_primitive_output_mask = per_primitive_output_mask;
+   uint64_t lds_per_vertex_output_mask = per_vertex_output_mask & cross_invocation_output_access;
+   uint64_t lds_per_primitive_output_mask = per_primitive_output_mask & cross_invocation_output_access;
 
    /* Shared memory used by the API shader. */
    ms_out_mem_layout l = { .lds = { .total_size = api_shared_size } };
+
+   /* Outputs without cross-invocation access can be stored in variables. */
+   l.var.vtx_attr.mask = per_vertex_output_mask & ~lds_per_vertex_output_mask;
+   l.var.prm_attr.mask = per_primitive_output_mask & ~lds_per_primitive_output_mask;
 
    /* Workgroup information, see ms_workgroup_* for the layout. */
    l.lds.workgroup_info_addr = ALIGN(l.lds.total_size, 16);
@@ -2864,6 +2918,7 @@ ac_nir_lower_ngg_ms(nir_shader *shader,
 
    ms_out_mem_layout layout =
       ms_calculate_output_layout(shader->info.shared_size, per_vertex_outputs, per_primitive_outputs,
+                                 shader->info.mesh.ms_cross_invocation_output_access,
                                  max_vertices, max_primitives, vertices_per_prim);
 
    shader->info.shared_size = layout.lds.total_size;
