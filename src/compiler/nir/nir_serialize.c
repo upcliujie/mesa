@@ -629,7 +629,9 @@ union packed_instr {
       unsigned deref_type:3;
       unsigned cast_type_same_as_last:1;
       unsigned modes:5; /* See (de|en)code_deref_modes() */
-      unsigned _pad:10;
+      unsigned explicit_offset_bit_size:8;
+      unsigned inbounds:1;
+      unsigned _pad:1;
       unsigned packed_src_ssa_16bit:1; /* deref_var redefines this */
       unsigned dest:8;
    } deref;
@@ -1040,6 +1042,9 @@ write_deref(write_ctx *ctx, const nir_deref_instr *deref)
          are_object_ids_16bit(ctx);
    }
 
+   header.deref.inbounds = deref->inbounds;
+   header.deref.explicit_offset_bit_size = deref->explicit_offset_bit_size;
+
    write_dest(ctx, &deref->dest, header, deref->instr.type);
 
    switch (deref->deref_type) {
@@ -1093,6 +1098,9 @@ read_deref(read_ctx *ctx, union packed_instr header)
    nir_deref_instr *deref = nir_deref_instr_create(ctx->nir, deref_type);
 
    read_dest(ctx, &deref->dest, &deref->instr, header);
+
+   deref->inbounds = header.deref.inbounds;
+   deref->explicit_offset_bit_size = header.deref.explicit_offset_bit_size;
 
    nir_deref_instr *parent;
 

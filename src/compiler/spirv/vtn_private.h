@@ -481,6 +481,12 @@ struct vtn_access_chain {
    /* Access qualifiers */
    enum gl_access_qualifier access;
 
+   /** Whether the access is in bounds bit size minimum required for explicit
+    * io offsets.
+    */
+   bool inbounds;
+   uint8_t explicit_offset_bit_size;
+
    /** Struct elements and array offsets.
     *
     * This is an array of 1 so that it can conveniently be created on the

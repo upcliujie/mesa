@@ -314,6 +314,9 @@ clone_deref_instr(clone_state *state, const nir_deref_instr *deref)
    nderef->modes = deref->modes;
    nderef->type = deref->type;
 
+   nderef->inbounds = deref->inbounds;
+   nderef->explicit_offset_bit_size = deref->explicit_offset_bit_size;
+
    if (deref->deref_type == nir_deref_type_var) {
       nderef->var = remap_var(state, deref->var);
       return nderef;

@@ -155,6 +155,10 @@ hash_deref(uint32_t hash, const nir_deref_instr *instr)
    hash = HASH(hash, instr->modes);
    hash = HASH(hash, instr->type);
 
+   hash = HASH(hash, instr->inbounds);
+   if (instr->inbounds)
+      hash = HASH(hash, instr->explicit_offset_bit_size);
+
    if (instr->deref_type == nir_deref_type_var)
       return HASH(hash, instr->var);
 

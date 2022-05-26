@@ -443,6 +443,8 @@ vtn_pointer_dereference(struct vtn_builder *b,
       nir_ssa_def *index = vtn_access_link_as_ssa(b, deref_chain->link[0], 1,
                                                   tail->dest.ssa.bit_size);
       tail = nir_build_deref_ptr_as_array(&b->nb, tail, index);
+      tail->inbounds = deref_chain->inbounds;
+      tail->explicit_offset_bit_size = deref_chain->explicit_offset_bit_size;
       idx++;
    }
 
@@ -459,6 +461,8 @@ vtn_pointer_dereference(struct vtn_builder *b,
          tail = nir_build_deref_array(&b->nb, tail, arr_index);
          type = type->array_element;
       }
+      tail->inbounds = deref_chain->inbounds;
+      tail->explicit_offset_bit_size = deref_chain->explicit_offset_bit_size;
 
       access |= type->access;
    }
@@ -2459,6 +2463,21 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
       struct vtn_type *ptr_type = vtn_get_type(b, w[1]);
 
       struct vtn_pointer *base = vtn_pointer(b, w[3]);
+
+      chain->inbounds = opcode == SpvOpInBoundsAccessChain || opcode == SpvOpInBoundsPtrAccessChain;
+      if (chain->inbounds) {
+         unsigned size, align;
+         glsl_get_natural_size_align_bytes(base->type->type, &size, &align);
+
+         if (size <= UINT8_MAX)
+            chain->explicit_offset_bit_size = 8;
+         else if (size <= UINT16_MAX)
+            chain->explicit_offset_bit_size = 16;
+         else if (size <= UINT32_MAX)
+            chain->explicit_offset_bit_size = 32;
+         else
+            chain->explicit_offset_bit_size = 64;
+      }
 
       /* Workaround for https://gitlab.freedesktop.org/mesa/mesa/-/issues/3406 */
       access |= base->access & ACCESS_NON_UNIFORM;

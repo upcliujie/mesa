@@ -1519,6 +1519,12 @@ typedef struct {
    /** The dereferenced type of the resulting pointer value */
    const struct glsl_type *type;
 
+   /** Is the deref inbounds and what is the minimal bit size required for the
+    * offset when lowering to explicit io?
+    */
+   bool inbounds;
+   uint8_t explicit_offset_bit_size;
+
    union {
       /** Variable being dereferenced if deref_type is a deref_var */
       nir_variable *var;
