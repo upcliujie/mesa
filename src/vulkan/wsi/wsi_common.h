@@ -102,7 +102,8 @@ struct wsi_device {
 
    VkPhysicalDevicePCIBusInfoPropertiesEXT pci_bus_info;
 
-   VkExternalSemaphoreHandleTypeFlags semaphore_export_handle_types;
+   /* True if we have support for explicit sync with dma-bufs */
+   bool has_dma_buf_explicit_sync;
 
    bool supports_modifiers;
    uint32_t maxImageDimension2D;
@@ -208,6 +209,7 @@ struct wsi_device {
    WSI_CB(GetImageMemoryRequirements);
    WSI_CB(GetImageSubresourceLayout);
    WSI_CB(GetMemoryFdKHR);
+   WSI_CB(GetPhysicalDeviceExternalSemaphoreProperties);
    WSI_CB(GetPhysicalDeviceFormatProperties);
    WSI_CB(GetPhysicalDeviceFormatProperties2KHR);
    WSI_CB(GetPhysicalDeviceImageFormatProperties2);
