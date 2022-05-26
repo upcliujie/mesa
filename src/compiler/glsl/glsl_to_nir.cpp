@@ -231,6 +231,9 @@ glsl_to_nir(const struct gl_constants *consts,
    nir_validate_shader(shader, "after glsl to nir, before function inline");
 
    if (consts->GLSLLowerConstArrays) {
+      if (shader->options->max_unroll_iterations) {
+         nir_opt_loop_unroll(shader);
+      }
       nir_lower_const_arrays_to_uniforms(shader,
                                          consts->Program[stage].MaxUniformComponents);
    }
