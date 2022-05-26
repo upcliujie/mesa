@@ -1820,22 +1820,41 @@ nir_explicit_io_address_from_deref(nir_builder *b, nir_deref_instr *deref,
    case nir_deref_type_var:
       return build_addr_for_var(b, deref->var, addr_format);
 
+   case nir_deref_type_ptr_as_array:
    case nir_deref_type_array: {
       unsigned stride = nir_deref_instr_array_stride(deref);
       assert(stride > 0);
 
+      unsigned offset_bit_size = addr_get_offset_bit_size(base_addr, addr_format);
       nir_ssa_def *index = nir_ssa_for_src(b, deref->arr.index, 1);
-      index = nir_i2i(b, index, addr_get_offset_bit_size(base_addr, addr_format));
-      return build_addr_iadd(b, base_addr, addr_format, deref->modes,
-                                nir_amul_imm(b, index, stride));
-   }
+      nir_ssa_def *offset;
 
-   case nir_deref_type_ptr_as_array: {
-      nir_ssa_def *index = nir_ssa_for_src(b, deref->arr.index, 1);
-      index = nir_i2i(b, index, addr_get_offset_bit_size(base_addr, addr_format));
-      unsigned stride = nir_deref_instr_array_stride(deref);
-      return build_addr_iadd(b, base_addr, addr_format, deref->modes,
-                                nir_amul_imm(b, index, stride));
+      if (deref->inbounds) {
+         index = nir_u2u(b, index, deref->explicit_offset_bit_size);
+         offset = nir_amul_imm(b, index, stride);
+
+         nir_deref_instr *parent = nir_deref_instr_parent(deref);
+         if (parent && parent->inbounds && parent->deref_type == nir_deref_type_struct) {
+            nir_deref_instr *parent_parent = nir_deref_instr_parent(parent);
+            int member_offset = glsl_get_struct_field_offset(parent_parent->type,
+                                                             parent->strct.index);
+            assert(member_offset >= 0);
+
+            offset = nir_iadd_imm(b, offset, member_offset);
+            /* This should produce something along the lines of addr + off - off which
+             * should get optimized to addr.
+             */
+            base_addr = build_addr_iadd_imm(b, base_addr, addr_format, deref->modes,
+                                            -member_offset);
+         }
+
+         offset = nir_u2u(b, offset, offset_bit_size);
+      } else {
+         index = nir_i2i(b, index, offset_bit_size);
+         offset = nir_amul_imm(b, index, stride);
+      }
+
+      return build_addr_iadd(b, base_addr, addr_format, deref->modes, offset);
    }
 
    case nir_deref_type_array_wildcard:
