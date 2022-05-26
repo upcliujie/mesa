@@ -1178,5 +1178,14 @@ Asahi driver environment variables
    ``noopt``
       Disable various backend optimizations.
 
+.. _imagination env-vars:
+
+Imagination PowerVR driver environment variables
+------------------------------------------------
+
+:envvar:`PVR_DEBUG`
+    A comma-separated list of debug options. Use `PVR_DEBUG=help` to
+    print a list of available options.
+
 Other Gallium drivers have their own environment variables. These may
 change frequently so the source code should be consulted for details.
