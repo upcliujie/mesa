@@ -4611,6 +4611,10 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
       NIR_PASS(_, last_vgt_shader, radv_force_primitive_shading_rate, device);
    }
 
+   if (stages[MESA_SHADER_FRAGMENT].nir) {
+      NIR_PASS(_, stages[MESA_SHADER_FRAGMENT].nir, radv_nir_lower_fs_barycentric, pipeline_key);
+   }
+
    bool optimize_conservatively = pipeline_key->optimisations_disabled;
 
    /* Determine if shaders uses NGG before linking because it's needed for some NIR pass. */
