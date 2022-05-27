@@ -1525,17 +1525,19 @@ struct nir_shader *si_deserialize_shader(struct si_shader_selector *sel)
    return nir_deserialize(NULL, options, &blob_reader);
 }
 
-struct nir_shader *si_get_nir_shader(struct si_shader_selector *sel,
-                                     const union si_shader_key *key,
-                                     bool *free_nir,
+struct nir_shader *si_get_nir_shader(struct si_shader *shader, bool *free_nir,
                                      uint64_t tcs_vgpr_only_inputs)
 {
+   struct si_shader_selector *sel = shader->selector;
+   const union si_shader_key *key = &shader->key;
+
    nir_shader *nir;
    *free_nir = false;
 
    if (sel->nir) {
       nir = sel->nir;
    } else if (sel->nir_binary) {
+      nir = si_deserialize_shader(sel);
       *free_nir = true;
    } else {
       return NULL;
@@ -1723,7 +1725,7 @@ bool si_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *compi
 {
    struct si_shader_selector *sel = shader->selector;
    bool free_nir;
-   struct nir_shader *nir = si_get_nir_shader(sel, &shader->key, &free_nir, 0);
+   struct nir_shader *nir = si_get_nir_shader(shader, &free_nir, 0);
 
    /* Assign param export indices. */
    if ((sel->stage == MESA_SHADER_VERTEX ||
