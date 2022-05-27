@@ -36,6 +36,7 @@
 #include "compiler/nir/nir_builder.h"
 #include "compiler/nir/nir_builtin_builder.h"
 #include "compiler/nir/nir_deref.h"
+#include "compiler/nir/nir_xfb_info.h"
 #include "main/errors.h"
 #include "main/mtypes.h"
 #include "main/shaderobj.h"
@@ -194,6 +195,43 @@ has_unsupported_function_param(exec_list *ir)
    return visitor.unsupported;
 }
 
+static void
+populate_xfb_info(nir_shader *nir, struct gl_transform_feedback_info *info)
+{
+   if (nir->info.stage != MESA_SHADER_VERTEX &&
+       nir->info.stage != MESA_SHADER_TESS_EVAL &&
+       nir->info.stage != MESA_SHADER_GEOMETRY)
+      return;
+
+   if (info == NULL || info->NumOutputs == 0)
+      return;
+
+   nir_xfb_info *xfb =
+      (nir_xfb_info *)ralloc_size(nir, nir_xfb_info_size(info->NumOutputs));
+
+   xfb->output_count = info->NumOutputs;
+
+   for (unsigned i = 0; i < MAX_FEEDBACK_BUFFERS; i++) {
+      xfb->buffers[i].stride = info->Buffers[i].Stride;
+      xfb->buffers[i].varying_count = info->Buffers[i].NumVaryings;
+      xfb->buffer_to_stream[i] = info->Buffers[i].Stream;
+   }
+
+   for (unsigned i = 0; i < info->NumOutputs; i++) {
+      xfb->outputs[i].buffer = info->Outputs[i].OutputBuffer;
+      xfb->outputs[i].offset = info->Outputs[i].DstOffset * 4;
+      xfb->outputs[i].location = info->Outputs[i].OutputRegister;
+      xfb->outputs[i].component_offset = info->Outputs[i].ComponentOffset;
+      xfb->outputs[i].component_mask =
+         BITFIELD_RANGE(info->Outputs[i].ComponentOffset,
+                        info->Outputs[i].NumComponents);
+      xfb->buffers_written |= BITFIELD_BIT(info->Outputs[i].OutputBuffer);
+      xfb->streams_written |= BITFIELD_BIT(info->Outputs[i].StreamId);
+   }
+
+   nir->xfb_info = xfb;
+}
+
 nir_shader *
 glsl_to_nir(const struct gl_constants *consts,
             const struct gl_shader_program *shader_prog,
@@ -227,6 +265,8 @@ glsl_to_nir(const struct gl_constants *consts,
    /* The GLSL IR won't be needed anymore. */
    ralloc_free(sh->ir);
    sh->ir = NULL;
+
+   populate_xfb_info(shader, sh->Program->sh.LinkedTransformFeedback);
 
    nir_validate_shader(shader, "after glsl to nir, before function inline");
 
