@@ -3669,11 +3669,12 @@ static void
 radv_flush_ngg_query_state(struct radv_cmd_buffer *cmd_buffer)
 {
    struct radv_graphics_pipeline *pipeline = cmd_buffer->state.graphics_pipeline;
+   const unsigned stage = pipeline->last_vgt_api_stage;
    struct radv_userdata_info *loc;
    uint32_t ngg_query_state = 0;
    uint32_t base_reg;
 
-   if (!radv_pipeline_has_stage(pipeline, MESA_SHADER_GEOMETRY) || !pipeline->is_ngg)
+   if (!pipeline->is_ngg)
       return;
 
    /* By default NGG GS queries are disabled but they are enabled if the
@@ -3685,8 +3686,8 @@ radv_flush_ngg_query_state(struct radv_cmd_buffer *cmd_buffer)
         VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT))
       ngg_query_state = 1;
 
-   loc = radv_lookup_user_sgpr(&pipeline->base, MESA_SHADER_GEOMETRY, AC_UD_NGG_QUERY_STATE);
-   base_reg = pipeline->base.user_data_0[MESA_SHADER_GEOMETRY];
+   loc = radv_lookup_user_sgpr(&pipeline->base, stage, AC_UD_NGG_QUERY_STATE);
+   base_reg = pipeline->base.user_data_0[stage];
    assert(loc->sgpr_idx != -1);
 
    radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, ngg_query_state);
