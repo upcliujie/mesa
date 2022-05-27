@@ -3067,7 +3067,7 @@ anv_device_init_rt_shaders(struct anv_device *device)
       },
    };
    device->rt_trampoline =
-      anv_device_search_for_kernel(device, device->default_pipeline_cache,
+      anv_device_search_for_kernel(device, device->internal_cache,
                                    &trampoline_key, sizeof(trampoline_key),
                                    &cache_hit);
    if (device->rt_trampoline == NULL) {
@@ -3097,7 +3097,7 @@ anv_device_init_rt_shaders(struct anv_device *device)
          brw_compile_cs(device->physical->compiler, tmp_ctx, &params);
 
       device->rt_trampoline =
-         anv_device_upload_kernel(device, device->default_pipeline_cache,
+         anv_device_upload_kernel(device, device->internal_cache,
                                   MESA_SHADER_COMPUTE,
                                   &trampoline_key, sizeof(trampoline_key),
                                   tramp_data,
@@ -3112,6 +3112,11 @@ anv_device_init_rt_shaders(struct anv_device *device)
          return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
+   /* The cache already has a reference and it's not going anywhere so there
+    * is no need to hold a second reference.
+    */
+   anv_shader_bin_unref(device, device->rt_trampoline);
+
    struct brw_rt_trivial_return {
       char name[16];
       struct brw_bs_prog_key key;
@@ -3119,7 +3124,7 @@ anv_device_init_rt_shaders(struct anv_device *device)
       .name = "rt-trivial-ret",
    };
    device->rt_trivial_return =
-      anv_device_search_for_kernel(device, device->default_pipeline_cache,
+      anv_device_search_for_kernel(device, device->internal_cache,
                                    &return_key, sizeof(return_key),
                                    &cache_hit);
    if (device->rt_trivial_return == NULL) {
@@ -3145,7 +3150,7 @@ anv_device_init_rt_shaders(struct anv_device *device)
          brw_compile_bs(device->physical->compiler, tmp_ctx, &params);
 
       device->rt_trivial_return =
-         anv_device_upload_kernel(device, device->default_pipeline_cache,
+         anv_device_upload_kernel(device, device->internal_cache,
                                   MESA_SHADER_CALLABLE,
                                   &return_key, sizeof(return_key),
                                   return_data, return_prog_data.base.program_size,
@@ -3154,11 +3159,14 @@ anv_device_init_rt_shaders(struct anv_device *device)
 
       ralloc_free(tmp_ctx);
 
-      if (device->rt_trivial_return == NULL) {
-         anv_shader_bin_unref(device, device->rt_trampoline);
+      if (device->rt_trivial_return == NULL)
          return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-      }
    }
+
+   /* The cache already has a reference and it's not going anywhere so there
+    * is no need to hold a second reference.
+    */
+   anv_shader_bin_unref(device, device->rt_trivial_return);
 
    return VK_SUCCESS;
 }
@@ -3168,8 +3176,6 @@ anv_device_finish_rt_shaders(struct anv_device *device)
 {
    if (!device->vk.enabled_extensions.KHR_ray_tracing_pipeline)
       return;
-
-   anv_shader_bin_unref(device, device->rt_trampoline);
 }
 
 VkResult
