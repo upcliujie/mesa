@@ -3469,9 +3469,7 @@ static LLVMValueRef visit_load(struct ac_nir_context *ctx, nir_intrinsic_instr *
    else
       component_type = dest_type;
 
-   if (nir_src_is_const(offset))
-      assert(nir_src_as_uint(offset) == 0);
-   else
+   if (!nir_src_is_const(offset))
       indir_index = get_src(ctx, offset);
 
    if (ctx->stage == MESA_SHADER_TESS_CTRL ||
@@ -3528,6 +3526,9 @@ static LLVMValueRef visit_load(struct ac_nir_context *ctx, nir_intrinsic_instr *
 
    if (instr->intrinsic == nir_intrinsic_load_input_vertex) {
       nir_const_value *src0 = nir_src_as_const_value(instr->src[0]);
+      nir_const_value *off = nir_src_as_const_value(offset);
+
+      base += off->u32;
 
       switch (src0[0].i32) {
       case 0:
