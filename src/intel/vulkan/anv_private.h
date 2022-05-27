@@ -1197,6 +1197,7 @@ struct anv_device {
 
     struct vk_pipeline_cache *                  default_pipeline_cache;
     struct vk_pipeline_cache *                  blorp_cache;
+    struct vk_pipeline_cache *                  internal_rt_cache;
     struct blorp_context                        blorp;
 
     struct anv_state                            border_colors;
