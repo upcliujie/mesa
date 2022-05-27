@@ -3148,6 +3148,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
    bool vs_prologs = false;
    bool global_bo_list = false;
    bool image_2d_view_of_3d = false;
+   bool fragment_shader_barycentric = false;
 
    /* Check enabled features */
    if (pCreateInfo->pEnabledFeatures) {
@@ -3220,6 +3221,12 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
             image_2d_view_of_3d = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR: {
+         const VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR *features = (const void *)ext;
+         if (features->fragmentShaderBarycentric)
+            fragment_shader_barycentric = true;
+         break;
+      }
       default:
          break;
       }
@@ -3283,6 +3290,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
    device->image_float32_atomics = image_float32_atomics;
 
    device->image_2d_view_of_3d = image_2d_view_of_3d;
+   device->fragment_shader_barycentric = fragment_shader_barycentric;
 
    radv_init_shader_arenas(device);
 

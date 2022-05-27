@@ -3402,7 +3402,7 @@ radv_generate_graphics_pipeline_key(const struct radv_graphics_pipeline *pipelin
 
    key.vs.topology = info->ia.primitive_topology;
 
-   if (device->physical_device->rad_info.gfx_level >= GFX10) {
+   if (device->physical_device->rad_info.gfx_level >= GFX10 || device->fragment_shader_barycentric) {
       key.vs.provoking_vtx_last = info->rs.provoking_vtx_last;
    }
 
