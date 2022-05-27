@@ -2937,6 +2937,9 @@ struct gl_driver_flags
 
    /** For GL_CLAMP emulation */
    uint64_t NewSamplersWithClamp;
+
+   /** for atomic counter conversion */
+   uint64_t NewAtomicCounters;
 };
 
 struct gl_buffer_binding
