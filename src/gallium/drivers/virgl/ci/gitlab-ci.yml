@@ -103,3 +103,20 @@ virgl-iris-traces-performance:
     PIGLIT_REPLAY_LOOP_TIMES: 150
     PIGLIT_REPLAY_EXTRA_ARGS: "--download-caching-proxy-url=${FDO_HTTP_CACHE_URI}"
   allow_failure: true
+
+virgl-on-freedreno:
+  extends:
+    - a630_gl
+    - .virgl-rules
+  parallel: 2
+  variables:
+    DEQP_SUITE: virgl-freedreno
+    GALLIUM_DRIVER: "virgl"
+    CROSVM_GALLIUM_DRIVER: "freedreno"
+    CROSVM_GPU_ARGS: "gles=true,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768"
+    FDO_UPSTREAM_REPO: "tomeu/mesa" # HACK: Remove after opening MR
+    KERNEL_IMAGE_BASE_URL: "${MINIO_HOST}/mesa-lava/${FDO_UPSTREAM_REPO}/${KERNEL_ROOTFS_TAG}--${DEBIAN_BASE_TAG}--${MESA_TEMPLATES_COMMIT}/arm64"
+    KERNEL_IMAGE_NAME: "Image"
+    HWCI_KVM: "true"
+  tags:
+    - google-freedreno-cheza
