@@ -403,6 +403,19 @@ emit_ngg_nogs_prim_export(nir_builder *b, lower_ngg_nogs_state *st, nir_ssa_def 
          nir_pop_if(b, if_prim_valid);
       }
 
+      nir_if *if_shader_query = nir_push_if(b, nir_load_shader_query_enabled_amd(b));
+      {
+         /* Number of active GS threads. Each has 1 output primitive. */
+         nir_ssa_def *num_gs_threads = nir_bit_count(b, nir_ballot(b, 1, st->wave_size, nir_imm_bool(b, true)));
+         /* Activate only 1 lane and add the number of primitives to GDS. */
+         nir_if *if_elected = nir_push_if(b, nir_elect(b, 1));
+         {
+            nir_gds_atomic_add_amd(b, 32, num_gs_threads, nir_imm_int(b, 0), nir_imm_int(b, 0x100));
+         }
+         nir_pop_if(b, if_elected);
+      }
+      nir_pop_if(b, if_shader_query);
+
       nir_export_primitive_amd(b, arg);
    }
    nir_pop_if(b, if_gs_thread);
