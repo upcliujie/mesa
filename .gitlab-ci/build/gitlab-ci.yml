@@ -346,8 +346,9 @@ debian-android:
     - debian/arm_build
   variables:
     VULKAN_DRIVERS: freedreno,broadcom
-    GALLIUM_DRIVERS: "etnaviv,freedreno,kmsro,lima,nouveau,panfrost,swrast,tegra,v3d,vc4,zink"
+    GALLIUM_DRIVERS: "etnaviv,freedreno,kmsro,lima,nouveau,panfrost,swrast,tegra,v3d,vc4,zink,virgl"
     BUILDTYPE: "debugoptimized"
+    EXTRA_OPTION: "-D freedreno-virtio=true"
   tags:
     - aarch64
 
@@ -360,6 +361,7 @@ debian-armhf:
     EXTRA_OPTION: >
       -D llvm=disabled
       -D valgrind=false
+      -D freedreno-virtio=true
     MINIO_ARTIFACT_NAME: mesa-armhf
   script:
     - .gitlab-ci/meson/build.sh
@@ -375,6 +377,7 @@ debian-arm64:
       -D llvm=disabled
       -D valgrind=false
       -D imagination-srv=true
+      -D freedreno-virtio=true
     MINIO_ARTIFACT_NAME: mesa-arm64
   script:
     - .gitlab-ci/meson/build.sh

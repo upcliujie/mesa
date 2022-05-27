@@ -26,7 +26,7 @@ virpipe-on-gl:
     FLAKES_CHANNEL: "#virgl-ci"
     GALLIUM_DRIVER: "virgl"
     CROSVM_GALLIUM_DRIVER: "llvmpipe"
-    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768"
+    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768,context-types=virgl2"
     GALLIVM_PERF: "nopt,no_quad_lod"
 
 virgl-on-gl:
@@ -46,7 +46,7 @@ virgl-on-gles:
     VIRGL_HOST_API: GLES
     DEQP_SUITE: virgl-gles
     GPU_VERSION: virgl-gles
-    CROSVM_GPU_ARGS: "gles=true,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768"
+    CROSVM_GPU_ARGS: "gles=true,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768,context-types=virgl2"
   extends:
     - virgl-on-gl
 
@@ -80,7 +80,7 @@ virgl-traces:
     DRIVER_NAME: virgl
     GALLIUM_DRIVER: virgl
     CROSVM_GALLIUM_DRIVER: iris
-    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768"
+    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768,context-types=virgl2"
     EGL_PLATFORM: surfaceless
     PIGLIT_PROFILES: replay
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-virgl-iris.yml"
@@ -103,3 +103,24 @@ virgl-iris-traces-performance:
     PIGLIT_REPLAY_LOOP_TIMES: 150
     PIGLIT_REPLAY_EXTRA_ARGS: "--download-caching-proxy-url=${FDO_HTTP_CACHE_URI}"
   allow_failure: true
+
+freedreno-on-virtgpu:
+  extends:
+    - a630_gl
+    - .virgl-rules
+  parallel: 4
+  variables:
+    DEQP_SUITE: virgl-freedreno
+    GPU_VERSION: virgl-freedreno
+    GALLIUM_DRIVER: "virgl"
+    CROSVM_GALLIUM_DRIVER: "freedreno"
+    CROSVM_GPU_ARGS: "gles=true,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768,context-types=drm"
+    KERNEL_IMAGE_BASE_URL: "${MINIO_HOST}/mesa-lava/${FDO_UPSTREAM_REPO}/${KERNEL_ROOTFS_TAG}--${DEBIAN_BASE_TAG}--${MESA_TEMPLATES_COMMIT}/arm64"
+    KERNEL_IMAGE_NAME: "Image"
+    HWCI_KVM: "true"
+    CROSVM_CORES: 10
+    DEQP_FRACTION: 2
+    CROSVM_MEMORY: 8192
+    HWCI_TEST_SCRIPT: "/install/crosvm-runner.sh /install/deqp-runner.sh"
+  tags:
+    - google-freedreno-cheza
