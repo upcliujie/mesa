@@ -851,6 +851,9 @@ struct radv_device {
    /* Whether 2D views of 3D image is enabled. */
    bool image_2d_view_of_3d;
 
+   /* Whether fragment shader barycentric is enabled. */
+   bool fragment_shader_barycentric;
+
    /* Whether anisotropy is forced with RADV_TEX_ANISO (-1 is disabled). */
    int force_aniso;
 
