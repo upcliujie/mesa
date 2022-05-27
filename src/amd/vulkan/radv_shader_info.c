@@ -318,7 +318,7 @@ gather_info_input_decl_ps(const nir_shader *nir, const nir_variable *var,
    if (!var->data.per_primitive) {
       if (var->data.interpolation == INTERP_MODE_FLAT)
          info->ps.flat_shaded_mask |= mask << var->data.driver_location;
-      else if (var->data.interpolation == INTERP_MODE_EXPLICIT)
+      else if (var->data.interpolation == INTERP_MODE_EXPLICIT || var->data.per_vertex)
          info->ps.explicit_shaded_mask |= mask << var->data.driver_location;
    }
 
