@@ -127,14 +127,6 @@ void si_nir_late_opts(nir_shader *nir)
       more_late_algebraic = false;
       NIR_PASS(more_late_algebraic, nir, nir_opt_algebraic_late);
       NIR_PASS_V(nir, nir_opt_constant_folding);
-
-      /* We should run this after constant folding for stages that support indirect
-       * inputs/outputs.
-       */
-      if (nir->options->support_indirect_inputs & BITFIELD_BIT(nir->info.stage) ||
-          nir->options->support_indirect_outputs & BITFIELD_BIT(nir->info.stage))
-         NIR_PASS_V(nir, nir_io_add_const_offset_to_base, nir_var_shader_in | nir_var_shader_out);
-
       NIR_PASS_V(nir, nir_copy_prop);
       NIR_PASS_V(nir, nir_opt_dce);
       NIR_PASS_V(nir, nir_opt_cse);
@@ -314,12 +306,73 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
 }
 
+static int
+type_size_vec4(const struct glsl_type *type, bool bindless)
+{
+   return glsl_count_attribute_slots(type, false);
+}
+
+static void
+si_nir_lower_io(nir_shader *nir)
+{
+   /* HW supports indirect indexing for: | Enabled in driver
+    * -------------------------------------------------------
+    * TCS inputs                         | Yes
+    * TES inputs                         | Yes
+    * GS inputs                          | No
+    * -------------------------------------------------------
+    * VS outputs before TCS              | No
+    * TCS outputs                        | Yes
+    * VS/TES outputs before GS           | No
+    */
+   bool has_indirect_inputs = nir->info.stage == MESA_SHADER_TESS_CTRL ||
+                              nir->info.stage == MESA_SHADER_TESS_EVAL;
+   /* Transform feedback requires that indirect outputs are lowered. */
+   bool has_indirect_outputs = nir->info.stage == MESA_SHADER_TESS_CTRL &&
+                               nir->xfb_info == NULL;
+
+   if (!has_indirect_inputs || !has_indirect_outputs) {
+      NIR_PASS_V(nir, nir_lower_io_to_temporaries,
+                 nir_shader_get_entrypoint(nir), !has_indirect_outputs,
+                 !has_indirect_inputs);
+
+      /* We need to lower all the copy_deref's introduced by lower_io_to-
+       * _temporaries before calling nir_lower_io.
+       */
+      NIR_PASS_V(nir, nir_split_var_copies);
+      NIR_PASS_V(nir, nir_lower_var_copies);
+      NIR_PASS_V(nir, nir_lower_global_vars_to_local);
+   }
+
+   if (nir->info.stage == MESA_SHADER_FRAGMENT)
+      NIR_PASS_V(nir, nir_lower_color_inputs);
+
+   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_out | nir_var_shader_in,
+              type_size_vec4, nir_lower_io_lower_64bit_to_32);
+
+   /* nir_io_add_const_offset_to_base needs actual constants. */
+   NIR_PASS_V(nir, nir_opt_constant_folding);
+   NIR_PASS_V(nir, nir_io_add_const_offset_to_base, nir_var_shader_in |
+                                                    nir_var_shader_out);
+
+   /* Lower and remove dead derefs and variables to clean up the IR. */
+   NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+   NIR_PASS_V(nir, nir_opt_dce);
+   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp |
+              nir_var_shader_in | nir_var_shader_out, NULL);
+
+   if (nir->xfb_info)
+      NIR_PASS_V(nir, nir_io_add_intrinsic_xfb_info);
+
+   nir->info.io_lowered = true;
+}
+
 char *si_finalize_nir(struct pipe_screen *screen, void *nirptr)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
    struct nir_shader *nir = (struct nir_shader *)nirptr;
 
-   nir_lower_io_passes(nir);
+   si_nir_lower_io(nir);
 
    /* Remove dead derefs, so that we can remove uniforms. */
    NIR_PASS_V(nir, nir_opt_dce);
