@@ -1071,12 +1071,6 @@ st_finalize_nir(struct st_context *st, struct gl_program *prog,
    st_nir_assign_varying_locations(st, nir);
    st_nir_assign_uniform_locations(st->ctx, prog, nir);
 
-   /* Lower load_deref/store_deref of inputs and outputs.
-    * This depends on st_nir_assign_varying_locations.
-    */
-   if (nir->options->lower_io_variables)
-      nir_lower_io_passes(nir);
-
    /* Set num_uniforms in number of attribute slots (vec4s) */
    nir->num_uniforms = DIV_ROUND_UP(prog->Parameters->NumParameterValues, 4);
 

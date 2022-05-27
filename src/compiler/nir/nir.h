@@ -3608,27 +3608,6 @@ typedef struct nir_shader_compiler_options {
    nir_pack_varying_options pack_varying_options;
 
    /**
-    * Lower load_deref/store_deref of inputs and outputs into
-    * load_input/store_input intrinsics. This is used by nir_lower_io_passes.
-    */
-   bool lower_io_variables;
-
-   /**
-    * Lower color inputs to load_colorN that are kind of like system values
-    * if lower_io_variables is also set. shader_info will contain
-    * the interpolation settings. This is used by nir_lower_io_passes.
-    */
-   bool lower_fs_color_inputs;
-
-   /**
-    * The masks of shader stages that support indirect indexing with
-    * load_input and store_output intrinsics. It's used when
-    * lower_io_variables is true. This is used by nir_lower_io_passes.
-    */
-   uint8_t support_indirect_inputs;
-   uint8_t support_indirect_outputs;
-
-   /**
     * Remove varying loaded from uniform, let fragment shader load the
     * uniform directly. GPU passing varying by memory can benifit from it
     * for sure; but GPU passing varying by on chip resource may not.
@@ -4592,9 +4571,8 @@ bool nir_lower_io(nir_shader *shader,
                   nir_lower_io_options);
 
 bool nir_io_add_const_offset_to_base(nir_shader *nir, nir_variable_mode modes);
-
-void
-nir_lower_io_passes(nir_shader *nir);
+bool nir_lower_color_inputs(nir_shader *nir);
+bool nir_io_add_intrinsic_xfb_info(nir_shader *nir);
 
 bool
 nir_lower_vars_to_explicit_types(nir_shader *shader,
