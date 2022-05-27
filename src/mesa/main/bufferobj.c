@@ -1737,6 +1737,7 @@ bind_atomic_buffer(struct gl_context *ctx, unsigned index,
                bufObj, offset, size, autoSize,
                ctx->DriverFlags.NewAtomicBuffer,
                USAGE_ATOMIC_COUNTER_BUFFER);
+   ctx->NewDriverState |= ctx->DriverFlags.NewAtomicCounters;
 }
 
 /**
