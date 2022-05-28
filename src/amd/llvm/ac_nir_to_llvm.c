@@ -2371,18 +2371,9 @@ static void visit_store_output(struct ac_nir_context *ctx, nir_intrinsic_instr *
 
    writemask <<= component;
 
-   if (ctx->stage == MESA_SHADER_TESS_CTRL) {
-      nir_src *vertex_index_src = nir_get_io_arrayed_index_src(instr);
-      LLVMValueRef vertex_index = vertex_index_src ? get_src(ctx, *vertex_index_src) : NULL;
-      unsigned location = nir_intrinsic_io_semantics(instr).location;
-
-      ctx->abi->store_tcs_outputs(ctx->abi, vertex_index, indir_index, src,
-                                  writemask, component, location, base);
-      return;
-   }
-
    /* No indirect indexing is allowed after this point. */
-   assert(!indir_index);
+   if (indir_index)
+      return;
 
    for (unsigned chan = 0; chan < 8; chan++) {
       if (!(writemask & (1 << chan)))
