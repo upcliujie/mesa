@@ -25,10 +25,8 @@
 
 #include "pipe/p_shader_tokens.h"
 
+#include "pipe/p_state.h"
 #include "util/blob.h"
-#include "tgsi/tgsi_util.h"
-#include "tgsi/tgsi_parse.h"
-#include "tgsi/tgsi_scan.h"
 
 struct nir_shader_compiler_options;
 
@@ -52,9 +50,9 @@ struct nv50_ir_varying
    unsigned input    : 1; /* indicates direction of system values */
    unsigned oread    : 1; /* true if output is read from parallel TCP */
 
-   ubyte id; /* TGSI register index */
-   ubyte sn; /* TGSI semantic name */
-   ubyte si; /* TGSI semantic index */
+   uint8_t id; /* TGSI register index */
+   uint8_t sn; /* TGSI semantic name */
+   uint8_t si; /* TGSI semantic index */
 };
 
 #ifndef NDEBUG
