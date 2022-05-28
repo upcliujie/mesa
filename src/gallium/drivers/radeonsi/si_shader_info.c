@@ -451,6 +451,10 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
                info->uses_vmem_load_other = true;
             break;
 
+         case nir_intrinsic_load_buffer_amd:
+            info->uses_vmem_load_other = true;
+            break;
+
          default:
             if (is_image ||
                 is_bindless_image ||
