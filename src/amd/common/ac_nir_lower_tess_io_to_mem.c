@@ -155,6 +155,11 @@ typedef struct {
     */
    bool tcs_out_patch_fits_subgroup;
 
+   /* Set if all invocations will write to all tess factors, so tess factors
+    * can be passed by vgpr.
+    */
+   bool tcs_tessfactors_are_def_in_all_invocs;
+
    /* Don't eliminate tess factor nir_store_output instruction in TCS. */
    bool keep_tcs_tess_factor_output;
 } lower_tess_io_state;
@@ -417,7 +422,8 @@ lower_hs_output_store(nir_builder *b,
    bool is_tess_factor = semantics.location == VARYING_SLOT_TESS_LEVEL_INNER ||
                          semantics.location == VARYING_SLOT_TESS_LEVEL_OUTER;
    bool write_to_vmem = !is_tess_factor && tcs_output_needs_vmem(intrin, st);
-   bool write_to_lds = is_tess_factor || tcs_output_needs_lds(intrin, b->shader);
+   bool write_to_lds = (is_tess_factor && !st->tcs_tessfactors_are_def_in_all_invocs) ||
+      tcs_output_needs_lds(intrin, b->shader);
 
    if (write_to_vmem) {
       nir_ssa_def *vmem_off = intrin->intrinsic == nir_intrinsic_store_per_vertex_output
@@ -697,6 +703,7 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
                                unsigned num_reserved_tcs_outputs,
                                unsigned num_reserved_tcs_patch_outputs,
                                unsigned wave_size,
+                               bool tessfactors_are_def_in_all_invocs,
                                bool emit_tess_factor_write)
 {
    assert(shader->info.stage == MESA_SHADER_TESS_CTRL);
@@ -709,6 +716,7 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
       .tcs_num_reserved_outputs = num_reserved_tcs_outputs,
       .tcs_num_reserved_patch_outputs = num_reserved_tcs_patch_outputs,
       .tcs_out_patch_fits_subgroup = wave_size % shader->info.tess.tcs_vertices_out == 0,
+      .tcs_tessfactors_are_def_in_all_invocs = tessfactors_are_def_in_all_invocs,
       .map_io = map,
       .keep_tcs_tess_factor_output = !emit_tess_factor_write,
    };

@@ -90,6 +90,7 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
                                unsigned num_reserved_tcs_outputs,
                                unsigned num_reserved_tcs_patch_outputs,
                                unsigned wave_size,
+                               bool tessfactors_are_def_in_all_invocs,
                                bool emit_tess_factor_write);
 
 void
