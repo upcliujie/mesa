@@ -20,12 +20,11 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "codegen/nv50_ir.h"
-#include "codegen/nv50_ir_target.h"
-#include "codegen/nv50_ir_driver.h"
+#include "nv50_ir.h"
+#include "nv50_ir_target.h"
+#include "nv50_ir_driver.h"
 
 extern "C" {
-#include "nouveau_debug.h"
 }
 
 namespace nv50_ir {
