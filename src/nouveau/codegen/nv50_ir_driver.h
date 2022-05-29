@@ -95,7 +95,7 @@ struct nv50_ir_prog_info
 
    struct {
       uint32_t smemSize;  /* required shared memory per block */
-      uint8_t sourceRep;  /* PIPE_SHADER_IR_* */
+      bool sourceNir;
       const void *source;
    } bin;
 

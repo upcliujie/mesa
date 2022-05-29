@@ -590,19 +590,11 @@ nvc0_program_translate(struct nvc0_program *prog, uint16_t chipset,
    info->stage = tgsi_processor_to_shader_stage(prog->type);
    info->target = chipset;
 
-   info->bin.sourceRep = prog->pipe.type;
-   switch (prog->pipe.type) {
-   case PIPE_SHADER_IR_TGSI:
-      info->bin.source = (void *)prog->pipe.tokens;
-      break;
-   case PIPE_SHADER_IR_NIR:
+   info->bin.sourceNir = prog->pipe.type == PIPE_SHADER_IR_NIR;
+   if (info->bin.sourceNir)
       info->bin.source = (void *)nir_shader_clone(NULL, prog->pipe.ir.nir);
-      break;
-   default:
-      assert(!"unsupported IR!");
-      free(info);
-      return false;
-   }
+   else
+      info->bin.source = (void *)prog->pipe.tokens;
 
 #ifndef NDEBUG
    info->target = debug_get_num_option("NV50_PROG_CHIPSET", chipset);
@@ -763,7 +755,7 @@ nvc0_program_translate(struct nvc0_program *prog, uint16_t chipset,
 #endif
 
 out:
-   if (info->bin.sourceRep == PIPE_SHADER_IR_NIR)
+   if (info->bin.sourceNir)
       ralloc_free((void *)info->bin.source);
    FREE(info);
    return !ret;

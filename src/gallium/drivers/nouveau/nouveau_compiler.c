@@ -111,7 +111,7 @@ nouveau_codegen(int chipset, int type, struct tgsi_token tokens[],
 
    info.stage = tgsi_processor_to_shader_stage(type);
    info.target = chipset;
-   info.bin.sourceRep = PIPE_SHADER_IR_TGSI;
+   info.bin.sourceNir = false;
    info.bin.source = tokens;
 
    info.io.auxCBSlot = 15;
