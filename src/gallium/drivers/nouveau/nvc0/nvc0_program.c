@@ -290,18 +290,18 @@ nvc0_vp_gen_header(struct nvc0_program *vp, struct nv50_ir_prog_info_out *info)
 static void
 nvc0_tp_get_tess_mode(struct nvc0_program *tp, struct nv50_ir_prog_info_out *info)
 {
-   if (info->prop.tp.outputPrim == PIPE_PRIM_MAX) {
+   if (info->prop.tp.outputPrim == SHADER_PRIM_MAX) {
       tp->tp.tess_mode = ~0;
       return;
    }
-   switch (info->prop.tp.domain) {
-   case PIPE_PRIM_LINES:
+   switch (info->prop.tp.mode) {
+   case TESS_PRIMITIVE_ISOLINES:
       tp->tp.tess_mode = NVC0_3D_TESS_MODE_PRIM_ISOLINES;
       break;
-   case PIPE_PRIM_TRIANGLES:
+   case TESS_PRIMITIVE_TRIANGLES:
       tp->tp.tess_mode = NVC0_3D_TESS_MODE_PRIM_TRIANGLES;
       break;
-   case PIPE_PRIM_QUADS:
+   case TESS_PRIMITIVE_QUADS:
       tp->tp.tess_mode = NVC0_3D_TESS_MODE_PRIM_QUADS;
       break;
    default:
@@ -312,27 +312,27 @@ nvc0_tp_get_tess_mode(struct nvc0_program *tp, struct nv50_ir_prog_info_out *inf
    /* It seems like lines want the "CW" bit to indicate they're connected, and
     * spit out errors in dmesg when the "CONNECTED" bit is set.
     */
-   if (info->prop.tp.outputPrim != PIPE_PRIM_POINTS) {
-      if (info->prop.tp.domain == PIPE_PRIM_LINES)
+   if (info->prop.tp.outputPrim != SHADER_PRIM_POINTS) {
+      if (info->prop.tp.mode == TESS_PRIMITIVE_ISOLINES)
          tp->tp.tess_mode |= NVC0_3D_TESS_MODE_CW;
       else
          tp->tp.tess_mode |= NVC0_3D_TESS_MODE_CONNECTED;
    }
 
    /* Winding only matters for triangles/quads, not lines. */
-   if (info->prop.tp.domain != PIPE_PRIM_LINES &&
-       info->prop.tp.outputPrim != PIPE_PRIM_POINTS &&
+   if (info->prop.tp.mode != TESS_PRIMITIVE_ISOLINES &&
+       info->prop.tp.outputPrim != SHADER_PRIM_POINTS &&
        info->prop.tp.winding > 0)
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_CW;
 
-   switch (info->prop.tp.partitioning) {
-   case PIPE_TESS_SPACING_EQUAL:
+   switch (info->prop.tp.spacing) {
+   case TESS_SPACING_EQUAL:
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_SPACING_EQUAL;
       break;
-   case PIPE_TESS_SPACING_FRACTIONAL_ODD:
+   case TESS_SPACING_FRACTIONAL_ODD:
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_SPACING_FRACTIONAL_ODD;
       break;
-   case PIPE_TESS_SPACING_FRACTIONAL_EVEN:
+   case TESS_SPACING_FRACTIONAL_EVEN:
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_SPACING_FRACTIONAL_EVEN;
       break;
    default:

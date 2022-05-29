@@ -998,9 +998,9 @@ nv50_ir_prog_info_out_print(struct nv50_ir_prog_info_out *info_out)
       case MESA_SHADER_TESS_EVAL:
          INFO("      \"tp\":{\n");
          INFO("         \"outputPatchSize\":\"%d\"\n", info_out->prop.tp.outputPatchSize);
-         INFO("         \"partitioning\":\"%d\"\n", info_out->prop.tp.partitioning);
+         INFO("         \"partitioning\":\"%d\"\n", info_out->prop.tp.spacing);
          INFO("         \"winding\":\"%d\"\n", info_out->prop.tp.winding);
-         INFO("         \"domain\":\"%d\"\n", info_out->prop.tp.domain);
+         INFO("         \"mode\":\"%d\"\n", info_out->prop.tp.mode);
          INFO("         \"outputPrim\":\"%d\"\n", info_out->prop.tp.outputPrim);
          break;
       case MESA_SHADER_GEOMETRY:

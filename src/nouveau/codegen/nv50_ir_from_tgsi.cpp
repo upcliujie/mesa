@@ -1195,19 +1195,43 @@ void Source::scanProperty(const struct tgsi_full_property *prop)
       info_out->prop.tp.outputPatchSize = prop->u[0].Data;
       break;
    case TGSI_PROPERTY_TES_PRIM_MODE:
-      info_out->prop.tp.domain = prop->u[0].Data;
+      switch (prop->u[0].Data) {
+      case PIPE_PRIM_LINES:
+         info_out->prop.tp.mode = TESS_PRIMITIVE_ISOLINES;
+         break;
+      case PIPE_PRIM_TRIANGLES:
+         info_out->prop.tp.mode = TESS_PRIMITIVE_TRIANGLES;
+         break;
+      case PIPE_PRIM_QUADS:
+         info_out->prop.tp.mode = TESS_PRIMITIVE_QUADS;
+         break;
+      default:
+         break;
+      }
       break;
    case TGSI_PROPERTY_TES_SPACING:
-      info_out->prop.tp.partitioning = prop->u[0].Data;
+      switch (prop->u[0].Data) {
+      case PIPE_TESS_SPACING_FRACTIONAL_ODD:
+         info_out->prop.tp.spacing = TESS_SPACING_FRACTIONAL_ODD;
+         break;
+      case PIPE_TESS_SPACING_FRACTIONAL_EVEN:
+         info_out->prop.tp.spacing = TESS_SPACING_FRACTIONAL_EVEN;
+         break;
+      case PIPE_TESS_SPACING_EQUAL:
+         info_out->prop.tp.spacing = TESS_SPACING_EQUAL;
+         break;
+      default:
+         break;
+      }
       break;
    case TGSI_PROPERTY_TES_VERTEX_ORDER_CW:
       info_out->prop.tp.winding = prop->u[0].Data;
       break;
    case TGSI_PROPERTY_TES_POINT_MODE:
       if (prop->u[0].Data)
-         info_out->prop.tp.outputPrim = PIPE_PRIM_POINTS;
+         info_out->prop.tp.outputPrim = SHADER_PRIM_POINTS;
       else
-         info_out->prop.tp.outputPrim = PIPE_PRIM_TRIANGLES; /* anything but points */
+         info_out->prop.tp.outputPrim = SHADER_PRIM_TRIANGLES; /* anything but points */
       break;
    case TGSI_PROPERTY_CS_FIXED_BLOCK_WIDTH:
       info->prop.cp.numThreads[0] = prop->u[0].Data;

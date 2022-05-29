@@ -1250,8 +1250,8 @@ nv50_ir_init_prog_info(struct nv50_ir_prog_info *info,
    info_out->target = info->target;
    info_out->stage = info->stage;
    if (info->stage == MESA_SHADER_TESS_CTRL || info->stage == MESA_SHADER_TESS_EVAL) {
-      info_out->prop.tp.domain = PIPE_PRIM_MAX;
-      info_out->prop.tp.outputPrim = PIPE_PRIM_MAX;
+      info_out->prop.tp.mode = TESS_PRIMITIVE_UNSPECIFIED;
+      info_out->prop.tp.outputPrim = SHADER_PRIM_MAX;
    }
    if (info->stage == MESA_SHADER_GEOMETRY) {
       info_out->prop.gp.instanceCount = 1;

@@ -1349,11 +1349,11 @@ Converter::parseNIR()
       break;
    case Program::TYPE_TESSELLATION_CONTROL:
    case Program::TYPE_TESSELLATION_EVAL:
-      info_out->prop.tp.domain = u_tess_prim_from_shader(nir->info.tess._primitive_mode);
+      info_out->prop.tp.mode = nir->info.tess._primitive_mode;
       info_out->prop.tp.outputPatchSize = nir->info.tess.tcs_vertices_out;
       info_out->prop.tp.outputPrim =
-         nir->info.tess.point_mode ? PIPE_PRIM_POINTS : PIPE_PRIM_TRIANGLES;
-      info_out->prop.tp.partitioning = (nir->info.tess.spacing + 1) % 3;
+         nir->info.tess.point_mode ? SHADER_PRIM_POINTS : SHADER_PRIM_TRIANGLES;
+      info_out->prop.tp.spacing = (enum gl_tess_spacing)nir->info.tess.spacing;
       info_out->prop.tp.winding = !nir->info.tess.ccw;
       break;
    case Program::TYPE_VERTEX:

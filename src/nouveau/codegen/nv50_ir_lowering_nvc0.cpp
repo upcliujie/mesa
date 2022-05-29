@@ -2925,7 +2925,7 @@ NVC0LoweringPass::readTessCoord(LValue *dst, int c)
       y = dst;
    } else {
       assert(c == 2);
-      if (prog->driver_out->prop.tp.domain != PIPE_PRIM_TRIANGLES) {
+      if (prog->driver_out->prop.tp.mode != TESS_PRIMITIVE_TRIANGLES) {
          bld.mkMov(dst, bld.loadImm(NULL, 0));
          return;
       }

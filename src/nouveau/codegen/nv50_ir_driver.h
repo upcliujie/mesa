@@ -167,10 +167,10 @@ struct nv50_ir_prog_info_out
       } vp;
       struct {
          uint8_t outputPatchSize;
-         uint8_t partitioning;    /* PIPE_TESS_PART */
+         enum gl_tess_spacing spacing;
          int8_t winding;          /* +1 (clockwise) / -1 (counter-clockwise) */
-         uint8_t domain;          /* PIPE_PRIM_{QUADS,TRIANGLES,LINES} */
-         uint8_t outputPrim;      /* PIPE_PRIM_{TRIANGLES,LINES,POINTS} */
+         enum tess_primitive_mode mode;
+         enum shader_prim outputPrim;      /* SHADER_PRIM_{TRIANGLES,LINES,POINTS} */
       } tp;
       struct {
          uint8_t outputPrim;
