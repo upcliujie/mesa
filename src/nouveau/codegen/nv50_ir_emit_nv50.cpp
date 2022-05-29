@@ -1280,15 +1280,15 @@ alphatestSet(const FixupEntry *entry, uint32_t *code, const FixupData& data)
    int enc;
 
    switch (data.alphatest) {
-   case PIPE_FUNC_NEVER: enc = 0x0; break;
-   case PIPE_FUNC_LESS: enc = 0x1; break;
-   case PIPE_FUNC_EQUAL: enc = 0x2; break;
-   case PIPE_FUNC_LEQUAL: enc = 0x3; break;
-   case PIPE_FUNC_GREATER: enc = 0x4; break;
-   case PIPE_FUNC_NOTEQUAL: enc = 0x5; break;
-   case PIPE_FUNC_GEQUAL: enc = 0x6; break;
+   case COMPARE_FUNC_NEVER: enc = 0x0; break;
+   case COMPARE_FUNC_LESS: enc = 0x1; break;
+   case COMPARE_FUNC_EQUAL: enc = 0x2; break;
+   case COMPARE_FUNC_LEQUAL: enc = 0x3; break;
+   case COMPARE_FUNC_GREATER: enc = 0x4; break;
+   case COMPARE_FUNC_NOTEQUAL: enc = 0x5; break;
+   case COMPARE_FUNC_GEQUAL: enc = 0x6; break;
    default:
-   case PIPE_FUNC_ALWAYS: enc = 0xf; break;
+   case COMPARE_FUNC_ALWAYS: enc = 0xf; break;
    }
 
    code[loc + 1] &= ~(0x1f << 14);

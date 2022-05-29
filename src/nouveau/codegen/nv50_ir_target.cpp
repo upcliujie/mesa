@@ -491,7 +491,7 @@ nv50_ir_relocate_code(void *relocData, uint32_t *code,
 void
 nv50_ir_apply_fixups(void *fixupData, uint32_t *code,
                      bool force_persample_interp, bool flatshade,
-                     uint8_t alphatest, bool msaa)
+                     enum compare_func alphatest, bool msaa)
 {
    nv50_ir::FixupInfo *info = reinterpret_cast<nv50_ir::FixupInfo *>(
       fixupData);

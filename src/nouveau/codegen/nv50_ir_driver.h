@@ -235,7 +235,7 @@ extern void nv50_ir_relocate_code(void *relocData, uint32_t *code,
 extern void
 nv50_ir_apply_fixups(void *fixupData, uint32_t *code,
                      bool force_per_sample, bool flatshade,
-                     uint8_t alphatest, bool msaa);
+                     enum compare_func alphatest, bool msaa);
 
 /* obtain code that will be shared among programs */
 extern void nv50_ir_get_target_library(uint32_t chipset,
