@@ -71,7 +71,7 @@ libnouveau_codegen = static_library(
   'nouveau_codegen',
   files_libnouveau_codegen,
   include_directories : [
-    inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_mapi, inc_mesa,
+    inc_src, inc_include, inc_compiler, inc_gallium, inc_gallium_aux, inc_mapi, inc_mesa,
   ],
   gnu_symbol_visibility : 'hidden',
   dependencies : [dep_libdrm, idep_mesautil, idep_nir_headers],
@@ -79,5 +79,5 @@ libnouveau_codegen = static_library(
 
 idep_nouveau_codegen = declare_dependency(
   sources : [ 'nv50_ir_driver.h' ],
-  include_directories : include_directories('.'),
+  include_directories : [inc_compiler, include_directories('.')],
 )

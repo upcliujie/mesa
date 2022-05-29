@@ -26,6 +26,8 @@
 #include "util/macros.h"
 #include "util/blob.h"
 
+#include "shader_enums.h"
+
 #define NV50_CODEGEN_MAX_VARYINGS 80
 struct nir_shader_compiler_options;
 
@@ -85,7 +87,7 @@ struct nv50_ir_prog_info
 {
    uint16_t target; /* chipset (0x50, 0x84, 0xc0, ...) */
 
-   uint8_t type; /* PIPE_SHADER */
+   gl_shader_stage stage;
 
    uint8_t optLevel; /* optimization level (0 to 3) */
    uint8_t dbgFlags;
@@ -137,7 +139,7 @@ struct nv50_ir_prog_info_out
 {
    uint16_t target; /* chipset (0x50, 0x84, 0xc0, ...) */
 
-   uint8_t type; /* PIPE_SHADER */
+   gl_shader_stage stage;
 
    struct {
       int16_t maxGPR;     /* may be -1 if none used */

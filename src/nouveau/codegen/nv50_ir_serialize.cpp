@@ -23,7 +23,7 @@ nv50_ir_prog_info_serialize(struct blob *blob, struct nv50_ir_prog_info *info)
 {
    blob_write_uint32(blob, info->bin.smemSize);
    blob_write_uint16(blob, info->target);
-   blob_write_uint8(blob, info->type);
+   blob_write_uint8(blob, info->stage);
    blob_write_uint8(blob, info->optLevel);
    blob_write_uint8(blob, info->dbgFlags);
    blob_write_uint8(blob, info->omitLineNum);
@@ -49,7 +49,7 @@ nv50_ir_prog_info_serialize(struct blob *blob, struct nv50_ir_prog_info *info)
          return false;
    }
 
-   if (info->type == PIPE_SHADER_COMPUTE)
+   if (info->stage == MESA_SHADER_COMPUTE)
       blob_write_bytes(blob, &info->prop.cp, sizeof(info->prop.cp));
 
    blob_write_bytes(blob, &info->io, sizeof(info->io));
@@ -62,7 +62,7 @@ nv50_ir_prog_info_out_serialize(struct blob *blob,
                                 struct nv50_ir_prog_info_out *info_out)
 {
    blob_write_uint16(blob, info_out->target);
-   blob_write_uint8(blob, info_out->type);
+   blob_write_uint8(blob, info_out->stage);
    blob_write_uint8(blob, info_out->numPatchConstants);
 
    blob_write_uint16(blob, info_out->bin.maxGPR);
@@ -128,21 +128,21 @@ nv50_ir_prog_info_out_serialize(struct blob *blob,
    blob_write_bytes(blob, info_out->in, info_out->numInputs * sizeof(info_out->in[0]));
    blob_write_bytes(blob, info_out->out, info_out->numOutputs * sizeof(info_out->out[0]));
 
-   switch(info_out->type) {
-      case PIPE_SHADER_VERTEX:
+   switch(info_out->stage) {
+      case MESA_SHADER_VERTEX:
          blob_write_bytes(blob, &info_out->prop.vp, sizeof(info_out->prop.vp));
          break;
-      case PIPE_SHADER_TESS_CTRL:
-      case PIPE_SHADER_TESS_EVAL:
+      case MESA_SHADER_TESS_CTRL:
+      case MESA_SHADER_TESS_EVAL:
          blob_write_bytes(blob, &info_out->prop.tp, sizeof(info_out->prop.tp));
          break;
-      case PIPE_SHADER_GEOMETRY:
+      case MESA_SHADER_GEOMETRY:
          blob_write_bytes(blob, &info_out->prop.gp, sizeof(info_out->prop.gp));
          break;
-      case PIPE_SHADER_FRAGMENT:
+      case MESA_SHADER_FRAGMENT:
          blob_write_bytes(blob, &info_out->prop.fp, sizeof(info_out->prop.fp));
          break;
-      case PIPE_SHADER_COMPUTE:
+      case MESA_SHADER_COMPUTE:
          blob_write_bytes(blob, &info_out->prop.cp, sizeof(info_out->prop.cp));
          break;
       default:
@@ -163,7 +163,7 @@ nv50_ir_prog_info_out_deserialize(void *data, size_t size, size_t offset,
    blob_skip_bytes(&reader, offset);
 
    info_out->target = blob_read_uint16(&reader);
-   info_out->type = blob_read_uint8(&reader);
+   info_out->stage = (gl_shader_stage)blob_read_uint8(&reader);
    info_out->numPatchConstants = blob_read_uint8(&reader);
 
    info_out->bin.maxGPR = blob_read_uint16(&reader);
@@ -248,21 +248,21 @@ nv50_ir_prog_info_out_deserialize(void *data, size_t size, size_t offset,
    blob_copy_bytes(&reader, info_out->in, info_out->numInputs * sizeof(info_out->in[0]));
    blob_copy_bytes(&reader, info_out->out, info_out->numOutputs * sizeof(info_out->out[0]));
 
-   switch(info_out->type) {
-      case PIPE_SHADER_VERTEX:
+   switch(info_out->stage) {
+      case MESA_SHADER_VERTEX:
          blob_copy_bytes(&reader, &info_out->prop.vp, sizeof(info_out->prop.vp));
          break;
-      case PIPE_SHADER_TESS_CTRL:
-      case PIPE_SHADER_TESS_EVAL:
+      case MESA_SHADER_TESS_CTRL:
+      case MESA_SHADER_TESS_EVAL:
          blob_copy_bytes(&reader, &info_out->prop.tp, sizeof(info_out->prop.tp));
          break;
-      case PIPE_SHADER_GEOMETRY:
+      case MESA_SHADER_GEOMETRY:
          blob_copy_bytes(&reader, &info_out->prop.gp, sizeof(info_out->prop.gp));
          break;
-      case PIPE_SHADER_FRAGMENT:
+      case MESA_SHADER_FRAGMENT:
          blob_copy_bytes(&reader, &info_out->prop.fp, sizeof(info_out->prop.fp));
          break;
-      case PIPE_SHADER_COMPUTE:
+      case MESA_SHADER_COMPUTE:
          blob_copy_bytes(&reader, &info_out->prop.cp, sizeof(info_out->prop.cp));
          break;
       default:

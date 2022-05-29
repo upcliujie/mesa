@@ -25,7 +25,7 @@
 #include "compiler/nir/nir.h"
 #include "tgsi/tgsi_ureg.h"
 #include "util/blob.h"
-
+#include "tgsi/tgsi_from_mesa.h"
 #include "nvc0/nvc0_context.h"
 
 #include "nv50_ir_driver.h"
@@ -184,14 +184,14 @@ nvc0_program_assign_varying_slots(struct nv50_ir_prog_info_out *info)
 {
    int ret;
 
-   if (info->type == PIPE_SHADER_VERTEX)
+   if (info->stage == MESA_SHADER_VERTEX)
       ret = nvc0_vp_assign_input_slots(info);
    else
       ret = nvc0_sp_assign_input_slots(info);
    if (ret)
       return ret;
 
-   if (info->type == PIPE_SHADER_FRAGMENT)
+   if (info->stage == MESA_SHADER_FRAGMENT)
       ret = nvc0_fp_assign_output_slots(info);
    else
       ret = nvc0_sp_assign_output_slots(info);
@@ -587,7 +587,7 @@ nvc0_program_translate(struct nvc0_program *prog, uint16_t chipset,
    if (!info)
       return false;
 
-   info->type = prog->type;
+   info->stage = tgsi_processor_to_shader_stage(prog->type);
    info->target = chipset;
 
    info->bin.sourceRep = prog->pipe.type;

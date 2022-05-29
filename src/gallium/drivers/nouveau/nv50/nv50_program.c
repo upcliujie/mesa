@@ -22,6 +22,7 @@
 
 #include "pipe/p_defines.h"
 
+#include "tgsi/tgsi_from_mesa.h"
 #include "compiler/nir/nir.h"
 
 #include "nv50/nv50_context.h"
@@ -254,14 +255,14 @@ nv50_fragprog_assign_slots(struct nv50_ir_prog_info_out *info)
 static int
 nv50_program_assign_varying_slots(struct nv50_ir_prog_info_out *info)
 {
-   switch (info->type) {
-   case PIPE_SHADER_VERTEX:
+   switch (info->stage) {
+   case MESA_SHADER_VERTEX:
       return nv50_vertprog_assign_slots(info);
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       return nv50_vertprog_assign_slots(info);
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return nv50_fragprog_assign_slots(info);
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       return 0;
    default:
       return -1;
@@ -337,7 +338,7 @@ nv50_program_translate(struct nv50_program *prog, uint16_t chipset,
    if (!info)
       return false;
 
-   info->type = prog->type;
+   info->stage = tgsi_processor_to_shader_stage(prog->type);
    info->target = chipset;
 
    info->bin.sourceRep = prog->pipe.type;
