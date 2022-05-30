@@ -974,7 +974,13 @@ place_phi_read(nir_builder *b, nir_register *reg,
  * single block to convert all of its phis to a register and some movs.
  * The code that is generated, while not optimal for actual codegen in a
  * back-end, is easy to generate, correct, and will turn into the same set of
- * phis after you call regs_to_ssa and do some copy propagation.
+ * phis after you call regs_to_ssa and do some copy propagation.  Correctness
+ * is guaranteed by the fact that we create a new register for each phi and
+ * emit movs on both sides of the control-flow edge.  Because all the phis
+ * have SSA destinations (we assert this) and there is a separate temporary
+ * for each phi, all movs inserted in any particular block have unique
+ * destinations so the order of operations does not matter (i.e., we don't
+ * need to use a parallel copy instruction).
  *
  * The one intelligent thing this pass does is that it places the moves from
  * the phi sources as high up the predecessor tree as possible instead of in
