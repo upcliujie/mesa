@@ -54,10 +54,10 @@ extern "C" {
 // Defined in compiler.h
 typedef struct {
         union {
-                uint32_t *sparse;
-                uint8_t *dense;
+                uint64_t *sparse;
+                uint16_t *dense;
         }
-        unsigned size; // either 32-bit or 8-bit elements
+        unsigned size; // either 64-bit or 16-bit elements
         unsigned sparse_capacity;
 } nodearray;
 */
@@ -66,16 +66,16 @@ typedef struct {
 #define NODEARRAY_DENSE_ALIGN(x) ALIGN_POT(x, 16)
 
 #define nodearray_sparse_foreach(buf, elem) \
-   for (uint32_t *elem = (buf)->sparse; \
+   for (uint64_t *elem = (buf)->sparse; \
         elem < (buf)->sparse + (buf)->size; elem++)
 
 #define nodearray_dense_foreach(buf, elem) \
-   for (uint8_t *elem = (buf)->dense; \
+   for (uint16_t *elem = (buf)->dense; \
         elem < (buf)->dense + (buf)->size; elem++)
 
 #define nodearray_dense_foreach_64(buf, elem) \
    for (uint64_t *elem = (uint64_t *)(buf)->dense; \
-        (uint8_t *)elem < (buf)->dense + (buf)->size; elem++)
+        (uint16_t *)elem < (buf)->dense + (buf)->size; elem++)
 
 static inline bool
 nodearray_sparse(const nodearray *a)
@@ -96,34 +96,34 @@ nodearray_reset(nodearray *a)
         nodearray_init(a);
 }
 
-static inline uint32_t
-nodearray_encode(unsigned key, uint8_t value)
+static inline uint64_t
+nodearray_encode(unsigned key, uint16_t value)
 {
-        return (key << 8) | value;
+        return ((uint64_t) key << 16) | value;
 }
 
 static inline unsigned
-nodearray_key(const uint32_t *elem)
+nodearray_key(const uint64_t *elem)
 {
-        return *elem >> 8;
+        return *elem >> 16;
 }
 
-static inline uint8_t
-nodearray_value(const uint32_t *elem)
+static inline uint16_t
+nodearray_value(const uint64_t *elem)
 {
-        return *elem & 0xff;
+        return *elem & 0xffff;
 }
 
 static inline unsigned
-nodearray_sparse_search(const nodearray *a, uint32_t key, uint32_t **elem)
+nodearray_sparse_search(const nodearray *a, uint64_t key, uint64_t **elem)
 {
         assert(nodearray_sparse(a) && a->size);
 
-        uint32_t *data = a->sparse;
+        uint64_t *data = a->sparse;
 
         /* Encode the key using the highest possible value, so that the
          * matching node must be encoded lower than this */
-        uint32_t skey = nodearray_encode(key, 0xff);
+        uint64_t skey = nodearray_encode(key, 0xffff);
 
         unsigned left = 0;
         unsigned right = a->size - 1;
@@ -147,7 +147,7 @@ nodearray_sparse_search(const nodearray *a, uint32_t key, uint32_t **elem)
 }
 
 static inline void
-nodearray_orr(nodearray *a, unsigned key, uint8_t value,
+nodearray_orr(nodearray *a, unsigned key, uint16_t value,
               unsigned max_sparse, unsigned max)
 {
         assert(key < (1 << 24));
@@ -163,7 +163,7 @@ nodearray_orr(nodearray *a, unsigned key, uint8_t value,
 
                 if (size) {
                         /* First, binary search for key */
-                        uint32_t *elem;
+                        uint64_t *elem;
                         left = nodearray_sparse_search(a, key, &elem);
 
                         if (nodearray_key(elem) == key) {
@@ -180,24 +180,24 @@ nodearray_orr(nodearray *a, unsigned key, uint8_t value,
                 if (size < max_sparse && (size + 1) < max / 4) {
                         /* We didn't find it, but we know where to insert it. */
 
-                        uint32_t *data = a->sparse;
-                        uint32_t *data_move = data + left;
+                        uint64_t *data = a->sparse;
+                        uint64_t *data_move = data + left;
 
                         bool realloc = (++a->size) > a->sparse_capacity;
 
                         if (realloc) {
                                 a->sparse_capacity = MIN2(MAX2(a->sparse_capacity * 2, 64), max / 4);
 
-                                a->sparse = (uint32_t *)malloc(a->sparse_capacity * sizeof(uint32_t));
+                                a->sparse = (uint64_t *)malloc(a->sparse_capacity * sizeof(uint64_t));
 
                                 if (left)
-                                        memcpy(a->sparse, data, left * sizeof(uint32_t));
+                                        memcpy(a->sparse, data, left * sizeof(uint64_t));
                         }
 
-                        uint32_t *elem = a->sparse + left;
+                        uint64_t *elem = a->sparse + left;
 
                         if (left != size)
-                                memmove(elem + 1, data_move, (size - left) * sizeof(uint32_t));
+                                memmove(elem + 1, data_move, (size - left) * sizeof(uint64_t));
 
                         *elem = nodearray_encode(key, value);
 
@@ -210,15 +210,15 @@ nodearray_orr(nodearray *a, unsigned key, uint8_t value,
                 /* There are too many elements, so convert to a dense array */
                 nodearray old = *a;
 
-                a->dense = (uint8_t *)calloc(NODEARRAY_DENSE_ALIGN(max), sizeof(uint8_t));
+                a->dense = (uint16_t *)calloc(NODEARRAY_DENSE_ALIGN(max), sizeof(uint16_t));
                 a->size = max;
                 a->sparse_capacity = ~0U;
 
-                uint8_t *data = a->dense;
+                uint16_t *data = a->dense;
 
                 nodearray_sparse_foreach(&old, x) {
                         unsigned key = nodearray_key(x);
-                        uint8_t value = nodearray_value(x);
+                        uint16_t value = nodearray_value(x);
 
                         assert(key < max);
                         data[key] = value;
