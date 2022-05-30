@@ -1903,7 +1903,7 @@ struct radv_rasterization_info {
    bool discard_enable;
    VkFrontFace front_face;
    VkCullModeFlags cull_mode;
-   VkPolygonMode polygon_mode;
+   uint8_t polygon_mode;
    bool depth_bias_enable;
    bool depth_clamp_enable;
    float line_width;
