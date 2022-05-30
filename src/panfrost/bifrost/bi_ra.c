@@ -40,9 +40,9 @@ struct lcra_state {
          * Each element is itself a bit field denoting whether (c_j - c_i) bias
          * is present or not, including negative biases.
          *
-         * Note for Bifrost, there are 4 components so the bias is in range
-         * [-3, 3] so encoded by 8-bit field. */
-
+         * We support up to 8 components so the bias is in range
+         * [-7, 7] encoded by a 16-bit field
+         */
         nodearray *linear;
 
         /* Before solving, forced registers; after solving, solutions. */
@@ -92,22 +92,22 @@ lcra_add_node_interference(struct lcra_state *l, unsigned i, unsigned cmask_i, u
         if (i == j)
                 return;
 
-        uint8_t constraint_fw = 0;
-        uint8_t constraint_bw = 0;
+        uint16_t constraint_fw = 0;
+        uint16_t constraint_bw = 0;
 
         /* The constraint bits are reversed from lcra.c so that register
          * allocation can be done in parallel for every possible solution,
          * with lower-order bits representing smaller registers. */
 
-        for (unsigned D = 0; D < 4; ++D) {
+        for (unsigned D = 0; D < 8; ++D) {
                 if (cmask_i & (cmask_j << D)) {
-                        constraint_fw |= (1 << (3 + D));
-                        constraint_bw |= (1 << (3 - D));
+                        constraint_fw |= (1 << (7 + D));
+                        constraint_bw |= (1 << (7 - D));
                 }
 
                 if (cmask_i & (cmask_j >> D)) {
-                        constraint_bw |= (1 << (3 + D));
-                        constraint_fw |= (1 << (3 - D));
+                        constraint_bw |= (1 << (7 + D));
+                        constraint_fw |= (1 << (7 - D));
                 }
         }
 
@@ -130,27 +130,27 @@ lcra_test_linear(struct lcra_state *l, unsigned *solutions, unsigned i)
 
                         signed lhs = constant - solutions[j];
 
-                        if (lhs < -3 || lhs > 3)
+                        if (lhs < -7 || lhs > 7)
                                 continue;
 
-                        if (constraint & (1 << (lhs + 3)))
+                        if (constraint & (1 << (lhs + 7)))
                                 return false;
                 }
 
                 return true;
         }
 
-        uint8_t *row = l->linear[i].dense;
+        uint16_t *row = l->linear[i].dense;
 
         for (unsigned j = 0; j < l->node_count; ++j) {
                 if (solutions[j] == ~0) continue;
 
                 signed lhs = constant - solutions[j];
 
-                if (lhs < -3 || lhs > 3)
+                if (lhs < -7 || lhs > 7)
                         continue;
 
-                if (row[j] & (1 << (lhs + 3)))
+                if (row[j] & (1 << (lhs + 7)))
                         return false;
         }
 
