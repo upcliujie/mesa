@@ -33,7 +33,8 @@
 # include <typeinfo>
 #endif
 
-#include "util/u_inlines.h"
+#include "util/compiler.h"
+#include "util/u_math.h"
 #include "util/u_memory.h"
 
 #define ERROR(args...) _debug_printf("ERROR: " args)

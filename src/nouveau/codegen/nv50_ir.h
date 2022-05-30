@@ -36,6 +36,7 @@
 
 #include "nv50_ir_driver.h"
 
+#include "pipe/p_format.h"
 namespace nv50_ir {
 
 enum operation
