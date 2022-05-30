@@ -1,4 +1,4 @@
-# Copyright © 2021 Ilia Mirkin
+# Copyright © 2017 Dylan Baker
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,9 +18,25 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-if with_tools.contains('drm-shim')
-  subdir('drm-shim')
-endif
+files_libnouveau_drm = files(
+  'abi16.c',
+  'nouveau.c',
+  'nouveau.h',
+  'pushbuf.c',
+  'bufctx.c',
+)
 
-subdir('drm')
-subdir('codegen')
+libnouveau_drm = static_library(
+  'nouveau_drm',
+  files_libnouveau_drm,
+  include_directories : [
+    inc_src, inc_include,
+  ],
+  gnu_symbol_visibility : 'hidden',
+  dependencies : [dep_libdrm],
+)
+
+idep_libnouveau_drm = declare_dependency(
+  sources : [ 'nouveau.h' ],
+  include_directories : include_directories('.'),
+)
