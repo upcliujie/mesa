@@ -63,7 +63,7 @@ nv50_hw_query_allocate(struct nv50_context *nv50, struct nv50_query *q,
          return false;
       hq->offset = hq->base_offset;
 
-      ret = nouveau_bo_map(hq->bo, 0, screen->base.client);
+      ret = nouveau_bo_map_async(hq->bo);
       if (ret) {
          nv50_hw_query_allocate(nv50, q, 0);
          return false;

@@ -133,6 +133,7 @@ int nouveau_bo_name_get(struct nouveau_bo *, uint32_t *name);
 void nouveau_bo_ref(struct nouveau_bo *, struct nouveau_bo **);
 int nouveau_bo_map(struct nouveau_bo *, uint32_t access,
                    struct nouveau_client *);
+int nouveau_bo_map_async(struct nouveau_bo *);
 int nouveau_bo_wait(struct nouveau_bo *, uint32_t access,
                     struct nouveau_client *);
 int nouveau_bo_prime_handle_ref(struct nouveau_device *, int prime_fd,

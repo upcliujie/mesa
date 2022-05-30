@@ -812,8 +812,7 @@ nouveau_bo_wait(struct nouveau_bo *bo, uint32_t access,
 }
 
 int
-nouveau_bo_map(struct nouveau_bo *bo, uint32_t access,
-               struct nouveau_client *client)
+nouveau_bo_map_async(struct nouveau_bo *bo)
 {
    struct nouveau_drm *drm = nouveau_drm(&bo->device->object);
    struct nouveau_bo_priv *nvbo = nouveau_bo(bo);
@@ -825,5 +824,15 @@ nouveau_bo_map(struct nouveau_bo *bo, uint32_t access,
          return -errno;
       }
    }
+   return 0;
+}
+
+int
+nouveau_bo_map(struct nouveau_bo *bo, uint32_t access,
+               struct nouveau_client *client)
+{
+   int ret = nouveau_bo_map_async(bo);
+   if (ret < 0)
+      return ret;
    return nouveau_bo_wait(bo, access, client);
 }
