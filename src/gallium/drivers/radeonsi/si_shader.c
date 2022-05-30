@@ -1535,6 +1535,11 @@ static bool si_lower_io_to_mem(struct si_shader *shader, nir_shader *nir,
       }
 
       return true;
+   } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
+      NIR_PASS_V(nir, ac_nir_lower_gs_inputs_to_mem, si_map_io_driver_location,
+                 sel->screen->info.gfx_level,
+                 sel->screen->info.gfx_level <= GFX9 && key->ge.mono.u.gs_tri_strip_adj_fix);
+      return true;
    }
 
    return false;
