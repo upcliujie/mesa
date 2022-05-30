@@ -102,7 +102,7 @@ nouveau_object_ioctl(struct nouveau_object *obj, void *data, uint32_t size)
    return drmCommandWriteRead(drm->fd, DRM_NOUVEAU_NVIF, args, argc);
 }
 
-int
+static int
 nouveau_object_mthd(struct nouveau_object *obj,
                     uint32_t mthd, void *data, uint32_t size)
 {
@@ -137,14 +137,14 @@ nouveau_object_mthd(struct nouveau_object *obj,
    return ret;
 }
 
-void
+static void
 nouveau_object_sclass_put(struct nouveau_sclass **psclass)
 {
    free(*psclass);
    *psclass = NULL;
 }
 
-int
+static int
 nouveau_object_sclass_get(struct nouveau_object *obj,
                           struct nouveau_sclass **psclass)
 {

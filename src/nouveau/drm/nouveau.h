@@ -34,11 +34,6 @@ int nouveau_object_new(struct nouveau_object *parent, uint64_t handle,
                        uint32_t oclass, void *data, uint32_t length,
                        struct nouveau_object **);
 void nouveau_object_del(struct nouveau_object **);
-int nouveau_object_mthd(struct nouveau_object *, uint32_t mthd,
-                        void *data, uint32_t size);
-int nouveau_object_sclass_get(struct nouveau_object *,
-                              struct nouveau_sclass **);
-void nouveau_object_sclass_put(struct nouveau_sclass **);
 int nouveau_object_mclass(struct nouveau_object *,
                           const struct nouveau_mclass *);
 
