@@ -122,7 +122,7 @@ private:
    void setInterpolate(nv50_ir_varying *,
                        uint8_t,
                        bool centroid,
-                       unsigned semantics);
+                       gl_varying_slot slot);
 
    Instruction *loadFrom(DataFile, uint8_t, DataType, Value *def, uint32_t base,
                          uint8_t c, Value *indirect0 = NULL,
@@ -923,16 +923,16 @@ void
 Converter::setInterpolate(nv50_ir_varying *var,
                           uint8_t mode,
                           bool centroid,
-                          unsigned semantic)
+                          gl_varying_slot slot)
 {
    switch (mode) {
    case INTERP_MODE_FLAT:
       var->flat = 1;
       break;
    case INTERP_MODE_NONE:
-      if (semantic == TGSI_SEMANTIC_COLOR)
+      if (slot == VARYING_SLOT_COL0 || slot == VARYING_SLOT_COL1)
          var->sc = 1;
-      else if (semantic == TGSI_SEMANTIC_POSITION)
+      else if (slot == VARYING_SLOT_POS)
          var->linear = 1;
       break;
    case INTERP_MODE_NOPERSPECTIVE:
@@ -1043,7 +1043,7 @@ bool Converter::assignSlots() {
                                       &name, &index);
          for (uint16_t i = 0; i < slots; ++i) {
             setInterpolate(&info_out->in[vary + i], var->data.interpolation,
-                           var->data.centroid | var->data.sample, name);
+                           var->data.centroid | var->data.sample, (gl_varying_slot)slot);
          }
          break;
       case Program::TYPE_GEOMETRY:
@@ -1054,15 +1054,15 @@ bool Converter::assignSlots() {
       case Program::TYPE_TESSELLATION_EVAL:
          tgsi_get_gl_varying_semantic((gl_varying_slot)slot, true,
                                       &name, &index);
-         if (var->data.patch && name == TGSI_SEMANTIC_PATCH)
+         if (var->data.patch && slot >= VARYING_SLOT_PATCH0)
             info_out->numPatchConstants = MAX2(info_out->numPatchConstants, index + slots);
          break;
       case Program::TYPE_VERTEX:
          if (slot >= VERT_ATTRIB_GENERIC0 && slot < VERT_ATTRIB_GENERIC0 + VERT_ATTRIB_GENERIC_MAX)
             slot = VERT_ATTRIB_GENERIC0 + vary;
          vert_attrib_to_tgsi_semantic((gl_vert_attrib)slot, &name, &index);
-         switch (name) {
-         case TGSI_SEMANTIC_EDGEFLAG:
+         switch (slot) {
+         case VERT_ATTRIB_EDGEFLAG:
             info_out->io.edgeFlagIn = vary;
             break;
          default:
@@ -1096,26 +1096,21 @@ bool Converter::assignSlots() {
       switch(prog->getType()) {
       case Program::TYPE_FRAGMENT:
          tgsi_get_gl_frag_result_semantic((gl_frag_result)slot, &name, &index);
-         switch (name) {
-         case TGSI_SEMANTIC_COLOR:
+         if (slot == FRAG_RESULT_SAMPLE_MASK)
+            info_out->io.sampleMask = vary;
+         else if (slot == FRAG_RESULT_DEPTH) {
+            info_out->io.fragDepth = vary;
+            info_out->prop.fp.writesDepth = true;
+         } else if (slot == FRAG_RESULT_COLOR ||
+                    slot >= FRAG_RESULT_DATA0) {
             if (!var->data.fb_fetch_output)
                info_out->prop.fp.numColourResults++;
             if (var->data.location == FRAG_RESULT_COLOR &&
                 nir->info.outputs_written & BITFIELD64_BIT(var->data.location))
-            info_out->prop.fp.separateFragData = true;
+               info_out->prop.fp.separateFragData = true;
             // sometimes we get FRAG_RESULT_DATAX with data.index 0
             // sometimes we get FRAG_RESULT_DATA0 with data.index X
             index = index == 0 ? var->data.index : index;
-            break;
-         case TGSI_SEMANTIC_POSITION:
-            info_out->io.fragDepth = vary;
-            info_out->prop.fp.writesDepth = true;
-            break;
-         case TGSI_SEMANTIC_SAMPLEMASK:
-            info_out->io.sampleMask = vary;
-            break;
-         default:
-            break;
          }
          break;
       case Program::TYPE_GEOMETRY:
@@ -1127,19 +1122,20 @@ bool Converter::assignSlots() {
 
          if (var->data.patch && name != TGSI_SEMANTIC_TESSINNER &&
              name != TGSI_SEMANTIC_TESSOUTER)
-            info_out->numPatchConstants = MAX2(info_out->numPatchConstants, index + slots);
+            info_out->numPatchConstants = MAX2(info_out->numPatchConstants, slot - VARYING_SLOT_PATCH0 + slots);
 
-         switch (name) {
-         case TGSI_SEMANTIC_CLIPDIST:
+         switch (slot) {
+         case VARYING_SLOT_CLIP_DIST0:
+         case VARYING_SLOT_CLIP_DIST1:
             info_out->io.genUserClip = -1;
             break;
-         case TGSI_SEMANTIC_CLIPVERTEX:
+         case VARYING_SLOT_CLIP_VERTEX:
             clipVertexOutput = vary;
             break;
-         case TGSI_SEMANTIC_EDGEFLAG:
+         case VARYING_SLOT_EDGE:
             info_out->io.edgeFlagOut = vary;
             break;
-         case TGSI_SEMANTIC_POSITION:
+         case VARYING_SLOT_POS:
             if (clipVertexOutput < 0)
                clipVertexOutput = vary;
             break;
