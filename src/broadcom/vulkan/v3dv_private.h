@@ -1094,8 +1094,10 @@ struct v3dv_job {
     */
    bool always_flush;
 
-   /* Whether we need to serialize this job in our command stream */
-   bool serialize;
+   /* A mask of V3DV_BARRIER_* indicating the source(s) of the barrier. We
+    * can use this to select the hw queues where we need to serialize the job.
+    */
+   uint8_t serialize;
 
    /* If this is a CL job, whether we should sync before binning */
    bool needs_bcl_sync;
@@ -1197,6 +1199,24 @@ enum {
    V3DV_BARRIER_TRANSFER_BIT = (1 << 2),
 };
 
+struct v3dv_barrier_state {
+   /* Mask of V3DV_BARRIER_* indicating where we consume a barrier. */
+   uint8_t dst_mask;
+
+   /* For each possible consumer of a barrier, a mask of V3DV_BARRIER_*
+    * indicating the sources of the dependency.
+    */
+   uint8_t src_mask_graphics;
+   uint8_t src_mask_transfer;
+   uint8_t src_mask_compute;
+
+   /* For graphics barriers, access masks involved. Used to decide if we need
+    * to execute a binning or render barrier.
+    */
+   VkAccessFlags bcl_barrier_buffer_access;
+   VkAccessFlags bcl_barrier_image_access;
+};
+
 struct v3dv_cmd_buffer_state {
    struct v3dv_render_pass *pass;
    struct v3dv_framebuffer *framebuffer;
@@ -1260,15 +1280,8 @@ struct v3dv_cmd_buffer_state {
    /* If we are currently recording job(s) for a transfer operation */
    bool is_transfer;
 
-   /* Whether we have recorded a pipeline barrier that we still need to
-    * process.
-    */
-   struct {
-      uint8_t active_mask; /* Bitmask of V3DV_BARRIER_* */
-      /* Access flags relevant to decide about BCL barriers for CLs */
-      VkAccessFlags bcl_barrier_buffer_access;
-      VkAccessFlags bcl_barrier_image_access;
-   } barrier;
+   /* Barrier state tracking */
+   struct v3dv_barrier_state barrier;
 
    /* Secondary command buffer state */
    struct {
