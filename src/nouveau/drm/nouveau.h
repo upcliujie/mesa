@@ -74,7 +74,6 @@ int nouveau_device_new(struct nouveau_object *parent, int32_t oclass,
 void nouveau_device_del(struct nouveau_device **);
 
 int nouveau_getparam(struct nouveau_device *, uint64_t param, uint64_t *value);
-int nouveau_setparam(struct nouveau_device *, uint64_t param, uint64_t value);
 
 struct nouveau_client {
    struct nouveau_device *device;

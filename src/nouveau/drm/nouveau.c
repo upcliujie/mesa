@@ -489,14 +489,6 @@ nouveau_getparam(struct nouveau_device *dev, uint64_t param, uint64_t *value)
 }
 
 int
-nouveau_setparam(struct nouveau_device *dev, uint64_t param, uint64_t value)
-{
-   struct nouveau_drm *drm = nouveau_drm(&dev->object);
-   struct drm_nouveau_setparam r = { .param = param, .value = value };
-   return drmCommandWrite(drm->fd, DRM_NOUVEAU_SETPARAM, &r, sizeof(r));
-}
-
-int
 nouveau_client_new(struct nouveau_device *dev, struct nouveau_client **pclient)
 {
    struct nouveau_device_priv *nvdev = nouveau_device(dev);
