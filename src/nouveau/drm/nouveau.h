@@ -62,9 +62,6 @@ void nouveau_drm_del(struct nouveau_drm **);
 
 struct nouveau_device {
    struct nouveau_object object;
-   int fd;                        /* deprecated */
-   uint32_t lib_version;        /* deprecated */
-   uint32_t drm_version;        /* deprecated */
    uint32_t chipset;
    uint64_t vram_size;
    uint64_t gart_size;

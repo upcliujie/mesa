@@ -395,7 +395,6 @@ nouveau_device_new(struct nouveau_object *parent, int32_t oclass,
    if (!(nvdev = calloc(1, sizeof(*nvdev))))
       return -ENOMEM;
    dev = *pdev = &nvdev->base;
-   dev->fd = -1;
 
    if (drm->nvif) {
       ret = nouveau_object_init(parent, 0, oclass, args, argc,
@@ -473,13 +472,6 @@ nouveau_device_del(struct nouveau_device **pdev)
    if (nvdev) {
       free(nvdev->client);
       pthread_mutex_destroy(&nvdev->lock);
-      if (nvdev->base.fd >= 0) {
-         struct nouveau_drm *drm =
-            nouveau_drm(&nvdev->base.object);
-         nouveau_drm_del(&drm);
-         if (nvdev->close)
-            drmClose(nvdev->base.fd);
-      }
       free(nvdev);
       *pdev = NULL;
    }
