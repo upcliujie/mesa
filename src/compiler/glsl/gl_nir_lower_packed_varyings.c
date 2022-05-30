@@ -927,6 +927,7 @@ lower_output_var(struct lower_packed_varyings_state *state, nir_variable *var)
 
    /* Change the old varying into an ordinary global. */
    var->data.mode = nir_var_shader_temp;
+   var->data.read_only = false;
 
    nir_foreach_block(block, state->impl) {
       if (state->shader->info.stage != MESA_SHADER_GEOMETRY) {
@@ -1011,6 +1012,7 @@ lower_packed_inputs(struct lower_packed_varyings_state *state)
 
       /* Change the old varying into an ordinary global. */
       var->data.mode = nir_var_shader_temp;
+      var->data.read_only = false;
 
       /* Recursively unpack varying. */
       nir_deref_instr *unpacked_var_deref = nir_build_deref_var(&state->b, var);
