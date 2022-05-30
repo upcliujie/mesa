@@ -8527,7 +8527,8 @@ radv_cp_dma_wait_for_stages(struct radv_cmd_buffer *cmd_buffer, VkPipelineStageF
     */
    if (stage_mask & (VK_PIPELINE_STAGE_2_COPY_BIT | VK_PIPELINE_STAGE_2_CLEAR_BIT |
                      VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT | VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT |
-                     VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT))
+                     VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT |
+                     VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR))
       si_cp_dma_wait_for_idle(cmd_buffer);
 }
 
