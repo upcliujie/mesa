@@ -466,46 +466,6 @@ nouveau_device_new(struct nouveau_object *parent, int32_t oclass,
    return ret;
 }
 
-int
-nouveau_device_wrap(int fd, int close, struct nouveau_device **pdev)
-{
-   struct nouveau_drm *drm;
-   struct nouveau_device_priv *nvdev;
-   int ret;
-
-   ret = nouveau_drm_new(fd, &drm);
-   if (ret)
-      return ret;
-   drm->nvif = false;
-
-   ret = nouveau_device_new(&drm->client, NV_DEVICE,
-                            &(struct nv_device_v0) {
-                               .device = ~0ULL,
-                            }, sizeof(struct nv_device_v0), pdev);
-   if (ret) {
-      nouveau_drm_del(&drm);
-      return ret;
-   }
-
-   nvdev = nouveau_device(*pdev);
-   nvdev->base.fd = drm->fd;
-   nvdev->base.drm_version = drm->version;
-   nvdev->close = close;
-   return 0;
-}
-
-int
-nouveau_device_open(const char *busid, struct nouveau_device **pdev)
-{
-   int ret = -ENODEV, fd = drmOpen("nouveau", busid);
-   if (fd >= 0) {
-      ret = nouveau_device_wrap(fd, 1, pdev);
-      if (ret)
-         drmClose(fd);
-   }
-   return ret;
-}
-
 void
 nouveau_device_del(struct nouveau_device **pdev)
 {

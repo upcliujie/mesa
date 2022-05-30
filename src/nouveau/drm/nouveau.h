@@ -79,10 +79,6 @@ void nouveau_device_del(struct nouveau_device **);
 int nouveau_getparam(struct nouveau_device *, uint64_t param, uint64_t *value);
 int nouveau_setparam(struct nouveau_device *, uint64_t param, uint64_t value);
 
-/* deprecated */
-int nouveau_device_wrap(int fd, int close, struct nouveau_device **);
-int nouveau_device_open(const char *busid, struct nouveau_device **);
-
 struct nouveau_client {
    struct nouveau_device *device;
    int id;
