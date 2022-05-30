@@ -754,24 +754,6 @@ nouveau_pushbuf_validate(struct nouveau_pushbuf *push)
    return pushbuf_validate(push, true);
 }
 
-uint32_t
-nouveau_pushbuf_refd(struct nouveau_pushbuf *push, struct nouveau_bo *bo)
-{
-   struct drm_nouveau_gem_pushbuf_bo *kref;
-   uint32_t flags = 0;
-
-   if (cli_push_get(push->client, bo) == push) {
-      kref = cli_kref_get(push->client, bo);
-      assert(kref);
-      if (kref->read_domains)
-         flags |= NOUVEAU_BO_RD;
-      if (kref->write_domains)
-         flags |= NOUVEAU_BO_WR;
-   }
-
-   return flags;
-}
-
 int
 nouveau_pushbuf_kick(struct nouveau_pushbuf *push, struct nouveau_object *chan)
 {
@@ -779,20 +761,4 @@ nouveau_pushbuf_kick(struct nouveau_pushbuf *push, struct nouveau_object *chan)
       return pushbuf_submit(push, chan);
    pushbuf_flush(push);
    return pushbuf_validate(push, false);
-}
-
-bool
-nouveau_check_dead_channel(struct nouveau_drm *drm, struct nouveau_object *chan)
-{
-   struct drm_nouveau_gem_pushbuf req = {};
-   struct nouveau_fifo *fifo = chan->data;
-   int ret;
-
-   req.channel = fifo->channel;
-   req.nr_push = 0;
-
-   ret = drmCommandWriteRead(drm->fd, DRM_NOUVEAU_GEM_PUSHBUF,
-                             &req, sizeof(req));
-   /* nouveau returns ENODEV once the channel was killed */
-   return ret == -ENODEV;
 }

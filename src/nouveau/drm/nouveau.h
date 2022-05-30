@@ -207,7 +207,6 @@ void nouveau_pushbuf_reloc(struct nouveau_pushbuf *, struct nouveau_bo *,
                            uint32_t data, uint32_t flags,
                            uint32_t vor, uint32_t tor);
 int nouveau_pushbuf_validate(struct nouveau_pushbuf *);
-uint32_t nouveau_pushbuf_refd(struct nouveau_pushbuf *, struct nouveau_bo *);
 int nouveau_pushbuf_kick(struct nouveau_pushbuf *, struct nouveau_object *chan);
 struct nouveau_bufctx *
 nouveau_pushbuf_bufctx(struct nouveau_pushbuf *, struct nouveau_bufctx *);
@@ -256,8 +255,5 @@ struct nv04_notify {
    uint32_t offset;
    uint32_t length;
 };
-
-bool
-nouveau_check_dead_channel(struct nouveau_drm *, struct nouveau_object *chan);
 
 #endif
