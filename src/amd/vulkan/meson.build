@@ -72,6 +72,7 @@ libradv_files = files(
   'radv_nir_apply_pipeline_layout.c',
   'radv_nir_lower_abi.c',
   'radv_nir_lower_ray_queries.c',
+  'radv_nir_lower_vs_input.c',
   'radv_nir_lower_ycbcr_textures.c',
   'radv_pass.c',
   'radv_perfcounter.c',

@@ -1062,6 +1062,8 @@ radv_lower_io_to_mem(struct radv_device *device, struct radv_pipeline_stage *sta
    nir_shader *nir = stage->nir;
 
    if (nir->info.stage == MESA_SHADER_VERTEX) {
+      radv_nir_lower_vs_input(nir, device, &stage->info, &stage->args, pl_key);
+
       if (info->vs.as_ls) {
          NIR_PASS_V(nir, ac_nir_lower_ls_outputs_to_mem, info->vs.tcs_in_out_eq,
                     info->vs.tcs_temp_only_input_mask, info->vs.num_linked_outputs);
