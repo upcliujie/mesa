@@ -27,6 +27,7 @@
 
 #include "tu_private.h"
 #include "tu_cs.h"
+#include "tu_tracepoints.h"
 #include "git_sha1.h"
 
 #include <fcntl.h>
@@ -1940,6 +1941,8 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
       mtx_init(&device->scratch_bos[i].construct_mtx, mtx_plain);
 
    mtx_init(&device->mutex, mtx_plain);
+
+   tu_gpu_tracepoint_config_variable();
 
    device->submit_count = 0;
    u_trace_context_init(&device->trace_context, device,
