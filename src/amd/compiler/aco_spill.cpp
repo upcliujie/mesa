@@ -699,6 +699,8 @@ init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
          phi->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
       bool is_all_spilled = true;
       for (unsigned i = 0; i < phi->operands.size(); i++) {
+         if (phi->operands[i].isUndefined())
+            continue;
          is_all_spilled &= phi->operands[i].isTemp() &&
                            ctx.spills_exit[preds[i]].count(phi->operands[i].getTemp());
       }
