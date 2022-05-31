@@ -67,12 +67,12 @@ instr_can_rewrite(const nir_instr *instr)
    case nir_instr_type_tex:
    case nir_instr_type_load_const:
    case nir_instr_type_phi:
+   case nir_instr_type_ssa_undef:
       return true;
    case nir_instr_type_intrinsic:
       return nir_intrinsic_can_reorder(nir_instr_as_intrinsic(instr));
    case nir_instr_type_call:
    case nir_instr_type_jump:
-   case nir_instr_type_ssa_undef:
       return false;
    case nir_instr_type_parallel_copy:
    default:
@@ -286,6 +286,15 @@ hash_tex(uint32_t hash, const nir_tex_instr *instr)
    return hash;
 }
 
+static uint32_t
+hash_ssa_undef(uint32_t hash, const nir_ssa_undef_instr *instr)
+{
+   hash = HASH(hash, instr->def.num_components);
+   hash = HASH(hash, instr->def.bit_size);
+
+   return hash;
+}
+
 /* Computes a hash of an instruction for use in a hash table. Note that this
  * will only work for instructions where instr_can_rewrite() returns true, and
  * it should return identical hashes for two instructions that are the same
@@ -316,6 +325,9 @@ hash_instr(const void *data)
       break;
    case nir_instr_type_tex:
       hash = hash_tex(hash, nir_instr_as_tex(instr));
+      break;
+   case nir_instr_type_ssa_undef:
+      hash = hash_ssa_undef(hash, nir_instr_as_ssa_undef(instr));
       break;
    default:
       unreachable("Invalid instruction type");
@@ -747,9 +759,15 @@ nir_instrs_equal(const nir_instr *instr1, const nir_instr *instr2)
 
       return true;
    }
+   case nir_instr_type_ssa_undef: {
+      nir_ssa_undef_instr *ssa_undef1 = nir_instr_as_ssa_undef(instr1);
+      nir_ssa_undef_instr *ssa_undef2 = nir_instr_as_ssa_undef(instr2);
+
+      return ssa_undef1->def.bit_size == ssa_undef2->def.bit_size &&
+             ssa_undef1->def.num_components == ssa_undef2->def.num_components;
+   }
    case nir_instr_type_call:
    case nir_instr_type_jump:
-   case nir_instr_type_ssa_undef:
    case nir_instr_type_parallel_copy:
    default:
       unreachable("Invalid instruction type");
@@ -779,6 +797,8 @@ nir_instr_get_dest_ssa_def(nir_instr *instr)
    case nir_instr_type_tex:
       assert(nir_instr_as_tex(instr)->dest.is_ssa);
       return &nir_instr_as_tex(instr)->dest.ssa;
+   case nir_instr_type_ssa_undef:
+      return &nir_instr_as_ssa_undef(instr)->def;
    default:
       unreachable("We never ask for any of these");
    }
