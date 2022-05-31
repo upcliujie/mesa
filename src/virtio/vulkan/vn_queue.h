@@ -85,7 +85,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(vn_event,
                                VK_OBJECT_TYPE_EVENT)
 
 void
-vn_fence_signal_wsi(struct vn_device *dev, struct vn_fence *fence);
+vn_fence_signal_wsi(struct vn_fence *fence);
 
 void
 vn_semaphore_signal_wsi(struct vn_device *dev, struct vn_semaphore *sem);

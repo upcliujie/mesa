@@ -717,7 +717,7 @@ vn_AcquireImageANDROID(VkDevice device,
          vn_semaphore_signal_wsi(dev, vn_semaphore_from_handle(semaphore));
 
       if (fence != VK_NULL_HANDLE)
-         vn_fence_signal_wsi(dev, vn_fence_from_handle(fence));
+         vn_fence_signal_wsi(vn_fence_from_handle(fence));
 
       return VK_SUCCESS;
    }

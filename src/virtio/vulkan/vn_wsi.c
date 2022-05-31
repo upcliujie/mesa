@@ -315,7 +315,7 @@ vn_AcquireNextImage2KHR(VkDevice device,
 
       struct vn_fence *fence = vn_fence_from_handle(pAcquireInfo->fence);
       if (fence)
-         vn_fence_signal_wsi(dev, fence);
+         vn_fence_signal_wsi(fence);
    }
 
    return vn_result(dev->instance, result);
