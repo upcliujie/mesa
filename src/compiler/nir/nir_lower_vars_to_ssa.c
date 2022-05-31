@@ -757,7 +757,7 @@ nir_lower_vars_to_ssa_impl(nir_function_impl *impl)
    nir_metadata_require(impl, nir_metadata_dominance);
 
    /* We may have lowered some copy instructions to load/store
-    * instructions.  The uses from the copy instructions hav already been
+    * instructions.  The uses from the copy instructions have already been
     * removed but we need to rescan to ensure that the uses from the newly
     * added load/store instructions are registered.  We need this
     * information for phi node insertion below.
