@@ -83,7 +83,7 @@
  * @type:       the type of the container struct this is embedded in.
  * @member:     the name of the member within the struct.
  */
-#ifndef __GNUC__
+#if !defined(__GNUC__) || defined(__clang__)
    /* a grown-up compiler is required for the extra type checking: */
 #  define container_of(ptr, type, member)                               \
       (type*)((uint8_t *)ptr - offsetof(type, member))
