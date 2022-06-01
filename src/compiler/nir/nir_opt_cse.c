@@ -33,13 +33,25 @@
  */
 
 static bool
-dominates(const nir_instr *old_instr, const nir_instr *new_instr)
+dominates_def(const nir_instr *old_instr, const nir_instr *new_instr)
 {
+   if (old_instr->type == nir_instr_type_ssa_undef)
+      return false;
+
    return nir_block_dominates(old_instr->block, new_instr->block);
 }
 
 static bool
-nir_opt_cse_impl(nir_function_impl *impl)
+dominates_undef(const nir_instr *old_instr, const nir_instr *new_instr)
+{
+   if (old_instr->type != nir_instr_type_ssa_undef)
+      return false;
+
+   return nir_block_dominates(old_instr->block, new_instr->block);
+}
+
+static bool
+nir_opt_cse_impl(nir_function_impl *impl, bool undef)
 {
    struct set *instr_set = nir_instr_set_create(NULL);
 
@@ -50,7 +62,8 @@ nir_opt_cse_impl(nir_function_impl *impl)
    bool progress = false;
    nir_foreach_block(block, impl) {
       nir_foreach_instr_safe(instr, block)
-         progress |= nir_instr_set_add_or_rewrite(instr_set, instr, dominates);
+         progress |= nir_instr_set_add_or_rewrite(
+            instr_set, instr, undef ? dominates_undef : dominates_def);
    }
 
    if (progress) {
@@ -64,16 +77,28 @@ nir_opt_cse_impl(nir_function_impl *impl)
    return progress;
 }
 
-bool
-nir_opt_cse(nir_shader *shader)
+static bool
+nir_opt_cse_shader(nir_shader *shader, bool undef)
 {
    bool progress = false;
 
    nir_foreach_function(function, shader) {
       if (function->impl)
-         progress |= nir_opt_cse_impl(function->impl);
+         progress |= nir_opt_cse_impl(function->impl, undef);
    }
 
    return progress;
+}
+
+bool
+nir_opt_cse(nir_shader *shader)
+{
+   return nir_opt_cse_shader(shader, false);
+}
+
+bool
+nir_opt_cse_undef(nir_shader *shader)
+{
+   return nir_opt_cse_shader(shader, true);
 }
 
