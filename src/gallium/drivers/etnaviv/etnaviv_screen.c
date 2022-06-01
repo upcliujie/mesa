@@ -155,6 +155,7 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_MIXED_FRAMEBUFFER_SIZES:
    case PIPE_CAP_STRING_MARKER:
    case PIPE_CAP_FRONTEND_NOOP:
+   case PIPE_CAP_COMPUTE:
       return 1;
    case PIPE_CAP_NATIVE_FENCE_FD:
       return screen->drm_version >= ETNA_DRM_VERSION_FENCE_FD;
@@ -413,7 +414,8 @@ etna_screen_get_shader_param(struct pipe_screen *pscreen,
       return false;
    case PIPE_SHADER_CAP_SUPPORTED_IRS:
       return (1 << PIPE_SHADER_IR_TGSI) |
-             (1 << PIPE_SHADER_IR_NIR);
+             (1 << PIPE_SHADER_IR_NIR) |
+             (1 << PIPE_SHADER_IR_NIR_SERIALIZED);
    case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
    case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
