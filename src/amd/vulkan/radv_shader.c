@@ -204,6 +204,8 @@ radv_optimize_nir(struct nir_shader *shader, bool optimize_conservatively, bool 
 void
 radv_optimize_nir_algebraic(nir_shader *nir, bool opt_offsets)
 {
+   NIR_PASS(_, nir, nir_opt_cse_undef);
+   
    bool more_algebraic = true;
    while (more_algebraic) {
       more_algebraic = false;
