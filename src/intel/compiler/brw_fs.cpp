@@ -2176,8 +2176,6 @@ fs_visitor::split_virtual_grfs()
           * registers.  We need this invariant later when we split them.
           */
          assert(inst->dst.file == VGRF);
-         assert(inst->dst.offset == 0);
-         assert(inst->size_written == alloc.sizes[inst->dst.nr] * REG_SIZE);
          continue;
       }
 
@@ -2251,12 +2249,21 @@ fs_visitor::split_virtual_grfs()
          assert(inst->dst.file == VGRF);
          if (vgrf_has_split[inst->dst.nr]) {
             const fs_builder ibld(this, block, inst);
-            assert(inst->size_written % REG_SIZE == 0);
-            unsigned reg_offset = 0;
-            while (reg_offset < inst->size_written / REG_SIZE) {
-               reg = vgrf_to_reg[inst->dst.nr] + reg_offset;
-               ibld.UNDEF(fs_reg(VGRF, new_virtual_grf[reg], inst->dst.type));
-               reg_offset += alloc.sizes[new_virtual_grf[reg]];
+            unsigned offset = inst->dst.offset;
+            unsigned end = inst->dst.offset + inst->size_written;
+            while (offset < end) {
+               reg = vgrf_to_reg[inst->dst.nr] + offset / REG_SIZE;
+
+               fs_reg dst = inst->dst;
+               dst.nr = new_virtual_grf[reg];
+               dst.offset = new_reg_offset[reg] + offset % REG_SIZE;
+
+               unsigned size_written =
+                  MIN2(end - offset, alloc.sizes[dst.nr] * REG_SIZE);
+
+               ibld.UNDEF(dst, size_written);
+
+               offset += size_written;
             }
             inst->remove(block);
          } else {
