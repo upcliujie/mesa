@@ -53,6 +53,7 @@
 
 #if defined(ZINK_USE_DMABUF) && !defined(_WIN32)
 #include "drm-uapi/drm_fourcc.h"
+#include <xf86drm.h>
 #else
 /* these won't actually be used */
 #define DRM_FORMAT_MOD_INVALID 0
