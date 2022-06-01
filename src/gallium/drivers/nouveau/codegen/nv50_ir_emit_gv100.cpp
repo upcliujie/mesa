@@ -608,6 +608,23 @@ CodeEmitterGV100::emitMUFU()
    emitField(74, 4, mufu);
 }
 
+/* XXX: TODO: 1. HMMA.884 ( opcode 0x236 )
+ * 2. Add glsl/nir support for this ( see https://docs.nvidia.com/
+ * cuda/cuda-binary-utilities/index.html and https://arxiv.org/pdf
+ * /1804.06826.pdf for docs on this)
+ * 3. Find difference between HMMA.16816 and HMMA.1688 besides use
+ * of reuse?!?!?
+ */
+
+/* HMMA.16816.F32 and HMMA.1688.F32 */
+void
+CodeEmitterGV100::emitHMMA_16X()
+{
+   emitFormA(0x03c, FA_RRR | FA_RRI | FA_RRC | FA_RIR | FA_RCR, __(0), __(1), N_(2));
+   emitPRED (81);
+   emitField(73, 1, isSignedType(insn->sType));
+}
+
 /*******************************************************************************
  * fp64
  ******************************************************************************/
@@ -2037,6 +2054,9 @@ CodeEmitterGV100::emitInstruction(Instruction *i)
       break;
    case OP_WARPSYNC:
       emitWARPSYNC();
+      break;
+   case OP_HMMA_16X:
+      emitHMMA_16X();
       break;
    default:
       assert(!"invalid opcode");

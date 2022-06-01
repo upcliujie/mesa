@@ -471,13 +471,20 @@ TargetNVC0::isAccessSupported(DataFile file, DataType ty) const
 bool
 TargetNVC0::isOpSupported(operation op, DataType ty) const
 {
-   if (op == OP_SAD && ty != TYPE_S32 && ty != TYPE_U32)
+   switch (op) {
+   case OP_SAD:
+      if (ty != TYPE_S32 && ty != TYPE_U32)
+         return false;
+   case OP_POW:
+   case OP_SQRT:
+   case OP_DIV:
+   case OP_MOD:
+   case OP_XMAD:
+   case OP_HMMA_16X:
       return false;
-   if (op == OP_POW || op == OP_SQRT || op == OP_DIV || op == OP_MOD)
-      return false;
-   if (op == OP_XMAD)
-      return false;
-   return true;
+   default:
+      return true;
+   }
 }
 
 bool
@@ -497,6 +504,7 @@ TargetNVC0::isModSupported(const Instruction *insn, int s, Modifier mod) const
       case OP_POPCNT:
       case OP_BFIND:
       case OP_XMAD:
+      case OP_HMMA_16X:
          break;
       case OP_SET:
          if (insn->sType != TYPE_F32)
