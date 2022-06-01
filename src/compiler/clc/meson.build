@@ -52,16 +52,28 @@ if dep_llvm.version().version_compare('>= 14.0')
   _libclc_cpp_args += ['-DHAS_SPIRV_1_4=1']
 endif
 
-_libclc = static_library(
-  'libclc',
-  files_libclc,
-  opencl_c_h,
-  opencl_c_base_h,
-  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_spirv],
-  cpp_args : _libclc_cpp_args,
-  dependencies: [idep_nir_headers, dep_clang, dep_llvm, dep_llvmspirvlib,
-                 idep_mesautil, idep_nir, dep_spirv_tools]
-)
+if dep_llvm.version().version_compare('< 15.0')
+  _libclc = static_library(
+    'libclc',
+    files_libclc,
+    opencl_c_h,
+    opencl_c_base_h,
+    include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_spirv],
+    cpp_args : _libclc_cpp_args,
+    dependencies: [idep_nir_headers, dep_clang, dep_llvm, dep_llvmspirvlib,
+                   idep_mesautil, idep_nir, dep_spirv_tools]
+  )
+else
+  _libclc = static_library(
+    'libclc',
+    files_libclc,
+    opencl_c_base_h,
+    include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_spirv],
+    cpp_args : _libclc_cpp_args,
+    dependencies: [idep_nir_headers, dep_clang, dep_llvm, dep_llvmspirvlib,
+                   idep_mesautil, idep_nir, dep_spirv_tools]
+  )
+endif
 
 idep_clc = declare_dependency(
   link_with : _libclc,
