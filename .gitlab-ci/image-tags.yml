@@ -29,3 +29,6 @@ variables:
    ROOTFS_LIBVA_TESTS_TAG: "2022-05-23"
    ROOTFS_PIGLIT_TAG: "2022-05-23"
    ROOTFS_SKQP_TAG: "2022-05-23"
+
+before_script:
+   - export ROOTFS_TAG=$(printenv | grep "ROOTFS_.*_TAG") | md5sum - | head -c 32)
