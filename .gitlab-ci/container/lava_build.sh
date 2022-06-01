@@ -3,118 +3,11 @@
 set -e
 set -o xtrace
 
+# Load variables and functions to use minio fdo instance as a artifact
+# repository for build components and rootfs images
+. .gitlab-ci/container/minio-utils.sh
 export DEBIAN_FRONTEND=noninteractive
 
-# export MINIO_HOST="localhost:9000"
-# export MINIO_LOGIN_ENDPOINT="http://localhost:9000"
-export MINIO_DIR="minio://${MINIO_HOST}/mesa-lava/${CI_PROJECT_PATH}/${DEBIAN_ARCH}"
-export TMP_ROOTFS_DIR=/tmp/rootfs
-
-check_minio()
-{
-    MINIO_PATH="${MINIO_HOST}/mesa-lava/$1/${DISTRIBUTION_TAG}/${DEBIAN_ARCH}"
-    if wget -q --method=HEAD "https://${MINIO_PATH}/done"; then
-        exit
-    fi
-}
-
-# Args:
-# $1: filepath
-is_file_available_in_minio()
-(
-    set +x
-    MINIO_PATH="${MINIO_DIR}/${1}"
-    # if ci-fairy minio ls "${MINIO_PATH}" 1>/dev/null 2>/dev/null;
-    if ci-fairy minio ls "${MINIO_PATH}";
-    then
-        return 0
-    fi
-
-    # Package with this version not found
-    return 1
-)
-
-log_to_minio()
-(
-    set +x
-    # ci-fairy minio login stores credentials at .minio_credentials file.
-    # No need to login again if this files exists.
-    [ -f .minio_credentials ] && return 0
-    ENDPOINT=${MINIO_LOGIN_ENDPOINT:+--endpoint-url ${MINIO_LOGIN_ENDPOINT}}
-    ci-fairy minio login ${ENDPOINT} --token-file "${CI_JOB_JWT_FILE}"
-)
-
-# Args:
-# $1: minio path
-# $2-*: local file paths
-upload_to_minio()
-(
-    set +x
-    log_to_minio || return 1
-    MINIO_PATH="${MINIO_DIR}/${1}"
-    shift 1
-    FILES_TO_UPLOAD="${*}"
-
-    for f in $FILES_TO_UPLOAD; do
-        ci-fairy minio cp "${f}" \
-                "${MINIO_PATH}/$f"
-    done
-)
-
-# Args:
-# $1: local path
-# $2-*: remote file paths
-download_from_minio()
-(
-    set +x
-    log_to_minio || return 1
-    LOCAL_PATH="${1}"
-    shift 1
-    FILES_TO_DOWNLOAD="${*}"
-    for f in $FILES_TO_DOWNLOAD; do
-        ci-fairy minio cp "${MINIO_DIR}/$f" \
-            "${LOCAL_PATH}"
-    done
-)
-
-resolve_file_from_dep_name()
-{
-    set +x
-    export DEPENDENCY_NAME=${1}
-    export DEPENDENCY_RESOLUTION=ROOTFS_${DEPENDENCY_NAME^^}_TAG
-    export DEPENDENCY_TAG=${!DEPENDENCY_RESOLUTION}
-    : "${DEPENDENCY_TAG:?Could not found \$${DEPENDENCY_RESOLUTION}, please set image_tags.yml properly.}"
-    export DEPENDENCY_FILE=${DEPENDENCY_NAME}_${DEPENDENCY_TAG}.tar.xz
-    set -x
-}
-
-# Args
-# 1: Dependency name
-# 2: Target directory of the tarball
-artifact_repo_sync()
-{
-    mkdir -p ${TMP_ROOTFS_DIR}
-    resolve_file_from_dep_name "${1}"
-    ROOTFS_INSTALL_DIR=${2:-/lava-files/rootfs-${DEBIAN_ARCH}}
-
-    is_file_available_in_minio deps/"${DEPENDENCY_FILE}" || {
-        echo -e "\e[0Ksection_start:$(date +%s):build_$1[collapsed=true]\r\e[0KBuilding $1..."
-        set -x
-        "build_$1"
-        set +x
-        echo -e "\e[0Ksection_end:$(date +%s):build_$1\r\e[0K"
-        mkdir -p "${ROOTFS_INSTALL_DIR}"
-        tar -cJvf "${DEPENDENCY_FILE}" -C "${TMP_ROOTFS_DIR}" .
-        upload_to_minio deps "${DEPENDENCY_FILE}"
-    } && {
-        echo "Dependency ${DEPENDENCY_NAME} for tag ${DEPENDENCY_TAG} is found on server."
-        echo "Downloading ${DEPENDENCY_FILE}"
-        download_from_minio "${INSTALL_DIR}" deps/"${DEPENDENCY_FILE}"
-    }
-
-    tar xf "${DEPENDENCY_FILE}" -C "$ROOTFS_INSTALL_DIR"
-    rm -Rf "${DEPENDENCY_FILE}" "${TMP_ROOTFS_DIR:?}"/*
-}
 
 build_apitrace() {
     . .gitlab-ci/container/build-apitrace.sh
@@ -189,7 +82,7 @@ build_kernel() {
 
 # If remote files are up-to-date, skip rebuilding them
 # check_minio "${FDO_UPSTREAM_REPO}"
-# check_minio "${CI_PROJECT_PATH}"
+check_minio
 
 . .gitlab-ci/container/container_pre_build.sh
 
@@ -331,7 +224,7 @@ rm -rf /root/.rustup
 
 ############### Create rootfs
 set +e
-if ! debootstrap \
+if ! ${DEBOOTSTRAP_CMD} \
      --variant=minbase \
      --arch=${DEBIAN_ARCH} \
      --components main,contrib,non-free \
@@ -344,7 +237,7 @@ fi
 set -e
 
 cp .gitlab-ci/container/create-rootfs.sh /lava-files/rootfs-${DEBIAN_ARCH}/.
-chroot /lava-files/rootfs-${DEBIAN_ARCH} sh /create-rootfs.sh
+${CHROOT_CMD} /lava-files/rootfs-${DEBIAN_ARCH} sh /create-rootfs.sh
 rm /lava-files/rootfs-${DEBIAN_ARCH}/create-rootfs.sh
 
 
@@ -363,7 +256,7 @@ fi
 
 du -ah /lava-files/rootfs-${DEBIAN_ARCH} | sort -h | tail -100
 pushd /lava-files/rootfs-${DEBIAN_ARCH}
-  tar czf /lava-files/lava-rootfs.tgz .
+  tar czf /lava-files/"${ROOTFS_FILE}" .
 popd
 
 . .gitlab-ci/container/container_post_build.sh
@@ -379,8 +272,8 @@ fi
 
 for f in $FILES_TO_UPLOAD; do
     ci-fairy minio cp /lava-files/$f \
-             minio://${MINIO_PATH}/$f
+             minio://"${MINIO_DIR}"/$f
 done
 
 touch /lava-files/done
-ci-fairy minio cp /lava-files/done minio://${MINIO_PATH}/done
+ci-fairy minio cp /lava-files/done minio://"${MINIO_DIR}"/done
