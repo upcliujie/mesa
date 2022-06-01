@@ -2173,10 +2173,13 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
          pCreateInfo->pRasterizationState->frontFace;
    }
 
-   if ((states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY) &&
-         (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT)) {
-      assert(pCreateInfo->pInputAssemblyState);
-      dynamic->primitive_topology = pCreateInfo->pInputAssemblyState->topology;
+   if (states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY) {
+      if (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT) {
+         assert(pCreateInfo->pInputAssemblyState);
+         dynamic->primitive_topology = pCreateInfo->pInputAssemblyState->topology;
+      } else if (pipeline->active_stages & VK_SHADER_STAGE_MESH_BIT_NV) {
+         states &= ~ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
+      }
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
@@ -2191,11 +2194,14 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
          pCreateInfo->pRasterizationState->depthBiasEnable;
    }
 
-   if ((states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_RESTART_ENABLE) &&
-         (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT)) {
-      assert(pCreateInfo->pInputAssemblyState);
-      dynamic->primitive_restart_enable =
-         pCreateInfo->pInputAssemblyState->primitiveRestartEnable;
+   if (states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_RESTART_ENABLE) {
+      if (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT) {
+         assert(pCreateInfo->pInputAssemblyState);
+         dynamic->primitive_restart_enable =
+            pCreateInfo->pInputAssemblyState->primitiveRestartEnable;
+      } else if (pipeline->active_stages & VK_SHADER_STAGE_MESH_BIT_NV) {
+         states &= ~ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_RESTART_ENABLE;
+      }
    }
 
    /* Section 9.2 of the Vulkan 1.0.15 spec says:
@@ -2373,6 +2379,9 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
                 sizeof(dynamic->fragment_shading_rate.ops));
       }
    }
+
+   if (pipeline->active_stages & VK_SHADER_STAGE_MESH_BIT_NV)
+      states &= ~ANV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE;
 
    pipeline->dynamic_state_mask = states;
 }
