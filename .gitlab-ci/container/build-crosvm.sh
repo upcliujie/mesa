@@ -4,7 +4,7 @@ set -ex
 
 SCRIPT_DIR="$(pwd)"
 
-CROSVM_VERSION=0f6e096bbf7e
+CROSVM_VERSION=2e7ded3fbd7a
 git clone --single-branch -b main --no-checkout https://chromium.googlesource.com/chromiumos/platform/crosvm /platform/crosvm
 pushd /platform/crosvm
 git checkout "$CROSVM_VERSION"
