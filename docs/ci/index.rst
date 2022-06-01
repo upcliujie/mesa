@@ -255,12 +255,200 @@ This section lists their documentation pages.
 
   skqp
 
-
-Updating Gitlab CI Linux Kernel
+Updating Gitlab CI Dependencies
 -------------------------------
+Currently, the CI builds some dependencies required to run jobs in the pipeline,
+such as (not comprehensive):
+
+#. Linux Kernel
+#. piglit
+#. deqp-runner
+#. skqp
+
+For the sake of job execution times, each image is tagged. Thus the jobs which
+build dependencies will only rebuild them if the tag that is associated with
+the image is updated. So even when the dependency version is bumped, it will not
+be built in the job images unless the user bumps the related tag.
+
+Image tags
+"""""""""""""""""""
+Whenever a dependency needs to be rebuilt, a developer should update the
+the corresponding dependency tag and also update tags related to the container images.
+E.g: to update libdrm, one should grep for `build.libdrm` in `.gitlab-ci`
+folder, looking for affected tags. The following script helps with that.
+
+.. code-block:: console
+
+  # Running in container folder to simplify the script a bit
+  cd .gitlab-ci/container
+  # The name of the dependency
+  DEP=libdrm;
+  # Print rootfs tags related to the dependency
+  grep -P "${DEP^^}_TAG" ../image-tags.yml
+  # Look for scripts which uses functions/helper scripts that builds the dependency $DEP
+  grep -RP "build.$DEP[ (.]" -l |
+        # remove file extension
+        sed 's/.sh$//g' |
+        # find jobs that will be affected by this dependency
+        xargs -I affected_files find ../.. -type f -name '*.yml' -exec grep -P "^affected_files" {} \; |
+        # sort and remove duplicates
+        sort -u |
+        # Base jobs tags are split into their children, reuse prefix
+        sed 's/-base//g' |
+        # transform into YAML-style variables
+        tr '/' '_' | tr -d ':' | tr a-z A-Z | tr '-' '_' |
+        # find which tags needs to be updated
+        xargs -I pattern grep -P pattern.*_TAG ../image-tags.yml |
+        # sort and remove duplicates
+        sort -u
+
+This example would give the following result, depending on the commit you are in:
+
+.. code-block:: console
+
+  ROOTFS_LIBDRM_TAG: "2022-05-23"
+  DEBIAN_X86_TEST_GL_TAG: "2022-05-31-cts-1.3.2.0"
+  DEBIAN_X86_TEST_VK_TAG: "2022-05-31-cts-1.3.2.0"
+  FEDORA_X86_BUILD_TAG: "2022-04-24-spirv-tools-5"
+
+RootFS dependencies
+"""""""""""""""""""
+
+Each dependency can have its own build flags and optimizations and must be
+tagged accordingly via the `image-tags.yml
+<https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/.gitlab-ci/image-tags.yml>`_
+file, following the pattern:
+
+:code:`ROOTFS_<DEPENDENCY_NAME>_TAG`
+
+Where: `<DEPENDENCY_NAME>` is the name of dependency in uppercase.
+
+Currently, the rootfs building is optimized via a custom artifact repository
+located at freedesktop minio instance via `lava_build.sh` script.
+Each dependency build script is wrapped in a respective bash function with the
+pattern `build_<dependency_name>`, where the installation files should be
+located inside `$TMP_ROOTFS_PATH`, instead of the final rootfs directory.
+
+This way, the script can manage how the files will be synchronized with the
+cloud and will extract the files to the final destination correctly.
+
+.. note::
+  There is a strong binding between the lava_build.sh function name and the tag in image-tags.yml.
+  Both must have the same `<DEPENDENCY_NAME>` token, lowercase for the former
+  and uppercase for the latter. Otherwise, the build script will fail.
+
+MINIO build artifacts
++++++++++++++++++++++
+
+The following dependency graph shows the relation among the rootfs file, build
+components files, and the container images.
+Whenever a node is tagged, the related environment variable is shown on the
+right side.
+
+.. graphviz::
+
+  digraph dep_graph {
+      concentrate=True;
+      node [shape=record];
+      node [color=lightblue];
+      "rootfs" [label="rootfs\n|{$ROOTFS_TAG}"];
+      "deps" [label="build components\n|{$ROOTFS_\<DEPENDENCY_NAME\>_TAG}"]
+      "image"[label="container image\n|{$MESA_IMAGE_TAG}"];
+      "ci-fairy"[label="ci-fairy\n|{$MESA_TEMPLATES_COMMIT}"];
+
+      "deps" -> "image"
+      "image" -> "arch" [arrowhead = diamond];
+      "rootfs" -> "deps"
+      "rootfs" -> "image"
+      "rootfs" -> "ci-fairy"
+  }
+
+Both build components and rootfs depend on container image since it is the base
+OS where the build packages are installed. E.g: a Debian upgrade would require
+rebuilding every build component, including the rootfs.
+
+rootfs is a particular case, as it also relies on `ci-fairy` tool from ci-templates
+project and in the group of the build dependencies.
+
+To map every file uniquely in the cloud, we use the proper tags to name some folders and suffix some files.
+The current target files are the following:
+
+.. code-block:: console
+
+  # A build component path in the cloud
+  https://minio-packet.freedesktop.org/mesa-lava/user/mesa/${DEBIAN_BASE_TAG}/<dependency_name>_${ROOTFS_<DEPENDENCY_NAME>_TAG}.tar.xz
+  # A rootfs path in the cloud
+  https://minio-packet.freedesktop.org/mesa-lava/user/mesa/${DISTRIBUTION_TAG}/rootfs_${ROOTFS_TAG}.tgz
+
+.. note::
+  `$ROOTFS_TAG` is created from a hash of the concatenation of all variables
+  that obey `$ROOTFS_.*_TAG` pattern.
+
+  `$DISTRIBUTION_TAG` is an amalgam of `$MESA_IMAGE_TAG`,
+  `$MESA_TEMPLATES_COMMIT` and the image architecture.
+
+Algorithm
+*********
+
+.. graphviz::
+
+  digraph G {
+      concentrate=true;
+      splines=false;
+      node [shape=rect]
+      dep [label="call wrapper\nfor build_$DEP\nbash function", color=lightblue]
+      fn [label="call build_$DEP\nbash function"]
+
+      download
+      upload
+
+      clean  [label="clean\ntemporary\nrootfs folder"]
+      extract [label="extract to\nfinal rootfs\nfolder"]
+      compress [label="compress from\ntemporary\nrootfs folder"]
+      fail [shape=oval, color=red]
+
+      synced [shape=diamond, label="is resulting\ntarball file\nalready in the cloud?"]
+      tagged [shape=diamond, label="is there a tag\nfor that component?"]
+
+      dep -> tagged
+      tagged -> synced [ label = "Yes"]
+      tagged -> fail [ label = "No"]
+      synced -> download [ label = "Yes"]
+      synced -> fn [ label = "No"]
+      download -> extract
+
+      fn -> compress -> upload -> extract -> clean
+
+      {
+          rank=same;
+          download; fn;
+      }
+  }
+
+.. graphviz::
+
+  digraph G {
+      concentrate=true;
+      splines=false;
+      node [shape=rect]
+      lb [label="Running lava-build.sh", color=lightblue]
+      itc [label="Is the respective rootfs file in the cloud?"]
+      dep [label="call wrapper\nfor build_$DEP\nbash function", color=lightblue]
+      end [label="exit script", shape=oval]
+      compress [label="compress\nfrom final\nrootfs folder"]
+      upload
+
+      lb -> itc
+      itc -> dep [ label = "No" ]
+      dep -> compress -> upload -> end
+      itc -> end [ label = "Yes" ]
+  }
+
+Updating Linux Kernel
++++++++++++++++++++++
 
 Gitlab CI usually runs a bleeding-edge kernel. The following documentation has
-instructions on how to uprev Linux Kernel in the Gitlab Ci ecosystem.
+instructions on how to uprev Linux Kernel in the Gitlab CI ecosystem.
 
 .. toctree::
   :maxdepth: 1
