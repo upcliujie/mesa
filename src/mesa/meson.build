@@ -203,6 +203,7 @@ files_libmesa = files(
   'main/state.h',
   'main/stencil.c',
   'main/stencil.h',
+  'main/streaming-load-memcpy.c',
   'main/syncobj.c',
   'main/syncobj.h',
   'main/texcompress.c',
@@ -464,7 +465,7 @@ files_libmesa += [
 if with_sse41
   libmesa_sse41 = static_library(
     'mesa_sse41',
-    files('main/streaming-load-memcpy.c', 'main/sse_minmax.c'),
+    files('main/sse_minmax.c'),
     c_args : [c_msvc_compat_args, sse41_args],
     include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
     gnu_symbol_visibility : 'hidden',
@@ -487,7 +488,7 @@ endif
 libmesa = static_library(
   'mesa',
   files_libmesa,
-  c_args : [c_msvc_compat_args, _mesa_windows_args],
+  c_args : [c_msvc_compat_args, _mesa_windows_args, sse41_args],
   cpp_args : [cpp_msvc_compat_args, _mesa_windows_args],
   gnu_symbol_visibility : 'hidden',
   include_directories : [
