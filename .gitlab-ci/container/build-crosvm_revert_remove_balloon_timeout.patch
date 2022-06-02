@@ -1,6 +1,6 @@
-From e9d6a15fbcc4f6f5a2dd24d14aef939e47243bb0 Mon Sep 17 00:00:00 2001
+From d7d963f9fad99412c62b353af8ab7baa1caa6a9f Mon Sep 17 00:00:00 2001
 From: Tomeu Vizoso <tomeu.vizoso@collabora.com>
-Date: Thu, 2 Jun 2022 09:18:04 +0200
+Date: Thu, 2 Jun 2022 09:40:43 +0200
 Subject: [PATCH] Revert "crosvm: remove balloon stats request timeout"
 
 This reverts commit 56c0d027603218dd1e3d4859cc4c2024ba891e5e.
@@ -8,8 +8,8 @@ This reverts commit 56c0d027603218dd1e3d4859cc4c2024ba891e5e.
  common/balloon_control/src/lib.rs |   3 -
  devices/src/virtio/balloon.rs     | 100 +++++-------------------------
  src/linux/mod.rs                  |   5 ++
- vm_control/src/lib.rs             |  60 +-----------------
- 4 files changed, 23 insertions(+), 145 deletions(-)
+ vm_control/src/lib.rs             |  17 ++---
+ 4 files changed, 25 insertions(+), 100 deletions(-)
 
 diff --git a/common/balloon_control/src/lib.rs b/common/balloon_control/src/lib.rs
 index 9372329e7e58..0ea428302d08 100644
@@ -24,10 +24,10 @@ index 9372329e7e58..0ea428302d08 100644
 -    },
  }
 diff --git a/devices/src/virtio/balloon.rs b/devices/src/virtio/balloon.rs
-index f0c1fdeb47d1..bbc4461e2cd8 100644
+index b6a45f1f3edb..e9751fc537c3 100644
 --- a/devices/src/virtio/balloon.rs
 +++ b/devices/src/virtio/balloon.rs
-@@ -9,17 +9,14 @@ use std::rc::Rc;
+@@ -7,17 +7,14 @@ use std::rc::Rc;
  use std::sync::Arc;
  use std::thread;
  
@@ -48,7 +48,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
  };
  use data_model::{DataInit, Le16, Le32, Le64};
  use vm_memory::{GuestAddress, GuestMemory};
-@@ -39,9 +36,6 @@ pub enum BalloonError {
+@@ -37,9 +34,6 @@ pub enum BalloonError {
      /// Failed to create async message receiver.
      #[error("failed to create async message receiver: {0}")]
      CreatingMessageReceiver(base::TubeError),
@@ -58,7 +58,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
      /// Failed to receive command message.
      #[error("failed to receive command message: {0}")]
      ReceivingCommand(base::TubeError),
-@@ -52,7 +46,6 @@ pub enum BalloonError {
+@@ -50,7 +44,6 @@ pub enum BalloonError {
      #[error("failed to write config event: {0}")]
      WritingConfigEvent(base::Error),
  }
@@ -66,7 +66,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
  pub type Result<T> = std::result::Result<T, BalloonError>;
  
  // Balloon implements four virt IO queues: Inflate, Deflate, Stats, Event.
-@@ -309,7 +302,6 @@ async fn handle_stats_queue(
+@@ -307,7 +300,6 @@ async fn handle_stats_queue(
          }
          Ok(d) => d.index,
      };
@@ -74,7 +74,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
      loop {
          // Wait for a request to read the stats.
          let id = match stats_rx.next().await {
-@@ -454,30 +446,6 @@ async fn handle_command_tube(
+@@ -452,30 +444,6 @@ async fn handle_command_tube(
      }
  }
  
@@ -105,7 +105,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
  // The main worker thread. Initialized the asynchronous worker tasks and passes them to the executor
  // to be processed.
  fn run_worker(
-@@ -590,15 +558,13 @@ fn run_worker(
+@@ -588,15 +556,13 @@ fn run_worker(
  
  /// Virtio device for memory balloon inflation/deflation.
  pub struct Balloon {
@@ -122,7 +122,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
  }
  
  /// Operation mode of the balloon.
-@@ -634,7 +600,7 @@ impl Balloon {
+@@ -632,7 +598,7 @@ impl Balloon {
              };
  
          Ok(Balloon {
@@ -131,7 +131,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
              inflate_tube,
              state: Arc::new(AsyncMutex::new(BalloonState {
                  num_pages: (init_balloon_size >> VIRTIO_BALLOON_PFN_SHIFT) as u32,
-@@ -643,10 +609,8 @@ impl Balloon {
+@@ -641,10 +607,8 @@ impl Balloon {
              })),
              kill_evt: None,
              worker_thread: None,
@@ -142,7 +142,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
          })
      }
  
-@@ -678,11 +642,11 @@ impl Drop for Balloon {
+@@ -676,11 +640,11 @@ impl Drop for Balloon {
  
  impl VirtioDevice for Balloon {
      fn keep_rds(&self) -> Vec<RawDescriptor> {
@@ -159,7 +159,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
      }
  
      fn device_type(&self) -> DeviceType {
-@@ -705,12 +669,8 @@ impl VirtioDevice for Balloon {
+@@ -703,12 +667,8 @@ impl VirtioDevice for Balloon {
  
          if state.failable_update && state.actual_pages == state.num_pages {
              state.failable_update = false;
@@ -174,7 +174,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
              }
          }
      }
-@@ -727,21 +687,6 @@ impl VirtioDevice for Balloon {
+@@ -725,21 +685,6 @@ impl VirtioDevice for Balloon {
          self.acked_features |= value;
      }
  
@@ -196,7 +196,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
      fn activate(
          &mut self,
          mem: GuestMemory,
-@@ -749,13 +694,6 @@ impl VirtioDevice for Balloon {
+@@ -747,13 +692,6 @@ impl VirtioDevice for Balloon {
          queues: Vec<Queue>,
          queue_evts: Vec<Event>,
      ) {
@@ -210,7 +210,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
          let expected_queues = if self.event_queue_enabled() { 4 } else { 3 };
          if queues.len() != expected_queues || queue_evts.len() != expected_queues {
              return;
-@@ -771,18 +709,12 @@ impl VirtioDevice for Balloon {
+@@ -769,18 +707,12 @@ impl VirtioDevice for Balloon {
          self.kill_evt = Some(self_kill_evt);
  
          let state = self.state.clone();
@@ -232,7 +232,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
              }
          };
          let inflate_tube = self.inflate_tube.take();
-@@ -803,7 +735,7 @@ impl VirtioDevice for Balloon {
+@@ -801,7 +733,7 @@ impl VirtioDevice for Balloon {
  
          match worker_result {
              Err(e) => {
@@ -242,7 +242,7 @@ index f0c1fdeb47d1..bbc4461e2cd8 100644
              Ok(join_handle) => {
                  self.worker_thread = Some(join_handle);
 diff --git a/src/linux/mod.rs b/src/linux/mod.rs
-index 4c8a1ffac2c7..48ea65c80046 100644
+index 74e76ef6e267..9e8df57376d8 100644
 --- a/src/linux/mod.rs
 +++ b/src/linux/mod.rs
 @@ -17,6 +17,7 @@ use std::os::unix::prelude::OpenOptionsExt;
@@ -253,7 +253,7 @@ index 4c8a1ffac2c7..48ea65c80046 100644
  
  use std::process;
  #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
-@@ -1144,6 +1145,10 @@ where
+@@ -1137,6 +1138,10 @@ where
              // Balloon gets a special socket so balloon requests can be forwarded
              // from the main process.
              let (host, device) = Tube::pair().context("failed to create tube")?;
@@ -265,101 +265,25 @@ index 4c8a1ffac2c7..48ea65c80046 100644
          }
      } else {
 diff --git a/vm_control/src/lib.rs b/vm_control/src/lib.rs
-index 9f0d21c9706d..2b57e3f755d9 100644
+index 90ef2d340026..1955ab8e7895 100644
 --- a/vm_control/src/lib.rs
 +++ b/vm_control/src/lib.rs
-@@ -36,7 +36,7 @@ pub use balloon_control::BalloonStats;
+@@ -36,10 +36,10 @@ pub use balloon_control::BalloonStats;
  use balloon_control::{BalloonTubeCommand, BalloonTubeResult};
  
  use base::{
--    error, info, trace, warn, with_as_descriptor, AsRawDescriptor, Error as SysError, Event,
-+    error, with_as_descriptor, AsRawDescriptor, Error as SysError, Event,
-     ExternalMapping, FromRawDescriptor, IntoRawDescriptor, Killable, MappedRegion,
-     MemoryMappingArena, MemoryMappingBuilder, MemoryMappingBuilderUnix, MmapError, Protection,
-     Result, SafeDescriptor, SharedMemory, Tube, SIGRTMIN,
-@@ -47,7 +47,7 @@ use rutabaga_gfx::{
-     DrmFormat, ImageAllocationInfo, RutabagaGralloc, RutabagaGrallocFlags, RutabagaHandle,
-     VulkanInfo,
+-    error, trace, warn, with_as_descriptor, AsRawDescriptor, Error as SysError, Event,
+-    ExternalMapping, FromRawDescriptor, IntoRawDescriptor, Killable, MappedRegion,
+-    MemoryMappingArena, MemoryMappingBuilder, MemoryMappingBuilderUnix, MmapError, Protection,
+-    Result, SafeDescriptor, SharedMemory, Tube, SIGRTMIN,
++    error, with_as_descriptor, AsRawDescriptor, Error as SysError, Event, ExternalMapping,
++    FromRawDescriptor, IntoRawDescriptor, Killable, MappedRegion, MemoryMappingArena,
++    MemoryMappingBuilder, MemoryMappingBuilderUnix, MmapError, Protection, Result, SafeDescriptor,
++    SharedMemory, Tube, SIGRTMIN,
  };
--use sync::{Condvar, Mutex};
-+use sync::Mutex;
- use vm_memory::GuestAddress;
- 
- /// Struct that describes the offset and stride of a plane located in GPU memory.
-@@ -1022,35 +1022,6 @@ fn map_descriptor(
-     }
- }
- 
--fn generate_sleep_button_event(
--    pm: &mut Option<Arc<Mutex<dyn PmResource>>>,
--    guest_suspended_cvar: &Arc<(Mutex<bool>, Condvar)>,
--) {
--    // During suspend also emulate sleepbtn, which allows to suspend VM (if running e.g. acpid and
--    // reacts on sleep button events)
--    if let Some(pm) = pm {
--        pm.lock().slpbtn_evt();
--    } else {
--        error!("generating sleepbtn during suspend not supported");
--    }
--
--    let (lock, cvar) = &**guest_suspended_cvar;
--    let mut guest_suspended = lock.lock();
--
--    *guest_suspended = false;
--
--    // Wait for notification about guest suspension, if not received after 15sec,
--    // proceed anyway.
--    let result = cvar.wait_timeout(guest_suspended, std::time::Duration::from_secs(15));
--    guest_suspended = result.0;
--
--    if result.1.timed_out() {
--        warn!("Guest suspension timeout - proceeding anyway");
--    } else if *guest_suspended {
--        info!("Guest suspended");
--    }
--}
--
- impl VmRequest {
-     /// Executes this request on the given Vm and other mutable state.
-     ///
-@@ -1067,8 +1038,6 @@ impl VmRequest {
-         usb_control_tube: Option<&Tube>,
-         bat_control: &mut Option<BatControl>,
-         vcpu_handles: &[(JoinHandle<()>, mpsc::Sender<VcpuControl>)],
--        force_s2idle: bool,
--        guest_suspended_cvar: Arc<(Mutex<bool>, Condvar)>,
-     ) -> VmResponse {
-         match *self {
-             VmRequest::Exit => {
-@@ -1094,27 +1063,11 @@ impl VmRequest {
-                 }
-             }
-             VmRequest::Suspend => {
--                if force_s2idle {
--                    generate_sleep_button_event(pm, &guest_suspended_cvar);
--                }
--
-                 *run_mode = Some(VmRunMode::Suspending);
-                 VmResponse::Ok
-             }
-             VmRequest::Resume => {
-                 *run_mode = Some(VmRunMode::Running);
--
--                if force_s2idle {
--                    // During resume also emulate powerbtn event which will allow to wakeup fully
--                    // suspended guest.
--                    if let Some(pm) = pm {
--                        pm.lock().pwrbtn_evt();
--                    } else {
--                        error!("triggering power btn during resume not supported");
--                        return VmResponse::Err(SysError::new(ENOTSUP));
--                    }
--                }
--
-                 VmResponse::Ok
-             }
-             VmRequest::Gpe(gpe) => {
-@@ -1181,15 +1134,6 @@ impl VmRequest {
+ use hypervisor::{IrqRoute, IrqSource, Vm};
+ use resources::{Alloc, MmioType, SystemAllocator};
+@@ -1134,15 +1134,6 @@ impl VmRequest {
                                              balloon_actual,
                                          };
                                      }
