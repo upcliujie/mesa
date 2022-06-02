@@ -109,6 +109,8 @@ files_mesa_util = files(
   'softfloat.h',
   'sparse_array.c',
   'sparse_array.h',
+  'streaming-load-memcpy.c',
+  'streaming-load-memcpy.h',
   'string_buffer.c',
   'string_buffer.h',
   'strndup.h',
@@ -255,7 +257,7 @@ _libmesa_util = static_library(
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
   dependencies : deps_for_libmesa_util,
   link_with: libmesa_format,
-  c_args : [c_msvc_compat_args],
+  c_args : [c_msvc_compat_args, sse41_args],
   gnu_symbol_visibility : 'hidden',
   build_by_default : false
 )

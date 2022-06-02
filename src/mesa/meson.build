@@ -203,7 +203,6 @@ files_libmesa = files(
   'main/state.h',
   'main/stencil.c',
   'main/stencil.h',
-  'main/streaming-load-memcpy.c',
   'main/syncobj.c',
   'main/syncobj.h',
   'main/texcompress.c',
@@ -488,7 +487,7 @@ endif
 libmesa = static_library(
   'mesa',
   files_libmesa,
-  c_args : [c_msvc_compat_args, _mesa_windows_args, sse41_args],
+  c_args : [c_msvc_compat_args, _mesa_windows_args],
   cpp_args : [cpp_msvc_compat_args, _mesa_windows_args],
   gnu_symbol_visibility : 'hidden',
   include_directories : [
