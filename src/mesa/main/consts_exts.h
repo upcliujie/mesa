@@ -996,5 +996,8 @@ struct gl_constants
    GLuint MaxSparse3DTextureSize;
    GLuint MaxSparseArrayTextureLayers;
    bool SparseTextureFullArrayCubeMipmaps;
+
+   /** Origin of point coordinates. True if upper left, false if lower left. */
+   bool PointCoordOriginUpperLeft;
 };
 #endif

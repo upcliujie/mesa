@@ -88,6 +88,9 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_RGB_OVERRIDE_DST_ALPHA_BLEND:
       return 0;
 
+   case PIPE_CAP_POINT_COORD_ORIGIN_UPPER_LEFT:
+      return true;
+
    case PIPE_CAP_SUPPORTED_PRIM_MODES_WITH_RESTART:
    case PIPE_CAP_SUPPORTED_PRIM_MODES:
       return BITFIELD_MASK(PIPE_PRIM_MAX);
