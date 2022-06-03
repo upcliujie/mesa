@@ -1613,12 +1613,10 @@ endif
 # bar are both on use 2.4.3 for both of them
 dep_libdrm_amdgpu = null_dep
 dep_libdrm_radeon = null_dep
-dep_libdrm_nouveau = null_dep
 dep_libdrm_intel = null_dep
 
 _drm_amdgpu_ver = '2.4.110'
 _drm_radeon_ver = '2.4.71'
-_drm_nouveau_ver = '2.4.102'
 _drm_intel_ver = '2.4.75'
 _drm_ver = '2.4.109'
 
@@ -1626,7 +1624,6 @@ _libdrm_checks = [
   ['intel', with_gallium_i915],
   ['amdgpu', (with_amd_vk and not with_platform_windows) or with_gallium_radeonsi],
   ['radeon', (with_gallium_radeonsi or with_gallium_r300 or with_gallium_r600)],
-  ['nouveau', with_gallium_nouveau],
 ]
 
 # Loop over the enables versions and get the highest libdrm requirement for all

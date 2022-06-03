@@ -23,9 +23,10 @@
 #include <errno.h>
 
 #include "tgsi/tgsi_text.h"
+#include "tgsi/tgsi_from_mesa.h"
 #include "util/u_debug.h"
 
-#include "codegen/nv50_ir_driver.h"
+#include "nv50_ir_driver.h"
 #include "nv50/nv50_context.h"
 
 /* these headers weren't really meant to be included together */
@@ -108,9 +109,9 @@ nouveau_codegen(int chipset, int type, struct tgsi_token tokens[],
    struct nv50_ir_prog_info_out info_out = {0};
    int ret;
 
-   info.type = type;
+   info.stage = tgsi_processor_to_shader_stage(type);
    info.target = chipset;
-   info.bin.sourceRep = PIPE_SHADER_IR_TGSI;
+   info.bin.sourceNir = false;
    info.bin.source = tokens;
 
    info.io.auxCBSlot = 15;

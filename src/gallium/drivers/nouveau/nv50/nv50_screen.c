@@ -28,7 +28,7 @@
 #include "util/u_screen.h"
 #include "pipe/p_screen.h"
 
-#include "codegen/nv50_ir_driver.h"
+#include "nv50_ir_driver.h"
 
 #include "nv50/nv50_context.h"
 #include "nv50/nv50_screen.h"
@@ -1071,7 +1071,7 @@ nv50_screen_create(struct nouveau_device *dev)
       goto fail;
    }
 
-   nouveau_bo_map(screen->fence.bo, 0, NULL);
+   nouveau_bo_map_async(screen->fence.bo);
    screen->fence.map = screen->fence.bo->map;
    screen->base.fence.emit = nv50_screen_fence_emit;
    screen->base.fence.update = nv50_screen_fence_update;

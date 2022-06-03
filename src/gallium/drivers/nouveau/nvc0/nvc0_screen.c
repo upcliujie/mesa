@@ -30,7 +30,7 @@
 
 #include "nouveau_vp3_video.h"
 
-#include "codegen/nv50_ir_driver.h"
+#include "nv50_ir_driver.h"
 
 #include "nvc0/nvc0_context.h"
 #include "nvc0/nvc0_screen.h"
@@ -1123,7 +1123,7 @@ nvc0_screen_create(struct nouveau_device *dev)
    ret = nouveau_bo_new(dev, flags, 0, 4096, NULL, &screen->fence.bo);
    if (ret)
       FAIL_SCREEN_INIT("Error allocating fence BO: %d\n", ret);
-   nouveau_bo_map(screen->fence.bo, 0, NULL);
+   nouveau_bo_map_async(screen->fence.bo);
    screen->fence.map = screen->fence.bo->map;
    screen->base.fence.emit = nvc0_screen_fence_emit;
    screen->base.fence.update = nvc0_screen_fence_update;

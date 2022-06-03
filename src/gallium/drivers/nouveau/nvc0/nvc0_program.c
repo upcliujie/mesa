@@ -25,10 +25,10 @@
 #include "compiler/nir/nir.h"
 #include "tgsi/tgsi_ureg.h"
 #include "util/blob.h"
-
+#include "tgsi/tgsi_from_mesa.h"
 #include "nvc0/nvc0_context.h"
 
-#include "codegen/nv50_ir_driver.h"
+#include "nv50_ir_driver.h"
 #include "nvc0/nve4_compute.h"
 
 /* NOTE: Using a[0x270] in FP may cause an error even if we're using less than
@@ -184,14 +184,14 @@ nvc0_program_assign_varying_slots(struct nv50_ir_prog_info_out *info)
 {
    int ret;
 
-   if (info->type == PIPE_SHADER_VERTEX)
+   if (info->stage == MESA_SHADER_VERTEX)
       ret = nvc0_vp_assign_input_slots(info);
    else
       ret = nvc0_sp_assign_input_slots(info);
    if (ret)
       return ret;
 
-   if (info->type == PIPE_SHADER_FRAGMENT)
+   if (info->stage == MESA_SHADER_FRAGMENT)
       ret = nvc0_fp_assign_output_slots(info);
    else
       ret = nvc0_sp_assign_output_slots(info);
@@ -290,18 +290,18 @@ nvc0_vp_gen_header(struct nvc0_program *vp, struct nv50_ir_prog_info_out *info)
 static void
 nvc0_tp_get_tess_mode(struct nvc0_program *tp, struct nv50_ir_prog_info_out *info)
 {
-   if (info->prop.tp.outputPrim == PIPE_PRIM_MAX) {
+   if (info->prop.tp.outputPrim == SHADER_PRIM_MAX) {
       tp->tp.tess_mode = ~0;
       return;
    }
-   switch (info->prop.tp.domain) {
-   case PIPE_PRIM_LINES:
+   switch (info->prop.tp.mode) {
+   case TESS_PRIMITIVE_ISOLINES:
       tp->tp.tess_mode = NVC0_3D_TESS_MODE_PRIM_ISOLINES;
       break;
-   case PIPE_PRIM_TRIANGLES:
+   case TESS_PRIMITIVE_TRIANGLES:
       tp->tp.tess_mode = NVC0_3D_TESS_MODE_PRIM_TRIANGLES;
       break;
-   case PIPE_PRIM_QUADS:
+   case TESS_PRIMITIVE_QUADS:
       tp->tp.tess_mode = NVC0_3D_TESS_MODE_PRIM_QUADS;
       break;
    default:
@@ -312,27 +312,27 @@ nvc0_tp_get_tess_mode(struct nvc0_program *tp, struct nv50_ir_prog_info_out *inf
    /* It seems like lines want the "CW" bit to indicate they're connected, and
     * spit out errors in dmesg when the "CONNECTED" bit is set.
     */
-   if (info->prop.tp.outputPrim != PIPE_PRIM_POINTS) {
-      if (info->prop.tp.domain == PIPE_PRIM_LINES)
+   if (info->prop.tp.outputPrim != SHADER_PRIM_POINTS) {
+      if (info->prop.tp.mode == TESS_PRIMITIVE_ISOLINES)
          tp->tp.tess_mode |= NVC0_3D_TESS_MODE_CW;
       else
          tp->tp.tess_mode |= NVC0_3D_TESS_MODE_CONNECTED;
    }
 
    /* Winding only matters for triangles/quads, not lines. */
-   if (info->prop.tp.domain != PIPE_PRIM_LINES &&
-       info->prop.tp.outputPrim != PIPE_PRIM_POINTS &&
+   if (info->prop.tp.mode != TESS_PRIMITIVE_ISOLINES &&
+       info->prop.tp.outputPrim != SHADER_PRIM_POINTS &&
        info->prop.tp.winding > 0)
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_CW;
 
-   switch (info->prop.tp.partitioning) {
-   case PIPE_TESS_SPACING_EQUAL:
+   switch (info->prop.tp.spacing) {
+   case TESS_SPACING_EQUAL:
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_SPACING_EQUAL;
       break;
-   case PIPE_TESS_SPACING_FRACTIONAL_ODD:
+   case TESS_SPACING_FRACTIONAL_ODD:
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_SPACING_FRACTIONAL_ODD;
       break;
-   case PIPE_TESS_SPACING_FRACTIONAL_EVEN:
+   case TESS_SPACING_FRACTIONAL_EVEN:
       tp->tp.tess_mode |= NVC0_3D_TESS_MODE_SPACING_FRACTIONAL_EVEN;
       break;
    default:
@@ -587,22 +587,14 @@ nvc0_program_translate(struct nvc0_program *prog, uint16_t chipset,
    if (!info)
       return false;
 
-   info->type = prog->type;
+   info->stage = tgsi_processor_to_shader_stage(prog->type);
    info->target = chipset;
 
-   info->bin.sourceRep = prog->pipe.type;
-   switch (prog->pipe.type) {
-   case PIPE_SHADER_IR_TGSI:
-      info->bin.source = (void *)prog->pipe.tokens;
-      break;
-   case PIPE_SHADER_IR_NIR:
+   info->bin.sourceNir = prog->pipe.type == PIPE_SHADER_IR_NIR;
+   if (info->bin.sourceNir)
       info->bin.source = (void *)nir_shader_clone(NULL, prog->pipe.ir.nir);
-      break;
-   default:
-      assert(!"unsupported IR!");
-      free(info);
-      return false;
-   }
+   else
+      info->bin.source = (void *)prog->pipe.tokens;
 
 #ifndef NDEBUG
    info->target = debug_get_num_option("NV50_PROG_CHIPSET", chipset);
@@ -763,7 +755,7 @@ nvc0_program_translate(struct nvc0_program *prog, uint16_t chipset,
 #endif
 
 out:
-   if (info->bin.sourceRep == PIPE_SHADER_IR_NIR)
+   if (info->bin.sourceNir)
       ralloc_free((void *)info->bin.source);
    FREE(info);
    return !ret;

@@ -388,7 +388,7 @@ nvc0_miptree_transfer_map(struct pipe_context *pctx,
    if (nvc0_mt_transfer_can_map_directly(mt)) {
       ret = !nvc0_mt_sync(nvc0, mt, usage);
       if (!ret)
-         ret = nouveau_bo_map(mt->base.bo, 0, NULL);
+         ret = nouveau_bo_map_async(mt->base.bo);
       if (ret &&
           (usage & PIPE_MAP_DIRECTLY))
          return NULL;

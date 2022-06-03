@@ -22,12 +22,13 @@
 
 #include "pipe/p_defines.h"
 
+#include "tgsi/tgsi_from_mesa.h"
 #include "compiler/nir/nir.h"
 
 #include "nv50/nv50_context.h"
 #include "nv50/nv50_program.h"
 
-#include "codegen/nv50_ir_driver.h"
+#include "nv50_ir_driver.h"
 
 static inline unsigned
 bitcount4(const uint32_t val)
@@ -254,14 +255,14 @@ nv50_fragprog_assign_slots(struct nv50_ir_prog_info_out *info)
 static int
 nv50_program_assign_varying_slots(struct nv50_ir_prog_info_out *info)
 {
-   switch (info->type) {
-   case PIPE_SHADER_VERTEX:
+   switch (info->stage) {
+   case MESA_SHADER_VERTEX:
       return nv50_vertprog_assign_slots(info);
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       return nv50_vertprog_assign_slots(info);
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return nv50_fragprog_assign_slots(info);
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       return 0;
    default:
       return -1;
@@ -337,22 +338,14 @@ nv50_program_translate(struct nv50_program *prog, uint16_t chipset,
    if (!info)
       return false;
 
-   info->type = prog->type;
+   info->stage = tgsi_processor_to_shader_stage(prog->type);
    info->target = chipset;
 
-   info->bin.sourceRep = prog->pipe.type;
-   switch (prog->pipe.type) {
-   case PIPE_SHADER_IR_TGSI:
-      info->bin.source = (void *)prog->pipe.tokens;
-      break;
-   case PIPE_SHADER_IR_NIR:
+   info->bin.sourceNir = prog->pipe.type == PIPE_SHADER_IR_NIR;
+   if (info->bin.sourceNir)
       info->bin.source = (void *)nir_shader_clone(NULL, prog->pipe.ir.nir);
-      break;
-   default:
-      assert(!"unsupported IR!");
-      free(info);
-      return false;
-   }
+   else
+      info->bin.source = (void *)prog->pipe.tokens;
 
    info->bin.smemSize = prog->cp.smem_size;
    info->io.auxCBSlot = 15;
@@ -462,7 +455,7 @@ nv50_program_translate(struct nv50_program *prog, uint16_t chipset,
                       info_out.bin.codeSize);
 
 out:
-   if (info->bin.sourceRep == PIPE_SHADER_IR_NIR)
+   if (info->bin.sourceNir)
       ralloc_free((void *)info->bin.source);
    FREE(info);
    return !ret;
