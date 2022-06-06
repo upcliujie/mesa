@@ -239,6 +239,7 @@ enum pvr_deferred_cs_command_type {
 };
 
 struct pvr_bo;
+struct pvr_bo_store;
 struct pvr_compute_ctx;
 struct pvr_compute_pipeline;
 struct pvr_free_list;
@@ -412,6 +413,8 @@ struct pvr_device {
    } static_clear_state;
 
    VkPhysicalDeviceFeatures features;
+
+   struct pvr_bo_store *bo_store;
 };
 
 struct pvr_device_memory {

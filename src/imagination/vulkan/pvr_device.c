@@ -2054,6 +2054,10 @@ VkResult pvr_CreateDevice(VkPhysicalDevice physicalDevice,
 
    device->ws->ops->get_heaps_info(device->ws, &device->heaps);
 
+   result = pvr_bo_store_create(device);
+   if (result != VK_SUCCESS)
+      goto err_pvr_winsys_destroy;
+
    result = pvr_free_list_create(device,
                                  PVR_GLOBAL_FREE_LIST_INITIAL_SIZE,
                                  PVR_GLOBAL_FREE_LIST_MAX_SIZE,
@@ -2062,7 +2066,7 @@ VkResult pvr_CreateDevice(VkPhysicalDevice physicalDevice,
                                  NULL /* parent_free_list */,
                                  &device->global_free_list);
    if (result != VK_SUCCESS)
-      goto err_pvr_winsys_destroy;
+      goto err_pvr_bo_store_destroy;
 
    result = pvr_device_init_nop_program(device);
    if (result != VK_SUCCESS)
@@ -2122,6 +2126,9 @@ err_pvr_free_nop_program:
 err_pvr_free_list_destroy:
    pvr_free_list_destroy(device->global_free_list);
 
+err_pvr_bo_store_destroy:
+   pvr_bo_store_destroy(device);
+
 err_pvr_winsys_destroy:
    pvr_winsys_destroy(device->ws);
 
@@ -2152,6 +2159,7 @@ void pvr_DestroyDevice(VkDevice _device,
    pvr_bo_free(device, device->nop_program.pds.pvr_bo);
    pvr_bo_free(device, device->nop_program.usc);
    pvr_free_list_destroy(device->global_free_list);
+   pvr_bo_store_destroy(device);
    pvr_winsys_destroy(device->ws);
 
    if (device->master_fd >= 0)
