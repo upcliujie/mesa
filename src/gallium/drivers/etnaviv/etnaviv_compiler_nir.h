@@ -221,7 +221,8 @@ dest_for_instr(nir_instr *instr)
           intr->intrinsic == nir_intrinsic_load_texture_rect_scaling ||
           intr->intrinsic == nir_intrinsic_load_global_invocation_id_zero_base ||
           intr->intrinsic == nir_intrinsic_load_local_invocation_id ||
-          intr->intrinsic == nir_intrinsic_load_workgroup_id)
+          intr->intrinsic == nir_intrinsic_load_workgroup_id ||
+          intr->intrinsic == nir_intrinsic_load_global_etna)
          dest = &intr->dest;
    } break;
    case nir_instr_type_deref:

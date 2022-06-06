@@ -39,6 +39,7 @@
 #include "util/u_memory.h"
 #include "util/register_allocate.h"
 #include "compiler/nir/nir_builder.h"
+#include "compiler/nir/nir.h"
 
 #include "tgsi/tgsi_strings.h"
 #include "util/compiler.h"
@@ -372,6 +373,7 @@ get_src(struct etna_compile *c, nir_src *src)
       case nir_intrinsic_load_global_invocation_id_zero_base:
       case nir_intrinsic_load_local_invocation_id:
       case nir_intrinsic_load_workgroup_id:
+      case nir_intrinsic_load_global_etna:
          return ra_src(c, src);
       case nir_intrinsic_load_front_face:
          return (hw_src) { .use = 1, .rgroup = INST_RGROUP_INTERNAL };
@@ -625,6 +627,53 @@ emit_intrinsic(struct etna_compile *c, nir_intrinsic_instr * intr)
          .src[0] = get_src(c, &intr->src[1]),
          .src[1] = const_src(c, &CONST_VAL(0, ETNA_UNIFORM_UBO0_ADDR + idx, 0), 1),
       });
+   } break;
+   case nir_intrinsic_load_global_etna: {
+      unsigned dst_swiz;
+      struct etna_inst inst = {
+         .opcode = INST_OPCODE_LOAD,
+         .type = inst_type_from_bitsize(c, nir_dest_bit_size(intr->dest)),
+         .dst = ra_dest(c, &intr->dest, &dst_swiz),
+         .src[0] = src_swizzle(get_src(c, &intr->src[0]), SWIZZLE(X,X,X,X)),
+         .src[1] = src_swizzle(get_src(c, &intr->src[1]), SWIZZLE(X,X,X,X)),
+         .tex = {
+            .amode = INST_AMODE_ADD_A_W,
+         },
+      };
+
+      if (nir_src_is_const(intr->src[1])) {
+         inst.src[1].amode = INST_AMODE_ADD_A_Y;
+         inst.tex.swiz = 128;
+      }
+
+      emit_inst(c, &inst);
+   } break;
+   case nir_intrinsic_store_global_etna: {
+      int num_components = nir_src_num_components(intr->src[0]);
+      struct etna_inst inst = {
+         .opcode = INST_OPCODE_STORE,
+         .type = inst_type_from_bitsize(c, nir_src_bit_size(intr->src[0])),
+         .dst = {
+            .write_mask = (1 << num_components) - 1,
+         },
+         .tex = {
+            .amode = INST_AMODE_ADD_A_W,
+         },
+         .src[0] = src_swizzle(get_src(c, &intr->src[1]), SWIZZLE(X,X,X,X)),
+         .src[1] = src_swizzle(get_src(c, &intr->src[2]), SWIZZLE(X,X,X,X)),
+         .src[2] = get_src(c, &intr->src[0]),
+      };
+
+      inst.dst.use = inst.src[2].rgroup != INST_RGROUP_TEMP;
+      if (inst.src[2].rgroup != INST_RGROUP_IMMEDIATE) {
+         inst.src[2].swiz &= (1 << num_components * 2) - 1;
+      }
+
+      if (nir_src_is_const(intr->src[1])) {
+         inst.tex.swiz = 128;
+      }
+
+      emit_inst(c, &inst);
    } break;
    case nir_intrinsic_load_front_face:
    case nir_intrinsic_load_frag_coord:
@@ -1200,6 +1249,8 @@ etna_compile_shader(struct etna_shader_variant *v)
 
    NIR_PASS_V(s, etna_lower_io, v);
    NIR_PASS_V(s, nir_lower_pack);
+   NIR_PASS_V(s, etna_nir_lower_global);
+
    etna_optimize_loop(s);
 
    if (v->shader->specs->vs_need_z_div)

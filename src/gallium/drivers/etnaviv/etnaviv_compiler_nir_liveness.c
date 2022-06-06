@@ -149,7 +149,8 @@ etna_live_defs(nir_function_impl *impl, struct live_def *defs, unsigned *live_ma
                 intr->intrinsic == nir_intrinsic_load_instance_id ||
                 intr->intrinsic == nir_intrinsic_load_global_invocation_id_zero_base ||
                 intr->intrinsic == nir_intrinsic_load_local_invocation_id ||
-                intr->intrinsic == nir_intrinsic_load_workgroup_id)
+                intr->intrinsic == nir_intrinsic_load_workgroup_id ||
+                intr->intrinsic == nir_intrinsic_load_global_etna)
                defs[state.num_defs].live_start = 0;
          }
 
@@ -213,7 +214,8 @@ etna_live_defs(nir_function_impl *impl, struct live_def *defs, unsigned *live_ma
          /* output live till the end */
          if (instr->type == nir_instr_type_intrinsic) {
             nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-            if (intr->intrinsic == nir_intrinsic_store_deref)
+            if (intr->intrinsic == nir_intrinsic_store_deref ||
+                intr->intrinsic == nir_intrinsic_store_global_etna)
                state.index = ~0u;
          }
 
