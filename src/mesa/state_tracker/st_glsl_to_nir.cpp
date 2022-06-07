@@ -788,8 +788,10 @@ st_link_nir(struct gl_context *ctx,
       if (nir->info.stage == MESA_SHADER_VERTEX && !shader_program->data->spirv)
          nir_remap_dual_slot_attributes(nir, &shader->Program->DualSlotInputs);
 
-      NIR_PASS_V(nir, st_nir_lower_wpos_ytransform, shader->Program,
-                 st->screen);
+      if (st->screen->get_param(st->screen, PIPE_CAP_Y_FLIP)) {
+         NIR_PASS_V(nir, st_nir_lower_wpos_ytransform, shader->Program,
+                    st->screen);
+      }
 
       NIR_PASS_V(nir, nir_lower_system_values);
       NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);

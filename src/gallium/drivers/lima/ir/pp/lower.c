@@ -145,13 +145,10 @@ static bool ppir_lower_ddxy(ppir_block *block, ppir_node *node)
    assert(node->type == ppir_node_type_alu);
    ppir_alu_node *alu = ppir_node_to_alu(node);
 
+   /* Follow the binary driver behavior which adds the negated
+    * argument as a second src to ddx/ddy */
    alu->src[1] = alu->src[0];
-   if (node->op == ppir_op_ddx)
-      alu->src[1].negate = !alu->src[1].negate;
-   else if (node->op == ppir_op_ddy)
-      alu->src[0].negate = !alu->src[0].negate;
-   else
-      assert(0);
+   alu->src[1].negate = !alu->src[1].negate;
 
    alu->num_src = 2;
 

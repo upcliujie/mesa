@@ -488,6 +488,9 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_CLAMP_SPARSE_TEXTURE_LOD:
       return 0;
 
+   case PIPE_CAP_Y_FLIP:
+      return 1;
+
    default:
       unreachable("bad PIPE_CAP_*");
    }

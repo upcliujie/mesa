@@ -57,6 +57,8 @@ lima_get_fb_info(struct lima_job *job)
    fb->width = ctx->framebuffer.base.width;
    fb->height = ctx->framebuffer.base.height;
 
+   fb->flip_y = ctx->framebuffer.base.flip_y;
+
    int width = align(fb->width, 16) >> 4;
    int height = align(fb->height, 16) >> 4;
 
@@ -875,11 +877,26 @@ lima_pack_pp_frame_reg(struct lima_job *job, uint32_t *frame_reg,
    frame->fragment_stack_size = job->pp_max_stack_size << 16 | job->pp_max_stack_size;
 
    /* related with MSAA and different value when r4p0/r7p0 */
-   frame->supersampled_height = fb->height * 2 - 1;
-   frame->scale = 0xE0C;
+   if (fb->flip_y)
+      frame->supersampled_height = fb->height * 2 - 1;
+   else
+      frame->supersampled_height = 1;
+
+   frame->scale = 0x00C;
+   if (fb->flip_y) {
+      /* 11: flip derivative y
+       * 10: flip fragcoord y
+       *  9: flip dithering */
+      frame->scale |= (1<<11) | (1<<10) | (1<<9);
+   }
 
    frame->dubya = 0x77;
-   frame->onscreen = 1;
+
+   if (fb->flip_y)
+      frame->onscreen = 1;
+   else
+      frame->onscreen = 0;
+
    frame->blocking = (fb->shift_min << 28) | (fb->shift_h << 16) | fb->shift_w;
 
    /* Set default layout to 8888 */

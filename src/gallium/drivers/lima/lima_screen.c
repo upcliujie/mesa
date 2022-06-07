@@ -121,6 +121,11 @@ lima_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_FS_COORD_PIXEL_CENTER_HALF_INTEGER:
       return 1;
 
+   /* Disable y flip transform nir pass since we will flip
+    * coords in hardware */
+   case PIPE_CAP_Y_FLIP:
+      return 0;
+
    case PIPE_CAP_FS_POSITION_IS_SYSVAL:
    case PIPE_CAP_FS_POINT_IS_SYSVAL:
    case PIPE_CAP_FS_FACE_IS_INTEGER_SYSVAL:

@@ -102,6 +102,8 @@ util_copy_framebuffer_state(struct pipe_framebuffer_state *dst,
 
       dst->nr_cbufs = src->nr_cbufs;
 
+      dst->flip_y = src->flip_y;
+
       pipe_surface_reference(&dst->zsbuf, src->zsbuf);
    } else {
       dst->width = 0;
@@ -114,6 +116,8 @@ util_copy_framebuffer_state(struct pipe_framebuffer_state *dst,
          pipe_surface_reference(&dst->cbufs[i], NULL);
 
       dst->nr_cbufs = 0;
+
+      dst->flip_y = 0;
 
       pipe_surface_reference(&dst->zsbuf, NULL);
    }

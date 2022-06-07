@@ -212,6 +212,8 @@ st_update_framebuffer_state( struct st_context *st )
    if (framebuffer.height == USHRT_MAX)
       framebuffer.height = 0;
 
+   framebuffer.flip_y = fb->FlipY;
+
    cso_set_framebuffer(st->cso_context, &framebuffer);
 
    st->state.fb_width = framebuffer.width;
