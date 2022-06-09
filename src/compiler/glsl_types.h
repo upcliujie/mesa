@@ -680,7 +680,7 @@ public:
     * values are set, so only with SPIR-V shaders. Should not be used with
     * GLSL shaders.
     */
-   unsigned explicit_size(bool align_to_stride=false) const;
+   unsigned explicit_size(bool include_padding=false) const;
 
    /**
     * \brief Can this type be implicitly converted to another?

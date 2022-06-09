@@ -2461,7 +2461,7 @@ glsl_type::std430_array_stride(bool row_major) const
  */
 
 unsigned
-glsl_type::explicit_size(bool align_to_stride) const
+glsl_type::explicit_size(bool include_padding) const
 {
    if (this->is_struct() || this->is_interface()) {
       if (this->length > 0) {
@@ -2473,6 +2473,8 @@ glsl_type::explicit_size(bool align_to_stride) const
                this->fields.structure[i].type->explicit_size();
             size = MAX2(size, last_byte);
          }
+         if (include_padding && this->explicit_alignment)
+            size = align(size, this->explicit_alignment);
 
          return size;
       } else {
@@ -2494,7 +2496,7 @@ glsl_type::explicit_size(bool align_to_stride) const
          return this->explicit_stride;
 
       assert(this->length > 0);
-      unsigned elem_size = align_to_stride ? this->explicit_stride : this->fields.array->explicit_size();
+      unsigned elem_size = include_padding ? this->explicit_stride : this->fields.array->explicit_size();
       assert(this->explicit_stride >= elem_size);
 
       return this->explicit_stride * (this->length - 1) + elem_size;
@@ -2512,7 +2514,7 @@ glsl_type::explicit_size(bool align_to_stride) const
          length = this->matrix_columns;
       }
 
-      unsigned elem_size = align_to_stride ? this->explicit_stride : elem_type->explicit_size();
+      unsigned elem_size = include_padding ? this->explicit_stride : elem_type->explicit_size();
 
       assert(this->explicit_stride);
       return this->explicit_stride * (length - 1) + elem_size;
@@ -2761,6 +2763,7 @@ glsl_type::get_explicit_type_for_size_align(glsl_type_size_align_func type_info,
          *size = fields[i].offset + field_size;
          *alignment = MAX2(*alignment, field_align);
       }
+      *size = align(*size, *alignment);
 
       const glsl_type *type;
       if (this->is_struct()) {
