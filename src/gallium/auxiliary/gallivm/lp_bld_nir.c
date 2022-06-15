@@ -2453,6 +2453,10 @@ bool lp_build_nir_llvm(
    struct nir_shader *nir)
 {
    struct nir_function *func;
+   if (is_aos(bld_base)) {
+      nir_lower_load_const_to_scalar(nir);
+      nir_copy_prop(nir);
+   }
 
    nir_convert_from_ssa(nir, true);
    nir_lower_locals_to_regs(nir);
