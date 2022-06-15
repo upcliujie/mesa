@@ -122,6 +122,9 @@ static void emit_load_var(struct lp_build_nir_context *bld_base,
    switch (deref_mode) {
    case nir_var_shader_in:
       result[0] = bld->inputs[location];
+      if (num_components == 1) {
+         result[0] = lp_build_swizzle_scalar_aos(&bld_base->base, result[0], 2, 4);
+      }
       break;
    default:
       break;
