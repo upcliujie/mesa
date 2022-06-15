@@ -168,7 +168,8 @@ struct lp_build_nir_context
                      unsigned writemask,
                      LLVMValueRef indir_src,
                      LLVMValueRef reg_storage,
-                     LLVMValueRef dst[NIR_MAX_VEC_COMPONENTS]);
+                     LLVMValueRef dst[NIR_MAX_VEC_COMPONENTS],
+                     const uint8_t *aos_src_swizzle);
 
    void (*load_scratch)(struct lp_build_nir_context *bld_base,
                         unsigned nc, unsigned bit_size,

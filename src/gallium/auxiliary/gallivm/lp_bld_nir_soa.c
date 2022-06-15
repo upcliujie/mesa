@@ -723,12 +723,15 @@ static void emit_store_reg(struct lp_build_nir_context *bld_base,
                            unsigned writemask,
                            LLVMValueRef indir_src,
                            LLVMValueRef reg_storage,
-                           LLVMValueRef dst[NIR_MAX_VEC_COMPONENTS])
+                           LLVMValueRef dst[NIR_MAX_VEC_COMPONENTS],
+                           const uint8_t *aos_src_swizzle)
 {
    struct lp_build_nir_soa_context *bld = (struct lp_build_nir_soa_context *)bld_base;
    struct gallivm_state *gallivm = bld_base->base.gallivm;
    LLVMBuilderRef builder = gallivm->builder;
    struct lp_build_context *uint_bld = &bld_base->uint_bld;
+
+   assert(!aos_src_swizzle);
    int nc = reg->reg->num_components;
    if (reg->reg->num_array_elems > 0) {
       LLVMValueRef indirect_val = lp_build_const_int_vec(gallivm, uint_bld->type, reg->base_offset);

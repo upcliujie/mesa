@@ -173,14 +173,21 @@ static void emit_store_reg(struct lp_build_nir_context *bld_base,
                            unsigned writemask,
                            LLVMValueRef indir_src,
                            LLVMValueRef reg_storage,
-                           LLVMValueRef dst[NIR_MAX_VEC_COMPONENTS])
+                           LLVMValueRef dst[NIR_MAX_VEC_COMPONENTS],
+                           const uint8_t *aos_src_swizzle)
 {
    struct gallivm_state *gallivm = bld_base->base.gallivm;
-
+   bool need_swizzle = false;
    if (LLVMIsConstant(dst[0]))
       dst[0] = lp_nir_aos_conv_const(gallivm, dst[0], 1);
 
-   if (writemask == 0xf) {
+   if (aos_src_swizzle) {
+      for (unsigned i = 0; i < 4; ++i) {
+         if (aos_src_swizzle[i] != i)
+            need_swizzle = true;
+      }
+   }
+   if (writemask == 0xf && need_swizzle == false) {
       LLVMBuildStore(gallivm->builder, dst[0], reg_storage);
       return;
    }
@@ -188,11 +195,12 @@ static void emit_store_reg(struct lp_build_nir_context *bld_base,
    LLVMValueRef cur = LLVMBuildLoad(gallivm->builder, reg_storage, "");
    LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm->context);
    for (unsigned i = 0; i < 4; i++) {
+      unsigned src_chan = aos_src_swizzle ? aos_src_swizzle[i] : i;
       if (writemask & (1 << i)) {
          LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH] = { 0 };
-         for (unsigned j = 0; j < 16; j++){
+         for (unsigned j = 0; j < 16; j++) {
             if (j % 4 == i)
-               shuffles[j] = LLVMConstInt(i32t, 16 + j, 0);
+               shuffles[j] = LLVMConstInt(i32t, 16 + (4 * (j / 4)) + src_chan, 0);
             else
                shuffles[j] = LLVMConstInt(i32t, j, 0);
          }
