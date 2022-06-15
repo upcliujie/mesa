@@ -179,7 +179,8 @@ static void assign_ssa_dest(struct lp_build_nir_context *bld_base, const nir_ssa
 
 static void assign_reg(struct lp_build_nir_context *bld_base, const nir_reg_dest *reg,
                        unsigned write_mask,
-                       LLVMValueRef vals[NIR_MAX_VEC_COMPONENTS])
+                       LLVMValueRef vals[NIR_MAX_VEC_COMPONENTS],
+                       const uint8_t *aos_swizzle)
 {
    struct hash_entry *entry = _mesa_hash_table_search(bld_base->regs, reg->reg);
    LLVMValueRef reg_storage = (LLVMValueRef)entry->data;
@@ -187,7 +188,7 @@ static void assign_reg(struct lp_build_nir_context *bld_base, const nir_reg_dest
    LLVMValueRef indir_src = NULL;
    if (reg->indirect)
       indir_src = get_src(bld_base, *reg->indirect);
-   bld_base->store_reg(bld_base, reg_bld, reg, write_mask ? write_mask : 0xf, indir_src, reg_storage, vals);
+   bld_base->store_reg(bld_base, reg_bld, reg, write_mask ? write_mask : 0xf, indir_src, reg_storage, vals, aos_swizzle);
 }
 
 static void assign_dest(struct lp_build_nir_context *bld_base, const nir_dest *dest, LLVMValueRef vals[NIR_MAX_VEC_COMPONENTS])
@@ -195,7 +196,7 @@ static void assign_dest(struct lp_build_nir_context *bld_base, const nir_dest *d
    if (dest->is_ssa)
       assign_ssa_dest(bld_base, &dest->ssa, vals);
    else
-      assign_reg(bld_base, &dest->reg, 0, vals);
+      assign_reg(bld_base, &dest->reg, 0, vals, NULL);
 }
 
 static void assign_alu_dest(struct lp_build_nir_context *bld_base, const nir_alu_dest *dest, LLVMValueRef vals[NIR_MAX_VEC_COMPONENTS])
@@ -203,7 +204,7 @@ static void assign_alu_dest(struct lp_build_nir_context *bld_base, const nir_alu
    if (dest->dest.is_ssa)
       assign_ssa_dest(bld_base, &dest->dest.ssa, vals);
    else
-      assign_reg(bld_base, &dest->dest.reg, dest->write_mask, vals);
+      assign_reg(bld_base, &dest->dest.reg, dest->write_mask, vals, NULL);
 }
 
 static LLVMValueRef int_to_bool32(struct lp_build_nir_context *bld_base,
@@ -1131,7 +1132,7 @@ static void visit_alu(struct lp_build_nir_context *bld_base, const nir_alu_instr
    if (instr->op == nir_op_mov && is_aos(bld_base) && !instr->dest.dest.is_ssa) {
       for (unsigned i = 0; i < 4; i++) {
          if (instr->dest.write_mask & (1 << i)) {
-            assign_reg(bld_base, &instr->dest.dest.reg, (1 << i), src);
+            assign_reg(bld_base, &instr->dest.dest.reg, (1 << i), src, instr->src[0].swizzle);
          }
       }
       return;
@@ -2453,6 +2454,10 @@ bool lp_build_nir_llvm(
    struct nir_shader *nir)
 {
    struct nir_function *func;
+   if (is_aos(bld_base)) {
+      nir_lower_load_const_to_scalar(nir);
+      nir_copy_prop(nir);
+   }
 
    nir_convert_from_ssa(nir, true);
    nir_lower_locals_to_regs(nir);
