@@ -2442,7 +2442,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
       const VkPipelineSampleLocationsStateCreateInfoEXT *sl_info = ms_info ?
          vk_find_struct_const(ms_info, PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT) : NULL;
 
-      if (sl_info) {
+      if (sl_info && sl_info->sampleLocationsEnable) {
          dynamic->sample_locations.samples =
             sl_info->sampleLocationsInfo.sampleLocationsCount;
          const VkSampleLocationEXT *positions =
