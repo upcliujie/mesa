@@ -76,6 +76,9 @@ convert_pc_to_bits(struct GENX(PIPE_CONTROL) *pc) {
    bits |= (pc->StallAtPixelScoreboard) ?  ANV_PIPE_STALL_AT_SCOREBOARD_BIT : 0;
    bits |= (pc->DepthStallEnable) ?  ANV_PIPE_DEPTH_STALL_BIT : 0;
    bits |= (pc->CommandStreamerStallEnable) ?  ANV_PIPE_CS_STALL_BIT : 0;
+#if GFX_VERx10 == 125
+   bits |= (pc->UntypedDataPortCacheFlushEnable) ? ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT : 0;
+#endif
    return bits;
 }
 
@@ -83,7 +86,7 @@ convert_pc_to_bits(struct GENX(PIPE_CONTROL) *pc) {
    if (INTEL_DEBUG(DEBUG_PIPE_CONTROL)) { \
       fputs("pc: emit PC=( ", stderr); \
       anv_dump_pipe_bits(convert_pc_to_bits(&(pc))); \
-      fprintf(stderr, ") reason: %s\n", __FUNCTION__); \
+      fprintf(stderr, ") reason: %s:%u\n", __FUNCTION__, __LINE__);      \
    }
 
 static bool
@@ -2102,6 +2105,16 @@ genX(emit_apply_pipe_flushes)(struct anv_batch *batch,
          /* Flushing HDC pipeline requires DC Flush on earlier HW. */
          pipe.DCFlushEnable |= bits & ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
 #endif
+#if GFX_VERx10 >= 125
+         /* This bit is functional and must be only set for GPGPU workloads,
+          * i.e when PIPELINE_SELECT command has set "Pipeline Select" mode set
+          * to "GPGPU".
+          */
+         pipe.UntypedDataPortCacheFlushEnable |=
+            (bits & ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT) &&
+            current_pipeline == GPGPU;
+         pipe.HDCPipelineFlushEnable |= pipe.UntypedDataPortCacheFlushEnable;
+#endif
          pipe.DepthCacheFlushEnable = bits & ANV_PIPE_DEPTH_CACHE_FLUSH_BIT;
          pipe.DCFlushEnable |= bits & ANV_PIPE_DATA_CACHE_FLUSH_BIT;
          pipe.RenderTargetCacheFlushEnable =
@@ -2319,6 +2332,14 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
              sizeof(cmd_buffer->state.gfx.ib_dirty_range));
    }
 
+   cmd_buffer->flush_stats.tile += (bits & ANV_PIPE_TILE_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.data += (bits & ANV_PIPE_DATA_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.rc += (bits & ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.depth += (bits & ANV_PIPE_DEPTH_CACHE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.hdc += (bits & ANV_PIPE_HDC_PIPELINE_FLUSH_BIT) != 0;
+   cmd_buffer->flush_stats.stall += (bits & (ANV_PIPE_DEPTH_STALL_BIT |
+                                             ANV_PIPE_CS_STALL_BIT)) != 0;
+
    cmd_buffer->state.pending_pipe_bits =
       genX(emit_apply_pipe_flushes)(&cmd_buffer->batch,
                                     cmd_buffer->device,
@@ -2340,25 +2361,41 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
     * the app asks for.  One of these days we may make this a bit better
     * but right now that's all the hardware allows for in most areas.
     */
-   VkAccessFlags2 src_flags = 0;
-   VkAccessFlags2 dst_flags = 0;
+   enum intel_pipe_control_bits pc_bits = 0;
 
    for (uint32_t i = 0; i < dep_info->memoryBarrierCount; i++) {
-      src_flags |= dep_info->pMemoryBarriers[i].srcAccessMask;
-      dst_flags |= dep_info->pMemoryBarriers[i].dstAccessMask;
+      pc_bits |= anv_cache_pipe_control_bits_for(cmd_buffer->device,
+         dep_info->pMemoryBarriers[i].dstAccessMask,
+         dep_info->pMemoryBarriers[i].dstStageMask,
+         dep_info->pMemoryBarriers[i].srcAccessMask,
+         dep_info->pMemoryBarriers[i].srcStageMask,
+         "memory barrier, mb_",
+         &dep_info->pMemoryBarriers[i]);
    }
 
    for (uint32_t i = 0; i < dep_info->bufferMemoryBarrierCount; i++) {
-      src_flags |= dep_info->pBufferMemoryBarriers[i].srcAccessMask;
-      dst_flags |= dep_info->pBufferMemoryBarriers[i].dstAccessMask;
+      pc_bits |= anv_cache_pipe_control_bits_for(cmd_buffer->device,
+         dep_info->pBufferMemoryBarriers[i].dstAccessMask,
+         dep_info->pBufferMemoryBarriers[i].dstStageMask,
+         dep_info->pBufferMemoryBarriers[i].srcAccessMask,
+         dep_info->pBufferMemoryBarriers[i].srcStageMask,
+         "buffer barrier bb_",
+         &dep_info->pBufferMemoryBarriers[i]);
    }
 
    for (uint32_t i = 0; i < dep_info->imageMemoryBarrierCount; i++) {
       const VkImageMemoryBarrier2 *img_barrier =
          &dep_info->pImageMemoryBarriers[i];
 
-      src_flags |= img_barrier->srcAccessMask;
-      dst_flags |= img_barrier->dstAccessMask;
+      enum anv_pipe_bits bits =
+         anv_cache_pipe_control_bits_for(cmd_buffer->device,
+                                         img_barrier->dstAccessMask,
+                                         img_barrier->dstStageMask,
+                                         img_barrier->srcAccessMask,
+                                         img_barrier->srcStageMask,
+                                         "image barrier ib_",
+                                         img_barrier);
+      pc_bits |= bits;
 
       ANV_FROM_HANDLE(anv_image, image, img_barrier->image);
       const VkImageSubresourceRange *range = &img_barrier->subresourceRange;
@@ -2407,10 +2444,7 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
       }
    }
 
-   enum anv_pipe_bits bits =
-      anv_pipe_flush_bits_for_access_flags(cmd_buffer->device, src_flags) |
-      anv_pipe_invalidate_bits_for_access_flags(cmd_buffer->device, dst_flags);
-
+   enum anv_pipe_bits bits = anv_pipe_bits_from_pc_bits(pc_bits);
    anv_add_pending_pipe_bits(cmd_buffer, bits, reason);
 }
 
@@ -7268,15 +7302,6 @@ void genX(CmdEndConditionalRenderingEXT)(
    cmd_state->conditional_render_enabled = false;
 }
 #endif
-
-/* Set of stage bits for which are pipelined, i.e. they get queued
- * by the command streamer for later execution.
- */
-#define ANV_PIPELINE_STAGE_PIPELINED_BITS \
-   ~(VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT | \
-     VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | \
-     VK_PIPELINE_STAGE_2_HOST_BIT | \
-     VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT)
 
 void genX(CmdSetEvent2)(
     VkCommandBuffer                             commandBuffer,

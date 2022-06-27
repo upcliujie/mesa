@@ -103,6 +103,17 @@ VkResult anv_QueuePresentKHR(
       }
    }
 
+   if (device->cmd_buffer_stats) {
+      fprintf(stderr, "stats: tile=%05u hdc=%05u rc=%05u depth=%05u data=%05u stall=%05u\n",
+              device->flush_stats.tile,
+              device->flush_stats.hdc,
+              device->flush_stats.rc,
+              device->flush_stats.depth,
+              device->flush_stats.data,
+              device->flush_stats.stall);
+      memset(&device->flush_stats, 0, sizeof(device->flush_stats));
+   }
+
    result = vk_queue_wait_before_present(&queue->vk, pPresentInfo);
    if (result != VK_SUCCESS)
       return result;

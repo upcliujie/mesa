@@ -44,6 +44,7 @@
 #define VG(x) ((void)0)
 #endif
 
+#include "common/intel_cache_structure.h"
 #include "common/intel_clflush.h"
 #include "common/intel_decoder.h"
 #include "common/intel_gem.h"
@@ -968,6 +969,8 @@ struct anv_physical_device {
     struct anv_instance *                       instance;
     char                                        path[20];
     struct intel_device_info                      info;
+
+    const struct intel_cache_hierarchy *        cache_hierarchy;
     /** Amount of "GPU memory" we want to advertise
      *
      * Clearly, this value is bogus since Intel is a UMA architecture.  On
@@ -1150,6 +1153,27 @@ anv_device_upload_nir(struct anv_device *device,
                       const struct nir_shader *nir,
                       unsigned char sha1_key[20]);
 
+struct anv_flush_stats {
+   uint32_t                                  tile;
+   uint32_t                                  hdc;
+   uint32_t                                  rc;
+   uint32_t                                  depth;
+   uint32_t                                  data;
+   uint32_t                                  stall;
+};
+
+static inline void
+anv_flush_stats_add(struct anv_flush_stats *dst,
+                    const struct anv_flush_stats *src)
+{
+   dst->tile  += src->tile;
+   dst->hdc   += src->hdc;
+   dst->data  += src->data;
+   dst->rc    += src->rc;
+   dst->depth += src->depth;
+   dst->stall += src->stall;
+}
+
 struct anv_device {
     struct vk_device                            vk;
 
@@ -1160,6 +1184,7 @@ struct anv_device {
     int                                         fd;
     bool                                        can_chain_batches;
     bool                                        robust_buffer_access;
+    bool                                        cmd_buffer_stats;
 
     pthread_mutex_t                             vma_mutex;
     struct util_vma_heap                        vma_lo;
@@ -1258,6 +1283,8 @@ struct anv_device {
     struct intel_debug_block_frame              *debug_frame_desc;
 
     struct intel_ds_device                       ds;
+
+   struct anv_flush_stats flush_stats;
 };
 
 #if defined(GFX_VERx10) && GFX_VERx10 >= 90
@@ -2347,6 +2374,12 @@ enum anv_pipe_bits {
     */
    ANV_PIPE_HDC_PIPELINE_FLUSH_BIT           = (1 << 14),
    ANV_PIPE_PSS_STALL_SYNC_BIT               = (1 << 15),
+
+   /*
+    * This bit flush data-port's Untyped L1 data cache (LSC L1).
+    */
+   ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT = (1 << 16),
+
    ANV_PIPE_CS_STALL_BIT                     = (1 << 20),
    ANV_PIPE_END_OF_PIPE_SYNC_BIT             = (1 << 21),
 
@@ -2382,6 +2415,7 @@ enum anv_pipe_bits {
    ANV_PIPE_DEPTH_CACHE_FLUSH_BIT | \
    ANV_PIPE_DATA_CACHE_FLUSH_BIT | \
    ANV_PIPE_HDC_PIPELINE_FLUSH_BIT | \
+   ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT | \
    ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT | \
    ANV_PIPE_TILE_CACHE_FLUSH_BIT)
 
@@ -2395,6 +2429,7 @@ enum anv_pipe_bits {
    ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_VF_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_HDC_PIPELINE_FLUSH_BIT | \
+   ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT | \
    ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_INSTRUCTION_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_AUX_TABLE_INVALIDATE_BIT)
@@ -2402,177 +2437,274 @@ enum anv_pipe_bits {
 enum intel_ds_stall_flag
 anv_pipe_flush_bit_to_ds_stall_flag(enum anv_pipe_bits bits);
 
+/* Boring conversion from intel_pipe_control_bits to anv_pipe_bits. */
 static inline enum anv_pipe_bits
-anv_pipe_flush_bits_for_access_flags(struct anv_device *device,
-                                     VkAccessFlags2 flags)
+anv_pipe_bits_from_pc_bits(enum intel_pipe_control_bits pc_bits)
 {
-   enum anv_pipe_bits pipe_bits = 0;
+   enum anv_pipe_bits anv_bits = 0;
+
+   if (pc_bits & INTEL_PIPE_CONTROL_VF_CACHE_INVALIDATE)
+      anv_bits |= ANV_PIPE_VF_CACHE_INVALIDATE_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_TEX_CACHE_INVALIDATE)
+      anv_bits |= ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_CONST_CACHE_INVALIDATE)
+      anv_bits |= ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_CS_STALL)
+      anv_bits |= ANV_PIPE_CS_STALL_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_DEPTH_CACHE_FLUSH)
+      anv_bits |= ANV_PIPE_DEPTH_CACHE_FLUSH_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_DATA_CACHE_FLUSH)
+      anv_bits |= ANV_PIPE_DATA_CACHE_FLUSH_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_HDC_CACHE_FLUSH)
+      anv_bits |= ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_UNTYPED_DATA_FLUSH)
+      anv_bits |= ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_RT_CACHE_FLUSH)
+      anv_bits |= ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT;
+   if (pc_bits & INTEL_PIPE_CONTROL_TILE_CACHE_FLUSH)
+      anv_bits |= ANV_PIPE_TILE_CACHE_FLUSH_BIT;
+
+   return anv_bits;
+}
+
+static inline enum intel_hw_cache_unit
+anv_pipe_hw_units_bits_for_access_flags(struct anv_device *device,
+                                        VkAccessFlags2 flags,
+                                        VkPipelineStageFlagBits2 stages)
+{
+   enum intel_hw_cache_unit hw_units = 0;
 
    u_foreach_bit64(b, flags) {
       switch ((VkAccessFlags2)BITFIELD64_BIT(b)) {
-      case VK_ACCESS_2_SHADER_WRITE_BIT:
-      case VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT:
-         /* We're transitioning a buffer that was previously used as write
-          * destination through the data port. To make its content available
-          * to future operations, flush the hdc pipeline.
+      case VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT:
+         /* Indirect draw commands take a buffer as input that we're going to
+          * be read from the command streamer to load some of the HW registers
+          * (see genX_cmd_buffer.c:load_indirect_parameters for draw commands
+          * or genX(CmdDispatchIndirect)).
           */
-         pipe_bits |= ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
+         hw_units |= INTEL_HW_CACHE_UNIT_CS;
+         if (stages & (VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
+                       VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT |
+                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT)) {
+            /* Indirect draw commands also set gl_BaseVertex & gl_BaseIndex
+             * through a vertex buffer, so VF is involved.
+             */
+            hw_units |= INTEL_HW_CACHE_UNIT_VF;
+         }
+         if (stages & (VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT |
+                       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)) {
+            /* For CmdDipatchIndirect, we also load gl_NumWorkGroups through a
+             * UBO from the buffer, so we need to flag those units.
+             */
+            hw_units |= INTEL_HW_CACHE_UNIT_CONSTANT;
+            hw_units |= INTEL_HW_CACHE_UNIT_DATA;
+         }
+         break;
+      case VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT:
+         /* TODO: It seems we're not enabling coherent FB reads at the moment.
+          *       Maybe this is something we want to enable later.
+          */
+         hw_units |= INTEL_HW_CACHE_UNIT_TEXTURE;
          break;
       case VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT:
-         /* We're transitioning a buffer that was previously used as render
-          * target. To make its content available to future operations, flush
-          * the render target cache.
-          */
-         pipe_bits |= ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT;
+         /* Color attachments reads/writes go into the render target cache. */
+         hw_units |= INTEL_HW_CACHE_UNIT_RENDERTARGET;
          break;
-      case VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT:
-         /* We're transitioning a buffer that was previously used as depth
-          * buffer. To make its content available to future operations, flush
-          * the depth cache.
+      case VK_ACCESS_2_INDEX_READ_BIT:
+      case VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT:
+         /* Data to be used for as input for vkCmdDraw* commands, this
+          * involves the VF unit.
           */
-         pipe_bits |= ANV_PIPE_DEPTH_CACHE_FLUSH_BIT;
+         hw_units |= INTEL_HW_CACHE_UNIT_VF;
+         break;
+      case VK_ACCESS_2_UNIFORM_READ_BIT:
+         /* Uniforms can be read through constant cache and either the texture
+          * cache (sampler) & constant cache (data port) dependending on how
+          * the compiler works.
+          */
+         hw_units |= INTEL_HW_CACHE_UNIT_CONSTANT;
+         if (device->physical->compiler->indirect_ubos_use_sampler)
+            hw_units |= INTEL_HW_CACHE_UNIT_TEXTURE;
+         else
+            hw_units |= INTEL_HW_CACHE_UNIT_DATA;
+         break;
+      case VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT:
+      case VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT:
+         /* Depth read/writes only deal with the depth unit. */
+         hw_units |= INTEL_HW_CACHE_UNIT_DEPTH;
+         break;
+      case VK_ACCESS_2_SHADER_STORAGE_READ_BIT:
+         hw_units |= INTEL_HW_CACHE_UNIT_DATA;
+         break;
+      case VK_ACCESS_2_SHADER_SAMPLED_READ_BIT:
+         hw_units |= INTEL_HW_CACHE_UNIT_TEXTURE;
+         break;
+      case VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT:
+         hw_units |= INTEL_HW_CACHE_UNIT_TEXTURE;
+         break;
+      case VK_ACCESS_2_SHADER_READ_BIT:
+         /*
+          *   "VK_ACCESS_2_SHADER_READ_BIT_KHR specifies read access to a
+          *    shader binding table in any shader pipeline. In addition, it is
+          *    equivalent to the logical OR of:
+          *
+          *       - VK_ACCESS_2_UNIFORM_READ_BIT_KHR
+          *       - VK_ACCESS_2_SHADER_SAMPLED_READ_BIT_KHR
+          *       - VK_ACCESS_2_SHADER_STORAGE_READ_BIT_KHR"
+          */
+         hw_units |= INTEL_HW_CACHE_UNIT_TEXTURE;
+         hw_units |= INTEL_HW_CACHE_UNIT_DATA;
+         break;
+      case VK_ACCESS_2_TRANSFER_READ_BIT:
+         /* Blorp reads are either through texture or depth. */
+         hw_units |= INTEL_HW_CACHE_UNIT_TEXTURE;
+         hw_units |= INTEL_HW_CACHE_UNIT_DEPTH;
+         break;
+      case VK_ACCESS_2_SHADER_WRITE_BIT:
+      case VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT:
+         /* Shader storage writes are going through the data port. */
+         hw_units |= INTEL_HW_CACHE_UNIT_DATA;
          break;
       case VK_ACCESS_2_TRANSFER_WRITE_BIT:
-         /* We're transitioning a buffer that was previously used as a
-          * transfer write destination. Generic write operations include color
-          * & depth operations as well as buffer operations like :
+         /* Transfer write operations include color & depth operations as well
+          * as buffer operations like :
           *     - vkCmdClearColorImage()
           *     - vkCmdClearDepthStencilImage()
           *     - vkCmdBlitImage()
           *     - vkCmdCopy*(), vkCmdUpdate*(), vkCmdFill*()
           *
           * Most of these operations are implemented using Blorp which writes
-          * through the render target, so flush that cache to make it visible
-          * to future operations. And for depth related operations we also
-          * need to flush the depth cache.
+          * through the render target. And for depth related operations Blorp
+          * also uses the depth unit.
           */
-         pipe_bits |= ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT;
-         pipe_bits |= ANV_PIPE_DEPTH_CACHE_FLUSH_BIT;
-         break;
-      case VK_ACCESS_2_MEMORY_WRITE_BIT:
-         /* We're transitioning a buffer for generic write operations. Flush
-          * all the caches.
-          */
-         pipe_bits |= ANV_PIPE_FLUSH_BITS;
-         break;
-      case VK_ACCESS_2_HOST_WRITE_BIT:
-         /* We're transitioning a buffer for access by CPU. Invalidate
-          * all the caches. Since data and tile caches don't have invalidate,
-          * we are forced to flush those as well.
-          */
-         pipe_bits |= ANV_PIPE_FLUSH_BITS;
-         pipe_bits |= ANV_PIPE_INVALIDATE_BITS;
-         break;
-      case VK_ACCESS_2_TRANSFORM_FEEDBACK_WRITE_BIT_EXT:
-      case VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT:
-         /* We're transitioning a buffer written either from VS stage or from
-          * the command streamer (see CmdEndTransformFeedbackEXT), we just
-          * need to stall the CS.
-          */
-         pipe_bits |= ANV_PIPE_CS_STALL_BIT;
-         break;
-      default:
-         break; /* Nothing to do */
-      }
-   }
-
-   return pipe_bits;
-}
-
-static inline enum anv_pipe_bits
-anv_pipe_invalidate_bits_for_access_flags(struct anv_device *device,
-                                          VkAccessFlags2 flags)
-{
-   enum anv_pipe_bits pipe_bits = 0;
-
-   u_foreach_bit64(b, flags) {
-      switch ((VkAccessFlags2)BITFIELD64_BIT(b)) {
-      case VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT:
-         /* Indirect draw commands take a buffer as input that we're going to
-          * read from the command streamer to load some of the HW registers
-          * (see genX_cmd_buffer.c:load_indirect_parameters). This requires a
-          * command streamer stall so that all the cache flushes have
-          * completed before the command streamer loads from memory.
-          */
-         pipe_bits |=  ANV_PIPE_CS_STALL_BIT;
-         /* Indirect draw commands also set gl_BaseVertex & gl_BaseIndex
-          * through a vertex buffer, so invalidate that cache.
-          */
-         pipe_bits |= ANV_PIPE_VF_CACHE_INVALIDATE_BIT;
-         /* For CmdDipatchIndirect, we also load gl_NumWorkGroups through a
-          * UBO from the buffer, so we need to invalidate constant cache.
-          */
-         pipe_bits |= ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT;
-         pipe_bits |= ANV_PIPE_DATA_CACHE_FLUSH_BIT;
-         /* Tile cache flush needed For CmdDipatchIndirect since command
-          * streamer and vertex fetch aren't L3 coherent.
-          */
-         pipe_bits |= ANV_PIPE_TILE_CACHE_FLUSH_BIT;
-         break;
-      case VK_ACCESS_2_INDEX_READ_BIT:
-      case VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT:
-         /* We transitioning a buffer to be used for as input for vkCmdDraw*
-          * commands, so we invalidate the VF cache to make sure there is no
-          * stale data when we start rendering.
-          */
-         pipe_bits |= ANV_PIPE_VF_CACHE_INVALIDATE_BIT;
-         break;
-      case VK_ACCESS_2_UNIFORM_READ_BIT:
-         /* We transitioning a buffer to be used as uniform data. Because
-          * uniform is accessed through the data port & sampler, we need to
-          * invalidate the texture cache (sampler) & constant cache (data
-          * port) to avoid stale data.
-          */
-         pipe_bits |= ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT;
-         if (device->physical->compiler->indirect_ubos_use_sampler)
-            pipe_bits |= ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT;
-         else
-            pipe_bits |= ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
-         break;
-      case VK_ACCESS_2_SHADER_READ_BIT:
-      case VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT:
-      case VK_ACCESS_2_TRANSFER_READ_BIT:
-         /* Transitioning a buffer to be read through the sampler, so
-          * invalidate the texture cache, we don't want any stale data.
-          */
-         pipe_bits |= ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT;
+         hw_units |= INTEL_HW_CACHE_UNIT_RENDERTARGET;
+         hw_units |= INTEL_HW_CACHE_UNIT_DEPTH;
          break;
       case VK_ACCESS_2_MEMORY_READ_BIT:
-         /* Transitioning a buffer for generic read, invalidate all the
-          * caches.
-          */
-         pipe_bits |= ANV_PIPE_INVALIDATE_BITS;
+         hw_units |= INTEL_HW_CACHE_UNIT_TEXTURE |
+                     INTEL_HW_CACHE_UNIT_DATA |
+                     INTEL_HW_CACHE_UNIT_CONSTANT;
+         if (stages & (VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT |
+                       VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT |
+                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT))
+            hw_units |= INTEL_HW_CACHE_UNIT_VF;
+         if (stages & (VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
+                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT))
+            hw_units |= INTEL_HW_CACHE_UNIT_CS;
          break;
       case VK_ACCESS_2_MEMORY_WRITE_BIT:
-         /* Generic write, make sure all previously written things land in
-          * memory.
-          */
-         pipe_bits |= ANV_PIPE_FLUSH_BITS;
+         /* Pretty much any shader could be using the HDC */
+         hw_units |= INTEL_HW_CACHE_UNIT_DATA;
+         if (stages & VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+            hw_units |= INTEL_HW_CACHE_UNIT_RENDERTARGET;
+         if (stages & VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT) {
+            hw_units |= INTEL_HW_CACHE_UNIT_RENDERTARGET |
+                        INTEL_HW_CACHE_UNIT_DEPTH;
+         }
+         if (stages & VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT)
+            hw_units |= INTEL_HW_CACHE_UNIT_RENDERTARGET;
+         if (stages & VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT) {
+            hw_units |= INTEL_HW_CACHE_UNIT_RENDERTARGET |
+                        INTEL_HW_CACHE_UNIT_DATA |
+                        INTEL_HW_CACHE_UNIT_DEPTH;
+         }
+         break;
+      case VK_ACCESS_2_TRANSFORM_FEEDBACK_WRITE_BIT_EXT:
+         /* TODO: Where is the streamout unit actually outputing? */
+         hw_units |= INTEL_HW_CACHE_UNIT_RENDERTARGET;
          break;
       case VK_ACCESS_2_CONDITIONAL_RENDERING_READ_BIT_EXT:
-      case VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT:
-         /* Transitioning a buffer for conditional rendering or transform
-          * feedback. We'll load the content of this buffer into HW registers
-          * using the command streamer, so we need to stall the command
-          * streamer , so we need to stall the command streamer to make sure
-          * any in-flight flush operations have completed.
+         /* Conditional rendering feedback counters are
+          * manipulated by MI commands of the CS unit.
           */
-         pipe_bits |= ANV_PIPE_CS_STALL_BIT;
-         pipe_bits |= ANV_PIPE_TILE_CACHE_FLUSH_BIT;
-         pipe_bits |= ANV_PIPE_DATA_CACHE_FLUSH_BIT;
+         hw_units |= INTEL_HW_CACHE_UNIT_CS;
+         break;
+      case VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT:
+      case VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT:
+         hw_units |= INTEL_HW_CACHE_UNIT_CS;
          break;
       case VK_ACCESS_2_HOST_READ_BIT:
-         /* We're transitioning a buffer that was written by CPU.  Flush
-          * all the caches.
+      case VK_ACCESS_2_HOST_WRITE_BIT:
+         /* We're transitioning a buffer that was written by CPU.
           */
-         pipe_bits |= ANV_PIPE_FLUSH_BITS;
+         hw_units |= INTEL_HW_CACHE_UNIT_CPU;
+         break;
+      case VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR:
+         /* Maybe being a bit conservative here.. */
+         hw_units |= INTEL_HW_CACHE_UNIT_L3;
          break;
       default:
-         break; /* Nothing to do */
+         unreachable("Unhandled access flag");
       }
    }
 
-   return pipe_bits;
+   return hw_units;
+}
+
+void dump_anv_pipe_bits(const char* prefix, VkAccessFlags2KHR bits);
+void dump_hw_unit_bits(const char* prefix, enum intel_hw_cache_unit bits);
+
+/* Set of stage bits for which are pipelined, i.e. they get queued
+ * by the command streamer for later execution.
+ */
+#define ANV_PIPELINE_STAGE_PIPELINED_BITS \
+   ~(VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT | \
+     VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | \
+     VK_PIPELINE_STAGE_2_HOST_BIT | \
+     VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT)
+
+static inline enum intel_pipe_control_bits
+anv_cache_pipe_control_bits_for(struct anv_device *device,
+                                VkAccessFlags2 dst_access_mask,
+                                VkPipelineStageFlagBits2 dst_stage_mask,
+                                VkAccessFlags2 src_access_mask,
+                                VkPipelineStageFlagBits2 src_stage_mask,
+                                const char *reason,
+                                const void *obj)
+{
+   /* When the access_mask is VK_ACCESS_2_NONE, the application might be doing
+    * 2 barriers :
+    *
+    * CmdPipelineBarrier MEMORY_WRITE -> NONE
+    * CmdPipelineBarrier NONE         -> MEMORY_READ_BIT
+    *
+    * In that case go to L3 on both sides so that things are visible from/to
+    * any HW unit. It might be more correct to go to main memory but it's
+    * expensive.
+    */
+   enum intel_hw_cache_unit dst_hw_units =
+      dst_access_mask == VK_ACCESS_2_NONE ?
+      INTEL_HW_CACHE_UNIT_L3 :
+      anv_pipe_hw_units_bits_for_access_flags(device,
+                                              dst_access_mask,
+                                              dst_stage_mask);
+   enum intel_hw_cache_unit src_hw_units =
+      src_access_mask == VK_ACCESS_2_NONE ?
+      INTEL_HW_CACHE_UNIT_L3 :
+      anv_pipe_hw_units_bits_for_access_flags(device,
+                                              src_access_mask,
+                                              src_stage_mask);
+
+   enum intel_pipe_control_bits pc_bits =
+      intel_cache_pipe_control_bits_for(
+         device->physical->cache_hierarchy, dst_hw_units, src_hw_units);
+
+   /* If we need to make some data available to the destination and it's not
+    * pipelined, then we need to CS stall.
+    */
+   if ((src_stage_mask & ANV_PIPELINE_STAGE_PIPELINED_BITS) &&
+       !(dst_stage_mask & ANV_PIPELINE_STAGE_PIPELINED_BITS))
+      pc_bits |= INTEL_PIPE_CONTROL_CS_STALL;
+
+   if (INTEL_DEBUG(DEBUG_PIPE_CONTROL) && pc_bits) {
+      fprintf(stderr, "pc: %s%p", reason, obj);
+      dump_anv_pipe_bits("\npc:    dst= ", dst_access_mask);
+      dump_anv_pipe_bits("\npc:    src= ", src_access_mask);
+      dump_hw_unit_bits("\npc:    dst_cache= ", dst_hw_units);
+      dump_hw_unit_bits("\npc:    src_cache= ", src_hw_units);
+      fprintf(stderr, "\n");
+   }
+   return pc_bits;
 }
 
 #define VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV (         \
@@ -3090,6 +3222,8 @@ struct anv_cmd_buffer {
     *
     */
    struct u_trace                               trace;
+
+   struct anv_flush_stats                       flush_stats;
 };
 
 /* Determine whether we can chain a given cmd_buffer to another one. We need

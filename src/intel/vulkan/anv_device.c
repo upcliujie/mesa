@@ -768,6 +768,8 @@ anv_physical_device_try_create(struct anv_instance *instance,
    snprintf(device->path, ARRAY_SIZE(device->path), "%s", path);
 
    device->info = devinfo;
+   device->cache_hierarchy =
+      intel_cache_hierarchy_get_for_device(&device->info);
    device->is_alpha = is_alpha;
 
    device->cmd_parser_version = -1;
@@ -932,7 +934,6 @@ anv_physical_device_try_create(struct anv_instance *instance,
    device->compiler->constant_buffer_0_is_relative =
       device->info.ver < 8 || !device->has_context_isolation;
    device->compiler->supports_shader_constants = true;
-   device->compiler->indirect_ubos_use_sampler = device->info.ver < 12;
 
    isl_device_init(&device->isl_dev, &device->info);
 
@@ -3244,6 +3245,7 @@ VkResult anv_CreateDevice(
     * the batch.
     */
    device->can_chain_batches = device->info.ver >= 8;
+   device->cmd_buffer_stats = env_var_as_boolean("ANV_CMD_BUFFER_STATS", false);
 
    device->robust_buffer_access = robust_buffer_access;
 

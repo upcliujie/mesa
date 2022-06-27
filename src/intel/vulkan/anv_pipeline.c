@@ -44,6 +44,73 @@
 /* Needed for SWIZZLE macros */
 #include "program/prog_instruction.h"
 
+static bool
+anv_pipeline_layout_valid_binding(struct anv_device *device,
+                                  const struct anv_pipeline_layout *layout,
+                                  uint32_t set, uint32_t binding)
+{
+   if (set >= layout->num_sets) {
+      vk_loge(VK_LOG_NO_OBJS(&device->physical->instance->vk),
+              "invalid set=%u binding=%u for pipeline layout max_set=%u",
+              set, binding, layout->num_sets);
+      return false;
+   }
+
+   struct anv_descriptor_set_layout *set_layout = layout->set[set].layout;
+   if (binding >= set_layout->binding_count) {
+      vk_loge(VK_LOG_NO_OBJS(&device->physical->instance->vk),
+              "invalid set=%u binding=%u for pipeline layout max_binding=%u",
+              set, binding, set_layout->binding_count);
+      return false;
+   }
+
+   return true;
+}
+
+static bool
+anv_shader_validate_with_layout(struct anv_device *device,
+                                nir_shader *shader,
+                                const struct anv_pipeline_layout *layout)
+{
+   nir_foreach_variable_in_shader(var, shader) {
+      if ((var->data.mode & (nir_var_uniform |
+                             nir_var_image |
+                             nir_var_mem_ubo |
+                             nir_var_mem_ssbo |
+                             nir_var_mem_constant)) == 0)
+         continue;
+
+      if (!anv_pipeline_layout_valid_binding(device, layout,
+                                             var->data.descriptor_set,
+                                             var->data.binding))
+         return false;
+   }
+
+   nir_foreach_function(func, shader) {
+      if (!func->impl)
+         continue;
+
+      nir_foreach_block(block, func->impl) {
+         nir_foreach_instr(instr, block) {
+            if (instr->type != nir_instr_type_intrinsic)
+               continue;
+
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            if (intrin->intrinsic != nir_intrinsic_vulkan_resource_index)
+               continue;
+
+            if (!anv_pipeline_layout_valid_binding(
+                   device, layout,
+                   nir_intrinsic_desc_set(intrin),
+                   nir_intrinsic_binding(intrin)))
+               return false;
+         }
+      }
+   }
+
+   return true;
+}
+
 /* Eventually, this will become part of anv_CreateShader.  Unfortunately,
  * we can't do that yet because we don't have the ability to copy nir.
  */
@@ -705,7 +772,8 @@ static nir_shader *
 anv_pipeline_stage_get_nir(struct anv_pipeline *pipeline,
                            struct vk_pipeline_cache *cache,
                            void *mem_ctx,
-                           struct anv_pipeline_stage *stage)
+                           struct anv_pipeline_stage *stage,
+                           const struct anv_pipeline_layout *layout)
 {
    const struct brw_compiler *compiler =
       pipeline->device->physical->compiler;
@@ -719,6 +787,8 @@ anv_pipeline_stage_get_nir(struct anv_pipeline *pipeline,
                                    mem_ctx);
    if (nir) {
       assert(nir->info.stage == stage->stage);
+      if (!anv_shader_validate_with_layout(pipeline->device, nir, layout))
+         return NULL;
       return nir;
    }
 
@@ -730,6 +800,8 @@ anv_pipeline_stage_get_nir(struct anv_pipeline *pipeline,
                                    stage->spec_info);
    if (nir) {
       anv_device_upload_nir(pipeline->device, cache, nir, stage->shader_sha1);
+      if (!anv_shader_validate_with_layout(pipeline->device, nir, layout))
+         return NULL;
       return nir;
    }
 
@@ -1632,7 +1704,8 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
 
       stages[s].nir = anv_pipeline_stage_get_nir(&pipeline->base, cache,
                                                  pipeline_ctx,
-                                                 &stages[s]);
+                                                 &stages[s],
+                                                 layout);
       if (stages[s].nir == NULL) {
          result = vk_error(pipeline, VK_ERROR_UNKNOWN);
          goto fail;
@@ -1959,7 +2032,8 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
          .set = ANV_DESCRIPTOR_SET_NUM_WORK_GROUPS,
       };
 
-      stage.nir = anv_pipeline_stage_get_nir(&pipeline->base, cache, mem_ctx, &stage);
+      stage.nir = anv_pipeline_stage_get_nir(&pipeline->base, cache, mem_ctx,
+                                             &stage, layout);
       if (stage.nir == NULL) {
          ralloc_free(mem_ctx);
          return vk_error(pipeline, VK_ERROR_UNKNOWN);
@@ -2871,7 +2945,8 @@ anv_pipeline_compile_ray_tracing(struct anv_ray_tracing_pipeline *pipeline,
       int64_t stage_start = os_time_get_nano();
 
       stages[i].nir = anv_pipeline_stage_get_nir(&pipeline->base, cache,
-                                                 pipeline_ctx, &stages[i]);
+                                                 pipeline_ctx, &stages[i],
+                                                 layout);
       if (stages[i].nir == NULL) {
          ralloc_free(pipeline_ctx);
          return vk_error(pipeline, VK_ERROR_OUT_OF_HOST_MEMORY);

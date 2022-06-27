@@ -1759,6 +1759,8 @@ setup_execbuf_for_cmd_buffers(struct anv_execbuf *execbuf,
    chain_command_buffers(cmd_buffers, num_cmd_buffers);
 
    for (uint32_t i = 0; i < num_cmd_buffers; i++) {
+      if (device->cmd_buffer_stats)
+         anv_flush_stats_add(&device->flush_stats, &cmd_buffers[i]->flush_stats);
       anv_measure_submit(cmd_buffers[i]);
       result = setup_execbuf_for_cmd_buffer(execbuf, cmd_buffers[i]);
       if (result != VK_SUCCESS)
