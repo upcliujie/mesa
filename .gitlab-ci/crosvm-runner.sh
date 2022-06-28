@@ -30,7 +30,7 @@ set_vsock_context() {
         exit 1
     }
 
-    VM_TEMP_DIR="/tmp-vm.${THREAD}"
+    VM_TEMP_DIR="/tmp/vm.${THREAD}"
     # Clear out any leftover files from a previous run.
     rm -rf $VM_TEMP_DIR
     mkdir $VM_TEMP_DIR || return 1
