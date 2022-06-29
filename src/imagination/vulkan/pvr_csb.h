@@ -49,6 +49,11 @@
 
 #include "csbgen/rogue_hwdefs.h"
 
+/**
+ * \brief Size of the individual csb buffer object.
+ */
+#define PVR_CMD_BUFFER_CSB_BO_SIZE 4096
+
 struct pvr_device;
 
 enum pvr_cmd_stream_type {
@@ -125,6 +130,10 @@ void pvr_csb_finish(struct pvr_csb *csb);
 void *pvr_csb_alloc_dwords(struct pvr_csb *csb, uint32_t num_dwords);
 VkResult pvr_csb_emit_return(struct pvr_csb *csb);
 VkResult pvr_csb_emit_terminate(struct pvr_csb *csb);
+
+void pvr_csb_dump(const struct pvr_csb *csb,
+                  uint32_t frame_num,
+                  uint32_t job_num);
 
 #define PVRX(x) ROGUE_##x
 #define pvr_cmd_length(x) PVRX(x##_length)

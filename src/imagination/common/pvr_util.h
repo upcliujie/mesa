@@ -24,9 +24,24 @@
 #ifndef PVR_UTIL_H
 #define PVR_UTIL_H
 
+#include <assert.h>
 #include <stdint.h>
 
 #include "util/bitscan.h"
+#include "util/macros.h"
+
+/* This bizarre expression comes from Linux's BUILD_BUG_ON_INVALID macro which
+ * ensures that the provided expression will compile but without generating any
+ * code, even if there would be side effects.
+ */
+#define check_expr(e) ((void)(sizeof((long)(e))))
+
+static inline bool ptr_is_aligned(const void *const ptr,
+                                  const uint32_t alignment)
+{
+   assert(util_is_power_of_two_nonzero(alignment));
+   return ((uintptr_t)(ptr) & (alignment - 1)) == 0;
+}
 
 /*****************************************************************************
   Math functions
