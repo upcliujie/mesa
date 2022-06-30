@@ -1260,16 +1260,55 @@ copy_format(VkFormat vk_format, VkImageAspectFlags aspect_mask, bool copy_buffer
 
    enum pipe_format format = tu_vk_format_to_pipe_format(vk_format);
 
-   /* For SNORM formats, copy them as the equivalent UNORM format.  If we treat
-    * them as snorm then the 0x80 (-1.0 snorm8) value will get clamped to 0x81
-    * (also -1.0), when we're supposed to be memcpying the bits. See
-    * https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/2917 for discussion.
+   /* vkCmdCopy* commands are supposed to act like memcpy, see
+    * https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/2917 for the
+    * discussion.
+    *
+    * Copying certain values with SNORM and FLOAT formats results in their
+    * clamping, for example:
+    * - SNORM: 0x80 (-1.0 snorm8) value will get clamped to 0x81 (also -1.0);
+    *    See https://gitlab.freedesktop.org/mesa/mesa/-/issues/6480
+    * - FLOAT: NaN value will get clamped to some non-NaN float value;
+    *    See https://gitlab.freedesktop.org/mesa/mesa/-/issues/6723
+    *
+    * So we have to use UINT format to copy them. The only obstacle is UBWC
+    * fast-clear value which encodes different values for different formats.
+    * Fortunately, hardware automatically fast-clears only VK_FORMAT_R8G8B8A8_UNORM
+    * and we don't do fast-clear manually for any format. So it should be
+    * safe to reinterpret SNORM and FLOAT formats as UINT.
+    * Also the UINT format should have the same channel count to have compatible
+    * UBWC layout.
+    *
+    * Note:
+    * - For R11G11B10_FLOAT, R16G16_FLOAT, R16G16B16_FLOAT, R16G16B16A16_FLOAT
+    *   blob v615 uses 3d blits. Though R16_FLOAT is reinterpret as R16_UINT.
+    * - Blob maybe overly cautious if it does non-automatic fast-clear.
     */
-   format = util_format_snorm_to_unorm(format);
 
    switch (format) {
    case PIPE_FORMAT_R9G9B9E5_FLOAT:
+   case PIPE_FORMAT_R11G11B10_FLOAT:
       return PIPE_FORMAT_R32_UINT;
+   case PIPE_FORMAT_R8_SNORM:
+      return PIPE_FORMAT_R8_UINT;
+   case PIPE_FORMAT_R8G8_SNORM:
+      return PIPE_FORMAT_R8G8_UINT;
+   case PIPE_FORMAT_R8G8B8_SNORM:
+      return PIPE_FORMAT_R8G8B8_UINT;
+   case PIPE_FORMAT_R8G8B8A8_SNORM:
+      return PIPE_FORMAT_R8G8B8A8_UINT;
+   case PIPE_FORMAT_R16_FLOAT:
+   case PIPE_FORMAT_R16_SNORM:
+      return PIPE_FORMAT_R16_UINT;
+   case PIPE_FORMAT_R16G16_FLOAT:
+   case PIPE_FORMAT_R16G16_SNORM:
+      return PIPE_FORMAT_R16G16_UINT;
+   case PIPE_FORMAT_R16G16B16_FLOAT:
+   case PIPE_FORMAT_R16G16B16_SNORM:
+      return PIPE_FORMAT_R16G16B16_UINT;
+   case PIPE_FORMAT_R16G16B16A16_FLOAT:
+   case PIPE_FORMAT_R16G16B16A16_SNORM:
+      return PIPE_FORMAT_R16G16B16A16_UINT;
 
    case PIPE_FORMAT_G8_B8R8_420_UNORM:
       if (aspect_mask == VK_IMAGE_ASPECT_PLANE_1_BIT)
