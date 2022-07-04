@@ -91,6 +91,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef HAVE_X11_PLATFORM
+#include <X11/Xlib.h>
+#endif
+
+#ifdef HAVE_XCB_PLATFORM
+#include <xcb/xcb.h>
+#endif
+
+#ifdef HAVE_DRM_PLATFORM
+#include <gbm.h>
+#endif
+
+#ifdef HAVE_WAYLAND_PLATFORM
+#include <wayland-client.h>
+#endif
+
 #include "c11/threads.h"
 #include "mapi/glapi/glapi.h"
 #include "util/detect_os.h"
@@ -432,36 +449,55 @@ _eglGetPlatformDisplayCommon(EGLenum platform, void *native_display,
    switch (platform) {
 #ifdef HAVE_X11_PLATFORM
    case EGL_PLATFORM_X11_EXT:
-      disp = _eglGetX11Display((Display *)native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_X11,
+                             (Display *)native_display,
+                             attrib_list);
       break;
 #endif
 #ifdef HAVE_XCB_PLATFORM
    case EGL_PLATFORM_XCB_EXT:
-      disp = _eglGetXcbDisplay((xcb_connection_t *)native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_XCB,
+                             (xcb_connection_t *)native_display,
+                             attrib_list);
       break;
 #endif
 #ifdef HAVE_DRM_PLATFORM
    case EGL_PLATFORM_GBM_MESA:
-      disp =
-         _eglGetGbmDisplay((struct gbm_device *)native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_DRM,
+                             (struct gbm_device *)native_display,
+                             attrib_list);
       break;
 #endif
 #ifdef HAVE_WAYLAND_PLATFORM
    case EGL_PLATFORM_WAYLAND_EXT:
-      disp = _eglGetWaylandDisplay((struct wl_display *)native_display,
-                                   attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_WAYLAND,
+                             (struct wl_display *)native_display,
+                             attrib_list);
       break;
 #endif
    case EGL_PLATFORM_SURFACELESS_MESA:
-      disp = _eglGetSurfacelessDisplay(native_display, attrib_list);
+      /* This platform has no native display. */
+      if (native_display != NULL) {
+         _eglError(EGL_BAD_PARAMETER, "eglGetPlatformDisplay");
+         disp = NULL;
+      } else {
+         disp = _eglFindDisplay(_EGL_PLATFORM_SURFACELESS,
+                                native_display,
+                                attrib_list);
+      }
       break;
 #ifdef HAVE_ANDROID_PLATFORM
    case EGL_PLATFORM_ANDROID_KHR:
-      disp = _eglGetAndroidDisplay(native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_ANDROID,
+                             native_display,
+                             attrib_list);
       break;
 #endif
    case EGL_PLATFORM_DEVICE_EXT:
-      disp = _eglGetDeviceDisplay(native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_DEVICE, native_display, attrib_list);
+      if (!disp) {
+         _eglError(EGL_BAD_ALLOC, "eglGetPlatformDisplay");
+      }
       break;
    default:
       RETURN_EGL_ERROR(NULL, EGL_BAD_PARAMETER, NULL);

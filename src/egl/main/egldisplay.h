@@ -37,10 +37,6 @@
 #include "egldefines.h"
 #include "egltypedefs.h"
 
-#ifdef HAVE_X11_PLATFORM
-#include <X11/Xlib.h>
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -311,45 +307,6 @@ _eglNumAttribs(const EGLAttrib *attribs)
    }
    return len;
 }
-
-#ifdef HAVE_X11_PLATFORM
-_EGLDisplay *
-_eglGetX11Display(Display *native_display, const EGLAttrib *attrib_list);
-#endif
-
-#ifdef HAVE_XCB_PLATFORM
-typedef struct xcb_connection_t xcb_connection_t;
-_EGLDisplay *
-_eglGetXcbDisplay(xcb_connection_t *native_display,
-                  const EGLAttrib *attrib_list);
-#endif
-
-#ifdef HAVE_DRM_PLATFORM
-struct gbm_device;
-
-_EGLDisplay *
-_eglGetGbmDisplay(struct gbm_device *native_display,
-                  const EGLAttrib *attrib_list);
-#endif
-
-#ifdef HAVE_WAYLAND_PLATFORM
-struct wl_display;
-
-_EGLDisplay *
-_eglGetWaylandDisplay(struct wl_display *native_display,
-                      const EGLAttrib *attrib_list);
-#endif
-
-_EGLDisplay *
-_eglGetSurfacelessDisplay(void *native_display, const EGLAttrib *attrib_list);
-
-#ifdef HAVE_ANDROID_PLATFORM
-_EGLDisplay *
-_eglGetAndroidDisplay(void *native_display, const EGLAttrib *attrib_list);
-#endif
-
-_EGLDisplay *
-_eglGetDeviceDisplay(void *native_display, const EGLAttrib *attrib_list);
 
 #ifdef __cplusplus
 }
