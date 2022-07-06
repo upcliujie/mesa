@@ -92,6 +92,7 @@ static const struct etna_op_info etna_ops[] = {
    OPCT(f2u8,  F2I, 0_X_X, TRUE, U8),
    UOP(b2f32, AND, 0_X_X), /* AND with fui(1.0f) */
    UOP(b2i32, AND, 0_X_X), /* AND with 1 */
+   UOP(b2i8, AND, 0_X_X),  /* AND with 1 */
 
    /* arithmetic */
    IOP(iadd, ADD, 0_X_1),
