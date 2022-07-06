@@ -210,6 +210,48 @@ emit_pre_halti5_state(struct etna_context *ctx)
    etna_coalesce_end(stream, &coalesce);
 }
 
+static unsigned
+etna_work_item_func_get_value_order(struct etna_shader *shader)
+{
+   switch(shader->workitem_funcs[0]) {
+   case nir_intrinsic_load_global_invocation_id_zero_base: {
+      switch(shader->workitem_funcs[1]) {
+      case 0:
+      case nir_intrinsic_load_local_invocation_id:
+         return 0x3;
+      case nir_intrinsic_load_workgroup_id:
+         return 0x2;
+      default:
+         unreachable("An invalid op was passed?");
+      }
+   }
+   case nir_intrinsic_load_local_invocation_id: {
+      switch(shader->workitem_funcs[1]) {
+      case 0:
+      case nir_intrinsic_load_global_invocation_id_zero_base:
+         return 0x5;
+      case nir_intrinsic_load_workgroup_id:
+         return 0x0;
+      default:
+         unreachable("An invalid op was passed?");
+      }
+   }
+   case nir_intrinsic_load_workgroup_id: {
+      switch(shader->workitem_funcs[1]) {
+      case 0:
+      case nir_intrinsic_load_global_invocation_id_zero_base:
+         return 0x4;
+      case nir_intrinsic_load_local_invocation_id:
+         return 0x1;
+      default:
+         unreachable("An invalid op was passed?");
+      }
+   }
+   default:
+      return 0x0;
+   }
+}
+
 /* Weave state before draw operation. This function merges all the compiled
  * state blocks under the context into one device register state. Parts of
  * this state that are changed since last call (dirty) will be uploaded as

@@ -367,6 +367,9 @@ get_src(struct etna_compile *c, nir_src *src)
       case nir_intrinsic_load_instance_id:
       case nir_intrinsic_load_uniform:
       case nir_intrinsic_load_ubo:
+      case nir_intrinsic_load_global_invocation_id_zero_base:
+      case nir_intrinsic_load_local_invocation_id:
+      case nir_intrinsic_load_workgroup_id:
          return ra_src(c, src);
       case nir_intrinsic_load_front_face:
          return (hw_src) { .use = 1, .rgroup = INST_RGROUP_INTERNAL };
@@ -602,6 +605,9 @@ emit_intrinsic(struct etna_compile *c, nir_intrinsic_instr * intr)
    case nir_intrinsic_load_input:
    case nir_intrinsic_load_instance_id:
    case nir_intrinsic_load_texture_rect_scaling:
+   case nir_intrinsic_load_global_invocation_id_zero_base:
+   case nir_intrinsic_load_local_invocation_id:
+   case nir_intrinsic_load_workgroup_id:
       break;
    default:
       compile_error(c, "Unhandled NIR intrinsic type: %s\n",
@@ -1107,6 +1113,23 @@ etna_compile_shader(struct etna_shader_variant *v)
          sf->reg[idx].slot = var->data.location;
          sf->reg[idx].num_components = glsl_get_components(var->type);
          sf->num_reg = MAX2(sf->num_reg, idx+1);
+      }
+   } else if (s->info.stage == MESA_SHADER_KERNEL) {
+      nir_foreach_block(block, nir_shader_get_entrypoint(c->nir)) {
+         nir_foreach_instr(instr, block) {
+            if (instr->type == nir_instr_type_intrinsic) {
+               nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+               switch (intr->intrinsic) {
+               case nir_intrinsic_load_global_invocation_id_zero_base:
+               case nir_intrinsic_load_local_invocation_id:
+               case nir_intrinsic_load_workgroup_id:
+                  sf->num_reg++;
+                  break;
+               default:
+                  break;
+               }
+            }
+         }
       }
    } else {
       unsigned count = 0;

@@ -84,6 +84,8 @@ struct etna_shader {
    const struct etna_specs *specs;
    struct etna_compiler *compiler;
 
+   nir_intrinsic_op workitem_funcs[3];
+
    struct etna_shader_variant *variants;
 
    cache_key cache_key;     /* shader disk-cache key */
