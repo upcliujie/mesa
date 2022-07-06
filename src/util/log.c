@@ -79,6 +79,9 @@ void
 mesa_log_v(enum mesa_log_level level, const char *tag, const char *format,
             va_list va)
 {
+   /* make ubsan happy */
+   if (!format)
+      return;
 #ifdef ANDROID
    __android_log_vprint(level_to_android(level), tag, format, va);
 #else
