@@ -703,9 +703,7 @@ merge_layouts(struct lvp_pipeline *dst, struct lvp_pipeline_layout *src)
       const struct lvp_descriptor_set_layout *bigger_set_layout =
          vk_to_lvp_descriptor_set_layout(bigger->vk.set_layouts[i]);
 
-      assert(!smaller_set_layout->binding_count ||
-             !bigger_set_layout->binding_count ||
-             layouts_equal(smaller_set_layout, bigger_set_layout));
+      assert(layouts_equal(smaller_set_layout, bigger_set_layout));
    }
 #endif
    for (unsigned i = 0; i < src->vk.set_count; i++) {
