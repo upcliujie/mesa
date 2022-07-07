@@ -692,6 +692,49 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
 }
 
 
+static EGLBoolean EGLAPIENTRY
+eglDestroyDisplayEXT(EGLDisplay dpy)
+{
+   _EGLDisplay *disp = _eglLockDisplay(dpy);
+
+   _EGL_FUNC_START(disp, EGL_OBJECT_DISPLAY_KHR, NULL, EGL_FALSE);
+
+   if (!disp)
+      RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
+
+   /* Refuse to destroy non-private contexts */
+   if (!disp->Private)
+      RETURN_EGL_ERROR(NULL, EGL_BAD_ACCESS, EGL_FALSE);
+
+   /* Terminate the display as usual */
+   if (!eglTerminate(dpy))
+      RETURN_EGL_ERROR(NULL, EGL_BAD_ALLOC, EGL_FALSE);
+
+   /* Detach it from the global display list */
+   mtx_lock(_eglGlobal.Mutex);
+   if (_eglGlobal.DisplayList == disp)
+      _eglGlobal.DisplayList = disp->Next;
+   else for (_EGLDisplay *d = _eglGlobal.DisplayList; d; d = d->Next) {
+      if (d->Next == disp) {
+         d->Next = d->Next->Next;
+         break;
+      }
+   }
+   mtx_unlock(_eglGlobal.Mutex);
+
+   // XXX copypaste from _eglFiniDisplay
+   /* The fcntl() code in _eglGetDeviceDisplay() ensures that valid fd >= 3,
+    * and invalid one is 0.
+    */
+   if (disp->Options.fd)
+      close(disp->Options.fd);
+   free(disp->Options.Attribs);
+   free(disp);
+
+   RETURN_EGL_SUCCESS(NULL, EGL_TRUE);
+}
+
+
 EGLBoolean EGLAPIENTRY
 eglTerminate(EGLDisplay dpy)
 {
@@ -2715,6 +2758,9 @@ eglQueryDisplayAttribEXT(EGLDisplay dpy,
       break;
    case EGL_TRACK_REFERENCES_KHR:
       *value = disp->TrackReferences;
+      break;
+   case EGL_PRIVATE_DISPLAY_EXT:
+      *value = disp->Private;
       break;
    default:
       RETURN_EGL_ERROR(disp, EGL_BAD_ATTRIBUTE, EGL_FALSE);

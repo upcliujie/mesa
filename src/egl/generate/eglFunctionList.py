@@ -242,5 +242,7 @@ EGL_FUNCTIONS = (
     # EGL_KHR_display_reference
     _eglFunc("eglQueryDisplayAttribKHR",             "display"),
 
+    # EGL_EXT_display_alloc
+    _eglFunc("eglDestroyDisplayEXT",                 "display"),
 )
 

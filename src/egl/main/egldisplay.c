@@ -232,6 +232,7 @@ _eglParseDisplayAttribList(_EGLPlatformType platform,
    int fd = -1;
    /* EGL_KHR_platform_android is the only platform that defaults to true */
    EGLBoolean track_references = platform == _EGL_PLATFORM_ANDROID;
+   EGLBoolean private_display = EGL_FALSE;
 
    if (platform == _EGL_PLATFORM_DEVICE) {
       dev = _eglLookupDevice(native_display);
@@ -279,6 +280,13 @@ _eglParseDisplayAttribList(_EGLPlatformType platform,
          track_references = value;
          break;
 
+      /* EGL_EXT_display_alloc adds the optional boolean attribute
+       * EGL_PRIVATE_DISPLAY_EXT
+       */
+      case EGL_PRIVATE_DISPLAY_EXT:
+         private_display = value;
+         break;
+
       default:
          goto bad_attribute;
       }
@@ -301,6 +309,7 @@ _eglParseDisplayAttribList(_EGLPlatformType platform,
    }
 
    display->TrackReferences = track_references;
+   display->Private = private_display;
 
    return EGL_TRUE;
 
@@ -338,7 +347,8 @@ _eglSameAttribs(const EGLAttrib *a, const EGLAttrib *b)
  * different from a call with attribs only equal to { EGL_NONE }. Similarly
  * we do not sort the attribute list, so even if all attribute _values_ are
  * identical, different attribute orders will be considered different
- * parameters.
+ * parameters. And, of course, if you use EGL_PRIVATE_DISPLAY_EXT then we
+ * treat you as never matching any other EGLDisplay.
  */
 _EGLDisplay *
 _eglFindDisplay(_EGLPlatformType plat, void *plat_dpy,
@@ -346,18 +356,26 @@ _eglFindDisplay(_EGLPlatformType plat, void *plat_dpy,
 {
    _EGLDisplay *disp;
    size_t num_attrib_pairs;
+   bool private_display = false;
 
    if (plat == _EGL_INVALID_PLATFORM)
       return NULL;
 
+   if (attrib_list)
+      for (int i = 0; attrib_list[i*2] != EGL_NONE; i++)
+         if (attrib_list[i*2] == EGL_PRIVATE_DISPLAY_EXT &&
+             attrib_list[i*2+1] == EGL_TRUE)
+            private_display = true;
+
    mtx_lock(_eglGlobal.Mutex);
 
    /* search the display list first */
-   for (disp = _eglGlobal.DisplayList; disp; disp = disp->Next) {
-      if (disp->Platform == plat && disp->PlatformDisplay == plat_dpy &&
-          _eglSameAttribs(disp->Options.Attribs, attrib_list))
-         goto out;
-   }
+   if (!private_display)
+      for (disp = _eglGlobal.DisplayList; disp; disp = disp->Next)
+         if (!disp->Private &&
+             disp->Platform == plat && disp->PlatformDisplay == plat_dpy &&
+             _eglSameAttribs(disp->Options.Attribs, attrib_list))
+            goto out;
 
    /* create a new display */
    assert(!disp);

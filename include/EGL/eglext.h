@@ -1446,6 +1446,13 @@ EGLAPI struct wl_buffer *EGLAPIENTRY eglCreateWaylandBufferFromImageWL (EGLDispl
 #endif
 #endif /* EGL_WL_create_wayland_buffer_from_image */
 
+// XXX
+#define EGL_PRIVATE_DISPLAY_EXT 0x332B
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLDESTROYDISPLAYEXTPROC) (EGLDisplay dpy);
+#ifdef EGL_EGLEXT_PROTOTYPES
+EGLAPI EGLBoolean EGLAPIENTRY eglDestroyDisplayEXT(EGLDisplay dpy);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

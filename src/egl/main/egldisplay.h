@@ -165,6 +165,7 @@ struct _egl_display
 
    _EGLDevice *Device;        /**< Device backing the display */
    const _EGLDriver *Driver;  /**< Matched driver of the display */
+   EGLBoolean Private;        /**< True if EGL_PRIVATE_DISPLAY_EXT set */
 
    /* options that affect how the driver initializes the display */
    struct {
