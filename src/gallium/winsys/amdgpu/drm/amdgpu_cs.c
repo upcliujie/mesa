@@ -510,6 +510,12 @@ amdgpu_do_add_real_buffer(struct amdgpu_cs_context *cs,
 
       memcpy(new_buffers, cs->real_buffers, cs->num_real_buffers * sizeof(*new_buffers));
 
+      #ifndef NDEBUG
+      /* Overwrite the old buffers list with a pattern. This may help debugging
+       * races between threads.
+       */
+      memset(cs->real_buffers, 0xab, cs->num_real_buffers * sizeof(*new_buffers));
+      #endif
       FREE(cs->real_buffers);
 
       cs->max_real_buffers = new_max;
@@ -582,6 +588,12 @@ static int amdgpu_lookup_or_add_slab_buffer(struct radeon_cmdbuf *rcs,
 
       memcpy(new_buffers, cs->slab_buffers, cs->num_slab_buffers * sizeof(*new_buffers));
 
+      #ifndef NDEBUG
+      /* Overwrite the old buffers list with a pattern. This may help debugging
+       * races between threads.
+       */
+      memset(cs->slab_buffers, 0xcd, cs->num_slab_buffers * sizeof(*new_buffers));
+      #endif
       FREE(cs->slab_buffers);
 
       cs->max_slab_buffers = new_max;
@@ -628,6 +640,12 @@ static int amdgpu_lookup_or_add_sparse_buffer(struct radeon_cmdbuf *rcs,
 
       memcpy(new_buffers, cs->sparse_buffers, cs->num_sparse_buffers * sizeof(*new_buffers));
 
+      #ifndef NDEBUG
+      /* Overwrite the old buffers list with a pattern. This may help debugging
+       * races between threads.
+       */
+      memset(cs->sparse_buffers, 0xef, cs->num_sparse_buffers * sizeof(*new_buffers));
+      #endif
       FREE(cs->sparse_buffers);
 
       cs->max_sparse_buffers = new_max;
