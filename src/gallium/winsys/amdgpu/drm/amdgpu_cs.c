@@ -490,6 +490,9 @@ amdgpu_do_add_real_buffer(struct amdgpu_cs_context *cs,
 {
    struct amdgpu_cs_buffer *buffer;
    int idx;
+   assert(bo && bo->base.vtbl);
+   if (!bo)
+      return -1;
 
    /* New buffer, check if the backing array is large enough. */
    if (cs->num_real_buffers >= cs->max_real_buffers) {
@@ -534,6 +537,8 @@ amdgpu_lookup_or_add_real_buffer(struct radeon_cmdbuf *rcs, struct amdgpu_cs_con
       return idx;
 
    idx = amdgpu_do_add_real_buffer(cs, bo);
+   if (idx < 0)
+      return -1;
 
    hash = bo->unique_id & (BUFFER_HASHLIST_SIZE-1);
    cs->buffer_indices_hashlist[hash] = idx & 0x7fff;
