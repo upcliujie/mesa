@@ -268,6 +268,12 @@ drisw_swap_buffers(__DRIdrawable *dPriv)
                                         fence, PIPE_TIMEOUT_INFINITE);
       screen->base.screen->fence_reference(screen->base.screen, &fence, NULL);
       drisw_copy_to_front(ctx->st->pipe, dPriv, ptex);
+
+      drawable->textures[ST_ATTACHMENT_BACK_LEFT] = drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
+      drawable->textures[ST_ATTACHMENT_FRONT_LEFT] = ptex;
+      ptex = drawable->msaa_textures[ST_ATTACHMENT_BACK_LEFT];
+      drawable->msaa_textures[ST_ATTACHMENT_BACK_LEFT] = drawable->msaa_textures[ST_ATTACHMENT_FRONT_LEFT];
+      drawable->msaa_textures[ST_ATTACHMENT_FRONT_LEFT] = ptex;
    }
 }
 
