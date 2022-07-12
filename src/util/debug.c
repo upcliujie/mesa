@@ -25,6 +25,7 @@
 #include <string.h>
 #include "debug.h"
 #include "u_string.h"
+#include "log.h"
 
 uint64_t
 parse_debug_string(const char *debug,
@@ -33,21 +34,38 @@ parse_debug_string(const char *debug,
    uint64_t flag = 0;
 
    if (debug != NULL) {
-      for (; control->string != NULL; control++) {
-         if (!strcmp(debug, "all")) {
-            flag |= control->flag;
+      char *dbg = strdup(debug);
+      char *save = NULL;
+      char *next = strtok_r(dbg, ", ", &save);
 
-         } else {
-            const char *s = debug;
-            unsigned n;
+      if (next != NULL && !strcmp(next, "all")) {
+         for (const struct debug_control *ctrl = control;
+              ctrl->string != NULL; ctrl++) {
+            flag |= ctrl->flag;
+         }
 
-            for (; n = strcspn(s, ", "), *s; s += MAX2(1, n)) {
-               if (strlen(control->string) == n &&
-                   !strncmp(control->string, s, n))
-                  flag |= control->flag;
+         next = NULL;
+      }
+
+      while (next != NULL) {
+         bool found = false;
+         for (const struct debug_control *ctrl = control;
+              ctrl->string != NULL; ctrl++) {
+            if (!strcmp(next, ctrl->string)) {
+               flag |= control->flag;
+               found = true;
+               break;
             }
          }
+
+         if (!found) {
+            mesa_logw("%s: unknown debug flag '%s'", __FUNCTION__, next);
+         }
+
+         next = strtok_r(NULL, ", ", &save);
       }
+
+      free(dbg);
    }
 
    return flag;
@@ -61,35 +79,53 @@ parse_enable_string(const char *debug,
    uint64_t flag = default_value;
 
    if (debug != NULL) {
-      for (; control->string != NULL; control++) {
-         if (!strcmp(debug, "all")) {
-            flag |= control->flag;
+      char *dbg = strdup(debug);
+      char *save = NULL;
+      char *next = strtok_r(dbg, ", ", &save);
 
+      if (next != NULL && !strcmp(next, "all")) {
+         for (const struct debug_control *ctrl = control;
+              ctrl->string != NULL; ctrl++) {
+            flag |= ctrl->flag;
+         }
+
+         next = NULL;
+      }
+
+      while (next != NULL) {
+         bool found = false;
+         bool enable = false;
+         const char *s = next;
+
+         if (s[0] == '+') {
+            enable = true;
+            s++;
+         } else if (s[0] == '-') {
+            enable = false;
+            s++;
          } else {
-            const char *s = debug;
-            unsigned n;
+            enable = true;
+         }
 
-            for (; n = strcspn(s, ", "), *s; s += MAX2(1, n)) {
-               bool enable;
-               if (s[0] == '+') {
-                  enable = true;
-                  s++; n--;
-               } else if (s[0] == '-') {
-                  enable = false;
-                  s++; n--;
-               } else {
-                  enable = true;
-               }
-               if (strlen(control->string) == n &&
-                   !strncmp(control->string, s, n)) {
-                  if (enable)
-                     flag |= control->flag;
-                  else
-                     flag &= ~control->flag;
-               }
+         for (const struct debug_control *ctrl = control;
+              ctrl->string != NULL; ctrl++) {
+            if (!strcmp(s, ctrl->string)) {
+               found = true;
+               if (enable)
+                  flag |= control->flag;
+               else
+                  flag &= ~control->flag;
             }
          }
+
+         if (!found) {
+            mesa_logw("%s: unknown debug flag '%s'", __FUNCTION__, next);
+         }
+
+         next = strtok_r(NULL, ", ", &save);
       }
+
+      free(dbg);
    }
 
    return flag;
