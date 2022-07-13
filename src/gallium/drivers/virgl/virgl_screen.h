@@ -67,6 +67,9 @@ struct virgl_screen {
    nir_shader_compiler_options compiler_options;
 
    struct disk_cache *disk_cache;
+
+   struct virgl_hw_res *current_blob_resource;
+   uint32_t blob_resource_next_offset;
 };
 
 

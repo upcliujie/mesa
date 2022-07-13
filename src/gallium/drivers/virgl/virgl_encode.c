@@ -730,7 +730,7 @@ int virgl_encoder_set_vertex_buffers(struct virgl_context *ctx,
    for (i = 0; i < num_buffers; i++) {
       struct virgl_resource *res = virgl_resource(buffers[i].buffer.resource);
       virgl_encoder_write_dword(ctx->cbuf, buffers[i].stride);
-      virgl_encoder_write_dword(ctx->cbuf, buffers[i].buffer_offset);
+      virgl_encoder_write_dword(ctx->cbuf, buffers[i].buffer_offset + res->blob_offset);
       virgl_encoder_write_res(ctx, res);
    }
    return 0;
@@ -1070,7 +1070,7 @@ int virgl_encoder_set_uniform_buffer(struct virgl_context *ctx,
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_UNIFORM_BUFFER, 0, VIRGL_SET_UNIFORM_BUFFER_SIZE));
    virgl_encoder_write_dword(ctx->cbuf, shader);
    virgl_encoder_write_dword(ctx->cbuf, index);
-   virgl_encoder_write_dword(ctx->cbuf, offset);
+   virgl_encoder_write_dword(ctx->cbuf, offset + res->blob_offset);
    virgl_encoder_write_dword(ctx->cbuf, length);
    virgl_encoder_write_res(ctx, res);
    return 0;
@@ -1345,7 +1345,8 @@ int virgl_encode_set_shader_buffers(struct virgl_context *ctx,
    for (i = 0; i < count; i++) {
       if (buffers && buffers[i].buffer) {
          struct virgl_resource *res = virgl_resource(buffers[i].buffer);
-         virgl_encoder_write_dword(ctx->cbuf, buffers[i].buffer_offset);
+         virgl_encoder_write_dword(ctx->cbuf,
+                                   buffers[i].buffer_offset + res->blob_offset);
          virgl_encoder_write_dword(ctx->cbuf, buffers[i].buffer_size);
          virgl_encoder_write_res(ctx, res);
 

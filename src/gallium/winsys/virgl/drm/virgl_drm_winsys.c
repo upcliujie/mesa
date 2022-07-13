@@ -102,7 +102,6 @@ static void virgl_hw_res_destroy(struct virgl_drm_winsys *qdws,
       mtx_unlock(&qdws->bo_handles_mutex);
       if (res->ptr)
          os_munmap(res->ptr, res->size);
-
       memset(&args, 0, sizeof(args));
       args.handle = drm_res->bo_handle;
       drmIoctl(qdws->fd, DRM_IOCTL_GEM_CLOSE, &args);
@@ -324,7 +323,6 @@ virgl_drm_winsys_resource_create(struct virgl_winsys *qws,
    pipe_reference_init(&res->b.reference, 1);
    p_atomic_set(&res->external, false);
    p_atomic_set(&res->b.num_cs_references, 0);
-
    /* A newly created resource is considered busy by the kernel until the
     * command is retired.  But for our purposes, we can consider it idle
     * unless it is used for fencing.
