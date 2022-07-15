@@ -345,7 +345,7 @@ _eglFindDisplay(_EGLPlatformType plat, void *plat_dpy,
                 const EGLAttrib *attrib_list)
 {
    _EGLDisplay *disp;
-   size_t num_attribs;
+   size_t num_attrib_pairs;
 
    if (plat == _EGL_INVALID_PLATFORM)
       return NULL;
@@ -368,16 +368,16 @@ _eglFindDisplay(_EGLPlatformType plat, void *plat_dpy,
    mtx_init(&disp->Mutex, mtx_plain);
    disp->Platform = plat;
    disp->PlatformDisplay = plat_dpy;
-   num_attribs = _eglNumAttribs(attrib_list);
-   if (num_attribs) {
-      disp->Options.Attribs = calloc(num_attribs, sizeof(EGLAttrib));
+   num_attrib_pairs = 2 * _eglNumAttribs(attrib_list);
+   if (num_attrib_pairs) {
+      disp->Options.Attribs = calloc(num_attrib_pairs + 1, sizeof(EGLAttrib));
       if (!disp->Options.Attribs) {
          free(disp);
          disp = NULL;
          goto out;
       }
       memcpy(disp->Options.Attribs, attrib_list,
-             num_attribs * sizeof(EGLAttrib));
+             (num_attrib_pairs + 1) * sizeof(EGLAttrib));
    }
 
    if (!_eglParseDisplayAttribList(plat, plat_dpy, disp, attrib_list)) {
