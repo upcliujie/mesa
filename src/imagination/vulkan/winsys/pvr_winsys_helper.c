@@ -75,14 +75,15 @@ VkResult pvr_winsys_helper_winsys_heap_init(
    const struct pvr_winsys_static_data_offsets *const static_data_offsets,
    struct pvr_winsys_heap *const heap)
 {
-   const bool reserved_area_bottom_of_heap = reserved_address.addr ==
-                                             base_address.addr;
-   const uint64_t vma_heap_begin_addr =
-      base_address.addr +
-      (uint64_t)reserved_area_bottom_of_heap * reserved_size;
+   const bool reserved_area_bottom_of_heap =
+      pvr_dev_addr_eq(reserved_address, base_address);
+   const pvr_dev_addr_t vma_heap_begin_addr =
+      reserved_area_bottom_of_heap
+         ? PVR_DEV_ADDR_OFFSET(base_address, reserved_size)
+         : base_address;
    const uint64_t vma_heap_size = size - reserved_size;
 
-   assert(base_address.addr);
+   assert(!pvr_dev_addr_is_null(base_address));
    assert(reserved_size <= size);
 
    /* As per the reserved_base powervr-km uapi documentation the reserved
@@ -92,8 +93,9 @@ VkResult pvr_winsys_helper_winsys_heap_init(
     * always at the beginning.
     */
    assert(reserved_area_bottom_of_heap ||
-          reserved_address.addr + reserved_size == base_address.addr + size ||
-          (!reserved_address.addr && !reserved_size));
+          pvr_dev_addr_eq(PVR_DEV_ADDR_OFFSET(reserved_address, reserved_size),
+                          PVR_DEV_ADDR_OFFSET(base_address, size)) ||
+          (pvr_dev_addr_is_null(reserved_address) && !reserved_size));
 
    heap->ws = ws;
    heap->base_addr = base_address;
@@ -105,7 +107,7 @@ VkResult pvr_winsys_helper_winsys_heap_init(
    heap->page_size = 1 << log2_page_size;
    heap->log2_page_size = log2_page_size;
 
-   util_vma_heap_init(&heap->vma_heap, vma_heap_begin_addr, vma_heap_size);
+   util_vma_heap_init(&heap->vma_heap, vma_heap_begin_addr.addr, vma_heap_size);
 
    heap->vma_heap.alloc_high = false;
 
@@ -156,11 +158,11 @@ bool pvr_winsys_helper_heap_alloc(struct pvr_winsys_heap *const heap,
    vma.size = size;
 
    pthread_mutex_lock(&heap->lock);
-   vma.dev_addr.addr =
-      util_vma_heap_alloc(&heap->vma_heap, size, heap->page_size);
+   vma.dev_addr =
+      PVR_DEV_ADDR(util_vma_heap_alloc(&heap->vma_heap, size, heap->page_size));
    pthread_mutex_unlock(&heap->lock);
 
-   if (!vma.dev_addr.addr) {
+   if (pvr_dev_addr_is_null(vma.dev_addr)) {
       vk_error(NULL, VK_ERROR_OUT_OF_DEVICE_MEMORY);
       return false;
    }
@@ -207,7 +209,7 @@ pvr_buffer_create_and_map(struct pvr_winsys *const ws,
    /* Address should not be NULL, this function is used to allocate and map
     * reserved addresses and is only supposed to be used internally.
     */
-   assert(dev_addr.addr);
+   assert(!pvr_dev_addr_is_null(dev_addr));
 
    result = ws->ops->buffer_create(ws,
                                    size,
@@ -225,7 +227,7 @@ pvr_buffer_create_and_map(struct pvr_winsys *const ws,
    }
 
    addr = ws->ops->vma_map(vma, bo, 0, size);
-   if (!addr.addr) {
+   if (pvr_dev_addr_is_null(addr)) {
       result = VK_ERROR_MEMORY_MAP_FAILED;
       goto err_pvr_winsys_heap_free;
    }

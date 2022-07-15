@@ -285,7 +285,7 @@ static void pvr_pds_ctx_sr_program_setup(
 			.num_const64 = 2,
 			.doutw_data = {
 				[0] = sr_addr.addr,
-				[1] = sr_addr.addr + ROGUE_LLS_SHARED_REGS_RESERVE_SIZE,
+				[1] = PVR_DEV_ADDR_OFFSET(sr_addr, ROGUE_LLS_SHARED_REGS_RESERVE_SIZE).addr,
 			},
 			.last_instruction = false,
 		},
@@ -490,8 +490,8 @@ static VkResult pvr_ctx_sr_programs_setup(struct pvr_device *device,
       goto err_free_store_load_state_bo;
 
    usc_store_program_upload_offset =
-      sr_programs->usc.store_program_bo->vma->dev_addr.addr -
-      device->heaps.usc_heap->base_addr.addr;
+      pvr_dev_addr_get_offset(device->heaps.usc_heap->base_addr,
+                              sr_programs->usc.store_program_bo->vma->dev_addr);
 
    /* USC state update: SR state load. */
 
@@ -516,8 +516,8 @@ static VkResult pvr_ctx_sr_programs_setup(struct pvr_device *device,
       goto err_free_usc_store_program_bo;
 
    usc_load_program_upload_offset =
-      sr_programs->usc.load_program_bo->vma->dev_addr.addr -
-      device->heaps.usc_heap->base_addr.addr;
+      pvr_dev_addr_get_offset(device->heaps.usc_heap->base_addr,
+                              sr_programs->usc.load_program_bo->vma->dev_addr);
 
    /* FIXME: The number of USC temps should be output alongside
     * pvr_vdm_store_sr_code rather than hard coded.
@@ -725,7 +725,7 @@ pvr_rogue_get_vdmctrl_pds_state_words(struct pvr_pds_upload *pds_program,
    };
 
    pvr_csb_pack (state1_out, VDMCTRL_PDS_STATE1, state) {
-      state.pds_data_addr.addr = pds_program->data_offset;
+      state.pds_data_addr = PVR_DEV_ADDR(pds_program->data_offset);
       state.sd_type = PVRX(VDMCTRL_SD_TYPE_PDS);
       state.sd_next_type = PVRX(VDMCTRL_SD_TYPE_PDS);
    }
@@ -752,7 +752,7 @@ pvr_rogue_get_geom_state_stream_out_words(struct pvr_pds_upload *pds_program,
    }
 
    pvr_csb_pack (stream_out2_out, TA_STATE_STREAM_OUT2, state) {
-      state.pds_data_addr.addr = pds_program->data_offset;
+      state.pds_data_addr = PVR_DEV_ADDR(pds_program->data_offset);
    }
 }
 
@@ -790,7 +790,8 @@ static void pvr_render_ctx_ws_static_state_init(
       d_dst = &static_state->geom_state[i].vdm_ctx_store_task1;
       pvr_csb_pack (d_dst, CR_VDM_CONTEXT_STORE_TASK1, task1) {
          pvr_csb_pack (&task1.pds_state2, VDMCTRL_PDS_STATE2, state) {
-            state.pds_code_addr.addr = sr_prog->pds.store_program.code_offset;
+            state.pds_code_addr =
+               PVR_DEV_ADDR(sr_prog->pds.store_program.code_offset);
          }
       }
 
@@ -814,7 +815,8 @@ static void pvr_render_ctx_ws_static_state_init(
       d_dst = &static_state->geom_state[i].vdm_ctx_resume_task1;
       pvr_csb_pack (d_dst, CR_VDM_CONTEXT_RESUME_TASK1, task1) {
          pvr_csb_pack (&task1.pds_state2, VDMCTRL_PDS_STATE2, state) {
-            state.pds_code_addr.addr = sr_prog->pds.load_program.code_offset;
+            state.pds_code_addr =
+               PVR_DEV_ADDR(sr_prog->pds.load_program.code_offset);
          }
       }
 
@@ -979,15 +981,19 @@ static void pvr_compute_ctx_ws_static_state_init(
    pvr_csb_pack (&static_state->cdm_ctx_store_pds0,
                  CR_CDM_CONTEXT_PDS0,
                  state) {
-      state.data_addr.addr = ctx_switch->sr[0].pds.store_program.data_offset;
-      state.code_addr.addr = ctx_switch->sr[0].pds.store_program.code_offset;
+      state.data_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[0].pds.store_program.data_offset);
+      state.code_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[0].pds.store_program.code_offset);
    }
 
    pvr_csb_pack (&static_state->cdm_ctx_store_pds0_b,
                  CR_CDM_CONTEXT_PDS0,
                  state) {
-      state.data_addr.addr = ctx_switch->sr[1].pds.store_program.data_offset;
-      state.code_addr.addr = ctx_switch->sr[1].pds.store_program.code_offset;
+      state.data_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[1].pds.store_program.data_offset);
+      state.code_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[1].pds.store_program.code_offset);
    }
 
    pvr_csb_pack (&static_state->cdm_ctx_store_pds1,
@@ -1019,8 +1025,10 @@ static void pvr_compute_ctx_ws_static_state_init(
    pvr_csb_pack (&static_state->cdm_ctx_terminate_pds,
                  CR_CDM_TERMINATE_PDS,
                  state) {
-      state.data_addr.addr = ctx_switch->sr_fence_terminate_program.data_offset;
-      state.code_addr.addr = ctx_switch->sr_fence_terminate_program.code_offset;
+      state.data_addr =
+         PVR_DEV_ADDR(ctx_switch->sr_fence_terminate_program.data_offset);
+      state.code_addr =
+         PVR_DEV_ADDR(ctx_switch->sr_fence_terminate_program.code_offset);
    }
 
    pvr_csb_pack (&static_state->cdm_ctx_terminate_pds1,
@@ -1052,15 +1060,19 @@ static void pvr_compute_ctx_ws_static_state_init(
    pvr_csb_pack (&static_state->cdm_ctx_resume_pds0,
                  CR_CDM_CONTEXT_LOAD_PDS0,
                  state) {
-      state.data_addr.addr = ctx_switch->sr[0].pds.load_program.data_offset;
-      state.code_addr.addr = ctx_switch->sr[0].pds.load_program.code_offset;
+      state.data_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[0].pds.load_program.data_offset);
+      state.code_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[0].pds.load_program.code_offset);
    }
 
    pvr_csb_pack (&static_state->cdm_ctx_resume_pds0_b,
                  CR_CDM_CONTEXT_LOAD_PDS0,
                  state) {
-      state.data_addr.addr = ctx_switch->sr[1].pds.load_program.data_offset;
-      state.code_addr.addr = ctx_switch->sr[1].pds.load_program.code_offset;
+      state.data_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[1].pds.load_program.data_offset);
+      state.code_addr =
+         PVR_DEV_ADDR(ctx_switch->sr[1].pds.load_program.code_offset);
    }
 }
 
@@ -1206,8 +1218,9 @@ static VkResult pvr_transfer_ctx_setup_shaders(struct pvr_device *device,
    STATIC_ASSERT(ARRAY_SIZE(pvr_transfer_eot_usc_offsets) ==
                  ARRAY_SIZE(ctx->transfer_mrts));
    for (uint32_t i = 0U; i < ARRAY_SIZE(pvr_transfer_eot_usc_offsets); i++) {
-      ctx->transfer_mrts[i] = ctx->usc_eot_bo->vma->dev_addr;
-      ctx->transfer_mrts[i].addr += pvr_transfer_eot_usc_offsets[i];
+      ctx->transfer_mrts[i] =
+         PVR_DEV_ADDR_OFFSET(ctx->usc_eot_bo->vma->dev_addr,
+                             pvr_transfer_eot_usc_offsets[i]);
    }
 
    return VK_SUCCESS;

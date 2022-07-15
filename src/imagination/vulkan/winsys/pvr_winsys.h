@@ -48,9 +48,40 @@ typedef struct pvr_dev_addr {
    uint64_t addr;
 } pvr_dev_addr_t;
 
-/* clang-format off */
-#define PVR_DEV_ADDR_INVALID (pvr_dev_addr_t){ .addr = 0 }
-/* clang-format on */
+#define PVR_DEV_ADDR(addr_) ((pvr_dev_addr_t){ .addr = (addr_) })
+#define PVR_DEV_ADDR_OFFSET(base, offset) \
+   PVR_DEV_ADDR((base).addr + (offset))
+
+#define PVR_DEV_ADDR_INVALID PVR_DEV_ADDR(0)
+
+static ALWAYS_INLINE uint64_t
+pvr_dev_addr_get_offset(const pvr_dev_addr_t from, const pvr_dev_addr_t to)
+{
+   return to.addr - from.addr;
+}
+
+static ALWAYS_INLINE bool pvr_dev_addr_is_null(const pvr_dev_addr_t addr)
+{
+   return !addr.addr;
+}
+
+static ALWAYS_INLINE bool
+pvr_dev_addr_eq(const pvr_dev_addr_t a, const pvr_dev_addr_t b)
+{
+   return a.addr == b.addr;
+}
+
+static ALWAYS_INLINE bool
+pvr_dev_addr_lt(const pvr_dev_addr_t a, const pvr_dev_addr_t b)
+{
+   return a.addr < b.addr;
+}
+
+static ALWAYS_INLINE bool
+pvr_dev_addr_gt(const pvr_dev_addr_t a, const pvr_dev_addr_t b)
+{
+   return a.addr > b.addr;
+}
 
 struct pvr_winsys_heaps {
    struct pvr_winsys_heap *general_heap;

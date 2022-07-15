@@ -1707,7 +1707,7 @@ VkResult pvr_bind_memory(struct pvr_device *device,
       return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
    dev_addr = device->ws->ops->vma_map(vma, mem->bo, offset, size);
-   if (!dev_addr.addr) {
+   if (pvr_dev_addr_is_null(dev_addr)) {
       device->ws->ops->heap_free(vma);
       return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
    }
@@ -1967,8 +1967,9 @@ VkResult pvr_gpu_upload_pds(struct pvr_device *device,
    if (data) {
       memcpy(pds_upload_out->pvr_bo->bo->map, data, data_size);
 
-      pds_upload_out->data_offset = pds_upload_out->pvr_bo->vma->dev_addr.addr -
-                                    device->heaps.pds_heap->base_addr.addr;
+      pds_upload_out->data_offset =
+         pvr_dev_addr_get_offset(device->heaps.pds_heap->base_addr,
+                                 pds_upload_out->pvr_bo->vma->dev_addr);
 
       /* Store data size in dwords. */
       assert(data_aligned_size % 4 == 0);
@@ -1983,9 +1984,10 @@ VkResult pvr_gpu_upload_pds(struct pvr_device *device,
              code,
              code_size);
 
-      pds_upload_out->code_offset =
-         (pds_upload_out->pvr_bo->vma->dev_addr.addr + code_offset) -
-         device->heaps.pds_heap->base_addr.addr;
+      pds_upload_out->code_offset = pvr_dev_addr_get_offset(
+         device->heaps.pds_heap->base_addr,
+         PVR_DEV_ADDR_OFFSET(pds_upload_out->pvr_bo->vma->dev_addr,
+                             code_offset));
 
       /* Store code size in dwords. */
       assert(code_aligned_size % 4 == 0);
