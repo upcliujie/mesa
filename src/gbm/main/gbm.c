@@ -724,6 +724,13 @@ gbm_surface_destroy(struct gbm_surface *surf)
    surf->gbm->v0.surface_destroy(surf);
 }
 
+GBM_EXPORT int
+gbm_surface_set_overrides(struct gbm_surface *surf, void *user_data,
+                          struct gbm_surface_overrides overrides)
+{
+   return 0;
+}
+
 /**
  * Lock the surface's current front buffer
  *
