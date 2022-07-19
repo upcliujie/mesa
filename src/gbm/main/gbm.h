@@ -439,6 +439,7 @@ struct gbm_surface_overrides {
 	struct gbm_bo *(*surface_lock_front_buffer)(void *user_surface);
 	void (*surface_release_buffer)(void *user_surface, struct gbm_bo *bo);
 	int (*surface_has_free_buffers)(void *user_surface);
+	void (*surface_destroy)(void *user_interface);
 };
 
 int
