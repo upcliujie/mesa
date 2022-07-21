@@ -911,6 +911,8 @@ v3d_screen_create(int fd, const struct pipe_screen_config *config,
         (void)mtx_init(&screen->bo_handles_mutex, mtx_plain);
         screen->bo_handles = util_hash_table_create_ptr_keys();
 
+        v3d_process_debug_variable();
+
 #if defined(USE_V3D_SIMULATOR)
         screen->sim_file = v3d_simulator_init(screen->fd);
 #endif
@@ -937,8 +939,6 @@ v3d_screen_create(int fd, const struct pipe_screen_config *config,
         screen->has_perfmon = v3d_has_feature(screen, DRM_V3D_PARAM_SUPPORTS_PERFMON);
 
         v3d_fence_init(screen);
-
-        v3d_process_debug_variable();
 
         v3d_resource_screen_init(pscreen);
 

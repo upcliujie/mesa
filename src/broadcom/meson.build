@@ -35,6 +35,13 @@ if with_tools.contains('drm-shim')
   subdir('drm-shim')
 endif
 
+v3dv3_flags = []
+
+dep_v3dv3 = dependency('v3dv3', required : false)
+if dep_v3dv3.found()
+  v3dv3_flags += '-DUSE_V3D_SIMULATOR'
+endif
+
 per_version_libs = []
 foreach ver : v3d_versions
   per_version_libs += static_library(
@@ -75,7 +82,7 @@ libbroadcom_v3d = static_library(
     v3d_xml_pack,
   ],
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_broadcom],
-  c_args : [no_override_init_args],
+  c_args : [no_override_init_args, v3dv3_flags],
   gnu_symbol_visibility : 'hidden',
   link_whole : v3d_libs + per_version_libs,
   link_with: [libv3d_neon],

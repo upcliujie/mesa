@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 struct v3d_hw;
+struct drm_v3d_submit_cl;
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +40,9 @@ void v3d_hw_tick(struct v3d_hw *hw);
 int v3d_hw_get_version(struct v3d_hw *hw);
 void v3d_hw_set_isr(struct v3d_hw *hw, void (*isr)(uint32_t status));
 uint32_t v3d_hw_get_hub_core();
-
+void v3d_hw_autoclif_cl(struct v3d_hw *hw,
+                        struct drm_v3d_submit_cl *submit,
+                        const char *output);
 #ifdef __cplusplus
 }
 #endif

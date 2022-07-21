@@ -93,6 +93,9 @@ static struct v3d_simulator_state {
 
         struct util_dynarray bin_oom;
         int refcount;
+
+        /** Frame number for autoclif dumping. */
+        uint32_t frame;
 } sim_state = {
         .mutex = _MTX_INITIALIZER_NP,
 };
@@ -489,10 +492,15 @@ v3d_simulator_submit_cl_ioctl(int fd, struct drm_v3d_submit_cl *submit)
 
         v3d_simulator_perfmon_switch(fd, submit->perfmon_id);
 
+        /* Autoclif dump only works for versions 4.1 and ongoing; so no point
+         * on passing a frame number.
+         */
         if (sim_state.ver >= 41)
-                v3d41_simulator_submit_cl_ioctl(sim_state.v3d, submit, file->gmp->ofs);
+                v3d41_simulator_submit_cl_ioctl(sim_state.v3d, submit, file->gmp->ofs,
+                                                ++sim_state.frame);
         else
-                v3d33_simulator_submit_cl_ioctl(sim_state.v3d, submit, file->gmp->ofs);
+                v3d33_simulator_submit_cl_ioctl(sim_state.v3d, submit, file->gmp->ofs,
+                                                0);
 
         util_dynarray_foreach(&sim_state.bin_oom, struct v3d_simulator_bo *,
                               sim_bo) {

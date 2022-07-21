@@ -103,6 +103,10 @@ static const struct debug_named_value debug_control[] = {
         /* disable_tfu is v3dv only because v3d has some uses of the TFU without alternative codepaths */
         { "disable_tfu", V3D_DEBUG_DISABLE_TFU,
           "Disable TFU (v3dv only)" },
+#ifdef USE_V3D_SIMULATOR
+        { "autoclif",        V3D_DEBUG_AUTOCLIF,
+          "Dump command list (autoclif format) during creation" },
+#endif
         DEBUG_NAMED_VALUE_END
 };
 
