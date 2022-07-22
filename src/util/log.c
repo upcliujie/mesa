@@ -22,6 +22,7 @@
  */
 
 #include <stdarg.h>
+#include <stdbool.h>
 
 #ifdef ANDROID
 #include <android/log.h>
@@ -35,6 +36,24 @@
 #include "util/log.h"
 #include "util/ralloc.h"
 
+#define FALLBACK_LOG_LEVEL MESA_LOG_WARN
+
+static struct {
+   bool initialized;
+   enum mesa_log_level level;
+} logging = {
+   .initialized = false,
+   .level = FALLBACK_LOG_LEVEL,
+};
+
+static const char *level_strings[] = {
+   [MESA_LOG_FATAL] = "fatal",
+   [MESA_LOG_ERROR] = "error",
+   [MESA_LOG_WARN]  = "warning",
+   [MESA_LOG_INFO] = "info",
+   [MESA_LOG_DEBUG] = "debug"
+};
+
 #ifdef ANDROID
 static inline android_LogPriority
 level_to_android(enum mesa_log_level l)
@@ -44,26 +63,43 @@ level_to_android(enum mesa_log_level l)
    case MESA_LOG_WARN: return ANDROID_LOG_WARN;
    case MESA_LOG_INFO: return ANDROID_LOG_INFO;
    case MESA_LOG_DEBUG: return ANDROID_LOG_DEBUG;
+   case MESA_LOG_FATAL: return ANDROID_LOG_FATAL;
    }
 
    unreachable("bad mesa_log_level");
 }
 #endif
 
-#ifndef ANDROID
-static inline const char *
-level_to_str(enum mesa_log_level l)
+static void
+_mesa_log_init(void)
 {
-   switch (l) {
-   case MESA_LOG_ERROR: return "error";
-   case MESA_LOG_WARN: return "warning";
-   case MESA_LOG_INFO: return "info";
-   case MESA_LOG_DEBUG: return "debug";
+   const char *log_env = NULL;
+   int level = -1;
+
+   if (logging.initialized)
+      return;
+
+   log_env = getenv("MESA_LOG_LEVEL"); 
+   if (log_env) {
+      for (int i = 0; i < ARRAY_SIZE(level_strings); i++) {
+         if (strcasecmp(log_env, level_strings[i]) == 0) {
+            level = i;
+            break;
+         }
+      }
    }
 
-   unreachable("bad mesa_log_level");
+   logging.level = (level >= 0) ? level : FALLBACK_LOG_LEVEL;
+   logging.initialized = true;
+
+   /* it is fine to call mesa_log now */
+   if (log_env && level < 0)
+      mesa_logw(
+         "Unrecognized MESA_LOG_LEVEL environment variable value. "
+         "Expected one of \"fatal\", \"warning\", \"info\", \"debug\". "
+         "Got \"%s\". Falling back to \"%s\".",
+         log_env, level_strings[FALLBACK_LOG_LEVEL]);
 }
-#endif
 
 void
 mesa_log(enum mesa_log_level level, const char *tag, const char *format, ...)
@@ -79,13 +115,19 @@ void
 mesa_log_v(enum mesa_log_level level, const char *tag, const char *format,
             va_list va)
 {
+   if (!logging.initialized)
+      _mesa_log_init();
+   
+   if (level > logging.level || level < 0)
+      return;
+
 #ifdef ANDROID
    __android_log_vprint(level_to_android(level), tag, format, va);
 #else
 #if !DETECT_OS_WINDOWS
    flockfile(stderr);
 #endif
-   fprintf(stderr, "%s: %s: ", tag, level_to_str(level));
+   fprintf(stderr, "%s: %s: ", tag, level_strings[level]);
    vfprintf(stderr, format, va);
    if (format[strlen(format) - 1] != '\n')
       fprintf(stderr, "\n");
@@ -93,6 +135,9 @@ mesa_log_v(enum mesa_log_level level, const char *tag, const char *format,
    funlockfile(stderr);
 #endif
 #endif
+
+   if (level == MESA_LOG_FATAL)
+      exit(1); /* or abort()? */
 }
 
 struct log_stream *
