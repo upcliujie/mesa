@@ -70,6 +70,7 @@
 #include "util/bitscan.h"
 #include "util/driconf.h"
 #include "util/u_math.h"
+#include "util/log.h"
 
 #define NUM_ATTRIBS 12
 
@@ -145,7 +146,7 @@ dri2_gl_flush()
 
    /* if glFlush is not available things are horribly broken */
    if (!glFlush) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to find glFlush entry point");
+      mesa_logw("DRI2: failed to find glFlush entry point");
       return;
    }
 
@@ -575,7 +576,7 @@ dri2_add_config(_EGLDisplay *disp, const __DRIconfig *dri_config, int id,
    base.MaxSwapInterval = dri2_dpy->max_swap_interval;
 
    if (!_eglValidateConfig(&base, EGL_FALSE)) {
-      _eglLog(_EGL_DEBUG, "DRI2: failed to validate config %d", id);
+      mesa_logd("DRI2: failed to validate config %d", id);
       return NULL;
    }
 
@@ -642,7 +643,7 @@ dri2_add_pbuffer_configs_for_visuals(_EGLDisplay *disp)
 
    for (unsigned i = 0; i < ARRAY_SIZE(format_count); i++) {
       if (!format_count[i]) {
-         _eglLog(_EGL_DEBUG, "No DRI config supports native format %s",
+         mesa_logd("No DRI config supports native format %s",
                dri2_pbuffer_visuals[i].format_name);
       }
    }
@@ -765,13 +766,13 @@ dri2_bind_extensions(struct dri2_egl_display *dri2_dpy,
    void *field;
 
    for (int i = 0; extensions[i]; i++) {
-      _eglLog(_EGL_DEBUG, "found extension `%s'", extensions[i]->name);
+      mesa_logd("found extension `%s'", extensions[i]->name);
       for (int j = 0; matches[j].name; j++) {
          if (strcmp(extensions[i]->name, matches[j].name) == 0 &&
              extensions[i]->version >= matches[j].version) {
             field = ((char *) dri2_dpy + matches[j].offset);
             *(const __DRIextension **) field = extensions[i];
-            _eglLog(_EGL_INFO, "found extension %s version %d",
+            mesa_logi("found extension %s version %d",
                     extensions[i]->name, extensions[i]->version);
             break;
          }
@@ -782,10 +783,10 @@ dri2_bind_extensions(struct dri2_egl_display *dri2_dpy,
       field = ((char *) dri2_dpy + matches[j].offset);
       if (*(const __DRIextension **) field == NULL) {
          if (optional) {
-            _eglLog(_EGL_DEBUG, "did not find optional extension %s version %d",
+            mesa_logd("did not find optional extension %s version %d",
                     matches[j].name, matches[j].version);
          } else {
-            _eglLog(_EGL_WARNING, "did not find extension %s version %d",
+            mesa_logw("did not find extension %s version %d",
                     matches[j].name, matches[j].version);
             ret = EGL_FALSE;
          }
@@ -1099,7 +1100,7 @@ dri2_create_screen(_EGLDisplay *disp)
    }
 
    if (dri2_dpy->dri_screen == NULL) {
-      _eglLog(_EGL_WARNING, "egl: failed to create dri2 screen");
+      mesa_logw("egl: failed to create dri2 screen");
       return EGL_FALSE;
    }
 
@@ -1873,7 +1874,7 @@ dri2_make_current(_EGLDisplay *disp, _EGLSurface *dsurf,
          assert(tmp_ctx == old_ctx && tmp_dsurf == old_dsurf &&
                 tmp_rsurf == old_rsurf);
 
-         _eglLog(_EGL_WARNING, "DRI2: failed to rebind the previous context");
+         mesa_logw("DRI2: failed to rebind the previous context");
       } else {
          /* dri2_dpy->core->bindContext succeeded, so take a reference on the
           * dri2_dpy. This prevents dri2_dpy from being reinitialized when a

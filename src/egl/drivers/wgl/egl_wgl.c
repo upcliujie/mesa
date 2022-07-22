@@ -29,6 +29,8 @@
 
 #include "egl_wgl.h"
 
+#include "util/log.h"
+
 #include <stw_device.h>
 #include <stw_pixelformat.h>
 #include <stw_context.h>
@@ -128,7 +130,7 @@ wgl_add_config(_EGLDisplay *disp, const struct stw_pixelformat_info *stw_config,
    base.MaxSwapInterval = 1;
 
    if (!_eglValidateConfig(&base, EGL_FALSE)) {
-      _eglLog(_EGL_DEBUG, "wgl: failed to validate config %d", id);
+      mesa_logd("wgl: failed to validate config %d", id);
       return NULL;
    }
 
@@ -510,7 +512,7 @@ wgl_gl_flush()
 
    /* if glFlush is not available things are horribly broken */
    if (!glFlush) {
-      _eglLog(_EGL_WARNING, "wgl: failed to find glFlush entry point");
+      mesa_logw("wgl: failed to find glFlush entry point");
       return;
    }
 
@@ -620,7 +622,7 @@ wgl_make_current(_EGLDisplay *disp, _EGLSurface *dsurf,
          assert(tmp_ctx == old_ctx && tmp_dsurf == old_dsurf &&
             tmp_rsurf == old_rsurf);
 
-         _eglLog(_EGL_WARNING, "wgl: failed to rebind the previous context");
+         mesa_logw("wgl: failed to rebind the previous context");
       }
       else {
          /* wgl_dpy->core->bindContext succeeded, so take a reference on the

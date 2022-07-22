@@ -46,6 +46,7 @@
 #include "eglsurface.h"
 
 #include "util/macros.h"
+#include "util/log.h"
 
 /**
  * Parse the list of surface attributes and return the proper error code.
@@ -345,7 +346,7 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
    }
 
    if (err != EGL_SUCCESS)
-      _eglLog(_EGL_WARNING, "bad surface attribute 0x%04x", attr);
+      mesa_logw("bad surface attribute 0x%04x", attr);
 
    return err;
 }
@@ -382,7 +383,7 @@ _eglInitSurface(_EGLSurface *surf, _EGLDisplay *disp, EGLint type,
       func = "eglCreatePBufferSurface";
       break;
    default:
-      _eglLog(_EGL_WARNING, "Bad type in _eglInitSurface");
+      mesa_logw("Bad type in _eglInitSurface");
       return EGL_FALSE;
    }
 

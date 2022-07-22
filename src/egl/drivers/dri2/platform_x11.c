@@ -43,6 +43,7 @@
 #include "util/debug.h"
 #include "util/macros.h"
 #include "util/bitscan.h"
+#include "util/log.h"
 
 #include "egl_dri2.h"
 #include "loader.h"
@@ -92,7 +93,7 @@ swrastCreateDrawable(struct dri2_egl_display * dri2_dpy,
          dri2_surf->bytes_per_pixel = 0;
          break;
       default:
-         _eglLog(_EGL_WARNING, "unsupported depth %d", dri2_surf->depth);
+         mesa_logw("unsupported depth %d", dri2_surf->depth);
    }
 }
 
@@ -124,7 +125,7 @@ x11_get_drawable_info(__DRIdrawable * draw,
 
    if (error != NULL) {
       ret = false;
-      _eglLog(_EGL_WARNING, "error in xcb_get_geometry");
+      mesa_logw("error in xcb_get_geometry");
       free(error);
    } else {
       *x = reply->x;
@@ -211,7 +212,7 @@ swrastGetImage(__DRIdrawable * read,
       return;
 
    if (error != NULL) {
-      _eglLog(_EGL_WARNING, "error in xcb_get_image");
+      mesa_logw("error in xcb_get_image");
       free(error);
    } else {
       uint32_t bytes = xcb_get_image_data_length(reply);
@@ -637,12 +638,12 @@ dri2_x11_local_authenticate(struct dri2_egl_display *dri2_dpy)
    drm_magic_t magic;
 
    if (drmGetMagic(dri2_dpy->fd, &magic)) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to get drm magic");
+      mesa_logw("DRI2: failed to get drm magic");
       return EGL_FALSE;
    }
 
    if (dri2_x11_do_authenticate(dri2_dpy, magic) < 0) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to authenticate");
+      mesa_logw("DRI2: failed to authenticate");
       return EGL_FALSE;
    }
 #endif
@@ -689,7 +690,7 @@ dri2_x11_connect(struct dri2_egl_display *dri2_dpy)
 				      xfixes_query_cookie, &error);
    if (xfixes_query == NULL ||
        error != NULL || xfixes_query->major_version < 2) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to query xfixes version");
+      mesa_logw("DRI2: failed to query xfixes version");
       free(error);
       free(xfixes_query);
       return EGL_FALSE;
@@ -699,7 +700,7 @@ dri2_x11_connect(struct dri2_egl_display *dri2_dpy)
    dri2_query =
       xcb_dri2_query_version_reply (dri2_dpy->conn, dri2_query_cookie, &error);
    if (dri2_query == NULL || error != NULL) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to query version");
+      mesa_logw("DRI2: failed to query version");
       free(error);
       free(dri2_query);
       return EGL_FALSE;
@@ -711,7 +712,7 @@ dri2_x11_connect(struct dri2_egl_display *dri2_dpy)
    connect = xcb_dri2_connect_reply (dri2_dpy->conn, connect_cookie, NULL);
    if (connect == NULL ||
        connect->driver_name_length + connect->device_name_length == 0) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to authenticate");
+      mesa_logw("DRI2: failed to authenticate");
       free(connect);
       return EGL_FALSE;
    }
@@ -720,8 +721,7 @@ dri2_x11_connect(struct dri2_egl_display *dri2_dpy)
 
    dri2_dpy->fd = loader_open_device(device_name);
    if (dri2_dpy->fd == -1) {
-      _eglLog(_EGL_WARNING,
-              "DRI2: could not open %s (%s)", device_name, strerror(errno));
+      mesa_logw("DRI2: could not open %s (%s)", device_name, strerror(errno));
       free(connect);
       return EGL_FALSE;
    }
@@ -860,7 +860,7 @@ dri2_x11_add_configs_for_visuals(struct dri2_egl_display *dri2_dpy,
    }
 
    if (!config_count) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to create any config");
+      mesa_logw("DRI2: failed to create any config");
       return EGL_FALSE;
    }
 
@@ -1567,7 +1567,7 @@ dri2_initialize_x11_dri3(_EGLDisplay *disp)
     */
    dri2_dpy->vtbl = &dri3_x11_display_vtbl;
 
-   _eglLog(_EGL_INFO, "Using DRI3");
+   mesa_logi("Using DRI3");
 
    return EGL_TRUE;
 
@@ -1670,7 +1670,7 @@ dri2_initialize_x11_dri2(_EGLDisplay *disp)
     */
    dri2_dpy->vtbl = &dri2_x11_display_vtbl;
 
-   _eglLog(_EGL_INFO, "Using DRI2");
+   mesa_logi("Using DRI2");
 
    return EGL_TRUE;
 

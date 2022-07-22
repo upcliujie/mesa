@@ -45,6 +45,7 @@
 #include "util/macros.h"
 #include "util/os_file.h"
 #include "util/u_atomic.h"
+#include "util/log.h"
 
 #include "eglcontext.h"
 #include "eglcurrent.h"
@@ -116,7 +117,7 @@ _eglGetNativePlatformFromEnv(void)
    }
 
    if (plat == _EGL_INVALID_PLATFORM)
-      _eglLog(_EGL_WARNING, "invalid EGL_PLATFORM given");
+      mesa_logw("invalid EGL_PLATFORM given");
 
    return plat;
 }
@@ -178,8 +179,8 @@ _eglGetNativePlatform(void *nativeDisplay)
       detection_method = "build-time configuration";
    }
 
-   _eglLog(_EGL_DEBUG, "Native platform type: %s (%s)",
-           egl_platforms[detected_platform].name, detection_method);
+   mesa_logd("Native platform type: %s (%s)",
+             egl_platforms[detected_platform].name, detection_method);
 
    return detected_platform;
 }
@@ -204,7 +205,7 @@ _eglFiniDisplay(void)
 
       for (i = 0; i < _EGL_NUM_RESOURCES; i++) {
          if (disp->ResourceLists[i]) {
-            _eglLog(_EGL_DEBUG, "Display %p is destroyed with resources", disp);
+            mesa_logd("Display %p is destroyed with resources", disp);
             break;
          }
       }

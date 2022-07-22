@@ -36,6 +36,7 @@
 #include "egl_dri2.h"
 #include "loader.h"
 #include "kopper_interface.h"
+#include "util/log.h"
 
 static __DRIimage*
 surfaceless_alloc_image(struct dri2_egl_display *dri2_dpy,
@@ -341,7 +342,7 @@ dri2_initialize_surfaceless(_EGLDisplay *disp)
     */
    driver_loaded = surfaceless_probe_device(disp, disp->Options.ForceSoftware);
    if (!driver_loaded && disp->Options.ForceSoftware) {
-      _eglLog(_EGL_DEBUG, "Falling back to surfaceless swrast without DRM.");
+      mesa_logd("Falling back to surfaceless swrast without DRM.");
       driver_loaded = surfaceless_probe_device_sw(disp);
    }
 

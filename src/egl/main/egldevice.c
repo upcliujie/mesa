@@ -30,6 +30,7 @@
 #endif
 #include "util/compiler.h"
 #include "util/macros.h"
+#include "util/log.h"
 
 #include "eglcurrent.h"
 #include "egldevice.h"
@@ -189,7 +190,7 @@ _eglAddDevice(int fd, bool software)
    if (_eglAddDRMDevice(device, &dev) != 0)
       drmFreeDevice(&device);
 #else
-   _eglLog(_EGL_FATAL, "Driver bug: Built without libdrm, yet looking for HW device");
+   mesa_logf("Driver bug: Built without libdrm, yet looking for HW device");
    dev = NULL;
 #endif
 

@@ -32,7 +32,7 @@
 
 #include "egllog.h"
 #include "eglarray.h"
-
+#include "util/log.h"
 
 /**
  * Grow the size of the array.
@@ -49,8 +49,7 @@ _eglGrowArray(_EGLArray *array)
 
    elems = realloc(array->Elements, new_size * sizeof(array->Elements[0]));
    if (!elems) {
-      _eglLog(_EGL_DEBUG, "failed to grow %s array to %d",
-            array->Name, new_size);
+      mesa_logd("failed to grow %s array to %d", array->Name, new_size);
       return EGL_FALSE;
    }
 

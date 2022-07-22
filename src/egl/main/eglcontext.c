@@ -38,6 +38,7 @@
 #include "eglsurface.h"
 #include "egllog.h"
 #include "util/macros.h"
+#include "util/log.h"
 
 
 /**
@@ -92,7 +93,7 @@ _eglParseContextAttribList(_EGLContext *ctx, _EGLDisplay *disp,
       return EGL_SUCCESS;
 
    if (api == EGL_OPENVG_API && attrib_list[0] != EGL_NONE) {
-      _eglLog(_EGL_DEBUG, "bad context attribute 0x%04x", attrib_list[0]);
+      mesa_logd("bad context attribute 0x%04x", attrib_list[0]);
       return EGL_BAD_ATTRIBUTE;
    }
 
@@ -413,7 +414,7 @@ _eglParseContextAttribList(_EGLContext *ctx, _EGLDisplay *disp,
       }
 
       if (err != EGL_SUCCESS) {
-         _eglLog(_EGL_DEBUG, "bad context attribute 0x%04x", attr);
+         mesa_logd("bad context attribute 0x%04x", attr);
          break;
       }
    }
@@ -615,8 +616,8 @@ _eglInitContext(_EGLContext *ctx, _EGLDisplay *disp, _EGLConfig *conf,
 
       api_bit = _eglGetContextAPIBit(ctx);
       if (!(ctx->Config->RenderableType & api_bit)) {
-         _eglLog(_EGL_DEBUG, "context api is 0x%x while config supports 0x%x",
-               api_bit, ctx->Config->RenderableType);
+         mesa_logd("context api is 0x%x while config supports 0x%x",
+                   api_bit, ctx->Config->RenderableType);
          err = EGL_BAD_CONFIG;
       }
    }

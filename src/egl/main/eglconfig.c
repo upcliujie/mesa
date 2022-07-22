@@ -37,6 +37,7 @@
 #include <string.h>
 #include <assert.h>
 #include "util/macros.h"
+#include "util/log.h"
 
 #include "eglconfig.h"
 #include "eglconfigdebug.h"
@@ -378,8 +379,7 @@ _eglValidateConfig(const _EGLConfig *conf, EGLBoolean for_matching)
             valid = EGL_TRUE;
       }
       if (!valid) {
-         _eglLog(_EGL_DEBUG,
-               "attribute 0x%04x has an invalid value 0x%x", attr, val);
+         mesa_logd("attribute 0x%04x has an invalid value 0x%x", attr, val);
          break;
       }
    }
@@ -406,14 +406,14 @@ _eglValidateConfig(const _EGLConfig *conf, EGLBoolean for_matching)
       break;
    }
    if (!valid) {
-      _eglLog(_EGL_DEBUG, "conflicting color buffer type and channel sizes");
+      mesa_logd("conflicting color buffer type and channel sizes");
       return EGL_FALSE;
    }
 
    if (!conf->SampleBuffers && conf->Samples)
       valid = EGL_FALSE;
    if (!valid) {
-      _eglLog(_EGL_DEBUG, "conflicting samples and sample buffers");
+      mesa_logd("conflicting samples and sample buffers");
       return EGL_FALSE;
    }
 
@@ -426,7 +426,7 @@ _eglValidateConfig(const _EGLConfig *conf, EGLBoolean for_matching)
          valid = EGL_FALSE;
    }
    if (!valid) {
-      _eglLog(_EGL_DEBUG, "conflicting surface type and native visual/texture binding");
+      mesa_logd("conflicting surface type and native visual/texture binding");
       return EGL_FALSE;
    }
 
@@ -486,7 +486,7 @@ _eglMatchConfig(const _EGLConfig *conf, const _EGLConfig *criteria)
          if (attr != EGL_RENDERABLE_TYPE)
             break;
 #endif
-         _eglLog(_EGL_DEBUG,
+         mesa_logd(
                "the value (0x%x) of attribute 0x%04x did not meet the criteria (0x%x)",
                val, attr, cmp);
          break;

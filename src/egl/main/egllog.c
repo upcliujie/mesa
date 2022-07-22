@@ -42,6 +42,7 @@
 #include "c11/threads.h"
 #include "util/macros.h"
 #include "util/u_string.h"
+#include "util/log.h"
 
 #include "egllog.h"
 
@@ -125,11 +126,11 @@ _eglInitLogger(void)
 
    /* it is fine to call _eglLog now */
    if (log_env && level < 0) {
-      _eglLog(_EGL_WARNING,
-              "Unrecognized EGL_LOG_LEVEL environment variable value. "
-              "Expected one of \"fatal\", \"warning\", \"info\", \"debug\". "
-              "Got \"%s\". Falling back to \"%s\".",
-              log_env, level_strings[FALLBACK_LOG_LEVEL]);
+      mesa_logw(
+                "Unrecognized EGL_LOG_LEVEL environment variable value. "
+                "Expected one of \"fatal\", \"warning\", \"info\", \"debug\". "
+                "Got \"%s\". Falling back to \"%s\".",
+                log_env, level_strings[FALLBACK_LOG_LEVEL]);
    }
 }
 

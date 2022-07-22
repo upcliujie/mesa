@@ -96,6 +96,7 @@
 #include "c11/threads.h"
 #include "util/debug.h"
 #include "util/macros.h"
+#include "util/log.h"
 
 #include "egldefines.h"
 #include "eglglobals.h"
@@ -626,7 +627,7 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
       disp->Options.ForceSoftware =
          env_var_as_boolean("LIBGL_ALWAYS_SOFTWARE", false);
       if (disp->Options.ForceSoftware)
-         _eglLog(_EGL_DEBUG, "Found 'LIBGL_ALWAYS_SOFTWARE' set, will use a CPU renderer");
+         mesa_logd("Found 'LIBGL_ALWAYS_SOFTWARE' set, will use a CPU renderer");
 
       const char *env = getenv("MESA_LOADER_DRIVER_OVERRIDE");
       disp->Options.Zink = env && !strcmp(env, "zink");
