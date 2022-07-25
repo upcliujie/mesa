@@ -165,7 +165,7 @@ struct _egl_display
 
    _EGLDevice *Device;        /**< Device backing the display */
    const _EGLDriver *Driver;  /**< Matched driver of the display */
-   EGLBoolean Initialized;    /**< True if the display is initialized */
+   EGLBoolean Private;        /**< True if EGL_PRIVATE_DISPLAY_EXT set */
 
    /* options that affect how the driver initializes the display */
    struct {
@@ -195,6 +195,12 @@ struct _egl_display
 
    EGLSetBlobFuncANDROID BlobCacheSet;
    EGLGetBlobFuncANDROID BlobCacheGet;
+
+   /* KHR_display_reference */
+   EGLBoolean TrackReferences;
+   /* TODO: some drivers (dri2, wgl) have their own refcounting;
+    * remove those in favour of this one */
+   EGLint RefCount;
 };
 
 

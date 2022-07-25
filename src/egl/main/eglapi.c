@@ -181,7 +181,7 @@ _eglCheckDisplay(_EGLDisplay *disp, const char *msg)
       _eglError(EGL_BAD_DISPLAY, msg);
       return false;
    }
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       _eglError(EGL_NOT_INITIALIZED, msg);
       return false;
    }
@@ -621,7 +621,7 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
    if (!disp)
       RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
 
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       /* set options */
       disp->Options.ForceSoftware =
          env_var_as_boolean("LIBGL_ALWAYS_SOFTWARE", false);
@@ -646,7 +646,6 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
          }
       }
 
-      disp->Initialized = EGL_TRUE;
       disp->Driver = &_eglDriver;
 
       /* limit to APIs supported by core */
@@ -681,6 +680,8 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
                "%d.%d", disp->Version / 10, disp->Version % 10);
    }
 
+   disp->RefCount++;
+
    /* Update applications version of major and minor if not NULL */
    if ((major != NULL) && (minor != NULL)) {
       *major = disp->Version / 10;
@@ -688,6 +689,49 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
    }
 
    RETURN_EGL_SUCCESS(disp, EGL_TRUE);
+}
+
+
+static EGLBoolean EGLAPIENTRY
+eglDestroyDisplayEXT(EGLDisplay dpy)
+{
+   _EGLDisplay *disp = _eglLockDisplay(dpy);
+
+   _EGL_FUNC_START(disp, EGL_OBJECT_DISPLAY_KHR, NULL, EGL_FALSE);
+
+   if (!disp)
+      RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
+
+   /* Refuse to destroy non-private contexts */
+   if (!disp->Private)
+      RETURN_EGL_ERROR(NULL, EGL_BAD_ACCESS, EGL_FALSE);
+
+   /* Terminate the display as usual */
+   if (!eglTerminate(dpy))
+      RETURN_EGL_ERROR(NULL, EGL_BAD_ALLOC, EGL_FALSE);
+
+   /* Detach it from the global display list */
+   mtx_lock(_eglGlobal.Mutex);
+   if (_eglGlobal.DisplayList == disp)
+      _eglGlobal.DisplayList = disp->Next;
+   else for (_EGLDisplay *d = _eglGlobal.DisplayList; d; d = d->Next) {
+      if (d->Next == disp) {
+         d->Next = d->Next->Next;
+         break;
+      }
+   }
+   mtx_unlock(_eglGlobal.Mutex);
+
+   // XXX copypaste from _eglFiniDisplay
+   /* The fcntl() code in _eglGetDeviceDisplay() ensures that valid fd >= 3,
+    * and invalid one is 0.
+    */
+   if (disp->Options.fd)
+      close(disp->Options.fd);
+   free(disp->Options.Attribs);
+   free(disp);
+
+   RETURN_EGL_SUCCESS(NULL, EGL_TRUE);
 }
 
 
@@ -701,16 +745,27 @@ eglTerminate(EGLDisplay dpy)
    if (!disp)
       RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
 
-   if (disp->Initialized) {
-      disp->Driver->Terminate(disp);
-      /* do not reset disp->Driver */
-      disp->ClientAPIsString[0] = 0;
-      disp->Initialized = EGL_FALSE;
+   /* Already terminated */
+   if (disp->RefCount == 0)
+      RETURN_EGL_SUCCESS(disp, EGL_TRUE);
 
-      /* Reset blob cache funcs on terminate. */
-      disp->BlobCacheSet = NULL;
-      disp->BlobCacheGet = NULL;
-   }
+   /* If we track references, decrement, otherwise drop straight to 0 */
+   if (disp->TrackReferences)
+      disp->RefCount--;
+   else
+      disp->RefCount = 0;
+
+   /* If we still have references left, we're done here */
+   if (disp->RefCount > 0)
+      RETURN_EGL_SUCCESS(disp, EGL_TRUE);
+
+   disp->Driver->Terminate(disp);
+   /* do not reset disp->Driver */
+   disp->ClientAPIsString[0] = 0;
+
+   /* Reset blob cache funcs on terminate. */
+   disp->BlobCacheSet = NULL;
+   disp->BlobCacheGet = NULL;
 
    RETURN_EGL_SUCCESS(disp, EGL_TRUE);
 }
@@ -867,7 +922,7 @@ eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read,
       RETURN_EGL_ERROR(disp, EGL_BAD_DISPLAY, EGL_FALSE);
 
    /* display is allowed to be uninitialized under certain condition */
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       if (draw != EGL_NO_SURFACE || read != EGL_NO_SURFACE ||
           ctx != EGL_NO_CONTEXT)
          RETURN_EGL_ERROR(disp, EGL_BAD_DISPLAY, EGL_FALSE);
@@ -1534,7 +1589,7 @@ _eglWaitClientCommon(void)
       RETURN_EGL_ERROR(disp, EGL_BAD_CURRENT_SURFACE, EGL_FALSE);
 
    /* a valid current context implies an initialized current display */
-   assert(disp->Initialized);
+   assert(disp->RefCount > 0);
    ret = disp->Driver->WaitClient(disp, ctx);
 
    RETURN_EGL_EVAL(disp, ret);
@@ -1577,7 +1632,7 @@ eglWaitNative(EGLint engine)
       RETURN_EGL_ERROR(disp, EGL_BAD_CURRENT_SURFACE, EGL_FALSE);
 
    /* a valid current context implies an initialized current display */
-   assert(disp->Initialized);
+   assert(disp->RefCount > 0);
    ret = disp->Driver->WaitNative(engine);
 
    RETURN_EGL_EVAL(disp, ret);
@@ -2701,10 +2756,24 @@ eglQueryDisplayAttribEXT(EGLDisplay dpy,
    case EGL_DEVICE_EXT:
       *value = (EGLAttrib) disp->Device;
       break;
+   case EGL_TRACK_REFERENCES_KHR:
+      *value = disp->TrackReferences;
+      break;
+   case EGL_PRIVATE_DISPLAY_EXT:
+      *value = disp->Private;
+      break;
    default:
       RETURN_EGL_ERROR(disp, EGL_BAD_ATTRIBUTE, EGL_FALSE);
    }
    RETURN_EGL_SUCCESS(disp, EGL_TRUE);
+}
+
+static EGLBoolean EGLAPIENTRY
+eglQueryDisplayAttribKHR(EGLDisplay dpy,
+                         EGLint attribute,
+                         EGLAttrib *value)
+{
+   return eglQueryDisplayAttribEXT(dpy, attribute, value);
 }
 
 static char * EGLAPIENTRY
@@ -2774,7 +2843,7 @@ _eglLockDisplayInterop(EGLDisplay dpy, EGLContext context,
 {
 
    *disp = _eglLockDisplay(dpy);
-   if (!*disp || !(*disp)->Initialized || !(*disp)->Driver) {
+   if (!*disp || (*disp)->RefCount == 0 || !(*disp)->Driver) {
       if (*disp)
          _eglUnlockDisplay(*disp);
       return MESA_GLINTEROP_INVALID_DISPLAY;
