@@ -444,22 +444,21 @@ crocus_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 crocus_get_shader_param(struct pipe_screen *pscreen,
-                        gl_shader_stage p_stage,
+                        gl_shader_stage stage,
                         enum pipe_shader_cap param)
 {
-   gl_shader_stage stage = stage_from_pipe(p_stage);
    struct crocus_screen *screen = (struct crocus_screen *)pscreen;
    const struct intel_device_info *devinfo = &screen->devinfo;
 
    if (devinfo->ver < 6 &&
-       p_stage != MESA_SHADER_VERTEX &&
-       p_stage != MESA_SHADER_FRAGMENT)
+       stage != MESA_SHADER_VERTEX &&
+       stage != MESA_SHADER_FRAGMENT)
       return 0;
 
    if (devinfo->ver == 6 &&
-       p_stage != MESA_SHADER_VERTEX &&
-       p_stage != MESA_SHADER_FRAGMENT &&
-       p_stage != MESA_SHADER_GEOMETRY)
+       stage != MESA_SHADER_VERTEX &&
+       stage != MESA_SHADER_FRAGMENT &&
+       stage != MESA_SHADER_GEOMETRY)
       return 0;
 
    /* this is probably not totally correct.. but it's a start: */
@@ -510,8 +509,8 @@ crocus_get_shader_param(struct pipe_screen *pscreen,
       return (devinfo->verx10 >= 75) ? CROCUS_MAX_TEXTURE_SAMPLERS : 16;
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
       if (devinfo->ver >= 7 &&
-          (p_stage == MESA_SHADER_FRAGMENT ||
-           p_stage == MESA_SHADER_COMPUTE))
+          (stage == MESA_SHADER_FRAGMENT ||
+           stage == MESA_SHADER_COMPUTE))
          return CROCUS_MAX_TEXTURE_SAMPLERS;
       return 0;
    case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
@@ -649,10 +648,9 @@ crocus_query_memory_info(struct pipe_screen *pscreen,
 static const void *
 crocus_get_compiler_options(struct pipe_screen *pscreen,
                             enum pipe_shader_ir ir,
-                            gl_shader_stage pstage)
+                            gl_shader_stage stage)
 {
    struct crocus_screen *screen = (struct crocus_screen *) pscreen;
-   gl_shader_stage stage = stage_from_pipe(pstage);
    assert(ir == PIPE_SHADER_IR_NIR);
 
    return screen->compiler->nir_options[stage];
