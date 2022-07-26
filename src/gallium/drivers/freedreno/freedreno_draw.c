@@ -135,9 +135,9 @@ batch_draw_tracking_for_dirty_bits(struct fd_batch *batch) assert_dt
    }
 
    /* Mark SSBOs */
-   if (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & FD_DIRTY_SHADER_SSBO) {
+   if (ctx->dirty_shader[MESA_SHADER_FRAGMENT] & FD_DIRTY_SHADER_SSBO) {
       const struct fd_shaderbuf_stateobj *so =
-         &ctx->shaderbuf[PIPE_SHADER_FRAGMENT];
+         &ctx->shaderbuf[MESA_SHADER_FRAGMENT];
 
       u_foreach_bit (i, so->enabled_mask & so->writable_mask)
          resource_written(batch, so->sb[i].buffer);
@@ -146,10 +146,10 @@ batch_draw_tracking_for_dirty_bits(struct fd_batch *batch) assert_dt
          resource_read(batch, so->sb[i].buffer);
    }
 
-   if (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & FD_DIRTY_SHADER_IMAGE) {
-      u_foreach_bit (i, ctx->shaderimg[PIPE_SHADER_FRAGMENT].enabled_mask) {
+   if (ctx->dirty_shader[MESA_SHADER_FRAGMENT] & FD_DIRTY_SHADER_IMAGE) {
+      u_foreach_bit (i, ctx->shaderimg[MESA_SHADER_FRAGMENT].enabled_mask) {
          struct pipe_image_view *img =
-            &ctx->shaderimg[PIPE_SHADER_FRAGMENT].si[i];
+            &ctx->shaderimg[MESA_SHADER_FRAGMENT].si[i];
          if (img->access & PIPE_IMAGE_ACCESS_WRITE)
             resource_written(batch, img->resource);
          else
@@ -522,7 +522,7 @@ fd_launch_grid(struct pipe_context *pctx,
 {
    struct fd_context *ctx = fd_context(pctx);
    const struct fd_shaderbuf_stateobj *so =
-      &ctx->shaderbuf[PIPE_SHADER_COMPUTE];
+      &ctx->shaderbuf[MESA_SHADER_COMPUTE];
    struct fd_batch *batch, *save_batch = NULL;
 
    batch = fd_bc_alloc_batch(ctx, true);
@@ -539,8 +539,8 @@ fd_launch_grid(struct pipe_context *pctx,
    u_foreach_bit (i, so->enabled_mask & ~so->writable_mask)
       resource_read(batch, so->sb[i].buffer);
 
-   u_foreach_bit (i, ctx->shaderimg[PIPE_SHADER_COMPUTE].enabled_mask) {
-      struct pipe_image_view *img = &ctx->shaderimg[PIPE_SHADER_COMPUTE].si[i];
+   u_foreach_bit (i, ctx->shaderimg[MESA_SHADER_COMPUTE].enabled_mask) {
+      struct pipe_image_view *img = &ctx->shaderimg[MESA_SHADER_COMPUTE].si[i];
       if (img->access & PIPE_IMAGE_ACCESS_WRITE)
          resource_written(batch, img->resource);
       else
@@ -548,12 +548,12 @@ fd_launch_grid(struct pipe_context *pctx,
    }
 
    /* UBO's are read */
-   u_foreach_bit (i, ctx->constbuf[PIPE_SHADER_COMPUTE].enabled_mask)
-      resource_read(batch, ctx->constbuf[PIPE_SHADER_COMPUTE].cb[i].buffer);
+   u_foreach_bit (i, ctx->constbuf[MESA_SHADER_COMPUTE].enabled_mask)
+      resource_read(batch, ctx->constbuf[MESA_SHADER_COMPUTE].cb[i].buffer);
 
    /* Mark textures as being read */
-   u_foreach_bit (i, ctx->tex[PIPE_SHADER_COMPUTE].valid_textures)
-      resource_read(batch, ctx->tex[PIPE_SHADER_COMPUTE].textures[i]->texture);
+   u_foreach_bit (i, ctx->tex[MESA_SHADER_COMPUTE].valid_textures)
+      resource_read(batch, ctx->tex[MESA_SHADER_COMPUTE].textures[i]->texture);
 
    /* For global buffers, we don't really know if read or written, so assume
     * the worst:

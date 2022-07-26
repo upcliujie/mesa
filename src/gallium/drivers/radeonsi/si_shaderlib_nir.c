@@ -92,7 +92,7 @@ deref_ssa(nir_builder *b, nir_variable *var)
 void *si_create_copy_image_cs(struct si_context *sctx, bool src_is_1d_array, bool dst_is_1d_array)
 {
    const nir_shader_compiler_options *options =
-      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
+      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE);
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, options, "copy_image_cs");
    b.shader->info.num_images = 2;
@@ -145,7 +145,7 @@ void *si_create_copy_image_cs(struct si_context *sctx, bool src_is_1d_array, boo
 void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
 {
    const nir_shader_compiler_options *options =
-      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
+      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE);
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, options, "dcc_retile");
    b.shader->info.workgroup_size[0] = 8;
@@ -193,7 +193,7 @@ void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
 void *gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *tex)
 {
    const nir_shader_compiler_options *options =
-      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
+      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE);
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, options, "clear_dcc_msaa");
    b.shader->info.workgroup_size[0] = 8;
@@ -240,7 +240,7 @@ void *gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *
 void *si_create_clear_buffer_rmw_cs(struct si_context *sctx)
 {
    const nir_shader_compiler_options *options =
-      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
+      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE);
 
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, options, "clear_buffer_rmw_cs");
@@ -282,7 +282,7 @@ void *si_create_passthrough_tcs(struct si_context *sctx)
 {
    const nir_shader_compiler_options *options =
       sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR,
-                                           PIPE_SHADER_TESS_CTRL);
+                                           MESA_SHADER_TESS_CTRL);
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_TESS_CTRL, options,
                                                   "tcs passthrough");
@@ -464,7 +464,7 @@ static nir_ssa_def *apply_blit_output_modifiers(nir_builder *b, nir_ssa_def *col
 void *si_create_blit_cs(struct si_context *sctx, const union si_compute_blit_shader_key *options)
 {
    const nir_shader_compiler_options *nir_options =
-      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
+      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE);
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, nir_options,
                                                   "blit_non_scaled_cs");

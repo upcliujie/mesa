@@ -801,7 +801,7 @@ v3d_create_sampler_state(struct pipe_context *pctx,
 
 static void
 v3d_sampler_states_bind(struct pipe_context *pctx,
-                        enum pipe_shader_type shader, unsigned start,
+                        gl_shader_stage shader, unsigned start,
                         unsigned nr, void **hwcso)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -1201,7 +1201,7 @@ v3d_sampler_view_destroy(struct pipe_context *pctx,
 
 static void
 v3d_set_sampler_views(struct pipe_context *pctx,
-                      enum pipe_shader_type shader,
+                      gl_shader_stage shader,
                       unsigned start, unsigned nr,
                       unsigned unbind_num_trailing_slots,
                       bool take_ownership,
@@ -1317,7 +1317,7 @@ v3d_set_stream_output_targets(struct pipe_context *pctx,
 
 static void
 v3d_set_shader_buffers(struct pipe_context *pctx,
-                       enum pipe_shader_type shader,
+                       gl_shader_stage shader,
                        unsigned start, unsigned count,
                        const struct pipe_shader_buffer *buffers,
                        unsigned writable_bitmask)
@@ -1412,7 +1412,7 @@ v3d_create_image_view_texture_shader_state(struct v3d_context *v3d,
 
 static void
 v3d_set_shader_images(struct pipe_context *pctx,
-                      enum pipe_shader_type shader,
+                      gl_shader_stage shader,
                       unsigned start, unsigned count,
                       unsigned unbind_num_trailing_slots,
                       const struct pipe_image_view *images)

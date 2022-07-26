@@ -168,7 +168,7 @@ void st_init_limits(struct pipe_screen *screen,
     */
    c->MaxUniformBlockSize &= ~3;
 
-   for (sh = 0; sh < PIPE_SHADER_TYPES; ++sh) {
+   for (sh = 0; sh < MESA_SHADER_STAGES; ++sh) {
       const gl_shader_stage stage = tgsi_processor_to_shader_stage(sh);
       struct gl_shader_compiler_options *options =
          &c->ShaderCompilerOptions[stage];
@@ -184,7 +184,7 @@ void st_init_limits(struct pipe_screen *screen,
             nir_to_tgsi_get_compiler_options(screen, PIPE_SHADER_IR_NIR, sh);
       }
 
-      if (sh == PIPE_SHADER_COMPUTE) {
+      if (sh == MESA_SHADER_COMPUTE) {
          if (!screen->get_param(screen, PIPE_CAP_COMPUTE))
             continue;
          supported_irs =
@@ -221,23 +221,23 @@ void st_init_limits(struct pipe_screen *screen,
       pc->MaxNativeTemps =
          screen->get_shader_param(screen, sh, PIPE_SHADER_CAP_MAX_TEMPS);
       pc->MaxAddressRegs =
-      pc->MaxNativeAddressRegs = sh == PIPE_SHADER_VERTEX ? 1 : 0;
+      pc->MaxNativeAddressRegs = sh == MESA_SHADER_VERTEX ? 1 : 0;
 
       pc->MaxUniformComponents =
          screen->get_shader_param(screen, sh,
                                   PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE) / 4;
 
       /* reserve space in the default-uniform for lowered state */
-      if (sh == PIPE_SHADER_VERTEX ||
-          sh == PIPE_SHADER_TESS_EVAL ||
-          sh == PIPE_SHADER_GEOMETRY) {
+      if (sh == MESA_SHADER_VERTEX ||
+          sh == MESA_SHADER_TESS_EVAL ||
+          sh == MESA_SHADER_GEOMETRY) {
 
          if (!screen->get_param(screen, PIPE_CAP_CLIP_PLANES))
             pc->MaxUniformComponents -= 4 * MAX_CLIP_PLANES;
 
          if (!screen->get_param(screen, PIPE_CAP_POINT_SIZE_FIXED))
             pc->MaxUniformComponents -= 4;
-      } else if (sh == PIPE_SHADER_FRAGMENT) {
+      } else if (sh == MESA_SHADER_FRAGMENT) {
          if (!screen->get_param(screen, PIPE_CAP_ALPHA_TEST))
             pc->MaxUniformComponents -= 4;
       }
@@ -355,7 +355,7 @@ void st_init_limits(struct pipe_screen *screen,
       if (!screen->get_param(screen, PIPE_CAP_NIR_COMPACT_ARRAYS))
          options->LowerCombinedClipCullDistance = true;
 
-      if (sh == PIPE_SHADER_VERTEX || sh == PIPE_SHADER_GEOMETRY) {
+      if (sh == MESA_SHADER_VERTEX || sh == MESA_SHADER_GEOMETRY) {
          if (screen->get_param(screen, PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED))
             options->LowerBuiltinVariablesXfb |= VARYING_BIT_POS;
          if (screen->get_param(screen, PIPE_CAP_PSIZ_CLAMPED))
@@ -1227,9 +1227,9 @@ void st_init_extensions(struct pipe_screen *screen,
       }
    } else {
       /* Optional integer support for GLSL 1.2. */
-      if (screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+      if (screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                    PIPE_SHADER_CAP_INTEGERS) &&
-          screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+          screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                    PIPE_SHADER_CAP_INTEGERS)) {
          consts->NativeIntegers = GL_TRUE;
 
@@ -1259,7 +1259,7 @@ void st_init_extensions(struct pipe_screen *screen,
    /* Below are the cases which cannot be moved into tables easily. */
 
    /* The compatibility profile also requires GLSLVersionCompat >= 400. */
-   if (screen->get_shader_param(screen, PIPE_SHADER_TESS_CTRL,
+   if (screen->get_shader_param(screen, MESA_SHADER_TESS_CTRL,
                                 PIPE_SHADER_CAP_MAX_INSTRUCTIONS) > 0 &&
        (api != API_OPENGL_COMPAT || consts->GLSLVersionCompat >= 400)) {
       extensions->ARB_tessellation_shader = GL_TRUE;
@@ -1267,7 +1267,7 @@ void st_init_extensions(struct pipe_screen *screen,
 
    /* OES_geometry_shader requires instancing */
    if ((GLSLVersion >= 400 || ESSLVersion >= 310) &&
-       screen->get_shader_param(screen, PIPE_SHADER_GEOMETRY,
+       screen->get_shader_param(screen, MESA_SHADER_GEOMETRY,
                                 PIPE_SHADER_CAP_MAX_INSTRUCTIONS) > 0 &&
        consts->MaxGeometryShaderInvocations >= 32) {
       extensions->OES_geometry_shader = GL_TRUE;
@@ -1492,7 +1492,7 @@ void st_init_extensions(struct pipe_screen *screen,
     * prefer to disable varying packing rather than run the risk of varying
     * packing preventing a shader from running.
     */
-   if (screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+   if (screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                 PIPE_SHADER_CAP_MAX_TEX_INDIRECTIONS) <= 8) {
       /* We can't disable varying packing if transform feedback is available,
        * because transform feedback code assumes a packed varying layout.
@@ -1559,7 +1559,7 @@ void st_init_extensions(struct pipe_screen *screen,
        extensions->ARB_uniform_buffer_object &&
        (extensions->NV_primitive_restart ||
         consts->PrimitiveRestartFixedIndex) &&
-       screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+       screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                 PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS) >= 16 &&
        /* Requirements for ETC2 emulation. */
        screen->is_format_supported(screen, PIPE_FORMAT_R8G8B8A8_UNORM,
@@ -1603,7 +1603,7 @@ void st_init_extensions(struct pipe_screen *screen,
 
    if (screen->get_param(screen, PIPE_CAP_COMPUTE)) {
       int compute_supported_irs =
-         screen->get_shader_param(screen, PIPE_SHADER_COMPUTE,
+         screen->get_shader_param(screen, MESA_SHADER_COMPUTE,
                                   PIPE_SHADER_CAP_SUPPORTED_IRS);
       if (compute_supported_irs & ((1 << PIPE_SHADER_IR_TGSI) |
                                    (1 << PIPE_SHADER_IR_NIR))) {
@@ -1810,12 +1810,12 @@ void st_init_extensions(struct pipe_screen *screen,
    consts->GLThreadNopCheckFramebufferStatus = options->glthread_nop_check_framebuffer_status;
 
    bool prefer_nir = PIPE_SHADER_IR_NIR ==
-         screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_PREFERRED_IR);
+         screen->get_shader_param(screen, MESA_SHADER_FRAGMENT, PIPE_SHADER_CAP_PREFERRED_IR);
    const struct nir_shader_compiler_options *nir_options =
       consts->ShaderCompilerOptions[MESA_SHADER_FRAGMENT].NirOptions;
 
    if (prefer_nir &&
-       screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_INTEGERS) &&
+       screen->get_shader_param(screen, MESA_SHADER_FRAGMENT, PIPE_SHADER_CAP_INTEGERS) &&
        extensions->ARB_stencil_texturing &&
        screen->get_param(screen, PIPE_CAP_DOUBLES) &&
        !(nir_options->lower_doubles_options & nir_lower_fp64_full_software))

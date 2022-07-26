@@ -74,7 +74,7 @@ struct zink_gfx_pipeline_state {
 
    uint32_t _pad;
    uint32_t gkey; //for pipeline library lookups
-   VkShaderModule modules[PIPE_SHADER_TYPES - 1];
+   VkShaderModule modules[MESA_SHADER_STAGES - 1];
    bool modules_changed;
 
    uint32_t vertex_hash;

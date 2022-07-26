@@ -77,7 +77,7 @@ util_live_shader_cache_get(struct pipe_context *ctx,
    struct blob blob = {0};
    unsigned ir_size;
    const void *ir_binary;
-   enum pipe_shader_type stage;
+   gl_shader_stage stage;
 
    /* Get the shader binary and shader stage. */
    if (state->type == PIPE_SHADER_IR_TGSI) {
@@ -101,9 +101,9 @@ util_live_shader_cache_get(struct pipe_context *ctx,
    unsigned char sha1[20];
    _mesa_sha1_init(&sha1_ctx);
    _mesa_sha1_update(&sha1_ctx, ir_binary, ir_size);
-   if ((stage == PIPE_SHADER_VERTEX ||
-        stage == PIPE_SHADER_TESS_EVAL ||
-        stage == PIPE_SHADER_GEOMETRY) &&
+   if ((stage == MESA_SHADER_VERTEX ||
+        stage == MESA_SHADER_TESS_EVAL ||
+        stage == MESA_SHADER_GEOMETRY) &&
        state->stream_output.num_outputs) {
       _mesa_sha1_update(&sha1_ctx, &state->stream_output,
                         sizeof(state->stream_output));

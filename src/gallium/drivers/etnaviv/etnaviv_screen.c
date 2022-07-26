@@ -332,7 +332,7 @@ etna_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 etna_screen_get_shader_param(struct pipe_screen *pscreen,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    struct etna_screen *screen = etna_screen(pscreen);
@@ -342,13 +342,13 @@ etna_screen_get_shader_param(struct pipe_screen *pscreen,
       ubo_enable = true;
 
    switch (shader) {
-   case PIPE_SHADER_FRAGMENT:
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_FRAGMENT:
+   case MESA_SHADER_VERTEX:
       break;
-   case PIPE_SHADER_COMPUTE:
-   case PIPE_SHADER_GEOMETRY:
-   case PIPE_SHADER_TESS_CTRL:
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_GEOMETRY:
+   case MESA_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_EVAL:
       return 0;
    default:
       DBG("unknown shader type %d", shader);
@@ -368,7 +368,7 @@ etna_screen_get_shader_param(struct pipe_screen *pscreen,
        * of vertex elements - each element defines one vertex shader
        * input register.  For the fragment shader, this is the number
        * of varyings. */
-      return shader == PIPE_SHADER_FRAGMENT ? screen->specs.max_varyings
+      return shader == MESA_SHADER_FRAGMENT ? screen->specs.max_varyings
                                             : screen->specs.vertex_max_elements;
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
       return 16; /* see VIVS_VS_OUTPUT */
@@ -398,7 +398,7 @@ etna_screen_get_shader_param(struct pipe_screen *pscreen,
       return screen->specs.halti >= 2;
    case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
    case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
-      return shader == PIPE_SHADER_FRAGMENT
+      return shader == MESA_SHADER_FRAGMENT
                 ? screen->specs.fragment_sampler_count
                 : screen->specs.vertex_sampler_count;
    case PIPE_SHADER_CAP_PREFERRED_IR:
@@ -406,7 +406,7 @@ etna_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE:
       if (ubo_enable)
          return 16384; /* 16384 so state tracker enables UBOs */
-      return shader == PIPE_SHADER_FRAGMENT
+      return shader == MESA_SHADER_FRAGMENT
                 ? screen->specs.max_ps_uniforms * sizeof(float[4])
                 : screen->specs.max_vs_uniforms * sizeof(float[4]);
    case PIPE_SHADER_CAP_DROUND_SUPPORTED:

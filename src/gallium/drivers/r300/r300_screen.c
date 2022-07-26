@@ -247,7 +247,7 @@ static int r300_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 }
 
 static int r300_get_shader_param(struct pipe_screen *pscreen,
-                                 enum pipe_shader_type shader,
+                                 gl_shader_stage shader,
                                  enum pipe_shader_cap param)
 {
    struct r300_screen* r300screen = r300_screen(pscreen);
@@ -264,7 +264,7 @@ static int r300_get_shader_param(struct pipe_screen *pscreen,
     }
 
    switch (shader) {
-    case PIPE_SHADER_FRAGMENT:
+    case MESA_SHADER_FRAGMENT:
         switch (param)
         {
         case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
@@ -324,7 +324,7 @@ static int r300_get_shader_param(struct pipe_screen *pscreen,
             break;
         }
         break;
-    case PIPE_SHADER_VERTEX:
+    case MESA_SHADER_VERTEX:
         switch (param)
         {
         case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
@@ -552,19 +552,19 @@ static const nir_shader_compiler_options r300_fs_compiler_options = {
 static const void *
 r300_get_compiler_options(struct pipe_screen *pscreen,
                           enum pipe_shader_ir ir,
-                          enum pipe_shader_type shader)
+                          gl_shader_stage shader)
 {
    struct r300_screen* r300screen = r300_screen(pscreen);
 
    assert(ir == PIPE_SHADER_IR_NIR);
 
    if (r300screen->caps.is_r500) {
-      if (shader == PIPE_SHADER_VERTEX)
+      if (shader == MESA_SHADER_VERTEX)
          return &r500_vs_compiler_options;
        else
          return &r500_fs_compiler_options;
    } else {
-      if (shader == PIPE_SHADER_VERTEX)
+      if (shader == MESA_SHADER_VERTEX)
          return &r300_vs_compiler_options;
        else
          return &r300_fs_compiler_options;

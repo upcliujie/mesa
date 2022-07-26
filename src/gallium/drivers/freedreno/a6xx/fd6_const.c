@@ -262,9 +262,9 @@ user_consts_cmdstream_size(struct ir3_shader_variant *v)
 struct fd_ringbuffer *
 fd6_build_user_consts(struct fd6_emit *emit)
 {
-   static const enum pipe_shader_type types[] = {
-      PIPE_SHADER_VERTEX,   PIPE_SHADER_TESS_CTRL, PIPE_SHADER_TESS_EVAL,
-      PIPE_SHADER_GEOMETRY, PIPE_SHADER_FRAGMENT,
+   static const gl_shader_stage types[] = {
+      MESA_SHADER_VERTEX,   MESA_SHADER_TESS_CTRL, MESA_SHADER_TESS_EVAL,
+      MESA_SHADER_GEOMETRY, MESA_SHADER_FRAGMENT,
    };
    struct ir3_shader_variant *variants[] = {
       emit->vs, emit->hs, emit->ds, emit->gs, emit->fs,
@@ -343,7 +343,7 @@ fd6_emit_cs_consts(const struct ir3_shader_variant *v,
                    const struct pipe_grid_info *info)
 {
    ir3_emit_cs_consts(v, ring, ctx, info);
-   fd6_emit_ubos(ctx, v, ring, &ctx->constbuf[PIPE_SHADER_COMPUTE]);
+   fd6_emit_ubos(ctx, v, ring, &ctx->constbuf[MESA_SHADER_COMPUTE]);
 }
 
 void

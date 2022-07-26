@@ -109,7 +109,7 @@ void util_compute_blit(struct pipe_context *ctx, struct pipe_blit_info *blit_inf
    struct pipe_constant_buffer cb = {0};
    cb.buffer_size = sizeof(data);
    cb.user_buffer = data;
-   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, false, &cb);
+   ctx->set_constant_buffer(ctx, MESA_SHADER_COMPUTE, 0, false, &cb);
 
    struct pipe_image_view image = {0};
    image.resource = dst;
@@ -119,7 +119,7 @@ void util_compute_blit(struct pipe_context *ctx, struct pipe_blit_info *blit_inf
    image.u.tex.first_layer = 0;
    image.u.tex.last_layer = (unsigned)(dst->array_size - 1);
 
-   ctx->set_shader_images(ctx, PIPE_SHADER_COMPUTE, 0, 1, 0, &image);
+   ctx->set_shader_images(ctx, MESA_SHADER_COMPUTE, 0, 1, 0, &image);
 
    struct pipe_sampler_state sampler_state={0};
    sampler_state.wrap_s = PIPE_TEX_WRAP_CLAMP_TO_EDGE;
@@ -133,13 +133,13 @@ void util_compute_blit(struct pipe_context *ctx, struct pipe_blit_info *blit_inf
    }
 
    sampler_state_p = ctx->create_sampler_state(ctx, &sampler_state);
-   ctx->bind_sampler_states(ctx, PIPE_SHADER_COMPUTE, 0, 1, &sampler_state_p);
+   ctx->bind_sampler_states(ctx, MESA_SHADER_COMPUTE, 0, 1, &sampler_state_p);
 
    /* Initialize the sampler view. */
    u_sampler_view_default_template(&src_templ, src, src->format);
    src_templ.format = util_format_linear(blit_info->src.format);
    src_view = ctx->create_sampler_view(ctx, src, &src_templ);
-   ctx->set_sampler_views(ctx, PIPE_SHADER_COMPUTE, 0, 1, 0, false, &src_view);
+   ctx->set_sampler_views(ctx, MESA_SHADER_COMPUTE, 0, 1, 0, false, &src_view);
 
    if (!*compute_state)
      *compute_state = blit_compute_shader(ctx);
@@ -158,9 +158,9 @@ void util_compute_blit(struct pipe_context *ctx, struct pipe_blit_info *blit_inf
 
    ctx->memory_barrier(ctx, PIPE_BARRIER_ALL);
 
-   ctx->set_shader_images(ctx, PIPE_SHADER_COMPUTE, 0, 0, 1, NULL);
-   ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, false, NULL);
-   ctx->set_sampler_views(ctx, PIPE_SHADER_COMPUTE, 0, 0, 1, false, NULL);
+   ctx->set_shader_images(ctx, MESA_SHADER_COMPUTE, 0, 0, 1, NULL);
+   ctx->set_constant_buffer(ctx, MESA_SHADER_COMPUTE, 0, false, NULL);
+   ctx->set_sampler_views(ctx, MESA_SHADER_COMPUTE, 0, 0, 1, false, NULL);
    pipe_sampler_view_reference(&src_view, NULL);
    ctx->delete_sampler_state(ctx, sampler_state_p);
    ctx->bind_compute_state(ctx, NULL);

@@ -721,7 +721,7 @@ boolean
 draw_gs_init( struct draw_context *draw )
 {
    if (!draw->llvm) {
-      draw->gs.tgsi.machine = tgsi_exec_machine_create(PIPE_SHADER_GEOMETRY);
+      draw->gs.tgsi.machine = tgsi_exec_machine_create(MESA_SHADER_GEOMETRY);
 
       for (unsigned i = 0; i < TGSI_MAX_VERTEX_STREAMS; i++) {
          draw->gs.tgsi.machine->Primitives[i] = align_malloc(

@@ -111,7 +111,7 @@ struct hw_atomic_decl {
 
 struct ureg_program
 {
-   enum pipe_shader_type processor;
+   gl_shader_stage processor;
    bool supports_any_inout_decl_range;
    int next_shader_processor;
 
@@ -357,7 +357,7 @@ struct ureg_src
 ureg_DECL_vs_input( struct ureg_program *ureg,
                     unsigned index )
 {
-   assert(ureg->processor == PIPE_SHADER_VERTEX);
+   assert(ureg->processor == MESA_SHADER_VERTEX);
    assert(index / 32 < ARRAY_SIZE(ureg->vs_inputs));
 
    ureg->vs_inputs[index/32] |= 1 << (index % 32);
@@ -1856,13 +1856,13 @@ static void emit_decls( struct ureg_program *ureg )
     */
    qsort(ureg->input, ureg->nr_inputs, sizeof(ureg->input[0]), input_sort);
 
-   if (ureg->processor == PIPE_SHADER_VERTEX) {
+   if (ureg->processor == MESA_SHADER_VERTEX) {
       for (i = 0; i < PIPE_MAX_ATTRIBS; i++) {
          if (ureg->vs_inputs[i/32] & (1u << (i%32))) {
             emit_decl_range( ureg, TGSI_FILE_INPUT, i, 1 );
          }
       }
-   } else if (ureg->processor == PIPE_SHADER_FRAGMENT) {
+   } else if (ureg->processor == MESA_SHADER_FRAGMENT) {
       if (ureg->supports_any_inout_decl_range) {
          for (i = 0; i < ureg->nr_inputs; i++) {
             emit_decl_fs(ureg,
@@ -2113,11 +2113,11 @@ const struct tgsi_token *ureg_finalize( struct ureg_program *ureg )
    const struct tgsi_token *tokens;
 
    switch (ureg->processor) {
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_TESS_EVAL:
       ureg_property(ureg, TGSI_PROPERTY_NEXT_SHADER,
                     ureg->next_shader_processor == -1 ?
-                       PIPE_SHADER_FRAGMENT :
+                       MESA_SHADER_FRAGMENT :
                        ureg->next_shader_processor);
       break;
    default:
@@ -2182,15 +2182,15 @@ void *ureg_create_shader( struct ureg_program *ureg,
       state.stream_output = *so;
 
    switch (ureg->processor) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       return pipe->create_vs_state(pipe, &state);
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       return pipe->create_tcs_state(pipe, &state);
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       return pipe->create_tes_state(pipe, &state);
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       return pipe->create_gs_state(pipe, &state);
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return pipe->create_fs_state(pipe, &state);
    default:
       return NULL;
@@ -2226,14 +2226,14 @@ void ureg_free_tokens( const struct tgsi_token *tokens )
 
 
 struct ureg_program *
-ureg_create(enum pipe_shader_type processor)
+ureg_create(gl_shader_stage processor)
 {
    return ureg_create_with_screen(processor, NULL);
 }
 
 
 struct ureg_program *
-ureg_create_with_screen(enum pipe_shader_type processor,
+ureg_create_with_screen(gl_shader_stage processor,
                         struct pipe_screen *screen)
 {
    uint i;

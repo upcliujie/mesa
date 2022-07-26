@@ -91,12 +91,12 @@ static const nir_shader_compiler_options fs_nir_options = {
 };
 
 const void *
-lima_program_get_compiler_options(enum pipe_shader_type shader)
+lima_program_get_compiler_options(gl_shader_stage shader)
 {
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       return &vs_nir_options;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return &fs_nir_options;
    default:
       return NULL;

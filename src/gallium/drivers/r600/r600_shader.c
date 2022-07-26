@@ -244,14 +244,14 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 		}
 	}
 	
-	if (shader->shader.processor_type == PIPE_SHADER_VERTEX) {
+	if (shader->shader.processor_type == MESA_SHADER_VERTEX) {
 		/* only disable for vertex shaders in tess paths */
 		if (key.vs.as_ls)
 			use_sb = 0;
 	}
-	use_sb &= (shader->shader.processor_type != PIPE_SHADER_TESS_CTRL);
-	use_sb &= (shader->shader.processor_type != PIPE_SHADER_TESS_EVAL);
-	use_sb &= (shader->shader.processor_type != PIPE_SHADER_COMPUTE);
+	use_sb &= (shader->shader.processor_type != MESA_SHADER_TESS_CTRL);
+	use_sb &= (shader->shader.processor_type != MESA_SHADER_TESS_EVAL);
+	use_sb &= (shader->shader.processor_type != MESA_SHADER_COMPUTE);
 
 	/* disable SB for shaders using doubles */
 	use_sb &= !shader->shader.uses_doubles;
@@ -317,16 +317,16 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 
 	/* Build state. */
 	switch (shader->shader.processor_type) {
-	case PIPE_SHADER_TESS_CTRL:
+	case MESA_SHADER_TESS_CTRL:
 		evergreen_update_hs_state(ctx, shader);
 		break;
-	case PIPE_SHADER_TESS_EVAL:
+	case MESA_SHADER_TESS_EVAL:
 		if (key.tes.as_es)
 			evergreen_update_es_state(ctx, shader);
 		else
 			evergreen_update_vs_state(ctx, shader);
 		break;
-	case PIPE_SHADER_GEOMETRY:
+	case MESA_SHADER_GEOMETRY:
 		if (rctx->b.gfx_level >= EVERGREEN) {
 			evergreen_update_gs_state(ctx, shader);
 			evergreen_update_vs_state(ctx, shader->gs_copy_shader);
@@ -335,7 +335,7 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 			r600_update_vs_state(ctx, shader->gs_copy_shader);
 		}
 		break;
-	case PIPE_SHADER_VERTEX:
+	case MESA_SHADER_VERTEX:
 		export_shader = key.vs.as_es;
 		if (rctx->b.gfx_level >= EVERGREEN) {
 			if (key.vs.as_ls)
@@ -351,14 +351,14 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 				r600_update_vs_state(ctx, shader);
 		}
 		break;
-	case PIPE_SHADER_FRAGMENT:
+	case MESA_SHADER_FRAGMENT:
 		if (rctx->b.gfx_level >= EVERGREEN) {
 			evergreen_update_ps_state(ctx, shader);
 		} else {
 			r600_update_ps_state(ctx, shader);
 		}
 		break;
-	case PIPE_SHADER_COMPUTE:
+	case MESA_SHADER_COMPUTE:
 		evergreen_update_ls_state(ctx, shader);
 		break;
 	default:
@@ -523,13 +523,13 @@ static int tgsi_is_supported(struct r600_shader_ctx *ctx)
 			case TGSI_FILE_HW_ATOMIC:
 				break;
 			case TGSI_FILE_INPUT:
-				if (ctx->type == PIPE_SHADER_GEOMETRY ||
-				    ctx->type == PIPE_SHADER_TESS_CTRL ||
-				    ctx->type == PIPE_SHADER_TESS_EVAL)
+				if (ctx->type == MESA_SHADER_GEOMETRY ||
+				    ctx->type == MESA_SHADER_TESS_CTRL ||
+				    ctx->type == MESA_SHADER_TESS_EVAL)
 					break;
 				FALLTHROUGH;
 			case TGSI_FILE_OUTPUT:
-				if (ctx->type == PIPE_SHADER_TESS_CTRL)
+				if (ctx->type == MESA_SHADER_TESS_CTRL)
 					break;
 				FALLTHROUGH;
 			default:
@@ -542,7 +542,7 @@ static int tgsi_is_supported(struct r600_shader_ctx *ctx)
 	}
 	for (j = 0; j < i->Instruction.NumDstRegs; j++) {
 		if (i->Dst[j].Register.Dimension) {
-			if (ctx->type == PIPE_SHADER_TESS_CTRL)
+			if (ctx->type == MESA_SHADER_TESS_CTRL)
 				continue;
 			R600_ERR("unsupported dst (dimension)\n");
 			return -EINVAL;
@@ -1081,7 +1081,7 @@ static int tgsi_declaration(struct r600_shader_ctx *ctx)
 			ctx->shader->input[i].interpolate = d->Interp.Interpolate;
 			ctx->shader->input[i].interpolate_location = d->Interp.Location;
 			ctx->shader->input[i].gpr = ctx->file_offset[TGSI_FILE_INPUT] + d->Range.First + j;
-			if (ctx->type == PIPE_SHADER_FRAGMENT) {
+			if (ctx->type == MESA_SHADER_FRAGMENT) {
 				ctx->shader->input[i].spi_sid = r600_spi_sid(&ctx->shader->input[i]);
 				switch (ctx->shader->input[i].name) {
 				case TGSI_SEMANTIC_FACE:
@@ -1106,7 +1106,7 @@ static int tgsi_declaration(struct r600_shader_ctx *ctx)
 					if ((r = evergreen_interp_input(ctx, i)))
 						return r;
 				}
-			} else if (ctx->type == PIPE_SHADER_GEOMETRY) {
+			} else if (ctx->type == MESA_SHADER_GEOMETRY) {
 				/* FIXME probably skip inputs if they aren't passed in the ring */
 				ctx->shader->input[i].ring_offset = ctx->next_ring_offset;
 				ctx->next_ring_offset += 16;
@@ -1125,9 +1125,9 @@ static int tgsi_declaration(struct r600_shader_ctx *ctx)
 			ctx->shader->output[i].gpr = ctx->file_offset[TGSI_FILE_OUTPUT] + d->Range.First + j;
 			ctx->shader->output[i].interpolate = d->Interp.Interpolate;
 			ctx->shader->output[i].write_mask = d->Declaration.UsageMask;
-			if (ctx->type == PIPE_SHADER_VERTEX ||
-			    ctx->type == PIPE_SHADER_GEOMETRY ||
-			    ctx->type == PIPE_SHADER_TESS_EVAL) {
+			if (ctx->type == MESA_SHADER_VERTEX ||
+			    ctx->type == MESA_SHADER_GEOMETRY ||
+			    ctx->type == MESA_SHADER_TESS_EVAL) {
 				ctx->shader->output[i].spi_sid = r600_spi_sid(&ctx->shader->output[i]);
 				switch (d->Semantic.Name) {
 				case TGSI_SEMANTIC_CLIPDIST:
@@ -1154,7 +1154,7 @@ static int tgsi_declaration(struct r600_shader_ctx *ctx)
 					ctx->cv_output = i;
 					break;
 				}
-				if (ctx->type == PIPE_SHADER_GEOMETRY) {
+				if (ctx->type == MESA_SHADER_GEOMETRY) {
 					ctx->gs_out_ring_offset += 16;
 				}
 			}
@@ -1746,7 +1746,7 @@ static void tgsi_src(struct r600_shader_ctx *ctx,
 			r600_src->sel = 0;
 		} else if (ctx->info.system_value_semantic_name[tgsi_src->Register.Index] == TGSI_SEMANTIC_BLOCK_ID) {
 			r600_src->sel = 1;
-		} else if (ctx->type != PIPE_SHADER_TESS_CTRL && ctx->info.system_value_semantic_name[tgsi_src->Register.Index] == TGSI_SEMANTIC_INVOCATIONID) {
+		} else if (ctx->type != MESA_SHADER_TESS_CTRL && ctx->info.system_value_semantic_name[tgsi_src->Register.Index] == TGSI_SEMANTIC_INVOCATIONID) {
 			r600_src->swizzle[0] = 3;
 			r600_src->swizzle[1] = 3;
 			r600_src->swizzle[2] = 3;
@@ -1770,13 +1770,13 @@ static void tgsi_src(struct r600_shader_ctx *ctx,
 			r600_src->swizzle[1] = 2;
 			r600_src->swizzle[2] = 2;
 			r600_src->swizzle[3] = 2;
-		} else if (ctx->type == PIPE_SHADER_TESS_CTRL && ctx->info.system_value_semantic_name[tgsi_src->Register.Index] == TGSI_SEMANTIC_PRIMID) {
+		} else if (ctx->type == MESA_SHADER_TESS_CTRL && ctx->info.system_value_semantic_name[tgsi_src->Register.Index] == TGSI_SEMANTIC_PRIMID) {
 			r600_src->sel = 0;
 			r600_src->swizzle[0] = 0;
 			r600_src->swizzle[1] = 0;
 			r600_src->swizzle[2] = 0;
 			r600_src->swizzle[3] = 0;
-		} else if (ctx->type == PIPE_SHADER_TESS_EVAL && ctx->info.system_value_semantic_name[tgsi_src->Register.Index] == TGSI_SEMANTIC_PRIMID) {
+		} else if (ctx->type == MESA_SHADER_TESS_EVAL && ctx->info.system_value_semantic_name[tgsi_src->Register.Index] == TGSI_SEMANTIC_PRIMID) {
 			r600_src->sel = 0;
 			r600_src->swizzle[0] = 3;
 			r600_src->swizzle[1] = 3;
@@ -2280,19 +2280,19 @@ static int tgsi_split_lds_inputs(struct r600_shader_ctx *ctx)
 	for (i = 0; i < inst->Instruction.NumSrcRegs; i++) {
 		struct tgsi_full_src_register *src = &inst->Src[i];
 
-		if (ctx->type == PIPE_SHADER_TESS_EVAL && src->Register.File == TGSI_FILE_INPUT) {
+		if (ctx->type == MESA_SHADER_TESS_EVAL && src->Register.File == TGSI_FILE_INPUT) {
 			int treg = r600_get_temp(ctx);
 			fetch_tes_input(ctx, src, treg);
 			ctx->src[i].sel = treg;
 			ctx->src[i].rel = 0;
 		}
-		if (ctx->type == PIPE_SHADER_TESS_CTRL && src->Register.File == TGSI_FILE_INPUT) {
+		if (ctx->type == MESA_SHADER_TESS_CTRL && src->Register.File == TGSI_FILE_INPUT) {
 			int treg = r600_get_temp(ctx);
 			fetch_tcs_input(ctx, src, treg);
 			ctx->src[i].sel = treg;
 			ctx->src[i].rel = 0;
 		}
-		if (ctx->type == PIPE_SHADER_TESS_CTRL && src->Register.File == TGSI_FILE_OUTPUT) {
+		if (ctx->type == MESA_SHADER_TESS_CTRL && src->Register.File == TGSI_FILE_OUTPUT) {
 			int treg = r600_get_temp(ctx);
 			fetch_tcs_output(ctx, src, treg);
 			ctx->src[i].sel = treg;
@@ -2587,7 +2587,7 @@ int generate_gs_copy_shader(struct r600_context *rctx,
 
 	ctx.shader = &cshader->shader;
 	ctx.bc = &ctx.shader->bc;
-	ctx.type = ctx.bc->type = PIPE_SHADER_VERTEX;
+	ctx.type = ctx.bc->type = MESA_SHADER_VERTEX;
 
 	r600_bytecode_init(ctx.bc, rctx->b.gfx_level, rctx->b.family,
 			   rctx->screen->has_compressed_msaa_texturing);
@@ -3473,7 +3473,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 	ctx.bc->type = shader->processor_type;
 
 	switch (ctx.type) {
-	case PIPE_SHADER_VERTEX:
+	case MESA_SHADER_VERTEX:
 		shader->vs_as_gs_a = key.vs.as_gs_a;
 		shader->vs_as_es = key.vs.as_es;
 		shader->vs_as_ls = key.vs.as_ls;
@@ -3483,31 +3483,31 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		if (shader->vs_as_ls)
 			lds_outputs = true;
 		break;
-	case PIPE_SHADER_GEOMETRY:
+	case MESA_SHADER_GEOMETRY:
 		ring_outputs = true;
 		shader->atomic_base = key.gs.first_atomic_counter;
 		shader->gs_tri_strip_adj_fix = key.gs.tri_strip_adj_fix;
 		break;
-	case PIPE_SHADER_TESS_CTRL:
+	case MESA_SHADER_TESS_CTRL:
 		shader->tcs_prim_mode = key.tcs.prim_mode;
 		shader->atomic_base = key.tcs.first_atomic_counter;
 		lds_outputs = true;
 		lds_inputs = true;
 		break;
-	case PIPE_SHADER_TESS_EVAL:
+	case MESA_SHADER_TESS_EVAL:
 		shader->tes_as_es = key.tes.as_es;
 		shader->atomic_base = key.tes.first_atomic_counter;
 		lds_inputs = true;
 		if (shader->tes_as_es)
 			ring_outputs = true;
 		break;
-	case PIPE_SHADER_FRAGMENT:
+	case MESA_SHADER_FRAGMENT:
 		shader->two_side = key.ps.color_two_side;
 		shader->atomic_base = key.ps.first_atomic_counter;
 		shader->rat_base = key.ps.nr_cbufs;
 		shader->image_size_const_offset = key.ps.image_size_const_offset;
 		break;
-	case PIPE_SHADER_COMPUTE:
+	case MESA_SHADER_COMPUTE:
 		shader->rat_base = 0;
 		shader->image_size_const_offset = ctx.info.file_count[TGSI_FILE_SAMPLER];
 		break;
@@ -3567,13 +3567,13 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		ctx.file_offset[i] = 0;
 	}
 
-	if (ctx.type == PIPE_SHADER_VERTEX)  {
+	if (ctx.type == MESA_SHADER_VERTEX)  {
 
 		ctx.file_offset[TGSI_FILE_INPUT] = 1;
 		if (ctx.info.num_inputs)
 			r600_bytecode_add_cfinst(ctx.bc, CF_OP_CALL_FS);
 	}
-	if (ctx.type == PIPE_SHADER_FRAGMENT) {
+	if (ctx.type == MESA_SHADER_FRAGMENT) {
 		if (ctx.bc->gfx_level >= EVERGREEN)
 			ctx.file_offset[TGSI_FILE_INPUT] = evergreen_gpr_count(&ctx);
 		else
@@ -3586,13 +3586,13 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 			}
 		}
 	}
-	if (ctx.type == PIPE_SHADER_GEOMETRY) {
+	if (ctx.type == MESA_SHADER_GEOMETRY) {
 		/* FIXME 1 would be enough in some cases (3 or less input vertices) */
 		ctx.file_offset[TGSI_FILE_INPUT] = 2;
 	}
-	if (ctx.type == PIPE_SHADER_TESS_CTRL)
+	if (ctx.type == MESA_SHADER_TESS_CTRL)
 		ctx.file_offset[TGSI_FILE_INPUT] = 1;
-	if (ctx.type == PIPE_SHADER_TESS_EVAL) {
+	if (ctx.type == MESA_SHADER_TESS_EVAL) {
 		bool add_tesscoord = false, add_tess_inout = false;
 		ctx.file_offset[TGSI_FILE_INPUT] = 1;
 		for (i = 0; i < PIPE_MAX_SHADER_INPUTS; i++) {
@@ -3608,7 +3608,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		if (add_tess_inout)
 			ctx.file_offset[TGSI_FILE_INPUT]+=2;
 	}
-	if (ctx.type == PIPE_SHADER_COMPUTE) {
+	if (ctx.type == MESA_SHADER_COMPUTE) {
 		ctx.file_offset[TGSI_FILE_INPUT] = 2;
 		for (i = 0; i < PIPE_MAX_SHADER_INPUTS; i++) {
 			if (ctx.info.system_value_semantic_name[i] == TGSI_SEMANTIC_GRID_SIZE)
@@ -3642,13 +3642,13 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 	ctx.bc->index_reg[0] = ++regno;
 	ctx.bc->index_reg[1] = ++regno;
 
-	if (ctx.type == PIPE_SHADER_TESS_CTRL) {
+	if (ctx.type == MESA_SHADER_TESS_CTRL) {
 		ctx.tess_input_info = ++regno;
 		ctx.tess_output_info = ++regno;
-	} else if (ctx.type == PIPE_SHADER_TESS_EVAL) {
+	} else if (ctx.type == MESA_SHADER_TESS_EVAL) {
 		ctx.tess_input_info = ++regno;
 		ctx.tess_output_info = ++regno;
-	} else if (ctx.type == PIPE_SHADER_GEOMETRY) {
+	} else if (ctx.type == MESA_SHADER_GEOMETRY) {
 		ctx.gs_export_gpr_tregs[0] = ++regno;
 		ctx.gs_export_gpr_tregs[1] = ++regno;
 		ctx.gs_export_gpr_tregs[2] = ++regno;
@@ -3694,9 +3694,9 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 	shader->vs_position_window_space = ctx.info.properties[TGSI_PROPERTY_VS_WINDOW_SPACE_POSITION];
 	shader->ps_conservative_z = (uint8_t)ctx.info.properties[TGSI_PROPERTY_FS_DEPTH_LAYOUT];
 
-	if (ctx.type == PIPE_SHADER_VERTEX ||
-	    ctx.type == PIPE_SHADER_GEOMETRY ||
-	    ctx.type == PIPE_SHADER_TESS_EVAL) {
+	if (ctx.type == MESA_SHADER_VERTEX ||
+	    ctx.type == MESA_SHADER_GEOMETRY ||
+	    ctx.type == MESA_SHADER_TESS_EVAL) {
 		shader->cc_dist_mask = (1 << (ctx.info.properties[TGSI_PROPERTY_NUM_CULLDIST_ENABLED] +
 					      ctx.info.properties[TGSI_PROPERTY_NUM_CLIPDIST_ENABLED])) - 1;
 		shader->clip_dist_write = (1 << ctx.info.properties[TGSI_PROPERTY_NUM_CLIPDIST_ENABLED]) - 1;
@@ -3712,7 +3712,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 			return r;
 	}
 
-	if (ctx.type == PIPE_SHADER_TESS_EVAL)
+	if (ctx.type == MESA_SHADER_TESS_EVAL)
 		r600_fetch_tess_io_info(&ctx);
 
 	while (!tgsi_parse_end_of_tokens(&ctx.parse)) {
@@ -3881,7 +3881,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		}
 	}
 
-	if (ctx.type == PIPE_SHADER_GEOMETRY) {
+	if (ctx.type == MESA_SHADER_GEOMETRY) {
 		struct r600_bytecode_alu alu;
 		int r;
 
@@ -3933,7 +3933,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		}
 	}
 
-	if (ctx.type == PIPE_SHADER_TESS_CTRL)
+	if (ctx.type == MESA_SHADER_TESS_CTRL)
 		r600_fetch_tess_io_info(&ctx);
 
 	if (shader->two_side && ctx.colors_used) {
@@ -3958,7 +3958,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 				goto out_err;
 			if ((r = tgsi_split_literal_constant(&ctx)))
 				goto out_err;
-			if (ctx.type == PIPE_SHADER_GEOMETRY) {
+			if (ctx.type == MESA_SHADER_GEOMETRY) {
 				if ((r = tgsi_split_gs_inputs(&ctx)))
 					goto out_err;
 			} else if (lds_inputs) {
@@ -3978,7 +3978,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 			if (r)
 				goto out_err;
 
-			if (ctx.type == PIPE_SHADER_TESS_CTRL) {
+			if (ctx.type == MESA_SHADER_TESS_CTRL) {
 				r = r600_store_tcs_output(&ctx);
 				if (r)
 					goto out_err;
@@ -4047,9 +4047,9 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 	/* Add stream outputs. */
 	if (so.num_outputs) {
 		bool emit = false;
-		if (!lds_outputs && !ring_outputs && ctx.type == PIPE_SHADER_VERTEX)
+		if (!lds_outputs && !ring_outputs && ctx.type == MESA_SHADER_VERTEX)
 			emit = true;
-		if (!ring_outputs && ctx.type == PIPE_SHADER_TESS_EVAL)
+		if (!ring_outputs && ctx.type == MESA_SHADER_TESS_EVAL)
 			emit = true;
 		if (emit)
 			emit_streamout(&ctx, &so, -1, NULL);
@@ -4057,11 +4057,11 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 	pipeshader->enabled_stream_buffers_mask = ctx.enabled_stream_buffers_mask;
 	convert_edgeflag_to_int(&ctx);
 
-	if (ctx.type == PIPE_SHADER_TESS_CTRL)
+	if (ctx.type == MESA_SHADER_TESS_CTRL)
 		r600_emit_tess_factor(&ctx);
 
 	if (lds_outputs) {
-		if (ctx.type == PIPE_SHADER_VERTEX) {
+		if (ctx.type == MESA_SHADER_VERTEX) {
 			if (ctx.shader->noutput)
 				emit_lds_vs_writes(&ctx);
 		}
@@ -4090,8 +4090,8 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 			output[j].type = 0xffffffff;
 			output[j].op = CF_OP_EXPORT;
 			switch (ctx.type) {
-			case PIPE_SHADER_VERTEX:
-			case PIPE_SHADER_TESS_EVAL:
+			case MESA_SHADER_VERTEX:
+			case MESA_SHADER_TESS_EVAL:
 				switch (shader->output[i].name) {
 				case TGSI_SEMANTIC_POSITION:
 					output[j].array_base = 60;
@@ -4181,7 +4181,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 				}
 
 				break;
-			case PIPE_SHADER_FRAGMENT:
+			case MESA_SHADER_FRAGMENT:
 				if (shader->output[i].name == TGSI_SEMANTIC_COLOR) {
 					/* never export more colors than the number of CBs */
 					if (shader->output[i].sid >= max_color_exports) {
@@ -4249,7 +4249,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 					goto out_err;
 				}
 				break;
-			case PIPE_SHADER_TESS_CTRL:
+			case MESA_SHADER_TESS_CTRL:
 				break;
 			default:
 				R600_ERR("unsupported processor type %d\n", ctx.type);
@@ -4264,7 +4264,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		}
 
 		/* add fake position export */
-		if ((ctx.type == PIPE_SHADER_VERTEX || ctx.type == PIPE_SHADER_TESS_EVAL) && pos_emitted == false) {
+		if ((ctx.type == MESA_SHADER_VERTEX || ctx.type == MESA_SHADER_TESS_EVAL) && pos_emitted == false) {
 			memset(&output[j], 0, sizeof(struct r600_bytecode_output));
 			output[j].gpr = 0;
 			output[j].elem_size = 3;
@@ -4280,7 +4280,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		}
 
 		/* add fake param output for vertex shader if no param is exported */
-		if ((ctx.type == PIPE_SHADER_VERTEX || ctx.type == PIPE_SHADER_TESS_EVAL) && next_param_base == 0) {
+		if ((ctx.type == MESA_SHADER_VERTEX || ctx.type == MESA_SHADER_TESS_EVAL) && next_param_base == 0) {
 			memset(&output[j], 0, sizeof(struct r600_bytecode_output));
 			output[j].gpr = 0;
 			output[j].elem_size = 3;
@@ -4296,7 +4296,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		}
 
 		/* add fake pixel export */
-		if (ctx.type == PIPE_SHADER_FRAGMENT && shader->nr_ps_color_exports == 0) {
+		if (ctx.type == MESA_SHADER_FRAGMENT && shader->nr_ps_color_exports == 0) {
 			memset(&output[j], 0, sizeof(struct r600_bytecode_output));
 			output[j].gpr = 0;
 			output[j].elem_size = 3;
@@ -4354,7 +4354,7 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 		goto out_err;
 	}
 
-	if (ctx.type == PIPE_SHADER_GEOMETRY) {
+	if (ctx.type == MESA_SHADER_GEOMETRY) {
 		if ((r = generate_gs_copy_shader(rctx, pipeshader, &so)))
 			return r;
 	}
@@ -4502,7 +4502,7 @@ static void tgsi_dst(struct r600_shader_ctx *ctx,
 	if (inst->Instruction.Saturate) {
 		r600_dst->clamp = 1;
 	}
-	if (ctx->type == PIPE_SHADER_TESS_CTRL) {
+	if (ctx->type == MESA_SHADER_TESS_CTRL) {
 		if (tgsi_dst->Register.File == TGSI_FILE_OUTPUT) {
 			return;
 		}
@@ -7388,7 +7388,7 @@ static inline boolean tgsi_tex_src_requires_loading(struct r600_shader_ctx *ctx,
 		inst->Src[index].Register.File != TGSI_FILE_INPUT &&
 		inst->Src[index].Register.File != TGSI_FILE_OUTPUT) ||
 		ctx->src[index].neg || ctx->src[index].abs ||
-		(inst->Src[index].Register.File == TGSI_FILE_INPUT && ctx->type == PIPE_SHADER_GEOMETRY);
+		(inst->Src[index].Register.File == TGSI_FILE_INPUT && ctx->type == MESA_SHADER_GEOMETRY);
 }
 
 static inline unsigned tgsi_tex_get_src_gpr(struct r600_shader_ctx *ctx,

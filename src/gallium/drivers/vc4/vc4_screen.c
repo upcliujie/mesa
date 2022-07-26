@@ -249,11 +249,11 @@ vc4_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 vc4_screen_get_shader_param(struct pipe_screen *pscreen,
-                            enum pipe_shader_type shader,
+                            gl_shader_stage shader,
                             enum pipe_shader_cap param)
 {
-        if (shader != PIPE_SHADER_VERTEX &&
-            shader != PIPE_SHADER_FRAGMENT) {
+        if (shader != MESA_SHADER_VERTEX &&
+            shader != MESA_SHADER_FRAGMENT) {
                 return 0;
         }
 
@@ -271,7 +271,7 @@ vc4_screen_get_shader_param(struct pipe_screen *pscreen,
         case PIPE_SHADER_CAP_MAX_INPUTS:
                 return 8;
         case PIPE_SHADER_CAP_MAX_OUTPUTS:
-                return shader == PIPE_SHADER_FRAGMENT ? 1 : 8;
+                return shader == MESA_SHADER_FRAGMENT ? 1 : 8;
         case PIPE_SHADER_CAP_MAX_TEMPS:
                 return 256; /* GL_MAX_PROGRAM_TEMPORARIES_ARB */
         case PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE:

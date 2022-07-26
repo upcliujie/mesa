@@ -436,7 +436,7 @@ struct lvp_pipeline {
    bool is_compute_pipeline;
    bool force_min_sample;
    nir_shader *pipeline_nir[MESA_SHADER_STAGES];
-   void *shader_cso[PIPE_SHADER_TYPES];
+   void *shader_cso[MESA_SHADER_STAGES];
    struct {
       uint32_t uniform_offsets[PIPE_MAX_CONSTANT_BUFFERS][MAX_INLINABLE_UNIFORMS];
       uint8_t count[PIPE_MAX_CONSTANT_BUFFERS];

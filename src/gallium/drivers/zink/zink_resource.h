@@ -126,8 +126,8 @@ struct zink_resource {
          uint8_t vbo_bind_count;
          uint8_t so_bind_count; //not counted in all_binds
          bool so_valid;
-         uint32_t ubo_bind_mask[PIPE_SHADER_TYPES];
-         uint32_t ssbo_bind_mask[PIPE_SHADER_TYPES];
+         uint32_t ubo_bind_mask[MESA_SHADER_STAGES];
+         uint32_t ssbo_bind_mask[MESA_SHADER_STAGES];
       };
       struct {
          VkSparseImageMemoryRequirements sparse;
@@ -140,8 +140,8 @@ struct zink_resource {
          uint8_t fb_binds; //not counted in all_binds
       };
    };
-   uint32_t sampler_binds[PIPE_SHADER_TYPES];
-   uint32_t image_binds[PIPE_SHADER_TYPES];
+   uint32_t sampler_binds[MESA_SHADER_STAGES];
+   uint32_t image_binds[MESA_SHADER_STAGES];
    uint16_t sampler_bind_count[2]; //gfx, compute
    uint16_t image_bind_count[2]; //gfx, compute
    uint16_t write_bind_count[2]; //gfx, compute

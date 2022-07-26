@@ -491,7 +491,7 @@ llvmpipe_create_compute_state(struct pipe_context *pipe,
       const struct pipe_binary_program_header *hdr = templ->prog;
 
       blob_reader_init(&reader, hdr->blob, hdr->num_bytes);
-      shader->base.ir.nir = nir_deserialize(NULL, pipe->screen->get_compiler_options(pipe->screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE), &reader);
+      shader->base.ir.nir = nir_deserialize(NULL, pipe->screen->get_compiler_options(pipe->screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE), &reader);
       shader->base.type = PIPE_SHADER_IR_NIR;
 
       pipe->screen->finalize_nir(pipe->screen, shader->base.ir.nir);
@@ -614,7 +614,7 @@ make_variant_key(struct llvmpipe_context *lp,
    for(i = 0; i < key->nr_samplers; ++i) {
       if(shader->info.base.file_mask[TGSI_FILE_SAMPLER] & (1 << i)) {
          lp_sampler_static_sampler_state(&cs_sampler[i].sampler_state,
-                                         lp->samplers[PIPE_SHADER_COMPUTE][i]);
+                                         lp->samplers[MESA_SHADER_COMPUTE][i]);
       }
    }
 
@@ -632,7 +632,7 @@ make_variant_key(struct llvmpipe_context *lp,
           */
          if(shader->info.base.file_mask[TGSI_FILE_SAMPLER_VIEW] & (1u << (i & 31))) {
             lp_sampler_static_texture_state(&cs_sampler[i].texture_state,
-                                            lp->sampler_views[PIPE_SHADER_COMPUTE][i]);
+                                            lp->sampler_views[MESA_SHADER_COMPUTE][i]);
          }
       }
    }
@@ -641,7 +641,7 @@ make_variant_key(struct llvmpipe_context *lp,
       for(i = 0; i < key->nr_sampler_views; ++i) {
          if(shader->info.base.file_mask[TGSI_FILE_SAMPLER] & (1 << i)) {
             lp_sampler_static_texture_state(&cs_sampler[i].texture_state,
-                                            lp->sampler_views[PIPE_SHADER_COMPUTE][i]);
+                                            lp->sampler_views[MESA_SHADER_COMPUTE][i]);
          }
       }
    }
@@ -652,7 +652,7 @@ make_variant_key(struct llvmpipe_context *lp,
    for (i = 0; i < key->nr_images; ++i) {
       if (shader->info.base.file_mask[TGSI_FILE_IMAGE] & (1 << i)) {
          lp_sampler_static_texture_state_image(&lp_image[i].image_state,
-                                               &lp->images[PIPE_SHADER_COMPUTE][i]);
+                                               &lp->images[MESA_SHADER_COMPUTE][i]);
       }
    }
    return key;
@@ -1276,32 +1276,32 @@ llvmpipe_cs_update_derived(struct llvmpipe_context *llvmpipe, void *input)
 {
    if (llvmpipe->cs_dirty & LP_CSNEW_CONSTANTS) {
       lp_csctx_set_cs_constants(llvmpipe->csctx,
-                                ARRAY_SIZE(llvmpipe->constants[PIPE_SHADER_COMPUTE]),
-                                llvmpipe->constants[PIPE_SHADER_COMPUTE]);
+                                ARRAY_SIZE(llvmpipe->constants[MESA_SHADER_COMPUTE]),
+                                llvmpipe->constants[MESA_SHADER_COMPUTE]);
       update_csctx_consts(llvmpipe);
    }
 
    if (llvmpipe->cs_dirty & LP_CSNEW_SSBOS) {
       lp_csctx_set_cs_ssbos(llvmpipe->csctx,
-                            ARRAY_SIZE(llvmpipe->ssbos[PIPE_SHADER_COMPUTE]),
-                            llvmpipe->ssbos[PIPE_SHADER_COMPUTE]);
+                            ARRAY_SIZE(llvmpipe->ssbos[MESA_SHADER_COMPUTE]),
+                            llvmpipe->ssbos[MESA_SHADER_COMPUTE]);
       update_csctx_ssbo(llvmpipe);
    }
 
    if (llvmpipe->cs_dirty & LP_CSNEW_SAMPLER_VIEW)
       lp_csctx_set_sampler_views(llvmpipe->csctx,
-                                 llvmpipe->num_sampler_views[PIPE_SHADER_COMPUTE],
-                                 llvmpipe->sampler_views[PIPE_SHADER_COMPUTE]);
+                                 llvmpipe->num_sampler_views[MESA_SHADER_COMPUTE],
+                                 llvmpipe->sampler_views[MESA_SHADER_COMPUTE]);
 
    if (llvmpipe->cs_dirty & LP_CSNEW_SAMPLER)
       lp_csctx_set_sampler_state(llvmpipe->csctx,
-                                 llvmpipe->num_samplers[PIPE_SHADER_COMPUTE],
-                                 llvmpipe->samplers[PIPE_SHADER_COMPUTE]);
+                                 llvmpipe->num_samplers[MESA_SHADER_COMPUTE],
+                                 llvmpipe->samplers[MESA_SHADER_COMPUTE]);
 
    if (llvmpipe->cs_dirty & LP_CSNEW_IMAGES)
       lp_csctx_set_cs_images(llvmpipe->csctx,
-                              ARRAY_SIZE(llvmpipe->images[PIPE_SHADER_COMPUTE]),
-                              llvmpipe->images[PIPE_SHADER_COMPUTE]);
+                              ARRAY_SIZE(llvmpipe->images[MESA_SHADER_COMPUTE]),
+                              llvmpipe->images[MESA_SHADER_COMPUTE]);
 
    struct lp_cs_context *csctx = llvmpipe->csctx;
    csctx->cs.current.jit_context.aniso_filter_table = lp_build_sample_aniso_filter_table();

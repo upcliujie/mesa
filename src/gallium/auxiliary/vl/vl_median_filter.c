@@ -50,7 +50,7 @@ create_vert_shader(struct vl_median_filter *filter)
    struct ureg_src i_vpos;
    struct ureg_dst o_vpos, o_vtex;
 
-   shader = ureg_create(PIPE_SHADER_VERTEX);
+   shader = ureg_create(MESA_SHADER_VERTEX);
    if (!shader)
       return NULL;
 
@@ -93,13 +93,13 @@ create_frag_shader(struct vl_median_filter *filter,
    }
 
    if (num_offsets > screen->get_shader_param(
-      screen, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_MAX_TEMPS)) {
+      screen, MESA_SHADER_FRAGMENT, PIPE_SHADER_CAP_MAX_TEMPS)) {
 
       FREE(t_array);
       return NULL;
    }
 
-   shader = ureg_create(PIPE_SHADER_FRAGMENT);
+   shader = ureg_create(MESA_SHADER_FRAGMENT);
    if (!shader) {
       FREE(t_array);
       return NULL;
@@ -396,9 +396,9 @@ vl_median_filter_render(struct vl_median_filter *filter,
 
    filter->pipe->bind_rasterizer_state(filter->pipe, filter->rs_state);
    filter->pipe->bind_blend_state(filter->pipe, filter->blend);
-   filter->pipe->bind_sampler_states(filter->pipe, PIPE_SHADER_FRAGMENT,
+   filter->pipe->bind_sampler_states(filter->pipe, MESA_SHADER_FRAGMENT,
                                      0, 1, &filter->sampler);
-   filter->pipe->set_sampler_views(filter->pipe, PIPE_SHADER_FRAGMENT,
+   filter->pipe->set_sampler_views(filter->pipe, MESA_SHADER_FRAGMENT,
                                    0, 1, 0, false, &src);
    filter->pipe->bind_vs_state(filter->pipe, filter->vs);
    filter->pipe->bind_fs_state(filter->pipe, filter->fs);

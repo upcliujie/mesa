@@ -30,11 +30,11 @@
 #include "pipe/p_context.h"
 
 void fd_sampler_states_bind(struct pipe_context *pctx,
-                            enum pipe_shader_type shader, unsigned start,
+                            gl_shader_stage shader, unsigned start,
                             unsigned nr, void **hwcso);
 
 void fd_set_sampler_views(struct pipe_context *pctx,
-                          enum pipe_shader_type shader, unsigned start,
+                          gl_shader_stage shader, unsigned start,
                           unsigned nr, unsigned unbind_num_trailing_slots,
                           bool take_ownership,
                           struct pipe_sampler_view **views);

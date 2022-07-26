@@ -360,27 +360,27 @@ virgl_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
 static int
 virgl_get_shader_param(struct pipe_screen *screen,
-                       enum pipe_shader_type shader,
+                       gl_shader_stage shader,
                        enum pipe_shader_cap param)
 {
    struct virgl_screen *vscreen = virgl_screen(screen);
 
-   if ((shader == PIPE_SHADER_TESS_CTRL || shader == PIPE_SHADER_TESS_EVAL) &&
+   if ((shader == MESA_SHADER_TESS_CTRL || shader == MESA_SHADER_TESS_EVAL) &&
        !vscreen->caps.caps.v1.bset.has_tessellation_shaders)
       return 0;
 
-   if (shader == PIPE_SHADER_COMPUTE &&
+   if (shader == MESA_SHADER_COMPUTE &&
        !(vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_COMPUTE_SHADER))
      return 0;
 
    switch(shader)
    {
-   case PIPE_SHADER_FRAGMENT:
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_GEOMETRY:
-   case PIPE_SHADER_TESS_CTRL:
-   case PIPE_SHADER_TESS_EVAL:
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_FRAGMENT:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_GEOMETRY:
+   case MESA_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_COMPUTE:
       switch (param) {
       case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
       case PIPE_SHADER_CAP_MAX_ALU_INSTRUCTIONS:
@@ -397,10 +397,10 @@ virgl_get_shader_param(struct pipe_screen *screen,
       case PIPE_SHADER_CAP_MAX_INPUTS:
          if (vscreen->caps.caps.v1.glsl_level < 150)
             return vscreen->caps.caps.v2.max_vertex_attribs;
-         return (shader == PIPE_SHADER_VERTEX ||
-                 shader == PIPE_SHADER_GEOMETRY) ? vscreen->caps.caps.v2.max_vertex_attribs : 32;
+         return (shader == MESA_SHADER_VERTEX ||
+                 shader == MESA_SHADER_GEOMETRY) ? vscreen->caps.caps.v2.max_vertex_attribs : 32;
       case PIPE_SHADER_CAP_MAX_OUTPUTS:
-         if (shader == PIPE_SHADER_FRAGMENT)
+         if (shader == MESA_SHADER_FRAGMENT)
             return vscreen->caps.caps.v1.max_render_targets;
          return vscreen->caps.caps.v2.max_vertex_outputs;
      // case PIPE_SHADER_CAP_MAX_CONSTS:
@@ -425,12 +425,12 @@ virgl_get_shader_param(struct pipe_screen *screen,
             return 4096 * sizeof(float[4]);
          return vscreen->caps.caps.v2.max_const_buffer_size[shader];
       case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
-         if (shader == PIPE_SHADER_FRAGMENT || shader == PIPE_SHADER_COMPUTE)
+         if (shader == MESA_SHADER_FRAGMENT || shader == MESA_SHADER_COMPUTE)
             return vscreen->caps.caps.v2.max_shader_buffer_frag_compute;
          else
             return vscreen->caps.caps.v2.max_shader_buffer_other_stages;
       case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
-         if (shader == PIPE_SHADER_FRAGMENT || shader == PIPE_SHADER_COMPUTE)
+         if (shader == MESA_SHADER_FRAGMENT || shader == MESA_SHADER_COMPUTE)
             return vscreen->caps.caps.v2.max_shader_image_frag_compute;
          else
             return vscreen->caps.caps.v2.max_shader_image_other_stages;
@@ -1086,7 +1086,7 @@ virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *c
 
    /* Set up the NIR shader compiler options now that we've figured out the caps. */
    screen->compiler_options = *(nir_shader_compiler_options *)
-      nir_to_tgsi_get_compiler_options(&screen->base, PIPE_SHADER_IR_NIR, PIPE_SHADER_FRAGMENT);
+      nir_to_tgsi_get_compiler_options(&screen->base, PIPE_SHADER_IR_NIR, MESA_SHADER_FRAGMENT);
    if (virgl_get_param(&screen->base, PIPE_CAP_DOUBLES)) {
       /* virglrenderer is missing DFLR support, so avoid turning 64-bit
        * ffract+fsub back into ffloor.

@@ -390,7 +390,7 @@ panvk_per_arch(emit_vertex_job)(const struct panvk_pipeline *pipeline,
       cfg.instance_size = draw->instance_count > 1 ?
                           draw->padded_vertex_count : 1;
       cfg.uniform_buffers = draw->ubos;
-      cfg.push_uniforms = draw->stages[PIPE_SHADER_VERTEX].push_constants;
+      cfg.push_uniforms = draw->stages[MESA_SHADER_VERTEX].push_constants;
       cfg.textures = draw->textures;
       cfg.samplers = draw->samplers;
    }
@@ -508,7 +508,7 @@ panvk_emit_tiler_dcd(const struct panvk_pipeline *pipeline,
       cfg.instance_size = draw->instance_count > 1 ?
                          draw->padded_vertex_count : 1;
       cfg.uniform_buffers = draw->ubos;
-      cfg.push_uniforms = draw->stages[PIPE_SHADER_FRAGMENT].push_constants;
+      cfg.push_uniforms = draw->stages[MESA_SHADER_FRAGMENT].push_constants;
       cfg.textures = draw->textures;
       cfg.samplers = draw->samplers;
 

@@ -79,7 +79,7 @@ rbug_screen_get_device_vendor(struct pipe_screen *_screen)
 static const void *
 rbug_screen_get_compiler_options(struct pipe_screen *_screen,
                                  enum pipe_shader_ir ir,
-                                 enum pipe_shader_type shader)
+                                 gl_shader_stage shader)
 {
    struct pipe_screen *screen = rbug_screen(_screen)->screen;
 
@@ -107,7 +107,7 @@ rbug_screen_get_param(struct pipe_screen *_screen,
 
 static int
 rbug_screen_get_shader_param(struct pipe_screen *_screen,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    struct rbug_screen *rb_screen = rbug_screen(_screen);

@@ -100,14 +100,14 @@ i915_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
       draw_set_indexes(draw, (ubyte *)mapped_indices, info->index_size, ~0);
    }
 
-   if (i915->constants[PIPE_SHADER_VERTEX])
+   if (i915->constants[MESA_SHADER_VERTEX])
       draw_set_mapped_constant_buffer(
-         draw, PIPE_SHADER_VERTEX, 0,
-         i915_buffer(i915->constants[PIPE_SHADER_VERTEX])->data,
-         (i915->current.num_user_constants[PIPE_SHADER_VERTEX] * 4 *
+         draw, MESA_SHADER_VERTEX, 0,
+         i915_buffer(i915->constants[MESA_SHADER_VERTEX])->data,
+         (i915->current.num_user_constants[MESA_SHADER_VERTEX] * 4 *
           sizeof(float)));
    else
-      draw_set_mapped_constant_buffer(draw, PIPE_SHADER_VERTEX, 0, NULL, 0);
+      draw_set_mapped_constant_buffer(draw, MESA_SHADER_VERTEX, 0, NULL, 0);
 
    /*
     * Do the drawing
@@ -158,7 +158,7 @@ i915_destroy(struct pipe_context *pipe)
    pipe_surface_reference(&i915->framebuffer.zsbuf, NULL);
 
    /* unbind constant buffers */
-   for (i = 0; i < PIPE_SHADER_TYPES; i++) {
+   for (i = 0; i < MESA_SHADER_STAGES; i++) {
       pipe_resource_reference(&i915->constants[i], NULL);
    }
 

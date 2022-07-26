@@ -228,7 +228,7 @@ nv50_hw_sm_end_query(struct nv50_context *nv50, struct nv50_hw_query *hq)
 
    if (unlikely(!screen->pm.prog)) {
       struct nv50_program *prog = CALLOC_STRUCT(nv50_program);
-      prog->type = PIPE_SHADER_COMPUTE;
+      prog->type = MESA_SHADER_COMPUTE;
       prog->translated = true;
       prog->max_gpr = 7;
       prog->parm_size = 8;

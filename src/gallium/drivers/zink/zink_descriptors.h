@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 #ifndef ZINK_SHADER_COUNT
-#define ZINK_SHADER_COUNT (PIPE_SHADER_TYPES - 1)
+#define ZINK_SHADER_COUNT (MESA_SHADER_STAGES - 1)
 #endif
 
 #define ZINK_DESCRIPTOR_COMPACT 2
@@ -298,14 +298,14 @@ zink_descriptors_update(struct zink_context *ctx, bool is_compute);
 
 
 void
-zink_context_invalidate_descriptor_state(struct zink_context *ctx, enum pipe_shader_type shader, enum zink_descriptor_type type, unsigned, unsigned);
+zink_context_invalidate_descriptor_state(struct zink_context *ctx, gl_shader_stage shader, enum zink_descriptor_type type, unsigned, unsigned);
 
 uint32_t
 zink_get_sampler_view_hash(struct zink_context *ctx, struct zink_sampler_view *sampler_view, bool is_buffer);
 uint32_t
 zink_get_image_view_hash(struct zink_context *ctx, struct zink_image_view *image_view, bool is_buffer);
 struct zink_resource *
-zink_get_resource_for_descriptor(struct zink_context *ctx, enum zink_descriptor_type type, enum pipe_shader_type shader, int idx);
+zink_get_resource_for_descriptor(struct zink_context *ctx, enum zink_descriptor_type type, gl_shader_stage shader, int idx);
 
 void
 zink_batch_descriptor_deinit(struct zink_screen *screen, struct zink_batch_state *bs);
@@ -332,7 +332,7 @@ zink_descriptors_update_lazy(struct zink_context *ctx, bool is_compute);
 
 
 void
-zink_context_invalidate_descriptor_state_lazy(struct zink_context *ctx, enum pipe_shader_type shader, enum zink_descriptor_type type, unsigned, unsigned);
+zink_context_invalidate_descriptor_state_lazy(struct zink_context *ctx, gl_shader_stage shader, enum zink_descriptor_type type, unsigned, unsigned);
 
 void
 zink_batch_descriptor_deinit_lazy(struct zink_screen *screen, struct zink_batch_state *bs);

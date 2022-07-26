@@ -296,15 +296,15 @@ get_fragment_shader_param(struct lima_screen *screen,
 
 static int
 lima_screen_get_shader_param(struct pipe_screen *pscreen,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    struct lima_screen *screen = lima_screen(pscreen);
 
    switch (shader) {
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return get_fragment_shader_param(screen, param);
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       return get_vertex_shader_param(screen, param);
 
    default:
@@ -447,7 +447,7 @@ lima_screen_is_format_supported(struct pipe_screen *pscreen,
 static const void *
 lima_screen_get_compiler_options(struct pipe_screen *pscreen,
                                  enum pipe_shader_ir ir,
-                                 enum pipe_shader_type shader)
+                                 gl_shader_stage shader)
 {
    return lima_program_get_compiler_options(shader);
 }

@@ -167,13 +167,13 @@ struct panfrost_batch {
 
         /* Cached descriptors */
         mali_ptr viewport;
-        mali_ptr rsd[PIPE_SHADER_TYPES];
-        mali_ptr textures[PIPE_SHADER_TYPES];
-        mali_ptr samplers[PIPE_SHADER_TYPES];
-        mali_ptr attribs[PIPE_SHADER_TYPES];
-        mali_ptr attrib_bufs[PIPE_SHADER_TYPES];
-        mali_ptr uniform_buffers[PIPE_SHADER_TYPES];
-        mali_ptr push_uniforms[PIPE_SHADER_TYPES];
+        mali_ptr rsd[MESA_SHADER_STAGES];
+        mali_ptr textures[MESA_SHADER_STAGES];
+        mali_ptr samplers[MESA_SHADER_STAGES];
+        mali_ptr attribs[MESA_SHADER_STAGES];
+        mali_ptr attrib_bufs[MESA_SHADER_STAGES];
+        mali_ptr uniform_buffers[MESA_SHADER_STAGES];
+        mali_ptr push_uniforms[MESA_SHADER_STAGES];
         mali_ptr depth_stencil;
         mali_ptr blend;
 
@@ -184,7 +184,7 @@ struct panfrost_batch {
         /* Used on Valhall only. Midgard includes attributes in-band with
          * attributes, wildly enough.
          */
-        mali_ptr images[PIPE_SHADER_TYPES];
+        mali_ptr images[MESA_SHADER_STAGES];
 
         /* On Valhall, these are properties of the batch. On Bifrost, they are
          * per draw.
@@ -207,17 +207,17 @@ panfrost_get_fresh_batch_for_fbo(struct panfrost_context *ctx, const char *reaso
 void
 panfrost_batch_add_bo(struct panfrost_batch *batch,
                       struct panfrost_bo *bo,
-                      enum pipe_shader_type stage);
+                      gl_shader_stage stage);
 
 void
 panfrost_batch_read_rsrc(struct panfrost_batch *batch,
                          struct panfrost_resource *rsrc,
-                         enum pipe_shader_type stage);
+                         gl_shader_stage stage);
 
 void
 panfrost_batch_write_rsrc(struct panfrost_batch *batch,
                           struct panfrost_resource *rsrc,
-                          enum pipe_shader_type stage);
+                          gl_shader_stage stage);
 
 struct panfrost_bo *
 panfrost_batch_create_bo(struct panfrost_batch *batch, size_t size,

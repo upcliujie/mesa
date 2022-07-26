@@ -375,7 +375,7 @@ agx_delete_sampler_state(struct pipe_context *ctx, void *state)
 
 static void
 agx_bind_sampler_states(struct pipe_context *pctx,
-                        enum pipe_shader_type shader,
+                        gl_shader_stage shader,
                         unsigned start, unsigned count,
                         void **states)
 {
@@ -508,7 +508,7 @@ agx_create_sampler_view(struct pipe_context *pctx,
 
 static void
 agx_set_sampler_views(struct pipe_context *pctx,
-                      enum pipe_shader_type shader,
+                      gl_shader_stage shader,
                       unsigned start, unsigned count,
                       unsigned unbind_num_trailing_slots,
                       bool take_ownership,
@@ -787,7 +787,7 @@ agx_set_framebuffer_state(struct pipe_context *pctx,
 
 static void
 agx_set_constant_buffer(struct pipe_context *pctx,
-                        enum pipe_shader_type shader, uint index,
+                        gl_shader_stage shader, uint index,
                         bool take_ownership,
                         const struct pipe_constant_buffer *cb)
 {
@@ -910,7 +910,7 @@ agx_create_shader_state(struct pipe_context *pctx,
 /* Does not take ownership of key. Clones if necessary. */
 static bool
 agx_update_shader(struct agx_context *ctx, struct agx_compiled_shader **out,
-                  enum pipe_shader_type stage, struct asahi_shader_key *key)
+                  gl_shader_stage stage, struct asahi_shader_key *key)
 {
    struct agx_uncompiled_shader *so = ctx->stage[stage].shader;
    assert(so != NULL);
@@ -931,7 +931,7 @@ agx_update_shader(struct agx_context *ctx, struct agx_compiled_shader **out,
 
    nir_shader *nir = nir_shader_clone(NULL, so->nir);
 
-   if (stage == PIPE_SHADER_FRAGMENT) {
+   if (stage == MESA_SHADER_FRAGMENT) {
       nir_lower_blend_options opts = {
          .format = { key->rt_formats[0] },
          .scalar_blend_const = true,
@@ -1009,7 +1009,7 @@ agx_update_vs(struct agx_context *ctx)
       .base.vs = key
    };
 
-   return agx_update_shader(ctx, &ctx->vs, PIPE_SHADER_VERTEX, &akey);
+   return agx_update_shader(ctx, &ctx->vs, MESA_SHADER_VERTEX, &akey);
 }
 
 static bool
@@ -1033,7 +1033,7 @@ agx_update_fs(struct agx_context *ctx)
 
    memcpy(&key.blend, ctx->blend, sizeof(key.blend));
 
-   return agx_update_shader(ctx, &ctx->fs, PIPE_SHADER_FRAGMENT, &key);
+   return agx_update_shader(ctx, &ctx->fs, MESA_SHADER_FRAGMENT, &key);
 }
 
 static void
@@ -1045,7 +1045,7 @@ agx_bind_shader_state(struct pipe_context *pctx, void *cso)
    struct agx_context *ctx = agx_context(pctx);
    struct agx_uncompiled_shader *so = cso;
 
-   enum pipe_shader_type type = pipe_shader_type_from_mesa(so->nir->info.stage);
+   gl_shader_stage type = pipe_shader_type_from_mesa(so->nir->info.stage);
    ctx->stage[type].shader = so;
 }
 
@@ -1068,7 +1068,7 @@ agx_delete_shader_state(struct pipe_context *ctx,
 
 /* Pipeline consists of a sequence of binding commands followed by a set shader command */
 static uint32_t
-agx_build_pipeline(struct agx_context *ctx, struct agx_compiled_shader *cs, enum pipe_shader_type stage)
+agx_build_pipeline(struct agx_context *ctx, struct agx_compiled_shader *cs, gl_shader_stage stage)
 {
    /* Pipelines must be 64-byte aligned */
    struct agx_ptr ptr = agx_pool_alloc_aligned(&ctx->batch->pipeline_pool,
@@ -1140,7 +1140,7 @@ agx_build_pipeline(struct agx_context *ctx, struct agx_compiled_shader *cs, enum
    }
 
    /* TODO: Can we prepack this? */
-   if (stage == PIPE_SHADER_FRAGMENT) {
+   if (stage == MESA_SHADER_FRAGMENT) {
       bool writes_sample_mask = ctx->fs->info.writes_sample_mask;
 
       agx_pack(record, SET_SHADER_EXTENDED, cfg) {
@@ -1366,8 +1366,8 @@ demo_launch_fragment(struct agx_context *ctx, struct agx_pool *pool, uint32_t pi
 
    agx_pack(t.cpu, BIND_PIPELINE, cfg) {
       cfg.tag = AGX_BIND_PIPELINE_FRAGMENT;
-      cfg.sampler_count = ctx->stage[PIPE_SHADER_FRAGMENT].texture_count;
-      cfg.texture_count = ctx->stage[PIPE_SHADER_FRAGMENT].texture_count;
+      cfg.sampler_count = ctx->stage[MESA_SHADER_FRAGMENT].texture_count;
+      cfg.texture_count = ctx->stage[MESA_SHADER_FRAGMENT].texture_count;
       cfg.input_count = input_count;
       cfg.pipeline = pipeline;
       cfg.fs_varyings = varyings;
@@ -1507,8 +1507,8 @@ agx_encode_state(struct agx_context *ctx, uint8_t *out,
       cfg.pipeline = pipeline_vertex;
       cfg.vs_output_count_1 = ctx->vs->info.varyings.nr_slots;
       cfg.vs_output_count_2 = ctx->vs->info.varyings.nr_slots;
-      cfg.sampler_count = ctx->stage[PIPE_SHADER_VERTEX].texture_count;
-      cfg.texture_count = ctx->stage[PIPE_SHADER_VERTEX].texture_count;
+      cfg.sampler_count = ctx->stage[MESA_SHADER_VERTEX].texture_count;
+      cfg.texture_count = ctx->stage[MESA_SHADER_VERTEX].texture_count;
    }
 
    out += AGX_BIND_PIPELINE_LENGTH;
@@ -1630,8 +1630,8 @@ agx_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
    assert((encoder_use + 1024) < batch->encoder->size && "todo: how to expand encoder?");
 
    uint8_t *out = agx_encode_state(ctx, batch->encoder_current,
-                                   agx_build_pipeline(ctx, ctx->vs, PIPE_SHADER_VERTEX),
-                                   agx_build_pipeline(ctx, ctx->fs, PIPE_SHADER_FRAGMENT),
+                                   agx_build_pipeline(ctx, ctx->vs, MESA_SHADER_VERTEX),
+                                   agx_build_pipeline(ctx, ctx->fs, MESA_SHADER_FRAGMENT),
                                    ctx->fs->varyings, is_lines, info->mode == PIPE_PRIM_POINTS);
 
    enum agx_primitive prim = agx_primitive_for_pipe(info->mode);

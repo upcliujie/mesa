@@ -806,7 +806,7 @@ download_texture_compute(struct st_context *st,
       cb.buffer_offset = 0;
       cb.buffer_size = sizeof(pd);
 
-      pipe->set_constant_buffer(pipe, PIPE_SHADER_COMPUTE, 0, false, &cb);
+      pipe->set_constant_buffer(pipe, MESA_SHADER_COMPUTE, 0, false, &cb);
    }
 
    uint32_t hash_key = compute_shader_key(view_target, num_components);
@@ -928,14 +928,14 @@ download_texture_compute(struct st_context *st,
       if (sampler_view == NULL)
          goto fail;
 
-      pipe->set_sampler_views(pipe, PIPE_SHADER_COMPUTE, 0, 1, 0, false,
+      pipe->set_sampler_views(pipe, MESA_SHADER_COMPUTE, 0, 1, 0, false,
                               &sampler_view);
-      st->state.num_sampler_views[PIPE_SHADER_COMPUTE] =
-         MAX2(st->state.num_sampler_views[PIPE_SHADER_COMPUTE], 1);
+      st->state.num_sampler_views[MESA_SHADER_COMPUTE] =
+         MAX2(st->state.num_sampler_views[MESA_SHADER_COMPUTE], 1);
 
       pipe_sampler_view_reference(&sampler_view, NULL);
 
-      cso_set_samplers(cso, PIPE_SHADER_COMPUTE, 1, samplers);
+      cso_set_samplers(cso, MESA_SHADER_COMPUTE, 1, samplers);
    }
 
    /* Set up destination buffer */
@@ -960,7 +960,7 @@ download_texture_compute(struct st_context *st,
       buffer.buffer = dst;
       buffer.buffer_size = buffer_size;
 
-      pipe->set_shader_buffers(pipe, PIPE_SHADER_COMPUTE, 0, 1, &buffer, 0x1);
+      pipe->set_shader_buffers(pipe, MESA_SHADER_COMPUTE, 0, 1, &buffer, 0x1);
    }
 
    struct pipe_grid_info info = { 0 };
@@ -981,11 +981,11 @@ fail:
    /* Unbind all because st/mesa won't do it if the current shader doesn't
     * use them.
     */
-   pipe->set_sampler_views(pipe, PIPE_SHADER_COMPUTE, 0, 0, false,
-                           st->state.num_sampler_views[PIPE_SHADER_COMPUTE],
+   pipe->set_sampler_views(pipe, MESA_SHADER_COMPUTE, 0, 0, false,
+                           st->state.num_sampler_views[MESA_SHADER_COMPUTE],
                            NULL);
-   st->state.num_sampler_views[PIPE_SHADER_COMPUTE] = 0;
-   pipe->set_shader_buffers(pipe, PIPE_SHADER_COMPUTE, 0, 1, NULL, 0);
+   st->state.num_sampler_views[MESA_SHADER_COMPUTE] = 0;
+   pipe->set_shader_buffers(pipe, MESA_SHADER_COMPUTE, 0, 1, NULL, 0);
 
    st->dirty |= ST_NEW_CS_CONSTANTS |
                 ST_NEW_CS_SSBOS |

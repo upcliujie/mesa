@@ -38,11 +38,11 @@ panfrost_blitter_save(struct panfrost_context *ctx, bool render_cond)
 
         util_blitter_save_vertex_buffer_slot(blitter, ctx->vertex_buffers);
         util_blitter_save_vertex_elements(blitter, ctx->vertex);
-        util_blitter_save_vertex_shader(blitter, ctx->shader[PIPE_SHADER_VERTEX]);
+        util_blitter_save_vertex_shader(blitter, ctx->shader[MESA_SHADER_VERTEX]);
         util_blitter_save_rasterizer(blitter, ctx->rasterizer);
         util_blitter_save_viewport(blitter, &ctx->pipe_viewport);
         util_blitter_save_scissor(blitter, &ctx->scissor);
-        util_blitter_save_fragment_shader(blitter, ctx->shader[PIPE_SHADER_FRAGMENT]);
+        util_blitter_save_fragment_shader(blitter, ctx->shader[MESA_SHADER_FRAGMENT]);
         util_blitter_save_blend(blitter, ctx->blend);
         util_blitter_save_depth_stencil_alpha(blitter, ctx->depth_stencil);
         util_blitter_save_stencil_ref(blitter, &ctx->stencil_ref);
@@ -51,13 +51,13 @@ panfrost_blitter_save(struct panfrost_context *ctx, bool render_cond)
 
         util_blitter_save_framebuffer(blitter, &ctx->pipe_framebuffer);
         util_blitter_save_fragment_sampler_states(blitter,
-                        ctx->sampler_count[PIPE_SHADER_FRAGMENT],
-                        (void **)(&ctx->samplers[PIPE_SHADER_FRAGMENT]));
+                        ctx->sampler_count[MESA_SHADER_FRAGMENT],
+                        (void **)(&ctx->samplers[MESA_SHADER_FRAGMENT]));
         util_blitter_save_fragment_sampler_views(blitter,
-                        ctx->sampler_view_count[PIPE_SHADER_FRAGMENT],
-                        (struct pipe_sampler_view **)&ctx->sampler_views[PIPE_SHADER_FRAGMENT]);
+                        ctx->sampler_view_count[MESA_SHADER_FRAGMENT],
+                        (struct pipe_sampler_view **)&ctx->sampler_views[MESA_SHADER_FRAGMENT]);
         util_blitter_save_fragment_constant_buffer_slot(blitter,
-                        ctx->constant_buffer[PIPE_SHADER_FRAGMENT].cb);
+                        ctx->constant_buffer[MESA_SHADER_FRAGMENT].cb);
 
         if (!render_cond) {
                 util_blitter_save_render_condition(blitter,

@@ -536,7 +536,7 @@ static struct zink_descriptor_layout *
 create_gfx_layout(struct zink_context *ctx, struct zink_descriptor_layout_key **layout_key, bool fbfetch)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkDescriptorSetLayoutBinding bindings[PIPE_SHADER_TYPES];
+   VkDescriptorSetLayoutBinding bindings[MESA_SHADER_STAGES];
    enum zink_descriptor_type dsl_type;
    VkDescriptorType vktype = get_push_types(screen, &dsl_type);
    for (unsigned i = 0; i < ZINK_SHADER_COUNT; i++)
@@ -558,7 +558,7 @@ zink_descriptor_util_push_layouts_get(struct zink_context *ctx, struct zink_desc
    VkDescriptorSetLayoutBinding compute_binding;
    enum zink_descriptor_type dsl_type;
    VkDescriptorType vktype = get_push_types(screen, &dsl_type);
-   init_push_binding(&compute_binding, PIPE_SHADER_COMPUTE, vktype);
+   init_push_binding(&compute_binding, MESA_SHADER_COMPUTE, vktype);
    dsls[0] = create_gfx_layout(ctx, &layout_keys[0], false);
    dsls[1] = create_layout(ctx, dsl_type, &compute_binding, 1, &layout_keys[1]);
    return dsls[0] && dsls[1];
@@ -1080,7 +1080,7 @@ create_descriptor_ref_template(struct zink_context *ctx, struct zink_program *pg
          if (!shader)
             continue;
 
-         enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+         gl_shader_stage stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
          for (int j = 0; j < shader->num_bindings[type]; j++) {
             int index = shader->bindings[type][j].index;
             for (unsigned k = 0; k < shader->bindings[type][j].size; k++) {
@@ -1293,7 +1293,7 @@ update_push_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set
 
    for (int i = 0; i < num_stages; i++) {
       struct zink_shader *shader = stages[i];
-      enum pipe_shader_type pstage = shader ? pipe_shader_type_from_mesa(shader->nir->info.stage) : i;
+      gl_shader_stage pstage = shader ? pipe_shader_type_from_mesa(shader->nir->info.stage) : i;
       VkDescriptorBufferInfo *info = &ctx->di.ubos[pstage][0];
       unsigned dynamic_idx = is_compute ? 0 : tgsi_processor_to_shader_stage(pstage);
  
@@ -1401,7 +1401,7 @@ update_descriptors_internal(struct zink_context *ctx, enum zink_descriptor_type 
          struct zink_shader *shader = stages[i];
          if (!shader)
             continue;
-         enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+         gl_shader_stage stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
          for (int j = 0; j < shader->num_bindings[type]; j++) {
             int index = shader->bindings[type][j].index;
             switch (type) {
@@ -1610,7 +1610,7 @@ zink_batch_descriptor_init(struct zink_screen *screen, struct zink_batch_state *
 }
 
 static uint32_t
-calc_descriptor_state_hash_ubo(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash, bool need_offset)
+calc_descriptor_state_hash_ubo(struct zink_context *ctx, struct zink_shader *zs, gl_shader_stage shader, int i, int idx, uint32_t hash, bool need_offset)
 {
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_UBO][i].size; k++) {
       struct zink_resource *res = ctx->di.descriptor_res[ZINK_DESCRIPTOR_TYPE_UBO][shader][idx + k];
@@ -1626,7 +1626,7 @@ calc_descriptor_state_hash_ubo(struct zink_context *ctx, struct zink_shader *zs,
 }
 
 static uint32_t
-calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs, gl_shader_stage shader, int i, int idx, uint32_t hash)
 {
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_SSBO][i].size; k++) {
       struct zink_resource *res = ctx->di.descriptor_res[ZINK_DESCRIPTOR_TYPE_SSBO][shader][idx + k];
@@ -1647,7 +1647,7 @@ calc_descriptor_state_hash_ssbo(struct zink_context *ctx, struct zink_shader *zs
 }
 
 static uint32_t
-calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader *zs, gl_shader_stage shader, int i, int idx, uint32_t hash)
 {
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW][i].size; k++) {
       struct zink_sampler_view *sampler_view = zink_sampler_view(ctx->sampler_views[shader][idx + k]);
@@ -1669,7 +1669,7 @@ calc_descriptor_state_hash_sampler(struct zink_context *ctx, struct zink_shader 
 }
 
 static uint32_t
-calc_descriptor_state_hash_image(struct zink_context *ctx, struct zink_shader *zs, enum pipe_shader_type shader, int i, int idx, uint32_t hash)
+calc_descriptor_state_hash_image(struct zink_context *ctx, struct zink_shader *zs, gl_shader_stage shader, int i, int idx, uint32_t hash)
 {
    for (unsigned k = 0; k < zs->bindings[ZINK_DESCRIPTOR_TYPE_IMAGE][i].size; k++) {
       bool is_buffer = zink_shader_descriptor_is_buffer(zs, ZINK_DESCRIPTOR_TYPE_IMAGE, i);
@@ -1681,9 +1681,9 @@ calc_descriptor_state_hash_image(struct zink_context *ctx, struct zink_shader *z
 }
 
 static uint32_t
-update_descriptor_stage_state(struct zink_context *ctx, enum pipe_shader_type shader, enum zink_descriptor_type type)
+update_descriptor_stage_state(struct zink_context *ctx, gl_shader_stage shader, enum zink_descriptor_type type)
 {
-   struct zink_shader *zs = shader == PIPE_SHADER_COMPUTE ? ctx->compute_stage : ctx->gfx_stages[shader];
+   struct zink_shader *zs = shader == MESA_SHADER_COMPUTE ? ctx->compute_stage : ctx->gfx_stages[shader];
 
    uint32_t hash = 0;
    for (int i = 0; i < zs->num_bindings[type]; i++) {
@@ -1721,9 +1721,9 @@ update_descriptor_state(struct zink_context *ctx, enum zink_descriptor_type type
 
    if (is_compute) {
       /* just update compute state */
-      bool has_usage = zink_program_get_descriptor_usage(ctx, PIPE_SHADER_COMPUTE, type);
+      bool has_usage = zink_program_get_descriptor_usage(ctx, MESA_SHADER_COMPUTE, type);
       if (has_usage)
-         ctx->dd->descriptor_states[is_compute].state[type] = update_descriptor_stage_state(ctx, PIPE_SHADER_COMPUTE, type);
+         ctx->dd->descriptor_states[is_compute].state[type] = update_descriptor_stage_state(ctx, MESA_SHADER_COMPUTE, type);
       else
          ctx->dd->descriptor_states[is_compute].state[type] = 0;
       has_any_usage = has_usage;
@@ -1766,7 +1766,7 @@ zink_context_update_descriptor_states(struct zink_context *ctx, struct zink_prog
                                            pg->dd->push_usage != ctx->dd->last_push_usage[pg->is_compute])) {
       uint32_t hash = 0;
       if (pg->is_compute) {
-          hash = calc_descriptor_state_hash_ubo(ctx, ctx->compute_stage, PIPE_SHADER_COMPUTE, 0, 0, 0, false);
+          hash = calc_descriptor_state_hash_ubo(ctx, ctx->compute_stage, MESA_SHADER_COMPUTE, 0, 0, 0, false);
       } else {
          bool first = true;
          u_foreach_bit(stage, pg->dd->push_usage) {
@@ -1831,27 +1831,27 @@ zink_context_update_descriptor_states(struct zink_context *ctx, struct zink_prog
 }
 
 void
-zink_context_invalidate_descriptor_state(struct zink_context *ctx, enum pipe_shader_type shader, enum zink_descriptor_type type, unsigned start, unsigned count)
+zink_context_invalidate_descriptor_state(struct zink_context *ctx, gl_shader_stage shader, enum zink_descriptor_type type, unsigned start, unsigned count)
 {
    zink_context_invalidate_descriptor_state_lazy(ctx, shader, type, start, count);
    if (type == ZINK_DESCRIPTOR_TYPE_UBO && !start) {
       /* ubo 0 is the push set */
-      ctx->dd->push_state[shader == PIPE_SHADER_COMPUTE] = 0;
-      ctx->dd->push_valid[shader == PIPE_SHADER_COMPUTE] = false;
-      if (shader != PIPE_SHADER_COMPUTE) {
+      ctx->dd->push_state[shader == MESA_SHADER_COMPUTE] = 0;
+      ctx->dd->push_valid[shader == MESA_SHADER_COMPUTE] = false;
+      if (shader != MESA_SHADER_COMPUTE) {
          ctx->dd->gfx_push_state[shader] = 0;
          ctx->dd->gfx_push_valid[shader] = false;
       }
-      ctx->dd->changed[shader == PIPE_SHADER_COMPUTE][ZINK_DESCRIPTOR_TYPES] = true;
+      ctx->dd->changed[shader == MESA_SHADER_COMPUTE][ZINK_DESCRIPTOR_TYPES] = true;
       return;
    }
-   if (shader != PIPE_SHADER_COMPUTE) {
+   if (shader != MESA_SHADER_COMPUTE) {
       ctx->dd->gfx_descriptor_states[shader].valid[type] = false;
       ctx->dd->gfx_descriptor_states[shader].state[type] = 0;
    }
-   ctx->dd->descriptor_states[shader == PIPE_SHADER_COMPUTE].valid[type] = false;
-   ctx->dd->descriptor_states[shader == PIPE_SHADER_COMPUTE].state[type] = 0;
-   ctx->dd->changed[shader == PIPE_SHADER_COMPUTE][type] = true;
+   ctx->dd->descriptor_states[shader == MESA_SHADER_COMPUTE].valid[type] = false;
+   ctx->dd->descriptor_states[shader == MESA_SHADER_COMPUTE].state[type] = 0;
+   ctx->dd->changed[shader == MESA_SHADER_COMPUTE][type] = true;
 }
 
 bool

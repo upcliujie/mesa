@@ -68,9 +68,9 @@ draw_create_vertex_shader(struct draw_context *draw,
    if (draw->pt.middle.llvm) {
       struct pipe_screen *screen = draw->pipe->screen;
       if (shader->type == PIPE_SHADER_IR_NIR &&
-          ((!screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+          ((!screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                      PIPE_SHADER_CAP_INTEGERS)) ||
-           (screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+           (screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                      PIPE_SHADER_CAP_PREFERRED_IR) ==
             PIPE_SHADER_IR_TGSI))) {
         state.type = PIPE_SHADER_IR_TGSI;
@@ -165,7 +165,7 @@ draw_vs_init( struct draw_context *draw )
    draw->dump_vs = debug_get_option_gallium_dump_vs();
 
    if (!draw->llvm) {
-      draw->vs.tgsi.machine = tgsi_exec_machine_create(PIPE_SHADER_VERTEX);
+      draw->vs.tgsi.machine = tgsi_exec_machine_create(MESA_SHADER_VERTEX);
       if (!draw->vs.tgsi.machine)
          return FALSE;
    }

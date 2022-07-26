@@ -112,7 +112,7 @@ fd_set_min_samples(struct pipe_context *pctx, unsigned min_samples) in_dt
  * index>0 will be UBO's.. well, I'll worry about that later
  */
 static void
-fd_set_constant_buffer(struct pipe_context *pctx, enum pipe_shader_type shader,
+fd_set_constant_buffer(struct pipe_context *pctx, gl_shader_stage shader,
                        uint index, bool take_ownership,
                        const struct pipe_constant_buffer *cb) in_dt
 {
@@ -141,7 +141,7 @@ fd_set_constant_buffer(struct pipe_context *pctx, enum pipe_shader_type shader,
 }
 
 static void
-fd_set_shader_buffers(struct pipe_context *pctx, enum pipe_shader_type shader,
+fd_set_shader_buffers(struct pipe_context *pctx, gl_shader_stage shader,
                       unsigned start, unsigned count,
                       const struct pipe_shader_buffer *buffers,
                       unsigned writable_bitmask) in_dt
@@ -187,7 +187,7 @@ fd_set_shader_buffers(struct pipe_context *pctx, enum pipe_shader_type shader,
 }
 
 void
-fd_set_shader_images(struct pipe_context *pctx, enum pipe_shader_type shader,
+fd_set_shader_images(struct pipe_context *pctx, gl_shader_stage shader,
                      unsigned start, unsigned count,
                      unsigned unbind_num_trailing_slots,
                      const struct pipe_image_view *images) in_dt
@@ -617,7 +617,7 @@ fd_bind_compute_state(struct pipe_context *pctx, void *state) in_dt
    struct fd_context *ctx = fd_context(pctx);
    ctx->compute = state;
    /* NOTE: Don't mark FD_DIRTY_PROG for compute specific state */
-   ctx->dirty_shader[PIPE_SHADER_COMPUTE] |= FD_DIRTY_SHADER_PROG;
+   ctx->dirty_shader[MESA_SHADER_COMPUTE] |= FD_DIRTY_SHADER_PROG;
 }
 
 /* TODO pipe_context::set_compute_resources() should DIAF and clover
@@ -631,7 +631,7 @@ fd_set_compute_resources(struct pipe_context *pctx, unsigned start,
                          unsigned count, struct pipe_surface **prscs) in_dt
 {
    struct fd_context *ctx = fd_context(pctx);
-   struct fd_constbuf_stateobj *so = &ctx->constbuf[PIPE_SHADER_COMPUTE];
+   struct fd_constbuf_stateobj *so = &ctx->constbuf[MESA_SHADER_COMPUTE];
 
    for (unsigned i = 0; i < count; i++) {
       const uint32_t index = i + start + 1;   /* UBOs start at index 1 */

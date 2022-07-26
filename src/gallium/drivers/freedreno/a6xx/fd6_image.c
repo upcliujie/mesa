@@ -148,7 +148,7 @@ fd6_emit_ssbo_tex(struct fd_context *ctx, struct fd_ringbuffer *ring,
 /* Build combined image/SSBO "IBO" state, returns ownership of state reference */
 struct fd_ringbuffer *
 fd6_build_ibo_state(struct fd_context *ctx, const struct ir3_shader_variant *v,
-                    enum pipe_shader_type shader)
+                    gl_shader_stage shader)
 {
    struct fd_shaderbuf_stateobj *bufso = &ctx->shaderbuf[shader];
    struct fd_shaderimg_stateobj *imgso = &ctx->shaderimg[shader];
@@ -158,7 +158,7 @@ fd6_build_ibo_state(struct fd_context *ctx, const struct ir3_shader_variant *v,
       ir3_shader_nibo(v) * 16 * 4,
       FD_RINGBUFFER_STREAMING);
 
-   assert(shader == PIPE_SHADER_COMPUTE || shader == PIPE_SHADER_FRAGMENT);
+   assert(shader == MESA_SHADER_COMPUTE || shader == MESA_SHADER_FRAGMENT);
 
    uint32_t descriptor[FDL6_TEX_CONST_DWORDS];
    for (unsigned i = 0; i < v->num_ssbos; i++) {
@@ -174,7 +174,7 @@ fd6_build_ibo_state(struct fd_context *ctx, const struct ir3_shader_variant *v,
 }
 
 static void
-fd6_set_shader_images(struct pipe_context *pctx, enum pipe_shader_type shader,
+fd6_set_shader_images(struct pipe_context *pctx, gl_shader_stage shader,
                       unsigned start, unsigned count,
                       unsigned unbind_num_trailing_slots,
                       const struct pipe_image_view *images) in_dt

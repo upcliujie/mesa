@@ -70,7 +70,7 @@ st_bind_atomics(struct st_context *st, struct gl_program *prog,
                 gl_shader_stage stage)
 {
    unsigned i;
-   enum pipe_shader_type shader_type = pipe_shader_type_from_mesa(stage);
+   gl_shader_stage shader_type = pipe_shader_type_from_mesa(stage);
 
    if (!prog || !st->pipe->set_shader_buffers || st->has_hw_atomics)
       return;

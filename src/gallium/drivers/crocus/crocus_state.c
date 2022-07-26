@@ -2298,7 +2298,7 @@ crocus_create_sampler_state(struct pipe_context *ctx,
  */
 static void
 crocus_bind_sampler_states(struct pipe_context *ctx,
-                           enum pipe_shader_type p_stage,
+                           gl_shader_stage p_stage,
                            unsigned start, unsigned count,
                            void **states)
 {
@@ -2319,9 +2319,9 @@ crocus_bind_sampler_states(struct pipe_context *ctx,
 
    if (dirty) {
 #if GFX_VER <= 5
-      if (p_stage == PIPE_SHADER_FRAGMENT)
+      if (p_stage == MESA_SHADER_FRAGMENT)
          ice->state.dirty |= CROCUS_DIRTY_WM;
-      else if (p_stage == PIPE_SHADER_VERTEX)
+      else if (p_stage == MESA_SHADER_VERTEX)
          ice->state.stage_dirty |= CROCUS_STAGE_DIRTY_VS;
 #endif
       ice->state.stage_dirty |= CROCUS_STAGE_DIRTY_SAMPLER_STATES_VS << stage;
@@ -3047,7 +3047,7 @@ fill_buffer_image_param(struct brw_image_param *param,
  */
 static void
 crocus_set_shader_images(struct pipe_context *ctx,
-                         enum pipe_shader_type p_stage,
+                         gl_shader_stage p_stage,
                          unsigned start_slot, unsigned count,
                          unsigned unbind_num_trailing_slots,
                          const struct pipe_image_view *p_images)
@@ -3145,7 +3145,7 @@ crocus_set_shader_images(struct pipe_context *ctx,
  */
 static void
 crocus_set_sampler_views(struct pipe_context *ctx,
-                         enum pipe_shader_type p_stage,
+                         gl_shader_stage p_stage,
                          unsigned start, unsigned count,
                          unsigned unbind_num_trailing_slots,
                          bool take_ownership,
@@ -3481,7 +3481,7 @@ crocus_set_framebuffer_state(struct pipe_context *ctx,
  */
 static void
 crocus_set_constant_buffer(struct pipe_context *ctx,
-                           enum pipe_shader_type p_stage, unsigned index,
+                           gl_shader_stage p_stage, unsigned index,
                            bool take_ownership,
                            const struct pipe_constant_buffer *input)
 {
@@ -3609,7 +3609,7 @@ upload_sysvals(struct crocus_context *ice,
  */
 static void
 crocus_set_shader_buffers(struct pipe_context *ctx,
-                          enum pipe_shader_type p_stage,
+                          gl_shader_stage p_stage,
                           unsigned start_slot, unsigned count,
                           const struct pipe_shader_buffer *buffers,
                           unsigned writable_bitmask)
@@ -8372,7 +8372,7 @@ crocus_rebind_buffer(struct crocus_context *ice,
 
    for (int s = MESA_SHADER_VERTEX; s < MESA_SHADER_STAGES; s++) {
       struct crocus_shader_state *shs = &ice->state.shaders[s];
-      enum pipe_shader_type p_stage = stage_to_pipe(s);
+      gl_shader_stage p_stage = stage_to_pipe(s);
 
       if (!(res->bind_stages & (1 << s)))
          continue;

@@ -68,7 +68,7 @@ enum pipe_error cso_set_rasterizer( struct cso_context *cso,
 
 void
 cso_set_samplers(struct cso_context *cso,
-                 enum pipe_shader_type shader_stage,
+                 gl_shader_stage shader_stage,
                  unsigned count,
                  const struct pipe_sampler_state **states);
 
@@ -77,12 +77,12 @@ cso_set_samplers(struct cso_context *cso,
  * samplers one at a time:
  */
 void
-cso_single_sampler(struct cso_context *cso, enum pipe_shader_type shader_stage,
+cso_single_sampler(struct cso_context *cso, gl_shader_stage shader_stage,
                    unsigned idx, const struct pipe_sampler_state *states);
 
 void
 cso_single_sampler_done(struct cso_context *cso,
-                        enum pipe_shader_type shader_stage);
+                        gl_shader_stage shader_stage);
 
 
 enum pipe_error cso_set_vertex_elements(struct cso_context *ctx,

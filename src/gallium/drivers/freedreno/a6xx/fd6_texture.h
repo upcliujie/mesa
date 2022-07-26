@@ -78,7 +78,7 @@ void fd6_texture_init(struct pipe_context *pctx);
 void fd6_texture_fini(struct pipe_context *pctx);
 
 static inline unsigned
-fd6_border_color_offset(struct fd_context *ctx, enum pipe_shader_type type,
+fd6_border_color_offset(struct fd_context *ctx, gl_shader_stage type,
                         struct fd_texture_stateobj *tex) assert_dt
 {
    /* Currently we put the FS border-color state after VS.  Possibly
@@ -86,7 +86,7 @@ fd6_border_color_offset(struct fd_context *ctx, enum pipe_shader_type type,
     *
     * This will need update for HS/DS/GS
     */
-   if (type != PIPE_SHADER_FRAGMENT)
+   if (type != MESA_SHADER_FRAGMENT)
       return 0;
 
    unsigned needs_border = false;
@@ -104,7 +104,7 @@ fd6_border_color_offset(struct fd_context *ctx, enum pipe_shader_type type,
    if (!needs_border)
       return 0;
 
-   return ctx->tex[PIPE_SHADER_VERTEX].num_samplers;
+   return ctx->tex[MESA_SHADER_VERTEX].num_samplers;
 }
 
 /*
@@ -141,7 +141,7 @@ struct fd6_texture_state {
 };
 
 struct fd6_texture_state *
-fd6_texture_state(struct fd_context *ctx, enum pipe_shader_type type,
+fd6_texture_state(struct fd_context *ctx, gl_shader_stage type,
                   struct fd_texture_stateobj *tex) assert_dt;
 
 /* not called directly: */

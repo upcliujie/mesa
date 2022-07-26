@@ -153,12 +153,12 @@ dd_num_active_viewports(struct dd_draw_state *dstate)
    struct tgsi_shader_info info;
    const struct tgsi_token *tokens;
 
-   if (dstate->shaders[PIPE_SHADER_GEOMETRY])
-      tokens = dstate->shaders[PIPE_SHADER_GEOMETRY]->state.shader.tokens;
-   else if (dstate->shaders[PIPE_SHADER_TESS_EVAL])
-      tokens = dstate->shaders[PIPE_SHADER_TESS_EVAL]->state.shader.tokens;
-   else if (dstate->shaders[PIPE_SHADER_VERTEX])
-      tokens = dstate->shaders[PIPE_SHADER_VERTEX]->state.shader.tokens;
+   if (dstate->shaders[MESA_SHADER_GEOMETRY])
+      tokens = dstate->shaders[MESA_SHADER_GEOMETRY]->state.shader.tokens;
+   else if (dstate->shaders[MESA_SHADER_TESS_EVAL])
+      tokens = dstate->shaders[MESA_SHADER_TESS_EVAL]->state.shader.tokens;
+   else if (dstate->shaders[MESA_SHADER_VERTEX])
+      tokens = dstate->shaders[MESA_SHADER_VERTEX]->state.shader.tokens;
    else
       return 1;
 
@@ -257,21 +257,21 @@ dd_dump_render_condition(struct dd_draw_state *dstate, FILE *f)
 }
 
 static void
-dd_dump_shader(struct dd_draw_state *dstate, enum pipe_shader_type sh, FILE *f)
+dd_dump_shader(struct dd_draw_state *dstate, gl_shader_stage sh, FILE *f)
 {
    int i;
-   const char *shader_str[PIPE_SHADER_TYPES];
+   const char *shader_str[MESA_SHADER_STAGES];
 
-   shader_str[PIPE_SHADER_VERTEX] = "VERTEX";
-   shader_str[PIPE_SHADER_TESS_CTRL] = "TESS_CTRL";
-   shader_str[PIPE_SHADER_TESS_EVAL] = "TESS_EVAL";
-   shader_str[PIPE_SHADER_GEOMETRY] = "GEOMETRY";
-   shader_str[PIPE_SHADER_FRAGMENT] = "FRAGMENT";
-   shader_str[PIPE_SHADER_COMPUTE] = "COMPUTE";
+   shader_str[MESA_SHADER_VERTEX] = "VERTEX";
+   shader_str[MESA_SHADER_TESS_CTRL] = "TESS_CTRL";
+   shader_str[MESA_SHADER_TESS_EVAL] = "TESS_EVAL";
+   shader_str[MESA_SHADER_GEOMETRY] = "GEOMETRY";
+   shader_str[MESA_SHADER_FRAGMENT] = "FRAGMENT";
+   shader_str[MESA_SHADER_COMPUTE] = "COMPUTE";
 
-   if (sh == PIPE_SHADER_TESS_CTRL &&
-       !dstate->shaders[PIPE_SHADER_TESS_CTRL] &&
-       dstate->shaders[PIPE_SHADER_TESS_EVAL])
+   if (sh == MESA_SHADER_TESS_CTRL &&
+       !dstate->shaders[MESA_SHADER_TESS_CTRL] &&
+       dstate->shaders[MESA_SHADER_TESS_EVAL])
       fprintf(f, "tess_state: {default_outer_level = {%f, %f, %f, %f}, "
               "default_inner_level = {%f, %f}}\n",
               dstate->tess_default_levels[0],
@@ -281,7 +281,7 @@ dd_dump_shader(struct dd_draw_state *dstate, enum pipe_shader_type sh, FILE *f)
               dstate->tess_default_levels[4],
               dstate->tess_default_levels[5]);
 
-   if (sh == PIPE_SHADER_FRAGMENT)
+   if (sh == MESA_SHADER_FRAGMENT)
       if (dstate->rs) {
          unsigned num_viewports = dd_num_active_viewports(dstate);
 
@@ -401,8 +401,8 @@ dd_dump_draw_vbo(struct dd_draw_state *dstate, struct pipe_draw_info *info,
       }
 
    fprintf(f, "\n");
-   for (sh = 0; sh < PIPE_SHADER_TYPES; sh++) {
-      if (sh == PIPE_SHADER_COMPUTE)
+   for (sh = 0; sh < MESA_SHADER_STAGES; sh++) {
+      if (sh == MESA_SHADER_COMPUTE)
          continue;
 
       dd_dump_shader(dstate, sh, f);
@@ -444,7 +444,7 @@ dd_dump_launch_grid(struct dd_draw_state *dstate, struct pipe_grid_info *info, F
    DUMP(grid_info, info);
    fprintf(f, "\n");
 
-   dd_dump_shader(dstate, PIPE_SHADER_COMPUTE, f);
+   dd_dump_shader(dstate, MESA_SHADER_COMPUTE, f);
    fprintf(f, "\n");
 }
 
@@ -798,7 +798,7 @@ dd_init_copy_of_draw_state(struct dd_draw_state_copy *state)
 
    state->base.render_cond.query = &state->render_cond;
 
-   for (i = 0; i < PIPE_SHADER_TYPES; i++) {
+   for (i = 0; i < MESA_SHADER_STAGES; i++) {
       state->base.shaders[i] = &state->shaders[i];
       for (j = 0; j < PIPE_MAX_SAMPLERS; j++)
          state->base.sampler_states[i][j] = &state->sampler_states[i][j];
@@ -821,7 +821,7 @@ dd_unreference_copy_of_draw_state(struct dd_draw_state_copy *state)
    for (i = 0; i < ARRAY_SIZE(dst->so_targets); i++)
       pipe_so_target_reference(&dst->so_targets[i], NULL);
 
-   for (i = 0; i < PIPE_SHADER_TYPES; i++) {
+   for (i = 0; i < MESA_SHADER_STAGES; i++) {
       if (dst->shaders[i])
          tgsi_free_tokens(dst->shaders[i]->state.shader.tokens);
 
@@ -861,7 +861,7 @@ dd_copy_draw_state(struct dd_draw_state *dst, struct dd_draw_state *src)
       pipe_so_target_reference(&dst->so_targets[i], src->so_targets[i]);
    memcpy(dst->so_offsets, src->so_offsets, sizeof(src->so_offsets));
 
-   for (i = 0; i < PIPE_SHADER_TYPES; i++) {
+   for (i = 0; i < MESA_SHADER_STAGES; i++) {
       if (!src->shaders[i]) {
          dst->shaders[i] = NULL;
          continue;

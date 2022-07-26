@@ -80,7 +80,7 @@ static void r600_destroy_context(struct pipe_context *context)
 
 	if (rctx->append_fence)
 		pipe_resource_reference((struct pipe_resource**)&rctx->append_fence, NULL);
-	for (sh = 0; sh < PIPE_SHADER_TYPES; sh++) {
+	for (sh = 0; sh < MESA_SHADER_STAGES; sh++) {
 		rctx->b.b.set_constant_buffer(&rctx->b.b, sh, R600_BUFFER_INFO_CONST_BUFFER, false, NULL);
 		free(rctx->driver_consts[sh].constants);
 	}
@@ -111,7 +111,7 @@ static void r600_destroy_context(struct pipe_context *context)
 	if (rctx->gs_rings.esgs_ring.buffer)
 		pipe_resource_reference(&rctx->gs_rings.esgs_ring.buffer, NULL);
 
-	for (sh = 0; sh < PIPE_SHADER_TYPES; ++sh)
+	for (sh = 0; sh < MESA_SHADER_STAGES; ++sh)
 		for (i = 0; i < PIPE_MAX_CONSTANT_BUFFERS; ++i)
 			rctx->b.b.set_constant_buffer(context, sh, i, false, NULL);
 
@@ -547,21 +547,21 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 }
 
 static int r600_get_shader_param(struct pipe_screen* pscreen,
-				 enum pipe_shader_type shader,
+				 gl_shader_stage shader,
 				 enum pipe_shader_cap param)
 {
 	struct r600_screen *rscreen = (struct r600_screen *)pscreen;
 
 	switch(shader)
 	{
-	case PIPE_SHADER_FRAGMENT:
-	case PIPE_SHADER_VERTEX:
+	case MESA_SHADER_FRAGMENT:
+	case MESA_SHADER_VERTEX:
 		break;
-	case PIPE_SHADER_GEOMETRY:
+	case MESA_SHADER_GEOMETRY:
 		break;
-	case PIPE_SHADER_TESS_CTRL:
-	case PIPE_SHADER_TESS_EVAL:
-	case PIPE_SHADER_COMPUTE:
+	case MESA_SHADER_TESS_CTRL:
+	case MESA_SHADER_TESS_EVAL:
+	case MESA_SHADER_COMPUTE:
 		if (rscreen->b.family >= CHIP_CEDAR)
 			break;
 		FALLTHROUGH;
@@ -578,13 +578,13 @@ static int r600_get_shader_param(struct pipe_screen* pscreen,
 	case PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH:
 		return 32;
 	case PIPE_SHADER_CAP_MAX_INPUTS:
-		return shader == PIPE_SHADER_VERTEX ? 16 : 32;
+		return shader == MESA_SHADER_VERTEX ? 16 : 32;
 	case PIPE_SHADER_CAP_MAX_OUTPUTS:
-		return shader == PIPE_SHADER_FRAGMENT ? 8 : 32;
+		return shader == MESA_SHADER_FRAGMENT ? 8 : 32;
 	case PIPE_SHADER_CAP_MAX_TEMPS:
 		return 256; /* Max native temporaries. */
 	case PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE:
-		if (shader == PIPE_SHADER_COMPUTE) {
+		if (shader == MESA_SHADER_COMPUTE) {
 			uint64_t max_const_buffer_size;
 			enum pipe_shader_ir ir_type = is_nir_enabled(&rscreen->b) ?
 				PIPE_SHADER_IR_NIR: PIPE_SHADER_IR_TGSI;
@@ -627,7 +627,7 @@ static int r600_get_shader_param(struct pipe_screen* pscreen,
 		return PIPE_SHADER_IR_NIR;
 	case PIPE_SHADER_CAP_SUPPORTED_IRS: {
 		int ir = 0;
-		if (shader == PIPE_SHADER_COMPUTE)
+		if (shader == MESA_SHADER_COMPUTE)
 			ir = 1 << PIPE_SHADER_IR_NATIVE;
 		if (is_nir_enabled(&rscreen->b)) {
 			ir |= 1 << PIPE_SHADER_IR_TGSI;
@@ -642,7 +642,7 @@ static int r600_get_shader_param(struct pipe_screen* pscreen,
 	case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
 	case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
 		if (rscreen->b.family >= CHIP_CEDAR &&
-		    (shader == PIPE_SHADER_FRAGMENT || shader == PIPE_SHADER_COMPUTE))
+		    (shader == MESA_SHADER_FRAGMENT || shader == MESA_SHADER_COMPUTE))
 		    return 8;
 		return 0;
 	case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:

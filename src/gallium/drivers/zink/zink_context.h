@@ -25,7 +25,7 @@
 #define ZINK_CONTEXT_H
 
 #define ZINK_FBFETCH_BINDING 6 //COMPUTE+1
-#define ZINK_SHADER_COUNT (PIPE_SHADER_TYPES - 1)
+#define ZINK_SHADER_COUNT (MESA_SHADER_STAGES - 1)
 
 #define ZINK_DEFAULT_MAX_DESCS 5000
 #define ZINK_DEFAULT_DESC_CLAMP (ZINK_DEFAULT_MAX_DESCS * 0.9)
@@ -224,10 +224,10 @@ struct zink_context {
    unsigned shader_has_inlinable_uniforms_mask;
    unsigned inlinable_uniforms_valid_mask;
 
-   struct pipe_constant_buffer ubos[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
-   struct pipe_shader_buffer ssbos[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
-   uint32_t writable_ssbos[PIPE_SHADER_TYPES];
-   struct zink_image_view image_views[PIPE_SHADER_TYPES][ZINK_MAX_SHADER_IMAGES];
+   struct pipe_constant_buffer ubos[MESA_SHADER_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
+   struct pipe_shader_buffer ssbos[MESA_SHADER_STAGES][PIPE_MAX_SHADER_BUFFERS];
+   uint32_t writable_ssbos[MESA_SHADER_STAGES];
+   struct zink_image_view image_views[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
 
    uint32_t transient_attachments;
    struct pipe_framebuffer_state fb_state;
@@ -292,8 +292,8 @@ struct zink_context {
    struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
    bool vertex_buffers_dirty;
 
-   struct zink_sampler_state *sampler_states[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
-   struct pipe_sampler_view *sampler_views[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
+   struct zink_sampler_state *sampler_states[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+   struct pipe_sampler_view *sampler_views[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
 
    struct zink_viewport_state vp_state;
    bool vp_state_changed;
@@ -340,29 +340,29 @@ struct zink_context {
 
    struct {
       /* descriptor info */
-      VkDescriptorBufferInfo ubos[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
+      VkDescriptorBufferInfo ubos[MESA_SHADER_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
       uint32_t push_valid;
-      uint8_t num_ubos[PIPE_SHADER_TYPES];
+      uint8_t num_ubos[MESA_SHADER_STAGES];
 
-      VkDescriptorBufferInfo ssbos[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
-      uint8_t num_ssbos[PIPE_SHADER_TYPES];
+      VkDescriptorBufferInfo ssbos[MESA_SHADER_STAGES][PIPE_MAX_SHADER_BUFFERS];
+      uint8_t num_ssbos[MESA_SHADER_STAGES];
 
-      VkDescriptorImageInfo textures[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
-      VkBufferView tbos[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
-      uint32_t emulate_nonseamless[PIPE_SHADER_TYPES];
-      uint32_t cubes[PIPE_SHADER_TYPES];
-      uint8_t num_samplers[PIPE_SHADER_TYPES];
-      uint8_t num_sampler_views[PIPE_SHADER_TYPES];
+      VkDescriptorImageInfo textures[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+      VkBufferView tbos[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+      uint32_t emulate_nonseamless[MESA_SHADER_STAGES];
+      uint32_t cubes[MESA_SHADER_STAGES];
+      uint8_t num_samplers[MESA_SHADER_STAGES];
+      uint8_t num_sampler_views[MESA_SHADER_STAGES];
 
-      VkDescriptorImageInfo images[PIPE_SHADER_TYPES][ZINK_MAX_SHADER_IMAGES];
-      VkBufferView texel_images[PIPE_SHADER_TYPES][ZINK_MAX_SHADER_IMAGES];
-      uint8_t num_images[PIPE_SHADER_TYPES];
+      VkDescriptorImageInfo images[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
+      VkBufferView texel_images[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
+      uint8_t num_images[MESA_SHADER_STAGES];
 
       VkDescriptorImageInfo fbfetch;
 
-      struct zink_resource *descriptor_res[ZINK_DESCRIPTOR_TYPES][PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
-      struct zink_descriptor_surface sampler_surfaces[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
-      struct zink_descriptor_surface image_surfaces[PIPE_SHADER_TYPES][ZINK_MAX_SHADER_IMAGES];
+      struct zink_resource *descriptor_res[ZINK_DESCRIPTOR_TYPES][MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+      struct zink_descriptor_surface sampler_surfaces[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+      struct zink_descriptor_surface image_surfaces[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
 
       struct {
          struct util_idalloc tex_slots;
@@ -418,9 +418,9 @@ zink_fb_clear_enabled(const struct zink_context *ctx, unsigned idx)
 static inline uint32_t
 zink_program_cache_stages(uint32_t stages_present)
 {
-   return (stages_present & ((1 << PIPE_SHADER_TESS_CTRL) |
-                             (1 << PIPE_SHADER_TESS_EVAL) |
-                             (1 << PIPE_SHADER_GEOMETRY))) >> 1;
+   return (stages_present & ((1 << MESA_SHADER_TESS_CTRL) |
+                             (1 << MESA_SHADER_TESS_EVAL) |
+                             (1 << MESA_SHADER_GEOMETRY))) >> 1;
 }
 
 void
@@ -469,20 +469,20 @@ void
 zink_update_vk_sample_locations(struct zink_context *ctx);
 
 static inline VkPipelineStageFlags
-zink_pipeline_flags_from_pipe_stage(enum pipe_shader_type pstage)
+zink_pipeline_flags_from_pipe_stage(gl_shader_stage pstage)
 {
    switch (pstage) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       return VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       return VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       return VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT;
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
    default:
       unreachable("unknown shader stage");
@@ -511,7 +511,7 @@ VkPipelineStageFlags
 zink_pipeline_flags_from_stage(VkShaderStageFlagBits stage);
 
 VkShaderStageFlagBits
-zink_shader_stage(enum pipe_shader_type type);
+zink_shader_stage(gl_shader_stage type);
 
 struct pipe_context *
 zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags);

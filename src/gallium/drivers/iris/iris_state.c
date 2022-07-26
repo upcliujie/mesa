@@ -2157,7 +2157,7 @@ iris_create_sampler_state(struct pipe_context *ctx,
  */
 static void
 iris_bind_sampler_states(struct pipe_context *ctx,
-                         enum pipe_shader_type p_stage,
+                         gl_shader_stage p_stage,
                          unsigned start, unsigned count,
                          void **states)
 {
@@ -2819,7 +2819,7 @@ fill_buffer_image_param(struct brw_image_param *param,
  */
 static void
 iris_set_shader_images(struct pipe_context *ctx,
-                       enum pipe_shader_type p_stage,
+                       gl_shader_stage p_stage,
                        unsigned start_slot, unsigned count,
                        unsigned unbind_num_trailing_slots,
                        const struct pipe_image_view *p_images)
@@ -2936,7 +2936,7 @@ is_sampler_view_3d(const struct iris_sampler_view *view)
  */
 static void
 iris_set_sampler_views(struct pipe_context *ctx,
-                       enum pipe_shader_type p_stage,
+                       gl_shader_stage p_stage,
                        unsigned start, unsigned count,
                        unsigned unbind_num_trailing_slots,
                        bool take_ownership,
@@ -3337,7 +3337,7 @@ iris_set_framebuffer_state(struct pipe_context *ctx,
  */
 static void
 iris_set_constant_buffer(struct pipe_context *ctx,
-                         enum pipe_shader_type p_stage, unsigned index,
+                         gl_shader_stage p_stage, unsigned index,
                          bool take_ownership,
                          const struct pipe_constant_buffer *input)
 {
@@ -3498,7 +3498,7 @@ upload_sysvals(struct iris_context *ice,
  */
 static void
 iris_set_shader_buffers(struct pipe_context *ctx,
-                        enum pipe_shader_type p_stage,
+                        gl_shader_stage p_stage,
                         unsigned start_slot, unsigned count,
                         const struct pipe_shader_buffer *buffers,
                         unsigned writable_bitmask)
@@ -7500,7 +7500,7 @@ iris_rebind_buffer(struct iris_context *ice,
 
    for (int s = MESA_SHADER_VERTEX; s < MESA_SHADER_STAGES; s++) {
       struct iris_shader_state *shs = &ice->state.shaders[s];
-      enum pipe_shader_type p_stage = stage_to_pipe(s);
+      gl_shader_stage p_stage = stage_to_pipe(s);
 
       if (!(res->bind_stages & (1 << s)))
          continue;

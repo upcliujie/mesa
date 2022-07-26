@@ -59,7 +59,7 @@ extern "C" {
 const void *
 d3d12_get_compiler_options(struct pipe_screen *screen,
                            enum pipe_shader_ir ir,
-                           enum pipe_shader_type shader)
+                           gl_shader_stage shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
    return &d3d12_screen(screen)->nir_options;
@@ -253,7 +253,7 @@ missing_dual_src_outputs(struct d3d12_context *ctx)
    if (!ctx->gfx_pipeline_state.blend->is_dual_src)
       return 0;
 
-   struct d3d12_shader_selector *fs = ctx->gfx_stages[PIPE_SHADER_FRAGMENT];
+   struct d3d12_shader_selector *fs = ctx->gfx_stages[MESA_SHADER_FRAGMENT];
    nir_shader *s = fs->initial;
 
    unsigned indices_seen = 0;
@@ -293,7 +293,7 @@ missing_dual_src_outputs(struct d3d12_context *ctx)
 static unsigned
 frag_result_color_lowering(struct d3d12_context *ctx)
 {
-   struct d3d12_shader_selector *fs = ctx->gfx_stages[PIPE_SHADER_FRAGMENT];
+   struct d3d12_shader_selector *fs = ctx->gfx_stages[MESA_SHADER_FRAGMENT];
    assert(fs);
 
    if (fs->initial->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_COLOR))
@@ -328,7 +328,7 @@ manual_depth_range(struct d3d12_context *ctx)
     *    it.
     */
 
-   struct d3d12_shader_selector *fs = ctx->gfx_stages[PIPE_SHADER_FRAGMENT];
+   struct d3d12_shader_selector *fs = ctx->gfx_stages[MESA_SHADER_FRAGMENT];
    return fs && fs->initial->info.inputs_read & VARYING_BIT_POS;
 }
 
@@ -343,10 +343,10 @@ needs_edge_flag_fix(enum pipe_prim_type mode)
 static unsigned
 fill_mode_lowered(struct d3d12_context *ctx, const struct pipe_draw_info *dinfo)
 {
-   struct d3d12_shader_selector *vs = ctx->gfx_stages[PIPE_SHADER_VERTEX];
+   struct d3d12_shader_selector *vs = ctx->gfx_stages[MESA_SHADER_VERTEX];
 
-   if ((ctx->gfx_stages[PIPE_SHADER_GEOMETRY] != NULL &&
-        !ctx->gfx_stages[PIPE_SHADER_GEOMETRY]->is_variant) ||
+   if ((ctx->gfx_stages[MESA_SHADER_GEOMETRY] != NULL &&
+        !ctx->gfx_stages[MESA_SHADER_GEOMETRY]->is_variant) ||
        ctx->gfx_pipeline_state.rast == NULL ||
        (dinfo->mode != PIPE_PRIM_TRIANGLES &&
         dinfo->mode != PIPE_PRIM_TRIANGLE_STRIP))
@@ -370,7 +370,7 @@ fill_mode_lowered(struct d3d12_context *ctx, const struct pipe_draw_info *dinfo)
 static bool
 has_stream_out_for_streams(struct d3d12_context *ctx)
 {
-   unsigned mask = ctx->gfx_stages[PIPE_SHADER_GEOMETRY]->initial->info.gs.active_stream_mask & ~1;
+   unsigned mask = ctx->gfx_stages[MESA_SHADER_GEOMETRY]->initial->info.gs.active_stream_mask & ~1;
    for (unsigned i = 0; i < ctx->gfx_pipeline_state.so_info.num_outputs; ++i) {
       unsigned stream = ctx->gfx_pipeline_state.so_info.output[i].stream;
       if (((1 << stream) & mask) &&
@@ -383,8 +383,8 @@ has_stream_out_for_streams(struct d3d12_context *ctx)
 static bool
 needs_point_sprite_lowering(struct d3d12_context *ctx, const struct pipe_draw_info *dinfo)
 {
-   struct d3d12_shader_selector *vs = ctx->gfx_stages[PIPE_SHADER_VERTEX];
-   struct d3d12_shader_selector *gs = ctx->gfx_stages[PIPE_SHADER_GEOMETRY];
+   struct d3d12_shader_selector *vs = ctx->gfx_stages[MESA_SHADER_VERTEX];
+   struct d3d12_shader_selector *gs = ctx->gfx_stages[MESA_SHADER_GEOMETRY];
 
    if (gs != NULL && !gs->is_variant) {
       /* There is an user GS; Check if it outputs points with PSIZE */
@@ -408,8 +408,8 @@ needs_point_sprite_lowering(struct d3d12_context *ctx, const struct pipe_draw_in
 static unsigned
 cull_mode_lowered(struct d3d12_context *ctx, unsigned fill_mode)
 {
-   if ((ctx->gfx_stages[PIPE_SHADER_GEOMETRY] != NULL &&
-        !ctx->gfx_stages[PIPE_SHADER_GEOMETRY]->is_variant) ||
+   if ((ctx->gfx_stages[MESA_SHADER_GEOMETRY] != NULL &&
+        !ctx->gfx_stages[MESA_SHADER_GEOMETRY]->is_variant) ||
        ctx->gfx_pipeline_state.rast == NULL ||
        ctx->gfx_pipeline_state.rast->base.cull_face == PIPE_FACE_NONE)
       return PIPE_FACE_NONE;
@@ -425,8 +425,8 @@ get_provoking_vertex(struct d3d12_selection_context *sel_ctx, bool *alternate, c
       return 0;
    }
 
-   struct d3d12_shader_selector *vs = sel_ctx->ctx->gfx_stages[PIPE_SHADER_VERTEX];
-   struct d3d12_shader_selector *gs = sel_ctx->ctx->gfx_stages[PIPE_SHADER_GEOMETRY];
+   struct d3d12_shader_selector *vs = sel_ctx->ctx->gfx_stages[MESA_SHADER_VERTEX];
+   struct d3d12_shader_selector *gs = sel_ctx->ctx->gfx_stages[MESA_SHADER_GEOMETRY];
    struct d3d12_shader_selector *last_vertex_stage = gs && !gs->is_variant ? gs : vs;
 
    /* Make sure GL prims match Gallium prims */
@@ -436,10 +436,10 @@ get_provoking_vertex(struct d3d12_selection_context *sel_ctx, bool *alternate, c
 
    enum pipe_prim_type mode;
    switch (last_vertex_stage->stage) {
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       mode = (enum pipe_prim_type)last_vertex_stage->current->nir->info.gs.output_primitive;
       break;
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       mode = (enum pipe_prim_type)dinfo->mode;
       break;
    default:
@@ -457,7 +457,7 @@ get_provoking_vertex(struct d3d12_selection_context *sel_ctx, bool *alternate, c
 static bool
 has_flat_varyings(struct d3d12_context *ctx)
 {
-   struct d3d12_shader_selector *fs = ctx->gfx_stages[PIPE_SHADER_FRAGMENT];
+   struct d3d12_shader_selector *fs = ctx->gfx_stages[MESA_SHADER_FRAGMENT];
 
    if (!fs || !fs->current)
       return false;
@@ -590,12 +590,12 @@ static void
 validate_geometry_shader_variant(struct d3d12_selection_context *sel_ctx)
 {
    struct d3d12_context *ctx = sel_ctx->ctx;
-   d3d12_shader_selector *vs = ctx->gfx_stages[PIPE_SHADER_VERTEX];
-   d3d12_shader_selector *fs = ctx->gfx_stages[PIPE_SHADER_FRAGMENT];
+   d3d12_shader_selector *vs = ctx->gfx_stages[MESA_SHADER_VERTEX];
+   d3d12_shader_selector *fs = ctx->gfx_stages[MESA_SHADER_FRAGMENT];
    struct d3d12_gs_variant_key key = {0};
    bool variant_needed = false;
 
-   d3d12_shader_selector *gs = ctx->gfx_stages[PIPE_SHADER_GEOMETRY];
+   d3d12_shader_selector *gs = ctx->gfx_stages[MESA_SHADER_GEOMETRY];
 
    /* Nothing to do if there is a user geometry shader bound */
    if (gs != NULL && !gs->is_variant)
@@ -634,16 +634,16 @@ validate_geometry_shader_variant(struct d3d12_selection_context *sel_ctx)
 
    /* Find/create the proper variant and bind it */
    gs = variant_needed ? d3d12_get_gs_variant(ctx, &key) : NULL;
-   ctx->gfx_stages[PIPE_SHADER_GEOMETRY] = gs;
+   ctx->gfx_stages[MESA_SHADER_GEOMETRY] = gs;
 }
 
 static void
 validate_tess_ctrl_shader_variant(struct d3d12_selection_context *sel_ctx)
 {
    struct d3d12_context *ctx = sel_ctx->ctx;
-   d3d12_shader_selector *vs = ctx->gfx_stages[PIPE_SHADER_VERTEX];
-   d3d12_shader_selector *tcs = ctx->gfx_stages[PIPE_SHADER_TESS_CTRL];
-   d3d12_shader_selector *tes = ctx->gfx_stages[PIPE_SHADER_TESS_EVAL];
+   d3d12_shader_selector *vs = ctx->gfx_stages[MESA_SHADER_VERTEX];
+   d3d12_shader_selector *tcs = ctx->gfx_stages[MESA_SHADER_TESS_CTRL];
+   d3d12_shader_selector *tes = ctx->gfx_stages[MESA_SHADER_TESS_EVAL];
    struct d3d12_tcs_variant_key key = {0};
 
    /* Nothing to do if there is a user tess ctrl shader bound */
@@ -665,7 +665,7 @@ validate_tess_ctrl_shader_variant(struct d3d12_selection_context *sel_ctx)
 
    /* Find/create the proper variant and bind it */
    tcs = variant_needed ? d3d12_get_tcs_variant(ctx, &key) : NULL;
-   ctx->gfx_stages[PIPE_SHADER_TESS_CTRL] = tcs;
+   ctx->gfx_stages[MESA_SHADER_TESS_CTRL] = tcs;
 }
 
 static bool
@@ -716,7 +716,7 @@ d3d12_compare_shader_keys(const d3d12_shader_key *expect, const d3d12_shader_key
        expect->prev_varying_outputs != have->prev_varying_outputs)
       return false;
 
-   if (expect->stage == PIPE_SHADER_GEOMETRY) {
+   if (expect->stage == MESA_SHADER_GEOMETRY) {
       if (expect->gs.writes_psize) {
          if (!have->gs.writes_psize ||
              expect->gs.point_pos_stream_out != have->gs.point_pos_stream_out ||
@@ -730,7 +730,7 @@ d3d12_compare_shader_keys(const d3d12_shader_key *expect, const d3d12_shader_key
       if (expect->gs.primitive_id != have->gs.primitive_id ||
           expect->gs.triangle_strip != have->gs.triangle_strip)
          return false;
-   } else if (expect->stage == PIPE_SHADER_FRAGMENT) {
+   } else if (expect->stage == MESA_SHADER_FRAGMENT) {
       if (expect->fs.frag_result_color_lowering != have->fs.frag_result_color_lowering ||
           expect->fs.manual_depth_range != have->fs.manual_depth_range ||
           expect->fs.polygon_stipple != have->fs.polygon_stipple ||
@@ -740,11 +740,11 @@ d3d12_compare_shader_keys(const d3d12_shader_key *expect, const d3d12_shader_key
           expect->fs.missing_dual_src_outputs != have->fs.missing_dual_src_outputs ||
           expect->fs.multisample_disabled != have->fs.multisample_disabled)
          return false;
-   } else if (expect->stage == PIPE_SHADER_COMPUTE) {
+   } else if (expect->stage == MESA_SHADER_COMPUTE) {
       if (memcmp(expect->cs.workgroup_size, have->cs.workgroup_size,
                  sizeof(have->cs.workgroup_size)))
          return false;
-   } else if (expect->stage == PIPE_SHADER_TESS_CTRL) {
+   } else if (expect->stage == MESA_SHADER_TESS_CTRL) {
       if (expect->hs.primitive_mode != have->hs.primitive_mode ||
           expect->hs.ccw != have->hs.ccw ||
           expect->hs.point_mode != have->hs.point_mode ||
@@ -754,7 +754,7 @@ d3d12_compare_shader_keys(const d3d12_shader_key *expect, const d3d12_shader_key
                  sizeof(struct d3d12_varying_info)) ||
           expect->hs.next_patch_inputs != have->hs.next_patch_inputs)
          return false;
-   } else if (expect->stage == PIPE_SHADER_TESS_EVAL) {
+   } else if (expect->stage == MESA_SHADER_TESS_EVAL) {
       if (expect->ds.tcs_vertices_out != have->ds.tcs_vertices_out ||
           memcmp(&expect->ds.required_patch_inputs, &have->ds.required_patch_inputs,
                  sizeof(struct d3d12_varying_info)) ||
@@ -799,7 +799,7 @@ d3d12_compare_shader_keys(const d3d12_shader_key *expect, const d3d12_shader_key
        expect->halfz != have->halfz)
       return false;
 
-   if (expect->stage == PIPE_SHADER_VERTEX) {
+   if (expect->stage == MESA_SHADER_VERTEX) {
       if (expect->vs.needs_format_emulation != have->vs.needs_format_emulation)
          return false;
 
@@ -827,24 +827,24 @@ d3d12_shader_key_hash(const d3d12_shader_key *key)
    hash += key->next_varying_inputs;
    hash += key->prev_varying_outputs;
    switch (key->stage) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       /* (Probably) not worth the bit extraction for needs_format_emulation and
        * the rest of the the format_conversion data is large.  Don't bother
        * hashing for now until this is shown to be worthwhile. */
        break;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       hash = _mesa_hash_data_with_seed(&key->gs, sizeof(key->gs), hash);
       break;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       hash = _mesa_hash_data_with_seed(&key->fs, sizeof(key->fs), hash);
       break;
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       hash = _mesa_hash_data_with_seed(&key->cs, sizeof(key->cs), hash);
       break;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       hash += key->hs.next_patch_inputs;
       break;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       hash += key->ds.tcs_vertices_out;
       hash += key->ds.prev_patch_outputs;
       break;
@@ -879,16 +879,16 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
    if (prev) {
       /* We require as inputs what the previous stage has written,
        * except certain system values */
-      if (stage == PIPE_SHADER_FRAGMENT || stage == PIPE_SHADER_GEOMETRY)
+      if (stage == MESA_SHADER_FRAGMENT || stage == MESA_SHADER_GEOMETRY)
          system_out_values |= VARYING_BIT_POS;
-      if (stage == PIPE_SHADER_FRAGMENT)
+      if (stage == MESA_SHADER_FRAGMENT)
          system_out_values |= VARYING_BIT_PSIZ | VARYING_BIT_VIEWPORT | VARYING_BIT_LAYER;
       uint64_t mask = prev->current->nir->info.outputs_written & ~system_out_values;
       fill_varyings(&key->required_varying_inputs, prev->current->nir,
                     nir_var_shader_out, mask, false);
       key->prev_varying_outputs = prev->current->nir->info.outputs_written;
 
-      if (stage == PIPE_SHADER_TESS_EVAL) {
+      if (stage == MESA_SHADER_TESS_EVAL) {
          uint32_t patch_mask = prev->current->nir->info.patch_outputs_written;
          fill_varyings(&key->ds.required_patch_inputs, prev->current->nir,
                        nir_var_shader_out, patch_mask, true);
@@ -897,7 +897,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
 
       /* Set the provoking vertex based on the previous shader output. Only set the
        * key value if the driver actually supports changing the provoking vertex though */
-      if (stage == PIPE_SHADER_FRAGMENT && sel_ctx->ctx->gfx_pipeline_state.rast &&
+      if (stage == MESA_SHADER_FRAGMENT && sel_ctx->ctx->gfx_pipeline_state.rast &&
           !sel_ctx->needs_vertex_reordering &&
           d3d12_screen(sel_ctx->ctx->base.screen)->have_load_at_vertex)
          key->fs.provoking_vertex = sel_ctx->provoking_vertex;
@@ -906,7 +906,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
        * to the output, and in cases of TES or GS you could have differently-sized inputs
        * and outputs. For FS, there is no output, so it's repurposed to mean input.
        */
-      if (stage != PIPE_SHADER_FRAGMENT)
+      if (stage != MESA_SHADER_FRAGMENT)
          key->input_clip_size = prev->current->nir->info.clip_distance_array_size;
    }
 
@@ -914,13 +914,13 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
     * except certain system values */
    if (next) {
       if (!next->is_variant) {
-         if (stage == PIPE_SHADER_VERTEX)
+         if (stage == MESA_SHADER_VERTEX)
             system_generated_in_values |= VARYING_BIT_POS;
          uint64_t mask = next->current->nir->info.inputs_read & ~system_generated_in_values;
          fill_varyings(&key->required_varying_outputs, next->current->nir,
                        nir_var_shader_in, mask, false);
 
-         if (stage == PIPE_SHADER_TESS_CTRL) {
+         if (stage == MESA_SHADER_TESS_CTRL) {
             uint32_t patch_mask = next->current->nir->info.patch_outputs_read;
             fill_varyings(&key->hs.required_patch_outputs, prev->current->nir,
                           nir_var_shader_in, patch_mask, true);
@@ -931,9 +931,9 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
 
    }
 
-   if (stage == PIPE_SHADER_GEOMETRY ||
-       ((stage == PIPE_SHADER_VERTEX || stage == PIPE_SHADER_TESS_EVAL) &&
-          (!next || next->stage == PIPE_SHADER_FRAGMENT))) {
+   if (stage == MESA_SHADER_GEOMETRY ||
+       ((stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_TESS_EVAL) &&
+          (!next || next->stage == MESA_SHADER_FRAGMENT))) {
       key->last_vertex_processing_stage = 1;
       key->invert_depth = sel_ctx->ctx->reverse_depth_range;
       key->halfz = sel_ctx->ctx->gfx_pipeline_state.rast ?
@@ -943,7 +943,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
          key->next_varying_inputs |= VARYING_BIT_POS;
    }
 
-   if (stage == PIPE_SHADER_GEOMETRY && sel_ctx->ctx->gfx_pipeline_state.rast) {
+   if (stage == MESA_SHADER_GEOMETRY && sel_ctx->ctx->gfx_pipeline_state.rast) {
       struct pipe_rasterizer_state *rast = &sel_ctx->ctx->gfx_pipeline_state.rast->base;
       if (sel_ctx->needs_point_sprite_lowering) {
          key->gs.writes_psize = 1;
@@ -962,7 +962,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
 
       if (sel->is_variant && next && next->initial->info.inputs_read & VARYING_BIT_PRIMITIVE_ID)
          key->gs.primitive_id = 1;
-   } else if (stage == PIPE_SHADER_FRAGMENT) {
+   } else if (stage == MESA_SHADER_FRAGMENT) {
       key->fs.missing_dual_src_outputs = sel_ctx->missing_dual_src_outputs;
       key->fs.frag_result_color_lowering = sel_ctx->frag_result_color_lowering;
       key->fs.manual_depth_range = sel_ctx->manual_depth_range;
@@ -976,7 +976,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
          key->fs.cast_to_uint = util_format_is_unorm(sel_ctx->ctx->fb.cbufs[0]->format);
          key->fs.cast_to_int = !key->fs.cast_to_uint;
       }
-   } else if (stage == PIPE_SHADER_TESS_CTRL) {
+   } else if (stage == MESA_SHADER_TESS_CTRL) {
       if (next && next->current->nir->info.stage == MESA_SHADER_TESS_EVAL) {
          key->hs.primitive_mode = next->current->nir->info.tess._primitive_mode;
          key->hs.ccw = next->current->nir->info.tess.ccw;
@@ -989,7 +989,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
          key->hs.spacing = TESS_SPACING_EQUAL;
       }
       key->hs.patch_vertices_in = MAX2(sel_ctx->ctx->patch_vertices, 1);
-   } else if (stage == PIPE_SHADER_TESS_EVAL) {
+   } else if (stage == MESA_SHADER_TESS_EVAL) {
       if (prev && prev->current->nir->info.stage == MESA_SHADER_TESS_CTRL)
          key->ds.tcs_vertices_out = prev->current->nir->info.tess.tcs_vertices_out;
       else
@@ -1030,7 +1030,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
              key->n_texture_states * sizeof(dxil_texture_swizzle_state));
    }
 
-   if (stage == PIPE_SHADER_VERTEX && sel_ctx->ctx->gfx_pipeline_state.ves) {
+   if (stage == MESA_SHADER_VERTEX && sel_ctx->ctx->gfx_pipeline_state.ves) {
       key->vs.needs_format_emulation = sel_ctx->ctx->gfx_pipeline_state.ves->needs_format_emulation;
       if (key->vs.needs_format_emulation) {
          memcpy(key->vs.format_conversion, sel_ctx->ctx->gfx_pipeline_state.ves->format_conversion,
@@ -1038,14 +1038,14 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
       }
    }
 
-   if (stage == PIPE_SHADER_FRAGMENT &&
-       sel_ctx->ctx->gfx_stages[PIPE_SHADER_GEOMETRY] &&
-       sel_ctx->ctx->gfx_stages[PIPE_SHADER_GEOMETRY]->is_variant &&
-       sel_ctx->ctx->gfx_stages[PIPE_SHADER_GEOMETRY]->gs_key.has_front_face) {
+   if (stage == MESA_SHADER_FRAGMENT &&
+       sel_ctx->ctx->gfx_stages[MESA_SHADER_GEOMETRY] &&
+       sel_ctx->ctx->gfx_stages[MESA_SHADER_GEOMETRY]->is_variant &&
+       sel_ctx->ctx->gfx_stages[MESA_SHADER_GEOMETRY]->gs_key.has_front_face) {
       key->fs.remap_front_facing = 1;
    }
 
-   if (stage == PIPE_SHADER_COMPUTE && sel_ctx->variable_workgroup_size) {
+   if (stage == MESA_SHADER_COMPUTE && sel_ctx->variable_workgroup_size) {
       memcpy(key->cs.workgroup_size, sel_ctx->variable_workgroup_size, sizeof(key->cs.workgroup_size));
    }
 
@@ -1186,7 +1186,7 @@ select_shader_variant(struct d3d12_selection_context *sel_ctx, d3d12_shader_sele
          create_varyings_from_info(new_nir_variant, &key.required_varying_inputs, slot, nir_var_shader_in, false);
       }
 
-      if (sel->stage == PIPE_SHADER_TESS_EVAL) {
+      if (sel->stage == MESA_SHADER_TESS_EVAL) {
          uint32_t patch_mask = (uint32_t)key.ds.required_patch_inputs.mask & ~new_nir_variant->info.patch_inputs_read;
          new_nir_variant->info.patch_inputs_read |= patch_mask;
          while (patch_mask) {
@@ -1207,7 +1207,7 @@ select_shader_variant(struct d3d12_selection_context *sel_ctx, d3d12_shader_sele
          create_varyings_from_info(new_nir_variant, &key.required_varying_outputs, slot, nir_var_shader_out, false);
       }
 
-      if (sel->stage == PIPE_SHADER_TESS_CTRL) {
+      if (sel->stage == MESA_SHADER_TESS_CTRL) {
          uint32_t patch_mask = (uint32_t)key.hs.required_patch_outputs.mask & ~new_nir_variant->info.patch_outputs_written;
          new_nir_variant->info.patch_outputs_written |= patch_mask;
          while (patch_mask) {
@@ -1234,22 +1234,22 @@ static d3d12_shader_selector *
 get_prev_shader(struct d3d12_context *ctx, pipe_shader_type current)
 {
    switch (current) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       return NULL;
-   case PIPE_SHADER_FRAGMENT:
-      if (ctx->gfx_stages[PIPE_SHADER_GEOMETRY])
-         return ctx->gfx_stages[PIPE_SHADER_GEOMETRY];
+   case MESA_SHADER_FRAGMENT:
+      if (ctx->gfx_stages[MESA_SHADER_GEOMETRY])
+         return ctx->gfx_stages[MESA_SHADER_GEOMETRY];
       FALLTHROUGH;
-   case PIPE_SHADER_GEOMETRY:
-      if (ctx->gfx_stages[PIPE_SHADER_TESS_EVAL])
-         return ctx->gfx_stages[PIPE_SHADER_TESS_EVAL];
+   case MESA_SHADER_GEOMETRY:
+      if (ctx->gfx_stages[MESA_SHADER_TESS_EVAL])
+         return ctx->gfx_stages[MESA_SHADER_TESS_EVAL];
       FALLTHROUGH;
-   case PIPE_SHADER_TESS_EVAL:
-      if (ctx->gfx_stages[PIPE_SHADER_TESS_CTRL])
-         return ctx->gfx_stages[PIPE_SHADER_TESS_CTRL];
+   case MESA_SHADER_TESS_EVAL:
+      if (ctx->gfx_stages[MESA_SHADER_TESS_CTRL])
+         return ctx->gfx_stages[MESA_SHADER_TESS_CTRL];
       FALLTHROUGH;
-   case PIPE_SHADER_TESS_CTRL:
-      return ctx->gfx_stages[PIPE_SHADER_VERTEX];
+   case MESA_SHADER_TESS_CTRL:
+      return ctx->gfx_stages[MESA_SHADER_VERTEX];
    default:
       unreachable("shader type not supported");
    }
@@ -1259,21 +1259,21 @@ static d3d12_shader_selector *
 get_next_shader(struct d3d12_context *ctx, pipe_shader_type current)
 {
    switch (current) {
-   case PIPE_SHADER_VERTEX:
-      if (ctx->gfx_stages[PIPE_SHADER_TESS_CTRL])
-         return ctx->gfx_stages[PIPE_SHADER_TESS_CTRL];
+   case MESA_SHADER_VERTEX:
+      if (ctx->gfx_stages[MESA_SHADER_TESS_CTRL])
+         return ctx->gfx_stages[MESA_SHADER_TESS_CTRL];
       FALLTHROUGH;
-   case PIPE_SHADER_TESS_CTRL:
-      if (ctx->gfx_stages[PIPE_SHADER_TESS_EVAL])
-         return ctx->gfx_stages[PIPE_SHADER_TESS_EVAL];
+   case MESA_SHADER_TESS_CTRL:
+      if (ctx->gfx_stages[MESA_SHADER_TESS_EVAL])
+         return ctx->gfx_stages[MESA_SHADER_TESS_EVAL];
       FALLTHROUGH;
-   case PIPE_SHADER_TESS_EVAL:
-      if (ctx->gfx_stages[PIPE_SHADER_GEOMETRY])
-         return ctx->gfx_stages[PIPE_SHADER_GEOMETRY];
+   case MESA_SHADER_TESS_EVAL:
+      if (ctx->gfx_stages[MESA_SHADER_GEOMETRY])
+         return ctx->gfx_stages[MESA_SHADER_GEOMETRY];
       FALLTHROUGH;
-   case PIPE_SHADER_GEOMETRY:
-      return ctx->gfx_stages[PIPE_SHADER_FRAGMENT];
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_GEOMETRY:
+      return ctx->gfx_stages[MESA_SHADER_FRAGMENT];
+   case MESA_SHADER_FRAGMENT:
       return NULL;
    default:
       unreachable("shader type not supported");
@@ -1442,7 +1442,7 @@ d3d12_create_compute_shader(struct d3d12_context *ctx,
                             const struct pipe_compute_state *shader)
 {
    struct d3d12_shader_selector *sel = rzalloc(nullptr, d3d12_shader_selector);
-   sel->stage = PIPE_SHADER_COMPUTE;
+   sel->stage = MESA_SHADER_COMPUTE;
 
    struct nir_shader *nir = NULL;
 
@@ -1464,11 +1464,11 @@ void
 d3d12_select_shader_variants(struct d3d12_context *ctx, const struct pipe_draw_info *dinfo)
 {
    static unsigned order[] = {
-      PIPE_SHADER_VERTEX,
-      PIPE_SHADER_TESS_CTRL,
-      PIPE_SHADER_TESS_EVAL,
-      PIPE_SHADER_GEOMETRY,
-      PIPE_SHADER_FRAGMENT
+      MESA_SHADER_VERTEX,
+      MESA_SHADER_TESS_CTRL,
+      MESA_SHADER_TESS_EVAL,
+      MESA_SHADER_GEOMETRY,
+      MESA_SHADER_FRAGMENT
    };
    struct d3d12_selection_context sel_ctx;
 

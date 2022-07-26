@@ -746,7 +746,7 @@ static unsigned si_identity(unsigned slot)
 static void si_dump_descriptors(struct si_context *sctx, gl_shader_stage stage,
                                 const struct si_shader_info *info, struct u_log_context *log)
 {
-   enum pipe_shader_type processor = pipe_shader_type_from_mesa(stage);
+   gl_shader_stage processor = pipe_shader_type_from_mesa(stage);
    struct si_descriptors *descs =
       &sctx->descriptors[SI_DESCS_FIRST_SHADER + processor * SI_NUM_SHADER_DESCS];
    static const char *shader_name[] = {"VS", "PS", "GS", "TCS", "TES", "CS"};

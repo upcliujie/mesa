@@ -124,7 +124,7 @@ struct pipe_screen {
     * Query a per-shader-stage integer-valued capability/parameter/limit
     * \param param  one of PIPE_CAP_x
     */
-   int (*get_shader_param)( struct pipe_screen *, enum pipe_shader_type shader,
+   int (*get_shader_param)( struct pipe_screen *, gl_shader_stage shader,
                             enum pipe_shader_cap param );
 
    /**
@@ -454,7 +454,7 @@ struct pipe_screen {
     */
    const void *(*get_compiler_options)(struct pipe_screen *screen,
                                       enum pipe_shader_ir ir,
-                                      enum pipe_shader_type shader);
+                                      gl_shader_stage shader);
 
    /**
     * Returns a pointer to a driver-specific on-disk shader cache. If the

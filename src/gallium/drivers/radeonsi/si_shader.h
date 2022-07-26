@@ -514,7 +514,7 @@ struct si_shader_selector {
 
    struct si_shader_info info;
 
-   enum pipe_shader_type pipe_shader_type;
+   gl_shader_stage pipe_shader_type;
    ubyte const_and_shader_buf_descriptors_index;
    ubyte sampler_and_images_descriptors_index;
    ubyte cs_shaderbufs_sgpr_index;

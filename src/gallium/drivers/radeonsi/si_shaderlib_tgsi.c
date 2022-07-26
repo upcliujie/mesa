@@ -53,7 +53,7 @@ void *si_get_blitter_vs(struct si_context *sctx, enum blitter_attrib_type type, 
    if (*vs)
       return *vs;
 
-   struct ureg_program *ureg = ureg_create(PIPE_SHADER_VERTEX);
+   struct ureg_program *ureg = ureg_create(MESA_SHADER_VERTEX);
    if (!ureg)
       return NULL;
 
@@ -103,7 +103,7 @@ void *si_create_dma_compute_shader(struct pipe_context *ctx, unsigned num_dwords
          inst_dwords[i] = MIN2(4, num_dwords_per_thread - i * 4);
    }
 
-   struct ureg_program *ureg = ureg_create(PIPE_SHADER_COMPUTE);
+   struct ureg_program *ureg = ureg_create(MESA_SHADER_COMPUTE);
    if (!ureg)
       return NULL;
 
@@ -515,7 +515,7 @@ void *si_clear_12bytes_buffer_shader(struct pipe_context *ctx)
 void *si_create_fmask_expand_cs(struct pipe_context *ctx, unsigned num_samples, bool is_array)
 {
    enum tgsi_texture_type target = is_array ? TGSI_TEXTURE_2D_ARRAY_MSAA : TGSI_TEXTURE_2D_MSAA;
-   struct ureg_program *ureg = ureg_create(PIPE_SHADER_COMPUTE);
+   struct ureg_program *ureg = ureg_create(MESA_SHADER_COMPUTE);
    if (!ureg)
       return NULL;
 

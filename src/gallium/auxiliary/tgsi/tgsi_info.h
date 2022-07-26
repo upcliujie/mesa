@@ -89,7 +89,7 @@ const char *
 tgsi_get_opcode_name(enum tgsi_opcode opcode);
 
 const char *
-tgsi_get_processor_name(enum pipe_shader_type processor);
+tgsi_get_processor_name(gl_shader_stage processor);
 
 enum tgsi_opcode_type {
    TGSI_TYPE_UNTYPED, /* for MOV */

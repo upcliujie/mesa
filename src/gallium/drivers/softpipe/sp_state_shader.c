@@ -358,7 +358,7 @@ softpipe_delete_gs_state(struct pipe_context *pipe, void *gs)
 
 static void
 softpipe_set_constant_buffer(struct pipe_context *pipe,
-                             enum pipe_shader_type shader, uint index,
+                             gl_shader_stage shader, uint index,
                              bool take_ownership,
                              const struct pipe_constant_buffer *cb)
 {
@@ -367,7 +367,7 @@ softpipe_set_constant_buffer(struct pipe_context *pipe,
    unsigned size;
    const void *data;
 
-   assert(shader < PIPE_SHADER_TYPES);
+   assert(shader < MESA_SHADER_STAGES);
 
    if (cb && cb->user_buffer) {
       constants = softpipe_user_buffer_create(pipe->screen,
@@ -391,7 +391,7 @@ softpipe_set_constant_buffer(struct pipe_context *pipe,
       pipe_resource_reference(&softpipe->constants[shader][index], constants);
    }
 
-   if (shader == PIPE_SHADER_VERTEX || shader == PIPE_SHADER_GEOMETRY) {
+   if (shader == MESA_SHADER_VERTEX || shader == MESA_SHADER_GEOMETRY) {
       draw_set_mapped_constant_buffer(softpipe->draw, shader, index, data, size);
    }
 

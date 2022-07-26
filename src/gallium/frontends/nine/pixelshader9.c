@@ -52,7 +52,7 @@ NinePixelShader9_ctor( struct NinePixelShader9 *This,
     }
     device = This->base.device;
 
-    info.type = PIPE_SHADER_FRAGMENT;
+    info.type = MESA_SHADER_FRAGMENT;
     info.byte_code = pFunction;
     info.const_i_base = NINE_CONST_I_BASE(device->max_ps_const_f) / 16;
     info.const_b_base = NINE_CONST_B_BASE(device->max_ps_const_f) / 16;
@@ -184,7 +184,7 @@ NinePixelShader9_GetVariant( struct NinePixelShader9 *This,
         struct nine_shader_info info;
         HRESULT hr;
 
-        info.type = PIPE_SHADER_FRAGMENT;
+        info.type = MESA_SHADER_FRAGMENT;
         info.const_i_base = NINE_CONST_I_BASE(device->max_ps_const_f) / 16;
         info.const_b_base = NINE_CONST_B_BASE(device->max_ps_const_f) / 16;
         info.byte_code = This->byte_code.tokens;

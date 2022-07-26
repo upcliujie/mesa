@@ -66,13 +66,13 @@ rbug_draw_block_locked(struct rbug_context *rb_pipe, int flag)
       unsigned sh;
 
       debug_printf("%s (%p %p) (%p %p) (%p %u) (%p %u)\n", __FUNCTION__,
-                   (void *) rb_pipe->draw_rule.shader[PIPE_SHADER_FRAGMENT],
-                   (void *) rb_pipe->curr.shader[PIPE_SHADER_FRAGMENT],
-                   (void *) rb_pipe->draw_rule.shader[PIPE_SHADER_VERTEX],
-                   (void *) rb_pipe->curr.shader[PIPE_SHADER_VERTEX],
+                   (void *) rb_pipe->draw_rule.shader[MESA_SHADER_FRAGMENT],
+                   (void *) rb_pipe->curr.shader[MESA_SHADER_FRAGMENT],
+                   (void *) rb_pipe->draw_rule.shader[MESA_SHADER_VERTEX],
+                   (void *) rb_pipe->curr.shader[MESA_SHADER_VERTEX],
                    (void *) rb_pipe->draw_rule.surf, 0,
                    (void *) rb_pipe->draw_rule.texture, 0);
-      for (sh = 0; sh < PIPE_SHADER_TYPES; sh++) {
+      for (sh = 0; sh < MESA_SHADER_STAGES; sh++) {
          if (rb_pipe->draw_rule.shader[sh] &&
              rb_pipe->draw_rule.shader[sh] == rb_pipe->curr.shader[sh])
             block = true;
@@ -90,7 +90,7 @@ rbug_draw_block_locked(struct rbug_context *rb_pipe, int flag)
             for (k = 0; k < rb_pipe->curr.num_views[sh]; k++) {
                if (rb_pipe->draw_rule.texture == rb_pipe->curr.texs[sh][k]) {
                   block = true;
-                  sh = PIPE_SHADER_TYPES; /* to break out of both loops */
+                  sh = MESA_SHADER_STAGES; /* to break out of both loops */
                   break;
                }
             }
@@ -132,9 +132,9 @@ rbug_draw_vbo(struct pipe_context *_pipe, const struct pipe_draw_info *_info,
 
    mtx_lock(&rb_pipe->call_mutex);
    /* XXX loop over PIPE_SHADER_x here */
-   if (!(rb_pipe->curr.shader[PIPE_SHADER_FRAGMENT] && rb_pipe->curr.shader[PIPE_SHADER_FRAGMENT]->disabled) &&
-       !(rb_pipe->curr.shader[PIPE_SHADER_GEOMETRY] && rb_pipe->curr.shader[PIPE_SHADER_GEOMETRY]->disabled) &&
-       !(rb_pipe->curr.shader[PIPE_SHADER_VERTEX] && rb_pipe->curr.shader[PIPE_SHADER_VERTEX]->disabled))
+   if (!(rb_pipe->curr.shader[MESA_SHADER_FRAGMENT] && rb_pipe->curr.shader[MESA_SHADER_FRAGMENT]->disabled) &&
+       !(rb_pipe->curr.shader[MESA_SHADER_GEOMETRY] && rb_pipe->curr.shader[MESA_SHADER_GEOMETRY]->disabled) &&
+       !(rb_pipe->curr.shader[MESA_SHADER_VERTEX] && rb_pipe->curr.shader[MESA_SHADER_VERTEX]->disabled))
       pipe->draw_vbo(pipe, &info, _drawid_offset, _indirect, draws, num_draws);
    mtx_unlock(&rb_pipe->call_mutex);
 
@@ -293,7 +293,7 @@ rbug_create_sampler_state(struct pipe_context *_pipe,
 
 static void
 rbug_bind_sampler_states(struct pipe_context *_pipe,
-                         enum pipe_shader_type shader,
+                         gl_shader_stage shader,
                          unsigned start, unsigned count,
                          void **samplers)
 {
@@ -431,7 +431,7 @@ rbug_bind_fs_state(struct pipe_context *_pipe,
    mtx_lock(&rb_pipe->call_mutex);
 
    fs = rbug_shader_unwrap(_fs);
-   rb_pipe->curr.shader[PIPE_SHADER_FRAGMENT] = rbug_shader(_fs);
+   rb_pipe->curr.shader[MESA_SHADER_FRAGMENT] = rbug_shader(_fs);
    pipe->bind_fs_state(pipe,
                        fs);
 
@@ -479,7 +479,7 @@ rbug_bind_vs_state(struct pipe_context *_pipe,
    mtx_lock(&rb_pipe->call_mutex);
 
    vs = rbug_shader_unwrap(_vs);
-   rb_pipe->curr.shader[PIPE_SHADER_VERTEX] = rbug_shader(_vs);
+   rb_pipe->curr.shader[MESA_SHADER_VERTEX] = rbug_shader(_vs);
    pipe->bind_vs_state(pipe,
                        vs);
 
@@ -527,7 +527,7 @@ rbug_bind_gs_state(struct pipe_context *_pipe,
    mtx_lock(&rb_pipe->call_mutex);
 
    gs = rbug_shader_unwrap(_gs);
-   rb_pipe->curr.shader[PIPE_SHADER_GEOMETRY] = rbug_shader(_gs);
+   rb_pipe->curr.shader[MESA_SHADER_GEOMETRY] = rbug_shader(_gs);
    pipe->bind_gs_state(pipe,
                        gs);
 
@@ -631,7 +631,7 @@ rbug_set_clip_state(struct pipe_context *_pipe,
 
 static void
 rbug_set_constant_buffer(struct pipe_context *_pipe,
-                         enum pipe_shader_type shader,
+                         gl_shader_stage shader,
                          uint index, bool take_ownership,
                          const struct pipe_constant_buffer *_cb)
 {
@@ -735,7 +735,7 @@ rbug_set_viewport_states(struct pipe_context *_pipe,
 
 static void
 rbug_set_sampler_views(struct pipe_context *_pipe,
-                       enum pipe_shader_type shader,
+                       gl_shader_stage shader,
                        unsigned start,
                        unsigned num,
                        unsigned unbind_num_trailing_slots,

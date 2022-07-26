@@ -175,7 +175,7 @@ fd6_sampler_view_create(struct pipe_context *pctx, struct pipe_resource *prsc,
 }
 
 static void
-fd6_set_sampler_views(struct pipe_context *pctx, enum pipe_shader_type shader,
+fd6_set_sampler_views(struct pipe_context *pctx, gl_shader_stage shader,
                       unsigned start, unsigned nr,
                       unsigned unbind_num_trailing_slots,
                       bool take_ownership,
@@ -327,7 +327,7 @@ key_equals(const void *_a, const void *_b)
 }
 
 struct fd6_texture_state *
-fd6_texture_state(struct fd_context *ctx, enum pipe_shader_type type,
+fd6_texture_state(struct fd_context *ctx, gl_shader_stage type,
                   struct fd_texture_stateobj *tex)
 {
    struct fd6_context *fd6_ctx = fd6_context(ctx);

@@ -4071,14 +4071,14 @@ llvmpipe_delete_fs_state(struct pipe_context *pipe, void *fs)
 
 static void
 llvmpipe_set_constant_buffer(struct pipe_context *pipe,
-                             enum pipe_shader_type shader, uint index,
+                             gl_shader_stage shader, uint index,
                              bool take_ownership,
                              const struct pipe_constant_buffer *cb)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
    struct pipe_constant_buffer *constants = &llvmpipe->constants[shader][index];
 
-   assert(shader < PIPE_SHADER_TYPES);
+   assert(shader < MESA_SHADER_STAGES);
    assert(index < ARRAY_SIZE(llvmpipe->constants[shader]));
 
    /* note: reference counting */
@@ -4101,10 +4101,10 @@ llvmpipe_set_constant_buffer(struct pipe_context *pipe,
       }
    }
 
-   if (shader == PIPE_SHADER_VERTEX ||
-       shader == PIPE_SHADER_GEOMETRY ||
-       shader == PIPE_SHADER_TESS_CTRL ||
-       shader == PIPE_SHADER_TESS_EVAL) {
+   if (shader == MESA_SHADER_VERTEX ||
+       shader == MESA_SHADER_GEOMETRY ||
+       shader == MESA_SHADER_TESS_CTRL ||
+       shader == MESA_SHADER_TESS_EVAL) {
       /* Pass the constants to the 'draw' module */
       const unsigned size = cb ? cb->buffer_size : 0;
 
@@ -4116,7 +4116,7 @@ llvmpipe_set_constant_buffer(struct pipe_context *pipe,
 
       draw_set_mapped_constant_buffer(llvmpipe->draw, shader,
                                       index, data, size);
-   } else if (shader == PIPE_SHADER_COMPUTE) {
+   } else if (shader == MESA_SHADER_COMPUTE) {
       llvmpipe->cs_dirty |= LP_CSNEW_CONSTANTS;
    } else {
       llvmpipe->dirty |= LP_NEW_FS_CONSTANTS;
@@ -4126,7 +4126,7 @@ llvmpipe_set_constant_buffer(struct pipe_context *pipe,
 
 static void
 llvmpipe_set_shader_buffers(struct pipe_context *pipe,
-                            enum pipe_shader_type shader, unsigned start_slot,
+                            gl_shader_stage shader, unsigned start_slot,
                             unsigned count,
                             const struct pipe_shader_buffer *buffers,
                             unsigned writable_bitmask)
@@ -4145,10 +4145,10 @@ llvmpipe_set_shader_buffers(struct pipe_context *pipe,
                                  false, "buffer");
       }
 
-      if (shader == PIPE_SHADER_VERTEX ||
-          shader == PIPE_SHADER_GEOMETRY ||
-          shader == PIPE_SHADER_TESS_CTRL ||
-          shader == PIPE_SHADER_TESS_EVAL) {
+      if (shader == MESA_SHADER_VERTEX ||
+          shader == MESA_SHADER_GEOMETRY ||
+          shader == MESA_SHADER_TESS_CTRL ||
+          shader == MESA_SHADER_TESS_EVAL) {
          const unsigned size = buffer ? buffer->buffer_size : 0;
          const ubyte *data = NULL;
          if (buffer && buffer->buffer)
@@ -4157,9 +4157,9 @@ llvmpipe_set_shader_buffers(struct pipe_context *pipe,
             data += buffer->buffer_offset;
          draw_set_mapped_shader_buffer(llvmpipe->draw, shader,
                                        i, data, size);
-      } else if (shader == PIPE_SHADER_COMPUTE) {
+      } else if (shader == MESA_SHADER_COMPUTE) {
          llvmpipe->cs_dirty |= LP_CSNEW_SSBOS;
-      } else if (shader == PIPE_SHADER_FRAGMENT) {
+      } else if (shader == MESA_SHADER_FRAGMENT) {
          llvmpipe->fs_ssbo_write_mask &= ~(((1 << count) - 1) << start_slot);
          llvmpipe->fs_ssbo_write_mask |= writable_bitmask << start_slot;
          llvmpipe->dirty |= LP_NEW_FS_SSBOS;
@@ -4170,7 +4170,7 @@ llvmpipe_set_shader_buffers(struct pipe_context *pipe,
 
 static void
 llvmpipe_set_shader_images(struct pipe_context *pipe,
-                           enum pipe_shader_type shader, unsigned start_slot,
+                           gl_shader_stage shader, unsigned start_slot,
                            unsigned count, unsigned unbind_num_trailing_slots,
                            const struct pipe_image_view *images)
 {
@@ -4191,15 +4191,15 @@ llvmpipe_set_shader_images(struct pipe_context *pipe,
    }
 
    llvmpipe->num_images[shader] = start_slot + count;
-   if (shader == PIPE_SHADER_VERTEX ||
-       shader == PIPE_SHADER_GEOMETRY ||
-       shader == PIPE_SHADER_TESS_CTRL ||
-       shader == PIPE_SHADER_TESS_EVAL) {
+   if (shader == MESA_SHADER_VERTEX ||
+       shader == MESA_SHADER_GEOMETRY ||
+       shader == MESA_SHADER_TESS_CTRL ||
+       shader == MESA_SHADER_TESS_EVAL) {
       draw_set_images(llvmpipe->draw,
                       shader,
                       llvmpipe->images[shader],
                       start_slot + count);
-   } else if (shader == PIPE_SHADER_COMPUTE) {
+   } else if (shader == MESA_SHADER_COMPUTE) {
       llvmpipe->cs_dirty |= LP_CSNEW_IMAGES;
    } else {
       llvmpipe->dirty |= LP_NEW_FS_IMAGES;
@@ -4445,7 +4445,7 @@ make_variant_key(struct llvmpipe_context *lp,
    for (unsigned i = 0; i < key->nr_samplers; ++i) {
       if (shader->info.base.file_mask[TGSI_FILE_SAMPLER] & (1 << i)) {
          lp_sampler_static_sampler_state(&fs_sampler[i].sampler_state,
-                                         lp->samplers[PIPE_SHADER_FRAGMENT][i]);
+                                         lp->samplers[MESA_SHADER_FRAGMENT][i]);
       }
    }
 
@@ -4464,7 +4464,7 @@ make_variant_key(struct llvmpipe_context *lp,
          if (shader->info.base.file_mask[TGSI_FILE_SAMPLER_VIEW]
              & (1u << (i & 31))) {
             lp_sampler_static_texture_state(&fs_sampler[i].texture_state,
-                                  lp->sampler_views[PIPE_SHADER_FRAGMENT][i]);
+                                  lp->sampler_views[MESA_SHADER_FRAGMENT][i]);
          }
       }
    }
@@ -4473,7 +4473,7 @@ make_variant_key(struct llvmpipe_context *lp,
       for (unsigned i = 0; i < key->nr_sampler_views; ++i) {
          if (shader->info.base.file_mask[TGSI_FILE_SAMPLER] & (1 << i)) {
             lp_sampler_static_texture_state(&fs_sampler[i].texture_state,
-                                 lp->sampler_views[PIPE_SHADER_FRAGMENT][i]);
+                                 lp->sampler_views[MESA_SHADER_FRAGMENT][i]);
          }
       }
    }
@@ -4483,7 +4483,7 @@ make_variant_key(struct llvmpipe_context *lp,
    for (unsigned i = 0; i < key->nr_images; ++i) {
       if (shader->info.base.file_mask[TGSI_FILE_IMAGE] & (1 << i)) {
          lp_sampler_static_texture_state_image(&lp_image[i].image_state,
-                                      &lp->images[PIPE_SHADER_FRAGMENT][i]);
+                                      &lp->images[MESA_SHADER_FRAGMENT][i]);
       }
    }
 

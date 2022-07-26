@@ -1492,7 +1492,7 @@ static void*
 }
 
 static void r300_bind_sampler_states(struct pipe_context* pipe,
-                                     enum pipe_shader_type shader,
+                                     gl_shader_stage shader,
                                      unsigned start, unsigned count,
                                      void** states)
 {
@@ -1503,7 +1503,7 @@ static void r300_bind_sampler_states(struct pipe_context* pipe,
 
     assert(start == 0);
 
-    if (shader != PIPE_SHADER_FRAGMENT)
+    if (shader != MESA_SHADER_FRAGMENT)
        return;
 
     if (count > tex_units)
@@ -1546,7 +1546,7 @@ static uint32_t r300_assign_texture_cache_region(unsigned index, unsigned num)
 }
 
 static void r300_set_sampler_views(struct pipe_context* pipe,
-                                   enum pipe_shader_type shader,
+                                   gl_shader_stage shader,
                                    unsigned start, unsigned count,
                                    unsigned unbind_num_trailing_slots,
                                    bool take_ownership,
@@ -1562,7 +1562,7 @@ static void r300_set_sampler_views(struct pipe_context* pipe,
 
     assert(start == 0);  /* non-zero not handled yet */
 
-    if (shader != PIPE_SHADER_FRAGMENT || count > tex_units) {
+    if (shader != MESA_SHADER_FRAGMENT || count > tex_units) {
        if (take_ownership) {
           for (unsigned i = 0; i < count; i++) {
              struct pipe_sampler_view *view = views[i];
@@ -2046,7 +2046,7 @@ static void r300_delete_vs_state(struct pipe_context* pipe, void* shader)
 }
 
 static void r300_set_constant_buffer(struct pipe_context *pipe,
-                                     enum pipe_shader_type shader, uint index,
+                                     gl_shader_stage shader, uint index,
                                      bool take_ownership,
                                      const struct pipe_constant_buffer *cb)
 {
@@ -2058,10 +2058,10 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
         return;
 
     switch (shader) {
-        case PIPE_SHADER_VERTEX:
+        case MESA_SHADER_VERTEX:
             cbuf = (struct r300_constant_buffer*)r300->vs_constants.state;
             break;
-        case PIPE_SHADER_FRAGMENT:
+        case MESA_SHADER_FRAGMENT:
             cbuf = (struct r300_constant_buffer*)r300->fs_constants.state;
             break;
         default:
@@ -2080,12 +2080,12 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
             return;
     }
 
-    if (shader == PIPE_SHADER_FRAGMENT ||
-        (shader == PIPE_SHADER_VERTEX && r300->screen->caps.has_tcl)) {
+    if (shader == MESA_SHADER_FRAGMENT ||
+        (shader == MESA_SHADER_VERTEX && r300->screen->caps.has_tcl)) {
         cbuf->ptr = mapped;
     }
 
-    if (shader == PIPE_SHADER_VERTEX) {
+    if (shader == MESA_SHADER_VERTEX) {
         if (r300->screen->caps.has_tcl) {
             struct r300_vertex_shader *vs = r300_vs(r300);
 
@@ -2103,10 +2103,10 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
             }
             r300_mark_atom_dirty(r300, &r300->vs_constants);
         } else if (r300->draw) {
-            draw_set_mapped_constant_buffer(r300->draw, PIPE_SHADER_VERTEX,
+            draw_set_mapped_constant_buffer(r300->draw, MESA_SHADER_VERTEX,
                 0, mapped, cb->buffer_size);
         }
-    } else if (shader == PIPE_SHADER_FRAGMENT) {
+    } else if (shader == MESA_SHADER_FRAGMENT) {
         r300_mark_atom_dirty(r300, &r300->fs_constants);
     }
 }

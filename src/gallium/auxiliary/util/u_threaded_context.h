@@ -487,9 +487,9 @@ struct threaded_context {
    bool seen_gs;
 
    bool seen_streamout_buffers;
-   bool seen_shader_buffers[PIPE_SHADER_TYPES];
-   bool seen_image_buffers[PIPE_SHADER_TYPES];
-   bool seen_sampler_buffers[PIPE_SHADER_TYPES];
+   bool seen_shader_buffers[MESA_SHADER_STAGES];
+   bool seen_image_buffers[MESA_SHADER_STAGES];
+   bool seen_sampler_buffers[MESA_SHADER_STAGES];
 
    unsigned max_vertex_buffers;
    unsigned max_const_buffers;
@@ -510,13 +510,13 @@ struct threaded_context {
     */
    uint32_t vertex_buffers[PIPE_MAX_ATTRIBS];
    uint32_t streamout_buffers[PIPE_MAX_SO_BUFFERS];
-   uint32_t const_buffers[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
-   uint32_t shader_buffers[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
-   uint32_t image_buffers[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
-   uint32_t shader_buffers_writeable_mask[PIPE_SHADER_TYPES];
-   uint64_t image_buffers_writeable_mask[PIPE_SHADER_TYPES];
+   uint32_t const_buffers[MESA_SHADER_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
+   uint32_t shader_buffers[MESA_SHADER_STAGES][PIPE_MAX_SHADER_BUFFERS];
+   uint32_t image_buffers[MESA_SHADER_STAGES][PIPE_MAX_SHADER_IMAGES];
+   uint32_t shader_buffers_writeable_mask[MESA_SHADER_STAGES];
+   uint64_t image_buffers_writeable_mask[MESA_SHADER_STAGES];
    /* Don't use PIPE_MAX_SHADER_SAMPLER_VIEWS because it's too large. */
-   uint32_t sampler_buffers[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_SAMPLER_VIEWS];
+   uint32_t sampler_buffers[MESA_SHADER_STAGES][PIPE_MAX_SHADER_SAMPLER_VIEWS];
 
    struct tc_batch batch_slots[TC_MAX_BATCHES];
    struct tc_buffer_list buffer_lists[TC_MAX_BUFFER_LISTS];
