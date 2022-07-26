@@ -63,12 +63,11 @@ link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
       const struct gl_shader_compiler_options *options =
             &ctx->Const.ShaderCompilerOptions[stage];
 
-      gl_shader_stage ptarget = pipe_shader_type_from_mesa(stage);
-      bool have_dround = pscreen->get_shader_param(pscreen, ptarget,
+      bool have_dround = pscreen->get_shader_param(pscreen, stage,
                                                    PIPE_SHADER_CAP_DROUND_SUPPORTED);
-      bool have_dfrexp = pscreen->get_shader_param(pscreen, ptarget,
+      bool have_dfrexp = pscreen->get_shader_param(pscreen, stage,
                                                    PIPE_SHADER_CAP_DFRACEXP_DLDEXP_SUPPORTED);
-      bool have_ldexp = pscreen->get_shader_param(pscreen, ptarget,
+      bool have_ldexp = pscreen->get_shader_param(pscreen, stage,
                                                   PIPE_SHADER_CAP_LDEXP_SUPPORTED);
 
       if (!pscreen->get_param(pscreen, PIPE_CAP_INT64_DIVMOD))
@@ -160,8 +159,7 @@ st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
          if (shader) {
             struct gl_program *p = shader->Program;
             if (p && p->variants) {
-               gl_shader_stage type = pipe_shader_type_from_mesa(shader->Stage);
-               driver_handles[type] = p->variants->driver_shader;
+               driver_handles[shader->Stage] = p->variants->driver_shader;
             }
          }
       }

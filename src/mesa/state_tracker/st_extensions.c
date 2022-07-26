@@ -82,7 +82,7 @@ void st_init_limits(struct pipe_screen *screen,
                     struct gl_constants *c, struct gl_extensions *extensions)
 {
    int supported_irs;
-   unsigned sh;
+   gl_shader_stage sh;
    bool can_ubo = true;
    int temp;
 
@@ -168,11 +168,10 @@ void st_init_limits(struct pipe_screen *screen,
     */
    c->MaxUniformBlockSize &= ~3;
 
-   for (sh = 0; sh < MESA_SHADER_STAGES; ++sh) {
-      const gl_shader_stage stage = tgsi_processor_to_shader_stage(sh);
+   for (sh = MESA_SHADER_VERTEX; sh < MESA_SHADER_STAGES; ++sh) {
       struct gl_shader_compiler_options *options =
-         &c->ShaderCompilerOptions[stage];
-      struct gl_program_constants *pc = &c->Program[stage];
+         &c->ShaderCompilerOptions[sh];
+      struct gl_program_constants *pc = &c->Program[sh];
 
       bool prefer_nir = PIPE_SHADER_IR_NIR ==
          screen->get_shader_param(screen, sh, PIPE_SHADER_CAP_PREFERRED_IR);

@@ -67,9 +67,8 @@ st_unbind_unused_cb0(struct st_context *st, gl_shader_stage shader_type)
  * constant buffer.
  */
 void
-st_upload_constants(struct st_context *st, struct gl_program *prog, gl_shader_stage stage)
+st_upload_constants(struct st_context *st, struct gl_program *prog, gl_shader_stage shader_type)
 {
-   gl_shader_stage shader_type = pipe_shader_type_from_mesa(stage);
    if (!prog) {
       st_unbind_unused_cb0(st, shader_type);
       return;
@@ -112,7 +111,7 @@ st_upload_constants(struct st_context *st, struct gl_program *prog, gl_shader_st
       struct pipe_constant_buffer cb;
       const uint paramBytes = params->NumParameterValues * sizeof(GLfloat);
 
-      _mesa_shader_write_subroutine_indices(st->ctx, stage);
+      _mesa_shader_write_subroutine_indices(st->ctx, shader_type);
 
       cb.buffer = NULL;
       cb.user_buffer = NULL;

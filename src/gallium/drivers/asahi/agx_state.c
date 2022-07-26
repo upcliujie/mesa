@@ -1045,7 +1045,7 @@ agx_bind_shader_state(struct pipe_context *pctx, void *cso)
    struct agx_context *ctx = agx_context(pctx);
    struct agx_uncompiled_shader *so = cso;
 
-   gl_shader_stage type = pipe_shader_type_from_mesa(so->nir->info.stage);
+   gl_shader_stage type = so->nir->info.stage;
    ctx->stage[type].shader = so;
 }
 

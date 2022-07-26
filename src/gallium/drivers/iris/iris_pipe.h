@@ -26,18 +26,6 @@
 #include "pipe/p_defines.h"
 #include "compiler/shader_enums.h"
 
-static inline gl_shader_stage
-stage_from_pipe(gl_shader_stage pstage)
-{
-   return (gl_shader_stage)pstage;
-}
-
-static inline gl_shader_stage
-stage_to_pipe(gl_shader_stage stage)
-{
-   return (gl_shader_stage)stage;
-}
-
 /**
  * Convert an swizzle enumeration (i.e. PIPE_SWIZZLE_X) to one of the HW's
  * "Shader Channel Select" enumerations (i.e. SCS_RED).  The mappings are

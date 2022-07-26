@@ -176,7 +176,7 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 	
 	int processor = sel->ir_type == PIPE_SHADER_IR_TGSI ?
 		tgsi_get_processor_type(sel->tokens):
-		pipe_shader_type_from_mesa(sel->nir->info.stage);
+		sel->nir->info.stage;
 	
 	bool dump = r600_can_dump_shader(&rctx->screen->b, processor);
 	unsigned use_sb = !(rctx->screen->b.debug_flags & DBG_NO_SB) ||
@@ -367,7 +367,7 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 	}
 
 	util_debug_message(&rctx->b.debug, SHADER_INFO, "%s shader: %d dw, %d gprs, %d alu_groups, %d loops, %d cf, %d stack",
-		           _mesa_shader_stage_to_abbrev(tgsi_processor_to_shader_stage(processor)),
+		           _mesa_shader_stage_to_abbrev(processor),
 	                   shader->shader.bc.ndw,
 	                   shader->shader.bc.ngpr,
 			   shader->shader.bc.nalu_groups,

@@ -81,7 +81,7 @@ init_template_entry(struct zink_shader *shader, enum zink_descriptor_type type,
                     unsigned idx, VkDescriptorUpdateTemplateEntry *entry, unsigned *entry_idx, bool flatten_dynamic)
 {
     int index = shader->bindings[type][idx].index;
-    gl_shader_stage stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+    gl_shader_stage stage = shader->nir->info.stage;
     entry->dstArrayElement = 0;
     entry->dstBinding = shader->bindings[type][idx].binding;
     entry->descriptorCount = shader->bindings[type][idx].size;
@@ -197,7 +197,7 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
       if (!shader)
          continue;
 
-      gl_shader_stage stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+      gl_shader_stage stage = shader->nir->info.stage;
       VkShaderStageFlagBits stage_flags = zink_shader_stage(stage);
       for (int j = 0; j < ZINK_DESCRIPTOR_TYPES; j++) {
          unsigned desc_set = screen->desc_set_id[j] - 1;
@@ -743,7 +743,7 @@ zink_batch_descriptor_init_lazy(struct zink_screen *screen, struct zink_batch_st
 static void
 init_push_template_entry(VkDescriptorUpdateTemplateEntry *entry, unsigned i)
 {
-   entry->dstBinding = tgsi_processor_to_shader_stage(i);
+   entry->dstBinding = i;
    entry->descriptorCount = 1;
    entry->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
    entry->offset = offsetof(struct zink_context, di.ubos[i][0]);

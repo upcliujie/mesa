@@ -1016,6 +1016,6 @@ st_get_nir_compiler_options(struct st_context *st, gl_shader_stage stage)
    } else {
       return nir_to_tgsi_get_compiler_options(st->screen,
                                               PIPE_SHADER_IR_NIR,
-                                              pipe_shader_type_from_mesa(stage));
+                                              stage);
    }
 }

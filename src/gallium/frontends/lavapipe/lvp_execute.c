@@ -263,12 +263,11 @@ update_pcbuf(struct rendering_state *state, gl_shader_stage pstage)
 }
 
 static void
-update_inline_shader_state(struct rendering_state *state, gl_shader_stage sh, bool pcbuf_dirty, bool constbuf_dirty)
+update_inline_shader_state(struct rendering_state *state, gl_shader_stage stage, bool pcbuf_dirty, bool constbuf_dirty)
 {
-   bool is_compute = sh == MESA_SHADER_COMPUTE;
+   bool is_compute = stage == MESA_SHADER_COMPUTE;
    uint32_t inline_uniforms[MAX_INLINABLE_UNIFORMS];
-   unsigned stage = tgsi_processor_to_shader_stage(sh);
-   state->inlines_dirty[sh] = false;
+   state->inlines_dirty[stage] = false;
    if (!state->pipeline[is_compute]->inlines[stage].can_inline)
       return;
    struct lvp_pipeline *pipeline = state->pipeline[is_compute];
@@ -278,20 +277,20 @@ update_inline_shader_state(struct rendering_state *state, gl_shader_stage sh, bo
    unsigned ssa_alloc = impl->ssa_alloc;
    unsigned count = pipeline->inlines[stage].count[0];
    if (count && pcbuf_dirty) {
-      unsigned push_size = get_pcbuf_size(state, sh);
+      unsigned push_size = get_pcbuf_size(state, stage);
       for (unsigned i = 0; i < count; i++) {
          unsigned offset = pipeline->inlines[stage].uniform_offsets[0][i];
          if (offset < push_size) {
             memcpy(&inline_uniforms[i], &state->push_constants[offset], sizeof(uint32_t));
          } else {
-            for (unsigned i = 0; i < state->uniform_blocks[sh].count; i++) {
-               if (offset < push_size + state->uniform_blocks[sh].size[i]) {
+            for (unsigned i = 0; i < state->uniform_blocks[stage].count; i++) {
+               if (offset < push_size + state->uniform_blocks[stage].size[i]) {
                   unsigned ubo_offset = offset - push_size;
-                  uint8_t *block = state->uniform_blocks[sh].block[i];
+                  uint8_t *block = state->uniform_blocks[stage].block[i];
                   memcpy(&inline_uniforms[i], &block[ubo_offset], sizeof(uint32_t));
                   break;
                }
-               push_size += state->uniform_blocks[sh].size[i];
+               push_size += state->uniform_blocks[stage].size[i];
             }
          }
       }
@@ -301,7 +300,7 @@ update_inline_shader_state(struct rendering_state *state, gl_shader_stage sh, bo
       struct pipe_box box = {0};
       u_foreach_bit(slot, pipeline->inlines[stage].can_inline) {
          unsigned count = pipeline->inlines[stage].count[slot];
-         struct pipe_constant_buffer *cbuf = &state->const_buffer[sh][slot - 1];
+         struct pipe_constant_buffer *cbuf = &state->const_buffer[stage][slot - 1];
          struct pipe_resource *pres = cbuf->buffer;
          box.x = cbuf->buffer_offset;
          box.width = cbuf->buffer_size - cbuf->buffer_offset;
@@ -323,12 +322,12 @@ update_inline_shader_state(struct rendering_state *state, gl_shader_stage sh, bo
       /* not enough change; don't inline further */
       pipeline->inlines[stage].can_inline = 0;
       ralloc_free(nir);
-      pipeline->shader_cso[sh] = lvp_pipeline_compile(pipeline, nir_shader_clone(NULL, pipeline->pipeline_nir[stage]));
-      shader_state = pipeline->shader_cso[sh];
+      pipeline->shader_cso[stage] = lvp_pipeline_compile(pipeline, nir_shader_clone(NULL, pipeline->pipeline_nir[stage]));
+      shader_state = pipeline->shader_cso[stage];
    } else {
       shader_state = lvp_pipeline_compile(pipeline, nir);
    }
-   switch (sh) {
+   switch (stage) {
    case MESA_SHADER_VERTEX:
       state->pctx->bind_vs_state(state->pctx, shader_state);
       break;
@@ -507,7 +506,7 @@ static void emit_state(struct rendering_state *state)
       if (state->sb_dirty[sh]) {
          state->pctx->set_shader_buffers(state->pctx, sh,
                                          0, state->num_shader_buffers[sh],
-                                         state->sb[sh], state->access[tgsi_processor_to_shader_stage(sh)].buffers_written);
+                                         state->sb[sh], state->access[sh].buffers_written);
       }
    }
 
@@ -627,16 +626,15 @@ static void handle_graphics_pipeline(struct vk_cmd_queue_entry *cmd,
       state->has_pcbuf[sh] = false;
 
    for (unsigned i = 0; i < MESA_SHADER_COMPUTE; i++) {
-      gl_shader_stage sh = pipe_shader_type_from_mesa(i);
+      gl_shader_stage sh = i;
       state->uniform_blocks[sh].count = pipeline->layout->stage[i].uniform_block_count;
       for (unsigned j = 0; j < pipeline->layout->stage[i].uniform_block_count; j++)
          state->uniform_blocks[sh].size[j] = pipeline->layout->stage[i].uniform_block_sizes[j];
    }
    u_foreach_bit(stage, pipeline->layout->push_constant_stages) {
-      gl_shader_stage sh = pipe_shader_type_from_mesa(stage);
-      state->has_pcbuf[sh] = pipeline->layout->push_constant_size > 0;
-      if (!state->has_pcbuf[sh] && !state->uniform_blocks[sh].count)
-         state->pcbuf_dirty[sh] = false;
+      state->has_pcbuf[stage] = pipeline->layout->push_constant_size > 0;
+      if (!state->has_pcbuf[stage] && !state->uniform_blocks[stage].count)
+         state->pcbuf_dirty[stage] = false;
    }
 
    bool has_stage[MESA_SHADER_STAGES] = { false };

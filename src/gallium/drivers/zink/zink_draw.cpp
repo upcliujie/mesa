@@ -177,9 +177,9 @@ static void
 update_gfx_program(struct zink_context *ctx)
 {
    if (ctx->last_vertex_stage_dirty) {
-      gl_shader_stage pstage = pipe_shader_type_from_mesa(ctx->last_vertex_stage->nir->info.stage);
-      ctx->dirty_shader_stages |= BITFIELD_BIT(pstage);
-      memcpy(&ctx->gfx_pipeline_state.shader_keys.key[pstage].key.vs_base,
+      gl_shader_stage stage = ctx->last_vertex_stage->nir->info.stage;
+      ctx->dirty_shader_stages |= BITFIELD_BIT(stage);
+      memcpy(&ctx->gfx_pipeline_state.shader_keys.key[stage].key.vs_base,
              &ctx->gfx_pipeline_state.shader_keys.last_vertex.key.vs_base,
              sizeof(struct zink_vs_key_base));
       ctx->last_vertex_stage_dirty = false;

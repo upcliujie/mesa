@@ -58,24 +58,6 @@ tgsi_get_sysval_semantic(unsigned sysval);
 enum tgsi_interpolate_mode
 tgsi_get_interp_mode(enum glsl_interp_mode mode, bool color);
 
-static inline gl_shader_stage
-pipe_shader_type_from_mesa(gl_shader_stage stage)
-{
-   STATIC_ASSERT((gl_shader_stage) MESA_SHADER_VERTEX == MESA_SHADER_VERTEX);
-   STATIC_ASSERT((gl_shader_stage) MESA_SHADER_FRAGMENT == MESA_SHADER_FRAGMENT);
-   STATIC_ASSERT((gl_shader_stage) MESA_SHADER_TESS_CTRL == MESA_SHADER_TESS_CTRL);
-   STATIC_ASSERT((gl_shader_stage) MESA_SHADER_TESS_EVAL == MESA_SHADER_TESS_EVAL);
-   STATIC_ASSERT((gl_shader_stage) MESA_SHADER_GEOMETRY == MESA_SHADER_GEOMETRY);
-   STATIC_ASSERT((gl_shader_stage) MESA_SHADER_COMPUTE == MESA_SHADER_COMPUTE);
-   return (gl_shader_stage)stage;
-}
-
-static inline gl_shader_stage
-tgsi_processor_to_shader_stage(unsigned processor)
-{
-   return (gl_shader_stage)processor;
-}
-
 #ifdef __cplusplus
 }
 #endif

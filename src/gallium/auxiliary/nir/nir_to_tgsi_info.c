@@ -410,12 +410,12 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
 {
    unsigned i;
 
-   info->processor = pipe_shader_type_from_mesa(nir->info.stage);
+   info->processor = nir->info.stage;
    info->num_tokens = 2; /* indicate that the shader is non-empty */
    info->num_instructions = 2;
 
    info->properties[TGSI_PROPERTY_NEXT_SHADER] =
-      pipe_shader_type_from_mesa(nir->info.next_stage);
+      nir->info.next_stage;
 
    if (nir->info.stage == MESA_SHADER_VERTEX) {
       info->properties[TGSI_PROPERTY_VS_WINDOW_SPACE_POSITION] =

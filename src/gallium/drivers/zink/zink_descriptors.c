@@ -514,12 +514,12 @@ zink_descriptor_util_pool_key_get(struct zink_context *ctx, enum zink_descriptor
 }
 
 static void
-init_push_binding(VkDescriptorSetLayoutBinding *binding, unsigned i, VkDescriptorType type)
+init_push_binding(VkDescriptorSetLayoutBinding *binding, gl_shader_stage stage, VkDescriptorType type)
 {
-   binding->binding = tgsi_processor_to_shader_stage(i);
+   binding->binding = stage;
    binding->descriptorType = type;
    binding->descriptorCount = 1;
-   binding->stageFlags = zink_shader_stage(i);
+   binding->stageFlags = zink_shader_stage(stage);
    binding->pImmutableSamplers = NULL;
 }
 
@@ -1080,7 +1080,7 @@ create_descriptor_ref_template(struct zink_context *ctx, struct zink_program *pg
          if (!shader)
             continue;
 
-         gl_shader_stage stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+         gl_shader_stage stage = shader->nir->info.stage;
          for (int j = 0; j < shader->num_bindings[type]; j++) {
             int index = shader->bindings[type][j].index;
             for (unsigned k = 0; k < shader->bindings[type][j].size; k++) {
@@ -1293,9 +1293,9 @@ update_push_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set
 
    for (int i = 0; i < num_stages; i++) {
       struct zink_shader *shader = stages[i];
-      gl_shader_stage pstage = shader ? pipe_shader_type_from_mesa(shader->nir->info.stage) : i;
+      gl_shader_stage pstage = shader ? shader->nir->info.stage : i;
       VkDescriptorBufferInfo *info = &ctx->di.ubos[pstage][0];
-      unsigned dynamic_idx = is_compute ? 0 : tgsi_processor_to_shader_stage(pstage);
+      unsigned dynamic_idx = is_compute ? 0 : pstage;
  
       /* Values are taken from pDynamicOffsets in an order such that all entries for set N come before set N+1;
        * within a set, entries are ordered by the binding numbers in the descriptor set layouts
@@ -1307,7 +1307,7 @@ update_push_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set
       const bool used = (pg->dd->push_usage & BITFIELD_BIT(pstage)) == BITFIELD_BIT(pstage);
       dynamic_offsets[dynamic_idx] = used ? info->offset : 0;
       if (!cache_hit) {
-         init_write_descriptor(NULL, desc_set, ZINK_DESCRIPTOR_TYPE_UBO, tgsi_processor_to_shader_stage(pstage), &wds[i], 0);
+         init_write_descriptor(NULL, desc_set, ZINK_DESCRIPTOR_TYPE_UBO, pstage, &wds[i], 0);
          if (used) {
             if (zds)
                desc_set_res_add(zds, ctx->di.descriptor_res[ZINK_DESCRIPTOR_TYPE_UBO][pstage][0], i, cache_hit);
@@ -1401,7 +1401,7 @@ update_descriptors_internal(struct zink_context *ctx, enum zink_descriptor_type 
          struct zink_shader *shader = stages[i];
          if (!shader)
             continue;
-         gl_shader_stage stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+         gl_shader_stage stage = shader->nir->info.stage;
          for (int j = 0; j < shader->num_bindings[type]; j++) {
             int index = shader->bindings[type][j].index;
             switch (type) {
