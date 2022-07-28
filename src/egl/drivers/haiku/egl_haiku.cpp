@@ -38,6 +38,8 @@
 #include "eglimage.h"
 #include "egltypedefs.h"
 
+#include "util/log.h"
+
 #include <InterfaceKit.h>
 #include <OpenGLKit.h>
 
@@ -183,14 +185,14 @@ haiku_add_configs_for_visuals(_EGLDisplay *disp)
 
 	TRACE("Config configuated\n");
 	if (!_eglValidateConfig(&conf->base, EGL_FALSE)) {
-		_eglLog(_EGL_DEBUG, "Haiku: failed to validate config");
+		mesa_logd("Haiku: failed to validate config");
 		goto cleanup;
 	}
 	TRACE("Validated config\n");
 
 	_eglLinkConfig(&conf->base);
 	if (!_eglGetArraySize(disp->Configs)) {
-		_eglLog(_EGL_WARNING, "Haiku: failed to create any config");
+		mesa_logw("Haiku: failed to create any config");
 		goto cleanup;
 	}
 	TRACE("Config successfull\n");

@@ -35,6 +35,7 @@
 #include "egllog.h"
 #include "egltypedefs.h"
 #include "util/macros.h"
+#include "util/log.h"
 
 /* Max debug message length */
 #define CONFIG_DEBUG_MSG_MAX 1000
@@ -78,11 +79,11 @@ _printHeaderFormat(void)
     * supported
     * surfaces ------------- EGL_SURFACE_TYPE
     */
-   _eglLog(_EGL_DEBUG, "---------------");
-   _eglLog(_EGL_DEBUG, "Configurations:");
-   _eglLog(_EGL_DEBUG, "cho       bf lv colourbuffer dp st  ms           vis  cav  bi     renderable           supported");
-   _eglLog(_EGL_DEBUG, "sen    id sz  l  r  g  b  a  th cl ns b           id  eat  nd  gl es es2 es3 vg         surfaces");
-   _eglLog(_EGL_DEBUG, "---------------");
+   mesa_logd("---------------");
+   mesa_logd("Configurations:");
+   mesa_logd("cho       bf lv colourbuffer dp st  ms           vis  cav  bi     renderable           supported");
+   mesa_logd("sen    id sz  l  r  g  b  a  th cl ns b           id  eat  nd  gl es es2 es3 vg         surfaces");
+   mesa_logd("---------------");
 }
 
 /* Append a formatted string to the buffer, up to the buffer size */
@@ -155,7 +156,8 @@ _eglPrintConfig(_EGLConfig *const conf, const int chosenIndex)
                (renderable & EGL_OPENVG_BIT) ? 'y' : ' ',
                surfString);
 
-   _eglLog(_EGL_DEBUG, printMsg);
+   /* GCC complains with Werror=format-security using mesa_logd(printMsg) */
+   mesa_logd("%s", printMsg);
 }
 
 void eglPrintConfigDebug(const _EGLDisplay *const disp,
@@ -167,7 +169,7 @@ void eglPrintConfigDebug(const _EGLDisplay *const disp,
    _EGLConfig **chosenConfigs;
 
    if (!numConfigs || !configs) {
-      _eglLog(_EGL_DEBUG, "%s: nothing to print", __func__);
+      mesa_logd("%s: nothing to print", __func__);
       return;
    }
 

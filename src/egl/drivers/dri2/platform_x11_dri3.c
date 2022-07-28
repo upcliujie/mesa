@@ -32,6 +32,7 @@
 
 #include <xf86drm.h>
 #include "util/macros.h"
+#include "util/log.h"
 
 #include "egl_dri2.h"
 #include "platform_x11_dri3.h"
@@ -227,13 +228,11 @@ dri3_authenticate(_EGLDisplay *disp, uint32_t id)
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
 
    if (dri2_dpy->device_name) {
-      _eglLog(_EGL_WARNING,
-              "Wayland client render node authentication is unnecessary");
+      mesa_logw("Wayland client render node authentication is unnecessary");
       return 0;
    }
 
-   _eglLog(_EGL_WARNING,
-           "Wayland client primary node authentication isn't supported");
+   mesa_logw("Wayland client primary node authentication isn't supported");
 #endif
 
    return -1;
@@ -428,7 +427,7 @@ dri3_flush_front_buffer(__DRIdrawable *driDrawable, void *loaderPrivate)
     * http://lists.freedesktop.org/archives/mesa-dev/2013-June/040129.html
     */
    if (draw->type == LOADER_DRI3_DRAWABLE_WINDOW)
-      _eglLog(_EGL_WARNING, "FIXME: egl/x11 doesn't support front buffer rendering.");
+      mesa_logw("FIXME: egl/x11 doesn't support front buffer rendering.");
 }
 
 const __DRIimageLoaderExtension dri3_image_loader_extension = {
@@ -586,7 +585,7 @@ dri3_x11_connect(struct dri2_egl_display *dri2_dpy)
    dri3_query =
       xcb_dri3_query_version_reply(dri2_dpy->conn, dri3_query_cookie, &error);
    if (dri3_query == NULL || error != NULL) {
-      _eglLog(_EGL_WARNING, "DRI3: failed to query the version");
+      mesa_logw("DRI3: failed to query the version");
       free(dri3_query);
       free(error);
       return EGL_FALSE;
@@ -600,7 +599,7 @@ dri3_x11_connect(struct dri2_egl_display *dri2_dpy)
       xcb_present_query_version_reply(dri2_dpy->conn,
                                       present_query_cookie, &error);
    if (present_query == NULL || error != NULL) {
-      _eglLog(_EGL_WARNING, "DRI3: failed to query Present version");
+      mesa_logw("DRI3: failed to query Present version");
       free(present_query);
       free(error);
       return EGL_FALSE;
@@ -615,7 +614,7 @@ dri3_x11_connect(struct dri2_egl_display *dri2_dpy)
                                       xfixes_query_cookie, &error);
    if (xfixes_query == NULL || error != NULL ||
        xfixes_query->major_version < 2) {
-      _eglLog(_EGL_WARNING, "DRI3: failed to query xfixes version");
+      mesa_logw("DRI3: failed to query xfixes version");
       free(error);
       free(xfixes_query);
       return EGL_FALSE;
@@ -625,10 +624,10 @@ dri3_x11_connect(struct dri2_egl_display *dri2_dpy)
    dri2_dpy->fd = loader_dri3_open(dri2_dpy->conn, dri2_dpy->screen->root, 0);
    if (dri2_dpy->fd < 0) {
       int conn_error = xcb_connection_has_error(dri2_dpy->conn);
-      _eglLog(_EGL_WARNING, "DRI3: Screen seems not DRI3 capable");
+      mesa_logw("DRI3: Screen seems not DRI3 capable");
 
       if (conn_error)
-         _eglLog(_EGL_WARNING, "DRI3: Failed to initialize");
+         mesa_logw("DRI3: Failed to initialize");
 
       return EGL_FALSE;
    }
@@ -637,7 +636,7 @@ dri3_x11_connect(struct dri2_egl_display *dri2_dpy)
 
    dri2_dpy->driver_name = loader_get_driver_for_fd(dri2_dpy->fd);
    if (!dri2_dpy->driver_name) {
-      _eglLog(_EGL_WARNING, "DRI3: No driver found");
+      mesa_logw("DRI3: No driver found");
       close(dri2_dpy->fd);
       return EGL_FALSE;
    }

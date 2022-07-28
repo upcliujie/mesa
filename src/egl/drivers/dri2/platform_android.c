@@ -42,6 +42,7 @@
 #include "util/compiler.h"
 #include "util/os_file.h"
 #include "util/libsync.h"
+#include "util/log.h"
 
 #include "loader.h"
 #include "egl_dri2.h"
@@ -155,7 +156,7 @@ static int get_fourcc(int native)
    case HAL_PIXEL_FORMAT_RGBA_FP16: return DRM_FORMAT_ABGR16161616F;
    case HAL_PIXEL_FORMAT_RGBA_1010102: return DRM_FORMAT_ABGR2101010;
    default:
-      _eglLog(_EGL_WARNING, "unsupported native buffer format 0x%x", native);
+      mesa_logw("unsupported native buffer format 0x%x", native);
    }
    return -1;
 }
@@ -205,7 +206,7 @@ get_yuv_buffer_info(struct dri2_egl_display *dri2_dpy,
       return -EINVAL;
 
    if (!dri2_dpy->gralloc->lock_ycbcr) {
-      _eglLog(_EGL_WARNING, "Gralloc does not support lock_ycbcr");
+      mesa_logw("Gralloc does not support lock_ycbcr");
       return -EINVAL;
    }
 
@@ -218,7 +219,7 @@ get_yuv_buffer_info(struct dri2_egl_display *dri2_dpy,
       if (buf->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)
          return -EAGAIN;
 
-      _eglLog(_EGL_WARNING, "gralloc->lock_ycbcr failed: %d", ret);
+      mesa_logw("gralloc->lock_ycbcr failed: %d", ret);
       return -EINVAL;
    }
    dri2_dpy->gralloc->unlock(dri2_dpy->gralloc, buf->handle);
@@ -229,8 +230,8 @@ get_yuv_buffer_info(struct dri2_egl_display *dri2_dpy,
     * values of subsequent pixels, assumed to be the same for Cb and Cr. */
    drm_fourcc = get_fourcc_yuv(buf->format, chroma_order, ycbcr.chroma_step);
    if (drm_fourcc == -1) {
-      _eglLog(_EGL_WARNING, "unsupported YUV format, native = %x, chroma_order = %s, chroma_step = %d",
-              buf->format, chroma_order == YCbCr ? "YCbCr" : "YCrCb", ycbcr.chroma_step);
+      mesa_logw("unsupported YUV format, native = %x, chroma_order = %s, chroma_step = %d",
+                buf->format, chroma_order == YCbCr ? "YCbCr" : "YCrCb", ycbcr.chroma_step);
       return -EINVAL;
    }
 
@@ -584,7 +585,7 @@ droid_window_cancel_buffer(struct dri2_egl_surface *dri2_surf)
                                     fence_fd);
    dri2_surf->buffer = NULL;
    if (ret < 0) {
-      _eglLog(_EGL_WARNING, "ANativeWindow_cancelBuffer failed");
+      mesa_logw("ANativeWindow_cancelBuffer failed");
       dri2_surf->base.Lost = EGL_TRUE;
    }
 
@@ -602,11 +603,10 @@ droid_set_shared_buffer_mode(_EGLDisplay *disp, _EGLSurface *surf, bool mode)
    assert(surf->Type == EGL_WINDOW_BIT);
    assert(_eglSurfaceHasMutableRenderBuffer(&dri2_surf->base));
 
-   _eglLog(_EGL_DEBUG, "%s: mode=%d", __func__, mode);
+   mesa_logd("%s: mode=%d", __func__, mode);
 
    if (ANativeWindow_setSharedBufferMode(window, mode)) {
-      _eglLog(_EGL_WARNING, "failed ANativeWindow_setSharedBufferMode"
-              "(window=%p, mode=%d)", window, mode);
+      mesa_logw("failed ANativeWindow_setSharedBufferMode(window=%p, mode=%d)", window, mode);
       return false;
    }
 
@@ -616,15 +616,14 @@ droid_set_shared_buffer_mode(_EGLDisplay *disp, _EGLSurface *surf, bool mode)
       dri2_surf->gralloc_usage &= ~dri2_dpy->front_rendering_usage;
 
    if (ANativeWindow_setUsage(window, dri2_surf->gralloc_usage)) {
-      _eglLog(_EGL_WARNING,
-              "failed ANativeWindow_setUsage(window=%p, usage=%u)", window,
-              dri2_surf->gralloc_usage);
+      mesa_logw("failed ANativeWindow_setUsage(window=%p, usage=%u)", window,
+                dri2_surf->gralloc_usage);
       return false;
    }
 
    return true;
 #else
-   _eglLog(_EGL_FATAL, "%s:%d: internal error: unreachable", __FILE__, __LINE__);
+   mesa_logf("%s:%d: internal error: unreachable", __FILE__, __LINE__);
    return false;
 #endif
 }
@@ -684,8 +683,8 @@ droid_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
       dri2_surf->color_buffers_count = buffer_count;
 
       if (format != dri2_conf->base.NativeVisualID) {
-         _eglLog(_EGL_WARNING, "Native format mismatch: 0x%x != 0x%x",
-               format, dri2_conf->base.NativeVisualID);
+         mesa_logw("Native format mismatch: 0x%x != 0x%x",
+                   format, dri2_conf->base.NativeVisualID);
       }
 
       ANativeWindow_query(window, ANATIVEWINDOW_QUERY_DEFAULT_WIDTH,
@@ -764,13 +763,13 @@ droid_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
    }
 
    if (dri2_surf->dri_image_back) {
-      _eglLog(_EGL_DEBUG, "%s : %d : destroy dri_image_back", __func__, __LINE__);
+      mesa_logd("%s : %d : destroy dri_image_back", __func__, __LINE__);
       dri2_dpy->image->destroyImage(dri2_surf->dri_image_back);
       dri2_surf->dri_image_back = NULL;
    }
 
    if (dri2_surf->dri_image_front) {
-      _eglLog(_EGL_DEBUG, "%s : %d : destroy dri_image_front", __func__, __LINE__);
+      mesa_logd("%s : %d : destroy dri_image_front", __func__, __LINE__);
       dri2_dpy->image->destroyImage(dri2_surf->dri_image_front);
       dri2_surf->dri_image_front = NULL;
    }
@@ -809,7 +808,7 @@ update_buffers(struct dri2_egl_surface *dri2_surf)
 
    /* try to dequeue the next back buffer */
    if (!dri2_surf->buffer && !droid_window_dequeue_buffer(dri2_surf)) {
-      _eglLog(_EGL_WARNING, "Could not dequeue buffer from native window");
+      mesa_logw("Could not dequeue buffer from native window");
       dri2_surf->base.Lost = EGL_TRUE;
       return -1;
    }
@@ -840,7 +839,7 @@ get_front_bo(struct dri2_egl_surface *dri2_surf, unsigned int format)
        * and mesa doesn't have the implementation of this case.
        * Add warning message, but not treat it as error.
        */
-      _eglLog(_EGL_DEBUG, "DRI driver requested unsupported front buffer for window surface");
+      mesa_logd("DRI driver requested unsupported front buffer for window surface");
    } else if (dri2_surf->base.Type == EGL_PBUFFER_BIT) {
       dri2_surf->dri_image_front =
           dri2_dpy->image->createImage(dri2_dpy->dri_screen,
@@ -850,7 +849,7 @@ get_front_bo(struct dri2_egl_surface *dri2_surf, unsigned int format)
                                               0,
                                               NULL);
       if (!dri2_surf->dri_image_front) {
-         _eglLog(_EGL_WARNING, "dri2_image_front allocation failed");
+         mesa_logw("dri2_image_front allocation failed");
          return -1;
       }
    }
@@ -868,14 +867,14 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
 
    if (dri2_surf->base.Type == EGL_WINDOW_BIT) {
       if (!dri2_surf->buffer) {
-         _eglLog(_EGL_WARNING, "Could not get native buffer");
+         mesa_logw("Could not get native buffer");
          return -1;
       }
 
       dri2_surf->dri_image_back =
          droid_create_image_from_native_buffer(disp, dri2_surf->buffer, NULL);
       if (!dri2_surf->dri_image_back) {
-         _eglLog(_EGL_WARNING, "failed to create DRI image from FD");
+         mesa_logw("failed to create DRI image from FD");
          return -1;
       }
 
@@ -895,7 +894,7 @@ get_back_bo(struct dri2_egl_surface *dri2_surf)
        * behavior instead of trying to fix (and hence potentially breaking) the
        * world.
        */
-      _eglLog(_EGL_DEBUG, "DRI driver requested unsupported back buffer for pbuffer surface");
+      mesa_logd("DRI driver requested unsupported back buffer for pbuffer surface");
    }
 
    return 0;
@@ -990,7 +989,7 @@ droid_swap_buffers(_EGLDisplay *disp, _EGLSurface *draw)
    if (has_mutable_rb &&
        draw->RequestedRenderBuffer == EGL_SINGLE_BUFFER &&
        draw->ActiveRenderBuffer == EGL_SINGLE_BUFFER) {
-      _eglLog(_EGL_DEBUG, "%s: remain in shared buffer mode", __func__);
+      mesa_logd("%s: remain in shared buffer mode", __func__);
       return EGL_TRUE;
    }
 
@@ -1022,8 +1021,7 @@ droid_swap_buffers(_EGLDisplay *disp, _EGLSurface *draw)
    if (has_mutable_rb &&
        draw->ActiveRenderBuffer != draw->RequestedRenderBuffer) {
        bool mode = (draw->RequestedRenderBuffer == EGL_SINGLE_BUFFER);
-      _eglLog(_EGL_DEBUG, "%s: change to shared buffer mode %d",
-              __func__, mode);
+      mesa_logd("%s: change to shared buffer mode %d", __func__, mode);
 
       if (!droid_set_shared_buffer_mode(disp, draw, mode))
          return EGL_FALSE;
@@ -1049,7 +1047,7 @@ static int get_format(int format)
    case HAL_PIXEL_FORMAT_RGBA_FP16: return __DRI_IMAGE_FORMAT_ABGR16161616F;
    case HAL_PIXEL_FORMAT_RGBA_1010102: return __DRI_IMAGE_FORMAT_ABGR2101010;
    default:
-      _eglLog(_EGL_WARNING, "unsupported native buffer format 0x%x", format);
+      mesa_logw("unsupported native buffer format 0x%x", format);
    }
    return -1;
 }
@@ -1343,8 +1341,7 @@ droid_add_configs_for_visuals(_EGLDisplay *disp)
 
    for (int i = 0; i < ARRAY_SIZE(format_count); i++) {
       if (!format_count[i]) {
-         _eglLog(_EGL_DEBUG, "No DRI config supports native format 0x%x",
-                 visuals[i].format);
+         mesa_logd("No DRI config supports native format 0x%x", visuals[i].format);
       }
    }
 
@@ -1405,8 +1402,7 @@ droid_display_shared_buffer(__DRIdrawable *driDrawable, int fence_fd,
    struct ANativeWindowBuffer *old_buffer UNUSED = dri2_surf->buffer;
 
    if (!_eglSurfaceInSharedBufferMode(&dri2_surf->base)) {
-      _eglLog(_EGL_WARNING, "%s: internal error: buffer is not shared",
-              __func__);
+      mesa_logw("%s: internal error: buffer is not shared", __func__);
       return;
    }
 
@@ -1425,7 +1421,7 @@ droid_display_shared_buffer(__DRIdrawable *driDrawable, int fence_fd,
 
    if (ANativeWindow_queueBuffer(dri2_surf->window, dri2_surf->buffer,
                                  fence_fd)) {
-      _eglLog(_EGL_WARNING, "%s: ANativeWindow_queueBuffer failed", __func__);
+      mesa_logw("%s: ANativeWindow_queueBuffer failed", __func__);
       close(fence_fd);
       return;
    }
@@ -1438,7 +1434,7 @@ droid_display_shared_buffer(__DRIdrawable *driDrawable, int fence_fd,
       struct dri2_egl_display *dri2_dpy =
          dri2_egl_display(dri2_surf->base.Resource.Display);
 
-      _eglLog(_EGL_WARNING, "%s: ANativeWindow_dequeueBuffer failed", __func__);
+      mesa_logw("%s: ANativeWindow_dequeueBuffer failed", __func__);
 
       dri2_surf->base.Lost = true;
       dri2_surf->buffer = NULL;
@@ -1556,7 +1552,7 @@ droid_probe_device(_EGLDisplay *disp, bool swrast)
       return EGL_FALSE;
 
    if (!dri2_create_screen(disp)) {
-      _eglLog(_EGL_WARNING, "DRI2: failed to create screen");
+      mesa_logw("DRI2: failed to create screen");
       droid_unload_driver(disp);
       return EGL_FALSE;
    }
@@ -1578,7 +1574,7 @@ droid_open_device(_EGLDisplay *disp, bool swrast)
                                        GRALLOC_MODULE_PERFORM_GET_DRM_FD,
                                        &fd);
    if (err || fd < 0) {
-      _eglLog(_EGL_WARNING, "fail to get drm fd");
+      mesa_logw("fail to get drm fd");
       return EGL_FALSE;
    }
 
@@ -1624,8 +1620,7 @@ droid_open_device(_EGLDisplay *disp, bool swrast)
 
       dri2_dpy->fd = loader_open_device(device->nodes[node_type]);
       if (dri2_dpy->fd < 0) {
-         _eglLog(_EGL_WARNING, "%s() Failed to open DRM device %s",
-                 __func__, device->nodes[node_type]);
+         mesa_logw("%s() Failed to open DRM device %s", __func__, device->nodes[node_type]);
          continue;
       }
 
@@ -1659,8 +1654,7 @@ droid_open_device(_EGLDisplay *disp, bool swrast)
    drmFreeDevices(devices, num_devices);
 
    if (dri2_dpy->fd < 0) {
-      _eglLog(_EGL_WARNING, "Failed to open %s DRM device",
-            vendor_name ? "desired": "any");
+      mesa_logw("Failed to open %s DRM device", vendor_name ? "desired": "any");
       return EGL_FALSE;
    }
 

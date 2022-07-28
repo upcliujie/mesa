@@ -44,6 +44,7 @@
 #include "loader.h"
 #include "util/u_vector.h"
 #include "util/anon_file.h"
+#include "util/log.h"
 #include "eglglobals.h"
 #include "kopper_interface.h"
 
@@ -507,15 +508,15 @@ surface_dmabuf_feedback_tranche_formats(void *data,
       dmabuf_feedback_format_table_init(&dri2_surf->dmabuf_feedback.format_table);
    }
    if (feedback->format_table.data == MAP_FAILED) {
-      _eglLog(_EGL_WARNING, "wayland-egl: we could not map the format table "
-                            "so we won't be able to use this batch of dma-buf "
-                            "feedback events.");
+      mesa_logw("wayland-egl: we could not map the format table "
+                "so we won't be able to use this batch of dma-buf "
+                "feedback events.");
       return;
    }
    if (feedback->format_table.data == NULL) {
-      _eglLog(_EGL_WARNING, "wayland-egl: compositor didn't advertise a format "
-                            "table, so we won't be able to use this batch of dma-buf "
-                            "feedback events.");
+      mesa_logw("wayland-egl: compositor didn't advertise a format "
+                "table, so we won't be able to use this batch of dma-buf "
+                "feedback events.");
       return;
    }
 
@@ -1671,8 +1672,7 @@ dri2_wl_authenticate(_EGLDisplay *disp, uint32_t id)
    int ret = 0;
 
    if (dri2_dpy->is_render_node) {
-      _eglLog(_EGL_WARNING, "wayland-egl: client asks server to "
-                            "authenticate for render-nodes");
+      mesa_logw("wayland-egl: client asks server to authenticate for render-nodes");
       return 0;
    }
    dri2_dpy->authenticated = false;
@@ -1702,8 +1702,8 @@ drm_handle_device(void *data, struct wl_drm *drm, const char *device)
 
    dri2_dpy->fd = loader_open_device(dri2_dpy->device_name);
    if (dri2_dpy->fd == -1) {
-      _eglLog(_EGL_WARNING, "wayland-egl: could not open %s (%s)",
-              dri2_dpy->device_name, strerror(errno));
+      mesa_logw("wayland-egl: could not open %s (%s)",
+                dri2_dpy->device_name, strerror(errno));
       free(dri2_dpy->device_name);
       dri2_dpy->device_name = NULL;
       return;
@@ -1717,7 +1717,7 @@ drm_handle_device(void *data, struct wl_drm *drm, const char *device)
          dri2_dpy->fd = -1;
          free(dri2_dpy->device_name);
          dri2_dpy->device_name = NULL;
-         _eglLog(_EGL_WARNING, "wayland-egl: drmGetMagic failed");
+         mesa_logw("wayland-egl: drmGetMagic failed");
          return;
       }
       wl_drm_authenticate(dri2_dpy->wl_drm, magic);
@@ -1871,15 +1871,15 @@ default_dmabuf_feedback_tranche_formats(void *data,
    int visual_idx;
 
    if (dri2_dpy->format_table.data == MAP_FAILED) {
-      _eglLog(_EGL_WARNING, "wayland-egl: we could not map the format table "
-                            "so we won't be able to use this batch of dma-buf "
-                            "feedback events.");
+      mesa_logw("wayland-egl: we could not map the format table "
+                "so we won't be able to use this batch of dma-buf "
+                "feedback events.");
       return;
    }
    if (dri2_dpy->format_table.data == NULL) {
-      _eglLog(_EGL_WARNING, "wayland-egl: compositor didn't advertise a format "
-                            "table, so we won't be able to use this batch of dma-buf "
-                            "feedback events.");
+      mesa_logw("wayland-egl: compositor didn't advertise a format "
+                "table, so we won't be able to use this batch of dma-buf "
+                "feedback events.");
       return;
    }
 
@@ -2053,17 +2053,17 @@ dri2_wl_add_configs_for_visuals(_EGLDisplay *disp)
                count++;
             format_count[c]++;
             if (format_count[c] == 1)
-               _eglLog(_EGL_DEBUG, "Client format %s to server format %s via "
-                       "PRIME blitImage.", dri2_wl_visuals[c].format_name,
-                       dri2_wl_visuals[s].format_name);
+               mesa_logd("Client format %s to server format %s via "
+                         "PRIME blitImage.", dri2_wl_visuals[c].format_name,
+                         dri2_wl_visuals[s].format_name);
          }
       }
    }
 
    for (unsigned i = 0; i < ARRAY_SIZE(format_count); i++) {
       if (!format_count[i]) {
-         _eglLog(_EGL_DEBUG, "No DRI config supports native format %s",
-                 dri2_wl_visuals[i].format_name);
+         mesa_logd("No DRI config supports native format %s",
+                   dri2_wl_visuals[i].format_name);
       }
    }
 
@@ -2218,7 +2218,7 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
       if (!(dri2_dpy->capabilities & WL_DRM_CAPABILITY_PRIME) ||
           (dri2_dpy->image->base.version < 7) ||
           (dri2_dpy->image->createImageFromFds == NULL)) {
-         _eglLog(_EGL_WARNING, "wayland-egl: display does not support prime");
+         mesa_logw("wayland-egl: display does not support prime");
          goto cleanup;
       }
    }
@@ -2226,10 +2226,10 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
    if (dri2_dpy->is_different_gpu &&
        (dri2_dpy->image->base.version < 9 ||
         dri2_dpy->image->blitImage == NULL)) {
-      _eglLog(_EGL_WARNING, "wayland-egl: Different GPU selected, but the "
-                            "Image extension in the driver is not "
-                            "compatible. Version 9 or later and blitImage() "
-                            "are required");
+      mesa_logw("wayland-egl: Different GPU selected, but the "
+                "Image extension in the driver is not "
+                "compatible. Version 9 or later and blitImage() "
+                "are required");
       goto cleanup;
    }
 

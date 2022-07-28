@@ -37,6 +37,7 @@
 #include <unistd.h>
 
 #include "util/os_file.h"
+#include "util/log.h"
 
 #include "egl_dri2.h"
 #include "loader.h"
@@ -660,8 +661,8 @@ drm_add_configs_for_visuals(_EGLDisplay *disp)
    for (unsigned i = 0; i < ARRAY_SIZE(format_count); i++) {
       if (!format_count[i]) {
          struct gbm_format_name_desc desc;
-         _eglLog(_EGL_DEBUG, "No DRI config supports native format %s",
-                 gbm_format_get_name(visuals[i].gbm_format, &desc));
+         mesa_logd("No DRI config supports native format %s",
+                   gbm_format_get_name(visuals[i].gbm_format, &desc));
       }
    }
 

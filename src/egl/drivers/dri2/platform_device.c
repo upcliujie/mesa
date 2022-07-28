@@ -43,6 +43,7 @@
 #include "loader.h"
 #include "kopper_interface.h"
 #include "util/debug.h"
+#include "util/log.h"
 
 static __DRIimage*
 device_alloc_image(struct dri2_egl_display *dri2_dpy,
@@ -265,7 +266,7 @@ device_get_fd(_EGLDisplay *disp, _EGLDevice *dev)
    const char *node = _eglGetDRMDeviceRenderNode(dev);
    return loader_open_device(node);
 #else
-   _eglLog(_EGL_FATAL, "Driver bug: Built without libdrm, yet using a HW device");
+   mesa_logf("Driver bug: Built without libdrm, yet using a HW device");
    return -1;
 #endif
 }
@@ -277,8 +278,8 @@ device_probe_device(_EGLDisplay *disp)
    bool request_software = env_var_as_boolean("LIBGL_ALWAYS_SOFTWARE", false);
 
    if (request_software)
-      _eglLog(_EGL_WARNING, "Not allowed to force software rendering when "
-                            "API explicitly selects a hardware device.");
+      mesa_logw("Not allowed to force software rendering when "
+                "API explicitly selects a hardware device.");
    dri2_dpy->fd = device_get_fd(disp, disp->Device);
    if (dri2_dpy->fd < 0)
       return false;
@@ -295,7 +296,7 @@ device_probe_device(_EGLDisplay *disp)
        (strcmp(dri2_dpy->driver_name, "vgem") == 0 ||
         strcmp(dri2_dpy->driver_name, "virtio_gpu") == 0)) {
       free(dri2_dpy->driver_name);
-      _eglLog(_EGL_WARNING, "NEEDS EXTENSION: falling back to kms_swrast");
+      mesa_logw("NEEDS EXTENSION: falling back to kms_swrast");
       dri2_dpy->driver_name = strdup("kms_swrast");
    }
 
@@ -362,7 +363,7 @@ dri2_initialize_device(_EGLDisplay *disp)
       if (!device_probe_device_sw(disp))
          goto cleanup;
    } else {
-      _eglLog(_EGL_FATAL, "Driver bug: exposed device is neither DRM nor SOFTWARE one");
+      mesa_logf("Driver bug: exposed device is neither DRM nor SOFTWARE one");
       return EGL_FALSE;
    }
 

@@ -33,7 +33,7 @@
 #include "eglcurrent.h"
 #include "egldriver.h"
 #include "egllog.h"
-
+#include "util/log.h"
 
 /**
  * Parse the list of sync attributes and return the proper error code.
@@ -73,7 +73,7 @@ _eglParseSyncAttribList(_EGLSync *sync, const EGLAttrib *attrib_list)
       }
 
       if (err != EGL_SUCCESS) {
-         _eglLog(_EGL_DEBUG, "bad sync attribute 0x%" PRIxPTR, attr);
+         mesa_logd("bad sync attribute 0x%" PRIxPTR, attr);
          return err;
       }
    }

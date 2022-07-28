@@ -33,6 +33,7 @@
 #include "c11/threads.h"
 #include "util/u_thread.h"
 #include "util/u_string.h"
+#include "util/log.h"
 
 #include "egllog.h"
 #include "eglcurrent.h"
@@ -148,7 +149,7 @@ static inline _EGLThreadInfo *
 _eglCheckedGetTSD(void)
 {
    if (_eglInitTSD() != EGL_TRUE) {
-      _eglLog(_EGL_FATAL, "failed to initialize \"current\" system");
+      mesa_logf("failed to initialize \"current\" system");
       return NULL;
    }
 
@@ -274,7 +275,7 @@ _eglInternalError(EGLint errCode, const char *msg)
       default:
          s = "other EGL error";
       }
-      _eglLog(_EGL_DEBUG, "EGL user error 0x%x (%s) in %s\n", errCode, s, msg);
+      mesa_logd("EGL user error 0x%x (%s) in %s\n", errCode, s, msg);
    }
 
    return EGL_FALSE;
