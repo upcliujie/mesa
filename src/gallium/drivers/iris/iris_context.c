@@ -212,6 +212,15 @@ iris_flush_dirty_dmabufs(struct iris_context *ice)
    clear_dirty_dmabuf_set(ice);
 }
 
+static bool
+iris_tc_is_resource_busy(struct pipe_screen *pscreen,
+                         struct pipe_resource *prsc,
+                         unsigned usage)
+{
+   struct iris_resource *res = (void *) prsc;
+   return iris_bo_busy(res->bo);
+}
+
 /**
  * Destroy a context, freeing any associated memory.
  */
@@ -386,8 +395,13 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
    if (flags & PIPE_CONTEXT_COMPUTE_ONLY)
       return ctx;
 
+   struct threaded_context_options tc_options = {
+      .is_resource_busy = iris_tc_is_resource_busy,
+      .driver_calls_flush_notify = true,
+   };
+
    return threaded_context_create(ctx, &screen->transfer_pool,
                                   iris_replace_buffer_storage,
-                                  NULL, /* TODO: asynchronous flushes? */
+                                  &tc_options,
                                   &ice->thrctx);
 }
