@@ -487,13 +487,16 @@ iris_resource_alloc_flags(const struct iris_screen *screen,
 }
 
 static void
-iris_resource_destroy(struct pipe_screen *screen,
+iris_resource_destroy(struct pipe_screen *pscreen,
                       struct pipe_resource *p_res)
 {
+   struct iris_screen *screen = (struct iris_screen *) pscreen;
    struct iris_resource *res = (struct iris_resource *) p_res;
 
-   if (p_res->target == PIPE_BUFFER)
+   if (p_res->target == PIPE_BUFFER) {
+      util_idalloc_mt_free(&screen->buffer_ids, res->base.buffer_id_unique);
       util_range_destroy(&res->valid_buffer_range);
+   }
 
    iris_resource_disable_aux(res);
 
@@ -508,6 +511,7 @@ static struct iris_resource *
 iris_alloc_resource(struct pipe_screen *pscreen,
                     const struct pipe_resource *templ)
 {
+   struct iris_screen *screen = (struct iris_screen *) pscreen;
    struct iris_resource *res = calloc(1, sizeof(struct iris_resource));
    if (!res)
       return NULL;
@@ -518,8 +522,10 @@ iris_alloc_resource(struct pipe_screen *pscreen,
    pipe_reference_init(&res->base.b.reference, 1);
    threaded_resource_init(&res->base.b, false);
 
-   if (templ->target == PIPE_BUFFER)
+   if (templ->target == PIPE_BUFFER) {
+      res->base.buffer_id_unique = util_idalloc_mt_alloc(&screen->buffer_ids);
       util_range_init(&res->valid_buffer_range);
+   }
 
    return res;
 }
@@ -1912,6 +1918,8 @@ iris_replace_buffer_storage(struct pipe_context *ctx,
    screen->vtbl.rebind_buffer(ice, dst);
 
    iris_bo_unreference(old_bo);
+
+   util_idalloc_mt_free(&screen->buffer_ids, delete_buffer_id);
 }
 
 static void
