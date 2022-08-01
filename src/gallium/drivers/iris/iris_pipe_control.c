@@ -249,6 +249,10 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
                 */
                if (seqno > batch->l3_coherent_seqnos[i])
                   bits |= flush_bits[i];
+
+               if (!iris_domain_is_read_only(access) &&
+                   l3_flush_bits[access] != l3_flush_bits[i])
+                  bits |= l3_flush_bits[i];
             } else {
                /* Domain `i` is L3 coherent but the specified domain is not.
                 * Flush both this cache and L3 out to memory.
