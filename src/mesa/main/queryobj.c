@@ -366,15 +366,7 @@ _mesa_get_timestamp(struct gl_context *ctx)
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
 
-   /* Prefer the per-screen function */
-   if (screen->get_timestamp) {
-      return screen->get_timestamp(screen);
-   }
-   else {
-      /* Fall back to the per-context function */
-      assert(pipe->get_timestamp);
-      return pipe->get_timestamp(pipe);
-   }
+   return util_get_timestamp(pipe);
 }
 
 static void
