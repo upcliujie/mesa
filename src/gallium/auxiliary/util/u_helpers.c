@@ -545,3 +545,14 @@ util_clamp_color(enum pipe_format format,
 
    return clamp_color;
 }
+
+uint64_t
+util_get_timestamp(struct pipe_context *ctx)
+{
+   if (ctx->screen->get_timestamp) {
+      return ctx->screen->get_timestamp(ctx->screen);
+   } else {
+      assert(ctx->get_timestamp);
+      return ctx->get_timestamp(ctx);
+   }
+}

@@ -133,6 +133,8 @@ util_init_pipe_vertex_state(struct pipe_screen *screen,
 union pipe_color_union util_clamp_color(enum pipe_format format,
                                         const union pipe_color_union *color);
 
+uint64_t util_get_timestamp(struct pipe_context *ctx);
+
 #ifdef __cplusplus
 }
 #endif
