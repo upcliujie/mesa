@@ -959,6 +959,41 @@ tu6_emit_sysmem_resolves(struct tu_cmd_buffer *cmd,
 }
 
 static void
+tu6_emit_gmem_resolves(struct tu_cmd_buffer *cmd, const struct tu_subpass *subpass, struct tu_cs *cs)
+{
+   const struct tu_render_pass *pass = cmd->state.pass;
+   const struct tu_framebuffer *fb = cmd->state.framebuffer;
+
+   if (subpass->resolve_attachments) {
+      bool emitted_scissor = false;
+
+      for (unsigned i = 0; i < subpass->resolve_count; i++) {
+         uint32_t a = subpass->resolve_attachments[i].attachment;
+         if (a == VK_ATTACHMENT_UNUSED)
+            continue;
+
+         if (!emitted_scissor) {
+            tu6_emit_blit_scissor(cmd, cs, true);
+            emitted_scissor = true;
+         }
+
+         uint32_t gmem_a = tu_subpass_get_attachment_to_resolve(subpass, i);
+
+         tu_store_gmem_attachment(cmd, cs, a, gmem_a, fb->layers,
+                                  subpass->multiview_mask, false);
+
+         if (pass->attachments[a].gmem) {
+            /* check if the resolved attachment is needed by later subpasses,
+             * if it is, should be doing a GMEM->GMEM resolve instead of GMEM->MEM->GMEM..
+             */
+            perf_debug(cmd->device, "TODO: missing GMEM->GMEM resolve path\n");
+            tu_load_gmem_attachment(cmd, cs, a, false, true);
+         }
+      }
+   }
+}
+
+static void
 tu6_emit_tile_store(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 {
    const struct tu_render_pass *pass = cmd->state.pass;
@@ -983,16 +1018,12 @@ tu6_emit_tile_store(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
       }
    }
 
-   if (subpass->resolve_attachments) {
-      for (unsigned i = 0; i < subpass->resolve_count; i++) {
-         uint32_t a = subpass->resolve_attachments[i].attachment;
-         if (a != VK_ATTACHMENT_UNUSED) {
-            uint32_t gmem_a = tu_subpass_get_attachment_to_resolve(subpass, i);
-            tu_store_gmem_attachment(cmd, cs, a, gmem_a, fb->layers,
-                                     subpass->multiview_mask, false);
-         }
-      }
-   }
+
+   /* Note that we're emitting the resolves into the tile store CS, which is
+    * unconditionally executed (unlike draw_cs which depends on geometry having
+    * been generated).
+    */
+   tu6_emit_gmem_resolves(cmd, subpass, cs);
 
    if (pass->has_fdm)
       tu_cs_set_writeable(cs, false);
@@ -3892,8 +3923,6 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
       return;
    }
 
-   const struct tu_render_pass *pass = cmd->state.pass;
-   const struct tu_framebuffer *fb = cmd->state.framebuffer;
    struct tu_cs *cs = &cmd->draw_cs;
 
    const struct tu_subpass *subpass = cmd->state.subpass++;
@@ -3915,29 +3944,11 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
 
       tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_GMEM);
 
-      if (subpass->resolve_attachments) {
-         tu6_emit_blit_scissor(cmd, cs, true);
-
-         for (unsigned i = 0; i < subpass->resolve_count; i++) {
-            uint32_t a = subpass->resolve_attachments[i].attachment;
-            if (a == VK_ATTACHMENT_UNUSED)
-               continue;
-
-            uint32_t gmem_a = tu_subpass_get_attachment_to_resolve(subpass, i);
-
-            tu_store_gmem_attachment(cmd, cs, a, gmem_a, fb->layers,
-                                    subpass->multiview_mask, false);
-
-            if (!pass->attachments[a].gmem)
-               continue;
-
-            /* check if the resolved attachment is needed by later subpasses,
-            * if it is, should be doing a GMEM->GMEM resolve instead of GMEM->MEM->GMEM..
-            */
-            perf_debug(cmd->device, "TODO: missing GMEM->GMEM resolve path\n");
-            tu_load_gmem_attachment(cmd, cs, a, false, true);
-         }
-      }
+      /* TODO: we're emitting the resolves into the draw CS, which is conditionally
+       * executed based on geometry being present.  That's not actually correct
+       * unless the resolve is generating geometry into the vis stream.
+       */
+      tu6_emit_gmem_resolves(cmd, subpass, cs);
 
       tu_cond_exec_end(cs);
 
