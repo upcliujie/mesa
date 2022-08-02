@@ -1218,6 +1218,7 @@ bool ac_query_gpu_info(int fd, void *dev_p, struct radeon_info *info)
    }
 
    info->has_stable_pstate = info->drm_minor >= 45;
+   info->has_explicit_sync_contexts = info->drm_minor >= 48;
 
    if (info->gfx_level >= GFX11) {
       info->pc_lines = 1024;
@@ -1540,6 +1541,7 @@ void ac_print_gpu_info(struct radeon_info *info, FILE *f)
    fprintf(f, "    has_eqaa_surface_allocator = %u\n", info->has_eqaa_surface_allocator);
    fprintf(f, "    has_sparse_vm_mappings = %u\n", info->has_sparse_vm_mappings);
    fprintf(f, "    has_stable_pstate = %u\n", info->has_stable_pstate);
+   fprintf(f, "    has_explicit_sync_contexts = %u\n", info->has_explicit_sync_contexts);
    fprintf(f, "    has_scheduled_fence_dependency = %u\n", info->has_scheduled_fence_dependency);
    fprintf(f, "    mid_command_buffer_preemption_enabled = %u\n",
            info->mid_command_buffer_preemption_enabled);

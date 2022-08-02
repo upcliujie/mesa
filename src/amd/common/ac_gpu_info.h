@@ -190,6 +190,7 @@ struct radeon_info {
    bool has_sparse_vm_mappings;
    bool has_scheduled_fence_dependency;
    bool has_stable_pstate;
+   bool has_explicit_sync_contexts;
    /* Whether SR-IOV is enabled or amdgpu.mcbp=1 was set on the kernel command line. */
    bool mid_command_buffer_preemption_enabled;
    bool has_tmz_support;
