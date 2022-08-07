@@ -43,7 +43,7 @@
 void
 svga_cleanup_tss_binding(struct svga_context *svga)
 {
-   const enum pipe_shader_type shader = PIPE_SHADER_FRAGMENT;
+   const gl_shader_stage shader = MESA_SHADER_FRAGMENT;
    unsigned i;
 
    for (i = 0; i < ARRAY_SIZE(svga->state.hw_draw.views); i++) {
@@ -141,7 +141,7 @@ emit_tex_binding_unit(struct svga_context *svga,
 static enum pipe_error
 update_tss_binding(struct svga_context *svga, uint64_t dirty )
 {
-   const enum pipe_shader_type shader = PIPE_SHADER_FRAGMENT;
+   const gl_shader_stage shader = MESA_SHADER_FRAGMENT;
    boolean reemit = svga->rebind.flags.texture_samplers;
    unsigned i;
    unsigned count = MAX2(svga->curr.num_sampler_views[shader],
@@ -383,7 +383,7 @@ emit_tss_unit(struct svga_context *svga, unsigned unit,
 static enum pipe_error
 update_tss(struct svga_context *svga, uint64_t dirty )
 {
-   const enum pipe_shader_type shader = PIPE_SHADER_FRAGMENT;
+   const gl_shader_stage shader = MESA_SHADER_FRAGMENT;
    unsigned i;
    struct ts_queue queue;
 

@@ -102,11 +102,11 @@ struct pstip_stage
    void (*driver_delete_fs_state)(struct pipe_context *, void *);
 
    void (*driver_bind_sampler_states)(struct pipe_context *,
-                                      enum pipe_shader_type,
+                                      gl_shader_stage,
                                       unsigned, unsigned, void **);
 
    void (*driver_set_sampler_views)(struct pipe_context *,
-                                    enum pipe_shader_type shader,
+                                    gl_shader_stage shader,
                                     unsigned start, unsigned count,
                                     unsigned unbind_num_trailing_slots,
                                     bool take_ownership,
@@ -221,10 +221,10 @@ pstip_first_tri(struct draw_stage *stage, struct prim_header *header)
 
    draw->suspend_flushing = TRUE;
 
-   pstip->driver_bind_sampler_states(pipe, PIPE_SHADER_FRAGMENT, 0,
+   pstip->driver_bind_sampler_states(pipe, MESA_SHADER_FRAGMENT, 0,
                                      num_samplers, pstip->state.samplers);
 
-   pstip->driver_set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0,
+   pstip->driver_set_sampler_views(pipe, MESA_SHADER_FRAGMENT, 0,
                                    num_sampler_views, 0, false,
                                    pstip->state.sampler_views);
 
@@ -250,11 +250,11 @@ pstip_flush(struct draw_stage *stage, unsigned flags)
    draw->suspend_flushing = TRUE;
    pstip->driver_bind_fs_state(pipe, pstip->fs ? pstip->fs->driver_fs : NULL);
 
-   pstip->driver_bind_sampler_states(pipe, PIPE_SHADER_FRAGMENT, 0,
+   pstip->driver_bind_sampler_states(pipe, MESA_SHADER_FRAGMENT, 0,
                                      pstip->num_samplers,
                                      pstip->state.samplers);
 
-   pstip->driver_set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0,
+   pstip->driver_set_sampler_views(pipe, MESA_SHADER_FRAGMENT, 0,
                                    pstip->num_sampler_views, 0, false,
                                    pstip->state.sampler_views);
 
@@ -393,7 +393,7 @@ pstip_delete_fs_state(struct pipe_context *pipe, void *fs)
 
 static void
 pstip_bind_sampler_states(struct pipe_context *pipe,
-                          enum pipe_shader_type shader,
+                          gl_shader_stage shader,
                           unsigned start, unsigned num, void **sampler)
 {
    struct pstip_stage *pstip = pstip_stage_from_pipe(pipe);
@@ -401,7 +401,7 @@ pstip_bind_sampler_states(struct pipe_context *pipe,
 
    assert(start == 0);
 
-   if (shader == PIPE_SHADER_FRAGMENT) {
+   if (shader == MESA_SHADER_FRAGMENT) {
       /* save current */
       memcpy(pstip->state.samplers, sampler, num * sizeof(void *));
       for (i = num; i < PIPE_MAX_SAMPLERS; i++) {
@@ -417,7 +417,7 @@ pstip_bind_sampler_states(struct pipe_context *pipe,
 
 static void
 pstip_set_sampler_views(struct pipe_context *pipe,
-                        enum pipe_shader_type shader,
+                        gl_shader_stage shader,
                         unsigned start, unsigned num,
                         unsigned unbind_num_trailing_slots,
                         bool take_ownership,
@@ -426,7 +426,7 @@ pstip_set_sampler_views(struct pipe_context *pipe,
    struct pstip_stage *pstip = pstip_stage_from_pipe(pipe);
    uint i;
 
-   if (shader == PIPE_SHADER_FRAGMENT) {
+   if (shader == MESA_SHADER_FRAGMENT) {
       /* save current */
       for (i = 0; i < num; i++) {
          pipe_sampler_view_reference(&pstip->state.sampler_views[start + i],

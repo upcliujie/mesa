@@ -477,7 +477,7 @@ trace_context_create_sampler_state(struct pipe_context *_pipe,
 
 static void
 trace_context_bind_sampler_states(struct pipe_context *_pipe,
-                                  enum pipe_shader_type shader,
+                                  gl_shader_stage shader,
                                   unsigned start,
                                   unsigned num_states,
                                   void **states)
@@ -739,7 +739,7 @@ trace_context_link_shader(struct pipe_context *_pipe, void **shaders)
 
    trace_dump_call_begin("pipe_context", "link_shader");
    trace_dump_arg(ptr, pipe);
-   trace_dump_arg_array(ptr, shaders, PIPE_SHADER_TYPES);
+   trace_dump_arg_array(ptr, shaders, MESA_SHADER_STAGES);
    pipe->link_shader(pipe, shaders);
    trace_dump_call_end();
 }
@@ -925,7 +925,7 @@ trace_context_set_sample_mask(struct pipe_context *_pipe,
 
 static void
 trace_context_set_constant_buffer(struct pipe_context *_pipe,
-                                  enum pipe_shader_type shader, uint index,
+                                  gl_shader_stage shader, uint index,
                                   bool take_ownership,
                                   const struct pipe_constant_buffer *constant_buffer)
 {
@@ -969,7 +969,7 @@ trace_context_set_framebuffer_state(struct pipe_context *_pipe,
 }
 
 static void
-trace_context_set_inlinable_constants(struct pipe_context *_pipe, enum pipe_shader_type shader,
+trace_context_set_inlinable_constants(struct pipe_context *_pipe, gl_shader_stage shader,
                                       uint num_values, uint32_t *values)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -1191,7 +1191,7 @@ trace_context_surface_destroy(struct pipe_context *_pipe,
 
 static void
 trace_context_set_sampler_views(struct pipe_context *_pipe,
-                                enum pipe_shader_type shader,
+                                gl_shader_stage shader,
                                 unsigned start,
                                 unsigned num,
                                 unsigned unbind_num_trailing_slots,
@@ -2107,7 +2107,7 @@ trace_context_set_patch_vertices(struct pipe_context *_context,
 }
 
 static void trace_context_set_shader_buffers(struct pipe_context *_context,
-                                             enum pipe_shader_type shader,
+                                             gl_shader_stage shader,
                                              unsigned start, unsigned nr,
                                              const struct pipe_shader_buffer *buffers,
                                              unsigned writable_bitmask)
@@ -2130,7 +2130,7 @@ static void trace_context_set_shader_buffers(struct pipe_context *_context,
 }
 
 static void trace_context_set_shader_images(struct pipe_context *_context,
-                                            enum pipe_shader_type shader,
+                                            gl_shader_stage shader,
                                             unsigned start, unsigned nr,
                                             unsigned unbind_num_trailing_slots,
                                             const struct pipe_image_view *images)

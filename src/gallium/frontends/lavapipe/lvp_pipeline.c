@@ -47,18 +47,18 @@
 void
 lvp_pipeline_destroy(struct lvp_device *device, struct lvp_pipeline *pipeline)
 {
-   if (pipeline->shader_cso[PIPE_SHADER_VERTEX])
-      device->queue.ctx->delete_vs_state(device->queue.ctx, pipeline->shader_cso[PIPE_SHADER_VERTEX]);
-   if (pipeline->shader_cso[PIPE_SHADER_FRAGMENT])
-      device->queue.ctx->delete_fs_state(device->queue.ctx, pipeline->shader_cso[PIPE_SHADER_FRAGMENT]);
-   if (pipeline->shader_cso[PIPE_SHADER_GEOMETRY])
-      device->queue.ctx->delete_gs_state(device->queue.ctx, pipeline->shader_cso[PIPE_SHADER_GEOMETRY]);
-   if (pipeline->shader_cso[PIPE_SHADER_TESS_CTRL])
-      device->queue.ctx->delete_tcs_state(device->queue.ctx, pipeline->shader_cso[PIPE_SHADER_TESS_CTRL]);
-   if (pipeline->shader_cso[PIPE_SHADER_TESS_EVAL])
-      device->queue.ctx->delete_tes_state(device->queue.ctx, pipeline->shader_cso[PIPE_SHADER_TESS_EVAL]);
-   if (pipeline->shader_cso[PIPE_SHADER_COMPUTE])
-      device->queue.ctx->delete_compute_state(device->queue.ctx, pipeline->shader_cso[PIPE_SHADER_COMPUTE]);
+   if (pipeline->shader_cso[MESA_SHADER_VERTEX])
+      device->queue.ctx->delete_vs_state(device->queue.ctx, pipeline->shader_cso[MESA_SHADER_VERTEX]);
+   if (pipeline->shader_cso[MESA_SHADER_FRAGMENT])
+      device->queue.ctx->delete_fs_state(device->queue.ctx, pipeline->shader_cso[MESA_SHADER_FRAGMENT]);
+   if (pipeline->shader_cso[MESA_SHADER_GEOMETRY])
+      device->queue.ctx->delete_gs_state(device->queue.ctx, pipeline->shader_cso[MESA_SHADER_GEOMETRY]);
+   if (pipeline->shader_cso[MESA_SHADER_TESS_CTRL])
+      device->queue.ctx->delete_tcs_state(device->queue.ctx, pipeline->shader_cso[MESA_SHADER_TESS_CTRL]);
+   if (pipeline->shader_cso[MESA_SHADER_TESS_EVAL])
+      device->queue.ctx->delete_tes_state(device->queue.ctx, pipeline->shader_cso[MESA_SHADER_TESS_EVAL]);
+   if (pipeline->shader_cso[MESA_SHADER_COMPUTE])
+      device->queue.ctx->delete_compute_state(device->queue.ctx, pipeline->shader_cso[MESA_SHADER_COMPUTE]);
 
    for (unsigned i = 0; i < MESA_SHADER_STAGES; i++)
       ralloc_free(pipeline->pipeline_nir[i]);
@@ -93,23 +93,23 @@ st_shader_stage_to_ptarget(gl_shader_stage stage)
 {
    switch (stage) {
    case MESA_SHADER_VERTEX:
-      return PIPE_SHADER_VERTEX;
+      return MESA_SHADER_VERTEX;
    case MESA_SHADER_FRAGMENT:
-      return PIPE_SHADER_FRAGMENT;
+      return MESA_SHADER_FRAGMENT;
    case MESA_SHADER_GEOMETRY:
-      return PIPE_SHADER_GEOMETRY;
+      return MESA_SHADER_GEOMETRY;
    case MESA_SHADER_TESS_CTRL:
-      return PIPE_SHADER_TESS_CTRL;
+      return MESA_SHADER_TESS_CTRL;
    case MESA_SHADER_TESS_EVAL:
-      return PIPE_SHADER_TESS_EVAL;
+      return MESA_SHADER_TESS_EVAL;
    case MESA_SHADER_COMPUTE:
-      return PIPE_SHADER_COMPUTE;
+      return MESA_SHADER_COMPUTE;
    default:
       break;
    }
 
    assert(!"should not be reached");
-   return PIPE_SHADER_VERTEX;
+   return MESA_SHADER_VERTEX;
 }
 
 static void
@@ -884,10 +884,9 @@ lvp_graphics_pipeline_init(struct lvp_pipeline *pipeline,
 
          gl_shader_stage stage = i;
          assert(stage == pipeline->pipeline_nir[i]->info.stage);
-         enum pipe_shader_type pstage = pipe_shader_type_from_mesa(stage);
          if (!pipeline->inlines[stage].can_inline)
-            pipeline->shader_cso[pstage] = lvp_pipeline_compile(pipeline,
-                                                                nir_shader_clone(NULL, pipeline->pipeline_nir[stage]));
+            pipeline->shader_cso[stage] = lvp_pipeline_compile(pipeline,
+                                                               nir_shader_clone(NULL, pipeline->pipeline_nir[stage]));
          if (stage == MESA_SHADER_FRAGMENT)
             has_fragment_shader = true;
       }
@@ -901,7 +900,7 @@ lvp_graphics_pipeline_init(struct lvp_pipeline *pipeline,
          struct pipe_shader_state shstate = {0};
          shstate.type = PIPE_SHADER_IR_NIR;
          shstate.ir.nir = nir_shader_clone(NULL, pipeline->pipeline_nir[MESA_SHADER_FRAGMENT]);
-         pipeline->shader_cso[PIPE_SHADER_FRAGMENT] = device->queue.ctx->create_fs_state(device->queue.ctx, &shstate);
+         pipeline->shader_cso[MESA_SHADER_FRAGMENT] = device->queue.ctx->create_fs_state(device->queue.ctx, &shstate);
       }
    }
    return VK_SUCCESS;
@@ -1008,7 +1007,7 @@ lvp_compute_pipeline_init(struct lvp_pipeline *pipeline,
       return result;
 
    if (!pipeline->inlines[MESA_SHADER_COMPUTE].can_inline)
-      pipeline->shader_cso[PIPE_SHADER_COMPUTE] = lvp_pipeline_compile(pipeline, nir_shader_clone(NULL, pipeline->pipeline_nir[MESA_SHADER_COMPUTE]));
+      pipeline->shader_cso[MESA_SHADER_COMPUTE] = lvp_pipeline_compile(pipeline, nir_shader_clone(NULL, pipeline->pipeline_nir[MESA_SHADER_COMPUTE]));
    return VK_SUCCESS;
 }
 

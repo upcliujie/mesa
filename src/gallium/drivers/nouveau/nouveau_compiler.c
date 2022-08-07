@@ -65,9 +65,9 @@ static int
 nv30_codegen(int chipset, int type, struct tgsi_token tokens[],
              unsigned *size, unsigned **code) {
    switch (type) {
-      case PIPE_SHADER_FRAGMENT:
+      case MESA_SHADER_FRAGMENT:
          return nv30_fp(chipset, tokens, size, code);
-      case PIPE_SHADER_VERTEX:
+      case MESA_SHADER_VERTEX:
          return nv30_vp(chipset, tokens, size, code);
    }
    _debug_printf("Unexpected shader type: %d\n", type);
@@ -183,17 +183,17 @@ main(int argc, char *argv[])
    _debug_printf("Compiling for NV%X\n", chipset);
 
    if (!strncmp(text, "FRAG", 4))
-      type = PIPE_SHADER_FRAGMENT;
+      type = MESA_SHADER_FRAGMENT;
    else if (!strncmp(text, "VERT", 4))
-      type = PIPE_SHADER_VERTEX;
+      type = MESA_SHADER_VERTEX;
    else if (!strncmp(text, "GEOM", 4))
-      type = PIPE_SHADER_GEOMETRY;
+      type = MESA_SHADER_GEOMETRY;
    else if (!strncmp(text, "COMP", 4))
-      type = PIPE_SHADER_COMPUTE;
+      type = MESA_SHADER_COMPUTE;
    else if (!strncmp(text, "TESS_CTRL", 9))
-      type = PIPE_SHADER_TESS_CTRL;
+      type = MESA_SHADER_TESS_CTRL;
    else if (!strncmp(text, "TESS_EVAL", 9))
-      type = PIPE_SHADER_TESS_EVAL;
+      type = MESA_SHADER_TESS_EVAL;
    else {
       _debug_printf("Unrecognized TGSI header\n");
       return 1;

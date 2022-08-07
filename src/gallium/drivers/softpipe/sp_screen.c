@@ -96,7 +96,7 @@ static const nir_shader_compiler_options sp_compiler_options = {
 static const void *
 softpipe_get_compiler_options(struct pipe_screen *pscreen,
                               enum pipe_shader_ir ir,
-                              enum pipe_shader_type shader)
+                              gl_shader_stage shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
    return &sp_compiler_options;
@@ -317,7 +317,7 @@ softpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
 static int
 softpipe_get_shader_param(struct pipe_screen *screen,
-                          enum pipe_shader_type shader,
+                          gl_shader_stage shader,
                           enum pipe_shader_cap param)
 {
    struct softpipe_screen *sp_screen = softpipe_screen(screen);
@@ -333,12 +333,12 @@ softpipe_get_shader_param(struct pipe_screen *screen,
 
    switch(shader)
    {
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return tgsi_exec_get_shader_param(param);
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       return tgsi_exec_get_shader_param(param);
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_GEOMETRY:
       if (sp_screen->use_llvm)
          return draw_get_shader_param(shader, param);
       else

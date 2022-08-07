@@ -626,7 +626,7 @@ static void si_emit_derived_tess_state(struct si_context *sctx, unsigned *num_pa
    struct si_shader_selector *tcs = sctx->shader.tcs.cso;
    unsigned tess_uses_primid = sctx->ia_multi_vgt_param_key.u.tess_uses_prim_id;
    bool has_primid_instancing_bug = sctx->gfx_level == GFX6 && sctx->screen->info.max_se == 1;
-   unsigned tes_sh_base = sctx->shader_pointers.sh_base[PIPE_SHADER_TESS_EVAL];
+   unsigned tes_sh_base = sctx->shader_pointers.sh_base[MESA_SHADER_TESS_EVAL];
    uint8_t num_tcs_input_cp = sctx->patch_vertices;
 
    /* Since GFX9 has merged LS-HS in the TCS state, set LS = TCS. */
@@ -1226,11 +1226,11 @@ static void si_emit_vs_state(struct si_context *sctx, unsigned index_size)
 
       /* These are all constant expressions. */
       unsigned vs_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                               PIPE_SHADER_VERTEX);
+                                               MESA_SHADER_VERTEX);
       unsigned tes_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                                PIPE_SHADER_TESS_EVAL);
+                                                MESA_SHADER_TESS_EVAL);
       unsigned gs_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                               PIPE_SHADER_GEOMETRY);
+                                               MESA_SHADER_GEOMETRY);
       unsigned gs_copy_base = R_00B130_SPI_SHADER_USER_DATA_VS_0;
 
       radeon_begin(cs);
@@ -1546,7 +1546,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
       }
    }
 
-   unsigned sh_base_reg = sctx->shader_pointers.sh_base[PIPE_SHADER_VERTEX];
+   unsigned sh_base_reg = sctx->shader_pointers.sh_base[MESA_SHADER_VERTEX];
    bool render_cond_bit = sctx->render_cond_enabled;
 
    if (!IS_DRAW_VERTEX_STATE && indirect) {
@@ -1902,7 +1902,7 @@ static bool si_upload_and_prefetch_VB_descriptors(struct si_context *sctx,
    unsigned count = IS_DRAW_VERTEX_STATE ? util_bitcount_fast<POPCNT>(partial_velem_mask) :
                                            sctx->num_vertex_elements;
    unsigned sh_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                            PIPE_SHADER_VERTEX);
+                                            MESA_SHADER_VERTEX);
    unsigned num_vbos_in_user_sgprs = si_num_vbos_in_user_sgprs_inline(GFX_VERSION);
    bool pointer_dirty, user_sgprs_dirty;
 

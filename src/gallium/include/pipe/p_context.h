@@ -330,11 +330,11 @@ struct pipe_context {
    /**
     * Called when a shader program is linked.
     * \param handles  Array of shader handles attached to this program.
-    *                 The size of the array is \c PIPE_SHADER_TYPES, and each
+    *                 The size of the array is \c MESA_SHADER_STAGES, and each
     *                 position contains the corresponding \c pipe_shader_state*
     *                 or \c pipe_compute_state*, or \c NULL.
     *                 E.g. You can retrieve the fragment shader handle with
-    *                      \c handles[PIPE_SHADER_FRAGMENT]
+    *                      \c handles[MESA_SHADER_FRAGMENT]
     */
    void (*link_shader)(struct pipe_context *, void** handles);
    /*@}*/
@@ -351,7 +351,7 @@ struct pipe_context {
    void * (*create_sampler_state)(struct pipe_context *,
                                   const struct pipe_sampler_state *);
    void   (*bind_sampler_states)(struct pipe_context *,
-                                 enum pipe_shader_type shader,
+                                 gl_shader_stage shader,
                                  unsigned start_slot, unsigned num_samplers,
                                  void **samplers);
    void   (*delete_sampler_state)(struct pipe_context *, void *);
@@ -428,7 +428,7 @@ struct pipe_context {
     * \param buf              Constant buffer parameters
     */
    void (*set_constant_buffer)( struct pipe_context *,
-                                enum pipe_shader_type shader, uint index,
+                                gl_shader_stage shader, uint index,
                                 bool take_ownership,
                                 const struct pipe_constant_buffer *buf );
 
@@ -449,7 +449,7 @@ struct pipe_context {
     * fields if they don't want this or if they don't implement this.
     */
    void (*set_inlinable_constants)( struct pipe_context *,
-                                    enum pipe_shader_type shader,
+                                    gl_shader_stage shader,
                                     uint num_values, uint32_t *values );
 
    void (*set_framebuffer_state)( struct pipe_context *,
@@ -501,7 +501,7 @@ struct pipe_context {
                                 const struct pipe_viewport_state *);
 
    void (*set_sampler_views)(struct pipe_context *,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              unsigned start_slot, unsigned num_views,
                              unsigned unbind_num_trailing_slots,
                              bool take_ownership,
@@ -539,7 +539,7 @@ struct pipe_context {
     *                          used with loads. If unsure, set to ~0.
     */
    void (*set_shader_buffers)(struct pipe_context *,
-                              enum pipe_shader_type shader,
+                              gl_shader_stage shader,
                               unsigned start_slot, unsigned count,
                               const struct pipe_shader_buffer *buffers,
                               unsigned writable_bitmask);
@@ -576,7 +576,7 @@ struct pipe_context {
     *                   be bound.
     */
    void (*set_shader_images)(struct pipe_context *,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              unsigned start_slot, unsigned count,
                              unsigned unbind_num_trailing_slots,
                              const struct pipe_image_view *images);

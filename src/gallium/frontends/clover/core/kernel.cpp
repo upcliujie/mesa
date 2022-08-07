@@ -81,13 +81,13 @@ kernel::launch(command_queue &q,
       }, exec.g_handles);
 
    q.pipe->bind_compute_state(q.pipe, st);
-   q.pipe->bind_sampler_states(q.pipe, PIPE_SHADER_COMPUTE,
+   q.pipe->bind_sampler_states(q.pipe, MESA_SHADER_COMPUTE,
                                0, exec.samplers.size(),
                                exec.samplers.data());
 
-   q.pipe->set_sampler_views(q.pipe, PIPE_SHADER_COMPUTE, 0,
+   q.pipe->set_sampler_views(q.pipe, MESA_SHADER_COMPUTE, 0,
                              exec.sviews.size(), 0, false, exec.sviews.data());
-   q.pipe->set_shader_images(q.pipe, PIPE_SHADER_COMPUTE, 0,
+   q.pipe->set_shader_images(q.pipe, MESA_SHADER_COMPUTE, 0,
                              exec.iviews.size(), 0, exec.iviews.data());
    q.pipe->set_compute_resources(q.pipe, 0, exec.resources.size(),
                                  exec.resources.data());
@@ -105,11 +105,11 @@ kernel::launch(command_queue &q,
 
    q.pipe->set_global_binding(q.pipe, 0, exec.g_buffers.size(), NULL, NULL);
    q.pipe->set_compute_resources(q.pipe, 0, exec.resources.size(), NULL);
-   q.pipe->set_shader_images(q.pipe, PIPE_SHADER_COMPUTE, 0,
+   q.pipe->set_shader_images(q.pipe, MESA_SHADER_COMPUTE, 0,
                              0, exec.iviews.size(), NULL);
-   q.pipe->set_sampler_views(q.pipe, PIPE_SHADER_COMPUTE, 0,
+   q.pipe->set_sampler_views(q.pipe, MESA_SHADER_COMPUTE, 0,
                              0, exec.sviews.size(), false, NULL);
-   q.pipe->bind_sampler_states(q.pipe, PIPE_SHADER_COMPUTE, 0,
+   q.pipe->bind_sampler_states(q.pipe, MESA_SHADER_COMPUTE, 0,
                                exec.samplers.size(), NULL);
 
    q.pipe->memory_barrier(q.pipe, PIPE_BARRIER_GLOBAL_BUFFER);

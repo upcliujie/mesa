@@ -87,8 +87,8 @@ panfrost_clear(
 bool
 panfrost_writes_point_size(struct panfrost_context *ctx)
 {
-        assert(ctx->shader[PIPE_SHADER_VERTEX]);
-        struct panfrost_shader_state *vs = panfrost_get_shader_state(ctx, PIPE_SHADER_VERTEX);
+        assert(ctx->shader[MESA_SHADER_VERTEX]);
+        struct panfrost_shader_state *vs = panfrost_get_shader_state(ctx, MESA_SHADER_VERTEX);
 
         return vs->info.vs.writes_point_size && ctx->active_prim == PIPE_PRIM_POINTS;
 }
@@ -191,10 +191,10 @@ panfrost_get_blend(struct panfrost_batch *batch, unsigned rti, struct panfrost_b
         /* Upload the shader, sharing a BO */
         if (!(*bo)) {
                 *bo = panfrost_batch_create_bo(batch, 4096, PAN_BO_EXECUTE,
-                                PIPE_SHADER_FRAGMENT, "Blend shader");
+                                MESA_SHADER_FRAGMENT, "Blend shader");
         }
 
-        struct panfrost_shader_state *ss = panfrost_get_shader_state(ctx, PIPE_SHADER_FRAGMENT);
+        struct panfrost_shader_state *ss = panfrost_get_shader_state(ctx, MESA_SHADER_FRAGMENT);
 
         /* Default for Midgard */
         nir_alu_type col0_type = nir_type_float32;
@@ -242,12 +242,12 @@ panfrost_bind_rasterizer_state(
 static void
 panfrost_set_shader_images(
         struct pipe_context *pctx,
-        enum pipe_shader_type shader,
+        gl_shader_stage shader,
         unsigned start_slot, unsigned count, unsigned unbind_num_trailing_slots,
         const struct pipe_image_view *iviews)
 {
         struct panfrost_context *ctx = pan_context(pctx);
-        ctx->dirty_shader[PIPE_SHADER_FRAGMENT] |= PAN_DIRTY_STAGE_IMAGE;
+        ctx->dirty_shader[MESA_SHADER_FRAGMENT] |= PAN_DIRTY_STAGE_IMAGE;
 
         /* Unbind start_slot...start_slot+count */
         if (!iviews) {
@@ -368,7 +368,7 @@ panfrost_delete_shader_state(
 static void
 panfrost_bind_sampler_states(
         struct pipe_context *pctx,
-        enum pipe_shader_type shader,
+        gl_shader_stage shader,
         unsigned start_slot, unsigned num_sampler,
         void **sampler)
 {
@@ -519,7 +519,7 @@ static void
 panfrost_bind_shader_state(
         struct pipe_context *pctx,
         void *hwcso,
-        enum pipe_shader_type type)
+        gl_shader_stage type)
 {
         struct panfrost_context *ctx = pan_context(pctx);
         ctx->shader[type] = hwcso;
@@ -533,14 +533,14 @@ panfrost_bind_shader_state(
 
 void
 panfrost_update_shader_variant(struct panfrost_context *ctx,
-                               enum pipe_shader_type type)
+                               gl_shader_stage type)
 {
         /* No shader variants for compute */
-        if (type == PIPE_SHADER_COMPUTE)
+        if (type == MESA_SHADER_COMPUTE)
                 return;
 
         /* We need linking information, defer this */
-        if (type == PIPE_SHADER_FRAGMENT && !ctx->shader[PIPE_SHADER_VERTEX])
+        if (type == MESA_SHADER_FRAGMENT && !ctx->shader[MESA_SHADER_VERTEX])
                 return;
 
         /* Also defer, happens with GALLIUM_HUD */
@@ -580,17 +580,17 @@ panfrost_update_shader_variant(struct panfrost_context *ctx,
 static void
 panfrost_bind_vs_state(struct pipe_context *pctx, void *hwcso)
 {
-        panfrost_bind_shader_state(pctx, hwcso, PIPE_SHADER_VERTEX);
+        panfrost_bind_shader_state(pctx, hwcso, MESA_SHADER_VERTEX);
 
         /* Fragment shaders are linked with vertex shaders */
         struct panfrost_context *ctx = pan_context(pctx);
-        panfrost_update_shader_variant(ctx, PIPE_SHADER_FRAGMENT);
+        panfrost_update_shader_variant(ctx, MESA_SHADER_FRAGMENT);
 }
 
 static void
 panfrost_bind_fs_state(struct pipe_context *pctx, void *hwcso)
 {
-        panfrost_bind_shader_state(pctx, hwcso, PIPE_SHADER_FRAGMENT);
+        panfrost_bind_shader_state(pctx, hwcso, MESA_SHADER_FRAGMENT);
 }
 
 static void
@@ -614,7 +614,7 @@ panfrost_set_vertex_buffers(
 static void
 panfrost_set_constant_buffer(
         struct pipe_context *pctx,
-        enum pipe_shader_type shader, uint index, bool take_ownership,
+        gl_shader_stage shader, uint index, bool take_ownership,
         const struct pipe_constant_buffer *buf)
 {
         struct panfrost_context *ctx = pan_context(pctx);
@@ -646,7 +646,7 @@ panfrost_set_stencil_ref(
 static void
 panfrost_set_sampler_views(
         struct pipe_context *pctx,
-        enum pipe_shader_type shader,
+        gl_shader_stage shader,
         unsigned start_slot, unsigned num_views,
         unsigned unbind_num_trailing_slots,
         bool take_ownership,
@@ -701,7 +701,7 @@ panfrost_set_sampler_views(
 static void
 panfrost_set_shader_buffers(
         struct pipe_context *pctx,
-        enum pipe_shader_type shader,
+        gl_shader_stage shader,
         unsigned start, unsigned count,
         const struct pipe_shader_buffer *buffers,
         unsigned writable_bitmask)

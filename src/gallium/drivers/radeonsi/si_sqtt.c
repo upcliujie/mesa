@@ -976,10 +976,10 @@ si_sqtt_pipeline_is_registered(struct ac_thread_trace_data *thread_trace_data,
 
 
 static enum rgp_hardware_stages
-si_sqtt_pipe_to_rgp_shader_stage(union si_shader_key* key, enum pipe_shader_type stage)
+si_sqtt_pipe_to_rgp_shader_stage(union si_shader_key* key, gl_shader_stage stage)
 {
    switch (stage) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       if (key->ge.as_ls)
          return RGP_HW_STAGE_LS;
       else if (key->ge.as_es)
@@ -988,20 +988,20 @@ si_sqtt_pipe_to_rgp_shader_stage(union si_shader_key* key, enum pipe_shader_type
          return RGP_HW_STAGE_GS;
       else
          return RGP_HW_STAGE_VS;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       return RGP_HW_STAGE_HS;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       if (key->ge.as_es)
          return RGP_HW_STAGE_ES;
       else if (key->ge.as_ngg)
          return RGP_HW_STAGE_GS;
       else
          return RGP_HW_STAGE_VS;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       return RGP_HW_STAGE_GS;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return RGP_HW_STAGE_PS;
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       return RGP_HW_STAGE_CS;
    default:
       unreachable("invalid mesa shader stage");
@@ -1026,16 +1026,16 @@ si_sqtt_add_code_object(struct si_context* sctx,
    record->pipeline_hash[0] = pipeline_hash;
    record->pipeline_hash[1] = pipeline_hash;
 
-   for (unsigned i = 0; i < PIPE_SHADER_TYPES; i++) {
+   for (gl_shader_stage i = MESA_SHADER_VERTEX; i < MESA_SHADER_STAGES; i++) {
       struct si_shader *shader;
       enum rgp_hardware_stages hw_stage;
 
       if (is_compute) {
-         if (i != PIPE_SHADER_COMPUTE)
+         if (i != MESA_SHADER_COMPUTE)
             continue;
          shader = &sctx->cs_shader_state.program->shader;
          hw_stage = RGP_HW_STAGE_CS;
-      } else if (i != PIPE_SHADER_COMPUTE) {
+      } else if (i != MESA_SHADER_COMPUTE) {
          if (!sctx->shaders[i].cso || !sctx->shaders[i].current)
             continue;
          shader = sctx->shaders[i].current;
@@ -1052,21 +1052,20 @@ si_sqtt_add_code_object(struct si_context* sctx,
       memcpy(code, shader->binary.uploaded_code, shader->binary.uploaded_code_size);
 
       uint64_t va = shader->bo->gpu_address;
-      unsigned gl_shader_stage = tgsi_processor_to_shader_stage(i);
-      record->shader_data[gl_shader_stage].hash[0] = _mesa_hash_data(code, shader->binary.uploaded_code_size);
-      record->shader_data[gl_shader_stage].hash[1] = record->shader_data[gl_shader_stage].hash[0];
-      record->shader_data[gl_shader_stage].code_size = shader->binary.uploaded_code_size;
-      record->shader_data[gl_shader_stage].code = code;
-      record->shader_data[gl_shader_stage].vgpr_count = shader->config.num_vgprs;
-      record->shader_data[gl_shader_stage].sgpr_count = shader->config.num_sgprs;
-      record->shader_data[gl_shader_stage].base_address = va & 0xffffffffffff;
-      record->shader_data[gl_shader_stage].elf_symbol_offset = 0;
-      record->shader_data[gl_shader_stage].hw_stage = hw_stage;
-      record->shader_data[gl_shader_stage].is_combined = false;
-      record->shader_data[gl_shader_stage].scratch_memory_size = shader->config.scratch_bytes_per_wave;
-      record->shader_data[gl_shader_stage].wavefront_size = shader->wave_size;
+      record->shader_data[i].hash[0] = _mesa_hash_data(code, shader->binary.uploaded_code_size);
+      record->shader_data[i].hash[1] = record->shader_data[i].hash[0];
+      record->shader_data[i].code_size = shader->binary.uploaded_code_size;
+      record->shader_data[i].code = code;
+      record->shader_data[i].vgpr_count = shader->config.num_vgprs;
+      record->shader_data[i].sgpr_count = shader->config.num_sgprs;
+      record->shader_data[i].base_address = va & 0xffffffffffff;
+      record->shader_data[i].elf_symbol_offset = 0;
+      record->shader_data[i].hw_stage = hw_stage;
+      record->shader_data[i].is_combined = false;
+      record->shader_data[i].scratch_memory_size = shader->config.scratch_bytes_per_wave;
+      record->shader_data[i].wavefront_size = shader->wave_size;
 
-      record->shader_stages_mask |= 1 << gl_shader_stage;
+      record->shader_stages_mask |= 1 << i;
       record->num_shaders_combined++;
    }
 

@@ -364,7 +364,7 @@ struct fd_context {
     * specific bitmask of state "groups".
     */
    uint32_t gen_dirty_map[NUM_DIRTY_BITS];
-   uint32_t gen_dirty_shader_map[PIPE_SHADER_TYPES][NUM_DIRTY_SHADER_BITS];
+   uint32_t gen_dirty_shader_map[MESA_SHADER_STAGES][NUM_DIRTY_SHADER_BITS];
 
    /* Bitmask of all possible gen_dirty bits: */
    uint32_t gen_all_dirty;
@@ -376,14 +376,14 @@ struct fd_context {
    enum fd_dirty_3d_state dirty dt;
 
    /* per shader-stage dirty status: */
-   enum fd_dirty_shader_state dirty_shader[PIPE_SHADER_TYPES] dt;
+   enum fd_dirty_shader_state dirty_shader[MESA_SHADER_STAGES] dt;
 
    void *compute dt;
    struct pipe_blend_state *blend dt;
    struct pipe_rasterizer_state *rasterizer dt;
    struct pipe_depth_stencil_alpha_state *zsa dt;
 
-   struct fd_texture_stateobj tex[PIPE_SHADER_TYPES] dt;
+   struct fd_texture_stateobj tex[MESA_SHADER_STAGES] dt;
 
    struct fd_program_stateobj prog dt;
    uint32_t bound_shader_stages dt;
@@ -399,9 +399,9 @@ struct fd_context {
    struct pipe_poly_stipple stipple dt;
    struct pipe_viewport_state viewport dt;
    struct pipe_scissor_state viewport_scissor dt;
-   struct fd_constbuf_stateobj constbuf[PIPE_SHADER_TYPES] dt;
-   struct fd_shaderbuf_stateobj shaderbuf[PIPE_SHADER_TYPES] dt;
-   struct fd_shaderimg_stateobj shaderimg[PIPE_SHADER_TYPES] dt;
+   struct fd_constbuf_stateobj constbuf[MESA_SHADER_STAGES] dt;
+   struct fd_shaderbuf_stateobj shaderbuf[MESA_SHADER_STAGES] dt;
+   struct fd_shaderimg_stateobj shaderimg[MESA_SHADER_STAGES] dt;
    struct fd_streamout_stateobj streamout dt;
    struct fd_global_bindings_stateobj global_bindings dt;
    struct pipe_clip_state ucp dt;
@@ -606,7 +606,7 @@ fd_context_dirty(struct fd_context *ctx, enum fd_dirty_3d_state dirty) assert_dt
 }
 
 static inline void
-fd_context_dirty_shader(struct fd_context *ctx, enum pipe_shader_type shader,
+fd_context_dirty_shader(struct fd_context *ctx, gl_shader_stage shader,
                         enum fd_dirty_shader_state dirty) assert_dt
 {
    const enum fd_dirty_3d_state map[] = {
@@ -642,7 +642,7 @@ fd_context_all_dirty(struct fd_context *ctx) assert_dt
     */
    ctx->gen_dirty = ctx->gen_all_dirty;
 
-   for (unsigned i = 0; i < PIPE_SHADER_TYPES; i++)
+   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++)
       ctx->dirty_shader[i] = (enum fd_dirty_shader_state) ~0;
 }
 
@@ -652,13 +652,13 @@ fd_context_all_clean(struct fd_context *ctx) assert_dt
    ctx->last.dirty = false;
    ctx->dirty = (enum fd_dirty_3d_state)0;
    ctx->gen_dirty = 0;
-   for (unsigned i = 0; i < PIPE_SHADER_TYPES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
       /* don't mark compute state as clean, since it is not emitted
        * during normal draw call.  The places that call _all_dirty(),
        * it is safe to mark compute state dirty as well, but the
        * inverse is not true.
        */
-      if (i == PIPE_SHADER_COMPUTE)
+      if (i == MESA_SHADER_COMPUTE)
          continue;
       ctx->dirty_shader[i] = (enum fd_dirty_shader_state)0;
    }
@@ -683,7 +683,7 @@ fd_context_add_map(struct fd_context *ctx, enum fd_dirty_3d_state dirty,
  * specific dirty bit
  */
 static inline void
-fd_context_add_shader_map(struct fd_context *ctx, enum pipe_shader_type shader,
+fd_context_add_shader_map(struct fd_context *ctx, gl_shader_stage shader,
                           enum fd_dirty_shader_state dirty, uint32_t gen_dirty)
 {
    u_foreach_bit (b, dirty) {

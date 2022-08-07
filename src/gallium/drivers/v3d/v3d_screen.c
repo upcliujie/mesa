@@ -352,14 +352,14 @@ v3d_screen_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type s
         struct v3d_screen *screen = v3d_screen(pscreen);
 
         switch (shader) {
-        case PIPE_SHADER_VERTEX:
-        case PIPE_SHADER_FRAGMENT:
+        case MESA_SHADER_VERTEX:
+        case MESA_SHADER_FRAGMENT:
                 break;
-        case PIPE_SHADER_COMPUTE:
+        case MESA_SHADER_COMPUTE:
                 if (!screen->has_csd)
                         return 0;
                 break;
-        case PIPE_SHADER_GEOMETRY:
+        case MESA_SHADER_GEOMETRY:
                 if (screen->devinfo.ver < 41)
                         return 0;
                 break;
@@ -380,17 +380,17 @@ v3d_screen_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type s
 
         case PIPE_SHADER_CAP_MAX_INPUTS:
                 switch (shader) {
-                case PIPE_SHADER_VERTEX:
+                case MESA_SHADER_VERTEX:
                         return V3D_MAX_VS_INPUTS / 4;
-                case PIPE_SHADER_GEOMETRY:
+                case MESA_SHADER_GEOMETRY:
                         return V3D_MAX_GS_INPUTS / 4;
-                case PIPE_SHADER_FRAGMENT:
+                case MESA_SHADER_FRAGMENT:
                         return V3D_MAX_FS_INPUTS / 4;
                 default:
                         return 0;
                 };
         case PIPE_SHADER_CAP_MAX_OUTPUTS:
-                if (shader == PIPE_SHADER_FRAGMENT)
+                if (shader == MESA_SHADER_FRAGMENT)
                         return 4;
                 else
                         return V3D_MAX_FS_INPUTS / 4;
@@ -445,8 +445,8 @@ v3d_screen_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type s
 
         case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
                 if (screen->has_cache_flush) {
-                        if (shader == PIPE_SHADER_VERTEX ||
-                            shader == PIPE_SHADER_GEOMETRY) {
+                        if (shader == MESA_SHADER_VERTEX ||
+                            shader == MESA_SHADER_GEOMETRY) {
                                 return 0;
                         }
                         return PIPE_MAX_SHADER_BUFFERS;

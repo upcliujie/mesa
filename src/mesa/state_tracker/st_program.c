@@ -256,8 +256,8 @@ delete_variant(struct st_context *st, struct st_variant *v, GLenum target)
          /* We can't delete a shader with a context different from the one
           * that created it.  Add it to the creating context's zombie list.
           */
-         enum pipe_shader_type type =
-            pipe_shader_type_from_mesa(_mesa_program_enum_to_shader_stage(target));
+         gl_shader_stage type =
+            _mesa_program_enum_to_shader_stage(target);
 
          st_save_zombie_shader(v->st, type, v->driver_shader);
       }
@@ -503,7 +503,6 @@ st_create_nir_shader(struct st_context *st, struct pipe_shader_state *state)
    assert(state->type == PIPE_SHADER_IR_NIR);
    nir_shader *nir = state->ir.nir;
    gl_shader_stage stage = nir->info.stage;
-   enum pipe_shader_type sh = pipe_shader_type_from_mesa(stage);
 
    if (ST_DEBUG & DEBUG_PRINT_IR) {
       fprintf(stderr, "NIR before handing off to driver:\n");
@@ -511,7 +510,7 @@ st_create_nir_shader(struct st_context *st, struct pipe_shader_state *state)
    }
 
    if (PIPE_SHADER_IR_NIR !=
-       screen->get_shader_param(screen, sh, PIPE_SHADER_CAP_PREFERRED_IR)) {
+       screen->get_shader_param(screen, stage, PIPE_SHADER_CAP_PREFERRED_IR)) {
       /* u_screen.c defaults to images as deref enabled for some reason (which
        * is what radeonsi wants), but nir-to-tgsi requires lowered images.
        */

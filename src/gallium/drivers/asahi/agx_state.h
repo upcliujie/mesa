@@ -154,7 +154,7 @@ struct agx_context {
    struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
    uint32_t vb_mask;
 
-   struct agx_stage stage[PIPE_SHADER_TYPES];
+   struct agx_stage stage[MESA_SHADER_STAGES];
    struct agx_attribute *attributes;
    struct agx_rasterizer *rast;
    struct agx_zsa zs;
@@ -315,7 +315,7 @@ agx_transfer(struct pipe_transfer *p)
 
 uint64_t
 agx_push_location(struct agx_context *ctx, struct agx_push push,
-                  enum pipe_shader_type stage);
+                  gl_shader_stage stage);
 
 uint64_t
 agx_build_clear_pipeline(struct agx_context *ctx, uint32_t code, uint64_t clear_buf);

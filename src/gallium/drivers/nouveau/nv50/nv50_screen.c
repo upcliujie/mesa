@@ -451,16 +451,16 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
 static int
 nv50_screen_get_shader_param(struct pipe_screen *pscreen,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    const struct nouveau_screen *screen = nouveau_screen(pscreen);
 
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_GEOMETRY:
-   case PIPE_SHADER_FRAGMENT:
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_GEOMETRY:
+   case MESA_SHADER_FRAGMENT:
+   case MESA_SHADER_COMPUTE:
       break;
    default:
       return 0;
@@ -475,7 +475,7 @@ nv50_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH:
       return 4;
    case PIPE_SHADER_CAP_MAX_INPUTS:
-      if (shader == PIPE_SHADER_VERTEX)
+      if (shader == MESA_SHADER_VERTEX)
          return 32;
       return 15;
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
@@ -485,7 +485,7 @@ nv50_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_CONST_BUFFERS:
       return NV50_MAX_PIPE_CONSTBUFS;
    case PIPE_SHADER_CAP_INDIRECT_OUTPUT_ADDR:
-      return shader != PIPE_SHADER_FRAGMENT;
+      return shader != MESA_SHADER_FRAGMENT;
    case PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR:
    case PIPE_SHADER_CAP_INDIRECT_TEMP_ADDR:
    case PIPE_SHADER_CAP_INDIRECT_CONST_ADDR:
@@ -511,9 +511,9 @@ nv50_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
       return MIN2(16, PIPE_MAX_SAMPLERS);
    case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
-      return shader == PIPE_SHADER_COMPUTE ? NV50_MAX_GLOBALS - 1 : 0;
+      return shader == MESA_SHADER_COMPUTE ? NV50_MAX_GLOBALS - 1 : 0;
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
-      return shader == PIPE_SHADER_COMPUTE ? NV50_MAX_GLOBALS - 1 : 0;
+      return shader == MESA_SHADER_COMPUTE ? NV50_MAX_GLOBALS - 1 : 0;
    case PIPE_SHADER_CAP_PREFERRED_IR:
       return screen->prefer_nir ? PIPE_SHADER_IR_NIR : PIPE_SHADER_IR_TGSI;
    case PIPE_SHADER_CAP_SUPPORTED_IRS:
@@ -991,7 +991,7 @@ int nv50_tls_realloc(struct nv50_screen *screen, unsigned tls_space)
 static const void *
 nv50_screen_get_compiler_options(struct pipe_screen *pscreen,
                                  enum pipe_shader_ir ir,
-                                 enum pipe_shader_type shader)
+                                 gl_shader_stage shader)
 {
    if (ir == PIPE_SHADER_IR_NIR)
       return nv50_ir_nir_shader_compiler_options(NVISA_G80_CHIPSET, shader);

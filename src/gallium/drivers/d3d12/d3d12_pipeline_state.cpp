@@ -229,38 +229,38 @@ create_gfx_pipeline_state(struct d3d12_context *ctx)
 
    nir_shader *last_vertex_stage_nir = NULL;
 
-   if (state->stages[PIPE_SHADER_VERTEX]) {
-      auto shader = state->stages[PIPE_SHADER_VERTEX];
+   if (state->stages[MESA_SHADER_VERTEX]) {
+      auto shader = state->stages[MESA_SHADER_VERTEX];
       pso_desc.VS.BytecodeLength = shader->bytecode_length;
       pso_desc.VS.pShaderBytecode = shader->bytecode;
       last_vertex_stage_nir = shader->nir;
    }
 
-   if (state->stages[PIPE_SHADER_TESS_CTRL]) {
-      auto shader = state->stages[PIPE_SHADER_TESS_CTRL];
+   if (state->stages[MESA_SHADER_TESS_CTRL]) {
+      auto shader = state->stages[MESA_SHADER_TESS_CTRL];
       pso_desc.HS.BytecodeLength = shader->bytecode_length;
       pso_desc.HS.pShaderBytecode = shader->bytecode;
       last_vertex_stage_nir = shader->nir;
    }
 
-   if (state->stages[PIPE_SHADER_TESS_EVAL]) {
-      auto shader = state->stages[PIPE_SHADER_TESS_EVAL];
+   if (state->stages[MESA_SHADER_TESS_EVAL]) {
+      auto shader = state->stages[MESA_SHADER_TESS_EVAL];
       pso_desc.DS.BytecodeLength = shader->bytecode_length;
       pso_desc.DS.pShaderBytecode = shader->bytecode;
       last_vertex_stage_nir = shader->nir;
    }
 
-   if (state->stages[PIPE_SHADER_GEOMETRY]) {
-      auto shader = state->stages[PIPE_SHADER_GEOMETRY];
+   if (state->stages[MESA_SHADER_GEOMETRY]) {
+      auto shader = state->stages[MESA_SHADER_GEOMETRY];
       pso_desc.GS.BytecodeLength = shader->bytecode_length;
       pso_desc.GS.pShaderBytecode = shader->bytecode;
       last_vertex_stage_nir = shader->nir;
    }
 
    bool last_vertex_stage_writes_pos = (last_vertex_stage_nir->info.outputs_written & VARYING_BIT_POS) != 0;
-   if (last_vertex_stage_writes_pos && state->stages[PIPE_SHADER_FRAGMENT] &&
+   if (last_vertex_stage_writes_pos && state->stages[MESA_SHADER_FRAGMENT] &&
        !state->rast->base.rasterizer_discard) {
-      auto shader = state->stages[PIPE_SHADER_FRAGMENT];
+      auto shader = state->stages[MESA_SHADER_FRAGMENT];
       pso_desc.PS.BytecodeLength = shader->bytecode_length;
       pso_desc.PS.pShaderBytecode = shader->bytecode;
    }
@@ -414,7 +414,7 @@ d3d12_gfx_pipeline_state_cache_invalidate(struct d3d12_context *ctx, const void 
 
 void
 d3d12_gfx_pipeline_state_cache_invalidate_shader(struct d3d12_context *ctx,
-                                                 enum pipe_shader_type stage,
+                                                 gl_shader_stage stage,
                                                  struct d3d12_shader_selector *selector)
 {
    struct d3d12_shader *shader = selector->first;

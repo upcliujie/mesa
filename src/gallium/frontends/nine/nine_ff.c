@@ -332,7 +332,7 @@ static void *
 nine_ff_build_vs(struct NineDevice9 *device, struct vs_build_ctx *vs)
 {
     const struct nine_ff_vs_key *key = vs->key;
-    struct ureg_program *ureg = ureg_create(PIPE_SHADER_VERTEX);
+    struct ureg_program *ureg = ureg_create(MESA_SHADER_VERTEX);
     struct ureg_dst oPos, oCol[2], oPsz, oFog;
     struct ureg_dst AR;
     unsigned i, c;
@@ -1319,7 +1319,7 @@ static void *
 nine_ff_build_ps(struct NineDevice9 *device, struct nine_ff_ps_key *key)
 {
     struct ps_build_ctx ps;
-    struct ureg_program *ureg = ureg_create(PIPE_SHADER_FRAGMENT);
+    struct ureg_program *ureg = ureg_create(MESA_SHADER_FRAGMENT);
     struct ureg_dst oCol;
     unsigned s;
     const unsigned texcoord_sn = get_texcoord_sn(device->screen);

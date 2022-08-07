@@ -62,7 +62,7 @@ fd_depth_clip_disabled(struct fd_context *ctx) assert_dt
 }
 
 void fd_set_shader_images(struct pipe_context *pctx,
-                          enum pipe_shader_type shader, unsigned start,
+                          gl_shader_stage shader, unsigned start,
                           unsigned count, unsigned unbind_num_trailing_slots,
                           const struct pipe_image_view *images);
 

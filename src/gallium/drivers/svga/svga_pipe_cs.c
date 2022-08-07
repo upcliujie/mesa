@@ -65,7 +65,7 @@ svga_create_compute_state(struct pipe_context *pipe,
    struct svga_shader *shader = &cs->base;
    shader->id = svga->debug.shader_id++;
    shader->type = templ->ir_type;
-   shader->stage = PIPE_SHADER_COMPUTE;
+   shader->stage = MESA_SHADER_COMPUTE;
 
    /* Collect shader basic info */
    svga_tgsi_scan_shader(&cs->base);

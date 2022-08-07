@@ -53,7 +53,7 @@ get_dummy_vertex_shader(void)
    struct ureg_src src;
    struct ureg_dst dst;
 
-   ureg = ureg_create(PIPE_SHADER_VERTEX);
+   ureg = ureg_create(MESA_SHADER_VERTEX);
    if (!ureg)
       return NULL;
 
@@ -142,7 +142,7 @@ make_vs_key(struct svga_context *svga, struct svga_compile_key *key)
    key->vs.attrib_puint_to_sscaled = svga->curr.velems->attrib_puint_to_sscaled;
 
    /* SVGA_NEW_TEXTURE_BINDING | SVGA_NEW_SAMPLER */
-   svga_init_shader_key_common(svga, PIPE_SHADER_VERTEX, &vs->base, key);
+   svga_init_shader_key_common(svga, MESA_SHADER_VERTEX, &vs->base, key);
 
    /* SVGA_NEW_RAST */
    key->clip_plane_enable = svga->curr.rast->templ.clip_plane_enable;
@@ -222,7 +222,7 @@ compile_passthrough_vs(struct svga_context *svga,
 
    num_inputs = fs->base.tgsi_info.num_inputs;
 
-   ureg = ureg_create(PIPE_SHADER_VERTEX);
+   ureg = ureg_create(MESA_SHADER_VERTEX);
    if (!ureg)
       return PIPE_ERROR_OUT_OF_MEMORY;
 

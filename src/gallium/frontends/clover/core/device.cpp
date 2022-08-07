@@ -215,13 +215,13 @@ device::vendor_id() const {
 
 size_t
 device::max_images_read() const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS);
 }
 
 size_t
 device::max_images_write() const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_MAX_SHADER_IMAGES);
 }
 
@@ -247,7 +247,7 @@ device::max_image_array_number() const {
 
 cl_uint
 device::max_samplers() const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS);
 }
 
@@ -271,13 +271,13 @@ device::max_mem_input() const {
 
 cl_ulong
 device::max_const_buffer_size() const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE);
 }
 
 cl_uint
 device::max_const_buffers() const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_MAX_CONST_BUFFERS);
 }
 
@@ -338,13 +338,13 @@ device::has_doubles() const {
 
 bool
 device::has_halves() const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_FP16);
 }
 
 bool
 device::has_int64_atomics() const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_INT64_ATOMICS);
 }
 
@@ -467,7 +467,7 @@ device::device_clc_version_as_string() const {
 
 bool
 device::supports_ir(enum pipe_shader_ir ir) const {
-   return pipe->get_shader_param(pipe, PIPE_SHADER_COMPUTE,
+   return pipe->get_shader_param(pipe, MESA_SHADER_COMPUTE,
                                  PIPE_SHADER_CAP_SUPPORTED_IRS) & (1 << ir);
 }
 
@@ -520,7 +520,7 @@ device::supported_il_versions() const {
 
 const void *
 device::get_compiler_options(enum pipe_shader_ir ir) const {
-   return pipe->get_compiler_options(pipe, ir, PIPE_SHADER_COMPUTE);
+   return pipe->get_compiler_options(pipe, ir, MESA_SHADER_COMPUTE);
 }
 
 cl_version

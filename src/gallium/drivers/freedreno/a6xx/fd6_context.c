@@ -171,15 +171,15 @@ setup_state_map(struct fd_context *ctx)
                       BIT(FD6_GROUP_CONST));
    fd_context_add_map(ctx, FD_DIRTY_STREAMOUT, BIT(FD6_GROUP_SO));
 
-   fd_context_add_shader_map(ctx, PIPE_SHADER_VERTEX, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_VERTEX, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_VS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_TESS_CTRL, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_TESS_CTRL, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_HS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_TESS_EVAL, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_TESS_EVAL, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_DS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_GEOMETRY, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_GEOMETRY, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_GS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_FRAGMENT, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_FRAGMENT, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_FS_TEX));
 
    /* NOTE: scissor enabled bit is part of rasterizer state, but

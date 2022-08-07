@@ -87,11 +87,11 @@ agx_blitter_save(struct agx_context *ctx, struct blitter_context *blitter,
 {
    util_blitter_save_vertex_buffer_slot(blitter, ctx->vertex_buffers);
    util_blitter_save_vertex_elements(blitter, ctx->attributes);
-   util_blitter_save_vertex_shader(blitter, ctx->stage[PIPE_SHADER_VERTEX].shader);
+   util_blitter_save_vertex_shader(blitter, ctx->stage[MESA_SHADER_VERTEX].shader);
    util_blitter_save_rasterizer(blitter, ctx->rast);
    util_blitter_save_viewport(blitter, &ctx->viewport);
    util_blitter_save_scissor(blitter, &ctx->scissor);
-   util_blitter_save_fragment_shader(blitter, ctx->stage[PIPE_SHADER_FRAGMENT].shader);
+   util_blitter_save_fragment_shader(blitter, ctx->stage[MESA_SHADER_FRAGMENT].shader);
    util_blitter_save_blend(blitter, ctx->blend);
    util_blitter_save_depth_stencil_alpha(blitter, &ctx->zs);
    util_blitter_save_stencil_ref(blitter, &ctx->stencil_ref);
@@ -100,13 +100,13 @@ agx_blitter_save(struct agx_context *ctx, struct blitter_context *blitter,
 
    util_blitter_save_framebuffer(blitter, &ctx->framebuffer);
    util_blitter_save_fragment_sampler_states(blitter,
-         ctx->stage[PIPE_SHADER_FRAGMENT].sampler_count,
-         (void **)(ctx->stage[PIPE_SHADER_FRAGMENT].samplers));
+         ctx->stage[MESA_SHADER_FRAGMENT].sampler_count,
+         (void **)(ctx->stage[MESA_SHADER_FRAGMENT].samplers));
    util_blitter_save_fragment_sampler_views(blitter,
-         ctx->stage[PIPE_SHADER_FRAGMENT].texture_count,
-         (struct pipe_sampler_view **)ctx->stage[PIPE_SHADER_FRAGMENT].textures);
+         ctx->stage[MESA_SHADER_FRAGMENT].texture_count,
+         (struct pipe_sampler_view **)ctx->stage[MESA_SHADER_FRAGMENT].textures);
    util_blitter_save_fragment_constant_buffer_slot(blitter,
-         ctx->stage[PIPE_SHADER_FRAGMENT].cb);
+         ctx->stage[MESA_SHADER_FRAGMENT].cb);
 
    if (!render_cond) {
       util_blitter_save_render_condition(blitter,

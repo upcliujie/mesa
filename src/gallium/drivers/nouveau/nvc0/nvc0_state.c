@@ -487,7 +487,7 @@ nvc0_stage_sampler_states_bind(struct nvc0_context *nvc0,
 
 static void
 nvc0_bind_sampler_states(struct pipe_context *pipe,
-                         enum pipe_shader_type shader,
+                         gl_shader_stage shader,
                          unsigned start, unsigned nr, void **samplers)
 {
    const unsigned s = nvc0_shader_stage(shader);
@@ -575,7 +575,7 @@ nvc0_stage_set_sampler_views(struct nvc0_context *nvc0, int s,
 }
 
 static void
-nvc0_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
+nvc0_set_sampler_views(struct pipe_context *pipe, gl_shader_stage shader,
                        unsigned start, unsigned nr,
                        unsigned unbind_num_trailing_slots,
                        bool take_ownership,
@@ -650,7 +650,7 @@ static void *
 nvc0_vp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nvc0_sp_state_create(pipe, cso, PIPE_SHADER_VERTEX);
+   return nvc0_sp_state_create(pipe, cso, MESA_SHADER_VERTEX);
 }
 
 static void
@@ -666,7 +666,7 @@ static void *
 nvc0_fp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nvc0_sp_state_create(pipe, cso, PIPE_SHADER_FRAGMENT);
+   return nvc0_sp_state_create(pipe, cso, MESA_SHADER_FRAGMENT);
 }
 
 static void
@@ -682,7 +682,7 @@ static void *
 nvc0_gp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nvc0_sp_state_create(pipe, cso, PIPE_SHADER_GEOMETRY);
+   return nvc0_sp_state_create(pipe, cso, MESA_SHADER_GEOMETRY);
 }
 
 static void
@@ -698,7 +698,7 @@ static void *
 nvc0_tcp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nvc0_sp_state_create(pipe, cso, PIPE_SHADER_TESS_CTRL);
+   return nvc0_sp_state_create(pipe, cso, MESA_SHADER_TESS_CTRL);
 }
 
 static void
@@ -714,7 +714,7 @@ static void *
 nvc0_tep_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nvc0_sp_state_create(pipe, cso, PIPE_SHADER_TESS_EVAL);
+   return nvc0_sp_state_create(pipe, cso, MESA_SHADER_TESS_EVAL);
 }
 
 static void
@@ -735,7 +735,7 @@ nvc0_cp_state_create(struct pipe_context *pipe,
    prog = CALLOC_STRUCT(nvc0_program);
    if (!prog)
       return NULL;
-   prog->type = PIPE_SHADER_COMPUTE;
+   prog->type = MESA_SHADER_COMPUTE;
    prog->pipe.type = cso->ir_type;
 
    prog->cp.smem_size = cso->req_local_mem;
@@ -754,7 +754,7 @@ nvc0_cp_state_create(struct pipe_context *pipe,
       const struct pipe_binary_program_header *hdr = cso->prog;
 
       blob_reader_init(&reader, hdr->blob, hdr->num_bytes);
-      prog->pipe.ir.nir = nir_deserialize(NULL, pipe->screen->get_compiler_options(pipe->screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE), &reader);
+      prog->pipe.ir.nir = nir_deserialize(NULL, pipe->screen->get_compiler_options(pipe->screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE), &reader);
       prog->pipe.type = PIPE_SHADER_IR_NIR;
       break;
    }
@@ -783,7 +783,7 @@ nvc0_cp_state_bind(struct pipe_context *pipe, void *hwcso)
 
 static void
 nvc0_set_constant_buffer(struct pipe_context *pipe,
-                         enum pipe_shader_type shader, uint index,
+                         gl_shader_stage shader, uint index,
                          bool take_ownership,
                          const struct pipe_constant_buffer *cb)
 {
@@ -792,7 +792,7 @@ nvc0_set_constant_buffer(struct pipe_context *pipe,
    const unsigned s = nvc0_shader_stage(shader);
    const unsigned i = index;
 
-   if (unlikely(shader == PIPE_SHADER_COMPUTE)) {
+   if (unlikely(shader == MESA_SHADER_COMPUTE)) {
       if (nvc0->constbuf[s][i].user)
          nvc0->constbuf[s][i].u.buf = NULL;
       else
@@ -1307,7 +1307,7 @@ nvc0_bind_images_range(struct nvc0_context *nvc0, const unsigned s,
 
 static void
 nvc0_set_shader_images(struct pipe_context *pipe,
-                       enum pipe_shader_type shader,
+                       gl_shader_stage shader,
                        unsigned start, unsigned nr,
                        unsigned unbind_num_trailing_slots,
                        const struct pipe_image_view *images)
@@ -1377,7 +1377,7 @@ nvc0_bind_buffers_range(struct nvc0_context *nvc0, const unsigned t,
 
 static void
 nvc0_set_shader_buffers(struct pipe_context *pipe,
-                        enum pipe_shader_type shader,
+                        gl_shader_stage shader,
                         unsigned start, unsigned nr,
                         const struct pipe_shader_buffer *buffers,
                         unsigned writable_bitmask)

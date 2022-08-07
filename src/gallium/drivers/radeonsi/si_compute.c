@@ -238,9 +238,9 @@ static void *si_create_compute_state(struct pipe_context *ctx, const struct pipe
    sel->stage = MESA_SHADER_COMPUTE;
    sel->screen = sscreen;
    sel->const_and_shader_buf_descriptors_index =
-      si_const_and_shader_buffer_descriptors_idx(PIPE_SHADER_COMPUTE);
+      si_const_and_shader_buffer_descriptors_idx(MESA_SHADER_COMPUTE);
    sel->sampler_and_images_descriptors_index =
-      si_sampler_and_image_descriptors_idx(PIPE_SHADER_COMPUTE);
+      si_sampler_and_image_descriptors_idx(MESA_SHADER_COMPUTE);
    sel->info.base.shared_size = cso->req_local_mem;
    program->shader.selector = &program->sel;
    program->shader.wave_size = si_determine_wave_size(sscreen, &program->shader);
@@ -899,7 +899,7 @@ static bool si_check_needs_implicit_sync(struct si_context *sctx)
     * TODO: Bindless textures are not handled, and thus are not synchronized.
     */
    struct si_shader_info *info = &sctx->cs_shader_state.program->sel.info;
-   struct si_samplers *samplers = &sctx->samplers[PIPE_SHADER_COMPUTE];
+   struct si_samplers *samplers = &sctx->samplers[MESA_SHADER_COMPUTE];
    unsigned mask = samplers->enabled_mask & info->base.textures_used[0];
 
    while (mask) {
@@ -912,7 +912,7 @@ static bool si_check_needs_implicit_sync(struct si_context *sctx)
          return true;
    }
 
-   struct si_images *images = &sctx->images[PIPE_SHADER_COMPUTE];
+   struct si_images *images = &sctx->images[MESA_SHADER_COMPUTE];
    mask = u_bit_consecutive(0, info->base.num_images) & images->enabled_mask;
 
    while (mask) {
@@ -956,7 +956,7 @@ static void si_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info
                                        sctx->framebuffer.all_DCC_pipe_aligned);
       }
 
-      si_decompress_textures(sctx, 1 << PIPE_SHADER_COMPUTE);
+      si_decompress_textures(sctx, 1 << MESA_SHADER_COMPUTE);
    }
 
    /* Add buffer sizes for memory checking in need_cs_space. */
@@ -1041,11 +1041,11 @@ static void si_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info
    }
 
    /* Mark displayable DCC as dirty for bound images. */
-   unsigned display_dcc_store_mask = sctx->images[PIPE_SHADER_COMPUTE].display_dcc_store_mask &
+   unsigned display_dcc_store_mask = sctx->images[MESA_SHADER_COMPUTE].display_dcc_store_mask &
                                BITFIELD_MASK(program->sel.info.base.num_images);
    while (display_dcc_store_mask) {
       struct si_texture *tex = (struct si_texture *)
-         sctx->images[PIPE_SHADER_COMPUTE].views[u_bit_scan(&display_dcc_store_mask)].resource;
+         sctx->images[MESA_SHADER_COMPUTE].views[u_bit_scan(&display_dcc_store_mask)].resource;
 
       si_mark_display_dcc_dirty(sctx, tex);
    }

@@ -71,7 +71,7 @@ struct zink_shader_info {
 const void *
 zink_get_compiler_options(struct pipe_screen *screen,
                           enum pipe_shader_ir ir,
-                          enum pipe_shader_type shader);
+                          gl_shader_stage shader);
 
 struct nir_shader *
 zink_tgsi_to_nir(struct pipe_screen *screen, const struct tgsi_token *tokens);

@@ -351,18 +351,18 @@ enum pipe_error
 svga_validate_sampler_resources(struct svga_context *svga,
                                 enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   gl_shader_stage shader, first_shader, last_shader;
 
    assert(svga_have_vgpu10(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_TESS_EVAL;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_TESS_EVAL;
    }
    else {
       assert(svga_have_gl43(svga));
-      first_shader = PIPE_SHADER_COMPUTE;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
+      last_shader = MESA_SHADER_COMPUTE;
    }
 
    for (shader = first_shader; shader <= last_shader; shader++) {
@@ -393,7 +393,7 @@ svga_validate_sampler_resources(struct svga_context *svga,
          }
       }
 
-      if (shader == PIPE_SHADER_FRAGMENT &&
+      if (shader == MESA_SHADER_FRAGMENT &&
           svga->curr.rast->templ.poly_stipple_enable) {
          const unsigned unit =
             svga_fs_variant(svga->state.hw_draw.fs)->pstipple_sampler_unit;
@@ -434,18 +434,18 @@ enum pipe_error
 svga_validate_constant_buffers(struct svga_context *svga,
                                enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   gl_shader_stage shader, first_shader, last_shader;
 
    assert(svga_have_vgpu10(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_TESS_EVAL;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_TESS_EVAL;
    }
    else {
       assert(svga_have_gl43(svga));
-      first_shader = PIPE_SHADER_COMPUTE;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
+      last_shader = MESA_SHADER_COMPUTE;
    }
 
    for (shader = first_shader; shader <= last_shader; shader++) {
@@ -534,19 +534,19 @@ enum pipe_error
 svga_validate_image_views(struct svga_context *svga,
                           enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   gl_shader_stage shader, first_shader, last_shader;
    bool rebind = svga->rebind.flags.images;
    enum pipe_error ret;
 
    assert(svga_have_gl43(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_TESS_EVAL;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_TESS_EVAL;
    }
    else {
-      first_shader = PIPE_SHADER_COMPUTE;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
+      last_shader = MESA_SHADER_COMPUTE;
    }
 
    for (shader = first_shader; shader <= last_shader; shader++) {
@@ -573,19 +573,19 @@ enum pipe_error
 svga_validate_shader_buffers(struct svga_context *svga,
                              enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   gl_shader_stage shader, first_shader, last_shader;
    bool rebind = svga->rebind.flags.shaderbufs;
    enum pipe_error ret;
 
    assert(svga_have_gl43(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_TESS_EVAL;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_TESS_EVAL;
    }
    else {
-      first_shader = PIPE_SHADER_COMPUTE;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
+      last_shader = MESA_SHADER_COMPUTE;
    }
 
    for (shader = first_shader; shader <= last_shader; shader++) {

@@ -193,7 +193,7 @@ static void evergreen_cs_set_constant_buffer(struct r600_context *rctx,
 	cb.buffer = buffer;
 	cb.user_buffer = NULL;
 
-	rctx->b.b.set_constant_buffer(&rctx->b.b, PIPE_SHADER_COMPUTE, cb_index, false, &cb);
+	rctx->b.b.set_constant_buffer(&rctx->b.b, MESA_SHADER_COMPUTE, cb_index, false, &cb);
 }
 
 /* We need to define these R600 registers here, because we can't include
@@ -443,7 +443,7 @@ static void *evergreen_create_compute_state(struct pipe_context *ctx,
 
 	if (shader->ir_type == PIPE_SHADER_IR_TGSI ||
 	    shader->ir_type == PIPE_SHADER_IR_NIR) {
-		shader->sel = r600_create_shader_state_tokens(ctx, cso->prog, cso->ir_type, PIPE_SHADER_COMPUTE);
+		shader->sel = r600_create_shader_state_tokens(ctx, cso->prog, cso->ir_type, MESA_SHADER_COMPUTE);
 
 		/* Precompile the shader with the expected shader key, to reduce jank at
 		 * draw time. Also produces output for shader-db.
@@ -770,13 +770,13 @@ static void compute_emit_cs(struct r600_context *rctx,
 			rctx->cs_block_grid_sizes[i + 4] = info->indirect ? indirect_grid[i] : info->grid[i];
 		}
 		rctx->cs_block_grid_sizes[3] = rctx->cs_block_grid_sizes[7] = 0;
-		rctx->driver_consts[PIPE_SHADER_COMPUTE].cs_block_grid_size_dirty = true;
+		rctx->driver_consts[MESA_SHADER_COMPUTE].cs_block_grid_size_dirty = true;
 
 		evergreen_emit_atomic_buffer_setup_count(rctx, current, combined_atomics, &atomic_used_mask);
 		r600_need_cs_space(rctx, 0, true, util_bitcount(atomic_used_mask));
 
 		if (need_buf_const) {
-			eg_setup_buffer_constants(rctx, PIPE_SHADER_COMPUTE);
+			eg_setup_buffer_constants(rctx, MESA_SHADER_COMPUTE);
 		}
 		r600_update_driver_const_buffers(rctx, true);
 
@@ -830,13 +830,13 @@ static void compute_emit_cs(struct r600_context *rctx,
 	r600_emit_atom(rctx, &rctx->b.render_cond_atom);
 
 	/* Emit constant buffer state */
-	r600_emit_atom(rctx, &rctx->constbuf_state[PIPE_SHADER_COMPUTE].atom);
+	r600_emit_atom(rctx, &rctx->constbuf_state[MESA_SHADER_COMPUTE].atom);
 
 	/* Emit sampler state */
-	r600_emit_atom(rctx, &rctx->samplers[PIPE_SHADER_COMPUTE].states.atom);
+	r600_emit_atom(rctx, &rctx->samplers[MESA_SHADER_COMPUTE].states.atom);
 
 	/* Emit sampler view (texture resource) state */
-	r600_emit_atom(rctx, &rctx->samplers[PIPE_SHADER_COMPUTE].views.atom);
+	r600_emit_atom(rctx, &rctx->samplers[MESA_SHADER_COMPUTE].views.atom);
 
 	/* Emit images state */
 	r600_emit_atom(rctx, &rctx->compute_images.atom);

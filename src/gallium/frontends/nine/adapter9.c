@@ -73,32 +73,32 @@ NineAdapter9_ctor( struct NineAdapter9 *This,
 
     /* checks minimum requirements, most are vs3/ps3 strict requirements */
     if (!has_sm3(hal) ||
-        hal->get_shader_param(hal, PIPE_SHADER_VERTEX,
+        hal->get_shader_param(hal, MESA_SHADER_VERTEX,
                               PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE) < 256 * sizeof(float[4]) ||
-        hal->get_shader_param(hal, PIPE_SHADER_FRAGMENT,
+        hal->get_shader_param(hal, MESA_SHADER_FRAGMENT,
                               PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE) < 244 * sizeof(float[4]) ||
-        hal->get_shader_param(hal, PIPE_SHADER_VERTEX,
+        hal->get_shader_param(hal, MESA_SHADER_VERTEX,
                               PIPE_SHADER_CAP_MAX_TEMPS) < 32 ||
-        hal->get_shader_param(hal, PIPE_SHADER_FRAGMENT,
+        hal->get_shader_param(hal, MESA_SHADER_FRAGMENT,
                               PIPE_SHADER_CAP_MAX_TEMPS) < 32 ||
-        hal->get_shader_param(hal, PIPE_SHADER_VERTEX,
+        hal->get_shader_param(hal, MESA_SHADER_VERTEX,
                               PIPE_SHADER_CAP_MAX_INPUTS) < 16 ||
-        hal->get_shader_param(hal, PIPE_SHADER_FRAGMENT,
+        hal->get_shader_param(hal, MESA_SHADER_FRAGMENT,
                               PIPE_SHADER_CAP_MAX_INPUTS) < 10 ||
-        hal->get_shader_param(hal, PIPE_SHADER_FRAGMENT,
+        hal->get_shader_param(hal, MESA_SHADER_FRAGMENT,
                               PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS) < 16) {
         ERR("Your card is not supported by Gallium Nine. Minimum requirement "
             "is >= r500, >= nv50, >= i965\n");
         return D3DERR_DRIVERINTERNALERROR;
     }
     /* for r500 */
-    if (hal->get_shader_param(hal, PIPE_SHADER_VERTEX,
+    if (hal->get_shader_param(hal, MESA_SHADER_VERTEX,
                               PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE) < 276 * sizeof(float[4]) || /* we put bool and int constants with float constants */
-        hal->get_shader_param(hal, PIPE_SHADER_VERTEX,
+        hal->get_shader_param(hal, MESA_SHADER_VERTEX,
                               PIPE_SHADER_CAP_MAX_TEMPS) < 40 || /* we use some more temp registers */
-        hal->get_shader_param(hal, PIPE_SHADER_FRAGMENT,
+        hal->get_shader_param(hal, MESA_SHADER_FRAGMENT,
                               PIPE_SHADER_CAP_MAX_TEMPS) < 40 ||
-        hal->get_shader_param(hal, PIPE_SHADER_FRAGMENT,
+        hal->get_shader_param(hal, MESA_SHADER_FRAGMENT,
                               PIPE_SHADER_CAP_MAX_INPUTS) < 20) /* we don't pack inputs as much as we could */
         ERR("Your card is at the limit of Gallium Nine requirements. Some games "
             "may run into issues because requirements are too tight\n");
@@ -339,7 +339,7 @@ NineAdapter9_CheckDeviceFormat( struct NineAdapter9 *This,
     }
 
     if ((Usage & D3DUSAGE_QUERY_VERTEXTEXTURE) &&
-        !screen->get_shader_param(screen, PIPE_SHADER_VERTEX, PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS))
+        !screen->get_shader_param(screen, MESA_SHADER_VERTEX, PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS))
         return D3DERR_NOTAVAILABLE;
 
     /* API hack because setting RT[0] to NULL is forbidden */
@@ -853,7 +853,7 @@ NineAdapter9_GetDeviceCaps( struct NineAdapter9 *This,
     pCaps->MaxVertexIndex = 0xFFFFFF; /* <- wine, really 0xFFFFFFFF */
     pCaps->MaxStreams =
         _min(screen->get_shader_param(screen,
-                 PIPE_SHADER_VERTEX, PIPE_SHADER_CAP_MAX_INPUTS),
+                 MESA_SHADER_VERTEX, PIPE_SHADER_CAP_MAX_INPUTS),
              16);
 
     pCaps->MaxStreamStride = screen->get_param(screen,
@@ -913,13 +913,13 @@ NineAdapter9_GetDeviceCaps( struct NineAdapter9 *This,
 
     pCaps->VS20Caps.Caps = D3DVS20CAPS_PREDICATION;
     pCaps->VS20Caps.DynamicFlowControlDepth = /* XXX is this dynamic ? */
-        screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+        screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                  PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH);
     pCaps->VS20Caps.NumTemps =
-        screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+        screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                  PIPE_SHADER_CAP_MAX_TEMPS);
     pCaps->VS20Caps.StaticFlowControlDepth = /* XXX is this static ? */
-        screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+        screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                  PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH);
 
     /* also check for values < 0, because get_shader_param may return unsigned */
@@ -939,27 +939,27 @@ NineAdapter9_GetDeviceCaps( struct NineAdapter9 *This,
     pCaps->PS20Caps.Caps = D3DPS20CAPS_ARBITRARYSWIZZLE |
                            D3DPS20CAPS_GRADIENTINSTRUCTIONS |
                            D3DPS20CAPS_PREDICATION;
-    if (screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+    if (screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_TEX_INSTRUCTIONS) ==
-        screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+        screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_INSTRUCTIONS))
         pCaps->PS20Caps.Caps |= D3DPS20CAPS_NOTEXINSTRUCTIONLIMIT;
-    if (screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+    if (screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_TEX_INSTRUCTIONS) ==
-        screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+        screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_TEX_INDIRECTIONS))
         pCaps->PS20Caps.Caps |= D3DPS20CAPS_NODEPENDENTREADLIMIT;
     pCaps->PS20Caps.DynamicFlowControlDepth = /* XXX is this dynamic ? */
-        screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+        screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH);
     pCaps->PS20Caps.NumTemps =
-        screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+        screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_TEMPS);
     pCaps->PS20Caps.StaticFlowControlDepth =  /* XXX is this static ? */
-        screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+        screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH);
     pCaps->PS20Caps.NumInstructionSlots =
-        screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+        screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_INSTRUCTIONS);
 
     if (pCaps->PS20Caps.DynamicFlowControlDepth > D3DPS20_MAX_DYNAMICFLOWCONTROLDEPTH
@@ -978,7 +978,7 @@ NineAdapter9_GetDeviceCaps( struct NineAdapter9 *This,
     assert(pCaps->PS20Caps.NumInstructionSlots >= D3DPS20_MIN_NUMINSTRUCTIONSLOTS);
 
 
-    if (screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+    if (screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                  PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS))
         pCaps->VertexTextureFilterCaps = pCaps->TextureFilterCaps &
             ~(D3DPTFILTERCAPS_MIPFPOINT |
@@ -987,10 +987,10 @@ NineAdapter9_GetDeviceCaps( struct NineAdapter9 *This,
         pCaps->VertexTextureFilterCaps = 0;
 
     pCaps->MaxVertexShader30InstructionSlots =
-        screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+        screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                  PIPE_SHADER_CAP_MAX_INSTRUCTIONS);
     pCaps->MaxPixelShader30InstructionSlots =
-        screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+        screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                  PIPE_SHADER_CAP_MAX_INSTRUCTIONS);
     if (pCaps->MaxVertexShader30InstructionSlots > D3DMAX30SHADERINSTRUCTIONS)
         pCaps->MaxVertexShader30InstructionSlots = D3DMAX30SHADERINSTRUCTIONS;

@@ -346,10 +346,10 @@ i915_create_sampler_state(struct pipe_context *pipe,
 
 static void
 i915_bind_sampler_states(struct pipe_context *pipe,
-                         enum pipe_shader_type shader, unsigned start,
+                         gl_shader_stage shader, unsigned start,
                          unsigned num, void **samplers)
 {
-   if (shader != PIPE_SHADER_FRAGMENT) {
+   if (shader != MESA_SHADER_FRAGMENT) {
       assert(num == 0);
       return;
    }
@@ -654,7 +654,7 @@ i915_delete_vs_state(struct pipe_context *pipe, void *shader)
 
 static void
 i915_set_constant_buffer(struct pipe_context *pipe,
-                         enum pipe_shader_type shader, uint32_t index,
+                         gl_shader_stage shader, uint32_t index,
                          bool take_ownership,
                          const struct pipe_constant_buffer *cb)
 {
@@ -664,7 +664,7 @@ i915_set_constant_buffer(struct pipe_context *pipe,
    bool diff = true;
 
    /* XXX don't support geom shaders now */
-   if (shader == PIPE_SHADER_GEOMETRY)
+   if (shader == MESA_SHADER_GEOMETRY)
       return;
 
    if (cb && cb->user_buffer) {
@@ -706,7 +706,7 @@ i915_set_constant_buffer(struct pipe_context *pipe,
    i915->current.num_user_constants[shader] = new_num;
 
    if (diff)
-      i915->dirty |= shader == PIPE_SHADER_VERTEX ? I915_NEW_VS_CONSTANTS
+      i915->dirty |= shader == MESA_SHADER_VERTEX ? I915_NEW_VS_CONSTANTS
                                                   : I915_NEW_FS_CONSTANTS;
 
    if (cb && cb->user_buffer) {
@@ -715,13 +715,13 @@ i915_set_constant_buffer(struct pipe_context *pipe,
 }
 
 static void
-i915_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
+i915_set_sampler_views(struct pipe_context *pipe, gl_shader_stage shader,
                        unsigned start, unsigned num,
                        unsigned unbind_num_trailing_slots,
                        bool take_ownership,
                        struct pipe_sampler_view **views)
 {
-   if (shader != PIPE_SHADER_FRAGMENT) {
+   if (shader != MESA_SHADER_FRAGMENT) {
       /* No support for VS samplers, because it would mean accessing the
        * write-combined maps of the textures, which is very slow.  VS samplers
        * are not a required feature of GL2.1 or GLES2.

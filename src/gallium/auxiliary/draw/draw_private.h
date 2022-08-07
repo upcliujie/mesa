@@ -408,13 +408,13 @@ struct draw_context
     * we only handle vertex and geometry shaders in the draw module, but
     * there may be more in the future (ex: hull and tessellation).
     */
-   struct pipe_sampler_view *sampler_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_SAMPLER_VIEWS];
-   unsigned num_sampler_views[PIPE_SHADER_TYPES];
-   const struct pipe_sampler_state *samplers[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
-   unsigned num_samplers[PIPE_SHADER_TYPES];
+   struct pipe_sampler_view *sampler_views[MESA_SHADER_STAGES][PIPE_MAX_SHADER_SAMPLER_VIEWS];
+   unsigned num_sampler_views[MESA_SHADER_STAGES];
+   const struct pipe_sampler_state *samplers[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+   unsigned num_samplers[MESA_SHADER_STAGES];
 
-   struct pipe_image_view *images[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
-   unsigned num_images[PIPE_SHADER_TYPES];
+   struct pipe_image_view *images[MESA_SHADER_STAGES][PIPE_MAX_SHADER_IMAGES];
+   unsigned num_images[MESA_SHADER_STAGES];
 
    struct pipe_query_data_pipeline_statistics statistics;
    boolean collect_statistics;

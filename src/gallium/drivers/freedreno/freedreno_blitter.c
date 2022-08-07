@@ -97,11 +97,11 @@ fd_blitter_pipe_begin(struct fd_context *ctx, bool render_cond) assert_dt
    util_blitter_save_sample_mask(ctx->blitter, ctx->sample_mask, ctx->min_samples);
    util_blitter_save_framebuffer(ctx->blitter, &ctx->framebuffer);
    util_blitter_save_fragment_sampler_states(
-      ctx->blitter, ctx->tex[PIPE_SHADER_FRAGMENT].num_samplers,
-      (void **)ctx->tex[PIPE_SHADER_FRAGMENT].samplers);
+      ctx->blitter, ctx->tex[MESA_SHADER_FRAGMENT].num_samplers,
+      (void **)ctx->tex[MESA_SHADER_FRAGMENT].samplers);
    util_blitter_save_fragment_sampler_views(
-      ctx->blitter, ctx->tex[PIPE_SHADER_FRAGMENT].num_textures,
-      ctx->tex[PIPE_SHADER_FRAGMENT].textures);
+      ctx->blitter, ctx->tex[MESA_SHADER_FRAGMENT].num_textures,
+      ctx->tex[MESA_SHADER_FRAGMENT].textures);
    if (!render_cond)
       util_blitter_save_render_condition(ctx->blitter, ctx->cond_query,
                                          ctx->cond_cond, ctx->cond_mode);
@@ -199,7 +199,7 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
    fd_blitter_pipe_begin(ctx, false);
 
    util_blitter_save_fragment_constant_buffer_slot(
-      ctx->blitter, ctx->constbuf[PIPE_SHADER_FRAGMENT].cb);
+      ctx->blitter, ctx->constbuf[MESA_SHADER_FRAGMENT].cb);
 
    util_blitter_common_clear_setup(blitter, pfb->width, pfb->height, buffers,
                                    NULL, NULL);
@@ -211,7 +211,7 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
       .buffer_size = 16,
       .user_buffer = &color->ui,
    };
-   pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 0, false, &cb);
+   pctx->set_constant_buffer(pctx, MESA_SHADER_FRAGMENT, 0, false, &cb);
 
    unsigned rs_idx = pfb->samples > 1 ? 1 : 0;
    if (!ctx->clear_rs_state[rs_idx]) {

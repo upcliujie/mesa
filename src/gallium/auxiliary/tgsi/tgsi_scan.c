@@ -114,7 +114,7 @@ scan_src_operand(struct tgsi_shader_info *info,
 {
    int ind = src->Register.Index;
 
-   if (info->processor == PIPE_SHADER_COMPUTE &&
+   if (info->processor == MESA_SHADER_COMPUTE &&
        src->Register.File == TGSI_FILE_SYSTEM_VALUE) {
       unsigned name, mask;
 
@@ -156,7 +156,7 @@ scan_src_operand(struct tgsi_shader_info *info,
          info->input_usage_mask[ind] |= usage_mask_after_swizzle;
       }
 
-      if (info->processor == PIPE_SHADER_FRAGMENT) {
+      if (info->processor == MESA_SHADER_FRAGMENT) {
          unsigned name, index, input;
 
          if (src->Register.Indirect && src->Indirect.ArrayID)
@@ -220,7 +220,7 @@ scan_src_operand(struct tgsi_shader_info *info,
       }
    }
 
-   if (info->processor == PIPE_SHADER_TESS_CTRL &&
+   if (info->processor == MESA_SHADER_TESS_CTRL &&
        src->Register.File == TGSI_FILE_OUTPUT) {
       unsigned input;
 
@@ -783,7 +783,7 @@ scan_declaration(struct tgsi_shader_info *info,
             info->writes_edgeflag = true;
             break;
          case TGSI_SEMANTIC_POSITION:
-            if (procType == PIPE_SHADER_FRAGMENT)
+            if (procType == MESA_SHADER_FRAGMENT)
                info->writes_z = true;
             else
                info->writes_position = true;
@@ -880,16 +880,16 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
       return;
    }
    procType = parse.FullHeader.Processor.Processor;
-   assert(procType == PIPE_SHADER_FRAGMENT ||
-          procType == PIPE_SHADER_VERTEX ||
-          procType == PIPE_SHADER_GEOMETRY ||
-          procType == PIPE_SHADER_TESS_CTRL ||
-          procType == PIPE_SHADER_TESS_EVAL ||
-          procType == PIPE_SHADER_COMPUTE);
+   assert(procType == MESA_SHADER_FRAGMENT ||
+          procType == MESA_SHADER_VERTEX ||
+          procType == MESA_SHADER_GEOMETRY ||
+          procType == MESA_SHADER_TESS_CTRL ||
+          procType == MESA_SHADER_TESS_EVAL ||
+          procType == MESA_SHADER_COMPUTE);
    info->processor = procType;
    info->num_tokens = tgsi_num_tokens(parse.Tokens);
 
-   if (procType == PIPE_SHADER_GEOMETRY)
+   if (procType == MESA_SHADER_GEOMETRY)
       info->properties[TGSI_PROPERTY_GS_INVOCATIONS] = 1;
 
    /**
@@ -923,7 +923,7 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
    /* The dimensions of the IN decleration in geometry shader have
     * to be deduced from the type of the input primitive.
     */
-   if (procType == PIPE_SHADER_GEOMETRY) {
+   if (procType == MESA_SHADER_GEOMETRY) {
       unsigned input_primitive =
             info->properties[TGSI_PROPERTY_GS_INPUT_PRIM];
       int num_verts = u_vertices_per_prim(input_primitive);
@@ -1170,7 +1170,7 @@ tgsi_scan_tess_ctrl(const struct tgsi_token *tokens,
 {
    memset(out, 0, sizeof(*out));
 
-   if (info->processor != PIPE_SHADER_TESS_CTRL)
+   if (info->processor != MESA_SHADER_TESS_CTRL)
       return;
 
    struct tgsi_parse_context parse;

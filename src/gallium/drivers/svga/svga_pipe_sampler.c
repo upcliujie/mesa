@@ -295,7 +295,7 @@ svga_create_sampler_state(struct pipe_context *pipe,
 
 static void
 svga_bind_sampler_states(struct pipe_context *pipe,
-                         enum pipe_shader_type shader,
+                         gl_shader_stage shader,
                          unsigned start,
                          unsigned num,
                          void **samplers)
@@ -304,11 +304,11 @@ svga_bind_sampler_states(struct pipe_context *pipe,
    unsigned i;
    boolean any_change = FALSE;
 
-   assert(shader < PIPE_SHADER_TYPES);
+   assert(shader < MESA_SHADER_STAGES);
    assert(start + num <= PIPE_MAX_SAMPLERS);
 
    /* Pre-VGPU10 only supports FS textures */
-   if (!svga_have_vgpu10(svga) && shader != PIPE_SHADER_FRAGMENT)
+   if (!svga_have_vgpu10(svga) && shader != MESA_SHADER_FRAGMENT)
       return;
 
    for (i = 0; i < num; i++) {
@@ -411,7 +411,7 @@ svga_sampler_view_destroy(struct pipe_context *pipe,
 
 static void
 svga_set_sampler_views(struct pipe_context *pipe,
-                       enum pipe_shader_type shader,
+                       gl_shader_stage shader,
                        unsigned start,
                        unsigned num,
                        unsigned unbind_num_trailing_slots,
@@ -424,11 +424,11 @@ svga_set_sampler_views(struct pipe_context *pipe,
    uint i;
    boolean any_change = FALSE;
 
-   assert(shader < PIPE_SHADER_TYPES);
+   assert(shader < MESA_SHADER_STAGES);
    assert(start + num <= ARRAY_SIZE(svga->curr.sampler_views[shader]));
 
    /* Pre-VGPU10 only supports FS textures */
-   if (!svga_have_vgpu10(svga) && shader != PIPE_SHADER_FRAGMENT) {
+   if (!svga_have_vgpu10(svga) && shader != MESA_SHADER_FRAGMENT) {
       for (unsigned i = 0; i < num; i++) {
          struct pipe_sampler_view *view = views[i];
          pipe_sampler_view_reference(&view, NULL);
@@ -535,9 +535,9 @@ done:
 void
 svga_cleanup_sampler_state(struct svga_context *svga)
 {
-   enum pipe_shader_type shader;
+   gl_shader_stage shader;
 
-   for (shader = 0; shader <= PIPE_SHADER_COMPUTE; shader++) {
+   for (shader = 0; shader <= MESA_SHADER_COMPUTE; shader++) {
       unsigned i;
 
       for (i = 0; i < svga->state.hw_draw.num_sampler_views[shader]; i++) {

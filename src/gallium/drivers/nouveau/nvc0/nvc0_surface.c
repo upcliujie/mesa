@@ -845,7 +845,7 @@ nvc0_blitter_make_vp(struct pipe_context *pipe)
    struct ureg_src ipos, itex;
    struct ureg_dst opos, otex;
 
-   ureg = ureg_create(PIPE_SHADER_VERTEX);
+   ureg = ureg_create(MESA_SHADER_VERTEX);
    if (!ureg)
       return NULL;
 

@@ -695,13 +695,13 @@ v3dX(emit_state)(struct pipe_context *pctx)
          * the view, so we merge them together at draw time.
          */
         if (v3d->dirty & V3D_DIRTY_FRAGTEX)
-                emit_textures(v3d, &v3d->tex[PIPE_SHADER_FRAGMENT]);
+                emit_textures(v3d, &v3d->tex[MESA_SHADER_FRAGMENT]);
 
         if (v3d->dirty & V3D_DIRTY_GEOMTEX)
-                emit_textures(v3d, &v3d->tex[PIPE_SHADER_GEOMETRY]);
+                emit_textures(v3d, &v3d->tex[MESA_SHADER_GEOMETRY]);
 
         if (v3d->dirty & V3D_DIRTY_VERTTEX)
-                emit_textures(v3d, &v3d->tex[PIPE_SHADER_VERTEX]);
+                emit_textures(v3d, &v3d->tex[MESA_SHADER_VERTEX]);
 #endif
 
         if (v3d->dirty & V3D_DIRTY_FLAT_SHADE_FLAGS) {

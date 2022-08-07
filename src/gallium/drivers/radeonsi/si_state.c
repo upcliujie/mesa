@@ -681,7 +681,7 @@ static bool si_check_blend_dst_sampler_noop(struct si_context *sctx)
           sel->info.writes_1_if_tex_is_1 != 0xff) {
          /* Now check if the texture is cleared to 1 */
          int unit = sctx->shader.ps.cso->info.writes_1_if_tex_is_1 - 1;
-         struct si_samplers *samp = &sctx->samplers[PIPE_SHADER_FRAGMENT];
+         struct si_samplers *samp = &sctx->samplers[MESA_SHADER_FRAGMENT];
          if ((1u << unit) & samp->enabled_mask) {
             struct si_texture* tex = (struct si_texture*) samp->views[unit]->texture;
             if (tex->is_depth &&
@@ -1492,12 +1492,12 @@ void si_set_occlusion_query_state(struct si_context *sctx, bool old_perfect_enab
 
 void si_save_qbo_state(struct si_context *sctx, struct si_qbo_state *st)
 {
-   si_get_pipe_constant_buffer(sctx, PIPE_SHADER_COMPUTE, 0, &st->saved_const0);
+   si_get_pipe_constant_buffer(sctx, MESA_SHADER_COMPUTE, 0, &st->saved_const0);
 }
 
 void si_restore_qbo_state(struct si_context *sctx, struct si_qbo_state *st)
 {
-   sctx->b.set_constant_buffer(&sctx->b, PIPE_SHADER_COMPUTE, 0, true, &st->saved_const0);
+   sctx->b.set_constant_buffer(&sctx->b, MESA_SHADER_COMPUTE, 0, true, &st->saved_const0);
 }
 
 static void si_emit_db_render_state(struct si_context *sctx)

@@ -38,7 +38,7 @@
 
 struct zink_descriptor_data_lazy {
    struct zink_descriptor_data base;
-   VkDescriptorUpdateTemplateEntry push_entries[PIPE_SHADER_TYPES]; //gfx+fbfetch
+   VkDescriptorUpdateTemplateEntry push_entries[MESA_SHADER_STAGES]; //gfx+fbfetch
    VkDescriptorUpdateTemplateEntry compute_push_entry;
    bool push_state_changed[2]; //gfx, compute
    uint8_t state_changed[2]; //gfx, compute
@@ -81,7 +81,7 @@ init_template_entry(struct zink_shader *shader, enum zink_descriptor_type type,
                     unsigned idx, VkDescriptorUpdateTemplateEntry *entry, unsigned *entry_idx, bool flatten_dynamic)
 {
     int index = shader->bindings[type][idx].index;
-    enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+    gl_shader_stage stage = shader->nir->info.stage;
     entry->dstArrayElement = 0;
     entry->dstBinding = shader->bindings[type][idx].binding;
     entry->descriptorCount = shader->bindings[type][idx].size;
@@ -163,8 +163,8 @@ bool
 zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program *pg)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkDescriptorSetLayoutBinding bindings[ZINK_DESCRIPTOR_TYPES][PIPE_SHADER_TYPES * 64];
-   VkDescriptorUpdateTemplateEntry entries[ZINK_DESCRIPTOR_TYPES][PIPE_SHADER_TYPES * 64];
+   VkDescriptorSetLayoutBinding bindings[ZINK_DESCRIPTOR_TYPES][MESA_SHADER_STAGES * 64];
+   VkDescriptorUpdateTemplateEntry entries[ZINK_DESCRIPTOR_TYPES][MESA_SHADER_STAGES * 64];
    unsigned num_bindings[ZINK_DESCRIPTOR_TYPES] = {0};
    uint8_t has_bindings = 0;
    unsigned push_count = 0;
@@ -182,7 +182,7 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
    if (!pg->dd)
       return false;
 
-   if (!pg->is_compute && stages[PIPE_SHADER_FRAGMENT]->nir->info.fs.uses_fbfetch_output) {
+   if (!pg->is_compute && stages[MESA_SHADER_FRAGMENT]->nir->info.fs.uses_fbfetch_output) {
       zink_descriptor_util_init_fbfetch(ctx);
       push_count = 1;
       pg->dd->fbfetch = true;
@@ -197,7 +197,7 @@ zink_descriptor_program_init_lazy(struct zink_context *ctx, struct zink_program 
       if (!shader)
          continue;
 
-      enum pipe_shader_type stage = pipe_shader_type_from_mesa(shader->nir->info.stage);
+      gl_shader_stage stage = shader->nir->info.stage;
       VkShaderStageFlagBits stage_flags = zink_shader_stage(stage);
       for (int j = 0; j < ZINK_DESCRIPTOR_TYPES; j++) {
          unsigned desc_set = screen->desc_set_id[j] - 1;
@@ -651,14 +651,14 @@ zink_descriptors_update_lazy(struct zink_context *ctx, bool is_compute)
 }
 
 void
-zink_context_invalidate_descriptor_state_lazy(struct zink_context *ctx, enum pipe_shader_type shader, enum zink_descriptor_type type, unsigned start, unsigned count)
+zink_context_invalidate_descriptor_state_lazy(struct zink_context *ctx, gl_shader_stage shader, enum zink_descriptor_type type, unsigned start, unsigned count)
 {
    if (type == ZINK_DESCRIPTOR_TYPE_UBO && !start)
-      dd_lazy(ctx)->push_state_changed[shader == PIPE_SHADER_COMPUTE] = true;
+      dd_lazy(ctx)->push_state_changed[shader == MESA_SHADER_COMPUTE] = true;
    else {
       if (zink_screen(ctx->base.screen)->compact_descriptors && type > ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW)
          type -= ZINK_DESCRIPTOR_COMPACT;
-      dd_lazy(ctx)->state_changed[shader == PIPE_SHADER_COMPUTE] |= BITFIELD_BIT(type);
+      dd_lazy(ctx)->state_changed[shader == MESA_SHADER_COMPUTE] |= BITFIELD_BIT(type);
    }
 }
 
@@ -743,7 +743,7 @@ zink_batch_descriptor_init_lazy(struct zink_screen *screen, struct zink_batch_st
 static void
 init_push_template_entry(VkDescriptorUpdateTemplateEntry *entry, unsigned i)
 {
-   entry->dstBinding = tgsi_processor_to_shader_stage(i);
+   entry->dstBinding = i;
    entry->descriptorCount = 1;
    entry->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
    entry->offset = offsetof(struct zink_context, di.ubos[i][0]);
@@ -765,7 +765,7 @@ zink_descriptors_init_lazy(struct zink_context *ctx)
          VkDescriptorUpdateTemplateEntry *entry = &dd_lazy(ctx)->push_entries[i];
          init_push_template_entry(entry, i);
       }
-      init_push_template_entry(&dd_lazy(ctx)->compute_push_entry, PIPE_SHADER_COMPUTE);
+      init_push_template_entry(&dd_lazy(ctx)->compute_push_entry, MESA_SHADER_COMPUTE);
       VkDescriptorUpdateTemplateEntry *entry = &dd_lazy(ctx)->push_entries[ZINK_SHADER_COUNT]; //fbfetch
       entry->dstBinding = ZINK_FBFETCH_BINDING;
       entry->descriptorCount = 1;

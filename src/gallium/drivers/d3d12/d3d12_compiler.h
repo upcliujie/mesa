@@ -62,7 +62,7 @@ enum d3d12_state_var {
 const void *
 d3d12_get_compiler_options(struct pipe_screen *screen,
                            enum pipe_shader_ir ir,
-                           enum pipe_shader_type shader);
+                           gl_shader_stage shader);
 
 struct d3d12_varying_info {
    struct {
@@ -84,7 +84,7 @@ struct d3d12_image_format_conversion_info {
 
 struct d3d12_shader_key {
    uint32_t hash;
-   enum pipe_shader_type stage;
+   gl_shader_stage stage;
 
    struct d3d12_varying_info required_varying_inputs;
    struct d3d12_varying_info required_varying_outputs;
@@ -216,7 +216,7 @@ struct d3d12_tcs_variant_key
 };
 
 struct d3d12_shader_selector {
-   enum pipe_shader_type stage;
+   gl_shader_stage stage;
    nir_shader *initial;
    struct d3d12_shader *first;
    struct d3d12_shader *current;
@@ -238,7 +238,7 @@ struct d3d12_context;
 
 struct d3d12_shader_selector *
 d3d12_create_shader(struct d3d12_context *ctx,
-                    enum pipe_shader_type stage,
+                    gl_shader_stage stage,
                     const struct pipe_shader_state *shader);
 
 struct d3d12_shader_selector *

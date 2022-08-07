@@ -262,7 +262,7 @@ st_pbo_draw(struct st_context *st, const struct st_pbo_addresses *addr,
       cb.buffer_offset = 0;
       cb.buffer_size = sizeof(addr->constants);
 
-      pipe->set_constant_buffer(pipe, PIPE_SHADER_FRAGMENT, 0, false, &cb);
+      pipe->set_constant_buffer(pipe, MESA_SHADER_FRAGMENT, 0, false, &cb);
 
       pipe_resource_reference(&cb.buffer, NULL);
    }
@@ -341,7 +341,7 @@ st_pbo_create_gs(struct st_context *st)
    struct ureg_src imm;
    unsigned i;
 
-   ureg = ureg_create(PIPE_SHADER_GEOMETRY);
+   ureg = ureg_create(MESA_SHADER_GEOMETRY);
    if (!ureg)
       return NULL;
 
@@ -653,7 +653,7 @@ st_init_pbo_helpers(struct st_context *st)
    st->pbo.upload_enabled =
       screen->get_param(screen, PIPE_CAP_TEXTURE_BUFFER_OBJECTS) &&
       screen->get_param(screen, PIPE_CAP_TEXTURE_BUFFER_OFFSET_ALIGNMENT) >= 1 &&
-      screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_INTEGERS);
+      screen->get_shader_param(screen, MESA_SHADER_FRAGMENT, PIPE_SHADER_CAP_INTEGERS);
    if (!st->pbo.upload_enabled)
       return;
 
@@ -661,7 +661,7 @@ st_init_pbo_helpers(struct st_context *st)
       st->pbo.upload_enabled &&
       screen->get_param(screen, PIPE_CAP_SAMPLER_VIEW_TARGET) &&
       screen->get_param(screen, PIPE_CAP_FRAMEBUFFER_NO_ATTACHMENT) &&
-      screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+      screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                        PIPE_SHADER_CAP_MAX_SHADER_IMAGES) >= 1;
 
    st->pbo.rgba_only =
@@ -671,7 +671,7 @@ st_init_pbo_helpers(struct st_context *st)
       if (screen->get_param(screen, PIPE_CAP_VS_LAYER_VIEWPORT)) {
          st->pbo.layers = true;
       } else if (screen->get_param(screen, PIPE_CAP_MAX_GEOMETRY_OUTPUT_VERTICES) >= 3 &&
-                 screen->get_shader_param(screen, PIPE_SHADER_GEOMETRY,
+                 screen->get_shader_param(screen, MESA_SHADER_GEOMETRY,
                                           PIPE_SHADER_CAP_PREFERRED_IR) != PIPE_SHADER_IR_NIR) {
          /* As the download GS is created in TGSI, and TGSI to NIR translation
           * is not implemented for GS, avoid using GS for drivers preferring

@@ -98,7 +98,7 @@ panfrost_get_index_buffer(struct panfrost_batch *batch,
 
         if (!info->has_user_indices) {
                 /* Only resources can be directly mapped */
-                panfrost_batch_read_rsrc(batch, rsrc, PIPE_SHADER_VERTEX);
+                panfrost_batch_read_rsrc(batch, rsrc, MESA_SHADER_VERTEX);
                 return rsrc->image.data.bo->ptr.gpu + offset;
         } else {
                 /* Otherwise, we need to upload to transient memory */
@@ -238,7 +238,7 @@ panfrost_set_batch_masks_zs(struct panfrost_batch *batch)
 
 void
 panfrost_track_image_access(struct panfrost_batch *batch,
-                            enum pipe_shader_type stage,
+                            gl_shader_stage stage,
                             struct pipe_image_view *image)
 {
         struct panfrost_resource *rsrc = pan_resource(image->resource);

@@ -84,7 +84,7 @@ svga_create_uav_buffer(struct svga_context *svga,
  */
 static void
 svga_set_shader_buffers(struct pipe_context *pipe,
-                        enum pipe_shader_type shader,
+                        gl_shader_stage shader,
                         unsigned start, unsigned num,
                         const struct pipe_shader_buffer *buffers,
                         unsigned writeable_bitmask)
@@ -254,7 +254,7 @@ svga_init_shader_buffer_functions(struct svga_context *svga)
    svga->pipe.set_hw_atomic_buffers = svga_set_hw_atomic_buffers;
 
    /* Initialize shader buffers */
-   for (unsigned shader = 0; shader < PIPE_SHADER_TYPES; ++shader) {
+   for (unsigned shader = 0; shader < MESA_SHADER_STAGES; ++shader) {
       struct svga_shader_buffer *hw_buf =
          &svga->state.hw_draw.shader_buffers[shader][0];
       struct svga_shader_buffer *cur_buf =

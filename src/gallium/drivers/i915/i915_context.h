@@ -144,7 +144,7 @@ struct i915_state {
    unsigned dynamic[I915_MAX_DYNAMIC];
 
    /** number of constants passed in through a constant buffer */
-   uint32_t num_user_constants[PIPE_SHADER_TYPES];
+   uint32_t num_user_constants[MESA_SHADER_STAGES];
 
    /* texture sampler state */
    unsigned sampler[I915_TEX_UNITS][3];
@@ -268,7 +268,7 @@ struct i915_context {
    struct pipe_blend_color blend_color;
    struct pipe_stencil_ref stencil_ref;
    struct pipe_clip_state clip;
-   struct pipe_resource *constants[PIPE_SHADER_TYPES];
+   struct pipe_resource *constants[MESA_SHADER_STAGES];
    struct pipe_framebuffer_state framebuffer;
    struct pipe_poly_stipple poly_stipple;
    struct pipe_scissor_state scissor;

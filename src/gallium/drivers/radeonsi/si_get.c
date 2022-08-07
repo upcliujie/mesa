@@ -433,7 +433,7 @@ static float si_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
    return 0.0f;
 }
 
-static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type shader,
+static int si_get_shader_param(struct pipe_screen *pscreen, gl_shader_stage shader,
                                enum pipe_shader_cap param)
 {
    struct si_screen *sscreen = (struct si_screen *)pscreen;
@@ -447,9 +447,9 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
    case PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH:
       return 16384;
    case PIPE_SHADER_CAP_MAX_INPUTS:
-      return shader == PIPE_SHADER_VERTEX ? SI_MAX_ATTRIBS : 32;
+      return shader == MESA_SHADER_VERTEX ? SI_MAX_ATTRIBS : 32;
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
-      return shader == PIPE_SHADER_FRAGMENT ? 8 : 32;
+      return shader == MESA_SHADER_FRAGMENT ? 8 : 32;
    case PIPE_SHADER_CAP_MAX_TEMPS:
       return 256; /* Max native temporaries. */
    case PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE:
@@ -467,7 +467,7 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
       return PIPE_SHADER_IR_NIR;
 
    case PIPE_SHADER_CAP_SUPPORTED_IRS:
-      if (shader == PIPE_SHADER_COMPUTE) {
+      if (shader == MESA_SHADER_COMPUTE) {
          return (1 << PIPE_SHADER_IR_NATIVE) |
                 (1 << PIPE_SHADER_IR_NIR) |
                 (1 << PIPE_SHADER_IR_TGSI);
@@ -511,7 +511,7 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
 }
 
 static const void *si_get_compiler_options(struct pipe_screen *screen, enum pipe_shader_ir ir,
-                                           enum pipe_shader_type shader)
+                                           gl_shader_stage shader)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
 

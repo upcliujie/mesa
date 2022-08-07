@@ -444,7 +444,7 @@ struct shader_translator
         BYTE major;
         BYTE minor;
     } version;
-    unsigned processor; /* PIPE_SHADER_VERTEX/FRAMGENT */
+    unsigned processor; /* MESA_SHADER_VERTEX/FRAMGENT */
     unsigned num_constf_allowed;
     unsigned num_consti_allowed;
     unsigned num_constb_allowed;
@@ -524,8 +524,8 @@ struct shader_translator
     int16_t op_info_map[D3DSIO_BREAKP + 1];
 };
 
-#define IS_VS (tx->processor == PIPE_SHADER_VERTEX)
-#define IS_PS (tx->processor == PIPE_SHADER_FRAGMENT)
+#define IS_VS (tx->processor == MESA_SHADER_VERTEX)
+#define IS_PS (tx->processor == MESA_SHADER_FRAGMENT)
 
 #define FAILURE_VOID(cond) if ((cond)) {tx->failure=1;return;}
 
@@ -3203,7 +3203,7 @@ create_op_info_map(struct shader_translator *tx)
     for (i = 0; i < ARRAY_SIZE(tx->op_info_map); ++i)
         tx->op_info_map[i] = -1;
 
-    if (tx->processor == PIPE_SHADER_VERTEX) {
+    if (tx->processor == MESA_SHADER_VERTEX) {
         for (i = 0; i < ARRAY_SIZE(inst_table); ++i) {
             assert(inst_table[i].sio < ARRAY_SIZE(tx->op_info_map));
             if (inst_table[i].vert_version.min <= version &&
@@ -3274,8 +3274,8 @@ sm1_read_version(struct shader_translator *tx)
     tx->version.minor = D3DSHADER_VERSION_MINOR(tok);
 
     switch (tok >> 16) {
-    case NINED3D_SM1_VS: tx->processor = PIPE_SHADER_VERTEX; break;
-    case NINED3D_SM1_PS: tx->processor = PIPE_SHADER_FRAGMENT; break;
+    case NINED3D_SM1_VS: tx->processor = MESA_SHADER_VERTEX; break;
+    case NINED3D_SM1_PS: tx->processor = MESA_SHADER_FRAGMENT; break;
     default:
        DBG("Invalid shader type: %x\n", tok);
        tx->processor = ~0;
@@ -3891,22 +3891,22 @@ nine_ureg_create_shader(struct ureg_program                  *ureg,
         return NULL;
 
     assert(((struct tgsi_header *) &tgsi_tokens[0])->HeaderSize >= 2);
-    enum pipe_shader_type shader_type = ((struct tgsi_processor *) &tgsi_tokens[1])->Processor;
+    gl_shader_stage shader_type = ((struct tgsi_processor *) &tgsi_tokens[1])->Processor;
 
     int preferred_ir = screen->get_shader_param(screen, shader_type, PIPE_SHADER_CAP_PREFERRED_IR);
     bool prefer_nir = (preferred_ir == PIPE_SHADER_IR_NIR);
     bool use_nir = prefer_nir ||
-        ((shader_type == PIPE_SHADER_VERTEX) && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NIR_VS)) ||
-        ((shader_type == PIPE_SHADER_FRAGMENT) && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NIR_PS));
+        ((shader_type == MESA_SHADER_VERTEX) && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NIR_VS)) ||
+        ((shader_type == MESA_SHADER_FRAGMENT) && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NIR_PS));
 
     /* Allow user to override preferred IR, this is very useful for debugging */
-    if (unlikely(shader_type == PIPE_SHADER_VERTEX && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NO_NIR_VS)))
+    if (unlikely(shader_type == MESA_SHADER_VERTEX && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NO_NIR_VS)))
         use_nir = false;
-    if (unlikely(shader_type == PIPE_SHADER_FRAGMENT && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NO_NIR_PS)))
+    if (unlikely(shader_type == MESA_SHADER_FRAGMENT && nine_shader_get_debug_flag(NINE_SHADER_DEBUG_OPTION_NO_NIR_PS)))
         use_nir = false;
 
     DUMP("shader type: %s, preferred IR: %s, selected IR: %s\n",
-         shader_type == PIPE_SHADER_VERTEX ? "VS" : "PS",
+         shader_type == MESA_SHADER_VERTEX ? "VS" : "PS",
          prefer_nir ? "NIR" : "TGSI",
          use_nir ? "NIR" : "TGSI");
 
@@ -3922,9 +3922,9 @@ nine_ureg_create_shader(struct ureg_program                  *ureg,
         state.stream_output = *so;
 
     switch (shader_type) {
-    case PIPE_SHADER_VERTEX:
+    case MESA_SHADER_VERTEX:
         return pipe->create_vs_state(pipe, &state);
-    case PIPE_SHADER_FRAGMENT:
+    case MESA_SHADER_FRAGMENT:
         return pipe->create_fs_state(pipe, &state);
     default:
         unreachable("unsupported shader type");
@@ -3975,7 +3975,7 @@ nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info,
         DBG("Shader type mismatch: %u / %u !\n", tx->processor, processor);
         goto out;
     }
-    DUMP("%s%u.%u\n", processor == PIPE_SHADER_VERTEX ? "VS" : "PS",
+    DUMP("%s%u.%u\n", processor == MESA_SHADER_VERTEX ? "VS" : "PS",
          tx->version.major, tx->version.minor);
 
     parse_shader(tx);

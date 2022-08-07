@@ -304,7 +304,7 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
       NIR_PASS_V(nir, nir_lower_compute_system_values, &options);
    }
 
-   if (sscreen->b.get_shader_param(&sscreen->b, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_FP16)) {
+   if (sscreen->b.get_shader_param(&sscreen->b, MESA_SHADER_FRAGMENT, PIPE_SHADER_CAP_FP16)) {
       NIR_PASS_V(nir, nir_lower_mediump_io,
                  /* TODO: LLVM fails to compile this test if VS inputs are 16-bit:
                   * dEQP-GLES31.functional.shaders.builtin_functions.integer.bitfieldinsert.uvec3_lowp_geometry
@@ -318,7 +318,7 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
    /* Run late optimizations to fuse ffma and eliminate 16-bit conversions. */
    si_nir_late_opts(nir);
 
-   if (sscreen->b.get_shader_param(&sscreen->b, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_FP16))
+   if (sscreen->b.get_shader_param(&sscreen->b, MESA_SHADER_FRAGMENT, PIPE_SHADER_CAP_FP16))
       si_late_optimize_16bit_samplers(sscreen, nir);
 
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);

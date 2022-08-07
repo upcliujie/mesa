@@ -57,7 +57,7 @@ NineVertexShader9_ctor( struct NineVertexShader9 *This,
 
     device = This->base.device;
 
-    info.type = PIPE_SHADER_VERTEX;
+    info.type = MESA_SHADER_VERTEX;
     info.byte_code = pFunction;
     info.const_i_base = NINE_CONST_I_BASE(device->max_vs_const_f) / 16;
     info.const_b_base = NINE_CONST_B_BASE(device->max_vs_const_f) / 16;
@@ -210,7 +210,7 @@ NineVertexShader9_GetVariant( struct NineVertexShader9 *This,
         struct nine_shader_info info;
         HRESULT hr;
 
-        info.type = PIPE_SHADER_VERTEX;
+        info.type = MESA_SHADER_VERTEX;
         info.const_i_base = NINE_CONST_I_BASE(device->max_vs_const_f) / 16;
         info.const_b_base = NINE_CONST_B_BASE(device->max_vs_const_f) / 16;
         info.byte_code = This->byte_code.tokens;
@@ -257,7 +257,7 @@ NineVertexShader9_GetVariantProcessVertices( struct NineVertexShader9 *This,
     if (cso)
         return cso;
 
-    info.type = PIPE_SHADER_VERTEX;
+    info.type = MESA_SHADER_VERTEX;
     info.const_i_base = 0;
     info.const_b_base = 0;
     info.byte_code = This->byte_code.tokens;

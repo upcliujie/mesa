@@ -1103,11 +1103,11 @@ bool Source::scanSource()
    info_out->numOutputs = scan.file_max[TGSI_FILE_OUTPUT] + 1;
    info_out->numSysVals = scan.file_max[TGSI_FILE_SYSTEM_VALUE] + 1;
 
-   if (info->type == PIPE_SHADER_FRAGMENT) {
+   if (info->type == MESA_SHADER_FRAGMENT) {
       info_out->prop.fp.writesDepth = scan.writes_z;
       info_out->prop.fp.usesDiscard = scan.uses_kill || info->io.alphaRefBase;
    } else
-   if (info->type == PIPE_SHADER_GEOMETRY) {
+   if (info->type == MESA_SHADER_GEOMETRY) {
       info_out->prop.gp.instanceCount = 1; // default value
    }
 
@@ -1267,7 +1267,7 @@ int Source::inferSysValDirection(unsigned sn) const
       return 0;
 #endif
    case TGSI_SEMANTIC_PRIMID:
-      return (info->type == PIPE_SHADER_FRAGMENT) ? 1 : 0;
+      return (info->type == MESA_SHADER_FRAGMENT) ? 1 : 0;
    default:
       return 0;
    }
@@ -1297,7 +1297,7 @@ bool Source::scanDeclaration(const struct tgsi_full_declaration *decl)
 
    switch (decl->Declaration.File) {
    case TGSI_FILE_INPUT:
-      if (info->type == PIPE_SHADER_VERTEX) {
+      if (info->type == MESA_SHADER_VERTEX) {
          // all vertex attributes are equal
          for (i = first; i <= last; ++i) {
             info_out->in[i].sn = TGSI_SEMANTIC_GENERIC;
@@ -1308,7 +1308,7 @@ bool Source::scanDeclaration(const struct tgsi_full_declaration *decl)
             info_out->in[i].id = i;
             info_out->in[i].sn = sn;
             info_out->in[i].si = si;
-            if (info->type == PIPE_SHADER_FRAGMENT) {
+            if (info->type == MESA_SHADER_FRAGMENT) {
                // translate interpolation mode
                switch (decl->Interp.Interpolate) {
                case TGSI_INTERPOLATE_CONSTANT:
@@ -1338,14 +1338,14 @@ bool Source::scanDeclaration(const struct tgsi_full_declaration *decl)
       for (i = first; i <= last; ++i, ++si) {
          switch (sn) {
          case TGSI_SEMANTIC_POSITION:
-            if (info->type == PIPE_SHADER_FRAGMENT)
+            if (info->type == MESA_SHADER_FRAGMENT)
                info_out->io.fragDepth = i;
             else
             if (clipVertexOutput < 0)
                clipVertexOutput = i;
             break;
          case TGSI_SEMANTIC_COLOR:
-            if (info->type == PIPE_SHADER_FRAGMENT)
+            if (info->type == MESA_SHADER_FRAGMENT)
                info_out->prop.fp.numColourResults++;
             break;
          case TGSI_SEMANTIC_EDGEFLAG:
@@ -1442,7 +1442,7 @@ bool Source::scanDeclaration(const struct tgsi_full_declaration *decl)
    case TGSI_FILE_BUFFER:
       for (i = first; i <= last; ++i)
          bufferAtomics[i] = decl->Declaration.Atomic;
-      if (info->type == PIPE_SHADER_COMPUTE && info->target < NVISA_GF100_CHIPSET) {
+      if (info->type == MESA_SHADER_COMPUTE && info->target < NVISA_GF100_CHIPSET) {
          for (i = first; i <= last; i++) {
             bufferIds.insert(std::make_pair(i, gmemSlot));
             info_out->prop.cp.gmem[gmemSlot++] = {.valid = 1, .image = 0, .slot = i};
@@ -1451,7 +1451,7 @@ bool Source::scanDeclaration(const struct tgsi_full_declaration *decl)
       }
       break;
    case TGSI_FILE_IMAGE:
-      if (info->type == PIPE_SHADER_COMPUTE && info->target < NVISA_GF100_CHIPSET) {
+      if (info->type == MESA_SHADER_COMPUTE && info->target < NVISA_GF100_CHIPSET) {
          for (i = first; i <= last; i++) {
             imageIds.insert(std::make_pair(i, gmemSlot));
             info_out->prop.cp.gmem[gmemSlot++] = {.valid = 1, .image = 1, .slot = i};

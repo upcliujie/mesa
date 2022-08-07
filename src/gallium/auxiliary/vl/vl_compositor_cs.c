@@ -597,7 +597,7 @@ cs_launch(struct vl_compositor *c,
    image.shader_access = image.access = PIPE_IMAGE_ACCESS_READ_WRITE;
    image.format = c->fb_state.cbufs[0]->texture->format;
 
-   ctx->set_shader_images(c->pipe, PIPE_SHADER_COMPUTE, 0, 1, 0, &image);
+   ctx->set_shader_images(c->pipe, MESA_SHADER_COMPUTE, 0, 1, 0, &image);
 
    /* Bind compute shader */
    ctx->bind_compute_state(ctx, cs);
@@ -724,20 +724,20 @@ draw_layers(struct vl_compositor       *c,
          drawn.sampler0_h = (float)layer->sampler_views[0]->texture->height0;
          set_viewport(s, &drawn, samplers);
 
-         c->pipe->bind_sampler_states(c->pipe, PIPE_SHADER_COMPUTE, 0,
+         c->pipe->bind_sampler_states(c->pipe, MESA_SHADER_COMPUTE, 0,
                         num_sampler_views, layer->samplers);
-         c->pipe->set_sampler_views(c->pipe, PIPE_SHADER_COMPUTE, 0,
+         c->pipe->set_sampler_views(c->pipe, MESA_SHADER_COMPUTE, 0,
                         num_sampler_views, 0, false, samplers);
 
          cs_launch(c, layer->cs, &(drawn.area));
 
          /* Unbind. */
-         c->pipe->set_shader_images(c->pipe, PIPE_SHADER_COMPUTE, 0, 0, 1, NULL);
-         c->pipe->set_constant_buffer(c->pipe, PIPE_SHADER_COMPUTE, 0, false, NULL);
-         c->pipe->set_sampler_views(c->pipe, PIPE_SHADER_FRAGMENT, 0, 0,
+         c->pipe->set_shader_images(c->pipe, MESA_SHADER_COMPUTE, 0, 0, 1, NULL);
+         c->pipe->set_constant_buffer(c->pipe, MESA_SHADER_COMPUTE, 0, false, NULL);
+         c->pipe->set_sampler_views(c->pipe, MESA_SHADER_FRAGMENT, 0, 0,
                         num_sampler_views, false, NULL);
          c->pipe->bind_compute_state(c->pipe, NULL);
-         c->pipe->bind_sampler_states(c->pipe, PIPE_SHADER_COMPUTE, 0,
+         c->pipe->bind_sampler_states(c->pipe, MESA_SHADER_COMPUTE, 0,
                         num_sampler_views, NULL);
 
          if (dirty) {
@@ -801,7 +801,7 @@ vl_compositor_cs_render(struct vl_compositor_state *s,
       dirty_area->x1 = dirty_area->y1 = VL_COMPOSITOR_MIN_DIRTY;
    }
 
-   pipe_set_constant_buffer(c->pipe, PIPE_SHADER_COMPUTE, 0, s->shader_params);
+   pipe_set_constant_buffer(c->pipe, MESA_SHADER_COMPUTE, 0, s->shader_params);
 
    draw_layers(c, s, dirty_area);
 }

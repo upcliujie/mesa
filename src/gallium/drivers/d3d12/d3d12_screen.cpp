@@ -386,7 +386,7 @@ d3d12_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 d3d12_get_shader_param(struct pipe_screen *pscreen,
-                       enum pipe_shader_type shader,
+                       gl_shader_stage shader,
                        enum pipe_shader_cap param)
 {
    struct d3d12_screen *screen = d3d12_screen(pscreen);
@@ -402,24 +402,24 @@ d3d12_get_shader_param(struct pipe_screen *pscreen,
 
    case PIPE_SHADER_CAP_MAX_INPUTS:
       switch (shader) {
-      case PIPE_SHADER_VERTEX: return D3D12_VS_INPUT_REGISTER_COUNT;
-      case PIPE_SHADER_FRAGMENT: return D3D12_PS_INPUT_REGISTER_COUNT;
-      case PIPE_SHADER_GEOMETRY: return D3D12_GS_INPUT_REGISTER_COUNT;
-      case PIPE_SHADER_TESS_CTRL: return D3D12_HS_CONTROL_POINT_PHASE_INPUT_REGISTER_COUNT;
-      case PIPE_SHADER_TESS_EVAL: return D3D12_DS_INPUT_CONTROL_POINT_REGISTER_COUNT;
-      case PIPE_SHADER_COMPUTE: return 0;
+      case MESA_SHADER_VERTEX: return D3D12_VS_INPUT_REGISTER_COUNT;
+      case MESA_SHADER_FRAGMENT: return D3D12_PS_INPUT_REGISTER_COUNT;
+      case MESA_SHADER_GEOMETRY: return D3D12_GS_INPUT_REGISTER_COUNT;
+      case MESA_SHADER_TESS_CTRL: return D3D12_HS_CONTROL_POINT_PHASE_INPUT_REGISTER_COUNT;
+      case MESA_SHADER_TESS_EVAL: return D3D12_DS_INPUT_CONTROL_POINT_REGISTER_COUNT;
+      case MESA_SHADER_COMPUTE: return 0;
       default: unreachable("Unexpected shader");
       }
       break;
 
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
       switch (shader) {
-      case PIPE_SHADER_VERTEX: return D3D12_VS_OUTPUT_REGISTER_COUNT;
-      case PIPE_SHADER_FRAGMENT: return D3D12_PS_OUTPUT_REGISTER_COUNT;
-      case PIPE_SHADER_GEOMETRY: return D3D12_GS_OUTPUT_REGISTER_COUNT;
-      case PIPE_SHADER_TESS_CTRL: return D3D12_HS_CONTROL_POINT_PHASE_OUTPUT_REGISTER_COUNT;
-      case PIPE_SHADER_TESS_EVAL: return D3D12_DS_OUTPUT_REGISTER_COUNT;
-      case PIPE_SHADER_COMPUTE: return 0;
+      case MESA_SHADER_VERTEX: return D3D12_VS_OUTPUT_REGISTER_COUNT;
+      case MESA_SHADER_FRAGMENT: return D3D12_PS_OUTPUT_REGISTER_COUNT;
+      case MESA_SHADER_GEOMETRY: return D3D12_GS_OUTPUT_REGISTER_COUNT;
+      case MESA_SHADER_TESS_CTRL: return D3D12_HS_CONTROL_POINT_PHASE_OUTPUT_REGISTER_COUNT;
+      case MESA_SHADER_TESS_EVAL: return D3D12_DS_OUTPUT_REGISTER_COUNT;
+      case MESA_SHADER_COMPUTE: return 0;
       default: unreachable("Unexpected shader");
       }
       break;

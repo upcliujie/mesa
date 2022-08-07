@@ -93,10 +93,10 @@ load_glsl(unsigned num_files, char* const* files, gl_shader_stage stage)
    unsigned shader = 0;
    switch (stage) {
    case MESA_SHADER_FRAGMENT:
-      shader = PIPE_SHADER_FRAGMENT;
+      shader = MESA_SHADER_FRAGMENT;
       break;
    case MESA_SHADER_VERTEX:
-      shader = PIPE_SHADER_VERTEX;
+      shader = MESA_SHADER_VERTEX;
       break;
    default:
       unreachable("bad stage");

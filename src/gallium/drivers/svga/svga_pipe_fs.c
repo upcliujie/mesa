@@ -48,7 +48,7 @@ svga_create_fs_state(struct pipe_context *pipe,
    SVGA_STATS_TIME_PUSH(svga_sws(svga), SVGA_STATS_TIME_CREATEFS);
 
    fs = (struct svga_fragment_shader *)
-            svga_create_shader(pipe, templ, PIPE_SHADER_FRAGMENT,
+            svga_create_shader(pipe, templ, MESA_SHADER_FRAGMENT,
                                sizeof(struct svga_fragment_shader));
    if (!fs)
       goto done;

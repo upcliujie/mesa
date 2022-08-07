@@ -47,7 +47,7 @@ agx_const_buffer_ptr(struct agx_batch *batch,
 
 static uint64_t
 agx_push_location_direct(struct agx_context *ctx, struct agx_push push,
-                         enum pipe_shader_type stage)
+                         gl_shader_stage stage)
 {
    struct agx_batch *batch = ctx->batch;
    struct agx_stage *st = &ctx->stage[stage];
@@ -115,7 +115,7 @@ agx_push_location_direct(struct agx_context *ctx, struct agx_push push,
 
 uint64_t
 agx_push_location(struct agx_context *ctx, struct agx_push push,
-                  enum pipe_shader_type stage)
+                  gl_shader_stage stage)
 {
    uint64_t direct = agx_push_location_direct(ctx, push, stage);
    struct agx_pool *pool = &ctx->batch->pool;

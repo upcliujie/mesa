@@ -250,7 +250,7 @@ st_save_zombie_sampler_view(struct st_context *st,
  */
 void
 st_save_zombie_shader(struct st_context *st,
-                      enum pipe_shader_type type,
+                      gl_shader_stage type,
                       struct pipe_shader_state *shader)
 {
    struct st_zombie_shader_node *entry;
@@ -323,27 +323,27 @@ free_zombie_shaders(struct st_context *st)
       list_del(&entry->node);  // remove this entry from the list
 
       switch (entry->type) {
-      case PIPE_SHADER_VERTEX:
+      case MESA_SHADER_VERTEX:
          st->pipe->bind_vs_state(st->pipe, NULL);
          st->pipe->delete_vs_state(st->pipe, entry->shader);
          break;
-      case PIPE_SHADER_FRAGMENT:
+      case MESA_SHADER_FRAGMENT:
          st->pipe->bind_fs_state(st->pipe, NULL);
          st->pipe->delete_fs_state(st->pipe, entry->shader);
          break;
-      case PIPE_SHADER_GEOMETRY:
+      case MESA_SHADER_GEOMETRY:
          st->pipe->bind_gs_state(st->pipe, NULL);
          st->pipe->delete_gs_state(st->pipe, entry->shader);
          break;
-      case PIPE_SHADER_TESS_CTRL:
+      case MESA_SHADER_TESS_CTRL:
          st->pipe->bind_tcs_state(st->pipe, NULL);
          st->pipe->delete_tcs_state(st->pipe, entry->shader);
          break;
-      case PIPE_SHADER_TESS_EVAL:
+      case MESA_SHADER_TESS_EVAL:
          st->pipe->bind_tes_state(st->pipe, NULL);
          st->pipe->delete_tes_state(st->pipe, entry->shader);
          break;
-      case PIPE_SHADER_COMPUTE:
+      case MESA_SHADER_COMPUTE:
          st->pipe->bind_compute_state(st->pipe, NULL);
          st->pipe->delete_compute_state(st->pipe, entry->shader);
          break;
@@ -639,7 +639,7 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    st->allow_st_finalize_nir_twice = screen->finalize_nir != NULL;
 
    st->has_hw_atomics =
-      screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+      screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS)
       ? true : false;
 
@@ -1016,6 +1016,6 @@ st_get_nir_compiler_options(struct st_context *st, gl_shader_stage stage)
    } else {
       return nir_to_tgsi_get_compiler_options(st->screen,
                                               PIPE_SHADER_IR_NIR,
-                                              pipe_shader_type_from_mesa(stage));
+                                              stage);
    }
 }

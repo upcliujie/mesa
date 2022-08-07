@@ -33,8 +33,8 @@
 extern "C" {
 #endif
 
-#define SI_NUM_GRAPHICS_SHADERS (PIPE_SHADER_FRAGMENT + 1)
-#define SI_NUM_SHADERS          (PIPE_SHADER_COMPUTE + 1)
+#define SI_NUM_GRAPHICS_SHADERS (MESA_SHADER_FRAGMENT + 1)
+#define SI_NUM_SHADERS          (MESA_SHADER_COMPUTE + 1)
 
 #define SI_NUM_VERTEX_BUFFERS SI_MAX_ATTRIBS
 #define SI_NUM_SAMPLERS       32 /* OpenGL textures units per shader */
@@ -403,11 +403,11 @@ enum
 
 #define SI_DESCS_INTERNAL      0
 #define SI_DESCS_FIRST_SHADER  1
-#define SI_DESCS_FIRST_COMPUTE (SI_DESCS_FIRST_SHADER + PIPE_SHADER_COMPUTE * SI_NUM_SHADER_DESCS)
+#define SI_DESCS_FIRST_COMPUTE (SI_DESCS_FIRST_SHADER + MESA_SHADER_COMPUTE * SI_NUM_SHADER_DESCS)
 #define SI_NUM_DESCS           (SI_DESCS_FIRST_SHADER + SI_NUM_SHADERS * SI_NUM_SHADER_DESCS)
 
 #define SI_DESCS_SHADER_MASK(name)                                                                 \
-   u_bit_consecutive(SI_DESCS_FIRST_SHADER + PIPE_SHADER_##name * SI_NUM_SHADER_DESCS,             \
+   u_bit_consecutive(SI_DESCS_FIRST_SHADER + MESA_SHADER_##name * SI_NUM_SHADER_DESCS,             \
                      SI_NUM_SHADER_DESCS)
 
 static inline unsigned si_const_and_shader_buffer_descriptors_idx(unsigned shader)
@@ -482,7 +482,7 @@ struct si_buffer_resources {
    } while (0)
 
 /* si_descriptors.c */
-void si_get_inline_uniform_state(union si_shader_key *key, enum pipe_shader_type shader,
+void si_get_inline_uniform_state(union si_shader_key *key, gl_shader_stage shader,
                                  bool *inline_uniforms, uint32_t **inlined_values);
 void si_set_mutable_tex_desc_fields(struct si_screen *sscreen, struct si_texture *tex,
                                     const struct legacy_surf_level *base_level_info,
@@ -490,14 +490,14 @@ void si_set_mutable_tex_desc_fields(struct si_screen *sscreen, struct si_texture
                                     /* restrict decreases overhead of si_set_sampler_view_desc ~8x. */
                                     bool is_stencil, uint16_t access, uint32_t * restrict state);
 void si_update_ps_colorbuf0_slot(struct si_context *sctx);
-void si_invalidate_inlinable_uniforms(struct si_context *sctx, enum pipe_shader_type shader);
+void si_invalidate_inlinable_uniforms(struct si_context *sctx, gl_shader_stage shader);
 void si_get_pipe_constant_buffer(struct si_context *sctx, uint shader, uint slot,
                                  struct pipe_constant_buffer *cbuf);
-void si_set_shader_buffers(struct pipe_context *ctx, enum pipe_shader_type shader,
+void si_set_shader_buffers(struct pipe_context *ctx, gl_shader_stage shader,
                            unsigned start_slot, unsigned count,
                            const struct pipe_shader_buffer *sbuffers,
                            unsigned writable_bitmask, bool internal_blit);
-void si_get_shader_buffers(struct si_context *sctx, enum pipe_shader_type shader, uint start_slot,
+void si_get_shader_buffers(struct si_context *sctx, gl_shader_stage shader, uint start_slot,
                            uint count, struct pipe_shader_buffer *sbuf);
 void si_set_ring_buffer(struct si_context *sctx, uint slot, struct pipe_resource *buffer,
                         unsigned stride, unsigned num_records, bool add_tid, bool swizzle,

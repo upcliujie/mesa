@@ -215,7 +215,7 @@ DD_CSO_DELETE(sampler)
 
 static void
 dd_context_bind_sampler_states(struct pipe_context *_pipe,
-                               enum pipe_shader_type shader,
+                               gl_shader_stage shader,
                                unsigned start, unsigned count, void **states)
 {
    struct dd_context *dctx = dd_context(_pipe);
@@ -271,7 +271,7 @@ DD_CSO_DELETE(vertex_elements)
       struct pipe_context *pipe = dctx->pipe; \
       struct dd_state *hstate = state; \
    \
-      dctx->draw_state.shaders[PIPE_SHADER_##NAME] = hstate; \
+      dctx->draw_state.shaders[MESA_SHADER_##NAME] = hstate; \
       pipe->bind_##name##_state(pipe, hstate ? hstate->cso : NULL); \
    } \
     \
@@ -359,7 +359,7 @@ DD_IMM_STATE(polygon_stipple, const struct pipe_poly_stipple, *state, state)
 
 static void
 dd_context_set_constant_buffer(struct pipe_context *_pipe,
-                               enum pipe_shader_type shader, uint index,
+                               gl_shader_stage shader, uint index,
                                bool take_ownership,
                                const struct pipe_constant_buffer *constant_buffer)
 {
@@ -517,7 +517,7 @@ dd_context_stream_output_target_destroy(struct pipe_context *_pipe,
 
 static void
 dd_context_set_sampler_views(struct pipe_context *_pipe,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              unsigned start, unsigned num,
                              unsigned unbind_num_trailing_slots,
                              bool take_ownership,
@@ -536,7 +536,7 @@ dd_context_set_sampler_views(struct pipe_context *_pipe,
 
 static void
 dd_context_set_shader_images(struct pipe_context *_pipe,
-                             enum pipe_shader_type shader,
+                             gl_shader_stage shader,
                              unsigned start, unsigned num,
                              unsigned unbind_num_trailing_slots,
                              const struct pipe_image_view *views)
@@ -554,7 +554,7 @@ dd_context_set_shader_images(struct pipe_context *_pipe,
 
 static void
 dd_context_set_shader_buffers(struct pipe_context *_pipe,
-                              enum pipe_shader_type shader,
+                              gl_shader_stage shader,
                               unsigned start, unsigned num_buffers,
                               const struct pipe_shader_buffer *buffers,
                               unsigned writable_bitmask)

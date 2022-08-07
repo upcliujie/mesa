@@ -66,7 +66,7 @@ svga_create_tcs_state(struct pipe_context *pipe,
    SVGA_STATS_TIME_PUSH(svga_sws(svga), SVGA_STATS_TIME_CREATETCS);
 
    tcs = (struct svga_tcs_shader *)
-            svga_create_shader(pipe, templ, PIPE_SHADER_TESS_CTRL,
+            svga_create_shader(pipe, templ, MESA_SHADER_TESS_CTRL,
                                sizeof(struct svga_tcs_shader));
    if (!tcs)
       goto done;
@@ -142,7 +142,7 @@ svga_create_tes_state(struct pipe_context *pipe,
    SVGA_STATS_TIME_PUSH(svga_sws(svga), SVGA_STATS_TIME_CREATETES);
 
    tes = (struct svga_tes_shader *)
-            svga_create_shader(pipe, templ, PIPE_SHADER_TESS_EVAL,
+            svga_create_shader(pipe, templ, MESA_SHADER_TESS_EVAL,
                                sizeof(struct svga_tes_shader));
 
    if (!tes)

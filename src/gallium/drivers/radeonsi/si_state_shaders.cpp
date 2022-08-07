@@ -3176,12 +3176,11 @@ static void *si_create_shader_selector(struct pipe_context *ctx,
    si_nir_scan_shader(sscreen, sel->nir, &sel->info);
 
    sel->stage = sel->nir->info.stage;
-   const enum pipe_shader_type type = pipe_shader_type_from_mesa(sel->stage);
-   sel->pipe_shader_type = type;
+   sel->pipe_shader_type = sel->stage;
    sel->const_and_shader_buf_descriptors_index =
-      si_const_and_shader_buffer_descriptors_idx(type);
+      si_const_and_shader_buffer_descriptors_idx(sel->stage);
    sel->sampler_and_images_descriptors_index =
-      si_sampler_and_image_descriptors_idx(type);
+      si_sampler_and_image_descriptors_idx(sel->stage);
 
    p_atomic_inc(&sscreen->num_shaders_created);
    si_get_active_slot_masks(sscreen, &sel->info, &sel->active_const_and_shader_buffers,
@@ -3336,7 +3335,7 @@ static void si_update_rasterized_prim(struct si_context *sctx)
 }
 
 static void si_update_common_shader_state(struct si_context *sctx, struct si_shader_selector *sel,
-                                          enum pipe_shader_type type)
+                                          gl_shader_stage type)
 {
    si_set_active_descriptors_for_shader(sctx, sel);
 
@@ -3351,7 +3350,7 @@ static void si_update_common_shader_state(struct si_context *sctx, struct si_sha
                                 si_shader_uses_bindless_images(sctx->shader.tcs.cso) ||
                                 si_shader_uses_bindless_images(sctx->shader.tes.cso);
 
-   if (type == PIPE_SHADER_VERTEX || type == PIPE_SHADER_TESS_EVAL || type == PIPE_SHADER_GEOMETRY)
+   if (type == MESA_SHADER_VERTEX || type == MESA_SHADER_TESS_EVAL || type == MESA_SHADER_GEOMETRY)
       sctx->ngg_culling = 0; /* this will be enabled on the first draw if needed */
 
    si_invalidate_inlinable_uniforms(sctx, type);
@@ -3376,7 +3375,7 @@ static void si_bind_vs_shader(struct pipe_context *ctx, void *state)
    if (si_update_ngg(sctx))
       si_shader_change_notify(sctx);
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_VERTEX);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_VERTEX);
    si_select_draw_vbo(sctx);
    si_update_vs_viewport_state(sctx);
    si_update_streamout_state(sctx);
@@ -3460,7 +3459,7 @@ static void si_bind_gs_shader(struct pipe_context *ctx, void *state)
    sctx->shader.gs.current = (sel && sel->variants_count) ? sel->variants[0] : NULL;
    sctx->ia_multi_vgt_param_key.u.uses_gs = sel != NULL;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_GEOMETRY);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_GEOMETRY);
    si_select_draw_vbo(sctx);
    sctx->last_gs_out_prim = -1; /* reset this so that it gets updated */
 
@@ -3498,7 +3497,7 @@ static void si_bind_tcs_shader(struct pipe_context *ctx, void *state)
       sel ? sel->info.tessfactors_are_def_in_all_invocs : 0;
    si_update_tess_uses_prim_id(sctx);
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_TESS_CTRL);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_TESS_CTRL);
 
    if (enable_changed)
       sctx->last_tcs = NULL; /* invalidate derived tess state */
@@ -3526,7 +3525,7 @@ static void si_bind_tes_shader(struct pipe_context *ctx, void *state)
    sctx->shader.tcs.key.ge.part.tcs.epilog.tes_reads_tess_factors =
       sel ? sel->info.reads_tess_factors : 0;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_TESS_EVAL);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_TESS_EVAL);
    si_select_draw_vbo(sctx);
    sctx->last_gs_out_prim = -1; /* reset this so that it gets updated */
 
@@ -3574,7 +3573,7 @@ static void si_bind_ps_shader(struct pipe_context *ctx, void *state)
    sctx->shader.ps.cso = sel;
    sctx->shader.ps.current = (sel && sel->variants_count) ? sel->variants[0] : NULL;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_FRAGMENT);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_FRAGMENT);
    if (sel) {
       if (sctx->ia_multi_vgt_param_key.u.uses_tess)
          si_update_tess_uses_prim_id(sctx);
@@ -3676,13 +3675,12 @@ static void si_destroy_shader_selector(struct pipe_context *ctx, void *cso)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    struct si_shader_selector *sel = (struct si_shader_selector *)cso;
-   enum pipe_shader_type type = pipe_shader_type_from_mesa(sel->stage);
 
    util_queue_drop_job(&sctx->screen->shader_compiler_queue, &sel->ready);
 
-   if (sctx->shaders[type].cso == sel) {
-      sctx->shaders[type].cso = NULL;
-      sctx->shaders[type].current = NULL;
+   if (sctx->shaders[sel->stage].cso == sel) {
+      sctx->shaders[sel->stage].cso = NULL;
+      sctx->shaders[sel->stage].current = NULL;
    }
 
    for (unsigned i = 0; i < sel->variants_count; i++) {

@@ -498,7 +498,7 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
       return 0;
 
    case PIPE_CAP_MAX_CONSTANT_BUFFER_SIZE_UINT:
-      return pscreen->get_shader_param(pscreen, PIPE_SHADER_FRAGMENT,
+      return pscreen->get_shader_param(pscreen, MESA_SHADER_FRAGMENT,
                                        PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE);
 
    case PIPE_CAP_HARDWARE_GL_SELECT: {
@@ -510,10 +510,10 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
 
       return !!accel && debug_get_bool_option("MESA_HW_ACCEL_SELECT", accel > 0) &&
          /* internal geometry shader need indirect array access */
-         pscreen->get_shader_param(pscreen, PIPE_SHADER_GEOMETRY,
+         pscreen->get_shader_param(pscreen, MESA_SHADER_GEOMETRY,
                                    PIPE_SHADER_CAP_INDIRECT_TEMP_ADDR) &&
          /* internal geometry shader need SSBO support */
-         pscreen->get_shader_param(pscreen, PIPE_SHADER_GEOMETRY,
+         pscreen->get_shader_param(pscreen, MESA_SHADER_GEOMETRY,
                                    PIPE_SHADER_CAP_MAX_SHADER_BUFFERS);
    }
 

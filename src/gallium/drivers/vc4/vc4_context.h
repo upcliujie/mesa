@@ -379,7 +379,7 @@ struct vc4_context {
         struct pipe_poly_stipple stipple;
         struct pipe_clip_state clip;
         struct pipe_viewport_state viewport;
-        struct vc4_constbuf_stateobj constbuf[PIPE_SHADER_TYPES];
+        struct vc4_constbuf_stateobj constbuf[MESA_SHADER_STAGES];
         struct vc4_vertexbuf_stateobj vertexbuf;
         struct util_debug_callback debug;
 

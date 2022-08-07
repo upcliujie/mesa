@@ -903,14 +903,14 @@ agx_get_paramf(struct pipe_screen* pscreen,
 
 static int
 agx_get_shader_param(struct pipe_screen* pscreen,
-                     enum pipe_shader_type shader,
+                     gl_shader_stage shader,
                      enum pipe_shader_cap param)
 {
    bool is_deqp = agx_device(pscreen)->debug & AGX_DBG_DEQP;
    bool is_no16 = agx_device(pscreen)->debug & AGX_DBG_NO16;
 
-   if (shader != PIPE_SHADER_VERTEX &&
-       shader != PIPE_SHADER_FRAGMENT)
+   if (shader != MESA_SHADER_VERTEX &&
+       shader != MESA_SHADER_FRAGMENT)
       return 0;
 
    /* this is probably not totally correct.. but it's a start: */
@@ -928,7 +928,7 @@ agx_get_shader_param(struct pipe_screen* pscreen,
       return 16;
 
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
-      return shader == PIPE_SHADER_FRAGMENT ? 4 : 16;
+      return shader == MESA_SHADER_FRAGMENT ? 4 : 16;
 
    case PIPE_SHADER_CAP_MAX_TEMPS:
       return 256; /* GL_MAX_PROGRAM_TEMPORARIES_ARB */
@@ -1110,7 +1110,7 @@ agx_fence_finish(struct pipe_screen *screen,
 static const void *
 agx_get_compiler_options(struct pipe_screen *pscreen,
                          enum pipe_shader_ir ir,
-                         enum pipe_shader_type shader)
+                         gl_shader_stage shader)
 {
    return &agx_nir_options;
 }

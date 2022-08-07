@@ -1246,15 +1246,15 @@ nv50_ir_init_prog_info(struct nv50_ir_prog_info *info,
 {
    info_out->target = info->target;
    info_out->type = info->type;
-   if (info->type == PIPE_SHADER_TESS_CTRL || info->type == PIPE_SHADER_TESS_EVAL) {
+   if (info->type == MESA_SHADER_TESS_CTRL || info->type == MESA_SHADER_TESS_EVAL) {
       info_out->prop.tp.domain = PIPE_PRIM_MAX;
       info_out->prop.tp.outputPrim = PIPE_PRIM_MAX;
    }
-   if (info->type == PIPE_SHADER_GEOMETRY) {
+   if (info->type == MESA_SHADER_GEOMETRY) {
       info_out->prop.gp.instanceCount = 1;
       info_out->prop.gp.maxVertices = 1;
    }
-   if (info->type == PIPE_SHADER_COMPUTE) {
+   if (info->type == MESA_SHADER_COMPUTE) {
       info->prop.cp.numThreads[0] =
       info->prop.cp.numThreads[1] =
       info->prop.cp.numThreads[2] = 1;
@@ -1280,7 +1280,7 @@ nv50_ir_generate_code(struct nv50_ir_prog_info *info,
    nv50_ir_init_prog_info(info, info_out);
 
 #define PROG_TYPE_CASE(a, b)                                      \
-   case PIPE_SHADER_##a: type = nv50_ir::Program::TYPE_##b; break
+   case MESA_SHADER_##a: type = nv50_ir::Program::TYPE_##b; break
 
    switch (info->type) {
    PROG_TYPE_CASE(VERTEX, VERTEX);

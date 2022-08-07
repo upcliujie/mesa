@@ -32,13 +32,13 @@
 #include "freedreno_resource.h"
 
 static enum a4xx_state_block texsb[] = {
-   [PIPE_SHADER_COMPUTE] = SB4_CS_TEX,
-   [PIPE_SHADER_FRAGMENT] = SB4_FS_TEX,
+   [MESA_SHADER_COMPUTE] = SB4_CS_TEX,
+   [MESA_SHADER_FRAGMENT] = SB4_FS_TEX,
 };
 
 static enum a4xx_state_block imgsb[] = {
-   [PIPE_SHADER_COMPUTE] = SB4_CS_SSBO,
-   [PIPE_SHADER_FRAGMENT] = SB4_SSBO,
+   [MESA_SHADER_COMPUTE] = SB4_CS_SSBO,
+   [MESA_SHADER_FRAGMENT] = SB4_SSBO,
 };
 
 struct fd5_image {
@@ -136,7 +136,7 @@ translate_image(struct fd5_image *img, struct pipe_image_view *pimg)
 
 static void
 emit_image_tex(struct fd_ringbuffer *ring, unsigned slot, struct fd5_image *img,
-               enum pipe_shader_type shader)
+               gl_shader_stage shader)
 {
    OUT_PKT7(ring, CP_LOAD_STATE4, 3 + 12);
    OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(slot) |
@@ -175,7 +175,7 @@ emit_image_tex(struct fd_ringbuffer *ring, unsigned slot, struct fd5_image *img,
 
 static void
 emit_image_ssbo(struct fd_ringbuffer *ring, unsigned slot,
-                struct fd5_image *img, enum pipe_shader_type shader)
+                struct fd5_image *img, gl_shader_stage shader)
 {
    OUT_PKT7(ring, CP_LOAD_STATE4, 3 + 2);
    OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(slot) |
@@ -212,7 +212,7 @@ emit_image_ssbo(struct fd_ringbuffer *ring, unsigned slot,
  */
 void
 fd5_emit_images(struct fd_context *ctx, struct fd_ringbuffer *ring,
-                enum pipe_shader_type shader,
+                gl_shader_stage shader,
                 const struct ir3_shader_variant *v)
 {
    struct fd_shaderimg_stateobj *so = &ctx->shaderimg[shader];

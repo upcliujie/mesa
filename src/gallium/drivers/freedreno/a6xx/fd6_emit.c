@@ -233,9 +233,9 @@ emit_border_color(struct fd_context *ctx, struct fd_ringbuffer *ring) assert_dt
 
    entries = ptr;
 
-   setup_border_colors(&ctx->tex[PIPE_SHADER_VERTEX], &entries[0], ctx->screen);
-   setup_border_colors(&ctx->tex[PIPE_SHADER_FRAGMENT],
-                       &entries[ctx->tex[PIPE_SHADER_VERTEX].num_samplers],
+   setup_border_colors(&ctx->tex[MESA_SHADER_VERTEX], &entries[0], ctx->screen);
+   setup_border_colors(&ctx->tex[MESA_SHADER_FRAGMENT],
+                       &entries[ctx->tex[MESA_SHADER_VERTEX].num_samplers],
                        ctx->screen);
 
    OUT_PKT4(ring, REG_A6XX_SP_TP_BORDER_COLOR_BASE_ADDR, 2);
@@ -272,7 +272,7 @@ fd6_emit_fb_tex(struct fd_ringbuffer *state, struct fd_context *ctx) assert_dt
 
 bool
 fd6_emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
-                  enum pipe_shader_type type, struct fd_texture_stateobj *tex,
+                  gl_shader_stage type, struct fd_texture_stateobj *tex,
                   unsigned bcolor_offset,
                   /* can be NULL if no image/SSBO/fb state to merge in: */
                   const struct ir3_shader_variant *v)
@@ -282,42 +282,42 @@ fd6_emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
    enum a6xx_state_block sb;
 
    switch (type) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       sb = SB6_VS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_VS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_VS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_VS_TEX_COUNT;
       break;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       sb = SB6_HS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_HS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_HS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_HS_TEX_COUNT;
       break;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       sb = SB6_DS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_DS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_DS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_DS_TEX_COUNT;
       break;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       sb = SB6_GS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_GS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_GS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_GS_TEX_COUNT;
       break;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       sb = SB6_FS_TEX;
       opcode = CP_LOAD_STATE6_FRAG;
       tex_samp_reg = REG_A6XX_SP_FS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_FS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_FS_TEX_COUNT;
       break;
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       sb = SB6_CS_TEX;
       opcode = CP_LOAD_STATE6_FRAG;
       tex_samp_reg = REG_A6XX_SP_CS_TEX_SAMP;
@@ -479,7 +479,7 @@ fd6_emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
  */
 static bool
 fd6_emit_combined_textures(struct fd_ringbuffer *ring, struct fd6_emit *emit,
-                           enum pipe_shader_type type,
+                           gl_shader_stage type,
                            const struct ir3_shader_variant *v) assert_dt
 {
    struct fd_context *ctx = emit->ctx;
@@ -488,12 +488,12 @@ fd6_emit_combined_textures(struct fd_ringbuffer *ring, struct fd6_emit *emit,
    static const struct {
       enum fd6_state_id state_id;
       unsigned enable_mask;
-   } s[PIPE_SHADER_TYPES] = {
-      [PIPE_SHADER_VERTEX] = {FD6_GROUP_VS_TEX, ENABLE_ALL},
-      [PIPE_SHADER_TESS_CTRL] = {FD6_GROUP_HS_TEX, ENABLE_ALL},
-      [PIPE_SHADER_TESS_EVAL] = {FD6_GROUP_DS_TEX, ENABLE_ALL},
-      [PIPE_SHADER_GEOMETRY] = {FD6_GROUP_GS_TEX, ENABLE_ALL},
-      [PIPE_SHADER_FRAGMENT] = {FD6_GROUP_FS_TEX, ENABLE_DRAW},
+   } s[MESA_SHADER_STAGES] = {
+      [MESA_SHADER_VERTEX] = {FD6_GROUP_VS_TEX, ENABLE_ALL},
+      [MESA_SHADER_TESS_CTRL] = {FD6_GROUP_HS_TEX, ENABLE_ALL},
+      [MESA_SHADER_TESS_EVAL] = {FD6_GROUP_DS_TEX, ENABLE_ALL},
+      [MESA_SHADER_GEOMETRY] = {FD6_GROUP_GS_TEX, ENABLE_ALL},
+      [MESA_SHADER_FRAGMENT] = {FD6_GROUP_FS_TEX, ENABLE_DRAW},
    };
 
    assert(s[type].state_id);
@@ -837,7 +837,7 @@ build_ibo(struct fd6_emit *emit) assert_dt
    }
 
    struct fd_ringbuffer *ibo_state =
-      fd6_build_ibo_state(ctx, emit->fs, PIPE_SHADER_FRAGMENT);
+      fd6_build_ibo_state(ctx, emit->fs, MESA_SHADER_FRAGMENT);
    struct fd_ringbuffer *ring = fd_submit_new_ringbuffer(
       ctx->batch->submit, 0x100, FD_RINGBUFFER_STREAMING);
 
@@ -1107,29 +1107,29 @@ fd6_emit_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
          break;
       case FD6_GROUP_VS_TEX:
          needs_border |=
-            fd6_emit_combined_textures(ring, emit, PIPE_SHADER_VERTEX, vs);
+            fd6_emit_combined_textures(ring, emit, MESA_SHADER_VERTEX, vs);
          continue;
       case FD6_GROUP_HS_TEX:
          if (hs) {
             needs_border |= fd6_emit_combined_textures(
-               ring, emit, PIPE_SHADER_TESS_CTRL, hs);
+               ring, emit, MESA_SHADER_TESS_CTRL, hs);
          }
          continue;
       case FD6_GROUP_DS_TEX:
          if (ds) {
             needs_border |= fd6_emit_combined_textures(
-               ring, emit, PIPE_SHADER_TESS_EVAL, ds);
+               ring, emit, MESA_SHADER_TESS_EVAL, ds);
          }
          continue;
       case FD6_GROUP_GS_TEX:
          if (gs) {
             needs_border |=
-               fd6_emit_combined_textures(ring, emit, PIPE_SHADER_GEOMETRY, gs);
+               fd6_emit_combined_textures(ring, emit, MESA_SHADER_GEOMETRY, gs);
          }
          continue;
       case FD6_GROUP_FS_TEX:
          needs_border |=
-            fd6_emit_combined_textures(ring, emit, PIPE_SHADER_FRAGMENT, fs);
+            fd6_emit_combined_textures(ring, emit, MESA_SHADER_FRAGMENT, fs);
          continue;
       case FD6_GROUP_SO:
          fd6_emit_streamout(ring, emit);
@@ -1178,15 +1178,15 @@ void
 fd6_emit_cs_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
                   struct ir3_shader_variant *cp)
 {
-   enum fd_dirty_shader_state dirty = ctx->dirty_shader[PIPE_SHADER_COMPUTE];
+   enum fd_dirty_shader_state dirty = ctx->dirty_shader[MESA_SHADER_COMPUTE];
 
    if (dirty & (FD_DIRTY_SHADER_TEX | FD_DIRTY_SHADER_PROG |
                 FD_DIRTY_SHADER_IMAGE | FD_DIRTY_SHADER_SSBO)) {
-      struct fd_texture_stateobj *tex = &ctx->tex[PIPE_SHADER_COMPUTE];
+      struct fd_texture_stateobj *tex = &ctx->tex[MESA_SHADER_COMPUTE];
       unsigned bcolor_offset =
-         fd6_border_color_offset(ctx, PIPE_SHADER_COMPUTE, tex);
+         fd6_border_color_offset(ctx, MESA_SHADER_COMPUTE, tex);
 
-      bool needs_border = fd6_emit_textures(ctx, ring, PIPE_SHADER_COMPUTE, tex,
+      bool needs_border = fd6_emit_textures(ctx, ring, MESA_SHADER_COMPUTE, tex,
                                             bcolor_offset, cp);
 
       if (needs_border)
@@ -1210,7 +1210,7 @@ fd6_emit_cs_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
    if (dirty & (FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE)) {
       struct fd_ringbuffer *state =
-         fd6_build_ibo_state(ctx, cp, PIPE_SHADER_COMPUTE);
+         fd6_build_ibo_state(ctx, cp, MESA_SHADER_COMPUTE);
 
       OUT_PKT7(ring, CP_LOAD_STATE6_FRAG, 3);
       OUT_RING(ring, CP_LOAD_STATE6_0_DST_OFF(0) |

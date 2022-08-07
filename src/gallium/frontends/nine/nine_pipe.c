@@ -256,9 +256,9 @@ nine_convert_sampler_state(struct cso_context *ctx, int idx, const DWORD *ss)
 
     /* see nine_state.h */
     if (idx < NINE_MAX_SAMPLERS_PS)
-        cso_single_sampler(ctx, PIPE_SHADER_FRAGMENT, idx - NINE_SAMPLER_PS(0), &samp);
+        cso_single_sampler(ctx, MESA_SHADER_FRAGMENT, idx - NINE_SAMPLER_PS(0), &samp);
     else
-        cso_single_sampler(ctx, PIPE_SHADER_VERTEX, idx - NINE_SAMPLER_VS(0), &samp);
+        cso_single_sampler(ctx, MESA_SHADER_VERTEX, idx - NINE_SAMPLER_VS(0), &samp);
 }
 
 const enum pipe_format nine_d3d9_to_pipe_format_map[120] =

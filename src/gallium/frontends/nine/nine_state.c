@@ -1024,7 +1024,7 @@ update_textures_and_samplers(struct NineDevice9 *device)
          * or sampler states are changed. */
         view[i] = device->dummy_sampler_view;
 
-        cso_single_sampler(context->cso, PIPE_SHADER_FRAGMENT,
+        cso_single_sampler(context->cso, MESA_SHADER_FRAGMENT,
                            s - NINE_SAMPLER_PS(0), &device->dummy_sampler_state);
 
         commit_samplers = TRUE;
@@ -1034,13 +1034,13 @@ update_textures_and_samplers(struct NineDevice9 *device)
     u_foreach_bit(i, BITFIELD_MASK(num_textures) & ~ps_mask)
        view[i] = NULL;
 
-    pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num_textures,
+    pipe->set_sampler_views(pipe, MESA_SHADER_FRAGMENT, 0, num_textures,
                             num_textures < context->enabled_sampler_count_ps ? context->enabled_sampler_count_ps - num_textures : 0,
                             false, view);
     context->enabled_sampler_count_ps = num_textures;
 
     if (commit_samplers)
-        cso_single_sampler_done(context->cso, PIPE_SHADER_FRAGMENT);
+        cso_single_sampler_done(context->cso, MESA_SHADER_FRAGMENT);
 
     commit_samplers = FALSE;
     sampler_mask = context->programmable_vs ? context->vs->sampler_mask : 0;
@@ -1069,7 +1069,7 @@ update_textures_and_samplers(struct NineDevice9 *device)
          * or sampler states are changed. */
         view[i] = device->dummy_sampler_view;
 
-        cso_single_sampler(context->cso, PIPE_SHADER_VERTEX,
+        cso_single_sampler(context->cso, MESA_SHADER_VERTEX,
                            s - NINE_SAMPLER_VS(0), &device->dummy_sampler_state);
 
         commit_samplers = TRUE;
@@ -1079,13 +1079,13 @@ update_textures_and_samplers(struct NineDevice9 *device)
     u_foreach_bit(i, BITFIELD_MASK(num_textures) & ~vs_mask)
        view[i] = NULL;
 
-    pipe->set_sampler_views(pipe, PIPE_SHADER_VERTEX, 0, num_textures,
+    pipe->set_sampler_views(pipe, MESA_SHADER_VERTEX, 0, num_textures,
                             num_textures < context->enabled_sampler_count_vs ? context->enabled_sampler_count_vs - num_textures : 0,
                             false, view);
     context->enabled_sampler_count_vs = num_textures;
 
     if (commit_samplers)
-        cso_single_sampler_done(context->cso, PIPE_SHADER_VERTEX);
+        cso_single_sampler_done(context->cso, MESA_SHADER_VERTEX);
 }
 
 /* State commit only */
@@ -1130,15 +1130,15 @@ commit_vs_constants(struct NineDevice9 *device)
     struct pipe_context *pipe = context->pipe;
 
     if (unlikely(!context->programmable_vs))
-        pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 0, false, &context->pipe_data.cb_vs_ff);
+        pipe->set_constant_buffer(pipe, MESA_SHADER_VERTEX, 0, false, &context->pipe_data.cb_vs_ff);
     else {
         if (context->swvp) {
-            pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 0, false, &context->pipe_data.cb0_swvp);
-            pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 1, false, &context->pipe_data.cb1_swvp);
-            pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 2, false, &context->pipe_data.cb2_swvp);
-            pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 3, false, &context->pipe_data.cb3_swvp);
+            pipe->set_constant_buffer(pipe, MESA_SHADER_VERTEX, 0, false, &context->pipe_data.cb0_swvp);
+            pipe->set_constant_buffer(pipe, MESA_SHADER_VERTEX, 1, false, &context->pipe_data.cb1_swvp);
+            pipe->set_constant_buffer(pipe, MESA_SHADER_VERTEX, 2, false, &context->pipe_data.cb2_swvp);
+            pipe->set_constant_buffer(pipe, MESA_SHADER_VERTEX, 3, false, &context->pipe_data.cb3_swvp);
         } else {
-            pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 0, false, &context->pipe_data.cb_vs);
+            pipe->set_constant_buffer(pipe, MESA_SHADER_VERTEX, 0, false, &context->pipe_data.cb_vs);
         }
     }
 }
@@ -1150,9 +1150,9 @@ commit_ps_constants(struct NineDevice9 *device)
     struct pipe_context *pipe = context->pipe;
 
     if (unlikely(!context->ps))
-        pipe->set_constant_buffer(pipe, PIPE_SHADER_FRAGMENT, 0, false, &context->pipe_data.cb_ps_ff);
+        pipe->set_constant_buffer(pipe, MESA_SHADER_FRAGMENT, 0, false, &context->pipe_data.cb_ps_ff);
     else
-        pipe->set_constant_buffer(pipe, PIPE_SHADER_FRAGMENT, 0, false, &context->pipe_data.cb_ps);
+        pipe->set_constant_buffer(pipe, MESA_SHADER_FRAGMENT, 0, false, &context->pipe_data.cb_ps);
 }
 
 static inline void
@@ -2963,14 +2963,14 @@ nine_context_clear(struct NineDevice9 *device)
      * do not change on Reset.
      */
 
-    cso_set_samplers(cso, PIPE_SHADER_VERTEX, 0, NULL);
-    cso_set_samplers(cso, PIPE_SHADER_FRAGMENT, 0, NULL);
+    cso_set_samplers(cso, MESA_SHADER_VERTEX, 0, NULL);
+    cso_set_samplers(cso, MESA_SHADER_FRAGMENT, 0, NULL);
     context->enabled_sampler_count_vs = 0;
     context->enabled_sampler_count_ps = 0;
 
-    pipe->set_sampler_views(pipe, PIPE_SHADER_VERTEX, 0, 0,
+    pipe->set_sampler_views(pipe, MESA_SHADER_VERTEX, 0, 0,
                             NINE_MAX_SAMPLERS_VS, false, NULL);
-    pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, 0,
+    pipe->set_sampler_views(pipe, MESA_SHADER_FRAGMENT, 0, 0,
                             NINE_MAX_SAMPLERS_PS, false, NULL);
 
     pipe->set_vertex_buffers(pipe, 0, 0, device->caps.MaxStreams, false, NULL);
@@ -3203,13 +3203,13 @@ update_vs_constants_sw(struct NineDevice9 *device)
 
         buf = cb.user_buffer;
 
-        pipe_sw->set_constant_buffer(pipe_sw, PIPE_SHADER_VERTEX, 0, false, &cb);
+        pipe_sw->set_constant_buffer(pipe_sw, MESA_SHADER_VERTEX, 0, false, &cb);
         if (cb.buffer)
             pipe_resource_reference(&cb.buffer, NULL);
 
         cb.user_buffer = (int8_t *)buf + 4096 * sizeof(float[4]);
 
-        pipe_sw->set_constant_buffer(pipe_sw, PIPE_SHADER_VERTEX, 1, false, &cb);
+        pipe_sw->set_constant_buffer(pipe_sw, MESA_SHADER_VERTEX, 1, false, &cb);
         if (cb.buffer)
             pipe_resource_reference(&cb.buffer, NULL);
     }
@@ -3222,7 +3222,7 @@ update_vs_constants_sw(struct NineDevice9 *device)
         cb.buffer_size = 2048 * sizeof(float[4]);
         cb.user_buffer = state->vs_const_i;
 
-        pipe_sw->set_constant_buffer(pipe_sw, PIPE_SHADER_VERTEX, 2, false, &cb);
+        pipe_sw->set_constant_buffer(pipe_sw, MESA_SHADER_VERTEX, 2, false, &cb);
         if (cb.buffer)
             pipe_resource_reference(&cb.buffer, NULL);
     }
@@ -3235,7 +3235,7 @@ update_vs_constants_sw(struct NineDevice9 *device)
         cb.buffer_size = 512 * sizeof(float[4]);
         cb.user_buffer = state->vs_const_b;
 
-        pipe_sw->set_constant_buffer(pipe_sw, PIPE_SHADER_VERTEX, 3, false, &cb);
+        pipe_sw->set_constant_buffer(pipe_sw, MESA_SHADER_VERTEX, 3, false, &cb);
         if (cb.buffer)
             pipe_resource_reference(&cb.buffer, NULL);
     }
@@ -3266,7 +3266,7 @@ update_vs_constants_sw(struct NineDevice9 *device)
             cb.user_buffer = NULL;
         }
 
-        pipe_sw->set_constant_buffer(pipe_sw, PIPE_SHADER_VERTEX, 4, false, &cb);
+        pipe_sw->set_constant_buffer(pipe_sw, MESA_SHADER_VERTEX, 4, false, &cb);
         if (cb.buffer)
             pipe_resource_reference(&cb.buffer, NULL);
     }

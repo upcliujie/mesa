@@ -350,7 +350,7 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
 static int
 panfrost_get_shader_param(struct pipe_screen *screen,
-                          enum pipe_shader_type shader,
+                          gl_shader_stage shader,
                           enum pipe_shader_cap param)
 {
         struct panfrost_device *dev = pan_device(screen);
@@ -358,9 +358,9 @@ panfrost_get_shader_param(struct pipe_screen *screen,
         bool is_deqp = dev->debug & PAN_DBG_DEQP;
 
         switch (shader) {
-        case PIPE_SHADER_VERTEX:
-        case PIPE_SHADER_FRAGMENT:
-        case PIPE_SHADER_COMPUTE:
+        case MESA_SHADER_VERTEX:
+        case MESA_SHADER_FRAGMENT:
+        case MESA_SHADER_COMPUTE:
                 break;
         default:
                 return 0;
@@ -373,7 +373,7 @@ panfrost_get_shader_param(struct pipe_screen *screen,
          * This restriction doesn't apply to Midgard, which does not implement
          * IDVS and therefore executes vertex shaders exactly once.
          */
-        bool allow_side_effects = (shader != PIPE_SHADER_VERTEX) ||
+        bool allow_side_effects = (shader != MESA_SHADER_VERTEX) ||
                                   (dev->arch <= 5);
 
         switch (param) {
@@ -391,7 +391,7 @@ panfrost_get_shader_param(struct pipe_screen *screen,
                 return 16;
 
         case PIPE_SHADER_CAP_MAX_OUTPUTS:
-                return shader == PIPE_SHADER_FRAGMENT ? 8 : PIPE_MAX_ATTRIBS;
+                return shader == MESA_SHADER_FRAGMENT ? 8 : PIPE_MAX_ATTRIBS;
 
         case PIPE_SHADER_CAP_MAX_TEMPS:
                 return 256; /* arbitrary */
@@ -850,7 +850,7 @@ err_free_fence:
 static const void *
 panfrost_screen_get_compiler_options(struct pipe_screen *pscreen,
                                      enum pipe_shader_ir ir,
-                                     enum pipe_shader_type shader)
+                                     gl_shader_stage shader)
 {
         return pan_screen(pscreen)->vtbl.get_compiler_options();
 }

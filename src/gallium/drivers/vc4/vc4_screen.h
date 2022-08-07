@@ -115,7 +115,7 @@ struct pipe_screen *vc4_screen_create(int fd, struct renderonly *ro);
 const void *
 vc4_screen_get_compiler_options(struct pipe_screen *pscreen,
                                 enum pipe_shader_ir ir,
-                                enum pipe_shader_type shader);
+                                gl_shader_stage shader);
 
 extern uint32_t vc4_debug;
 

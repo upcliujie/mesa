@@ -1180,13 +1180,13 @@ struct pipe_resource *r600_resource_create_common(struct pipe_screen *screen,
 static const void *
 r600_get_compiler_options(struct pipe_screen *screen,
 			  enum pipe_shader_ir ir,
-			  enum pipe_shader_type shader)
+			  gl_shader_stage shader)
 {
        assert(ir == PIPE_SHADER_IR_NIR);
 
        struct r600_common_screen *rscreen = (struct r600_common_screen *)screen;
 
-       if (shader != PIPE_SHADER_FRAGMENT)
+       if (shader != MESA_SHADER_FRAGMENT)
           return &rscreen->nir_options;
        else
           return &rscreen->nir_options_fs;

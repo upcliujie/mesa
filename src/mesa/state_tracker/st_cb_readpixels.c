@@ -188,14 +188,14 @@ try_pbo_readpixels(struct st_context *st, struct gl_renderbuffer *rb,
       if (sampler_view == NULL)
          goto fail;
 
-      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, 1, 0,
+      pipe->set_sampler_views(pipe, MESA_SHADER_FRAGMENT, 0, 1, 0,
                               false, &sampler_view);
-      st->state.num_sampler_views[PIPE_SHADER_FRAGMENT] =
-         MAX2(st->state.num_sampler_views[PIPE_SHADER_FRAGMENT], 1);
+      st->state.num_sampler_views[MESA_SHADER_FRAGMENT] =
+         MAX2(st->state.num_sampler_views[MESA_SHADER_FRAGMENT], 1);
 
       pipe_sampler_view_reference(&sampler_view, NULL);
 
-      cso_set_samplers(cso, PIPE_SHADER_FRAGMENT, 1, samplers);
+      cso_set_samplers(cso, MESA_SHADER_FRAGMENT, 1, samplers);
    }
 
    /* Set up destination image */
@@ -211,7 +211,7 @@ try_pbo_readpixels(struct st_context *st, struct gl_renderbuffer *rb,
       image.u.buf.size = (addr.last_element - addr.first_element + 1) *
                          addr.bytes_per_pixel;
 
-      pipe->set_shader_images(pipe, PIPE_SHADER_FRAGMENT, 0, 1, 0, &image);
+      pipe->set_shader_images(pipe, MESA_SHADER_FRAGMENT, 0, 1, 0, &image);
    }
 
    /* Set up no-attachment framebuffer */
@@ -257,7 +257,7 @@ fail:
     * use them.
     */
    cso_restore_state(cso, CSO_UNBIND_FS_SAMPLERVIEWS | CSO_UNBIND_FS_IMAGE0);
-   st->state.num_sampler_views[PIPE_SHADER_FRAGMENT] = 0;
+   st->state.num_sampler_views[MESA_SHADER_FRAGMENT] = 0;
 
    st->ctx->Array.NewVertexElements = true;
    st->dirty |= ST_NEW_FS_CONSTANTS |

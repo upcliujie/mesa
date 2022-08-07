@@ -421,12 +421,12 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
 {
    unsigned i;
 
-   info->processor = pipe_shader_type_from_mesa(nir->info.stage);
+   info->processor = nir->info.stage;
    info->num_tokens = 2; /* indicate that the shader is non-empty */
    info->num_instructions = 2;
 
    info->properties[TGSI_PROPERTY_NEXT_SHADER] =
-      pipe_shader_type_from_mesa(nir->info.next_stage);
+      nir->info.next_stage;
 
    if (nir->info.stage == MESA_SHADER_VERTEX) {
       info->properties[TGSI_PROPERTY_VS_WINDOW_SPACE_POSITION] =
@@ -737,7 +737,7 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
             info->writes_edgeflag = true;
             break;
          case TGSI_SEMANTIC_POSITION:
-            if (info->processor == PIPE_SHADER_FRAGMENT) {
+            if (info->processor == MESA_SHADER_FRAGMENT) {
                if (!variable->data.fb_fetch_output)
                   info->writes_z = true;
             } else {
@@ -812,7 +812,7 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
    info->clipdist_writemask = u_bit_consecutive(0, info->num_written_clipdistance);
    info->culldist_writemask = u_bit_consecutive(0, info->num_written_culldistance);
 
-   if (info->processor == PIPE_SHADER_FRAGMENT)
+   if (info->processor == MESA_SHADER_FRAGMENT)
       info->uses_kill = nir->info.fs.uses_discard;
 
    nir_function *func = (struct nir_function *)
