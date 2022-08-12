@@ -3535,10 +3535,15 @@ egl_image_target_texture(struct gl_context *ctx,
       return;
    }
 
-   texImage = _mesa_get_tex_image(ctx, texObj, target, 0);
-   if (!texImage) {
-      _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
-   } else {
+   const GLuint numFaces = _mesa_num_tex_faces(target);
+   for (GLuint face = 0; face < numFaces; ++face) {
+      GLenum current = _mesa_cube_face_target(target, face);
+      texImage = _mesa_get_tex_image(ctx, texObj, current, 0);
+      if (!texImage) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
+         break;
+      }
+
       st_FreeTextureImageBuffer(ctx, texImage);
 
       texObj->External = GL_TRUE;
@@ -3570,11 +3575,10 @@ egl_image_target_texture(struct gl_context *ctx,
          st_bind_egl_image(ctx, texObj, texImage, &stimg,
                            target != GL_TEXTURE_EXTERNAL_OES, native_supported);
       }
-
       pipe_resource_reference(&stimg.texture, NULL);
-
-      _mesa_dirty_texobj(ctx, texObj);
    }
+
+   _mesa_dirty_texobj(ctx, texObj);
 
    if (tex_storage)
       _mesa_set_texture_view_state(ctx, texObj, target, 1);
