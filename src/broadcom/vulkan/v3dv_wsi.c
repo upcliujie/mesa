@@ -77,7 +77,7 @@ v3dv_wsi_finish(struct v3dv_physical_device *physical_device)
 }
 
 static void
-constraint_surface_capabilities(VkSurfaceCapabilitiesKHR *caps)
+constraint_surface_usage_flags(VkImageUsageFlags *flags)
 {
    /* Our display pipeline requires that images are linear, so we cannot
     * ensure that our swapchain images can be sampled. If we are running under
@@ -87,7 +87,7 @@ constraint_surface_capabilities(VkSurfaceCapabilitiesKHR *caps)
     * surface is in fullscreen mode for example. If we are not running under
     * a compositor, then we would always need them to be linear anyway.
     */
-   caps->supportedUsageFlags &= ~VK_IMAGE_USAGE_SAMPLED_BIT;
+   *flags &= ~VK_IMAGE_USAGE_SAMPLED_BIT;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -100,7 +100,7 @@ v3dv_GetPhysicalDeviceSurfaceCapabilitiesKHR(
    result = wsi_GetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice,
                                                         surface,
                                                         pSurfaceCapabilities);
-   constraint_surface_capabilities(pSurfaceCapabilities);
+   constraint_surface_usage_flags(&pSurfaceCapabilities->supportedUsageFlags);
    return result;
 }
 
@@ -114,7 +114,23 @@ v3dv_GetPhysicalDeviceSurfaceCapabilities2KHR(
    result = wsi_GetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice,
                                                          pSurfaceInfo,
                                                          pSurfaceCapabilities);
-   constraint_surface_capabilities(&pSurfaceCapabilities->surfaceCapabilities);
+   constraint_surface_usage_flags(
+      &pSurfaceCapabilities->surfaceCapabilities.supportedUsageFlags);
+   return result;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+v3dv_GetPhysicalDeviceSurfaceCapabilities2EXT(
+    VkPhysicalDevice                            physicalDevice,
+    VkSurfaceKHR                                surface,
+    VkSurfaceCapabilities2EXT*                  pSurfaceCapabilities)
+{
+   VkResult result;
+   result = wsi_GetPhysicalDeviceSurfaceCapabilities2EXT(physicalDevice,
+                                                         surface,
+                                                         pSurfaceCapabilities);
+
+   constraint_surface_usage_flags(&pSurfaceCapabilities->supportedUsageFlags);
    return result;
 }
 
