@@ -57,6 +57,7 @@ files_etnaviv = files(
   'etnaviv_format.c',
   'etnaviv_format.h',
   'etnaviv_internal.h',
+  'etnaviv_nir_lower_global.c',
   'etnaviv_nir_lower_ubo_to_uniform.c',
   'etnaviv_nir.c',
   'etnaviv_nir.h',
@@ -135,8 +136,9 @@ if with_tests
   test(
     'lower_ubo',
     executable(
-      'nir_lower_ubo_test',
+      'nir_test',
       files('tests/lower_ubo_tests.cpp'),
+      files('tests/lower_global_tests.cpp'),
       cpp_args : [cpp_msvc_compat_args],
       gnu_symbol_visibility : 'hidden',
       include_directories : [inc_include, inc_src, inc_gallium],
