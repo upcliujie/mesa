@@ -242,5 +242,10 @@ EGL_FUNCTIONS = (
     # EGL_KHR_partial_update
     _eglFunc("eglSetDamageRegionKHR",                "display"),
 
+    # EGL_MESA_query_renderer
+    _eglFunc("eglQueryRendererIntegerMESA",          "display"),
+    _eglFunc("eglQueryRendererStringMESA",           "display"),
+    _eglFunc("eglQueryCurrentRendererIntegerMESA",   "current"),
+    _eglFunc("eglQueryCurrentRendererStringMESA",    "current"),
 )
 

@@ -536,6 +536,7 @@ _eglCreateExtensionsString(_EGLDisplay *disp)
    _EGL_CHECK_EXTENSION(MESA_drm_image);
    _EGL_CHECK_EXTENSION(MESA_image_dma_buf_export);
    _EGL_CHECK_EXTENSION(MESA_query_driver);
+   _EGL_CHECK_EXTENSION(MESA_query_renderer);
 
    _EGL_CHECK_EXTENSION(NOK_swap_region);
    _EGL_CHECK_EXTENSION(NOK_texture_from_pixmap);
@@ -2684,6 +2685,85 @@ eglQueryDeviceStringEXT(EGLDeviceEXT device,
 }
 
 static EGLBoolean EGLAPIENTRY
+eglQueryRendererIntegerMESA(EGLDisplay dpy,
+                            EGLint renderer,
+                            EGLint name,
+                            EGLint *value)
+{
+   _EGLDisplay *disp = _eglLockDisplay(dpy);
+   EGLBoolean ret;
+
+   _EGL_FUNC_START(disp, EGL_NONE, NULL, EGL_FALSE);
+   _EGL_CHECK_DISPLAY(disp, EGL_FALSE);
+
+   assert(disp->Extensions.MESA_query_renderer);
+
+   ret = disp->Driver->QueryRendererIntegerEXT(disp, renderer, name, value);
+   RETURN_EGL_EVAL(disp, ret);
+}
+
+static EGLBoolean EGLAPIENTRY
+eglQueryCurrentRendererIntegerMESA(EGLint name,
+                            EGLint *value)
+{
+   EGLBoolean ret;
+   _EGLDisplay *disp;
+   EGLDisplay dpy = eglGetCurrentDisplay();
+
+   if (!dpy)
+      return EGL_FALSE;
+
+   disp = _eglLockDisplay(dpy);
+
+   _EGL_FUNC_START(disp, EGL_NONE, NULL, EGL_FALSE);
+   _EGL_CHECK_DISPLAY(disp, EGL_FALSE);
+
+   assert(disp->Extensions.MESA_query_renderer);
+
+   ret = disp->Driver->QueryRendererIntegerEXT(disp, 0, name, value);
+   RETURN_EGL_EVAL(disp, ret); 
+}
+
+static const char * EGLAPIENTRY
+eglQueryRendererStringMESA(EGLDisplay dpy,
+                            EGLint renderer,
+                            EGLint name)
+{
+   _EGLDisplay *disp = _eglLockDisplay(dpy);
+   const char *ret;
+
+   _EGL_FUNC_START(disp, EGL_NONE, NULL, NULL);
+   _EGL_CHECK_DISPLAY(disp, NULL);
+
+   assert(disp->Extensions.MESA_query_renderer);
+
+   ret = disp->Driver->QueryRendererStringEXT(disp, renderer, name);
+   RETURN_EGL_EVAL(disp, ret);
+}
+
+static const char * EGLAPIENTRY
+eglQueryCurrentRendererStringMESA( EGLint name)
+{
+   const char *ret;
+   _EGLDisplay *disp;
+   EGLDisplay dpy = eglGetCurrentDisplay();
+
+   if (!dpy)
+      return NULL;
+
+   disp = _eglLockDisplay(dpy);
+
+   _EGL_FUNC_START(disp, EGL_NONE, NULL, NULL);
+   _EGL_CHECK_DISPLAY(disp, NULL);
+
+   assert(disp->Extensions.MESA_query_renderer);
+
+   ret = disp->Driver->QueryRendererStringEXT(disp, 0, name);
+   RETURN_EGL_EVAL(disp, ret);
+}
+
+
+static EGLBoolean EGLAPIENTRY
 eglQueryDevicesEXT(EGLint max_devices,
                    EGLDeviceEXT *devices,
                    EGLint *num_devices)
@@ -2758,6 +2838,8 @@ eglGetProcAddress(const char *procname)
 
    if (!procname)
       RETURN_EGL_SUCCESS(NULL, NULL);
+
+
 
    _EGL_FUNC_START(NULL, EGL_NONE, NULL, NULL);
 

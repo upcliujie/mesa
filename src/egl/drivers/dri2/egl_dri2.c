@@ -59,6 +59,7 @@
 #endif
 
 #include "egldefines.h"
+#include "egltypedefs.h"
 #include "egl_dri2.h"
 #include "GL/mesa_glinterop.h"
 #include "loader/loader.h"
@@ -1019,6 +1020,8 @@ dri2_setup_screen(_EGLDisplay *disp)
    disp->Extensions.EXT_protected_surface =
       dri2_renderer_query_integer(dri2_dpy,
                                   __DRI2_RENDERER_HAS_PROTECTED_CONTENT);
+
+   disp->Extensions.MESA_query_renderer = EGL_TRUE;
 }
 
 void
@@ -3708,6 +3711,93 @@ dri2_interop_export_object(_EGLDisplay *disp, _EGLContext *ctx,
    return dri2_dpy->interop->export_object(dri2_ctx->dri_context, in, out);
 }
 
+#define __RENDERER(attrib) \
+    { EGL_RENDERER_##attrib##_MESA, __DRI2_RENDERER_##attrib }
+
+static const struct {
+   unsigned int egl_attrib, dri2_attrib;
+} query_renderer_map[] = {
+  __RENDERER(VENDOR_ID),
+  __RENDERER(DEVICE_ID),
+  __RENDERER(VERSION),
+  __RENDERER(ACCELERATED),
+  __RENDERER(VIDEO_MEMORY),
+  __RENDERER(UNIFIED_MEMORY_ARCHITECTURE),
+  __RENDERER(PREFERRED_PROFILE),
+  __RENDERER(OPENGL_CORE_PROFILE_VERSION),
+  __RENDERER(OPENGL_COMPATIBILITY_PROFILE_VERSION),
+  __RENDERER(OPENGL_ES_PROFILE_VERSION),
+  __RENDERER(OPENGL_ES2_PROFILE_VERSION),
+};
+
+#undef __RENDERER
+
+static int
+dri2_convert_egl_query_renderer_attribs(int attribute)
+{
+   unsigned i;
+
+   for (i = 0; i < ARRAY_SIZE(query_renderer_map); i++)
+      if (query_renderer_map[i].egl_attrib == attribute)
+         return query_renderer_map[i].dri2_attrib;
+
+   return -1;
+}
+
+/* Convert internal dri context profile bits into GLX context profile bits */
+static inline void
+dri_convert_context_profile_bits(int attribute, unsigned int *value)
+{
+   if (attribute == EGL_RENDERER_PREFERRED_PROFILE_MESA) {
+      if (value[0] == (1U << __DRI_API_OPENGL_CORE))
+         value[0] = EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR;
+      else if (value[0] == (1U << __DRI_API_OPENGL))
+         value[0] = EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT_KHR;
+   }
+}
+
+static EGLBoolean
+dri2_query_renderer_integer(_EGLDisplay *disp, EGLint renderer, EGLint attribute,
+                            EGLint *value)
+{
+   int ret;
+   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
+
+   /*
+    * Assume that we got a good value.
+    */
+   const int dri_attribute = dri2_convert_egl_query_renderer_attribs(attribute);
+
+   if (dri2_dpy->rendererQuery == NULL)
+      return -1;
+
+   ret = dri2_dpy->rendererQuery->queryInteger(dri2_dpy->dri_screen, dri_attribute,
+                                          value);
+
+   dri_convert_context_profile_bits(attribute, value);
+
+   return !ret ? EGL_TRUE : EGL_FALSE;
+}
+
+static const char*
+dri2_query_renderer_string(_EGLDisplay *disp, EGLint renderer, EGLint attribute)
+{
+   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
+   int ret;
+   const char *value;
+
+   /*
+    * Assume that we got a good value.
+    */
+   const int dri_attribute = dri2_convert_egl_query_renderer_attribs(attribute);
+
+   if (dri2_dpy->rendererQuery == NULL)
+      return NULL;
+
+   ret = dri2_dpy->rendererQuery->queryString(dri2_dpy->dri_screen, dri_attribute, &value);
+   return value;
+}
+
 const _EGLDriver _eglDriver = {
    .Initialize = dri2_initialize,
    .Terminate = dri2_terminate,
@@ -3737,6 +3827,8 @@ const _EGLDriver _eglDriver = {
    .QuerySurface = dri2_query_surface,
    .QueryDriverName = dri2_query_driver_name,
    .QueryDriverConfig = dri2_query_driver_config,
+   .QueryRendererIntegerEXT = dri2_query_renderer_integer,
+   .QueryRendererStringEXT = dri2_query_renderer_string,
 #ifdef HAVE_LIBDRM
    .CreateDRMImageMESA = dri2_create_drm_image_mesa,
    .ExportDRMImageMESA = dri2_export_drm_image_mesa,

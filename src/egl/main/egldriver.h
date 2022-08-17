@@ -216,6 +216,12 @@ struct _egl_driver
    void (*SetBlobCacheFuncsANDROID)(_EGLDisplay *disp,
                                     EGLSetBlobFuncANDROID set,
                                     EGLGetBlobFuncANDROID get);
+
+   /* for EGL_RENDERER_QUERY */
+   EGLBoolean (*QueryRendererIntegerEXT)(_EGLDisplay *disp, EGLint renderer,
+                                             EGLint attribute, EGLint *value);
+   const char *(*QueryRendererStringEXT)(_EGLDisplay *disp, EGLint renderer,
+                                             EGLint attribute);
 };
 
 
