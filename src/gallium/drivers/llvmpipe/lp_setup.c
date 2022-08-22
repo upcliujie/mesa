@@ -604,6 +604,7 @@ lp_setup_bind_rasterizer( struct lp_setup_context *setup,
    setup->flatshade_first = rast->flatshade_first;
    setup->line_width = rast->line_width;
    setup->rectangular_lines = rast->line_rectangular;
+   setup->conservative_raster_mode = rast->conservative_raster_mode;
 
    setup->point_size = rast->point_size;
    setup->sprite_coord_enable = rast->sprite_coord_enable;

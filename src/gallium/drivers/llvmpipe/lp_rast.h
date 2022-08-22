@@ -75,6 +75,8 @@ struct lp_rasterizer_task;
 
 extern const float lp_sample_pos_4x[4][2];
 
+extern const float lp_sample_pos_consv[4][2];
+
 /**
  * Rasterization state.
  * Objects of this type are put into the shared data bin and pointed

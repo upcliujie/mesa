@@ -62,6 +62,11 @@ const float lp_sample_pos_4x[4][2] = { { 0.375, 0.125 },
                                        { 0.125, 0.625 },
                                        { 0.625, 0.875 } };
 
+const float lp_sample_pos_consv[4][2] = { { 0.0, 0.0 },
+                                          { 1.0, 0.0 },
+                                          { 0.0, 1.0 },
+                                          { 1.0, 1.0 } };
+
 /**
  * Begin rasterizing a scene.
  * Called once per scene by one thread.
