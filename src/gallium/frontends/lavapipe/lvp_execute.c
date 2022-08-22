@@ -719,6 +719,7 @@ static void handle_graphics_pipeline(struct vk_cmd_queue_entry *cmd,
       state->rs_state.scissor = true;
       state->rs_state.no_ms_sample_mask_out = true;
       state->rs_state.line_rectangular = pipeline->line_rectangular;
+      state->rs_state.conservative_raster_mode = ps->rs->conservative_mode;
 
       if (!BITSET_TEST(ps->dynamic, MESA_VK_DYNAMIC_RS_LINE_WIDTH))
          state->rs_state.line_width = ps->rs->line.width;

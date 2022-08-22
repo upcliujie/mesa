@@ -145,6 +145,7 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .EXT_calibrated_timestamps             = true,
    .EXT_color_write_enable                = true,
    .EXT_conditional_rendering             = true,
+   .EXT_conservative_rasterization        = true,
    .EXT_depth_clip_enable                 = true,
    .EXT_depth_clip_control                = true,
    .EXT_depth_range_unrestricted          = true,
@@ -1313,6 +1314,20 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceProperties2(
             (VkPhysicalDeviceRobustness2PropertiesEXT *)ext;
          props->robustStorageBufferAccessSizeAlignment = 1;
          props->robustUniformBufferAccessSizeAlignment = 1;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT: {
+         VkPhysicalDeviceConservativeRasterizationPropertiesEXT *props =
+            (VkPhysicalDeviceConservativeRasterizationPropertiesEXT *)ext;
+         props->primitiveOverestimationSize = 0.0;
+         props->maxExtraPrimitiveOverestimationSize = 0.0;
+         props->extraPrimitiveOverestimationSizeGranularity = 0.0;
+         props->primitiveUnderestimation = false;
+         props->conservativePointAndLineRasterization = false;
+         props->degenerateTrianglesRasterized = false;
+         props->degenerateLinesRasterized = false;
+         props->fullyCoveredFragmentShaderInputVariable = false;
+         props->conservativeRasterizationPostDepthCoverage = false;
          break;
       }
       default:
