@@ -156,20 +156,18 @@ get_deref_reg_src(nir_deref_instr *deref, struct locals_to_regs_state *state)
          src.reg.base_offset += nir_src_as_uint(d->arr.index) *
                                 inner_array_size;
       } else {
+         nir_ssa_def *index = nir_i2i(b, nir_ssa_for_src(b, d->arr.index, 1), 32);
+         nir_ssa_def *offset = nir_imul_imm(b, index, inner_array_size);
+
          if (src.reg.indirect) {
             assert(src.reg.base_offset == 0);
+            assert(src.reg.indirect->is_ssa);
+            src.reg.indirect->ssa = nir_iadd(b, src.reg.indirect->ssa, offset);
          } else {
             src.reg.indirect = malloc(sizeof(nir_src));
-            *src.reg.indirect =
-               nir_src_for_ssa(nir_imm_int(b, src.reg.base_offset));
+            *src.reg.indirect = nir_src_for_ssa(nir_iadd_imm(b, offset, src.reg.base_offset));
             src.reg.base_offset = 0;
          }
-
-         assert(src.reg.indirect->is_ssa);
-         nir_ssa_def *index = nir_i2i(b, nir_ssa_for_src(b, d->arr.index, 1), 32);
-         src.reg.indirect->ssa =
-            nir_iadd(b, src.reg.indirect->ssa,
-                        nir_imul_imm(b, index, inner_array_size));
       }
 
       inner_array_size *= glsl_get_length(nir_deref_instr_parent(d)->type);
