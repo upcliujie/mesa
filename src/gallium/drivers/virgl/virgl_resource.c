@@ -519,6 +519,7 @@ virgl_resource_transfer_map(struct pipe_context *ctx,
       FALLTHROUGH;
    case VIRGL_TRANSFER_MAP_HW_RES:
       trans->hw_res_map = vws->resource_map(vws, vres->hw_res);
+
       if (trans->hw_res_map)
          map_addr = trans->hw_res_map + trans->offset;
       else
@@ -576,7 +577,8 @@ virgl_resource_transfer_map(struct pipe_context *ctx,
       }
 
       if (usage & PIPE_MAP_WRITE)
-          util_range_add(&vres->b, &vres->valid_buffer_range, box->x, box->x + box->width);
+          util_range_add(&vres->b, &vres->valid_buffer_range,
+                         box->x, box->x + box->width);
    }
 
    *transfer = &trans->base;
@@ -692,10 +694,71 @@ static struct pipe_resource *virgl_resource_create_front(struct pipe_screen *scr
 
 }
 
+#define BLOB_POOL_RESOURCE_SIZE 1024 * 1024 * 4 // 4MB
+
+static struct pipe_resource *
+      virgl_resource_create_pool_resource(struct pipe_screen *screen,
+                                          const struct pipe_resource *templ)
+{
+   struct virgl_screen *vs = virgl_screen(screen);
+
+   struct virgl_resource *res = CALLOC_STRUCT(virgl_resource);
+   res->b = *templ;
+   res->b.screen = &vs->base;
+   pipe_reference_init(&res->b.reference, 1);
+   virgl_resource_layout(&res->b, &res->metadata, 0, 0, 0, 0);
+
+   if (!vs->current_blob_resource ||
+       vs->blob_resource_next_offset + templ->width0 > BLOB_POOL_RESOURCE_SIZE) {
+      unsigned vbind, vflags;
+      vbind = pipe_to_virgl_bind(vs, templ->bind);
+      vflags = pipe_to_virgl_flags(vs, templ->flags);
+
+      fprintf(stderr, "Allocating pool resource of size %d\n", BLOB_POOL_RESOURCE_SIZE);
+
+      vs->current_blob_resource =
+            vs->vws->resource_create(vs->vws, templ->target,
+                                     NULL,
+                                     templ->format, vbind,
+                                     BLOB_POOL_RESOURCE_SIZE,
+                                     templ->height0,
+                                     templ->depth0,
+                                     templ->array_size,
+                                     templ->last_level,
+                                     templ->nr_samples,
+                                     vflags,
+                                     BLOB_POOL_RESOURCE_SIZE);
+      if (!vs->current_blob_resource) {
+         fprintf(stderr, "Error allocating pool resource\n");
+         FREE(res);
+         return NULL;
+      }
+   }
+   vs->vws->resource_reference(vs->vws, &res->hw_res, vs->current_blob_resource);
+
+   res->blob_offset = vs->blob_resource_next_offset;
+   vs->blob_resource_next_offset += ALIGN(templ->width0,
+                                          vs->caps.caps.v2.uniform_buffer_offset_alignment);
+
+   fprintf(stderr, "allocate resource as part of %p (%p) at offset %d + %d\n",
+           res->hw_res, vs->current_blob_resource, res->blob_offset, templ->width0);
+
+   util_range_init(&res->valid_buffer_range);
+   return &res->b;
+}
+
+
 static struct pipe_resource *virgl_resource_create(struct pipe_screen *screen,
                                                    const struct pipe_resource *templ)
-{
-   return virgl_resource_create_front(screen, templ, NULL);
+{  
+   if (templ->target == PIPE_BUFFER &&
+       ((templ->flags & PIPE_RESOURCE_FLAG_MAP_PERSISTENT) ||
+        (templ->flags & PIPE_RESOURCE_FLAG_MAP_COHERENT)) &&
+       (templ->bind & PIPE_BIND_CONSTANT_BUFFER) &&
+       templ->width0 < (BLOB_POOL_RESOURCE_SIZE >> 4))
+      return virgl_resource_create_pool_resource(screen, templ);
+   else
+      return virgl_resource_create_front(screen, templ, NULL);
 }
 
 static struct pipe_resource *virgl_resource_from_handle(struct pipe_screen *screen,
@@ -801,6 +864,7 @@ static void virgl_buffer_subdata(struct pipe_context *pipe,
    struct virgl_context *vctx = virgl_context(pipe);
    struct virgl_resource *vbuf = virgl_resource(resource);
 
+   offset += vbuf->blob_offset;
    /* We can try virgl_transfer_queue_extend_buffer when there is no
     * flush/readback/wait required.  Based on virgl_resource_transfer_prepare,
     * the simplest way to make sure that is the case is to check the valid
@@ -838,7 +902,9 @@ virgl_resource_create_transfer(struct virgl_context *vctx,
                                const struct pipe_box *box)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
+   struct virgl_resource *vres = virgl_resource(pres);
    struct virgl_transfer *trans;
+
    enum pipe_format format = pres->format;
    const unsigned blocksy = box->y / util_format_get_blockheight(format);
    const unsigned blocksx = box->x / util_format_get_blockwidth(format);
@@ -875,6 +941,7 @@ virgl_resource_create_transfer(struct virgl_context *vctx,
    trans->base.stride = metadata->stride[level];
    trans->base.layer_stride = metadata->layer_stride[level];
    trans->offset = offset;
+
    util_range_init(&trans->range);
 
    if (trans->base.resource->target != PIPE_TEXTURE_3D &&

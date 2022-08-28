@@ -32,7 +32,6 @@
 
 #include "virgl/virgl_winsys.h"
 #include "vtest/vtest_protocol.h"
-#include "virgl_resource_cache.h"
 
 struct pipe_fence_handle;
 struct sw_winsys;
@@ -52,13 +51,8 @@ struct virgl_vtest_winsys {
    unsigned protocol_version;
 };
 
-struct virgl_hw_res {
-   struct pipe_reference reference;
-   uint32_t res_handle;
-   int num_cs_references;
-
-   void *ptr;
-   int size;
+struct virgl_hw_res_vtest {
+   struct virgl_hw_res b;
 
    uint32_t format;
    uint32_t stride;
@@ -69,7 +63,6 @@ struct virgl_hw_res {
    void *mapped;
 
    uint32_t bind;
-   struct virgl_resource_cache_entry cache_entry;
 };
 
 struct virgl_vtest_cmd_buf {

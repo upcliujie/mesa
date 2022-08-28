@@ -29,21 +29,15 @@
 #include "util/list.h"
 
 #include "virgl/virgl_winsys.h"
-#include "virgl_resource_cache.h"
 
 struct pipe_fence_handle;
 struct hash_table;
 
-struct virgl_hw_res {
-   struct pipe_reference reference;
+struct virgl_hw_res_drm {
+   struct virgl_hw_res b;
    enum pipe_texture_target target;
-   uint32_t res_handle;
    uint32_t bo_handle;
-   int num_cs_references;
-   uint32_t size;
-   void *ptr;
 
-   struct virgl_resource_cache_entry cache_entry;
    uint32_t bind;
    uint32_t flags;
    uint32_t flink_name;
@@ -58,7 +52,6 @@ struct virgl_hw_res {
    int maybe_busy;
    uint32_t blob_mem;
 };
-
 
 struct param {
    uint64_t param;
@@ -105,7 +98,7 @@ struct virgl_drm_fence {
    struct pipe_reference reference;
    bool external;
    int fd;
-   struct virgl_hw_res *hw_res;
+   struct virgl_hw_res_drm *hw_res;
 };
 
 struct virgl_drm_cmd_buf {
@@ -117,7 +110,7 @@ struct virgl_drm_cmd_buf {
 
    unsigned nres;
    unsigned cres;
-   struct virgl_hw_res **res_bo;
+   struct virgl_hw_res_drm **res_bo;
    struct virgl_winsys *ws;
    uint32_t *res_hlist;
 

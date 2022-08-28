@@ -25,11 +25,12 @@
 
 #include "pipe/p_defines.h"
 #include "virtio-gpu/virgl_hw.h"
+#include "pipe/p_state.h"
+#include "virgl_resource_cache.h"
 
 struct pipe_box;
 struct pipe_fence_handle;
 struct winsys_handle;
-struct virgl_hw_res;
 
 #define VIRGL_MAX_TBUF_DWORDS 1024
 #define VIRGL_MAX_CMDBUF_DWORDS ((64 * 1024) + VIRGL_MAX_TBUF_DWORDS)
@@ -43,6 +44,17 @@ struct virgl_cmd_buf {
    unsigned cdw;
    uint32_t *buf;
 };
+
+
+struct virgl_hw_res {
+   struct pipe_reference reference;
+   struct virgl_resource_cache_entry cache_entry;
+   void *ptr;
+   uint32_t res_handle;
+   int num_cs_references;
+   uint32_t size;
+};
+
 
 struct virgl_winsys {
    unsigned pci_id;

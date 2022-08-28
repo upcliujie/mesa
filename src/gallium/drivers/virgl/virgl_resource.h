@@ -53,6 +53,7 @@ struct virgl_resource_metadata
 struct virgl_resource {
    struct pipe_resource b;
    struct virgl_hw_res *hw_res;
+   void *hw_res_map;
    struct virgl_resource_metadata metadata;
 
    /* For PIPE_BUFFER only.  Data outside of this range are uninitialized. */
@@ -67,6 +68,7 @@ struct virgl_resource {
     */
    unsigned bind_history;
    uint32_t blob_mem;
+   uint32_t blob_offset;
 
    uint16_t clean_mask;
    uint16_t use_staging : 1;
