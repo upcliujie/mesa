@@ -238,14 +238,18 @@ st_update_rasterizer(struct st_context *st)
     */
    if (!multisample && ctx->Line.SmoothFlag) {
       raster->line_smooth = 1;
-      raster->line_width = CLAMP(ctx->Line.Width,
-                                 ctx->Const.MinLineWidthAA,
-                                 ctx->Const.MaxLineWidthAA);
+      raster->line_width =
+         util_quantize_range_granularity(ctx->Line.Width,
+                                         ctx->Const.MinLineWidthAA,
+                                         ctx->Const.MaxLineWidthAA,
+                                         ctx->Const.LineWidthGranularity);
    }
    else {
-      raster->line_width = CLAMP(ctx->Line.Width,
-                                 ctx->Const.MinLineWidth,
-                                 ctx->Const.MaxLineWidth);
+      raster->line_width =
+         util_quantize_range_granularity(ctx->Line.Width,
+                                         ctx->Const.MinLineWidth,
+                                         ctx->Const.MaxLineWidth,
+                                         ctx->Const.LineWidthGranularity);
    }
 
    raster->line_rectangular = multisample || ctx->Line.SmoothFlag;
