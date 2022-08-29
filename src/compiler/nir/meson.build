@@ -149,6 +149,7 @@ files_libnir = files(
   'nir_lower_variable_initializers.c',
   'nir_lower_discard_if.c',
   'nir_lower_discard_or_demote.c',
+  'nir_lower_divergent_barriers.c',
   'nir_lower_double_ops.c',
   'nir_lower_drawpixels.c',
   'nir_lower_fb_read.c',

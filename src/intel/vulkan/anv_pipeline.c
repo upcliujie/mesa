@@ -695,6 +695,7 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
 {
    const struct anv_physical_device *pdevice = pipeline->device->physical;
    const struct brw_compiler *compiler = pdevice->compiler;
+   const struct intel_device_info *devinfo = &pdevice->info;
 
    struct brw_stage_prog_data *prog_data = &stage->prog_data.base;
    nir_shader *nir = stage->nir;
@@ -780,6 +781,35 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
 
       NIR_PASS(_, nir, nir_lower_explicit_io,
                nir_var_mem_shared, nir_address_format_32bit_offset);
+
+      if (devinfo->verx10 >= 125 && nir_has_divergent_barriers(nir)) {
+         unsigned local_size = stage->nir->info.workgroup_size[0] *
+                               stage->nir->info.workgroup_size[1] *
+                               stage->nir->info.workgroup_size[2];
+
+         /* If we can fit the entire workgroup in the subgroup, then we don't
+          * need any workgroup barriers as they execute in lockstep.
+          */
+         if (local_size > BRW_SUBGROUP_SIZE) {
+            NIR_PASS_V(nir, nir_lower_divergent_barrier,
+                       nir_address_format_32bit_offset, 4);
+            /* The pass will add a shared variable which we need to lower. */
+            NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
+                       nir_var_mem_shared, shared_type_info);
+            NIR_PASS_V(nir, nir_lower_explicit_io,
+                       nir_var_mem_shared, nir_address_format_32bit_offset);
+            /* Regather infos to have a correct shared_size */
+            nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
+         } else {
+            /* If the workgroup size if is bigger than the subgroup size, bump
+             * it to the max so that we can remove workgroup barriers
+             * completely.
+             */
+            if (stage->key.base.subgroup_size_type < local_size)
+               stage->key.base.subgroup_size_type = BRW_SUBGROUP_SIZE;
+            NIR_PASS_V(nir, nir_remove_workgroup_barriers);
+         }
+      }
 
       if (nir->info.zero_initialize_shared_memory &&
           nir->info.shared_size > 0) {
@@ -1860,8 +1890,6 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
 
       NIR_PASS(_, stage.nir, anv_nir_add_base_work_group_id);
 
-      anv_pipeline_lower_nir(&pipeline->base, mem_ctx, &stage, layout);
-
       unsigned local_size = stage.nir->info.workgroup_size[0] *
                             stage.nir->info.workgroup_size[1] *
                             stage.nir->info.workgroup_size[2];
@@ -1885,6 +1913,8 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
        */
       if (stage.nir->info.subgroup_size == SUBGROUP_SIZE_FULL_SUBGROUPS)
          stage.nir->info.subgroup_size = BRW_SUBGROUP_SIZE;
+
+      anv_pipeline_lower_nir(&pipeline->base, mem_ctx, &stage, layout);
 
       stage.num_stats = 1;
 
