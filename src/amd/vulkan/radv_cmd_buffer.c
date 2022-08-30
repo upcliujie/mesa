@@ -308,37 +308,39 @@ radv_destroy_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 {
    list_del(&cmd_buffer->pool_link);
 
-   util_dynarray_fini(&cmd_buffer->cached_vertex_formats);
+   if (cmd_buffer->qf != RADV_QUEUE_SPARSE) {
+      util_dynarray_fini(&cmd_buffer->cached_vertex_formats);
 
-   list_for_each_entry_safe(struct radv_cmd_buffer_upload, up, &cmd_buffer->upload.list, list)
-   {
-      cmd_buffer->device->ws->buffer_destroy(cmd_buffer->device->ws, up->upload_bo);
-      list_del(&up->list);
-      free(up);
+      list_for_each_entry_safe(struct radv_cmd_buffer_upload, up, &cmd_buffer->upload.list, list)
+      {
+         cmd_buffer->device->ws->buffer_destroy(cmd_buffer->device->ws, up->upload_bo);
+         list_del(&up->list);
+         free(up);
+      }
+
+      if (cmd_buffer->upload.upload_bo)
+         cmd_buffer->device->ws->buffer_destroy(cmd_buffer->device->ws,
+                                                cmd_buffer->upload.upload_bo);
+
+      if (cmd_buffer->state.own_render_pass) {
+         radv_DestroyRenderPass(radv_device_to_handle(cmd_buffer->device),
+                                radv_render_pass_to_handle(cmd_buffer->state.pass), NULL);
+         cmd_buffer->state.own_render_pass = false;
+      }
+
+      if (cmd_buffer->cs)
+         cmd_buffer->device->ws->cs_destroy(cmd_buffer->cs);
+      if (cmd_buffer->ace_internal.cs)
+         cmd_buffer->device->ws->cs_destroy(cmd_buffer->ace_internal.cs);
+
+      for (unsigned i = 0; i < MAX_BIND_POINTS; i++) {
+         struct radv_descriptor_set_header *set = &cmd_buffer->descriptors[i].push_set.set;
+         free(set->mapped_ptr);
+         if (set->layout)
+            vk_descriptor_set_layout_unref(&cmd_buffer->device->vk, &set->layout->vk);
+         vk_object_base_finish(&set->base);
+      }
    }
-
-   if (cmd_buffer->upload.upload_bo)
-      cmd_buffer->device->ws->buffer_destroy(cmd_buffer->device->ws, cmd_buffer->upload.upload_bo);
-
-   if (cmd_buffer->state.own_render_pass) {
-      radv_DestroyRenderPass(radv_device_to_handle(cmd_buffer->device),
-                             radv_render_pass_to_handle(cmd_buffer->state.pass), NULL);
-      cmd_buffer->state.own_render_pass = false;
-   }
-
-   if (cmd_buffer->cs)
-      cmd_buffer->device->ws->cs_destroy(cmd_buffer->cs);
-   if (cmd_buffer->ace_internal.cs)
-      cmd_buffer->device->ws->cs_destroy(cmd_buffer->ace_internal.cs);
-
-   for (unsigned i = 0; i < MAX_BIND_POINTS; i++) {
-      struct radv_descriptor_set_header *set = &cmd_buffer->descriptors[i].push_set.set;
-      free(set->mapped_ptr);
-      if (set->layout)
-         vk_descriptor_set_layout_unref(&cmd_buffer->device->vk, &set->layout->vk);
-      vk_object_base_finish(&set->base);
-   }
-
    vk_object_base_finish(&cmd_buffer->meta_push_descriptors.base);
 
    vk_command_buffer_finish(&cmd_buffer->vk);
@@ -369,12 +371,16 @@ radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
    list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
    cmd_buffer->qf = vk_queue_to_radv(device->physical_device, pool->vk.queue_family_index);
 
-   ring = radv_queue_family_to_ring(device->physical_device, cmd_buffer->qf);
+   if (cmd_buffer->qf != RADV_QUEUE_SPARSE) {
+      ring = radv_queue_family_to_ring(device->physical_device, cmd_buffer->qf);
 
-   cmd_buffer->cs = device->ws->cs_create(device->ws, ring);
-   if (!cmd_buffer->cs) {
-      radv_destroy_cmd_buffer(cmd_buffer);
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+      cmd_buffer->cs = device->ws->cs_create(device->ws, ring);
+      if (!cmd_buffer->cs) {
+         radv_destroy_cmd_buffer(cmd_buffer);
+         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+      }
+
+      list_inithead(&cmd_buffer->upload.list);
    }
 
    vk_object_base_init(&device->vk, &cmd_buffer->meta_push_descriptors.base,
@@ -388,8 +394,6 @@ radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
 
    *pCommandBuffer = radv_cmd_buffer_to_handle(cmd_buffer);
 
-   list_inithead(&cmd_buffer->upload.list);
-
    return VK_SUCCESS;
 }
 
@@ -397,6 +401,12 @@ static VkResult
 radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 {
    vk_command_buffer_reset(&cmd_buffer->vk);
+
+   cmd_buffer->record_result = VK_SUCCESS;
+   cmd_buffer->status = RADV_CMD_BUFFER_STATUS_INITIAL;
+
+   if (cmd_buffer->qf == RADV_QUEUE_SPARSE)
+      return VK_SUCCESS;
 
    cmd_buffer->device->ws->cs_reset(cmd_buffer->cs);
    if (cmd_buffer->ace_internal.cs)
@@ -435,8 +445,6 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
    if (cmd_buffer->upload.upload_bo)
       radv_cs_add_buffer(cmd_buffer->device->ws, cmd_buffer->cs, cmd_buffer->upload.upload_bo);
    cmd_buffer->upload.offset = 0;
-
-   cmd_buffer->record_result = VK_SUCCESS;
 
    memset(cmd_buffer->vertex_binding_buffers, 0, sizeof(struct radv_buffer *) * cmd_buffer->used_vertex_bindings);
    cmd_buffer->used_vertex_bindings = 0;
@@ -481,8 +489,6 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
          radv_emit_clear_data(cmd_buffer, V_370_PFP, cmd_buffer->gfx9_eop_bug_va, 16 * num_db);
       }
    }
-
-   cmd_buffer->status = RADV_CMD_BUFFER_STATUS_INITIAL;
 
    return cmd_buffer->record_result;
 }
@@ -4894,6 +4900,11 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
          return result;
    }
 
+   cmd_buffer->status = RADV_CMD_BUFFER_STATUS_RECORDING;
+
+   if (cmd_buffer->qf == RADV_QUEUE_SPARSE)
+      return result;
+
    memset(&cmd_buffer->state, 0, sizeof(cmd_buffer->state));
    cmd_buffer->state.last_primitive_reset_en = -1;
    cmd_buffer->state.last_index_type = -1;
@@ -4957,8 +4968,6 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
       radv_cmd_buffer_trace_emit(cmd_buffer);
 
    radv_describe_begin_cmd_buffer(cmd_buffer);
-
-   cmd_buffer->status = RADV_CMD_BUFFER_STATUS_RECORDING;
 
    return result;
 }
@@ -5304,6 +5313,12 @@ VKAPI_ATTR VkResult VKAPI_CALL
 radv_EndCommandBuffer(VkCommandBuffer commandBuffer)
 {
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+
+   if (cmd_buffer->qf == RADV_QUEUE_SPARSE) {
+      cmd_buffer->status = RADV_CMD_BUFFER_STATUS_EXECUTABLE;
+
+      return cmd_buffer->record_result;
+   }
 
    radv_emit_mip_change_flush_default(cmd_buffer);
 
