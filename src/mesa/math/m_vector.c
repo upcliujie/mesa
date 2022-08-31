@@ -153,7 +153,11 @@ _mesa_vector4f_print( const GLvector4f *v, const GLubyte *cullmask,
       "%d:\t%f, %f, %f, %f\n"
    };
 
+   assert(v->size < ARRAY_SIZE(templates));
    const char *t = templates[v->size];
+   /* make ubsan happy */
+   if (!t)
+      return;
    GLfloat *d = (GLfloat *)v->data;
    GLuint j, i = 0, count;
 
