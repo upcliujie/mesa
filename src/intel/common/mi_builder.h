@@ -362,6 +362,30 @@ mi_value_half(struct mi_value value, bool top_32_bits)
 }
 
 static inline void
+_mi_lrm_no_unref(struct mi_builder *b,
+                 struct mi_value dst, struct mi_value src,
+                 bool async)
+{
+   assert(dst.type == MI_VALUE_TYPE_REG32);
+   assert(src.type == MI_VALUE_TYPE_MEM32 ||
+          src.type == MI_VALUE_TYPE_MEM64);
+
+#if GFX_VER >= 7
+   mi_builder_emit(b, GENX(MI_LOAD_REGISTER_MEM), lrm) {
+      struct mi_reg_num reg = mi_adjust_reg_num(dst.reg);
+      lrm.RegisterAddress = reg.num;
+#if GFX_VER >= 11
+      lrm.AddCSMMIOStartOffset = reg.cs;
+#endif
+      lrm.MemoryAddress = src.addr;
+      lrm.AsyncModeEnable = async;
+   }
+#else
+   unreachable("Cannot load do mem -> reg copy on SNB and earlier");
+#endif
+}
+
+static inline void
 _mi_copy_no_unref(struct mi_builder *b,
                   struct mi_value dst, struct mi_value src)
 {
@@ -424,8 +448,19 @@ _mi_copy_no_unref(struct mi_builder *b,
          _mi_copy_no_unref(b, mi_value_half(dst, true),
                               mi_imm(0));
          break;
-      case MI_VALUE_TYPE_REG64:
       case MI_VALUE_TYPE_MEM64:
+         if (dst.type == MI_VALUE_TYPE_REG64) {
+            _mi_lrm_no_unref(b, mi_value_half(dst, false),
+                                mi_value_half(src, false),
+                             true /* AsyncModeEnable */);
+         } else {
+            _mi_copy_no_unref(b, mi_value_half(dst, false),
+                                 mi_value_half(src, false));
+         }
+         _mi_copy_no_unref(b, mi_value_half(dst, true),
+                              mi_value_half(src, true));
+         break;
+      case MI_VALUE_TYPE_REG64:
          _mi_copy_no_unref(b, mi_value_half(dst, false),
                               mi_value_half(src, false));
          _mi_copy_no_unref(b, mi_value_half(dst, true),
@@ -499,18 +534,7 @@ _mi_copy_no_unref(struct mi_builder *b,
 
       case MI_VALUE_TYPE_MEM32:
       case MI_VALUE_TYPE_MEM64:
-#if GFX_VER >= 7
-         mi_builder_emit(b, GENX(MI_LOAD_REGISTER_MEM), lrm) {
-            struct mi_reg_num reg = mi_adjust_reg_num(dst.reg);
-            lrm.RegisterAddress = reg.num;
-#if GFX_VER >= 11
-            lrm.AddCSMMIOStartOffset = reg.cs;
-#endif
-            lrm.MemoryAddress = src.addr;
-         }
-#else
-         unreachable("Cannot load do mem -> reg copy on SNB and earlier");
-#endif
+         _mi_lrm_no_unref(b, dst, src, false);
          break;
 
       case MI_VALUE_TYPE_REG32:
@@ -613,6 +637,44 @@ mi_memcpy(struct mi_builder *b, __gen_address_type dst,
 #endif
    }
 }
+
+/**
+ * Perform an asynchronous store of the value in src (which must be a
+ * memory location) to the register specified by dst.
+ *
+ * This corresponds to MI_LOAD_REGISTER_MEM with Async Mode Enable set,
+ * which instructs the command streamer not to wait until the command
+ * completes before executing the next command.  This reduces stalling
+ * in sections of back-to-back register writes.
+ */
+static inline void
+mi_store_async(struct mi_builder *b, struct mi_value dst, struct mi_value src)
+{
+#if GFX_VERx10 >= 75
+   assert(!dst.invert && !src.invert);
+#endif
+
+   mi_builder_flush_math(b);
+
+   assert(dst.type == MI_VALUE_TYPE_REG64 ||
+          dst.type == MI_VALUE_TYPE_REG32);
+
+   assert(src.type == MI_VALUE_TYPE_MEM64 ||
+          src.type == MI_VALUE_TYPE_MEM32);
+
+   if (dst.type == MI_VALUE_TYPE_REG64) {
+      _mi_lrm_no_unref(b, mi_value_half(dst, false),
+                          mi_value_half(src, false), true);
+      _mi_lrm_no_unref(b, mi_value_half(dst, true),
+                          mi_value_half(src, true), true);
+   } else {
+      _mi_lrm_no_unref(b, dst, src, true);
+   }
+
+   mi_value_unref(b, src);
+   mi_value_unref(b, dst);
+}
+
 
 /*
  * MI_MATH Section.  Only available on Haswell+

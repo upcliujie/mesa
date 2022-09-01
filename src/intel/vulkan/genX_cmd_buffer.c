@@ -4516,9 +4516,6 @@ load_indirect_parameters(struct anv_cmd_buffer *cmd_buffer,
    struct mi_builder b;
    mi_builder_init(&b, cmd_buffer->device->info, &cmd_buffer->batch);
 
-   mi_store(&b, mi_reg32(GFX7_3DPRIM_VERTEX_COUNT),
-                mi_mem32(anv_address_add(addr, 0)));
-
    struct mi_value instance_count = mi_mem32(anv_address_add(addr, 4));
    if (pipeline->instance_multiplier > 1) {
 #if GFX_VERx10 >= 75
@@ -4528,15 +4525,19 @@ load_indirect_parameters(struct anv_cmd_buffer *cmd_buffer,
       anv_finishme("Multiview + indirect draw requires MI_MATH; "
                    "MI_MATH is not supported on Ivy Bridge");
 #endif
+      mi_store(&b, mi_reg32(GFX7_3DPRIM_INSTANCE_COUNT), instance_count);
+   } else {
+      mi_store_async(&b, mi_reg32(GFX7_3DPRIM_INSTANCE_COUNT), instance_count);
    }
-   mi_store(&b, mi_reg32(GFX7_3DPRIM_INSTANCE_COUNT), instance_count);
 
-   mi_store(&b, mi_reg32(GFX7_3DPRIM_START_VERTEX),
-                mi_mem32(anv_address_add(addr, 8)));
+   mi_store_async(&b, mi_reg32(GFX7_3DPRIM_VERTEX_COUNT),
+                  mi_mem32(anv_address_add(addr, 0)));
+   mi_store_async(&b, mi_reg32(GFX7_3DPRIM_START_VERTEX),
+                      mi_mem32(anv_address_add(addr, 8)));
 
    if (indexed) {
-      mi_store(&b, mi_reg32(GFX7_3DPRIM_BASE_VERTEX),
-                   mi_mem32(anv_address_add(addr, 12)));
+      mi_store_async(&b, mi_reg32(GFX7_3DPRIM_BASE_VERTEX),
+                     mi_mem32(anv_address_add(addr, 12)));
       mi_store(&b, mi_reg32(GFX7_3DPRIM_START_INSTANCE),
                    mi_mem32(anv_address_add(addr, 16)));
    } else {

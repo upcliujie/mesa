@@ -7005,15 +7005,15 @@ iris_upload_render_state(struct iris_context *ice,
       struct iris_bo *bo = iris_resource_bo(indirect->buffer);
       assert(bo);
 
-      mi_store(&b, mi_reg32(_3DPRIM_VERTEX_COUNT),
-               mi_mem32(ro_bo(bo, indirect->offset + 0)));
-      mi_store(&b, mi_reg32(_3DPRIM_INSTANCE_COUNT),
-               mi_mem32(ro_bo(bo, indirect->offset + 4)));
-      mi_store(&b, mi_reg32(_3DPRIM_START_VERTEX),
-               mi_mem32(ro_bo(bo, indirect->offset + 8)));
+      mi_store_async(&b, mi_reg32(_3DPRIM_VERTEX_COUNT),
+                     mi_mem32(ro_bo(bo, indirect->offset + 0)));
+      mi_store_async(&b, mi_reg32(_3DPRIM_INSTANCE_COUNT),
+                     mi_mem32(ro_bo(bo, indirect->offset + 4)));
+      mi_store_async(&b, mi_reg32(_3DPRIM_START_VERTEX),
+                     mi_mem32(ro_bo(bo, indirect->offset + 8)));
       if (draw->index_size) {
-         mi_store(&b, mi_reg32(_3DPRIM_BASE_VERTEX),
-                  mi_mem32(ro_bo(bo, indirect->offset + 12)));
+         mi_store_async(&b, mi_reg32(_3DPRIM_BASE_VERTEX),
+                        mi_mem32(ro_bo(bo, indirect->offset + 12)));
          mi_store(&b, mi_reg32(_3DPRIM_START_INSTANCE),
                   mi_mem32(ro_bo(bo, indirect->offset + 16)));
       } else {
