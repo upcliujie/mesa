@@ -4457,8 +4457,6 @@ static inline bool should_print_nir(UNUSED nir_shader *shader) { return false; }
       nir_print_shader(nir, stdout);                                 \
 )
 
-#define NIR_SKIP(name) should_skip_nir(#name)
-
 /** An instruction filtering callback with writemask
  *
  * Returns true if the instruction should be processed with the associated
