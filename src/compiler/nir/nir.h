@@ -39,6 +39,7 @@
 #include "util/compiler.h"
 #include "util/enum_operators.h"
 #include "util/macros.h"
+#include "util/u_call_once.h"
 #include "util/u_printf.h"
 #include "util/format/u_format.h"
 #include "compiler/nir_types.h"
@@ -4377,27 +4378,26 @@ void nir_shader_replace(nir_shader *dest, nir_shader *src);
 
 void nir_shader_serialize_deserialize(nir_shader *s);
 
+struct should_skip_nir_context {
+   util_once_flag once;
+   const char *name;
+   bool skip;
+};
+
 #ifndef NDEBUG
 void nir_validate_shader(nir_shader *shader, const char *when);
 void nir_validate_ssa_dominance(nir_shader *shader, const char *when);
 void nir_metadata_set_validation_flag(nir_shader *shader);
 void nir_metadata_check_validation_flag(nir_shader *shader);
 
+/* Should only be called by should_skip_nir */
+void _nir_should_skip_nir_once(struct should_skip_nir_context *context);
 static inline bool
-should_skip_nir(const char *name)
+should_skip_nir(struct should_skip_nir_context *context)
 {
-   static const char *list = NULL;
-   if (!list) {
-      /* Comma separated list of names to skip. */
-      list = getenv("NIR_SKIP");
-      if (!list)
-         list = "";
-   }
-
-   if (!list[0])
-      return false;
-
-   return comma_separated_list_contains(list, name);
+   util_call_once_data(&(context->once),
+      (util_call_once_data_func)_nir_should_skip_nir_once, context);
+   return context->skip;
 }
 
 static inline bool
@@ -4415,12 +4415,14 @@ static inline void nir_validate_shader(nir_shader *shader, const char *when) { (
 static inline void nir_validate_ssa_dominance(nir_shader *shader, const char *when) { (void) shader; (void)when; }
 static inline void nir_metadata_set_validation_flag(nir_shader *shader) { (void) shader; }
 static inline void nir_metadata_check_validation_flag(nir_shader *shader) { (void) shader; }
-static inline bool should_skip_nir(UNUSED const char *pass_name) { return false; }
+static inline bool should_skip_nir(UNUSED struct should_skip_nir_context *context) { return false; }
 static inline bool should_print_nir(UNUSED nir_shader *shader) { return false; }
 #endif /* NDEBUG */
 
 #define _PASS(pass, nir, do_pass) do {                               \
-   if (should_skip_nir(#pass)) {                                     \
+   static struct should_skip_nir_context context =                   \
+      { UTIL_ONCE_FLAG_INIT, #pass, false };                         \
+   if (should_skip_nir(&context)) {                                  \
       printf("skipping %s\n", #pass);                                \
       break;                                                         \
    }                                                                 \

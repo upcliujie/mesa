@@ -33,6 +33,7 @@
 #include <limits.h>
 #include <assert.h>
 #include <math.h>
+#include "util/u_debug.h"
 #include "util/u_math.h"
 #include "util/u_qsort.h"
 
@@ -119,6 +120,26 @@ nir_process_debug_variable(void)
    static once_flag flag = ONCE_FLAG_INIT;
    call_once(&flag, nir_process_debug_variable_once);
 }
+
+/* Comma separated list of names to skip. */
+static const char *nir_skip_list = NULL;
+static void
+nir_skip_list_get_once(void) {
+   nir_skip_list = debug_get_option("NIR_SKIP", "");
+}
+
+void
+_nir_should_skip_nir_once(struct should_skip_nir_context *context)
+{
+   static util_once_flag flag = UTIL_ONCE_FLAG_INIT;
+   util_call_once(&flag, nir_skip_list_get_once);
+   if (nir_skip_list[0]) {
+      context->skip =  comma_separated_list_contains(nir_skip_list, context->name);
+   } else {
+      context->skip = false;
+   }
+}
+
 #endif
 
 /** Return true if the component mask "mask" with bit size "old_bit_size" can
