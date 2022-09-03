@@ -313,6 +313,7 @@ struct dri2_egl_display {
    uint32_t capabilities;
    char *device_name;
    bool is_render_node;
+   int min_sync_frequency;
 #endif
 
 #ifdef HAVE_ANDROID_PLATFORM

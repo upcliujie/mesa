@@ -2116,6 +2116,12 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
 
    dri2_wl_setup_swap_interval(disp);
 
+   dri2_dpy->min_sync_frequency = 20;
+   if (dri2_dpy->config)
+      dri2_dpy->config->configQueryi(dri2_dpy->dri_screen_render_gpu,
+                                     "wayland_min_sync_frequency",
+                                     &dri2_dpy->min_sync_frequency);
+
    if (dri2_dpy->wl_drm) {
       /* To use Prime, we must have _DRI_IMAGE v7 at least. createImageFromFds
        * support indicates that Prime export/import is supported by the driver.

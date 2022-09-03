@@ -55,6 +55,7 @@
 #include <util/u_dynarray.h>
 #include <util/anon_file.h>
 #include <util/os_time.h>
+#include <util/xmlconfig.h>
 
 #include <loader/loader_wayland_helper.h>
 
@@ -128,6 +129,7 @@ struct wsi_wayland {
    struct wsi_interface base;
 
    struct wsi_device *wsi;
+   int min_sync_frequency;
 
    const VkAllocationCallbacks *alloc;
    VkPhysicalDevice physical_device;
@@ -2550,7 +2552,8 @@ fail:
 VkResult
 wsi_wl_init_wsi(struct wsi_device *wsi_device,
                 const VkAllocationCallbacks *alloc,
-                VkPhysicalDevice physical_device)
+                VkPhysicalDevice physical_device,
+                const struct driOptionCache *dri_options)
 {
    struct wsi_wayland *wsi;
    VkResult result;
@@ -2565,6 +2568,14 @@ wsi_wl_init_wsi(struct wsi_device *wsi_device,
    wsi->physical_device = physical_device;
    wsi->alloc = alloc;
    wsi->wsi = wsi_device;
+   wsi->min_sync_frequency = 20;
+
+   if (dri_options) {
+      if (driCheckOption(dri_options, "wayland_min_sync_frequency", DRI_INT)) {
+         wsi->min_sync_frequency =
+            driQueryOptioni(dri_options, "wayland_min_sync_frequency");
+      }
+   }
 
    wsi->base.get_support = wsi_wl_surface_get_support;
    wsi->base.get_capabilities2 = wsi_wl_surface_get_capabilities2;
