@@ -2239,7 +2239,7 @@ to upconvert to 32b float internally?
 				then probably a component mask, I always see 0xf
 		</doc>
 		<bitfield name="CLEAR_MASK" low="4" high="7"/>
-		<!-- On gen3+, if CONCURRENT_RESOLVE_MANUAL is used, should be
+		<!-- On gen4+, if CONCURRENT_RESOLVE_MANUAL is used, should be
 		     set for the last resolve in a tile store sequence.
 		 -->
 		<bitfield name="LAST" pos="9" type="boolean"/>
@@ -2351,7 +2351,7 @@ to upconvert to 32b float internally?
 		<value value="0x0" name="CONCURRENT_RESOLVE_DISABLED"/>
 		<!-- Presumably hardware itself determines how to sync resolves. -->
 		<value value="0x1" name="CONCURRENT_RESOLVE_AUTO"/>
-		<!-- On Gen3+ we could manually specify the last resolve,
+		<!-- On Gen4+ we could manually specify the last resolve,
 		     presumably for less overhead.
 		 -->
 		<value value="0x2" name="CONCURRENT_RESOLVE_MANUAL"/>
