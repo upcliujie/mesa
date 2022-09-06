@@ -2239,13 +2239,18 @@ to upconvert to 32b float internally?
 				then probably a component mask, I always see 0xf
 		</doc>
 		<bitfield name="CLEAR_MASK" low="4" high="7"/>
-		<!-- set when this is the last resolve on a650+ -->
-		<bitfield name="LAST" low="8" high="9"/>
+		<!-- On gen4+, if CONCURRENT_RESOLVE_MANUAL is used, should be
+		     set for the last resolve in a tile store sequence.
+		 -->
+		<bitfield name="LAST" pos="9" type="boolean"/>
 		<!--
-			a618 GLES: color render target number being resolved for RM6_RESOLVE, 0x8 for depth, 0x9 for separate stencil.
-			a618 VK: 0x8 for depth RM6_RESOLVE, 0x9 for separate stencil, 0 otherwise.
+			Two blits with the same BUFFER_ID cannot run in parallel,
+			controlled by RB_CCU_CNTL::CONCURRENT_RESOLVE
 
-			We believe this is related to concurrent resolves
+			Blob assignes them in the following way:
+			- [0, 7] - color attachments;
+			- 8 - depth attachment
+			- 9 - stencil attachment.
 		 -->
 		<bitfield name="BUFFER_ID" low="12" high="15"/>
 	</reg32>
@@ -2341,7 +2346,20 @@ to upconvert to 32b float internally?
 	<reg32 offset="0x8e04" name="RB_UNKNOWN_8E04"/> <!-- TODO: valid mask 0xfffffeff -->
 	<reg32 offset="0x8e05" name="RB_ADDR_MODE_CNTL" pos="0" type="a5xx_address_mode"/>
 	<!-- 0x8e06 invalid -->
+
+	<enum name="a6xx_ccu_concurrent_resolve">
+		<value value="0x0" name="CONCURRENT_RESOLVE_DISABLED"/>
+		<!-- Presumably hardware itself determines how to sync resolves. -->
+		<value value="0x1" name="CONCURRENT_RESOLVE_AUTO"/>
+		<!-- On Gen4+ we could manually specify the last resolve,
+		     presumably for less overhead.
+		 -->
+		<value value="0x2" name="CONCURRENT_RESOLVE_MANUAL"/>
+	</enum>
+
 	<reg32 offset="0x8e07" name="RB_CCU_CNTL">
+		<!-- Makes resolves slower -->
+		<bitfield name="UNK1" pos="1" type="boolean"/>
 		<!-- GMEM offset of CCU color cache
 			for GMEM rendering, we set it to GMEM size minus the minimum
 			CCU color cache size. CCU color cache will be needed in some
@@ -2352,8 +2370,7 @@ to upconvert to 32b float internally?
 		<!-- GMEM offset of CCU depth cache -->
 		<bitfield name="DEPTH_OFFSET" low="12" high="20" shr="12" type="hex"/>
 		<bitfield name="GMEM" pos="22" type="boolean"/> <!-- set for GMEM path -->
-		<!-- concurrent resolves are apparently a 2-bit enum on a650+ -->
-		<bitfield name="CONCURRENT_RESOLVE" pos="2" type="boolean"/>
+		<bitfield name="CONCURRENT_RESOLVE" low="2" high="3" type="a6xx_ccu_concurrent_resolve"/>
 		<!--TODO: valid mask 0xfffffc1f -->
 	</reg32>
 	<reg32 offset="0x8e08" name="RB_NC_MODE_CNTL">

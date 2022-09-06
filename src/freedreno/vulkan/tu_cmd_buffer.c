@@ -193,12 +193,21 @@ tu_emit_cache_flush_ccu(struct tu_cmd_buffer *cmd_buffer,
 
    if (ccu_state != cmd_buffer->state.ccu_state) {
       struct tu_physical_device *phys_dev = cmd_buffer->device->physical_device;
+      uint32_t concurrent_resolve = CONCURRENT_RESOLVE_DISABLED;
+      /* TODO: proper check */
+      if (ccu_state == TU_CMD_CCU_GMEM) {
+         if (phys_dev->info->a6xx.has_getfiberid) {
+            concurrent_resolve = CONCURRENT_RESOLVE_MANUAL;
+         }
+      }
+
       tu_cs_emit_regs(cs,
                       A6XX_RB_CCU_CNTL(.color_offset =
                                           ccu_state == TU_CMD_CCU_GMEM ?
                                           phys_dev->ccu_offset_gmem :
                                           phys_dev->ccu_offset_bypass,
-                                       .gmem = ccu_state == TU_CMD_CCU_GMEM));
+                                       .gmem = ccu_state == TU_CMD_CCU_GMEM,
+                                       .concurrent_resolve = concurrent_resolve));
       cmd_buffer->state.ccu_state = ccu_state;
    }
 }
@@ -785,6 +794,8 @@ tu6_emit_tile_store(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 
    tu6_emit_blit_scissor(cmd, cs, true);
 
+   cmd->state.last_rb_blit_info = NULL;
+
    for (uint32_t a = 0; a < pass->attachment_count; ++a) {
       if (pass->attachments[a].gmem)
          tu_store_gmem_attachment(cmd, cs, a, a, cmd->state.tiling->binning_possible);
@@ -798,6 +809,10 @@ tu6_emit_tile_store(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
             tu_store_gmem_attachment(cmd, cs, a, gmem_a, false);
          }
       }
+   }
+
+   if (cmd->state.last_rb_blit_info) {
+      *cmd->state.last_rb_blit_info |= A6XX_RB_BLIT_INFO_LAST;
    }
 }
 

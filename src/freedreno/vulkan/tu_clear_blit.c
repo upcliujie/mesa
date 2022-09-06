@@ -2953,6 +2953,7 @@ tu_clear_gmem_attachment(struct tu_cmd_buffer *cmd,
 static void
 tu_emit_blit(struct tu_cmd_buffer *cmd,
              struct tu_cs *cs,
+             uint32_t a,
              const struct tu_image_view *iview,
              const struct tu_render_pass_attachment *attachment,
              bool resolve,
@@ -2961,11 +2962,24 @@ tu_emit_blit(struct tu_cmd_buffer *cmd,
    tu_cs_emit_regs(cs,
                    A6XX_RB_MSAA_CNTL(tu_msaa_samples(attachment->samples)));
 
+   uint32_t buffer_id = 0;
+   if (resolve) {
+      buffer_id = a;
+      if (vk_format_is_depth_or_stencil(attachment->format))
+         buffer_id = 0x8;
+      if (separate_stencil)
+         buffer_id = 0x9;
+   }
+
    tu_cs_emit_regs(cs, A6XX_RB_BLIT_INFO(
       .unk0 = !resolve,
       .gmem = !resolve,
+      .buffer_id = buffer_id,
       .sample_0 = vk_format_is_int(attachment->format) ||
          vk_format_is_depth_or_stencil(attachment->format)));
+
+   /* We don't know wether this resolve is LAST, patch it later. */
+   cmd->state.last_rb_blit_info = cs->cur - 1;
 
    tu_cs_emit_pkt4(cs, REG_A6XX_RB_BLIT_DST_INFO, 4);
    if (iview->image->vk.format == VK_FORMAT_D32_SFLOAT_S8_UINT) {
@@ -3114,10 +3128,10 @@ tu_load_gmem_attachment(struct tu_cmd_buffer *cmd,
       tu_begin_load_store_cond_exec(cmd, cs, true);
 
    if (load_common)
-      tu_emit_blit(cmd, cs, iview, attachment, false, false);
+      tu_emit_blit(cmd, cs, 0, iview, attachment, false, false);
 
    if (load_stencil)
-      tu_emit_blit(cmd, cs, iview, attachment, false, true);
+      tu_emit_blit(cmd, cs, 0, iview, attachment, false, true);
 
    if (cond_exec)
       tu_end_load_store_cond_exec(cmd, cs, true);
@@ -3357,9 +3371,9 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
    if (!unaligned && !resolve_d24s8_s8 &&
        (a == gmem_a || blit_can_resolve(dst->format))) {
       if (store_common)
-         tu_emit_blit(cmd, cs, iview, src, true, false);
+         tu_emit_blit(cmd, cs, a, iview, src, true, false);
       if (store_separate_stencil)
-         tu_emit_blit(cmd, cs, iview, src, true, true);
+         tu_emit_blit(cmd, cs, a, iview, src, true, true);
 
       if (cond_exec) {
          tu_end_load_store_cond_exec(cmd, cs, false);

@@ -505,6 +505,8 @@ struct tu_cmd_state
    struct tu_draw_state lrz_and_depth_plane_state;
 
    struct tu_vs_params last_vs_params;
+
+   uint32_t *last_rb_blit_info;
 };
 
 enum tu_cmd_buffer_status
