@@ -29,14 +29,13 @@
 
 #include "util/os_misc.h"
 #include "util/simple_mtx.h"
+#include "util/u_call_once.h"
 
 #include "mtypes.h"
 #include "version.h"
 #include "git_sha1.h"
 
 #include "state_tracker/st_context.h"
-
-static simple_mtx_t override_lock = SIMPLE_MTX_INITIALIZER;
 
 /**
  * Scans 'string' to see if it ends with 'ending'.
@@ -53,41 +52,20 @@ check_for_ending(const char *string, const char *ending)
    return strcmp(string + (len1 - len2), ending) == 0;
 }
 
-/**
- * Returns the gl override data
- *
- * version > 0 indicates there is an override requested
- * fwd_context is only valid if version > 0
- */
+struct mesa_gl_override_info {
+   int version;
+   bool fc_suffix;
+   bool compat_suffix;
+};
+
 static void
-get_gl_override(gl_api api, int *version, bool *fwd_context,
-                bool *compat_context)
+get_gl_override_api(struct mesa_gl_override_info *override, gl_api api)
 {
    const char *env_var = (api == API_OPENGL_CORE || api == API_OPENGL_COMPAT)
       ? "MESA_GL_VERSION_OVERRIDE" : "MESA_GLES_VERSION_OVERRIDE";
    const char *version_str;
    int major, minor, n;
-   static struct override_info {
-      int version;
-      bool fc_suffix;
-      bool compat_suffix;
-   } override[] = {
-      [API_OPENGL_COMPAT] = { -1, false, false},
-      [API_OPENGLES]      = { -1, false, false},
-      [API_OPENGLES2]     = { -1, false, false},
-      [API_OPENGL_CORE]   = { -1, false, false},
-   };
-
-   STATIC_ASSERT(ARRAY_SIZE(override) == API_OPENGL_LAST + 1);
-
-   simple_mtx_lock(&override_lock);
-
-   if (api == API_OPENGLES)
-      goto exit;
-
-   if (override[api].version < 0) {
-      override[api].version = 0;
-
+   if (api != API_OPENGLES) {
       version_str = os_get_option(env_var);
       if (version_str) {
          override[api].fc_suffix = check_for_ending(version_str, "FC");
@@ -113,13 +91,42 @@ get_gl_override(gl_api api, int *version, bool *fwd_context,
          }
       }
    }
+}
 
-exit:
+static void
+get_gl_override_once(struct mesa_gl_override_info *override)
+{
+   get_gl_override_api(override, API_OPENGL_COMPAT);
+   get_gl_override_api(override, API_OPENGLES);
+   get_gl_override_api(override, API_OPENGLES2);
+   get_gl_override_api(override, API_OPENGL_CORE);
+}
+
+/**
+ * Returns the gl override data
+ *
+ * version > 0 indicates there is an override requested
+ * fwd_context is only valid if version > 0
+ */
+static void
+get_gl_override(gl_api api, int *version, bool *fwd_context,
+                bool *compat_context)
+{
+   static struct mesa_gl_override_info override[] = {
+      [API_OPENGL_COMPAT] = { -1, false, false},
+      [API_OPENGLES]      = { -1, false, false},
+      [API_OPENGLES2]     = { -1, false, false},
+      [API_OPENGL_CORE]   = { -1, false, false},
+   };
+   static util_once_flag once = UTIL_ONCE_FLAG_INIT;
+
+   STATIC_ASSERT(ARRAY_SIZE(override) == API_OPENGL_LAST + 1);
+
+   util_call_once_data(&once, (util_call_once_data_func)get_gl_override_once, override);
+
    *version = override[api].version;
    *fwd_context = override[api].fc_suffix;
    *compat_context = override[api].compat_suffix;
-
-   simple_mtx_unlock(&override_lock);
 }
 
 /**
