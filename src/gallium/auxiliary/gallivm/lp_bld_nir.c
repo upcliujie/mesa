@@ -1174,6 +1174,7 @@ do_alu_action(struct lp_build_nir_context *bld_base,
       return LLVMBuildSelect(builder, src[0], src[1], src[2], "");
    }
    default:
+      fprintf(stderr, "unsupported NIR opcode %s\n", nir_op_infos[instr->op].name);
       assert(0);
       break;
    }
@@ -2662,6 +2663,8 @@ bool lp_build_nir_llvm(struct lp_build_nir_context *bld_base,
 {
    struct nir_function *func;
 
+   lp_build_opt_nir(nir);
+
    nir_convert_from_ssa(nir, true);
    nir_lower_locals_to_regs(nir);
    nir_remove_dead_derefs(nir);
@@ -2735,6 +2738,8 @@ lp_build_opt_nir(struct nir_shader *nir)
    NIR_PASS_V(nir, nir_lower_fp16_casts);
    do {
       progress = false;
+
+      NIR_PASS_V(nir, nir_lower_alu_to_scalar, NULL, NULL);
       NIR_PASS(progress, nir, nir_opt_constant_folding);
       NIR_PASS(progress, nir, nir_opt_algebraic);
       NIR_PASS(progress, nir, nir_lower_pack);
