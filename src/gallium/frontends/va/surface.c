@@ -959,7 +959,7 @@ vlVaCreateSurfaces2(VADriverContextP ctx, unsigned int format,
    templat.buffer_format = pscreen->get_video_param(
       pscreen,
       PIPE_VIDEO_PROFILE_UNKNOWN,
-      PIPE_VIDEO_ENTRYPOINT_BITSTREAM,
+      drv->entrypoint,
       PIPE_VIDEO_CAP_PREFERED_FORMAT
    );
 
@@ -968,7 +968,7 @@ vlVaCreateSurfaces2(VADriverContextP ctx, unsigned int format,
    else
       templat.interlaced =
          pscreen->get_video_param(pscreen, PIPE_VIDEO_PROFILE_UNKNOWN,
-                                  PIPE_VIDEO_ENTRYPOINT_BITSTREAM,
+                                  drv->entrypoint,
                                   PIPE_VIDEO_CAP_PREFERS_INTERLACED);
 
    if (expected_fourcc) {

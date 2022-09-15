@@ -347,6 +347,8 @@ vlVaCreateConfig(VADriverContextP ctx, VAProfile profile, VAEntrypoint entrypoin
       return VA_STATUS_ERROR_UNSUPPORTED_ENTRYPOINT;
    }
 
+   drv->entrypoint = config->entrypoint;
+
    config->profile = p;
    if (pscreen->is_video_format_supported(pscreen, PIPE_FORMAT_P010, p,
          config->entrypoint) ||

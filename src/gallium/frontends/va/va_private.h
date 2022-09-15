@@ -262,6 +262,7 @@ typedef struct {
    vl_csc_matrix csc;
    mtx_t mutex;
    char vendor_string[256];
+   unsigned int entrypoint;
 } vlVaDriver;
 
 typedef struct {
