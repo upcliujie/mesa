@@ -821,7 +821,7 @@ lp_setup_bin_triangle(struct lp_setup_context *setup,
              */
             assert(px + 4 <= TILE_SIZE);
             assert(py + 4 <= TILE_SIZE);
-            if (setup->multisample)
+            if (setup->multisample || setup->conservative_raster_mode)
                cmd = LP_RAST_OP_MS_TRIANGLE_3_4;
             else
                cmd = use_32bits ? LP_RAST_OP_TRIANGLE_32_3_4 : LP_RAST_OP_TRIANGLE_3_4;
@@ -845,7 +845,7 @@ lp_setup_bin_triangle(struct lp_setup_context *setup,
             assert(px + 16 <= TILE_SIZE);
             assert(py + 16 <= TILE_SIZE);
 
-            if (setup->multisample)
+            if (setup->multisample || setup->conservative_raster_mode)
                cmd = LP_RAST_OP_MS_TRIANGLE_3_16;
             else
                cmd = use_32bits ? LP_RAST_OP_TRIANGLE_32_3_16 : LP_RAST_OP_TRIANGLE_3_16;
@@ -860,7 +860,7 @@ lp_setup_bin_triangle(struct lp_setup_context *setup,
          assert(px + 16 <= TILE_SIZE);
          assert(py + 16 <= TILE_SIZE);
 
-         if (setup->multisample)
+         if (setup->multisample || setup->conservative_raster_mode)
             cmd = LP_RAST_OP_MS_TRIANGLE_4_16;
          else
             cmd = use_32bits ? LP_RAST_OP_TRIANGLE_32_4_16 : LP_RAST_OP_TRIANGLE_4_16;
@@ -871,7 +871,7 @@ lp_setup_bin_triangle(struct lp_setup_context *setup,
 
       /* Triangle is contained in a single tile:
        */
-      if (setup->multisample)
+      if (setup->multisample || setup->conservative_raster_mode)
          cmd = lp_rast_ms_tri_tab[nr_planes];
       else
          cmd = use_32bits ? lp_rast_32_tri_tab[nr_planes] : lp_rast_tri_tab[nr_planes];
@@ -943,7 +943,7 @@ lp_setup_bin_triangle(struct lp_setup_context *setup,
                int count = util_bitcount(partial);
                in = TRUE;
 
-               if (setup->multisample)
+               if (setup->multisample || setup->conservative_raster_mode)
                   cmd = lp_rast_ms_tri_tab[count];
                else
                   cmd = use_32bits ? lp_rast_32_tri_tab[count] : lp_rast_tri_tab[count];
@@ -1018,7 +1018,7 @@ calc_fixed_position(struct lp_setup_context *setup,
                     const float (*v1)[4],
                     const float (*v2)[4])
 {
-   float pixel_offset = setup->multisample ? 0.0 : setup->pixel_offset;
+   float pixel_offset = (setup->multisample || setup->conservative_raster_mode) ? 0.0 : setup->pixel_offset;
    /*
     * The rounding may not be quite the same with PIPE_ARCH_SSE
     * (util_iround right now only does nearest/even on x87,

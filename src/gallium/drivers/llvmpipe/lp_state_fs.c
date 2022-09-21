@@ -223,6 +223,7 @@ generate_quad_mask(struct gallivm_state *gallivm,
                    struct lp_type fs_type,
                    unsigned first_quad,
                    unsigned sample,
+                   bool conservative,
                    LLVMValueRef mask_input) /* int64 */
 {
    LLVMBuilderRef builder = gallivm->builder;
@@ -261,11 +262,24 @@ generate_quad_mask(struct gallivm_state *gallivm,
       shift = 0;
    }
 
-   mask_input = LLVMBuildLShr(builder, mask_input,
-                              lp_build_const_int64(gallivm, 16 * sample), "");
-   mask_input = LLVMBuildTrunc(builder, mask_input, i32t, "");
-   mask_input = LLVMBuildAnd(builder, mask_input,
-                             lp_build_const_int32(gallivm, 0xffff), "");
+   if (conservative) {
+      LLVMValueRef consv_mask = lp_build_const_int32(gallivm, 0);
+      for (unsigned s = 0; s < 4; s++) {
+         LLVMValueRef per_sample_mask = LLVMBuildLShr(builder, mask_input,
+                                                      lp_build_const_int64(gallivm, 16 * s), "");
+         per_sample_mask = LLVMBuildTrunc(builder, per_sample_mask, i32t, "");
+         per_sample_mask = LLVMBuildAnd(builder, per_sample_mask,
+                                        lp_build_const_int32(gallivm, 0xffff), "");
+         consv_mask = LLVMBuildOr(builder, consv_mask, per_sample_mask, "");
+      }
+      mask_input = consv_mask;
+   } else {
+      mask_input = LLVMBuildLShr(builder, mask_input,
+                                 lp_build_const_int64(gallivm, 16 * sample), "");
+      mask_input = LLVMBuildTrunc(builder, mask_input, i32t, "");
+      mask_input = LLVMBuildAnd(builder, mask_input,
+                                lp_build_const_int32(gallivm, 0xffff), "");
+   }
    mask_input = LLVMBuildLShr(builder, mask_input,
                               LLVMConstInt(i32t, shift, 0), "");
 
@@ -3303,7 +3317,9 @@ generate_fragment(struct llvmpipe_context *lp,
                LLVMValueRef sample_mask_ptr = LLVMBuildGEP(builder, mask_store,
                                                            &sindexi, 1, "sample_mask_ptr");
                LLVMValueRef s_mask = generate_quad_mask(gallivm, fs_type,
-                                                        i*fs_type.length/4, s, mask_input);
+                                                        i*fs_type.length/4, s,
+                                                        key->conservative_raster,
+                                                        mask_input);
 
                LLVMValueRef smask_bit = LLVMBuildAnd(builder, smask_val, lp_build_const_int32(gallivm, (1 << s)), "");
                LLVMValueRef cmp = LLVMBuildICmp(builder, LLVMIntNE, smask_bit, lp_build_const_int32(gallivm, 0), "");
@@ -3321,7 +3337,9 @@ generate_fragment(struct llvmpipe_context *lp,
 
             if (partial_mask) {
                mask = generate_quad_mask(gallivm, fs_type,
-                                         i*fs_type.length/4, 0, mask_input);
+                                         i*fs_type.length/4, 0,
+                                         key->conservative_raster,
+                                         mask_input);
             }
             else {
                mask = lp_build_const_int_vec(gallivm, fs_type, ~0);
@@ -3463,6 +3481,9 @@ dump_fs_variant_key(struct lp_fragment_shader_variant_key *key)
 
    if (key->restrict_depth_values)
       debug_printf("restrict_depth_values = 1\n");
+
+   if (key->conservative_raster)
+      debug_printf("conservative_raster = 1\n");
 
    if (key->multisample) {
       debug_printf("multisample = 1\n");
@@ -4308,6 +4329,7 @@ make_variant_key(struct llvmpipe_context *lp,
    if (lp->active_occlusion_queries && !lp->queries_disabled) {
       key->occlusion_count = TRUE;
    }
+   key->conservative_raster = lp->rasterizer->conservative_raster_mode != 0;
 
    memcpy(&key->blend, lp->blend, sizeof key->blend);
 

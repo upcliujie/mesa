@@ -110,6 +110,7 @@ struct lp_setup_context
    unsigned multisample:1;
    unsigned rectangular_lines:1;
    unsigned cullmode:2; /**< PIPE_FACE_x */
+   unsigned conservative_raster_mode:2; /**< PIPE_CONSERVATIVE_RASTER_x */
    unsigned bottom_edge_rule;
    float pixel_offset;
    float line_width;
