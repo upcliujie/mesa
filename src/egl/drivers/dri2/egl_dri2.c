@@ -2344,7 +2344,7 @@ dri2_create_image_khr_texture(_EGLDisplay *disp, _EGLContext *ctx,
       }
 
       depth = target - EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_X_KHR;
-      gl_target = GL_TEXTURE_CUBE_MAP;
+      gl_target = GL_TEXTURE_CUBE_MAP_POSITIVE_X + depth;
       break;
    default:
       unreachable("Unexpected target in dri2_create_image_khr_texture()");
