@@ -32,6 +32,7 @@
 #include "anv_private.h"
 #include "util/u_debug.h"
 #include "vk_util.h"
+#include "util/u_drm_fourcc.h"
 #include "util/u_math.h"
 
 #include "vk_format.h"
@@ -1243,8 +1244,18 @@ choose_drm_format_mod(const struct anv_physical_device *device,
    uint64_t best_mod = UINT64_MAX;
    uint32_t best_score = 0;
 
+   static bool override_initialized = false;
+   static uint64_t override_mod = 0;
+   if (!override_initialized) {
+      const char *env = getenv("PREFERRED_DRM_MODIFIER");
+      override_mod = u_get_drm_fourcc_modifier_from_string(env);
+      override_initialized = true;
+   }
+
    for (uint32_t i = 0; i < modifier_count; ++i) {
       uint32_t score = isl_drm_modifier_get_score(&device->info, modifiers[i]);
+      if (score > 0 && modifiers[i] == override_mod)
+         score = UINT32_MAX;
       if (score > best_score) {
          best_mod = modifiers[i];
          best_score = score;
