@@ -21,6 +21,7 @@
 inc_include = [include_directories('.')]
 inc_d3d9 = include_directories('D3D9')
 inc_haikugl = include_directories('HaikuGL')
+drm_fourcc_h_path = join_paths(meson.current_source_dir(), 'drm-uapi/drm_fourcc.h')
 
 # Most things assume that Android headers are in the default include
 # path when compiling for Android so add the stub headers to

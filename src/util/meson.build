@@ -253,9 +253,41 @@ libmesa_util_sse41 = static_library(
   gnu_symbol_visibility : 'hidden',
 )
 
+print_drm_fourcc_c = custom_target(
+  'print_drm_fourcc.c',
+  input : 'u_drm_fourcc_c_gen.py',
+  output : 'print_drm_fourcc.c',
+  depend_files : [drm_fourcc_h_path],
+  command : [prog_python, '@INPUT@', '--gen-printer', drm_fourcc_h_path],
+  capture : true,
+)
+
+prog_print_drm_fourcc = executable(
+    'print_drm_fourcc',
+    [print_drm_fourcc_c],
+    include_directories : [inc_include,],
+    native : true,
+  )
+
+u_drm_fourcc_csv = custom_target(
+  'u_drm_fourcc.csv',
+  output : 'u_drm_fourcc.csv',
+  command : [prog_print_drm_fourcc],
+  capture : true,
+)
+
+u_drm_fourcc_c = custom_target(
+  'u_drm_fourcc.c',
+  input : 'u_drm_fourcc_c_gen.py',
+  output : 'u_drm_fourcc.c',
+  depend_files : [drm_fourcc_h_path],
+  command : [prog_python, '@INPUT@', '--gen-util-c', u_drm_fourcc_csv],
+  capture : true,
+)
+
 _libmesa_util = static_library(
   'mesa_util',
-  [files_mesa_util, files_debug_stack, format_srgb],
+  [files_mesa_util, files_debug_stack, format_srgb, u_drm_fourcc_c],
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
   dependencies : deps_for_libmesa_util,
   link_with: [libmesa_format, libmesa_util_sse41],
