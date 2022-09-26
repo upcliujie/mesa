@@ -384,10 +384,10 @@ optimizations.extend([
    (('ffma@64', a, b, c), ('fadd', ('fmul', a, b), c), 'options->lower_ffma64'),
    (('ffmaz', a, b, c), ('fadd', ('fmulz', a, b), c), 'options->lower_ffma32'),
    # Always lower inexact ffma, because it will be fused back by late optimizations (nir_opt_algebraic_late).
-   (('~ffma@16', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma16'),
-   (('~ffma@32', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma32'),
-   (('~ffma@64', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma64'),
-   (('~ffmaz', a, b, c), ('fadd', ('fmulz', a, b), c), 'options->fuse_ffma32'),
+   (('~ffma@16', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma16 || options->split_ffma'),
+   (('~ffma@32', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma32 || options->split_ffma'),
+   (('~ffma@64', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma64 || options->split_ffma'),
+   (('~ffmaz', a, b, c), ('fadd', ('fmulz', a, b), c), 'options->fuse_ffma32 || options->split_ffma'),
 
    (('~fmul', ('fadd', ('iand', ('ineg', ('b2i', 'a@bool')), ('fmul', b, c)), '#d'), '#e'),
     ('bcsel', a, ('fmul', ('fadd', ('fmul', b, c), d), e), ('fmul', d, e))),
@@ -2596,7 +2596,8 @@ late_optimizations = [
    (('fneg', ('fneg', a)), a),
 
    # re-combine inexact mul+add to ffma. Do this before fsub so that a * b - c
-   # gets combined to fma(a, b, -c).
+   # gets combined to fma(a, b, -c).  This is pretty basic, see
+   # nir_opt_fuse_ffma() for some more controls.
    (('~fadd@16', ('fmul', a, b), c), ('ffma', a, b, c), 'options->fuse_ffma16'),
    (('~fadd@32', ('fmul', a, b), c), ('ffma', a, b, c), 'options->fuse_ffma32'),
    (('~fadd@64', ('fmul', a, b), c), ('ffma', a, b, c), 'options->fuse_ffma64'),
