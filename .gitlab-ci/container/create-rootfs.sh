@@ -95,6 +95,7 @@ apt-get -y install --no-install-recommends \
     libxshmfence1 \
     libxxf86vm1 \
     netcat-openbsd \
+    procps \
     python3 \
     python3-lxml \
     python3-mako \
