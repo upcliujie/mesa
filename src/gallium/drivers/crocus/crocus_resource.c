@@ -36,6 +36,7 @@
 #include "pipe/p_screen.h"
 #include "util/os_memory.h"
 #include "util/u_cpu_detect.h"
+#include "util/u_drm_fourcc.h"
 #include "util/u_inlines.h"
 #include "util/format/u_format.h"
 #include "util/u_threaded_context.h"
@@ -99,10 +100,21 @@ select_best_modifier(struct intel_device_info *devinfo,
 {
    enum modifier_priority prio = MODIFIER_PRIORITY_INVALID;
 
+   static bool override_initialized = false;
+   static uint64_t override_mod = 0;
+   if (!override_initialized) {
+      const char *env = getenv("PREFERRED_DRM_MODIFIER");
+      override_mod = u_get_drm_fourcc_modifier_from_string(env);
+      override_initialized = true;
+   }
+
    for (int i = 0; i < count; i++) {
       if (!modifier_is_supported(devinfo, templ->format, templ->bind,
                                  modifiers[i]))
          continue;
+
+      if (modifiers[i] == override_mod)
+         return override_mod;
 
       switch (modifiers[i]) {
       case I915_FORMAT_MOD_Y_TILED_CCS:
