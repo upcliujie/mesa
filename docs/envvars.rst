@@ -620,6 +620,17 @@ Intel driver environment variables
    The success of assembly override would be signified by "Successfully
    overrode shader with sha1 <SHA-1>" in stderr replacing the original
    assembly.
+:envvar:`PREFERRED_DRM_MODIFIER`
+   If set then Intel drivers will attempt to prioritize the modifier.
+   For example, ``PREFERRED_DRM_MODIFIER=I915_FORMAT_MOD_X_TILED``. A
+   hex value may also be used. For example,
+   ``PREFERRED_DRM_MODIFIER=100000000000001`` requests x-tiling
+   modifier (I915_FORMAT_MOD_X_TILED), and
+   ``PREFERRED_DRM_MODIFIER=0x1`` requests a linear modifier
+   (DRM_FORMAT_MOD_LINEAR). The kernel and Mesa drivers may have
+   restrictions for supported modifiers for devices, but if the
+   modifier is supported, then it's priority will be raised above all
+   other modifiers.
 
 .. envvar:: INTEL_SIMD_DEBUG
 
