@@ -86,6 +86,9 @@ struct etna_resource {
 
    struct etna_resource_level levels[ETNA_NUM_LOD];
 
+   struct pipe_scissor_state damage;
+   bool damage_used;
+
    /* buffer range that has been initialized */
    struct util_range valid_buffer_range;
 

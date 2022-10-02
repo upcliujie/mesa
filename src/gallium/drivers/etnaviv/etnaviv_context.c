@@ -294,8 +294,15 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
       .sprite_coord_yinvert = !!ctx->rasterizer->sprite_coord_mode,
    };
 
-   if (pfb->cbufs[0])
+   if (pfb->cbufs[0]) {
+      const struct etna_surface *surf = etna_surface(pfb->cbufs[0]);
+      const struct etna_resource *rsc = etna_resource(surf->prsc);
+
       key.frag_rb_swap = !!translate_pe_format_rb_swap(pfb->cbufs[0]->format);
+
+      if (rsc->damage_used)
+         ctx->dirty |= ETNA_DIRTY_SCISSOR;
+   }
 
    if (!etna_get_vs(ctx, key) || !etna_get_fs(ctx, key)) {
       BUG("compiled shaders are not okay");

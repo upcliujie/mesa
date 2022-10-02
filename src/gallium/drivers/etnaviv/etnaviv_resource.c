@@ -558,6 +558,43 @@ fail:
    return NULL;
 }
 
+static void
+etna_resource_set_damage_region(struct pipe_screen *pscreen,
+                                struct pipe_resource *prsc,
+                                unsigned int nrects,
+                                const struct pipe_box *rects)
+{
+   struct etna_resource *rsc = etna_resource(prsc);
+   struct pipe_scissor_state *damage = &rsc->damage;
+   unsigned int i;
+
+   if (!nrects) {
+      rsc->damage_used = false;
+      return;
+   }
+
+   /* Calculaste the quad including all damage regions. Will be
+    * used to restrict the rendering area. */
+   damage->minx = 0xffff;
+   damage->miny = 0xffff;
+   damage->maxx = 0;
+   damage->maxy = 0;
+
+   for (i = 0; i < nrects; i++) {
+      int x = rects[i].x, w = rects[i].width, h = rects[i].height;
+      int y = prsc->height0 - (rects[i].y + h);
+
+      damage->minx = MIN2(damage->minx, x);
+      damage->miny = MIN2(damage->miny, y);
+      damage->maxx = MAX2(damage->maxx,
+                          MIN2(x + w, prsc->width0));
+      damage->maxy = MAX2(damage->maxy,
+                          MIN2(y + h, prsc->height0));
+   }
+
+   rsc->damage_used = true;
+}
+
 static bool
 etna_resource_get_handle(struct pipe_screen *pscreen,
                          struct pipe_context *pctx,
@@ -706,4 +743,5 @@ etna_resource_screen_init(struct pipe_screen *pscreen)
    pscreen->resource_get_param = etna_resource_get_param;
    pscreen->resource_changed = etna_resource_changed;
    pscreen->resource_destroy = etna_resource_destroy;
+   pscreen->set_damage_region = etna_resource_set_damage_region;
 }

@@ -696,6 +696,20 @@ etna_update_clipping(struct etna_context *ctx)
       scissor_bottom = MIN2(ctx->scissor.maxy, scissor_bottom);
    }
 
+   /* clip against damage */
+   if (fb->nr_cbufs > 0) {
+      assert(fb->nr_cbufs == 1);
+      const struct etna_surface *surf = etna_surface(fb->cbufs[0]);
+      const struct etna_resource *rsc = etna_resource(surf->prsc);
+
+      if (rsc->damage_used) {
+         scissor_left = MAX2(rsc->damage.minx, scissor_left);
+         scissor_top = MAX2(rsc->damage.miny, scissor_top);
+         scissor_right = MIN2(rsc->damage.maxx, scissor_right);
+         scissor_bottom = MIN2(rsc->damage.maxy, scissor_bottom);
+      }
+   }
+
    ctx->clipping.minx = scissor_left;
    ctx->clipping.miny = scissor_top;
    ctx->clipping.maxx = scissor_right;
