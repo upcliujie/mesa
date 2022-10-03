@@ -10,6 +10,7 @@
 <!-- these can be moved to gl_API.xml -->
 <xi:include href="OES_fixed_point.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
 <xi:include href="OES_single_precision.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
+<xi:include href="EXT_framebuffer_blit_layers.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
 
 <category name="es1.0">
     <!-- from GL_OES_fixed_point -->
