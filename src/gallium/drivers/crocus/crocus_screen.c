@@ -594,14 +594,22 @@ crocus_get_compute_param(struct pipe_screen *pscreen,
       RET((uint64_t []) { max_invocations });
 
    case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
    case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
+      RET((uint64_t []) { 1 << 30 }); /* TODO */
 
-      // XXX: I think these are for Clover...
-      return 0;
+   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
+      RET((uint32_t []) { 400 }); /* TODO */
+
+   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
+      RET((uint32_t []) { intel_device_info_subslice_total(devinfo) });
+
+   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
+      /* MaxComputeSharedMemorySize */
+      RET((uint64_t []) { 64 * 1024 });
+
+   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
+      /* We could probably allow more; this is the OpenCL minimum */
+      RET((uint64_t []) { 1024 });
 
    default:
       unreachable("unknown compute param");
