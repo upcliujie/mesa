@@ -2688,8 +2688,9 @@ get_type_name_for_precision_qualifier(const glsl_type *type)
    } /* GLSL_TYPE_SAMPLER/GLSL_TYPE_IMAGE */
    break;
    default:
-      unreachable("Unsupported type");
+      break;
    } /* base type */
+   unreachable("Unsupported type");
 }
 
 static unsigned
