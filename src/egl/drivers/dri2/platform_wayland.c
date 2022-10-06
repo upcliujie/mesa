@@ -1175,6 +1175,15 @@ update_buffers_if_needed(struct dri2_egl_surface *dri2_surf)
    return update_buffers(dri2_surf);
 }
 
+static int
+update_buffers_if_resized(struct dri2_egl_surface *dri2_surf)
+{
+   if (dri2_surf->back != NULL && !dri2_surf->resized)
+      return 0;
+
+   return update_buffers(dri2_surf);
+}
+
 static __DRIbuffer *
 dri2_wl_get_buffers_with_format(__DRIdrawable * driDrawable,
                                 int *width, int *height,
@@ -1184,7 +1193,7 @@ dri2_wl_get_buffers_with_format(__DRIdrawable * driDrawable,
    struct dri2_egl_surface *dri2_surf = loaderPrivate;
    int i, j;
 
-   if (update_buffers_if_needed(dri2_surf) < 0)
+   if (update_buffers_if_resized(dri2_surf) < 0)
       return NULL;
 
    for (i = 0, j = 0; i < 2 * count; i += 2, j++) {
@@ -1263,7 +1272,7 @@ image_get_buffers(__DRIdrawable *driDrawable,
 {
    struct dri2_egl_surface *dri2_surf = loaderPrivate;
 
-   if (update_buffers_if_needed(dri2_surf) < 0)
+   if (update_buffers_if_resized(dri2_surf) < 0)
       return 0;
 
    buffers->image_mask = __DRI_IMAGE_BUFFER_BACK;
