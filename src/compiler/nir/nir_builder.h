@@ -1343,8 +1343,9 @@ nir_build_deref_follower(nir_builder *b, nir_deref_instr *parent,
       return nir_build_deref_struct(b, parent, leader->strct.index);
 
    default:
-      unreachable("Invalid deref instruction type");
+      break;
    }
+   unreachable("Invalid deref instruction type");
 }
 
 static inline nir_ssa_def *
