@@ -822,7 +822,6 @@ EGLBoolean
 _eglSurfaceHasMutableRenderBuffer(_EGLSurface *surf)
 {
    return surf->Type == EGL_WINDOW_BIT &&
-          surf->Config &&
           (surf->Config->SurfaceType & EGL_MUTABLE_RENDER_BUFFER_BIT_KHR);
 }
 
