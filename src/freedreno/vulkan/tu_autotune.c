@@ -562,6 +562,21 @@ tu_autotune_use_bypass(struct tu_autotune *at,
       uint64_t gmem_bandwidth =
          (uint64_t)pass->gmem_bandwidth_per_pixel * pass_pixel_count;
 
+      /* Count sysmem clear costs now when we know UBWC state, because UBWC
+       * clears are actually pretty cheap.
+       */
+      for (uint32_t i = 0; i < pass->attachment_count; i++) {
+         const struct tu_image_view *att_view = cmd_buffer->state.attachments[i];
+         if (!pass->attachments[i].clear_mask)
+            continue;
+         /* approximate tu_clear_sysmem_attachment */
+         if (att_view->view.ubwc_enabled)
+            sysmem_bandwidth += att_view->image->layout[0].ubwc_layer_size;
+         else
+            sysmem_bandwidth += pass_pixel_count * pass->attachments[i].cpp;
+      }
+
+
       const uint64_t total_draw_call_bandwidth =
          estimate_drawcall_bandwidth(cmd_buffer, avg_samples);
 
