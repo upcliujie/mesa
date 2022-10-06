@@ -583,11 +583,17 @@ tu_autotune_use_bypass(struct tu_autotune *at,
       /* drawcalls access the memory in sysmem rendering (ignoring CCU) */
       sysmem_bandwidth += total_draw_call_bandwidth;
 
-      /* drawcalls access gmem in gmem rendering, but we do not want to ignore
-       * them completely.  The state changes between tiles also have an
-       * overhead.  The magic numbers of 11 and 10 are randomly chosen.
+      /* tiled drawing has to go through draw_cs for each tile, so count the
+       * read cost of that.  sysmem has to read it as well, but we don't
+       * subtract one from tile_count because we're usually binning which has to
+       * read it too.
        */
-      gmem_bandwidth = (gmem_bandwidth * 11 + total_draw_call_bandwidth) / 10;
+      int tile_count = cmd_buffer->state.tiling->tile_count.width *
+                       cmd_buffer->state.tiling->tile_count.height;
+      uint32_t draw_cs_dwords = 0;
+      for (int i = 0; i < cmd_buffer->draw_cs.entry_count; i++)
+         draw_cs_dwords += cmd_buffer->draw_cs.entries[i].size;
+      gmem_bandwidth += tile_count * draw_cs_dwords * 4;
 
       const bool select_sysmem = sysmem_bandwidth <= gmem_bandwidth;
       if (TU_AUTOTUNE_DEBUG_LOG) {
