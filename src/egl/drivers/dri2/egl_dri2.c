@@ -1673,47 +1673,16 @@ dri2_make_current(_EGLDisplay *disp, _EGLSurface *dsurf,
           */
          egl_error = EGL_BAD_MATCH;
 
-         /* undo the previous _eglBindContext */
-         _eglBindContext(old_ctx, old_dsurf, old_rsurf, &ctx, &tmp_dsurf, &tmp_rsurf);
-         assert(&dri2_ctx->base == ctx &&
-                tmp_dsurf == dsurf &&
-                tmp_rsurf == rsurf);
+         /* Undo any partial work the above bindContext may have done */
+         dri2_dpy->core->bindContext(NULL, NULL, NULL);
 
-         _eglPutSurface(dsurf);
-         _eglPutSurface(rsurf);
-         _eglPutContext(ctx);
-
+         /* Release the references we took in _eglBindContext */
          _eglPutSurface(old_dsurf);
          _eglPutSurface(old_rsurf);
          _eglPutContext(old_ctx);
 
-         ddraw = (old_dsurf) ? dri2_dpy->vtbl->get_dri_drawable(old_dsurf) : NULL;
-         rdraw = (old_rsurf) ? dri2_dpy->vtbl->get_dri_drawable(old_rsurf) : NULL;
-         cctx = (old_ctx) ? dri2_egl_context(old_ctx)->dri_context : NULL;
-
-         /* undo the previous dri2_dpy->core->unbindContext */
-         if (dri2_dpy->core->bindContext(cctx, ddraw, rdraw)) {
-            if (old_dsurf && _eglSurfaceInSharedBufferMode(old_dsurf) &&
-                old_dri2_dpy->vtbl->set_shared_buffer_mode) {
-               old_dri2_dpy->vtbl->set_shared_buffer_mode(old_disp, old_dsurf, true);
-            }
-
-            return _eglError(egl_error, "eglMakeCurrent");
-         }
-
-         /* We cannot restore the same state as it was before calling
-          * eglMakeCurrent() and the spec isn't clear about what to do. We
-          * can prevent EGL from calling into the DRI driver with no DRI
-          * context bound.
-          */
-         dsurf = rsurf = NULL;
-         ctx = NULL;
-
-         _eglBindContext(ctx, dsurf, rsurf, &tmp_ctx, &tmp_dsurf, &tmp_rsurf);
-         assert(tmp_ctx == old_ctx && tmp_dsurf == old_dsurf &&
-                tmp_rsurf == old_rsurf);
-
-         _eglLog(_EGL_WARNING, "DRI2: failed to rebind the previous context");
+         /* Clear the EGL thread state */
+         _eglBindContext(NULL, NULL, NULL, &tmp_ctx, &tmp_dsurf, &tmp_rsurf);
       } else {
          /* dri2_dpy->core->bindContext succeeded, so take a reference on the
           * dri2_dpy. This prevents dri2_dpy from being reinitialized when a
