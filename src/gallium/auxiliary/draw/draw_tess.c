@@ -73,7 +73,7 @@ llvm_fetch_tcs_input(struct draw_tess_ctrl_shader *shader,
                    i, prim_id, 0);
 #endif
       input = (const float (*)[4])((const char *)input_ptr + (vertex_idx * input_vertex_stride));
-      for (slot = 0, vs_slot = 0; slot < shader->info.num_inputs; ++slot) {
+      for (slot = 0; slot < shader->info.num_inputs; ++slot) {
          vs_slot = draw_tes_get_input_index(
                                             shader->info.input_semantic_name[slot],
                                             shader->info.input_semantic_index[slot],
@@ -238,7 +238,7 @@ llvm_fetch_tes_input(struct draw_tess_eval_shader *shader,
                    i, prim_id, 0);
 #endif
       input = (const float (*)[4])((const char *)input_ptr + (vertex_idx * input_vertex_stride));
-      for (slot = 0, vs_slot = 0; slot < shader->info.num_inputs; ++slot) {
+      for (slot = 0; slot < shader->info.num_inputs; ++slot) {
          vs_slot = draw_tes_get_input_index(
                                             shader->info.input_semantic_name[slot],
                                             shader->info.input_semantic_index[slot],

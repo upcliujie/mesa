@@ -149,7 +149,7 @@ static void tgsi_fetch_gs_input(struct draw_geometry_shader *shader,
 #endif
       input = (const float (*)[4])(
          (const char *)input_ptr + (indices[i] * input_vertex_stride));
-      for (slot = 0, vs_slot = 0; slot < shader->info.num_inputs; ++slot) {
+      for (slot = 0; slot < shader->info.num_inputs; ++slot) {
          unsigned idx = i * TGSI_EXEC_MAX_INPUT_ATTRIBS + slot;
          if (shader->info.input_semantic_name[slot] == TGSI_SEMANTIC_PRIMID) {
             machine->Inputs[idx].xyzw[0].u[prim_idx] = shader->in_prim_idx;
@@ -249,7 +249,7 @@ llvm_fetch_gs_input(struct draw_geometry_shader *shader,
 #endif
       input = (const float (*)[4])(
          (const char *)input_ptr + (indices[i] * input_vertex_stride));
-      for (slot = 0, vs_slot = 0; slot < shader->info.num_inputs; ++slot) {
+      for (slot = 0; slot < shader->info.num_inputs; ++slot) {
          if (shader->info.input_semantic_name[slot] == TGSI_SEMANTIC_PRIMID) {
             /* skip. we handle system values through gallivm */
             /* NOTE: If we hit this case here it's an ordinary input not a sv,
