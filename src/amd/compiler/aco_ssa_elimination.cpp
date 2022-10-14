@@ -420,6 +420,122 @@ try_merge_break_with_continue(ssa_elimination_ctx& ctx, Block* block)
 }
 
 void
+try_move_saveexec_out_of_loop(ssa_elimination_ctx& ctx, Block* block)
+{
+   /* This pattern can be created by try_optimize_branching_sequence:
+    * BB1: // loop-header
+    *    ... // nothing that clobbers s[0:1] or writes exec
+    *    s[0:1] = p_parallelcopy exec // we will move this
+    *    exec = v_cmpx_...
+    *    p_branch_z exec BB3, BB2
+    * BB2:
+    *    ...
+    *    p_branch BB3
+    * BB3:
+    *    s[0:1], scc, exec = s_andn2_wrexec ... // exec and s[0:1] contain the same mask
+    *    ... // nothing that clobbers s[0:1] or writes exec
+    *    p_branch_nz scc BB1, BB4
+    * BB4:
+    *    ...
+    *
+    * Instead of the s_andn2_wrexec we there can also be p_parallelcopy from s[0:1] to exec.
+    * Either way, we know that that exec copy in the loop header is only need in the first
+    * iteration, so it can be moved to the loop preheader.
+    */
+   if (block->linear_preds.size() != 2)
+      return;
+
+   Block* preheader = &ctx.program->blocks[block->linear_preds[0]];
+   Block* cont = &ctx.program->blocks[block->linear_preds[1]];
+   assert(preheader->kind & block_kind_loop_preheader);
+
+   const RegClass lm = ctx.program->lane_mask;
+   const aco_opcode andn2_wrexec =
+      lm == s2 ? aco_opcode::s_andn2_wrexec_b64 : aco_opcode::s_andn2_wrexec_b32;
+
+   Operand exec_shadow;
+   for (aco_ptr<Instruction>& instr : cont->instructions) {
+      if (is_simple_copy(instr.get()) && instr->definitions[0].physReg() == exec &&
+          instr->definitions[0].regClass() == lm) {
+         exec_shadow = instr->operands[0];
+         continue;
+      }
+
+      if (instr->opcode == andn2_wrexec) {
+         exec_shadow = Operand(instr->definitions[0].physReg(), lm);
+         continue;
+      }
+
+      if (!exec_shadow.isUndefined()) {
+         for (const Definition& def : instr->definitions)
+            if (regs_intersect(exec_shadow, def))
+               return;
+
+         if (instr->isPseudo() && instr->pseudo().needs_scratch_reg &&
+             regs_intersect(exec_shadow, Definition(instr->pseudo().scratch_sgpr, s1)))
+            break;
+
+         if (instr_writes_exec(instr.get()))
+            return;
+      }
+   }
+
+   if (exec_shadow.isUndefined())
+      return;
+
+   for (const auto& successor_phi_info : ctx.linear_phi_info[cont->index]) {
+      if (regs_intersect(successor_phi_info.def, exec_shadow) ||
+          regs_intersect(successor_phi_info.def, Definition(exec, lm)))
+         return;
+   }
+
+   for (const auto& successor_phi_info : ctx.linear_phi_info[preheader->index]) {
+      if (regs_intersect(successor_phi_info.def, exec_shadow) ||
+          regs_intersect(successor_phi_info.op, exec_shadow) ||
+          regs_intersect(successor_phi_info.def, Definition(exec, lm)))
+         return;
+   }
+
+   int saveexec_idx = -1;
+   for (unsigned i = 0; i < block->instructions.size(); i++) {
+      Instruction* instr = block->instructions[i].get();
+
+      if (is_simple_copy(instr) && instr->definitions[0].physReg() == exec_shadow.physReg() &&
+          instr->operands[0].physReg() == exec && instr->definitions[0].regClass() == lm) {
+         saveexec_idx = i;
+         break;
+      }
+
+      if (instr->opcode == aco_opcode::p_linear_phi)
+         continue;
+
+      for (const Operand& op : instr->operands)
+         if (regs_intersect(exec_shadow, op))
+            return;
+
+      for (const Definition& def : instr->definitions)
+         if (regs_intersect(exec_shadow, def))
+            return;
+
+      if (instr->isPseudo() && instr->pseudo().needs_scratch_reg &&
+          regs_intersect(exec_shadow, Definition(instr->pseudo().scratch_sgpr, s1)))
+         break;
+
+      if (instr_writes_exec(instr))
+         return;
+   }
+
+   if (saveexec_idx < 0)
+      return;
+
+   /* Move outside of the loop. */
+   preheader->instructions.insert(
+      preheader->instructions.begin() + (preheader->instructions.size() - 1),
+      std::move(block->instructions[saveexec_idx]));
+   block->instructions.erase(block->instructions.begin() + saveexec_idx);
+}
+
+void
 try_optimize_branching_sequence(ssa_elimination_ctx& ctx, Block& block, const int exec_val_idx,
                                 const int exec_copy_idx)
 {
@@ -783,6 +899,9 @@ jump_threading(ssa_elimination_ctx& ctx)
 
       if (block->kind & block_kind_break)
          try_merge_break_with_continue(ctx, block);
+
+      if (block->kind & block_kind_loop_header)
+         try_move_saveexec_out_of_loop(ctx, block);
 
       if (!ctx.empty_blocks[i])
          continue;
