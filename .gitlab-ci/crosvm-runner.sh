@@ -88,6 +88,9 @@ CROSVM_KERN_ARGS="${CROSVM_KERN_ARGS} init=${SCRIPT_DIR}/crosvm-init.sh -- ${VSO
 [ "${CROSVM_GALLIUM_DRIVER}" = "llvmpipe" ] && \
     CROSVM_LIBGL_ALWAYS_SOFTWARE=true || CROSVM_LIBGL_ALWAYS_SOFTWARE=false
 
+# Some virgl-based drivers open lots of FDs...
+ulimit -n $(cat /proc/sys/fs/file-max) || true    # May fail in containers
+
 set +e -x
 
 # We aren't testing the host driver here, so we don't need to validate NIR on the host
