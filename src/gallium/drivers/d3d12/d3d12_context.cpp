@@ -2531,6 +2531,7 @@ d3d12_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    ctx->primconvert = util_primconvert_create_config(&ctx->base, &cfg);
    if (!ctx->primconvert) {
       debug_printf("D3D12: failed to create primconvert\n");
+      FREE(ctx);
       return NULL;
    }
 
@@ -2546,6 +2547,7 @@ d3d12_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    util_dl_library *d3d12_mod = util_dl_open(UTIL_DL_PREFIX "d3d12" UTIL_DL_EXT);
    if (!d3d12_mod) {
       debug_printf("D3D12: failed to load D3D12.DLL\n");
+      FREE(ctx);
       return NULL;
    }
    ctx->D3D12SerializeVersionedRootSignature =
@@ -2577,8 +2579,10 @@ d3d12_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 #endif
 
    ctx->blitter = util_blitter_create(&ctx->base);
-   if (!ctx->blitter)
+   if (!ctx->blitter) {
+      FREE(ctx);
       return NULL;
+   }
 
    if (!d3d12_init_polygon_stipple(&ctx->base)) {
       debug_printf("D3D12: failed to initialize polygon stipple resources\n");
