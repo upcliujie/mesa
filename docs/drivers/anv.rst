@@ -246,22 +246,22 @@ ANV tries to limit the amount of time an instruction has to be packed
 to reprogram part of the 3D pipeline state. The packing is happening
 in 2 places :
 
-- ``genX_pipeline.c`` where the non dynamic state is emitted in the
+- :file:`genX_pipeline.c` where the non dynamic state is emitted in the
   pipeline batch. This batch is copied into the command buffer batch
   when calling ``vkCmdBindPipeline()``
 
-- ``genX_cmd_buffer.c`` in the ``cmd_buffer_flush_state`` function
-  which ends up calling into ``gfx8_cmd_buffer.c`` &
-  ``gfx7_cmd_buffer.c``
+- :file:`genX_cmd_buffer.c` in the ``cmd_buffer_flush_state`` function
+  which ends up calling into :file:`gfx8_cmd_buffer.c` &
+  :file:`gfx7_cmd_buffer.c`
 
 The rule to know where to emit an instruction programming the 3D
 pipeline is as follow :
 
 - If any field of the instruction can be made dynamic, it should be
-  emitted in ``genX_cmd_buffer.c``, ``gfx8_cmd_buffer.c`` or
-  ``gfx7_cmd_buffer.c``
+  emitted in :file:`genX_cmd_buffer.c`, :file:`gfx8_cmd_buffer.c` or
+  :file:`gfx7_cmd_buffer.c`
 
-- Otherwise, the instruction can be emitted in ``genX_pipeline.c``
+- Otherwise, the instruction can be emitted in :file:`genX_pipeline.c`
 
 When a piece of state programming is dynamic, it should have a
 corresponding field in ``anv_dynamic_state`` and the

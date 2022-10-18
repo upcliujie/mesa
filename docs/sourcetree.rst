@@ -138,7 +138,7 @@ each directory.
          -  **glx** - Meta frontend for GLX
          -  **hgl** - Haiku OpenGL
          -  **lavapipe** - Vulkan frontend, software Vulkan rasterizer using LLVMpipe.
-         -  **nine** - D3D9 frontend, see targets/d3dadapter9
+         -  **nine** - D3D9 frontend, see :file:`targets/d3dadapter9/`
          -  **omx** - OpenMAX Bellagio frontend
          -  **osmesa** - Off-screen OpenGL rendering library
          -  **va** - VA-API frontend
@@ -159,13 +159,13 @@ each directory.
    -  **targets** - These control how the Gallium code is compiled into
       different libraries. Each of these roughly corresponds to one frontend.
 
-      -  **d3dadapter9** - d3dadapter9.so for Wine
-      -  **dri** - libgallium_dri.so loaded by libGL.so
+      -  **d3dadapter9** - :file:`d3dadapter9.so` for Wine
+      -  **dri** - :file:`libgallium_dri.so` loaded by :file:`libGL.so`
       -  XXX more
 
-   -  **glx** - The GLX library code for building libGL.so using DRI
+   -  **glx** - The GLX library code for building :file:`libGL.so` using DRI
       drivers.
-   -  **loader** - Used by libGL.so to find and load the appropriate DRI driver.
+   -  **loader** - Used by :file:`libGL.so` to find and load the appropriate DRI driver.
    -  **panfrost** - Panfrost-specific sources
 
       -  **compiler** - shader compiler for Bifrost and newer GPUs

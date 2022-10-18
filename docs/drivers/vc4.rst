@@ -157,11 +157,11 @@ can unroll, that can actually count as constant indexing.
 The memory for the VC4 driver is allocated from the standard Linux CMA
 pool. The size of this pool defaults to 64 MB.  To increase this, pass
 an additional parameter on the kernel command line.  Edit the boot
-partition's ``cmdline.txt`` to add::
+partition's :file:`cmdline.txt` to add::
 
   cma=256M@256M
 
-``cmdline.txt`` is a single line with whitespace separated parameters.
+:file:`cmdline.txt` is a single line with whitespace separated parameters.
 
 The first value is the size of the pool and the second parameter is
 the start address of the pool. The pool size can be increased further,
@@ -175,7 +175,7 @@ The firmware allocates a fixed chunk of memory before booting
 Linux. If firmware functions are not required, this amount can be
 reduced.
 
-In ``config.txt`` edit ``gpu_mem`` to 16, if you do not need video decoding,
+In :file:`config.txt` edit ``gpu_mem`` to 16, if you do not need video decoding,
 edit gpu_mem to 64 if you need video decoding.
 
 Performance debugging
@@ -239,8 +239,8 @@ If you want to see the whole system's stalls for a period of time
 (very useful!), use the -a flag instead of a particular command
 name. Just ``^C`` when you're done capturing data.
 
-At exit, you'll have ``perf.data`` in the current directory. You can print
-out the results with::
+At exit, you'll have :file:`perf.data` in the current directory. You can
+print out the results with::
 
     perf report | less
 
@@ -299,7 +299,7 @@ development.
 
 Developers with NDA access with Broadcom or Raspberry Pi can
 potentially get access to "simpenrose", the C software simulator of
-the GPU.  The Mesa driver includes a backend (``vc4_simulator.c``) to
+the GPU.  The Mesa driver includes a backend (:file:`vc4_simulator.c`) to
 use simpenrose from an x86 system with the i915 graphics driver with
 all of the VC4 rendering commands emulated on simpenrose and memcpyed
 to the real GPU.

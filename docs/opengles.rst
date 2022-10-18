@@ -26,4 +26,4 @@ more EGL drivers for your hardware.
 Run the Demos
 -------------
 
-There are some demos in ``mesa/demos`` repository.
+There are some demos in :file:`mesa/demos` repository.

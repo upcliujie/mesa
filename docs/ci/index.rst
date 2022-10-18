@@ -27,13 +27,14 @@ Due to limited resources, we currently do not run the CI automatically
 on every push; instead, we only run it automatically once the MR has
 been assigned to ``Marge``, our merge bot.
 
-If you're interested in the details, the main configuration file is ``.gitlab-ci.yml``,
-and it references a number of other files in ``.gitlab-ci/``.
+If you're interested in the details, the main configuration file is
+:file:`.gitlab-ci.yml`, and it references a number of other files in
+:file:`.gitlab-ci/`.
 
 If the GitLab CI doesn't seem to be running on your fork (or MRs, as they run
 in the context of your fork), you should check the "Settings" of your fork.
 Under "CI / CD" → "General pipelines", make sure "Custom CI config path" is
-empty (or set to the default ``.gitlab-ci.yml``), and that the
+empty (or set to the default :file:`.gitlab-ci.yml`), and that the
 "Public pipelines" box is checked.
 
 If you're having issues with the GitLab CI, your best bet is to ask
@@ -56,9 +57,9 @@ Application traces replay
 -------------------------
 
 The CI replays application traces with various drivers in two different jobs. The first
-job replays traces listed in ``src/<driver>/ci/traces-<driver>.yml`` files and if any
+job replays traces listed in :file:`src/<driver>/ci/traces-{driver}.yml` files and if any
 of those traces fail the pipeline fails as well. The second job replays traces listed in
-``src/<driver>/ci/restricted-traces-<driver>.yml`` and it is allowed to fail. This second
+:file:`src/<driver>/ci/restricted-traces-{driver}.yml` and it is allowed to fail. This second
 job is only created when the pipeline is triggered by ``marge-bot`` or any other user that
 has been granted access to these traces.
 
@@ -142,7 +143,7 @@ able to handle a whole pipeline's worth of jobs in less than 15 minutes
 
 If a test farm is short the HW to provide these guarantees, consider dropping
 tests to reduce runtime.  dEQP job logs print the slowest tests at the end of
-the run, and Piglit logs the runtime of tests in the results.json.bz2 in the
+the run, and Piglit logs the runtime of tests in the :file:`results.json.bz2` in the
 artifacts.  Or, you can add the following to your job to only run some fraction
 (in this case, 1/10th) of the dEQP tests.
 
@@ -177,7 +178,7 @@ To do so, follow `GitLab's instructions
 register your personal GitLab runner in your Mesa fork.  Then, tell
 Mesa how many jobs it should serve (``concurrent=``) and how many
 cores those jobs should use (``FDO_CI_CONCURRENT=``) by editing these
-lines in ``/etc/gitlab-runner/config.toml``, for example:
+lines in :file:`/etc/gitlab-runner/config.toml`, for example:
 
 .. code-block:: toml
 
@@ -201,7 +202,7 @@ apt cache, and other such common pitfalls of building Docker images).
 When running a container job, the templates will look for an existing
 build of that image in the container registry under
 ``MESA_IMAGE_TAG``.  If it's found it will be reused, and if
-not, the associated ``.gitlab-ci/containers/<jobname>.sh`` will be run
+not, the associated :file:`.gitlab-ci/containers/{jobname}.sh` will be run
 to build it.  So, when developing any change to container build
 scripts, you need to update the associated ``MESA_IMAGE_TAG`` to
 a new unique string.  We recommend using the current date plus some
@@ -231,11 +232,11 @@ to your job log, and at the top you'll see a line like::
 
 We'll use a volume mount to make our current Mesa tree be what the
 Docker container uses, so they'll share everything (their build will
-go in _build, according to ``meson-build.sh``).  We're going to be
+go in :file:`_build`, according to :file:`meson-build.sh`).  We're going to be
 using the image non-interactively so we use ``run --rm $IMAGE
 command`` instead of ``run -it $IMAGE bash`` (which you may also find
 useful for debug).  Extract your build setup variables from
-.gitlab-ci.yml and run the CI meson build script:
+:file:`.gitlab-ci.yml` and run the CI meson build script:
 
 .. code-block:: console
 
@@ -243,7 +244,7 @@ useful for debug).  Extract your build setup variables from
    sudo docker pull $IMAGE
    sudo docker run --rm -v `pwd`:/mesa -w /mesa $IMAGE env PKG_CONFIG_PATH=/usr/local/lib/aarch64-linux-android/pkgconfig/:/android-ndk-r21d/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/pkgconfig/ GALLIUM_DRIVERS=freedreno UNWIND=disabled EXTRA_OPTION="-D android-stub=true -D llvm=disabled" DRI_LOADERS="-D glx=disabled -D gbm=disabled -D egl=enabled -D platforms=android" CROSS=aarch64-linux-android ./.gitlab-ci/meson-build.sh
 
-All you have left over from the build is its output, and a _build
+All you have left over from the build is its output, and a :file:`_build`
 directory.  You can hack on mesa and iterate testing the build with:
 
 .. code-block:: console

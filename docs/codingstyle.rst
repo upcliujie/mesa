@@ -4,9 +4,9 @@ Coding Style
 Mesa is over 20 years old and the coding style has evolved over time.
 Some old parts use a style that's a bit out of date. Different sections
 of mesa can use different coding style as set in the local EditorConfig
-(.editorconfig) and/or Emacs (.dir-locals.el) file. Alternatively the
-following is applicable. If the guidelines below don't cover something,
-try following the format of existing, neighboring code.
+(:file:`.editorconfig`) and/or Emacs (:file:`.dir-locals.el`) file.
+Alternatively the following is applicable. If the guidelines below don't
+cover something, try following the format of existing, neighboring code.
 
 Basic formatting guidelines
 

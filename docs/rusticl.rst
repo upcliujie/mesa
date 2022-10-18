@@ -12,9 +12,9 @@ To build Rusticl you need to satisfy the following build dependencies:
 -  `SPIRV-Tools <https://github.com/KhronosGroup/SPIRV-Tools>`__
 -  `SPIRV-LLVM-Translator
    <https://github.com/KhronosGroup/SPIRV-LLVM-Translator>`__ for a
-   ``libLLVMSPIRVLib.so`` matching your version of LLVM, i.e. if you're
-   using LLVM 15 (``libLLVM.so.15``), then you need a
-   ``libLLVMSPIRVLib.so.15``.
+   :file:`libLLVMSPIRVLib.so` matching your version of LLVM, i.e. if you're
+   using LLVM 15 (:file:`libLLVM.so.15`), then you need a
+   :file:`libLLVMSPIRVLib.so.15`.
 
 The minimum versions to build Rusticl are:
 
@@ -27,7 +27,7 @@ The minimum versions to build Rusticl are:
 Afterwards you only need to add ``-Dgallium-rusticl=true -Dllvm=enabled
 -Drust_std=2021`` to your build options.
 
-Most of the code related to Mesa's C code lives inside ``/mesa``, with
+Most of the code related to Mesa's C code lives inside :file:`/mesa`, with
 the occasional use of enums, structs or constants through the code base.
 
 If you need help ping ``karolherbst`` either in ``#dri-devel`` or

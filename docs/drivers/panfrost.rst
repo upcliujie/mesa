@@ -45,7 +45,7 @@ safely be disabled for most OpenGL ES users with Panfrost.
 
 Build like ``meson . build/ -Dvulkan-drivers=
 -Dgallium-drivers=panfrost -Dllvm=disabled`` for a build directory
-``build``.
+:file:`build`.
 
 For general information on building Mesa, read :doc:`the install documentation
 <../install>`.
@@ -92,7 +92,7 @@ compiler on shader-db on an Intel desktop.
 To build Mesa with Panfrost drm-shim, configure Meson with
 ``-Dgallium-drivers=panfrost`` and ``-Dtools=drm-shim``. See the above
 building section for a full invocation. The drm-shim binary will be built to
-``build/src/panfrost/drm-shim/libpanfrost_noop_drm_shim.so``.
+:file:`build/src/panfrost/drm-shim/libpanfrost_noop_drm_shim.so`.
 
 To use, set the ``LD_PRELOAD`` environment variable to the drm-shim binary.  It
 may also be necessary to set ``LIBGL_DRIVERS_PATH`` to the location where Mesa
@@ -112,10 +112,10 @@ Mali-G57   Valhall (v9) 9093
 =========  ============ =======
 
 Additional GPU IDs are enumerated in the ``panfrost_model_list`` list in
-``src/panfrost/lib/pan_props.c``.
+:file:`src/panfrost/lib/pan_props.c`.
 
-As an example: assuming Mesa is installed to a local path ``~/lib`` and Mesa's
-build directory is ``~/mesa/build``, a shader can be compiled for Mali-G52 as::
+As an example: assuming Mesa is installed to a local path :file:`~/lib` and Mesa's
+build directory is :file:`~/mesa/build`, a shader can be compiled for Mali-G52 as::
 
    ~/shader-db$ BIFROST_MESA_DEBUG=shaders LIBGL_DRIVERS_PATH=~/lib/dri/ LD_PRELOAD=~/mesa/build/src/panfrost/drm-shim/libpanfrost_noop_drm_shim.so PAN_GPU_ID=7212 ./run shaders/glmark/1-1.shader_test
 
@@ -164,10 +164,10 @@ Visually, addresses take the form::
    | y3 | (x3 ^ y3) | y2 | (y2 ^ x2) | y1 | (y1 ^ x1) | y0 | (y0 ^ x0) |
 
 Reference routines to encode/decode u-interleaved images are available in
-``src/panfrost/shared/test/test-tiling.cpp``, which documents the space-filling
-curve. This reference implementation is used to unit test the optimized
-implementation used in production. The optimized implementation is available in
-``src/panfrost/shared/pan_tiling.c``.
+:file:`src/panfrost/shared/test/test-tiling.cpp`, which documents the
+space-filling curve. This reference implementation is used to unit test the
+optimized implementation used in production. The optimized implementation is
+available in :file:`src/panfrost/shared/pan_tiling.c`.
 
 Although these routines are part of Panfrost, they are also used by Lima, as Arm
 introduced the format with Utgard. It is the only tiling supported on Utgard. On

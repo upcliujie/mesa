@@ -16,7 +16,7 @@ Building using the Android NDK
 
 Download and install the NDK using whatever method you normally would.
 Then, create your Meson cross file to use it, something like this
-``~/.local/share/meson/cross/android-aarch64`` file:
+:file:`~/.local/share/meson/cross/android-aarch64` file:
 
 .. code-block:: ini
 
@@ -57,9 +57,9 @@ Replacing Android drivers on stock Android
 ------------------------------------------
 
 The vendor partition with the drivers is normally mounted from a
-read-only disk image on ``/vendor``.  To be able to replace them for
+read-only disk image on :file:`/vendor`.  To be able to replace them for
 driver development, we need to unlock the device and remount
-``/vendor`` read/write.
+:file:`/vendor` read/write.
 
 .. code-block:: console
 
@@ -75,7 +75,7 @@ Now you can replace drivers as in:
 
 Note this command doesn't quite work because libvulkan wants the
 SONAME to match.  For now, in turnip we have been using a hack to the
-meson.build to change the SONAME.
+:file:`meson.build` to change the SONAME.
 
 Replacing Android drivers on Chrome OS
 --------------------------------------
@@ -88,7 +88,7 @@ the existing squashfs image, copy it out on the host, and then use a
 bind mount instead of a loopback mount so we can update our drivers
 using scp from outside the container.
 
-On your device, you'll want to make ``/`` read-write.  ssh in as root
+On your device, you'll want to make :file:`/` read-write.  ssh in as root
 and run:
 
 .. code-block:: console
@@ -97,8 +97,8 @@ and run:
     /usr/share/vboot/bin/make_dev_ssd.sh --remove_rootfs_verification --partitions 4
     reboot
 
-Then, we'll switch Android from using an image for ``/vendor`` to using a
-bind-mount from a directory we control.
+Then, we'll switch Android from using an image for :file:`/vendor` to
+using a bind-mount from a directory we control.
 
 .. code-block:: console
 
@@ -108,8 +108,8 @@ bind-mount from a directory we control.
     cp -a vendor-ro vendor-rw
     emacs config.json
 
-In the ``config.json``, you want to find the block for ``/vendor`` and
-change it to::
+In the :file:`config.json`, you want to find the block for :file:`/vendor`
+and change it to::
 
             {
                 "destination": "/vendor",
@@ -128,7 +128,7 @@ Now, restart the UI to do a full reload:
     restart ui
 
 At this point, your android container is restarted with your new
-bind-mount ``/vendor``, and if you use ``android-sh`` to shell into it
+bind-mount :file:`/vendor`, and if you use ``android-sh`` to shell into it
 then the ``mount`` command should show::
 
     /dev/root on /vendor type ext2 (rw,seclabel,relatime)

@@ -103,7 +103,7 @@ Developers
 ----------
 
 The sources of the main library and drivers can be found at
-``src/egl/``.
+:file:`src/egl/`.
 
 The code basically consists of two things:
 
@@ -121,7 +121,7 @@ succeeded (as per EGL spec).
 
 A driver _could_ implement all the other EGL API functions, but several of
 them are only needed for extensions, like ``eglSwapBuffersWithDamageEXT()``.
-See ``src/egl/main/egldriver.h`` to see which driver hooks are only
+See :file:`src/egl/main/egldriver.h` to see which driver hooks are only
 required by extensions.
 
 Bootstrapping

@@ -77,8 +77,8 @@ Begin by saving your current directory location:
      
 
 -  Mesa/Gallium main branch. This code is used to build libGL, and the
-   direct rendering svga driver for libGL, vmwgfx_dri.so, and the X
-   acceleration library libxatracker.so.x.x.x.
+   direct rendering svga driver for libGL, :file:`vmwgfx_dri.so`, and the X
+   acceleration library :file:`libxatracker.so.{x}.{y}.{z}`.
 
    ::
 
@@ -132,8 +132,9 @@ Building the Code
    upon if they're not installed in your system. You should be told
    what's missing.
 
-   The generated vmwgfx_dri.so is used by the OpenGL libraries during direct rendering, and by the X.Org
-   server during accelerated indirect GL rendering.
+   The generated :file:`vmwgfx_dri.so` is used by the OpenGL libraries
+   during direct rendering, and by the X.Org server during accelerated
+   indirect GL rendering.
 
 Running OpenGL Programs
 -----------------------
@@ -151,4 +152,4 @@ If OpenGL 4.3 is not working (you only get OpenGL 4.1):
 
 -  Make sure the VM uses hardware version 20 or later.
 -  Make sure the vmwgfx kernel module is version 2.20.0 or later.
--  Check the vmware.log file for errors.
+-  Check the :file:`vmware.log` file for errors.

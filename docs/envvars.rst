@@ -810,8 +810,9 @@ Gallium environment variables
 
    If set, this variable will cause the :ref:`trace` output to be written to the
    specified file. Paths may be relative or absolute; relative paths are relative
-   to the working directory.  For example, setting it to "trace.xml" will cause
-   the trace to be written to a file of the same name in the working directory.
+   to the working directory.  For example, setting it to :file:`trace.xml` will
+   cause the trace to be written to a file of the same name in the working
+   directory.
 
 .. envvar:: GALLIUM_TRACE_TC
 
@@ -1014,12 +1015,12 @@ VMware SVGA driver environment variables
 
 .. envvar:: SVGA_EXTRA_LOGGING
 
-   if set, enables extra logging to the ``vmware.log`` file, such as the
+   if set, enables extra logging to the :file:`vmware.log` file, such as the
    OpenGL program's name and command line arguments.
 
 .. envvar:: SVGA_NO_LOGGING
 
-   if set, disables logging to the ``vmware.log`` file. This is useful
+   if set, disables logging to the :file:`vmware.log` file. This is useful
    when using Valgrind because it otherwise crashes when initializing
    the host log feature.
 
@@ -1100,7 +1101,7 @@ RADV driver environment variables
       but normally does not deem it beneficial.
    ``hang``
       enable GPU hangs detection and dump a report to
-      $HOME/radv_dumps_<pid>_<time> if a GPU hang is detected
+      :file:`$HOME/radv_dumps_{pid}_{time}` if a GPU hang is detected
    ``img``
       Print image info
    ``info``
@@ -1608,7 +1609,7 @@ Asahi driver environment variables
    ``trace``
       Trace work submitted to the GPU to files, using the agxdecode
       infrastructure. This produces a large volume of data, so should be used
-      with caution. The traces are written to ``agxdecode.dump``,
+      with caution. The traces are written to :file:`agxdecode.dump`,
       but this can be overridden using ``AGXDECODE_DUMP_FILE``.
    ``no16``
       Disable 16-bit floating point support. This may workaround application

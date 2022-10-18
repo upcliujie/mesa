@@ -66,15 +66,15 @@ API:
 -  The GLX wire protocol is not supported and there's no OpenGL
    extension loaded by the X server.
 -  There is no hardware acceleration.
--  The OpenGL library, ``libGL.so``, contains everything (the
+-  The OpenGL library, :file:`libGL.so`, contains everything (the
    programming API, the GLX functions and all the rendering code).
 
 Alternately, Mesa acts as the core for a number of OpenGL hardware
 drivers within the DRI (Direct Rendering Infrastructure):
 
--  The ``libGL.so`` library provides the GL and GLX API functions, a GLX
+-  The :file:`libGL.so` library provides the GL and GLX API functions, a GLX
    protocol encoder, and a device driver loader.
--  The device driver modules (such as ``r200_dri.so``) contain a
+-  The device driver modules (such as :file:`r200_dri.so`) contain a
    built-in copy of the core Mesa code.
 -  The X server loads the GLX module. The GLX module decodes incoming
    GLX protocol and dispatches the commands to a rendering module. For
@@ -139,7 +139,7 @@ not the solution.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 GLUT (OpenGL Utility Toolkit) is no longer in the separate
-``MesaGLUT-x.y.z.tar.gz`` file. If you don't already have GLUT
+:file:`MesaGLUT-{x}.{y}.{z}.tar.gz`` file. If you don't already have GLUT
 installed, you should grab
 `freeglut <https://freeglut.sourceforge.net/>`__.
 
@@ -157,23 +157,23 @@ On Linux-based systems you'll want to follow the `Linux
 ABI <https://registry.khronos.org/OpenGL/ABI/>`__ standard.
 Basically you'll want the following:
 
-``/usr/include/GL/gl.h``
+:file:`/usr/include/GL/gl.h`
    the main OpenGL header
-``/usr/include/GL/glu.h``
+:file:`/usr/include/GL/glu.h`
    the OpenGL GLU (utility) header
-``/usr/include/GL/glx.h``
+:file:`/usr/include/GL/glx.h`
    the OpenGL GLX header
-``/usr/include/GL/glext.h``
+:file:`/usr/include/GL/glext.h`
    the OpenGL extensions header
-``/usr/include/GL/glxext.h``
+:file:`/usr/include/GL/glxext.h`
    the OpenGL GLX extensions header
-``/usr/include/GL/osmesa.h``
+:file:`/usr/include/GL/osmesa.h`
    the Mesa off-screen rendering header
-``/usr/lib/libGL.so``
-   a symlink to ``libGL.so.1``
-``/usr/lib/libGL.so.1``
-   a symlink to ``libGL.so.1.xyz``
-``/usr/lib/libGL.so.xyz``
+:file:`/usr/lib/libGL.so`
+   a symlink to :file:`libGL.so.1`
+:file:`/usr/lib/libGL.so.1`
+   a symlink to :file:`libGL.so.1.xyz`
+:file:`/usr/lib/libGL.so.xyz`
    the actual OpenGL/Mesa library. xyz denotes the Mesa version number.
 
 When configuring Mesa, there are three meson options that affect the
@@ -181,11 +181,11 @@ install location that you should take care with: ``--prefix``,
 ``--libdir``, and ``-D dri-drivers-path``. To install Mesa into the
 system location where it will be available for all programs to use, set
 ``--prefix=/usr``. Set ``--libdir`` to where your Linux distribution
-installs system libraries, usually either ``/usr/lib`` or
-``/usr/lib64``. Set ``-D dri-drivers-path`` to the directory where your
+installs system libraries, usually either :file:`/usr/lib` or
+:file:`/usr/lib64`. Set ``-D dri-drivers-path`` to the directory where your
 Linux distribution installs DRI drivers. To find your system's DRI
 driver directory, try executing ``find /usr -type d -name dri``. For
-example, if the ``find`` command listed ``/usr/lib64/dri``, then set
+example, if the ``find`` command listed :file:`/usr/lib64/dri`, then set
 ``-D dri-drivers-path=/usr/lib64/dri``.
 
 After determining the correct values for the install location, configure

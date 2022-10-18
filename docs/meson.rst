@@ -244,7 +244,7 @@ cross build environment). They are INI formatted and can override where
 to find llvm-config:
 
 .. code-block:: ini
-   :caption: custom-llvm.ini
+   :caption: :file:`custom-llvm.ini`
 
    [binaries]
    llvm-config = '/usr/local/bin/llvm/llvm-config'
@@ -260,7 +260,7 @@ file" <https://mesonbuild.com/Cross-compilation.html#defining-the-environment>`_
 should be used. It uses the same format as the native file above:
 
 .. code-block:: ini
-   :caption: cross-llvm.ini
+   :caption: :file:`cross-llvm.ini`
 
    [binaries]
    ...
@@ -294,7 +294,8 @@ The wrap file must define the following:
 
 It may also define:
 
--  ``irbuilder_h``: a ``files()`` object pointing to llvm/IR/IRBuilder.h
+-  ``irbuilder_h``: a ``files()`` object pointing to
+   :file:`llvm/IR/IRBuilder.h`
 -  ``has_rtti``: a ``bool`` that declares whether LLVM was built with
    RTTI. Defaults to true
 
@@ -352,7 +353,7 @@ building Mesa on Unix-like systems. It is used to search for external
 libraries on the system. This environment variable is used to control
 the search path for ``pkg-config``. For instance, setting
 ``PKG_CONFIG_PATH=/usr/X11R6/lib/pkgconfig`` will search for package
-metadata in ``/usr/X11R6`` before the standard directories.
+metadata in :file:`/usr/X11R6` before the standard directories.
 
 Options
 ^^^^^^^

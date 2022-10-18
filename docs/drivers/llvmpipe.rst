@@ -109,7 +109,7 @@ Environment variables
 Linux
 ~~~~~
 
-On Linux, building will create a drop-in alternative for ``libGL.so``
+On Linux, building will create a drop-in alternative for :file:`libGL.so`
 into
 
 ::
@@ -128,9 +128,9 @@ Windows
 ~~~~~~~
 
 On Windows, building will create
-``build/windows-x86-debug/gallium/targets/libgl-gdi/opengl32.dll`` which
-is a drop-in alternative for system's ``opengl32.dll``, which will use
-the Mesa ICD, ``build/windows-x86-debug/gallium/targets/wgl/libgallium_wgl.dll``.
+:file:`build/windows-x86-debug/gallium/targets/libgl-gdi/opengl32.dll` which
+is a drop-in alternative for system's :file:`opengl32.dll`, which will use
+the Mesa ICD, :file:`build/windows-x86-debug/gallium/targets/wgl/libgallium_wgl.dll`.
 To use it put both DLLs in the same directory as your application. It can also
 be used by replacing the native ICD driver, but it's quite an advanced usage, so if
 you need to ask, don't even try it.
@@ -174,9 +174,9 @@ On Linux, it is possible to have symbol resolution of JIT code with
    perf report
 
 When run inside Linux perf, LLVMpipe will create a
-``/tmp/perf-XXXXX.map`` file with symbol address table. It also dumps
-assembly code to ``/tmp/perf-XXXXX.map.asm``, which can be used by the
-``bin/perf-annotate-jit.py`` script to produce disassembly of the
+:file:`/tmp/perf-XXXXX.map` file with symbol address table. It also dumps
+assembly code to :file:`/tmp/perf-XXXXX.map.asm`, which can be used by the
+:file:`bin/perf-annotate-jit.py` script to produce disassembly of the
 generated code annotated with the samples.
 
 You can obtain a call graph via
@@ -186,7 +186,7 @@ Unit testing
 ------------
 
 Building will also create several unit tests in
-``build/linux-???-debug/gallium/drivers/llvmpipe``:
+:file:`build/linux-{???}-debug/gallium/drivers/llvmpipe`:
 
 -  ``lp_test_blend``: blending
 -  ``lp_test_conv``: SIMD vector conversion
@@ -202,18 +202,18 @@ file for later analysis, e.g.:
 Development Notes
 -----------------
 
--  When looking at this code for the first time, start in lp_state_fs.c,
+-  When looking at this code for the first time, start in :file:`lp_state_fs.c`,
    and then skim through the ``lp_bld_*`` functions called there, and
    the comments at the top of the ``lp_bld_*.c`` functions.
 -  The driver-independent parts of the LLVM / Gallium code are found in
-   ``src/gallium/auxiliary/gallivm/``. The filenames and function
+   :file:`src/gallium/auxiliary/gallivm/`. The filenames and function
    prefixes need to be renamed from ``lp_bld_`` to something else
    though.
 -  We use LLVM-C bindings for now. They are not documented, but follow
    the C++ interfaces very closely, and appear to be complete enough for
    code generation. See `this stand-alone
    example <https://npcontemplation.blogspot.com/2008/06/secret-of-llvm-c-bindings.html>`__.
-   See the ``llvm-c/Core.h`` file for reference.
+   See the :file:`llvm-c/Core.h` file for reference.
 
 .. _recommended_reading:
 

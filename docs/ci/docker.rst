@@ -9,9 +9,9 @@ Software architecture
 ---------------------
 
 The Docker containers are rebuilt using the shell scripts under
-.gitlab-ci/container/ when the FDO\_DISTRIBUTION\_TAG changes in
-.gitlab-ci.yml. The resulting images are around 1 GB, and are
-expected to change approximately weekly (though an individual
+:file:`.gitlab-ci/container/` when the FDO\_DISTRIBUTION\_TAG changes
+in :file:`.gitlab-ci.yml`. The resulting images are around 1 GB, and
+are expected to change approximately weekly (though an individual
 developer working on them may produce many more images while trying to
 come up with a working MR!).
 
@@ -62,13 +62,13 @@ storage on your DUTs.
 
 * DUTs must be public
 
-By including your device in .gitlab-ci.yml, you're effectively letting
-anyone on the internet run code on your device.  Docker containers may
-provide some limited protection, but how much you trust that and what
-you do to mitigate hostile access is up to you.
+By including your device in :file:`.gitlab-ci.yml`, you're effectively
+letting anyone on the internet run code on your device.  Docker
+containers may provide some limited protection, but how much you trust
+that and what you do to mitigate hostile access is up to you.
 
 * DUTs must expose the DRI device nodes to the containers.
 
 Obviously, to get access to the HW, we need to pass the render node
 through.  This is done by adding ``devices = ["/dev/dri"]`` to the
-``runners.docker`` section of /etc/gitlab-runner/config.toml.
+``runners.docker`` section of :file:`/etc/gitlab-runner/config.toml`.

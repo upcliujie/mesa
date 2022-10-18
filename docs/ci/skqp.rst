@@ -30,4 +30,4 @@ them to keep CI green when the rendering is "correct" but out of normal range.
 However, we don't support changing the thresholds in our testing.  Because any
 driver rendering not meeting the normal thresholds will trigger Android CTS
 failures, we treat them as failures and track them as expected failures the
-```*-fails.txt`` file.`
+:file:`*-fails.txt` file.

@@ -64,10 +64,10 @@ u_trace is controlled by environment variables:
         - Tracepoint Definitions
       * - Freedreno
         - .. envvar:: FD_GPU_TRACEPOINT
-        - ``src/gallium/drivers/freedreno/freedreno_tracepoints.py``
+        - :file:`src/gallium/drivers/freedreno/freedreno_tracepoints.py`
       * - Turnip
         - .. envvar:: TU_GPU_TRACEPOINT
-        - ``src/freedreno/vulkan/tu_tracepoints.py``
+        - :file:`src/freedreno/vulkan/tu_tracepoints.py`
       * - Anv
         - .. envvar:: INTEL_GPU_TRACEPOINT
-        - ``src/intel/vulkan/intel_tracepoints.py``
+        - :file:`src/intel/vulkan/intel_tracepoints.py`

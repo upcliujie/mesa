@@ -111,8 +111,8 @@ Since Mesa supports RGB rendering into any X visual, not just True-
 Color or DirectColor, Mesa needs colormap information to convert RGB
 values into pixel values. An X window carries this information but a
 pixmap does not. This function associates a colormap to a GLX pixmap.
-See the xdemos/glxpixmap.c file for an example of how to use this
-extension.
+See the :file:`xdemos/glxpixmap.c`` file for an example of how to use
+this extension.
 
 `GLX_MESA_pixmap_colormap
 specification <specs/MESA_pixmap_colormap.spec>`__

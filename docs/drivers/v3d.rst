@@ -11,7 +11,7 @@ The V3D Mesa drivers communicate directly with the `V3D
 <https://www.kernel.org/doc/html/latest/gpu/v3d.html>`__ kernel DRM
 driver for scheduling GPU commands.  Additionally, on the Raspberry Pi
 4, the kernel uses the VC4 DRM driver for display support, so Mesa
-exposes a ``vc4_dri.so`` using the kmsro helpers to do
+exposes a :file:`vc4_dri.so` using the kmsro helpers to do
 behind-the-scenes buffer management between the two kernel drivers,
 while executing rendering on the V3D kernel module.
 
@@ -40,8 +40,8 @@ Developers with NDA access with Broadcom or Raspberry Pi can get
 access to the V3D architecture specification for documentation of the
 GPU's programming model.  There is also a C++ software simulator
 called simpenrose, and the Mesa driver includes a backend
-(``src/broadcom/drm-shim/``) to use simpenrose from an x86 system with
-the i915 graphics driver with all of the VC4 rendering commands
+(:file:`src/broadcom/drm-shim/`) to use simpenrose from an x86 system
+with the i915 graphics driver with all of the VC4 rendering commands
 emulated on simpenrose and memcpyed to the real GPU.  Note that
 simpenrose's API drifts over time, so you need to be synced up with
 whatever version Mesa was last being developed against.
