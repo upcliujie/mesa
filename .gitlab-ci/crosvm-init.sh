@@ -33,7 +33,8 @@ socat -d -U vsock-listen:${VSOCK_STDOUT} \
     system:"stdbuf -eL sh ${VM_TEMP_DIR}/crosvm-script.sh 2> ${STDERR_FIFO}; echo \$? > ${VM_TEMP_DIR}/exit_code",nofork
 
 kill ${DMESG_PID}
-wait
+sleep 3
+#wait
 
 sync
 poweroff -d -n -f || true
