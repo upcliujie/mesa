@@ -107,7 +107,7 @@ virgl-iris-traces-performance:
 freedreno-on-virtgpu:
   extends:
     - a630_gl
-    - .virgl-rules
+    - .freedreno-rules
   parallel: 4
   variables:
     DEQP_SUITE: virgl-freedreno
