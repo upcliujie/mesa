@@ -32,9 +32,14 @@ socat -d -u pipe:${STDERR_FIFO} vsock-listen:${VSOCK_STDERR} &
 socat -d -U vsock-listen:${VSOCK_STDOUT} \
     system:"stdbuf -eL sh ${VM_TEMP_DIR}/crosvm-script.sh 2> ${STDERR_FIFO}; echo \$? > ${VM_TEMP_DIR}/exit_code",nofork
 
+echo Before kill > ${STDERR_FIFO}
 kill ${DMESG_PID}
-sleep 3
-#wait
+echo Before jobs > ${STDERR_FIFO}
+jobs > ${STDERR_FIFO}
+echo Before ps > ${STDERR_FIFO}
+ps aux > ${STDERR_FIFO}
+echo Before wait > ${STDERR_FIFO}
+wait
 
 sync
 poweroff -d -n -f || true
