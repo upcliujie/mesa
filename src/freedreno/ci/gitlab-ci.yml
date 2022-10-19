@@ -318,4 +318,4 @@ freedreno-on-virtgpu:
     DEQP_FRACTION: 2
     CROSVM_MEMORY: 8192
     HWCI_TEST_SCRIPT: "/install/crosvm-runner.sh /install/deqp-runner.sh"
-    TEST_PHASE_TIMEOUT: 15
+    TEST_PHASE_TIMEOUT: 120
