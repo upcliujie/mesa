@@ -230,8 +230,8 @@ you can modify the parameters to ``glXChooseVisual`` in your code.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Be sure you're requesting a depth buffered-visual. If you set the
-``MESA_DEBUG`` environment variable it will warn you about trying to
-enable depth testing when you don't have a depth buffer.
+:envvar:`MESA_DEBUG` environment variable it will warn you about trying
+to enable depth testing when you don't have a depth buffer.
 
 Specifically, make sure ``glutInitDisplayMode`` is being called with
 ``GLUT_DEPTH`` or ``glXChooseVisual`` is being called with a non-zero

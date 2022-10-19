@@ -14,7 +14,7 @@ memory.
 
 The library is only built if ``-Dtools=asahi`` is passed. It builds a single
 :file:`wrap.dylib` file, which should be inserted into a process with the
-``DYLD_INSERT_LIBRARIES`` environment variable.
+:envvar:`DYLD_INSERT_LIBRARIES` environment variable.
 
 For example, to trace an app ``./app``, run:
 

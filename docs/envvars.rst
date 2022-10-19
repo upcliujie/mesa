@@ -84,7 +84,7 @@ Core Mesa environment variables
    ``context``
       create a debug context (see ``GLX_CONTEXT_DEBUG_BIT_ARB``) and
       print error and performance messages to stderr (or
-      ``MESA_LOG_FILE``).
+      :envvar:`MESA_LOG_FILE`).
 
 .. envvar:: MESA_PROCESS_NAME
 
@@ -1183,8 +1183,8 @@ RADV driver environment variables
 
 .. envvar:: RADV_FORCE_VRS_CONFIG_FILE
 
-   similar to ``RADV_FORCE_VRS`` but allow to configure from a file. If present,
-   this supersedes ``RADV_FORCE_VRS``.
+   similar to :envvar:`RADV_FORCE_VRS` but allow to configure from a file.
+   If present, this supersedes :envvar:`RADV_FORCE_VRS`.
 
 .. envvar:: RADV_PERFTEST
 
@@ -1610,7 +1610,7 @@ Asahi driver environment variables
       Trace work submitted to the GPU to files, using the agxdecode
       infrastructure. This produces a large volume of data, so should be used
       with caution. The traces are written to :file:`agxdecode.dump`,
-      but this can be overridden using ``AGXDECODE_DUMP_FILE``.
+      but this can be overridden using :envvar:`AGXDECODE_DUMP_FILE`.
    ``no16``
       Disable 16-bit floating point support. This may workaround application
       bugs in certain OpenGL ES applications originally written for desktops. If

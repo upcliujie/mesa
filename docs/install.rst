@@ -177,7 +177,7 @@ here are a few things to check:
 
  2. Watch out for wrapper scripts.  Some more complex apps such as games have
     big start-up scripts.  Sometimes those scripts scrub the environment or set
-    ``LD_LIBRARY_PATH`` to something in the game's install directory.
+    :envvar:`LD_LIBRARY_PATH` to something in the game's install directory.
 
  3. Is your Mesa build the same arch as your app?  Lots of games are still
     32-bit and your Mesa build is probably 64-bit by default.

@@ -98,12 +98,12 @@ Environment variables
 
 .. envvar:: GALLIUM_NOSSE
 
-   Deprecated in favor of ``GALLIUM_OVERRIDE_CPU_CAPS``,
+   Deprecated in favor of :envvar:`GALLIUM_OVERRIDE_CPU_CAPS`,
    use ``GALLIUM_OVERRIDE_CPU_CAPS=nosse`` instead.
 
 .. envvar:: LP_FORCE_SSE2
 
-   Deprecated in favor of ``GALLIUM_OVERRIDE_CPU_CAPS``
+   Deprecated in favor of :envvar:`GALLIUM_OVERRIDE_CPU_CAPS`,
    use ``GALLIUM_OVERRIDE_CPU_CAPS=sse2`` instead.
 
 Linux
@@ -122,7 +122,7 @@ or
 
    lib/gallium/libGL.so
 
-To use it set the ``LD_LIBRARY_PATH`` environment variable accordingly.
+To use it set the :envvar:`LD_LIBRARY_PATH` environment variable accordingly.
 
 Windows
 ~~~~~~~

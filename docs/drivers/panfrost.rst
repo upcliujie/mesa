@@ -94,12 +94,12 @@ To build Mesa with Panfrost drm-shim, configure Meson with
 building section for a full invocation. The drm-shim binary will be built to
 :file:`build/src/panfrost/drm-shim/libpanfrost_noop_drm_shim.so`.
 
-To use, set the ``LD_PRELOAD`` environment variable to the drm-shim binary.  It
-may also be necessary to set ``LIBGL_DRIVERS_PATH`` to the location where Mesa
-was installed.
+To use, set the :envvar:`LD_PRELOAD` environment variable to the drm-shim
+binary.  It may also be necessary to set :envvar:`LIBGL_DRIVERS_PATH` to the
+location where Mesa was installed.
 
 By default, drm-shim mocks a Mali-G52 system. To select a specific Mali GPU,
-set the ``PAN_GPU_ID`` environment variable to the desired GPU ID:
+set the :envvar:`PAN_GPU_ID` environment variable to the desired GPU ID:
 
 =========  ============ =======
 Product    Architecture GPU ID

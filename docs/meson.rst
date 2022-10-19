@@ -154,7 +154,7 @@ Both ICL and MSVC come with shell environments, the easiest way to use
 Meson with these it to open a shell. For clang-cl you will need to open
 an MSVC shell, and then override the compilers, either using a `native
 file <https://mesonbuild.com/Native-environments.html>`__, or with the
-CC and CXX environment variables.
+:envvar:`CC` and :envvar:`CXX` environment variables.
 
 All of these compilers are tested and work with Ninja, but if you want
 Visual Studio integration or you just like msbuild, passing
@@ -178,16 +178,17 @@ option. For example:
    meson --prefix="${PWD}/build/install" build/
 
 will put the final libraries and drivers into the build/install/
-directory. Then you can set LD_LIBRARY_PATH and LIBGL_DRIVERS_PATH to
-that location to run/test the driver.
+directory. Then you can set :envvar:`LD_LIBRARY_PATH` and
+:envvar:`LIBGL_DRIVERS_PATH` to that location to run/test the driver.
 
-Meson also honors ``DESTDIR`` for installs.
+Meson also honors :envvar:`DESTDIR` for installs.
 
 Compiler Options
 ^^^^^^^^^^^^^^^^
 
-Meson supports the common CFLAGS, CXXFLAGS, etc. environment variables
-but their use is discouraged because of the many caveats in using them.
+Meson supports the common :envvar:`CFLAGS`, :envvar:`CXXFLAGS`, etc.
+environment variables but their use is discouraged because of the many
+caveats in using them.
 
 Instead, it is recommended to use ``-D${lang}_args`` and
 ``-D${lang}_link_args``. Among the benefits of these options is that

@@ -42,4 +42,4 @@ Download the YAML file from your driver's :file:`ci/` directory and then change 
    ./piglit run -l verbose --timeout 300 -j10 replay ~/results/
 
 
-Note: For replaying traces, you may need to allow higher GL and GLSL versions. You can achieve that by setting  ``MESA_GLSL_VERSION_OVERRIDE`` and ``MESA_GL_VERSION_OVERRIDE``.
+Note: For replaying traces, you may need to allow higher GL and GLSL versions. You can achieve that by setting  :envvar:`MESA_GLSL_VERSION_OVERRIDE` and :envvar:`MESA_GL_VERSION_OVERRIDE`.

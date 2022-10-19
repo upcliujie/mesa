@@ -48,9 +48,9 @@ Double Buffering
 
 Mesa can use either an X Pixmap or XImage as the back color buffer when
 in double-buffer mode. The default is to use an XImage. The
-**MESA_BACK_BUFFER** environment variable can override this. The valid
-values for **MESA_BACK_BUFFER** are: **Pixmap** and **XImage** (only the
-first letter is checked, case doesn't matter).
+:envvar:`MESA_BACK_BUFFER` environment variable can override this. The
+valid values for :envvar:`MESA_BACK_BUFFER` are: **Pixmap** and
+**XImage** (only the first letter is checked, case doesn't matter).
 
 Using XImage is almost always faster than a Pixmap since it resides in
 the application's address space. When glXSwapBuffers() is called,
@@ -61,8 +61,8 @@ A Pixmap may be faster when doing remote rendering of a simple scene.
 Some OpenGL features will be very slow with a Pixmap (for example,
 blending will require a round-trip message for pixel readback.)
 
-Experiment with the MESA_BACK_BUFFER variable to see which is faster for
-your application.
+Experiment with the :envvar:`MESA_BACK_BUFFER` variable to see which is
+faster for your application.
 
 Colormaps
 ---------

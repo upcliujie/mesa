@@ -37,7 +37,7 @@ When the build is complete you should find:
 
    $PWD/builddir/install/lib/libOSMesa.so
 
-Set your LD_LIBRARY_PATH to point to :file:`{$PWD}/builddir/install` to
-use the libraries.
+Set your :envvar:`LD_LIBRARY_PATH` to point to :file:`{$PWD}/builddir/install`
+to use the libraries.
 
 When you link your application, link with -lOSMesa
