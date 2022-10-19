@@ -139,8 +139,8 @@ Building the Code
 Running OpenGL Programs
 -----------------------
 
-In a shell, run 'glxinfo' and look for the following to verify that the
-driver is working:
+In a shell, run :command:`glxinfo` and look for the following to verify
+that the driver is working:
 
 ::
 

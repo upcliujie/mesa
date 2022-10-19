@@ -37,4 +37,5 @@ To add a new GL extension to Mesa you have to do at least the following.
    :file:`src/mesa/main/extensions.h`.
 -  The dispatch tests :file:`check_table.cpp` and
    :file:`dispatch_sanity.cpp` should be updated with details about the
-   new extensions functions. These tests are run using ``meson test``.
+   new extensions functions. These tests are run using
+   :command:`meson test`.

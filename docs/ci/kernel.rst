@@ -22,7 +22,7 @@ please refer to :file:`.gitlab-ci/container/gitlab-ci.yml` ``KERNEL_URL`` variab
 Every tag has a standard naming: ``vX.YZ-for-mesa-ci-<commit_short_SHA>``, which
 can be created via the command:
 
-:code:`git tag vX.YZ-for-mesa-ci-$(git rev-parse --short HEAD)`
+:command:`git tag vX.YZ-for-mesa-ci-$(git rev-parse --short HEAD)`
 
 Building Kernel
 ---------------

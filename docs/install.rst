@@ -227,8 +227,8 @@ Gallium-based versions of libGL and device drivers.
 6. Building OpenGL programs with pkg-config
 -------------------------------------------
 
-Running ``ninja install`` will install package configuration files for
-the :program:`pkg-config` utility.
+Running :command:`ninja install` will install package configuration files
+for the :program:`pkg-config` utility.
 
 When compiling your OpenGL application you can use pkg-config to
 determine the proper compiler and linker flags.

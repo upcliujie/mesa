@@ -105,7 +105,7 @@ At any given time, there may be several active branches in Mesa's
 repository. Generally, ``main`` contains the latest development
 (unstable) code while a branch has the latest stable code.
 
-The command ``git branch`` will list all available branches.
+The command :command:`git branch` will list all available branches.
 
 Questions about branch status/activity should be posted to the mesa-dev
 mailing list.
@@ -115,7 +115,7 @@ Developer Git Tips
 
 #. Setting up to edit the main branch
 
-   If you try to do a pull by just saying\ ``git pull`` and Git
+   If you try to do a pull by just saying :command:`git pull` and Git
    complains that you have not specified a branch, try:
 
    .. code-block:: console
@@ -123,8 +123,8 @@ Developer Git Tips
       git config branch.main.remote origin
       git config branch.main.merge main
 
-   Otherwise, you have to say\ ``git pull origin main`` each time you
-   do a pull.
+   Otherwise, you have to say :command:`git pull origin main` each time
+   you do a pull.
 
 #. Small changes to main
 
@@ -167,8 +167,8 @@ Developer Git Tips
       git push
 
    If you are familiar with CVS or similar system, this is similar to
-   doing a ``cvs update`` in order to update your source tree to the
-   current repository state, instead of the time you did the last
+   doing a :command:`cvs update` in order to update your source tree to
+   the current repository state, instead of the time you did the last
    update. (CVS doesn't work like Git in this respect, but this is
    easiest way to explain it.)
 

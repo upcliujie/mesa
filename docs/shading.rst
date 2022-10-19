@@ -30,7 +30,7 @@ execution. These are generally used for debugging.
 -  **errors** - GLSL compilation and link errors will be reported to
    stderr.
 
-Example: export MESA_GLSL=dump,nopt
+Example: :command:`export MESA_GLSL=dump,nopt``
 
 .. _replacement:
 

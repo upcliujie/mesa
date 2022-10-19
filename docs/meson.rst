@@ -106,14 +106,15 @@ To review the options which Meson chose, run:
    meson configure build/
 
 Recent version of Meson can print the available options and their
-default values by running ``meson configure`` in the source directory.
-If your Meson version is too old, you can always look in the
+default values by running :command:`meson configure` in the source
+directory. If your Meson version is too old, you can always look in the
 `meson_options.txt <https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/meson_options.txt>`__
 file at the root of the project.
 
-With additional arguments ``meson configure`` can be used to change
-options for a previously configured build directory. All options passed
-to this command are in the form ``-D "option"="value"``. For example:
+With additional arguments :command:`meson configure` can be used to
+change options for a previously configured build directory. All options
+passed to this command are in the form ``-D "option"="value"``. For
+example:
 
 .. code-block:: console
 
@@ -360,10 +361,10 @@ Options
 ^^^^^^^
 
 One of the oddities of Meson is that some options are different when
-passed to :program:`meson` than to ``meson configure``. These options are
-passed as --option=foo to :program:`meson`, but -Doption=foo to
-``meson configure``. Mesa defined options are always passed as
--Doption=foo.
+passed to :program:`meson` than to :command:`meson configure`. These
+options are passed as --option=foo to :program:`meson`, but -Doption=foo
+to :command:`meson configure``. Mesa defined options are always passed
+as -Doption=foo.
 
 For those coming from Autotools be aware of the following:
 
@@ -395,7 +396,7 @@ For those coming from Autotools be aware of the following:
 `Meson supports
 cross-compilation <https://mesonbuild.com/Cross-compilation.html>`__ by
 specifying a number of binary paths and settings in a file and passing
-this file to :program:`meson` or ``meson configure`` with the
+this file to :program:`meson` or :command:`meson configure` with the
 ``--cross-file`` parameter.
 
 This file can live at any location, but you can use the bare filename

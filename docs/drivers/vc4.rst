@@ -79,7 +79,7 @@ reproduce or you can't capture it in a trace, describing how to
 reproduce and including a GPU hang dump would be the most
 useful. Install `vc4-gpu-tools
 <https://github.com/anholt/vc4-gpu-tools/>`__ and use
-``vc4_dump_hang_state my-app.hang``. Sometimes the hang file will
+:command:`vc4_dump_hang_state my-app.hang`. Sometimes the hang file will
 provide useful information.
 
 Tiled Rendering
@@ -201,9 +201,10 @@ frame).
 Start with top while your application is running. Is the CPU usage
 around 90%+? If so, then our performance analysis will be with
 sysprof. If it's not very high, is the GPU staying busy? We don't have
-a clean tool for this yet, but ``cat /debug/dri/0/v3d_regs`` could be
-useful. If ``CT0CA`` != ``CT0EA`` or ``CT1CA`` != ``CT1EA``, that
-means that the GPU is currently busy processing some rendering job.
+a clean tool for this yet, but :command:`cat /debug/dri/0/v3d_regs`
+could be useful. If ``CT0CA`` != ``CT0EA`` or ``CT1CA`` != ``CT1EA``,
+that means that the GPU is currently busy processing some rendering
+job.
 
 * sysprof for CPU usage
 

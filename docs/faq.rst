@@ -184,14 +184,14 @@ system location where it will be available for all programs to use, set
 installs system libraries, usually either :file:`/usr/lib` or
 :file:`/usr/lib64`. Set ``-D dri-drivers-path`` to the directory where your
 Linux distribution installs DRI drivers. To find your system's DRI
-driver directory, try executing ``find /usr -type d -name dri``. For
-example, if the ``find`` command listed :file:`/usr/lib64/dri`, then set
-``-D dri-drivers-path=/usr/lib64/dri``.
+driver directory, try executing :command:`find /usr -type d -name dri`.
+For example, if the :command:`find` command listed :file:`/usr/lib64/dri`,
+then set ``-D dri-drivers-path=/usr/lib64/dri``.
 
 After determining the correct values for the install location, configure
 Mesa with
-``meson configure --prefix=/usr --libdir=xxx -D dri-drivers-path=xxx``
-and then install with ``sudo ninja install``.
+:command:`meson configure --prefix=/usr --libdir=xxx -D dri-drivers-path=xxx`
+and then install with :command:`sudo ninja install`.
 
 3. Runtime / Rendering Problems
 -------------------------------

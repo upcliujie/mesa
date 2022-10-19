@@ -95,7 +95,7 @@ Basic formatting guidelines
 
 -  Put the function return type and qualifiers on one line and the
    function name and parameters on the next, as seen above. This makes
-   it easy to use ``grep ^function_name dir/*`` to find function
+   it easy to use :command:`grep ^function_name dir/*` to find function
    definitions. Also, the opening brace goes on the next line by itself
    (see above.)
 -  Function names follow various conventions depending on the type of

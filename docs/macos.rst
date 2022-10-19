@@ -11,9 +11,9 @@ be aware of.
 -  Mesa has a number of build-time dependencies. Most dependencies, including
    Meson itself, are available in `homebrew <https://brew.sh>`__, which has a
    Mesa package for reference. The exception seems to be Mako, a Python module
-   used for templating, which you can install as ``pip3 install mako``.
--  macOS is picky about its build-time environment. Type ``brew sh`` before
-   building to get the Homebrew dependencies in your path.
+   used for templating, which you can install as :command:`pip3 install mako`.
+-  macOS is picky about its build-time environment. Type :command:`brew sh`
+   before building to get the Homebrew dependencies in your path.
 
 Mesa's default builds with the Apple GLX uses Mesa as a front for the
 hardware-accelerated system OpenGL framework, to provide hardware acceleration

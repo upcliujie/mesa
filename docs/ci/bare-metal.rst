@@ -186,8 +186,8 @@ required by your bare-metal script, something like::
 The ``FDO_CI_CONCURRENT`` variable should be set to the number of CPU threads on
 the board, which is used for auto-tuning of job parallelism.
 
-Once you've updated your runners' configs, restart with ``sudo service
-gitlab-runner restart``
+Once you've updated your runners' configs, restart with :command:`sudo
+service gitlab-runner restart`
 
 Caching downloads
 -----------------

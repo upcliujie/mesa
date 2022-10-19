@@ -82,7 +82,7 @@ well as watch the GitLab CI for regressions.
 Cherry picking should be done with the '-x' switch (to automatically add
 "cherry picked from ..." to the commit message):
 
-``git cherry-pick -x abcdef12345667890``
+:command:`git cherry-pick -x abcdef12345667890`
 
 Developers can request, *as an exception*, patches to be applied up-to
 the last one hour before the actual release. This is made **only** with
@@ -171,7 +171,7 @@ to stabilization and bugfixing.
 
 .. note::
 
-   Before doing a branch ensure that basic build and ``meson test``
+   Before doing a branch ensure that basic build and :command:`meson test`
    testing is done and there are little to-no issues. Ideally all of those
    should be tackled already.
 
@@ -250,7 +250,7 @@ Perform basic testing
 Most of the testing should already be done during the
 :ref:`cherry-pick <pickntest>` So we do a quick 'touch test'
 
--  meson dist
+-  :command:`meson dist`
 -  the produced binaries work
 
 Here is one solution:

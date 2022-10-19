@@ -37,8 +37,8 @@ Performance tips for software rendering:
    coefficients are >= zero
 #. XFree86 users: if you want to use 24-bit color try starting your X
    server in 32-bit per pixel mode for better performance. That is,
-   start your X server with startx -- -bpp 32 instead of startx -- -bpp
-   24
+   start your X server with :command:`startx -- -bpp 32` instead of
+   :command:`startx -- -bpp 24`
 #. Try disabling dithering with the MESA_NO_DITHER environment variable.
    If this environment variable is defined Mesa will disable dithering
    and the command glEnable(GL_DITHER) will be ignored.

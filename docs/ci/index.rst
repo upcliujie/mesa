@@ -14,7 +14,7 @@ modified and thus is unreliable).
 The CI runs a number of tests, from trivial build-testing to complex GPU rendering:
 
 - Build testing for a number of build systems, configurations and platforms
-- Sanity checks (``meson test``)
+- Sanity checks (:command:`meson test`)
 - Some drivers (Softpipe, LLVMpipe, Freedreno and Panfrost) are also tested
   using `VK-GL-CTS <https://github.com/KhronosGroup/VK-GL-CTS>`__
 - Replay of application traces
@@ -211,7 +211,7 @@ container update from the same day, you will get a Git conflict
 instead of silently reusing their container)
 
 When developing a given change to your Docker image, you would have to
-bump the tag on each ``git commit --amend`` to your development
+bump the tag on each :command:`git commit --amend` to your development
 branch, which can get tedious.  Instead, you can navigate to the
 `container registry
 <https://gitlab.freedesktop.org/mesa/mesa/container_registry>`__ for
@@ -233,8 +233,8 @@ to your job log, and at the top you'll see a line like::
 We'll use a volume mount to make our current Mesa tree be what the
 Docker container uses, so they'll share everything (their build will
 go in :file:`_build`, according to :file:`meson-build.sh`).  We're going to be
-using the image non-interactively so we use ``run --rm $IMAGE
-command`` instead of ``run -it $IMAGE bash`` (which you may also find
+using the image non-interactively so we use :command:`run --rm $IMAGE
+command` instead of :command:`run -it $IMAGE bash` (which you may also find
 useful for debug).  Extract your build setup variables from
 :file:`.gitlab-ci.yml` and run the CI meson build script:
 
