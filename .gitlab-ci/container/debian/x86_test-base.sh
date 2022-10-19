@@ -63,6 +63,7 @@ apt-get install -y \
       sysvinit-core
 
 apt-get install -y --no-remove \
+      coreutils \
       git \
       git-lfs \
       inetutils-syslogd \

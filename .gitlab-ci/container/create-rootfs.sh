@@ -67,6 +67,7 @@ apt-get -y install --no-install-recommends \
     $EXTRA_LOCAL_PACKAGES \
     bash \
     ca-certificates \
+    coreutils \
     firmware-realtek \
     initramfs-tools \
     jq \
