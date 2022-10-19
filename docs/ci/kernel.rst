@@ -117,6 +117,6 @@ Careful reading of the job logs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Sometimes a job may turn to red for reasons unrelated to the kernel update, e.g.
-LAVA ``tftp`` timeout, problems with the freedesktop servers etc.
+LAVA :program:`tftp` timeout, problems with the freedesktop servers etc.
 So it is important to see the reason why the job turned red, and retry it if an
 infrastructure error has happened.

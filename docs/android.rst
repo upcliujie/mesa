@@ -2,13 +2,13 @@ Android
 =======
 
 Mesa hardware drivers can be built for Android one of two ways: built
-into the Android OS using the ndk-build build system on older versions
-of Android, or out-of-tree using the Meson build system and the
+into the Android OS using the :program:`ndk-build` build system on older
+versions of Android, or out-of-tree using the Meson build system and the
 Android NDK.
 
-The ndk-build build system has proven to be hard to maintain, as one
-needs a built Android tree to build against, and it has never been
-tested in CI.  The Meson build system flow is frequently used by
+The :program:`ndk-build` build system has proven to be hard to maintain,
+as one needs a built Android tree to build against, and it has never
+been tested in CI.  The Meson build system flow is frequently used by
 Chrome OS developers for building and testing Android drivers.
 
 Building using the Android NDK
@@ -86,7 +86,7 @@ a read-only squashfs image on disk.  For doing rapid driver
 development, you don't want to regenerate that image.  So, we'll take
 the existing squashfs image, copy it out on the host, and then use a
 bind mount instead of a loopback mount so we can update our drivers
-using scp from outside the container.
+using :program:`scp` from outside the container.
 
 On your device, you'll want to make :file:`/` read-write.  ssh in as root
 and run:
@@ -129,7 +129,7 @@ Now, restart the UI to do a full reload:
 
 At this point, your android container is restarted with your new
 bind-mount :file:`/vendor`, and if you use ``android-sh`` to shell into it
-then the ``mount`` command should show::
+then the :program:`mount` command should show::
 
     /dev/root on /vendor type ext2 (rw,seclabel,relatime)
 

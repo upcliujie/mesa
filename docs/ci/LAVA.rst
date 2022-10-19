@@ -12,12 +12,12 @@ take out critical system services).
 Mesa-LAVA software architecture
 -------------------------------
 
-The gitlab-runner will run on some host that has access to the LAVA
-lab, with tags like "mesa-ci-x86-64-lava-$DEVICE_TYPE" to control only
-taking in jobs for the hardware that the LAVA lab contains.  The
-gitlab-runner spawns a Docker container with lavacli in it, and
-connects to the LAVA lab using a predefined token to submit jobs under
-a specific device type.
+The :program:`gitlab-runner` will run on some host that has access to
+the LAVA lab, with tags like "mesa-ci-x86-64-lava-$DEVICE_TYPE" to
+control only taking in jobs for the hardware that the LAVA lab contains.
+The :program:`gitlab-runner` spawns a Docker container with
+:program:`lavacli` in it, and connects to the LAVA lab using a predefined
+token to submit jobs under a specific device type.
 
 The LAVA instance manages scheduling those jobs to the boards present.
 For a job, it will deploy the kernel, device tree, and the ramdisk
@@ -45,12 +45,12 @@ boot_method and some public images, and figure out how to get your
 boards booting.
 
 Once you can boot your board using a custom job definition, it's time
-to connect Mesa CI to it.  Install gitlab-runner and register as a
-shared runner (you'll need a GitLab admin for help with this).  The
-runner *must* have a tag (like "mesa-ci-x86-64-lava-rk3399-gru-kevin")
-to restrict the jobs it takes or it will grab random jobs from tasks
-across ``gitlab.freedesktop.org``, and your runner isn't ready for
-that.
+to connect Mesa CI to it.  Install :program:`gitlab-runner` and
+register as a shared runner (you'll need a GitLab admin for help with
+this).  The runner *must* have a tag (like
+"mesa-ci-x86-64-lava-rk3399-gru-kevin") to restrict the jobs it takes
+or it will grab random jobs from tasks across
+``gitlab.freedesktop.org``, and your runner isn't ready for that.
 
 The Docker image will need access to the LAVA instance.  If it's on a
 public network it should be fine.  If you're running the LAVA instance

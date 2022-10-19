@@ -42,17 +42,17 @@ Some older versions of Meson do not check that they are too old and will
 error out in odd ways.
 
 You'll also need `Ninja <https://ninja-build.org/>`__. If it's not
-already installed, use apt-get or dnf to install the *ninja-build*
-package.
+already installed, use :program:`apt-get` or :program:`dnf` to install
+the *ninja-build* package.
 
 Windows
 ^^^^^^^
 
 You will need to install Python 3 and Meson as a module using pip. This
 is because we use Python for generating code, and rely on external
-modules (Mako). You also need pkg-config (a hard dependency of Meson),
-Flex, and Bison. The easiest way to install everything you need is with
-`Chocolatey <https://chocolatey.org/>`__.
+modules (Mako). You also need :program:`pkg-config` (a hard dependency
+of Meson), Flex, and Bison. The easiest way to install everything you
+need is with `Chocolatey <https://chocolatey.org/>`__.
 
 .. code-block:: console
 
@@ -125,8 +125,9 @@ but the simplest form compatible with Mesa options is to use a comma to
 separate values (``-D platforms=drm,wayland``) and brackets to represent
 an empty list (``-D platforms=[]``).
 
-Once you've run the initial ``meson`` command successfully you can use
-your configured backend to build the project in your build directory:
+Once you've run the initial :program:`meson` command successfully you
+can use your configured backend to build the project in your build
+directory:
 
 .. code-block:: console
 
@@ -224,8 +225,8 @@ most of the popular compilers, a complete list is available
 LLVM
 ^^^^
 
-Meson includes upstream logic to wrap llvm-config using its standard
-dependency interface.
+Meson includes upstream logic to wrap :program:`llvm-config` using its
+standard dependency interface.
 
 Meson can use CMake to find LLVM. But due to the way LLVM implements its
 CMake finder it will only find static libraries, it will never find
@@ -241,7 +242,7 @@ As of Meson 0.49.0 Meson also has the concept of a `"native
 file" <https://mesonbuild.com/Native-environments.html>`__, these files
 provide information about the native build environment (as opposed to a
 cross build environment). They are INI formatted and can override where
-to find llvm-config:
+to find :program:`llvm-config`:
 
 .. code-block:: ini
    :caption: :file:`custom-llvm.ini`
@@ -255,7 +256,7 @@ Then configure Meson:
 
    meson setup builddir/ --native-file custom-llvm.ini
 
-For selecting llvm-config for cross compiling a `"cross
+For selecting :program:`llvm-config` for cross compiling a `"cross
 file" <https://mesonbuild.com/Cross-compilation.html#defining-the-environment>`__
 should be used. It uses the same format as the native file above:
 
@@ -267,7 +268,7 @@ should be used. It uses the same format as the native file above:
    llvm-config = '/usr/lib/llvm-config-32'
    cmake = '/usr/bin/cmake-for-my-arch'
 
-Obviously, only CMake or llvm-config is required.
+Obviously, only CMake or :program:`llvm-config` is required.
 
 Then configure Meson:
 
@@ -278,8 +279,8 @@ Then configure Meson:
 See the :ref:`Cross Compilation <cross-compilation>` section for more
 information.
 
-On Windows (and in other cases), using llvm-config or CMake may be
-either undesirable or impossible. Meson's solution for this is a
+On Windows (and in other cases), using :program:`llvm-config` or CMake may
+be either undesirable or impossible. Meson's solution for this is a
 `wrap <https://mesonbuild.com/Wrap-dependency-system-manual.html>`__, in
 this case a "binary wrap". Follow the steps below:
 
@@ -348,10 +349,10 @@ in build failures.
 ``PKG_CONFIG_PATH``
 ^^^^^^^^^^^^^^^^^^^
 
-The ``pkg-config`` utility is a hard requirement for configuring and
-building Mesa on Unix-like systems. It is used to search for external
+The :program:`pkg-config` utility is a hard requirement for configuring
+and building Mesa on Unix-like systems. It is used to search for external
 libraries on the system. This environment variable is used to control
-the search path for ``pkg-config``. For instance, setting
+the search path for :program:`pkg-config`. For instance, setting
 ``PKG_CONFIG_PATH=/usr/X11R6/lib/pkgconfig`` will search for package
 metadata in :file:`/usr/X11R6` before the standard directories.
 
@@ -394,8 +395,8 @@ For those coming from Autotools be aware of the following:
 `Meson supports
 cross-compilation <https://mesonbuild.com/Cross-compilation.html>`__ by
 specifying a number of binary paths and settings in a file and passing
-this file to ``meson`` or ``meson configure`` with the ``--cross-file``
-parameter.
+this file to :program:`meson` or ``meson configure`` with the
+``--cross-file`` parameter.
 
 This file can live at any location, but you can use the bare filename
 (without the folder path) if you put it in

@@ -42,8 +42,8 @@ u_trace is controlled by environment variables:
       enables marker instrumentation, will print utrace markers into
       the CS which can then be viewed by dumping the CS from the driver.
 
-         - For Turnip, ``cffdump`` can be used to view the markers in
-           the trace.
+         - For Turnip, :program:`cffdump` can be used to view the markers
+           in the trace.
 
 .. envvar:: MESA_GPU_TRACEFILE
 

@@ -22,12 +22,12 @@ with that tag marked in the GitLab UI.
 
 Since dEQP takes a long time to run, we mark the job as "parallel" at
 some level, which spawns multiple jobs from one definition, and then
-deqp-runner.sh takes the corresponding fraction of the test list for
-that job.
+:program:`deqp-runner.sh` takes the corresponding fraction of the test
+list for that job.
 
 To reduce dEQP runtime (or avoid tests with unreliable results), a
-deqp-runner.sh invocation can provide a list of tests to skip.  If
-your driver is not yet conformant, you can pass a list of expected
+:program:`deqp-runner.sh` invocation can provide a list of tests to skip.
+If your driver is not yet conformant, you can pass a list of expected
 failures, and the job will only fail on tests that aren't listed (look
 at the job's log for which specific tests failed).
 

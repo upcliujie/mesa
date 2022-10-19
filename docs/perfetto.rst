@@ -69,7 +69,7 @@ To capture a trace with Perfetto you need to take the following steps:
 
 4. Start other producers you may need, e.g. ``pps-producer``.
 
-5. Start ``perfetto`` under the tmux session initiated in step 3.
+5. Start :program:`perfetto` under the tmux session initiated in step 3.
 
 6. Once tracing has finished, you can detach from tmux with :kbd:`Ctrl+b`,
    :kbd:`d`, and the convenience script should automatically copy the trace
@@ -139,7 +139,7 @@ Freedreno / Turnip
 ^^^^^^^^^^^^^^^^^^
 
 The Freedreno PPS driver needs root access to read system-wide
-performance counters, so you can simply run it with sudo:
+performance counters, so you can simply run it with :program:`sudo``:
 
 .. code-block:: console
 
@@ -150,7 +150,7 @@ Intel
 
 The Intel PPS driver needs root access to read system-wide
 `RenderBasic <https://www.intel.com/content/www/us/en/develop/documentation/vtune-help/top/reference/gpu-metrics-reference.html>`__
-performance counters, so you can simply run it with sudo:
+performance counters, so you can simply run it with :program:`sudo`:
 
 .. code-block:: console
 

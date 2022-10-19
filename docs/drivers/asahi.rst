@@ -8,7 +8,7 @@ Wrap (macOS only)
 
 Mesa includes a library that wraps the key IOKit entrypoints used in the macOS
 UABI for AGX. The wrapped routines print information about the kernel calls made
-and dump work submitted to the GPU using agxdecode. This facilitates
+and dump work submitted to the GPU using :program:`agxdecode`. This facilitates
 reverse-engineering the hardware, as glue to get at the "interesting" GPU
 memory.
 

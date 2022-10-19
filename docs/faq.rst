@@ -202,10 +202,10 @@ and then install with ``sudo ninja install``.
 If Mesa can't use its hardware accelerated drivers it falls back on one
 of its software renderers. (e.g. Softpipe or LLVMpipe)
 
-You can run the ``glxinfo`` program to learn about your OpenGL library.
-Look for the ``OpenGL vendor`` and ``OpenGL renderer`` values. That will
-identify who's OpenGL library with which driver you're using and what
-sort of hardware it has detected.
+You can run the :program:`glxinfo` program to learn about your OpenGL
+library. Look for the ``OpenGL vendor`` and ``OpenGL renderer`` values.
+That will identify who's OpenGL library with which driver you're using
+and what sort of hardware it has detected.
 
 If you're using a hardware accelerated driver you want
 ``direct rendering: Yes``.

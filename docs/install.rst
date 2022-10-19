@@ -38,11 +38,12 @@ Third party/extra tools.
 -  `Python <https://www.python.org/>`__ - Python 3.6 or newer is required.
 -  `Python Mako module <https://www.makotemplates.org/>`__ - Python Mako
    module is required. Version 0.8.0 or later should work.
--  Lex / Yacc - for building the Mesa IR and GLSL compiler.
+-  :program:`Lex` / :program:`Yacc` - for building the Mesa IR and GLSL
+   compiler.
 
-   On Linux systems, Flex and Bison versions 2.5.35 and 2.4.1,
-   respectively, (or later) should work. On Windows with MinGW, install
-   Flex and Bison with:
+   On Linux systems, :program:`Flex` and :program:`Bison` versions 2.5.35
+   and 2.4.1, respectively, (or later) should work. On Windows with MinGW, install
+   :program:`Flex` and :program:`Bison` with:
 
    .. code-block:: console
 
@@ -172,7 +173,7 @@ here are a few things to check:
 
  1. Double-check your paths and try with the simplest app you can.  Before
     banging your head on a Steam game, make sure your path works with
-    ``glxgears`` first.
+    :program:`glxgears` first.
 
  2. Watch out for wrapper scripts.  Some more complex apps such as games have
     big start-up scripts.  Sometimes those scripts scrub the environment or set
@@ -227,7 +228,7 @@ Gallium-based versions of libGL and device drivers.
 -------------------------------------------
 
 Running ``ninja install`` will install package configuration files for
-the pkg-config utility.
+the :program:`pkg-config` utility.
 
 When compiling your OpenGL application you can use pkg-config to
 determine the proper compiler and linker flags.

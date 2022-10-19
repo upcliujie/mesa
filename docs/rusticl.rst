@@ -3,10 +3,10 @@ Rusticl
 
 To build Rusticl you need to satisfy the following build dependencies:
 
--  ``rustc``
--  ``rustfmt`` (highly recommended, but only *required* for CI builds
-   or when authoring patches)
--  ``bindgen``
+-  :program:`rustc`
+-  :program:`rustfmt` (highly recommended, but only *required* for CI
+   builds or when authoring patches)
+-  :program:`bindgen`
 -  `LLVM <https://github.com/llvm/llvm-project/>`__ built with
    ``libclc`` and ``-DLLVM_ENABLE_DUMP=ON``.
 -  `SPIRV-Tools <https://github.com/KhronosGroup/SPIRV-Tools>`__
