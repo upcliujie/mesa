@@ -29,6 +29,7 @@ DMESG_PID=$!
 
 # Transfer the errors and crosvm-script output via a pair of virtio-vsocks
 socat -d -u pipe:${STDERR_FIFO} vsock-listen:${VSOCK_STDERR} &
+SOCAT_PID=$!
 socat -d -U vsock-listen:${VSOCK_STDOUT} \
     system:"stdbuf -eL sh ${VM_TEMP_DIR}/crosvm-script.sh 2> ${STDERR_FIFO}; echo \$? > ${VM_TEMP_DIR}/exit_code",nofork
 
@@ -38,14 +39,24 @@ echo Before jobs > ${STDERR_FIFO}
 jobs > ${STDERR_FIFO}
 echo Before ps > ${STDERR_FIFO}
 ps aux > ${STDERR_FIFO}
+
 echo Before wait > ${STDERR_FIFO}
-wait
+#wait
+#sleep 1
 echo After wait > ${STDERR_FIFO}
+
+echo Before ps > ${STDERR_FIFO}
+ps aux > ${STDERR_FIFO}
 
 echo Before sync > ${STDERR_FIFO}
 sync
 echo Before poweroff > ${STDERR_FIFO}
 poweroff -d -n -f || true
 echo After poweroff > ${STDERR_FIFO}
+
+echo Before ps > ${STDERR_FIFO}
+ps aux > ${STDERR_FIFO}
+
+kill ${SOCAT_PID}
 
 sleep 1   # Just in case init would exit before the kernel shuts down the VM
