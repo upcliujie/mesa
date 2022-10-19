@@ -40,8 +40,12 @@ echo Before ps > ${STDERR_FIFO}
 ps aux > ${STDERR_FIFO}
 echo Before wait > ${STDERR_FIFO}
 wait
+echo After wait > ${STDERR_FIFO}
 
+echo Before sync > ${STDERR_FIFO}
 sync
+echo Before poweroff > ${STDERR_FIFO}
 poweroff -d -n -f || true
+echo After poweroff > ${STDERR_FIFO}
 
 sleep 1   # Just in case init would exit before the kernel shuts down the VM
