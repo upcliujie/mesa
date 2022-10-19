@@ -107,7 +107,7 @@ crosvm --no-syslog run \
     /lava-files/${KERNEL_IMAGE_NAME:-bzImage} > ${VM_TEMP_DIR}/crosvm 2>&1
 
 CROSVM_RET=$?
-
+echo After Crosvm
 [ ${CROSVM_RET} -eq 0 ] && {
     # The actual return code is the crosvm guest script's exit code
     CROSVM_RET=$(cat ${VM_TEMP_DIR}/exit_code 2>/dev/null)
