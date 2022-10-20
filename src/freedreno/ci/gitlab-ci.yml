@@ -315,7 +315,7 @@ freedreno-on-virtgpu:
     HWCI_KVM: "true"
     CROSVM_CORES: 10
     FDO_CI_CONCURRENT: 7   # Leave some CPU cores free for the host
-    DEQP_FRACTION: 3
+    DEQP_FRACTION: 2
     CROSVM_MEMORY: 8192
     HWCI_TEST_SCRIPT: "/install/crosvm-runner.sh /install/deqp-runner.sh"
     TEST_PHASE_TIMEOUT: 120
