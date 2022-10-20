@@ -93,20 +93,20 @@ ulimit -n $(cat /proc/sys/fs/file-max) || true    # May fail in containers
 
 set +e -x
 
-(sleep 1195; ps aux) &
+(sleep 3595; ps aux) &
 
 # We aren't testing the host driver here, so we don't need to validate NIR on the host
 NIR_DEBUG="novalidate" \
 LIBGL_ALWAYS_SOFTWARE=${CROSVM_LIBGL_ALWAYS_SOFTWARE} \
 GALLIUM_DRIVER=${CROSVM_GALLIUM_DRIVER} \
 VK_ICD_FILENAMES=$CI_PROJECT_DIR/install/share/vulkan/icd.d/${CROSVM_VK_DRIVER}_icd.x86_64.json \
-strace -e trace=%process,%signal,prctl,ioctl -t -f -s 250 -o /results/strace.log /usr/bin/timeout 20m crosvm --no-syslog run \
+strace -e trace=%process,%signal,prctl,ioctl -t -f -s 250 -o /results/strace.log /usr/bin/timeout 60m crosvm --no-syslog run \
     --gpu "${CROSVM_GPU_ARGS}" -m ${CROSVM_MEMORY:-4096} -c ${CROSVM_CORES:-2} --disable-sandbox \
     --shared-dir /:my_root:type=fs:writeback=true:timeout=60:cache=always \
     --host-ip "192.168.30.1" --netmask "255.255.255.0" --mac "AA:BB:CC:00:00:12" \
     -s $VM_SOCKET \
     --cid ${VSOCK_CID} -p "${CROSVM_KERN_ARGS}" \
-    /lava-files/${KERNEL_IMAGE_NAME:-bzImage}
+    /lava-files/${KERNEL_IMAGE_NAME:-bzImage} 1>&2
 
 CROSVM_RET=$?
 echo After Crosvm
