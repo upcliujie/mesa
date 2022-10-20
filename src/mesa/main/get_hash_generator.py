@@ -28,8 +28,11 @@
 # Generate a C header file containing hash tables of glGet parameter
 # names for each GL API. The generated file is to be included by glGet.c
 
-import os, sys, getopt
 from collections import defaultdict
+import argparse
+import os
+import sys
+
 import get_hash_params
 
 param_desc_file = os.path.join(os.path.dirname(__file__), "get_hash_params.py")
@@ -188,39 +191,19 @@ def generate_hash_tables(enum_list, enabled_apis, param_descriptors):
    return params, merge_tables(sorted_tables)
 
 
-def show_usage():
-   sys.stderr.write(
-"""Usage: %s [OPTIONS]
-  -f <file>          specify GL API XML file
-""" % (program))
-   exit(1)
-
 if __name__ == '__main__':
-   try:
-      (opts, args) = getopt.getopt(sys.argv[1:], "f:")
-   except Exception:
-      show_usage()
-
-   if len(args) != 0:
-      show_usage()
-
-   api_desc_file = ""
-
-   for opt_name, opt_val in opts:
-      if opt_name == "-f":
-         api_desc_file = opt_val
-
-   if not api_desc_file:
-      die("missing descriptor file (-f)\n")
+   parser = argparse.ArgumentParser()
+   parser.add_argument('-f', '--file', dest='api_desc_file', required=True, help="Specify GL API XML file" )
+   args = parser.parse_args()
 
    # generate the code for all APIs
    enabled_apis = set(["GLES", "GLES2", "GLES3", "GLES31", "GLES32",
                        "GL", "GL_CORE"])
 
    try:
-      api_desc = gl_XML.parse_GL_API(api_desc_file)
+      api_desc = gl_XML.parse_GL_API(args.api_desc_file)
    except Exception:
-      die("couldn't parse API specification file %s\n" % api_desc_file)
+      die("couldn't parse API specification file %s\n" % args.api_desc_file)
 
    (params, hash_tables) = generate_hash_tables(api_desc.enums_by_name,
                               enabled_apis, get_hash_params.descriptor)
