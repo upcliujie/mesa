@@ -26,7 +26,7 @@ virpipe-on-gl:
     FLAKES_CHANNEL: "#virgl-ci"
     GALLIUM_DRIVER: "virgl"
     CROSVM_GALLIUM_DRIVER: "llvmpipe"
-    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768"
+    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768,context-types=virgl2"
     GALLIVM_PERF: "nopt,no_quad_lod"
 
 virgl-on-gl:
@@ -46,7 +46,7 @@ virgl-on-gles:
     VIRGL_HOST_API: GLES
     DEQP_SUITE: virgl-gles
     GPU_VERSION: virgl-gles
-    CROSVM_GPU_ARGS: "gles=true,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768"
+    CROSVM_GPU_ARGS: "gles=true,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768,context-types=virgl2"
   extends:
     - virgl-on-gl
 
@@ -80,7 +80,7 @@ virgl-traces:
     DRIVER_NAME: virgl
     GALLIUM_DRIVER: virgl
     CROSVM_GALLIUM_DRIVER: iris
-    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768"
+    CROSVM_GPU_ARGS: "gles=false,backend=virglrenderer,egl=true,surfaceless=true,width=1024,height=768,context-types=virgl2"
     EGL_PLATFORM: surfaceless
     PIGLIT_PROFILES: replay
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-virgl-iris.yml"

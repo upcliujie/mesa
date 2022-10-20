@@ -10,7 +10,6 @@ mount -t proc none /proc
 mount -t sysfs none /sys
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
-mount -t tmpfs tmpfs /tmp
 
 . ${VM_TEMP_DIR}/crosvm-env.sh
 
@@ -26,17 +25,17 @@ STDERR_FIFO=/tmp/crosvm-stderr.fifo
 mkfifo -m 600 ${STDERR_FIFO}
 
 dmesg --level crit,err,warn -w > ${STDERR_FIFO} &
-DMESG_PID=$!
 
 # Transfer the errors and crosvm-script output via a pair of virtio-vsocks
 socat -d -u pipe:${STDERR_FIFO} vsock-listen:${VSOCK_STDERR} &
+SOCAT_PID=$!
 socat -d -U vsock-listen:${VSOCK_STDOUT} \
     system:"stdbuf -eL sh ${VM_TEMP_DIR}/crosvm-script.sh 2> ${STDERR_FIFO}; echo \$? > ${VM_TEMP_DIR}/exit_code",nofork
 
-kill ${DMESG_PID}
-wait
-
+echo Before sync > ${STDERR_FIFO}
 sync
+echo Before poweroff > ${STDERR_FIFO}
 poweroff -d -n -f || true
+echo After poweroff > ${STDERR_FIFO}
 
 sleep 1   # Just in case init would exit before the kernel shuts down the VM

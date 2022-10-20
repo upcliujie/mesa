@@ -30,7 +30,7 @@ set_vsock_context() {
         exit 1
     }
 
-    VM_TEMP_DIR="/tmp-vm.${THREAD}"
+    VM_TEMP_DIR="/tmp/vm.${THREAD}"
     # Clear out any leftover files from a previous run.
     rm -rf $VM_TEMP_DIR
     mkdir $VM_TEMP_DIR || return 1
@@ -82,13 +82,18 @@ socat -u vsock-connect:${VSOCK_CID}:${VSOCK_STDOUT},retry=200,interval=0.1 stdou
 unset DISPLAY
 unset XDG_RUNTIME_DIR
 
-CROSVM_KERN_ARGS="quiet console=null root=my_root rw rootfstype=virtiofs ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0"
+CROSVM_KERN_ARGS="fbcon=map:2 root=my_root rw rootfstype=virtiofs ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0"
 CROSVM_KERN_ARGS="${CROSVM_KERN_ARGS} init=${SCRIPT_DIR}/crosvm-init.sh -- ${VSOCK_STDOUT} ${VSOCK_STDERR} ${VM_TEMP_DIR}"
 
 [ "${CROSVM_GALLIUM_DRIVER}" = "llvmpipe" ] && \
     CROSVM_LIBGL_ALWAYS_SOFTWARE=true || CROSVM_LIBGL_ALWAYS_SOFTWARE=false
 
+# Some virgl-based drivers open lots of FDs...
+ulimit -n $(cat /proc/sys/fs/file-max) || true    # May fail in containers
+
 set +e -x
+
+(sleep 3595; ps aux) &
 
 # We aren't testing the host driver here, so we don't need to validate NIR on the host
 NIR_DEBUG="novalidate" \
@@ -96,28 +101,21 @@ LIBGL_ALWAYS_SOFTWARE=${CROSVM_LIBGL_ALWAYS_SOFTWARE} \
 GALLIUM_DRIVER=${CROSVM_GALLIUM_DRIVER} \
 VK_ICD_FILENAMES=$CI_PROJECT_DIR/install/share/vulkan/icd.d/${CROSVM_VK_DRIVER}_icd.x86_64.json \
 crosvm --no-syslog run \
-    --gpu "${CROSVM_GPU_ARGS}" -m "${CROSVM_MEMORY:-4096}" -c 2 --disable-sandbox \
+    --gpu "${CROSVM_GPU_ARGS}" -m ${CROSVM_MEMORY:-4096} -c ${CROSVM_CORES:-2} --disable-sandbox \
     --shared-dir /:my_root:type=fs:writeback=true:timeout=60:cache=always \
     --host-ip "192.168.30.1" --netmask "255.255.255.0" --mac "AA:BB:CC:00:00:12" \
     -s $VM_SOCKET \
     --cid ${VSOCK_CID} -p "${CROSVM_KERN_ARGS}" \
-    /lava-files/${KERNEL_IMAGE_NAME:-bzImage} > ${VM_TEMP_DIR}/crosvm 2>&1
+    /lava-files/${KERNEL_IMAGE_NAME:-bzImage} 1>&2
 
 CROSVM_RET=$?
+echo After Crosvm
 
 [ ${CROSVM_RET} -eq 0 ] && {
     # The actual return code is the crosvm guest script's exit code
     CROSVM_RET=$(cat ${VM_TEMP_DIR}/exit_code 2>/dev/null)
     # Force error when the guest script's exit code is not available
     CROSVM_RET=${CROSVM_RET:-1}
-}
-
-# Show crosvm output on error to help with debugging
-[ ${CROSVM_RET} -eq 0 ] || {
-    set +x
-    echo "Dumping crosvm output.." >&2
-    cat ${VM_TEMP_DIR}/crosvm >&2
-    set -x
 }
 
 exit ${CROSVM_RET}

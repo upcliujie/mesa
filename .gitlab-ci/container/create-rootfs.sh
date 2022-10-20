@@ -8,10 +8,16 @@ set -ex
 if [ $DEBIAN_ARCH = arm64 ]; then
     ARCH_PACKAGES="firmware-qcom-media
                    firmware-linux-nonfree
+                   inetutils-syslogd
+                   iptables
+                   libcap2
                    libfontconfig1
                    libgl1
                    libglu1-mesa
                    libvulkan-dev
+                   socat
+                   spirv-tools
+                   sysvinit-core
     "
 elif [ $DEBIAN_ARCH = amd64 ]; then
     # Add llvm 13 to the build image
@@ -61,6 +67,7 @@ apt-get -y install --no-install-recommends \
     $EXTRA_LOCAL_PACKAGES \
     bash \
     ca-certificates \
+    coreutils \
     firmware-realtek \
     initramfs-tools \
     jq \
@@ -89,6 +96,7 @@ apt-get -y install --no-install-recommends \
     libxshmfence1 \
     libxxf86vm1 \
     netcat-openbsd \
+    procps \
     python3 \
     python3-lxml \
     python3-mako \

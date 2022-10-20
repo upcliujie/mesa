@@ -38,7 +38,9 @@ retire_execute(void *job, void *gdata, int thread_index)
 
    MESA_TRACE_FUNC();
 
-   sync_wait(fd_submit->out_fence_fd, -1);
+   int ret = sync_wait(fd_submit->out_fence_fd, 1000);
+   if (ret)
+      ERROR_MSG("fence wait timed out");
    close(fd_submit->out_fence_fd);
 }
 

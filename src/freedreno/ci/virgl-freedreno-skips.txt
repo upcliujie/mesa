@@ -1,0 +1,24 @@
+# These time out
+dEQP-GLES31.functional.copy_image.*viewclass.*
+
+# These too
+dEQP-GLES3.functional.draw.draw_elements_instanced.triangle_strip.default_attribute
+dEQP-GLES3.functional.transform_feedback.random_full_array_capture.separate.triangles.4
+dEQP-GLES3.functional.fragment_ops.depth_stencil.stencil_depth_funcs.stencil_gequal_depth_equal
+dEQP-GLES3.functional.transform_feedback.array.interleaved.lines.mediump_mat2
+dEQP-GLES3.functional.clipping.point.wide_point_z_clip_viewport_corner
+dEQP-GLES2.functional.uniform_api.value.assigned.by_pointer.render.basic.ivec4_both
+dEQP-GLES3.functional.transform_feedback.array.separate.lines.highp_uvec2
+dEQP-GLES3.functional.transform_feedback.array_element.separate.lines.mediump_mat2
+dEQP-GLES3.functional.fragment_ops.blend.default_framebuffer.rgb_func_alpha_func.dst.one_minus_dst_color_src_color
+dEQP-GLES3.functional.fragment_ops.depth_stencil.stencil_ops.invert_decr_incr
+dEQP-GLES2.functional.rasterization.interpolation.projected.lines_wide
+
+# These crash
+dEQP-GLES2.functional.lifetime.delete_bound.buffer
+dEQP-GLES2.functional.lifetime.delete_bound.framebuffer
+dEQP-GLES2.functional.draw.random.63
+dEQP-GLES3.functional.default_vertex_attrib.mat4.vertex_attrib_1fv
+dEQP-GLES2.functional.lifetime.attach.deleted_input.renderbuffer_framebuffer
+dEQP-GLES2.functional.draw.random.38
+dEQP-GLES3.functional.default_vertex_attrib.mat4.vertex_attrib_2f
