@@ -37,6 +37,7 @@
 #include "freedreno_dev_info.h"
 #include "fd6_emit.h"
 #include "fd6_resource.h"
+#include "fd6_screen.h"
 #include "fd6_texture.h"
 
 static void
@@ -233,8 +234,9 @@ fd6_sampler_view_update(struct fd_context *ctx,
       /* Using relocs for addresses still */
       uint64_t iova = cso->u.buf.offset;
 
-      fdl6_buffer_view_init(so->descriptor, cso->format, swiz, iova,
-                            cso->u.buf.size);
+      uint32_t size = fd6_clamp_buffer_size(cso->format, cso->u.buf.size);
+
+      fdl6_buffer_view_init(so->descriptor, cso->format, swiz, iova, size);
    } else {
       struct fdl_view_args args = {
          /* Using relocs for addresses still */
