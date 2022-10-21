@@ -131,23 +131,35 @@ set_clearcolor_fs(struct st_context *st, union pipe_color_union *color)
 }
 
 static void *
-make_nir_clear_vertex_shader(struct st_context *st, bool layered)
+make_nir_clear_vertex_shader(struct st_context *st, bool layered, bool emu_vs_layer)
 {
    const char *shader_name = layered ? "layered clear VS" : "clear VS";
    unsigned inputs[] = {
       VERT_ATTRIB_POS,
       SYSTEM_VALUE_INSTANCE_ID,
+      VERT_ATTRIB_COLOR0,
    };
    unsigned outputs[] = {
       VARYING_SLOT_POS,
-      VARYING_SLOT_LAYER
+      VARYING_SLOT_LAYER,
+      VARYING_SLOT_COL0
    };
+   unsigned num_vars;
+
+   if (layered) {
+      /* If PIPE_CAP_VS_LAYER_VIEWPORT is not supported we pass thru an
+       * extra VERT_ATTRIB_COLOR0 -> VARYING_SLOT_COL0 to pass the
+       * layer thru to the GS
+       */
+      num_vars = emu_vs_layer ? 3 : 2;
+   } else {
+      num_vars = 1;
+   }
 
    return st_nir_make_passthrough_shader(st, shader_name, MESA_SHADER_VERTEX,
-                                         layered ? 2 : 1, inputs, outputs,
+                                         num_vars, inputs, outputs,
                                          NULL, (1 << 1));
 }
-
 
 /**
  * Helper function to set the vertex shader.
@@ -166,7 +178,7 @@ set_vertex_shader(struct st_context *st)
    if (!st->clear.vs)
    {
       if (use_nir) {
-         st->clear.vs = make_nir_clear_vertex_shader(st, false);
+         st->clear.vs = make_nir_clear_vertex_shader(st, false, false);
       } else {
          const enum tgsi_semantic semantic_names[] = {
             TGSI_SEMANTIC_POSITION,
@@ -204,11 +216,16 @@ set_vertex_shader_layered(struct st_context *st)
          st->screen->get_param(st->screen, PIPE_CAP_VS_LAYER_VIEWPORT);
       if (vs_layer) {
          st->clear.vs_layered =
-            use_nir ? make_nir_clear_vertex_shader(st, true)
+            use_nir ? make_nir_clear_vertex_shader(st, true, false)
                     : util_make_layered_clear_vertex_shader(pipe);
       } else {
-         st->clear.vs_layered = util_make_layered_clear_helper_vertex_shader(pipe);
-         st->clear.gs_layered = util_make_layered_clear_geometry_shader(pipe);
+         if (use_nir) {
+            st->clear.vs_layered = make_nir_clear_vertex_shader(st, true, true);
+            st->clear.gs_layered = st_nir_make_nir_layered_clear_gs_shader(st);
+         } else {
+            st->clear.vs_layered = util_make_layered_clear_helper_vertex_shader(pipe);
+            st->clear.gs_layered = util_make_layered_clear_geometry_shader(pipe);
+         }
       }
    }
 

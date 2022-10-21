@@ -169,3 +169,95 @@ st_nir_make_clearcolor_shader(struct st_context *st)
 
    return st_nir_finish_builtin_shader(st, b.shader);
 }
+
+/**
+ * Make a pass-thru GS which passes:
+ *
+ *    gl_Position = in_glPosition[i];
+ *    out_color   = in_color[i];
+ *    gl_Layer    = in_gl_Layer[i];
+ *
+ */
+struct pipe_shader_state *
+st_nir_make_nir_layered_clear_gs_shader(struct st_context *st)
+{
+   const nir_shader_compiler_options *options =
+      st_get_nir_compiler_options(st, MESA_SHADER_GEOMETRY);
+   nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_GEOMETRY, options,
+                                                  "layered clear GS");
+   nir_shader *nir = b.shader;
+
+   nir->info.inputs_read = 1ull << VARYING_SLOT_POS;
+   nir->info.outputs_written = (1ull << VARYING_SLOT_POS) |
+                               (1ull << VARYING_SLOT_LAYER);
+   nir->info.gs.input_primitive = SHADER_PRIM_TRIANGLES;
+   nir->info.gs.output_primitive = SHADER_PRIM_TRIANGLE_STRIP;
+   nir->info.gs.vertices_in = 3;
+   nir->info.gs.vertices_out = 3;
+   nir->info.gs.invocations = 1;
+   nir->info.gs.active_stream_mask = 0x1;
+
+   /* in vec4 in_gl_Position[3] */
+   nir_variable *gs_in_pos =
+      nir_variable_create(b.shader, nir_var_shader_in,
+                          glsl_array_type(glsl_vec4_type(), 3, 0),
+                          "in_gl_Position");
+   gs_in_pos->data.location = VARYING_SLOT_POS;
+
+   /* in vec4 in_color[3] */
+   nir_variable *gs_in_col =
+      nir_variable_create(b.shader, nir_var_shader_in,
+                          glsl_array_type(glsl_vec4_type(), 3, 0),
+                          "in_color");
+   gs_in_col->data.location = VARYING_SLOT_COL0;
+
+   /* in int in_gl_Layer[3] */
+   nir_variable *gs_in_layer =
+      nir_variable_create(b.shader, nir_var_shader_in,
+                          glsl_array_type(glsl_int_type(), 3, 0),
+                          "in_gl_Layer");
+   gs_in_layer->data.location = VARYING_SLOT_LAYER;
+
+   /* out vec4 gl_Position */
+   nir_variable *gs_out_pos =
+      nir_variable_create(b.shader, nir_var_shader_out, glsl_vec4_type(),
+                          "gl_Position");
+   gs_out_pos->data.location = VARYING_SLOT_POS;
+
+   /* out vec4 out_color */
+   nir_variable *gs_out_col =
+      nir_variable_create(b.shader, nir_var_shader_out, glsl_vec4_type(),
+                          "out_color");
+   gs_out_col->data.location = VARYING_SLOT_COL0;
+
+   /* out float gl_Layer */
+   nir_variable *gs_out_layer =
+      nir_variable_create(b.shader, nir_var_shader_out, glsl_int_type(),
+                          "out_gl_Layer");
+   gs_out_layer->data.location = VARYING_SLOT_LAYER;
+
+   /* Emit output triangle */
+   for (uint32_t i = 0; i < 3; i++) {
+
+      /* gl_Position = in_gl_Position[i] */
+      nir_deref_instr *in_pos_i =
+         nir_build_deref_array_imm(&b, nir_build_deref_var(&b, gs_in_pos), i);
+      nir_copy_deref(&b, nir_build_deref_var(&b, gs_out_pos), in_pos_i);
+
+      /* out_color = in_color[i] */
+      nir_deref_instr *in_col_i =
+         nir_build_deref_array_imm(&b, nir_build_deref_var(&b, gs_in_col), i);
+      nir_copy_deref(&b, nir_build_deref_var(&b, gs_out_col), in_col_i);
+
+      /* gl_Layer = in_gl_Layer[i] */
+      nir_deref_instr *in_layer_i =
+         nir_build_deref_array_imm(&b, nir_build_deref_var(&b, gs_in_layer), i);
+      nir_copy_deref(&b, nir_build_deref_var(&b, gs_out_layer), in_layer_i);
+
+      nir_emit_vertex(&b, 0);
+   }
+
+   nir_end_primitive(&b, 0);
+
+   return st_nir_finish_builtin_shader(st, nir);
+}

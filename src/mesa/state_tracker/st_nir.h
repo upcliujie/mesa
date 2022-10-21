@@ -79,6 +79,8 @@ st_nir_add_point_size(struct nir_shader *nir);
 
 struct pipe_shader_state *
 st_nir_make_clearcolor_shader(struct st_context *st);
+struct pipe_shader_state *
+st_nir_make_nir_layered_clear_gs_shader(struct st_context *st);
 
 #ifdef __cplusplus
 }
