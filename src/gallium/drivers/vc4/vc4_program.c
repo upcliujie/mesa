@@ -2409,6 +2409,10 @@ vc4_shader_ntq(struct vc4_context *vc4, enum qstage stage,
         return c;
 }
 
+static struct vc4_compiled_shader *
+vc4_get_compiled_shader(struct vc4_context *vc4, enum qstage stage,
+                        struct vc4_key *key);
+
 static void *
 vc4_shader_state_create(struct pipe_context *pctx,
                         const struct pipe_shader_state *cso)
@@ -2467,6 +2471,33 @@ vc4_shader_state_create(struct pipe_context *pctx,
                         so->program_id);
                 nir_print_shader(s, stderr);
                 fprintf(stderr, "\n");
+        }
+
+        if (vc4_debug & VC4_DEBUG_SHADERDB) {
+                /* if shader-db run, create a standard variant immediately
+                * (as otherwise nothing will trigger the shader to be
+                * actually compiled).
+                */
+
+                if (s->info.stage == MESA_SHADER_FRAGMENT) {
+                        struct vc4_fs_key local_key;
+                        struct vc4_fs_key *key = &local_key;
+
+                        memset(key, 0, sizeof(*key));
+                        key->base.shader_state = so;
+
+                        vc4_get_compiled_shader(vc4, QSTAGE_FRAG, &key->base);
+                } else {
+                        struct vc4_vs_key local_key;
+                        struct vc4_vs_key *key = &local_key;
+                        struct vc4_fs_inputs inputs = { };
+
+                        memset(key, 0, sizeof(*key));
+                        key->base.shader_state = so;
+                        key->fs_inputs = &inputs;
+
+                        vc4_get_compiled_shader(vc4, QSTAGE_VERT, &key->base);
+                }
         }
 
         return so;
