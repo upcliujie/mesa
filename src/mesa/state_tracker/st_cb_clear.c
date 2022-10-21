@@ -108,10 +108,6 @@ st_destroy_clear(struct st_context *st)
 static void
 set_clearcolor_fs(struct st_context *st, union pipe_color_union *color)
 {
-   struct pipe_screen *pscreen = st->screen;
-   bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
-                                PIPE_SHADER_CAP_PREFERRED_IR);
    struct pipe_constant_buffer cb = {
       .user_buffer = color->f,
       .buffer_size = 4 * sizeof(float),
@@ -119,13 +115,8 @@ set_clearcolor_fs(struct st_context *st, union pipe_color_union *color)
    st->pipe->set_constant_buffer(st->pipe, PIPE_SHADER_FRAGMENT, 0,
                                 false, &cb);
 
-   if (!st->clear.fs) {
-      if (use_nir) {
-         st->clear.fs = st_nir_make_clearcolor_shader(st);
-      } else {
-         st->clear.fs = util_make_fs_clear_all_cbufs(st->pipe);
-      }
-   }
+   if (!st->clear.fs)
+      st->clear.fs = st_nir_make_clearcolor_shader(st);
 
    cso_set_fragment_shader_handle(st->cso_context, st->clear.fs);
 }
@@ -167,29 +158,11 @@ make_nir_clear_vertex_shader(struct st_context *st, bool layered, bool emu_vs_la
 static inline void
 set_vertex_shader(struct st_context *st)
 {
-   struct pipe_screen *pscreen = st->screen;
-   bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
-                                PIPE_SHADER_CAP_PREFERRED_IR);
-
    /* vertex shader - still required to provide the linkage between
     * fragment shader input semantics and vertex_element/buffers.
     */
    if (!st->clear.vs)
-   {
-      if (use_nir) {
-         st->clear.vs = make_nir_clear_vertex_shader(st, false, false);
-      } else {
-         const enum tgsi_semantic semantic_names[] = {
-            TGSI_SEMANTIC_POSITION,
-         };
-         const uint semantic_indexes[] = { 0 };
-         st->clear.vs = util_make_vertex_passthrough_shader(st->pipe, 1,
-                                                            semantic_names,
-                                                            semantic_indexes,
-                                                            FALSE);
-      }
-   }
+      st->clear.vs = make_nir_clear_vertex_shader(st, false, false);
 
    cso_set_vertex_shader_handle(st->cso_context, st->clear.vs);
    cso_set_geometry_shader_handle(st->cso_context, NULL);
@@ -199,12 +172,6 @@ set_vertex_shader(struct st_context *st)
 static void
 set_vertex_shader_layered(struct st_context *st)
 {
-   struct pipe_context *pipe = st->pipe;
-   struct pipe_screen *pscreen = st->screen;
-   bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
-                                PIPE_SHADER_CAP_PREFERRED_IR);
-
    if (!st->screen->get_param(st->screen, PIPE_CAP_VS_INSTANCEID)) {
       assert(!"Got layered clear, but VS instancing is unsupported");
       set_vertex_shader(st);
@@ -215,17 +182,10 @@ set_vertex_shader_layered(struct st_context *st)
       bool vs_layer =
          st->screen->get_param(st->screen, PIPE_CAP_VS_LAYER_VIEWPORT);
       if (vs_layer) {
-         st->clear.vs_layered =
-            use_nir ? make_nir_clear_vertex_shader(st, true, false)
-                    : util_make_layered_clear_vertex_shader(pipe);
+         st->clear.vs_layered = make_nir_clear_vertex_shader(st, true, false);
       } else {
-         if (use_nir) {
-            st->clear.vs_layered = make_nir_clear_vertex_shader(st, true, true);
-            st->clear.gs_layered = st_nir_make_nir_layered_clear_gs_shader(st);
-         } else {
-            st->clear.vs_layered = util_make_layered_clear_helper_vertex_shader(pipe);
-            st->clear.gs_layered = util_make_layered_clear_geometry_shader(pipe);
-         }
+         st->clear.vs_layered = make_nir_clear_vertex_shader(st, true, true);
+         st->clear.gs_layered = st_nir_make_nir_layered_clear_gs_shader(st);
       }
    }
 

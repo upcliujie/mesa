@@ -155,50 +155,6 @@ void *util_make_layered_clear_helper_vertex_shader(struct pipe_context *pipe)
    return pipe->create_vs_state(pipe, &state);
 }
 
-/**
- * Takes position, color, and target layer, and emits vertices on that target
- * layer, with the specified color.
- */
-void *util_make_layered_clear_geometry_shader(struct pipe_context *pipe)
-{
-   static const char text[] =
-      "GEOM\n"
-      "PROPERTY GS_INPUT_PRIMITIVE TRIANGLES\n"
-      "PROPERTY GS_OUTPUT_PRIMITIVE TRIANGLE_STRIP\n"
-      "PROPERTY GS_MAX_OUTPUT_VERTICES 3\n"
-      "PROPERTY GS_INVOCATIONS 1\n"
-      "DCL IN[][0], POSITION\n" /* position */
-      "DCL IN[][1], GENERIC[0]\n" /* color */
-      "DCL IN[][2], GENERIC[1]\n" /* vs invocation */
-      "DCL OUT[0], POSITION\n"
-      "DCL OUT[1], GENERIC[0]\n"
-      "DCL OUT[2], LAYER\n"
-      "IMM[0] INT32 {0, 0, 0, 0}\n"
-
-      "MOV OUT[0], IN[0][0]\n"
-      "MOV OUT[1], IN[0][1]\n"
-      "MOV OUT[2].x, IN[0][2].xxxx\n"
-      "EMIT IMM[0].xxxx\n"
-      "MOV OUT[0], IN[1][0]\n"
-      "MOV OUT[1], IN[1][1]\n"
-      "MOV OUT[2].x, IN[1][2].xxxx\n"
-      "EMIT IMM[0].xxxx\n"
-      "MOV OUT[0], IN[2][0]\n"
-      "MOV OUT[1], IN[2][1]\n"
-      "MOV OUT[2].x, IN[2][2].xxxx\n"
-      "EMIT IMM[0].xxxx\n"
-      "END\n";
-   struct tgsi_token tokens[1000];
-   struct pipe_shader_state state = {0};
-
-   if (!tgsi_text_translate(text, tokens, ARRAY_SIZE(tokens))) {
-      assert(0);
-      return NULL;
-   }
-   pipe_shader_state_from_tgsi(&state, tokens);
-   return pipe->create_gs_state(pipe, &state);
-}
-
 static void
 ureg_load_tex(struct ureg_program *ureg, struct ureg_dst out,
               struct ureg_src coord, struct ureg_src sampler,
