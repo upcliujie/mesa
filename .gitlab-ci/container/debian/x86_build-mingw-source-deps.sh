@@ -3,9 +3,6 @@
 
 set -e
 
-# Building libdrm (libva dependency)
-. .gitlab-ci/container/build-libdrm.sh
-
 wd=$PWD
 CMAKE_TOOLCHAIN_MINGW_PATH=$wd/.gitlab-ci/container/debian/x86_mingw-toolchain.cmake
 mkdir -p ~/tmp
