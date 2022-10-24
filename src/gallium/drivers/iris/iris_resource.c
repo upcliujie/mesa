@@ -2512,8 +2512,13 @@ iris_transfer_flush_region(struct pipe_context *ctx,
    struct iris_resource *res = (struct iris_resource *) xfer->resource;
    struct iris_transfer *map = (void *) xfer;
 
+   bool needFlush = false;
+
    if (map->staging)
+   {
       iris_flush_staging_region(xfer, box);
+      needFlush = ice->bShareCtx;
+   }
 
    if (res->base.b.target == PIPE_BUFFER) {
       util_range_add(&res->base.b, &res->valid_buffer_range, box->x, box->x + box->width);
@@ -2523,6 +2528,13 @@ iris_transfer_flush_region(struct pipe_context *ctx,
     * any PIPE_CONTROLs to a batch.
     */
    iris_dirty_for_history(ice, res);
+
+   if (needFlush)
+   {
+      for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
+         iris_batch_flush(&ice->batches[i]);
+      }
+   }
 }
 
 static void
