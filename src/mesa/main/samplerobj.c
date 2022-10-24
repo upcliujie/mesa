@@ -641,6 +641,8 @@ set_sampler_lod_bias(struct gl_context *ctx, struct gl_sampler_object *samp,
 
    flush(ctx);
    samp->Attrib.LodBias = param;
+   param = CLAMP(param, -ctx->Const.MaxTextureLodBias,
+                         ctx->Const.MaxTextureLodBias);
    samp->Attrib.state.lod_bias = util_quantize_lod_bias(param);
    return GL_TRUE;
 }
