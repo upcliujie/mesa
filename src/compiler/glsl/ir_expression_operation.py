@@ -703,8 +703,7 @@ ir_expression_operation = [
 ]
 
 
-if __name__ == "__main__":
-   copyright = """/*
+copyright = """/*
  * Copyright (C) 2010 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -727,7 +726,8 @@ if __name__ == "__main__":
  * DEALINGS IN THE SOFTWARE.
  */
 """
-   enum_template = mako.template.Template(copyright + """
+
+enum_template = mako.template.Template(copyright + """
 enum ir_expression_operation {
 % for item in values:
    ${item.get_enum_name()},
@@ -740,7 +740,8 @@ enum ir_expression_operation {
    ir_last_opcode = ir_quadop_${lasts[3].name}
 };""")
 
-   strings_template = mako.template.Template(copyright + """
+
+strings_template = mako.template.Template(copyright + """
 const char *const ir_expression_operation_strings[] = {
 % for item in values:
    "${item.printable_name}",
@@ -753,7 +754,7 @@ const char *const ir_expression_operation_enum_strings[] = {
 % endfor
 };""")
 
-   constant_template = mako.template.Template("""\
+constant_template = mako.template.Template("""\
    switch (this->operation) {
 % for op in values:
     % if op.c_expression is not None:
@@ -767,16 +768,21 @@ ${op.get_template()}
    }
 """)
 
-   if sys.argv[1] == "enum":
-      lasts: T.List[T.Optional[Operation]] = [None, None, None, None]
-      for item in reversed(ir_expression_operation):
-         i = item.num_operands - 1
-         if lasts[i] is None:
-            lasts[i] = item
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mode', choices=['enum', 'strings', 'constant'])
+    args = parser.parse_args()
 
-      print(enum_template.render(values=ir_expression_operation,
-                                 lasts=lasts))
-   elif sys.argv[1] == "strings":
-      print(strings_template.render(values=ir_expression_operation))
-   elif sys.argv[1] == "constant":
-      print(constant_template.render(values=ir_expression_operation))
+    if args.mode == "enum":
+        lasts: T.List[T.Optional[Operation]] = [None, None, None, None]
+        for item in reversed(ir_expression_operation):
+            i = item.num_operands - 1
+            if lasts[i] is None:
+                lasts[i] = item
+
+        print(enum_template.render(values=ir_expression_operation,
+                                    lasts=lasts))
+    elif args.mode == "strings":
+        print(strings_template.render(values=ir_expression_operation))
+    elif args.mode == "constant":
+        print(constant_template.render(values=ir_expression_operation))
