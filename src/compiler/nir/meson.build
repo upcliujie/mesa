@@ -35,8 +35,7 @@ nir_constant_expressions_c = custom_target(
   'nir_constant_expressions.c',
   input : 'nir_constant_expressions.py',
   output : 'nir_constant_expressions.c',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_depends,
 )
 
