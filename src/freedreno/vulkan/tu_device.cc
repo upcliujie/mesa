@@ -38,14 +38,6 @@
 #include "tu_tracepoints.h"
 #include "tu_wsi.h"
 
-#if defined(VK_USE_PLATFORM_WAYLAND_KHR) || \
-     defined(VK_USE_PLATFORM_XCB_KHR) || \
-     defined(VK_USE_PLATFORM_XLIB_KHR) || \
-     defined(VK_USE_PLATFORM_DISPLAY_KHR)
-#define TU_HAS_SURFACE 1
-#else
-#define TU_HAS_SURFACE 0
-#endif
 
 
 static int

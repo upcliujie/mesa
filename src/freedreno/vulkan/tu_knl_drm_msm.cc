@@ -5,6 +5,7 @@
  */
 
 #include "tu_knl.h"
+#include "wsi_common_drm.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -1228,6 +1229,17 @@ tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
 {
    queue->device->submit_count++;
 
+   /* If we might have WSI images involved, then check if the core submit code
+    * will have handled implicit sync for us already using dma-buf sync-file
+    * import/export.  This test creates BOs the first time it's called, so it
+    * has to be outside of bo_mutex.
+    */
+   bool implicit_sync_done = false;
+#if TU_HAS_SURFACE
+   implicit_sync_done = wsi_drm_can_dma_buf_sync_file_import_export(
+      &queue->device->physical_device->wsi_device, tu_device_to_handle(queue->device))== VK_SUCCESS;
+#endif
+
    struct tu_cs *autotune_cs = NULL;
    if (submit->autotune_fence) {
       autotune_cs = tu_autotune_on_submit(queue->device,
@@ -1246,7 +1258,23 @@ tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
 
    mtx_lock(&queue->device->bo_mutex);
 
-   if (queue->device->implicit_sync_bo_count == 0)
+   /* MSM_SUBMIT_NO_IMPLICIT skips having the scheduler wait on the previous dma
+    * fences attached to the BO (such as from the window system server's command
+    * queue) before submitting the job. Our fence will always get attached to
+    * the BO, because it gets used for synchronization for the shrinker.
+    *
+    * As of kernel 6.0, the core vk queue code should be generating appropriate
+    * syncobj export-and-waits/signal-and-imports for implict syncing with
+    * winsys BOs for us if implicit sync is necessary for that winsys.  However,
+    * on older kernels we will have !implicit_sync_done, at which point we
+    * submit without NO_IMPLICIT set to do have the kernel do pre-submit waits
+    * on whatever the last fence was.
+    *
+    * If we successfully set MSM_SUBMIT_NO_IMPLICIT using the new kernel APIs,
+    * it means that we only wait on the snapshot of the winsys BO's fences as of
+    * AcquireNextImage time, rather than submission time.
+    */
+   if (implicit_sync_done || queue->device->implicit_sync_bo_count == 0)
       flags |= MSM_SUBMIT_NO_IMPLICIT;
 
    /* drm_msm_gem_submit_cmd requires index of bo which could change at any
