@@ -771,18 +771,20 @@ ${op.get_template()}
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', choices=['enum', 'strings', 'constant'])
+    parser.add_argument('output')
     args = parser.parse_args()
 
-    if args.mode == "enum":
-        lasts: T.List[T.Optional[Operation]] = [None, None, None, None]
-        for item in reversed(ir_expression_operation):
-            i = item.num_operands - 1
-            if lasts[i] is None:
-                lasts[i] = item
+    with open(args.output, 'w') as f:
+        if args.mode == "enum":
+            lasts: T.List[T.Optional[Operation]] = [None, None, None, None]
+            for item in reversed(ir_expression_operation):
+                i = item.num_operands - 1
+                if lasts[i] is None:
+                    lasts[i] = item
 
-        print(enum_template.render(values=ir_expression_operation,
-                                    lasts=lasts))
-    elif args.mode == "strings":
-        print(strings_template.render(values=ir_expression_operation))
-    elif args.mode == "constant":
-        print(constant_template.render(values=ir_expression_operation))
+            f.write(enum_template.render(values=ir_expression_operation,
+                                         lasts=lasts))
+        elif args.mode == "strings":
+            f.write(strings_template.render(values=ir_expression_operation))
+        elif args.mode == "constant":
+            f.write(constant_template.render(values=ir_expression_operation))
