@@ -22,6 +22,7 @@
 
 import mako.template
 import sys
+import typing as T
 
 class CType:
    def __init__(self, c_type, union_field, glsl_type):
@@ -30,40 +31,11 @@ class CType:
       self.glsl_type = glsl_type
 
 
-class TypeSignatureIter:
-   """Basic iterator for a set of type signatures.  Various kinds of sequences of
-   types come in, and an iteration of type_signature objects come out.
+def ts_iter(dest_type: 'T.Optional[CType]', source_types: 'T.Tuple[CType, ...]', num_operands: 'int') -> 'T.Iterable[T.Tuple[CType, T.Tuple[CType, ...]]]':
+    for st in source_types:
+        dest_type = dest_type or st
 
-   """
-
-   def __init__(self, dest_type, source_types, num_operands):
-      """Initialize an iterator from a result tpye, a sequence of input types and a
-      number operands.  This is for signatures where all the operands have the
-      same type but the result type of the operation is different from the
-      input type.
-
-      """
-      self.dest_type = dest_type
-      self.source_types = source_types
-      self.num_operands = num_operands
-      self.i = 0
-
-   def __iter__(self):
-      return self
-
-   def __next__(self):
-      if self.i < len(self.source_types):
-         i = self.i
-         self.i += 1
-
-         if self.dest_type is None:
-            dest_type = self.source_types[i]
-         else:
-            dest_type = self.dest_type
-
-         return (dest_type, self.num_operands * (self.source_types[i],))
-      else:
-         raise StopIteration()
+        yield (dest_type, num_operands * (st,))
 
 
 uint_type = CType("unsigned", "u", "GLSL_TYPE_UINT")
@@ -398,7 +370,7 @@ class Operation:
       if self.all_signatures is not None:
          return self.all_signatures
       else:
-         return TypeSignatureIter(self.dest_type, self.source_types, self.num_operands)
+         return ts_iter(self.dest_type, self.source_types, self.num_operands)
 
 
 ir_expression_operation = [
