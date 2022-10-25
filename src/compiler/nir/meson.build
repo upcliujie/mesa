@@ -26,8 +26,7 @@ nir_builder_opcodes_h = custom_target(
   'nir_builder_opcodes.h',
   input : 'nir_builder_opcodes_h.py',
   output : 'nir_builder_opcodes.h',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_depends,
 )
 
