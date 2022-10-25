@@ -507,8 +507,17 @@ estimate_drawcall_bandwidth(const struct tu_cmd_buffer *cmd,
    if (!state->rp.drawcall_count)
       return 0;
 
+   /* The SAMPLES_PASSED may be reduced when early LRZ testing rejected samples
+    * for us.  Guess about 2x overdraw, and roughly estimate how much of the
+    * drawing had LRZ active.  We want to count this against sysmem's
+    * per-rendered-sample bandwidth cost.  XXX: this would depend on whether the
+    * historical sample counts were measured with sysmem or gmem, since LRZ
+    * isn't active for sysmem rendering.
+    */
+   float lrz_factor = 2.0 * (state->rp.lrz_drawcall_count / state->rp.drawcall_count);
+
    /* sample count times drawcall_bandwidth_per_sample */
-   return (uint64_t)avg_renderpass_sample_count *
+   return (double)avg_renderpass_sample_count * lrz_factor *
       state->rp.drawcall_bandwidth_per_sample_sum / state->rp.drawcall_count;
 }
 
