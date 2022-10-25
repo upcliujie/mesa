@@ -36,17 +36,6 @@ class TypeSignatureIter:
 
    """
 
-   def __init__(self, source_types, num_operands):
-      """Initialize an iterator from a sequence of input types and a number
-      operands.  This is for signatures where all the operands have the same
-      type and the result type of the operation is the same as the input type.
-
-      """
-      self.dest_type = None
-      self.source_types = source_types
-      self.num_operands = num_operands
-      self.i = 0
-
    def __init__(self, dest_type, source_types, num_operands):
       """Initialize an iterator from a result tpye, a sequence of input types and a
       number operands.  This is for signatures where all the operands have the
