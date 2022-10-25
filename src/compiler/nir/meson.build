@@ -50,8 +50,7 @@ nir_opcodes_c = custom_target(
   'nir_opcodes.c',
   input : 'nir_opcodes_c.py',
   output : 'nir_opcodes.c',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_depends,
 )
 
