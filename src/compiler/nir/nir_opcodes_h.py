@@ -1,3 +1,9 @@
+import argparse
+
+from mako.template import Template
+
+from nir_opcodes import opcodes
+
 template = """\
 /* Copyright (C) 2014 Connor Abbott
  *
@@ -39,7 +45,11 @@ typedef enum {
 
 #endif /* _NIR_OPCODES_ */"""
 
-from nir_opcodes import opcodes
-from mako.template import Template
 
-print(Template(template).render(opcodes=opcodes))
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output')
+    args = parser.parse_args()
+
+    with open(args.output, 'w') as f:
+        f.write(Template(template).render(opcodes=opcodes))
