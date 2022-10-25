@@ -1269,9 +1269,12 @@ tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
       .syncobj_stride = sizeof(struct drm_msm_gem_submit_syncobj),
    };
 
-   int ret = drmCommandWriteRead(queue->device->fd,
-                                 DRM_MSM_GEM_SUBMIT,
-                                 &req, sizeof(req));
+   int ret;
+   {
+      MESA_TRACE_SCOPE("DRM_MSM_GEM_SUBMIT");
+      ret = drmCommandWriteRead(queue->device->fd, DRM_MSM_GEM_SUBMIT, &req,
+                                sizeof(req));
+   }
 
    mtx_unlock(&queue->device->bo_mutex);
 
