@@ -20,12 +20,13 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-import mako.template
-import sys
+import argparse
 import typing as T
 
+import mako.template
+
 class CType:
-   def __init__(self, c_type, union_field, glsl_type):
+   def __init__(self, c_type: 'str', union_field: 'str', glsl_type: 'str'):
       self.c_type = c_type
       self.union_field = union_field
       self.glsl_type = glsl_type
@@ -282,27 +283,23 @@ non_assign_operation = "nonassign"
 mixed_type_operation = "mixed"
 
 class Operation:
-   def __init__(self, name, num_operands, printable_name = None, source_types = None, dest_type = None, c_expression = None, flags = None, all_signatures = None):
+   flags: T.FrozenSet[str]
+   c_expression: T.Optional[T.Dict[str, str]]
+
+   def __init__(self, name: str, num_operands: int, printable_name: T.Optional[str] = None,
+                source_types: T.Optional[T.Tuple[CType, ...]] = None,
+                dest_type: T.Optional[CType] = None,
+                c_expression: T.Union[None, str, T.Dict[str, str]] = None,
+                flags: T.Union[None, str, T.Iterable[str]] = None,
+                all_signatures: T.Optional[T.Iterable[T.Tuple[CType, T.Tuple[CType, ...]]]] = None):
       self.name = name
       self.num_operands = num_operands
-
-      if printable_name is None:
-         self.printable_name = name
-      else:
-         self.printable_name = printable_name
-
-      self.all_signatures = all_signatures
-
-      if source_types is None:
-         self.source_types = tuple()
-      else:
-         self.source_types = source_types
-
+      self.printable_name = printable_name or name
+      self.all_signatures = tuple(all_signatures) if all_signatures else None
+      self.source_types = source_types or tuple()
       self.dest_type = dest_type
 
-      if c_expression is None:
-         self.c_expression = None
-      elif isinstance(c_expression, str):
+      if isinstance(c_expression, str):
          self.c_expression = {'default': c_expression}
       else:
          self.c_expression = c_expression
@@ -314,12 +311,10 @@ class Operation:
       else:
          self.flags = frozenset(flags)
 
-
-   def get_enum_name(self):
+   def get_enum_name(self) -> str:
       return "ir_{0}op_{1}".format(("un", "bin", "tri", "quad")[self.num_operands-1], self.name)
 
-
-   def get_template(self):
+   def get_template(self) -> T.Optional[str]:
       if self.c_expression is None:
          return None
 
@@ -351,24 +346,24 @@ class Operation:
 
       return constant_template_common.render(op=self)
 
+   def get_c_expression(self, types: T.Tuple[CType, CType, CType, CType], indices: T.Tuple[str, ...] = ("c", "c", "c")) -> str:
+      assert self.c_expression is not None
 
-   def get_c_expression(self, types, indices=("c", "c", "c")):
       src0 = "op[0]->value.{0}[{1}]".format(types[0].union_field, indices[0])
       src1 = "op[1]->value.{0}[{1}]".format(types[1].union_field, indices[1]) if len(types) >= 2 else "ERROR"
       src2 = "op[2]->value.{0}[{1}]".format(types[2].union_field, indices[2]) if len(types) >= 3 else "ERROR"
       src3 = "op[3]->value.{0}[c]".format(types[3].union_field) if len(types) >= 4 else "ERROR"
 
-      expr = self.c_expression[types[0].union_field] if types[0].union_field in self.c_expression else self.c_expression['default']
+      expr = self.c_expression[types[0].union_field] if self.c_expression and types[0].union_field in self.c_expression else self.c_expression['default']
 
       return expr.format(src0=src0,
                          src1=src1,
                          src2=src2,
                          src3=src3)
 
-
-   def signatures(self):
+   def signatures(self) -> T.Iterable[T.Tuple[CType, T.Tuple[CType, ...]]]:
       if self.all_signatures is not None:
-         return self.all_signatures
+         return iter(self.all_signatures)
       else:
          return ts_iter(self.dest_type, self.source_types, self.num_operands)
 
@@ -773,7 +768,7 @@ ${op.get_template()}
 """)
 
    if sys.argv[1] == "enum":
-      lasts = [None, None, None, None]
+      lasts: T.List[T.Optional[Operation]] = [None, None, None, None]
       for item in reversed(ir_expression_operation):
          i = item.num_operands - 1
          if lasts[i] is None:
