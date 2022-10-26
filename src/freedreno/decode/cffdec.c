@@ -2853,6 +2853,11 @@ dump_commands(uint32_t *dwords, uint32_t sizedwords, int level)
       dwords_left -= count;
    }
 
+   /* Account for cases where the hang is within the last packet of the
+    * command buffer.
+    */
+   highlight_gpuaddr(gpuaddr(dwords));
+
    if (dwords_left < 0)
       printf("**** this ain't right!! dwords_left=%d\n", dwords_left);
 }
