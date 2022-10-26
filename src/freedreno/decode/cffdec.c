@@ -190,7 +190,10 @@ highlight_gpuaddr(uint64_t gpuaddr)
       return options->color;
 
    bool triggered = gpuaddr_triggered(gpuaddr);
-   ibs[ib].triggered |= triggered;
+
+   /* If IB1 is triggered, make sure any later IB2 is also highlighted. */
+   for (unsigned i = ib; i < ARRAY_SIZE(ibs); i++)
+      ibs[i].triggered |= triggered;
 
    if (triggered)
       printf("ESTIMATED CRASH LOCATION!\n");
