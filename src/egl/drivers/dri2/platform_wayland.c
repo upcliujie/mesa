@@ -151,6 +151,13 @@ static const struct dri2_wl_visual {
       { 11, 5, 0, -1 },
       { 5, 6, 5, 0 },
    },
+   {
+     "YUYV",
+     WL_DRM_FORMAT_YUYV, WL_SHM_FORMAT_YUYV,
+     __DRI_IMAGE_FORMAT_YUYV, __DRI_IMAGE_FORMAT_NONE, 32,
+     { -1, -1, -1, -1 },
+     { 0, 0, 0, 0 },
+   },
 };
 
 static int
@@ -1284,6 +1291,7 @@ dri2_wl_get_capability(void *loaderPrivate, enum dri_loader_cap cap)
 {
    switch (cap) {
    case DRI_LOADER_CAP_FP16:
+   case DRI_LOADER_CAP_YUV_SURFACE:
       return 1;
    case DRI_LOADER_CAP_RGBA_ORDERING:
       return 1;
