@@ -779,12 +779,14 @@ namespace brw {
       }
 
       instruction *
-      UNDEF(const dst_reg &dst) const
+      UNDEF(const dst_reg &dst, int undef_size = -1) const
       {
          assert(dst.file == VGRF);
          instruction *inst = emit(SHADER_OPCODE_UNDEF,
                                   retype(dst, BRW_REGISTER_TYPE_UD));
-         inst->size_written = shader->alloc.sizes[dst.nr] * REG_SIZE;
+         if (undef_size < 0)
+            undef_size = shader->alloc.sizes[dst.nr] * REG_SIZE;
+         inst->size_written = undef_size;
 
          return inst;
       }
