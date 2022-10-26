@@ -166,7 +166,7 @@ static void dump_tex_samp(uint32_t *texsamp, enum state_src_t src, int num_unit,
 static void dump_tex_const(uint32_t *texsamp, int num_unit, int level);
 
 static bool
-highlight_gpuaddr(uint64_t gpuaddr)
+gpuaddr_triggered(uint64_t gpuaddr)
 {
    if (!options->ibs[ib].base)
       return false;
@@ -174,17 +174,22 @@ highlight_gpuaddr(uint64_t gpuaddr)
    if ((ib > 0) && options->ibs[ib - 1].base && !ibs[ib - 1].triggered)
       return false;
 
-   if (ibs[ib].triggered)
-      return options->color;
-
    if (options->ibs[ib].base != ibs[ib].base)
       return false;
 
    uint64_t start = ibs[ib].base + 4 * (ibs[ib].size - options->ibs[ib].rem);
    uint64_t end = ibs[ib].base + 4 * ibs[ib].size;
 
-   bool triggered = (start <= gpuaddr) && (gpuaddr <= end);
+   return (start <= gpuaddr) && (gpuaddr <= end);
+}
 
+static bool
+highlight_gpuaddr(uint64_t gpuaddr)
+{
+   if (ibs[ib].triggered)
+      return options->color;
+
+   bool triggered = gpuaddr_triggered(gpuaddr);
    ibs[ib].triggered |= triggered;
 
    if (triggered)
@@ -2176,7 +2181,7 @@ cp_indirect(uint32_t *dwords, uint32_t sizedwords, int level)
        * executed but never returns.  Account for this by checking if
        * the IB returned:
        */
-      highlight_gpuaddr(gpuaddr(&dwords[is_64b() ? 3 : 2]));
+      ibs[ib].triggered |= gpuaddr_triggered(gpuaddr(&dwords[is_64b() ? 3 : 2]));
 
       ib++;
       ibs[ib].base = ibaddr;
