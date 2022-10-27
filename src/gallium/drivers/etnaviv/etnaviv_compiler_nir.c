@@ -1128,11 +1128,6 @@ etna_compile_shader(struct etna_shader_variant *v)
                                           v->key.tex_swizzle);
 
    NIR_PASS_V(s, nir_lower_alu_to_scalar, etna_alu_to_scalar_filter_cb, specs);
-   nir_lower_idiv_options idiv_options = {
-      .imprecise_32bit_lowering = true,
-      .allow_fp16 = true,
-   };
-   NIR_PASS_V(s, nir_lower_idiv, &idiv_options);
 
    etna_optimize_loop(s);
 
