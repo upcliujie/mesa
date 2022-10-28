@@ -2413,6 +2413,11 @@ dri2_create_image_wayland_wl_buffer(_EGLDisplay *disp, _EGLContext *ctx,
    if (!_eglParseImageAttribList(&attrs, disp, attr_list))
       return NULL;
 
+   if (attrs.Colorspace == EGL_GL_COLORSPACE_SRGB) {
+      _eglError(EGL_BAD_MATCH, "dri2_create_image_wayland_wl_buffer (sRGB not supported)");
+      return NULL;
+   }
+
    plane = attrs.PlaneWL;
    f = buffer->driver_format;
    if (plane < 0 || plane >= f->nplanes) {
@@ -2494,6 +2499,11 @@ dri2_create_image_khr_texture(_EGLDisplay *disp, _EGLContext *ctx,
 
    if (!_eglParseImageAttribList(&attrs, disp, attr_list))
       return EGL_NO_IMAGE_KHR;
+
+   if (attrs.Colorspace == EGL_GL_COLORSPACE_SRGB) {
+      _eglError(EGL_BAD_MATCH, "dri2_create_image_khr (sRGB not supported)");
+      return EGL_NO_IMAGE_KHR;
+   }
 
    switch (target) {
    case EGL_GL_TEXTURE_2D_KHR:
@@ -2608,6 +2618,11 @@ dri2_create_image_mesa_drm_buffer(_EGLDisplay *disp, _EGLContext *ctx,
        attrs.DRMBufferStrideMESA <= 0) {
       _eglError(EGL_BAD_PARAMETER,
                 "bad width, height or stride");
+      return NULL;
+   }
+
+   if (attrs.Colorspace == EGL_GL_COLORSPACE_SRGB) {
+      _eglError(EGL_BAD_MATCH, "dri2_create_image_mesa_drm_buffer: sRGB not supported");
       return NULL;
    }
 
@@ -2954,6 +2969,7 @@ dri2_create_image_dma_buf(_EGLDisplay *disp, _EGLContext *ctx,
    uint64_t modifier;
    bool has_modifier = false;
    unsigned error;
+   uint32_t flags;
    EGLint egl_error;
 
    /**
@@ -2992,14 +3008,26 @@ dri2_create_image_dma_buf(_EGLDisplay *disp, _EGLContext *ctx,
       has_modifier = true;
    }
 
-   if (attrs.ProtectedContent) {
+   if (attrs.ProtectedContent || attrs.Colorspace) {
       if (dri2_dpy->image->base.version < 18 ||
           dri2_dpy->image->createImageFromDmaBufs3 == NULL) {
          _eglError(EGL_BAD_MATCH, "unsupported protected_content attribute");
          return EGL_NO_IMAGE_KHR;
       }
+      if (attrs.Colorspace && dri2_dpy->image->base.version < 22) {
+         _eglError(EGL_BAD_MATCH, "unsupported srgb attribute");
+         return EGL_NO_IMAGE_KHR;
+      }
       if (!has_modifier)
          modifier = DRM_FORMAT_MOD_INVALID;
+
+      flags = 0;
+      if (attrs.ProtectedContent) {
+         flags |= __DRI_IMAGE_PROTECTED_CONTENT_FLAG;
+      }
+      if (attrs.Colorspace == EGL_GL_COLORSPACE_SRGB) {
+         flags |= __DRI_IMAGE_SRGB;
+      }
 
       dri_image =
          dri2_dpy->image->createImageFromDmaBufs3(dri2_dpy->dri_screen,
@@ -3009,9 +3037,7 @@ dri2_create_image_dma_buf(_EGLDisplay *disp, _EGLContext *ctx,
             attrs.DMABufSampleRangeHint.Value,
             attrs.DMABufChromaHorizontalSiting.Value,
             attrs.DMABufChromaVerticalSiting.Value,
-            attrs.ProtectedContent ? __DRI_IMAGE_PROTECTED_CONTENT_FLAG : 0,
-            &error,
-            NULL);
+            flags, &error, NULL);
    }
    else if (has_modifier) {
       if (dri2_dpy->image->base.version < 15 ||
@@ -3073,6 +3099,11 @@ dri2_create_drm_image_mesa(_EGLDisplay *disp, const EGLint *attr_list)
 
    if (attrs.Width <= 0 || attrs.Height <= 0) {
       _eglError(EGL_BAD_PARAMETER, __func__);
+      goto fail;
+   }
+
+   if (attrs.Colorspace == EGL_GL_COLORSPACE_SRGB) {
+      _eglError(EGL_BAD_MATCH, __func__);
       goto fail;
    }
 

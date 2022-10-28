@@ -1058,8 +1058,8 @@ static __DRIimage *
 dri2_create_image_from_fd(__DRIscreen *_screen,
                           int width, int height, int fourcc,
                           uint64_t modifier, int *fds, int num_fds,
-                          int *strides, int *offsets,
-                          unsigned bind, unsigned *error, void *loaderPrivate)
+                          int *strides, int *offsets, unsigned bind,
+                          bool srgb, unsigned *error, void *loaderPrivate)
 {
    struct winsys_handle whandles[4];
    const struct dri2_format_mapping *map = dri2_get_mapping_by_fourcc(fourcc);
@@ -1067,6 +1067,7 @@ dri2_create_image_from_fd(__DRIscreen *_screen,
    unsigned err = __DRI_IMAGE_ERROR_SUCCESS;
    int i;
    const int expected_num_fds = dri2_get_modifier_num_planes(_screen, modifier, fourcc);
+   enum pipe_format pipe_format;
 
    if (!map || expected_num_fds == 0) {
       err = __DRI_IMAGE_ERROR_BAD_MATCH;
@@ -1076,6 +1077,15 @@ dri2_create_image_from_fd(__DRIscreen *_screen,
    if (num_fds != expected_num_fds) {
       err = __DRI_IMAGE_ERROR_BAD_MATCH;
       goto exit;
+   }
+
+   pipe_format = map->pipe_format;
+   if (srgb) {
+      pipe_format = util_format_srgb(pipe_format);
+      if (pipe_format == PIPE_FORMAT_NONE) {
+         err = __DRI_IMAGE_ERROR_BAD_MATCH;
+         goto exit;
+      }
    }
 
    memset(whandles, 0, sizeof(whandles));
@@ -1581,7 +1591,8 @@ dri2_from_fds(__DRIscreen *screen, int width, int height, int fourcc,
 {
    return dri2_create_image_from_fd(screen, width, height, fourcc,
                                    DRM_FORMAT_MOD_INVALID, fds, num_fds,
-                                   strides, offsets, 0, NULL, loaderPrivate);
+                                   strides, offsets, 0, false, NULL,
+                                   loaderPrivate);
 }
 
 static __DRIimage *
@@ -1590,14 +1601,19 @@ dri2_from_fds2(__DRIscreen *screen, int width, int height, int fourcc,
               int *offsets, void *loaderPrivate)
 {
    unsigned bind = 0;
+   bool srgb;
+
    if (flags & __DRI_IMAGE_PROTECTED_CONTENT_FLAG)
       bind |= PIPE_BIND_PROTECTED;
    if (flags & __DRI_IMAGE_PRIME_LINEAR_BUFFER)
       bind |= PIPE_BIND_PRIME_BLIT_DST;
 
+   srgb = flags & __DRI_IMAGE_SRGB;
+
    return dri2_create_image_from_fd(screen, width, height, fourcc,
                                    DRM_FORMAT_MOD_INVALID, fds, num_fds,
-                                   strides, offsets, bind, NULL, loaderPrivate);
+                                   strides, offsets, bind, srgb, NULL,
+                                   loaderPrivate);
 }
 
 static boolean
@@ -1678,7 +1694,8 @@ dri2_from_dma_bufs(__DRIscreen *screen,
 
    img = dri2_create_image_from_fd(screen, width, height, fourcc,
                                    DRM_FORMAT_MOD_INVALID, fds, num_fds,
-                                   strides, offsets, 0, error, loaderPrivate);
+                                   strides, offsets, 0, false, error,
+                                   loaderPrivate);
    if (img == NULL)
       return NULL;
 
@@ -1707,7 +1724,7 @@ dri2_from_dma_bufs2(__DRIscreen *screen,
 
    img = dri2_create_image_from_fd(screen, width, height, fourcc,
                                    modifier, fds, num_fds, strides, offsets,
-                                   0, error, loaderPrivate);
+                                   0, false, error, loaderPrivate);
    if (img == NULL)
       return NULL;
 
@@ -1734,12 +1751,18 @@ dri2_from_dma_bufs3(__DRIscreen *screen,
                     void *loaderPrivate)
 {
    __DRIimage *img;
+   unsigned int bind;
+   bool srgb;
+
+   bind = 0;
+   if (flags & __DRI_IMAGE_PROTECTED_CONTENT_FLAG)
+      bind |= PIPE_BIND_PROTECTED;
+
+   srgb = flags & __DRI_IMAGE_SRGB;
 
    img = dri2_create_image_from_fd(screen, width, height, fourcc,
                                    modifier, fds, num_fds, strides, offsets,
-                                   (flags & __DRI_IMAGE_PROTECTED_CONTENT_FLAG) ?
-                                      PIPE_BIND_PROTECTED : 0,
-                                   error, loaderPrivate);
+                                   bind, srgb, error, loaderPrivate);
    if (img == NULL)
       return NULL;
 
@@ -1877,7 +1900,7 @@ dri2_get_capabilities(__DRIscreen *_screen)
 
 /* The extension is modified during runtime if DRI_PRIME is detected */
 static const __DRIimageExtension dri2ImageExtensionTempl = {
-    .base = { __DRI_IMAGE, 21 },
+    .base = { __DRI_IMAGE, 22 },
 
     .createImageFromName          = dri2_create_image_from_name,
     .createImageFromRenderbuffer  = dri2_create_image_from_renderbuffer,

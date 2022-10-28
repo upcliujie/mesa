@@ -1356,6 +1356,7 @@ enum __DRIChromaSiting {
  */
 #define __DRI_IMAGE_PROTECTED_CONTENT_FLAG 0x00000001
 #define __DRI_IMAGE_PRIME_LINEAR_BUFFER    0x00000002
+#define __DRI_IMAGE_SRGB                   0x00000004 /* since version 22 */
 
 /**
  * queryDmaBufFormatModifierAttribs attributes
