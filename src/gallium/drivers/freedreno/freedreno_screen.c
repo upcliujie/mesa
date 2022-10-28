@@ -297,6 +297,8 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       /* Note that the Vulkan blob on a540 and 640 report a
        * maxTexelBufferElements of just 65536 (the GLES3.2 and Vulkan
        * minimum).
+       *
+       * See also fd6_clamp_buffer_size()
        */
       if (is_a4xx(screen) || is_a5xx(screen) || is_a6xx(screen))
          return 1 << 27;
@@ -327,7 +329,7 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_GLSL_FEATURE_LEVEL:
    case PIPE_CAP_GLSL_FEATURE_LEVEL_COMPATIBILITY:
       if (is_a6xx(screen))
-         return 400;
+         return 430;
       else if (is_ir3(screen))
          return 140;
       else
@@ -392,6 +394,8 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 0;
 
    case PIPE_CAP_MAX_VIEWPORTS:
+      if (is_a6xx(screen))
+         return 16;
       return 1;
 
    case PIPE_CAP_MAX_VARYINGS:
