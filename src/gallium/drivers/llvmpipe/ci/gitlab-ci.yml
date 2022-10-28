@@ -20,17 +20,6 @@
   script:
     - install/piglit/run_cl.sh
 
-llvmpipe-piglit-clover:
-  extends:
-    - .llvmpipe-piglit-cl
-    - .llvmpipe-clover-rules
-  needs:
-    - debian-clover-testing
-    - debian/x86_test-gl
-  variables:
-    LP_CL: 1
-    PIGLIT_RESULTS: "llvmpipe-clover"
-
 llvmpipe-piglit-rusticl:
   extends:
     - .llvmpipe-piglit-cl

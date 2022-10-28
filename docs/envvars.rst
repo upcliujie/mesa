@@ -532,22 +532,6 @@ Gallium environment variables
    ``tgsi``, for example, will print all the TGSI shaders. See
    :file:`src/mesa/state_tracker/st_debug.c` for other options.
 
-Clover environment variables
-----------------------------
-
-:envvar:`CLOVER_EXTRA_BUILD_OPTIONS`
-   allows specifying additional compiler and linker options. Specified
-   options are appended after the options set by the OpenCL program in
-   ``clBuildProgram``.
-:envvar:`CLOVER_EXTRA_COMPILE_OPTIONS`
-   allows specifying additional compiler options. Specified options are
-   appended after the options set by the OpenCL program in
-   ``clCompileProgram``.
-:envvar:`CLOVER_EXTRA_LINK_OPTIONS`
-   allows specifying additional linker options. Specified options are
-   appended after the options set by the OpenCL program in
-   ``clLinkProgram``.
-
 Rusticl environment variables
 -----------------------------
 
