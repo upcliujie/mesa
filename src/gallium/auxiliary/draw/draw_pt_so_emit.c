@@ -203,20 +203,6 @@ so_emit_prim(struct pt_so_emit *so,
             memcpy(buffer, &input[idx][start_comp],
                    num_comps * sizeof(float));
          }
-
-#if 0
-         {
-            debug_printf("VERT[%d], stream = %d, offset = %d, slot[%d] sc = %d, num_c = %d, idx = %d = [",
-                         i, stream,
-                         draw->so.targets[ob]->internal_offset,
-                         slot, start_comp, num_comps, idx);
-            for (unsigned j = 0; j < num_comps; ++j) {
-               unsigned *ubuffer = (unsigned*)buffer;
-               debug_printf("%d (0x%x), ", ubuffer[j], ubuffer[j]);
-            }
-            debug_printf("]\n");
-         }
-#endif
       }
 
       for (unsigned ob = 0; ob < draw->so.num_targets; ++ob) {

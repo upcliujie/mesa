@@ -221,16 +221,7 @@ lp_build_float_to_half(struct gallivm_state *gallivm,
      for (i = 0; i < length; ++i) {
         LLVMValueRef index = LLVMConstInt(i32t, i, 0);
         LLVMValueRef f32 = LLVMBuildExtractElement(builder, src, index, "");
-#if 0
-        /*
-         * XXX: not really supported by backends.
-         * Even if they would now, rounding mode cannot be specified and
-         * is undefined.
-         */
-        LLVMValueRef f16 = lp_build_intrinsic_unary(builder, "llvm.convert.to.fp16", i16t, f32);
-#else
         LLVMValueRef f16 = LLVMBuildCall2(builder, func_type, func, &f32, 1, "");
-#endif
         ref_result = LLVMBuildInsertElement(builder, ref_result, f16, index, "");
      }
 
@@ -893,15 +884,8 @@ lp_build_conv(struct gallivm_state *gallivm,
             tmp_type.floating = FALSE;
             tmp_vec_type = lp_build_vec_type(gallivm, tmp_type);
             for(i = 0; i < num_tmps; ++i) {
-#if 0
-               if(dst_type.sign)
-                  tmp[i] = LLVMBuildFPToSI(builder, tmp[i], tmp_vec_type, "");
-               else
-                  tmp[i] = LLVMBuildFPToUI(builder, tmp[i], tmp_vec_type, "");
-#else
               /* FIXME: there is no SSE counterpart for LLVMBuildFPToUI */
                tmp[i] = LLVMBuildFPToSI(builder, tmp[i], tmp_vec_type, "");
-#endif
             }
          }
       }
@@ -982,15 +966,8 @@ lp_build_conv(struct gallivm_state *gallivm,
          tmp_type.sign = TRUE;
          tmp_vec_type = lp_build_vec_type(gallivm, tmp_type);
          for(i = 0; i < num_tmps; ++i) {
-#if 0
-            if(dst_type.sign)
-               tmp[i] = LLVMBuildSIToFP(builder, tmp[i], tmp_vec_type, "");
-            else
-               tmp[i] = LLVMBuildUIToFP(builder, tmp[i], tmp_vec_type, "");
-#else
             /* FIXME: there is no SSE counterpart for LLVMBuildUIToFP */
             tmp[i] = LLVMBuildSIToFP(builder, tmp[i], tmp_vec_type, "");
-#endif
           }
 
           if (src_scale != 1.0) {

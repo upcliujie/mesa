@@ -544,12 +544,6 @@ static void
 micro_rcp(union tgsi_exec_channel *dst,
           const union tgsi_exec_channel *src)
 {
-#if 0 /* for debugging */
-   assert(src->f[0] != 0.0f);
-   assert(src->f[1] != 0.0f);
-   assert(src->f[2] != 0.0f);
-   assert(src->f[3] != 0.0f);
-#endif
    dst->f[0] = 1.0f / src->f[0];
    dst->f[1] = 1.0f / src->f[1];
    dst->f[2] = 1.0f / src->f[2];
@@ -570,12 +564,6 @@ static void
 micro_rsq(union tgsi_exec_channel *dst,
           const union tgsi_exec_channel *src)
 {
-#if 0 /* for debugging */
-   assert(src->f[0] != 0.0f);
-   assert(src->f[1] != 0.0f);
-   assert(src->f[2] != 0.0f);
-   assert(src->f[3] != 0.0f);
-#endif
    dst->f[0] = 1.0f / sqrtf(src->f[0]);
    dst->f[1] = 1.0f / sqrtf(src->f[1]);
    dst->f[2] = 1.0f / sqrtf(src->f[2]);
@@ -1037,10 +1025,6 @@ tgsi_exec_machine_bind_shader(
    struct tgsi_full_declaration *declarations;
    uint maxInstructions = 10, numInstructions = 0;
    uint maxDeclarations = 10, numDeclarations = 0;
-
-#if 0
-   tgsi_dump(tokens, 0);
-#endif
 
    mach->Tokens = tokens;
    mach->Sampler = sampler;
@@ -1689,18 +1673,6 @@ store_dest_dstret(struct tgsi_exec_machine *mach,
    case TGSI_FILE_OUTPUT:
       index = mach->OutputVertexOffset + reg->Register.Index;
       dst = &mach->Outputs[offset + index].xyzw[chan_index];
-#if 0
-      debug_printf("NumOutputs = %d, TEMP_O_C/I = %d, redindex = %d\n",
-                   mach->NumOutputs, mach->Temps[TEMP_OUTPUT_I].xyzw[TEMP_OUTPUT_C].u[0],
-                   reg->Register.Index);
-      if (PIPE_SHADER_GEOMETRY == mach->ShaderType) {
-         debug_printf("STORING OUT[%d] mask(%d), = (", offset + index, execmask);
-         for (i = 0; i < TGSI_QUAD_SIZE; i++)
-            if (execmask & (1 << i))
-               debug_printf("%f, ", chan->f[i]);
-         debug_printf(")\n");
-      }
-#endif
       break;
 
    case TGSI_FILE_TEMPORARY:
@@ -2118,17 +2090,6 @@ exec_tex(struct tgsi_exec_machine *mach,
          args[0], args[1], args[2], args[3], args[4],
          NULL, offsets, control,
          &r[0], &r[1], &r[2], &r[3]);     /* R, G, B, A */
-
-#if 0
-   debug_printf("fetch r: %g %g %g %g\n",
-         r[0].f[0], r[0].f[1], r[0].f[2], r[0].f[3]);
-   debug_printf("fetch g: %g %g %g %g\n",
-         r[1].f[0], r[1].f[1], r[1].f[2], r[1].f[3]);
-   debug_printf("fetch b: %g %g %g %g\n",
-         r[2].f[0], r[2].f[1], r[2].f[2], r[2].f[3]);
-   debug_printf("fetch a: %g %g %g %g\n",
-         r[3].f[0], r[3].f[1], r[3].f[2], r[3].f[3]);
-#endif
 
    for (chan = 0; chan < TGSI_NUM_CHANNELS; chan++) {
       if (inst->Dst[0].Register.WriteMask & (1 << chan)) {
@@ -6098,17 +6059,6 @@ tgsi_exec_machine_run( struct tgsi_exec_machine *mach, int start_pc )
 #endif
       }
    }
-
-#if 0
-   /* we scale from floats in [0,1] to Zbuffer ints in sp_quad_depth_test.c */
-   if (mach->ShaderType == PIPE_SHADER_FRAGMENT) {
-      /*
-       * Scale back depth component.
-       */
-      for (i = 0; i < 4; i++)
-         mach->Outputs[0].xyzw[2].f[i] *= ctx->DrawBuffer->_DepthMaxF;
-   }
-#endif
 
    /* Strictly speaking, these assertions aren't really needed but they
     * can potentially catch some bugs in the control flow code.

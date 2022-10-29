@@ -325,16 +325,7 @@ llvm_fetch_gs_outputs(struct draw_geometry_shader *shader,
    for (int i = 0; i < shader->vector_length - 1; ++i) {
       int current_verts = shader->llvm_emitted_vertices[i + (stream * shader->vector_length)];
       int next_verts = shader->llvm_emitted_vertices[i + 1 + (stream * shader->vector_length)];
-#if 0
-      int j;
-      for (j = 0; j < current_verts; ++j) {
-         struct vertex_header *vh = (struct vertex_header *)
-            (output_ptr + shader->vertex_size * (i * next_prim_boundary + j));
-         debug_printf("--- %d) [%f, %f, %f, %f]\n", j + vertex_count,
-                      vh->data[0][0], vh->data[0][1], vh->data[0][2], vh->data[0][3]);
 
-      }
-#endif
       assert(current_verts <= shader->max_output_vertices);
       assert(next_verts <= shader->max_output_vertices);
       if (next_verts) {
@@ -344,22 +335,6 @@ llvm_fetch_gs_outputs(struct draw_geometry_shader *shader,
       }
       vertex_count += current_verts;
    }
-
-#if 0
-   {
-      for (int i = 0; i < total_verts; ++i) {
-         struct vertex_header *vh = (struct vertex_header *)(output_ptr + shader->vertex_size * i);
-         debug_printf("%d) Vertex:\n", i);
-         for (j = 0; j < shader->info.num_outputs; ++j) {
-            unsigned *udata = (unsigned*)vh->data[j];
-            debug_printf("    %d) [%f, %f, %f, %f] [%d, %d, %d, %d]\n", j,
-                         vh->data[j][0], vh->data[j][1], vh->data[j][2], vh->data[j][3],
-                         udata[0], udata[1], udata[2], udata[3]);
-         }
-
-      }
-   }
-#endif
 
    prim_idx = 0;
    for (int i = 0; i < shader->vector_length; ++i) {
@@ -436,15 +411,6 @@ gs_flush(struct draw_geometry_shader *shader)
                                &shader->stream[i].tmp_output);
       }
    }
-
-#if 0
-   for (i = 0; i < shader->num_vertex_streams; i++) {
-      debug_printf("stream %d: PRIM emitted prims = %d (verts=%d), cur prim count = %d\n",
-                   i,
-                   shader->stream[i].emitted_primitives, shader->stream[i].emitted_vertices,
-                   out_prim_count[i]);
-   }
-#endif
 
    shader->fetched_prim_count = 0;
 }
@@ -610,23 +576,6 @@ draw_geometry_shader_run(struct draw_geometry_shader *shader,
       assert(output_verts[i].verts);
    }
 
-#if 0
-   debug_printf("%s count = %d (in prims # = %d, invocs = %d, streams = %d)\n",
-                __FUNCTION__, num_input_verts, num_in_primitives,
-                shader->num_invocations, shader->num_vertex_streams);
-   debug_printf("\tlinear = %d, prim_info->count = %d\n",
-                input_prim->linear, input_prim->count);
-   debug_printf("\tprim pipe = %s, shader in = %s, shader out = %s\n",
-                u_prim_name(input_prim->prim),
-                u_prim_name(shader->input_primitive),
-                u_prim_name(shader->output_primitive));
-   debug_printf("\tmaxv  = %d, maxp = %d, primitive_boundary = %d, "
-                "vertex_size = %d, tverts = %d\n",
-                shader->max_output_vertices, max_out_prims,
-                shader->primitive_boundary, output_verts->vertex_size,
-                total_verts_per_buffer);
-#endif
-
    for (int i = 0; i < shader->num_vertex_streams; i++) {
       shader->stream[i].emitted_vertices = 0;
       shader->stream[i].emitted_primitives = 0;
@@ -707,13 +656,6 @@ draw_geometry_shader_run(struct draw_geometry_shader *shader,
          }
       }
    }
-
-#if 0
-   debug_printf("GS finished\n");
-   for (int i = 0; i < 4; i++)
-      debug_printf("stream %d: prims = %d verts = %d\n", i,
-                   output_prims[i].primitive_count, output_verts[i].count);
-#endif
 }
 
 

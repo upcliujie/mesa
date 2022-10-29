@@ -122,17 +122,7 @@ vs_exec_run_linear(struct draw_vertex_shader *shader,
       /* Swizzle inputs.
        */
       for (j = 0; j < max_vertices; j++) {
-#if 0
-         debug_printf("%d) Input vert:\n", i + j);
-         for (slot = 0; slot < shader->info.num_inputs; slot++) {
-            debug_printf("\t%d: %f %f %f %f\n", slot,
-                         input[slot][0],
-                         input[slot][1],
-                         input[slot][2],
-                         input[slot][3]);
-         }
-#endif
-	 int basevertex = shader->draw->pt.user.eltSize ? shader->draw->pt.user.eltBias : shader->draw->start_index;
+	     int basevertex = shader->draw->pt.user.eltSize ? shader->draw->pt.user.eltBias : shader->draw->start_index;
 
          if (shader->info.uses_vertexid) {
             unsigned vid = machine->SysSemanticToIndex[TGSI_SEMANTIC_VERTEXID];
@@ -151,12 +141,6 @@ vs_exec_run_linear(struct draw_vertex_shader *shader,
          }
 
          for (slot = 0; slot < shader->info.num_inputs; slot++) {
-#if 0
-            assert(!util_is_inf_or_nan(input[slot][0]));
-            assert(!util_is_inf_or_nan(input[slot][1]));
-            assert(!util_is_inf_or_nan(input[slot][2]));
-            assert(!util_is_inf_or_nan(input[slot][3]));
-#endif
             machine->Inputs[slot].xyzw[0].f[j] = input[slot][0];
             machine->Inputs[slot].xyzw[1].f[j] = input[slot][1];
             machine->Inputs[slot].xyzw[2].f[j] = input[slot][2];
@@ -188,19 +172,6 @@ vs_exec_run_linear(struct draw_vertex_shader *shader,
                output[slot][3] = machine->Outputs[slot].xyzw[3].f[j];
             }
          }
-
-#if 0
-         debug_printf("%d) Post xform vert:\n", i + j);
-         for (slot = 0; slot < shader->info.num_outputs; slot++) {
-            debug_printf("\t%d: %f %f %f %f\n", slot,
-                         output[slot][0],
-                         output[slot][1],
-                         output[slot][2],
-                         output[slot][3]);
-            assert(!util_is_inf_or_nan(output[slot][0]));
-         }
-#endif
-
          output = (float (*)[4])((char *)output + output_stride);
       }
    }

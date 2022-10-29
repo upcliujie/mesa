@@ -1220,23 +1220,7 @@ lp_build_mul_imm(struct lp_build_context *bld,
       unsigned shift = ffs(b) - 1;
 
       if (bld->type.floating) {
-#if 0
-         /*
-          * Power of two multiplication by directly manipulating the exponent.
-          *
-          * XXX: This might not be always faster, it will introduce a small
-          * error for multiplication by zero, and it will produce wrong results
-          * for Inf and NaN.
-          */
-         unsigned mantissa = lp_mantissa(bld->type);
-         factor = lp_build_const_int_vec(bld->gallivm, bld->type, (unsigned long long)shift << mantissa);
-         a = LLVMBuildBitCast(builder, a, lp_build_int_vec_type(bld->type), "");
-         a = LLVMBuildAdd(builder, a, factor, "");
-         a = LLVMBuildBitCast(builder, a, lp_build_vec_type(bld->gallivm, bld->type), "");
-         return a;
-#endif
-      }
-      else {
+      } else {
          factor = lp_build_const_vec(bld->gallivm, bld->type, shift);
          return LLVMBuildShl(builder, a, factor, "");
       }
