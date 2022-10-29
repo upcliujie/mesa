@@ -2943,6 +2943,11 @@ late_optimizations += [
   (('bcsel', ('flt', 'a@32', 0), 'b@32', 'c@32'), ('fcsel_gt', ('fneg', a), b, c), "options->has_fused_comp_and_csel"),
   (('bcsel', ('fge', 'a@32', 0), 'b@32', 'c@32'), ('fcsel_ge', a, b, c), "options->has_fused_comp_and_csel"),
   (('bcsel', ('fge', 0, 'a@32'), 'b@32', 'c@32'), ('fcsel_ge', ('fneg', a), b, c), "options->has_fused_comp_and_csel"),
+
+  (('b2f32', ('flt(is_used_once)', 'a@32', 'b@32')), ('slt', a, b), '!options->lower_scmp'),
+  (('b2f32', ('fge(is_used_once)', 'a@32', 'b@32')), ('sge', a, b), '!options->lower_scmp'),
+  (('b2f32', ('feq(is_used_once)', 'a@32', 'b@32')), ('seq', a, b), '!options->lower_scmp'),
+  (('b2f32', ('fneu(is_used_once)', 'a@32', 'b@32')), ('sne', a, b), '!options->lower_scmp'),
 ]
 
 distribute_src_mods = [
