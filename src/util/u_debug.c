@@ -237,51 +237,6 @@ debug_get_version_option(const char *name, unsigned *major, unsigned *minor)
    return;
 }
 
-static bool
-str_has_option(const char *str, const char *name)
-{
-   /* Empty string. */
-   if (!*str) {
-      return false;
-   }
-
-   /* OPTION=all */
-   if (!strcmp(str, "all")) {
-      return true;
-   }
-
-   /* Find 'name' in 'str' surrounded by non-alphanumeric characters. */
-   {
-      const char *start = str;
-      unsigned name_len = strlen(name);
-
-      /* 'start' is the beginning of the currently-parsed word,
-       * we increment 'str' each iteration.
-       * if we find either the end of string or a non-alphanumeric character,
-       * we compare 'start' up to 'str-1' with 'name'. */
-
-      while (1) {
-         if (!*str || !(isalnum(*str) || *str == '_')) {
-            if (str-start == name_len &&
-                !memcmp(start, name, name_len)) {
-               return true;
-            }
-
-            if (!*str) {
-               return false;
-            }
-
-            start = str+1;
-         }
-
-         str++;
-      }
-   }
-
-   return false;
-}
-
-
 uint64_t
 debug_get_flags_option(const char *name,
                        const struct debug_named_value *flags,
@@ -304,14 +259,51 @@ debug_get_flags_option(const char *name,
          _debug_printf("| %*s [0x%0*"PRIx64"]%s%s\n", namealign, flags->name,
                       (int)sizeof(uint64_t)*CHAR_BIT/4, flags->value,
                       flags->desc ? " " : "", flags->desc ? flags->desc : "");
-   }
-   else {
+   } else {
       result = 0;
-      while (flags->name) {
-	 if (str_has_option(str, flags->name))
-	    result |= flags->value;
-	 ++flags;
+
+      char *str_dup = strdup(str);
+      /* Make sure we will find flags even if they are surrounded by
+       * non-alphanumeric characters.
+       */
+      for (char *c = str_dup; *c; c++) {
+         if (!isalnum(*c) || *c == '_') {
+            *c = ' ';
+         }
       }
+
+      char *save = NULL;
+      char *next = strtok_r(str_dup, " ", &save);
+
+      if (next != NULL && !strcmp(next, "all")) {
+         for (const struct debug_named_value *flag = flags;
+              flag->name != NULL; flag++) {
+            result |= flag->value;
+         }
+
+         next = NULL;
+      }
+
+      while (next != NULL) {
+         bool found = false;
+         for (const struct debug_named_value *flag = flags;
+              flag->name != NULL; flag++) {
+            if (!strcmp(next, flag->name)) {
+               result |= flag->value;
+               found = true;
+               break;
+            }
+         }
+
+         if (!found) {
+            _debug_printf("%s: unknown debug flag '%s' for %s\n",
+                          __FUNCTION__, next, name);
+         }
+
+         next = strtok_r(NULL, " ", &save);
+      }
+
+      free(str_dup);
    }
 
    if (debug_get_option_should_print()) {
