@@ -124,6 +124,9 @@ struct wsi_device {
    VkPresentModeKHR override_present_mode;
    bool force_bgra8_unorm_first;
 
+   bool tested_sync_file_import_export;
+   bool has_sync_file_import_export;
+
    /* Whether to enable adaptive sync for a swapchain if implemented and
     * available. Not all window systems might support this. */
    bool enable_adaptive_sync;

@@ -31,6 +31,10 @@ extern "C" {
 bool
 wsi_common_drm_devices_equal(int fd_a, int fd_b);
 
+VkResult
+wsi_drm_can_dma_buf_sync_file_import_export(struct wsi_device *wsi,
+                                            VkDevice _device);
+
 #ifdef __cplusplus
 }
 #endif
