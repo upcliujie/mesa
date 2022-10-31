@@ -220,6 +220,12 @@ kgsl_bo_finish(struct tu_device *dev, struct tu_bo *bo)
    safe_ioctl(dev->physical_device->local_fd, IOCTL_KGSL_GPUMEM_FREE_ID, &req);
 }
 
+VkResult
+tu_bo_make_resident(struct tu_device *dev, struct tu_bo *bo, bool resident)
+{
+   return VK_SUCCESS;
+}
+
 static VkResult
 kgsl_sync_cache(VkDevice _device,
                 uint32_t op,

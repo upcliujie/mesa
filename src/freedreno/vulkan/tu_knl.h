@@ -45,6 +45,7 @@ struct tu_bo {
    void *map;
    const char *name; /* pointer to device->bo_sizes's entry's name */
    int32_t refcnt;
+   uint32_t flags; /* backend-specific flags: MSM_SUBMIT_* for DRM */
 
    uint32_t bo_list_idx;
 
@@ -118,6 +119,9 @@ tu_bo_init_dmabuf(struct tu_device *dev,
                   struct tu_bo **bo,
                   uint64_t size,
                   int fd);
+
+VkResult
+tu_bo_make_resident(struct tu_device *dev, struct tu_bo *bo, bool resident);
 
 int
 tu_bo_export_dmabuf(struct tu_device *dev, struct tu_bo *bo);

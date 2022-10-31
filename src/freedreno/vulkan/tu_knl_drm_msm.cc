@@ -446,6 +446,63 @@ tu_allocate_kernel_iova(struct tu_device *dev,
    return VK_SUCCESS;
 }
 
+/**
+ * Adds the BO to the device-global list of BOs used by every submit.
+ *
+ * Must be called with dev->bo_mutex held.
+ */
+static VkResult
+tu_bo_add_to_list_locked(struct tu_device *dev, struct tu_bo *bo)
+{
+   if (bo->bo_list_idx != ~0)
+      return VK_SUCCESS;
+
+   bo->bo_list_idx = dev->bo_count++;
+
+   /* grow the bo list if needed */
+   if (bo->bo_list_idx >= dev->bo_list_size) {
+      uint32_t new_len = bo->bo_list_idx + 64;
+      struct drm_msm_gem_submit_bo *new_ptr = (struct drm_msm_gem_submit_bo *)
+         vk_realloc(&dev->vk.alloc, dev->bo_list, new_len * sizeof(*dev->bo_list),
+                    8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+      if (!new_ptr)
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+      dev->bo_list = new_ptr;
+      dev->bo_list_size = new_len;
+   }
+
+   dev->bo_list[bo->bo_list_idx] = (struct drm_msm_gem_submit_bo) {
+      .flags = bo->flags,
+      .handle = bo->gem_handle,
+      .presumed = bo->iova,
+   };
+
+   return VK_SUCCESS;
+}
+
+/**
+ * Removes the BO from the device-global list of BOs used by every submit.
+ *
+ * This can be used to avoid pinning and attaching fences to unused BOs at
+ * QueueSubmit time.
+ */
+static void
+tu_bo_remove_from_list_locked(struct tu_device *dev, struct tu_bo *bo)
+{
+   if (bo->bo_list_idx == ~0)
+      return;
+
+   dev->bo_count--;
+
+   /* Swap the previous end of the list into our place */
+   dev->bo_list[bo->bo_list_idx] = dev->bo_list[dev->bo_count];
+   struct tu_bo* exchanging_bo = tu_device_lookup_bo(dev, dev->bo_list[bo->bo_list_idx].handle);
+   exchanging_bo->bo_list_idx = bo->bo_list_idx;
+
+   bo->bo_list_idx = ~0;
+}
+
 static VkResult
 tu_bo_init(struct tu_device *dev,
            struct tu_bo *bo,
@@ -475,39 +532,25 @@ tu_bo_init(struct tu_device *dev,
    name = tu_debug_bos_add(dev, size, name);
 
    mtx_lock(&dev->bo_mutex);
-   uint32_t idx = dev->bo_count++;
-
-   /* grow the bo list if needed */
-   if (idx >= dev->bo_list_size) {
-      uint32_t new_len = idx + 64;
-      struct drm_msm_gem_submit_bo *new_ptr = (struct drm_msm_gem_submit_bo *)
-         vk_realloc(&dev->vk.alloc, dev->bo_list, new_len * sizeof(*dev->bo_list),
-                    8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
-      if (!new_ptr) {
-         tu_gem_close(dev, gem_handle);
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
-      }
-
-      dev->bo_list = new_ptr;
-      dev->bo_list_size = new_len;
-   }
 
    bool dump = flags & TU_BO_ALLOC_ALLOW_DUMP;
-   dev->bo_list[idx] = (struct drm_msm_gem_submit_bo) {
-      .flags = MSM_SUBMIT_BO_READ | MSM_SUBMIT_BO_WRITE |
-               COND(dump, MSM_SUBMIT_BO_DUMP),
-      .handle = gem_handle,
-      .presumed = iova,
-   };
-
    *bo = (struct tu_bo) {
       .gem_handle = gem_handle,
       .size = size,
       .iova = iova,
       .name = name,
       .refcnt = 1,
-      .bo_list_idx = idx,
+      .flags = MSM_SUBMIT_BO_READ | MSM_SUBMIT_BO_WRITE |
+               COND(dump, MSM_SUBMIT_BO_DUMP),
+      .bo_list_idx = ~0,
    };
+
+   result = tu_bo_add_to_list_locked(dev, bo);
+   if (result != VK_SUCCESS) {
+      tu_gem_close(dev, gem_handle);
+      mtx_unlock(&dev->bo_mutex);
+      return result;
+   }
 
    mtx_unlock(&dev->bo_mutex);
 
@@ -715,11 +758,7 @@ msm_bo_finish(struct tu_device *dev, struct tu_bo *bo)
    tu_debug_bos_del(dev, bo);
 
    mtx_lock(&dev->bo_mutex);
-   dev->bo_count--;
-   dev->bo_list[bo->bo_list_idx] = dev->bo_list[dev->bo_count];
-
-   struct tu_bo* exchanging_bo = tu_device_lookup_bo(dev, dev->bo_list[bo->bo_list_idx].handle);
-   exchanging_bo->bo_list_idx = bo->bo_list_idx;
+   tu_bo_remove_from_list_locked(dev, bo);
 
    if (bo->implicit_sync)
       dev->implicit_sync_bo_count--;
@@ -845,6 +884,17 @@ tu_InvalidateMappedMemoryRanges(VkDevice _device,
 {
    return sync_cache(_device, TU_MEM_SYNC_CACHE_FROM_GPU, memoryRangeCount,
                      pMemoryRanges);
+}
+
+VkResult
+tu_bo_make_resident(struct tu_device *dev, struct tu_bo *bo, bool resident)
+{
+   if (resident) {
+      return tu_bo_add_to_list_locked(dev, bo);
+   } else {
+      tu_bo_remove_from_list_locked(dev, bo);
+      return VK_SUCCESS;
+   }
 }
 
 extern const struct vk_sync_type tu_timeline_sync_type;
