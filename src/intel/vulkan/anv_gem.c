@@ -311,6 +311,32 @@ anv_gem_create_context(struct anv_device *device)
    if (ret == -1)
       return -1;
 
+   /*
+    * Turn off persistence mode for all contexts.
+    *
+    * Historically, the kernel allowed for requests to continue to execute
+    * after their submitting context or process had been terminated. This allows
+    * for a client to render a frame and pass it on to a compositor and quit,
+    * safe in the knowledge that the frame will not be lost.
+    *
+    * However, we allow our users to directly control fence signaling via
+    * VkEvents (see VkCmdWaitEvents). For robustness, in this situation the
+    * fence must be signaled on context / process termination, and so we must
+    * turn off the legacy ABI behaviour of persistence.
+    *
+    * Note that this only works on gen8+ with per-engine resets. First the
+    * kernel tries to switch away from the dead context with a preemption
+    * request, and if the HW is unable to complete that switch, the engine
+    * is reset. Before gen8, there is no per-engine reset, nor any preemption
+    * support, and instead the entire device must be reset simply to terminate
+    * the persistent context. That too poses a risk of harm to others, and so
+    * non-persistent contexts are limited to machines with working per-engine
+    * resets. The set-param will fail when not supported, so we choose to
+    * ignore the failure to preserve behaviour on old machines.
+    */
+   anv_gem_set_context_param(device->fd, create.ctx_id,
+			     I915_CONTEXT_PARAM_PERSISTENCE, 0);
+
    return create.ctx_id;
 }
 
