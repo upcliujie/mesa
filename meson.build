@@ -899,21 +899,6 @@ endif
 
 _opencl = get_option('gallium-opencl')
 _rtti = get_option('cpp_rtti')
-if _opencl != 'disabled'
-  if not with_gallium
-    error('OpenCL Clover implementation requires at least one gallium driver.')
-  endif
-  if not _rtti
-    error('The Clover OpenCL state tracker requires rtti')
-  endif
-
-  with_libclc = true
-  with_gallium_opencl = true
-  with_opencl_icd = _opencl == 'icd'
-else
-  with_gallium_opencl = false
-  with_opencl_icd = false
-endif
 
 with_gallium_rusticl = get_option('gallium-rusticl')
 if with_gallium_rusticl
@@ -1725,13 +1710,6 @@ if with_amd_vk or with_gallium_radeonsi or with_gallium_r600
     llvm_modules += 'asmparser'
   endif
 endif
-if with_gallium_opencl
-  llvm_modules += [
-    'linker', 'coverage', 'instrumentation', 'ipo', 'irreader',
-    'lto', 'option', 'objcarcopts', 'profiledata'
-  ]
-  llvm_optional_modules += ['all-targets', 'frontendopenmp']
-endif
 if with_clc
   llvm_modules += ['coverage', 'target', 'linker', 'irreader', 'option', 'libdriver', 'lto']
   llvm_optional_modules += ['all-targets']
@@ -1743,7 +1721,7 @@ endif
 
 if with_intel_clc
   _llvm_version = '>= 13.0.0'
-elif with_amd_vk or with_gallium_radeonsi or with_gallium_opencl
+elif with_amd_vk or with_gallium_radeonsi
   _llvm_version = '>= 11.0.0'
 elif with_clc
   _llvm_version = '>= 10.0.0'
@@ -1792,7 +1770,7 @@ if _llvm != 'disabled'
     modules : llvm_modules,
     optional_modules : llvm_optional_modules,
     required : (
-      with_amd_vk or with_gallium_radeonsi or with_gallium_opencl or with_clc
+      with_amd_vk or with_gallium_radeonsi or with_clc
       or _llvm == 'enabled'
     ),
     static : not _shared_llvm,
@@ -1844,8 +1822,6 @@ elif with_amd_vk and with_aco_tests
   error('ACO tests require LLVM, but LLVM is disabled.')
 elif with_gallium_radeonsi or with_swrast_vk
   error('The following drivers require LLVM: RadeonSI, SWR, Lavapipe. One of these is enabled, but LLVM is disabled.')
-elif with_gallium_opencl
-  error('The OpenCL "Clover" state tracker requires LLVM, but LLVM is disabled.')
 elif with_clc
   error('The CLC compiler requires LLVM, but LLVM is disabled.')
 else
@@ -2384,9 +2360,6 @@ if with_gallium
   endif
   if with_gallium_st_nine
     gallium_st += 'nine'
-  endif
-  if with_gallium_opencl
-    gallium_st += 'clover'
   endif
   lines += 'Gallium st:      ' + ' '.join(gallium_st)
 else

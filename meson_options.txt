@@ -144,13 +144,6 @@ option(
   description : 'build gallium D3D10 WDDM UMD frontend.',
 )
 option(
-  'gallium-opencl',
-  type : 'combo',
-  choices : ['icd', 'standalone', 'disabled'],
-  value : 'disabled',
-  description : 'build gallium "clover" OpenCL frontend.',
-)
-option(
   'gallium-rusticl',
   type : 'boolean',
   value : false,
@@ -161,12 +154,6 @@ option(
   type : 'string',
   value : 'libgallium_wgl',
   description : 'name of gallium megadriver DLL built for Windows. defaults to libgallium_wgl.dll to match DRI',
-)
-option(
-  'opencl-spirv',
-  type : 'boolean',
-  value : false,
-  description : 'build gallium "clover" OpenCL frontend with SPIR-V binary support.',
 )
 option(
   'static-libclc',
