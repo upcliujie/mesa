@@ -350,6 +350,75 @@ validate_depth_buffer(struct gl_context *ctx, struct gl_framebuffer *readFb,
    return true;
 }
 
+static bool
+validate_mask(struct gl_context *ctx,
+           struct gl_framebuffer *readFb, struct gl_framebuffer *drawFb,
+           GLbitfield *mask, GLenum filter, bool no_error, const char *func)
+{
+   GLbitfield m = *mask;
+
+   if (m & GL_COLOR_BUFFER_BIT) {
+      const GLuint numColorDrawBuffers = drawFb->_NumColorDrawBuffers;
+      const struct gl_renderbuffer *colorReadRb = readFb->_ColorReadBuffer;
+
+      /* From the EXT_framebuffer_object spec:
+       *
+       *     "If a buffer is specified in <mask> and does not exist in both
+       *     the read and draw framebuffers, the corresponding bit is silently
+       *     ignored."
+       */
+      if (!colorReadRb || numColorDrawBuffers == 0) {
+         m &= ~GL_COLOR_BUFFER_BIT;
+      } else if (!no_error) {
+         if (!validate_color_buffer(ctx, readFb, drawFb, filter, func))
+            return false;
+      }
+   }
+
+   if (m & GL_STENCIL_BUFFER_BIT) {
+      struct gl_renderbuffer *readRb =
+         readFb->Attachment[BUFFER_STENCIL].Renderbuffer;
+      struct gl_renderbuffer *drawRb =
+         drawFb->Attachment[BUFFER_STENCIL].Renderbuffer;
+
+      /* From the EXT_framebuffer_object spec:
+       *
+       *     "If a buffer is specified in <mask> and does not exist in both
+       *     the read and draw framebuffers, the corresponding bit is silently
+       *     ignored."
+       */
+      if ((readRb == NULL) || (drawRb == NULL)) {
+         m &= ~GL_STENCIL_BUFFER_BIT;
+      } else if (!no_error) {
+         if (!validate_stencil_buffer(ctx, readFb, drawFb, func))
+            return false;
+      }
+   }
+
+   if (m & GL_DEPTH_BUFFER_BIT) {
+      struct gl_renderbuffer *readRb =
+         readFb->Attachment[BUFFER_DEPTH].Renderbuffer;
+      struct gl_renderbuffer *drawRb =
+         drawFb->Attachment[BUFFER_DEPTH].Renderbuffer;
+
+      /* From the EXT_framebuffer_object spec:
+       *
+       *     "If a buffer is specified in <mask> and does not exist in both
+       *     the read and draw framebuffers, the corresponding bit is silently
+       *     ignored."
+       */
+      if ((readRb == NULL) || (drawRb == NULL)) {
+         m &= ~GL_DEPTH_BUFFER_BIT;
+      } else if (!no_error) {
+         if (!validate_depth_buffer(ctx, readFb, drawFb, func))
+            return false;
+      }
+   }
+
+   *mask = m;
+   return true;
+}
+
 
 static void
 do_blit_framebuffer(struct gl_context *ctx,
@@ -742,64 +811,8 @@ blit_framebuffer(struct gl_context *ctx,
       }
    }
 
-   /* get color read/draw renderbuffers */
-   if (mask & GL_COLOR_BUFFER_BIT) {
-      const GLuint numColorDrawBuffers = drawFb->_NumColorDrawBuffers;
-      const struct gl_renderbuffer *colorReadRb = readFb->_ColorReadBuffer;
-
-      /* From the EXT_framebuffer_object spec:
-       *
-       *     "If a buffer is specified in <mask> and does not exist in both
-       *     the read and draw framebuffers, the corresponding bit is silently
-       *     ignored."
-       */
-      if (!colorReadRb || numColorDrawBuffers == 0) {
-         mask &= ~GL_COLOR_BUFFER_BIT;
-      } else if (!no_error) {
-         if (!validate_color_buffer(ctx, readFb, drawFb, filter, func))
-            return;
-      }
-   }
-
-   if (mask & GL_STENCIL_BUFFER_BIT) {
-      struct gl_renderbuffer *readRb =
-         readFb->Attachment[BUFFER_STENCIL].Renderbuffer;
-      struct gl_renderbuffer *drawRb =
-         drawFb->Attachment[BUFFER_STENCIL].Renderbuffer;
-
-      /* From the EXT_framebuffer_object spec:
-       *
-       *     "If a buffer is specified in <mask> and does not exist in both
-       *     the read and draw framebuffers, the corresponding bit is silently
-       *     ignored."
-       */
-      if ((readRb == NULL) || (drawRb == NULL)) {
-         mask &= ~GL_STENCIL_BUFFER_BIT;
-      } else if (!no_error) {
-         if (!validate_stencil_buffer(ctx, readFb, drawFb, func))
-            return;
-      }
-   }
-
-   if (mask & GL_DEPTH_BUFFER_BIT) {
-      struct gl_renderbuffer *readRb =
-         readFb->Attachment[BUFFER_DEPTH].Renderbuffer;
-      struct gl_renderbuffer *drawRb =
-         drawFb->Attachment[BUFFER_DEPTH].Renderbuffer;
-
-      /* From the EXT_framebuffer_object spec:
-       *
-       *     "If a buffer is specified in <mask> and does not exist in both
-       *     the read and draw framebuffers, the corresponding bit is silently
-       *     ignored."
-       */
-      if ((readRb == NULL) || (drawRb == NULL)) {
-         mask &= ~GL_DEPTH_BUFFER_BIT;
-      } else if (!no_error) {
-         if (!validate_depth_buffer(ctx, readFb, drawFb, func))
-            return;
-      }
-   }
+   if (!validate_mask(ctx, readFb, drawFb, &mask, filter, no_error, func))
+      return;
 
    /* Debug code */
    if (DEBUG_BLIT) {
