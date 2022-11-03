@@ -28,9 +28,7 @@
 
 #include "compiler/shader_enums.h"
 #include "nir/nir.h"
-#include "rogue/rogue.h"
-#include "util/u_dynarray.h"
-#include "vulkan/vulkan.h"
+#include "vulkan/vulkan_core.h"
 
 nir_shader *
 pvr_spirv_to_nir(rogue_build_ctx *ctx,

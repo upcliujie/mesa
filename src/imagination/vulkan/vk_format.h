@@ -35,7 +35,7 @@
 #include <util/format/u_format.h>
 #include <vulkan/util/vk_format.h>
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "util/u_endian.h"
 

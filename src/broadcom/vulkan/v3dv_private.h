@@ -32,7 +32,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include <vk_enum_to_str.h>
 
 #include "vk_descriptor_update_template.h"

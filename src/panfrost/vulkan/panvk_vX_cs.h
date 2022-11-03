@@ -29,7 +29,7 @@
 #error "no arch"
 #endif
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include "compiler/shader_enums.h"
 
 void

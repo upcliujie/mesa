@@ -45,6 +45,9 @@
 
 #include "util/u_debug.h"
 #include "util/disk_cache.h"
+
+#include <vulkan/vk_icd.h>
+
 #include "radv_cs.h"
 #include "radv_debug.h"
 #include "radv_private.h"
@@ -72,7 +75,6 @@ typedef void *drmDevicePtr;
 #include "vk_format.h"
 #include "vk_sync.h"
 #include "vk_sync_dummy.h"
-#include "vulkan/vk_icd.h"
 
 #ifdef LLVM_AVAILABLE
 #include "ac_llvm_util.h"

@@ -33,6 +33,8 @@ from vk_extensions import get_all_required, filter_api
 TEMPLATE_C = Template(COPYRIGHT + """
 /* This file generated from ${filename}, don't edit directly. */
 
+#include <vulkan/vulkan.h>
+
 #include "vk_log.h"
 #include "vk_physical_device.h"
 #include "vk_util.h"

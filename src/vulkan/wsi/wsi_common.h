@@ -28,7 +28,7 @@
 
 #include "vk_alloc.h"
 #include "vk_dispatch_table.h"
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #ifdef __cplusplus
 extern "C" {

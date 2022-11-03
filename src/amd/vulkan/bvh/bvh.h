@@ -45,7 +45,7 @@
 #ifdef VULKAN
 #define VK_UUID_SIZE 16
 #else
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 typedef struct radv_ir_node radv_ir_node;
 typedef struct radv_global_sync_data radv_global_sync_data;
 

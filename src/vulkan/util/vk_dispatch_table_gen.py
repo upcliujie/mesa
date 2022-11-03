@@ -45,7 +45,7 @@ TEMPLATE_H = Template(COPYRIGHT + """\
 #ifndef VK_DISPATCH_TABLE_H
 #define VK_DISPATCH_TABLE_H
 
-#include "vulkan/vulkan.h"
+#include "vulkan/vulkan_core.h"
 
 #include "vk_extensions.h"
 

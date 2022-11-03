@@ -119,6 +119,7 @@ struct pipe_resource;
 """
 
 impl_code = """
+#include <vulkan/vulkan.h>
 #include "vk_enum_to_str.h"
 #include "zink_instance.h"
 #include "zink_screen.h"

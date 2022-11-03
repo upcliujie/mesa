@@ -26,7 +26,7 @@
 
 #include "pan_encoder.h"
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "compiler/shader_enums.h"
 #include "panfrost-job.h"

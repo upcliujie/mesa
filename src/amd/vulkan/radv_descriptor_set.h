@@ -29,7 +29,7 @@
 #include "vulkan/runtime/vk_descriptor_set_layout.h"
 #include "vulkan/runtime/vk_object.h"
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 struct radv_descriptor_set_binding_layout {
    VkDescriptorType type;

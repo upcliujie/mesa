@@ -37,7 +37,7 @@
 #include "nir/nir.h"
 #include "vulkan/runtime/vk_object.h"
 #include "vulkan/runtime/vk_shader_module.h"
-#include "vulkan/vulkan.h"
+#include "vulkan/vulkan_core.h"
 
 #include "aco_shader_info.h"
 
