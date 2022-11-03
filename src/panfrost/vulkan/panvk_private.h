@@ -83,7 +83,6 @@ typedef uint32_t xcb_visualid_t;
 typedef uint32_t xcb_window_t;
 
 #include <vulkan/vk_android_native_buffer.h>
-#include <vulkan/vk_icd.h>
 #include <vulkan/vulkan.h>
 
 #include "panvk_entrypoints.h"

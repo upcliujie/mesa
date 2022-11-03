@@ -53,7 +53,6 @@ typedef uint32_t xcb_window_t;
 
 #define VK_PROTOTYPES
 #include <vulkan/vulkan.h>
-#include <vulkan/vk_icd.h>
 
 #include "lvp_entrypoints.h"
 #include "vk_device.h"

@@ -37,6 +37,8 @@
 #include <sys/sysmacros.h>
 #endif
 
+#include <vulkan/vk_icd.h>
+
 #include "v3dv_private.h"
 
 #include "common/v3d_debug.h"

@@ -24,7 +24,6 @@
 #define VK_OBJECT_H
 
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vk_icd.h>
 
 #include "c11/threads.h"
 #include "util/macros.h"
@@ -40,7 +39,11 @@ struct vk_device;
 
 /** Base struct for all Vulkan objects */
 struct vk_object_base {
-   VK_LOADER_DATA _loader_data;
+   /* VK_LOADER_DATA of vulkan/vk_icd.h */
+   union {
+      uintptr_t loaderMagic;
+      void *loaderData;
+   } _loader_data;
 
    /** Type of this object
     *

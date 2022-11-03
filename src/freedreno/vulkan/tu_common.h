@@ -62,7 +62,6 @@
 #include "perfcntrs/freedreno_perfcntr.h"
 
 #include <vulkan/vk_android_native_buffer.h>
-#include <vulkan/vk_icd.h>
 #include <vulkan/vulkan.h>
 
 #include "tu_entrypoints.h"

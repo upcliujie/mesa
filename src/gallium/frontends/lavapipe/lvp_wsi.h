@@ -27,6 +27,7 @@
 
 struct lvp_swapchain;
 
+#if defined(VKICD_H)
 struct lvp_wsi_interface {
    VkResult (*get_support)(VkIcdSurfaceBase *surface,
                            struct lvp_physical_device *device,
@@ -49,6 +50,7 @@ struct lvp_wsi_interface {
                                 const VkAllocationCallbacks* pAllocator,
                                 struct lvp_swapchain **swapchain);
 };
+#endif
 
 struct lvp_swapchain {
    struct lvp_device *device;

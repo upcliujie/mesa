@@ -21,6 +21,8 @@
  * IN THE SOFTWARE.
  */
 
+#include <vulkan/vk_icd.h>
+
 #include "vk_object.h"
 
 #include "vk_alloc.h"

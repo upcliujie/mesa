@@ -21,14 +21,9 @@
  * IN THE SOFTWARE.
  */
 
-#include "wsi_common_private.h"
-#include "wsi_common_drm.h"
 #include "util/macros.h"
 #include "util/os_file.h"
 #include "util/xmlconfig.h"
-#include "vk_device.h"
-#include "vk_physical_device.h"
-#include "vk_util.h"
 #include "drm-uapi/drm_fourcc.h"
 #include "drm-uapi/dma-buf.h"
 
@@ -38,6 +33,27 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <xf86drm.h>
+
+#include <vulkan/vk_icd.h>
+
+#include "wsi_common_private.h"
+#include "wsi_common_drm.h"
+#include "vk_device.h"
+#include "vk_physical_device.h"
+#include "vk_util.h"
+
+struct dma_buf_export_sync_file_wsi {
+   __u32 flags;
+   __s32 fd;
+};
+
+struct dma_buf_import_sync_file_wsi {
+   __u32 flags;
+   __s32 fd;
+};
+
+#define DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI   _IOWR(DMA_BUF_BASE, 2, struct dma_buf_export_sync_file_wsi)
+#define DMA_BUF_IOCTL_IMPORT_SYNC_FILE_WSI   _IOW(DMA_BUF_BASE, 3, struct dma_buf_import_sync_file_wsi)
 
 static VkResult
 wsi_dma_buf_export_sync_file(int dma_buf_fd, int *sync_file_fd)

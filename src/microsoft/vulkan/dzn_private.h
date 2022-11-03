@@ -57,7 +57,6 @@
 #include "dzn_physical_device_enum.h"
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vk_icd.h>
 
 #define D3D12_IGNORE_SDK_LAYERS
 #include <unknwn.h>
