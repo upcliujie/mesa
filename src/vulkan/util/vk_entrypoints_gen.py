@@ -58,7 +58,7 @@ extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 % if gen_proto:
 % for e in instance_entrypoints:
   % if e.guard is not None:
-#ifdef ${e.guard}
+#if defined(VULKAN_H_) && defined(${e.guard})
   % endif
   % for p in physical_device_prefixes:
   VKAPI_ATTR ${e.return_type} VKAPI_CALL ${p}_${e.name}(${e.decl_params()});
@@ -70,7 +70,7 @@ extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 
 % for e in physical_device_entrypoints:
   % if e.guard is not None:
-#ifdef ${e.guard}
+#if defined(VULKAN_H_) && defined(${e.guard})
   % endif
   % for p in physical_device_prefixes:
   VKAPI_ATTR ${e.return_type} VKAPI_CALL ${p}_${e.name}(${e.decl_params()});
@@ -82,7 +82,7 @@ extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 
 % for e in device_entrypoints:
   % if e.guard is not None:
-#ifdef ${e.guard}
+#if defined(VULKAN_H_) && defined(${e.guard})
   % endif
   % for p in device_prefixes:
   VKAPI_ATTR ${e.return_type} VKAPI_CALL ${p}_${e.name}(${e.decl_params()});
@@ -103,6 +103,7 @@ extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 TEMPLATE_C = Template(COPYRIGHT + """
 /* This file generated from ${filename}, don't edit directly. */
 
+#include <vulkan/vulkan.h>
 #include "${header}"
 
 /* Weak aliases for all potential implementations. These will resolve to
@@ -151,7 +152,7 @@ const struct vk_${type}_entrypoint_table ${p}_${type}_entrypoints = {
     .${e.name} = ${p}_${e.name},
     % if e.guard is not None:
 #elif defined(_MSC_VER)
-    .${e.name} = (PFN_vkVoidFunction)vk_entrypoint_stub,
+    .${e.name} = (PFN_vk${e.name})vk_entrypoint_stub,
 #endif // ${e.guard}
     % endif
   % endfor
