@@ -3725,17 +3725,26 @@ void anv_fill_buffer_surface_state(struct anv_device *device,
  * color as a separate entry /after/ the float color.  The layout of this entry
  * also depends on the format's bpp (with extra hacks for RG32), and overlaps.
  *
- * Since we don't know the format/bpp, we can't make any of the border colors
- * containing '1' work for all formats, as it would be in the wrong place for
- * some of them.  We opt to make 32-bit integers work as this seems like the
- * most common option.  Fortunately, transparent black works regardless, as
- * all zeroes is the same in every bit-size.
+ * Since we don't know the format/bpp when not using a combined sampler, we
+ * can't make any of the border colors containing '1' work for all formats, as
+ * it would be in the wrong place for some of them. We opt to make 32-bit
+ * integers work as this seems like the most common option. Fortunately,
+ * transparent black works regardless, as all zeroes is the same in every
+ * bit-size.
  */
 struct hsw_border_color {
    float float32[4];
    uint32_t _pad0[12];
-   uint32_t uint32[4];
-   uint32_t _pad1[108];
+   union {
+      int32_t uint32[4];
+      struct {
+         int16_t uint16_a[2];
+         uint32_t _pad2;
+         int16_t uint16_b[2];
+      };
+      int8_t uint8[4];
+   };
+   uint32_t _pad3[108];
 };
 
 struct gfx8_border_color {
@@ -3746,6 +3755,8 @@ struct gfx8_border_color {
    /* Pad out to 64 bytes */
    uint32_t _pad[12];
 };
+
+uint32_t anv_vk_format_to_hsw_border_color_index(VkFormat format);
 
 struct anv_ycbcr_conversion {
    struct vk_object_base base;

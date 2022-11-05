@@ -425,7 +425,7 @@ VkResult genX(CreateSampler)(
 
    sampler->n_planes = 1;
 
-   uint32_t border_color_stride = GFX_VERx10 == 75 ? 512 : 64;
+   uint32_t border_color_stride = GFX_VERx10 == 75 ? 12 * 512 : 64;
    uint32_t border_color_offset;
    ASSERTED bool has_custom_color = false;
    if (pCreateInfo->borderColor <= VK_BORDER_COLOR_INT_OPAQUE_WHITE) {

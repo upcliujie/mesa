@@ -2401,6 +2401,14 @@ emit_samplers(struct anv_cmd_buffer *cmd_buffer,
 
       memcpy(state->map + (s * 16),
              sampler->state[binding->plane], sizeof(sampler->state[0]));
+#if GFX_VERx10 == 75
+      if (desc->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+         uint32_t border_color_offset = sampler->state[binding->plane][2] +
+            512 * anv_vk_format_to_hsw_border_color_index(desc->image_view->vk.format);
+         memcpy(state->map + (s * 16) + 8,
+                &border_color_offset, sizeof(border_color_offset));
+      }
+#endif
    }
 
    return VK_SUCCESS;
