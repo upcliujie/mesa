@@ -3756,6 +3756,8 @@ struct gfx8_border_color {
    uint32_t _pad[12];
 };
 
+void anv_color_to_hsw_border_colors(VkClearColorValue border_color,
+                                    struct hsw_border_color border_colors[12]);
 uint32_t anv_vk_format_to_hsw_border_color_index(VkFormat format);
 
 struct anv_ycbcr_conversion {

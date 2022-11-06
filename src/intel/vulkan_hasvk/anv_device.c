@@ -256,12 +256,12 @@ get_device_extensions(const struct anv_physical_device *device,
       .KHR_workgroup_memory_explicit_layout  = true,
       .KHR_zero_initialize_workgroup_memory  = true,
       .EXT_4444_formats                      = true,
-      .EXT_border_color_swizzle              = device->info.ver >= 8,
+      .EXT_border_color_swizzle              = device->info.verx10 >= 75,
       .EXT_buffer_device_address             = device->has_a64_buffer_access,
       .EXT_calibrated_timestamps             = device->has_reg_timestamp,
       .EXT_color_write_enable                = true,
       .EXT_conditional_rendering             = device->info.verx10 >= 75,
-      .EXT_custom_border_color               = device->info.ver >= 8,
+      .EXT_custom_border_color               = device->info.verx10 >= 75,
       .EXT_depth_clamp_zero_one              = true,
       .EXT_depth_clip_control                = true,
       .EXT_depth_clip_enable                 = true,
@@ -1330,8 +1330,8 @@ void anv_GetPhysicalDeviceFeatures2(
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT: {
          VkPhysicalDeviceCustomBorderColorFeaturesEXT *features =
             (VkPhysicalDeviceCustomBorderColorFeaturesEXT *)ext;
-         features->customBorderColors = pdevice->info.ver >= 8;
-         features->customBorderColorWithoutFormat = pdevice->info.ver >= 8;
+         features->customBorderColors = pdevice->info.verx10 >= 75;
+         features->customBorderColorWithoutFormat = pdevice->info.verx10 >= 75;
          break;
       }
 
@@ -1587,6 +1587,7 @@ void anv_GetPhysicalDeviceFeatures2(
 #define MAX_DESCRIPTOR_SET_INPUT_ATTACHMENTS       256
 
 #define MAX_CUSTOM_BORDER_COLORS                   4096
+#define HSW_MAX_CUSTOM_BORDER_COLORS               256
 
 void anv_GetPhysicalDeviceProperties(
     VkPhysicalDevice                            physicalDevice,
@@ -2059,7 +2060,9 @@ void anv_GetPhysicalDeviceProperties2(
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_PROPERTIES_EXT: {
          VkPhysicalDeviceCustomBorderColorPropertiesEXT *properties =
             (VkPhysicalDeviceCustomBorderColorPropertiesEXT *)ext;
-         properties->maxCustomBorderColorSamplers = MAX_CUSTOM_BORDER_COLORS;
+         properties->maxCustomBorderColorSamplers = pdevice->info.verx10 == 75 ?
+            HSW_MAX_CUSTOM_BORDER_COLORS :
+            MAX_CUSTOM_BORDER_COLORS;
          break;
       }
 
@@ -2538,8 +2541,8 @@ color_to_hsw_border_color(VkClearColorValue border_color, enum isl_format format
 /* Generate the full set of 12 Haswell border colors from a color value to
  * support all the needed formats.
  */
-static void
-color_to_hsw_border_colors(
+void
+anv_color_to_hsw_border_colors(
    VkClearColorValue border_color,
    struct hsw_border_color border_colors[12])
 {
@@ -2638,7 +2641,7 @@ anv_device_init_border_colors(struct anv_device *device)
 
       struct hsw_border_color hsw_border_colors[6][12];
       for (int i = 0; i < 6; ++i) {
-         color_to_hsw_border_colors(border_colors[i], hsw_border_colors[i]);
+         anv_color_to_hsw_border_colors(border_colors[i], hsw_border_colors[i]);
       }
 
       device->border_colors =
@@ -3035,7 +3038,12 @@ VkResult anv_CreateDevice(
    if (result != VK_SUCCESS)
       goto fail_general_state_pool;
 
-   if (device->info->ver >= 8) {
+   if (device->info->verx10 == 75) {
+      anv_state_reserved_pool_init(&device->custom_border_colors,
+                                   &device->dynamic_state_pool,
+                                   HSW_MAX_CUSTOM_BORDER_COLORS,
+                                   12 * sizeof(struct hsw_border_color), 512);
+   } else if (device->info->ver >= 8) {
       /* The border color pointer is limited to 24 bits, so we need to make
        * sure that any such color used at any point in the program doesn't
        * exceed that limit.
@@ -3164,7 +3172,7 @@ VkResult anv_CreateDevice(
  fail_instruction_state_pool:
    anv_state_pool_finish(&device->instruction_state_pool);
  fail_dynamic_state_pool:
-   if (device->info->ver >= 8)
+   if (device->info->verx10 >= 75)
       anv_state_reserved_pool_finish(&device->custom_border_colors);
    anv_state_pool_finish(&device->dynamic_state_pool);
  fail_general_state_pool:
@@ -3218,7 +3226,7 @@ void anv_DestroyDevice(
    /* We only need to free these to prevent valgrind errors.  The backing
     * BO will go away in a couple of lines so we don't actually leak.
     */
-   if (device->info->ver >= 8)
+   if (device->info->verx10 >= 75)
       anv_state_reserved_pool_finish(&device->custom_border_colors);
    anv_state_pool_free(&device->dynamic_state_pool, device->border_colors);
    anv_state_pool_free(&device->dynamic_state_pool, device->slice_hash);
