@@ -164,7 +164,7 @@ fs_live_variables::compute_live_variables()
 
          /* Update liveout */
          foreach_list_typed(bblock_link, child_link, link, &block->children) {
-       struct block_data *child_bd = &block_data[child_link->block->num];
+            struct block_data *child_bd = &block_data[child_link->block->num];
 
             for (int i = 0; i < bitset_words; i++) {
                BITSET_WORD new_liveout = (child_bd->livein[i] &
@@ -212,7 +212,7 @@ fs_live_variables::compute_live_variables()
          const struct block_data *bd = &block_data[block->num];
 
          foreach_list_typed(bblock_link, child_link, link, &block->children) {
-       struct block_data *child_bd = &block_data[child_link->block->num];
+            struct block_data *child_bd = &block_data[child_link->block->num];
 
             for (int i = 0; i < bitset_words; i++) {
                const BITSET_WORD new_def = bd->defout[i] & ~child_bd->defin[i];
