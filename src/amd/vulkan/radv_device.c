@@ -708,8 +708,9 @@ static void
 radv_physical_device_init_descriptor_sizes(struct radv_physical_device *pdevice)
 {
    struct radv_descriptor_sizes *desc_sizes = &pdevice->descriptor_sizes;
+   bool has_fmask = pdevice->rad_info.gfx_level < GFX11;
 
-   desc_sizes->sampled_image = 64;
+   desc_sizes->sampled_image = 32 + has_fmask ? 32 : 0;
 }
 
 static VkResult
