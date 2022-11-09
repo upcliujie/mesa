@@ -259,6 +259,10 @@ struct radv_binning_settings {
    unsigned fpovs_per_batch;           /* allowed range: [0, 255], 0 = unlimited */
 };
 
+struct radv_descriptor_sizes {
+   uint8_t sampled_image;
+};
+
 struct radv_physical_device {
    struct vk_physical_device vk;
 
@@ -338,6 +342,9 @@ struct radv_physical_device {
 
    uint32_t num_perfcounters;
    struct radv_perfcounter_desc *perfcounters;
+
+   /* Descriptor sizes. */
+   struct radv_descriptor_sizes descriptor_sizes;
 };
 
 struct radv_instance {

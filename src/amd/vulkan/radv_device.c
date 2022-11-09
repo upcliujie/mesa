@@ -704,6 +704,14 @@ radv_get_binning_settings(const struct radv_physical_device *pdevice,
       settings->context_states_per_bin = 1;
 }
 
+static void
+radv_physical_device_init_descriptor_sizes(struct radv_physical_device *pdevice)
+{
+   struct radv_descriptor_sizes *desc_sizes = &pdevice->descriptor_sizes;
+
+   desc_sizes->sampled_image = 64;
+}
+
 static VkResult
 radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm_device,
                                 struct radv_physical_device **device_out)
@@ -903,6 +911,8 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
           device->rad_info.gfx_level < GFX11)
          device->rt_wave_size = 32;
    }
+
+   radv_physical_device_init_descriptor_sizes(device);
 
    radv_physical_device_init_mem_types(device);
 
