@@ -222,9 +222,9 @@ static void clip_and_emit_line( struct brw_clip_compile *c )
              brw_MOV(p, c->reg.t1, c->reg.t);
              brw_inst_set_pred_control(p->devinfo, brw_last_inst,
                                        BRW_PREDICATE_NORMAL);
-	 }
-	 brw_ELSE(p);
-	 {
+         }
+         brw_ELSE(p);
+         {
              /* Coming back in.  We know that both cannot be negative
               * because the line would have been culled in that case.
               */
@@ -251,7 +251,7 @@ static void clip_and_emit_line( struct brw_clip_compile *c )
                  brw_ENDIF(p);
              }
          }
-	 brw_ENDIF(p);
+         brw_ENDIF(p);
       }
       brw_ENDIF(p);
 

@@ -70,14 +70,14 @@ vec4_live_variables::setup_def_use()
    foreach_block (block, cfg) {
       assert(ip == block->start_ip);
       if (block->num > 0)
-	 assert(cfg->blocks[block->num - 1]->end_ip == ip - 1);
+         assert(cfg->blocks[block->num - 1]->end_ip == ip - 1);
 
       foreach_inst_in_block(vec4_instruction, inst, block) {
          struct block_data *bd = &block_data[block->num];
 
          /* Set up the instruction uses. */
-	 for (unsigned int i = 0; i < 3; i++) {
-	    if (inst->src[i].file == VGRF) {
+         for (unsigned int i = 0; i < 3; i++) {
+            if (inst->src[i].file == VGRF) {
                for (unsigned j = 0; j < DIV_ROUND_UP(inst->size_read(i), 16); j++) {
                   for (int c = 0; c < 4; c++) {
                      const unsigned v = var_from_reg(alloc, inst->src[i], c, j);
@@ -89,8 +89,8 @@ vec4_live_variables::setup_def_use()
                         BITSET_SET(bd->use, v);
                   }
                }
-	    }
-	 }
+            }
+         }
          for (unsigned c = 0; c < 4; c++) {
             if (inst->reads_flag(c) &&
                 !BITSET_TEST(bd->flag_def, c)) {
@@ -128,7 +128,7 @@ vec4_live_variables::setup_def_use()
             }
          }
 
-	 ip++;
+         ip++;
       }
    }
 }
@@ -150,25 +150,25 @@ vec4_live_variables::compute_live_variables()
       foreach_block_reverse (block, cfg) {
          struct block_data *bd = &block_data[block->num];
 
-	 /* Update liveout */
-	 foreach_list_typed(bblock_link, child_link, link, &block->children) {
+         /* Update liveout */
+         foreach_list_typed(bblock_link, child_link, link, &block->children) {
        struct block_data *child_bd = &block_data[child_link->block->num];
 
-	    for (int i = 0; i < bitset_words; i++) {
+            for (int i = 0; i < bitset_words; i++) {
                BITSET_WORD new_liveout = (child_bd->livein[i] &
                                           ~bd->liveout[i]);
                if (new_liveout) {
                   bd->liveout[i] |= new_liveout;
-		  cont = true;
-	       }
-	    }
+                  cont = true;
+               }
+            }
             BITSET_WORD new_liveout = (child_bd->flag_livein[0] &
                                        ~bd->flag_liveout[0]);
             if (new_liveout) {
                bd->flag_liveout[0] |= new_liveout;
                cont = true;
             }
-	 }
+         }
 
          /* Update livein */
          for (int i = 0; i < bitset_words; i++) {

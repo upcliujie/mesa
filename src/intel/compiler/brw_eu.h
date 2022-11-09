@@ -211,28 +211,28 @@ void brw_set_dest(struct brw_codegen *p, brw_inst *insn, struct brw_reg dest);
 void brw_set_src0(struct brw_codegen *p, brw_inst *insn, struct brw_reg reg);
 
 void gfx6_resolve_implied_move(struct brw_codegen *p,
-			       struct brw_reg *src,
-			       unsigned msg_reg_nr);
+                               struct brw_reg *src,
+                               unsigned msg_reg_nr);
 
 /* Helpers for regular instructions:
  */
-#define ALU1(OP)				\
-brw_inst *brw_##OP(struct brw_codegen *p,	\
-	      struct brw_reg dest,		\
-	      struct brw_reg src0);
+#define ALU1(OP)                                 \
+brw_inst *brw_##OP(struct brw_codegen *p,        \
+              struct brw_reg dest,               \
+              struct brw_reg src0);
 
-#define ALU2(OP)				\
-brw_inst *brw_##OP(struct brw_codegen *p,	\
-	      struct brw_reg dest,		\
-	      struct brw_reg src0,		\
-	      struct brw_reg src1);
+#define ALU2(OP)                                 \
+brw_inst *brw_##OP(struct brw_codegen *p,        \
+              struct brw_reg dest,               \
+              struct brw_reg src0,               \
+              struct brw_reg src1);
 
-#define ALU3(OP)				\
-brw_inst *brw_##OP(struct brw_codegen *p,	\
-	      struct brw_reg dest,		\
-	      struct brw_reg src0,		\
-	      struct brw_reg src1,		\
-	      struct brw_reg src2);
+#define ALU3(OP)                                 \
+brw_inst *brw_##OP(struct brw_codegen *p,        \
+              struct brw_reg dest,               \
+              struct brw_reg src0,               \
+              struct brw_reg src1,               \
+              struct brw_reg src2);
 
 ALU1(MOV)
 ALU2(SEL)
@@ -1683,14 +1683,14 @@ brw_pixel_interp_desc(UNUSED const struct intel_device_info *devinfo,
 }
 
 void brw_urb_WRITE(struct brw_codegen *p,
-		   struct brw_reg dest,
-		   unsigned msg_reg_nr,
-		   struct brw_reg src0,
+                   struct brw_reg dest,
+                   unsigned msg_reg_nr,
+                   struct brw_reg src0,
                    enum brw_urb_write_flags flags,
-		   unsigned msg_length,
-		   unsigned response_length,
-		   unsigned offset,
-		   unsigned swizzle);
+                   unsigned msg_length,
+                   unsigned response_length,
+                   unsigned offset,
+                   unsigned swizzle);
 
 /**
  * Send message to shared unit \p sfid with a possibly indirect descriptor \p
@@ -1720,12 +1720,12 @@ brw_send_indirect_split_message(struct brw_codegen *p,
                                 bool eot);
 
 void brw_ff_sync(struct brw_codegen *p,
-		   struct brw_reg dest,
-		   unsigned msg_reg_nr,
-		   struct brw_reg src0,
-		   bool allocate,
-		   unsigned response_length,
-		   bool eot);
+                   struct brw_reg dest,
+                   unsigned msg_reg_nr,
+                   struct brw_reg src0,
+                   bool allocate,
+                   unsigned response_length,
+                   bool eot);
 
 void brw_svb_write(struct brw_codegen *p,
                    struct brw_reg dest,
@@ -1754,53 +1754,53 @@ brw_inst *gfx9_fb_READ(struct brw_codegen *p,
                        bool per_sample);
 
 void brw_SAMPLE(struct brw_codegen *p,
-		struct brw_reg dest,
-		unsigned msg_reg_nr,
-		struct brw_reg src0,
-		unsigned binding_table_index,
-		unsigned sampler,
-		unsigned msg_type,
-		unsigned response_length,
-		unsigned msg_length,
-		unsigned header_present,
-		unsigned simd_mode,
-		unsigned return_format);
+                struct brw_reg dest,
+                unsigned msg_reg_nr,
+                struct brw_reg src0,
+                unsigned binding_table_index,
+                unsigned sampler,
+                unsigned msg_type,
+                unsigned response_length,
+                unsigned msg_length,
+                unsigned header_present,
+                unsigned simd_mode,
+                unsigned return_format);
 
 void brw_adjust_sampler_state_pointer(struct brw_codegen *p,
                                       struct brw_reg header,
                                       struct brw_reg sampler_index);
 
 void gfx4_math(struct brw_codegen *p,
-	       struct brw_reg dest,
-	       unsigned function,
-	       unsigned msg_reg_nr,
-	       struct brw_reg src,
-	       unsigned precision );
+               struct brw_reg dest,
+               unsigned function,
+               unsigned msg_reg_nr,
+               struct brw_reg src,
+               unsigned precision );
 
 void gfx6_math(struct brw_codegen *p,
-	       struct brw_reg dest,
-	       unsigned function,
-	       struct brw_reg src0,
-	       struct brw_reg src1);
+               struct brw_reg dest,
+               unsigned function,
+               struct brw_reg src0,
+               struct brw_reg src1);
 
 void brw_oword_block_read(struct brw_codegen *p,
-			  struct brw_reg dest,
-			  struct brw_reg mrf,
-			  uint32_t offset,
-			  uint32_t bind_table_index);
+                          struct brw_reg dest,
+                          struct brw_reg mrf,
+                          uint32_t offset,
+                          uint32_t bind_table_index);
 
 unsigned brw_scratch_surface_idx(const struct brw_codegen *p);
 
 void brw_oword_block_read_scratch(struct brw_codegen *p,
-				  struct brw_reg dest,
-				  struct brw_reg mrf,
-				  int num_regs,
-				  unsigned offset);
+                                  struct brw_reg dest,
+                                  struct brw_reg mrf,
+                                  int num_regs,
+                                  unsigned offset);
 
 void brw_oword_block_write_scratch(struct brw_codegen *p,
-				   struct brw_reg mrf,
-				   int num_regs,
-				   unsigned offset);
+                                   struct brw_reg mrf,
+                                   int num_regs,
+                                   unsigned offset);
 
 void gfx7_block_read_scratch(struct brw_codegen *p,
                              struct brw_reg dest,
@@ -1870,10 +1870,10 @@ void brw_SYNC(struct brw_codegen *p, enum tgl_sync_function func);
  * taken from src0:
  */
 void brw_CMP(struct brw_codegen *p,
-	     struct brw_reg dest,
-	     unsigned conditional,
-	     struct brw_reg src0,
-	     struct brw_reg src1);
+             struct brw_reg dest,
+             unsigned conditional,
+             struct brw_reg src0,
+             struct brw_reg src1);
 
 void brw_CMPN(struct brw_codegen *p,
               struct brw_reg dest,
@@ -1963,28 +1963,28 @@ brw_num_sources_from_inst(const struct brw_isa_info *isa,
  */
 
 void brw_copy_indirect_to_indirect(struct brw_codegen *p,
-				   struct brw_indirect dst_ptr,
-				   struct brw_indirect src_ptr,
-				   unsigned count);
+                                   struct brw_indirect dst_ptr,
+                                   struct brw_indirect src_ptr,
+                                   unsigned count);
 
 void brw_copy_from_indirect(struct brw_codegen *p,
-			    struct brw_reg dst,
-			    struct brw_indirect ptr,
-			    unsigned count);
+                            struct brw_reg dst,
+                            struct brw_indirect ptr,
+                            unsigned count);
 
 void brw_copy4(struct brw_codegen *p,
-	       struct brw_reg dst,
-	       struct brw_reg src,
-	       unsigned count);
+               struct brw_reg dst,
+               struct brw_reg src,
+               unsigned count);
 
 void brw_copy8(struct brw_codegen *p,
-	       struct brw_reg dst,
-	       struct brw_reg src,
-	       unsigned count);
+               struct brw_reg dst,
+               struct brw_reg src,
+               unsigned count);
 
 void brw_math_invert( struct brw_codegen *p,
-		      struct brw_reg dst,
-		      struct brw_reg src);
+                      struct brw_reg dst,
+                      struct brw_reg src);
 
 void brw_set_src1(struct brw_codegen *p, brw_inst *insn, struct brw_reg reg);
 

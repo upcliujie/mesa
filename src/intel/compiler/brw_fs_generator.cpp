@@ -1064,36 +1064,36 @@ fs_generator::generate_tex(fs_inst *inst, struct brw_reg dst,
    if (devinfo->ver >= 5) {
       switch (inst->opcode) {
       case SHADER_OPCODE_TEX:
-	 if (inst->shadow_compare) {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_COMPARE;
-	 } else {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE;
-	 }
-	 break;
+         if (inst->shadow_compare) {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_COMPARE;
+         } else {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE;
+         }
+         break;
       case FS_OPCODE_TXB:
-	 if (inst->shadow_compare) {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_BIAS_COMPARE;
-	 } else {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_BIAS;
-	 }
-	 break;
+         if (inst->shadow_compare) {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_BIAS_COMPARE;
+         } else {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_BIAS;
+         }
+         break;
       case SHADER_OPCODE_TXL:
-	 if (inst->shadow_compare) {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD_COMPARE;
-	 } else {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD;
-	 }
-	 break;
+         if (inst->shadow_compare) {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD_COMPARE;
+         } else {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD;
+         }
+         break;
       case SHADER_OPCODE_TXS:
-	 msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_RESINFO;
-	 break;
+         msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_RESINFO;
+         break;
       case SHADER_OPCODE_TXD:
          assert(!inst->shadow_compare);
          msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_DERIVS;
-	 break;
+         break;
       case SHADER_OPCODE_TXF:
-	 msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LD;
-	 break;
+         msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LD;
+         break;
       case SHADER_OPCODE_TXF_CMS:
          msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LD;
          break;
@@ -1109,14 +1109,14 @@ fs_generator::generate_tex(fs_inst *inst, struct brw_reg dst,
          msg_type = GFX6_SAMPLER_MESSAGE_SAMPLE_SAMPLEINFO;
          break;
       default:
-	 unreachable("not reached");
+         unreachable("not reached");
       }
    } else {
       switch (inst->opcode) {
       case SHADER_OPCODE_TEX:
-	 /* Note that G45 and older determines shadow compare and dispatch width
-	  * from message length for most messages.
-	  */
+         /* Note that G45 and older determines shadow compare and dispatch width
+          * from message length for most messages.
+          */
          if (inst->exec_size == 8) {
             msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE;
             if (inst->shadow_compare) {
@@ -1133,47 +1133,47 @@ fs_generator::generate_tex(fs_inst *inst, struct brw_reg dst,
                assert(inst->mlen <= 7 && inst->mlen % 2 == 1);
             }
          }
-	 break;
+         break;
       case FS_OPCODE_TXB:
-	 if (inst->shadow_compare) {
+         if (inst->shadow_compare) {
             assert(inst->exec_size == 8);
-	    assert(inst->mlen == 6);
-	    msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_BIAS_COMPARE;
-	 } else {
-	    assert(inst->mlen == 9);
-	    msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_BIAS;
-	    simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
-	 }
-	 break;
+            assert(inst->mlen == 6);
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_BIAS_COMPARE;
+         } else {
+            assert(inst->mlen == 9);
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_BIAS;
+            simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
+         }
+         break;
       case SHADER_OPCODE_TXL:
-	 if (inst->shadow_compare) {
+         if (inst->shadow_compare) {
             assert(inst->exec_size == 8);
-	    assert(inst->mlen == 6);
-	    msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_LOD_COMPARE;
-	 } else {
-	    assert(inst->mlen == 9);
-	    msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_LOD;
-	    simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
-	 }
-	 break;
+            assert(inst->mlen == 6);
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_LOD_COMPARE;
+         } else {
+            assert(inst->mlen == 9);
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_LOD;
+            simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
+         }
+         break;
       case SHADER_OPCODE_TXD:
-	 /* There is no sample_d_c message; comparisons are done manually */
+         /* There is no sample_d_c message; comparisons are done manually */
          assert(inst->exec_size == 8);
-	 assert(inst->mlen == 7 || inst->mlen == 10);
-	 msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_GRADIENTS;
-	 break;
+         assert(inst->mlen == 7 || inst->mlen == 10);
+         msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_GRADIENTS;
+         break;
       case SHADER_OPCODE_TXF:
          assert(inst->mlen <= 9 && inst->mlen % 2 == 1);
-	 msg_type = BRW_SAMPLER_MESSAGE_SIMD16_LD;
-	 simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
-	 break;
+         msg_type = BRW_SAMPLER_MESSAGE_SIMD16_LD;
+         simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
+         break;
       case SHADER_OPCODE_TXS:
-	 assert(inst->mlen == 3);
-	 msg_type = BRW_SAMPLER_MESSAGE_SIMD16_RESINFO;
-	 simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
-	 break;
+         assert(inst->mlen == 3);
+         msg_type = BRW_SAMPLER_MESSAGE_SIMD16_RESINFO;
+         simd_mode = BRW_SAMPLER_SIMD_MODE_SIMD16;
+         break;
       default:
-	 unreachable("not reached");
+         unreachable("not reached");
       }
    }
    assert(msg_type != -1);
@@ -1542,15 +1542,15 @@ fs_generator::generate_uniform_pull_constant_load(fs_inst *inst,
    assert(inst->mlen != 0);
 
    assert(index.file == BRW_IMMEDIATE_VALUE &&
-	  index.type == BRW_REGISTER_TYPE_UD);
+          index.type == BRW_REGISTER_TYPE_UD);
    uint32_t surf_index = index.ud;
 
    assert(offset.file == BRW_IMMEDIATE_VALUE &&
-	  offset.type == BRW_REGISTER_TYPE_UD);
+          offset.type == BRW_REGISTER_TYPE_UD);
    uint32_t read_offset = offset.ud;
 
    brw_oword_block_read(p, dst, brw_message_reg(inst->base_mrf),
-			read_offset, surf_index);
+                        read_offset, surf_index);
 }
 
 void
@@ -1563,7 +1563,7 @@ fs_generator::generate_varying_pull_constant_load_gfx4(fs_inst *inst,
    assert(inst->mlen);
 
    assert(index.file == BRW_IMMEDIATE_VALUE &&
-	  index.type == BRW_REGISTER_TYPE_UD);
+          index.type == BRW_REGISTER_TYPE_UD);
    uint32_t surf_index = index.ud;
 
    uint32_t simd_mode, rlen, msg_type;
@@ -1835,15 +1835,15 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
       for (unsigned int i = 0; i < inst->sources; i++) {
          src[i] = brw_reg_from_fs_reg(devinfo, inst,
                                       &inst->src[i], compressed);
-	 /* The accumulator result appears to get used for the
-	  * conditional modifier generation.  When negating a UD
-	  * value, there is a 33rd bit generated for the sign in the
-	  * accumulator value, so now you can't check, for example,
-	  * equality with a 32-bit value.  See piglit fs-op-neg-uvec4.
-	  */
-	 assert(!inst->conditional_mod ||
-		inst->src[i].type != BRW_REGISTER_TYPE_UD ||
-		!inst->src[i].negate);
+         /* The accumulator result appears to get used for the
+          * conditional modifier generation.  When negating a UD
+          * value, there is a 33rd bit generated for the sign in the
+          * accumulator value, so now you can't check, for example,
+          * equality with a 32-bit value.  See piglit fs-op-neg-uvec4.
+          */
+         assert(!inst->conditional_mod ||
+                inst->src[i].type != BRW_REGISTER_TYPE_UD ||
+                !inst->src[i].negate);
       }
       dst = brw_reg_from_fs_reg(devinfo, inst,
                                 &inst->dst, compressed);
@@ -1882,20 +1882,20 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          brw_SYNC(p, tgl_sync_function(src[0].ud));
          break;
       case BRW_OPCODE_MOV:
-	 brw_MOV(p, dst, src[0]);
-	 break;
+         brw_MOV(p, dst, src[0]);
+         break;
       case BRW_OPCODE_ADD:
-	 brw_ADD(p, dst, src[0], src[1]);
-	 break;
+         brw_ADD(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_MUL:
-	 brw_MUL(p, dst, src[0], src[1]);
-	 break;
+         brw_MUL(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_AVG:
-	 brw_AVG(p, dst, src[0], src[1]);
-	 break;
+         brw_AVG(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_MACH:
-	 brw_MACH(p, dst, src[0], src[1]);
-	 break;
+         brw_MACH(p, dst, src[0], src[1]);
+         break;
 
       case BRW_OPCODE_DP4A:
          assert(devinfo->ver >= 12);
@@ -1911,14 +1911,14 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          if (devinfo->ver < 10)
             brw_set_default_access_mode(p, BRW_ALIGN_16);
          brw_MAD(p, dst, src[0], src[1], src[2]);
-	 break;
+         break;
 
       case BRW_OPCODE_LRP:
          assert(devinfo->ver >= 6 && devinfo->ver <= 10);
          if (devinfo->ver < 10)
             brw_set_default_access_mode(p, BRW_ALIGN_16);
          brw_LRP(p, dst, src[0], src[1], src[2]);
-	 break;
+         break;
 
       case BRW_OPCODE_ADD3:
          assert(devinfo->verx10 >= 125);
@@ -1926,49 +1926,49 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          break;
 
       case BRW_OPCODE_FRC:
-	 brw_FRC(p, dst, src[0]);
-	 break;
+         brw_FRC(p, dst, src[0]);
+         break;
       case BRW_OPCODE_RNDD:
-	 brw_RNDD(p, dst, src[0]);
-	 break;
+         brw_RNDD(p, dst, src[0]);
+         break;
       case BRW_OPCODE_RNDE:
-	 brw_RNDE(p, dst, src[0]);
-	 break;
+         brw_RNDE(p, dst, src[0]);
+         break;
       case BRW_OPCODE_RNDZ:
-	 brw_RNDZ(p, dst, src[0]);
-	 break;
+         brw_RNDZ(p, dst, src[0]);
+         break;
 
       case BRW_OPCODE_AND:
-	 brw_AND(p, dst, src[0], src[1]);
-	 break;
+         brw_AND(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_OR:
-	 brw_OR(p, dst, src[0], src[1]);
-	 break;
+         brw_OR(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_XOR:
-	 brw_XOR(p, dst, src[0], src[1]);
-	 break;
+         brw_XOR(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_NOT:
-	 brw_NOT(p, dst, src[0]);
-	 break;
+         brw_NOT(p, dst, src[0]);
+         break;
       case BRW_OPCODE_ASR:
-	 brw_ASR(p, dst, src[0], src[1]);
-	 break;
+         brw_ASR(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_SHR:
-	 brw_SHR(p, dst, src[0], src[1]);
-	 break;
+         brw_SHR(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_SHL:
-	 brw_SHL(p, dst, src[0], src[1]);
-	 break;
+         brw_SHL(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_ROL:
-	 assert(devinfo->ver >= 11);
-	 assert(src[0].type == dst.type);
-	 brw_ROL(p, dst, src[0], src[1]);
-	 break;
+         assert(devinfo->ver >= 11);
+         assert(src[0].type == dst.type);
+         brw_ROL(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_ROR:
-	 assert(devinfo->ver >= 11);
-	 assert(src[0].type == dst.type);
-	 brw_ROR(p, dst, src[0], src[1]);
-	 break;
+         assert(devinfo->ver >= 11);
+         assert(src[0].type == dst.type);
+         brw_ROR(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_F32TO16:
          assert(devinfo->ver >= 7);
          brw_F32TO16(p, dst, src[0]);
@@ -1988,7 +1988,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
             dst.type = BRW_REGISTER_TYPE_D;
          }
          brw_CMP(p, dst, inst->conditional_mod, src[0], src[1]);
-	 break;
+         break;
       case BRW_OPCODE_CMPN:
          if (inst->exec_size >= 16 && devinfo->verx10 == 70 &&
              dst.file == BRW_ARCHITECTURE_REGISTER_FILE) {
@@ -2002,8 +2002,8 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          brw_CMPN(p, dst, inst->conditional_mod, src[0], src[1]);
          break;
       case BRW_OPCODE_SEL:
-	 brw_SEL(p, dst, src[0], src[1]);
-	 break;
+         brw_SEL(p, dst, src[0], src[1]);
+         break;
       case BRW_OPCODE_CSEL:
          assert(devinfo->ver >= 8);
          if (devinfo->ver < 10)
@@ -2063,37 +2063,37 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          break;
 
       case BRW_OPCODE_IF:
-	 if (inst->src[0].file != BAD_FILE) {
-	    /* The instruction has an embedded compare (only allowed on gfx6) */
-	    assert(devinfo->ver == 6);
-	    gfx6_IF(p, inst->conditional_mod, src[0], src[1]);
-	 } else {
-	    brw_IF(p, brw_get_default_exec_size(p));
-	 }
-	 break;
+         if (inst->src[0].file != BAD_FILE) {
+            /* The instruction has an embedded compare (only allowed on gfx6) */
+            assert(devinfo->ver == 6);
+            gfx6_IF(p, inst->conditional_mod, src[0], src[1]);
+         } else {
+            brw_IF(p, brw_get_default_exec_size(p));
+         }
+         break;
 
       case BRW_OPCODE_ELSE:
-	 brw_ELSE(p);
-	 break;
+         brw_ELSE(p);
+         break;
       case BRW_OPCODE_ENDIF:
-	 brw_ENDIF(p);
-	 break;
+         brw_ENDIF(p);
+         break;
 
       case BRW_OPCODE_DO:
-	 brw_DO(p, brw_get_default_exec_size(p));
-	 break;
+         brw_DO(p, brw_get_default_exec_size(p));
+         break;
 
       case BRW_OPCODE_BREAK:
-	 brw_BREAK(p);
-	 break;
+         brw_BREAK(p);
+         break;
       case BRW_OPCODE_CONTINUE:
          brw_CONT(p);
-	 break;
+         break;
 
       case BRW_OPCODE_WHILE:
-	 brw_WHILE(p);
+         brw_WHILE(p);
          loop_count++;
-	 break;
+         break;
 
       case SHADER_OPCODE_RCP:
       case SHADER_OPCODE_RSQ:
@@ -2103,12 +2103,12 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
       case SHADER_OPCODE_SIN:
       case SHADER_OPCODE_COS:
          assert(inst->conditional_mod == BRW_CONDITIONAL_NONE);
-	 if (devinfo->ver >= 6) {
+         if (devinfo->ver >= 6) {
             assert(inst->mlen == 0);
             assert(devinfo->ver >= 7 || inst->exec_size == 8);
             gfx6_math(p, dst, brw_math_function(inst->opcode),
                       src[0], brw_null_reg());
-	 } else {
+         } else {
             assert(inst->mlen >= 1);
             assert(devinfo->ver == 5 || devinfo->platform == INTEL_PLATFORM_G4X || inst->exec_size == 8);
             gfx4_math(p, dst,
@@ -2116,8 +2116,8 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
                       inst->base_mrf, src[0],
                       BRW_MATH_PRECISION_FULL);
             send_count++;
-	 }
-	 break;
+         }
+         break;
       case SHADER_OPCODE_INT_QUOTIENT:
       case SHADER_OPCODE_INT_REMAINDER:
       case SHADER_OPCODE_POW:
@@ -2135,11 +2135,11 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
                       inst->base_mrf, src[0],
                       BRW_MATH_PRECISION_FULL);
             send_count++;
-	 }
-	 break;
+         }
+         break;
       case FS_OPCODE_LINTERP:
-	 multiple_instructions_emitted = generate_linterp(inst, dst, src);
-	 break;
+         multiple_instructions_emitted = generate_linterp(inst, dst, src);
+         break;
       case FS_OPCODE_PIXEL_X:
          assert(src[0].type == BRW_REGISTER_TYPE_UW);
          assert(src[1].type == BRW_REGISTER_TYPE_UW);
@@ -2197,22 +2197,22 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
       case FS_OPCODE_DDY_COARSE:
       case FS_OPCODE_DDY_FINE:
          generate_ddy(inst, dst, src[0]);
-	 break;
+         break;
 
       case SHADER_OPCODE_GFX4_SCRATCH_WRITE:
-	 generate_scratch_write(inst, src[0]);
+         generate_scratch_write(inst, src[0]);
          send_count++;
-	 break;
+         break;
 
       case SHADER_OPCODE_GFX4_SCRATCH_READ:
-	 generate_scratch_read(inst, dst);
+         generate_scratch_read(inst, dst);
          send_count++;
-	 break;
+         break;
 
       case SHADER_OPCODE_GFX7_SCRATCH_READ:
-	 generate_scratch_read_gfx7(inst, dst);
+         generate_scratch_read_gfx7(inst, dst);
          send_count++;
-	 break;
+         break;
 
       case SHADER_OPCODE_SCRATCH_HEADER:
          generate_scratch_header(inst, dst);
@@ -2229,20 +2229,20 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
 
       case FS_OPCODE_UNIFORM_PULL_CONSTANT_LOAD:
          assert(inst->force_writemask_all);
-	 generate_uniform_pull_constant_load(inst, dst, src[0], src[1]);
+         generate_uniform_pull_constant_load(inst, dst, src[0], src[1]);
          send_count++;
-	 break;
+         break;
 
       case FS_OPCODE_VARYING_PULL_CONSTANT_LOAD_GFX4:
-	 generate_varying_pull_constant_load_gfx4(inst, dst, src[0]);
+         generate_varying_pull_constant_load_gfx4(inst, dst, src[0]);
          send_count++;
-	 break;
+         break;
 
       case FS_OPCODE_REP_FB_WRITE:
       case FS_OPCODE_FB_WRITE:
-	 generate_fb_write(inst, src[0]);
+         generate_fb_write(inst, src[0]);
          send_count++;
-	 break;
+         break;
 
       case FS_OPCODE_FB_READ:
          generate_fb_read(inst, dst, src[0]);
@@ -2413,9 +2413,9 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          break;
 
       case SHADER_OPCODE_BARRIER:
-	 generate_barrier(inst, src[0]);
+         generate_barrier(inst, src[0]);
          send_count++;
-	 break;
+         break;
 
       case BRW_OPCODE_DIM:
          assert(devinfo->platform == INTEL_PLATFORM_HSW);

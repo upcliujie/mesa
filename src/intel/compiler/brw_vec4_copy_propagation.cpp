@@ -44,12 +44,12 @@ static bool
 is_direct_copy(vec4_instruction *inst)
 {
    return (inst->opcode == BRW_OPCODE_MOV &&
-	   !inst->predicate &&
-	   inst->dst.file == VGRF &&
-	   inst->dst.offset % REG_SIZE == 0 &&
-	   !inst->dst.reladdr &&
-	   !inst->src[0].reladdr &&
-	   (inst->dst.type == inst->src[0].type ||
+           !inst->predicate &&
+           inst->dst.file == VGRF &&
+           inst->dst.offset % REG_SIZE == 0 &&
+           !inst->dst.reladdr &&
+           !inst->src[0].reladdr &&
+           (inst->dst.type == inst->src[0].type ||
             (inst->dst.type == BRW_REGISTER_TYPE_F &&
              inst->src[0].type == BRW_REGISTER_TYPE_VF)));
 }
@@ -58,9 +58,9 @@ static bool
 is_dominated_by_previous_instruction(vec4_instruction *inst)
 {
    return (inst->opcode != BRW_OPCODE_DO &&
-	   inst->opcode != BRW_OPCODE_WHILE &&
-	   inst->opcode != BRW_OPCODE_ELSE &&
-	   inst->opcode != BRW_OPCODE_ENDIF);
+           inst->opcode != BRW_OPCODE_WHILE &&
+           inst->opcode != BRW_OPCODE_ELSE &&
+           inst->opcode != BRW_OPCODE_ENDIF);
 }
 
 static bool
@@ -211,20 +211,20 @@ try_constant_propagate(vec4_instruction *inst,
    case BRW_OPCODE_XOR:
    case BRW_OPCODE_ADDC:
       if (arg == 1) {
-	 inst->src[arg] = value;
-	 return true;
+         inst->src[arg] = value;
+         return true;
       } else if (arg == 0 && inst->src[1].file != IMM) {
-	 /* Fit this constant in by commuting the operands.  Exception: we
-	  * can't do this for 32-bit integer MUL/MACH because it's asymmetric.
-	  */
-	 if ((inst->opcode == BRW_OPCODE_MUL ||
+         /* Fit this constant in by commuting the operands.  Exception: we
+          * can't do this for 32-bit integer MUL/MACH because it's asymmetric.
+          */
+         if ((inst->opcode == BRW_OPCODE_MUL ||
               inst->opcode == BRW_OPCODE_MACH) &&
-	     (inst->src[1].type == BRW_REGISTER_TYPE_D ||
-	      inst->src[1].type == BRW_REGISTER_TYPE_UD))
-	    break;
-	 inst->src[0] = inst->src[1];
-	 inst->src[1] = value;
-	 return true;
+             (inst->src[1].type == BRW_REGISTER_TYPE_D ||
+              inst->src[1].type == BRW_REGISTER_TYPE_UD))
+            break;
+         inst->src[0] = inst->src[1];
+         inst->src[1] = value;
+         return true;
       }
       break;
    case GS_OPCODE_SET_WRITE_OFFSET:
@@ -237,39 +237,39 @@ try_constant_propagate(vec4_instruction *inst,
 
    case BRW_OPCODE_CMP:
       if (arg == 1) {
-	 inst->src[arg] = value;
-	 return true;
+         inst->src[arg] = value;
+         return true;
       } else if (arg == 0 && inst->src[1].file != IMM) {
-	 enum brw_conditional_mod new_cmod;
+         enum brw_conditional_mod new_cmod;
 
-	 new_cmod = brw_swap_cmod(inst->conditional_mod);
-	 if (new_cmod != BRW_CONDITIONAL_NONE) {
-	    /* Fit this constant in by swapping the operands and
-	     * flipping the test.
-	     */
-	    inst->src[0] = inst->src[1];
-	    inst->src[1] = value;
-	    inst->conditional_mod = new_cmod;
-	    return true;
-	 }
+         new_cmod = brw_swap_cmod(inst->conditional_mod);
+         if (new_cmod != BRW_CONDITIONAL_NONE) {
+            /* Fit this constant in by swapping the operands and
+             * flipping the test.
+             */
+            inst->src[0] = inst->src[1];
+            inst->src[1] = value;
+            inst->conditional_mod = new_cmod;
+            return true;
+         }
       }
       break;
 
    case BRW_OPCODE_SEL:
       if (arg == 1) {
-	 inst->src[arg] = value;
-	 return true;
+         inst->src[arg] = value;
+         return true;
       } else if (arg == 0 && inst->src[1].file != IMM) {
-	 inst->src[0] = inst->src[1];
-	 inst->src[1] = value;
+         inst->src[0] = inst->src[1];
+         inst->src[1] = value;
 
-	 /* If this was predicated, flipping operands means
-	  * we also need to flip the predicate.
-	  */
-	 if (inst->conditional_mod == BRW_CONDITIONAL_NONE) {
-	    inst->predicate_inverse = !inst->predicate_inverse;
-	 }
-	 return true;
+         /* If this was predicated, flipping operands means
+          * we also need to flip the predicate.
+          */
+         if (inst->conditional_mod == BRW_CONDITIONAL_NONE) {
+            inst->predicate_inverse = !inst->predicate_inverse;
+         }
+         return true;
       }
       break;
 
@@ -478,8 +478,8 @@ vec4_visitor::opt_copy_propagation(bool do_constant_prop)
        * src/glsl/opt_copy_propagation.cpp to track available copies.
        */
       if (!is_dominated_by_previous_instruction(inst)) {
-	 memset(&entries, 0, sizeof(entries));
-	 continue;
+         memset(&entries, 0, sizeof(entries));
+         continue;
       }
 
       /* For each source arg, see if each component comes from a copy
@@ -487,12 +487,12 @@ vec4_visitor::opt_copy_propagation(bool do_constant_prop)
        * optimizing out access to the copy result
        */
       for (int i = 2; i >= 0; i--) {
-	 /* Copied values end up in GRFs, and we don't track reladdr
-	  * accesses.
-	  */
-	 if (inst->src[i].file != VGRF ||
-	     inst->src[i].reladdr)
-	    continue;
+         /* Copied values end up in GRFs, and we don't track reladdr
+          * accesses.
+          */
+         if (inst->src[i].file != VGRF ||
+             inst->src[i].reladdr)
+            continue;
 
          /* We only handle register-aligned single GRF copies. */
          if (inst->size_read(i) != REG_SIZE ||
@@ -506,43 +506,43 @@ vec4_visitor::opt_copy_propagation(bool do_constant_prop)
          if (do_constant_prop && try_constant_propagate(inst, i, &entry))
             progress = true;
          else if (try_copy_propagate(compiler, inst, i, &entry, attributes_per_reg))
-	    progress = true;
+            progress = true;
       }
 
       /* Track available source registers. */
       if (inst->dst.file == VGRF) {
-	 const int reg =
+         const int reg =
             alloc.offsets[inst->dst.nr] + inst->dst.offset / REG_SIZE;
 
-	 /* Update our destination's current channel values.  For a direct copy,
-	  * the value is the newly propagated source.  Otherwise, we don't know
-	  * the new value, so clear it.
-	  */
-	 bool direct_copy = is_direct_copy(inst);
+         /* Update our destination's current channel values.  For a direct copy,
+          * the value is the newly propagated source.  Otherwise, we don't know
+          * the new value, so clear it.
+          */
+         bool direct_copy = is_direct_copy(inst);
          entries[reg].saturatemask &= ~inst->dst.writemask;
-	 for (int i = 0; i < 4; i++) {
-	    if (inst->dst.writemask & (1 << i)) {
+         for (int i = 0; i < 4; i++) {
+            if (inst->dst.writemask & (1 << i)) {
                entries[reg].value[i] = direct_copy ? &inst->src[0] : NULL;
                entries[reg].saturatemask |=
                   inst->saturate && direct_copy ? 1 << i : 0;
             }
-	 }
+         }
 
-	 /* Clear the records for any registers whose current value came from
-	  * our destination's updated channels, as the two are no longer equal.
-	  */
-	 if (inst->dst.reladdr)
-	    memset(&entries, 0, sizeof(entries));
-	 else {
-	    for (unsigned i = 0; i < alloc.total_size; i++) {
-	       for (int j = 0; j < 4; j++) {
-		  if (is_channel_updated(inst, entries[i].value, j)) {
-		     entries[i].value[j] = NULL;
-		     entries[i].saturatemask &= ~(1 << j);
+         /* Clear the records for any registers whose current value came from
+          * our destination's updated channels, as the two are no longer equal.
+          */
+         if (inst->dst.reladdr)
+            memset(&entries, 0, sizeof(entries));
+         else {
+            for (unsigned i = 0; i < alloc.total_size; i++) {
+               for (int j = 0; j < 4; j++) {
+                  if (is_channel_updated(inst, entries[i].value, j)) {
+                     entries[i].value[j] = NULL;
+                     entries[i].saturatemask &= ~(1 << j);
                   }
-	       }
-	    }
-	 }
+               }
+            }
+         }
       }
    }
 

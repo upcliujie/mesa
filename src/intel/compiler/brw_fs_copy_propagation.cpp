@@ -1081,7 +1081,7 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
                                    inst->dst, inst->size_written))
                   entry->remove();
             }
-	 }
+         }
       }
 
       /* If this instruction's source could potentially be folded into the

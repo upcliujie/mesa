@@ -70,7 +70,7 @@ public:
                 const struct brw_sampler_prog_key_data *key,
                 struct brw_vue_prog_data *prog_data,
                 const nir_shader *shader,
-		void *mem_ctx,
+                void *mem_ctx,
                 bool no_spills,
                 bool debug_enabled);
 
@@ -173,7 +173,7 @@ public:
 
    vec4_instruction *emit_before(bblock_t *block,
                                  vec4_instruction *inst,
-				 vec4_instruction *new_inst);
+                                 vec4_instruction *new_inst);
 
 #define EMIT1(op) vec4_instruction *op(const dst_reg &, const src_reg &);
 #define EMIT2(op) vec4_instruction *op(const dst_reg &, const src_reg &, const src_reg &);
@@ -200,7 +200,7 @@ public:
    EMIT2(SHR)
    EMIT2(ASR)
    vec4_instruction *CMP(dst_reg dst, src_reg src0, src_reg src1,
-			 enum brw_conditional_mod condition);
+                         enum brw_conditional_mod condition);
    vec4_instruction *IF(src_reg src0, src_reg src1,
                         enum brw_conditional_mod condition);
    vec4_instruction *IF(enum brw_predicate predicate);
@@ -258,13 +258,13 @@ public:
    virtual void emit_urb_slot(dst_reg reg, int varying);
 
    src_reg get_scratch_offset(bblock_t *block, vec4_instruction *inst,
-			      src_reg *reladdr, int reg_offset);
+                              src_reg *reladdr, int reg_offset);
    void emit_scratch_read(bblock_t *block, vec4_instruction *inst,
-			  dst_reg dst,
-			  src_reg orig_src,
-			  int base_offset);
+                          dst_reg dst,
+                          src_reg orig_src,
+                          int base_offset);
    void emit_scratch_write(bblock_t *block, vec4_instruction *inst,
-			   int base_offset);
+                           int base_offset);
    void emit_pull_constant_load_reg(dst_reg dst,
                                     src_reg surf_index,
                                     src_reg offset,

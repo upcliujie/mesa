@@ -118,41 +118,41 @@ vec4_visitor::emit(enum opcode opcode)
    return emit(new(mem_ctx) vec4_instruction(opcode, dst_reg()));
 }
 
-#define ALU1(op)							\
-   vec4_instruction *							\
-   vec4_visitor::op(const dst_reg &dst, const src_reg &src0)		\
-   {									\
+#define ALU1(op)                                                        \
+   vec4_instruction *                                                   \
+   vec4_visitor::op(const dst_reg &dst, const src_reg &src0)            \
+   {                                                                    \
       return new(mem_ctx) vec4_instruction(BRW_OPCODE_##op, dst, src0); \
    }
 
-#define ALU2(op)							\
-   vec4_instruction *							\
-   vec4_visitor::op(const dst_reg &dst, const src_reg &src0,		\
-                    const src_reg &src1)				\
-   {									\
+#define ALU2(op)                                                        \
+   vec4_instruction *                                                   \
+   vec4_visitor::op(const dst_reg &dst, const src_reg &src0,            \
+                    const src_reg &src1)                                \
+   {                                                                    \
       return new(mem_ctx) vec4_instruction(BRW_OPCODE_##op, dst,        \
                                            src0, src1);                 \
    }
 
-#define ALU2_ACC(op)							\
-   vec4_instruction *							\
-   vec4_visitor::op(const dst_reg &dst, const src_reg &src0,		\
-                    const src_reg &src1)				\
-   {									\
+#define ALU2_ACC(op)                                                    \
+   vec4_instruction *                                                   \
+   vec4_visitor::op(const dst_reg &dst, const src_reg &src0,            \
+                    const src_reg &src1)                                \
+   {                                                                    \
       vec4_instruction *inst = new(mem_ctx) vec4_instruction(           \
-                       BRW_OPCODE_##op, dst, src0, src1);		\
+                       BRW_OPCODE_##op, dst, src0, src1);               \
       inst->writes_accumulator = true;                                  \
       return inst;                                                      \
    }
 
-#define ALU3(op)							\
-   vec4_instruction *							\
-   vec4_visitor::op(const dst_reg &dst, const src_reg &src0,		\
-                    const src_reg &src1, const src_reg &src2)		\
-   {									\
-      assert(devinfo->ver >= 6);						\
-      return new(mem_ctx) vec4_instruction(BRW_OPCODE_##op, dst,	\
-					   src0, src1, src2);		\
+#define ALU3(op)                                                        \
+   vec4_instruction *                                                   \
+   vec4_visitor::op(const dst_reg &dst, const src_reg &src0,            \
+                    const src_reg &src1, const src_reg &src2)           \
+   {                                                                    \
+      assert(devinfo->ver >= 6);                                        \
+      return new(mem_ctx) vec4_instruction(BRW_OPCODE_##op, dst,        \
+                                           src0, src1, src2);           \
    }
 
 ALU1(NOT)
@@ -214,7 +214,7 @@ vec4_visitor::IF(src_reg src0, src_reg src1,
    resolve_ud_negate(&src1);
 
    inst = new(mem_ctx) vec4_instruction(BRW_OPCODE_IF, dst_null_d(),
-					src0, src1);
+                                        src0, src1);
    inst->conditional_mod = condition;
 
    return inst;
@@ -258,7 +258,7 @@ vec4_visitor::SCRATCH_READ(const dst_reg &dst, const src_reg &index)
    vec4_instruction *inst;
 
    inst = new(mem_ctx) vec4_instruction(SHADER_OPCODE_GFX4_SCRATCH_READ,
-					dst, index);
+                                        dst, index);
    inst->base_mrf = FIRST_SPILL_MRF(devinfo->ver) + 1;
    inst->mlen = 2;
 
@@ -272,7 +272,7 @@ vec4_visitor::SCRATCH_WRITE(const dst_reg &dst, const src_reg &src,
    vec4_instruction *inst;
 
    inst = new(mem_ctx) vec4_instruction(SHADER_OPCODE_GFX4_SCRATCH_WRITE,
-					dst, src, index);
+                                        dst, src, index);
    inst->base_mrf = FIRST_SPILL_MRF(devinfo->ver);
    inst->mlen = 3;
 
@@ -602,7 +602,7 @@ type_size_xvec4(const struct glsl_type *type, bool as_vec4, bool bindless)
    case GLSL_TYPE_INTERFACE:
       size = 0;
       for (i = 0; i < type->length; i++) {
-	 size += type_size_xvec4(type->fields.structure[i].type, as_vec4,
+         size += type_size_xvec4(type->fields.structure[i].type, as_vec4,
                                  bindless);
       }
       return size;
@@ -841,11 +841,11 @@ vec4_visitor::emit_psiz_and_flags(dst_reg reg)
       emit(MOV(header1, brw_imm_ud(0u)));
 
       if (prog_data->vue_map.slots_valid & VARYING_BIT_PSIZ) {
-	 src_reg psiz = src_reg(output_reg[VARYING_SLOT_PSIZ][0]);
+         src_reg psiz = src_reg(output_reg[VARYING_SLOT_PSIZ][0]);
 
-	 current_annotation = "Point size";
-	 emit(MUL(header1_w, psiz, brw_imm_f((float)(1 << 11))));
-	 emit(AND(header1_w, src_reg(header1_w), brw_imm_d(0x7ff << 8)));
+         current_annotation = "Point size";
+         emit(MUL(header1_w, psiz, brw_imm_f((float)(1 << 11))));
+         emit(AND(header1_w, src_reg(header1_w), brw_imm_d(0x7ff << 8)));
       }
 
       if (output_reg[VARYING_SLOT_CLIP_DIST0][0].file != BAD_FILE) {
@@ -987,7 +987,7 @@ align_interleaved_urb_mlen(const struct intel_device_info *devinfo,
        * no problem.
        */
       if ((mlen % 2) != 1)
-	 mlen++;
+         mlen++;
    }
 
    return mlen;
@@ -1067,7 +1067,7 @@ vec4_visitor::emit_vertex()
 
 src_reg
 vec4_visitor::get_scratch_offset(bblock_t *block, vec4_instruction *inst,
-				 src_reg *reladdr, int reg_offset)
+                                 src_reg *reladdr, int reg_offset)
 {
    /* Because we store the values to scratch interleaved like our
     * vertex data, we need to scale the vec4 index by 2.
@@ -1112,8 +1112,8 @@ vec4_visitor::get_scratch_offset(bblock_t *block, vec4_instruction *inst,
  */
 void
 vec4_visitor::emit_scratch_read(bblock_t *block, vec4_instruction *inst,
-				dst_reg temp, src_reg orig_src,
-				int base_offset)
+                                dst_reg temp, src_reg orig_src,
+                                int base_offset)
 {
    assert(orig_src.offset % REG_SIZE == 0);
    int reg_offset = base_offset + orig_src.offset / REG_SIZE;
@@ -1165,7 +1165,7 @@ vec4_visitor::emit_scratch_write(bblock_t *block, vec4_instruction *inst,
 
    if (!is_64bit) {
       dst_reg dst = dst_reg(brw_writemask(brw_vec8_grf(0, 0),
-				          inst->dst.writemask));
+                                          inst->dst.writemask));
       vec4_instruction *write = SCRATCH_WRITE(dst, temp, index);
       if (inst->opcode != BRW_OPCODE_SEL)
          write->predicate = inst->predicate;
@@ -1351,7 +1351,7 @@ vec4_visitor::vec4_visitor(const struct brw_compiler *compiler,
                            const struct brw_sampler_prog_key_data *key_tex,
                            struct brw_vue_prog_data *prog_data,
                            const nir_shader *shader,
-			   void *mem_ctx,
+                           void *mem_ctx,
                            bool no_spills,
                            bool debug_enabled)
    : backend_shader(compiler, log_data, mem_ctx, shader, &prog_data->base,

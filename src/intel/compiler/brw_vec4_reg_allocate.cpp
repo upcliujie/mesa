@@ -57,7 +57,7 @@ vec4_visitor::reg_allocate_trivial()
          virtual_grf_used[inst->dst.nr] = true;
 
       for (unsigned i = 0; i < 3; i++) {
-	 if (inst->src[i].file == VGRF)
+         if (inst->src[i].file == VGRF)
             virtual_grf_used[inst->src[i].nr] = true;
       }
    }
@@ -66,8 +66,8 @@ vec4_visitor::reg_allocate_trivial()
    next = hw_reg_mapping[0] + this->alloc.sizes[0];
    for (unsigned i = 1; i < this->alloc.count; i++) {
       if (virtual_grf_used[i]) {
-	 hw_reg_mapping[i] = next;
-	 next += this->alloc.sizes[i];
+         hw_reg_mapping[i] = next;
+         next += this->alloc.sizes[i];
       }
    }
    prog_data->total_grf = next;
@@ -81,7 +81,7 @@ vec4_visitor::reg_allocate_trivial()
 
    if (prog_data->total_grf > max_grf) {
       fail("Ran out of regs on trivial allocator (%d/%d)\n",
-	   prog_data->total_grf, max_grf);
+           prog_data->total_grf, max_grf);
       return false;
    }
 
@@ -180,9 +180,9 @@ vec4_visitor::reg_allocate()
       ra_set_node_class(g, i, compiler->vec4_reg_set.classes[size - 1]);
 
       for (unsigned j = 0; j < i; j++) {
-	 if (live.vgrfs_interfere(i, j)) {
-	    ra_add_node_interference(g, i, j);
-	 }
+         if (live.vgrfs_interfere(i, j)) {
+            ra_add_node_interference(g, i, j);
+         }
       }
    }
 
@@ -226,7 +226,7 @@ vec4_visitor::reg_allocate()
    for (unsigned i = 0; i < alloc.count; i++) {
       hw_reg_mapping[i] = ra_get_node_reg(g, i);
       prog_data->total_grf = MAX2(prog_data->total_grf,
-				  hw_reg_mapping[i] + alloc.sizes[i]);
+                                  hw_reg_mapping[i] + alloc.sizes[i]);
    }
 
    foreach_block_and_inst(block, vec4_instruction, inst, cfg) {

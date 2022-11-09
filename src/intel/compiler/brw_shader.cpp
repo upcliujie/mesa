@@ -1424,11 +1424,11 @@ brw_compile_tes(const struct brw_compiler *compiler,
                               nir, mem_ctx, debug_enabled);
       if (!v.run()) {
          params->error_str = ralloc_strdup(mem_ctx, v.fail_msg);
-	 return NULL;
+         return NULL;
       }
 
       if (unlikely(debug_enabled))
-	 v.dump_instructions();
+         v.dump_instructions();
 
       assembly = brw_vec4_generate_assembly(compiler, params->log_data, mem_ctx, nir,
                                             &prog_data->base, v.cfg,
