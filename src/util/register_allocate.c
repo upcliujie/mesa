@@ -590,13 +590,6 @@ ra_set_node_class(struct ra_graph *g,
    g->nodes[n].class = class->index;
 }
 
-struct ra_class *
-ra_get_node_class(struct ra_graph *g,
-                  unsigned int n)
-{
-   return g->regs->classes[g->nodes[n].class];
-}
-
 unsigned int
 ra_add_node(struct ra_graph *g, struct ra_class *class)
 {
