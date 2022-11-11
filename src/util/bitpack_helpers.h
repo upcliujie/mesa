@@ -116,24 +116,6 @@ util_bitpack_sfixed(float v, uint32_t start, uint32_t end,
 }
 
 ALWAYS_INLINE static uint64_t
-util_bitpack_sfixed_clamp(float v, uint32_t start, uint32_t end,
-                          uint32_t fract_bits)
-{
-   util_bitpack_validate_value(v);
-
-   const float factor = (1 << fract_bits);
-
-   const int total_bits = end - start + 1;
-   const float min = u_intN_min(total_bits) / factor;
-   const float max = u_intN_max(total_bits) / factor;
-
-   const int64_t int_val = llroundf(CLAMP(v, min, max) * factor);
-   const uint64_t mask = ~0ull >> (64 - (end - start + 1));
-
-   return (int_val & mask) << start;
-}
-
-ALWAYS_INLINE static uint64_t
 util_bitpack_sfixed_nonzero(float v, uint32_t start, uint32_t end,
                             uint32_t fract_bits)
 {
