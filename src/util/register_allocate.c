@@ -167,29 +167,6 @@ ra_add_transitive_reg_conflict(struct ra_regs *regs,
    }
 }
 
-/**
- * Set up conflicts between base_reg and it's two half registers reg0 and
- * reg1, but take care to not add conflicts between reg0 and reg1.
- *
- * This is useful for architectures where full size registers are aliased by
- * two half size registers (eg 32 bit float and 16 bit float registers).
- */
-void
-ra_add_transitive_reg_pair_conflict(struct ra_regs *regs,
-                                    unsigned int base_reg, unsigned int reg0, unsigned int reg1)
-{
-   ra_add_reg_conflict(regs, reg0, base_reg);
-   ra_add_reg_conflict(regs, reg1, base_reg);
-
-   util_dynarray_foreach(&regs->regs[base_reg].conflict_list, unsigned int, i) {
-      unsigned int conflict = *i;
-      if (conflict != reg1)
-         ra_add_reg_conflict(regs, reg0, conflict);
-      if (conflict != reg0)
-         ra_add_reg_conflict(regs, reg1, conflict);
-   }
-}
-
 struct ra_class *
 ra_alloc_reg_class(struct ra_regs *regs)
 {
