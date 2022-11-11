@@ -116,14 +116,6 @@ util_bitpack_sfixed(float v, uint32_t start, uint32_t end,
 }
 
 ALWAYS_INLINE static uint64_t
-util_bitpack_sfixed_nonzero(float v, uint32_t start, uint32_t end,
-                            uint32_t fract_bits)
-{
-   assert(v != 0.0f);
-   return util_bitpack_sfixed(v, start, end, fract_bits);
-}
-
-ALWAYS_INLINE static uint64_t
 util_bitpack_ufixed(float v, uint32_t start, ASSERTED uint32_t end,
                     uint32_t fract_bits)
 {
