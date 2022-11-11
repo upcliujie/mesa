@@ -66,13 +66,6 @@ util_bitpack_uint(uint64_t v, uint32_t start, UNUSED uint32_t end)
 }
 
 ALWAYS_INLINE static uint64_t
-util_bitpack_uint_nonzero(uint64_t v, uint32_t start, uint32_t end)
-{
-   assert(v != 0ull);
-   return util_bitpack_uint(v, start, end);
-}
-
-ALWAYS_INLINE static uint64_t
 util_bitpack_sint(int64_t v, uint32_t start, uint32_t end)
 {
    const int bits = end - start + 1;
