@@ -94,13 +94,6 @@ util_bitpack_float(float v)
    return x.dw;
 }
 
-ALWAYS_INLINE static uint32_t
-util_bitpack_float_nonzero(float v)
-{
-   assert(v != 0.0f);
-   return util_bitpack_float(v);
-}
-
 ALWAYS_INLINE static uint64_t
 util_bitpack_sfixed(float v, uint32_t start, uint32_t end,
                     uint32_t fract_bits)
