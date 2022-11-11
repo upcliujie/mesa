@@ -85,13 +85,6 @@ util_bitpack_sint(int64_t v, uint32_t start, uint32_t end)
    return (v & mask) << start;
 }
 
-ALWAYS_INLINE static uint64_t
-util_bitpack_sint_nonzero(int64_t v, uint32_t start, uint32_t end)
-{
-   assert(v != 0ll);
-   return util_bitpack_sint(v, start, end);
-}
-
 ALWAYS_INLINE static uint32_t
 util_bitpack_float(float v)
 {
