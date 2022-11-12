@@ -449,20 +449,6 @@ surface_dmabuf_feedback_main_device(void *data,
    struct dmabuf_feedback *feedback = &dri2_surf->pending_dmabuf_feedback;
 
    memcpy(&feedback->main_device, device->data, sizeof(feedback->main_device));
-
-   /* Compositors may support switching render devices and change the main
-    * device of the dma-buf feedback. In this case, when we reallocate the
-    * buffers of the surface we must ensure that it is not allocated in memory
-    * that is only visible to the GPU that EGL is using, as the compositor will
-    * have to import them to the render device it is using.
-    *
-    * TODO: we still don't know how to allocate such buffers.
-    */
-   if (dri2_surf->dmabuf_feedback.main_device != 0 &&
-       (feedback->main_device != dri2_surf->dmabuf_feedback.main_device))
-      dri2_surf->compositor_using_another_device = true;
-   else
-      dri2_surf->compositor_using_another_device = false;
 }
 
 static void
@@ -906,15 +892,49 @@ create_dri_image_diff_gpu(struct dri2_egl_surface *dri2_surf,
 }
 
 static void
+create_image_using_tranche_parameters(struct dri2_egl_surface *dri2_surf,
+                                      struct dmabuf_feedback_tranche *tranche,
+                                      unsigned int dri_image_format,
+                                      int visual_idx, uint32_t use_flags)
+{
+   struct dri2_egl_display *dri2_dpy =
+      dri2_egl_display(dri2_surf->base.Resource.Display);
+   uint64_t *modifiers;
+   unsigned int num_modifiers;
+   uint32_t flags;
+
+   modifiers = u_vector_tail(&tranche->formats.modifiers[visual_idx]);
+   num_modifiers = u_vector_length(&tranche->formats.modifiers[visual_idx]);
+
+   /* For the purposes of this function, an INVALID modifier on
+    * its own means the modifiers aren't supported. */
+   if (num_modifiers == 0 || (num_modifiers == 1 &&
+                              modifiers[0] == DRM_FORMAT_MOD_INVALID)) {
+      num_modifiers = 0;
+      modifiers = NULL;
+   }
+
+   flags = use_flags;
+   if (tranche->flags & ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT)
+      flags |= __DRI_IMAGE_USE_SCANOUT;
+
+   dri2_surf->back->dri_image =
+      loader_dri_create_image(dri2_dpy->dri_screen, dri2_dpy->image,
+                              dri2_surf->base.Width, dri2_surf->base.Height,
+                              dri_image_format,
+                              dri2_dpy->is_different_gpu ? 0 : flags,
+                              modifiers, num_modifiers, NULL);
+}
+
+static void
 create_dri_image_from_dmabuf_feedback(struct dri2_egl_surface *dri2_surf,
                                       unsigned int dri_image_format, uint32_t use_flags)
 {
    struct dri2_egl_display *dri2_dpy =
       dri2_egl_display(dri2_surf->base.Resource.Display);
+   char *target_device_node;
    int visual_idx;
-   uint64_t *modifiers;
-   unsigned int num_modifiers;
-   uint32_t flags;
+   int ret;
 
    /* We don't have valid dma-buf feedback, so return */
    if (dri2_surf->dmabuf_feedback.main_device == 0)
@@ -923,44 +943,65 @@ create_dri_image_from_dmabuf_feedback(struct dri2_egl_surface *dri2_surf,
    visual_idx = dri2_wl_visual_idx_from_fourcc(dri2_surf->format);
    assert(visual_idx != -1);
 
-   /* Iterates through the dma-buf feedback to pick a new set of modifiers. The
-    * tranches are sent in descending order of preference by the compositor, so
-    * the first set that we can pick is the best one. For now we still can't
-    * specify the target device in order to make the render device try its best
-    * to allocate memory that can be directly scanned out by the KMS device. But
-    * in the future this may change (newer versions of
-    * createImageWithModifiers). Also, we are safe to pick modifiers from
-    * tranches whose target device differs from the main device, as compositors
-    * do not expose (in dma-buf feedback tranches) formats/modifiers that are
-    * incompatible with the main device. */
+   /* First let's try to find a format ignoring some tranches that are not
+    * interesting for us.
+    *
+    * If we have a non-SCANOUT tranche and its target_device does not match the
+    * device that we are using, skip it. We are not creating our images using
+    * such target_device, so it makes no sense to use the parameters from this
+    * tranche.
+    *
+    * If we have a SCANOUT tranche, things are different. In this case,
+    * target_device is a KMS capable device and the compositor can take our
+    * images and use them for direct scanout (if we create our images with the
+    * parameters advertised in this tranche). So it makes sense to consider a
+    * SCANOUT tranche even if the target_device does not match the device that
+    * we are using.
+    *
+    * TODO: if the target_device differs from the main_device advertised (which
+    * is the device that the compositor is using to render), we must not
+    * allocate our images in memory that is only visible to the target_device,
+    * as the compositor may have to import them to the main_device (if direct
+    * scanout does not happen). We still don't know how to ensure this.
+    */
+   util_dynarray_foreach(&dri2_surf->dmabuf_feedback.tranches,
+                         struct dmabuf_feedback_tranche, tranche) {
+      if ((tranche->flags & ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT) !=
+          ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT) {
+         target_device_node = loader_get_render_node(tranche->target_device);
+         if (target_device_node == NULL)
+            continue;
+         ret = strcmp(target_device_node, dri2_dpy->driver_name);
+         free(target_device_node);
+         if (ret != 0)
+            continue;
+      }
+
+      /* Ignore tranches that do not contain dri2_surf->format */
+      if (!BITSET_TEST(tranche->formats.formats_bitmap, visual_idx))
+         continue;
+
+      create_image_using_tranche_parameters(dri2_surf, tranche, dri_image_format,
+                                            visual_idx, use_flags);
+      if (dri2_surf->back->dri_image)
+         return;
+   }
+
+   /* For some reason we could not find a format respecting the target_device
+    * rules above, so fallback and consider all tranches. This may happen for
+    * split display/render SoCs. The compositor may report the wrong render
+    * device in such cases.
+    *
+    * See https://gitlab.freedesktop.org/mesa/mesa/-/issues/5591.
+    */
    util_dynarray_foreach(&dri2_surf->dmabuf_feedback.tranches,
                          struct dmabuf_feedback_tranche, tranche) {
       /* Ignore tranches that do not contain dri2_surf->format */
       if (!BITSET_TEST(tranche->formats.formats_bitmap, visual_idx))
          continue;
-      modifiers = u_vector_tail(&tranche->formats.modifiers[visual_idx]);
-      num_modifiers = u_vector_length(&tranche->formats.modifiers[visual_idx]);
 
-      /* For the purposes of this function, an INVALID modifier on
-       * its own means the modifiers aren't supported. */
-      if (num_modifiers == 0 ||
-          (num_modifiers == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID)) {
-         num_modifiers = 0;
-         modifiers = NULL;
-      }
-
-      flags = use_flags;
-      if (tranche->flags & ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT)
-         flags |= __DRI_IMAGE_USE_SCANOUT;
-
-      dri2_surf->back->dri_image =
-         loader_dri_create_image(dri2_dpy->dri_screen, dri2_dpy->image,
-                                 dri2_surf->base.Width,
-                                 dri2_surf->base.Height,
-                                 dri_image_format,
-                                 dri2_dpy->is_different_gpu ? 0 : flags,
-                                 modifiers, num_modifiers, NULL);
-
+      create_image_using_tranche_parameters(dri2_surf, tranche, dri_image_format,
+                                            visual_idx, use_flags);
       if (dri2_surf->back->dri_image)
          return;
    }
