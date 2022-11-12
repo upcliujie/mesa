@@ -2224,6 +2224,8 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
                struct anv_surface_state sstate =
                   (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
                   desc->image_view->planes[binding->plane].general_sampler_surface_state :
+                  binding->for_gather ?
+                  desc->image_view->planes[binding->plane].gather_sampler_surface_state :
                   desc->image_view->planes[binding->plane].optimal_sampler_surface_state;
                surface_state = sstate.state;
                assert(surface_state.alloc_size);

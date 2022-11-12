@@ -2480,6 +2480,8 @@ anv_CreateImageView(VkDevice _device,
                              VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) {
          iview->planes[vplane].optimal_sampler_surface_state.state = alloc_surface_state(device);
          iview->planes[vplane].general_sampler_surface_state.state = alloc_surface_state(device);
+         if (device->info->verx10 == 75)
+            iview->planes[vplane].gather_sampler_surface_state.state = alloc_surface_state(device);
 
          enum isl_aux_usage general_aux_usage =
             anv_layout_to_aux_usage(device->info, image, 1UL << iaspect_bit,
@@ -2505,6 +2507,35 @@ anv_CreateImageView(VkDevice _device,
                                       0,
                                       &iview->planes[vplane].general_sampler_surface_state,
                                       NULL);
+
+         if (device->info->verx10 == 75) {
+            /* Because gather4 is broken with R32G32 formats before Broadwell,
+             * we need to use ISL_FORMAT_R32G32_FLOAT_LD instead.
+             */
+            struct isl_view gather_view = iview->planes[vplane].isl;
+            if (iview->planes[vplane].isl.format == ISL_FORMAT_R32G32_UINT ||
+                iview->planes[vplane].isl.format == ISL_FORMAT_R32G32_SINT ||
+                iview->planes[vplane].isl.format == ISL_FORMAT_R32G32_FLOAT) {
+               gather_view.format = ISL_FORMAT_R32G32_FLOAT_LD;
+               struct isl_swizzle format_swizzle = {
+                  .r = ISL_CHANNEL_SELECT_RED,
+                  .g = ISL_CHANNEL_SELECT_BLUE,
+                  .b = ISL_CHANNEL_SELECT_ZERO,
+                  .a = ISL_CHANNEL_SELECT_ONE,
+               };
+               gather_view.swizzle.r = remap_swizzle(iview->vk.swizzle.r, format_swizzle, false);
+               gather_view.swizzle.g = remap_swizzle(iview->vk.swizzle.g, format_swizzle, false);
+               gather_view.swizzle.b = remap_swizzle(iview->vk.swizzle.b, format_swizzle, false);
+               gather_view.swizzle.a = remap_swizzle(iview->vk.swizzle.a, format_swizzle, false);
+            }
+            anv_image_fill_surface_state(device, image, 1ULL << iaspect_bit,
+                                         &gather_view,
+                                         ISL_SURF_USAGE_TEXTURE_BIT,
+                                         optimal_aux_usage, NULL,
+                                         ANV_IMAGE_VIEW_STATE_TEXTURE_OPTIMAL,
+                                         &iview->planes[vplane].gather_sampler_surface_state,
+                                         NULL);
+         }
       }
 
       /* NOTE: This one needs to go last since it may stomp isl_view.format */
@@ -2576,6 +2607,11 @@ anv_DestroyImageView(VkDevice _device, VkImageView _iview,
       if (iview->planes[plane].general_sampler_surface_state.state.offset) {
          anv_state_pool_free(&device->surface_state_pool,
                              iview->planes[plane].general_sampler_surface_state.state);
+      }
+
+      if (iview->planes[plane].gather_sampler_surface_state.state.offset) {
+         anv_state_pool_free(&device->surface_state_pool,
+                             iview->planes[plane].gather_sampler_surface_state.state);
       }
 
       if (iview->planes[plane].storage_surface_state.state.offset) {

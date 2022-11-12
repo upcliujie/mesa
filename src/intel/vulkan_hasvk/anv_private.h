@@ -1637,6 +1637,11 @@ struct anv_texture_swizzle_descriptor {
    uint32_t _pad;
 };
 
+struct anv_alpha_one_workaround_descriptor {
+   /** See anv_descriptor_set_write_image_view */
+   uint32_t reductions[4];
+};
+
 /** Struct representing a storage image descriptor */
 struct anv_storage_image_descriptor {
    /** Bindless image handles
@@ -1680,6 +1685,10 @@ enum anv_descriptor_data {
    ANV_DESCRIPTOR_STORAGE_IMAGE  = (1 << 7),
    /** Storage image handles */
    ANV_DESCRIPTOR_TEXTURE_SWIZZLE  = (1 << 8),
+   /** The descriptor contains data used by the gather4 workaround for
+    * Haswell
+    */
+   ANV_DESCRIPTOR_ALPHA_ONE_WORKAROUND = (1 << 9),
 };
 
 struct anv_descriptor_set_binding_layout {
@@ -1982,10 +1991,8 @@ struct anv_pipeline_binding {
    /** For a storage image, whether it requires a lowered surface */
    uint8_t lowered_storage_surface;
 
-   /** Pad to 64 bits so that there are no holes and we can safely memcmp
-    * assuming POD zero-initialization.
-    */
-   uint8_t pad;
+   /** Whether this binding was created for use with gather4 on Haswell */
+   uint8_t for_gather;
 };
 
 struct anv_push_range {
@@ -3626,6 +3633,11 @@ struct anv_image_view {
        * image layout of GENERAL.
        */
       struct anv_surface_state general_sampler_surface_state;
+
+      /**
+       * RENDER_SURFACE_STATE when using image for textureGather on Haswell
+       */
+      struct anv_surface_state gather_sampler_surface_state;
 
       /**
        * RENDER_SURFACE_STATE when using image as a storage image. Separate
