@@ -37,6 +37,7 @@ extern "C" {
 #endif
 
 enum mesa_log_level {
+   MESA_LOG_FATAL,
    MESA_LOG_ERROR,
    MESA_LOG_WARN,
    MESA_LOG_INFO,
@@ -50,6 +51,7 @@ void
 mesa_log_v(enum mesa_log_level, const char *tag, const char *format,
             va_list va);
 
+#define mesa_logf(fmt, ...) mesa_log(MESA_LOG_FATAL, (MESA_LOG_TAG), (fmt), ##__VA_ARGS__)
 #define mesa_loge(fmt, ...) mesa_log(MESA_LOG_ERROR, (MESA_LOG_TAG), (fmt), ##__VA_ARGS__)
 #define mesa_logw(fmt, ...) mesa_log(MESA_LOG_WARN, (MESA_LOG_TAG), (fmt), ##__VA_ARGS__)
 #define mesa_logi(fmt, ...) mesa_log(MESA_LOG_INFO, (MESA_LOG_TAG), (fmt), ##__VA_ARGS__)
@@ -59,6 +61,7 @@ mesa_log_v(enum mesa_log_level, const char *tag, const char *format,
 #define mesa_logd(fmt, ...) __mesa_log_use_args((fmt), ##__VA_ARGS__)
 #endif
 
+#define mesa_logf_v(fmt, va) mesa_log_v(MESA_LOG_FATAL, (MESA_LOG_TAG), (fmt), (va))
 #define mesa_loge_v(fmt, va) mesa_log_v(MESA_LOG_ERROR, (MESA_LOG_TAG), (fmt), (va))
 #define mesa_logw_v(fmt, va) mesa_log_v(MESA_LOG_WARN, (MESA_LOG_TAG), (fmt), (va))
 #define mesa_logi_v(fmt, va) mesa_log_v(MESA_LOG_INFO, (MESA_LOG_TAG), (fmt), (va))
@@ -82,6 +85,9 @@ mesa_log_v(enum mesa_log_level, const char *tag, const char *format,
 #define mesa_logw_once(fmt, ...) mesa_log_once(MESA_LOG_WARN, fmt, ##__VA_ARGS__)
 #define mesa_logi_once(fmt, ...) mesa_log_once(MESA_LOG_INFO, fmt, ##__VA_ARGS__)
 #define mesa_logd_once(fmt, ...) mesa_log_once(MESA_LOG_DEBUG, fmt, ##__VA_ARGS__)
+/* fatal is always going to be called once */
+/* #define mesa_logf_once(fmt, ...) mesa_log_once(MESA_LOG_FATAL, fmt, ##__VA_ARGS__) */
+
 
 struct log_stream {
    char *msg;

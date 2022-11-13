@@ -68,6 +68,9 @@ Core Mesa environment variables
 :envvar:`MESA_LOG_FILE`
    specifies a file name for logging all errors, warnings, etc., rather
    than stderr
+:envvar:`MESA_LOG_LEVEL`
+   changes the log level of the main library and the drivers. The
+   valid values are: ``debug``, ``info``, ``warning``, and ``fatal``.
 :envvar:`MESA_EXTENSION_OVERRIDE`
    can be used to enable/disable extensions. A value such as
    ``GL_EXT_foo -GL_EXT_bar`` will enable the ``GL_EXT_foo`` extension
