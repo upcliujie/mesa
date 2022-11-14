@@ -1637,9 +1637,17 @@ struct anv_texture_swizzle_descriptor {
    uint32_t _pad;
 };
 
-struct anv_alpha_one_workaround_descriptor {
+struct anv_hsw_workaround_descriptor {
    /** See anv_descriptor_set_write_image_view */
    uint32_t reductions[4];
+   /** The offset which should be added to the sampler index when using
+    * VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE to get a correct border color for the
+    * image format
+    */
+   uint32_t sampler_index;
+
+   /** Unused padding to ensure the struct is a multiple of 64 bits */
+   uint32_t _pad;
 };
 
 /** Struct representing a storage image descriptor */
@@ -1685,10 +1693,10 @@ enum anv_descriptor_data {
    ANV_DESCRIPTOR_STORAGE_IMAGE  = (1 << 7),
    /** Storage image handles */
    ANV_DESCRIPTOR_TEXTURE_SWIZZLE  = (1 << 8),
-   /** The descriptor contains data used by the gather4 workaround for
-    * Haswell
+   /** The descriptor contains data used to workaround gather4 and sampler
+    * border color limitations on Haswell
     */
-   ANV_DESCRIPTOR_ALPHA_ONE_WORKAROUND = (1 << 9),
+   ANV_DESCRIPTOR_HSW_WORKAROUND = (1 << 9),
 };
 
 struct anv_descriptor_set_binding_layout {
@@ -1991,8 +1999,13 @@ struct anv_pipeline_binding {
    /** For a storage image, whether it requires a lowered surface */
    uint8_t lowered_storage_surface;
 
-   /** Whether this binding was created for use with gather4 on Haswell */
-   uint8_t for_gather;
+   union {
+      /** Whether this binding was created for use with gather4 on Haswell */
+      uint8_t for_gather;
+
+      /** Sampler offset for Haswell */
+      uint8_t sampler_index;
+   };
 };
 
 struct anv_push_range {
@@ -3726,11 +3739,7 @@ void anv_fill_buffer_surface_state(struct anv_device *device,
  * also depends on the format's bpp (with extra hacks for RG32), and overlaps.
  *
  * Since we don't know the format/bpp when not using a combined sampler, we
- * can't make any of the border colors containing '1' work for all formats, as
- * it would be in the wrong place for some of them. We opt to make 32-bit
- * integers work as this seems like the most common option. Fortunately,
- * transparent black works regardless, as all zeroes is the same in every
- * bit-size.
+ * must select a sampler with the correct border color format at runtime.
  */
 struct hsw_border_color {
    float float32[4];

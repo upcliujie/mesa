@@ -1079,6 +1079,14 @@ lower_tex_deref(nir_builder *b, nir_tex_instr *tex,
       binding_offset = state->set[set].sampler_offsets[binding];
    }
 
+   /* We use a set of 12 samplers with different border color formats on
+    * Haswell to support all image formats.
+    */
+   const unsigned sampler_multiplier = (state->pdevice->info.verx10 == 75 &&
+                                        deref_src_type == nir_tex_src_sampler_deref &&
+                                        state->layout->set[set].layout->binding[binding].type ==
+                                        VK_DESCRIPTOR_TYPE_SAMPLER) ? 12 : 1;
+
    nir_tex_src_type offset_src_type;
    nir_ssa_def *index = NULL;
    if (binding_offset > MAX_BINDING_TABLE_SIZE) {
@@ -1122,9 +1130,9 @@ lower_tex_deref(nir_builder *b, nir_tex_instr *tex,
                unsigned desc_arr_index = 0;
                for (int i = 0; i < arr_index; i++)
                   desc_arr_index += immutable_samplers[i]->n_planes;
-               *base_index += desc_arr_index;
+               *base_index += sampler_multiplier * desc_arr_index;
             } else {
-               *base_index += arr_index;
+               *base_index += sampler_multiplier * arr_index;
             }
          } else {
             /* From VK_KHR_sampler_ycbcr_conversion:
@@ -1140,6 +1148,9 @@ lower_tex_deref(nir_builder *b, nir_tex_instr *tex,
 
             if (state->add_bounds_checks)
                index = nir_umin(b, index, nir_imm_int(b, array_size - 1));
+
+            if (sampler_multiplier != 1)
+               index = nir_imul_imm(b, index, sampler_multiplier);
          }
       }
    }
@@ -1158,6 +1169,23 @@ lower_tex_deref(nir_builder *b, nir_tex_instr *tex,
          }
       } else {
          *base_index += array_size;
+      }
+   }
+
+   if (sampler_multiplier != 1) {
+      int texture_deref_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
+
+      nir_deref_instr *texture_deref = nir_src_as_deref(tex->src[texture_deref_src_idx].src);
+      const unsigned plane_offset =
+         plane * sizeof(struct anv_hsw_workaround_descriptor);
+      /* Load a matching sampler for the image's format */
+      nir_ssa_def *sampler_index =
+         build_load_var_deref_descriptor_mem(b, texture_deref, plane_offset + 16,
+                                             1, 32, state);
+      if (index) {
+         index = nir_iadd(b, index, sampler_index);
+      } else {
+         index = sampler_index;
       }
    }
 
@@ -1294,13 +1322,13 @@ lower_gfx75_tg4(nir_builder *b, nir_tex_instr *tex, unsigned plane,
    const struct anv_descriptor_set_binding_layout *bind_layout =
       &state->layout->set[set].layout->binding[binding];
 
-   if ((bind_layout->data & ANV_DESCRIPTOR_ALPHA_ONE_WORKAROUND) == 0)
+   if ((bind_layout->data & ANV_DESCRIPTOR_HSW_WORKAROUND) == 0)
       return;
 
    b->cursor = nir_before_instr(&tex->instr);
 
    const unsigned plane_offset =
-      plane * sizeof(struct anv_alpha_one_workaround_descriptor);
+      plane * sizeof(struct anv_hsw_workaround_descriptor);
    /* We can turn 1.0 into 1 by subtracting 0x3F7FFFFF. A channel of this
     * variable is 0 if this operation is not needed and 0x3F7FFFFF if it is.
     */
@@ -1341,11 +1369,11 @@ lower_tex(nir_builder *b, nir_tex_instr *tex,
 
    b->cursor = nir_before_instr(&tex->instr);
 
-   lower_tex_deref(b, tex, nir_tex_src_texture_deref,
-                   &tex->texture_index, plane, state);
-
    lower_tex_deref(b, tex, nir_tex_src_sampler_deref,
                    &tex->sampler_index, plane, state);
+
+   lower_tex_deref(b, tex, nir_tex_src_texture_deref,
+                   &tex->texture_index, plane, state);
 
    return true;
 }
@@ -1574,7 +1602,8 @@ anv_nir_apply_pipeline_layout(nir_shader *shader,
       }
 
       if (binding->data & ANV_DESCRIPTOR_SAMPLER_STATE) {
-         if (map->sampler_count + array_size > MAX_SAMPLER_TABLE_SIZE ||
+         const uint32_t sampler_multiplier = binding->type == VK_DESCRIPTOR_TYPE_SAMPLER ? 12 : 1;
+         if (map->sampler_count + sampler_multiplier * array_size > MAX_SAMPLER_TABLE_SIZE ||
              anv_descriptor_requires_bindless(pdevice, binding, true)) {
             /* If this descriptor doesn't fit in the binding table or if it
              * requires bindless for some reason, flag it as bindless.
@@ -1591,12 +1620,15 @@ anv_nir_apply_pipeline_layout(nir_shader *shader,
             for (unsigned i = 0; i < binding->array_size; i++) {
                uint8_t planes = samplers ? samplers[i]->n_planes : 1;
                for (uint8_t p = 0; p < planes; p++) {
-                  map->sampler_to_descriptor[map->sampler_count++] =
-                     (struct anv_pipeline_binding) {
+                  for (unsigned sampler_index = 0; sampler_index < sampler_multiplier; ++sampler_index) {
+                     map->sampler_to_descriptor[map->sampler_count++] =
+                        (struct anv_pipeline_binding) {
                         .set = set,
                         .index = binding->descriptor_index + i,
                         .plane = p,
+                        .sampler_index = sampler_index,
                      };
+                  }
                }
             }
          }

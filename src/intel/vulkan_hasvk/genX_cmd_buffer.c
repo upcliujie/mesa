@@ -2407,6 +2407,14 @@ emit_samplers(struct anv_cmd_buffer *cmd_buffer,
             512 * anv_vk_format_to_hsw_border_color_index(desc->image_view->vk.format);
          memcpy(state->map + (s * 16) + 8,
                 &border_color_offset, sizeof(border_color_offset));
+      } else {
+         /* We create a set of 12 samplers with different border colors to be
+          * able to select the one with the correct border color format.
+          */
+         uint32_t border_color_offset = sampler->state[binding->plane][2] +
+            512 * binding->sampler_index;
+         memcpy(state->map + (s * 16) + 8,
+            &border_color_offset, sizeof(border_color_offset));
       }
 #endif
    }
