@@ -95,6 +95,8 @@ typedef struct wsi_display_connector {
    uint32_t                     hdr_metadata_property;
    uint32_t                     hdr_metadata_blob;
    uint64_t                     color_outcome_serial;
+   uint32_t                     colorspace_property;
+   uint32_t                     colorspace_value;
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
    xcb_randr_output_t           output;
 #endif
@@ -357,6 +359,8 @@ wsi_display_get_connector(struct wsi_device *wsi_device,
          connector->dpms_property = drm_connector->props[p];
       if (!strcmp(prop->name, "HDR_OUTPUT_METADATA"))
          connector->hdr_metadata_property = drm_connector->props[p];
+      if (!strcmp(prop->name, "Colorspace"))
+         connector->colorspace_property = drm_connector->props[p];
       drmModeFreeProperty(prop);
    }
 
@@ -1926,6 +1930,39 @@ _wsi_display_convert_hdr_metadata(VkHdrMetadataEXT *pMetadata, uint8_t hdmi_eotf
    }
 }
 
+/* For Default case, driver will set the colorspace */
+#define DRM_MODE_COLORIMETRY_DEFAULT			0
+/* CEA 861 Normal Colorimetry options */
+#define DRM_MODE_COLORIMETRY_NO_DATA			0
+#define DRM_MODE_COLORIMETRY_SMPTE_170M_YCC		1
+#define DRM_MODE_COLORIMETRY_BT709_YCC			2
+/* CEA 861 Extended Colorimetry Options */
+#define DRM_MODE_COLORIMETRY_XVYCC_601			3
+#define DRM_MODE_COLORIMETRY_XVYCC_709			4
+#define DRM_MODE_COLORIMETRY_SYCC_601			5
+#define DRM_MODE_COLORIMETRY_OPYCC_601			6
+#define DRM_MODE_COLORIMETRY_OPRGB			7
+#define DRM_MODE_COLORIMETRY_BT2020_CYCC		8
+#define DRM_MODE_COLORIMETRY_BT2020_RGB			9
+#define DRM_MODE_COLORIMETRY_BT2020_YCC			10
+/* Additional Colorimetry extension added as part of CTA 861.G */
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65		11
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER		12
+/* Additional Colorimetry Options added for DP 1.4a VSC Colorimetry Format */
+#define DRM_MODE_COLORIMETRY_RGB_WIDE_FIXED		13
+#define DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT		14
+#define DRM_MODE_COLORIMETRY_BT601_YCC			15
+
+static uint32_t
+vk_colorspace_to_drm_colorspace(VkColorSpaceKHR color_space)
+{
+   switch (color_space) {
+      default:
+      case VK_COLORSPACE_SRGB_NONLINEAR_KHR: return DRM_MODE_COLORIMETRY_DEFAULT;
+      case VK_COLOR_SPACE_HDR10_ST2084_EXT:  return DRM_MODE_COLORIMETRY_BT2020_RGB;
+   }
+}
+
 static void
 _wsi_display_update_state(struct wsi_display_swapchain *chain, struct wsi_display_connector *connector)
 {
@@ -1961,6 +1998,16 @@ _wsi_display_update_state(struct wsi_display_swapchain *chain, struct wsi_displa
          }
 
          connector->hdr_metadata_blob = hdr_metadata_blob;
+      }
+
+      const uint32_t drm_colorspace = vk_colorspace_to_drm_colorspace(chain->base.image_info.color_space);
+      if (connector->colorspace_property && connector->colorspace_value != drm_colorspace) {
+         drmModeConnectorSetProperty(chain->wsi->fd,
+                                    connector->id,
+                                    connector->colorspace_property,
+                                    drm_colorspace);
+
+         connector->colorspace_value = drm_colorspace;
       }
 
       connector->color_outcome_serial = chain->base.color_outcome_serial;
