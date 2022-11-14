@@ -167,11 +167,18 @@ struct wsi_device {
     */
    bool signal_fence_with_memory;
 
+
    /* Whether present_wait functionality is enabled on the device.
     * In this case, we have to create an extra timeline semaphore
     * to be able to synchronize with the WSI present semaphore being unsignalled.
     * This requires VK_KHR_timeline_semaphore. */
    bool khr_present_wait;
+
+   /* A unique monotonically increasing value to associate with an individual
+    * colorimetry outcome on the output. This is used to avoid propagating
+    * dirty tracking flags across large numbers of objects.
+    */
+   uint64_t color_outcome_serial_counter;
 
    /*
     * This sets the ownership for a WSI memory object:

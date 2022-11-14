@@ -92,6 +92,9 @@ typedef struct wsi_display_connector {
    wsi_display_mode             *current_mode;
    drmModeModeInfo              current_drm_mode;
    uint32_t                     dpms_property;
+   uint32_t                     hdr_metadata_property;
+   uint32_t                     hdr_metadata_blob;
+   uint64_t                     color_outcome_serial;
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
    xcb_randr_output_t           output;
 #endif
@@ -344,17 +347,16 @@ wsi_display_get_connector(struct wsi_device *wsi_device,
    connector->connected = drm_connector->connection != DRM_MODE_DISCONNECTED;
 
    /* Look for a DPMS property if we haven't already found one */
-   for (int p = 0; connector->dpms_property == 0 &&
-           p < drm_connector->count_props; p++)
+   for (int p = 0; p < drm_connector->count_props; p++)
    {
       drmModePropertyPtr prop = drmModeGetProperty(drm_fd,
                                                    drm_connector->props[p]);
       if (!prop)
          continue;
-      if (prop->flags & DRM_MODE_PROP_ENUM) {
-         if (!strcmp(prop->name, "DPMS"))
-            connector->dpms_property = drm_connector->props[p];
-      }
+      if (!strcmp(prop->name, "DPMS"))
+         connector->dpms_property = drm_connector->props[p];
+      if (!strcmp(prop->name, "HDR_OUTPUT_METADATA"))
+         connector->hdr_metadata_property = drm_connector->props[p];
       drmModeFreeProperty(prop);
    }
 
@@ -1837,6 +1839,134 @@ wsi_register_vblank_event(struct wsi_display_fence *fence,
    }
 }
 
+/* Colormetry helper functions for DRM, kindly taken from Weston:
+ * https://gitlab.freedesktop.org/wayland/weston/-/blob/main/libweston/backend-drm/kms-color.c
+ */
+
+static inline uint16_t
+color_xy_to_u16(float v)
+{
+	assert(v >= 0.0f);
+	assert(v <= 1.0f);
+	/*
+	 * CTA-861-G
+	 * 6.9.1 Static Metadata Type 1
+	 * chromaticity coordinate encoding
+	 */
+	return (uint16_t)round(v * 50000.0);
+}
+
+static inline uint16_t
+nits_to_u16(float nits)
+{
+	assert(nits >= 1.0f);
+	assert(nits <= 65535.0f);
+	/*
+	 * CTA-861-G
+	 * 6.9.1 Static Metadata Type 1
+	 * max display mastering luminance, max content light level,
+	 * max frame-average light level
+	 */
+	return (uint16_t)round(nits);
+}
+
+static inline uint16_t
+nits_to_u16_dark(float nits)
+{
+	assert(nits >= 0.0001f);
+	assert(nits <= 6.5535f);
+	/*
+	 * CTA-861-G
+	 * 6.9.1 Static Metadata Type 1
+	 * min display mastering luminance
+	 */
+	return (uint16_t)round(nits * 10000.0);
+}
+
+/* from CTA-861-G */
+#define HDMI_EOTF_SDR 0
+#define HDMI_EOTF_TRADITIONAL_HDR 1
+#define HDMI_EOTF_ST2084 2
+#define HDMI_EOTF_HLG 3
+
+static int
+_wsi_hdmi_metadata_eotf_from_vk_colorspace(VkColorSpaceKHR color_space)
+{
+   switch (color_space) {
+      default:
+      case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR: return HDMI_EOTF_SDR;
+      case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT: return HDMI_EOTF_TRADITIONAL_HDR;
+      case VK_COLOR_SPACE_HDR10_ST2084_EXT: return HDMI_EOTF_ST2084;
+      case VK_COLOR_SPACE_HDR10_HLG_EXT: return HDMI_EOTF_HLG;
+   }
+}
+
+static void
+_wsi_display_convert_hdr_metadata(VkHdrMetadataEXT *pMetadata, uint8_t hdmi_eotf, struct hdr_output_metadata *drm_metadata)
+{
+   memset(drm_metadata, 0, sizeof(struct hdr_output_metadata));
+
+   drm_metadata->metadata_type = 0;
+   drm_metadata->hdmi_metadata_type1.eotf = hdmi_eotf;
+   drm_metadata->hdmi_metadata_type1.metadata_type = drm_metadata->metadata_type; /* duplicated */
+
+   if (drm_metadata->hdmi_metadata_type1.eotf == 2) {
+      drm_metadata->hdmi_metadata_type1.display_primaries[0].x = color_xy_to_u16(pMetadata->displayPrimaryRed.x);
+      drm_metadata->hdmi_metadata_type1.display_primaries[0].y = color_xy_to_u16(pMetadata->displayPrimaryRed.y);
+      drm_metadata->hdmi_metadata_type1.display_primaries[1].x = color_xy_to_u16(pMetadata->displayPrimaryGreen.x);
+      drm_metadata->hdmi_metadata_type1.display_primaries[1].y = color_xy_to_u16(pMetadata->displayPrimaryGreen.y);
+      drm_metadata->hdmi_metadata_type1.display_primaries[2].x = color_xy_to_u16(pMetadata->displayPrimaryBlue.x);
+      drm_metadata->hdmi_metadata_type1.display_primaries[2].y = color_xy_to_u16(pMetadata->displayPrimaryBlue.y);
+      drm_metadata->hdmi_metadata_type1.white_point.x = color_xy_to_u16(pMetadata->whitePoint.x);
+      drm_metadata->hdmi_metadata_type1.white_point.y = color_xy_to_u16(pMetadata->whitePoint.y);
+      drm_metadata->hdmi_metadata_type1.max_display_mastering_luminance = nits_to_u16(pMetadata->maxLuminance);
+      drm_metadata->hdmi_metadata_type1.min_display_mastering_luminance = nits_to_u16_dark(pMetadata->minLuminance);
+      drm_metadata->hdmi_metadata_type1.max_cll = nits_to_u16(pMetadata->maxContentLightLevel);
+      drm_metadata->hdmi_metadata_type1.max_fall = nits_to_u16(pMetadata->maxFrameAverageLightLevel);
+   }
+}
+
+static void
+_wsi_display_update_state(struct wsi_display_swapchain *chain, struct wsi_display_connector *connector)
+{
+   if (connector->color_outcome_serial != chain->base.color_outcome_serial) {
+      if (connector->hdr_metadata_property) {
+         const uint8_t hdmi_eotf = _wsi_hdmi_metadata_eotf_from_vk_colorspace(chain->base.image_info.color_space);
+
+         uint32_t hdr_metadata_blob = 0;
+         /* Only bother making a blob if we are HDR, otherwise set it to 0 (empty). */
+         if (hdmi_eotf != HDMI_EOTF_SDR) {
+            struct hdr_output_metadata drm_metadata;
+            _wsi_display_convert_hdr_metadata(&chain->base.hdr_metadata, hdmi_eotf, &drm_metadata);
+
+            int ret = drmModeCreatePropertyBlob(chain->wsi->fd,
+                                                &drm_metadata,
+                                                sizeof(drm_metadata),
+                                                &hdr_metadata_blob);
+
+            if (ret != 0) {
+               fprintf(stderr, "Failed to create blob for HDR_OUTPUT_METADATA. (%s) Falling back to null blob.\n", strerror(-ret));
+               hdr_metadata_blob = 0;
+            }
+         }
+
+         drmModeConnectorSetProperty(chain->wsi->fd,
+                                    connector->id,
+                                    connector->hdr_metadata_property,
+                                    hdr_metadata_blob);
+
+         if (connector->hdr_metadata_blob) {
+            drmModeDestroyPropertyBlob(chain->wsi->fd,
+                                       connector->hdr_metadata_blob);
+         }
+
+         connector->hdr_metadata_blob = hdr_metadata_blob;
+      }
+
+      connector->color_outcome_serial = chain->base.color_outcome_serial;
+   }
+}
+
 /*
  * Check to see if the kernel has no flip queued and if there's an image
  * waiting to be displayed.
@@ -1889,6 +2019,8 @@ _wsi_display_queue_next(struct wsi_swapchain *drv_chain)
 
       int ret;
       if (connector->active) {
+         _wsi_display_update_state(chain, connector);
+
          ret = drmModePageFlip(wsi->fd, connector->crtc_id, image->fb_id,
                                    DRM_MODE_PAGE_FLIP_EVENT, image);
          if (ret == 0) {

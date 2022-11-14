@@ -360,8 +360,15 @@ fail_attr_init:
 }
 #endif
 
+static uint32_t
+wsi_get_new_color_outcome_serial(struct wsi_device *device)
+{
+   /* Increment color outcome serial so we know it is dirty on the implementation side. */
+   return p_atomic_inc_return(&device->color_outcome_serial_counter) + 1;
+}
+
 VkResult
-wsi_swapchain_init(const struct wsi_device *wsi,
+wsi_swapchain_init(struct wsi_device *wsi,
                    struct wsi_swapchain *chain,
                    VkDevice _device,
                    const VkSwapchainCreateInfoKHR *pCreateInfo,
@@ -379,6 +386,7 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    chain->device = _device;
    chain->alloc = *pAllocator;
    chain->use_buffer_blit = needs_buffer_blit(wsi, image_params);
+   chain->color_outcome_serial = wsi_get_new_color_outcome_serial(wsi);
 
    chain->buffer_blit_queue = VK_NULL_HANDLE;
    if (chain->use_buffer_blit && wsi->get_buffer_blit_queue)
@@ -557,6 +565,8 @@ wsi_configure_image(const struct wsi_swapchain *chain,
       .pQueueFamilyIndices = queue_family_indices,
       .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
    };
+
+   info->color_space = pCreateInfo->imageColorSpace;
 
    if (handle_types != 0) {
       info->ext_mem = (VkExternalMemoryImageCreateInfo) {
@@ -1917,4 +1927,24 @@ wsi_WaitForPresentKHR(VkDevice device, VkSwapchainKHR _swapchain,
    VK_FROM_HANDLE(wsi_swapchain, swapchain, _swapchain);
    assert(swapchain->wait_for_present);
    return swapchain->wait_for_present(swapchain, presentId, timeout);
+}
+
+static void
+wsi_common_set_hdr_metadata(struct wsi_device *device, struct wsi_swapchain *chain, const VkHdrMetadataEXT *pMetadata)
+{
+   chain->color_outcome_serial = wsi_get_new_color_outcome_serial(device);
+   chain->hdr_metadata = *pMetadata;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+wsi_SetHdrMetadataEXT(VkDevice _device, uint32_t swapchainCount, const VkSwapchainKHR *pSwapchains, const VkHdrMetadataEXT *pMetadata)
+{
+   MESA_TRACE_FUNC();
+   VK_FROM_HANDLE(vk_device, device, _device);
+
+   for (uint32_t i = 0; i < swapchainCount; i++) {
+      VK_FROM_HANDLE(wsi_swapchain, swapchain, pSwapchains[i]);
+
+      wsi_common_set_hdr_metadata(device->physical->wsi_device, swapchain, &pMetadata[i]);
+   }
 }
