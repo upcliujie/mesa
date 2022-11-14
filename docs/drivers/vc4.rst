@@ -265,8 +265,9 @@ Multiple counters can be captured at once with commas separating them.
 
 Once you've found what draw calls are surprisingly expensive in one of
 the counters, you can work out which ones they were at the GL level by
-opening the trace up in :program:`qapitrace` and using ``^-G`` to jump
-to that call number and ``^-L`` to look up the GL state at that call.
+opening the trace up in :program:`qapitrace` and using :kbd:`Ctrl+g` to
+jump to that call number and :kbd:`Ctrl+l` to look up the GL state at
+that call.
 
 shader-db
 ---------
