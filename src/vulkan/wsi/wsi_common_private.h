@@ -72,6 +72,7 @@ struct wsi_image_info {
    VkExternalMemoryImageCreateInfo ext_mem;
    VkImageFormatListCreateInfo format_list;
    VkImageDrmFormatModifierListCreateInfoEXT drm_mod_list;
+   VkColorSpaceKHR color_space;
 
    bool prime_use_linear_modifier;
 

@@ -316,6 +316,8 @@ configure_image(const struct wsi_swapchain *chain,
                 const struct wsi_base_image_params *params,
                 struct wsi_image_info *info)
 {
+
+   info->color_space = pCreateInfo->imageColorSpace;
    switch (params->image_type) {
    case WSI_IMAGE_TYPE_CPU: {
       const struct wsi_cpu_image_params *cpu_params =
