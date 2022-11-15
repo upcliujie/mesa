@@ -180,6 +180,9 @@ struct wsi_display_sync {
 
 static uint64_t fence_sequence;
 
+static void
+_wsi_display_cleanup_state(struct wsi_display_swapchain *chain);
+
 ICD_DEFINE_NONDISP_HANDLE_CASTS(wsi_display_mode, VkDisplayModeKHR)
 ICD_DEFINE_NONDISP_HANDLE_CASTS(wsi_display_connector, VkDisplayKHR)
 
@@ -1194,6 +1197,8 @@ wsi_display_swapchain_destroy(struct wsi_swapchain *drv_chain,
    for (uint32_t i = 0; i < chain->base.image_count; i++)
       wsi_display_image_finish(drv_chain, allocator, &chain->images[i]);
 
+   _wsi_display_cleanup_state(chain);
+
    pthread_mutex_destroy(&chain->present_id_mutex);
    pthread_cond_destroy(&chain->present_id_cond);
 
@@ -2011,6 +2016,30 @@ _wsi_display_update_state(struct wsi_display_swapchain *chain, struct wsi_displa
       }
 
       connector->color_outcome_serial = chain->base.color_outcome_serial;
+   }
+}
+
+static void
+_wsi_display_cleanup_state(struct wsi_display_swapchain *chain)
+{
+   VkIcdSurfaceDisplay *surface = chain->surface;
+   wsi_display_mode *display_mode =
+      wsi_display_mode_from_handle(surface->displayMode);
+   wsi_display_connector *connector = display_mode->connector;
+
+   /* Reset our color outcome to defaults, and update the state.
+    * We need to clean up after our mess, for any other compositors,
+    * etc that come after us that may not be aware of properties
+    * we have set.
+    * We can do this by just setting ourselves back to sRGB and therefore
+    * SDR and updating like normal.
+    * We only need to do this if we have a color outcome serial that isn't
+    * 0, the default.
+    */
+   if (chain->base.color_outcome_serial) {
+      chain->base.color_outcome_serial = 0;
+      chain->base.image_info.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+      _wsi_display_update_state(chain, connector);
    }
 }
 
