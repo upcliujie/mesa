@@ -75,8 +75,10 @@ lp_cs_tpool_worker(void *data)
 
       mtx_lock(&pool->m);
       task->iter_finished += iter_per_thread;
-      if (task->iter_finished == task->iter_total)
+      if (task->iter_finished == task->iter_total) {
          cnd_broadcast(&task->finish);
+         lp_fence_signal(task->fence);
+      }
    }
    mtx_unlock(&pool->m);
    FREE(lmem.local_mem_ptr);
@@ -154,7 +156,14 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
    task->iter_per_thread = num_iters / pool->num_threads;
    task->iter_remainder = num_iters % pool->num_threads;
 
+   task->fence = lp_fence_create(1);
+   if (!task->fence) {
+      FREE(task);
+      return NULL;
+   }
    cnd_init(&task->finish);
+
+   task->fence->issued = true;
 
    mtx_lock(&pool->m);
 
@@ -174,10 +183,7 @@ lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
    if (!pool || !task)
       return;
 
-   mtx_lock(&pool->m);
-   while (task->iter_finished < task->iter_total)
-      cnd_wait(&task->finish, &pool->m);
-   mtx_unlock(&pool->m);
+   lp_fence_wait(task->fence);
 
    cnd_destroy(&task->finish);
    FREE(task);

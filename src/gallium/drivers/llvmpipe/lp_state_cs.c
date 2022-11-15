@@ -41,6 +41,7 @@
 #include "lp_debug.h"
 #include "lp_state.h"
 #include "lp_perf.h"
+#include "lp_fence.h"
 #include "lp_screen.h"
 #include "lp_memory.h"
 #include "lp_query.h"

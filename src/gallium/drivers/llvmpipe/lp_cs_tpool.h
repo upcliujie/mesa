@@ -40,7 +40,7 @@
 #include "util/list.h"
 
 #include "lp_limits.h"
-
+#include "lp_fence.h"
 struct lp_cs_tpool {
    mtx_t m;
    cnd_t new_work;
@@ -68,6 +68,7 @@ struct lp_cs_tpool_task {
    unsigned iter_finished;
    unsigned iter_per_thread;
    unsigned iter_remainder;
+   struct lp_fence *fence;
 };
 
 struct lp_cs_tpool *lp_cs_tpool_create(unsigned num_threads);
