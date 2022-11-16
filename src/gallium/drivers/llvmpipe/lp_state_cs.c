@@ -1432,7 +1432,7 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
    if (num_tasks) {
       struct lp_cs_tpool_task *task;
       mtx_lock(&screen->cs_mutex);
-      task = lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, &job_info, num_tasks);
+      task = lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, NULL, &job_info, num_tasks);
       mtx_unlock(&screen->cs_mutex);
 
       lp_cs_tpool_wait_for_task(screen->cs_tpool, &task);

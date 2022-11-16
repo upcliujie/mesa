@@ -128,7 +128,9 @@ lp_cs_tpool_destroy(struct lp_cs_tpool *pool)
 
 struct lp_cs_tpool_task *
 lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
-                       lp_cs_tpool_task_func work, void *data, int num_iters)
+                       lp_cs_tpool_task_func work,
+                       lp_cs_tpool_free_func free_data,
+                       void *data, int num_iters)
 {
    struct lp_cs_tpool_task *task;
 
@@ -140,6 +142,8 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
          work(data, t, &lmem);
       }
       FREE(lmem.local_mem_ptr);
+      if (free_data)
+         free_data(data);
       return NULL;
    }
    task = CALLOC_STRUCT(lp_cs_tpool_task);
@@ -149,6 +153,7 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
 
    task->work = work;
    task->data = data;
+   task->free_data = free_data;
    task->iter_total = num_iters;
 
    task->iter_per_thread = num_iters / pool->num_threads;
@@ -180,6 +185,9 @@ lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
    mtx_unlock(&pool->m);
 
    cnd_destroy(&task->finish);
+
+   if (task->free_data)
+      task->free_data(task->data);
    FREE(task);
    *task_handle = NULL;
 }
