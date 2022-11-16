@@ -77,12 +77,10 @@ struct lp_cs_tpool_task {
 struct lp_cs_tpool *lp_cs_tpool_create(unsigned num_threads);
 void lp_cs_tpool_destroy(struct lp_cs_tpool *);
 
-struct lp_cs_tpool_task *lp_cs_tpool_queue_task(struct lp_cs_tpool *,
-                                                lp_cs_tpool_task_func func,
-                                                lp_cs_tpool_free_func free_data,
-                                                void *data, int num_iters);
-
-void lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
-                            struct lp_cs_tpool_task **task);
+bool lp_cs_tpool_queue_task(struct lp_cs_tpool *,
+                            lp_cs_tpool_task_func func,
+                            lp_cs_tpool_free_func free_data,
+                            void *data, int num_iters,
+                            struct lp_fence **fence);
 
 #endif /* LP_BIN_QUEUE */

@@ -45,6 +45,7 @@
 #include "lp_memory.h"
 #include "lp_query.h"
 #include "lp_cs_tpool.h"
+#include "lp_fence.h"
 #include "frontend/sw_winsys.h"
 #include "nir/nir_to_tgsi_info.h"
 #include "util/mesa-sha1.h"
@@ -1438,12 +1439,15 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 
    int num_tasks = job_info->grid_size[2] * job_info->grid_size[1] * job_info->grid_size[0];
    if (num_tasks) {
-      struct lp_cs_tpool_task *task;
+      struct lp_fence *fence = NULL;
       mtx_lock(&screen->cs_mutex);
-      task = lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, cs_free_job, job_info, num_tasks);
+      lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, cs_free_job, job_info, num_tasks, &fence);
       mtx_unlock(&screen->cs_mutex);
 
-      lp_cs_tpool_wait_for_task(screen->cs_tpool, &task);
+      if (fence) {
+         lp_fence_wait(fence);
+         lp_fence_reference(&fence, NULL);
+      }
    }
    if (!llvmpipe->queries_disabled)
       llvmpipe->pipeline_statistics.cs_invocations += num_tasks * info->block[0] * info->block[1] * info->block[2];

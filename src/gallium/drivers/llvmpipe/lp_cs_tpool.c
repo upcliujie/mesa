@@ -76,8 +76,13 @@ lp_cs_tpool_worker(void *data)
 
       mtx_lock(&pool->m);
       task->iter_finished += iter_per_thread;
-      if (task->iter_finished == task->iter_total)
+      if (task->iter_finished == task->iter_total) {
+         if (task->free_data)
+            task->free_data(task->data);
          lp_fence_signal(task->fence);
+         lp_fence_reference(&task->fence, NULL);
+         FREE(task);
+      }
    }
    mtx_unlock(&pool->m);
    FREE(lmem.local_mem_ptr);
@@ -127,17 +132,20 @@ lp_cs_tpool_destroy(struct lp_cs_tpool *pool)
    FREE(pool);
 }
 
-struct lp_cs_tpool_task *
+bool
 lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
                        lp_cs_tpool_task_func work,
                        lp_cs_tpool_free_func free_data,
-                       void *data, int num_iters)
+                       void *data, int num_iters,
+                       struct lp_fence **fence)
 {
    struct lp_cs_tpool_task *task;
 
    if (pool->num_threads == 0) {
       struct lp_cs_local_mem lmem;
 
+      *fence = lp_fence_create(1);
+      (*fence)->issued = true;
       memset(&lmem, 0, sizeof(lmem));
       for (unsigned t = 0; t < num_iters; t++) {
          work(data, t, &lmem);
@@ -145,7 +153,8 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
       FREE(lmem.local_mem_ptr);
       if (free_data)
          free_data(data);
-      return NULL;
+      lp_fence_signal(*fence);
+      return true;
    }
    task = CALLOC_STRUCT(lp_cs_tpool_task);
    if (!task) {
@@ -157,6 +166,8 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
       FREE(task);
       return NULL;
    }
+
+   lp_fence_reference(fence, task->fence);
 
    task->work = work;
    task->data = data;
@@ -174,21 +185,4 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
    cnd_broadcast(&pool->new_work);
    mtx_unlock(&pool->m);
    return task;
-}
-
-void
-lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
-                          struct lp_cs_tpool_task **task_handle)
-{
-   struct lp_cs_tpool_task *task = *task_handle;
-
-   if (!pool || !task)
-      return;
-
-   lp_fence_wait(task->fence);
-
-   if (task->free_data)
-      task->free_data(task->data);
-   FREE(task);
-   *task_handle = NULL;
 }
