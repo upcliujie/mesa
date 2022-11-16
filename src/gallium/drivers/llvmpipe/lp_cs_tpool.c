@@ -77,6 +77,7 @@ lp_cs_tpool_worker(void *data)
       task->iter_finished += iter_per_thread;
       if (task->iter_finished == task->iter_total) {
          lp_fence_signal(task->fence);
+         lp_fence_reference(&task->fence, NULL);
          task->free_data(task->data);
          FREE(task);
       }
