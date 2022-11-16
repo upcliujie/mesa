@@ -496,7 +496,9 @@ llvmpipe_create_compute_state(struct pipe_context *pipe,
    if (!shader)
       return NULL;
 
+   pipe_reference_init(&shader->reference, 1);
    shader->no = cs_no++;
+   list_inithead(&shader->variants.list);
 
    shader->base.type = templ->ir_type;
    if (templ->ir_type == PIPE_SHADER_IR_NIR_SERIALIZED) {
@@ -525,8 +527,6 @@ llvmpipe_create_compute_state(struct pipe_context *pipe,
       nir_tgsi_scan_shader(shader->base.ir.nir, &shader->info.base, false);
    }
 
-   list_inithead(&shader->variants.list);
-
    int nr_samplers = shader->info.base.file_max[TGSI_FILE_SAMPLER] + 1;
    int nr_sampler_views = shader->info.base.file_max[TGSI_FILE_SAMPLER_VIEW] + 1;
    int nr_images = shader->info.base.file_max[TGSI_FILE_IMAGE] + 1;
@@ -541,14 +541,23 @@ llvmpipe_bind_compute_state(struct pipe_context *pipe,
                             void *cs)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
+   struct lp_compute_shader *lp_cs = (struct lp_compute_shader *)cs;
 
    if (llvmpipe->cs == cs)
       return;
 
-   llvmpipe->cs = (struct lp_compute_shader *)cs;
+   lp_cs_reference(llvmpipe, &llvmpipe->cs, lp_cs);
    llvmpipe->cs_dirty |= LP_CSNEW_CS;
 }
 
+void
+llvmpipe_destroy_cs_shader_variant(struct llvmpipe_context *lp,
+                                   struct lp_compute_shader_variant *variant)
+{
+   gallivm_destroy(variant->gallivm);
+   lp_cs_reference(lp, &variant->shader, NULL);
+   FREE(variant);
+}
 
 /**
  * Remove shader variant from two lists: the shader's variant list
@@ -567,8 +576,6 @@ llvmpipe_remove_cs_shader_variant(struct llvmpipe_context *lp,
                    lp->nr_cs_variants, variant->nr_instrs, lp->nr_cs_instrs);
    }
 
-   gallivm_destroy(variant->gallivm);
-
    /* remove from shader's list */
    list_del(&variant->list_item_local.list);
    variant->shader->variants_cached--;
@@ -577,10 +584,17 @@ llvmpipe_remove_cs_shader_variant(struct llvmpipe_context *lp,
    list_del(&variant->list_item_global.list);
    lp->nr_cs_variants--;
    lp->nr_cs_instrs -= variant->nr_instrs;
-
-   FREE(variant);
 }
 
+void
+llvmpipe_destroy_cs(struct llvmpipe_context *llvmpipe,
+                    struct lp_compute_shader *shader)
+{
+   if (shader->base.ir.nir)
+      ralloc_free(shader->base.ir.nir);
+   tgsi_free_tokens(shader->base.tokens);
+   FREE(shader);
+}
 
 static void
 llvmpipe_delete_compute_state(struct pipe_context *pipe,
@@ -598,12 +612,12 @@ llvmpipe_delete_compute_state(struct pipe_context *pipe,
 
    /* Delete all the variants */
    LIST_FOR_EACH_ENTRY_SAFE(li, next, &shader->variants.list, list) {
-      llvmpipe_remove_cs_shader_variant(llvmpipe, li->base);
+      struct lp_compute_shader_variant *variant;
+      variant = li->base;
+      llvmpipe_remove_cs_shader_variant(llvmpipe, variant);
+      lp_cs_variant_reference(llvmpipe, &variant, NULL);
    }
-   if (shader->base.ir.nir)
-      ralloc_free(shader->base.ir.nir);
-   tgsi_free_tokens(shader->base.tokens);
-   FREE(shader);
+   lp_cs_reference(llvmpipe, &shader, NULL);
 }
 
 
@@ -791,6 +805,9 @@ generate_variant(struct llvmpipe_context *lp,
 
    memset(variant, 0, sizeof(*variant));
 
+   pipe_reference_init(&variant->reference, 1);
+   lp_cs_reference(lp, &variant->shader, shader);
+
    char module_name[64];
    snprintf(module_name, sizeof(module_name), "cs%u_variant%u",
             shader->no, shader->variants_created);
@@ -917,7 +934,9 @@ llvmpipe_update_cs(struct llvmpipe_context *lp)
                                    struct lp_cs_variant_list_item, list);
             assert(item);
             assert(item->base);
-            llvmpipe_remove_cs_shader_variant(lp, item->base);
+            struct lp_compute_shader_variant *variant = item->base;
+            llvmpipe_remove_cs_shader_variant(lp, variant);
+            lp_cs_variant_reference(lp, &variant, NULL);
          }
       }
 

@@ -78,6 +78,7 @@ struct lp_cs_variant_list_item
 struct lp_compute_shader_variant
 {
    struct gallivm_state *gallivm;
+   struct pipe_reference reference;
 
    LLVMTypeRef jit_cs_context_type;
    LLVMTypeRef jit_cs_context_ptr_type;
@@ -103,7 +104,7 @@ struct lp_compute_shader_variant
 
 struct lp_compute_shader {
    struct pipe_shader_state base;
-
+   struct pipe_reference reference;
    struct lp_cs_variant_list_item variants;
 
    struct lp_tgsi_info info;
@@ -156,5 +157,37 @@ struct lp_cs_context {
 
 struct lp_cs_context *lp_csctx_create(struct pipe_context *pipe);
 void lp_csctx_destroy(struct lp_cs_context *csctx);
+
+void llvmpipe_destroy_cs(struct llvmpipe_context *llvmpipe,
+                         struct lp_compute_shader *shader);
+static inline void
+lp_cs_reference(struct llvmpipe_context *llvmpipe,
+                struct lp_compute_shader **ptr,
+                struct lp_compute_shader *shader)
+{
+   struct lp_compute_shader *old_ptr = *ptr;
+   if (pipe_reference(old_ptr ? &(*ptr)->reference : NULL,
+                      shader ? &shader->reference : NULL)) {
+      llvmpipe_destroy_cs(llvmpipe, old_ptr);
+   }
+   *ptr = shader;
+}
+
+void
+llvmpipe_destroy_cs_shader_variant(struct llvmpipe_context *lp,
+                                   struct lp_compute_shader_variant *variant);
+
+static inline void
+lp_cs_variant_reference(struct llvmpipe_context *llvmpipe,
+                        struct lp_compute_shader_variant **ptr,
+                        struct lp_compute_shader_variant *variant)
+{
+   struct lp_compute_shader_variant *old_ptr = *ptr;
+   if (pipe_reference(old_ptr ? &(*ptr)->reference : NULL,
+                      variant ? &variant->reference : NULL)) {
+      llvmpipe_destroy_cs_shader_variant(llvmpipe, old_ptr);
+   }
+   *ptr = variant;
+}
 
 #endif
