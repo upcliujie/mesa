@@ -62,7 +62,6 @@ struct lp_cs_tpool_task {
    lp_cs_tpool_task_func work;
    void *data;
    struct list_head list;
-   cnd_t finish;
    unsigned iter_total;
    unsigned iter_start;
    unsigned iter_finished;
@@ -74,11 +73,9 @@ struct lp_cs_tpool_task {
 struct lp_cs_tpool *lp_cs_tpool_create(unsigned num_threads);
 void lp_cs_tpool_destroy(struct lp_cs_tpool *);
 
-struct lp_cs_tpool_task *lp_cs_tpool_queue_task(struct lp_cs_tpool *,
-                                                lp_cs_tpool_task_func func,
-                                                void *data, int num_iters);
-
-void lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
-                            struct lp_cs_tpool_task **task);
+bool lp_cs_tpool_queue_task(struct lp_cs_tpool *,
+                            lp_cs_tpool_task_func func,
+                            void *data, int num_iters,
+                            struct lp_fence **fence);
 
 #endif /* LP_BIN_QUEUE */

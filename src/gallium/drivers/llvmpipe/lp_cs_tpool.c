@@ -76,8 +76,8 @@ lp_cs_tpool_worker(void *data)
       mtx_lock(&pool->m);
       task->iter_finished += iter_per_thread;
       if (task->iter_finished == task->iter_total) {
-         cnd_broadcast(&task->finish);
          lp_fence_signal(task->fence);
+         FREE(task);
       }
    }
    mtx_unlock(&pool->m);
@@ -128,25 +128,29 @@ lp_cs_tpool_destroy(struct lp_cs_tpool *pool)
    FREE(pool);
 }
 
-struct lp_cs_tpool_task *
+bool
 lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
-                       lp_cs_tpool_task_func work, void *data, int num_iters)
+                       lp_cs_tpool_task_func work, void *data, int num_iters,
+                       struct lp_fence **fence)
 {
    struct lp_cs_tpool_task *task;
 
    if (pool->num_threads == 0) {
       struct lp_cs_local_mem lmem;
 
+      *fence = lp_fence_create(1);
+      (*fence)->issued = true;
       memset(&lmem, 0, sizeof(lmem));
       for (unsigned t = 0; t < num_iters; t++) {
          work(data, t, &lmem);
       }
       FREE(lmem.local_mem_ptr);
-      return NULL;
+      lp_fence_signal(*fence);
+      return true;
    }
    task = CALLOC_STRUCT(lp_cs_tpool_task);
    if (!task) {
-      return NULL;
+      return false;
    }
 
    task->work = work;
@@ -159,9 +163,10 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
    task->fence = lp_fence_create(1);
    if (!task->fence) {
       FREE(task);
-      return NULL;
+      return false;
    }
-   cnd_init(&task->finish);
+
+   lp_fence_reference(fence, task->fence);
 
    task->fence->issued = true;
 
@@ -171,21 +176,5 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
 
    cnd_broadcast(&pool->new_work);
    mtx_unlock(&pool->m);
-   return task;
-}
-
-void
-lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
-                          struct lp_cs_tpool_task **task_handle)
-{
-   struct lp_cs_tpool_task *task = *task_handle;
-
-   if (!pool || !task)
-      return;
-
-   lp_fence_wait(task->fence);
-
-   cnd_destroy(&task->finish);
-   FREE(task);
-   *task_handle = NULL;
+   return true;
 }
