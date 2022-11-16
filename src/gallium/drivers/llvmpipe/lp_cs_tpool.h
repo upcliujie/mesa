@@ -41,6 +41,8 @@
 
 #include "lp_limits.h"
 
+struct lp_fence;
+
 struct lp_cs_tpool {
    mtx_t m;
    cnd_t new_work;
@@ -63,8 +65,8 @@ struct lp_cs_tpool_task {
    lp_cs_tpool_task_func work;
    lp_cs_tpool_free_func free_data;
    void *data;
+   struct lp_fence *fence;
    struct list_head list;
-   cnd_t finish;
    unsigned iter_total;
    unsigned iter_start;
    unsigned iter_finished;

@@ -31,6 +31,7 @@
 #include "util/u_thread.h"
 #include "util/u_memory.h"
 #include "lp_cs_tpool.h"
+#include "lp_fence.h"
 
 static int
 lp_cs_tpool_worker(void *data)
@@ -76,7 +77,7 @@ lp_cs_tpool_worker(void *data)
       mtx_lock(&pool->m);
       task->iter_finished += iter_per_thread;
       if (task->iter_finished == task->iter_total)
-         cnd_broadcast(&task->finish);
+         lp_fence_signal(task->fence);
    }
    mtx_unlock(&pool->m);
    FREE(lmem.local_mem_ptr);
@@ -151,6 +152,12 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
       return NULL;
    }
 
+   task->fence = lp_fence_create(1);
+   if (!task->fence) {
+      FREE(task);
+      return NULL;
+   }
+
    task->work = work;
    task->data = data;
    task->free_data = free_data;
@@ -159,10 +166,9 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
    task->iter_per_thread = num_iters / pool->num_threads;
    task->iter_remainder = num_iters % pool->num_threads;
 
-   cnd_init(&task->finish);
-
    mtx_lock(&pool->m);
 
+   task->fence->issued = true;
    list_addtail(&task->list, &pool->workqueue);
 
    cnd_broadcast(&pool->new_work);
@@ -179,12 +185,7 @@ lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
    if (!pool || !task)
       return;
 
-   mtx_lock(&pool->m);
-   while (task->iter_finished < task->iter_total)
-      cnd_wait(&task->finish, &pool->m);
-   mtx_unlock(&pool->m);
-
-   cnd_destroy(&task->finish);
+   lp_fence_wait(task->fence);
 
    if (task->free_data)
       task->free_data(task->data);
