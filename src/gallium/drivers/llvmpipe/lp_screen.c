@@ -911,11 +911,14 @@ llvmpipe_fence_finish(struct pipe_screen *screen,
       return signalled;
    }
 
+   bool f0_result = false;
    if (!lp_fence_signalled(f->fence[0])) {
-      if (timeout != PIPE_TIMEOUT_INFINITE)
-         return lp_fence_timedwait(f->fence[0], timeout);
-
-      lp_fence_wait(f->fence[0]);
+      if (timeout != PIPE_TIMEOUT_INFINITE) {
+         f0_result = lp_fence_timedwait(f->fence[0], timeout);
+         if (!f->fence[1] || f0_result == false)
+            return f0_result;
+      } else
+         lp_fence_wait(f->fence[0]);
    }
 
    if (f->fence[1] && !lp_fence_signalled(f->fence[1])) {

@@ -66,6 +66,10 @@ llvmpipe_flush(struct pipe_context *pipe,
       lp_rast_fence(screen->rast, &fencec->fence[0]);
       mtx_unlock(&screen->rast_mutex);
 
+      mtx_lock(&screen->cs_mutex);
+      if (screen->last_cs_fence)
+         lp_fence_reference(&fencec->fence[1], screen->last_cs_fence);
+      mtx_unlock(&screen->cs_mutex);
       if (!fencec->fence[0])
          fencec->fence[0] = lp_fence_create(0);
 

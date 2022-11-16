@@ -62,7 +62,9 @@ struct lp_cs_job_info {
    unsigned req_local_mem;
    unsigned work_dim;
    bool zero_initialize_shared_memory;
-   struct lp_cs_exec *current;
+   struct lp_cs_exec current;
+   struct lp_compute_shader_variant *variant;
+   struct llvmpipe_context *lp;
 };
 
 
@@ -1353,6 +1355,13 @@ llvmpipe_cs_update_derived(struct llvmpipe_context *llvmpipe, const void *input)
    llvmpipe->cs_dirty = 0;
 }
 
+static void
+cs_free_fn(void *data)
+{
+   struct lp_cs_job_info *job = data;
+   lp_cs_variant_reference(job->lp, &job->variant, NULL);
+   FREE(job);
+}
 
 static void
 cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
@@ -1378,8 +1387,8 @@ cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
    grid_z += job_info->grid_base[2];
    grid_y += job_info->grid_base[1];
    grid_x += job_info->grid_base[0];
-   struct lp_compute_shader_variant *variant = job_info->current->variant;
-   variant->jit_function(&job_info->current->jit_context,
+   struct lp_compute_shader_variant *variant = job_info->current.variant;
+   variant->jit_function(&job_info->current.jit_context,
                          job_info->block_size[0], job_info->block_size[1], job_info->block_size[2],
                          grid_x, grid_y, grid_z,
                          job_info->grid_size[0], job_info->grid_size[1], job_info->grid_size[2], job_info->work_dim,
@@ -1422,39 +1431,37 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
    struct llvmpipe_screen *screen = llvmpipe_screen(pipe->screen);
-   struct lp_cs_job_info job_info;
+   struct lp_cs_job_info *job_info;
 
    if (!llvmpipe_check_render_cond(llvmpipe))
       return;
 
-   memset(&job_info, 0, sizeof(job_info));
+   job_info = CALLOC_STRUCT(lp_cs_job_info);
+   if (!job_info)
+      return;
 
    llvmpipe_cs_update_derived(llvmpipe, info->input);
 
-   fill_grid_size(pipe, info, job_info.grid_size);
+   fill_grid_size(pipe, info, job_info->grid_size);
 
-   job_info.grid_base[0] = info->grid_base[0];
-   job_info.grid_base[1] = info->grid_base[1];
-   job_info.grid_base[2] = info->grid_base[2];
-   job_info.block_size[0] = info->block[0];
-   job_info.block_size[1] = info->block[1];
-   job_info.block_size[2] = info->block[2];
-   job_info.work_dim = info->work_dim;
-   job_info.req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
-   job_info.zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
-   job_info.current = &llvmpipe->csctx->cs.current;
+   job_info->grid_base[0] = info->grid_base[0];
+   job_info->grid_base[1] = info->grid_base[1];
+   job_info->grid_base[2] = info->grid_base[2];
+   job_info->block_size[0] = info->block[0];
+   job_info->block_size[1] = info->block[1];
+   job_info->block_size[2] = info->block[2];
+   job_info->work_dim = info->work_dim;
+   job_info->req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
+   job_info->zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
+   lp_cs_variant_reference(llvmpipe, &job_info->variant, llvmpipe->csctx->cs.current.variant);
+   job_info->lp = llvmpipe;
+   job_info->current = llvmpipe->csctx->cs.current;
 
-   int num_tasks = job_info.grid_size[2] * job_info.grid_size[1] * job_info.grid_size[0];
+   int num_tasks = job_info->grid_size[2] * job_info->grid_size[1] * job_info->grid_size[0];
    if (num_tasks) {
-      struct lp_fence *fence = NULL;
-      bool sent;
       mtx_lock(&screen->cs_mutex);
-      sent = lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, &job_info, num_tasks, &fence);
+      lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, cs_free_fn, job_info, num_tasks, &screen->last_cs_fence);
       mtx_unlock(&screen->cs_mutex);
-      if (sent) {
-         lp_fence_wait(fence);
-         lp_fence_reference(&fence, NULL);
-      }
    }
    if (!llvmpipe->queries_disabled)
       llvmpipe->pipeline_statistics.cs_invocations += num_tasks * info->block[0] * info->block[1] * info->block[2];

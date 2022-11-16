@@ -77,6 +77,7 @@ lp_cs_tpool_worker(void *data)
       task->iter_finished += iter_per_thread;
       if (task->iter_finished == task->iter_total) {
          lp_fence_signal(task->fence);
+         task->free_data(task->data);
          FREE(task);
       }
    }
@@ -130,7 +131,9 @@ lp_cs_tpool_destroy(struct lp_cs_tpool *pool)
 
 bool
 lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
-                       lp_cs_tpool_task_func work, void *data, int num_iters,
+                       lp_cs_tpool_task_func work,
+                       lp_cs_tpool_free_func free_data,
+                       void *data, int num_iters,
                        struct lp_fence **fence)
 {
    struct lp_cs_tpool_task *task;
@@ -145,6 +148,7 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
          work(data, t, &lmem);
       }
       FREE(lmem.local_mem_ptr);
+      free_data(data);
       lp_fence_signal(*fence);
       return true;
    }
@@ -155,6 +159,7 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
 
    task->work = work;
    task->data = data;
+   task->free_data = free_data;
    task->iter_total = num_iters;
 
    task->iter_per_thread = num_iters / pool->num_threads;
