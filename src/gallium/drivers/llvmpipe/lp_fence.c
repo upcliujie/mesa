@@ -159,3 +159,13 @@ lp_fence_timedwait(struct lp_fence *f, uint64_t timeout)
 
    return result;
 }
+
+
+/** Destroy a fence container.  Called when refcount hits zero. */
+void
+lp_fence_container_destroy(struct lp_fence_container *fencec)
+{
+   lp_fence_reference(&fencec->fence[0], NULL);
+   lp_fence_reference(&fencec->fence[1], NULL);
+   FREE(fencec);
+}

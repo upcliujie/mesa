@@ -59,12 +59,22 @@ llvmpipe_flush(struct pipe_context *pipe,
    /* ask the setup module to flush */
    lp_setup_flush(llvmpipe->setup, reason);
 
-   mtx_lock(&screen->rast_mutex);
-   lp_rast_fence(screen->rast, (struct lp_fence **)fence);
-   mtx_unlock(&screen->rast_mutex);
+   if (fence) {
+      struct lp_fence_container *fencec = CALLOC_STRUCT(lp_fence_container);
+      pipe_reference_init(&fencec->reference, 1);
+      mtx_lock(&screen->rast_mutex);
+      lp_rast_fence(screen->rast, &fencec->fence[0]);
+      mtx_unlock(&screen->rast_mutex);
 
-   if (fence && (!*fence))
-      *fence = (struct pipe_fence_handle *)lp_fence_create(0);
+      mtx_lock(&screen->cs_mutex);
+      if (screen->last_cs_fence)
+         lp_fence_reference(&fencec->fence[1], screen->last_cs_fence);
+      mtx_unlock(&screen->cs_mutex);
+      if (!fencec->fence[0])
+         fencec->fence[0] = lp_fence_create(0);
+
+      *fence = (struct pipe_fence_handle *)fencec;
+   }
 
    /* Enable to dump BMPs of the color/depth buffers each frame */
    if (0) {

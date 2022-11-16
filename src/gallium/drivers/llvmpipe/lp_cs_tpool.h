@@ -40,7 +40,7 @@
 #include "util/list.h"
 
 #include "lp_limits.h"
-
+#include "lp_fence.h"
 struct lp_cs_tpool {
    mtx_t m;
    cnd_t new_work;
@@ -57,27 +57,28 @@ struct lp_cs_local_mem {
 };
 
 typedef void (*lp_cs_tpool_task_func)(void *data, int iter_idx, struct lp_cs_local_mem *lmem);
+typedef void (*lp_cs_tpool_free_func)(void *data);
 
 struct lp_cs_tpool_task {
    lp_cs_tpool_task_func work;
+   lp_cs_tpool_free_func free_data;
    void *data;
    struct list_head list;
-   cnd_t finish;
    unsigned iter_total;
    unsigned iter_start;
    unsigned iter_finished;
    unsigned iter_per_thread;
    unsigned iter_remainder;
+   struct lp_fence *fence;
 };
 
 struct lp_cs_tpool *lp_cs_tpool_create(unsigned num_threads);
 void lp_cs_tpool_destroy(struct lp_cs_tpool *);
 
-struct lp_cs_tpool_task *lp_cs_tpool_queue_task(struct lp_cs_tpool *,
-                                                lp_cs_tpool_task_func func,
-                                                void *data, int num_iters);
-
-void lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
-                            struct lp_cs_tpool_task **task);
+bool lp_cs_tpool_queue_task(struct lp_cs_tpool *,
+                            lp_cs_tpool_task_func func,
+                            lp_cs_tpool_free_func free_func,
+                            void *data, int num_iters,
+                            struct lp_fence **fence);
 
 #endif /* LP_BIN_QUEUE */

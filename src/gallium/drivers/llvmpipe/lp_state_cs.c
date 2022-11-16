@@ -41,6 +41,7 @@
 #include "lp_debug.h"
 #include "lp_state.h"
 #include "lp_perf.h"
+#include "lp_fence.h"
 #include "lp_screen.h"
 #include "lp_memory.h"
 #include "lp_query.h"
@@ -61,7 +62,9 @@ struct lp_cs_job_info {
    unsigned req_local_mem;
    unsigned work_dim;
    bool zero_initialize_shared_memory;
-   struct lp_cs_exec *current;
+   struct lp_cs_exec current;
+   struct lp_compute_shader_variant *variant;
+   struct llvmpipe_context *lp;
 };
 
 
@@ -495,7 +498,9 @@ llvmpipe_create_compute_state(struct pipe_context *pipe,
    if (!shader)
       return NULL;
 
+   pipe_reference_init(&shader->reference, 1);
    shader->no = cs_no++;
+   list_inithead(&shader->variants.list);
 
    shader->base.type = templ->ir_type;
    if (templ->ir_type == PIPE_SHADER_IR_NIR_SERIALIZED) {
@@ -524,8 +529,6 @@ llvmpipe_create_compute_state(struct pipe_context *pipe,
       nir_tgsi_scan_shader(shader->base.ir.nir, &shader->info.base, false);
    }
 
-   list_inithead(&shader->variants.list);
-
    int nr_samplers = shader->info.base.file_max[TGSI_FILE_SAMPLER] + 1;
    int nr_sampler_views = shader->info.base.file_max[TGSI_FILE_SAMPLER_VIEW] + 1;
    int nr_images = shader->info.base.file_max[TGSI_FILE_IMAGE] + 1;
@@ -540,22 +543,30 @@ llvmpipe_bind_compute_state(struct pipe_context *pipe,
                             void *cs)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
-
+   struct lp_compute_shader *lp_cs = (struct lp_compute_shader *)cs;
    if (llvmpipe->cs == cs)
       return;
 
-   llvmpipe->cs = (struct lp_compute_shader *)cs;
+   lp_cs_reference(llvmpipe, &llvmpipe->cs, lp_cs);
    llvmpipe->cs_dirty |= LP_CSNEW_CS;
 }
 
+void
+llvmpipe_destroy_cs_shader_variant(struct llvmpipe_context *lp,
+                                   struct lp_compute_shader_variant *variant)
+{
+   gallivm_destroy(variant->gallivm);
+   lp_cs_reference(lp, &variant->shader, NULL);
+   FREE(variant);
+}
 
 /**
  * Remove shader variant from two lists: the shader's variant list
  * and the context's variant list.
  */
 static void
-llvmpipe_remove_cs_shader_variant(struct llvmpipe_context *lp,
-                                  struct lp_compute_shader_variant *variant)
+llvmpipe_remove_compute_shader_variant(struct llvmpipe_context *lp,
+                                       struct lp_compute_shader_variant *variant)
 {
    if ((LP_DEBUG & DEBUG_CS) || (gallivm_debug & GALLIVM_DEBUG_IR)) {
       debug_printf("llvmpipe: del cs #%u var %u v created %u v cached %u "
@@ -566,8 +577,6 @@ llvmpipe_remove_cs_shader_variant(struct llvmpipe_context *lp,
                    lp->nr_cs_variants, variant->nr_instrs, lp->nr_cs_instrs);
    }
 
-   gallivm_destroy(variant->gallivm);
-
    /* remove from shader's list */
    list_del(&variant->list_item_local.list);
    variant->shader->variants_cached--;
@@ -576,10 +585,17 @@ llvmpipe_remove_cs_shader_variant(struct llvmpipe_context *lp,
    list_del(&variant->list_item_global.list);
    lp->nr_cs_variants--;
    lp->nr_cs_instrs -= variant->nr_instrs;
-
-   FREE(variant);
 }
 
+void
+llvmpipe_destroy_cs(struct llvmpipe_context *llvmpipe,
+                    struct lp_compute_shader *shader)
+{
+   if (shader->base.ir.nir)
+      ralloc_free(shader->base.ir.nir);
+   tgsi_free_tokens(shader->base.tokens);
+   FREE(shader);
+}
 
 static void
 llvmpipe_delete_compute_state(struct pipe_context *pipe,
@@ -597,12 +613,12 @@ llvmpipe_delete_compute_state(struct pipe_context *pipe,
 
    /* Delete all the variants */
    LIST_FOR_EACH_ENTRY_SAFE(li, next, &shader->variants.list, list) {
-      llvmpipe_remove_cs_shader_variant(llvmpipe, li->base);
+      struct lp_compute_shader_variant *variant;
+      variant = li->base;
+      llvmpipe_remove_compute_shader_variant(llvmpipe, li->base);
+      lp_cs_variant_reference(llvmpipe, &variant, NULL);
    }
-   if (shader->base.ir.nir)
-      ralloc_free(shader->base.ir.nir);
-   tgsi_free_tokens(shader->base.tokens);
-   FREE(shader);
+   lp_cs_reference(llvmpipe, &shader, NULL);
 }
 
 
@@ -790,6 +806,8 @@ generate_variant(struct llvmpipe_context *lp,
 
    memset(variant, 0, sizeof(*variant));
 
+   pipe_reference_init(&variant->reference, 1);
+   lp_cs_reference(lp, &variant->shader, shader);
    char module_name[64];
    snprintf(module_name, sizeof(module_name), "cs%u_variant%u",
             shader->no, shader->variants_created);
@@ -916,7 +934,7 @@ llvmpipe_update_cs(struct llvmpipe_context *lp)
                                    struct lp_cs_variant_list_item, list);
             assert(item);
             assert(item->base);
-            llvmpipe_remove_cs_shader_variant(lp, item->base);
+            lp_cs_variant_reference(lp, &variant, NULL);
          }
       }
 
@@ -1337,6 +1355,13 @@ llvmpipe_cs_update_derived(struct llvmpipe_context *llvmpipe, const void *input)
    llvmpipe->cs_dirty = 0;
 }
 
+static void
+cs_free_fn(void *data)
+{
+   struct lp_cs_job_info *job = data;
+   lp_cs_variant_reference(job->lp, &job->variant, NULL);
+   FREE(job);
+}
 
 static void
 cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
@@ -1362,8 +1387,8 @@ cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
    grid_z += job_info->grid_base[2];
    grid_y += job_info->grid_base[1];
    grid_x += job_info->grid_base[0];
-   struct lp_compute_shader_variant *variant = job_info->current->variant;
-   variant->jit_function(&job_info->current->jit_context,
+   struct lp_compute_shader_variant *variant = job_info->current.variant;
+   variant->jit_function(&job_info->current.jit_context,
                          job_info->block_size[0], job_info->block_size[1], job_info->block_size[2],
                          grid_x, grid_y, grid_z,
                          job_info->grid_size[0], job_info->grid_size[1], job_info->grid_size[2], job_info->work_dim,
@@ -1406,36 +1431,37 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
    struct llvmpipe_screen *screen = llvmpipe_screen(pipe->screen);
-   struct lp_cs_job_info job_info;
+   struct lp_cs_job_info *job_info;
 
    if (!llvmpipe_check_render_cond(llvmpipe))
       return;
 
-   memset(&job_info, 0, sizeof(job_info));
+   job_info = CALLOC_STRUCT(lp_cs_job_info);
+   if (!job_info)
+      return;
 
    llvmpipe_cs_update_derived(llvmpipe, info->input);
 
-   fill_grid_size(pipe, info, job_info.grid_size);
+   fill_grid_size(pipe, info, job_info->grid_size);
 
-   job_info.grid_base[0] = info->grid_base[0];
-   job_info.grid_base[1] = info->grid_base[1];
-   job_info.grid_base[2] = info->grid_base[2];
-   job_info.block_size[0] = info->block[0];
-   job_info.block_size[1] = info->block[1];
-   job_info.block_size[2] = info->block[2];
-   job_info.work_dim = info->work_dim;
-   job_info.req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
-   job_info.zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
-   job_info.current = &llvmpipe->csctx->cs.current;
+   job_info->grid_base[0] = info->grid_base[0];
+   job_info->grid_base[1] = info->grid_base[1];
+   job_info->grid_base[2] = info->grid_base[2];
+   job_info->block_size[0] = info->block[0];
+   job_info->block_size[1] = info->block[1];
+   job_info->block_size[2] = info->block[2];
+   job_info->work_dim = info->work_dim;
+   job_info->req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
+   job_info->zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
+   lp_cs_variant_reference(llvmpipe, &job_info->variant, llvmpipe->csctx->cs.current.variant);
+   job_info->lp = llvmpipe;
+   job_info->current = llvmpipe->csctx->cs.current;
 
-   int num_tasks = job_info.grid_size[2] * job_info.grid_size[1] * job_info.grid_size[0];
+   int num_tasks = job_info->grid_size[2] * job_info->grid_size[1] * job_info->grid_size[0];
    if (num_tasks) {
-      struct lp_cs_tpool_task *task;
       mtx_lock(&screen->cs_mutex);
-      task = lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, &job_info, num_tasks);
+      lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, cs_free_fn, job_info, num_tasks, &screen->last_cs_fence);
       mtx_unlock(&screen->cs_mutex);
-
-      lp_cs_tpool_wait_for_task(screen->cs_tpool, &task);
    }
    if (!llvmpipe->queries_disabled)
       llvmpipe->pipeline_statistics.cs_invocations += num_tasks * info->block[0] * info->block[1] * info->block[2];

@@ -75,8 +75,12 @@ lp_cs_tpool_worker(void *data)
 
       mtx_lock(&pool->m);
       task->iter_finished += iter_per_thread;
-      if (task->iter_finished == task->iter_total)
-         cnd_broadcast(&task->finish);
+      if (task->iter_finished == task->iter_total) {
+         lp_fence_signal(task->fence);
+         lp_fence_reference(&task->fence, NULL);
+         task->free_data(task->data);
+         FREE(task);
+      }
    }
    mtx_unlock(&pool->m);
    FREE(lmem.local_mem_ptr);
@@ -126,35 +130,51 @@ lp_cs_tpool_destroy(struct lp_cs_tpool *pool)
    FREE(pool);
 }
 
-struct lp_cs_tpool_task *
+bool
 lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
-                       lp_cs_tpool_task_func work, void *data, int num_iters)
+                       lp_cs_tpool_task_func work,
+                       lp_cs_tpool_free_func free_data,
+                       void *data, int num_iters,
+                       struct lp_fence **fence)
 {
    struct lp_cs_tpool_task *task;
 
    if (pool->num_threads == 0) {
       struct lp_cs_local_mem lmem;
 
+      *fence = lp_fence_create(1);
+      (*fence)->issued = true;
       memset(&lmem, 0, sizeof(lmem));
       for (unsigned t = 0; t < num_iters; t++) {
          work(data, t, &lmem);
       }
       FREE(lmem.local_mem_ptr);
-      return NULL;
+      free_data(data);
+      lp_fence_signal(*fence);
+      return true;
    }
    task = CALLOC_STRUCT(lp_cs_tpool_task);
    if (!task) {
-      return NULL;
+      return false;
    }
 
    task->work = work;
    task->data = data;
+   task->free_data = free_data;
    task->iter_total = num_iters;
 
    task->iter_per_thread = num_iters / pool->num_threads;
    task->iter_remainder = num_iters % pool->num_threads;
 
-   cnd_init(&task->finish);
+   task->fence = lp_fence_create(1);
+   if (!task->fence) {
+      FREE(task);
+      return false;
+   }
+
+   lp_fence_reference(fence, task->fence);
+
+   task->fence->issued = true;
 
    mtx_lock(&pool->m);
 
@@ -162,24 +182,5 @@ lp_cs_tpool_queue_task(struct lp_cs_tpool *pool,
 
    cnd_broadcast(&pool->new_work);
    mtx_unlock(&pool->m);
-   return task;
-}
-
-void
-lp_cs_tpool_wait_for_task(struct lp_cs_tpool *pool,
-                          struct lp_cs_tpool_task **task_handle)
-{
-   struct lp_cs_tpool_task *task = *task_handle;
-
-   if (!pool || !task)
-      return;
-
-   mtx_lock(&pool->m);
-   while (task->iter_finished < task->iter_total)
-      cnd_wait(&task->finish, &pool->m);
-   mtx_unlock(&pool->m);
-
-   cnd_destroy(&task->finish);
-   FREE(task);
-   *task_handle = NULL;
+   return true;
 }

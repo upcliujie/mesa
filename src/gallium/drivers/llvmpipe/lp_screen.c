@@ -884,10 +884,10 @@ llvmpipe_fence_reference(struct pipe_screen *screen,
                          struct pipe_fence_handle **ptr,
                          struct pipe_fence_handle *fence)
 {
-   struct lp_fence **old = (struct lp_fence **) ptr;
-   struct lp_fence *f = (struct lp_fence *) fence;
+   struct lp_fence_container **old = (struct lp_fence_container **) ptr;
+   struct lp_fence_container *f = (struct lp_fence_container *) fence;
 
-   lp_fence_reference(old, f);
+   lp_fence_container_reference(old, f);
 }
 
 
@@ -900,16 +900,32 @@ llvmpipe_fence_finish(struct pipe_screen *screen,
                       struct pipe_fence_handle *fence_handle,
                       uint64_t timeout)
 {
-   struct lp_fence *f = (struct lp_fence *) fence_handle;
+   struct lp_fence_container *f = (struct lp_fence_container *) fence_handle;
 
-   if (!timeout)
-      return lp_fence_signalled(f);
+   if (!f->fence[0] && !f->fence[1])
+      return true;
+   if (!timeout) {
+      bool signalled = lp_fence_signalled(f->fence[0]);
+      if (f->fence[1])
+         signalled &= lp_fence_signalled(f->fence[1]);
+      return signalled;
+   }
 
-   if (!lp_fence_signalled(f)) {
+   bool f0_result = false;
+   if (!lp_fence_signalled(f->fence[0])) {
+      if (timeout != PIPE_TIMEOUT_INFINITE) {
+         f0_result = lp_fence_timedwait(f->fence[0], timeout);
+         if (!f->fence[1] || f0_result == false)
+            return f0_result;
+      } else
+         lp_fence_wait(f->fence[0]);
+   }
+
+   if (f->fence[1] && !lp_fence_signalled(f->fence[1])) {
       if (timeout != PIPE_TIMEOUT_INFINITE)
-         return lp_fence_timedwait(f, timeout);
+         return lp_fence_timedwait(f->fence[1], timeout);
 
-      lp_fence_wait(f);
+      lp_fence_wait(f->fence[1]);
    }
    return true;
 }

@@ -61,6 +61,7 @@ struct llvmpipe_screen
 
    struct lp_cs_tpool *cs_tpool;
    mtx_t cs_mutex;
+   struct lp_fence *last_cs_fence;
 
    bool use_tgsi;
    bool allow_cl;
