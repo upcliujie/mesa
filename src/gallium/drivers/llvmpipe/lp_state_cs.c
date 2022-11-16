@@ -1337,6 +1337,12 @@ llvmpipe_cs_update_derived(struct llvmpipe_context *llvmpipe, const void *input)
    llvmpipe->cs_dirty = 0;
 }
 
+static void
+cs_free_job(void *data)
+{
+   struct lp_cs_job_info *job_info = data;
+   FREE(job_info);
+}
 
 static void
 cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
@@ -1406,33 +1412,35 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
    struct llvmpipe_screen *screen = llvmpipe_screen(pipe->screen);
-   struct lp_cs_job_info job_info;
+   struct lp_cs_job_info *job_info;
 
    if (!llvmpipe_check_render_cond(llvmpipe))
       return;
 
-   memset(&job_info, 0, sizeof(job_info));
+   job_info = CALLOC_STRUCT(lp_cs_job_info);
+   if (!job_info)
+      return;
 
    llvmpipe_cs_update_derived(llvmpipe, info->input);
 
-   fill_grid_size(pipe, info, job_info.grid_size);
+   fill_grid_size(pipe, info, job_info->grid_size);
 
-   job_info.grid_base[0] = info->grid_base[0];
-   job_info.grid_base[1] = info->grid_base[1];
-   job_info.grid_base[2] = info->grid_base[2];
-   job_info.block_size[0] = info->block[0];
-   job_info.block_size[1] = info->block[1];
-   job_info.block_size[2] = info->block[2];
-   job_info.work_dim = info->work_dim;
-   job_info.req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
-   job_info.zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
-   job_info.current = &llvmpipe->csctx->cs.current;
+   job_info->grid_base[0] = info->grid_base[0];
+   job_info->grid_base[1] = info->grid_base[1];
+   job_info->grid_base[2] = info->grid_base[2];
+   job_info->block_size[0] = info->block[0];
+   job_info->block_size[1] = info->block[1];
+   job_info->block_size[2] = info->block[2];
+   job_info->work_dim = info->work_dim;
+   job_info->req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
+   job_info->zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
+   job_info->current = &llvmpipe->csctx->cs.current;
 
-   int num_tasks = job_info.grid_size[2] * job_info.grid_size[1] * job_info.grid_size[0];
+   int num_tasks = job_info->grid_size[2] * job_info->grid_size[1] * job_info->grid_size[0];
    if (num_tasks) {
       struct lp_cs_tpool_task *task;
       mtx_lock(&screen->cs_mutex);
-      task = lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, NULL, &job_info, num_tasks);
+      task = lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, cs_free_job, job_info, num_tasks);
       mtx_unlock(&screen->cs_mutex);
 
       lp_cs_tpool_wait_for_task(screen->cs_tpool, &task);
