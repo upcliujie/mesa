@@ -61,19 +61,6 @@ struct lp_cs_local_mem {
 typedef void (*lp_cs_tpool_task_func)(void *data, int iter_idx, struct lp_cs_local_mem *lmem);
 typedef void (*lp_cs_tpool_free_func)(void *data);
 
-struct lp_cs_tpool_task {
-   lp_cs_tpool_task_func work;
-   lp_cs_tpool_free_func free_data;
-   void *data;
-   struct lp_fence *fence;
-   struct list_head list;
-   unsigned iter_total;
-   unsigned iter_start;
-   unsigned iter_finished;
-   unsigned iter_per_thread;
-   unsigned iter_remainder;
-};
-
 struct lp_cs_tpool *lp_cs_tpool_create(unsigned num_threads);
 void lp_cs_tpool_destroy(struct lp_cs_tpool *);
 

@@ -33,6 +33,19 @@
 #include "lp_cs_tpool.h"
 #include "lp_fence.h"
 
+struct lp_cs_tpool_task {
+   lp_cs_tpool_task_func work;
+   lp_cs_tpool_free_func free_data;
+   void *data;
+   struct lp_fence *fence;
+   struct list_head list;
+   unsigned iter_total;
+   unsigned iter_start;
+   unsigned iter_finished;
+   unsigned iter_per_thread;
+   unsigned iter_remainder;
+};
+
 static int
 lp_cs_tpool_worker(void *data)
 {
