@@ -125,11 +125,14 @@ static void
 llvmpipe_fence_server_sync(struct pipe_context *pipe,
                            struct pipe_fence_handle *fence)
 {
-   struct lp_fence *f = (struct lp_fence *)fence;
+   struct lp_fence_container *fc = (struct lp_fence_container *)fence;
 
-   if (!f->issued)
+   if (!fc->fence[0]->issued)
       return;
-   lp_fence_wait(f);
+   lp_fence_wait(fc->fence[0]);
+   if (!fc->fence[1]->issued)
+      return;
+   lp_fence_wait(fc->fence[1]);
 }
 
 

@@ -51,7 +51,6 @@ struct lp_fence
    unsigned count;
 };
 
-
 struct lp_fence *
 lp_fence_create(unsigned rank);
 
@@ -84,7 +83,7 @@ lp_fence_reference(struct lp_fence **ptr,
    if (pipe_reference(&old->reference, &f->reference)) {
       lp_fence_destroy(old);
    }
-   
+
    *ptr = f;
 }
 
@@ -93,6 +92,30 @@ lp_fence_issued(const struct lp_fence *fence)
 {
    return fence->issued;
 }
+
+struct lp_fence_container
+{
+   struct pipe_reference reference;
+   struct lp_fence *fence[2];
+};
+
+void
+lp_fence_container_destroy(struct lp_fence_container *fencec);
+
+static inline void
+lp_fence_container_reference(struct lp_fence_container **ptr,
+                             struct lp_fence_container *f)
+{
+   struct lp_fence_container *old = *ptr;
+
+   if (pipe_reference(&old->reference, &f->reference)) {
+      lp_fence_container_destroy(old);
+   }
+
+   *ptr = f;
+}
+
+
 
 
 #endif /* LP_FENCE_H */
