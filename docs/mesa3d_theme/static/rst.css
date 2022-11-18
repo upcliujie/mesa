@@ -71,3 +71,11 @@ div.code-block-caption {
   font-weight: 700;
   color: var(--bs-alert-link-color);
 }
+
+text {
+  fill: var(--bs-body-color);
+}
+
+line {
+  stroke: var(--bs-body-color);
+}
