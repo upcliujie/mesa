@@ -221,7 +221,8 @@ struct brw_reg {
          unsigned negate:1;             /* source only */
          unsigned abs:1;                /* source only */
          unsigned address_mode:1;       /* relative addressing, hopefully! */
-         unsigned pad0:17;
+         unsigned swizzle:12;           /* src only, align16 only */
+         unsigned pad0:5;
          unsigned subnr:5;              /* :1 in align16 */
       };
       uint32_t bits;
@@ -230,13 +231,12 @@ struct brw_reg {
    union {
       struct {
          unsigned nr;
-         unsigned swizzle:8;      /* src only, align16 only */
          unsigned writemask:4;    /* dest only, align16 only */
          int  indirect_offset:10; /* relative addressing offset */
          unsigned vstride:4;      /* source only */
          unsigned width:3;        /* src only, align1 only */
          unsigned hstride:2;      /* align1 only */
-         unsigned pad1:1;
+         unsigned pad1:9;
       };
 
       double df;
