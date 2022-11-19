@@ -72,8 +72,8 @@ struct intel_device_info;
 /** Number of message register file registers */
 #define BRW_MAX_MRF(gen) (gen == 6 ? 24 : 16)
 
-#define BRW_SWIZZLE4(a,b,c,d) (((a)<<0) | ((b)<<2) | ((c)<<4) | ((d)<<6))
-#define BRW_GET_SWZ(swz, idx) (((swz) >> ((idx)*2)) & 0x3)
+#define BRW_SWIZZLE4(a,b,c,d) MAKE_SWIZZLE4((a),(b),(c),(d))
+#define BRW_GET_SWZ(swz, idx) GET_SWZ((swz), (idx))
 
 #define BRW_SWIZZLE_NOOP      BRW_SWIZZLE4(0,1,2,3)
 #define BRW_SWIZZLE_XYZW      BRW_SWIZZLE4(0,1,2,3)
@@ -94,8 +94,8 @@ struct intel_device_info;
 #define BRW_SWIZZLE_YYWW      BRW_SWIZZLE4(1,1,3,3)
 #define BRW_SWIZZLE_YXWZ      BRW_SWIZZLE4(1,0,3,2)
 
-#define BRW_SWZ_COMP_INPUT(comp) (BRW_SWIZZLE_XYZW >> ((comp)*2))
-#define BRW_SWZ_COMP_OUTPUT(comp) (BRW_SWIZZLE_XYZW << ((comp)*2))
+#define BRW_SWZ_COMP_INPUT(comp) (BRW_SWIZZLE_XYZW >> ((comp)*3))
+#define BRW_SWZ_COMP_OUTPUT(comp) (BRW_SWIZZLE_XYZW << ((comp)*3))
 
 static inline bool
 brw_is_single_value_swizzle(unsigned swiz)
