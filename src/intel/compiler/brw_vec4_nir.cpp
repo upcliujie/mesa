@@ -292,7 +292,7 @@ setup_imm_df(const vec4_builder &bld, double v)
       const vec4_builder ubld = bld.exec_all();
       const dst_reg dst = bld.vgrf(BRW_REGISTER_TYPE_DF);
       ubld.DIM(dst, brw_imm_df(v));
-      return swizzle(src_reg(dst), BRW_SWIZZLE_XXXX);
+      return swizzle(src_reg(dst), SWIZZLE_XXXX);
    }
 
    /* gfx7 does not support DF immediates */
@@ -320,7 +320,7 @@ setup_imm_df(const vec4_builder &bld, double v)
       ubld.MOV(writemask(offset(tmp, 8, n), WRITEMASK_Y), brw_imm_ud(di.i2));
    }
 
-   return swizzle(src_reg(retype(tmp, BRW_REGISTER_TYPE_DF)), BRW_SWIZZLE_XXXX);
+   return swizzle(src_reg(retype(tmp, BRW_REGISTER_TYPE_DF)), SWIZZLE_XXXX);
 }
 
 void
@@ -591,7 +591,7 @@ vec4_visitor::nir_emit_intrinsic(nir_intrinsic_instr *instr)
          src.offset = ROUND_DOWN_TO(offset, 16);
          shift = (offset % 16) / type_size;
          assert(shift + instr->num_components <= 4);
-         src.swizzle += BRW_SWIZZLE4(shift, shift, shift, shift);
+         src.swizzle += MAKE_SWIZZLE4(shift, shift, shift, shift);
 
          emit(MOV(dest, src));
       } else {
@@ -697,7 +697,7 @@ vec4_visitor::nir_emit_intrinsic(nir_intrinsic_instr *instr)
          unsigned load_offset = nir_src_as_uint(instr->src[1]);
          unsigned type_size = type_sz(dest.type);
          packed_consts.swizzle +=
-            BRW_SWIZZLE4(load_offset % 16 / type_size,
+            MAKE_SWIZZLE4(load_offset % 16 / type_size,
                          load_offset % 16 / type_size,
                          load_offset % 16 / type_size,
                          load_offset % 16 / type_size);
@@ -768,7 +768,7 @@ vec4_visitor::nir_emit_ssbo_atomic(int op, nir_intrinsic_instr *instr)
 static unsigned
 brw_swizzle_for_nir_swizzle(uint8_t swizzle[4])
 {
-   return BRW_SWIZZLE4(swizzle[0], swizzle[1], swizzle[2], swizzle[3]);
+   return MAKE_SWIZZLE4(swizzle[0], swizzle[1], swizzle[2], swizzle[3]);
 }
 
 bool
@@ -1593,12 +1593,12 @@ vec4_visitor::nir_emit_alu(nir_alu_instr *instr)
    case nir_op_pack_uvec2_to_uint: {
       dst_reg tmp1 = dst_reg(this, glsl_type::uint_type);
       tmp1.writemask = WRITEMASK_X;
-      op[0].swizzle = BRW_SWIZZLE_YYYY;
+      op[0].swizzle = SWIZZLE_YYYY;
       emit(SHL(tmp1, op[0], src_reg(brw_imm_ud(16u))));
 
       dst_reg tmp2 = dst_reg(this, glsl_type::uint_type);
       tmp2.writemask = WRITEMASK_X;
-      op[0].swizzle = BRW_SWIZZLE_XXXX;
+      op[0].swizzle = SWIZZLE_XXXX;
       emit(AND(tmp2, op[0], src_reg(brw_imm_ud(0xffffu))));
 
       emit(OR(dst, src_reg(tmp1), src_reg(tmp2)));
@@ -1637,7 +1637,7 @@ vec4_visitor::nir_emit_alu(nir_alu_instr *instr)
        * rest of components to avoid regressions. In the vec4_visitor IR code path
        * this is not needed because the operand has already the correct swizzle.
        */
-      op[0].swizzle = brw_compose_swizzle(BRW_SWIZZLE_XXXX, op[0].swizzle);
+      op[0].swizzle = brw_compose_swizzle(SWIZZLE_XXXX, op[0].swizzle);
       emit_unpack_half_2x16(dst, op[0]);
       break;
 
@@ -2207,7 +2207,7 @@ vec4_visitor::nir_emit_texture(nir_tex_instr *instr)
              * the .y channel of the second vec4 of params, so replicate .x across
              * the whole vec4 and then mask off everything except .y
              */
-            mcs.swizzle = BRW_SWIZZLE_XXXX;
+            mcs.swizzle = SWIZZLE_XXXX;
             emit(MOV(dst_reg(MRF, param_base + 1, glsl_type::uint_type, WRITEMASK_Y),
                      mcs));
          }
@@ -2218,16 +2218,16 @@ vec4_visitor::nir_emit_texture(nir_tex_instr *instr)
          const brw_reg_type type = lod.type;
 
 	 if (devinfo->ver >= 5) {
-	    lod.swizzle = BRW_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
-	    lod2.swizzle = BRW_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
+	    lod.swizzle = MAKE_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
+	    lod2.swizzle = MAKE_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
 	    emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_XZ), lod));
 	    emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_YW), lod2));
 	    inst->mlen++;
 
 	    if (nir_tex_instr_dest_size(instr) == 3 ||
                 shadow_comparator.file != BAD_FILE) {
-	       lod.swizzle = BRW_SWIZZLE_ZZZZ;
-	       lod2.swizzle = BRW_SWIZZLE_ZZZZ;
+	       lod.swizzle = SWIZZLE_ZZZZ;
+	       lod2.swizzle = SWIZZLE_ZZZZ;
 	       emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_X), lod));
 	       emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_Y), lod2));
 	       inst->mlen++;
@@ -2276,7 +2276,7 @@ vec4_visitor::nir_emit_texture(nir_tex_instr *instr)
    if (instr->op == nir_texop_query_levels) {
       /* # levels is in .w */
       src_reg swizzled(dest);
-      swizzled.swizzle = BRW_SWIZZLE4(SWIZZLE_W, SWIZZLE_W,
+      swizzled.swizzle = MAKE_SWIZZLE4(SWIZZLE_W, SWIZZLE_W,
                                       SWIZZLE_W, SWIZZLE_W);
       emit(MOV(dest, swizzled));
    }
@@ -2363,7 +2363,7 @@ vec4_visitor::shuffle_64bit_data(dst_reg dst, src_reg src, bool for_write,
                                    vec4_builder(this).at(block, ref->next);
 
    /* Resolve swizzle in src */
-   if (src.swizzle != BRW_SWIZZLE_XYZW) {
+   if (src.swizzle != SWIZZLE_XYZW) {
       dst_reg data = dst_reg(this, glsl_type::dvec4_type);
       bld.emit(mov_op, data, src);
       src = src_reg(data);
@@ -2375,12 +2375,12 @@ vec4_visitor::shuffle_64bit_data(dst_reg dst, src_reg src, bool for_write,
    /* dst+0.ZW = src+1.XY */
    bld.group(4, for_write ? 1 : 0)
             .emit(mov_op, writemask(dst, WRITEMASK_ZW),
-                  swizzle(byte_offset(src, REG_SIZE), BRW_SWIZZLE_XYXY));
+                  swizzle(byte_offset(src, REG_SIZE), SWIZZLE_XYXY));
 
    /* dst+1.XY = src+0.ZW */
    bld.group(4, for_write ? 0 : 1)
             .emit(mov_op, writemask(byte_offset(dst, REG_SIZE), WRITEMASK_XY),
-                  swizzle(src, BRW_SWIZZLE_ZWZW));
+                  swizzle(src, SWIZZLE_ZWZW));
 
    /* dst+1.ZW = src+1.ZW */
    return bld.group(4, 1)

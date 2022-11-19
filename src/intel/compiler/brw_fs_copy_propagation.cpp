@@ -693,7 +693,7 @@ fs_visitor::try_copy_propagate(fs_inst *inst, int arg, acp_entry *entry)
       inst->src[arg].stride = 1;
 
       /* Hopefully no Align16 around here... */
-      assert(entry->src.swizzle == BRW_SWIZZLE_XYZW);
+      assert(entry->src.swizzle == SWIZZLE_XYZW);
       inst->src[arg].swizzle = entry->src.swizzle;
    } else {
       inst->src[arg].stride *= entry->src.stride;

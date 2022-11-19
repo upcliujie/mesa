@@ -101,10 +101,10 @@ gfx6_gather_workaround(enum pipe_format pformat)
 }
 
 static const unsigned crocus_gfx6_swizzle_for_offset[4] = {
-   BRW_SWIZZLE4(0, 1, 2, 3),
-   BRW_SWIZZLE4(1, 2, 3, 3),
-   BRW_SWIZZLE4(2, 3, 3, 3),
-   BRW_SWIZZLE4(3, 3, 3, 3)
+   MAKE_SWIZZLE4(0, 1, 2, 3),
+   MAKE_SWIZZLE4(1, 2, 3, 3),
+   MAKE_SWIZZLE4(2, 3, 3, 3),
+   MAKE_SWIZZLE4(3, 3, 3, 3)
 };
 
 static void

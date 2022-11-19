@@ -102,7 +102,7 @@ set_direct_src_operand(struct brw_reg *reg, int type)
 		       0,		// vstride
 		       0,		// width
 		       0,		// hstride
-		       BRW_SWIZZLE_NOOP,
+		       SWIZZLE_NOOP,
 		       WRITEMASK_XYZW);
 }
 
@@ -1520,7 +1520,7 @@ dstoperand:
 		$$.hstride = $2;
 		$$.type = $4;
 		$$.writemask = $3;
-		$$.swizzle = BRW_SWIZZLE_NOOP;
+		$$.swizzle = SWIZZLE_NOOP;
 		$$.subnr = $$.subnr * brw_reg_type_to_size($4);
 	}
 	;
@@ -1695,7 +1695,7 @@ srcarcoperandex:
 			     $2.vstride,
 			     $2.width,
 			     $2.hstride,
-			     BRW_SWIZZLE_NOOP,
+			     SWIZZLE_NOOP,
 			     WRITEMASK_XYZW);
 	}
 	| nullreg region reg_type
@@ -2152,15 +2152,15 @@ writemask_w:
 swizzle:
 	/* empty */
 	{
-		$$ = BRW_SWIZZLE_NOOP;
+		$$ = SWIZZLE_NOOP;
 	}
 	| DOT chansel
 	{
-		$$ = BRW_SWIZZLE4($2, $2, $2, $2);
+		$$ = MAKE_SWIZZLE4($2, $2, $2, $2);
 	}
 	| DOT chansel chansel chansel chansel
 	{
-		$$ = BRW_SWIZZLE4($2, $3, $4, $5);
+		$$ = MAKE_SWIZZLE4($2, $3, $4, $5);
 	}
 	;
 

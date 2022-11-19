@@ -366,14 +366,14 @@ fs_inst::has_source_and_destination_hazard() const
       return true;
    case SHADER_OPCODE_QUAD_SWIZZLE:
       switch (src[1].ud) {
-      case BRW_SWIZZLE_XXXX:
-      case BRW_SWIZZLE_YYYY:
-      case BRW_SWIZZLE_ZZZZ:
-      case BRW_SWIZZLE_WWWW:
-      case BRW_SWIZZLE_XXZZ:
-      case BRW_SWIZZLE_YYWW:
-      case BRW_SWIZZLE_XYXY:
-      case BRW_SWIZZLE_ZWZW:
+      case SWIZZLE_XXXX:
+      case SWIZZLE_YYYY:
+      case SWIZZLE_ZZZZ:
+      case SWIZZLE_WWWW:
+      case SWIZZLE_XXZZ:
+      case SWIZZLE_YYWW:
+      case SWIZZLE_XYXY:
+      case SWIZZLE_ZWZW:
          /* These can be implemented as a single Align1 region on all
           * platforms, so there's never a hazard between source and
           * destination.  C.f. fs_generator::generate_quad_swizzle().
@@ -3369,7 +3369,7 @@ fs_visitor::emit_repclear_shader()
       struct brw_reg reg =
          brw_reg(BRW_GENERAL_REGISTER_FILE, 2, 3, 0, 0, BRW_REGISTER_TYPE_UD,
                  BRW_VERTICAL_STRIDE_8, BRW_WIDTH_2, BRW_HORIZONTAL_STRIDE_4,
-                 BRW_SWIZZLE_XYZW, WRITEMASK_XYZW);
+                 SWIZZLE_XYZW, WRITEMASK_XYZW);
 
       mov = bld.exec_all().group(4, 0)
                .MOV(brw_uvec_mrf(4, color_mrf, 0), fs_reg(reg));
@@ -5253,7 +5253,7 @@ get_lowered_simd_width(const struct brw_compiler *compiler,
       return (is_uniform(inst->src[0]) ?
                  get_fpu_lowered_simd_width(compiler, inst) :
               devinfo->ver < 11 && type_sz(inst->src[0].type) == 4 ? 8 :
-              swiz == BRW_SWIZZLE_XYXY || swiz == BRW_SWIZZLE_ZWZW ? 4 :
+              swiz == SWIZZLE_XYXY || swiz == SWIZZLE_ZWZW ? 4 :
               get_fpu_lowered_simd_width(compiler, inst));
    }
    case SHADER_OPCODE_MOV_INDIRECT: {
@@ -5689,19 +5689,19 @@ fs_visitor::lower_derivatives()
    foreach_block_and_inst(block, fs_inst, inst, cfg) {
       if (inst->opcode == FS_OPCODE_DDX_COARSE)
          progress |= lower_derivative(this, block, inst,
-                                      BRW_SWIZZLE_XXXX, BRW_SWIZZLE_YYYY);
+                                      SWIZZLE_XXXX, SWIZZLE_YYYY);
 
       else if (inst->opcode == FS_OPCODE_DDX_FINE)
          progress |= lower_derivative(this, block, inst,
-                                      BRW_SWIZZLE_XXZZ, BRW_SWIZZLE_YYWW);
+                                      SWIZZLE_XXZZ, SWIZZLE_YYWW);
 
       else if (inst->opcode == FS_OPCODE_DDY_COARSE)
          progress |= lower_derivative(this, block, inst,
-                                      BRW_SWIZZLE_XXXX, BRW_SWIZZLE_ZZZZ);
+                                      SWIZZLE_XXXX, SWIZZLE_ZZZZ);
 
       else if (inst->opcode == FS_OPCODE_DDY_FINE)
          progress |= lower_derivative(this, block, inst,
-                                      BRW_SWIZZLE_XYXY, BRW_SWIZZLE_ZWZW);
+                                      SWIZZLE_XYXY, SWIZZLE_ZWZW);
    }
 
    if (progress)

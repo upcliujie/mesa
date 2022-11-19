@@ -55,7 +55,7 @@ src_reg::src_reg(enum brw_reg_file file, int nr, const glsl_type *type)
    if (type && (type->is_scalar() || type->is_vector() || type->is_matrix()))
       this->swizzle = brw_swizzle_for_size(type->vector_elements);
    else
-      this->swizzle = BRW_SWIZZLE_XYZW;
+      this->swizzle = SWIZZLE_XYZW;
    if (type)
       this->type = brw_type_for_base_type(type);
 }
@@ -852,7 +852,7 @@ vec4_instruction::can_reswizzle(const struct intel_device_info *devinfo,
    /* Gfx6 MATH instructions can not execute in align16 mode, so swizzles
     * are not allowed.
     */
-   if (devinfo->ver == 6 && is_math() && swizzle != BRW_SWIZZLE_XYZW)
+   if (devinfo->ver == 6 && is_math() && swizzle != SWIZZLE_XYZW)
       return false;
 
    /* If we write to the flag register changing the swizzle would change
@@ -921,10 +921,10 @@ vec4_instruction::reswizzle(int dst_writemask, int swizzle)
                   (src[i].ud >> 24) & 0x0ff,
                };
 
-               src[i] = brw_imm_vf4(imm[BRW_GET_SWZ(swizzle, 0)],
-                                    imm[BRW_GET_SWZ(swizzle, 1)],
-                                    imm[BRW_GET_SWZ(swizzle, 2)],
-                                    imm[BRW_GET_SWZ(swizzle, 3)]);
+               src[i] = brw_imm_vf4(imm[GET_SWZ(swizzle, 0)],
+                                    imm[GET_SWZ(swizzle, 1)],
+                                    imm[GET_SWZ(swizzle, 2)],
+                                    imm[GET_SWZ(swizzle, 3)]);
             }
 
             continue;
@@ -975,7 +975,7 @@ vec4_visitor::opt_register_coalesce()
             if ((inst->dst.writemask & (1 << c)) == 0)
                continue;
 
-            if (BRW_GET_SWZ(inst->src[0].swizzle, c) != c) {
+            if (GET_SWZ(inst->src[0].swizzle, c) != c) {
                is_nop_mov = false;
                break;
             }
@@ -1479,7 +1479,7 @@ vec4_visitor::dump_instruction(const backend_instruction *be_inst, FILE *file) c
          static const char *chans[4] = {"x", "y", "z", "w"};
          fprintf(file, ".");
          for (int c = 0; c < 4; c++) {
-            fprintf(file, "%s", chans[BRW_GET_SWZ(inst->src[i].swizzle, c)]);
+            fprintf(file, "%s", chans[GET_SWZ(inst->src[i].swizzle, c)]);
          }
       }
 
@@ -1655,7 +1655,7 @@ vec4_visitor::get_timestamp()
                                 BRW_VERTICAL_STRIDE_0,
                                 BRW_WIDTH_4,
                                 BRW_HORIZONTAL_STRIDE_4,
-                                BRW_SWIZZLE_XYZW,
+                                SWIZZLE_XYZW,
                                 WRITEMASK_XYZW));
 
    dst_reg dst = dst_reg(this, glsl_type::uvec4_type);
@@ -1800,7 +1800,7 @@ vec4_visitor::convert_to_hw_regs()
             if (inst->src[i].vstride == BRW_VERTICAL_STRIDE_0 &&
                 type_sz(inst->src[i].type) < 8) {
                assert(brw_is_single_value_swizzle(inst->src[i].swizzle));
-               inst->src[i].subnr += 4 * BRW_GET_SWZ(inst->src[i].swizzle, 0);
+               inst->src[i].subnr += 4 * GET_SWZ(inst->src[i].swizzle, 0);
             }
          }
       }
@@ -2077,14 +2077,14 @@ static bool
 is_gfx7_supported_64bit_swizzle(vec4_instruction *inst, unsigned arg)
 {
    switch (inst->src[arg].swizzle) {
-   case BRW_SWIZZLE_XXXX:
-   case BRW_SWIZZLE_YYYY:
-   case BRW_SWIZZLE_ZZZZ:
-   case BRW_SWIZZLE_WWWW:
-   case BRW_SWIZZLE_XYXY:
-   case BRW_SWIZZLE_YXYX:
-   case BRW_SWIZZLE_ZWZW:
-   case BRW_SWIZZLE_WZWZ:
+   case SWIZZLE_XXXX:
+   case SWIZZLE_YYYY:
+   case SWIZZLE_ZZZZ:
+   case SWIZZLE_WWWW:
+   case SWIZZLE_XYXY:
+   case SWIZZLE_YXYX:
+   case SWIZZLE_ZWZW:
+   case SWIZZLE_WZWZ:
       return true;
    default:
       return false;
@@ -2122,10 +2122,10 @@ vec4_visitor::is_supported_64bit_region(vec4_instruction *inst, unsigned arg)
       return false;
 
    switch (src.swizzle) {
-   case BRW_SWIZZLE_XYZW:
-   case BRW_SWIZZLE_XXZZ:
-   case BRW_SWIZZLE_YYWW:
-   case BRW_SWIZZLE_YXWZ:
+   case SWIZZLE_XYZW:
+   case SWIZZLE_XXZZ:
+   case SWIZZLE_YYWW:
+   case SWIZZLE_YXWZ:
       return true;
    default:
       return devinfo->ver == 7 && is_gfx7_supported_64bit_swizzle(inst, arg);
@@ -2183,8 +2183,8 @@ vec4_visitor::scalarize_df()
          vec4_instruction *scalar_inst = new(mem_ctx) vec4_instruction(*inst);
 
          for (unsigned i = 0; i < 3; i++) {
-            unsigned swz = BRW_GET_SWZ(inst->src[i].swizzle, chan);
-            scalar_inst->src[i].swizzle = BRW_SWIZZLE4(swz, swz, swz, swz);
+            unsigned swz = GET_SWZ(inst->src[i].swizzle, chan);
+            scalar_inst->src[i].swizzle = MAKE_SWIZZLE4(swz, swz, swz, swz);
          }
 
          scalar_inst->dst.writemask = chan_mask;
@@ -2294,9 +2294,9 @@ vec4_visitor::apply_logical_swizzle(struct brw_reg *hw_reg,
        * components, when expanded to 32-bit swizzles, match the semantics
        * of the original 64-bit swizzle with 2-wide row regioning.
        */
-      unsigned swizzle0 = BRW_GET_SWZ(reg.swizzle, 0);
-      unsigned swizzle1 = BRW_GET_SWZ(reg.swizzle, 1);
-      hw_reg->swizzle = BRW_SWIZZLE4(swizzle0 * 2, swizzle0 * 2 + 1,
+      unsigned swizzle0 = GET_SWZ(reg.swizzle, 0);
+      unsigned swizzle1 = GET_SWZ(reg.swizzle, 1);
+      hw_reg->swizzle = MAKE_SWIZZLE4(swizzle0 * 2, swizzle0 * 2 + 1,
                                      swizzle1 * 2, swizzle1 * 2 + 1);
    } else {
       /* If we got here then we have one of the following:
@@ -2308,8 +2308,8 @@ vec4_visitor::apply_logical_swizzle(struct brw_reg *hw_reg,
        *    swizzles. If the latter, they are never cross-dvec2 channels. For
        *    these we always need to activate the gfx7 vstride=0 exploit.
        */
-      unsigned swizzle0 = BRW_GET_SWZ(reg.swizzle, 0);
-      unsigned swizzle1 = BRW_GET_SWZ(reg.swizzle, 1);
+      unsigned swizzle0 = GET_SWZ(reg.swizzle, 0);
+      unsigned swizzle1 = GET_SWZ(reg.swizzle, 1);
       assert((swizzle0 < 2) == (swizzle1 < 2));
 
       /* To gain access to Z/W components we need to select the second half
@@ -2337,7 +2337,7 @@ vec4_visitor::apply_logical_swizzle(struct brw_reg *hw_reg,
          hw_reg->vstride = BRW_VERTICAL_STRIDE_0;
       }
 
-      hw_reg->swizzle = BRW_SWIZZLE4(swizzle0 * 2, swizzle0 * 2 + 1,
+      hw_reg->swizzle = MAKE_SWIZZLE4(swizzle0 * 2, swizzle0 * 2 + 1,
                                      swizzle1 * 2, swizzle1 * 2 + 1);
    }
 }
@@ -2359,7 +2359,7 @@ vec4_visitor::run()
       const unsigned mask_param = stage_prog_data->push_reg_mask_param;
       src_reg mask = src_reg(dst_reg(UNIFORM, mask_param / 4));
       assert(mask_param % 2 == 0); /* Should be 64-bit-aligned */
-      mask.swizzle = BRW_SWIZZLE4((mask_param + 0) % 4,
+      mask.swizzle = MAKE_SWIZZLE4((mask_param + 0) % 4,
                                   (mask_param + 1) % 4,
                                   (mask_param + 0) % 4,
                                   (mask_param + 1) % 4);

@@ -679,11 +679,11 @@ TEST_F(cmod_propagation_vec4_test, mad_one_component_vec4)
    src_reg src0 = src_reg(v, glsl_type::vec4_type);
    src_reg src1 = src_reg(v, glsl_type::vec4_type);
    src_reg src2 = src_reg(v, glsl_type::vec4_type);
-   src0.swizzle = src1.swizzle = src2.swizzle = BRW_SWIZZLE_XXXX;
+   src0.swizzle = src1.swizzle = src2.swizzle = SWIZZLE_XXXX;
    src2.negate = true;
    src_reg zero(brw_imm_f(0.0f));
    src_reg tmp(dest);
-   tmp.swizzle = BRW_SWIZZLE_XXXX;
+   tmp.swizzle = SWIZZLE_XXXX;
    dst_reg dest_null = bld.null_reg_f();
    dest_null.writemask = WRITEMASK_X;
 
@@ -721,11 +721,11 @@ TEST_F(cmod_propagation_vec4_test, mad_more_one_component_vec4)
    src_reg src0 = src_reg(v, glsl_type::vec4_type);
    src_reg src1 = src_reg(v, glsl_type::vec4_type);
    src_reg src2 = src_reg(v, glsl_type::vec4_type);
-   src0.swizzle = src1.swizzle = src2.swizzle = BRW_SWIZZLE_XXXX;
+   src0.swizzle = src1.swizzle = src2.swizzle = SWIZZLE_XXXX;
    src2.negate = true;
    src_reg zero(brw_imm_f(0.0f));
    src_reg tmp(dest);
-   tmp.swizzle = BRW_SWIZZLE_XXXX;
+   tmp.swizzle = SWIZZLE_XXXX;
    dst_reg dest_null = bld.null_reg_f();
 
    bld.MAD(dest, src0, src1, src2);
@@ -762,11 +762,11 @@ TEST_F(cmod_propagation_vec4_test, cmp_mov_vec4)
    dst_reg dest = dst_reg(v, glsl_type::ivec4_type);
    dest.writemask = WRITEMASK_X;
    src_reg src0 = src_reg(v, glsl_type::ivec4_type);
-   src0.swizzle = BRW_SWIZZLE_XXXX;
+   src0.swizzle = SWIZZLE_XXXX;
    src0.file = UNIFORM;
    src_reg nonone = retype(brw_imm_d(16), BRW_REGISTER_TYPE_D);
    src_reg mov_src = src_reg(dest);
-   mov_src.swizzle = BRW_SWIZZLE_XXXX;
+   mov_src.swizzle = SWIZZLE_XXXX;
    dst_reg dest_null = bld.null_reg_d();
    dest_null.writemask = WRITEMASK_X;
 
@@ -805,7 +805,7 @@ TEST_F(cmod_propagation_vec4_test, mul_cmp_different_channels_vec4)
    src_reg src1 = src_reg(v, glsl_type::vec4_type);
    src_reg zero(brw_imm_f(0.0f));
    src_reg cmp_src = src_reg(dest);
-   cmp_src.swizzle = BRW_SWIZZLE4(0,1,3,2);
+   cmp_src.swizzle = MAKE_SWIZZLE4(0,1,3,2);
 
    bld.MUL(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), cmp_src, zero, BRW_CONDITIONAL_NZ);

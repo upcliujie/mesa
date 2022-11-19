@@ -764,23 +764,23 @@ fs_generator::generate_quad_swizzle(const fs_inst *inst,
    } else {
       assert(src.hstride == BRW_HORIZONTAL_STRIDE_1);
       assert(src.vstride == src.width + 1);
-      const struct brw_reg src_0 = suboffset(src, BRW_GET_SWZ(swiz, 0));
+      const struct brw_reg src_0 = suboffset(src, GET_SWZ(swiz, 0));
 
       switch (swiz) {
-      case BRW_SWIZZLE_XXXX:
-      case BRW_SWIZZLE_YYYY:
-      case BRW_SWIZZLE_ZZZZ:
-      case BRW_SWIZZLE_WWWW:
+      case SWIZZLE_XXXX:
+      case SWIZZLE_YYYY:
+      case SWIZZLE_ZZZZ:
+      case SWIZZLE_WWWW:
          brw_MOV(p, dst, stride(src_0, 4, 4, 0));
          break;
 
-      case BRW_SWIZZLE_XXZZ:
-      case BRW_SWIZZLE_YYWW:
+      case SWIZZLE_XXZZ:
+      case SWIZZLE_YYWW:
          brw_MOV(p, dst, stride(src_0, 2, 2, 0));
          break;
 
-      case BRW_SWIZZLE_XYXY:
-      case BRW_SWIZZLE_ZWZW:
+      case SWIZZLE_XYXY:
+      case SWIZZLE_ZWZW:
          assert(inst->exec_size == 4);
          brw_MOV(p, dst, stride(src_0, 0, 2, 1));
          break;
@@ -793,7 +793,7 @@ fs_generator::generate_quad_swizzle(const fs_inst *inst,
             brw_inst *insn = brw_MOV(
                p, stride(suboffset(dst, c),
                          4 * inst->dst.stride, 1, 4 * inst->dst.stride),
-               stride(suboffset(src, BRW_GET_SWZ(swiz, c)), 4, 1, 0));
+               stride(suboffset(src, GET_SWZ(swiz, c)), 4, 1, 0));
 
             if (devinfo->ver < 12) {
                brw_inst_set_no_dd_clear(devinfo, insn, c < 3);
@@ -1303,11 +1303,11 @@ fs_generator::generate_ddx(const fs_inst *inst,
       struct brw_reg src0 = stride(src, 4, 4, 1);
       struct brw_reg src1 = stride(src, 4, 4, 1);
       if (inst->opcode == FS_OPCODE_DDX_FINE) {
-         src0.swizzle = BRW_SWIZZLE_XXZZ;
-         src1.swizzle = BRW_SWIZZLE_YYWW;
+         src0.swizzle = SWIZZLE_XXZZ;
+         src1.swizzle = SWIZZLE_YYWW;
       } else {
-         src0.swizzle = BRW_SWIZZLE_XXXX;
-         src1.swizzle = BRW_SWIZZLE_YYYY;
+         src0.swizzle = SWIZZLE_XXXX;
+         src1.swizzle = SWIZZLE_YYYY;
       }
 
       brw_push_insn_state(p);
@@ -1358,8 +1358,8 @@ fs_generator::generate_ddy(const fs_inst *inst,
       } else {
          struct brw_reg src0 = stride(src, 4, 4, 1);
          struct brw_reg src1 = stride(src, 4, 4, 1);
-         src0.swizzle = BRW_SWIZZLE_XYXY;
-         src1.swizzle = BRW_SWIZZLE_ZWZW;
+         src0.swizzle = SWIZZLE_XYXY;
+         src1.swizzle = SWIZZLE_ZWZW;
 
          brw_push_insn_state(p);
          brw_set_default_access_mode(p, BRW_ALIGN_16);
@@ -1382,8 +1382,8 @@ fs_generator::generate_ddy(const fs_inst *inst,
           */
          struct brw_reg src0 = stride(src, 4, 4, 1);
          struct brw_reg src1 = stride(src, 4, 4, 1);
-         src0.swizzle = BRW_SWIZZLE_XXXX;
-         src1.swizzle = BRW_SWIZZLE_ZZZZ;
+         src0.swizzle = SWIZZLE_XXXX;
+         src1.swizzle = SWIZZLE_ZZZZ;
 
          brw_push_insn_state(p);
          brw_set_default_access_mode(p, BRW_ALIGN_16);

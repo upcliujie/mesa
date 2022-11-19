@@ -92,7 +92,7 @@ void brw_clip_project_position(struct brw_clip_compile *c, struct brw_reg pos )
     */
    brw_set_default_access_mode(p, BRW_ALIGN_16);
    brw_MUL(p, brw_writemask(pos, WRITEMASK_XYZ), pos,
-           brw_swizzle(pos, BRW_SWIZZLE_WWWW));
+           brw_swizzle(pos, SWIZZLE_WWWW));
    brw_set_default_access_mode(p, BRW_ALIGN_1);
 }
 
@@ -188,11 +188,11 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
       brw_set_default_access_mode(p, BRW_ALIGN_16);
       brw_MOV(p,
               brw_writemask(t_nopersp, WRITEMASK_ZW),
-              brw_swizzle(tmp, BRW_SWIZZLE_XYXY));
+              brw_swizzle(tmp, SWIZZLE_XYXY));
 
       /* t_nopersp = vec4(v1.xy, dest.xy) - v0.xyxy */
       brw_ADD(p, t_nopersp, t_nopersp,
-              negate(brw_swizzle(v0_ndc_copy, BRW_SWIZZLE_XYXY)));
+              negate(brw_swizzle(v0_ndc_copy, SWIZZLE_XYXY)));
 
       /* Add the absolute values of the X and Y deltas so that if
        * the points aren't in the same place on the screen we get
@@ -206,8 +206,8 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
        */
       brw_ADD(p,
               brw_writemask(t_nopersp, WRITEMASK_XY),
-              brw_abs(brw_swizzle(t_nopersp, BRW_SWIZZLE_XZXZ)),
-              brw_abs(brw_swizzle(t_nopersp, BRW_SWIZZLE_YWYW)));
+              brw_abs(brw_swizzle(t_nopersp, SWIZZLE_XZXZ)),
+              brw_abs(brw_swizzle(t_nopersp, SWIZZLE_YWYW)));
       brw_set_default_access_mode(p, BRW_ALIGN_1);
 
       /* If the points are in the same place, just substitute a
@@ -228,7 +228,7 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
       brw_MUL(p, vec1(t_nopersp), vec1(t_nopersp),
             vec1(suboffset(t_nopersp, 1)));
       brw_set_default_access_mode(p, BRW_ALIGN_16);
-      brw_MOV(p, t_nopersp, brw_swizzle(t_nopersp, BRW_SWIZZLE_XXXX));
+      brw_MOV(p, t_nopersp, brw_swizzle(t_nopersp, SWIZZLE_XXXX));
       brw_set_default_access_mode(p, BRW_ALIGN_1);
 
       release_tmp(c, tmp);

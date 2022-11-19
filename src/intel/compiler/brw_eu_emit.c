@@ -308,13 +308,13 @@ brw_set_src0(struct brw_codegen *p, brw_inst *inst, struct brw_reg reg)
             }
          } else {
             brw_inst_set_src0_da16_swiz_x(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_X));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_X));
             brw_inst_set_src0_da16_swiz_y(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_Y));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_Y));
             brw_inst_set_src0_da16_swiz_z(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_Z));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_Z));
             brw_inst_set_src0_da16_swiz_w(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_W));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_W));
 
             if (reg.vstride == BRW_VERTICAL_STRIDE_8) {
                /* This is an oddity of the fact we're using the same
@@ -415,13 +415,13 @@ brw_set_src1(struct brw_codegen *p, brw_inst *inst, struct brw_reg reg)
             }
          } else {
             brw_inst_set_src1_da16_swiz_x(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_X));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_X));
             brw_inst_set_src1_da16_swiz_y(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_Y));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_Y));
             brw_inst_set_src1_da16_swiz_z(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_Z));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_Z));
             brw_inst_set_src1_da16_swiz_w(devinfo, inst,
-               BRW_GET_SWZ(reg.swizzle, BRW_CHANNEL_W));
+               GET_SWZ(reg.swizzle, BRW_CHANNEL_W));
 
             if (reg.vstride == BRW_VERTICAL_STRIDE_8) {
                /* This is an oddity of the fact we're using the same
@@ -1044,11 +1044,11 @@ brw_inst *brw_##OP(struct brw_codegen *p,		\
 {                                                       \
    if (p->current->access_mode == BRW_ALIGN_16) {       \
       if (src0.vstride == BRW_VERTICAL_STRIDE_0)        \
-         src0.swizzle = BRW_SWIZZLE_XXXX;               \
+         src0.swizzle = SWIZZLE_XXXX;               \
       if (src1.vstride == BRW_VERTICAL_STRIDE_0)        \
-         src1.swizzle = BRW_SWIZZLE_XXXX;               \
+         src1.swizzle = SWIZZLE_XXXX;               \
       if (src2.vstride == BRW_VERTICAL_STRIDE_0)        \
-         src2.swizzle = BRW_SWIZZLE_XXXX;               \
+         src2.swizzle = SWIZZLE_XXXX;               \
    }                                                    \
    return brw_alu3(p, BRW_OPCODE_##OP, dest, src0, src1, src2);	\
 }
@@ -1074,11 +1074,11 @@ brw_inst *brw_##OP(struct brw_codegen *p,         \
                                                                 \
    if (p->current->access_mode == BRW_ALIGN_16) {               \
       if (src0.vstride == BRW_VERTICAL_STRIDE_0)                \
-         src0.swizzle = BRW_SWIZZLE_XXXX;                       \
+         src0.swizzle = SWIZZLE_XXXX;                       \
       if (src1.vstride == BRW_VERTICAL_STRIDE_0)                \
-         src1.swizzle = BRW_SWIZZLE_XXXX;                       \
+         src1.swizzle = SWIZZLE_XXXX;                       \
       if (src2.vstride == BRW_VERTICAL_STRIDE_0)                \
-         src2.swizzle = BRW_SWIZZLE_XXXX;                       \
+         src2.swizzle = SWIZZLE_XXXX;                       \
    }                                                            \
    return brw_alu3(p, BRW_OPCODE_##OP, dest, src0, src1, src2); \
 }
@@ -2888,7 +2888,7 @@ brw_send_indirect_surface_message(struct brw_codegen *p,
        */
       brw_AND(p, addr,
               suboffset(vec1(retype(surface, BRW_REGISTER_TYPE_UD)),
-                        BRW_GET_SWZ(surface.swizzle, 0)),
+                        GET_SWZ(surface.swizzle, 0)),
               brw_imm_ud(0xff));
 
       brw_pop_insn_state(p);
@@ -3584,7 +3584,7 @@ brw_broadcast(struct brw_codegen *p,
           */
          inst = brw_MOV(p,
                         brw_null_reg(),
-                        stride(brw_swizzle(idx, BRW_SWIZZLE_XXXX), 4, 4, 1));
+                        stride(brw_swizzle(idx, SWIZZLE_XXXX), 4, 4, 1));
          brw_inst_set_pred_control(devinfo, inst, BRW_PREDICATE_NONE);
          brw_inst_set_cond_modifier(devinfo, inst, BRW_CONDITIONAL_NZ);
          brw_inst_set_flag_reg_nr(devinfo, inst, 1);

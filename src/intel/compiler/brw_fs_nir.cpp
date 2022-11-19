@@ -5433,7 +5433,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          assert(nir_src_bit_size(instr->src[0]) == 32);
          const fs_builder ubld = bld.exec_all();
          ubld.emit(SHADER_OPCODE_QUAD_SWIZZLE, tmp, value,
-                   brw_imm_ud(BRW_SWIZZLE4(1,0,3,2)));
+                   brw_imm_ud(MAKE_SWIZZLE4(1,0,3,2)));
          bld.MOV(retype(dest, value.type), tmp);
       } else {
          const fs_builder ubld = bld.exec_all().group(dispatch_width / 2, 0);
@@ -5458,7 +5458,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          const fs_reg tmp = bld.vgrf(value.type);
          const fs_builder ubld = bld.exec_all();
          ubld.emit(SHADER_OPCODE_QUAD_SWIZZLE, tmp, value,
-                   brw_imm_ud(BRW_SWIZZLE4(2,3,0,1)));
+                   brw_imm_ud(MAKE_SWIZZLE4(2,3,0,1)));
          bld.MOV(retype(dest, value.type), tmp);
       } else {
          /* For larger data types, we have to either emit dispatch_width many
@@ -5479,7 +5479,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          const fs_reg tmp = bld.vgrf(value.type);
          const fs_builder ubld = bld.exec_all();
          ubld.emit(SHADER_OPCODE_QUAD_SWIZZLE, tmp, value,
-                   brw_imm_ud(BRW_SWIZZLE4(3,2,1,0)));
+                   brw_imm_ud(MAKE_SWIZZLE4(3,2,1,0)));
          bld.MOV(retype(dest, value.type), tmp);
       } else {
          /* For larger data types, we have to either emit dispatch_width many

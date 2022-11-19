@@ -150,14 +150,14 @@ TEST_F(dead_code_eliminate_vec4_test, some_dead_channels_all_flags_used)
    vec4_instruction *test_cmp =
       bld.CMP(dst_reg(r4), r2, r1, BRW_CONDITIONAL_L);
 
-   test_cmp->src[0].swizzle = BRW_SWIZZLE_WWWW;
-   test_cmp->src[1].swizzle = BRW_SWIZZLE_XXXX;
+   test_cmp->src[0].swizzle = SWIZZLE_WWWW;
+   test_cmp->src[1].swizzle = SWIZZLE_XXXX;
 
    vec4_instruction *test_mov =
       bld.MOV(dst_reg(r5), r4);
 
    test_mov->dst.writemask = WRITEMASK_X;
-   test_mov->src[0].swizzle = BRW_SWIZZLE_XXXX;
+   test_mov->src[0].swizzle = SWIZZLE_XXXX;
 
    vec4_instruction *test_sel =
       bld.SEL(dst_reg(r6), r3, r6);

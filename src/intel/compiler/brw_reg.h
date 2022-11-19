@@ -72,38 +72,29 @@ struct intel_device_info;
 /** Number of message register file registers */
 #define BRW_MAX_MRF(gen) (gen == 6 ? 24 : 16)
 
-#define BRW_SWIZZLE4(a,b,c,d) MAKE_SWIZZLE4((a),(b),(c),(d))
-#define BRW_GET_SWZ(swz, idx) GET_SWZ((swz), (idx))
+#define SWIZZLE_XYXY      MAKE_SWIZZLE4(0,1,0,1)
+#define SWIZZLE_YXYX      MAKE_SWIZZLE4(1,0,1,0)
+#define SWIZZLE_XZXZ      MAKE_SWIZZLE4(0,2,0,2)
+#define SWIZZLE_YZXW      MAKE_SWIZZLE4(1,2,0,3)
+#define SWIZZLE_YWYW      MAKE_SWIZZLE4(1,3,1,3)
+#define SWIZZLE_ZXYW      MAKE_SWIZZLE4(2,0,1,3)
+#define SWIZZLE_ZWZW      MAKE_SWIZZLE4(2,3,2,3)
+#define SWIZZLE_WZWZ      MAKE_SWIZZLE4(3,2,3,2)
+#define SWIZZLE_WZYX      MAKE_SWIZZLE4(3,2,1,0)
+#define SWIZZLE_XXZZ      MAKE_SWIZZLE4(0,0,2,2)
+#define SWIZZLE_YYWW      MAKE_SWIZZLE4(1,1,3,3)
+#define SWIZZLE_YXWZ      MAKE_SWIZZLE4(1,0,3,2)
 
-#define BRW_SWIZZLE_NOOP      BRW_SWIZZLE4(0,1,2,3)
-#define BRW_SWIZZLE_XYZW      BRW_SWIZZLE4(0,1,2,3)
-#define BRW_SWIZZLE_XXXX      BRW_SWIZZLE4(0,0,0,0)
-#define BRW_SWIZZLE_YYYY      BRW_SWIZZLE4(1,1,1,1)
-#define BRW_SWIZZLE_ZZZZ      BRW_SWIZZLE4(2,2,2,2)
-#define BRW_SWIZZLE_WWWW      BRW_SWIZZLE4(3,3,3,3)
-#define BRW_SWIZZLE_XYXY      BRW_SWIZZLE4(0,1,0,1)
-#define BRW_SWIZZLE_YXYX      BRW_SWIZZLE4(1,0,1,0)
-#define BRW_SWIZZLE_XZXZ      BRW_SWIZZLE4(0,2,0,2)
-#define BRW_SWIZZLE_YZXW      BRW_SWIZZLE4(1,2,0,3)
-#define BRW_SWIZZLE_YWYW      BRW_SWIZZLE4(1,3,1,3)
-#define BRW_SWIZZLE_ZXYW      BRW_SWIZZLE4(2,0,1,3)
-#define BRW_SWIZZLE_ZWZW      BRW_SWIZZLE4(2,3,2,3)
-#define BRW_SWIZZLE_WZWZ      BRW_SWIZZLE4(3,2,3,2)
-#define BRW_SWIZZLE_WZYX      BRW_SWIZZLE4(3,2,1,0)
-#define BRW_SWIZZLE_XXZZ      BRW_SWIZZLE4(0,0,2,2)
-#define BRW_SWIZZLE_YYWW      BRW_SWIZZLE4(1,1,3,3)
-#define BRW_SWIZZLE_YXWZ      BRW_SWIZZLE4(1,0,3,2)
-
-#define BRW_SWZ_COMP_INPUT(comp) (BRW_SWIZZLE_XYZW >> ((comp)*3))
-#define BRW_SWZ_COMP_OUTPUT(comp) (BRW_SWIZZLE_XYZW << ((comp)*3))
+#define BRW_SWZ_COMP_INPUT(comp) (SWIZZLE_XYZW >> ((comp)*3))
+#define BRW_SWZ_COMP_OUTPUT(comp) (SWIZZLE_XYZW << ((comp)*3))
 
 static inline bool
 brw_is_single_value_swizzle(unsigned swiz)
 {
-   return (swiz == BRW_SWIZZLE_XXXX ||
-           swiz == BRW_SWIZZLE_YYYY ||
-           swiz == BRW_SWIZZLE_ZZZZ ||
-           swiz == BRW_SWIZZLE_WWWW);
+   return (swiz == SWIZZLE_XXXX ||
+           swiz == SWIZZLE_YYYY ||
+           swiz == SWIZZLE_ZZZZ ||
+           swiz == SWIZZLE_WWWW);
 }
 
 /**
@@ -114,11 +105,11 @@ brw_is_single_value_swizzle(unsigned swiz)
 static inline unsigned
 brw_compose_swizzle(unsigned swz0, unsigned swz1)
 {
-   return BRW_SWIZZLE4(
-      BRW_GET_SWZ(swz1, BRW_GET_SWZ(swz0, 0)),
-      BRW_GET_SWZ(swz1, BRW_GET_SWZ(swz0, 1)),
-      BRW_GET_SWZ(swz1, BRW_GET_SWZ(swz0, 2)),
-      BRW_GET_SWZ(swz1, BRW_GET_SWZ(swz0, 3)));
+   return MAKE_SWIZZLE4(
+      GET_SWZ(swz1, GET_SWZ(swz0, 0)),
+      GET_SWZ(swz1, GET_SWZ(swz0, 1)),
+      GET_SWZ(swz1, GET_SWZ(swz0, 2)),
+      GET_SWZ(swz1, GET_SWZ(swz0, 3)));
 }
 
 /**
@@ -131,7 +122,7 @@ brw_apply_swizzle_to_mask(unsigned swz, unsigned mask)
    unsigned result = 0;
 
    for (unsigned i = 0; i < 4; i++) {
-      if (mask & (1 << BRW_GET_SWZ(swz, i)))
+      if (mask & (1 << GET_SWZ(swz, i)))
          result |= 1 << i;
    }
 
@@ -150,7 +141,7 @@ brw_apply_inv_swizzle_to_mask(unsigned swz, unsigned mask)
 
    for (unsigned i = 0; i < 4; i++) {
       if (mask & (1 << i))
-         result |= 1 << BRW_GET_SWZ(swz, i);
+         result |= 1 << GET_SWZ(swz, i);
    }
 
    return result;
@@ -178,7 +169,7 @@ brw_swizzle_for_mask(unsigned mask)
    for (unsigned i = 0; i < 4; i++)
       last = swz[i] = (mask & (1 << i) ? i : last);
 
-   return BRW_SWIZZLE4(swz[0], swz[1], swz[2], swz[3]);
+   return MAKE_SWIZZLE4(swz[0], swz[1], swz[2], swz[3]);
 }
 
 /**
@@ -388,7 +379,7 @@ brw_int_type(unsigned sz, bool is_signed)
  * \param vstride   one of BRW_VERTICAL_STRIDE_x
  * \param width     one of BRW_WIDTH_x
  * \param hstride   one of BRW_HORIZONTAL_STRIDE_x
- * \param swizzle   one of BRW_SWIZZLE_x
+ * \param swizzle   one of SWIZZLE_x
  * \param writemask WRITEMASK_X/Y/Z/W bitfield
  */
 static inline struct brw_reg
@@ -452,7 +443,7 @@ brw_vec16_reg(enum brw_reg_file file, unsigned nr, unsigned subnr)
                   BRW_VERTICAL_STRIDE_16,
                   BRW_WIDTH_16,
                   BRW_HORIZONTAL_STRIDE_1,
-                  BRW_SWIZZLE_XYZW,
+                  SWIZZLE_XYZW,
                   WRITEMASK_XYZW);
 }
 
@@ -469,7 +460,7 @@ brw_vec8_reg(enum brw_reg_file file, unsigned nr, unsigned subnr)
                   BRW_VERTICAL_STRIDE_8,
                   BRW_WIDTH_8,
                   BRW_HORIZONTAL_STRIDE_1,
-                  BRW_SWIZZLE_XYZW,
+                  SWIZZLE_XYZW,
                   WRITEMASK_XYZW);
 }
 
@@ -486,7 +477,7 @@ brw_vec4_reg(enum brw_reg_file file, unsigned nr, unsigned subnr)
                   BRW_VERTICAL_STRIDE_4,
                   BRW_WIDTH_4,
                   BRW_HORIZONTAL_STRIDE_1,
-                  BRW_SWIZZLE_XYZW,
+                  SWIZZLE_XYZW,
                   WRITEMASK_XYZW);
 }
 
@@ -503,7 +494,7 @@ brw_vec2_reg(enum brw_reg_file file, unsigned nr, unsigned subnr)
                   BRW_VERTICAL_STRIDE_2,
                   BRW_WIDTH_2,
                   BRW_HORIZONTAL_STRIDE_1,
-                  BRW_SWIZZLE_XYXY,
+                  SWIZZLE_XYXY,
                   WRITEMASK_XY);
 }
 
@@ -520,7 +511,7 @@ brw_vec1_reg(enum brw_reg_file file, unsigned nr, unsigned subnr)
                   BRW_VERTICAL_STRIDE_0,
                   BRW_WIDTH_1,
                   BRW_HORIZONTAL_STRIDE_0,
-                  BRW_SWIZZLE_XXXX,
+                  SWIZZLE_XXXX,
                   WRITEMASK_X);
 }
 
@@ -873,7 +864,7 @@ brw_ip_reg(void)
                   BRW_VERTICAL_STRIDE_4, /* ? */
                   BRW_WIDTH_1,
                   BRW_HORIZONTAL_STRIDE_0,
-                  BRW_SWIZZLE_XYZW, /* NOTE! */
+                  SWIZZLE_XYZW, /* NOTE! */
                   WRITEMASK_XYZW); /* NOTE! */
 }
 
@@ -889,7 +880,7 @@ brw_notification_reg(void)
                   BRW_VERTICAL_STRIDE_0,
                   BRW_WIDTH_1,
                   BRW_HORIZONTAL_STRIDE_0,
-                  BRW_SWIZZLE_XXXX,
+                  SWIZZLE_XXXX,
                   WRITEMASK_X);
 }
 

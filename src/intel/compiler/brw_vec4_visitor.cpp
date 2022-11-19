@@ -418,14 +418,14 @@ vec4_visitor::emit_pack_half_2x16(dst_reg dst, src_reg src0)
    /* Give the write-channels of dst the form:
     *   0xhhhh0000
     */
-   tmp_src.swizzle = BRW_SWIZZLE_YYYY;
+   tmp_src.swizzle = SWIZZLE_YYYY;
    emit(SHL(dst, tmp_src, brw_imm_ud(16u)));
 
    /* Finally, give the write-channels of dst the form of packHalf2x16's
     * output:
     *   0xhhhhllll
     */
-   tmp_src.swizzle = BRW_SWIZZLE_XXXX;
+   tmp_src.swizzle = SWIZZLE_XXXX;
    emit(OR(dst, src_reg(dst), tmp_src));
 }
 
@@ -479,7 +479,7 @@ vec4_visitor::emit_unpack_unorm_4x8(const dst_reg &dst, src_reg src0)
    emit(MOV(shift, brw_imm_vf4(0x00, 0x60, 0x70, 0x78)));
 
    dst_reg shifted(this, glsl_type::uvec4_type);
-   src0.swizzle = BRW_SWIZZLE_XXXX;
+   src0.swizzle = SWIZZLE_XXXX;
    emit(SHR(shifted, src0, src_reg(shift)));
 
    shifted.type = BRW_REGISTER_TYPE_UB;
@@ -501,7 +501,7 @@ vec4_visitor::emit_unpack_snorm_4x8(const dst_reg &dst, src_reg src0)
    emit(MOV(shift, brw_imm_vf4(0x00, 0x60, 0x70, 0x78)));
 
    dst_reg shifted(this, glsl_type::uvec4_type);
-   src0.swizzle = BRW_SWIZZLE_XXXX;
+   src0.swizzle = SWIZZLE_XXXX;
    emit(SHR(shifted, src0, src_reg(shift)));
 
    shifted.type = BRW_REGISTER_TYPE_B;
@@ -677,7 +677,7 @@ src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type)
    this->nr = v->alloc.allocate(type_size_vec4(type, false));
 
    if (type->is_array() || type->is_struct()) {
-      this->swizzle = BRW_SWIZZLE_NOOP;
+      this->swizzle = SWIZZLE_NOOP;
    } else {
       this->swizzle = brw_swizzle_for_size(type->vector_elements);
    }
@@ -694,7 +694,7 @@ src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type, int size)
    this->file = VGRF;
    this->nr = v->alloc.allocate(type_size_vec4(type, false) * size);
 
-   this->swizzle = BRW_SWIZZLE_NOOP;
+   this->swizzle = SWIZZLE_NOOP;
 
    this->type = brw_type_for_base_type(type);
 }
@@ -818,7 +818,7 @@ vec4_visitor::emit_ndc_computation()
    dst_reg ndc_w = ndc;
    ndc_w.writemask = WRITEMASK_W;
    src_reg pos_w = pos;
-   pos_w.swizzle = BRW_SWIZZLE4(SWIZZLE_W, SWIZZLE_W, SWIZZLE_W, SWIZZLE_W);
+   pos_w.swizzle = MAKE_SWIZZLE4(SWIZZLE_W, SWIZZLE_W, SWIZZLE_W, SWIZZLE_W);
    emit_math(SHADER_OPCODE_RCP, ndc_w, pos_w);
 
    dst_reg ndc_xyz = ndc;
@@ -877,7 +877,7 @@ vec4_visitor::emit_psiz_and_flags(dst_reg reg)
       if (devinfo->has_negative_rhw_bug &&
           output_reg[BRW_VARYING_SLOT_NDC][0].file != BAD_FILE) {
          src_reg ndc_w = src_reg(output_reg[BRW_VARYING_SLOT_NDC][0]);
-         ndc_w.swizzle = BRW_SWIZZLE_WWWW;
+         ndc_w.swizzle = SWIZZLE_WWWW;
          emit(CMP(dst_null_f(), ndc_w, brw_imm_f(0.0f), BRW_CONDITIONAL_L));
          vec4_instruction *inst;
          inst = emit(OR(header1_w, src_reg(header1_w), brw_imm_ud(1u << 6)));

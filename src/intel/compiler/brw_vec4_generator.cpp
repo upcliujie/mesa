@@ -48,7 +48,7 @@ check_gfx6_math_src_arg(struct brw_reg src)
    /* Source swizzles are ignored. */
    assert(!src.abs);
    assert(!src.negate);
-   assert(src.swizzle == BRW_SWIZZLE_XYZW);
+   assert(src.swizzle == SWIZZLE_XYZW);
 }
 
 static void
@@ -1416,7 +1416,7 @@ generate_mov_indirect(struct brw_codegen *p,
       reg.nr = imm_byte_offset / REG_SIZE;
       reg.subnr = (imm_byte_offset / (REG_SIZE / 2)) % 2;
       unsigned shift = (imm_byte_offset / 4) % 4;
-      reg.swizzle += BRW_SWIZZLE4(shift, shift, shift, shift);
+      reg.swizzle += MAKE_SWIZZLE4(shift, shift, shift, shift);
 
       brw_MOV(p, dst, reg);
    } else {
@@ -1432,7 +1432,7 @@ generate_mov_indirect(struct brw_codegen *p,
        * the subnr (probably 0) to an align1 subnr and add in the swizzle.
        */
       assert(brw_is_single_value_swizzle(indirect.swizzle));
-      indirect.subnr = (indirect.subnr * 4 + BRW_GET_SWZ(indirect.swizzle, 0));
+      indirect.subnr = (indirect.subnr * 4 + GET_SWZ(indirect.swizzle, 0));
 
       /* We then use a region of <8,4,0>:uw to pick off the first 2 bytes of
        * the indirect and splat it out to all four channels of the given half
@@ -1443,11 +1443,11 @@ generate_mov_indirect(struct brw_codegen *p,
       brw_ADD(p, addr, indirect, brw_imm_uw(imm_byte_offset));
 
       /* Now we need to incorporate the swizzle from the source register */
-      if (reg.swizzle != BRW_SWIZZLE_XXXX) {
-         uint32_t uv_swiz = BRW_GET_SWZ(reg.swizzle, 0) << 2 |
-                            BRW_GET_SWZ(reg.swizzle, 1) << 6 |
-                            BRW_GET_SWZ(reg.swizzle, 2) << 10 |
-                            BRW_GET_SWZ(reg.swizzle, 3) << 14;
+      if (reg.swizzle != SWIZZLE_XXXX) {
+         uint32_t uv_swiz = GET_SWZ(reg.swizzle, 0) << 2 |
+                            GET_SWZ(reg.swizzle, 1) << 6 |
+                            GET_SWZ(reg.swizzle, 2) << 10 |
+                            GET_SWZ(reg.swizzle, 3) << 14;
          uv_swiz |= uv_swiz << 16;
 
          brw_ADD(p, addr, addr, brw_imm_uv(uv_swiz));
@@ -1469,9 +1469,9 @@ generate_zero_oob_push_regs(struct brw_codegen *p,
    assert(want_zero);
 
    assert(bit_mask_in.file == BRW_GENERAL_REGISTER_FILE);
-   assert(BRW_GET_SWZ(bit_mask_in.swizzle, 1) ==
-          BRW_GET_SWZ(bit_mask_in.swizzle, 0) + 1);
-   bit_mask_in.subnr += BRW_GET_SWZ(bit_mask_in.swizzle, 0) * 4;
+   assert(GET_SWZ(bit_mask_in.swizzle, 1) ==
+          GET_SWZ(bit_mask_in.swizzle, 0) + 1);
+   bit_mask_in.subnr += GET_SWZ(bit_mask_in.swizzle, 0) * 4;
    bit_mask_in.type = BRW_REGISTER_TYPE_W;
 
    /* Scratch should be 3 registers in the GRF */

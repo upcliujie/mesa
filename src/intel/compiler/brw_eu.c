@@ -118,7 +118,7 @@ brw_swizzle_immediate(enum brw_reg_type type, uint32_t x, unsigned swz)
          /* Shift the specified component all the way to the right and left to
           * discard any undesired L/MSBs, then shift it right into component i.
           */
-         y |= x >> imm_shift(type, (i & ~3) + BRW_GET_SWZ(swz, i & 3))
+         y |= x >> imm_shift(type, (i & ~3) + GET_SWZ(swz, i & 3))
                 << imm_shift(type, ~0u)
                 >> imm_shift(type, ~0u - i);
       }

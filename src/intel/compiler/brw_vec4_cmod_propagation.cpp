@@ -42,7 +42,7 @@ writemasks_incompatible(const vec4_instruction *earlier,
    return (earlier->dst.writemask != WRITEMASK_X &&
            earlier->dst.writemask != WRITEMASK_XYZW) ||
           (earlier->dst.writemask == WRITEMASK_XYZW &&
-           later->src[0].swizzle != BRW_SWIZZLE_XYZW) ||
+           later->src[0].swizzle != SWIZZLE_XYZW) ||
           (later->dst.writemask & ~earlier->dst.writemask) != 0;
 }
 
@@ -160,13 +160,13 @@ opt_cmod_propagation_local(bblock_t *block, vec4_visitor *v)
                 (inst->opcode == BRW_OPCODE_CMP ||
                  inst->opcode == BRW_OPCODE_MOV) &&
                 scan_inst->opcode == BRW_OPCODE_CMP &&
-                ((inst->src[0].swizzle == BRW_SWIZZLE_XXXX &&
+                ((inst->src[0].swizzle == SWIZZLE_XXXX &&
                   scan_inst->dst.writemask == WRITEMASK_X) ||
-                 (inst->src[0].swizzle == BRW_SWIZZLE_YYYY &&
+                 (inst->src[0].swizzle == SWIZZLE_YYYY &&
                   scan_inst->dst.writemask == WRITEMASK_Y) ||
-                 (inst->src[0].swizzle == BRW_SWIZZLE_ZZZZ &&
+                 (inst->src[0].swizzle == SWIZZLE_ZZZZ &&
                   scan_inst->dst.writemask == WRITEMASK_Z) ||
-                 (inst->src[0].swizzle == BRW_SWIZZLE_WWWW &&
+                 (inst->src[0].swizzle == SWIZZLE_WWWW &&
                   scan_inst->dst.writemask == WRITEMASK_W))) {
                if (inst->dst.writemask != scan_inst->dst.writemask) {
                   src_reg temp(v, glsl_type::vec4_type, 1);
@@ -203,33 +203,33 @@ opt_cmod_propagation_local(bblock_t *block, vec4_visitor *v)
                   unsigned src1_chan;
                   switch (scan_inst->dst.writemask) {
                   case WRITEMASK_X:
-                     src0_chan = BRW_GET_SWZ(scan_inst->src[0].swizzle, 0);
-                     src1_chan = BRW_GET_SWZ(scan_inst->src[1].swizzle, 0);
+                     src0_chan = GET_SWZ(scan_inst->src[0].swizzle, 0);
+                     src1_chan = GET_SWZ(scan_inst->src[1].swizzle, 0);
                      break;
                   case WRITEMASK_Y:
-                     src0_chan = BRW_GET_SWZ(scan_inst->src[0].swizzle, 1);
-                     src1_chan = BRW_GET_SWZ(scan_inst->src[1].swizzle, 1);
+                     src0_chan = GET_SWZ(scan_inst->src[0].swizzle, 1);
+                     src1_chan = GET_SWZ(scan_inst->src[1].swizzle, 1);
                      break;
                   case WRITEMASK_Z:
-                     src0_chan = BRW_GET_SWZ(scan_inst->src[0].swizzle, 2);
-                     src1_chan = BRW_GET_SWZ(scan_inst->src[1].swizzle, 2);
+                     src0_chan = GET_SWZ(scan_inst->src[0].swizzle, 2);
+                     src1_chan = GET_SWZ(scan_inst->src[1].swizzle, 2);
                      break;
                   case WRITEMASK_W:
-                     src0_chan = BRW_GET_SWZ(scan_inst->src[0].swizzle, 3);
-                     src1_chan = BRW_GET_SWZ(scan_inst->src[1].swizzle, 3);
+                     src0_chan = GET_SWZ(scan_inst->src[0].swizzle, 3);
+                     src1_chan = GET_SWZ(scan_inst->src[1].swizzle, 3);
                      break;
                   default:
                      unreachable("Impossible writemask");
                   }
 
-                  scan_inst->src[0].swizzle = BRW_SWIZZLE4(src0_chan,
+                  scan_inst->src[0].swizzle = MAKE_SWIZZLE4(src0_chan,
                                                            src0_chan,
                                                            src0_chan,
                                                            src0_chan);
 
                   /* There's no swizzle on immediate value sources. */
                   if (scan_inst->src[1].file != IMM) {
-                     scan_inst->src[1].swizzle = BRW_SWIZZLE4(src1_chan,
+                     scan_inst->src[1].swizzle = MAKE_SWIZZLE4(src1_chan,
                                                               src1_chan,
                                                               src1_chan,
                                                               src1_chan);
