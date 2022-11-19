@@ -117,6 +117,23 @@ debian/x86_32_build:
   needs:
     - debian/x86_32_build
 
+# Debian based riscv64 cross-build image
+debian/riscv64_build:
+  extends:
+    - .use-debian/x86_64_build-base
+  variables:
+    MESA_IMAGE_TAG: &debian-riscv64_build ${DEBIAN_BUILD_TAG}
+
+.use-debian/riscv64_build:
+  extends:
+    - .set-image-base-tag
+  variables:
+    MESA_BASE_TAG: *debian-x86_64_build-base
+    MESA_IMAGE_PATH: "debian/riscv64_build"
+    MESA_IMAGE_TAG: *debian-riscv64_build
+  needs:
+    - debian/riscv64_build
+
 # Debian based x86_64-mingw cross main build image
 # FIXME: Until gets fixed on Debian 12, disabled.
 .debian/x86_64_build-mingw:
