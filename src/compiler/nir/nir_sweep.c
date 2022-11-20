@@ -22,6 +22,7 @@
  */
 
 #include "nir.h"
+#include "nir_src_loc.h"
 
 /**
  * \file nir_sweep.c
@@ -191,6 +192,10 @@ nir_sweep(nir_shader *nir)
 
    ralloc_steal(nir, nir->constant_data);
    ralloc_steal(nir, nir->xfb_info);
+   ralloc_steal(nir, (nir_src_loc *)nir->src_loc_table);
+   for (int i = 0; i < nir->src_loc_table_size; i++) {
+      ralloc_steal(nir, (char *)nir->src_loc_table[i].file);
+   }
    ralloc_steal(nir, nir->printf_info);
    for (int i = 0; i < nir->printf_info_count; i++) {
       ralloc_steal(nir, nir->printf_info[i].arg_sizes);

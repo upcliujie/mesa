@@ -162,6 +162,7 @@ struct nir_instr;
 struct nir_builder;
 struct nir_xfb_info;
 
+typedef struct nir_src_loc nir_src_loc;
 
 /**
  * Description of built-in state associated with a uniform
@@ -910,6 +911,9 @@ typedef struct nir_instr {
 
    /** generic instruction index. */
    uint32_t index;
+
+   /** source location */
+   uint32_t src_loc_index;
 } nir_instr;
 
 static inline nir_instr *
@@ -3820,6 +3824,9 @@ typedef struct nir_shader {
 
    struct nir_xfb_info *xfb_info;
 
+   const nir_src_loc *src_loc_table;
+   unsigned src_loc_table_size;
+
    unsigned printf_info_count;
    u_printf_info *printf_info;
 } nir_shader;
@@ -3976,6 +3983,7 @@ typedef enum {
 
 typedef struct {
    nir_cursor_option option;
+   uint32_t src_loc_index;
    union {
       nir_block *block;
       nir_instr *instr;
@@ -4000,7 +4008,11 @@ nir_before_block(nir_block *block)
 {
    nir_cursor cursor;
    cursor.option = nir_cursor_before_block;
+   cursor.src_loc_index = 0;
    cursor.block = block;
+   nir_instr *first = nir_block_first_instr(cursor.block);
+   if (first != NULL)
+      cursor.src_loc_index = first->src_loc_index;
    return cursor;
 }
 
@@ -4009,7 +4021,11 @@ nir_after_block(nir_block *block)
 {
    nir_cursor cursor;
    cursor.option = nir_cursor_after_block;
+   cursor.src_loc_index = 0;
    cursor.block = block;
+   nir_instr *last = nir_block_last_instr(cursor.block);
+   if (last != NULL)
+      cursor.src_loc_index = last->src_loc_index;
    return cursor;
 }
 
@@ -4018,6 +4034,7 @@ nir_before_instr(nir_instr *instr)
 {
    nir_cursor cursor;
    cursor.option = nir_cursor_before_instr;
+   cursor.src_loc_index = instr->src_loc_index;
    cursor.instr = instr;
    return cursor;
 }
@@ -4027,6 +4044,7 @@ nir_after_instr(nir_instr *instr)
 {
    nir_cursor cursor;
    cursor.option = nir_cursor_after_instr;
+   cursor.src_loc_index = instr->src_loc_index;
    cursor.instr = instr;
    return cursor;
 }

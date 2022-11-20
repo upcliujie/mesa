@@ -655,6 +655,7 @@ instr_init(nir_instr *instr, nir_instr_type type)
 {
    instr->type = type;
    instr->block = NULL;
+   instr->src_loc_index = 0;
    exec_node_init(&instr->node);
 }
 
@@ -1143,6 +1144,9 @@ nir_instr_insert(nir_cursor cursor, nir_instr *instr)
 
    if (instr->type == nir_instr_type_jump)
       nir_handle_add_jump(instr->block);
+
+   if (instr->src_loc_index == 0)
+      instr->src_loc_index = cursor.src_loc_index;
 
    nir_function_impl *impl = nir_cf_node_get_function(&instr->block->cf_node);
    impl->valid_metadata &= ~nir_metadata_instr_index;
