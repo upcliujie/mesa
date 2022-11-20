@@ -32,6 +32,7 @@
 
 #include "nir/nir.h"
 #include "nir/nir_builder.h"
+#include "nir/nir_src_loc.h"
 #include "util/u_dynarray.h"
 #include "nir_spirv.h"
 #include "spirv.h"
@@ -683,12 +684,11 @@ struct vtn_builder {
    struct spirv_to_nir_options *options;
    struct vtn_block *block;
 
-   /* Current offset, file, line, and column.  Useful for debugging.  Set
-    * automatically by vtn_foreach_instruction.
-    */
-   size_t spirv_offset;
-   const char *file;
-   int line, col;
+   /* Current source location. Set automatically by vtn_foreach_instruction. */
+   struct nir_src_loc src_loc;
+
+   struct util_dynarray src_loc_table;
+   struct hash_table *shader_sources;
 
    /*
     * In SPIR-V, constants are global, whereas in NIR, the load_const
