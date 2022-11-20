@@ -24,6 +24,7 @@
 #include "nir.h"
 #include "nir_control_flow.h"
 #include "nir_xfb_info.h"
+#include "nir_src_loc.h"
 
 /* Secret Decoder Ring:
  *   clone_foo():
@@ -485,7 +486,7 @@ clone_call(clone_state *state, const nir_call_instr *call)
 }
 
 static nir_instr *
-clone_instr(clone_state *state, const nir_instr *instr)
+clone_instr_impl(clone_state *state, const nir_instr *instr)
 {
    switch (instr->type) {
    case nir_instr_type_alu:
@@ -512,6 +513,14 @@ clone_instr(clone_state *state, const nir_instr *instr)
       unreachable("bad instr type");
       return NULL;
    }
+}
+
+static nir_instr *
+clone_instr(clone_state *state, const nir_instr *instr)
+{
+   nir_instr *ninstr = clone_instr_impl(state, instr);
+   ninstr->src_loc_index = instr->src_loc_index;
+   return ninstr;
 }
 
 nir_instr *
@@ -792,6 +801,22 @@ nir_shader_clone(void *mem_ctx, const nir_shader *s)
       ns->xfb_info = ralloc_size(ns, size);
       memcpy(ns->xfb_info, s->xfb_info, size);
    }
+
+   nir_src_loc *src_loc_table = ralloc_array(ns, nir_src_loc, s->src_loc_table_size);
+   for (unsigned i = 0; i < s->src_loc_table_size; i++) {
+      nir_src_loc src_loc = s->src_loc_table[i];
+      if (src_loc.file != NULL) {
+         struct hash_entry *entry = _mesa_hash_table_search(state.remap_table, src_loc.file);
+         if (entry == NULL) {
+            entry = _mesa_hash_table_insert(state.remap_table, src_loc.file,
+               ralloc_strdup(ns, src_loc.file));
+         }
+         src_loc.file = entry->data;
+      }
+      src_loc_table[i] = src_loc;
+   }
+   ns->src_loc_table = src_loc_table;
+   ns->src_loc_table_size = s->src_loc_table_size;
 
    free_clone_state(&state);
 
