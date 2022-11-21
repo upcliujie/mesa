@@ -1612,12 +1612,9 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
    if (num_tasks) {
       mtx_lock(&screen->cs_mutex);
       lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, job_info, num_tasks, &job_info->fence);
-      mtx_unlock(&screen->cs_mutex);
+      lp_fence_reference(&screen->last_cs_fence, job_info->fence);
 
-      if (job_info->fence) {
-         lp_fence_wait(job_info->fence);
-         lp_fence_reference(&job_info->fence, NULL);
-      }
+      mtx_unlock(&screen->cs_mutex);
    }
    if (!llvmpipe->queries_disabled)
       llvmpipe->pipeline_statistics.cs_invocations += num_tasks * info->block[0] * info->block[1] * info->block[2];
