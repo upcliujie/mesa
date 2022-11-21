@@ -59,14 +59,12 @@ struct lp_cs_local_mem {
 };
 
 typedef void (*lp_cs_tpool_task_func)(void *data, int iter_idx, struct lp_cs_local_mem *lmem);
-typedef void (*lp_cs_tpool_free_func)(void *data);
 
 struct lp_cs_tpool *lp_cs_tpool_create(unsigned num_threads);
 void lp_cs_tpool_destroy(struct lp_cs_tpool *);
 
 bool lp_cs_tpool_queue_task(struct lp_cs_tpool *,
                             lp_cs_tpool_task_func func,
-                            lp_cs_tpool_free_func free_data,
                             void *data, int num_iters,
                             struct lp_fence **fence);
 

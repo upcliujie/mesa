@@ -64,6 +64,7 @@ struct lp_cs_job_info {
    unsigned work_dim;
    bool zero_initialize_shared_memory;
    struct lp_cs_exec current;
+   struct lp_fence *fence;
 };
 
 
@@ -1359,14 +1360,6 @@ llvmpipe_cs_update_derived(struct llvmpipe_context *llvmpipe, const void *input)
 }
 
 static void
-cs_free_job(void *data)
-{
-   struct lp_cs_job_info *job_info = data;
-   lp_cs_variant_reference(job_info->lp, &job_info->current.variant, NULL);
-   FREE(job_info);
-}
-
-static void
 cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
 {
    struct lp_cs_job_info *job_info = init_data;
@@ -1427,6 +1420,72 @@ fill_grid_size(struct pipe_context *pipe,
    pipe_buffer_unmap(pipe, transfer);
 }
 
+static void
+lp_cs_job_finish(struct lp_cs_job_info *job)
+{
+   if (job->fence)
+      lp_fence_reference(&job->fence, NULL);
+   lp_cs_variant_reference(job->lp, &job->current.variant, NULL);
+}
+
+static unsigned
+lp_cs_wait_job(struct lp_cs_context *csctx)
+{
+   int idx = 0;
+   if (csctx->jobs[idx]->fence) {
+      lp_fence_wait(csctx->jobs[idx]->fence);
+      lp_cs_job_finish(csctx->jobs[idx]);
+   }
+   return idx;
+}
+
+static struct lp_cs_job_info *
+get_compute_job(struct llvmpipe_context *llvmpipe)
+{
+   struct lp_cs_job_info *job_info;
+
+   job_info = slab_alloc_st(&llvmpipe->csctx->job_slab);
+   if (!job_info)
+      return NULL;
+
+   memset(job_info, 0, sizeof(struct lp_cs_job_info));
+   job_info->lp = llvmpipe;
+   return job_info;
+}
+
+static struct lp_cs_job_info *
+find_compute_job(struct llvmpipe_context *llvmpipe)
+{
+   struct lp_cs_context *csctx = llvmpipe->csctx;
+   unsigned i;
+
+   for (i = 0; i < csctx->num_jobs; i++) {
+      if (csctx->jobs[i]->fence) {
+         if (lp_fence_signalled(csctx->jobs[i]->fence)) {
+            lp_cs_job_finish(csctx->jobs[i]);
+            break;
+         }
+      } else {
+         break;
+      }
+   }
+
+   if (csctx->num_jobs + 1 > MAX_CS_JOBS) {
+      i = lp_cs_wait_job(csctx);
+   } else if (i == csctx->num_jobs) {
+      /* allocate a new job */
+      struct lp_cs_job_info *job = get_compute_job(llvmpipe);
+      if (!job) {
+         i = lp_cs_wait_job(csctx);
+      } else {
+         LP_DBG(DEBUG_CS, "allocated job: %d\n", csctx->num_jobs);
+         csctx->jobs[csctx->num_jobs] = job;
+         i = csctx->num_jobs;
+         csctx->num_jobs++;
+      }
+   }
+   return csctx->jobs[i];
+}
 
 static void
 llvmpipe_launch_grid(struct pipe_context *pipe,
@@ -1439,7 +1498,7 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
    if (!llvmpipe_check_render_cond(llvmpipe))
       return;
 
-   job_info = CALLOC_STRUCT(lp_cs_job_info);
+   job_info = find_compute_job(llvmpipe);
    if (!job_info)
       return;
 
@@ -1447,7 +1506,6 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 
    fill_grid_size(pipe, info, job_info->grid_size);
 
-   job_info->lp = llvmpipe;
    job_info->grid_base[0] = info->grid_base[0];
    job_info->grid_base[1] = info->grid_base[1];
    job_info->grid_base[2] = info->grid_base[2];
@@ -1462,14 +1520,13 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 
    int num_tasks = job_info->grid_size[2] * job_info->grid_size[1] * job_info->grid_size[0];
    if (num_tasks) {
-      struct lp_fence *fence = NULL;
       mtx_lock(&screen->cs_mutex);
-      lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, cs_free_job, job_info, num_tasks, &fence);
+      lp_cs_tpool_queue_task(screen->cs_tpool, cs_exec_fn, job_info, num_tasks, &job_info->fence);
       mtx_unlock(&screen->cs_mutex);
 
-      if (fence) {
-         lp_fence_wait(fence);
-         lp_fence_reference(&fence, NULL);
+      if (job_info->fence) {
+         lp_fence_wait(job_info->fence);
+         lp_fence_reference(&job_info->fence, NULL);
       }
    }
    if (!llvmpipe->queries_disabled)
@@ -1555,6 +1612,10 @@ lp_csctx_destroy(struct lp_cs_context *csctx)
    for (i = 0; i < ARRAY_SIZE(csctx->images); i++) {
       pipe_resource_reference(&csctx->images[i].current.resource, NULL);
    }
+
+   for (i = 0; i < csctx->num_jobs; i++)
+      slab_free_st(&csctx->job_slab, csctx->jobs[i]);
+   slab_destroy(&csctx->job_slab);
    FREE(csctx);
 }
 
@@ -1567,5 +1628,10 @@ lp_csctx_create(struct pipe_context *pipe)
       return NULL;
 
    csctx->pipe = pipe;
+
+   slab_create(&csctx->job_slab,
+               sizeof(struct lp_cs_job_info),
+               4);
+
    return csctx;
 }

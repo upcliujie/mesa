@@ -28,11 +28,15 @@
 
 #include "util/u_thread.h"
 #include "pipe/p_state.h"
+#include "util/slab.h"
 
 #include "gallivm/lp_bld.h"
 #include "gallivm/lp_bld_sample.h" /* for struct lp_sampler_static_state */
 #include "lp_jit.h"
 #include "lp_state_fs.h"
+
+#define MAX_CS_JOBS 16
+struct lp_cs_job_info;
 
 struct lp_compute_shader_variant;
 
@@ -129,6 +133,10 @@ struct lp_cs_exec {
 
 struct lp_cs_context {
    struct pipe_context *pipe;
+
+   struct slab_mempool job_slab;
+   int num_jobs;
+   struct lp_cs_job_info *jobs[MAX_CS_JOBS];
 
    struct {
       struct lp_cs_exec current;
