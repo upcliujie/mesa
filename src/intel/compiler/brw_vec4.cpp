@@ -152,8 +152,11 @@ vec4_instruction::is_send_from_grf() const
    switch (opcode) {
    case VS_OPCODE_PULL_CONSTANT_LOAD_GFX7:
    case VEC4_OPCODE_UNTYPED_ATOMIC:
+   case VEC4_OPCODE_TYPED_ATOMIC:
    case VEC4_OPCODE_UNTYPED_SURFACE_READ:
+   case VEC4_OPCODE_TYPED_SURFACE_READ:
    case VEC4_OPCODE_UNTYPED_SURFACE_WRITE:
+   case VEC4_OPCODE_TYPED_SURFACE_WRITE:
    case VEC4_OPCODE_URB_READ:
    case VEC4_TCS_OPCODE_URB_WRITE:
    case TCS_OPCODE_RELEASE_INPUT:
@@ -207,8 +210,11 @@ vec4_instruction::size_read(unsigned arg) const
 {
    switch (opcode) {
    case VEC4_OPCODE_UNTYPED_ATOMIC:
+   case VEC4_OPCODE_TYPED_ATOMIC:
    case VEC4_OPCODE_UNTYPED_SURFACE_READ:
+   case VEC4_OPCODE_TYPED_SURFACE_READ:
    case VEC4_OPCODE_UNTYPED_SURFACE_WRITE:
+   case VEC4_OPCODE_TYPED_SURFACE_WRITE:
    case VEC4_TCS_OPCODE_URB_WRITE:
       if (arg == 0)
          return mlen * REG_SIZE;

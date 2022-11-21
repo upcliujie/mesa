@@ -1908,6 +1908,14 @@ generate_code(struct brw_codegen *p,
          send_count++;
          break;
 
+      case VEC4_OPCODE_TYPED_ATOMIC:
+         assert(inst->header_size);
+         assert(src[2].file == BRW_IMMEDIATE_VALUE);
+         brw_typed_atomic(p, dst, src[0], src[1], src[2].ud, inst->mlen,
+                          !inst->dst.is_null());
+         send_count++;
+         break;
+
       case VEC4_OPCODE_UNTYPED_SURFACE_READ:
          assert(!inst->header_size);
          assert(src[2].file == BRW_IMMEDIATE_VALUE);
@@ -1916,10 +1924,26 @@ generate_code(struct brw_codegen *p,
          send_count++;
          break;
 
+      case VEC4_OPCODE_TYPED_SURFACE_READ:
+         assert(inst->header_size);
+         assert(src[2].file == BRW_IMMEDIATE_VALUE);
+         brw_typed_surface_read(p, dst, src[0], src[1], inst->mlen,
+                                src[2].ud);
+         send_count++;
+         break;
+
       case VEC4_OPCODE_UNTYPED_SURFACE_WRITE:
          assert(src[2].file == BRW_IMMEDIATE_VALUE);
          brw_untyped_surface_write(p, src[0], src[1], inst->mlen,
                                    src[2].ud, inst->header_size);
+         send_count++;
+         break;
+
+      case VEC4_OPCODE_TYPED_SURFACE_WRITE:
+         assert(inst->header_size);
+         assert(src[2].file == BRW_IMMEDIATE_VALUE);
+         brw_typed_surface_write(p, src[0], src[1], inst->mlen,
+                                 src[2].ud);
          send_count++;
          break;
 

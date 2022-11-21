@@ -1763,6 +1763,15 @@ brw_untyped_atomic(struct brw_codegen *p,
                    bool header_present);
 
 void
+brw_typed_atomic(struct brw_codegen *p,
+                 struct brw_reg dst,
+                 struct brw_reg payload,
+                 struct brw_reg surface,
+                 unsigned atomic_op,
+                 unsigned msg_length,
+                 bool response_expected);
+
+void
 brw_untyped_surface_read(struct brw_codegen *p,
                          struct brw_reg dst,
                          struct brw_reg payload,
@@ -1771,12 +1780,27 @@ brw_untyped_surface_read(struct brw_codegen *p,
                          unsigned num_channels);
 
 void
+brw_typed_surface_read(struct brw_codegen *p,
+                       struct brw_reg dst,
+                       struct brw_reg payload,
+                       struct brw_reg surface,
+                       unsigned msg_length,
+                       unsigned num_channels);
+
+void
 brw_untyped_surface_write(struct brw_codegen *p,
                           struct brw_reg payload,
                           struct brw_reg surface,
                           unsigned msg_length,
                           unsigned num_channels,
                           bool header_present);
+
+void
+brw_typed_surface_write(struct brw_codegen *p,
+                        struct brw_reg payload,
+                        struct brw_reg surface,
+                        unsigned msg_length,
+                        unsigned num_channels);
 
 void
 brw_memory_fence(struct brw_codegen *p,

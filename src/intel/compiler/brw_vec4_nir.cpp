@@ -375,6 +375,15 @@ vec4_visitor::nir_emit_load_const(nir_load_const_instr *instr)
 }
 
 src_reg
+vec4_visitor::get_nir_image_intrinsic_image(nir_intrinsic_instr *instr)
+{
+   src_reg image = retype(get_nir_src_imm(instr->src[0]), BRW_REGISTER_TYPE_UD);
+   src_reg surf_index = image;
+
+   return emit_uniformize(surf_index);
+}
+
+src_reg
 vec4_visitor::get_nir_ssbo_intrinsic_index(nir_intrinsic_instr *instr)
 {
    /* SSBO stores are weird in that their index is in src[1] */
@@ -387,6 +396,11 @@ vec4_visitor::get_nir_ssbo_intrinsic_index(nir_intrinsic_instr *instr)
    }
 }
 
+static bool image_one_d_array(const nir_intrinsic_instr *instr) {
+   return nir_intrinsic_image_dim(instr) == GLSL_SAMPLER_DIM_1D
+      && nir_intrinsic_image_array(instr);
+}
+
 void
 vec4_visitor::nir_emit_intrinsic(nir_intrinsic_instr *instr)
 {
@@ -394,6 +408,143 @@ vec4_visitor::nir_emit_intrinsic(nir_intrinsic_instr *instr)
    src_reg src;
 
    switch (instr->intrinsic) {
+   case nir_intrinsic_image_load: {
+      src_reg surf_index = get_nir_image_intrinsic_image(instr);
+      src_reg offset_reg = get_nir_src(instr->src[1]);
+      unsigned dims = nir_image_intrinsic_coord_components(instr);
+
+      /* Read the vector */
+      const vec4_builder bld = vec4_builder(this).at_end()
+         .annotate(current_annotation, base_ir);
+
+      src_reg read_result = emit_typed_read(bld, surf_index, offset_reg,
+                                            dims, 4 /* size*/,
+                                            image_one_d_array(instr),
+                                            BRW_PREDICATE_NONE);
+      dest = get_nir_dest(instr->dest);
+      read_result.type = dest.type;
+      read_result.swizzle = brw_swizzle_for_size(instr->num_components);
+      emit(MOV(dest, read_result));
+      break;
+   }
+
+   case nir_intrinsic_image_store: {
+      src_reg surf_index = get_nir_image_intrinsic_image(instr);
+      src_reg offset_reg = get_nir_src(instr->src[1]);
+      src_reg val_reg = get_nir_src(instr->src[3]);
+      unsigned dims = nir_image_intrinsic_coord_components(instr);
+
+      const vec4_builder bld = vec4_builder(this).at_end()
+         .annotate(current_annotation, base_ir);
+
+      emit_typed_write(bld, surf_index, offset_reg, val_reg,
+                       dims, instr->num_components,
+                       image_one_d_array(instr),
+                       BRW_PREDICATE_NONE);
+      break;
+   }
+
+   case nir_intrinsic_image_load_raw_intel: {
+      src_reg surf_index = get_nir_image_intrinsic_image(instr);
+      src_reg offset_reg = get_nir_src(instr->src[1]);
+
+      /* Read the vector */
+      const vec4_builder bld = vec4_builder(this).at_end()
+         .annotate(current_annotation, base_ir);
+
+      src_reg read_result = emit_untyped_read(bld, surf_index, offset_reg,
+                                            1 /* dims */, 4 /* size*/,
+                                            BRW_PREDICATE_NONE);
+      dst_reg dest = get_nir_dest(instr->dest);
+      read_result.type = dest.type;
+      read_result.swizzle = brw_swizzle_for_size(instr->num_components);
+      emit(MOV(dest, read_result));
+      break;
+   }
+
+   case nir_intrinsic_image_store_raw_intel: {
+      src_reg surf_index = get_nir_image_intrinsic_image(instr);
+      src_reg offset_reg = get_nir_src(instr->src[1]);
+      src_reg val_reg = get_nir_src(instr->src[2]);
+
+      /* Read the vector */
+      const vec4_builder bld = vec4_builder(this).at_end()
+         .annotate(current_annotation, base_ir);
+
+      emit_untyped_write(bld, surf_index, offset_reg, val_reg,
+                         1 /* dims */, instr->num_components /* size*/,
+                         BRW_PREDICATE_NONE);
+      break;
+   }
+
+   case nir_intrinsic_image_atomic_add:
+   case nir_intrinsic_image_atomic_imin:
+   case nir_intrinsic_image_atomic_umin:
+   case nir_intrinsic_image_atomic_imax:
+   case nir_intrinsic_image_atomic_umax:
+   case nir_intrinsic_image_atomic_and:
+   case nir_intrinsic_image_atomic_or:
+   case nir_intrinsic_image_atomic_xor:
+   case nir_intrinsic_image_atomic_exchange:
+   case nir_intrinsic_image_atomic_comp_swap: {
+      src_reg surf_index = get_nir_image_intrinsic_image(instr);
+      src_reg offset_reg = get_nir_src(instr->src[1]);
+      unsigned dims = nir_image_intrinsic_coord_components(instr);
+
+      int op = brw_aop_for_nir_intrinsic(instr);
+
+      src_reg data1;
+      if (op != BRW_AOP_INC && op != BRW_AOP_DEC && op != BRW_AOP_PREDEC)
+         data1 = get_nir_src(instr->src[3], 1);
+      src_reg data2;
+      if (op == BRW_AOP_CMPWR)
+         data2 = get_nir_src(instr->src[4], 1);
+
+      /* Emit the actual atomic operation operation */
+      const vec4_builder bld =
+         vec4_builder(this).at_end().annotate(current_annotation, base_ir);
+
+      src_reg atomic_result = emit_typed_atomic(bld, surf_index, offset_reg,
+                                                data1, data2,
+                                                dims, 1 /* rsize */,
+                                                op, image_one_d_array(instr),
+                                                BRW_PREDICATE_NONE);
+
+      dest = get_nir_dest(instr->dest);
+      dest.type = atomic_result.type;
+      bld.MOV(dest, atomic_result);
+      break;
+   }
+
+   case nir_intrinsic_image_size: {
+      /* Cube image sizes should have previously been lowered to a 2D array */
+      assert(nir_intrinsic_image_dim(instr) != GLSL_SAMPLER_DIM_CUBE);
+
+      src_reg surf_index = get_nir_image_intrinsic_image(instr);
+      assert(nir_src_as_uint(instr->src[1]) == 0);
+
+      dest = get_nir_dest(instr->dest);
+      dest.writemask = brw_writemask_for_size(instr->num_components);
+      vec4_instruction *inst = new(mem_ctx) vec4_instruction(SHADER_OPCODE_TXS, dest);
+      inst->base_mrf = 2;
+      inst->mlen = 1;
+
+      inst->src[1] = surf_index;
+      inst->src[2] = brw_imm_ud(0);
+
+      emit(MOV(dst_reg(MRF, inst->base_mrf, BRW_REGISTER_TYPE_D, WRITEMASK_X), brw_imm_d(0)));
+
+      emit(inst);
+      break;
+   }
+
+   case nir_intrinsic_image_samples:
+      dest = get_nir_dest(instr->dest);
+      dest.writemask = WRITEMASK_X;
+      dest.type = BRW_REGISTER_TYPE_D;
+      /* The driver does not support multi-sampled images. */
+      emit(MOV(dest, brw_imm_d(1)));
+      break;
 
    case nir_intrinsic_load_input: {
       assert(nir_dest_bit_size(instr->dest) == 32);

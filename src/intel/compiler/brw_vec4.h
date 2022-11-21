@@ -302,6 +302,7 @@ public:
    virtual void nir_emit_block(nir_block *block);
    virtual void nir_emit_instr(nir_instr *instr);
    virtual void nir_emit_load_const(nir_load_const_instr *instr);
+   src_reg get_nir_image_intrinsic_image(nir_intrinsic_instr *instr);
    src_reg get_nir_ssbo_intrinsic_index(nir_intrinsic_instr *instr);
    virtual void nir_emit_intrinsic(nir_intrinsic_instr *instr);
    virtual void nir_emit_alu(nir_alu_instr *instr);

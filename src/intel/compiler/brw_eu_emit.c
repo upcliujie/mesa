@@ -3184,6 +3184,34 @@ brw_untyped_atomic(struct brw_codegen *p,
 }
 
 void
+brw_typed_atomic(struct brw_codegen *p,
+                 struct brw_reg dst,
+                 struct brw_reg payload,
+                 struct brw_reg surface,
+                 unsigned atomic_op,
+                 unsigned msg_length,
+                 bool response_expected)
+{
+   const struct intel_device_info *devinfo = p->devinfo;
+   const unsigned sfid = (devinfo->verx10 >= 75 ?
+                          HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GFX6_SFID_DATAPORT_RENDER_CACHE);
+   const bool align1 = brw_get_default_access_mode(p) == BRW_ALIGN_1;
+   /* SIMD4x2 typed atomic instructions only exist on HSW+ */
+   const bool has_simd4x2 = devinfo->verx10 >= 75;
+   const unsigned exec_size = align1 ? 1 << brw_get_default_exec_size(p) :
+                              has_simd4x2 ? 0 : 8;
+   const unsigned response_length =
+      brw_surface_payload_size(response_expected, exec_size);
+   const unsigned desc =
+      brw_message_desc(devinfo, msg_length, response_length, true) |
+      brw_dp_typed_atomic_desc(devinfo, exec_size, 0, atomic_op,
+                               response_expected);
+
+   brw_send_indirect_surface_message(p, sfid, dst, payload, surface, desc);
+}
+
+void
 brw_untyped_surface_read(struct brw_codegen *p,
                          struct brw_reg dst,
                          struct brw_reg payload,
@@ -3202,6 +3230,32 @@ brw_untyped_surface_read(struct brw_codegen *p,
    const unsigned desc =
       brw_message_desc(devinfo, msg_length, response_length, false) |
       brw_dp_untyped_surface_rw_desc(devinfo, exec_size, num_channels, false);
+
+   brw_send_indirect_surface_message(p, sfid, dst, payload, surface, desc);
+}
+
+void
+brw_typed_surface_read(struct brw_codegen *p,
+                       struct brw_reg dst,
+                       struct brw_reg payload,
+                       struct brw_reg surface,
+                       unsigned msg_length,
+                       unsigned num_channels)
+{
+   const struct intel_device_info *devinfo = p->devinfo;
+   const unsigned sfid = (devinfo->verx10 >= 75 ?
+                          HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GFX6_SFID_DATAPORT_RENDER_CACHE);
+   const bool align1 = brw_get_default_access_mode(p) == BRW_ALIGN_1;
+   /* SIMD4x2 typed surface read instructions only exist on HSW+ */
+   const bool has_simd4x2 = devinfo->verx10 >= 75;
+   const unsigned exec_size = align1 ? 1 << brw_get_default_exec_size(p) :
+                              has_simd4x2 ? 0 : 8;
+   const unsigned response_length =
+      brw_surface_payload_size(num_channels, exec_size);
+   const unsigned desc =
+      brw_message_desc(devinfo, msg_length, response_length, true) |
+      brw_dp_typed_surface_rw_desc(devinfo, exec_size, 0, num_channels, false);
 
    brw_send_indirect_surface_message(p, sfid, dst, payload, surface, desc);
 }
@@ -3226,6 +3280,32 @@ brw_untyped_surface_write(struct brw_codegen *p,
    const unsigned desc =
       brw_message_desc(devinfo, msg_length, 0, header_present) |
       brw_dp_untyped_surface_rw_desc(devinfo, exec_size, num_channels, true);
+   /* Mask out unused components -- See comment in brw_untyped_atomic(). */
+   const unsigned mask = !has_simd4x2 && !align1 ? WRITEMASK_X : WRITEMASK_XYZW;
+
+   brw_send_indirect_surface_message(p, sfid, brw_writemask(brw_null_reg(), mask),
+                                     payload, surface, desc);
+}
+
+void
+brw_typed_surface_write(struct brw_codegen *p,
+                          struct brw_reg payload,
+                          struct brw_reg surface,
+                          unsigned msg_length,
+                          unsigned num_channels)
+{
+   const struct intel_device_info *devinfo = p->devinfo;
+   const unsigned sfid = (devinfo->verx10 >= 75 ?
+                          HSW_SFID_DATAPORT_DATA_CACHE_1 :
+                          GFX6_SFID_DATAPORT_RENDER_CACHE);
+   const bool align1 = brw_get_default_access_mode(p) == BRW_ALIGN_1;
+   /* SIMD4x2 typed surface write instructions only exist on HSW+ */
+   const bool has_simd4x2 = devinfo->verx10 >= 75;
+   const unsigned exec_size = align1 ? 1 << brw_get_default_exec_size(p) :
+                              has_simd4x2 ? 0 : 8;
+   const unsigned desc =
+      brw_message_desc(devinfo, msg_length, 0, true) |
+      brw_dp_typed_surface_rw_desc(devinfo, exec_size, 0, num_channels, true);
    /* Mask out unused components -- See comment in brw_untyped_atomic(). */
    const unsigned mask = !has_simd4x2 && !align1 ? WRITEMASK_X : WRITEMASK_XYZW;
 

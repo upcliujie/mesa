@@ -370,12 +370,15 @@ schedule_node::set_latency_gfx7(bool is_haswell)
       break;
 
    case VEC4_OPCODE_UNTYPED_ATOMIC:
+   case VEC4_OPCODE_TYPED_ATOMIC:
       /* See GFX7_DATAPORT_DC_UNTYPED_ATOMIC_OP */
       latency = 14000;
       break;
 
    case VEC4_OPCODE_UNTYPED_SURFACE_READ:
+   case VEC4_OPCODE_TYPED_SURFACE_READ:
    case VEC4_OPCODE_UNTYPED_SURFACE_WRITE:
+   case VEC4_OPCODE_TYPED_SURFACE_WRITE:
       /* See also GFX7_DATAPORT_DC_UNTYPED_SURFACE_READ */
       latency = is_haswell ? 300 : 600;
       break;

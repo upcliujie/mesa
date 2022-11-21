@@ -35,11 +35,23 @@ namespace brw {
                         unsigned dims, unsigned size,
                         brw_predicate pred = BRW_PREDICATE_NONE);
 
+      src_reg
+      emit_typed_read(const vec4_builder &bld,
+                      const src_reg &surface, const src_reg &addr,
+                      unsigned dims, unsigned size, bool one_d_array,
+                      brw_predicate pred = BRW_PREDICATE_NONE);
+
       void
       emit_untyped_write(const vec4_builder &bld, const src_reg &surface,
                          const src_reg &addr, const src_reg &src,
                          unsigned dims, unsigned size,
                          brw_predicate pred = BRW_PREDICATE_NONE);
+
+      void
+      emit_typed_write(const vec4_builder &bld, const src_reg &surface,
+                       const src_reg &addr, const src_reg &src,
+                       unsigned dims, unsigned size, bool one_d_array,
+                       brw_predicate pred = BRW_PREDICATE_NONE);
 
       src_reg
       emit_untyped_atomic(const vec4_builder &bld,
@@ -47,6 +59,14 @@ namespace brw {
                           const src_reg &src0, const src_reg &src1,
                           unsigned dims, unsigned rsize, unsigned op,
                           brw_predicate pred = BRW_PREDICATE_NONE);
+
+      src_reg
+      emit_typed_atomic(const vec4_builder &bld,
+                        const src_reg &surface, const src_reg &addr,
+                        const src_reg &src0, const src_reg &src1,
+                        unsigned dims, unsigned rsize, unsigned op,
+                        bool one_d_array,
+                        brw_predicate pred = BRW_PREDICATE_NONE);
    }
 }
 
