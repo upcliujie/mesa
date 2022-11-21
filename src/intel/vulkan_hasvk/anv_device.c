@@ -1147,10 +1147,7 @@ void anv_GetPhysicalDeviceFeatures(
       .inheritedQueries                         = true,
    };
 
-   /* We can't do image stores in vec4 shaders */
-   pFeatures->vertexPipelineStoresAndAtomics =
-      pdevice->compiler->scalar_stage[MESA_SHADER_VERTEX] &&
-      pdevice->compiler->scalar_stage[MESA_SHADER_GEOMETRY];
+   pFeatures->vertexPipelineStoresAndAtomics = pdevice->info.verx10 >= 75;
 
    struct vk_app_info *app_info = &pdevice->instance->vk.app_info;
 
