@@ -1167,8 +1167,9 @@ lp_csctx_set_cs_constants(struct lp_cs_context *csctx,
 
 static void
 lp_csctx_set_cs_ssbos(struct lp_cs_context *csctx,
-                       unsigned num,
-                       struct pipe_shader_buffer *buffers)
+                      unsigned num,
+                      struct pipe_shader_buffer *buffers,
+                      uint32_t ssbo_write_mask)
 {
    int i;
    LP_DBG(DEBUG_SETUP, "%s %p\n", __FUNCTION__, (void *)buffers);
@@ -1181,6 +1182,7 @@ lp_csctx_set_cs_ssbos(struct lp_cs_context *csctx,
    for (; i < ARRAY_SIZE(csctx->ssbos); i++) {
       util_copy_shader_buffer(&csctx->ssbos[i].current, NULL);
    }
+   csctx->ssbo_write_mask = ssbo_write_mask;
 }
 
 
@@ -1327,7 +1329,8 @@ llvmpipe_cs_update_derived(struct llvmpipe_context *llvmpipe, const void *input)
    if (llvmpipe->cs_dirty & LP_CSNEW_SSBOS) {
       lp_csctx_set_cs_ssbos(llvmpipe->csctx,
                             ARRAY_SIZE(llvmpipe->ssbos[PIPE_SHADER_COMPUTE]),
-                            llvmpipe->ssbos[PIPE_SHADER_COMPUTE]);
+                            llvmpipe->ssbos[PIPE_SHADER_COMPUTE],
+                            llvmpipe->cs_ssbo_write_mask);
       update_csctx_ssbo(llvmpipe);
    }
 
@@ -1592,7 +1595,7 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
       if (llvmpipe->csctx->ssbos[i].current.buffer)
          lp_cs_job_add_resource_reference(job_info,
                                           llvmpipe->csctx->ssbos[i].current.buffer,
-                                          false);
+                                          llvmpipe->csctx->ssbo_write_mask & (1 << i));
 
    fill_grid_size(pipe, info, job_info->grid_size);
 

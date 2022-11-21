@@ -4245,6 +4245,8 @@ llvmpipe_set_shader_buffers(struct pipe_context *pipe,
          draw_set_mapped_shader_buffer(llvmpipe->draw, shader,
                                        i, data, size);
       } else if (shader == PIPE_SHADER_COMPUTE) {
+         llvmpipe->cs_ssbo_write_mask &= ~(((1 << count) - 1) << start_slot);
+         llvmpipe->cs_ssbo_write_mask |= writable_bitmask << start_slot;
          llvmpipe->cs_dirty |= LP_CSNEW_SSBOS;
       } else if (shader == PIPE_SHADER_FRAGMENT) {
          llvmpipe->fs_ssbo_write_mask &= ~(((1 << count) - 1) << start_slot);
