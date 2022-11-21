@@ -56,13 +56,14 @@
 static unsigned cs_no = 0;
 
 struct lp_cs_job_info {
+   struct llvmpipe_context *lp;
    unsigned grid_size[3];
    unsigned grid_base[3];
    unsigned block_size[3];
    unsigned req_local_mem;
    unsigned work_dim;
    bool zero_initialize_shared_memory;
-   struct lp_cs_exec *current;
+   struct lp_cs_exec current;
 };
 
 
@@ -1361,6 +1362,7 @@ static void
 cs_free_job(void *data)
 {
    struct lp_cs_job_info *job_info = data;
+   lp_cs_variant_reference(job_info->lp, &job_info->current.variant, NULL);
    FREE(job_info);
 }
 
@@ -1388,8 +1390,8 @@ cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
    grid_z += job_info->grid_base[2];
    grid_y += job_info->grid_base[1];
    grid_x += job_info->grid_base[0];
-   struct lp_compute_shader_variant *variant = job_info->current->variant;
-   variant->jit_function(&job_info->current->jit_context,
+   struct lp_compute_shader_variant *variant = job_info->current.variant;
+   variant->jit_function(&job_info->current.jit_context,
                          job_info->block_size[0], job_info->block_size[1], job_info->block_size[2],
                          grid_x, grid_y, grid_z,
                          job_info->grid_size[0], job_info->grid_size[1], job_info->grid_size[2], job_info->work_dim,
@@ -1445,6 +1447,7 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 
    fill_grid_size(pipe, info, job_info->grid_size);
 
+   job_info->lp = llvmpipe;
    job_info->grid_base[0] = info->grid_base[0];
    job_info->grid_base[1] = info->grid_base[1];
    job_info->grid_base[2] = info->grid_base[2];
@@ -1454,7 +1457,8 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
    job_info->work_dim = info->work_dim;
    job_info->req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
    job_info->zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
-   job_info->current = &llvmpipe->csctx->cs.current;
+   job_info->current.jit_context  = llvmpipe->csctx->cs.current.jit_context;
+   lp_cs_variant_reference(llvmpipe, &job_info->current.variant, llvmpipe->csctx->cs.current.variant);
 
    int num_tasks = job_info->grid_size[2] * job_info->grid_size[1] * job_info->grid_size[0];
    if (num_tasks) {
