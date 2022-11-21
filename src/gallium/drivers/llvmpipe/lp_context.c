@@ -130,6 +130,8 @@ llvmpipe_fence_server_sync(struct pipe_context *pipe,
    if (!fc->fence[0]->issued)
       return;
    lp_fence_wait(fc->fence[0]);
+   if (!fc->fence[1])
+      return;
    if (!fc->fence[1]->issued)
       return;
    lp_fence_wait(fc->fence[1]);
