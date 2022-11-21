@@ -198,4 +198,7 @@ lp_cs_variant_reference(struct llvmpipe_context *llvmpipe,
    *ptr = variant;
 }
 
+unsigned
+lp_csctx_is_resource_referenced(const struct lp_cs_context *csctx,
+                                const struct pipe_resource *resource);
 #endif

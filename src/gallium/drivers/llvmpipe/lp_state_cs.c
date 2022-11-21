@@ -27,6 +27,7 @@
 #include "util/os_time.h"
 #include "util/u_dump.h"
 #include "util/u_string.h"
+#include "util/u_dynarray.h"
 #include "tgsi/tgsi_dump.h"
 #include "tgsi/tgsi_parse.h"
 #include "gallivm/lp_bld_const.h"
@@ -65,6 +66,9 @@ struct lp_cs_job_info {
    bool zero_initialize_shared_memory;
    struct lp_cs_exec current;
    struct lp_fence *fence;
+
+   struct util_dynarray resources;
+   struct util_dynarray writeable_resources;
 };
 
 
@@ -1420,12 +1424,77 @@ fill_grid_size(struct pipe_context *pipe,
    pipe_buffer_unmap(pipe, transfer);
 }
 
+static bool
+lp_cs_job_add_resource_reference(struct lp_cs_job_info *job,
+                                 struct pipe_resource *resource,
+                                 bool writeable)
+{
+   struct util_dynarray *resources = writeable ? &job->writeable_resources : &job->resources;
+
+   util_dynarray_foreach(resources, struct pipe_resource *, res) {
+      if ((*res) == resource)
+         return true;
+   }
+
+   /* Map resource again to increment the map count. We likely use the
+    * already-mapped pointer in a texture of the jit context, and that pointer
+    * needs to stay mapped during rasterization. This map is unmap'ed when
+    * finalizing scene rasterization. */
+   llvmpipe_resource_map(resource, 0, 0, LP_TEX_USAGE_READ);
+
+   struct pipe_resource *res_ref = NULL;
+   pipe_resource_reference(&res_ref, resource);
+   util_dynarray_append(resources, struct pipe_resource *, res_ref);
+   return true;
+}
+
+static unsigned
+lp_cs_job_is_resource_referenced(const struct lp_cs_job_info *job,
+                                 const struct pipe_resource *resource)
+{
+   util_dynarray_foreach(&job->resources, struct pipe_resource *, res) {
+      if ((*res) == resource)
+         return LP_REFERENCED_FOR_READ;
+   }
+
+   util_dynarray_foreach(&job->writeable_resources, struct pipe_resource *, res) {
+      if ((*res) == resource)
+         return LP_REFERENCED_FOR_READ | LP_REFERENCED_FOR_WRITE;
+   }
+   return 0;
+}
+
+unsigned
+lp_csctx_is_resource_referenced(const struct lp_cs_context *csctx,
+                                const struct pipe_resource *resource)
+{
+   for (unsigned i = 0; i < csctx->num_jobs; i++) {
+      unsigned ref = lp_cs_job_is_resource_referenced(csctx->jobs[i], resource);
+      if (ref)
+         return ref;
+   }
+   return LP_UNREFERENCED;
+}
+
 static void
 lp_cs_job_finish(struct lp_cs_job_info *job)
 {
    if (job->fence)
       lp_fence_reference(&job->fence, NULL);
    lp_cs_variant_reference(job->lp, &job->current.variant, NULL);
+
+   util_dynarray_foreach(&job->resources, struct pipe_resource *, res) {
+      llvmpipe_resource_unmap((*res), 0, 0);
+      pipe_resource_reference(res, NULL);
+   }
+
+   util_dynarray_foreach(&job->writeable_resources, struct pipe_resource *, res) {
+      llvmpipe_resource_unmap((*res), 0, 0);
+      pipe_resource_reference(res, NULL);
+   }
+
+   util_dynarray_clear(&job->writeable_resources);
+   util_dynarray_clear(&job->resources);
 }
 
 static unsigned
@@ -1450,6 +1519,9 @@ get_compute_job(struct llvmpipe_context *llvmpipe)
 
    memset(job_info, 0, sizeof(struct lp_cs_job_info));
    job_info->lp = llvmpipe;
+
+   util_dynarray_init(&job_info->resources, NULL);
+   util_dynarray_init(&job_info->writeable_resources, NULL);
    return job_info;
 }
 
@@ -1503,6 +1575,24 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
       return;
 
    llvmpipe_cs_update_derived(llvmpipe, info->input);
+
+   for (unsigned i = 0; i < PIPE_MAX_SHADER_SAMPLER_VIEWS; i++)
+      if (llvmpipe->csctx->cs.current_tex[i])
+         lp_cs_job_add_resource_reference(job_info,
+                                          llvmpipe->csctx->cs.current_tex[i],
+                                          false);
+
+   for (unsigned i = 0; i < LP_MAX_TGSI_SHADER_IMAGES; i++)
+      if (llvmpipe->csctx->images[i].current.resource)
+         lp_cs_job_add_resource_reference(job_info,
+                                          llvmpipe->csctx->images[i].current.resource,
+                                          llvmpipe->csctx->images[i].current.shader_access & PIPE_IMAGE_ACCESS_WRITE);
+
+   for (unsigned i = 0; i < LP_MAX_TGSI_SHADER_BUFFERS; i++)
+      if (llvmpipe->csctx->ssbos[i].current.buffer)
+         lp_cs_job_add_resource_reference(job_info,
+                                          llvmpipe->csctx->ssbos[i].current.buffer,
+                                          false);
 
    fill_grid_size(pipe, info, job_info->grid_size);
 
@@ -1613,8 +1703,11 @@ lp_csctx_destroy(struct lp_cs_context *csctx)
       pipe_resource_reference(&csctx->images[i].current.resource, NULL);
    }
 
-   for (i = 0; i < csctx->num_jobs; i++)
+   for (i = 0; i < csctx->num_jobs; i++) {
+      util_dynarray_fini(&csctx->jobs[i]->writeable_resources);
+      util_dynarray_fini(&csctx->jobs[i]->resources);
       slab_free_st(&csctx->job_slab, csctx->jobs[i]);
+   }
    slab_destroy(&csctx->job_slab);
    FREE(csctx);
 }

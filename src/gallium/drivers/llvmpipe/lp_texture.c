@@ -51,6 +51,8 @@
 #include "lp_state.h"
 #include "lp_rast.h"
 
+#include "lp_state_cs.h"
+
 #include "frontend/sw_winsys.h"
 #include "git_sha1.h"
 
@@ -841,6 +843,9 @@ llvmpipe_is_resource_referenced(struct pipe_context *pipe,
                             PIPE_BIND_SHADER_IMAGE)))
       return LP_UNREFERENCED;
 
+   unsigned csref = lp_csctx_is_resource_referenced(llvmpipe->csctx, presource);
+   if (csref)
+      return csref;
    return lp_setup_is_resource_referenced(llvmpipe->setup, presource);
 }
 
