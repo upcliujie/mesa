@@ -61,6 +61,10 @@
 
 #include "loader_dri3_helper.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct dri3_display
 {
    __GLXDRIdisplay base;
@@ -143,3 +147,7 @@ _X_HIDDEN int
 dri3_interop_flush_objects(struct glx_context *ctx,
                            unsigned count, struct mesa_glinterop_export_in *objects,
                            GLsync *sync);
+
+#ifdef __cplusplus
+}
+#endif
