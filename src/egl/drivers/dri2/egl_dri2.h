@@ -219,8 +219,6 @@ struct dri2_egl_display
 
    mtx_t lock;
 
-   int dri2_major;
-   int dri2_minor;
    __DRIscreen *dri_screen;
    bool own_dri_screen;
    const __DRIconfig **driver_configs;
