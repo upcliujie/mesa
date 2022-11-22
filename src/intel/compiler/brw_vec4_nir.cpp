@@ -2431,10 +2431,18 @@ vec4_visitor::nir_emit_texture(nir_tex_instr *instr)
 
    if (instr->op == nir_texop_query_levels) {
       /* # levels is in .w */
-      src_reg swizzled(dest);
-      swizzled.swizzle = BRW_SWIZZLE4(SWIZZLE_W, SWIZZLE_W,
-                                      SWIZZLE_W, SWIZZLE_W);
-      emit(MOV(dest, swizzled));
+      /**
+       * Wa_1940217:
+       *
+       * When a surface of type SURFTYPE_NULL is accessed by resinfo, the
+       * MIPCount returned is undefined instead of 0.
+       */
+      vec4_instruction *mov = emit(MOV(writemask(dst_null_d(), WRITEMASK_X), src_reg(dest)));
+      mov->conditional_mod = BRW_CONDITIONAL_NZ;
+      vec4_instruction *sel = emit(BRW_OPCODE_SEL, dest,
+                                   swizzle(src_reg(dest), BRW_SWIZZLE_WWWW),
+                                   brw_imm_d(0));
+      sel->predicate = BRW_PREDICATE_NORMAL;
    }
 }
 
