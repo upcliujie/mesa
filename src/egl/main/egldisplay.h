@@ -152,8 +152,6 @@ struct _egl_extensions
 
    EGLBoolean NOK_texture_from_pixmap;
 
-   EGLBoolean NV_post_sub_buffer;
-
    EGLBoolean WL_bind_wayland_display;
    EGLBoolean WL_create_wayland_buffer_from_image;
 };
