@@ -477,8 +477,6 @@ struct gl_constants
 
    GLuint TextureBufferOffsetAlignment; /**< GL_ARB_texture_buffer_range */
 
-   GLuint MaxArrayLockSize;
-
    GLint SubPixelBits;
 
    GLfloat MinPointSize, MaxPointSize;	     /**< aliased */
@@ -489,9 +487,6 @@ struct gl_constants
    GLfloat LineWidthGranularity;
 
    GLuint MaxClipPlanes;
-   GLuint MaxLights;
-   GLfloat MaxShininess;                     /**< GL_NV_light_max_exponent */
-   GLfloat MaxSpotExponent;                  /**< GL_NV_light_max_exponent */
 
    GLuint MaxViewportWidth, MaxViewportHeight;
    GLuint MaxViewports;                      /**< GL_ARB_viewport_array */
@@ -503,26 +498,9 @@ struct gl_constants
    GLuint MaxWindowRectangles;               /**< GL_EXT_window_rectangles */
 
    struct gl_program_constants Program[MESA_SHADER_STAGES];
-   GLuint MaxProgramMatrices;
-   GLuint MaxProgramMatrixStackDepth;
 
    struct {
       GLuint SamplesPassed;
-      GLuint TimeElapsed;
-      GLuint Timestamp;
-      GLuint PrimitivesGenerated;
-      GLuint PrimitivesWritten;
-      GLuint VerticesSubmitted;
-      GLuint PrimitivesSubmitted;
-      GLuint VsInvocations;
-      GLuint TessPatches;
-      GLuint TessInvocations;
-      GLuint GsInvocations;
-      GLuint GsPrimitives;
-      GLuint FsInvocations;
-      GLuint ComputeInvocations;
-      GLuint ClInPrimitives;
-      GLuint ClOutPrimitives;
    } QueryCounterBits;
 
    GLuint MaxDrawBuffers;    /**< GL_ARB_draw_buffers */
@@ -870,7 +848,6 @@ struct gl_constants
 
    /** GL_ARB_vertex_attrib_binding */
    GLint MaxVertexAttribRelativeOffset;
-   GLint MaxVertexAttribBindings;
 
    /* GL_ARB_shader_image_load_store */
    GLuint MaxImageUnits;
@@ -888,10 +865,6 @@ struct gl_constants
    GLuint MaxComputeVariableGroupSize[3]; /* Array of x, y, z dimensions */
    GLuint MaxComputeVariableGroupInvocations;
 
-   /** GL_ARB_gpu_shader5 */
-   GLfloat MinFragmentInterpolationOffset;
-   GLfloat MaxFragmentInterpolationOffset;
-
    GLboolean FakeSWMSAA;
 
    /** GL_KHR_context_flush_control */
@@ -900,15 +873,9 @@ struct gl_constants
    struct gl_shader_compiler_options ShaderCompilerOptions[MESA_SHADER_STAGES];
 
    /** GL_ARB_tessellation_shader */
-   GLuint MaxPatchVertices;
-   GLuint MaxTessGenLevel;
    GLuint MaxTessPatchComponents;
-   GLuint MaxTessControlTotalOutputComponents;
    bool LowerTessLevel; /**< Lower gl_TessLevel* from float[n] to vecn? */
    bool PrimitiveRestartForPatches;
-
-   /** GL_OES_primitive_bounding_box */
-   bool NoPrimitiveBoundingBoxOutput;
 
    /** GL_ARB_sparse_buffer */
    GLuint SparseBufferPageSize;

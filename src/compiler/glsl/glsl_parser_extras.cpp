@@ -103,7 +103,6 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
 
    this->extensions = &ctx->Extensions;
 
-   this->Const.MaxLights = ctx->Const.MaxLights;
    this->Const.MaxClipPlanes = ctx->Const.MaxClipPlanes;
    this->Const.MaxTextureUnits = ctx->Const.MaxTextureUnits;
    this->Const.MaxTextureCoords = ctx->Const.MaxTextureCoordUnits;
@@ -184,8 +183,6 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
    this->Const.MaxViewports = ctx->Const.MaxViewports;
 
    /* tessellation shader constants */
-   this->Const.MaxPatchVertices = ctx->Const.MaxPatchVertices;
-   this->Const.MaxTessGenLevel = ctx->Const.MaxTessGenLevel;
    this->Const.MaxTessControlInputComponents = ctx->Const.Program[MESA_SHADER_TESS_CTRL].MaxInputComponents;
    this->Const.MaxTessControlOutputComponents = ctx->Const.Program[MESA_SHADER_TESS_CTRL].MaxOutputComponents;
    this->Const.MaxTessControlTextureImageUnits = ctx->Const.Program[MESA_SHADER_TESS_CTRL].MaxTextureImageUnits;
@@ -193,7 +190,6 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
    this->Const.MaxTessEvaluationOutputComponents = ctx->Const.Program[MESA_SHADER_TESS_EVAL].MaxOutputComponents;
    this->Const.MaxTessEvaluationTextureImageUnits = ctx->Const.Program[MESA_SHADER_TESS_EVAL].MaxTextureImageUnits;
    this->Const.MaxTessPatchComponents = ctx->Const.MaxTessPatchComponents;
-   this->Const.MaxTessControlTotalOutputComponents = ctx->Const.MaxTessControlTotalOutputComponents;
    this->Const.MaxTessControlUniformComponents = ctx->Const.Program[MESA_SHADER_TESS_CTRL].MaxUniformComponents;
    this->Const.MaxTessEvaluationUniformComponents = ctx->Const.Program[MESA_SHADER_TESS_EVAL].MaxUniformComponents;
 
@@ -1823,7 +1819,7 @@ set_shader_inout_layout(struct gl_shader *shader,
                                           false)) {
 
             YYLTYPE loc = state->out_qualifier->vertices->get_location();
-            if (vertices > state->Const.MaxPatchVertices) {
+            if (vertices > MAX_PATCH_VERTICES) {
                _mesa_glsl_error(&loc, state, "vertices (%d) exceeds "
                                 "GL_MAX_PATCH_VERTICES", vertices);
             }
