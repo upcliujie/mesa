@@ -856,7 +856,6 @@ static const struct dri2_egl_display_vtbl dri2_x11_swrast_display_vtbl = {
    .destroy_surface = dri2_x11_destroy_surface,
    .create_image = dri2_create_image_khr,
    .swap_buffers = dri2_x11_swap_buffers,
-   .swap_buffers_region = dri2_x11_swap_buffers_region,
    .post_sub_buffer = dri2_x11_post_sub_buffer,
    .copy_buffers = dri2_x11_copy_buffers,
    /* XXX: should really implement this since X11 has pixmaps */
@@ -874,7 +873,6 @@ static const struct dri2_egl_display_vtbl dri2_x11_kopper_display_vtbl = {
    .create_image = dri2_create_image_khr,
    .swap_interval = dri2_kopper_swap_interval,
    .swap_buffers = dri2_x11_swap_buffers,
-   .swap_buffers_region = dri2_x11_swap_buffers_region,
    .post_sub_buffer = dri2_x11_post_sub_buffer,
    .copy_buffers = dri2_x11_copy_buffers,
    .query_buffer_age = dri2_kopper_query_buffer_age,
