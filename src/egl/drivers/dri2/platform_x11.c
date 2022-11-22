@@ -332,32 +332,11 @@ dri2_x11_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
    if (!dri2_create_drawable(dri2_dpy, config, dri2_surf, dri2_surf))
       goto cleanup_pixmap;
 
-   if (dri2_dpy->dri2) {
-      xcb_void_cookie_t cookie;
-      int conn_error;
-
-      cookie = xcb_dri2_create_drawable_checked(dri2_dpy->conn,
-                                                dri2_surf->drawable);
-      error = xcb_request_check(dri2_dpy->conn, cookie);
-      conn_error = xcb_connection_has_error(dri2_dpy->conn);
-      if (conn_error || error != NULL) {
-         if (type == EGL_PBUFFER_BIT || conn_error || error->error_code == BadAlloc)
-            _eglError(EGL_BAD_ALLOC, "xcb_dri2_create_drawable_checked");
-         else if (type == EGL_WINDOW_BIT)
-            _eglError(EGL_BAD_NATIVE_WINDOW,
-                      "xcb_dri2_create_drawable_checked");
-         else
-            _eglError(EGL_BAD_NATIVE_PIXMAP,
-                      "xcb_dri2_create_drawable_checked");
-         free(error);
-         goto cleanup_dri_drawable;
-      }
-   } else {
-      if (type == EGL_PBUFFER_BIT) {
-         dri2_surf->depth = conf->BufferSize;
-      }
-      swrastCreateDrawable(dri2_dpy, dri2_surf);
+   assert(dri2_dpy->swrast);
+   if (type == EGL_PBUFFER_BIT) {
+      dri2_surf->depth = conf->BufferSize;
    }
+   swrastCreateDrawable(dri2_dpy, dri2_surf);
 
    return &dri2_surf->base;
 
@@ -421,12 +400,8 @@ dri2_x11_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
 
    dri2_dpy->core->destroyDrawable(dri2_surf->dri_drawable);
    
-   if (dri2_dpy->dri2) {
-      xcb_dri2_destroy_drawable (dri2_dpy->conn, dri2_surf->drawable);
-   } else {
-      assert(dri2_dpy->swrast);
-      swrastDestroyDrawable(dri2_dpy, dri2_surf);
-   }
+   assert(dri2_dpy->swrast);
+   swrastDestroyDrawable(dri2_dpy, dri2_surf);
 
    if (surf->Type == EGL_PBUFFER_BIT)
       xcb_free_pixmap (dri2_dpy->conn, dri2_surf->drawable);
@@ -588,8 +563,7 @@ dri2_x11_swap_interval(_EGLDisplay *disp, _EGLSurface *surf, EGLint interval)
       return EGL_TRUE;
    }
 
-   if (dri2_dpy->swap_available)
-      xcb_dri2_swap_interval(dri2_dpy->conn, dri2_surf->drawable, interval);
+   assert(!dri2_dpy->swap_available);
 
    return EGL_TRUE;
 }
