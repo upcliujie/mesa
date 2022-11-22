@@ -856,6 +856,8 @@ llvmpipe_destroy_screen(struct pipe_screen *_screen)
    struct llvmpipe_screen *screen = llvmpipe_screen(_screen);
    struct sw_winsys *winsys = screen->winsys;
 
+   if (screen->last_cs_fence)
+      lp_fence_reference(&screen->last_cs_fence, NULL);
    if (screen->cs_tpool)
       lp_cs_tpool_destroy(screen->cs_tpool);
 

@@ -1704,6 +1704,7 @@ lp_csctx_destroy(struct lp_cs_context *csctx)
    }
 
    for (i = 0; i < csctx->num_jobs; i++) {
+      lp_cs_job_finish(csctx->jobs[i]);
       util_dynarray_fini(&csctx->jobs[i]->writeable_resources);
       util_dynarray_fini(&csctx->jobs[i]->resources);
       slab_free_st(&csctx->job_slab, csctx->jobs[i]);
