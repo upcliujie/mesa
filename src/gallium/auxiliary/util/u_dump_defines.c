@@ -31,27 +31,6 @@
 #include "util/u_dump.h"
 #include "util/u_math.h"
 
-
-#if 0
-static const char *
-util_dump_strip_prefix(const char *name,
-                        const char *prefix) 
-{
-   const char *stripped;
-   assert(name);
-   assert(prefix);
-   stripped = name;
-   while(*prefix) {
-      if(*stripped != *prefix)
-	 return name;
-
-      ++stripped;
-      ++prefix;
-   }
-   return stripped;
-}
-#endif
-
 static const char *
 util_dump_enum_continuous(unsigned value,
                            unsigned num_names,

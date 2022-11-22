@@ -217,9 +217,6 @@ draw_pt_emit_linear(struct pt_emit *emit,
    void *hw_verts;
    unsigned start, i;
 
-#if 0
-   debug_printf("Linear emit\n");
-#endif
    /* XXX: need to flush to get prim_vbuf.c to release its allocation??
     */
    draw_do_flush(draw, DRAW_FLUSH_BACKEND);

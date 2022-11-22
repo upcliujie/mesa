@@ -397,9 +397,6 @@ util_make_fragment_passthrough_shader(struct pipe_context *pipe,
       return NULL;
    }
    pipe_shader_state_from_tgsi(&state, tokens);
-#if 0
-   tgsi_dump(state.tokens, 0);
-#endif
 
    return pipe->create_fs_state(pipe, &state);
 }
@@ -545,9 +542,6 @@ util_make_fs_blit_msaa_gen(struct pipe_context *pipe,
       return NULL;
    }
    pipe_shader_state_from_tgsi(&state, tokens);
-#if 0
-   tgsi_dump(state.tokens, 0);
-#endif
 
    return pipe->create_fs_state(pipe, &state);
 }
@@ -714,9 +708,6 @@ util_make_fs_blit_msaa_depthstencil(struct pipe_context *pipe,
       return NULL;
    }
    pipe_shader_state_from_tgsi(&state, tokens);
-#if 0
-   tgsi_dump(state.tokens, 0);
-#endif
 
    return pipe->create_fs_state(pipe, &state);
 }

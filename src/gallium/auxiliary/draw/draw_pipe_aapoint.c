@@ -384,13 +384,6 @@ generate_aapoint_fs(struct aapoint_stage *aapoint)
    if (!aapoint_fs.tokens)
       return false;
 
-#if 0 /* DEBUG */
-   debug_printf("draw_aapoint, orig shader:\n");
-   tgsi_dump(orig_fs->tokens, 0);
-   debug_printf("draw_aapoint, new shader:\n");
-   tgsi_dump(aapoint_fs.tokens, 0);
-#endif
-
    aapoint->fs->aapoint_fs
       = aapoint->driver_create_fs_state(pipe, &aapoint_fs);
    if (aapoint->fs->aapoint_fs == NULL)

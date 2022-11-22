@@ -388,13 +388,6 @@ pb_debug_manager_create_buffer(struct pb_manager *_mgr,
                                               &real_desc);
    if(!buf->buffer) {
       FREE(buf);
-#if 0
-      mtx_lock(&mgr->mutex);
-      debug_printf("%s: failed to create buffer\n", __FUNCTION__);
-      if(!list_is_empty(&mgr->list))
-         pb_debug_manager_dump_locked(mgr);
-      mtx_unlock(&mgr->mutex);
-#endif
       return NULL;
    }
    

@@ -203,10 +203,6 @@ mm_bufmgr_create_buffer(struct pb_manager *mgr,
    
    mm_buf->block = u_mmAllocMem(mm->heap, (int)size, (int)mm->align2, 0);
    if(!mm_buf->block) {
-#if 0
-      debug_printf("warning: heap full\n");
-      mmDumpMemInfo(mm->heap);
-#endif
       FREE(mm_buf);
       mtx_unlock(&mm->mutex);
       return NULL;

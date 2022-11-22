@@ -117,16 +117,10 @@ static inline __m128i mm_mullo_epi32(const __m128i a, const __m128i b)
     * as well, we can't have optimal solution for all cpus (if anything,
     * should just use _mm_mullo_epi32() if sse41 is available...).
     */
-#if 0
-   __m128i ba8             = _mm_shuffle_epi32(ba, 8);
-   __m128i b4a48           = _mm_shuffle_epi32(b4a4, 8);
-   __m128i result          = _mm_unpacklo_epi32(ba8, b4a48);
-#else
    __m128i mask            = _mm_setr_epi32(~0,0,~0,0);
    __m128i ba_mask         = _mm_and_si128(ba, mask);
    __m128i b4a4_mask_shift = _mm_slli_epi64(b4a4, 32);
    __m128i result          = _mm_or_si128(ba_mask, b4a4_mask_shift);
-#endif
 
    return result;
 }
@@ -425,14 +419,6 @@ util_sse2_lerp_unorm8(__m128i src0, __m128i src1,
    const __m128i zero = _mm_setzero_si128();
    __m128i weight_lo = _mm_unpacklo_epi8(weight, zero);
    __m128i weight_hi = _mm_unpackhi_epi8(weight, zero);
-
-#if 0
-   /*
-    * Rescale from [0..255] to [0..256].
-    */
-   weight_lo = _mm_add_epi16(weight_lo, _mm_srli_epi16(weight_lo, 7));
-   weight_hi = _mm_add_epi16(weight_hi, _mm_srli_epi16(weight_hi, 7));
-#endif
 
    return util_sse2_lerp_epi8_fixed88(src0, src1,
                                       &weight_lo, &weight_hi);

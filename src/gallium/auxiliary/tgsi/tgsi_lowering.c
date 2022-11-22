@@ -1482,11 +1482,6 @@ tgsi_transform_lowering(const struct tgsi_lowering_config *config,
          ctx.saturate))
       return NULL;
 
-#if 0  /* debug */
-   _debug_printf("BEFORE:");
-   tgsi_dump(tokens, 0);
-#endif
-
    numtmp = 0;
    newlen = tgsi_num_tokens(tokens);
    if (OPCS(DST)) {
@@ -1578,11 +1573,6 @@ tgsi_transform_lowering(const struct tgsi_lowering_config *config,
       return NULL;
 
    tgsi_scan_shader(newtoks, info);
-
-#if 0  /* debug */
-   _debug_printf("AFTER:");
-   tgsi_dump(newtoks, 0);
-#endif
 
    return newtoks;
 }

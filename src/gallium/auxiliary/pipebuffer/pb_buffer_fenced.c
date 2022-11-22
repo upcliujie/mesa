@@ -334,10 +334,6 @@ fenced_buffer_finish_locked(struct fenced_manager *fenced_mgr,
    struct pb_fence_ops *ops = fenced_mgr->ops;
    enum pipe_error ret = PIPE_ERROR;
 
-#if 0
-   debug_warning("waiting for GPU");
-#endif
-
    assert(pipe_is_referenced(&fenced_buf->base.reference));
    assert(fenced_buf->fence);
 

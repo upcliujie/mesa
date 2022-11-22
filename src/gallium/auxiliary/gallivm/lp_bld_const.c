@@ -267,13 +267,6 @@ lp_build_one(struct gallivm_state *gallivm, struct lp_type type)
       LLVMTypeRef vec_type = lp_build_vec_type(gallivm, type);
       LLVMValueRef vec = LLVMConstAllOnes(vec_type);
 
-#if 0
-      if (type.sign)
-         /* TODO: Unfortunately this caused "Tried to create a shift operation
-          * on a non-integer type!" */
-         vec = LLVMConstLShr(vec, lp_build_const_int_vec(type, 1));
-#endif
-
       return vec;
    }
 
