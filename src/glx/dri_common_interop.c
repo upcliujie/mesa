@@ -26,49 +26,10 @@
 #include "glxclient.h"
 #include "glx_error.h"
 #include "GL/internal/dri_interface.h"
-#include "dri2_priv.h"
 #if defined(HAVE_DRI3)
 #include "dri3_priv.h"
 #endif
 #include "GL/mesa_glinterop.h"
-
-_X_HIDDEN int
-dri2_interop_query_device_info(struct glx_context *ctx,
-                               struct mesa_glinterop_device_info *out)
-{
-   struct dri2_screen *psc = (struct dri2_screen*)ctx->psc;
-
-   if (!psc->interop)
-      return MESA_GLINTEROP_UNSUPPORTED;
-
-   return psc->interop->query_device_info(ctx->driContext, out);
-}
-
-_X_HIDDEN int
-dri2_interop_export_object(struct glx_context *ctx,
-                           struct mesa_glinterop_export_in *in,
-                           struct mesa_glinterop_export_out *out)
-{
-   struct dri2_screen *psc = (struct dri2_screen*)ctx->psc;
-
-   if (!psc->interop)
-      return MESA_GLINTEROP_UNSUPPORTED;
-
-   return psc->interop->export_object(ctx->driContext, in, out);
-}
-
-_X_HIDDEN int
-dri2_interop_flush_objects(struct glx_context *ctx,
-                           unsigned count, struct mesa_glinterop_export_in *objects,
-                           GLsync *sync)
-{
-   struct dri2_screen *psc = (struct dri2_screen*)ctx->psc;
-
-   if (!psc->interop || psc->interop->base.version < 2)
-      return MESA_GLINTEROP_UNSUPPORTED;
-
-   return psc->interop->flush_objects(ctx->driContext, count, objects, sync);
-}
 
 #if defined(HAVE_DRI3)
 

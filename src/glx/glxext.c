@@ -945,8 +945,6 @@ __glXInitialize(Display * dpy)
       if (!debug_get_bool_option("LIBGL_DRI3_DISABLE", false))
          dpyPriv->dri3Display = dri3_create_display(dpy);
 #endif /* HAVE_DRI3 */
-      if (!debug_get_bool_option("LIBGL_DRI2_DISABLE", false))
-         dpyPriv->dri2Display = dri2CreateDisplay(dpy);
    }
 #endif /* GLX_USE_DRM */
    if (glx_direct)

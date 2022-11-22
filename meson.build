@@ -2093,7 +2093,6 @@ dep_xcb = null_dep
 dep_xcb_glx = null_dep
 dep_xcb_dri2 = null_dep
 dep_xcb_dri3 = null_dep
-dep_dri2proto = null_dep
 dep_glproto = null_dep
 dep_xxf86vm = null_dep
 dep_xcb_dri3 = null_dep
@@ -2158,7 +2157,6 @@ if with_platform_x11
   endif
   if with_glx == 'dri'
     if with_dri_platform == 'drm'
-      dep_dri2proto = dependency('dri2proto', version : '>= 2.8')
       if with_glx_direct
         dep_xxf86vm = dependency('xxf86vm')
       endif
