@@ -73,7 +73,8 @@ llvmpipe_flush(struct pipe_context *pipe,
       if (!fencec->fence[0])
          fencec->fence[0] = lp_fence_create(0);
 
-      *fence = (struct pipe_fence_handle *)fencec;
+      lp_fence_container_reference((struct lp_fence_container **)fence, fencec);
+      lp_fence_container_reference(&fencec, NULL);
    }
 
    /* Enable to dump BMPs of the color/depth buffers each frame */
