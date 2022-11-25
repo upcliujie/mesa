@@ -1618,6 +1618,17 @@ if dep_zlib.found()
   pre_args += '-DHAVE_ZLIB'
 endif
 
+if host_machine.system() == 'windows'
+  dep_display_info = null_dep
+else
+  dep_display_info = dependency('display-info', version : '>= 0.0.0',
+                                fallback : ['display-info', 'di_dep'],
+                                required : get_option('display-info'))
+  if dep_display_info.found()
+    pre_args += '-DHAVE_LIBDISPLAY_INFO'
+  endif
+endif
+
 _zstd = get_option('zstd')
 if _zstd == 'true'
   _zstd = 'enabled'

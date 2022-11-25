@@ -484,6 +484,12 @@ option(
    description : 'Use ZLIB to build driver. Default: enabled'
 )
 option(
+   'display-info',
+   type : 'feature',
+   value : 'enabled',
+   description : 'Use libdisplay-info to build driver. Default: enabled'
+)
+option(
   'sse2',
   type : 'boolean',
   value : true,

@@ -1,0 +1,5 @@
+[wrap-git]
+directory = libdisplay-info
+
+url = https://gitlab.freedesktop.org/emersion/libdisplay-info
+revision = 7289c6ea592c9a1d3bc790230a1a3717baf9747c
