@@ -29,7 +29,7 @@ if with_shared_glapi
     'mock_xdisplay.h',
     'query_renderer_unittest.cpp',
   )
-  if with_dri2
+  if with_dri3
     files_glx_test += files('query_renderer_implementation_unittest.cpp')
   endif
 

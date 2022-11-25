@@ -231,18 +231,6 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
          }
          surf->PresentOpaque = val;
          break;
-      case EGL_POST_SUB_BUFFER_SUPPORTED_NV:
-         if (!disp->Extensions.NV_post_sub_buffer ||
-             type != EGL_WINDOW_BIT) {
-            err = EGL_BAD_ATTRIBUTE;
-            break;
-         }
-         if (val != EGL_TRUE && val != EGL_FALSE) {
-            err = EGL_BAD_PARAMETER;
-            break;
-         }
-         surf->PostSubBufferSupportedNV = val;
-         break;
       /* pbuffer surface attributes */
       case EGL_WIDTH:
          if (type != EGL_PBUFFER_BIT) {
@@ -418,7 +406,6 @@ _eglInitSurface(_EGLSurface *surf, _EGLDisplay *disp, EGLint type,
    surf->VerticalResolution = EGL_UNKNOWN;
    surf->AspectRatio = EGL_UNKNOWN;
 
-   surf->PostSubBufferSupportedNV = EGL_FALSE;
    surf->SetDamageRegionCalled = EGL_FALSE;
    surf->BufferAgeRead = EGL_FALSE;
 
@@ -546,9 +533,6 @@ _eglQuerySurface(_EGLDisplay *disp, _EGLSurface *surface,
          return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
 
       *value = surface->GLColorspace;
-      break;
-   case EGL_POST_SUB_BUFFER_SUPPORTED_NV:
-      *value = surface->PostSubBufferSupportedNV;
       break;
    case EGL_BUFFER_AGE_EXT:
       /* Both EXT_buffer_age and KHR_partial_update accept EGL_BUFFER_AGE_EXT.

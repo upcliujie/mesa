@@ -24,13 +24,12 @@
 #include <signal.h>
 #include <setjmp.h>
 
-#if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
+#if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL) && defined(HAVE_DRI3)
 
 #include "glxclient.h"
 #include "glx_error.h"
-#include "dri2.h"
 #include "GL/internal/dri_interface.h"
-#include "dri2_priv.h"
+#include "dri3_priv.h"
 
 namespace {
    struct attribute_test_vector {
@@ -54,7 +53,7 @@ sigsegv_handler(int sig)
    longjmp(jmp, 1);
 }
 
-class dri2_query_renderer_string_test : public ::testing::Test {
+class dri3_query_renderer_string_test : public ::testing::Test {
 public:
    virtual void SetUp();
    virtual void TearDown();
@@ -63,8 +62,8 @@ public:
    struct sigaction old_sa;
 };
 
-class dri2_query_renderer_integer_test :
-   public dri2_query_renderer_string_test {
+class dri3_query_renderer_integer_test :
+   public dri3_query_renderer_string_test {
 };
 
 static bool queryString_called = false;
@@ -147,7 +146,7 @@ static const __DRI2rendererQueryExtension rendererQueryExt = {
    fake_queryString
 };
 
-void dri2_query_renderer_string_test::SetUp()
+void dri3_query_renderer_string_test::SetUp()
 {
    got_sigsegv = false;
 
@@ -157,18 +156,18 @@ void dri2_query_renderer_string_test::SetUp()
    sigaction(SIGSEGV, &sa, &old_sa);
 }
 
-void dri2_query_renderer_string_test::TearDown()
+void dri3_query_renderer_string_test::TearDown()
 {
    sigaction(SIGSEGV, &old_sa, NULL);
 }
 
 /**
- * dri2_query_renderer_string will return an error if the rendererQuery
+ * dri3_query_renderer_string will return an error if the rendererQuery
  * extension is not present.  It will also not segfault.
  */
-TEST_F(dri2_query_renderer_string_test, DRI2_RENDERER_QUERY_not_supported)
+TEST_F(dri3_query_renderer_string_test, DRI3_RENDERER_QUERY_not_supported)
 {
-   struct dri2_screen dsc;
+   struct dri3_screen dsc;
 
    memset(&dsc, 0, sizeof(dsc));
 
@@ -176,7 +175,7 @@ TEST_F(dri2_query_renderer_string_test, DRI2_RENDERER_QUERY_not_supported)
       static const char original_value[] = "0xDEADBEEF";
       const char *value = original_value;
       const int success =
-         dri2_query_renderer_string(&dsc.base,
+         dri3_query_renderer_string(&dsc.base,
                                     GLX_RENDERER_VENDOR_ID_MESA, &value);
 
       EXPECT_EQ(-1, success);
@@ -187,17 +186,17 @@ TEST_F(dri2_query_renderer_string_test, DRI2_RENDERER_QUERY_not_supported)
 }
 
 /**
- * dri2_query_renderer_string will call queryString with the correct DRI2 enum
+ * dri3_query_renderer_string will call queryString with the correct DRI2 enum
  * for each GLX attribute value.
  *
  * \note
  * This test does \b not perform any checking for invalid GLX attribte values.
  * Other unit tests verify that invalid values are filtered before
- * dri2_query_renderer_string is called.
+ * dri3_query_renderer_string is called.
  */
-TEST_F(dri2_query_renderer_string_test, valid_attribute_mapping)
+TEST_F(dri3_query_renderer_string_test, valid_attribute_mapping)
 {
-   struct dri2_screen dsc;
+   struct dri3_screen dsc;
    struct attribute_test_vector valid_attributes[] = {
       E(GLX_RENDERER_VENDOR_ID_MESA,
         __DRI2_RENDERER_VENDOR_ID),
@@ -213,7 +212,7 @@ TEST_F(dri2_query_renderer_string_test, valid_attribute_mapping)
          static const char original_value[] = "original value";
          const char *value = original_value;
          const int success =
-            dri2_query_renderer_string(&dsc.base,
+            dri3_query_renderer_string(&dsc.base,
                                        valid_attributes[i].glx_attribute,
                                        &value);
 
@@ -229,19 +228,19 @@ TEST_F(dri2_query_renderer_string_test, valid_attribute_mapping)
 }
 
 /**
- * dri2_query_renderer_integer will return an error if the rendererQuery
+ * dri3_query_renderer_integer will return an error if the rendererQuery
  * extension is not present.  It will also not segfault.
  */
-TEST_F(dri2_query_renderer_integer_test, DRI2_RENDERER_QUERY_not_supported)
+TEST_F(dri3_query_renderer_integer_test, DRI3_RENDERER_QUERY_not_supported)
 {
-   struct dri2_screen dsc;
+   struct dri3_screen dsc;
 
    memset(&dsc, 0, sizeof(dsc));
 
    if (setjmp(jmp) == 0) {
       unsigned int value = 0xDEADBEEF;
       const int success =
-         dri2_query_renderer_integer(&dsc.base,
+         dri3_query_renderer_integer(&dsc.base,
                                     GLX_RENDERER_VENDOR_ID_MESA, &value);
 
       EXPECT_EQ(-1, success);
@@ -252,17 +251,17 @@ TEST_F(dri2_query_renderer_integer_test, DRI2_RENDERER_QUERY_not_supported)
 }
 
 /**
- * dri2_query_renderer_integer will call queryInteger with the correct DRI2 enum
+ * dri3_query_renderer_integer will call queryInteger with the correct DRI2 enum
  * for each GLX attribute value.
  *
  * \note
  * This test does \b not perform any checking for invalid GLX attribte values.
  * Other unit tests verify that invalid values are filtered before
- * dri2_query_renderer_integer is called.
+ * dri3_query_renderer_integer is called.
  */
-TEST_F(dri2_query_renderer_integer_test, valid_attribute_mapping)
+TEST_F(dri3_query_renderer_integer_test, valid_attribute_mapping)
 {
-   struct dri2_screen dsc;
+   struct dri3_screen dsc;
    struct attribute_test_vector valid_attributes[] = {
       E(GLX_RENDERER_VENDOR_ID_MESA,
         __DRI2_RENDERER_VENDOR_ID),
@@ -295,7 +294,7 @@ TEST_F(dri2_query_renderer_integer_test, valid_attribute_mapping)
       for (unsigned i = 0; i < ARRAY_SIZE(valid_attributes); i++) {
          unsigned int value = 0xDEADBEEF;
          const int success =
-            dri2_query_renderer_integer(&dsc.base,
+            dri3_query_renderer_integer(&dsc.base,
                                        valid_attributes[i].glx_attribute,
                                        &value);
 

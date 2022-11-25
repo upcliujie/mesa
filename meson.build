@@ -2106,7 +2106,6 @@ dep_xcb = null_dep
 dep_xcb_glx = null_dep
 dep_xcb_dri2 = null_dep
 dep_xcb_dri3 = null_dep
-dep_dri2proto = null_dep
 dep_glproto = null_dep
 dep_xxf86vm = null_dep
 dep_xcb_dri3 = null_dep
@@ -2151,8 +2150,6 @@ if with_platform_x11
     endif
   endif
   if with_any_vk or with_egl or (with_glx == 'dri' and with_dri_platform == 'drm')
-    dep_xcb_dri2 = dependency('xcb-dri2', version : '>= 1.8')
-
     if with_dri3
       dep_xcb_dri3 = dependency('xcb-dri3')
       dep_xcb_present = dependency('xcb-present')
@@ -2171,7 +2168,6 @@ if with_platform_x11
   endif
   if with_glx == 'dri'
     if with_dri_platform == 'drm'
-      dep_dri2proto = dependency('dri2proto', version : '>= 2.8')
       if with_glx_direct
         dep_xxf86vm = dependency('xxf86vm')
       endif
@@ -2188,6 +2184,9 @@ if with_platform_x11
   endif
   if with_xlib_lease
     dep_xlib_xrandr = dependency('xrandr', version : '>= 1.3')
+  endif
+  if with_gallium_va or with_gallium_vdpau or with_gallium_omx != 'disabled'
+    dep_xcb_dri2 = dependency('xcb-dri2', version : '>= 1.8')
   endif
 endif
 
