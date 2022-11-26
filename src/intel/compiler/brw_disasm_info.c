@@ -35,6 +35,8 @@ dump_assembly(void *assembly, int start_offset, int end_offset,
               struct disasm_info *disasm, const unsigned *block_latency)
 {
    const struct brw_isa_info *isa = disasm->isa;
+
+   uint32_t cur_src_loc_index = ~0;
    const char *last_annotation_string = NULL;
    const void *last_annotation_ir = NULL;
 
@@ -64,6 +66,19 @@ dump_assembly(void *assembly, int start_offset, int end_offset,
             fprintf(stderr, " (%u cycles)",
                     block_latency[group->block_start->num]);
          fprintf(stderr, "\n");
+      }
+
+      if (disasm->src_loc_table != NULL && cur_src_loc_index != group->src_loc_index) {
+         if (group->src_loc_index != 0) {
+            nir_src_loc src_loc = disasm->src_loc_table[group->src_loc_index];
+            fprintf(stderr, "; 0x%zx", src_loc.spirv_offset);
+            if (src_loc.file != NULL)
+               fprintf(stderr, " %s:%d:%d", src_loc.file, src_loc.line, src_loc.col);
+         } else {
+            fprintf(stderr, "; no source location");
+         }
+         fprintf(stderr, "\n");
+         cur_src_loc_index = group->src_loc_index;
       }
 
       if (last_annotation_ir != group->ir) {
@@ -107,12 +122,20 @@ struct disasm_info *
 disasm_initialize(const struct brw_isa_info *isa,
                   const struct cfg_t *cfg)
 {
-   struct disasm_info *disasm = ralloc(NULL, struct disasm_info);
+   struct disasm_info *disasm = rzalloc(NULL, struct disasm_info);
    exec_list_make_empty(&disasm->group_list);
    disasm->isa = isa;
    disasm->cfg = cfg;
-   disasm->cur_block = 0;
-   disasm->use_tail = false;
+   return disasm;
+}
+
+struct disasm_info *
+disasm_initialize2(const struct brw_isa_info *isa,
+                   const struct cfg_t *cfg,
+                   const nir_src_loc *src_loc_table)
+{
+   struct disasm_info *disasm = disasm_initialize(isa, cfg);
+   disasm->src_loc_table = src_loc_table;
    return disasm;
 }
 
@@ -140,6 +163,8 @@ disasm_annotate(struct disasm_info *disasm,
       group = exec_node_data(struct inst_group,
                              exec_list_get_tail_raw(&disasm->group_list), link);
    }
+
+   group->src_loc_index = inst->src_loc_index;
 
    if (INTEL_DEBUG(DEBUG_ANNOTATION)) {
       group->ir = inst->ir;

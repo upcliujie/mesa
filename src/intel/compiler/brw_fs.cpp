@@ -7515,8 +7515,8 @@ brw_compile_fs(const struct brw_compiler *compiler,
    }
 
    fs_generator g(compiler, params->log_data, mem_ctx, &prog_data->base,
-                  v8->runtime_check_aads_emit, MESA_SHADER_FRAGMENT);
-
+                  v8->runtime_check_aads_emit, MESA_SHADER_FRAGMENT,
+                  nir->src_loc_table);
    if (unlikely(debug_enabled)) {
       g.enable_debug(ralloc_asprintf(mem_ctx, "%s fragment shader %s",
                                      nir->info.label ?
@@ -7774,7 +7774,8 @@ brw_compile_cs(const struct brw_compiler *compiler,
       prog_data->prog_mask = 1 << selected_simd;
 
    fs_generator g(compiler, params->log_data, mem_ctx, &prog_data->base,
-                  selected->runtime_check_aads_emit, MESA_SHADER_COMPUTE);
+                  selected->runtime_check_aads_emit, MESA_SHADER_COMPUTE,
+                  nir->src_loc_table);
    if (unlikely(debug_enabled)) {
       char *name = ralloc_asprintf(mem_ctx, "%s compute shader %s",
                                    nir->info.label ?
@@ -7939,7 +7940,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
    prog_data->num_resume_shaders = num_resume_shaders;
 
    fs_generator g(compiler, params->log_data, mem_ctx, &prog_data->base,
-                  false, shader->info.stage);
+                  false, shader->info.stage, shader->src_loc_table);
    if (unlikely(debug_enabled)) {
       char *name = ralloc_asprintf(mem_ctx, "%s %s shader %s",
                                    shader->info.label ?

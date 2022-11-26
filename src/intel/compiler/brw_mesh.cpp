@@ -365,7 +365,8 @@ brw_compile_task(const struct brw_compiler *compiler,
    }
 
    fs_generator g(compiler, params->log_data, mem_ctx,
-                  &prog_data->base.base, false, MESA_SHADER_TASK);
+                  &prog_data->base.base, false, MESA_SHADER_TASK,
+                  nir->src_loc_table);
    if (unlikely(debug_enabled)) {
       g.enable_debug(ralloc_asprintf(mem_ctx,
                                      "%s task shader %s",
@@ -881,7 +882,8 @@ brw_compile_mesh(const struct brw_compiler *compiler,
    }
 
    fs_generator g(compiler, params->log_data, mem_ctx,
-                  &prog_data->base.base, false, MESA_SHADER_MESH);
+                  &prog_data->base.base, false, MESA_SHADER_MESH,
+                  nir->src_loc_table);
    if (unlikely(debug_enabled)) {
       g.enable_debug(ralloc_asprintf(mem_ctx,
                                      "%s mesh shader %s",

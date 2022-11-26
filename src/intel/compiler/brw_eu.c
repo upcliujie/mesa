@@ -547,11 +547,11 @@ brw_disassemble(const struct brw_isa_info *isa,
         }
       }
 
-      bool compacted = brw_inst_cmpt_control(devinfo, insn);
       if (0)
          fprintf(out, "0x%08x: ", offset);
 
-      if (compacted) {
+      bool is_compacted = brw_inst_cmpt_control(devinfo, insn);
+      if (is_compacted) {
          brw_compact_inst *compacted = (brw_compact_inst *)insn;
          if (dump_hex) {
             unsigned char * insn_ptr = ((unsigned char *)&insn[0]);
@@ -584,9 +584,9 @@ brw_disassemble(const struct brw_isa_info *isa,
          }
       }
 
-      brw_disassemble_inst(out, isa, insn, compacted, offset, root_label);
+      brw_disassemble_inst(out, isa, insn, is_compacted, offset, root_label);
 
-      if (compacted) {
+      if (is_compacted) {
          offset += sizeof(brw_compact_inst);
       } else {
          offset += sizeof(brw_inst);

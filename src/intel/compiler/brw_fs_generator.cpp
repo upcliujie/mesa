@@ -188,13 +188,15 @@ fs_generator::fs_generator(const struct brw_compiler *compiler, void *log_data,
                            void *mem_ctx,
                            struct brw_stage_prog_data *prog_data,
                            bool runtime_check_aads_emit,
-                           gl_shader_stage stage)
+                           gl_shader_stage stage,
+                           const nir_src_loc *src_loc_table)
 
    : compiler(compiler), log_data(log_data),
      devinfo(compiler->devinfo),
      prog_data(prog_data), dispatch_width(0),
      runtime_check_aads_emit(runtime_check_aads_emit), debug_flag(false),
-     shader_name(NULL), stage(stage), mem_ctx(mem_ctx)
+     shader_name(NULL), stage(stage), src_loc_table(src_loc_table),
+     mem_ctx(mem_ctx)
 {
    p = rzalloc(mem_ctx, struct brw_codegen);
    brw_init_codegen(&compiler->isa, p, mem_ctx);
@@ -1739,7 +1741,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
    int loop_count = 0, send_count = 0, nop_count = 0;
    bool is_accum_used = false;
 
-   struct disasm_info *disasm_info = disasm_initialize(p->isa, cfg);
+   struct disasm_info *disasm_info = disasm_initialize2(p->isa, cfg, src_loc_table);
 
    foreach_block_and_inst (block, fs_inst, inst, cfg) {
       if (inst->opcode == SHADER_OPCODE_UNDEF)

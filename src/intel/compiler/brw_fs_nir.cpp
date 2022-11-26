@@ -410,7 +410,9 @@ fs_visitor::nir_emit_block(nir_block *block)
 void
 fs_visitor::nir_emit_instr(nir_instr *instr)
 {
-   const fs_builder abld = bld.annotate(NULL, instr);
+   const fs_builder abld = bld
+      .annotate(NULL, instr)
+      .src_loc_index(instr->src_loc_index);
 
    switch (instr->type) {
    case nir_instr_type_alu:

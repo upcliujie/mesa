@@ -2646,7 +2646,7 @@ brw_compile_vs(const struct brw_compiler *compiler,
 
       fs_generator g(compiler, params->log_data, mem_ctx,
                      &prog_data->base.base, v.runtime_check_aads_emit,
-                     MESA_SHADER_VERTEX);
+                     MESA_SHADER_VERTEX, nir->src_loc_table);
       if (unlikely(debug_enabled)) {
          const char *debug_name =
             ralloc_asprintf(mem_ctx, "%s vertex shader %s",

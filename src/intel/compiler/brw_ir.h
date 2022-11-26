@@ -187,6 +187,8 @@ struct backend_instruction {
 
    /** The number of hardware registers used for a message header. */
    uint8_t header_size;
+
+   uint32_t src_loc_index;
 };
 
 #endif
