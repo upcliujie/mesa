@@ -2516,6 +2516,21 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
    brw_compact_instructions(p, start_offset, disasm_info);
    int after_size = p->next_insn_offset - start_offset;
 
+   /* TODO: generate pc to line table here */
+   foreach_list_typed(struct inst_group, group, link, &disasm_info->group_list) {
+      struct exec_node *next_node = exec_node_get_next(&group->link);
+      if (exec_node_is_tail_sentinel(next_node))
+         break;
+
+      struct inst_group *next_group =
+         exec_node_data(struct inst_group, next_node, link);
+
+      int start_offset = group->offset;
+      int end_offset = next_group->offset;
+
+      fprintf(stderr, "%04x-%04x %u\n", start_offset, end_offset, group->src_loc_index);
+   }
+
    if (unlikely(debug_flag)) {
       unsigned char sha1[21];
       char sha1buf[41];
