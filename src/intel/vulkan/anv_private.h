@@ -1075,6 +1075,7 @@ struct anv_instance {
     bool                                        sample_mask_out_opengl_behaviour;
     bool                                        fp64_workaround_enabled;
     float                                       lower_depth_range_rate;
+    bool                                        disable_aux_surface;
 };
 
 VkResult anv_init_wsi(struct anv_physical_device *physical_device);

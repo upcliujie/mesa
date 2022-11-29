@@ -72,6 +72,7 @@ static const driOptionDescription anv_dri_options[] = {
       DRI_CONF_ANV_ASSUME_FULL_SUBGROUPS(false)
       DRI_CONF_ANV_SAMPLE_MASK_OUT_OPENGL_BEHAVIOUR(false)
       DRI_CONF_ANV_FP64_WORKAROUND_ENABLED(false)
+      DRI_CONF_ANV_DISABLE_AUX_SURFACE(false)
    DRI_CONF_SECTION_END
 
    DRI_CONF_SECTION_DEBUG
@@ -1106,6 +1107,8 @@ anv_init_dri_options(struct anv_instance *instance)
             driQueryOptionf(&instance->dri_options, "lower_depth_range_rate");
     instance->fp64_workaround_enabled =
             driQueryOptionb(&instance->dri_options, "fp64_workaround_enabled");
+    instance->disable_aux_surface =
+            driQueryOptionb(&instance->dri_options, "anv_disable_aux_surface");
 }
 
 VkResult anv_CreateInstance(

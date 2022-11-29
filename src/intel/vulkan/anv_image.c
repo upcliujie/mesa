@@ -1134,6 +1134,9 @@ add_all_surfaces_implicit_layout(
           image->vk.tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
          continue;
 
+      if(device->physical->instance->disable_aux_surface)
+         continue;
+
       result = add_aux_surface_if_supported(device, image, plane, plane_format,
                                             format_list_info,
                                             ANV_OFFSET_IMPLICIT, stride,
