@@ -56,10 +56,12 @@
  */
 
 static bool
-block_check_for_allowed_instrs(nir_block *block, unsigned *count,
+block_check_for_allowed_instrs(nir_block *block, unsigned *alu_count,
+                               unsigned *tex_count,
                                nir_opt_peephole_select_options *options)
 {
    bool alu_ok = options->alu_limit != 0;
+   bool tex_ok = options->tex_limit != 0;
 
    /* Used on non-control-flow HW to flatten all IFs. */
    if (options->alu_limit == ~0) {
@@ -161,6 +163,12 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
          break;
       }
 
+      case nir_instr_type_tex:
+         if (!tex_ok)
+            return false;
+         (*tex_count)++;
+         break;
+
       case nir_instr_type_deref:
       case nir_instr_type_load_const:
       case nir_instr_type_ssa_undef:
@@ -218,7 +226,7 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
              * other instruction.
              */
             if (mov->op != nir_op_fsat && !movelike)
-               (*count)++;
+               (*alu_count)++;
          } else {
             /* The only uses of this definition must be phis in the successor */
             nir_foreach_use_including_if(use, &mov->dest.dest.ssa) {
@@ -325,11 +333,15 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader,
 
    /* check if the block before the nested if matches the requirements */
    nir_block *first = nir_if_first_then_block(parent_if);
-   unsigned count = 0;
-   if (!block_check_for_allowed_instrs(first, &count, &local_options))
+   unsigned alu_count = 0;
+   unsigned tex_count = 0;
+
+   if (!block_check_for_allowed_instrs(first, &alu_count, &tex_count,
+                                       &local_options))
       return false;
 
-   if (count > local_options.alu_limit &&
+   if ((alu_count > local_options.alu_limit ||
+        tex_count > local_options.tex_limit) &&
        parent_if->control != nir_selection_control_flatten)
       return false;
 
@@ -412,12 +424,17 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
    }
 
    /* ... and those blocks must only contain "allowed" instructions. */
-   unsigned count = 0;
-   if (!block_check_for_allowed_instrs(then_block, &count, &local_options) ||
-       !block_check_for_allowed_instrs(else_block, &count, &local_options))
+   unsigned alu_count = 0;
+   unsigned tex_count = 0;
+   if (!block_check_for_allowed_instrs(then_block, &alu_count, &tex_count,
+                                       &local_options) ||
+       !block_check_for_allowed_instrs(else_block, &alu_count, &tex_count,
+                                       &local_options))
       return false;
 
-   if (count > local_options.alu_limit && if_stmt->control != nir_selection_control_flatten)
+   if ((alu_count > local_options.alu_limit ||
+        tex_count > local_options.tex_limit ) &&
+       if_stmt->control != nir_selection_control_flatten)
       return false;
 
    /* At this point, we know that the previous CFG node is an if-then

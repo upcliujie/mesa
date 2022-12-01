@@ -5980,6 +5980,7 @@ bool nir_opt_reassociate_bfi(nir_shader *shader);
 
 typedef struct {
    unsigned alu_limit;
+   unsigned tex_limit;
    bool indirect_load_ok;
    bool expensive_alu_ok;
 } nir_opt_peephole_select_options;
