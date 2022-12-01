@@ -754,7 +754,8 @@ tu6_emit_tile_select(struct tu_cmd_buffer *cmd,
    const struct tu_tiling_config *tiling = cmd->state.tiling;
 
    tu_cs_emit_pkt7(cs, CP_SET_MARKER, 1);
-   tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BIN_RENDER_START));
+   tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BIN_RENDER_START) |
+                  A6XX_CP_SET_MARKER_0_USES_GMEM);
 
    const uint32_t x1 = tiling->tile0.width * tx;
    const uint32_t y1 = tiling->tile0.height * ty;
@@ -867,7 +868,8 @@ tu6_emit_tile_store(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    const struct tu_framebuffer *fb = cmd->state.framebuffer;
 
    tu_cs_emit_pkt7(cs, CP_SET_MARKER, 1);
-   tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BIN_RESOLVE));
+   tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BIN_RESOLVE) |
+                  A6XX_CP_SET_MARKER_0_USES_GMEM);
 
    tu6_emit_blit_scissor(cmd, cs, true);
 
@@ -889,6 +891,9 @@ tu6_emit_tile_store(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
          }
       }
    }
+
+   tu_cs_emit_pkt7(cs, CP_SET_MARKER, 1);
+   tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BIN_RENDER_END));
 }
 
 void
@@ -1480,7 +1485,8 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 
    if (use_hw_binning(cmd)) {
       tu_cs_emit_pkt7(cs, CP_SET_MARKER, 1);
-      tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BIN_END_OF_DRAWS));
+      tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_BIN_END_OF_DRAWS) |
+                     A6XX_CP_SET_MARKER_0_USES_GMEM);
    }
 
    /* Predicate is changed in draw_cs so we have to re-emit it */
