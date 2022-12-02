@@ -469,7 +469,7 @@ void iris_bo_mark_exported(struct iris_bo *bo);
  * Returns true  if mapping the buffer for write could cause the process
  * to block, due to the object being active in the GPU.
  */
-bool iris_bo_busy(struct iris_bo *bo);
+bool iris_bo_busy(struct iris_bo *bo, unsigned usage);
 
 /**
  * Specify the volatility of the buffer.

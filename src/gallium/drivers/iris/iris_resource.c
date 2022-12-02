@@ -1883,7 +1883,7 @@ static bool
 resource_is_busy(struct iris_context *ice,
                  struct iris_resource *res)
 {
-   bool busy = iris_bo_busy(res->bo);
+   bool busy = iris_bo_busy(res->bo, PIPE_MAP_READ_WRITE);
 
    iris_foreach_batch(ice, batch)
       busy |= iris_batch_references(batch, res->bo);
