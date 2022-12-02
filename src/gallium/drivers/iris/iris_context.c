@@ -218,7 +218,14 @@ iris_tc_is_resource_busy(struct pipe_screen *pscreen,
                          unsigned usage)
 {
    struct iris_resource *res = (void *) prsc;
-   return iris_bo_busy(res->bo, PIPE_MAP_READ_WRITE);
+
+   /* If writing, wait for all reads and writes.  If reading, only wait for
+    * any outstanding writes but allow simultaneous reads.
+    */
+   unsigned check = usage & PIPE_MAP_WRITE ?
+                    PIPE_MAP_READ_WRITE : PIPE_MAP_WRITE;
+
+   return iris_bo_busy(res->bo, check);
 }
 
 /**
