@@ -2572,7 +2572,7 @@ iris_create_sampler_view(struct pipe_context *ctx,
 {
    struct iris_screen *screen = (struct iris_screen *)ctx->screen;
    const struct intel_device_info *devinfo = &screen->devinfo;
-   struct iris_sampler_view *isv = calloc(1, sizeof(struct iris_sampler_view));
+   struct iris_sampler_view *isv = CALLOC_STRUCT_CL(iris_sampler_view);
 
    if (!isv)
       return NULL;

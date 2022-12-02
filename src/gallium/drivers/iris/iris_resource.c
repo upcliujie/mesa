@@ -508,7 +508,7 @@ static struct iris_resource *
 iris_alloc_resource(struct pipe_screen *pscreen,
                     const struct pipe_resource *templ)
 {
-   struct iris_resource *res = calloc(1, sizeof(struct iris_resource));
+   struct iris_resource *res = CALLOC_STRUCT_CL(iris_resource);
    if (!res)
       return NULL;
 
