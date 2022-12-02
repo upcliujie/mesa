@@ -624,6 +624,17 @@ radv_device_supports_etc(const struct radv_physical_device *physical_device)
           physical_device->rad_info.family == CHIP_RAVEN2 || physical_device->rad_info.family == CHIP_STONEY;
 }
 
+/* the disjoint image causes failure of dEQP-VK.ycbcr on chrome os for chip STONEY/RAVEN/RAVEN2 */
+static bool radv_device_supports_disjoint_image(struct radv_physical_device *physical_device)
+{
+   if (physical_device->rad_info.family == CHIP_STONEY ||
+       physical_device->rad_info.family == CHIP_RAVEN ||
+       physical_device->rad_info.family == CHIP_RAVEN2)
+      return false;
+
+   return true;
+}
+
 static void
 radv_physical_device_get_format_properties(struct radv_physical_device *physical_device, VkFormat format,
                                            VkFormatProperties3 *out_properties)
@@ -667,7 +678,7 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
             tiling |= VK_FORMAT_FEATURE_2_VIDEO_DECODE_OUTPUT_BIT_KHR | VK_FORMAT_FEATURE_2_VIDEO_DECODE_DPB_BIT_KHR;
       }
 
-      if (multiplanar)
+      if (multiplanar && radv_device_supports_disjoint_image(physical_device))
          tiling |= VK_FORMAT_FEATURE_2_DISJOINT_BIT;
 
       /* Fails for unknown reasons with linear tiling & subsampled formats. */
