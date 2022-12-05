@@ -937,8 +937,9 @@ dri2_setup_screen(_EGLDisplay *disp)
 
    /* Report back to EGL the bitmask of priorities supported */
    disp->Extensions.IMG_context_priority =
-      dri2_renderer_query_integer(dri2_dpy,
-                                  __DRI2_RENDERER_HAS_CONTEXT_PRIORITY);
+      __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_HIGH |
+      __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_MEDIUM |
+      __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_LOW;
 
    disp->Extensions.EXT_pixel_format_float = EGL_TRUE;
 
@@ -1423,16 +1424,19 @@ dri2_fill_context_attribs(struct dri2_egl_context *dri2_ctx,
    }
 
    if (dri2_ctx->base.ContextPriority != EGL_CONTEXT_PRIORITY_MEDIUM_IMG) {
+      int allowed, check;
       unsigned val;
+
+      allowed = dri2_renderer_query_integer(dri2_dpy,
+                                            __DRI2_RENDERER_HAS_CONTEXT_PRIORITY);
 
       switch (dri2_ctx->base.ContextPriority) {
       case EGL_CONTEXT_PRIORITY_HIGH_IMG:
+         check = __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_HIGH;
          val = __DRI_CTX_PRIORITY_HIGH;
          break;
-      case EGL_CONTEXT_PRIORITY_MEDIUM_IMG:
-         val = __DRI_CTX_PRIORITY_MEDIUM;
-         break;
       case EGL_CONTEXT_PRIORITY_LOW_IMG:
+         check = __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_LOW;
          val = __DRI_CTX_PRIORITY_LOW;
          break;
       default:
@@ -1440,8 +1444,15 @@ dri2_fill_context_attribs(struct dri2_egl_context *dri2_ctx,
          return false;
       }
 
-      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_PRIORITY;
-      ctx_attribs[pos++] = val;
+      if (allowed & check) {
+         ctx_attribs[pos++] = __DRI_CTX_ATTRIB_PRIORITY;
+         ctx_attribs[pos++] = val;
+      } else {
+         /* The priority cannot be honored, restore it to the default
+          * value for future context queries.
+          */
+         dri2_ctx->base.ContextPriority = EGL_CONTEXT_PRIORITY_MEDIUM_IMG;
+      }
    }
 
    if (dri2_ctx->base.ReleaseBehavior == EGL_CONTEXT_RELEASE_BEHAVIOR_NONE_KHR) {

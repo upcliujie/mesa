@@ -385,12 +385,6 @@ _eglParseContextAttribList(_EGLContext *ctx, _EGLDisplay *disp,
              * system policy limits access to high priority contexts to
              * appropriate system privilege level. A query is provided to find
              * the real priority level assigned to the context after creation."
-             *
-             * We currently assume that the driver applies the priority hint
-             * and filters out any it cannot handle during the screen setup,
-             * e.g. dri2_setup_screen(). As such we can mask any change that
-             * the driver would fail, and ctx->ContextPriority matches the
-             * hint applied to the driver/hardware backend.
              */
             if (disp->Extensions.IMG_context_priority & (1 << bit))
                ctx->ContextPriority = val;
