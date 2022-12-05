@@ -69,6 +69,9 @@ libdri = static_library(
   dependencies : [
     dep_libdrm,
     idep_mesautil,
+    dep_xcb,
+    dep_x11,
+    dep_xlib_xrandr
   ],
 )
 
