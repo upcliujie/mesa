@@ -568,8 +568,6 @@ static void
 rra_transcode_instance_node(struct rra_transcoding_context *ctx,
                             const struct radv_bvh_instance_node *src)
 {
-   uint64_t blas_va = node_to_addr(src->bvh_ptr) - src->bvh_offset;
-
    struct rra_instance_node *dst = (struct rra_instance_node *)(ctx->dst + ctx->dst_leaf_offset);
    ctx->dst_leaf_offset += sizeof(struct rra_instance_node);
 
@@ -577,7 +575,7 @@ rra_transcode_instance_node(struct rra_transcoding_context *ctx,
    dst->mask = src->custom_instance_and_mask >> 24;
    dst->sbt_offset = src->sbt_offset_and_flags & 0xffffff;
    dst->instance_flags = src->sbt_offset_and_flags >> 24;
-   dst->blas_va = (blas_va + sizeof(struct rra_accel_struct_metadata)) >> 3;
+   dst->blas_va = ((uint64_t)src->blas_id * 8ULL + sizeof(struct rra_accel_struct_metadata)) >> 3;
    dst->instance_id = src->instance_id;
    dst->blas_metadata_size = sizeof(struct rra_accel_struct_metadata);
 
@@ -712,7 +710,7 @@ rra_dump_acceleration_structure(struct radv_rra_accel_struct_data *accel_struct,
 {
    struct radv_accel_struct_header *header = (struct radv_accel_struct_header *)data;
 
-   bool is_tlas = header->instance_count > 0;
+   bool is_tlas = accel_struct->type == VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 
    uint64_t geometry_infos_offset =
       header->compacted_size -
@@ -791,15 +789,13 @@ rra_dump_acceleration_structure(struct radv_rra_accel_struct_data *accel_struct,
       .bvh_type = is_tlas ? RRA_BVH_TYPE_TLAS : RRA_BVH_TYPE_BLAS,
    };
 
-   /*
-    * When associating TLASes with BLASes, acceleration structure VAs are
-    * looked up in a hashmap. But due to the way BLAS VAs are stored for
-    * each instance in the RRA file format (divided by 8, and limited to 54 bits),
-    * the top bits are masked away.
-    * In order to make sure BLASes can be found in the hashmap, we have
-    * to replicate that mask here.
-    */
-   uint64_t va = accel_struct->va & 0x1FFFFFFFFFFFFFF;
+   uint64_t va = accel_struct->va;
+   /* For BLASs, use unique IDs to avoid multiple BLASs with the same VA */
+   if (!is_tlas) {
+      /* Multiply BLAS ID by 8 because RRA shifts VAs in instance node by 3
+       * to the left */
+      va = (uint64_t)header->blas_id * 8ULL;
+   }
    memcpy(chunk_header.virtual_address, &va, sizeof(uint64_t));
 
    struct rra_accel_struct_metadata rra_metadata = {
@@ -860,6 +856,7 @@ radv_rra_trace_enabled()
 void
 radv_rra_trace_init(struct radv_device *device)
 {
+   device->next_blas_id = 1;
    device->rra_trace.trace_frame = radv_rra_trace_frame();
    device->rra_trace.elapsed_frames = 0;
    device->rra_trace.trigger_file = radv_rra_trace_trigger_file();
@@ -964,8 +961,10 @@ radv_rra_dump_trace(VkQueue vk_queue, char *filename)
 
       void *mapped_data;
       result = radv_MapMemory(vk_device, data->memory, 0, VK_WHOLE_SIZE, 0, &mapped_data);
-      if (result != VK_SUCCESS)
+      if (result != VK_SUCCESS) {
+         fprintf(stderr, "Could not map memory (result %u)!\n", result);
          continue;
+      }
 
       accel_struct_offsets[written_accel_struct_count] = (uint64_t)ftell(file);
       result =

@@ -103,4 +103,12 @@ main(void)
          }
       }
    }
+
+   if (args.mode == RADV_COPY_MODE_COPY) {
+      if (global_id == 0) {
+         REF(radv_accel_struct_header) dst_header =
+            REF(radv_accel_struct_header)(args.dst_addr);
+         DEREF(dst_header).blas_id = args.blas_id;
+      }
+   }
 }

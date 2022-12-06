@@ -913,6 +913,7 @@ struct radv_device {
 
    /* Radeon Raytracing Analyzer trace. */
    struct radv_rra_trace_data rra_trace;
+   uint32_t next_blas_id;
 
    /* Trap handler. */
    struct radv_trap_handler_shader *trap_handler_shader;

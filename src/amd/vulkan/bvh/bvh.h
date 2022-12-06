@@ -101,6 +101,7 @@ struct radv_accel_struct_header {
    uint64_t instance_count;
    uint64_t size;
    uint32_t build_flags;
+   uint32_t blas_id;
 };
 
 struct radv_ir_node {
@@ -140,6 +141,7 @@ struct radv_ir_instance_node {
    uint32_t sbt_offset_and_flags;
    mat3x4 otw_matrix;
    uint32_t instance_id;
+   uint32_t blas_id;
 };
 
 struct radv_global_sync_data {
@@ -194,7 +196,9 @@ struct radv_bvh_instance_node {
 
    uint32_t instance_id;
    uint32_t bvh_offset;
-   uint32_t reserved[2];
+   uint32_t blas_id;
+
+   uint32_t reserved;
 
    /* Object to world matrix transposed from the initial transform. */
    mat3x4 otw_matrix;
