@@ -5,6 +5,7 @@ struct rusticl_lower_state {
     nir_variable *format_arr;
     nir_variable *order_arr;
     nir_variable *work_dim;
+    nir_variable *num_workgroups;
 };
 
 bool rusticl_lower_intrinsics(nir_shader *nir, struct rusticl_lower_state *state);

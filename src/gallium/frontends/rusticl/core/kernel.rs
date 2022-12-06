@@ -61,6 +61,7 @@ pub enum InternalKernelArgType {
     FormatArray,
     OrderArray,
     WorkDim,
+    NumWorkgroups,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -221,6 +222,7 @@ impl InternalKernelArg {
             InternalKernelArgType::FormatArray => bin.push(4),
             InternalKernelArgType::OrderArray => bin.push(5),
             InternalKernelArgType::WorkDim => bin.push(6),
+            InternalKernelArgType::NumWorkgroups => bin.push(7),
         }
 
         bin
@@ -243,6 +245,7 @@ impl InternalKernelArg {
             4 => InternalKernelArgType::FormatArray,
             5 => InternalKernelArgType::OrderArray,
             6 => InternalKernelArgType::WorkDim,
+            7 => InternalKernelArgType::NumWorkgroups,
             _ => return None,
         };
 
@@ -352,6 +355,14 @@ where
         res[i] = (*v).try_into().expect("64 bit work groups not supported");
     }
     res
+}
+
+fn u32_array_to_u64(input: [u32; 3]) -> Vec<u8> {
+    cl_prop::<[u64; 3]>([input[0] as u64, input[1] as u64, input[2] as u64])
+}
+
+fn u64_array_to_u32(input: [u64; 3]) -> Vec<u8> {
+    cl_prop::<[u32; 3]>([input[0] as u32, input[1] as u32, input[2] as u32])
 }
 
 fn opt_nir(nir: &mut NirShader, dev: &Device) {
@@ -614,6 +625,14 @@ fn lower_and_optimize_nir_late(
             InternalKernelArgType::WorkDim,
             unsafe { glsl_uint8_t_type() },
             "work_dim",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_NUM_WORKGROUPS) {
+        lower_state.num_workgroups = add_internal_var(
+            InternalKernelArgType::NumWorkgroups,
+            unsafe { glsl_vector_type(address_bits_base_type, 3) },
+            "num_groups",
         );
     }
 
@@ -985,11 +1004,7 @@ impl Kernel {
                     if q.device.address_bits() == 64 {
                         input.extend_from_slice(&cl_prop::<[u64; 3]>(offsets));
                     } else {
-                        input.extend_from_slice(&cl_prop::<[u32; 3]>([
-                            offsets[0] as u32,
-                            offsets[1] as u32,
-                            offsets[2] as u32,
-                        ]));
+                        input.extend_from_slice(&u64_array_to_u32(offsets));
                     }
                 }
                 InternalKernelArgType::PrintfBuffer => {
@@ -1018,6 +1033,13 @@ impl Kernel {
                 }
                 InternalKernelArgType::WorkDim => {
                     input.extend_from_slice(&[work_dim as u8; 1]);
+                }
+                InternalKernelArgType::NumWorkgroups => {
+                    if q.device.address_bits() == 64 {
+                        input.extend_from_slice(&u32_array_to_u64(grid));
+                    } else {
+                        input.extend_from_slice(&cl_prop::<[u32; 3]>(grid));
+                    }
                 }
             }
         }
