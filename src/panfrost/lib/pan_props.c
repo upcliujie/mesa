@@ -339,6 +339,14 @@ panfrost_close_device(struct panfrost_device *dev)
       util_sparse_array_finish(&dev->bo_map);
    }
 
+#ifdef PAN_DBG_ALLOC
+   if (dev->debug & PAN_DBG_ALLOC) {
+      assert(dev->debug_fd);
+      fprintf(dev->debug_fd, "destroying screen...\n");
+      fclose(dev->debug_fd);
+   }
+#endif
+
    drmFreeVersion(dev->kernel_version);
    close(dev->fd);
 }

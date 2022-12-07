@@ -73,6 +73,9 @@ static const struct debug_named_value panfrost_debug_options[] = {
 #ifdef PAN_DBG_OVERFLOW
    {"overflow",   PAN_DBG_OVERFLOW, "Check for buffer overflows in pool uploads"},
 #endif
+#ifdef PAN_DBG_ALLOC
+   {"alloc",      PAN_DBG_ALLOC,    "Dump VRAM allocations"},
+#endif
    DEBUG_NAMED_VALUE_END
 };
 /* clang-format on */
@@ -776,6 +779,7 @@ panfrost_destroy_screen(struct pipe_screen *pscreen)
 
    if (dev->ro)
       dev->ro->destroy(dev->ro);
+
    panfrost_close_device(dev);
 
    disk_cache_destroy(screen->disk_cache);
@@ -813,6 +817,41 @@ panfrost_get_driver_query_info(struct pipe_screen *pscreen, unsigned index,
    return 1;
 }
 
+#ifdef PAN_DBG_ALLOC
+static void
+panfrost_create_alloc_log_file(struct panfrost_device *dev)
+{
+   char *debug_file_path = getenv("PAN_DBG_ALLOC_FILEPATH");
+   debug_file_path = debug_file_path ? debug_file_path : ".";
+
+   char dump_dir[256], time_str[256], debug_file_str[512];
+   time_t raw_time;
+   struct tm timep;
+
+   if (mkdir(debug_file_path, 0774) && errno != EEXIST) {
+      fprintf(stderr, "panfrost: can't create directory '%s' (%i).\n", dump_dir,
+              errno);
+      abort();
+   }
+
+   char *debug_file_name = getenv("PAN_DBG_ALLOC_FILENAME");
+   debug_file_name = debug_file_name ? debug_file_name : "";
+
+   time(&raw_time);
+   os_localtime(&raw_time, &timep);
+   strftime(time_str, sizeof(time_str), "%H_%M_%S", &timep);
+   snprintf(debug_file_str, sizeof(debug_file_str), "%s/pan_alloc%s%s_%s",
+            debug_file_path, debug_file_name ? "_" : "", debug_file_name,
+            time_str);
+
+   dev->debug_fd = fopen(debug_file_str, "w+");
+   if (!dev->debug_fd) {
+      fprintf(stderr, "panfrost: can't create file '%s' (%i).\n",
+              debug_file_str, errno);
+   }
+}
+#endif
+
 struct pipe_screen *
 panfrost_create_screen(int fd, struct renderonly *ro)
 {
@@ -827,6 +866,13 @@ panfrost_create_screen(int fd, struct renderonly *ro)
    /* Debug must be set first for pandecode to work correctly */
    dev->debug =
       debug_get_flags_option("PAN_MESA_DEBUG", panfrost_debug_options, 0);
+#ifdef PAN_DBG_ALLOC
+   if (dev->debug & PAN_DBG_ALLOC) {
+      panfrost_create_alloc_log_file(dev);
+      if (!dev->debug_fd)
+         dev->debug &= ~PAN_DBG_ALLOC;
+   }
+#endif
    panfrost_open_device(screen, fd, dev);
 
    if (dev->debug & PAN_DBG_NO_AFBC)
