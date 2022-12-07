@@ -620,6 +620,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .EXT_multi_draw = true,
       .EXT_mutable_descriptor_type = true, /* Trivial promotion from VALVE. */
       .EXT_non_seamless_cube_map = true,
+      .EXT_opacity_micromap = radv_enable_rt(device, false),
       .EXT_pci_bus_info = true,
 #ifndef _WIN32
       .EXT_physical_device_drm = true,
@@ -1732,6 +1733,14 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->descriptorBindingAccelerationStructureUpdateAfterBind = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT: {
+         VkPhysicalDeviceOpacityMicromapFeaturesEXT *features =
+            (VkPhysicalDeviceOpacityMicromapFeaturesEXT *)ext;
+         features->micromap = true;
+         features->micromapCaptureReplay = false;
+         features->micromapHostCommands = false;
+         break;
+      }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR: {
          VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR *features =
             (VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR *)ext;
@@ -2608,6 +2617,13 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          props->maxDescriptorSetUpdateAfterBindAccelerationStructures =
             pProperties->properties.limits.maxDescriptorSetStorageBuffers;
          props->minAccelerationStructureScratchOffsetAlignment = 128;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT: {
+         VkPhysicalDeviceOpacityMicromapPropertiesEXT *props =
+            (VkPhysicalDeviceOpacityMicromapPropertiesEXT *)ext;
+         props->maxOpacity2StateSubdivisionLevel = 4;
+         props->maxOpacity4StateSubdivisionLevel = 4;
          break;
       }
 #ifndef _WIN32
