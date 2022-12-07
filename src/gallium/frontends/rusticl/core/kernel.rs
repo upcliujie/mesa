@@ -62,6 +62,7 @@ pub enum InternalKernelArgType {
     OrderArray,
     WorkDim,
     NumWorkgroups,
+    LocalWorkSize,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -223,6 +224,7 @@ impl InternalKernelArg {
             InternalKernelArgType::OrderArray => bin.push(5),
             InternalKernelArgType::WorkDim => bin.push(6),
             InternalKernelArgType::NumWorkgroups => bin.push(7),
+            InternalKernelArgType::LocalWorkSize => bin.push(8),
         }
 
         bin
@@ -246,6 +248,7 @@ impl InternalKernelArg {
             5 => InternalKernelArgType::OrderArray,
             6 => InternalKernelArgType::WorkDim,
             7 => InternalKernelArgType::NumWorkgroups,
+            8 => InternalKernelArgType::LocalWorkSize,
             _ => return None,
         };
 
@@ -636,6 +639,14 @@ fn lower_and_optimize_nir_late(
         );
     }
 
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_WORKGROUP_SIZE) {
+        lower_state.local_size = add_internal_var(
+            InternalKernelArgType::LocalWorkSize,
+            unsafe { glsl_vector_type(glsl_base_type::GLSL_TYPE_UINT, 3) },
+            "local_size",
+        );
+    }
+
     nir.pass2(
         nir_lower_vars_to_explicit_types,
         nir_variable_mode::nir_var_mem_shared
@@ -1006,6 +1017,9 @@ impl Kernel {
                     } else {
                         input.extend_from_slice(&u64_array_to_u32(offsets));
                     }
+                }
+                InternalKernelArgType::LocalWorkSize => {
+                    input.extend_from_slice(&cl_prop::<[u32; 3]>(block));
                 }
                 InternalKernelArgType::PrintfBuffer => {
                     let buf = Arc::new(
