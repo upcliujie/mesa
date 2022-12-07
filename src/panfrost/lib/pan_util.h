@@ -50,6 +50,7 @@
 
 #ifndef NDEBUG
 #define PAN_DBG_OVERFLOW 0x8000
+#define PAN_DBG_ALLOC    0x10000
 #endif
 
 struct panfrost_device;

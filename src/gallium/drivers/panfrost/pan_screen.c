@@ -71,6 +71,9 @@ static const struct debug_named_value panfrost_debug_options[] = {
 #ifdef PAN_DBG_OVERFLOW
    {"overflow",   PAN_DBG_OVERFLOW, "Check for buffer overflows in pool uploads"},
 #endif
+#ifdef PAN_DBG_ALLOC
+   {"alloc",      PAN_DBG_ALLOC,    "Dump VRAM allocations"},
+#endif
    DEBUG_NAMED_VALUE_END
 };
 /* clang-format on */
