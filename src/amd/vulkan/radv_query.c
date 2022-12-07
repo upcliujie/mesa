@@ -2214,3 +2214,11 @@ radv_CmdWriteAccelerationStructuresPropertiesKHR(
 
    assert(cmd_buffer->cs->cdw <= cdw_max);
 }
+
+VKAPI_ATTR void VKAPI_CALL
+radv_CmdWriteMicromapsPropertiesEXT(VkCommandBuffer commandBuffer, uint32_t micromapCount,
+                                    const VkMicromapEXT *pMicromaps, VkQueryType queryType,
+                                    VkQueryPool queryPool, uint32_t firstQuery)
+{
+   unreachable("Unimplemented");
+}
