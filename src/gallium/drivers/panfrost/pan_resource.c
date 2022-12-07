@@ -36,7 +36,9 @@
 
 #include "frontend/winsys_handle.h"
 #include "util/format/u_format.h"
+#include "util/os_time.h"
 #include "util/u_drm.h"
+#include "util/u_dump.h"
 #include "util/u_gen_mipmap.h"
 #include "util/u_memory.h"
 #include "util/u_surface.h"
@@ -729,6 +731,15 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
                                              PAN_BO_DELAY_MMAP, label);
 
       so->constant_stencil = true;
+
+#ifdef PAN_DBG_ALLOC
+      /* Only log resources linked to newly attached BOs, unless VERBOSE is set,
+       * in which case we log even when reusing from the cache. */
+      if ((dev->debug & PAN_DBG_ALLOC) && so->image.data.bo->last_used == 0) {
+         util_dump_resource(stderr, template);
+         fprintf(stderr, "\n");
+      }
+#endif
    }
 
    if (drm_is_afbc(so->image.layout.modifier))
@@ -781,8 +792,19 @@ panfrost_resource_destroy(struct pipe_screen *screen, struct pipe_resource *pt)
    if (rsrc->scanout)
       renderonly_scanout_destroy(rsrc->scanout, dev->ro);
 
-   if (rsrc->image.data.bo)
+   if (rsrc->image.data.bo) {
       panfrost_bo_unreference(rsrc->image.data.bo);
+
+#ifdef PAN_DBG_ALLOC
+      /* This doesn't work because the bo is only going to get free'd later.
+       * Is there a good way to keep track of the resource so we can print it
+       * when the BO is eventually freed? Is it even worth it to print it then? */
+      if ((dev->debug & PAN_DBG_ALLOC) && !rsrc->image.data.bo) {
+         util_dump_resource(stderr, pt);
+         fprintf(stderr, "\n");
+      }
+#endif
+   }
 
    free(rsrc->index_cache);
    free(rsrc->damage.tile_map.data);

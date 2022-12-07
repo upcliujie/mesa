@@ -36,9 +36,52 @@
 #include "wrap.h"
 
 #include "util/os_mman.h"
+#include "util/os_time.h"
 
 #include "util/u_inlines.h"
 #include "util/u_math.h"
+
+#ifdef PAN_DBG_ALLOC
+static inline void
+panfrost_get_size_str(uint64_t size, char *str, int n)
+{
+   char *units[] = {"B", "KB", "MB", "GB"};
+
+   double approx_size = size;
+   int i = 0;
+   for (i = 0; i < ARRAY_SIZE(units); i++) {
+      if (!(approx_size > 1024.0)) {
+         break;
+      }
+      approx_size /= 1024.0;
+   }
+
+   assert(approx_size <= 1024.0);
+   snprintf(str, n, "%.1lf %s", approx_size, units[i]);
+}
+
+static inline void
+panfrost_print_bo(struct panfrost_device *dev, const struct panfrost_bo *bo,
+                  const char *prefix)
+{
+   assert(!(bo->flags & PAN_BO_GROWABLE));
+   if (dev->debug & PAN_DBG_ALLOC) {
+      int64_t timestamp = os_time_get_nano();
+      int64_t us_timestamp = (timestamp % 1000000000) / 1000;
+      int64_t sec_timestamp = timestamp / 1000000000;
+
+      assert(dev->total_bo_size >= dev->bo_cache_size);
+      char total_size_str[20], cache_size_str[20];
+      panfrost_get_size_str(dev->total_bo_size, total_size_str, 20);
+      panfrost_get_size_str(dev->bo_cache_size, cache_size_str, 20);
+
+      mesa_logi("[%" PRIi64 ".%06" PRIi64 "] %12s | %29s | %10" PRIu64
+                " b | Cache: %8s | Total: %8s |\n",
+                sec_timestamp, us_timestamp, prefix, bo->label,
+                (uint64_t)bo->size, cache_size_str, total_size_str);
+   }
+}
+#endif
 
 /* This file implements a userspace BO cache. Allocating and freeing
  * GPU-visible buffers is very expensive, and even the extra kernel roundtrips
@@ -86,6 +129,16 @@ panfrost_bo_alloc(struct panfrost_device *dev, size_t size, uint32_t flags,
    bo->flags = flags;
    bo->dev = dev;
    bo->label = label;
+
+#ifdef PAN_DBG_ALLOC
+   if (!(bo->flags & PAN_BO_GROWABLE)) {
+      /* Shared BOs should be tagged later. */
+      assert(!(bo->flags & PAN_BO_SHARED));
+      dev->total_bo_size += bo->size;
+      panfrost_print_bo(dev, bo, "allocate");
+   }
+#endif
+
    return bo;
 }
 
@@ -95,6 +148,13 @@ panfrost_bo_free(struct panfrost_bo *bo)
    struct drm_gem_close gem_close = {.handle = bo->gem_handle};
    int fd = bo->dev->fd;
    int ret;
+
+#ifdef PAN_DBG_ALLOC
+   if (!(bo->flags & (PAN_BO_SHARED | PAN_BO_GROWABLE))) {
+      bo->dev->total_bo_size -= bo->size;
+      panfrost_print_bo(bo->dev, bo, "free");
+   }
+#endif
 
    /* BO will be freed with the sparse array, but zero to indicate free */
    memset(bo, 0, sizeof(*bo));
@@ -213,6 +273,9 @@ panfrost_bo_cache_fetch(struct panfrost_device *dev, size_t size,
 
       ret = drmIoctl(dev->fd, DRM_IOCTL_PANFROST_MADVISE, &madv);
       if (!ret && !madv.retained) {
+#ifdef PAN_DBG_ALLOC
+         dev->bo_cache_size -= entry->size;
+#endif
          panfrost_bo_free(entry);
          continue;
       }
@@ -221,6 +284,14 @@ panfrost_bo_cache_fetch(struct panfrost_device *dev, size_t size,
       bo->label = label;
       break;
    }
+
+#ifdef PAN_DBG_ALLOC
+   if (bo) {
+      bo->dev->bo_cache_size -= bo->size;
+      panfrost_print_bo(dev, bo, "reuse cached");
+   }
+#endif
+
    pthread_mutex_unlock(&dev->bo_cache.lock);
 
    return bo;
@@ -247,6 +318,9 @@ panfrost_bo_cache_evict_stale_bos(struct panfrost_device *dev)
 
       list_del(&entry->bucket_link);
       list_del(&entry->lru_link);
+#ifdef PAN_DBG_ALLOC
+      dev->bo_cache_size -= entry->size;
+#endif
       panfrost_bo_free(entry);
    }
 }
@@ -261,6 +335,16 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
 
    if (bo->flags & PAN_BO_SHARED || dev->debug & PAN_DBG_NO_CACHE)
       return false;
+
+#ifdef PAN_DBG_ALLOC
+   /* We can't cache GROWABLE BOs when tracking vram usage because
+    * they grow dynamically, and we can't tell how much of it has
+    * been actually allocated.
+    * If we did cache it, we would end up with very inaccurate stats.
+    */
+   if (bo->flags & PAN_BO_GROWABLE)
+      return false;
+#endif
 
    /* Must be first */
    pthread_mutex_lock(&dev->bo_cache.lock);
@@ -288,6 +372,11 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
     */
    panfrost_bo_cache_evict_stale_bos(dev);
 
+#ifdef PAN_DBG_ALLOC
+   bo->dev->bo_cache_size += bo->size;
+   panfrost_print_bo(dev, bo, "mv to cache");
+#endif
+
    /* Update the label to help debug BO cache memory usage issues */
    bo->label = "Unused (BO cache)";
 
@@ -312,6 +401,9 @@ panfrost_bo_cache_evict_all(struct panfrost_device *dev)
       list_for_each_entry_safe(struct panfrost_bo, entry, bucket, bucket_link) {
          list_del(&entry->bucket_link);
          list_del(&entry->lru_link);
+#ifdef PAN_DBG_ALLOC
+         dev->bo_cache_size -= entry->size;
+#endif
          panfrost_bo_free(entry);
       }
    }
@@ -507,6 +599,13 @@ panfrost_bo_import(struct panfrost_device *dev, int fd)
       else
          panfrost_bo_reference(bo);
    }
+#ifdef PAN_DBG_ALLOC
+   /* Purposefully don't add shared and/or growable BOs to total_bo_size. */
+   if (!(bo->flags & PAN_BO_GROWABLE)) {
+      panfrost_print_bo(dev, bo, "import");
+   }
+#endif
+
    pthread_mutex_unlock(&dev->bo_map_lock);
 
    return bo;
@@ -524,6 +623,16 @@ panfrost_bo_export(struct panfrost_bo *bo)
    if (ret == -1)
       return -1;
 
+#ifdef PAN_DBG_ALLOC
+   /* Stop counting a BO once we export it, since someone else might free. */
+   if (!(bo->flags & PAN_BO_GROWABLE)) {
+      if (!(bo->flags & PAN_BO_SHARED))
+         bo->dev->total_bo_size -= bo->size;
+      panfrost_print_bo(bo->dev, bo, "export");
+   }
+#endif
+
    bo->flags |= PAN_BO_SHARED;
+
    return args.fd;
 }
