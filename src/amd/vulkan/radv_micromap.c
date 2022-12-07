@@ -25,17 +25,41 @@
 #include "radv_micromap.h"
 
 VKAPI_ATTR VkResult VKAPI_CALL
-radv_CreateMicromapEXT(VkDevice device, const VkMicromapCreateInfoEXT *pCreateInfo,
+radv_CreateMicromapEXT(VkDevice _device, const VkMicromapCreateInfoEXT *pCreateInfo,
                        const VkAllocationCallbacks *pAllocator, VkMicromapEXT *pMicromap)
 {
-   unreachable("Unimplemented");
+   RADV_FROM_HANDLE(radv_device, device, _device);
+   RADV_FROM_HANDLE(radv_buffer, buffer, pCreateInfo->buffer);
+
+   struct radv_micromap *micromap =
+      vk_alloc2(&device->vk.alloc, pAllocator, sizeof(struct radv_micromap), 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!micromap)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   vk_object_base_init(&device->vk, &micromap->base, VK_OBJECT_TYPE_MICROMAP_EXT);
+
+   micromap->bo = buffer->bo;
+   micromap->mem_offset = buffer->offset + pCreateInfo->offset;
+   micromap->size = pCreateInfo->size;
+   micromap->va = radv_buffer_get_va(micromap->bo) + micromap->mem_offset;
+
+   *pMicromap = radv_micromap_to_handle(micromap);
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL
-radv_DestroyMicromapEXT(VkDevice device, VkMicromapEXT micromap,
+radv_DestroyMicromapEXT(VkDevice _device, VkMicromapEXT _micromap,
                         const VkAllocationCallbacks *pAllocator)
 {
-   unreachable("Unimplemented");
+   RADV_FROM_HANDLE(radv_device, device, _device);
+   RADV_FROM_HANDLE(radv_micromap, micromap, _micromap);
+
+   if (!micromap)
+      return;
+
+   vk_object_base_finish(&micromap->base);
+   vk_free2(&device->vk.alloc, pAllocator, micromap);
 }
 
 VKAPI_ATTR void VKAPI_CALL

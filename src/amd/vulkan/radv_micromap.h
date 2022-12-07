@@ -27,4 +27,15 @@
 
 #include "radv_private.h"
 
+struct radv_micromap {
+   struct vk_object_base base;
+
+   struct radeon_winsys_bo *bo;
+   uint64_t mem_offset;
+   uint64_t size;
+   uint64_t va;
+};
+
+VK_DEFINE_NONDISP_HANDLE_CASTS(radv_micromap, base, VkMicromapEXT, VK_OBJECT_TYPE_MICROMAP_EXT)
+
 #endif
