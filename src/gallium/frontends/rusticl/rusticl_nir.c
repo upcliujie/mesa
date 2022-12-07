@@ -63,6 +63,8 @@ rusticl_lower_intrinsics_instr(
     }
     case nir_intrinsic_load_base_global_invocation_id:
         return nir_load_var(b, state->base_global_invoc_id);
+    case nir_intrinsic_load_workgroup_size:
+        return nir_load_var(b, state->local_size);
     case nir_intrinsic_load_constant_base_ptr:
         return nir_load_var(b, state->const_buf);
     case nir_intrinsic_load_printf_buffer_address:
