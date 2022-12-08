@@ -24,6 +24,42 @@
 
 #include "radv_micromap.h"
 
+#include "bvh/build_interface.h"
+
+struct micromap_layout {
+   uint32_t triangle_count;
+
+   uint32_t data_offset;
+   uint32_t data_size;
+
+   uint32_t size;
+};
+
+static struct micromap_layout
+get_micromap_layout(const VkMicromapBuildInfoEXT *pBuildInfo)
+{
+   struct micromap_layout layout = {0};
+
+   for (uint32_t i = 0; i < pBuildInfo->usageCountsCount; i++) {
+      const VkMicromapUsageEXT *usage;
+      if (pBuildInfo->pUsageCounts)
+         usage = pBuildInfo->pUsageCounts + i;
+      else
+         usage = pBuildInfo->ppUsageCounts[i];
+
+      layout.triangle_count += usage->count;
+      layout.data_offset += usage->count * sizeof(struct micromap_triangle_header);
+
+      uint32_t subtriangle_count = 1u << (usage->subdivisionLevel * 2);
+      /* Always use 4-state opacity to avoid divergence during traversal. */
+      layout.data_size += usage->count * MAX2(subtriangle_count * 2 / 8, sizeof(uint32_t));
+   }
+
+   layout.size = layout.data_offset + layout.data_size;
+
+   return layout;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_CreateMicromapEXT(VkDevice _device, const VkMicromapCreateInfoEXT *pCreateInfo,
                        const VkAllocationCallbacks *pAllocator, VkMicromapEXT *pMicromap)
@@ -138,5 +174,7 @@ radv_GetMicromapBuildSizesEXT(VkDevice device, VkAccelerationStructureBuildTypeK
                               const VkMicromapBuildInfoEXT *pBuildInfo,
                               VkMicromapBuildSizesInfoEXT *pSizeInfo)
 {
-   unreachable("Unimplemented");
+   pSizeInfo->micromapSize = get_micromap_layout(pBuildInfo).size;
+   pSizeInfo->buildScratchSize = sizeof(uint32_t);
+   pSizeInfo->discardable = false;
 }
