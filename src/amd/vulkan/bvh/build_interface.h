@@ -120,4 +120,9 @@ struct ploc_args {
    uint32_t internal_node_offset;
 };
 
+struct micromap_triangle_header {
+   uint32_t offset;
+   uint32_t level;
+};
+
 #endif
