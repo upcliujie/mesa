@@ -213,6 +213,7 @@ struct panfrost_device {
 
    uint64_t total_bo_size;
    uint64_t bo_cache_size;
+   uint64_t num_active_resources;
 };
 
 void panfrost_open_device(void *memctx, int fd, struct panfrost_device *dev);

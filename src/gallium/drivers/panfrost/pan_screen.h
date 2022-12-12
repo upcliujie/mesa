@@ -42,14 +42,16 @@
 #include "pan_device.h"
 #include "pan_mempool.h"
 
-#define PAN_QUERY_DRAW_CALLS      (PIPE_QUERY_DRIVER_SPECIFIC + 0)
-#define PAN_QUERY_VRAM_TOTAL_SIZE (PIPE_QUERY_DRIVER_SPECIFIC + 1)
-#define PAN_QUERY_VRAM_CACHE_SIZE (PIPE_QUERY_DRIVER_SPECIFIC + 2)
+#define PAN_QUERY_DRAW_CALLS       (PIPE_QUERY_DRIVER_SPECIFIC + 0)
+#define PAN_QUERY_VRAM_TOTAL_SIZE  (PIPE_QUERY_DRIVER_SPECIFIC + 1)
+#define PAN_QUERY_VRAM_CACHE_SIZE  (PIPE_QUERY_DRIVER_SPECIFIC + 2)
+#define PAN_QUERY_ACTIVE_RESOURCES (PIPE_QUERY_DRIVER_SPECIFIC + 3)
 
 static const struct pipe_driver_query_info panfrost_driver_query_list[] = {
    {"draw-calls", PAN_QUERY_DRAW_CALLS, {0}},
    {"vram-cache-size", PAN_QUERY_VRAM_CACHE_SIZE, {0}},
    {"vram-total-size", PAN_QUERY_VRAM_TOTAL_SIZE, {0}},
+   {"active-resources", PAN_QUERY_ACTIVE_RESOURCES, {0}},
 };
 
 struct panfrost_batch;

@@ -762,6 +762,8 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
    if (template->bind & PIPE_BIND_INDEX_BUFFER)
       so->index_cache = CALLOC_STRUCT(panfrost_minmax_cache);
 
+   dev->num_active_resources++;
+
    return (struct pipe_resource *)so;
 }
 
@@ -800,6 +802,8 @@ panfrost_resource_destroy(struct pipe_screen *screen, struct pipe_resource *pt)
 {
    struct panfrost_device *dev = pan_device(screen);
    struct panfrost_resource *rsrc = (struct panfrost_resource *)pt;
+
+   dev->num_active_resources--;
 
    if (rsrc->scanout)
       renderonly_scanout_destroy(rsrc->scanout, dev->ro);
