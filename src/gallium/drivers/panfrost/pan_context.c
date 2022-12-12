@@ -632,6 +632,12 @@ panfrost_begin_query(struct pipe_context *pipe, struct pipe_query *q)
    case PAN_QUERY_DRAW_CALLS:
       query->start = ctx->draw_calls;
       break;
+   case PAN_QUERY_VRAM_TOTAL_SIZE:
+      query->start = dev->total_bo_size;
+      break;
+   case PAN_QUERY_VRAM_CACHE_SIZE:
+      query->start = dev->bo_cache_size;
+      break;
 
    default:
       /* TODO: timestamp queries, etc? */
@@ -645,6 +651,7 @@ static bool
 panfrost_end_query(struct pipe_context *pipe, struct pipe_query *q)
 {
    struct panfrost_context *ctx = pan_context(pipe);
+   struct panfrost_device *dev = pan_device(ctx->base.screen);
    struct panfrost_query *query = (struct panfrost_query *)q;
 
    switch (query->type) {
@@ -662,6 +669,12 @@ panfrost_end_query(struct pipe_context *pipe, struct pipe_query *q)
       break;
    case PAN_QUERY_DRAW_CALLS:
       query->end = ctx->draw_calls;
+      break;
+   case PAN_QUERY_VRAM_TOTAL_SIZE:
+      query->end = dev->total_bo_size;
+      break;
+   case PAN_QUERY_VRAM_CACHE_SIZE:
+      query->end = dev->bo_cache_size;
       break;
    }
 
@@ -710,6 +723,12 @@ panfrost_get_query_result(struct pipe_context *pipe, struct pipe_query *q,
 
    case PAN_QUERY_DRAW_CALLS:
       vresult->u64 = query->end - query->start;
+      break;
+   case PAN_QUERY_VRAM_TOTAL_SIZE:
+      vresult->u64 = query->end;
+      break;
+   case PAN_QUERY_VRAM_CACHE_SIZE:
+      vresult->u64 = query->end;
       break;
 
    default:
