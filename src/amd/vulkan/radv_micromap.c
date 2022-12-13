@@ -24,7 +24,32 @@
 
 #include "radv_micromap.h"
 
+#include "radv_acceleration_structure.h"
+#include "radv_meta.h"
+
 #include "bvh/build_interface.h"
+
+static const uint32_t micromap_spv[] = {
+#include "bvh/micromap.spv.h"
+};
+
+VkResult
+radv_device_init_micromap_build_state(struct radv_device *device)
+{
+   return radv_create_build_pipeline(
+      device, micromap_spv, sizeof(micromap_spv), sizeof(struct micromap_args),
+      &device->meta_state.micromap_build.pipeline, &device->meta_state.micromap_build.p_layout);
+}
+
+void
+radv_device_finish_micromap_build_state(struct radv_device *device)
+{
+   struct radv_meta_state *state = &device->meta_state;
+   radv_DestroyPipeline(radv_device_to_handle(device), state->micromap_build.pipeline,
+                        &state->alloc);
+   radv_DestroyPipelineLayout(radv_device_to_handle(device), state->micromap_build.p_layout,
+                              &state->alloc);
+}
 
 struct micromap_layout {
    uint32_t triangle_count;

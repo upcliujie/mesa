@@ -705,6 +705,11 @@ struct radv_meta_state {
    } accel_struct_build;
 
    struct {
+      VkPipelineLayout p_layout;
+      VkPipeline pipeline;
+   } micromap_build;
+
+   struct {
       VkDescriptorSetLayout ds_layout;
       VkPipelineLayout p_layout;
       VkPipeline pipeline;
