@@ -384,10 +384,10 @@ radv_device_finish_accel_struct_build_state(struct radv_device *device)
                                         state->accel_struct_build.null.accel_struct, &state->alloc);
 }
 
-static VkResult
-create_build_pipeline_spv(struct radv_device *device, const uint32_t *spv, uint32_t spv_size,
-                          unsigned push_constant_size, VkPipeline *pipeline,
-                          VkPipelineLayout *layout)
+VkResult
+radv_create_build_pipeline(struct radv_device *device, const uint32_t *spv, uint32_t spv_size,
+                           unsigned push_constant_size, VkPipeline *pipeline,
+                           VkPipelineLayout *layout)
 {
    if (*pipeline)
       return VK_SUCCESS;
@@ -580,51 +580,51 @@ radv_device_init_accel_struct_build_state(struct radv_device *device)
    if (device->meta_state.accel_struct_build.radix_sort)
       return VK_SUCCESS;
 
-   result = create_build_pipeline_spv(device, leaf_spv, sizeof(leaf_spv), sizeof(struct leaf_args),
-                                      &device->meta_state.accel_struct_build.leaf_pipeline,
-                                      &device->meta_state.accel_struct_build.leaf_p_layout);
+   result = radv_create_build_pipeline(device, leaf_spv, sizeof(leaf_spv), sizeof(struct leaf_args),
+                                       &device->meta_state.accel_struct_build.leaf_pipeline,
+                                       &device->meta_state.accel_struct_build.leaf_p_layout);
    if (result != VK_SUCCESS)
       return result;
 
-   result = create_build_pipeline_spv(device, lbvh_main_spv, sizeof(lbvh_main_spv),
-                                      sizeof(struct lbvh_main_args),
-                                      &device->meta_state.accel_struct_build.lbvh_main_pipeline,
-                                      &device->meta_state.accel_struct_build.lbvh_main_p_layout);
-   if (result != VK_SUCCESS)
-      return result;
-
-   result =
-      create_build_pipeline_spv(device, lbvh_generate_ir_spv, sizeof(lbvh_generate_ir_spv),
-                                sizeof(struct lbvh_generate_ir_args),
-                                &device->meta_state.accel_struct_build.lbvh_generate_ir_pipeline,
-                                &device->meta_state.accel_struct_build.lbvh_generate_ir_p_layout);
-   if (result != VK_SUCCESS)
-      return result;
-
-   result = create_build_pipeline_spv(device, ploc_spv, sizeof(ploc_spv), sizeof(struct ploc_args),
-                                      &device->meta_state.accel_struct_build.ploc_pipeline,
-                                      &device->meta_state.accel_struct_build.ploc_p_layout);
-   if (result != VK_SUCCESS)
-      return result;
-
-   result = create_build_pipeline_spv(device, ploc_extended_spv, sizeof(ploc_extended_spv),
-                                      sizeof(struct ploc_args),
-                                      &device->meta_state.accel_struct_build.ploc_extended_pipeline,
-                                      &device->meta_state.accel_struct_build.ploc_p_layout);
+   result = radv_create_build_pipeline(device, lbvh_main_spv, sizeof(lbvh_main_spv),
+                                       sizeof(struct lbvh_main_args),
+                                       &device->meta_state.accel_struct_build.lbvh_main_pipeline,
+                                       &device->meta_state.accel_struct_build.lbvh_main_p_layout);
    if (result != VK_SUCCESS)
       return result;
 
    result =
-      create_build_pipeline_spv(device, encode_spv, sizeof(encode_spv), sizeof(struct encode_args),
-                                &device->meta_state.accel_struct_build.encode_pipeline,
-                                &device->meta_state.accel_struct_build.encode_p_layout);
+      radv_create_build_pipeline(device, lbvh_generate_ir_spv, sizeof(lbvh_generate_ir_spv),
+                                 sizeof(struct lbvh_generate_ir_args),
+                                 &device->meta_state.accel_struct_build.lbvh_generate_ir_pipeline,
+                                 &device->meta_state.accel_struct_build.lbvh_generate_ir_p_layout);
+   if (result != VK_SUCCESS)
+      return result;
+
+   result = radv_create_build_pipeline(device, ploc_spv, sizeof(ploc_spv), sizeof(struct ploc_args),
+                                       &device->meta_state.accel_struct_build.ploc_pipeline,
+                                       &device->meta_state.accel_struct_build.ploc_p_layout);
+   if (result != VK_SUCCESS)
+      return result;
+
+   result = radv_create_build_pipeline(
+      device, ploc_extended_spv, sizeof(ploc_extended_spv), sizeof(struct ploc_args),
+      &device->meta_state.accel_struct_build.ploc_extended_pipeline,
+      &device->meta_state.accel_struct_build.ploc_p_layout);
    if (result != VK_SUCCESS)
       return result;
 
    result =
-      create_build_pipeline_spv(device, morton_spv, sizeof(morton_spv), sizeof(struct morton_args),
-                                &device->meta_state.accel_struct_build.morton_pipeline,
-                                &device->meta_state.accel_struct_build.morton_p_layout);
+      radv_create_build_pipeline(device, encode_spv, sizeof(encode_spv), sizeof(struct encode_args),
+                                 &device->meta_state.accel_struct_build.encode_pipeline,
+                                 &device->meta_state.accel_struct_build.encode_p_layout);
+   if (result != VK_SUCCESS)
+      return result;
+
+   result =
+      radv_create_build_pipeline(device, morton_spv, sizeof(morton_spv), sizeof(struct morton_args),
+                                 &device->meta_state.accel_struct_build.morton_pipeline,
+                                 &device->meta_state.accel_struct_build.morton_p_layout);
    if (result != VK_SUCCESS)
       return result;
 
@@ -644,9 +644,9 @@ radv_device_init_accel_struct_build_state(struct radv_device *device)
 static VkResult
 radv_device_init_accel_struct_copy_state(struct radv_device *device)
 {
-   return create_build_pipeline_spv(device, copy_spv, sizeof(copy_spv), sizeof(struct copy_args),
-                                    &device->meta_state.accel_struct_build.copy_pipeline,
-                                    &device->meta_state.accel_struct_build.copy_p_layout);
+   return radv_create_build_pipeline(device, copy_spv, sizeof(copy_spv), sizeof(struct copy_args),
+                                     &device->meta_state.accel_struct_build.copy_pipeline,
+                                     &device->meta_state.accel_struct_build.copy_p_layout);
 }
 
 struct bvh_state {

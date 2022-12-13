@@ -40,4 +40,8 @@ struct radv_acceleration_structure {
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_acceleration_structure, base, VkAccelerationStructureKHR,
                                VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR)
 
+VkResult radv_create_build_pipeline(struct radv_device *device, const uint32_t *spv,
+                                    uint32_t spv_size, unsigned push_constant_size,
+                                    VkPipeline *pipeline, VkPipelineLayout *layout);
+
 #endif
