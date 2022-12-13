@@ -70,3 +70,14 @@ libvulkan_runtime_rs = static_library(
   link_with : [libvulkan_h_rs],
   rust_crate_type : 'rlib',
 )
+
+libvk_rs = static_library(
+  'vk_rs',
+  'vk.rs',
+  gnu_symbol_visibility : 'hidden',
+  rust_crate_type : 'rlib',
+  link_with : [
+    libvulkan_h_rs,
+    libvulkan_runtime_rs,
+  ]
+)
