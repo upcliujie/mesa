@@ -127,13 +127,33 @@ impl<T> VkBox<T> {
         }
     }
 
+    pub unsafe fn new_cb<F: FnOnce(NonNull<T>) -> VkResult>(
+        alloc: &VkAllocationCallbacks,
+        scope: VkSystemAllocationScope,
+        f: F,
+    ) -> Result<VkBox<T>> {
+        match VkBox::<MaybeUninit<T>>::new_uninit(alloc, scope) {
+            Ok(b) => {
+                match f(NonNull::new_unchecked(b.ptr.as_ptr() as *mut T)) {
+                    VK_SUCCESS => Ok(b.assume_init()),
+                    e => Err(e),
+                }
+            },
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn new2(
         x: T,
-        parent_alloc: *const VkAllocationCallbacks,
+        parent_alloc: &VkAllocationCallbacks,
         alloc: *const VkAllocationCallbacks,
         scope: VkSystemAllocationScope,
     ) -> Result<VkBox<T>> {
-        let alloc = if alloc.is_null() { parent_alloc } else { alloc };
+        let alloc = if alloc.is_null() {
+            parent_alloc
+        } else {
+            unsafe {&*alloc }
+        };
         VkBox::new(x, alloc, scope)
     }
 }
@@ -170,5 +190,146 @@ impl<T> Deref for VkBox<T> {
 impl<T> DerefMut for VkBox<T> {
     fn deref_mut(&mut self) -> &mut T {
         self.as_mut()
+    }
+}
+
+type VkFinishFn<V> = unsafe extern "C" fn(obj: *mut V);
+
+#[repr(C)]
+pub struct VkObj<V, T> {
+    vk: V,
+    finish: VkFinishFn<V>,
+    data: Option<T>,
+    _pin: std::marker::PhantomPinned,
+}
+
+impl<V, T> VkObj<V, T> {
+    unsafe fn init_ptr<F: FnOnce(NonNull<V>) -> VkResult>(
+        mut ptr: NonNull<Self>,
+        finish: VkFinishFn<V>,
+        f: F,
+    ) -> VkResult {
+        let vk_ptr = (&mut ptr.as_mut().vk) as *mut V;
+        let finish_ptr = (&mut ptr.as_mut().finish) as *mut VkFinishFn<V>;
+        let data_ptr = (&mut ptr.as_mut().data) as *mut Option<T>;
+
+        match f(NonNull::new_unchecked(vk_ptr)) {
+            VK_SUCCESS => {
+                finish_ptr.write(finish);
+                data_ptr.write(None);
+                VK_SUCCESS
+            }
+            err => err,
+        }
+    }
+
+    pub fn vk(&self) -> &V {
+        &self.vk
+    }
+
+    pub fn vk_mut(&mut self) -> &mut V {
+        &mut self.vk
+    }
+
+    pub unsafe fn vk_ptr(&self) -> *mut V {
+        &self.vk as *const V as *mut V
+    }
+}
+
+impl<V, T> Drop for VkObj<V, T> {
+    fn drop(&mut self) {
+        self.data.take();
+        unsafe { (self.finish)(&mut self.vk) };
+    }
+}
+
+impl<V, T> Deref for VkObj<V, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.data.as_ref().unwrap()
+    }
+}
+
+impl<V, T> DerefMut for VkObj<V, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.data.as_mut().unwrap()
+    }
+}
+
+pub struct VkObjBaseBox<V, T> {
+    obj: VkBox<VkObj<V, T>>,
+}
+
+impl<V, T> VkObjBaseBox<V, T> {
+    pub fn new_cb<F: FnOnce(NonNull<V>) -> VkResult>(
+        alloc: &VkAllocationCallbacks,
+        finish: unsafe extern "C" fn(obj: *mut V),
+        f: F,
+    ) -> Result<VkObjBaseBox<V, T>> {
+        let obj = unsafe {
+            VkBox::new_cb(alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT, |ptr| {
+                VkObj::init_ptr(ptr, finish, f)
+            })
+        }?;
+        Ok(VkObjBaseBox { obj: obj })
+    }
+
+    pub fn new2_cb<F: FnOnce(NonNull<V>) -> VkResult>(
+        parent_alloc: &VkAllocationCallbacks,
+        alloc: *const VkAllocationCallbacks,
+        finish: unsafe extern "C" fn(obj: *mut V),
+        f: F,
+    ) -> Result<VkObjBaseBox<V, T>> {
+        let alloc = if alloc.is_null() {
+            parent_alloc
+        } else {
+            unsafe {&*alloc }
+        };
+        let obj = unsafe {
+            VkBox::new_cb(alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT, |ptr| {
+                VkObj::init_ptr(ptr, finish, f)
+            })
+        }?;
+        Ok(VkObjBaseBox { obj: obj })
+    }
+}
+
+impl<V, T> Deref for VkObjBaseBox<V, T> {
+    type Target = V;
+
+    fn deref(&self) -> &V {
+        &self.obj.vk
+    }
+}
+
+impl<V, T> DerefMut for VkObjBaseBox<V, T> {
+    fn deref_mut(&mut self) -> &mut V {
+        &mut self.obj.vk
+    }
+}
+
+pub struct VkObjBox<V, T> {
+    base: VkObjBaseBox<V, T>,
+}
+
+impl<V, T> VkObjBox<V, T> {
+    pub fn new(mut base: VkObjBaseBox<V, T>, x: T) -> VkObjBox<V, T> {
+        base.obj.data.replace(x);
+        VkObjBox { base: base }
+    }
+}
+
+impl<V, T> Deref for VkObjBox<V, T> {
+    type Target = VkObj<V, T>;
+
+    fn deref(&self) -> &VkObj<V, T> {
+        &self.base.obj
+    }
+}
+
+impl<V, T> DerefMut for VkObjBox<V, T> {
+    fn deref_mut(&mut self) -> &mut VkObj<V, T> {
+        &mut self.base.obj
     }
 }
