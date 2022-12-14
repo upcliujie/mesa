@@ -127,7 +127,39 @@ VKAPI_ATTR void VKAPI_CALL
 radv_CmdBuildMicromapsEXT(VkCommandBuffer commandBuffer, uint32_t infoCount,
                           const VkMicromapBuildInfoEXT *pInfos)
 {
-   unreachable("Unimplemented");
+   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+
+   struct radv_meta_saved_state saved_state;
+   radv_meta_save(
+      &saved_state, cmd_buffer,
+      RADV_META_SAVE_COMPUTE_PIPELINE | RADV_META_SAVE_DESCRIPTORS | RADV_META_SAVE_CONSTANTS);
+
+   radv_CmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                        cmd_buffer->device->meta_state.micromap_build.pipeline);
+
+   for (uint32_t i = 0; i < infoCount; i++) {
+      RADV_FROM_HANDLE(radv_micromap, micromap, pInfos[i].dstMicromap);
+
+      struct micromap_layout layout = get_micromap_layout(pInfos + i);
+      uint64_t scratch_addr = pInfos[i].scratchData.deviceAddress;
+
+      radv_update_buffer_cp(cmd_buffer, scratch_addr, &layout.data_offset, sizeof(uint32_t));
+
+      struct micromap_args args = {
+         .triangles = pInfos[i].triangleArray.deviceAddress,
+         .data = pInfos[i].data.deviceAddress,
+         .dst = micromap->va,
+         .dst_offset = scratch_addr,
+         .stride = pInfos[i].triangleArrayStride,
+      };
+
+      radv_CmdPushConstants(commandBuffer, cmd_buffer->device->meta_state.micromap_build.p_layout,
+                            VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(args), &args);
+
+      radv_unaligned_dispatch(cmd_buffer, layout.triangle_count, 1, 1);
+   }
+
+   radv_meta_restore(&saved_state, cmd_buffer);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
