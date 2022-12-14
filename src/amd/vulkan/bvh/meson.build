@@ -46,6 +46,11 @@ bvh_shaders = [
     [],
   ],
   [
+    'micromap.comp',
+    'micromap',
+    [],
+  ],
+  [
     'morton.comp',
     'morton',
     [],

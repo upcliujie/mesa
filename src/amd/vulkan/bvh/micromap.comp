@@ -1,0 +1,98 @@
+/*
+ * Copyright © 2022 Valve Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ */
+
+#version 460
+
+#extension GL_GOOGLE_include_directive : require
+
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int32 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_buffer_reference2 : require
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+#include "build_interface.h"
+
+layout(push_constant) uniform CONSTS
+{
+   micromap_args args;
+};
+
+#define VK_OPACITY_MICROMAP_FORMAT_2_STATE_EXT 1
+#define VK_OPACITY_MICROMAP_FORMAT_4_STATE_EXT 2
+
+struct VkMicromapTriangleEXT {
+   uint32_t dataOffset;
+   uint16_t subdivisionLevel;
+   uint16_t format;
+};
+
+TYPE(VkMicromapTriangleEXT, 4);
+
+TYPE(micromap_triangle_header, 4);
+
+void
+main(void)
+{
+   uint32_t global_id = gl_GlobalInvocationID.x;
+
+   VkMicromapTriangleEXT triangle =
+      DEREF(REF(VkMicromapTriangleEXT)(args.triangles + global_id * args.stride));
+
+   uint32_t data_count = 1u << (triangle.subdivisionLevel * 2);
+   uint32_t dword_count = max(data_count * 2 / 32, 1);
+   uint32_t dst_offset = atomicAdd(DEREF(args.dst_offset), dword_count * SIZEOF(uint32_t));
+
+   uint64_t data = args.data + triangle.dataOffset;
+
+   uint32_t data_stride = SIZEOF(uint32_t);
+   if (triangle.format == VK_OPACITY_MICROMAP_FORMAT_2_STATE_EXT)
+      data_stride /= 2;
+
+   for (uint32_t i = 0; i < dword_count; i++) {
+      uint32_t src = DEREF(REF(uint32_t)(data + i * data_stride));
+
+      uint32_t result = 0;
+      if (triangle.format == VK_OPACITY_MICROMAP_FORMAT_2_STATE_EXT) {
+         for (uint32_t i = 0; i < 16; i++)
+            result |= (src & (1u << i)) << i;
+      } else {
+         result = src;
+      }
+
+      DEREF(REF(uint32_t)(args.dst + dst_offset + i * SIZEOF(uint32_t))) = result;
+   }
+
+   uint32_t header_offset = global_id * SIZEOF(micromap_triangle_header);
+
+   micromap_triangle_header header;
+   header.offset = dst_offset - header_offset;
+   header.level = triangle.subdivisionLevel;
+   DEREF(REF(micromap_triangle_header)(args.dst + header_offset)) = header;
+}

@@ -125,4 +125,12 @@ struct micromap_triangle_header {
    uint32_t level;
 };
 
+struct micromap_args {
+   VOID_REF triangles;
+   VOID_REF data;
+   VOID_REF dst;
+   REF(uint32_t) dst_offset;
+   uint32_t stride;
+};
+
 #endif
