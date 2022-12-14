@@ -7,6 +7,7 @@ extern crate vulkan_h;
 extern crate vulkan_runtime;
 
 mod boxed;
+mod examples;
 
 use vulkan_h::VkResult;
 
