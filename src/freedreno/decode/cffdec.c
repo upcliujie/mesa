@@ -73,6 +73,8 @@ is_64b(void)
    return options->gpu_id >= 500;
 }
 
+#define MAX_PREFETCH_IBS 4
+
 static int draws[4];
 static struct {
    uint64_t base;
@@ -97,6 +99,21 @@ static struct {
     * level is.
     */
    bool triggered;
+
+   /* See cp_prefetch_ib(). This holds the prefetched IB's. IB
+    * num_prefetch - 1 is the one ROQ is reading, and we should have
+    * prefetch[num_prefetch - 1].base == options->ibs[ib].base.
+    */
+   unsigned num_prefetch;
+   struct {
+      uint64_t base;
+      uint32_t size;
+   } prefetch[MAX_PREFETCH_IBS];
+
+   /* The actual location where the CP is, adjusted based on the prefetched IBs.
+    */
+   uint64_t trigger_base;
+   uint32_t trigger_rem;
 } ibs[4];
 static int ib;
 
@@ -166,7 +183,7 @@ static void dump_tex_samp(uint32_t *texsamp, enum state_src_t src, int num_unit,
 static void dump_tex_const(uint32_t *texsamp, int num_unit, int level);
 
 static bool
-highlight_gpuaddr(uint64_t gpuaddr)
+gpuaddr_triggered(uint64_t gpuaddr)
 {
    if (!options->ibs[ib].base)
       return false;
@@ -174,18 +191,26 @@ highlight_gpuaddr(uint64_t gpuaddr)
    if ((ib > 0) && options->ibs[ib - 1].base && !ibs[ib - 1].triggered)
       return false;
 
+   if (ibs[ib].trigger_base != ibs[ib].base)
+      return false;
+
+   uint64_t start = ibs[ib].base + 4 * (ibs[ib].size - ibs[ib].trigger_rem);
+   uint64_t end = ibs[ib].base + 4 * ibs[ib].size;
+
+   return (start <= gpuaddr) && (gpuaddr <= end);
+}
+
+static bool
+highlight_gpuaddr(uint64_t gpuaddr)
+{
    if (ibs[ib].triggered)
       return options->color;
 
-   if (options->ibs[ib].base != ibs[ib].base)
-      return false;
+   bool triggered = gpuaddr_triggered(gpuaddr);
 
-   uint64_t start = ibs[ib].base + 4 * (ibs[ib].size - options->ibs[ib].rem);
-   uint64_t end = ibs[ib].base + 4 * ibs[ib].size;
-
-   bool triggered = (start <= gpuaddr) && (gpuaddr <= end);
-
-   ibs[ib].triggered |= triggered;
+   /* If IB1 is triggered, make sure any later IB2 is also highlighted. */
+   for (unsigned i = ib; i < ARRAY_SIZE(ibs); i++)
+      ibs[i].triggered |= triggered;
 
    if (triggered)
       printf("ESTIMATED CRASH LOCATION!\n");
@@ -2158,6 +2183,220 @@ cp_nop(uint32_t *dwords, uint32_t sizedwords, int level)
    printf("\n");
 }
 
+/* CP_INDIRECT_BUFFER contains an optimization to read ahead and start
+ * fetching up to 3 subsequent CP_INDIRECT_BUFFER contents into the ROQ before
+ * starting to execute the current IB. This effectively combines them into one
+ * CP_INDIRECT_BUFFER. The result is that if the ROQ is fast enough and
+ * prefetches some of the extra IBs before the first IB finishes, the ROQ may
+ * be in a different IB than the CP is processing. That is, normally we'd have
+ * a situation like this:
+ *
+ *    CP_INDIRECT_BUFFER
+ *       ...
+ *       CP_FOO <- PFP/SQE is reading from here
+ *       ...
+ *       CP_BAR <- ROQ has prefetched up to here
+ *
+ * where CP_IB*_BASE and CP_IB*_REM_SIZE point to CP_BAR and the difference
+ * between CP_FOO and CP_BAR is given by CP_ROQ_AVAIL_IBn::REM, but instead we
+ * may get a situation like this:
+ *
+ *   CP_INDIRECT_BUFFER
+ *      ...
+ *      CP_FOO <- PFP/SQE is reading here
+ *      ...
+ *   CP_INDIRECT_BUFFER
+ *      ...
+ *      CP_BAR <- ROQ has prefetched up to here
+ *
+ * in this case, the "rem" we get with CP_ROQ_AVAIL_IBn::REM added will be
+ * larger than the size of the second IB, indicating that we need to back up
+ * to the IB before it. This can theoretically even happen recursively with
+ * IB2:
+ *
+ * CP_INDIRECT_BUFFER:
+ *    ...
+ *    CP_INDIRECT_BUFFER:
+ *       ...
+ *       CP_FOO <- PFP/SQE IB2 is reading here
+ *       ...
+ * CP_INDIRECT_BUFFER:
+ *    CP_INDIRECT_BUFFER:
+ *       ...
+ *       CP_BAR <- ROQ IB2 has prefetched up to here
+ *       ...
+ * CP_BAZ <- PFP/SQE IB1 is reading here
+ *
+ * Here the ROQ has prefetched the second IB1, then when processing the IB2 at
+ * the end of the first IB1 it peeks ahead in ROQ and sees another IB2 right
+ * afterward in the second IB1 and starts prefetching that too, so that the
+ * ROQ is in a different IB1 *and* IB2 from the CP.
+ *
+ * To handle this we have to emulate the same prefetching magic that the CP
+ * does, scanning forward until we find an IB whose address matches the
+ * address we expect and is right before where the CP is processing. We have
+ * to save all the prefetched IB1's so that when we can handle the recursive
+ * case when searching for the IB2.
+ */
+static void
+cp_prefetch_ib(uint32_t *dwords, uint32_t sizedwords)
+{
+   if (ib >= 2)
+      return;
+
+   /* If there is no IB we're searching (e.g. when not parsing a crash dump)
+    * return.
+    */
+   if (!options->ibs[ib + 1].base)
+      return;
+
+   /* The parent IB, if any, should be triggered already. */
+   if (ib > 0 && options->ibs[ib - 1].base && !ibs[ib - 1].triggered)
+      return;
+
+   /* We shouldn't be triggered yet. */
+   if (ibs[ib].triggered)
+      return;
+
+   /* We shouldn't have found a match yet. */
+   if (ibs[ib + 1].num_prefetch > 0)
+      return;
+
+   /* We may not yet be in the parent's trigger_base in the recursive case,
+    * but we should at least be in one of the prefetched IBs that precedes it.
+    * Search for which one we're in.
+    */
+   unsigned parent_prefetch_idx = 0;
+   if (ib > 0) {
+      for (; ibs[ib].base != ibs[ib].prefetch[parent_prefetch_idx].base;
+           parent_prefetch_idx++) {
+         if (ibs[ib].prefetch[parent_prefetch_idx].base == ibs[ib].trigger_base ||
+             parent_prefetch_idx == ibs[ib].num_prefetch)
+            return;
+      }
+   }
+
+   struct {
+      uint64_t base;
+      uint32_t rem;
+   } ib_locations[MAX_PREFETCH_IBS];
+
+   /* Search until we find the IB where the ROQ is. */
+   unsigned prefetch_cnt = 0;
+   unsigned total_dwords = 0;
+   uint64_t base = ibs[ib].base;
+   bool found_matching_ib = false;
+   while (sizedwords > 0 && prefetch_cnt < MAX_PREFETCH_IBS) {
+      unsigned opcode = 0, count = 0;
+      if (pkt_is_type3(dwords[0])) {
+         opcode = cp_type3_opcode(dwords[0]);
+         count = type3_pkt_size(dwords[0]) + 1;
+      } else if (pkt_is_type7(dwords[0])) {
+         opcode = cp_type7_opcode(dwords[0]);
+         count = type7_pkt_size(dwords[0]) + 1;
+      } else {
+         break;
+      }
+
+      if (strcmp(pktname(opcode), "CP_INDIRECT_BUFFER"))
+         break;
+
+      uint64_t ibaddr;
+      uint32_t ibsize;
+      if (is_64b()) {
+         /* a5xx+.. high 32b of gpu addr, then size: */
+         ibaddr = dwords[1];
+         ibaddr |= ((uint64_t)dwords[2]) << 32;
+         ibsize = dwords[3];
+      } else {
+         ibaddr = dwords[1];
+         ibsize = dwords[2];
+      }
+
+      ibs[ib + 1].prefetch[prefetch_cnt].base = ibaddr;
+      ibs[ib + 1].prefetch[prefetch_cnt].size = ibsize;
+
+      sizedwords -= count;
+      dwords += count;
+
+      if (!found_matching_ib)
+         total_dwords += ibsize;
+
+      ib_locations[prefetch_cnt].base = base;
+      ib_locations[prefetch_cnt].rem = sizedwords;
+
+      prefetch_cnt++;
+
+      /* When searching for the matching IB1 in RB, we don't know where
+       * precisely the CP is, so we have to assume the first IB1 match we get
+       * is the correct one. There shouldn't be many repeated IB's so this is
+       * probably a safe bet. (TODO: find RB equivalent of CP_CSQ_IB*_STAT and
+       * add it.) For finding the matching IB2 when in IB1, we should make
+       * sure where the CP is in IB1, i.e. the trigger address, matches where
+       * it should be assuming this prefetch sequence is correct. The CP
+       * should be right after the last IB2 in the prefetch sequence. The ROQ
+       * may not have reached the last IB2 in the sequence, so this means we
+       * may have to keep going until we find the end of the sequence or run
+       * out of IBs. This makes sure we don't match on the wrong sequence when
+       * the same IB2 is repeated multiple times, like inside a renderpass.
+       */
+      bool match = false;
+      if (ibaddr == options->ibs[ib + 1].base) {
+         found_matching_ib = true;
+         if (ib == 0)
+            match = true;
+      }
+
+      if (ib != 0 &&
+          (base == ibs[ib].trigger_base && sizedwords == ibs[ib].trigger_rem)) {
+         match = true;
+      }
+
+      if (match) {
+         /* We found a match. The CP may have advanced past the first IB
+          * in the prefetch sequence, so we have to loop over the IB's to
+          * figure out which one matches.
+          *
+          * prefetch_dwords is the total size of all the buffers after the
+          * current one up to where the ROQ is.
+          */
+         uint32_t prefetch_dwords = total_dwords;
+         for (unsigned i = 0; i < prefetch_cnt; i++) {
+            prefetch_dwords -= ibs[ib + 1].prefetch[i].size;
+            if (options->ibs[ib + 1].rem >= prefetch_dwords &&
+                options->ibs[ib + 1].rem - prefetch_dwords <
+                ibs[ib + 1].prefetch[i].size) {
+               ibs[ib + 1].num_prefetch = prefetch_cnt;
+               ibs[ib + 1].trigger_rem = options->ibs[ib + 1].rem - prefetch_dwords;
+               ibs[ib + 1].trigger_base = ibs[ib + 1].prefetch[i].base;
+
+               /* Now that we actually know which IB the CP is processing, we
+                * should back up the trigger address for the current level, so
+                * that IBs after it are highlighted.
+                */
+               ibs[ib].trigger_base = ib_locations[i].base;
+               ibs[ib].trigger_rem = ib_locations[i].rem;
+            }
+         }
+
+         break;
+      }
+
+      /* Handle the recursive case by advancing into the next parent IB if
+       * necessary.
+       */
+      if (ib > 0 && sizedwords == 0 && parent_prefetch_idx + 1 < ibs[ib].num_prefetch) {
+         uint32_t *parent_prefetch = hostptr(ibs[ib].prefetch[parent_prefetch_idx + 1].base);
+         if (parent_prefetch) {
+            dwords = parent_prefetch;
+            base = ibs[ib].prefetch[parent_prefetch_idx + 1].base;
+            sizedwords = ibs[ib].prefetch[parent_prefetch_idx + 1].size;
+            parent_prefetch_idx++;
+         }
+      }
+   }
+}
+
 static void
 cp_indirect(uint32_t *dwords, uint32_t sizedwords, int level)
 {
@@ -2205,7 +2444,7 @@ cp_indirect(uint32_t *dwords, uint32_t sizedwords, int level)
        * executed but never returns.  Account for this by checking if
        * the IB returned:
        */
-      highlight_gpuaddr(gpuaddr(&dwords[is_64b() ? 3 : 2]));
+      ibs[ib].triggered |= gpuaddr_triggered(gpuaddr(&dwords[is_64b() ? 3 : 2]));
 
       ib++;
       ibs[ib].base = ibaddr;
@@ -2766,6 +3005,7 @@ dump_commands(uint32_t *dwords, uint32_t sizedwords, int level)
    draws[ib] = 0;
 
    while (dwords_left > 0) {
+      cp_prefetch_ib(dwords, dwords_left);
 
       current_draw_count = draw_count;
 
@@ -2838,6 +3078,11 @@ dump_commands(uint32_t *dwords, uint32_t sizedwords, int level)
       dwords += count;
       dwords_left -= count;
    }
+
+   /* Account for cases where the hang is within the last packet of the
+    * command buffer.
+    */
+   highlight_gpuaddr(gpuaddr(dwords));
 
    if (dwords_left < 0)
       printf("**** this ain't right!! dwords_left=%d\n", dwords_left);
