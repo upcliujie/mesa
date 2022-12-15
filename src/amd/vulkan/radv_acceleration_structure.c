@@ -21,6 +21,7 @@
  * IN THE SOFTWARE.
  */
 #include "radv_acceleration_structure.h"
+#include "radv_micromap.h"
 #include "radv_private.h"
 
 #include "nir_builder.h"
@@ -713,6 +714,24 @@ build_leaves(VkCommandBuffer commandBuffer, uint32_t infoCount,
             leaf_consts.index_format = geom->geometry.triangles.indexType;
 
             prim_size = sizeof(struct radv_ir_triangle_node);
+
+            const VkAccelerationStructureTrianglesOpacityMicromapEXT *micromap_info =
+               vk_find_struct_const(geom->geometry.triangles.pNext,
+                                    ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_EXT);
+
+            if (micromap_info) {
+               leaf_consts.micromap_indices = micromap_info->indexBuffer.deviceAddress;
+               leaf_consts.micromap_index_type = micromap_info->indexType;
+               leaf_consts.micromap_index_stride = (int32_t)micromap_info->indexStride;
+               leaf_consts.micromap_addr = 0;
+
+               if (micromap_info->micromap) {
+                  RADV_FROM_HANDLE(radv_micromap, micromap, micromap_info->micromap);
+                  leaf_consts.micromap_addr = micromap->va;
+               }
+            } else {
+               leaf_consts.micromap_indices = 0;
+            }
             break;
          case VK_GEOMETRY_TYPE_AABBS_KHR:
             assert(pInfos[i].type == VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
