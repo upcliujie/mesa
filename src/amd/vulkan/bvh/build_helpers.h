@@ -163,6 +163,8 @@
 #define VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR         2
 #define VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR                 4
 #define VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR              8
+#define VK_GEOMETRY_INSTANCE_FORCE_OPACITY_MICROMAP_2_STATE_EXT   16
+#define VK_GEOMETRY_INSTANCE_DISABLE_OPACITY_MICROMAPS_EXT        32
 
 #define TYPE(type, align)                                                                          \
    layout(buffer_reference, buffer_reference_align = align, scalar) buffer type##_ref              \
@@ -233,7 +235,7 @@ TYPE(key_id_pair, 4);
 
 TYPE(radv_accel_struct_serialization_header, 8);
 TYPE(radv_accel_struct_header, 8);
-TYPE(radv_bvh_triangle_node, 4);
+TYPE(radv_bvh_triangle_node, 8);
 TYPE(radv_bvh_aabb_node, 4);
 TYPE(radv_bvh_instance_node, 8);
 TYPE(radv_bvh_box16_node, 4);
@@ -242,7 +244,7 @@ TYPE(radv_bvh_box32_node, 4);
 TYPE(radv_ir_header, 4);
 TYPE(radv_ir_node, 4);
 TYPE(radv_ir_box_node, 4);
-TYPE(radv_ir_triangle_node, 4);
+TYPE(radv_ir_triangle_node, 8);
 TYPE(radv_ir_aabb_node, 4);
 TYPE(radv_ir_instance_node, 8);
 

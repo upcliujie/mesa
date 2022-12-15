@@ -184,6 +184,8 @@ struct AccelerationStructureInstance {
 };
 TYPE(AccelerationStructureInstance, 8);
 
+TYPE(micromap_triangle_header, 4);
+
 bool
 build_triangle(inout radv_aabb bounds, VOID_REF dst_ptr, uint32_t global_id)
 {
@@ -227,6 +229,38 @@ build_triangle(inout radv_aabb bounds, VOID_REF dst_ptr, uint32_t global_id)
    DEREF(node).triangle_id = global_id;
    DEREF(node).geometry_id_and_flags = args.geometry_id;
    DEREF(node).id = 9;
+
+   uint64_t opacity_addr = 0;
+   if (args.micromap_indices != 0) {
+      uint32_t index = 0;
+      uint64_t index_addr = args.micromap_indices + global_id * args.micromap_index_stride;
+      switch (args.micromap_index_type) {
+      case VK_INDEX_TYPE_UINT16: {
+         index = DEREF(REF(uint16_t)(index_addr));
+         break;
+      }
+      case VK_INDEX_TYPE_UINT32: {
+         index = DEREF(REF(uint32_t)(index_addr));
+         break;
+      }
+      case VK_INDEX_TYPE_NONE_KHR: {
+         index = global_id;
+         break;
+      }
+      case VK_INDEX_TYPE_UINT8_EXT: {
+         index = DEREF(REF(uint8_t)(index_addr));
+         break;
+      }
+      }
+
+
+      if (index < 0xFFFFFFF - 4)
+         opacity_addr = args.micromap_addr + index * SIZEOF(micromap_triangle_header);
+      else
+         opacity_addr = index;
+   }
+
+   DEREF(node).opacity_addr = opacity_addr;
 
    return true;
 }
