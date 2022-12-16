@@ -3950,6 +3950,7 @@ tu_render_pass_state_merge(struct tu_render_pass_state *dst,
    dst->draw_cs_writes_to_cond_pred |= src->draw_cs_writes_to_cond_pred;
 
    dst->drawcall_count += src->drawcall_count;
+   dst->lrz_drawcall_count += src->lrz_drawcall_count;
    dst->drawcall_bandwidth_per_sample_sum +=
       src->drawcall_bandwidth_per_sample_sum;
 }
@@ -4787,13 +4788,12 @@ tu6_build_depth_plane_z_mode(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    bool depth_test_enable = cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_TEST_ENABLE;
    bool depth_write = tu6_writes_depth(cmd, depth_test_enable);
    bool stencil_write = tu6_writes_stencil(cmd);
+   bool lrz_enabled = cmd->state.lrz.valid && cmd->state.lrz.enabled;
 
    if ((cmd->state.pipeline->lrz.fs.has_kill ||
         cmd->state.pipeline->output.subpass_feedback_loop_ds) &&
        (depth_write || stencil_write)) {
-      zmode = (cmd->state.lrz.valid && cmd->state.lrz.enabled)
-                 ? A6XX_EARLY_LRZ_LATE_Z
-                 : A6XX_LATE_Z;
+      zmode = lrz_enabled ? A6XX_EARLY_LRZ_LATE_Z : A6XX_LATE_Z;
    }
 
    bool force_late_z = cmd->state.pipeline->lrz.force_late_z ||
@@ -4809,6 +4809,9 @@ tu6_build_depth_plane_z_mode(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    /* User defined early tests take precedence above all else */
    if (cmd->state.pipeline->lrz.fs.early_fragment_tests)
       zmode = A6XX_EARLY_Z;
+
+   /* Track whether we're rendering with late Z, for autotune's overdraw estimation. */
+   cmd->state.rp.early_lrz = lrz_enabled && depth_test_enable && zmode != A6XX_LATE_Z;
 
    tu_cs_emit_pkt4(cs, REG_A6XX_GRAS_SU_DEPTH_PLANE_CNTL, 1);
    tu_cs_emit(cs, A6XX_GRAS_SU_DEPTH_PLANE_CNTL_Z_MODE(zmode));
@@ -4874,7 +4877,7 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
    const struct tu_pipeline *pipeline = cmd->state.pipeline;
    struct tu_render_pass_state *rp = &cmd->state.rp;
 
-   /* Fill draw stats for autotuner */
+   /* Fill draw stats for autotuner.  LRZ drawcall count updated below after we know LRZ state. */
    rp->drawcall_count++;
 
    rp->drawcall_bandwidth_per_sample_sum +=
@@ -4924,8 +4927,11 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
 
    /* Early exit if there is nothing to emit, saves CPU cycles */
    uint32_t dirty = cmd->state.dirty;
-   if (!(dirty & ~TU_CMD_DIRTY_COMPUTE_DESC_SETS_LOAD))
+   if (!(dirty & ~TU_CMD_DIRTY_COMPUTE_DESC_SETS_LOAD)) {
+      if (cmd->state.rp.early_lrz)
+         cmd->state.rp.lrz_drawcall_count++;
       return VK_SUCCESS;
+   }
 
    bool dirty_lrz =
       dirty & (TU_CMD_DIRTY_LRZ | TU_CMD_DIRTY_RB_DEPTH_CNTL |
@@ -4940,6 +4946,8 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
       tu6_update_simplified_stencil_state(cmd);
       tu6_emit_lrz(cmd, &cs);
       tu6_build_depth_plane_z_mode(cmd, &cs);
+      if (cmd->state.rp.early_lrz)
+         cmd->state.rp.lrz_drawcall_count++;
    }
 
    if (dirty & TU_CMD_DIRTY_PC_RASTER_CNTL) {

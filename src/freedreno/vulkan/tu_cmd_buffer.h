@@ -282,11 +282,14 @@ struct tu_render_pass_state
    bool has_prim_generated_query_in_rp;
    bool disable_gmem;
    bool sysmem_single_prim_mode;
+   bool early_lrz;
 
    /* Track whether conditional predicate for COND_REG_EXEC is changed in draw_cs */
    bool draw_cs_writes_to_cond_pred;
 
    uint32_t drawcall_count;
+
+   uint32_t lrz_drawcall_count;
 
    /* A calculated "draw cost" value for renderpass, which tries to
     * estimate the bandwidth-per-sample of all the draws according

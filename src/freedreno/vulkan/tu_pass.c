@@ -664,9 +664,7 @@ tu_render_pass_bandwidth_config(struct tu_render_pass *pass)
       if (att->store)
          pass->gmem_bandwidth_per_pixel += att->cpp;
 
-      /* approximate tu_clear_sysmem_attachment */
-      if (att->clear_mask)
-         pass->sysmem_bandwidth_per_pixel += att->cpp;
+      /* tu_clear_sysmem_attachment() will be counted at autotune time. */
 
       /* approximate tu6_emit_sysmem_resolves */
       if (att->will_be_resolved) {

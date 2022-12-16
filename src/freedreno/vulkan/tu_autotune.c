@@ -507,8 +507,17 @@ estimate_drawcall_bandwidth(const struct tu_cmd_buffer *cmd,
    if (!state->rp.drawcall_count)
       return 0;
 
+   /* The SAMPLES_PASSED may be reduced when early LRZ testing rejected samples
+    * for us.  Guess about 2x overdraw, and roughly estimate how much of the
+    * drawing had LRZ active.  We want to count this against sysmem's
+    * per-rendered-sample bandwidth cost.  XXX: this would depend on whether the
+    * historical sample counts were measured with sysmem or gmem, since LRZ
+    * isn't active for sysmem rendering.
+    */
+   float lrz_factor = 2.0 * (state->rp.lrz_drawcall_count / state->rp.drawcall_count);
+
    /* sample count times drawcall_bandwidth_per_sample */
-   return (uint64_t)avg_renderpass_sample_count *
+   return (double)avg_renderpass_sample_count * lrz_factor *
       state->rp.drawcall_bandwidth_per_sample_sum / state->rp.drawcall_count;
 }
 
@@ -562,17 +571,38 @@ tu_autotune_use_bypass(struct tu_autotune *at,
       uint64_t gmem_bandwidth =
          (uint64_t)pass->gmem_bandwidth_per_pixel * pass_pixel_count;
 
+      /* Count sysmem clear costs now when we know UBWC state, because UBWC
+       * clears are actually pretty cheap.
+       */
+      for (uint32_t i = 0; i < pass->attachment_count; i++) {
+         const struct tu_image_view *att_view = cmd_buffer->state.attachments[i];
+         if (!pass->attachments[i].clear_mask)
+            continue;
+         /* approximate tu_clear_sysmem_attachment */
+         if (att_view->view.ubwc_enabled)
+            sysmem_bandwidth += att_view->image->layout[0].ubwc_layer_size;
+         else
+            sysmem_bandwidth += pass_pixel_count * pass->attachments[i].cpp;
+      }
+
+
       const uint64_t total_draw_call_bandwidth =
          estimate_drawcall_bandwidth(cmd_buffer, avg_samples);
 
       /* drawcalls access the memory in sysmem rendering (ignoring CCU) */
       sysmem_bandwidth += total_draw_call_bandwidth;
 
-      /* drawcalls access gmem in gmem rendering, but we do not want to ignore
-       * them completely.  The state changes between tiles also have an
-       * overhead.  The magic numbers of 11 and 10 are randomly chosen.
+      /* tiled drawing has to go through draw_cs for each tile, so count the
+       * read cost of that.  sysmem has to read it as well, but we don't
+       * subtract one from tile_count because we're usually binning which has to
+       * read it too.
        */
-      gmem_bandwidth = (gmem_bandwidth * 11 + total_draw_call_bandwidth) / 10;
+      int tile_count = cmd_buffer->state.tiling->tile_count.width *
+                       cmd_buffer->state.tiling->tile_count.height;
+      uint32_t draw_cs_dwords = 0;
+      for (int i = 0; i < cmd_buffer->draw_cs.entry_count; i++)
+         draw_cs_dwords += cmd_buffer->draw_cs.entries[i].size;
+      gmem_bandwidth += tile_count * draw_cs_dwords * 4;
 
       const bool select_sysmem = sysmem_bandwidth <= gmem_bandwidth;
       if (TU_AUTOTUNE_DEBUG_LOG) {
