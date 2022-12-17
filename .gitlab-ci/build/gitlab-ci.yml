@@ -67,6 +67,13 @@ debian-testing:
     - .ci-deqp-artifacts
   variables:
     UNWIND: "enabled"
+    C_ARGS: >
+      -Werror=odr
+      -Wno-error=stringop-overflow
+    CPP_ARGS: $C_ARGS
+    CPP_LINK_ARGS: >
+      -Wno-error=stringop-overflow
+      -Wno-error=stringop-overread
     DRI_LOADERS: >
       -D glx=dri
       -D gbm=enabled
@@ -83,6 +90,7 @@ debian-testing:
       -D valgrind=disabled
       -D perfetto=true
       -D tools=drm-shim
+      -D b_lto=true
     S3_ARTIFACT_NAME: mesa-x86_64-default-${BUILDTYPE}
     LLVM_VERSION: 15
   script:
@@ -151,6 +159,9 @@ debian-build-testing:
   variables:
     BUILDTYPE: debug
     UNWIND: "enabled"
+    C_ARGS: >
+      -Werror=odr
+    CPP_ARGS: $C_ARGS
     DRI_LOADERS: >
       -D glx=dri
       -D gbm=enabled
@@ -194,6 +205,10 @@ debian-release:
     UNWIND: "enabled"
     C_ARGS: >
       -Wno-error=stringop-overread
+    CPP_ARGS: $C_ARGS
+    CPP_LINK_ARGS: >
+      -Wno-error=stringop-overflow
+      -Wno-error=stringop-overread
     DRI_LOADERS: >
       -D glx=dri
       -D gbm=enabled
@@ -203,12 +218,12 @@ debian-release:
       -D dri3=enabled
       -D gallium-extra-hud=true
       -D gallium-vdpau=enabled
-      -D gallium-omx=disabled
       -D gallium-va=enabled
       -D gallium-xa=enabled
       -D gallium-nine=false
       -D gallium-rusticl=false
       -D llvm=enabled
+      -D b_lto=true
     GALLIUM_DRIVERS: "i915,iris,nouveau,kmsro,freedreno,r300,svga,swrast,v3d,vc4,virgl,etnaviv,panfrost,lima,zink,d3d12,crocus"
     VULKAN_DRIVERS: "amd,imagination-experimental,microsoft-experimental"
     EXTRA_OPTION: >
@@ -405,6 +420,7 @@ debian-arm32:
     EXTRA_OPTION: >
       -D llvm=disabled
       -D valgrind=disabled
+      -D b_lto=true
     S3_ARTIFACT_NAME: mesa-arm32-default-${BUILDTYPE}
     # The strip command segfaults, failing to strip the binary and leaving
     # tempfiles in our artifacts.
@@ -434,6 +450,12 @@ debian-arm64:
     C_ARGS: >
       -Wno-error=array-bounds
       -Wno-error=stringop-truncation
+      -Wno-error=stringop-overflow
+      -Werror=odr
+    CPP_ARGS: $C_ARGS
+    CPP_LINK_ARGS: >
+      -Wno-error=stringop-overflow
+      -Wno-error=stringop-overread
     VULKAN_DRIVERS: "freedreno,broadcom,panfrost,imagination-experimental"
     EXTRA_OPTION: >
       -D llvm=disabled
@@ -441,6 +463,7 @@ debian-arm64:
       -D imagination-srv=true
       -D perfetto=true
       -D freedreno-kmds=msm,virtio
+      -D b_lto=true
     S3_ARTIFACT_NAME: mesa-arm64-default-${BUILDTYPE}
   script:
     - .gitlab-ci/meson/build.sh
@@ -479,6 +502,10 @@ debian-arm64-release:
     C_ARGS: >
       -Wno-error=array-bounds
       -Wno-error=stringop-truncation
+      -Wno-error=stringop-overread
+    CPP_ARGS: $C_ARGS
+    CPP_LINK_ARGS: >
+      -Wno-error=stringop-overflow
       -Wno-error=stringop-overread
   script:
     - .gitlab-ci/meson/build.sh
@@ -615,6 +642,7 @@ debian-x86_32:
     LLVM_VERSION: 15
     EXTRA_OPTION: >
       -D vulkan-layers=device-select,overlay
+      -D b_lto=true
 
 debian-s390x:
   extends:
