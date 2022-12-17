@@ -394,11 +394,24 @@ nir_build_wto_matrix_load(nir_builder *b, nir_ssa_def *instance_addr, nir_ssa_de
  * is assumed to be an actual hit. */
 static nir_ssa_def *
 hit_is_opaque(nir_builder *b, nir_ssa_def *sbt_offset_and_flags,
-              const struct radv_ray_flags *ray_flags, nir_ssa_def *geometry_id_and_flags)
+              const struct radv_ray_flags *ray_flags, nir_ssa_def *geometry_id_and_flags,
+              nir_ssa_def *opacity)
 {
-   nir_ssa_def *opaque =
-      nir_uge(b, nir_ior(b, geometry_id_and_flags, sbt_offset_and_flags),
-              nir_imm_int(b, RADV_INSTANCE_FORCE_OPAQUE | RADV_INSTANCE_NO_FORCE_NOT_OPAQUE));
+   nir_ssa_def *opaque;
+   nir_ssa_def *combined_flags = nir_ior(b, geometry_id_and_flags, sbt_offset_and_flags);
+   if (opacity) {
+      opaque = nir_ieq_imm(b, opacity, VK_OPACITY_MICROMAP_SPECIAL_INDEX_FULLY_OPAQUE_EXT);
+      opaque = nir_bcsel(b, nir_test_mask(b, combined_flags, RADV_INSTANCE_FORCE_OPAQUE),
+                         nir_imm_bool(b, true), opaque);
+      opaque = nir_bcsel(
+         b, nir_ieq_imm(b, nir_iand_imm(b, combined_flags, RADV_INSTANCE_NO_FORCE_NOT_OPAQUE), 0),
+         nir_imm_bool(b, false), opaque);
+   } else {
+      opaque =
+         nir_uge(b, combined_flags,
+                 nir_imm_int(b, RADV_INSTANCE_FORCE_OPAQUE | RADV_INSTANCE_NO_FORCE_NOT_OPAQUE));
+   }
+
    opaque = nir_bcsel(b, ray_flags->force_opaque, nir_imm_bool(b, true), opaque);
    opaque = nir_bcsel(b, ray_flags->force_not_opaque, nir_imm_bool(b, false), opaque);
    return opaque;
@@ -416,6 +429,114 @@ create_bvh_descriptor(nir_builder *b)
       ((bvh_size - 1) >> 32) | (1u << 24 /* Return IJ for triangles */) | (1u << 31));
 }
 
+static nir_ssa_def *
+load_opacity(nir_builder *b, nir_ssa_def *addr, nir_ssa_def *barycentrics)
+{
+   nir_ssa_def *header = nir_load_global(b, addr, 4, 2, 32);
+   nir_ssa_def *offset = nir_channel(b, header, 0);
+   nir_ssa_def *level = nir_channel(b, header, 1);
+
+   nir_ssa_def *triangle_count = nir_ishl(b, nir_imm_int(b, 1), level);
+   nir_ssa_def *max_triangle_index = nir_iadd_imm(b, triangle_count, -1);
+   nir_ssa_def *triangle_count_f = nir_i2f32(b, triangle_count);
+
+   nir_ssa_def *fu = nir_fmul(b, nir_channel(b, barycentrics, 0), triangle_count_f);
+   nir_ssa_def *fv = nir_fmul(b, nir_channel(b, barycentrics, 1), triangle_count_f);
+
+   nir_ssa_def *iu = nir_imin(b, nir_f2i32(b, fu), max_triangle_index);
+   nir_ssa_def *iv = nir_imin(b, nir_f2i32(b, fv), max_triangle_index);
+   nir_ssa_def *iuv = nir_iadd(b, iu, iv);
+
+   iu = nir_bcsel(b, nir_ige(b, iuv, triangle_count),
+                  nir_isub(b, iu, nir_isub(b, iuv, max_triangle_index)), iu);
+
+   nir_ssa_def *fu_fract = nir_ffract(b, fu);
+   nir_ssa_def *fv_fract = nir_ffract(b, fv);
+
+   nir_ssa_def *other_triangle =
+      nir_iand(b, nir_fge(b, nir_fadd(b, fu_fract, fv_fract), nir_imm_float(b, 1.0)),
+               nir_ilt(b, iuv, max_triangle_index));
+   nir_ssa_def *iw = nir_inot(b, nir_iadd(b, iu, iv));
+   iw = nir_bcsel(b, other_triangle, nir_iadd_imm(b, iw, -1), iw);
+
+   nir_ssa_def *b0 = nir_iand(b, nir_inot(b, nir_ixor(b, iu, iw)), max_triangle_index);
+   nir_ssa_def *t = nir_iand(b, nir_ixor(b, iu, iv), b0);
+
+   nir_ssa_def *f = t;
+   f = nir_ixor(b, f, nir_ishr_imm(b, f, 1));
+   f = nir_ixor(b, f, nir_ishr_imm(b, f, 2));
+   f = nir_ixor(b, f, nir_ishr_imm(b, f, 4));
+   f = nir_ixor(b, f, nir_ishr_imm(b, f, 8));
+   nir_ssa_def *b1 = nir_ior(b, nir_iand(b, nir_ixor(b, f, iu), nir_inot(b, b0)), t);
+
+   b0 = nir_iand_imm(b, nir_ior(b, b0, nir_ishl_imm(b, b0, 8)), 0x00ff00ffu);
+   b0 = nir_iand_imm(b, nir_ior(b, b0, nir_ishl_imm(b, b0, 4)), 0x0f0f0f0fu);
+   b0 = nir_iand_imm(b, nir_ior(b, b0, nir_ishl_imm(b, b0, 2)), 0x33333333u);
+   b0 = nir_iand_imm(b, nir_ior(b, b0, nir_ishl_imm(b, b0, 1)), 0x55555555u);
+
+   b1 = nir_iand_imm(b, nir_ior(b, b1, nir_ishl_imm(b, b1, 8)), 0x00ff00ffu);
+   b1 = nir_iand_imm(b, nir_ior(b, b1, nir_ishl_imm(b, b1, 4)), 0x0f0f0f0fu);
+   b1 = nir_iand_imm(b, nir_ior(b, b1, nir_ishl_imm(b, b1, 2)), 0x33333333u);
+   b1 = nir_iand_imm(b, nir_ior(b, b1, nir_ishl_imm(b, b1, 1)), 0x55555555u);
+
+   nir_ssa_def *index = nir_ior(b, b0, nir_ishl_imm(b, b1, 1));
+   nir_ssa_def *load_addr =
+      nir_iadd(b, addr, nir_u2u64(b, nir_iadd(b, offset, nir_udiv_imm(b, index, 4))));
+
+   nir_ssa_def *data = nir_u2u32(b, nir_load_global(b, load_addr, 1, 1, 8));
+   nir_ssa_def *bit_offset = nir_imul_imm(b, nir_umod(b, index, nir_imm_int(b, 4)), 2);
+
+   return nir_isub_imm(b, -1, nir_iand_imm(b, nir_ishr(b, data, bit_offset), 0b11));
+}
+
+static nir_ssa_def *
+get_opacity(nir_builder *b, const struct radv_ray_traversal_args *args, nir_ssa_def *opacity_addr,
+            nir_ssa_def *barycentrics)
+{
+   nir_ssa_def *instance_flags = nir_load_deref(b, args->vars.sbt_offset_and_flags);
+
+   nir_ssa_def *addr_low = nir_channel(b, opacity_addr, 0);
+   nir_ssa_def *addr_high = nir_channel(b, opacity_addr, 1);
+
+   nir_ssa_def *packed_addr = nir_pack_64_2x32_split(b, addr_low, addr_high);
+
+   nir_ssa_def *ignored, *accepted, *special_index, *loaded;
+   nir_push_if(b, nir_ior(b, nir_test_mask(b, instance_flags, RADV_INSTANCE_DISABLE_MICROMAPS),
+                          nir_ieq_imm(b, packed_addr, 0)));
+   {
+      ignored = nir_imm_int(b, VK_OPACITY_MICROMAP_SPECIAL_INDEX_FULLY_UNKNOWN_OPAQUE_EXT);
+   }
+   nir_push_else(b, NULL);
+   {
+      nir_push_if(b, nir_ieq_imm(b, addr_high, 0));
+      {
+         special_index = addr_low;
+      }
+      nir_push_else(b, NULL);
+      {
+         loaded = load_opacity(b, packed_addr, barycentrics);
+      }
+      nir_pop_if(b, NULL);
+
+      accepted = nir_if_phi(b, special_index, loaded);
+
+      nir_ssa_def *force_2_state =
+         nir_test_mask(b, instance_flags, RADV_INSTANCE_FORCE_2_STATE_MICROMAPS);
+      force_2_state =
+         nir_ior(b, force_2_state,
+                 nir_test_mask(b, args->flags, SpvRayFlagsForceOpacityMicromap2StateEXTMask));
+
+      nir_ssa_def *is_4_state =
+         nir_ilt(b, accepted, nir_imm_int(b, VK_OPACITY_MICROMAP_SPECIAL_INDEX_FULLY_OPAQUE_EXT));
+
+      accepted = nir_bcsel(b, nir_iand(b, force_2_state, is_4_state), nir_iadd_imm(b, accepted, 2),
+                           accepted);
+   }
+   nir_pop_if(b, NULL);
+
+   return nir_if_phi(b, ignored, accepted);
+}
+
 static void
 insert_traversal_triangle_case(struct radv_device *device, nir_builder *b,
                                const struct radv_ray_traversal_args *args,
@@ -425,7 +546,7 @@ insert_traversal_triangle_case(struct radv_device *device, nir_builder *b,
    if (!args->triangle_cb)
       return;
 
-   struct radv_triangle_intersection intersection;
+   struct radv_triangle_intersection intersection = {0};
    intersection.t = nir_channel(b, result, 0);
    nir_ssa_def *div = nir_channel(b, result, 1);
    intersection.t = nir_fdiv(b, intersection.t, div);
@@ -452,23 +573,51 @@ insert_traversal_triangle_case(struct radv_device *device, nir_builder *b,
                               nir_flt(b, args->tmin, intersection.t), not_cull));
       {
          intersection.base.node_addr = build_node_to_addr(device, b, bvh_node, false);
-         nir_ssa_def *triangle_info = nir_build_load_global(
-            b, 2, 32,
-            nir_iadd_imm(b, intersection.base.node_addr,
-                         offsetof(struct radv_bvh_triangle_node, triangle_id)));
-         intersection.base.primitive_id = nir_channel(b, triangle_info, 0);
-         intersection.base.geometry_id_and_flags = nir_channel(b, triangle_info, 1);
+
+         nir_ssa_def *opacity = NULL;
+         nir_ssa_def *divs[2] = {div, div};
+
+         if (device->vk.enabled_extensions.EXT_opacity_micromap) {
+            nir_ssa_def *triangle_info = nir_build_load_global(
+               b, 4, 32,
+               nir_iadd_imm(b, intersection.base.node_addr,
+                            offsetof(struct radv_bvh_triangle_node, opacity_addr)));
+
+            intersection.base.primitive_id = nir_channel(b, triangle_info, 2);
+            intersection.base.geometry_id_and_flags = nir_channel(b, triangle_info, 3);
+
+            intersection.barycentrics =
+               nir_fdiv(b, nir_channels(b, result, 0xc), nir_vec(b, divs, 2));
+
+            opacity = get_opacity(b, args, nir_channels(b, triangle_info, 0b11),
+                                  intersection.barycentrics);
+         } else {
+            nir_ssa_def *triangle_info = nir_build_load_global(
+               b, 2, 32,
+               nir_iadd_imm(b, intersection.base.node_addr,
+                            offsetof(struct radv_bvh_triangle_node, triangle_id)));
+            intersection.base.primitive_id = nir_channel(b, triangle_info, 0);
+            intersection.base.geometry_id_and_flags = nir_channel(b, triangle_info, 1);
+         }
+
          intersection.base.opaque =
             hit_is_opaque(b, nir_load_deref(b, args->vars.sbt_offset_and_flags), ray_flags,
-                          intersection.base.geometry_id_and_flags);
+                          intersection.base.geometry_id_and_flags, opacity);
 
          not_cull = nir_bcsel(b, intersection.base.opaque, ray_flags->no_cull_opaque,
                               ray_flags->no_cull_no_opaque);
+
+         if (opacity) {
+            not_cull = nir_iand(
+               b, not_cull,
+               nir_ine_imm(b, opacity, VK_OPACITY_MICROMAP_SPECIAL_INDEX_FULLY_TRANSPARENT_EXT));
+         }
+
          nir_push_if(b, not_cull);
          {
-            nir_ssa_def *divs[2] = {div, div};
-            intersection.barycentrics =
-               nir_fdiv(b, nir_channels(b, result, 0xc), nir_vec(b, divs, 2));
+            if (!intersection.barycentrics)
+               intersection.barycentrics =
+                  nir_fdiv(b, nir_channels(b, result, 0xc), nir_vec(b, divs, 2));
 
             args->triangle_cb(b, &intersection, args, ray_flags);
          }
@@ -494,7 +643,7 @@ insert_traversal_aabb_case(struct radv_device *device, nir_builder *b,
    intersection.primitive_id = nir_channel(b, triangle_info, 0);
    intersection.geometry_id_and_flags = nir_channel(b, triangle_info, 1);
    intersection.opaque = hit_is_opaque(b, nir_load_deref(b, args->vars.sbt_offset_and_flags),
-                                       ray_flags, intersection.geometry_id_and_flags);
+                                       ray_flags, intersection.geometry_id_and_flags, NULL);
 
    nir_ssa_def *not_cull =
       nir_bcsel(b, intersection.opaque, ray_flags->no_cull_opaque, ray_flags->no_cull_no_opaque);
