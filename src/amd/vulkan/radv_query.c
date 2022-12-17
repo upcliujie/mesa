@@ -34,6 +34,7 @@
 #include "radv_acceleration_structure.h"
 #include "radv_cs.h"
 #include "radv_meta.h"
+#include "radv_micromap.h"
 #include "radv_private.h"
 #include "sid.h"
 
@@ -1118,6 +1119,8 @@ radv_create_query_pool(struct radv_device *device, const VkQueryPoolCreateInfo *
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR:
+   case VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT:
+   case VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT:
       pool->stride = 8;
       break;
    case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
@@ -1214,7 +1217,9 @@ radv_GetQueryPoolResults(VkDevice _device, VkQueryPool queryPool, uint32_t first
       case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR:
       case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR:
       case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR:
-      case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR: {
+      case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR:
+      case VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT:
+      case VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT: {
          uint64_t const *src64 = (uint64_t const *)src;
          uint64_t value;
 
@@ -1476,6 +1481,8 @@ radv_query_result_size(const struct radv_query_pool *pool, VkQueryResultFlags fl
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR:
+   case VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT:
+   case VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT:
    case VK_QUERY_TYPE_OCCLUSION:
       values += 1;
       break;
@@ -1574,6 +1581,8 @@ radv_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer, VkQueryPool queryPoo
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR:
+   case VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT:
+   case VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT:
       if (flags & VK_QUERY_RESULT_WAIT_BIT) {
          for (unsigned i = 0; i < queryCount; ++i, dest_va += stride) {
             unsigned query = firstQuery + i;
@@ -1648,6 +1657,8 @@ query_clear_value(VkQueryType type)
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR:
    case VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR:
+   case VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT:
+   case VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT:
       return (uint32_t)TIMESTAMP_NOT_READY;
    default:
       return 0;
@@ -2220,5 +2231,27 @@ radv_CmdWriteMicromapsPropertiesEXT(VkCommandBuffer commandBuffer, uint32_t micr
                                     const VkMicromapEXT *pMicromaps, VkQueryType queryType,
                                     VkQueryPool queryPool, uint32_t firstQuery)
 {
-   unreachable("Unimplemented");
+   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+
+   emit_query_flush(cmd_buffer, pool);
+
+   for (uint32_t i = 0; i < micromapCount; ++i) {
+      RADV_FROM_HANDLE(radv_micromap, micromap, pMicromaps[i]);
+
+      uint64_t value = 0;
+      switch (queryType) {
+      case VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT:
+         value = micromap->size;
+         break;
+      case VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT:
+         value = micromap->size + sizeof(struct radv_micromap_serialization_header);
+         break;
+      default:
+         unreachable("Unhandle micromap query type.");
+      }
+
+      uint64_t query_va = radv_buffer_get_va(pool->bo) + pool->stride * (firstQuery + i);
+      radv_update_buffer_cp(cmd_buffer, query_va, &value, sizeof(value));
+   }
 }

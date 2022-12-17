@@ -38,4 +38,9 @@ struct radv_micromap {
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_micromap, base, VkMicromapEXT, VK_OBJECT_TYPE_MICROMAP_EXT)
 
+struct radv_micromap_serialization_header {
+   uint8_t driver_uuid[VK_UUID_SIZE];
+   uint8_t micromap_compat[VK_UUID_SIZE];
+};
+
 #endif
