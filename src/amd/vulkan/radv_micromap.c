@@ -237,11 +237,17 @@ radv_CmdCopyMemoryToMicromapEXT(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-radv_GetDeviceMicromapCompatibilityEXT(VkDevice device,
+radv_GetDeviceMicromapCompatibilityEXT(VkDevice _device,
                                        const VkMicromapVersionInfoEXT *pVersionInfo,
                                        VkAccelerationStructureCompatibilityKHR *pCompatibility)
 {
-   unreachable("Unimplemented");
+   RADV_FROM_HANDLE(radv_device, device, _device);
+   bool compat =
+      memcmp(pVersionInfo->pVersionData, device->physical_device->driver_uuid, VK_UUID_SIZE) == 0 &&
+      memcmp(pVersionInfo->pVersionData + VK_UUID_SIZE, device->physical_device->cache_uuid,
+             VK_UUID_SIZE) == 0;
+   *pCompatibility = compat ? VK_ACCELERATION_STRUCTURE_COMPATIBILITY_COMPATIBLE_KHR
+                            : VK_ACCELERATION_STRUCTURE_COMPATIBILITY_INCOMPATIBLE_KHR;
 }
 
 VKAPI_ATTR void VKAPI_CALL
