@@ -228,7 +228,12 @@ VKAPI_ATTR void VKAPI_CALL
 radv_CmdCopyMemoryToMicromapEXT(VkCommandBuffer commandBuffer,
                                 const VkCopyMemoryToMicromapInfoEXT *pInfo)
 {
-   unreachable("Unimplemented");
+   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   RADV_FROM_HANDLE(radv_micromap, dst, pInfo->dst);
+
+   radv_copy_memory(cmd_buffer,
+                    pInfo->src.deviceAddress + sizeof(struct radv_micromap_serialization_header),
+                    dst->va, dst->size);
 }
 
 VKAPI_ATTR void VKAPI_CALL
