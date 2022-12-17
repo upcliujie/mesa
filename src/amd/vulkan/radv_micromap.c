@@ -201,7 +201,11 @@ radv_WriteMicromapsPropertiesEXT(VkDevice device, uint32_t micromapCount,
 VKAPI_ATTR void VKAPI_CALL
 radv_CmdCopyMicromapEXT(VkCommandBuffer commandBuffer, const VkCopyMicromapInfoEXT *pInfo)
 {
-   unreachable("Unimplemented");
+   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   RADV_FROM_HANDLE(radv_micromap, src, pInfo->src);
+   RADV_FROM_HANDLE(radv_micromap, dst, pInfo->dst);
+
+   radv_copy_buffer(cmd_buffer, src->bo, dst->bo, src->mem_offset, dst->mem_offset, src->size);
 }
 
 VKAPI_ATTR void VKAPI_CALL
