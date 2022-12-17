@@ -273,6 +273,19 @@ radv_fill_buffer(struct radv_cmd_buffer *cmd_buffer, const struct radv_image *im
 }
 
 void
+radv_copy_memory(struct radv_cmd_buffer *cmd_buffer, uint64_t src_va, uint64_t dst_va,
+                 uint64_t size)
+{
+   bool use_compute = !(size & 3) && !(src_va & 3) && !(dst_va & 3) &&
+                      radv_prefer_compute_dma(cmd_buffer->device, size, NULL, NULL);
+
+   if (use_compute)
+      copy_buffer_shader(cmd_buffer, src_va, dst_va, size);
+   else if (size)
+      si_cp_dma_buffer_copy(cmd_buffer, src_va, dst_va, size);
+}
+
+void
 radv_copy_buffer(struct radv_cmd_buffer *cmd_buffer, struct radeon_winsys_bo *src_bo,
                  struct radeon_winsys_bo *dst_bo, uint64_t src_offset, uint64_t dst_offset,
                  uint64_t size)
