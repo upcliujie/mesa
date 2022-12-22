@@ -615,4 +615,8 @@
    DRI_CONF_OPT_B(fp64_workaround_enabled, def, \
                   "Use softpf64 when the shader uses float64, but the device doesn't support that type")
 
+#define DRI_CONF_ANV_DISABLE_AUX_SURFACE(def) \
+   DRI_CONF_OPT_B(anv_disable_aux_surface, def, \
+                  "Stop process of creating aux surface")
+
 #endif
