@@ -39,6 +39,7 @@
 
 #include "virgl_screen.h"
 #include "virgl_resource.h"
+#include "virgl_resource_stats.h"
 #include "virgl_public.h"
 #include "virgl_context.h"
 #include "virtio-gpu/virgl_protocol.h"
@@ -56,6 +57,7 @@ static const struct debug_named_value virgl_debug_options[] = {
    { "r8srgb-readback",   VIRGL_DEBUG_L8_SRGB_ENABLE_READBACK, "Enable redaback for L8 sRGB textures" },
    { "nocoherent", VIRGL_DEBUG_NO_COHERENT,        "Disable coherent memory"},
    { "video",     VIRGL_DEBUG_VIDEO,               "Video codec"},
+   { "res_stats", VIRGL_DEBUG_RES_STATS,           "Enable periodic output of resource usage stats" },
    DEBUG_NAMED_VALUE_END
 };
 DEBUG_GET_ONCE_FLAGS_OPTION(virgl_debug, "VIRGL_DEBUG", virgl_debug_options, 0)
@@ -742,7 +744,7 @@ virgl_is_format_supported( struct pipe_screen *screen,
    const struct util_format_description *format_desc;
    int i;
 
-   union virgl_caps *caps = &vscreen->caps.caps; 
+   union virgl_caps *caps = &vscreen->caps.caps;
    boolean may_emulate_bgra = (caps->v2.capability_bits &
                                VIRGL_CAP_APP_TWEAK_SUPPORT) &&
                                vscreen->tweak_gles_emulate_bgra;
@@ -950,10 +952,17 @@ virgl_destroy_screen(struct pipe_screen *screen)
 
    slab_destroy_parent(&vscreen->transfer_pool);
 
+   /* stats must be reported before destroying the virgl_winsys */
+   if (vscreen->resource_stats)
+      virgl_resource_stats_print_report(vscreen->resource_stats);
+
    if (vws)
       vws->destroy(vws);
 
    disk_cache_destroy(vscreen->disk_cache);
+
+   if (vscreen->resource_stats)
+      virgl_resource_stats_destroy(vscreen->resource_stats);
 
    FREE(vscreen);
 }
@@ -1182,5 +1191,13 @@ virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *c
    slab_create_parent(&screen->transfer_pool, sizeof(struct virgl_transfer), 16);
 
    virgl_disk_cache_create(screen);
+
+   if (virgl_debug & VIRGL_DEBUG_RES_STATS) {
+      if((screen->resource_stats = virgl_resource_stats_create())) {
+         screen->vws->resource_stats = screen->resource_stats;
+         debug_printf("VIRGL: enabling resource tracking stats.\n");
+      }
+   }
+
    return &screen->base;
 }

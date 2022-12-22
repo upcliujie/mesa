@@ -50,6 +50,8 @@ struct virgl_winsys {
    int supports_encoded_transfers; /* Encoded transfers are supported */
    int supports_coherent;          /* Coherent memory is supported */
 
+   struct virgl_resource_stats *resource_stats;
+
    void (*destroy)(struct virgl_winsys *vws);
 
    int (*transfer_put)(struct virgl_winsys *vws,

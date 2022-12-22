@@ -37,6 +37,7 @@
 #include "util/u_inlines.h"
 #include "util/u_pointer.h"
 #include "frontend/drm_driver.h"
+#include "virgl/virgl_resource_stats.h"
 #include "virgl/virgl_screen.h"
 #include "virgl/virgl_public.h"
 #include "virtio-gpu/virgl_protocol.h"
@@ -99,6 +100,10 @@ static void virgl_hw_res_destroy(struct virgl_drm_winsys *qdws,
       memset(&args, 0, sizeof(args));
       args.handle = res->bo_handle;
       drmIoctl(qdws->fd, DRM_IOCTL_GEM_CLOSE, &args);
+
+      if (qdws->base.resource_stats)
+         virgl_resource_stats_remove_alloc(qdws->base.resource_stats, res->size);
+
       FREE(res);
 }
 
@@ -316,6 +321,9 @@ virgl_drm_winsys_resource_create(struct virgl_winsys *qws,
    p_atomic_set(&res->maybe_busy, for_fencing);
 
    virgl_resource_cache_entry_init(&res->cache_entry, params);
+
+   if (qws->resource_stats)
+      virgl_resource_stats_add_alloc(qws->resource_stats, size);
 
    return res;
 }
