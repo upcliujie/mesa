@@ -941,18 +941,19 @@ optConfEndElem(void *userData, const char *name)
    }
 }
 
-static void
+static bool
 _parseOneConfigFile(XML_Parser p)
 {
 #define BUF_SIZE 0x1000
    struct OptConfData *data = (struct OptConfData *)XML_GetUserData(p);
    int status;
    int fd;
+   bool res = true;
 
    if ((fd = open(data->name, O_RDONLY)) == -1) {
       __driUtilMessage("Can't open configuration file %s: %s.",
                        data->name, strerror(errno));
-      return;
+      return false;
    }
 
    while (1) {
@@ -960,17 +961,20 @@ _parseOneConfigFile(XML_Parser p)
       void *buffer = XML_GetBuffer(p, BUF_SIZE);
       if (!buffer) {
          __driUtilMessage("Can't allocate parser buffer.");
+         res = false;
          break;
       }
       bytesRead = read(fd, buffer, BUF_SIZE);
       if (bytesRead == -1) {
          __driUtilMessage("Error reading from configuration file %s: %s.",
                           data->name, strerror(errno));
+         res = false;
          break;
       }
       status = XML_ParseBuffer(p, bytesRead, bytesRead == 0);
       if (!status) {
          XML_ERROR("%s.", XML_ErrorString(XML_GetErrorCode(p)));
+         res = false;
          break;
       }
       if (bytesRead == 0)
@@ -978,11 +982,12 @@ _parseOneConfigFile(XML_Parser p)
    }
 
    close(fd);
+   return res;
 #undef BUF_SIZE
 }
 
 /** \brief Parse the named configuration file */
-static void
+static bool
 parseOneConfigFile(struct OptConfData *data, const char *filename)
 {
    XML_Parser p;
@@ -999,8 +1004,9 @@ parseOneConfigFile(struct OptConfData *data, const char *filename)
    data->inApp = 0;
    data->inOption = 0;
 
-   _parseOneConfigFile(p);
+   bool res = _parseOneConfigFile(p);
    XML_ParserFree(p);
+   return res;
 }
 
 static int
@@ -1210,16 +1216,31 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
    userData.execName = execname ? execname : util_get_process_name();
 
 #if WITH_XMLCONFIG
-   char *home;
-
    parseConfigDir(&userData, datadir);
    parseOneConfigFile(&userData, SYSCONFDIR "/drirc");
 
-   if ((home = getenv("HOME"))) {
-      char filename[PATH_MAX];
 
-      snprintf(filename, PATH_MAX, "%s/.drirc", home);
-      parseOneConfigFile(&userData, filename);
+   char *home = getenv("HOME");
+   char *xdg_config_home = getenv("XDG_CONFIG_HOME");
+   char filename[PATH_MAX];
+   bool res = false;
+
+   // Explicit XDG config first
+   if (xdg_config_home != NULL) {
+      snprintf(filename, PATH_MAX, "%s/drirc", xdg_config_home);
+      res = parseOneConfigFile(&userData, filename);
+   }
+
+   if (!res && (home != NULL)) {
+      // Standard location $HOME/.config/drirc
+      snprintf(filename, PATH_MAX, "%s/.config/drirc", home);
+      res = parseOneConfigFile(&userData, filename);
+
+      // Legacy fallback $HOME/.drirc
+      if (!res) {
+         snprintf(filename, PATH_MAX, "%s/.drirc", home);
+         parseOneConfigFile(&userData, filename);
+      }
    }
 #else
    parseStaticConfig(&userData);
