@@ -28,6 +28,7 @@
 #include "util/disk_cache.h"
 #include "virgl_winsys.h"
 #include "compiler/nir/nir.h"
+#include "virgl_resource_stats.h"
 
 enum virgl_debug_flags {
    VIRGL_DEBUG_VERBOSE              = 1 << 0,
@@ -40,6 +41,7 @@ enum virgl_debug_flags {
    VIRGL_DEBUG_USE_TGSI             = 1 << 7,
    VIRGL_DEBUG_L8_SRGB_ENABLE_READBACK = 1 << 8,
    VIRGL_DEBUG_VIDEO                = 1 << 9,
+   VIRGL_DEBUG_RES_STATS            = 1 << 10,
 };
 
 extern int virgl_debug;
@@ -68,6 +70,8 @@ struct virgl_screen {
    nir_shader_compiler_options compiler_options;
 
    struct disk_cache *disk_cache;
+
+   struct virgl_resource_stats *resource_stats;
 };
 
 
