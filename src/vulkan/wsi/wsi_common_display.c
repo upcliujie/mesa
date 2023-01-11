@@ -57,6 +57,10 @@
 #include "wsi_common_display.h"
 #include "wsi_common_queue.h"
 
+#include "libdisplay-info/info.h"
+#include "libdisplay-info/edid.h"
+#include "libdisplay-info/cta.h"
+
 #if 0
 #define wsi_display_debug(...) fprintf(stderr, __VA_ARGS__)
 #define wsi_display_debug_code(...)     __VA_ARGS__
@@ -80,6 +84,11 @@ typedef struct wsi_display_mode {
    uint32_t                     flags;
 } wsi_display_mode;
 
+typedef struct wsi_display_connector_metadata {
+   VkHdrMetadataEXT hdrMetadata;
+   bool supportsST2084;
+} wsi_display_connector_metadata;
+
 typedef struct wsi_display_connector {
    struct list_head             list;
    struct wsi_display           *wsi;
@@ -92,9 +101,15 @@ typedef struct wsi_display_connector {
    wsi_display_mode             *current_mode;
    drmModeModeInfo              current_drm_mode;
    uint32_t                     dpms_property;
+   uint32_t                     hdr_metadata_property;
+   uint32_t                     hdr_metadata_blob;
+   uint64_t                     color_outcome_serial;
+   uint32_t                     colorspace_property;
+   uint32_t                     colorspace_value;
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
    xcb_randr_output_t           output;
 #endif
+   struct wsi_display_connector_metadata metadata;
 } wsi_display_connector;
 
 struct wsi_display {
@@ -174,6 +189,9 @@ struct wsi_display_sync {
 };
 
 static uint64_t fence_sequence;
+
+static void
+_wsi_display_cleanup_state(struct wsi_display_swapchain *chain);
 
 ICD_DEFINE_NONDISP_HANDLE_CASTS(wsi_display_mode, VkDisplayModeKHR)
 ICD_DEFINE_NONDISP_HANDLE_CASTS(wsi_display_connector, VkDisplayKHR)
@@ -312,6 +330,63 @@ wsi_display_alloc_connector(struct wsi_display *wsi,
    return connector;
 }
 
+static void
+wsi_display_parse_edid(struct wsi_display_connector *connector, drmModePropertyBlobRes *blob)
+{
+   struct wsi_display_connector_metadata *metadata = &connector->metadata;
+   struct di_info* info = di_info_parse_edid(blob->data, blob->length);
+
+   if (!info) {
+      fprintf(stderr, "wsi_display_parse_edid: Failed to parse edid. Reason: %s\n", di_info_get_failure_msg(info));
+      return;
+   }
+
+   const struct di_edid* edid = di_info_get_edid(info);
+
+   const struct di_edid_chromaticity_coords* chroma = di_edid_get_chromaticity_coords(edid);
+   const struct di_cta_hdr_static_metadata_block* hdr_static_metadata = NULL;
+   const struct di_cta_colorimetry_block* colorimetry = NULL;
+
+   const struct di_edid_cta* cta = NULL;
+   const struct di_edid_ext* const* exts = di_edid_get_extensions(edid);
+   for (; *exts != NULL; exts++) {
+      if ((cta = di_edid_ext_get_cta(*exts)))
+         break;
+   }
+
+   if (cta) {
+      const struct di_cta_data_block* const* blocks = di_edid_cta_get_data_blocks(cta);
+      for (; *blocks != NULL; blocks++) {
+         if (!hdr_static_metadata && (hdr_static_metadata = di_cta_data_block_get_hdr_static_metadata(*blocks)))
+            continue;
+         if (!colorimetry && (colorimetry = di_cta_data_block_get_colorimetry(*blocks)))
+            continue;
+      }
+   }
+
+   if (chroma) {
+      metadata->hdrMetadata.displayPrimaryRed = (VkXYColorEXT){ chroma->red_x, chroma->red_y };
+      metadata->hdrMetadata.displayPrimaryGreen = (VkXYColorEXT){ chroma->green_x, chroma->green_y };
+      metadata->hdrMetadata.displayPrimaryBlue = (VkXYColorEXT){ chroma->blue_x, chroma->blue_y };
+      metadata->hdrMetadata.whitePoint = (VkXYColorEXT){ chroma->white_x, chroma->white_y };
+   }
+
+   if (hdr_static_metadata) {
+      metadata->hdrMetadata.maxFrameAverageLightLevel = hdr_static_metadata->desired_content_max_frame_avg_luminance;
+      metadata->hdrMetadata.minLuminance = hdr_static_metadata->desired_content_min_luminance;
+      metadata->hdrMetadata.maxLuminance = hdr_static_metadata->desired_content_max_luminance;
+      /* To be filled in by the app based on the scene, default to desired_content_max_luminance. */
+      metadata->hdrMetadata.maxContentLightLevel = hdr_static_metadata->desired_content_max_luminance;
+   }
+
+   metadata->supportsST2084 =
+      chroma &&
+      colorimetry && colorimetry->bt2020_rgb &&
+      hdr_static_metadata && hdr_static_metadata->eotfs && hdr_static_metadata->eotfs->pq;
+
+   di_info_destroy(info);
+}
+
 static struct wsi_display_connector *
 wsi_display_get_connector(struct wsi_device *wsi_device,
                           int drm_fd,
@@ -344,19 +419,29 @@ wsi_display_get_connector(struct wsi_device *wsi_device,
    connector->connected = drm_connector->connection != DRM_MODE_DISCONNECTED;
 
    /* Look for a DPMS property if we haven't already found one */
-   for (int p = 0; connector->dpms_property == 0 &&
-           p < drm_connector->count_props; p++)
+   drmModeObjectProperties *props = drmModeObjectGetProperties(drm_fd, connector->id, DRM_MODE_OBJECT_CONNECTOR);
+   for (int p = 0; p < props->count_props; p++)
    {
-      drmModePropertyPtr prop = drmModeGetProperty(drm_fd,
-                                                   drm_connector->props[p]);
+      drmModePropertyPtr prop = drmModeGetProperty(drm_fd, props->props[p]);
       if (!prop)
          continue;
-      if (prop->flags & DRM_MODE_PROP_ENUM) {
-         if (!strcmp(prop->name, "DPMS"))
-            connector->dpms_property = drm_connector->props[p];
+
+      if (!strcmp(prop->name, "DPMS"))
+         connector->dpms_property = props->props[p];
+      if (!strcmp(prop->name, "HDR_OUTPUT_METADATA"))
+         connector->hdr_metadata_property = props->props[p];
+      if (!strcmp(prop->name, "Colorspace"))
+         connector->colorspace_property = props->props[p];
+      if (!strcmp(prop->name, "EDID")) {
+         drmModePropertyBlobRes *blob = drmModeGetPropertyBlob(drm_fd, props->prop_values[0]);
+         if (blob) {
+            wsi_display_parse_edid(connector, blob);
+            drmModeFreePropertyBlob(blob);
+         }
       }
       drmModeFreeProperty(prop);
    }
+   drmModeFreeObjectProperties(props);
 
    /* Mark all connector modes as invalid */
    wsi_display_invalidate_connector_modes(wsi_device, connector);
@@ -986,6 +1071,20 @@ static const struct wsi_display_surface_format
       },
       .drm_format = DRM_FORMAT_XRGB8888
    },
+   {
+      .surface_format = {
+         .format = VK_FORMAT_A2B10G10R10_UNORM_PACK32,
+         .colorSpace = VK_COLOR_SPACE_HDR10_ST2084_EXT,
+      },
+      .drm_format = DRM_FORMAT_XBGR2101010
+   },
+   {
+      .surface_format = {
+         .format = VK_FORMAT_A2R10G10B10_UNORM_PACK32,
+         .colorSpace = VK_COLOR_SPACE_HDR10_ST2084_EXT,
+      },
+      .drm_format = DRM_FORMAT_XRGB2101010
+   },
 };
 
 static void
@@ -1006,6 +1105,21 @@ get_sorted_vk_formats(struct wsi_device *wsi_device, VkSurfaceFormatKHR *sorted_
    }
 }
 
+static bool
+surface_format_supported(VkIcdSurfaceBase *icd_surface, VkSurfaceFormatKHR surface_format)
+{
+   VkIcdSurfaceDisplay *surface = (VkIcdSurfaceDisplay *) icd_surface;
+   wsi_display_mode *mode = wsi_display_mode_from_handle(surface->displayMode);
+
+   if (surface_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+      return true;
+
+   if (surface_format.colorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT)
+      return mode->connector && mode->connector->metadata.supportsST2084;
+
+   return false;
+}
+
 static VkResult
 wsi_display_surface_get_formats(VkIcdSurfaceBase *icd_surface,
                                 struct wsi_device *wsi_device,
@@ -1019,8 +1133,10 @@ wsi_display_surface_get_formats(VkIcdSurfaceBase *icd_surface,
    get_sorted_vk_formats(wsi_device, sorted_formats);
 
    for (unsigned i = 0; i < ARRAY_SIZE(sorted_formats); i++) {
-      vk_outarray_append_typed(VkSurfaceFormatKHR, &out, f) {
-         *f = sorted_formats[i];
+      if (surface_format_supported(icd_surface, sorted_formats[i])) {
+         vk_outarray_append_typed(VkSurfaceFormatKHR, &out, f) {
+            *f = sorted_formats[i];
+         }
       }
    }
 
@@ -1041,9 +1157,11 @@ wsi_display_surface_get_formats2(VkIcdSurfaceBase *surface,
    get_sorted_vk_formats(wsi_device, sorted_formats);
 
    for (unsigned i = 0; i < ARRAY_SIZE(sorted_formats); i++) {
-      vk_outarray_append_typed(VkSurfaceFormat2KHR, &out, f) {
-         assert(f->sType == VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR);
-         f->surfaceFormat = sorted_formats[i];
+      if (surface_format_supported(surface, sorted_formats[i])) {
+         vk_outarray_append_typed(VkSurfaceFormat2KHR, &out, f) {
+            assert(f->sType == VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR);
+            f->surfaceFormat = sorted_formats[i];
+         }
       }
    }
 
@@ -1187,6 +1305,8 @@ wsi_display_swapchain_destroy(struct wsi_swapchain *drv_chain,
 
    for (uint32_t i = 0; i < chain->base.image_count; i++)
       wsi_display_image_finish(drv_chain, allocator, &chain->images[i]);
+
+   _wsi_display_cleanup_state(chain);
 
    pthread_mutex_destroy(&chain->present_id_mutex);
    pthread_cond_destroy(&chain->present_id_cond);
@@ -1837,6 +1957,201 @@ wsi_register_vblank_event(struct wsi_display_fence *fence,
    }
 }
 
+/* Colormetry helper functions for DRM, kindly taken from Weston:
+ * https://gitlab.freedesktop.org/wayland/weston/-/blob/main/libweston/backend-drm/kms-color.c
+ */
+
+static inline uint16_t
+color_xy_to_u16(float v)
+{
+	assert(v >= 0.0f);
+	assert(v <= 1.0f);
+	/*
+	 * CTA-861-G
+	 * 6.9.1 Static Metadata Type 1
+	 * chromaticity coordinate encoding
+	 */
+	return (uint16_t)round(v * 50000.0);
+}
+
+static inline uint16_t
+nits_to_u16(float nits)
+{
+	assert(nits >= 1.0f);
+	assert(nits <= 65535.0f);
+	/*
+	 * CTA-861-G
+	 * 6.9.1 Static Metadata Type 1
+	 * max display mastering luminance, max content light level,
+	 * max frame-average light level
+	 */
+	return (uint16_t)round(nits);
+}
+
+static inline uint16_t
+nits_to_u16_dark(float nits)
+{
+	assert(nits >= 0.0001f);
+	assert(nits <= 6.5535f);
+	/*
+	 * CTA-861-G
+	 * 6.9.1 Static Metadata Type 1
+	 * min display mastering luminance
+	 */
+	return (uint16_t)round(nits * 10000.0);
+}
+
+/* from CTA-861-G */
+#define HDMI_EOTF_SDR 0
+#define HDMI_EOTF_TRADITIONAL_HDR 1
+#define HDMI_EOTF_ST2084 2
+#define HDMI_EOTF_HLG 3
+
+static int
+_wsi_hdmi_metadata_eotf_from_vk_colorspace(VkColorSpaceKHR color_space)
+{
+   switch (color_space) {
+      default:
+      case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR: return HDMI_EOTF_SDR;
+      case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT: return HDMI_EOTF_TRADITIONAL_HDR;
+      case VK_COLOR_SPACE_HDR10_ST2084_EXT: return HDMI_EOTF_ST2084;
+      case VK_COLOR_SPACE_HDR10_HLG_EXT: return HDMI_EOTF_HLG;
+   }
+}
+
+static void
+_wsi_display_convert_hdr_metadata(VkHdrMetadataEXT *pMetadata, uint8_t hdmi_eotf, struct hdr_output_metadata *drm_metadata)
+{
+   memset(drm_metadata, 0, sizeof(struct hdr_output_metadata));
+
+   drm_metadata->metadata_type = 0;
+   drm_metadata->hdmi_metadata_type1.eotf = hdmi_eotf;
+   drm_metadata->hdmi_metadata_type1.metadata_type = drm_metadata->metadata_type; /* duplicated */
+
+   if (drm_metadata->hdmi_metadata_type1.eotf == 2) {
+      drm_metadata->hdmi_metadata_type1.display_primaries[0].x = color_xy_to_u16(pMetadata->displayPrimaryRed.x);
+      drm_metadata->hdmi_metadata_type1.display_primaries[0].y = color_xy_to_u16(pMetadata->displayPrimaryRed.y);
+      drm_metadata->hdmi_metadata_type1.display_primaries[1].x = color_xy_to_u16(pMetadata->displayPrimaryGreen.x);
+      drm_metadata->hdmi_metadata_type1.display_primaries[1].y = color_xy_to_u16(pMetadata->displayPrimaryGreen.y);
+      drm_metadata->hdmi_metadata_type1.display_primaries[2].x = color_xy_to_u16(pMetadata->displayPrimaryBlue.x);
+      drm_metadata->hdmi_metadata_type1.display_primaries[2].y = color_xy_to_u16(pMetadata->displayPrimaryBlue.y);
+      drm_metadata->hdmi_metadata_type1.white_point.x = color_xy_to_u16(pMetadata->whitePoint.x);
+      drm_metadata->hdmi_metadata_type1.white_point.y = color_xy_to_u16(pMetadata->whitePoint.y);
+      drm_metadata->hdmi_metadata_type1.max_display_mastering_luminance = nits_to_u16(pMetadata->maxLuminance);
+      drm_metadata->hdmi_metadata_type1.min_display_mastering_luminance = nits_to_u16_dark(pMetadata->minLuminance);
+      drm_metadata->hdmi_metadata_type1.max_cll = nits_to_u16(pMetadata->maxContentLightLevel);
+      drm_metadata->hdmi_metadata_type1.max_fall = nits_to_u16(pMetadata->maxFrameAverageLightLevel);
+   }
+}
+
+/* For Default case, driver will set the colorspace */
+#define DRM_MODE_COLORIMETRY_DEFAULT			0
+/* CEA 861 Normal Colorimetry options */
+#define DRM_MODE_COLORIMETRY_NO_DATA			0
+#define DRM_MODE_COLORIMETRY_SMPTE_170M_YCC		1
+#define DRM_MODE_COLORIMETRY_BT709_YCC			2
+/* CEA 861 Extended Colorimetry Options */
+#define DRM_MODE_COLORIMETRY_XVYCC_601			3
+#define DRM_MODE_COLORIMETRY_XVYCC_709			4
+#define DRM_MODE_COLORIMETRY_SYCC_601			5
+#define DRM_MODE_COLORIMETRY_OPYCC_601			6
+#define DRM_MODE_COLORIMETRY_OPRGB			7
+#define DRM_MODE_COLORIMETRY_BT2020_CYCC		8
+#define DRM_MODE_COLORIMETRY_BT2020_RGB			9
+#define DRM_MODE_COLORIMETRY_BT2020_YCC			10
+/* Additional Colorimetry extension added as part of CTA 861.G */
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65		11
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER		12
+/* Additional Colorimetry Options added for DP 1.4a VSC Colorimetry Format */
+#define DRM_MODE_COLORIMETRY_RGB_WIDE_FIXED		13
+#define DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT		14
+#define DRM_MODE_COLORIMETRY_BT601_YCC			15
+
+static uint32_t
+vk_colorspace_to_drm_colorspace(VkColorSpaceKHR color_space)
+{
+   switch (color_space) {
+      default:
+      case VK_COLORSPACE_SRGB_NONLINEAR_KHR: return DRM_MODE_COLORIMETRY_DEFAULT;
+      case VK_COLOR_SPACE_HDR10_ST2084_EXT:  return DRM_MODE_COLORIMETRY_BT2020_RGB;
+   }
+}
+
+static void
+_wsi_display_update_state(struct wsi_display_swapchain *chain, struct wsi_display_connector *connector)
+{
+   if (connector->color_outcome_serial != chain->base.color_outcome_serial) {
+      if (connector->hdr_metadata_property) {
+         const uint8_t hdmi_eotf = _wsi_hdmi_metadata_eotf_from_vk_colorspace(chain->base.image_info.color_space);
+
+         uint32_t hdr_metadata_blob = 0;
+         /* Only bother making a blob if we are HDR, otherwise set it to 0 (empty). */
+         if (hdmi_eotf != HDMI_EOTF_SDR) {
+            struct hdr_output_metadata drm_metadata;
+            _wsi_display_convert_hdr_metadata(&chain->base.hdr_metadata, hdmi_eotf, &drm_metadata);
+
+            int ret = drmModeCreatePropertyBlob(chain->wsi->fd,
+                                                &drm_metadata,
+                                                sizeof(drm_metadata),
+                                                &hdr_metadata_blob);
+
+            if (ret != 0) {
+               fprintf(stderr, "Failed to create blob for HDR_OUTPUT_METADATA. (%s) Falling back to null blob.\n", strerror(-ret));
+               hdr_metadata_blob = 0;
+            }
+         }
+
+         drmModeConnectorSetProperty(chain->wsi->fd,
+                                    connector->id,
+                                    connector->hdr_metadata_property,
+                                    hdr_metadata_blob);
+
+         if (connector->hdr_metadata_blob) {
+            drmModeDestroyPropertyBlob(chain->wsi->fd,
+                                       connector->hdr_metadata_blob);
+         }
+
+         connector->hdr_metadata_blob = hdr_metadata_blob;
+      }
+
+      const uint32_t drm_colorspace = vk_colorspace_to_drm_colorspace(chain->base.image_info.color_space);
+      if (connector->colorspace_property && connector->colorspace_value != drm_colorspace) {
+         drmModeConnectorSetProperty(chain->wsi->fd,
+                                    connector->id,
+                                    connector->colorspace_property,
+                                    drm_colorspace);
+
+         connector->colorspace_value = drm_colorspace;
+      }
+
+      connector->color_outcome_serial = chain->base.color_outcome_serial;
+   }
+}
+
+static void
+_wsi_display_cleanup_state(struct wsi_display_swapchain *chain)
+{
+   VkIcdSurfaceDisplay *surface = chain->surface;
+   wsi_display_mode *display_mode =
+      wsi_display_mode_from_handle(surface->displayMode);
+   wsi_display_connector *connector = display_mode->connector;
+
+   /* Reset our color outcome to defaults, and update the state.
+    * We need to clean up after our mess, for any other compositors,
+    * etc that come after us that may not be aware of properties
+    * we have set.
+    * We can do this by just setting ourselves back to sRGB and therefore
+    * SDR and updating like normal.
+    * We only need to do this if we have a color outcome serial that isn't
+    * 0, the default.
+    */
+   if (chain->base.color_outcome_serial) {
+      chain->base.color_outcome_serial = 0;
+      chain->base.image_info.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+      _wsi_display_update_state(chain, connector);
+   }
+}
+
 /*
  * Check to see if the kernel has no flip queued and if there's an image
  * waiting to be displayed.
@@ -1889,6 +2204,8 @@ _wsi_display_queue_next(struct wsi_swapchain *drv_chain)
 
       int ret;
       if (connector->active) {
+         _wsi_display_update_state(chain, connector);
+
          ret = drmModePageFlip(wsi->fd, connector->crtc_id, image->fb_id,
                                    DRM_MODE_PAGE_FLIP_EVENT, image);
          if (ret == 0) {
@@ -2044,6 +2361,9 @@ wsi_display_surface_create_swapchain(
 {
    struct wsi_display *wsi =
       (struct wsi_display *) wsi_device->wsi[VK_ICD_WSI_PLATFORM_DISPLAY];
+   VkIcdSurfaceDisplay *display_surface = (VkIcdSurfaceDisplay *) icd_surface;
+   struct wsi_display_connector *connector =
+      wsi_display_mode_from_handle(display_surface->displayMode)->connector;
 
    assert(create_info->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 
@@ -2095,7 +2415,11 @@ wsi_display_surface_create_swapchain(
    chain->wsi = wsi;
    chain->status = VK_SUCCESS;
 
-   chain->surface = (VkIcdSurfaceDisplay *) icd_surface;
+   chain->surface = display_surface;
+
+   /* Default HDR metadata when the HDR10/ST2084 colorspace is used
+    * to the metadata provided by the EDID. */
+   chain->base.hdr_metadata = connector->metadata.hdrMetadata;
 
    for (uint32_t image = 0; image < chain->base.image_count; image++) {
       result = wsi_display_image_init(device, &chain->base,

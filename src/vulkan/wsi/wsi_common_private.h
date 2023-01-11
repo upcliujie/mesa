@@ -72,6 +72,7 @@ struct wsi_image_info {
    VkExternalMemoryImageCreateInfo ext_mem;
    VkImageFormatListCreateInfo format_list;
    VkImageDrmFormatModifierListCreateInfoEXT drm_mod_list;
+   VkColorSpaceKHR color_space;
 
    bool prime_use_linear_modifier;
 
@@ -154,6 +155,10 @@ struct wsi_swapchain {
    /* Command pools, one per queue family */
    VkCommandPool *cmd_pools;
 
+   /* A unique ID for the color outcome of the swapchain. A serial of 0 means unset/default. */
+   uint64_t color_outcome_serial;
+   VkHdrMetadataEXT hdr_metadata;
+
    VkResult (*destroy)(struct wsi_swapchain *swapchain,
                        const VkAllocationCallbacks *pAllocator);
    struct wsi_image *(*get_wsi_image)(struct wsi_swapchain *swapchain,
@@ -178,7 +183,7 @@ wsi_wl_surface_destroy(VkIcdSurfaceBase *icd_surface, VkInstance _instance,
                        const VkAllocationCallbacks *pAllocator);
 
 VkResult
-wsi_swapchain_init(const struct wsi_device *wsi,
+wsi_swapchain_init(struct wsi_device *wsi,
                    struct wsi_swapchain *chain,
                    VkDevice device,
                    const VkSwapchainCreateInfoKHR *pCreateInfo,
