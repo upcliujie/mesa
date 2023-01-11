@@ -3919,7 +3919,13 @@ nir_loop *nir_loop_create(nir_shader *shader);
 nir_function_impl *nir_cf_node_get_function(nir_cf_node *node);
 
 /** requests that the given pieces of metadata be generated */
-void nir_metadata_require(nir_function_impl *impl, nir_metadata required, ...);
+void nir_metadata_require(nir_function_impl *impl, nir_metadata required);
+
+/** requests that loop analysis metadata be generated */
+void nir_metadata_require_loop_analysis(nir_function_impl *impl,
+                                        nir_variable_mode mode,
+                                        bool force_unroll_sampler_indirect);
+
 /** dirties all but the preserved metadata */
 void nir_metadata_preserve(nir_function_impl *impl, nir_metadata preserved);
 /** Preserves all metadata for the given shader */
