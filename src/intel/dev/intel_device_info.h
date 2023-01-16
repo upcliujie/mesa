@@ -412,6 +412,7 @@ struct intel_device_info
       struct {
          uint16_t mem_class;
          uint16_t mem_instance;
+         uint32_t gtt_alignment;
          struct {
             uint64_t size;
             uint64_t free;

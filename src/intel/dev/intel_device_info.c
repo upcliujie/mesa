@@ -1642,6 +1642,8 @@ i915_query_regions(struct intel_device_info *devinfo, int fd, bool update)
          uint64_t available;
          if (os_get_available_system_memory(&available))
             devinfo->mem.sram.mappable.free = MIN2(available, mem->probed_size);
+         devinfo->mem.sram.gtt_alignment =
+            mem->gtt_alignment ? mem->gtt_alignment : 0x1000;
          break;
       }
       case I915_MEMORY_CLASS_DEVICE:
@@ -1681,6 +1683,21 @@ i915_query_regions(struct intel_device_info *devinfo, int fd, bool update)
                devinfo->mem.vram.mappable.free = mem->unallocated_size;
                devinfo->mem.vram.unmappable.free = 0;
             }
+         }
+         devinfo->mem.vram.gtt_alignment = mem->gtt_alignment;
+         if (devinfo->mem.vram.gtt_alignment == 0) {
+            assert(devinfo->ver == 12);
+            /* For XeHP, lmem and smem cannot share a single PDE, which means
+             * they can't live in the same 2MiB aligned region. This alignment
+             * might be reduced for some kernels, but they will advertise this
+             * by setting the gtt_alignment field.
+             *
+             * For DG1, the lmem alignment requirement was 64KiB:
+             * * 84069acfd41 ("iris/bufmgr: Align vma addresses to 64K for
+             *                 local memory")
+             */
+            devinfo->mem.vram.gtt_alignment =
+               devinfo->verx10 == 125 ? 0x200000 : 0x10000;
          }
          break;
       default:

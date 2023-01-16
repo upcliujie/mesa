@@ -68,6 +68,8 @@ print_regions_info(const struct intel_device_info *devinfo)
          fprintf(stdout, "free: %" PRId64 "\n",
                  devinfo->mem.sram.unmappable.free);
       }
+      fprintf(stdout, "      gtt-alignment: 0x%x\n",
+              devinfo->mem.sram.gtt_alignment);
    }
 
    if (devinfo->mem.vram.mappable.size > 0 ||
@@ -87,6 +89,8 @@ print_regions_info(const struct intel_device_info *devinfo)
          fprintf(stdout, "free: %" PRId64 "\n",
                  devinfo->mem.vram.unmappable.free);
       }
+      fprintf(stdout, "      gtt-alignment: 0x%x\n",
+              devinfo->mem.vram.gtt_alignment);
    }
 }
 
