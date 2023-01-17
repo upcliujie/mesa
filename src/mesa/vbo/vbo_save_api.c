@@ -125,10 +125,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "api_exec_decl.h"
 #include "api_save.h"
 
-#ifdef ERROR
-#undef ERROR
-#endif
-
 /* Default size for the buffer holding the vertices and the indices.
  * A bigger buffer helps reducing the number of draw calls but may
  * waste memory.
