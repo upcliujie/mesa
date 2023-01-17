@@ -124,6 +124,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "vbo_private.h"
 #include "api_exec_decl.h"
 #include "api_save.h"
+#include <stdbool.h>
 
 /* Default size for the buffer holding the vertices and the indices.
  * A bigger buffer helps reducing the number of draw calls but may
@@ -511,6 +512,73 @@ get_vertex_count(struct vbo_save_context *save)
 }
 
 
+static bool
+try_reuse_same_bo(struct vbo_save_context *save, struct vbo_save_vertex_list *node,
+                  struct gl_buffer_object *bo,
+                  unsigned free_space_start, unsigned free_space_end,
+                  unsigned total_bytes_needed,
+                  const GLsizei stride, int index_count,
+                  GLintptr *buffer_offset,
+                  GLuint *start_offset,
+                  uint32_t* indices,
+                  uint32_t *max_index)
+{
+   const GLintptr old_offset = save->VAO[0] ?
+      save->VAO[0]->BufferBinding[0].Offset + save->VAO[0]->VertexAttrib[VERT_ATTRIB_POS].RelativeOffset : 0;
+   if (old_offset != free_space_start && stride > 0) {
+      GLintptr offset_diff = free_space_start - old_offset;
+      while (offset_diff > 0 &&
+             offset_diff % stride != 0) {
+         free_space_start++;
+         offset_diff = free_space_start - old_offset;
+      }
+   }
+
+   int available_bytes = free_space_end - free_space_start;
+
+   if (free_space_end < free_space_start ||
+       available_bytes < total_bytes_needed)
+      return false;
+
+   *buffer_offset = free_space_start;
+
+   assert(old_offset <= *buffer_offset);
+   const GLintptr offset_diff = *buffer_offset - old_offset;
+   if (offset_diff > 0 && stride > 0 && offset_diff % stride == 0) {
+      /* The vertex size is an exact multiple of the buffer offset.
+       * This means that we can use zero-based vertex attribute pointers
+       * and specify the start of the primitive with the _mesa_prim::start
+       * field.  This results in issuing several draw calls with identical
+       * vertex attribute information.  This can result in fewer state
+       * changes in drivers.  In particular, the Gallium CSO module will
+       * filter out redundant vertex buffer changes.
+       */
+      /* We cannot immediately update the primitives as some methods below
+       * still need the uncorrected start vertices
+       */
+      *start_offset = offset_diff/stride;
+      assert(old_offset == *buffer_offset - offset_diff);
+      *buffer_offset = old_offset;
+   }
+
+   /* Correct the primitive starts, we can only do this here as copy_vertices
+    * and convert_line_loop_to_strip above consume the uncorrected starts.
+    * On the other hand the _vbo_loopback_vertex_list call below needs the
+    * primitives to be corrected already.
+    */
+   for (unsigned i = 0; i < node->cold->prim_count; i++) {
+      node->cold->prims[i].start += *start_offset;
+   }
+   /* start_offset shifts vertices (so v[0] becomes v[start_offset]), so we have
+    * to apply this transformation to all indices and max_index.
+    */
+   for (unsigned i = 0; i < index_count; i++)
+      indices[i] += *start_offset;
+   *max_index += *start_offset;
+
+   return true;
+}
+
 /**
  * Insert the active immediate struct onto the display list currently
  * being built.
@@ -776,22 +844,13 @@ compile_vertex_list(struct gl_context *ctx)
    unsigned total_bytes_needed = idx * sizeof(uint32_t) +
                                  total_vert_count * save->vertex_size * sizeof(fi_type);
 
-   const GLintptr old_offset = save->VAO[0] ?
-      save->VAO[0]->BufferBinding[0].Offset + save->VAO[0]->VertexAttrib[VERT_ATTRIB_POS].RelativeOffset : 0;
-   if (old_offset != save->current_bo_bytes_used && stride > 0) {
-      GLintptr offset_diff = save->current_bo_bytes_used - old_offset;
-      while (offset_diff > 0 &&
-             save->current_bo_bytes_used < save->current_bo->Size &&
-             offset_diff % stride != 0) {
-         save->current_bo_bytes_used++;
-         offset_diff = save->current_bo_bytes_used - old_offset;
-      }
-   }
-   buffer_offset = save->current_bo_bytes_used;
-
-   /* Can we reuse the previous bo or should we allocate a new one? */
-   int available_bytes = save->current_bo ? save->current_bo->Size - save->current_bo_bytes_used : 0;
-   if (total_bytes_needed > available_bytes) {
+   if (save->current_bo &&
+       try_reuse_same_bo(save, node, save->current_bo,
+                         save->current_bo_bytes_used, save->current_bo->Size,
+                         total_bytes_needed, stride, idx,
+                         &buffer_offset, &start_offset, indices, &max_index)) {
+      save->current_bo_bytes_used = buffer_offset + start_offset * stride;
+   } else {
       if (save->current_bo)
          _mesa_reference_buffer_object(ctx, &save->current_bo, NULL);
       save->current_bo = _mesa_bufferobj_alloc(ctx, VBO_BUF_ID + 1);
@@ -808,43 +867,8 @@ compile_vertex_list(struct gl_context *ctx)
          save->out_of_memory = true;
       } else {
          save->current_bo_bytes_used = 0;
-         available_bytes = save->current_bo->Size;
       }
       buffer_offset = 0;
-   } else {
-      assert(old_offset <= buffer_offset);
-      const GLintptr offset_diff = buffer_offset - old_offset;
-      if (offset_diff > 0 && stride > 0 && offset_diff % stride == 0) {
-         /* The vertex size is an exact multiple of the buffer offset.
-          * This means that we can use zero-based vertex attribute pointers
-          * and specify the start of the primitive with the _mesa_prim::start
-          * field.  This results in issuing several draw calls with identical
-          * vertex attribute information.  This can result in fewer state
-          * changes in drivers.  In particular, the Gallium CSO module will
-          * filter out redundant vertex buffer changes.
-          */
-         /* We cannot immediately update the primitives as some methods below
-          * still need the uncorrected start vertices
-          */
-         start_offset = offset_diff/stride;
-         assert(old_offset == buffer_offset - offset_diff);
-         buffer_offset = old_offset;
-      }
-
-      /* Correct the primitive starts, we can only do this here as copy_vertices
-       * and convert_line_loop_to_strip above consume the uncorrected starts.
-       * On the other hand the _vbo_loopback_vertex_list call below needs the
-       * primitives to be corrected already.
-       */
-      for (unsigned i = 0; i < node->cold->prim_count; i++) {
-         node->cold->prims[i].start += start_offset;
-      }
-      /* start_offset shifts vertices (so v[0] becomes v[start_offset]), so we have
-       * to apply this transformation to all indices and max_index.
-       */
-      for (unsigned i = 0; i < idx; i++)
-         indices[i] += start_offset;
-      max_index += start_offset;
    }
 
    _mesa_reference_buffer_object(ctx, &node->cold->ib.obj, save->current_bo);
