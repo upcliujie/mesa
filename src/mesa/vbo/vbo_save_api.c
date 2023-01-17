@@ -129,6 +129,16 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #undef ERROR
 #endif
 
+/* Default size for the buffer holding the vertices and the indices.
+ * A bigger buffer helps reducing the number of draw calls but may
+ * waste memory.
+ * 1MB was picked because a lower value reduces viewperf snx tests
+ * performance but larger values cause high VRAM usage (because
+ * larger buffers will be shared by more display lists which reduces
+ * the likelyhood of freeing the buffer).
+ */
+#define VBO_SAVE_BUFFER_SIZE (1024 * 1024)
+
 /* An interesting VBO number/name to help with debugging */
 #define VBO_BUF_ID  12345
 
