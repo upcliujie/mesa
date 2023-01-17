@@ -518,7 +518,7 @@ try_reuse_same_bo(struct vbo_save_context *save, struct vbo_save_vertex_list *no
                   unsigned free_space_start, unsigned free_space_end,
                   unsigned total_bytes_needed,
                   const GLsizei stride, int index_count,
-                  GLintptr *buffer_offset,
+                  GLintptr *vao_buffer_offset,
                   GLuint *start_offset,
                   uint32_t* indices,
                   uint32_t *max_index)
@@ -540,10 +540,10 @@ try_reuse_same_bo(struct vbo_save_context *save, struct vbo_save_vertex_list *no
        available_bytes < total_bytes_needed)
       return false;
 
-   *buffer_offset = free_space_start;
+   *vao_buffer_offset = free_space_start;
 
-   assert(old_offset <= *buffer_offset);
-   const GLintptr offset_diff = *buffer_offset - old_offset;
+   assert(old_offset <= *vao_buffer_offset);
+   const GLintptr offset_diff = *vao_buffer_offset - old_offset;
    if (offset_diff > 0 && stride > 0 && offset_diff % stride == 0) {
       /* The vertex size is an exact multiple of the buffer offset.
        * This means that we can use zero-based vertex attribute pointers
@@ -557,8 +557,8 @@ try_reuse_same_bo(struct vbo_save_context *save, struct vbo_save_vertex_list *no
        * still need the uncorrected start vertices
        */
       *start_offset = offset_diff/stride;
-      assert(old_offset == *buffer_offset - offset_diff);
-      *buffer_offset = old_offset;
+      assert(old_offset == *vao_buffer_offset - offset_diff);
+      *vao_buffer_offset = old_offset;
    }
 
    /* Correct the primitive starts, we can only do this here as copy_vertices
@@ -653,7 +653,7 @@ compile_vertex_list(struct gl_context *ctx)
 
    merge_prims(ctx, node->cold->prims, &node->cold->prim_count);
 
-   GLintptr buffer_offset = 0;
+   GLintptr vao_buffer_offset = 0;
    GLuint start_offset = 0;
 
    /* Create an index buffer. */
@@ -848,8 +848,8 @@ compile_vertex_list(struct gl_context *ctx)
        try_reuse_same_bo(save, node, save->current_bo,
                          save->current_bo_bytes_used, save->current_bo->Size,
                          total_bytes_needed, stride, idx,
-                         &buffer_offset, &start_offset, indices, &max_index)) {
-      save->current_bo_bytes_used = buffer_offset + start_offset * stride;
+                         &vao_buffer_offset, &start_offset, indices, &max_index)) {
+      save->current_bo_bytes_used = vao_buffer_offset + start_offset * stride;
    } else {
       if (save->current_bo)
          _mesa_reference_buffer_object(ctx, &save->current_bo, NULL);
@@ -868,12 +868,12 @@ compile_vertex_list(struct gl_context *ctx)
       } else {
          save->current_bo_bytes_used = 0;
       }
-      buffer_offset = 0;
+      vao_buffer_offset = 0;
    }
 
    _mesa_reference_buffer_object(ctx, &node->cold->ib.obj, save->current_bo);
 
-   /* Upload the vertices first (see buffer_offset) */
+   /* Upload the vertices first (see vao_buffer_offset) */
    _mesa_bufferobj_subdata(ctx,
                            save->current_bo_bytes_used,
                            total_vert_count * save->vertex_size * sizeof(fi_type),
@@ -977,7 +977,7 @@ end:
    for (gl_vertex_processing_mode vpm = VP_MODE_FF; vpm < VP_MODE_MAX; ++vpm) {
       /* create or reuse the vao */
       update_vao(ctx, vpm, &save->VAO[vpm],
-                 save->current_bo, buffer_offset, stride,
+                 save->current_bo, vao_buffer_offset, stride,
                  save->enabled, save->attrsz, save->attrtype, offsets);
       /* Reference the vao in the dlist */
       node->cold->VAO[vpm] = NULL;
