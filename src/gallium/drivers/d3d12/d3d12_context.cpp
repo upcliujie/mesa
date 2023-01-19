@@ -2094,6 +2094,9 @@ d3d12_flush(struct pipe_context *pipe,
             struct pipe_fence_handle **fence,
             unsigned flags)
 {
+   if (fence == NULL && (flags & PIPE_FLUSH_API) != 0)
+      return;
+
    struct d3d12_context *ctx = d3d12_context(pipe);
    struct d3d12_batch *batch = d3d12_current_batch(ctx);
 
