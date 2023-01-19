@@ -91,7 +91,7 @@ st_glFlush(struct gl_context *ctx, unsigned gallium_flush_flags)
     * synchronization issues.  Calling finish() here will just hide
     * problems that need to be fixed elsewhere.
     */
-   st_flush(st, NULL, gallium_flush_flags);
+   st_flush(st, NULL, gallium_flush_flags | PIPE_FLUSH_API);
 
    st_manager_flush_frontbuffer(st);
 }
