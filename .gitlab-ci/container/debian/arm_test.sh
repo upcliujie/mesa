@@ -13,6 +13,7 @@ apt-get install -y --no-remove \
         cpio \
         curl \
         fastboot \
+        gcc \
         netcat \
         procps \
         python3-distutils \
@@ -21,6 +22,13 @@ apt-get install -y --no-remove \
         rsync \
         snmp \
         zstd
+
+. .gitlab-ci/container/build-rust.sh
+
+RUSTFLAGS='-L native=/usr/local/lib' cargo install \
+  -j ${FDO_CI_CONCURRENT:-4} \
+  --root /usr/local \
+  timestamp
 
 # setup SNMPv2 SMI MIB
 curl -L --retry 4 -f --retry-all-errors --retry-delay 60 \
