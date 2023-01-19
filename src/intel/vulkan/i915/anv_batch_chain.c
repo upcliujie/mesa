@@ -763,7 +763,9 @@ anv_i915_execute_simple_batch(struct anv_queue *queue,
       .rsvd2 = 0,
    };
 
-   if (anv_gem_execbuffer(device, &execbuf.execbuf)) {
+   int ret = queue->device->info->no_hw ? 0 :
+      anv_gem_execbuffer(device, &execbuf.execbuf);
+   if (ret) {
       result = vk_device_set_lost(&device->vk, "anv_gem_execbuffer failed: %m");
       goto fail;
    }

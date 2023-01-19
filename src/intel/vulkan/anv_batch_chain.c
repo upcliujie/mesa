@@ -1361,9 +1361,6 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
    struct anv_device *device = queue->device;
    VkResult result = VK_SUCCESS;
 
-   if (queue->device->info->no_hw)
-      return VK_SUCCESS;
-
    /* This is only used by device init so we can assume the queue is empty and
     * we aren't fighting with a submit thread.
     */
