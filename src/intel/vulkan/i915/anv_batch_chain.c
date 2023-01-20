@@ -523,6 +523,14 @@ anv_gem_execbuffer(struct anv_device *device,
       return intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_EXECBUFFER2, execbuf);
 }
 
+static int
+anv_execbuf_submit(struct anv_device *device,
+                   struct anv_execbuf *execbuf)
+{
+   return device->info->no_hw ? 0 :
+            anv_gem_execbuffer(device, &execbuf->execbuf);
+}
+
 static VkResult
 anv_queue_exec_utrace_locked(struct anv_queue *queue,
                              struct anv_utrace_flush_copy *flush)
@@ -539,10 +547,8 @@ anv_queue_exec_utrace_locked(struct anv_queue *queue,
    if (result != VK_SUCCESS)
       goto error;
 
-   int ret = queue->device->info->no_hw ? 0 :
-      anv_gem_execbuffer(queue->device, &execbuf.execbuf);
-   if (ret)
-      result = vk_queue_set_lost(&queue->vk, "execbuf2 failed: %m");
+   if (anv_execbuf_submit(queue->device, &execbuf))
+      result = vk_queue_set_lost(&queue->vk, "execbuf_submit failed: %m");
 
  error:
    anv_execbuf_finish(&execbuf);
@@ -717,10 +723,8 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
          result = vk_queue_set_lost(&queue->vk, "execbuf2 failed: %m");
    }
 
-   int ret = queue->device->info->no_hw ? 0 :
-      anv_gem_execbuffer(queue->device, &execbuf.execbuf);
-   if (ret)
-      result = vk_queue_set_lost(&queue->vk, "execbuf2 failed: %m");
+   if (anv_execbuf_submit(queue->device, &execbuf))
+      result = vk_queue_set_lost(&queue->vk, "execbuf_submit failed: %m");
 
    if (result == VK_SUCCESS && queue->sync) {
       result = vk_sync_wait(&device->vk, queue->sync, 0,
@@ -763,10 +767,8 @@ anv_i915_execute_simple_batch(struct anv_queue *queue,
       .rsvd2 = 0,
    };
 
-   int ret = queue->device->info->no_hw ? 0 :
-      anv_gem_execbuffer(device, &execbuf.execbuf);
-   if (ret) {
-      result = vk_device_set_lost(&device->vk, "anv_gem_execbuffer failed: %m");
+   if (anv_execbuf_submit(device, &execbuf)) {
+      result = vk_device_set_lost(&device->vk, "execbuf_submit failed: %m");
       goto fail;
    }
 
