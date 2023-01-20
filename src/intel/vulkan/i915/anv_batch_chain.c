@@ -364,27 +364,6 @@ setup_execbuf_for_cmd_buffers(struct anv_execbuf *execbuf,
    struct anv_batch_bo *first_batch_bo =
       list_first_entry(&cmd_buffers[0]->batch_bos, struct anv_batch_bo, link);
 
-   /* The kernel requires that the last entry in the validation list be the
-    * batch buffer to execute.  We can simply swap the element
-    * corresponding to the first batch_bo in the chain with the last
-    * element in the list.
-    */
-   if (first_batch_bo->bo->exec_obj_index != execbuf->bo_count - 1) {
-      uint32_t idx = first_batch_bo->bo->exec_obj_index;
-      uint32_t last_idx = execbuf->bo_count - 1;
-
-      struct drm_i915_gem_exec_object2 tmp_obj = execbuf->objects[idx];
-      assert(execbuf->bos[idx] == first_batch_bo->bo);
-
-      execbuf->objects[idx] = execbuf->objects[last_idx];
-      execbuf->bos[idx] = execbuf->bos[last_idx];
-      execbuf->bos[idx]->exec_obj_index = idx;
-
-      execbuf->objects[last_idx] = tmp_obj;
-      execbuf->bos[last_idx] = first_batch_bo->bo;
-      first_batch_bo->bo->exec_obj_index = last_idx;
-   }
-
 #ifdef SUPPORT_INTEL_INTEGRATED_GPUS
    if (device->physical->memory.need_clflush) {
       __builtin_ia32_mfence();
@@ -436,22 +415,6 @@ setup_utrace_execbuf(struct anv_execbuf *execbuf, struct anv_queue *queue,
    if (result != VK_SUCCESS)
       return result;
 
-   if (flush->batch_bo->exec_obj_index != execbuf->bo_count - 1) {
-      uint32_t idx = flush->batch_bo->exec_obj_index;
-      uint32_t last_idx = execbuf->bo_count - 1;
-
-      struct drm_i915_gem_exec_object2 tmp_obj = execbuf->objects[idx];
-      assert(execbuf->bos[idx] == flush->batch_bo);
-
-      execbuf->objects[idx] = execbuf->objects[last_idx];
-      execbuf->bos[idx] = execbuf->bos[last_idx];
-      execbuf->bos[idx]->exec_obj_index = idx;
-
-      execbuf->objects[last_idx] = tmp_obj;
-      execbuf->bos[last_idx] = flush->batch_bo;
-      flush->batch_bo->exec_obj_index = last_idx;
-   }
-
 #ifdef SUPPORT_INTEL_INTEGRATED_GPUS
    if (device->physical->memory.need_clflush)
       intel_flush_range(flush->batch_bo->map, flush->batch_bo->size);
@@ -474,6 +437,27 @@ static int
 anv_execbuf_submit(struct anv_device *device,
                    struct anv_execbuf *execbuf)
 {
+   /* The kernel requires that the last entry in the validation list be the
+    * batch buffer to execute.  We can simply swap the element
+    * corresponding to the first batch_bo in the chain with the last
+    * element in the list.
+    */
+   if (execbuf->batch_bo->exec_obj_index != execbuf->bo_count -1) {
+      uint32_t idx = execbuf->batch_bo->exec_obj_index;
+      uint32_t last_idx = execbuf->bo_count -1;
+
+      struct drm_i915_gem_exec_object2 tmp_obj = execbuf->objects[idx];
+      assert(execbuf->bos[idx] == execbuf->batch_bo);
+
+      execbuf->objects[idx] = execbuf->objects[last_idx];
+      execbuf->bos[idx] = execbuf->bos[last_idx];
+      execbuf->bos[idx]->exec_obj_index = idx;
+
+      execbuf->objects[last_idx] = tmp_obj;
+      execbuf->bos[last_idx] = execbuf->batch_bo;
+      execbuf->batch_bo->exec_obj_index = last_idx;
+   }
+
    assert((execbuf->engine_idx & I915_EXEC_RING_MASK) == execbuf->engine_idx);
 
    struct drm_i915_gem_execbuffer2 gem_execbuf = {
