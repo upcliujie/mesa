@@ -31,9 +31,10 @@
 #include "drm-uapi/i915_drm.h"
 
 struct anv_execbuf {
-   struct drm_i915_gem_execbuffer2           execbuf;
-
-   struct drm_i915_gem_execbuffer_ext_timeline_fences timeline_fences;
+   struct anv_bo *batch_bo;
+   uint32_t batch_len;
+   uint32_t context_id;
+   uint32_t engine_idx;
 
    struct drm_i915_gem_exec_object2 *        objects;
    uint32_t                                  bo_count;
@@ -61,24 +62,6 @@ anv_execbuf_finish(struct anv_execbuf *exec)
    vk_free(exec->alloc, exec->syncobj_values);
    vk_free(exec->alloc, exec->objects);
    vk_free(exec->alloc, exec->bos);
-}
-
-static void
-anv_execbuf_add_ext(struct anv_execbuf *exec,
-                    uint32_t ext_name,
-                    struct i915_user_extension *ext)
-{
-   __u64 *iter = &exec->execbuf.cliprects_ptr;
-
-   exec->execbuf.flags |= I915_EXEC_USE_EXTENSIONS;
-
-   while (*iter != 0) {
-      iter = (__u64 *) &((struct i915_user_extension *)(uintptr_t)*iter)->next_extension;
-   }
-
-   ext->name = ext_name;
-
-   *iter = (uintptr_t) ext;
 }
 
 static VkResult
@@ -415,21 +398,8 @@ setup_execbuf_for_cmd_buffers(struct anv_execbuf *execbuf,
    }
 #endif
 
-   execbuf->execbuf = (struct drm_i915_gem_execbuffer2) {
-      .buffers_ptr = (uintptr_t) execbuf->objects,
-      .buffer_count = execbuf->bo_count,
-      .batch_start_offset = 0,
-      .batch_len = 0,
-      .cliprects_ptr = 0,
-      .num_cliprects = 0,
-      .DR1 = 0,
-      .DR4 = 0,
-      .flags = I915_EXEC_NO_RELOC |
-               I915_EXEC_HANDLE_LUT |
-               queue->exec_flags,
-      .rsvd1 = device->context_id,
-      .rsvd2 = 0,
-   };
+   execbuf->batch_bo = first_batch_bo->bo;
+   execbuf->batch_len = 0;
 
    return VK_SUCCESS;
 }
@@ -444,15 +414,8 @@ setup_empty_execbuf(struct anv_execbuf *execbuf, struct anv_queue *queue)
    if (result != VK_SUCCESS)
       return result;
 
-   execbuf->execbuf = (struct drm_i915_gem_execbuffer2) {
-      .buffers_ptr = (uintptr_t) execbuf->objects,
-      .buffer_count = execbuf->bo_count,
-      .batch_start_offset = 0,
-      .batch_len = 8, /* GFX7_MI_BATCH_BUFFER_END and NOOP */
-      .flags = I915_EXEC_HANDLE_LUT | queue->exec_flags | I915_EXEC_NO_RELOC,
-      .rsvd1 = device->context_id,
-      .rsvd2 = 0,
-   };
+   execbuf->batch_bo = device->trivial_batch_bo;
+   execbuf->batch_len = 8; /* GFX7_MI_BATCH_BUFFER_END and NOOP */
 
    return VK_SUCCESS;
 }
@@ -494,21 +457,6 @@ setup_utrace_execbuf(struct anv_execbuf *execbuf, struct anv_queue *queue,
       intel_flush_range(flush->batch_bo->map, flush->batch_bo->size);
 #endif
 
-   execbuf->execbuf = (struct drm_i915_gem_execbuffer2) {
-      .buffers_ptr = (uintptr_t) execbuf->objects,
-      .buffer_count = execbuf->bo_count,
-      .batch_start_offset = 0,
-      .batch_len = flush->batch.next - flush->batch.start,
-      .flags = I915_EXEC_NO_RELOC |
-               I915_EXEC_HANDLE_LUT |
-               I915_EXEC_FENCE_ARRAY |
-               queue->exec_flags,
-      .rsvd1 = device->context_id,
-      .rsvd2 = 0,
-      .num_cliprects = execbuf->syncobj_count,
-      .cliprects_ptr = (uintptr_t)execbuf->syncobjs,
-   };
-
    return VK_SUCCESS;
 }
 
@@ -526,8 +474,47 @@ static int
 anv_execbuf_submit(struct anv_device *device,
                    struct anv_execbuf *execbuf)
 {
+   assert((execbuf->engine_idx & I915_EXEC_RING_MASK) == execbuf->engine_idx);
+
+   struct drm_i915_gem_execbuffer2 gem_execbuf = {
+      .buffers_ptr = (uintptr_t) execbuf->objects,
+      .buffer_count = execbuf->bo_count,
+      .batch_start_offset = 0,
+      .batch_len = execbuf->batch_len,
+      .DR1 = 0,
+      .DR4 = 0,
+      .num_cliprects = 0,
+      .cliprects_ptr = 0,
+      .flags = I915_EXEC_NO_RELOC |
+               I915_EXEC_HANDLE_LUT |
+               execbuf->engine_idx,
+      .rsvd1 = execbuf->context_id,
+      .rsvd2 = 0,
+   };
+
+   struct drm_i915_gem_execbuffer_ext_timeline_fences timeline_fences = {
+      .base = {
+         .next_extension = 0,
+         .name = DRM_I915_GEM_EXECBUFFER_EXT_TIMELINE_FENCES,
+         .flags = 0,
+      },
+      .fence_count = execbuf->syncobj_count,
+      .handles_ptr = (uintptr_t) execbuf->syncobjs,
+      .values_ptr = (uintptr_t) execbuf->syncobj_values,
+   };
+
+   if (execbuf->syncobj_values) {
+      timeline_fences.base.next_extension = gem_execbuf.cliprects_ptr;
+      gem_execbuf.flags |= I915_EXEC_USE_EXTENSIONS;
+      gem_execbuf.cliprects_ptr = (uintptr_t) &timeline_fences;
+   } else {
+      gem_execbuf.num_cliprects = execbuf->syncobj_count;
+      gem_execbuf.cliprects_ptr = (uintptr_t) execbuf->syncobjs;
+      gem_execbuf.flags |= I915_EXEC_FENCE_ARRAY;
+   }
+
    return device->info->no_hw ? 0 :
-            anv_gem_execbuffer(device, &execbuf->execbuf);
+            anv_gem_execbuffer(device, &gem_execbuf);
 }
 
 static VkResult
@@ -538,6 +525,10 @@ anv_queue_exec_utrace_locked(struct anv_queue *queue,
 
    struct anv_device *device = queue->device;
    struct anv_execbuf execbuf = {
+      .batch_bo = flush->batch_bo,
+      .batch_len = 0,
+      .context_id = device->context_id,
+      .engine_idx = queue->exec_flags,
       .alloc = &device->vk.alloc,
       .alloc_scope = VK_SYSTEM_ALLOCATION_SCOPE_DEVICE,
    };
@@ -569,6 +560,8 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
    struct anv_device *device = queue->device;
    struct anv_utrace_flush_copy *utrace_flush_data = NULL;
    struct anv_execbuf execbuf = {
+      .context_id = device->context_id,
+      .engine_idx = queue->exec_flags,
       .alloc = &queue->device->vk.alloc,
       .alloc_scope = VK_SYSTEM_ALLOCATION_SCOPE_DEVICE,
       .perf_query_pass = perf_query_pass,
@@ -650,8 +643,8 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
          total_size_kb += bo->size / 1024;
       }
 
-      fprintf(stderr, "Batch offset=0x%x len=0x%x on queue 0 (%.1fMb aperture)\n",
-              execbuf.execbuf.batch_start_offset, execbuf.execbuf.batch_len,
+      fprintf(stderr, "Batch offset=0x0 len=0x%x on queue 0 (%.1fMb aperture)\n",
+              execbuf.batch_len,
               (float)total_size_kb / 1024.0f);
       for (uint32_t i = 0; i < execbuf.bo_count; i++) {
          const struct anv_bo *bo = execbuf.bos[i];
@@ -666,19 +659,6 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
 
    anv_cmd_buffer_exec_batch_debug(queue, cmd_buffer_count, cmd_buffers,
                                    perf_query_pool, perf_query_pass);
-
-   if (execbuf.syncobj_values) {
-      execbuf.timeline_fences.fence_count = execbuf.syncobj_count;
-      execbuf.timeline_fences.handles_ptr = (uintptr_t)execbuf.syncobjs;
-      execbuf.timeline_fences.values_ptr = (uintptr_t)execbuf.syncobj_values;
-      anv_execbuf_add_ext(&execbuf,
-                          DRM_I915_GEM_EXECBUFFER_EXT_TIMELINE_FENCES,
-                          &execbuf.timeline_fences.base);
-   } else if (execbuf.syncobjs) {
-      execbuf.execbuf.flags |= I915_EXEC_FENCE_ARRAY;
-      execbuf.execbuf.num_cliprects = execbuf.syncobj_count;
-      execbuf.execbuf.cliprects_ptr = (uintptr_t)execbuf.syncobjs;
-   }
 
    if (has_perf_query) {
       assert(perf_query_pass < perf_query_pool->n_passes);
@@ -748,6 +728,10 @@ anv_i915_execute_simple_batch(struct anv_queue *queue,
 {
    struct anv_device *device = queue->device;
    struct anv_execbuf execbuf = {
+      .batch_bo = batch_bo,
+      .batch_len = 0,
+      .context_id = device->context_id,
+      .engine_idx = queue->exec_flags,
       .alloc = &queue->device->vk.alloc,
       .alloc_scope = VK_SYSTEM_ALLOCATION_SCOPE_DEVICE,
    };
@@ -755,16 +739,6 @@ anv_i915_execute_simple_batch(struct anv_queue *queue,
    VkResult result = anv_execbuf_add_bo(device, &execbuf, batch_bo, NULL, 0);
    if (result != VK_SUCCESS)
       goto fail;
-
-   execbuf.execbuf = (struct drm_i915_gem_execbuffer2) {
-      .buffers_ptr = (uintptr_t) execbuf.objects,
-      .buffer_count = execbuf.bo_count,
-      .batch_start_offset = 0,
-      .batch_len = batch_bo_size,
-      .flags = I915_EXEC_HANDLE_LUT | queue->exec_flags | I915_EXEC_NO_RELOC,
-      .rsvd1 = device->context_id,
-      .rsvd2 = 0,
-   };
 
    if (anv_execbuf_submit(device, &execbuf)) {
       result = vk_device_set_lost(&device->vk, "execbuf_submit failed: %m");
