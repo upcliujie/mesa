@@ -30,16 +30,20 @@
 
 #include "drm-uapi/i915_drm.h"
 
+struct anv_batch_bo_usage {
+   struct anv_bo *bo;
+   bool write;
+};
+
 struct anv_execbuf {
    struct anv_bo *batch_bo;
    uint32_t batch_len;
    uint32_t context_id;
    uint32_t engine_idx;
 
-   struct drm_i915_gem_exec_object2 *        objects;
    uint32_t                                  bo_count;
    uint32_t                                  bo_array_length;
-   struct anv_bo **                          bos;
+   struct anv_batch_bo_usage *               bos;
 
    uint32_t                                  syncobj_count;
    uint32_t                                  syncobj_array_length;
@@ -60,7 +64,6 @@ anv_execbuf_finish(struct anv_execbuf *exec)
 {
    vk_free(exec->alloc, exec->syncobjs);
    vk_free(exec->alloc, exec->syncobj_values);
-   vk_free(exec->alloc, exec->objects);
    vk_free(exec->alloc, exec->bos);
 }
 
@@ -78,28 +81,18 @@ anv_execbuf_add_bo(struct anv_device *device,
                    struct anv_reloc_list *relocs,
                    uint32_t extra_flags)
 {
-   struct drm_i915_gem_exec_object2 *obj = NULL;
+   /* We only accept this extra flag. */
+   assert((extra_flags & ~EXEC_OBJECT_WRITE) == 0);
 
-   if (bo->exec_obj_index < exec->bo_count &&
-       exec->bos[bo->exec_obj_index] == bo)
-      obj = &exec->objects[bo->exec_obj_index];
-
-   if (obj == NULL) {
+   if (bo->exec_obj_index >= exec->bo_count ||
+       exec->bos[bo->exec_obj_index].bo != bo) {
       /* We've never seen this one before.  Add it to the list and assign
        * an id that we can use later.
        */
       if (exec->bo_count >= exec->bo_array_length) {
-         uint32_t new_len = exec->objects ? exec->bo_array_length * 2 : 64;
+         uint32_t new_len = exec->bos ? exec->bo_array_length * 2 : 64;
 
-         struct drm_i915_gem_exec_object2 *new_objects =
-            vk_realloc(exec->alloc, exec->objects,
-                       new_len * sizeof(*new_objects), 8, exec->alloc_scope);
-         if (new_objects == NULL)
-            return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-         exec->objects = new_objects;
-
-         struct anv_bo **new_bos =
+         struct anv_batch_bo_usage *new_bos =
             vk_realloc(exec->alloc, exec->bos, new_len * sizeof(*new_bos), 8,
                        exec->alloc_scope);
          if (new_bos == NULL)
@@ -112,23 +105,13 @@ anv_execbuf_add_bo(struct anv_device *device,
       assert(exec->bo_count < exec->bo_array_length);
 
       bo->exec_obj_index = exec->bo_count++;
-      obj = &exec->objects[bo->exec_obj_index];
-      exec->bos[bo->exec_obj_index] = bo;
-
-      obj->handle = bo->gem_handle;
-      obj->relocation_count = 0;
-      obj->relocs_ptr = 0;
-      obj->alignment = 0;
-      obj->offset = bo->offset;
-      obj->flags = bo->flags | extra_flags;
-      obj->rsvd1 = 0;
-      obj->rsvd2 = 0;
+      exec->bos[bo->exec_obj_index].bo = bo;
+      exec->bos[bo->exec_obj_index].write =
+         (bo->flags | extra_flags) & EXEC_OBJECT_WRITE;
    }
 
-   if (extra_flags & EXEC_OBJECT_WRITE) {
-      obj->flags |= EXEC_OBJECT_WRITE;
-      obj->flags &= ~EXEC_OBJECT_ASYNC;
-   }
+   if (extra_flags & EXEC_OBJECT_WRITE)
+      exec->bos[bo->exec_obj_index].write = true;
 
    if (relocs != NULL) {
       return anv_execbuf_add_bo_bitset(device, exec, relocs->dep_words,
@@ -440,31 +423,56 @@ anv_execbuf_submit(struct anv_queue *queue,
    struct anv_device *device = queue->device;
    VkResult result = VK_SUCCESS;
 
+   struct drm_i915_gem_exec_object2 *objects =
+      vk_alloc(execbuf->alloc, execbuf->bo_count * sizeof(*objects), 8,
+               execbuf->alloc_scope);
+   if (objects == NULL)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   for (int i = 0; i < execbuf->bo_count; i++) {
+      struct anv_bo *bo = execbuf->bos[i].bo;
+
+      objects[i] = (struct drm_i915_gem_exec_object2) {
+         .handle = bo->gem_handle,
+         .relocation_count = 0,
+         .relocs_ptr = 0,
+         .alignment = 0,
+         .offset = bo->offset,
+         .flags = bo->flags,
+         .rsvd1 = 0,
+         .rsvd2 = 0,
+      };
+
+      if (execbuf->bos[i].write) {
+         objects[i].flags |= EXEC_OBJECT_WRITE;
+         objects[i].flags &= ~EXEC_OBJECT_ASYNC;
+      }
+   }
+
    /* The kernel requires that the last entry in the validation list be the
     * batch buffer to execute.  We can simply swap the element
     * corresponding to the first batch_bo in the chain with the last
     * element in the list.
+    *
+    * From this piont on, execbuf->bos[n].bo does not match objects[n]
+    * anymore, but that shouldn't be a problem since we're going to free
+    * objects still in this function.
     */
    if (execbuf->batch_bo->exec_obj_index != execbuf->bo_count -1) {
       uint32_t idx = execbuf->batch_bo->exec_obj_index;
       uint32_t last_idx = execbuf->bo_count -1;
 
-      struct drm_i915_gem_exec_object2 tmp_obj = execbuf->objects[idx];
-      assert(execbuf->bos[idx] == execbuf->batch_bo);
+      struct drm_i915_gem_exec_object2 tmp_obj = objects[idx];
+      assert(execbuf->bos[idx].bo == execbuf->batch_bo);
 
-      execbuf->objects[idx] = execbuf->objects[last_idx];
-      execbuf->bos[idx] = execbuf->bos[last_idx];
-      execbuf->bos[idx]->exec_obj_index = idx;
-
-      execbuf->objects[last_idx] = tmp_obj;
-      execbuf->bos[last_idx] = execbuf->batch_bo;
-      execbuf->batch_bo->exec_obj_index = last_idx;
+      objects[idx] = objects[last_idx];
+      objects[last_idx] = tmp_obj;
    }
 
    assert((execbuf->engine_idx & I915_EXEC_RING_MASK) == execbuf->engine_idx);
 
    struct drm_i915_gem_execbuffer2 gem_execbuf = {
-      .buffers_ptr = (uintptr_t) execbuf->objects,
+      .buffers_ptr = (uintptr_t) objects,
       .buffer_count = execbuf->bo_count,
       .batch_start_offset = 0,
       .batch_len = execbuf->batch_len,
@@ -504,6 +512,8 @@ anv_execbuf_submit(struct anv_queue *queue,
                anv_gem_execbuffer(device, &gem_execbuf);
    if (ret)
       result = vk_queue_set_lost(&queue->vk, "execbuf2 failed: %m");
+
+   vk_free(execbuf->alloc, objects);
 
    return result;
 }
@@ -655,7 +665,7 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
    if (INTEL_DEBUG(DEBUG_SUBMIT)) {
       uint32_t total_size_kb = 0;
       for (uint32_t i = 0; i < execbuf.bo_count; i++) {
-         const struct anv_bo *bo = execbuf.bos[i];
+         const struct anv_bo *bo = execbuf.bos[i].bo;
          total_size_kb += bo->size / 1024;
       }
 
@@ -663,7 +673,7 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
               execbuf.batch_len,
               (float)total_size_kb / 1024.0f);
       for (uint32_t i = 0; i < execbuf.bo_count; i++) {
-         const struct anv_bo *bo = execbuf.bos[i];
+         const struct anv_bo *bo = execbuf.bos[i].bo;
          uint64_t size = bo->size + bo->_ccs_size;
 
          fprintf(stderr, "   BO: addr=0x%016"PRIx64"-0x%016"PRIx64" size=%7"PRIu64
