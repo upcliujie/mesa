@@ -109,7 +109,8 @@ libvulkan_util = static_library(
 
 idep_vulkan_util_headers = declare_dependency(
   sources : [vk_dispatch_table[1], vk_enum_to_str[1], vk_extensions[1]],
-  include_directories : include_directories('.')
+  include_directories : include_directories('.'),
+  dependencies : [dep_xcb, dep_x11, dep_xlib_xrandr]
 )
 
 idep_vulkan_util = declare_dependency(

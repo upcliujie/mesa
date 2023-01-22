@@ -124,7 +124,7 @@ foreach g : [['90', ['gfx8_cmd_buffer.c']],
       dep_libdrm, dep_valgrind, idep_nir_headers, idep_genxml,
       idep_vulkan_util_headers, idep_vulkan_wsi_headers,
       idep_vulkan_runtime_headers, idep_intel_driver_ds_headers,
-      idep_grl,
+      idep_grl, dep_x11
     ],
   )
 endforeach

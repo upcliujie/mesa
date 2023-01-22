@@ -44,6 +44,10 @@ if with_platform_wayland
   deps_gbm += dep_wayland_server
   incs_gbm += inc_wayland_drm
 endif
+if with_platform_x11
+  deps_gbm += [dep_xcb, dep_x11, dep_xlib_xrandr]
+endif
+ 
 
 libgbm_name = 'gbm'
 
