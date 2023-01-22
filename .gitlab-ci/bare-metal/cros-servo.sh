@@ -54,7 +54,7 @@ mkdir -p results
 
 # Create the rootfs in the NFS directory.  rm to make sure it's in a pristine
 # state, since it's volume-mounted on the host.
-rsync -a --delete $BM_ROOTFS/ /nfs/
+rsync -a --delete $BM_ROOTFS/ /nfs/ --exclude=/piglit/replayer-db
 mkdir -p /nfs/results
 . $BM/rootfs-setup.sh /nfs
 
