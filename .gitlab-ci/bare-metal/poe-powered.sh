@@ -71,8 +71,6 @@ fi
 
 set -ex
 
-date +'%F %T'
-
 # Clear out any previous run's artifacts.
 rm -rf results/
 mkdir -p results
@@ -80,8 +78,6 @@ mkdir -p results
 # Create the rootfs in the NFS directory.  rm to make sure it's in a pristine
 # state, since it's volume-mounted on the host.
 rsync -a --delete $BM_ROOTFS/ /nfs/
-
-date +'%F %T'
 
 # If BM_BOOTFS is an URL, download it
 if echo $BM_BOOTFS | grep -q http; then
@@ -91,8 +87,6 @@ if echo $BM_BOOTFS | grep -q http; then
   BM_BOOTFS=/tmp/bootfs.tar
 fi
 
-date +'%F %T'
-
 # If BM_BOOTFS is a file, assume it is a tarball and uncompress it
 if [ -f $BM_BOOTFS ]; then
   mkdir -p /tmp/bootfs
@@ -100,19 +94,13 @@ if [ -f $BM_BOOTFS ]; then
   BM_BOOTFS=/tmp/bootfs
 fi
 
-date +'%F %T'
-
 # Install kernel modules (it could be either in /lib/modules or
 # /usr/lib/modules, but we want to install in the latter)
 [ -d $BM_BOOTFS/usr/lib/modules ] && rsync -a $BM_BOOTFS/usr/lib/modules/ /nfs/usr/lib/modules/
 [ -d $BM_BOOTFS/lib/modules ] && rsync -a $BM_BOOTFS/lib/modules/ /nfs/lib/modules/
 
-date +'%F %T'
-
 # Install kernel image + bootloader files
 rsync -aL --delete $BM_BOOTFS/boot/ /tftp/
-
-date +'%F %T'
 
 # Set up the pxelinux config for Jetson Nano
 mkdir -p /tftp/pxelinux.cfg
@@ -145,8 +133,6 @@ EOF
 mkdir -p /nfs/results
 . $BM/rootfs-setup.sh /nfs
 
-date +'%F %T'
-
 echo "$BM_CMDLINE" > /tftp/cmdline.txt
 
 # Add some required options in config.txt
@@ -170,12 +156,8 @@ while [ $((ATTEMPTS--)) -gt 0 ]; do
 done
 set -e
 
-date +'%F %T'
-
 # Bring artifacts back from the NFS dir to the build dir where gitlab-runner
 # will look for them.
 cp -Rp /nfs/results/. results/
-
-date +'%F %T'
 
 exit $ret

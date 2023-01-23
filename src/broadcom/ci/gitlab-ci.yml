@@ -8,7 +8,7 @@
     HWCI_KERNEL_MODULES: vc4
     FLAKES_CHANNEL: "#videocore-ci"
   script:
-    - ./install/bare-metal/poe-powered.sh
+    - ./install/bare-metal/poe-powered.sh 2>&1 | timestamp '%F %T'
   tags:
     - igalia-rpi3
 
@@ -56,7 +56,7 @@ vc4-rpi3-piglit-quick_gl:armhf:
     GPU_VERSION: broadcom-rpi4
     HWCI_KERNEL_MODULES: v3d,vc4
   script:
-    - ./install/bare-metal/poe-powered.sh
+    - ./install/bare-metal/poe-powered.sh 2>&1 | timestamp '%F %T'
   tags:
     - igalia-rpi4
 
@@ -103,7 +103,7 @@ v3d-rpi4-traces:arm64:
     PIGLIT_REPLAY_DEVICE_NAME: "broadcom-rpi4"
     PIGLIT_RESULTS: "broadcom-rpi4-replay"
   script:
-    - ./install/bare-metal/poe-powered.sh
+    - ./install/bare-metal/poe-powered.sh 2>&1 | timestamp '%F %T'
   tags:
     - igalia-rpi4
 
@@ -123,6 +123,6 @@ v3dv-rpi4-vk:arm64:
     HWCI_KERNEL_MODULES: v3d,vc4
     VK_DRIVER: broadcom
   script:
-    - ./install/bare-metal/poe-powered.sh
+    - ./install/bare-metal/poe-powered.sh 2>&1 | timestamp '%F %T'
   tags:
     - igalia-rpi4
