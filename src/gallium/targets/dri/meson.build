@@ -93,7 +93,7 @@ foreach d : [[with_gallium_kmsro, [
                'stm_dri.so',
 	       'sun4i-drm_dri.so',
              ]],
-             [with_gallium_radeonsi, 'radeonsi_dri.so'],
+             [with_gallium_radeonsi or with_gallium_radeonsi_amdgpu, 'radeonsi_dri.so'],
              [with_gallium_nouveau, 'nouveau_dri.so'],
              [with_gallium_freedreno, ['msm_dri.so', 'kgsl_dri.so']],
              [with_gallium_softpipe, 'swrast_dri.so'],

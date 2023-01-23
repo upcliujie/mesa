@@ -72,11 +72,12 @@ if with_gallium_r600
 else
   driver_r600 = declare_dependency()
 endif
-if with_gallium_radeonsi
+if with_gallium_radeonsi_amdgpu
   subdir('winsys/amdgpu/drm')
+endif
+# Must be included after |winsys/radeon/drm| and |winsys/amdgpu/drm|, due to |libamdgpuwinsys| and libradeonwinsys.
+if with_gallium_r300 or with_gallium_radeonsi or with_gallium_r600 or with_gallium_radeonsi_amdgpu
   subdir('drivers/radeonsi')
-else
-  driver_radeonsi = declare_dependency()
 endif
 if with_gallium_nouveau
   subdir('winsys/nouveau/drm')
