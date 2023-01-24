@@ -32,6 +32,7 @@
 #include <pthread.h>
 #include <poll.h>
 #include <sys/mman.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 
 #include "drm-uapi/drm_fourcc.h"
@@ -39,6 +40,7 @@
 #include "vk_instance.h"
 #include "vk_physical_device.h"
 #include "vk_util.h"
+#include "loader/loader.h"
 #include "wsi_common_entrypoints.h"
 #include "wsi_common_private.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
@@ -1163,21 +1165,102 @@ wsi_wl_surface_destroy(VkIcdSurfaceBase *icd_surface, VkInstance _instance,
    vk_free2(&instance->alloc, pAllocator, wsi_wl_surface);
 }
 
+static char *
+get_client_render_node(struct wsi_wl_display *display)
+{
+   dev_t client_dev = 0;
+   char *node;
+
+   VkPhysicalDeviceDrmPropertiesEXT drmProperties = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT,
+      .pNext = NULL,
+   };
+   VkPhysicalDeviceProperties2 pProperties = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+      .pNext = &drmProperties,
+   };
+   display->wsi_wl->wsi->GetPhysicalDeviceProperties2(display->wsi_wl->physical_device,
+                                                      &pProperties);
+   if (!drmProperties.hasRender)
+      return NULL;
+
+   client_dev = makedev(drmProperties.primaryMajor, drmProperties.primaryMinor);
+   node = loader_get_render_node(client_dev);
+
+   return node;
+}
+
 static struct wsi_wl_format *
 pick_format_from_surface_dmabuf_feedback(struct wsi_wl_surface *wsi_wl_surface,
                                          VkFormat vk_format)
 {
    struct wsi_wl_format *f = NULL;
+   char *client_device_node, *target_device_node;
+   int ret;
 
    /* If the main_device was not advertised, we don't have valid feedback */
    if (wsi_wl_surface->dmabuf_feedback.main_device == 0)
       return NULL;
 
-   util_dynarray_foreach(&wsi_wl_surface->dmabuf_feedback.tranches,
-                         struct dmabuf_feedback_tranche, tranche) {
-      f = find_format(&tranche->formats, vk_format);
-      if (f)
-         break;
+   client_device_node = get_client_render_node(wsi_wl_surface->display);
+   if (client_device_node == NULL)
+	   return NULL;
+
+   /* First let's try to find a format ignoring some tranches that are not
+    * interesting for us.
+    *
+    * If we have a non-SCANOUT tranche and its target_device does not match the
+    * device that we are using, skip it. We are not creating our images using
+    * such target_device, so it makes no sense to use the parameters from this
+    * tranche.
+    *
+    * If we have a SCANOUT tranche, things are different. In this case,
+    * target_device is a KMS capable device and the compositor can take our
+    * images and use them for direct scanout (if we create our images with the
+    * parameters advertised in this tranche). So it makes sense to consider a
+    * SCANOUT tranche even if the target_device does not match the device that
+    * we are using.
+    *
+    * TODO: if the target_device differs from the main_device advertised (which
+    * is the device that the compositor is using to render), we must not
+    * allocate our images in memory that is only visible to the target_device,
+    * as the compositor may have to import them to the main_device (if direct
+    * scanout does not happen). We still don't know how to ensure this.
+    */
+   if (client_device_node) {
+      util_dynarray_foreach(&wsi_wl_surface->dmabuf_feedback.tranches,
+                           struct dmabuf_feedback_tranche, tranche) {
+         if ((tranche->flags & ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT) !=
+             ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT) {
+            target_device_node = loader_get_render_node(tranche->target_device);
+            if (target_device_node == NULL)
+               continue;
+            ret = strcmp(target_device_node, client_device_node);
+            free(target_device_node);
+            if (ret != 0)
+               continue;
+         }
+         f = find_format(&tranche->formats, vk_format);
+         if (f)
+            break;
+      }
+      free(client_device_node);
+   }
+
+   /* For some reason we could not find a format respecting the target_device
+    * rules above, so fallback and consider all tranches. This may happen for
+    * split display/render SoCs. The compositor may report the wrong render
+    * device in such cases.
+    *
+    * See https://gitlab.freedesktop.org/mesa/mesa/-/issues/5591.
+    */
+   if (!f) {
+      util_dynarray_foreach(&wsi_wl_surface->dmabuf_feedback.tranches,
+                            struct dmabuf_feedback_tranche, tranche) {
+         f = find_format(&tranche->formats, vk_format);
+         if (f)
+            break;
+      }
    }
 
    return f;

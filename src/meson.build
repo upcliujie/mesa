@@ -79,6 +79,7 @@ endif
 if with_platform_wayland
   subdir('egl/wayland/wayland-drm')
 endif
+subdir('loader')
 if with_any_vk or with_gallium_zink
   subdir('vulkan')
 endif
@@ -115,7 +116,6 @@ endif
 if with_gallium_asahi or with_tools.contains('asahi')
   subdir('asahi')
 endif
-subdir('loader')
 if with_platform_haiku
   subdir('hgl')
 endif
