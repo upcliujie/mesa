@@ -536,6 +536,32 @@ anv_queue_exec_utrace_locked(struct anv_queue *queue,
    return result;
 }
 
+static int
+anv_submit_perf_query_batch(struct anv_queue *queue,
+                            struct anv_query_pool *perf_query_pool,
+                            uint32_t perf_query_pass)
+{
+   struct anv_device *device = queue->device;
+   struct anv_bo *pass_batch_bo = perf_query_pool->bo;
+
+   struct drm_i915_gem_exec_object2 query_pass_object = {
+      .handle = pass_batch_bo->gem_handle,
+      .offset = pass_batch_bo->offset,
+      .flags  = pass_batch_bo->flags,
+   };
+   struct drm_i915_gem_execbuffer2 query_pass_execbuf = {
+      .buffers_ptr = (uintptr_t) &query_pass_object,
+      .buffer_count = 1,
+      .batch_start_offset = khr_perf_query_preamble_offset(perf_query_pool,
+                                                           perf_query_pass),
+      .flags = I915_EXEC_HANDLE_LUT | queue->exec_flags,
+      .rsvd1 = device->context_id,
+   };
+
+   return device->info->no_hw ? 0 :
+      anv_gem_execbuffer(device, &query_pass_execbuf);
+}
+
 VkResult
 anv_i915_queue_exec_locked(struct anv_queue *queue,
                            uint32_t wait_count,
@@ -670,25 +696,8 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
          }
       }
 
-      struct anv_bo *pass_batch_bo = perf_query_pool->bo;
-
-      struct drm_i915_gem_exec_object2 query_pass_object = {
-         .handle = pass_batch_bo->gem_handle,
-         .offset = pass_batch_bo->offset,
-         .flags  = pass_batch_bo->flags,
-      };
-      struct drm_i915_gem_execbuffer2 query_pass_execbuf = {
-         .buffers_ptr = (uintptr_t) &query_pass_object,
-         .buffer_count = 1,
-         .batch_start_offset = khr_perf_query_preamble_offset(perf_query_pool,
-                                                              perf_query_pass),
-         .flags = I915_EXEC_HANDLE_LUT | queue->exec_flags,
-         .rsvd1 = device->context_id,
-      };
-
-      int ret = queue->device->info->no_hw ? 0 :
-         anv_gem_execbuffer(queue->device, &query_pass_execbuf);
-      if (ret)
+      if (anv_submit_perf_query_batch(queue, perf_query_pool,
+                                      perf_query_pass))
          result = vk_queue_set_lost(&queue->vk, "execbuf2 failed: %m");
    }
 
