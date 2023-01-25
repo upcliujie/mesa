@@ -1119,6 +1119,8 @@ radv_CmdBuildAccelerationStructuresKHR(
 
       header.build_flags = pInfos[i].flags;
       header.geometry_count = pInfos[i].geometryCount;
+      if (pInfos[i].mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR)
+         header.blas_id = p_atomic_add_return(&cmd_buffer->device->next_blas_id, 1);
 
       struct radv_accel_struct_geometry_info *geometry_infos = malloc(geometry_infos_size);
       if (!geometry_infos)
@@ -1132,8 +1134,12 @@ radv_CmdBuildAccelerationStructuresKHR(
          geometry_infos[j].primitive_count = ppBuildRangeInfos[i][j].primitiveCount;
       }
 
+      size_t update_size = sizeof(header) - base;
+      /* Do not change the BLAS id when updating */
+      if (pInfos[i].mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR)
+         update_size -= sizeof(uint32_t);
       radv_update_buffer_cp(cmd_buffer, accel_struct->va + base, (const char *)&header + base,
-                            sizeof(header) - base);
+                            update_size);
 
       VkDeviceSize geometry_infos_offset = header.compacted_size - geometry_infos_size;
 
@@ -1178,6 +1184,7 @@ radv_CmdCopyAccelerationStructureKHR(VkCommandBuffer commandBuffer,
       .src_addr = src->va,
       .dst_addr = dst->va,
       .mode = RADV_COPY_MODE_COPY,
+      .blas_id = p_atomic_add_return(&cmd_buffer->device->next_blas_id, 1),
    };
 
    radv_CmdPushConstants(radv_cmd_buffer_to_handle(cmd_buffer),

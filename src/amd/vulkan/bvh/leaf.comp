@@ -282,6 +282,7 @@ build_instance(inout radv_aabb bounds, VOID_REF src_ptr, VOID_REF dst_ptr, uint3
    DEREF(node).custom_instance_and_mask = instance.custom_instance_and_mask;
    DEREF(node).sbt_offset_and_flags = instance.sbt_offset_and_flags;
    DEREF(node).instance_id = global_id;
+   DEREF(node).blas_id = instance_header.blas_id;
 
    DEREF(node).base.aabb = bounds;
    DEREF(node).base.cost = 0.0;

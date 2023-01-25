@@ -93,6 +93,7 @@ struct copy_args {
    VOID_REF src_addr;
    VOID_REF dst_addr;
    uint32_t mode;
+   uint32_t blas_id;
 };
 
 struct convert_internal_args {

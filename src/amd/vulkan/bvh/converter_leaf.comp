@@ -114,6 +114,7 @@ main()
       DEREF(dst).sbt_offset_and_flags = convert_sbt_offset_and_flags(src.sbt_offset_and_flags);
       DEREF(dst).instance_id = src.instance_id;
       DEREF(dst).bvh_offset = bvh_offset;
+      DEREF(dst).blas_id = src.blas_id;
 
       mat4 transform = mat4(src.otw_matrix);
 
