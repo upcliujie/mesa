@@ -548,6 +548,13 @@ fn lower_and_optimize_nir_late(
     );
     nir.extract_constant_initializers();
 
+    // run before gather info
+    nir.pass0(nir_lower_system_values);
+    let mut compute_options = nir_lower_compute_system_values_options::default();
+    compute_options.set_has_base_global_invocation_id(true);
+    nir.pass1(nir_lower_compute_system_values, &compute_options);
+    nir.pass1(nir_shader_gather_info, nir.entrypoint());
+
     res.push(InternalKernelArg {
         kind: InternalKernelArgType::GlobalWorkOffsets,
         offset: 0,
@@ -587,12 +594,6 @@ fn lower_and_optimize_nir_late(
         );
     }
 
-    // run before gather info
-    nir.pass0(nir_lower_system_values);
-    let mut compute_options = nir_lower_compute_system_values_options::default();
-    compute_options.set_has_base_global_invocation_id(true);
-    nir.pass1(nir_lower_compute_system_values, &compute_options);
-    nir.pass1(nir_shader_gather_info, nir.entrypoint());
     if nir.num_images() > 0 || nir.num_textures() > 0 {
         let count = nir.num_images() + nir.num_textures();
         res.push(InternalKernelArg {
