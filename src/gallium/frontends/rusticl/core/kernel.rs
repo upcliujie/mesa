@@ -548,8 +548,6 @@ fn lower_and_optimize_nir_late(
     );
     nir.extract_constant_initializers();
 
-    // TODO 32 bit devices
-    // add vars for global offsets
     res.push(InternalKernelArg {
         kind: InternalKernelArgType::GlobalWorkOffsets,
         offset: 0,
