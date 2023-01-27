@@ -1988,6 +1988,11 @@ optimizations.extend([
    (('ine', ('ubfe(is_used_once)', a, '#b', '#c'), 0), ('ine', ('iand', a, ('ishl', ('ushr', 0xffffffff, ('ineg', c)), b)), 0)),
    (('ieq', ('ubfe(is_used_once)', a, '#b', '#c'), 0), ('ieq', ('iand', a, ('ishl', ('ushr', 0xffffffff, ('ineg', c)), b)), 0)),
 
+   (('ine', ('iand(is_used_once)', a, ('ishl', '#b', c)), 0), ('ine', ('iand', b, ('ishr', a, c)), 0)),
+   (('ieq', ('iand(is_used_once)', a, ('ishl', '#b', c)), 0), ('ieq', ('iand', b, ('ishr', a, c)), 0)),
+
+   (('ior', ('ieq', ('ubfe', a, b, 2), 0), ('ieq', ('ubfe', a, b, 2), 2)), ('ieq', ('ubfe', a, b, 1), 0)),
+
    (('ibitfield_extract', 'value', 'offset', 'bits'),
     ('bcsel', ('ieq', 0, 'bits'),
      0,
