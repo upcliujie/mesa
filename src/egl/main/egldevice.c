@@ -284,8 +284,10 @@ _eglRefreshDeviceList(void)
 
    num_devs = drmGetDevices2(0, devices, ARRAY_SIZE(devices));
    for (int i = 0; i < num_devs; i++) {
+#ifndef EGL_RETURN_ALL_DEVICES_FOR_QUERY
       if (!(devices[i]->available_nodes & (1 << DRM_NODE_RENDER)))
          continue;
+#endif
 
       ret = _eglAddDRMDevice(devices[i], NULL);
 
