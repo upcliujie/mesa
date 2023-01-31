@@ -433,10 +433,13 @@ anv_gem_execbuffer(struct anv_device *device,
       return intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_EXECBUFFER2, execbuf);
 }
 
-static int
-anv_execbuf_submit(struct anv_device *device,
+static VkResult
+anv_execbuf_submit(struct anv_queue *queue,
                    struct anv_execbuf *execbuf)
 {
+   struct anv_device *device = queue->device;
+   VkResult result = VK_SUCCESS;
+
    /* The kernel requires that the last entry in the validation list be the
     * batch buffer to execute.  We can simply swap the element
     * corresponding to the first batch_bo in the chain with the last
@@ -497,8 +500,12 @@ anv_execbuf_submit(struct anv_device *device,
       gem_execbuf.flags |= I915_EXEC_FENCE_ARRAY;
    }
 
-   return device->info->no_hw ? 0 :
-            anv_gem_execbuffer(device, &gem_execbuf);
+   int ret = device->info->no_hw ? 0 :
+               anv_gem_execbuffer(device, &gem_execbuf);
+   if (ret)
+      result = vk_queue_set_lost(&queue->vk, "execbuf2 failed: %m");
+
+   return result;
 }
 
 static VkResult
@@ -521,8 +528,7 @@ anv_queue_exec_utrace_locked(struct anv_queue *queue,
    if (result != VK_SUCCESS)
       goto error;
 
-   if (anv_execbuf_submit(queue->device, &execbuf))
-      result = vk_queue_set_lost(&queue->vk, "execbuf_submit failed: %m");
+   result = anv_execbuf_submit(queue, &execbuf);
 
  error:
    anv_execbuf_finish(&execbuf);
@@ -686,8 +692,7 @@ anv_i915_queue_exec_locked(struct anv_queue *queue,
          result = vk_queue_set_lost(&queue->vk, "execbuf2 failed: %m");
    }
 
-   if (anv_execbuf_submit(queue->device, &execbuf))
-      result = vk_queue_set_lost(&queue->vk, "execbuf_submit failed: %m");
+   result = anv_execbuf_submit(queue, &execbuf);
 
    if (result == VK_SUCCESS && queue->sync) {
       result = vk_sync_wait(&device->vk, queue->sync, 0,
@@ -724,10 +729,9 @@ anv_i915_execute_simple_batch(struct anv_queue *queue,
    if (result != VK_SUCCESS)
       goto fail;
 
-   if (anv_execbuf_submit(device, &execbuf)) {
-      result = vk_device_set_lost(&device->vk, "execbuf_submit failed: %m");
+   result = anv_execbuf_submit(queue, &execbuf);
+   if (result != VK_SUCCESS)
       goto fail;
-   }
 
    result = anv_device_wait(device, batch_bo, INT64_MAX);
    if (result != VK_SUCCESS)
