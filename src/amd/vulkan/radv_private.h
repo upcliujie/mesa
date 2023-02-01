@@ -808,11 +808,17 @@ struct radv_device_border_color_data {
    mtx_t mutex;
 };
 
-enum radv_force_vrs {
-   RADV_FORCE_VRS_1x1 = 0,
-   RADV_FORCE_VRS_2x2,
-   RADV_FORCE_VRS_2x1,
-   RADV_FORCE_VRS_1x2,
+enum radv_vrs_rate {
+   RADV_VRS_RATE_1x1 = 0,
+   RADV_VRS_RATE_2x2,
+   RADV_VRS_RATE_2x1,
+   RADV_VRS_RATE_1x2,
+};
+
+struct radv_force_vrs_config {
+   enum radv_vrs_rate rate;
+   bool enable_with_discard;
+   bool enable_with_frag_coord;
 };
 
 struct radv_notifier {
@@ -978,7 +984,7 @@ struct radv_device {
 
    /* RADV_FORCE_VRS. */
    struct radv_notifier notifier;
-   enum radv_force_vrs force_vrs;
+   struct radv_force_vrs_config force_vrs_cfg;
 
    /* Depth image for VRS when not bound by the app. */
    struct {

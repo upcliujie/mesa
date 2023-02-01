@@ -2836,13 +2836,6 @@ radv_consider_force_vrs(const struct radv_pipeline *pipeline, bool noop_fs,
    if (noop_fs)
       return false;
 
-   /* Do not enable if the PS uses gl_FragCoord because it breaks postprocessing in some games. */
-   nir_shader *fs_shader = stages[MESA_SHADER_FRAGMENT].nir;
-   if (fs_shader &&
-       BITSET_TEST(fs_shader->info.system_values_read, SYSTEM_VALUE_FRAG_COORD)) {
-      return false;
-   }
-
    return true;
 }
 
@@ -4602,6 +4595,8 @@ gfx103_pipeline_emit_vrs_state(struct radeon_cmdbuf *ctx_cs,
       rate_x = rate_y = 1;
    } else if (!radv_is_static_vrs_enabled(pipeline, state) && pipeline->force_vrs_per_vertex &&
               get_vs_output_info(pipeline)->writes_primitive_shading_rate) {
+      const struct radv_force_vrs_config *force_vrs_cfg = &pipeline->base.device->force_vrs_cfg;
+
       /* Otherwise, if per-draw VRS is not enabled statically, try forcing per-vertex VRS if
        * requested by the user. Note that vkd3d-proton always has to declare VRS as dynamic because
        * in DX12 it's fully dynamic.
@@ -4610,12 +4605,20 @@ gfx103_pipeline_emit_vrs_state(struct radeon_cmdbuf *ctx_cs,
          S_028848_SAMPLE_ITER_COMBINER_MODE(V_028848_VRS_COMB_MODE_OVERRIDE) |
          S_028848_VERTEX_RATE_COMBINER_MODE(V_028848_VRS_COMB_MODE_OVERRIDE));
 
-      /* If the shader is using discard, turn off coarse shading because discard at 2x2 pixel
-       * granularity degrades quality too much. MIN allows sample shading but not coarse shading.
+      /* Coarse shading is disabled if:
+       *
+       * - the shader uses discard because it degrades quality too much
+       * - the shader uses gl_FragCoord because it breaks postprocessing in some games
+       *
+       * Note that MIN allows sample shading but not coarse shading.
        */
       struct radv_shader *ps = pipeline->base.shaders[MESA_SHADER_FRAGMENT];
-
-      mode = ps->info.ps.can_discard ? V_028064_VRS_COMB_MODE_MIN : V_028064_VRS_COMB_MODE_PASSTHRU;
+      if ((!force_vrs_cfg->enable_with_discard && ps->info.ps.can_discard) ||
+          (!force_vrs_cfg->enable_with_frag_coord && ps->info.ps.reads_frag_coord_mask)) {
+         mode = V_028064_VRS_COMB_MODE_MIN;
+      } else {
+         mode = V_028064_VRS_COMB_MODE_PASSTHRU;
+      }
    }
 
    if (pdevice->rad_info.gfx_level >= GFX11) {
