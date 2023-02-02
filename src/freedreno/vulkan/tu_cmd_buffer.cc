@@ -4001,10 +4001,6 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
 
       tu6_emit_gmem_stores(cmd, &cmd->draw_cs, subpass);
 
-      /* TODO: we're emitting the resolves into the draw CS, which is conditionally
-       * executed based on geometry being present.  That's not actually correct
-       * unless the resolve is generating geometry into the vis stream.
-       */
       tu6_emit_gmem_resolves(cmd, subpass, cs);
 
       tu_cond_exec_end(cs);
