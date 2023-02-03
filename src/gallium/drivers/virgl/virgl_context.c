@@ -727,6 +727,7 @@ static void *virgl_shader_encoder(struct pipe_context *ctx,
       }
 
       nir_shader *s = nir_shader_clone(NULL, shader->ir.nir);
+      nir_lower_memop_oob_access(s, true);
 
       /* The host can't handle certain IO slots as separable, because we can't assign
        * more than 32 IO locations explicitly, and with varyings and patches we already
