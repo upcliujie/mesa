@@ -782,6 +782,14 @@ util_is_vbo_upload_ratio_too_large(unsigned draw_vertex_count,
 
 bool util_invert_mat4x4(float *out, const float *m);
 
+static inline float
+util_quantize_range_granularity(float value, float min, float max,
+                                float granularity)
+{
+   value = CLAMP(value, min, max);
+   return roundf(value / granularity) * granularity;
+}
+
 /* Quantize the lod bias value to reduce the number of sampler state
  * variants in gallium because apps use it for smooth mipmap transitions,
  * thrashing cso_cache and degrading performance.
@@ -792,8 +800,7 @@ bool util_invert_mat4x4(float *out, const float *m);
 static inline float
 util_quantize_lod_bias(float lod)
 {
-   lod = CLAMP(lod, -16, 16);
-   return roundf(lod * 256) / 256;
+   return util_quantize_range_granularity(lod, -16, 16, 1.0f / 256);
 }
 
 /**
