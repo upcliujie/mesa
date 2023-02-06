@@ -201,6 +201,8 @@ xmlconfig_test::drirc_init(const char *driver, const char *drm,
    driOptionDescription driconf[] = {
       DRI_CONF_SECTION_MISCELLANEOUS
       DRI_CONF_OPT_I(mesa_drirc_option, 0, 0, 200, "description")
+      DRI_CONF_OPT_I(mesa_drirc_option_two, 0, 0, 200, "description")
+      DRI_CONF_OPT_I(mesa_drirc_option_three, 0, 0, 200, "description")
    };
    driParseOptionInfo(&options, driconf, ARRAY_SIZE(driconf));
 
@@ -298,5 +300,23 @@ TEST_F(xmlconfig_test, drirc_exec_override)
                                      NULL, 0);
    EXPECT_EQ(driQueryOptioni(&cache, "mesa_drirc_option"), 1);
    driDestroyOptionCache(&cache);
+}
+
+TEST_F(xmlconfig_test, drirc_env_add_driconf_path)
+{
+   std::string added_environment_str = std::string{""} +
+      getenv("DRIRC_CONFIGDIR") + "/dir_a" + ":" +
+      getenv("DRIRC_CONFIGDIR") + "/dir_b";
+   setenv("MESA_ADD_DRICONF_PATH", added_environment_str.c_str(), 1);
+
+   driOptionCache cache = drirc_init("driver", "drm",
+                                     "app1",
+                                     NULL, 0,
+                                     NULL, 0);
+
+   EXPECT_EQ(driQueryOptioni(&cache, "mesa_drirc_option_two"), 1);
+   EXPECT_EQ(driQueryOptioni(&cache, "mesa_drirc_option_three"), 1);
+   driDestroyOptionCache(&cache);
+   unsetenv("MESA_ADD_DRICONF_PATH");
 }
 #endif
