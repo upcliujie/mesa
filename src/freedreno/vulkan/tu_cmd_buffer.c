@@ -5933,7 +5933,6 @@ tu_barrier(struct tu_cmd_buffer *cmd,
    bool gmem = cmd->state.ccu_state == TU_CMD_CCU_GMEM &&
       !cmd->state.pass;
 
-
    for (uint32_t i = 0; i < dep_info->memoryBarrierCount; i++) {
       VkPipelineStageFlags2 sanitized_src_stage =
          sanitize_src_stage(dep_info->pMemoryBarriers[i].srcStageMask);

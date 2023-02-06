@@ -135,85 +135,30 @@ tu6_format_texture_supported(enum pipe_format format)
    return tu6_format_texture_unchecked(format, TILE6_LINEAR).fmt != FMT6_NONE;
 }
 
-enum tu6_ubwc_compat_type {
-   TU6_UBWC_UNKNOWN_COMPAT,
-   TU6_UBWC_R8G8_UNORM,
-   TU6_UBWC_R8G8_INT,
-   TU6_UBWC_R8G8B8A8_UNORM,
-   TU6_UBWC_R8G8B8A8_INT,
-   TU6_UBWC_B8G8R8A8_UNORM,
-   TU6_UBWC_R16G16_INT,
-   TU6_UBWC_R16G16B16A16_INT,
-   TU6_UBWC_R32_INT,
-   TU6_UBWC_R32G32_INT,
-   TU6_UBWC_R32G32B32A32_INT,
-   TU6_UBWC_R32_FLOAT,
-};
-
-static enum tu6_ubwc_compat_type
-tu6_ubwc_compat_mode(VkFormat format)
+static bool
+is_16_16_or_32(enum pipe_format format)
 {
-   switch (format) {
-   case VK_FORMAT_R8G8_UNORM:
-   case VK_FORMAT_R8G8_SRGB:
-      return TU6_UBWC_R8G8_UNORM;
+   int components = util_format_get_nr_components(format);
 
-   case VK_FORMAT_R8G8_UINT:
-   case VK_FORMAT_R8G8_SINT:
-      return TU6_UBWC_R8G8_INT;
-
-   case VK_FORMAT_R8G8B8A8_UNORM:
-   case VK_FORMAT_R8G8B8A8_SRGB:
-   case VK_FORMAT_A8B8G8R8_UNORM_PACK32:
-   case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
-      return TU6_UBWC_R8G8B8A8_UNORM;
-
-   case VK_FORMAT_R8G8B8A8_UINT:
-   case VK_FORMAT_R8G8B8A8_SINT:
-   case VK_FORMAT_A8B8G8R8_UINT_PACK32:
-   case VK_FORMAT_A8B8G8R8_SINT_PACK32:
-      return TU6_UBWC_R8G8B8A8_INT;
-
-   case VK_FORMAT_R16G16_UINT:
-   case VK_FORMAT_R16G16_SINT:
-      return TU6_UBWC_R16G16_INT;
-
-   case VK_FORMAT_R16G16B16A16_UINT:
-   case VK_FORMAT_R16G16B16A16_SINT:
-      return TU6_UBWC_R16G16B16A16_INT;
-
-   case VK_FORMAT_R32_UINT:
-   case VK_FORMAT_R32_SINT:
-      return TU6_UBWC_R32_INT;
-
-   case VK_FORMAT_R32G32_UINT:
-   case VK_FORMAT_R32G32_SINT:
-      return TU6_UBWC_R32G32_INT;
-
-   case VK_FORMAT_R32G32B32A32_UINT:
-   case VK_FORMAT_R32G32B32A32_SINT:
-      return TU6_UBWC_R32G32B32A32_INT;
-
-   case VK_FORMAT_D32_SFLOAT:
-   case VK_FORMAT_R32_SFLOAT:
-      /* TODO: a630 blob allows these, but not a660.  When is it legal? */
-      return TU6_UBWC_UNKNOWN_COMPAT;
-
-   case VK_FORMAT_B8G8R8A8_UNORM:
-   case VK_FORMAT_B8G8R8A8_SRGB:
-      /* The blob doesn't list these as compatible, but they surely are.
-       * freedreno's happy to cast between them, and zink would really like
-       * to.
-       */
-      return TU6_UBWC_B8G8R8A8_UNORM;
-
-   default:
-      return TU6_UBWC_UNKNOWN_COMPAT;
+   if (components == 1 && util_format_get_component_bits(
+                             format, UTIL_FORMAT_COLORSPACE_RGB, 0) == 32) {
+      return true;
    }
+
+   if (components == 2 &&
+       util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB,
+                                      0) == 16 &&
+       util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB,
+                                      1) == 16) {
+      return true;
+   }
+
+   return false;
 }
 
 bool
-tu6_mutable_format_list_ubwc_compatible(const VkImageFormatListCreateInfo *fmt_list)
+tu6_mutable_format_list_ubwc_compatible(
+   const VkImageFormatListCreateInfo *fmt_list)
 {
    if (!fmt_list || !fmt_list->viewFormatCount)
       return false;
@@ -224,14 +169,54 @@ tu6_mutable_format_list_ubwc_compatible(const VkImageFormatListCreateInfo *fmt_l
    if (fmt_list->viewFormatCount == 1)
       return true;
 
-   enum tu6_ubwc_compat_type type =
-      tu6_ubwc_compat_mode(fmt_list->pViewFormats[0]);
-   if (type == TU6_UBWC_UNKNOWN_COMPAT)
-      return false;
+   enum pipe_format format0 =
+      vk_format_to_pipe_format(fmt_list->pViewFormats[0]);
+   uint32_t bpp = util_format_get_blocksizebits(format0);
 
-   for (uint32_t i = 1; i < fmt_list->viewFormatCount; i++) {
-      if (tu6_ubwc_compat_mode(fmt_list->pViewFormats[i]) != type)
-         return false;
+   /* >32bpp formats are all UBWC compatible as long as we don't do fast
+    * clears, since they would all be 16_16_16_16 or 32_32.
+    */
+   if (bpp > 32)
+      return true;
+
+   /* 8-bit formats should all be UBWC compatible */
+   if (bpp == 8)
+      return true;
+
+   /* 16 and 32bpp get tricky.  Generally, you compare the channel sizes as
+    * long as you're not doing fast clears.  There are some special cases,
+    * though.
+    */
+   for (int i = 1; i < fmt_list->viewFormatCount; i++) {
+      enum pipe_format format =
+         vk_format_to_pipe_format(fmt_list->pViewFormats[i]);
+
+      if (bpp == 32) {
+         /* The HW automatically uses fast clear 1 encoding for 8888 unorm,
+          * so it can't be compatible with anything else (other than srgb)
+          */
+         if (util_format_is_rgba8_variant(util_format_description(format0)) !=
+             util_format_is_rgba8_variant(util_format_description(format))) {
+            return false;
+         }
+
+         /* All of 16_16 and 32 are compatible, as long as we don't do
+          * explicit fast clears.
+          */
+         if (is_16_16_or_32(format0) && is_16_16_or_32(format))
+            continue;
+      }
+
+      for (unsigned c = 0; c < 4; c++) {
+         enum pipe_format format =
+            vk_format_to_pipe_format(fmt_list->pViewFormats[i]);
+         if (util_format_get_component_bits(format0,
+                                            UTIL_FORMAT_COLORSPACE_RGB, c) !=
+             util_format_get_component_bits(format,
+                                            UTIL_FORMAT_COLORSPACE_RGB, c)) {
+            return false;
+         }
+      }
    }
 
    return true;
