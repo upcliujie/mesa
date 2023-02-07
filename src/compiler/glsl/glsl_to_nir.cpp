@@ -2200,22 +2200,30 @@ nir_visitor::visit(ir_expression *ir)
       result = type_is_float(out_type) ? nir_fmod(&b, srcs[0], srcs[1])
                                        : nir_umod(&b, srcs[0], srcs[1]);
       break;
-   case ir_binop_min:
+   case ir_binop_min: {
+      bool save_exact = b.exact;
+      b.exact |= type_is_float(out_type);
       if (type_is_float(out_type))
          result = nir_fmin(&b, srcs[0], srcs[1]);
       else if (type_is_signed(out_type))
          result = nir_imin(&b, srcs[0], srcs[1]);
       else
          result = nir_umin(&b, srcs[0], srcs[1]);
+      b.exact = save_exact;
       break;
-   case ir_binop_max:
+   }
+   case ir_binop_max: {
+      bool save_exact = b.exact;
+      b.exact |= type_is_float(out_type);
       if (type_is_float(out_type))
          result = nir_fmax(&b, srcs[0], srcs[1]);
       else if (type_is_signed(out_type))
          result = nir_imax(&b, srcs[0], srcs[1]);
       else
          result = nir_umax(&b, srcs[0], srcs[1]);
+      b.exact = save_exact;
       break;
+   }
    case ir_binop_pow: result = nir_fpow(&b, srcs[0], srcs[1]); break;
    case ir_binop_bit_and: result = nir_iand(&b, srcs[0], srcs[1]); break;
    case ir_binop_bit_or: result = nir_ior(&b, srcs[0], srcs[1]); break;
