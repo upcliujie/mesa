@@ -223,8 +223,10 @@ handle_instr(struct vtn_builder *b, uint32_t opcode,
 
 static nir_op
 nir_alu_op_for_opencl_opcode(struct vtn_builder *b,
-                             enum OpenCLstd_Entrypoints opcode)
+                             enum OpenCLstd_Entrypoints opcode,
+                             bool *exact)
 {
+   *exact = false;
    switch (opcode) {
    case OpenCLstd_Fabs: return nir_op_fabs;
    case OpenCLstd_SAbs: return nir_op_iabs;
@@ -234,10 +236,10 @@ nir_alu_op_for_opencl_opcode(struct vtn_builder *b,
    case OpenCLstd_Floor: return nir_op_ffloor;
    case OpenCLstd_SHadd: return nir_op_ihadd;
    case OpenCLstd_UHadd: return nir_op_uhadd;
-   case OpenCLstd_Fmax: return nir_op_fmax;
+   case OpenCLstd_Fmax: *exact = true; return nir_op_fmax;
    case OpenCLstd_SMax: return nir_op_imax;
    case OpenCLstd_UMax: return nir_op_umax;
-   case OpenCLstd_Fmin: return nir_op_fmin;
+   case OpenCLstd_Fmin: *exact = true; return nir_op_fmin;
    case OpenCLstd_SMin: return nir_op_imin;
    case OpenCLstd_UMin: return nir_op_umin;
    case OpenCLstd_Mix: return nir_op_flrp;
@@ -276,10 +278,19 @@ handle_alu(struct vtn_builder *b, uint32_t opcode,
            unsigned num_srcs, nir_ssa_def **srcs, struct vtn_type **src_types,
            const struct vtn_type *dest_type)
 {
-   nir_ssa_def *ret = nir_build_alu(&b->nb, nir_alu_op_for_opencl_opcode(b, (enum OpenCLstd_Entrypoints)opcode),
+   bool exact;
+   nir_op op = nir_alu_op_for_opencl_opcode(b, (enum OpenCLstd_Entrypoints)opcode, &exact);
+
+   bool restore_exact = b->nb.exact;
+   b->nb.exact |= exact;
+
+   nir_ssa_def *ret = nir_build_alu(&b->nb, op,
                                     srcs[0], srcs[1], srcs[2], NULL);
    if (opcode == OpenCLstd_Popcount)
       ret = nir_u2uN(&b->nb, ret, glsl_get_bit_size(dest_type->type));
+
+   b->nb.exact = restore_exact;
+
    return ret;
 }
 
@@ -474,6 +485,7 @@ handle_special(struct vtn_builder *b, uint32_t opcode,
    nir_builder *nb = &b->nb;
    enum OpenCLstd_Entrypoints cl_opcode = (enum OpenCLstd_Entrypoints)opcode;
 
+   bool restore_exact = b->nb.exact;
    switch (cl_opcode) {
    case OpenCLstd_SAbs_diff:
      /* these works easier in direct NIR */
@@ -494,8 +506,12 @@ handle_special(struct vtn_builder *b, uint32_t opcode,
       return nir_iadd(nb, nir_imul24_relaxed(nb, srcs[0], srcs[1]), srcs[2]);
    case OpenCLstd_UMad24:
       return nir_umad24_relaxed(nb, srcs[0], srcs[1], srcs[2]);
-   case OpenCLstd_FClamp:
-      return nir_fclamp(nb, srcs[0], srcs[1], srcs[2]);
+   case OpenCLstd_FClamp: {
+      b->nb.exact = true;
+      nir_ssa_def *res = nir_fclamp(nb, srcs[0], srcs[1], srcs[2]);
+      b->nb.exact = restore_exact;
+      return res;
+   }
    case OpenCLstd_SClamp:
       return nir_iclamp(nb, srcs[0], srcs[1], srcs[2]);
    case OpenCLstd_UClamp:
@@ -514,10 +530,18 @@ handle_special(struct vtn_builder *b, uint32_t opcode,
       return nir_fmod(nb, srcs[0], srcs[1]);
    case OpenCLstd_Mad:
       return nir_fmad(nb, srcs[0], srcs[1], srcs[2]);
-   case OpenCLstd_Maxmag:
-      return nir_maxmag(nb, srcs[0], srcs[1]);
-   case OpenCLstd_Minmag:
-      return nir_minmag(nb, srcs[0], srcs[1]);
+   case OpenCLstd_Maxmag: {
+      b->nb.exact = true;
+      nir_ssa_def *res = nir_maxmag(nb, srcs[0], srcs[1]);
+      b->nb.exact = restore_exact;
+      return res;
+   }
+   case OpenCLstd_Minmag: {
+      b->nb.exact = true;
+      nir_ssa_def *res = nir_minmag(nb, srcs[0], srcs[1]);
+      b->nb.exact = restore_exact;
+      return res;
+   }
    case OpenCLstd_Nan:
       return nir_nan(nb, srcs[0]);
    case OpenCLstd_Nextafter:
