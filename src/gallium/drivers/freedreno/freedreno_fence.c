@@ -123,6 +123,8 @@ void
 fd_pipe_fence_ref(struct pipe_fence_handle **ptr,
                   struct pipe_fence_handle *pfence)
 {
+   // TODO can we use ctx_reference_described here?  I'm not sure
+   // pipe_screen::fence_reference gives us enough guarantees to do so
    if (pipe_reference(&(*ptr)->reference, &pfence->reference))
       fd_fence_destroy(*ptr);
 

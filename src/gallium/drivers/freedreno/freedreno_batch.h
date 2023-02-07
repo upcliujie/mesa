@@ -311,7 +311,7 @@ fd_batch_reference_locked(struct fd_batch **ptr, struct fd_batch *batch)
    if (old_batch)
       fd_screen_assert_locked(old_batch->ctx->screen);
 
-   if (pipe_reference_described(
+   if (ctx_reference_described(
           &(*ptr)->reference, &batch->reference,
           (debug_reference_descriptor)__fd_batch_describe))
       __fd_batch_destroy(old_batch);
@@ -337,7 +337,7 @@ fd_batch_reference(struct fd_batch **ptr, struct fd_batch *batch)
 static inline void
 fd_batch_unlock_submit(struct fd_batch *batch)
 {
-   simple_mtx_unlock(&batch->submit_lock);
+   ctx_unlock(&batch->submit_lock);
 }
 
 /**
@@ -347,7 +347,7 @@ fd_batch_unlock_submit(struct fd_batch *batch)
 static inline bool MUST_CHECK
 fd_batch_lock_submit(struct fd_batch *batch)
 {
-   simple_mtx_lock(&batch->submit_lock);
+   ctx_lock(&batch->submit_lock);
    bool ret = !batch->flushed;
    if (!ret)
       fd_batch_unlock_submit(batch);
