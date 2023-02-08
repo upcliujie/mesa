@@ -3321,6 +3321,8 @@ struct anv_image {
        */
       bool can_non_zero_fast_clear;
    } planes[3];
+
+   struct anv_image_memory_range vid_dmv_top_surface;
 };
 
 static inline bool
@@ -3790,6 +3792,9 @@ static inline uint32_t khr_perf_query_preamble_offset(const struct anv_query_poo
 {
    return pool->pass_size * pass + 8;
 }
+
+#define ANV_MB_WIDTH 16
+#define ANV_MB_HEIGHT 16
 
 void
 anv_dump_pipe_bits(enum anv_pipe_bits bits);
