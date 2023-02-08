@@ -1966,7 +1966,7 @@
     <field name="Pipeline" start="27" end="28" type="uint" default="2" />
     <field name="Command Type" start="29" end="31" type="uint" default="3" />
     <field name="Indirect BSD Data Length" start="32" end="63" type="uint" />
-    <field name="Indirect BSD Data Start Address" start="64" end="92" type="address" />
+    <field name="Indirect BSD Data Start Address" start="64" end="92" type="offset" />
     <field name="Inline Data" start="96" end="191" type="INLINE_DATA_DESCRIPTION_FOR_MFD_AVC_BSD_OBJECT" />
   </instruction>
   <instruction name="MFD_AVC_DPB_STATE" bias="2" length="11" engine="video">
@@ -2008,7 +2008,7 @@
     <field name="Pipeline" start="27" end="28" type="uint" default="2" />
     <field name="Command Type" start="29" end="31" type="uint" default="3" />
     <field name="Indirect BSD Data Length" start="32" end="63" type="uint" />
-    <field name="Indirect BSD Data Start Address" start="64" end="92" type="address" />
+    <field name="Indirect BSD Data Start Address" start="64" end="92" type="offset" />
   </instruction>
   <instruction name="MFD_IT_OBJECT" bias="2" engine="video">
     <field name="DWord Length" start="0" end="11" type="uint" default="6" />
@@ -3208,9 +3208,7 @@
       <value name="GGTT" value="1" />
     </field>
     <field name="Address" start="35" end="63" type="address" />
-    <group count="2" start="64" size="32">
-      <field name="Immediate Data" start="0" end="31" type="uint" />
-    </group>
+    <field name="Immediate Data" start="64" end="127" type="uint" />
   </instruction>
   <instruction name="MI_LOAD_REGISTER_IMM" bias="2" length="3">
     <field name="DWord Length" start="0" end="7" type="uint" default="1" />
