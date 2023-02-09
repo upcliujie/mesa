@@ -1480,7 +1480,6 @@ else
   dep_expat = dependency('expat', fallback : ['expat', 'expat_dep'],
                          required : opt_xmlconfig)
 endif
-use_xmlconfig = dep_expat.found()
   
 # Predefined macros for windows
 if host_machine.system() == 'windows'

@@ -273,26 +273,19 @@ idep_mesautil = declare_dependency(
 )
 
 # Only install the drirc file if we build with support for parsing drirc files
-if use_xmlconfig
+if dep_expat.found()
    install_data(files_drirc, install_dir : join_paths(get_option('datadir'), 'drirc.d'))
 endif
 
-xmlconfig_deps = []
-if use_xmlconfig
-  xmlconfig_deps += dep_expat
-endif
-xmlconfig_deps += dep_regex
-
-c_xmlconfig_arg = '-DWITH_XMLCONFIG=@0@'.format(use_xmlconfig.to_int())
 
 _libxmlconfig = static_library(
   'xmlconfig',
   files_xmlconfig,
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
-  dependencies : [idep_mesautil, dep_m, xmlconfig_deps],
+  dependencies : [idep_mesautil, dep_m, dep_expat, dep_regex],
   c_args : [
     c_msvc_compat_args,
-    c_xmlconfig_arg,
+    '-DWITH_XMLCONFIG=@0@'.format(dep_expat.found().to_int()),
     '-DSYSCONFDIR="@0@"'.format(
       join_paths(get_option('prefix'), get_option('sysconfdir'))
     ),
@@ -305,7 +298,7 @@ _libxmlconfig = static_library(
 )
 
 idep_xmlconfig = declare_dependency(
-  dependencies : xmlconfig_deps,
+  dependencies : [dep_regex, dep_expat],
   link_with : _libxmlconfig,
 )
 
