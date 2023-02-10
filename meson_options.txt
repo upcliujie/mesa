@@ -664,3 +664,9 @@ option (
   value : 'disabled',
   description: 'Enable Intel Xe KMD support.'
 )
+option(
+  'native-c11-threads',
+  type : 'feature',
+  value : 'auto',
+  description : 'On android platform, auto means using native c11 threads; on other platforms auto means not using native c11 threads.'
+)

@@ -1333,10 +1333,17 @@ endif
 with_c11_threads = false
 if cc.has_function('thrd_create', prefix: '#include <threads.h>')
   if with_platform_android
-    # Current only Android's c11 <threads.h> are verified
-    pre_args += '-DHAVE_THRD_CREATE'
+    # Current only Android's native c11 <threads.h> are verified and need always use it
+    with_c11_threads = true
+  elif get_option('native-c11-threads').enabled()
+    # On other platforms, only use native c11 threads when requested
     with_c11_threads = true
   endif
+elif get_option('native-c11-threads').enabled()
+    error('Use native c11 threads required system libc provide it.')
+endif
+if with_c11_threads
+  pre_args += '-DHAVE_THRD_CREATE'
 endif
 
 if cc.has_header_symbol('errno.h', 'program_invocation_name',
@@ -2141,6 +2148,13 @@ summary(
     'c_cpp_args': c_cpp_args,
   },
   section: 'Common C and C++ arguments'
+)
+
+summary(
+  {
+    'native c11 threads': with_c11_threads,
+  },
+  section: 'Utils'
 )
 
 summary(
