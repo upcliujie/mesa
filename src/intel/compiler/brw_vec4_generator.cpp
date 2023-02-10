@@ -35,11 +35,11 @@ generate_math1_gfx4(struct brw_codegen *p,
                     struct brw_reg src)
 {
    gfx4_math(p,
-	     dst,
-	     brw_math_function(inst->opcode),
-	     inst->base_mrf,
-	     src,
-	     BRW_MATH_PRECISION_FULL);
+             dst,
+             brw_math_function(inst->opcode),
+             inst->base_mrf,
+             src,
+             BRW_MATH_PRECISION_FULL);
 }
 
 static void
@@ -97,11 +97,11 @@ generate_math2_gfx4(struct brw_codegen *p,
    brw_pop_insn_state(p);
 
    gfx4_math(p,
-	     dst,
-	     brw_math_function(inst->opcode),
-	     inst->base_mrf,
-	     op0,
-	     BRW_MATH_PRECISION_FULL);
+             dst,
+             brw_math_function(inst->opcode),
+             inst->base_mrf,
+             op0,
+             BRW_MATH_PRECISION_FULL);
 }
 
 static void
@@ -121,12 +121,12 @@ generate_tex(struct brw_codegen *p,
       switch (inst->opcode) {
       case SHADER_OPCODE_TEX:
       case SHADER_OPCODE_TXL:
-	 if (inst->shadow_compare) {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD_COMPARE;
-	 } else {
-	    msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD;
-	 }
-	 break;
+         if (inst->shadow_compare) {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD_COMPARE;
+         } else {
+            msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LOD;
+         }
+         break;
       case SHADER_OPCODE_TXD:
          if (inst->shadow_compare) {
             /* Gfx7.5+.  Otherwise, lowered by brw_lower_texture_gradients(). */
@@ -135,10 +135,10 @@ generate_tex(struct brw_codegen *p,
          } else {
             msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_DERIVS;
          }
-	 break;
+         break;
       case SHADER_OPCODE_TXF:
-	 msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LD;
-	 break;
+         msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_LD;
+         break;
       case SHADER_OPCODE_TXF_CMS:
          if (devinfo->ver >= 7)
             msg_type = GFX7_SAMPLER_MESSAGE_SAMPLE_LD2DMS;
@@ -150,8 +150,8 @@ generate_tex(struct brw_codegen *p,
          msg_type = GFX7_SAMPLER_MESSAGE_SAMPLE_LD_MCS;
          break;
       case SHADER_OPCODE_TXS:
-	 msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_RESINFO;
-	 break;
+         msg_type = GFX5_SAMPLER_MESSAGE_SAMPLE_RESINFO;
+         break;
       case SHADER_OPCODE_TG4:
          if (inst->shadow_compare) {
             msg_type = GFX7_SAMPLER_MESSAGE_SAMPLE_GATHER4_C;
@@ -170,35 +170,35 @@ generate_tex(struct brw_codegen *p,
          msg_type = GFX6_SAMPLER_MESSAGE_SAMPLE_SAMPLEINFO;
          break;
       default:
-	 unreachable("should not get here: invalid vec4 texture opcode");
+         unreachable("should not get here: invalid vec4 texture opcode");
       }
    } else {
       switch (inst->opcode) {
       case SHADER_OPCODE_TEX:
       case SHADER_OPCODE_TXL:
-	 if (inst->shadow_compare) {
-	    msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_SAMPLE_LOD_COMPARE;
-	    assert(inst->mlen == 3);
-	 } else {
-	    msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_SAMPLE_LOD;
-	    assert(inst->mlen == 2);
-	 }
-	 break;
+         if (inst->shadow_compare) {
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_SAMPLE_LOD_COMPARE;
+            assert(inst->mlen == 3);
+         } else {
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_SAMPLE_LOD;
+            assert(inst->mlen == 2);
+         }
+         break;
       case SHADER_OPCODE_TXD:
-	 /* There is no sample_d_c message; comparisons are done manually. */
-	 msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_SAMPLE_GRADIENTS;
-	 assert(inst->mlen == 4);
-	 break;
+         /* There is no sample_d_c message; comparisons are done manually. */
+         msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_SAMPLE_GRADIENTS;
+         assert(inst->mlen == 4);
+         break;
       case SHADER_OPCODE_TXF:
-	 msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_LD;
-	 assert(inst->mlen == 2);
-	 break;
+         msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_LD;
+         assert(inst->mlen == 2);
+         break;
       case SHADER_OPCODE_TXS:
-	 msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_RESINFO;
-	 assert(inst->mlen == 2);
-	 break;
+         msg_type = BRW_SAMPLER_MESSAGE_SIMD4X2_RESINFO;
+         assert(inst->mlen == 2);
+         break;
       default:
-	 unreachable("should not get here: invalid vec4 texture opcode");
+         unreachable("should not get here: invalid vec4 texture opcode");
       }
    }
 
@@ -338,14 +338,14 @@ static void
 generate_vs_urb_write(struct brw_codegen *p, vec4_instruction *inst)
 {
    brw_urb_WRITE(p,
-		 brw_null_reg(), /* dest */
-		 inst->base_mrf, /* starting mrf reg nr */
-		 brw_vec8_grf(0, 0), /* src */
+                 brw_null_reg(), /* dest */
+                 inst->base_mrf, /* starting mrf reg nr */
+                 brw_vec8_grf(0, 0), /* src */
                  inst->urb_write_flags,
-		 inst->mlen,
-		 0,		/* response len */
-		 inst->offset,	/* urb destination offset */
-		 BRW_URB_SWIZZLE_INTERLEAVE);
+                 inst->mlen,
+                 0,              /* response len */
+                 inst->offset,   /* urb destination offset */
+                 BRW_URB_SWIZZLE_INTERLEAVE);
 }
 
 static void
@@ -1147,7 +1147,7 @@ generate_scratch_read(struct brw_codegen *p,
    gfx6_resolve_implied_move(p, &header, inst->base_mrf);
 
    generate_oword_dual_block_offsets(p, brw_message_reg(inst->base_mrf + 1),
-				     index);
+                                     index);
 
    uint32_t msg_type;
 
@@ -1203,11 +1203,11 @@ generate_scratch_write(struct brw_codegen *p,
    gfx6_resolve_implied_move(p, &header, inst->base_mrf);
 
    generate_oword_dual_block_offsets(p, brw_message_reg(inst->base_mrf + 1),
-				     index);
+                                     index);
 
    brw_MOV(p,
-	   retype(brw_message_reg(inst->base_mrf + 2), BRW_REGISTER_TYPE_D),
-	   retype(src, BRW_REGISTER_TYPE_D));
+           retype(brw_message_reg(inst->base_mrf + 2), BRW_REGISTER_TYPE_D),
+           retype(src, BRW_REGISTER_TYPE_D));
 
    uint32_t msg_type;
 
@@ -1269,7 +1269,7 @@ generate_pull_constant_load(struct brw_codegen *p,
       (devinfo->ver >= 6 ? GFX6_SFID_DATAPORT_SAMPLER_CACHE :
        BRW_SFID_DATAPORT_READ);
    assert(index.file == BRW_IMMEDIATE_VALUE &&
-	  index.type == BRW_REGISTER_TYPE_UD);
+          index.type == BRW_REGISTER_TYPE_UD);
    uint32_t surf_index = index.ud;
 
    struct brw_reg header = brw_vec8_grf(0, 0);

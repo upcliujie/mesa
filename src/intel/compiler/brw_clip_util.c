@@ -98,7 +98,7 @@ void brw_clip_project_position(struct brw_clip_compile *c, struct brw_reg pos )
 
 
 static void brw_clip_project_vertex( struct brw_clip_compile *c,
-				     struct brw_indirect vert_addr )
+                                     struct brw_indirect vert_addr )
 {
    struct brw_codegen *p = &c->func;
    struct brw_reg tmp = get_tmp(c);
@@ -125,11 +125,11 @@ static void brw_clip_project_vertex( struct brw_clip_compile *c,
  * Beware that dest_ptr can be equal to v0_ptr!
  */
 void brw_clip_interp_vertex( struct brw_clip_compile *c,
-			     struct brw_indirect dest_ptr,
-			     struct brw_indirect v0_ptr, /* from */
-			     struct brw_indirect v1_ptr, /* to */
-			     struct brw_reg t0,
-			     bool force_edgeflag)
+                             struct brw_indirect dest_ptr,
+                             struct brw_indirect v0_ptr, /* from */
+                             struct brw_indirect v1_ptr, /* to */
+                             struct brw_reg t0,
+                             bool force_edgeflag)
 {
    struct brw_codegen *p = &c->func;
    struct brw_reg t_nopersp, v0_ndc_copy;
@@ -248,23 +248,23 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
 
 
       if (varying == VARYING_SLOT_EDGE) {
-	 if (force_edgeflag)
-	    brw_MOV(p, deref_4f(dest_ptr, delta), brw_imm_f(1));
-	 else
-	    brw_MOV(p, deref_4f(dest_ptr, delta), deref_4f(v0_ptr, delta));
+         if (force_edgeflag)
+            brw_MOV(p, deref_4f(dest_ptr, delta), brw_imm_f(1));
+         else
+            brw_MOV(p, deref_4f(dest_ptr, delta), deref_4f(v0_ptr, delta));
       } else if (varying == VARYING_SLOT_PSIZ) {
          /* PSIZ doesn't need interpolation because it isn't used by the
           * fragment shader.
           */
       } else if (varying < VARYING_SLOT_MAX) {
-	 /* This is a true vertex result (and not a special value for the VUE
-	  * header), so interpolate:
-	  *
-	  *        New = attr0 + t*attr1 - t*attr0
+         /* This is a true vertex result (and not a special value for the VUE
+          * header), so interpolate:
+          *
+          *        New = attr0 + t*attr1 - t*attr0
           *
           * Unless the attribute is flat shaded -- in which case just copy
           * from one of the sources (doesn't matter which; already copied from pv)
-	  */
+          */
          GLuint interp = c->key.interp_mode[slot];
 
          if (interp != INTERP_MODE_FLAT) {
@@ -308,9 +308,9 @@ void brw_clip_interp_vertex( struct brw_clip_compile *c,
 }
 
 void brw_clip_emit_vue(struct brw_clip_compile *c,
-		       struct brw_indirect vert,
+                       struct brw_indirect vert,
                        enum brw_urb_write_flags flags,
-		       GLuint header)
+                       GLuint header)
 {
    struct brw_codegen *p = &c->func;
    bool allocate = flags & BRW_URB_WRITE_ALLOCATE;
@@ -339,14 +339,14 @@ void brw_clip_emit_vue(struct brw_clip_compile *c,
     * urb entry - (I think... what about 'allocate'?)
     */
    brw_urb_WRITE(p,
-		 allocate ? c->reg.R0 : retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
-		 0,
-		 c->reg.R0,
+                 allocate ? c->reg.R0 : retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
+                 0,
+                 c->reg.R0,
                  flags,
-		 c->nr_regs + 1, /* msg length */
-		 allocate ? 1 : 0, /* response_length */
-		 0,		/* urb offset */
-		 BRW_URB_SWIZZLE_NONE);
+                 c->nr_regs + 1, /* msg length */
+                 allocate ? 1 : 0, /* response_length */
+                 0,                /* urb offset */
+                 BRW_URB_SWIZZLE_NONE);
 }
 
 
@@ -360,14 +360,14 @@ void brw_clip_kill_thread(struct brw_clip_compile *c)
     * allocated urb entry:
     */
    brw_urb_WRITE(p,
-		 retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
-		 0,
-		 c->reg.R0,
+                 retype(brw_null_reg(), BRW_REGISTER_TYPE_UD),
+                 0,
+                 c->reg.R0,
                  BRW_URB_WRITE_UNUSED | BRW_URB_WRITE_EOT_COMPLETE,
-		 1, 		/* msg len */
-		 0, 		/* response len */
-		 0,
-		 BRW_URB_SWIZZLE_NONE);
+                 1,                 /* msg len */
+                 0,                 /* response len */
+                 0,
+                 BRW_URB_SWIZZLE_NONE);
 }
 
 
@@ -394,7 +394,7 @@ struct brw_reg brw_clip_plane_stride( struct brw_clip_compile *c )
  * clipping.
  */
 void brw_clip_copy_flatshaded_attributes( struct brw_clip_compile *c,
-			   GLuint to, GLuint from )
+                           GLuint to, GLuint from )
 {
    struct brw_codegen *p = &c->func;
 
@@ -447,12 +447,12 @@ void brw_clip_ff_sync(struct brw_clip_compile *c)
         {
             brw_OR(p, c->reg.ff_sync, c->reg.ff_sync, brw_imm_ud(0x1));
             brw_ff_sync(p,
-			c->reg.R0,
-			0,
-			c->reg.R0,
-			1, /* allocate */
-			1, /* response length */
-			0 /* eot */);
+                        c->reg.R0,
+                        0,
+                        c->reg.R0,
+                        1, /* allocate */
+                        1, /* response length */
+                        0 /* eot */);
         }
         brw_ENDIF(p);
         brw_set_default_predicate_control(p, BRW_PREDICATE_NONE);

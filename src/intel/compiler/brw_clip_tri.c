@@ -43,7 +43,7 @@ static void release_tmps( struct brw_clip_compile *c )
 
 
 void brw_clip_tri_alloc_regs( struct brw_clip_compile *c,
-			      GLuint nr_verts )
+                              GLuint nr_verts )
 {
    const struct intel_device_info *devinfo = c->func.devinfo;
    GLuint i = 0,j;
@@ -74,9 +74,9 @@ void brw_clip_tri_alloc_regs( struct brw_clip_compile *c,
        * used.  Fill the second half with zero.
        */
       for (j = 0; j < 3; j++) {
-	 GLuint delta = brw_vue_slot_to_offset(c->vue_map.num_slots);
+         GLuint delta = brw_vue_slot_to_offset(c->vue_map.num_slots);
 
-	 brw_MOV(&c->func, byte_offset(c->reg.vertex[j], delta), brw_imm_f(0));
+         brw_MOV(&c->func, byte_offset(c->reg.vertex[j], delta), brw_imm_f(0));
       }
    }
 
@@ -141,10 +141,10 @@ void brw_clip_tri_init_vertices( struct brw_clip_compile *c )
     */
    brw_AND(p, tmp0, get_element_ud(c->reg.R0, 2), brw_imm_ud(PRIM_MASK));
    brw_CMP(p,
-	   vec1(brw_null_reg()),
-	   BRW_CONDITIONAL_EQ,
-	   tmp0,
-	   brw_imm_ud(_3DPRIM_TRISTRIP_REVERSE));
+           vec1(brw_null_reg()),
+           BRW_CONDITIONAL_EQ,
+           tmp0,
+           brw_imm_ud(_3DPRIM_TRISTRIP_REVERSE));
 
    /* XXX: Is there an easier way to do this?  Need to reverse every
     * second tristrip element:  Can ignore sometimes?
@@ -154,14 +154,14 @@ void brw_clip_tri_init_vertices( struct brw_clip_compile *c )
       brw_MOV(p, get_element(c->reg.inlist, 0),  brw_address(c->reg.vertex[1]) );
       brw_MOV(p, get_element(c->reg.inlist, 1),  brw_address(c->reg.vertex[0]) );
       if (c->need_direction)
-	 brw_MOV(p, c->reg.dir, brw_imm_f(-1));
+         brw_MOV(p, c->reg.dir, brw_imm_f(-1));
    }
    brw_ELSE(p);
    {
       brw_MOV(p, get_element(c->reg.inlist, 0),  brw_address(c->reg.vertex[0]) );
       brw_MOV(p, get_element(c->reg.inlist, 1),  brw_address(c->reg.vertex[1]) );
       if (c->need_direction)
-	 brw_MOV(p, c->reg.dir, brw_imm_f(1));
+         brw_MOV(p, c->reg.dir, brw_imm_f(1));
    }
    brw_ENDIF(p);
 
@@ -179,10 +179,10 @@ void brw_clip_tri_flat_shade( struct brw_clip_compile *c )
 
    brw_AND(p, tmp0, get_element_ud(c->reg.R0, 2), brw_imm_ud(PRIM_MASK));
    brw_CMP(p,
-	   vec1(brw_null_reg()),
-	   BRW_CONDITIONAL_EQ,
-	   tmp0,
-	   brw_imm_ud(_3DPRIM_POLYGON));
+           vec1(brw_null_reg()),
+           BRW_CONDITIONAL_EQ,
+           tmp0,
+           brw_imm_ud(_3DPRIM_POLYGON));
 
    brw_IF(p, BRW_EXECUTE_1);
    {
@@ -192,22 +192,22 @@ void brw_clip_tri_flat_shade( struct brw_clip_compile *c )
    brw_ELSE(p);
    {
       if (c->key.pv_first) {
-	 brw_CMP(p,
-		 vec1(brw_null_reg()),
-		 BRW_CONDITIONAL_EQ,
-		 tmp0,
-		 brw_imm_ud(_3DPRIM_TRIFAN));
-	 brw_IF(p, BRW_EXECUTE_1);
-	 {
-	    brw_clip_copy_flatshaded_attributes(c, 0, 1);
-	    brw_clip_copy_flatshaded_attributes(c, 2, 1);
-	 }
-	 brw_ELSE(p);
-	 {
-	    brw_clip_copy_flatshaded_attributes(c, 1, 0);
-	    brw_clip_copy_flatshaded_attributes(c, 2, 0);
-	 }
-	 brw_ENDIF(p);
+         brw_CMP(p,
+                 vec1(brw_null_reg()),
+                 BRW_CONDITIONAL_EQ,
+                 tmp0,
+                 brw_imm_ud(_3DPRIM_TRIFAN));
+         brw_IF(p, BRW_EXECUTE_1);
+         {
+            brw_clip_copy_flatshaded_attributes(c, 0, 1);
+            brw_clip_copy_flatshaded_attributes(c, 2, 1);
+         }
+         brw_ELSE(p);
+         {
+            brw_clip_copy_flatshaded_attributes(c, 1, 0);
+            brw_clip_copy_flatshaded_attributes(c, 2, 0);
+         }
+         brw_ENDIF(p);
       }
       else {
          brw_clip_copy_flatshaded_attributes(c, 0, 2);
@@ -293,129 +293,129 @@ void brw_clip_tri( struct brw_clip_compile *c )
 
       brw_IF(p, BRW_EXECUTE_1);
       {
-	 /* vtxOut = freelist_ptr++
-	  */
-	 brw_MOV(p, get_addr_reg(vtxOut),       get_addr_reg(freelist_ptr) );
-	 brw_ADD(p, get_addr_reg(freelist_ptr), get_addr_reg(freelist_ptr), brw_imm_uw(c->nr_regs * REG_SIZE));
+         /* vtxOut = freelist_ptr++
+          */
+         brw_MOV(p, get_addr_reg(vtxOut),       get_addr_reg(freelist_ptr) );
+         brw_ADD(p, get_addr_reg(freelist_ptr), get_addr_reg(freelist_ptr), brw_imm_uw(c->nr_regs * REG_SIZE));
 
-	 if (c->key.nr_userclip)
-	    brw_MOV(p, c->reg.plane_equation, deref_4f(plane_ptr, 0));
-	 else
-	    brw_MOV(p, c->reg.plane_equation, deref_4b(plane_ptr, 0));
+         if (c->key.nr_userclip)
+            brw_MOV(p, c->reg.plane_equation, deref_4f(plane_ptr, 0));
+         else
+            brw_MOV(p, c->reg.plane_equation, deref_4b(plane_ptr, 0));
 
-	 brw_MOV(p, c->reg.loopcount, c->reg.nr_verts);
-	 brw_MOV(p, c->reg.nr_verts, brw_imm_ud(0));
+         brw_MOV(p, c->reg.loopcount, c->reg.nr_verts);
+         brw_MOV(p, c->reg.nr_verts, brw_imm_ud(0));
 
-	 brw_DO(p, BRW_EXECUTE_1);
-	 {
-	    /* vtx = *input_ptr;
-	     */
-	    brw_MOV(p, get_addr_reg(vtx), deref_1uw(inlist_ptr, 0));
+         brw_DO(p, BRW_EXECUTE_1);
+         {
+            /* vtx = *input_ptr;
+             */
+            brw_MOV(p, get_addr_reg(vtx), deref_1uw(inlist_ptr, 0));
 
             load_clip_distance(c, vtxPrev, c->reg.dpPrev, hpos_offset, BRW_CONDITIONAL_L);
-	    /* (prev < 0.0f) */
-	    brw_IF(p, BRW_EXECUTE_1);
-	    {
+            /* (prev < 0.0f) */
+            brw_IF(p, BRW_EXECUTE_1);
+            {
                load_clip_distance(c, vtx, c->reg.dp, hpos_offset, BRW_CONDITIONAL_GE);
-	       /* IS_POSITIVE(next)
-		*/
-	       brw_IF(p, BRW_EXECUTE_1);
-	       {
+               /* IS_POSITIVE(next)
+                */
+               brw_IF(p, BRW_EXECUTE_1);
+               {
 
-		  /* Coming back in.
-		   */
-		  brw_ADD(p, c->reg.t, c->reg.dpPrev, negate(c->reg.dp));
-		  brw_math_invert(p, c->reg.t, c->reg.t);
-		  brw_MUL(p, c->reg.t, c->reg.t, c->reg.dpPrev);
+                  /* Coming back in.
+                   */
+                  brw_ADD(p, c->reg.t, c->reg.dpPrev, negate(c->reg.dp));
+                  brw_math_invert(p, c->reg.t, c->reg.t);
+                  brw_MUL(p, c->reg.t, c->reg.t, c->reg.dpPrev);
 
-		  /* If (vtxOut == 0) vtxOut = vtxPrev
-		   */
-		  brw_CMP(p, vec1(brw_null_reg()), BRW_CONDITIONAL_EQ, get_addr_reg(vtxOut), brw_imm_uw(0) );
+                  /* If (vtxOut == 0) vtxOut = vtxPrev
+                   */
+                  brw_CMP(p, vec1(brw_null_reg()), BRW_CONDITIONAL_EQ, get_addr_reg(vtxOut), brw_imm_uw(0) );
                   brw_MOV(p, get_addr_reg(vtxOut), get_addr_reg(vtxPrev));
                   brw_inst_set_pred_control(p->devinfo, brw_last_inst,
                                             BRW_PREDICATE_NORMAL);
 
-		  brw_clip_interp_vertex(c, vtxOut, vtxPrev, vtx, c->reg.t, false);
+                  brw_clip_interp_vertex(c, vtxOut, vtxPrev, vtx, c->reg.t, false);
 
-		  /* *outlist_ptr++ = vtxOut;
-		   * nr_verts++;
-		   * vtxOut = 0;
-		   */
-		  brw_MOV(p, deref_1uw(outlist_ptr, 0), get_addr_reg(vtxOut));
-		  brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_uw(sizeof(short)));
-		  brw_ADD(p, c->reg.nr_verts, c->reg.nr_verts, brw_imm_ud(1));
-		  brw_MOV(p, get_addr_reg(vtxOut), brw_imm_uw(0) );
-	       }
-	       brw_ENDIF(p);
+                  /* *outlist_ptr++ = vtxOut;
+                   * nr_verts++;
+                   * vtxOut = 0;
+                   */
+                  brw_MOV(p, deref_1uw(outlist_ptr, 0), get_addr_reg(vtxOut));
+                  brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_uw(sizeof(short)));
+                  brw_ADD(p, c->reg.nr_verts, c->reg.nr_verts, brw_imm_ud(1));
+                  brw_MOV(p, get_addr_reg(vtxOut), brw_imm_uw(0) );
+               }
+               brw_ENDIF(p);
 
-	    }
-	    brw_ELSE(p);
-	    {
-	       /* *outlist_ptr++ = vtxPrev;
-		* nr_verts++;
-		*/
-	       brw_MOV(p, deref_1uw(outlist_ptr, 0), get_addr_reg(vtxPrev));
-	       brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_uw(sizeof(short)));
-	       brw_ADD(p, c->reg.nr_verts, c->reg.nr_verts, brw_imm_ud(1));
+            }
+            brw_ELSE(p);
+            {
+               /* *outlist_ptr++ = vtxPrev;
+                * nr_verts++;
+                */
+               brw_MOV(p, deref_1uw(outlist_ptr, 0), get_addr_reg(vtxPrev));
+               brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_uw(sizeof(short)));
+               brw_ADD(p, c->reg.nr_verts, c->reg.nr_verts, brw_imm_ud(1));
 
                load_clip_distance(c, vtx, c->reg.dp, hpos_offset, BRW_CONDITIONAL_L);
-	       /* (next < 0.0f)
-		*/
-	       brw_IF(p, BRW_EXECUTE_1);
-	       {
-		  /* Going out of bounds.  Avoid division by zero as we
-		   * know dp != dpPrev from DIFFERENT_SIGNS, above.
-		   */
-		  brw_ADD(p, c->reg.t, c->reg.dp, negate(c->reg.dpPrev));
-		  brw_math_invert(p, c->reg.t, c->reg.t);
-		  brw_MUL(p, c->reg.t, c->reg.t, c->reg.dp);
+               /* (next < 0.0f)
+                */
+               brw_IF(p, BRW_EXECUTE_1);
+               {
+                  /* Going out of bounds.  Avoid division by zero as we
+                   * know dp != dpPrev from DIFFERENT_SIGNS, above.
+                   */
+                  brw_ADD(p, c->reg.t, c->reg.dp, negate(c->reg.dpPrev));
+                  brw_math_invert(p, c->reg.t, c->reg.t);
+                  brw_MUL(p, c->reg.t, c->reg.t, c->reg.dp);
 
-		  /* If (vtxOut == 0) vtxOut = vtx
-		   */
-		  brw_CMP(p, vec1(brw_null_reg()), BRW_CONDITIONAL_EQ, get_addr_reg(vtxOut), brw_imm_uw(0) );
+                  /* If (vtxOut == 0) vtxOut = vtx
+                   */
+                  brw_CMP(p, vec1(brw_null_reg()), BRW_CONDITIONAL_EQ, get_addr_reg(vtxOut), brw_imm_uw(0) );
                   brw_MOV(p, get_addr_reg(vtxOut), get_addr_reg(vtx));
                   brw_inst_set_pred_control(p->devinfo, brw_last_inst,
                                             BRW_PREDICATE_NORMAL);
 
-		  brw_clip_interp_vertex(c, vtxOut, vtx, vtxPrev, c->reg.t, true);
+                  brw_clip_interp_vertex(c, vtxOut, vtx, vtxPrev, c->reg.t, true);
 
-		  /* *outlist_ptr++ = vtxOut;
-		   * nr_verts++;
-		   * vtxOut = 0;
-		   */
-		  brw_MOV(p, deref_1uw(outlist_ptr, 0), get_addr_reg(vtxOut));
-		  brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_uw(sizeof(short)));
-		  brw_ADD(p, c->reg.nr_verts, c->reg.nr_verts, brw_imm_ud(1));
-		  brw_MOV(p, get_addr_reg(vtxOut), brw_imm_uw(0) );
-	       }
-	       brw_ENDIF(p);
-	    }
-	    brw_ENDIF(p);
+                  /* *outlist_ptr++ = vtxOut;
+                   * nr_verts++;
+                   * vtxOut = 0;
+                   */
+                  brw_MOV(p, deref_1uw(outlist_ptr, 0), get_addr_reg(vtxOut));
+                  brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_uw(sizeof(short)));
+                  brw_ADD(p, c->reg.nr_verts, c->reg.nr_verts, brw_imm_ud(1));
+                  brw_MOV(p, get_addr_reg(vtxOut), brw_imm_uw(0) );
+               }
+               brw_ENDIF(p);
+            }
+            brw_ENDIF(p);
 
-	    /* vtxPrev = vtx;
-	     * inlist_ptr++;
-	     */
-	    brw_MOV(p, get_addr_reg(vtxPrev), get_addr_reg(vtx));
-	    brw_ADD(p, get_addr_reg(inlist_ptr), get_addr_reg(inlist_ptr), brw_imm_uw(sizeof(short)));
+            /* vtxPrev = vtx;
+             * inlist_ptr++;
+             */
+            brw_MOV(p, get_addr_reg(vtxPrev), get_addr_reg(vtx));
+            brw_ADD(p, get_addr_reg(inlist_ptr), get_addr_reg(inlist_ptr), brw_imm_uw(sizeof(short)));
 
-	    /* while (--loopcount != 0)
-	     */
-	    brw_ADD(p, c->reg.loopcount, c->reg.loopcount, brw_imm_d(-1));
+            /* while (--loopcount != 0)
+             */
+            brw_ADD(p, c->reg.loopcount, c->reg.loopcount, brw_imm_d(-1));
             brw_inst_set_cond_modifier(p->devinfo, brw_last_inst, BRW_CONDITIONAL_NZ);
-	 }
-	 brw_WHILE(p);
+         }
+         brw_WHILE(p);
          brw_inst_set_pred_control(p->devinfo, brw_last_inst, BRW_PREDICATE_NORMAL);
 
-	 /* vtxPrev = *(outlist_ptr-1)  OR: outlist[nr_verts-1]
-	  * inlist = outlist
-	  * inlist_ptr = &inlist[0]
-	  * outlist_ptr = &outlist[0]
-	  */
-	 brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_w(-2));
-	 brw_MOV(p, get_addr_reg(vtxPrev), deref_1uw(outlist_ptr, 0));
-	 brw_MOV(p, brw_vec8_grf(c->reg.inlist.nr, 0), brw_vec8_grf(c->reg.outlist.nr, 0));
-	 brw_MOV(p, get_addr_reg(inlist_ptr), brw_address(c->reg.inlist));
-	 brw_MOV(p, get_addr_reg(outlist_ptr), brw_address(c->reg.outlist));
+         /* vtxPrev = *(outlist_ptr-1)  OR: outlist[nr_verts-1]
+          * inlist = outlist
+          * inlist_ptr = &inlist[0]
+          * outlist_ptr = &outlist[0]
+          */
+         brw_ADD(p, get_addr_reg(outlist_ptr), get_addr_reg(outlist_ptr), brw_imm_w(-2));
+         brw_MOV(p, get_addr_reg(vtxPrev), deref_1uw(outlist_ptr, 0));
+         brw_MOV(p, brw_vec8_grf(c->reg.inlist.nr, 0), brw_vec8_grf(c->reg.outlist.nr, 0));
+         brw_MOV(p, get_addr_reg(inlist_ptr), brw_address(c->reg.inlist));
+         brw_MOV(p, get_addr_reg(outlist_ptr), brw_address(c->reg.outlist));
       }
       brw_ENDIF(p);
 
@@ -426,10 +426,10 @@ void brw_clip_tri( struct brw_clip_compile *c )
       /* nr_verts >= 3
        */
       brw_CMP(p,
-	      vec1(brw_null_reg()),
-	      BRW_CONDITIONAL_GE,
-	      c->reg.nr_verts,
-	      brw_imm_ud(3));
+              vec1(brw_null_reg()),
+              BRW_CONDITIONAL_GE,
+              c->reg.nr_verts,
+              brw_imm_ud(3));
       brw_set_default_predicate_control(p, BRW_PREDICATE_NORMAL);
 
       /* && (planemask>>=1) != 0
@@ -452,9 +452,9 @@ void brw_clip_tri_emit_polygon(struct brw_clip_compile *c)
    /* for (loopcount = nr_verts-2; loopcount > 0; loopcount--)
     */
    brw_ADD(p,
-	   c->reg.loopcount,
-	   c->reg.nr_verts,
-	   brw_imm_d(-2));
+           c->reg.loopcount,
+           c->reg.nr_verts,
+           brw_imm_d(-2));
    brw_inst_set_cond_modifier(p->devinfo, brw_last_inst, BRW_CONDITIONAL_G);
 
    brw_IF(p, BRW_EXECUTE_1);
@@ -474,13 +474,13 @@ void brw_clip_tri_emit_polygon(struct brw_clip_compile *c)
 
       brw_DO(p, BRW_EXECUTE_1);
       {
-	 brw_clip_emit_vue(c, v0, BRW_URB_WRITE_ALLOCATE_COMPLETE,
+         brw_clip_emit_vue(c, v0, BRW_URB_WRITE_ALLOCATE_COMPLETE,
                            (_3DPRIM_TRIFAN << URB_WRITE_PRIM_TYPE_SHIFT));
 
-	 brw_ADD(p, get_addr_reg(vptr), get_addr_reg(vptr), brw_imm_uw(2));
-	 brw_MOV(p, get_addr_reg(v0), deref_1uw(vptr, 0));
+         brw_ADD(p, get_addr_reg(vptr), get_addr_reg(vptr), brw_imm_uw(2));
+         brw_MOV(p, get_addr_reg(v0), deref_1uw(vptr, 0));
 
-	 brw_ADD(p, c->reg.loopcount, c->reg.loopcount, brw_imm_d(-1));
+         brw_ADD(p, c->reg.loopcount, c->reg.loopcount, brw_imm_d(-1));
          brw_inst_set_cond_modifier(p->devinfo, brw_last_inst, BRW_CONDITIONAL_NZ);
       }
       brw_WHILE(p);

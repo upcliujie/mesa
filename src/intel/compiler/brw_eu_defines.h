@@ -60,14 +60,14 @@
 #define GET_FIELD(word, field) (((word)  & field ## _MASK) >> field ## _SHIFT)
 
 /* Bitfields for the URB_WRITE message, DW2 of message header: */
-#define URB_WRITE_PRIM_END		0x1
-#define URB_WRITE_PRIM_START		0x2
-#define URB_WRITE_PRIM_TYPE_SHIFT	2
+#define URB_WRITE_PRIM_END           0x1
+#define URB_WRITE_PRIM_START         0x2
+#define URB_WRITE_PRIM_TYPE_SHIFT    2
 
 #define BRW_SPRITE_POINT_ENABLE  16
 
-# define GFX7_GS_CONTROL_DATA_FORMAT_GSCTL_CUT		0
-# define GFX7_GS_CONTROL_DATA_FORMAT_GSCTL_SID		1
+# define GFX7_GS_CONTROL_DATA_FORMAT_GSCTL_CUT    0
+# define GFX7_GS_CONTROL_DATA_FORMAT_GSCTL_SID    1
 
 /* Execution Unit (EU) defines
  */
@@ -89,19 +89,19 @@ enum brw_compression {
    BRW_COMPRESSION_COMPRESSED = 2,
 };
 
-#define GFX6_COMPRESSION_1Q		0
-#define GFX6_COMPRESSION_2Q		1
-#define GFX6_COMPRESSION_3Q		2
-#define GFX6_COMPRESSION_4Q		3
-#define GFX6_COMPRESSION_1H		0
-#define GFX6_COMPRESSION_2H		2
+#define GFX6_COMPRESSION_1Q    0
+#define GFX6_COMPRESSION_2Q    1
+#define GFX6_COMPRESSION_3Q    2
+#define GFX6_COMPRESSION_4Q    3
+#define GFX6_COMPRESSION_1H    0
+#define GFX6_COMPRESSION_2H    2
 
 enum PACKED brw_conditional_mod {
    BRW_CONDITIONAL_NONE = 0,
    BRW_CONDITIONAL_Z    = 1,
    BRW_CONDITIONAL_NZ   = 2,
-   BRW_CONDITIONAL_EQ   = 1,	/* Z */
-   BRW_CONDITIONAL_NEQ  = 2,	/* NZ */
+   BRW_CONDITIONAL_EQ   = 1,    /* Z */
+   BRW_CONDITIONAL_NEQ  = 2,    /* NZ */
    BRW_CONDITIONAL_G    = 3,
    BRW_CONDITIONAL_GE   = 4,
    BRW_CONDITIONAL_L    = 5,
@@ -165,13 +165,13 @@ enum PACKED gfx10_align1_3src_dst_horizontal_stride {
  * This is the default value.  It means that a channel's write enable is set
  * if the per-channel IP is pointing at this instruction.
  */
-#define BRW_WE_NORMAL		0
+#define BRW_WE_NORMAL     0
 /**
  * This is used like BRW_MASK_DISABLE, and causes all channels to have
  * their write enable set.  Note that predication still contributes to
  * whether the channel actually gets written.
  */
-#define BRW_WE_ALL		1
+#define BRW_WE_ALL        1
 /** @} */
 
 enum opcode {
@@ -1042,7 +1042,7 @@ enum PACKED gfx10_align1_3src_exec_type {
 #define BRW_ARF_TDR                   0xB0
 #define BRW_ARF_TIMESTAMP             0xC0
 
-#define BRW_MRF_COMPR4			(1 << 7)
+#define BRW_MRF_COMPR4                (1 << 7)
 
 #define BRW_AMASK   0
 #define BRW_IMASK   1
@@ -1411,13 +1411,13 @@ enum brw_message_target {
 #define BRW_DATAPORT_READ_MESSAGE_MEDIA_BLOCK_READ          2
 #define BRW_DATAPORT_READ_MESSAGE_DWORD_SCATTERED_READ      3
 /* G45, GFX5 */
-#define G45_DATAPORT_READ_MESSAGE_RENDER_UNORM_READ	    1
+#define G45_DATAPORT_READ_MESSAGE_RENDER_UNORM_READ         1
 #define G45_DATAPORT_READ_MESSAGE_OWORD_DUAL_BLOCK_READ     2
-#define G45_DATAPORT_READ_MESSAGE_AVC_LOOP_FILTER_READ	    3
+#define G45_DATAPORT_READ_MESSAGE_AVC_LOOP_FILTER_READ      3
 #define G45_DATAPORT_READ_MESSAGE_MEDIA_BLOCK_READ          4
 #define G45_DATAPORT_READ_MESSAGE_DWORD_SCATTERED_READ      6
 /* GFX6 */
-#define GFX6_DATAPORT_READ_MESSAGE_RENDER_UNORM_READ	    1
+#define GFX6_DATAPORT_READ_MESSAGE_RENDER_UNORM_READ         1
 #define GFX6_DATAPORT_READ_MESSAGE_OWORD_DUAL_BLOCK_READ     2
 #define GFX6_DATAPORT_READ_MESSAGE_MEDIA_BLOCK_READ          4
 #define GFX6_DATAPORT_READ_MESSAGE_OWORD_UNALIGN_BLOCK_READ  5
@@ -1674,8 +1674,8 @@ enum brw_message_target {
 #define GFX7_MAX_HS_URB_ENTRY_SIZE_BYTES                (512*64)
 #define GFX7_MAX_VS_URB_ENTRY_SIZE_BYTES                (512*64)
 
-#define BRW_GS_EDGE_INDICATOR_0			(1 << 8)
-#define BRW_GS_EDGE_INDICATOR_1			(1 << 9)
+#define BRW_GS_EDGE_INDICATOR_0                        (1 << 8)
+#define BRW_GS_EDGE_INDICATOR_1                        (1 << 9)
 
 /* Gfx6 "GS URB Entry Allocation Size" is defined as a number of 1024-bit
  * (128 bytes) URB rows and the maximum allowed value is 5 rows.
@@ -1692,7 +1692,7 @@ enum brw_message_target {
 
 
 /* R0 */
-# define GFX7_GS_PAYLOAD_INSTANCE_ID_SHIFT		27
+# define GFX7_GS_PAYLOAD_INSTANCE_ID_SHIFT              27
 
 /* CR0.0[5:4] Floating-Point Rounding Modes
  *  Skylake PRM, Volume 7 Part 1, "Control Register", page 756

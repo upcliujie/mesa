@@ -126,17 +126,17 @@ have_attr(struct brw_sf_compile *c, GLuint attr)
  * Twoside lighting
  */
 static void copy_bfc( struct brw_sf_compile *c,
-		      struct brw_reg vert )
+                      struct brw_reg vert )
 {
    struct brw_codegen *p = &c->func;
    GLuint i;
 
    for (i = 0; i < 2; i++) {
       if (have_attr(c, VARYING_SLOT_COL0+i) &&
-	  have_attr(c, VARYING_SLOT_BFC0+i))
-	 brw_MOV(p,
-		 get_varying(c, vert, VARYING_SLOT_COL0+i),
-		 get_varying(c, vert, VARYING_SLOT_BFC0+i));
+          have_attr(c, VARYING_SLOT_BFC0+i))
+         brw_MOV(p,
+                 get_varying(c, vert, VARYING_SLOT_COL0+i),
+                 get_varying(c, vert, VARYING_SLOT_BFC0+i));
    }
 }
 
@@ -347,11 +347,11 @@ static void invert_det( struct brw_sf_compile *c)
     * position 2 !?!
     */
    gfx4_math(&c->func,
-	     c->inv_det,
-	     BRW_MATH_FUNCTION_INV,
-	     0,
-	     c->det,
-	     BRW_MATH_PRECISION_FULL);
+             c->inv_det,
+             BRW_MATH_FUNCTION_INV,
+             0,
+             c->det,
+             BRW_MATH_PRECISION_FULL);
 
 }
 
@@ -405,7 +405,7 @@ calculate_point_sprite_mask(struct brw_sf_compile *c, GLuint reg)
    varying1 = vert_reg_to_varying(c, reg, 0);
    if (varying1 >= VARYING_SLOT_TEX0 && varying1 <= VARYING_SLOT_TEX7) {
       if (c->key.point_sprite_coord_replace & (1 << (varying1 - VARYING_SLOT_TEX0)))
-	 pc |= 0x0f;
+         pc |= 0x0f;
    }
    if (varying1 == BRW_VARYING_SLOT_PNTC)
       pc |= 0x0f;
@@ -472,10 +472,10 @@ static void brw_emit_tri_setup(struct brw_sf_compile *c, bool allocate)
 
       if (pc_persp)
       {
-	 set_predicate_control_flag_value(p, c, pc_persp);
-	 brw_MUL(p, a0, a0, c->inv_w[0]);
-	 brw_MUL(p, a1, a1, c->inv_w[1]);
-	 brw_MUL(p, a2, a2, c->inv_w[2]);
+         set_predicate_control_flag_value(p, c, pc_persp);
+         brw_MUL(p, a0, a0, c->inv_w[0]);
+         brw_MUL(p, a1, a1, c->inv_w[1]);
+         brw_MUL(p, a2, a2, c->inv_w[2]);
       }
 
 
@@ -483,43 +483,43 @@ static void brw_emit_tri_setup(struct brw_sf_compile *c, bool allocate)
        */
       if (pc_linear)
       {
-	 set_predicate_control_flag_value(p, c, pc_linear);
+         set_predicate_control_flag_value(p, c, pc_linear);
 
-	 brw_ADD(p, c->a1_sub_a0, a1, negate(a0));
-	 brw_ADD(p, c->a2_sub_a0, a2, negate(a0));
+         brw_ADD(p, c->a1_sub_a0, a1, negate(a0));
+         brw_ADD(p, c->a2_sub_a0, a2, negate(a0));
 
-	 /* calculate dA/dx
-	  */
-	 brw_MUL(p, brw_null_reg(), c->a1_sub_a0, c->dy2);
-	 brw_MAC(p, c->tmp, c->a2_sub_a0, negate(c->dy0));
-	 brw_MUL(p, c->m1Cx, c->tmp, c->inv_det);
+         /* calculate dA/dx
+          */
+         brw_MUL(p, brw_null_reg(), c->a1_sub_a0, c->dy2);
+         brw_MAC(p, c->tmp, c->a2_sub_a0, negate(c->dy0));
+         brw_MUL(p, c->m1Cx, c->tmp, c->inv_det);
 
-	 /* calculate dA/dy
-	  */
-	 brw_MUL(p, brw_null_reg(), c->a2_sub_a0, c->dx0);
-	 brw_MAC(p, c->tmp, c->a1_sub_a0, negate(c->dx2));
-	 brw_MUL(p, c->m2Cy, c->tmp, c->inv_det);
+         /* calculate dA/dy
+          */
+         brw_MUL(p, brw_null_reg(), c->a2_sub_a0, c->dx0);
+         brw_MAC(p, c->tmp, c->a1_sub_a0, negate(c->dx2));
+         brw_MUL(p, c->m2Cy, c->tmp, c->inv_det);
       }
 
       {
-	 set_predicate_control_flag_value(p, c, pc);
-	 /* start point for interpolation
-	  */
-	 brw_MOV(p, c->m3C0, a0);
+         set_predicate_control_flag_value(p, c, pc);
+         /* start point for interpolation
+          */
+         brw_MOV(p, c->m3C0, a0);
 
-	 /* Copy m0..m3 to URB.  m0 is implicitly copied from r0 in
-	  * the send instruction:
-	  */
-	 brw_urb_WRITE(p,
-		       brw_null_reg(),
-		       0,
-		       brw_vec8_grf(0, 0), /* r0, will be copied to m0 */
+         /* Copy m0..m3 to URB.  m0 is implicitly copied from r0 in
+          * the send instruction:
+          */
+         brw_urb_WRITE(p,
+                       brw_null_reg(),
+                       0,
+                       brw_vec8_grf(0, 0), /* r0, will be copied to m0 */
                        last ? BRW_URB_WRITE_EOT_COMPLETE
                        : BRW_URB_WRITE_NO_FLAGS,
-		       4, 	/* msg len */
-		       0,	/* response len */
-		       i*4,	/* offset */
-		       BRW_URB_SWIZZLE_TRANSPOSE); /* XXX: Swizzle control "SF to windower" */
+                       4,       /* msg len */
+                       0,       /* response len */
+                       i*4,     /* offset */
+                       BRW_URB_SWIZZLE_TRANSPOSE); /* XXX: Swizzle control "SF to windower" */
       }
    }
 
@@ -556,44 +556,44 @@ static void brw_emit_line_setup(struct brw_sf_compile *c, bool allocate)
 
       if (pc_persp)
       {
-	 set_predicate_control_flag_value(p, c, pc_persp);
-	 brw_MUL(p, a0, a0, c->inv_w[0]);
-	 brw_MUL(p, a1, a1, c->inv_w[1]);
+         set_predicate_control_flag_value(p, c, pc_persp);
+         brw_MUL(p, a0, a0, c->inv_w[0]);
+         brw_MUL(p, a1, a1, c->inv_w[1]);
       }
 
       /* Calculate coefficients for position, color:
        */
       if (pc_linear) {
-	 set_predicate_control_flag_value(p, c, pc_linear);
+         set_predicate_control_flag_value(p, c, pc_linear);
 
-	 brw_ADD(p, c->a1_sub_a0, a1, negate(a0));
+         brw_ADD(p, c->a1_sub_a0, a1, negate(a0));
 
-	 brw_MUL(p, c->tmp, c->a1_sub_a0, c->dx0);
-	 brw_MUL(p, c->m1Cx, c->tmp, c->inv_det);
+         brw_MUL(p, c->tmp, c->a1_sub_a0, c->dx0);
+         brw_MUL(p, c->m1Cx, c->tmp, c->inv_det);
 
-	 brw_MUL(p, c->tmp, c->a1_sub_a0, c->dy0);
-	 brw_MUL(p, c->m2Cy, c->tmp, c->inv_det);
+         brw_MUL(p, c->tmp, c->a1_sub_a0, c->dy0);
+         brw_MUL(p, c->m2Cy, c->tmp, c->inv_det);
       }
 
       {
-	 set_predicate_control_flag_value(p, c, pc);
+         set_predicate_control_flag_value(p, c, pc);
 
-	 /* start point for interpolation
-	  */
-	 brw_MOV(p, c->m3C0, a0);
+         /* start point for interpolation
+          */
+         brw_MOV(p, c->m3C0, a0);
 
-	 /* Copy m0..m3 to URB.
-	  */
-	 brw_urb_WRITE(p,
-		       brw_null_reg(),
-		       0,
-		       brw_vec8_grf(0, 0),
+         /* Copy m0..m3 to URB.
+          */
+         brw_urb_WRITE(p,
+                       brw_null_reg(),
+                       0,
+                       brw_vec8_grf(0, 0),
                        last ? BRW_URB_WRITE_EOT_COMPLETE
                        : BRW_URB_WRITE_NO_FLAGS,
-		       4, 	/* msg len */
-		       0,	/* response len */
-		       i*4,	/* urb destination offset */
-		       BRW_URB_SWIZZLE_TRANSPOSE);
+                       4,       /* msg len */
+                       0,       /* response len */
+                       i*4,     /* urb destination offset */
+                       BRW_URB_SWIZZLE_TRANSPOSE);
       }
    }
 
@@ -622,8 +622,8 @@ static void brw_emit_point_sprite_setup(struct brw_sf_compile *c, bool allocate)
       pc_persp &= ~pc_coord_replace;
 
       if (pc_persp) {
-	 set_predicate_control_flag_value(p, c, pc_persp);
-	 brw_MUL(p, a0, a0, c->inv_w[0]);
+         set_predicate_control_flag_value(p, c, pc_persp);
+         brw_MUL(p, a0, a0, c->inv_w[0]);
       }
 
       /* Point sprite coordinate replacement: A texcoord with this
@@ -632,58 +632,58 @@ static void brw_emit_point_sprite_setup(struct brw_sf_compile *c, bool allocate)
        * point.
        */
       if (pc_coord_replace) {
-	 set_predicate_control_flag_value(p, c, pc_coord_replace);
-	 /* Calculate 1.0/PointWidth */
-	 gfx4_math(&c->func,
-		   c->tmp,
-		   BRW_MATH_FUNCTION_INV,
-		   0,
-		   c->dx0,
-		   BRW_MATH_PRECISION_FULL);
+         set_predicate_control_flag_value(p, c, pc_coord_replace);
+         /* Calculate 1.0/PointWidth */
+         gfx4_math(&c->func,
+                   c->tmp,
+                   BRW_MATH_FUNCTION_INV,
+                   0,
+                   c->dx0,
+                   BRW_MATH_PRECISION_FULL);
 
-	 brw_set_default_access_mode(p, BRW_ALIGN_16);
+         brw_set_default_access_mode(p, BRW_ALIGN_16);
 
-	 /* dA/dx, dA/dy */
-	 brw_MOV(p, c->m1Cx, brw_imm_f(0.0));
-	 brw_MOV(p, c->m2Cy, brw_imm_f(0.0));
-	 brw_MOV(p, brw_writemask(c->m1Cx, WRITEMASK_X), c->tmp);
-	 if (c->key.sprite_origin_lower_left) {
-	    brw_MOV(p, brw_writemask(c->m2Cy, WRITEMASK_Y), negate(c->tmp));
-	 } else {
-	    brw_MOV(p, brw_writemask(c->m2Cy, WRITEMASK_Y), c->tmp);
-	 }
+         /* dA/dx, dA/dy */
+         brw_MOV(p, c->m1Cx, brw_imm_f(0.0));
+         brw_MOV(p, c->m2Cy, brw_imm_f(0.0));
+         brw_MOV(p, brw_writemask(c->m1Cx, WRITEMASK_X), c->tmp);
+         if (c->key.sprite_origin_lower_left) {
+            brw_MOV(p, brw_writemask(c->m2Cy, WRITEMASK_Y), negate(c->tmp));
+         } else {
+            brw_MOV(p, brw_writemask(c->m2Cy, WRITEMASK_Y), c->tmp);
+         }
 
-	 /* attribute constant offset */
-	 brw_MOV(p, c->m3C0, brw_imm_f(0.0));
-	 if (c->key.sprite_origin_lower_left) {
-	    brw_MOV(p, brw_writemask(c->m3C0, WRITEMASK_YW), brw_imm_f(1.0));
-	 } else {
-	    brw_MOV(p, brw_writemask(c->m3C0, WRITEMASK_W), brw_imm_f(1.0));
-	 }
+         /* attribute constant offset */
+         brw_MOV(p, c->m3C0, brw_imm_f(0.0));
+         if (c->key.sprite_origin_lower_left) {
+            brw_MOV(p, brw_writemask(c->m3C0, WRITEMASK_YW), brw_imm_f(1.0));
+         } else {
+            brw_MOV(p, brw_writemask(c->m3C0, WRITEMASK_W), brw_imm_f(1.0));
+         }
 
-	 brw_set_default_access_mode(p, BRW_ALIGN_1);
+         brw_set_default_access_mode(p, BRW_ALIGN_1);
       }
 
       if (pc & ~pc_coord_replace) {
-	 set_predicate_control_flag_value(p, c, pc & ~pc_coord_replace);
-	 brw_MOV(p, c->m1Cx, brw_imm_ud(0));
-	 brw_MOV(p, c->m2Cy, brw_imm_ud(0));
-	 brw_MOV(p, c->m3C0, a0); /* constant value */
+         set_predicate_control_flag_value(p, c, pc & ~pc_coord_replace);
+         brw_MOV(p, c->m1Cx, brw_imm_ud(0));
+         brw_MOV(p, c->m2Cy, brw_imm_ud(0));
+         brw_MOV(p, c->m3C0, a0); /* constant value */
       }
 
 
       set_predicate_control_flag_value(p, c, pc);
       /* Copy m0..m3 to URB. */
       brw_urb_WRITE(p,
-		    brw_null_reg(),
-		    0,
-		    brw_vec8_grf(0, 0),
+                    brw_null_reg(),
+                    0,
+                    brw_vec8_grf(0, 0),
                     last ? BRW_URB_WRITE_EOT_COMPLETE
                     : BRW_URB_WRITE_NO_FLAGS,
-		    4, 	/* msg len */
-		    0,	/* response len */
-		    i*4,	/* urb destination offset */
-		    BRW_URB_SWIZZLE_TRANSPOSE);
+                    4,       /* msg len */
+                    0,       /* response len */
+                    i*4,     /* urb destination offset */
+                    BRW_URB_SWIZZLE_TRANSPOSE);
    }
 
    brw_set_default_predicate_control(p, BRW_PREDICATE_NONE);
@@ -716,11 +716,11 @@ static void brw_emit_point_setup(struct brw_sf_compile *c, bool allocate)
 
       if (pc_persp)
       {
-	 /* This seems odd as the values are all constant, but the
-	  * fragment shader will be expecting it:
-	  */
-	 set_predicate_control_flag_value(p, c, pc_persp);
-	 brw_MUL(p, a0, a0, c->inv_w[0]);
+         /* This seems odd as the values are all constant, but the
+          * fragment shader will be expecting it:
+          */
+         set_predicate_control_flag_value(p, c, pc_persp);
+         brw_MUL(p, a0, a0, c->inv_w[0]);
       }
 
 
@@ -729,22 +729,22 @@ static void brw_emit_point_setup(struct brw_sf_compile *c, bool allocate)
        * code in the fragment shader.
        */
       {
-	 set_predicate_control_flag_value(p, c, pc);
+         set_predicate_control_flag_value(p, c, pc);
 
-	 brw_MOV(p, c->m3C0, a0); /* constant value */
+         brw_MOV(p, c->m3C0, a0); /* constant value */
 
-	 /* Copy m0..m3 to URB.
-	  */
-	 brw_urb_WRITE(p,
-		       brw_null_reg(),
-		       0,
-		       brw_vec8_grf(0, 0),
+         /* Copy m0..m3 to URB.
+          */
+         brw_urb_WRITE(p,
+                       brw_null_reg(),
+                       0,
+                       brw_vec8_grf(0, 0),
                        last ? BRW_URB_WRITE_EOT_COMPLETE
                        : BRW_URB_WRITE_NO_FLAGS,
-		       4, 	/* msg len */
-		       0,	/* response len */
-		       i*4,	/* urb destination offset */
-		       BRW_URB_SWIZZLE_TRANSPOSE);
+                       4,       /* msg len */
+                       0,       /* response len */
+                       i*4,     /* urb destination offset */
+                       BRW_URB_SWIZZLE_TRANSPOSE);
       }
    }
 
@@ -769,23 +769,23 @@ static void brw_emit_anyprim_setup( struct brw_sf_compile *c )
    brw_SHL(p, primmask, primmask, payload_prim);
 
    brw_AND(p, v1_null_ud, primmask, brw_imm_ud((1<<_3DPRIM_TRILIST) |
-					       (1<<_3DPRIM_TRISTRIP) |
-					       (1<<_3DPRIM_TRIFAN) |
-					       (1<<_3DPRIM_TRISTRIP_REVERSE) |
-					       (1<<_3DPRIM_POLYGON) |
-					       (1<<_3DPRIM_RECTLIST) |
-					       (1<<_3DPRIM_TRIFAN_NOSTIPPLE)));
+                                               (1<<_3DPRIM_TRISTRIP) |
+                                               (1<<_3DPRIM_TRIFAN) |
+                                               (1<<_3DPRIM_TRISTRIP_REVERSE) |
+                                               (1<<_3DPRIM_POLYGON) |
+                                               (1<<_3DPRIM_RECTLIST) |
+                                               (1<<_3DPRIM_TRIFAN_NOSTIPPLE)));
    brw_inst_set_cond_modifier(p->devinfo, brw_last_inst, BRW_CONDITIONAL_Z);
    jmp = brw_JMPI(p, brw_imm_d(0), BRW_PREDICATE_NORMAL) - p->store;
    brw_emit_tri_setup(c, false);
    brw_land_fwd_jump(p, jmp);
 
    brw_AND(p, v1_null_ud, primmask, brw_imm_ud((1<<_3DPRIM_LINELIST) |
-					       (1<<_3DPRIM_LINESTRIP) |
-					       (1<<_3DPRIM_LINELOOP) |
-					       (1<<_3DPRIM_LINESTRIP_CONT) |
-					       (1<<_3DPRIM_LINESTRIP_BF) |
-					       (1<<_3DPRIM_LINESTRIP_CONT_BF)));
+                                               (1<<_3DPRIM_LINESTRIP) |
+                                               (1<<_3DPRIM_LINELOOP) |
+                                               (1<<_3DPRIM_LINESTRIP_CONT) |
+                                               (1<<_3DPRIM_LINESTRIP_BF) |
+                                               (1<<_3DPRIM_LINESTRIP_CONT_BF)));
    brw_inst_set_cond_modifier(p->devinfo, brw_last_inst, BRW_CONDITIONAL_Z);
    jmp = brw_JMPI(p, brw_imm_d(0), BRW_PREDICATE_NORMAL) - p->store;
    brw_emit_line_setup(c, false);
@@ -848,9 +848,9 @@ brw_compile_sf(const struct brw_compiler *compiler,
    case BRW_SF_PRIM_POINTS:
       c.nr_verts = 1;
       if (key->do_point_sprite)
-	  brw_emit_point_sprite_setup( &c, true );
+          brw_emit_point_sprite_setup( &c, true );
       else
-	  brw_emit_point_setup( &c, true );
+          brw_emit_point_setup( &c, true );
       break;
    case BRW_SF_PRIM_UNFILLED_TRIS:
       c.nr_verts = 3;

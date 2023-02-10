@@ -123,25 +123,25 @@ void brw_clip_tri_flat_shade( struct brw_clip_compile *c );
 void brw_clip_tri( struct brw_clip_compile *c );
 void brw_clip_tri_emit_polygon( struct brw_clip_compile *c );
 void brw_clip_tri_alloc_regs( struct brw_clip_compile *c,
-			      GLuint nr_verts );
+                              GLuint nr_verts );
 
 
 /* Utils:
  */
 
 void brw_clip_interp_vertex( struct brw_clip_compile *c,
-			     struct brw_indirect dest_ptr,
-			     struct brw_indirect v0_ptr, /* from */
-			     struct brw_indirect v1_ptr, /* to */
-			     struct brw_reg t0,
-			     bool force_edgeflag );
+                             struct brw_indirect dest_ptr,
+                             struct brw_indirect v0_ptr, /* from */
+                             struct brw_indirect v1_ptr, /* to */
+                             struct brw_reg t0,
+                             bool force_edgeflag );
 
 void brw_clip_init_planes( struct brw_clip_compile *c );
 
 void brw_clip_emit_vue(struct brw_clip_compile *c,
-		       struct brw_indirect vert,
+                       struct brw_indirect vert,
                        enum brw_urb_write_flags flags,
-		       GLuint header);
+                       GLuint header);
 
 void brw_clip_kill_thread(struct brw_clip_compile *c);
 

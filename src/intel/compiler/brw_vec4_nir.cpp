@@ -2147,30 +2147,30 @@ vec4_visitor::nir_emit_texture(nir_tex_instr *instr)
       if (shadow_comparator.file != BAD_FILE &&
           opcode != SHADER_OPCODE_TXD &&
           opcode != SHADER_OPCODE_TG4_OFFSET) {
-	 emit(MOV(dst_reg(MRF, param_base + 1, shadow_comparator.type,
-			  WRITEMASK_X),
-		  shadow_comparator));
-	 inst->mlen++;
+         emit(MOV(dst_reg(MRF, param_base + 1, shadow_comparator.type,
+                          WRITEMASK_X),
+                  shadow_comparator));
+         inst->mlen++;
       }
 
       /* Load the LOD info */
       switch (opcode) {
       case SHADER_OPCODE_TXL: {
-	 int mrf, writemask;
-	 if (devinfo->ver >= 5) {
-	    mrf = param_base + 1;
-	    if (shadow_comparator.file != BAD_FILE) {
-	       writemask = WRITEMASK_Y;
-	       /* mlen already incremented */
-	    } else {
-	       writemask = WRITEMASK_X;
-	       inst->mlen++;
-	    }
-	 } else /* devinfo->ver == 4 */ {
-	    mrf = param_base;
-	    writemask = WRITEMASK_W;
-	 }
-	 emit(MOV(dst_reg(MRF, mrf, lod.type, writemask), lod));
+         int mrf, writemask;
+         if (devinfo->ver >= 5) {
+            mrf = param_base + 1;
+            if (shadow_comparator.file != BAD_FILE) {
+               writemask = WRITEMASK_Y;
+               /* mlen already incremented */
+            } else {
+               writemask = WRITEMASK_X;
+               inst->mlen++;
+            }
+         } else /* devinfo->ver == 4 */ {
+            mrf = param_base;
+            writemask = WRITEMASK_W;
+         }
+         emit(MOV(dst_reg(MRF, mrf, lod.type, writemask), lod));
          break;
       }
 
@@ -2196,32 +2196,32 @@ vec4_visitor::nir_emit_texture(nir_tex_instr *instr)
       case SHADER_OPCODE_TXD: {
          const brw_reg_type type = lod.type;
 
-	 if (devinfo->ver >= 5) {
-	    lod.swizzle = BRW_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
-	    lod2.swizzle = BRW_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
-	    emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_XZ), lod));
-	    emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_YW), lod2));
-	    inst->mlen++;
+         if (devinfo->ver >= 5) {
+            lod.swizzle = BRW_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
+            lod2.swizzle = BRW_SWIZZLE4(SWIZZLE_X,SWIZZLE_X,SWIZZLE_Y,SWIZZLE_Y);
+            emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_XZ), lod));
+            emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_YW), lod2));
+            inst->mlen++;
 
-	    if (nir_tex_instr_dest_size(instr) == 3 ||
+            if (nir_tex_instr_dest_size(instr) == 3 ||
                 shadow_comparator.file != BAD_FILE) {
-	       lod.swizzle = BRW_SWIZZLE_ZZZZ;
-	       lod2.swizzle = BRW_SWIZZLE_ZZZZ;
-	       emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_X), lod));
-	       emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_Y), lod2));
-	       inst->mlen++;
+               lod.swizzle = BRW_SWIZZLE_ZZZZ;
+               lod2.swizzle = BRW_SWIZZLE_ZZZZ;
+               emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_X), lod));
+               emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_Y), lod2));
+               inst->mlen++;
 
                if (shadow_comparator.file != BAD_FILE) {
                   emit(MOV(dst_reg(MRF, param_base + 2,
                                    shadow_comparator.type, WRITEMASK_Z),
                            shadow_comparator));
                }
-	    }
-	 } else /* devinfo->ver == 4 */ {
-	    emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_XYZ), lod));
-	    emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_XYZ), lod2));
-	    inst->mlen += 2;
-	 }
+            }
+         } else /* devinfo->ver == 4 */ {
+            emit(MOV(dst_reg(MRF, param_base + 1, type, WRITEMASK_XYZ), lod));
+            emit(MOV(dst_reg(MRF, param_base + 2, type, WRITEMASK_XYZ), lod2));
+            inst->mlen += 2;
+         }
          break;
       }
 

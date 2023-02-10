@@ -182,7 +182,7 @@ void brw_set_default_access_mode( struct brw_codegen *p, unsigned access_mode )
 
 void
 brw_set_default_compression_control(struct brw_codegen *p,
-			    enum brw_compression compression_control)
+                            enum brw_compression compression_control)
 {
    switch (compression_control) {
    case BRW_COMPRESSION_NONE:
@@ -358,7 +358,7 @@ brw_init_codegen(const struct brw_isa_info *isa,
 
 
 const unsigned *brw_get_program( struct brw_codegen *p,
-			       unsigned *sz )
+                               unsigned *sz )
 {
    *sz = p->next_insn_offset;
    return (const unsigned *)p->store;

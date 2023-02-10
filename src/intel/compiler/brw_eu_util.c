@@ -35,23 +35,23 @@
 
 
 void brw_math_invert( struct brw_codegen *p,
-			     struct brw_reg dst,
-			     struct brw_reg src)
+                             struct brw_reg dst,
+                             struct brw_reg src)
 {
    gfx4_math(p,
-	     dst,
-	     BRW_MATH_FUNCTION_INV,
-	     0,
-	     src,
-	     BRW_MATH_PRECISION_FULL);
+             dst,
+             BRW_MATH_FUNCTION_INV,
+             0,
+             src,
+             BRW_MATH_PRECISION_FULL);
 }
 
 
 
 void brw_copy4(struct brw_codegen *p,
-	       struct brw_reg dst,
-	       struct brw_reg src,
-	       unsigned count)
+               struct brw_reg dst,
+               struct brw_reg src,
+               unsigned count)
 {
    unsigned i;
 
@@ -68,9 +68,9 @@ void brw_copy4(struct brw_codegen *p,
 
 
 void brw_copy8(struct brw_codegen *p,
-	       struct brw_reg dst,
-	       struct brw_reg src,
-	       unsigned count)
+               struct brw_reg dst,
+               struct brw_reg src,
+               unsigned count)
 {
    unsigned i;
 
@@ -86,9 +86,9 @@ void brw_copy8(struct brw_codegen *p,
 
 
 void brw_copy_indirect_to_indirect(struct brw_codegen *p,
-				   struct brw_indirect dst_ptr,
-				   struct brw_indirect src_ptr,
-				   unsigned count)
+                                   struct brw_indirect dst_ptr,
+                                   struct brw_indirect src_ptr,
+                                   unsigned count)
 {
    unsigned i;
 
@@ -102,9 +102,9 @@ void brw_copy_indirect_to_indirect(struct brw_codegen *p,
 
 
 void brw_copy_from_indirect(struct brw_codegen *p,
-			    struct brw_reg dst,
-			    struct brw_indirect ptr,
-			    unsigned count)
+                            struct brw_reg dst,
+                            struct brw_indirect ptr,
+                            unsigned count)
 {
    unsigned i;
 

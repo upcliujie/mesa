@@ -64,18 +64,18 @@ test_compact_instruction(struct brw_codegen *p, brw_inst src)
 
       brw_uncompact_instruction(p->isa, &uncompacted, &dst);
       if (memcmp(&uncompacted, &src, sizeof(src))) {
-	 brw_debug_compact_uncompact(p->isa, &src, &uncompacted);
-	 return false;
+         brw_debug_compact_uncompact(p->isa, &src, &uncompacted);
+         return false;
       }
    } else {
       brw_compact_inst unchanged;
       memset(&unchanged, 0xd0, sizeof(unchanged));
       /* It's not supposed to change dst unless it compacted. */
       if (memcmp(&unchanged, &dst, sizeof(dst))) {
-	 fprintf(stderr, "Failed to compact, but dst changed\n");
-	 fprintf(stderr, "  Instruction: ");
-	 brw_disassemble_inst(stderr, p->isa, &src, false, 0, NULL);
-	 return false;
+         fprintf(stderr, "Failed to compact, but dst changed\n");
+         fprintf(stderr, "  Instruction: ");
+         brw_disassemble_inst(stderr, p->isa, &src, false, 0, NULL);
+         return false;
       }
    }
 
@@ -175,27 +175,27 @@ test_fuzz_compact_instruction(struct brw_codegen *p, brw_inst src)
 {
    for (int bit0 = 0; bit0 < 128; bit0++) {
       if (skip_bit(p->isa, &src, bit0))
-	 continue;
+         continue;
 
       for (int bit1 = 0; bit1 < 128; bit1++) {
          brw_inst instr = src;
-	 uint64_t *bits = instr.data;
+         uint64_t *bits = instr.data;
 
          if (skip_bit(p->isa, &src, bit1))
-	    continue;
+            continue;
 
-	 bits[bit0 / 64] ^= (1ull << (bit0 & 63));
-	 bits[bit1 / 64] ^= (1ull << (bit1 & 63));
+         bits[bit0 / 64] ^= (1ull << (bit0 & 63));
+         bits[bit1 / 64] ^= (1ull << (bit1 & 63));
 
          clear_pad_bits(p->isa, &instr);
 
          if (!brw_validate_instruction(p->isa, &instr, 0, sizeof(brw_inst), NULL))
             continue;
 
-	 if (!test_compact_instruction(p, instr)) {
-	    printf("  twiddled bits for fuzzing %d, %d\n", bit0, bit1);
-	    return false;
-	 }
+         if (!test_compact_instruction(p, instr)) {
+            printf("  twiddled bits for fuzzing %d, %d\n", bit0, bit1);
+            return false;
+         }
       }
    }
 

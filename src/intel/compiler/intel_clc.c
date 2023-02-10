@@ -338,7 +338,7 @@ int main(int argc, char **argv)
          break;
       case 'i':
          util_dynarray_append(&input_files, char *, optarg);
-	 break;
+         break;
       case 's':
          spv_outfile = optarg;
          break;

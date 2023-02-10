@@ -53,7 +53,7 @@ fs_visitor::assign_regs_trivial()
    hw_reg_mapping[0] = ALIGN(this->first_non_payload_grf, reg_width);
    for (i = 1; i <= this->alloc.count; i++) {
       hw_reg_mapping[i] = (hw_reg_mapping[i - 1] +
-			   this->alloc.sizes[i - 1]);
+                           this->alloc.sizes[i - 1]);
    }
    this->grf_used = hw_reg_mapping[this->alloc.count];
 
@@ -66,7 +66,7 @@ fs_visitor::assign_regs_trivial()
 
    if (this->grf_used >= max_grf) {
       fail("Ran out of regs on trivial allocator (%d/%d)\n",
-	   this->grf_used, max_grf);
+           this->grf_used, max_grf);
    } else {
       this->alloc.count = this->grf_used;
    }
@@ -427,7 +427,7 @@ get_used_mrfs(const fs_visitor *v, bool *mrf_used)
       }
 
       if (inst->mlen > 0) {
-	 for (unsigned i = 0; i < inst->implied_mrf_writes(); i++) {
+         for (unsigned i = 0; i < inst->implied_mrf_writes(); i++) {
             mrf_used[inst->base_mrf + i] = true;
          }
       }
@@ -1012,7 +1012,7 @@ fs_reg_alloc::set_spill_costs()
     */
    foreach_block_and_inst(block, fs_inst, inst, fs->cfg) {
       for (unsigned int i = 0; i < inst->sources; i++) {
-	 if (inst->src[i].file == VGRF)
+         if (inst->src[i].file == VGRF)
             spill_costs[inst->src[i].nr] += regs_read(inst, i) * block_scale;
       }
 
@@ -1022,22 +1022,22 @@ fs_reg_alloc::set_spill_costs()
       /* Don't spill anything we generated while spilling */
       if (_mesa_set_search(spill_insts, inst)) {
          for (unsigned int i = 0; i < inst->sources; i++) {
-	    if (inst->src[i].file == VGRF)
+            if (inst->src[i].file == VGRF)
                no_spill[inst->src[i].nr] = true;
          }
-	 if (inst->dst.file == VGRF)
+         if (inst->dst.file == VGRF)
             no_spill[inst->dst.nr] = true;
       }
 
       switch (inst->opcode) {
 
       case BRW_OPCODE_DO:
-	 block_scale *= 10;
-	 break;
+         block_scale *= 10;
+         break;
 
       case BRW_OPCODE_WHILE:
-	 block_scale /= 10;
-	 break;
+         block_scale /= 10;
+         break;
 
       case BRW_OPCODE_IF:
       case BRW_OPCODE_IFF:
@@ -1049,7 +1049,7 @@ fs_reg_alloc::set_spill_costs()
          break;
 
       default:
-	 break;
+         break;
       }
    }
 
@@ -1200,7 +1200,7 @@ fs_reg_alloc::spill_reg(unsigned spill_reg)
       exec_node *after = inst->next;
 
       for (unsigned int i = 0; i < inst->sources; i++) {
-	 if (inst->src[i].file == VGRF &&
+         if (inst->src[i].file == VGRF &&
              inst->src[i].nr == spill_reg) {
             int count = regs_read(inst, i);
             int subset_spill_offset = spill_offset +
@@ -1226,7 +1226,7 @@ fs_reg_alloc::spill_reg(unsigned spill_reg)
              */
             emit_unspill(ibld.exec_all().group(width, 0), &fs->shader_stats,
                          unspill_dst, subset_spill_offset, count, ip);
-	 }
+         }
       }
 
       if (inst->dst.file == VGRF &&
@@ -1270,13 +1270,13 @@ fs_reg_alloc::spill_reg(unsigned spill_reg)
          /* Builder used to emit the scratch messages. */
          const fs_builder ubld = ibld.exec_all(!per_channel).group(width, 0);
 
-	 /* If our write is going to affect just part of the
+         /* If our write is going to affect just part of the
           * regs_written(inst), then we need to unspill the destination since
           * we write back out all of the regs_written().  If the original
           * instruction had force_writemask_all set and is not a partial
           * write, there should be no need for the unspill since the
           * instruction will be overwriting the whole destination in any case.
-	  */
+          */
          if (inst->is_partial_write() ||
              (!inst->force_writemask_all && !per_channel))
             emit_unspill(ubld, &fs->shader_stats, spill_src,
@@ -1359,7 +1359,7 @@ fs_reg_alloc::assign_regs(bool allow_spilling, bool spill_all)
 
       hw_reg_mapping[i] = reg;
       fs->grf_used = MAX2(fs->grf_used,
-			  hw_reg_mapping[i] + fs->alloc.sizes[i]);
+                          hw_reg_mapping[i] + fs->alloc.sizes[i]);
    }
 
    foreach_block_and_inst(block, fs_inst, inst, fs->cfg) {

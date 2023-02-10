@@ -270,7 +270,7 @@ static void brw_ff_gs_ff_sync(struct brw_ff_gs_compile *c, int num_prim)
 
 static void
 brw_ff_gs_quads(struct brw_ff_gs_compile *c,
-		const struct brw_ff_gs_prog_key *key)
+                const struct brw_ff_gs_prog_key *key)
 {
    brw_ff_gs_alloc_regs(c, 4, false);
    brw_ff_gs_initialize_header(c);
@@ -560,11 +560,11 @@ gfx6_sol_program(struct brw_ff_gs_compile *c, const struct brw_ff_gs_prog_key *k
 
 const unsigned *
 brw_compile_ff_gs_prog(struct brw_compiler *compiler,
-		       void *mem_ctx,
-		       const struct brw_ff_gs_prog_key *key,
-		       struct brw_ff_gs_prog_data *prog_data,
-		       struct brw_vue_map *vue_map,
-		       unsigned *final_assembly_size)
+                       void *mem_ctx,
+                       const struct brw_ff_gs_prog_key *key,
+                       struct brw_ff_gs_prog_data *prog_data,
+                       struct brw_vue_map *vue_map,
+                       unsigned *final_assembly_size)
 {
    struct brw_ff_gs_compile c;
    const GLuint *program;

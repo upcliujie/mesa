@@ -1639,7 +1639,7 @@ fs_visitor::assign_curb_setup()
    /* Map the offsets in the UNIFORM file to fixed HW regs. */
    foreach_block_and_inst(block, fs_inst, inst, cfg) {
       for (unsigned int i = 0; i < inst->sources; i++) {
-	 if (inst->src[i].file == UNIFORM) {
+         if (inst->src[i].file == UNIFORM) {
             int uniform_nr = inst->src[i].nr + inst->src[i].offset / 4;
             int constant_nr;
             if (inst->src[i].nr >= UBO_START) {
@@ -1660,9 +1660,9 @@ fs_visitor::assign_curb_setup()
             assert(constant_nr / 8 < 64);
             used |= BITFIELD64_BIT(constant_nr / 8);
 
-	    struct brw_reg brw_reg = brw_vec1_grf(payload().num_regs +
-						  constant_nr / 8,
-						  constant_nr % 8);
+            struct brw_reg brw_reg = brw_vec1_grf(payload().num_regs +
+                                                  constant_nr / 8,
+                                                  constant_nr % 8);
             brw_reg.abs = inst->src[i].abs;
             brw_reg.negate = inst->src[i].negate;
 
@@ -1670,7 +1670,7 @@ fs_visitor::assign_curb_setup()
             inst->src[i] = byte_offset(
                retype(brw_reg, inst->src[i].type),
                inst->src[i].offset % 4);
-	 }
+         }
       }
    }
 
@@ -1914,17 +1914,17 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
          if (i == VARYING_SLOT_PSIZ)
             continue;
 
-	 if (key->input_slots_valid & BITFIELD64_BIT(i)) {
-	    /* The back color slot is skipped when the front color is
-	     * also written to.  In addition, some slots can be
-	     * written in the vertex shader and not read in the
-	     * fragment shader.  So the register number must always be
-	     * incremented, mapped or not.
-	     */
-	    if (_mesa_varying_slot_in_fs((gl_varying_slot) i))
-	       prog_data->urb_setup[i] = urb_next;
+         if (key->input_slots_valid & BITFIELD64_BIT(i)) {
+            /* The back color slot is skipped when the front color is
+             * also written to.  In addition, some slots can be
+             * written in the vertex shader and not read in the
+             * fragment shader.  So the register number must always be
+             * incremented, mapped or not.
+             */
+            if (_mesa_varying_slot_in_fs((gl_varying_slot) i))
+               prog_data->urb_setup[i] = urb_next;
             urb_next++;
-	 }
+         }
       }
 
       /*
@@ -2261,7 +2261,7 @@ fs_visitor::split_virtual_grfs()
          }
       }
       for (unsigned i = 0; i < inst->sources; i++) {
-	 if (inst->src[i].file != VGRF)
+         if (inst->src[i].file != VGRF)
             continue;
 
          reg = vgrf_to_reg[inst->src[i].nr] + inst->src[i].offset / REG_SIZE;
@@ -2463,15 +2463,15 @@ fs_visitor::lower_constant_loads()
       const fs_builder ibld(this, block, inst);
 
       for (int i = 0; i < inst->sources; i++) {
-	 if (inst->src[i].file != UNIFORM)
-	    continue;
+         if (inst->src[i].file != UNIFORM)
+            continue;
 
          /* We'll handle this case later */
          if (inst->opcode == SHADER_OPCODE_MOV_INDIRECT && i == 0)
             continue;
 
          if (!get_pull_locs(inst->src[i], &index, &pull_index))
-	    continue;
+            continue;
 
          assert(inst->src[i].stride == 0);
 
@@ -2795,7 +2795,7 @@ fs_visitor::opt_algebraic()
          break;
 
       default:
-	 break;
+         break;
       }
 
       /* Swap if src[0] is immediate. */
@@ -3108,19 +3108,19 @@ fs_visitor::compute_to_mrf()
       next_ip++;
 
       if (inst->opcode != BRW_OPCODE_MOV ||
-	  inst->is_partial_write() ||
-	  inst->dst.file != MRF || inst->src[0].file != VGRF ||
-	  inst->dst.type != inst->src[0].type ||
-	  inst->src[0].abs || inst->src[0].negate ||
+          inst->is_partial_write() ||
+          inst->dst.file != MRF || inst->src[0].file != VGRF ||
+          inst->dst.type != inst->src[0].type ||
+          inst->src[0].abs || inst->src[0].negate ||
           !inst->src[0].is_contiguous() ||
           inst->src[0].offset % REG_SIZE != 0)
-	 continue;
+         continue;
 
       /* Can't compute-to-MRF this GRF if someone else was going to
        * read it later.
        */
       if (live.vgrf_end[inst->src[0].nr] > ip)
-	 continue;
+         continue;
 
       /* Found a move of a GRF to a MRF.  Let's see if we can go rewrite the
        * things that computed the value of all GRFs of the source region.  The
@@ -3132,17 +3132,17 @@ fs_visitor::compute_to_mrf()
       foreach_inst_in_block_reverse_starting_from(fs_inst, scan_inst, inst) {
          if (regions_overlap(scan_inst->dst, scan_inst->size_written,
                              inst->src[0], inst->size_read(0))) {
-	    /* Found the last thing to write our reg we want to turn
-	     * into a compute-to-MRF.
-	     */
+            /* Found the last thing to write our reg we want to turn
+             * into a compute-to-MRF.
+             */
 
-	    /* If this one instruction didn't populate all the
-	     * channels, bail.  We might be able to rewrite everything
-	     * that writes that reg, but it would require smarter
-	     * tracking.
-	     */
-	    if (scan_inst->is_partial_write())
-	       break;
+            /* If this one instruction didn't populate all the
+             * channels, bail.  We might be able to rewrite everything
+             * that writes that reg, but it would require smarter
+             * tracking.
+             */
+            if (scan_inst->is_partial_write())
+               break;
 
             /* Handling things not fully contained in the source of the copy
              * would need us to understand coalescing out more than one MOV at
@@ -3152,62 +3152,62 @@ fs_visitor::compute_to_mrf()
                                      inst->src[0], inst->size_read(0)))
                break;
 
-	    /* SEND instructions can't have MRF as a destination. */
-	    if (scan_inst->mlen)
-	       break;
+            /* SEND instructions can't have MRF as a destination. */
+            if (scan_inst->mlen)
+               break;
 
-	    if (devinfo->ver == 6) {
-	       /* gfx6 math instructions must have the destination be
-		* GRF, so no compute-to-MRF for them.
-		*/
-	       if (scan_inst->is_math()) {
-		  break;
-	       }
-	    }
+            if (devinfo->ver == 6) {
+               /* gfx6 math instructions must have the destination be
+                * GRF, so no compute-to-MRF for them.
+                */
+               if (scan_inst->is_math()) {
+                  break;
+               }
+            }
 
             /* Clear the bits for any registers this instruction overwrites. */
             regs_left &= ~mask_relative_to(
                inst->src[0], scan_inst->dst, scan_inst->size_written);
             if (!regs_left)
                break;
-	 }
+         }
 
-	 /* We don't handle control flow here.  Most computation of
-	  * values that end up in MRFs are shortly before the MRF
-	  * write anyway.
-	  */
-	 if (block->start() == scan_inst)
-	    break;
+         /* We don't handle control flow here.  Most computation of
+          * values that end up in MRFs are shortly before the MRF
+          * write anyway.
+          */
+         if (block->start() == scan_inst)
+            break;
 
-	 /* You can't read from an MRF, so if someone else reads our
-	  * MRF's source GRF that we wanted to rewrite, that stops us.
-	  */
-	 bool interfered = false;
-	 for (int i = 0; i < scan_inst->sources; i++) {
+         /* You can't read from an MRF, so if someone else reads our
+          * MRF's source GRF that we wanted to rewrite, that stops us.
+          */
+         bool interfered = false;
+         for (int i = 0; i < scan_inst->sources; i++) {
             if (regions_overlap(scan_inst->src[i], scan_inst->size_read(i),
                                 inst->src[0], inst->size_read(0))) {
-	       interfered = true;
-	    }
-	 }
-	 if (interfered)
-	    break;
+               interfered = true;
+            }
+         }
+         if (interfered)
+            break;
 
          if (regions_overlap(scan_inst->dst, scan_inst->size_written,
                              inst->dst, inst->size_written)) {
-	    /* If somebody else writes our MRF here, we can't
-	     * compute-to-MRF before that.
-	     */
+            /* If somebody else writes our MRF here, we can't
+             * compute-to-MRF before that.
+             */
             break;
          }
 
          if (scan_inst->mlen > 0 && scan_inst->base_mrf != -1 &&
              regions_overlap(fs_reg(MRF, scan_inst->base_mrf), scan_inst->mlen * REG_SIZE,
                              inst->dst, inst->size_written)) {
-	    /* Found a SEND instruction, which means that there are
-	     * live values in MRFs from base_mrf to base_mrf +
-	     * scan_inst->mlen - 1.  Don't go pushing our MRF write up
-	     * above it.
-	     */
+            /* Found a SEND instruction, which means that there are
+             * live values in MRFs from base_mrf to base_mrf +
+             * scan_inst->mlen - 1.  Don't go pushing our MRF write up
+             * above it.
+             */
             break;
          }
       }
@@ -3419,23 +3419,23 @@ fs_visitor::remove_duplicate_mrf_writes()
 
    foreach_block_and_inst_safe (block, fs_inst, inst, cfg) {
       if (inst->is_control_flow()) {
-	 memset(last_mrf_move, 0, sizeof(last_mrf_move));
+         memset(last_mrf_move, 0, sizeof(last_mrf_move));
       }
 
       if (inst->opcode == BRW_OPCODE_MOV &&
-	  inst->dst.file == MRF) {
+          inst->dst.file == MRF) {
          fs_inst *prev_inst = last_mrf_move[inst->dst.nr];
-	 if (prev_inst && prev_inst->opcode == BRW_OPCODE_MOV &&
+         if (prev_inst && prev_inst->opcode == BRW_OPCODE_MOV &&
              inst->dst.equals(prev_inst->dst) &&
              inst->src[0].equals(prev_inst->src[0]) &&
              inst->saturate == prev_inst->saturate &&
              inst->predicate == prev_inst->predicate &&
              inst->conditional_mod == prev_inst->conditional_mod &&
              inst->exec_size == prev_inst->exec_size) {
-	    inst->remove(block);
-	    progress = true;
-	    continue;
-	 }
+            inst->remove(block);
+            progress = true;
+            continue;
+         }
       }
 
       /* Clear out the last-write records for MRFs that were overwritten. */
@@ -3444,12 +3444,12 @@ fs_visitor::remove_duplicate_mrf_writes()
       }
 
       if (inst->mlen > 0 && inst->base_mrf != -1) {
-	 /* Found a SEND instruction, which will include two or fewer
-	  * implied MRF writes.  We could do better here.
-	  */
-	 for (unsigned i = 0; i < inst->implied_mrf_writes(); i++) {
-	    last_mrf_move[inst->base_mrf + i] = NULL;
-	 }
+         /* Found a SEND instruction, which will include two or fewer
+          * implied MRF writes.  We could do better here.
+          */
+         for (unsigned i = 0; i < inst->implied_mrf_writes(); i++) {
+            last_mrf_move[inst->base_mrf + i] = NULL;
+         }
       }
 
       /* Clear out any MRF move records whose sources got overwritten. */
@@ -3463,9 +3463,9 @@ fs_visitor::remove_duplicate_mrf_writes()
       }
 
       if (inst->opcode == BRW_OPCODE_MOV &&
-	  inst->dst.file == MRF &&
-	  inst->src[0].file != ARF &&
-	  !inst->is_partial_write()) {
+          inst->dst.file == MRF &&
+          inst->src[0].file != ARF &&
+          !inst->is_partial_write()) {
          last_mrf_move[inst->dst.nr] = inst;
       }
    }
@@ -6911,7 +6911,7 @@ fs_visitor::run_fs(bool allow_spilling, bool do_rep_send)
       emit_nir_code();
 
       if (failed)
-	 return false;
+         return false;
 
       if (wm_key->emit_alpha_test)
          emit_alpha_test();

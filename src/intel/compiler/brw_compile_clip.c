@@ -65,9 +65,9 @@ brw_compile_clip(const struct brw_compiler *compiler,
    switch (key->primitive) {
    case SHADER_PRIM_TRIANGLES:
       if (key->do_unfilled)
-	 brw_emit_unfilled_clip( &c );
+         brw_emit_unfilled_clip( &c );
       else
-	 brw_emit_tri_clip( &c );
+         brw_emit_tri_clip( &c );
       break;
    case SHADER_PRIM_LINES:
       brw_emit_line_clip( &c );
