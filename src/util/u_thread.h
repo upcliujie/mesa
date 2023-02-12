@@ -2,6 +2,8 @@
  *
  * Copyright 1999-2006 Brian Paul
  * Copyright 2008 VMware, Inc.
+ * Copyright 2020 Lag Free Games, LLC
+ * Copyright 2023 Yonggang Luo
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -33,6 +35,7 @@
 #include <string.h>
 
 #include "c11/threads.h"
+#include "c11/time.h"
 #include "detect_os.h"
 
 /* Some highly performance-sensitive thread-local variables like the current GL
@@ -111,6 +114,55 @@ static inline bool u_thread_is_self(thrd_t thread)
 {
    return thrd_equal(thrd_current(), thread);
 }
+
+/*
+ * util_mtx_monotonic
+ */
+
+struct util_mtx_monotonic
+{
+   void *mtx;
+};
+typedef struct util_mtx_monotonic util_mtx_monotonic;
+
+int
+util_mtx_monotonic_init(util_mtx_monotonic *__mtx, int type);
+void
+util_mtx_monotonic_destroy(util_mtx_monotonic *__mtx);
+int
+util_mtx_monotonic_lock(util_mtx_monotonic *__mtx);
+int
+util_mtx_monotonic_trylock(util_mtx_monotonic *__mtx);
+int
+util_mtx_monotonic_unlock(util_mtx_monotonic *__mtx);
+
+/*
+ * util_cnd_monotonic
+ */
+
+struct util_cnd_monotonic
+{
+   void *cond;
+};
+typedef struct util_cnd_monotonic util_cnd_monotonic;
+
+int
+util_cnd_monotonic_init(util_cnd_monotonic *cond);
+
+void
+util_cnd_monotonic_destroy(util_cnd_monotonic *cond);
+
+int
+util_cnd_monotonic_broadcast(util_cnd_monotonic *cond);
+
+int
+util_cnd_monotonic_signal(util_cnd_monotonic *cond);
+
+int
+util_cnd_monotonic_timedwait(util_cnd_monotonic *cond, util_mtx_monotonic *mtx, const struct timespec *abs_time);
+
+int
+util_cnd_monotonic_wait(util_cnd_monotonic *cond, util_mtx_monotonic *mtx);
 
 /*
  * util_barrier

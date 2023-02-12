@@ -37,7 +37,6 @@ files_mesa_util = files(
   'blob.h',
   'build_id.c',
   'build_id.h',
-  'cnd_monotonic.h',
   'compiler.h',
   'compress.c',
   'compress.h',
