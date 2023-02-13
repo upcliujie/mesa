@@ -100,7 +100,8 @@ struct d3d12_shader_key {
    unsigned tex_saturate_t : PIPE_MAX_SAMPLERS;
    union {
       struct {
-         unsigned needs_format_emulation:1;
+         unsigned needs_format_emulation;
+         unsigned num_formats;
          enum pipe_format format_conversion[PIPE_MAX_ATTRIBS];
       } vs;
 
@@ -221,6 +222,8 @@ struct d3d12_shader_selector {
    nir_shader *initial;
    struct d3d12_shader *first;
    struct d3d12_shader *current;
+
+   struct set *shader_variant_set;
 
    struct pipe_stream_output_info so_info;
 
