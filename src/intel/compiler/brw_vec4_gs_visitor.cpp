@@ -826,7 +826,8 @@ brw_compile_gs(const struct brw_compiler *compiler,
          prog_data->base.base.dispatch_grf_start_reg = v.payload().num_regs;
 
          fs_generator g(compiler, params->log_data, mem_ctx,
-                        &prog_data->base.base, false, MESA_SHADER_GEOMETRY);
+                        &prog_data->base.base, false, MESA_SHADER_GEOMETRY,
+                        nir->src_loc_table);
          if (unlikely(debug_enabled)) {
             const char *label =
                nir->info.label ? nir->info.label : "unnamed";

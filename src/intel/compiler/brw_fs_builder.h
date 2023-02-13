@@ -58,7 +58,8 @@ namespace brw {
          _dispatch_width(dispatch_width),
          _group(0),
          force_writemask_all(false),
-         annotation()
+         annotation(),
+         _src_loc_index(0)
       {
       }
 
@@ -72,7 +73,8 @@ namespace brw {
          shader(shader), block(block), cursor(inst),
          _dispatch_width(inst->exec_size),
          _group(inst->group),
-         force_writemask_all(inst->force_writemask_all)
+         force_writemask_all(inst->force_writemask_all),
+         _src_loc_index(0)
       {
          annotation.str = inst->annotation;
          annotation.ir = inst->ir;
@@ -168,6 +170,17 @@ namespace brw {
          fs_builder bld = *this;
          bld.annotation.str = str;
          bld.annotation.ir = ir;
+         return bld;
+      }
+
+      /**
+       * Construct a builder with the given source location information.
+       */
+      fs_builder
+      src_loc_index(uint32_t src_loc_index) const
+      {
+         fs_builder bld = *this;
+         bld._src_loc_index = src_loc_index;
          return bld;
       }
 
@@ -370,6 +383,8 @@ namespace brw {
          inst->force_writemask_all = force_writemask_all;
          inst->annotation = annotation.str;
          inst->ir = annotation.ir;
+         if (inst->src_loc_index == 0)
+            inst->src_loc_index = _src_loc_index;
 
          if (block)
             static_cast<instruction *>(cursor)->insert_before(block, inst);
@@ -892,6 +907,9 @@ namespace brw {
          const char *str;
          const void *ir;
       } annotation;
+
+      /** API debug info. */
+      uint32_t _src_loc_index;
    };
 }
 

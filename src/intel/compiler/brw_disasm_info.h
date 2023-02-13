@@ -25,6 +25,7 @@
 #define _INTEL_ASM_ANNOTATION_H
 
 #include "compiler/glsl/list.h"
+#include "compiler/nir/nir_src_loc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +52,8 @@ struct inst_group {
    /* Annotation for the generated IR.  One of the two can be set. */
    const void *ir;
    const char *annotation;
+
+   uint32_t src_loc_index;
 };
 
 struct disasm_info {
@@ -58,6 +61,7 @@ struct disasm_info {
 
    const struct brw_isa_info *isa;
    const struct cfg_t *cfg;
+   const nir_src_loc *src_loc_table;
 
    /** Block index in the cfg. */
    int cur_block;
@@ -71,6 +75,11 @@ dump_assembly(void *assembly, int start_offset, int end_offset,
 struct disasm_info *
 disasm_initialize(const struct brw_isa_info *isa,
                   const struct cfg_t *cfg);
+
+struct disasm_info *
+disasm_initialize2(const struct brw_isa_info *isa,
+                   const struct cfg_t *cfg,
+                   const nir_src_loc *src_loc_table);
 
 struct inst_group *
 disasm_new_inst_group(struct disasm_info *disasm, unsigned offset);

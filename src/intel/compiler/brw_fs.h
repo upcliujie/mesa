@@ -34,6 +34,7 @@
 #include "brw_fs_live_variables.h"
 #include "brw_ir_performance.h"
 #include "compiler/nir/nir.h"
+#include "compiler/nir/nir_src_loc.h"
 
 struct bblock_t;
 namespace {
@@ -575,7 +576,8 @@ public:
                 void *mem_ctx,
                 struct brw_stage_prog_data *prog_data,
                 bool runtime_check_aads_emit,
-                gl_shader_stage stage);
+                gl_shader_stage stage,
+                const nir_src_loc *src_loc_table);
    ~fs_generator();
 
    void enable_debug(const char *shader_name);
@@ -669,6 +671,7 @@ private:
    bool debug_flag;
    const char *shader_name;
    gl_shader_stage stage;
+   const nir_src_loc *src_loc_table;
    void *mem_ctx;
 };
 

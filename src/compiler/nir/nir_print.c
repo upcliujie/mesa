@@ -26,6 +26,7 @@
  */
 
 #include "nir.h"
+#include "nir/nir_src_loc.h"
 #include "compiler/shader_enums.h"
 #include "util/half_float.h"
 #include "util/memstream.h"
@@ -44,7 +45,9 @@ print_tabs(unsigned num_tabs, FILE *fp)
 
 typedef struct {
    FILE *fp;
+
    nir_shader *shader;
+
    /** map from nir_variable -> printable name */
    struct hash_table *ht;
 
@@ -1575,6 +1578,8 @@ print_block(nir_block *block, print_state *state, unsigned tabs)
 {
    FILE *fp = state->fp;
 
+   nir_shader *shader = state->shader;
+
    print_tabs(tabs, fp);
    fprintf(fp, "block block_%u:\n", block->index);
 
@@ -1589,9 +1594,29 @@ print_block(nir_block *block, print_state *state, unsigned tabs)
 
    ralloc_free(preds);
 
+   uint32_t cur_src_loc_index = ~0;
    nir_foreach_instr(instr, block) {
+      if (shader->src_loc_table != NULL && cur_src_loc_index != instr->src_loc_index) {
+         print_tabs(tabs, fp);
+         fprintf(fp, "/* ");
+         if (instr->src_loc_index > 0) {
+            assert(instr->src_loc_index < shader->src_loc_table_size);
+            nir_src_loc src_loc = shader->src_loc_table[instr->src_loc_index];
+            fprintf(fp, "0x%zx ", src_loc.spirv_offset);
+            if (src_loc.file != NULL) {
+               fprintf(fp, "%s:%d:%d ", src_loc.file, src_loc.line, src_loc.col);
+            }
+         } else {
+            fprintf(fp, "no source location ");
+         }
+         fprintf(fp, "*/\n");
+
+         cur_src_loc_index = instr->src_loc_index;
+      }
+
       print_instr(instr, state, tabs);
       fprintf(fp, "\n");
+
       print_annotation(state, instr);
    }
 
