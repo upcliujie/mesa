@@ -1173,6 +1173,7 @@ struct zink_resource {
    enum pipe_format internal_format:16;
 
    struct zink_resource_object *obj;
+   struct pipe_surface *surface; //for swapchain images
    uint32_t queue;
    union {
       struct {
