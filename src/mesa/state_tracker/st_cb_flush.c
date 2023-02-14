@@ -84,6 +84,9 @@ st_finish(struct st_context *st)
 void
 st_glFlush(struct gl_context *ctx, unsigned gallium_flush_flags)
 {
+   if (ctx->st_opts->gl_skip_flushes)
+      return;
+      
    struct st_context *st = st_context(ctx);
 
    /* Don't call st_finish() here.  It is not the state tracker's
