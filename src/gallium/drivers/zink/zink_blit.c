@@ -306,6 +306,10 @@ zink_blit(struct pipe_context *pctx,
    if (zink_is_swapchain(dst)) {
       if (!zink_kopper_acquire(ctx, dst, UINT64_MAX))
          return;
+      if (ctx->skip_resolve && info->src.resource->nr_samples > 1 && info->dst.resource->nr_samples <= 1) {
+         ctx->skip_resolve = false;
+         return;
+      }
    }
 
    if (src_desc == dst_desc ||
