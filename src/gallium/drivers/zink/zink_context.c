@@ -2644,6 +2644,26 @@ begin_rendering(struct zink_context *ctx)
          return 0;
       ctx->dynamic_fb.attachments[i].imageView = iv;
    }
+   if (ctx->fb_state.resolve && !zink_use_dummy_attachments(ctx) &&
+       ctx->tc && zink_screen(ctx->base.screen)->driver_workarounds.track_renderpasses && ctx->dynamic_fb.tc_info.has_resolve) {
+      struct zink_resource *res = zink_resource(ctx->fb_state.resolve);
+      struct zink_surface *surf = zink_csurface(res->surface);
+      assert(zink_is_swapchain(res));
+      if (!zink_kopper_acquire(ctx, res, UINT64_MAX))
+         return 0;
+      zink_surface_swapchain_update(ctx, surf);
+      zink_batch_resource_usage_set(&ctx->batch, res, true, false);
+      VkImageLayout layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      zink_screen(ctx->base.screen)->image_barrier(ctx, res, layout, 0, 0);
+      res->obj->unordered_read = res->obj->unordered_write = false;
+      ctx->dynamic_fb.attachments[0].resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+      ctx->dynamic_fb.attachments[0].resolveImageView = surf->image_view;
+      ctx->skip_resolve = true;
+   } else {
+      ctx->dynamic_fb.attachments[0].resolveMode = VK_RESOLVE_MODE_NONE;
+      ctx->dynamic_fb.attachments[0].resolveImageView = VK_NULL_HANDLE;
+      ctx->skip_resolve = false;
+   }
    if (has_swapchain) {
       ASSERTED struct zink_resource *res = zink_resource(ctx->fb_state.cbufs[0]->texture);
       zink_render_fixup_swapchain(ctx);
@@ -3214,6 +3234,8 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
    /* renderpass changes if the number or types of attachments change */
    ctx->rp_changed |= ctx->fb_state.nr_cbufs != state->nr_cbufs;
    ctx->rp_changed |= !!ctx->fb_state.zsbuf != !!state->zsbuf;
+   if (ctx->tc && screen->driver_workarounds.track_renderpasses)
+      ctx->rp_changed |= ctx->fb_state.resolve != state->resolve;
    if (ctx->fb_state.nr_cbufs != state->nr_cbufs)
       ctx->blend_state_changed |= screen->have_full_ds3;
 
@@ -3673,10 +3695,10 @@ zink_resource_image_barrier(struct zink_context *ctx, struct zink_resource *res,
    if (res->obj->needs_zs_evaluate)
       imb.pNext = &res->obj->zs_evaluate;
    res->obj->needs_zs_evaluate = false;
-   if (res->dmabuf_acquire) {
-      imb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT;
+   if (res->queue != zink_screen(ctx->base.screen)->gfx_queue && res->queue != VK_QUEUE_FAMILY_IGNORED) {
+      imb.srcQueueFamilyIndex = res->queue;
       imb.dstQueueFamilyIndex = zink_screen(ctx->base.screen)->gfx_queue;
-      res->dmabuf_acquire = false;
+      res->queue = VK_QUEUE_FAMILY_IGNORED;
    }
    VKCTX(CmdPipelineBarrier)(
       cmdbuf,
@@ -3713,10 +3735,10 @@ zink_resource_image_barrier2(struct zink_context *ctx, struct zink_resource *res
    if (res->obj->needs_zs_evaluate)
       imb.pNext = &res->obj->zs_evaluate;
    res->obj->needs_zs_evaluate = false;
-   if (res->dmabuf_acquire) {
-      imb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT;
+   if (res->queue != zink_screen(ctx->base.screen)->gfx_queue && res->queue != VK_QUEUE_FAMILY_IGNORED) {
+      imb.srcQueueFamilyIndex = res->queue;
       imb.dstQueueFamilyIndex = zink_screen(ctx->base.screen)->gfx_queue;
-      res->dmabuf_acquire = false;
+      res->queue = VK_QUEUE_FAMILY_IGNORED;
    }
    VkDependencyInfo dep = {
       VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -4189,7 +4211,7 @@ zink_flush_resource(struct pipe_context *pctx,
       }
       ctx->batch.swapchain = res;
    } else if (res->dmabuf)
-      res->dmabuf_acquire = true;
+      res->queue = VK_QUEUE_FAMILY_FOREIGN_EXT;
 }
 
 static struct pipe_stream_output_target *
@@ -5121,6 +5143,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       VkRenderingAttachmentInfo *att = &ctx->dynamic_fb.attachments[i];
       att->sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
       att->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      att->resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       att->storeOp = VK_ATTACHMENT_STORE_OP_STORE;
    }
    ctx->gfx_pipeline_state.rendering_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;

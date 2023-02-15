@@ -1174,6 +1174,8 @@ struct zink_resource {
    enum pipe_format internal_format:16;
 
    struct zink_resource_object *obj;
+   struct pipe_surface *surface; //for swapchain images
+   uint32_t queue;
    union {
       struct {
          struct util_range valid_buffer_range;
@@ -1224,7 +1226,6 @@ struct zink_resource {
    };
 
    bool swapchain;
-   bool dmabuf_acquire;
    bool dmabuf;
    unsigned dt_stride;
 
@@ -1679,6 +1680,7 @@ struct zink_context {
    struct set render_pass_state_cache;
    struct hash_table *render_pass_cache;
    VkExtent2D swapchain_size;
+   bool skip_resolve;
    bool fb_changed;
    bool rp_changed; //force renderpass restart
    bool rp_layout_changed; //renderpass changed, maybe restart
