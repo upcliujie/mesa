@@ -63,7 +63,7 @@ extern "C" {
  * We implement "mutex3", which gives us a mutex that has no syscalls on
  * uncontended lock or unlock.  Further, the uncontended case boils down to a
  * locked cmpxchg and an untaken branch, the uncontended unlock is just a
- * locked decr and an untaken branch.  We use __builtin_expect() to indicate
+ * locked decr and an untaken branch.  We use unlikely() to indicate
  * that contention is unlikely so that gcc will put the contention code out of
  * the main code flow.
  *
@@ -72,7 +72,7 @@ extern "C" {
  */
 
 typedef struct {
-   uint32_t val;
+   uint32_t val;  /* 0 - unlocked, 1 - locked, >=2 - contented */
 } simple_mtx_t;
 
 #define SIMPLE_MTX_INITIALIZER { 0 }
@@ -107,7 +107,7 @@ simple_mtx_lock(simple_mtx_t *mtx)
 
    assert(c != _SIMPLE_MTX_INVALID_VALUE);
 
-   if (__builtin_expect(c != 0, 0)) {
+   if (unlikely(c != 0)) {
       if (c != 2)
          c = p_atomic_xchg(&mtx->val, 2);
       while (c != 0) {
@@ -117,6 +117,17 @@ simple_mtx_lock(simple_mtx_t *mtx)
    }
 
    HG(ANNOTATE_RWLOCK_ACQUIRED(mtx, 1));
+}
+
+static inline void
+simple_mtx_lock_uncontended(simple_mtx_t *mtx)
+{
+   ASSERTED uint32_t c;
+
+   c = mtx->val++;
+
+   assert(c != _SIMPLE_MTX_INVALID_VALUE);
+   assert(c == 0);
 }
 
 static inline void
@@ -130,10 +141,23 @@ simple_mtx_unlock(simple_mtx_t *mtx)
 
    assert(c != _SIMPLE_MTX_INVALID_VALUE);
 
-   if (__builtin_expect(c != 1, 0)) {
+   if (unlikely(c != 1)) {
       mtx->val = 0;
       futex_wake(&mtx->val, 1);
    }
+}
+
+static inline void
+simple_mtx_unlock_uncontended(simple_mtx_t *mtx)
+{
+   ASSERTED uint32_t c;
+
+   HG(ANNOTATE_RWLOCK_RELEASED(mtx, 1));
+
+   c = mtx->val--;
+
+   assert(c != _SIMPLE_MTX_INVALID_VALUE);
+   assert(c == 1);
 }
 
 static inline void
@@ -174,10 +198,22 @@ simple_mtx_lock(simple_mtx_t *mtx)
 }
 
 static inline void
+simple_mtx_lock_uncontended(simple_mtx_t *mtx)
+{
+   simple_mtx_lock(mtx);
+}
+
+static inline void
 simple_mtx_unlock(simple_mtx_t *mtx)
 {
    _simple_mtx_init_with_once(mtx);
    mtx_unlock(&mtx->mtx);
+}
+
+static inline void
+simple_mtx_unlock_uncontended(simple_mtx_t *mtx)
+{
+   simple_mtx_unlock(mtx);
 }
 
 static inline void

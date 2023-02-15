@@ -180,6 +180,76 @@ struct __perf_time_state {
 
 struct fd_context;
 
+/*
+ * Lock/unlock helpers that are trivial if there is no more than a single
+ * context.  These can be used in cases where locks will only be contended
+ * if there is more than a single pipe_context
+ */
+
+static inline void
+ctx_lock(simple_mtx_t *mtx)
+{
+   extern int num_ctx;
+
+   if (likely(num_ctx < 2)) {
+      simple_mtx_lock_uncontended(mtx);
+   } else {
+      simple_mtx_lock(mtx);
+   }
+}
+
+static inline void
+ctx_unlock(simple_mtx_t *mtx)
+{
+   extern int num_ctx;
+
+   if (likely(num_ctx < 2)) {
+      simple_mtx_unlock_uncontended(mtx);
+   } else {
+      simple_mtx_unlock(mtx);
+   }
+}
+
+#include "util/u_inlines.h"
+
+/*
+ * Helper for ref/unref that is trivial if there is no more than a single
+ * context.  This can be used in cases where ref/unref will only race if
+ * there is more than a single pipe_context.
+ */
+static inline boolean
+ctx_reference_described(struct pipe_reference *dst,
+                        struct pipe_reference *src,
+                        debug_reference_descriptor get_desc)
+{
+   extern int num_ctx;
+
+   if (dst == src)
+      return false;
+
+   if (likely(num_ctx < 2)) {
+// TODO add pipe_reference_described_uncontended() and un-inline this
+      /* bump the src.count first */
+      if (src) {
+         ASSERTED int count = ++src->count;
+         assert(count != 1); /* src had to be referenced */
+         debug_reference(src, get_desc, 1);
+      }
+
+      if (dst) {
+         int count = --dst->count;
+         assert(count != -1); /* dst had to be referenced */
+         debug_reference(dst, get_desc, -1);
+         if (!count)
+            return true;
+      }
+
+      return false;
+   } else {
+      return pipe_reference_described(dst, src, get_desc);
+   }
+}
+
 /**
  * A psuedo-variable for defining where various parts of the fd_context
  * can be safely accessed.

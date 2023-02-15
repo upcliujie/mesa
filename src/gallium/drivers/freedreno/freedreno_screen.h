@@ -175,13 +175,13 @@ fd_screen(struct pipe_screen *pscreen)
 static inline void
 fd_screen_lock(struct fd_screen *screen)
 {
-   simple_mtx_lock(&screen->lock);
+   ctx_lock(&screen->lock);
 }
 
 static inline void
 fd_screen_unlock(struct fd_screen *screen)
 {
-   simple_mtx_unlock(&screen->lock);
+   ctx_unlock(&screen->lock);
 }
 
 static inline void

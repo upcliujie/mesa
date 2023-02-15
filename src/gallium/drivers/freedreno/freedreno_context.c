@@ -41,6 +41,8 @@
 #include "freedreno_tracepoints.h"
 #include "util/u_trace_gallium.h"
 
+int num_ctx;
+
 static void
 fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
                  unsigned flags) in_dt
@@ -404,6 +406,8 @@ fd_context_destroy(struct pipe_context *pctx)
 
    DBG("");
 
+   num_ctx--;
+
    fd_screen_lock(ctx->screen);
    list_del(&ctx->node);
    fd_screen_unlock(ctx->screen);
@@ -658,6 +662,8 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
    struct fd_screen *screen = fd_screen(pscreen);
    struct pipe_context *pctx;
    unsigned prio = screen->prio_norm;
+
+   num_ctx++;
 
    /* lower numerical value == higher priority: */
    if (FD_DBG(HIPRIO))
