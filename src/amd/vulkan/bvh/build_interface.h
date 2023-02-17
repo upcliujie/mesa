@@ -40,6 +40,8 @@ struct leaf_args {
    VOID_REF data;
    VOID_REF indices;
    VOID_REF transform;
+   VOID_REF micromap_indices;
+   VOID_REF micromap_addr;
 
    uint32_t dst_offset;
    uint32_t first_id;
@@ -49,6 +51,9 @@ struct leaf_args {
    uint32_t stride;
    uint32_t vertex_format;
    uint32_t index_format;
+
+   uint32_t micromap_index_stride;
+   uint32_t micromap_index_type;
 };
 
 struct morton_args {
@@ -118,6 +123,19 @@ struct ploc_args {
    VOID_REF ids_0;
    VOID_REF ids_1;
    uint32_t internal_node_offset;
+};
+
+struct micromap_triangle_header {
+   uint32_t offset;
+   uint32_t level;
+};
+
+struct micromap_args {
+   VOID_REF triangles;
+   VOID_REF data;
+   VOID_REF dst;
+   REF(uint32_t) dst_offset;
+   uint32_t stride;
 };
 
 #endif

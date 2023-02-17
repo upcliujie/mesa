@@ -712,6 +712,11 @@ struct radv_meta_state {
    } accel_struct_build;
 
    struct {
+      VkPipelineLayout p_layout;
+      VkPipeline pipeline;
+   } micromap_build;
+
+   struct {
       VkDescriptorSetLayout ds_layout;
       VkPipelineLayout p_layout;
       VkPipeline pipeline;
@@ -1896,6 +1901,8 @@ uint32_t radv_fill_buffer(struct radv_cmd_buffer *cmd_buffer, const struct radv_
                           struct radeon_winsys_bo *bo, uint64_t va, uint64_t size, uint32_t value);
 void radv_copy_buffer(struct radv_cmd_buffer *cmd_buffer, struct radeon_winsys_bo *src_bo,
                       struct radeon_winsys_bo *dst_bo, uint64_t src_offset, uint64_t dst_offset,
+                      uint64_t size);
+void radv_copy_memory(struct radv_cmd_buffer *cmd_buffer, uint64_t src_va, uint64_t dst_va,
                       uint64_t size);
 
 void radv_cmd_buffer_trace_emit(struct radv_cmd_buffer *cmd_buffer);

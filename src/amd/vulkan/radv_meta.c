@@ -499,8 +499,16 @@ radv_device_init_meta(struct radv_device *device)
          goto fail_accel_struct;
    }
 
+   if (device->vk.enabled_extensions.EXT_opacity_micromap) {
+      result = radv_device_init_micromap_build_state(device);
+      if (result != VK_SUCCESS)
+         goto fail_micromap_build;
+   }
+
    return VK_SUCCESS;
 
+fail_micromap_build:
+   radv_device_finish_micromap_build_state(device);
 fail_accel_struct:
    radv_device_finish_accel_struct_build_state(device);
 fail_dgc:
@@ -544,6 +552,7 @@ radv_device_finish_meta(struct radv_device *device)
 {
    radv_device_finish_dgc_prepare_state(device);
    radv_device_finish_meta_etc_decode_state(device);
+   radv_device_finish_micromap_build_state(device);
    radv_device_finish_accel_struct_build_state(device);
    radv_device_finish_meta_clear_state(device);
    radv_device_finish_meta_resolve_state(device);

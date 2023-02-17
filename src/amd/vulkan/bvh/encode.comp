@@ -73,6 +73,10 @@ encode_sbt_offset_and_flags(uint32_t src)
       ret |= RADV_INSTANCE_TRIANGLE_FACING_CULL_DISABLE;
    if ((flags & VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR) != 0)
       ret |= RADV_INSTANCE_TRIANGLE_FLIP_FACING;
+   if ((flags & VK_GEOMETRY_INSTANCE_DISABLE_OPACITY_MICROMAPS_EXT) != 0)
+      ret |= RADV_INSTANCE_DISABLE_MICROMAPS;
+   if ((flags & VK_GEOMETRY_INSTANCE_FORCE_OPACITY_MICROMAP_2_STATE_EXT) != 0)
+      ret |= RADV_INSTANCE_FORCE_2_STATE_MICROMAPS;
    return ret;
 }
 
@@ -87,6 +91,7 @@ encode_leaf_node(uint32_t type, uint64_t src_node, uint64_t dst_node)
       DEREF(dst).coords = src.coords;
       DEREF(dst).triangle_id = src.triangle_id;
       DEREF(dst).geometry_id_and_flags = encode_geometry_id_and_flags(src.geometry_id_and_flags);
+      DEREF(dst).opacity_addr = src.opacity_addr;
       DEREF(dst).id = src.id;
       break;
    }

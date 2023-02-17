@@ -1,5 +1,5 @@
 /*
- * Copyright © 2021 Bas Nieuwenhuizen
+ * Copyright © 2022 Valve Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -19,30 +19,28 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
+ *
  */
 
-#ifndef RADV_ACCELERATION_STRUCTURE_H
-#define RADV_ACCELERATION_STRUCTURE_H
-
-#include "bvh/bvh.h"
+#ifndef RADV_MICROMAP_H
+#define RADV_MICROMAP_H
 
 #include "radv_private.h"
 
-struct radv_acceleration_structure {
+struct radv_micromap {
    struct vk_object_base base;
 
-   struct radv_buffer *buffer;
-   uint64_t offset;
+   struct radeon_winsys_bo *bo;
+   uint64_t mem_offset;
    uint64_t size;
+   uint64_t va;
 };
 
-uint64_t radv_acceleration_structure_get_va(struct radv_acceleration_structure *accel_struct);
+VK_DEFINE_NONDISP_HANDLE_CASTS(radv_micromap, base, VkMicromapEXT, VK_OBJECT_TYPE_MICROMAP_EXT)
 
-VK_DEFINE_NONDISP_HANDLE_CASTS(radv_acceleration_structure, base, VkAccelerationStructureKHR,
-                               VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR)
-
-VkResult radv_create_build_pipeline(struct radv_device *device, const uint32_t *spv,
-                                    uint32_t spv_size, unsigned push_constant_size,
-                                    VkPipeline *pipeline, VkPipelineLayout *layout);
+struct radv_micromap_serialization_header {
+   uint8_t driver_uuid[VK_UUID_SIZE];
+   uint8_t micromap_compat[VK_UUID_SIZE];
+};
 
 #endif

@@ -41,6 +41,8 @@
 #define RADV_INSTANCE_NO_FORCE_NOT_OPAQUE          (1u << 30)
 #define RADV_INSTANCE_TRIANGLE_FACING_CULL_DISABLE (1u << 29)
 #define RADV_INSTANCE_TRIANGLE_FLIP_FACING         (1u << 28)
+#define RADV_INSTANCE_DISABLE_MICROMAPS            (1u << 27)
+#define RADV_INSTANCE_FORCE_2_STATE_MICROMAPS      (1u << 26)
 
 #ifdef VULKAN
 #define VK_UUID_SIZE 16
@@ -129,6 +131,7 @@ struct radv_ir_triangle_node {
    float coords[3][3];
    uint32_t triangle_id;
    uint32_t id;
+   uint64_t opacity_addr;
    uint32_t geometry_id_and_flags;
 };
 
@@ -169,7 +172,8 @@ struct radv_ir_header {
 
 struct radv_bvh_triangle_node {
    float coords[3][3];
-   uint32_t reserved[3];
+   uint32_t reserved;
+   uint64_t opacity_addr;
    uint32_t triangle_id;
    /* flags in upper 4 bits */
    uint32_t geometry_id_and_flags;
