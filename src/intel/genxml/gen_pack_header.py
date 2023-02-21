@@ -86,6 +86,11 @@ __gen_address(__gen_user_data *data, void *location,
               __attribute__((unused)) uint32_t start, uint32_t end)
 {
    uint64_t addr_u64 = __gen_combine_address(data, location, address, delta);
+#ifndef NDEBUG
+   uint64_t mask = (~0ull) << start;
+
+   assert((addr_u64 & ~mask) == delta);
+#endif
    if (end == 31) {
       return addr_u64;
    } else if (end < 63) {
