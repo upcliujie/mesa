@@ -138,20 +138,28 @@ endif
 
 gallium_drivers = get_option('gallium-drivers')
 if gallium_drivers.contains('auto')
+  extra_drivers = []
+  foreach driver : gallium_drivers
+    if driver != 'auto'
+      extra_drivers += driver
+    endif
+  endforeach
+  gallium_drivers = extra_drivers
+
   if system_has_kms_drm
     # TODO: PPC, Sparc
     if ['x86', 'x86_64'].contains(host_machine.cpu_family())
-      gallium_drivers = [
+      gallium_drivers += [
         'r300', 'r600', 'radeonsi', 'nouveau', 'virgl', 'svga', 'swrast',
         'iris', 'crocus', 'i915'
       ]
     elif ['arm', 'aarch64'].contains(host_machine.cpu_family())
-      gallium_drivers = [
+      gallium_drivers += [
         'v3d', 'vc4', 'freedreno', 'etnaviv', 'nouveau', 'svga',
         'tegra', 'virgl', 'lima', 'panfrost', 'swrast'
       ]
     elif ['mips', 'mips64', 'riscv32', 'riscv64'].contains(host_machine.cpu_family())
-      gallium_drivers = [
+      gallium_drivers += [
         'r300', 'r600', 'radeonsi', 'nouveau', 'virgl', 'swrast'
       ]
     else
@@ -159,7 +167,7 @@ if gallium_drivers.contains('auto')
             host_machine.cpu_family()))
     endif
   elif ['darwin', 'windows', 'cygwin', 'haiku'].contains(host_machine.system())
-    gallium_drivers = ['swrast']
+    gallium_drivers += ['swrast']
   else
     error('Unknown OS @0@. Please pass -Dgallium-drivers to set driver options. Patches gladly accepted to fix this.'.format(
           host_machine.system()))
@@ -211,20 +219,28 @@ endif
 
 _vulkan_drivers = get_option('vulkan-drivers')
 if _vulkan_drivers.contains('auto')
+  extra_drivers = []
+  foreach driver : _vulkan_drivers
+    if driver != 'auto'
+      extra_drivers += driver
+    endif
+  endforeach
+  _vulkan_drivers = extra_drivers
+
   if system_has_kms_drm
     if host_machine.cpu_family().startswith('x86')
-      _vulkan_drivers = ['amd', 'intel', 'intel_hasvk', 'swrast']
+      _vulkan_drivers += ['amd', 'intel', 'intel_hasvk', 'swrast']
     elif ['arm', 'aarch64'].contains(host_machine.cpu_family())
-      _vulkan_drivers = ['swrast']
+      _vulkan_drivers += ['swrast']
     elif ['mips', 'mips64', 'riscv32', 'riscv64'].contains(host_machine.cpu_family())
-      _vulkan_drivers = ['amd', 'swrast']
+      _vulkan_drivers += ['amd', 'swrast']
     else
       error('Unknown architecture @0@. Please pass -Dvulkan-drivers to set driver options. Patches gladly accepted to fix this.'.format(
             host_machine.cpu_family()))
     endif
   elif ['darwin', 'windows', 'cygwin', 'haiku'].contains(host_machine.system())
     # No vulkan driver supports windows or macOS currently
-    _vulkan_drivers = []
+    _vulkan_drivers += []
   else
     error('Unknown OS @0@. Please pass -Dvulkan-drivers to set driver options. Patches gladly accepted to fix this.'.format(
           host_machine.system()))
@@ -300,14 +316,22 @@ endforeach
 
 _platforms = get_option('platforms')
 if _platforms.contains('auto')
+  extra_drivers = []
+  foreach driver : _platforms
+    if driver != 'auto'
+      extra_drivers += driver
+    endif
+  endforeach
+  _platforms = extra_drivers
+
   if system_has_kms_drm
-    _platforms = ['x11', 'wayland']
+    _platforms += ['x11', 'wayland']
   elif ['darwin', 'cygwin'].contains(host_machine.system())
-    _platforms = ['x11']
+    _platforms += ['x11']
   elif ['haiku'].contains(host_machine.system())
-    _platforms = ['haiku']
+    _platforms += ['haiku']
   elif host_machine.system() == 'windows'
-    _platforms = ['windows']
+    _platforms += ['windows']
   else
     error('Unknown OS @0@. Please pass -Dplatforms to set platforms. Patches gladly accepted to fix this.'.format(
           host_machine.system()))
