@@ -227,7 +227,6 @@ files_libglsl = files(
   'opt_if_simplification.cpp',
   'opt_minmax.cpp',
   'opt_rebalance_tree.cpp',
-  'opt_tree_grafting.cpp',
   'program.h',
   'propagate_invariance.cpp',
   's_expression.cpp',
