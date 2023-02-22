@@ -423,6 +423,14 @@ vlVaCreateConfig(VADriverContextP ctx, VAProfile profile, VAEntrypoint entrypoin
 
    pscreen = VL_VA_PSCREEN(ctx);
 
+   if(!pscreen->get_video_param(pscreen, ProfileToPipe(profile),
+                                PIPE_VIDEO_ENTRYPOINT_BITSTREAM,
+                                PIPE_VIDEO_CAP_SUPPORTED))
+   {
+      FREE(config);
+      return VA_STATUS_ERROR_UNSUPPORTED_PROFILE;
+   }
+
    switch (entrypoint) {
    case VAEntrypointVLD:
       supported_rt_formats = VA_RT_FORMAT_YUV420 | VA_RT_FORMAT_YUV422;
