@@ -2,6 +2,7 @@
   variables:
     MESA_LOADER_DRIVER_OVERRIDE: "zink"
     FLAKES_CHANNEL: "#zink-ci"
+    ZINK_HANG_ABORT: 1
 
 .zink-trace-test:
   extends:
