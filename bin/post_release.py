@@ -19,12 +19,42 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Update the main page, release notes, and calendar."""
+"""Update release notes SHA sums and calendar entries."""
 
+from __future__ import annotations
 import argparse
 import csv
 import pathlib
 import subprocess
+import typing
+
+if typing.TYPE_CHECKING:
+
+    class Arguments(typing.Protocol):
+
+        version: str
+
+
+def update_sha_sums(version: str) -> None:
+    p = pathlib.Path(__file__).parent.parent / 'docs' / 'relnotes' / f'{version}.rst'
+    with p.open('r') as f:
+        notes = f.read()
+
+    # Since the script calling this will use builddir, this should be safe
+    with (pathlib.Path(__file__).parent.parent / 'builddir' / 'meson-dist' / f'mesa-{version}.announce').open('r') as f:
+        for line in f.readlines():
+            if line.startswith('SHA256'):
+                sha = line[len('SHA256: '):]
+                break
+        else:
+            raise RuntimeError('could not find SHA256 sum in announce')
+
+    with p.open('w') as f:
+        f.write(notes.replace('TBD.', sha))
+
+    subprocess.run(['git', 'add', p])
+    subprocess.run(['git', 'commit', '-m',
+                    f'docs: Add sha256 sum for {version}'])
 
 
 def update_calendar(version: str) -> None:
@@ -48,17 +78,23 @@ def update_calendar(version: str) -> None:
         writer.writerows(calendar)
 
     subprocess.run(['git', 'add', p])
+    subprocess.run(['git', 'commit', '-m',
+                    f'docs: Update release calendar for {version}'])
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('version', help="The released version.")
-    args = parser.parse_args()
+    parser.add_argument('version', help="the released version")
+    args: Arguments = parser.parse_args()
 
+    # We have nothing  to do in this case, since we didn't generate notes
+    if '-rc' in args.version:
+        return
+
+    update_sha_sums(args.version)
     update_calendar(args.version)
 
-    subprocess.run(['git', 'commit', '-m',
-                    f'docs: update calendar for {args.version}'])
+    subprocess.run(['git', 'push'])
 
 
 if __name__ == "__main__":
