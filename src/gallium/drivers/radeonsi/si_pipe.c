@@ -1500,12 +1500,16 @@ struct pipe_screen *radeonsi_screen_create(int fd, const struct pipe_screen_conf
                        NULL, NULL, NULL, 0, NULL, 0);
 
    switch (version->version_major) {
+#ifdef HAVE_RADEONSI
    case 2:
       rw = radeon_drm_winsys_create(fd, config, radeonsi_screen_create_impl);
       break;
+#endif
+#ifdef HAVE_AMDGPU
    case 3:
       rw = amdgpu_winsys_create(fd, config, radeonsi_screen_create_impl);
       break;
+#endif
    }
 
    drmFreeVersion(version);

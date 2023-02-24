@@ -79,7 +79,7 @@ endif
 if with_any_intel
   subdir('intel')
 endif
-if with_gallium_radeonsi or with_amd_vk or with_gallium_r300 or with_gallium_r600
+if with_gallium_radeonsi or with_gallium_radeonsi_amdgpu or with_amd_vk or with_gallium_r300 or with_gallium_r600
   subdir('amd')
 endif
 if with_any_broadcom

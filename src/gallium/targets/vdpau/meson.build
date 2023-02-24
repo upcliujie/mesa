@@ -67,7 +67,7 @@ libvdpau_gallium = shared_library(
 )
 foreach d : [[with_gallium_r300, 'r300'],
              [with_gallium_r600, 'r600'],
-             [with_gallium_radeonsi, 'radeonsi'],
+             [with_gallium_radeonsi or with_gallium_radeonsi_amdgpu, 'radeonsi'],
              [with_gallium_nouveau, 'nouveau'],
              [with_gallium_virgl, 'virtio_gpu'],
              [with_gallium_d3d12_video, 'd3d12']]

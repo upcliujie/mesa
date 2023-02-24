@@ -170,6 +170,8 @@ if gallium_drivers.contains('auto')
   endif
 endif
 with_gallium_radeonsi = gallium_drivers.contains('radeonsi')
+# Does not use |.contains('radeonsi_amdgpu')| to avoid false-positive from |.contains('radeonsi')|
+with_gallium_radeonsi_amdgpu = gallium_drivers.contains('amdgpu')
 with_gallium_r300 = gallium_drivers.contains('r300')
 with_gallium_r600 = gallium_drivers.contains('r600')
 with_gallium_nouveau = gallium_drivers.contains('nouveau')
@@ -529,13 +531,14 @@ _vdpau_drivers = [
   with_gallium_r300,
   with_gallium_r600,
   with_gallium_radeonsi,
+  with_gallium_radeonsi_amdgpu,
   with_gallium_virgl,
 ]
 
 vdpau = get_option('gallium-vdpau') \
   .require(system_has_kms_drm, error_message : 'VDPAU state tracker can only be build on unix-like OSes.') \
   .require(with_platform_x11, error_message : 'VDPAU state tracker requires X11 support.') \
-  .require(_vdpau_drivers.contains(true), error_message : 'VDPAU state tracker requires at least one of the following gallium drivers: r300, r600, radeonsi, nouveau, d3d12 (with option gallium-d3d12-video, virgl).') 
+  .require(_vdpau_drivers.contains(true), error_message : 'VDPAU state tracker requires at least one of the following gallium drivers: r300, r600, radeonsi, amdgpu, nouveau, d3d12 (with option gallium-d3d12-video, virgl).')
 
 dep_vdpau = dependency('vdpau', version : '>= 1.1', required : vdpau)
 if dep_vdpau.found()
@@ -566,11 +569,11 @@ if not system_has_kms_drm
   else
     error('OMX state tracker can only be built on unix-like OSes.')
   endif
-elif not (with_gallium_r600 or with_gallium_radeonsi or with_gallium_nouveau)
+elif not (with_gallium_r600 or with_gallium_radeonsi or with_gallium_radeonsi_amdgpu or with_gallium_nouveau)
   if ['auto', 'disabled'].contains(_omx)
     _omx = 'disabled'
   else
-    error('OMX state tracker requires at least one of the following gallium drivers: r600, radeonsi, nouveau.')
+    error('OMX state tracker requires at least one of the following gallium drivers: r600, radeonsi, amdgpu, nouveau.')
   endif
 endif
 with_gallium_omx = _omx
@@ -644,12 +647,13 @@ _va_drivers = [
   with_gallium_nouveau,
   with_gallium_r600,
   with_gallium_radeonsi,
+  with_gallium_radeonsi_amdgpu,
   with_gallium_virgl,
 ]
 
 _va = get_option('gallium-va') \
   .require(_va_drivers.contains(true),
-           error_message : 'VA state tracker requires at least one of the following gallium drivers: r600, radeonsi, nouveau, d3d12 (with option gallium-d3d12-video), virgl.')
+           error_message : 'VA state tracker requires at least one of the following gallium drivers: r600, radeonsi, amdgpu, nouveau, d3d12 (with option gallium-d3d12-video), virgl.')
 _dep_va_name = host_machine.system() == 'windows' ? 'libva-win32' : 'libva'
 dep_va = dependency(_dep_va_name, version : '>= 1.8.0', required : _va)
 if dep_va.found()
@@ -691,6 +695,7 @@ if with_gallium_st_nine
              with_gallium_r300,
              with_gallium_r600,
              with_gallium_radeonsi,
+             with_gallium_radeonsi_amdgpu,
              with_gallium_svga,
              with_gallium_zink,
            ].contains(true)
@@ -1524,7 +1529,7 @@ _drm_ver = '2.4.109'
 
 _libdrm_checks = [
   ['intel', with_gallium_i915],
-  ['amdgpu', (with_amd_vk and not with_platform_windows) or with_gallium_radeonsi],
+  ['amdgpu', (with_amd_vk and not with_platform_windows) or with_gallium_radeonsi_amdgpu],
   ['radeon', (with_gallium_radeonsi or with_gallium_r300 or with_gallium_r600)],
   ['nouveau', with_gallium_nouveau],
 ]
@@ -1574,10 +1579,13 @@ endif
 llvm_modules = ['bitwriter', 'engine', 'mcdisassembler', 'mcjit', 'core', 'executionengine', 'scalaropts', 'transformutils', 'instcombine']
 llvm_optional_modules = ['coroutines']
 if with_amd_vk or with_gallium_radeonsi or with_gallium_r600
-  llvm_modules += ['amdgpu', 'bitreader', 'ipo']
+  llvm_modules += ['bitreader', 'ipo']
   if with_gallium_r600
     llvm_modules += 'asmparser'
   endif
+endif
+if with_gallium_radeonsi_amdgpu
+  llvm_modules += 'amdgpu'
 endif
 if with_gallium_opencl
   llvm_modules += [
@@ -1603,7 +1611,7 @@ endif
 
 if with_intel_clc
   _llvm_version = '>= 13.0.0'
-elif with_amd_vk or with_gallium_radeonsi or with_gallium_opencl
+elif with_amd_vk or with_gallium_radeonsi or with_gallium_radeonsi_amdgpu or with_gallium_opencl
   _llvm_version = '>= 11.0.0'
 elif with_clc
   _llvm_version = '>= 10.0.0'
@@ -1625,7 +1633,7 @@ if _llvm.allowed()
     modules : llvm_modules,
     optional_modules : llvm_optional_modules,
     required : (
-      with_amd_vk or with_gallium_radeonsi or with_gallium_opencl or with_clc
+      with_amd_vk or with_gallium_radeonsi or with_gallium_radeonsi_amdgpu or with_gallium_opencl or with_clc
       or _llvm.enabled()
     ),
     static : not _shared_llvm,
@@ -1674,8 +1682,8 @@ if with_llvm
   endif
 elif with_amd_vk and with_aco_tests
   error('ACO tests require LLVM, but LLVM is disabled.')
-elif with_gallium_radeonsi or with_swrast_vk
-  error('The following drivers require LLVM: RadeonSI, SWR, Lavapipe. One of these is enabled, but LLVM is disabled.')
+elif with_gallium_radeonsi or with_gallium_radeonsi_amdgpu or with_swrast_vk
+  error('The following drivers require LLVM: RadeonSI, RadeonSI amdgpu, SWR, Lavapipe. One of these is enabled, but LLVM is disabled.')
 elif with_gallium_opencl
   error('The OpenCL "Clover" state tracker requires LLVM, but LLVM is disabled.')
 elif with_clc

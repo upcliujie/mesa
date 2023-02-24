@@ -103,7 +103,7 @@ files_libradeonsi = files(
 
 radeonsi_include_dirs = [inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_amd_common,
                          inc_amd_common_llvm, inc_gallium_drivers]
-radeonsi_deps = [dep_llvm, dep_clock, dep_libdrm_radeon, idep_nir_headers, idep_amdgfxregs_h, idep_mesautil]
+radeonsi_deps = [dep_llvm, dep_clock, idep_nir_headers, idep_amdgfxregs_h, idep_mesautil]
 
 radeonsi_gfx_libs = []
 foreach ver : ['6', '7', '8', '9', '10', '103', '11']
@@ -117,6 +117,17 @@ foreach ver : ['6', '7', '8', '9', '10', '103', '11']
   )
 endforeach
 
+radeonsi_winsys_libs = []
+if with_gallium_radeonsi
+  radeonsi_deps += dep_libdrm_radeon
+  radeonsi_winsys_libs += libradeonwinsys
+endif
+if with_gallium_radeonsi_amdgpu
+  radeonsi_deps += dep_libdrm_amdgpu
+  radeonsi_winsys_libs += libamdgpuwinsys
+endif
+assert(radeonsi_winsys_libs.length() > 0, 'Missing winsys library to link with!')
+
 libradeonsi = static_library(
   'radeonsi',
   [files_libradeonsi, sid_tables_h],
@@ -126,9 +137,9 @@ libradeonsi = static_library(
 )
 
 driver_radeonsi = declare_dependency(
-  compile_args : '-DGALLIUM_RADEONSI',
-  link_with : radeonsi_gfx_libs + [
-    libradeonsi, libradeonwinsys, libamdgpuwinsys, libamd_common, libamd_common_llvm, libgalliumvl
+  compile_args : ['-DGALLIUM_RADEONSI'],
+  link_with : radeonsi_gfx_libs + radeonsi_winsys_libs + [
+    libradeonsi, libamd_common, libamd_common_llvm, libgalliumvl
   ],
   dependencies : idep_nir,
 )
