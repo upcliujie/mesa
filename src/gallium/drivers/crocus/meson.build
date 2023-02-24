@@ -77,7 +77,7 @@ libcrocus = static_library(
     # these should not be necessary, but main/macros.h...
     inc_mesa, inc_mapi
   ],
-  c_args : [c_sse2_args],
+  c_args : [c_sse2_args, no_override_init_args],
   cpp_args : [c_sse2_args],
   gnu_symbol_visibility : 'hidden',
   dependencies : [dep_libdrm, dep_valgrind, idep_genxml, idep_libintel_common, idep_nir_headers],
