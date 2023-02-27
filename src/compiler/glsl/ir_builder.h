@@ -158,6 +158,8 @@ ir_expression *sign(operand a);
 ir_expression *subr_to_int(operand a);
 ir_expression *equal(operand a, operand b);
 ir_expression *nequal(operand a, operand b);
+ir_expression *equal_exact(operand a, operand b);
+ir_expression *nequal_exact(operand a, operand b);
 ir_expression *less(operand a, operand b);
 ir_expression *greater(operand a, operand b);
 ir_expression *lequal(operand a, operand b);

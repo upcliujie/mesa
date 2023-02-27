@@ -1283,6 +1283,20 @@ bool
 nir_op_is_vec(nir_op op);
 
 static inline bool
+nir_op_is_bcsel(nir_op op)
+{
+   switch (op) {
+   case nir_op_bcsel:
+   case nir_op_b8csel:
+   case nir_op_b16csel:
+   case nir_op_b32csel:
+      return true;
+   default:
+      return false;
+   }
+}
+
+static inline bool
 nir_is_float_control_signed_zero_inf_nan_preserve(unsigned execution_mode, unsigned bit_size)
 {
     return (16 == bit_size && execution_mode & FLOAT_CONTROLS_SIGNED_ZERO_INF_NAN_PRESERVE_FP16) ||
@@ -3693,6 +3707,11 @@ typedef struct nir_shader_compiler_options {
 
    /** Backend supports sdot_2x16 and udot_2x16 opcodes. */
    bool has_dot_2x16;
+
+   /** Backend supports fcanonicalize, if not set fcanonicalize will be lowered
+    * to fmul(a, 1.0)
+    */
+   bool has_fcanonicalize;
 
    /* Whether to generate only scoped_barrier intrinsics instead of the set of
     * memory and control barrier intrinsics based on GLSL.

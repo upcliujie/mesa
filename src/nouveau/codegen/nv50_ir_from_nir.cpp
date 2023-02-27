@@ -3369,6 +3369,9 @@ Converter::run()
       NIR_PASS(progress, nir, nir_lower_64bit_phis);
    } while (progress);
 
+   NIR_PASS_V(nir, nir_opt_algebraic_late);
+   NIR_PASS_V(nir, nir_opt_dce);
+
    nir_move_options move_options =
       (nir_move_options)(nir_move_const_undef |
                          nir_move_load_ubo |

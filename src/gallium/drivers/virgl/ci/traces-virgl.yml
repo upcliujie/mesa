@@ -12,7 +12,7 @@ traces:
       checksum: 57ddd36b117adc9216c65c10d914a37e
   gputest/pixmark-piano-v2.trace:
     gl-virgl:
-      checksum: 0d875bda7edc01698342b157c6f51500
+      checksum: 08121f3f84975f5f9dda94f986626a4a
   gputest/triangle-v2.trace:
     gl-virgl:
       checksum: 7812de00011a3a059892e36cea19c696
@@ -21,7 +21,7 @@ traces:
       checksum: b697edce7776f1afe294a7e80dfc013e
   0ad/0ad-v2.trace:
     gl-virgl:
-      checksum: 350e0cf64d124ba98d90106f61775eb4
+      checksum: bc560e5be892807d7712f2d06977bd22
   gputest/gimark-v2.trace:
     gl-virgl:
       label: [crash]
@@ -33,7 +33,7 @@ traces:
       checksum: 73ccaff82ea764057fb0f93f0024cf84
   gputest/pixmark-volplosion-v2.trace:
     gl-virgl:
-      checksum: aef0b32ce99a3b25d35304ca08032833
+      checksum: 2fa7db577ba479640bec6e3e5af3caff
   gputest/plot3d-v2.trace:
     gl-virgl:
       checksum: 96f9fdf530e6041a4f56762b8378f22e
@@ -84,10 +84,10 @@ traces:
       checksum: f4af4067b37c00861fa5911e4c0a6629
   supertuxkart/supertuxkart-mansion-egl-gles-v2.trace:
     gl-virgl:
-      checksum: 4ac8b872bfa701632d76801a3f77c5db
+      checksum: 271af6584237d91383ba1044feb05fb7
   xonotic/xonotic-keybench-high-v2.trace:
     gl-virgl:
-      checksum: f3b184bf8858a6ebccd09e7ca032197e
+      checksum: a3337acf7899980c53f96c1545e26d26
   valve/counterstrike-v2.trace:
     gl-virgl:
       checksum: 3bc0e0e39cb3c29f6d76ff07f1f02860
@@ -111,7 +111,7 @@ traces:
       label: [crash]
   godot/Material Testers.x86_64_2020.04.08_13.38_frame799.rdc:
     gl-virgl:
-      checksum: 0258b50142f47396b4ad1d9d6d6331cf
+      checksum: e25c320362a5725b59e4b7a14459b96b
   ror/ror-default.trace:
     gl-virgl:
       label: [crash]

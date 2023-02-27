@@ -653,6 +653,9 @@ ir_expression_operation = [
    operation("gequal", 2, printable_name=">=", source_types=numeric_types, dest_type=bool_type, c_expression="{src0} >= {src1}"),
    operation("equal", 2, printable_name="==", source_types=all_types, dest_type=bool_type, c_expression="{src0} == {src1}"),
    operation("nequal", 2, printable_name="!=", source_types=all_types, dest_type=bool_type, c_expression="{src0} != {src1}"),
+   # Unlike the non-_exact versions, these should not be optimized in a way which assumes sources are not NaN.
+   operation("equal_exact", 2, source_types=real_types, dest_type=bool_type, c_expression="{src0} == {src1}"),
+   operation("nequal_exact", 2, source_types=real_types, dest_type=bool_type, c_expression="{src0} != {src1}"),
 
    # Returns single boolean for whether all components of operands[0]
    # equal the components of operands[1].

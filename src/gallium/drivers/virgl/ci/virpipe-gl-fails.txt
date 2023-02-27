@@ -726,3 +726,6 @@ spec@arb_enhanced_layouts@matching_fp64_types_2,Crash
 spec@arb_enhanced_layouts@matching_fp64_types_3,Crash
 
 spec@!opengl 1.1@line-smooth-stipple,Fail
+
+# piglit bug.
+spec@glsl-1.10@linker@override-builtin-uniform-08,Fail

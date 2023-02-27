@@ -52,3 +52,6 @@ spec@glsl-1.50@execution@primitive-id-no-gs-line,Fail
 spec@glsl-1.50@execution@primitive-id-no-gs-quad-strip,Fail
 spec@glsl-1.50@execution@primitive-id-no-gs-quads,Fail
 spec@glsl-1.50@execution@variable-indexing@gs-output-array-vec4-index-wr,Crash
+
+# piglit bug.
+spec@glsl-1.10@linker@override-builtin-uniform-08,Fail

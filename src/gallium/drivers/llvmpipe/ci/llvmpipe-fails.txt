@@ -218,6 +218,9 @@ spec@arb_texture_buffer_object@texture-buffer-size-clamp@rgba8ui_texture_buffer_
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/7152
 spec@ext_transform_feedback@builtin-varyings gl_culldistance,Fail
 
+# piglit bug.
+spec@glsl-1.10@linker@override-builtin-uniform-08,Fail
+
 # EGL_BAD_DISPLAY is generated if display is not an EGL display connection
 # eglCreatePixmapSurface(0, 0x0000000000000000, 0x0000000000000000, { EGL_NONE });
 # // 0x0000000000000000 returned

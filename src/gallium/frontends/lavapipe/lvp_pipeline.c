@@ -348,6 +348,8 @@ void
 lvp_shader_optimize(nir_shader *nir)
 {
    optimize(nir);
+   NIR_PASS_V(nir, nir_opt_algebraic_late);
+   NIR_PASS_V(nir, nir_opt_dce);
    NIR_PASS_V(nir, nir_lower_var_copies);
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
    NIR_PASS_V(nir, nir_opt_dce);

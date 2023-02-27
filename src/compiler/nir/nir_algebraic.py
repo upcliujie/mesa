@@ -103,6 +103,8 @@ class SearchExpression(object):
       self.opcode = expr[0]
       self.sources = expr[1:]
       self.ignore_exact = False
+      self.unsafe = False
+      self.imprecise = False
 
    @staticmethod
    def create(val):
@@ -116,6 +118,10 @@ class SearchExpression(object):
       l = [self.opcode, *self.sources]
       if self.ignore_exact:
          l.append('ignore_exact')
+      if self.unsafe:
+         l.append('unsafe')
+      if self.imprecise:
+         l.append('imprecise')
       return repr((*l,))
 
 class Value(object):
@@ -205,7 +211,8 @@ class Value(object):
       ${val.cond_index},
       ${val.swizzle()},
 % elif isinstance(val, Expression):
-      ${'true' if val.inexact else 'false'},
+      ${'true' if val.unsafe else 'false'},
+      ${'true' if val.imprecise else 'false'},
       ${'true' if val.exact else 'false'},
       ${'true' if val.ignore_exact else 'false'},
       ${val.c_opcode()},
@@ -369,13 +376,14 @@ class Expression(Value):
 
       self.opcode = m.group('opcode')
       self._bit_size = int(m.group('bits')) if m.group('bits') else None
-      self.inexact = m.group('inexact') is not None
+      self.unsafe = (m.group('inexact') is not None) or expr.unsafe
+      self.imprecise = (m.group('inexact') is not None) or expr.imprecise
       self.exact = m.group('exact') is not None
       self.ignore_exact = expr.ignore_exact
       self.cond = m.group('cond')
 
-      assert not self.inexact or not self.exact, \
-            'Expression cannot be both exact and inexact.'
+      assert not (self.unsafe or self.imprecise) or not self.exact, \
+            'Expression cannot be both exact and unsafe/imprecise.'
 
       # "many-comm-expr" isn't really a condition.  It's notification to the
       # generator that this pattern is known to have too many commutative
@@ -1287,4 +1295,24 @@ class AlgebraicPass(object):
 def ignore_exact(*expr):
    expr = SearchExpression.create(expr)
    expr.ignore_exact = True
+   return expr
+
+# Don't match precise/invariant expressions
+def imprecise(*expr):
+   expr = SearchExpression.create(expr)
+   expr.imprecise = True
+   return expr
+
+# Don't match if NaN/Inf/-0.0 guarantees are required.
+def unsafe(*expr):
+   expr = SearchExpression.create(expr)
+   expr.unsafe = True
+   return expr
+
+# Disable the optimization for precise/invariant expressions or if NaN/Inf/-0.0
+# guarantees are required.
+def unsafe_imprecise(*expr):
+   expr = SearchExpression.create(expr)
+   expr.unsafe = True
+   expr.imprecise = True
    return expr

@@ -2200,22 +2200,30 @@ nir_visitor::visit(ir_expression *ir)
       result = type_is_float(out_type) ? nir_fmod(&b, srcs[0], srcs[1])
                                        : nir_umod(&b, srcs[0], srcs[1]);
       break;
-   case ir_binop_min:
+   case ir_binop_min: {
+      bool save_exact = b.exact;
+      b.exact |= type_is_float(out_type);
       if (type_is_float(out_type))
          result = nir_fmin(&b, srcs[0], srcs[1]);
       else if (type_is_signed(out_type))
          result = nir_imin(&b, srcs[0], srcs[1]);
       else
          result = nir_umin(&b, srcs[0], srcs[1]);
+      b.exact = save_exact;
       break;
-   case ir_binop_max:
+   }
+   case ir_binop_max: {
+      bool save_exact = b.exact;
+      b.exact |= type_is_float(out_type);
       if (type_is_float(out_type))
          result = nir_fmax(&b, srcs[0], srcs[1]);
       else if (type_is_signed(out_type))
          result = nir_imax(&b, srcs[0], srcs[1]);
       else
          result = nir_umax(&b, srcs[0], srcs[1]);
+      b.exact = save_exact;
       break;
+   }
    case ir_binop_pow: result = nir_fpow(&b, srcs[0], srcs[1]); break;
    case ir_binop_bit_and: result = nir_iand(&b, srcs[0], srcs[1]); break;
    case ir_binop_bit_or: result = nir_ior(&b, srcs[0], srcs[1]); break;
@@ -2257,17 +2265,27 @@ nir_visitor::visit(ir_expression *ir)
          result = nir_uge(&b, srcs[0], srcs[1]);
       break;
    case ir_binop_equal:
+   case ir_binop_equal_exact: {
+      bool save_exact = b.exact;
+      b.exact |= ir->operation == ir_binop_equal_exact;
       if (type_is_float(types[0]))
          result = nir_feq(&b, srcs[0], srcs[1]);
       else
          result = nir_ieq(&b, srcs[0], srcs[1]);
+      b.exact = save_exact;
       break;
+   }
    case ir_binop_nequal:
+   case ir_binop_nequal_exact: {
+      bool save_exact = b.exact;
+      b.exact |= ir->operation == ir_binop_nequal_exact;
       if (type_is_float(types[0]))
          result = nir_fneu(&b, srcs[0], srcs[1]);
       else
          result = nir_ine(&b, srcs[0], srcs[1]);
+      b.exact = save_exact;
       break;
+   }
    case ir_binop_all_equal:
       if (type_is_float(types[0])) {
          switch (ir->operands[0]->type->vector_elements) {

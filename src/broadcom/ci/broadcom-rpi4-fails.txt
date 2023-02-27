@@ -367,3 +367,6 @@ dEQP-VK.compute.workgroup_memory_explicit_layout.zero_ext.other_block,Crash
 dEQP-VK.compute.workgroup_memory_explicit_layout.zero_ext.block_with_offset,Crash
 
 spec@!opengl 1.1@line-smooth-stipple,Fail
+
+# piglit bug.
+spec@glsl-1.10@linker@override-builtin-uniform-08,Fail

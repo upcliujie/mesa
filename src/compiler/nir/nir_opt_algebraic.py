@@ -39,10 +39,19 @@ c = 'c'
 d = 'd'
 e = 'e'
 
+denorm_ftz_16 = 'nir_is_denorm_flush_to_zero(info->float_controls_execution_mode, 16)'
+denorm_ftz_32 = 'nir_is_denorm_flush_to_zero(info->float_controls_execution_mode, 32)'
+denorm_ftz_64 = 'nir_is_denorm_flush_to_zero(info->float_controls_execution_mode, 64)'
+
+denorm_preserve_16 = 'nir_is_denorm_preserve(info->float_controls_execution_mode, 16)'
+denorm_preserve_32 = 'nir_is_denorm_preserve(info->float_controls_execution_mode, 32)'
+denorm_preserve_64 = 'nir_is_denorm_preserve(info->float_controls_execution_mode, 64)'
+
 signed_zero_inf_nan_preserve_16 = 'nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 16)'
 signed_zero_inf_nan_preserve_32 = 'nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 32)'
 
 ignore_exact = nir_algebraic.ignore_exact
+imprecise = nir_algebraic.imprecise
 
 # Written in the form (<search>, <replace>) where <search> is an expression
 # and <replace> is either an expression or a value.  An expression is
@@ -93,6 +102,26 @@ def lowered_sincos(c):
 def intBitsToFloat(i):
     return struct.unpack('!f', struct.pack('!I', i))[0]
 
+optimize_fcanonicalize = [
+   # Eliminate all fcanonicalize if we are required to not flush denormals.
+   (('fcanonicalize', 'a@16'), a, denorm_preserve_16),
+   (('fcanonicalize', 'a@32'), a, denorm_preserve_32),
+   (('fcanonicalize', 'a@64'), a, denorm_preserve_64),
+
+   # Eliminate inexact fcanonicalize if we are not required to flush denormals.
+   (imprecise('fcanonicalize', 'a@16'), a, '!'+denorm_ftz_16),
+   (imprecise('fcanonicalize', 'a@32'), a, '!'+denorm_ftz_32),
+   (imprecise('fcanonicalize', 'a@64'), a, '!'+denorm_ftz_64),
+
+   # If denormals are required to be flushed or it's exact, we can still
+   # eliminate it if any denormals are already flushed or will be flushed.
+   (('fcanonicalize(is_only_used_as_float)', a), a),
+   (('fcanonicalize', 'a(is_created_as_float)'), a),
+
+   # Integral numbers are not denormal.
+   (('fcanonicalize', 'a(is_integral)'), a),
+]
+
 optimizations = [
 
    (('imul', a, '#b(is_pos_power_of_two)'), ('ishl', a, ('find_lsb', b)), '!options->lower_bitops'),
@@ -129,18 +158,13 @@ optimizations = [
     '!options->lower_bitops'),
    (('irem', a, '#b(is_neg_power_of_two)'), ('irem', a, ('iabs', b)), '!options->lower_bitops'),
 
-   (('~fneg', ('fneg', a)), a),
+   (('fneg', ('fneg', a)), ('fcanonicalize', a)),
    (('ineg', ('ineg', a)), a),
    (('fabs', ('fneg', a)), ('fabs', a)),
    (('fabs', ('u2f', a)), ('u2f', a)),
    (('iabs', ('iabs', a)), ('iabs', a)),
    (('iabs', ('ineg', a)), ('iabs', a)),
-   (('~fadd', a, 0.0), a),
-   # a+0.0 is 'a' unless 'a' is denormal or -0.0. If it's only used by a
-   # floating point instruction, they should flush any input denormals and we
-   # can replace -0.0 with 0.0 if the float execution mode allows it.
-   (('fadd(is_only_used_as_float)', 'a@16', 0.0), a, '!'+signed_zero_inf_nan_preserve_16),
-   (('fadd(is_only_used_as_float)', 'a@32', 0.0), a, '!'+signed_zero_inf_nan_preserve_32),
+   (('fadd', 'a(can_elim_negative_zero)', 0.0), ('fcanonicalize', a)),
    (('iadd', a, 0), a),
    (('iadd_sat', a, 0), a),
    (('isub_sat', a, 0), a),
@@ -148,6 +172,9 @@ optimizations = [
    (('usub_sat', a, 0), a),
    (('usadd_4x8_vc4', a, 0), a),
    (('usadd_4x8_vc4', a, ~0), ~0),
+   # This does not preserve the sign of zero. For example:
+   # "-1.0*0.0 + 0.0*0.0" -> "0.0 * (-1.0+0.0)"
+   # "-1.0*-1.0 + -1.0*1.0" -> "-1.0 * (-1.0 + 1.0)"
    (('~fadd', ('fmul', a, b), ('fmul', a, c)), ('fmul', a, ('fadd', b, c))),
    (('~fadd', ('fmulz', a, b), ('fmulz', a, c)), ('fmulz', a, ('fadd', b, c))),
    (('~ffma', a, b, ('ffma(is_used_once)', a, c, d)), ('ffma', a, ('fadd', b, c), d)),
@@ -187,12 +214,8 @@ optimizations = [
    (('imul', a, 0), 0),
    (('umul_unorm_4x8_vc4', a, 0), 0),
    (('umul_unorm_4x8_vc4', a, ~0), a),
-   (('~fmul', a, 1.0), a),
-   (('~fmulz', a, 1.0), a),
-   # The only effect a*1.0 can have is flushing denormals. If it's only used by
-   # a floating point instruction, they should flush any input denormals and
-   # this multiplication isn't needed.
-   (('fmul(is_only_used_as_float)', a, 1.0), a),
+   (('fmul', a, 1.0), ('fcanonicalize', a)),
+   (('fmulz', 'a(can_elim_negative_zero)', 1.0), ('fcanonicalize', a)),
    (('imul', a, 1), a),
    (('fmul', a, -1.0), ('fneg', a)),
    (('imul', a, -1), ('ineg', a)),
@@ -216,8 +239,8 @@ optimizations = [
    (('ffmaz', -1.0, a, b), ('fadd', ('fneg', a), b), '!'+signed_zero_inf_nan_preserve_32),
    (('~ffma', '#a', '#b', c), ('fadd', ('fmul', a, b), c)),
    (('~ffmaz', '#a', '#b', c), ('fadd', ('fmulz', a, b), c)),
-   (('~flrp', a, b, 0.0), a),
-   (('~flrp', a, b, 1.0), b),
+   (('flrp', a, 'b(is_finite)', 0.0), ('fcanonicalize', a)),
+   (('flrp', 'a(is_finite)', b, 1.0), ('fcanonicalize', b)),
    (('~flrp', a, a, b), a),
    (('~flrp', 0.0, a, b), ('fmul', a, b)),
 
@@ -433,6 +456,8 @@ optimizations.extend([
    # a * (#b << #c)
    (('ishl', ('imul', a, '#b'), '#c'), ('imul', a, ('ishl', b, c))),
 ])
+
+optimizations.extend(optimize_fcanonicalize)
 
 # Care must be taken here.  Shifts in NIR uses only the lower log2(bitsize)
 # bits of the second source.  These replacements must correctly handle the
@@ -731,8 +756,8 @@ optimizations.extend([
    (('bcsel', a, a, b), ('ior', a, b)),
    (('bcsel', a, b, False), ('iand', a, b)),
    (('bcsel', a, b, a), ('iand', a, b)),
-   (('~fmin', a, a), a),
-   (('~fmax', a, a), a),
+   (('fmin', a, a), ('fcanonicalize', a)),
+   (('fmax', a, a), ('fcanonicalize', a)),
    (('imin', a, a), a),
    (('imax', a, a), a),
    (('umin', a, a), a),
@@ -794,9 +819,9 @@ optimizations.extend([
    (('imin', a, ('ineg', a)), ('ineg', ('iabs', a))),
    (('fmin', a, ('fneg', ('fabs', a))), ('fneg', ('fabs', a))),
    (('imin', a, ('ineg', ('iabs', a))), ('ineg', ('iabs', a))),
-   (('~fmin', a, ('fabs', a)), a),
+   (('fmin', a, ('fabs', a)), ('fcanonicalize', a)),
    (('imin', a, ('iabs', a)), a),
-   (('~fmax', a, ('fneg', ('fabs', a))), a),
+   (('fmax', a, ('fneg', ('fabs', a))), ('fcanonicalize', a)),
    (('imax', a, ('ineg', ('iabs', a))), a),
    (('fmax', a, ('fabs', a)), ('fabs', a)),
    (('imax', a, ('iabs', a)), ('iabs', a)),
@@ -1363,12 +1388,12 @@ optimizations.extend([
    (('~fexp2', ('fmul', ('flog2', a), 0.5)), ('fsqrt', a)),
    (('~fexp2', ('fmul', ('flog2', a), 2.0)), ('fmul', a, a)),
    (('~fexp2', ('fmul', ('flog2', a), 4.0)), ('fmul', ('fmul', a, a), ('fmul', a, a))),
-   (('~fpow', a, 1.0), a),
-   (('~fpow', a, 2.0), ('fmul', a, a)),
-   (('~fpow', a, 4.0), ('fmul', ('fmul', a, a), ('fmul', a, a))),
-   (('~fpow', 2.0, a), ('fexp2', a)),
-   (('~fpow', ('fpow', a, 2.2), 0.454545), a),
-   (('~fpow', ('fabs', ('fpow', a, 2.2)), 0.454545), ('fabs', a)),
+   (imprecise('fpow', a, 1.0), ('fcanonicalize', a)),
+   (imprecise('fpow', a, 2.0), ('fmul', a, a)),
+   (imprecise('fpow', a, 4.0), ('fmul', ('fmul', a, a), ('fmul', a, a))),
+   (imprecise('fpow', 2.0, a), ('fexp2', a)),
+   (imprecise('fpow', ('fpow', a, 2.2), 0.454545), ('fcanonicalize', a)),
+   (imprecise('fpow', ('fabs', ('fpow', a, 2.2)), 0.454545), ('fabs', a)),
    (('~fsqrt', ('fexp2', a)), ('fexp2', ('fmul', 0.5, a))),
    (('~frcp', ('fexp2', a)), ('fexp2', ('fneg', a))),
    (('~frsq', ('fexp2', a)), ('fexp2', ('fmul', -0.5, a))),
@@ -1381,12 +1406,12 @@ optimizations.extend([
    (('~fmul', ('fsqrt', a), ('fsqrt', a)), ('fabs',a)),
    (('~fmulz', ('fsqrt', a), ('fsqrt', a)), ('fabs', a)),
    # Division and reciprocal
-   (('~fdiv', 1.0, a), ('frcp', a)),
+   (imprecise('fdiv', 1.0, a), ('frcp', a)),
    (('fdiv', a, b), ('fmul', a, ('frcp', b)), 'options->lower_fdiv'),
-   (('~frcp', ('frcp', a)), a),
-   (('~frcp', ('fsqrt', a)), ('frsq', a)),
+   (imprecise('frcp', ('frcp', a)), ('fcanonicalize', a)),
+   (imprecise('frcp', ('fsqrt', a)), ('frsq', a)),
    (('fsqrt', a), ('frcp', ('frsq', a)), 'options->lower_fsqrt'),
-   (('~frcp', ('frsq', a)), ('fsqrt', a), '!options->lower_fsqrt'),
+   (imprecise('frcp', ('frsq', a)), ('fsqrt', a), '!options->lower_fsqrt'),
    # Trig
    (('fsin', a), lowered_sincos(0.5), 'options->lower_sincos'),
    (('fcos', a), lowered_sincos(0.75), 'options->lower_sincos'),
@@ -1414,7 +1439,7 @@ optimizations.extend([
    (('bcsel@64', a, -0.0, -1.0), ('fneg', ('b2f', ('inot', a))), '!(options->lower_doubles_options & nir_lower_fp64_full_software)'),
 
    (('bcsel', a, b, b), b),
-   (('~fcsel', a, b, b), b),
+   (('fcsel', a, b, b), ('fcanonicalize', b)),
 
    # D3D Boolean emulation
    (('bcsel', a, -1, 0), ('ineg', ('b2i', 'a@1'))),
@@ -1453,7 +1478,7 @@ optimizations.extend([
    (('f2u', ('ftrunc', a)), ('f2u', a)),
 
    # Conversions from 16 bits to 32 bits and back can always be removed
-   (('f2fmp', ('f2f32', 'a@16')), a),
+   (('f2fmp', ('f2f32', 'a@16')), ('fcanonicalize', a)),
    (('i2imp', ('i2i32', 'a@16')), a),
    (('i2imp', ('u2u32', 'a@16')), a),
 
@@ -1473,7 +1498,7 @@ optimizations.extend([
 
    # Conversions to 16 bits would be lossy so they should only be removed if
    # the instruction was generated by the precision lowering pass.
-   (('f2f32', ('f2fmp', 'a@32')), a),
+   (('f2f32', ('f2fmp', 'a@32')), ('fcanonicalize', a)),
    (('i2i32', ('i2imp', 'a@32')), a),
    (('u2u32', ('i2imp', 'a@32')), a),
 
@@ -1482,9 +1507,7 @@ optimizations.extend([
    (('f2f32', ('i2fmp', 'a@32')), ('i2f32', a)),
    (('f2f32', ('u2fmp', 'a@32')), ('u2f32', a)),
 
-   # Conversions from float32 to float64 and back can be removed as long as
-   # it doesn't need to be precise, since the conversion may e.g. flush denorms
-   (('~f2f32', ('f2f64', 'a@32')), a),
+   (('f2f32', ('f2f64', 'a@32')), ('fcanonicalize', a)),
 
    (('ffloor', 'a(is_integral)'), a),
    (('fceil', 'a(is_integral)'), a),
@@ -1493,7 +1516,7 @@ optimizations.extend([
 
    # fract(x) = x - floor(x), so fract(NaN) = NaN
    (('~ffract', 'a(is_integral)'), 0.0),
-   (('fabs', 'a(is_not_negative)'), a),
+   (('fabs', 'a(is_not_negative)'), ('fcanonicalize', a)),
    (('iabs', 'a(is_not_negative)'), a),
    (('fsat', 'a(is_not_positive)'), 0.0),
 
@@ -1715,7 +1738,7 @@ optimizations.extend([
    (('imul', ('ineg', a), b), ('ineg', ('imul', a, b))),
 
    # Propagate constants up multiplication chains
-   (('~fmul(is_used_once)', ('fmul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmul', ('fmul', a, c), b)),
+   (imprecise('fmul(is_used_once)', ('fmul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmul', ('fmul', a, c), b)),
    (('~fmulz(is_used_once)', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmulz', ('fmulz', a, c), b)),
    (('~fmul(is_used_once)', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c(is_finite_not_zero)'), ('fmulz', ('fmul', a, c), b)),
    (('imul(is_used_once)', ('imul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('imul', ('imul', a, c), b)),
@@ -1723,8 +1746,8 @@ optimizations.extend([
    (('~ffmaz', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c', d), ('ffmaz', ('fmulz', a, c), b, d)),
    (('~ffma', ('fmulz(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c(is_finite_not_zero)', d), ('ffmaz', ('fmul', a, c), b, d)),
    # Prefer moving out a multiplication for more MAD/FMA-friendly code
-   (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_fmul)'), '#c'), ('fadd', ('fadd', a, c), b)),
-   (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fadd', ('fadd', a, c), b)),
+   (imprecise('fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_fmul)'), '#c(is_finite)'), ('fadd', ('fadd', a, c), b)),
+   (imprecise('fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c(is_finite)'), ('fadd', ('fadd', a, c), b)),
    (('~fadd(is_used_once)', ('ffma(is_used_once)', 'a(is_not_const)', b, 'c(is_not_const)'), '#d'), ('fadd', ('ffma', a, b, d), c)),
    (('~fadd(is_used_once)', ('ffmaz(is_used_once)', 'a(is_not_const)', b, 'c(is_not_const)'), '#d'), ('fadd', ('ffmaz', a, b, d), c)),
    (('iadd(is_used_once)', ('iadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('iadd', ('iadd', a, c), b)),
@@ -1732,15 +1755,15 @@ optimizations.extend([
    # Reassociate constants in add/mul chains so they can be folded together.
    # For now, we mostly only handle cases where the constants are separated by
    # a single non-constant.  We could do better eventually.
-   (('~fmul', '#a', ('fmul', 'b(is_not_const)', '#c')), ('fmul', ('fmul', a, c), b)),
+   (imprecise('fmul', '#a', ('fmul', 'b(is_not_const)', '#c')), ('fmul', ('fmul', a, c), b)),
    (('~fmulz', '#a', ('fmulz', 'b(is_not_const)', '#c')), ('fmulz', ('fmulz', a, c), b)),
    (('~fmul', '#a(is_finite_not_zero)', ('fmulz', 'b(is_not_const)', '#c')), ('fmulz', ('fmul', a, c), b)),
    (('~ffma', '#a', ('fmul', 'b(is_not_const)', '#c'), d), ('ffma', ('fmul', a, c), b, d)),
    (('~ffmaz', '#a', ('fmulz', 'b(is_not_const)', '#c'), d), ('ffmaz', ('fmulz', a, c), b, d)),
    (('~ffmaz', '#a(is_finite_not_zero)', ('fmulz', 'b(is_not_const)', '#c'), d), ('ffmaz', ('fmul', a, c), b, d)),
    (('imul', '#a', ('imul', 'b(is_not_const)', '#c')), ('imul', ('imul', a, c), b)),
-   (('~fadd', '#a',          ('fadd', 'b(is_not_const)', '#c')),  ('fadd', ('fadd', a,          c),           b)),
-   (('~fadd', '#a', ('fneg', ('fadd', 'b(is_not_const)', '#c'))), ('fadd', ('fadd', a, ('fneg', c)), ('fneg', b))),
+   (imprecise('fadd', '#a',          ('fadd', 'b(is_not_const)', '#c')),  ('fadd', ('fadd', a,          c),           b)),
+   (imprecise('fadd', '#a', ('fneg', ('fadd', 'b(is_not_const)', '#c'))), ('fadd', ('fadd', a, ('fneg', c)), ('fneg', b))),
    (('~fadd', '#a',          ('ffma', 'b(is_not_const)', 'c(is_not_const)', '#d')),  ('ffma',          b,  c, ('fadd', a,          d))),
    (('~fadd', '#a', ('fneg', ('ffma', 'b(is_not_const)', 'c(is_not_const)', '#d'))), ('ffma', ('fneg', b), c, ('fadd', a, ('fneg', d)))),
    (('~fadd', '#a',          ('ffmaz', 'b(is_not_const)', 'c(is_not_const)', '#d')),  ('ffmaz',          b,  c, ('fadd', a,          d))),
@@ -2610,12 +2633,12 @@ for op in ['fpow']:
         (('bcsel', a, (op, b, c), (op + '(is_used_once)', d, c)), (op, ('bcsel', a, b, d), c)),
     ]
 
-for op in ['frcp', 'frsq', 'fsqrt', 'fexp2', 'flog2', 'fsign', 'fsin', 'fcos', 'fsin_amd', 'fcos_amd', 'fsin_mdg', 'fcos_mdg', 'fsin_agx', 'fneg', 'fabs', 'fsign']:
+for op in ['frcp', 'frsq', 'fsqrt', 'fexp2', 'flog2', 'fsign', 'fsin', 'fcos', 'fsin_amd', 'fcos_amd', 'fsin_mdg', 'fcos_mdg', 'fsin_agx', 'fneg', 'fabs', 'fsign', 'fcanonicalize']:
     optimizations += [
         (('bcsel', c, (op + '(is_used_once)', a), (op + '(is_used_once)', b)), (op, ('bcsel', c, a, b))),
     ]
 
-for op in ['ineg', 'iabs', 'inot', 'isign']:
+for op in ['ineg', 'iabs', 'inot', 'isign', 'fcanonicalize']:
     optimizations += [
         ((op, ('bcsel', c, '#a', '#b')), ('bcsel', c, (op, a), (op, b))),
     ]
@@ -2750,7 +2773,7 @@ late_optimizations = [
 
    # nir_lower_to_source_mods will collapse this, but its existence during the
    # optimization loop can prevent other optimizations.
-   (('fneg', ('fneg', a)), a)
+   (('fneg', ('fneg', a)), ('fcanonicalize', a)),
 ]
 
 # re-combine inexact mul+add to ffma. Do this before fsub so that a * b - c
@@ -2960,6 +2983,15 @@ late_optimizations.extend([
    (('extract_u8', ('extract_i8', a, b), 0), ('extract_u8', a, b)),
    (('extract_u8', ('extract_u8', a, b), 0), ('extract_u8', a, b)),
 ])
+
+# late_optimizations has a fneg(fneg(a)) optimization that can create fcanonicalize
+late_optimizations += optimize_fcanonicalize
+
+late_optimizations += [
+   # If we can't eliminate it, lower it so that backends don't have to deal with
+   # it.
+   (('fcanonicalize', a), ('fmul', a, 1.0), '!options->has_fcanonicalize'),
+]
 
 # A few more extract cases we'd rather leave late
 for N in [16, 32]:

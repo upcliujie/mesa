@@ -46,3 +46,6 @@ KHR-GL32.transform_feedback_overflow_query_ARB.basic-single-stream-interleaved-a
 KHR-GL32.transform_feedback_overflow_query_ARB.basic-single-stream-separate-attribs,Fail
 KHR-GL32.transform_feedback_overflow_query_ARB.multiple-streams-multiple-buffers-per-stream,Fail
 KHR-GL32.transform_feedback_overflow_query_ARB.multiple-streams-one-buffer-per-stream,Fail
+
+# piglit bug.
+spec@glsl-1.10@linker@override-builtin-uniform-08,Fail

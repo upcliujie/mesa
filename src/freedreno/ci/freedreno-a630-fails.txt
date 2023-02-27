@@ -408,3 +408,6 @@ wayland-dEQP-EGL.functional.wide_color.window_fp16_default_colorspace,Fail
 SRGBReadWritePixels,Fail
 
 spec@!opengl 1.1@line-smooth-stipple,Fail
+
+# piglit bug.
+spec@glsl-1.10@linker@override-builtin-uniform-08,Fail
