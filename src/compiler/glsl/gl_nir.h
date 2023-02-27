@@ -57,6 +57,11 @@ void gl_nir_lower_packed_varyings(const struct gl_constants *consts,
                                   struct gl_linked_shader *linked_shader,
                                   bool disable_varying_packing,
                                   bool disable_xfb_packing, bool xfb_enabled);
+typedef struct {
+   bool fp16;
+   bool int16;
+} gl_nir_lower_mediump_alu_options;
+bool gl_nir_lower_mediump_alu(nir_shader *nir, const gl_nir_lower_mediump_alu_options *options);
 
 #ifdef __cplusplus
 }
