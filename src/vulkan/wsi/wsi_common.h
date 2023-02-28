@@ -93,6 +93,10 @@ struct driOptionCache;
 
 #define VK_ICD_WSI_PLATFORM_MAX (VK_ICD_WSI_PLATFORM_DISPLAY + 1)
 
+struct wsi_device_global_overrides {
+   uint32_t override_minImageCount;
+};
+
 struct wsi_device {
    /* Allocator for the instance */
    VkAllocationCallbacks instance_alloc;
@@ -105,6 +109,8 @@ struct wsi_device {
    VkPhysicalDevicePCIBusInfoPropertiesEXT pci_bus_info;
 
    VkExternalSemaphoreHandleTypeFlags semaphore_export_handle_types;
+
+   struct wsi_device_global_overrides overrides;
 
    bool has_import_memory_host;
 

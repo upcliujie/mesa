@@ -894,6 +894,15 @@ wsi_display_surface_get_support(VkIcdSurfaceBase *surface,
    return VK_SUCCESS;
 }
 
+static uint32_t
+display_get_min_image_count(const struct wsi_device *wsi_device)
+{
+   if (wsi_device->overrides.override_minImageCount)
+      return wsi_device->overrides.override_minImageCount;
+
+   return 2;
+}
+
 static VkResult
 wsi_display_surface_get_capabilities(VkIcdSurfaceBase *surface_base,
                                      struct wsi_device *wsi_device,
@@ -913,7 +922,7 @@ wsi_display_surface_get_capabilities(VkIcdSurfaceBase *surface_base,
 
    caps->supportedCompositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
-   caps->minImageCount = 2;
+   caps->minImageCount = display_get_min_image_count(wsi_device);
    caps->maxImageCount = 0;
 
    caps->supportedTransforms = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;

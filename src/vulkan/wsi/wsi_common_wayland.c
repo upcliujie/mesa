@@ -963,18 +963,28 @@ static const VkPresentModeKHR present_modes[] = {
    VK_PRESENT_MODE_FIFO_KHR,
 };
 
-static VkResult
-wsi_wl_surface_get_capabilities(VkIcdSurfaceBase *surface,
-                                struct wsi_device *wsi_device,
-                                VkSurfaceCapabilitiesKHR* caps)
+static uint32_t
+wayland_get_min_image_count(const struct wsi_device *wsi_device)
 {
+   if (wsi_device->overrides.override_minImageCount)
+      return wsi_device->overrides.override_minImageCount;
+
    /* For true mailbox mode, we need at least 4 images:
     *  1) One to scan out from
     *  2) One to have queued for scan-out
     *  3) One to be currently held by the Wayland compositor
     *  4) One to render to
     */
-   caps->minImageCount = 4;
+   return 4;
+}
+
+static VkResult
+wsi_wl_surface_get_capabilities(VkIcdSurfaceBase *surface,
+                                struct wsi_device *wsi_device,
+                                VkSurfaceCapabilitiesKHR* caps)
+{
+
+   caps->minImageCount = wayland_get_min_image_count(wsi_device);
    /* There is no real maximum */
    caps->maxImageCount = 0;
 

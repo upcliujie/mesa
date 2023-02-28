@@ -634,6 +634,9 @@ x11_get_min_image_count(const struct wsi_device *wsi_device, bool is_xwayland)
    if (wsi_device->x11.override_minImageCount)
       return wsi_device->x11.override_minImageCount;
 
+   if (wsi_device->overrides.override_minImageCount)
+      return wsi_device->overrides.override_minImageCount;
+
    /* For IMMEDIATE and FIFO, most games work in a pipelined manner where the
     * can produce frames at a rate of 1/MAX(CPU duration, GPU duration), but
     * the render latency is CPU duration + GPU duration.
