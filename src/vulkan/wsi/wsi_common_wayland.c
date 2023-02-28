@@ -1788,6 +1788,8 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 
    int num_images = pCreateInfo->minImageCount;
+   if (wsi_device->overrides.ensure_minImageCount)
+      num_images = MAX2(num_images, wayland_get_min_image_count(wsi_device));
 
    size_t size = sizeof(*chain) + num_images * sizeof(chain->images[0]);
    chain = vk_zalloc(pAllocator, size, 8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);

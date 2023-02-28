@@ -2484,7 +2484,7 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
       num_images = pCreateInfo->minImageCount;
    else if (x11_needs_wait_for_fences(wsi_device, wsi_conn, present_mode))
       num_images = MAX2(num_images, 5);
-   else if (wsi_device->x11.ensure_minImageCount)
+   else if (wsi_device->x11.ensure_minImageCount || wsi_device->overrides.ensure_minImageCount)
       num_images = MAX2(num_images, x11_get_min_image_count(wsi_device, wsi_conn->is_xwayland));
 
    /* Check that we have a window up-front. It is an error to not have one. */

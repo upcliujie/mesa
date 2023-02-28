@@ -2057,7 +2057,10 @@ wsi_display_surface_create_swapchain(
 
    assert(create_info->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 
-   const unsigned num_images = create_info->minImageCount;
+   unsigned num_images = create_info->minImageCount;
+   if (wsi_device->overrides.ensure_minImageCount)
+      num_images = MAX2(num_images, display_get_min_image_count(wsi_device));
+
    struct wsi_display_swapchain *chain =
       vk_zalloc(allocator,
                 sizeof(*chain) + num_images * sizeof(chain->images[0]),

@@ -95,6 +95,7 @@ struct driOptionCache;
 
 struct wsi_device_global_overrides {
    uint32_t override_minImageCount;
+   bool ensure_minImageCount;
 };
 
 struct wsi_device {
