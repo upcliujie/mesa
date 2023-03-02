@@ -1551,7 +1551,7 @@ TESTS = [
                  color = bitCount(val) + 1;
          }
          """,
-         r'expression int16_t \+ \(expression int16_t i2imp \(expression int bit_count \(var_ref val'),
+         r'expression int16_t \+ \(expression int16_t bit_count \(expression int16_t i2imp \(var_ref val\) \)'),
     Test("findLSB",
          """
          #version 310 es

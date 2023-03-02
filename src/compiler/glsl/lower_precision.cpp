@@ -408,17 +408,6 @@ find_lowerable_rvalues_visitor::visit_enter(ir_expression *ir)
    return visit_continue;
 }
 
-static bool
-function_always_returns_mediump_or_lowp(const char *name)
-{
-   return !strcmp(name, "bitCount") ||
-          !strcmp(name, "findLSB") ||
-          !strcmp(name, "findMSB") ||
-          !strcmp(name, "unpackHalf2x16") ||
-          !strcmp(name, "unpackUnorm4x8") ||
-          !strcmp(name, "unpackSnorm4x8");
-}
-
 static unsigned
 handle_call(ir_call *ir, const struct set *lowerable_rvalues)
 {
@@ -900,10 +889,10 @@ find_precision_visitor::map_builtin(ir_function_signature *sig)
     * parameters intact, because they can be highp. NIR can lower
     * the up-conversion for parameters if needed.
     */
-   if (!function_always_returns_mediump_or_lowp(sig->function_name())) {
-      foreach_in_list(ir_variable, param, &lowered_sig->parameters) {
+   foreach_in_list(ir_variable, param, &lowered_sig->parameters) {
+      /* Demote the precision of unqualified function arguments. */
+      if (param->data.precision == GLSL_PRECISION_NONE)
          param->data.precision = GLSL_PRECISION_MEDIUM;
-      }
    }
 
    lower_precision(options, &lowered_sig->body);
