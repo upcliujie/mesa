@@ -634,6 +634,9 @@ x11_get_min_image_count(const struct wsi_device *wsi_device, bool is_xwayland)
    if (wsi_device->x11.override_minImageCount)
       return wsi_device->x11.override_minImageCount;
 
+   if (wsi_device->overrides.override_minImageCount)
+      return wsi_device->overrides.override_minImageCount;
+
    /* For IMMEDIATE and FIFO, most games work in a pipelined manner where the
     * can produce frames at a rate of 1/MAX(CPU duration, GPU duration), but
     * the render latency is CPU duration + GPU duration.
@@ -2481,7 +2484,7 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
       num_images = pCreateInfo->minImageCount;
    else if (x11_needs_wait_for_fences(wsi_device, wsi_conn, present_mode))
       num_images = MAX2(num_images, 5);
-   else if (wsi_device->x11.ensure_minImageCount)
+   else if (wsi_device->x11.ensure_minImageCount || wsi_device->overrides.ensure_minImageCount)
       num_images = MAX2(num_images, x11_get_min_image_count(wsi_device, wsi_conn->is_xwayland));
 
    /* Check that we have a window up-front. It is an error to not have one. */

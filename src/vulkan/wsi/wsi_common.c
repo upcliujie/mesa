@@ -231,6 +231,16 @@ wsi_device_init(struct wsi_device *wsi,
          wsi->force_bgra8_unorm_first =
             driQueryOptionb(dri_options, "vk_wsi_force_bgra8_unorm_first");
       }
+
+      if (driCheckOption(dri_options, "vk_wsi_override_min_image_count", DRI_INT)) {
+         wsi->overrides.override_minImageCount =
+            driQueryOptioni(dri_options, "vk_wsi_override_min_image_count");
+      }
+
+      if (driCheckOption(dri_options, "vk_wsi_ensure_min_image_count", DRI_BOOL)) {
+         wsi->overrides.ensure_minImageCount =
+            driQueryOptionb(dri_options, "vk_wsi_ensure_min_image_count");
+      }
    }
 
    return VK_SUCCESS;
