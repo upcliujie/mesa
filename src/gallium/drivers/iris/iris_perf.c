@@ -80,7 +80,12 @@ typedef void (*store_register_mem_t)(void *ctx, void *bo,
                                      uint32_t offset);
 typedef bool (*batch_references_t)(void *batch, void *bo);
 typedef void (*bo_wait_rendering_t)(void *bo);
-typedef int (*bo_busy_t)(void *bo);
+
+static int
+iris_perf_bo_busy(void *bo)
+{
+   return iris_bo_busy(bo, PIPE_MAP_READ_WRITE);
+}
 
 void
 iris_perf_init_vtbl(struct intel_perf_config *perf_cfg)
@@ -100,5 +105,5 @@ iris_perf_init_vtbl(struct intel_perf_config *perf_cfg)
    perf_cfg->vtbl.batch_references = (batch_references_t)iris_batch_references;
    perf_cfg->vtbl.bo_wait_rendering =
       (bo_wait_rendering_t)iris_bo_wait_rendering;
-   perf_cfg->vtbl.bo_busy = (bo_busy_t)iris_bo_busy;
+   perf_cfg->vtbl.bo_busy = iris_perf_bo_busy;
 }

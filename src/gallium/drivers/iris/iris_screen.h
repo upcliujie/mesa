@@ -27,6 +27,7 @@
 #include "frontend/drm_driver.h"
 #include "util/disk_cache.h"
 #include "util/slab.h"
+#include "util/u_idalloc.h"
 #include "util/u_screen.h"
 #include "intel/dev/intel_device_info.h"
 #include "intel/isl/isl.h"
@@ -224,6 +225,9 @@ struct iris_screen {
    struct disk_cache *disk_cache;
 
    struct intel_measure_device measure;
+
+   /** Allocator for unique buffer IDs used by u_threaded_context */
+   struct util_idalloc_mt buffer_ids;
 
    /** Every screen on a bufmgr has an unique ID assigned by the bufmgr. */
    int id;

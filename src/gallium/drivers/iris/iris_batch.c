@@ -1031,8 +1031,10 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
    struct iris_context *ice = batch->ice;
 
    /* If a fence signals we need to flush it. */
-   if (iris_batch_bytes_used(batch) == 0 && !batch->contains_fence_signal)
+   if (iris_batch_bytes_used(batch) == 0 && !batch->contains_fence_signal) {
+      tc_driver_internal_flush_notify(ice->thrctx);
       return;
+   }
 
    iris_measure_batch_end(ice, batch);
 
@@ -1082,6 +1084,8 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
    util_dynarray_clear(&batch->syncobjs);
 
    util_dynarray_clear(&batch->exec_fences);
+
+   tc_driver_internal_flush_notify(ice->thrctx);
 
    if (INTEL_DEBUG(DEBUG_SYNC)) {
       dbg_printf("waiting for idle\n");

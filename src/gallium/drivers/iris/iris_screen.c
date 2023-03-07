@@ -658,6 +658,7 @@ iris_screen_destroy(struct iris_screen *screen)
    glsl_type_singleton_decref();
    iris_bo_unreference(screen->workaround_bo);
    u_transfer_helper_destroy(screen->base.transfer_helper);
+   util_idalloc_mt_fini(&screen->buffer_ids);
    iris_bufmgr_unref(screen->bufmgr);
    disk_cache_destroy(screen->disk_cache);
    close(screen->winsys_fd);
@@ -864,6 +865,8 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
 
    slab_create_parent(&screen->transfer_pool,
                       sizeof(struct iris_transfer), 64);
+
+   util_idalloc_mt_init_tc(&screen->buffer_ids);
 
    iris_detect_kernel_features(screen);
 

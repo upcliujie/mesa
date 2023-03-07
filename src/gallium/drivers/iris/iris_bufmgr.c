@@ -433,23 +433,38 @@ vma_free(struct iris_bufmgr *bufmgr,
 }
 
 static bool
-iris_bo_busy_gem(struct iris_bo *bo)
+iris_bo_busy_gem(struct iris_bo *bo, unsigned usage)
 {
    assert(iris_bo_is_real(bo));
 
    struct iris_bufmgr *bufmgr = bo->bufmgr;
    struct drm_i915_gem_busy busy = { .handle = bo->gem_handle };
+   bool result = false;
 
    int ret = intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_BUSY, &busy);
    if (ret == 0) {
-      return busy.busy;
+      /* The low word (bits 15:0) indicate whether anyone is writing bo */
+      if (usage & PIPE_MAP_READ)
+         result |= busy.busy & 0xffff0000;
+
+      /* The high word (bits 31:16) indicate whether anyone is reading bo */
+      if (usage & PIPE_MAP_WRITE)
+         result |= busy.busy & 0x0000ffff;
    }
-   return false;
+   return result;
 }
 
-/* A timeout of 0 just checks for busyness. */
+/**
+ * Wait for the given BO to be idle.
+ *
+ * \param timeout_ns Timeout in nanoseconds; 0 just checks for busyness.
+ * \param usage PIPE_MAP_READ_WRITE bitfield indicating whether to wait for
+ *              readers, writers, or both.
+ */
 static int
-iris_bo_wait_syncobj(struct iris_bo *bo, int64_t timeout_ns)
+iris_bo_wait_syncobj(struct iris_bo *bo,
+                     int64_t timeout_ns,
+                     unsigned usage)
 {
    int ret = 0;
    struct iris_bufmgr *bufmgr = bo->bufmgr;
@@ -457,6 +472,9 @@ iris_bo_wait_syncobj(struct iris_bo *bo, int64_t timeout_ns)
    /* If we know it's idle, don't bother with the kernel round trip */
    if (bo->idle)
       return 0;
+
+   const bool read = usage & PIPE_MAP_READ;
+   const bool write = usage & PIPE_MAP_WRITE;
 
    simple_mtx_lock(&bufmgr->bo_deps_lock);
 
@@ -467,9 +485,9 @@ iris_bo_wait_syncobj(struct iris_bo *bo, int64_t timeout_ns)
       for (int b = 0; b < IRIS_BATCH_COUNT; b++) {
          struct iris_syncobj *r = bo->deps[d].read_syncobjs[b];
          struct iris_syncobj *w = bo->deps[d].write_syncobjs[b];
-         if (r)
+         if (r && read)
             handles[handle_count++] = r->handle;
-         if (w)
+         if (w && write)
             handles[handle_count++] = w->handle;
       }
    }
@@ -497,9 +515,13 @@ iris_bo_wait_syncobj(struct iris_bo *bo, int64_t timeout_ns)
 
    /* We just waited everything, so clean all the deps. */
    for (int d = 0; d < bo->deps_size; d++) {
+      struct iris_bo_screen_deps *deps = &bo->deps[d];
+
       for (int b = 0; b < IRIS_BATCH_COUNT; b++) {
-         iris_syncobj_reference(bufmgr, &bo->deps[d].write_syncobjs[b], NULL);
-         iris_syncobj_reference(bufmgr, &bo->deps[d].read_syncobjs[b], NULL);
+         if (write)
+            iris_syncobj_reference(bufmgr, &deps->write_syncobjs[b], NULL);
+         if (read)
+            iris_syncobj_reference(bufmgr, &deps->read_syncobjs[b], NULL);
       }
    }
 
@@ -509,21 +531,28 @@ out:
 }
 
 static bool
-iris_bo_busy_syncobj(struct iris_bo *bo)
+iris_bo_busy_syncobj(struct iris_bo *bo, unsigned usage)
 {
-   return iris_bo_wait_syncobj(bo, 0) == -ETIME;
+   return iris_bo_wait_syncobj(bo, 0, usage) == -ETIME;
 }
 
+/**
+ * Return true if the given BO is busy.
+ *
+ * \param usage PIPE_MAP_READ_WRITE bitfield indicating whether to check
+ *              whether anyone is reading, writing, or both.
+ */
 bool
-iris_bo_busy(struct iris_bo *bo)
+iris_bo_busy(struct iris_bo *bo, unsigned usage)
 {
    bool busy;
    if (iris_bo_is_external(bo))
-      busy = iris_bo_busy_gem(bo);
+      busy = iris_bo_busy_gem(bo, usage);
    else
-      busy = iris_bo_busy_syncobj(bo);
+      busy = iris_bo_busy_syncobj(bo, usage);
 
-   bo->idle = !busy;
+   if (usage == PIPE_MAP_READ_WRITE)
+      bo->idle = !busy;
 
    return busy;
 }
@@ -619,7 +648,7 @@ iris_can_reclaim_slab(void *priv, struct pb_slab_entry *entry)
 {
    struct iris_bo *bo = container_of(entry, struct iris_bo, slab.entry);
 
-   return !iris_bo_busy(bo);
+   return !iris_bo_busy(bo, PIPE_MAP_READ_WRITE);
 }
 
 static void
@@ -910,7 +939,7 @@ alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
        * either falling back to a non-matching memzone, or if that fails,
        * allocating a fresh buffer.
        */
-      if (iris_bo_busy(cur))
+      if (iris_bo_busy(cur, PIPE_MAP_READ_WRITE))
          return NULL;
 
       list_del(&cur->head);
@@ -1433,7 +1462,7 @@ cleanup_bo_cache(struct iris_bufmgr *bufmgr, time_t time)
       /* Stop once we reach a busy BO - all others past this point were
        * freed more recently so are likely also busy.
        */
-      if (!bo->idle && iris_bo_busy(bo))
+      if (!bo->idle && iris_bo_busy(bo, PIPE_MAP_READ_WRITE))
          break;
 
       list_del(&bo->head);
@@ -1720,7 +1749,7 @@ iris_bo_wait(struct iris_bo *bo, int64_t timeout_ns)
    if (iris_bo_is_external(bo))
       ret = iris_bo_wait_gem(bo, timeout_ns);
    else
-      ret = iris_bo_wait_syncobj(bo, timeout_ns);
+      ret = iris_bo_wait_syncobj(bo, timeout_ns, PIPE_MAP_READ_WRITE);
 
    bo->idle = ret == 0;
 
