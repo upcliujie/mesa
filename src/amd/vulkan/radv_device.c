@@ -2009,7 +2009,7 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceDescriptorBufferFeaturesEXT *features =
             (VkPhysicalDeviceDescriptorBufferFeaturesEXT *)ext;
          features->descriptorBuffer = true;
-         features->descriptorBufferCaptureReplay = false;
+         features->descriptorBufferCaptureReplay = true;
          features->descriptorBufferImageLayoutIgnored = true;
          features->descriptorBufferPushDescriptors = true;
          break;
@@ -2835,11 +2835,12 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          properties->maxSamplerDescriptorBufferBindings = MAX_SETS;
          properties->maxEmbeddedImmutableSamplerBindings = MAX_SETS;
          properties->maxEmbeddedImmutableSamplers = radv_max_descriptor_set_size();
-         properties->bufferCaptureReplayDescriptorDataSize = 0;
-         properties->imageCaptureReplayDescriptorDataSize = 0;
-         properties->imageViewCaptureReplayDescriptorDataSize = 0;
-         properties->samplerCaptureReplayDescriptorDataSize = 0;
-         properties->accelerationStructureCaptureReplayDescriptorDataSize = 0;
+         /* No data required for capture/replay but these values need to be non-zero. */
+         properties->bufferCaptureReplayDescriptorDataSize = 1;
+         properties->imageCaptureReplayDescriptorDataSize = 1;
+         properties->imageViewCaptureReplayDescriptorDataSize = 1;
+         properties->samplerCaptureReplayDescriptorDataSize = 1;
+         properties->accelerationStructureCaptureReplayDescriptorDataSize = 1;
          properties->samplerDescriptorSize = 16;
          properties->combinedImageSamplerDescriptorSize = 96;
          properties->sampledImageDescriptorSize = 64;
