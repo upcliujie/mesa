@@ -99,6 +99,7 @@ static const struct debug_control debug_control[] = {
    { "mesh",        DEBUG_MESH },
    { "stall",       DEBUG_STALL },
    { "capture-all", DEBUG_CAPTURE_ALL },
+   { "spirv",       DEBUG_SPIRV },
    { NULL,    0 }
 };
 
@@ -323,4 +324,38 @@ intel_debug_get_identifier_block(void *_buffer,
    }
 
    return NULL;
+}
+
+static void
+intel_dump_cmd(const char* cmd, FILE* f)
+{
+   char line[2048];
+
+   FILE* p = popen(cmd, "r");
+   if(p) {
+      while (fgets(line, sizeof(line), p))
+         fputs(line, f);
+
+      fprintf(f, "\n");
+      pclose(p);
+   }
+}
+
+void
+intel_print_spirv(const char* data, uint32_t size, FILE* fp)
+{
+   char path[] = "/tmp/mesa_spirv_XXXXXX";
+   char command[128];
+
+   int fd = mkstemp(path);
+   if (fd < 0)
+      return;
+
+   if (write(fd, data, size) == -1) {
+      close(fd);
+      unlink(path);
+   }
+
+   sprintf(command, "spirv-dis %s", path);
+   intel_dump_cmd(command, fp);
 }

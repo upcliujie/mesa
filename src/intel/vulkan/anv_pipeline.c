@@ -234,6 +234,15 @@ anv_shader_stage_to_nir(struct anv_device *device,
       return NULL;
 
    if (INTEL_DEBUG(intel_debug_flag_for_shader_stage(stage))) {
+
+      if (INTEL_DEBUG(DEBUG_SPIRV)) {
+         ANV_FROM_HANDLE(vk_shader_module, module, stage_info->module);
+
+         fprintf(stderr,"SPIR-V of %s shader:\n",
+                 gl_shader_stage_name(stage));
+         intel_print_spirv(module->data, module->size, stderr);
+      }
+
       fprintf(stderr, "NIR (from SPIR-V) for %s shader:\n",
               gl_shader_stage_name(stage));
       nir_print_shader(nir, stderr);

@@ -89,6 +89,7 @@ extern uint64_t intel_debug;
 #define DEBUG_TASK                (1ull << 41)
 #define DEBUG_MESH                (1ull << 42)
 #define DEBUG_CAPTURE_ALL         (1ull << 43)
+#define DEBUG_SPIRV               (1ull << 44)
 
 #define DEBUG_ANY                 (~0ull)
 
@@ -194,6 +195,8 @@ extern uint32_t intel_debug_write_identifiers(void *output,
 extern void *intel_debug_get_identifier_block(void *buffer,
                                               uint32_t buffer_size,
                                               enum intel_debug_block_type type);
+
+extern void intel_print_spirv(const char* data, uint32_t size, FILE* f);
 
 #ifdef __cplusplus
 }
