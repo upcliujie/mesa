@@ -146,6 +146,12 @@ struct wsi_device {
        */
       bool xwaylandWaitReady;
 
+      /* Override the min_image_count used for determining how many images
+       * can be acquired concurrently while perserving forward progress.
+       * 0 = no override
+       */
+      uint32_t min_forward_progress_image_count;
+
       /* adds an extra minImageCount when running under xwayland */
       bool extra_xwayland_image;
    } x11;

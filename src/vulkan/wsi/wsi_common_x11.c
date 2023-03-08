@@ -1950,6 +1950,11 @@ x11_manage_fifo_queues(void *state)
           * minimum number of images. */
          min_image_count = MIN2(min_image_count, chain->base.image_count);
 
+         /* Override min_image_count if requested. */
+         if (chain->base.wsi->x11.min_forward_progress_image_count)
+            min_image_count =
+               chain->base.wsi->x11.min_forward_progress_image_count;
+
          /* We always need to ensure that the app can have this number of images
           * acquired concurrently in between presents:
           * "VUID-vkAcquireNextImageKHR-swapchain-01802
@@ -2864,6 +2869,10 @@ wsi_x11_init_wsi(struct wsi_device *wsi_device,
       if (driCheckOption(dri_options, "vk_xwayland_wait_ready", DRI_BOOL)) {
          wsi_device->x11.xwaylandWaitReady =
             driQueryOptionb(dri_options, "vk_xwayland_wait_ready");
+      }
+      if (driCheckOption(dri_options, "vk_x11_min_forward_progress_image_count", DRI_INT)) {
+         wsi_device->x11.min_forward_progress_image_count =
+            driQueryOptioni(dri_options, "vk_x11_min_forward_progress_image_count");
       }
    }
 
