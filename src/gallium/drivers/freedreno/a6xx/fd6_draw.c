@@ -423,7 +423,7 @@ fd6_clear_lrz(struct fd_batch *batch, struct fd_resource *zsbuf, double depth) a
 
    emit_marker6(ring, 7);
    OUT_PKT7(ring, CP_SET_MARKER, 1);
-   OUT_RING(ring, A6XX_CP_SET_MARKER_0_MODE(RM6_BYPASS));
+   OUT_RING(ring, A6XX_CP_SET_MARKER_0_MODE(RM6_DIRECT_RENDER));
    emit_marker6(ring, 7);
 
    OUT_WFI5(ring);
