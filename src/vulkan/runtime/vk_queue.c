@@ -21,10 +21,11 @@
  * IN THE SOFTWARE.
  */
 
-#include "vk_queue.h"
-
 #include "util/u_debug.h"
 #include <inttypes.h>
+
+#include <vulkan/vk_icd.h>
+#include "vk_queue.h"
 
 #include "vk_alloc.h"
 #include "vk_command_buffer.h"
@@ -42,6 +43,8 @@
 #include "vk_util.h"
 
 #include "vulkan/wsi/wsi_common.h"
+
+static_assert(VK_ICD_WSI_PLATFORM_MAX == (VK_ICD_WSI_PLATFORM_SCREEN + 1), "");
 
 static VkResult
 vk_queue_start_submit_thread(struct vk_queue *queue);

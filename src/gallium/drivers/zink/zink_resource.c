@@ -21,6 +21,18 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "util/u_blitter.h"
+#include "util/u_debug.h"
+#include "util/format/u_format.h"
+#include "util/u_transfer_helper.h"
+#include "util/u_inlines.h"
+#include "util/u_memory.h"
+#include "util/u_upload_mgr.h"
+#include "util/os_file.h"
+#include "frontend/winsys_handle.h"
+
+#include <vulkan/vulkan.h>
+
 #include "zink_resource.h"
 
 #include "zink_batch.h"
@@ -36,15 +48,6 @@
 #endif
 
 #include "vk_format.h"
-#include "util/u_blitter.h"
-#include "util/u_debug.h"
-#include "util/format/u_format.h"
-#include "util/u_transfer_helper.h"
-#include "util/u_inlines.h"
-#include "util/u_memory.h"
-#include "util/u_upload_mgr.h"
-#include "util/os_file.h"
-#include "frontend/winsys_handle.h"
 
 #if !defined(__APPLE__)
 #define ZINK_USE_DMABUF

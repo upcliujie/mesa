@@ -25,7 +25,7 @@
 #define PVR_JOB_TRANSFER_H
 
 #include <stdint.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 struct pvr_device;
 struct pvr_sub_cmd_transfer;

@@ -24,7 +24,7 @@
 #ifndef PVR_DRM_PUBLIC_H
 #define PVR_DRM_PUBLIC_H
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "pvr_winsys.h"
 

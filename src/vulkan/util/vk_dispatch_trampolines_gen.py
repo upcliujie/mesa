@@ -59,6 +59,7 @@ extern struct vk_device_dispatch_table vk_device_trampolines;
 TEMPLATE_C = Template(COPYRIGHT + """\
 /* This file generated from ${filename}, don't edit directly. */
 
+#include <vulkan/vulkan.h>
 #include "vk_device.h"
 #include "vk_dispatch_trampolines.h"
 #include "vk_object.h"

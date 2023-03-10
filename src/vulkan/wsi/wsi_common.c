@@ -21,13 +21,24 @@
  * IN THE SOFTWARE.
  */
 
-#include "wsi_common_private.h"
-#include "wsi_common_entrypoints.h"
+#include <time.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include "util/u_debug.h"
 #include "util/macros.h"
 #include "util/os_file.h"
 #include "util/os_time.h"
 #include "util/xmlconfig.h"
+
+#include <vulkan/vk_icd.h>
+
+#include "wsi_common_private.h"
+#include "wsi_common_entrypoints.h"
 #include "vk_device.h"
 #include "vk_fence.h"
 #include "vk_format.h"
@@ -38,14 +49,6 @@
 #include "vk_sync.h"
 #include "vk_sync_dummy.h"
 #include "vk_util.h"
-
-#include <time.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 
 uint64_t WSI_DEBUG;
 

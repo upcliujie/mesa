@@ -32,8 +32,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vk_icd.h>
+#include <vulkan/vulkan_core.h>
 #include <vk_enum_to_str.h>
 
 #include "vk_descriptor_update_template.h"
@@ -197,9 +196,11 @@ struct v3dv_physical_device {
    } caps;
 };
 
+#if defined(VKICD_H)
 VkResult v3dv_physical_device_acquire_display(struct v3dv_instance *instance,
                                               struct v3dv_physical_device *pdevice,
                                               VkIcdSurfaceBase *surface);
+#endif
 
 static inline struct v3dv_bo *
 v3dv_device_lookup_bo(struct v3dv_physical_device *device, uint32_t handle)

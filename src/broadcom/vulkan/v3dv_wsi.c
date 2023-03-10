@@ -23,8 +23,11 @@
  * IN THE SOFTWARE.
  */
 
-#include "v3dv_private.h"
 #include "drm-uapi/drm_fourcc.h"
+
+#include <vulkan/vk_icd.h>
+
+#include "v3dv_private.h"
 #include "wsi_common_entrypoints.h"
 #include "vk_util.h"
 #include "wsi_common.h"

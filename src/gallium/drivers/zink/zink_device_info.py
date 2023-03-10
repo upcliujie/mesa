@@ -425,6 +425,7 @@ void zink_stub_${cmd.lstrip("vk")}(void);
 impl_code = """
 <%namespace name="helpers" file="helpers"/>
 
+#include <vulkan/vulkan.h>
 #include "vk_enum_to_str.h"
 #include "zink_device_info.h"
 #include "zink_screen.h"

@@ -28,8 +28,7 @@
 
 #include "vk_alloc.h"
 #include "vk_dispatch_table.h"
-#include <vulkan/vulkan.h>
-#include <vulkan/vk_icd.h>
+#include <vulkan/vulkan_core.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,7 +90,7 @@ struct vk_instance;
 
 struct driOptionCache;
 
-#define VK_ICD_WSI_PLATFORM_MAX (VK_ICD_WSI_PLATFORM_DISPLAY + 1)
+#define VK_ICD_WSI_PLATFORM_MAX 15
 
 struct wsi_device {
    /* Allocator for the instance */
@@ -281,6 +280,7 @@ void
 wsi_device_setup_syncobj_fd(struct wsi_device *wsi_device,
                             int fd);
 
+#if defined(VKICD_H)
 #define ICD_DEFINE_NONDISP_HANDLE_CASTS(__VkIcdType, __VkType)             \
                                                                            \
    static inline __VkIcdType *                                             \
@@ -299,6 +299,7 @@ wsi_device_setup_syncobj_fd(struct wsi_device *wsi_device,
    __VkIcdType *__name = __VkIcdType ## _from_handle(__handle)
 
 ICD_DEFINE_NONDISP_HANDLE_CASTS(VkIcdSurfaceBase, VkSurfaceKHR)
+#endif
 
 VkResult
 wsi_common_get_images(VkSwapchainKHR _swapchain,

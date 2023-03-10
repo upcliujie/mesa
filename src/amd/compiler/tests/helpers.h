@@ -25,7 +25,7 @@
 #define ACO_TEST_HELPERS_H
 
 #include "framework.h"
-#include "vulkan/vulkan.h"
+#include "vulkan/vulkan_core.h"
 #include <functional>
 
 enum QoShaderDeclType {

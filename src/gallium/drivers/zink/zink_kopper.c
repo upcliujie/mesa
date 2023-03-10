@@ -24,6 +24,8 @@
 
 #include "util/detect_os.h"
 
+#include <vulkan/vulkan.h>
+
 #include "zink_context.h"
 #include "zink_screen.h"
 #include "zink_surface.h"

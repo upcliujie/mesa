@@ -36,7 +36,7 @@
 #include <string.h>
 #include "util/u_math.h"
 #include "util/u_memory.h"
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include "amd_family.h"
 
 struct radeon_info;

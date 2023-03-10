@@ -106,8 +106,7 @@ struct intel_perf_config;
 struct intel_perf_counter_pass;
 struct intel_perf_query_result;
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vk_icd.h>
+#include <vulkan/vulkan_core.h>
 
 #include "anv_android.h"
 #include "anv_entrypoints.h"

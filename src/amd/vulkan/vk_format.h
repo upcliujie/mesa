@@ -30,7 +30,7 @@
 #include <assert.h>
 #include <util/macros.h>
 #include <vulkan/util/vk_format.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 /**
  * Return the index of the first non-void channel

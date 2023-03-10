@@ -35,11 +35,19 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vulkan/vulkan.h>
 #include <xf86drm.h>
 
-#include "hwdef/rogue_hw_utils.h"
 #include "pipe/p_defines.h"
+#include "util/build_id.h"
+#include "util/log.h"
+#include "util/macros.h"
+#include "util/mesa-sha1.h"
+#include "util/os_misc.h"
+#include "util/u_math.h"
+
+#include <vulkan/vk_icd.h>
+
+#include "hwdef/rogue_hw_utils.h"
 #include "pvr_bo.h"
 #include "pvr_clear.h"
 #include "pvr_csb.h"
@@ -56,13 +64,6 @@
 #include "pvr_uscgen.h"
 #include "pvr_winsys.h"
 #include "rogue/rogue.h"
-#include "util/build_id.h"
-#include "util/log.h"
-#include "util/macros.h"
-#include "util/mesa-sha1.h"
-#include "util/os_misc.h"
-#include "util/u_dynarray.h"
-#include "util/u_math.h"
 #include "vk_alloc.h"
 #include "vk_log.h"
 #include "vk_object.h"

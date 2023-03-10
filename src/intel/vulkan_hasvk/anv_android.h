@@ -27,7 +27,7 @@
 #if defined(ANDROID) && ANDROID_API_LEVEL >= 26
 #include <vndk/hardware_buffer.h>
 #endif
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_android.h>
 #include <vulkan/vk_android_native_buffer.h>
 

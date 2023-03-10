@@ -26,7 +26,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 /* This is based on VkClearColorValue which is an array of RGBA, and on the
  * output register usage for the biggest 32 bit 4 component formats which use up

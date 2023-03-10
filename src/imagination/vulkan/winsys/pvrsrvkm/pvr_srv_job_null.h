@@ -25,7 +25,7 @@
 #define PVR_SRV_JOB_NULL_H
 
 #include <stdint.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 struct pvr_winsys;
 struct vk_sync_wait;

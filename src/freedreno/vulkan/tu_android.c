@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <vulkan/vk_icd.h>
+
 #include "tu_android.h"
 
 #include <hardware/gralloc.h>

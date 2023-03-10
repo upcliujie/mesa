@@ -21,16 +21,18 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "util/os_file.h"
+#include "util/set.h"
+#include "util/u_memory.h"
+
+#include <vulkan/vulkan.h>
+
 #include "zink_batch.h"
 #include "zink_context.h"
 #include "zink_fence.h"
 
 #include "zink_resource.h"
 #include "zink_screen.h"
-
-#include "util/os_file.h"
-#include "util/set.h"
-#include "util/u_memory.h"
 
 #ifdef _WIN32
 #include <windows.h>

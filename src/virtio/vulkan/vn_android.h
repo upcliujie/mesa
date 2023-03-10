@@ -14,7 +14,7 @@
 #include "vn_common.h"
 
 #include <vulkan/vk_android_native_buffer.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_android.h>
 
 /* venus implements VK_ANDROID_native_buffer up to spec version 7 */

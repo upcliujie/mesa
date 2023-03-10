@@ -25,7 +25,7 @@
 #define PVR_TEX_STATE_H
 
 #include <stdint.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "hwdef/rogue_hw_defs.h"
 #include "pvr_private.h"

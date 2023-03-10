@@ -36,13 +36,6 @@
 
 #include "drm-uapi/drm_fourcc.h"
 
-#include "vk_instance.h"
-#include "vk_physical_device.h"
-#include "vk_util.h"
-#include "wsi_common_entrypoints.h"
-#include "wsi_common_private.h"
-#include "linux-dmabuf-unstable-v1-client-protocol.h"
-
 #include <util/compiler.h>
 #include <util/hash_table.h>
 #include <util/timespec.h>
@@ -57,6 +50,15 @@
 #ifdef MAJOR_IN_SYSMACROS
 #include <sys/sysmacros.h>
 #endif
+
+#include <vulkan/vk_icd.h>
+
+#include "vk_instance.h"
+#include "vk_physical_device.h"
+#include "vk_util.h"
+#include "wsi_common_entrypoints.h"
+#include "wsi_common_private.h"
+#include "linux-dmabuf-unstable-v1-client-protocol.h"
 
 struct wsi_wayland;
 

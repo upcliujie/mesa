@@ -46,6 +46,8 @@
 #include "util/os_time.h"
 #include "util/timespec.h"
 
+#include <vulkan/vk_icd.h>
+
 #include "vk_device.h"
 #include "vk_fence.h"
 #include "vk_instance.h"

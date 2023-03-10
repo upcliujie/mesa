@@ -45,21 +45,29 @@ TEMPLATE_H = Template(COPYRIGHT + """\
 #ifndef VK_DISPATCH_TABLE_H
 #define VK_DISPATCH_TABLE_H
 
-#include "vulkan/vulkan.h"
-#include "vulkan/vk_android_native_buffer.h"
+#include "vulkan/vulkan_core.h"
 
 #include "vk_extensions.h"
 
+#ifdef VULKAN_H_
 /* Windows api conflict */
 #ifdef _WIN32
-#include <windows.h>
 #ifdef CreateSemaphore
 #undef CreateSemaphore
 #endif
 #ifdef CreateEvent
 #undef CreateEvent
 #endif
+#endif /* _WIN32 */
+#else /* !VULKAN_H_ */
+#if defined(_WIN32) && defined(_WINDOWS_)
+#error "Should not include <windows.h> at here"
 #endif
+#endif /* VULKAN_H_ */
+
+/* Android headers are always included because it's can be accessed across platform */
+#include "vulkan/vulkan_android.h"
+#include "vulkan/vk_android_native_buffer.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,13 +77,38 @@ extern "C" {
 VKAPI_ATTR void VKAPI_CALL vk_entrypoint_stub(void);
 #endif
 
+<%def name="dispatch_table_typedef(entrypoints)">
+% for e in entrypoints:
+  % if e.alias:
+<% continue %>
+  % endif
+  % if e.guard is not None and e.guard != 'VK_USE_PLATFORM_ANDROID_KHR':
+#if !(defined(VULKAN_H_) && defined(${e.guard}))
+typedef PFN_vkVoidFunction PFN_vk${e.name};
+    % if e.aliases:
+      % for a in e.aliases:
+typedef PFN_vkVoidFunction PFN_vk${a.name};
+      % endfor
+    % endif
+#endif
+  % endif
+% endfor
+</%def>
+
+<%def name="entrypoint_table_typedef(entrypoints)">
+% for e in entrypoints:
+  % if e.guard is not None and e.guard != 'VK_USE_PLATFORM_ANDROID_KHR':
+#if !(defined(VULKAN_H_) && defined(${e.guard}))
+typedef PFN_vkVoidFunction PFN_vk${e.name};
+#endif
+  % endif
+% endfor
+</%def>
+
 <%def name="dispatch_table(entrypoints)">
 % for e in entrypoints:
   % if e.alias:
-    <% continue %>
-  % endif
-  % if e.guard is not None:
-#ifdef ${e.guard}
+<% continue %>
   % endif
   % if e.aliases:
     union {
@@ -87,49 +120,31 @@ VKAPI_ATTR void VKAPI_CALL vk_entrypoint_stub(void);
   % else:
     PFN_vk${e.name} ${e.name};
   % endif
-  % if e.guard is not None:
-#else
-    % if e.aliases:
-    union {
-        PFN_vkVoidFunction ${e.name};
-      % for a in e.aliases:
-        PFN_vkVoidFunction ${a.name};
-      % endfor
-    };
-    % else:
-    PFN_vkVoidFunction ${e.name};
-    % endif
-#endif
-  % endif
 % endfor
 </%def>
 
 <%def name="entrypoint_table(type, entrypoints)">
 struct vk_${type}_entrypoint_table {
 % for e in entrypoints:
-  % if e.guard is not None:
-#ifdef ${e.guard}
-  % endif
     PFN_vk${e.name} ${e.name};
-  % if e.guard is not None:
-#else
-    PFN_vkVoidFunction ${e.name};
-# endif
-  % endif
 % endfor
 };
 </%def>
 
+
+${dispatch_table_typedef(instance_entrypoints)}
 struct vk_instance_dispatch_table {
-  ${dispatch_table(instance_entrypoints)}
+${dispatch_table(instance_entrypoints)}
 };
 
+${dispatch_table_typedef(physical_device_entrypoints)}
 struct vk_physical_device_dispatch_table {
-  ${dispatch_table(physical_device_entrypoints)}
+${dispatch_table(physical_device_entrypoints)}
 };
 
+${dispatch_table_typedef(device_entrypoints)}
 struct vk_device_dispatch_table {
-  ${dispatch_table(device_entrypoints)}
+${dispatch_table(device_entrypoints)}
 };
 
 struct vk_dispatch_table {
@@ -148,8 +163,13 @@ struct vk_dispatch_table {
     };
 };
 
+${entrypoint_table_typedef(instance_entrypoints)}
 ${entrypoint_table('instance', instance_entrypoints)}
+
+${entrypoint_table_typedef(physical_device_entrypoints)}
 ${entrypoint_table('physical_device', physical_device_entrypoints)}
+
+${entrypoint_table_typedef(device_entrypoints)}
 ${entrypoint_table('device', device_entrypoints)}
 
 void
@@ -224,6 +244,7 @@ vk_device_dispatch_table_get_if_supported(
 TEMPLATE_C = Template(COPYRIGHT + """\
 /* This file generated from ${filename}, don't edit directly. */
 
+#include <vulkan/vulkan.h>
 #include "vk_dispatch_table.h"
 
 #include "util/macros.h"

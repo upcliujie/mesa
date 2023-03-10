@@ -47,7 +47,8 @@
 #include "util/xmlconfig.h"
 #include "util/timespec.h"
 
-#include "vk_format.h"
+#include <vulkan/vk_icd.h>
+
 #include "vk_instance.h"
 #include "vk_physical_device.h"
 #include "vk_util.h"

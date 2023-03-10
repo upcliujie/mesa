@@ -155,8 +155,7 @@ H_TEMPLATE = Template(textwrap.dedent(u"""\
     #ifndef MESA_VK_ENUM_TO_STR_H
     #define MESA_VK_ENUM_TO_STR_H
 
-    #include <vulkan/vulkan.h>
-    #include <vulkan/vk_android_native_buffer.h>
+    #include <vulkan/vulkan_core.h>
 
     #ifdef __cplusplus
     extern "C" {
@@ -164,7 +163,7 @@ H_TEMPLATE = Template(textwrap.dedent(u"""\
 
     % for enum in enums:
       % if enum.guard:
-#ifdef ${enum.guard}
+#if defined(VULKAN_H_) && defined(${enum.guard})
       % endif
     const char * vk_${enum.name[2:]}_to_str(${enum.name} input);
       % if enum.guard:
@@ -204,7 +203,6 @@ H_DEFINE_TEMPLATE = Template(textwrap.dedent(u"""\
     #define MESA_VK_ENUM_DEFINES_H
 
     #include <vulkan/vulkan_core.h>
-    #include <vulkan/vk_android_native_buffer.h>
 
     #ifdef __cplusplus
     extern "C" {
@@ -219,7 +217,7 @@ H_DEFINE_TEMPLATE = Template(textwrap.dedent(u"""\
         <% continue %>
       % endif
       % if enum.guard:
-#ifdef ${enum.guard}
+#if defined(VULKAN_H_) && defined(${enum.guard})
       % endif
     #define ${enum.all_bits_name()} ${hex(enum.all_bits_value())}u
       % if enum.guard:

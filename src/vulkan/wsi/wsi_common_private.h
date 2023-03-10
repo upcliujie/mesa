@@ -198,9 +198,11 @@ struct wsi_swapchain {
 bool
 wsi_device_matches_drm_fd(const struct wsi_device *wsi, int drm_fd);
 
+#if defined(VKICD_H)
 void
 wsi_wl_surface_destroy(VkIcdSurfaceBase *icd_surface, VkInstance _instance,
                        const VkAllocationCallbacks *pAllocator);
+#endif
 
 void
 wsi_win32_surface_destroy(VkIcdSurfaceBase *icd_surface, VkInstance _instance,
@@ -319,6 +321,7 @@ wsi_create_sync_for_dma_buf_wait(const struct wsi_swapchain *chain,
                                  struct vk_sync **sync_out);
 #endif
 
+#if defined(VKICD_H)
 struct wsi_interface {
    VkResult (*get_support)(VkIcdSurfaceBase *surface,
                            struct wsi_device *wsi_device,
@@ -352,6 +355,7 @@ struct wsi_interface {
                                 const VkAllocationCallbacks* pAllocator,
                                 struct wsi_swapchain **swapchain);
 };
+#endif
 
 VkResult wsi_x11_init_wsi(struct wsi_device *wsi_device,
                           const VkAllocationCallbacks *alloc,

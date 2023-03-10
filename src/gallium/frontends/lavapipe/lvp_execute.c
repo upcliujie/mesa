@@ -23,11 +23,9 @@
 
 /* use a gallium context to execute a command buffer */
 
-#include "lvp_private.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
-#include "lvp_conv.h"
 
 #include "pipe/p_shader_tokens.h"
 #include "tgsi/tgsi_text.h"
@@ -47,11 +45,15 @@
 #include "util/ptralloc.h"
 #include "tgsi/tgsi_from_mesa.h"
 
+#define VK_PROTOTYPES
+#include <vulkan/vulkan.h>
+
+#include "lvp_private.h"
+#include "lvp_conv.h"
+
 #include "vk_cmd_enqueue_entrypoints.h"
 #include "vk_util.h"
 
-#define VK_PROTOTYPES
-#include <vulkan/vulkan.h>
 
 #define DOUBLE_EQ(a, b) (fabs((a) - (b)) < DBL_EPSILON)
 
