@@ -1077,7 +1077,7 @@ fd_resource_destroy(struct pipe_screen *pscreen, struct pipe_resource *prsc)
    simple_mtx_destroy(&rsc->lock);
    fd_resource_tracking_reference(&rsc->track, NULL);
 
-   FREE(rsc);
+   FREE_CL(rsc);
 }
 
 static uint64_t
@@ -1149,7 +1149,7 @@ alloc_resource_struct(struct pipe_screen *pscreen,
                       const struct pipe_resource *tmpl)
 {
    struct fd_screen *screen = fd_screen(pscreen);
-   struct fd_resource *rsc = CALLOC_STRUCT(fd_resource);
+   struct fd_resource *rsc = CALLOC_STRUCT_CL(fd_resource);
 
    if (!rsc)
       return NULL;

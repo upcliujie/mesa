@@ -334,7 +334,7 @@ static struct pipe_sampler_view *
 fd6_sampler_view_create(struct pipe_context *pctx, struct pipe_resource *prsc,
                         const struct pipe_sampler_view *cso)
 {
-   struct fd6_pipe_sampler_view *so = CALLOC_STRUCT(fd6_pipe_sampler_view);
+   struct fd6_pipe_sampler_view *so = CALLOC_STRUCT_CL(fd6_pipe_sampler_view);
 
    if (!so)
       return NULL;

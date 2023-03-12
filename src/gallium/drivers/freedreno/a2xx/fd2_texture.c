@@ -165,7 +165,7 @@ static struct pipe_sampler_view *
 fd2_sampler_view_create(struct pipe_context *pctx, struct pipe_resource *prsc,
                         const struct pipe_sampler_view *cso)
 {
-   struct fd2_pipe_sampler_view *so = CALLOC_STRUCT(fd2_pipe_sampler_view);
+   struct fd2_pipe_sampler_view *so = CALLOC_STRUCT_CL(fd2_pipe_sampler_view);
    struct fd_resource *rsc = fd_resource(prsc);
    struct surface_format fmt = fd2_pipe2surface(cso->format);
 

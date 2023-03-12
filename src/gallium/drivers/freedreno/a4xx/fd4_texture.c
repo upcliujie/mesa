@@ -136,7 +136,7 @@ static struct pipe_sampler_view *
 fd4_sampler_view_create(struct pipe_context *pctx, struct pipe_resource *prsc,
                         const struct pipe_sampler_view *cso)
 {
-   struct fd4_pipe_sampler_view *so = CALLOC_STRUCT(fd4_pipe_sampler_view);
+   struct fd4_pipe_sampler_view *so = CALLOC_STRUCT_CL(fd4_pipe_sampler_view);
    struct fd_resource *rsc = fd_resource(prsc);
    enum pipe_format format = cso->format;
    unsigned lvl, layers = 0;
