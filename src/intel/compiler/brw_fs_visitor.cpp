@@ -1360,7 +1360,7 @@ fs_visitor::fs_visitor(const struct brw_compiler *compiler, void *log_data,
      key(key), gs_compile(NULL), prog_data(prog_data),
      live_analysis(this), regpressure_analysis(this),
      performance_analysis(this),
-     needs_register_pressure(needs_register_pressure),
+     needs_register_pressure(needs_register_pressure || debug_enabled),
      dispatch_width(dispatch_width),
      bld(fs_builder(this, dispatch_width).at_end())
 {
@@ -1380,7 +1380,7 @@ fs_visitor::fs_visitor(const struct brw_compiler *compiler, void *log_data,
      prog_data(&prog_data->base.base),
      live_analysis(this), regpressure_analysis(this),
      performance_analysis(this),
-     needs_register_pressure(needs_register_pressure),
+     needs_register_pressure(needs_register_pressure || debug_enabled),
      dispatch_width(8),
      bld(fs_builder(this, dispatch_width).at_end())
 {
