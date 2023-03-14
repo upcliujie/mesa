@@ -349,7 +349,7 @@ a630-traces-restricted:
     - .freedreno-rules-restricted
   variables:
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/restricted-traces-freedreno.yml"
-    PIGLIT_REPLAY_EXTRA_ARGS: --keep-image --db-path ${CI_PROJECT_DIR}/replayer-db/ --minio_bucket=mesa-tracie-private --jwt-file=${CI_JOB_JWT_FILE}
+    PIGLIT_REPLAY_EXTRA_ARGS: --keep-image --minio_bucket=mesa-tracie-private --jwt-file=${CI_JOB_JWT_FILE}
   allow_failure: true
 
 a630-traces-performance:
@@ -358,7 +358,6 @@ a630-traces-performance:
     - .freedreno-rules-performance
   variables:
     PIGLIT_REPLAY_SUBCOMMAND: "profile"
-    PIGLIT_REPLAY_EXTRA_ARGS: "--db-path ${CI_PROJECT_DIR}/replayer-db/"
     # More than this can hit OOM due to BOs leaked during the replay of the last frame
     PIGLIT_REPLAY_LOOP_TIMES: 150
     # We don't want for more than one workload to be submitted to the GPU at a time

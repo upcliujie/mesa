@@ -107,7 +107,7 @@ rustfmt:
     exclude:
       - results/*.shader_cache
   variables:
-    PIGLIT_REPLAY_EXTRA_ARGS: --keep-image --db-path ${CI_PROJECT_DIR}/replayer-db/ --minio_bucket=mesa-tracie-public --jwt-file=${CI_JOB_JWT_FILE}
+    PIGLIT_REPLAY_EXTRA_ARGS: --keep-image --minio_bucket=mesa-tracie-public --jwt-file=${CI_JOB_JWT_FILE}
   script:
     - section_start variables "Variables passed through:"
     - install/common/generate-env.sh

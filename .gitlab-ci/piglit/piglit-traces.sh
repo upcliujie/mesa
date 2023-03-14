@@ -173,13 +173,6 @@ if [ "$RUN_CMD_WRAPPER" ]; then
     RUN_CMD="set +e; $RUN_CMD_WRAPPER "$(/usr/bin/printf "%q" "$RUN_CMD")"; set -e"
 fi
 
-# The replayer doesn't do any size or checksum verification for the traces in
-# the replayer db, so if we had to restart the system due to intermittent device
-# errors (or tried to cache replayer-db between runs, which would be nice to
-# have), you could get a corrupted local trace that would spuriously fail the
-# run.
-rm -rf replayer-db
-
 eval $RUN_CMD
 
 if [ $? -ne 0 ]; then
