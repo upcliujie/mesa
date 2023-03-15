@@ -132,6 +132,19 @@ gl_nir_link_opts(nir_shader *producer, nir_shader *consumer)
    gl_nir_opts(producer);
    gl_nir_opts(consumer);
 
+   bool progress = false;
+   do {
+      nir_opt_reassociate_matrix_mul(producer);
+      progress = nir_opt_cse(producer);
+      progress = nir_opt_dce(producer);
+   } while (progress);
+
+   do {
+      nir_opt_reassociate_matrix_mul(consumer);
+      progress = nir_opt_cse(consumer);
+      progress = nir_opt_dce(consumer);
+   } while (progress);
+
    if (nir_link_opt_varyings(producer, consumer))
       gl_nir_opts(consumer);
 

@@ -32,7 +32,7 @@
 #include "nir_worklist.h"
 #include "util/u_dynarray.h"
 
-#define NIR_SEARCH_MAX_VARIABLES 16
+#define NIR_SEARCH_MAX_VARIABLES 24
 
 struct nir_builder;
 
