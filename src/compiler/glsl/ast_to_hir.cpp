@@ -1040,6 +1040,8 @@ do_assignment(exec_list *instructions, struct _mesa_glsl_parse_state *state,
       if (!error_emitted) {
          ir_variable *var = new(ctx) ir_variable(rhs->type, "assignment_tmp",
                                                  ir_var_temporary);
+         if (lhs_var)
+            var->data.precision = lhs_var->data.precision;
          instructions->push_tail(var);
          instructions->push_tail(assign(var, rhs));
 

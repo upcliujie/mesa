@@ -2296,13 +2296,7 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
    shader->Version = state->language_version;
    shader->IsES = state->es_shader;
 
-   struct gl_shader_compiler_options *options =
-      &ctx->Const.ShaderCompilerOptions[shader->Stage];
-
    if (!state->error && !shader->ir->is_empty()) {
-      if (state->es_shader &&
-          (options->LowerPrecisionFloat16 || options->LowerPrecisionInt16))
-         lower_precision(options, shader->ir);
       lower_builtins(shader->ir);
       assign_subroutine_indexes(state);
       lower_subroutine(shader->ir, state);
@@ -2397,8 +2391,7 @@ do_common_optimization(exec_list *ir, bool linked,
    else
       OPT(do_dead_code_unlinked, ir);
    OPT(do_dead_code_local, ir);
-   OPT(do_tree_grafting, ir);
-   OPT(do_constant_propagation, ir);
+   //OPT(do_constant_propagation, ir);
    if (linked)
       OPT(do_constant_variable, ir);
    else

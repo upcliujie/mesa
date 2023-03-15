@@ -1551,7 +1551,7 @@ TESTS = [
                  color = bitCount(val) + 1;
          }
          """,
-         r'expression int16_t \+ \(expression int16_t i2imp \(expression int bit_count \(var_ref val'),
+         r'expression int16_t \+ \(expression int16_t bit_count \(expression int16_t i2imp \(var_ref val\) \)'),
     Test("findLSB",
          """
          #version 310 es
@@ -2274,6 +2274,49 @@ TESTS = [
          }
          """,
          r'\(constant uint \(3'), # should be uint16_t
+
+    Test("vec4 constructor from float",
+         """
+         uniform highp float a;
+         uniform mediump float b;
+
+         void main()
+         {
+                 gl_FragColor = vec4(a) * b;
+         }
+         """,
+         r'\(expression vec4 \* \(swiz xxxx \(var_ref a\) \)\(expression float f162f \(var_ref b\) \) \)'),
+
+    Test("respect copies",
+         """
+         uniform mediump float a, b;
+
+         void main()
+         {
+            highp float x = a;
+            gl_FragColor.x = x * b;
+         }
+         """,
+         r'expression float \* \(expression float f162f \(var_ref a\) \) \(expression float f162f \(var_ref b\) \) '), # should be uint16_t
+
+    Test("conversion constructor precision",
+         """
+         #version 300 es
+         uniform mediump uint a;
+         out highp float result;
+
+         void main()
+         {
+            /* Constructors don't have a precision qualifier themselves, but
+             * constructors are an operation, and so they do the usual "get
+             * precision from my operands, or default to the precision of the
+             * lvalue" rule.  So, the u2f is done at mediump due to a's precision.
+             */
+            result = float(a);
+         }
+         """,
+         r'expression float16_t u2f \(expression uint16_t u2ump \(var_ref a\) \)'), # should be uint16_t
+
 ]
 
 

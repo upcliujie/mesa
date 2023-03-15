@@ -27,6 +27,7 @@
 
 #include "float64_glsl.h"
 #include "glsl_to_nir.h"
+#include "gl_nir.h"
 #include "ir_visitor.h"
 #include "ir_hierarchical_visitor.h"
 #include "ir.h"
@@ -218,6 +219,7 @@ glsl_to_nir(const struct gl_constants *consts,
    nir_shader *shader = nir_shader_create(NULL, stage, options,
                                           &sh->Program->info);
 
+   /* Do the actual GLSL to NIR translation. */
    nir_visitor v1(consts, shader);
    nir_function_visitor v2(&v1);
    v2.run(sh->ir);
@@ -227,7 +229,20 @@ glsl_to_nir(const struct gl_constants *consts,
    ralloc_free(sh->ir);
    sh->ir = NULL;
 
-   nir_validate_shader(shader, "after glsl to nir, before function inline");
+   nir_validate_shader(shader, "after glsl to nir, before mediump alu");
+
+   /* We need to do this here, before vars-to-ssa or function inlining removes
+    * variables that might have had highp qualifiers.
+    */
+   if (shader_prog->IsES) {
+      gl_nir_lower_mediump_alu_options mediump_options = {
+         .fp16 = options->support_16bit_alu, /* XXX: distinguish these */
+         .int16 = options->support_16bit_alu,
+      };
+      NIR_PASS_V(shader, gl_nir_lower_mediump_alu, &mediump_options);
+   }
+
+   nir_validate_shader(shader, "after mediump alu, before function inlining");
 
    /* We have to lower away local constant initializers right before we
     * inline functions.  That way they get properly initialized at the top
