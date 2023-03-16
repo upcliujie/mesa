@@ -27,6 +27,7 @@
 #include "util/u_thread.h"
 #include "pipe/p_state.h"
 #include "util/list.h"
+#include "util/u_queue.h"
 
 #include "virgl/virgl_winsys.h"
 #include "virgl_resource_cache.h"
@@ -36,6 +37,8 @@ struct hash_table;
 
 struct virgl_hw_res {
    struct pipe_reference reference;
+   struct util_queue_fence *buffer_fence;
+
    enum pipe_texture_target target;
    uint32_t res_handle;
    uint32_t bo_handle;
@@ -57,6 +60,9 @@ struct virgl_hw_res {
    /* false when the resource is known to be idle */
    int maybe_busy;
    uint32_t blob_mem;
+
+   /* The fence for the last cmdbuf referencing this resource */
+   struct virgl_drm_fence *last_written_fence;
 };
 
 
@@ -88,12 +94,14 @@ struct param params[] = { PARAM(VIRTGPU_PARAM_3D_FEATURES),
                           PARAM(VIRTGPU_PARAM_SUPPORTED_CAPSET_IDs)
 };
 
+struct virgl_drm_cmd_buf;
 struct virgl_drm_winsys
 {
    struct virgl_winsys base;
    int fd;
    struct virgl_resource_cache cache;
    mtx_t mutex;
+   mtx_t cmd_submit_mutex;
 
    int32_t blob_id;
    struct hash_table *bo_handles;
@@ -108,22 +116,33 @@ struct virgl_drm_fence {
    struct virgl_hw_res *hw_res;
 };
 
+struct virgl_transfer_cmd_buf {
+   struct util_queue_fence queue_fence;
+   unsigned cres;
+   unsigned nres;
+   struct virgl_hw_res **res_bo;
+   uint32_t *res_hlist;
+   boolean *res_written;
+   char is_handle_added[512];
+   unsigned reloc_indices_hashlist[512];
+   uint32_t *cmd;
+   uint32_t ncdw;
+   uint32_t fence_flags;
+   int32_t in_fence_id;
+   int32_t out_fence_id;
+   bool expect_create_fence;
+};
+
+#define VIRGL_COMMAND_BUFFERS 32
+
 struct virgl_drm_cmd_buf {
    struct virgl_cmd_buf base;
-
-   uint32_t *buf;
-
-   int in_fence_fd;
-
-   unsigned nres;
-   unsigned cres;
-   struct virgl_hw_res **res_bo;
+   struct virgl_transfer_cmd_buf cmd_buf[VIRGL_COMMAND_BUFFERS];
    struct virgl_winsys *ws;
-   uint32_t *res_hlist;
+   struct util_queue cmd_submit_queue;
 
-   char                        is_handle_added[512];
-   unsigned                    reloc_indices_hashlist[512];
-
+   uint32_t current_fill_buffer;
+   struct util_queue_fence *last_queue_fence;
 };
 
 static inline struct virgl_drm_winsys *

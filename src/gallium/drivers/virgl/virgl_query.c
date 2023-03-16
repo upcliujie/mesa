@@ -184,8 +184,10 @@ static bool virgl_get_query_result(struct pipe_context *ctx,
       volatile struct virgl_host_query_state *host_state;
       struct pipe_transfer *transfer = NULL;
 
-      if (vs->vws->res_is_referenced(vs->vws, vctx->cbuf, query->buf->hw_res))
+      if (vs->vws->res_is_referenced(vs->vws, vctx->cbuf, query->buf->hw_res)) {
          ctx->flush(ctx, NULL, 0);
+         virgl_res_wait_referencing_cmd_submitted(vs->vws, query->buf);
+      }
 
       if (wait)
          vs->vws->resource_wait(vs->vws, query->buf->hw_res);

@@ -59,6 +59,16 @@
 #define cache_entry_container_res(ptr) \
     (struct virgl_hw_res*)((char*)ptr - offsetof(struct virgl_hw_res, cache_entry))
 
+
+static void virgl_drm_fence_reference(struct virgl_winsys *vws,
+                                  struct virgl_drm_fence **dfence,
+                                  struct virgl_drm_fence *sfence);
+
+static bool virgl_fence_wait_internal(struct virgl_winsys *vws,
+                                      struct virgl_drm_fence *fence,
+                                      uint64_t timeout);
+
+
 static inline boolean can_cache_resource(uint32_t bind)
 {
    return bind == VIRGL_BIND_CONSTANT_BUFFER ||
@@ -75,6 +85,7 @@ static void virgl_hw_res_destroy(struct virgl_drm_winsys *qdws,
                                  struct virgl_hw_res *res)
 {
       struct drm_gem_close args;
+      struct virgl_winsys *vws = (struct virgl_winsys*)qdws;
 
       mtx_lock(&qdws->bo_handles_mutex);
 
@@ -99,6 +110,10 @@ static void virgl_hw_res_destroy(struct virgl_drm_winsys *qdws,
       memset(&args, 0, sizeof(args));
       args.handle = res->bo_handle;
       drmIoctl(qdws->fd, DRM_IOCTL_GEM_CLOSE, &args);
+
+      if (res->last_written_fence)
+         virgl_drm_fence_reference(vws, &(res->last_written_fence), NULL);
+
       FREE(res);
 }
 
@@ -136,6 +151,7 @@ virgl_drm_winsys_destroy(struct virgl_winsys *qws)
    _mesa_hash_table_destroy(qdws->bo_names, NULL);
    mtx_destroy(&qdws->bo_handles_mutex);
    mtx_destroy(&qdws->mutex);
+   mtx_destroy(&qdws->cmd_submit_mutex);
 
    FREE(qdws);
 }
@@ -153,6 +169,7 @@ static void virgl_drm_resource_reference(struct virgl_winsys *qws,
           p_atomic_read(&old->external)) {
          virgl_hw_res_destroy(qdws, old);
       } else {
+         virgl_drm_fence_reference(qws, &((*dres)->last_written_fence), NULL);
          mtx_lock(&qdws->mutex);
          virgl_resource_cache_add(&qdws->cache, &old->cache_entry);
          mtx_unlock(&qdws->mutex);
@@ -714,62 +731,104 @@ static void virgl_drm_resource_wait(struct virgl_winsys *qws,
    p_atomic_set(&res->maybe_busy, false);
 }
 
-static bool virgl_drm_alloc_res_list(struct virgl_drm_cmd_buf *cbuf,
+static void virgl_drm_resource_wait_writes(struct virgl_winsys *qws,
+                                           struct virgl_hw_res *res)
+{
+   struct virgl_drm_fence *fence = res->last_written_fence;
+
+   if (p_atomic_read(&res->external)) {
+      virgl_drm_resource_wait(qws, res);
+      return;
+   }
+
+   if (!fence)
+      return;
+
+   virgl_fence_wait_internal(qws, fence, 0);
+}
+
+static bool virgl_drm_alloc_res_list(struct virgl_drm_cmd_buf *cmd_buf,
                                      int initial_size)
 {
-   cbuf->nres = initial_size;
-   cbuf->cres = 0;
+   for (int i = 0; i < VIRGL_COMMAND_BUFFERS; ++i) {
+      struct virgl_transfer_cmd_buf *cbuf = &cmd_buf->cmd_buf[i];
+      cbuf->nres = initial_size;
+      cbuf->cres = 0;
 
-   cbuf->res_bo = CALLOC(cbuf->nres, sizeof(struct virgl_hw_buf*));
-   if (!cbuf->res_bo)
-      return false;
+      util_queue_fence_init(&cbuf->queue_fence);
 
-   cbuf->res_hlist = MALLOC(cbuf->nres * sizeof(uint32_t));
-   if (!cbuf->res_hlist) {
-      FREE(cbuf->res_bo);
-      return false;
+      cbuf->res_bo = CALLOC(cbuf->nres, sizeof(struct virgl_hw_buf*));
+      if (!cbuf->res_bo)
+         return false;
+
+      cbuf->res_hlist = MALLOC(cbuf->nres * sizeof(uint32_t));
+      if (!cbuf->res_hlist) {
+         FREE(cbuf->res_bo);
+         return false;
+      }
+
+      cbuf->res_written = MALLOC(cbuf->nres * sizeof(boolean));
+      if (!cbuf->res_written) {
+         FREE(cbuf->res_bo);
+         FREE(cbuf->res_hlist);
+         return false;
+      }
    }
 
    return true;
 }
 
-static void virgl_drm_free_res_list(struct virgl_drm_cmd_buf *cbuf)
-{
-   int i;
+static void virgl_drm_free_res_list(struct virgl_drm_cmd_buf *cmd_buf)
 
-   for (i = 0; i < cbuf->cres; i++) {
-      p_atomic_dec(&cbuf->res_bo[i]->num_cs_references);
-      virgl_drm_resource_reference(cbuf->ws, &cbuf->res_bo[i], NULL);
+{
+   for (int j = 0; j < VIRGL_COMMAND_BUFFERS; ++j) {
+      struct virgl_transfer_cmd_buf *cbuf = &cmd_buf->cmd_buf[j];
+      util_queue_fence_destroy(&cbuf->queue_fence);
+
+      for (int i = 0; i < cbuf->cres; i++) {
+         p_atomic_dec(&cbuf->res_bo[i]->num_cs_references);
+         virgl_drm_resource_reference(cmd_buf->ws, &cbuf->res_bo[i], NULL);
+      }
+      FREE(cbuf->res_written);
+      FREE(cbuf->res_hlist);
+      FREE(cbuf->res_bo);
    }
-   FREE(cbuf->res_hlist);
-   FREE(cbuf->res_bo);
 }
 
-static boolean virgl_drm_lookup_res(struct virgl_drm_cmd_buf *cbuf,
+static int virgl_drm_lookup_res_idx(struct virgl_drm_cmd_buf *cmd_buf,
                                     struct virgl_hw_res *res)
 {
+   struct virgl_transfer_cmd_buf *cbuf =
+         &cmd_buf->cmd_buf[cmd_buf->current_fill_buffer];
+
    unsigned hash = res->res_handle & (sizeof(cbuf->is_handle_added)-1);
    int i;
 
    if (cbuf->is_handle_added[hash]) {
       i = cbuf->reloc_indices_hashlist[hash];
       if (cbuf->res_bo[i] == res)
-         return true;
+         return i;
 
       for (i = 0; i < cbuf->cres; i++) {
          if (cbuf->res_bo[i] == res) {
             cbuf->reloc_indices_hashlist[hash] = i;
-            return true;
+            return i;
          }
       }
    }
-   return false;
+   return -1;
 }
 
 static void virgl_drm_add_res(struct virgl_drm_winsys *qdws,
-                              struct virgl_drm_cmd_buf *cbuf,
-                              struct virgl_hw_res *res)
+                              struct virgl_drm_cmd_buf *cmd_buf,
+                              struct virgl_hw_res *res,
+                              boolean write_buf)
 {
+   struct virgl_transfer_cmd_buf *cbuf =
+         &cmd_buf->cmd_buf[cmd_buf->current_fill_buffer];
+   assert(cbuf);
+   assert(cbuf->res_bo);
+
    unsigned hash = res->res_handle & (sizeof(cbuf->is_handle_added)-1);
 
    if (cbuf->cres >= cbuf->nres) {
@@ -791,21 +850,33 @@ static void virgl_drm_add_res(struct virgl_drm_winsys *qdws,
           return;
       }
       cbuf->res_hlist = new_ptr;
+
+      new_ptr = REALLOC(cbuf->res_written,
+                        cbuf->nres * sizeof(uint32_t),
+                        new_nres * sizeof(uint32_t));
+      if (!new_ptr) {
+         _debug_printf("failure to add written list %d, %d\n", cbuf->cres, cbuf->nres);
+         return;
+      }
+      cbuf->res_written = new_ptr;
       cbuf->nres = new_nres;
    }
 
    cbuf->res_bo[cbuf->cres] = NULL;
    virgl_drm_resource_reference(&qdws->base, &cbuf->res_bo[cbuf->cres], res);
+   res->buffer_fence = &cbuf->queue_fence;
    cbuf->res_hlist[cbuf->cres] = res->bo_handle;
    cbuf->is_handle_added[hash] = TRUE;
 
+   cbuf->res_written[cbuf->cres] = write_buf;
    cbuf->reloc_indices_hashlist[hash] = cbuf->cres;
    p_atomic_inc(&res->num_cs_references);
    cbuf->cres++;
 }
 
 /* This is called after the cbuf is submitted. */
-static void virgl_drm_clear_res_list(struct virgl_drm_cmd_buf *cbuf)
+static void virgl_drm_clear_res_list(struct virgl_winsys *ws,
+                                     struct virgl_transfer_cmd_buf *cbuf)
 {
    int i;
 
@@ -814,7 +885,8 @@ static void virgl_drm_clear_res_list(struct virgl_drm_cmd_buf *cbuf)
       p_atomic_set(&cbuf->res_bo[i]->maybe_busy, true);
 
       p_atomic_dec(&cbuf->res_bo[i]->num_cs_references);
-      virgl_drm_resource_reference(cbuf->ws, &cbuf->res_bo[i], NULL);
+
+      virgl_drm_resource_reference(ws, &cbuf->res_bo[i], NULL);
    }
 
    cbuf->cres = 0;
@@ -828,13 +900,18 @@ static void virgl_drm_emit_res(struct virgl_winsys *qws,
 {
    struct virgl_drm_winsys *qdws = virgl_drm_winsys(qws);
    struct virgl_drm_cmd_buf *cbuf = virgl_drm_cmd_buf(_cbuf);
-   boolean already_in_list = virgl_drm_lookup_res(cbuf, res);
+   int resource_index = virgl_drm_lookup_res_idx(cbuf, res);
 
    if (write_buf)
       cbuf->base.buf[cbuf->base.cdw++] = res->res_handle;
 
-   if (!already_in_list)
-      virgl_drm_add_res(qdws, cbuf, res);
+   if (resource_index == -1)
+      virgl_drm_add_res(qdws, cbuf, res, write_buf);
+   else if (write_buf) {
+      struct virgl_transfer_cmd_buf *buf =
+            &cbuf->cmd_buf[cbuf->current_fill_buffer];
+      buf->res_written[resource_index] = write_buf;
+   }
 }
 
 static boolean virgl_drm_res_is_ref(struct virgl_winsys *qws,
@@ -847,42 +924,66 @@ static boolean virgl_drm_res_is_ref(struct virgl_winsys *qws,
    return TRUE;
 }
 
+static void virl_drm_wait_cmd_buffer(struct virgl_winsys *qws,
+                                     struct virgl_hw_res *res)
+{
+   if (res->buffer_fence)
+      util_queue_fence_wait(res->buffer_fence);
+}
+
 static struct virgl_cmd_buf *virgl_drm_cmd_buf_create(struct virgl_winsys *qws,
                                                       uint32_t size)
 {
-   struct virgl_drm_cmd_buf *cbuf;
+   struct virgl_drm_cmd_buf *cmd_buf;
 
-   cbuf = CALLOC_STRUCT(virgl_drm_cmd_buf);
-   if (!cbuf)
+   cmd_buf = CALLOC_STRUCT(virgl_drm_cmd_buf);
+   if (!cmd_buf)
       return NULL;
 
-   cbuf->ws = qws;
+   cmd_buf->ws = qws;
 
-   if (!virgl_drm_alloc_res_list(cbuf, 512)) {
-      FREE(cbuf);
-      return NULL;
-   }
-
-   cbuf->buf = CALLOC(size, sizeof(uint32_t));
-   if (!cbuf->buf) {
-      FREE(cbuf->res_hlist);
-      FREE(cbuf->res_bo);
-      FREE(cbuf);
+   if (!virgl_drm_alloc_res_list(cmd_buf, 512)) {
+      FREE(cmd_buf);
       return NULL;
    }
 
-   cbuf->in_fence_fd = -1;
-   cbuf->base.buf = cbuf->buf;
-   return &cbuf->base;
+   for (int i = 0; i < VIRGL_COMMAND_BUFFERS; ++i) {
+      struct virgl_transfer_cmd_buf *cbuf = &cmd_buf->cmd_buf[i];
+      cbuf->cmd = CALLOC(size, sizeof(uint32_t));
+
+      if (!cbuf->cmd) {
+         FREE(cbuf->res_hlist);
+         FREE(cbuf->res_bo);
+         return NULL;
+      }
+   }
+   cmd_buf->current_fill_buffer = 0;
+   cmd_buf->last_queue_fence = &cmd_buf->cmd_buf[VIRGL_COMMAND_BUFFERS - 1].queue_fence;
+
+   util_queue_init(&cmd_buf->cmd_submit_queue, "virgl-cmd-submit",
+                   VIRGL_COMMAND_BUFFERS, 1, 0, qws);
+
+   struct virgl_transfer_cmd_buf *buffer =
+         &cmd_buf->cmd_buf[cmd_buf->current_fill_buffer];
+   buffer->in_fence_id = -1;
+   cmd_buf->base.buf = buffer->cmd;
+
+   return &cmd_buf->base;
 }
 
 static void virgl_drm_cmd_buf_destroy(struct virgl_cmd_buf *_cbuf)
 {
    struct virgl_drm_cmd_buf *cbuf = virgl_drm_cmd_buf(_cbuf);
 
+   util_queue_finish(&cbuf->cmd_submit_queue);
+   util_queue_destroy(&cbuf->cmd_submit_queue);
+
    virgl_drm_free_res_list(cbuf);
 
-   FREE(cbuf->buf);
+   for (int i = 0; i < VIRGL_COMMAND_BUFFERS; ++i) {
+      FREE(cbuf->cmd_buf[i].cmd);
+   }
+
    FREE(cbuf);
 }
 
@@ -940,56 +1041,121 @@ virgl_drm_fence_create_legacy(struct virgl_winsys *vws)
    return (struct pipe_fence_handle *)fence;
 }
 
+static void virgl_drm_fence_reference(struct virgl_winsys *vws,
+                                      struct virgl_drm_fence **dfence,
+                                      struct virgl_drm_fence *sfence)
+{
+   if (pipe_reference(&((*dfence)->reference), &sfence->reference)) {
+      if (vws->supports_fences) {
+         close((*dfence)->fd);
+      } else {
+         struct virgl_drm_winsys *vdws = virgl_drm_winsys(vws);
+         virgl_hw_res_destroy(vdws, (*dfence)->hw_res);
+      }
+      FREE(*dfence);
+   }
+   *dfence = sfence;
+}
+
+static void virgl_drm_winsys_submit_cmd_buffer(void *job, void *gdata, int thread_index)
+{
+   struct virgl_drm_winsys *qdws = virgl_drm_winsys(gdata);
+   struct virgl_transfer_cmd_buf *buffer = (struct virgl_transfer_cmd_buf *)job;
+   struct drm_virtgpu_execbuffer eb;
+
+   memset(&eb, 0, sizeof(struct drm_virtgpu_execbuffer));
+   eb.command = (unsigned long)(void*)buffer->cmd;
+   eb.size = buffer->ncdw * 4;
+   eb.num_bo_handles = buffer->cres;
+   eb.bo_handles = (unsigned long)(void *)buffer->res_hlist;
+
+   eb.fence_fd = -1;
+   if (buffer->fence_flags) {
+      eb.flags = buffer->fence_flags;
+      if (buffer->in_fence_id >= 0)
+         eb.fence_fd = buffer->in_fence_id;
+   }
+
+   drmIoctl(qdws->fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &eb);
+   buffer->out_fence_id = eb.fence_fd;
+
+   if (buffer->in_fence_id >= 0) {
+      close(buffer->in_fence_id);
+      buffer->in_fence_id = -1;
+   }
+
+   /* If no fence has to be created, then we can remove the resources
+    * from the command list right away. Otherwise we need access to these
+    * resources in the main thread to add possible write fences. */
+   if (!buffer->expect_create_fence)
+      virgl_drm_clear_res_list(&qdws->base, buffer);
+   buffer->ncdw = 0;
+
+}
+
 static int virgl_drm_winsys_submit_cmd(struct virgl_winsys *qws,
                                        struct virgl_cmd_buf *_cbuf,
                                        struct pipe_fence_handle **fence)
 {
    struct virgl_drm_winsys *qdws = virgl_drm_winsys(qws);
    struct virgl_drm_cmd_buf *cbuf = virgl_drm_cmd_buf(_cbuf);
-   struct drm_virtgpu_execbuffer eb;
-   int ret;
+   int ret = 0;
 
    if (cbuf->base.cdw == 0)
       return 0;
 
-   memset(&eb, 0, sizeof(struct drm_virtgpu_execbuffer));
-   eb.command = (unsigned long)(void*)cbuf->buf;
-   eb.size = cbuf->base.cdw * 4;
-   eb.num_bo_handles = cbuf->cres;
-   eb.bo_handles = (unsigned long)(void *)cbuf->res_hlist;
+   int transfer_buffer_id = cbuf->current_fill_buffer++;
 
-   eb.fence_fd = -1;
+   if (cbuf->current_fill_buffer >= VIRGL_COMMAND_BUFFERS)
+      cbuf->current_fill_buffer = 0;
+
+   struct virgl_transfer_cmd_buf *buffer = &cbuf->cmd_buf[transfer_buffer_id];
+   buffer->ncdw = cbuf->base.cdw;
+
    if (qws->supports_fences) {
-      if (cbuf->in_fence_fd >= 0) {
-         eb.flags |= VIRTGPU_EXECBUF_FENCE_FD_IN;
-         eb.fence_fd = cbuf->in_fence_fd;
-      }
+      buffer->fence_flags = 0;
+      if (buffer->in_fence_id >= 0)
+         buffer->fence_flags |= VIRTGPU_EXECBUF_FENCE_FD_IN;
 
       if (fence != NULL)
-         eb.flags |= VIRTGPU_EXECBUF_FENCE_FD_OUT;
-   } else {
-      assert(cbuf->in_fence_fd < 0);
+         buffer->fence_flags |= VIRTGPU_EXECBUF_FENCE_FD_OUT;
    }
 
-   ret = drmIoctl(qdws->fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &eb);
-   if (ret == -1)
-      _debug_printf("got error from kernel - expect bad rendering %d\n", errno);
-   cbuf->base.cdw = 0;
+   buffer->expect_create_fence = fence != NULL;
 
-   if (qws->supports_fences) {
-      if (cbuf->in_fence_fd >= 0) {
-         close(cbuf->in_fence_fd);
-         cbuf->in_fence_fd = -1;
+   if (unlikely(virgl_debug & VIRGL_DEBUG_SYNC_CMD_SUBMISSION)) {
+      virgl_drm_winsys_submit_cmd_buffer(buffer, cbuf->cmd_submit_queue.global_data, 0);
+   } else {
+      util_queue_add_job(&cbuf->cmd_submit_queue, buffer, &buffer->queue_fence,
+                         virgl_drm_winsys_submit_cmd_buffer, NULL, 0);
+   }
+
+   if (fence != NULL) {
+      util_queue_fence_wait(&buffer->queue_fence);
+      if (qws->supports_fences) {
+         if (fence != NULL && ret == 0) {
+            assert (buffer->out_fence_id >= 0);
+            *fence = virgl_drm_fence_create(qws, buffer->out_fence_id, false);
+         }
+      } else {
+         if (fence != NULL && ret == 0)
+            *fence = virgl_drm_fence_create_legacy(qws);
       }
-
-      if (fence != NULL && ret == 0)
-         *fence = virgl_drm_fence_create(qws, eb.fence_fd, false);
-   } else {
-      if (fence != NULL && ret == 0)
-         *fence = virgl_drm_fence_create_legacy(qws);
+      for (int i = 0; i < buffer->cres; i++) {
+         if (buffer->res_written[i])
+            virgl_drm_fence_reference(qws, &(buffer->res_bo[i]->last_written_fence), virgl_drm_fence(*fence));
+      }
+      virgl_drm_clear_res_list(&qdws->base, buffer);
    }
 
-   virgl_drm_clear_res_list(cbuf);
+   struct virgl_transfer_cmd_buf *fill_buffer =
+         &cbuf->cmd_buf[cbuf->current_fill_buffer];
+   util_queue_fence_wait(&fill_buffer->queue_fence);
+
+   fill_buffer->fence_flags = 0;
+   fill_buffer->in_fence_id = -1;
+   cbuf->base.buf = fill_buffer->cmd;
+   cbuf->base.cdw = 0;
 
    return ret;
 }
@@ -1035,12 +1201,10 @@ virgl_cs_create_fence(struct virgl_winsys *vws, int fd)
    return virgl_drm_fence_create(vws, fd, true);
 }
 
-static bool virgl_fence_wait(struct virgl_winsys *vws,
-                             struct pipe_fence_handle *_fence,
-                             uint64_t timeout)
+static bool virgl_fence_wait_internal(struct virgl_winsys *vws,
+                                      struct virgl_drm_fence *fence,
+                                      uint64_t timeout)
 {
-   struct virgl_drm_fence *fence = virgl_drm_fence(_fence);
-
    if (vws->supports_fences) {
       uint64_t timeout_ms;
       int timeout_poll;
@@ -1076,6 +1240,13 @@ static bool virgl_fence_wait(struct virgl_winsys *vws,
    return TRUE;
 }
 
+static bool virgl_fence_wait(struct virgl_winsys *vws,
+                             struct pipe_fence_handle *_fence,
+                             uint64_t timeout)
+{
+   return virgl_fence_wait_internal(vws, virgl_drm_fence(_fence), timeout);
+}
+
 static void virgl_fence_reference(struct virgl_winsys *vws,
                                   struct pipe_fence_handle **dst,
                                   struct pipe_fence_handle *src)
@@ -1109,7 +1280,9 @@ static void virgl_fence_server_sync(struct virgl_winsys *vws,
    if (!fence->external)
       return;
 
-   sync_accumulate("virgl", &cbuf->in_fence_fd, fence->fd);
+   sync_accumulate("virgl",
+                   &cbuf->cmd_buf[cbuf->current_fill_buffer].in_fence_id,
+                   fence->fd);
 }
 
 static int virgl_fence_get_fd(struct virgl_winsys *vws,
@@ -1243,6 +1416,7 @@ virgl_drm_winsys_create(int drmFD)
                              virgl_drm_resource_cache_entry_release,
                              qdws);
    (void) mtx_init(&qdws->mutex, mtx_plain);
+   (void) mtx_init(&qdws->cmd_submit_mutex, mtx_plain);
    (void) mtx_init(&qdws->bo_handles_mutex, mtx_plain);
    p_atomic_set(&qdws->blob_id, 0);
 
@@ -1260,12 +1434,14 @@ virgl_drm_winsys_create(int drmFD)
    qdws->base.resource_get_storage_size = virgl_drm_winsys_resource_get_storage_size;
    qdws->base.resource_map = virgl_drm_resource_map;
    qdws->base.resource_wait = virgl_drm_resource_wait;
+   qdws->base.resource_wait_writes = virgl_drm_resource_wait_writes;
    qdws->base.resource_is_busy = virgl_drm_resource_is_busy;
    qdws->base.cmd_buf_create = virgl_drm_cmd_buf_create;
    qdws->base.cmd_buf_destroy = virgl_drm_cmd_buf_destroy;
    qdws->base.submit_cmd = virgl_drm_winsys_submit_cmd;
    qdws->base.emit_res = virgl_drm_emit_res;
    qdws->base.res_is_referenced = virgl_drm_res_is_ref;
+   qdws->base.res_wait_cmd_buffer_submitted = virl_drm_wait_cmd_buffer;
 
    qdws->base.cs_create_fence = virgl_cs_create_fence;
    qdws->base.fence_wait = virgl_fence_wait;
