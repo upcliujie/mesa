@@ -404,6 +404,8 @@
    DRI_CONF_OPT_B(mesa_no_error, def, \
                   "Disable GL driver error checking")
 
+#define DRI_CONF_GL_SKIP_FLUSHES(def) \
+   DRI_CONF_OPT_B(gl_skip_flushes, def, "Skip flushes originating from glFlush")
 
 /**
  * \brief Miscellaneous configuration options
