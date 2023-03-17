@@ -25,12 +25,14 @@
 #    Jason Ekstrand (jason@jlekstrand.net)
 
 from collections import OrderedDict
-import nir_algebraic
-from nir_opcodes import type_sizes
-import itertools
-import struct
 from math import pi
+import argparse
+import itertools
 import math
+import struct
+
+from nir_opcodes import type_sizes
+import nir_algebraic
 
 # Convenience variables
 a = 'a'
@@ -3171,10 +3173,16 @@ distribute_src_mods = [
    (('fabs', ('fsign(is_used_once)', a)), ('fsign', ('fabs', a))),
 ]
 
-print(nir_algebraic.AlgebraicPass("nir_opt_algebraic", optimizations).render())
-print(nir_algebraic.AlgebraicPass("nir_opt_algebraic_before_ffma",
-                                  before_ffma_optimizations).render())
-print(nir_algebraic.AlgebraicPass("nir_opt_algebraic_late",
-                                  late_optimizations).render())
-print(nir_algebraic.AlgebraicPass("nir_opt_algebraic_distribute_src_mods",
-                                  distribute_src_mods).render())
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output')
+    args = parser.parse_args()
+
+    with open(args.output, 'w') as f:
+        f.write(nir_algebraic.AlgebraicPass("nir_opt_algebraic", optimizations).render())
+        f.write(nir_algebraic.AlgebraicPass("nir_opt_algebraic_before_ffma",
+                                            before_ffma_optimizations).render())
+        f.write(nir_algebraic.AlgebraicPass("nir_opt_algebraic_late",
+                                            late_optimizations).render())
+        f.write(nir_algebraic.AlgebraicPass("nir_opt_algebraic_distribute_src_mods",
+                                            distribute_src_mods).render())

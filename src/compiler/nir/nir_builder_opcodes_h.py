@@ -1,3 +1,10 @@
+import argparse
+
+from mako.template import Template
+
+from nir_opcodes import opcodes, type_size, type_base_type
+from nir_intrinsics import INTR_OPCODES, WRITE_MASK, ALIGN_MUL
+
 template = """\
 /* Copyright (C) 2015 Broadcom
  *
@@ -169,13 +176,15 @@ _nir_build_${name}(build${intrinsic_macro_list(opcode)}, (struct _nir_${name}_in
 
 #endif /* _NIR_BUILDER_OPCODES_ */"""
 
-from nir_opcodes import opcodes, type_size, type_base_type
-from nir_intrinsics import INTR_OPCODES, WRITE_MASK, ALIGN_MUL
-from mako.template import Template
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output')
+    args = parser.parse_args()
 
-print(Template(template).render(opcodes=opcodes,
-                                type_size=type_size,
-                                type_base_type=type_base_type,
-                                INTR_OPCODES=INTR_OPCODES,
-                                WRITE_MASK=WRITE_MASK,
-                                ALIGN_MUL=ALIGN_MUL))
+    with open(args.output, 'w') as f:
+        f.write(Template(template).render(opcodes=opcodes,
+                                          type_size=type_size,
+                                          type_base_type=type_base_type,
+                                          INTR_OPCODES=INTR_OPCODES,
+                                          WRITE_MASK=WRITE_MASK,
+                                          ALIGN_MUL=ALIGN_MUL))

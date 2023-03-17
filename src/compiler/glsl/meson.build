@@ -60,16 +60,14 @@ ir_expression_operation_constant_h = custom_target(
   'ir_expression_operation_constant.h',
   input : 'ir_expression_operation.py',
   output : 'ir_expression_operation_constant.h',
-  command : [prog_python, '@INPUT@', 'constant'],
-  capture : true,
+  command : [prog_python, '@INPUT@', 'constant', '@OUTPUT@'],
 )
 
 ir_expression_operation_strings_h = custom_target(
   'ir_expression_operation_strings.h',
   input : 'ir_expression_operation.py',
   output : 'ir_expression_operation_strings.h',
-  command : [prog_python, '@INPUT@', 'strings'],
-  capture : true,
+  command : [prog_python, '@INPUT@', 'strings', '@OUTPUT@'],
 )
 
 float64_glsl_h = custom_target(

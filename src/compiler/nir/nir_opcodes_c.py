@@ -23,8 +23,11 @@
 # Authors:
 #    Connor Abbott (cwabbott0@gmail.com)
 
-from nir_opcodes import opcodes, type_sizes
+import argparse
+
 from mako.template import Template
+
+from nir_opcodes import opcodes, type_sizes
 
 template = Template("""
 #include "nir.h"
@@ -130,4 +133,10 @@ const nir_op_info nir_op_infos[nir_num_opcodes] = {
 };
 """)
 
-print(template.render(opcodes=opcodes, type_sizes=type_sizes))
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output')
+    args = parser.parse_args()
+
+    with open(args.output, 'w') as f:
+        f.write(template.render(opcodes=opcodes, type_sizes=type_sizes))

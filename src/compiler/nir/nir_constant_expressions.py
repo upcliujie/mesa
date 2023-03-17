@@ -1,4 +1,7 @@
-import re
+import argparse
+
+from mako.template import Template
+
 from nir_opcodes import opcodes
 from nir_opcodes import type_has_size, type_size, type_sizes, type_base_type
 
@@ -517,12 +520,17 @@ nir_eval_const_opcode(nir_op op, nir_const_value *dest,
    }
 }"""
 
-from mako.template import Template
 
-print(Template(template).render(opcodes=opcodes, type_sizes=type_sizes,
-                                type_base_type=type_base_type,
-                                type_size=type_size,
-                                type_has_size=type_has_size,
-                                type_add_size=type_add_size,
-                                op_bit_sizes=op_bit_sizes,
-                                get_const_field=get_const_field))
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output')
+    args = parser.parse_args()
+
+    with open(args.output, 'w') as f:
+        f.write(Template(template).render(opcodes=opcodes, type_sizes=type_sizes,
+                                          type_base_type=type_base_type,
+                                          type_size=type_size,
+                                          type_has_size=type_has_size,
+                                          type_add_size=type_add_size,
+                                          op_bit_sizes=op_bit_sizes,
+                                          get_const_field=get_const_field))

@@ -26,8 +26,7 @@ nir_builder_opcodes_h = custom_target(
   'nir_builder_opcodes.h',
   input : 'nir_builder_opcodes_h.py',
   output : 'nir_builder_opcodes.h',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_depends,
 )
 
@@ -35,8 +34,7 @@ nir_constant_expressions_c = custom_target(
   'nir_constant_expressions.c',
   input : 'nir_constant_expressions.py',
   output : 'nir_constant_expressions.c',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_depends,
 )
 
@@ -44,8 +42,7 @@ nir_opcodes_h = custom_target(
   'nir_opcodes.h',
   input : 'nir_opcodes_h.py',
   output : 'nir_opcodes.h',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_depends,
 )
 
@@ -53,8 +50,7 @@ nir_opcodes_c = custom_target(
   'nir_opcodes.c',
   input : 'nir_opcodes_c.py',
   output : 'nir_opcodes.c',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_depends,
 )
 
@@ -62,8 +58,7 @@ nir_opt_algebraic_c = custom_target(
   'nir_opt_algebraic.c',
   input : 'nir_opt_algebraic.py',
   output : 'nir_opt_algebraic.c',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : nir_algebraic_depends,
 )
 
@@ -71,8 +66,7 @@ nir_intrinsics_h = custom_target(
   'nir_intrinsics.h',
   input : 'nir_intrinsics_h.py',
   output : 'nir_intrinsics.h',
-  command : [prog_python, '@INPUT@', '--outdir', meson.current_build_dir()],
-  capture : false,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : files('nir_intrinsics.py'),
 )
 
@@ -80,7 +74,7 @@ nir_intrinsics_indices_h = custom_target(
   'nir_intrinsics_indices.h',
   input : 'nir_intrinsics_indices_h.py',
   output : 'nir_intrinsics_indices.h',
-  command : [prog_python, '@INPUT@', '--outdir', meson.current_build_dir()],
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   capture : false,
   depend_files : files('nir_intrinsics.py'),
 )
@@ -89,8 +83,7 @@ nir_intrinsics_c = custom_target(
   'nir_intrinsic.c',
   input : 'nir_intrinsics_c.py',
   output : 'nir_intrinsics.c',
-  command : [prog_python, '@INPUT@', '--outdir', meson.current_build_dir()],
-  capture: false,
+  command : [prog_python, '@INPUT@', '@OUTPUT@'],
   depend_files : files('nir_intrinsics.py'),
 )
 

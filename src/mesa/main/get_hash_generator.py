@@ -28,8 +28,12 @@
 # Generate a C header file containing hash tables of glGet parameter
 # names for each GL API. The generated file is to be included by glGet.c
 
-import os, sys, getopt
 from collections import defaultdict
+import argparse
+import os
+import sys
+import typing
+
 import get_hash_params
 
 param_desc_file = os.path.join(os.path.dirname(__file__), "get_hash_params.py")
@@ -44,17 +48,17 @@ hash_table_size = 1024
 
 gl_apis=set(["GL", "GL_CORE", "GLES", "GLES2", "GLES3", "GLES31", "GLES32"])
 
-def print_header():
-   print("typedef const unsigned short table_t[%d];\n" % (hash_table_size))
-   print("static const int prime_factor = %d, prime_step = %d;\n" % \
+def print_header(f: 'typing.TextIO') -> 'None':
+   f.write("typedef const unsigned short table_t[%d];\n\n" % (hash_table_size))
+   f.write("static const int prime_factor = %d, prime_step = %d;\n\n" % \
           (prime_factor, prime_step))
 
-def print_params(params):
-   print("static const struct value_desc values[] = {")
+def print_params(f: 'typing.TextIO', params) -> 'None':
+   f.write("static const struct value_desc values[] = {\n")
    for p in params:
-      print("    { %s, %s }," % (p[0], p[1]))
+      f.write("    { %s, %s },\n" % (p[0], p[1]))
 
-   print("};\n")
+   f.write("};\n\n")
 
 def api_name(api):
    return "API_OPEN%s" % api
@@ -76,8 +80,8 @@ def api_index(api):
 def table_name(api):
    return "table_" + api_name(api)
 
-def print_table(api, table):
-   print("static table_t %s = {" % (table_name(api)))
+def print_table(f: 'typing.TextIO', api, table):
+   f.write("static table_t %s = {\n" % (table_name(api)))
 
    # convert sparse (index, value) table into a dense table
    dense_table = [0] * hash_table_size
@@ -88,13 +92,13 @@ def print_table(api, table):
    for i in range(0, hash_table_size, row_size):
       row = dense_table[i : i + row_size]
       idx_val = ["%4d" % v for v in row]
-      print(" " * 4 + ", ".join(idx_val) + ",")
+      f.write(" " * 4 + ", ".join(idx_val) + ",\n")
 
-   print("};\n")
+   f.write("};\n\n")
 
-def print_tables(tables):
+def print_tables(f: 'typing.TextIO', tables):
    for table in tables:
-      print_table(table["apis"][0], table["indices"])
+      print_table(f, table["apis"][0], table["indices"])
 
    dense_tables = ['NULL'] * len(api_enum)
    for table in tables:
@@ -103,12 +107,12 @@ def print_tables(tables):
          i = api_index(api)
          dense_tables[i] = "&%s" % (tname)
 
-   print("static table_t *table_set[] = {")
+   f.write("static table_t *table_set[] = {\n")
    for expr in dense_tables:
-      print("   %s," % expr)
-   print("};\n")
+      f.write("   %s,\n" % expr)
+   f.write("};\n\n")
 
-   print("#define table(api) (*table_set[api])")
+   f.write("#define table(api) (*table_set[api])")
 
 # Merge tables with matching parameter lists (i.e. GL and GL_CORE)
 def merge_tables(tables):
@@ -188,43 +192,25 @@ def generate_hash_tables(enum_list, enabled_apis, param_descriptors):
    return params, merge_tables(sorted_tables)
 
 
-def show_usage():
-   sys.stderr.write(
-"""Usage: %s [OPTIONS]
-  -f <file>          specify GL API XML file
-""" % (program))
-   exit(1)
-
 if __name__ == '__main__':
-   try:
-      (opts, args) = getopt.getopt(sys.argv[1:], "f:")
-   except Exception:
-      show_usage()
-
-   if len(args) != 0:
-      show_usage()
-
-   api_desc_file = ""
-
-   for opt_name, opt_val in opts:
-      if opt_name == "-f":
-         api_desc_file = opt_val
-
-   if not api_desc_file:
-      die("missing descriptor file (-f)\n")
+   parser = argparse.ArgumentParser()
+   parser.add_argument('output')
+   parser.add_argument('-f', '--file', dest='api_desc_file', required=True, help="Specify GL API XML file" )
+   args = parser.parse_args()
 
    # generate the code for all APIs
    enabled_apis = set(["GLES", "GLES2", "GLES3", "GLES31", "GLES32",
                        "GL", "GL_CORE"])
 
    try:
-      api_desc = gl_XML.parse_GL_API(api_desc_file)
+      api_desc = gl_XML.parse_GL_API(args.api_desc_file)
    except Exception:
-      die("couldn't parse API specification file %s\n" % api_desc_file)
+      die("couldn't parse API specification file %s\n" % args.api_desc_file)
 
    (params, hash_tables) = generate_hash_tables(api_desc.enums_by_name,
                               enabled_apis, get_hash_params.descriptor)
 
-   print_header()
-   print_params(params)
-   print_tables(hash_tables)
+   with open(args.output, 'w') as f:
+      print_header(f)
+      print_params(f, params)
+      print_tables(f, hash_tables)

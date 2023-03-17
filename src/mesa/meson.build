@@ -415,9 +415,8 @@ get_hash_h = custom_target(
   'get_hash.h',
   input : ['main/get_hash_generator.py', gl_and_es_api_files],
   output : 'get_hash.h',
-  command : [prog_python, '@INPUT0@', '-f', '@INPUT1@'],
+  command : [prog_python, '@INPUT0@', '-f', '@INPUT1@', '@OUTPUT@'],
   depend_files : files('main/get_hash_params.py'),
-  capture : true,
 )
 
 foreach x : [['format_info.h', 'format_info.py']]

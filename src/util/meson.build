@@ -204,8 +204,7 @@ format_srgb = custom_target(
   'format_srgb',
   input : ['format_srgb.py'],
   output : 'format_srgb.c',
-  command : [prog_python, '@INPUT0@'],
-  capture : true,
+  command : [prog_python, '@INPUT0@', '@OUTPUT@'],
 )
 
 deps_for_libmesa_util = [
