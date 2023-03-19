@@ -39,6 +39,7 @@
 #include "util/u_transfer_helper.h"
 #include "util/ralloc.h"
 #include "util/xmlconfig.h"
+#include "util/os_time.h"
 
 #include <xf86drm.h>
 #include "v3d_screen.h"
@@ -109,6 +110,11 @@ v3d_has_feature(struct v3d_screen *screen, enum drm_v3d_param feature)
         return p.value;
 }
 
+static uint64_t
+v3d_get_timestamp(struct pipe_screen *pscreen) {
+        return os_time_get_nano();
+}
+
 static int
 v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 {
@@ -146,6 +152,7 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
         case PIPE_CAP_ANISOTROPIC_FILTER:
         case PIPE_CAP_COPY_BETWEEN_COMPRESSED_AND_PLAIN_FORMATS:
         case PIPE_CAP_INDEP_BLEND_FUNC:
+        case PIPE_CAP_QUERY_TIME_ELAPSED:
                 return 1;
 
         case PIPE_CAP_POLYGON_OFFSET_CLAMP:
@@ -163,6 +170,9 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
                 return 0;
 
         case PIPE_CAP_NIR_IMAGES_AS_DEREF:
+                return 0;
+
+        case PIPE_CAP_QUERY_TIMESTAMP: /* XXX: hw timestamps */
                 return 0;
 
         case PIPE_CAP_TEXTURE_TRANSFER_MODES:
@@ -954,6 +964,7 @@ v3d_screen_create(int fd, const struct pipe_screen_config *config,
         pscreen->get_compiler_options = v3d_screen_get_compiler_options;
         pscreen->get_disk_shader_cache = v3d_screen_get_disk_shader_cache;
         pscreen->query_dmabuf_modifiers = v3d_screen_query_dmabuf_modifiers;
+        pscreen->get_timestamp = v3d_get_timestamp;
         pscreen->is_dmabuf_modifier_supported =
                 v3d_screen_is_dmabuf_modifier_supported;
 

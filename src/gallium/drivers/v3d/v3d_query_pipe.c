@@ -34,6 +34,7 @@
  */
 
 #include "v3d_query.h"
+#include "util/os_time.h"
 
 struct v3d_query_pipe
 {
@@ -90,6 +91,9 @@ v3d_begin_query_pipe(struct v3d_context *v3d, struct v3d_query *query)
                 v3d->current_oq = pquery->bo;
                 v3d->dirty |= V3D_DIRTY_OQ;
                 break;
+        case PIPE_QUERY_TIME_ELAPSED:
+                pquery->start = os_time_get_nano();
+                break;
         default:
                 unreachable("unsupported query type");
         }
@@ -127,6 +131,9 @@ v3d_end_query_pipe(struct v3d_context *v3d, struct v3d_query *query)
         case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
                 v3d->current_oq = NULL;
                 v3d->dirty |= V3D_DIRTY_OQ;
+                break;
+        case PIPE_QUERY_TIME_ELAPSED:
+                pquery->end = os_time_get_nano();
                 break;
         default:
                 unreachable("unsupported query type");
@@ -169,6 +176,7 @@ v3d_get_query_result_pipe(struct v3d_context *v3d, struct v3d_query *query,
                 vresult->b = result != 0;
                 break;
         case PIPE_QUERY_PRIMITIVES_GENERATED:
+        case PIPE_QUERY_TIME_ELAPSED:
         case PIPE_QUERY_PRIMITIVES_EMITTED:
                 vresult->u64 = pquery->end - pquery->start;
                 break;
