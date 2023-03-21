@@ -34,7 +34,7 @@ header = """
 #include "bufferobj.h"
 #include "dispatch.h"
 
-#define COMPAT (!_mesa_is_desktop_gl_core(ctx))
+#define COMPAT (_mesa_is_desktop_gl_compat(ctx))
 
 UNUSED static inline int safe_mul(int a, int b)
 {
