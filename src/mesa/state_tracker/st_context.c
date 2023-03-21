@@ -624,16 +624,28 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
       screen->get_param(screen, PIPE_CAP_RGB_OVERRIDE_DST_ALPHA_BLEND);
    st->can_dither =
       screen->get_param(screen, PIPE_CAP_DITHERING);
-   st->lower_flatshade =
-      !screen->get_param(screen, PIPE_CAP_FLATSHADE);
-   st->lower_alpha_test =
-      !screen->get_param(screen, PIPE_CAP_ALPHA_TEST);
-   st->lower_point_size =
-      !screen->get_param(screen, PIPE_CAP_POINT_SIZE_FIXED);
-   st->lower_two_sided_color =
-      !screen->get_param(screen, PIPE_CAP_TWO_SIDED_COLOR);
-   st->lower_ucp =
-      !screen->get_param(screen, PIPE_CAP_CLIP_PLANES);
+
+   /* GL ES 2/3 don't have these features, so don't bother lowering them
+    * This allows for a faster linking path (see shader_has_one_variant)
+    */
+   if (ctx->API == API_OPENGLES2) {
+      st->lower_flatshade = false;
+      st->lower_alpha_test = false;
+      st->lower_point_size = false;
+      st->lower_two_sided_color = false;
+      st->lower_ucp = false;
+   } else {
+      st->lower_flatshade =
+         !screen->get_param(screen, PIPE_CAP_FLATSHADE);
+      st->lower_alpha_test =
+         !screen->get_param(screen, PIPE_CAP_ALPHA_TEST);
+      st->lower_point_size =
+         !screen->get_param(screen, PIPE_CAP_POINT_SIZE_FIXED);
+      st->lower_two_sided_color =
+         !screen->get_param(screen, PIPE_CAP_TWO_SIDED_COLOR);
+      st->lower_ucp =
+         !screen->get_param(screen, PIPE_CAP_CLIP_PLANES);
+   }
    st->prefer_real_buffer_in_constbuf0 =
       screen->get_param(screen, PIPE_CAP_PREFER_REAL_BUFFER_IN_CONSTBUF0);
    st->has_conditional_render =
