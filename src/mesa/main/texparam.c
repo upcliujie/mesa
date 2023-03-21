@@ -450,7 +450,7 @@ set_tex_parameteri(struct gl_context *ctx,
       return GL_TRUE;
 
    case GL_GENERATE_MIPMAP_SGIS:
-      if (ctx->API != API_OPENGL_COMPAT && ctx->API != API_OPENGLES)
+      if (!_mesa_is_desktop_gl_compat(ctx) && ctx->API != API_OPENGLES)
          goto invalid_pname;
 
       if (params[0] && texObj->Target == GL_TEXTURE_EXTERNAL_OES)
@@ -786,7 +786,7 @@ set_tex_parameterf(struct gl_context *ctx,
       return GL_TRUE;
 
    case GL_TEXTURE_PRIORITY:
-      if (ctx->API != API_OPENGL_COMPAT)
+      if (!_mesa_is_desktop_gl_compat(ctx))
          goto invalid_pname;
 
       flush(ctx);
@@ -1770,7 +1770,7 @@ get_tex_level_parameter_image(struct gl_context *ctx,
 	 }
          break;
       case GL_TEXTURE_BORDER:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
          *params = img->Border;
          break;
@@ -1785,7 +1785,7 @@ get_tex_level_parameter_image(struct gl_context *ctx,
          break;
       case GL_TEXTURE_INTENSITY_SIZE:
       case GL_TEXTURE_LUMINANCE_SIZE:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
          if (_mesa_base_format_has_channel(img->_BaseFormat, pname)) {
             *params = _mesa_get_format_bits(texFormat, pname);
@@ -1838,7 +1838,7 @@ get_tex_level_parameter_image(struct gl_context *ctx,
       /* GL_ARB_texture_float */
       case GL_TEXTURE_LUMINANCE_TYPE_ARB:
       case GL_TEXTURE_INTENSITY_TYPE_ARB:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
          FALLTHROUGH;
       case GL_TEXTURE_RED_TYPE_ARB:
@@ -2314,13 +2314,13 @@ get_tex_parameterfv(struct gl_context *ctx,
          }
          break;
       case GL_TEXTURE_RESIDENT:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
 
          *params = 1.0F;
          break;
       case GL_TEXTURE_PRIORITY:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
 
          *params = obj->Attrib.Priority;
@@ -2352,7 +2352,7 @@ get_tex_parameterfv(struct gl_context *ctx,
          *params = obj->Sampler.Attrib.MaxAnisotropy;
          break;
       case GL_GENERATE_MIPMAP_SGIS:
-         if (ctx->API != API_OPENGL_COMPAT && ctx->API != API_OPENGLES)
+         if (!_mesa_is_desktop_gl_compat(ctx) && ctx->API != API_OPENGLES)
             goto invalid_pname;
 
 	 *params = (GLfloat) obj->Attrib.GenerateMipmap;
@@ -2373,7 +2373,7 @@ get_tex_parameterfv(struct gl_context *ctx,
          /* GL_DEPTH_TEXTURE_MODE_ARB is removed in core-profile and it has
           * never existed in OpenGL ES.
           */
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->Attrib.DepthMode;
          break;
@@ -2566,13 +2566,13 @@ get_tex_parameteriv(struct gl_context *ctx,
          }
          break;
       case GL_TEXTURE_RESIDENT:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
 
          *params = 1;
          break;
       case GL_TEXTURE_PRIORITY:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
 
          *params = FLOAT_TO_INT(obj->Attrib.Priority);
@@ -2632,7 +2632,7 @@ get_tex_parameteriv(struct gl_context *ctx,
          *params = LCLAMPF(obj->Sampler.Attrib.MaxAnisotropy, INT32_MIN, INT32_MAX);
          break;
       case GL_GENERATE_MIPMAP_SGIS:
-         if (ctx->API != API_OPENGL_COMPAT && ctx->API != API_OPENGLES)
+         if (!_mesa_is_desktop_gl_compat(ctx) && ctx->API != API_OPENGLES)
             goto invalid_pname;
 
 	 *params = (GLint) obj->Attrib.GenerateMipmap;
@@ -2650,7 +2650,7 @@ get_tex_parameteriv(struct gl_context *ctx,
          *params = (GLint) obj->Sampler.Attrib.CompareFunc;
          break;
       case GL_DEPTH_TEXTURE_MODE_ARB:
-         if (ctx->API != API_OPENGL_COMPAT)
+         if (!_mesa_is_desktop_gl_compat(ctx))
             goto invalid_pname;
          *params = (GLint) obj->Attrib.DepthMode;
          break;
