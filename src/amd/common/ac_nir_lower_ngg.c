@@ -782,6 +782,59 @@ remove_extra_pos_outputs(nir_shader *shader, lower_ngg_nogs_state *s)
                                 s);
 }
 
+static unsigned
+store_repacked_variables(nir_builder *b,
+                         nir_variable **repacked_variables,
+                         nir_ssa_def *addr,
+                         unsigned num_repacked_variables)
+{
+   nir_ssa_def **all_variables = rzalloc_array(b->shader, nir_ssa_def *, num_repacked_variables);
+   unsigned num_repacked_dwords = 0;
+   for (unsigned i = 0; i < num_repacked_variables; ++i) {
+      unsigned var_dwords = glsl_count_dword_slots(repacked_variables[i]->type, true);
+      all_variables[i] = nir_load_var(b, repacked_variables[i]);
+      num_repacked_dwords += var_dwords;
+   }
+
+   unsigned num_remaining_dwords = num_repacked_dwords;
+   for (unsigned i = 0, step_size; num_remaining_dwords; i += step_size, num_remaining_dwords -= step_size) {
+      step_size = MIN2(2, num_remaining_dwords);
+      nir_ssa_def *val = nir_extract_bits(b, all_variables, num_repacked_variables, i * 32, step_size, 32);
+      nir_store_shared(b, val, addr, .base = lds_es_arg_0 + 4u * i);
+   }
+
+   ralloc_free(all_variables);
+   return num_repacked_dwords;
+}
+
+static void
+load_repacked_variables(nir_builder *b,
+                         nir_variable **repacked_variables,
+                         nir_ssa_def *addr,
+                         unsigned num_repacked_variables,
+                         unsigned num_repacked_dwords)
+{
+   nir_ssa_def **all_dwords = rzalloc_array(b->shader, nir_ssa_def *, num_repacked_dwords);
+   unsigned num_remaining_dwords = num_repacked_dwords;
+   for (unsigned i = 0, step_size; num_remaining_dwords; i += step_size, num_remaining_dwords -= step_size) {
+      step_size = MIN2(2, num_remaining_dwords);
+      nir_ssa_def *load = nir_load_shared(b, step_size, 32, addr, .base = lds_es_arg_0 + 4u * i);
+
+      for (unsigned dw = 0; dw < step_size; ++dw) {
+         all_dwords[i + dw] = nir_channel(b, load, dw);
+      }
+   }
+
+   unsigned num_used_dwords = 0;
+   for (unsigned i = 0, var_dwords; i < num_repacked_variables; ++i, num_used_dwords += var_dwords) {
+      var_dwords = glsl_count_dword_slots(repacked_variables[i]->type, true);
+      nir_ssa_def *val = nir_extract_bits(b, all_dwords, num_repacked_dwords, num_used_dwords * 32, var_dwords, 32);
+      nir_store_var(b, repacked_variables[i], val, BITFIELD_MASK(var_dwords));
+   }
+
+   ralloc_free(all_dwords);
+}
+
 /**
  * Perform vertex compaction after culling.
  *
@@ -808,6 +861,7 @@ compact_vertices_after_culling(nir_builder *b,
    nir_variable *gs_accepted_var = s->gs_accepted_var;
    nir_variable *position_value_var = s->position_value_var;
    nir_variable *prim_exp_arg_var = s->prim_exp_arg_var;
+   unsigned num_repacked_dwords = 0;
 
    nir_if *if_es_accepted = nir_push_if(b, nir_load_var(b, es_accepted_var));
    {
@@ -821,10 +875,8 @@ compact_vertices_after_culling(nir_builder *b,
       nir_store_shared(b, pos, exporter_addr, .base = lds_es_pos_x);
 
       /* Store the current thread's repackable arguments to the exporter thread's LDS space */
-      for (unsigned i = 0; i < num_repacked_variables; ++i) {
-         nir_ssa_def *arg_val = nir_load_var(b, repacked_variables[i]);
-         nir_store_shared(b, arg_val, exporter_addr, .base = lds_es_arg_0 + 4u * i);
-      }
+      num_repacked_dwords = store_repacked_variables(b, repacked_variables, exporter_addr,
+                                                     num_repacked_variables);
 
       /* TES rel patch id does not cost extra dword */
       if (b->shader->info.stage == MESA_SHADER_TESS_EVAL) {
@@ -868,10 +920,8 @@ compact_vertices_after_culling(nir_builder *b,
       nir_store_var(b, position_value_var, exported_pos, 0xfu);
 
       /* Read the repacked arguments */
-      for (unsigned i = 0; i < num_repacked_variables; ++i) {
-         nir_ssa_def *arg_val = nir_load_shared(b, 1, 32, es_vertex_lds_addr, .base = lds_es_arg_0 + 4u * i);
-         nir_store_var(b, repacked_variables[i], arg_val, 0x1u);
-      }
+      load_repacked_variables(b, repacked_variables, es_vertex_lds_addr,
+                              num_repacked_variables, num_repacked_dwords);
 
       if (b->shader->info.stage == MESA_SHADER_TESS_EVAL) {
          nir_ssa_def *arg_val = nir_load_shared(b, 1, 8, es_vertex_lds_addr,
