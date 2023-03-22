@@ -1334,12 +1334,14 @@ ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
 static void
 add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_cf, lower_ngg_nogs_state *s)
 {
-   unsigned num_repacked_variables;
+   unsigned num_repacked_dwords;
    unsigned pervertex_lds_bytes =
       ngg_nogs_get_culling_pervertex_lds_size(b->shader->info.stage,
                                               0,
                                               &s->options->needs_deferred,
-                                              &num_repacked_variables);
+                                              &num_repacked_dwords);
+   const unsigned num_repacked_args = num_repacked_dwords;
+   unsigned num_repacked_variables = num_repacked_args;
 
    nir_function_impl *impl = nir_shader_get_entrypoint(b->shader);
    unsigned repacked_var_idx = 0;
@@ -1351,11 +1353,10 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       nir_local_variable_create(impl, glsl_uint_type(), "gs_vtx2_addr"),
    };
 
-   nir_variable *repacked_variables[3] = {
-      nir_local_variable_create(impl, glsl_uint_type(), "repacked_var_0"),
-      nir_local_variable_create(impl, glsl_uint_type(), "repacked_var_1"),
-      nir_local_variable_create(impl, glsl_uint_type(), "repacked_var_2"),
-   };
+   nir_variable **repacked_variables = rzalloc_array(b->shader, nir_variable *, num_repacked_dwords);
+   for (unsigned i = 0; i < num_repacked_args; ++i) {
+      repacked_variables[i] = nir_local_variable_create(impl, glsl_uint_type(), "repacked_var");
+   }
 
    /* Relative patch ID is a special case because it doesn't need an extra dword, repack separately. */
    s->repacked_rel_patch_id = nir_local_variable_create(impl, glsl_uint_type(), "repacked_rel_patch_id");
@@ -1615,6 +1616,8 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
    } else {
       unreachable("Should be VS or TES.");
    }
+
+   ralloc_free(repacked_variables);
 }
 
 static void
