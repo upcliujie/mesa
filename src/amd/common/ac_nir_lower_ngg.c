@@ -787,8 +787,8 @@ remove_extra_pos_outputs(nir_shader *shader, lower_ngg_nogs_state *s)
  * 1. Repack surviving ES invocations (this determines which lane will export which vertex)
  * 2. Surviving ES vertex invocations store their data to LDS
  * 3. Emit GS_ALLOC_REQ
- * 4. Repacked invocations load the vertex data from LDS
- * 5. GS threads update their vertex indices
+ * 4. GS threads update their vertex indices
+ * 5. Repacked invocations load the vertex data from LDS
  */
 static void
 compact_vertices_after_culling(nir_builder *b,
@@ -840,6 +840,25 @@ compact_vertices_after_culling(nir_builder *b,
    nir_scoped_barrier(b, .execution_scope=NIR_SCOPE_WORKGROUP, .memory_scope=NIR_SCOPE_WORKGROUP,
                          .memory_semantics=NIR_MEMORY_ACQ_REL, .memory_modes=nir_var_mem_shared);
 
+   nir_if *if_gs_accepted = nir_push_if(b, nir_load_var(b, gs_accepted_var));
+   {
+      nir_ssa_def *exporter_vtx_indices[3] = {0};
+
+      /* Load the index of the ES threads that will export the current GS thread's vertices */
+      for (unsigned v = 0; v < s->options->num_vertices_per_primitive; ++v) {
+         nir_ssa_def *vtx_addr = nir_load_var(b, gs_vtxaddr_vars[v]);
+         nir_ssa_def *exporter_vtx_idx = nir_load_shared(b, 1, 8, vtx_addr, .base = lds_es_exporter_tid);
+         exporter_vtx_indices[v] = nir_u2u32(b, exporter_vtx_idx);
+         nir_store_var(b, s->gs_vtx_indices_vars[v], exporter_vtx_indices[v], 0x1);
+      }
+
+      nir_ssa_def *prim_exp_arg =
+         emit_pack_ngg_prim_exp_arg(b, s->options->num_vertices_per_primitive,
+                                    exporter_vtx_indices, NULL, s->options->use_edgeflags);
+      nir_store_var(b, prim_exp_arg_var, prim_exp_arg, 0x1u);
+   }
+   nir_pop_if(b, if_gs_accepted);
+
    nir_ssa_def *es_survived = nir_ilt(b, invocation_index, num_live_vertices_in_workgroup);
    nir_if *if_packed_es_thread = nir_push_if(b, es_survived);
    {
@@ -866,25 +885,6 @@ compact_vertices_after_culling(nir_builder *b,
          nir_store_var(b, repacked_variables[i], nir_ssa_undef(b, 1, 32), 0x1u);
    }
    nir_pop_if(b, if_packed_es_thread);
-
-   nir_if *if_gs_accepted = nir_push_if(b, nir_load_var(b, gs_accepted_var));
-   {
-      nir_ssa_def *exporter_vtx_indices[3] = {0};
-
-      /* Load the index of the ES threads that will export the current GS thread's vertices */
-      for (unsigned v = 0; v < s->options->num_vertices_per_primitive; ++v) {
-         nir_ssa_def *vtx_addr = nir_load_var(b, gs_vtxaddr_vars[v]);
-         nir_ssa_def *exporter_vtx_idx = nir_load_shared(b, 1, 8, vtx_addr, .base = lds_es_exporter_tid);
-         exporter_vtx_indices[v] = nir_u2u32(b, exporter_vtx_idx);
-         nir_store_var(b, s->gs_vtx_indices_vars[v], exporter_vtx_indices[v], 0x1);
-      }
-
-      nir_ssa_def *prim_exp_arg =
-         emit_pack_ngg_prim_exp_arg(b, s->options->num_vertices_per_primitive,
-                                    exporter_vtx_indices, NULL, s->options->use_edgeflags);
-      nir_store_var(b, prim_exp_arg_var, prim_exp_arg, 0x1u);
-   }
-   nir_pop_if(b, if_gs_accepted);
 
    nir_store_var(b, es_accepted_var, es_survived, 0x1u);
    nir_store_var(b, gs_accepted_var, nir_iand(b, nir_inot(b, fully_culled), has_input_primitive(b)),
