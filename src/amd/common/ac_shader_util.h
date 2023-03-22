@@ -187,6 +187,7 @@ void ac_get_scratch_tmpring_size(const struct radeon_info *info,
 unsigned
 ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
                                    unsigned shader_num_outputs,
+                                   unsigned reused_repacked,
                                    bool streamout_enabled,
                                    bool export_prim_id,
                                    bool has_user_edgeflags,

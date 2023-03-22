@@ -1294,6 +1294,7 @@ clipdist_culling_es_part(nir_builder *b, lower_ngg_nogs_state *s,
 
 static unsigned
 ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
+                                        unsigned reused_repacked,
                                         const struct ac_repacked_args *repack,
                                         unsigned *num_repacked_variables)
 {
@@ -1321,6 +1322,8 @@ ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
       num_repacked += repack->primitive_id;
    }
 
+   num_repacked += reused_repacked;
+
    if (num_repacked_variables)
       *num_repacked_variables = num_repacked;
 
@@ -1334,6 +1337,7 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
    unsigned num_repacked_variables;
    unsigned pervertex_lds_bytes =
       ngg_nogs_get_culling_pervertex_lds_size(b->shader->info.stage,
+                                              0,
                                               &s->options->needs_deferred,
                                               &num_repacked_variables);
 
@@ -3400,6 +3404,7 @@ ac_nir_lower_ngg_gs(nir_shader *shader, const ac_nir_lower_ngg_options *options)
 unsigned
 ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
                                    unsigned shader_num_outputs,
+                                   unsigned reused_repacked,
                                    bool streamout_enabled,
                                    bool export_prim_id,
                                    bool has_user_edgeflags,
@@ -3409,7 +3414,7 @@ ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
    /* for culling time lds layout only */
    unsigned culling_pervertex_lds_bytes = can_cull ?
       ngg_nogs_get_culling_pervertex_lds_size(
-         stage, repack, NULL) : 0;
+         stage, reused_repacked, repack, NULL) : 0;
 
    unsigned pervertex_lds_bytes =
       ngg_nogs_get_pervertex_lds_size(stage, shader_num_outputs, streamout_enabled,

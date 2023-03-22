@@ -1292,6 +1292,7 @@ setup_ngg_lds_layout(struct radv_device *device, nir_shader *nir, struct radv_sh
       unsigned pervertex_lds_bytes =
          ac_ngg_nogs_get_pervertex_lds_size(stage,
                                             nir->num_outputs,
+                                            0,
                                             streamout_enabled,
                                             info->outinfo.export_prim_id,
                                             false, /* user edge flag */

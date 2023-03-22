@@ -172,7 +172,7 @@ retry_select_mode:
       }
 
       esvert_lds_size = ac_ngg_nogs_get_pervertex_lds_size(
-         gs_stage, gs_sel->info.num_outputs,
+         gs_stage, gs_sel->info.num_outputs, 0,
          si_shader_uses_streamout(shader),
          shader->key.ge.mono.u.vs_export_prim_id,
          gfx10_ngg_writes_user_edgeflags(shader),
