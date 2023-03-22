@@ -160,6 +160,7 @@ typedef struct {
 
    unsigned max_workgroup_size;
    unsigned wave_size;
+   unsigned reusable_repackable;
    uint32_t clipdist_enable_mask;
    const uint8_t *vs_output_param_offset; /* GFX11+ */
    bool has_param_exports;

@@ -45,6 +45,7 @@ typedef struct
 {
    nir_ssa_def *ssa;
    nir_variable *var;
+   bool repack;
 } reusable_nondeferred_variable;
 
 typedef struct
@@ -81,6 +82,7 @@ typedef struct
 
    /* LDS params */
    unsigned pervertex_lds_bytes;
+   unsigned reused_repacked;
 
    nir_intrinsic_instr *overwrite_args;
    nir_variable *repacked_rel_patch_id;
@@ -1187,6 +1189,8 @@ save_reusable_variables(nir_builder *b, lower_ngg_nogs_state *s)
    ASSERTED int vec_ok = u_vector_init(&s->reusable_nondeferred_variables, 4, sizeof(reusable_nondeferred_variable));
    assert(vec_ok);
 
+   unsigned remaining_reusable_repackable = s->options->reusable_repackable;
+
    nir_block *block = nir_start_block(b->impl);
    while (block) {
       /* Process the instructions in the current block. */
@@ -1197,8 +1201,20 @@ save_reusable_variables(nir_builder *b, lower_ngg_nogs_state *s)
           * Therefore, we only reuse uniform values.
           */
          nir_ssa_def *ssa = find_reusable_ssa_def(instr);
-         if (!ssa)
-            continue;
+         bool is_output = false;
+         if (!ssa) {
+            is_output = is_reusable_repackable_output(instr);
+            if (is_output) {
+               ssa = nir_instr_as_intrinsic(instr)->src[0].ssa;
+               if (remaining_reusable_repackable < ssa->num_components)
+                  ssa = NULL;
+               else
+                  remaining_reusable_repackable -= ssa->num_components;
+            }
+
+            if (!ssa)
+               continue;
+         }
 
          /* Determine a suitable type for the SSA value. */
          const struct glsl_type *t = glsl_uint_type_for_ssa(ssa);
@@ -1214,10 +1230,12 @@ save_reusable_variables(nir_builder *b, lower_ngg_nogs_state *s)
           */
          saved->var = nir_local_variable_create(b->impl, t, NULL);
          saved->ssa = ssa;
+         saved->repack = is_output;
 
-         b->cursor = instr->type == nir_instr_type_phi
-                     ? nir_after_instr_and_phis(instr)
-                     : nir_after_instr(instr);
+         b->cursor = is_output ? nir_before_instr(instr) :
+                        instr->type == nir_instr_type_phi
+                           ? nir_after_instr_and_phis(instr)
+                           : nir_after_instr(instr);
          nir_store_var(b, saved->var, saved->ssa, BITFIELD_MASK(ssa->num_components));
          nir_ssa_def *reloaded = nir_load_var(b, saved->var);
          nir_ssa_def_rewrite_uses_after(ssa, reloaded, reloaded->parent_instr);
@@ -1252,6 +1270,8 @@ save_reusable_variables(nir_builder *b, lower_ngg_nogs_state *s)
       /* Go to the next block. */
       block = nir_block_cf_tree_next(block);
    }
+
+   s->reused_repacked = s->options->reusable_repackable - remaining_reusable_repackable;
 }
 
 /**
@@ -1387,10 +1407,10 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
    unsigned num_repacked_dwords;
    unsigned pervertex_lds_bytes =
       ngg_nogs_get_culling_pervertex_lds_size(b->shader->info.stage,
-                                              0,
+                                              s->reused_repacked,
                                               &s->options->needs_deferred,
                                               &num_repacked_dwords);
-   const unsigned num_repacked_args = num_repacked_dwords;
+   const unsigned num_repacked_args = num_repacked_dwords - s->reused_repacked;
    unsigned num_repacked_variables = num_repacked_args;
 
    nir_function_impl *impl = nir_shader_get_entrypoint(b->shader);
@@ -1464,6 +1484,15 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
             nir_store_var(b, repacked_variables[repacked_var_idx++], nir_load_primitive_id(b), 0x1u);
       } else {
          unreachable("Should be VS or TES.");
+      }
+
+      reusable_nondeferred_variable *saved;
+      u_vector_foreach(saved, &s->reusable_nondeferred_variables) {
+         if (!saved->repack)
+            continue;
+
+         /* These are already stored, just need to copy the pointers. */
+         repacked_variables[num_repacked_variables++] = saved->var;
       }
    }
    nir_pop_if(b, if_es_thread);
