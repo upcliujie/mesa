@@ -38,6 +38,7 @@ enum {
    nggc_passflag_used_by_pos = 1,
    nggc_passflag_used_by_other = 2,
    nggc_passflag_used_by_both = nggc_passflag_used_by_pos | nggc_passflag_used_by_other,
+   nggc_passflag_reusable_repackable_output = 4,
 };
 
 typedef struct
@@ -974,6 +975,43 @@ analyze_shader_before_culling_walk(nir_ssa_def *ssa,
    }
 }
 
+static bool
+is_reusable_repackable_output(nir_instr *instr)
+{
+   /* This function identifies output SSA values which are used for
+    * calculating both position and another output.
+    */
+
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+   if (intrin->intrinsic != nir_intrinsic_store_output)
+      return false;
+
+   const nir_io_semantics io_sem = nir_intrinsic_io_semantics(intrin);
+   switch (io_sem.location) {
+   case VARYING_SLOT_POS:
+   case VARYING_SLOT_CULL_DIST0:
+   case VARYING_SLOT_CULL_DIST1:
+   case VARYING_SLOT_CLIP_VERTEX:
+      /* These are always non-deferred and are already accounted for. */
+      return false;
+   }
+
+   /* Only 32-bit variables are supported, for now. */
+   nir_ssa_def *ssa = intrin->src[0].ssa;
+   if (ssa->bit_size != 32)
+      return false;
+
+   /* Exclude outputs that store an SSA value that isn't used by both positon and another output. */
+   nir_instr *parent_instr = ssa->parent_instr;
+   if ((parent_instr->pass_flags & nggc_passflag_used_by_both) != nggc_passflag_used_by_both)
+      return false;
+
+   return true;
+}
+
 void
 ac_nir_analyze_shader_before_culling(nir_shader *shader, ac_nir_before_cull_analysis *s)
 {
@@ -996,6 +1034,29 @@ ac_nir_analyze_shader_before_culling(nir_shader *shader, ac_nir_before_cull_anal
             nir_ssa_def *store_val = intrin->src[0].ssa;
             uint8_t flag = io_sem.location == VARYING_SLOT_POS ? nggc_passflag_used_by_pos : nggc_passflag_used_by_other;
             analyze_shader_before_culling_walk(store_val, flag, s);
+         }
+      }
+   }
+
+   /* Count the number of variables which may be reused if they are repacked. */
+   nir_foreach_function(func, shader) {
+      nir_foreach_block(block, func->impl) {
+         nir_foreach_instr(instr, block) {
+            if (!is_reusable_repackable_output(instr))
+               continue;
+
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            nir_ssa_def *ssa = intrin->src[0].ssa;
+
+            /* Ignore if we already counted the parent instruction. */
+            if (ssa->parent_instr->pass_flags & nggc_passflag_reusable_repackable_output)
+               continue;
+
+            /* Mark parent instruction as repackable output */
+            ssa->parent_instr->pass_flags |= nggc_passflag_reusable_repackable_output;
+
+            /* Add each component to the total */
+            s->reusable_repackable += ssa->num_components;
          }
       }
    }

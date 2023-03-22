@@ -185,6 +185,7 @@ typedef struct {
 } ac_nir_lower_ngg_options;
 
 typedef struct {
+   unsigned reusable_repackable;
    uint64_t inputs_needed_by_pos;
    uint64_t inputs_needed_by_others;
    uint32_t instance_rate_inputs;
