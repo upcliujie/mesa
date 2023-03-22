@@ -1285,6 +1285,7 @@ setup_ngg_lds_layout(struct radv_device *device, nir_shader *nir, struct radv_sh
    if (stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_TESS_EVAL) {
       if (info->has_ngg_culling) {
          ac_nir_analyze_shader_before_culling(nir, analysis);
+         analysis->reusable_repackable = MIN2(analysis->reusable_repackable, 8);
       }
 
       /* Get pervertex LDS usage. */
@@ -1292,7 +1293,7 @@ setup_ngg_lds_layout(struct radv_device *device, nir_shader *nir, struct radv_sh
       unsigned pervertex_lds_bytes =
          ac_ngg_nogs_get_pervertex_lds_size(stage,
                                             nir->num_outputs,
-                                            0,
+                                            analysis->reusable_repackable,
                                             streamout_enabled,
                                             info->outinfo.export_prim_id,
                                             false, /* user edge flag */
@@ -1397,6 +1398,7 @@ void radv_lower_ngg(struct radv_device *device, struct radv_pipeline_stage *ngg_
    options.has_gen_prim_query = info->has_ngg_prim_query;
    options.has_xfb_prim_query = info->has_ngg_xfb_query;
    options.force_vrs = info->force_vrs_per_vertex;
+   options.reusable_repackable = an.reusable_repackable;
 
    if (nir->info.stage == MESA_SHADER_VERTEX ||
        nir->info.stage == MESA_SHADER_TESS_EVAL) {
