@@ -1020,6 +1020,7 @@ analyze_shader_before_culling_walk(nir_ssa_def *ssa,
    switch (instr->type) {
    case nir_instr_type_intrinsic: {
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+      const bool needs_deferred = !!(instr->pass_flags & nggc_passflag_used_by_other);
 
       /* VS input loads and SSBO loads are actually VRAM reads on AMD HW. */
       switch (intrin->intrinsic) {
@@ -1030,8 +1031,29 @@ analyze_shader_before_culling_walk(nir_ssa_def *ssa,
             s->inputs_needed_by_pos |= in_mask;
          else if (instr->pass_flags & nggc_passflag_used_by_other)
             s->inputs_needed_by_others |= in_mask;
+
+         if (s->instance_rate_inputs & BITFIELD_BIT(nir_intrinsic_base(intrin)))
+            s->needs_deferred.instance_id |= needs_deferred;
+         else
+            s->needs_deferred.vertex_id |= needs_deferred;
          break;
       }
+      case nir_intrinsic_load_vertex_id:
+      case nir_intrinsic_load_vertex_id_zero_base:
+         s->needs_deferred.vertex_id |= needs_deferred;
+         break;
+      case nir_intrinsic_load_instance_id:
+         s->needs_deferred.instance_id |= needs_deferred;
+         break;
+      case nir_intrinsic_load_tess_coord:
+         s->needs_deferred.tess_coord |= needs_deferred;
+         break;
+      case nir_intrinsic_load_primitive_id:
+         s->needs_deferred.primitive_id |= needs_deferred;
+         break;
+      case nir_intrinsic_load_tess_rel_patch_id_amd:
+         s->needs_deferred.rel_patch_id |= needs_deferred;
+         break;
       default:
          break;
       }
