@@ -861,20 +861,29 @@ cleanup_culling_shader_after_dce(nir_shader *shader,
 
    cleanup_culling_shader_after_dce_done:
 
+   unsigned repacked_var_idx = 0;
    if (shader->info.stage == MESA_SHADER_VERTEX) {
+      unsigned vertex_id_idx = s->options->needs_deferred.vertex_id ? repacked_var_idx++ : 0;
+      unsigned instance_id_idx = s->options->needs_deferred.vertex_id ? repacked_var_idx++ : 0;
+
       if (!uses_vs_vertex_id)
-         progress |= remove_compacted_arg(s, &b, 0);
+         progress |= remove_compacted_arg(s, &b, vertex_id_idx);
       if (!uses_vs_instance_id)
-         progress |= remove_compacted_arg(s, &b, 1);
+         progress |= remove_compacted_arg(s, &b, instance_id_idx);
    } else if (shader->info.stage == MESA_SHADER_TESS_EVAL) {
+      unsigned tes_u_idx = s->options->needs_deferred.tess_coord ? repacked_var_idx++ : 0;
+      unsigned tes_v_idx = s->options->needs_deferred.tess_coord ? repacked_var_idx++ : 0;
+      unsigned prim_id_idx = s->options->needs_deferred.primitive_id ? repacked_var_idx++ : 0;
+      unsigned rel_patch_id_idx = s->options->needs_deferred.rel_patch_id ? repacked_var_idx++ : 0;
+
       if (!uses_tes_u)
-         progress |= remove_compacted_arg(s, &b, 0);
+         progress |= remove_compacted_arg(s, &b, tes_u_idx);
       if (!uses_tes_v)
-         progress |= remove_compacted_arg(s, &b, 1);
+         progress |= remove_compacted_arg(s, &b, tes_v_idx);
       if (!uses_tes_rel_patch_id)
-         progress |= remove_compacted_arg(s, &b, 3);
+         progress |= remove_compacted_arg(s, &b, rel_patch_id_idx);
       if (!uses_tes_patch_id)
-         progress |= remove_compacted_arg(s, &b, 2);
+         progress |= remove_compacted_arg(s, &b, prim_id_idx);
    }
 
    return progress;
@@ -1316,8 +1325,7 @@ clipdist_culling_es_part(nir_builder *b, lower_ngg_nogs_state *s,
 
 static unsigned
 ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
-                                        bool uses_instance_id,
-                                        bool uses_primitive_id,
+                                        const struct ac_repacked_args *repack,
                                         unsigned *num_repacked_variables)
 {
    /* Culling shaders must repack some variables because
@@ -1325,13 +1333,14 @@ ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
     * before and after the culling algorithm.
     */
 
-   unsigned num_repacked;
+   unsigned num_repacked = 0;
    if (stage == MESA_SHADER_VERTEX) {
       /* Vertex shaders repack:
        * - Vertex ID
        * - Instance ID (only if used)
        */
-      num_repacked = uses_instance_id ? 2 : 1;
+      num_repacked += repack->vertex_id;
+      num_repacked += repack->instance_id;
    } else {
       /* Tess eval shaders repack:
        * - U, V coordinates
@@ -1339,7 +1348,8 @@ ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
        * - relative patch id (not included here because doesn't need a dword)
        */
       assert(stage == MESA_SHADER_TESS_EVAL);
-      num_repacked = uses_primitive_id ? 3 : 2;
+      num_repacked += repack->tess_coord * 2;
+      num_repacked += repack->primitive_id;
    }
 
    if (num_repacked_variables)
@@ -1352,17 +1362,14 @@ ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
 static void
 add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_cf, lower_ngg_nogs_state *s)
 {
-   bool uses_instance_id = BITSET_TEST(b->shader->info.system_values_read, SYSTEM_VALUE_INSTANCE_ID);
-   bool uses_tess_primitive_id = BITSET_TEST(b->shader->info.system_values_read, SYSTEM_VALUE_PRIMITIVE_ID);
-
    unsigned num_repacked_variables;
    unsigned pervertex_lds_bytes =
       ngg_nogs_get_culling_pervertex_lds_size(b->shader->info.stage,
-                                              uses_instance_id,
-                                              uses_tess_primitive_id,
+                                              &s->options->needs_deferred,
                                               &num_repacked_variables);
 
    nir_function_impl *impl = nir_shader_get_entrypoint(b->shader);
+   unsigned repacked_var_idx = 0;
 
    /* Create some helper variables. */
    nir_variable *gs_vtxaddr_vars[3] = {
@@ -1414,16 +1421,23 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
 
       /* Remember the current thread's shader arguments */
       if (b->shader->info.stage == MESA_SHADER_VERTEX) {
-         nir_store_var(b, repacked_variables[0], nir_load_vertex_id_zero_base(b), 0x1u);
-         if (uses_instance_id)
+         if (s->options->needs_deferred.vertex_id)
+            nir_store_var(b, repacked_variables[repacked_var_idx++], nir_load_vertex_id_zero_base(b), 0x1u);
+
+         if (s->options->needs_deferred.instance_id)
             nir_store_var(b, repacked_variables[1], nir_load_instance_id(b), 0x1u);
       } else if (b->shader->info.stage == MESA_SHADER_TESS_EVAL) {
+         if (s->options->needs_deferred.rel_patch_id)
          nir_store_var(b, s->repacked_rel_patch_id, nir_load_tess_rel_patch_id_amd(b), 0x1u);
+
+         if (s->options->needs_deferred.tess_coord) {
          nir_ssa_def *tess_coord = nir_load_tess_coord(b);
-         nir_store_var(b, repacked_variables[0], nir_channel(b, tess_coord, 0), 0x1u);
-         nir_store_var(b, repacked_variables[1], nir_channel(b, tess_coord, 1), 0x1u);
-         if (uses_tess_primitive_id)
-            nir_store_var(b, repacked_variables[2], nir_load_primitive_id(b), 0x1u);
+            nir_store_var(b, repacked_variables[repacked_var_idx++], nir_channel(b, tess_coord, 0), 0x1u);
+            nir_store_var(b, repacked_variables[repacked_var_idx++], nir_channel(b, tess_coord, 1), 0x1u);
+         }
+
+         if (s->options->needs_deferred.primitive_id)
+            nir_store_var(b, repacked_variables[repacked_var_idx++], nir_load_primitive_id(b), 0x1u);
       } else {
          unreachable("Should be VS or TES.");
       }
@@ -1600,17 +1614,34 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
     * This can change if VS input loads and other stuff are lowered to eg. load_buffer_amd.
     */
 
-   if (b->shader->info.stage == MESA_SHADER_VERTEX)
-      s->overwrite_args =
-         nir_overwrite_vs_arguments_amd(b,
-            nir_load_var(b, repacked_variables[0]), nir_load_var(b, repacked_variables[1]));
-   else if (b->shader->info.stage == MESA_SHADER_TESS_EVAL)
-      s->overwrite_args =
-         nir_overwrite_tes_arguments_amd(b,
-            nir_load_var(b, repacked_variables[0]), nir_load_var(b, repacked_variables[1]),
-            nir_load_var(b, repacked_variables[2]), nir_load_var(b, s->repacked_rel_patch_id));
-   else
+   unsigned reloaded_variable_idx = 0;
+   nir_ssa_def *undef = nir_ssa_undef(b, 1, 32);
+   if (b->shader->info.stage == MESA_SHADER_VERTEX) {
+      nir_ssa_def *vertex_id =
+         s->options->needs_deferred.vertex_id
+            ? nir_load_var(b, repacked_variables[reloaded_variable_idx++]) : undef;
+      nir_ssa_def *instance_id =
+         s->options->needs_deferred.instance_id
+            ? nir_load_var(b, repacked_variables[reloaded_variable_idx++]) : undef;
+
+      s->overwrite_args = nir_overwrite_vs_arguments_amd(b, vertex_id, instance_id);
+   } else if (b->shader->info.stage == MESA_SHADER_TESS_EVAL) {
+      nir_ssa_def *rel_patch_id =
+         s->options->needs_deferred.rel_patch_id
+            ? nir_load_var(b, s->repacked_rel_patch_id) : undef;
+      nir_ssa_def *tes_u =
+         s->options->needs_deferred.tess_coord
+            ? nir_load_var(b, repacked_variables[reloaded_variable_idx++]) : undef;
+      nir_ssa_def *tes_v =
+         s->options->needs_deferred.tess_coord
+            ? nir_load_var(b, repacked_variables[reloaded_variable_idx++]) : undef;
+      nir_ssa_def *prim_id =
+         s->options->needs_deferred.primitive_id
+            ? nir_load_var(b, repacked_variables[reloaded_variable_idx++]) : undef;
+      s->overwrite_args = nir_overwrite_tes_arguments_amd(b, tes_u, tes_v, prim_id, rel_patch_id);
+   } else {
       unreachable("Should be VS or TES.");
+   }
 }
 
 static void
@@ -3407,13 +3438,12 @@ ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
                                    bool export_prim_id,
                                    bool has_user_edgeflags,
                                    bool can_cull,
-                                   bool uses_instance_id,
-                                   bool uses_primitive_id)
+                                   const struct ac_repacked_args *repack)
 {
    /* for culling time lds layout only */
    unsigned culling_pervertex_lds_bytes = can_cull ?
       ngg_nogs_get_culling_pervertex_lds_size(
-         stage, uses_instance_id, uses_primitive_id, NULL) : 0;
+         stage, repack, NULL) : 0;
 
    unsigned pervertex_lds_bytes =
       ngg_nogs_get_pervertex_lds_size(stage, shader_num_outputs, streamout_enabled,
