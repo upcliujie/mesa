@@ -379,6 +379,30 @@ r2d_dst_buffer(struct tu_cs *cs, enum pipe_format format, uint64_t va, uint32_t 
                    A6XX_RB_2D_DST_PITCH(pitch));
 }
 
+/* Write to the flags buffer of a given miplevel/layer as if it's a regular
+ * image.
+ */
+static void
+r2d_dst_ubwc(struct tu_cs *cs,
+             struct tu_image *image,
+             uint32_t plane,
+             uint32_t miplevel,
+             uint32_t layer)
+{
+   const struct fdl_layout *layout = &image->layout[plane];
+   assert(layout->ubwc);
+
+   uint32_t ubwc_offset = fdl_ubwc_offset(layout, miplevel, layer);
+   uint32_t ubwc_pitch = fdl_ubwc_pitch(layout, miplevel);
+   tu_cs_emit_regs(cs,
+                   A6XX_RB_2D_DST_INFO(
+                      .color_format = FMT6_8_UINT,
+                      .tile_mode = TILE6_LINEAR,
+                      .color_swap = WZYX),
+                   A6XX_RB_2D_DST(.qword = image->iova + ubwc_offset),
+                   A6XX_RB_2D_DST_PITCH(ubwc_pitch));
+}
+
 static void
 r2d_setup_common(struct tu_cmd_buffer *cmd,
                  struct tu_cs *cs,
@@ -3520,3 +3544,72 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
 
    trace_end_gmem_store(&cmd->trace, cs);
 }
+
+void
+tu_clear_ubwc(struct tu_cmd_buffer *cmd,
+              struct tu_cs *cs,
+              struct tu_image *image,
+              const VkImageSubresourceRange *range)
+{
+   if (!image->layout[0].ubwc)
+      return;
+
+   uint32_t level_count = vk_image_subresource_level_count(&image->vk, range);
+   uint32_t layer_count = vk_image_subresource_layer_count(&image->vk, range);
+
+   r2d_setup(cmd, cs, PIPE_FORMAT_NONE, PIPE_FORMAT_R8_UINT,
+             VK_IMAGE_ASPECT_COLOR_BIT, 0, true, false,
+             VK_SAMPLE_COUNT_1_BIT);
+
+   r2d_clear_value(cs, PIPE_FORMAT_R8_UINT,
+                   &(VkClearValue) { .color = { .uint32 = { 0 }, } });
+
+   unsigned plane_indices[ARRAY_SIZE(image->layout)];
+   unsigned plane_count = 0;
+
+   u_foreach_bit (aspect, range->aspectMask) {
+      unsigned plane_index = tu6_plane_index(image->vk.format, 1u << aspect);
+
+      bool add_index = true;
+      for (unsigned i = 0; i < plane_count; i++) {
+         if (plane_indices[i] == plane_index) {
+            add_index = false;
+            break;
+         }
+      }
+
+      if (add_index) {
+         assert(plane_count < ARRAY_SIZE(plane_indices));
+         plane_indices[plane_count++] = plane_index;
+      }
+   }
+
+   if (image->layout[0].depth0 > 1) {
+      assert(layer_count == 1);
+      assert(range->baseArrayLayer == 0);
+   }
+
+   for (unsigned i = 0; i < plane_count; i++) {
+      unsigned plane = plane_indices[i];
+      if (!image->layout[plane].ubwc)
+         continue;
+
+      for (unsigned j = 0; j < level_count; j++) {
+         unsigned level = j + range->baseMipLevel;
+         if (image->layout[i].depth0 > 1)
+            layer_count = u_minify(image->layout[0].depth0, level);
+
+         r2d_coords(cs, &(VkOffset2D){}, NULL, &(VkExtent2D) {
+                     u_minify(image->layout[i].ubwc_width0, level),
+                     u_minify(image->layout[i].ubwc_height0, level),
+                   });
+
+         for (unsigned k = 0; k < layer_count; k++) {
+            unsigned layer = k + range->baseArrayLayer;
+            r2d_dst_ubwc(cs, image, plane, level, layer);
+            r2d_run(cmd, cs);
+         }
+      }
+   }
+}
+

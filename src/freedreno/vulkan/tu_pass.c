@@ -116,19 +116,6 @@ tu_render_pass_add_subpass_dep(struct tu_render_pass *pass,
    dst_barrier->dst_access_mask |= dst_access_mask;
 }
 
-/* We currently only care about undefined layouts, because we have to
- * flush/invalidate CCU for those. PREINITIALIZED is the same thing as
- * UNDEFINED for anything not linear tiled, but we don't know yet whether the
- * images used are tiled, so just assume they are.
- */
-
-static bool
-layout_undefined(VkImageLayout layout)
-{
-   return layout == VK_IMAGE_LAYOUT_UNDEFINED ||
-          layout == VK_IMAGE_LAYOUT_PREINITIALIZED;
-}
-
 /* This implements the following bit of spec text:
  *
  *    If there is no subpass dependency from VK_SUBPASS_EXTERNAL to the
@@ -389,18 +376,9 @@ tu_render_pass_add_implicit_deps(struct tu_render_pass *pass,
       }
    }
 
-   /* Handle UNDEFINED transitions, similar to the handling in tu_barrier().
-    * Assume that if an attachment has an initial layout of UNDEFINED, it gets
-    * transitioned eventually.
-    */
    for (unsigned i = 0; i < info->attachmentCount; i++) {
-      if (layout_undefined(att[i].initialLayout)) {
-         if (vk_format_is_depth_or_stencil(att[i].format)) {
-            pass->subpasses[0].start_barrier.incoherent_ccu_depth = true;
-         } else {
-            pass->subpasses[0].start_barrier.incoherent_ccu_color = true;
-         }
-      }
+      pass->attachments[i].initial_layout = att[i].initialLayout;
+      pass->attachments[i].final_layout = att[i].finalLayout;
    }
 }
 
@@ -758,6 +736,7 @@ tu_subpass_use_attachment(struct tu_render_pass *pass, int i, uint32_t a, const 
    struct tu_subpass *subpass = &pass->subpasses[i];
 
    pass->attachments[a].gmem = true;
+   pass->attachments[a].used = true;
    update_samples(subpass, pCreateInfo->pAttachments[a].samples);
    pass->attachments[a].clear_views |= subpass->multiview_mask;
 }
@@ -863,6 +842,7 @@ tu_CreateRenderPass2(VkDevice _device,
       subpass->raster_order_attachment_access = desc->flags & raster_order_access_bits;
 
       subpass->multiview_mask = desc->viewMask;
+      pass->multiview_mask |= subpass->multiview_mask;
 
       if (desc->inputAttachmentCount > 0) {
          subpass->input_attachments = p;
@@ -875,6 +855,9 @@ tu_CreateRenderPass2(VkDevice _device,
              * directly instead of through gmem, so we don't mark input
              * attachments as needing gmem.
              */
+            if (a != VK_ATTACHMENT_UNUSED) {
+               pass->attachments[a].used = true;
+            }
          }
       }
 
@@ -905,8 +888,11 @@ tu_CreateRenderPass2(VkDevice _device,
 
             uint32_t src_a = desc->pColorAttachments[j].attachment;
             if (src_a != VK_ATTACHMENT_UNUSED) {
-               pass->attachments[src_a].will_be_resolved =
-                  desc->pResolveAttachments[j].attachment != VK_ATTACHMENT_UNUSED;
+               uint32_t a = desc->pResolveAttachments[j].attachment;
+               if (a != VK_ATTACHMENT_UNUSED) {
+                  pass->attachments[src_a].will_be_resolved = true;
+                  pass->attachments[a].used = true;
+               }
             }
          }
       }
@@ -919,7 +905,10 @@ tu_CreateRenderPass2(VkDevice _device,
 
          uint32_t src_a = desc->pDepthStencilAttachment->attachment;
          if (src_a != VK_ATTACHMENT_UNUSED) {
-            pass->attachments[src_a].will_be_resolved = a != VK_ATTACHMENT_UNUSED;
+            if (a != VK_ATTACHMENT_UNUSED) {
+               pass->attachments[src_a].will_be_resolved = true;
+               pass->attachments[a].used = true;
+            }
          }
       }
 
@@ -1018,6 +1007,8 @@ tu_setup_dynamic_render_pass(struct tu_cmd_buffer *cmd_buffer,
    subpass->srgb_cntl = 0;
    subpass->raster_order_attachment_access = false;
    subpass->multiview_mask = info->viewMask;
+
+   pass->multiview_mask = subpass->multiview_mask;
 
    uint32_t a = 0;
    for (uint32_t i = 0; i < info->colorAttachmentCount; i++) {
@@ -1139,6 +1130,8 @@ tu_setup_dynamic_inheritance(struct tu_cmd_buffer *cmd_buffer,
    subpass->raster_order_attachment_access = false;
    subpass->multiview_mask = info->viewMask;
    subpass->samples = info->rasterizationSamples;
+
+   pass->multiview_mask = subpass->multiview_mask;
 
    unsigned a = 0;
    for (unsigned i = 0; i < info->colorAttachmentCount; i++) {

@@ -423,6 +423,17 @@ tu6_pack_border_color(struct bcolor_entry *bcolor, const VkClearColorValue *val,
 #undef PACK_F
 }
 
+/* PREINITIALIZED is the same thing as UNDEFINED for anything not linear
+ * tiled, but for now we only care about layouts in the tiled + UBWC case.
+ */
+
+static bool
+tu_layout_undefined(VkImageLayout layout)
+{
+   return layout == VK_IMAGE_LAYOUT_UNDEFINED ||
+          layout == VK_IMAGE_LAYOUT_PREINITIALIZED;
+}
+
 void
 tu_dbg_log_gmem_load_store_skips(struct tu_device *device);
 

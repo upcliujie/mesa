@@ -4273,16 +4273,107 @@ tu_subpass_barrier(struct tu_cmd_buffer *cmd_buffer,
    enum tu_cmd_access_mask dst_flags =
       vk2tu_access(barrier->dst_access_mask, dst_stage_vk, false, false);
 
-   if (barrier->incoherent_ccu_color)
-      src_flags |= TU_ACCESS_CCU_COLOR_INCOHERENT_WRITE;
-   if (barrier->incoherent_ccu_depth)
-      src_flags |= TU_ACCESS_CCU_DEPTH_INCOHERENT_WRITE;
-
    tu_flush_for_access(cache, src_flags, dst_flags);
 
    enum tu_stage src_stage = vk2tu_src_stage(src_stage_vk);
    enum tu_stage dst_stage = vk2tu_dst_stage(dst_stage_vk);
    tu_flush_for_stage(cache, src_stage, dst_stage);
+}
+
+/* Handle automatic layout transitions, which at the moment just means
+ * clearing UBWC. Because of this VU of VkAttachmentReference: "If attachment
+ * is not VK_ATTACHMENT_UNUSED, layout must not be VK_IMAGE_LAYOUT_UNDEFINED,
+ * VK_IMAGE_LAYOUT_PREINITIALIZED, or VK_IMAGE_LAYOUT_PRESENT_SRC_KHR", we
+ * don't need to worry about transitions from UNDEFINED except for
+ * the automatic transition from initialLayout, and as long as the attachment
+ * is used then we don't have to worry about which layout it's used with.
+ *
+ * TODO: In sysmem mode, it might be possible to avoid clearing UBWC once we
+ * implement fast clears if we know we'll use a fast clear.
+ *
+ * TODO: In sysmem we need to delay this until first use to handle aliased
+ * attachments. However in gmem we need to keep it like this because we can't
+ * clear UBWC of an attachment in the middle of the loop over tiles.
+ */
+static void
+transition_attachments(struct tu_cmd_buffer *cmd,
+                       struct tu_cs *cs)
+{
+   const struct tu_render_pass *pass = cmd->state.pass;
+   struct tu_cache_state *cache = &cmd->state.cache;
+
+   bool flushed = false;
+   for (unsigned i = 0; i < pass->attachment_count; i++) {
+      if (tu_layout_undefined(pass->attachments[i].initial_layout) &&
+          /* If an attachment is used, we can assume its layout is not
+           * UNDEFINED. If it's not used, then we need to check the final
+           * layout.
+           */
+          (pass->attachments[i].used ||
+           !tu_layout_undefined(pass->attachments[i].final_layout))) {
+         if (!flushed) {
+            tu_flush_for_access(cache, 0,
+                                TU_ACCESS_CCU_COLOR_INCOHERENT_WRITE);
+            /* TODO properly flush for stage */
+            cache->flush_bits |= TU_CMD_FLAG_WAIT_FOR_IDLE;
+            flushed = true;
+         }
+
+         const struct tu_image_view *image_view = cmd->state.attachments[i];
+         if (!image_view->image->layout[0].ubwc)
+            continue;
+
+         /* We're technically inside the renderpass, but we're performing
+          * these flushes before the renderpass actually starts, so we need to
+          * manually flush and set sysmem mode.
+          */
+         tu_emit_cache_flush_ccu(cmd, cs, TU_CMD_CCU_SYSMEM);
+
+         /* From the Vulkan 1.3.207 spec:
+          *
+          *    "Automatic layout transitions apply to the entire image
+          *    subresource attached to the framebuffer. If multiview is not
+          *    enabled and the attachment is a view of a 1D or 2D image, the
+          *    automatic layout transitions apply to the number of layers
+          *    specified by VkFramebufferCreateInfo::layers. If multiview is
+          *    enabled and the attachment is a view of a 1D or 2D image, the
+          *    automatic layout transitions apply to the layers corresponding to
+          *    views which are used by some subpass in the render pass, even if
+          *    that subpass does not reference the given attachment. If the
+          *    attachment view is a 2D or 2D array view of a 3D image, even if
+          *    the attachment view only refers to a subset of the slices of the
+          *    selected mip level of the 3D image, automatic layout transitions
+          *    apply to the entire subresource referenced which is the entire mip
+          *    level in this case."
+          */
+         unsigned view_mask = pass->multiview_mask;
+         VkImageSubresourceRange range = {
+            .aspectMask = image_view->vk.aspects,
+            .baseMipLevel = image_view->vk.base_mip_level,
+            .levelCount = 1,
+         };
+
+         if (image_view->image->vk.image_type == VK_IMAGE_TYPE_3D) {
+            range.baseArrayLayer = 0;
+            range.layerCount = image_view->vk.extent.depth;
+            tu_clear_ubwc(cmd, cs, image_view->image, &range);
+         } else if (view_mask) {
+            range.layerCount = 1;
+            u_foreach_bit (view, view_mask) {
+               range.baseArrayLayer = image_view->vk.base_array_layer + view;
+               tu_clear_ubwc(cmd, cs, image_view->image, &range);
+            }
+         } else {
+            range.baseArrayLayer = image_view->vk.base_array_layer;
+            range.layerCount = cmd->state.framebuffer->layers;
+            tu_clear_ubwc(cmd, cs, image_view->image, &range);
+         }
+      }
+   }
+
+   if (flushed) {
+      tu_flush_for_access(cache, TU_ACCESS_CCU_COLOR_INCOHERENT_WRITE, 0);
+   }
 }
 
 /* emit mrt/zs/msaa/ubwc state for the subpass that is starting (either at
@@ -4354,6 +4445,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
     * of the subpass.
     */
    tu_subpass_barrier(cmd, &pass->subpasses[0].start_barrier, true);
+   transition_attachments(cmd, &cmd->cs);
    cmd->state.renderpass_cache.pending_flush_bits =
       cmd->state.cache.pending_flush_bits;
    cmd->state.renderpass_cache.flush_bits = 0;
@@ -6061,12 +6153,60 @@ tu_barrier(struct tu_cmd_buffer *cmd,
       }
    }
 
-   struct tu_cache_state *cache =
-      cmd->state.pass  ? &cmd->state.renderpass_cache : &cmd->state.cache;
-   tu_flush_for_access(cache, src_flags, dst_flags);
-
    enum tu_stage src_stage = vk2tu_src_stage(srcStage);
    enum tu_stage dst_stage = vk2tu_dst_stage(dstStage);
+
+   bool flushed = false;
+   struct tu_cache_state *cache =
+      cmd->state.pass ? &cmd->state.renderpass_cache : &cmd->state.cache;
+   struct tu_cs *cs = &cmd->cs;
+   for (uint32_t i = 0; i < dep_info->imageMemoryBarrierCount; i++) {
+      VkImageLayout old_layout = dep_info->pImageMemoryBarriers[i].oldLayout;
+      VkImageLayout new_layout = dep_info->pImageMemoryBarriers[i].newLayout;
+      /* The underlying memory for this image may have been used earlier
+       * within the same queue submission for a different image, which
+       * means that there may be old, stale cache entries which are in the
+       * "wrong" location, which could cause problems later after writing
+       * to the image. We don't want these entries being flushed later and
+       * overwriting the actual image, so we need to flush the CCU.
+       * 
+       * We also don't know what state the flags are in, and some "invalid"
+       * states have been observed to produce incorrect rendering or hangs, so
+       * we need to clear the flags buffer for any images with UBWC. All 0 is
+       * guaranteed to be a "valid" state.
+       */
+      if (tu_layout_undefined(old_layout) &&
+          !tu_layout_undefined(new_layout)) {
+         /* From section 7.6.1 "Subpass Self-dependency" of the Vulkan 1.3.231
+          * spec:
+          *
+          *    "Image memory barriers ... must not define an image layout
+          *    transition"
+          *
+          * This means we don't have to worry about layout transitions inside
+          * a subpass, which would be impossible to implement in GMEM mode.
+          */
+         assert(!cmd->state.pass);
+
+         TU_FROM_HANDLE(tu_image, image, dep_info->pImageMemoryBarriers[i].image);
+
+         if (!flushed) {
+            tu_flush_for_access(cache, src_flags,
+                                TU_ACCESS_CCU_COLOR_INCOHERENT_WRITE);
+            tu_flush_for_stage(cache, src_stage, TU_STAGE_PS);
+            src_flags = TU_ACCESS_CCU_COLOR_INCOHERENT_WRITE;
+            src_stage = TU_STAGE_PS;
+
+            flushed = true;
+         }
+
+         tu_clear_ubwc(cmd, cs, image,
+                       &dep_info->pImageMemoryBarriers[i].subresourceRange);
+      }
+   }
+
+   tu_flush_for_access(cache, src_flags, dst_flags);
+
    tu_flush_for_stage(cache, src_stage, dst_stage);
 }
 

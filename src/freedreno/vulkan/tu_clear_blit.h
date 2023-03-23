@@ -63,4 +63,10 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
 void
 tu_choose_gmem_layout(struct tu_cmd_buffer *cmd);
 
+void
+tu_clear_ubwc(struct tu_cmd_buffer *cmd,
+              struct tu_cs *cs,
+              struct tu_image *image,
+              const VkImageSubresourceRange *range);
+
 #endif /* TU_CLEAR_BLIT_H */

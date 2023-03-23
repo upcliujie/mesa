@@ -101,7 +101,7 @@ struct fdl_layout {
    struct fdl_slice slices[FDL_MAX_MIP_LEVELS];
    struct fdl_slice ubwc_slices[FDL_MAX_MIP_LEVELS];
    uint32_t pitch0;
-   uint32_t ubwc_width0;
+   uint32_t ubwc_width0, ubwc_height0;
    uint32_t layer_size;
    uint32_t ubwc_layer_size; /* in bytes */
    bool ubwc : 1;

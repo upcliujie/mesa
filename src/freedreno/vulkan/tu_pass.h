@@ -27,7 +27,6 @@ struct tu_subpass_barrier {
    VkPipelineStageFlags2 dst_stage_mask;
    VkAccessFlags2 src_access_mask;
    VkAccessFlags2 dst_access_mask;
-   bool incoherent_ccu_color, incoherent_ccu_depth;
 };
 
 struct tu_subpass_attachment
@@ -73,6 +72,7 @@ struct tu_subpass
 struct tu_render_pass_attachment
 {
    VkFormat format;
+   VkImageLayout initial_layout, final_layout;
    uint32_t samples;
    uint32_t cpp;
    VkImageAspectFlags clear_mask;
@@ -80,6 +80,7 @@ struct tu_render_pass_attachment
    bool load;
    bool store;
    bool gmem;
+   bool used;
    int32_t gmem_offset[TU_GMEM_LAYOUT_COUNT];
    bool will_be_resolved;
    /* for D32S8 separate stencil: */
@@ -106,6 +107,9 @@ struct tu_render_pass
    /* memory bandwidth costs (in bytes) for gmem / sysmem rendering */
    uint32_t gmem_bandwidth_per_pixel;
    uint32_t sysmem_bandwidth_per_pixel;
+
+   /* logical OR of all views used by all subpasses */
+   uint32_t multiview_mask;
 
    struct tu_subpass_attachment *subpass_attachments;
 

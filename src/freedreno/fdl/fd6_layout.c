@@ -187,8 +187,8 @@ fdl6_layout(struct fdl_layout *layout, enum pipe_format format,
    }
    layout->ubwc_width0 = align(DIV_ROUND_UP(ubwc_width0, ubwc_blockwidth),
                                RGB_TILE_WIDTH_ALIGNMENT);
-   ubwc_height0 = align(DIV_ROUND_UP(ubwc_height0, ubwc_blockheight),
-                        ubwc_tile_height_alignment);
+   layout->ubwc_height0 = align(DIV_ROUND_UP(ubwc_height0, ubwc_blockheight),
+                                ubwc_tile_height_alignment);
 
    uint32_t min_3d_layer_size = 0;
 
@@ -259,7 +259,7 @@ fdl6_layout(struct fdl_layout *layout, enum pipe_format format,
 
          uint32_t meta_pitch = fdl_ubwc_pitch(layout, level);
          uint32_t meta_height =
-            align(u_minify(ubwc_height0, level), ubwc_tile_height_alignment);
+            align(u_minify(layout->ubwc_height0, level), ubwc_tile_height_alignment);
 
          ubwc_slice->size0 =
             align(meta_pitch * meta_height, UBWC_PLANE_SIZE_ALIGNMENT);
