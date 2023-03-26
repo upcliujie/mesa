@@ -317,7 +317,14 @@ void
 emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, Temp dst)
 {
    Builder bld(ctx->program, ctx->block);
-   bld.pseudo(aco_opcode::p_extract_vector, Definition(dst), src, Operand::c32(idx));
+   if (dst.regClass() == v2b && src.regClass() == v1) {
+      /* D16 subdword split */
+      Definition def0 = idx == 0 ? Definition(dst) : bld.def(v2b);
+      Definition def1 = idx == 0 ? bld.def(v2b) : Definition(dst);
+      bld.pseudo(aco_opcode::p_split_vector, def0, def1, src);
+   } else {
+      bld.pseudo(aco_opcode::p_extract_vector, Definition(dst), src, Operand::c32(idx));
+   }
 }
 
 Temp
@@ -331,6 +338,14 @@ emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, RegClass dst_rc)
 
    assert(src.bytes() > (idx * dst_rc.bytes()));
    Builder bld(ctx->program, ctx->block);
+   if (dst_rc == v2b && src.regClass() == v2) {
+      /* we only split these into v1 */
+      src = emit_extract_vector(ctx, src, idx / 2, v1);
+      Temp dst = bld.tmp(dst_rc);
+      emit_extract_vector(ctx, src, idx & 1, dst);
+      return dst;
+   }
+
    auto it = ctx->allocated_vec.find(src.id());
    if (it != ctx->allocated_vec.end() && dst_rc.bytes() == it->second[idx].regClass().bytes()) {
       if (it->second[idx].regClass() == dst_rc) {
@@ -364,7 +379,7 @@ emit_split_vector(isel_context* ctx, Temp vec_src, unsigned num_components)
       return;
    RegClass rc;
    if (num_components > vec_src.size()) {
-      if (vec_src.type() == RegType::sgpr) {
+      if (vec_src.type() == RegType::sgpr || vec_src.regClass() == v2) {
          /* should still help get_alu_src() */
          emit_split_vector(ctx, vec_src, vec_src.size());
          return;
@@ -9448,7 +9463,9 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
 
    /* Build tex instruction */
    unsigned dmask = nir_ssa_def_components_read(&instr->dest.ssa) & 0xf;
-   if (instr->sampler_dim == GLSL_SAMPLER_DIM_BUF)
+   bool d16 = instr->dest.ssa.bit_size == 16;
+   /* D16 dmask can have holes, but it is easier to optimize this way */
+   if (instr->sampler_dim == GLSL_SAMPLER_DIM_BUF || d16)
       dmask = u_bit_consecutive(0, util_last_bit(dmask));
    if (instr->is_sparse)
       dmask = MAX2(dmask, 1) | 0x10;
@@ -9456,7 +9473,7 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
       ctx->options->gfx_level >= GFX10 && instr->sampler_dim != GLSL_SAMPLER_DIM_BUF
          ? ac_get_sampler_dim(ctx->options->gfx_level, instr->sampler_dim, instr->is_array)
          : 0;
-   bool d16 = instr->dest.ssa.bit_size == 16;
+
    Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
    Temp tmp_dst = dst;
 
@@ -9471,6 +9488,10 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
          tmp_dst = bld.tmp(instr->is_sparse ? v5 : (d16 ? v2 : v4));
    } else if (instr->op == nir_texop_fragment_mask_fetch_amd) {
       tmp_dst = bld.tmp(v1);
+   } else if (d16 && instr->sampler_dim != GLSL_SAMPLER_DIM_BUF) {
+      RegClass rc = RegClass(RegType::vgpr, (util_bitcount(dmask) + 1) / 2);
+      if (rc != dst.regClass())
+         tmp_dst = bld.tmp(rc);
    } else if (util_bitcount(dmask) != instr->dest.ssa.num_components ||
               dst.type() == RegType::sgpr) {
       unsigned bytes = util_bitcount(dmask) * instr->dest.ssa.bit_size / 8;

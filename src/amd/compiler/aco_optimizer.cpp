@@ -1074,6 +1074,29 @@ parse_insert(Instruction* instr)
    }
 }
 
+SubdwordSel
+match_subdword_selection(SubdwordSel inner, SubdwordSel outer)
+{
+   /* the offset of outer must be within extracted range of inner */
+   if (outer.offset() >= inner.size())
+      return SubdwordSel();
+
+   /* don't remove the sign-extension when increasing the size further */
+   bool sign_extend = false;
+   if (outer.size() == 4)
+      sign_extend = inner.sign_extend();
+   else if (outer.size() <= inner.size())
+      sign_extend = outer.sign_extend();
+   else if (outer.sign_extend())
+      sign_extend = inner.sign_extend();
+   else if (inner.sign_extend())
+      return SubdwordSel();
+
+   unsigned size = std::min(inner.size(), outer.size());
+   unsigned offset = inner.offset() + outer.offset();
+   return SubdwordSel(size, offset, sign_extend);
+}
+
 bool
 can_apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_info& info)
 {
@@ -1098,8 +1121,10 @@ can_apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_i
       return true;
    } else if (idx < 2 && can_use_SDWA(ctx.program->gfx_level, instr, true) &&
               (tmp.type() == RegType::vgpr || ctx.program->gfx_level >= GFX9)) {
-      if (instr->isSDWA() && instr->sdwa().sel[idx] != SubdwordSel::dword)
-         return false;
+      if (instr->isSDWA()) {
+         if (!match_subdword_selection(sel, instr->sdwa().sel[idx]))
+            return false;
+      }
       return true;
    } else if (instr->isVOP3() && sel.size() == 2 &&
               can_use_opsel(ctx.program->gfx_level, instr->opcode, idx) &&
@@ -1107,15 +1132,8 @@ can_apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_i
       return true;
    } else if (instr->opcode == aco_opcode::p_extract) {
       SubdwordSel instrSel = parse_extract(instr.get());
-
-      /* the outer offset must be within extracted range */
-      if (instrSel.offset() >= sel.size())
+      if (!match_subdword_selection(sel, instrSel))
          return false;
-
-      /* don't remove the sign-extension when increasing the size further */
-      if (instrSel.size() > sel.size() && !instrSel.sign_extend() && sel.sign_extend())
-         return false;
-
       return true;
    }
 
@@ -1167,21 +1185,16 @@ apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_info&
    } else if (can_use_SDWA(ctx.program->gfx_level, instr, true) &&
               (tmp.type() == RegType::vgpr || ctx.program->gfx_level >= GFX9)) {
       to_SDWA(ctx, instr);
+      sel = match_subdword_selection(sel, instr->sdwa().sel[idx]);
       static_cast<SDWA_instruction*>(instr.get())->sel[idx] = sel;
    } else if (instr->isVOP3()) {
       if (sel.offset())
          instr->valu().opsel[idx] = true;
    } else if (instr->opcode == aco_opcode::p_extract) {
-      SubdwordSel instrSel = parse_extract(instr.get());
-
-      unsigned size = std::min(sel.size(), instrSel.size());
-      unsigned offset = sel.offset() + instrSel.offset();
-      unsigned sign_extend =
-         instrSel.sign_extend() && (sel.sign_extend() || instrSel.size() <= sel.size());
-
-      instr->operands[1] = Operand::c32(offset / size);
-      instr->operands[2] = Operand::c32(size * 8u);
-      instr->operands[3] = Operand::c32(sign_extend);
+      sel = match_subdword_selection(sel, parse_extract(instr.get()));
+      instr->operands[1] = Operand::c32(sel.offset() / sel.size());
+      instr->operands[2] = Operand::c32(sel.size() * 8u);
+      instr->operands[3] = Operand::c32(sel.sign_extend());
       return;
    }
 
