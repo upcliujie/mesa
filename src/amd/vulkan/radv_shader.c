@@ -1240,7 +1240,7 @@ radv_destroy_shader_arenas(struct radv_device *device)
 }
 
 static VkResult
-radv_shader_dma_submission_init(struct radv_device *device, struct radv_shader_dma_submission* submission)
+radv_shader_dma_submission_init(struct radv_device *device, struct radv_shader_dma_submission *submission)
 {
    struct radeon_winsys *ws = device->ws;
 
@@ -1252,7 +1252,7 @@ radv_shader_dma_submission_init(struct radv_device *device, struct radv_shader_d
 }
 
 static void
-radv_shader_dma_submission_finish(struct radv_device *device, struct radv_shader_dma_submission* submission)
+radv_shader_dma_submission_finish(struct radv_device *device, struct radv_shader_dma_submission *submission)
 {
    struct radeon_winsys *ws = device->ws;
 
@@ -1864,14 +1864,9 @@ fail:
    return NULL;
 }
 
-/*
- * If upload_seq_out is NULL, this function blocks until the DMA is complete. Otherwise, the
- * semaphore value to wait on device->shader_upload_sem is stored in *upload_seq_out.
- */
-bool
-radv_shader_upload_submit(struct radv_device *device,
-                          struct radv_shader_dma_submission *submission,
-                          uint64_t *upload_seq_out)
+static VkResult
+radv_shader_dma_submit(struct radv_device *device, struct radv_shader_dma_submission *submission,
+                       uint64_t *upload_seq_out)
 {
    struct radeon_cmdbuf *cs = submission->cs;
    struct radeon_winsys *ws = device->ws;
@@ -1897,16 +1892,36 @@ radv_shader_upload_submit(struct radv_device *device,
    };
 
    result = ws->cs_submit(device->shader_dma_hw_ctx, &submit, 0, NULL, 1, &signal_info);
-   if (result != VK_SUCCESS)
-   {
+   if (result != VK_SUCCESS) {
+      *upload_seq_out = 0;
       mtx_unlock(&device->shader_dma_hw_ctx_mutex);
-      radv_shader_upload_push_submission(device, submission, 0);
-      return false;
+      return result;
    }
+
+   *upload_seq_out = upload_seq;
    device->shader_dma_seq = upload_seq;
    mtx_unlock(&device->shader_dma_hw_ctx_mutex);
+   return result;
+}
 
+/*
+ * If upload_seq_out is NULL, this function blocks until the DMA is complete. Otherwise, the
+ * semaphore value to wait on device->shader_upload_sem is stored in *upload_seq_out.
+ */
+bool
+radv_shader_upload_submit(struct radv_device *device,
+                          struct radv_shader_dma_submission *submission,
+                          uint64_t *upload_seq_out)
+{
+   struct radeon_cmdbuf *cs = submission->cs;
+   struct radeon_winsys *ws = device->ws;
+   uint64_t upload_seq;
+   VkResult result;
+
+   result = radv_shader_dma_submit(device, submission, &upload_seq);
    radv_shader_upload_push_submission(device, submission, upload_seq);
+   if (result != VK_SUCCESS)
+      return false;
 
    if (upload_seq_out) {
       *upload_seq_out = upload_seq;
