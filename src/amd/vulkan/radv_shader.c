@@ -1239,6 +1239,29 @@ radv_destroy_shader_arenas(struct radv_device *device)
    mtx_destroy(&device->shader_arena_mutex);
 }
 
+static VkResult
+radv_shader_dma_submission_init(struct radv_device *device, struct radv_shader_dma_submission* submission)
+{
+   struct radeon_winsys *ws = device->ws;
+
+   submission->cs = ws->cs_create(ws, AMD_IP_SDMA, false);
+   if (!submission->cs)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   return VK_SUCCESS;
+}
+
+static void
+radv_shader_dma_submission_finish(struct radv_device *device, struct radv_shader_dma_submission* submission)
+{
+   struct radeon_winsys *ws = device->ws;
+
+   if (submission->cs)
+      ws->cs_destroy(submission->cs);
+   if (submission->bo)
+      ws->buffer_destroy(ws, submission->bo);
+}
+
 VkResult
 radv_init_shader_dma(struct radv_device *device)
 {
@@ -1262,9 +1285,9 @@ radv_init_shader_dma(struct radv_device *device)
 
    for (unsigned i = 0; i < RADV_SHADER_UPLOAD_CS_COUNT; i++) {
       struct radv_shader_dma_submission *submission = calloc(1, sizeof(struct radv_shader_dma_submission));
-      submission->cs = ws->cs_create(ws, AMD_IP_SDMA, false);
-      if (!submission->cs)
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
+      result = radv_shader_dma_submission_init(device, submission);
+      if (result != VK_SUCCESS)
+         return result;
       list_addtail(&submission->list, &device->shader_upload_submission_list);
    }
 
@@ -1300,10 +1323,7 @@ radv_finish_shader_dma(struct radv_device *device)
    list_for_each_entry_safe(struct radv_shader_dma_submission, submission,
                             &device->shader_upload_submission_list, list)
    {
-      if (submission->cs)
-         ws->cs_destroy(submission->cs);
-      if (submission->bo)
-         ws->buffer_destroy(ws, submission->bo);
+      radv_shader_dma_submission_finish(device, submission);
       list_del(&submission->list);
       free(submission);
    }
