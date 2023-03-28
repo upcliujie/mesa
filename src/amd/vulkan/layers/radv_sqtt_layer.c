@@ -176,8 +176,7 @@ radv_sqtt_reloc_graphics_shaders(struct radv_device *device,
    uint64_t offset = 0;
 
    if (device->shader_use_invisible_vram) {
-       submission =
-         radv_shader_dma_get_submission(device, reloc->bo, slab_va, code_size);
+       submission = radv_shader_upload_get_submission(device, reloc->bo, slab_va, code_size);
       if (!submission)
          return VK_ERROR_UNKNOWN;
    }
@@ -201,7 +200,7 @@ radv_sqtt_reloc_graphics_shaders(struct radv_device *device,
    }
 
    if (device->shader_use_invisible_vram) {
-      if (!radv_shader_dma_submit(device, submission, &pipeline->base.shader_upload_seq))
+      if (!radv_shader_upload_submit(device, submission, &pipeline->base.shader_upload_seq))
          return VK_ERROR_UNKNOWN;
    }
 

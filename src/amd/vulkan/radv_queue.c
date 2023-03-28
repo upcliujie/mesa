@@ -1549,7 +1549,7 @@ static void
 radv_get_shader_upload_sync_wait(struct radv_device *device, uint64_t shader_upload_seq,
                                  struct vk_sync_wait *out_sync_wait)
 {
-   struct vk_semaphore *semaphore = vk_semaphore_from_handle(device->shader_upload_sem);
+   struct vk_semaphore *semaphore = vk_semaphore_from_handle(device->shader_dma_sem);
    struct vk_sync *sync = vk_semaphore_get_active_sync(semaphore);
    *out_sync_wait = (struct vk_sync_wait){
       .sync = sync,

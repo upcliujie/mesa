@@ -864,7 +864,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
       (device->instance->perftest_flags & RADV_PERFTEST_DMA_SHADERS) &&
       /* SDMA buffer copy is only implemented for GFX7+. */
       device->physical_device->rad_info.gfx_level >= GFX7;
-   result = radv_init_shader_upload_queue(device);
+   result = radv_init_shader_dma(device);
    if (result != VK_SUCCESS)
       goto fail;
 
@@ -1107,7 +1107,7 @@ fail:
    radv_device_finish_ps_epilogs(device);
    radv_device_finish_border_color(device);
 
-   radv_destroy_shader_upload_queue(device);
+   radv_finish_shader_dma(device);
 
 fail_queue:
    for (unsigned i = 0; i < RADV_MAX_QUEUE_FAMILIES; i++) {
@@ -1184,7 +1184,7 @@ radv_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
 
    vk_pipeline_cache_destroy(device->mem_cache, NULL);
 
-   radv_destroy_shader_upload_queue(device);
+   radv_finish_shader_dma(device);
 
    radv_trap_handler_finish(device);
    radv_finish_trace(device);

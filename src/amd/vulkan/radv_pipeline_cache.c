@@ -128,7 +128,7 @@ radv_shader_destroy(struct vk_device *_device, struct vk_pipeline_cache_object *
 
    if (device->shader_use_invisible_vram) {
       /* Wait for any pending upload to complete, or we'll be writing into freed shader memory. */
-      radv_shader_wait_for_upload(device, shader->upload_seq);
+      radv_shader_dma_wait(device, shader->upload_seq);
    }
 
    radv_free_shader_memory(device, shader->alloc);

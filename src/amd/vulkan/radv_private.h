@@ -975,13 +975,13 @@ struct radv_device {
    struct list_head shader_block_obj_pool;
    mtx_t shader_arena_mutex;
 
-   mtx_t shader_upload_hw_ctx_mutex;
-   struct radeon_winsys_ctx *shader_upload_hw_ctx;
-   VkSemaphore shader_upload_sem;
-   uint64_t shader_upload_seq;
-   struct list_head shader_dma_submissions;
-   mtx_t shader_dma_submission_list_mutex;
-   cnd_t shader_dma_submission_list_cond;
+   mtx_t shader_dma_hw_ctx_mutex;
+   struct radeon_winsys_ctx *shader_dma_hw_ctx;
+   VkSemaphore shader_dma_sem;
+   uint64_t shader_dma_seq;
+   struct list_head shader_upload_submission_list;
+   mtx_t shader_upload_submission_list_mutex;
+   cnd_t shader_upload_submission_list_cond;
 
    /* Whether to DMA shaders to invisible VRAM or to upload directly through BAR. */
    bool shader_use_invisible_vram;
