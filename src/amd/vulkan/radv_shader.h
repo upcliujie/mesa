@@ -598,6 +598,9 @@ bool radv_shader_upload_submit(struct radv_device *device,
                                struct radv_shader_dma_submission *submission,
                                uint64_t *upload_seq_out);
 
+bool radv_shader_dma_download(struct radv_device *device, struct radv_shader *shader, void *buf,
+                              uint32_t size);
+
 union radv_shader_arena_block *radv_alloc_shader_memory(struct radv_device *device, uint32_t size,
                                                         void *ptr);
 void radv_free_shader_memory(struct radv_device *device, union radv_shader_arena_block *alloc);

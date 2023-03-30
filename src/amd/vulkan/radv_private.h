@@ -982,6 +982,8 @@ struct radv_device {
    struct list_head shader_upload_submission_list;
    mtx_t shader_upload_submission_list_mutex;
    cnd_t shader_upload_submission_list_cond;
+   struct radv_shader_dma_submission shader_download_submission;
+   mtx_t shader_download_mutex;
 
    /* Whether to DMA shaders to invisible VRAM or to upload directly through BAR. */
    bool shader_use_invisible_vram;

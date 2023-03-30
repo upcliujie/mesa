@@ -1291,6 +1291,10 @@ radv_init_shader_dma(struct radv_device *device)
       list_addtail(&submission->list, &device->shader_upload_submission_list);
    }
 
+   result = radv_shader_dma_submission_init(device, &device->shader_download_submission);
+   if (result != VK_SUCCESS)
+      return result;
+
    const VkSemaphoreTypeCreateInfo sem_type = {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
       .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
@@ -1319,6 +1323,8 @@ radv_finish_shader_dma(struct radv_device *device)
    /* Upload queue should be idle assuming that pipelines are not leaked */
    if (device->shader_dma_sem)
       disp->DestroySemaphore(radv_device_to_handle(device), device->shader_dma_sem, NULL);
+
+   radv_shader_dma_submission_finish(device, &device->shader_download_submission);
 
    list_for_each_entry_safe(struct radv_shader_dma_submission, submission,
                             &device->shader_upload_submission_list, list)
@@ -1773,16 +1779,18 @@ radv_shader_binary_upload(struct radv_device *device, const struct radv_shader_b
 
 static VkResult
 radv_shader_dma_resize_staging_buf(struct radv_shader_dma_submission *submission,
-                                  struct radeon_winsys *ws, uint64_t size)
+                                   struct radeon_winsys *ws, uint64_t size, bool is_upload)
 {
    if (submission->bo)
       ws->buffer_destroy(ws, submission->bo);
 
-   VkResult result =
-      ws->buffer_create(ws, size, RADV_SHADER_ALLOC_ALIGNMENT, RADEON_DOMAIN_GTT,
-                        RADEON_FLAG_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING |
-                           RADEON_FLAG_32BIT | RADEON_FLAG_GTT_WC,
-                        RADV_BO_PRIORITY_UPLOAD_BUFFER, 0, &submission->bo);
+   enum radeon_bo_flag flags =
+      RADEON_FLAG_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING | RADEON_FLAG_32BIT;
+   if (is_upload)
+      flags |= RADEON_FLAG_GTT_WC;
+
+   VkResult result = ws->buffer_create(ws, size, RADV_SHADER_ALLOC_ALIGNMENT, RADEON_DOMAIN_GTT,
+                                       flags, RADV_BO_PRIORITY_UPLOAD_BUFFER, 0, &submission->bo);
    if (result != VK_SUCCESS)
       return result;
 
@@ -1829,7 +1837,8 @@ radv_shader_upload_push_submission(struct radv_device *device,
 static VkResult
 radv_shader_dma_build_submission(struct radv_device *device,
                                  struct radv_shader_dma_submission *submission,
-                                 struct radeon_winsys_bo *bo, uint64_t va, uint64_t size)
+                                 struct radeon_winsys_bo *bo, uint64_t va, uint64_t size,
+                                 bool is_upload)
 {
    struct radeon_cmdbuf *cs = submission->cs;
    struct radeon_winsys *ws = device->ws;
@@ -1837,13 +1846,16 @@ radv_shader_dma_build_submission(struct radv_device *device,
    VkResult result;
 
    if (submission->bo_size < size) {
-      result = radv_shader_dma_resize_staging_buf(submission, ws, size);
+      result = radv_shader_dma_resize_staging_buf(submission, ws, size, is_upload);
       if (result != VK_SUCCESS)
          return result;
    }
    staging_va = radv_buffer_get_va(submission->bo);
 
-   radv_sdma_copy_buffer(device, cs, staging_va, va, size);
+   if (is_upload)
+      radv_sdma_copy_buffer(device, cs, staging_va, va, size);
+   else
+      radv_sdma_copy_buffer(device, cs, va, staging_va, size);
    radv_cs_add_buffer(ws, cs, submission->bo);
    radv_cs_add_buffer(ws, cs, bo);
 
@@ -1867,7 +1879,7 @@ radv_shader_upload_get_submission(struct radv_device *device, struct radeon_wins
 
    ws->cs_reset(cs);
 
-   result = radv_shader_dma_build_submission(device, submission, bo, va, size);
+   result = radv_shader_dma_build_submission(device, submission, bo, va, size, true);
    if (result != VK_SUCCESS)
       goto fail;
 
@@ -1949,6 +1961,36 @@ radv_shader_upload_submit(struct radv_device *device,
    return true;
 }
 
+bool
+radv_shader_dma_download(struct radv_device *device, struct radv_shader *shader, void *buf,
+                         uint32_t size)
+{
+   struct radv_shader_dma_submission *submission = &device->shader_download_submission;
+   struct radeon_cmdbuf *cs = submission->cs;
+   struct radeon_winsys *ws = device->ws;
+   uint64_t download_seq;
+   VkResult result;
+
+   mtx_lock(&device->shader_download_mutex);
+
+   result =
+      radv_shader_dma_build_submission(device, submission, shader->bo, shader->va, size, false);
+   if (result != VK_SUCCESS)
+      goto out;
+   result = radv_shader_dma_submit(device, submission, &download_seq);
+   if (result != VK_SUCCESS)
+      goto out;
+   result = radv_shader_dma_wait(device, download_seq);
+   if (result != VK_SUCCESS)
+      goto out;
+
+   memcpy(buf, submission->ptr, size);
+
+out:
+   ws->cs_reset(cs);
+   mtx_unlock(&device->shader_download_mutex);
+   return result == VK_SUCCESS;
+}
 
 struct radv_shader *
 radv_shader_create(struct radv_device *device, const struct radv_shader_binary *binary)
