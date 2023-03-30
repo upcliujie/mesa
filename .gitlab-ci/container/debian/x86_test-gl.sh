@@ -39,6 +39,7 @@ STABLE_EPHEMERAL=" \
       patch \
       pkg-config \
       python3-distutils \
+      python3-jsonschema \
       xz-utils \
       "
 
@@ -79,9 +80,10 @@ DEQP_TARGET=surfaceless . .gitlab-ci/container/build-deqp.sh
 
 . .gitlab-ci/container/build-apitrace.sh
 
-############### Build validation layer for zink
+############### Build validation and profiles layers for zink
 
 .gitlab-ci/container/build-vulkan-validation.sh
+.gitlab-ci/container/build-vulkan-profiles.sh
 
 ############### Uninstall the build software
 
