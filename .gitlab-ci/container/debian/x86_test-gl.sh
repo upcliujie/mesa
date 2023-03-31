@@ -81,7 +81,7 @@ DEQP_TARGET=surfaceless . .gitlab-ci/container/build-deqp.sh
 
 ############### Build validation layer for zink
 
-. .gitlab-ci/container/build-vulkan-validation.sh
+.gitlab-ci/container/build-vulkan-validation.sh
 
 ############### Uninstall the build software
 
