@@ -28,6 +28,7 @@
 #include "util/mesa-sha1.h"
 #include "nir/nir_serialize.h"
 #include "anv_private.h"
+#include "anv_nir.h"
 #include "nir/nir_xfb_info.h"
 #include "vulkan/util/vk_util.h"
 #include "compiler/spirv/nir_spirv.h"
@@ -470,8 +471,7 @@ anv_load_fp64_shader(struct anv_device *device)
    NIR_PASS_V(nir, nir_opt_peephole_select, 1, false, false);
    NIR_PASS_V(nir, nir_opt_dce);
 
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_function_temp,
-              nir_address_format_62bit_generic);
+   NIR_PASS_V(nir, anv_nir_lower_deref_cast);
 
    anv_device_upload_nir(device, device->internal_cache,
                          nir, sha1);
