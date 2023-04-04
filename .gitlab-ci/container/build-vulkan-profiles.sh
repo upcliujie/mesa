@@ -2,9 +2,9 @@
 
 set -ex
 
-PROFILES_TAG="sdk-1.3.243.0"
+PROFILES_TAG="zink-profiles"
 
-git clone -b "$PROFILES_TAG" --single-branch --depth 1 https://github.com/KhronosGroup/Vulkan-Profiles.git
+git clone -b "$PROFILES_TAG" --single-branch --depth 1 https://github.com/kusma/Vulkan-Profiles.git
 pushd Vulkan-Profiles
 mkdir build
 pushd build
