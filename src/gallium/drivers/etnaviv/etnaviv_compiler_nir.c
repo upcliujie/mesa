@@ -675,6 +675,16 @@ emit_intrinsic(struct etna_compile *c, nir_intrinsic_instr * intr)
 
       emit_inst(c, &inst);
    } break;
+   case nir_intrinsic_group_memory_barrier:
+      /* TODO */
+      break;
+   case nir_intrinsic_control_barrier: {
+      /* TODO: We don't know anything yet about the semantics of BARRIER */
+      struct etna_inst inst = {
+         .opcode = INST_OPCODE_BARRIER,
+      };
+      emit_inst(c, &inst);
+   } break;
    case nir_intrinsic_load_front_face:
    case nir_intrinsic_load_frag_coord:
       assert(intr->dest.is_ssa); /* TODO - lower phis could cause this */
