@@ -396,6 +396,49 @@ struct lower_pv_mode_state {
    unsigned prim;
 };
 
+static bool
+lower_pv_mode_gs_load(nir_builder *b,
+                       nir_instr *instr,
+                       struct lower_pv_mode_state *state)
+{
+   b->cursor = nir_before_instr(instr);
+   nir_ssa_def *three = nir_imm_int(b, 3);
+   /* When the primive supplied to the gs comes from a strip, the last provoking vertex
+    * is either the last or the second, depending on whether the triangle is at an odd
+    * or even position within the strip.
+    *
+    * odd or even primitive within draw
+    */
+   nir_ssa_def *odd_prim = nir_imod(b, nir_load_primitive_id(b), nir_imm_int(b, 2));
+   nir_deref_instr *deref = nir_instr_as_deref(instr);
+   if (deref->deref_type == nir_deref_type_array/* && nir_deref_mode_is(deref, nir_var_shader_out)*/) {
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+      if (!state->varyings[var->data.location])
+         return false;
+      nir_ssa_def *index_def = nir_ssa_for_src(b, deref->arr.index, nir_src_num_components(deref->arr.index));
+      /* Here we account for how triangles are provided to the gs from a strip.
+       * For even primitives we rotate by 3, meaning we do nothing.
+       * For odd primitives we rotate by 2, combined with the previous rotation this
+       * means the second vertex becomes the last.
+       */
+      if (state->prim == ZINK_PVE_PRIMITIVE_TRISTRIP)
+        index_def = nir_imod(b, nir_iadd(b, index_def,
+                                            nir_isub(b, three,
+                                                        odd_prim)),
+                                            three);
+      /* Triangles that come from fans are provided to the gs the same way as
+       * odd triangles from a strip so always rotate by 2.
+       */
+      else if (state->prim == ZINK_PVE_PRIMITIVE_FAN)
+        index_def = nir_imod(b, nir_iadd_imm(b, index_def, 2),
+                                three);
+      nir_instr_rewrite_src(instr, &deref->arr.index, nir_src_for_ssa(index_def));
+      return true;
+   }
+
+   return false;
+}
+
 static nir_ssa_def*
 lower_pv_mode_gs_ring_index(nir_builder *b,
                             struct lower_pv_mode_state *state,
@@ -437,7 +480,6 @@ lower_pv_mode_emit_rotated_prim(nir_builder *b,
                                 nir_ssa_def *current_vertex)
 {
    nir_ssa_def *two = nir_imm_int(b, 2);
-   nir_ssa_def *three = nir_imm_int(b, 3);
    bool is_triangle = state->primitive_vert_count == 3;
    /* This shader will always see the last three vertices emitted by the user gs.
     * The following table is used to to rotate primitives within a strip generated
@@ -449,13 +491,6 @@ lower_pv_mode_emit_rotated_prim(nir_builder *b,
       {{1, 0, 0}, {1, 0, 0}},
       {{2, 0, 1}, {2, 1, 0}}
    };
-   /* When the primive supplied to the gs comes from a strip, the last provoking vertex
-    * is either the last or the second, depending on whether the triangle is at an odd
-    * or even position within the strip.
-    *
-    * odd or even primitive within draw
-    */
-   nir_ssa_def *odd_prim = nir_imod(b, nir_load_primitive_id(b), two);
    for (unsigned i = 0; i < state->primitive_vert_count; i++) {
       /* odd or even triangle within strip emitted by user GS
        * this is handled using the table
@@ -467,22 +502,6 @@ lower_pv_mode_emit_rotated_prim(nir_builder *b,
       nir_ssa_def *offset_odd_value = nir_imm_int(b, offset_odd);
       nir_ssa_def *rotated_i = nir_bcsel(b, nir_b2b1(b, odd_user_prim),
                                             offset_odd_value, offset_even_value);
-      /* Here we account for how triangles are provided to the gs from a strip.
-       * For even primitives we rotate by 3, meaning we do nothing.
-       * For odd primitives we rotate by 2, combined with the previous rotation this
-       * means the second vertex becomes the last.
-       */
-      if (state->prim == ZINK_PVE_PRIMITIVE_TRISTRIP)
-        rotated_i = nir_imod(b, nir_iadd(b, rotated_i,
-                                            nir_isub(b, three,
-                                                        odd_prim)),
-                                            three);
-      /* Triangles that come from fans are provided to the gs the same way as
-       * odd triangles from a strip so always rotate by 2.
-       */
-      else if (state->prim == ZINK_PVE_PRIMITIVE_FAN)
-        rotated_i = nir_imod(b, nir_iadd_imm(b, rotated_i, 2),
-                                three);
       rotated_i = nir_iadd(b, rotated_i, current_vertex);
       nir_foreach_variable_with_modes(var, b->shader, nir_var_shader_out) {
          gl_varying_slot location = var->data.location;
@@ -547,10 +566,13 @@ lower_pv_mode_gs_end_primitive(nir_builder *b,
 static bool
 lower_pv_mode_gs_instr(nir_builder *b, nir_instr *instr, void *data)
 {
+   struct lower_pv_mode_state *state = data;
+
+   if (instr->type == nir_instr_type_deref)
+      return lower_pv_mode_gs_load(b, instr, state);
    if (instr->type != nir_instr_type_intrinsic)
       return false;
 
-   struct lower_pv_mode_state *state = data;
    nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
 
    switch (intrin->intrinsic) {
