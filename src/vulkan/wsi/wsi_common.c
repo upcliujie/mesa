@@ -176,6 +176,7 @@ wsi_device_init(struct wsi_device *wsi,
    WSI_GET_CB(GetSemaphoreFdKHR);
    WSI_GET_CB(ResetFences);
    WSI_GET_CB(QueueSubmit);
+   WSI_GET_CB(SetDebugUtilsObjectNameEXT);
    WSI_GET_CB(WaitForFences);
    WSI_GET_CB(MapMemory);
    WSI_GET_CB(UnmapMemory);
@@ -1725,6 +1726,20 @@ wsi_create_buffer_blit_context(const struct wsi_swapchain *chain,
    return VK_SUCCESS;
 }
 
+static void
+wsi_label_cmd_buffer(const struct wsi_device *wsi, VkDevice device, VkCommandBuffer cmd_buffer, const char *name)
+{
+   VkDebugUtilsObjectNameInfoEXT name_info = {
+      .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+      .pNext = NULL,
+      .objectType = VK_OBJECT_TYPE_COMMAND_BUFFER,
+      .objectHandle = (uint64_t)cmd_buffer,
+      .pObjectName = name,
+   };
+
+   wsi->SetDebugUtilsObjectNameEXT(device, &name_info);
+}
+
 VkResult
 wsi_finish_create_blit_context(const struct wsi_swapchain *chain,
                                const struct wsi_image_info *info,
@@ -1754,6 +1769,8 @@ wsi_finish_create_blit_context(const struct wsi_swapchain *chain,
                                            &image->blit.cmd_buffers[i]);
       if (result != VK_SUCCESS)
          return result;
+
+      wsi_label_cmd_buffer(wsi, chain->device, image->blit.cmd_buffers[i], "wsi blit");
 
       const VkCommandBufferBeginInfo begin_info = {
          .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
