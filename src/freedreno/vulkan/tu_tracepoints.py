@@ -44,12 +44,21 @@ tu_default_tps = []
 # Tracepoint definitions:
 #
 
+command_buffer_arg = ArgStruct(type='struct tu_cmd_buffer *', var='cmd')
+command_buffer_struct = Arg(type='VkCommandBuffer', name='command_buffer_handle', var='vk_command_buffer_to_handle(&cmd->vk)', c_format='%" PRIu64 "', to_prim_type='(uint64_t){}', perfetto_field=True)
+
 def begin_end_tp(name, args=[], tp_struct=None, tp_print=None,
                  tp_default_enabled=True, marker_tp=True,
                  queue_tp=True):
     global tu_default_tps
     if tp_default_enabled:
         tu_default_tps.append(name)
+
+    # Make all the GPU render stage events take a cmdbuf, so that the
+    # command_buffer field can be set appropriately in the UI.
+    tp_struct = [command_buffer_struct] + (tp_struct if tp_struct else args)
+    args = [command_buffer_arg] + (args if args else [])
+
     Tracepoint('start_{0}'.format(name),
                toggle_name=name,
                args=args,
@@ -62,8 +71,7 @@ def begin_end_tp(name, args=[], tp_struct=None, tp_print=None,
                tp_perfetto='tu_perfetto_end_{0}'.format(name),
                tp_markers='tu_cs_trace_end' if marker_tp else None)
 
-begin_end_tp('cmd_buffer',
-    args=[ArgStruct(type='const struct tu_cmd_buffer *', var='cmd')],
+begin_end_tp('cmd_buffer',args=[],
     tp_struct=[Arg(type='VkCommandBufferLevel', name='level', var='cmd->vk.level', c_format='%s', to_prim_type='vk_CommandBufferLevel_to_str({})'),
                Arg(type='uint8_t', name='render_pass_continue', var='!!(cmd->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT)', c_format='%u')])
 

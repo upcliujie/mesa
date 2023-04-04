@@ -106,7 +106,7 @@ class TracepointArgStruct():
 class TracepointArg(object):
     """Class that represents either an argument being passed or a field in a struct
     """
-    def __init__(self, type, var, c_format, name=None, to_prim_type=None, length_arg=None, copy_func=None):
+    def __init__(self, type, var, c_format, name=None, to_prim_type=None, length_arg=None, copy_func=None, perfetto_field=None):
         """Parameters:
 
         - type: argument's C type.
@@ -117,6 +117,8 @@ class TracepointArg(object):
         - to_prim_type: (optional) C function to convert from arg's type to a type
           compatible with c_format.
         - length_arg: whether this argument is a variable length array
+        - perfetto_field: Whether the argument should be set to a perfetto field
+          with the given name, as opposed to attached with add_extra_data().
         """
         assert isinstance(type, str)
         assert isinstance(var, str)
@@ -131,6 +133,7 @@ class TracepointArg(object):
         self.to_prim_type = to_prim_type
         self.length_arg = length_arg
         self.copy_func = copy_func
+        self.perfetto_field = perfetto_field
 
 
 HEADERS = []
@@ -572,9 +575,19 @@ trace_payload_as_extra_${trace_name}(perfetto::protos::pbzero::GpuRenderStageEve
                                      const struct trace_${trace_name} *payload)
 {
  % if all([trace.tp_perfetto, trace.tp_struct]) and len(trace.tp_struct) > 0:
+ % if any(not arg.perfetto_field for arg in trace.tp_struct):
    char buf[128];
+ % endif
 
   % for arg in trace.tp_struct:
+  % if arg.perfetto_field:
+   % if arg.to_prim_type:
+   event->set_${arg.name}(${arg.to_prim_type.format('payload->' + arg.name)});
+   % else:
+   event->set_${arg.name}(payload->${arg.name});
+   % endif
+
+  % else:
    {
       auto data = event->add_extra_data();
       data->set_name("${arg.name}");
@@ -587,6 +600,7 @@ trace_payload_as_extra_${trace_name}(perfetto::protos::pbzero::GpuRenderStageEve
 
       data->set_value(buf);
    }
+  % endif
   % endfor
 
  % endif

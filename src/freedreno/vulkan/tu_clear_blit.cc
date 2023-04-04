@@ -1667,7 +1667,7 @@ tu6_blit_image(struct tu_cmd_buffer *cmd,
       tu6_plane_format(dst_image->vk.format,
                        tu6_plane_index(src_image->vk.format,
                                        info->srcSubresource.aspectMask));
-   trace_start_blit(&cmd->trace, cs,
+   trace_start_blit(&cmd->trace, cs, cmd,
                   ops == &r3d_ops,
                   src_image->vk.format,
                   dst_image->vk.format,
@@ -2355,7 +2355,7 @@ resolve_sysmem(struct tu_cmd_buffer *cmd,
 {
    const struct blit_ops *ops = &r2d_ops;
 
-   trace_start_sysmem_resolve(&cmd->trace, cs, vk_dst_format);
+   trace_start_sysmem_resolve(&cmd->trace, cs, cmd, vk_dst_format);
 
    enum pipe_format src_format = tu_vk_format_to_pipe_format(vk_src_format);
    enum pipe_format dst_format = tu_vk_format_to_pipe_format(vk_dst_format);
@@ -2544,7 +2544,7 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
    bool z_clear = false;
    bool s_clear = false;
 
-   trace_start_sysmem_clear_all(&cmd->trace, cs, mrt_count, rect_count);
+   trace_start_sysmem_clear_all(&cmd->trace, cs, cmd, mrt_count, rect_count);
 
    for (uint32_t i = 0; i < attachment_count; i++) {
       uint32_t a;
@@ -2821,7 +2821,7 @@ tu_emit_clear_gmem_attachment(struct tu_cmd_buffer *cmd,
    const struct tu_render_pass_attachment *att =
       &cmd->state.pass->attachments[attachment];
 
-   trace_start_gmem_clear(&cmd->trace, cs, att->format, att->samples);
+   trace_start_gmem_clear(&cmd->trace, cs, cmd, att->format, att->samples);
 
    tu_cs_emit_regs(cs,
                    A6XX_RB_BLIT_GMEM_MSAA_CNTL(tu_msaa_samples(att->samples)));
@@ -2973,7 +2973,7 @@ clear_sysmem_attachment(struct tu_cmd_buffer *cmd,
    if (cmd->state.pass->attachments[a].samples > 1)
       ops = &r3d_ops;
 
-   trace_start_sysmem_clear(&cmd->trace, cs, vk_format, ops == &r3d_ops,
+   trace_start_sysmem_clear(&cmd->trace, cs, cmd, vk_format, ops == &r3d_ops,
                             cmd->state.pass->attachments[a].samples);
 
    ops->setup(cmd, cs, format, format, clear_mask, 0, true, iview->view.ubwc_enabled,
@@ -3220,7 +3220,7 @@ tu_load_gmem_attachment(struct tu_cmd_buffer *cmd,
    if (!load_common && !load_stencil)
       return;
 
-   trace_start_gmem_load(&cmd->trace, cs, attachment->format, force_load);
+   trace_start_gmem_load(&cmd->trace, cs, cmd, attachment->format, force_load);
 
    /* If attachment will be cleared by vkCmdClearAttachments - it is likely
     * that it would be partially cleared, and since it is done by 2d blit
@@ -3469,7 +3469,7 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
    bool use_fast_path = !unaligned && !resolve_d24s8_s8 &&
                         (a == gmem_a || blit_can_resolve(dst->format));
 
-   trace_start_gmem_store(&cmd->trace, cs, dst->format, use_fast_path, unaligned);
+   trace_start_gmem_store(&cmd->trace, cs, cmd, dst->format, use_fast_path, unaligned);
 
    /* Unconditional store should happen only if attachment was cleared,
     * which could have happened either by load_op or via vkCmdClearAttachments.

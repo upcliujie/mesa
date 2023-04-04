@@ -446,6 +446,20 @@ CREATE_EVENT_CALLBACK(gmem_load, GMEM_LOAD_STAGE_ID)
 CREATE_EVENT_CALLBACK(gmem_store, GMEM_STORE_STAGE_ID)
 CREATE_EVENT_CALLBACK(sysmem_resolve, SYSMEM_RESOLVE_STAGE_ID)
 
+/* Don't pass the payload's string as metadata like the codegenned extra func
+ * does, just set the cmdbuf id and let
+ * tu_perfetto_start_cmd_buffer_annotation() -> stage_start() set the payload
+ * string as the stage.
+ * */
+static void UNUSED
+custom_trace_payload_as_extra_start_cmd_buffer_annotation(
+   perfetto::protos::pbzero::GpuRenderStageEvent *event,
+   const struct trace_start_cmd_buffer_annotation *payload)
+{
+   event->set_command_buffer_handle(
+      (uint64_t) payload->command_buffer_handle);
+}
+
 void
 tu_perfetto_start_cmd_buffer_annotation(
    struct tu_device *dev,
@@ -454,8 +468,10 @@ tu_perfetto_start_cmd_buffer_annotation(
    const struct trace_start_cmd_buffer_annotation *payload)
 {
    /* No extra func necessary, the only arg is in the end payload.*/
-   stage_start(dev, ts_ns, CMD_BUFFER_ANNOTATION_STAGE_ID, payload->str, payload,
-               sizeof(*payload), NULL);
+   stage_start(dev, ts_ns, CMD_BUFFER_ANNOTATION_STAGE_ID, payload->str,
+               payload, sizeof(*payload),
+               (trace_payload_as_extra_func)
+                  custom_trace_payload_as_extra_start_cmd_buffer_annotation);
 }
 
 void

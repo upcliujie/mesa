@@ -1143,7 +1143,7 @@ tu6_emit_binning_pass(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    tu_cs_emit_regs(cs,
                    A6XX_SP_TP_WINDOW_OFFSET(.x = 0, .y = 0));
 
-   trace_start_binning_ib(&cmd->trace, cs);
+   trace_start_binning_ib(&cmd->trace, cs, cmd);
 
    /* emit IB to binning drawcmds: */
    tu_cs_emit_call(cs, &cmd->draw_cs);
@@ -1491,7 +1491,7 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 {
    tu6_emit_tile_select(cmd, &cmd->cs, tx, ty, pipe, slot);
 
-   trace_start_draw_ib_gmem(&cmd->trace, &cmd->cs);
+   trace_start_draw_ib_gmem(&cmd->trace, &cmd->cs, cmd);
 
    /* Primitives that passed all tests are still counted in in each
     * tile even with HW binning beforehand. Do not permit it.
@@ -1616,7 +1616,7 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd,
 
    tu6_sysmem_render_begin(cmd, &cmd->cs, autotune_result);
 
-   trace_start_draw_ib_sysmem(&cmd->trace, &cmd->cs);
+   trace_start_draw_ib_sysmem(&cmd->trace, &cmd->cs, cmd);
 
    tu_cs_emit_call(&cmd->cs, &cmd->draw_cs);
 
@@ -4350,7 +4350,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    }
    tu_choose_gmem_layout(cmd);
 
-   trace_start_render_pass(&cmd->trace, &cmd->cs, cmd->state.framebuffer,
+   trace_start_render_pass(&cmd->trace, &cmd->cs, cmd, cmd->state.framebuffer,
                            cmd->state.tiling);
 
    /* Note: because this is external, any flushes will happen before draw_cs
@@ -4473,7 +4473,7 @@ tu_CmdBeginRendering(VkCommandBuffer commandBuffer,
    }
 
    if (!resuming)
-      trace_start_render_pass(&cmd->trace, &cmd->cs, cmd->state.framebuffer,
+      trace_start_render_pass(&cmd->trace, &cmd->cs, cmd, cmd->state.framebuffer,
                               cmd->state.tiling);
 
    if (!resuming || cmd->state.suspend_resume == SR_NONE) {
@@ -5808,7 +5808,7 @@ tu_dispatch(struct tu_cmd_buffer *cmd,
                    A6XX_HLSQ_CS_KERNEL_GROUP_Y(1),
                    A6XX_HLSQ_CS_KERNEL_GROUP_Z(1));
 
-   trace_start_compute(&cmd->trace, cs, info->indirect != NULL, local_size[0],
+   trace_start_compute(&cmd->trace, cs, cmd, info->indirect != NULL, local_size[0],
                        local_size[1], local_size[2], info->blocks[0],
                        info->blocks[1], info->blocks[2]);
 
