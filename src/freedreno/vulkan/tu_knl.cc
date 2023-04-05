@@ -109,6 +109,15 @@ tu_drm_submitqueue_close(const struct tu_device *dev, uint32_t queue_id)
 VkResult
 tu_queue_submit(struct vk_queue *vk_queue, struct vk_queue_submit *submit)
 {
+   struct vk_device *vk_device = vk_queue->base.device;
+   struct tu_device *dev = container_of(vk_device, struct tu_device, vk);
+
+   if (u_trace_should_process(&dev->trace_context)) {
+      for (int i = 0; i < submit->command_buffer_count; i++)
+         tu_perfetto_refresh_debug_utils_object_name(
+            &submit->command_buffers[i]->base);
+   }
+
    struct tu_queue *queue = container_of(vk_queue, struct tu_queue, vk);
    return queue->device->instance->knl->queue_submit(queue, submit);
 }

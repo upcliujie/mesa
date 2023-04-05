@@ -3512,3 +3512,16 @@ tu_CmdEndDebugUtilsLabelEXT(VkCommandBuffer _commandBuffer)
 
    vk_common_CmdEndDebugUtilsLabelEXT(_commandBuffer);
 }
+
+VKAPI_ATTR VkResult VKAPI_CALL
+tu_SetDebugUtilsObjectNameEXT(
+   VkDevice device,
+   const VkDebugUtilsObjectNameInfoEXT *pNameInfo)
+{
+   VkResult result = vk_common_SetDebugUtilsObjectNameEXT(device, pNameInfo);
+
+   if (result == VK_SUCCESS)
+      tu_perfetto_set_debug_utils_object_name(pNameInfo);
+
+   return result;
+}

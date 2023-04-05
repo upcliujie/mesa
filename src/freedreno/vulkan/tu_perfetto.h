@@ -6,14 +6,16 @@
 #ifndef TU_PERFETTO_H_
 #define TU_PERFETTO_H_
 
-#ifdef HAVE_PERFETTO
-
 /* we can't include tu_common.h because ir3 headers are not C++-compatible */
 #include <stdint.h>
+
+#include <vulkan/vulkan.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#ifdef HAVE_PERFETTO
 
 #define TU_PERFETTO_MAX_STACK_DEPTH 8
 
@@ -49,9 +51,31 @@ tu_device_get_perfetto_state(struct tu_device *dev);
 uint32_t
 tu_u_trace_submission_data_get_submit_id(const struct tu_u_trace_submission_data *data);
 
+void
+tu_perfetto_set_debug_utils_object_name(
+   const VkDebugUtilsObjectNameInfoEXT *pNameInfo);
+
+void
+tu_perfetto_refresh_debug_utils_object_name(
+   const struct vk_object_base *object);
+
 #ifdef __cplusplus
 }
 #endif
+
+#else
+
+static inline void
+tu_perfetto_set_debug_utils_object_name(
+   const VkDebugUtilsObjectNameInfoEXT *pNameInfo)
+{
+}
+
+static inline void
+tu_perfetto_refresh_debug_utils_object_name(
+   const struct vk_object_base *object)
+{
+}
 
 #endif /* HAVE_PERFETTO */
 

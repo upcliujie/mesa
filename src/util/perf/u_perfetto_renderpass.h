@@ -21,11 +21,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "vulkan/runtime/vk_object.h"
+
 #include "perfetto.h"
 
 #include "util/hash_table.h"
 #include "util/perf/u_trace.h"
 #include "util/ralloc.h"
+#include "util/set.h"
 
 /**
  * Struct tracking state during a perfetto packet sequence
@@ -50,13 +53,19 @@ class MesaRenderpassIncrementalState {
    {
       debug_markers = _mesa_hash_table_create(NULL, _mesa_hash_string,
                                               _mesa_key_string_equal);
+      named_objects = _mesa_pointer_set_create(NULL);
    }
 
-   ~MesaRenderpassIncrementalState() { ralloc_free(debug_markers); }
+   ~MesaRenderpassIncrementalState()
+   {
+      ralloc_free(debug_markers);
+      ralloc_free(named_objects);
+   }
 
    bool was_cleared = true;
 
    struct hash_table *debug_markers;
+   struct set *named_objects;
 };
 
 using perfetto::DataSource;
@@ -174,6 +183,45 @@ class MesaRenderpassDataSource
 
          return iid;
       }
+   }
+
+   void EmitSetDebugUtilsObjectNameEXT(TraceContext &ctx,
+                                       const struct vk_object_base *object)
+   {
+      if (object->object_name) {
+         auto packet = ctx.NewTracePacket();
+
+         auto api = packet->set_vulkan_api_event();
+         auto object_name = api->set_vk_debug_utils_object_name();
+         object_name->set_vk_device((uint64_t) (uintptr_t) object->device);
+         object_name->set_object((uint64_t) (uintptr_t) object);
+         object_name->set_object_type(object->type);
+         object_name->set_object_name(object->object_name);
+
+         _mesa_set_add(ctx.GetIncrementalState()->named_objects, object);
+      }
+   }
+
+   /* Call this from your driver's vkSetDebugUtilsObjectNameEXT implementation
+    */
+   void
+   SetDebugUtilsObjectNameEXT(TraceContext &ctx,
+                              const VkDebugUtilsObjectNameInfoEXT *pNameInfo)
+   {
+      EmitSetDebugUtilsObjectNameEXT(
+         ctx, vk_object_base_from_u64_handle(pNameInfo->objectHandle,
+                                             pNameInfo->objectType));
+   }
+
+   /* Call this on any Vulkan object before you emit a trace that would
+    * reference that object, so that the debug object name can be reassociated
+    * with it if we've lost incremental state.
+    */
+   void RefreshSetDebugUtilsObjectNameEXT(TraceContext &ctx,
+                                          const struct vk_object_base *object)
+   {
+      if (!_mesa_set_search(ctx.GetIncrementalState()->named_objects, object))
+         EmitSetDebugUtilsObjectNameEXT(ctx, object);
    }
 
  private:
