@@ -269,6 +269,7 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_SHAREABLE_SHADERS:
    case PIPE_CAP_PREFER_BACK_BUFFER_REUSE:
    case PIPE_CAP_QUERY_MEMORY_INFO:
+   case PIPE_CAP_MAP_UNSYNCHRONIZED_THREAD_SAFE:
       return 1;
 
    case PIPE_CAP_ALPHA_TEST:
@@ -395,7 +396,6 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VIEWPORT_MASK:
    case PIPE_CAP_TEXTURE_BUFFER_SAMPLER:
    case PIPE_CAP_PREFER_REAL_BUFFER_IN_CONSTBUF0:
-   case PIPE_CAP_MAP_UNSYNCHRONIZED_THREAD_SAFE: /* when we fix MT stuff */
    case PIPE_CAP_ALPHA_TO_COVERAGE_DITHER_CONTROL:
    case PIPE_CAP_SHADER_ATOMIC_INT64:
    case PIPE_CAP_GLSL_ZERO_INIT:
