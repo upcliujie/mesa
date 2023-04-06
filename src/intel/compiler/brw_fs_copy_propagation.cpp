@@ -41,6 +41,9 @@
 #include "brw_cfg.h"
 #include "brw_eu.h"
 
+#include <unordered_map>
+#include <set>
+
 using namespace brw;
 
 namespace { /* avoid conflict with opt_copy_propagation_elements */
@@ -1099,6 +1102,29 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
 {
    bool progress = false;
 
+   std::unordered_map<uint32_t, std::set<acp_entry*>> reg_space_to_entries;
+
+   auto get_reg_entries = [&](const fs_reg& reg) -> std::set<acp_entry*>& {
+      return reg_space_to_entries[reg_space(reg)];
+   };
+
+   auto remember_entry = [&](acp_entry *entry) {
+      get_reg_entries(entry->dst).insert(entry);
+      get_reg_entries(entry->src).insert(entry);
+   };
+
+   auto forget_entry = [&](acp_entry *entry) {
+      get_reg_entries(entry->dst).erase(entry);
+      get_reg_entries(entry->src).erase(entry);
+      entry->remove();
+   };
+
+   for (int i = 0; i < ACP_HASH_SIZE; i++) {
+      foreach_in_list_safe(acp_entry, entry, &acp[i]) {
+         remember_entry(entry);
+      }
+   }
+
    foreach_inst_in_block(fs_inst, inst, block) {
       /* Try propagating into this instruction. */
       for (int i = 0; i < inst->sources; i++) {
@@ -1115,25 +1141,18 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
 
       /* kill the destination from the ACP */
       if (inst->dst.file == VGRF || inst->dst.file == FIXED_GRF) {
-         foreach_in_list_safe(acp_entry, entry, &acp[inst->dst.nr % ACP_HASH_SIZE]) {
+         auto& entries = get_reg_entries(inst->dst);
+         auto it = entries.begin();
+         while (it != entries.end()) {
+            auto current = it++;
+            acp_entry *entry = *current;
             if (regions_overlap(entry->dst, entry->size_written,
-                                inst->dst, inst->size_written))
-               entry->remove();
-         }
-
-         /* Oops, we only have the chaining hash based on the destination, not
-          * the source, so walk across the entire table.
-          */
-         for (int i = 0; i < ACP_HASH_SIZE; i++) {
-            foreach_in_list_safe(acp_entry, entry, &acp[i]) {
-               /* Make sure we kill the entry if this instruction overwrites
-                * _any_ of the registers that it reads
-                */
-               if (regions_overlap(entry->src, entry->size_read,
-                                   inst->dst, inst->size_written))
-                  entry->remove();
+                                 inst->dst, inst->size_written) ||
+                regions_overlap(entry->src, entry->size_read,
+                                 inst->dst, inst->size_written)) {
+               forget_entry(entry);
             }
-	 }
+         }
       }
 
       /* If this instruction's source could potentially be folded into the
@@ -1150,6 +1169,7 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
          entry->is_partial_write = inst->is_partial_write();
          entry->force_writemask_all = inst->force_writemask_all;
          acp[entry->dst.nr % ACP_HASH_SIZE].push_tail(entry);
+         remember_entry(entry);
       } else if (inst->opcode == SHADER_OPCODE_LOAD_PAYLOAD &&
                  inst->dst.file == VGRF) {
          int offset = 0;
@@ -1171,6 +1191,7 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
                entry->force_writemask_all = inst->force_writemask_all;
                if (!entry->dst.equals(inst->src[i])) {
                   acp[entry->dst.nr % ACP_HASH_SIZE].push_tail(entry);
+                  remember_entry(entry);
                } else {
                   ralloc_free(entry);
                }

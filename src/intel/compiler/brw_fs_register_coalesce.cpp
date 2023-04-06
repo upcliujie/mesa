@@ -44,7 +44,17 @@
 #include "brw_cfg.h"
 #include "brw_fs_live_variables.h"
 
+#include <unordered_map>
+#include <set>
+#include <vector>
+
 using namespace brw;
+
+struct block_info
+{
+   const bblock_t *block = nullptr;
+   std::vector<fs_inst*> insts;
+};
 
 static bool
 is_nop_mov(const fs_inst *inst)
@@ -99,7 +109,8 @@ is_coalesce_candidate(const fs_visitor *v, const fs_inst *inst)
 static bool
 can_coalesce_vars(const fs_live_variables &live, const cfg_t *cfg,
                   const bblock_t *block, const fs_inst *inst,
-                  int dst_var, int src_var)
+                  int dst_var, int src_var,
+                  const std::vector<block_info>& blocks_insts)
 {
    if (!live.vars_interfere(src_var, dst_var))
       return true;
@@ -120,16 +131,24 @@ can_coalesce_vars(const fs_live_variables &live, const cfg_t *cfg,
    int start_ip = MAX2(dst_start, src_start);
    int end_ip = MIN2(dst_end, src_end);
 
-   foreach_block(scan_block, cfg) {
+   for (const block_info& block_info : blocks_insts) {
+      const bblock_t *scan_block = block_info.block;
+      const std::vector<fs_inst*>& block_insts = block_info.insts;
+
       if (scan_block->end_ip < start_ip)
          continue;
 
-      int scan_ip = scan_block->start_ip - 1;
-
       bool seen_src_write = false;
       bool seen_copy = false;
-      foreach_inst_in_block(fs_inst, scan_inst, scan_block) {
-         scan_ip++;
+
+      int inst_idx = 0;
+      if (block == scan_block) {
+         inst_idx = MAX2(0, start_ip - scan_block->start_ip);
+      }
+
+      for (; inst_idx < static_cast<int>(block_insts.size()); ++inst_idx) {
+         fs_inst *scan_inst = block_insts[inst_idx];
+         const int scan_ip = scan_block->start_ip + inst_idx;
 
          /* Ignore anything before the intersection of the live ranges */
          if (scan_ip < start_ip)
@@ -201,14 +220,41 @@ fs_visitor::register_coalesce()
    int dst_var[MAX_VGRF_SIZE];
    int src_var[MAX_VGRF_SIZE];
 
-   foreach_block_and_inst(block, fs_inst, inst, cfg) {
+   std::unordered_map<unsigned, std::set<fs_reg*>> reg_uses;
+   std::vector<block_info> blocks_insts;
+
+   auto add_register_use = [&reg_uses](fs_reg *reg) {
+      if (reg->file == VGRF)
+         reg_uses[reg->nr].insert(reg);
+   };
+
+   auto rem_register_use = [&reg_uses](fs_reg *reg) {
+      if (reg->file == VGRF)
+         reg_uses[reg->nr].erase(reg);
+   };
+
+   /* Gather register uses in instructions. */
+   foreach_block(block, cfg) {
+      blocks_insts.emplace_back();
+      auto& block_info = blocks_insts.back();
+      block_info.block = block;
+      foreach_inst_in_block(fs_inst, inst, block) {
+         block_info.insts.push_back(inst);
+         add_register_use(&inst->dst);
+         for (int j = 0; j < inst->sources; j++) {
+            add_register_use(&inst->src[j]);
+         }
+      }
+   }
+
+   auto coalesce_inst = [&](const bblock_t *block, fs_inst *inst) {
       if (!is_coalesce_candidate(this, inst))
-         continue;
+         return;
 
       if (is_nop_mov(inst)) {
          inst->opcode = BRW_OPCODE_NOP;
          progress = true;
-         continue;
+         return;
       }
 
       if (src_reg != inst->src[0].nr) {
@@ -224,7 +270,7 @@ fs_visitor::register_coalesce()
       }
 
       if (dst_reg != inst->dst.nr)
-         continue;
+         return;
 
       if (inst->opcode == SHADER_OPCODE_LOAD_PAYLOAD) {
          for (int i = 0; i < src_size; i++) {
@@ -242,7 +288,7 @@ fs_visitor::register_coalesce()
              * two variables.  Let's ensure that doesn't happen.
              */
             channels_remaining = -1;
-            continue;
+            return;
          }
          for (unsigned i = 0; i < MAX2(inst->size_written / REG_SIZE, 1); i++)
             dst_reg_offset[offset + i] = inst->dst.offset / REG_SIZE + i;
@@ -251,7 +297,7 @@ fs_visitor::register_coalesce()
       }
 
       if (channels_remaining)
-         continue;
+         return;
 
       bool can_coalesce = true;
       for (int i = 0; i < src_size; i++) {
@@ -265,7 +311,8 @@ fs_visitor::register_coalesce()
          dst_var[i] = live.var_from_vgrf[dst_reg] + dst_reg_offset[i];
          src_var[i] = live.var_from_vgrf[src_reg] + i;
 
-         if (!can_coalesce_vars(live, cfg, block, inst, dst_var[i], src_var[i])) {
+         if (!can_coalesce_vars(live, cfg, block, inst,
+                                dst_var[i], src_var[i], blocks_insts)) {
             can_coalesce = false;
             src_reg = ~0u;
             break;
@@ -273,7 +320,7 @@ fs_visitor::register_coalesce()
       }
 
       if (!can_coalesce)
-         continue;
+         return;
 
       progress = true;
 
@@ -283,9 +330,13 @@ fs_visitor::register_coalesce()
 
          if (mov[i]->conditional_mod == BRW_CONDITIONAL_NONE) {
             mov[i]->opcode = BRW_OPCODE_NOP;
+            rem_register_use(&mov[i]->dst);
             mov[i]->dst = reg_undef;
+            add_register_use(&mov[i]->dst);
             for (int j = 0; j < mov[i]->sources; j++) {
+               rem_register_use(&mov[i]->src[j]);
                mov[i]->src[j] = reg_undef;
+               add_register_use(&mov[i]->src[j]);
             }
          } else {
             /* If we have a conditional modifier, rewrite the MOV to be a
@@ -296,26 +347,28 @@ fs_visitor::register_coalesce()
              */
             assert(mov[i]->opcode == BRW_OPCODE_MOV);
             assert(mov[i]->sources == 1);
+
+            rem_register_use(&mov[i]->src[0]);
             mov[i]->src[0] = mov[i]->dst;
+            add_register_use(&mov[i]->src[0]);
+
+            rem_register_use(&mov[i]->dst);
             mov[i]->dst = retype(brw_null_reg(), mov[i]->dst.type);
+            add_register_use(&mov[i]->dst);
          }
       }
 
-      foreach_block_and_inst(block, fs_inst, scan_inst, cfg) {
-         if (scan_inst->dst.file == VGRF &&
-             scan_inst->dst.nr == src_reg) {
-            scan_inst->dst.nr = dst_reg;
-            scan_inst->dst.offset = scan_inst->dst.offset % REG_SIZE +
-               dst_reg_offset[scan_inst->dst.offset / REG_SIZE] * REG_SIZE;
-         }
-
-         for (int j = 0; j < scan_inst->sources; j++) {
-            if (scan_inst->src[j].file == VGRF &&
-                scan_inst->src[j].nr == src_reg) {
-               scan_inst->src[j].nr = dst_reg;
-               scan_inst->src[j].offset = scan_inst->src[j].offset % REG_SIZE +
-                  dst_reg_offset[scan_inst->src[j].offset / REG_SIZE] * REG_SIZE;
+      {
+         auto it = reg_uses.find(src_reg);
+         if (!(it == reg_uses.end() || it->second.empty())) {
+            for (fs_reg *reg: it->second) {
+               reg->nr = dst_reg;
+               reg->offset = reg->offset % REG_SIZE +
+                  dst_reg_offset[reg->offset / REG_SIZE] * REG_SIZE;
             }
+
+            auto uses = std::move(it->second);
+            reg_uses[dst_reg].insert(uses.begin(), uses.end());
          }
       }
 
@@ -326,6 +379,12 @@ fs_visitor::register_coalesce()
                                      live.end[src_var[i]]);
       }
       src_reg = ~0u;
+   };
+
+   for (const block_info& block_info : blocks_insts) {
+      for (fs_inst *inst : block_info.insts) {
+         coalesce_inst(block_info.block, inst);
+      }
    }
 
    if (progress) {
