@@ -1133,8 +1133,8 @@ nir_opt_loop_unroll_impl(nir_function_impl *impl,
                          bool force_unroll_sampler_indirect)
 {
    bool progress = false;
-   nir_metadata_require(impl, nir_metadata_loop_analysis, indirect_mask,
-                        (int) force_unroll_sampler_indirect);
+   nir_metadata_require_loop_analysis(impl, indirect_mask,
+                                      force_unroll_sampler_indirect);
    nir_metadata_require(impl, nir_metadata_block_index);
 
    bool has_nested_loop = false;

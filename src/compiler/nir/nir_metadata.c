@@ -28,9 +28,12 @@
  */
 
 void
-nir_metadata_require(nir_function_impl *impl, nir_metadata required, ...)
+nir_metadata_require(nir_function_impl *impl, nir_metadata required)
 {
 #define NEEDS_UPDATE(X) ((required & ~impl->valid_metadata) & (X))
+
+   assert((required & nir_metadata_loop_analysis) == 0 &&
+          "Call nir_metadata_require_loop_analysis instead.");
 
    if (NEEDS_UPDATE(nir_metadata_block_index))
       nir_index_blocks(impl);
@@ -40,22 +43,21 @@ nir_metadata_require(nir_function_impl *impl, nir_metadata required, ...)
       nir_calc_dominance_impl(impl);
    if (NEEDS_UPDATE(nir_metadata_live_ssa_defs))
       nir_live_ssa_defs_impl(impl);
-   if (NEEDS_UPDATE(nir_metadata_loop_analysis)) {
-      va_list ap;
-      va_start(ap, required);
-      /* !! Warning !! Do not move these va_arg() call directly to
-       * nir_loop_analyze_impl() as parameters because the execution order will
-       * become undefined.
-       */
-      nir_variable_mode mode = va_arg(ap, nir_variable_mode);
-      int force_unroll_sampler_indirect = va_arg(ap, int);
-      nir_loop_analyze_impl(impl, mode, force_unroll_sampler_indirect);
-      va_end(ap);
-   }
 
 #undef NEEDS_UPDATE
 
    impl->valid_metadata |= required;
+}
+
+void
+nir_metadata_require_loop_analysis(nir_function_impl *impl,
+                                   nir_variable_mode mode,
+                                   bool force_unroll_sampler_indirect)
+{
+   if ((nir_metadata_loop_analysis & impl->valid_metadata) == 0) {
+      nir_loop_analyze_impl(impl, mode, force_unroll_sampler_indirect);
+      impl->valid_metadata |= nir_metadata_loop_analysis;
+   }
 }
 
 void

@@ -3974,7 +3974,13 @@ nir_loop *nir_loop_create(nir_shader *shader);
 nir_function_impl *nir_cf_node_get_function(nir_cf_node *node);
 
 /** requests that the given pieces of metadata be generated */
-void nir_metadata_require(nir_function_impl *impl, nir_metadata required, ...);
+void nir_metadata_require(nir_function_impl *impl, nir_metadata required);
+
+/** requests that loop analysis metadata be generated */
+void nir_metadata_require_loop_analysis(nir_function_impl *impl,
+                                        nir_variable_mode mode,
+                                        bool force_unroll_sampler_indirect);
+
 /** dirties all but the preserved metadata */
 void nir_metadata_preserve(nir_function_impl *impl, nir_metadata preserved);
 /** Preserves all metadata for the given shader */
@@ -4308,6 +4314,7 @@ NIR_SRC_AS_(alu_instr, nir_alu_instr, nir_instr_type_alu, nir_instr_as_alu)
 NIR_SRC_AS_(intrinsic, nir_intrinsic_instr,
             nir_instr_type_intrinsic, nir_instr_as_intrinsic)
 NIR_SRC_AS_(deref, nir_deref_instr, nir_instr_type_deref, nir_instr_as_deref)
+NIR_SRC_AS_(phi, nir_phi_instr, nir_instr_type_phi, nir_instr_as_phi)
 
 bool nir_src_is_always_uniform(nir_src src);
 bool nir_srcs_equal(nir_src src1, nir_src src2);
@@ -5774,6 +5781,8 @@ bool nir_opt_large_constants(nir_shader *shader,
                              unsigned threshold);
 
 bool nir_opt_loop_unroll(nir_shader *shader);
+
+bool nir_opt_loop_inversion(nir_shader *shader);
 
 typedef enum {
     nir_move_const_undef  = (1 << 0),
