@@ -1196,6 +1196,9 @@ nir_resize_vector(nir_builder *b, nir_ssa_def *src, unsigned num_components)
 }
 
 nir_ssa_def *
+nir_ssa_for_scalar(nir_builder *build, nir_ssa_scalar scalar);
+
+nir_ssa_def *
 nir_ssa_for_src(nir_builder *build, nir_src src, int num_components);
 
 nir_ssa_def *

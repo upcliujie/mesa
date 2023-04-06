@@ -346,6 +346,16 @@ nir_vec_scalars(nir_builder *build, nir_ssa_scalar *comp, unsigned num_component
 }
 
 /**
+ * Turns a nir_ssa_scalar into a nir_ssa_def * so it can be passed to
+ * nir_build_*()-based builder calls.
+ */
+inline nir_ssa_def *
+nir_ssa_for_scalar(nir_builder *build, nir_ssa_scalar scalar)
+{
+   return nir_channel(build, scalar.def, scalar.comp);
+}
+
+/**
  * Turns a nir_src into a nir_ssa_def * so it can be passed to
  * nir_build_alu()-based builder calls.
  *
