@@ -635,6 +635,19 @@ etna_is_parallel_shader_compilation_finished(struct pipe_screen *pscreen,
    return util_queue_fence_is_signalled(&shader->ready);
 }
 
+static void
+etna_get_compute_state_info(struct pipe_context *pipe, void *cso,
+                            struct pipe_compute_state_object_info *info)
+{
+   struct etna_shader *shader = (struct etna_shader *) cso;
+   struct nir_shader *nir = shader->nir;
+
+   // TODO
+   info->max_threads = 256;
+   info->preferred_simd_size = 1;
+   info->private_memory = nir->scratch_size;
+}
+
 void
 etna_shader_init(struct pipe_context *pctx)
 {
@@ -647,6 +660,7 @@ etna_shader_init(struct pipe_context *pctx)
    pctx->create_compute_state = etna_create_compute_state;
    pctx->bind_compute_state = etna_bind_compute_state;
    pctx->delete_compute_state = etna_delete_shader_state;
+   pctx->get_compute_state_info = etna_get_compute_state_info;
 }
 
 bool
