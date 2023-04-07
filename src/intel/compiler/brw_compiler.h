@@ -884,6 +884,13 @@ enum brw_wm_msaa_flags {
 };
 MESA_DEFINE_CPP_ENUM_BITFIELD_OPERATORS(enum brw_wm_msaa_flags)
 
+/* From 3DSTATE_PS_EXTRA::Simple PS Hint field, Simple heuristic like 100 GEN
+ * ISA instructions in the PS can be used to set the Simple PS Hint field.
+ */
+#define BRW_SIMPLE_PS_HINT_INSTS_THRESHOLD_SIMD8   100
+#define BRW_SIMPLE_PS_HINT_INSTS_THRESHOLD_SIMD16  80
+#define BRW_SIMPLE_PS_HINT_INSTS_THRESHOLD_SIMD32  150
+
 /* Data about a particular attempt to compile a program.  Note that
  * there can be many of these, each in a different GL state
  * corresponding to a different brw_wm_prog_key struct, with different
@@ -937,6 +944,11 @@ struct brw_wm_prog_data {
 
    bool contains_flat_varying;
    bool contains_noperspective_varying;
+
+   /* True if PS shader satisfy the
+    * BRW_SIMPLE_PS_HINT_INSTS_THRESHOLD_SIMD8/16/32 limit.
+    */
+   bool enable_simple_ps_hint;
 
    /** True if the shader wants sample shading
     *

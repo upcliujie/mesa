@@ -7641,6 +7641,8 @@ brw_compile_fs(const struct brw_compiler *compiler,
       prog_data->dispatch_8 = true;
       g.generate_code(simd8_cfg, 8, v8->shader_stats,
                       v8->performance_analysis.require(), stats);
+      prog_data->enable_simple_ps_hint |=
+         g.get_instruction_count() <= BRW_SIMPLE_PS_HINT_INSTS_THRESHOLD_SIMD8;
       stats = stats ? stats + 1 : NULL;
       max_dispatch_width = 8;
    }
@@ -7650,6 +7652,8 @@ brw_compile_fs(const struct brw_compiler *compiler,
       prog_data->prog_offset_16 = g.generate_code(
          simd16_cfg, 16, v16->shader_stats,
          v16->performance_analysis.require(), stats);
+      prog_data->enable_simple_ps_hint |=
+         g.get_instruction_count() <= BRW_SIMPLE_PS_HINT_INSTS_THRESHOLD_SIMD16;
       stats = stats ? stats + 1 : NULL;
       max_dispatch_width = 16;
    }
@@ -7659,6 +7663,8 @@ brw_compile_fs(const struct brw_compiler *compiler,
       prog_data->prog_offset_32 = g.generate_code(
          simd32_cfg, 32, v32->shader_stats,
          v32->performance_analysis.require(), stats);
+      prog_data->enable_simple_ps_hint |=
+         g.get_instruction_count() <= BRW_SIMPLE_PS_HINT_INSTS_THRESHOLD_SIMD32;
       stats = stats ? stats + 1 : NULL;
       max_dispatch_width = 32;
    }
