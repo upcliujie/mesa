@@ -926,6 +926,10 @@ blorp_emit_ps_config(struct blorp_batch *batch,
 #if GFX_VER >= 9
          psx.PixelShaderComputesStencil = prog_data->computed_stencil;
 #endif
+
+#if GFX_VER >= 11
+         psx.SimplePSHint = prog_data->enable_simple_ps_hint;
+#endif
       }
 
       if (params->src.enabled)
