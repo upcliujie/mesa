@@ -921,6 +921,7 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
                .lower_stores = false,
                .lower_atomics = true,
                .lower_get_size = false,
+               .lower_loads_without_formats = true,
             });
 
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_global,

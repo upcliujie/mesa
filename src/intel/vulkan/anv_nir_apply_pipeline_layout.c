@@ -155,6 +155,7 @@ get_used_bindings(UNUSED nir_builder *_b, nir_instr *instr, void *_state)
       case nir_intrinsic_image_deref_load_param_intel:
       case nir_intrinsic_image_deref_load_raw_intel:
       case nir_intrinsic_image_deref_store_raw_intel:
+      case nir_intrinsic_image_deref_format_intel:
          add_deref_src_binding(state, intrin->src[0]);
          break;
 
@@ -1008,6 +1009,20 @@ lower_image_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
 }
 
 static bool
+lower_image_format_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin,
+                             struct apply_pipeline_layout_state *state)
+{
+   nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+   nir_ssa_def *format =
+      build_load_var_deref_descriptor_mem(b, deref, 4, 1, 32, state);
+
+   nir_ssa_def_rewrite_uses(&intrin->dest.ssa, format);
+   nir_instr_remove(&intrin->instr);
+
+   return true;
+}
+
+static bool
 lower_load_constant(nir_builder *b, nir_intrinsic_instr *intrin,
                     struct apply_pipeline_layout_state *state)
 {
@@ -1256,6 +1271,8 @@ apply_pipeline_layout(nir_builder *b, nir_instr *instr, void *_state)
       case nir_intrinsic_image_deref_load_raw_intel:
       case nir_intrinsic_image_deref_store_raw_intel:
          return lower_image_intrinsic(b, intrin, state);
+      case nir_intrinsic_image_deref_format_intel:
+         return lower_image_format_intrinsic(b, intrin, state);
       case nir_intrinsic_load_constant:
          return lower_load_constant(b, intrin, state);
       case nir_intrinsic_load_base_workgroup_id:
