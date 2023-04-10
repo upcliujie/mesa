@@ -45,6 +45,11 @@ struct shader_info;
 struct nir_shader_compiler_options;
 typedef struct nir_shader nir_shader;
 
+struct brw_storage_format {
+   uint32_t num_formats;
+   uint32_t isl_formats[3];
+};
+
 struct brw_compiler {
    const struct intel_device_info *devinfo;
 
@@ -115,6 +120,15 @@ struct brw_compiler {
    bool indirect_ubos_use_sampler;
 
    struct nir_shader *clc_shader;
+
+   /**
+    * A list of storage formats to lower from the matching return HW format.
+    *
+    * This list is used to build the lowering of read without format in
+    * brw_nir_lower_storage_image.c
+    */
+   uint32_t num_lowered_storage_formats;
+   uint32_t *lowered_storage_formats;
 };
 
 #define brw_shader_debug_log(compiler, data, fmt, ... ) do {    \

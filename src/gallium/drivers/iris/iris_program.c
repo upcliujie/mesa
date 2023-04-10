@@ -2957,7 +2957,6 @@ iris_finalize_nir(struct pipe_screen *_screen, void *nirptr)
 {
    struct iris_screen *screen = (struct iris_screen *)_screen;
    struct nir_shader *nir = (struct nir_shader *) nirptr;
-   const struct intel_device_info *devinfo = screen->devinfo;
 
    NIR_PASS_V(nir, iris_fix_edge_flags);
 
@@ -2965,8 +2964,8 @@ iris_finalize_nir(struct pipe_screen *_screen, void *nirptr)
    brw_preprocess_nir(screen->compiler, nir, &opts);
 
    NIR_PASS_V(nir, brw_nir_lower_storage_image,
+              screen->compiler,
               &(struct brw_nir_lower_storage_image_opts) {
-                 .devinfo = devinfo,
                  .lower_loads = true,
                  .lower_stores = true,
                  .lower_atomics = true,
