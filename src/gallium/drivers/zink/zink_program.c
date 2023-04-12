@@ -2368,3 +2368,22 @@ zink_set_primitive_emulation_keys(struct zink_context *ctx)
               ctx->gfx_stages[MESA_SHADER_GEOMETRY]->non_fs.is_generated)
          ctx->base.bind_gs_state(&ctx->base, NULL);
 }
+
+void
+zink_set_border_color_emulation_keys(struct zink_context *ctx)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   if (!screen->info.have_EXT_custom_border_color) {
+      // TODO move somehwre else
+      // TODO make it work for all stages
+      bool lower_border_color = 0;
+      for (unsigned i = 0; i < PIPE_MAX_SAMPLERS; i++)
+         if (ctx->sampler_states[MESA_SHADER_FRAGMENT][i] &&
+             ctx->sampler_states[MESA_SHADER_FRAGMENT][i]->custom_border_color) {
+            lower_border_color = true;
+            break;
+         }
+      if (zink_get_fs_key(ctx)->lower_border_color != lower_border_color)
+         zink_set_fs_key(ctx)->lower_border_color = lower_border_color;
+   }
+}

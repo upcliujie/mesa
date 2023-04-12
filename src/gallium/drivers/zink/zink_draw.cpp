@@ -492,6 +492,8 @@ zink_draw(struct pipe_context *pctx,
       zink_set_primitive_emulation_keys(ctx);
    }
 
+   zink_set_border_color_emulation_keys(ctx);
+
    if (index_size) {
       const VkIndexType index_type[3] = {
          VK_INDEX_TYPE_UINT8_EXT,

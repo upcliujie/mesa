@@ -376,6 +376,9 @@ zink_get_shader_key_base(const struct zink_context *ctx, gl_shader_stage pstage)
    return &ctx->gfx_pipeline_state.shader_keys.key[pstage].base;
 }
 
+void
+zink_set_border_color_emulation_keys(struct zink_context *ctx);
+
 static inline struct zink_shader_key_base *
 zink_set_shader_key_base(struct zink_context *ctx, gl_shader_stage pstage)
 {
