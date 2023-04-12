@@ -4470,6 +4470,8 @@ nir_to_spirv(struct nir_shader *s, const struct zink_shader_info *sinfo, uint32_
    }
 
    if (ctx.sinfo->have_vulkan_memory_model) {
+      if (spirv_version < SPIRV_VERSION(1, 5))
+         spirv_builder_emit_extension(&ctx.builder, "SPV_KHR_vulkan_memory_model");
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityVulkanMemoryModel);
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityVulkanMemoryModelDeviceScope);
       spirv_builder_emit_mem_model(&ctx.builder, model,

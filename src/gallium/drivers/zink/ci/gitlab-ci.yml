@@ -44,6 +44,14 @@ zink-lvp:
   script: |
     xvfb-run --server-args='-noreset' bash -c ". $SCRIPTS_DIR/setup-test-env.sh && ${XVFB_SCRIPT}"
 
+zink-lvp-gl46_baseline:
+  extends:
+    - zink-lvp
+  variables:
+    VK_INSTANCE_LAYERS: VK_LAYER_KHRONOS_profiles
+    VK_KHRONOS_PROFILES_PROFILE_FILE: ${CI_PROJECT_DIR}/install/VP_ZINK_requirements.json
+    VK_KHRONOS_PROFILES_PROFILE_NAME: "VP_ZINK_gl46_baseline"
+
 .zink-anv-test:
   extends:
     - .anv-tgl-test
