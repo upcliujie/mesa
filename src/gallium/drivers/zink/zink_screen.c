@@ -3058,6 +3058,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    screen->optimal_keys = !screen->need_decompose_attrs &&
                           screen->info.have_EXT_non_seamless_cube_map &&
                           screen->info.have_EXT_provoking_vertex &&
+                          screen->info.have_EXT_custom_border_color &&
                           !screen->driconf.inline_uniforms &&
                           !screen->driver_workarounds.no_linestipple &&
                           !screen->driver_workarounds.no_linesmooth &&
