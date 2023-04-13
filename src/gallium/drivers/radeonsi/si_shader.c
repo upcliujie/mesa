@@ -1682,6 +1682,14 @@ static void si_lower_ngg(struct si_shader *shader, nir_shader *nir)
             BITSET_SET(nir->info.system_values_read, SYSTEM_VALUE_PRIMITIVE_ID);
       }
 
+      ac_nir_before_cull_analysis before_cull_analysis = {
+         .instance_rate_inputs = instance_rate_inputs,
+      };
+
+      if (options.can_cull) {
+         ac_nir_analyze_shader_before_culling(shader, &before_cull_analysis);
+      }
+
       unsigned clip_plane_enable =
          SI_NGG_CULL_GET_CLIP_PLANE_ENABLE(key->ge.opt.ngg_culling);
 
@@ -1694,6 +1702,7 @@ static void si_lower_ngg(struct si_shader *shader, nir_shader *nir)
       options.export_primitive_id = key->ge.mono.u.vs_export_prim_id;
       options.instance_rate_inputs = instance_rate_inputs;
       options.user_clip_plane_enable_mask = clip_plane_enable;
+      options.needs_deferred = before_cull_analysis.needs_deferred;
 
       NIR_PASS_V(nir, ac_nir_lower_ngg_nogs, &options);
    } else {

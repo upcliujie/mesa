@@ -803,27 +803,28 @@ radv_consider_culling(const struct radv_physical_device *pdevice, struct nir_sha
 
 static void
 setup_ngg_lds_layout(struct radv_device *device, nir_shader *nir, struct radv_shader_info *info,
-                     unsigned max_vtx_in)
+                     ac_nir_before_cull_analysis *analysis, unsigned max_vtx_in)
 {
    unsigned scratch_lds_base = 0;
    gl_shader_stage stage = nir->info.stage;
 
    if (stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_TESS_EVAL) {
+      if (info->has_ngg_culling) {
+         ac_nir_analyze_shader_before_culling(nir, analysis);
+         analysis->reusable_repackable = MIN2(analysis->reusable_repackable, 8);
+      }
+
       /* Get pervertex LDS usage. */
-      bool uses_instanceid =
-         BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_INSTANCE_ID);
-      bool uses_primtive_id =
-         BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_PRIMITIVE_ID);
       bool streamout_enabled = nir->xfb_info && device->physical_device->use_ngg_streamout;
       unsigned pervertex_lds_bytes =
          ac_ngg_nogs_get_pervertex_lds_size(stage,
                                             nir->num_outputs,
+                                            analysis->reusable_repackable,
                                             streamout_enabled,
                                             info->outinfo.export_prim_id,
                                             false, /* user edge flag */
                                             info->has_ngg_culling,
-                                            uses_instanceid,
-                                            uses_primtive_id);
+                                            &analysis->needs_deferred);
 
       unsigned total_es_lds_bytes = pervertex_lds_bytes * max_vtx_in;
       scratch_lds_base = ALIGN(total_es_lds_bytes, 8u);
@@ -900,7 +901,15 @@ void radv_lower_ngg(struct radv_device *device, struct radv_pipeline_stage *ngg_
    /* Invocations that process an input vertex */
    unsigned max_vtx_in = MIN2(256, ngg_info->hw_max_esverts);
 
-   setup_ngg_lds_layout(device, nir, &ngg_stage->info, max_vtx_in);
+   if (info->has_ngg_culling)
+      radv_optimize_nir_algebraic(nir, false);
+
+   ac_nir_before_cull_analysis an = {
+      .instance_rate_inputs =
+         nir->info.stage == MESA_SHADER_VERTEX
+            ? pl_key->vs.instance_rate_inputs << VERT_ATTRIB_GENERIC0 : 0,
+   };
+   setup_ngg_lds_layout(device, nir, &ngg_stage->info, &an, max_vtx_in);
 
    ac_nir_lower_ngg_options options = {0};
    options.family = device->physical_device->rad_info.family;
@@ -915,19 +924,18 @@ void radv_lower_ngg(struct radv_device *device, struct radv_pipeline_stage *ngg_
    options.has_gen_prim_query = info->has_ngg_prim_query;
    options.has_xfb_prim_query = info->has_ngg_xfb_query;
    options.force_vrs = info->force_vrs_per_vertex;
+   options.reusable_repackable = an.reusable_repackable;
 
    if (nir->info.stage == MESA_SHADER_VERTEX ||
        nir->info.stage == MESA_SHADER_TESS_EVAL) {
       assert(info->is_ngg);
-
-      if (info->has_ngg_culling)
-         radv_optimize_nir_algebraic(nir, false);
 
       options.num_vertices_per_primitive = num_vertices_per_prim;
       options.early_prim_export = info->has_ngg_early_prim_export;
       options.passthrough = info->is_ngg_passthrough;
       options.export_primitive_id = info->outinfo.export_prim_id;
       options.instance_rate_inputs = pl_key->vs.instance_rate_inputs << VERT_ATTRIB_GENERIC0;
+      options.needs_deferred = an.needs_deferred;
 
       NIR_PASS_V(nir, ac_nir_lower_ngg_nogs, &options);
 
