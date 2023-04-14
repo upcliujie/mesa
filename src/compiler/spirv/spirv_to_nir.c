@@ -1075,6 +1075,9 @@ struct_member_decoration_cb(struct vtn_builder *b,
    case SpvDecorationCoherent:
       vtn_handle_access_qualifier(b, ctx->type, member, ACCESS_COHERENT);
       break;
+   case SpvDecorationRestrict:
+      vtn_handle_access_qualifier(b, ctx->type, member, ACCESS_RESTRICT);
+      break;
    case SpvDecorationNoPerspective:
       ctx->fields[member].interpolation = INTERP_MODE_NOPERSPECTIVE;
       break;
