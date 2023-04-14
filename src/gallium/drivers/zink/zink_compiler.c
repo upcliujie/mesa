@@ -4699,6 +4699,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
 
    ret->sinfo.have_vulkan_memory_model = screen->info.have_KHR_vulkan_memory_model;
    ret->sinfo.bindless_set_idx = screen->desc_set_id[ZINK_DESCRIPTOR_BINDLESS];
+   ret->sinfo.sampler_state_set_idx = screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE];
 
    util_queue_fence_init(&ret->precompile.fence);
    util_dynarray_init(&ret->pipeline_libs, ret);

@@ -733,6 +733,7 @@ struct zink_shader_info {
    bool have_sparse;
    bool have_vulkan_memory_model;
    unsigned bindless_set_idx;
+   unsigned sampler_state_set_idx;
 };
 
 enum zink_rast_prim {
