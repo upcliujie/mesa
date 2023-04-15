@@ -314,7 +314,6 @@ static EGLBoolean
 haiku_initialize_impl(_EGLDisplay *disp, void *platformDisplay)
 {
 	struct haiku_egl_display *hgl_dpy;
-	const char* err;
 
 	hgl_dpy = (struct haiku_egl_display*)calloc(1, sizeof(struct haiku_egl_display));
 	if (!hgl_dpy)
@@ -355,10 +354,6 @@ haiku_initialize_impl(_EGLDisplay *disp, void *platformDisplay)
 	haiku_add_configs_for_visuals(disp);
 
 	return EGL_TRUE;
-
-cleanup:
-	haiku_display_destroy(disp);
-	return _eglError(EGL_NOT_INITIALIZED, err);
 }
 
 
