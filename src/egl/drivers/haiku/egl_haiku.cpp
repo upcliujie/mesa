@@ -53,21 +53,6 @@ extern "C" {
 #include "target-helpers/inline_sw_helper.h"
 }
 
-#define BGL_RGB				0
-#define BGL_INDEX			1
-#define BGL_SINGLE			0
-#define BGL_DOUBLE			2
-#define BGL_DIRECT			0
-#define BGL_INDIRECT		4
-#define BGL_ACCUM			8
-#define BGL_ALPHA			16
-#define BGL_DEPTH			32
-#define BGL_OVERLAY			64
-#define BGL_UNDERLAY		128
-#define BGL_STENCIL			512
-#define BGL_SHARE_CONTEXT	1024
-
-
 #ifdef DEBUG
 #	define TRACE(x...) printf("egl_haiku: " x)
 #	define CALLED() TRACE("CALLED: %s\n", __PRETTY_FUNCTION__)
@@ -121,7 +106,7 @@ haiku_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf, void *native_wi
 	}
 
 	struct st_visual visual;
-	hgl_get_st_visual(&visual, BGL_DOUBLE|BGL_DEPTH);
+	hgl_get_st_visual(&visual, HGL_DOUBLE|HGL_DEPTH);
 
 	wgl_surf->fb = hgl_create_st_framebuffer(hgl_dpy->disp, &visual, native_window);
 	if (!wgl_surf->fb) {
@@ -158,7 +143,7 @@ haiku_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf, const EGLint *
 
 
 	struct st_visual visual;
-	hgl_get_st_visual(&visual, BGL_DOUBLE|BGL_DEPTH);
+	hgl_get_st_visual(&visual, HGL_DOUBLE|HGL_DEPTH);
 
 	wgl_surf->fb = hgl_create_st_framebuffer(hgl_dpy->disp, &visual, NULL);
 	if (!wgl_surf->fb) {
@@ -429,7 +414,7 @@ haiku_create_context(_EGLDisplay *disp, _EGLConfig *conf,
 	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
 
 	struct st_visual visual;
-	hgl_get_st_visual(&visual, BGL_DOUBLE|BGL_DEPTH);
+	hgl_get_st_visual(&visual, HGL_DOUBLE|HGL_DEPTH);
 
 	struct haiku_egl_context* context = (struct haiku_egl_context*) calloc(1, sizeof (*context));
 	if (!context) {
