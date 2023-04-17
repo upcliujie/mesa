@@ -1600,6 +1600,7 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
          wm_prog_data->uses_depth_w_coefficients;
       ps.PixelShaderIsPerCoarsePixel =
          brw_wm_prog_data_is_coarse(wm_prog_data, 0);
+      ps.SimplePSHint = wm_prog_data->enable_simple_ps_hint;
 #endif
 #if GFX_VERx10 >= 125
       /* TODO: We should only require this when the last geometry shader uses

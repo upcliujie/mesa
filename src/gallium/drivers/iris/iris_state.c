@@ -4948,6 +4948,10 @@ iris_store_fs_state(const struct intel_device_info *devinfo,
       psx.PixelShaderPullsBary = wm_prog_data->pulls_bary;
       psx.PixelShaderComputesStencil = wm_prog_data->computed_stencil;
 #endif
+
+#if GFX_VER >= 11
+      psx.SimplePSHint = wm_prog_data->enable_simple_ps_hint;
+#endif
    }
 }
 

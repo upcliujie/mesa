@@ -95,6 +95,9 @@ struct brw_codegen {
    unsigned nr_insn;
    unsigned int next_insn_offset;
 
+   /* Tracks total number of instruction excluding NOP instructions */
+   unsigned int instruction_count;
+
    void *mem_ctx;
 
    /* Allow clients to push/pop instruction state:
