@@ -149,6 +149,7 @@ zink_context_destroy(struct pipe_context *pctx)
    zink_buffer_view_reference(screen, &ctx->dummy_bufferview, NULL);
 
    zink_descriptors_deinit_bindless(ctx);
+   zink_descriptors_deinit_sampler_state(ctx);
 
    if (ctx->batch.state) {
       zink_clear_batch_state(ctx, ctx->batch.state);
@@ -487,7 +488,7 @@ zink_create_sampler_state(struct pipe_context *pctx,
          sci.pNext = &cbci;
          UNUSED uint32_t check = p_atomic_inc_return(&screen->cur_custom_border_color_samplers);
          assert(check <= screen->info.border_color_props.maxCustomBorderColorSamplers);
-      } else
+      } else //TODO remove else
          sci.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK; // TODO with custom shader if we're super interested?
       if (sci.unnormalizedCoordinates)
          sci.addressModeU = sci.addressModeV = sci.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -797,8 +798,10 @@ zink_bind_sampler_states(struct pipe_context *pctx,
                  (surface->base.format == PIPE_FORMAT_Z24_UNORM_S8_UINT && surface->ivci.format == VK_FORMAT_D32_SFLOAT_S8_UINT)))
                ctx->di.textures[shader][start_slot + i].sampler = state->sampler_clamped;
          }
+         ctx->sampler_dirty_flags[shader] |= BITFIELD_BIT(i);
       } else {
          ctx->di.textures[shader][start_slot + i].sampler = VK_NULL_HANDLE;
+         ctx->sampler_dirty_flags[shader] &= ~BITFIELD_BIT(i);
       }
    }
    ctx->di.num_samplers[shader] = start_slot + num_samplers;
@@ -4971,6 +4974,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    zink_start_batch(ctx, &ctx->batch);
    if (!ctx->batch.state)
       goto fail;
+
+   zink_descriptors_init_sampler_state(ctx);
 
    if (!is_copy_only && !is_compute_only) {
       pipe_buffer_write_nooverlap(&ctx->base, ctx->dummy_vertex_buffer, 0, sizeof(data), data);

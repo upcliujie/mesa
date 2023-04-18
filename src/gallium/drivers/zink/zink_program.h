@@ -379,6 +379,9 @@ zink_get_shader_key_base(const struct zink_context *ctx, gl_shader_stage pstage)
 void
 zink_set_border_color_emulation_keys(struct zink_context *ctx);
 
+void
+zink_update_sampler_state_buffer(struct zink_context *ctx);
+
 static inline struct zink_shader_key_base *
 zink_set_shader_key_base(struct zink_context *ctx, gl_shader_stage pstage)
 {

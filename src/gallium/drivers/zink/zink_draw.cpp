@@ -494,6 +494,8 @@ zink_draw(struct pipe_context *pctx,
 
    zink_set_border_color_emulation_keys(ctx);
 
+   zink_update_sampler_state_buffer(ctx);
+
    if (index_size) {
       const VkIndexType index_type[3] = {
          VK_INDEX_TYPE_UINT8_EXT,
@@ -732,6 +734,8 @@ zink_draw(struct pipe_context *pctx,
        zink_program_has_descriptors(&ctx->curr_program->base) &&
        ctx->curr_program->base.dd.bindless)
       zink_descriptors_update_bindless(ctx);
+
+   zink_descriptors_update_sampler_state(ctx, &ctx->batch);
 
    if (reads_basevertex) {
       unsigned draw_mode_is_indexed = index_size > 0;

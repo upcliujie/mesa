@@ -2810,6 +2810,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       screen->desc_set_id[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW] = 2;
       screen->desc_set_id[ZINK_DESCRIPTOR_TYPE_IMAGE] = 2;
       screen->desc_set_id[ZINK_DESCRIPTOR_BINDLESS] = 3;
+      screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE] = 4;
       screen->compact_descriptors = true;
    } else {
       screen->desc_set_id[ZINK_DESCRIPTOR_TYPE_UNIFORMS] = 0;
@@ -2818,6 +2819,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       screen->desc_set_id[ZINK_DESCRIPTOR_TYPE_SSBO] = 3;
       screen->desc_set_id[ZINK_DESCRIPTOR_TYPE_IMAGE] = 4;
       screen->desc_set_id[ZINK_DESCRIPTOR_BINDLESS] = 5;
+      screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE] = 6;
    }
 
    if (screen->info.have_EXT_calibrated_timestamps && !check_have_device_time(screen))

@@ -603,10 +603,13 @@ zink_descriptor_program_init(struct zink_context *ctx, struct zink_program *pg)
       }
    }
    /* TODO: make this dynamic so that bindless set id can be 0 if no other descriptors are used? */
-   if (pg->dd.bindless) {
+   if (true || pg->dd.bindless) {
       unsigned desc_set = screen->desc_set_id[ZINK_DESCRIPTOR_BINDLESS];
-      pg->num_dsl = desc_set + 1;
-      pg->dsl[desc_set] = screen->bindless_layout;
+      pg->num_dsl = desc_set + 2;
+      if (pg->dd.bindless)
+        pg->dsl[desc_set] = screen->bindless_layout;
+      desc_set = screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE];
+      pg->dsl[desc_set] = ctx->dd.sampler_state_dsl;
       /* separate handling for null set injection when only bindless descriptors are used */
       for (unsigned i = 0; i < desc_set; i++) {
          if (!pg->dsl[i]) {
@@ -650,6 +653,7 @@ zink_descriptor_program_init(struct zink_context *ctx, struct zink_program *pg)
       /* no need for empty templates */
       if (pg->dsl[i] == ctx->dd.dummy_dsl->layout ||
           pg->dsl[i] == screen->bindless_layout ||
+          pg->dsl[i] == ctx->dd.sampler_state_dsl ||
           (!is_push && pg->dd.templates[i]))
          continue;
       template[i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
@@ -1807,4 +1811,152 @@ zink_descriptors_update_bindless(struct zink_context *ctx)
       }
    }
    ctx->di.any_bindless_dirty = 0;
+}
+
+void
+zink_descriptors_init_sampler_state(struct zink_context *ctx)
+{
+   struct zink_screen *screen = (struct zink_screen*)ctx->base.screen;
+   uint64_t sampler_state_size = PIPE_MAX_SAMPLERS * sizeof(struct zink_gpu_sampler_state);//TODO proper size
+   VkBufferCreateInfo bci;
+   bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+   bci.pNext = NULL;
+   bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+   bci.queueFamilyIndexCount = 0;
+   bci.pQueueFamilyIndices = NULL;
+   bci.size = sampler_state_size;
+   bci.usage = (ZINK_DESCRIPTOR_MODE_DB ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT : 0) | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+   bci.flags = 0;
+   VKCTX(CreateBuffer)(screen->dev, &bci, NULL, &ctx->sampler_state_buffer);
+   struct pb_buffer *buf = zink_bo_create(screen, sampler_state_size, ZINK_SPARSE_BUFFER_PAGE_SIZE,
+                                          ZINK_HEAP_DEVICE_LOCAL, 0, screen->heap_map[ZINK_HEAP_DEVICE_LOCAL][0], NULL);
+   ctx->sampler_state_bo = zink_bo(buf);
+   VKCTX(BindBufferMemory)(screen->dev, ctx->sampler_state_buffer, ctx->sampler_state_bo->mem, 0);
+
+   VkDescriptorSetLayoutCreateInfo linfo = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .bindingCount = 1,
+      .pBindings = &(VkDescriptorSetLayoutBinding) {
+         .binding = 0,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .descriptorCount = 1,
+      },
+      .flags = zink_descriptor_mode == ZINK_DESCRIPTOR_MODE_DB ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0,
+   };
+   VkDescriptorSetLayout layout;
+   VKCTX(CreateDescriptorSetLayout)(screen->dev, &linfo, NULL, &layout);
+   ctx->dd.sampler_state_dsl = layout;
+
+   if (zink_descriptor_mode == ZINK_DESCRIPTOR_MODE_DB) {
+      VKSCR(GetDescriptorSetLayoutSizeEXT)(screen->dev, ctx->dd.sampler_state_dsl, &ctx->dd.db.sampler_state_ds_size);
+      VKSCR(GetDescriptorSetLayoutBindingOffsetEXT)(screen->dev, ctx->dd.sampler_state_dsl, 0, &ctx->dd.db.sampler_state_ds_offset);
+
+      unsigned bind = ZINK_BIND_RESOURCE_DESCRIPTOR | ZINK_BIND_SAMPLER_DESCRIPTOR;
+      struct pipe_resource *pres = pipe_buffer_create(&screen->base, bind, 0, ctx->dd.db.sampler_state_ds_size);
+      ctx->dd.db.sampler_state_db = zink_resource(pres);
+      ctx->dd.db.sampler_state_db_map = pipe_buffer_map(&ctx->base, pres, PIPE_MAP_READ | PIPE_MAP_WRITE, &ctx->dd.db.sampler_state_db_xfer);
+      zink_batch_bind_db(ctx);
+
+      VkDeviceAddress sampler_state_address;
+      sampler_state_address = VKCTX(GetBufferDeviceAddress)(screen->dev,
+                                                            &(VkBufferDeviceAddressInfo){
+                                                               .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                                                               .buffer = ctx->sampler_state_buffer,
+                                                            });
+      VkDescriptorGetInfoEXT info = {
+         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+         .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .data = (VkDescriptorDataEXT){
+            .pStorageBuffer = &(VkDescriptorAddressInfoEXT){
+               .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT,
+               .address = sampler_state_address,
+               .range = sampler_state_size,
+            },
+         },
+      };
+      VKSCR(GetDescriptorEXT)(screen->dev, &info, ctx->dd.db.sampler_state_ds_size,
+                              ctx->dd.db.sampler_state_db_map + ctx->dd.db.sampler_state_ds_offset);
+   } else {
+      VkDescriptorPoolCreateInfo pi = {
+         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+         .maxSets = 1,
+         .poolSizeCount = 1,
+         .pPoolSizes = &(VkDescriptorPoolSize){
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+         },
+      };
+      VkDescriptorPool pool;
+      VKCTX(CreateDescriptorPool)(screen->dev, &pi, NULL, &pool);
+
+      VkDescriptorSetAllocateInfo dsi = {
+         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+         .descriptorPool = pool,
+         .descriptorSetCount = 1,
+         .pSetLayouts  = &layout,
+      };
+      VkDescriptorSet sampler_state_descriptor;
+      VKCTX(AllocateDescriptorSets)(screen->dev, &dsi, &sampler_state_descriptor);
+      VKCTX(UpdateDescriptorSets)(screen->dev,
+                                  1, &(VkWriteDescriptorSet){
+                                     .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                     .dstSet = sampler_state_descriptor,
+                                     .dstBinding = 0,
+                                     .dstArrayElement = 0,
+                                     .descriptorCount = 1,
+                                     .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                     .pBufferInfo = &(VkDescriptorBufferInfo){
+                                        .buffer = ctx->sampler_state_buffer,
+                                        .offset = 0,
+                                        .range = VK_WHOLE_SIZE,
+                                     },
+                                  },
+                                  0, NULL);
+      ctx->dd.t.sampler_state_ds = sampler_state_descriptor;
+   }
+
+}
+
+void
+zink_descriptors_deinit_sampler_state(struct zink_context *ctx)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   if (zink_descriptor_mode == ZINK_DESCRIPTOR_MODE_DB) {
+      if (ctx->dd.db.sampler_state_db_xfer)
+         pipe_buffer_unmap(&ctx->base, ctx->dd.db.sampler_state_db_xfer);
+      if (ctx->dd.db.sampler_state_db) {
+         struct pipe_resource *pres = &ctx->dd.db.sampler_state_db->base.b;
+         pipe_resource_reference(&pres, NULL);
+      }
+   } else {
+      if (ctx->dd.t.sampler_state_pool)
+         VKSCR(DestroyDescriptorPool)(screen->dev, ctx->dd.t.sampler_state_pool, NULL);
+   }
+   VKSCR(DestroyBuffer)(screen->dev, ctx->sampler_state_buffer, NULL);
+   zink_bo_unref(screen, ctx->sampler_state_bo);
+   VKSCR(DestroyDescriptorSetLayout)(screen->dev, ctx->dd.sampler_state_dsl, NULL);
+}
+
+void
+zink_descriptors_update_sampler_state(struct zink_context *ctx, struct zink_batch *batch)
+{
+   struct zink_screen *screen = (struct zink_screen*)ctx->base.screen;
+   if (ctx->curr_program->base.num_dsl < screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE])
+      return;
+   if (zink_descriptor_mode == ZINK_DESCRIPTOR_MODE_DB) {
+      uint32_t buffer_index = 1;
+      VKCTX(CmdSetDescriptorBufferOffsetsEXT)(batch->state->cmdbuf,
+                                              VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                              ctx->curr_program->base.layout,
+                                              screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE],
+                                              1, &buffer_index, &ctx->dd.db.sampler_state_ds_offset);
+   }
+   else
+      VKCTX(CmdBindDescriptorSets)(batch->state->cmdbuf,
+                                   VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                   ctx->curr_program->base.layout,
+                                   screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE],
+                                   1, &ctx->dd.t.sampler_state_ds,
+                                   0, NULL);
+
 }
