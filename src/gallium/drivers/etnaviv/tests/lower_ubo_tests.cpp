@@ -36,6 +36,9 @@ extern "C" {
 
    extern bool
    etna_nir_lower_ubo_to_uniform(nir_shader *shader);
+
+   extern bool
+   rusticl_lower_inputs(nir_shader *shader);
 }
 
 class nir_lower_ubo_test : public ::testing::Test {
@@ -134,6 +137,27 @@ TEST_F(nir_lower_ubo_test, basic)
    ASSERT_EQ(nir_src_as_uint(load_uniform->src[0]), 4);
    ASSERT_EQ(intrinsic(nir_intrinsic_load_ubo), nullptr);
 }
+
+// TODO: how to properly add rusticl as a dependency?
+#if 0
+TEST_F(nir_lower_ubo_test, basic_kernel)
+{
+   b.shader->info.stage = MESA_SHADER_KERNEL;
+   nir_ssa_def *offset = nir_imm_int(&b, 4);
+   nir_load_uniform(&b, 1, 32, offset);
+
+   //rusticl_lower_inputs(b.shader);
+   nir_opt_constant_folding(b.shader);
+
+   ASSERT_TRUE(etna_nir_lower_ubo_to_uniform(b.shader));
+   nir_validate_shader(b.shader, NULL);
+   nir_opt_constant_folding(b.shader);
+
+   nir_intrinsic_instr *load_uniform = intrinsic(nir_intrinsic_load_uniform);
+   ASSERT_EQ(nir_src_as_uint(load_uniform->src[0]), 4);
+   ASSERT_EQ(intrinsic(nir_intrinsic_load_ubo), nullptr);
+}
+#endif
 
 TEST_F(nir_lower_ubo_test, index_not_null)
 {

@@ -1040,7 +1040,7 @@ emit_shader(struct etna_compile *c, unsigned *num_temps, unsigned *num_consts)
             nir_const_value value[4];
 
             for (unsigned i = 0; i < intr->dest.ssa.num_components; i++)
-               value[i] = UNIFORM(intr->dest.ssa.bit_size, base * 4 + (i * 4 * (intr->dest.ssa.bit_size / 8)));
+               value[i] = UNIFORM(intr->dest.ssa.bit_size, base + (i * (intr->dest.ssa.bit_size / 8)));
 
             b.cursor = nir_after_instr(instr);
             nir_ssa_def *def = nir_build_imm(&b, intr->dest.ssa.num_components, intr->dest.ssa.bit_size, value);

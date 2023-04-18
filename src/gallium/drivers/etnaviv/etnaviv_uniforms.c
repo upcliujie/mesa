@@ -94,25 +94,18 @@ etna_uniforms_write(const struct etna_context *ctx,
          etna_cmd_stream_emit(stream, val);
          break;
 
-      case ETNA_UNIFORM_UNIFORM:
-         if (sobj == ctx->shader.compute) {
-            unsigned offset = 0;
-            offset = val / 4;  /* To bytes */
+      case ETNA_UNIFORM_UNIFORM: {
+         uint8_t *buf = ((uint8_t *)cb->user_buffer) + val;
+         if (uinfo->sizes[i] == 8)
+            val = *((uint8_t *)buf);
+         else if (uinfo->sizes[i] == 16)
+            val = *((uint16_t *)buf);
+         else if (uinfo->sizes[i] == 32)
+            val = *((uint32_t *)buf);
 
-            uint8_t *buf = ((uint8_t *)cb->user_buffer) + offset;
-            if (uinfo->sizes[i] == 8)
-               val = *((uint8_t *)buf);
-            else if (uinfo->sizes[i] == 16)
-               val = *((uint16_t *)buf);
-            else if (uinfo->sizes[i] == 32)
-               val = *((uint32_t *)buf);
-
-            etna_cmd_stream_emit(stream, val);
-         } else {
-            assert(cb->user_buffer && val * 4 < cb->buffer_size);
-            etna_cmd_stream_emit(stream, ((uint32_t*) cb->user_buffer)[val]);
-         }
+         etna_cmd_stream_emit(stream, val);
          break;
+      }
 
       case ETNA_UNIFORM_TEXRECT_SCALE_X:
       case ETNA_UNIFORM_TEXRECT_SCALE_Y:
