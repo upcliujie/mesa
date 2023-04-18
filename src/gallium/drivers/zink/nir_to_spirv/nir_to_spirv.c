@@ -58,6 +58,7 @@ struct ntv_context {
    nir_variable *ubo_vars[2];
 
    SpvId ssbos[5]; //8, 16, 32, unused, 64
+   SpvId sampler_state_ssbo;
    nir_variable *ssbo_vars;
 
    SpvId images[PIPE_MAX_SHADER_IMAGES];
@@ -69,6 +70,7 @@ struct ntv_context {
    nir_variable *bindless_sampler_var[2];
    unsigned last_sampler;
    unsigned bindless_set_idx;
+   unsigned sampler_state_set_idx;
    nir_variable *image_var[PIPE_MAX_SHADER_IMAGES]; /* driver_location -> variable */
 
    SpvId entry_ifaces[PIPE_MAX_SHADER_INPUTS * 4 + PIPE_MAX_SHADER_OUTPUTS * 4];
@@ -1205,10 +1207,14 @@ emit_bo(struct ntv_context *ctx, struct nir_variable *var, bool aliased)
    unsigned idx = bitsize >> 4;
    assert(idx < ARRAY_SIZE(ctx->ssbos));
    if (ssbo) {
-      assert(!ctx->ssbos[idx]);
-      ctx->ssbos[idx] = var_id;
-      if (bitsize == 32)
-         ctx->ssbo_vars = var;
+      if(var->data.descriptor_set != ctx->sampler_state_set_idx) {
+         assert(!ctx->ssbos[idx]);
+         ctx->ssbos[idx] = var_id;
+         if (bitsize == 32)
+            ctx->ssbo_vars = var;
+      } else {
+         ctx->sampler_state_ssbo = var_id;
+      }
    } else {
       assert(!ctx->ubos[var->data.driver_location][idx]);
       ctx->ubos[var->data.driver_location][idx] = var_id;
@@ -4400,6 +4406,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_shader_info *sinfo, uint32_
    ctx.spirv_1_4_interfaces = spirv_version >= SPIRV_VERSION(1, 4);
 
    ctx.bindless_set_idx = sinfo->bindless_set_idx;
+   ctx.sampler_state_set_idx = sinfo->sampler_state_set_idx;
    ctx.glsl_types = _mesa_pointer_hash_table_create(ctx.mem_ctx);
    ctx.bo_array_types = _mesa_pointer_hash_table_create(ctx.mem_ctx);
    ctx.bo_struct_types = _mesa_pointer_hash_table_create(ctx.mem_ctx);
