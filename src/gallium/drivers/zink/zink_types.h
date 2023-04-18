@@ -1566,6 +1566,7 @@ struct zink_framebuffer {
 
 struct zink_gpu_sampler_state {
    float border_color[4];
+   unsigned wrap;
 };
 
 /** context types */
@@ -1575,6 +1576,9 @@ struct zink_sampler_state {
    bool custom_border_color;
    union pipe_color_union border_color;
    enum pipe_format border_color_format;
+   unsigned wrap_s:3;            /**< PIPE_TEX_WRAP_x */
+   unsigned wrap_t:3;            /**< PIPE_TEX_WRAP_x */
+   unsigned wrap_r:3;            /**< PIPE_TEX_WRAP_x */
    bool emulate_nonseamless;
 };
 

@@ -521,6 +521,9 @@ zink_create_sampler_state(struct pipe_context *pctx,
    sampler->custom_border_color = need_custom;
    sampler->border_color = state->border_color;
    sampler->border_color_format = state->border_color_format;
+   sampler->wrap_r = state->wrap_r;
+   sampler->wrap_s = state->wrap_s;
+   sampler->wrap_t = state->wrap_t;
    if (!screen->info.have_EXT_non_seamless_cube_map)
       sampler->emulate_nonseamless = !state->seamless_cube_map;
 
