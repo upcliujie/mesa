@@ -2385,6 +2385,7 @@ zink_get_sample_pixel_grid(struct pipe_screen *pscreen, unsigned sample_count,
 static void
 init_driver_workarounds(struct zink_screen *screen)
 {
+   screen->info.have_EXT_custom_border_color = false;
    /* enable implicit sync for all non-mesa drivers */
    screen->driver_workarounds.implicit_sync = true;
    switch (screen->info.driver_props.driverID) {
