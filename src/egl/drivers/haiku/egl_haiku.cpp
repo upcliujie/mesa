@@ -201,6 +201,15 @@ update_size(struct hgl_buffer *buffer)
 }
 
 static EGLBoolean
+haiku_wait_client(_EGLDisplay *disp, _EGLContext *ctx)
+{
+	struct haiku_egl_context* hgl_ctx = haiku_egl_context(ctx);
+	struct pipe_fence_handle *fence = NULL;
+	st_context_flush(hgl_ctx->ctx->st, ST_FLUSH_END_OF_FRAME | ST_FLUSH_WAIT, &fence, NULL, NULL);
+	return EGL_TRUE;
+}
+
+static EGLBoolean
 haiku_swap_buffers(_EGLDisplay *disp, _EGLSurface *surf)
 {
 	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
@@ -517,5 +526,6 @@ const _EGLDriver _eglDriver = {
 	.CreatePbufferSurface = haiku_create_pbuffer_surface,
 	.DestroySurface = haiku_destroy_surface,
 	.SwapBuffers = haiku_swap_buffers,
+	.WaitClient = haiku_wait_client,
 	.GetProcAddress = _glapi_get_proc_address,
 };
