@@ -1573,6 +1573,8 @@ struct zink_sampler_state {
    VkSampler sampler;
    VkSampler sampler_clamped;
    bool custom_border_color;
+   union pipe_color_union border_color;
+   enum pipe_format border_color_format;
    bool emulate_nonseamless;
 };
 
