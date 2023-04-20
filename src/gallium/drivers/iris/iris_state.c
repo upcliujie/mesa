@@ -1090,6 +1090,9 @@ upload_pixel_hashing_tables(struct iris_batch *batch)
       mode.CrossSliceHashingMode = (util_bitcount(ppipe_mask1) > 1 ?
                                     hashing32x32 : NormalMode);
       mode.CrossSliceHashingModeMask = -1;
+      mode.FastClearOptimizationEnable = !batch->screen->driconf.disable_fcv;
+      mode.FastClearOptimizationEnableMask =
+         !batch->screen->driconf.disable_fcv;
    }
 #endif
 }
