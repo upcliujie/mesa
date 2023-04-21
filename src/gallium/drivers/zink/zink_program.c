@@ -1191,6 +1191,8 @@ create_gfx_program_separable(struct zink_context *ctx, struct zink_shader **stag
       prog->base.num_dsl = screen->compact_descriptors ? ZINK_DESCRIPTOR_ALL_TYPES - ZINK_DESCRIPTOR_COMPACT : ZINK_DESCRIPTOR_ALL_TYPES;
       prog->base.dsl[screen->desc_set_id[ZINK_DESCRIPTOR_BINDLESS]] = screen->bindless_layout;
    }
+   prog->base.num_dsl = screen->compact_descriptors ? ZINK_DESCRIPTOR_ALL_TYPES - ZINK_DESCRIPTOR_COMPACT : ZINK_DESCRIPTOR_ALL_TYPES;
+   prog->base.dsl[screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE]] = ctx->dd.sampler_state_dsl;
    prog->base.layout = zink_pipeline_layout_create(screen, prog->base.dsl, prog->base.num_dsl, false, VK_PIPELINE_LAYOUT_CREATE_INDEPENDENT_SETS_BIT_EXT);
 
    VkPipeline libs[] = {stages[MESA_SHADER_VERTEX]->precompile.gpl, stages[MESA_SHADER_FRAGMENT]->precompile.gpl};
@@ -2387,4 +2389,48 @@ zink_set_primitive_emulation_keys(struct zink_context *ctx)
    } else if (ctx->gfx_stages[MESA_SHADER_GEOMETRY] &&
               ctx->gfx_stages[MESA_SHADER_GEOMETRY]->non_fs.is_generated)
          ctx->base.bind_gs_state(&ctx->base, NULL);
+}
+
+void
+zink_set_border_color_emulation_keys(struct zink_context *ctx)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   if (!screen->info.have_EXT_custom_border_color) {
+      // TODO move somehwre else
+      // TODO make it work for all stages
+      bool lower_border_color = 0;
+      for (unsigned i = 0; i < PIPE_MAX_SAMPLERS; i++)
+         if (ctx->sampler_states[MESA_SHADER_FRAGMENT][i] &&
+             ctx->sampler_states[MESA_SHADER_FRAGMENT][i]->custom_border_color) {
+            lower_border_color = true;
+            break;
+         }
+      if (zink_get_fs_key(ctx)->lower_border_color != lower_border_color)
+         zink_set_fs_key(ctx)->lower_border_color = lower_border_color;
+   }
+}
+
+void
+zink_update_sampler_state_buffer(struct zink_context *ctx)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   if (!screen->info.have_EXT_custom_border_color &&
+       ctx->sampler_dirty_flags[MESA_SHADER_FRAGMENT]) {
+      for (unsigned int i = 0; i < PIPE_MAX_SAMPLERS; i++)
+         //TODO handle formats
+         if (ctx->sampler_states[MESA_SHADER_FRAGMENT][i] &&
+             ctx->sampler_states[MESA_SHADER_FRAGMENT][i]->custom_border_color) {
+            memcpy((void*)&ctx->gpu_sampler_states[MESA_SHADER_FRAGMENT][i].border_color,
+                   (void*)&ctx->sampler_states[MESA_SHADER_FRAGMENT][i]->border_color.f,
+                   sizeof(ctx->gpu_sampler_states[MESA_SHADER_FRAGMENT][0].border_color));
+            ctx->gpu_sampler_states[MESA_SHADER_FRAGMENT][i].wrap = ctx->sampler_states[MESA_SHADER_FRAGMENT][i]->wrap_r |
+                                                                    ctx->sampler_states[MESA_SHADER_FRAGMENT][i]->wrap_s << 3 |
+                                                                    ctx->sampler_states[MESA_SHADER_FRAGMENT][i]->wrap_t << 6;
+         }
+      VKCTX(CmdUpdateBuffer)(ctx->batch.state->cmdbuf, ctx->sampler_state_buffer, 0,
+                             PIPE_MAX_SAMPLERS * sizeof(struct zink_gpu_sampler_state),
+                             &ctx->gpu_sampler_states[MESA_SHADER_FRAGMENT][0]);
+      ctx->sampler_dirty_flags[MESA_SHADER_FRAGMENT] = 0;
+   }
+
 }

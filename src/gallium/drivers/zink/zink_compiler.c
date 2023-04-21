@@ -1082,6 +1082,183 @@ lower_line_smooth_fs(nir_shader *shader, bool lower_stipple)
    return true;
 }
 
+static nir_ssa_def*
+emit_texture_query_load(nir_builder *b, nir_ssa_def *p, nir_ssa_def *tsize)
+{
+   nir_ssa_def *pixel_p = nir_fmul(b, tsize, p);
+   nir_ssa_def *ddx = nir_fddx(b, pixel_p);
+   nir_ssa_def *ddy = nir_fddy(b, pixel_p);
+   nir_ssa_def *lambda = nir_fmul_imm(b, nir_flog2(b, nir_fmax(b, nir_fdot(b, ddx, ddx),
+                                                               nir_fdot(b, ddy, ddy))),
+                                      0.5);
+   return nir_fmax(b, lambda, nir_imm_float(b, 0.0));
+}
+
+// copied from src/compiler/nir/nir_builtin_builder.c:352
+static
+nir_ssa_def *
+zink_get_texture_size_lod(nir_builder *b, nir_tex_instr *tex, nir_ssa_def *lod)
+{
+   //b->cursor = nir_before_instr(&tex->instr);
+
+   nir_tex_instr *txs;
+
+   unsigned num_srcs = 1; /* One for the LOD */
+   for (unsigned i = 0; i < tex->num_srcs; i++) {
+      if (tex->src[i].src_type == nir_tex_src_texture_deref ||
+          tex->src[i].src_type == nir_tex_src_sampler_deref ||
+          tex->src[i].src_type == nir_tex_src_texture_offset ||
+          tex->src[i].src_type == nir_tex_src_sampler_offset ||
+          tex->src[i].src_type == nir_tex_src_texture_handle ||
+          tex->src[i].src_type == nir_tex_src_sampler_handle)
+         num_srcs++;
+   }
+
+   txs = nir_tex_instr_create(b->shader, num_srcs);
+   txs->op = nir_texop_txs;
+   txs->sampler_dim = tex->sampler_dim;
+   txs->is_array = tex->is_array;
+   txs->is_shadow = tex->is_shadow;
+   txs->is_new_style_shadow = tex->is_new_style_shadow;
+   txs->texture_index = tex->texture_index;
+   txs->sampler_index = tex->sampler_index;
+   txs->dest_type = nir_type_int32;
+
+   unsigned idx = 0;
+   for (unsigned i = 0; i < tex->num_srcs; i++) {
+      if (tex->src[i].src_type == nir_tex_src_texture_deref ||
+          tex->src[i].src_type == nir_tex_src_sampler_deref ||
+          tex->src[i].src_type == nir_tex_src_texture_offset ||
+          tex->src[i].src_type == nir_tex_src_sampler_offset ||
+          tex->src[i].src_type == nir_tex_src_texture_handle ||
+          tex->src[i].src_type == nir_tex_src_sampler_handle) {
+         nir_src_copy(&txs->src[idx].src, &tex->src[i].src, &txs->instr);
+         txs->src[idx].src_type = tex->src[i].src_type;
+         idx++;
+      }
+   }
+   /* Add in an LOD because some back-ends require it */
+   txs->src[idx].src = nir_src_for_ssa(lod);
+   txs->src[idx].src_type = nir_tex_src_lod;
+
+   nir_ssa_dest_init(&txs->instr, &txs->dest,
+                     nir_tex_instr_dest_size(txs), 32, NULL);
+   nir_builder_instr_insert(b, &txs->instr);
+
+   return &txs->dest.ssa;
+}
+
+struct lower_border_color_state {
+   nir_variable *sampler_state;
+};
+
+/**
+ * This NIR lowers .
+ */
+
+static bool
+lower_border_color_instr(nir_builder *b, nir_instr *instr, void *state)
+{
+   struct lower_border_color_state *s = state;
+   if (instr->type != nir_instr_type_tex)
+      return false;
+
+   nir_tex_instr *tex_instr = nir_instr_as_tex(instr);
+   /* nir_texop_tex,                < Regular texture look-up
+    * nir_texop_txb,                < Texture look-up with LOD bias
+    * nir_texop_txl,                < Texture look-up with explicit LOD
+    * nir_texop_txd,                < Texture look-up with partial derivatives
+    * */
+   if (tex_instr->op != nir_texop_tex)
+      return false;
+
+   int coord_index = nir_tex_instr_src_index(tex_instr, nir_tex_src_coord);
+   int lod_index = nir_tex_instr_src_index(tex_instr, nir_tex_src_lod);
+
+   nir_ssa_def *tsize;
+   nir_ssa_def *lod0_size = nir_get_texture_size(b, tex_instr);
+   b->cursor = nir_after_instr(instr);
+   nir_ssa_def *uv = nir_ssa_for_src(b, tex_instr->src[coord_index].src, 2),
+               *ret = &tex_instr->dest.ssa;//TODO actually get those, texture size, coords, sample
+
+   nir_deref_instr *border_color_data = nir_build_deref_struct(b, nir_build_deref_array_imm(b, nir_build_deref_var(b, s->sampler_state), /*tex_instr->texture_index*/0), 0);
+   nir_ssa_def *border_color_components[4];
+   for (unsigned i = 0; i < 4; i++)
+      border_color_components[i] = nir_load_deref(b, nir_build_deref_array_imm(b, border_color_data, tex_instr->texture_index * 5 + i));
+   nir_ssa_def *border_color = nir_vec4(b, border_color_components[0], border_color_components[1], border_color_components[2], border_color_components[3]);
+   nir_ssa_def *wrap = nir_load_deref(b, nir_build_deref_array_imm(b, border_color_data, tex_instr->texture_index * 5 + 4));
+
+   bool mip_maps = false;
+   if (mip_maps) {
+      tsize = nir_i2f32(b, lod0_size);
+   } else {
+      nir_cursor cursor = b->cursor;
+      nir_ssa_def *lod = tex_instr->op == nir_texop_tex ?
+                                          nir_get_texture_lod(b, tex_instr) :
+                                          nir_ssa_for_src(b, tex_instr->src[lod_index].src, 1);
+      b->cursor = cursor;
+      nir_ssa_def *size0 = zink_get_texture_size_lod(b, tex_instr, nir_f2i32(b, nir_ffloor(b, lod)));
+      nir_ssa_def *size1 = zink_get_texture_size_lod(b, tex_instr, nir_f2i32(b, nir_fceil(b, lod)));
+      tsize = nir_flrp(b, nir_i2f32(b, size0), nir_i2f32(b, size1), nir_ffract(b, lod));
+   }
+
+   nir_ssa_def *wrap_s = nir_iand_imm(b, nir_ushr_imm(b, wrap, 3), 0b111);
+   nir_ssa_def *wrap_t = nir_iand_imm(b, nir_ushr_imm(b, wrap, 6), 0b111);
+   nir_ssa_def *limit_s = nir_bcsel(b, nir_b2b1(b, nir_iand_imm(b, wrap_s,
+                                                                PIPE_TEX_WRAP_CLAMP_TO_BORDER)),
+                                    nir_imm_float(b, 1.0), nir_imm_float(b, 0.5));
+   nir_ssa_def *limit_t = nir_bcsel(b, nir_b2b1(b, nir_iand_imm(b, wrap_t,
+                                                                PIPE_TEX_WRAP_CLAMP_TO_BORDER)),
+                                    nir_imm_float(b, 1.0), nir_imm_float(b, 0.5));
+   nir_ssa_def *limit = nir_vec2(b, limit_s, limit_t);
+   nir_ssa_def *pixel_uv = nir_fadd(b, nir_imm_vec2(b, 0.5, 0.5),
+                                    nir_fmul(b, nir_fsub(b, nir_fabs(b, nir_fsub(b, uv, nir_imm_vec2(b, 0.5, 0.5))),
+                                                         nir_imm_vec2(b, 0.5, 0.5)),
+                                             tsize));
+   nir_ssa_def *factors = nir_fclamp(b, pixel_uv, nir_imm_vec2(b, 0.0, 0.0), limit);
+   nir_ssa_def *factor, *new_ret;
+   factor = nir_channel(b, factors, 0);//WRAP X/Y
+   new_ret = nir_bcsel(b, nir_b2b1(b, nir_iand_imm(b, wrap_s,
+                                                   PIPE_TEX_WRAP_CLAMP_TO_BORDER | PIPE_TEX_WRAP_CLAMP_TO_EDGE)),
+                       nir_flrp(b, ret, border_color, factor), ret);
+   factor = nir_channel(b, factors, 1);//WRAP X/Y
+   new_ret = nir_bcsel(b, nir_b2b1(b, nir_iand_imm(b, wrap_t,
+                                                   PIPE_TEX_WRAP_CLAMP_TO_BORDER | PIPE_TEX_WRAP_CLAMP_TO_EDGE)),
+                       nir_flrp(b, new_ret, border_color, factor), new_ret);
+   nir_ssa_def_rewrite_uses_after(ret, new_ret, b->cursor.instr);
+
+   return true;
+}
+
+static bool
+lower_border_color_pass(nir_shader *shader, nir_variable *border_color)
+{
+   assert(shader->info.stage == MESA_SHADER_FRAGMENT);
+   return nir_shader_instructions_pass(shader, lower_border_color_instr,
+                                       nir_metadata_loop_analysis |
+                                       nir_metadata_block_index |
+                                       nir_metadata_dominance,
+                                       &(struct lower_border_color_state) {
+                                          .sampler_state = border_color
+                                       });
+}
+static void
+lower_border_color(struct zink_screen *screen, nir_shader *shader)
+{
+   struct glsl_struct_field *fields = rzalloc_array(shader, struct glsl_struct_field, PIPE_MAX_SAMPLERS);
+   fields[0].type = glsl_array_type(glsl_uint_type(), 4, 0);
+   fields[0].name = "border_color";
+   fields[0].offset = 0;
+   nir_variable *border_color = nir_variable_create(shader, nir_var_mem_ssbo,
+                                                    glsl_array_type(glsl_struct_type(fields, 1, "sampler_state", true),
+                                                                    PIPE_MAX_SAMPLERS, 0),
+                                                    "sampler_state");
+   border_color->data.descriptor_set = screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE];
+   border_color->data.driver_location = 0;
+   border_color->data.mode = nir_var_mem_ssbo;
+   NIR_PASS_V(shader, lower_border_color_pass, border_color);
+}
+
 static bool
 lower_dual_blend(nir_shader *shader)
 {
@@ -3537,6 +3714,11 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs,
             need_optimize = true;
          }
 
+         if (zink_fs_key(key)->lower_border_color) {
+            lower_border_color(screen, nir);
+            need_optimize = true;
+         }
+
          if (zink_fs_key(key)->robust_access)
             NIR_PASS(need_optimize, nir, lower_txf_lod_robustness);
 
@@ -4699,6 +4881,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
 
    ret->sinfo.have_vulkan_memory_model = screen->info.have_KHR_vulkan_memory_model;
    ret->sinfo.bindless_set_idx = screen->desc_set_id[ZINK_DESCRIPTOR_BINDLESS];
+   ret->sinfo.sampler_state_set_idx = screen->desc_set_id[ZINK_DESCRIPTOR_SAMPLER_STATE];
 
    util_queue_fence_init(&ret->precompile.fence);
    util_dynarray_init(&ret->pipeline_libs, ret);

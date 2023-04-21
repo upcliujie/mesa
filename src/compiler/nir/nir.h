@@ -5409,7 +5409,6 @@ typedef struct nir_lower_tex_options {
 bool nir_lower_tex(nir_shader *shader,
                    const nir_lower_tex_options *options);
 
-
 typedef struct nir_lower_tex_shadow_swizzle {
    unsigned swizzle_r:3;
    unsigned swizzle_g:3;
