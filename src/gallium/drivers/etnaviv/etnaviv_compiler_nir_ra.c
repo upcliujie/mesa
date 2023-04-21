@@ -112,6 +112,20 @@ etna_ra_setup(void *mem_ctx)
    return regs;
 }
 
+static unsigned
+etna_work_item_func_get_reg(struct etna_shader *shader, nir_intrinsic_op op)
+{
+   for (unsigned i = 0; i < ARRAY_SIZE(shader->workitem_funcs); i++) {
+      if (!shader->workitem_funcs[i]) {
+         shader->workitem_funcs[i] = op;
+         return i;
+      } else if (shader->workitem_funcs[i] == op)
+         return i;
+   }
+
+   unreachable("An invalid op was passed?");
+}
+
 void
 etna_ra_assign(struct etna_compile *c, nir_shader *shader)
 {
@@ -212,6 +226,17 @@ etna_ra_assign(struct etna_compile *c, nir_shader *shader)
          case nir_intrinsic_load_instance_id:
             reg = c->variant->infile.num_reg * NUM_REG_TYPES + REG_TYPE_VIRT_SCALAR_Y;
             break;
+         case nir_intrinsic_load_global_invocation_id_zero_base:
+         case nir_intrinsic_load_local_invocation_id:
+         case nir_intrinsic_load_workgroup_id: {
+            unsigned reg_base = etna_work_item_func_get_reg(c->variant->shader, intr->intrinsic);
+            reg = reg_base * NUM_REG_TYPES + (unsigned[]) {
+               REG_TYPE_VIRT_SCALAR_X,
+               REG_TYPE_VIRT_VEC2_XY,
+               REG_TYPE_VIRT_VEC3_XYZ,
+               REG_TYPE_VEC4,
+            }[nir_dest_num_components(*dest) - 1];
+         } break;
          default:
             continue;
          }

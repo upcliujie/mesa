@@ -218,7 +218,11 @@ dest_for_instr(nir_instr *instr)
           intr->intrinsic == nir_intrinsic_load_ubo ||
           intr->intrinsic == nir_intrinsic_load_input ||
           intr->intrinsic == nir_intrinsic_load_instance_id ||
-          intr->intrinsic == nir_intrinsic_load_texture_rect_scaling)
+          intr->intrinsic == nir_intrinsic_load_texture_rect_scaling ||
+          intr->intrinsic == nir_intrinsic_load_global_invocation_id_zero_base ||
+          intr->intrinsic == nir_intrinsic_load_local_invocation_id ||
+          intr->intrinsic == nir_intrinsic_load_workgroup_id ||
+          intr->intrinsic == nir_intrinsic_load_global_etna)
          dest = &intr->dest;
    } break;
    case nir_instr_type_deref:
@@ -227,6 +231,44 @@ dest_for_instr(nir_instr *instr)
       break;
    }
    return real_dest(dest, NULL, NULL);
+}
+
+static inline unsigned
+etna_type_from_nir(nir_alu_type nir_type)
+{
+   unsigned type = INST_TYPE_U32;
+
+   switch (nir_type) {
+      case nir_type_float16:
+         type = INST_TYPE_F16;
+         break;
+      case nir_type_float32:
+         type = INST_TYPE_F32;
+         break;
+      case nir_type_uint8:
+         type = INST_TYPE_U8;
+         break;
+      case nir_type_uint16:
+         type = INST_TYPE_U16;
+         break;
+      case nir_type_uint32:
+         type = INST_TYPE_U32;
+         break;
+      case nir_type_int8:
+         type = INST_TYPE_S8;
+         break;
+      case nir_type_int16:
+         type = INST_TYPE_S16;
+         break;
+      case nir_type_int32:
+         type = INST_TYPE_S32;
+         break;
+      default:
+         assert(false && "Unhandled type");
+         break;
+   }
+
+   return type;
 }
 
 struct live_def {
@@ -339,7 +381,7 @@ emit_inst(struct etna_compile *c, struct etna_inst *inst)
 
 void
 etna_emit_alu(struct etna_compile *c, nir_op op, struct etna_inst_dst dst,
-              struct etna_inst_src src[3], bool saturate);
+              struct etna_inst_src src[3], unsigned src_bitsize, bool saturate);
 
 void
 etna_emit_tex(struct etna_compile *c, nir_texop op, unsigned texid, unsigned dst_swiz,

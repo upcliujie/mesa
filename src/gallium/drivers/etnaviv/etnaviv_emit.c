@@ -210,6 +210,157 @@ emit_pre_halti5_state(struct etna_context *ctx)
    etna_coalesce_end(stream, &coalesce);
 }
 
+static unsigned
+etna_work_item_func_get_value_order(struct etna_shader *shader)
+{
+   switch(shader->workitem_funcs[0]) {
+   case nir_intrinsic_load_global_invocation_id_zero_base: {
+      switch(shader->workitem_funcs[1]) {
+      case 0:
+      case nir_intrinsic_load_local_invocation_id:
+         return 0x3;
+      case nir_intrinsic_load_workgroup_id:
+         return 0x2;
+      default:
+         unreachable("An invalid op was passed?");
+      }
+   }
+   case nir_intrinsic_load_local_invocation_id: {
+      switch(shader->workitem_funcs[1]) {
+      case 0:
+      case nir_intrinsic_load_global_invocation_id_zero_base:
+         return 0x5;
+      case nir_intrinsic_load_workgroup_id:
+         return 0x0;
+      default:
+         unreachable("An invalid op was passed?");
+      }
+   }
+   case nir_intrinsic_load_workgroup_id: {
+      switch(shader->workitem_funcs[1]) {
+      case 0:
+      case nir_intrinsic_load_global_invocation_id_zero_base:
+         return 0x4;
+      case nir_intrinsic_load_local_invocation_id:
+         return 0x1;
+      default:
+         unreachable("An invalid op was passed?");
+      }
+   }
+   default:
+      return 0x0;
+   }
+}
+
+void
+etna_emit_compute_state(struct etna_context *ctx, const struct pipe_grid_info *grid)
+{
+   struct etna_cmd_stream *stream = ctx->stream;
+
+   etna_set_state(stream, VIVS_PA_SYSTEM_MODE,
+                  VIVS_PA_SYSTEM_MODE_PROVOKING_VERTEX_LAST |
+                  VIVS_PA_SYSTEM_MODE_HALF_PIXEL_CENTER);
+   etna_set_state(stream, VIVS_GL_API_MODE, VIVS_GL_API_MODE_OPENCL);
+   etna_set_state(stream, VIVS_SH_CONFIG, VIVS_SH_CONFIG_RTNE_ROUNDING);
+
+   unsigned input_count = 0;
+   if (ctx->shader.compute->shader->workitem_funcs[0]) {
+      input_count++;
+      if (ctx->shader.compute->shader->workitem_funcs[1]) {
+         input_count++;
+         if (ctx->shader.compute->shader->workitem_funcs[2])
+            input_count++;
+      }
+   }
+
+   ctx->shader_state.PS_INPUT_COUNT =
+      VIVS_PS_INPUT_COUNT_COUNT(MAX2(input_count, 1)) |
+      VIVS_PS_INPUT_COUNT_UNK8(31); /* XXX what is this */
+
+   ctx->shader_state.PS_TEMP_REGISTER_CONTROL =
+      VIVS_PS_TEMP_REGISTER_CONTROL_NUM_TEMPS(ctx->shader.compute->num_temps + 1);
+
+   ctx->shader_state.PA_ATTRIBUTE_ELEMENT_COUNT = VIVS_PA_ATTRIBUTE_ELEMENT_COUNT_COUNT(1);
+
+   etna_stall(stream, SYNC_RECIPIENT_FE, SYNC_RECIPIENT_PE);
+
+   etna_uniforms_write(ctx, ctx->shader.compute, ctx->constant_buffer[PIPE_SHADER_COMPUTE].cb);
+
+   /* For any input buffers, we need to tell the kernel we will be reading and/or writing from them */
+   u_foreach_bit (i, ctx->global_bindings.enabled_mask) {
+      struct pipe_resource *prsc = ctx->global_bindings.buf[i];
+      etna_cmd_stream_ref_bo(stream, etna_resource(prsc)->bo, ETNA_RELOC_READ | ETNA_RELOC_WRITE);
+   }
+
+   etna_set_state(stream, VIVS_PA_VARYING_NUM_COMPONENTS(0), 0x0);
+   etna_set_state(stream, VIVS_PS_VARYING_NUM_COMPONENTS(0), 0x0);
+
+   etna_set_state(stream, 0x0109C, 0x0);
+
+   etna_set_state(stream, VIVS_PS_SAMPLER_BASE, 0x0);
+   etna_set_state(stream, VIVS_PS_UNIFORM_BASE, 0x0);
+
+   etna_set_state(stream, VIVS_PS_NEWRANGE_LOW, 0x0);
+   etna_set_state(stream, VIVS_PS_NEWRANGE_HIGH, ctx->shader.compute->code_size / 4);
+   assert(ctx->shader.compute->bo);
+   etna_set_state_reloc(stream, VIVS_PS_INST_ADDR, &(struct etna_reloc) {
+      .bo = ctx->shader.compute->bo,
+      .flags = ETNA_RELOC_READ,
+      .offset = 0x0,
+   });
+   etna_set_state(stream, VIVS_SH_CONFIG, VIVS_SH_CONFIG_RTNE_ROUNDING);
+   etna_set_state(stream, VIVS_VS_ICACHE_CONTROL, VIVS_VS_ICACHE_CONTROL_ENABLE);
+   etna_set_state(stream, VIVS_PS_ICACHE_COUNT, ctx->shader.compute->code_size / 4 - 1);
+
+   etna_emit_load_state(stream, VIVS_PS_INPUT_COUNT >> 2, 3, 0);
+   etna_cmd_stream_emit(stream, ctx->shader_state.PS_INPUT_COUNT);
+   etna_cmd_stream_emit(stream, ctx->shader_state.PS_TEMP_REGISTER_CONTROL);
+   etna_cmd_stream_emit(stream, VIVS_PS_CONTROL_RT_COUNT(7) | 0x00000800);
+
+   etna_set_state(stream, VIVS_VS_HALTI5_UNK008A0, 0x0);
+   etna_set_state(stream, VIVS_PA_ATTRIBUTE_ELEMENT_COUNT, ctx->shader_state.PA_ATTRIBUTE_ELEMENT_COUNT);
+   etna_set_state(stream, VIVS_GL_VARYING_TOTAL_COMPONENTS, 0x0);
+   etna_set_state(stream, VIVS_PS_CONTROL_EXT, 0x0);
+   etna_set_state(stream, VIVS_VS_LOAD_BALANCING, 0x0f3f0000);
+   etna_set_state(stream, VIVS_VS_OUTPUT_COUNT, 0x1);
+   etna_set_state(stream, VIVS_PA_VS_OUTPUT_COUNT, 0x0);
+   etna_set_state(stream, VIVS_GL_HALTI5_SH_SPECIALS, VIVS_GL_HALTI5_SH_SPECIALS_UNK16(0x7f));
+   etna_set_state(stream, VIVS_PS_ICACHE_PREFETCH, 0x0);
+   etna_set_state(stream, VIVS_GL_SHADER_INDEX, 0x0);
+   unsigned value_order = etna_work_item_func_get_value_order(ctx->shader.compute->shader);
+   etna_set_state(stream, VIVS_CL_CONFIG, VIVS_CL_CONFIG_DIMENSIONS(grid->work_dim) |
+                                          VIVS_CL_CONFIG_VALUE_ORDER(value_order));
+   etna_set_state(stream, VIVS_CL_UNK00924, 0x00100000);
+   etna_set_state(stream, VIVS_CL_THREAD_ALLOCATION, 0x1);
+   etna_set_state(stream, VIVS_CL_GLOBAL_WORK_OFFSET_X, 0x0);
+   etna_set_state(stream, VIVS_CL_GLOBAL_WORK_OFFSET_Y, 0x0);
+   etna_set_state(stream, VIVS_CL_GLOBAL_WORK_OFFSET_Z, 0x0);
+   etna_set_state(stream, VIVS_CL_HALTI5_UNK00958, 0x1);
+   etna_set_state(stream, VIVS_CL_HALTI5_UNK0095C, 0x1);
+   etna_set_state(stream, VIVS_CL_HALTI5_UNK00960, 0x1);
+
+   etna_emit_load_state(stream, VIVS_CL_WORKGROUP_COUNT_X >> 2, 6, 0);
+
+   etna_cmd_stream_emit(stream, grid->grid[0] - 1);
+   etna_cmd_stream_emit(stream, grid->work_dim >= 2 ? grid->grid[1] - 1 : -1);
+   etna_cmd_stream_emit(stream, grid->work_dim >= 3 ? grid->grid[2] - 1 : -1);
+
+   /* TODO: Update the xml and headers. Only the low 10 bits are set for this. */
+   etna_cmd_stream_emit(stream, (grid->block[0] - 1) & 0x3ff);
+   etna_cmd_stream_emit(stream, (grid->work_dim >= 2 ? grid->block[1] - 1 : -1) & 0x3ff);
+   etna_cmd_stream_emit(stream, (grid->work_dim >= 3 ? grid->block[2] - 1 : -1) & 0x3ff);
+
+   etna_cmd_stream_emit(stream, VIV_FE_NOP_HEADER_OP_NOP);
+
+   etna_set_state(stream, VIVS_CL_KICKER, 0xbadabeeb);
+
+   etna_set_state(stream, VIVS_GL_FLUSH_CACHE, VIVS_GL_FLUSH_CACHE_TEXTURE | VIVS_GL_FLUSH_CACHE_SHADER_L1);
+
+   etna_stall(stream, SYNC_RECIPIENT_FE, SYNC_RECIPIENT_PE);
+
+   ctx->dirty = 0;
+}
+
 /* Weave state before draw operation. This function merges all the compiled
  * state blocks under the context into one device register state. Parts of
  * this state that are changed since last call (dirty) will be uploaded as

@@ -1,9 +1,9 @@
 variables:
    DEBIAN_X86_BUILD_BASE_IMAGE: "debian/x86_build-base"
-   DEBIAN_BASE_TAG: "2023-04-16-kernel-6.3"
+   DEBIAN_BASE_TAG: "2023-04-20-etnaviv-opencl"
 
    DEBIAN_X86_BUILD_IMAGE_PATH: "debian/x86_build"
-   DEBIAN_BUILD_TAG: "2023-04-14-pyfire"
+   DEBIAN_BUILD_TAG: "2023-04-20-rusticl-arm64"
 
    DEBIAN_X86_BUILD_MINGW_IMAGE_PATH: "debian/x86_build-mingw"
    DEBIAN_BUILD_MINGW_TAG: "2023-01-03-ci-libva-2.17"
@@ -20,8 +20,8 @@ variables:
    DEBIAN_X86_TEST_VK_TAG: "2023-04-14-dxvk-2.1-1"
 
    ALPINE_X86_BUILD_TAG: "2023-03-20-3.17-bump"
-   FEDORA_X86_BUILD_TAG: "2023-03-13-procps-ng"
-   KERNEL_ROOTFS_TAG: "2023-04-16-kernel-6.3"
+   FEDORA_X86_BUILD_TAG: "2023-04-13-etnaviv-opencl"
+   KERNEL_ROOTFS_TAG: "2023-04-20-etnaviv-opencl"
 
    WINDOWS_X64_VS_PATH: "windows/x64_vs"
    WINDOWS_X64_VS_TAG: "2022-10-20-upgrade-zlib"

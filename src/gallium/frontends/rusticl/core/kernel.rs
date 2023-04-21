@@ -56,11 +56,13 @@ pub enum KernelArgType {
 pub enum InternalKernelArgType {
     ConstantBuffer,
     GlobalWorkOffsets,
+    LocalWorkSize,
     PrintfBuffer,
     InlineSampler((cl_addressing_mode, cl_filter_mode, bool)),
     FormatArray,
     OrderArray,
     WorkDim,
+    NumWorkgroups,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -211,16 +213,18 @@ impl InternalKernelArg {
         match self.kind {
             InternalKernelArgType::ConstantBuffer => bin.push(0),
             InternalKernelArgType::GlobalWorkOffsets => bin.push(1),
-            InternalKernelArgType::PrintfBuffer => bin.push(2),
+            InternalKernelArgType::LocalWorkSize => bin.push(2),
+            InternalKernelArgType::PrintfBuffer => bin.push(3),
             InternalKernelArgType::InlineSampler((addr_mode, filter_mode, norm)) => {
-                bin.push(3);
+                bin.push(4);
                 bin.extend_from_slice(&addr_mode.to_ne_bytes());
                 bin.extend_from_slice(&filter_mode.to_ne_bytes());
                 bin.push(norm as u8);
             }
-            InternalKernelArgType::FormatArray => bin.push(4),
-            InternalKernelArgType::OrderArray => bin.push(5),
-            InternalKernelArgType::WorkDim => bin.push(6),
+            InternalKernelArgType::FormatArray => bin.push(5),
+            InternalKernelArgType::OrderArray => bin.push(6),
+            InternalKernelArgType::WorkDim => bin.push(7),
+            InternalKernelArgType::NumWorkgroups => bin.push(8),
         }
 
         bin
@@ -233,16 +237,18 @@ impl InternalKernelArg {
         let kind = match read_ne_u8(bin) {
             0 => InternalKernelArgType::ConstantBuffer,
             1 => InternalKernelArgType::GlobalWorkOffsets,
-            2 => InternalKernelArgType::PrintfBuffer,
-            3 => {
+            2 => InternalKernelArgType::LocalWorkSize,
+            3 => InternalKernelArgType::PrintfBuffer,
+            4 => {
                 let addr_mode = read_ne_u32(bin);
                 let filter_mode = read_ne_u32(bin);
                 let norm = read_ne_u8(bin) == 1;
                 InternalKernelArgType::InlineSampler((addr_mode, filter_mode, norm))
             }
-            4 => InternalKernelArgType::FormatArray,
-            5 => InternalKernelArgType::OrderArray,
-            6 => InternalKernelArgType::WorkDim,
+            5 => InternalKernelArgType::FormatArray,
+            6 => InternalKernelArgType::OrderArray,
+            7 => InternalKernelArgType::WorkDim,
+            8 => InternalKernelArgType::NumWorkgroups,
             _ => return None,
         };
 
@@ -357,6 +363,24 @@ where
         res[i] = (*v).try_into().expect("64 bit work groups not supported");
     }
     res
+}
+
+fn u32_array_to_u64(input: [u32; 3]) -> Vec<u8>
+{
+    cl_prop::<[u64; 3]>([
+        input[0] as u64,
+        input[1] as u64,
+        input[2] as u64,
+    ])
+}
+
+fn u64_array_to_u32(input: [u64; 3]) -> Vec<u8>
+{
+    cl_prop::<[u32; 3]>([
+        input[0] as u32,
+        input[1] as u32,
+        input[2] as u32,
+    ])
 }
 
 fn opt_nir(nir: &mut NirShader, dev: &Device) {
@@ -567,6 +591,7 @@ fn lower_and_optimize_nir_late(
         args.len() + res.len() - 1,
         "base_global_invocation_id",
     );
+
     if nir.has_constant() {
         res.push(InternalKernelArg {
             kind: InternalKernelArgType::ConstantBuffer,
@@ -640,6 +665,35 @@ fn lower_and_optimize_nir_late(
             unsafe { glsl_uint8_t_type() },
             args.len() + res.len() - 1,
             "work_dim",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_NUM_WORKGROUPS) {
+        res.push(InternalKernelArg {
+            kind: InternalKernelArgType::NumWorkgroups,
+            size: (3 * dev.address_bits() / 4) as usize,
+            offset: 0,
+        });
+        lower_state.num_workgroups = nir.add_var(
+            nir_variable_mode::nir_var_uniform,
+            unsafe { glsl_vector_type(address_bits_base_type, 3) },
+            args.len() + res.len() - 1,
+            "num_groups",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_WORKGROUP_SIZE) {
+        res.push(InternalKernelArg {
+            kind: InternalKernelArgType::LocalWorkSize,
+            size: 12,
+            offset: 0,
+        });
+
+        lower_state.local_size = nir.add_var(
+            nir_variable_mode::nir_var_uniform,
+            unsafe { glsl_vector_type(glsl_base_type::GLSL_TYPE_UINT, 3) },
+            args.len() + res.len() - 1,
+            "local_size",
         );
     }
 
@@ -1036,12 +1090,11 @@ impl Kernel {
                     if q.device.address_bits() == 64 {
                         input.extend_from_slice(&cl_prop::<[u64; 3]>(offsets));
                     } else {
-                        input.extend_from_slice(&cl_prop::<[u32; 3]>([
-                            offsets[0] as u32,
-                            offsets[1] as u32,
-                            offsets[2] as u32,
-                        ]));
+                        input.extend_from_slice(&u64_array_to_u32(offsets));
                     }
+                }
+                InternalKernelArgType::LocalWorkSize => {
+                    input.extend_from_slice(&cl_prop::<[u32; 3]>(block));
                 }
                 InternalKernelArgType::PrintfBuffer => {
                     let buf = Arc::new(
@@ -1069,6 +1122,13 @@ impl Kernel {
                 }
                 InternalKernelArgType::WorkDim => {
                     input.extend_from_slice(&[work_dim as u8; 1]);
+                }
+                InternalKernelArgType::NumWorkgroups => {
+                    if q.device.address_bits() == 64 {
+                        input.extend_from_slice(&u32_array_to_u64(grid));
+                    } else {
+                        input.extend_from_slice(&cl_prop::<[u32; 3]>(grid));
+                    }
                 }
             }
         }

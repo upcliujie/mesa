@@ -68,15 +68,23 @@ etna_uniforms_write(const struct etna_context *ctx,
    struct etna_screen *screen = ctx->screen;
    struct etna_cmd_stream *stream = ctx->stream;
    const struct etna_shader_uniform_info *uinfo = &sobj->uniforms;
-   bool frag = (sobj == ctx->shader.fs);
-   uint32_t base = frag ? screen->specs.ps_uniforms_offset : screen->specs.vs_uniforms_offset;
+   uint32_t base;
    unsigned idx;
 
    if (!uinfo->count)
       return;
 
+   if(sobj == ctx->shader.fs)
+      base = screen->specs.ps_uniforms_offset;
+   else if(sobj == ctx->shader.vs)
+      base = screen->specs.vs_uniforms_offset;
+   else if(sobj == ctx->shader.compute)
+      base = screen->specs.cs_uniforms_offset;
+   else
+      unreachable("Invalid shader object");
+
    etna_cmd_stream_reserve(stream, align(uinfo->count + 1, 2));
-   etna_emit_load_state(stream, base >> 2, uinfo->count, 0);
+   etna_emit_load_state(stream, (base >> 2), uinfo->count, 0);
 
    for (uint32_t i = 0; i < uinfo->count; i++) {
       uint32_t val = uinfo->data[i];
@@ -86,15 +94,23 @@ etna_uniforms_write(const struct etna_context *ctx,
          etna_cmd_stream_emit(stream, val);
          break;
 
-      case ETNA_UNIFORM_UNIFORM:
-         assert(cb->user_buffer && val * 4 < cb->buffer_size);
-         etna_cmd_stream_emit(stream, ((uint32_t*) cb->user_buffer)[val]);
+      case ETNA_UNIFORM_UNIFORM: {
+         uint8_t *buf = ((uint8_t *)cb->user_buffer) + val;
+         if (uinfo->sizes[i] == 8)
+            val = *((uint8_t *)buf);
+         else if (uinfo->sizes[i] == 16)
+            val = *((uint16_t *)buf);
+         else if (uinfo->sizes[i] == 32)
+            val = *((uint32_t *)buf);
+
+         etna_cmd_stream_emit(stream, val);
          break;
+      }
 
       case ETNA_UNIFORM_TEXRECT_SCALE_X:
       case ETNA_UNIFORM_TEXRECT_SCALE_Y:
          etna_cmd_stream_emit(stream,
-            get_texrect_scale(ctx, frag, uinfo->contents[i], val));
+            get_texrect_scale(ctx, sobj == ctx->shader.fs, uinfo->contents[i], val));
          break;
 
       case ETNA_UNIFORM_UBO0_ADDR ... ETNA_UNIFORM_UBOMAX_ADDR:

@@ -92,6 +92,7 @@ static const struct etna_op_info etna_ops[] = {
    OPCT(f2u8,  F2I, 0_X_X, TRUE, U8),
    UOP(b2f32, AND, 0_X_X), /* AND with fui(1.0f) */
    UOP(b2i32, AND, 0_X_X), /* AND with 1 */
+   UOP(b2i8, AND, 0_X_X),  /* AND with 1 */
 
    /* arithmetic */
    IOP(iadd, ADD, 0_X_1),
@@ -133,7 +134,7 @@ static const struct etna_op_info etna_ops[] = {
 
 void
 etna_emit_alu(struct etna_compile *c, nir_op op, struct etna_inst_dst dst,
-              struct etna_inst_src src[3], bool saturate)
+              struct etna_inst_src src[3], unsigned src_bitsize, bool saturate)
 {
    struct etna_op_info ei = etna_ops[op];
    unsigned swiz_scalar = INST_SWIZ_BROADCAST(ffs(dst.write_mask) - 1);
@@ -148,6 +149,18 @@ etna_emit_alu(struct etna_compile *c, nir_op op, struct etna_inst_dst dst,
       .dst = dst,
       .sat = saturate,
    };
+
+   // TODO: test whether this makes any difference in CI anymore
+   if (nir_op_infos[op].is_conversion) {
+      nir_rounding_mode rmode =
+         nir_get_rounding_mode_from_float_controls(
+               c->nir->info.float_controls_execution_mode,
+               nir_op_infos[op].output_type);
+      if (rmode == nir_rounding_mode_rtz)
+         inst.tex.amode = 0x4 + INST_ROUND_MODE_RTZ;
+      else /*if (rmode == nir_rounding_mode_rtne)*/
+         inst.tex.amode = 0x4 + INST_ROUND_MODE_RTNE;
+   }
 
    switch (op) {
    case nir_op_fdiv:
@@ -176,6 +189,11 @@ etna_emit_alu(struct etna_compile *c, nir_op op, struct etna_inst_dst dst,
    case nir_op_ineg:
       inst.src[0] = etna_immediate_int(0);
       src[0].neg = 1;
+      break;
+   /* i2f encodes the src bitsize in the instruction type
+    * for sign-extension purposes. */
+   case nir_op_i2f32:
+      inst.type = etna_type_from_nir(nir_type_int | src_bitsize);
       break;
    default:
       break;

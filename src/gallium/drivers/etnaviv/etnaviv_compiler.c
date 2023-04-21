@@ -36,6 +36,7 @@ etna_compiler_create(const char *renderer, const struct etna_specs *specs)
    struct etna_compiler *compiler = rzalloc(NULL, struct etna_compiler);
 
    compiler->options = (nir_shader_compiler_options) {
+      .has_cs_global_id = true,
       .lower_fpow = true,
       .lower_fround_even = true,
       .lower_ftrunc = true,
@@ -69,6 +70,7 @@ etna_compiler_create(const char *renderer, const struct etna_specs *specs)
       .force_indirect_unrolling = nir_var_all,
       .max_unroll_iterations = 32,
       .vectorize_io = true,
+      .lower_int64_options = ~0,
       .lower_pack_32_2x16_split = true,
       .lower_pack_64_2x32_split = true,
       .lower_unpack_32_2x16_split = true,
