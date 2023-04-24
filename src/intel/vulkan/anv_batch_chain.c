@@ -1331,6 +1331,12 @@ anv_queue_submit(struct vk_queue *vk_queue,
    struct anv_device *device = queue->device;
    VkResult result;
 
+   if (u_trace_should_process(&device->ds.trace_context)) {
+      for (int i = 0; i < submit->command_buffer_count; i++)
+         intel_ds_perfetto_refresh_debug_utils_object_name(&device->ds,
+                                                           &submit->command_buffers[i]->base);
+   }
+
    if (queue->device->info->no_hw) {
       for (uint32_t i = 0; i < submit->signal_count; i++) {
          result = vk_sync_signal(&device->vk,
