@@ -1184,6 +1184,35 @@ zink_lower_system_values_to_inlined_uniforms(nir_shader *nir)
                                        nir_metadata_dominance, NULL);
 }
 
+static bool
+lower_system_values_to_push_constants(nir_builder *b, nir_intrinsic_instr *intrin, void *data)
+{
+   int push_constant_index;
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_flat_mask:
+      push_constant_index = ZINK_GFX_PUSHCONST_FLAT_MASK;
+      break;
+   case nir_intrinsic_load_provoking_last:
+      push_constant_index = ZINK_GFX_PUSHCONST_PV_LAST_VERT;
+      break;
+   default:
+      return false;
+   }
+
+   b->cursor = nir_instr_remove(&intrin->instr);
+   nir_def *new_dest_def = nir_load_push_constant_zink(b, 1, 32,
+                                                      nir_imm_int(b, push_constant_index));
+   nir_def_rewrite_uses(&intrin->def, new_dest_def);
+   return true;
+}
+
+bool
+zink_lower_system_values_to_push_constants(nir_shader *nir)
+{
+   return nir_shader_intrinsics_pass(nir, lower_system_values_to_push_constants,
+                                     nir_metadata_dominance, NULL);
+}
+
 void
 zink_screen_init_compiler(struct zink_screen *screen)
 {
