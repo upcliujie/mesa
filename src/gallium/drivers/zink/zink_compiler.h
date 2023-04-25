@@ -64,6 +64,9 @@ zink_create_quads_emulation_gs(const nir_shader_compiler_options *options,
 bool
 zink_lower_system_values_to_inlined_uniforms(nir_shader *nir);
 
+bool
+zink_lower_system_values_to_push_constants(nir_shader *nir);
+
 void
 zink_screen_init_compiler(struct zink_screen *screen);
 void
