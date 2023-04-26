@@ -1623,7 +1623,8 @@ struct anv_storage_image_descriptor {
     */
    uint32_t vanilla;
 
-   uint32_t pad;
+   /** Image format (enum isl_format) */
+   uint32_t format;
 };
 
 /** Struct representing a address/range descriptor
@@ -1827,6 +1828,8 @@ anv_descriptor_set_is_push(struct anv_descriptor_set *set)
 
 struct anv_buffer_view {
    struct vk_object_base base;
+
+   enum isl_format format;
 
    uint64_t range; /**< VkBufferViewCreateInfo::range */
 
