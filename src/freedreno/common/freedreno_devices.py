@@ -177,6 +177,7 @@ add_gpus([
     ))
 
 add_gpus([
+        GPUId(506),
         GPUId(508),
         GPUId(509),
         GPUId(510),
@@ -273,7 +274,7 @@ add_gpus([
         a6xx_gen1,
         num_ccu = 1,
         tile_align_w = 32,
-        tile_align_h = 16,
+        tile_align_h = 32,
         magic_regs = dict(
             PC_POWER_CNTL = 0,
             TPL1_DBG_ECO_CNTL = 0x00108000,
@@ -393,7 +394,7 @@ add_gpus([
         a6xx_gen3,
         num_ccu = 3,
         tile_align_w = 96,
-        tile_align_h = 48,
+        tile_align_h = 16,
         magic_regs = dict(
             PC_POWER_CNTL = 2,
             # this seems to be a chicken bit that fixes cubic filtering:
@@ -486,6 +487,18 @@ add_gpus([
             VPC_DBG_ECO_CNTL = 0x02000000,
             UCHE_UNKNOWN_0E12 = 0x00000001
         )
+    ))
+
+# Minimal definition needed for ir3 assembler/disassembler
+add_gpus([
+        GPUId(730),
+        GPUId(740),
+    ], A6xxGPUInfo(
+        a6xx_gen4,
+        num_ccu = 4,
+        tile_align_w = 64,
+        tile_align_h = 32,
+        magic_regs = dict()
     ))
 
 template = """\

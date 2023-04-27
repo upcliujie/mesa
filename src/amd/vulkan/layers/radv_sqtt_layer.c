@@ -245,7 +245,7 @@ radv_write_event_marker(struct radv_cmd_buffer *cmd_buffer,
    marker.identifier = RGP_SQTT_MARKER_IDENTIFIER_EVENT;
    marker.api_type = api_type;
    marker.cmd_id = cmd_buffer->state.num_events++;
-   marker.cb_id = 0;
+   marker.cb_id = cmd_buffer->sqtt_cb_id;
 
    if (vertex_offset_user_data == UINT_MAX || instance_offset_user_data == UINT_MAX) {
       vertex_offset_user_data = 0;
@@ -272,7 +272,7 @@ radv_write_event_with_dims_marker(struct radv_cmd_buffer *cmd_buffer,
    marker.event.identifier = RGP_SQTT_MARKER_IDENTIFIER_EVENT;
    marker.event.api_type = api_type;
    marker.event.cmd_id = cmd_buffer->state.num_events++;
-   marker.event.cb_id = 0;
+   marker.event.cb_id = cmd_buffer->sqtt_cb_id;
    marker.event.has_thread_dims = 1;
 
    marker.thread_x = x;
@@ -320,8 +320,15 @@ radv_describe_begin_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
    if (likely(!cmd_buffer->device->thread_trace.bo))
       return;
 
+   /* Reserve a command buffer ID for SQTT. */
+   enum amd_ip_type ip_type =
+      radv_queue_family_to_ring(cmd_buffer->device->physical_device, cmd_buffer->qf);
+   union rgp_sqtt_marker_cb_id cb_id =
+      ac_sqtt_get_next_cmdbuf_id(&cmd_buffer->device->thread_trace, ip_type);
+   cmd_buffer->sqtt_cb_id = cb_id.all;
+
    marker.identifier = RGP_SQTT_MARKER_IDENTIFIER_CB_START;
-   marker.cb_id = 0;
+   marker.cb_id = cmd_buffer->sqtt_cb_id;
    marker.device_id_low = device_id;
    marker.device_id_high = device_id >> 32;
    marker.queue = cmd_buffer->qf;
@@ -343,7 +350,7 @@ radv_describe_end_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
       return;
 
    marker.identifier = RGP_SQTT_MARKER_IDENTIFIER_CB_END;
-   marker.cb_id = 0;
+   marker.cb_id = cmd_buffer->sqtt_cb_id;
    marker.device_id_low = device_id;
    marker.device_id_high = device_id >> 32;
 
@@ -407,7 +414,7 @@ radv_describe_barrier_end_delayed(struct radv_cmd_buffer *cmd_buffer)
    cmd_buffer->state.pending_sqtt_barrier_end = false;
 
    marker.identifier = RGP_SQTT_MARKER_IDENTIFIER_BARRIER_END;
-   marker.cb_id = 0;
+   marker.cb_id = cmd_buffer->sqtt_cb_id;
 
    marker.num_layout_transitions = cmd_buffer->state.num_layout_transitions;
 
@@ -461,7 +468,7 @@ radv_describe_barrier_start(struct radv_cmd_buffer *cmd_buffer, enum rgp_barrier
    cmd_buffer->state.sqtt_flush_bits = 0;
 
    marker.identifier = RGP_SQTT_MARKER_IDENTIFIER_BARRIER_START;
-   marker.cb_id = 0;
+   marker.cb_id = cmd_buffer->sqtt_cb_id;
    marker.dword02 = reason;
 
    radv_emit_thread_trace_userdata(cmd_buffer, &marker, sizeof(marker) / 4);
@@ -507,7 +514,7 @@ radv_describe_pipeline_bind(struct radv_cmd_buffer *cmd_buffer,
       return;
 
    marker.identifier = RGP_SQTT_MARKER_IDENTIFIER_BIND_PIPELINE;
-   marker.cb_id = 0;
+   marker.cb_id = cmd_buffer->sqtt_cb_id;
    marker.bind_point = pipelineBindPoint;
    marker.api_pso_hash[0] = pipeline->pipeline_hash;
    marker.api_pso_hash[1] = pipeline->pipeline_hash >> 32;
@@ -534,12 +541,13 @@ radv_handle_thread_trace(VkQueue _queue)
       queue->device->vk.dispatch_table.QueueWaitIdle(_queue);
 
       if (radv_get_thread_trace(queue, &thread_trace)) {
-         struct ac_spm_trace_data *spm_trace = NULL;
+         struct ac_spm_trace spm_trace;
 
-         if (queue->device->spm_trace.bo)
-            spm_trace = &queue->device->spm_trace;
+         if (queue->device->spm.bo)
+            ac_spm_get_trace(&queue->device->spm, &spm_trace);
 
-         ac_dump_rgp_capture(&queue->device->physical_device->rad_info, &thread_trace, spm_trace);
+         ac_dump_rgp_capture(&queue->device->physical_device->rad_info, &thread_trace,
+                             queue->device->spm.bo ? &spm_trace : NULL);
       } else {
          /* Trigger a new capture if the driver failed to get
           * the trace because the buffer was too small.
@@ -850,6 +858,29 @@ sqtt_CmdCopyMemoryToAccelerationStructureKHR(VkCommandBuffer commandBuffer,
    EVENT_RT_MARKER(CopyMemoryToAccelerationStructureKHR, commandBuffer, pInfo);
 }
 
+VKAPI_ATTR void VKAPI_CALL
+sqtt_CmdDrawMeshTasksEXT(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z)
+{
+   EVENT_MARKER(DrawMeshTasksEXT, commandBuffer, x, y, z);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+sqtt_CmdDrawMeshTasksIndirectEXT(VkCommandBuffer commandBuffer, VkBuffer buffer,
+                                 VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
+{
+   EVENT_MARKER(DrawMeshTasksIndirectEXT, commandBuffer, buffer, offset, drawCount, stride);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+sqtt_CmdDrawMeshTasksIndirectCountEXT(VkCommandBuffer commandBuffer, VkBuffer buffer,
+                                      VkDeviceSize offset, VkBuffer countBuffer,
+                                      VkDeviceSize countBufferOffset, uint32_t maxDrawCount,
+                                      uint32_t stride)
+{
+   EVENT_MARKER(DrawMeshTasksIndirectCountEXT, commandBuffer, buffer, offset, countBuffer,
+                countBufferOffset, maxDrawCount, stride);
+}
+
 #undef EVENT_RT_MARKER_ALIAS
 #undef EVENT_RT_MARKER
 
@@ -1111,11 +1142,19 @@ radv_mesa_to_rgp_shader_stage(struct radv_pipeline *pipeline, gl_shader_stage st
          return RGP_HW_STAGE_GS;
       else
          return RGP_HW_STAGE_VS;
+   case MESA_SHADER_MESH:
    case MESA_SHADER_GEOMETRY:
       return RGP_HW_STAGE_GS;
    case MESA_SHADER_FRAGMENT:
       return RGP_HW_STAGE_PS;
+   case MESA_SHADER_TASK:
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_RAYGEN:
+   case MESA_SHADER_CLOSEST_HIT:
+   case MESA_SHADER_ANY_HIT:
+   case MESA_SHADER_INTERSECTION:
+   case MESA_SHADER_MISS:
+   case MESA_SHADER_CALLABLE:
       return RGP_HW_STAGE_CS;
    default:
       unreachable("invalid mesa shader stage");

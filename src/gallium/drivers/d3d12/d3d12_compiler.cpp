@@ -197,7 +197,6 @@ compile_nir(struct d3d12_context *ctx, struct d3d12_shader_selector *sel,
       auto type_no_array = glsl_without_array(var->type);
       unsigned count = glsl_type_is_array(var->type) ? glsl_get_aoa_size(var->type) : 1;
       for (unsigned i = 0; i < count; ++i) {
-         shader->uav_bindings[var->data.driver_location + i].format = var->data.image.format;
          shader->uav_bindings[var->data.driver_location + i].dimension = resource_dimension(glsl_get_sampler_dim(type_no_array));
       }
    }
@@ -1249,7 +1248,7 @@ select_shader_variant(struct d3d12_selection_context *sel_ctx, d3d12_shader_sele
       }
 
       if (key.fs.remap_front_facing) {
-         d3d12_forward_front_face(new_nir_variant);
+         dxil_nir_forward_front_face(new_nir_variant);
 
          nir_function_impl *impl = nir_shader_get_entrypoint(new_nir_variant);
          nir_shader_gather_info(new_nir_variant, impl);

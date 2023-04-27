@@ -26,13 +26,16 @@
 
 #include "anv_private.h"
 
+#include "xe/anv_batch_chain.h"
+
 #include "drm-uapi/xe_drm.h"
 
 static uint32_t
 xe_gem_create(struct anv_device *device,
               const struct intel_memory_class_instance **regions,
               uint16_t regions_count, uint64_t size,
-              enum anv_bo_alloc_flags alloc_flags)
+              enum anv_bo_alloc_flags alloc_flags,
+              uint64_t *actual_size)
 {
    struct drm_xe_gem_create gem_create = {
      /* From xe_drm.h: If a VM is specified, this BO must:
@@ -49,6 +52,7 @@ xe_gem_create(struct anv_device *device,
    if (intel_ioctl(device->fd, DRM_IOCTL_XE_GEM_CREATE, &gem_create))
       return 0;
 
+   *actual_size = gem_create.size;
    return gem_create.handle;
 }
 
@@ -93,7 +97,7 @@ xe_gem_vm_bind_op(struct anv_device *device, struct anv_bo *bo, uint32_t op)
       .num_binds = 1,
       .bind.obj = op == XE_VM_BIND_OP_UNMAP ? 0 : bo->gem_handle,
       .bind.obj_offset = 0,
-      .bind.range = align64(bo->size + bo->_ccs_size, device->info->mem_alignment),
+      .bind.range = bo->actual_size,
       .bind.addr = intel_48b_address(bo->offset),
       .bind.op = op,
       .num_syncs = 1,
@@ -137,6 +141,9 @@ anv_xe_kmd_backend_get(void)
       .gem_mmap = xe_gem_mmap,
       .gem_vm_bind = xe_gem_vm_bind,
       .gem_vm_unbind = xe_gem_vm_unbind,
+      .execute_simple_batch = xe_execute_simple_batch,
+      .queue_exec_locked = xe_queue_exec_locked,
+      .queue_exec_trace = xe_queue_exec_utrace_locked,
    };
    return &xe_backend;
 }

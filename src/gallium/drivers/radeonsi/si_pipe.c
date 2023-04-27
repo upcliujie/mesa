@@ -34,6 +34,7 @@
 #include "ac_shadowed_regs.h"
 #include "compiler/nir/nir.h"
 #include "util/disk_cache.h"
+#include "util/hex.h"
 #include "util/u_cpu_detect.h"
 #include "util/u_log.h"
 #include "util/u_memory.h"
@@ -118,6 +119,8 @@ static const struct debug_named_value radeonsi_debug_options[] = {
    {"nodccmsaa", DBG(NO_DCC_MSAA), "Disable DCC for MSAA"},
    {"nofmask", DBG(NO_FMASK), "Disable MSAA compression"},
    {"nodma", DBG(NO_DMA), "Disable SDMA-copy for DRI_PRIME"},
+
+   {"extra_md", DBG(EXTRA_METADATA), "Set UMD metadata for all textures and with additional fields for umr"},
 
    {"tmz", DBG(TMZ), "Force allocation of scanout/depth/stencil buffer as encrypted"},
    {"sqtt", DBG(SQTT), "Enable SQTT"},
@@ -347,7 +350,8 @@ static void si_destroy_context(struct pipe_context *context)
    sctx->ws->fence_reference(&sctx->last_gfx_fence, NULL);
    si_resource_reference(&sctx->eop_bug_scratch, NULL);
    si_resource_reference(&sctx->eop_bug_scratch_tmz, NULL);
-   si_resource_reference(&sctx->shadowed_regs, NULL);
+   si_resource_reference(&sctx->shadowing.registers, NULL);
+   si_resource_reference(&sctx->shadowing.csa, NULL);
 
    si_destroy_compiler(&sctx->compiler);
 
@@ -1091,7 +1095,7 @@ static void si_disk_cache_create(struct si_screen *sscreen)
       return;
 
    _mesa_sha1_final(&ctx, sha1);
-   disk_cache_format_hex_id(cache_id, sha1, 20 * 2);
+   mesa_bytes_to_hex(cache_id, sha1, 20);
 
    sscreen->disk_shader_cache = disk_cache_create(sscreen->info.name, cache_id,
                                                   sscreen->info.address32_hi);
@@ -1357,23 +1361,13 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
                             sscreen->debug_flags & DBG(DPBB));
 
    if (sscreen->dpbb_allowed) {
-      if (sscreen->info.has_dedicated_vram && sscreen->info.max_render_backends > 4) {
-         sscreen->pbb_context_states_per_bin = 1;
-         sscreen->pbb_persistent_states_per_bin = 1;
-      } else {
-         /* This is a workaround for:
-          *    https://bugs.freedesktop.org/show_bug.cgi?id=110214
-          * (an alternative is to insert manual BATCH_BREAK event when
-          *  a context_roll is detected). */
-         sscreen->pbb_context_states_per_bin = sscreen->info.has_gfx9_scissor_bug ? 1 : 3;
-         sscreen->pbb_persistent_states_per_bin = 8;
-      }
-
-      if (!sscreen->info.has_gfx9_scissor_bug)
-         sscreen->pbb_context_states_per_bin =
-            debug_get_num_option("AMD_DEBUG_DPBB_CS", sscreen->pbb_context_states_per_bin);
-      sscreen->pbb_persistent_states_per_bin =
-         debug_get_num_option("AMD_DEBUG_DPBB_PS", sscreen->pbb_persistent_states_per_bin);
+      /* Only bin draws that have no CONTEXT and SH register changes between them because higher
+       * settings cause hangs. We've only been able to reproduce hangs on smaller chips
+       * (e.g. Navi24, GFX1103), though all chips might have them. What we see may be due to
+       * a driver bug.
+       */
+      sscreen->pbb_context_states_per_bin = 1;
+      sscreen->pbb_persistent_states_per_bin = 1;
 
       assert(sscreen->pbb_context_states_per_bin >= 1 &&
              sscreen->pbb_context_states_per_bin <= 6);
@@ -1405,7 +1399,7 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
     *     z = [2..8]
     *     c = [2..8]
     *
-    * Only MSAA color and depth buffers are overriden.
+    * Only MSAA color and depth buffers are overridden.
     */
    if (sscreen->info.has_eqaa_surface_allocator) {
       const char *eqaa = debug_get_option("EQAA", NULL);

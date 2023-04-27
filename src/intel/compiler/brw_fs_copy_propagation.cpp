@@ -51,7 +51,6 @@ struct acp_entry : public exec_node {
    unsigned size_written;
    unsigned size_read;
    enum opcode opcode;
-   bool saturate;
    bool is_partial_write;
    bool force_writemask_all;
 };
@@ -187,6 +186,28 @@ fs_copy_prop_dataflow::fs_copy_prop_dataflow(void *mem_ctx, cfg_t *cfg,
 }
 
 /**
+ * Like reg_offset, but register must be VGRF or FIXED_GRF.
+ */
+static inline unsigned
+grf_reg_offset(const fs_reg &r)
+{
+   return (r.file == VGRF ? 0 : r.nr) * REG_SIZE +
+          r.offset +
+          (r.file == FIXED_GRF ? r.subnr : 0);
+}
+
+/**
+ * Like regions_overlap, but register must be VGRF or FIXED_GRF.
+ */
+static inline bool
+grf_regions_overlap(const fs_reg &r, unsigned dr, const fs_reg &s, unsigned ds)
+{
+   return reg_space(r) == reg_space(s) &&
+          !(grf_reg_offset(r) + dr <= grf_reg_offset(s) ||
+            grf_reg_offset(s) + ds <= grf_reg_offset(r));
+}
+
+/**
  * Set up initial values for each of the data flow sets, prior to running
  * the fixed-point algorithm.
  */
@@ -228,8 +249,8 @@ fs_copy_prop_dataflow::setup_initial_values()
 
             unsigned idx = reg_space(inst->dst) & (acp_table_size - 1);
             foreach_in_list(acp_entry, entry, &acp_table[idx]) {
-               if (regions_overlap(inst->dst, inst->size_written,
-                                   entry->dst, entry->size_written)) {
+               if (grf_regions_overlap(inst->dst, inst->size_written,
+                                       entry->dst, entry->size_written)) {
                   BITSET_SET(bd[block->num].kill, entry->global_idx);
                   if (inst->force_writemask_all && !entry->force_writemask_all)
                      BITSET_SET(bd[block->num].exec_mismatch, entry->global_idx);
@@ -258,8 +279,8 @@ fs_copy_prop_dataflow::setup_initial_values()
 
             unsigned idx = reg_space(inst->dst) & (acp_table_size - 1);
             foreach_in_list(acp_entry, entry, &acp_table[idx]) {
-               if (regions_overlap(inst->dst, inst->size_written,
-                                   entry->src, entry->size_read)) {
+               if (grf_regions_overlap(inst->dst, inst->size_written,
+                                       entry->src, entry->size_read)) {
                   BITSET_SET(bd[block->num].kill, entry->global_idx);
                   if (inst->force_writemask_all && !entry->force_writemask_all)
                      BITSET_SET(bd[block->num].exec_mismatch, entry->global_idx);
@@ -722,22 +743,6 @@ fs_visitor::try_copy_propagate(fs_inst *inst, int arg, acp_entry *entry)
       return false;
    }
 
-   if (entry->saturate) {
-      switch(inst->opcode) {
-      case BRW_OPCODE_SEL:
-         if ((inst->conditional_mod != BRW_CONDITIONAL_GE &&
-              inst->conditional_mod != BRW_CONDITIONAL_L) ||
-             inst->src[1].file != IMM ||
-             inst->src[1].f < 0.0 ||
-             inst->src[1].f > 1.0) {
-            return false;
-         }
-         break;
-      default:
-         return false;
-      }
-   }
-
    /* Save the offset of inst->src[arg] relative to entry->dst for it to be
     * applied later.
     */
@@ -771,9 +776,6 @@ fs_visitor::try_copy_propagate(fs_inst *inst, int arg, acp_entry *entry)
    } else {
       inst->src[arg].stride *= entry->src.stride;
    }
-
-   /* Compose any saturate modifiers. */
-   inst->saturate = inst->saturate || entry->saturate;
 
    /* Compute the first component of the copy that the instruction is
     * reading, and the base byte offset within that component.
@@ -820,8 +822,6 @@ fs_visitor::try_constant_propagate(fs_inst *inst, acp_entry *entry)
    if (entry->src.file != IMM)
       return false;
    if (type_sz(entry->src.type) > 4)
-      return false;
-   if (entry->saturate)
       return false;
 
    for (int i = inst->sources - 1; i >= 0; i--) {
@@ -1097,14 +1097,15 @@ can_propagate_from(fs_inst *inst)
    return (inst->opcode == BRW_OPCODE_MOV &&
            inst->dst.file == VGRF &&
            ((inst->src[0].file == VGRF &&
-             !regions_overlap(inst->dst, inst->size_written,
-                              inst->src[0], inst->size_read(0))) ||
+             !grf_regions_overlap(inst->dst, inst->size_written,
+                                  inst->src[0], inst->size_read(0))) ||
             inst->src[0].file == ATTR ||
             inst->src[0].file == UNIFORM ||
             inst->src[0].file == IMM ||
             (inst->src[0].file == FIXED_GRF &&
              inst->src[0].is_contiguous())) &&
            inst->src[0].type == inst->dst.type &&
+           !inst->saturate &&
            /* Subset of !is_partial_write() conditions. */
            !((inst->predicate && inst->opcode != BRW_OPCODE_SEL) ||
              !inst->dst.is_contiguous())) ||
@@ -1137,8 +1138,8 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
       /* kill the destination from the ACP */
       if (inst->dst.file == VGRF || inst->dst.file == FIXED_GRF) {
          foreach_in_list_safe(acp_entry, entry, &acp[inst->dst.nr % ACP_HASH_SIZE]) {
-            if (regions_overlap(entry->dst, entry->size_written,
-                                inst->dst, inst->size_written))
+            if (grf_regions_overlap(entry->dst, entry->size_written,
+                                    inst->dst, inst->size_written))
                entry->remove();
          }
 
@@ -1150,8 +1151,8 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
                /* Make sure we kill the entry if this instruction overwrites
                 * _any_ of the registers that it reads
                 */
-               if (regions_overlap(entry->src, entry->size_read,
-                                   inst->dst, inst->size_written))
+               if (grf_regions_overlap(entry->src, entry->size_read,
+                                       inst->dst, inst->size_written))
                   entry->remove();
             }
 	 }
@@ -1168,7 +1169,6 @@ fs_visitor::opt_copy_propagation_local(void *copy_prop_ctx, bblock_t *block,
          for (unsigned i = 0; i < inst->sources; i++)
             entry->size_read += inst->size_read(i);
          entry->opcode = inst->opcode;
-         entry->saturate = inst->saturate;
          entry->is_partial_write = inst->is_partial_write();
          entry->force_writemask_all = inst->force_writemask_all;
          acp[entry->dst.nr % ACP_HASH_SIZE].push_tail(entry);

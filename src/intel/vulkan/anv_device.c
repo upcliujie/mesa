@@ -76,12 +76,14 @@ static const driOptionDescription anv_dri_options[] = {
       DRI_CONF_ANV_FP64_WORKAROUND_ENABLED(false)
       DRI_CONF_ANV_GENERATED_INDIRECT_THRESHOLD(4)
       DRI_CONF_NO_16BIT(false)
+      DRI_CONF_ANV_QUERY_CLEAR_WITH_BLORP_THRESHOLD(6)
    DRI_CONF_SECTION_END
 
    DRI_CONF_SECTION_DEBUG
       DRI_CONF_ALWAYS_FLUSH_CACHE(false)
       DRI_CONF_VK_WSI_FORCE_BGRA8_UNORM_FIRST(false)
       DRI_CONF_LIMIT_TRIG_INPUT_RANGE(false)
+      DRI_CONF_ANV_MESH_CONV_PRIM_ATTRS_TO_VERT_ATTRS(-2)
    DRI_CONF_SECTION_END
 
    DRI_CONF_SECTION_QUALITY
@@ -306,6 +308,7 @@ get_device_extensions(const struct anv_physical_device *device,
                                                VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR,
       .EXT_global_priority_query             = device->max_context_priority >=
                                                VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR,
+      .EXT_graphics_pipeline_library         = device->gpl_enabled,
       .EXT_host_query_reset                  = true,
       .EXT_image_2d_view_of_3d               = true,
       .EXT_image_robustness                  = true,
@@ -729,7 +732,7 @@ anv_physical_device_init_queue_families(struct anv_physical_device *pdevice)
          intel_engines_count(pdevice->engine_info,
                              INTEL_ENGINE_CLASS_RENDER);
       int v_count =
-         intel_engines_count(pdevice->engine_info, I915_ENGINE_CLASS_VIDEO);
+         intel_engines_count(pdevice->engine_info, INTEL_ENGINE_CLASS_VIDEO);
       int g_count = 0;
       int c_count = 0;
       if (debug_get_bool_option("INTEL_COMPUTE_CLASS", false))
@@ -769,7 +772,7 @@ anv_physical_device_init_queue_families(struct anv_physical_device *pdevice)
          pdevice->queue.families[family_count++] = (struct anv_queue_family) {
             .queueFlags = VK_QUEUE_VIDEO_DECODE_BIT_KHR,
             .queueCount = v_count,
-            .engine_class = I915_ENGINE_CLASS_VIDEO,
+            .engine_class = INTEL_ENGINE_CLASS_VIDEO,
          };
       }
       /* Increase count below when other families are added as a reminder to
@@ -913,6 +916,18 @@ anv_physical_device_try_create(struct vk_instance *vk_instance,
       debug_get_bool_option("ANV_ENABLE_GENERATED_INDIRECT_DRAWS",
                             true);
 
+   /* The GPL implementation is new, and may have issues in conjunction with
+    * mesh shading. Enable it by default for zink for performance reasons (where
+    * mesh shading is unused anyway), and have an env var for testing in CI or
+    * by end users.
+    * */
+   if (debug_get_bool_option("ANV_GPL",
+                             instance->vk.app_info.engine_name != NULL &&
+                             (strcmp(instance->vk.app_info.engine_name, "mesa zink") == 0 ||
+                              strcmp(instance->vk.app_info.engine_name, "DXVK") == 0))) {
+      device->gpl_enabled = true;
+   }
+
    unsigned st_idx = 0;
 
    device->sync_syncobj_type = vk_drm_syncobj_get_type(fd);
@@ -920,12 +935,18 @@ anv_physical_device_try_create(struct vk_instance *vk_instance,
       device->sync_syncobj_type.features &= ~VK_SYNC_FEATURE_TIMELINE;
    device->sync_types[st_idx++] = &device->sync_syncobj_type;
 
-   if (!(device->sync_syncobj_type.features & VK_SYNC_FEATURE_CPU_WAIT))
-      device->sync_types[st_idx++] = &anv_bo_sync_type;
+   /* anv_bo_sync_type is only supported with i915 for now  */
+   if (device->info.kmd_type == INTEL_KMD_TYPE_I915) {
+      if (!(device->sync_syncobj_type.features & VK_SYNC_FEATURE_CPU_WAIT))
+         device->sync_types[st_idx++] = &anv_bo_sync_type;
 
-   if (!(device->sync_syncobj_type.features & VK_SYNC_FEATURE_TIMELINE)) {
-      device->sync_timeline_type = vk_sync_timeline_get_type(&anv_bo_sync_type);
-      device->sync_types[st_idx++] = &device->sync_timeline_type.sync;
+      if (!(device->sync_syncobj_type.features & VK_SYNC_FEATURE_TIMELINE)) {
+         device->sync_timeline_type = vk_sync_timeline_get_type(&anv_bo_sync_type);
+         device->sync_types[st_idx++] = &device->sync_timeline_type.sync;
+      }
+   } else {
+      assert(device->sync_syncobj_type.features & VK_SYNC_FEATURE_TIMELINE);
+      assert(device->sync_syncobj_type.features & VK_SYNC_FEATURE_CPU_WAIT);
    }
 
    device->sync_types[st_idx++] = NULL;
@@ -1100,11 +1121,14 @@ anv_init_dri_options(struct anv_instance *instance)
             driQueryOptionf(&instance->dri_options, "lower_depth_range_rate");
     instance->no_16bit =
             driQueryOptionb(&instance->dri_options, "no_16bit");
-
+    instance->mesh_conv_prim_attrs_to_vert_attrs =
+            driQueryOptioni(&instance->dri_options, "anv_mesh_conv_prim_attrs_to_vert_attrs");
     instance->fp64_workaround_enabled =
             driQueryOptionb(&instance->dri_options, "fp64_workaround_enabled");
     instance->generated_indirect_threshold =
             driQueryOptioni(&instance->dri_options, "generated_indirect_threshold");
+    instance->query_clear_with_blorp_threshold =
+       driQueryOptioni(&instance->dri_options, "query_clear_with_blorp_threshold");
 }
 
 VkResult anv_CreateInstance(
@@ -1225,7 +1249,10 @@ void anv_GetPhysicalDeviceFeatures2(
       .shaderImageGatherExtended                = true,
       .shaderStorageImageExtendedFormats        = true,
       .shaderStorageImageMultisample            = false,
-      .shaderStorageImageReadWithoutFormat      = false,
+      /* Gfx12.5 has all the required format supported in HW for typed
+       * read/writes
+       */
+      .shaderStorageImageReadWithoutFormat      = pdevice->info.verx10 >= 125,
       .shaderStorageImageWriteWithoutFormat     = true,
       .shaderUniformBufferArrayDynamicIndexing  = true,
       .shaderSampledImageArrayDynamicIndexing   = true,
@@ -1372,6 +1399,7 @@ void anv_GetPhysicalDeviceFeatures2(
 
       /* VK_EXT_global_priority_query */
       .globalPriorityQuery = true,
+      .graphicsPipelineLibrary = pdevice->gpl_enabled,
 
       /* VK_KHR_fragment_shading_rate */
       .pipelineFragmentShadingRate = true,
@@ -1634,7 +1662,7 @@ void anv_GetPhysicalDeviceProperties(
       .maxImageArrayLayers                      = (1 << 11),
       .maxTexelBufferElements                   = 128 * 1024 * 1024,
       .maxUniformBufferRange                    = pdevice->compiler->indirect_ubos_use_sampler ? (1u << 27) : (1u << 30),
-      .maxStorageBufferRange                    = pdevice->isl_dev.max_buffer_size,
+      .maxStorageBufferRange                    = MIN2(pdevice->isl_dev.max_buffer_size, UINT32_MAX),
       .maxPushConstantsSize                     = MAX_PUSH_CONSTANTS_SIZE,
       .maxMemoryAllocationCount                 = UINT32_MAX,
       .maxSamplerAllocationCount                = 64 * 1024,
@@ -1823,7 +1851,11 @@ anv_get_physical_device_properties_1_1(struct anv_physical_device *pdevice,
     * the real limit.
     */
    p->maxPerSetDescriptors       = 1024;
-   p->maxMemoryAllocationSize    = MAX_MEMORY_ALLOCATION_SIZE;
+
+   for (uint32_t i = 0; i < pdevice->memory.heap_count; i++) {
+      p->maxMemoryAllocationSize = MAX2(p->maxMemoryAllocationSize,
+                                        pdevice->memory.heaps[i].size);
+   }
 }
 
 static void
@@ -2175,6 +2207,14 @@ void anv_GetPhysicalDeviceProperties2(
             (VkPhysicalDeviceExternalMemoryHostPropertiesEXT *) ext;
          /* Userptr needs page aligned memory. */
          props->minImportedHostPointerAlignment = 4096;
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT: {
+         VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT *props =
+            (VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT *)ext;
+         props->graphicsPipelineLibraryFastLinking = true;
+         props->graphicsPipelineLibraryIndependentInterpolationDecoration = true;
          break;
       }
 
@@ -3036,9 +3076,21 @@ VkResult anv_CreateDevice(
       goto fail_device;
    }
 
+   switch (device->info->kmd_type) {
+   case INTEL_KMD_TYPE_I915:
+      device->vk.check_status = anv_i915_device_check_status;
+      break;
+   case INTEL_KMD_TYPE_XE:
+      device->vk.check_status = anv_xe_device_check_status;
+      break;
+   default:
+      unreachable("Missing");
+   }
+
    device->vk.command_buffer_ops = &anv_cmd_buffer_ops;
-   device->vk.check_status = anv_i915_device_check_status;
    device->vk.create_sync_for_memory = anv_create_sync_for_memory;
+   if (physical_device->info.kmd_type == INTEL_KMD_TYPE_I915)
+      device->vk.create_sync_for_memory = anv_create_sync_for_memory;
    vk_device_set_drm_fd(&device->vk, device->fd);
 
    uint32_t num_queues = 0;
@@ -3634,9 +3686,6 @@ VkResult anv_AllocateMemory(
    VkDeviceSize aligned_alloc_size =
       align64(pAllocateInfo->allocationSize, 4096);
 
-   if (aligned_alloc_size > MAX_MEMORY_ALLOCATION_SIZE)
-      return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
-
    assert(pAllocateInfo->memoryTypeIndex < pdevice->memory.type_count);
    const struct anv_memory_type *mem_type =
       &pdevice->memory.types[pAllocateInfo->memoryTypeIndex];
@@ -3644,56 +3693,42 @@ VkResult anv_AllocateMemory(
    struct anv_memory_heap *mem_heap =
       &pdevice->memory.heaps[mem_type->heapIndex];
 
+   if (aligned_alloc_size > mem_heap->size)
+      return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
    uint64_t mem_heap_used = p_atomic_read(&mem_heap->used);
    if (mem_heap_used + aligned_alloc_size > mem_heap->size)
       return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
-   mem = vk_object_alloc(&device->vk, pAllocator, sizeof(*mem),
-                         VK_OBJECT_TYPE_DEVICE_MEMORY);
+   mem = vk_device_memory_create(&device->vk, pAllocateInfo,
+                                 pAllocator, sizeof(*mem));
    if (mem == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   mem->size = pAllocateInfo->allocationSize;
    mem->type = mem_type;
    mem->map = NULL;
    mem->map_size = 0;
    mem->map_delta = 0;
-   mem->ahw = NULL;
-   mem->host_ptr = NULL;
 
    enum anv_bo_alloc_flags alloc_flags = 0;
 
-   const VkExportMemoryAllocateInfo *export_info = NULL;
-   const VkImportAndroidHardwareBufferInfoANDROID *ahw_import_info = NULL;
    const VkImportMemoryFdInfoKHR *fd_info = NULL;
-   const VkImportMemoryHostPointerInfoEXT *host_ptr_info = NULL;
    const VkMemoryDedicatedAllocateInfo *dedicated_info = NULL;
-   VkMemoryAllocateFlags vk_flags = 0;
    uint64_t client_address = 0;
 
    vk_foreach_struct_const(ext, pAllocateInfo->pNext) {
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO:
-         export_info = (void *)ext;
-         break;
-
       case VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID:
-         ahw_import_info = (void *)ext;
+      case VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT:
+      case VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR:
+      case VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO:
+         /* handled by vk_device_memory_create */
          break;
 
       case VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR:
          fd_info = (void *)ext;
          break;
-
-      case VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT:
-         host_ptr_info = (void *)ext;
-         break;
-
-      case VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO: {
-         const VkMemoryAllocateFlagsInfo *flags_info = (void *)ext;
-         vk_flags = flags_info->flags;
-         break;
-      }
 
       case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO:
          dedicated_info = (void *)ext;
@@ -3750,32 +3785,15 @@ VkResult anv_AllocateMemory(
        (mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
       alloc_flags |= ANV_BO_ALLOC_WRITE_COMBINE;
 
-   if (vk_flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT)
+   if (mem->vk.alloc_flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT)
       alloc_flags |= ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS;
 
-   if ((export_info && export_info->handleTypes) ||
-       (fd_info && fd_info->handleType) ||
-       (host_ptr_info && host_ptr_info->handleType)) {
-      /* Anything imported or exported is EXTERNAL */
+   /* Anything imported or exported is EXTERNAL */
+   if (mem->vk.export_handle_types || mem->vk.import_handle_type)
       alloc_flags |= ANV_BO_ALLOC_EXTERNAL;
-   }
 
-   /* Check if we need to support Android HW buffer export. If so,
-    * create AHardwareBuffer and import memory from it.
-    */
-   bool android_export = false;
-   if (export_info && export_info->handleTypes &
-       VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)
-      android_export = true;
-
-   if (ahw_import_info) {
-      result = anv_import_ahw_memory(_device, mem, ahw_import_info);
-      if (result != VK_SUCCESS)
-         goto fail;
-
-      goto success;
-   } else if (android_export) {
-      result = anv_create_ahw_memory(_device, mem, pAllocateInfo);
+   if (mem->vk.ahardware_buffer) {
+      result = anv_import_ahw_memory(_device, mem);
       if (result != VK_SUCCESS)
          goto fail;
 
@@ -3828,26 +3846,25 @@ VkResult anv_AllocateMemory(
       goto success;
    }
 
-   if (host_ptr_info && host_ptr_info->handleType) {
-      if (host_ptr_info->handleType ==
+   if (mem->vk.host_ptr) {
+      if (mem->vk.import_handle_type ==
           VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_MAPPED_FOREIGN_MEMORY_BIT_EXT) {
          result = vk_error(device, VK_ERROR_INVALID_EXTERNAL_HANDLE);
          goto fail;
       }
 
-      assert(host_ptr_info->handleType ==
+      assert(mem->vk.import_handle_type ==
              VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT);
 
       result = anv_device_import_bo_from_host_ptr(device,
-                                                  host_ptr_info->pHostPointer,
-                                                  pAllocateInfo->allocationSize,
+                                                  mem->vk.host_ptr,
+                                                  mem->vk.size,
                                                   alloc_flags,
                                                   client_address,
                                                   &mem->bo);
       if (result != VK_SUCCESS)
          goto fail;
 
-      mem->host_ptr = host_ptr_info->pHostPointer;
       goto success;
    }
 
@@ -3895,7 +3912,7 @@ VkResult anv_AllocateMemory(
    return VK_SUCCESS;
 
  fail:
-   vk_object_free(&device->vk, pAllocator, mem);
+   vk_device_memory_destroy(&device->vk, pAllocator, &mem->vk);
 
    return result;
 }
@@ -3995,12 +4012,7 @@ void anv_FreeMemory(
 
    anv_device_release_bo(device, mem->bo);
 
-#if defined(ANDROID) && ANDROID_API_LEVEL >= 26
-   if (mem->ahw)
-      AHardwareBuffer_release(mem->ahw);
-#endif
-
-   vk_object_free(&device->vk, pAllocator, mem);
+   vk_device_memory_destroy(&device->vk, pAllocator, &mem->vk);
 }
 
 VkResult anv_MapMemory2KHR(
@@ -4016,8 +4028,8 @@ VkResult anv_MapMemory2KHR(
       return VK_SUCCESS;
    }
 
-   if (mem->host_ptr) {
-      *ppData = mem->host_ptr + pMemoryMapInfo->offset;
+   if (mem->vk.host_ptr) {
+      *ppData = mem->vk.host_ptr + pMemoryMapInfo->offset;
       return VK_SUCCESS;
    }
 
@@ -4031,20 +4043,11 @@ VkResult anv_MapMemory2KHR(
                        "Memory object not mappable.");
    }
 
+   assert(pMemoryMapInfo->size > 0);
    const VkDeviceSize offset = pMemoryMapInfo->offset;
-   const VkDeviceSize size = pMemoryMapInfo->size == VK_WHOLE_SIZE ?
-                             mem->size - offset : pMemoryMapInfo->size;
-
-   /* From the Vulkan spec version 1.0.32 docs for MapMemory:
-    *
-    *  * If size is not equal to VK_WHOLE_SIZE, size must be greater than 0
-    *    assert(size != 0);
-    *  * If size is not equal to VK_WHOLE_SIZE, size must be less than or
-    *    equal to the size of the memory minus offset
-    */
-   assert(size > 0);
-   assert(offset < mem->size);
-   assert(size <= mem->size - offset);
+   const VkDeviceSize size =
+      vk_device_memory_range(&mem->vk, pMemoryMapInfo->offset,
+                                       pMemoryMapInfo->size);
 
    if (size != (size_t)size) {
       return vk_errorf(device, VK_ERROR_MEMORY_MAP_FAILED,
@@ -4094,7 +4097,7 @@ VkResult anv_UnmapMemory2KHR(
    ANV_FROM_HANDLE(anv_device, device, _device);
    ANV_FROM_HANDLE(anv_device_memory, mem, pMemoryUnmapInfo->memory);
 
-   if (mem == NULL || mem->host_ptr)
+   if (mem == NULL || mem->vk.host_ptr)
       return VK_SUCCESS;
 
    anv_device_unmap_bo(device, mem->bo, mem->map, mem->map_size);
@@ -4185,8 +4188,8 @@ anv_bind_buffer_memory(const VkBindBufferMemoryInfo *pBindInfo)
    assert(pBindInfo->sType == VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO);
 
    if (mem) {
-      assert(pBindInfo->memoryOffset < mem->size);
-      assert(mem->size - pBindInfo->memoryOffset >= buffer->vk.size);
+      assert(pBindInfo->memoryOffset < mem->vk.size);
+      assert(mem->vk.size - pBindInfo->memoryOffset >= buffer->vk.size);
       buffer->address = (struct anv_address) {
          .bo = mem->bo,
          .offset = pBindInfo->memoryOffset,

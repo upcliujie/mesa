@@ -25,8 +25,6 @@
 #ifndef ACO_INTERFACE_H
 #define ACO_INTERFACE_H
 
-#include "nir.h"
-
 #include "amd_family.h"
 
 #include "aco_shader_info.h"
@@ -34,6 +32,7 @@
 extern "C" {
 #endif
 
+typedef struct nir_shader nir_shader;
 struct ac_shader_config;
 struct aco_shader_info;
 struct aco_vs_prolog_info;
@@ -44,18 +43,10 @@ struct aco_compiler_statistic_info {
    char desc[64];
 };
 
-typedef void (aco_callback)(void **priv_ptr,
-                            gl_shader_stage stage,
-                            const struct ac_shader_config *config,
-                            const char *llvm_ir_str,
-                            unsigned llvm_ir_size,
-                            const char *disasm_str,
-                            unsigned disasm_size,
-                            uint32_t *statistics,
-                            uint32_t stats_size,
-                            uint32_t exec_size,
-                            const uint32_t *code,
-                            uint32_t code_dw);
+typedef void(aco_callback)(void** priv_ptr, const struct ac_shader_config* config,
+                           const char* llvm_ir_str, unsigned llvm_ir_size, const char* disasm_str,
+                           unsigned disasm_size, uint32_t* statistics, uint32_t stats_size,
+                           uint32_t exec_size, const uint32_t* code, uint32_t code_dw);
 
 typedef void (aco_shader_part_callback)(void **priv_ptr,
                                         uint32_t num_sgprs,

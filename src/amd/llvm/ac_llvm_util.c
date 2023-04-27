@@ -59,7 +59,7 @@ static void ac_init_llvm_target(void)
 #endif
    };
 
-   ac_reset_llvm_all_options_occurences();
+   ac_reset_llvm_all_options_occurrences();
    LLVMParseCommandLineOptions(ARRAY_SIZE(argv), argv, NULL);
 
    ac_llvm_run_atexit_for_destructors();
@@ -156,6 +156,8 @@ const char *ac_get_llvm_processor_name(enum radeon_family family)
       return "gfx908";
    case CHIP_MI200:
       return "gfx90a";
+   case CHIP_GFX940:
+      return "gfx940";
    case CHIP_NAVI10:
       return "gfx1010";
    case CHIP_NAVI12:
@@ -174,8 +176,8 @@ const char *ac_get_llvm_processor_name(enum radeon_family family)
       return LLVM_VERSION_MAJOR >= 13 ? "gfx1034" : "gfx1030";
    case CHIP_REMBRANDT:
       return LLVM_VERSION_MAJOR >= 13 ? "gfx1035" : "gfx1030";
-   case CHIP_GFX1036: /* TODO: LLVM 15 doesn't support this yet */
-      return "gfx1030";
+   case CHIP_RAPHAEL_MENDOCINO:
+      return LLVM_VERSION_MAJOR >= 15 ? "gfx1036" : "gfx1030";
    case CHIP_GFX1100:
       return "gfx1100";
    case CHIP_GFX1101:

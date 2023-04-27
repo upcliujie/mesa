@@ -589,8 +589,7 @@ create_display_fd_wayland(VkIcdSurfaceBase *surface)
  * and platform to use. It should work in most cases.
  */
 static void
-acquire_display_device_no_surface(struct v3dv_instance *instance,
-                                  struct v3dv_physical_device *pdevice)
+acquire_display_device_no_surface(struct v3dv_physical_device *pdevice)
 {
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
    pdevice->display_fd = create_display_fd_wayland(NULL);
@@ -613,8 +612,7 @@ acquire_display_device_no_surface(struct v3dv_instance *instance,
  * display and platform combination.
  */
 static void
-acquire_display_device_surface(struct v3dv_instance *instance,
-                               struct v3dv_physical_device *pdevice,
+acquire_display_device_surface(struct v3dv_physical_device *pdevice,
                                VkIcdSurfaceBase *surface)
 {
    /* Mesa will set both of VK_USE_PLATFORM_{XCB,XLIB} when building with
@@ -646,8 +644,7 @@ acquire_display_device_surface(struct v3dv_instance *instance,
  * we can use to allocate BOs for presentable images.
  */
 VkResult
-v3dv_physical_device_acquire_display(struct v3dv_instance *instance,
-                                     struct v3dv_physical_device *pdevice,
+v3dv_physical_device_acquire_display(struct v3dv_physical_device *pdevice,
                                      VkIcdSurfaceBase *surface)
 {
    VkResult result = VK_SUCCESS;
@@ -661,9 +658,9 @@ v3dv_physical_device_acquire_display(struct v3dv_instance *instance,
     */
 #if !using_v3d_simulator
    if (surface)
-      acquire_display_device_surface(instance, pdevice, surface);
+      acquire_display_device_surface(pdevice, surface);
    else
-      acquire_display_device_no_surface(instance, pdevice);
+      acquire_display_device_no_surface(pdevice);
 
    if (pdevice->display_fd == -1)
       result = VK_ERROR_INITIALIZATION_FAILED;
@@ -843,7 +840,8 @@ create_physical_device(struct v3dv_instance *instance,
    device->device_id = drm_render_device->deviceinfo.pci->device_id;
 #endif
 
-   if (instance->vk.enabled_extensions.KHR_display) {
+   if (instance->vk.enabled_extensions.KHR_display ||
+       instance->vk.enabled_extensions.EXT_acquire_drm_display) {
 #if !using_v3d_simulator
       /* Open the primary node on the vc4 display device */
       assert(drm_primary_device);
@@ -1176,7 +1174,7 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       .uniformAndStorageBuffer8BitAccess = true,
       .uniformBufferStandardLayout = true,
       /* V3D 4.2 wraps TMU vector accesses to 16-byte boundaries, so loads and
-       * stores of vectors that cross these boundaries would not work correcly
+       * stores of vectors that cross these boundaries would not work correctly
        * with scalarBlockLayout and would need to be split into smaller vectors
        * (and/or scalars) that don't cross these boundaries. For load/stores
        * with dynamic offsets where we can't identify if the offset is
@@ -2252,10 +2250,9 @@ device_alloc_for_wsi(struct v3dv_device *device,
     * display device and we need to do it now.
     */
    VkResult result;
-   struct v3dv_instance *instance = device->instance;
    struct v3dv_physical_device *pdevice = device->pdevice;
    if (unlikely(pdevice->display_fd < 0)) {
-      result = v3dv_physical_device_acquire_display(instance, pdevice, NULL);
+      result = v3dv_physical_device_acquire_display(pdevice, NULL);
       if (result != VK_SUCCESS)
          return result;
    }
@@ -2439,7 +2436,7 @@ v3dv_AllocateMemory(VkDevice _device,
 
    /* If this memory can be used via VK_KHR_buffer_device_address then we
     * will need to manually add the BO to any job submit that makes use of
-    * VK_KHR_buffer_device_address, since such jobs may produde buffer
+    * VK_KHR_buffer_device_address, since such jobs may produce buffer
     * load/store operations that may access any buffer memory allocated with
     * this flag and we don't have any means to tell which buffers will be
     * accessed through this mechanism since they don't even have to be bound

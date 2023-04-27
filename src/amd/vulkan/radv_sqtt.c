@@ -78,7 +78,7 @@ radv_emit_wait_for_idle(struct radv_device *device, struct radeon_cmdbuf *cs, in
 {
    enum rgp_flush_bits sqtt_flush_bits = 0;
    si_cs_emit_cache_flush(
-      cs, device->physical_device->rad_info.gfx_level, NULL, 0,
+      device->ws, cs, device->physical_device->rad_info.gfx_level, NULL, 0,
       family == AMD_IP_COMPUTE && device->physical_device->rad_info.gfx_level >= GFX7,
       (family == RADV_QUEUE_COMPUTE
           ? RADV_CMD_FLAG_CS_PARTIAL_FLUSH
@@ -307,7 +307,7 @@ radv_copy_thread_trace_info_regs(struct radv_device *device, struct radeon_cmdbu
    if (pdevice->rad_info.gfx_level >= GFX11) {
       /* On GFX11, SQ_THREAD_TRACE_WPTR is incremented from the "initial WPTR address" instead of 0.
        * To get the number of bytes (in units of 32 bytes) written by SQTT, the workaround is to
-       * substract SQ_THREAD_TRACE_WPTR from the "initial WPTR address" as follow:
+       * subtract SQ_THREAD_TRACE_WPTR from the "initial WPTR address" as follow:
        *
        * 1) get the current buffer base address for this SE
        * 2) shift right by 5 bits because SQ_THREAD_TRACE_WPTR is 32-byte aligned
@@ -643,7 +643,7 @@ radv_begin_thread_trace(struct radv_queue *queue)
       device->thread_trace.start_cs[family] = NULL;
    }
 
-   cs = ws->cs_create(ws, radv_queue_ring(queue));
+   cs = ws->cs_create(ws, radv_queue_ring(queue), false);
    if (!cs)
       return false;
 
@@ -673,7 +673,7 @@ radv_begin_thread_trace(struct radv_queue *queue)
 
    radv_perfcounter_emit_spm_reset(cs);
 
-   if (device->spm_trace.bo) {
+   if (device->spm.bo) {
       /* Enable all shader stages by default. */
       radv_perfcounter_emit_shaders(cs, 0x7f);
 
@@ -683,7 +683,7 @@ radv_begin_thread_trace(struct radv_queue *queue)
    /* Start SQTT. */
    radv_emit_thread_trace_start(device, cs, family);
 
-   if (device->spm_trace.bo)
+   if (device->spm.bo)
       radv_perfcounter_emit_spm_start(device, cs, family);
 
    result = ws->cs_finalize(cs);
@@ -712,7 +712,7 @@ radv_end_thread_trace(struct radv_queue *queue)
       device->thread_trace.stop_cs[family] = NULL;
    }
 
-   cs = ws->cs_create(ws, radv_queue_ring(queue));
+   cs = ws->cs_create(ws, radv_queue_ring(queue), false);
    if (!cs)
       return false;
 
@@ -734,7 +734,7 @@ radv_end_thread_trace(struct radv_queue *queue)
    /* Make sure to wait-for-idle before stopping SQTT. */
    radv_emit_wait_for_idle(device, cs, family);
 
-   if (device->spm_trace.bo)
+   if (device->spm.bo)
       radv_perfcounter_emit_spm_stop(device, cs, family);
 
    /* Stop SQTT. */

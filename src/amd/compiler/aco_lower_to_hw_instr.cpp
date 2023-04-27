@@ -71,7 +71,7 @@ aco_opcode
 get_reduce_opcode(amd_gfx_level gfx_level, ReduceOp op)
 {
    /* Because some 16-bit instructions are already VOP3 on GFX10, we use the
-    * 32-bit opcodes (VOP2) which allows to remove the tempory VGPR and to use
+    * 32-bit opcodes (VOP2) which allows to remove the temporary VGPR and to use
     * DPP with the arithmetic instructions. This requires to sign-extend.
     */
    switch (op) {
@@ -718,7 +718,7 @@ emit_reduction(lower_context* ctx, aco_opcode op, ReduceOp reduce_op, unsigned c
 
       for (unsigned i = 0; i < src.size(); i++) {
          if (!identity[i].isConstant() ||
-             identity[i].constantValue()) { /* bound_ctrl should take care of this overwise */
+             identity[i].constantValue()) { /* bound_ctrl should take care of this otherwise */
             if (ctx->program->gfx_level < GFX10)
                assert((identity[i].isConstant() && !identity[i].isLiteral()) ||
                       identity[i].physReg() == PhysReg{sitmp + i});
@@ -1109,23 +1109,15 @@ emit_v_mov_b16(Builder& bld, Definition dst, Operand op)
       if (!op.isLiteral() && op.physReg() >= 240) {
          /* v_add_f16 is smaller because it can use 16bit fp inline constants. */
          Instruction* instr = bld.vop2_e64(aco_opcode::v_add_f16, dst, op, Operand::zero());
-         if (dst.physReg().byte() == 2)
-            instr->valu().opsel = 0x8;
+         instr->valu().opsel[3] = dst.physReg().byte() == 2;
          return;
       }
       op = Operand::c32((int32_t)(int16_t)op.constantValue());
    }
 
-   if (!dst.physReg().byte() && !op.physReg().byte()) {
-      bld.vop1(aco_opcode::v_mov_b16, dst, op);
-   } else {
-      // TODO: this can use VOP1 for vgpr0-127 with assembler support
-      Instruction* instr = bld.vop1_e64(aco_opcode::v_mov_b16, dst, op);
-      if (op.physReg().byte() == 2)
-         instr->valu().opsel |= 0x1;
-      if (dst.physReg().byte() == 2)
-         instr->valu().opsel |= 0x8;
-   }
+   Instruction* instr = bld.vop1(aco_opcode::v_mov_b16, dst, op);
+   instr->valu().opsel[0] = op.physReg().byte() == 2;
+   instr->valu().opsel[3] = dst.physReg().byte() == 2;
 }
 
 void
@@ -2637,7 +2629,8 @@ lower_to_hw_instr(Program* program)
          } else if (instr->isBranch()) {
             Pseudo_branch_instruction* branch = &instr->branch();
             const uint32_t target = branch->target[0];
-            const bool uniform_branch = !(branch->opcode == aco_opcode::p_cbranch_z &&
+            const bool uniform_branch = !((branch->opcode == aco_opcode::p_cbranch_z ||
+                                           branch->opcode == aco_opcode::p_cbranch_nz) &&
                                           branch->operands[0].physReg() == exec);
 
             /* Check if the branch instruction can be removed.
@@ -2649,9 +2642,7 @@ lower_to_hw_instr(Program* program)
              * - The compiler stack knows that it's a divergent branch always taken
              */
             const bool prefer_remove =
-               (branch->selection_control == nir_selection_control_flatten ||
-                branch->selection_control == nir_selection_control_divergent_always_taken) &&
-               ctx.program->gfx_level >= GFX10;
+               branch->selection_control_remove && ctx.program->gfx_level >= GFX10;
             bool can_remove = block->index < target;
             unsigned num_scalar = 0;
             unsigned num_vector = 0;

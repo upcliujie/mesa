@@ -29,6 +29,7 @@
 #include "amd_kernel_code_t.h"
 #include "nir/tgsi_to_nir.h"
 #include "si_build_pm4.h"
+#include "si_shader_internal.h"
 #include "util/u_async_debug.h"
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
@@ -296,6 +297,23 @@ static void *si_create_compute_state(struct pipe_context *ctx, const struct pipe
    return program;
 }
 
+static void si_get_compute_state_info(struct pipe_context *ctx, void *state,
+                                      struct pipe_compute_state_object_info *info)
+{
+   struct si_compute *program = (struct si_compute *)state;
+   struct si_shader_selector *sel = &program->sel;
+
+   assert(program->ir_type != PIPE_SHADER_IR_NATIVE);
+
+   /* Wait because we need the compilation to finish first */
+   util_queue_fence_wait(&sel->ready);
+
+   uint8_t wave_size = program->shader.wave_size;
+   info->private_memory = DIV_ROUND_UP(program->shader.config.scratch_bytes_per_wave, wave_size);
+   info->preferred_simd_size = wave_size;
+   info->max_threads = si_get_max_workgroup_size(&program->shader);
+}
+
 static void si_bind_compute_state(struct pipe_context *ctx, void *state)
 {
    struct si_context *sctx = (struct si_context *)ctx;
@@ -405,7 +423,8 @@ static bool si_setup_compute_scratch_buffer(struct si_context *sctx, struct si_s
    }
 
    if (sctx->compute_scratch_buffer != shader->scratch_bo && scratch_needed) {
-      if (sctx->gfx_level < GFX11) {
+      if (sctx->gfx_level < GFX11 &&
+          (sctx->family < CHIP_GFX940 || sctx->screen->info.has_graphics)) {
          uint64_t scratch_va = sctx->compute_scratch_buffer->gpu_address;
 
          if (!si_shader_binary_upload(sctx->screen, shader, scratch_va))
@@ -507,7 +526,9 @@ static bool si_switch_compute_shader(struct si_context *sctx, struct si_compute 
                         S_00B8A0_INST_PREF_SIZE(si_get_shader_prefetch_size(shader)));
    }
 
-   if (sctx->gfx_level >= GFX11 && shader->scratch_bo) {
+   if ((sctx->gfx_level >= GFX11 ||
+        (sctx->family >= CHIP_GFX940 && !sctx->screen->info.has_graphics)) &&
+       shader->scratch_bo) {
       radeon_set_sh_reg_seq(R_00B840_COMPUTE_DISPATCH_SCRATCH_BASE_LO, 4);
       radeon_emit(sctx->compute_scratch_buffer->gpu_address >> 8);
       radeon_emit(sctx->compute_scratch_buffer->gpu_address >> 40);
@@ -762,8 +783,11 @@ static void si_emit_dispatch_packets(struct si_context *sctx, const struct pipe_
 
    unsigned dispatch_initiator = S_00B800_COMPUTE_SHADER_EN(1) | S_00B800_FORCE_START_AT_000(1) |
                                  /* If the KMD allows it (there is a KMD hw register for it),
-                                  * allow launching waves out-of-order. (same as Vulkan) */
-                                 S_00B800_ORDER_MODE(sctx->gfx_level >= GFX7) |
+                                  * allow launching waves out-of-order. (same as Vulkan)
+                                  * Not available in gfx940.
+                                  */
+                                 S_00B800_ORDER_MODE(sctx->gfx_level >= GFX7 &&
+                                                     (sctx->family < CHIP_GFX940 || sctx->screen->info.has_graphics)) |
                                  S_00B800_CS_W32_EN(sctx->cs_shader_state.program->shader.wave_size == 32);
 
    const uint *last_block = info->last_block;
@@ -1036,6 +1060,7 @@ void si_init_compute_functions(struct si_context *sctx)
    sctx->b.create_compute_state = si_create_compute_state;
    sctx->b.delete_compute_state = si_delete_compute_state;
    sctx->b.bind_compute_state = si_bind_compute_state;
+   sctx->b.get_compute_state_info = si_get_compute_state_info;
    sctx->b.set_compute_resources = si_set_compute_resources;
    sctx->b.set_global_binding = si_set_global_binding;
    sctx->b.launch_grid = si_launch_grid;

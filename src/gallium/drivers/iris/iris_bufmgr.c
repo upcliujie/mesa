@@ -313,8 +313,14 @@ static struct bo_cache_bucket *
 bucket_for_size(struct iris_bufmgr *bufmgr, uint64_t size,
                 enum iris_heap heap, unsigned flags)
 {
-   /* Protected bo needs special handling during allocation */
-   if (flags & BO_ALLOC_PROTECTED)
+
+   /* Protected bo needs special handling during allocation.
+    * Exported and scanout bos also need special handling during allocation
+    * in Xe KMD.
+    */
+   if ((flags & BO_ALLOC_PROTECTED) ||
+       ((flags & (BO_ALLOC_SHARED | BO_ALLOC_SCANOUT)) &&
+        bufmgr->devinfo.kmd_type == INTEL_KMD_TYPE_XE))
       return NULL;
 
    /* Calculating the pages and rounding up to the page size. */
@@ -514,6 +520,9 @@ iris_bo_busy(struct iris_bo *bo)
          busy = iris_i915_bo_busy_gem(bo);
       else
          busy = iris_bo_busy_syncobj(bo);
+      break;
+   case INTEL_KMD_TYPE_XE:
+      busy = iris_bo_busy_syncobj(bo);
       break;
    default:
       unreachable("missing");
@@ -778,6 +787,29 @@ flags_to_heap(struct iris_bufmgr *bufmgr, unsigned flags)
    }
 }
 
+static bool
+zero_bo(struct iris_bufmgr *bufmgr,
+        unsigned flags,
+        struct iris_bo *bo)
+{
+   assert(flags & BO_ALLOC_ZEROED);
+
+   if (bufmgr->devinfo.has_flat_ccs && (flags & BO_ALLOC_LMEM)) {
+      /* With flat CCS, all allocations in LMEM have memory ranges with
+       * corresponding CCS elements. These elements are only accessible
+       * through GPU commands, but we don't issue GPU commands here.
+       */
+      return false;
+   }
+
+   void *map = iris_bo_map(NULL, bo, MAP_WRITE | MAP_RAW);
+   if (!map)
+      return false;
+
+   memset(map, 0, bo->size);
+   return true;
+}
+
 static struct iris_bo *
 alloc_bo_from_slabs(struct iris_bufmgr *bufmgr,
                     const char *name,
@@ -854,14 +886,9 @@ alloc_bo_from_slabs(struct iris_bufmgr *bufmgr,
    /* Zero the contents if necessary.  If this fails, fall back to
     * allocating a fresh BO, which will always be zeroed by the kernel.
     */
-   if (flags & BO_ALLOC_ZEROED) {
-      void *map = iris_bo_map(NULL, bo, MAP_WRITE | MAP_RAW);
-      if (map) {
-         memset(map, 0, bo->size);
-      } else {
-         pb_slab_free(slabs, &bo->slab.entry);
-         return NULL;
-      }
+   if ((flags & BO_ALLOC_ZEROED) && !zero_bo(bufmgr, flags, bo)) {
+      pb_slab_free(slabs, &bo->slab.entry);
+      return NULL;
    }
 
    return bo;
@@ -905,53 +932,55 @@ alloc_bo_from_cache(struct iris_bufmgr *bufmgr,
 
       list_del(&cur->head);
 
-      /* Tell the kernel we need this BO.  If it still exists, we're done! */
-      if (iris_bo_madvise(cur, IRIS_MADVICE_WILL_NEED)) {
-         bo = cur;
-         break;
+      /* Tell the kernel we need this BO and check if it still exist */
+      if (!iris_bo_madvise(cur, IRIS_MADVICE_WILL_NEED)) {
+         /* This BO was purged, throw it out and keep looking. */
+         bo_free(cur);
+         continue;
       }
 
-      /* This BO was purged, throw it out and keep looking. */
-      bo_free(cur);
+      if (cur->aux_map_address) {
+         /* This buffer was associated with an aux-buffer range. We make sure
+          * that buffers are not reused from the cache while the buffer is (busy)
+          * being used by an executing batch. Since we are here, the buffer is no
+          * longer being used by a batch and the buffer was deleted (in order to
+          * end up in the cache). Therefore its old aux-buffer range can be
+          * removed from the aux-map.
+          */
+         if (cur->bufmgr->aux_map_ctx)
+            intel_aux_map_unmap_range(cur->bufmgr->aux_map_ctx, cur->address,
+                                      cur->size);
+         cur->aux_map_address = 0;
+      }
+
+      /* If the cached BO isn't in the right memory zone, or the alignment
+       * isn't sufficient, free the old memory and assign it a new address.
+       */
+      if (memzone != iris_memzone_for_address(cur->address) ||
+          cur->address % alignment != 0) {
+         if (!bufmgr->kmd_backend->gem_vm_unbind(cur)) {
+            DBG("Unable to unbind vm of buf %u\n", cur->gem_handle);
+            bo_free(cur);
+            continue;
+         }
+
+         vma_free(bufmgr, cur->address, cur->size);
+         cur->address = 0ull;
+      }
+
+      bo = cur;
+      break;
    }
 
    if (!bo)
       return NULL;
 
-   if (bo->aux_map_address) {
-      /* This buffer was associated with an aux-buffer range. We make sure
-       * that buffers are not reused from the cache while the buffer is (busy)
-       * being used by an executing batch. Since we are here, the buffer is no
-       * longer being used by a batch and the buffer was deleted (in order to
-       * end up in the cache). Therefore its old aux-buffer range can be
-       * removed from the aux-map.
-       */
-      if (bo->bufmgr->aux_map_ctx)
-         intel_aux_map_unmap_range(bo->bufmgr->aux_map_ctx, bo->address,
-                                   bo->size);
-      bo->aux_map_address = 0;
-   }
-
-   /* If the cached BO isn't in the right memory zone, or the alignment
-    * isn't sufficient, free the old memory and assign it a new address.
-    */
-   if (memzone != iris_memzone_for_address(bo->address) ||
-       bo->address % alignment != 0) {
-      vma_free(bufmgr, bo->address, bo->size);
-      bo->address = 0ull;
-   }
-
    /* Zero the contents if necessary.  If this fails, fall back to
     * allocating a fresh BO, which will always be zeroed by the kernel.
     */
-   if (flags & BO_ALLOC_ZEROED) {
-      void *map = iris_bo_map(NULL, bo, MAP_WRITE | MAP_RAW);
-      if (map) {
-         memset(map, 0, bo->size);
-      } else {
-         bo_free(bo);
-         return NULL;
-      }
+   if ((flags & BO_ALLOC_ZEROED) && !zero_bo(bufmgr, flags, bo)) {
+      bo_free(bo);
+      return NULL;
    }
 
    return bo;
@@ -987,7 +1016,8 @@ alloc_fresh_bo(struct iris_bufmgr *bufmgr, uint64_t bo_size, unsigned flags)
       case IRIS_HEAP_DEVICE_LOCAL_PREFERRED:
          /* For vram allocations, still use system memory as a fallback. */
          regions[num_regions++] = bufmgr->vram.region;
-         regions[num_regions++] = bufmgr->sys.region;
+         if (!(flags & BO_ALLOC_SCANOUT))
+            regions[num_regions++] = bufmgr->sys.region;
          break;
       case IRIS_HEAP_DEVICE_LOCAL:
          regions[num_regions++] = bufmgr->vram.region;
@@ -1100,6 +1130,9 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
 
       if (bo->address == 0ull)
          goto err_free;
+
+      if (!bufmgr->kmd_backend->gem_vm_bind(bo))
+         goto err_vm_alloc;
    }
 
    bo->name = name;
@@ -1135,6 +1168,8 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
 
    return bo;
 
+err_vm_alloc:
+   vma_free(bufmgr, bo->address, bo->size);
 err_free:
    simple_mtx_lock(&bufmgr->lock);
    bo_free(bo);
@@ -1142,12 +1177,26 @@ err_free:
    return NULL;
 }
 
+static int
+iris_bo_close(int fd, uint32_t gem_handle)
+{
+   struct drm_gem_close close = {
+      .handle = gem_handle,
+   };
+   return intel_ioctl(fd, DRM_IOCTL_GEM_CLOSE, &close);
+}
+
+static int
+iris_bufmgr_bo_close(struct iris_bufmgr *bufmgr, uint32_t gem_handle)
+{
+   return iris_bo_close(bufmgr->fd, gem_handle);
+}
+
 struct iris_bo *
 iris_bo_create_userptr(struct iris_bufmgr *bufmgr, const char *name,
                        void *ptr, size_t size,
                        enum iris_memory_zone memzone)
 {
-   struct drm_gem_close close = { 0, };
    struct iris_bo *bo;
 
    bo = bo_calloc();
@@ -1195,8 +1244,7 @@ iris_bo_create_userptr(struct iris_bufmgr *bufmgr, const char *name,
    return bo;
 
 err_close:
-   close.handle = bo->gem_handle;
-   intel_ioctl(bufmgr->fd, DRM_IOCTL_GEM_CLOSE, &close);
+   iris_bufmgr_bo_close(bufmgr, bo->gem_handle);
 err_free:
    free(bo);
    return NULL;
@@ -1243,8 +1291,7 @@ iris_bo_gem_create_from_name(struct iris_bufmgr *bufmgr,
 
    bo = bo_calloc();
    if (!bo) {
-      struct drm_gem_close close = { .handle = open_arg.handle, };
-      intel_ioctl(bufmgr->fd, DRM_IOCTL_GEM_CLOSE, &close);
+      iris_bufmgr_bo_close(bufmgr, open_arg.handle);
       goto out;
    }
 
@@ -1262,12 +1309,11 @@ iris_bo_gem_create_from_name(struct iris_bufmgr *bufmgr,
    if (INTEL_DEBUG(DEBUG_CAPTURE_ALL))
       bo->real.kflags |= EXEC_OBJECT_CAPTURE;
    bo->address = vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 1);
+   if (bo->address == 0ull)
+      goto err_free;
 
-   if (bo->address == 0ull) {
-      bo_free(bo);
-      bo = NULL;
-      goto out;
-   }
+   if (!bufmgr->kmd_backend->gem_vm_bind(bo))
+      goto err_vm_alloc;
 
    _mesa_hash_table_insert(bufmgr->handle_table, &bo->gem_handle, bo);
    _mesa_hash_table_insert(bufmgr->name_table, &bo->real.global_name, bo);
@@ -1277,6 +1323,13 @@ iris_bo_gem_create_from_name(struct iris_bufmgr *bufmgr,
 out:
    simple_mtx_unlock(&bufmgr->lock);
    return bo;
+
+err_vm_alloc:
+   vma_free(bufmgr, bo->address, bo->size);
+err_free:
+   bo_free(bo);
+   simple_mtx_unlock(&bufmgr->lock);
+   return NULL;
 }
 
 static void
@@ -1300,8 +1353,7 @@ bo_close(struct iris_bo *bo)
       _mesa_hash_table_remove(bufmgr->handle_table, entry);
 
       list_for_each_entry_safe(struct bo_export, export, &bo->real.exports, link) {
-         struct drm_gem_close close = { .handle = export->gem_handle };
-         intel_ioctl(export->drm_fd, DRM_IOCTL_GEM_CLOSE, &close);
+         iris_bo_close(export->drm_fd, export->gem_handle);
 
          list_del(&export->link);
          free(export);
@@ -1310,10 +1362,14 @@ bo_close(struct iris_bo *bo)
       assert(list_is_empty(&bo->real.exports));
    }
 
+   /* Unbind and return the VMA for reuse */
+   if (bufmgr->kmd_backend->gem_vm_unbind(bo))
+      vma_free(bo->bufmgr, bo->address, bo->size);
+   else
+      DBG("Unable to unbind vm of buf %u\n", bo->gem_handle);
+
    /* Close this object */
-   struct drm_gem_close close = { .handle = bo->gem_handle };
-   int ret = intel_ioctl(bufmgr->fd, DRM_IOCTL_GEM_CLOSE, &close);
-   if (ret != 0) {
+   if (iris_bufmgr_bo_close(bufmgr, bo->gem_handle) != 0) {
       DBG("DRM_IOCTL_GEM_CLOSE %d failed (%s): %s\n",
           bo->gem_handle, bo->name, strerror(errno));
    }
@@ -1322,9 +1378,6 @@ bo_close(struct iris_bo *bo)
       intel_aux_map_unmap_range(bo->bufmgr->aux_map_ctx, bo->address,
                                 bo->size);
    }
-
-   /* Return the VMA for reuse */
-   vma_free(bo->bufmgr, bo->address, bo->size);
 
    for (int d = 0; d < bo->deps_size; d++) {
       for (int b = 0; b < IRIS_BATCH_COUNT; b++) {
@@ -1596,6 +1649,9 @@ iris_bo_wait(struct iris_bo *bo, int64_t timeout_ns)
       else
          ret = iris_bo_wait_syncobj(bo, timeout_ns);
       break;
+   case INTEL_KMD_TYPE_XE:
+      ret = iris_bo_wait_syncobj(bo, timeout_ns);
+      break;
    default:
       unreachable("missing");
       ret = -1;
@@ -1819,18 +1875,24 @@ iris_bo_import_dmabuf(struct iris_bufmgr *bufmgr, int prime_fd)
     * to, because it's a fairly reasonable thing to do anyway.
     */
    bo->address = vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 64 * 1024);
+   if (bo->address == 0ull)
+      goto err_free;
 
-   if (bo->address == 0ull) {
-      bo_free(bo);
-      bo = NULL;
-      goto out;
-   }
+   if (!bufmgr->kmd_backend->gem_vm_bind(bo))
+      goto err_vm_alloc;
 
    _mesa_hash_table_insert(bufmgr->handle_table, &bo->gem_handle, bo);
 
 out:
    simple_mtx_unlock(&bufmgr->lock);
    return bo;
+
+err_vm_alloc:
+   vma_free(bufmgr, bo->address, bo->size);
+err_free:
+   bo_free(bo);
+   simple_mtx_unlock(&bufmgr->lock);
+   return NULL;
 }
 
 static void
@@ -2059,12 +2121,11 @@ intel_aux_map_buffer_alloc(void *driver_ctx, uint32_t size)
    simple_mtx_lock(&bufmgr->lock);
 
    bo->address = vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 64 * 1024);
-   if (bo->address == 0ull) {
-      free(buf);
-      bo_free(bo);
-      simple_mtx_unlock(&bufmgr->lock);
-      return NULL;
-   }
+   if (bo->address == 0ull)
+      goto err_free;
+
+   if (!bufmgr->kmd_backend->gem_vm_bind(bo))
+      goto err_vm_alloc;
 
    simple_mtx_unlock(&bufmgr->lock);
 
@@ -2081,6 +2142,14 @@ intel_aux_map_buffer_alloc(void *driver_ctx, uint32_t size)
    buf->gpu_end = buf->gpu + bo->size;
    buf->map = iris_bo_map(NULL, bo, MAP_WRITE | MAP_RAW);
    return buf;
+
+err_vm_alloc:
+   vma_free(bufmgr, bo->address, bo->size);
+err_free:
+   free(buf);
+   bo_free(bo);
+   simple_mtx_unlock(&bufmgr->lock);
+   return NULL;
 }
 
 static void

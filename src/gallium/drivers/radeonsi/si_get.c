@@ -34,7 +34,7 @@
 #include "vl/vl_video_buffer.h"
 #include <sys/utsname.h>
 
-/* The capabilties reported by the kernel has priority
+/* The capabilities reported by the kernel has priority
    over the existing logic in si_get_video_param */
 #define QUERYABLE_KERNEL   (!!(sscreen->info.drm_minor >= 41))
 #define KERNEL_DEC_CAP(codec, attrib)    \
@@ -498,8 +498,6 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
    case PIPE_SHADER_CAP_INT64_ATOMICS:
    case PIPE_SHADER_CAP_TGSI_ANY_INOUT_DECL_RANGE:
    case PIPE_SHADER_CAP_DROUND_SUPPORTED:
-   case PIPE_SHADER_CAP_LDEXP_SUPPORTED:
-   case PIPE_SHADER_CAP_DFRACEXP_DLDEXP_SUPPORTED:
    case PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR: /* lowered in finalize_nir */
    case PIPE_SHADER_CAP_INDIRECT_OUTPUT_ADDR: /* lowered in finalize_nir */
       return 1;
@@ -591,6 +589,9 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
             sscreen->info.ip[AMD_IP_VCN_ENC].num_queues))
          return 0;
 
+      if (sscreen->info.family == CHIP_GFX940)
+	 return 0;
+
       switch (param) {
       case PIPE_VIDEO_CAP_SUPPORTED:
          return (
@@ -603,6 +604,10 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
             (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10 && sscreen->info.family >= CHIP_RENOIR)));
       case PIPE_VIDEO_CAP_NPOT_TEXTURES:
          return 1;
+      case PIPE_VIDEO_CAP_MIN_WIDTH:
+         return 256;
+      case PIPE_VIDEO_CAP_MIN_HEIGHT:
+         return 128;
       case PIPE_VIDEO_CAP_MAX_WIDTH:
          if (codec != PIPE_VIDEO_FORMAT_UNKNOWN && QUERYABLE_KERNEL)
             return KERNEL_ENC_CAP(codec, max_width);
@@ -712,17 +717,20 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
             sscreen->info.family == CHIP_POLARIS11))
          return KERNEL_DEC_CAP(codec, valid);
       if (codec < PIPE_VIDEO_FORMAT_MPEG4_AVC &&
-          sscreen->info.family >= CHIP_NAVI24)
+          (sscreen->info.family >= CHIP_NAVI24 ||
+           sscreen->info.family == CHIP_GFX940))
          return false;
 
       switch (codec) {
       case PIPE_VIDEO_FORMAT_MPEG12:
-         if (sscreen->info.gfx_level >= GFX11)
+         if (sscreen->info.gfx_level >= GFX11 ||
+	     sscreen->info.family == CHIP_GFX940)
             return false;
          else
             return profile != PIPE_VIDEO_PROFILE_MPEG1;
       case PIPE_VIDEO_FORMAT_MPEG4:
-         if (sscreen->info.gfx_level >= GFX11)
+         if (sscreen->info.gfx_level >= GFX11 ||
+	     sscreen->info.family == CHIP_GFX940)
             return false;
          else
             return true;
@@ -734,7 +742,8 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
          }
          return true;
       case PIPE_VIDEO_FORMAT_VC1:
-         if (sscreen->info.gfx_level >= GFX11)
+         if (sscreen->info.gfx_level >= GFX11 ||
+	     sscreen->info.family == CHIP_GFX940)
             return false;
          else
             return true;
@@ -765,7 +774,8 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
             return false;
          return true;
       case PIPE_VIDEO_FORMAT_AV1:
-         if (sscreen->info.family < CHIP_NAVI21 || sscreen->info.family == CHIP_NAVI24)
+         if ((sscreen->info.family < CHIP_NAVI21 && sscreen->info.family != CHIP_GFX940) ||
+	      sscreen->info.family == CHIP_NAVI24)
             return false;
          return true;
       default:
@@ -773,6 +783,9 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
       }
    case PIPE_VIDEO_CAP_NPOT_TEXTURES:
       return 1;
+   case PIPE_VIDEO_CAP_MIN_WIDTH:
+   case PIPE_VIDEO_CAP_MIN_HEIGHT:
+      return 64;
    case PIPE_VIDEO_CAP_MAX_WIDTH:
       if (codec != PIPE_VIDEO_FORMAT_UNKNOWN && QUERYABLE_KERNEL)
             return KERNEL_DEC_CAP(codec, max_width);
@@ -888,6 +901,13 @@ static bool si_vid_is_format_supported(struct pipe_screen *screen, enum pipe_for
          return true;
       case PIPE_FORMAT_Y8_U8_V8_444_UNORM:
          if (sscreen->info.family >= CHIP_RENOIR)
+            return true;
+         else
+            return false;
+      case PIPE_FORMAT_R8G8B8A8_UNORM:
+      case PIPE_FORMAT_A8R8G8B8_UNORM:
+      case PIPE_FORMAT_R8_G8_B8_UNORM:
+         if (sscreen->info.family == CHIP_GFX940)
             return true;
          else
             return false;
@@ -1136,11 +1156,20 @@ static void si_init_renderer_string(struct si_screen *sscreen)
             sscreen->info.drm_major, sscreen->info.drm_minor, kernel_version);
 }
 
+static int si_get_screen_fd(struct pipe_screen *screen)
+{
+   struct si_screen *sscreen = (struct si_screen *)screen;
+   struct radeon_winsys *ws = sscreen->ws;
+
+   return ws->get_fd(ws);
+}
+
 void si_init_screen_get_functions(struct si_screen *sscreen)
 {
    sscreen->b.get_name = si_get_name;
    sscreen->b.get_vendor = si_get_vendor;
    sscreen->b.get_device_vendor = si_get_device_vendor;
+   sscreen->b.get_screen_fd = si_get_screen_fd;
    sscreen->b.get_param = si_get_param;
    sscreen->b.get_paramf = si_get_paramf;
    sscreen->b.get_compute_param = si_get_compute_param;
@@ -1164,9 +1193,11 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
 
    si_init_renderer_string(sscreen);
 
-   /* fma32 is too slow for gpu < gfx9, so force it only when gpu >= gfx9 */
-   bool force_fma32 =
-      sscreen->info.gfx_level >= GFX9 && sscreen->options.force_use_fma32;
+   bool use_fma32 =
+      sscreen->info.gfx_level >= GFX10_3 ||
+      (sscreen->info.family >= CHIP_GFX940 && !sscreen->info.has_graphics) ||
+      /* fma32 is too slow for gpu < gfx9, so apply the option only for gpu >= gfx9 */
+      (sscreen->info.gfx_level >= GFX9 && sscreen->options.force_use_fma32);
 
    const struct nir_shader_compiler_options nir_options = {
       .vertex_id_zero_based = true,
@@ -1196,10 +1227,10 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
        * gfx10 and older prefer MAD for F32 because of the legacy instruction.
        */
       .lower_ffma16 = sscreen->info.gfx_level < GFX9,
-      .lower_ffma32 = sscreen->info.gfx_level < GFX10_3 && !force_fma32,
+      .lower_ffma32 = !use_fma32,
       .lower_ffma64 = false,
       .fuse_ffma16 = sscreen->info.gfx_level >= GFX9,
-      .fuse_ffma32 = sscreen->info.gfx_level >= GFX10_3 || force_fma32,
+      .fuse_ffma32 = use_fma32,
       .fuse_ffma64 = true,
       .lower_fmod = true,
       .lower_pack_snorm_4x8 = true,
@@ -1217,7 +1248,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .lower_fisnormal = true,
       .lower_rotate = true,
       .lower_to_scalar = true,
-      .lower_int64_options = nir_lower_imul_2x32_64,
+      .lower_int64_options = nir_lower_imul_2x32_64 | nir_lower_imul_high64,
       .has_sdot_4x8 = sscreen->info.has_accelerated_dot_product,
       .has_sudot_4x8 = sscreen->info.has_accelerated_dot_product && sscreen->info.gfx_level >= GFX11,
       .has_udot_4x8 = sscreen->info.has_accelerated_dot_product,
@@ -1237,7 +1268,6 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
          nir_pack_varying_interp_loc_sample |
          nir_pack_varying_interp_loc_centroid,
       .lower_io_variables = true,
-      .lower_fs_color_inputs = true,
       /* HW supports indirect indexing for: | Enabled in driver
        * -------------------------------------------------------
        * TCS inputs                         | Yes

@@ -194,7 +194,7 @@ compute_lrz_state(struct fd6_emit *emit) assert_dt
     * enable LRZ write.  But this would cause early-z/lrz to discard
     * fragments from draw A which should be visible due to draw B.
     */
-   if (reads_dest && zsa->writes_z && ctx->screen->conservative_lrz) {
+   if (reads_dest && zsa->writes_z && ctx->screen->driconf.conservative_lrz) {
       if (!zsa->perf_warn_blend && rsc->lrz_valid) {
          perf_debug_ctx(ctx, "Invalidating LRZ due to blend+depthwrite");
          zsa->perf_warn_blend = true;
@@ -522,7 +522,8 @@ build_prim_mode(struct fd6_emit *emit, struct fd_context *ctx, bool gmem)
    uint32_t prim_mode = NO_FLUSH;
    if (emit->fs->fs.uses_fbfetch_output) {
       if (gmem) {
-         prim_mode = ctx->blend->blend_coherent ? FLUSH_PER_OVERLAP : NO_FLUSH;
+         prim_mode = (ctx->blend->blend_coherent || emit->fs->fs.fbfetch_coherent)
+            ? FLUSH_PER_OVERLAP : NO_FLUSH;
       } else {
          prim_mode = FLUSH_PER_OVERLAP_AND_OVERWRITE;
       }
@@ -759,6 +760,9 @@ fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring)
    if (!batch->nondraw) {
       trace_start_state_restore(&batch->trace, ring);
    }
+
+   OUT_PKT7(ring, CP_SET_MODE, 1);
+   OUT_RING(ring, 0);
 
    fd6_cache_inv(batch, ring);
 

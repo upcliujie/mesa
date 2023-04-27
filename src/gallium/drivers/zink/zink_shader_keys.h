@@ -64,6 +64,7 @@ struct zink_gs_key {
    bool lower_line_smooth : 1;
    bool lower_gl_point : 1;
    bool line_rectangular : 1;
+   unsigned lower_pv_mode : 2;
    // not hashed
    unsigned size;
 };
@@ -84,7 +85,8 @@ struct zink_fs_key_base {
    bool force_persample_interp : 1;
    bool fbfetch_ms : 1;
    bool shadow_needs_shader_swizzle : 1; //append zink_zs_swizzle_key after the key data
-   uint8_t pad : 2;
+   bool single_sample: 1;
+   uint8_t pad : 1;
    uint8_t coord_replace_bits;
 };
 

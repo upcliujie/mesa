@@ -1191,7 +1191,6 @@ pvr_descriptor_set_create(struct pvr_device *device,
    struct pvr_descriptor_set *set;
    VkResult result;
    size_t size;
-   void *map;
 
    size = sizeof(*set) + sizeof(set->descriptors[0]) * layout->descriptor_count;
 
@@ -1231,7 +1230,6 @@ pvr_descriptor_set_create(struct pvr_device *device,
    set->layout = layout;
    set->pool = pool;
 
-   map = set->pvr_bo->bo->map;
    for (uint32_t i = 0; i < layout->binding_count; i++) {
       const struct pvr_descriptor_set_layout_binding *binding =
          &layout->bindings[i];
@@ -1254,11 +1252,12 @@ pvr_descriptor_set_create(struct pvr_device *device,
                                                  binding,
                                                  stage,
                                                  j);
+            void *map = set->pvr_bo->bo->map;
 
             if (binding->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                offset_in_dwords += 4;
 
-            memcpy((uint8_t *)map + offset_in_dwords * sizeof(uint32_t),
+            memcpy((uint8_t *)map + PVR_DW_TO_BYTES(offset_in_dwords),
                    sampler->descriptor.words,
                    sizeof(sampler->descriptor.words));
          }
@@ -1401,8 +1400,12 @@ static void pvr_descriptor_update_buffer_info(
                                                 j,
                                                 write_set->dstArrayElement + i);
 
-         memcpy(mem_ptr + primary_offset, &addr, size_info.primary << 2);
-         memcpy(mem_ptr + secondary_offset, &range, size_info.secondary << 2);
+         memcpy(mem_ptr + primary_offset,
+                &addr,
+                PVR_DW_TO_BYTES(size_info.primary));
+         memcpy(mem_ptr + secondary_offset,
+                &range,
+                PVR_DW_TO_BYTES(size_info.secondary));
       }
    }
 }
@@ -2015,11 +2018,11 @@ static void pvr_copy_descriptor_set(struct pvr_device *device,
 
       memcpy(dst_mem_ptr + dst_primary_offset,
              src_mem_ptr + src_primary_offset,
-             size_info.primary * 4U * copy_set->descriptorCount);
+             PVR_DW_TO_BYTES(size_info.primary) * copy_set->descriptorCount);
 
       memcpy(dst_mem_ptr + dst_secondary_offset,
              src_mem_ptr + src_secondary_offset,
-             size_info.secondary * 4U * copy_set->descriptorCount);
+             PVR_DW_TO_BYTES(size_info.secondary) * copy_set->descriptorCount);
    }
 }
 

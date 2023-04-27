@@ -256,6 +256,8 @@ enum
    DBG_NO_FMASK,
    DBG_NO_DMA,
 
+   DBG_EXTRA_METADATA,
+
    DBG_TMZ,
    DBG_SQTT,
 
@@ -559,8 +561,8 @@ struct si_screen {
                                    enum pipe_texture_target target, enum pipe_format pipe_format,
                                    const unsigned char state_swizzle[4], unsigned first_level,
                                    unsigned last_level, unsigned first_layer, unsigned last_layer,
-                                   unsigned width, unsigned height, unsigned depth, uint32_t *state,
-                                   uint32_t *fmask_state);
+                                   unsigned width, unsigned height, unsigned depth,
+                                   bool get_bo_metadata, uint32_t *state, uint32_t *fmask_state);
 
    unsigned max_memory_usage_kb;
    unsigned pa_sc_raster_config;
@@ -960,7 +962,14 @@ struct si_context {
    struct u_log_context *log;
    void *query_result_shader;
    void *sh_query_result_shader;
-   struct si_resource *shadowed_regs;
+   struct {
+      /* Memory where the shadowed registers will be saved and loaded from. */
+      struct si_resource *registers;
+      /* Context Save Area: scratch area to save other required data. Only
+       * used if info->has_fw_based_mcbp is true.
+       */
+      struct si_resource *csa;
+   } shadowing;
 
    void (*emit_cache_flush)(struct si_context *ctx, struct radeon_cmdbuf *cs);
 
@@ -1071,6 +1080,9 @@ struct si_context {
    struct si_cs_shader_state cs_shader_state;
    /* if current tcs set by user */
    bool is_user_tcs;
+
+   /* video context */
+   bool vcn_has_ctx;
 
    /* shader information */
    uint64_t ps_inputs_read_or_disabled;
@@ -1307,7 +1319,7 @@ struct si_context {
 
    /* SQTT */
    struct ac_thread_trace_data *thread_trace;
-   struct ac_spm_trace_data spm_trace;
+   struct ac_spm spm;
    struct pipe_fence_handle *last_sqtt_fence;
    enum rgp_sqtt_marker_event_type sqtt_next_event;
    bool thread_trace_enabled;
