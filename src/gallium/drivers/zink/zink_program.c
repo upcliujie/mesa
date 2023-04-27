@@ -34,6 +34,7 @@
 #include "zink_state.h"
 #include "zink_inlines.h"
 
+#include "util/perf/cpu_trace.h"
 #include "util/u_debug.h"
 #include "util/u_memory.h"
 #include "util/u_prim.h"
@@ -2069,6 +2070,8 @@ precompile_job(void *data, void *gdata, int thread_index)
 {
    struct zink_screen *screen = gdata;
    struct zink_gfx_program *prog = data;
+
+   MESA_TRACE_FUNC();
 
    struct zink_gfx_pipeline_state state = {0};
    state.shader_keys_optimal.key.vs_base.last_vertex_stage = true;

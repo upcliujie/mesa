@@ -34,6 +34,7 @@
 #include "zink_pipeline.h"
 #include "zink_program.h"
 #include "zink_screen.h"
+#include "util/perf/cpu_trace.h"
 
 /* runtime-optimized pipeline state hashing */
 template <zink_dynamic_state DYNAMIC_STATE>
@@ -172,6 +173,8 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
    entry = _mesa_hash_table_search_pre_hashed(&prog->pipelines[rp_idx][idx], state->final_hash, state);
 
    if (!entry) {
+      MESA_TRACE_SCOPE("zink draw-time pipeline compile");
+
       /* always wait on async precompile/cache fence */
       util_queue_fence_wait(&prog->base.cache_fence);
       VkPipeline pipeline = VK_NULL_HANDLE;

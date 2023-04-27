@@ -41,6 +41,7 @@
 #include "nir/tgsi_to_nir.h"
 #include "tgsi/tgsi_dump.h"
 
+#include "util/perf/cpu_trace.h"
 #include "util/u_memory.h"
 
 #include "compiler/spirv/nir_spirv.h"
@@ -4799,6 +4800,8 @@ struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
                    const struct pipe_stream_output_info *so_info)
 {
+   MESA_TRACE_FUNC();
+
    struct zink_shader *ret = rzalloc(NULL, struct zink_shader);
    bool have_psiz = false;
 
