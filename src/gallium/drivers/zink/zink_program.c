@@ -596,8 +596,8 @@ update_gfx_program(struct zink_context *ctx, struct zink_gfx_program *prog)
       update_gfx_program_nonseamless(ctx, prog, false);
 }
 
-void
-zink_gfx_program_update(struct zink_context *ctx)
+static void ATTRIBUTE_NOINLINE
+zink_gfx_program_update_nonoptimal(struct zink_context *ctx)
 {
    if (ctx->last_vertex_stage_dirty) {
       gl_shader_stage pstage = ctx->last_vertex_stage->info.stage;
@@ -712,9 +712,15 @@ replace_separable_prog(struct zink_screen *screen, struct hash_entry *entry, str
 }
 
 void
-zink_gfx_program_update_optimal(struct zink_context *ctx)
+zink_gfx_program_update(struct zink_context *ctx)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
+
+   if (!screen->optimal_keys || ctx->is_generated_gs_bound) {
+      zink_gfx_program_update_nonoptimal(ctx);
+      return;
+   }
+
    if (ctx->gfx_dirty) {
       struct zink_gfx_program *prog = NULL;
       ctx->gfx_pipeline_state.optimal_key = ctx->gfx_pipeline_state.shader_keys_optimal.key.val;
