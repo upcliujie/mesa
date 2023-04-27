@@ -3073,27 +3073,20 @@ anv_layout_to_fast_clear_type(const struct intel_device_info * const devinfo,
           * operations since transfer may do format reinterpretation.
           */
          return ANV_FAST_CLEAR_DEFAULT_VALUE;
-      } else if (image->planes[plane].aux_usage == ISL_AUX_USAGE_MCS ||
-                 image->planes[plane].aux_usage == ISL_AUX_USAGE_CCS_E ||
-                 image->planes[plane].aux_usage == ISL_AUX_USAGE_FCV_CCS_E) {
-         if (devinfo->ver >= 11) {
-            /* The image might not support non zero fast clears when mutable. */
-            if (!image->planes[plane].can_non_zero_fast_clear)
-               return ANV_FAST_CLEAR_DEFAULT_VALUE;
-
-            /* On ICL and later, the sampler hardware uses a copy of the clear
-             * value that is encoded as a pixel value.  Therefore, we can use
-             * any clear color we like for sampling.
-             */
+      } else if (layout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL) {
+         /* On ICL and later, the sampler hardware uses a copy of the clear
+          * value that is encoded as a pixel value.  Therefore, we can use
+          * any clear color we like for sampling.
+          */
+         if (image->planes[plane].can_non_zero_fast_clear && devinfo->ver >= 11)
             return ANV_FAST_CLEAR_ANY;
-         } else {
-            /* If the image has MCS or CCS_E enabled all the time then we can
-             * use fast-clear as long as the clear color is the default value
-             * of zero since this is the default value we program into every
-             * surface state used for texturing.
-             */
-            return ANV_FAST_CLEAR_DEFAULT_VALUE;
-         }
+
+         /* If the image has MCS or CCS_E enabled all the time then we can
+          * use fast-clear as long as the clear color is the default value
+          * of zero since this is the default value we program into every
+          * surface state used for texturing.
+          */
+         return ANV_FAST_CLEAR_DEFAULT_VALUE;
       } else {
          return ANV_FAST_CLEAR_NONE;
       }
