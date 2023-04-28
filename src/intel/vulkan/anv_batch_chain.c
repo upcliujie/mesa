@@ -1165,8 +1165,7 @@ anv_cmd_buffer_exec_batch_debug(struct anv_queue *queue,
       return;
 
    struct anv_device *device = queue->device;
-   const bool has_perf_query = perf_query_pool && perf_query_pass >= 0 &&
-                               cmd_buffer_count;
+   const bool has_perf_query = perf_query_pool != NULL && cmd_buffer_count > 0;
 
    fprintf(stderr, "Batch on queue %d\n", (int)(queue - device->queues));
    if (cmd_buffer_count) {
