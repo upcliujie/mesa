@@ -959,6 +959,88 @@ void anv_CmdFillBuffer(
                              "after fill buffer");
 }
 
+static void
+anv_cmd_clear_color_image_with_aux(struct anv_cmd_buffer *cmd_buffer,
+                                   const struct anv_image *image,
+                                   const VkImageSubresourceRange *subresource_range,
+                                   union isl_color_value *clear_color)
+{
+   assert(subresource_range->baseArrayLayer == 0);
+   assert(subresource_range->baseMipLevel == 0);
+
+   const struct anv_format_plane src_format =
+      anv_get_format_aspect(cmd_buffer->device->info, image->vk.format,
+                            VK_IMAGE_ASPECT_COLOR_BIT, image->vk.tiling);
+   const uint32_t layer_count =
+      vk_image_subresource_layer_count(&image->vk, subresource_range);
+
+   if (image->vk.samples == 1) {
+      anv_image_ccs_op(cmd_buffer, image,
+                       src_format.isl_format, src_format.swizzle,
+                       VK_IMAGE_ASPECT_COLOR_BIT,
+                       0, 0, layer_count, ISL_AUX_OP_FAST_CLEAR,
+                       clear_color, false);
+   } else {
+      anv_image_mcs_op(cmd_buffer, image,
+                       src_format.isl_format, src_format.swizzle,
+                       VK_IMAGE_ASPECT_COLOR_BIT,
+                       0, layer_count, ISL_AUX_OP_FAST_CLEAR,
+                       clear_color, false);
+   }
+   anv_cmd_buffer_mark_image_fast_cleared(cmd_buffer, image,
+                                          src_format.isl_format, *clear_color);
+}
+
+static bool
+anv_can_fast_clear_color_image(struct anv_cmd_buffer *cmd_buffer,
+                               const struct anv_image *image,
+                               const VkImageSubresourceRange *subresource_range,
+                               union isl_color_value *clear_color,
+                               uint32_t rangeCount)
+{
+   const uint32_t plane =
+      anv_image_aspect_to_plane(image, subresource_range->aspectMask);
+   const struct anv_image_plane *image_plane = &image->planes[plane];
+   const struct isl_surf *psurf = &image_plane->primary_surface.isl;
+
+   const uint32_t base_layer = subresource_range->baseArrayLayer;
+   const uint32_t base_level = subresource_range->baseMipLevel;
+   const uint32_t level_count =
+      vk_image_subresource_level_count(&image->vk, subresource_range);
+   const uint32_t layer_count =
+      vk_image_subresource_layer_count(&image->vk, subresource_range);
+
+   /* We don't have support for fast clearing layer/level 0 and mixing
+    * fast clears with slow clears doesn't work.
+    */
+   if (rangeCount != 1)
+      return false;
+
+   if (cmd_buffer->state.gfx.view_mask)
+      return false;
+
+   /* We don't support fast clearing with conditional rendering at the
+    * moment.
+    */
+   if (cmd_buffer->state.conditional_render_enabled)
+      return false;
+
+   /* TODO: 3D volumetric fast clears */
+   if (image->vk.image_type == VK_IMAGE_TYPE_3D)
+      return false;
+
+   if (base_layer != 0 || base_level != 0 ||
+       level_count != 1 || layer_count != 1) {
+      anv_perf_warn(VK_LOG_OBJS(&image->vk.base),
+                    "Fast clears only supported on layer 0 / level 0");
+      return false;
+   }
+
+   return image_plane->can_non_zero_fast_clear ||
+          (isl_aux_usage_has_fast_clears(image_plane->aux_usage) &&
+           isl_color_value_is_zero_one(*clear_color, psurf->format));
+}
+
 void anv_CmdClearColorImage(
     VkCommandBuffer                             commandBuffer,
     VkImage                                     _image,
@@ -969,6 +1051,20 @@ void anv_CmdClearColorImage(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_image, image, _image);
+
+   const struct anv_format_plane src_format =
+      anv_get_format_aspect(cmd_buffer->device->info, image->vk.format,
+                            VK_IMAGE_ASPECT_COLOR_BIT, image->vk.tiling);
+   union isl_color_value clear_color = vk_to_isl_color(*pColor);
+
+   if (anv_can_fast_clear_color_image(cmd_buffer, image,
+                                      &pRanges[0], &clear_color,
+                                      rangeCount)) {
+      assert(pRanges[0].aspectMask & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV);
+      anv_cmd_clear_color_image_with_aux(cmd_buffer, image,
+                                         &pRanges[0], &clear_color);
+      return;
+   }
 
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
@@ -985,11 +1081,7 @@ void anv_CmdClearColorImage(
                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                                    imageLayout, ISL_AUX_USAGE_NONE, &surf);
 
-      struct anv_format_plane src_format =
-         anv_get_format_aspect(cmd_buffer->device->info, image->vk.format,
-                               VK_IMAGE_ASPECT_COLOR_BIT, image->vk.tiling);
-
-      unsigned base_layer = pRanges[r].baseArrayLayer;
+      uint32_t base_layer = pRanges[r].baseArrayLayer;
       uint32_t layer_count =
          vk_image_subresource_layer_count(&image->vk, &pRanges[r]);
       uint32_t level_count =
@@ -1014,7 +1106,7 @@ void anv_CmdClearColorImage(
                      src_format.isl_format, src_format.swizzle,
                      level, base_layer, layer_count,
                      0, 0, level_width, level_height,
-                     vk_to_isl_color(*pColor), 0 /* color_write_disable */);
+                     clear_color, 0 /* color_write_disable */);
       }
    }
 
