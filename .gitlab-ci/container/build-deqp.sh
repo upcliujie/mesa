@@ -14,7 +14,7 @@ git config --global user.email "mesa@example.com"
 git config --global user.name "Mesa CI"
 git clone \
     https://github.com/KhronosGroup/VK-GL-CTS.git \
-    -b vulkan-cts-1.3.5.1 \
+    -b vulkan-cts-1.3.5.2 \
     --depth 1 \
     /VK-GL-CTS
 pushd /VK-GL-CTS
@@ -26,16 +26,12 @@ pushd /VK-GL-CTS
 # patches.
 
 cts_commits_to_backport=(
-        # queue_transfer fix
-        8771481027d76a262195de8397d8985246bca98f
-
         # sync fix for SSBO writes
         44f1be32fe6bd2a7de7b9169fc71cc44e0b26124
 
         # correctness fixes for zink validation fails
         1923cbc89ed3969a3afe7c6926124b51157902e1
         af3a979c49dc65f8809c27660405ae3a76c7da4a
-        6b70682c57c4ffd07fdf6bcbf1aebd7cf1123629
 
         # video validation fails
         4cc3980a86ba5b7fe6e76b559cc1a9cb5fd1b253
