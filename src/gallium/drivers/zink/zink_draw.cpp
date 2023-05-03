@@ -131,7 +131,8 @@ zink_bind_vertex_buffers(struct zink_batch *batch, struct zink_context *ctx)
          struct zink_resource *res = zink_resource(vb->buffer.resource);
          assert(res->obj->buffer);
          buffers[i] = res->obj->buffer;
-         buffer_offsets[i] = vb->buffer_offset;
+         /* Clamp to the end of the VBO, as vk_buffer_range() asserts that the offset is in range. */
+         buffer_offsets[i] = MIN2(vb->buffer_offset, res->base.b.width0);
          buffer_strides[i] = vb->stride;
          if (DYNAMIC_STATE == ZINK_DYNAMIC_VERTEX_INPUT2 || DYNAMIC_STATE == ZINK_DYNAMIC_VERTEX_INPUT)
             elems->hw_state.dynbindings[i].stride = vb->stride;
