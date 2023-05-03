@@ -23,6 +23,7 @@ main(int argc, char *argv[])
       struct intel_device_info devinfo = { 0, };
 
       assert(intel_get_device_info_from_pci_id(chipsets[i].pci_id, &devinfo));
+      intel_device_info_init_was(&devinfo);
 
       verify_device_info(&devinfo);
    }

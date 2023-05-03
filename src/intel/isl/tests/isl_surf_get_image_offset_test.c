@@ -126,6 +126,7 @@ test_bdw_2d_r8g8b8a8_unorm_512x512_array01_samples01_noaux_tiley0(void)
 
    struct intel_device_info devinfo;
    t_assert(intel_get_device_info_from_pci_id(BDW_GT2_DEVID, &devinfo));
+   intel_device_info_init_was(&devinfo);
 
    struct isl_device dev;
    isl_device_init(&dev, &devinfo);
@@ -174,6 +175,7 @@ test_bdw_2d_r8g8b8a8_unorm_1024x1024_array06_samples01_noaux_tiley0(void)
 
    struct intel_device_info devinfo;
    t_assert(intel_get_device_info_from_pci_id(BDW_GT2_DEVID, &devinfo));
+   intel_device_info_init_was(&devinfo);
 
    struct isl_device dev;
    isl_device_init(&dev, &devinfo);
@@ -235,6 +237,7 @@ test_bdw_3d_r8g8b8a8_unorm_256x256x256_levels09_tiley0(void)
 
    struct intel_device_info devinfo;
    t_assert(intel_get_device_info_from_pci_id(BDW_GT2_DEVID, &devinfo));
+   intel_device_info_init_was(&devinfo);
 
    struct isl_device dev;
    isl_device_init(&dev, &devinfo);

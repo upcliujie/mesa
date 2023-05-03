@@ -89,6 +89,7 @@ aubinator_init(void *user_data, int aub_pci_id, const char *app_name)
       fprintf(stderr, "can't find device information: pci_id=0x%x\n", pci_id);
       exit(EXIT_FAILURE);
    }
+   intel_device_info_init_was(&devinfo);
 
    brw_init_isa_info(&isa, &devinfo);
 

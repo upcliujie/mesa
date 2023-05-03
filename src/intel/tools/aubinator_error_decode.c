@@ -528,6 +528,7 @@ read_data_file(FILE *file)
                printf("Unable to identify devid=%x\n", reg);
                exit(EXIT_FAILURE);
             }
+            intel_device_info_init_was(&devinfo);
 
             printf("Detected GEN%i chipset\n", devinfo.ver);
 

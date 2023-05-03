@@ -200,6 +200,7 @@ mi_builder_test::SetUp()
             fd = -1;
             continue;
          }
+         intel_device_info_init_was(&devinfo);
 
 
          /* Found a device! */

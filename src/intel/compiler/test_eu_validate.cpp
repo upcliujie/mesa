@@ -79,6 +79,7 @@ void validation_test::SetUp()
    int devid = intel_device_name_to_pci_device_id(info.name);
 
    intel_get_device_info_from_pci_id(devid, &devinfo);
+   intel_device_info_init_was(&devinfo);
 
    brw_init_isa_info(&isa, &devinfo);
 

@@ -91,6 +91,7 @@ main(int argc, char *argv[])
       fprintf(stderr, "Unknown platform.\n");
       return EXIT_FAILURE;
    }
+   intel_device_info_init_was(&devinfo);
 
    /* Force metric loading. */
    intel_debug |= DEBUG_NO_OACONFIG;

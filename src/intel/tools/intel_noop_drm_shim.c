@@ -540,6 +540,7 @@ drm_shim_driver_init(void)
 
    if (!intel_get_device_info_from_pci_id(i915.device_id, &i915.devinfo))
       return;
+   intel_device_info_init_was(&i915.devinfo);
 
    shim_device.bus_type = DRM_BUS_PCI;
    shim_device.driver_name = "i915";

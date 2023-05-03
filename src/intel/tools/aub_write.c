@@ -156,6 +156,7 @@ aub_file_init(struct aub_file *aub, FILE *file, FILE *debug, uint16_t pci_id, co
    aub->pci_id = pci_id;
    fail_if(!intel_get_device_info_from_pci_id(pci_id, &aub->devinfo),
            "failed to identify chipset=0x%x\n", pci_id);
+   intel_device_info_init_was(&aub->devinfo);
    aub->addr_bits = aub->devinfo.ver >= 8 ? 48 : 32;
 
    aub_write_header(aub, app_name);

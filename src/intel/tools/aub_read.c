@@ -103,6 +103,7 @@ handle_trace_header(struct aub_read *read, const uint32_t *p)
                         "can't find device information: pci_id=0x%x\n", aub_pci_id);
             return false;
          }
+         intel_device_info_init_was(&read->devinfo);
       }
    }
 
@@ -133,6 +134,7 @@ handle_memtrace_version(struct aub_read *read, const uint32_t *p)
          parse_error(read, p, "can't find device information: pci_id=0x%x\n", aub_pci_id);
          return false;
       }
+      intel_device_info_init_was(&read->devinfo);
 
       if (read->info)
          read->info(read->user_data, aub_pci_id, app_name + pci_id_len);
