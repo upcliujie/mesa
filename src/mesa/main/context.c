@@ -125,6 +125,7 @@
 #include "state.h"
 #include "util/u_debug.h"
 #include "util/disk_cache.h"
+#include "util/perf/u_perfetto.h"
 #include "util/strtod.h"
 #include "util/u_call_once.h"
 #include "stencil.h"
@@ -227,6 +228,8 @@ one_time_init(const char *extensions_override)
       _mesa_debug(NULL, "Mesa " PACKAGE_VERSION " DEBUG build" MESA_GIT_SHA1 "\n");
    }
 #endif
+
+   util_perfetto_init();
 
    /* Take a glsl type reference for the duration of libGL's life to avoid
     * unecessary creation/destruction of glsl types.
