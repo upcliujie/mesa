@@ -93,6 +93,8 @@ disk_cache_get_function_identifier(void *ptr, struct mesa_sha1 *ctx)
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "util/blob.h"
@@ -124,12 +126,16 @@ mkdir_if_needed(const char *path)
       }
    }
 
-   int ret = mkdir(path, 0755);
-   if (ret == 0 || (ret == -1 && errno == EEXIST))
+   char mkdir_path[PATH_MAX] = {0};
+   strcpy(mkdir_path, "mkdir -p ");
+   strcat(mkdir_path, path);
+   int ret = system(mkdir_path);
+
+   if (ret == 0)
      return 0;
 
    fprintf(stderr, "Failed to create %s for shader cache (%s)---disabling.\n",
-           path, strerror(errno));
+           path, strerror(ret));
 
    return -1;
 }
