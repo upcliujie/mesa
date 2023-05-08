@@ -851,18 +851,12 @@ dri3_create_screen(int screen, struct glx_display * priv)
       driverNameDisplayGPU = loader_get_driver_for_fd(psc->fd_display_gpu);
       if (driverNameDisplayGPU) {
 
-         /* check if driver name is matching so that non mesa drivers
-          * will not crash. Also need this check since image extension
-          * pointer from render gpu is shared with display gpu. Image
-          * extension pointer is shared because it keeps things simple.
-          */
-         if (strcmp(driverName, driverNameDisplayGPU) == 0) {
-            psc->driScreenDisplayGPU =
+	 /* support blit data from render gpu to display gpu. */
+	 psc->driScreenDisplayGPU =
                psc->image_driver->createNewScreen2(screen, psc->fd_display_gpu,
                                                    pdp->loader_extensions,
                                                    extensions,
                                                    &driver_configs, psc);
-         }
 
          free(driverNameDisplayGPU);
       }
