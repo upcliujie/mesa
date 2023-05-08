@@ -471,4 +471,17 @@ if with_tests
     ),
     suite : ['compiler', 'nir'],
   )
+
+  test(
+    'shift_of_negative_value_test',
+    executable(
+      'nir_shift_of_negative_value_test',
+      files('tests/shift_of_negative_value.cpp'),
+      cpp_args : [cpp_msvc_compat_args],
+      gnu_symbol_visibility : 'hidden',
+      include_directories : [inc_include, inc_src, inc_mesa, inc_gallium],
+      dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
+    ),
+    suite : ['compiler', 'nir'],
+  )
 endif

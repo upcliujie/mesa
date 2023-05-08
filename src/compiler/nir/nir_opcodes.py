@@ -490,8 +490,9 @@ for (int bit = bit_size - 1; bit >= 0; bit--) {
    /* If src0 < 0, we're looking for the first 0 bit.
     * if src0 >= 0, we're looking for the first 1 bit.
     */
-   if ((((src0 >> bit) & 1) && (src0 >= 0)) ||
-      (!((src0 >> bit) & 1) && (src0 < 0))) {
+   int64_t src0_shifted = ARITHM_RSHIFT(src0, bit);
+   if (((src0_shifted & 1) && (src0 >= 0)) ||
+      (!(src0_shifted & 1) && (src0 < 0))) {
       dst = bit;
       break;
    }
@@ -711,15 +712,15 @@ if (bit_size == 64) {
     */
    uint32_t src0_u32[4] = {
       src0,
-      (int64_t)src0 >> 32,
-      (int64_t)src0 >> 63,
-      (int64_t)src0 >> 63,
+      ARITHM_RSHIFT(src0, 32),
+      ARITHM_RSHIFT(src0, 63),
+      ARITHM_RSHIFT(src0, 63),
    };
    uint32_t src1_u32[4] = {
       src1,
-      (int64_t)src1 >> 32,
-      (int64_t)src1 >> 63,
-      (int64_t)src1 >> 63,
+      ARITHM_RSHIFT(src1, 32),
+      ARITHM_RSHIFT(src1, 63),
+      ARITHM_RSHIFT(src1, 63),
    };
    uint32_t prod_u32[4];
    ubm_mul_u32arr(prod_u32, src0_u32, src1_u32);
@@ -779,7 +780,9 @@ binop_convert("usub_borrow", tuint, tuint, "", "src0 < src1")
 #
 # (x + y) >> 1 = (((x & y) << 1) + (x ^ y)) >> 1
 #              =   (x & y) +      ((x ^ y)  >> 1)
-binop("ihadd", tint, _2src_commutative, "(src0 & src1) + ((src0 ^ src1) >> 1)")
+binop("ihadd", tint, _2src_commutative, """
+   (src0 & src1) + ARITHM_RSHIFT(src0 ^ src1, 1)
+""")
 binop("uhadd", tuint, _2src_commutative, "(src0 & src1) + ((src0 ^ src1) >> 1)")
 
 # rhadd: (a + b + 1) >> 1 (without overflow)
@@ -792,7 +795,9 @@ binop("uhadd", tuint, _2src_commutative, "(src0 & src1) + ((src0 ^ src1) >> 1)")
 #
 # (x + y + 1) >> 1 = (x | y) + (-(x ^ y) + 1) >> 1)
 #                  = (x | y) -  ((x ^ y)      >> 1)
-binop("irhadd", tint, _2src_commutative, "(src0 | src1) - ((src0 ^ src1) >> 1)")
+binop("irhadd", tint, _2src_commutative, """
+   (src0 | src1) - ARITHM_RSHIFT((src0 ^ src1), 1)
+""")
 binop("urhadd", tuint, _2src_commutative, "(src0 | src1) - ((src0 ^ src1) >> 1)")
 
 binop("umod", tuint, "", "src1 == 0 ? 0 : src0 % src1")
@@ -859,10 +864,13 @@ binop("sne", tfloat, _2src_commutative, "(src0 != src1) ? 1.0f : 0.0f") # Set on
 # SPIRV shifts are undefined for shift-operands >= bitsize,
 # but SM5 shifts are defined to use only the least significant bits.
 # The NIR definition is according to the SM5 specification.
-opcode("ishl", 0, tint, [0, 0], [tint, tuint32], False, "",
-       "(uint64_t)src0 << (src1 & (sizeof(src0) * 8 - 1))")
-opcode("ishr", 0, tint, [0, 0], [tint, tuint32], False, "",
-       "src0 >> (src1 & (sizeof(src0) * 8 - 1))")
+opcode("ishl", 0, tint, [0, 0], [tint, tuint32], False, "", """
+   LOGICAL_LSHIFT(src0,
+                  (src1 & (sizeof(src0) * 8 - 1)));
+""")
+opcode("ishr", 0, tint, [0, 0], [tint, tuint32], False, "", """
+   ARITHM_RSHIFT(src0, (src1 & (sizeof(src0) * 8 - 1)));
+""")
 opcode("ushr", 0, tuint, [0, 0], [tuint, tuint32], False, "",
        "src0 >> (src1 & (sizeof(src0) * 8 - 1))")
 
@@ -950,11 +958,16 @@ dst.y = src1.x;
 
 # Byte extraction
 binop("extract_u8", tuint, "", "(uint8_t)(src0 >> (src1 * 8))")
-binop("extract_i8", tint, "", "(int8_t)(src0 >> (src1 * 8))")
+binop("extract_i8", tint, "", """
+   (int8_t)(ARITHM_RSHIFT(src0, (src1 * 8)));
+""")
+
 
 # Word extraction
 binop("extract_u16", tuint, "", "(uint16_t)(src0 >> (src1 * 16))")
-binop("extract_i16", tint, "", "(int16_t)(src0 >> (src1 * 16))")
+binop("extract_i16", tint, "", """
+   (int16_t)(ARITHM_RSHIFT(src0, (src1 * 16)));
+""")
 
 # Byte/word insertion
 binop("insert_u8", tuint, "", "(src0 & 0xff) << (src1 * 8)")
@@ -1065,7 +1078,9 @@ unsigned bits = src2 & 0x1F;
 if (bits == 0) {
    dst = 0;
 } else if (offset + bits < 32) {
-   dst = (base << (32 - bits - offset)) >> (32 - bits);
+   dst = ARITHM_RSHIFT(LOGICAL_LSHIFT(base,
+                                      (32 - bits - offset)),
+                       (32 - bits));
 } else {
    dst = base >> offset;
 }
@@ -1093,7 +1108,9 @@ if (bits == 0) {
 } else if (offset < 0 || bits < 0 || offset + bits > 32) {
    dst = 0;
 } else {
-   dst = (base << (32 - offset - bits)) >> (32 - bits); /* use sign-extending shift */
+   dst = ARITHM_RSHIFT(LOGICAL_LSHIFT(base,
+                                      (32 - offset - bits)),
+                       (32 - bits));
 }
 """)
 
@@ -1217,14 +1234,21 @@ binop("amul", tint, _2src_commutative + associative, "src0 * src1")
 # multiplication (imul) on Freedreno backend..
 opcode("imadsh_mix16", 0, tint32,
        [0, 0, 0], [tint32, tint32, tint32], False, "", """
-dst = ((((src0 & 0xffff0000) >> 16) * (src1 & 0x0000ffff)) << 16) + src2;
+       int64_t src0_shifted = ARITHM_RSHIFT((src0 & 0xffff0000), 16);
+       dst = LOGICAL_LSHIFT((src0_shifted * (src1 & 0x0000ffff)), 16) +
+             src2;
 """)
 
 # ir3-specific instruction that maps directly to ir3 mad.s24.
 #
 # 24b multiply into 32b result (with sign extension) plus 32b int
-triop("imad24_ir3", tint32, _2src_commutative,
-      "(((int32_t)src0 << 8) >> 8) * (((int32_t)src1 << 8) >> 8) + src2")
+triop("imad24_ir3", tint32, _2src_commutative, """
+       int64_t src0_shifted = LOGICAL_LSHIFT(((int32_t)src0), 8);
+       int64_t src1_shifted = LOGICAL_LSHIFT(((int32_t)src1), 8);
+       dst = ARITHM_RSHIFT(src0_shifted, 8) *
+             ARITHM_RSHIFT(src1_shifted, 8) +
+             src2;
+""")
 
 # r600-specific instruction that evaluates unnormalized cube texture coordinates
 # and face index
@@ -1299,8 +1323,12 @@ opcode("extr_agx", 0, tuint32,
 """);
 
 # 24b multiply into 32b result (with sign extension)
-binop("imul24", tint32, _2src_commutative + associative,
-      "(((int32_t)src0 << 8) >> 8) * (((int32_t)src1 << 8) >> 8)")
+binop("imul24", tint32, _2src_commutative + associative, """
+       int64_t src0_shifted = LOGICAL_LSHIFT(((int32_t)src0), 8);
+       int64_t src1_shifted = LOGICAL_LSHIFT(((int32_t)src1), 8);
+       dst = ARITHM_RSHIFT(src0_shifted, 8) *
+             ARITHM_RSHIFT(src1_shifted, 8);
+""")
 
 # unsigned 24b multiply into 32b result plus 32b int
 triop("umad24", tuint32, _2src_commutative,
@@ -1322,7 +1350,7 @@ unop_convert("fisfinite32", tbool32, tfloat, "isfinite(src0)")
 # vc4-specific opcodes
 
 # Saturated vector add for 4 8bit ints.
-binop("usadd_4x8_vc4", tint32, _2src_commutative + associative, """
+binop("usadd_4x8_vc4", tuint32, _2src_commutative + associative, """
 dst = 0;
 for (int i = 0; i < 32; i += 8) {
    dst |= MIN2(((src0 >> i) & 0xff) + ((src1 >> i) & 0xff), 0xff) << i;
@@ -1330,7 +1358,7 @@ for (int i = 0; i < 32; i += 8) {
 """)
 
 # Saturated vector subtract for 4 8bit ints.
-binop("ussub_4x8_vc4", tint32, "", """
+binop("ussub_4x8_vc4", tuint32, "", """
 dst = 0;
 for (int i = 0; i < 32; i += 8) {
    int src0_chan = (src0 >> i) & 0xff;
@@ -1341,7 +1369,7 @@ for (int i = 0; i < 32; i += 8) {
 """)
 
 # vector min for 4 8bit ints.
-binop("umin_4x8_vc4", tint32, _2src_commutative + associative, """
+binop("umin_4x8_vc4", tuint32, _2src_commutative + associative, """
 dst = 0;
 for (int i = 0; i < 32; i += 8) {
    dst |= MIN2((src0 >> i) & 0xff, (src1 >> i) & 0xff) << i;
@@ -1349,7 +1377,7 @@ for (int i = 0; i < 32; i += 8) {
 """)
 
 # vector max for 4 8bit ints.
-binop("umax_4x8_vc4", tint32, _2src_commutative + associative, """
+binop("umax_4x8_vc4", tuint32, _2src_commutative + associative, """
 dst = 0;
 for (int i = 0; i < 32; i += 8) {
    dst |= MAX2((src0 >> i) & 0xff, (src1 >> i) & 0xff) << i;
@@ -1357,11 +1385,11 @@ for (int i = 0; i < 32; i += 8) {
 """)
 
 # unorm multiply: (a * b) / 255.
-binop("umul_unorm_4x8_vc4", tint32, _2src_commutative + associative, """
+binop("umul_unorm_4x8_vc4", tuint32, _2src_commutative + associative, """
 dst = 0;
 for (int i = 0; i < 32; i += 8) {
-   int src0_chan = (src0 >> i) & 0xff;
-   int src1_chan = (src1 >> i) & 0xff;
+   unsigned int src0_chan = (src0 >> i) & 0xff;
+   unsigned int src1_chan = (src1 >> i) & 0xff;
    dst |= ((src0_chan * src1_chan) / 255) << i;
 }
 """)
