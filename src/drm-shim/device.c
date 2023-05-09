@@ -29,6 +29,7 @@
 
 #include <c11/threads.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <linux/memfd.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -40,6 +41,7 @@
 #include "drm-uapi/drm.h"
 #include "drm_shim.h"
 #include "util/hash_table.h"
+#include "util/log.h"
 #include "util/u_atomic.h"
 
 #define SHIM_MEM_SIZE (4ull * 1024 * 1024 * 1024)
@@ -266,6 +268,32 @@ drm_shim_ioctl_syncobj_create(int fd, unsigned long request, void *arg)
 }
 
 static int
+drm_shim_ioctl_prime_handle_to_fd(int fd, unsigned long request, void *arg)
+{
+   struct shim_fd *shim_fd = drm_shim_fd_lookup(fd);
+   struct drm_prime_handle *args = arg;
+   struct shim_bo *bo = drm_shim_bo_lookup(shim_fd, args->handle);
+   int dmabuf_fd;
+
+   if (!bo)
+      return -ENOENT;
+
+   if (shim_device.driver_bo_to_fd) {
+      dmabuf_fd = shim_device.driver_bo_to_fd(bo);
+   } else {
+      mesa_logw_once("Exporting fake dma-buf fd");
+      dmabuf_fd = open("/dev/null", O_RDWR, 0);
+   }
+
+   if (dmabuf_fd < 0)
+      return -EINVAL;
+
+   args->fd = dmabuf_fd;
+
+   return 0;
+}
+
+static int
 drm_shim_ioctl_stub(int fd, unsigned long request, void *arg)
 {
    return 0;
@@ -281,6 +309,7 @@ ioctl_fn_t core_ioctls[] = {
    [_IOC_NR(DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD)] = drm_shim_ioctl_stub,
    [_IOC_NR(DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE)] = drm_shim_ioctl_stub,
    [_IOC_NR(DRM_IOCTL_SYNCOBJ_WAIT)] = drm_shim_ioctl_stub,
+   [_IOC_NR(DRM_IOCTL_PRIME_HANDLE_TO_FD)] = drm_shim_ioctl_prime_handle_to_fd,
 };
 
 /**
@@ -332,6 +361,7 @@ drm_shim_bo_init(struct shim_bo *bo, size_t size)
       return -ENOMEM;
 
    bo->size = size;
+   bo->refcount = 1;
 
    return 0;
 }
@@ -363,7 +393,7 @@ drm_shim_bo_get(struct shim_bo *bo)
 void
 drm_shim_bo_put(struct shim_bo *bo)
 {
-   if (p_atomic_dec_return(&bo->refcount) == 0)
+   if (p_atomic_dec_return(&bo->refcount) > 0)
       return;
 
    if (shim_device.driver_bo_free)
@@ -428,6 +458,9 @@ drm_shim_mmap(struct shim_fd *shim_fd, size_t length, int prot, int flags,
 
    /* The offset we pass to mmap must be aligned to the page size */
    assert((bo->mem_addr & (shim_page_size - 1)) == 0);
+
+   if (shim_device.driver_bo_mmap)
+      return shim_device.driver_bo_mmap(bo, prot, flags);
 
    return mmap(NULL, length, prot, flags, shim_device.mem_fd, bo->mem_addr);
 }

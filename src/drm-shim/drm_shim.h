@@ -55,6 +55,10 @@ struct shim_device {
 
    void (*driver_bo_free)(struct shim_bo *bo);
 
+   void *(*driver_bo_mmap)(struct shim_bo *bo, int prot, int flags);
+
+   int (*driver_bo_to_fd)(struct shim_bo *bo);
+
    /* Returned by drmGetVersion(). */
    const char *driver_name;
 
@@ -73,6 +77,7 @@ struct shim_fd {
    mtx_t handle_lock;
    /* mapping from int gem handle to struct shim_bo *. */
    struct hash_table *handles;
+   void *driver_priv;
 };
 
 struct shim_bo {

@@ -23,3 +23,7 @@ inc_virtio = include_directories('.')
 if with_virtio_vk
   subdir('vulkan')
 endif
+
+if with_tools.contains('drm-shim')
+  subdir('drm-shim')
+endif
