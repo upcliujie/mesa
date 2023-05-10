@@ -1339,6 +1339,9 @@ exec_ccs_op(struct anv_cmd_buffer *cmd_buffer,
       blorp_fast_clear(batch, &surf, format, swizzle,
                        level, base_layer, layer_count,
                        0, 0, level_width, level_height);
+      if (devinfo->ver == 11 || devinfo->ver == 9)
+         blorp_ccs_resolve(batch, &surf, level, base_layer, layer_count,
+                           format, ISL_AUX_OP_PARTIAL_RESOLVE);
       break;
    case ISL_AUX_OP_FULL_RESOLVE:
    case ISL_AUX_OP_PARTIAL_RESOLVE: {
