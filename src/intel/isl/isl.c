@@ -892,19 +892,7 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
                               struct isl_extent3d *image_align_el)
 {
    const struct isl_format_layout *fmtl = isl_format_get_layout(info->format);
-   if (fmtl->txc == ISL_TXC_MCS) {
-      /*
-       * IvyBrigde PRM Vol 2, Part 1, "11.7 MCS Buffer for Render Target(s)":
-       *
-       * Height, width, and layout of MCS buffer in this case must match with
-       * Render Target height, width, and layout. MCS buffer is tiledY.
-       *
-       * To avoid wasting memory, choose the smallest alignment possible:
-       * HALIGN_4 and VALIGN_4.
-       */
-      *image_align_el = isl_extent3d(4, 4, 1);
-      return;
-   } else if (fmtl->txc == ISL_TXC_HIZ) {
+   if (fmtl->txc == ISL_TXC_HIZ) {
       assert(ISL_GFX_VER(dev) >= 6);
       if (ISL_GFX_VER(dev) == 6) {
          /* HiZ surfaces on Sandy Bridge are packed tightly. */
@@ -2119,7 +2107,7 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
                         .levels = surf->levels,
                         .array_len = surf->logical_level0_px.array_len,
                         .samples = samples,
-                        .usage = ISL_SURF_USAGE_HIZ_BIT,
+                        .usage = ISL_SURF_USAGE_HIZ_BIT | surf->usage,
                         .tiling_flags = ISL_TILING_HIZ_BIT);
 }
 
@@ -2162,7 +2150,7 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
                         .levels = 1,
                         .array_len = surf->logical_level0_px.array_len,
                         .samples = 1, /* MCS surfaces are really single-sampled */
-                        .usage = ISL_SURF_USAGE_MCS_BIT,
+                        .usage = ISL_SURF_USAGE_MCS_BIT | surf->usage,
                         .tiling_flags = ISL_TILING_ANY_MASK);
 }
 
@@ -2357,7 +2345,7 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
                        .array_len = 1,
                        .samples = 1,
                        .row_pitch_B = row_pitch_B,
-                       .usage = ISL_SURF_USAGE_CCS_BIT,
+                       .usage = ISL_SURF_USAGE_CCS_BIT | surf->usage,
                        .tiling_flags = ISL_TILING_GFX12_CCS_BIT);
       assert(!ok || ccs_surf->size_B == surf->size_B / 256);
       return ok;
@@ -2399,7 +2387,7 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
                            .array_len = surf->logical_level0_px.array_len,
                            .samples = 1,
                            .row_pitch_B = row_pitch_B,
-                           .usage = ISL_SURF_USAGE_CCS_BIT,
+                           .usage = ISL_SURF_USAGE_CCS_BIT | surf->usage,
                            .tiling_flags = ISL_TILING_CCS_BIT);
    }
 }
