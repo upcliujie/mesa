@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -ex
 
@@ -107,8 +107,12 @@ deqp-runner junit \
    --limit 50 \
    --template "See https://$CI_PROJECT_ROOT_NAMESPACE.pages.freedesktop.org/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/results/{{testcase}}.xml"
 
+# Don't report flakes on stable branches
+if [ "$CI_PROJECT_NAMESPACE" = "mesa" ] && [[ $CI_COMMIT_REF_NAME =~ ^(staging/)?([0-9]+\.[0-9]+)$ ]]
+then
+  :
 # Report the flakes to the IRC channel for monitoring (if configured):
-if [ -n "$FLAKES_CHANNEL" ]; then
+elif [ -n "$FLAKES_CHANNEL" ]; then
   python3 $INSTALL/report-flakes.py \
          --host irc.oftc.net \
          --port 6667 \
