@@ -113,6 +113,11 @@ anv_descriptor_data_for_type(const struct anv_physical_device *device,
         type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER))
       data |= ANV_DESCRIPTOR_TEXTURE_SWIZZLE;
 
+   if (device->info.verx10 == 75 &&
+       (type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
+        type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER))
+      data |= ANV_DESCRIPTOR_HSW_WORKAROUND;
+
    return data;
 }
 
@@ -165,6 +170,9 @@ anv_descriptor_data_size(enum anv_descriptor_data data)
 
    if (data & ANV_DESCRIPTOR_TEXTURE_SWIZZLE)
       size += sizeof(struct anv_texture_swizzle_descriptor);
+
+   if (data & ANV_DESCRIPTOR_HSW_WORKAROUND)
+      size += sizeof(struct anv_hsw_workaround_descriptor);
 
    return size;
 }
@@ -1479,6 +1487,38 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
       }
       memcpy(desc_map, desc_data,
              MAX2(1, bind_layout->max_plane_count) * sizeof(desc_data[0]));
+   }
+
+   if (data & ANV_DESCRIPTOR_HSW_WORKAROUND) {
+      assert(!(data & ANV_DESCRIPTOR_SAMPLED_IMAGE));
+      assert(image_view);
+      struct anv_hsw_workaround_descriptor desc_data[3];
+      memset(desc_data, 0, sizeof(desc_data));
+
+      for (unsigned p = 0; p < image_view->n_planes; p++) {
+         if (image_view->planes[p].isl.format == ISL_FORMAT_R32G32_UINT ||
+             image_view->planes[p].isl.format == ISL_FORMAT_R32G32_SINT) {
+            desc_data[p] = (struct anv_hsw_workaround_descriptor) {
+               /* To turn 1.0 into 1 when needed, we can subtract 0x3F7FFFFF,
+                * which is the float representation of 1.0 subtracted by 1, from
+                * the channel.
+                */
+               .reductions = {
+                  0x3F7FFFFF * (image_view->planes[p].isl.swizzle.r == ISL_CHANNEL_SELECT_ALPHA ||
+                                image_view->planes[p].isl.swizzle.r == ISL_CHANNEL_SELECT_ONE),
+                  0x3F7FFFFF * (image_view->planes[p].isl.swizzle.g == ISL_CHANNEL_SELECT_ALPHA ||
+                                image_view->planes[p].isl.swizzle.g == ISL_CHANNEL_SELECT_ONE),
+                  0x3F7FFFFF * (image_view->planes[p].isl.swizzle.b == ISL_CHANNEL_SELECT_ALPHA ||
+                                image_view->planes[p].isl.swizzle.b == ISL_CHANNEL_SELECT_ONE),
+                  0x3F7FFFFF * (image_view->planes[p].isl.swizzle.a == ISL_CHANNEL_SELECT_ALPHA ||
+                                image_view->planes[p].isl.swizzle.a == ISL_CHANNEL_SELECT_ONE),
+               },
+            };
+         }
+         desc_data[p].sampler_index = anv_vk_format_to_hsw_border_color_index(image_view->vk.format);
+      }
+      memcpy(desc_map, desc_data,
+         MAX2(1, bind_layout->max_plane_count) * sizeof(desc_data[0]));
    }
 }
 

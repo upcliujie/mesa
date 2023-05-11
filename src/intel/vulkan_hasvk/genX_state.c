@@ -425,7 +425,7 @@ VkResult genX(CreateSampler)(
 
    sampler->n_planes = 1;
 
-   uint32_t border_color_stride = GFX_VERx10 == 75 ? 512 : 64;
+   uint32_t border_color_stride = GFX_VERx10 == 75 ? 12 * 512 : 64;
    uint32_t border_color_offset;
    ASSERTED bool has_custom_color = false;
    if (pCreateInfo->borderColor <= VK_BORDER_COLOR_INT_OPAQUE_WHITE) {
@@ -433,7 +433,6 @@ VkResult genX(CreateSampler)(
                             pCreateInfo->borderColor *
                             border_color_stride;
    } else {
-      assert(GFX_VER >= 8);
       sampler->custom_border_color =
          anv_state_reserved_pool_alloc(&device->custom_border_colors);
       border_color_offset = sampler->custom_border_color.offset;
@@ -465,6 +464,10 @@ VkResult genX(CreateSampler)(
          if (sampler->custom_border_color.map == NULL)
             break;
 
+#if GFX_VERx10 == 75
+         anv_color_to_hsw_border_colors(custom_border_color->customBorderColor,
+                                        sampler->custom_border_color.map);
+#else
          union isl_color_value color = { .u32 = {
             custom_border_color->customBorderColor.uint32[0],
             custom_border_color->customBorderColor.uint32[1],
@@ -488,6 +491,7 @@ VkResult genX(CreateSampler)(
          }
 
          memcpy(sampler->custom_border_color.map, color.u32, sizeof(color));
+#endif
          has_custom_color = true;
          break;
       }

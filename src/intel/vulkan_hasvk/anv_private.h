@@ -1586,6 +1586,19 @@ struct anv_texture_swizzle_descriptor {
    uint32_t _pad;
 };
 
+struct anv_hsw_workaround_descriptor {
+   /** See anv_descriptor_set_write_image_view */
+   uint32_t reductions[4];
+   /** The offset which should be added to the sampler index when using
+    * VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE to get a correct border color for the
+    * image format
+    */
+   uint32_t sampler_index;
+
+   /** Unused padding to ensure the struct is a multiple of 64 bits */
+   uint32_t _pad;
+};
+
 /** Struct representing a storage image descriptor */
 struct anv_storage_image_descriptor {
    /** Bindless image handles
@@ -1629,6 +1642,10 @@ enum anv_descriptor_data {
    ANV_DESCRIPTOR_STORAGE_IMAGE  = (1 << 7),
    /** Storage image handles */
    ANV_DESCRIPTOR_TEXTURE_SWIZZLE  = (1 << 8),
+   /** The descriptor contains data used to workaround gather4 and sampler
+    * border color limitations on Haswell
+    */
+   ANV_DESCRIPTOR_HSW_WORKAROUND = (1 << 9),
 };
 
 struct anv_descriptor_set_binding_layout {
@@ -1931,10 +1948,13 @@ struct anv_pipeline_binding {
    /** For a storage image, whether it requires a lowered surface */
    uint8_t lowered_storage_surface;
 
-   /** Pad to 64 bits so that there are no holes and we can safely memcmp
-    * assuming POD zero-initialization.
-    */
-   uint8_t pad;
+   union {
+      /** Whether this binding was created for use with gather4 on Haswell */
+      uint8_t for_gather;
+
+      /** Sampler offset for Haswell */
+      uint8_t sampler_index;
+   };
 };
 
 struct anv_push_range {
@@ -3595,6 +3615,11 @@ struct anv_image_view {
       struct anv_surface_state general_sampler_surface_state;
 
       /**
+       * RENDER_SURFACE_STATE when using image for textureGather on Haswell
+       */
+      struct anv_surface_state gather_sampler_surface_state;
+
+      /**
        * RENDER_SURFACE_STATE when using image as a storage image. Separate
        * states for vanilla (with the original format) and one which has been
        * lowered to a format suitable for reading.  This may be a raw surface
@@ -3680,17 +3705,22 @@ void anv_fill_buffer_surface_state(struct anv_device *device,
  * color as a separate entry /after/ the float color.  The layout of this entry
  * also depends on the format's bpp (with extra hacks for RG32), and overlaps.
  *
- * Since we don't know the format/bpp, we can't make any of the border colors
- * containing '1' work for all formats, as it would be in the wrong place for
- * some of them.  We opt to make 32-bit integers work as this seems like the
- * most common option.  Fortunately, transparent black works regardless, as
- * all zeroes is the same in every bit-size.
+ * Since we don't know the format/bpp when not using a combined sampler, we
+ * must select a sampler with the correct border color format at runtime.
  */
 struct hsw_border_color {
    float float32[4];
    uint32_t _pad0[12];
-   uint32_t uint32[4];
-   uint32_t _pad1[108];
+   union {
+      int32_t uint32[4];
+      struct {
+         int16_t uint16_a[2];
+         uint32_t _pad2;
+         int16_t uint16_b[2];
+      };
+      int8_t uint8[4];
+   };
+   uint32_t _pad3[108];
 };
 
 struct gfx8_border_color {
@@ -3701,6 +3731,10 @@ struct gfx8_border_color {
    /* Pad out to 64 bytes */
    uint32_t _pad[12];
 };
+
+void anv_color_to_hsw_border_colors(VkClearColorValue border_color,
+                                    struct hsw_border_color border_colors[12]);
+uint32_t anv_vk_format_to_hsw_border_color_index(VkFormat format);
 
 struct anv_ycbcr_conversion {
    struct vk_object_base base;

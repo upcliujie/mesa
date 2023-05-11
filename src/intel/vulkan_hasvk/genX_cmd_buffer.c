@@ -2239,6 +2239,8 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
                struct anv_surface_state sstate =
                   (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
                   desc->image_view->planes[binding->plane].general_sampler_surface_state :
+                  binding->for_gather ?
+                  desc->image_view->planes[binding->plane].gather_sampler_surface_state :
                   desc->image_view->planes[binding->plane].optimal_sampler_surface_state;
                surface_state = sstate.state;
                assert(surface_state.alloc_size);
@@ -2414,6 +2416,22 @@ emit_samplers(struct anv_cmd_buffer *cmd_buffer,
 
       memcpy(state->map + (s * 16),
              sampler->state[binding->plane], sizeof(sampler->state[0]));
+#if GFX_VERx10 == 75
+      if (desc->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+         uint32_t border_color_offset = sampler->state[binding->plane][2] +
+            512 * anv_vk_format_to_hsw_border_color_index(desc->image_view->vk.format);
+         memcpy(state->map + (s * 16) + 8,
+                &border_color_offset, sizeof(border_color_offset));
+      } else {
+         /* We create a set of 12 samplers with different border colors to be
+          * able to select the one with the correct border color format.
+          */
+         uint32_t border_color_offset = sampler->state[binding->plane][2] +
+            512 * binding->sampler_index;
+         memcpy(state->map + (s * 16) + 8,
+            &border_color_offset, sizeof(border_color_offset));
+      }
+#endif
    }
 
    return VK_SUCCESS;

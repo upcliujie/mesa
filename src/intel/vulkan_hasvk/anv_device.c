@@ -257,12 +257,12 @@ get_device_extensions(const struct anv_physical_device *device,
       .KHR_workgroup_memory_explicit_layout  = true,
       .KHR_zero_initialize_workgroup_memory  = true,
       .EXT_4444_formats                      = true,
-      .EXT_border_color_swizzle              = device->info.ver >= 8,
+      .EXT_border_color_swizzle              = device->info.verx10 >= 75,
       .EXT_buffer_device_address             = device->has_a64_buffer_access,
       .EXT_calibrated_timestamps             = device->has_reg_timestamp,
       .EXT_color_write_enable                = true,
       .EXT_conditional_rendering             = device->info.verx10 >= 75,
-      .EXT_custom_border_color               = device->info.ver >= 8,
+      .EXT_custom_border_color               = device->info.verx10 >= 75,
       .EXT_depth_clamp_zero_one              = true,
       .EXT_depth_clip_control                = true,
       .EXT_depth_clip_enable                 = true,
@@ -1348,8 +1348,8 @@ void anv_GetPhysicalDeviceFeatures2(
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT: {
          VkPhysicalDeviceCustomBorderColorFeaturesEXT *features =
             (VkPhysicalDeviceCustomBorderColorFeaturesEXT *)ext;
-         features->customBorderColors = pdevice->info.ver >= 8;
-         features->customBorderColorWithoutFormat = pdevice->info.ver >= 8;
+         features->customBorderColors = pdevice->info.verx10 >= 75;
+         features->customBorderColorWithoutFormat = pdevice->info.verx10 >= 75;
          break;
       }
 
@@ -1605,6 +1605,7 @@ void anv_GetPhysicalDeviceFeatures2(
 #define MAX_DESCRIPTOR_SET_INPUT_ATTACHMENTS       256
 
 #define MAX_CUSTOM_BORDER_COLORS                   4096
+#define HSW_MAX_CUSTOM_BORDER_COLORS               256
 
 void anv_GetPhysicalDeviceProperties(
     VkPhysicalDevice                            physicalDevice,
@@ -2080,7 +2081,9 @@ void anv_GetPhysicalDeviceProperties2(
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_PROPERTIES_EXT: {
          VkPhysicalDeviceCustomBorderColorPropertiesEXT *properties =
             (VkPhysicalDeviceCustomBorderColorPropertiesEXT *)ext;
-         properties->maxCustomBorderColorSamplers = MAX_CUSTOM_BORDER_COLORS;
+         properties->maxCustomBorderColorSamplers = pdevice->info.verx10 == 75 ?
+            HSW_MAX_CUSTOM_BORDER_COLORS :
+            MAX_CUSTOM_BORDER_COLORS;
          break;
       }
 
@@ -2483,11 +2486,157 @@ anv_state_pool_emit_data(struct anv_state_pool *pool, size_t size, size_t align,
    return state;
 }
 
+/* Border colors on Haswell are format-dependent, so we need to use the
+ * image's format to get the correct border color. Swizzled formats are not
+ * handled here.
+ */
+static struct hsw_border_color
+color_to_hsw_border_color(VkClearColorValue border_color, enum isl_format format) {
+   switch (format) {
+   case ISL_FORMAT_R8_UINT:
+   case ISL_FORMAT_R8_SINT:
+      return (struct hsw_border_color){.uint8 = {border_color.uint32[0], 0, 0, 1}};
+   case ISL_FORMAT_R8G8_UINT:
+   case ISL_FORMAT_R8G8_SINT:
+      return (struct hsw_border_color){.uint8 = {border_color.uint32[0], border_color.uint32[1], 0, 1}};
+   case ISL_FORMAT_R8G8B8_UINT:
+   case ISL_FORMAT_R8G8B8_SINT:
+      return (struct hsw_border_color){.uint8 = {border_color.uint32[0], border_color.uint32[1], border_color.uint32[2]}};
+   case ISL_FORMAT_R8G8B8A8_UINT:
+   case ISL_FORMAT_R8G8B8A8_SINT:
+      return (struct hsw_border_color){.uint8 = {border_color.uint32[0], border_color.uint32[1], border_color.uint32[2], border_color.uint32[3]}};
+   case ISL_FORMAT_R16_UINT:
+   case ISL_FORMAT_R16_SINT:
+      return (struct hsw_border_color){.uint16_a = {border_color.uint32[0], 0}, .uint16_b = {0, 1}};
+   case ISL_FORMAT_R16G16_UINT:
+   case ISL_FORMAT_R16G16_SINT:
+      return (struct hsw_border_color){.uint16_a = {border_color.uint32[0], border_color.uint32[1]}, .uint16_b = {0, 1}};
+   case ISL_FORMAT_R16G16B16_UINT:
+   case ISL_FORMAT_R16G16B16_SINT:
+      return (struct hsw_border_color){.uint16_a = {border_color.uint32[0], border_color.uint32[1]}, .uint16_b = {border_color.uint32[2]}};
+   case ISL_FORMAT_R16G16B16A16_UINT:
+   case ISL_FORMAT_R16G16B16A16_SINT:
+   case ISL_FORMAT_R10G10B10A2_UINT:
+   case ISL_FORMAT_R10G10B10A2_SINT:
+      return (struct hsw_border_color){.uint16_a = {border_color.uint32[0], border_color.uint32[1]}, .uint16_b = {border_color.uint32[2], border_color.uint32[3]}};
+   case ISL_FORMAT_R32_UINT:
+   case ISL_FORMAT_R32_SINT:
+      return (struct hsw_border_color){.uint32 = {border_color.uint32[0], 0, 0, 1}};
+   case ISL_FORMAT_R32G32_UINT:
+   case ISL_FORMAT_R32G32_SINT:
+      /* Because we use ISL_FORMAT_R32G32_FLOAT_LD for textureGather, we also
+       * need to set the float fields.
+       */
+      return (struct hsw_border_color){
+         .float32 = {border_color.float32[0], border_color.float32[1], 0.0, 1.0},
+         .uint32 = {border_color.uint32[0], 0, border_color.uint32[1], 1}};
+   case ISL_FORMAT_R32G32B32_UINT:
+   case ISL_FORMAT_R32G32B32_SINT:
+      return (struct hsw_border_color){.uint32 = {border_color.uint32[0], border_color.uint32[1], border_color.uint32[2]}};
+   case ISL_FORMAT_R32G32B32A32_UINT:
+   case ISL_FORMAT_R32G32B32A32_SINT:
+      return (struct hsw_border_color){.uint32 = {border_color.uint32[0], border_color.uint32[1], border_color.uint32[2], border_color.uint32[3]}};
+   default: {
+      struct hsw_border_color result;
+      memcpy(result.float32, border_color.float32, sizeof border_color);
+      return result;
+   }
+   };
+}
+
+/* Generate the full set of 12 Haswell border colors from a color value to
+ * support all the needed formats.
+ */
+void
+anv_color_to_hsw_border_colors(
+   VkClearColorValue border_color,
+   struct hsw_border_color border_colors[12])
+{
+   border_colors[0] = color_to_hsw_border_color(border_color, ISL_FORMAT_R32G32B32A32_SINT);
+   /* Normal RGBA, used for most float formats */
+   border_colors[0].float32[0] = border_color.float32[0];
+   border_colors[0].float32[1] = border_color.float32[1];
+   border_colors[0].float32[2] = border_color.float32[2];
+   border_colors[0].float32[3] = border_color.float32[3];
+   border_colors[1] = color_to_hsw_border_color(border_color, ISL_FORMAT_R32G32B32_SINT);
+   /* BGRA, used for B5G6R5_UNORM_PACK16 and B5G5R5A1_UNORM_PACK16 */
+   border_colors[1].float32[0] = border_color.float32[2];
+   border_colors[1].float32[1] = border_color.float32[1];
+   border_colors[1].float32[2] = border_color.float32[0];
+   border_colors[1].float32[3] = border_color.float32[3];
+   border_colors[2] = color_to_hsw_border_color(border_color, ISL_FORMAT_R32G32_SINT);
+   border_colors[3] = color_to_hsw_border_color(border_color, ISL_FORMAT_R32_SINT);
+   /* GRAB, used for B4G4R4A4_UNORM_PACK16 */
+   border_colors[3].float32[0] = border_color.float32[1];
+   border_colors[3].float32[1] = border_color.float32[0];
+   border_colors[3].float32[2] = border_color.float32[3];
+   border_colors[3].float32[3] = border_color.float32[2];
+   border_colors[4] = color_to_hsw_border_color(border_color, ISL_FORMAT_R16G16B16A16_SINT);
+   border_colors[5] = color_to_hsw_border_color(border_color, ISL_FORMAT_R16G16B16_SINT);
+   border_colors[6] = color_to_hsw_border_color(border_color, ISL_FORMAT_R16G16_SINT);
+   border_colors[7] = color_to_hsw_border_color(border_color, ISL_FORMAT_R16_SINT);
+   border_colors[8] = color_to_hsw_border_color(border_color, ISL_FORMAT_R8G8B8A8_SINT);
+   border_colors[9] = color_to_hsw_border_color(border_color, ISL_FORMAT_R8G8B8_SINT);
+   border_colors[10] = color_to_hsw_border_color(border_color, ISL_FORMAT_R8G8_SINT);
+   border_colors[11] = color_to_hsw_border_color(border_color, ISL_FORMAT_R8_SINT);
+}
+
+/* Get the Haswell border_colors index for a format */
+uint32_t
+anv_vk_format_to_hsw_border_color_index(VkFormat format)
+{
+   switch (format) {
+   case VK_FORMAT_R32G32B32A32_UINT:
+   case VK_FORMAT_R32G32B32A32_SINT:
+      return 0;
+   case VK_FORMAT_R32G32B32_UINT:
+   case VK_FORMAT_R32G32B32_SINT:
+   case VK_FORMAT_B5G6R5_UNORM_PACK16:
+   case VK_FORMAT_B5G5R5A1_UNORM_PACK16:
+      return 1;
+   case VK_FORMAT_R32G32_UINT:
+   case VK_FORMAT_R32G32_SINT:
+      return 2;
+   case VK_FORMAT_R32_UINT:
+   case VK_FORMAT_R32_SINT:
+   case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
+      return 3;
+   case VK_FORMAT_R16G16B16A16_UINT:
+   case VK_FORMAT_R16G16B16A16_SINT:
+   case VK_FORMAT_A2R10G10B10_UINT_PACK32:
+   case VK_FORMAT_A2R10G10B10_SINT_PACK32:
+      return 4;
+   case VK_FORMAT_R16G16B16_UINT:
+   case VK_FORMAT_R16G16B16_SINT:
+      return 5;
+   case VK_FORMAT_R16G16_UINT:
+   case VK_FORMAT_R16G16_SINT:
+      return 6;
+   case VK_FORMAT_R16_UINT:
+   case VK_FORMAT_R16_SINT:
+      return 7;
+   case VK_FORMAT_R8G8B8A8_UINT:
+   case VK_FORMAT_R8G8B8A8_SINT:
+      return 8;
+   case VK_FORMAT_R8G8B8_UINT:
+   case VK_FORMAT_R8G8B8_SINT:
+      return 9;
+   case VK_FORMAT_R8G8_UINT:
+   case VK_FORMAT_R8G8_SINT:
+      return 10;
+   case VK_FORMAT_R8_UINT:
+   case VK_FORMAT_R8_SINT:
+      return 11;
+   default:
+      return 0;
+   }
+}
+
 static void
 anv_device_init_border_colors(struct anv_device *device)
 {
    if (device->info->platform == INTEL_PLATFORM_HSW) {
-      static const struct hsw_border_color border_colors[] = {
+      static const VkClearColorValue border_colors[] = {
          [VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK] =  { .float32 = { 0.0, 0.0, 0.0, 0.0 } },
          [VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK] =       { .float32 = { 0.0, 0.0, 0.0, 1.0 } },
          [VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE] =       { .float32 = { 1.0, 1.0, 1.0, 1.0 } },
@@ -2496,9 +2645,14 @@ anv_device_init_border_colors(struct anv_device *device)
          [VK_BORDER_COLOR_INT_OPAQUE_WHITE] =         { .uint32 = { 1, 1, 1, 1 } },
       };
 
+      struct hsw_border_color hsw_border_colors[6][12];
+      for (int i = 0; i < 6; ++i) {
+         anv_color_to_hsw_border_colors(border_colors[i], hsw_border_colors[i]);
+      }
+
       device->border_colors =
          anv_state_pool_emit_data(&device->dynamic_state_pool,
-                                  sizeof(border_colors), 512, border_colors);
+                                  sizeof(hsw_border_colors), 512, hsw_border_colors);
    } else {
       static const struct gfx8_border_color border_colors[] = {
          [VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK] =  { .float32 = { 0.0, 0.0, 0.0, 0.0 } },
@@ -2874,7 +3028,12 @@ VkResult anv_CreateDevice(
    if (result != VK_SUCCESS)
       goto fail_general_state_pool;
 
-   if (device->info->ver >= 8) {
+   if (device->info->verx10 == 75) {
+      anv_state_reserved_pool_init(&device->custom_border_colors,
+                                   &device->dynamic_state_pool,
+                                   HSW_MAX_CUSTOM_BORDER_COLORS,
+                                   12 * sizeof(struct hsw_border_color), 512);
+   } else if (device->info->ver >= 8) {
       /* The border color pointer is limited to 24 bits, so we need to make
        * sure that any such color used at any point in the program doesn't
        * exceed that limit.
@@ -3004,7 +3163,7 @@ VkResult anv_CreateDevice(
  fail_instruction_state_pool:
    anv_state_pool_finish(&device->instruction_state_pool);
  fail_dynamic_state_pool:
-   if (device->info->ver >= 8)
+   if (device->info->verx10 >= 75)
       anv_state_reserved_pool_finish(&device->custom_border_colors);
    anv_state_pool_finish(&device->dynamic_state_pool);
  fail_general_state_pool:
@@ -3058,7 +3217,7 @@ void anv_DestroyDevice(
    /* We only need to free these to prevent valgrind errors.  The backing
     * BO will go away in a couple of lines so we don't actually leak.
     */
-   if (device->info->ver >= 8)
+   if (device->info->verx10 >= 75)
       anv_state_reserved_pool_finish(&device->custom_border_colors);
    anv_state_pool_free(&device->dynamic_state_pool, device->border_colors);
    anv_state_pool_free(&device->dynamic_state_pool, device->slice_hash);

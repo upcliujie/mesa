@@ -1027,6 +1027,14 @@ lower_tex_deref(nir_builder *b, nir_tex_instr *tex,
       binding_offset = state->set[set].sampler_offsets[binding];
    }
 
+   /* We use a set of 12 samplers with different border color formats on
+    * Haswell to support all image formats.
+    */
+   const unsigned sampler_multiplier = (state->pdevice->info.verx10 == 75 &&
+                                        deref_src_type == nir_tex_src_sampler_deref &&
+                                        state->layout->set[set].layout->binding[binding].type ==
+                                        VK_DESCRIPTOR_TYPE_SAMPLER) ? 12 : 1;
+
    nir_tex_src_type offset_src_type;
    nir_ssa_def *index = NULL;
    if (binding_offset > MAX_BINDING_TABLE_SIZE) {
@@ -1070,9 +1078,9 @@ lower_tex_deref(nir_builder *b, nir_tex_instr *tex,
                unsigned desc_arr_index = 0;
                for (int i = 0; i < arr_index; i++)
                   desc_arr_index += immutable_samplers[i]->n_planes;
-               *base_index += desc_arr_index;
+               *base_index += sampler_multiplier * desc_arr_index;
             } else {
-               *base_index += arr_index;
+               *base_index += sampler_multiplier * arr_index;
             }
          } else {
             /* From VK_KHR_sampler_ycbcr_conversion:
@@ -1088,7 +1096,44 @@ lower_tex_deref(nir_builder *b, nir_tex_instr *tex,
 
             if (state->add_bounds_checks)
                index = nir_umin(b, index, nir_imm_int(b, array_size - 1));
+
+            if (sampler_multiplier != 1)
+               index = nir_imul_imm(b, index, sampler_multiplier);
          }
+      }
+   }
+
+   /* gather4 is broken for normal R32G32 formats before Broadwell, so we need
+    * to use ISL_FORMAT_R32G32_FLOAT_LD instead. The image views for this are
+    * stored after the normal image views. */
+   if (state->pdevice->info.verx10 == 75 &&
+       tex->op == nir_texop_tg4 &&
+       deref_src_type == nir_tex_src_texture_deref) {
+      struct anv_sampler **immutable_samplers =
+         state->layout->set[set].layout->binding[binding].immutable_samplers;
+      if (immutable_samplers) {
+         for (int i = 0; i < array_size; i++) {
+            *base_index += immutable_samplers[i]->n_planes;
+         }
+      } else {
+         *base_index += array_size;
+      }
+   }
+
+   if (sampler_multiplier != 1) {
+      int texture_deref_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
+
+      nir_deref_instr *texture_deref = nir_src_as_deref(tex->src[texture_deref_src_idx].src);
+      const unsigned plane_offset =
+         plane * sizeof(struct anv_hsw_workaround_descriptor);
+      /* Load a matching sampler for the image's format */
+      nir_ssa_def *sampler_index =
+         build_load_var_deref_descriptor_mem(b, texture_deref, plane_offset + 16,
+                                             1, 32, state);
+      if (index) {
+         index = nir_iadd(b, index, sampler_index);
+      } else {
+         index = sampler_index;
       }
    }
 
@@ -1196,6 +1241,62 @@ lower_gfx7_tex_swizzle(nir_builder *b, nir_tex_instr *tex, unsigned plane,
                                   swiz_tex_res->parent_instr);
 }
 
+/* Because we use ISL_FORMAT_R32G32_FLOAT_LD for gather4 on Haswell, we need
+ * to turn 1.0 into 1 for integer formats when trying to read a channel that
+ * is swizzled to one.
+ */
+static void
+lower_gfx75_tg4(nir_builder *b, nir_tex_instr *tex, unsigned plane,
+                      struct apply_pipeline_layout_state *state)
+{
+   assert(state->pdevice->info.verx10 == 75);
+   if (tex->sampler_dim == GLSL_SAMPLER_DIM_BUF ||
+       nir_tex_instr_is_query(tex))
+      return;
+   if (tex->op != nir_texop_tg4)
+      return;
+   if (!(nir_alu_type_get_base_type(tex->dest_type) == nir_type_uint ||
+         nir_alu_type_get_base_type(tex->dest_type) == nir_type_int))
+      return;
+
+   int deref_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
+   assert(deref_src_idx >= 0);
+
+   nir_deref_instr *deref = nir_src_as_deref(tex->src[deref_src_idx].src);
+   nir_variable *var = nir_deref_instr_get_variable(deref);
+
+   unsigned set = var->data.descriptor_set;
+   unsigned binding = var->data.binding;
+   const struct anv_descriptor_set_binding_layout *bind_layout =
+      &state->layout->set[set].layout->binding[binding];
+
+   if ((bind_layout->data & ANV_DESCRIPTOR_HSW_WORKAROUND) == 0)
+      return;
+
+   b->cursor = nir_before_instr(&tex->instr);
+
+   const unsigned plane_offset =
+      plane * sizeof(struct anv_hsw_workaround_descriptor);
+   /* We can turn 1.0 into 1 by subtracting 0x3F7FFFFF. A channel of this
+    * variable is 0 if this operation is not needed and 0x3F7FFFFF if it is.
+    */
+   nir_ssa_def *reduction =
+      build_load_var_deref_descriptor_mem(b, deref, plane_offset,
+                                          4, 32, state);
+   b->cursor = nir_after_instr(&tex->instr);
+
+   assert(tex->dest.ssa.bit_size == 32);
+   assert(tex->dest.ssa.num_components == 4);
+
+   nir_ssa_def *comp = nir_channel(b, reduction, tex->component);
+   nir_ssa_def *res = nir_isub(b, &tex->dest.ssa, comp);
+
+   /* Rewrite uses before we insert so we don't rewrite this use */
+   nir_ssa_def_rewrite_uses_after(&tex->dest.ssa,
+                                  res,
+                                  res->parent_instr);
+}
+
 static bool
 lower_tex(nir_builder *b, nir_tex_instr *tex,
           struct apply_pipeline_layout_state *state)
@@ -1207,14 +1308,20 @@ lower_tex(nir_builder *b, nir_tex_instr *tex,
     */
    if (state->pdevice->info.verx10 == 70)
       lower_gfx7_tex_swizzle(b, tex, plane, state);
+   /* We use ISL_FORMAT_R32G32_FLOAT_LD to implement tg4 for R32G32 formats on
+    * Haswell, so we need to turn 1.0 into 1 for R32G32 integer formats when
+    * needed.
+    */
+   else if (state->pdevice->info.verx10 == 75)
+      lower_gfx75_tg4(b, tex, plane, state);
 
    b->cursor = nir_before_instr(&tex->instr);
 
-   lower_tex_deref(b, tex, nir_tex_src_texture_deref,
-                   &tex->texture_index, plane, state);
-
    lower_tex_deref(b, tex, nir_tex_src_sampler_deref,
                    &tex->sampler_index, plane, state);
+
+   lower_tex_deref(b, tex, nir_tex_src_texture_deref,
+                   &tex->texture_index, plane, state);
 
    return true;
 }
@@ -1406,15 +1513,25 @@ anv_nir_apply_pipeline_layout(nir_shader *shader,
          state.set[set].surface_offsets[b] = map->surface_count;
          if (binding->dynamic_offset_index < 0) {
             struct anv_sampler **samplers = binding->immutable_samplers;
-            for (unsigned i = 0; i < binding->array_size; i++) {
-               uint8_t planes = samplers ? samplers[i]->n_planes : 1;
-               for (uint8_t p = 0; p < planes; p++) {
-                  map->surface_to_descriptor[map->surface_count++] =
-                     (struct anv_pipeline_binding) {
+            /* We emit a second set of image views on Haswell to be used by
+             * texture gather operations
+             */
+            const unsigned need_gather_image_views = state.pdevice->info.verx10 == 75 &&
+               shader->info.uses_texture_gather;
+            for (unsigned for_gather = 0;
+                 for_gather <= need_gather_image_views;
+                 ++for_gather) {
+               for (unsigned i = 0; i < binding->array_size; i++) {
+                  uint8_t planes = samplers ? samplers[i]->n_planes : 1;
+                  for (uint8_t p = 0; p < planes; p++) {
+                     map->surface_to_descriptor[map->surface_count++] =
+                        (struct anv_pipeline_binding) {
                         .set = set,
                         .index = binding->descriptor_index + i,
                         .plane = p,
+                        .for_gather = for_gather,
                      };
+                  }
                }
             }
          } else {
@@ -1433,7 +1550,8 @@ anv_nir_apply_pipeline_layout(nir_shader *shader,
       }
 
       if (binding->data & ANV_DESCRIPTOR_SAMPLER_STATE) {
-         if (map->sampler_count + array_size > MAX_SAMPLER_TABLE_SIZE ||
+         const uint32_t sampler_multiplier = binding->type == VK_DESCRIPTOR_TYPE_SAMPLER ? 12 : 1;
+         if (map->sampler_count + sampler_multiplier * array_size > MAX_SAMPLER_TABLE_SIZE ||
              anv_descriptor_requires_bindless(pdevice, binding, true)) {
             /* If this descriptor doesn't fit in the binding table or if it
              * requires bindless for some reason, flag it as bindless.
@@ -1450,12 +1568,15 @@ anv_nir_apply_pipeline_layout(nir_shader *shader,
             for (unsigned i = 0; i < binding->array_size; i++) {
                uint8_t planes = samplers ? samplers[i]->n_planes : 1;
                for (uint8_t p = 0; p < planes; p++) {
-                  map->sampler_to_descriptor[map->sampler_count++] =
-                     (struct anv_pipeline_binding) {
+                  for (unsigned sampler_index = 0; sampler_index < sampler_multiplier; ++sampler_index) {
+                     map->sampler_to_descriptor[map->sampler_count++] =
+                        (struct anv_pipeline_binding) {
                         .set = set,
                         .index = binding->descriptor_index + i,
                         .plane = p,
+                        .sampler_index = sampler_index,
                      };
+                  }
                }
             }
          }
