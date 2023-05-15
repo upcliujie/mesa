@@ -32,7 +32,7 @@ Simulating CI trace job
 
 Sometimes it's useful to be able to test traces on your local machine instead of the Mesa CI runner. To simulate the CI environment as closely as possible.
 
-Download the YAML file from your driver's ``ci/`` directory and then change the path in the YAML file from local proxy or MinIO to the local directory (url-like format ``file://``)
+Download the YAML file from your driver's :file:`ci/` directory and then change the path in the YAML file from local proxy or MinIO to the local directory (url-like format ``file://``)
 
 .. code-block:: console
 
@@ -42,4 +42,4 @@ Download the YAML file from your driver's ``ci/`` directory and then change the 
    ./piglit run -l verbose --timeout 300 -j10 replay ~/results/
 
 
-Note: For replaying traces, you may need to allow higher GL and GLSL versions. You can achieve that by setting  ``MESA_GLSL_VERSION_OVERRIDE`` and ``MESA_GL_VERSION_OVERRIDE``.
+Note: For replaying traces, you may need to allow higher GL and GLSL versions. You can achieve that by setting  :envvar:`MESA_GLSL_VERSION_OVERRIDE` and :envvar:`MESA_GL_VERSION_OVERRIDE`.

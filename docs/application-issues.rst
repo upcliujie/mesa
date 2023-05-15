@@ -28,7 +28,7 @@ the ``glGetString(GL_EXTENSIONS)`` query and if the application naively
 copies the string into a fixed-size buffer it can overflow the buffer
 and crash the application.
 
-The work-around is to set the ``MESA_EXTENSION_MAX_YEAR`` environment
+The work-around is to set the :envvar:`MESA_EXTENSION_MAX_YEAR` environment
 variable to the approximate release year of the game. This will cause
 the ``glGetString(GL_EXTENSIONS)`` query to only report extensions older
 than the given year.

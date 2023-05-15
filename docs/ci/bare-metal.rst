@@ -34,8 +34,8 @@ initramfs) for trace replay testing.  Given that we need networking already, and
 our dEQP/Piglit/etc. payload is large, we use NFS from the x86 runner system
 rather than initramfs.
 
-See ``src/freedreno/ci/gitlab-ci.yml`` for an example of fastboot on DB410c and
-DB820c (freedreno-a306 and freedreno-a530).
+See :file:`src/freedreno/ci/gitlab-ci.yml` for an example of fastboot on
+DB410c and DB820c (freedreno-a306 and freedreno-a530).
 
 Requirements (Servo)
 --------------------
@@ -43,8 +43,8 @@ Requirements (Servo)
 For Servo-connected boards, we can use the EC connection for power
 control to reboot the board.  However, loading a kernel is not as easy
 as fastboot, so we assume your bootloader can do TFTP, and that your
-gitlab-runner mounts the runner's tftp directory specific to the board
-at /tftp in the container.
+gitlab-runner mounts the runner's :file:`tftp` directory specific to the board
+at :file:`/tftp` in the container.
 
 Since we're going the TFTP route, we also use NFS root.  This avoids
 packing the rootfs and sending it to the board as a ramdisk, which
@@ -53,7 +53,7 @@ of needing more storage on the runner.
 
 Telling the board about where its TFTP and NFS should come from is
 done using dnsmasq on the runner host.  For example, this snippet in
-the dnsmasq.conf.d in the google farm, with the gitlab-runner host we
+the :file:`dnsmasq.conf.d` in the google farm, with the gitlab-runner host we
 call "servo"::
 
    dhcp-host=1c:69:7a:0d:a3:d3,10.42.0.10,set:servo
@@ -74,8 +74,8 @@ call "servo"::
    dhcp-option=tag:cheza1,option:root-path,/srv/nfs/cheza1
    dhcp-option=tag:cheza2,option:root-path,/srv/nfs/cheza2
 
-See ``src/freedreno/ci/gitlab-ci.yml`` for an example of Servo on cheza.  Note
-that other Servo boards in CI are managed using LAVA.
+See :file:`src/freedreno/ci/gitlab-ci.yml` for an example of Servo on
+cheza.  Note that other Servo boards in CI are managed using LAVA.
 
 Requirements (POE)
 ------------------
@@ -129,8 +129,9 @@ power inline`` command.
 
 Other than that, find the dnsmasq/tftp/NFS setup for your boards "servo" above.
 
-See ``src/broadcom/ci/gitlab-ci.yml`` and ``src/nouveau/ci/gitlab-ci.yml`` for an
-examples of POE for Raspberry Pi 3/4, and Jetson Nano.
+See :file:`src/broadcom/ci/gitlab-ci.yml` and
+:file:`src/nouveau/ci/gitlab-ci.yml` for an examples of POE for Raspberry
+Pi 3/4, and Jetson Nano.
 
 Setup
 -----
@@ -153,7 +154,7 @@ something like this to register a fastboot board:
         --non-interactive
 
 For a Servo board, you'll need to also volume mount the board's NFS
-root dir at /nfs and TFTP kernel directory at /tftp.
+root dir at :file:`/nfs` and TFTP kernel directory at :file:`/tftp`.
 
 The registration token has to come from a freedesktop.org GitLab admin
 going to https://gitlab.freedesktop.org/admin/runners
@@ -163,15 +164,15 @@ our tag is something like google-freedreno-db410c.  The tag is what
 identifies a board type so that board-specific jobs can be dispatched
 into that pool.
 
-We need privileged mode and the /dev bind mount in order to get at the
+We need privileged mode and the :file:`/dev` bind mount in order to get at the
 serial console and fastboot USB devices (--device arguments don't
 apply to devices that show up after container start, which is the case
 with fastboot, and the Servo serial devices are actually links to
-/dev/pts).  We use host network mode so that we can spin up a nginx
+:file:`/dev/pts`).  We use host network mode so that we can spin up a nginx
 server to collect XML results for fastboot.
 
 Once you've added your boards, you're going to need to add a little
-more customization in ``/etc/gitlab-runner/config.toml``.  First, add
+more customization in :file:`/etc/gitlab-runner/config.toml`.  First, add
 ``concurrent = <number of boards>`` at the top ("we should have up to
 this many jobs running managed by this gitlab-runner").  Then for each
 board's runner, set ``limit = 1`` ("only 1 job served by this board at a
@@ -185,8 +186,8 @@ required by your bare-metal script, something like::
 The ``FDO_CI_CONCURRENT`` variable should be set to the number of CPU threads on
 the board, which is used for auto-tuning of job parallelism.
 
-Once you've updated your runners' configs, restart with ``sudo service
-gitlab-runner restart``
+Once you've updated your runners' configs, restart with :command:`sudo
+service gitlab-runner restart`
 
 Caching downloads
 -----------------
@@ -202,13 +203,13 @@ Add the server setup files:
 
 .. literalinclude:: fdo-cache
    :name: /etc/nginx/sites-available/fdo-cache
-   :caption: /etc/nginx/sites-available/fdo-cache
+   :caption: :file:`/etc/nginx/sites-available/fdo-cache`
 
 .. literalinclude:: uri-caching.conf
    :name: /etc/nginx/snippets/uri-caching.conf
-   :caption: /etc/nginx/snippets/uri-caching.conf
+   :caption: :file:`/etc/nginx/snippets/uri-caching.conf`
 
-Edit the listener addresses in fdo-cache to suit the ethernet interface that
+Edit the listener addresses in :file:`fdo-cache` to suit the ethernet interface that
 your devices are on.
 
 Enable the site and restart nginx:
@@ -226,6 +227,6 @@ Enable the site and restart nginx:
 Now, set ``download-url`` in your ``traces-*.yml`` entry to something like
 ``http://10.42.0.1:8888/cache/?uri=https://s3.freedesktop.org/mesa-tracie-public``
 and you should have cached downloads for traces.  Add it to
-``FDO_HTTP_CACHE_URI=`` in your ``config.toml`` runner environment lines and you
-can use it for cached artifact downloads instead of going all the way to
-freedesktop.org on each job.
+``FDO_HTTP_CACHE_URI=`` in your :file:`config.toml` runner environment lines
+and you can use it for cached artifact downloads instead of going all the
+way to freedesktop.org on each job.

@@ -8,13 +8,13 @@ Performance tips for software rendering:
 #. Turn off dithering when not needed.
 #. Use double buffering as it's often faster than single buffering
 #. Compile in the X Shared Memory extension option if it's supported on
-   your system by adding -DSHM to CFLAGS and -lXext to XLIBS for your
-   system in the Make-config file.
+   your system by adding -DSHM to :envvar:`CFLAGS`` and -lXext to
+   :envvar:`XLIBS`` for your system in the Make-config file.
 #. Recompile Mesa with more optimization if possible.
 #. Try to maximize the amount of drawing done between glBegin/glEnd
    pairs.
-#. Use the MESA_BACK_BUFFER variable to find best performance in double
-   buffered mode. (X users only)
+#. Use the :envvar:`MESA_BACK_BUFFER` variable to find best performance
+   in double buffered mode. (X users only)
 #. Optimized polygon rasterizers are employed when: rendering into back
    buffer which is an XImage RGB mode, not grayscale, not monochrome
    depth buffering is GL_LESS, or disabled flat or smooth shading
@@ -37,8 +37,8 @@ Performance tips for software rendering:
    coefficients are >= zero
 #. XFree86 users: if you want to use 24-bit color try starting your X
    server in 32-bit per pixel mode for better performance. That is,
-   start your X server with startx -- -bpp 32 instead of startx -- -bpp
-   24
-#. Try disabling dithering with the MESA_NO_DITHER environment variable.
-   If this environment variable is defined Mesa will disable dithering
-   and the command glEnable(GL_DITHER) will be ignored.
+   start your X server with :command:`startx -- -bpp 32` instead of
+   :command:`startx -- -bpp 24`
+#. Try disabling dithering with the :envvar:`MESA_NO_DITHER` environment
+   variable. If this environment variable is defined Mesa will disable
+   dithering and the command glEnable(GL_DITHER) will be ignored.

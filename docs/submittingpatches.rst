@@ -27,7 +27,7 @@ Patch formatting
 
 -  Lines should be limited to 75 characters or less so that Git logs
    displayed in 80-column terminals avoid line wrapping. Note that
-   ``git log`` uses 4 spaces of indentation (4 + 75 < 80).
+   :command:`git log` uses 4 spaces of indentation (4 + 75 < 80).
 -  The first line should be a short, concise summary of the change
    prefixed with a module name. Examples:
 
@@ -60,7 +60,7 @@ Patch formatting
       Closes: https://gitlab.freedesktop.org/mesa/mesa/-/issues/1
 
    Prefer the full URL to just ``Closes: #1``, since the URL makes it
-   easier to get to the bug page from ``git log``
+   easier to get to the bug page from :command:`git log`
 
    **Do not use the ``Fixes:`` tag for this!** Mesa already uses
    ``Fixes:`` for something else.
@@ -118,7 +118,8 @@ You can produce those fixes lines by running this command once::
 
     git config --global alias.fixes "show -s --pretty='format:Fixes: %h (\"%s\")'"
 
-After that, using ``git fixes <sha1>`` will print the full line for you.
+After that, using :command:`git fixes <sha1>` will print the full line
+for you.
 
 The stable tag
 ~~~~~~~~~~~~~~
@@ -151,9 +152,9 @@ It should go without saying that patches must be tested. In general, do
 whatever testing is prudent.
 
 You should always run the Mesa test suite before submitting patches. The
-test suite can be run using the 'meson test' command. All tests must
-pass before patches will be accepted, this may mean you have to update
-the tests themselves.
+test suite can be run using the :command:`meson test` command. All tests
+must pass before patches will be accepted, this may mean you have to
+update the tests themselves.
 
 Whenever possible and applicable, test the patch with
 `Piglit <https://piglit.freedesktop.org>`__ and/or
@@ -161,8 +162,8 @@ Whenever possible and applicable, test the patch with
 check for regressions.
 
 As mentioned at the beginning, patches should be bisectable. A good way
-to test this is to make use of the \`git rebase\` command, to run your
-tests on each commit. Assuming your branch is based off
+to test this is to make use of the :command:`git rebase` command, to run
+your tests on each commit. Assuming your branch is based off
 ``origin/main``, you can run:
 
 .. code-block:: console
@@ -360,11 +361,11 @@ appropriate. The MR should be based on and target the
 per the stable branch policy. Assigning the MR to release maintainer for
 said branch or mentioning them is helpful, but not required.
 
-Make sure to use ``git cherry-pick -x`` when cherry-picking the commits
-from the main branch. This adds the "cherry picked from commit ..." line
-to the commit message, to allow the release maintainters to mark those
-as backported, which in turn allows the tools to correctly report any
-future ``Fixes:`` affecting the commits you backported.
+Make sure to use :command:`git cherry-pick -x` when cherry-picking the
+commits from the main branch. This adds the "cherry picked from
+commit ..." line to the commit message, to allow the release maintainters
+to mark those as backported, which in turn allows the tools to correctly
+report any future ``Fixes:`` affecting the commits you backported.
 
 Documentation patches
 ---------------------
@@ -384,7 +385,7 @@ merge-request.
 Git tips
 --------
 
--  ``git rebase -i ...`` is your friend. Don't be afraid to use it.
+-  :command:`git rebase -i ...` is your friend. Don't be afraid to use it.
 -  Apply a fixup to commit FOO.
 
    .. code-block:: console

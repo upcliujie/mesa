@@ -8,13 +8,13 @@ Wrap (macOS only)
 
 Mesa includes a library that wraps the key IOKit entrypoints used in the macOS
 UABI for AGX. The wrapped routines print information about the kernel calls made
-and dump work submitted to the GPU using agxdecode. This facilitates
+and dump work submitted to the GPU using :program:`agxdecode`. This facilitates
 reverse-engineering the hardware, as glue to get at the "interesting" GPU
 memory.
 
 The library is only built if ``-Dtools=asahi`` is passed. It builds a single
-``wrap.dylib`` file, which should be inserted into a process with the
-``DYLD_INSERT_LIBRARIES`` environment variable.
+:file:`wrap.dylib` file, which should be inserted into a process with the
+:envvar:`DYLD_INSERT_LIBRARIES` environment variable.
 
 For example, to trace an app ``./app``, run:
 
@@ -170,7 +170,7 @@ Image layouts
 -------------
 
 AGX supports several image layouts, described here. To work with image layouts
-in the drivers, use the ail library, located in ``src/asahi/layout``.
+in the drivers, use the ail library, located in :file:`src/asahi/layout`.
 
 The simplest layout is **strided linear**. Pixels are stored in raster-order in
 memory with a software-controlled stride. Strided linear images are useful for
@@ -293,8 +293,9 @@ with the IR:
 
    ~/shader-db$ AGX_MESA_DEBUG=shaders,shaderdb ASAHI_MESA_DEBUG=precompile LIBGL_DRIVERS_PATH=~/lib/dri/ LD_PRELOAD=~/mesa/build/src/asahi/drm-shim/libasahi_noop_drm_shim.so ./run shaders/glmark/1-12.shader_test
 
-The drm-shim implementation for Asahi is located in ``src/asahi/drm-shim``. The
-drm-shim implementation there should be updated as new UABI is added.
+The drm-shim implementation for Asahi is located in
+:file:`src/asahi/drm-shim`. The drm-shim implementation there should be
+updated as new UABI is added.
 
 Hardware glossary
 -----------------

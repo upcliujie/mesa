@@ -30,7 +30,7 @@ execution. These are generally used for debugging.
 -  **errors** - GLSL compilation and link errors will be reported to
    stderr.
 
-Example: export MESA_GLSL=dump,nopt
+Example: :command:`export MESA_GLSL=dump,nopt``
 
 .. _replacement:
 
@@ -168,8 +168,8 @@ The source code for Mesa's shading language compiler is in the
 XXX provide some info about the compiler....
 
 The final vertex and fragment programs may be interpreted in software
-(see prog_execute.c) or translated into a specific hardware architecture
-(see drivers/dri/i915/i915_fragprog.c for example).
+(see :file:`prog_execute.c``) or translated into a specific hardware
+architecture (see :file:`drivers/dri/i915/i915_fragprog.c` for example).
 
 Compiler Validation
 -------------------

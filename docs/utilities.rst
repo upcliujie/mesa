@@ -2,7 +2,7 @@ Development Utilities
 =====================
 
 `Mesa demos collection <https://gitlab.freedesktop.org/mesa/demos>`__
-   includes several utility routines in the ``src/util/`` directory.
+   includes several utility routines in the :file:`src/util/` directory.
 `Piglit <https://piglit.freedesktop.org>`__
    is an open-source test suite for OpenGL and OpenCL implementations.
 `ApiTrace <https://github.com/apitrace/apitrace>`__

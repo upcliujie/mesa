@@ -79,7 +79,7 @@ reproduce or you can't capture it in a trace, describing how to
 reproduce and including a GPU hang dump would be the most
 useful. Install `vc4-gpu-tools
 <https://github.com/anholt/vc4-gpu-tools/>`__ and use
-``vc4_dump_hang_state my-app.hang``. Sometimes the hang file will
+:command:`vc4_dump_hang_state my-app.hang`. Sometimes the hang file will
 provide useful information.
 
 Tiled Rendering
@@ -157,11 +157,11 @@ can unroll, that can actually count as constant indexing.
 The memory for the VC4 driver is allocated from the standard Linux CMA
 pool. The size of this pool defaults to 64 MB.  To increase this, pass
 an additional parameter on the kernel command line.  Edit the boot
-partition's ``cmdline.txt`` to add::
+partition's :file:`cmdline.txt` to add::
 
   cma=256M@256M
 
-``cmdline.txt`` is a single line with whitespace separated parameters.
+:file:`cmdline.txt` is a single line with whitespace separated parameters.
 
 The first value is the size of the pool and the second parameter is
 the start address of the pool. The pool size can be increased further,
@@ -175,7 +175,7 @@ The firmware allocates a fixed chunk of memory before booting
 Linux. If firmware functions are not required, this amount can be
 reduced.
 
-In ``config.txt`` edit ``gpu_mem`` to 16, if you do not need video decoding,
+In :file:`config.txt` edit ``gpu_mem`` to 16, if you do not need video decoding,
 edit gpu_mem to 64 if you need video decoding.
 
 Performance debugging
@@ -201,9 +201,10 @@ frame).
 Start with top while your application is running. Is the CPU usage
 around 90%+? If so, then our performance analysis will be with
 sysprof. If it's not very high, is the GPU staying busy? We don't have
-a clean tool for this yet, but ``cat /debug/dri/0/v3d_regs`` could be
-useful. If ``CT0CA`` != ``CT0EA`` or ``CT1CA`` != ``CT1EA``, that
-means that the GPU is currently busy processing some rendering job.
+a clean tool for this yet, but :command:`cat /debug/dri/0/v3d_regs`
+could be useful. If ``CT0CA`` != ``CT0EA`` or ``CT1CA`` != ``CT1EA``,
+that means that the GPU is currently busy processing some rendering
+job.
 
 * sysprof for CPU usage
 
@@ -239,8 +240,8 @@ If you want to see the whole system's stalls for a period of time
 (very useful!), use the -a flag instead of a particular command
 name. Just ``^C`` when you're done capturing data.
 
-At exit, you'll have ``perf.data`` in the current directory. You can print
-out the results with::
+At exit, you'll have :file:`perf.data` in the current directory. You can
+print out the results with::
 
     perf report | less
 
@@ -264,8 +265,9 @@ Multiple counters can be captured at once with commas separating them.
 
 Once you've found what draw calls are surprisingly expensive in one of
 the counters, you can work out which ones they were at the GL level by
-opening the trace up in qapitrace and using ``^-G`` to jump to that call
-number and ``^-L`` to look up the GL state at that call.
+opening the trace up in :program:`qapitrace` and using :kbd:`Ctrl+g` to
+jump to that call number and :kbd:`Ctrl+l` to look up the GL state at
+that call.
 
 shader-db
 ---------
@@ -299,7 +301,7 @@ development.
 
 Developers with NDA access with Broadcom or Raspberry Pi can
 potentially get access to "simpenrose", the C software simulator of
-the GPU.  The Mesa driver includes a backend (``vc4_simulator.c``) to
+the GPU.  The Mesa driver includes a backend (:file:`vc4_simulator.c`) to
 use simpenrose from an x86 system with the i915 graphics driver with
 all of the VC4 rendering commands emulated on simpenrose and memcpyed
 to the real GPU.

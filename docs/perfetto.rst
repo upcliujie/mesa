@@ -49,13 +49,14 @@ Run
 
 To capture a trace with Perfetto you need to take the following steps:
 
-1. Build Perfetto from sources available at ``subprojects/perfetto`` following
-   `this guide <https://perfetto.dev/docs/quickstart/linux-tracing>`__.
+1. Build Perfetto from sources available at :file:`subprojects/perfetto`
+   following `this guide
+   <https://perfetto.dev/docs/quickstart/linux-tracing>`__.
 
 2. Create a `trace config <https://perfetto.dev/docs/concepts/config>`__, which is
    a json formatted text file with extension ``.cfg``, or use one of the config
-   files under the ``src/tool/pps/cfg`` directory. More examples of config files
-   can be found in ``subprojects/perfetto/test/configs``.
+   files under the :file:`src/tool/pps/cfg` directory. More examples of config files
+   can be found in :file:`subprojects/perfetto/test/configs`.
 
 3. Change directory to ``subprojects/perfetto`` and run a
    `convenience script <https://perfetto.dev/docs/quickstart/linux-tracing#capturing-a-trace>`__
@@ -68,14 +69,15 @@ To capture a trace with Perfetto you need to take the following steps:
 
 4. Start other producers you may need, e.g. ``pps-producer``.
 
-5. Start ``perfetto`` under the tmux session initiated in step 3.
+5. Start :program:`perfetto` under the tmux session initiated in step 3.
 
 6. Once tracing has finished, you can detach from tmux with :kbd:`Ctrl+b`,
    :kbd:`d`, and the convenience script should automatically copy the trace
-   files into ``$HOME/Downloads``.
+   files into :file:`{$HOME}/Downloads`.
 
 7. Go to `ui.perfetto.dev <https://ui.perfetto.dev>`__ and upload
-   ``$HOME/Downloads/trace.protobuf`` by clicking on **Open trace file**.
+   :file:`{$HOME}/Downloads/trace.protobuf` by clicking on **Open trace
+   file**.
 
 8. Alternatively you can open the trace in `AGI <https://gpuinspector.dev/>`__
    (which despite the name can be used to view non-android traces).
@@ -137,7 +139,7 @@ Freedreno / Turnip
 ^^^^^^^^^^^^^^^^^^
 
 The Freedreno PPS driver needs root access to read system-wide
-performance counters, so you can simply run it with sudo:
+performance counters, so you can simply run it with :program:`sudo``:
 
 .. code-block:: console
 
@@ -148,7 +150,7 @@ Intel
 
 The Intel PPS driver needs root access to read system-wide
 `RenderBasic <https://www.intel.com/content/www/us/en/develop/documentation/vtune-help/top/reference/gpu-metrics-reference.html>`__
-performance counters, so you can simply run it with sudo:
+performance counters, so you can simply run it with :program:`sudo`:
 
 .. code-block:: console
 
@@ -206,7 +208,7 @@ Troubleshooting
 Tmux
 ~~~~
 
-If the convenience script ``tools/tmux`` keeps copying artifacts to your
+If the convenience script :file:`tools/tmux` keeps copying artifacts to your
 ``SSH_TARGET`` without starting the tmux session, make sure you have ``tmux``
 installed in your system.
 

@@ -71,7 +71,7 @@ debugging. None of this is required for normal use.
   ``diskcache``
     print debug info for shader disk cache
   ``dump``
-    dump GPU command stream to ``$PWD/lima.dump``
+    dump GPU command stream to :file:`{$PWD}/lima.dump`
   ``gp``
     print GP shader compiler result of each stage
   ``noblit``

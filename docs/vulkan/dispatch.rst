@@ -40,13 +40,13 @@ supports.  The array form is convenient for more automatic code which wants
 to iterate over the table.
 
 These tables are are generated automatically using a bit of python code that
-parses the vk.xml from the `Vulkan-Docs repo
+parses the :file:`vk.xml`` from the `Vulkan-Docs repo
 <https://github.com/KhronosGroup/Vulkan-docs/>`__, enumerates the
 extensions, sorts them by instance vs. device and generates the table.
 Generating it from XML means that we never have to manually maintain any of
 these data structures; they get automatically updated when someone imports
-a new version of vk.xml.  We also generates a matching pair of tables of
-``VkExtensionProperties``.  This makes it easy to implement
+a new version of :file:`vk.xml`.  We also generates a matching pair of tables
+of ``VkExtensionProperties``.  This makes it easy to implement
 ``vkEnumerate*ExtensionProperties()`` with a simple loop that walks a table
 of supported extensions and copies the VkExtensionProperties for each
 enabled entry.  Similarly, we can have a loop in ``vkCreateInstance()`` or
@@ -141,7 +141,7 @@ Generating driver dispatch tables
 ---------------------------------
 
 Entrypoint tables can be easily auto-generated for your driver.  Simply put
-the following in the driver's ``meson.build``, modified as necessary:
+the following in the driver's :file:`meson.build`, modified as necessary:
 
 .. code-block::
 
@@ -157,10 +157,10 @@ the following in the driver's ``meson.build``, modified as necessary:
       depend_files : vk_entrypoints_gen_depend_files,
     )
 
-The generated ``drv_entrypoints.h`` fill will contain prototypes for every
-Vulkan entrypoint, prefixed with what you passed to ``--prefix`` above.
-For instance, if you set ``--prefix drv`` and the entrypoint name is
-``vkCreateDevice()``, the driver entrypoint will be named
+The generated :file:`drv_entrypoints.h` fill will contain prototypes for
+every Vulkan entrypoint, prefixed with what you passed to ``--prefix``
+above.  For instance, if you set ``--prefix drv`` and the entrypoint name
+is ``vkCreateDevice()``, the driver entrypoint will be named
 ``drv_CreateDevice()``.  The ``--prefix`` flag can be specified multiple
 times if you want more than one table.  It also generates an entrypoint
 table for each prefix and each dispatch level (instance, physical device,
@@ -280,11 +280,11 @@ to pass the supported instance extension table to
 Populating layer or client dispatch tables
 ------------------------------------------
 
-The entrypoint and dispatch tables actually live in ``src/vulkan/util``,
-not ``src/vulkan/runtime`` so they can be used by layers and clients (such
-as Zink) as well as the runtime.  Layers and clients may wish to populate
-dispatch tables from an underlying Vulkan implementation.  This can be done
-via the ``vk_*_dispatch_table_load()`` family of functions:
+The entrypoint and dispatch tables actually live in :file:`src/vulkan/util`,
+not :file:`src/vulkan/runtime` so they can be used by layers and clients
+(such as Zink) as well as the runtime.  Layers and clients may wish to
+populate dispatch tables from an underlying Vulkan implementation.  This
+can be done via the ``vk_*_dispatch_table_load()`` family of functions:
 
 .. code-block:: c
 

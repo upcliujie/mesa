@@ -42,17 +42,17 @@ Some older versions of Meson do not check that they are too old and will
 error out in odd ways.
 
 You'll also need `Ninja <https://ninja-build.org/>`__. If it's not
-already installed, use apt-get or dnf to install the *ninja-build*
-package.
+already installed, use :program:`apt-get` or :program:`dnf` to install
+the *ninja-build* package.
 
 Windows
 ^^^^^^^
 
 You will need to install Python 3 and Meson as a module using pip. This
 is because we use Python for generating code, and rely on external
-modules (Mako). You also need pkg-config (a hard dependency of Meson),
-Flex, and Bison. The easiest way to install everything you need is with
-`Chocolatey <https://chocolatey.org/>`__.
+modules (Mako). You also need :program:`pkg-config` (a hard dependency
+of Meson), Flex, and Bison. The easiest way to install everything you
+need is with `Chocolatey <https://chocolatey.org/>`__.
 
 .. code-block:: console
 
@@ -106,14 +106,15 @@ To review the options which Meson chose, run:
    meson configure build/
 
 Recent version of Meson can print the available options and their
-default values by running ``meson configure`` in the source directory.
-If your Meson version is too old, you can always look in the
+default values by running :command:`meson configure` in the source
+directory. If your Meson version is too old, you can always look in the
 `meson_options.txt <https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/meson_options.txt>`__
 file at the root of the project.
 
-With additional arguments ``meson configure`` can be used to change
-options for a previously configured build directory. All options passed
-to this command are in the form ``-D "option"="value"``. For example:
+With additional arguments :command:`meson configure` can be used to
+change options for a previously configured build directory. All options
+passed to this command are in the form ``-D "option"="value"``. For
+example:
 
 .. code-block:: console
 
@@ -125,8 +126,9 @@ but the simplest form compatible with Mesa options is to use a comma to
 separate values (``-D platforms=drm,wayland``) and brackets to represent
 an empty list (``-D platforms=[]``).
 
-Once you've run the initial ``meson`` command successfully you can use
-your configured backend to build the project in your build directory:
+Once you've run the initial :program:`meson` command successfully you
+can use your configured backend to build the project in your build
+directory:
 
 .. code-block:: console
 
@@ -152,7 +154,7 @@ Both ICL and MSVC come with shell environments, the easiest way to use
 Meson with these it to open a shell. For clang-cl you will need to open
 an MSVC shell, and then override the compilers, either using a `native
 file <https://mesonbuild.com/Native-environments.html>`__, or with the
-CC and CXX environment variables.
+:envvar:`CC` and :envvar:`CXX` environment variables.
 
 All of these compilers are tested and work with Ninja, but if you want
 Visual Studio integration or you just like msbuild, passing
@@ -176,16 +178,17 @@ option. For example:
    meson --prefix="${PWD}/build/install" build/
 
 will put the final libraries and drivers into the build/install/
-directory. Then you can set LD_LIBRARY_PATH and LIBGL_DRIVERS_PATH to
-that location to run/test the driver.
+directory. Then you can set :envvar:`LD_LIBRARY_PATH` and
+:envvar:`LIBGL_DRIVERS_PATH` to that location to run/test the driver.
 
-Meson also honors ``DESTDIR`` for installs.
+Meson also honors :envvar:`DESTDIR` for installs.
 
 Compiler Options
 ^^^^^^^^^^^^^^^^
 
-Meson supports the common CFLAGS, CXXFLAGS, etc. environment variables
-but their use is discouraged because of the many caveats in using them.
+Meson supports the common :envvar:`CFLAGS`, :envvar:`CXXFLAGS`, etc.
+environment variables but their use is discouraged because of the many
+caveats in using them.
 
 Instead, it is recommended to use ``-D${lang}_args`` and
 ``-D${lang}_link_args``. Among the benefits of these options is that
@@ -224,8 +227,8 @@ most of the popular compilers, a complete list is available
 LLVM
 ^^^^
 
-Meson includes upstream logic to wrap llvm-config using its standard
-dependency interface.
+Meson includes upstream logic to wrap :program:`llvm-config` using its
+standard dependency interface.
 
 Meson can use CMake to find LLVM. But due to the way LLVM implements its
 CMake finder it will only find static libraries, it will never find
@@ -241,10 +244,10 @@ As of Meson 0.49.0 Meson also has the concept of a `"native
 file" <https://mesonbuild.com/Native-environments.html>`__, these files
 provide information about the native build environment (as opposed to a
 cross build environment). They are INI formatted and can override where
-to find llvm-config:
+to find :program:`llvm-config`:
 
 .. code-block:: ini
-   :caption: custom-llvm.ini
+   :caption: :file:`custom-llvm.ini`
 
    [binaries]
    llvm-config = '/usr/local/bin/llvm/llvm-config'
@@ -255,19 +258,19 @@ Then configure Meson:
 
    meson setup builddir/ --native-file custom-llvm.ini
 
-For selecting llvm-config for cross compiling a `"cross
+For selecting :program:`llvm-config` for cross compiling a `"cross
 file" <https://mesonbuild.com/Cross-compilation.html#defining-the-environment>`__
 should be used. It uses the same format as the native file above:
 
 .. code-block:: ini
-   :caption: cross-llvm.ini
+   :caption: :file:`cross-llvm.ini`
 
    [binaries]
    ...
    llvm-config = '/usr/lib/llvm-config-32'
    cmake = '/usr/bin/cmake-for-my-arch'
 
-Obviously, only CMake or llvm-config is required.
+Obviously, only CMake or :program:`llvm-config` is required.
 
 Then configure Meson:
 
@@ -278,8 +281,8 @@ Then configure Meson:
 See the :ref:`Cross Compilation <cross-compilation>` section for more
 information.
 
-On Windows (and in other cases), using llvm-config or CMake may be
-either undesirable or impossible. Meson's solution for this is a
+On Windows (and in other cases), using :program:`llvm-config` or CMake may
+be either undesirable or impossible. Meson's solution for this is a
 `wrap <https://mesonbuild.com/Wrap-dependency-system-manual.html>`__, in
 this case a "binary wrap". Follow the steps below:
 
@@ -294,7 +297,8 @@ The wrap file must define the following:
 
 It may also define:
 
--  ``irbuilder_h``: a ``files()`` object pointing to llvm/IR/IRBuilder.h
+-  ``irbuilder_h``: a ``files()`` object pointing to
+   :file:`llvm/IR/IRBuilder.h`
 -  ``has_rtti``: a ``bool`` that declares whether LLVM was built with
    RTTI. Defaults to true
 
@@ -347,21 +351,21 @@ in build failures.
 ``PKG_CONFIG_PATH``
 ^^^^^^^^^^^^^^^^^^^
 
-The ``pkg-config`` utility is a hard requirement for configuring and
-building Mesa on Unix-like systems. It is used to search for external
+The :program:`pkg-config` utility is a hard requirement for configuring
+and building Mesa on Unix-like systems. It is used to search for external
 libraries on the system. This environment variable is used to control
-the search path for ``pkg-config``. For instance, setting
+the search path for :program:`pkg-config`. For instance, setting
 ``PKG_CONFIG_PATH=/usr/X11R6/lib/pkgconfig`` will search for package
-metadata in ``/usr/X11R6`` before the standard directories.
+metadata in :file:`/usr/X11R6` before the standard directories.
 
 Options
 ^^^^^^^
 
 One of the oddities of Meson is that some options are different when
-passed to :program:`meson` than to ``meson configure``. These options are
-passed as --option=foo to :program:`meson`, but -Doption=foo to
-``meson configure``. Mesa defined options are always passed as
--Doption=foo.
+passed to :program:`meson` than to :command:`meson configure`. These
+options are passed as --option=foo to :program:`meson`, but -Doption=foo
+to :command:`meson configure``. Mesa defined options are always passed
+as -Doption=foo.
 
 For those coming from Autotools be aware of the following:
 
@@ -393,8 +397,8 @@ For those coming from Autotools be aware of the following:
 `Meson supports
 cross-compilation <https://mesonbuild.com/Cross-compilation.html>`__ by
 specifying a number of binary paths and settings in a file and passing
-this file to ``meson`` or ``meson configure`` with the ``--cross-file``
-parameter.
+this file to :program:`meson` or :command:`meson configure` with the
+``--cross-file`` parameter.
 
 This file can live at any location, but you can use the bare filename
 (without the folder path) if you put it in

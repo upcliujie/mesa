@@ -109,8 +109,9 @@ This is how one might want to start crosvm
        -p root=/dev/vda1 \
        <path-to-bzImage>
 
-assuming a working system is installed to partition 1 of ``disk.img``.
-``sudo`` or ``CAP_NET_ADMIN`` is needed to set up the TAP network device.
+assuming a working system is installed to partition 1 of :file:`disk.img`.
+:program:`sudo` or ``CAP_NET_ADMIN`` is needed to set up the TAP network
+device.
 
 Virtio-GPU and Virtio-WL
 ------------------------

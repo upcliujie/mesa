@@ -10,11 +10,12 @@ Please follow these bug reporting guidelines:
    the problem.
 -  Check if your bug is already reported in the database.
 -  Monitor your bug report for requests for additional information, etc.
--  Attach the output of running glxinfo or wglinfo. This will tell us
-   the Mesa version, which device driver you're using, etc.
--  If you're reporting a crash, try to use your debugger (gdb) to get a
-   stack trace. Also, recompile Mesa in debug mode to get more detailed
-   information.
+-  Attach the output of running :program:`glxinfo` or :program:`wglinfo`.
+   This will tell us the Mesa version, which device driver you're using,
+   etc.
+-  If you're reporting a crash, try to use your debugger (:program:`gdb`)
+   to get a stack trace. Also, recompile Mesa in debug mode to get more
+   detailed information.
 -  Describe in detail how to reproduce the bug, especially with games
    and applications that the Mesa developers might not be familiar with.
 -  Provide an `apitrace <https://github.com/apitrace/apitrace>`__ or

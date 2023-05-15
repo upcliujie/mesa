@@ -4,9 +4,9 @@ Coding Style
 Mesa is over 20 years old and the coding style has evolved over time.
 Some old parts use a style that's a bit out of date. Different sections
 of mesa can use different coding style as set in the local EditorConfig
-(.editorconfig) and/or Emacs (.dir-locals.el) file. Alternatively the
-following is applicable. If the guidelines below don't cover something,
-try following the format of existing, neighboring code.
+(:file:`.editorconfig`) and/or Emacs (:file:`.dir-locals.el`) file.
+Alternatively the following is applicable. If the guidelines below don't
+cover something, try following the format of existing, neighboring code.
 
 Basic formatting guidelines
 
@@ -95,7 +95,7 @@ Basic formatting guidelines
 
 -  Put the function return type and qualifiers on one line and the
    function name and parameters on the next, as seen above. This makes
-   it easy to use ``grep ^function_name dir/*`` to find function
+   it easy to use :command:`grep ^function_name dir/*` to find function
    definitions. Also, the opening brace goes on the next line by itself
    (see above.)
 -  Function names follow various conventions depending on the type of

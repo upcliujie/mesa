@@ -38,11 +38,12 @@ Third party/extra tools.
 -  `Python <https://www.python.org/>`__ - Python 3.6 or newer is required.
 -  `Python Mako module <https://www.makotemplates.org/>`__ - Python Mako
    module is required. Version 0.8.0 or later should work.
--  Lex / Yacc - for building the Mesa IR and GLSL compiler.
+-  :program:`Lex` / :program:`Yacc` - for building the Mesa IR and GLSL
+   compiler.
 
-   On Linux systems, Flex and Bison versions 2.5.35 and 2.4.1,
-   respectively, (or later) should work. On Windows with MinGW, install
-   Flex and Bison with:
+   On Linux systems, :program:`Flex` and :program:`Bison` versions 2.5.35
+   and 2.4.1, respectively, (or later) should work. On Windows with MinGW, install
+   :program:`Flex` and :program:`Bison` with:
 
    .. code-block:: console
 
@@ -107,9 +108,9 @@ information
 It's often necessary or useful when debugging driver issues or testing new
 branches to run against a local build of Mesa without doing a system-wide
 install.  To do this, choose a temporary location for the install.  A directory
-called ``installdir`` inside your mesa tree is as good as anything.  All of the
-commands below will assume ``$MESA_INSTALLDIR`` is an absolute path to this
-location.
+called :file:`installdir` inside your mesa tree is as good as anything.  All
+of the commands below will assume ``$MESA_INSTALLDIR`` is an absolute path
+to this location.
 
 First, configure Mesa and install in the temporary location:
 
@@ -140,8 +141,8 @@ OpenGL
    LD_LIBRARY_PATH="$MESA_INSTALLDIR/lib64" glxinfo
 
 You may need to use ``lib`` instead of ``lib64`` on some systems or a full
-library specifier on debian.  Look inside ``installdir`` for the directory that
-contains ``libGL.so`` and use that one.
+library specifier on debian.  Look inside :file:`installdir` for the
+directory that contains :file:`libGL.so` and use that one.
 
 Vulkan
 ~~~~~~
@@ -152,7 +153,7 @@ Vulkan
 
 where ``my_icd.json`` is replaced with the actual ICD json file name.  This
 will depend on your driver.  For instance, the 64-bit Lavapipe driver ICD file
-is named ``lvp_icd.x86_64.json``.
+is named :file:`lvp_icd.x86_64.json`.
 
 OpenCL
 ~~~~~~
@@ -161,7 +162,7 @@ OpenCL
 
    OCL_ICD_VENDORS="$MESA_INSTALLDIR/etc/OpenCL/vendors" clinfo
 
-Unlike Vulkan, OpenCL takes a path to the whole ``vendors`` folder and will
+Unlike Vulkan, OpenCL takes a path to the whole :file:`vendors` folder and will
 enumerate any drivers found there.
 
 Troubleshooting local builds
@@ -172,11 +173,11 @@ here are a few things to check:
 
  1. Double-check your paths and try with the simplest app you can.  Before
     banging your head on a Steam game, make sure your path works with
-    ``glxgears`` first.
+    :program:`glxgears` first.
 
  2. Watch out for wrapper scripts.  Some more complex apps such as games have
     big start-up scripts.  Sometimes those scripts scrub the environment or set
-    ``LD_LIBRARY_PATH`` to something in the game's install directory.
+    :envvar:`LD_LIBRARY_PATH` to something in the game's install directory.
 
  3. Is your Mesa build the same arch as your app?  Lots of games are still
     32-bit and your Mesa build is probably 64-bit by default.
@@ -195,8 +196,8 @@ here are a few things to check:
 5. Library Information
 ----------------------
 
-When compilation has finished, look in the top-level ``lib/`` (or
-``lib64/``) directory. You'll see a set of library files similar to
+When compilation has finished, look in the top-level :file:`lib/` (or
+:file:`lib64/`) directory. You'll see a set of library files similar to
 this:
 
 .. code-block:: console
@@ -220,14 +221,14 @@ If you built the DRI hardware drivers, you'll also see the DRI drivers:
    -rwxr-xr-x   1 brian users 11849858 Jul 21 12:12 r200_dri.so
    -rwxr-xr-x   1 brian users 11757388 Jul 21 12:12 radeon_dri.so
 
-If you built with Gallium support, look in lib/gallium/ for
+If you built with Gallium support, look in :file:`lib/gallium/` for
 Gallium-based versions of libGL and device drivers.
 
 6. Building OpenGL programs with pkg-config
 -------------------------------------------
 
-Running ``ninja install`` will install package configuration files for
-the pkg-config utility.
+Running :command:`ninja install` will install package configuration files
+for the :program:`pkg-config` utility.
 
 When compiling your OpenGL application you can use pkg-config to
 determine the proper compiler and linker flags.
