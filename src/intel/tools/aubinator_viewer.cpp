@@ -130,6 +130,7 @@ handle_info(void *user_data, int pci_id, const char *app_name)
       fprintf(stderr, "can't find device information: pci_id=0x%x\n", file->pci_id);
       exit(EXIT_FAILURE);
    }
+   intel_device_info_init_was(&file->devinfo);
    brw_init_isa_info(&file->isa, &file->devinfo);
    file->spec = intel_spec_load(&file->devinfo);
 }

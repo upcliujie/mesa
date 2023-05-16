@@ -207,6 +207,7 @@ int main(int argc, char *argv[])
       fprintf(stderr, "can't find device information: pci_id=0x%x\n", pci_id);
       exit(EXIT_FAILURE);
    }
+   intel_device_info_init_was(&devinfo);
 
    struct brw_isa_info isa;
    brw_init_isa_info(&isa, &devinfo);

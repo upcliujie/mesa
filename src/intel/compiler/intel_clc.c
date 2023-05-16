@@ -382,6 +382,7 @@ int main(int argc, char **argv)
       fprintf(stderr, "Failed to get device information.\n");
       return -1;
    }
+   intel_device_info_init_was(devinfo);
 
    if (devinfo->verx10 < 125) {
       fprintf(stderr, "Platform currently not supported.\n");

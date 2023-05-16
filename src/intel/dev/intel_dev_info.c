@@ -227,6 +227,7 @@ main(int argc, char *argv[])
       struct intel_device_info devinfo;
       if (!intel_get_device_info_from_pci_id(pci_id, &devinfo))
          return error("No platform found with name: %s", platform);
+      intel_device_info_init_was(&devinfo);
 
       print_base_devinfo(&devinfo);
       if (print_workarounds)

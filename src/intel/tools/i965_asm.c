@@ -116,6 +116,7 @@ i965_disasm_init(uint16_t pci_id)
       free(devinfo);
       return NULL;
    }
+   intel_device_info_init_was(devinfo);
 
    return devinfo;
 }
