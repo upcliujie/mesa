@@ -1207,6 +1207,11 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceMemoryProperties(
    VkPhysicalDevice                            physicalDevice,
    VkPhysicalDeviceMemoryProperties*           pMemoryProperties)
 {
+   char *device_local_env_var = getenv("LVP_DEVICE_LOCAL_HEAP_SIZE");
+   VkDeviceSize device_local_size = device_local_env_var
+      ? atoll(device_local_env_var) << 20
+      : 2048ull << 20;
+
    pMemoryProperties->memoryTypeCount = 1;
    pMemoryProperties->memoryTypes[0] = (VkMemoryType) {
       .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
@@ -1218,7 +1223,7 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceMemoryProperties(
 
    pMemoryProperties->memoryHeapCount = 1;
    pMemoryProperties->memoryHeaps[0] = (VkMemoryHeap) {
-      .size = 2ULL*1024*1024*1024,
+      .size = device_local_size,
       .flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
    };
 }
