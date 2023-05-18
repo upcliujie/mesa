@@ -950,9 +950,12 @@ zink_draw(struct pipe_context *pctx,
    //TODO if push comstant variant
    if (ctx->curr_program->shaders[MESA_SHADER_GEOMETRY] &&
        ctx->curr_program->shaders[MESA_SHADER_GEOMETRY]->non_fs.is_generated) {
+      uint64_t flat_flags = ctx->curr_program->shaders[MESA_SHADER_FRAGMENT]->flat_flags;
+      if (ctx->gfx_pipeline_state.shader_keys.st_key.small_key.lower_flatshade)
+         flat_flags |= -1;
       VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                          offsetof(struct zink_gfx_push_constant, flat_mask), sizeof(uint64_t),
-                         &ctx->curr_program->shaders[MESA_SHADER_FRAGMENT]->flat_flags);
+                         &flat_flags);
       uint32_t pv_last_last = ctx->gfx_pipeline_state.dyn_state3.pv_last;
       VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                          offsetof(struct zink_gfx_push_constant, pv_last_vert), sizeof(uint32_t),
