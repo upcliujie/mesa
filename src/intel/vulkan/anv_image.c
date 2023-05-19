@@ -3073,7 +3073,9 @@ anv_layout_to_fast_clear_type(const struct intel_device_info * const devinfo,
           * operations since transfer may do format reinterpretation.
           */
          return ANV_FAST_CLEAR_DEFAULT_VALUE;
-      } else if (layout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL) {
+      } else {
+         const uint32_t plane = anv_image_aspect_to_plane(image, aspect);
+         assert(isl_aux_usage_has_ccs(image->planes[plane].aux_usage));
          /* On ICL and later, the sampler hardware uses a copy of the clear
           * value that is encoded as a pixel value.  Therefore, we can use
           * any clear color we like for sampling.
@@ -3087,8 +3089,6 @@ anv_layout_to_fast_clear_type(const struct intel_device_info * const devinfo,
           * surface state used for texturing.
           */
          return ANV_FAST_CLEAR_DEFAULT_VALUE;
-      } else {
-         return ANV_FAST_CLEAR_NONE;
       }
 
    case ISL_AUX_STATE_COMPRESSED_NO_CLEAR:
