@@ -28,56 +28,6 @@
 #include "util/u_math.h"
 
 static bool
-move_system_values_to_top(nir_shader *shader)
-{
-   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
-
-   bool progress = false;
-   nir_foreach_block(block, impl) {
-      nir_foreach_instr_safe(instr, block) {
-         if (instr->type != nir_instr_type_intrinsic)
-            continue;
-
-         /* These intrinsics not only can't be re-materialized but aren't
-          * preserved when moving to the continuation shader.  We have to move
-          * them to the top to ensure they get spilled as needed.
-          */
-         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
-         switch (intrin->intrinsic) {
-         case nir_intrinsic_load_cull_mask:
-         case nir_intrinsic_load_ray_flags:
-         case nir_intrinsic_load_ray_object_origin:
-         case nir_intrinsic_load_ray_world_origin:
-         case nir_intrinsic_load_ray_object_direction:
-         case nir_intrinsic_load_ray_world_direction:
-         case nir_intrinsic_load_ray_t_max:
-         case nir_intrinsic_load_ray_t_min:
-         case nir_intrinsic_load_shader_record_ptr:
-         case nir_intrinsic_load_btd_local_arg_addr_intel:
-         case nir_intrinsic_load_hit_attrib_amd:
-         case nir_intrinsic_load_rt_arg_scratch_offset_amd:
-            nir_instr_remove(instr);
-            nir_instr_insert(nir_before_cf_list(&impl->body), instr);
-            progress = true;
-            break;
-
-         default:
-            break;
-         }
-      }
-   }
-
-   if (progress) {
-      nir_metadata_preserve(impl, nir_metadata_block_index |
-                                  nir_metadata_dominance);
-   } else {
-      nir_metadata_preserve(impl, nir_metadata_all);
-   }
-
-   return progress;
-}
-
-static bool
 instr_is_shader_call(nir_instr *instr)
 {
    if (instr->type != nir_instr_type_intrinsic)
@@ -87,6 +37,118 @@ instr_is_shader_call(nir_instr *instr)
    return intrin->intrinsic == nir_intrinsic_trace_ray ||
           intrin->intrinsic == nir_intrinsic_report_ray_intersection ||
           intrin->intrinsic == nir_intrinsic_execute_callable;
+}
+
+static inline bool
+should_move_system_value(nir_intrinsic_op intrinsic)
+{
+   switch (intrinsic) {
+   case nir_intrinsic_load_cull_mask:
+   case nir_intrinsic_load_ray_flags:
+   case nir_intrinsic_load_ray_object_origin:
+   case nir_intrinsic_load_ray_world_origin:
+   case nir_intrinsic_load_ray_object_direction:
+   case nir_intrinsic_load_ray_world_direction:
+   case nir_intrinsic_load_ray_t_max:
+   case nir_intrinsic_load_ray_t_min:
+   case nir_intrinsic_load_shader_record_ptr:
+   case nir_intrinsic_load_btd_local_arg_addr_intel:
+   case nir_intrinsic_load_hit_attrib_amd:
+   case nir_intrinsic_load_rt_arg_scratch_offset_amd:
+      return true;
+   default:
+      return false;
+   }
+}
+
+static bool
+move_system_values_in_child_list(nir_block **first_call_block,
+                                 struct exec_list *child_list)
+{
+   bool progress = false;
+
+   foreach_list_typed_safe(nir_cf_node, child, node, child_list) {
+      switch (child->type) {
+      case nir_cf_node_block: {
+         nir_block *block = nir_cf_node_as_block(child);
+
+         nir_foreach_instr_safe(instr, block) {
+            if (instr->type != nir_instr_type_intrinsic)
+               continue;
+
+            if (!(*first_call_block)) {
+               if (instr_is_shader_call(instr))
+                  *first_call_block = block;
+
+               continue;
+            }
+
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            if (!should_move_system_value(intrin->intrinsic))
+               continue;
+
+            nir_block *lca = nir_dominance_lca(*first_call_block, block);
+            assert(lca);
+
+            progress |= nir_instr_move(nir_after_phis(lca), instr);
+         }
+         break;
+      }
+
+      case nir_cf_node_if: {
+         nir_if *_if = nir_cf_node_as_if(child);
+         nir_block *if_true_fcb = *first_call_block;
+         nir_block *if_false_fcb = *first_call_block;
+         progress |= move_system_values_in_child_list(&if_true_fcb,
+                                                      &_if->then_list);
+         progress |= move_system_values_in_child_list(&if_false_fcb,
+                                                      &_if->else_list);
+         if (!(*first_call_block))
+            *first_call_block = if_true_fcb ? if_true_fcb : if_false_fcb;
+         break;
+      }
+
+      case nir_cf_node_loop: {
+         nir_loop *loop = nir_cf_node_as_loop(child);
+         progress |= move_system_values_in_child_list(first_call_block,
+                                                      &loop->body);
+         break;
+      }
+
+      case nir_cf_node_function:
+         unreachable("Unsupported CF node type");
+      }
+   }
+
+   return progress;
+}
+
+/* Some intrinsics not only can't be re-materialized but aren't
+ * preserved when moving to the continuation shader. Or they use data
+ * that will be overriden by the call, and will provide an incorrect value
+ * in the continuation shader. We have to move them as close to the top
+ * as possible, to ensure they get spilled as needed, while not increasing
+ * their liveliness more than necessary.
+ */
+static bool
+move_system_values_to_top(nir_shader *shader)
+{
+   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
+
+   nir_metadata_require(impl, nir_metadata_dominance);
+
+   nir_block *first_call_block = NULL;
+   bool progress =
+      move_system_values_in_child_list(&first_call_block, &impl->body);
+
+   if (progress) {
+      nir_metadata_preserve(impl, nir_metadata_block_index |
+                                  nir_metadata_dominance);
+   } else {
+      nir_metadata_preserve(impl, nir_metadata_all);
+   }
+
+   return progress;
 }
 
 /* Previously named bitset, it had to be renamed as FreeBSD defines a struct
