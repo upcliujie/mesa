@@ -1575,48 +1575,6 @@ build_traversal_shader(struct radv_device *device, struct radv_ray_tracing_stage
    return b.shader;
 }
 
-static bool
-should_move_rt_instruction(nir_intrinsic_op intrinsic)
-{
-   switch (intrinsic) {
-   case nir_intrinsic_load_hit_attrib_amd:
-   case nir_intrinsic_load_rt_arg_scratch_offset_amd:
-   case nir_intrinsic_load_ray_flags:
-   case nir_intrinsic_load_ray_object_origin:
-   case nir_intrinsic_load_ray_world_origin:
-   case nir_intrinsic_load_ray_t_min:
-   case nir_intrinsic_load_ray_object_direction:
-   case nir_intrinsic_load_ray_world_direction:
-   case nir_intrinsic_load_ray_t_max:
-      return true;
-   default:
-      return false;
-   }
-}
-
-static void
-move_rt_instructions(nir_shader *shader)
-{
-   nir_cursor target = nir_before_cf_list(&nir_shader_get_entrypoint(shader)->body);
-
-   nir_foreach_block (block, nir_shader_get_entrypoint(shader)) {
-      nir_foreach_instr_safe (instr, block) {
-         if (instr->type != nir_instr_type_intrinsic)
-            continue;
-
-         nir_intrinsic_instr *intrinsic = nir_instr_as_intrinsic(instr);
-
-         if (!should_move_rt_instruction(intrinsic->intrinsic))
-            continue;
-
-         nir_instr_move(target, instr);
-      }
-   }
-
-   nir_metadata_preserve(nir_shader_get_entrypoint(shader),
-                         nir_metadata_all & (~nir_metadata_instr_index));
-}
-
 nir_shader *
 create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInfoKHR *pCreateInfo,
                  struct radv_ray_tracing_stage *stages, struct radv_ray_tracing_group *groups,
@@ -1663,11 +1621,6 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
       ASSERTED gl_shader_stage type = nir_stage->info.stage;
       assert(type == MESA_SHADER_RAYGEN || type == MESA_SHADER_CALLABLE ||
              type == MESA_SHADER_CLOSEST_HIT || type == MESA_SHADER_MISS);
-
-      /* Move ray tracing system values to the top that are set by rt_trace_ray
-       * to prevent them from being overwritten by other rt_trace_ray calls.
-       */
-      NIR_PASS_V(nir_stage, move_rt_instructions);
 
       const nir_lower_shader_calls_options opts = {
          .address_format = nir_address_format_32bit_offset,
