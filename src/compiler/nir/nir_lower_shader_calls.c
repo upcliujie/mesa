@@ -44,8 +44,18 @@ move_system_values_to_top(nir_shader *shader)
           */
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
          switch (intrin->intrinsic) {
+         case nir_intrinsic_load_cull_mask:
+         case nir_intrinsic_load_ray_flags:
+         case nir_intrinsic_load_ray_object_origin:
+         case nir_intrinsic_load_ray_world_origin:
+         case nir_intrinsic_load_ray_object_direction:
+         case nir_intrinsic_load_ray_world_direction:
+         case nir_intrinsic_load_ray_t_max:
+         case nir_intrinsic_load_ray_t_min:
          case nir_intrinsic_load_shader_record_ptr:
          case nir_intrinsic_load_btd_local_arg_addr_intel:
+         case nir_intrinsic_load_hit_attrib_amd:
+         case nir_intrinsic_load_rt_arg_scratch_offset_amd:
             nir_instr_remove(instr);
             nir_instr_insert(nir_before_cf_list(&impl->body), instr);
             progress = true;
