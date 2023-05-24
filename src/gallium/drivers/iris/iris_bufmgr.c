@@ -455,6 +455,11 @@ iris_bo_wait_syncobj(struct iris_bo *bo, int64_t timeout_ns)
 
    simple_mtx_lock(&bufmgr->bo_deps_lock);
 
+   if (bo->deps_size == 0) {
+      simple_mtx_unlock(&bufmgr->bo_deps_lock);
+      return 0;
+   }
+
    uint32_t handles[bo->deps_size * IRIS_BATCH_COUNT * 2];
    int handle_count = 0;
 
