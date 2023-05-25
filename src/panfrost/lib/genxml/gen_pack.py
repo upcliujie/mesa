@@ -122,7 +122,7 @@ __gen_unpack_padded(const uint8_t *restrict cl, uint32_t start, uint32_t end)
    for (struct PREFIX1(T) name = { PREFIX2(T, header) }, \\
         *_loop_terminate = (void *) (dst);                  \\
         __builtin_expect(_loop_terminate != NULL, 1);       \\
-        ({ PREFIX2(T, pack)((uint32_t *) (dst), &name);  \\
+        ({ PREFIX2(T, pack)((char *) (dst), &name);  \\
            _loop_terminate = NULL; }))
 
 #define pan_unpack(src, T, name)                        \\
@@ -468,7 +468,7 @@ class Group(object):
         for index in range(self.length // 4):
             # Handle MBZ words
             if not index in words:
-                print("   cl[%2d] = 0;" % index)
+                print("   memset(&cl[%2d], 0, sizeof(uint32_t));" % (index * 4))
                 continue
 
             word = words[index]
@@ -476,7 +476,9 @@ class Group(object):
             word_start = index * 32
 
             v = None
-            prefix = "   cl[%2d] =" % index
+            #dst = "cl[%2d]"
+            dst = "word_%d" % index
+            prefix = "   uint32_t %s =" % dst
 
             for contributor in word.contributors:
                 field = contributor.field
@@ -534,6 +536,7 @@ class Group(object):
 
                     if contributor == word.contributors[-1]:
                         print("%s %s;" % (prefix, s))
+                        print("   memcpy(&cl[%2d], &%s, sizeof(uint32_t));" % (index * 4, dst))
                     else:
                         print("%s %s |" % (prefix, s))
                     prefix = "           "
@@ -767,7 +770,7 @@ class Parser(object):
         print("")
 
     def emit_pack_function(self, name, group):
-        print("static ALWAYS_INLINE void\n%s_pack(uint32_t * restrict cl,\n%sconst struct %s * restrict values)\n{" %
+        print("static ALWAYS_INLINE void\n%s_pack(char * restrict cl,\n%sconst struct %s * restrict values)\n{" %
               (name, ' ' * (len(name) + 6), name))
 
         group.emit_pack_function()
