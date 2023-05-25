@@ -850,9 +850,9 @@ traces:
     freedreno-a630:
       checksum: da3cf87ea3f62d67771a63f24a7eccff
     zink-a618:
-      checksum: 502c7cb7bcb47e9ccc9ce18897ac7ae5
+      checksum: 32a27911fd3bb31352155396c1dfafd4
     zink-a630:
-      checksum: 502c7cb7bcb47e9ccc9ce18897ac7ae5
+      checksum: 32a27911fd3bb31352155396c1dfafd4
 
 
   supertuxkart/supertuxkart-antediluvian-abyss.rdc:
