@@ -634,9 +634,13 @@ zink_draw(struct pipe_context *pctx,
    }
    ctx->dsa_state_changed = false;
 
-   if (DYNAMIC_STATE != ZINK_NO_DYNAMIC_STATE && (BATCH_CHANGED || rast_state_changed)) {
+   if (DYNAMIC_STATE != ZINK_NO_DYNAMIC_STATE && (BATCH_CHANGED || rast_state_changed || rast_prim_changed)) {
       VKCTX(CmdSetFrontFaceEXT)(batch->state->cmdbuf, (VkFrontFace)ctx->gfx_pipeline_state.dyn_state1.front_face);
-      VKCTX(CmdSetCullModeEXT)(batch->state->cmdbuf, ctx->gfx_pipeline_state.dyn_state1.cull_mode);
+
+      if (ctx->gfx_pipeline_state.rast_prim == PIPE_PRIM_LINES)
+         VKCTX(CmdSetCullModeEXT)(batch->state->cmdbuf, VK_CULL_MODE_NONE);
+      else
+         VKCTX(CmdSetCullModeEXT)(batch->state->cmdbuf, ctx->gfx_pipeline_state.dyn_state1.cull_mode);
    }
    if ((BATCH_CHANGED || rast_state_changed) &&
        !screen->driver_workarounds.no_linestipple && (DYNAMIC_STATE >= ZINK_DYNAMIC_STATE3 || rast_state->base.line_stipple_enable))
