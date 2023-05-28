@@ -24,6 +24,7 @@
 #include "core/queue.hpp"
 #include "pipe/p_screen.h"
 #include "pipe/p_context.h"
+#include "util/u_helpers.h"
 
 using namespace clover;
 
@@ -55,7 +56,7 @@ timestamp::query::operator()() const {
 }
 
 timestamp::current::current(command_queue &q) :
-   result(q.pipe->screen->get_timestamp(q.pipe->screen)) {
+   result(util_get_timestamp(q.pipe)) {
 }
 
 cl_ulong
