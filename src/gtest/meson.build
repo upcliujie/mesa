@@ -18,16 +18,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+inc_gtest_include = include_directories('include', is_system : true)
+
 libgtest = static_library(
   'gtest',
   files('src/gtest-all.cc', 'src/gtest_main.cc'),
-  include_directories : include_directories('include'),
+  include_directories : inc_gtest_include,
   override_options: 'warning_level=1',
+  cpp_args : ['-Wno-undef'],
   build_by_default : false,
 )
 
 idep_gtest = declare_dependency(
   link_with : libgtest,
-  include_directories : include_directories('include', is_system : true),
+  include_directories : inc_gtest_include,
   dependencies : [dep_thread],
 )

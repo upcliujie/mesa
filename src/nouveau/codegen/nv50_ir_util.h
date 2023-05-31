@@ -36,6 +36,8 @@
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 
+#include "nouveau_debug.h"
+
 #define ERROR(args...) _debug_printf("ERROR: " args)
 #define WARN(args...) _debug_printf("WARNING: " args)
 #define INFO(args...) _debug_printf(args)
@@ -574,7 +576,7 @@ private:
 
 void Interval::checkTail() const
 {
-#if NV50_DEBUG & NV50_DEBUG_PROG_RA
+#if NOUVEAU_DEBUG & NOUVEAU_DEBUG_PROG_RA
    Range *r = head;
    while (r->next)
       r = r->next;

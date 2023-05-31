@@ -20,6 +20,10 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef NOUVEAU_DRIVER
+#define NOUVEAU_DRIVER 0x50
+#endif
+
 #if NOUVEAU_DRIVER == 0xc0
 # include "nvc0/nvc0_screen.h"
 # include "nvc0/nvc0_3d.xml.h"
