@@ -132,6 +132,8 @@ struct nir_shader;
 struct si_shader;
 struct si_context;
 
+#define SI_ACTIVE_DESC_SLOTS 64
+
 #define SI_MAX_ATTRIBS    16
 #define SI_MAX_VS_OUTPUTS 40
 #define SI_USER_CLIP_PLANE_MASK  0x3F
@@ -530,8 +532,8 @@ struct si_shader_selector {
    bool tess_turns_off_ngg;
 
    /* bitmasks of used descriptor slots */
-   uint64_t active_const_and_shader_buffers;
-   uint64_t active_samplers_and_images;
+   BITSET_DECLARE(active_const_and_shader_buffers, SI_ACTIVE_DESC_SLOTS);
+   BITSET_DECLARE(active_samplers_and_images, SI_ACTIVE_DESC_SLOTS);
 };
 
 /* Valid shader configurations:

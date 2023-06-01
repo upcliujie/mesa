@@ -2982,18 +2982,22 @@ void si_add_all_descriptors_to_bo_list(struct si_context *sctx)
    sctx->bo_list_add_all_compute_resources = true;
 }
 
-void si_set_active_descriptors(struct si_context *sctx, unsigned desc_idx, uint64_t new_active_mask)
+void si_set_active_descriptors(struct si_context *sctx, unsigned desc_idx, BITSET_WORD *new_active_mask)
 {
    struct si_descriptors *desc = &sctx->descriptors[desc_idx];
+   BITSET_DECLARE(desc_active, SI_ACTIVE_DESC_SLOTS);
+   BITSET_ZERO(desc_active);
 
+   if (desc->num_active_slots)
+      BITSET_SET_RANGE(desc_active, desc->first_active_slot, desc->first_active_slot + desc->num_active_slots - 1);
    /* Ignore no-op updates and updates that disable all slots. */
-   if (!new_active_mask ||
-       new_active_mask == u_bit_consecutive64(desc->first_active_slot, desc->num_active_slots))
+   if (!__bitset_count(new_active_mask, BITSET_WORDS(SI_ACTIVE_DESC_SLOTS)) ||
+       BITSET_EQUAL(desc_active, new_active_mask))
       return;
 
-   int first, count;
-   u_bit_scan_consecutive_range64(&new_active_mask, &first, &count);
-   assert(new_active_mask == 0);
+   unsigned first, count, end = 0;
+   __bitset_next_range(&first, &end, new_active_mask, SI_ACTIVE_DESC_SLOTS);
+   count = end - first;
 
    /* Upload/dump descriptors if slots are being enabled. */
    if (first < desc->first_active_slot ||

@@ -108,8 +108,8 @@ static void si_create_compute_state_async(void *job, void *gdata, int thread_ind
    assert(program->ir_type == PIPE_SHADER_IR_NIR);
    si_nir_scan_shader(sscreen, sel->nir, &sel->info);
 
-   si_get_active_slot_masks(sscreen, &sel->info, &sel->active_const_and_shader_buffers,
-                            &sel->active_samplers_and_images);
+   si_get_active_slot_masks(sscreen, &sel->info, sel->active_const_and_shader_buffers,
+                            sel->active_samplers_and_images);
 
    program->shader.is_monolithic = true;
    program->shader.wave_size = si_determine_wave_size(sscreen, &program->shader);
