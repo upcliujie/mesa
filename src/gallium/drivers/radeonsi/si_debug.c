@@ -755,8 +755,8 @@ static void si_dump_descriptors(struct si_context *sctx, gl_shader_stage stage,
             (sctx->const_and_shader_buffers[processor].enabled_mask &
              1llu << (SI_NUM_SHADER_BUFFERS - i - 1)) << i;
       }
-      enabled_samplers = sctx->samplers[processor].enabled_mask;
-      enabled_images = sctx->images[processor].enabled_mask;
+      enabled_samplers = sctx->samplers[processor].enabled_mask[0];
+      enabled_images = sctx->images[processor].enabled_mask[0];
    }
 
    si_dump_descriptor_list(sctx->screen, &descs[SI_SHADER_DESCS_CONST_AND_SHADER_BUFFERS], name,

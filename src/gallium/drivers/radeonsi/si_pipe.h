@@ -728,17 +728,17 @@ struct si_samplers {
    struct si_sampler_state *sampler_states[SI_NUM_SAMPLERS];
 
    /* The i-th bit is set if that element is enabled (non-NULL resource). */
-   unsigned enabled_mask;
-   uint32_t has_depth_tex_mask;
-   uint32_t needs_depth_decompress_mask;
-   uint32_t needs_color_decompress_mask;
+   BITSET_DECLARE(enabled_mask, SI_NUM_SAMPLERS);
+   BITSET_DECLARE(has_depth_tex_mask, SI_NUM_SAMPLERS);
+   BITSET_DECLARE(needs_depth_decompress_mask, SI_NUM_SAMPLERS);
+   BITSET_DECLARE(needs_color_decompress_mask, SI_NUM_SAMPLERS);
 };
 
 struct si_images {
    struct pipe_image_view views[SI_NUM_IMAGES];
-   uint32_t needs_color_decompress_mask;
-   unsigned enabled_mask;
-   unsigned display_dcc_store_mask;
+   BITSET_DECLARE(needs_color_decompress_mask, SI_NUM_IMAGES);
+   BITSET_DECLARE(enabled_mask, SI_NUM_IMAGES);
+   BITSET_DECLARE(display_dcc_store_mask, SI_NUM_IMAGES);
 };
 
 struct si_framebuffer {
