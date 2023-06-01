@@ -2698,7 +2698,7 @@ void si_set_sampler_depth_decompress_mask(struct si_context *sctx, struct si_tex
     */
    u_foreach_bit(sh, sctx->shader_has_depth_tex) {
      unsigned i;
-     BITSET_FOREACH_SET(i, sctx->samplers[sh].has_depth_tex_mask, SI_NUM_SAMPLERS) {
+     BITSET_FOREACH_SET(i, sctx->samplers[sh].has_depth_tex_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
          if (sctx->samplers[sh].views[i]->texture == &tex->buffer.b.b) {
             BITSET_SET(sctx->samplers[sh].needs_depth_decompress_mask, i);
             sctx->shader_needs_decompress_mask |= 1 << sh;

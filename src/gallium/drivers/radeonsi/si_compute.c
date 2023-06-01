@@ -847,12 +847,12 @@ static bool si_check_needs_implicit_sync(struct si_context *sctx)
     */
    struct si_shader_info *info = &sctx->cs_shader_state.program->sel.info;
    struct si_samplers *samplers = &sctx->samplers[PIPE_SHADER_COMPUTE];
-   BITSET_DECLARE(enabled_mask, SI_NUM_SAMPLERS);
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
    BITSET_COPY(enabled_mask, samplers->enabled_mask);
-   __bitset_and(enabled_mask, enabled_mask, info->base.textures_used, BITSET_WORDS(SI_NUM_SAMPLERS));
+   __bitset_and(enabled_mask, enabled_mask, info->base.textures_used, BITSET_WORDS(SI_NUM_COMPUTE_SAMPLER_VIEWS));
 
    int i;
-   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_SAMPLERS) {
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct si_sampler_view *sview = (struct si_sampler_view *)samplers->views[i];
 
       struct si_resource *res = si_resource(sview->base.texture);
@@ -863,13 +863,13 @@ static bool si_check_needs_implicit_sync(struct si_context *sctx)
 
    struct si_images *images = &sctx->images[PIPE_SHADER_COMPUTE];
 
-   BITSET_DECLARE(images_enabled_mask, SI_NUM_IMAGES);
+   BITSET_DECLARE(images_enabled_mask, SI_NUM_COMPUTE_IMAGES);
    BITSET_ZERO(images_enabled_mask);
    if (info->base.num_images)
       BITSET_SET_RANGE(images_enabled_mask, 0, info->base.num_images - 1);
    BITSET_AND(images_enabled_mask, images_enabled_mask, images->enabled_mask);
 
-   BITSET_FOREACH_SET(i, images_enabled_mask, SI_NUM_IMAGES) {
+   BITSET_FOREACH_SET(i, images_enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       struct pipe_image_view *sview = &images->views[i];
 
       struct si_resource *res = si_resource(sview->resource);
@@ -988,13 +988,13 @@ static void si_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info
    }
 
    /* Mark displayable DCC as dirty for bound images. */
-   BITSET_DECLARE(images_mask, SI_NUM_IMAGES);
+   BITSET_DECLARE(images_mask, SI_NUM_COMPUTE_IMAGES);
    BITSET_ZERO(images_mask);
    if (program->sel.info.base.num_images)
       BITSET_SET_RANGE(images_mask, 0, program->sel.info.base.num_images - 1);
    BITSET_AND(images_mask, images_mask, sctx->images[PIPE_SHADER_COMPUTE].display_dcc_store_mask);
 
-   BITSET_FOREACH_SET(i, images_mask, SI_NUM_IMAGES) {
+   BITSET_FOREACH_SET(i, images_mask, SI_NUM_COMPUTE_IMAGES) {
       struct si_texture *tex = (struct si_texture *)
          sctx->images[PIPE_SHADER_COMPUTE].views[i].resource;
 

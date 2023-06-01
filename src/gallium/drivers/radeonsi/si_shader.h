@@ -132,7 +132,7 @@ struct nir_shader;
 struct si_shader;
 struct si_context;
 
-#define SI_ACTIVE_DESC_SLOTS 64
+#define SI_ACTIVE_DESC_SLOTS 256
 
 #define SI_MAX_ATTRIBS    16
 #define SI_MAX_VS_OUTPUTS 40

@@ -233,7 +233,7 @@ static nir_ssa_def *load_deref_image_desc(nir_builder *b, nir_deref_instr *deref
    } else {
       /* FMASKs are separate from images. */
       if (desc_type == AC_DESC_FMASK)
-         index = nir_iadd_imm(b, index, SI_NUM_IMAGES);
+         index = nir_iadd_imm(b, index, SI_NUM_COMPUTE_IMAGES);
 
       index = nir_isub_imm(b, SI_NUM_IMAGE_SLOTS - 1, index);
 

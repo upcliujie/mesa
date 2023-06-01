@@ -22,8 +22,12 @@ extern "C" {
 #define SI_NUM_SAMPLERS       32 /* OpenGL textures units per shader */
 #define SI_NUM_CONST_BUFFERS  16
 #define SI_NUM_IMAGES         16
-#define SI_NUM_IMAGE_SLOTS    (SI_NUM_IMAGES * 2) /* the second half are FMASK slots */
 #define SI_NUM_SHADER_BUFFERS 32
+
+#define SI_NUM_COMPUTE_IMAGES         64
+#define SI_NUM_IMAGE_SLOTS    (SI_NUM_COMPUTE_IMAGES * 2) /* the second half are FMASK slots */
+
+#define SI_NUM_COMPUTE_SAMPLER_VIEWS 128
 
 struct si_screen;
 struct si_shader;

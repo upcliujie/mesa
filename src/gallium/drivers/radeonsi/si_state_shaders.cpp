@@ -3109,7 +3109,7 @@ void si_get_active_slot_masks(struct si_screen *sscreen, const struct si_shader_
     * descriptors together.
     */
    if (sscreen->info.gfx_level < GFX11 && num_msaa_images)
-      num_images = SI_NUM_IMAGES + num_msaa_images; /* add FMASK descriptors */
+      num_images = SI_NUM_COMPUTE_IMAGES + num_msaa_images; /* add FMASK descriptors */
 
    start = si_get_image_slot(num_images - 1) / 2;
    count = num_images / 2 + num_samplers;

@@ -219,7 +219,7 @@ static void si_sampler_views_begin_new_cs(struct si_context *sctx, struct si_sam
 {
    /* Add buffers to the CS. */
    unsigned i;
-   BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_SAMPLERS) {
+   BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct si_sampler_view *sview = (struct si_sampler_view *)samplers->views[i];
 
       si_sampler_view_add_buffer(sctx, sview->base.texture, RADEON_USAGE_READ,
@@ -231,13 +231,13 @@ static bool si_sampler_views_check_encrypted(struct si_context *sctx, struct si_
                                              const BITSET_WORD *samplers_declared)
 {
    unsigned i;
-   BITSET_DECLARE(enabled_mask, SI_NUM_SAMPLERS);
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
    BITSET_COPY(enabled_mask, samplers->enabled_mask);
 
-   __bitset_and(enabled_mask, enabled_mask, samplers_declared, BITSET_WORDS(SI_NUM_SAMPLERS));
+   __bitset_and(enabled_mask, enabled_mask, samplers_declared, BITSET_WORDS(SI_NUM_COMPUTE_SAMPLER_VIEWS));
 
    /* Verify if a samplers uses an encrypted resource */
-   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_SAMPLERS) {
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct si_sampler_view *sview = (struct si_sampler_view *)samplers->views[i];
 
       struct si_resource *res = si_resource(sview->base.texture);
@@ -516,7 +516,7 @@ static void si_set_sampler_views(struct si_context *sctx, unsigned shader,
 {
    struct si_samplers *samplers = &sctx->samplers[shader];
    struct si_descriptors *descs = si_sampler_and_image_descriptors(sctx, shader);
-   BITSET_DECLARE(unbound_mask, SI_NUM_SAMPLERS);
+   BITSET_DECLARE(unbound_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
    BITSET_ZERO(unbound_mask);
 
    if (views) {
@@ -649,7 +649,7 @@ static void si_samplers_update_needs_color_decompress_mask(struct si_samplers *s
 {
    int i;
 
-   BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_SAMPLERS) {
+   BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct pipe_resource *res = samplers->views[i]->texture;
 
       if (res && res->target != PIPE_BUFFER) {
@@ -670,7 +670,7 @@ static void si_release_image_views(struct si_images *images)
 {
    unsigned i;
 
-   for (i = 0; i < SI_NUM_IMAGES; ++i) {
+   for (i = 0; i < SI_NUM_COMPUTE_IMAGES; ++i) {
       struct pipe_image_view *view = &images->views[i];
 
       pipe_resource_reference(&view->resource, NULL);
@@ -682,7 +682,7 @@ static void si_image_views_begin_new_cs(struct si_context *sctx, struct si_image
    int i;
 
    /* Add buffers to the CS. */
-   BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_IMAGES) {
+   BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       struct pipe_image_view *view = &images->views[i];
 
       assert(view->resource);
@@ -694,7 +694,7 @@ static void si_image_views_begin_new_cs(struct si_context *sctx, struct si_image
 static bool si_image_views_check_encrypted(struct si_context *sctx, struct si_images *images,
                                            unsigned num_images)
 {
-   BITSET_DECLARE(enabled_mask, SI_NUM_IMAGES);
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_IMAGES);
    BITSET_ZERO(enabled_mask);
 
    if (num_images)
@@ -703,7 +703,7 @@ static bool si_image_views_check_encrypted(struct si_context *sctx, struct si_im
    BITSET_AND(enabled_mask, enabled_mask, images->enabled_mask);
 
    int i;
-   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_IMAGES) {
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       struct pipe_image_view *view = &images->views[i];
 
       assert(view->resource);
@@ -843,7 +843,7 @@ static void si_set_shader_image(struct si_context *ctx, unsigned shader, unsigne
    res = si_resource(view->resource);
 
    si_set_shader_image_desc(ctx, view, skip_decompress, descs->list + si_get_image_slot(slot) * 8,
-                            descs->list + si_get_image_slot(slot + SI_NUM_IMAGES) * 8);
+                            descs->list + si_get_image_slot(slot + SI_NUM_COMPUTE_IMAGES) * 8);
 
    if (&images->views[slot] != view)
       util_copy_image_view(&images->views[slot], view);
@@ -899,7 +899,7 @@ static void si_set_shader_images(struct pipe_context *pipe, enum pipe_shader_typ
    if (!count && !unbind_num_trailing_slots)
       return;
 
-   assert(start_slot + count + unbind_num_trailing_slots <= SI_NUM_IMAGES);
+   assert(start_slot + count + unbind_num_trailing_slots <= SI_NUM_COMPUTE_IMAGES);
 
    if (views) {
       for (i = 0, slot = start_slot; i < count; ++i, ++slot)
@@ -924,7 +924,7 @@ static void si_images_update_needs_color_decompress_mask(struct si_images *image
 {
    int i;
 
-   BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_IMAGES) {
+   BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       struct pipe_resource *res = images->views[i].resource;
 
       if (res && res->target != PIPE_BUFFER) {
@@ -1779,7 +1779,7 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
          struct si_descriptors *descs = si_sampler_and_image_descriptors(sctx, shader);
 
          int i;
-         BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_SAMPLERS) {
+         BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
             struct pipe_resource *buffer = samplers->views[i]->texture;
 
             if (buffer && buffer->target == PIPE_BUFFER && (!buf || buffer == buf)) {
@@ -1805,7 +1805,7 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
          struct si_descriptors *descs = si_sampler_and_image_descriptors(sctx, shader);
          int i;
 
-         BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_IMAGES) {
+         BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
             struct pipe_resource *buffer = images->views[i].resource;
 
             if (buffer && buffer->target == PIPE_BUFFER && (!buf || buffer == buf)) {
@@ -2009,7 +2009,7 @@ void si_update_all_texture_descriptors(struct si_context *sctx)
       int i;
 
       /* Images. */
-      BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_IMAGES) {
+      BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
          struct pipe_image_view *view = &images->views[i];
 
          if (!view->resource || view->resource->target == PIPE_BUFFER)
@@ -2019,7 +2019,7 @@ void si_update_all_texture_descriptors(struct si_context *sctx)
       }
 
       /* Sampler views. */
-      BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_SAMPLERS) {
+      BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
          struct pipe_sampler_view *view = samplers->views[i];
 
          if (!view || !view->texture || view->texture->target == PIPE_BUFFER)
@@ -2690,7 +2690,7 @@ void si_init_all_descriptors(struct si_context *sctx)
    for (i = first_shader; i < SI_NUM_SHADERS; i++) {
       bool is_2nd =
          sctx->gfx_level >= GFX9 && (i == PIPE_SHADER_TESS_CTRL || i == PIPE_SHADER_GEOMETRY);
-      unsigned num_sampler_slots = SI_NUM_IMAGE_SLOTS / 2 + SI_NUM_SAMPLERS;
+      unsigned num_sampler_slots = SI_NUM_IMAGE_SLOTS / 2 + SI_NUM_COMPUTE_SAMPLER_VIEWS;
       unsigned num_buffer_slots = SI_NUM_SHADER_BUFFERS + SI_NUM_CONST_BUFFERS;
       int rel_dw_offset;
       struct si_descriptors *desc;
@@ -2736,7 +2736,7 @@ void si_init_all_descriptors(struct si_context *sctx)
       int j;
       for (j = 0; j < SI_NUM_IMAGE_SLOTS; j++)
          memcpy(desc->list + j * 8, null_image_descriptor, 8 * 4);
-      for (; j < SI_NUM_IMAGE_SLOTS + SI_NUM_SAMPLERS * 2; j++)
+      for (; j < SI_NUM_IMAGE_SLOTS + SI_NUM_COMPUTE_SAMPLER_VIEWS * 2; j++)
          memcpy(desc->list + j * 8, null_texture_descriptor, 8 * 4);
    }
 

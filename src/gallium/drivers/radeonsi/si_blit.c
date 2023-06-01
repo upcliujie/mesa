@@ -395,7 +395,7 @@ static bool si_decompress_sampler_depth_textures(struct si_context *sctx,
    unsigned i;
    bool need_flush = false;
 
-   BITSET_FOREACH_SET(i, textures->needs_depth_decompress_mask, SI_NUM_SAMPLERS) {
+   BITSET_FOREACH_SET(i, textures->needs_depth_decompress_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct pipe_sampler_view *view;
       struct si_sampler_view *sview;
       struct si_texture *tex;
@@ -562,7 +562,7 @@ static void si_decompress_sampler_color_textures(struct si_context *sctx,
 {
    unsigned i;
 
-   BITSET_FOREACH_SET(i, textures->needs_color_decompress_mask, SI_NUM_SAMPLERS) {
+   BITSET_FOREACH_SET(i, textures->needs_color_decompress_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct pipe_sampler_view *view;
       struct si_texture *tex;
 
@@ -580,7 +580,7 @@ static void si_decompress_image_color_textures(struct si_context *sctx, struct s
 {
    unsigned i;
 
-   BITSET_FOREACH_SET(i, images->needs_color_decompress_mask, SI_NUM_IMAGES) {
+   BITSET_FOREACH_SET(i, images->needs_color_decompress_mask, SI_NUM_COMPUTE_IMAGES) {
       const struct pipe_image_view *view;
       struct si_texture *tex;
 
@@ -653,7 +653,7 @@ static void si_check_render_feedback_images(struct si_context *sctx, struct si_i
 {
    /* this will never be used on a compute shader so limited to 32-bits is fine. */
    int i;
-   BITSET_DECLARE(enabled_mask, SI_NUM_IMAGES);
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_IMAGES);
    BITSET_ZERO(enabled_mask);
 
    if (num_images)
@@ -661,7 +661,7 @@ static void si_check_render_feedback_images(struct si_context *sctx, struct si_i
 
    BITSET_AND(enabled_mask, enabled_mask, images->enabled_mask);
 
-   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_IMAGES) {
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       const struct pipe_image_view *view;
       struct si_texture *tex;
 

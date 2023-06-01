@@ -724,21 +724,21 @@ struct si_cs_shader_state {
 };
 
 struct si_samplers {
-   struct pipe_sampler_view *views[SI_NUM_SAMPLERS];
-   struct si_sampler_state *sampler_states[SI_NUM_SAMPLERS];
+   struct pipe_sampler_view *views[SI_NUM_COMPUTE_SAMPLER_VIEWS];
+   struct si_sampler_state *sampler_states[SI_NUM_COMPUTE_SAMPLER_VIEWS];
 
    /* The i-th bit is set if that element is enabled (non-NULL resource). */
-   BITSET_DECLARE(enabled_mask, SI_NUM_SAMPLERS);
-   BITSET_DECLARE(has_depth_tex_mask, SI_NUM_SAMPLERS);
-   BITSET_DECLARE(needs_depth_decompress_mask, SI_NUM_SAMPLERS);
-   BITSET_DECLARE(needs_color_decompress_mask, SI_NUM_SAMPLERS);
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
+   BITSET_DECLARE(has_depth_tex_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
+   BITSET_DECLARE(needs_depth_decompress_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
+   BITSET_DECLARE(needs_color_decompress_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
 };
 
 struct si_images {
-   struct pipe_image_view views[SI_NUM_IMAGES];
-   BITSET_DECLARE(needs_color_decompress_mask, SI_NUM_IMAGES);
-   BITSET_DECLARE(enabled_mask, SI_NUM_IMAGES);
-   BITSET_DECLARE(display_dcc_store_mask, SI_NUM_IMAGES);
+   struct pipe_image_view views[SI_NUM_COMPUTE_IMAGES];
+   BITSET_DECLARE(needs_color_decompress_mask, SI_NUM_COMPUTE_IMAGES);
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_IMAGES);
+   BITSET_DECLARE(display_dcc_store_mask, SI_NUM_COMPUTE_IMAGES);
 };
 
 struct si_framebuffer {
