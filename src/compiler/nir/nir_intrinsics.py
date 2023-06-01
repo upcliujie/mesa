@@ -138,6 +138,9 @@ index("unsigned", "stream_id")
 # The clip-plane id for load_user_clip_plane intrinsic.
 index("unsigned", "ucp_id")
 
+# The coodrdinate index for the load_txc_sat intrinsic.
+index("unsigned", "txc_sat_id")
+
 # The offset to the start of the NIR_INTRINSIC_RANGE.  This is an alternative
 # to NIR_INTRINSIC_BASE for describing the valid range in intrinsics that don't
 # have the implicit addition of a base to the offset.
@@ -877,6 +880,7 @@ system_value("workgroup_index", 1)
 system_value("base_workgroup_id", 3, bit_sizes=[32, 64])
 system_value("user_clip_plane", 4, indices=[UCP_ID])
 system_value("clip_plane_enable", 1)
+system_value("txc_sat", 1, indices=[TXC_SAT_ID])
 system_value("num_workgroups", 3)
 system_value("num_vertices", 1)
 system_value("helper_invocation", 1, bit_sizes=[1, 32])
