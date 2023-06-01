@@ -132,15 +132,20 @@ static void si_create_compute_state_async(void *job, void *gdata, int thread_ind
    }
 
    /* Images in user SGPRs. */
-   unsigned non_fmask_images = u_bit_consecutive(0, sel->info.base.num_images);
+   BITSET_DECLARE(non_fmask_images, 64);
+   BITSET_ZERO(non_fmask_images);
+   if (sel->info.base.num_images)
+      BITSET_SET_RANGE(non_fmask_images, 0, sel->info.base.num_images - 1);
 
-   /* Remove images with FMASK from the bitmask.  We only care about the first
-    * 3 anyway, so we can take msaa_images[0] and ignore the rest.
-    */
-   if (sscreen->info.gfx_level < GFX11)
-      non_fmask_images &= ~sel->info.base.msaa_images[0];
+   /* Remove images with FMASK from the bitmask. */
+   if (sscreen->info.gfx_level < GFX11) {
+      BITSET_DECLARE(not_msaa_images, 64);
+      BITSET_COPY(not_msaa_images, sel->info.base.msaa_images);
+      BITSET_NOT(not_msaa_images);
+      BITSET_AND(non_fmask_images, non_fmask_images, not_msaa_images);
+   }
 
-   for (unsigned i = 0; i < 3 && non_fmask_images & (1 << i); i++) {
+   for (unsigned i = 0; i < 3 && BITSET_TEST(non_fmask_images, i); i++) {
       unsigned num_sgprs = BITSET_TEST(sel->info.base.image_buffers, i) ? 4 : 8;
 
       if (align(user_sgprs, num_sgprs) + num_sgprs > 16)
