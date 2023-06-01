@@ -66,13 +66,6 @@ util_bitpack_uint(uint64_t v, uint32_t start, UNUSED uint32_t end)
 }
 
 ALWAYS_INLINE static uint64_t
-util_bitpack_uint_nonzero(uint64_t v, uint32_t start, uint32_t end)
-{
-   assert(v != 0ull);
-   return util_bitpack_uint(v, start, end);
-}
-
-ALWAYS_INLINE static uint64_t
 util_bitpack_sint(int64_t v, uint32_t start, uint32_t end)
 {
    const int bits = end - start + 1;
@@ -92,13 +85,6 @@ util_bitpack_sint(int64_t v, uint32_t start, uint32_t end)
    return (v & mask) << start;
 }
 
-ALWAYS_INLINE static uint64_t
-util_bitpack_sint_nonzero(int64_t v, uint32_t start, uint32_t end)
-{
-   assert(v != 0ll);
-   return util_bitpack_sint(v, start, end);
-}
-
 ALWAYS_INLINE static uint32_t
 util_bitpack_float(float v)
 {
@@ -106,13 +92,6 @@ util_bitpack_float(float v)
    union { float f; uint32_t dw; } x;
    x.f = v;
    return x.dw;
-}
-
-ALWAYS_INLINE static uint32_t
-util_bitpack_float_nonzero(float v)
-{
-   assert(v != 0.0f);
-   return util_bitpack_float(v);
 }
 
 ALWAYS_INLINE static uint64_t
@@ -137,32 +116,6 @@ util_bitpack_sfixed(float v, uint32_t start, uint32_t end,
 }
 
 ALWAYS_INLINE static uint64_t
-util_bitpack_sfixed_clamp(float v, uint32_t start, uint32_t end,
-                          uint32_t fract_bits)
-{
-   util_bitpack_validate_value(v);
-
-   const float factor = (1 << fract_bits);
-
-   const int total_bits = end - start + 1;
-   const float min = u_intN_min(total_bits) / factor;
-   const float max = u_intN_max(total_bits) / factor;
-
-   const int64_t int_val = llroundf(CLAMP(v, min, max) * factor);
-   const uint64_t mask = ~0ull >> (64 - (end - start + 1));
-
-   return (int_val & mask) << start;
-}
-
-ALWAYS_INLINE static uint64_t
-util_bitpack_sfixed_nonzero(float v, uint32_t start, uint32_t end,
-                            uint32_t fract_bits)
-{
-   assert(v != 0.0f);
-   return util_bitpack_sfixed(v, start, end, fract_bits);
-}
-
-ALWAYS_INLINE static uint64_t
 util_bitpack_ufixed(float v, uint32_t start, ASSERTED uint32_t end,
                     uint32_t fract_bits)
 {
@@ -180,31 +133,6 @@ util_bitpack_ufixed(float v, uint32_t start, ASSERTED uint32_t end,
    const uint64_t uint_val = llroundf(v * factor);
 
    return uint_val << start;
-}
-
-ALWAYS_INLINE static uint64_t
-util_bitpack_ufixed_clamp(float v, uint32_t start, ASSERTED uint32_t end,
-                          uint32_t fract_bits)
-{
-   util_bitpack_validate_value(v);
-
-   const float factor = (1 << fract_bits);
-
-   const int total_bits = end - start + 1;
-   const float min = 0.0f;
-   const float max = u_uintN_max(total_bits) / factor;
-
-   const uint64_t uint_val = llroundf(CLAMP(v, min, max) * factor);
-
-   return uint_val << start;
-}
-
-ALWAYS_INLINE static uint64_t
-util_bitpack_ufixed_nonzero(float v, uint32_t start, uint32_t end,
-                            uint32_t fract_bits)
-{
-   assert(v != 0.0f);
-   return util_bitpack_ufixed(v, start, end, fract_bits);
 }
 
 #endif /* UTIL_BITPACK_HELPERS_H */

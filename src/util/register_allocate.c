@@ -167,52 +167,6 @@ ra_add_transitive_reg_conflict(struct ra_regs *regs,
    }
 }
 
-/**
- * Set up conflicts between base_reg and it's two half registers reg0 and
- * reg1, but take care to not add conflicts between reg0 and reg1.
- *
- * This is useful for architectures where full size registers are aliased by
- * two half size registers (eg 32 bit float and 16 bit float registers).
- */
-void
-ra_add_transitive_reg_pair_conflict(struct ra_regs *regs,
-                                    unsigned int base_reg, unsigned int reg0, unsigned int reg1)
-{
-   ra_add_reg_conflict(regs, reg0, base_reg);
-   ra_add_reg_conflict(regs, reg1, base_reg);
-
-   util_dynarray_foreach(&regs->regs[base_reg].conflict_list, unsigned int, i) {
-      unsigned int conflict = *i;
-      if (conflict != reg1)
-         ra_add_reg_conflict(regs, reg0, conflict);
-      if (conflict != reg0)
-         ra_add_reg_conflict(regs, reg1, conflict);
-   }
-}
-
-/**
- * Makes every conflict on the given register transitive.  In other words,
- * every register that conflicts with r will now conflict with every other
- * register conflicting with r.
- *
- * This can simplify code for setting up multiple register classes
- * which are aggregates of some base hardware registers, compared to
- * explicitly using ra_add_reg_conflict.
- */
-void
-ra_make_reg_conflicts_transitive(struct ra_regs *regs, unsigned int r)
-{
-   struct ra_reg *reg = &regs->regs[r];
-   int c;
-
-   BITSET_FOREACH_SET(c, reg->conflicts, regs->count) {
-      struct ra_reg *other = &regs->regs[c];
-      unsigned i;
-      for (i = 0; i < BITSET_WORDS(regs->count); i++)
-         other->conflicts[i] |= reg->conflicts[i];
-   }
-}
-
 struct ra_class *
 ra_alloc_reg_class(struct ra_regs *regs)
 {
@@ -611,13 +565,6 @@ ra_set_node_class(struct ra_graph *g,
                   unsigned int n, struct ra_class *class)
 {
    g->nodes[n].class = class->index;
-}
-
-struct ra_class *
-ra_get_node_class(struct ra_graph *g,
-                  unsigned int n)
-{
-   return g->regs->classes[g->nodes[n].class];
 }
 
 unsigned int
