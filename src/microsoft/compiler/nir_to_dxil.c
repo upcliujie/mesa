@@ -2491,7 +2491,8 @@ emit_cast(struct ntd_context *ctx, nir_alu_instr *alu,
       case nir_op_u2fmp:
          break;
       default:
-         ctx->mod.feats.native_low_precision = true;
+         if (nir_src_bit_size(alu->src[0].src) > 16)
+            ctx->mod.feats.native_low_precision = true;
       }
    }
 
