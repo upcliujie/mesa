@@ -650,7 +650,7 @@ static void si_pipe_set_sampler_views(struct pipe_context *ctx, enum pipe_shader
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
-   if ((!count && !unbind_num_trailing_slots) || shader >= SI_NUM_SHADERS)
+   if ((!count && !unbind_num_trailing_slots) || shader >= MESA_SHADER_GL_STAGES)
       return;
 
    si_set_sampler_views(sctx, shader, start, count, unbind_num_trailing_slots,
@@ -903,7 +903,7 @@ static void si_set_shader_images(struct pipe_context *pipe, enum pipe_shader_typ
    struct si_context *ctx = (struct si_context *)pipe;
    unsigned i, slot;
 
-   assert(shader < SI_NUM_SHADERS);
+   assert(shader < MESA_SHADER_GL_STAGES);
 
    if (!count && !unbind_num_trailing_slots)
       return;
@@ -1050,7 +1050,7 @@ static void si_bind_sampler_states(struct pipe_context *ctx, enum pipe_shader_ty
    struct si_sampler_state **sstates = (struct si_sampler_state **)states;
    int i;
 
-   if (!count || shader >= SI_NUM_SHADERS || !sstates)
+   if (!count || shader >= MESA_SHADER_GL_STAGES || !sstates)
       return;
 
    for (i = 0; i < count; i++) {
@@ -1300,7 +1300,7 @@ static void si_pipe_set_constant_buffer(struct pipe_context *ctx, enum pipe_shad
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
-   if (shader >= SI_NUM_SHADERS)
+   if (shader >= MESA_SHADER_GL_STAGES)
       return;
 
    if (input) {
@@ -1640,7 +1640,7 @@ static void si_resident_handles_update_needs_color_decompress(struct si_context 
  */
 void si_update_needs_color_decompress_masks(struct si_context *sctx)
 {
-   for (int i = 0; i < SI_NUM_SHADERS; ++i) {
+   for (int i = 0; i < MESA_SHADER_GL_STAGES; ++i) {
       si_samplers_update_needs_color_decompress_mask(&sctx->samplers[i]);
       si_images_update_needs_color_decompress_mask(&sctx->images[i]);
       si_update_shader_needs_decompress_mask(sctx, i);
@@ -1757,7 +1757,7 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
    /* Constant and shader buffers. */
    if (!buffer || buffer->bind_history & SI_BIND_CONSTANT_BUFFER_ALL) {
       unsigned mask = buffer ? (buffer->bind_history & SI_BIND_CONSTANT_BUFFER_ALL) >>
-                               SI_BIND_CONSTANT_BUFFER_SHIFT : BITFIELD_MASK(SI_NUM_SHADERS);
+                               SI_BIND_CONSTANT_BUFFER_SHIFT : BITFIELD_MASK(MESA_SHADER_GL_STAGES);
       u_foreach_bit(shader, mask) {
          si_reset_buffer_resources(sctx, &sctx->const_and_shader_buffers[shader],
                                    si_const_and_shader_buffer_descriptors_idx(shader),
@@ -1768,7 +1768,7 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
 
    if (!buffer || buffer->bind_history & SI_BIND_SHADER_BUFFER_ALL) {
       unsigned mask = buffer ? (buffer->bind_history & SI_BIND_SHADER_BUFFER_ALL) >>
-                               SI_BIND_SHADER_BUFFER_SHIFT : BITFIELD_MASK(SI_NUM_SHADERS);
+                               SI_BIND_SHADER_BUFFER_SHIFT : BITFIELD_MASK(MESA_SHADER_GL_STAGES);
       u_foreach_bit(shader, mask) {
          if (si_reset_buffer_resources(sctx, &sctx->const_and_shader_buffers[shader],
                                        si_const_and_shader_buffer_descriptors_idx(shader),
@@ -1782,7 +1782,7 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
 
    if (!buffer || buffer->bind_history & SI_BIND_SAMPLER_BUFFER_ALL) {
       unsigned mask = buffer ? (buffer->bind_history & SI_BIND_SAMPLER_BUFFER_ALL) >>
-                               SI_BIND_SAMPLER_BUFFER_SHIFT : BITFIELD_MASK(SI_NUM_SHADERS);
+                               SI_BIND_SAMPLER_BUFFER_SHIFT : BITFIELD_MASK(MESA_SHADER_GL_STAGES);
       /* Texture buffers - update bindings. */
       u_foreach_bit(shader, mask) {
          struct si_samplers *samplers = &sctx->samplers[shader];
@@ -1810,7 +1810,7 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
    /* Shader images */
    if (!buffer || buffer->bind_history & SI_BIND_IMAGE_BUFFER_ALL) {
       unsigned mask = buffer ? (buffer->bind_history & SI_BIND_IMAGE_BUFFER_SHIFT) >>
-                               SI_BIND_IMAGE_BUFFER_SHIFT : BITFIELD_MASK(SI_NUM_SHADERS);
+                               SI_BIND_IMAGE_BUFFER_SHIFT : BITFIELD_MASK(MESA_SHADER_GL_STAGES);
       u_foreach_bit(shader, mask) {
          struct si_images *images = &sctx->images[shader];
          struct si_descriptors *descs = si_sampler_and_image_descriptors(sctx, shader);
@@ -2015,7 +2015,7 @@ void si_update_all_texture_descriptors(struct si_context *sctx)
 {
    unsigned shader;
 
-   for (shader = 0; shader < SI_NUM_SHADERS; shader++) {
+   for (shader = 0; shader < MESA_SHADER_GL_STAGES; shader++) {
       struct si_samplers *samplers = &sctx->samplers[shader];
       struct si_images *images = &sctx->images[shader];
       unsigned mask;
@@ -2703,7 +2703,7 @@ void si_init_all_descriptors(struct si_context *sctx)
       gs_sgpr0 = R_00B208_SPI_SHADER_USER_DATA_ADDR_LO_GS;
    }
 
-   for (i = first_shader; i < SI_NUM_SHADERS; i++) {
+   for (i = first_shader; i < MESA_SHADER_GL_STAGES; i++) {
       bool is_2nd =
          sctx->gfx_level >= GFX9 && (i == PIPE_SHADER_TESS_CTRL || i == PIPE_SHADER_GEOMETRY);
       unsigned num_sampler_slots = SI_NUM_IMAGE_SLOTS / 2 + SI_NUM_SAMPLERS;
@@ -2850,7 +2850,7 @@ void si_release_all_descriptors(struct si_context *sctx)
 {
    int i;
 
-   for (i = 0; i < SI_NUM_SHADERS; i++) {
+   for (i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       si_release_buffer_resources(&sctx->const_and_shader_buffers[i],
                                   si_const_and_shader_buffer_descriptors(sctx, i));
       si_release_sampler_views(&sctx->samplers[i]);
@@ -2870,7 +2870,7 @@ bool si_gfx_resources_check_encrypted(struct si_context *sctx)
 {
    bool use_encrypted_bo = false;
 
-   for (unsigned i = 0; i < SI_NUM_GRAPHICS_SHADERS && !use_encrypted_bo; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES && !use_encrypted_bo; i++) {
       struct si_shader_ctx_state *current_shader = &sctx->shaders[i];
       if (!current_shader->cso)
          continue;
@@ -2934,7 +2934,7 @@ bool si_gfx_resources_check_encrypted(struct si_context *sctx)
 
 void si_gfx_resources_add_all_to_bo_list(struct si_context *sctx)
 {
-   for (unsigned i = 0; i < SI_NUM_GRAPHICS_SHADERS; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES; i++) {
       si_buffer_resources_begin_new_cs(sctx, &sctx->const_and_shader_buffers[i]);
       si_sampler_views_begin_new_cs(sctx, &sctx->samplers[i]);
       si_image_views_begin_new_cs(sctx, &sctx->images[i]);

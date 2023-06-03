@@ -721,7 +721,7 @@ static void si_check_render_feedback(struct si_context *sctx)
    if (!si_get_total_colormask(sctx))
       return;
 
-   for (int i = 0; i < SI_NUM_GRAPHICS_SHADERS; ++i) {
+   for (int i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES; ++i) {
       if (!sctx->shaders[i].cso)
          continue;
 
@@ -814,7 +814,7 @@ void si_decompress_textures(struct si_context *sctx, unsigned shader_mask)
       sctx->b.flush(&sctx->b, NULL, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW);
    }
 
-   if (shader_mask & u_bit_consecutive(0, SI_NUM_GRAPHICS_SHADERS)) {
+   if (shader_mask & u_bit_consecutive(0, MESA_SHADER_GL_GRAPHICS_STAGES)) {
       if (sctx->uses_bindless_samplers)
          si_decompress_resident_textures(sctx);
       if (sctx->uses_bindless_images)

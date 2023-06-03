@@ -897,7 +897,7 @@ struct si_sqtt_fake_pipeline {
    struct si_pm4_state pm4; /* base class */
    uint64_t code_hash;
    struct si_resource *bo;
-   uint32_t offset[SI_NUM_GRAPHICS_SHADERS];
+   uint32_t offset[MESA_SHADER_GL_GRAPHICS_STAGES];
 };
 
 struct si_small_prim_cull_info {
@@ -1060,7 +1060,7 @@ struct si_context {
          struct si_shader_ctx_state ps;
       } shader;
       /* indexed access using pipe_shader_type (not by MESA_SHADER_*) */
-      struct si_shader_ctx_state shaders[SI_NUM_GRAPHICS_SHADERS];
+      struct si_shader_ctx_state shaders[MESA_SHADER_GL_GRAPHICS_STAGES];
    };
    struct si_cs_shader_state cs_shader_state;
    /* if current tcs set by user */
@@ -1091,9 +1091,9 @@ struct si_context {
    unsigned shader_needs_decompress_mask;
    unsigned shader_has_depth_tex;
    struct si_buffer_resources internal_bindings;
-   struct si_buffer_resources const_and_shader_buffers[SI_NUM_SHADERS];
-   struct si_samplers samplers[SI_NUM_SHADERS];
-   struct si_images images[SI_NUM_SHADERS];
+   struct si_buffer_resources const_and_shader_buffers[MESA_SHADER_GL_STAGES];
+   struct si_samplers samplers[MESA_SHADER_GL_STAGES];
+   struct si_images images[MESA_SHADER_GL_STAGES];
    bool bo_list_add_all_resident_resources;
    bool bo_list_add_all_gfx_resources;
    bool bo_list_add_all_compute_resources;

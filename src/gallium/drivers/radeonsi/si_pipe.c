@@ -725,7 +725,7 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
       sctx->null_const_buf.buffer_size = sctx->null_const_buf.buffer->width0;
 
       unsigned start_shader = sctx->has_graphics ? 0 : PIPE_SHADER_COMPUTE;
-      for (shader = start_shader; shader < SI_NUM_SHADERS; shader++) {
+      for (shader = start_shader; shader < MESA_SHADER_GL_STAGES; shader++) {
          for (i = 0; i < SI_NUM_CONST_BUFFERS; i++) {
             sctx->b.set_constant_buffer(&sctx->b, shader, i, false, &sctx->null_const_buf);
          }

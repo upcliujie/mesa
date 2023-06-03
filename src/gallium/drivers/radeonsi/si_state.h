@@ -15,9 +15,6 @@
 extern "C" {
 #endif
 
-#define SI_NUM_GRAPHICS_SHADERS (PIPE_SHADER_FRAGMENT + 1)
-#define SI_NUM_SHADERS          (PIPE_SHADER_COMPUTE + 1)
-
 #define SI_NUM_VERTEX_BUFFERS SI_MAX_ATTRIBS
 #define SI_NUM_SAMPLERS       32 /* OpenGL textures units per shader */
 #define SI_NUM_CONST_BUFFERS  16
@@ -226,7 +223,7 @@ static inline unsigned si_atoms_that_always_roll_context(void)
 }
 
 struct si_shader_data {
-   uint32_t sh_base[SI_NUM_SHADERS];
+   uint32_t sh_base[MESA_SHADER_GL_STAGES];
 };
 
 /* The list of registers whose emitted values are remembered by si_context. */
@@ -386,7 +383,7 @@ enum
 #define SI_DESCS_INTERNAL      0
 #define SI_DESCS_FIRST_SHADER  1
 #define SI_DESCS_FIRST_COMPUTE (SI_DESCS_FIRST_SHADER + PIPE_SHADER_COMPUTE * SI_NUM_SHADER_DESCS)
-#define SI_NUM_DESCS           (SI_DESCS_FIRST_SHADER + SI_NUM_SHADERS * SI_NUM_SHADER_DESCS)
+#define SI_NUM_DESCS           (SI_DESCS_FIRST_SHADER + MESA_SHADER_GL_STAGES * SI_NUM_SHADER_DESCS)
 
 #define SI_DESCS_SHADER_MASK(name)                                                                 \
    u_bit_consecutive(SI_DESCS_FIRST_SHADER + PIPE_SHADER_##name * SI_NUM_SHADER_DESCS,             \

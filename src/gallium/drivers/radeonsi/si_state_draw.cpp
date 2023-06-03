@@ -295,7 +295,7 @@ static bool si_update_shaders(struct si_context *sctx)
       uint32_t total_size = 0;
 
       /* Compute pipeline code hash. */
-      for (int i = 0; i < SI_NUM_GRAPHICS_SHADERS; i++) {
+      for (int i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES; i++) {
          struct si_shader *shader = sctx->shaders[i].current;
          if (sctx->shaders[i].cso && shader) {
             pipeline_code_hash = XXH64(
@@ -336,7 +336,7 @@ static bool si_update_shaders(struct si_context *sctx)
             /* Re-upload all gfx shaders and init PM4. */
             si_pm4_clear_state(&pipeline->pm4);
 
-            for (int i = 0; i < SI_NUM_GRAPHICS_SHADERS; i++) {
+            for (int i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES; i++) {
                struct si_shader *shader = sctx->shaders[i].current;
                if (sctx->shaders[i].cso && shader) {
                   struct ac_rtld_binary binary;
@@ -2154,7 +2154,7 @@ static void si_draw(struct pipe_context *ctx,
 
    si_check_dirty_buffers_textures(sctx);
 
-   si_decompress_textures(sctx, u_bit_consecutive(0, SI_NUM_GRAPHICS_SHADERS));
+   si_decompress_textures(sctx, u_bit_consecutive(0, MESA_SHADER_GL_GRAPHICS_STAGES));
    si_need_gfx_cs_space(sctx, num_draws);
 
    unsigned instance_count = info->instance_count;
