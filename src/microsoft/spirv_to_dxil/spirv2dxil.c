@@ -168,7 +168,7 @@ main(int argc, char **argv)
       {"validatorver", required_argument, 0, 'x'},
       {0, 0, 0, 0}};
 
-   struct shader shaders[MESA_SHADER_COMPUTE + 1];
+   struct shader shaders[MESA_SHADER_GL_STAGES];
    memset(shaders, 0, sizeof(shaders));
    struct shader cur_shader = {
       .entry_point = "main",
@@ -258,7 +258,7 @@ main(int argc, char **argv)
    struct dxil_logger logger_inner = {.priv = NULL,
                                       .log = log_spirv_to_dxil_error};
 
-   for (uint32_t i = 0; i <= MESA_SHADER_COMPUTE; ++i) {
+   for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; ++i) {
       if (!shaders[i].nir)
          continue;
       struct blob dxil_blob;
