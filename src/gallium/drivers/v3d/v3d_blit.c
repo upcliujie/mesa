@@ -40,7 +40,7 @@ void
 v3d_blitter_save(struct v3d_context *v3d, bool op_blit, bool render_cond)
 {
         util_blitter_save_fragment_constant_buffer_slot(v3d->blitter,
-                                                        v3d->constbuf[PIPE_SHADER_FRAGMENT].cb);
+                                                        v3d->constbuf[MESA_SHADER_FRAGMENT].cb);
         util_blitter_save_vertex_buffer_slot(v3d->blitter, v3d->vertexbuf.vb);
         util_blitter_save_vertex_elements(v3d->blitter, v3d->vtx);
         util_blitter_save_vertex_shader(v3d->blitter, v3d->prog.bind_vs);
@@ -61,11 +61,11 @@ v3d_blitter_save(struct v3d_context *v3d, bool op_blit, bool render_cond)
                 util_blitter_save_scissor(v3d->blitter, &v3d->scissor);
                 util_blitter_save_framebuffer(v3d->blitter, &v3d->framebuffer);
                 util_blitter_save_fragment_sampler_states(v3d->blitter,
-                                                          v3d->tex[PIPE_SHADER_FRAGMENT].num_samplers,
-                                                          (void **)v3d->tex[PIPE_SHADER_FRAGMENT].samplers);
+                                                          v3d->tex[MESA_SHADER_FRAGMENT].num_samplers,
+                                                          (void **)v3d->tex[MESA_SHADER_FRAGMENT].samplers);
                 util_blitter_save_fragment_sampler_views(v3d->blitter,
-                                                         v3d->tex[PIPE_SHADER_FRAGMENT].num_textures,
-                                                         v3d->tex[PIPE_SHADER_FRAGMENT].textures);
+                                                         v3d->tex[MESA_SHADER_FRAGMENT].num_textures,
+                                                         v3d->tex[MESA_SHADER_FRAGMENT].textures);
         }
 
         if (!render_cond) {
@@ -581,7 +581,7 @@ v3d_get_sand8_vs(struct pipe_context *pctx)
         const struct nir_shader_compiler_options *options =
                 pscreen->get_compiler_options(pscreen,
                                               PIPE_SHADER_IR_NIR,
-                                              PIPE_SHADER_VERTEX);
+                                              MESA_SHADER_VERTEX);
 
         nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX,
                                                        options,
@@ -635,7 +635,7 @@ v3d_get_sand8_fs(struct pipe_context *pctx, int cpp)
         const struct nir_shader_compiler_options *options =
                 pscreen->get_compiler_options(pscreen,
                                               PIPE_SHADER_IR_NIR,
-                                              PIPE_SHADER_FRAGMENT);
+                                              MESA_SHADER_FRAGMENT);
 
         nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT,
                                                        options, "%s", name);
@@ -818,12 +818,12 @@ v3d_sand8_blit(struct pipe_context *pctx, struct pipe_blit_info *info)
                 .buffer_size = sizeof(sand8_stride),
         };
 
-        pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 0, false,
+        pctx->set_constant_buffer(pctx, MESA_SHADER_FRAGMENT, 0, false,
                                   &cb_uniforms);
         struct pipe_constant_buffer saved_fs_cb1 = { 0 };
         pipe_resource_reference(&saved_fs_cb1.buffer,
-                                v3d->constbuf[PIPE_SHADER_FRAGMENT].cb[1].buffer);
-        memcpy(&saved_fs_cb1, &v3d->constbuf[PIPE_SHADER_FRAGMENT].cb[1],
+                                v3d->constbuf[MESA_SHADER_FRAGMENT].cb[1].buffer);
+        memcpy(&saved_fs_cb1, &v3d->constbuf[MESA_SHADER_FRAGMENT].cb[1],
                sizeof(struct pipe_constant_buffer));
         struct pipe_constant_buffer cb_src = {
                 .buffer = info->src.resource,
@@ -831,13 +831,13 @@ v3d_sand8_blit(struct pipe_context *pctx, struct pipe_blit_info *info)
                 .buffer_size = (src->bo->size -
                                 src->slices[info->src.level].offset),
         };
-        pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 1, false,
+        pctx->set_constant_buffer(pctx, MESA_SHADER_FRAGMENT, 1, false,
                                   &cb_src);
         /* Unbind the textures, to make sure we don't try to recurse into the
          * shadow blit.
          */
-        pctx->set_sampler_views(pctx, PIPE_SHADER_FRAGMENT, 0, 0, 0, false, NULL);
-        pctx->bind_sampler_states(pctx, PIPE_SHADER_FRAGMENT, 0, 0, NULL);
+        pctx->set_sampler_views(pctx, MESA_SHADER_FRAGMENT, 0, 0, 0, false, NULL);
+        pctx->bind_sampler_states(pctx, MESA_SHADER_FRAGMENT, 0, 0, NULL);
 
         util_blitter_custom_shader(v3d->blitter, dst_surf,
                                    v3d_get_sand8_vs(pctx),
@@ -847,7 +847,7 @@ v3d_sand8_blit(struct pipe_context *pctx, struct pipe_blit_info *info)
         util_blitter_restore_constant_buffer_state(v3d->blitter);
 
         /* Restore cb1 (util_blitter doesn't handle this one). */
-        pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 1, true,
+        pctx->set_constant_buffer(pctx, MESA_SHADER_FRAGMENT, 1, true,
                                   &saved_fs_cb1);
 
         pipe_surface_reference(&dst_surf, NULL);
@@ -874,7 +874,7 @@ v3d_get_sand30_vs(struct pipe_context *pctx)
         const struct nir_shader_compiler_options *options =
                 pscreen->get_compiler_options(pscreen,
                                               PIPE_SHADER_IR_NIR,
-                                              PIPE_SHADER_VERTEX);
+                                              MESA_SHADER_VERTEX);
 
         nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX,
                                                        options,
@@ -956,7 +956,7 @@ v3d_get_sand30_fs(struct pipe_context *pctx)
         const struct nir_shader_compiler_options *options =
                 pscreen->get_compiler_options(pscreen,
                                               PIPE_SHADER_IR_NIR,
-                                              PIPE_SHADER_FRAGMENT);
+                                              MESA_SHADER_FRAGMENT);
 
         nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT,
                                                        options,
@@ -1142,13 +1142,13 @@ v3d_sand30_blit(struct pipe_context *pctx, struct pipe_blit_info *info)
                 .buffer_size = sizeof(sand30_stride),
         };
 
-        pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 0, false,
+        pctx->set_constant_buffer(pctx, MESA_SHADER_FRAGMENT, 0, false,
                                   &cb_uniforms);
 
         struct pipe_constant_buffer saved_fs_cb1 = { 0 };
         pipe_resource_reference(&saved_fs_cb1.buffer,
-                                v3d->constbuf[PIPE_SHADER_FRAGMENT].cb[1].buffer);
-        memcpy(&saved_fs_cb1, &v3d->constbuf[PIPE_SHADER_FRAGMENT].cb[1],
+                                v3d->constbuf[MESA_SHADER_FRAGMENT].cb[1].buffer);
+        memcpy(&saved_fs_cb1, &v3d->constbuf[MESA_SHADER_FRAGMENT].cb[1],
                sizeof(struct pipe_constant_buffer));
         struct pipe_constant_buffer cb_src = {
                 .buffer = info->src.resource,
@@ -1156,14 +1156,14 @@ v3d_sand30_blit(struct pipe_context *pctx, struct pipe_blit_info *info)
                 .buffer_size = (src->bo->size -
                                 src->slices[info->src.level].offset),
         };
-        pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 1, false,
+        pctx->set_constant_buffer(pctx, MESA_SHADER_FRAGMENT, 1, false,
                                   &cb_src);
         /* Unbind the textures, to make sure we don't try to recurse into the
          * shadow blit.
          */
-        pctx->set_sampler_views(pctx, PIPE_SHADER_FRAGMENT, 0, 0, 0, false,
+        pctx->set_sampler_views(pctx, MESA_SHADER_FRAGMENT, 0, 0, 0, false,
                                 NULL);
-        pctx->bind_sampler_states(pctx, PIPE_SHADER_FRAGMENT, 0, 0, NULL);
+        pctx->bind_sampler_states(pctx, MESA_SHADER_FRAGMENT, 0, 0, NULL);
 
         util_blitter_custom_shader(v3d->blitter, dst_surf,
                                    v3d_get_sand30_vs(pctx),
@@ -1173,7 +1173,7 @@ v3d_sand30_blit(struct pipe_context *pctx, struct pipe_blit_info *info)
         util_blitter_restore_constant_buffer_state(v3d->blitter);
 
         /* Restore cb1 (util_blitter doesn't handle this one). */
-        pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 1, true,
+        pctx->set_constant_buffer(pctx, MESA_SHADER_FRAGMENT, 1, true,
                                   &saved_fs_cb1);
         pipe_surface_reference(&dst_surf, NULL);
 

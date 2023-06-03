@@ -449,19 +449,19 @@ crocus_get_shader_param(struct pipe_screen *pscreen,
    struct crocus_screen *screen = (struct crocus_screen *)pscreen;
    const struct intel_device_info *devinfo = &screen->devinfo;
 
-   if (p_stage == PIPE_SHADER_MESH ||
-       p_stage == PIPE_SHADER_TASK)
+   if (p_stage == MESA_SHADER_MESH ||
+       p_stage == MESA_SHADER_TASK)
       return 0;
 
    if (devinfo->ver < 6 &&
-       p_stage != PIPE_SHADER_VERTEX &&
-       p_stage != PIPE_SHADER_FRAGMENT)
+       p_stage != MESA_SHADER_VERTEX &&
+       p_stage != MESA_SHADER_FRAGMENT)
       return 0;
 
    if (devinfo->ver == 6 &&
-       p_stage != PIPE_SHADER_VERTEX &&
-       p_stage != PIPE_SHADER_FRAGMENT &&
-       p_stage != PIPE_SHADER_GEOMETRY)
+       p_stage != MESA_SHADER_VERTEX &&
+       p_stage != MESA_SHADER_FRAGMENT &&
+       p_stage != MESA_SHADER_GEOMETRY)
       return 0;
 
    /* this is probably not totally correct.. but it's a start: */
@@ -512,8 +512,8 @@ crocus_get_shader_param(struct pipe_screen *pscreen,
       return (devinfo->verx10 >= 75) ? CROCUS_MAX_TEXTURE_SAMPLERS : 16;
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
       if (devinfo->ver >= 7 &&
-          (p_stage == PIPE_SHADER_FRAGMENT ||
-           p_stage == PIPE_SHADER_COMPUTE))
+          (p_stage == MESA_SHADER_FRAGMENT ||
+           p_stage == MESA_SHADER_COMPUTE))
          return CROCUS_MAX_TEXTURE_SAMPLERS;
       return 0;
    case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:

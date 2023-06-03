@@ -337,12 +337,12 @@ softpipe_get_shader_param(struct pipe_screen *screen,
 
    switch(shader)
    {
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return tgsi_exec_get_shader_param(param);
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       return tgsi_exec_get_shader_param(param);
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_GEOMETRY:
       if (sp_screen->use_llvm)
          return draw_get_shader_param(shader, param);
       else

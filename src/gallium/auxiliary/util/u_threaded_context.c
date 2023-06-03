@@ -892,15 +892,15 @@ tc_add_all_gfx_bindings_to_buffer_list(struct threaded_context *tc)
    if (tc->seen_streamout_buffers)
       tc_add_bindings_to_buffer_list(buffer_list, tc->streamout_buffers, PIPE_MAX_SO_BUFFERS);
 
-   tc_add_shader_bindings_to_buffer_list(tc, buffer_list, PIPE_SHADER_VERTEX);
-   tc_add_shader_bindings_to_buffer_list(tc, buffer_list, PIPE_SHADER_FRAGMENT);
+   tc_add_shader_bindings_to_buffer_list(tc, buffer_list, MESA_SHADER_VERTEX);
+   tc_add_shader_bindings_to_buffer_list(tc, buffer_list, MESA_SHADER_FRAGMENT);
 
    if (tc->seen_tcs)
-      tc_add_shader_bindings_to_buffer_list(tc, buffer_list, PIPE_SHADER_TESS_CTRL);
+      tc_add_shader_bindings_to_buffer_list(tc, buffer_list, MESA_SHADER_TESS_CTRL);
    if (tc->seen_tes)
-      tc_add_shader_bindings_to_buffer_list(tc, buffer_list, PIPE_SHADER_TESS_EVAL);
+      tc_add_shader_bindings_to_buffer_list(tc, buffer_list, MESA_SHADER_TESS_EVAL);
    if (tc->seen_gs)
-      tc_add_shader_bindings_to_buffer_list(tc, buffer_list, PIPE_SHADER_GEOMETRY);
+      tc_add_shader_bindings_to_buffer_list(tc, buffer_list, MESA_SHADER_GEOMETRY);
 
    tc->add_all_gfx_bindings_to_buffer_list = false;
 }
@@ -914,7 +914,7 @@ tc_add_all_compute_bindings_to_buffer_list(struct threaded_context *tc)
 {
    BITSET_WORD *buffer_list = tc->buffer_lists[tc->next_buf_list].buffer_list;
 
-   tc_add_shader_bindings_to_buffer_list(tc, buffer_list, PIPE_SHADER_COMPUTE);
+   tc_add_shader_bindings_to_buffer_list(tc, buffer_list, MESA_SHADER_COMPUTE);
    tc->add_all_compute_bindings_to_buffer_list = false;
 }
 
@@ -936,17 +936,17 @@ tc_rebind_buffer(struct threaded_context *tc, uint32_t old_id, uint32_t new_id, 
    }
    unsigned rebound = vbo + so;
 
-   rebound += tc_rebind_shader_bindings(tc, old_id, new_id, PIPE_SHADER_VERTEX, rebind_mask);
-   rebound += tc_rebind_shader_bindings(tc, old_id, new_id, PIPE_SHADER_FRAGMENT, rebind_mask);
+   rebound += tc_rebind_shader_bindings(tc, old_id, new_id, MESA_SHADER_VERTEX, rebind_mask);
+   rebound += tc_rebind_shader_bindings(tc, old_id, new_id, MESA_SHADER_FRAGMENT, rebind_mask);
 
    if (tc->seen_tcs)
-      rebound += tc_rebind_shader_bindings(tc, old_id, new_id, PIPE_SHADER_TESS_CTRL, rebind_mask);
+      rebound += tc_rebind_shader_bindings(tc, old_id, new_id, MESA_SHADER_TESS_CTRL, rebind_mask);
    if (tc->seen_tes)
-      rebound += tc_rebind_shader_bindings(tc, old_id, new_id, PIPE_SHADER_TESS_EVAL, rebind_mask);
+      rebound += tc_rebind_shader_bindings(tc, old_id, new_id, MESA_SHADER_TESS_EVAL, rebind_mask);
    if (tc->seen_gs)
-      rebound += tc_rebind_shader_bindings(tc, old_id, new_id, PIPE_SHADER_GEOMETRY, rebind_mask);
+      rebound += tc_rebind_shader_bindings(tc, old_id, new_id, MESA_SHADER_GEOMETRY, rebind_mask);
 
-   rebound += tc_rebind_shader_bindings(tc, old_id, new_id, PIPE_SHADER_COMPUTE, rebind_mask);
+   rebound += tc_rebind_shader_bindings(tc, old_id, new_id, MESA_SHADER_COMPUTE, rebind_mask);
 
    if (rebound)
       BITSET_SET(tc->buffer_lists[tc->next_buf_list].buffer_list, new_id & TC_BUFFER_ID_MASK);
@@ -988,21 +988,21 @@ tc_is_buffer_bound_for_write(struct threaded_context *tc, uint32_t id)
                                     BITFIELD_MASK(PIPE_MAX_SO_BUFFERS)))
       return true;
 
-   if (tc_is_buffer_shader_bound_for_write(tc, id, PIPE_SHADER_VERTEX) ||
-       tc_is_buffer_shader_bound_for_write(tc, id, PIPE_SHADER_FRAGMENT) ||
-       tc_is_buffer_shader_bound_for_write(tc, id, PIPE_SHADER_COMPUTE))
+   if (tc_is_buffer_shader_bound_for_write(tc, id, MESA_SHADER_VERTEX) ||
+       tc_is_buffer_shader_bound_for_write(tc, id, MESA_SHADER_FRAGMENT) ||
+       tc_is_buffer_shader_bound_for_write(tc, id, MESA_SHADER_COMPUTE))
       return true;
 
    if (tc->seen_tcs &&
-       tc_is_buffer_shader_bound_for_write(tc, id, PIPE_SHADER_TESS_CTRL))
+       tc_is_buffer_shader_bound_for_write(tc, id, MESA_SHADER_TESS_CTRL))
       return true;
 
    if (tc->seen_tes &&
-       tc_is_buffer_shader_bound_for_write(tc, id, PIPE_SHADER_TESS_EVAL))
+       tc_is_buffer_shader_bound_for_write(tc, id, MESA_SHADER_TESS_EVAL))
       return true;
 
    if (tc->seen_gs &&
-       tc_is_buffer_shader_bound_for_write(tc, id, PIPE_SHADER_GEOMETRY))
+       tc_is_buffer_shader_bound_for_write(tc, id, MESA_SHADER_GEOMETRY))
       return true;
 
    return false;
@@ -5021,16 +5021,16 @@ threaded_context_create(struct pipe_context *pipe,
    tc->max_vertex_buffers =
       screen->get_param(screen, PIPE_CAP_MAX_VERTEX_BUFFERS);
    tc->max_const_buffers =
-      screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+      screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                PIPE_SHADER_CAP_MAX_CONST_BUFFERS);
    tc->max_shader_buffers =
-      screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+      screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                PIPE_SHADER_CAP_MAX_SHADER_BUFFERS);
    tc->max_images =
-      screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+      screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                PIPE_SHADER_CAP_MAX_SHADER_IMAGES);
    tc->max_samplers =
-      screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT,
+      screen->get_shader_param(screen, MESA_SHADER_FRAGMENT,
                                PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS);
 
    tc->base.set_context_param = tc_set_context_param; /* always set this */

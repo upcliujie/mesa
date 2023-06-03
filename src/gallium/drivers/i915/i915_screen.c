@@ -178,7 +178,7 @@ i915_get_compiler_options(struct pipe_screen *pscreen, enum pipe_shader_ir ir,
                           enum pipe_shader_type shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
-   if (shader == PIPE_SHADER_FRAGMENT)
+   if (shader == MESA_SHADER_FRAGMENT)
       return &i915_compiler_options;
    else
       return &gallivm_nir_options;
@@ -313,7 +313,7 @@ i915_get_shader_param(struct pipe_screen *screen, enum pipe_shader_type shader,
    }
 
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       switch (cap) {
       case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
       case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
@@ -324,7 +324,7 @@ i915_get_shader_param(struct pipe_screen *screen, enum pipe_shader_type shader,
       default:
          return draw_get_shader_param(shader, cap);
       }
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       /* XXX: some of these are just shader model 2.0 values, fix this! */
       switch (cap) {
       case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:

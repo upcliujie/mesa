@@ -386,13 +386,13 @@ llvmpipe_get_shader_param(struct pipe_screen *screen,
 {
    struct llvmpipe_screen *lscreen = llvmpipe_screen(screen);
    switch (shader) {
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       if ((lscreen->allow_cl) && param == PIPE_SHADER_CAP_SUPPORTED_IRS)
          return ((1 << PIPE_SHADER_IR_TGSI) |
                  (1 << PIPE_SHADER_IR_NIR) |
                  (1 << PIPE_SHADER_IR_NIR_SERIALIZED));
       FALLTHROUGH;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       if (param == PIPE_SHADER_CAP_PREFERRED_IR) {
          if (lscreen->use_tgsi)
             return PIPE_SHADER_IR_TGSI;
@@ -400,14 +400,14 @@ llvmpipe_get_shader_param(struct pipe_screen *screen,
             return PIPE_SHADER_IR_NIR;
       }
       return gallivm_get_shader_param(param);
-   case PIPE_SHADER_TESS_CTRL:
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_EVAL:
       /* Tessellation shader needs llvm coroutines support */
       if (!GALLIVM_COROUTINES || lscreen->use_tgsi)
          return 0;
       FALLTHROUGH;
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_GEOMETRY:
       switch (param) {
       case PIPE_SHADER_CAP_PREFERRED_IR:
          if (lscreen->use_tgsi)

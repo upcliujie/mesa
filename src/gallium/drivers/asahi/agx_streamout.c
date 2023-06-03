@@ -101,7 +101,7 @@ agx_batch_get_so_address(struct agx_batch *batch, unsigned buffer,
 
    /* Otherwise, write the target */
    struct pipe_stream_output_info *so =
-      &batch->ctx->stage[PIPE_SHADER_VERTEX].shader->base.stream_output;
+      &batch->ctx->stage[MESA_SHADER_VERTEX].shader->base.stream_output;
 
    struct agx_resource *rsrc = agx_resource(target->buffer);
    agx_batch_writes(batch, rsrc);
@@ -216,7 +216,7 @@ agx_launch_so(struct pipe_context *pctx, const struct pipe_draw_info *info,
             continue;
 
          struct pipe_stream_output_info *so =
-            &ctx->stage[PIPE_SHADER_VERTEX].shader->base.stream_output;
+            &ctx->stage[MESA_SHADER_VERTEX].shader->base.stream_output;
          unsigned stride = so->stride[i] * 4;
 
          /* Ignore spurious targets. I don't see anything in the Gallium

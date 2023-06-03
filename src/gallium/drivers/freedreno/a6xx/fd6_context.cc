@@ -173,42 +173,42 @@ setup_state_map(struct fd_context *ctx)
    fd_context_add_map(ctx, FD_DIRTY_BLEND_COHERENT,
       BIT(FD6_GROUP_PRIM_MODE_SYSMEM) | BIT(FD6_GROUP_PRIM_MODE_GMEM));
 
-   fd_context_add_shader_map(ctx, PIPE_SHADER_VERTEX, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_VERTEX, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_VS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_TESS_CTRL, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_TESS_CTRL, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_HS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_TESS_EVAL, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_TESS_EVAL, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_DS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_GEOMETRY, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_GEOMETRY, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_GS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_FRAGMENT, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_FRAGMENT, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_FS_TEX));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_COMPUTE, FD_DIRTY_SHADER_TEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_COMPUTE, FD_DIRTY_SHADER_TEX,
                              BIT(FD6_GROUP_CS_TEX));
 
-   fd_context_add_shader_map(ctx, PIPE_SHADER_VERTEX,
+   fd_context_add_shader_map(ctx, MESA_SHADER_VERTEX,
                              FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE,
                              BIT(FD6_GROUP_VS_BINDLESS));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_TESS_CTRL,
+   fd_context_add_shader_map(ctx, MESA_SHADER_TESS_CTRL,
                              FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE,
                              BIT(FD6_GROUP_HS_BINDLESS));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_TESS_EVAL,
+   fd_context_add_shader_map(ctx, MESA_SHADER_TESS_EVAL,
                              FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE,
                              BIT(FD6_GROUP_DS_BINDLESS));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_GEOMETRY,
+   fd_context_add_shader_map(ctx, MESA_SHADER_GEOMETRY,
                              FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE,
                              BIT(FD6_GROUP_GS_BINDLESS));
    /* NOTE: FD6_GROUP_FS_BINDLESS has a weak dependency on the program
     * state (ie. it needs to be re-generated with fb-read descriptor
     * patched in) but this special case is handled in fd6_emit_3d_state()
     */
-   fd_context_add_shader_map(ctx, PIPE_SHADER_FRAGMENT,
+   fd_context_add_shader_map(ctx, MESA_SHADER_FRAGMENT,
                              FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE,
                              BIT(FD6_GROUP_FS_BINDLESS));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_COMPUTE,
+   fd_context_add_shader_map(ctx, MESA_SHADER_COMPUTE,
                              FD_DIRTY_SHADER_SSBO | FD_DIRTY_SHADER_IMAGE,
                              BIT(FD6_GROUP_CS_BINDLESS));
-   fd_context_add_shader_map(ctx, PIPE_SHADER_FRAGMENT,
+   fd_context_add_shader_map(ctx, MESA_SHADER_FRAGMENT,
                              FD_DIRTY_SHADER_PROG,
                              BIT(FD6_GROUP_PRIM_MODE_SYSMEM) | BIT(FD6_GROUP_PRIM_MODE_GMEM));
 

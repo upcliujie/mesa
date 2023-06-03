@@ -1679,14 +1679,14 @@ agx_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type shader,
    bool is_no16 = agx_device(pscreen)->debug & AGX_DBG_NO16;
    bool is_deqp = agx_device(pscreen)->debug & AGX_DBG_DEQP;
 
-   if (shader != PIPE_SHADER_VERTEX && shader != PIPE_SHADER_FRAGMENT &&
-       !(shader == PIPE_SHADER_COMPUTE && is_deqp))
+   if (shader != MESA_SHADER_VERTEX && shader != MESA_SHADER_FRAGMENT &&
+       !(shader == MESA_SHADER_COMPUTE && is_deqp))
       return 0;
 
    /* Don't allow side effects with vertex processing. The APIs don't require it
     * and it may be problematic on our hardware.
     */
-   bool allow_side_effects = (shader != PIPE_SHADER_VERTEX);
+   bool allow_side_effects = (shader != MESA_SHADER_VERTEX);
 
    /* this is probably not totally correct.. but it's a start: */
    switch (param) {
@@ -1703,7 +1703,7 @@ agx_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type shader,
       return 16;
 
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
-      return shader == PIPE_SHADER_FRAGMENT ? 8 : 16;
+      return shader == MESA_SHADER_FRAGMENT ? 8 : 16;
 
    case PIPE_SHADER_CAP_MAX_TEMPS:
       return 256; /* GL_MAX_PROGRAM_TEMPORARIES_ARB */

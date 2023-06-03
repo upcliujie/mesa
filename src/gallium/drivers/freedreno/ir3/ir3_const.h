@@ -570,7 +570,7 @@ ir3_emit_vs_consts(const struct ir3_shader_variant *v,
 {
    assert(v->type == MESA_SHADER_VERTEX);
 
-   emit_common_consts(v, ring, ctx, PIPE_SHADER_VERTEX);
+   emit_common_consts(v, ring, ctx, MESA_SHADER_VERTEX);
 
    /* emit driver params every time: */
    if (info && v->need_driver_params) {
@@ -585,7 +585,7 @@ ir3_emit_fs_consts(const struct ir3_shader_variant *v,
 {
    assert(v->type == MESA_SHADER_FRAGMENT);
 
-   emit_common_consts(v, ring, ctx, PIPE_SHADER_FRAGMENT);
+   emit_common_consts(v, ring, ctx, MESA_SHADER_FRAGMENT);
 }
 
 static inline void
@@ -670,7 +670,7 @@ ir3_emit_cs_consts(const struct ir3_shader_variant *v,
 {
    assert(gl_shader_stage_is_compute(v->type));
 
-   emit_common_consts(v, ring, ctx, PIPE_SHADER_COMPUTE);
+   emit_common_consts(v, ring, ctx, MESA_SHADER_COMPUTE);
 
    ir3_emit_cs_driver_params(v, ring, ctx, info);
 }

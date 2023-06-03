@@ -384,12 +384,12 @@ nvc0_screen_get_shader_param(struct pipe_screen *pscreen,
    const uint16_t class_3d = screen->class_3d;
 
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_GEOMETRY:
-   case PIPE_SHADER_FRAGMENT:
-   case PIPE_SHADER_COMPUTE:
-   case PIPE_SHADER_TESS_CTRL:
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_GEOMETRY:
+   case MESA_SHADER_FRAGMENT:
+   case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_EVAL:
       break;
    default:
       return 0;
@@ -422,7 +422,7 @@ nvc0_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_CONST_BUFFERS:
       return NVC0_MAX_PIPE_CONSTBUFS;
    case PIPE_SHADER_CAP_INDIRECT_OUTPUT_ADDR:
-      return shader != PIPE_SHADER_FRAGMENT;
+      return shader != MESA_SHADER_FRAGMENT;
    case PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR:
       /* HW doesn't support indirect addressing of fragment program inputs
        * on Volta.  The binary driver generates a function to handle every
@@ -430,7 +430,7 @@ nvc0_screen_get_shader_param(struct pipe_screen *pscreen,
        * this instead.
        */
       if (class_3d >= GV100_3D_CLASS)
-         return shader != PIPE_SHADER_FRAGMENT;
+         return shader != MESA_SHADER_FRAGMENT;
       return 1;
    case PIPE_SHADER_CAP_INDIRECT_TEMP_ADDR:
    case PIPE_SHADER_CAP_INDIRECT_CONST_ADDR:
@@ -466,7 +466,7 @@ nvc0_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
       if (class_3d >= NVE4_3D_CLASS)
          return NVC0_MAX_IMAGES;
-      if (shader == PIPE_SHADER_FRAGMENT || shader == PIPE_SHADER_COMPUTE)
+      if (shader == MESA_SHADER_FRAGMENT || shader == MESA_SHADER_COMPUTE)
          return NVC0_MAX_IMAGES;
       return 0;
    default:

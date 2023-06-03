@@ -336,7 +336,7 @@ impl PipeContext {
         unsafe {
             self.pipe.as_ref().bind_sampler_states.unwrap()(
                 self.pipe.as_ptr(),
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 0,
                 samplers.len() as u32,
                 samplers.as_mut_ptr(),
@@ -348,7 +348,7 @@ impl PipeContext {
         unsafe {
             self.pipe.as_ref().bind_sampler_states.unwrap()(
                 self.pipe.as_ptr(),
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 0,
                 count,
                 ptr::null_mut(),
@@ -370,7 +370,7 @@ impl PipeContext {
         unsafe {
             self.pipe.as_ref().set_constant_buffer.unwrap()(
                 self.pipe.as_ptr(),
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 idx,
                 false,
                 &cb,
@@ -452,7 +452,7 @@ impl PipeContext {
         unsafe {
             self.pipe.as_ref().set_sampler_views.unwrap()(
                 self.pipe.as_ptr(),
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 0,
                 views.len() as u32,
                 0,
@@ -466,7 +466,7 @@ impl PipeContext {
         unsafe {
             self.pipe.as_ref().set_sampler_views.unwrap()(
                 self.pipe.as_ptr(),
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 0,
                 count,
                 0,
@@ -484,7 +484,7 @@ impl PipeContext {
         unsafe {
             self.pipe.as_ref().set_shader_images.unwrap()(
                 self.pipe.as_ptr(),
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 0,
                 images.len() as u32,
                 0,
@@ -497,7 +497,7 @@ impl PipeContext {
         unsafe {
             self.pipe.as_ref().set_shader_images.unwrap()(
                 self.pipe.as_ptr(),
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 0,
                 count,
                 0,

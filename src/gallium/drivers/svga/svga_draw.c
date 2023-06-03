@@ -356,12 +356,12 @@ svga_validate_sampler_resources(struct svga_context *svga,
    assert(svga_have_vgpu10(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_COMPUTE;
    }
    else {
       assert(svga_have_gl43(svga));
-      first_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
       last_shader = first_shader+1;
    }
 
@@ -393,7 +393,7 @@ svga_validate_sampler_resources(struct svga_context *svga,
          }
       }
 
-      if (shader == PIPE_SHADER_FRAGMENT &&
+      if (shader == MESA_SHADER_FRAGMENT &&
           svga->curr.rast->templ.poly_stipple_enable) {
          const unsigned unit =
             svga_fs_variant(svga->state.hw_draw.fs)->pstipple_sampler_unit;
@@ -439,12 +439,12 @@ svga_validate_constant_buffers(struct svga_context *svga,
    assert(svga_have_vgpu10(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_COMPUTE;
    }
    else {
       assert(svga_have_gl43(svga));
-      first_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
       last_shader = first_shader + 1;
    }
 
@@ -541,11 +541,11 @@ svga_validate_image_views(struct svga_context *svga,
    assert(svga_have_gl43(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_COMPUTE;
    }
    else {
-      first_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
       last_shader = first_shader + 1;
    }
 
@@ -580,11 +580,11 @@ svga_validate_shader_buffers(struct svga_context *svga,
    assert(svga_have_gl43(svga));
 
    if (pipe_type == SVGA_PIPE_GRAPHICS) {
-      first_shader = PIPE_SHADER_VERTEX;
-      last_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_VERTEX;
+      last_shader = MESA_SHADER_COMPUTE;
    }
    else {
-      first_shader = PIPE_SHADER_COMPUTE;
+      first_shader = MESA_SHADER_COMPUTE;
       last_shader = first_shader + 1;
    }
 

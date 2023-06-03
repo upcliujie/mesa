@@ -224,14 +224,14 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 		}
 	}
 	
-	if (shader->shader.processor_type == PIPE_SHADER_VERTEX) {
+	if (shader->shader.processor_type == MESA_SHADER_VERTEX) {
 		/* only disable for vertex shaders in tess paths */
 		if (key.vs.as_ls)
 			use_sb = 0;
 	}
-	use_sb &= (shader->shader.processor_type != PIPE_SHADER_TESS_CTRL);
-	use_sb &= (shader->shader.processor_type != PIPE_SHADER_TESS_EVAL);
-	use_sb &= (shader->shader.processor_type != PIPE_SHADER_COMPUTE);
+	use_sb &= (shader->shader.processor_type != MESA_SHADER_TESS_CTRL);
+	use_sb &= (shader->shader.processor_type != MESA_SHADER_TESS_EVAL);
+	use_sb &= (shader->shader.processor_type != MESA_SHADER_COMPUTE);
 
 	/* disable SB for shaders using doubles */
 	use_sb &= !shader->shader.uses_doubles;
@@ -300,16 +300,16 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 
 	/* Build state. */
 	switch (shader->shader.processor_type) {
-	case PIPE_SHADER_TESS_CTRL:
+	case MESA_SHADER_TESS_CTRL:
 		evergreen_update_hs_state(ctx, shader);
 		break;
-	case PIPE_SHADER_TESS_EVAL:
+	case MESA_SHADER_TESS_EVAL:
 		if (key.tes.as_es)
 			evergreen_update_es_state(ctx, shader);
 		else
 			evergreen_update_vs_state(ctx, shader);
 		break;
-	case PIPE_SHADER_GEOMETRY:
+	case MESA_SHADER_GEOMETRY:
 		if (rctx->b.gfx_level >= EVERGREEN) {
 			evergreen_update_gs_state(ctx, shader);
 			evergreen_update_vs_state(ctx, shader->gs_copy_shader);
@@ -318,7 +318,7 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 			r600_update_vs_state(ctx, shader->gs_copy_shader);
 		}
 		break;
-	case PIPE_SHADER_VERTEX:
+	case MESA_SHADER_VERTEX:
 		export_shader = key.vs.as_es;
 		if (rctx->b.gfx_level >= EVERGREEN) {
 			if (key.vs.as_ls)
@@ -334,14 +334,14 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 				r600_update_vs_state(ctx, shader);
 		}
 		break;
-	case PIPE_SHADER_FRAGMENT:
+	case MESA_SHADER_FRAGMENT:
 		if (rctx->b.gfx_level >= EVERGREEN) {
 			evergreen_update_ps_state(ctx, shader);
 		} else {
 			r600_update_ps_state(ctx, shader);
 		}
 		break;
-	case PIPE_SHADER_COMPUTE:
+	case MESA_SHADER_COMPUTE:
 		evergreen_update_ls_state(ctx, shader);
 		break;
 	default:
@@ -681,7 +681,7 @@ int generate_gs_copy_shader(struct r600_context *rctx,
 
 	ctx.shader = &cshader->shader;
 	ctx.bc = &ctx.shader->bc;
-	ctx.type = ctx.bc->type = PIPE_SHADER_VERTEX;
+	ctx.type = ctx.bc->type = MESA_SHADER_VERTEX;
 
 	r600_bytecode_init(ctx.bc, rctx->b.gfx_level, rctx->b.family,
 			   rctx->screen->has_compressed_msaa_texturing);

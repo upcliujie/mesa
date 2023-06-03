@@ -325,7 +325,7 @@ nv30_screen_get_shader_param(struct pipe_screen *pscreen,
    struct nouveau_object *eng3d = screen->eng3d;
 
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       switch (param) {
       case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
       case PIPE_SHADER_CAP_MAX_ALU_INSTRUCTIONS:
@@ -377,7 +377,7 @@ nv30_screen_get_shader_param(struct pipe_screen *pscreen,
          return 0;
       }
       break;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       switch (param) {
       case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
       case PIPE_SHADER_CAP_MAX_ALU_INSTRUCTIONS:
@@ -507,7 +507,7 @@ nv30_screen_get_compiler_options(struct pipe_screen *pscreen,
    /* The FS compiler options are different between nv30 and nv40, and are set
     * up at screen creation time.
     */
-   if (shader == PIPE_SHADER_FRAGMENT)
+   if (shader == MESA_SHADER_FRAGMENT)
       return &screen->fs_compiler_options;
 
    return &nv30_base_compiler_options;

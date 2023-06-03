@@ -324,7 +324,7 @@ si_get_user_data_base(enum amd_gfx_level gfx_level, enum si_has_tess has_tess,
                       enum pipe_shader_type shader)
 {
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       /* VS can be bound as VS, ES, or LS. */
       if (has_tess) {
          if (gfx_level >= GFX10) {
@@ -346,14 +346,14 @@ si_get_user_data_base(enum amd_gfx_level gfx_level, enum si_has_tess has_tess,
          return R_00B130_SPI_SHADER_USER_DATA_VS_0;
       }
 
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       if (gfx_level == GFX9) {
          return R_00B430_SPI_SHADER_USER_DATA_LS_0;
       } else {
          return R_00B430_SPI_SHADER_USER_DATA_HS_0;
       }
 
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       /* TES can be bound as ES, VS, or not bound. */
       if (has_tess) {
          if (gfx_level >= GFX10) {
@@ -371,7 +371,7 @@ si_get_user_data_base(enum amd_gfx_level gfx_level, enum si_has_tess has_tess,
          return 0;
       }
 
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       if (gfx_level == GFX9) {
          return R_00B330_SPI_SHADER_USER_DATA_ES_0;
       } else {

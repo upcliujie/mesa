@@ -288,11 +288,11 @@ panfrost_update_shader_variant(struct panfrost_context *ctx,
                                enum pipe_shader_type type)
 {
    /* No shader variants for compute */
-   if (type == PIPE_SHADER_COMPUTE)
+   if (type == MESA_SHADER_COMPUTE)
       return;
 
    /* We need linking information, defer this */
-   if (type == PIPE_SHADER_FRAGMENT && !ctx->uncompiled[PIPE_SHADER_VERTEX])
+   if (type == MESA_SHADER_FRAGMENT && !ctx->uncompiled[MESA_SHADER_VERTEX])
       return;
 
    /* Also defer, happens with GALLIUM_HUD */
@@ -327,17 +327,17 @@ panfrost_update_shader_variant(struct panfrost_context *ctx,
 static void
 panfrost_bind_vs_state(struct pipe_context *pctx, void *hwcso)
 {
-   panfrost_bind_shader_state(pctx, hwcso, PIPE_SHADER_VERTEX);
+   panfrost_bind_shader_state(pctx, hwcso, MESA_SHADER_VERTEX);
 
    /* Fragment shaders are linked with vertex shaders */
    struct panfrost_context *ctx = pan_context(pctx);
-   panfrost_update_shader_variant(ctx, PIPE_SHADER_FRAGMENT);
+   panfrost_update_shader_variant(ctx, MESA_SHADER_FRAGMENT);
 }
 
 static void
 panfrost_bind_fs_state(struct pipe_context *pctx, void *hwcso)
 {
-   panfrost_bind_shader_state(pctx, hwcso, PIPE_SHADER_FRAGMENT);
+   panfrost_bind_shader_state(pctx, hwcso, MESA_SHADER_FRAGMENT);
 }
 
 static void *
@@ -481,9 +481,9 @@ panfrost_bind_compute_state(struct pipe_context *pipe, void *cso)
    struct panfrost_context *ctx = pan_context(pipe);
    struct panfrost_uncompiled_shader *uncompiled = cso;
 
-   ctx->uncompiled[PIPE_SHADER_COMPUTE] = uncompiled;
+   ctx->uncompiled[MESA_SHADER_COMPUTE] = uncompiled;
 
-   ctx->prog[PIPE_SHADER_COMPUTE] =
+   ctx->prog[MESA_SHADER_COMPUTE] =
       uncompiled ? util_dynarray_begin(&uncompiled->variants) : NULL;
 }
 

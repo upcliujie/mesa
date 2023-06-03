@@ -211,10 +211,10 @@ nv30_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
 {
    assert(start == 0);
    switch (shader) {
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       nv30_fragtex_set_sampler_views(pipe, nr, take_ownership, views);
       break;
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       nv40_verttex_set_sampler_views(pipe, nr, take_ownership, views);
       break;
    default:

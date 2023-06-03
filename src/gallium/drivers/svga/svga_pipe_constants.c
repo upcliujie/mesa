@@ -84,30 +84,30 @@ svga_set_constant_buffer(struct pipe_context *pipe,
    svga->curr.constbufs[shader][index].user_buffer = NULL; /* not used */
 
    if (index == 0) {
-      if (shader == PIPE_SHADER_FRAGMENT)
+      if (shader == MESA_SHADER_FRAGMENT)
          svga->dirty |= SVGA_NEW_FS_CONSTS;
-      else if (shader == PIPE_SHADER_VERTEX)
+      else if (shader == MESA_SHADER_VERTEX)
          svga->dirty |= SVGA_NEW_VS_CONSTS;
-      else if (shader == PIPE_SHADER_GEOMETRY)
+      else if (shader == MESA_SHADER_GEOMETRY)
          svga->dirty |= SVGA_NEW_GS_CONSTS;
-      else if (shader == PIPE_SHADER_TESS_CTRL)
+      else if (shader == MESA_SHADER_TESS_CTRL)
          svga->dirty |= SVGA_NEW_TCS_CONSTS;
-      else if (shader == PIPE_SHADER_TESS_EVAL)
+      else if (shader == MESA_SHADER_TESS_EVAL)
          svga->dirty |= SVGA_NEW_TES_CONSTS;
-      else if (shader == PIPE_SHADER_COMPUTE)
+      else if (shader == MESA_SHADER_COMPUTE)
          svga->dirty |= SVGA_NEW_CS_CONSTS;
    } else {
-      if (shader == PIPE_SHADER_FRAGMENT)
+      if (shader == MESA_SHADER_FRAGMENT)
          svga->dirty |= SVGA_NEW_FS_CONST_BUFFER;
-      else if (shader == PIPE_SHADER_VERTEX)
+      else if (shader == MESA_SHADER_VERTEX)
          svga->dirty |= SVGA_NEW_VS_CONST_BUFFER;
-      else if (shader == PIPE_SHADER_GEOMETRY)
+      else if (shader == MESA_SHADER_GEOMETRY)
          svga->dirty |= SVGA_NEW_GS_CONST_BUFFER;
-      else if (shader == PIPE_SHADER_TESS_CTRL)
+      else if (shader == MESA_SHADER_TESS_CTRL)
          svga->dirty |= SVGA_NEW_TCS_CONST_BUFFER;
-      else if (shader == PIPE_SHADER_TESS_EVAL)
+      else if (shader == MESA_SHADER_TESS_EVAL)
          svga->dirty |= SVGA_NEW_TES_CONST_BUFFER;
-      else if (shader == PIPE_SHADER_COMPUTE)
+      else if (shader == MESA_SHADER_COMPUTE)
          svga->dirty |= SVGA_NEW_CS_CONST_BUFFER;
 
       /* update bitmask of dirty const buffers */

@@ -378,9 +378,9 @@ panfrost_get_shader_param(struct pipe_screen *screen,
    bool is_nofp16 = dev->debug & PAN_DBG_NOFP16;
 
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
-   case PIPE_SHADER_FRAGMENT:
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_FRAGMENT:
+   case MESA_SHADER_COMPUTE:
       break;
    default:
       return 0;
@@ -390,7 +390,7 @@ panfrost_get_shader_param(struct pipe_screen *screen,
     * fragment shaders. Side effects in the geometry pipeline cause
     * trouble with IDVS and conflict with our transform feedback lowering.
     */
-   bool allow_side_effects = (shader != PIPE_SHADER_VERTEX);
+   bool allow_side_effects = (shader != MESA_SHADER_VERTEX);
 
    switch (param) {
    case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
@@ -407,7 +407,7 @@ panfrost_get_shader_param(struct pipe_screen *screen,
       return 16;
 
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
-      return shader == PIPE_SHADER_FRAGMENT ? 8 : PIPE_MAX_ATTRIBS;
+      return shader == MESA_SHADER_FRAGMENT ? 8 : PIPE_MAX_ATTRIBS;
 
    case PIPE_SHADER_CAP_MAX_TEMPS:
       return 256; /* arbitrary */

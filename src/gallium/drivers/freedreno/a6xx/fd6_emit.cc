@@ -614,23 +614,23 @@ fd6_emit_3d_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
          fd6_state_take_group(&emit->state, state, FD6_GROUP_BLEND_COLOR);
          break;
       case FD6_GROUP_VS_BINDLESS:
-         state = fd6_build_bindless_state<CHIP>(ctx, PIPE_SHADER_VERTEX, false);
+         state = fd6_build_bindless_state<CHIP>(ctx, MESA_SHADER_VERTEX, false);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_VS_BINDLESS);
          break;
       case FD6_GROUP_HS_BINDLESS:
-         state = fd6_build_bindless_state<CHIP>(ctx, PIPE_SHADER_TESS_CTRL, false);
+         state = fd6_build_bindless_state<CHIP>(ctx, MESA_SHADER_TESS_CTRL, false);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_HS_BINDLESS);
          break;
       case FD6_GROUP_DS_BINDLESS:
-         state = fd6_build_bindless_state<CHIP>(ctx, PIPE_SHADER_TESS_EVAL, false);
+         state = fd6_build_bindless_state<CHIP>(ctx, MESA_SHADER_TESS_EVAL, false);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_DS_BINDLESS);
          break;
       case FD6_GROUP_GS_BINDLESS:
-         state = fd6_build_bindless_state<CHIP>(ctx, PIPE_SHADER_GEOMETRY, false);
+         state = fd6_build_bindless_state<CHIP>(ctx, MESA_SHADER_GEOMETRY, false);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_GS_BINDLESS);
          break;
       case FD6_GROUP_FS_BINDLESS:
-         state = fd6_build_bindless_state<CHIP>(ctx, PIPE_SHADER_FRAGMENT, fs->fb_read);
+         state = fd6_build_bindless_state<CHIP>(ctx, MESA_SHADER_FRAGMENT, fs->fb_read);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_FS_BINDLESS);
          break;
       case FD6_GROUP_CONST:
@@ -648,23 +648,23 @@ fd6_emit_3d_state(struct fd_ringbuffer *ring, struct fd6_emit *emit)
          }
          break;
       case FD6_GROUP_VS_TEX:
-         state = tex_state(ctx, PIPE_SHADER_VERTEX);
+         state = tex_state(ctx, MESA_SHADER_VERTEX);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_VS_TEX);
          break;
       case FD6_GROUP_HS_TEX:
-         state = tex_state(ctx, PIPE_SHADER_TESS_CTRL);
+         state = tex_state(ctx, MESA_SHADER_TESS_CTRL);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_HS_TEX);
          break;
       case FD6_GROUP_DS_TEX:
-         state = tex_state(ctx, PIPE_SHADER_TESS_EVAL);
+         state = tex_state(ctx, MESA_SHADER_TESS_EVAL);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_DS_TEX);
          break;
       case FD6_GROUP_GS_TEX:
-         state = tex_state(ctx, PIPE_SHADER_GEOMETRY);
+         state = tex_state(ctx, MESA_SHADER_GEOMETRY);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_GS_TEX);
          break;
       case FD6_GROUP_FS_TEX:
-         state = tex_state(ctx, PIPE_SHADER_FRAGMENT);
+         state = tex_state(ctx, MESA_SHADER_FRAGMENT);
          fd6_state_take_group(&emit->state, state, FD6_GROUP_FS_TEX);
          break;
       case FD6_GROUP_SO:
@@ -725,13 +725,13 @@ fd6_emit_cs_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
       case FD6_GROUP_CS_TEX:
          fd6_state_take_group(
                &state,
-               tex_state(ctx, PIPE_SHADER_COMPUTE),
+               tex_state(ctx, MESA_SHADER_COMPUTE),
                FD6_GROUP_CS_TEX);
          break;
       case FD6_GROUP_CS_BINDLESS:
          fd6_state_take_group(
                &state,
-               fd6_build_bindless_state<CHIP>(ctx, PIPE_SHADER_COMPUTE, false),
+               fd6_build_bindless_state<CHIP>(ctx, MESA_SHADER_COMPUTE, false),
                FD6_GROUP_CS_BINDLESS);
          break;
       default:

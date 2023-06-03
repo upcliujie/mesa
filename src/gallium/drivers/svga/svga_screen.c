@@ -481,7 +481,7 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
 
    switch (shader)
    {
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       switch (param)
       {
       case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
@@ -550,7 +550,7 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
       /* If we get here, we failed to handle a cap above */
       debug_printf("Unexpected fragment shader query %u\n", param);
       return 0;
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       switch (param)
       {
       case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
@@ -614,14 +614,14 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
       /* If we get here, we failed to handle a cap above */
       debug_printf("Unexpected vertex shader query %u\n", param);
       return 0;
-   case PIPE_SHADER_GEOMETRY:
-   case PIPE_SHADER_COMPUTE:
-   case PIPE_SHADER_TESS_CTRL:
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+   case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_EVAL:
       /* no support for geometry, tess or compute shaders at this time */
       return 0;
-   case PIPE_SHADER_MESH:
-   case PIPE_SHADER_TASK:
+   case MESA_SHADER_MESH:
+   case MESA_SHADER_TASK:
       return 0;
    default:
       debug_printf("Unexpected shader type (%u) query\n", shader);
@@ -642,14 +642,14 @@ vgpu10_get_shader_param(struct pipe_screen *screen,
    assert(sws->have_vgpu10);
    (void) sws;  /* silence unused var warnings in non-debug builds */
 
-   if (shader == PIPE_SHADER_MESH || shader == PIPE_SHADER_TASK)
+   if (shader == MESA_SHADER_MESH || shader == MESA_SHADER_TASK)
       return 0;
 
    if ((!sws->have_sm5) &&
-       (shader == PIPE_SHADER_TESS_CTRL || shader == PIPE_SHADER_TESS_EVAL))
+       (shader == MESA_SHADER_TESS_CTRL || shader == MESA_SHADER_TESS_EVAL))
       return 0;
 
-   if ((!sws->have_gl43) && (shader == PIPE_SHADER_COMPUTE))
+   if ((!sws->have_gl43) && (shader == MESA_SHADER_COMPUTE))
       return 0;
 
    /* NOTE: we do not query the device for any caps/limits at this time */
@@ -664,24 +664,24 @@ vgpu10_get_shader_param(struct pipe_screen *screen,
    case PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH:
       return 64;
    case PIPE_SHADER_CAP_MAX_INPUTS:
-      if (shader == PIPE_SHADER_FRAGMENT)
+      if (shader == MESA_SHADER_FRAGMENT)
          return VGPU10_MAX_FS_INPUTS;
-      else if (shader == PIPE_SHADER_GEOMETRY)
+      else if (shader == MESA_SHADER_GEOMETRY)
          return svgascreen->max_gs_inputs;
-      else if (shader == PIPE_SHADER_TESS_CTRL)
+      else if (shader == MESA_SHADER_TESS_CTRL)
          return VGPU11_MAX_HS_INPUT_CONTROL_POINTS;
-      else if (shader == PIPE_SHADER_TESS_EVAL)
+      else if (shader == MESA_SHADER_TESS_EVAL)
          return VGPU11_MAX_DS_INPUT_CONTROL_POINTS;
       else
          return svgascreen->max_vs_inputs;
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
-      if (shader == PIPE_SHADER_FRAGMENT)
+      if (shader == MESA_SHADER_FRAGMENT)
          return VGPU10_MAX_FS_OUTPUTS;
-      else if (shader == PIPE_SHADER_GEOMETRY)
+      else if (shader == MESA_SHADER_GEOMETRY)
          return VGPU10_MAX_GS_OUTPUTS;
-      else if (shader == PIPE_SHADER_TESS_CTRL)
+      else if (shader == MESA_SHADER_TESS_CTRL)
          return VGPU11_MAX_HS_OUTPUTS;
-      else if (shader == PIPE_SHADER_TESS_EVAL)
+      else if (shader == MESA_SHADER_TESS_EVAL)
          return VGPU11_MAX_DS_OUTPUTS;
       else
          return svgascreen->max_vs_outputs;
@@ -805,7 +805,7 @@ svga_get_compiler_options(struct pipe_screen *pscreen,
    else if (sws->have_vgpu10)
       return &svga_vgpu10_compiler_options;
    else {
-      if (shader == PIPE_SHADER_FRAGMENT)
+      if (shader == MESA_SHADER_FRAGMENT)
          return &svga_vgpu9_fragment_compiler_options;
       else
          return &svga_vgpu9_vertex_compiler_options;

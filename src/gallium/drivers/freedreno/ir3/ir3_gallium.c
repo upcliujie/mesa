@@ -492,12 +492,12 @@ ir3_fixup_shader_state(struct pipe_context *pctx, struct ir3_shader_key *key)
 
    if (!ir3_shader_key_equal(ctx->last.key, key)) {
       if (ir3_shader_key_changes_fs(ctx->last.key, key)) {
-         fd_context_dirty_shader(ctx, PIPE_SHADER_FRAGMENT,
+         fd_context_dirty_shader(ctx, MESA_SHADER_FRAGMENT,
                                  FD_DIRTY_SHADER_PROG);
       }
 
       if (ir3_shader_key_changes_vs(ctx->last.key, key)) {
-         fd_context_dirty_shader(ctx, PIPE_SHADER_VERTEX, FD_DIRTY_SHADER_PROG);
+         fd_context_dirty_shader(ctx, MESA_SHADER_VERTEX, FD_DIRTY_SHADER_PROG);
       }
 
       /* NOTE: currently only a6xx has gs/tess, but needs no
@@ -569,7 +569,7 @@ ir3_screen_init(struct pipe_screen *pscreen)
 
    struct ir3_compiler_options options = {
       .bindless_fb_read_descriptor =
-         ir3_shader_descriptor_set(PIPE_SHADER_FRAGMENT),
+         ir3_shader_descriptor_set(MESA_SHADER_FRAGMENT),
       .bindless_fb_read_slot = IR3_BINDLESS_IMAGE_OFFSET +
                                IR3_BINDLESS_IMAGE_COUNT - 1 - screen->max_rts,
    };

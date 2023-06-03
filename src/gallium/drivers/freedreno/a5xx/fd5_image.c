@@ -32,13 +32,13 @@
 #include "freedreno_resource.h"
 
 static enum a4xx_state_block texsb[] = {
-   [PIPE_SHADER_COMPUTE] = SB4_CS_TEX,
-   [PIPE_SHADER_FRAGMENT] = SB4_FS_TEX,
+   [MESA_SHADER_COMPUTE] = SB4_CS_TEX,
+   [MESA_SHADER_FRAGMENT] = SB4_FS_TEX,
 };
 
 static enum a4xx_state_block imgsb[] = {
-   [PIPE_SHADER_COMPUTE] = SB4_CS_SSBO,
-   [PIPE_SHADER_FRAGMENT] = SB4_SSBO,
+   [MESA_SHADER_COMPUTE] = SB4_CS_SSBO,
+   [MESA_SHADER_FRAGMENT] = SB4_SSBO,
 };
 
 struct fd5_image {

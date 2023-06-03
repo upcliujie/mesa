@@ -298,9 +298,9 @@ lima_screen_get_shader_param(struct pipe_screen *pscreen,
    struct lima_screen *screen = lima_screen(pscreen);
 
    switch (shader) {
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return get_fragment_shader_param(screen, param);
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       return get_vertex_shader_param(screen, param);
 
    default:

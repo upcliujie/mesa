@@ -68,7 +68,7 @@ panfrost_batch_add_surface(struct panfrost_batch *batch,
 {
    if (surf) {
       struct panfrost_resource *rsrc = pan_resource(surf->texture);
-      panfrost_batch_write_rsrc(batch, rsrc, PIPE_SHADER_FRAGMENT);
+      panfrost_batch_write_rsrc(batch, rsrc, MESA_SHADER_FRAGMENT);
    }
 }
 
@@ -338,7 +338,7 @@ panfrost_batch_add_bo_old(struct panfrost_batch *batch, struct panfrost_bo *bo,
 static uint32_t
 panfrost_access_for_stage(enum pipe_shader_type stage)
 {
-   return (stage == PIPE_SHADER_FRAGMENT) ? PAN_BO_ACCESS_FRAGMENT
+   return (stage == MESA_SHADER_FRAGMENT) ? PAN_BO_ACCESS_FRAGMENT
                                           : PAN_BO_ACCESS_VERTEX_TILER;
 }
 
@@ -415,9 +415,9 @@ panfrost_batch_get_scratchpad(struct panfrost_batch *batch,
    } else {
       batch->scratchpad =
          panfrost_batch_create_bo(batch, size, PAN_BO_INVISIBLE,
-                                  PIPE_SHADER_VERTEX, "Thread local storage");
+                                  MESA_SHADER_VERTEX, "Thread local storage");
 
-      panfrost_batch_add_bo(batch, batch->scratchpad, PIPE_SHADER_FRAGMENT);
+      panfrost_batch_add_bo(batch, batch->scratchpad, MESA_SHADER_FRAGMENT);
    }
 
    return batch->scratchpad;
@@ -431,7 +431,7 @@ panfrost_batch_get_shared_memory(struct panfrost_batch *batch, unsigned size,
       assert(batch->shared_memory->size >= size);
    } else {
       batch->shared_memory = panfrost_batch_create_bo(
-         batch, size, PAN_BO_INVISIBLE, PIPE_SHADER_VERTEX,
+         batch, size, PAN_BO_INVISIBLE, MESA_SHADER_VERTEX,
          "Workgroup shared memory");
    }
 
@@ -990,5 +990,5 @@ panfrost_batch_skip_rasterization(struct panfrost_batch *batch)
    struct pipe_rasterizer_state *rast = (void *)ctx->rasterizer;
 
    return (rast->rasterizer_discard || batch->scissor_culls_everything ||
-           !batch->rsd[PIPE_SHADER_VERTEX]);
+           !batch->rsd[MESA_SHADER_VERTEX]);
 }

@@ -362,7 +362,7 @@ fn opt_nir(nir: &mut NirShader, dev: &Device) {
     let nir_options = unsafe {
         &*dev
             .screen
-            .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE)
+            .nir_shader_compiler_options(pipe_shader_type::MESA_SHADER_COMPUTE)
     };
 
     while {
@@ -488,7 +488,7 @@ fn lower_and_optimize_nir_late(
     let nir_options = unsafe {
         &*dev
             .screen
-            .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE)
+            .nir_shader_compiler_options(pipe_shader_type::MESA_SHADER_COMPUTE)
     };
     let mut lower_state = rusticl_lower_state::default();
 
@@ -714,7 +714,7 @@ fn deserialize_nir(
         bin,
         nir_len,
         d.screen()
-            .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE),
+            .nir_shader_compiler_options(pipe_shader_type::MESA_SHADER_COMPUTE),
     )?;
 
     let arg_len = read_ne_usize(bin);

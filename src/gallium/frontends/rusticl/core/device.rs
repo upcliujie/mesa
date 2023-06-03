@@ -257,7 +257,7 @@ impl Device {
     fn check_valid(screen: &PipeScreen) -> bool {
         if screen.param(pipe_cap::PIPE_CAP_COMPUTE) == 0
             || screen.shader_param(
-                pipe_shader_type::PIPE_SHADER_COMPUTE,
+                pipe_shader_type::MESA_SHADER_COMPUTE,
                 pipe_shader_cap::PIPE_SHADER_CAP_SUPPORTED_IRS,
             ) & (1 << (pipe_shader_ir::PIPE_SHADER_IR_NIR as i32))
                 == 0
@@ -268,7 +268,7 @@ impl Device {
         // CL_DEVICE_MAX_PARAMETER_SIZE
         // For this minimum value, only a maximum of 128 arguments can be passed to a kernel
         if screen.shader_param(
-            pipe_shader_type::PIPE_SHADER_COMPUTE,
+            pipe_shader_type::MESA_SHADER_COMPUTE,
             pipe_shader_cap::PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE,
         ) < 128
         {
@@ -560,7 +560,7 @@ impl Device {
 
     fn shader_param(&self, cap: pipe_shader_cap) -> i32 {
         self.screen
-            .shader_param(pipe_shader_type::PIPE_SHADER_COMPUTE, cap)
+            .shader_param(pipe_shader_type::MESA_SHADER_COMPUTE, cap)
     }
 
     pub fn all() -> Vec<Arc<Device>> {
@@ -618,7 +618,7 @@ impl Device {
         unsafe {
             *self
                 .screen
-                .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE)
+                .nir_shader_compiler_options(pipe_shader_type::MESA_SHADER_COMPUTE)
         }
     }
 

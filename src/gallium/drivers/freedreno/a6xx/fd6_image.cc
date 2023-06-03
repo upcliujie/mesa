@@ -113,7 +113,7 @@ descriptor_set(struct fd_context *ctx, enum pipe_shader_type shader)
 {
    struct fd6_context *fd6_ctx = fd6_context(ctx);
 
-   if (shader == PIPE_SHADER_COMPUTE)
+   if (shader == MESA_SHADER_COMPUTE)
       return &fd6_ctx->cs_descriptor_set;
 
    unsigned idx = ir3_shader_descriptor_set(shader);
@@ -256,7 +256,7 @@ fd6_build_bindless_state(struct fd_context *ctx, enum pipe_shader_type shader,
 
    fd_ringbuffer_attach_bo(ring, set->bo);
 
-   if (shader == PIPE_SHADER_COMPUTE) {
+   if (shader == MESA_SHADER_COMPUTE) {
       OUT_REG(ring, HLSQ_INVALIDATE_CMD(CHIP, .cs_bindless = 0x1f));
       OUT_REG(ring, SP_CS_BINDLESS_BASE_DESCRIPTOR(CHIP,
             idx, .desc_size = BINDLESS_DESCRIPTOR_64B, .bo = set->bo,

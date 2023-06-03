@@ -268,17 +268,17 @@ fd6_build_user_consts(struct fd6_emit *emit)
    struct fd_ringbuffer *constobj =
       fd_submit_new_ringbuffer(ctx->batch->submit, sz, FD_RINGBUFFER_STREAMING);
 
-   emit_user_consts(emit->vs, constobj, &ctx->constbuf[PIPE_SHADER_VERTEX]);
+   emit_user_consts(emit->vs, constobj, &ctx->constbuf[MESA_SHADER_VERTEX]);
    if (PIPELINE == HAS_TESS_GS) {
       if (emit->hs) {
-         emit_user_consts(emit->hs, constobj, &ctx->constbuf[PIPE_SHADER_TESS_CTRL]);
-         emit_user_consts(emit->ds, constobj, &ctx->constbuf[PIPE_SHADER_TESS_EVAL]);
+         emit_user_consts(emit->hs, constobj, &ctx->constbuf[MESA_SHADER_TESS_CTRL]);
+         emit_user_consts(emit->ds, constobj, &ctx->constbuf[MESA_SHADER_TESS_EVAL]);
       }
       if (emit->gs) {
-         emit_user_consts(emit->gs, constobj, &ctx->constbuf[PIPE_SHADER_GEOMETRY]);
+         emit_user_consts(emit->gs, constobj, &ctx->constbuf[MESA_SHADER_GEOMETRY]);
       }
    }
-   emit_user_consts(emit->fs, constobj, &ctx->constbuf[PIPE_SHADER_FRAGMENT]);
+   emit_user_consts(emit->fs, constobj, &ctx->constbuf[MESA_SHADER_FRAGMENT]);
 
    return constobj;
 }
@@ -346,7 +346,7 @@ fd6_emit_cs_user_consts(struct fd_context *ctx,
                         struct fd_ringbuffer *ring,
                         struct fd6_compute_state *cs)
 {
-   emit_user_consts(cs->v, ring, &ctx->constbuf[PIPE_SHADER_COMPUTE]);
+   emit_user_consts(cs->v, ring, &ctx->constbuf[MESA_SHADER_COMPUTE]);
 }
 
 void

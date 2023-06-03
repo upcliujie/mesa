@@ -110,13 +110,13 @@ set_clearcolor_fs(struct st_context *st, union pipe_color_union *color)
 {
    struct pipe_screen *pscreen = st->screen;
    bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
+      pscreen->get_shader_param(pscreen, MESA_SHADER_VERTEX,
                                 PIPE_SHADER_CAP_PREFERRED_IR);
    struct pipe_constant_buffer cb = {
       .user_buffer = color->f,
       .buffer_size = 4 * sizeof(float),
    };
-   st->pipe->set_constant_buffer(st->pipe, PIPE_SHADER_FRAGMENT, 0,
+   st->pipe->set_constant_buffer(st->pipe, MESA_SHADER_FRAGMENT, 0,
                                 false, &cb);
 
    if (!st->clear.fs) {
@@ -157,7 +157,7 @@ set_vertex_shader(struct st_context *st)
 {
    struct pipe_screen *pscreen = st->screen;
    bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
+      pscreen->get_shader_param(pscreen, MESA_SHADER_VERTEX,
                                 PIPE_SHADER_CAP_PREFERRED_IR);
 
    /* vertex shader - still required to provide the linkage between
@@ -190,7 +190,7 @@ set_vertex_shader_layered(struct st_context *st)
    struct pipe_context *pipe = st->pipe;
    struct pipe_screen *pscreen = st->screen;
    bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
+      pscreen->get_shader_param(pscreen, MESA_SHADER_VERTEX,
                                 PIPE_SHADER_CAP_PREFERRED_IR);
 
    if (!st->screen->get_param(st->screen, PIPE_CAP_VS_INSTANCEID)) {

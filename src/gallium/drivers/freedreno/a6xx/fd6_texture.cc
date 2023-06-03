@@ -524,42 +524,42 @@ build_texture_state(struct fd_context *ctx, enum pipe_shader_type type,
    enum a6xx_state_block sb;
 
    switch (type) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       sb = SB6_VS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_VS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_VS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_VS_TEX_COUNT;
       break;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       sb = SB6_HS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_HS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_HS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_HS_TEX_COUNT;
       break;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       sb = SB6_DS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_DS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_DS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_DS_TEX_COUNT;
       break;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       sb = SB6_GS_TEX;
       opcode = CP_LOAD_STATE6_GEOM;
       tex_samp_reg = REG_A6XX_SP_GS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_GS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_GS_TEX_COUNT;
       break;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       sb = SB6_FS_TEX;
       opcode = CP_LOAD_STATE6_FRAG;
       tex_samp_reg = REG_A6XX_SP_FS_TEX_SAMP;
       tex_const_reg = REG_A6XX_SP_FS_TEX_CONST;
       tex_count_reg = REG_A6XX_SP_FS_TEX_COUNT;
       break;
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       sb = SB6_CS_TEX;
       opcode = CP_LOAD_STATE6_FRAG;
       tex_samp_reg = REG_A6XX_SP_CS_TEX_SAMP;

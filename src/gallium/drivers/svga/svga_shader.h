@@ -547,17 +547,17 @@ static inline SVGA3dShaderType
 svga_shader_type(enum pipe_shader_type shader)
 {
    switch (shader) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       return SVGA3D_SHADERTYPE_VS;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       return SVGA3D_SHADERTYPE_GS;
-   case PIPE_SHADER_FRAGMENT:
+   case MESA_SHADER_FRAGMENT:
       return SVGA3D_SHADERTYPE_PS;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       return SVGA3D_SHADERTYPE_HS;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       return SVGA3D_SHADERTYPE_DS;
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       return SVGA3D_SHADERTYPE_CS;
    default:
       assert(!"Invalid shader type");

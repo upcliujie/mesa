@@ -382,11 +382,11 @@ enum
 
 #define SI_DESCS_INTERNAL      0
 #define SI_DESCS_FIRST_SHADER  1
-#define SI_DESCS_FIRST_COMPUTE (SI_DESCS_FIRST_SHADER + PIPE_SHADER_COMPUTE * SI_NUM_SHADER_DESCS)
+#define SI_DESCS_FIRST_COMPUTE (SI_DESCS_FIRST_SHADER + MESA_SHADER_COMPUTE * SI_NUM_SHADER_DESCS)
 #define SI_NUM_DESCS           (SI_DESCS_FIRST_SHADER + MESA_SHADER_GL_STAGES * SI_NUM_SHADER_DESCS)
 
 #define SI_DESCS_SHADER_MASK(name)                                                                 \
-   u_bit_consecutive(SI_DESCS_FIRST_SHADER + PIPE_SHADER_##name * SI_NUM_SHADER_DESCS,             \
+   u_bit_consecutive(SI_DESCS_FIRST_SHADER + MESA_SHADER_##name * SI_NUM_SHADER_DESCS,             \
                      SI_NUM_SHADER_DESCS)
 
 static inline unsigned si_const_and_shader_buffer_descriptors_idx(unsigned shader)

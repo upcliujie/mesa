@@ -1179,7 +1179,7 @@ r600_get_compiler_options(struct pipe_screen *screen,
 
        struct r600_common_screen *rscreen = (struct r600_common_screen *)screen;
 
-       if (shader != PIPE_SHADER_FRAGMENT)
+       if (shader != MESA_SHADER_FRAGMENT)
           return &rscreen->nir_options;
        else
           return &rscreen->nir_options_fs;

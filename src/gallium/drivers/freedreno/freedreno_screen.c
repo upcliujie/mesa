@@ -450,7 +450,7 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
        * the frontend clip-plane lowering.  So we handle this in the backend
        *
        */
-      if (pscreen->get_shader_param(pscreen, PIPE_SHADER_GEOMETRY,
+      if (pscreen->get_shader_param(pscreen, MESA_SHADER_GEOMETRY,
                                     PIPE_SHADER_CAP_MAX_INSTRUCTIONS))
          return 1;
 
@@ -640,21 +640,21 @@ fd_screen_get_shader_param(struct pipe_screen *pscreen,
    struct fd_screen *screen = fd_screen(pscreen);
 
    switch (shader) {
-   case PIPE_SHADER_FRAGMENT:
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_FRAGMENT:
+   case MESA_SHADER_VERTEX:
       break;
-   case PIPE_SHADER_TESS_CTRL:
-   case PIPE_SHADER_TESS_EVAL:
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
       if (is_a6xx(screen))
          break;
       return 0;
-   case PIPE_SHADER_COMPUTE:
+   case MESA_SHADER_COMPUTE:
       if (has_compute(screen))
          break;
       return 0;
-   case PIPE_SHADER_TASK:
-   case PIPE_SHADER_MESH:
+   case MESA_SHADER_TASK:
+   case MESA_SHADER_MESH:
       return 0;
    default:
       mesa_loge("unknown shader type %d", shader);
@@ -671,7 +671,7 @@ fd_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH:
       return 8; /* XXX */
    case PIPE_SHADER_CAP_MAX_INPUTS:
-      if (shader == PIPE_SHADER_GEOMETRY && is_a6xx(screen))
+      if (shader == MESA_SHADER_GEOMETRY && is_a6xx(screen))
          return 16;
       return is_a6xx(screen) ? 32 : 16;
    case PIPE_SHADER_CAP_MAX_OUTPUTS:
@@ -717,7 +717,7 @@ fd_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_FP16:
       return (
          (is_a5xx(screen) || is_a6xx(screen)) &&
-         (shader == PIPE_SHADER_COMPUTE || shader == PIPE_SHADER_FRAGMENT) &&
+         (shader == MESA_SHADER_COMPUTE || shader == MESA_SHADER_FRAGMENT) &&
          !FD_DBG(NOFP16));
    case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
    case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
@@ -726,12 +726,12 @@ fd_screen_get_shader_param(struct pipe_screen *pscreen,
       return PIPE_SHADER_IR_NIR;
    case PIPE_SHADER_CAP_SUPPORTED_IRS:
       return (1 << PIPE_SHADER_IR_NIR) |
-             COND(has_compute(screen) && (shader == PIPE_SHADER_COMPUTE),
+             COND(has_compute(screen) && (shader == MESA_SHADER_COMPUTE),
                   (1 << PIPE_SHADER_IR_NIR_SERIALIZED)) |
              /* tgsi_to_nir doesn't support all stages: */
-             COND((shader == PIPE_SHADER_VERTEX) ||
-                  (shader == PIPE_SHADER_FRAGMENT) ||
-                  (shader == PIPE_SHADER_COMPUTE),
+             COND((shader == MESA_SHADER_VERTEX) ||
+                  (shader == MESA_SHADER_FRAGMENT) ||
+                  (shader == MESA_SHADER_COMPUTE),
                   (1 << PIPE_SHADER_IR_TGSI));
    case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
@@ -765,8 +765,8 @@ fd_screen_get_shader_param(struct pipe_screen *pscreen,
           * (isam/isam.3d)
           */
          switch (shader) {
-         case PIPE_SHADER_FRAGMENT:
-         case PIPE_SHADER_COMPUTE:
+         case MESA_SHADER_FRAGMENT:
+         case MESA_SHADER_COMPUTE:
             return 24;
          default:
             return 0;

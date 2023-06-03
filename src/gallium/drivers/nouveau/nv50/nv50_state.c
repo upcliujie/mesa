@@ -799,7 +799,7 @@ static void *
 nv50_vp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nv50_sp_state_create(pipe, cso, PIPE_SHADER_VERTEX);
+   return nv50_sp_state_create(pipe, cso, MESA_SHADER_VERTEX);
 }
 
 static void
@@ -815,7 +815,7 @@ static void *
 nv50_fp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nv50_sp_state_create(pipe, cso, PIPE_SHADER_FRAGMENT);
+   return nv50_sp_state_create(pipe, cso, MESA_SHADER_FRAGMENT);
 }
 
 static void
@@ -831,7 +831,7 @@ static void *
 nv50_gp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso)
 {
-   return nv50_sp_state_create(pipe, cso, PIPE_SHADER_GEOMETRY);
+   return nv50_sp_state_create(pipe, cso, MESA_SHADER_GEOMETRY);
 }
 
 static void
@@ -853,7 +853,7 @@ nv50_cp_state_create(struct pipe_context *pipe,
    prog = CALLOC_STRUCT(nv50_program);
    if (!prog)
       return NULL;
-   prog->type = PIPE_SHADER_COMPUTE;
+   prog->type = MESA_SHADER_COMPUTE;
    prog->pipe.type = cso->ir_type;
 
    switch(cso->ir_type) {
@@ -917,7 +917,7 @@ nv50_set_constant_buffer(struct pipe_context *pipe,
    const unsigned s = nv50_context_shader_stage(shader);
    const unsigned i = index;
 
-   if (unlikely(shader == PIPE_SHADER_COMPUTE)) {
+   if (unlikely(shader == MESA_SHADER_COMPUTE)) {
       if (nv50->constbuf[s][i].user)
          nv50->constbuf[s][i].u.buf = NULL;
       else

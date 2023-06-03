@@ -236,7 +236,7 @@ setup_render_state(struct gl_context *ctx,
          samplers[i] = &st->state.frag_samplers[i];
       }
       samplers[fpv->bitmap_sampler] = &st->bitmap.sampler;
-      cso_set_samplers(cso, PIPE_SHADER_FRAGMENT, num,
+      cso_set_samplers(cso, MESA_SHADER_FRAGMENT, num,
                        (const struct pipe_sampler_state **) samplers);
    }
 
@@ -244,13 +244,13 @@ setup_render_state(struct gl_context *ctx,
    {
       struct pipe_sampler_view *sampler_views[PIPE_MAX_SAMPLERS];
       unsigned num_views =
-         st_get_sampler_views(st, PIPE_SHADER_FRAGMENT, fp, sampler_views);
+         st_get_sampler_views(st, MESA_SHADER_FRAGMENT, fp, sampler_views);
 
       num_views = MAX2(fpv->bitmap_sampler + 1, num_views);
       sampler_views[fpv->bitmap_sampler] = sv;
-      pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num_views, 0,
+      pipe->set_sampler_views(pipe, MESA_SHADER_FRAGMENT, 0, num_views, 0,
                               true, sampler_views);
-      st->state.num_sampler_views[PIPE_SHADER_FRAGMENT] = num_views;
+      st->state.num_sampler_views[MESA_SHADER_FRAGMENT] = num_views;
    }
 
    /* viewport state: viewport matching window dims */
@@ -278,7 +278,7 @@ restore_render_state(struct gl_context *ctx)
     * use them.
     */
    cso_restore_state(cso, CSO_UNBIND_FS_SAMPLERVIEWS);
-   st->state.num_sampler_views[PIPE_SHADER_FRAGMENT] = 0;
+   st->state.num_sampler_views[MESA_SHADER_FRAGMENT] = 0;
 
    ctx->Array.NewVertexElements = true;
    ctx->NewDriverState |= ST_NEW_VERTEX_ARRAYS |

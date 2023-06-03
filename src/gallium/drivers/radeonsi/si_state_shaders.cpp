@@ -3313,7 +3313,7 @@ static void si_update_common_shader_state(struct si_context *sctx, struct si_sha
                                 si_shader_uses_bindless_images(sctx->shader.tcs.cso) ||
                                 si_shader_uses_bindless_images(sctx->shader.tes.cso);
 
-   if (type == PIPE_SHADER_VERTEX || type == PIPE_SHADER_TESS_EVAL || type == PIPE_SHADER_GEOMETRY)
+   if (type == MESA_SHADER_VERTEX || type == MESA_SHADER_TESS_EVAL || type == MESA_SHADER_GEOMETRY)
       sctx->ngg_culling = 0; /* this will be enabled on the first draw if needed */
 
    si_invalidate_inlinable_uniforms(sctx, type);
@@ -3350,7 +3350,7 @@ static void si_bind_vs_shader(struct pipe_context *ctx, void *state)
    if (si_update_ngg(sctx))
       si_shader_change_notify(sctx);
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_VERTEX);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_VERTEX);
    si_select_draw_vbo(sctx);
    si_update_last_vgt_stage_state(sctx, old_hw_vs, old_hw_vs_variant);
    si_vs_key_update_inputs(sctx);
@@ -3430,7 +3430,7 @@ static void si_bind_gs_shader(struct pipe_context *ctx, void *state)
    sctx->shader.gs.current = (sel && sel->variants_count) ? sel->variants[0] : NULL;
    sctx->ia_multi_vgt_param_key.u.uses_gs = sel != NULL;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_GEOMETRY);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_GEOMETRY);
    si_select_draw_vbo(sctx);
    sctx->last_gs_out_prim = -1; /* reset this so that it gets updated */
 
@@ -3465,7 +3465,7 @@ static void si_bind_tcs_shader(struct pipe_context *ctx, void *state)
    si_update_tess_uses_prim_id(sctx);
    si_update_tess_in_out_patch_vertices(sctx);
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_TESS_CTRL);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_TESS_CTRL);
 
    if (enable_changed)
       sctx->last_tcs = NULL; /* invalidate derived tess state */
@@ -3493,7 +3493,7 @@ static void si_bind_tes_shader(struct pipe_context *ctx, void *state)
    sctx->shader.tcs.key.ge.part.tcs.epilog.tes_reads_tess_factors =
       sel ? sel->info.reads_tess_factors : 0;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_TESS_EVAL);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_TESS_EVAL);
    si_select_draw_vbo(sctx);
    sctx->last_gs_out_prim = -1; /* reset this so that it gets updated */
 
@@ -3537,7 +3537,7 @@ static void si_bind_ps_shader(struct pipe_context *ctx, void *state)
    sctx->shader.ps.cso = sel;
    sctx->shader.ps.current = (sel && sel->variants_count) ? sel->variants[0] : NULL;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_FRAGMENT);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_FRAGMENT);
    if (sel) {
       if (sctx->ia_multi_vgt_param_key.u.uses_tess)
          si_update_tess_uses_prim_id(sctx);
