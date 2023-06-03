@@ -184,13 +184,15 @@ struct panfrost_context {
    struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
    uint32_t vb_mask;
 
-   struct pipe_shader_buffer ssbo[MESA_SHADER_GL_STAGES][PIPE_MAX_SHADER_BUFFERS];
+   struct pipe_shader_buffer ssbo[MESA_SHADER_GL_STAGES]
+                                 [PIPE_MAX_SHADER_BUFFERS];
    uint32_t ssbo_mask[MESA_SHADER_GL_STAGES];
 
    struct pipe_image_view images[MESA_SHADER_GL_STAGES][PIPE_MAX_SHADER_IMAGES];
    uint32_t image_mask[MESA_SHADER_GL_STAGES];
 
-   struct panfrost_sampler_state *samplers[MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
+   struct panfrost_sampler_state
+      *samplers[MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
    unsigned sampler_count[MESA_SHADER_GL_STAGES];
    uint32_t valid_samplers[MESA_SHADER_GL_STAGES];
 

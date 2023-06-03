@@ -248,9 +248,9 @@ panfrost_bind_rasterizer_state(struct pipe_context *pctx, void *hwcso)
 }
 
 static void
-panfrost_set_shader_images(struct pipe_context *pctx,
-                           mesa_shader_stage shader, unsigned start_slot,
-                           unsigned count, unsigned unbind_num_trailing_slots,
+panfrost_set_shader_images(struct pipe_context *pctx, mesa_shader_stage shader,
+                           unsigned start_slot, unsigned count,
+                           unsigned unbind_num_trailing_slots,
                            const struct pipe_image_view *iviews)
 {
    struct panfrost_context *ctx = pan_context(pctx);
@@ -373,9 +373,8 @@ panfrost_set_stencil_ref(struct pipe_context *pctx,
 }
 
 static void
-panfrost_set_sampler_views(struct pipe_context *pctx,
-                           mesa_shader_stage shader, unsigned start_slot,
-                           unsigned num_views,
+panfrost_set_sampler_views(struct pipe_context *pctx, mesa_shader_stage shader,
+                           unsigned start_slot, unsigned num_views,
                            unsigned unbind_num_trailing_slots,
                            bool take_ownership,
                            struct pipe_sampler_view **views)
@@ -428,9 +427,8 @@ panfrost_set_sampler_views(struct pipe_context *pctx,
 }
 
 static void
-panfrost_set_shader_buffers(struct pipe_context *pctx,
-                            mesa_shader_stage shader, unsigned start,
-                            unsigned count,
+panfrost_set_shader_buffers(struct pipe_context *pctx, mesa_shader_stage shader,
+                            unsigned start, unsigned count,
                             const struct pipe_shader_buffer *buffers,
                             unsigned writable_bitmask)
 {

@@ -370,8 +370,7 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
 }
 
 static int
-panfrost_get_shader_param(struct pipe_screen *screen,
-                          mesa_shader_stage shader,
+panfrost_get_shader_param(struct pipe_screen *screen, mesa_shader_stage shader,
                           enum pipe_shader_cap param)
 {
    struct panfrost_device *dev = pan_device(screen);

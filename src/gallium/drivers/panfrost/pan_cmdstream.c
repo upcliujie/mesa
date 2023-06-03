@@ -1078,8 +1078,8 @@ panfrost_upload_viewport_offset_sysval(struct panfrost_batch *batch,
 }
 
 static void
-panfrost_upload_txs_sysval(struct panfrost_batch *batch,
-                           mesa_shader_stage st, unsigned int sysvalid,
+panfrost_upload_txs_sysval(struct panfrost_batch *batch, mesa_shader_stage st,
+                           unsigned int sysvalid,
                            struct sysval_uniform *uniform)
 {
    struct panfrost_context *ctx = batch->ctx;
@@ -1120,8 +1120,7 @@ panfrost_upload_txs_sysval(struct panfrost_batch *batch,
 
 static void
 panfrost_upload_image_size_sysval(struct panfrost_batch *batch,
-                                  mesa_shader_stage st,
-                                  unsigned int sysvalid,
+                                  mesa_shader_stage st, unsigned int sysvalid,
                                   struct sysval_uniform *uniform)
 {
    struct panfrost_context *ctx = batch->ctx;
@@ -1152,9 +1151,8 @@ panfrost_upload_image_size_sysval(struct panfrost_batch *batch,
 }
 
 static void
-panfrost_upload_ssbo_sysval(struct panfrost_batch *batch,
-                            mesa_shader_stage st, unsigned ssbo_id,
-                            struct sysval_uniform *uniform)
+panfrost_upload_ssbo_sysval(struct panfrost_batch *batch, mesa_shader_stage st,
+                            unsigned ssbo_id, struct sysval_uniform *uniform)
 {
    struct panfrost_context *ctx = batch->ctx;
 
@@ -1435,9 +1433,9 @@ panfrost_emit_ubo(void *base, unsigned index, mali_ptr address, size_t size)
 }
 
 static mali_ptr
-panfrost_emit_const_buf(struct panfrost_batch *batch,
-                        mesa_shader_stage stage, unsigned *buffer_count,
-                        mali_ptr *push_constants, unsigned *pushed_words)
+panfrost_emit_const_buf(struct panfrost_batch *batch, mesa_shader_stage stage,
+                        unsigned *buffer_count, mali_ptr *push_constants,
+                        unsigned *pushed_words)
 {
    struct panfrost_context *ctx = batch->ctx;
    struct panfrost_constant_buffer *buf = &ctx->constant_buffer[stage];
@@ -2859,8 +2857,7 @@ panfrost_is_implicit_prim_restart(const struct pipe_draw_info *info)
     PAN_DIRTY_OQ)
 
 static inline void
-panfrost_update_shader_state(struct panfrost_batch *batch,
-                             mesa_shader_stage st)
+panfrost_update_shader_state(struct panfrost_batch *batch, mesa_shader_stage st)
 {
    struct panfrost_context *ctx = batch->ctx;
    struct panfrost_compiled_shader *ss = ctx->prog[st];
@@ -3060,8 +3057,7 @@ panfrost_emit_primitive(struct panfrost_context *ctx,
 
 #if PAN_ARCH >= 9
 static mali_ptr
-panfrost_emit_resources(struct panfrost_batch *batch,
-                        mesa_shader_stage stage)
+panfrost_emit_resources(struct panfrost_batch *batch, mesa_shader_stage stage)
 {
    struct panfrost_context *ctx = batch->ctx;
    struct panfrost_ptr T;

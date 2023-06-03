@@ -1832,8 +1832,9 @@ agx_dump_stats(agx_context *ctx, unsigned size, char **out)
    return asprintf(out,
                    "%s shader: %u inst, %u bytes, %u halfregs, %u threads, "
                    "%u loops, %u:%u spills:fills",
-                   mesa_shader_stage_name(ctx->stage), nr_ins, size, ctx->max_reg,
-                   nr_threads, ctx->loop_count, ctx->spills, ctx->fills);
+                   mesa_shader_stage_name(ctx->stage), nr_ins, size,
+                   ctx->max_reg, nr_threads, ctx->loop_count, ctx->spills,
+                   ctx->fills);
 }
 
 static int
