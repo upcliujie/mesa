@@ -212,8 +212,6 @@ struct intel_perf_query_result;
  */
 #define ANV_PERF_QUERY_OFFSET_REG 0x2670 /* MI_ALU_REG14 */
 
-#define ANV_GRAPHICS_SHADER_STAGE_COUNT (MESA_SHADER_MESH + 1)
-
 /* RENDER_SURFACE_STATE is a bit smaller (48b) but since it is aligned to 64
  * and we can't put anything else there we use 64b.
  */
@@ -3324,7 +3322,7 @@ struct anv_graphics_base_pipeline {
    struct vk_sample_locations_state             sample_locations;
 
    /* Shaders */
-   struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
+   struct anv_shader_bin *                      shaders[MESA_SHADER_GL_MESH_STAGES];
 
    /* Feedback index in
     * VkPipelineCreationFeedbackCreateInfo::pPipelineStageCreationFeedbacks
@@ -3332,7 +3330,7 @@ struct anv_graphics_base_pipeline {
     * For pipeline libraries, we need to remember the order at creation when
     * included into a linked pipeline.
     */
-   uint32_t                                     feedback_index[ANV_GRAPHICS_SHADER_STAGE_COUNT];
+   uint32_t                                     feedback_index[MESA_SHADER_GL_MESH_STAGES];
 
    /* True if at the time the fragment shader was compiled, it didn't have all
     * the information to avoid BRW_WM_MSAA_FLAG_ENABLE_DYNAMIC.
@@ -3365,7 +3363,7 @@ struct anv_graphics_lib_pipeline {
        * constants.
        */
       nir_shader *                              nir;
-   }                                            retained_shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
+   }                                            retained_shaders[MESA_SHADER_GL_MESH_STAGES];
 
    /* Whether the shaders have been retained */
    bool                                         retain_shaders;

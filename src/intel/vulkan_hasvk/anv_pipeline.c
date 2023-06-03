@@ -455,7 +455,7 @@ anv_pipeline_hash_graphics(struct anv_graphics_pipeline *pipeline,
    const bool rba = pipeline->base.device->vk.enabled_features.robustBufferAccess;
    _mesa_sha1_update(&ctx, &rba, sizeof(rba));
 
-   for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (stages[s].info) {
          _mesa_sha1_update(&ctx, stages[s].shader_sha1,
                            sizeof(stages[s].shader_sha1));
@@ -1090,7 +1090,7 @@ anv_graphics_pipeline_init_keys(struct anv_graphics_pipeline *pipeline,
                                 const struct vk_graphics_pipeline_state *state,
                                 struct anv_pipeline_stage *stages)
 {
-   for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (!stages[s].info)
          continue;
 
@@ -1147,7 +1147,7 @@ anv_graphics_pipeline_load_cached_shaders(struct anv_graphics_pipeline *pipeline
 {
    unsigned found = 0;
    unsigned cache_hits = 0;
-   for (unsigned s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (!stages[s].info)
          continue;
 
@@ -1272,7 +1272,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline *pipeline,
    int64_t pipeline_start = os_time_get_nano();
 
    const struct brw_compiler *compiler = pipeline->base.device->physical->compiler;
-   struct anv_pipeline_stage stages[ANV_GRAPHICS_SHADER_STAGE_COUNT] = {};
+   struct anv_pipeline_stage stages[MESA_SHADER_GL_MESH_STAGES] = {};
    for (uint32_t i = 0; i < info->stageCount; i++) {
       gl_shader_stage stage = vk_to_mesa_shader_stage(info->pStages[i].stage);
       stages[stage].stage = stage;

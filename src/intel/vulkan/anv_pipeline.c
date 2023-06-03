@@ -734,7 +734,7 @@ anv_pipeline_hash_graphics(struct anv_graphics_base_pipeline *pipeline,
 
    _mesa_sha1_update(&ctx, &view_mask, sizeof(view_mask));
 
-   for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (pipeline->base.active_stages & BITFIELD_BIT(s)) {
          _mesa_sha1_update(&ctx, stages[s].shader_sha1,
                            sizeof(stages[s].shader_sha1));
@@ -1647,7 +1647,7 @@ anv_graphics_pipeline_init_keys(struct anv_graphics_base_pipeline *pipeline,
                                 const struct vk_graphics_pipeline_state *state,
                                 struct anv_pipeline_stage *stages)
 {
-   for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (!anv_pipeline_base_has_stage(pipeline, s))
          continue;
 
@@ -1869,7 +1869,7 @@ anv_graphics_pipeline_load_nir(struct anv_graphics_base_pipeline *pipeline,
                                void *mem_ctx,
                                bool need_clone)
 {
-   for (unsigned s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (!anv_pipeline_base_has_stage(pipeline, s))
          continue;
 
@@ -2007,7 +2007,7 @@ anv_fill_pipeline_creation_feedback(const struct anv_graphics_base_pipeline *pip
        * when https://gitlab.khronos.org/vulkan/vulkan/-/issues/3115 is
        * clarified.
        */
-      for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+      for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
          if (!anv_pipeline_base_has_stage(pipeline, s))
             continue;
 
@@ -2023,7 +2023,7 @@ static uint32_t
 anv_graphics_pipeline_imported_shader_count(struct anv_pipeline_stage *stages)
 {
    uint32_t count = 0;
-   for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (stages[s].imported.bin != NULL)
          count++;
    }
@@ -2088,7 +2088,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_base_pipeline *pipeline,
    unsigned char sha1[20];
    anv_pipeline_hash_graphics(pipeline, stages, view_mask, sha1);
 
-   for (unsigned s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (!anv_pipeline_base_has_stage(pipeline, s))
          continue;
 
@@ -2132,7 +2132,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_base_pipeline *pipeline,
          if (result == VK_SUCCESS)
             goto done;
 
-         for (unsigned s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+         for (unsigned s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
             if (!anv_pipeline_base_has_stage(pipeline, s))
                continue;
 
@@ -2233,7 +2233,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_base_pipeline *pipeline,
        * used in all the active shaders, so this check can't be done per
        * individual shaders.
        */
-      nir_shader *shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT] = {};
+      nir_shader *shaders[MESA_SHADER_GL_MESH_STAGES] = {};
       for (unsigned s = 0; s < ARRAY_SIZE(shaders); s++)
          shaders[s] = stages[s].nir;
 
@@ -2924,7 +2924,7 @@ anv_graphics_lib_pipeline_create(struct anv_device *device,
                                  const VkAllocationCallbacks *pAllocator,
                                  VkPipeline *pPipeline)
 {
-   struct anv_pipeline_stage stages[ANV_GRAPHICS_SHADER_STAGE_COUNT] = {};
+   struct anv_pipeline_stage stages[MESA_SHADER_GL_MESH_STAGES] = {};
    VkPipelineCreationFeedbackEXT pipeline_feedback = {
       .flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT_EXT,
    };
@@ -3030,7 +3030,7 @@ anv_graphics_pipeline_create(struct anv_device *device,
                              const VkAllocationCallbacks *pAllocator,
                              VkPipeline *pPipeline)
 {
-   struct anv_pipeline_stage stages[ANV_GRAPHICS_SHADER_STAGE_COUNT] = {};
+   struct anv_pipeline_stage stages[MESA_SHADER_GL_MESH_STAGES] = {};
    VkPipelineCreationFeedbackEXT pipeline_feedback = {
       .flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT_EXT,
    };

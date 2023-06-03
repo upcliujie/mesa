@@ -267,8 +267,6 @@ struct intel_perf_query_result;
  */
 #define ANV_PERF_QUERY_OFFSET_REG 0x2670 /* MI_ALU_REG14 */
 
-#define ANV_GRAPHICS_SHADER_STAGE_COUNT (MESA_SHADER_MESH + 1)
-
 /* For gfx12 we set the streamout buffers using 4 separate commands
  * (3DSTATE_SO_BUFFER_INDEX_*) instead of 3DSTATE_SO_BUFFER. However the layout
  * of the 3DSTATE_SO_BUFFER_INDEX_* commands is identical to that of
@@ -2857,7 +2855,7 @@ struct anv_graphics_pipeline {
    struct anv_pipeline                          base;
 
    /* Shaders */
-   struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
+   struct anv_shader_bin *                      shaders[MESA_SHADER_GL_MESH_STAGES];
 
    VkShaderStageFlags                           active_stages;
 
