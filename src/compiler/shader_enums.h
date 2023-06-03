@@ -77,6 +77,27 @@ typedef enum pipe_shader_type
 
    /* must be last so it doesn't affect the GL pipeline */
    MESA_SHADER_KERNEL = 14,
+
+   /**
+    * GL graphics stages (not including CL amd GL compute)
+    */
+   MESA_SHADER_GL_GRAPHICS_STAGES = (MESA_SHADER_FRAGMENT + 1),
+   /**
+    * GL related stages (not including CL)
+    */
+   MESA_SHADER_GL_STAGES = (MESA_SHADER_COMPUTE + 1),
+   /**
+    * GL related stages plus task/mesh (not including CL)
+    */
+   MESA_SHADER_GL_MESH_STAGES = (MESA_SHADER_MESH + 1),
+   /**
+    * Vulkan stages (not including CL)
+    */
+   MESA_SHADER_VULKAN_STAGES = (MESA_SHADER_CALLABLE + 1),
+   /**
+    * All stages, this is defined as macro to avoid error: enumeration value 'MESA_SHADER_ALL_STAGES' not handled in switch
+    */
+   MESA_SHADER_ALL_STAGES = (MESA_SHADER_KERNEL + 1),
 } gl_shader_stage;
 
 static inline bool
