@@ -1368,7 +1368,7 @@ zink_descriptors_update(struct zink_context *ctx, bool is_compute)
                                                            bs->dd.db_map + stage_offset);
             }
             if (!is_compute && ctx->dd.has_fbfetch) {
-               uint64_t stage_offset = offset + ctx->dd.db_offset[MESA_SHADER_FRAGMENT + 1];
+               uint64_t stage_offset = offset + ctx->dd.db_offset[MESA_SHADER_GL_GRAPHICS_STAGES];
                if (pg->dd.fbfetch && screen->info.db_props.inputAttachmentDescriptorSize) {
                   /* real fbfetch descriptor */
                   VkDescriptorGetInfoEXT info;

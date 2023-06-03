@@ -282,7 +282,7 @@ struct tu_pipeline
       struct tu_shader_key key;
       struct tu_const_state const_state;
       struct ir3_shader_variant *variant, *safe_const_variant;
-   } shaders[MESA_SHADER_FRAGMENT + 1];
+   } shaders[MESA_SHADER_GL_GRAPHICS_STAGES];
 
    struct ir3_shader_key ir3_key;
 

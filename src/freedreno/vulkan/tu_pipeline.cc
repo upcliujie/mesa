@@ -251,10 +251,10 @@ struct tu_pipeline_builder
 
    struct tu_compiled_shaders *compiled_shaders;
 
-   struct tu_const_state const_state[MESA_SHADER_FRAGMENT + 1];
-   struct ir3_shader_variant *variants[MESA_SHADER_FRAGMENT + 1];
+   struct tu_const_state const_state[MESA_SHADER_GL_GRAPHICS_STAGES];
+   struct ir3_shader_variant *variants[MESA_SHADER_GL_GRAPHICS_STAGES];
    struct ir3_shader_variant *binning_variant;
-   uint64_t shader_iova[MESA_SHADER_FRAGMENT + 1];
+   uint64_t shader_iova[MESA_SHADER_GL_GRAPHICS_STAGES];
    uint64_t binning_vs_iova;
 
    uint32_t additional_cs_reserve_size;

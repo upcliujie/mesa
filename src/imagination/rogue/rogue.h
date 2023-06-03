@@ -2899,11 +2899,11 @@ typedef struct rogue_build_ctx {
    rogue_compiler *compiler;
 
    /* Shaders in various stages of compilations. */
-   nir_shader *nir[MESA_SHADER_FRAGMENT + 1];
-   rogue_shader *rogue[MESA_SHADER_FRAGMENT + 1];
-   struct util_dynarray binary[MESA_SHADER_FRAGMENT + 1];
+   nir_shader *nir[MESA_SHADER_GL_GRAPHICS_STAGES];
+   rogue_shader *rogue[MESA_SHADER_GL_GRAPHICS_STAGES];
+   struct util_dynarray binary[MESA_SHADER_GL_GRAPHICS_STAGES];
 
-   rogue_common_build_data common_data[MESA_SHADER_FRAGMENT + 1];
+   rogue_common_build_data common_data[MESA_SHADER_GL_GRAPHICS_STAGES];
    rogue_build_data stage_data;
    struct pvr_pipeline_layout *pipeline_layout;
    unsigned next_ssa_idx;
