@@ -233,7 +233,7 @@ static struct zink_descriptor_layout *
 create_gfx_layout(struct zink_context *ctx, struct zink_descriptor_layout_key **layout_key, bool fbfetch)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkDescriptorSetLayoutBinding bindings[MESA_SHADER_STAGES];
+   VkDescriptorSetLayoutBinding bindings[MESA_SHADER_GL_STAGES];
    enum zink_descriptor_type dsl_type;
    VkDescriptorType vktype = get_push_types(screen, &dsl_type);
    for (unsigned i = 0; i < ZINK_GFX_SHADER_COUNT; i++)
@@ -471,8 +471,8 @@ bool
 zink_descriptor_program_init(struct zink_context *ctx, struct zink_program *pg)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkDescriptorSetLayoutBinding bindings[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_STAGES * 64];
-   VkDescriptorUpdateTemplateEntry entries[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_STAGES * 64];
+   VkDescriptorSetLayoutBinding bindings[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_GL_STAGES * 64];
+   VkDescriptorUpdateTemplateEntry entries[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_GL_STAGES * 64];
    unsigned num_bindings[ZINK_DESCRIPTOR_BASE_TYPES] = {0};
    uint8_t has_bindings = 0;
    unsigned push_count = 0;

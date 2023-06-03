@@ -350,7 +350,7 @@ struct radv_physical_device {
    dev_t render_devid;
 #endif
 
-   nir_shader_compiler_options nir_options[MESA_VULKAN_SHADER_STAGES];
+   nir_shader_compiler_options nir_options[MESA_SHADER_VULKAN_STAGES];
 
    enum radv_queue_family vk_queue_to_radv[RADV_MAX_QUEUE_FAMILIES];
    uint32_t num_queues;
@@ -1605,7 +1605,7 @@ struct radv_cmd_state {
    uint64_t dirty;
 
    VkShaderStageFlags active_stages;
-   struct radv_shader *shaders[MESA_VULKAN_SHADER_STAGES];
+   struct radv_shader *shaders[MESA_SHADER_VULKAN_STAGES];
    struct radv_shader *gs_copy_shader;
    struct radv_shader *last_vgt_shader;
    struct radv_shader *rt_prolog;
@@ -2171,7 +2171,7 @@ enum {
                          VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CALLABLE_BIT_KHR)
 };
 
-#define RADV_STAGE_MASK ((1 << MESA_VULKAN_SHADER_STAGES) - 1)
+#define RADV_STAGE_MASK ((1 << MESA_SHADER_VULKAN_STAGES) - 1)
 
 #define radv_foreach_stage(stage, stage_bits)                                                      \
    for (gl_shader_stage stage, __tmp = (gl_shader_stage)((stage_bits)&RADV_STAGE_MASK);            \
@@ -2219,7 +2219,7 @@ struct radv_pipeline {
 
    bool is_internal;
    bool need_indirect_descriptor_sets;
-   struct radv_shader *shaders[MESA_VULKAN_SHADER_STAGES];
+   struct radv_shader *shaders[MESA_SHADER_VULKAN_STAGES];
    struct radv_shader *gs_copy_shader;
 
    uint64_t shader_upload_seq;
@@ -2228,7 +2228,7 @@ struct radv_pipeline {
    uint32_t ctx_cs_hash;
    struct radeon_cmdbuf ctx_cs;
 
-   uint32_t user_data_0[MESA_VULKAN_SHADER_STAGES];
+   uint32_t user_data_0[MESA_SHADER_VULKAN_STAGES];
 
    unsigned max_waves;
    unsigned scratch_bytes_per_wave;
@@ -2244,7 +2244,7 @@ struct radv_pipeline {
 struct radv_sqtt_shaders_reloc {
    struct radeon_winsys_bo *bo;
    union radv_shader_arena_block *alloc;
-   uint64_t va[MESA_VULKAN_SHADER_STAGES];
+   uint64_t va[MESA_SHADER_VULKAN_STAGES];
 };
 
 struct radv_graphics_pipeline {
@@ -2359,7 +2359,7 @@ struct radv_graphics_lib_pipeline {
       void *serialized_nir;
       size_t serialized_nir_size;
       unsigned char shader_sha1[SHA1_DIGEST_LENGTH];
-   } retained_shaders[MESA_VULKAN_SHADER_STAGES];
+   } retained_shaders[MESA_SHADER_VULKAN_STAGES];
 
    void *mem_ctx;
 

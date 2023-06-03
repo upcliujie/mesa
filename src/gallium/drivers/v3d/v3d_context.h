@@ -241,7 +241,7 @@ struct v3d_program_stateobj {
         struct v3d_uncompiled_shader *bind_vs, *bind_gs, *bind_fs, *bind_compute;
         struct v3d_compiled_shader *cs, *vs, *gs_bin, *gs, *fs, *compute;
 
-        struct hash_table *cache[MESA_SHADER_STAGES];
+        struct hash_table *cache[MESA_SHADER_GL_STAGES];
 
         struct v3d_bo *spill_bo;
         int spill_size_per_thread;

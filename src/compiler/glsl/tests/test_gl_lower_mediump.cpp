@@ -161,7 +161,7 @@ namespace
 
       initialize_context_to_defaults(ctx, API_OPENGLES2);
       ctx->Version = 31;
-      for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+      for (int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
          ctx->Const.ShaderCompilerOptions[i].LowerPrecisionFloat16 = true;
          ctx->Const.ShaderCompilerOptions[i].LowerPrecisionInt16 = true;
       }

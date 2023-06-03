@@ -788,7 +788,7 @@ void anv_bo_pool_free(struct anv_bo_pool *pool, struct anv_bo *bo);
 
 struct anv_scratch_pool {
    /* Indexed by Per-Thread Scratch Space number (the hardware value) and stage */
-   struct anv_bo *bos[16][MESA_SHADER_STAGES];
+   struct anv_bo *bos[16][MESA_SHADER_GL_STAGES];
 };
 
 void anv_scratch_pool_init(struct anv_device *device,
@@ -2290,7 +2290,7 @@ struct anv_push_constants {
    uint32_t dynamic_offsets[MAX_DYNAMIC_BUFFERS];
 
    /* Robust access pushed registers. */
-   uint64_t push_reg_mask[MESA_SHADER_STAGES];
+   uint64_t push_reg_mask[MESA_SHADER_GL_STAGES];
 
    struct {
       /** Base workgroup ID
@@ -2510,12 +2510,12 @@ struct anv_cmd_state {
    struct anv_vertex_binding                    vertex_bindings[MAX_VBS];
    bool                                         xfb_enabled;
    struct anv_xfb_binding                       xfb_bindings[MAX_XFB_BUFFERS];
-   struct anv_state                             binding_tables[MESA_VULKAN_SHADER_STAGES];
-   struct anv_state                             samplers[MESA_VULKAN_SHADER_STAGES];
+   struct anv_state                             binding_tables[MESA_SHADER_VULKAN_STAGES];
+   struct anv_state                             samplers[MESA_SHADER_VULKAN_STAGES];
 
-   unsigned char                                sampler_sha1s[MESA_VULKAN_SHADER_STAGES][20];
-   unsigned char                                surface_sha1s[MESA_VULKAN_SHADER_STAGES][20];
-   unsigned char                                push_sha1s[MESA_VULKAN_SHADER_STAGES][20];
+   unsigned char                                sampler_sha1s[MESA_SHADER_VULKAN_STAGES][20];
+   unsigned char                                surface_sha1s[MESA_SHADER_VULKAN_STAGES][20];
+   unsigned char                                push_sha1s[MESA_SHADER_VULKAN_STAGES][20];
 
    /**
     * Whether or not the gfx8 PMA fix is enabled.  We ensure that, at the top
@@ -2757,7 +2757,7 @@ struct anv_event {
    struct anv_state                             state;
 };
 
-#define ANV_STAGE_MASK ((1 << MESA_VULKAN_SHADER_STAGES) - 1)
+#define ANV_STAGE_MASK ((1 << MESA_SHADER_VULKAN_STAGES) - 1)
 
 #define anv_foreach_stage(stage, stage_bits)                         \
    for (gl_shader_stage stage,                                       \

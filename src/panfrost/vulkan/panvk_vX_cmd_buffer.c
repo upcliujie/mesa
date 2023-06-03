@@ -494,7 +494,7 @@ panvk_draw_prepare_varyings(struct panvk_cmd_buffer *cmdbuf,
    }
    draw->varying_bufs = bufs.gpu;
 
-   for (unsigned s = 0; s < MESA_SHADER_STAGES; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_GL_STAGES; s++) {
       if (!varyings->stage[s].count)
          continue;
 

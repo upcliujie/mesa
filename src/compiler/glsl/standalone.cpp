@@ -308,7 +308,7 @@ initialize_context(struct gl_context *ctx, gl_api api)
 
    /* GL_ARB_explicit_uniform_location, GL_MAX_UNIFORM_LOCATIONS */
    ctx->Const.MaxUserAssignableUniformLocations =
-      4 * MESA_SHADER_STAGES * MAX_UNIFORMS;
+      4 * MESA_SHADER_GL_STAGES * MAX_UNIFORMS;
 }
 
 /* Returned string will have 'ctx' as its ralloc owner. */
@@ -523,7 +523,7 @@ standalone_compile_shader(const struct standalone_options *_options,
             printf("\n");
       }
 
-      for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+      for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
          struct gl_linked_shader *shader = whole_program->_LinkedShaders[i];
 
          if (!shader)
@@ -538,7 +538,7 @@ standalone_compile_shader(const struct standalone_options *_options,
       }
 
       if (options->dump_builder) {
-         for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+         for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
             struct gl_linked_shader *shader = whole_program->_LinkedShaders[i];
 
             if (!shader)
@@ -552,7 +552,7 @@ standalone_compile_shader(const struct standalone_options *_options,
    return whole_program;
 
 fail:
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (whole_program->_LinkedShaders[i])
          _mesa_delete_linked_shader(ctx, whole_program->_LinkedShaders[i]);
    }

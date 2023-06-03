@@ -2962,10 +2962,10 @@ link_varyings(struct gl_shader_program *prog, unsigned first,
          return false;
    }
 
-   struct gl_linked_shader *linked_shader[MESA_SHADER_STAGES];
+   struct gl_linked_shader *linked_shader[MESA_SHADER_GL_STAGES];
    unsigned num_shaders = 0;
 
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i])
          linked_shader[num_shaders++] = prog->_LinkedShaders[i];
    }
@@ -3157,7 +3157,7 @@ gl_nir_link_varyings(const struct gl_constants *consts,
 
    MESA_TRACE_FUNC();
 
-   first = MESA_SHADER_STAGES;
+   first = MESA_SHADER_GL_STAGES;
    last = 0;
 
    /* We need to initialise the program resource list because the varying
@@ -3166,17 +3166,17 @@ gl_nir_link_varyings(const struct gl_constants *consts,
    init_program_resource_list(prog);
 
    /* Determine first and last stage. */
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (!prog->_LinkedShaders[i])
          continue;
-      if (first == MESA_SHADER_STAGES)
+      if (first == MESA_SHADER_GL_STAGES)
          first = i;
       last = i;
    }
 
    bool r = link_varyings(prog, first, last, consts, exts, api, mem_ctx);
    if (r) {
-      for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+      for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
          if (!prog->_LinkedShaders[i])
             continue;
 

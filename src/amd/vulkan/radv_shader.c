@@ -130,7 +130,7 @@ get_nir_options_for_stage(struct radv_physical_device *device, gl_shader_stage s
 void
 radv_get_nir_options(struct radv_physical_device *device)
 {
-   for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < MESA_VULKAN_SHADER_STAGES; stage++)
+   for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < MESA_SHADER_VULKAN_STAGES; stage++)
       get_nir_options_for_stage(device, stage);
 }
 
@@ -2564,7 +2564,7 @@ radv_find_shader(struct radv_device *device, uint64_t pc)
             mtx_unlock(&device->shader_arena_mutex);
 
             struct radv_pipeline *pipeline = (struct radv_pipeline *)block->freelist.next;
-            for (uint32_t i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+            for (uint32_t i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
                struct radv_shader *shader = pipeline->shaders[i];
                if (!shader)
                   continue;

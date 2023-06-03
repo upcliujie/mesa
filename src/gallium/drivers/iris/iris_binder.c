@@ -130,7 +130,7 @@ iris_binder_reserve_3d(struct iris_context *ice)
 {
    struct iris_compiled_shader **shaders = ice->shaders.prog;
    struct iris_binder *binder = &ice->state.binder;
-   unsigned sizes[MESA_SHADER_STAGES] = {};
+   unsigned sizes[MESA_SHADER_GL_STAGES] = {};
    unsigned total_size;
 
    /* If nothing is dirty, skip all this. */

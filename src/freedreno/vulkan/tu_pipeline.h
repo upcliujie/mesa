@@ -71,12 +71,12 @@ struct tu_compiled_shaders
 {
    struct vk_pipeline_cache_object base;
 
-   struct tu_const_state const_state[MESA_SHADER_STAGES];
+   struct tu_const_state const_state[MESA_SHADER_GL_STAGES];
    uint8_t active_desc_sets;
 
-   struct ir3_shader_variant *variants[MESA_SHADER_STAGES];
+   struct ir3_shader_variant *variants[MESA_SHADER_GL_STAGES];
 
-   struct ir3_shader_variant *safe_const_variants[MESA_SHADER_STAGES];
+   struct ir3_shader_variant *safe_const_variants[MESA_SHADER_GL_STAGES];
 };
 
 struct tu_nir_shaders
@@ -86,7 +86,7 @@ struct tu_nir_shaders
    /* This is optional, and is only filled out when a library pipeline is
     * compiled with RETAIN_LINK_TIME_OPTIMIZATION_INFO.
     */
-   nir_shader *nir[MESA_SHADER_STAGES];
+   nir_shader *nir[MESA_SHADER_GL_STAGES];
 };
 
 extern const struct vk_pipeline_cache_object_ops tu_shaders_ops;
@@ -226,7 +226,7 @@ struct tu_pipeline
       struct tu_draw_state state;
       struct tu_draw_state binning_state;
 
-      struct tu_program_descriptor_linkage link[MESA_SHADER_STAGES];
+      struct tu_program_descriptor_linkage link[MESA_SHADER_GL_STAGES];
 
       uint32_t vs_param_stride;
       uint32_t hs_param_stride;

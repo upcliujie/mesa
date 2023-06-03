@@ -287,7 +287,7 @@ void anv_GetDescriptorSetLayoutSupport(
    ANV_FROM_HANDLE(anv_device, device, _device);
    const struct anv_physical_device *pdevice = device->physical;
 
-   uint32_t surface_count[MESA_VULKAN_SHADER_STAGES] = { 0, };
+   uint32_t surface_count[MESA_SHADER_VULKAN_STAGES] = { 0, };
    VkDescriptorType varying_desc_type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
    bool needs_descriptor_buffer = false;
 

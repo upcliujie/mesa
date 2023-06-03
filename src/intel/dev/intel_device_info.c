@@ -1507,7 +1507,7 @@ init_max_scratch_ids(struct intel_device_info *devinfo)
        * from the relevant fixed-function unit, all scratch access is based on
        * thread IDs like it always has been for compute.
        */
-      for (int i = MESA_SHADER_VERTEX; i < MESA_SHADER_STAGES; i++)
+      for (int i = MESA_SHADER_VERTEX; i < MESA_SHADER_GL_STAGES; i++)
          devinfo->max_scratch_ids[i] = max_thread_ids;
    } else {
       unsigned max_scratch_ids[] = {

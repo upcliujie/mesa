@@ -355,7 +355,7 @@ static void declare_tes_input_vgprs(struct si_shader_args *args)
 enum
 {
    /* Convenient merged shader definitions. */
-   SI_SHADER_MERGED_VERTEX_TESSCTRL = MESA_ALL_SHADER_STAGES,
+   SI_SHADER_MERGED_VERTEX_TESSCTRL = MESA_SHADER_ALL_STAGES,
    SI_SHADER_MERGED_VERTEX_OR_TESSEVAL_GEOMETRY,
 };
 

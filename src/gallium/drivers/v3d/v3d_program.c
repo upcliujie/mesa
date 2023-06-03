@@ -1039,7 +1039,7 @@ v3d_program_fini(struct pipe_context *pctx)
 {
         struct v3d_context *v3d = v3d_context(pctx);
 
-        for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+        for (int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
                 struct hash_table *cache = v3d->prog.cache[i];
                 if (!cache)
                         continue;

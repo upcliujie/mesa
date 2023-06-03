@@ -104,7 +104,7 @@ tu_framebuffer_tiling_config(struct tu_framebuffer *fb,
                              const struct tu_device *device,
                              const struct tu_render_pass *pass);
 
-#define TU_STAGE_MASK ((1 << MESA_SHADER_STAGES) - 1)
+#define TU_STAGE_MASK ((1 << MESA_SHADER_GL_STAGES) - 1)
 
 #define tu_foreach_stage(stage, stage_bits)                                  \
    for (gl_shader_stage stage,                                               \

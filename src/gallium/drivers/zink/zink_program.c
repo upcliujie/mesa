@@ -1734,7 +1734,7 @@ bind_last_vertex_stage(struct zink_context *ctx, gl_shader_stage stage, struct z
    if (prev_shader && stage < MESA_SHADER_GEOMETRY)
       unbind_generated_gs(ctx, stage, prev_shader);
 
-   gl_shader_stage old = ctx->last_vertex_stage ? ctx->last_vertex_stage->info.stage : MESA_SHADER_STAGES;
+   gl_shader_stage old = ctx->last_vertex_stage ? ctx->last_vertex_stage->info.stage : MESA_SHADER_GL_STAGES;
    if (ctx->gfx_stages[MESA_SHADER_GEOMETRY])
       ctx->last_vertex_stage = ctx->gfx_stages[MESA_SHADER_GEOMETRY];
    else if (ctx->gfx_stages[MESA_SHADER_TESS_EVAL])
@@ -1750,7 +1750,7 @@ bind_last_vertex_stage(struct zink_context *ctx, gl_shader_stage stage, struct z
 
    if (old != current) {
       if (!zink_screen(ctx->base.screen)->optimal_keys) {
-         if (old != MESA_SHADER_STAGES) {
+         if (old != MESA_SHADER_GL_STAGES) {
             memset(&ctx->gfx_pipeline_state.shader_keys.key[old].key.vs_base, 0, sizeof(struct zink_vs_key_base));
             ctx->dirty_gfx_stages |= BITFIELD_BIT(old);
          } else {

@@ -298,7 +298,7 @@ crocus_init_program_cache(struct crocus_context *ice)
 void
 crocus_destroy_program_cache(struct crocus_context *ice)
 {
-   for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       ice->shaders.prog[i] = NULL;
    }
 

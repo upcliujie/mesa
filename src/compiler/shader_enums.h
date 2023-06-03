@@ -174,22 +174,6 @@ const char *_mesa_shader_stage_to_string(unsigned stage);
 const char *_mesa_shader_stage_to_abbrev(unsigned stage);
 
 /**
- * GL related stages (not including CL)
- */
-#define MESA_SHADER_STAGES (MESA_SHADER_COMPUTE + 1)
-
-/**
- * Vulkan stages (not including CL)
- */
-#define MESA_VULKAN_SHADER_STAGES (MESA_SHADER_CALLABLE + 1)
-
-/**
- * All stages
- */
-#define MESA_ALL_SHADER_STAGES (MESA_SHADER_KERNEL + 1)
-
-
-/**
  * Indexes for vertex program attributes.
  * GL_NV_vertex_program aliases generic attributes over the conventional
  * attributes.  In GL_ARB_vertex_program shader the aliasing is optional.

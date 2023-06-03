@@ -276,7 +276,7 @@ iris_init_program_cache(struct iris_context *ice)
 void
 iris_destroy_program_cache(struct iris_context *ice)
 {
-   for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       iris_shader_variant_reference(&ice->shaders.prog[i], NULL);
    }
    iris_shader_variant_reference(&ice->shaders.last_vue_shader, NULL);

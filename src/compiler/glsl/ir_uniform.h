@@ -113,7 +113,7 @@ struct gl_uniform_storage {
     */
    unsigned array_elements;
 
-   struct gl_opaque_uniform_index opaque[MESA_SHADER_STAGES];
+   struct gl_opaque_uniform_index opaque[MESA_SHADER_GL_STAGES];
 
    /**
     * Mask of shader stages (1 << MESA_SHADER_xxx) where this uniform is used.

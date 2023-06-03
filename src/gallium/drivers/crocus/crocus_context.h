@@ -509,8 +509,8 @@ struct crocus_context {
    } draw;
 
    struct {
-      struct crocus_uncompiled_shader *uncompiled[MESA_SHADER_STAGES];
-      struct crocus_compiled_shader *prog[MESA_SHADER_STAGES];
+      struct crocus_uncompiled_shader *uncompiled[MESA_SHADER_GL_STAGES];
+      struct crocus_compiled_shader *prog[MESA_SHADER_GL_STAGES];
       struct brw_vue_map *last_vue_map;
 
       struct crocus_bo *cache_bo;
@@ -544,7 +544,7 @@ struct crocus_context {
        * Indexed by the "Per-Thread Scratch Space" field's 4-bit encoding,
        * and shader stage.
        */
-      struct crocus_bo *scratch_bos[1 << 4][MESA_SHADER_STAGES];
+      struct crocus_bo *scratch_bos[1 << 4][MESA_SHADER_GL_STAGES];
    } shaders;
 
    struct {
@@ -621,7 +621,7 @@ struct crocus_context {
       /** GenX-specific current state */
       struct crocus_genx_state *genx;
 
-      struct crocus_shader_state shaders[MESA_SHADER_STAGES];
+      struct crocus_shader_state shaders[MESA_SHADER_GL_STAGES];
 
       /* track if geom shader is active for IVB GT2 workaround */
       bool gs_enabled;

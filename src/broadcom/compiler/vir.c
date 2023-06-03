@@ -1634,7 +1634,7 @@ v3d_attempt_compile(struct v3d_compile *c)
                  * fragment and geometry shaders do not.
                  */
                 .stages_with_shared_io_memory =
-                (((1 << MESA_ALL_SHADER_STAGES) - 1) &
+                (((1 << MESA_SHADER_ALL_STAGES) - 1) &
                  ~((1 << MESA_SHADER_FRAGMENT) |
                    (1 << MESA_SHADER_GEOMETRY))),
 

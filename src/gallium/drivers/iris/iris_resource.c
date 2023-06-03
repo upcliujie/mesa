@@ -2786,7 +2786,7 @@ iris_dirty_for_history(struct iris_context *ice,
    uint64_t stage_dirty = 0ull;
 
    if (res->bind_history & PIPE_BIND_CONSTANT_BUFFER) {
-      for (unsigned stage = 0; stage < MESA_SHADER_STAGES; stage++) {
+      for (unsigned stage = 0; stage < MESA_SHADER_GL_STAGES; stage++) {
          if (stages & (1u << stage)) {
             struct iris_shader_state *shs = &ice->state.shaders[stage];
             shs->dirty_cbufs |= ~0u;

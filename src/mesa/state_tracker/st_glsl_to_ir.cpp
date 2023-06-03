@@ -53,7 +53,7 @@ link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
       return st_link_nir(ctx, prog);
    }
 
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i] == NULL)
          continue;
 
@@ -113,7 +113,7 @@ st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
       void *driver_handles[PIPE_SHADER_TYPES];
       memset(driver_handles, 0, sizeof(driver_handles));
 
-      for (uint32_t i = 0; i < MESA_SHADER_STAGES; ++i) {
+      for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; ++i) {
          struct gl_linked_shader *shader = prog->_LinkedShaders[i];
          if (shader) {
             struct gl_program *p = shader->Program;

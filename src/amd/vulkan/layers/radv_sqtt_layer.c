@@ -153,7 +153,7 @@ radv_sqtt_reloc_graphics_shaders(struct radv_device *device,
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    /* Compute the total code size. */
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       const struct radv_shader *shader = pipeline->base.shaders[i];
       if (!shader)
          continue;
@@ -182,7 +182,7 @@ radv_sqtt_reloc_graphics_shaders(struct radv_device *device,
          return VK_ERROR_UNKNOWN;
    }
 
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       const struct radv_shader *shader = pipeline->base.shaders[i];
       void *dest_ptr;
       if (!shader)
@@ -1195,7 +1195,7 @@ radv_add_code_object(struct radv_device *device, struct radv_pipeline *pipeline)
    record->pipeline_hash[0] = pipeline->pipeline_hash;
    record->pipeline_hash[1] = pipeline->pipeline_hash;
 
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       struct radv_shader *shader = pipeline->shaders[i];
       uint64_t va;
 
@@ -1240,7 +1240,7 @@ radv_register_pipeline(struct radv_device *device, struct radv_pipeline *pipelin
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    /* Find the lowest shader BO VA. */
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       struct radv_shader *shader = pipeline->shaders[i];
       uint64_t va;
 

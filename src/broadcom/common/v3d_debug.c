@@ -123,7 +123,7 @@ v3d_debug_flag_for_shader_stage(gl_shader_stage stage)
                 [MESA_SHADER_FRAGMENT] = V3D_DEBUG_FS,
                 [MESA_SHADER_COMPUTE] = V3D_DEBUG_CS,
         };
-        STATIC_ASSERT(MESA_SHADER_STAGES == 6);
+        STATIC_ASSERT(MESA_SHADER_GL_STAGES == 6);
         return v3d_mesa_debug & flags[stage];
 }
 

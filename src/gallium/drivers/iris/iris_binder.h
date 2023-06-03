@@ -52,7 +52,7 @@ struct iris_binder
     * Last assigned offset for each shader stage's binding table.
     * Zero is considered invalid and means there's no binding table.
     */
-   uint32_t bt_offset[MESA_SHADER_STAGES];
+   uint32_t bt_offset[MESA_SHADER_GL_STAGES];
 };
 
 void iris_init_binder(struct iris_context *ice);

@@ -521,7 +521,7 @@ validate_interstage_uniform_blocks(struct gl_shader_program *prog,
 {
    interface_block_definitions definitions;
 
-   for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (stages[i] == NULL)
          continue;
 

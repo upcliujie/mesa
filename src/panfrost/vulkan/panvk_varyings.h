@@ -64,7 +64,7 @@ struct panvk_varyings_info {
    struct {
       unsigned count;
       gl_varying_slot loc[VARYING_SLOT_MAX];
-   } stage[MESA_SHADER_STAGES];
+   } stage[MESA_SHADER_GL_STAGES];
    unsigned buf_mask;
 };
 

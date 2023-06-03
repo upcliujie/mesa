@@ -1397,7 +1397,7 @@ struct iris_genx_state {
 #if GFX_VER == 8
       struct brw_image_param image_param[PIPE_MAX_SHADER_IMAGES];
 #endif
-   } shaders[MESA_SHADER_STAGES];
+   } shaders[MESA_SHADER_GL_STAGES];
 };
 
 /**
@@ -7953,7 +7953,7 @@ iris_destroy_state(struct iris_context *ice)
 
    util_unreference_framebuffer_state(&ice->state.framebuffer);
 
-   for (int stage = 0; stage < MESA_SHADER_STAGES; stage++) {
+   for (int stage = 0; stage < MESA_SHADER_GL_STAGES; stage++) {
       struct iris_shader_state *shs = &ice->state.shaders[stage];
       pipe_resource_reference(&shs->sampler_table.res, NULL);
       for (int i = 0; i < PIPE_MAX_CONSTANT_BUFFERS; i++) {
@@ -8062,7 +8062,7 @@ iris_rebind_buffer(struct iris_context *ice,
       }
    }
 
-   for (int s = MESA_SHADER_VERTEX; s < MESA_SHADER_STAGES; s++) {
+   for (int s = MESA_SHADER_VERTEX; s < MESA_SHADER_GL_STAGES; s++) {
       struct iris_shader_state *shs = &ice->state.shaders[s];
       enum pipe_shader_type p_stage = stage_to_pipe(s);
 

@@ -535,7 +535,7 @@ dzn_pipeline_cache_lookup_dxil_shader(struct vk_pipeline_cache *cache,
       (struct dzn_cached_dxil_shader_header *)(cached_blob->data);
 
    assert(sizeof(struct dzn_cached_dxil_shader_header) + info->size <= cached_blob->size);
-   assert(info->stage > MESA_SHADER_NONE && info->stage < MESA_VULKAN_SHADER_STAGES);
+   assert(info->stage > MESA_SHADER_NONE && info->stage < MESA_SHADER_VULKAN_STAGES);
    assert(info->size > 0);
 
    void *code = malloc(info->size);
@@ -670,7 +670,7 @@ dzn_pipeline_cache_add_gfx_pipeline(struct dzn_graphics_pipeline *pipeline,
       (sizeof(D3D12_INPUT_ELEMENT_DESC) * vertex_input_count);
    uint32_t stages = 0;
 
-   for (uint32_t i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (uint32_t i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       if (pipeline->templates.shaders[i].bc) {
          stages |= BITFIELD_BIT(i);
          offset += SHA1_DIGEST_LENGTH;
@@ -746,8 +746,8 @@ dzn_graphics_pipeline_compile_shaders(struct dzn_device *device,
       uint8_t dxil_hash[SHA1_DIGEST_LENGTH];
       uint8_t nir_hash[SHA1_DIGEST_LENGTH];
       uint8_t link_hashes[SHA1_DIGEST_LENGTH][2];
-   } stages[MESA_VULKAN_SHADER_STAGES] = { 0 };
-   const uint8_t *dxil_hashes[MESA_VULKAN_SHADER_STAGES] = { 0 };
+   } stages[MESA_SHADER_VULKAN_STAGES] = { 0 };
+   const uint8_t *dxil_hashes[MESA_SHADER_VULKAN_STAGES] = { 0 };
    uint8_t attribs_hash[SHA1_DIGEST_LENGTH];
    uint8_t pipeline_hash[SHA1_DIGEST_LENGTH];
    gl_shader_stage last_raster_stage = MESA_SHADER_NONE;

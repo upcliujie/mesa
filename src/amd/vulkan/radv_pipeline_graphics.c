@@ -2372,7 +2372,7 @@ radv_pipeline_nir_to_asm(struct radv_device *device, struct radv_graphics_pipeli
                          struct radv_shader_binary **binaries,
                          struct radv_shader_binary **gs_copy_binary)
 {
-   for (int s = MESA_VULKAN_SHADER_STAGES - 1; s >= 0; s--) {
+   for (int s = MESA_SHADER_VULKAN_STAGES - 1; s >= 0; s--) {
       if (!(active_nir_stages & (1 << s)) || pipeline->base.shaders[s])
          continue;
 
@@ -2420,7 +2420,7 @@ radv_pipeline_get_nir(struct radv_device *device, struct radv_graphics_pipeline 
                       struct radv_pipeline_stage *stages,
                       const struct radv_pipeline_key *pipeline_key)
 {
-   for (unsigned s = 0; s < MESA_VULKAN_SHADER_STAGES; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_VULKAN_STAGES; s++) {
       if (!stages[s].entrypoint)
          continue;
 
@@ -2440,7 +2440,7 @@ static void
 radv_pipeline_retain_shaders(struct radv_graphics_lib_pipeline *gfx_pipeline_lib,
                              struct radv_pipeline_stage *stages)
 {
-   for (unsigned s = 0; s < MESA_VULKAN_SHADER_STAGES; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_VULKAN_STAGES; s++) {
       if (!stages[s].entrypoint)
          continue;
 
@@ -2626,13 +2626,13 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
                                VkGraphicsPipelineLibraryFlagBitsEXT lib_flags,
                                bool fast_linking_enabled)
 {
-   struct radv_shader_binary *binaries[MESA_VULKAN_SHADER_STAGES] = {NULL};
+   struct radv_shader_binary *binaries[MESA_SHADER_VULKAN_STAGES] = {NULL};
    struct radv_shader_binary *gs_copy_binary = NULL;
    struct radv_shader_part_binary *ps_epilog_binary = NULL;
    unsigned char hash[20];
    bool keep_executable_info = radv_pipeline_capture_shaders(device, pCreateInfo->flags);
    bool keep_statistic_info = radv_pipeline_capture_shader_stats(device, pCreateInfo->flags);
-   struct radv_pipeline_stage stages[MESA_VULKAN_SHADER_STAGES];
+   struct radv_pipeline_stage stages[MESA_SHADER_VULKAN_STAGES];
    const VkPipelineCreationFeedbackCreateInfo *creation_feedback =
       vk_find_struct_const(pCreateInfo->pNext, PIPELINE_CREATION_FEEDBACK_CREATE_INFO);
    VkPipelineCreationFeedback pipeline_feedback = {
@@ -2645,7 +2645,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
 
    int64_t pipeline_start = os_time_get_nano();
 
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       stages[i].entrypoint = NULL;
       stages[i].nir = NULL;
       stages[i].spirv.size = 0;
@@ -2665,7 +2665,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
    radv_pipeline_load_retained_shaders(device, pipeline, pCreateInfo, stages);
 
    if (!fast_linking_enabled) {
-      radv_hash_shaders(hash, stages, MESA_VULKAN_SHADER_STAGES, pipeline_layout, pipeline_key,
+      radv_hash_shaders(hash, stages, MESA_SHADER_VULKAN_STAGES, pipeline_layout, pipeline_key,
                         radv_get_hash_flags(device, keep_statistic_info));
 
       pipeline->base.pipeline_hash = *(uint64_t *)hash;
@@ -2680,7 +2680,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
    if (fast_linking_enabled || keep_executable_info) {
       skip_shaders_cache = true;
    } else if ((pCreateInfo->flags & VK_PIPELINE_CREATE_LIBRARY_BIT_KHR) && retain_shaders) {
-      for (uint32_t i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+      for (uint32_t i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
          if (stages[i].entrypoint && !stages[i].spirv.size) {
             skip_shaders_cache = true;
             break;
@@ -2725,7 +2725,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
    }
 
    VkShaderStageFlagBits active_nir_stages = 0;
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       if (stages[i].nir)
          active_nir_stages |= mesa_to_vk_shader_stage(i);
    }
@@ -2797,7 +2797,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
       return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 
    if (keep_executable_info) {
-      for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+      for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
          struct radv_shader *shader = pipeline->base.shaders[i];
          if (!shader)
             continue;
@@ -2817,7 +2817,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
 
    free(gs_copy_binary);
    free(ps_epilog_binary);
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       free(binaries[i]);
       if (stages[i].nir) {
          if (radv_can_dump_shader_stats(device, stages[i].nir) && pipeline->base.shaders[i]) {
@@ -2827,7 +2827,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
    }
 
 done:
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       ralloc_free(stages[i].nir);
    }
    pipeline_feedback.duration = os_time_get_nano() - pipeline_start;
@@ -3898,7 +3898,7 @@ static void
 radv_pipeline_init_shader_stages_state(const struct radv_device *device,
                                        struct radv_graphics_pipeline *pipeline)
 {
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       bool shader_exists = !!pipeline->base.shaders[i];
       if (shader_exists || i < MESA_SHADER_COMPUTE) {
          if (shader_exists)
@@ -4161,7 +4161,7 @@ radv_graphics_pipeline_init(struct radv_graphics_pipeline *pipeline, struct radv
    pipeline->base.dynamic_offset_count = pipeline_layout.dynamic_offset_count;
    pipeline->db_shader_control = radv_compute_db_shader_control(device, pipeline, &state);
 
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; i++) {
       if (pipeline->base.shaders[i]) {
          pipeline->base.shader_upload_seq =
             MAX2(pipeline->base.shader_upload_seq, pipeline->base.shaders[i]->upload_seq);
@@ -4217,7 +4217,7 @@ radv_graphics_pipeline_create(VkDevice _device, VkPipelineCache _cache,
 void
 radv_destroy_graphics_pipeline(struct radv_device *device, struct radv_graphics_pipeline *pipeline)
 {
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       if (pipeline->base.shaders[i])
          radv_shader_unref(device, pipeline->base.shaders[i]);
    }
@@ -4324,7 +4324,7 @@ radv_destroy_graphics_lib_pipeline(struct radv_device *device,
 {
    radv_pipeline_layout_finish(device, &pipeline->layout);
 
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       free(pipeline->retained_shaders[i].serialized_nir);
    }
 

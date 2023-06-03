@@ -424,7 +424,7 @@ struct zink_descriptor_data {
 
    struct zink_program *pg[2]; //gfx, compute
 
-   VkDescriptorUpdateTemplateEntry push_entries[MESA_SHADER_STAGES]; //gfx+fbfetch
+   VkDescriptorUpdateTemplateEntry push_entries[MESA_SHADER_GL_STAGES]; //gfx+fbfetch
    VkDescriptorUpdateTemplateEntry compute_push_entry;
 
    /* push descriptor layout size and binding offsets */
@@ -851,7 +851,7 @@ struct zink_gfx_pipeline_state {
    struct zink_pipeline_dynamic_state3 dyn_state3;
 
    union {
-      VkShaderModule modules[MESA_SHADER_STAGES - 1];
+      VkShaderModule modules[MESA_SHADER_GL_STAGES - 1];
       uint32_t optimal_key;
    };
    bool modules_changed;
@@ -1257,8 +1257,8 @@ struct zink_resource {
          uint8_t vbo_bind_count;
          uint8_t so_bind_count; //not counted in all_binds
          bool so_valid;
-         uint32_t ubo_bind_mask[MESA_SHADER_STAGES];
-         uint32_t ssbo_bind_mask[MESA_SHADER_STAGES];
+         uint32_t ubo_bind_mask[MESA_SHADER_GL_STAGES];
+         uint32_t ssbo_bind_mask[MESA_SHADER_GL_STAGES];
       };
       struct {
          bool linear;
@@ -1272,8 +1272,8 @@ struct zink_resource {
          VkImageAspectFlags aspect;
       };
    };
-   uint32_t sampler_binds[MESA_SHADER_STAGES];
-   uint32_t image_binds[MESA_SHADER_STAGES];
+   uint32_t sampler_binds[MESA_SHADER_GL_STAGES];
+   uint32_t image_binds[MESA_SHADER_GL_STAGES];
    uint16_t sampler_bind_count[2]; //gfx, compute
    uint16_t image_bind_count[2]; //gfx, compute
    uint16_t write_bind_count[2]; //gfx, compute
@@ -1720,10 +1720,10 @@ struct zink_context {
    unsigned shader_has_inlinable_uniforms_mask;
    unsigned inlinable_uniforms_valid_mask;
 
-   struct pipe_constant_buffer ubos[MESA_SHADER_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
-   struct pipe_shader_buffer ssbos[MESA_SHADER_STAGES][PIPE_MAX_SHADER_BUFFERS];
-   uint32_t writable_ssbos[MESA_SHADER_STAGES];
-   struct zink_image_view image_views[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
+   struct pipe_constant_buffer ubos[MESA_SHADER_GL_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
+   struct pipe_shader_buffer ssbos[MESA_SHADER_GL_STAGES][PIPE_MAX_SHADER_BUFFERS];
+   uint32_t writable_ssbos[MESA_SHADER_GL_STAGES];
+   struct zink_image_view image_views[MESA_SHADER_GL_STAGES][ZINK_MAX_SHADER_IMAGES];
 
    uint32_t transient_attachments;
    struct pipe_framebuffer_state fb_state;
@@ -1791,8 +1791,8 @@ struct zink_context {
    struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
    bool vertex_buffers_dirty;
 
-   struct zink_sampler_state *sampler_states[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
-   struct pipe_sampler_view *sampler_views[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+   struct zink_sampler_state *sampler_states[MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
+   struct pipe_sampler_view *sampler_views[MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
 
    struct zink_viewport_state vp_state;
    bool vp_state_changed;
@@ -1843,31 +1843,31 @@ struct zink_context {
    struct {
       /* descriptor info */
       uint32_t push_valid;
-      uint8_t num_ubos[MESA_SHADER_STAGES];
+      uint8_t num_ubos[MESA_SHADER_GL_STAGES];
 
-      uint8_t num_ssbos[MESA_SHADER_STAGES];
+      uint8_t num_ssbos[MESA_SHADER_GL_STAGES];
 
-      VkDescriptorImageInfo textures[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
-      uint32_t emulate_nonseamless[MESA_SHADER_STAGES];
-      uint32_t cubes[MESA_SHADER_STAGES];
-      uint8_t num_samplers[MESA_SHADER_STAGES];
-      uint8_t num_sampler_views[MESA_SHADER_STAGES];
+      VkDescriptorImageInfo textures[MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
+      uint32_t emulate_nonseamless[MESA_SHADER_GL_STAGES];
+      uint32_t cubes[MESA_SHADER_GL_STAGES];
+      uint8_t num_samplers[MESA_SHADER_GL_STAGES];
+      uint8_t num_sampler_views[MESA_SHADER_GL_STAGES];
 
-      VkDescriptorImageInfo images[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
-      uint8_t num_images[MESA_SHADER_STAGES];
+      VkDescriptorImageInfo images[MESA_SHADER_GL_STAGES][ZINK_MAX_SHADER_IMAGES];
+      uint8_t num_images[MESA_SHADER_GL_STAGES];
 
       union {
          struct {
-            VkDescriptorBufferInfo ubos[MESA_SHADER_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
-            VkDescriptorBufferInfo ssbos[MESA_SHADER_STAGES][PIPE_MAX_SHADER_BUFFERS];
-            VkBufferView tbos[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
-            VkBufferView texel_images[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
+            VkDescriptorBufferInfo ubos[MESA_SHADER_GL_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
+            VkDescriptorBufferInfo ssbos[MESA_SHADER_GL_STAGES][PIPE_MAX_SHADER_BUFFERS];
+            VkBufferView tbos[MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
+            VkBufferView texel_images[MESA_SHADER_GL_STAGES][ZINK_MAX_SHADER_IMAGES];
          } t;
          struct {
-            VkDescriptorAddressInfoEXT ubos[MESA_SHADER_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
-            VkDescriptorAddressInfoEXT ssbos[MESA_SHADER_STAGES][PIPE_MAX_SHADER_BUFFERS];
-            VkDescriptorAddressInfoEXT tbos[MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
-            VkDescriptorAddressInfoEXT texel_images[MESA_SHADER_STAGES][ZINK_MAX_SHADER_IMAGES];
+            VkDescriptorAddressInfoEXT ubos[MESA_SHADER_GL_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
+            VkDescriptorAddressInfoEXT ssbos[MESA_SHADER_GL_STAGES][PIPE_MAX_SHADER_BUFFERS];
+            VkDescriptorAddressInfoEXT tbos[MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
+            VkDescriptorAddressInfoEXT texel_images[MESA_SHADER_GL_STAGES][ZINK_MAX_SHADER_IMAGES];
          } db;
       };
 
@@ -1875,9 +1875,9 @@ struct zink_context {
       uint8_t fbfetch_db[ZINK_FBFETCH_DESCRIPTOR_SIZE];
 
       /* the current state of the zs swizzle data */
-      struct zink_zs_swizzle_key zs_swizzle[MESA_SHADER_STAGES];
+      struct zink_zs_swizzle_key zs_swizzle[MESA_SHADER_GL_STAGES];
 
-      struct zink_resource *descriptor_res[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_STAGES][PIPE_MAX_SAMPLERS];
+      struct zink_resource *descriptor_res[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_GL_STAGES][PIPE_MAX_SAMPLERS];
 
       struct {
          struct util_idalloc tex_slots; //img, buffer

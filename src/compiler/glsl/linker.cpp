@@ -1123,7 +1123,7 @@ cross_validate_uniforms(const struct gl_constants *consts,
                         struct gl_shader_program *prog)
 {
    glsl_symbol_table variables;
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i] == NULL)
          continue;
 
@@ -1140,13 +1140,13 @@ static bool
 interstage_cross_validate_uniform_blocks(struct gl_shader_program *prog,
                                          bool validate_ssbo)
 {
-   int *ifc_blk_stage_idx[MESA_SHADER_STAGES];
+   int *ifc_blk_stage_idx[MESA_SHADER_GL_STAGES];
    struct gl_uniform_block *blks = NULL;
    unsigned *num_blks = validate_ssbo ? &prog->data->NumShaderStorageBlocks :
       &prog->data->NumUniformBlocks;
 
    unsigned max_num_buffer_blocks = 0;
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i]) {
          if (validate_ssbo) {
             max_num_buffer_blocks +=
@@ -1158,7 +1158,7 @@ interstage_cross_validate_uniform_blocks(struct gl_shader_program *prog,
       }
    }
 
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       struct gl_linked_shader *sh = prog->_LinkedShaders[i];
 
       ifc_blk_stage_idx[i] =
@@ -1206,7 +1206,7 @@ interstage_cross_validate_uniform_blocks(struct gl_shader_program *prog,
    /* Update per stage block pointers to point to the program list.
     * FIXME: We should be able to free the per stage blocks here.
     */
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       for (unsigned j = 0; j < *num_blks; j++) {
          int stage_index = ifc_blk_stage_idx[i][j];
 
@@ -1223,7 +1223,7 @@ interstage_cross_validate_uniform_blocks(struct gl_shader_program *prog,
       }
    }
 
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       free(ifc_blk_stage_idx[i]);
    }
 
@@ -3478,22 +3478,22 @@ disable_varying_optimizations_for_sso(struct gl_shader_program *prog)
    unsigned first, last;
    assert(prog->SeparateShader);
 
-   first = MESA_SHADER_STAGES;
+   first = MESA_SHADER_GL_STAGES;
    last = 0;
 
    /* Determine first and last stage. Excluding the compute stage */
    for (unsigned i = 0; i < MESA_SHADER_COMPUTE; i++) {
       if (!prog->_LinkedShaders[i])
          continue;
-      if (first == MESA_SHADER_STAGES)
+      if (first == MESA_SHADER_GL_STAGES)
          first = i;
       last = i;
    }
 
-   if (first == MESA_SHADER_STAGES)
+   if (first == MESA_SHADER_GL_STAGES)
       return;
 
-   for (unsigned stage = 0; stage < MESA_SHADER_STAGES; stage++) {
+   for (unsigned stage = 0; stage < MESA_SHADER_GL_STAGES; stage++) {
       gl_linked_shader *sh = prog->_LinkedShaders[stage];
       if (!sh)
          continue;
@@ -3542,7 +3542,7 @@ link_varyings(const struct gl_constants *consts, struct gl_shader_program *prog,
       break;
    }
 
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i] == NULL)
          continue;
 
@@ -3589,10 +3589,10 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
 
    /* Separate the shaders into groups based on their type.
     */
-   struct gl_shader **shader_list[MESA_SHADER_STAGES];
-   unsigned num_shaders[MESA_SHADER_STAGES];
+   struct gl_shader **shader_list[MESA_SHADER_GL_STAGES];
+   unsigned num_shaders[MESA_SHADER_GL_STAGES];
 
-   for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       shader_list[i] = (struct gl_shader **)
          calloc(prog->NumShaders, sizeof(struct gl_shader *));
       num_shaders[i] = 0;
@@ -3706,7 +3706,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
 
    /* Link all shaders for a particular stage and validate the result.
     */
-   for (int stage = 0; stage < MESA_SHADER_STAGES; stage++) {
+   for (int stage = 0; stage < MESA_SHADER_GL_STAGES; stage++) {
       if (num_shaders[stage] > 0) {
          gl_linked_shader *const sh =
             link_intrastage_shaders(mem_ctx, ctx, prog, shader_list[stage],
@@ -3756,14 +3756,14 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
 
    unsigned first, last, prev;
 
-   first = MESA_SHADER_STAGES;
+   first = MESA_SHADER_GL_STAGES;
    last = 0;
 
    /* Determine first and last stage. */
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (!prog->_LinkedShaders[i])
          continue;
-      if (first == MESA_SHADER_STAGES)
+      if (first == MESA_SHADER_GL_STAGES)
          first = i;
       last = i;
    }
@@ -3813,7 +3813,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
    if (!prog->data->LinkStatus)
       goto done;
 
-   for (unsigned int i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i] != NULL)
          lower_named_interface_blocks(mem_ctx, prog->_LinkedShaders[i]);
    }
@@ -3852,7 +3852,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
     * uniforms, and varyings.  Later optimization could possibly make
     * some of that unused.
     */
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i] == NULL)
          continue;
 
@@ -3900,7 +3900,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
       goto done;
 
 done:
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       free(shader_list[i]);
       if (prog->_LinkedShaders[i] == NULL)
          continue;

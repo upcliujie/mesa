@@ -588,7 +588,7 @@ struct panvk_draw_info {
       mali_ptr attributes;
       mali_ptr attribute_bufs;
       mali_ptr push_constants;
-   } stages[MESA_SHADER_STAGES];
+   } stages[MESA_SHADER_GL_STAGES];
    mali_ptr varying_bufs;
    mali_ptr textures;
    mali_ptr samplers;
@@ -806,7 +806,7 @@ struct panvk_pipeline {
    struct panfrost_bo *state_bo;
 
    mali_ptr vpd;
-   mali_ptr rsds[MESA_SHADER_STAGES];
+   mali_ptr rsds[MESA_SHADER_GL_STAGES];
 
    /* shader stage bit is set of the stage accesses storage images */
    uint32_t img_access_mask;
@@ -815,7 +815,7 @@ struct panvk_pipeline {
 
    struct {
       unsigned ubo_idx;
-   } sysvals[MESA_SHADER_STAGES];
+   } sysvals[MESA_SHADER_GL_STAGES];
 
    unsigned tls_size;
    unsigned wls_size;

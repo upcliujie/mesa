@@ -1247,7 +1247,7 @@ stage_from_enum(GLenum ref)
       return MESA_SHADER_COMPUTE;
    default:
       assert(!"shader stage not supported");
-      return MESA_SHADER_STAGES;
+      return MESA_SHADER_GL_STAGES;
    }
 }
 

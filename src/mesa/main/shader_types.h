@@ -480,7 +480,7 @@ struct gl_shader_program
     * \c MESA_SHADER_* defines.  Entries for non-existent stages will be
     * \c NULL.
     */
-   struct gl_linked_shader *_LinkedShaders[MESA_SHADER_STAGES];
+   struct gl_linked_shader *_LinkedShaders[MESA_SHADER_GL_STAGES];
 
    /**
     * True if any of the fragment shaders attached to this program use:
@@ -723,7 +723,7 @@ struct gl_active_atomic_buffer
    GLuint MinimumSize;
 
    /** Shader stages making use of it. */
-   GLboolean StageReferences[MESA_SHADER_STAGES];
+   GLboolean StageReferences[MESA_SHADER_GL_STAGES];
 };
 
 struct gl_transform_feedback_varying_info

@@ -53,7 +53,7 @@ gl_shader_stage_name(gl_shader_stage stage)
       ENUM(MESA_SHADER_CALLABLE),
       ENUM(MESA_SHADER_KERNEL),
    };
-   STATIC_ASSERT(ARRAY_SIZE(names) == MESA_ALL_SHADER_STAGES);
+   STATIC_ASSERT(ARRAY_SIZE(names) == MESA_SHADER_ALL_STAGES);
    return NAME(stage);
 }
 

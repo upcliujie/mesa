@@ -195,7 +195,7 @@ struct st_context
     * This means it has only 1 variant, not counting glBitmap and
     * glDrawPixels.
     */
-   boolean shader_has_one_variant[MESA_SHADER_STAGES];
+   boolean shader_has_one_variant[MESA_SHADER_GL_STAGES];
 
    boolean needs_texcoord_semantic;
    boolean apply_texture_swizzle_to_border_color;
@@ -270,7 +270,7 @@ struct st_context
          struct gl_program *fp;  /**< Currently bound fragment program */
          struct gl_program *cp;   /**< Currently bound compute program */
       };
-      struct gl_program *current_program[MESA_SHADER_STAGES];
+      struct gl_program *current_program[MESA_SHADER_GL_STAGES];
    };
 
    struct st_common_variant *vp_variant;

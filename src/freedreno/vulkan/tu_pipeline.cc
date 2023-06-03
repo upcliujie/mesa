@@ -2836,7 +2836,7 @@ tu_hash_shaders(unsigned char *hash,
 
    _mesa_sha1_update(&ctx, ir3_key, sizeof(ir3_key));
 
-   for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
+   for (int i = 0; i < MESA_SHADER_GL_STAGES; ++i) {
       if (stages[i] || nir[i]) {
          tu_hash_stage(&ctx, stages[i], nir[i], &keys[i]);
       }
@@ -3120,13 +3120,13 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
 {
    VkResult result = VK_SUCCESS;
    const struct ir3_compiler *compiler = builder->device->compiler;
-   const VkPipelineShaderStageCreateInfo *stage_infos[MESA_SHADER_STAGES] = {
+   const VkPipelineShaderStageCreateInfo *stage_infos[MESA_SHADER_GL_STAGES] = {
       NULL
    };
    VkPipelineCreationFeedback pipeline_feedback = {
       .flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT,
    };
-   VkPipelineCreationFeedback stage_feedbacks[MESA_SHADER_STAGES] = { 0 };
+   VkPipelineCreationFeedback stage_feedbacks[MESA_SHADER_GL_STAGES] = { 0 };
 
    const bool executable_info =
       builder->create_info->flags &

@@ -3521,7 +3521,7 @@ anv_pipeline_compile_ray_tracing(struct anv_ray_tracing_pipeline *pipeline,
    const bool skip_cache_lookup =
       (pipeline->base.flags & VK_PIPELINE_CREATE_CAPTURE_INTERNAL_REPRESENTATIONS_BIT_KHR);
 
-   uint32_t stack_max[MESA_VULKAN_SHADER_STAGES] = {};
+   uint32_t stack_max[MESA_SHADER_VULKAN_STAGES] = {};
 
    if (!skip_cache_lookup &&
        anv_ray_tracing_pipeline_load_cached_shaders(pipeline, cache, info,

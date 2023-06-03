@@ -709,12 +709,12 @@ st_link_nir(struct gl_context *ctx,
             struct gl_shader_program *shader_program)
 {
    struct st_context *st = st_context(ctx);
-   struct gl_linked_shader *linked_shader[MESA_SHADER_STAGES];
+   struct gl_linked_shader *linked_shader[MESA_SHADER_GL_STAGES];
    unsigned num_shaders = 0;
 
    MESA_TRACE_FUNC();
 
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (shader_program->_LinkedShaders[i])
          linked_shader[num_shaders++] = shader_program->_LinkedShaders[i];
    }

@@ -702,8 +702,8 @@ struct iris_context {
    } draw;
 
    struct {
-      struct iris_uncompiled_shader *uncompiled[MESA_SHADER_STAGES];
-      struct iris_compiled_shader *prog[MESA_SHADER_STAGES];
+      struct iris_uncompiled_shader *uncompiled[MESA_SHADER_GL_STAGES];
+      struct iris_compiled_shader *prog[MESA_SHADER_GL_STAGES];
       struct iris_compiled_shader *last_vue_shader;
       struct {
          unsigned size[4];
@@ -727,7 +727,7 @@ struct iris_context {
        * Indexed by the "Per-Thread Scratch Space" field's 4-bit encoding,
        * and shader stage.
        */
-      struct iris_bo *scratch_bos[1 << 4][MESA_SHADER_STAGES];
+      struct iris_bo *scratch_bos[1 << 4][MESA_SHADER_GL_STAGES];
 
       /**
        * Scratch buffer surface states on Gfx12.5+
@@ -817,7 +817,7 @@ struct iris_context {
       /** GenX-specific current state */
       struct iris_genx_state *genx;
 
-      struct iris_shader_state shaders[MESA_SHADER_STAGES];
+      struct iris_shader_state shaders[MESA_SHADER_GL_STAGES];
 
       /** Do vertex shader uses shader draw parameters ? */
       bool vs_uses_draw_params;

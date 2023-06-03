@@ -160,7 +160,7 @@ radv_compute_pipeline_compile(struct radv_compute_pipeline *pipeline,
                               const VkPipelineCreateFlags flags,
                               const VkPipelineCreationFeedbackCreateInfo *creation_feedback)
 {
-   struct radv_shader_binary *binaries[MESA_VULKAN_SHADER_STAGES] = {NULL};
+   struct radv_shader_binary *binaries[MESA_SHADER_VULKAN_STAGES] = {NULL};
    unsigned char hash[20];
    bool keep_executable_info = radv_pipeline_capture_shaders(device, flags);
    bool keep_statistic_info = radv_pipeline_capture_shader_stats(device, flags);
