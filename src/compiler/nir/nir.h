@@ -59,7 +59,7 @@ extern "C" {
 #endif
 
 extern uint32_t nir_debug;
-extern bool nir_debug_print_shader[MESA_SHADER_KERNEL + 1];
+extern bool nir_debug_print_shader[MESA_SHADER_ALL_STAGES];
 
 #ifndef NDEBUG
 #define NIR_DEBUG(flag) unlikely(nir_debug & (NIR_DEBUG_ ## flag))

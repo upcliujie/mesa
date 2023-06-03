@@ -40,7 +40,7 @@
 
 #ifndef NDEBUG
 uint32_t nir_debug = 0;
-bool nir_debug_print_shader[MESA_SHADER_KERNEL + 1] = { 0 };
+bool nir_debug_print_shader[MESA_SHADER_ALL_STAGES] = { 0 };
 
 static const struct debug_named_value nir_debug_control[] = {
    { "clone", NIR_DEBUG_CLONE,
