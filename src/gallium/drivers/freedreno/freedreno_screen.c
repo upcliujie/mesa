@@ -634,7 +634,7 @@ fd_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 fd_screen_get_shader_param(struct pipe_screen *pscreen,
-                           enum pipe_shader_type shader,
+                           mesa_shader_stage shader,
                            enum pipe_shader_cap param)
 {
    struct fd_screen *screen = fd_screen(pscreen);
@@ -857,7 +857,7 @@ fd_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
 
 static const void *
 fd_get_compiler_options(struct pipe_screen *pscreen, enum pipe_shader_ir ir,
-                        enum pipe_shader_type shader)
+                        mesa_shader_stage shader)
 {
    struct fd_screen *screen = fd_screen(pscreen);
 

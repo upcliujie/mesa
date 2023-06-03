@@ -83,7 +83,7 @@ svga_create_uav_buffer(struct svga_context *svga,
  */
 static void
 svga_set_shader_buffers(struct pipe_context *pipe,
-                        enum pipe_shader_type shader,
+                        mesa_shader_stage shader,
                         unsigned start, unsigned num,
                         const struct pipe_shader_buffer *buffers,
                         unsigned writeable_bitmask)

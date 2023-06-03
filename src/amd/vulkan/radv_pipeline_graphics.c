@@ -1249,7 +1249,7 @@ gfx10_emit_ge_pc_alloc(struct radeon_cmdbuf *cs, enum amd_gfx_level gfx_level,
 }
 
 struct radv_shader *
-radv_get_shader(struct radv_shader *const *shaders, gl_shader_stage stage)
+radv_get_shader(struct radv_shader *const *shaders, mesa_shader_stage stage)
 {
    if (stage == MESA_SHADER_VERTEX) {
       if (shaders[MESA_SHADER_VERTEX])
@@ -1532,7 +1532,7 @@ radv_pipeline_link_shaders(const struct radv_device *device, nir_shader *produce
    }
 }
 
-static const gl_shader_stage graphics_shader_order[] = {
+static const mesa_shader_stage graphics_shader_order[] = {
    MESA_SHADER_VERTEX,   MESA_SHADER_TESS_CTRL, MESA_SHADER_TESS_EVAL, MESA_SHADER_GEOMETRY,
 
    MESA_SHADER_TASK,     MESA_SHADER_MESH,
@@ -1778,7 +1778,7 @@ radv_graphics_pipeline_link(const struct radv_device *device,
    /* Walk backwards to link */
    struct radv_pipeline_stage *next_stage = NULL;
    for (int i = ARRAY_SIZE(graphics_shader_order) - 1; i >= 0; i--) {
-      gl_shader_stage s = graphics_shader_order[i];
+      mesa_shader_stage s = graphics_shader_order[i];
       if (!stages[s].nir)
          continue;
 
@@ -2204,8 +2204,8 @@ radv_consider_force_vrs(const struct radv_device *device,
    return true;
 }
 
-static gl_shader_stage
-radv_get_next_stage(gl_shader_stage stage, VkShaderStageFlagBits active_nir_stages)
+static mesa_shader_stage
+radv_get_next_stage(mesa_shader_stage stage, VkShaderStageFlagBits active_nir_stages)
 {
    switch (stage) {
    case MESA_SHADER_VERTEX:
@@ -2246,7 +2246,7 @@ radv_fill_shader_info(struct radv_device *device, struct radv_graphics_pipeline 
    bool consider_force_vrs = radv_consider_force_vrs(device, pipeline, stages);
 
    radv_foreach_stage (i, active_nir_stages) {
-      gl_shader_stage next_stage = radv_get_next_stage(i, active_nir_stages);
+      mesa_shader_stage next_stage = radv_get_next_stage(i, active_nir_stages);
 
       radv_nir_shader_info_pass(
          device, stages[i].nir, next_stage, pipeline_layout, pipeline_key, pipeline->base.type,
@@ -2283,7 +2283,7 @@ radv_declare_pipeline_args(struct radv_device *device, struct radv_pipeline_stag
    }
 
    if (gfx_level >= GFX9 && stages[MESA_SHADER_GEOMETRY].nir) {
-      gl_shader_stage pre_stage =
+      mesa_shader_stage pre_stage =
          stages[MESA_SHADER_TESS_EVAL].nir ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
       radv_declare_shader_args(device, pipeline_key, &stages[MESA_SHADER_GEOMETRY].info,
                                MESA_SHADER_GEOMETRY, pre_stage, RADV_SHADER_TYPE_DEFAULT,
@@ -2382,7 +2382,7 @@ radv_pipeline_nir_to_asm(struct radv_device *device, struct radv_graphics_pipeli
       /* On GFX9+, TES is merged with GS and VS is merged with TCS or GS. */
       if (device->physical_device->rad_info.gfx_level >= GFX9 &&
           (s == MESA_SHADER_TESS_CTRL || s == MESA_SHADER_GEOMETRY)) {
-         gl_shader_stage pre_stage;
+         mesa_shader_stage pre_stage;
 
          if (s == MESA_SHADER_GEOMETRY && stages[MESA_SHADER_TESS_EVAL].nir) {
             pre_stage = MESA_SHADER_TESS_EVAL;
@@ -2470,7 +2470,7 @@ radv_pipeline_import_retained_shaders(const struct radv_device *device,
    /* Import the stages (SPIR-V only in case of cache hits). */
    for (uint32_t i = 0; i < lib->stage_count; i++) {
       const VkPipelineShaderStageCreateInfo *sinfo = &lib->stages[i];
-      gl_shader_stage s = vk_to_mesa_shader_stage(sinfo->stage);
+      mesa_shader_stage s = vk_to_mesa_shader_stage(sinfo->stage);
 
       /* Ignore graphics shader stages that don't need to be imported. */
       if (!(shader_stage_to_pipeline_library_flags(sinfo->stage) & lib->lib_flags))
@@ -2653,7 +2653,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
 
    for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
       const VkPipelineShaderStageCreateInfo *sinfo = &pCreateInfo->pStages[i];
-      gl_shader_stage stage = vk_to_mesa_shader_stage(sinfo->stage);
+      mesa_shader_stage stage = vk_to_mesa_shader_stage(sinfo->stage);
 
       /* Ignore graphics shader stages that don't need to be imported. */
       if (!(shader_stage_to_pipeline_library_flags(sinfo->stage) & lib_flags))
@@ -2740,7 +2740,7 @@ radv_graphics_pipeline_compile(struct radv_graphics_pipeline *pipeline,
    radv_fill_shader_info_ngg(device, pipeline, pipeline_key, stages);
 
    if (stages[MESA_SHADER_GEOMETRY].nir) {
-      gl_shader_stage pre_stage =
+      mesa_shader_stage pre_stage =
          stages[MESA_SHADER_TESS_EVAL].nir ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
       unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
 
@@ -2839,7 +2839,7 @@ done:
          uint32_t num_feedbacks = 0;
 
          for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
-            gl_shader_stage s = vk_to_mesa_shader_stage(pCreateInfo->pStages[i].stage);
+            mesa_shader_stage s = vk_to_mesa_shader_stage(pCreateInfo->pStages[i].stage);
             creation_feedback->pPipelineStageCreationFeedbacks[num_feedbacks++] = stages[s].feedback;
          }
 
@@ -3018,7 +3018,7 @@ radv_emit_hw_ngg(const struct radv_device *device, struct radeon_cmdbuf *ctx_cs,
 {
    const struct radv_physical_device *pdevice = device->physical_device;
    uint64_t va = radv_shader_get_va(shader);
-   gl_shader_stage es_type =
+   mesa_shader_stage es_type =
       shader->info.stage == MESA_SHADER_GEOMETRY ? shader->info.gs.es_type : shader->info.stage;
    const struct gfx10_ngg_info *ngg_state = &shader->info.ngg_info;
 
@@ -3907,7 +3907,7 @@ radv_pipeline_init_shader_stages_state(const struct radv_device *device,
       }
    }
 
-   gl_shader_stage first_stage =
+   mesa_shader_stage first_stage =
       radv_pipeline_has_stage(pipeline, MESA_SHADER_MESH) ? MESA_SHADER_MESH : MESA_SHADER_VERTEX;
 
    const struct radv_shader *shader = radv_get_shader(pipeline->base.shaders, first_stage);

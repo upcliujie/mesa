@@ -643,7 +643,7 @@ static void si_update_shader_needs_decompress_mask(struct si_context *sctx, unsi
       sctx->shader_has_depth_tex &= ~shader_bit;
 }
 
-static void si_pipe_set_sampler_views(struct pipe_context *ctx, enum pipe_shader_type shader,
+static void si_pipe_set_sampler_views(struct pipe_context *ctx, mesa_shader_stage shader,
                                       unsigned start, unsigned count,
                                       unsigned unbind_num_trailing_slots,
                                       bool take_ownership, struct pipe_sampler_view **views)
@@ -895,7 +895,7 @@ static void si_set_shader_image(struct si_context *ctx, unsigned shader, unsigne
       true);
 }
 
-static void si_set_shader_images(struct pipe_context *pipe, enum pipe_shader_type shader,
+static void si_set_shader_images(struct pipe_context *pipe, mesa_shader_stage shader,
                                  unsigned start_slot, unsigned count,
                                  unsigned unbind_num_trailing_slots,
                                  const struct pipe_image_view *views)
@@ -1041,7 +1041,7 @@ void si_update_ps_colorbuf0_slot(struct si_context *sctx)
 
 /* SAMPLER STATES */
 
-static void si_bind_sampler_states(struct pipe_context *ctx, enum pipe_shader_type shader,
+static void si_bind_sampler_states(struct pipe_context *ctx, mesa_shader_stage shader,
                                    unsigned start, unsigned count, void **states)
 {
    struct si_context *sctx = (struct si_context *)ctx;
@@ -1262,7 +1262,7 @@ static void si_set_constant_buffer(struct si_context *sctx, struct si_buffer_res
    sctx->descriptors_dirty |= 1u << descriptors_idx;
 }
 
-void si_get_inline_uniform_state(union si_shader_key *key, enum pipe_shader_type shader,
+void si_get_inline_uniform_state(union si_shader_key *key, mesa_shader_stage shader,
                                  bool *inline_uniforms, uint32_t **inlined_values)
 {
    if (shader == MESA_SHADER_FRAGMENT) {
@@ -1274,7 +1274,7 @@ void si_get_inline_uniform_state(union si_shader_key *key, enum pipe_shader_type
    }
 }
 
-void si_invalidate_inlinable_uniforms(struct si_context *sctx, enum pipe_shader_type shader)
+void si_invalidate_inlinable_uniforms(struct si_context *sctx, mesa_shader_stage shader)
 {
    if (shader == MESA_SHADER_COMPUTE)
       return;
@@ -1294,7 +1294,7 @@ void si_invalidate_inlinable_uniforms(struct si_context *sctx, enum pipe_shader_
    }
 }
 
-static void si_pipe_set_constant_buffer(struct pipe_context *ctx, enum pipe_shader_type shader,
+static void si_pipe_set_constant_buffer(struct pipe_context *ctx, mesa_shader_stage shader,
                                         uint slot, bool take_ownership,
                                         const struct pipe_constant_buffer *input)
 {
@@ -1324,7 +1324,7 @@ static void si_pipe_set_constant_buffer(struct pipe_context *ctx, enum pipe_shad
 }
 
 static void si_set_inlinable_constants(struct pipe_context *ctx,
-                                       enum pipe_shader_type shader,
+                                       mesa_shader_stage shader,
                                        uint num_values, uint32_t *values)
 {
    struct si_context *sctx = (struct si_context *)ctx;
@@ -1409,7 +1409,7 @@ static void si_set_shader_buffer(struct si_context *sctx, struct si_buffer_resou
                   sbuffer->buffer_offset + sbuffer->buffer_size);
 }
 
-void si_set_shader_buffers(struct pipe_context *ctx, enum pipe_shader_type shader,
+void si_set_shader_buffers(struct pipe_context *ctx, mesa_shader_stage shader,
                            unsigned start_slot, unsigned count,
                            const struct pipe_shader_buffer *sbuffers,
                            unsigned writable_bitmask, bool internal_blit)
@@ -1441,7 +1441,7 @@ void si_set_shader_buffers(struct pipe_context *ctx, enum pipe_shader_type shade
    }
 }
 
-static void si_pipe_set_shader_buffers(struct pipe_context *ctx, enum pipe_shader_type shader,
+static void si_pipe_set_shader_buffers(struct pipe_context *ctx, mesa_shader_stage shader,
                                        unsigned start_slot, unsigned count,
                                        const struct pipe_shader_buffer *sbuffers,
                                        unsigned writable_bitmask)
@@ -1449,7 +1449,7 @@ static void si_pipe_set_shader_buffers(struct pipe_context *ctx, enum pipe_shade
    si_set_shader_buffers(ctx, shader, start_slot, count, sbuffers, writable_bitmask, false);
 }
 
-void si_get_shader_buffers(struct si_context *sctx, enum pipe_shader_type shader, uint start_slot,
+void si_get_shader_buffers(struct si_context *sctx, mesa_shader_stage shader, uint start_slot,
                            uint count, struct pipe_shader_buffer *sbuf)
 {
    struct si_buffer_resources *buffers = &sctx->const_and_shader_buffers[shader];

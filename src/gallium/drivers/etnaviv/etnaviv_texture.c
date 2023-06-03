@@ -41,7 +41,7 @@
 #include "drm-uapi/drm_fourcc.h"
 
 static void
-etna_bind_sampler_states(struct pipe_context *pctx, enum pipe_shader_type shader,
+etna_bind_sampler_states(struct pipe_context *pctx, mesa_shader_stage shader,
                          unsigned start_slot, unsigned num_samplers,
                          void **samplers)
 {
@@ -311,7 +311,7 @@ etna_vertex_set_sampler_views(struct etna_context *ctx, unsigned nr,
 }
 
 static void
-etna_set_sampler_views(struct pipe_context *pctx, enum pipe_shader_type shader,
+etna_set_sampler_views(struct pipe_context *pctx, mesa_shader_stage shader,
                        unsigned start_slot, unsigned num_views,
                        unsigned unbind_num_trailing_slots,
                        bool take_ownership,

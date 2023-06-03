@@ -128,7 +128,7 @@ vk_shader_module_spirv_version(const struct vk_shader_module *mod)
 VkResult
 vk_shader_module_to_nir(struct vk_device *device,
                         const struct vk_shader_module *mod,
-                        gl_shader_stage stage,
+                        mesa_shader_stage stage,
                         const char *entrypoint_name,
                         const VkSpecializationInfo *spec_info,
                         const struct spirv_to_nir_options *spirv_options,

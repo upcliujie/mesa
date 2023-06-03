@@ -351,7 +351,7 @@ enum pipe_error
 svga_validate_sampler_resources(struct svga_context *svga,
                                 enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   mesa_shader_stage shader, first_shader, last_shader;
 
    assert(svga_have_vgpu10(svga));
 
@@ -434,7 +434,7 @@ enum pipe_error
 svga_validate_constant_buffers(struct svga_context *svga,
                                enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   mesa_shader_stage shader, first_shader, last_shader;
 
    assert(svga_have_vgpu10(svga));
 
@@ -534,7 +534,7 @@ enum pipe_error
 svga_validate_image_views(struct svga_context *svga,
                           enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   mesa_shader_stage shader, first_shader, last_shader;
    bool rebind = svga->rebind.flags.images;
    enum pipe_error ret;
 
@@ -573,7 +573,7 @@ enum pipe_error
 svga_validate_shader_buffers(struct svga_context *svga,
                              enum svga_pipe_type pipe_type)
 {
-   enum pipe_shader_type shader, first_shader, last_shader;
+   mesa_shader_stage shader, first_shader, last_shader;
    bool rebind = svga->rebind.flags.shaderbufs;
    enum pipe_error ret;
 

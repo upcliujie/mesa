@@ -58,7 +58,7 @@ namespace {
 
 class lower_distance_visitor : public ir_rvalue_visitor {
 public:
-   explicit lower_distance_visitor(gl_shader_stage shader_stage,
+   explicit lower_distance_visitor(mesa_shader_stage shader_stage,
                                    const char *in_name, int total_size,
                                    int offset)
       : progress(false), old_distance_out_var(NULL),
@@ -68,7 +68,7 @@ public:
    {
    }
 
-   explicit lower_distance_visitor(gl_shader_stage shader_stage,
+   explicit lower_distance_visitor(mesa_shader_stage shader_stage,
                                    const char *in_name,
                                    const lower_distance_visitor *orig,
                                    int offset)
@@ -122,7 +122,7 @@ public:
    /**
     * Type of shader we are compiling (e.g. MESA_SHADER_VERTEX)
     */
-   const gl_shader_stage shader_stage;
+   const mesa_shader_stage shader_stage;
    const char *in_name;
    int total_size;
    int offset;

@@ -292,7 +292,7 @@ get_fragment_shader_param(struct lima_screen *screen,
 
 static int
 lima_screen_get_shader_param(struct pipe_screen *pscreen,
-                             enum pipe_shader_type shader,
+                             mesa_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    struct lima_screen *screen = lima_screen(pscreen);
@@ -443,7 +443,7 @@ lima_screen_is_format_supported(struct pipe_screen *pscreen,
 static const void *
 lima_screen_get_compiler_options(struct pipe_screen *pscreen,
                                  enum pipe_shader_ir ir,
-                                 enum pipe_shader_type shader)
+                                 mesa_shader_stage shader)
 {
    return lima_program_get_compiler_options(shader);
 }

@@ -470,7 +470,7 @@ svga_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
 static int
 vgpu9_get_shader_param(struct pipe_screen *screen,
-                       enum pipe_shader_type shader,
+                       mesa_shader_stage shader,
                        enum pipe_shader_cap param)
 {
    struct svga_screen *svgascreen = svga_screen(screen);
@@ -633,7 +633,7 @@ vgpu9_get_shader_param(struct pipe_screen *screen,
 
 static int
 vgpu10_get_shader_param(struct pipe_screen *screen,
-                        enum pipe_shader_type shader,
+                        mesa_shader_stage shader,
                         enum pipe_shader_cap param)
 {
    struct svga_screen *svgascreen = svga_screen(screen);
@@ -793,7 +793,7 @@ static const nir_shader_compiler_options svga_gl4_compiler_options = {
 static const void *
 svga_get_compiler_options(struct pipe_screen *pscreen,
                           enum pipe_shader_ir ir,
-                          enum pipe_shader_type shader)
+                          mesa_shader_stage shader)
 {
    struct svga_screen *svgascreen = svga_screen(pscreen);
    struct svga_winsys_screen *sws = svgascreen->sws;
@@ -813,7 +813,7 @@ svga_get_compiler_options(struct pipe_screen *pscreen,
 }
 
 static int
-svga_get_shader_param(struct pipe_screen *screen, enum pipe_shader_type shader,
+svga_get_shader_param(struct pipe_screen *screen, mesa_shader_stage shader,
                       enum pipe_shader_cap param)
 {
    struct svga_screen *svgascreen = svga_screen(screen);

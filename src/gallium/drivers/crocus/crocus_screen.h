@@ -118,17 +118,17 @@ struct crocus_vtable {
                                     const struct brw_vue_map *vue_map);
    void (*populate_vs_key)(const struct crocus_context *ice,
                            const struct shader_info *info,
-                           gl_shader_stage last_stage,
+                           mesa_shader_stage last_stage,
                            struct brw_vs_prog_key *key);
    void (*populate_tcs_key)(const struct crocus_context *ice,
                             struct brw_tcs_prog_key *key);
    void (*populate_tes_key)(const struct crocus_context *ice,
                             const struct shader_info *info,
-                            gl_shader_stage last_stage,
+                            mesa_shader_stage last_stage,
                             struct brw_tes_prog_key *key);
    void (*populate_gs_key)(const struct crocus_context *ice,
                            const struct shader_info *info,
-                           gl_shader_stage last_stage,
+                           mesa_shader_stage last_stage,
                            struct brw_gs_prog_key *key);
    void (*populate_fs_key)(const struct crocus_context *ice,
                            const struct shader_info *info,

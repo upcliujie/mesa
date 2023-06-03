@@ -480,10 +480,10 @@ iris_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 iris_get_shader_param(struct pipe_screen *pscreen,
-                      enum pipe_shader_type p_stage,
+                      mesa_shader_stage p_stage,
                       enum pipe_shader_cap param)
 {
-   gl_shader_stage stage = stage_from_pipe(p_stage);
+   mesa_shader_stage stage = stage_from_pipe(p_stage);
 
    if (p_stage == MESA_SHADER_MESH ||
        p_stage == MESA_SHADER_TASK)
@@ -688,10 +688,10 @@ iris_query_memory_info(struct pipe_screen *pscreen,
 static const void *
 iris_get_compiler_options(struct pipe_screen *pscreen,
                           enum pipe_shader_ir ir,
-                          enum pipe_shader_type pstage)
+                          mesa_shader_stage pstage)
 {
    struct iris_screen *screen = (struct iris_screen *) pscreen;
-   gl_shader_stage stage = stage_from_pipe(pstage);
+   mesa_shader_stage stage = stage_from_pipe(pstage);
    assert(ir == PIPE_SHADER_IR_NIR);
 
    return screen->compiler->nir_options[stage];

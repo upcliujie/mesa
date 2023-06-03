@@ -24,7 +24,7 @@ struct ac_nir_context {
    struct ac_shader_abi *abi;
    const struct ac_shader_args *args;
 
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
    shader_info *info;
 
    LLVMValueRef *ssa_defs;
@@ -4573,7 +4573,7 @@ bool ac_nir_translate(struct ac_llvm_context *ac, struct ac_shader_abi *abi,
    setup_constant_data(&ctx, nir);
    setup_gds(&ctx, func->impl);
 
-   if (gl_shader_stage_is_compute(nir->info.stage))
+   if (mesa_shader_stage_is_compute(nir->info.stage))
       setup_shared(&ctx, nir);
 
    if (nir->info.stage == MESA_SHADER_FRAGMENT && nir->info.fs.uses_demote &&

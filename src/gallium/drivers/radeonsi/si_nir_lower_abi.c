@@ -35,7 +35,7 @@ static nir_ssa_def *get_num_vert_per_prim(nir_builder *b, struct si_shader *shad
                                           struct si_shader_args *args)
 {
    const struct si_shader_info *info = &shader->selector->info;
-   gl_shader_stage stage = shader->selector->stage;
+   mesa_shader_stage stage = shader->selector->stage;
 
    unsigned num_vertices;
    if (stage == MESA_SHADER_GEOMETRY) {
@@ -239,7 +239,7 @@ static bool lower_intrinsic(nir_builder *b, nir_instr *instr, struct lower_abi_s
    struct si_shader_args *args = s->args;
    struct si_shader_selector *sel = shader->selector;
    union si_shader_key *key = &shader->key;
-   gl_shader_stage stage = sel->stage;
+   mesa_shader_stage stage = sel->stage;
 
    b->cursor = nir_before_instr(instr);
 

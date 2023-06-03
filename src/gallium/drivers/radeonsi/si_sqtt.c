@@ -977,7 +977,7 @@ bool si_sqtt_pipeline_is_registered(struct ac_sqtt *sqtt,
 }
 
 static enum rgp_hardware_stages
-si_sqtt_pipe_to_rgp_shader_stage(union si_shader_key* key, enum pipe_shader_type stage)
+si_sqtt_pipe_to_rgp_shader_stage(union si_shader_key* key, mesa_shader_stage stage)
 {
    switch (stage) {
    case MESA_SHADER_VERTEX:
@@ -1052,21 +1052,21 @@ si_sqtt_add_code_object(struct si_context* sctx,
       memcpy(code, shader->binary.uploaded_code, shader->binary.uploaded_code_size);
 
       uint64_t va = pipeline->bo->gpu_address + pipeline->offset[i];
-      unsigned gl_shader_stage = tgsi_processor_to_shader_stage(i);
-      record->shader_data[gl_shader_stage].hash[0] = _mesa_hash_data(code, shader->binary.uploaded_code_size);
-      record->shader_data[gl_shader_stage].hash[1] = record->shader_data[gl_shader_stage].hash[0];
-      record->shader_data[gl_shader_stage].code_size = shader->binary.uploaded_code_size;
-      record->shader_data[gl_shader_stage].code = code;
-      record->shader_data[gl_shader_stage].vgpr_count = shader->config.num_vgprs;
-      record->shader_data[gl_shader_stage].sgpr_count = shader->config.num_sgprs;
-      record->shader_data[gl_shader_stage].base_address = va & 0xffffffffffff;
-      record->shader_data[gl_shader_stage].elf_symbol_offset = 0;
-      record->shader_data[gl_shader_stage].hw_stage = hw_stage;
-      record->shader_data[gl_shader_stage].is_combined = false;
-      record->shader_data[gl_shader_stage].scratch_memory_size = shader->config.scratch_bytes_per_wave;
-      record->shader_data[gl_shader_stage].wavefront_size = shader->wave_size;
+      unsigned mesa_shader_stage = tgsi_processor_to_shader_stage(i);
+      record->shader_data[mesa_shader_stage].hash[0] = _mesa_hash_data(code, shader->binary.uploaded_code_size);
+      record->shader_data[mesa_shader_stage].hash[1] = record->shader_data[mesa_shader_stage].hash[0];
+      record->shader_data[mesa_shader_stage].code_size = shader->binary.uploaded_code_size;
+      record->shader_data[mesa_shader_stage].code = code;
+      record->shader_data[mesa_shader_stage].vgpr_count = shader->config.num_vgprs;
+      record->shader_data[mesa_shader_stage].sgpr_count = shader->config.num_sgprs;
+      record->shader_data[mesa_shader_stage].base_address = va & 0xffffffffffff;
+      record->shader_data[mesa_shader_stage].elf_symbol_offset = 0;
+      record->shader_data[mesa_shader_stage].hw_stage = hw_stage;
+      record->shader_data[mesa_shader_stage].is_combined = false;
+      record->shader_data[mesa_shader_stage].scratch_memory_size = shader->config.scratch_bytes_per_wave;
+      record->shader_data[mesa_shader_stage].wavefront_size = shader->wave_size;
 
-      record->shader_stages_mask |= 1 << gl_shader_stage;
+      record->shader_stages_mask |= 1 << mesa_shader_stage;
       record->num_shaders_combined++;
    }
 

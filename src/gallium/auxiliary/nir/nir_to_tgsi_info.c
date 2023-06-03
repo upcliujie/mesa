@@ -394,12 +394,12 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
 {
    unsigned i;
 
-   info->processor = pipe_shader_type_from_mesa(nir->info.stage);
+   info->processor = mesa_shader_stage_from_mesa(nir->info.stage);
    info->num_tokens = 1; /* Presume empty */
    info->num_instructions = 1;
 
    info->properties[TGSI_PROPERTY_NEXT_SHADER] =
-      pipe_shader_type_from_mesa(nir->info.next_stage);
+      mesa_shader_stage_from_mesa(nir->info.next_stage);
 
    if (nir->info.stage == MESA_SHADER_VERTEX) {
       info->properties[TGSI_PROPERTY_VS_WINDOW_SPACE_POSITION] =
@@ -463,8 +463,8 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
       }
    }
 
-   if (gl_shader_stage_is_compute(nir->info.stage) ||
-       gl_shader_stage_is_mesh(nir->info.stage)) {
+   if (mesa_shader_stage_is_compute(nir->info.stage) ||
+       mesa_shader_stage_is_mesh(nir->info.stage)) {
       info->properties[TGSI_PROPERTY_CS_FIXED_BLOCK_WIDTH] = nir->info.workgroup_size[0];
       info->properties[TGSI_PROPERTY_CS_FIXED_BLOCK_HEIGHT] = nir->info.workgroup_size[1];
       info->properties[TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH] = nir->info.workgroup_size[2];

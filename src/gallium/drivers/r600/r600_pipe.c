@@ -551,7 +551,7 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 }
 
 static int r600_get_shader_param(struct pipe_screen* pscreen,
-				 enum pipe_shader_type shader,
+				 mesa_shader_stage shader,
 				 enum pipe_shader_cap param)
 {
 	struct r600_screen *rscreen = (struct r600_screen *)pscreen;

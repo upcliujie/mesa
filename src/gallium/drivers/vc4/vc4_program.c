@@ -2191,7 +2191,7 @@ static const nir_shader_compiler_options nir_options = {
 const void *
 vc4_screen_get_compiler_options(struct pipe_screen *pscreen,
                                 enum pipe_shader_ir ir,
-                                enum pipe_shader_type shader)
+                                mesa_shader_stage shader)
 {
         return &nir_options;
 }
@@ -2551,7 +2551,7 @@ vc4_shader_state_create(struct pipe_context *pctx,
 
         if (VC4_DBG(NIR)) {
                 fprintf(stderr, "%s prog %d NIR:\n",
-                        gl_shader_stage_name(s->info.stage),
+                        mesa_shader_stage_name(s->info.stage),
                         so->program_id);
                 nir_print_shader(s, stderr);
                 fprintf(stderr, "\n");

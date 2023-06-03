@@ -549,7 +549,7 @@ static void virgl_emit_shader_streamout(struct virgl_context *ctx,
 
 int virgl_encode_shader_state(struct virgl_context *ctx,
                               uint32_t handle,
-                              enum pipe_shader_type type,
+                              mesa_shader_stage type,
                               const struct pipe_stream_output_info *so_info,
                               uint32_t cs_req_local_mem,
                               const struct tgsi_token *tokens)
@@ -619,7 +619,7 @@ int virgl_encode_shader_state(struct virgl_context *ctx,
       else
          offlen = VIRGL_OBJ_SHADER_OFFSET_VAL((uintptr_t)sptr - (uintptr_t)str) | VIRGL_OBJ_SHADER_OFFSET_CONT;
 
-      virgl_emit_shader_header(ctx, handle, len, virgl_shader_stage_convert(type), offlen, num_tokens);
+      virgl_emit_shader_header(ctx, handle, len, virmesa_shader_stage_convert(type), offlen, num_tokens);
 
       if (type == MESA_SHADER_COMPUTE)
          virgl_encoder_write_dword(ctx->cbuf, cs_req_local_mem);
@@ -994,14 +994,14 @@ int virgl_encode_sampler_view(struct virgl_context *ctx,
 }
 
 int virgl_encode_set_sampler_views(struct virgl_context *ctx,
-                                  enum pipe_shader_type shader_type,
+                                  mesa_shader_stage shader_type,
                                   uint32_t start_slot,
                                   uint32_t num_views,
                                   struct virgl_sampler_view **views)
 {
    int i;
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_SAMPLER_VIEWS, 0, VIRGL_SET_SAMPLER_VIEWS_SIZE(num_views)));
-   virgl_encoder_write_dword(ctx->cbuf, virgl_shader_stage_convert(shader_type));
+   virgl_encoder_write_dword(ctx->cbuf, virmesa_shader_stage_convert(shader_type));
    virgl_encoder_write_dword(ctx->cbuf, start_slot);
    for (i = 0; i < num_views; i++) {
       uint32_t handle = views[i] ? views[i]->handle : 0;
@@ -1011,14 +1011,14 @@ int virgl_encode_set_sampler_views(struct virgl_context *ctx,
 }
 
 int virgl_encode_bind_sampler_states(struct virgl_context *ctx,
-                                    enum pipe_shader_type shader_type,
+                                    mesa_shader_stage shader_type,
                                     uint32_t start_slot,
                                     uint32_t num_handles,
                                     uint32_t *handles)
 {
    int i;
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_BIND_SAMPLER_STATES, 0, VIRGL_BIND_SAMPLER_STATES(num_handles)));
-   virgl_encoder_write_dword(ctx->cbuf, virgl_shader_stage_convert(shader_type));
+   virgl_encoder_write_dword(ctx->cbuf, virmesa_shader_stage_convert(shader_type));
    virgl_encoder_write_dword(ctx->cbuf, start_slot);
    for (i = 0; i < num_handles; i++)
       virgl_encoder_write_dword(ctx->cbuf, handles[i]);
@@ -1026,13 +1026,13 @@ int virgl_encode_bind_sampler_states(struct virgl_context *ctx,
 }
 
 int virgl_encoder_write_constant_buffer(struct virgl_context *ctx,
-                                       enum pipe_shader_type shader,
+                                       mesa_shader_stage shader,
                                        uint32_t index,
                                        uint32_t size,
                                        const void *data)
 {
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_CONSTANT_BUFFER, 0, size + 2));
-   virgl_encoder_write_dword(ctx->cbuf, virgl_shader_stage_convert(shader));
+   virgl_encoder_write_dword(ctx->cbuf, virmesa_shader_stage_convert(shader));
    virgl_encoder_write_dword(ctx->cbuf, index);
    if (data)
       virgl_encoder_write_block(ctx->cbuf, data, size * 4);
@@ -1040,14 +1040,14 @@ int virgl_encoder_write_constant_buffer(struct virgl_context *ctx,
 }
 
 int virgl_encoder_set_uniform_buffer(struct virgl_context *ctx,
-                                     enum pipe_shader_type shader,
+                                     mesa_shader_stage shader,
                                      uint32_t index,
                                      uint32_t offset,
                                      uint32_t length,
                                      struct virgl_resource *res)
 {
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_UNIFORM_BUFFER, 0, VIRGL_SET_UNIFORM_BUFFER_SIZE));
-   virgl_encoder_write_dword(ctx->cbuf, virgl_shader_stage_convert(shader));
+   virgl_encoder_write_dword(ctx->cbuf, virmesa_shader_stage_convert(shader));
    virgl_encoder_write_dword(ctx->cbuf, index);
    virgl_encoder_write_dword(ctx->cbuf, offset);
    virgl_encoder_write_dword(ctx->cbuf, length);
@@ -1291,11 +1291,11 @@ int virgl_encode_link_shader(struct virgl_context *ctx, uint32_t *handles)
 
 int virgl_encode_bind_shader(struct virgl_context *ctx,
                              uint32_t handle,
-                             enum pipe_shader_type type)
+                             mesa_shader_stage type)
 {
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_BIND_SHADER, 0, 2));
    virgl_encoder_write_dword(ctx->cbuf, handle);
-   virgl_encoder_write_dword(ctx->cbuf, virgl_shader_stage_convert(type));
+   virgl_encoder_write_dword(ctx->cbuf, virmesa_shader_stage_convert(type));
    return 0;
 }
 
@@ -1313,14 +1313,14 @@ int virgl_encode_set_tess_state(struct virgl_context *ctx,
 }
 
 int virgl_encode_set_shader_buffers(struct virgl_context *ctx,
-                                    enum pipe_shader_type shader,
+                                    mesa_shader_stage shader,
                                     unsigned start_slot, unsigned count,
                                     const struct pipe_shader_buffer *buffers)
 {
    int i;
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_SHADER_BUFFERS, 0, VIRGL_SET_SHADER_BUFFER_SIZE(count)));
 
-   virgl_encoder_write_dword(ctx->cbuf, virgl_shader_stage_convert(shader));
+   virgl_encoder_write_dword(ctx->cbuf, virmesa_shader_stage_convert(shader));
    virgl_encoder_write_dword(ctx->cbuf, start_slot);
    for (i = 0; i < count; i++) {
       if (buffers && buffers[i].buffer) {
@@ -1369,14 +1369,14 @@ int virgl_encode_set_hw_atomic_buffers(struct virgl_context *ctx,
 }
 
 int virgl_encode_set_shader_images(struct virgl_context *ctx,
-                                   enum pipe_shader_type shader,
+                                   mesa_shader_stage shader,
                                    unsigned start_slot, unsigned count,
                                    const struct pipe_image_view *images)
 {
    int i;
    virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SET_SHADER_IMAGES, 0, VIRGL_SET_SHADER_IMAGE_SIZE(count)));
 
-   virgl_encoder_write_dword(ctx->cbuf, virgl_shader_stage_convert(shader));
+   virgl_encoder_write_dword(ctx->cbuf, virmesa_shader_stage_convert(shader));
    virgl_encoder_write_dword(ctx->cbuf, start_slot);
    for (i = 0; i < count; i++) {
       if (images && images[i].resource) {

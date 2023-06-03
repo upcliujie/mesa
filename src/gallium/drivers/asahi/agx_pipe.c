@@ -1673,7 +1673,7 @@ agx_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 }
 
 static int
-agx_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type shader,
+agx_get_shader_param(struct pipe_screen *pscreen, mesa_shader_stage shader,
                      enum pipe_shader_cap param)
 {
    bool is_no16 = agx_device(pscreen)->debug & AGX_DBG_NO16;
@@ -1963,7 +1963,7 @@ agx_destroy_screen(struct pipe_screen *pscreen)
 
 static const void *
 agx_get_compiler_options(struct pipe_screen *pscreen, enum pipe_shader_ir ir,
-                         enum pipe_shader_type shader)
+                         mesa_shader_stage shader)
 {
    return &agx_nir_options;
 }

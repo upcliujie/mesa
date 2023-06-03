@@ -107,7 +107,7 @@ generate_math2_gfx4(struct brw_codegen *p,
 static void
 generate_tex(struct brw_codegen *p,
              struct brw_vue_prog_data *prog_data,
-             gl_shader_stage stage,
+             mesa_shader_stage stage,
              vec4_instruction *inst,
              struct brw_reg dst,
              struct brw_reg src,

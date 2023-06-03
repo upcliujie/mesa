@@ -116,12 +116,12 @@ panvk_pipeline_builder_compile_shaders(struct panvk_pipeline_builder *builder,
       builder->create_info.gfx ? builder->create_info.gfx->stageCount : 1;
 
    for (uint32_t i = 0; i < stage_count; i++) {
-      gl_shader_stage stage = vk_to_mesa_shader_stage(stages[i].stage);
+      mesa_shader_stage stage = vk_to_mesa_shader_stage(stages[i].stage);
       stage_infos[stage] = &stages[i];
    }
 
    /* compile shaders in reverse order */
-   for (gl_shader_stage stage = MESA_SHADER_GL_STAGES - 1;
+   for (mesa_shader_stage stage = MESA_SHADER_GL_STAGES - 1;
         stage > MESA_SHADER_NONE; stage--) {
       const VkPipelineShaderStageCreateInfo *stage_info = stage_infos[stage];
       if (!stage_info)
@@ -218,7 +218,7 @@ panvk_pipeline_builder_alloc_static_state_bo(
 static void
 panvk_pipeline_builder_init_sysvals(struct panvk_pipeline_builder *builder,
                                     struct panvk_pipeline *pipeline,
-                                    gl_shader_stage stage)
+                                    mesa_shader_stage stage)
 {
    const struct panvk_shader *shader = builder->shaders[stage];
 
@@ -789,7 +789,7 @@ panvk_pipeline_builder_init_fs_state(struct panvk_pipeline_builder *builder,
 
 static void
 panvk_pipeline_update_varying_slot(struct panvk_varyings_info *varyings,
-                                   gl_shader_stage stage,
+                                   mesa_shader_stage stage,
                                    const struct pan_shader_varying *varying,
                                    bool input)
 {

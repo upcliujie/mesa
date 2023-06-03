@@ -379,7 +379,7 @@ set_program_string(struct gl_program *prog, GLenum target, GLenum format, GLsize
 #ifdef ENABLE_SHADER_CACHE
    GLcharARB *replacement;
 
-   gl_shader_stage stage = _mesa_program_enum_to_shader_stage(target);
+   mesa_shader_stage stage = _mesa_program_enum_to_shader_stage(target);
 
    uint8_t sha1[SHA1_DIGEST_LENGTH];
    _mesa_sha1_compute(string, len, sha1);

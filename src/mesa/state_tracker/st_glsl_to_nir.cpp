@@ -331,7 +331,7 @@ st_nir_zero_initialize_clip_distance(nir_shader *nir)
 static void
 st_nir_preprocess(struct st_context *st, struct gl_program *prog,
                   struct gl_shader_program *shader_program,
-                  gl_shader_stage stage)
+                  mesa_shader_stage stage)
 {
    struct pipe_screen *screen = st->screen;
    const nir_shader_compiler_options *options =
@@ -349,7 +349,7 @@ st_nir_preprocess(struct st_context *st, struct gl_program *prog,
          ~prev_stages & shader_program->data->linked_stages;
 
       nir->info.next_stage = stages_mask ?
-         (gl_shader_stage) u_bit_scan(&stages_mask) : MESA_SHADER_FRAGMENT;
+         (mesa_shader_stage) u_bit_scan(&stages_mask) : MESA_SHADER_FRAGMENT;
    } else {
       nir->info.next_stage = MESA_SHADER_FRAGMENT;
    }
@@ -401,7 +401,7 @@ st_nir_preprocess(struct st_context *st, struct gl_program *prog,
    NIR_PASS_V(nir, nir_split_var_copies);
    NIR_PASS_V(nir, nir_lower_var_copies);
 
-   enum pipe_shader_type pstage = pipe_shader_type_from_mesa(stage);
+   mesa_shader_stage pstage = mesa_shader_stage_from_mesa(stage);
    if (st->screen->get_shader_param(st->screen, pstage, PIPE_SHADER_CAP_FP16) &&
          st->screen->get_shader_param(st->screen, pstage, PIPE_SHADER_CAP_INT16)) {
       NIR_PASS_V(nir, nir_lower_mediump_vars, nir_var_function_temp | nir_var_shader_temp | nir_var_mem_shared);
@@ -818,7 +818,7 @@ st_link_nir(struct gl_context *ctx,
    for (unsigned i = 0; i < num_shaders; i++) {
       struct gl_linked_shader *shader = linked_shader[i];
       nir_shader *nir = shader->Program->nir;
-      gl_shader_stage stage = shader->Stage;
+      mesa_shader_stage stage = shader->Stage;
       const struct gl_shader_compiler_options *options =
             &ctx->Const.ShaderCompilerOptions[stage];
 

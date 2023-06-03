@@ -125,7 +125,7 @@ nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
  * the vertex index within the primitive.
  */
 bool
-nir_is_arrayed_io(const nir_variable *var, gl_shader_stage stage)
+nir_is_arrayed_io(const nir_variable *var, mesa_shader_stage stage)
 {
    if (var->data.patch || !glsl_type_is_array(var->type))
       return false;

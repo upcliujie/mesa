@@ -246,7 +246,7 @@ static int r300_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 }
 
 static int r300_get_shader_param(struct pipe_screen *pscreen,
-                                 enum pipe_shader_type shader,
+                                 mesa_shader_stage shader,
                                  enum pipe_shader_cap param)
 {
    struct r300_screen* r300screen = r300_screen(pscreen);
@@ -552,7 +552,7 @@ static const nir_shader_compiler_options r300_fs_compiler_options = {
 static const void *
 r300_get_compiler_options(struct pipe_screen *pscreen,
                           enum pipe_shader_ir ir,
-                          enum pipe_shader_type shader)
+                          mesa_shader_stage shader)
 {
    struct r300_screen* r300screen = r300_screen(pscreen);
 

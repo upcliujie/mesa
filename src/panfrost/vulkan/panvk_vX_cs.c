@@ -75,7 +75,7 @@ panvk_translate_sampler_address_mode(VkSamplerAddressMode mode)
 static mali_pixel_format
 panvk_varying_hw_format(const struct panvk_device *dev,
                         const struct panvk_varyings_info *varyings,
-                        gl_shader_stage stage, unsigned idx)
+                        mesa_shader_stage stage, unsigned idx)
 {
    const struct panfrost_device *pdev = &dev->physical_device->pdev;
    gl_varying_slot loc = varyings->stage[stage].loc[idx];
@@ -108,7 +108,7 @@ panvk_varying_hw_format(const struct panvk_device *dev,
 static void
 panvk_emit_varying(const struct panvk_device *dev,
                    const struct panvk_varyings_info *varyings,
-                   gl_shader_stage stage, unsigned idx, void *attrib)
+                   mesa_shader_stage stage, unsigned idx, void *attrib)
 {
    gl_varying_slot loc = varyings->stage[stage].loc[idx];
 
@@ -122,7 +122,7 @@ panvk_emit_varying(const struct panvk_device *dev,
 void
 panvk_per_arch(emit_varyings)(const struct panvk_device *dev,
                               const struct panvk_varyings_info *varyings,
-                              gl_shader_stage stage, void *descs)
+                              mesa_shader_stage stage, void *descs)
 {
    struct mali_attribute_packed *attrib = descs;
 

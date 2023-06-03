@@ -313,7 +313,7 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
 static int
 nv50_screen_get_shader_param(struct pipe_screen *pscreen,
-                             enum pipe_shader_type shader,
+                             mesa_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    const struct nouveau_screen *screen = nouveau_screen(pscreen);
@@ -852,7 +852,7 @@ int nv50_tls_realloc(struct nv50_screen *screen, unsigned tls_space)
 static const void *
 nv50_screen_get_compiler_options(struct pipe_screen *pscreen,
                                  enum pipe_shader_ir ir,
-                                 enum pipe_shader_type shader)
+                                 mesa_shader_stage shader)
 {
    struct nouveau_screen *screen = nouveau_screen(pscreen);
    if (ir == PIPE_SHADER_IR_NIR)

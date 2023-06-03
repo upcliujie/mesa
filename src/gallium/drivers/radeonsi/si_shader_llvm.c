@@ -53,7 +53,7 @@ static void si_diagnostic_handler(LLVMDiagnosticInfoRef di, void *context)
 bool si_compile_llvm(struct si_screen *sscreen, struct si_shader_binary *binary,
                      struct ac_shader_config *conf, struct ac_llvm_compiler *compiler,
                      struct ac_llvm_context *ac, struct util_debug_callback *debug,
-                     gl_shader_stage stage, const char *name, bool less_optimized)
+                     mesa_shader_stage stage, const char *name, bool less_optimized)
 {
    unsigned count = p_atomic_inc_return(&sscreen->num_compilations);
 
@@ -132,7 +132,7 @@ void si_llvm_create_func(struct si_shader_context *ctx, const char *name, LLVMTy
    else
       ret_type = ctx->ac.voidt;
 
-   gl_shader_stage real_stage = ctx->stage;
+   mesa_shader_stage real_stage = ctx->stage;
 
    /* LS is merged into HS (TCS), and ES is merged into GS. */
    if (ctx->screen->info.gfx_level >= GFX9 && ctx->stage <= MESA_SHADER_GEOMETRY) {

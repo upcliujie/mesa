@@ -123,7 +123,7 @@ virgl_rebind_resource(struct virgl_context *vctx,
    if (bind_history & (PIPE_BIND_CONSTANT_BUFFER |
                        PIPE_BIND_SHADER_BUFFER |
                        PIPE_BIND_SHADER_IMAGE)) {
-      enum pipe_shader_type shader_type;
+      mesa_shader_stage shader_type;
       for (shader_type = 0; shader_type < MESA_SHADER_GL_STAGES; shader_type++) {
          const struct virgl_shader_binding_state *binding =
             &vctx->shader_bindings[shader_type];
@@ -197,7 +197,7 @@ static void virgl_attach_res_framebuffer(struct virgl_context *vctx)
 }
 
 static void virgl_attach_res_sampler_views(struct virgl_context *vctx,
-                                           enum pipe_shader_type shader_type)
+                                           mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -249,7 +249,7 @@ static void virgl_attach_res_so_targets(struct virgl_context *vctx)
 }
 
 static void virgl_attach_res_uniform_buffers(struct virgl_context *vctx,
-                                             enum pipe_shader_type shader_type)
+                                             mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -266,7 +266,7 @@ static void virgl_attach_res_uniform_buffers(struct virgl_context *vctx,
 }
 
 static void virgl_attach_res_shader_buffers(struct virgl_context *vctx,
-                                            enum pipe_shader_type shader_type)
+                                            mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -283,7 +283,7 @@ static void virgl_attach_res_shader_buffers(struct virgl_context *vctx,
 }
 
 static void virgl_attach_res_shader_images(struct virgl_context *vctx,
-                                           enum pipe_shader_type shader_type)
+                                           mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -319,7 +319,7 @@ static void virgl_attach_res_atomic_buffers(struct virgl_context *vctx)
  */
 static void virgl_reemit_draw_resources(struct virgl_context *vctx)
 {
-   enum pipe_shader_type shader_type;
+   mesa_shader_stage shader_type;
 
    /* reattach any flushed resources */
    /* framebuffer, sampler views, vertex/index/uniform/stream buffers */
@@ -635,7 +635,7 @@ static void virgl_hw_set_index_buffer(struct virgl_context *vctx,
 }
 
 static void virgl_set_constant_buffer(struct pipe_context *ctx,
-                                     enum pipe_shader_type shader, uint index,
+                                     mesa_shader_stage shader, uint index,
                                       bool take_ownership,
                                      const struct pipe_constant_buffer *buf)
 {
@@ -1092,7 +1092,7 @@ static struct pipe_sampler_view *virgl_create_sampler_view(struct pipe_context *
 }
 
 static void virgl_set_sampler_views(struct pipe_context *ctx,
-                                   enum pipe_shader_type shader_type,
+                                   mesa_shader_stage shader_type,
                                    unsigned start_slot,
                                    unsigned num_views,
                                    unsigned unbind_num_trailing_slots,
@@ -1175,7 +1175,7 @@ static void virgl_delete_sampler_state(struct pipe_context *ctx,
 }
 
 static void virgl_bind_sampler_states(struct pipe_context *ctx,
-                                     enum pipe_shader_type shader,
+                                     mesa_shader_stage shader,
                                      unsigned start_slot,
                                      unsigned num_samplers,
                                      void **samplers)
@@ -1321,7 +1321,7 @@ static void virgl_set_hw_atomic_buffers(struct pipe_context *ctx,
 }
 
 static void virgl_set_shader_buffers(struct pipe_context *ctx,
-                                     enum pipe_shader_type shader,
+                                     mesa_shader_stage shader,
                                      unsigned start_slot, unsigned count,
                                      const struct pipe_shader_buffer *buffers,
                                      unsigned writable_bitmask)
@@ -1377,7 +1377,7 @@ static void virgl_fence_server_sync(struct pipe_context *ctx,
 }
 
 static void virgl_set_shader_images(struct pipe_context *ctx,
-                                    enum pipe_shader_type shader,
+                                    mesa_shader_stage shader,
                                     unsigned start_slot, unsigned count,
                                     unsigned unbind_num_trailing_slots,
                                     const struct pipe_image_view *images)
@@ -1498,7 +1498,7 @@ static void virgl_launch_grid(struct pipe_context *ctx,
 
 static void
 virgl_release_shader_binding(struct virgl_context *vctx,
-                             enum pipe_shader_type shader_type)
+                             mesa_shader_stage shader_type)
 {
    struct virgl_shader_binding_state *binding =
       &vctx->shader_bindings[shader_type];
@@ -1538,7 +1538,7 @@ virgl_context_destroy( struct pipe_context *ctx )
 {
    struct virgl_context *vctx = virgl_context(ctx);
    struct virgl_screen *rs = virgl_screen(ctx->screen);
-   enum pipe_shader_type shader_type;
+   mesa_shader_stage shader_type;
 
    vctx->framebuffer.zsbuf = NULL;
    vctx->framebuffer.nr_cbufs = 0;

@@ -1269,7 +1269,7 @@ void
 fs_visitor::emit_barrier()
 {
    /* We are getting the barrier ID from the compute shader header */
-   assert(gl_shader_stage_uses_workgroup(stage));
+   assert(mesa_shader_stage_uses_workgroup(stage));
 
    fs_reg payload = fs_reg(VGRF, alloc.allocate(1), BRW_REGISTER_TYPE_UD);
 
@@ -1279,7 +1279,7 @@ fs_visitor::emit_barrier()
    if (devinfo->verx10 >= 125) {
       setup_barrier_message_payload_gfx125(bld, payload);
    } else {
-      assert(gl_shader_stage_is_compute(stage));
+      assert(mesa_shader_stage_is_compute(stage));
 
       uint32_t barrier_id_mask;
       switch (devinfo->ver) {

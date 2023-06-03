@@ -184,7 +184,7 @@ void ac_compute_late_alloc(const struct radeon_info *info, bool ngg, bool ngg_cu
 
 unsigned ac_compute_cs_workgroup_size(const uint16_t sizes[3], bool variable, unsigned max);
 
-unsigned ac_compute_lshs_workgroup_size(enum amd_gfx_level gfx_level, gl_shader_stage stage,
+unsigned ac_compute_lshs_workgroup_size(enum amd_gfx_level gfx_level, mesa_shader_stage stage,
                                         unsigned tess_num_patches,
                                         unsigned tess_patch_in_vtx,
                                         unsigned tess_patch_out_vtx);
@@ -203,7 +203,7 @@ void ac_get_scratch_tmpring_size(const struct radeon_info *info,
                                  uint32_t *tmpring_size);
 
 unsigned
-ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
+ac_ngg_nogs_get_pervertex_lds_size(mesa_shader_stage stage,
                                    unsigned shader_num_outputs,
                                    bool streamout_enabled,
                                    bool export_prim_id,
@@ -213,7 +213,7 @@ ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
                                    bool uses_primitive_id);
 
 unsigned
-ac_ngg_get_scratch_lds_size(gl_shader_stage stage,
+ac_ngg_get_scratch_lds_size(mesa_shader_stage stage,
                             unsigned workgroup_size,
                             unsigned wave_size,
                             bool streamout_enabled,

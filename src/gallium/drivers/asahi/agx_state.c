@@ -39,7 +39,7 @@
 #include "agx_disk_cache.h"
 
 static void
-agx_set_shader_images(struct pipe_context *pctx, enum pipe_shader_type shader,
+agx_set_shader_images(struct pipe_context *pctx, mesa_shader_stage shader,
                       unsigned start_slot, unsigned count,
                       unsigned unbind_num_trailing_slots,
                       const struct pipe_image_view *iviews)
@@ -85,7 +85,7 @@ agx_set_shader_images(struct pipe_context *pctx, enum pipe_shader_type shader,
 }
 
 static void
-agx_set_shader_buffers(struct pipe_context *pctx, enum pipe_shader_type shader,
+agx_set_shader_buffers(struct pipe_context *pctx, mesa_shader_stage shader,
                        unsigned start, unsigned count,
                        const struct pipe_shader_buffer *buffers,
                        unsigned writable_bitmask)
@@ -484,7 +484,7 @@ agx_delete_sampler_state(struct pipe_context *ctx, void *state)
 }
 
 static void
-agx_bind_sampler_states(struct pipe_context *pctx, enum pipe_shader_type shader,
+agx_bind_sampler_states(struct pipe_context *pctx, mesa_shader_stage shader,
                         unsigned start, unsigned count, void **states)
 {
    struct agx_context *ctx = agx_context(pctx);
@@ -771,7 +771,7 @@ agx_create_sampler_view(struct pipe_context *pctx,
 }
 
 static void
-agx_set_sampler_views(struct pipe_context *pctx, enum pipe_shader_type shader,
+agx_set_sampler_views(struct pipe_context *pctx, mesa_shader_stage shader,
                       unsigned start, unsigned count,
                       unsigned unbind_num_trailing_slots, bool take_ownership,
                       struct pipe_sampler_view **views)
@@ -1091,7 +1091,7 @@ agx_batch_upload_pbe(struct agx_batch *batch, unsigned rt)
  */
 
 static void
-agx_set_constant_buffer(struct pipe_context *pctx, enum pipe_shader_type shader,
+agx_set_constant_buffer(struct pipe_context *pctx, mesa_shader_stage shader,
                         uint index, bool take_ownership,
                         const struct pipe_constant_buffer *cb)
 {
@@ -1462,7 +1462,7 @@ agx_get_shader_variant(struct agx_screen *screen,
    } else if (so->type == MESA_SHADER_VERTEX) {
       memcpy(cloned_key, key, sizeof(struct asahi_vs_shader_key));
    } else {
-      assert(gl_shader_stage_is_compute(so->type));
+      assert(mesa_shader_stage_is_compute(so->type));
       /* No key */
    }
 
@@ -1501,7 +1501,7 @@ agx_create_shader_state(struct pipe_context *pctx,
                                              asahi_fs_shader_key_equal);
    }
 
-   so->type = pipe_shader_type_from_mesa(nir->info.stage);
+   so->type = mesa_shader_stage_from_mesa(nir->info.stage);
 
    struct blob blob;
    blob_init(&blob);
@@ -1579,7 +1579,7 @@ agx_create_compute_state(struct pipe_context *pctx,
    assert(cso->ir_type == PIPE_SHADER_IR_NIR && "TGSI kernels unsupported");
    nir_shader *nir = nir_shader_clone(NULL, cso->prog);
 
-   so->type = pipe_shader_type_from_mesa(nir->info.stage);
+   so->type = mesa_shader_stage_from_mesa(nir->info.stage);
 
    struct blob blob;
    blob_init(&blob);
@@ -1600,7 +1600,7 @@ agx_create_compute_state(struct pipe_context *pctx,
 /* Does not take ownership of key. Clones if necessary. */
 static bool
 agx_update_shader(struct agx_context *ctx, struct agx_compiled_shader **out,
-                  enum pipe_shader_type stage, union asahi_shader_key *key)
+                  mesa_shader_stage stage, union asahi_shader_key *key)
 {
    struct agx_uncompiled_shader *so = ctx->stage[stage].shader;
    assert(so != NULL);
@@ -1716,7 +1716,7 @@ agx_delete_shader_state(struct pipe_context *ctx, void *cso)
 
 static unsigned
 sampler_count(struct agx_context *ctx, struct agx_compiled_shader *cs,
-              enum pipe_shader_type stage)
+              mesa_shader_stage stage)
 {
    unsigned nr_samplers = ctx->stage[stage].sampler_count;
 
@@ -1729,7 +1729,7 @@ sampler_count(struct agx_context *ctx, struct agx_compiled_shader *cs,
 static inline enum agx_sampler_states
 translate_sampler_state_count(struct agx_context *ctx,
                               struct agx_compiled_shader *cs,
-                              enum pipe_shader_type stage)
+                              mesa_shader_stage stage)
 {
    return agx_translate_sampler_state_count(sampler_count(ctx, cs, stage),
                                             ctx->stage[stage].custom_borders);
@@ -1760,7 +1760,7 @@ agx_set_null_texture(struct agx_texture_packed *tex, uint64_t valid_address)
 
 static uint32_t
 agx_build_pipeline(struct agx_batch *batch, struct agx_compiled_shader *cs,
-                   enum pipe_shader_type stage, unsigned variable_shared_mem)
+                   mesa_shader_stage stage, unsigned variable_shared_mem)
 {
    struct agx_context *ctx = batch->ctx;
    unsigned nr_textures = cs->info.nr_bindful_textures;

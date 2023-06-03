@@ -348,7 +348,7 @@ v3d_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 }
 
 static int
-v3d_screen_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type shader,
+v3d_screen_get_shader_param(struct pipe_screen *pscreen, mesa_shader_stage shader,
                            enum pipe_shader_cap param)
 {
         struct v3d_screen *screen = v3d_screen(pscreen);
@@ -749,7 +749,7 @@ static const nir_shader_compiler_options v3d_nir_options = {
 
 static const void *
 v3d_screen_get_compiler_options(struct pipe_screen *pscreen,
-                                enum pipe_shader_ir ir, enum pipe_shader_type shader)
+                                enum pipe_shader_ir ir, mesa_shader_stage shader)
 {
         return &v3d_nir_options;
 }

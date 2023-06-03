@@ -83,7 +83,7 @@ panfrost_shader_compile(struct panfrost_screen *screen, const nir_shader *ir,
     * Compute CSOs call this function during create time, so preprocessing
     * happens at CSO create time regardless.
     */
-   if (gl_shader_stage_is_compute(s->info.stage))
+   if (mesa_shader_stage_is_compute(s->info.stage))
       pan_shader_preprocess(s, dev->gpu_id);
 
    struct panfrost_compile_inputs inputs = {
@@ -270,7 +270,7 @@ panfrost_new_variant_locked(struct panfrost_context *ctx,
 
 static void
 panfrost_bind_shader_state(struct pipe_context *pctx, void *hwcso,
-                           enum pipe_shader_type type)
+                           mesa_shader_stage type)
 {
    struct panfrost_context *ctx = pan_context(pctx);
    ctx->uncompiled[type] = hwcso;
@@ -285,7 +285,7 @@ panfrost_bind_shader_state(struct pipe_context *pctx, void *hwcso,
 
 void
 panfrost_update_shader_variant(struct panfrost_context *ctx,
-                               enum pipe_shader_type type)
+                               mesa_shader_stage type)
 {
    /* No shader variants for compute */
    if (type == MESA_SHADER_COMPUTE)

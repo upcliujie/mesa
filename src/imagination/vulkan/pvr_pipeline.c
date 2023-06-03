@@ -1956,7 +1956,7 @@ pvr_graphics_pipeline_compile(struct pvr_device *const device,
    }
 
    /* NIR middle-end translation. */
-   for (gl_shader_stage stage = MESA_SHADER_FRAGMENT; stage > MESA_SHADER_NONE;
+   for (mesa_shader_stage stage = MESA_SHADER_FRAGMENT; stage > MESA_SHADER_NONE;
         stage--) {
       const VkPipelineShaderStageCreateInfo *create_info;
       size_t stage_index = gfx_pipeline->stage_indices[stage];
@@ -1989,7 +1989,7 @@ pvr_graphics_pipeline_compile(struct pvr_device *const device,
     */
 
    /* Back-end translation. */
-   for (gl_shader_stage stage = MESA_SHADER_FRAGMENT; stage > MESA_SHADER_NONE;
+   for (mesa_shader_stage stage = MESA_SHADER_FRAGMENT; stage > MESA_SHADER_NONE;
         stage--) {
       if (pvr_has_hard_coded_shaders(&device->pdevice->dev_info) &&
           pvr_hard_code_graphics_get_flags(&device->pdevice->dev_info) &
@@ -2301,7 +2301,7 @@ pvr_graphics_pipeline_init(struct pvr_device *device,
 
    for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
       VkShaderStageFlagBits vk_stage = pCreateInfo->pStages[i].stage;
-      gl_shader_stage gl_stage = vk_to_mesa_shader_stage(vk_stage);
+      mesa_shader_stage gl_stage = vk_to_mesa_shader_stage(vk_stage);
       /* From the Vulkan 1.2.192 spec for VkPipelineShaderStageCreateInfo:
        *
        *    "stage must not be VK_SHADER_STAGE_ALL_GRAPHICS,

@@ -141,12 +141,12 @@ typedef struct shader_info {
    uint8_t source_sha1[SHA1_DIGEST_LENGTH];
 
    /** The shader stage, such as MESA_SHADER_VERTEX. */
-   gl_shader_stage stage:8;
+   mesa_shader_stage stage:8;
 
    /** The shader stage in a non SSO linked program that follows this stage,
      * such as MESA_SHADER_FRAGMENT.
      */
-   gl_shader_stage next_stage:8;
+   mesa_shader_stage next_stage:8;
 
    /* Number of textures used by this shader */
    uint8_t num_textures;

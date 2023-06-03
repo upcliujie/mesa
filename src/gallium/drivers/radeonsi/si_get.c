@@ -429,7 +429,7 @@ static float si_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
    return 0.0f;
 }
 
-static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type shader,
+static int si_get_shader_param(struct pipe_screen *pscreen, mesa_shader_stage shader,
                                enum pipe_shader_cap param)
 {
    struct si_screen *sscreen = (struct si_screen *)pscreen;
@@ -509,7 +509,7 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
 }
 
 static const void *si_get_compiler_options(struct pipe_screen *screen, enum pipe_shader_ir ir,
-                                           enum pipe_shader_type shader)
+                                           mesa_shader_stage shader)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
 

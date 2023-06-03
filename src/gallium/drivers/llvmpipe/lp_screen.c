@@ -381,7 +381,7 @@ llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
 static int
 llvmpipe_get_shader_param(struct pipe_screen *screen,
-                          enum pipe_shader_type shader,
+                          mesa_shader_stage shader,
                           enum pipe_shader_cap param)
 {
    struct llvmpipe_screen *lscreen = llvmpipe_screen(screen);
@@ -659,7 +659,7 @@ llvmpipe_finalize_nir(struct pipe_screen *screen,
 static inline const void *
 llvmpipe_get_compiler_options(struct pipe_screen *screen,
                               enum pipe_shader_ir ir,
-                              enum pipe_shader_type shader)
+                              mesa_shader_stage shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
    return &gallivm_nir_options;

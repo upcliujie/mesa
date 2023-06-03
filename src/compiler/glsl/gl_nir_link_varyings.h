@@ -38,7 +38,7 @@
 #include "nir.h"
 
 struct gl_shader_program;
-struct gl_shader_stage;
+struct mesa_shader_stage;
 struct gl_shader;
 struct gl_type;
 

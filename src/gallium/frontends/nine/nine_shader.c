@@ -4017,7 +4017,7 @@ nine_ureg_create_shader(struct ureg_program                  *ureg,
         return NULL;
 
     assert(((struct tgsi_header *) &tgsi_tokens[0])->HeaderSize >= 2);
-    enum pipe_shader_type shader_type = ((struct tgsi_processor *) &tgsi_tokens[1])->Processor;
+    mesa_shader_stage shader_type = ((struct tgsi_processor *) &tgsi_tokens[1])->Processor;
 
     int preferred_ir = screen->get_shader_param(screen, shader_type, PIPE_SHADER_CAP_PREFERRED_IR);
     bool prefer_nir = (preferred_ir == PIPE_SHADER_IR_NIR);

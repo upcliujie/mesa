@@ -512,7 +512,7 @@ static float noop_get_paramf(struct pipe_screen* pscreen,
 }
 
 static int noop_get_shader_param(struct pipe_screen* pscreen,
-                                 enum pipe_shader_type shader,
+                                 mesa_shader_stage shader,
                                  enum pipe_shader_cap param)
 {
    struct pipe_screen *screen = ((struct noop_pipe_screen*)pscreen)->oscreen;
@@ -595,7 +595,7 @@ static struct disk_cache *noop_get_disk_shader_cache(struct pipe_screen *pscreen
 
 static const void *noop_get_compiler_options(struct pipe_screen *pscreen,
                                              enum pipe_shader_ir ir,
-                                             enum pipe_shader_type shader)
+                                             mesa_shader_stage shader)
 {
    struct pipe_screen *screen = ((struct noop_pipe_screen*)pscreen)->oscreen;
 
@@ -634,7 +634,7 @@ static void noop_set_max_shader_compiler_threads(struct pipe_screen *screen,
 
 static bool noop_is_parallel_shader_compilation_finished(struct pipe_screen *screen,
                                                          void *shader,
-                                                         enum pipe_shader_type shader_type)
+                                                         mesa_shader_stage shader_type)
 {
    return true;
 }

@@ -116,7 +116,7 @@ struct st_zombie_sampler_view_node
 struct st_zombie_shader_node
 {
    void *shader;
-   enum pipe_shader_type type;
+   mesa_shader_stage type;
    struct list_head node;
 };
 
@@ -475,7 +475,7 @@ st_save_zombie_sampler_view(struct st_context *st,
 
 extern void
 st_save_zombie_shader(struct st_context *st,
-                      enum pipe_shader_type type,
+                      mesa_shader_stage type,
                       struct pipe_shader_state *shader);
 
 
@@ -483,7 +483,7 @@ void
 st_context_free_zombie_objects(struct st_context *st);
 
 const struct nir_shader_compiler_options *
-st_get_nir_compiler_options(struct st_context *st, gl_shader_stage stage);
+st_get_nir_compiler_options(struct st_context *st, mesa_shader_stage stage);
 
 
 void st_invalidate_state(struct gl_context *ctx);

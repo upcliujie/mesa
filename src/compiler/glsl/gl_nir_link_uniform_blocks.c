@@ -460,7 +460,7 @@ fill_block(struct gl_uniform_block *block,
            unsigned *variable_index,
            unsigned array_index,
            struct gl_shader_program *prog,
-           const gl_shader_stage stage)
+           const mesa_shader_stage stage)
 {
    const struct glsl_type *type = glsl_without_array(var->type);
 

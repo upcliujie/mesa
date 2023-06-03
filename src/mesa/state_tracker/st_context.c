@@ -226,7 +226,7 @@ st_save_zombie_sampler_view(struct st_context *st,
  */
 void
 st_save_zombie_shader(struct st_context *st,
-                      enum pipe_shader_type type,
+                      mesa_shader_stage type,
                       struct pipe_shader_state *shader)
 {
    struct st_zombie_shader_node *entry;
@@ -1031,7 +1031,7 @@ st_destroy_context(struct st_context *st)
 }
 
 const struct nir_shader_compiler_options *
-st_get_nir_compiler_options(struct st_context *st, gl_shader_stage stage)
+st_get_nir_compiler_options(struct st_context *st, mesa_shader_stage stage)
 {
    const struct nir_shader_compiler_options *options =
       st->ctx->Const.ShaderCompilerOptions[stage].NirOptions;
@@ -1041,6 +1041,6 @@ st_get_nir_compiler_options(struct st_context *st, gl_shader_stage stage)
    } else {
       return nir_to_tgsi_get_compiler_options(st->screen,
                                               PIPE_SHADER_IR_NIR,
-                                              pipe_shader_type_from_mesa(stage));
+                                              mesa_shader_stage_from_mesa(stage));
    }
 }

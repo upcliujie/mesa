@@ -776,7 +776,7 @@ void si_init_shader_args(struct si_shader *shader, struct si_shader_args *args)
 #define DEBUGGER_END_OF_CODE_MARKER 0xbf9f0000 /* invalid instruction */
 #define DEBUGGER_NUM_MARKERS        5
 
-static unsigned get_lds_granularity(struct si_screen *screen, gl_shader_stage stage)
+static unsigned get_lds_granularity(struct si_screen *screen, mesa_shader_stage stage)
 {
    return screen->info.gfx_level >= GFX11 && stage == MESA_SHADER_FRAGMENT ? 1024 :
           screen->info.gfx_level >= GFX7 ? 512 : 256;
@@ -1025,7 +1025,7 @@ static void print_disassembly(const char *disasm, size_t nbytes,
 
 static void si_shader_dump_disassembly(struct si_screen *screen,
                                        const struct si_shader_binary *binary,
-                                       gl_shader_stage stage, unsigned wave_size,
+                                       mesa_shader_stage stage, unsigned wave_size,
                                        struct util_debug_callback *debug, const char *name,
                                        FILE *file)
 {
@@ -1181,7 +1181,7 @@ void si_shader_dump_stats_for_shader_db(struct si_screen *screen, struct si_shad
                       stages[shader->selector->stage], shader->wave_size);
 }
 
-bool si_can_dump_shader(struct si_screen *sscreen, gl_shader_stage stage,
+bool si_can_dump_shader(struct si_screen *sscreen, mesa_shader_stage stage,
                         enum si_shader_dump_type dump_type)
 {
    static uint64_t filter[] = {
@@ -1270,7 +1270,7 @@ const char *si_get_shader_name(const struct si_shader *shader)
 void si_shader_dump(struct si_screen *sscreen, struct si_shader *shader,
                     struct util_debug_callback *debug, FILE *file, bool check_debug_option)
 {
-   gl_shader_stage stage = shader->selector->stage;
+   mesa_shader_stage stage = shader->selector->stage;
 
    if (!check_debug_option || si_can_dump_shader(sscreen, stage, SI_DUMP_SHADER_KEY))
       si_dump_shader_key(shader, file);
@@ -1334,7 +1334,7 @@ static void si_dump_shader_key_vs(const union si_shader_key *key,
 static void si_dump_shader_key(const struct si_shader *shader, FILE *f)
 {
    const union si_shader_key *key = &shader->key;
-   gl_shader_stage stage = shader->selector->stage;
+   mesa_shader_stage stage = shader->selector->stage;
 
    fprintf(f, "SHADER KEY\n");
    fprintf(f, "  source_sha1 = {");
@@ -1784,7 +1784,7 @@ struct nir_shader *si_deserialize_shader(struct si_shader_selector *sel)
 {
    struct pipe_screen *screen = &sel->screen->b;
    const void *options = screen->get_compiler_options(screen, PIPE_SHADER_IR_NIR,
-                                                      pipe_shader_type_from_mesa(sel->stage));
+                                                      mesa_shader_stage_from_mesa(sel->stage));
 
    struct blob_reader blob_reader;
    blob_reader_init(&blob_reader, sel->nir_binary, sel->nir_size);
@@ -2091,7 +2091,7 @@ struct nir_shader *si_get_nir_shader(struct si_shader *shader,
 
    bool inline_uniforms = false;
    uint32_t *inlined_uniform_values;
-   si_get_inline_uniform_state((union si_shader_key*)key, sel->pipe_shader_type,
+   si_get_inline_uniform_state((union si_shader_key*)key, sel->mesa_shader_stage,
                                &inline_uniforms, &inlined_uniform_values);
 
    if (inline_uniforms) {
@@ -2771,7 +2771,7 @@ out:
  */
 static struct si_shader_part *
 si_get_shader_part(struct si_screen *sscreen, struct si_shader_part **list,
-                   gl_shader_stage stage, bool prolog, union si_shader_part_key *key,
+                   mesa_shader_stage stage, bool prolog, union si_shader_part_key *key,
                    struct ac_llvm_compiler *compiler, struct util_debug_callback *debug,
                    void (*build)(struct si_shader_context *, union si_shader_part_key *,
                                  bool non_monolithic),

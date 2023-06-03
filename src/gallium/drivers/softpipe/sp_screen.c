@@ -102,7 +102,7 @@ static const nir_shader_compiler_options sp_compiler_options = {
 static const void *
 softpipe_get_compiler_options(struct pipe_screen *pscreen,
                               enum pipe_shader_ir ir,
-                              enum pipe_shader_type shader)
+                              mesa_shader_stage shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
    return &sp_compiler_options;
@@ -321,7 +321,7 @@ softpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
 static int
 softpipe_get_shader_param(struct pipe_screen *screen,
-                          enum pipe_shader_type shader,
+                          mesa_shader_stage shader,
                           enum pipe_shader_cap param)
 {
    struct softpipe_screen *sp_screen = softpipe_screen(screen);

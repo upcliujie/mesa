@@ -1493,7 +1493,7 @@ static void*
 }
 
 static void r300_bind_sampler_states(struct pipe_context* pipe,
-                                     enum pipe_shader_type shader,
+                                     mesa_shader_stage shader,
                                      unsigned start, unsigned count,
                                      void** states)
 {
@@ -1547,7 +1547,7 @@ static uint32_t r300_assign_texture_cache_region(unsigned index, unsigned num)
 }
 
 static void r300_set_sampler_views(struct pipe_context* pipe,
-                                   enum pipe_shader_type shader,
+                                   mesa_shader_stage shader,
                                    unsigned start, unsigned count,
                                    unsigned unbind_num_trailing_slots,
                                    bool take_ownership,
@@ -2058,7 +2058,7 @@ static void r300_delete_vs_state(struct pipe_context* pipe, void* shader)
 }
 
 static void r300_set_constant_buffer(struct pipe_context *pipe,
-                                     enum pipe_shader_type shader, uint index,
+                                     mesa_shader_stage shader, uint index,
                                      bool take_ownership,
                                      const struct pipe_constant_buffer *cb)
 {

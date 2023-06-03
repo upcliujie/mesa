@@ -371,7 +371,7 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
 static int
 panfrost_get_shader_param(struct pipe_screen *screen,
-                          enum pipe_shader_type shader,
+                          mesa_shader_stage shader,
                           enum pipe_shader_cap param)
 {
    struct panfrost_device *dev = pan_device(screen);
@@ -779,7 +779,7 @@ panfrost_destroy_screen(struct pipe_screen *pscreen)
 static const void *
 panfrost_screen_get_compiler_options(struct pipe_screen *pscreen,
                                      enum pipe_shader_ir ir,
-                                     enum pipe_shader_type shader)
+                                     mesa_shader_stage shader)
 {
    return pan_screen(pscreen)->vtbl.get_compiler_options();
 }

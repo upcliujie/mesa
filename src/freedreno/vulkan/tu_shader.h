@@ -66,7 +66,7 @@ nir_shader *
 tu_spirv_to_nir(struct tu_device *dev,
                 void *mem_ctx,
                 const VkPipelineShaderStageCreateInfo *stage_info,
-                gl_shader_stage stage);
+                mesa_shader_stage stage);
 
 struct tu_shader *
 tu_shader_create(struct tu_device *dev,

@@ -42,7 +42,7 @@
 #include "ir2.h"
 
 static struct fd2_shader_stateobj *
-create_shader(struct pipe_context *pctx, gl_shader_stage type)
+create_shader(struct pipe_context *pctx, mesa_shader_stage type)
 {
    struct fd2_shader_stateobj *so = CALLOC_STRUCT(fd2_shader_stateobj);
    if (!so)
@@ -64,7 +64,7 @@ delete_shader(struct fd2_shader_stateobj *so)
 }
 
 static void
-emit(struct fd_ringbuffer *ring, gl_shader_stage type,
+emit(struct fd_ringbuffer *ring, mesa_shader_stage type,
      struct ir2_shader_info *info, struct util_dynarray *patches)
 {
    unsigned i;

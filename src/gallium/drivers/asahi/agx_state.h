@@ -162,7 +162,7 @@ struct agx_compiled_shader {
 
 struct agx_uncompiled_shader {
    struct pipe_shader_state base;
-   enum pipe_shader_type type;
+   mesa_shader_stage type;
    const struct nir_shader *nir;
    uint8_t nir_sha1[20];
    struct hash_table *variants;
@@ -629,7 +629,7 @@ agx_transfer(struct pipe_transfer *p)
 }
 
 uint64_t agx_upload_uniforms(struct agx_batch *batch, uint64_t textures,
-                             enum pipe_shader_type stage);
+                             mesa_shader_stage stage);
 
 bool agx_nir_lower_sysvals(nir_shader *shader,
                            struct agx_compiled_shader *compiled,

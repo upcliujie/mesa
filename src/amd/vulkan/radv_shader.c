@@ -60,7 +60,7 @@
 #endif
 
 static void
-get_nir_options_for_stage(struct radv_physical_device *device, gl_shader_stage stage)
+get_nir_options_for_stage(struct radv_physical_device *device, mesa_shader_stage stage)
 {
    bool split_fma = (stage <= MESA_SHADER_GEOMETRY || stage == MESA_SHADER_MESH) &&
                     device->instance->debug_flags & RADV_DEBUG_SPLIT_FMA;
@@ -130,7 +130,7 @@ get_nir_options_for_stage(struct radv_physical_device *device, gl_shader_stage s
 void
 radv_get_nir_options(struct radv_physical_device *device)
 {
-   for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < MESA_SHADER_VULKAN_STAGES; stage++)
+   for (mesa_shader_stage stage = MESA_SHADER_VERTEX; stage < MESA_SHADER_VULKAN_STAGES; stage++)
       get_nir_options_for_stage(device, stage);
 }
 
@@ -805,7 +805,7 @@ setup_ngg_lds_layout(struct radv_device *device, nir_shader *nir, struct radv_sh
                      unsigned max_vtx_in)
 {
    unsigned scratch_lds_base = 0;
-   gl_shader_stage stage = nir->info.stage;
+   mesa_shader_stage stage = nir->info.stage;
 
    if (stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_TESS_EVAL) {
       /* Get pervertex LDS usage. */
@@ -1327,7 +1327,7 @@ radv_get_shader_binary_size(size_t code_size)
 }
 
 static bool
-radv_should_use_wgp_mode(const struct radv_device *device, gl_shader_stage stage,
+radv_should_use_wgp_mode(const struct radv_device *device, mesa_shader_stage stage,
                          const struct radv_shader_info *info)
 {
    enum amd_gfx_level chip = device->physical_device->rad_info.gfx_level;
@@ -1426,7 +1426,7 @@ radv_postprocess_binary_config(struct radv_device *device, struct radv_shader_bi
    }
 
    const struct radv_shader_info *info = &binary->info;
-   gl_shader_stage stage = binary->info.stage;
+   mesa_shader_stage stage = binary->info.stage;
    const struct radv_physical_device *pdevice = device->physical_device;
    bool scratch_enabled = config->scratch_bytes_per_wave > 0 || info->cs.is_rt_shader;
    bool trap_enabled = !!device->trap_handler_shader;
@@ -1600,7 +1600,7 @@ radv_postprocess_binary_config(struct radv_device *device, struct radv_shader_bi
        (stage == MESA_SHADER_VERTEX || stage == MESA_SHADER_TESS_EVAL ||
         stage == MESA_SHADER_GEOMETRY || stage == MESA_SHADER_MESH)) {
       unsigned gs_vgpr_comp_cnt, es_vgpr_comp_cnt;
-      gl_shader_stage es_stage = stage;
+      mesa_shader_stage es_stage = stage;
       if (stage == MESA_SHADER_GEOMETRY)
          es_stage = info->gs.es_type;
 
@@ -2188,7 +2188,7 @@ radv_capture_shader_executable_info(struct radv_device *device, struct radv_shad
 
 static struct radv_shader_binary *
 shader_compile(struct radv_device *device, struct nir_shader *const *shaders, int shader_count,
-               gl_shader_stage stage, const struct radv_shader_info *info,
+               mesa_shader_stage stage, const struct radv_shader_info *info,
                const struct radv_shader_args *args, struct radv_nir_compiler_options *options)
 {
    struct radv_shader_debug_data debug_data = {
@@ -2233,7 +2233,7 @@ radv_shader_nir_to_asm(struct radv_device *device, struct vk_pipeline_cache *cac
                        int shader_count, const struct radv_pipeline_key *key, bool keep_shader_info,
                        bool keep_statistic_info, struct radv_shader_binary **binary_out)
 {
-   gl_shader_stage stage = shaders[shader_count - 1]->info.stage;
+   mesa_shader_stage stage = shaders[shader_count - 1]->info.stage;
    struct radv_shader_info *info = &pl_stage->info;
 
    struct radv_nir_compiler_options options = {0};
@@ -2276,7 +2276,7 @@ radv_shader_nir_to_asm(struct radv_device *device, struct vk_pipeline_cache *cac
 struct radv_shader *
 radv_create_trap_handler_shader(struct radv_device *device)
 {
-   gl_shader_stage stage = MESA_SHADER_COMPUTE;
+   mesa_shader_stage stage = MESA_SHADER_COMPUTE;
    struct radv_shader_info info = {0};
    struct radv_pipeline_key key = {0};
    struct radv_nir_compiler_options options = {0};
@@ -2582,7 +2582,7 @@ radv_find_shader(struct radv_device *device, uint64_t pc)
 }
 
 const char *
-radv_get_shader_name(const struct radv_shader_info *info, gl_shader_stage stage)
+radv_get_shader_name(const struct radv_shader_info *info, mesa_shader_stage stage)
 {
    switch (stage) {
    case MESA_SHADER_VERTEX:
@@ -2632,7 +2632,7 @@ radv_get_shader_name(const struct radv_shader_info *info, gl_shader_stage stage)
 
 unsigned
 radv_get_max_waves(const struct radv_device *device, struct radv_shader *shader,
-                   gl_shader_stage stage)
+                   mesa_shader_stage stage)
 {
    const struct radeon_info *info = &device->physical_device->rad_info;
    const enum amd_gfx_level gfx_level = info->gfx_level;
@@ -2732,7 +2732,7 @@ radv_compute_spi_ps_input(const struct radv_pipeline_key *pipeline_key,
 
 VkResult
 radv_dump_shader_stats(struct radv_device *device, struct radv_pipeline *pipeline,
-                       struct radv_shader *shader, gl_shader_stage stage, FILE *output)
+                       struct radv_shader *shader, mesa_shader_stage stage, FILE *output)
 {
    VkPipelineExecutablePropertiesKHR *props = NULL;
    uint32_t prop_count = 0;

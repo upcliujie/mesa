@@ -52,7 +52,7 @@
 const void *
 d3d12_get_compiler_options(struct pipe_screen *screen,
                            enum pipe_shader_ir ir,
-                           enum pipe_shader_type shader)
+                           mesa_shader_stage shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
    return &d3d12_screen(screen)->nir_options;
@@ -904,7 +904,7 @@ d3d12_fill_shader_key(struct d3d12_selection_context *sel_ctx,
                       d3d12_shader_key *key, d3d12_shader_selector *sel,
                       d3d12_shader_selector *prev, d3d12_shader_selector *next)
 {
-   pipe_shader_type stage = sel->stage;
+   mesa_shader_stage stage = sel->stage;
 
    uint64_t system_generated_in_values =
          VARYING_BIT_PNTC |
@@ -1368,7 +1368,7 @@ select_shader_variant(struct d3d12_selection_context *sel_ctx, d3d12_shader_sele
 }
 
 static d3d12_shader_selector *
-get_prev_shader(struct d3d12_context *ctx, pipe_shader_type current)
+get_prev_shader(struct d3d12_context *ctx, mesa_shader_stage current)
 {
    switch (current) {
    case MESA_SHADER_VERTEX:
@@ -1393,7 +1393,7 @@ get_prev_shader(struct d3d12_context *ctx, pipe_shader_type current)
 }
 
 static d3d12_shader_selector *
-get_next_shader(struct d3d12_context *ctx, pipe_shader_type current)
+get_next_shader(struct d3d12_context *ctx, mesa_shader_stage current)
 {
    switch (current) {
    case MESA_SHADER_VERTEX:
@@ -1531,7 +1531,7 @@ d3d12_create_shader_impl(struct d3d12_context *ctx,
 
 struct d3d12_shader_selector *
 d3d12_create_shader(struct d3d12_context *ctx,
-                    pipe_shader_type stage,
+                    mesa_shader_stage stage,
                     const struct pipe_shader_state *shader)
 {
    struct d3d12_shader_selector *sel = rzalloc(nullptr, d3d12_shader_selector);

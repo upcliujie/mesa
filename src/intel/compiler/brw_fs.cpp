@@ -1585,7 +1585,7 @@ fs_visitor::assign_curb_setup()
    prog_data->curb_read_length = uniform_push_length + ubo_push_length;
 
    uint64_t used = 0;
-   bool is_compute = gl_shader_stage_is_compute(stage);
+   bool is_compute = mesa_shader_stage_is_compute(stage);
 
    if (is_compute && brw_cs_prog_data(prog_data)->uses_inline_data) {
       /* With COMPUTE_WALKER, we can push up to one register worth of data via
@@ -6614,7 +6614,7 @@ fs_visitor::allocate_registers(bool allow_spilling)
       prog_data->total_scratch = MAX2(brw_get_scratch_size(last_scratch),
                                       prog_data->total_scratch);
 
-      if (gl_shader_stage_is_compute(stage)) {
+      if (mesa_shader_stage_is_compute(stage)) {
          if (devinfo->platform == INTEL_PLATFORM_HSW) {
             /* According to the MEDIA_VFE_STATE's "Per Thread Scratch Space"
              * field documentation, Haswell supports a minimum of 2kB of
@@ -6993,7 +6993,7 @@ fs_visitor::run_fs(bool allow_spilling, bool do_rep_send)
 bool
 fs_visitor::run_cs(bool allow_spilling)
 {
-   assert(gl_shader_stage_is_compute(stage));
+   assert(mesa_shader_stage_is_compute(stage));
    assert(devinfo->ver >= 7);
 
    payload_ = new cs_thread_payload(*this);
@@ -7688,21 +7688,21 @@ brw_compile_fs(const struct brw_compiler *compiler,
 fs_reg
 fs_visitor::emit_work_group_id_setup()
 {
-   assert(gl_shader_stage_uses_workgroup(stage));
+   assert(mesa_shader_stage_uses_workgroup(stage));
 
    fs_reg id = bld.vgrf(BRW_REGISTER_TYPE_UD, 3);
 
    struct brw_reg r0_1(retype(brw_vec1_grf(0, 1), BRW_REGISTER_TYPE_UD));
    bld.MOV(id, r0_1);
 
-   if (gl_shader_stage_is_compute(stage)) {
+   if (mesa_shader_stage_is_compute(stage)) {
       struct brw_reg r0_6(retype(brw_vec1_grf(0, 6), BRW_REGISTER_TYPE_UD));
       struct brw_reg r0_7(retype(brw_vec1_grf(0, 7), BRW_REGISTER_TYPE_UD));
       bld.MOV(offset(id, bld, 1), r0_6);
       bld.MOV(offset(id, bld, 2), r0_7);
    } else {
       /* NV Task/Mesh have a single Workgroup ID dimension in the HW. */
-      assert(gl_shader_stage_is_mesh(stage));
+      assert(mesa_shader_stage_is_mesh(stage));
       assert(nir->info.mesh.nv);
       bld.MOV(offset(id, bld, 1), brw_imm_ud(0));
       bld.MOV(offset(id, bld, 2), brw_imm_ud(0));
@@ -8084,7 +8084,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
       char *name = ralloc_asprintf(mem_ctx, "%s %s shader %s",
                                    shader->info.label ?
                                       shader->info.label : "unnamed",
-                                   gl_shader_stage_name(shader->info.stage),
+                                   mesa_shader_stage_name(shader->info.stage),
                                    shader->info.name);
       g.enable_debug(name);
    }
@@ -8102,7 +8102,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
          char *name = ralloc_asprintf(mem_ctx, "%s %s resume(%u) shader %s",
                                       shader->info.label ?
                                          shader->info.label : "unnamed",
-                                      gl_shader_stage_name(shader->info.stage),
+                                      mesa_shader_stage_name(shader->info.stage),
                                       i, shader->info.name);
          g.enable_debug(name);
       }
@@ -8146,7 +8146,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
 static UNUSED void
 brw_fs_test_dispatch_packing(const fs_builder &bld)
 {
-   const gl_shader_stage stage = bld.shader->stage;
+   const mesa_shader_stage stage = bld.shader->stage;
    const bool uses_vmask =
       stage == MESA_SHADER_FRAGMENT &&
       brw_wm_prog_data(bld.shader->stage_prog_data)->uses_vmask;
@@ -8172,7 +8172,7 @@ brw_fs_test_dispatch_packing(const fs_builder &bld)
 unsigned
 fs_visitor::workgroup_size() const
 {
-   assert(gl_shader_stage_uses_workgroup(stage));
+   assert(mesa_shader_stage_uses_workgroup(stage));
    const struct brw_cs_prog_data *cs = brw_cs_prog_data(prog_data);
    return cs->local_size[0] * cs->local_size[1] * cs->local_size[2];
 }

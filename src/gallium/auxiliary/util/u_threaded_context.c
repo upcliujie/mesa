@@ -830,7 +830,7 @@ tc_rebind_bindings(uint32_t old_id, uint32_t new_id, uint32_t *bindings,
 static void
 tc_add_shader_bindings_to_buffer_list(struct threaded_context *tc,
                                       BITSET_WORD *buffer_list,
-                                      enum pipe_shader_type shader)
+                                      mesa_shader_stage shader)
 {
    tc_add_bindings_to_buffer_list(buffer_list, tc->const_buffers[shader],
                                   tc->max_const_buffers);
@@ -850,7 +850,7 @@ tc_add_shader_bindings_to_buffer_list(struct threaded_context *tc,
 
 static unsigned
 tc_rebind_shader_bindings(struct threaded_context *tc, uint32_t old_id,
-                          uint32_t new_id, enum pipe_shader_type shader, uint32_t *rebind_mask)
+                          uint32_t new_id, mesa_shader_stage shader, uint32_t *rebind_mask)
 {
    unsigned ubo = 0, ssbo = 0, img = 0, sampler = 0;
 
@@ -965,7 +965,7 @@ tc_is_buffer_bound_with_mask(uint32_t id, uint32_t *bindings, unsigned binding_m
 
 static bool
 tc_is_buffer_shader_bound_for_write(struct threaded_context *tc, uint32_t id,
-                                    enum pipe_shader_type shader)
+                                    mesa_shader_stage shader)
 {
    if (tc->seen_shader_buffers[shader] &&
        tc_is_buffer_bound_with_mask(id, tc->shader_buffers[shader],
@@ -1430,7 +1430,7 @@ tc_call_bind_sampler_states(struct pipe_context *pipe, void *call, uint64_t *las
 
 static void
 tc_bind_sampler_states(struct pipe_context *_pipe,
-                       enum pipe_shader_type shader,
+                       mesa_shader_stage shader,
                        unsigned start, unsigned count, void **states)
 {
    if (!count)
@@ -1616,7 +1616,7 @@ tc_call_set_constant_buffer(struct pipe_context *pipe, void *call, uint64_t *las
 
 static void
 tc_set_constant_buffer(struct pipe_context *_pipe,
-                       enum pipe_shader_type shader, uint index,
+                       mesa_shader_stage shader, uint index,
                        bool take_ownership,
                        const struct pipe_constant_buffer *cb)
 {
@@ -1690,7 +1690,7 @@ tc_call_set_inlinable_constants(struct pipe_context *pipe, void *call, uint64_t 
 
 static void
 tc_set_inlinable_constants(struct pipe_context *_pipe,
-                           enum pipe_shader_type shader,
+                           mesa_shader_stage shader,
                            uint num_values, uint32_t *values)
 {
    struct threaded_context *tc = threaded_context(_pipe);
@@ -1838,7 +1838,7 @@ tc_call_set_sampler_views(struct pipe_context *pipe, void *call, uint64_t *last)
 
 static void
 tc_set_sampler_views(struct pipe_context *_pipe,
-                     enum pipe_shader_type shader,
+                     mesa_shader_stage shader,
                      unsigned start, unsigned count,
                      unsigned unbind_num_trailing_slots, bool take_ownership,
                      struct pipe_sampler_view **views)
@@ -1927,7 +1927,7 @@ tc_call_set_shader_images(struct pipe_context *pipe, void *call, uint64_t *last)
 
 static void
 tc_set_shader_images(struct pipe_context *_pipe,
-                     enum pipe_shader_type shader,
+                     mesa_shader_stage shader,
                      unsigned start, unsigned count,
                      unsigned unbind_num_trailing_slots,
                      const struct pipe_image_view *images)
@@ -2018,7 +2018,7 @@ tc_call_set_shader_buffers(struct pipe_context *pipe, void *call, uint64_t *last
 
 static void
 tc_set_shader_buffers(struct pipe_context *_pipe,
-                      enum pipe_shader_type shader,
+                      mesa_shader_stage shader,
                       unsigned start, unsigned count,
                       const struct pipe_shader_buffer *buffers,
                       unsigned writable_bitmask)

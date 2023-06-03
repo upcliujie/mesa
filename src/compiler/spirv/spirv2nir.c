@@ -41,7 +41,7 @@
 
 #define WORD_SIZE 4
 
-static gl_shader_stage
+static mesa_shader_stage
 stage_to_enum(char *stage)
 {
    if (!strcmp(stage, "vertex"))
@@ -84,7 +84,7 @@ print_usage(char *exec_name, FILE *f)
 
 int main(int argc, char **argv)
 {
-   gl_shader_stage shader_stage = MESA_SHADER_FRAGMENT;
+   mesa_shader_stage shader_stage = MESA_SHADER_FRAGMENT;
    char *entry_point = "main";
    int ch;
    bool optimize = false;

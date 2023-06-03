@@ -165,7 +165,7 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 
 	int processor = sel->ir_type == PIPE_SHADER_IR_TGSI ?
 		tgsi_get_processor_type(sel->tokens):
-		pipe_shader_type_from_mesa(sel->nir->info.stage);
+		mesa_shader_stage_from_mesa(sel->nir->info.stage);
 	
 	bool dump = r600_can_dump_shader(&rctx->screen->b, processor);
 	unsigned use_sb = rctx->screen->b.debug_flags & DBG_NIR_SB;

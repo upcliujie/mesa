@@ -66,7 +66,7 @@ svga_resource_handle(struct pipe_resource *res)
 boolean
 svga_check_sampler_view_resource_collision(const struct svga_context *svga,
                                            const struct svga_winsys_surface *res,
-                                           enum pipe_shader_type shader)
+                                           mesa_shader_stage shader)
 {
    struct pipe_screen *screen = svga->pipe.screen;
    unsigned i;
@@ -94,7 +94,7 @@ svga_check_sampler_view_resource_collision(const struct svga_context *svga,
  */
 boolean
 svga_check_sampler_framebuffer_resource_collision(struct svga_context *svga,
-                                                  enum pipe_shader_type shader)
+                                                  mesa_shader_stage shader)
 {
    struct svga_surface *surf;
    unsigned i;
@@ -241,7 +241,7 @@ static enum pipe_error
 update_sampler_resources(struct svga_context *svga, uint64_t dirty)
 {
    enum pipe_error ret = PIPE_OK;
-   enum pipe_shader_type shader;
+   mesa_shader_stage shader;
 
    assert(svga_have_vgpu10(svga));
 
@@ -392,7 +392,7 @@ static enum pipe_error
 update_samplers(struct svga_context *svga, uint64_t dirty )
 {
    enum pipe_error ret = PIPE_OK;
-   enum pipe_shader_type shader;
+   mesa_shader_stage shader;
 
    assert(svga_have_vgpu10(svga));
 
@@ -541,7 +541,7 @@ static enum pipe_error
 update_cs_sampler_resources(struct svga_context *svga, uint64_t dirty)
 {
    enum pipe_error ret = PIPE_OK;
-   enum pipe_shader_type shader = MESA_SHADER_COMPUTE;
+   mesa_shader_stage shader = MESA_SHADER_COMPUTE;
 
    assert(svga_have_sm5(svga));
 
@@ -659,7 +659,7 @@ static enum pipe_error
 update_cs_samplers(struct svga_context *svga, uint64_t dirty )
 {
    enum pipe_error ret = PIPE_OK;
-   enum pipe_shader_type shader = MESA_SHADER_COMPUTE;
+   mesa_shader_stage shader = MESA_SHADER_COMPUTE;
 
    assert(svga_have_sm5(svga));
 

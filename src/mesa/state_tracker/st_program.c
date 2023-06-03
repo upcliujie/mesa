@@ -256,8 +256,8 @@ delete_variant(struct st_context *st, struct st_variant *v, GLenum target)
          /* We can't delete a shader with a context different from the one
           * that created it.  Add it to the creating context's zombie list.
           */
-         enum pipe_shader_type type =
-            pipe_shader_type_from_mesa(_mesa_program_enum_to_shader_stage(target));
+         mesa_shader_stage type =
+            mesa_shader_stage_from_mesa(_mesa_program_enum_to_shader_stage(target));
 
          st_save_zombie_shader(v->st, type, v->driver_shader);
       }
@@ -411,7 +411,7 @@ st_prog_to_nir_postprocess(struct st_context *st, nir_shader *nir,
  */
 static nir_shader *
 st_translate_prog_to_nir(struct st_context *st, struct gl_program *prog,
-                         gl_shader_stage stage)
+                         mesa_shader_stage stage)
 {
    const struct nir_shader_compiler_options *options =
       st_get_nir_compiler_options(st, prog->info.stage);
@@ -508,8 +508,8 @@ st_create_nir_shader(struct st_context *st, struct pipe_shader_state *state)
    assert(state->type == PIPE_SHADER_IR_NIR);
    nir_shader *nir = state->ir.nir;
    struct shader_info info = nir->info;
-   gl_shader_stage stage = nir->info.stage;
-   enum pipe_shader_type sh = pipe_shader_type_from_mesa(stage);
+   mesa_shader_stage stage = nir->info.stage;
+   mesa_shader_stage sh = mesa_shader_stage_from_mesa(stage);
 
    if (ST_DEBUG & DEBUG_PRINT_IR) {
       fprintf(stderr, "NIR before handing off to driver:\n");

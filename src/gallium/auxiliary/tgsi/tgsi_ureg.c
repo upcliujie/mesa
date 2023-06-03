@@ -111,7 +111,7 @@ struct hw_atomic_decl {
 
 struct ureg_program
 {
-   enum pipe_shader_type processor;
+   mesa_shader_stage processor;
    bool supports_any_inout_decl_range;
    int next_shader_processor;
 
@@ -2226,14 +2226,14 @@ void ureg_free_tokens( const struct tgsi_token *tokens )
 
 
 struct ureg_program *
-ureg_create(enum pipe_shader_type processor)
+ureg_create(mesa_shader_stage processor)
 {
    return ureg_create_with_screen(processor, NULL);
 }
 
 
 struct ureg_program *
-ureg_create_with_screen(enum pipe_shader_type processor,
+ureg_create_with_screen(mesa_shader_stage processor,
                         struct pipe_screen *screen)
 {
    uint i;
@@ -2411,7 +2411,7 @@ ureg_setup_shader_info(struct ureg_program *ureg,
    switch (info->stage) {
    case MESA_SHADER_VERTEX:
       ureg_setup_clipdist_info(ureg, info);
-      ureg_set_next_shader_processor(ureg, pipe_shader_type_from_mesa(info->next_stage));
+      ureg_set_next_shader_processor(ureg, mesa_shader_stage_from_mesa(info->next_stage));
       break;
    case MESA_SHADER_TESS_CTRL:
       ureg_setup_tess_ctrl_shader(ureg, info);
@@ -2419,7 +2419,7 @@ ureg_setup_shader_info(struct ureg_program *ureg,
    case MESA_SHADER_TESS_EVAL:
       ureg_setup_tess_eval_shader(ureg, info);
       ureg_setup_clipdist_info(ureg, info);
-      ureg_set_next_shader_processor(ureg, pipe_shader_type_from_mesa(info->next_stage));
+      ureg_set_next_shader_processor(ureg, mesa_shader_stage_from_mesa(info->next_stage));
       break;
    case MESA_SHADER_GEOMETRY:
       ureg_setup_geometry_shader(ureg, info);

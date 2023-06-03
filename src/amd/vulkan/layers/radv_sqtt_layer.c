@@ -129,7 +129,7 @@ radv_sqtt_emit_relocated_shaders(struct radv_cmd_buffer *cmd_buffer,
 }
 
 static uint64_t
-radv_sqtt_shader_get_va_reloc(struct radv_pipeline *pipeline, gl_shader_stage stage)
+radv_sqtt_shader_get_va_reloc(struct radv_pipeline *pipeline, mesa_shader_stage stage)
 {
    if (pipeline->type == RADV_PIPELINE_GRAPHICS) {
       struct radv_graphics_pipeline *graphics_pipeline = radv_pipeline_to_graphics(pipeline);
@@ -1137,7 +1137,7 @@ sqtt_CmdInsertDebugUtilsLabelEXT(VkCommandBuffer commandBuffer,
 
 /* Pipelines */
 static enum rgp_hardware_stages
-radv_mesa_to_rgp_shader_stage(struct radv_pipeline *pipeline, gl_shader_stage stage)
+radv_mesa_to_rgp_shader_stage(struct radv_pipeline *pipeline, mesa_shader_stage stage)
 {
    struct radv_shader *shader = pipeline->shaders[stage];
 

@@ -395,7 +395,7 @@ d3d12_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 d3d12_get_shader_param(struct pipe_screen *pscreen,
-                       enum pipe_shader_type shader,
+                       mesa_shader_stage shader,
                        enum pipe_shader_cap param)
 {
    struct d3d12_screen *screen = d3d12_screen(pscreen);

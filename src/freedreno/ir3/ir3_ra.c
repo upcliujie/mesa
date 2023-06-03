@@ -364,7 +364,7 @@ struct ra_ctx {
    struct ir3_block *block;
 
    const struct ir3_compiler *compiler;
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    /* Pending moves of top-level intervals that will be emitted once we're
     * finished:
@@ -2569,7 +2569,7 @@ ir3_ra(struct ir3_shader_variant *v)
    limit_pressure.half = RA_HALF_SIZE;
    limit_pressure.shared = RA_SHARED_SIZE;
 
-   if (gl_shader_stage_is_compute(v->type) && v->has_barrier) {
+   if (mesa_shader_stage_is_compute(v->type) && v->has_barrier) {
       calc_limit_pressure_for_cs_with_barrier(v, &limit_pressure);
    }
 

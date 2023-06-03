@@ -44,7 +44,7 @@
 
 static unsigned
 svga_get_image_size_constant(const struct svga_context *svga, float **dest,
-                             enum pipe_shader_type shader,
+                             mesa_shader_stage shader,
                              unsigned num_image_views,
                              const struct svga_image_view images[MESA_SHADER_GL_STAGES][SVGA3D_MAX_UAVIEWS])
 {
@@ -103,7 +103,7 @@ svga_get_image_size_constant(const struct svga_context *svga, float **dest,
 static unsigned
 svga_get_extra_constants_common(const struct svga_context *svga,
                                 const struct svga_shader_variant *variant,
-                                enum pipe_shader_type shader, float *dest)
+                                mesa_shader_stage shader, float *dest)
 {
    uint32_t *dest_u = (uint32_t *) dest;  // uint version of dest
    unsigned i;
@@ -416,7 +416,7 @@ svga_get_extra_cs_constants(struct svga_context *svga, float *dest)
  */
 static enum pipe_error
 emit_const_range(struct svga_context *svga,
-                 enum pipe_shader_type shader,
+                 mesa_shader_stage shader,
                  unsigned offset,
                  unsigned count,
                  const float (*values)[4])
@@ -539,7 +539,7 @@ emit_const_range(struct svga_context *svga,
  * On VGPU10, emit_consts_vgpu10 is used instead.
  */
 static enum pipe_error
-emit_consts_vgpu9(struct svga_context *svga, enum pipe_shader_type shader)
+emit_consts_vgpu9(struct svga_context *svga, mesa_shader_stage shader)
 {
    const struct pipe_constant_buffer *cbuf;
    struct pipe_transfer *transfer = NULL;
@@ -642,7 +642,7 @@ svga_destroy_rawbuf_srv(struct svga_context *svga)
 static enum pipe_error
 emit_rawbuf(struct svga_context *svga,
             unsigned slot,
-            enum pipe_shader_type shader,
+            mesa_shader_stage shader,
             unsigned buffer_offset,
             unsigned buffer_size,
             void *buffer)
@@ -739,7 +739,7 @@ done:
 static enum pipe_error
 emit_constbuf(struct svga_context *svga,
               unsigned slot,
-              enum pipe_shader_type shader,
+              mesa_shader_stage shader,
               unsigned buffer_offset,
               unsigned buffer_size,
               const void *buffer,
@@ -893,7 +893,7 @@ emit_constbuf(struct svga_context *svga,
 
 /* For constbuf 0 */
 static enum pipe_error
-emit_consts_vgpu10(struct svga_context *svga, enum pipe_shader_type shader)
+emit_consts_vgpu10(struct svga_context *svga, mesa_shader_stage shader)
 {
    const struct pipe_constant_buffer *cbuf;
    enum pipe_error ret = PIPE_OK;
@@ -970,7 +970,7 @@ emit_consts_vgpu10(struct svga_context *svga, enum pipe_shader_type shader)
 
 
 static enum pipe_error
-emit_constbuf_vgpu10(struct svga_context *svga, enum pipe_shader_type shader)
+emit_constbuf_vgpu10(struct svga_context *svga, mesa_shader_stage shader)
 {
    enum pipe_error ret = PIPE_OK;
    unsigned dirty_constbufs;
@@ -1441,7 +1441,7 @@ struct svga_tracked_state svga_hw_cs_constbufs =
  * A helper function to update the rawbuf for constbuf mask
  */
 static void
-update_rawbuf_mask(struct svga_context *svga, enum pipe_shader_type shader)
+update_rawbuf_mask(struct svga_context *svga, mesa_shader_stage shader)
 {
    unsigned dirty_constbufs;
    unsigned enabled_constbufs;
@@ -1480,7 +1480,7 @@ update_rawbuf(struct svga_context *svga, uint64 dirty)
       SVGA_NEW_TES_RAW_BUFFER,      /* MESA_SHADER_TESS_EVAL */
    };
 
-   for (enum pipe_shader_type shader = MESA_SHADER_VERTEX;
+   for (mesa_shader_stage shader = MESA_SHADER_VERTEX;
         shader < MESA_SHADER_COMPUTE; shader++) {
       unsigned rawbuf_mask = svga->state.raw_constbufs[shader];
 

@@ -372,11 +372,11 @@ virgl_get_param(struct pipe_screen *screen, enum pipe_cap param)
 }
 
 #define VIRGL_SHADER_STAGE_CAP_V2(CAP, STAGE) \
-   vscreen->caps.caps.v2. CAP[virgl_shader_stage_convert(STAGE)]
+   vscreen->caps.caps.v2. CAP[virmesa_shader_stage_convert(STAGE)]
 
 static int
 virgl_get_shader_param(struct pipe_screen *screen,
-                       enum pipe_shader_type shader,
+                       mesa_shader_stage shader,
                        enum pipe_shader_cap param)
 {
    struct virgl_screen *vscreen = virgl_screen(screen);
@@ -1099,7 +1099,7 @@ fixup_renderer(union virgl_caps *caps)
 static const void *
 virgl_get_compiler_options(struct pipe_screen *pscreen,
                            enum pipe_shader_ir ir,
-                           enum pipe_shader_type shader)
+                           mesa_shader_stage shader)
 {
    struct virgl_screen *vscreen = virgl_screen(pscreen);
 

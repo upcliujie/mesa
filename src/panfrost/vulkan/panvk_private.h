@@ -777,7 +777,7 @@ struct panvk_shader {
 };
 
 struct panvk_shader *
-panvk_shader_create(struct panvk_device *dev, gl_shader_stage stage,
+panvk_shader_create(struct panvk_device *dev, mesa_shader_stage stage,
                     const VkPipelineShaderStageCreateInfo *stage_info,
                     const struct panvk_pipeline_layout *layout,
                     unsigned sysval_ubo, struct pan_blend_state *blend_state,
@@ -1099,7 +1099,7 @@ bool panvk_per_arch(blend_needs_lowering)(const struct panfrost_device *dev,
                                           unsigned rt);
 
 struct panvk_shader *panvk_per_arch(shader_create)(
-   struct panvk_device *dev, gl_shader_stage stage,
+   struct panvk_device *dev, mesa_shader_stage stage,
    const VkPipelineShaderStageCreateInfo *stage_info,
    const struct panvk_pipeline_layout *layout, unsigned sysval_ubo,
    struct pan_blend_state *blend_state, bool static_blend_constants,

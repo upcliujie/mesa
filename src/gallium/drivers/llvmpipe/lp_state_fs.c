@@ -4166,7 +4166,7 @@ llvmpipe_delete_fs_state(struct pipe_context *pipe, void *fs)
 
 static void
 llvmpipe_set_constant_buffer(struct pipe_context *pipe,
-                             enum pipe_shader_type shader, uint index,
+                             mesa_shader_stage shader, uint index,
                              bool take_ownership,
                              const struct pipe_constant_buffer *cb)
 {
@@ -4228,7 +4228,7 @@ llvmpipe_set_constant_buffer(struct pipe_context *pipe,
 
 static void
 llvmpipe_set_shader_buffers(struct pipe_context *pipe,
-                            enum pipe_shader_type shader, unsigned start_slot,
+                            mesa_shader_stage shader, unsigned start_slot,
                             unsigned count,
                             const struct pipe_shader_buffer *buffers,
                             unsigned writable_bitmask)
@@ -4280,7 +4280,7 @@ llvmpipe_set_shader_buffers(struct pipe_context *pipe,
 
 static void
 llvmpipe_set_shader_images(struct pipe_context *pipe,
-                           enum pipe_shader_type shader, unsigned start_slot,
+                           mesa_shader_stage shader, unsigned start_slot,
                            unsigned count, unsigned unbind_num_trailing_slots,
                            const struct pipe_image_view *images)
 {

@@ -377,7 +377,7 @@ nvc0_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
 static int
 nvc0_screen_get_shader_param(struct pipe_screen *pscreen,
-                             enum pipe_shader_type shader,
+                             mesa_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    const struct nouveau_screen *screen = nouveau_screen(pscreen);
@@ -942,7 +942,7 @@ nvc0_screen_bind_cb_3d(struct nvc0_screen *screen, struct nouveau_pushbuf *push,
 static const void *
 nvc0_screen_get_compiler_options(struct pipe_screen *pscreen,
                                  enum pipe_shader_ir ir,
-                                 enum pipe_shader_type shader)
+                                 mesa_shader_stage shader)
 {
    struct nvc0_screen *screen = nvc0_screen(pscreen);
    if (ir == PIPE_SHADER_IR_NIR)

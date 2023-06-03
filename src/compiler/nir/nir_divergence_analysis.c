@@ -37,7 +37,7 @@
  */
 
 struct divergence_state {
-   const gl_shader_stage stage;
+   const mesa_shader_stage stage;
    nir_shader *shader;
 
    /** current control flow state */
@@ -87,7 +87,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
       return false;
 
    nir_divergence_options options = shader->options->divergence_analysis_options;
-   gl_shader_stage stage = shader->info.stage;
+   mesa_shader_stage stage = shader->info.stage;
    bool is_divergent = false;
    switch (instr->intrinsic) {
    /* Intrinsics which are always uniform */
@@ -325,7 +325,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_workgroup_index:
    case nir_intrinsic_load_workgroup_id:
    case nir_intrinsic_load_workgroup_id_zero_base:
-      assert(gl_shader_stage_uses_workgroup(stage));
+      assert(mesa_shader_stage_uses_workgroup(stage));
       if (stage == MESA_SHADER_COMPUTE)
          is_divergent |= (options & nir_divergence_multiple_workgroup_per_compute_subgroup);
       break;
@@ -674,7 +674,7 @@ nir_variable_is_uniform(nir_shader *shader, nir_variable *var)
       return true;
 
    nir_divergence_options options = shader->options->divergence_analysis_options;
-   gl_shader_stage stage = shader->info.stage;
+   mesa_shader_stage stage = shader->info.stage;
 
    if (stage == MESA_SHADER_FRAGMENT &&
        (options & nir_divergence_single_prim_per_subgroup) &&

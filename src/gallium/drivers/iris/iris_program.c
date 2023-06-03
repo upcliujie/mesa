@@ -1029,7 +1029,7 @@ iris_setup_binding_table(const struct intel_device_info *devinfo,
    bt->size_bytes = next * 4;
 
    if (INTEL_DEBUG(DEBUG_BT)) {
-      iris_print_binding_table(stderr, gl_shader_stage_name(info->stage), bt);
+      iris_print_binding_table(stderr, mesa_shader_stage_name(info->stage), bt);
    }
 
    /* Apply the binding table indices.  The backend compiler is not expected
@@ -1156,7 +1156,7 @@ iris_debug_recompile(struct iris_screen *screen,
 static void
 check_urb_size(struct iris_context *ice,
                unsigned needed_size,
-               gl_shader_stage stage)
+               mesa_shader_stage stage)
 {
    unsigned last_allocated_size = ice->shaders.urb.size[stage];
 
@@ -1177,7 +1177,7 @@ check_urb_size(struct iris_context *ice,
  *
  * This stage is the one which will feed stream output and the rasterizer.
  */
-static gl_shader_stage
+static mesa_shader_stage
 last_vue_stage(struct iris_context *ice)
 {
    if (ice->shaders.uncompiled[MESA_SHADER_GEOMETRY])
@@ -1427,7 +1427,7 @@ iris_update_compiled_vs(struct iris_context *ice)
  * Get the shader_info for a given stage, or NULL if the stage is disabled.
  */
 const struct shader_info *
-iris_get_shader_info(const struct iris_context *ice, gl_shader_stage stage)
+iris_get_shader_info(const struct iris_context *ice, mesa_shader_stage stage)
 {
    const struct iris_uncompiled_shader *ish = ice->shaders.uncompiled[stage];
 
@@ -2072,7 +2072,7 @@ update_last_vue_map(struct iris_context *ice,
 
 static void
 iris_update_pull_constant_descriptors(struct iris_context *ice,
-                                      gl_shader_stage stage)
+                                      mesa_shader_stage stage)
 {
    struct iris_compiled_shader *shader = ice->shaders.prog[stage];
 
@@ -2165,7 +2165,7 @@ iris_update_compiled_shaders(struct iris_context *ice)
       }
    }
 
-   gl_shader_stage last_stage = last_vue_stage(ice);
+   mesa_shader_stage last_stage = last_vue_stage(ice);
    struct iris_compiled_shader *shader = ice->shaders.prog[last_stage];
    struct iris_uncompiled_shader *ish = ice->shaders.uncompiled[last_stage];
    update_last_vue_map(ice, shader);
@@ -2321,7 +2321,7 @@ iris_fill_cs_push_const_buffer(struct brw_cs_prog_data *cs_prog_data,
 struct iris_bo *
 iris_get_scratch_space(struct iris_context *ice,
                        unsigned per_thread_scratch,
-                       gl_shader_stage stage)
+                       mesa_shader_stage stage)
 {
    struct iris_screen *screen = (struct iris_screen *)ice->ctx.screen;
    struct iris_bufmgr *bufmgr = screen->bufmgr;
@@ -2734,7 +2734,7 @@ iris_delete_shader_state(struct pipe_context *ctx, void *state)
    struct iris_uncompiled_shader *ish = state;
    struct iris_context *ice = (void *) ctx;
 
-   const gl_shader_stage stage = ish->nir->info.stage;
+   const mesa_shader_stage stage = ish->nir->info.stage;
 
    if (ice->shaders.uncompiled[stage] == ish) {
       ice->shaders.uncompiled[stage] = NULL;
@@ -2754,7 +2754,7 @@ iris_delete_shader_state(struct pipe_context *ctx, void *state)
 static void
 bind_shader_state(struct iris_context *ice,
                   struct iris_uncompiled_shader *ish,
-                  gl_shader_stage stage)
+                  mesa_shader_stage stage)
 {
    uint64_t stage_dirty_bit = IRIS_STAGE_DIRTY_UNCOMPILED_VS << stage;
    const uint64_t nos = ish ? ish->nos : 0;
@@ -2928,7 +2928,7 @@ iris_set_max_shader_compiler_threads(struct pipe_screen *pscreen,
 static bool
 iris_is_parallel_shader_compilation_finished(struct pipe_screen *pscreen,
                                              void *v_shader,
-                                             enum pipe_shader_type p_stage)
+                                             mesa_shader_stage p_stage)
 {
    struct iris_screen *screen = (struct iris_screen *) pscreen;
 

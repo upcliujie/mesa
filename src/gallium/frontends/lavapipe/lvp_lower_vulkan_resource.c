@@ -166,7 +166,7 @@ static nir_ssa_def *lower_vri_intrin_lvd(struct nir_builder *b,
 static void
 lower_vri_instr_tex_deref(nir_tex_instr *tex,
                           nir_tex_src_type deref_src_type,
-                          gl_shader_stage stage,
+                          mesa_shader_stage stage,
                           struct lvp_pipeline_layout *layout,
                           BITSET_WORD used[], // textures or samplers
                           size_t used_size)   // used[] size, in bits
@@ -251,7 +251,7 @@ lower_image_intrinsic(nir_builder *b,
                       void *data_cb)
 {
    const struct lvp_pipeline_layout *layout = data_cb;
-   gl_shader_stage stage = b->shader->info.stage;
+   mesa_shader_stage stage = b->shader->info.stage;
 
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
    nir_variable *var = nir_deref_instr_get_variable(deref);

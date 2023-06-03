@@ -318,7 +318,7 @@ nv30_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
 static int
 nv30_screen_get_shader_param(struct pipe_screen *pscreen,
-                             enum pipe_shader_type shader,
+                             mesa_shader_stage shader,
                              enum pipe_shader_cap param)
 {
    struct nv30_screen *screen = nv30_screen(pscreen);
@@ -499,7 +499,7 @@ static const nir_shader_compiler_options nv30_base_compiler_options = {
 static const void *
 nv30_screen_get_compiler_options(struct pipe_screen *pscreen,
                                  enum pipe_shader_ir ir,
-                                 enum pipe_shader_type shader)
+                                 mesa_shader_stage shader)
 {
    struct nv30_screen *screen = nv30_screen(pscreen);
    assert(ir == PIPE_SHADER_IR_NIR);

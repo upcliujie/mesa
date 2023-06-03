@@ -110,7 +110,7 @@ fs_visitor::nir_setup_uniforms()
 
    uniforms = nir->num_uniforms / 4;
 
-   if (gl_shader_stage_is_compute(stage) && devinfo->verx10 < 125) {
+   if (mesa_shader_stage_is_compute(stage) && devinfo->verx10 < 125) {
       /* Add uniforms for builtins after regular NIR uniforms. */
       assert(uniforms == prog_data->nr_params);
 
@@ -151,7 +151,7 @@ emit_system_values_block(nir_block *block, fs_visitor *v)
          /* For Task/Mesh, draw_id will be handled later in
           * nir_emit_mesh_task_intrinsic().
           */
-         if (!gl_shader_stage_is_mesh(v->stage))
+         if (!mesa_shader_stage_is_mesh(v->stage))
             unreachable("should be lowered by brw_nir_lower_vs_inputs().");
          break;
 
@@ -194,7 +194,7 @@ emit_system_values_block(nir_block *block, fs_visitor *v)
 
       case nir_intrinsic_load_workgroup_id:
       case nir_intrinsic_load_workgroup_id_zero_base:
-         assert(gl_shader_stage_uses_workgroup(v->stage));
+         assert(mesa_shader_stage_uses_workgroup(v->stage));
          reg = &v->nir_system_values[SYSTEM_VALUE_WORKGROUP_ID];
          if (reg->file == BAD_FILE)
             *reg = v->emit_work_group_id_setup();
@@ -3660,7 +3660,7 @@ void
 fs_visitor::nir_emit_cs_intrinsic(const fs_builder &bld,
                                   nir_intrinsic_instr *instr)
 {
-   assert(gl_shader_stage_uses_workgroup(stage));
+   assert(mesa_shader_stage_uses_workgroup(stage));
    struct brw_cs_prog_data *cs_prog_data = brw_cs_prog_data(prog_data);
 
    fs_reg dest;
@@ -4547,7 +4547,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          break;
 
       if (nir->info.shared_size > 0) {
-         assert(gl_shader_stage_uses_workgroup(stage));
+         assert(mesa_shader_stage_uses_workgroup(stage));
       } else {
          slm_fence = false;
       }

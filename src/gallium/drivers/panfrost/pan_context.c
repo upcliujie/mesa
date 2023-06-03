@@ -249,7 +249,7 @@ panfrost_bind_rasterizer_state(struct pipe_context *pctx, void *hwcso)
 
 static void
 panfrost_set_shader_images(struct pipe_context *pctx,
-                           enum pipe_shader_type shader, unsigned start_slot,
+                           mesa_shader_stage shader, unsigned start_slot,
                            unsigned count, unsigned unbind_num_trailing_slots,
                            const struct pipe_image_view *iviews)
 {
@@ -307,7 +307,7 @@ panfrost_bind_vertex_elements_state(struct pipe_context *pctx, void *hwcso)
 
 static void
 panfrost_bind_sampler_states(struct pipe_context *pctx,
-                             enum pipe_shader_type shader, unsigned start_slot,
+                             mesa_shader_stage shader, unsigned start_slot,
                              unsigned num_sampler, void **sampler)
 {
    struct panfrost_context *ctx = pan_context(pctx);
@@ -343,7 +343,7 @@ panfrost_set_vertex_buffers(struct pipe_context *pctx, unsigned start_slot,
 
 static void
 panfrost_set_constant_buffer(struct pipe_context *pctx,
-                             enum pipe_shader_type shader, uint index,
+                             mesa_shader_stage shader, uint index,
                              bool take_ownership,
                              const struct pipe_constant_buffer *buf)
 {
@@ -374,7 +374,7 @@ panfrost_set_stencil_ref(struct pipe_context *pctx,
 
 static void
 panfrost_set_sampler_views(struct pipe_context *pctx,
-                           enum pipe_shader_type shader, unsigned start_slot,
+                           mesa_shader_stage shader, unsigned start_slot,
                            unsigned num_views,
                            unsigned unbind_num_trailing_slots,
                            bool take_ownership,
@@ -429,7 +429,7 @@ panfrost_set_sampler_views(struct pipe_context *pctx,
 
 static void
 panfrost_set_shader_buffers(struct pipe_context *pctx,
-                            enum pipe_shader_type shader, unsigned start,
+                            mesa_shader_stage shader, unsigned start,
                             unsigned count,
                             const struct pipe_shader_buffer *buffers,
                             unsigned writable_bitmask)

@@ -268,11 +268,11 @@ public:
 
    unsigned num_vertices;
    gl_shader_program *prog;
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    array_resize_visitor(unsigned num_vertices,
                         gl_shader_program *prog,
-                        gl_shader_stage stage)
+                        mesa_shader_stage stage)
    {
       this->num_vertices = num_vertices;
       this->prog = prog;
@@ -3615,7 +3615,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
          prog->ARB_fragment_coord_conventions_enable = true;
       }
 
-      gl_shader_stage shader_type = prog->Shaders[i]->Stage;
+      mesa_shader_stage shader_type = prog->Shaders[i]->Stage;
       shader_list[shader_type][num_shaders[shader_type]] = prog->Shaders[i];
       num_shaders[shader_type]++;
    }
@@ -3805,8 +3805,8 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
     * is no cross validation for these.
     */
    validate_first_and_last_interface_explicit_locations(consts, prog,
-                                                        (gl_shader_stage) first,
-                                                        (gl_shader_stage) last);
+                                                        (mesa_shader_stage) first,
+                                                        (mesa_shader_stage) last);
 
    /* Cross-validate uniform blocks between shader stages */
    validate_interstage_uniform_blocks(prog, prog->_LinkedShaders);

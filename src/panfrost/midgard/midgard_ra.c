@@ -454,7 +454,7 @@ mir_is_64(midgard_instruction *ins)
 static bool
 needs_contiguous_workgroup(compiler_context *ctx)
 {
-   return gl_shader_stage_uses_workgroup(ctx->stage);
+   return mesa_shader_stage_uses_workgroup(ctx->stage);
 }
 
 /*

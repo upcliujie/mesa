@@ -84,7 +84,7 @@ fixup_varying_slots(nir_shader *nir, nir_variable_mode mode)
 }
 
 static nir_shader *
-load_glsl(unsigned num_files, char* const* files, gl_shader_stage stage)
+load_glsl(unsigned num_files, char* const* files, mesa_shader_stage stage)
 {
    static const struct standalone_options options = {
       .glsl_version = 110,

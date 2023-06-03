@@ -394,7 +394,7 @@ emit_tfbos(struct fd_context *ctx, const struct ir3_shader_variant *v,
 static inline void
 emit_common_consts(const struct ir3_shader_variant *v,
                    struct fd_ringbuffer *ring, struct fd_context *ctx,
-                   enum pipe_shader_type t) assert_dt
+                   mesa_shader_stage t) assert_dt
 {
    enum fd_dirty_shader_state dirty = ctx->dirty_shader[t];
 
@@ -668,7 +668,7 @@ ir3_emit_cs_consts(const struct ir3_shader_variant *v,
                    struct fd_ringbuffer *ring, struct fd_context *ctx,
                    const struct pipe_grid_info *info) assert_dt
 {
-   assert(gl_shader_stage_is_compute(v->type));
+   assert(mesa_shader_stage_is_compute(v->type));
 
    emit_common_consts(v, ring, ctx, MESA_SHADER_COMPUTE);
 

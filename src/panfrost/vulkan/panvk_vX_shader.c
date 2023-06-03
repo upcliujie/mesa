@@ -226,7 +226,7 @@ shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
 }
 
 struct panvk_shader *
-panvk_per_arch(shader_create)(struct panvk_device *dev, gl_shader_stage stage,
+panvk_per_arch(shader_create)(struct panvk_device *dev, mesa_shader_stage stage,
                               const VkPipelineShaderStageCreateInfo *stage_info,
                               const struct panvk_pipeline_layout *layout,
                               unsigned sysval_ubo,
@@ -325,7 +325,7 @@ panvk_per_arch(shader_create)(struct panvk_device *dev, gl_shader_stage stage,
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const,
               nir_address_format_32bit_offset);
 
-   if (gl_shader_stage_uses_workgroup(stage)) {
+   if (mesa_shader_stage_uses_workgroup(stage)) {
       if (!nir->info.shared_memory_explicit_layout) {
          NIR_PASS_V(nir, nir_lower_vars_to_explicit_types, nir_var_mem_shared,
                     shared_type_info);

@@ -6688,7 +6688,7 @@ radv_bind_task_shader(struct radv_cmd_buffer *cmd_buffer, const struct radv_shad
 /* This function binds/unbinds a shader to the cmdbuffer state. */
 static void
 radv_bind_shader(struct radv_cmd_buffer *cmd_buffer, struct radv_shader *shader,
-                 gl_shader_stage stage)
+                 mesa_shader_stage stage)
 {
    if (!shader) {
       cmd_buffer->state.shaders[stage] = NULL;

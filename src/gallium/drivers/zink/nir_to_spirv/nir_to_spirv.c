@@ -51,7 +51,7 @@ struct ntv_context {
 
    SpvId GLSL_std_450;
 
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
    const struct zink_shader_info *sinfo;
 
    SpvId ubos[2][5]; //8, 16, 32, unused, 64
@@ -4750,7 +4750,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_shader_info *sinfo, uint32_
    spirv_builder_emit_source(&ctx.builder, SpvSourceLanguageUnknown, 0);
 
    SpvAddressingModel model = SpvAddressingModelLogical;
-   if (gl_shader_stage_is_compute(s->info.stage)) {
+   if (mesa_shader_stage_is_compute(s->info.stage)) {
       if (s->info.cs.ptr_size == 32)
          model = SpvAddressingModelPhysical32;
       else if (s->info.cs.ptr_size == 64)

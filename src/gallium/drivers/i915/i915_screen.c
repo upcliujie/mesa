@@ -175,7 +175,7 @@ static const struct nir_shader_compiler_options gallivm_nir_options = {
 
 static const void *
 i915_get_compiler_options(struct pipe_screen *pscreen, enum pipe_shader_ir ir,
-                          enum pipe_shader_type shader)
+                          mesa_shader_stage shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
    if (shader == MESA_SHADER_FRAGMENT)
@@ -277,7 +277,7 @@ i915_finalize_nir(struct pipe_screen *pscreen, void *nir)
 }
 
 static int
-i915_get_shader_param(struct pipe_screen *screen, enum pipe_shader_type shader,
+i915_get_shader_param(struct pipe_screen *screen, mesa_shader_stage shader,
                       enum pipe_shader_cap cap)
 {
    switch (cap) {

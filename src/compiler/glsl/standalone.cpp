@@ -476,7 +476,7 @@ standalone_compile_shader(const struct standalone_options *_options,
       if (options->do_link)  {
          link_shaders(ctx, whole_program);
       } else {
-         const gl_shader_stage stage = whole_program->Shaders[0]->Stage;
+         const mesa_shader_stage stage = whole_program->Shaders[0]->Stage;
 
          whole_program->data->LinkStatus = LINKING_SUCCESS;
          whole_program->_LinkedShaders[stage] =

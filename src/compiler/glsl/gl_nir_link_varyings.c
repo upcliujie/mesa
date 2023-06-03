@@ -50,7 +50,7 @@
  * geometry shader inputs).
  */
 static const struct glsl_type *
-get_varying_type(const nir_variable *var, gl_shader_stage stage)
+get_varying_type(const nir_variable *var, mesa_shader_stage stage)
 {
    const struct glsl_type *type = var->type;
    if (nir_is_arrayed_io(var, stage) || var->data.per_view) {
@@ -1029,8 +1029,8 @@ struct varying_matches
     */
    unsigned matches_capacity;
 
-   gl_shader_stage producer_stage;
-   gl_shader_stage consumer_stage;
+   mesa_shader_stage producer_stage;
+   mesa_shader_stage consumer_stage;
 };
 
 /**
@@ -1099,8 +1099,8 @@ varying_matches_not_xfb_comparator(const void *x_generic, const void *y_generic)
 }
 
 static bool
-is_unpackable_tess(gl_shader_stage producer_stage,
-                   gl_shader_stage consumer_stage)
+is_unpackable_tess(mesa_shader_stage producer_stage,
+                   mesa_shader_stage consumer_stage)
 {
    if (consumer_stage == MESA_SHADER_TESS_EVAL ||
        consumer_stage == MESA_SHADER_TESS_CTRL ||
@@ -1114,8 +1114,8 @@ static void
 init_varying_matches(void *mem_ctx, struct varying_matches *vm,
                      const struct gl_constants *consts,
                      const struct gl_extensions *exts,
-                     gl_shader_stage producer_stage,
-                     gl_shader_stage consumer_stage,
+                     mesa_shader_stage producer_stage,
+                     mesa_shader_stage consumer_stage,
                      bool sso)
 {
    /* Tessellation shaders treat inputs and outputs as shared memory and can
@@ -1684,7 +1684,7 @@ varying_matches_store_locations(struct varying_matches *vm)
  * varyings, but excludes variables such as gl_FrontFacing and gl_FragCoord.
  */
 static bool
-var_counts_against_varying_limit(gl_shader_stage stage, const nir_variable *var)
+var_counts_against_varying_limit(mesa_shader_stage stage, const nir_variable *var)
 {
    /* Only fragment shaders will take a varying variable as an input */
    if (stage == MESA_SHADER_FRAGMENT &&
@@ -1712,7 +1712,7 @@ struct tfeedback_candidate_generator_state {
     */
    struct hash_table *tfeedback_candidates;
 
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    /**
     * Pointer to the toplevel variable that is being traversed.
@@ -2017,7 +2017,7 @@ reserved_varying_slot(struct gl_linked_shader *sh,
  * bitfield corresponding to this variable.
  */
 static void
-set_variable_io_mask(BITSET_WORD *bits, nir_variable *var, gl_shader_stage stage)
+set_variable_io_mask(BITSET_WORD *bits, nir_variable *var, mesa_shader_stage stage)
 {
    assert(var->data.mode == nir_var_shader_in ||
           var->data.mode == nir_var_shader_out);

@@ -34,12 +34,12 @@
 
 void panvk_per_arch(emit_varying)(const struct panvk_device *dev,
                                   const struct panvk_varyings_info *varyings,
-                                  gl_shader_stage stage, unsigned idx,
+                                  mesa_shader_stage stage, unsigned idx,
                                   void *attrib);
 
 void panvk_per_arch(emit_varyings)(const struct panvk_device *dev,
                                    const struct panvk_varyings_info *varyings,
-                                   gl_shader_stage stage, void *descs);
+                                   mesa_shader_stage stage, void *descs);
 
 void
    panvk_per_arch(emit_varying_bufs)(const struct panvk_varyings_info *varyings,

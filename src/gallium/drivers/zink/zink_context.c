@@ -555,7 +555,7 @@ get_layout_for_binding(const struct zink_context *ctx, struct zink_resource *res
 }
 
 ALWAYS_INLINE static struct zink_surface *
-get_imageview_for_binding(struct zink_context *ctx, gl_shader_stage stage, enum zink_descriptor_type type, unsigned idx)
+get_imageview_for_binding(struct zink_context *ctx, mesa_shader_stage stage, enum zink_descriptor_type type, unsigned idx)
 {
    switch (type) {
    case ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW: {
@@ -585,7 +585,7 @@ get_imageview_for_binding(struct zink_context *ctx, gl_shader_stage stage, enum 
 }
 
 ALWAYS_INLINE static struct zink_buffer_view *
-get_bufferview_for_binding(struct zink_context *ctx, gl_shader_stage stage, enum zink_descriptor_type type, unsigned idx)
+get_bufferview_for_binding(struct zink_context *ctx, mesa_shader_stage stage, enum zink_descriptor_type type, unsigned idx)
 {
    switch (type) {
    case ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW: {
@@ -604,7 +604,7 @@ get_bufferview_for_binding(struct zink_context *ctx, gl_shader_stage stage, enum
 }
 
 ALWAYS_INLINE static struct zink_resource *
-update_descriptor_state_ubo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot, struct zink_resource *res)
+update_descriptor_state_ubo(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot, struct zink_resource *res)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    bool have_null_descriptors = screen->info.rb2_feats.nullDescriptor;
@@ -639,7 +639,7 @@ update_descriptor_state_ubo(struct zink_context *ctx, gl_shader_stage shader, un
 }
 
 ALWAYS_INLINE static struct zink_resource *
-update_descriptor_state_ssbo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot, struct zink_resource *res)
+update_descriptor_state_ssbo(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot, struct zink_resource *res)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    bool have_null_descriptors = screen->info.rb2_feats.nullDescriptor;
@@ -666,7 +666,7 @@ update_descriptor_state_ssbo(struct zink_context *ctx, gl_shader_stage shader, u
 }
 
 ALWAYS_INLINE static struct zink_resource *
-update_descriptor_state_sampler(struct zink_context *ctx, gl_shader_stage shader, unsigned slot, struct zink_resource *res)
+update_descriptor_state_sampler(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot, struct zink_resource *res)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    bool have_null_descriptors = screen->info.rb2_feats.nullDescriptor;
@@ -728,7 +728,7 @@ zink_update_shadow_samplerviews(struct zink_context *ctx, unsigned mask)
 }
 
 ALWAYS_INLINE static struct zink_resource *
-update_descriptor_state_image(struct zink_context *ctx, gl_shader_stage shader, unsigned slot, struct zink_resource *res)
+update_descriptor_state_image(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot, struct zink_resource *res)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    bool have_null_descriptors = screen->info.rb2_feats.nullDescriptor;
@@ -769,7 +769,7 @@ update_descriptor_state_image(struct zink_context *ctx, gl_shader_stage shader, 
 }
 
 static void
-update_nonseamless_shader_key(struct zink_context *ctx, gl_shader_stage pstage)
+update_nonseamless_shader_key(struct zink_context *ctx, mesa_shader_stage pstage)
 {
    const uint32_t new_mask = ctx->di.emulate_nonseamless[pstage] & ctx->di.cubes[pstage];
    if (pstage == MESA_SHADER_COMPUTE) {
@@ -784,7 +784,7 @@ update_nonseamless_shader_key(struct zink_context *ctx, gl_shader_stage pstage)
 
 static void
 zink_bind_sampler_states(struct pipe_context *pctx,
-                         gl_shader_stage shader,
+                         mesa_shader_stage shader,
                          unsigned start_slot,
                          unsigned num_samplers,
                          void **samplers)
@@ -814,7 +814,7 @@ zink_bind_sampler_states(struct pipe_context *pctx,
 
 static void
 zink_bind_sampler_states_nonseamless(struct pipe_context *pctx,
-                                     gl_shader_stage shader,
+                                     mesa_shader_stage shader,
                                      unsigned start_slot,
                                      unsigned num_samplers,
                                      void **samplers)
@@ -1349,7 +1349,7 @@ zink_set_scissor_states(struct pipe_context *pctx,
 
 static void
 zink_set_inlinable_constants(struct pipe_context *pctx,
-                             gl_shader_stage shader,
+                             mesa_shader_stage shader,
                              uint num_values, uint32_t *values)
 {
    struct zink_context *ctx = (struct zink_context *)pctx;
@@ -1380,21 +1380,21 @@ zink_set_inlinable_constants(struct pipe_context *pctx,
 }
 
 ALWAYS_INLINE static void
-unbind_descriptor_stage(struct zink_resource *res, gl_shader_stage pstage)
+unbind_descriptor_stage(struct zink_resource *res, mesa_shader_stage pstage)
 {
    if (!res->sampler_binds[pstage] && !res->image_binds[pstage] && !res->all_bindless)
       res->gfx_barrier &= ~zink_pipeline_flags_from_pipe_stage(pstage);
 }
 
 ALWAYS_INLINE static void
-unbind_buffer_descriptor_stage(struct zink_resource *res, gl_shader_stage pstage)
+unbind_buffer_descriptor_stage(struct zink_resource *res, mesa_shader_stage pstage)
 {
    if (!res->ubo_bind_mask[pstage] && !res->ssbo_bind_mask[pstage])
       unbind_descriptor_stage(res, pstage);
 }
 
 ALWAYS_INLINE static void
-unbind_ubo(struct zink_context *ctx, struct zink_resource *res, gl_shader_stage pstage, unsigned slot)
+unbind_ubo(struct zink_context *ctx, struct zink_resource *res, mesa_shader_stage pstage, unsigned slot)
 {
    if (!res)
       return;
@@ -1407,7 +1407,7 @@ unbind_ubo(struct zink_context *ctx, struct zink_resource *res, gl_shader_stage 
 }
 
 static void
-invalidate_inlined_uniforms(struct zink_context *ctx, gl_shader_stage pstage)
+invalidate_inlined_uniforms(struct zink_context *ctx, mesa_shader_stage pstage)
 {
    unsigned bit = BITFIELD_BIT(pstage);
    if (!(ctx->inlinable_uniforms_valid_mask & bit))
@@ -1425,7 +1425,7 @@ invalidate_inlined_uniforms(struct zink_context *ctx, gl_shader_stage pstage)
 
 static void
 zink_set_constant_buffer(struct pipe_context *pctx,
-                         gl_shader_stage shader, uint index,
+                         mesa_shader_stage shader, uint index,
                          bool take_ownership,
                          const struct pipe_constant_buffer *cb)
 {
@@ -1516,7 +1516,7 @@ unbind_buffer_descriptor_reads(struct zink_resource *res, bool is_compute)
 }
 
 ALWAYS_INLINE static void
-unbind_ssbo(struct zink_context *ctx, struct zink_resource *res, gl_shader_stage pstage, unsigned slot, bool writable)
+unbind_ssbo(struct zink_context *ctx, struct zink_resource *res, mesa_shader_stage pstage, unsigned slot, bool writable)
 {
    if (!res)
       return;
@@ -1533,7 +1533,7 @@ unbind_ssbo(struct zink_context *ctx, struct zink_resource *res, gl_shader_stage
 
 static void
 zink_set_shader_buffers(struct pipe_context *pctx,
-                        gl_shader_stage p_stage,
+                        mesa_shader_stage p_stage,
                         unsigned start_slot, unsigned count,
                         const struct pipe_shader_buffer *buffers,
                         unsigned writable_bitmask)
@@ -1661,7 +1661,7 @@ check_for_layout_update(struct zink_context *ctx, struct zink_resource *res, boo
 }
 
 static void
-unbind_shader_image(struct zink_context *ctx, gl_shader_stage stage, unsigned slot)
+unbind_shader_image(struct zink_context *ctx, mesa_shader_stage stage, unsigned slot)
 {
    struct zink_image_view *image_view = &ctx->image_views[stage][slot];
    bool is_compute = stage == MESA_SHADER_COMPUTE;
@@ -1771,7 +1771,7 @@ create_image_surface(struct zink_context *ctx, const struct pipe_image_view *vie
 
 static void
 zink_set_shader_images(struct pipe_context *pctx,
-                       gl_shader_stage shader_type,
+                       mesa_shader_stage shader_type,
                        unsigned start_slot, unsigned count,
                        unsigned unbind_num_trailing_slots,
                        const struct pipe_image_view *images)
@@ -1918,7 +1918,7 @@ update_feedback_loop_state(struct zink_context *ctx, unsigned idx, unsigned feed
 }
 
 ALWAYS_INLINE static void
-unbind_samplerview(struct zink_context *ctx, gl_shader_stage stage, unsigned slot)
+unbind_samplerview(struct zink_context *ctx, mesa_shader_stage stage, unsigned slot)
 {
    struct zink_sampler_view *sv = zink_sampler_view(ctx->sampler_views[stage][slot]);
    if (!sv || !sv->base.texture)
@@ -1951,7 +1951,7 @@ unbind_samplerview(struct zink_context *ctx, gl_shader_stage stage, unsigned slo
 
 static void
 zink_set_sampler_views(struct pipe_context *pctx,
-                       gl_shader_stage shader_type,
+                       mesa_shader_stage shader_type,
                        unsigned start_slot,
                        unsigned num_views,
                        unsigned unbind_num_trailing_slots,
@@ -3037,7 +3037,7 @@ sync_flush(struct zink_context *ctx, struct zink_batch_state *bs)
 }
 
 static inline VkAccessFlags
-get_access_flags_for_binding(struct zink_context *ctx, enum zink_descriptor_type type, gl_shader_stage stage, unsigned idx)
+get_access_flags_for_binding(struct zink_context *ctx, enum zink_descriptor_type type, mesa_shader_stage stage, unsigned idx)
 {
    VkAccessFlags flags = 0;
    switch (type) {
@@ -3067,7 +3067,7 @@ get_access_flags_for_binding(struct zink_context *ctx, enum zink_descriptor_type
 }
 
 static void
-update_resource_refs_for_stage(struct zink_context *ctx, gl_shader_stage stage)
+update_resource_refs_for_stage(struct zink_context *ctx, mesa_shader_stage stage)
 {
    struct zink_batch *batch = &ctx->batch;
    unsigned max_slot[] = {
@@ -3999,7 +3999,7 @@ zink_rebind_framebuffer(struct zink_context *ctx, struct zink_resource *res)
 }
 
 ALWAYS_INLINE static struct zink_resource *
-rebind_ubo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot)
+rebind_ubo(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot)
 {
    struct zink_resource *res = update_descriptor_state_ubo(ctx, shader, slot,
                                                            ctx->di.descriptor_res[ZINK_DESCRIPTOR_TYPE_UBO][shader][slot]);
@@ -4012,7 +4012,7 @@ rebind_ubo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot)
 }
 
 ALWAYS_INLINE static struct zink_resource *
-rebind_ssbo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot)
+rebind_ssbo(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot)
 {
    const struct pipe_shader_buffer *ssbo = &ctx->ssbos[shader][slot];
    struct zink_resource *res = zink_resource(ssbo->buffer);
@@ -4034,7 +4034,7 @@ rebind_ssbo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot)
 }
 
 ALWAYS_INLINE static struct zink_resource *
-rebind_tbo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot)
+rebind_tbo(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot)
 {
    struct zink_sampler_view *sampler_view = zink_sampler_view(ctx->sampler_views[shader][slot]);
    if (!sampler_view || sampler_view->base.texture->target != PIPE_BUFFER)
@@ -4056,7 +4056,7 @@ rebind_tbo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot)
 }
 
 ALWAYS_INLINE static struct zink_resource *
-rebind_ibo(struct zink_context *ctx, gl_shader_stage shader, unsigned slot)
+rebind_ibo(struct zink_context *ctx, mesa_shader_stage shader, unsigned slot)
 {
    struct zink_image_view *image_view = &ctx->image_views[shader][slot];
    struct zink_resource *res = zink_resource(image_view->base.resource);
@@ -4917,7 +4917,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
       if (is_robust && screen->driver_workarounds.lower_robustImageAccess2) {
          ctx->compute_pipeline_state.key.key.cs.robust_access = true;
-         for (gl_shader_stage pstage = MESA_SHADER_VERTEX; pstage < MESA_SHADER_FRAGMENT; pstage++)
+         for (mesa_shader_stage pstage = MESA_SHADER_VERTEX; pstage < MESA_SHADER_FRAGMENT; pstage++)
             ctx->gfx_pipeline_state.shader_keys.key[pstage].key.vs_base.robust_access = true;
          ctx->gfx_pipeline_state.shader_keys.key[MESA_SHADER_FRAGMENT].key.fs.robust_access = true;
       }
@@ -5155,7 +5155,7 @@ add_implicit_feedback_loop(struct zink_context *ctx, struct zink_resource *res)
       if (vkstagebit < VK_PIPELINE_STAGE_VERTEX_SHADER_BIT || vkstagebit > VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
          continue;
       /* in-range VkPipelineStageFlagBits can be converted to VkShaderStageFlags with a bitshift */
-      gl_shader_stage stage = vk_to_mesa_shader_stage((VkShaderStageFlagBits)(vkstagebit >> 3));
+      mesa_shader_stage stage = vk_to_mesa_shader_stage((VkShaderStageFlagBits)(vkstagebit >> 3));
       /* check shader texture usage against resource's sampler binds */
       if ((ctx->gfx_stages[stage] && (res->sampler_binds[stage] & ctx->gfx_stages[stage]->info.textures_used[0])))
          is_feedback = true;
