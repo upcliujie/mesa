@@ -1026,7 +1026,7 @@ si_sqtt_add_code_object(struct si_context* sctx,
    record->pipeline_hash[0] = pipeline->code_hash;
    record->pipeline_hash[1] = pipeline->code_hash;
 
-   for (unsigned i = 0; i < PIPE_SHADER_TYPES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       struct si_shader *shader;
       enum rgp_hardware_stages hw_stage;
 

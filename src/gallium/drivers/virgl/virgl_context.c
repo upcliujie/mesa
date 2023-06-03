@@ -124,7 +124,7 @@ virgl_rebind_resource(struct virgl_context *vctx,
                        PIPE_BIND_SHADER_BUFFER |
                        PIPE_BIND_SHADER_IMAGE)) {
       enum pipe_shader_type shader_type;
-      for (shader_type = 0; shader_type < PIPE_SHADER_TYPES; shader_type++) {
+      for (shader_type = 0; shader_type < MESA_SHADER_GL_STAGES; shader_type++) {
          const struct virgl_shader_binding_state *binding =
             &vctx->shader_bindings[shader_type];
 
@@ -1545,7 +1545,7 @@ virgl_context_destroy( struct pipe_context *ctx )
    virgl_encoder_destroy_sub_ctx(vctx, vctx->hw_sub_ctx_id);
    virgl_flush_eq(vctx, vctx, NULL);
 
-   for (shader_type = 0; shader_type < PIPE_SHADER_TYPES; shader_type++)
+   for (shader_type = 0; shader_type < MESA_SHADER_GL_STAGES; shader_type++)
       virgl_release_shader_binding(vctx, shader_type);
 
    while (vctx->atomic_buffer_enabled_mask) {
@@ -1621,8 +1621,8 @@ static void virgl_link_shader(struct pipe_context *ctx, void **handles)
    struct virgl_context *vctx = virgl_context(ctx);
    struct virgl_screen *rs = virgl_screen(vctx->base.screen);
 
-   uint32_t shader_handles[PIPE_SHADER_TYPES];
-   for (uint32_t i = 0; i < PIPE_SHADER_TYPES; ++i)
+   uint32_t shader_handles[MESA_SHADER_GL_STAGES];
+   for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; ++i)
       shader_handles[i] = (uintptr_t)handles[i];
    virgl_encode_link_shader(vctx, shader_handles);
 

@@ -1082,7 +1082,7 @@ draw_set_sampler_views(struct draw_context *draw,
                        struct pipe_sampler_view **views,
                        unsigned num)
 {
-   assert(shader_stage < PIPE_SHADER_TYPES);
+   assert(shader_stage < MESA_SHADER_GL_STAGES);
    assert(num <= PIPE_MAX_SHADER_SAMPLER_VIEWS);
 
    draw_do_flush(draw, DRAW_FLUSH_STATE_CHANGE);
@@ -1102,7 +1102,7 @@ draw_set_samplers(struct draw_context *draw,
                   struct pipe_sampler_state **samplers,
                   unsigned num)
 {
-   assert(shader_stage < PIPE_SHADER_TYPES);
+   assert(shader_stage < MESA_SHADER_GL_STAGES);
    assert(num <= PIPE_MAX_SAMPLERS);
 
    draw_do_flush(draw, DRAW_FLUSH_STATE_CHANGE);
@@ -1127,7 +1127,7 @@ draw_set_images(struct draw_context *draw,
                 struct pipe_image_view *views,
                 unsigned num)
 {
-   assert(shader_stage < PIPE_SHADER_TYPES);
+   assert(shader_stage < MESA_SHADER_GL_STAGES);
    assert(num <= PIPE_MAX_SHADER_IMAGES);
 
    draw_do_flush(draw, DRAW_FLUSH_STATE_CHANGE);

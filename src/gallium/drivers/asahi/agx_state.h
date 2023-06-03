@@ -344,7 +344,7 @@ struct agx_context {
    struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
    uint32_t vb_mask;
 
-   struct agx_stage stage[PIPE_SHADER_TYPES];
+   struct agx_stage stage[MESA_SHADER_GL_STAGES];
    struct agx_attribute *attributes;
    struct agx_rasterizer *rast;
    struct agx_zsa *zs;

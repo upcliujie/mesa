@@ -52,7 +52,7 @@ struct d3d12_resource {
    unsigned dt_refcount; /* For planar resources sharing the dt pointer */
    unsigned dt_stride;
    struct util_range valid_buffer_range;
-   uint32_t bind_counts[PIPE_SHADER_TYPES][D3D12_RESOURCE_BINDING_TYPES];
+   uint32_t bind_counts[MESA_SHADER_GL_STAGES][D3D12_RESOURCE_BINDING_TYPES];
    unsigned generation_id;
 };
 

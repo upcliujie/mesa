@@ -110,7 +110,7 @@ st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
    GLboolean ret = link_shader(ctx, prog);
     
    if (pctx->link_shader) {
-      void *driver_handles[PIPE_SHADER_TYPES];
+      void *driver_handles[MESA_SHADER_GL_STAGES];
       memset(driver_handles, 0, sizeof(driver_handles));
 
       for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; ++i) {

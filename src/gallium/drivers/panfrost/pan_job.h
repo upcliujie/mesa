@@ -165,18 +165,18 @@ struct panfrost_batch {
 
    /* Cached descriptors */
    mali_ptr viewport;
-   mali_ptr rsd[PIPE_SHADER_TYPES];
-   mali_ptr textures[PIPE_SHADER_TYPES];
-   mali_ptr samplers[PIPE_SHADER_TYPES];
-   mali_ptr attribs[PIPE_SHADER_TYPES];
-   mali_ptr attrib_bufs[PIPE_SHADER_TYPES];
-   mali_ptr uniform_buffers[PIPE_SHADER_TYPES];
-   mali_ptr push_uniforms[PIPE_SHADER_TYPES];
+   mali_ptr rsd[MESA_SHADER_GL_STAGES];
+   mali_ptr textures[MESA_SHADER_GL_STAGES];
+   mali_ptr samplers[MESA_SHADER_GL_STAGES];
+   mali_ptr attribs[MESA_SHADER_GL_STAGES];
+   mali_ptr attrib_bufs[MESA_SHADER_GL_STAGES];
+   mali_ptr uniform_buffers[MESA_SHADER_GL_STAGES];
+   mali_ptr push_uniforms[MESA_SHADER_GL_STAGES];
    mali_ptr depth_stencil;
    mali_ptr blend;
 
-   unsigned nr_push_uniforms[PIPE_SHADER_TYPES];
-   unsigned nr_uniform_buffers[PIPE_SHADER_TYPES];
+   unsigned nr_push_uniforms[MESA_SHADER_GL_STAGES];
+   unsigned nr_uniform_buffers[MESA_SHADER_GL_STAGES];
 
    /* Valhall: struct mali_scissor_packed */
    unsigned scissor[2];
@@ -185,7 +185,7 @@ struct panfrost_batch {
    /* Used on Valhall only. Midgard includes attributes in-band with
     * attributes, wildly enough.
     */
-   mali_ptr images[PIPE_SHADER_TYPES];
+   mali_ptr images[MESA_SHADER_GL_STAGES];
 
    /* On Valhall, these are properties of the batch. On Bifrost, they are
     * per draw.

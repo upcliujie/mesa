@@ -1354,7 +1354,7 @@ void r600_update_driver_const_buffers(struct r600_context *rctx, bool compute_on
 	int start, end;
 
 	start = compute_only ? PIPE_SHADER_COMPUTE : 0;
-	end = compute_only ? PIPE_SHADER_TYPES : PIPE_SHADER_COMPUTE;
+	end = compute_only ? MESA_SHADER_GL_STAGES : PIPE_SHADER_COMPUTE;
 
 	int last_vertex_stage = PIPE_SHADER_VERTEX;
 	if (rctx->tes_shader)
@@ -1705,7 +1705,7 @@ void r600_update_compressed_resource_state(struct r600_context *rctx, bool compu
 		if (compute_only) {
 			r600_update_compressed_colortex_mask(&rctx->samplers[PIPE_SHADER_COMPUTE].views);
 		} else {
-			for (i = 0; i < PIPE_SHADER_TYPES; ++i) {
+			for (i = 0; i < MESA_SHADER_GL_STAGES; ++i) {
 				r600_update_compressed_colortex_mask(&rctx->samplers[i].views);
 			}
 		}
@@ -1715,7 +1715,7 @@ void r600_update_compressed_resource_state(struct r600_context *rctx, bool compu
 	}
 
 	/* Decompress textures if needed. */
-	for (i = 0; i < PIPE_SHADER_TYPES; i++) {
+	for (i = 0; i < MESA_SHADER_GL_STAGES; i++) {
 		struct r600_samplerview_state *views = &rctx->samplers[i].views;
 
 		if (compute_only)
@@ -3353,7 +3353,7 @@ static void r600_invalidate_buffer(struct pipe_context *ctx, struct pipe_resourc
 	}
 
 	/* Constant buffers. */
-	for (shader = 0; shader < PIPE_SHADER_TYPES; shader++) {
+	for (shader = 0; shader < MESA_SHADER_GL_STAGES; shader++) {
 		struct r600_constbuf_state *state = &rctx->constbuf_state[shader];
 		bool found = false;
 		uint32_t mask = state->enabled_mask;
@@ -3382,7 +3382,7 @@ static void r600_invalidate_buffer(struct pipe_context *ctx, struct pipe_resourc
 		}
 	}
 	/* Texture buffer objects - make bindings dirty if needed. */
-	for (shader = 0; shader < PIPE_SHADER_TYPES; shader++) {
+	for (shader = 0; shader < MESA_SHADER_GL_STAGES; shader++) {
 		struct r600_samplerview_state *state = &rctx->samplers[shader].views;
 		bool found = false;
 		uint32_t mask = state->enabled_mask;
