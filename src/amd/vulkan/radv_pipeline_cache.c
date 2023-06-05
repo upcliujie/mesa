@@ -395,7 +395,7 @@ radv_pipeline_cache_search(struct radv_device *device, struct vk_pipeline_cache 
       container_of(object, struct radv_pipeline_cache_object, base);
 
    for (unsigned i = 0; i < pipeline_obj->num_shaders; i++) {
-      gl_shader_stage s = pipeline_obj->shaders[i]->info.stage;
+      mesa_shader_stage s = pipeline_obj->shaders[i]->info.stage;
       if (s == MESA_SHADER_VERTEX && i > 0) {
          /* The GS copy-shader is a VS placed after all other stages */
          assert(i == pipeline_obj->num_shaders - 1 && pipeline->shaders[MESA_SHADER_GEOMETRY]);
@@ -441,7 +441,7 @@ radv_pipeline_cache_insert(struct radv_device *device, struct vk_pipeline_cache 
 
    /* Count shaders */
    unsigned num_shaders = 0;
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i)
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i)
       num_shaders += pipeline->shaders[i] ? 1 : 0;
    num_shaders += pipeline->gs_copy_shader ? 1 : 0;
 
@@ -458,7 +458,7 @@ radv_pipeline_cache_insert(struct radv_device *device, struct vk_pipeline_cache 
       return;
 
    unsigned idx = 0;
-   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (unsigned i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       if (pipeline->shaders[i])
          pipeline_obj->shaders[idx++] = radv_shader_ref(pipeline->shaders[i]);
    }

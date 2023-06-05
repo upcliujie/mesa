@@ -156,7 +156,7 @@ typedef struct {
 } lower_tess_io_state;
 
 static bool
-match_mask(gl_shader_stage stage,
+match_mask(mesa_shader_stage stage,
            nir_intrinsic_instr *intrin,
            uint64_t mask,
            bool match_indirect)

@@ -3154,7 +3154,7 @@ ntt_should_vectorize_io(unsigned align, unsigned bit_size,
 static nir_variable_mode
 ntt_no_indirects_mask(nir_shader *s, struct pipe_screen *screen)
 {
-   unsigned pipe_stage = pipe_shader_type_from_mesa(s->info.stage);
+   unsigned pipe_stage = mesa_shader_stage_from_mesa(s->info.stage);
    unsigned indirect_mask = 0;
 
    if (!screen->get_shader_param(screen, pipe_stage,
@@ -3180,7 +3180,7 @@ ntt_optimize_nir(struct nir_shader *s, struct pipe_screen *screen,
                  const struct nir_to_tgsi_options *options)
 {
    bool progress;
-   unsigned pipe_stage = pipe_shader_type_from_mesa(s->info.stage);
+   unsigned pipe_stage = mesa_shader_stage_from_mesa(s->info.stage);
    unsigned control_flow_depth =
       screen->get_shader_param(screen, pipe_stage,
                                PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH);
@@ -3548,7 +3548,7 @@ ntt_fix_nir_options(struct pipe_screen *screen, struct nir_shader *s,
 {
    const struct nir_shader_compiler_options *options = s->options;
    bool lower_fsqrt =
-      !screen->get_shader_param(screen, pipe_shader_type_from_mesa(s->info.stage),
+      !screen->get_shader_param(screen, mesa_shader_stage_from_mesa(s->info.stage),
                                 PIPE_SHADER_CAP_TGSI_SQRT_SUPPORTED);
 
    bool force_indirect_unrolling_sampler =
@@ -3752,7 +3752,7 @@ const void *nir_to_tgsi_options(struct nir_shader *s,
    const void *tgsi_tokens;
    nir_variable_mode no_indirects_mask = ntt_no_indirects_mask(s, screen);
    bool native_integers = screen->get_shader_param(screen,
-                                                   pipe_shader_type_from_mesa(s->info.stage),
+                                                   mesa_shader_stage_from_mesa(s->info.stage),
                                                    PIPE_SHADER_CAP_INTEGERS);
    const struct nir_shader_compiler_options *original_options = s->options;
 
@@ -3825,7 +3825,7 @@ const void *nir_to_tgsi_options(struct nir_shader *s,
    } while (progress);
 
    if (screen->get_shader_param(screen,
-                                pipe_shader_type_from_mesa(s->info.stage),
+                                mesa_shader_stage_from_mesa(s->info.stage),
                                 PIPE_SHADER_CAP_INTEGERS)) {
       NIR_PASS_V(s, nir_lower_bool_to_int32);
    } else {
@@ -3878,7 +3878,7 @@ const void *nir_to_tgsi_options(struct nir_shader *s,
 
    c->s = s;
    c->native_integers = native_integers;
-   c->ureg = ureg_create(pipe_shader_type_from_mesa(s->info.stage));
+   c->ureg = ureg_create(mesa_shader_stage_from_mesa(s->info.stage));
    ureg_setup_shader_info(c->ureg, &s->info);
    if (s->info.use_legacy_math_rules && screen->get_param(screen, PIPE_CAP_LEGACY_MATH_RULES))
       ureg_property(c->ureg, TGSI_PROPERTY_LEGACY_MATH_RULES, 1);

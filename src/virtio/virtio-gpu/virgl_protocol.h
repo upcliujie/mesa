@@ -132,7 +132,7 @@ enum virgl_context_cmd {
    VIRGL_MAX_COMMANDS
 };
 
-enum virgl_shader_stage {
+enum virmesa_shader_stage {
    VIRGL_SHADER_VERTEX,
    VIRGL_SHADER_FRAGMENT,
    VIRGL_SHADER_GEOMETRY,

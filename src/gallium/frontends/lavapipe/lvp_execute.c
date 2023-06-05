@@ -230,14 +230,14 @@ static void finish_fence(struct rendering_state *state)
 }
 
 static unsigned
-get_pcbuf_size(struct rendering_state *state, enum pipe_shader_type pstage)
+get_pcbuf_size(struct rendering_state *state, mesa_shader_stage pstage)
 {
    bool is_compute = pstage == MESA_SHADER_COMPUTE;
    return state->has_pcbuf[pstage] ? state->push_size[is_compute] : 0;
 }
 
 static unsigned
-calc_ubo0_size(struct rendering_state *state, enum pipe_shader_type pstage)
+calc_ubo0_size(struct rendering_state *state, mesa_shader_stage pstage)
 {
    unsigned size = get_pcbuf_size(state, pstage);
    for (unsigned i = 0; i < state->uniform_blocks[pstage].count; i++)
@@ -246,7 +246,7 @@ calc_ubo0_size(struct rendering_state *state, enum pipe_shader_type pstage)
 }
 
 static void
-fill_ubo0(struct rendering_state *state, uint8_t *mem, enum pipe_shader_type pstage)
+fill_ubo0(struct rendering_state *state, uint8_t *mem, mesa_shader_stage pstage)
 {
    unsigned push_size = get_pcbuf_size(state, pstage);
    if (push_size)
@@ -261,7 +261,7 @@ fill_ubo0(struct rendering_state *state, uint8_t *mem, enum pipe_shader_type pst
 }
 
 static void
-update_pcbuf(struct rendering_state *state, enum pipe_shader_type pstage)
+update_pcbuf(struct rendering_state *state, mesa_shader_stage pstage)
 {
    unsigned size = calc_ubo0_size(state, pstage);
    if (size) {
@@ -278,7 +278,7 @@ update_pcbuf(struct rendering_state *state, enum pipe_shader_type pstage)
 }
 
 static void
-update_inline_shader_state(struct rendering_state *state, enum pipe_shader_type sh, bool pcbuf_dirty, bool constbuf_dirty)
+update_inline_shader_state(struct rendering_state *state, mesa_shader_stage sh, bool pcbuf_dirty, bool constbuf_dirty)
 {
    unsigned stage = tgsi_processor_to_shader_stage(sh);
    state->inlines_dirty[sh] = false;
@@ -691,7 +691,7 @@ handle_graphics_stages(struct rendering_state *state, VkShaderStageFlagBits shad
 {
    u_foreach_bit(b, shader_stages) {
       VkShaderStageFlagBits vk_stage = (1 << b);
-      gl_shader_stage stage = vk_to_mesa_shader_stage(vk_stage);
+      mesa_shader_stage stage = vk_to_mesa_shader_stage(vk_stage);
 
       state->iv_dirty[stage] |= state->num_shader_images[stage] &&
                              (state->access[stage].images_read != state->shaders[stage]->access.images_read ||
@@ -751,7 +751,7 @@ static void
 unbind_graphics_stages(struct rendering_state *state, VkShaderStageFlagBits shader_stages)
 {
    u_foreach_bit(vkstage, shader_stages) {
-      gl_shader_stage stage = vk_to_mesa_shader_stage(1<<vkstage);
+      mesa_shader_stage stage = vk_to_mesa_shader_stage(1<<vkstage);
       state->iv_dirty[stage] |= state->num_shader_images[stage] > 0;
       state->sb_dirty[stage] |= state->num_shader_buffers[stage] > 0;
       memset(&state->access[stage], 0, sizeof(state->access[stage]));
@@ -786,7 +786,7 @@ unbind_graphics_stages(struct rendering_state *state, VkShaderStageFlagBits shad
 }
 
 static void
-handle_graphics_layout(struct rendering_state *state, gl_shader_stage stage, struct lvp_pipeline_layout *layout)
+handle_graphics_layout(struct rendering_state *state, mesa_shader_stage stage, struct lvp_pipeline_layout *layout)
 {
    state->uniform_blocks[stage].count = layout->stage[stage].uniform_block_count;
    for (unsigned j = 0; j < layout->stage[stage].uniform_block_count; j++)
@@ -1109,9 +1109,9 @@ static void handle_graphics_pipeline(struct vk_cmd_queue_entry *cmd,
 }
 
 static void
-handle_pipeline_access(struct rendering_state *state, gl_shader_stage stage)
+handle_pipeline_access(struct rendering_state *state, mesa_shader_stage stage)
 {
-   enum pipe_shader_type pstage = pipe_shader_type_from_mesa(stage);
+   mesa_shader_stage pstage = mesa_shader_stage_from_mesa(stage);
    for (unsigned i = 0; i < PIPE_MAX_SHADER_IMAGES; i++) {
       state->iv[pstage][i].access = 0;
       state->iv[pstage][i].shader_access = 0;
@@ -1183,8 +1183,8 @@ struct dyn_info {
 
 static void fill_sampler_stage(struct rendering_state *state,
                                struct dyn_info *dyn_info,
-                               gl_shader_stage stage,
-                               enum pipe_shader_type p_stage,
+                               mesa_shader_stage stage,
+                               mesa_shader_stage p_stage,
                                int array_idx,
                                const union lvp_descriptor_info *descriptor,
                                const struct lvp_descriptor_set_binding_layout *binding)
@@ -1203,8 +1203,8 @@ static void fill_sampler_stage(struct rendering_state *state,
 
 static void fill_sampler_view_stage(struct rendering_state *state,
                                     struct dyn_info *dyn_info,
-                                    gl_shader_stage stage,
-                                    enum pipe_shader_type p_stage,
+                                    mesa_shader_stage stage,
+                                    mesa_shader_stage p_stage,
                                     int array_idx,
                                     const union lvp_descriptor_info *descriptor,
                                     const struct lvp_descriptor_set_binding_layout *binding)
@@ -1225,8 +1225,8 @@ static void fill_sampler_view_stage(struct rendering_state *state,
 
 static void fill_image_view_stage(struct rendering_state *state,
                                   struct dyn_info *dyn_info,
-                                  gl_shader_stage stage,
-                                  enum pipe_shader_type p_stage,
+                                  mesa_shader_stage stage,
+                                  mesa_shader_stage p_stage,
                                   int array_idx,
                                   const union lvp_descriptor_info *descriptor,
                                   const struct lvp_descriptor_set_binding_layout *binding)
@@ -1251,8 +1251,8 @@ static void fill_image_view_stage(struct rendering_state *state,
 static void handle_descriptor(struct rendering_state *state,
                               struct dyn_info *dyn_info,
                               const struct lvp_descriptor_set_binding_layout *binding,
-                              gl_shader_stage stage,
-                              enum pipe_shader_type p_stage,
+                              mesa_shader_stage stage,
+                              mesa_shader_stage p_stage,
                               int array_idx,
                               VkDescriptorType type,
                               const union lvp_descriptor_info *descriptor)
@@ -1334,8 +1334,8 @@ static void handle_descriptor(struct rendering_state *state,
 static void handle_set_stage(struct rendering_state *state,
                              struct dyn_info *dyn_info,
                              const struct lvp_descriptor_set *set,
-                             gl_shader_stage stage,
-                             enum pipe_shader_type p_stage)
+                             mesa_shader_stage stage,
+                             mesa_shader_stage p_stage)
 {
    for (unsigned j = 0; j < set->layout->binding_count; j++) {
       const struct lvp_descriptor_set_binding_layout *binding;
@@ -4036,7 +4036,7 @@ handle_shaders(struct vk_cmd_queue_entry *cmd, struct rendering_state *state)
    unsigned new_stages = 0;
    unsigned null_stages = 0;
    for (unsigned i = 0; i < bind->stage_count; i++) {
-      gl_shader_stage stage = vk_to_mesa_shader_stage(bind->stages[i]);
+      mesa_shader_stage stage = vk_to_mesa_shader_stage(bind->stages[i]);
       assert(stage <= MESA_SHADER_COMPUTE && stage != MESA_SHADER_NONE);
       LVP_FROM_HANDLE(lvp_shader, shader, bind->shaders ? bind->shaders[i] : VK_NULL_HANDLE);
       if (stage == MESA_SHADER_FRAGMENT) {

@@ -295,7 +295,7 @@ static bool si_update_shaders(struct si_context *sctx)
       uint32_t total_size = 0;
 
       /* Compute pipeline code hash. */
-      for (int i = 0; i < SI_NUM_GRAPHICS_SHADERS; i++) {
+      for (int i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES; i++) {
          struct si_shader *shader = sctx->shaders[i].current;
          if (sctx->shaders[i].cso && shader) {
             pipeline_code_hash = XXH64(
@@ -336,7 +336,7 @@ static bool si_update_shaders(struct si_context *sctx)
             /* Re-upload all gfx shaders and init PM4. */
             si_pm4_clear_state(&pipeline->pm4);
 
-            for (int i = 0; i < SI_NUM_GRAPHICS_SHADERS; i++) {
+            for (int i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES; i++) {
                struct si_shader *shader = sctx->shaders[i].current;
                if (sctx->shaders[i].cso && shader) {
                   struct ac_rtld_binary binary;
@@ -630,7 +630,7 @@ static void si_emit_derived_tess_state(struct si_context *sctx)
    struct si_shader_selector *tcs = sctx->shader.tcs.cso;
    unsigned tess_uses_primid = sctx->ia_multi_vgt_param_key.u.tess_uses_prim_id;
    bool has_primid_instancing_bug = sctx->gfx_level == GFX6 && sctx->screen->info.max_se == 1;
-   unsigned tes_sh_base = sctx->shader_pointers.sh_base[PIPE_SHADER_TESS_EVAL];
+   unsigned tes_sh_base = sctx->shader_pointers.sh_base[MESA_SHADER_TESS_EVAL];
    uint8_t num_tcs_input_cp = sctx->patch_vertices;
 
    /* Since GFX9 has merged LS-HS in the TCS state, set LS = TCS. */
@@ -1181,11 +1181,11 @@ static void si_emit_vs_state(struct si_context *sctx, unsigned index_size)
 
       /* These are all constant expressions. */
       unsigned vs_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                               PIPE_SHADER_VERTEX);
+                                               MESA_SHADER_VERTEX);
       unsigned tes_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                                PIPE_SHADER_TESS_EVAL);
+                                                MESA_SHADER_TESS_EVAL);
       unsigned gs_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                               PIPE_SHADER_GEOMETRY);
+                                               MESA_SHADER_GEOMETRY);
       unsigned gs_copy_base = R_00B130_SPI_SHADER_USER_DATA_VS_0;
 
       radeon_begin(cs);
@@ -1531,7 +1531,7 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
       }
    }
 
-   unsigned sh_base_reg = sctx->shader_pointers.sh_base[PIPE_SHADER_VERTEX];
+   unsigned sh_base_reg = sctx->shader_pointers.sh_base[MESA_SHADER_VERTEX];
    bool render_cond_bit = sctx->render_cond_enabled;
 
    if (!IS_DRAW_VERTEX_STATE && indirect) {
@@ -1894,7 +1894,7 @@ static bool si_upload_and_prefetch_VB_descriptors(struct si_context *sctx,
    unsigned count = IS_DRAW_VERTEX_STATE ? util_bitcount_fast<POPCNT>(partial_velem_mask) :
                                            sctx->num_vertex_elements;
    unsigned sh_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
-                                            PIPE_SHADER_VERTEX);
+                                            MESA_SHADER_VERTEX);
    unsigned num_vbos_in_user_sgprs = si_num_vbos_in_user_sgprs_inline(GFX_VERSION);
 
    assert(count <= SI_MAX_ATTRIBS);
@@ -2154,7 +2154,7 @@ static void si_draw(struct pipe_context *ctx,
 
    si_check_dirty_buffers_textures(sctx);
 
-   si_decompress_textures(sctx, u_bit_consecutive(0, SI_NUM_GRAPHICS_SHADERS));
+   si_decompress_textures(sctx, u_bit_consecutive(0, MESA_SHADER_GL_GRAPHICS_STAGES));
    si_need_gfx_cs_space(sctx, num_draws);
 
    unsigned instance_count = info->instance_count;

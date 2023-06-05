@@ -189,7 +189,7 @@ fs_generator::fs_generator(const struct brw_compiler *compiler, void *log_data,
                            void *mem_ctx,
                            struct brw_stage_prog_data *prog_data,
                            bool runtime_check_aads_emit,
-                           gl_shader_stage stage)
+                           mesa_shader_stage stage)
 
    : compiler(compiler), log_data(log_data),
      devinfo(compiler->devinfo),

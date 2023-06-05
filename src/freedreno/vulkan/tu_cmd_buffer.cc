@@ -4813,7 +4813,7 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
 
 static uint32_t
 tu6_user_consts_size(const struct tu_pipeline *pipeline,
-                     gl_shader_stage type)
+                     mesa_shader_stage type)
 {
    const struct tu_program_descriptor_linkage *link =
       &pipeline->program.link[type];
@@ -4832,7 +4832,7 @@ tu6_user_consts_size(const struct tu_pipeline *pipeline,
 static void
 tu6_emit_user_consts(struct tu_cs *cs,
                      const struct tu_pipeline *pipeline,
-                     gl_shader_stage type,
+                     mesa_shader_stage type,
                      struct tu_descriptor_state *descriptors,
                      uint32_t *push_constants)
 {
@@ -4928,7 +4928,7 @@ tu6_const_size(struct tu_cmd_buffer *cmd,
       dwords += tu6_user_consts_size(pipeline, MESA_SHADER_COMPUTE);
    } else {
       for (uint32_t type = MESA_SHADER_VERTEX; type <= MESA_SHADER_FRAGMENT; type++)
-         dwords += tu6_user_consts_size(pipeline, (gl_shader_stage) type);
+         dwords += tu6_user_consts_size(pipeline, (mesa_shader_stage) type);
    }
 
    return dwords;
@@ -4967,7 +4967,7 @@ tu6_emit_consts(struct tu_cmd_buffer *cmd,
       struct tu_descriptor_state *descriptors  =
          tu_get_descriptors_state(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS);
       for (uint32_t type = MESA_SHADER_VERTEX; type <= MESA_SHADER_FRAGMENT; type++)
-         tu6_emit_user_consts(&cs, pipeline, (gl_shader_stage) type,
+         tu6_emit_user_consts(&cs, pipeline, (mesa_shader_stage) type,
                               descriptors, cmd->push_constants);
    }
 
@@ -6156,7 +6156,7 @@ tu_emit_compute_driver_params(struct tu_cmd_buffer *cmd,
                               struct tu_cs *cs, struct tu_pipeline *pipeline,
                               const struct tu_dispatch_info *info)
 {
-   gl_shader_stage type = MESA_SHADER_COMPUTE;
+   mesa_shader_stage type = MESA_SHADER_COMPUTE;
    const struct tu_program_descriptor_linkage *link =
       &pipeline->program.link[type];
    const struct ir3_const_state *const_state = &link->const_state;

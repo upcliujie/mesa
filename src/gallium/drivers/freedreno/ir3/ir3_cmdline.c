@@ -104,7 +104,7 @@ fixup_varying_slots(nir_shader *nir, nir_variable_mode mode)
 static struct ir3_compiler *compiler;
 
 static nir_shader *
-load_glsl(unsigned num_files, char *const *files, gl_shader_stage stage)
+load_glsl(unsigned num_files, char *const *files, mesa_shader_stage stage)
 {
    static const struct standalone_options options = {
       .glsl_version = 310,
@@ -224,7 +224,7 @@ debug_func(void *priv, enum nir_spirv_debug_level level, size_t spirv_offset,
 }
 
 static nir_shader *
-load_spirv(const char *filename, const char *entry, gl_shader_stage stage)
+load_spirv(const char *filename, const char *entry, mesa_shader_stage stage)
 {
    const struct spirv_to_nir_options spirv_options = {
       /* these caps are just make-believe */

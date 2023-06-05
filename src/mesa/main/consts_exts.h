@@ -501,7 +501,7 @@ struct gl_constants
    } ViewportBounds;                         /**< GL_ARB_viewport_array */
    GLuint MaxWindowRectangles;               /**< GL_EXT_window_rectangles */
 
-   struct gl_program_constants Program[MESA_SHADER_STAGES];
+   struct gl_program_constants Program[MESA_SHADER_GL_STAGES];
    GLuint MaxProgramMatrices;
    GLuint MaxProgramMatrixStackDepth;
 
@@ -901,7 +901,7 @@ struct gl_constants
    /** GL_KHR_context_flush_control */
    GLenum16 ContextReleaseBehavior;
 
-   struct gl_shader_compiler_options ShaderCompilerOptions[MESA_SHADER_STAGES];
+   struct gl_shader_compiler_options ShaderCompilerOptions[MESA_SHADER_GL_STAGES];
 
    /** GL_ARB_tessellation_shader */
    GLuint MaxPatchVertices;

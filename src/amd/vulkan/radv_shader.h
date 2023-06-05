@@ -281,8 +281,8 @@ struct radv_shader_info {
    struct radv_vs_output_info outinfo;
    unsigned workgroup_size;
    bool force_vrs_per_vertex;
-   gl_shader_stage stage;
-   gl_shader_stage next_stage;
+   mesa_shader_stage stage;
+   mesa_shader_stage next_stage;
    uint32_t user_data_0;
 
    struct {
@@ -447,7 +447,7 @@ struct radv_vs_prolog_key {
    bool as_ls;
    bool is_ngg;
    bool wave32;
-   gl_shader_stage next_stage;
+   mesa_shader_stage next_stage;
 };
 
 enum radv_shader_binary_type { RADV_BINARY_TYPE_LEGACY, RADV_BINARY_TYPE_RTLD };
@@ -651,9 +651,9 @@ uint64_t radv_shader_get_va(const struct radv_shader *shader);
 struct radv_shader *radv_find_shader(struct radv_device *device, uint64_t pc);
 
 unsigned radv_get_max_waves(const struct radv_device *device, struct radv_shader *shader,
-                            gl_shader_stage stage);
+                            mesa_shader_stage stage);
 
-const char *radv_get_shader_name(const struct radv_shader_info *info, gl_shader_stage stage);
+const char *radv_get_shader_name(const struct radv_shader_info *info, mesa_shader_stage stage);
 
 unsigned radv_compute_spi_ps_input(const struct radv_pipeline_key *pipeline_key,
                                    const struct radv_shader_info *info);
@@ -663,7 +663,7 @@ bool radv_can_dump_shader(struct radv_device *device, nir_shader *nir, bool meta
 bool radv_can_dump_shader_stats(struct radv_device *device, nir_shader *nir);
 
 VkResult radv_dump_shader_stats(struct radv_device *device, struct radv_pipeline *pipeline,
-                                struct radv_shader *shader, gl_shader_stage stage, FILE *output);
+                                struct radv_shader *shader, mesa_shader_stage stage, FILE *output);
 
 extern const struct vk_pipeline_cache_object_ops radv_shader_ops;
 

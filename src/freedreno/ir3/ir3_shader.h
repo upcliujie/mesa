@@ -519,7 +519,7 @@ struct ir3_shader_variant {
    struct ir3_shader_variant *next;
 
    /* replicated here to avoid passing extra ptrs everywhere: */
-   gl_shader_stage type;
+   mesa_shader_stage type;
    struct ir3_compiler *compiler;
 
    char *name;
@@ -829,7 +829,7 @@ ir3_has_binning_vs(const struct ir3_shader_key *key)
  * generated.
  */
 struct ir3_shader {
-   gl_shader_stage type;
+   mesa_shader_stage type;
 
    /* shader id (for debug): */
    uint32_t id;

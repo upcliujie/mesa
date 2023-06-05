@@ -809,7 +809,7 @@ agx_emit_intrinsic(agx_builder *b, nir_intrinsic_instr *instr)
    agx_index dst = nir_intrinsic_infos[instr->intrinsic].has_dest
                       ? agx_dest_index(&instr->dest)
                       : agx_null();
-   gl_shader_stage stage = b->shader->stage;
+   mesa_shader_stage stage = b->shader->stage;
 
    switch (instr->intrinsic) {
    case nir_intrinsic_load_barycentric_pixel:
@@ -1832,8 +1832,9 @@ agx_dump_stats(agx_context *ctx, unsigned size, char **out)
    return asprintf(out,
                    "%s shader: %u inst, %u bytes, %u halfregs, %u threads, "
                    "%u loops, %u:%u spills:fills",
-                   gl_shader_stage_name(ctx->stage), nr_ins, size, ctx->max_reg,
-                   nr_threads, ctx->loop_count, ctx->spills, ctx->fills);
+                   mesa_shader_stage_name(ctx->stage), nr_ins, size,
+                   ctx->max_reg, nr_threads, ctx->loop_count, ctx->spills,
+                   ctx->fills);
 }
 
 static int

@@ -165,18 +165,18 @@ struct panfrost_batch {
 
    /* Cached descriptors */
    mali_ptr viewport;
-   mali_ptr rsd[PIPE_SHADER_TYPES];
-   mali_ptr textures[PIPE_SHADER_TYPES];
-   mali_ptr samplers[PIPE_SHADER_TYPES];
-   mali_ptr attribs[PIPE_SHADER_TYPES];
-   mali_ptr attrib_bufs[PIPE_SHADER_TYPES];
-   mali_ptr uniform_buffers[PIPE_SHADER_TYPES];
-   mali_ptr push_uniforms[PIPE_SHADER_TYPES];
+   mali_ptr rsd[MESA_SHADER_GL_STAGES];
+   mali_ptr textures[MESA_SHADER_GL_STAGES];
+   mali_ptr samplers[MESA_SHADER_GL_STAGES];
+   mali_ptr attribs[MESA_SHADER_GL_STAGES];
+   mali_ptr attrib_bufs[MESA_SHADER_GL_STAGES];
+   mali_ptr uniform_buffers[MESA_SHADER_GL_STAGES];
+   mali_ptr push_uniforms[MESA_SHADER_GL_STAGES];
    mali_ptr depth_stencil;
    mali_ptr blend;
 
-   unsigned nr_push_uniforms[PIPE_SHADER_TYPES];
-   unsigned nr_uniform_buffers[PIPE_SHADER_TYPES];
+   unsigned nr_push_uniforms[MESA_SHADER_GL_STAGES];
+   unsigned nr_uniform_buffers[MESA_SHADER_GL_STAGES];
 
    /* Valhall: struct mali_scissor_packed */
    unsigned scissor[2];
@@ -185,7 +185,7 @@ struct panfrost_batch {
    /* Used on Valhall only. Midgard includes attributes in-band with
     * attributes, wildly enough.
     */
-   mali_ptr images[PIPE_SHADER_TYPES];
+   mali_ptr images[MESA_SHADER_GL_STAGES];
 
    /* On Valhall, these are properties of the batch. On Bifrost, they are
     * per draw.
@@ -203,15 +203,15 @@ panfrost_get_fresh_batch_for_fbo(struct panfrost_context *ctx,
                                  const char *reason);
 
 void panfrost_batch_add_bo(struct panfrost_batch *batch, struct panfrost_bo *bo,
-                           enum pipe_shader_type stage);
+                           mesa_shader_stage stage);
 
 void panfrost_batch_read_rsrc(struct panfrost_batch *batch,
                               struct panfrost_resource *rsrc,
-                              enum pipe_shader_type stage);
+                              mesa_shader_stage stage);
 
 void panfrost_batch_write_rsrc(struct panfrost_batch *batch,
                                struct panfrost_resource *rsrc,
-                               enum pipe_shader_type stage);
+                               mesa_shader_stage stage);
 
 bool panfrost_any_batch_reads_rsrc(struct panfrost_context *ctx,
                                    struct panfrost_resource *rsrc);
@@ -221,7 +221,7 @@ bool panfrost_any_batch_writes_rsrc(struct panfrost_context *ctx,
 
 struct panfrost_bo *panfrost_batch_create_bo(struct panfrost_batch *batch,
                                              size_t size, uint32_t create_flags,
-                                             enum pipe_shader_type stage,
+                                             mesa_shader_stage stage,
                                              const char *label);
 
 void panfrost_flush_all_batches(struct panfrost_context *ctx,

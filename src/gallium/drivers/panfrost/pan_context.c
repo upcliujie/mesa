@@ -89,7 +89,7 @@ panfrost_clear(struct pipe_context *pipe, unsigned buffers,
 bool
 panfrost_writes_point_size(struct panfrost_context *ctx)
 {
-   struct panfrost_compiled_shader *vs = ctx->prog[PIPE_SHADER_VERTEX];
+   struct panfrost_compiled_shader *vs = ctx->prog[MESA_SHADER_VERTEX];
    assert(vs != NULL);
 
    return vs->info.vs.writes_point_size && ctx->active_prim == MESA_PRIM_POINTS;
@@ -204,10 +204,10 @@ panfrost_get_blend(struct panfrost_batch *batch, unsigned rti,
    /* Upload the shader, sharing a BO */
    if (!(*bo)) {
       *bo = panfrost_batch_create_bo(batch, 4096, PAN_BO_EXECUTE,
-                                     PIPE_SHADER_FRAGMENT, "Blend shader");
+                                     MESA_SHADER_FRAGMENT, "Blend shader");
    }
 
-   struct panfrost_compiled_shader *ss = ctx->prog[PIPE_SHADER_FRAGMENT];
+   struct panfrost_compiled_shader *ss = ctx->prog[MESA_SHADER_FRAGMENT];
 
    /* Default for Midgard */
    nir_alu_type col0_type = nir_type_float32;
@@ -248,13 +248,13 @@ panfrost_bind_rasterizer_state(struct pipe_context *pctx, void *hwcso)
 }
 
 static void
-panfrost_set_shader_images(struct pipe_context *pctx,
-                           enum pipe_shader_type shader, unsigned start_slot,
-                           unsigned count, unsigned unbind_num_trailing_slots,
+panfrost_set_shader_images(struct pipe_context *pctx, mesa_shader_stage shader,
+                           unsigned start_slot, unsigned count,
+                           unsigned unbind_num_trailing_slots,
                            const struct pipe_image_view *iviews)
 {
    struct panfrost_context *ctx = pan_context(pctx);
-   ctx->dirty_shader[PIPE_SHADER_FRAGMENT] |= PAN_DIRTY_STAGE_IMAGE;
+   ctx->dirty_shader[MESA_SHADER_FRAGMENT] |= PAN_DIRTY_STAGE_IMAGE;
 
    /* Unbind start_slot...start_slot+count */
    if (!iviews) {
@@ -307,7 +307,7 @@ panfrost_bind_vertex_elements_state(struct pipe_context *pctx, void *hwcso)
 
 static void
 panfrost_bind_sampler_states(struct pipe_context *pctx,
-                             enum pipe_shader_type shader, unsigned start_slot,
+                             mesa_shader_stage shader, unsigned start_slot,
                              unsigned num_sampler, void **sampler)
 {
    struct panfrost_context *ctx = pan_context(pctx);
@@ -343,7 +343,7 @@ panfrost_set_vertex_buffers(struct pipe_context *pctx, unsigned start_slot,
 
 static void
 panfrost_set_constant_buffer(struct pipe_context *pctx,
-                             enum pipe_shader_type shader, uint index,
+                             mesa_shader_stage shader, uint index,
                              bool take_ownership,
                              const struct pipe_constant_buffer *buf)
 {
@@ -373,9 +373,8 @@ panfrost_set_stencil_ref(struct pipe_context *pctx,
 }
 
 static void
-panfrost_set_sampler_views(struct pipe_context *pctx,
-                           enum pipe_shader_type shader, unsigned start_slot,
-                           unsigned num_views,
+panfrost_set_sampler_views(struct pipe_context *pctx, mesa_shader_stage shader,
+                           unsigned start_slot, unsigned num_views,
                            unsigned unbind_num_trailing_slots,
                            bool take_ownership,
                            struct pipe_sampler_view **views)
@@ -428,9 +427,8 @@ panfrost_set_sampler_views(struct pipe_context *pctx,
 }
 
 static void
-panfrost_set_shader_buffers(struct pipe_context *pctx,
-                            enum pipe_shader_type shader, unsigned start,
-                            unsigned count,
+panfrost_set_shader_buffers(struct pipe_context *pctx, mesa_shader_stage shader,
+                            unsigned start, unsigned count,
                             const struct pipe_shader_buffer *buffers,
                             unsigned writable_bitmask)
 {
@@ -817,7 +815,7 @@ panfrost_set_global_binding(struct pipe_context *pctx, unsigned first,
 
    for (unsigned i = first; i < first + count; ++i) {
       struct panfrost_resource *rsrc = pan_resource(resources[i]);
-      panfrost_batch_write_rsrc(batch, rsrc, PIPE_SHADER_COMPUTE);
+      panfrost_batch_write_rsrc(batch, rsrc, MESA_SHADER_COMPUTE);
 
       util_range_add(&rsrc->base, &rsrc->valid_buffer_range, 0,
                      rsrc->base.width0);

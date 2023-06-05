@@ -850,7 +850,7 @@ radv_rmv_log_graphics_pipeline_create(struct radv_device *device, VkPipelineCrea
 
    vk_rmv_emit_token(&device->vk.memory_trace_data, VK_RMV_TOKEN_TYPE_RESOURCE_CREATE,
                      &create_token);
-   for (unsigned s = 0; s < MESA_VULKAN_SHADER_STAGES; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_VULKAN_STAGES; s++) {
       struct radv_shader *shader = pipeline->shaders[s];
 
       if (!shader)

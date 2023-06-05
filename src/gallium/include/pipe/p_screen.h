@@ -145,7 +145,7 @@ struct pipe_screen {
     * Query a per-shader-stage integer-valued capability/parameter/limit
     * \param param  one of PIPE_CAP_x
     */
-   int (*get_shader_param)(struct pipe_screen *, enum pipe_shader_type shader,
+   int (*get_shader_param)(struct pipe_screen *, mesa_shader_stage shader,
                            enum pipe_shader_cap param);
 
    /**
@@ -476,7 +476,7 @@ struct pipe_screen {
     */
    const void *(*get_compiler_options)(struct pipe_screen *screen,
                                       enum pipe_shader_ir ir,
-                                      enum pipe_shader_type shader);
+                                      mesa_shader_stage shader);
 
    /**
     * Returns a pointer to a driver-specific on-disk shader cache. If the
@@ -593,7 +593,7 @@ struct pipe_screen {
     */
    bool (*is_parallel_shader_compilation_finished)(struct pipe_screen *screen,
                                                    void *shader,
-                                                   enum pipe_shader_type shader_type);
+                                                   mesa_shader_stage shader_type);
 
    void (*driver_thread_add_job)(struct pipe_screen *screen,
                                  void *job,

@@ -387,7 +387,7 @@ cs_thread_payload::load_subgroup_id(const fs_builder &bld,
       bld.AND(dest, subgroup_id_, brw_imm_ud(INTEL_MASK(7, 0)));
    } else {
       assert(devinfo->verx10 < 125);
-      assert(gl_shader_stage_is_compute(bld.shader->stage));
+      assert(mesa_shader_stage_is_compute(bld.shader->stage));
       int index = brw_get_subgroup_id_param_index(devinfo,
                                                   bld.shader->stage_prog_data);
       bld.MOV(dest, fs_reg(UNIFORM, index, BRW_REGISTER_TYPE_UD));

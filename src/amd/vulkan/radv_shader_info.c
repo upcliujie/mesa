@@ -327,7 +327,7 @@ assign_outinfo_params(struct radv_vs_output_info *outinfo, uint64_t mask,
 }
 
 static uint8_t
-radv_get_wave_size(struct radv_device *device,  gl_shader_stage stage,
+radv_get_wave_size(struct radv_device *device,  mesa_shader_stage stage,
                    const struct radv_shader_info *info)
 {
    if (stage == MESA_SHADER_GEOMETRY && !info->is_ngg)
@@ -338,19 +338,19 @@ radv_get_wave_size(struct radv_device *device,  gl_shader_stage stage,
       return device->physical_device->ps_wave_size;
    else if (stage == MESA_SHADER_TASK)
       return device->physical_device->cs_wave_size;
-   else if (gl_shader_stage_is_rt(stage))
+   else if (mesa_shader_stage_is_rt(stage))
       return device->physical_device->rt_wave_size;
    else
       return device->physical_device->ge_wave_size;
 }
 
 static uint8_t
-radv_get_ballot_bit_size(struct radv_device *device, gl_shader_stage stage,
+radv_get_ballot_bit_size(struct radv_device *device, mesa_shader_stage stage,
                          const struct radv_shader_info *info)
 {
    if (stage == MESA_SHADER_COMPUTE && info->cs.subgroup_size)
       return info->cs.subgroup_size;
-   else if (gl_shader_stage_is_rt(stage))
+   else if (mesa_shader_stage_is_rt(stage))
       return device->physical_device->rt_wave_size;
    return 64;
 }
@@ -784,7 +784,7 @@ radv_nir_shader_info_init(struct radv_shader_info *info)
 
 void
 radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *nir,
-                          gl_shader_stage next_stage,
+                          mesa_shader_stage next_stage,
                           const struct radv_pipeline_layout *layout,
                           const struct radv_pipeline_key *pipeline_key,
                           const enum radv_pipeline_type pipeline_type,
@@ -930,7 +930,7 @@ radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *n
       gather_shader_info_mesh(nir, info);
       break;
    default:
-      if (gl_shader_stage_is_rt(nir->info.stage))
+      if (mesa_shader_stage_is_rt(nir->info.stage))
          gather_shader_info_rt(nir, info);
       break;
    }
@@ -1600,7 +1600,7 @@ radv_nir_shader_info_merge(const struct radv_pipeline_stage *src, struct radv_pi
       dst_info->gs.es_type = src->stage;
 }
 
-static const gl_shader_stage graphics_shader_order[] = {
+static const mesa_shader_stage graphics_shader_order[] = {
    MESA_SHADER_VERTEX,
    MESA_SHADER_TESS_CTRL,
    MESA_SHADER_TESS_EVAL,
@@ -1619,7 +1619,7 @@ radv_nir_shader_info_link(struct radv_device *device, const struct radv_pipeline
       stages[MESA_SHADER_FRAGMENT].nir ? &stages[MESA_SHADER_FRAGMENT] : NULL;
 
    for (int i = ARRAY_SIZE(graphics_shader_order) - 1; i >= 0; i--) {
-      gl_shader_stage s = graphics_shader_order[i];
+      mesa_shader_stage s = graphics_shader_order[i];
       if (!stages[s].nir)
          continue;
 
@@ -1635,7 +1635,7 @@ radv_nir_shader_info_link(struct radv_device *device, const struct radv_pipeline
 
       /* Merge shader info for VS+GS or TES+GS. */
       if (stages[MESA_SHADER_GEOMETRY].nir) {
-         gl_shader_stage pre_stage =
+         mesa_shader_stage pre_stage =
             stages[MESA_SHADER_TESS_EVAL].nir ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
 
          radv_nir_shader_info_merge(&stages[pre_stage], &stages[MESA_SHADER_GEOMETRY]);

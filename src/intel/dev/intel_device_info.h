@@ -345,7 +345,7 @@ struct intel_device_info
     * implementation details, the range of scratch ids may be larger than the
     * number of subslices.
     */
-   unsigned max_scratch_ids[MESA_SHADER_STAGES];
+   unsigned max_scratch_ids[MESA_SHADER_GL_STAGES];
 
    struct {
       /**

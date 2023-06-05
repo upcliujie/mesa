@@ -347,7 +347,7 @@ v3d_uncompiled_shader_create(struct pipe_context *pctx,
 
         if (V3D_DBG(NIR) || v3d_debug_flag_for_shader_stage(s->info.stage)) {
                 fprintf(stderr, "%s prog %d NIR:\n",
-                        gl_shader_stage_name(s->info.stage),
+                        mesa_shader_stage_name(s->info.stage),
                         so->program_id);
                 nir_print_shader(s, stderr);
                 fprintf(stderr, "\n");
@@ -567,7 +567,7 @@ v3d_update_compiled_fs(struct v3d_context *v3d, uint8_t prim_mode)
         }
 
         memset(key, 0, sizeof(*key));
-        v3d_setup_shared_key(v3d, &key->base, &v3d->tex[PIPE_SHADER_FRAGMENT]);
+        v3d_setup_shared_key(v3d, &key->base, &v3d->tex[MESA_SHADER_FRAGMENT]);
         key->base.shader_state = v3d->prog.bind_fs;
         key->base.ucp_enables = v3d->rasterizer->base.clip_plane_enable;
         key->is_points = (prim_mode == MESA_PRIM_POINTS);
@@ -687,7 +687,7 @@ v3d_update_compiled_gs(struct v3d_context *v3d, uint8_t prim_mode)
         }
 
         memset(key, 0, sizeof(*key));
-        v3d_setup_shared_key(v3d, &key->base, &v3d->tex[PIPE_SHADER_GEOMETRY]);
+        v3d_setup_shared_key(v3d, &key->base, &v3d->tex[MESA_SHADER_GEOMETRY]);
         key->base.shader_state = v3d->prog.bind_gs;
         key->base.ucp_enables = v3d->rasterizer->base.clip_plane_enable;
         key->base.is_last_geometry_stage = true;
@@ -757,7 +757,7 @@ v3d_update_compiled_vs(struct v3d_context *v3d, uint8_t prim_mode)
         }
 
         memset(key, 0, sizeof(*key));
-        v3d_setup_shared_key(v3d, &key->base, &v3d->tex[PIPE_SHADER_VERTEX]);
+        v3d_setup_shared_key(v3d, &key->base, &v3d->tex[MESA_SHADER_VERTEX]);
         key->base.shader_state = v3d->prog.bind_vs;
         key->base.ucp_enables = v3d->rasterizer->base.clip_plane_enable;
         key->base.is_last_geometry_stage = !v3d->prog.bind_gs;
@@ -869,7 +869,7 @@ v3d_update_compiled_cs(struct v3d_context *v3d)
         }
 
         memset(key, 0, sizeof(*key));
-        v3d_setup_shared_key(v3d, key, &v3d->tex[PIPE_SHADER_COMPUTE]);
+        v3d_setup_shared_key(v3d, key, &v3d->tex[MESA_SHADER_COMPUTE]);
         key->shader_state = v3d->prog.bind_compute;
 
         struct v3d_compiled_shader *cs =
@@ -1039,7 +1039,7 @@ v3d_program_fini(struct pipe_context *pctx)
 {
         struct v3d_context *v3d = v3d_context(pctx);
 
-        for (int i = 0; i < MESA_SHADER_STAGES; i++) {
+        for (int i = 0; i < MESA_SHADER_GL_STAGES; i++) {
                 struct hash_table *cache = v3d->prog.cache[i];
                 if (!cache)
                         continue;

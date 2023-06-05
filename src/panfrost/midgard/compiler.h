@@ -243,7 +243,7 @@ typedef struct compiler_context {
    const struct panfrost_compile_inputs *inputs;
    nir_shader *nir;
    struct pan_shader_info *info;
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    /* Index to precolour to r0 for an input blend colour */
    unsigned blend_input;
@@ -656,7 +656,7 @@ void midgard_emit_derivatives(compiler_context *ctx, nir_alu_instr *instr);
 
 void midgard_lower_derivatives(compiler_context *ctx, midgard_block *block);
 
-bool mir_op_computes_derivatives(gl_shader_stage stage, unsigned op);
+bool mir_op_computes_derivatives(mesa_shader_stage stage, unsigned op);
 
 void mir_analyze_helper_terminate(compiler_context *ctx);
 void mir_analyze_helper_requirements(compiler_context *ctx);

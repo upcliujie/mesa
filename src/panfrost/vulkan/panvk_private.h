@@ -588,7 +588,7 @@ struct panvk_draw_info {
       mali_ptr attributes;
       mali_ptr attribute_bufs;
       mali_ptr push_constants;
-   } stages[MESA_SHADER_STAGES];
+   } stages[MESA_SHADER_GL_STAGES];
    mali_ptr varying_bufs;
    mali_ptr textures;
    mali_ptr samplers;
@@ -777,7 +777,7 @@ struct panvk_shader {
 };
 
 struct panvk_shader *
-panvk_shader_create(struct panvk_device *dev, gl_shader_stage stage,
+panvk_shader_create(struct panvk_device *dev, mesa_shader_stage stage,
                     const VkPipelineShaderStageCreateInfo *stage_info,
                     const struct panvk_pipeline_layout *layout,
                     unsigned sysval_ubo, struct pan_blend_state *blend_state,
@@ -806,7 +806,7 @@ struct panvk_pipeline {
    struct panfrost_bo *state_bo;
 
    mali_ptr vpd;
-   mali_ptr rsds[MESA_SHADER_STAGES];
+   mali_ptr rsds[MESA_SHADER_GL_STAGES];
 
    /* shader stage bit is set of the stage accesses storage images */
    uint32_t img_access_mask;
@@ -815,7 +815,7 @@ struct panvk_pipeline {
 
    struct {
       unsigned ubo_idx;
-   } sysvals[MESA_SHADER_STAGES];
+   } sysvals[MESA_SHADER_GL_STAGES];
 
    unsigned tls_size;
    unsigned wls_size;
@@ -1099,7 +1099,7 @@ bool panvk_per_arch(blend_needs_lowering)(const struct panfrost_device *dev,
                                           unsigned rt);
 
 struct panvk_shader *panvk_per_arch(shader_create)(
-   struct panvk_device *dev, gl_shader_stage stage,
+   struct panvk_device *dev, mesa_shader_stage stage,
    const VkPipelineShaderStageCreateInfo *stage_info,
    const struct panvk_pipeline_layout *layout, unsigned sysval_ubo,
    struct pan_blend_state *blend_state, bool static_blend_constants,

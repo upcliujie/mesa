@@ -123,8 +123,8 @@ virgl_rebind_resource(struct virgl_context *vctx,
    if (bind_history & (PIPE_BIND_CONSTANT_BUFFER |
                        PIPE_BIND_SHADER_BUFFER |
                        PIPE_BIND_SHADER_IMAGE)) {
-      enum pipe_shader_type shader_type;
-      for (shader_type = 0; shader_type < PIPE_SHADER_TYPES; shader_type++) {
+      mesa_shader_stage shader_type;
+      for (shader_type = 0; shader_type < MESA_SHADER_GL_STAGES; shader_type++) {
          const struct virgl_shader_binding_state *binding =
             &vctx->shader_bindings[shader_type];
 
@@ -197,7 +197,7 @@ static void virgl_attach_res_framebuffer(struct virgl_context *vctx)
 }
 
 static void virgl_attach_res_sampler_views(struct virgl_context *vctx,
-                                           enum pipe_shader_type shader_type)
+                                           mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -249,7 +249,7 @@ static void virgl_attach_res_so_targets(struct virgl_context *vctx)
 }
 
 static void virgl_attach_res_uniform_buffers(struct virgl_context *vctx,
-                                             enum pipe_shader_type shader_type)
+                                             mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -266,7 +266,7 @@ static void virgl_attach_res_uniform_buffers(struct virgl_context *vctx,
 }
 
 static void virgl_attach_res_shader_buffers(struct virgl_context *vctx,
-                                            enum pipe_shader_type shader_type)
+                                            mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -283,7 +283,7 @@ static void virgl_attach_res_shader_buffers(struct virgl_context *vctx,
 }
 
 static void virgl_attach_res_shader_images(struct virgl_context *vctx,
-                                           enum pipe_shader_type shader_type)
+                                           mesa_shader_stage shader_type)
 {
    struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
    const struct virgl_shader_binding_state *binding =
@@ -319,13 +319,13 @@ static void virgl_attach_res_atomic_buffers(struct virgl_context *vctx)
  */
 static void virgl_reemit_draw_resources(struct virgl_context *vctx)
 {
-   enum pipe_shader_type shader_type;
+   mesa_shader_stage shader_type;
 
    /* reattach any flushed resources */
    /* framebuffer, sampler views, vertex/index/uniform/stream buffers */
    virgl_attach_res_framebuffer(vctx);
 
-   for (shader_type = 0; shader_type < PIPE_SHADER_COMPUTE; shader_type++) {
+   for (shader_type = 0; shader_type < MESA_SHADER_COMPUTE; shader_type++) {
       virgl_attach_res_sampler_views(vctx, shader_type);
       virgl_attach_res_uniform_buffers(vctx, shader_type);
       virgl_attach_res_shader_buffers(vctx, shader_type);
@@ -338,10 +338,10 @@ static void virgl_reemit_draw_resources(struct virgl_context *vctx)
 
 static void virgl_reemit_compute_resources(struct virgl_context *vctx)
 {
-   virgl_attach_res_sampler_views(vctx, PIPE_SHADER_COMPUTE);
-   virgl_attach_res_uniform_buffers(vctx, PIPE_SHADER_COMPUTE);
-   virgl_attach_res_shader_buffers(vctx, PIPE_SHADER_COMPUTE);
-   virgl_attach_res_shader_images(vctx, PIPE_SHADER_COMPUTE);
+   virgl_attach_res_sampler_views(vctx, MESA_SHADER_COMPUTE);
+   virgl_attach_res_uniform_buffers(vctx, MESA_SHADER_COMPUTE);
+   virgl_attach_res_shader_buffers(vctx, MESA_SHADER_COMPUTE);
+   virgl_attach_res_shader_images(vctx, MESA_SHADER_COMPUTE);
 
    virgl_attach_res_atomic_buffers(vctx);
 }
@@ -635,7 +635,7 @@ static void virgl_hw_set_index_buffer(struct virgl_context *vctx,
 }
 
 static void virgl_set_constant_buffer(struct pipe_context *ctx,
-                                     enum pipe_shader_type shader, uint index,
+                                     mesa_shader_stage shader, uint index,
                                       bool take_ownership,
                                      const struct pipe_constant_buffer *buf)
 {
@@ -775,31 +775,31 @@ static void *virgl_shader_encoder(struct pipe_context *ctx,
 static void *virgl_create_vs_state(struct pipe_context *ctx,
                                    const struct pipe_shader_state *shader)
 {
-   return virgl_shader_encoder(ctx, shader, PIPE_SHADER_VERTEX);
+   return virgl_shader_encoder(ctx, shader, MESA_SHADER_VERTEX);
 }
 
 static void *virgl_create_tcs_state(struct pipe_context *ctx,
                                    const struct pipe_shader_state *shader)
 {
-   return virgl_shader_encoder(ctx, shader, PIPE_SHADER_TESS_CTRL);
+   return virgl_shader_encoder(ctx, shader, MESA_SHADER_TESS_CTRL);
 }
 
 static void *virgl_create_tes_state(struct pipe_context *ctx,
                                    const struct pipe_shader_state *shader)
 {
-   return virgl_shader_encoder(ctx, shader, PIPE_SHADER_TESS_EVAL);
+   return virgl_shader_encoder(ctx, shader, MESA_SHADER_TESS_EVAL);
 }
 
 static void *virgl_create_gs_state(struct pipe_context *ctx,
                                    const struct pipe_shader_state *shader)
 {
-   return virgl_shader_encoder(ctx, shader, PIPE_SHADER_GEOMETRY);
+   return virgl_shader_encoder(ctx, shader, MESA_SHADER_GEOMETRY);
 }
 
 static void *virgl_create_fs_state(struct pipe_context *ctx,
                                    const struct pipe_shader_state *shader)
 {
-   return virgl_shader_encoder(ctx, shader, PIPE_SHADER_FRAGMENT);
+   return virgl_shader_encoder(ctx, shader, MESA_SHADER_FRAGMENT);
 }
 
 static void
@@ -858,7 +858,7 @@ static void virgl_bind_vs_state(struct pipe_context *ctx,
    uint32_t handle = (unsigned long)vss;
    struct virgl_context *vctx = virgl_context(ctx);
 
-   virgl_encode_bind_shader(vctx, handle, PIPE_SHADER_VERTEX);
+   virgl_encode_bind_shader(vctx, handle, MESA_SHADER_VERTEX);
 }
 
 static void virgl_bind_tcs_state(struct pipe_context *ctx,
@@ -867,7 +867,7 @@ static void virgl_bind_tcs_state(struct pipe_context *ctx,
    uint32_t handle = (unsigned long)vss;
    struct virgl_context *vctx = virgl_context(ctx);
 
-   virgl_encode_bind_shader(vctx, handle, PIPE_SHADER_TESS_CTRL);
+   virgl_encode_bind_shader(vctx, handle, MESA_SHADER_TESS_CTRL);
 }
 
 static void virgl_bind_tes_state(struct pipe_context *ctx,
@@ -876,7 +876,7 @@ static void virgl_bind_tes_state(struct pipe_context *ctx,
    uint32_t handle = (unsigned long)vss;
    struct virgl_context *vctx = virgl_context(ctx);
 
-   virgl_encode_bind_shader(vctx, handle, PIPE_SHADER_TESS_EVAL);
+   virgl_encode_bind_shader(vctx, handle, MESA_SHADER_TESS_EVAL);
 }
 
 static void virgl_bind_gs_state(struct pipe_context *ctx,
@@ -885,7 +885,7 @@ static void virgl_bind_gs_state(struct pipe_context *ctx,
    uint32_t handle = (unsigned long)vss;
    struct virgl_context *vctx = virgl_context(ctx);
 
-   virgl_encode_bind_shader(vctx, handle, PIPE_SHADER_GEOMETRY);
+   virgl_encode_bind_shader(vctx, handle, MESA_SHADER_GEOMETRY);
 }
 
 
@@ -895,7 +895,7 @@ static void virgl_bind_fs_state(struct pipe_context *ctx,
    uint32_t handle = (unsigned long)vss;
    struct virgl_context *vctx = virgl_context(ctx);
 
-   virgl_encode_bind_shader(vctx, handle, PIPE_SHADER_FRAGMENT);
+   virgl_encode_bind_shader(vctx, handle, MESA_SHADER_FRAGMENT);
 }
 
 static void virgl_clear(struct pipe_context *ctx,
@@ -1092,7 +1092,7 @@ static struct pipe_sampler_view *virgl_create_sampler_view(struct pipe_context *
 }
 
 static void virgl_set_sampler_views(struct pipe_context *ctx,
-                                   enum pipe_shader_type shader_type,
+                                   mesa_shader_stage shader_type,
                                    unsigned start_slot,
                                    unsigned num_views,
                                    unsigned unbind_num_trailing_slots,
@@ -1175,7 +1175,7 @@ static void virgl_delete_sampler_state(struct pipe_context *ctx,
 }
 
 static void virgl_bind_sampler_states(struct pipe_context *ctx,
-                                     enum pipe_shader_type shader,
+                                     mesa_shader_stage shader,
                                      unsigned start_slot,
                                      unsigned num_samplers,
                                      void **samplers)
@@ -1321,7 +1321,7 @@ static void virgl_set_hw_atomic_buffers(struct pipe_context *ctx,
 }
 
 static void virgl_set_shader_buffers(struct pipe_context *ctx,
-                                     enum pipe_shader_type shader,
+                                     mesa_shader_stage shader,
                                      unsigned start_slot, unsigned count,
                                      const struct pipe_shader_buffer *buffers,
                                      unsigned writable_bitmask)
@@ -1346,7 +1346,7 @@ static void virgl_set_shader_buffers(struct pipe_context *ctx,
       }
    }
 
-   uint32_t max_shader_buffer = (shader == PIPE_SHADER_FRAGMENT || shader == PIPE_SHADER_COMPUTE) ?
+   uint32_t max_shader_buffer = (shader == MESA_SHADER_FRAGMENT || shader == MESA_SHADER_COMPUTE) ?
       rs->caps.caps.v2.max_shader_buffer_frag_compute :
       rs->caps.caps.v2.max_shader_buffer_other_stages;
    if (!max_shader_buffer)
@@ -1377,7 +1377,7 @@ static void virgl_fence_server_sync(struct pipe_context *ctx,
 }
 
 static void virgl_set_shader_images(struct pipe_context *ctx,
-                                    enum pipe_shader_type shader,
+                                    mesa_shader_stage shader,
                                     unsigned start_slot, unsigned count,
                                     unsigned unbind_num_trailing_slots,
                                     const struct pipe_image_view *images)
@@ -1403,7 +1403,7 @@ static void virgl_set_shader_images(struct pipe_context *ctx,
       }
    }
 
-   uint32_t max_shader_images = (shader == PIPE_SHADER_FRAGMENT || shader == PIPE_SHADER_COMPUTE) ?
+   uint32_t max_shader_images = (shader == MESA_SHADER_FRAGMENT || shader == MESA_SHADER_COMPUTE) ?
      rs->caps.caps.v2.max_shader_image_frag_compute :
      rs->caps.caps.v2.max_shader_image_other_stages;
    if (!max_shader_images)
@@ -1453,7 +1453,7 @@ static void *virgl_create_compute_state(struct pipe_context *ctx,
       return NULL;
 
    handle = virgl_object_assign_handle();
-   ret = virgl_encode_shader_state(vctx, handle, PIPE_SHADER_COMPUTE,
+   ret = virgl_encode_shader_state(vctx, handle, MESA_SHADER_COMPUTE,
                                    &so_info,
                                    state->static_shared_mem,
                                    new_tokens);
@@ -1473,7 +1473,7 @@ static void virgl_bind_compute_state(struct pipe_context *ctx, void *state)
    uint32_t handle = (unsigned long)state;
    struct virgl_context *vctx = virgl_context(ctx);
 
-   virgl_encode_bind_shader(vctx, handle, PIPE_SHADER_COMPUTE);
+   virgl_encode_bind_shader(vctx, handle, MESA_SHADER_COMPUTE);
 }
 
 static void virgl_delete_compute_state(struct pipe_context *ctx, void *state)
@@ -1498,7 +1498,7 @@ static void virgl_launch_grid(struct pipe_context *ctx,
 
 static void
 virgl_release_shader_binding(struct virgl_context *vctx,
-                             enum pipe_shader_type shader_type)
+                             mesa_shader_stage shader_type)
 {
    struct virgl_shader_binding_state *binding =
       &vctx->shader_bindings[shader_type];
@@ -1538,14 +1538,14 @@ virgl_context_destroy( struct pipe_context *ctx )
 {
    struct virgl_context *vctx = virgl_context(ctx);
    struct virgl_screen *rs = virgl_screen(ctx->screen);
-   enum pipe_shader_type shader_type;
+   mesa_shader_stage shader_type;
 
    vctx->framebuffer.zsbuf = NULL;
    vctx->framebuffer.nr_cbufs = 0;
    virgl_encoder_destroy_sub_ctx(vctx, vctx->hw_sub_ctx_id);
    virgl_flush_eq(vctx, vctx, NULL);
 
-   for (shader_type = 0; shader_type < PIPE_SHADER_TYPES; shader_type++)
+   for (shader_type = 0; shader_type < MESA_SHADER_GL_STAGES; shader_type++)
       virgl_release_shader_binding(vctx, shader_type);
 
    while (vctx->atomic_buffer_enabled_mask) {
@@ -1621,8 +1621,8 @@ static void virgl_link_shader(struct pipe_context *ctx, void **handles)
    struct virgl_context *vctx = virgl_context(ctx);
    struct virgl_screen *rs = virgl_screen(vctx->base.screen);
 
-   uint32_t shader_handles[PIPE_SHADER_TYPES];
-   for (uint32_t i = 0; i < PIPE_SHADER_TYPES; ++i)
+   uint32_t shader_handles[MESA_SHADER_GL_STAGES];
+   for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; ++i)
       shader_handles[i] = (uintptr_t)handles[i];
    virgl_encode_link_shader(vctx, shader_handles);
 

@@ -581,7 +581,7 @@ get_variable_mode_str(nir_variable_mode mode, bool want_local_global_mode)
 }
 
 static const char *
-get_location_str(unsigned location, gl_shader_stage stage,
+get_location_str(unsigned location, mesa_shader_stage stage,
                  nir_variable_mode mode, char *buf)
 {
    switch (stage) {
@@ -1925,7 +1925,7 @@ print_nz_bool(FILE *fp, const char *label, bool value)
 static void
 print_shader_info(const struct shader_info *info, FILE *fp)
 {
-   fprintf(fp, "shader: %s\n", gl_shader_stage_name(info->stage));
+   fprintf(fp, "shader: %s\n", mesa_shader_stage_name(info->stage));
 
    fprintf(fp, "source_sha1: {");
    _mesa_sha1_print(fp, info->source_sha1);
@@ -1937,7 +1937,7 @@ print_shader_info(const struct shader_info *info, FILE *fp)
    if (info->label)
       fprintf(fp, "label: %s\n", info->label);
 
-   if (gl_shader_stage_uses_workgroup(info->stage)) {
+   if (mesa_shader_stage_uses_workgroup(info->stage)) {
       fprintf(fp, "workgroup-size: %u, %u, %u%s\n",
               info->workgroup_size[0],
               info->workgroup_size[1],

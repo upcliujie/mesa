@@ -108,7 +108,7 @@ trace_screen_get_device_vendor(struct pipe_screen *_screen)
 static const void *
 trace_screen_get_compiler_options(struct pipe_screen *_screen,
                                   enum pipe_shader_ir ir,
-                                  enum pipe_shader_type shader)
+                                  mesa_shader_stage shader)
 {
    struct trace_screen *tr_scr = trace_screen(_screen);
    struct pipe_screen *screen = tr_scr->screen;
@@ -118,7 +118,7 @@ trace_screen_get_compiler_options(struct pipe_screen *_screen,
 
    trace_dump_arg(ptr, screen);
    trace_dump_arg_enum(ir, tr_util_pipe_shader_ir_name(ir));
-   trace_dump_arg_enum(shader, tr_util_pipe_shader_type_name(shader));
+   trace_dump_arg_enum(shader, tr_util_mesa_shader_stage_name(shader));
 
    result = screen->get_compiler_options(screen, ir, shader);
 
@@ -175,7 +175,7 @@ trace_screen_get_param(struct pipe_screen *_screen,
 
 static int
 trace_screen_get_shader_param(struct pipe_screen *_screen,
-                              enum pipe_shader_type shader,
+                              mesa_shader_stage shader,
                               enum pipe_shader_cap param)
 {
    struct trace_screen *tr_scr = trace_screen(_screen);
@@ -185,7 +185,7 @@ trace_screen_get_shader_param(struct pipe_screen *_screen,
    trace_dump_call_begin("pipe_screen", "get_shader_param");
 
    trace_dump_arg(ptr, screen);
-   trace_dump_arg_enum(shader, tr_util_pipe_shader_type_name(shader));
+   trace_dump_arg_enum(shader, tr_util_mesa_shader_stage_name(shader));
    trace_dump_arg_enum(param, tr_util_pipe_shader_cap_name(param));
 
    result = screen->get_shader_param(screen, shader, param);

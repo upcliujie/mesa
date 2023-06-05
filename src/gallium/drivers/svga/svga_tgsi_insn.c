@@ -221,7 +221,7 @@ translate_src_register( const struct svga_shader_emitter *emit,
    /* Indirect addressing.
     */
    if (reg->Register.Indirect) {
-      if (emit->unit == PIPE_SHADER_FRAGMENT) {
+      if (emit->unit == MESA_SHADER_FRAGMENT) {
          /* Pixel shaders have only loop registers for relative
           * addressing into inputs. Ignore the redundant address
           * register, the contents of aL should be in sync with it.
@@ -1317,7 +1317,7 @@ emit_ssg(struct svga_shader_emitter *emit,
    SVGA3dShaderDestToken temp1 = get_temp( emit );
    struct src_register zero, one;
 
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       /* SGN  DST, SRC0, TMP0, TMP1 */
       return submit_op3( emit, inst_token( SVGA3DOP_SGN ), dst, src0,
                          src( temp0 ), src( temp1 ) );
@@ -1523,7 +1523,7 @@ emit_select(struct svga_shader_emitter *emit,
    /* There are some SVGA instructions which implement some selects
     * directly, but they are only available in the vertex shader.
     */
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       switch (compare_func) {
       case PIPE_FUNC_GEQUAL:
          return submit_op2( emit, inst_token( SVGA3DOP_SGE ), dst, src0, src1 );
@@ -1585,7 +1585,7 @@ emit_cmp(struct svga_shader_emitter *emit,
    const struct src_register src2 =
       translate_src_register(emit, &insn->Src[2] );
 
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       struct src_register zero = get_zero_immediate(emit);
       /* We used to simulate CMP with SLT+LRP.  But that didn't work when
        * src1 or src2 was Inf/NaN.  In particular, GLSL sqrt(0) failed
@@ -1596,7 +1596,7 @@ emit_cmp(struct svga_shader_emitter *emit,
                               src0, zero, src1, src2);
    }
    else {
-      assert(emit->unit == PIPE_SHADER_FRAGMENT);
+      assert(emit->unit == MESA_SHADER_FRAGMENT);
 
       /* CMP  DST, SRC0, SRC2, SRC1 */
       return submit_op3( emit, inst_token( SVGA3DOP_CMP ), dst,
@@ -2032,7 +2032,7 @@ emit_mov(struct svga_shader_emitter *emit,
    const struct tgsi_full_src_register *src = &insn->Src[0];
    const struct tgsi_full_dst_register *dst = &insn->Dst[0];
 
-   if (emit->unit == PIPE_SHADER_FRAGMENT &&
+   if (emit->unit == MESA_SHADER_FRAGMENT &&
        dst->Register.File == TGSI_FILE_OUTPUT &&
        dst->Register.Index == 0 &&
        src->Register.File == TGSI_FILE_CONSTANT &&
@@ -2182,7 +2182,7 @@ emit_arl(struct svga_shader_emitter *emit,
          const struct tgsi_full_instruction *insn)
 {
    ++emit->current_arl;
-   if (emit->unit == PIPE_SHADER_FRAGMENT) {
+   if (emit->unit == MESA_SHADER_FRAGMENT) {
       /* MOVA not present in pixel shader instruction set.
        * Ignore this instruction altogether since it is
        * only used for loop counters -- and for that
@@ -2302,7 +2302,7 @@ static boolean
 emit_dst_insn(struct svga_shader_emitter *emit,
               const struct tgsi_full_instruction *insn)
 {
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       /* SVGA/DX9 has a DST instruction, but only for vertex shaders:
        */
       return emit_simple_instruction(emit, SVGA3DOP_DST, insn);
@@ -2447,7 +2447,7 @@ static boolean
 emit_lit(struct svga_shader_emitter *emit,
          const struct tgsi_full_instruction *insn)
 {
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       /* SVGA/DX9 has a LIT instruction, but only for vertex shaders:
        */
       return emit_simple_instruction(emit, SVGA3DOP_LIT, insn);
@@ -2725,7 +2725,7 @@ emit_trunc_round(struct svga_shader_emitter *emit,
    /*
     * Now we need to multiply t1 by the sign of the original value.
    */
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       /* For VS: use SGN instruction */
       /* Need two extra/dummy registers: */
       SVGA3dShaderDestToken t2 = get_temp(emit), t3 = get_temp(emit),
@@ -2814,7 +2814,7 @@ emit_call(struct svga_shader_emitter *emit,
 static boolean
 emit_end(struct svga_shader_emitter *emit)
 {
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       return emit_vs_postamble( emit );
    }
    else {
@@ -3136,7 +3136,7 @@ emit_ps_postamble(struct svga_shader_emitter *emit)
          /* Potentially override output colors with white for XOR
           * logicop workaround.
           */
-         if (emit->unit == PIPE_SHADER_FRAGMENT &&
+         if (emit->unit == MESA_SHADER_FRAGMENT &&
              emit->key.fs.white_fragments) {
             struct src_register one = get_one_immediate(emit);
 
@@ -3146,7 +3146,7 @@ emit_ps_postamble(struct svga_shader_emitter *emit)
                              one ))
                return FALSE;
          }
-         else if (emit->unit == PIPE_SHADER_FRAGMENT &&
+         else if (emit->unit == MESA_SHADER_FRAGMENT &&
                   i < emit->key.fs.write_color0_to_n_cbufs) {
             /* Write temp color output [0] to true output [i] */
             if (!submit_op1(emit, inst_token(SVGA3DOP_MOV),
@@ -3534,7 +3534,7 @@ needs_to_create_common_immediate(const struct svga_shader_emitter *emit)
 {
    unsigned i;
 
-   if (emit->unit == PIPE_SHADER_FRAGMENT) {
+   if (emit->unit == MESA_SHADER_FRAGMENT) {
       if (emit->key.fs.light_twoside)
          return TRUE;
 
@@ -3567,7 +3567,7 @@ needs_to_create_common_immediate(const struct svga_shader_emitter *emit)
             return TRUE;
       }
    }
-   else if (emit->unit == PIPE_SHADER_VERTEX) {
+   else if (emit->unit == MESA_SHADER_VERTEX) {
       if (emit->info.opcode_count[TGSI_OPCODE_CMP] >= 1)
          return TRUE;
       if (emit->key.vs.adjust_attrib_range ||
@@ -3715,7 +3715,7 @@ svga_shader_emit_helpers(struct svga_shader_emitter *emit)
       create_arl_consts( emit );
    }
 
-   if (emit->unit == PIPE_SHADER_FRAGMENT) {
+   if (emit->unit == MESA_SHADER_FRAGMENT) {
       if (!svga_shader_emit_samplers_decl( emit ))
          return FALSE;
 
@@ -3736,7 +3736,7 @@ svga_shader_emit_helpers(struct svga_shader_emitter *emit)
       }
    }
    else {
-      assert(emit->unit == PIPE_SHADER_VERTEX);
+      assert(emit->unit == MESA_SHADER_VERTEX);
       if (emit->key.vs.adjust_attrib_range) {
          if (!emit_adjusted_vertex_attribs(emit) ||
              emit->key.vs.adjust_attrib_w_1) {
@@ -3763,7 +3763,7 @@ svga_shader_emit_instructions(struct svga_shader_emitter *emit,
    boolean helpers_emitted = FALSE;
    unsigned line_nr = 0;
 
-   if (emit->unit == PIPE_SHADER_FRAGMENT && emit->key.fs.pstipple) {
+   if (emit->unit == MESA_SHADER_FRAGMENT && emit->key.fs.pstipple) {
       unsigned unit;
 
       new_tokens = util_pstipple_create_fragment_shader(tokens, &unit, 0,
@@ -3786,7 +3786,7 @@ svga_shader_emit_instructions(struct svga_shader_emitter *emit,
    tgsi_parse_init( &parse, tokens );
    emit->internal_imm_count = 0;
 
-   if (emit->unit == PIPE_SHADER_VERTEX) {
+   if (emit->unit == MESA_SHADER_VERTEX) {
       ret = emit_vs_preamble( emit );
       if (!ret)
          goto done;

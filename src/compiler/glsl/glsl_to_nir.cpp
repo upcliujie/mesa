@@ -200,7 +200,7 @@ has_unsupported_function_param(exec_list *ir)
 nir_shader *
 glsl_to_nir(const struct gl_constants *consts,
             const struct gl_shader_program *shader_prog,
-            gl_shader_stage stage,
+            mesa_shader_stage stage,
             const nir_shader_compiler_options *options)
 {
    struct gl_linked_shader *sh = shader_prog->_LinkedShaders[stage];

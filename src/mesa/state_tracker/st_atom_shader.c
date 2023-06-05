@@ -281,8 +281,8 @@ st_update_common_program(struct st_context *st, struct gl_program *prog,
 
    key.st = st->has_shareable_shaders ? NULL : st;
 
-   if (pipe_shader == PIPE_SHADER_GEOMETRY ||
-       pipe_shader == PIPE_SHADER_TESS_EVAL) {
+   if (pipe_shader == MESA_SHADER_GEOMETRY ||
+       pipe_shader == MESA_SHADER_TESS_EVAL) {
       key.clamp_color = st->clamp_vert_color_in_shader &&
                         st->ctx->Light._ClampVertexColor &&
                         (prog->info.outputs_written &
@@ -292,7 +292,7 @@ st_update_common_program(struct st_context *st, struct gl_program *prog,
                           VARYING_SLOT_BFC1));
 
       if (st->lower_ucp && st_user_clip_planes_enabled(st->ctx) &&
-          (pipe_shader == PIPE_SHADER_GEOMETRY ||
+          (pipe_shader == MESA_SHADER_GEOMETRY ||
              !st->ctx->GeometryProgram._Current))
          key.lower_ucp = st->ctx->Transform.ClipPlanesEnabled;
 
@@ -315,7 +315,7 @@ st_update_gp(struct st_context *st)
 {
    void *shader = st_update_common_program(st,
                                            st->ctx->GeometryProgram._Current,
-                                           PIPE_SHADER_GEOMETRY, &st->gp);
+                                           MESA_SHADER_GEOMETRY, &st->gp);
    cso_set_geometry_shader_handle(st->cso_context, shader);
 }
 
@@ -325,7 +325,7 @@ st_update_tcp(struct st_context *st)
 {
    void *shader = st_update_common_program(st,
                                            st->ctx->TessCtrlProgram._Current,
-                                           PIPE_SHADER_TESS_CTRL, &st->tcp);
+                                           MESA_SHADER_TESS_CTRL, &st->tcp);
    cso_set_tessctrl_shader_handle(st->cso_context, shader);
 }
 
@@ -335,7 +335,7 @@ st_update_tep(struct st_context *st)
 {
    void *shader = st_update_common_program(st,
                                            st->ctx->TessEvalProgram._Current,
-                                           PIPE_SHADER_TESS_EVAL, &st->tep);
+                                           MESA_SHADER_TESS_EVAL, &st->tep);
    cso_set_tesseval_shader_handle(st->cso_context, shader);
 }
 
@@ -345,6 +345,6 @@ st_update_cp(struct st_context *st)
 {
    void *shader = st_update_common_program(st,
                                            st->ctx->ComputeProgram._Current,
-                                           PIPE_SHADER_COMPUTE, &st->cp);
+                                           MESA_SHADER_COMPUTE, &st->cp);
    cso_set_compute_shader_handle(st->cso_context, shader);
 }

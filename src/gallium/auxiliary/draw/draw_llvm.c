@@ -2075,11 +2075,11 @@ draw_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
 
    for (unsigned i = 0 ; i < key->nr_samplers; i++) {
       lp_sampler_static_sampler_state(&draw_sampler[i].sampler_state,
-                                      llvm->draw->samplers[PIPE_SHADER_VERTEX][i]);
+                                      llvm->draw->samplers[MESA_SHADER_VERTEX][i]);
    }
    for (unsigned i = 0 ; i < key->nr_sampler_views; i++) {
       lp_sampler_static_texture_state(&draw_sampler[i].texture_state,
-                                      llvm->draw->sampler_views[PIPE_SHADER_VERTEX][i]);
+                                      llvm->draw->sampler_views[MESA_SHADER_VERTEX][i]);
    }
 
    draw_image = draw_llvm_variant_key_images(key);
@@ -2087,7 +2087,7 @@ draw_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
           key->nr_images * sizeof *draw_image);
    for (unsigned i = 0; i < key->nr_images; i++) {
       lp_sampler_static_texture_state_image(&draw_image[i].image_state,
-                                            llvm->draw->images[PIPE_SHADER_VERTEX][i]);
+                                            llvm->draw->images[MESA_SHADER_VERTEX][i]);
    }
    return key;
 }
@@ -2126,7 +2126,7 @@ draw_llvm_dump_variant_key(struct draw_llvm_variant_key *key)
 
 void
 draw_llvm_set_mapped_texture(struct draw_context *draw,
-                             enum pipe_shader_type shader_stage,
+                             mesa_shader_stage shader_stage,
                              unsigned sview_idx,
                              uint32_t width, uint32_t height, uint32_t depth,
                              uint32_t first_level, uint32_t last_level,
@@ -2140,19 +2140,19 @@ draw_llvm_set_mapped_texture(struct draw_context *draw,
    struct lp_jit_texture *jit_tex;
 
    switch (shader_stage) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       assert(sview_idx < ARRAY_SIZE(draw->llvm->jit_resources.textures));
       jit_tex = &draw->llvm->jit_resources.textures[sview_idx];
       break;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       assert(sview_idx < ARRAY_SIZE(draw->llvm->gs_jit_resources.textures));
       jit_tex = &draw->llvm->gs_jit_resources.textures[sview_idx];
       break;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       assert(sview_idx < ARRAY_SIZE(draw->llvm->tcs_jit_resources.textures));
       jit_tex = &draw->llvm->tcs_jit_resources.textures[sview_idx];
       break;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       assert(sview_idx < ARRAY_SIZE(draw->llvm->tes_jit_resources.textures));
       jit_tex = &draw->llvm->tes_jit_resources.textures[sview_idx];
       break;
@@ -2180,7 +2180,7 @@ draw_llvm_set_mapped_texture(struct draw_context *draw,
 
 void
 draw_llvm_set_mapped_image(struct draw_context *draw,
-                           enum pipe_shader_type shader_stage,
+                           mesa_shader_stage shader_stage,
                            unsigned idx,
                            uint32_t width, uint32_t height, uint32_t depth,
                            const void *base_ptr,
@@ -2192,19 +2192,19 @@ draw_llvm_set_mapped_image(struct draw_context *draw,
    struct lp_jit_image *jit_image;
 
    switch (shader_stage) {
-   case PIPE_SHADER_VERTEX:
+   case MESA_SHADER_VERTEX:
       assert(idx < ARRAY_SIZE(draw->llvm->jit_resources.images));
       jit_image = &draw->llvm->jit_resources.images[idx];
       break;
-   case PIPE_SHADER_GEOMETRY:
+   case MESA_SHADER_GEOMETRY:
       assert(idx < ARRAY_SIZE(draw->llvm->gs_jit_resources.images));
       jit_image = &draw->llvm->gs_jit_resources.images[idx];
       break;
-   case PIPE_SHADER_TESS_CTRL:
+   case MESA_SHADER_TESS_CTRL:
       assert(idx < ARRAY_SIZE(draw->llvm->tcs_jit_resources.images));
       jit_image = &draw->llvm->tcs_jit_resources.images[idx];
       break;
-   case PIPE_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_EVAL:
       assert(idx < ARRAY_SIZE(draw->llvm->tes_jit_resources.images));
       jit_image = &draw->llvm->tes_jit_resources.images[idx];
       break;
@@ -2227,16 +2227,16 @@ draw_llvm_set_mapped_image(struct draw_context *draw,
 
 void
 draw_llvm_set_sampler_state(struct draw_context *draw,
-                            enum pipe_shader_type shader_type)
+                            mesa_shader_stage shader_type)
 {
    switch (shader_type) {
-   case PIPE_SHADER_VERTEX:
-      for (unsigned i = 0; i < draw->num_samplers[PIPE_SHADER_VERTEX]; i++) {
+   case MESA_SHADER_VERTEX:
+      for (unsigned i = 0; i < draw->num_samplers[MESA_SHADER_VERTEX]; i++) {
          struct lp_jit_sampler *jit_sam = &draw->llvm->jit_resources.samplers[i];
 
-         if (draw->samplers[PIPE_SHADER_VERTEX][i]) {
+         if (draw->samplers[MESA_SHADER_VERTEX][i]) {
             const struct pipe_sampler_state *s
-               = draw->samplers[PIPE_SHADER_VERTEX][i];
+               = draw->samplers[MESA_SHADER_VERTEX][i];
             jit_sam->min_lod = s->min_lod;
             jit_sam->max_lod = s->max_lod;
             jit_sam->lod_bias = s->lod_bias;
@@ -2245,13 +2245,13 @@ draw_llvm_set_sampler_state(struct draw_context *draw,
          }
       }
       break;
-   case PIPE_SHADER_GEOMETRY:
-      for (unsigned i = 0; i < draw->num_samplers[PIPE_SHADER_GEOMETRY]; i++) {
+   case MESA_SHADER_GEOMETRY:
+      for (unsigned i = 0; i < draw->num_samplers[MESA_SHADER_GEOMETRY]; i++) {
          struct lp_jit_sampler *jit_sam = &draw->llvm->gs_jit_resources.samplers[i];
 
-         if (draw->samplers[PIPE_SHADER_GEOMETRY][i]) {
+         if (draw->samplers[MESA_SHADER_GEOMETRY][i]) {
             const struct pipe_sampler_state *s
-               = draw->samplers[PIPE_SHADER_GEOMETRY][i];
+               = draw->samplers[MESA_SHADER_GEOMETRY][i];
             jit_sam->min_lod = s->min_lod;
             jit_sam->max_lod = s->max_lod;
             jit_sam->lod_bias = s->lod_bias;
@@ -2260,13 +2260,13 @@ draw_llvm_set_sampler_state(struct draw_context *draw,
          }
       }
       break;
-   case PIPE_SHADER_TESS_CTRL:
-      for (unsigned i = 0; i < draw->num_samplers[PIPE_SHADER_TESS_CTRL]; i++) {
+   case MESA_SHADER_TESS_CTRL:
+      for (unsigned i = 0; i < draw->num_samplers[MESA_SHADER_TESS_CTRL]; i++) {
          struct lp_jit_sampler *jit_sam = &draw->llvm->tcs_jit_resources.samplers[i];
 
-         if (draw->samplers[PIPE_SHADER_TESS_CTRL][i]) {
+         if (draw->samplers[MESA_SHADER_TESS_CTRL][i]) {
             const struct pipe_sampler_state *s
-               = draw->samplers[PIPE_SHADER_TESS_CTRL][i];
+               = draw->samplers[MESA_SHADER_TESS_CTRL][i];
             jit_sam->min_lod = s->min_lod;
             jit_sam->max_lod = s->max_lod;
             jit_sam->lod_bias = s->lod_bias;
@@ -2275,13 +2275,13 @@ draw_llvm_set_sampler_state(struct draw_context *draw,
          }
       }
       break;
-   case PIPE_SHADER_TESS_EVAL:
-      for (unsigned i = 0; i < draw->num_samplers[PIPE_SHADER_TESS_EVAL]; i++) {
+   case MESA_SHADER_TESS_EVAL:
+      for (unsigned i = 0; i < draw->num_samplers[MESA_SHADER_TESS_EVAL]; i++) {
          struct lp_jit_sampler *jit_sam = &draw->llvm->tes_jit_resources.samplers[i];
 
-         if (draw->samplers[PIPE_SHADER_TESS_EVAL][i]) {
+         if (draw->samplers[MESA_SHADER_TESS_EVAL][i]) {
             const struct pipe_sampler_state *s
-               = draw->samplers[PIPE_SHADER_TESS_EVAL][i];
+               = draw->samplers[MESA_SHADER_TESS_EVAL][i];
             jit_sam->min_lod = s->min_lod;
             jit_sam->max_lod = s->max_lod;
             jit_sam->lod_bias = s->lod_bias;
@@ -2671,11 +2671,11 @@ draw_gs_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
 
    for (unsigned i = 0 ; i < key->nr_samplers; i++) {
       lp_sampler_static_sampler_state(&draw_sampler[i].sampler_state,
-                                      llvm->draw->samplers[PIPE_SHADER_GEOMETRY][i]);
+                                      llvm->draw->samplers[MESA_SHADER_GEOMETRY][i]);
    }
    for (unsigned i = 0 ; i < key->nr_sampler_views; i++) {
       lp_sampler_static_texture_state(&draw_sampler[i].texture_state,
-                                      llvm->draw->sampler_views[PIPE_SHADER_GEOMETRY][i]);
+                                      llvm->draw->sampler_views[MESA_SHADER_GEOMETRY][i]);
    }
 
    draw_image = draw_gs_llvm_variant_key_images(key);
@@ -2683,7 +2683,7 @@ draw_gs_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
           key->nr_images * sizeof *draw_image);
    for (unsigned i = 0; i < key->nr_images; i++) {
       lp_sampler_static_texture_state_image(&draw_image[i].image_state,
-                                            llvm->draw->images[PIPE_SHADER_GEOMETRY][i]);
+                                            llvm->draw->images[MESA_SHADER_GEOMETRY][i]);
    }
    return key;
 }
@@ -3324,11 +3324,11 @@ draw_tcs_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
 
    for (i = 0 ; i < key->nr_samplers; i++) {
       lp_sampler_static_sampler_state(&draw_sampler[i].sampler_state,
-                                      llvm->draw->samplers[PIPE_SHADER_TESS_CTRL][i]);
+                                      llvm->draw->samplers[MESA_SHADER_TESS_CTRL][i]);
    }
    for (i = 0 ; i < key->nr_sampler_views; i++) {
       lp_sampler_static_texture_state(&draw_sampler[i].texture_state,
-                                      llvm->draw->sampler_views[PIPE_SHADER_TESS_CTRL][i]);
+                                      llvm->draw->sampler_views[MESA_SHADER_TESS_CTRL][i]);
    }
 
    draw_image = draw_tcs_llvm_variant_key_images(key);
@@ -3336,7 +3336,7 @@ draw_tcs_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
           key->nr_images * sizeof *draw_image);
    for (i = 0; i < key->nr_images; i++) {
       lp_sampler_static_texture_state_image(&draw_image[i].image_state,
-                                            llvm->draw->images[PIPE_SHADER_TESS_CTRL][i]);
+                                            llvm->draw->images[MESA_SHADER_TESS_CTRL][i]);
    }
    return key;
 }
@@ -3854,11 +3854,11 @@ draw_tes_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
 
    for (unsigned i = 0 ; i < key->nr_samplers; i++) {
       lp_sampler_static_sampler_state(&draw_sampler[i].sampler_state,
-                                      llvm->draw->samplers[PIPE_SHADER_TESS_EVAL][i]);
+                                      llvm->draw->samplers[MESA_SHADER_TESS_EVAL][i]);
    }
    for (unsigned i = 0 ; i < key->nr_sampler_views; i++) {
       lp_sampler_static_texture_state(&draw_sampler[i].texture_state,
-                                      llvm->draw->sampler_views[PIPE_SHADER_TESS_EVAL][i]);
+                                      llvm->draw->sampler_views[MESA_SHADER_TESS_EVAL][i]);
    }
 
    draw_image = draw_tes_llvm_variant_key_images(key);
@@ -3866,7 +3866,7 @@ draw_tes_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
           key->nr_images * sizeof *draw_image);
    for (unsigned i = 0; i < key->nr_images; i++) {
       lp_sampler_static_texture_state_image(&draw_image[i].image_state,
-                                            llvm->draw->images[PIPE_SHADER_TESS_EVAL][i]);
+                                            llvm->draw->images[MESA_SHADER_TESS_EVAL][i]);
    }
    return key;
 }

@@ -84,9 +84,9 @@ struct brw_compiler {
    void (*shader_debug_log)(void *, unsigned *id, const char *str, ...) PRINTFLIKE(3, 4);
    void (*shader_perf_log)(void *, unsigned *id, const char *str, ...) PRINTFLIKE(3, 4);
 
-   bool scalar_stage[MESA_ALL_SHADER_STAGES];
+   bool scalar_stage[MESA_SHADER_ALL_STAGES];
    bool use_tcs_multi_patch;
-   struct nir_shader_compiler_options *nir_options[MESA_ALL_SHADER_STAGES];
+   struct nir_shader_compiler_options *nir_options[MESA_SHADER_ALL_STAGES];
 
    /**
     * Apply workarounds for SIN and COS output range problems.
@@ -152,16 +152,16 @@ struct brw_compiler {
 #define BRW_SUBGROUP_SIZE 32
 
 static inline bool
-brw_shader_stage_is_bindless(gl_shader_stage stage)
+brw_shader_stage_is_bindless(mesa_shader_stage stage)
 {
    return stage >= MESA_SHADER_RAYGEN &&
           stage <= MESA_SHADER_CALLABLE;
 }
 
 static inline bool
-brw_shader_stage_requires_bindless_resources(gl_shader_stage stage)
+brw_shader_stage_requires_bindless_resources(mesa_shader_stage stage)
 {
-   return brw_shader_stage_is_bindless(stage) || gl_shader_stage_is_mesh(stage);
+   return brw_shader_stage_is_bindless(stage) || mesa_shader_stage_is_mesh(stage);
 }
 
 /**
@@ -784,7 +784,7 @@ struct brw_stage_prog_data {
 
    unsigned nr_params;       /**< number of float params/constants */
 
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    /* zero_push_reg is a bitfield which indicates what push registers (if any)
     * should be zeroed by SW at the start of the shader.  The corresponding
@@ -1400,7 +1400,7 @@ struct brw_vue_map {
 };
 
 void brw_print_vue_map(FILE *fp, const struct brw_vue_map *vue_map,
-                       gl_shader_stage stage);
+                       mesa_shader_stage stage);
 
 /**
  * Convert a VUE slot number into a byte offset within the VUE.
@@ -1703,7 +1703,7 @@ DEFINE_PROG_DATA_DOWNCAST(tcs, prog_data->stage == MESA_SHADER_TESS_CTRL)
 DEFINE_PROG_DATA_DOWNCAST(tes, prog_data->stage == MESA_SHADER_TESS_EVAL)
 DEFINE_PROG_DATA_DOWNCAST(gs,  prog_data->stage == MESA_SHADER_GEOMETRY)
 DEFINE_PROG_DATA_DOWNCAST(wm,  prog_data->stage == MESA_SHADER_FRAGMENT)
-DEFINE_PROG_DATA_DOWNCAST(cs,  gl_shader_stage_uses_workgroup(prog_data->stage))
+DEFINE_PROG_DATA_DOWNCAST(cs,  mesa_shader_stage_uses_workgroup(prog_data->stage))
 DEFINE_PROG_DATA_DOWNCAST(bs,  brw_shader_stage_is_bindless(prog_data->stage))
 
 DEFINE_PROG_DATA_DOWNCAST(vue, prog_data->stage == MESA_SHADER_VERTEX ||
@@ -1750,13 +1750,13 @@ uint64_t
 brw_get_compiler_config_value(const struct brw_compiler *compiler);
 
 unsigned
-brw_prog_data_size(gl_shader_stage stage);
+brw_prog_data_size(mesa_shader_stage stage);
 
 unsigned
-brw_prog_key_size(gl_shader_stage stage);
+brw_prog_key_size(mesa_shader_stage stage);
 
 void
-brw_prog_key_set_id(union brw_any_prog_key *key, gl_shader_stage, unsigned id);
+brw_prog_key_set_id(union brw_any_prog_key *key, mesa_shader_stage, unsigned id);
 
 /**
  * Parameters for compiling a vertex shader.
@@ -2056,7 +2056,7 @@ brw_compile_ff_gs_prog(struct brw_compiler *compiler,
 		       unsigned *final_assembly_size);
 
 void brw_debug_key_recompile(const struct brw_compiler *c, void *log,
-                             gl_shader_stage stage,
+                             mesa_shader_stage stage,
                              const struct brw_base_prog_key *old_key,
                              const struct brw_base_prog_key *key);
 
@@ -2148,7 +2148,7 @@ brw_cs_get_dispatch_info(const struct intel_device_info *devinfo,
  */
 static inline bool
 brw_stage_has_packed_dispatch(ASSERTED const struct intel_device_info *devinfo,
-                              gl_shader_stage stage,
+                              mesa_shader_stage stage,
                               const struct brw_stage_prog_data *prog_data)
 {
    /* The code below makes assumptions about the hardware's thread dispatch

@@ -112,7 +112,7 @@ gather_shader_module_info(struct zink_context *ctx, struct zink_screen *screen,
                           bool has_nonseamless, //is nonseamless ext present?
                           unsigned *inline_size, unsigned *nonseamless_size)
 {
-   gl_shader_stage stage = zs->info.stage;
+   mesa_shader_stage stage = zs->info.stage;
    struct zink_shader_key *key = &state->shader_keys.key[stage];
    if (has_inline && ctx && zs->info.num_inlinable_uniforms &&
        ctx->inlinable_uniforms_valid_mask & BITFIELD64_BIT(stage)) {
@@ -128,7 +128,7 @@ gather_shader_module_info(struct zink_context *ctx, struct zink_screen *screen,
 ALWAYS_INLINE static struct zink_shader_module *
 create_shader_module_for_stage(struct zink_context *ctx, struct zink_screen *screen,
                                struct zink_shader *zs, struct zink_gfx_program *prog,
-                               gl_shader_stage stage,
+                               mesa_shader_stage stage,
                                struct zink_gfx_pipeline_state *state,
                                unsigned inline_size, unsigned nonseamless_size,
                                bool has_inline, //is inlining enabled?
@@ -192,7 +192,7 @@ create_shader_module_for_stage(struct zink_context *ctx, struct zink_screen *scr
 ALWAYS_INLINE static struct zink_shader_module *
 get_shader_module_for_stage(struct zink_context *ctx, struct zink_screen *screen,
                             struct zink_shader *zs, struct zink_gfx_program *prog,
-                            gl_shader_stage stage,
+                            mesa_shader_stage stage,
                             struct zink_gfx_pipeline_state *state,
                             unsigned inline_size, unsigned nonseamless_size,
                             bool has_inline, //is inlining enabled?
@@ -238,7 +238,7 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_screen *screen
 ALWAYS_INLINE static struct zink_shader_module *
 create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_screen *screen,
                                        struct zink_shader *zs, struct zink_gfx_program *prog,
-                                       gl_shader_stage stage,
+                                       mesa_shader_stage stage,
                                        struct zink_gfx_pipeline_state *state)
 {
    struct zink_shader_module *zm;
@@ -295,7 +295,7 @@ create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_scr
 ALWAYS_INLINE static struct zink_shader_module *
 get_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_screen *screen,
                                     struct zink_shader *zs, struct zink_gfx_program *prog,
-                                    gl_shader_stage stage,
+                                    mesa_shader_stage stage,
                                     struct zink_gfx_pipeline_state *state)
 {
    /* non-generated tcs won't use the shader key */
@@ -600,7 +600,7 @@ void
 zink_gfx_program_update(struct zink_context *ctx)
 {
    if (ctx->last_vertex_stage_dirty) {
-      gl_shader_stage pstage = ctx->last_vertex_stage->info.stage;
+      mesa_shader_stage pstage = ctx->last_vertex_stage->info.stage;
       ctx->dirty_gfx_stages |= BITFIELD_BIT(pstage);
       memcpy(&ctx->gfx_pipeline_state.shader_keys.key[pstage].key.vs_base,
              &ctx->gfx_pipeline_state.shader_keys.last_vertex.key.vs_base,
@@ -651,7 +651,7 @@ zink_gfx_program_update(struct zink_context *ctx)
 }
 
 ALWAYS_INLINE static bool
-update_gfx_shader_module_optimal(struct zink_context *ctx, struct zink_gfx_program *prog, gl_shader_stage pstage)
+update_gfx_shader_module_optimal(struct zink_context *ctx, struct zink_gfx_program *prog, mesa_shader_stage pstage)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    if (screen->info.have_EXT_graphics_pipeline_library)
@@ -1380,7 +1380,7 @@ create_compute_program(struct zink_context *ctx, nir_shader *nir)
 }
 
 uint32_t
-zink_program_get_descriptor_usage(struct zink_context *ctx, gl_shader_stage stage, enum zink_descriptor_type type)
+zink_program_get_descriptor_usage(struct zink_context *ctx, mesa_shader_stage stage, enum zink_descriptor_type type)
 {
    struct zink_shader *zs = NULL;
    switch (stage) {
@@ -1416,7 +1416,7 @@ zink_program_get_descriptor_usage(struct zink_context *ctx, gl_shader_stage stag
 }
 
 bool
-zink_program_descriptor_is_buffer(struct zink_context *ctx, gl_shader_stage stage, enum zink_descriptor_type type, unsigned i)
+zink_program_descriptor_is_buffer(struct zink_context *ctx, mesa_shader_stage stage, enum zink_descriptor_type type, unsigned i)
 {
    struct zink_shader *zs = NULL;
    switch (stage) {
@@ -1635,7 +1635,7 @@ zink_get_compute_pipeline(struct zink_screen *screen,
 }
 
 static void
-bind_gfx_stage(struct zink_context *ctx, gl_shader_stage stage, struct zink_shader *shader)
+bind_gfx_stage(struct zink_context *ctx, mesa_shader_stage stage, struct zink_shader *shader)
 {
    if (shader && shader->info.num_inlinable_uniforms)
       ctx->shader_has_inlinable_uniforms_mask |= 1 << stage;
@@ -1716,7 +1716,7 @@ update_rast_prim(struct zink_shader *shader)
 }
 
 static void
-unbind_generated_gs(struct zink_context *ctx, gl_shader_stage stage, struct zink_shader *prev_shader)
+unbind_generated_gs(struct zink_context *ctx, mesa_shader_stage stage, struct zink_shader *prev_shader)
 {
    if (prev_shader->non_fs.is_generated)
       ctx->inlinable_uniforms_valid_mask &= ~BITFIELD64_BIT(MESA_SHADER_GEOMETRY);
@@ -1729,19 +1729,19 @@ unbind_generated_gs(struct zink_context *ctx, gl_shader_stage stage, struct zink
 }
 
 static void
-bind_last_vertex_stage(struct zink_context *ctx, gl_shader_stage stage, struct zink_shader *prev_shader)
+bind_last_vertex_stage(struct zink_context *ctx, mesa_shader_stage stage, struct zink_shader *prev_shader)
 {
    if (prev_shader && stage < MESA_SHADER_GEOMETRY)
       unbind_generated_gs(ctx, stage, prev_shader);
 
-   gl_shader_stage old = ctx->last_vertex_stage ? ctx->last_vertex_stage->info.stage : MESA_SHADER_STAGES;
+   mesa_shader_stage old = ctx->last_vertex_stage ? ctx->last_vertex_stage->info.stage : MESA_SHADER_GL_STAGES;
    if (ctx->gfx_stages[MESA_SHADER_GEOMETRY])
       ctx->last_vertex_stage = ctx->gfx_stages[MESA_SHADER_GEOMETRY];
    else if (ctx->gfx_stages[MESA_SHADER_TESS_EVAL])
       ctx->last_vertex_stage = ctx->gfx_stages[MESA_SHADER_TESS_EVAL];
    else
       ctx->last_vertex_stage = ctx->gfx_stages[MESA_SHADER_VERTEX];
-   gl_shader_stage current = ctx->last_vertex_stage ? ctx->last_vertex_stage->info.stage : MESA_SHADER_VERTEX;
+   mesa_shader_stage current = ctx->last_vertex_stage ? ctx->last_vertex_stage->info.stage : MESA_SHADER_VERTEX;
 
    /* update rast_prim */
    ctx->gfx_pipeline_state.shader_rast_prim =
@@ -1750,7 +1750,7 @@ bind_last_vertex_stage(struct zink_context *ctx, gl_shader_stage stage, struct z
 
    if (old != current) {
       if (!zink_screen(ctx->base.screen)->optimal_keys) {
-         if (old != MESA_SHADER_STAGES) {
+         if (old != MESA_SHADER_GL_STAGES) {
             memset(&ctx->gfx_pipeline_state.shader_keys.key[old].key.vs_base, 0, sizeof(struct zink_vs_key_base));
             ctx->dirty_gfx_stages |= BITFIELD_BIT(old);
          } else {
@@ -2417,7 +2417,7 @@ zink_set_primitive_emulation_keys(struct zink_context *ctx)
    if (lower_line_stipple || lower_line_smooth ||
        lower_edge_flags || lower_quad_prim ||
        lower_pv_mode || zink_get_gs_key(ctx)->lower_gl_point) {
-      enum pipe_shader_type prev_vertex_stage =
+      mesa_shader_stage prev_vertex_stage =
          ctx->gfx_stages[MESA_SHADER_TESS_EVAL] ?
             MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
       enum zink_rast_prim zink_prim_type =

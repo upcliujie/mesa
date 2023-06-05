@@ -123,12 +123,12 @@ brw_compiler_create(void *mem_ctx, const struct intel_device_info *devinfo)
    compiler->indirect_ubos_use_sampler = true;
 
    /* There is no vec4 mode on Gfx10+, and we don't use it at all on Gfx8+. */
-   for (int i = MESA_SHADER_VERTEX; i < MESA_ALL_SHADER_STAGES; i++) {
+   for (int i = MESA_SHADER_VERTEX; i < MESA_SHADER_ALL_STAGES; i++) {
       compiler->scalar_stage[i] = devinfo->ver >= 8 ||
          i == MESA_SHADER_FRAGMENT || i == MESA_SHADER_COMPUTE;
    }
 
-   for (int i = MESA_SHADER_TASK; i < MESA_VULKAN_SHADER_STAGES; i++)
+   for (int i = MESA_SHADER_TASK; i < MESA_SHADER_VULKAN_STAGES; i++)
       compiler->scalar_stage[i] = true;
 
    nir_lower_int64_options int64_options =
@@ -165,7 +165,7 @@ brw_compiler_create(void *mem_ctx, const struct intel_device_info *devinfo)
       int64_options |= nir_lower_imul_2x32_64;
 
    /* We want the GLSL compiler to emit code that uses condition codes */
-   for (int i = 0; i < MESA_ALL_SHADER_STAGES; i++) {
+   for (int i = 0; i < MESA_SHADER_ALL_STAGES; i++) {
       struct nir_shader_compiler_options *nir_options =
          rzalloc(compiler, struct nir_shader_compiler_options);
       bool is_scalar = compiler->scalar_stage[i];
@@ -258,7 +258,7 @@ brw_get_compiler_config_value(const struct brw_compiler *compiler)
 }
 
 unsigned
-brw_prog_data_size(gl_shader_stage stage)
+brw_prog_data_size(mesa_shader_stage stage)
 {
    static const size_t stage_sizes[] = {
       [MESA_SHADER_VERTEX]       = sizeof(struct brw_vs_prog_data),
@@ -282,7 +282,7 @@ brw_prog_data_size(gl_shader_stage stage)
 }
 
 unsigned
-brw_prog_key_size(gl_shader_stage stage)
+brw_prog_key_size(mesa_shader_stage stage)
 {
    static const size_t stage_sizes[] = {
       [MESA_SHADER_VERTEX]       = sizeof(struct brw_vs_prog_key),

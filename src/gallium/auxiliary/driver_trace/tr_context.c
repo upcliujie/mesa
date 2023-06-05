@@ -477,7 +477,7 @@ trace_context_create_sampler_state(struct pipe_context *_pipe,
 
 static void
 trace_context_bind_sampler_states(struct pipe_context *_pipe,
-                                  enum pipe_shader_type shader,
+                                  mesa_shader_stage shader,
                                   unsigned start,
                                   unsigned num_states,
                                   void **states)
@@ -491,7 +491,7 @@ trace_context_bind_sampler_states(struct pipe_context *_pipe,
    trace_dump_call_begin("pipe_context", "bind_sampler_states");
 
    trace_dump_arg(ptr, pipe);
-   trace_dump_arg_enum(shader, tr_util_pipe_shader_type_name(shader));
+   trace_dump_arg_enum(shader, tr_util_mesa_shader_stage_name(shader));
    trace_dump_arg(uint, start);
    trace_dump_arg(uint, num_states);
    trace_dump_arg_array(ptr, states, num_states);
@@ -739,7 +739,7 @@ trace_context_link_shader(struct pipe_context *_pipe, void **shaders)
 
    trace_dump_call_begin("pipe_context", "link_shader");
    trace_dump_arg(ptr, pipe);
-   trace_dump_arg_array(ptr, shaders, PIPE_SHADER_TYPES);
+   trace_dump_arg_array(ptr, shaders, MESA_SHADER_GL_STAGES);
    pipe->link_shader(pipe, shaders);
    trace_dump_call_end();
 }
@@ -925,7 +925,7 @@ trace_context_set_sample_mask(struct pipe_context *_pipe,
 
 static void
 trace_context_set_constant_buffer(struct pipe_context *_pipe,
-                                  enum pipe_shader_type shader, uint index,
+                                  mesa_shader_stage shader, uint index,
                                   bool take_ownership,
                                   const struct pipe_constant_buffer *constant_buffer)
 {
@@ -935,7 +935,7 @@ trace_context_set_constant_buffer(struct pipe_context *_pipe,
    trace_dump_call_begin("pipe_context", "set_constant_buffer");
 
    trace_dump_arg(ptr, pipe);
-   trace_dump_arg_enum(shader, tr_util_pipe_shader_type_name(shader));
+   trace_dump_arg_enum(shader, tr_util_mesa_shader_stage_name(shader));
    trace_dump_arg(uint, index);
    trace_dump_arg(bool, take_ownership);
    trace_dump_arg(constant_buffer, constant_buffer);
@@ -969,7 +969,7 @@ trace_context_set_framebuffer_state(struct pipe_context *_pipe,
 }
 
 static void
-trace_context_set_inlinable_constants(struct pipe_context *_pipe, enum pipe_shader_type shader,
+trace_context_set_inlinable_constants(struct pipe_context *_pipe, mesa_shader_stage shader,
                                       uint num_values, uint32_t *values)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
@@ -978,7 +978,7 @@ trace_context_set_inlinable_constants(struct pipe_context *_pipe, enum pipe_shad
    trace_dump_call_begin("pipe_context", "set_inlinable_constants");
 
    trace_dump_arg(ptr, pipe);
-   trace_dump_arg_enum(shader, tr_util_pipe_shader_type_name(shader));
+   trace_dump_arg_enum(shader, tr_util_mesa_shader_stage_name(shader));
    trace_dump_arg(uint, num_values);
    trace_dump_arg_array(uint, values, num_values);
 
@@ -1191,7 +1191,7 @@ trace_context_surface_destroy(struct pipe_context *_pipe,
 
 static void
 trace_context_set_sampler_views(struct pipe_context *_pipe,
-                                enum pipe_shader_type shader,
+                                mesa_shader_stage shader,
                                 unsigned start,
                                 unsigned num,
                                 unsigned unbind_num_trailing_slots,
@@ -1223,7 +1223,7 @@ trace_context_set_sampler_views(struct pipe_context *_pipe,
    trace_dump_call_begin("pipe_context", "set_sampler_views");
 
    trace_dump_arg(ptr, pipe);
-   trace_dump_arg_enum(shader, tr_util_pipe_shader_type_name(shader));
+   trace_dump_arg_enum(shader, tr_util_mesa_shader_stage_name(shader));
    trace_dump_arg(uint, start);
    trace_dump_arg(uint, num);
    trace_dump_arg(uint, unbind_num_trailing_slots);
@@ -2107,7 +2107,7 @@ trace_context_set_patch_vertices(struct pipe_context *_context,
 }
 
 static void trace_context_set_shader_buffers(struct pipe_context *_context,
-                                             enum pipe_shader_type shader,
+                                             mesa_shader_stage shader,
                                              unsigned start, unsigned nr,
                                              const struct pipe_shader_buffer *buffers,
                                              unsigned writable_bitmask)
@@ -2130,7 +2130,7 @@ static void trace_context_set_shader_buffers(struct pipe_context *_context,
 }
 
 static void trace_context_set_shader_images(struct pipe_context *_context,
-                                            enum pipe_shader_type shader,
+                                            mesa_shader_stage shader,
                                             unsigned start, unsigned nr,
                                             unsigned unbind_num_trailing_slots,
                                             const struct pipe_image_view *images)

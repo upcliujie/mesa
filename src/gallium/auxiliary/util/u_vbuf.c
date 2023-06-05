@@ -437,7 +437,7 @@ void u_vbuf_destroy(struct u_vbuf *mgr)
 {
    struct pipe_screen *screen = mgr->pipe->screen;
    unsigned i;
-   const unsigned num_vb = screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
+   const unsigned num_vb = screen->get_shader_param(screen, MESA_SHADER_VERTEX,
                                                     PIPE_SHADER_CAP_MAX_INPUTS);
 
    mgr->pipe->set_vertex_buffers(mgr->pipe, 0, 0, num_vb, false, NULL);

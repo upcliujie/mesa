@@ -310,7 +310,7 @@ radv_rt_pipeline_compile(struct radv_ray_tracing_pipeline *pipeline,
                          const VkRayTracingPipelineCreateInfoKHR *pCreateInfo,
                          const VkPipelineCreationFeedbackCreateInfo *creation_feedback)
 {
-   struct radv_shader_binary *binaries[MESA_VULKAN_SHADER_STAGES] = {NULL};
+   struct radv_shader_binary *binaries[MESA_SHADER_VULKAN_STAGES] = {NULL};
    bool keep_executable_info = radv_pipeline_capture_shaders(device, pCreateInfo->flags);
    bool keep_statistic_info = radv_pipeline_capture_shader_stats(device, pCreateInfo->flags);
    struct radv_pipeline_stage rt_stage = {0};

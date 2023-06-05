@@ -267,8 +267,6 @@ struct intel_perf_query_result;
  */
 #define ANV_PERF_QUERY_OFFSET_REG 0x2670 /* MI_ALU_REG14 */
 
-#define ANV_GRAPHICS_SHADER_STAGE_COUNT (MESA_SHADER_MESH + 1)
-
 /* For gfx12 we set the streamout buffers using 4 separate commands
  * (3DSTATE_SO_BUFFER_INDEX_*) instead of 3DSTATE_SO_BUFFER. However the layout
  * of the 3DSTATE_SO_BUFFER_INDEX_* commands is identical to that of
@@ -788,7 +786,7 @@ void anv_bo_pool_free(struct anv_bo_pool *pool, struct anv_bo *bo);
 
 struct anv_scratch_pool {
    /* Indexed by Per-Thread Scratch Space number (the hardware value) and stage */
-   struct anv_bo *bos[16][MESA_SHADER_STAGES];
+   struct anv_bo *bos[16][MESA_SHADER_GL_STAGES];
 };
 
 void anv_scratch_pool_init(struct anv_device *device,
@@ -797,7 +795,7 @@ void anv_scratch_pool_finish(struct anv_device *device,
                              struct anv_scratch_pool *pool);
 struct anv_bo *anv_scratch_pool_alloc(struct anv_device *device,
                                       struct anv_scratch_pool *pool,
-                                      gl_shader_stage stage,
+                                      mesa_shader_stage stage,
                                       unsigned per_thread_scratch);
 
 /** Implements a BO cache that ensures a 1-1 mapping of GEM BOs to anv_bos */
@@ -985,7 +983,7 @@ anv_device_search_for_kernel(struct anv_device *device,
 struct anv_shader_bin *
 anv_device_upload_kernel(struct anv_device *device,
                          struct vk_pipeline_cache *cache,
-                         gl_shader_stage stage,
+                         mesa_shader_stage stage,
                          const void *key_data, uint32_t key_size,
                          const void *kernel_data, uint32_t kernel_size,
                          const struct brw_stage_prog_data *prog_data,
@@ -2290,7 +2288,7 @@ struct anv_push_constants {
    uint32_t dynamic_offsets[MAX_DYNAMIC_BUFFERS];
 
    /* Robust access pushed registers. */
-   uint64_t push_reg_mask[MESA_SHADER_STAGES];
+   uint64_t push_reg_mask[MESA_SHADER_GL_STAGES];
 
    struct {
       /** Base workgroup ID
@@ -2510,12 +2508,12 @@ struct anv_cmd_state {
    struct anv_vertex_binding                    vertex_bindings[MAX_VBS];
    bool                                         xfb_enabled;
    struct anv_xfb_binding                       xfb_bindings[MAX_XFB_BUFFERS];
-   struct anv_state                             binding_tables[MESA_VULKAN_SHADER_STAGES];
-   struct anv_state                             samplers[MESA_VULKAN_SHADER_STAGES];
+   struct anv_state                             binding_tables[MESA_SHADER_VULKAN_STAGES];
+   struct anv_state                             samplers[MESA_SHADER_VULKAN_STAGES];
 
-   unsigned char                                sampler_sha1s[MESA_VULKAN_SHADER_STAGES][20];
-   unsigned char                                surface_sha1s[MESA_VULKAN_SHADER_STAGES][20];
-   unsigned char                                push_sha1s[MESA_VULKAN_SHADER_STAGES][20];
+   unsigned char                                sampler_sha1s[MESA_SHADER_VULKAN_STAGES][20];
+   unsigned char                                surface_sha1s[MESA_SHADER_VULKAN_STAGES][20];
+   unsigned char                                push_sha1s[MESA_SHADER_VULKAN_STAGES][20];
 
    /**
     * Whether or not the gfx8 PMA fix is enabled.  We ensure that, at the top
@@ -2757,11 +2755,11 @@ struct anv_event {
    struct anv_state                             state;
 };
 
-#define ANV_STAGE_MASK ((1 << MESA_VULKAN_SHADER_STAGES) - 1)
+#define ANV_STAGE_MASK ((1 << MESA_SHADER_VULKAN_STAGES) - 1)
 
 #define anv_foreach_stage(stage, stage_bits)                         \
-   for (gl_shader_stage stage,                                       \
-        __tmp = (gl_shader_stage)((stage_bits) & ANV_STAGE_MASK);    \
+   for (mesa_shader_stage stage,                                       \
+        __tmp = (mesa_shader_stage)((stage_bits) & ANV_STAGE_MASK);    \
         stage = __builtin_ffs(__tmp) - 1, __tmp;                     \
         __tmp &= ~(1 << (stage)))
 
@@ -2782,7 +2780,7 @@ struct anv_pipeline_bind_map {
 struct anv_shader_bin {
    struct vk_pipeline_cache_object base;
 
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    struct anv_state kernel;
    uint32_t kernel_size;
@@ -2800,7 +2798,7 @@ struct anv_shader_bin {
 
 struct anv_shader_bin *
 anv_shader_bin_create(struct anv_device *device,
-                      gl_shader_stage stage,
+                      mesa_shader_stage stage,
                       const void *key, uint32_t key_size,
                       const void *kernel, uint32_t kernel_size,
                       const struct brw_stage_prog_data *prog_data,
@@ -2822,7 +2820,7 @@ anv_shader_bin_unref(struct anv_device *device, struct anv_shader_bin *shader)
 }
 
 struct anv_pipeline_executable {
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    struct brw_compile_stats stats;
 
@@ -2857,7 +2855,7 @@ struct anv_graphics_pipeline {
    struct anv_pipeline                          base;
 
    /* Shaders */
-   struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
+   struct anv_shader_bin *                      shaders[MESA_SHADER_GL_MESH_STAGES];
 
    VkShaderStageFlags                           active_stages;
 
@@ -2938,7 +2936,7 @@ ANV_DECL_PIPELINE_DOWNCAST(compute, ANV_PIPELINE_COMPUTE)
 
 static inline bool
 anv_pipeline_has_stage(const struct anv_graphics_pipeline *pipeline,
-                       gl_shader_stage stage)
+                       mesa_shader_stage stage)
 {
    return (pipeline->active_stages & mesa_to_vk_shader_stage(stage)) != 0;
 }

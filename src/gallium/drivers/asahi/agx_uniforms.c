@@ -54,7 +54,7 @@ agx_vertex_buffer_ptr(struct agx_batch *batch, unsigned vbo)
 
 uint64_t
 agx_upload_uniforms(struct agx_batch *batch, uint64_t textures,
-                    enum pipe_shader_type stage)
+                    mesa_shader_stage stage)
 {
    struct agx_context *ctx = batch->ctx;
    struct agx_stage *st = &ctx->stage[stage];
@@ -83,7 +83,7 @@ agx_upload_uniforms(struct agx_batch *batch, uint64_t textures,
       uniforms.ssbo_size[cb] = st->ssbo[cb].buffer_size;
    }
 
-   if (stage == PIPE_SHADER_VERTEX) {
+   if (stage == MESA_SHADER_VERTEX) {
       u_foreach_bit(vbo, ctx->vb_mask) {
          uniforms.vs.vbo_base[vbo] = agx_vertex_buffer_ptr(batch, vbo);
       }
@@ -97,7 +97,7 @@ agx_upload_uniforms(struct agx_batch *batch, uint64_t textures,
             uniforms.vs.xfb.size[i] = size;
          }
       }
-   } else if (stage == PIPE_SHADER_FRAGMENT) {
+   } else if (stage == MESA_SHADER_FRAGMENT) {
       memcpy(uniforms.fs.blend_constant, &ctx->blend_color,
              sizeof(ctx->blend_color));
    }

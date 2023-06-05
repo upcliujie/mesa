@@ -41,7 +41,7 @@ protected:
       glsl_type_singleton_decref();
    }
 
-   void get_nir(size_t num_words, const uint32_t *words, gl_shader_stage stage = MESA_SHADER_COMPUTE)
+   void get_nir(size_t num_words, const uint32_t *words, mesa_shader_stage stage = MESA_SHADER_COMPUTE)
    {
       spirv_to_nir_options spirv_options;
       memset(&spirv_options, 0, sizeof(spirv_options));

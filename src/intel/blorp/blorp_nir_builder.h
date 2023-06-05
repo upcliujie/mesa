@@ -26,7 +26,7 @@
 static inline void
 blorp_nir_init_shader(nir_builder *b,
                       void *mem_ctx,
-                      gl_shader_stage stage,
+                      mesa_shader_stage stage,
                       const char *name)
 {
    *b = nir_builder_init_simple_shader(stage, NULL, "%s", name ? name : "");

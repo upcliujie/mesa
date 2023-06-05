@@ -668,7 +668,7 @@ struct vtn_builder {
    bool uses_demote_to_helper_invocation;
    bool convert_discard_to_demote;
 
-   gl_shader_stage entry_point_stage;
+   mesa_shader_stage entry_point_stage;
    const char *entry_point_name;
    struct vtn_value *entry_point;
    struct vtn_value *workgroup_size_builtin;
@@ -960,7 +960,7 @@ bool vtn_handle_opencl_core_instruction(struct vtn_builder *b, SpvOp opcode,
                                         const uint32_t *w, unsigned count);
 
 struct vtn_builder* vtn_create_builder(const uint32_t *words, size_t word_count,
-                                       gl_shader_stage stage, const char *entry_point_name,
+                                       mesa_shader_stage stage, const char *entry_point_name,
                                        const struct spirv_to_nir_options *options);
 
 void vtn_handle_entry_point(struct vtn_builder *b, const uint32_t *w,

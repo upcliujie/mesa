@@ -833,7 +833,7 @@ struct dzn_pipeline_layout {
    } root;
    struct {
       uint8_t hash[SHA1_DIGEST_LENGTH];
-   } stages[MESA_VULKAN_SHADER_STAGES];
+   } stages[MESA_SHADER_VULKAN_STAGES];
 };
 
 struct dzn_descriptor_update_template_entry {
@@ -996,7 +996,7 @@ struct dzn_graphics_pipeline {
       struct {
          D3D12_SHADER_BYTECODE *bc;
          nir_shader *nir;
-      } shaders[MESA_VULKAN_SHADER_STAGES];
+      } shaders[MESA_SHADER_VULKAN_STAGES];
    } templates;
 
    struct hash_table *variants;

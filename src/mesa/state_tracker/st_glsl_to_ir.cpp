@@ -53,17 +53,17 @@ link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
       return st_link_nir(ctx, prog);
    }
 
-   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (unsigned i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (prog->_LinkedShaders[i] == NULL)
          continue;
 
       struct gl_linked_shader *shader = prog->_LinkedShaders[i];
       exec_list *ir = shader->ir;
-      gl_shader_stage stage = shader->Stage;
+      mesa_shader_stage stage = shader->Stage;
       const struct gl_shader_compiler_options *options =
             &ctx->Const.ShaderCompilerOptions[stage];
 
-      enum pipe_shader_type ptarget = pipe_shader_type_from_mesa(stage);
+      mesa_shader_stage ptarget = mesa_shader_stage_from_mesa(stage);
       bool have_dround = pscreen->get_shader_param(pscreen, ptarget,
                                                    PIPE_SHADER_CAP_DROUND_SUPPORTED);
 
@@ -110,15 +110,15 @@ st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
    GLboolean ret = link_shader(ctx, prog);
     
    if (pctx->link_shader) {
-      void *driver_handles[PIPE_SHADER_TYPES];
+      void *driver_handles[MESA_SHADER_GL_STAGES];
       memset(driver_handles, 0, sizeof(driver_handles));
 
-      for (uint32_t i = 0; i < MESA_SHADER_STAGES; ++i) {
+      for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; ++i) {
          struct gl_linked_shader *shader = prog->_LinkedShaders[i];
          if (shader) {
             struct gl_program *p = shader->Program;
             if (p && p->variants) {
-               enum pipe_shader_type type = pipe_shader_type_from_mesa(shader->Stage);
+               mesa_shader_stage type = mesa_shader_stage_from_mesa(shader->Stage);
                driver_handles[type] = p->variants->driver_shader;
             }
          }

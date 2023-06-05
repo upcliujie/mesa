@@ -56,7 +56,7 @@ anv_shader_stage_to_nir(struct anv_device *device,
    const struct anv_physical_device *pdevice = device->physical;
    const struct anv_instance *instance = pdevice->instance;
    const struct brw_compiler *compiler = pdevice->compiler;
-   gl_shader_stage stage = vk_to_mesa_shader_stage(stage_info->stage);
+   mesa_shader_stage stage = vk_to_mesa_shader_stage(stage_info->stage);
    const nir_shader_compiler_options *nir_options =
       compiler->nir_options[stage];
 
@@ -141,7 +141,7 @@ anv_shader_stage_to_nir(struct anv_device *device,
 
    if (INTEL_DEBUG(intel_debug_flag_for_shader_stage(stage))) {
       fprintf(stderr, "NIR (from SPIR-V) for %s shader:\n",
-              gl_shader_stage_name(stage));
+              mesa_shader_stage_name(stage));
       nir_print_shader(nir, stderr);
    }
 
@@ -405,7 +405,7 @@ populate_bs_prog_key(const struct anv_device *device,
 }
 
 struct anv_pipeline_stage {
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    const VkPipelineShaderStageCreateInfo *info;
 
@@ -414,7 +414,7 @@ struct anv_pipeline_stage {
    union brw_any_prog_key key;
 
    struct {
-      gl_shader_stage stage;
+      mesa_shader_stage stage;
       unsigned char sha1[20];
    } cache_key;
 
@@ -455,7 +455,7 @@ anv_pipeline_hash_graphics(struct anv_graphics_pipeline *pipeline,
    const bool rba = pipeline->base.device->vk.enabled_features.robustBufferAccess;
    _mesa_sha1_update(&ctx, &rba, sizeof(rba));
 
-   for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (stages[s].info) {
          _mesa_sha1_update(&ctx, stages[s].shader_sha1,
                            sizeof(stages[s].shader_sha1));
@@ -626,7 +626,7 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
               pdevice, pipeline->device->vk.enabled_features.robustBufferAccess,
               prog_data, &stage->bind_map, mem_ctx);
 
-   if (gl_shader_stage_uses_workgroup(nir->info.stage)) {
+   if (mesa_shader_stage_uses_workgroup(nir->info.stage)) {
       if (!nir->info.shared_memory_explicit_layout) {
          NIR_PASS(_, nir, nir_lower_vars_to_explicit_types,
                   nir_var_mem_shared, shared_type_info);
@@ -651,7 +651,7 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
       }
    }
 
-   if (gl_shader_stage_is_compute(nir->info.stage))
+   if (mesa_shader_stage_is_compute(nir->info.stage))
       NIR_PASS(_, nir, brw_nir_lower_cs_intrinsics);
 
    stage->nir = nir;
@@ -1090,7 +1090,7 @@ anv_graphics_pipeline_init_keys(struct anv_graphics_pipeline *pipeline,
                                 const struct vk_graphics_pipeline_state *state,
                                 struct anv_pipeline_stage *stages)
 {
-   for (uint32_t s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (!stages[s].info)
          continue;
 
@@ -1147,7 +1147,7 @@ anv_graphics_pipeline_load_cached_shaders(struct anv_graphics_pipeline *pipeline
 {
    unsigned found = 0;
    unsigned cache_hits = 0;
-   for (unsigned s = 0; s < ANV_GRAPHICS_SHADER_STAGE_COUNT; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_GL_MESH_STAGES; s++) {
       if (!stages[s].info)
          continue;
 
@@ -1214,7 +1214,7 @@ anv_graphics_pipeline_load_cached_shaders(struct anv_graphics_pipeline *pipeline
    return false;
 }
 
-static const gl_shader_stage graphics_shader_order[] = {
+static const mesa_shader_stage graphics_shader_order[] = {
    MESA_SHADER_VERTEX,
    MESA_SHADER_TESS_CTRL,
    MESA_SHADER_TESS_EVAL,
@@ -1230,7 +1230,7 @@ anv_graphics_pipeline_load_nir(struct anv_graphics_pipeline *pipeline,
                                void *pipeline_ctx)
 {
    for (unsigned i = 0; i < ARRAY_SIZE(graphics_shader_order); i++) {
-      gl_shader_stage s = graphics_shader_order[i];
+      mesa_shader_stage s = graphics_shader_order[i];
       if (!stages[s].info)
          continue;
 
@@ -1272,9 +1272,9 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline *pipeline,
    int64_t pipeline_start = os_time_get_nano();
 
    const struct brw_compiler *compiler = pipeline->base.device->physical->compiler;
-   struct anv_pipeline_stage stages[ANV_GRAPHICS_SHADER_STAGE_COUNT] = {};
+   struct anv_pipeline_stage stages[MESA_SHADER_GL_MESH_STAGES] = {};
    for (uint32_t i = 0; i < info->stageCount; i++) {
-      gl_shader_stage stage = vk_to_mesa_shader_stage(info->pStages[i].stage);
+      mesa_shader_stage stage = vk_to_mesa_shader_stage(info->pStages[i].stage);
       stages[stage].stage = stage;
       stages[stage].info = &info->pStages[i];
    }
@@ -1315,7 +1315,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline *pipeline,
    /* Walk backwards to link */
    struct anv_pipeline_stage *next_stage = NULL;
    for (int i = ARRAY_SIZE(graphics_shader_order) - 1; i >= 0; i--) {
-      gl_shader_stage s = graphics_shader_order[i];
+      mesa_shader_stage s = graphics_shader_order[i];
       if (!stages[s].info)
          continue;
 
@@ -1344,7 +1344,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline *pipeline,
 
    struct anv_pipeline_stage *prev_stage = NULL;
    for (unsigned i = 0; i < ARRAY_SIZE(graphics_shader_order); i++) {
-      gl_shader_stage s = graphics_shader_order[i];
+      mesa_shader_stage s = graphics_shader_order[i];
       if (!stages[s].info)
          continue;
 
@@ -1372,7 +1372,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline *pipeline,
 
    prev_stage = NULL;
    for (unsigned i = 0; i < ARRAY_SIZE(graphics_shader_order); i++) {
-      gl_shader_stage s = graphics_shader_order[i];
+      mesa_shader_stage s = graphics_shader_order[i];
       if (!stages[s].info)
          continue;
 
@@ -1454,7 +1454,7 @@ done:
       uint32_t stage_count = create_feedback->pipelineStageCreationFeedbackCount;
       assert(stage_count == 0 || info->stageCount == stage_count);
       for (uint32_t i = 0; i < stage_count; i++) {
-         gl_shader_stage s = vk_to_mesa_shader_stage(info->pStages[i].stage);
+         mesa_shader_stage s = vk_to_mesa_shader_stage(info->pStages[i].stage);
          create_feedback->pPipelineStageCreationFeedbacks[i] = stages[s].feedback;
       }
    }
@@ -1932,7 +1932,7 @@ VkResult anv_GetPipelineExecutablePropertiesKHR(
 
    util_dynarray_foreach (&pipeline->executables, struct anv_pipeline_executable, exe) {
       vk_outarray_append_typed(VkPipelineExecutablePropertiesKHR, &out, props) {
-         gl_shader_stage stage = exe->stage;
+         mesa_shader_stage stage = exe->stage;
          props->stages = mesa_to_vk_shader_stage(stage);
 
          unsigned simd_width = exe->stats.dispatch_width;
@@ -2066,7 +2066,7 @@ VkResult anv_GetPipelineExecutableStatisticsKHR(
       stat->value.u64 = prog_data->total_scratch;
    }
 
-   if (gl_shader_stage_uses_workgroup(exe->stage)) {
+   if (mesa_shader_stage_uses_workgroup(exe->stage)) {
       vk_outarray_append_typed(VkPipelineExecutableStatisticKHR, &out, stat) {
          WRITE_STR(stat->name, "Workgroup Memory Size");
          WRITE_STR(stat->description,

@@ -492,7 +492,7 @@ struct si_shader_selector {
    struct si_screen *screen;
    struct util_queue_fence ready;
    struct si_compiler_ctx_state compiler_ctx_state;
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    simple_mtx_t mutex;
    union si_shader_key *keys;
@@ -515,7 +515,7 @@ struct si_shader_selector {
 
    struct si_shader_info info;
 
-   enum pipe_shader_type pipe_shader_type;
+   mesa_shader_stage mesa_shader_stage;
    ubyte const_and_shader_buf_descriptors_index;
    ubyte sampler_and_images_descriptors_index;
    ubyte cs_shaderbufs_sgpr_index;
@@ -998,7 +998,7 @@ unsigned si_shader_io_get_unique_index_patch(unsigned semantic);
 unsigned si_shader_io_get_unique_index(unsigned semantic, bool is_varying);
 bool si_shader_binary_upload(struct si_screen *sscreen, struct si_shader *shader,
                              uint64_t scratch_va);
-bool si_can_dump_shader(struct si_screen *sscreen, gl_shader_stage stage,
+bool si_can_dump_shader(struct si_screen *sscreen, mesa_shader_stage stage,
                         enum si_shader_dump_type dump_type);
 void si_shader_dump(struct si_screen *sscreen, struct si_shader *shader,
                     struct util_debug_callback *debug, FILE *f, bool check_debug_option);

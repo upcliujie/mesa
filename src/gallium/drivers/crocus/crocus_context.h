@@ -509,8 +509,8 @@ struct crocus_context {
    } draw;
 
    struct {
-      struct crocus_uncompiled_shader *uncompiled[MESA_SHADER_STAGES];
-      struct crocus_compiled_shader *prog[MESA_SHADER_STAGES];
+      struct crocus_uncompiled_shader *uncompiled[MESA_SHADER_GL_STAGES];
+      struct crocus_compiled_shader *prog[MESA_SHADER_GL_STAGES];
       struct brw_vue_map *last_vue_map;
 
       struct crocus_bo *cache_bo;
@@ -544,7 +544,7 @@ struct crocus_context {
        * Indexed by the "Per-Thread Scratch Space" field's 4-bit encoding,
        * and shader stage.
        */
-      struct crocus_bo *scratch_bos[1 << 4][MESA_SHADER_STAGES];
+      struct crocus_bo *scratch_bos[1 << 4][MESA_SHADER_GL_STAGES];
    } shaders;
 
    struct {
@@ -621,7 +621,7 @@ struct crocus_context {
       /** GenX-specific current state */
       struct crocus_genx_state *genx;
 
-      struct crocus_shader_state shaders[MESA_SHADER_STAGES];
+      struct crocus_shader_state shaders[MESA_SHADER_GL_STAGES];
 
       /* track if geom shader is active for IVB GT2 workaround */
       bool gs_enabled;
@@ -835,10 +835,10 @@ void crocus_init_flush_functions(struct pipe_context *ctx);
 
 /* crocus_program.c */
 const struct shader_info *crocus_get_shader_info(const struct crocus_context *ice,
-                                                 gl_shader_stage stage);
+                                                 mesa_shader_stage stage);
 struct crocus_bo *crocus_get_scratch_space(struct crocus_context *ice,
                                            unsigned per_thread_scratch,
-                                           gl_shader_stage stage);
+                                           mesa_shader_stage stage);
 /**
  * Map a <group, index> pair to a binding table index.
  *
@@ -940,7 +940,7 @@ bool crocus_blorp_upload_shader(struct blorp_batch *blorp_batch,
 void crocus_predraw_resolve_inputs(struct crocus_context *ice,
                                    struct crocus_batch *batch,
                                    bool *draw_aux_buffer_disabled,
-                                   gl_shader_stage stage,
+                                   mesa_shader_stage stage,
                                    bool consider_framebuffer);
 void crocus_predraw_resolve_framebuffer(struct crocus_context *ice,
                                         struct crocus_batch *batch,

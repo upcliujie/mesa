@@ -32,7 +32,7 @@ namespace {
 
 class vector_deref_visitor : public ir_rvalue_enter_visitor {
 public:
-   vector_deref_visitor(void *mem_ctx, gl_shader_stage shader_stage)
+   vector_deref_visitor(void *mem_ctx, mesa_shader_stage shader_stage)
       : progress(false), shader_stage(shader_stage),
         factory(&factory_instructions, mem_ctx)
    {
@@ -46,7 +46,7 @@ public:
    virtual ir_visitor_status visit_enter(ir_assignment *ir);
 
    bool progress;
-   gl_shader_stage shader_stage;
+   mesa_shader_stage shader_stage;
    exec_list factory_instructions;
    ir_factory factory;
 };

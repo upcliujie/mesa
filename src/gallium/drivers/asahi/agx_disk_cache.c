@@ -25,7 +25,7 @@ static void
 agx_disk_cache_compute_key(struct disk_cache *cache,
                            const struct agx_uncompiled_shader *uncompiled,
                            const union asahi_shader_key *shader_key,
-                           gl_shader_stage stage, cache_key cache_key)
+                           mesa_shader_stage stage, cache_key cache_key)
 {
    uint8_t data[sizeof(uncompiled->nir_sha1) + sizeof(*shader_key)];
    int hash_size = sizeof(uncompiled->nir_sha1);
@@ -34,7 +34,7 @@ agx_disk_cache_compute_key(struct disk_cache *cache,
       key_size = sizeof(shader_key->vs);
    else if (stage == MESA_SHADER_FRAGMENT)
       key_size = sizeof(shader_key->fs);
-   else if (gl_shader_stage_is_compute(stage))
+   else if (mesa_shader_stage_is_compute(stage))
       key_size = 0;
    else
       unreachable("Unsupported shader stage");
@@ -65,7 +65,7 @@ agx_disk_cache_store(struct disk_cache *cache,
 
    assert(binary->bo->ptr.cpu != NULL && "shaders must be CPU mapped");
 
-   gl_shader_stage stage = uncompiled->nir->info.stage;
+   mesa_shader_stage stage = uncompiled->nir->info.stage;
    cache_key cache_key;
    agx_disk_cache_compute_key(cache, uncompiled, key, stage, cache_key);
 
@@ -98,7 +98,7 @@ agx_disk_cache_retrieve(struct agx_screen *screen,
    if (!cache)
       return NULL;
 
-   gl_shader_stage stage = uncompiled->nir->info.stage;
+   mesa_shader_stage stage = uncompiled->nir->info.stage;
    cache_key cache_key;
    agx_disk_cache_compute_key(cache, uncompiled, key, stage, cache_key);
 

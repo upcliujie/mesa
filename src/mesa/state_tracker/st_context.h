@@ -116,7 +116,7 @@ struct st_zombie_sampler_view_node
 struct st_zombie_shader_node
 {
    void *shader;
-   enum pipe_shader_type type;
+   mesa_shader_stage type;
    struct list_head node;
 };
 
@@ -195,7 +195,7 @@ struct st_context
     * This means it has only 1 variant, not counting glBitmap and
     * glDrawPixels.
     */
-   boolean shader_has_one_variant[MESA_SHADER_STAGES];
+   boolean shader_has_one_variant[MESA_SHADER_GL_STAGES];
 
    boolean needs_texcoord_semantic;
    boolean apply_texture_swizzle_to_border_color;
@@ -223,8 +223,8 @@ struct st_context
       struct pipe_sampler_state frag_samplers[PIPE_MAX_SAMPLERS];
       GLuint num_vert_samplers;
       GLuint num_frag_samplers;
-      GLuint num_sampler_views[PIPE_SHADER_TYPES];
-      unsigned num_images[PIPE_SHADER_TYPES];
+      GLuint num_sampler_views[MESA_SHADER_GL_STAGES];
+      unsigned num_images[MESA_SHADER_GL_STAGES];
       struct pipe_clip_state clip;
       unsigned constbuf0_enabled_shader_mask;
       unsigned fb_width;
@@ -270,7 +270,7 @@ struct st_context
          struct gl_program *fp;  /**< Currently bound fragment program */
          struct gl_program *cp;   /**< Currently bound compute program */
       };
-      struct gl_program *current_program[MESA_SHADER_STAGES];
+      struct gl_program *current_program[MESA_SHADER_GL_STAGES];
    };
 
    struct st_common_variant *vp_variant;
@@ -363,8 +363,8 @@ struct st_context
    unsigned last_num_vbuffers;
    bool uses_user_vertex_buffers;
 
-   unsigned last_used_atomic_bindings[PIPE_SHADER_TYPES];
-   unsigned last_num_ssbos[PIPE_SHADER_TYPES];
+   unsigned last_used_atomic_bindings[MESA_SHADER_GL_STAGES];
+   unsigned last_num_ssbos[MESA_SHADER_GL_STAGES];
 
    int32_t draw_stamp;
    int32_t read_stamp;
@@ -375,8 +375,8 @@ struct st_context
 
    /* Array of bound texture/image handles which are resident in the context.
     */
-   struct st_bound_handles bound_texture_handles[PIPE_SHADER_TYPES];
-   struct st_bound_handles bound_image_handles[PIPE_SHADER_TYPES];
+   struct st_bound_handles bound_texture_handles[MESA_SHADER_GL_STAGES];
+   struct st_bound_handles bound_image_handles[MESA_SHADER_GL_STAGES];
 
    /* Winsys buffers */
    struct list_head winsys_buffers;
@@ -475,7 +475,7 @@ st_save_zombie_sampler_view(struct st_context *st,
 
 extern void
 st_save_zombie_shader(struct st_context *st,
-                      enum pipe_shader_type type,
+                      mesa_shader_stage type,
                       struct pipe_shader_state *shader);
 
 
@@ -483,7 +483,7 @@ void
 st_context_free_zombie_objects(struct st_context *st);
 
 const struct nir_shader_compiler_options *
-st_get_nir_compiler_options(struct st_context *st, gl_shader_stage stage);
+st_get_nir_compiler_options(struct st_context *st, mesa_shader_stage stage);
 
 
 void st_invalidate_state(struct gl_context *ctx);

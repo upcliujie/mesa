@@ -52,11 +52,11 @@ struct panvk_pipeline_builder {
    } create_info;
    const struct panvk_pipeline_layout *layout;
 
-   struct panvk_shader *shaders[MESA_SHADER_STAGES];
+   struct panvk_shader *shaders[MESA_SHADER_GL_STAGES];
    struct {
       uint32_t shader_offset;
       uint32_t rsd_offset;
-   } stages[MESA_SHADER_STAGES];
+   } stages[MESA_SHADER_GL_STAGES];
    uint32_t blend_shader_offsets[MAX_RTS];
    uint32_t shader_total_size;
    uint32_t static_state_size;
@@ -89,7 +89,7 @@ panvk_pipeline_builder_create_pipeline(struct panvk_pipeline_builder *builder,
 static void
 panvk_pipeline_builder_finish(struct panvk_pipeline_builder *builder)
 {
-   for (uint32_t i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       if (!builder->shaders[i])
          continue;
       panvk_shader_destroy(builder->device, builder->shaders[i],
@@ -107,7 +107,7 @@ static VkResult
 panvk_pipeline_builder_compile_shaders(struct panvk_pipeline_builder *builder,
                                        struct panvk_pipeline *pipeline)
 {
-   const VkPipelineShaderStageCreateInfo *stage_infos[MESA_SHADER_STAGES] = {
+   const VkPipelineShaderStageCreateInfo *stage_infos[MESA_SHADER_GL_STAGES] = {
       NULL};
    const VkPipelineShaderStageCreateInfo *stages =
       builder->create_info.gfx ? builder->create_info.gfx->pStages
@@ -116,12 +116,12 @@ panvk_pipeline_builder_compile_shaders(struct panvk_pipeline_builder *builder,
       builder->create_info.gfx ? builder->create_info.gfx->stageCount : 1;
 
    for (uint32_t i = 0; i < stage_count; i++) {
-      gl_shader_stage stage = vk_to_mesa_shader_stage(stages[i].stage);
+      mesa_shader_stage stage = vk_to_mesa_shader_stage(stages[i].stage);
       stage_infos[stage] = &stages[i];
    }
 
    /* compile shaders in reverse order */
-   for (gl_shader_stage stage = MESA_SHADER_STAGES - 1;
+   for (mesa_shader_stage stage = MESA_SHADER_GL_STAGES - 1;
         stage > MESA_SHADER_NONE; stage--) {
       const VkPipelineShaderStageCreateInfo *stage_info = stage_infos[stage];
       if (!stage_info)
@@ -165,7 +165,7 @@ panvk_pipeline_builder_upload_shaders(struct panvk_pipeline_builder *builder,
    pipeline->binary_bo = bin_bo;
    panfrost_bo_mmap(bin_bo);
 
-   for (uint32_t i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       const struct panvk_shader *shader = builder->shaders[i];
       if (!shader)
          continue;
@@ -185,7 +185,7 @@ panvk_pipeline_builder_alloc_static_state_bo(
    struct panfrost_device *pdev = &builder->device->physical_device->pdev;
    unsigned bo_size = 0;
 
-   for (uint32_t i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       const struct panvk_shader *shader = builder->shaders[i];
       if (!shader && i != MESA_SHADER_FRAGMENT)
          continue;
@@ -218,7 +218,7 @@ panvk_pipeline_builder_alloc_static_state_bo(
 static void
 panvk_pipeline_builder_init_sysvals(struct panvk_pipeline_builder *builder,
                                     struct panvk_pipeline *pipeline,
-                                    gl_shader_stage stage)
+                                    mesa_shader_stage stage)
 {
    const struct panvk_shader *shader = builder->shaders[stage];
 
@@ -229,7 +229,7 @@ static void
 panvk_pipeline_builder_init_shaders(struct panvk_pipeline_builder *builder,
                                     struct panvk_pipeline *pipeline)
 {
-   for (uint32_t i = 0; i < MESA_SHADER_STAGES; i++) {
+   for (uint32_t i = 0; i < MESA_SHADER_GL_STAGES; i++) {
       const struct panvk_shader *shader = builder->shaders[i];
       if (!shader)
          continue;
@@ -789,7 +789,7 @@ panvk_pipeline_builder_init_fs_state(struct panvk_pipeline_builder *builder,
 
 static void
 panvk_pipeline_update_varying_slot(struct panvk_varyings_info *varyings,
-                                   gl_shader_stage stage,
+                                   mesa_shader_stage stage,
                                    const struct pan_shader_varying *varying,
                                    bool input)
 {
@@ -833,7 +833,7 @@ static void
 panvk_pipeline_builder_collect_varyings(struct panvk_pipeline_builder *builder,
                                         struct panvk_pipeline *pipeline)
 {
-   for (uint32_t s = 0; s < MESA_SHADER_STAGES; s++) {
+   for (uint32_t s = 0; s < MESA_SHADER_GL_STAGES; s++) {
       if (!builder->shaders[s])
          continue;
 

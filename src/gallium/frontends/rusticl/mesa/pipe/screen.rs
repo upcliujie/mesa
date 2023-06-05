@@ -216,7 +216,7 @@ impl PipeScreen {
         unsafe { (*self.screen).get_param.unwrap()(self.screen, cap) }
     }
 
-    pub fn shader_param(&self, t: pipe_shader_type, cap: pipe_shader_cap) -> i32 {
+    pub fn shader_param(&self, t: mesa_shader_stage, cap: pipe_shader_cap) -> i32 {
         unsafe { (*self.screen).get_shader_param.unwrap()(self.screen, t, cap) }
     }
 
@@ -307,7 +307,7 @@ impl PipeScreen {
 
     pub fn nir_shader_compiler_options(
         &self,
-        shader: pipe_shader_type,
+        shader: mesa_shader_stage,
     ) -> *const nir_shader_compiler_options {
         unsafe {
             (*self.screen).get_compiler_options.unwrap()(

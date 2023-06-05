@@ -77,7 +77,7 @@ struct si_shader_context {
    struct si_shader *shader;
    struct si_screen *screen;
 
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
 
    /* For clamping the non-constant index in resource indexing: */
    unsigned num_const_buffers;
@@ -160,7 +160,7 @@ bool si_nir_lower_vs_inputs(nir_shader *nir, struct si_shader *shader,
 bool si_compile_llvm(struct si_screen *sscreen, struct si_shader_binary *binary,
                      struct ac_shader_config *conf, struct ac_llvm_compiler *compiler,
                      struct ac_llvm_context *ac, struct util_debug_callback *debug,
-                     gl_shader_stage stage, const char *name, bool less_optimized);
+                     mesa_shader_stage stage, const char *name, bool less_optimized);
 void si_llvm_context_init(struct si_shader_context *ctx, struct si_screen *sscreen,
                           struct ac_llvm_compiler *compiler, unsigned wave_size,
                           bool exports_color_null, bool exports_mrtz,

@@ -36,8 +36,8 @@ struct gl_shader_program;
 void
 validate_first_and_last_interface_explicit_locations(const struct gl_constants *consts,
                                                      struct gl_shader_program *prog,
-                                                     gl_shader_stage first,
-                                                     gl_shader_stage last);
+                                                     mesa_shader_stage first,
+                                                     mesa_shader_stage last);
 
 void
 cross_validate_outputs_to_inputs(const struct gl_constants *consts,

@@ -352,7 +352,7 @@ impl SPIRVBin {
                 self.spirv.size / 4,
                 spec_constants.as_mut_ptr(),
                 spec_constants.len() as u32,
-                gl_shader_stage::MESA_SHADER_KERNEL,
+                mesa_shader_stage::MESA_SHADER_KERNEL,
                 c_entry.as_ptr(),
                 &spirv_options,
                 nir_options,
@@ -363,7 +363,8 @@ impl SPIRVBin {
     }
 
     pub fn get_lib_clc(screen: &PipeScreen) -> Option<NirShader> {
-        let nir_options = screen.nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE);
+        let nir_options =
+            screen.nir_shader_compiler_options(mesa_shader_stage::MESA_SHADER_COMPUTE);
         let address_bits = screen.compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_ADDRESS_BITS);
         let spirv_options = Self::get_spirv_options(true, ptr::null(), address_bits, None);
         let shader_cache = DiskCacheBorrowed::as_ptr(&screen.shader_cache());

@@ -44,7 +44,7 @@
  * geometry shader inputs).
  */
 static const glsl_type *
-get_varying_type(const ir_variable *var, gl_shader_stage stage)
+get_varying_type(const ir_variable *var, mesa_shader_stage stage)
 {
    const glsl_type *type = var->type;
 
@@ -70,8 +70,8 @@ cross_validate_types_and_qualifiers(const struct gl_constants *consts,
                                     struct gl_shader_program *prog,
                                     const ir_variable *input,
                                     const ir_variable *output,
-                                    gl_shader_stage consumer_stage,
-                                    gl_shader_stage producer_stage)
+                                    mesa_shader_stage consumer_stage,
+                                    mesa_shader_stage producer_stage)
 {
    /* Check that the types match between stages.
     */
@@ -277,8 +277,8 @@ cross_validate_front_and_back_color(const struct gl_constants *consts,
                                     const ir_variable *input,
                                     const ir_variable *front_color,
                                     const ir_variable *back_color,
-                                    gl_shader_stage consumer_stage,
-                                    gl_shader_stage producer_stage)
+                                    mesa_shader_stage consumer_stage,
+                                    mesa_shader_stage producer_stage)
 {
    if (front_color != NULL && front_color->data.assigned)
       cross_validate_types_and_qualifiers(consts, prog, input, front_color,
@@ -290,7 +290,7 @@ cross_validate_front_and_back_color(const struct gl_constants *consts,
 }
 
 static unsigned
-compute_variable_location_slot(ir_variable *var, gl_shader_stage stage)
+compute_variable_location_slot(ir_variable *var, mesa_shader_stage stage)
 {
    unsigned location_start = VARYING_SLOT_VAR0;
 
@@ -337,7 +337,7 @@ check_location_aliasing(struct explicit_location_info explicit_locations[][4],
                         bool sample,
                         bool patch,
                         gl_shader_program *prog,
-                        gl_shader_stage stage)
+                        mesa_shader_stage stage)
 {
    unsigned last_comp;
    unsigned base_type_bit_size;
@@ -562,8 +562,8 @@ validate_explicit_variable_location(const struct gl_constants *consts,
 void
 validate_first_and_last_interface_explicit_locations(const struct gl_constants *consts,
                                                      struct gl_shader_program *prog,
-                                                     gl_shader_stage first_stage,
-                                                     gl_shader_stage last_stage)
+                                                     mesa_shader_stage first_stage,
+                                                     mesa_shader_stage last_stage)
 {
    /* VS inputs and FS outputs are validated in
     * assign_attribute_or_color_locations()
@@ -575,7 +575,7 @@ validate_first_and_last_interface_explicit_locations(const struct gl_constants *
 
    struct explicit_location_info explicit_locations[MAX_VARYING][4];
 
-   gl_shader_stage stages[2] = { first_stage, last_stage };
+   mesa_shader_stage stages[2] = { first_stage, last_stage };
    bool validate_stage[2] = { validate_first_stage, validate_last_stage };
    ir_variable_mode var_direction[2] = { ir_var_shader_in, ir_var_shader_out };
 
@@ -583,7 +583,7 @@ validate_first_and_last_interface_explicit_locations(const struct gl_constants *
       if (!validate_stage[i])
          continue;
 
-      gl_shader_stage stage = stages[i];
+      mesa_shader_stage stage = stages[i];
 
       gl_linked_shader *sh = prog->_LinkedShaders[stage];
       assert(sh);

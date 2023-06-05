@@ -3238,7 +3238,7 @@ midgard_compile_shader_nir(nir_shader *nir,
                "%u registers, %u threads, %u loops, "
                "%u:%u spills:fills",
                ctx->inputs->is_blend ? "PAN_SHADER_BLEND"
-                                     : gl_shader_stage_name(ctx->stage),
+                                     : mesa_shader_stage_name(ctx->stage),
                nr_ins, nr_bundles, ctx->quadword_count, nr_registers,
                nr_threads, ctx->loop_count, ctx->spills, ctx->fills);
 

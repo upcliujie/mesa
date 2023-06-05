@@ -337,7 +337,7 @@ struct v3dv_pipeline_cache_stats {
    uint32_t on_disk_hit;
 };
 
-/* Equivalent to gl_shader_stage, but including the coordinate shaders
+/* Equivalent to mesa_shader_stage, but including the coordinate shaders
  *
  * FIXME: perhaps move to common
  */
@@ -354,7 +354,7 @@ enum broadcom_shader_stage {
 
 /* Assumes that coordinate shaders will be custom-handled by the caller */
 static inline enum broadcom_shader_stage
-gl_shader_stage_to_broadcom(gl_shader_stage stage)
+mesa_shader_stage_to_broadcom(mesa_shader_stage stage)
 {
    switch (stage) {
    case MESA_SHADER_VERTEX:
@@ -370,7 +370,7 @@ gl_shader_stage_to_broadcom(gl_shader_stage stage)
    }
 }
 
-static inline gl_shader_stage
+static inline mesa_shader_stage
 broadcom_shader_stage_to_gl(enum broadcom_shader_stage stage)
 {
    switch (stage) {
@@ -435,7 +435,7 @@ broadcom_shader_stage_name(enum broadcom_shader_stage stage)
    case BROADCOM_SHADER_GEOMETRY_BIN:
       return "MESA_SHADER_GEOMETRY_BIN";
    default:
-      return gl_shader_stage_name(broadcom_shader_stage_to_gl(stage));
+      return mesa_shader_stage_name(broadcom_shader_stage_to_gl(stage));
    }
 }
 

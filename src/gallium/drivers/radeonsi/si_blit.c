@@ -35,7 +35,7 @@ void si_blitter_begin(struct si_context *sctx, enum si_blitter_op op)
 
    if (op & SI_SAVE_FRAGMENT_STATE) {
       struct pipe_constant_buffer fs_cb = {};
-      si_get_pipe_constant_buffer(sctx, PIPE_SHADER_FRAGMENT, 0, &fs_cb);
+      si_get_pipe_constant_buffer(sctx, MESA_SHADER_FRAGMENT, 0, &fs_cb);
       util_blitter_save_fragment_constant_buffer_slot(sctx->blitter, &fs_cb);
       pipe_resource_reference(&fs_cb.buffer, NULL);
       util_blitter_save_blend(sctx->blitter, sctx->queued.named.blend);
@@ -53,10 +53,10 @@ void si_blitter_begin(struct si_context *sctx, enum si_blitter_op op)
 
    if (op & SI_SAVE_TEXTURES) {
       util_blitter_save_fragment_sampler_states(
-         sctx->blitter, 2, (void **)sctx->samplers[PIPE_SHADER_FRAGMENT].sampler_states);
+         sctx->blitter, 2, (void **)sctx->samplers[MESA_SHADER_FRAGMENT].sampler_states);
 
       util_blitter_save_fragment_sampler_views(sctx->blitter, 2,
-                                               sctx->samplers[PIPE_SHADER_FRAGMENT].views);
+                                               sctx->samplers[MESA_SHADER_FRAGMENT].views);
    }
 
    if (op & SI_DISABLE_RENDER_COND)
@@ -721,7 +721,7 @@ static void si_check_render_feedback(struct si_context *sctx)
    if (!si_get_total_colormask(sctx))
       return;
 
-   for (int i = 0; i < SI_NUM_GRAPHICS_SHADERS; ++i) {
+   for (int i = 0; i < MESA_SHADER_GL_GRAPHICS_STAGES; ++i) {
       if (!sctx->shaders[i].cso)
          continue;
 
@@ -814,7 +814,7 @@ void si_decompress_textures(struct si_context *sctx, unsigned shader_mask)
       sctx->b.flush(&sctx->b, NULL, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW);
    }
 
-   if (shader_mask & u_bit_consecutive(0, SI_NUM_GRAPHICS_SHADERS)) {
+   if (shader_mask & u_bit_consecutive(0, MESA_SHADER_GL_GRAPHICS_STAGES)) {
       if (sctx->uses_bindless_samplers)
          si_decompress_resident_textures(sctx);
       if (sctx->uses_bindless_images)
@@ -827,7 +827,7 @@ void si_decompress_textures(struct si_context *sctx, unsigned shader_mask)
       }
 
       si_check_render_feedback(sctx);
-   } else if (shader_mask & (1 << PIPE_SHADER_COMPUTE)) {
+   } else if (shader_mask & (1 << MESA_SHADER_COMPUTE)) {
       if (sctx->cs_shader_state.program->sel.info.uses_bindless_samplers)
          si_decompress_resident_textures(sctx);
       if (sctx->cs_shader_state.program->sel.info.uses_bindless_images)

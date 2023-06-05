@@ -572,8 +572,8 @@ build_dgc_prepare_shader(struct radv_device *dev)
 
          nir_ssa_def *param_buf = radv_meta_load_descriptor(&b, 0, DGC_DESC_PARAMS);
          nir_ssa_def *param_offset = nir_imul_imm(&b, vbo_cnt, 24);
-         nir_ssa_def *param_offset_offset = nir_iadd_imm(&b, param_offset, MESA_VULKAN_SHADER_STAGES * 12);
-         nir_ssa_def *param_const_offset = nir_iadd_imm(&b, param_offset, MAX_PUSH_CONSTANTS_SIZE + MESA_VULKAN_SHADER_STAGES * 12);
+         nir_ssa_def *param_offset_offset = nir_iadd_imm(&b, param_offset, MESA_SHADER_VULKAN_STAGES * 12);
+         nir_ssa_def *param_const_offset = nir_iadd_imm(&b, param_offset, MAX_PUSH_CONSTANTS_SIZE + MESA_SHADER_VULKAN_STAGES * 12);
          nir_push_loop(&b);
          {
             nir_ssa_def *cur_idx = nir_load_var(&b, idx);

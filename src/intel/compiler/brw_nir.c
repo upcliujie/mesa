@@ -195,7 +195,7 @@ remap_patch_urb_offsets(nir_block *block, nir_builder *b,
 
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
 
-      gl_shader_stage stage = b->shader->info.stage;
+      mesa_shader_stage stage = b->shader->info.stage;
 
       if ((stage == MESA_SHADER_TESS_CTRL && is_output(intrin)) ||
           (stage == MESA_SHADER_TESS_EVAL && is_input(intrin))) {
@@ -1563,7 +1563,7 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
       OPT(nir_lower_idiv, &options);
    }
 
-   if (gl_shader_stage_can_set_fragment_shading_rate(nir->info.stage))
+   if (mesa_shader_stage_can_set_fragment_shading_rate(nir->info.stage))
       NIR_PASS(_, nir, brw_nir_lower_shading_rate_output);
 
    brw_nir_optimize(nir, compiler);
@@ -1669,7 +1669,7 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
       devinfo->ver >= 8 &&
       nir->info.stage != MESA_SHADER_KERNEL &&
       nir->info.stage != MESA_SHADER_RAYGEN &&
-      !gl_shader_stage_is_callable(nir->info.stage);
+      !mesa_shader_stage_is_callable(nir->info.stage);
 
    if (opt_uniform_atomic_stage_allowed && OPT(nir_opt_uniform_atomics)) {
       const nir_lower_subgroups_options subgroups_options = {
@@ -1800,7 +1800,7 @@ get_subgroup_size(const struct shader_info *info, unsigned max_subgroup_size)
    case SUBGROUP_SIZE_REQUIRE_8:
    case SUBGROUP_SIZE_REQUIRE_16:
    case SUBGROUP_SIZE_REQUIRE_32:
-      assert(gl_shader_stage_uses_workgroup(info->stage) ||
+      assert(mesa_shader_stage_uses_workgroup(info->stage) ||
              (info->stage >= MESA_SHADER_RAYGEN && info->stage <= MESA_SHADER_CALLABLE));
       /* These enum values are expressly chosen to be equal to the subgroup
        * size that they require.

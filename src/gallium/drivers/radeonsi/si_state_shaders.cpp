@@ -26,7 +26,7 @@ unsigned si_determine_wave_size(struct si_screen *sscreen, struct si_shader *sha
 {
    /* There are a few uses that pass shader=NULL here, expecting the default compute wave size. */
    struct si_shader_info *info = shader ? &shader->selector->info : NULL;
-   gl_shader_stage stage = shader ? shader->selector->stage : MESA_SHADER_COMPUTE;
+   mesa_shader_stage stage = shader ? shader->selector->stage : MESA_SHADER_COMPUTE;
 
    if (sscreen->info.gfx_level < GFX10)
       return 64;
@@ -1040,7 +1040,7 @@ static void si_shader_gs(struct si_screen *sscreen, struct si_shader *shader)
 
    if (sscreen->info.gfx_level >= GFX9) {
       unsigned input_prim = sel->info.base.gs.input_primitive;
-      gl_shader_stage es_stage = shader->key.ge.part.gs.es->stage;
+      mesa_shader_stage es_stage = shader->key.ge.part.gs.es->stage;
       unsigned es_vgpr_comp_cnt, gs_vgpr_comp_cnt;
 
       if (es_stage == MESA_SHADER_VERTEX) {
@@ -1300,11 +1300,11 @@ static void gfx10_shader_ngg(struct si_screen *sscreen, struct si_shader *shader
 {
    const struct si_shader_selector *gs_sel = shader->selector;
    const struct si_shader_info *gs_info = &gs_sel->info;
-   const gl_shader_stage gs_stage = shader->selector->stage;
+   const mesa_shader_stage gs_stage = shader->selector->stage;
    const struct si_shader_selector *es_sel =
       shader->previous_stage_sel ? shader->previous_stage_sel : shader->selector;
    const struct si_shader_info *es_info = &es_sel->info;
-   const gl_shader_stage es_stage = es_sel->stage;
+   const mesa_shader_stage es_stage = es_sel->stage;
    unsigned num_user_sgprs;
    unsigned num_params, es_vgpr_comp_cnt, gs_vgpr_comp_cnt;
    uint64_t va;
@@ -2870,7 +2870,7 @@ int si_shader_select(struct pipe_context *ctx, struct si_shader_ctx_state *state
 static void si_parse_next_shader_property(const struct si_shader_info *info,
                                           union si_shader_key *key)
 {
-   gl_shader_stage next_shader = info->base.next_stage;
+   mesa_shader_stage next_shader = info->base.next_stage;
 
    switch (info->base.stage) {
    case MESA_SHADER_VERTEX:
@@ -2995,7 +2995,7 @@ static void si_init_shader_selector_async(void *job, void *gdata, int thread_ind
                "radeonsi: can't compile a main shader part (type: %s, name: %s).\n"
                "This is probably a driver bug, please report "
                "it to https://gitlab.freedesktop.org/mesa/mesa/-/issues.\n",
-               gl_shader_stage_name(shader->selector->stage),
+               mesa_shader_stage_name(shader->selector->stage),
                shader->selector->info.base.name);
             FREE(shader);
             return;
@@ -3051,7 +3051,7 @@ static void si_init_shader_selector_async(void *job, void *gdata, int thread_ind
    }
 }
 
-void si_schedule_initial_compile(struct si_context *sctx, gl_shader_stage stage,
+void si_schedule_initial_compile(struct si_context *sctx, mesa_shader_stage stage,
                                  struct util_queue_fence *ready_fence,
                                  struct si_compiler_ctx_state *compiler_ctx_state, void *job,
                                  util_queue_execute_func execute)
@@ -3141,8 +3141,8 @@ static void *si_create_shader_selector(struct pipe_context *ctx,
    si_nir_scan_shader(sscreen, sel->nir, &sel->info);
 
    sel->stage = sel->nir->info.stage;
-   const enum pipe_shader_type type = pipe_shader_type_from_mesa(sel->stage);
-   sel->pipe_shader_type = type;
+   const mesa_shader_stage type = mesa_shader_stage_from_mesa(sel->stage);
+   sel->mesa_shader_stage = type;
    sel->const_and_shader_buf_descriptors_index =
       si_const_and_shader_buffer_descriptors_idx(type);
    sel->sampler_and_images_descriptors_index =
@@ -3298,7 +3298,7 @@ static void si_update_rasterized_prim(struct si_context *sctx)
 }
 
 static void si_update_common_shader_state(struct si_context *sctx, struct si_shader_selector *sel,
-                                          enum pipe_shader_type type)
+                                          mesa_shader_stage type)
 {
    si_set_active_descriptors_for_shader(sctx, sel);
 
@@ -3313,7 +3313,7 @@ static void si_update_common_shader_state(struct si_context *sctx, struct si_sha
                                 si_shader_uses_bindless_images(sctx->shader.tcs.cso) ||
                                 si_shader_uses_bindless_images(sctx->shader.tes.cso);
 
-   if (type == PIPE_SHADER_VERTEX || type == PIPE_SHADER_TESS_EVAL || type == PIPE_SHADER_GEOMETRY)
+   if (type == MESA_SHADER_VERTEX || type == MESA_SHADER_TESS_EVAL || type == MESA_SHADER_GEOMETRY)
       sctx->ngg_culling = 0; /* this will be enabled on the first draw if needed */
 
    si_invalidate_inlinable_uniforms(sctx, type);
@@ -3350,7 +3350,7 @@ static void si_bind_vs_shader(struct pipe_context *ctx, void *state)
    if (si_update_ngg(sctx))
       si_shader_change_notify(sctx);
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_VERTEX);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_VERTEX);
    si_select_draw_vbo(sctx);
    si_update_last_vgt_stage_state(sctx, old_hw_vs, old_hw_vs_variant);
    si_vs_key_update_inputs(sctx);
@@ -3430,7 +3430,7 @@ static void si_bind_gs_shader(struct pipe_context *ctx, void *state)
    sctx->shader.gs.current = (sel && sel->variants_count) ? sel->variants[0] : NULL;
    sctx->ia_multi_vgt_param_key.u.uses_gs = sel != NULL;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_GEOMETRY);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_GEOMETRY);
    si_select_draw_vbo(sctx);
    sctx->last_gs_out_prim = -1; /* reset this so that it gets updated */
 
@@ -3465,7 +3465,7 @@ static void si_bind_tcs_shader(struct pipe_context *ctx, void *state)
    si_update_tess_uses_prim_id(sctx);
    si_update_tess_in_out_patch_vertices(sctx);
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_TESS_CTRL);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_TESS_CTRL);
 
    if (enable_changed)
       sctx->last_tcs = NULL; /* invalidate derived tess state */
@@ -3493,7 +3493,7 @@ static void si_bind_tes_shader(struct pipe_context *ctx, void *state)
    sctx->shader.tcs.key.ge.part.tcs.epilog.tes_reads_tess_factors =
       sel ? sel->info.reads_tess_factors : 0;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_TESS_EVAL);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_TESS_EVAL);
    si_select_draw_vbo(sctx);
    sctx->last_gs_out_prim = -1; /* reset this so that it gets updated */
 
@@ -3537,7 +3537,7 @@ static void si_bind_ps_shader(struct pipe_context *ctx, void *state)
    sctx->shader.ps.cso = sel;
    sctx->shader.ps.current = (sel && sel->variants_count) ? sel->variants[0] : NULL;
 
-   si_update_common_shader_state(sctx, sel, PIPE_SHADER_FRAGMENT);
+   si_update_common_shader_state(sctx, sel, MESA_SHADER_FRAGMENT);
    if (sel) {
       if (sctx->ia_multi_vgt_param_key.u.uses_tess)
          si_update_tess_uses_prim_id(sctx);
@@ -3638,7 +3638,7 @@ static void si_destroy_shader_selector(struct pipe_context *ctx, void *cso)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    struct si_shader_selector *sel = (struct si_shader_selector *)cso;
-   enum pipe_shader_type type = pipe_shader_type_from_mesa(sel->stage);
+   mesa_shader_stage type = mesa_shader_stage_from_mesa(sel->stage);
 
    util_queue_drop_job(&sctx->screen->shader_compiler_queue, &sel->ready);
 

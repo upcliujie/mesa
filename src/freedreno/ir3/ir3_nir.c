@@ -621,7 +621,7 @@ lower_ucp_vs(struct ir3_shader_variant *so)
    if (!so->key.ucp_enables)
       return false;
 
-   gl_shader_stage last_geom_stage;
+   mesa_shader_stage last_geom_stage;
 
    if (so->key.has_gs) {
       last_geom_stage = MESA_SHADER_GEOMETRY;

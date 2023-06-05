@@ -116,7 +116,7 @@ unsigned
 zink_program_num_bindings(const struct zink_program *pg);
 
 bool
-zink_program_descriptor_is_buffer(struct zink_context *ctx, gl_shader_stage stage, enum zink_descriptor_type type, unsigned i);
+zink_program_descriptor_is_buffer(struct zink_context *ctx, mesa_shader_stage stage, enum zink_descriptor_type type, unsigned i);
 
 void
 zink_gfx_program_update(struct zink_context *ctx);
@@ -164,7 +164,7 @@ void
 zink_program_init(struct zink_context *ctx);
 
 uint32_t
-zink_program_get_descriptor_usage(struct zink_context *ctx, gl_shader_stage stage, enum zink_descriptor_type type);
+zink_program_get_descriptor_usage(struct zink_context *ctx, mesa_shader_stage stage, enum zink_descriptor_type type);
 
 void
 debug_describe_zink_gfx_program(char* buf, const struct zink_gfx_program *ptr);
@@ -370,14 +370,14 @@ void
 zink_create_primitive_emulation_gs(struct zink_context *ctx);
 
 static inline const struct zink_shader_key_base *
-zink_get_shader_key_base(const struct zink_context *ctx, gl_shader_stage pstage)
+zink_get_shader_key_base(const struct zink_context *ctx, mesa_shader_stage pstage)
 {
    assert(!zink_screen(ctx->base.screen)->optimal_keys);
    return &ctx->gfx_pipeline_state.shader_keys.key[pstage].base;
 }
 
 static inline struct zink_shader_key_base *
-zink_set_shader_key_base(struct zink_context *ctx, gl_shader_stage pstage)
+zink_set_shader_key_base(struct zink_context *ctx, mesa_shader_stage pstage)
 {
    ctx->dirty_gfx_stages |= BITFIELD_BIT(pstage);
    assert(!zink_screen(ctx->base.screen)->optimal_keys);
@@ -385,7 +385,7 @@ zink_set_shader_key_base(struct zink_context *ctx, gl_shader_stage pstage)
 }
 
 static inline void
-zink_set_zs_needs_shader_swizzle_key(struct zink_context *ctx, gl_shader_stage pstage, bool swizzle_update)
+zink_set_zs_needs_shader_swizzle_key(struct zink_context *ctx, mesa_shader_stage pstage, bool swizzle_update)
 {
    if (!zink_screen(ctx->base.screen)->driver_workarounds.needs_zs_shader_swizzle) {
       if (pstage != MESA_SHADER_FRAGMENT)

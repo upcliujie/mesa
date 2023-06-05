@@ -59,7 +59,7 @@ extern "C" {
 #endif
 
 extern uint32_t nir_debug;
-extern bool nir_debug_print_shader[MESA_SHADER_KERNEL + 1];
+extern bool nir_debug_print_shader[MESA_SHADER_ALL_STAGES];
 
 #ifndef NDEBUG
 #define NIR_DEBUG(flag) unlikely(nir_debug & (NIR_DEBUG_ ## flag))
@@ -4034,7 +4034,7 @@ nir_shader_get_function_for_name(const nir_shader *shader, const char *name)
 void nir_remove_non_entrypoints(nir_shader *shader);
 
 nir_shader *nir_shader_create(void *mem_ctx,
-                              gl_shader_stage stage,
+                              mesa_shader_stage stage,
                               const nir_shader_compiler_options *options,
                               shader_info *si);
 
@@ -4891,11 +4891,11 @@ bool nir_link_opt_varyings(nir_shader *producer, nir_shader *consumer);
 void nir_link_varying_precision(nir_shader *producer, nir_shader *consumer);
 
 bool nir_slot_is_sysval_output(gl_varying_slot slot,
-                               gl_shader_stage next_shader);
+                               mesa_shader_stage next_shader);
 bool nir_slot_is_varying(gl_varying_slot slot);
 bool nir_slot_is_sysval_output_and_varying(gl_varying_slot slot,
-                                           gl_shader_stage next_shader);
-bool nir_remove_varying(nir_intrinsic_instr *intr, gl_shader_stage next_shader);
+                                           mesa_shader_stage next_shader);
+bool nir_remove_varying(nir_intrinsic_instr *intr, mesa_shader_stage next_shader);
 void nir_remove_sysval_output(nir_intrinsic_instr *intr);
 
 bool nir_lower_amul(nir_shader *shader,
@@ -4906,7 +4906,7 @@ bool nir_lower_ubo_vec4(nir_shader *shader);
 void nir_assign_io_var_locations(nir_shader *shader,
                                  nir_variable_mode mode,
                                  unsigned *size,
-                                 gl_shader_stage stage);
+                                 mesa_shader_stage stage);
 
 typedef struct {
    uint8_t num_linked_io_vars;
@@ -5175,7 +5175,7 @@ nir_src *nir_get_io_offset_src(nir_intrinsic_instr *instr);
 nir_src *nir_get_io_arrayed_index_src(nir_intrinsic_instr *instr);
 nir_src *nir_get_shader_call_payload_src(nir_intrinsic_instr *call);
 
-bool nir_is_arrayed_io(const nir_variable *var, gl_shader_stage stage);
+bool nir_is_arrayed_io(const nir_variable *var, mesa_shader_stage stage);
 
 bool nir_lower_regs_to_ssa_impl(nir_function_impl *impl);
 bool nir_lower_regs_to_ssa(nir_shader *shader);

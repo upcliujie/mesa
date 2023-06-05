@@ -3388,13 +3388,13 @@ nvir_nir_shader_compiler_options(int chipset, uint8_t shader_type, bool prefer_n
    op.intel_vec4 = false;
    op.lower_uniforms_to_ubo = true;
    op.force_indirect_unrolling = (nir_variable_mode) (
-      ((shader_type == PIPE_SHADER_FRAGMENT) ? nir_var_shader_out : 0) |
+      ((shader_type == MESA_SHADER_FRAGMENT) ? nir_var_shader_out : 0) |
       /* HW doesn't support indirect addressing of fragment program inputs
        * on Volta.  The binary driver generates a function to handle every
        * possible indirection, and indirectly calls the function to handle
        * this instead.
        */
-      ((chipset >= NVISA_GV100_CHIPSET && shader_type == PIPE_SHADER_FRAGMENT) ? nir_var_shader_in : 0)
+      ((chipset >= NVISA_GV100_CHIPSET && shader_type == MESA_SHADER_FRAGMENT) ? nir_var_shader_in : 0)
    );
    op.force_indirect_unrolling_sampler = (chipset < NVISA_GF100_CHIPSET),
    op.max_unroll_iterations = 32;
@@ -3427,44 +3427,44 @@ nvir_nir_shader_compiler_options(int chipset, uint8_t shader_type, bool prefer_n
 }
 
 static const nir_shader_compiler_options g80_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, PIPE_SHADER_TYPES, true);
+nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, MESA_SHADER_GL_STAGES, true);
 static const nir_shader_compiler_options g80_fs_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, PIPE_SHADER_FRAGMENT, true);
+nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, MESA_SHADER_FRAGMENT, true);
 static const nir_shader_compiler_options gf100_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, PIPE_SHADER_TYPES, true);
+nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, MESA_SHADER_GL_STAGES, true);
 static const nir_shader_compiler_options gf100_fs_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, PIPE_SHADER_FRAGMENT, true);
+nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, MESA_SHADER_FRAGMENT, true);
 static const nir_shader_compiler_options gm107_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, PIPE_SHADER_TYPES, true);
+nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, MESA_SHADER_GL_STAGES, true);
 static const nir_shader_compiler_options gm107_fs_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, PIPE_SHADER_FRAGMENT, true);
+nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, MESA_SHADER_FRAGMENT, true);
 static const nir_shader_compiler_options gv100_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, PIPE_SHADER_TYPES, true);
+nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, MESA_SHADER_GL_STAGES, true);
 static const nir_shader_compiler_options gv100_fs_nir_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, PIPE_SHADER_FRAGMENT, true);
+nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, MESA_SHADER_FRAGMENT, true);
 
 static const nir_shader_compiler_options g80_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, PIPE_SHADER_TYPES, false);
+nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, MESA_SHADER_GL_STAGES, false);
 static const nir_shader_compiler_options g80_fs_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, PIPE_SHADER_FRAGMENT, false);
+nvir_nir_shader_compiler_options(NVISA_G80_CHIPSET, MESA_SHADER_FRAGMENT, false);
 static const nir_shader_compiler_options gf100_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, PIPE_SHADER_TYPES, false);
+nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, MESA_SHADER_GL_STAGES, false);
 static const nir_shader_compiler_options gf100_fs_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, PIPE_SHADER_FRAGMENT, false);
+nvir_nir_shader_compiler_options(NVISA_GF100_CHIPSET, MESA_SHADER_FRAGMENT, false);
 static const nir_shader_compiler_options gm107_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, PIPE_SHADER_TYPES, false);
+nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, MESA_SHADER_GL_STAGES, false);
 static const nir_shader_compiler_options gm107_fs_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, PIPE_SHADER_FRAGMENT, false);
+nvir_nir_shader_compiler_options(NVISA_GM107_CHIPSET, MESA_SHADER_FRAGMENT, false);
 static const nir_shader_compiler_options gv100_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, PIPE_SHADER_TYPES, false);
+nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, MESA_SHADER_GL_STAGES, false);
 static const nir_shader_compiler_options gv100_fs_tgsi_shader_compiler_options =
-nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, PIPE_SHADER_FRAGMENT, false);
+nvir_nir_shader_compiler_options(NVISA_GV100_CHIPSET, MESA_SHADER_FRAGMENT, false);
 
 const nir_shader_compiler_options *
 nv50_ir_nir_shader_compiler_options(int chipset,  uint8_t shader_type, bool prefer_nir)
 {
    if (chipset >= NVISA_GV100_CHIPSET) {
-      if (shader_type == PIPE_SHADER_FRAGMENT) {
+      if (shader_type == MESA_SHADER_FRAGMENT) {
          if (prefer_nir)
             return &gv100_fs_nir_shader_compiler_options;
          else
@@ -3478,7 +3478,7 @@ nv50_ir_nir_shader_compiler_options(int chipset,  uint8_t shader_type, bool pref
    }
 
    if (chipset >= NVISA_GM107_CHIPSET) {
-      if (shader_type == PIPE_SHADER_FRAGMENT) {
+      if (shader_type == MESA_SHADER_FRAGMENT) {
          if (prefer_nir)
             return &gm107_fs_nir_shader_compiler_options;
          else
@@ -3492,7 +3492,7 @@ nv50_ir_nir_shader_compiler_options(int chipset,  uint8_t shader_type, bool pref
    }
 
    if (chipset >= NVISA_GF100_CHIPSET) {
-      if (shader_type == PIPE_SHADER_FRAGMENT) {
+      if (shader_type == MESA_SHADER_FRAGMENT) {
          if (prefer_nir)
             return &gf100_fs_nir_shader_compiler_options;
          else
@@ -3505,7 +3505,7 @@ nv50_ir_nir_shader_compiler_options(int chipset,  uint8_t shader_type, bool pref
       }
    }
 
-   if (shader_type == PIPE_SHADER_FRAGMENT) {
+   if (shader_type == MESA_SHADER_FRAGMENT) {
       if (prefer_nir)
          return &g80_fs_nir_shader_compiler_options;
       else

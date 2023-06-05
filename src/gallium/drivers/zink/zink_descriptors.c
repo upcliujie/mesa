@@ -233,7 +233,7 @@ static struct zink_descriptor_layout *
 create_gfx_layout(struct zink_context *ctx, struct zink_descriptor_layout_key **layout_key, bool fbfetch)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkDescriptorSetLayoutBinding bindings[MESA_SHADER_STAGES];
+   VkDescriptorSetLayoutBinding bindings[MESA_SHADER_GL_STAGES];
    enum zink_descriptor_type dsl_type;
    VkDescriptorType vktype = get_push_types(screen, &dsl_type);
    for (unsigned i = 0; i < ZINK_GFX_SHADER_COUNT; i++)
@@ -313,7 +313,7 @@ init_db_template_entry(struct zink_screen *screen, struct zink_shader *shader, e
                        unsigned idx, struct zink_descriptor_template *entry, unsigned *entry_idx)
 {
     int index = shader->bindings[type][idx].index;
-    gl_shader_stage stage = shader->info.stage;
+    mesa_shader_stage stage = shader->info.stage;
     entry->count = shader->bindings[type][idx].size;
 
     switch (shader->bindings[type][idx].type) {
@@ -368,7 +368,7 @@ init_template_entry(struct zink_shader *shader, enum zink_descriptor_type type,
                     unsigned idx, VkDescriptorUpdateTemplateEntry *entry, unsigned *entry_idx)
 {
     int index = shader->bindings[type][idx].index;
-    gl_shader_stage stage = clamp_stage(&shader->info);
+    mesa_shader_stage stage = clamp_stage(&shader->info);
     entry->dstArrayElement = 0;
     entry->dstBinding = shader->bindings[type][idx].binding;
     entry->descriptorCount = shader->bindings[type][idx].size;
@@ -471,8 +471,8 @@ bool
 zink_descriptor_program_init(struct zink_context *ctx, struct zink_program *pg)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkDescriptorSetLayoutBinding bindings[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_STAGES * 64];
-   VkDescriptorUpdateTemplateEntry entries[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_STAGES * 64];
+   VkDescriptorSetLayoutBinding bindings[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_GL_STAGES * 64];
+   VkDescriptorUpdateTemplateEntry entries[ZINK_DESCRIPTOR_BASE_TYPES][MESA_SHADER_GL_STAGES * 64];
    unsigned num_bindings[ZINK_DESCRIPTOR_BASE_TYPES] = {0};
    uint8_t has_bindings = 0;
    unsigned push_count = 0;
@@ -515,7 +515,7 @@ zink_descriptor_program_init(struct zink_context *ctx, struct zink_program *pg)
       if (!shader)
          continue;
 
-      gl_shader_stage stage = clamp_stage(&shader->info);
+      mesa_shader_stage stage = clamp_stage(&shader->info);
       VkShaderStageFlagBits stage_flags = mesa_to_vk_shader_stage(stage);
       /* uniform ubos handled in push */
       if (shader->has_uniforms) {
@@ -1368,7 +1368,7 @@ zink_descriptors_update(struct zink_context *ctx, bool is_compute)
                                                            bs->dd.db_map + stage_offset);
             }
             if (!is_compute && ctx->dd.has_fbfetch) {
-               uint64_t stage_offset = offset + ctx->dd.db_offset[MESA_SHADER_FRAGMENT + 1];
+               uint64_t stage_offset = offset + ctx->dd.db_offset[MESA_SHADER_GL_GRAPHICS_STAGES];
                if (pg->dd.fbfetch && screen->info.db_props.inputAttachmentDescriptorSize) {
                   /* real fbfetch descriptor */
                   VkDescriptorGetInfoEXT info;
@@ -1438,7 +1438,7 @@ zink_descriptors_update(struct zink_context *ctx, bool is_compute)
 
 /* called from gallium descriptor change hooks, e.g., set_sampler_views */
 void
-zink_context_invalidate_descriptor_state(struct zink_context *ctx, gl_shader_stage shader, enum zink_descriptor_type type, unsigned start, unsigned count)
+zink_context_invalidate_descriptor_state(struct zink_context *ctx, mesa_shader_stage shader, enum zink_descriptor_type type, unsigned start, unsigned count)
 {
    if (type == ZINK_DESCRIPTOR_TYPE_UBO && !start)
       ctx->dd.push_state_changed[shader == MESA_SHADER_COMPUTE] = true;

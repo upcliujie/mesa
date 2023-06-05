@@ -150,7 +150,7 @@ extern uint64_t intel_simd;
       dbg_printf(__VA_ARGS__);         \
 } while(0)
 
-extern uint64_t intel_debug_flag_for_shader_stage(gl_shader_stage stage);
+extern uint64_t intel_debug_flag_for_shader_stage(mesa_shader_stage stage);
 
 extern void brw_process_intel_debug_variable(void);
 

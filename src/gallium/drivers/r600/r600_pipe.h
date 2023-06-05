@@ -353,7 +353,7 @@ struct r600_pipe_shader_selector {
 
 	unsigned	num_shaders;
 
-	enum pipe_shader_type	type;
+	mesa_shader_stage	type;
         enum pipe_shader_ir ir_type;
 
 	/* geometry shader properties */
@@ -555,10 +555,10 @@ struct r600_context {
 	struct r600_cs_shader_state	cs_shader_state;
 	struct r600_shader_stages_state shader_stages;
 	struct r600_gs_rings_state	gs_rings;
-	struct r600_constbuf_state	constbuf_state[PIPE_SHADER_TYPES];
-	struct r600_textures_info	samplers[PIPE_SHADER_TYPES];
+	struct r600_constbuf_state	constbuf_state[MESA_SHADER_GL_STAGES];
+	struct r600_textures_info	samplers[MESA_SHADER_GL_STAGES];
 
-	struct r600_shader_driver_constants_info driver_consts[PIPE_SHADER_TYPES];
+	struct r600_shader_driver_constants_info driver_consts[MESA_SHADER_GL_STAGES];
 
 	/** Vertex buffers for fetch shaders */
 	struct r600_vertexbuf_state	vertex_buffer_state;
@@ -1063,7 +1063,7 @@ void eg_dump_debug_state(struct pipe_context *ctx, FILE *f,
 struct r600_pipe_shader_selector *r600_create_shader_state_tokens(struct pipe_context *ctx,
 								  const void *tokens,
 								  enum pipe_shader_ir,
-								  unsigned pipe_shader_type);
+								  unsigned mesa_shader_stage);
 int r600_shader_select(struct pipe_context *ctx,
 		       struct r600_pipe_shader_selector* sel,
 		       bool *dirty, bool precompile);

@@ -137,7 +137,7 @@ declare_global_input_sgprs(const struct radv_shader_info *info,
 
 static void
 declare_vs_specific_input_sgprs(const struct radv_shader_info *info, struct radv_shader_args *args,
-                                gl_shader_stage stage, gl_shader_stage previous_stage)
+                                mesa_shader_stage stage, mesa_shader_stage previous_stage)
 {
    if (info->vs.has_prolog)
       add_ud_arg(args, 2, AC_ARG_INT, &args->prolog_inputs, AC_UD_VS_PROLOG_INPUTS);
@@ -216,7 +216,7 @@ declare_vs_input_vgprs(enum amd_gfx_level gfx_level, const struct radv_shader_in
 
 static void
 declare_streamout_sgprs(const struct radv_shader_info *info, struct radv_shader_args *args,
-                        gl_shader_stage stage)
+                        mesa_shader_stage stage)
 {
    int i;
 
@@ -313,7 +313,7 @@ declare_ngg_sgprs(const struct radv_shader_info *info, struct radv_shader_args *
 }
 
 static void
-radv_init_shader_args(const struct radv_device *device, gl_shader_stage stage,
+radv_init_shader_args(const struct radv_device *device, mesa_shader_stage stage,
                       enum radv_shader_type type, struct radv_shader_args *args)
 {
    memset(args, 0, sizeof(*args));
@@ -365,8 +365,8 @@ radv_ps_needs_state_sgpr(const struct radv_shader_info *info, const struct radv_
 
 static void
 declare_shader_args(const struct radv_device *device, const struct radv_pipeline_key *key,
-                    const struct radv_shader_info *info, gl_shader_stage stage,
-                    gl_shader_stage previous_stage, enum radv_shader_type type,
+                    const struct radv_shader_info *info, mesa_shader_stage stage,
+                    mesa_shader_stage previous_stage, enum radv_shader_type type,
                     struct radv_shader_args *args, struct user_sgpr_info *user_sgpr_info)
 {
    const enum amd_gfx_level gfx_level = device->physical_device->rad_info.gfx_level;
@@ -384,7 +384,7 @@ declare_shader_args(const struct radv_device *device, const struct radv_pipeline
 
    radv_init_shader_args(device, stage, type, args);
 
-   if (gl_shader_stage_is_rt(stage)) {
+   if (mesa_shader_stage_is_rt(stage)) {
       radv_declare_rt_shader_args(gfx_level, args);
       return;
    }
@@ -673,13 +673,13 @@ declare_shader_args(const struct radv_device *device, const struct radv_pipeline
 
 void
 radv_declare_shader_args(const struct radv_device *device, const struct radv_pipeline_key *key,
-                         const struct radv_shader_info *info, gl_shader_stage stage,
-                         gl_shader_stage previous_stage, enum radv_shader_type type,
+                         const struct radv_shader_info *info, mesa_shader_stage stage,
+                         mesa_shader_stage previous_stage, enum radv_shader_type type,
                          struct radv_shader_args *args)
 {
    declare_shader_args(device, key, info, stage, previous_stage, type, args, NULL);
 
-   if (gl_shader_stage_is_rt(stage))
+   if (mesa_shader_stage_is_rt(stage))
       return;
 
    uint32_t num_user_sgprs = args->num_user_sgprs;

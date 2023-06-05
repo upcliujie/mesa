@@ -595,7 +595,7 @@ radv_device_finish_meta(struct radv_device *device)
 }
 
 nir_builder PRINTFLIKE(3, 4)
-   radv_meta_init_shader(struct radv_device *dev, gl_shader_stage stage, const char *name, ...)
+   radv_meta_init_shader(struct radv_device *dev, mesa_shader_stage stage, const char *name, ...)
 {
    nir_builder b = nir_builder_init_simple_shader(stage, NULL, NULL);
    if (name) {

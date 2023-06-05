@@ -1949,7 +1949,7 @@ radv_emit_graphics_pipeline(struct radv_cmd_buffer *cmd_buffer)
       radv_sqtt_emit_relocated_shaders(cmd_buffer, pipeline);
    }
 
-   for (unsigned s = 0; s < MESA_VULKAN_SHADER_STAGES; s++) {
+   for (unsigned s = 0; s < MESA_SHADER_VULKAN_STAGES; s++) {
       struct radv_shader *shader = cmd_buffer->state.shaders[s];
 
       if (!shader)
@@ -4725,7 +4725,7 @@ radv_flush_indirect_descriptor_sets(struct radv_cmd_buffer *cmd_buffer,
    va += offset;
 
    ASSERTED unsigned cdw_max =
-      radeon_check_space(device->ws, cs, MESA_VULKAN_SHADER_STAGES * 3);
+      radeon_check_space(device->ws, cs, MESA_SHADER_VULKAN_STAGES * 3);
 
    if (bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS) {
       for (unsigned s = MESA_SHADER_VERTEX; s <= MESA_SHADER_FRAGMENT; s++)
@@ -4777,7 +4777,7 @@ radv_flush_descriptors(struct radv_cmd_buffer *cmd_buffer, VkShaderStageFlags st
       radv_flush_indirect_descriptor_sets(cmd_buffer, bind_point);
 
    ASSERTED unsigned cdw_max =
-      radeon_check_space(device->ws, cs, MAX_SETS * MESA_VULKAN_SHADER_STAGES * 4);
+      radeon_check_space(device->ws, cs, MAX_SETS * MESA_SHADER_VULKAN_STAGES * 4);
 
    if (stages & VK_SHADER_STAGE_COMPUTE_BIT) {
       struct radv_shader *compute_shader = bind_point == VK_PIPELINE_BIND_POINT_COMPUTE
@@ -4928,7 +4928,7 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer, VkShaderStageFlags stag
       va += offset;
 
       ASSERTED unsigned cdw_max =
-         radeon_check_space(cmd_buffer->device->ws, cmd_buffer->cs, MESA_VULKAN_SHADER_STAGES * 4);
+         radeon_check_space(cmd_buffer->device->ws, cmd_buffer->cs, MESA_SHADER_VULKAN_STAGES * 4);
 
       if (internal_stages & VK_SHADER_STAGE_COMPUTE_BIT) {
          struct radv_shader *compute_shader = bind_point == VK_PIPELINE_BIND_POINT_COMPUTE
@@ -6688,7 +6688,7 @@ radv_bind_task_shader(struct radv_cmd_buffer *cmd_buffer, const struct radv_shad
 /* This function binds/unbinds a shader to the cmdbuffer state. */
 static void
 radv_bind_shader(struct radv_cmd_buffer *cmd_buffer, struct radv_shader *shader,
-                 gl_shader_stage stage)
+                 mesa_shader_stage stage)
 {
    if (!shader) {
       cmd_buffer->state.shaders[stage] = NULL;

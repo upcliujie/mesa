@@ -2386,7 +2386,7 @@ vtn_handle_constant(struct vtn_builder *b, SpvOp opcode,
    }
 
    /* Now that we have the value, update the workgroup size if needed */
-   if (gl_shader_stage_uses_workgroup(b->entry_point_stage))
+   if (mesa_shader_stage_uses_workgroup(b->entry_point_stage))
       vtn_foreach_decoration(b, val, handle_workgroup_size_decoration_cb,
                              NULL);
 }
@@ -4557,7 +4557,7 @@ vertices_in_from_spv_execution_mode(struct vtn_builder *b,
    }
 }
 
-static gl_shader_stage
+static mesa_shader_stage
 stage_for_execution_model(struct vtn_builder *b, SpvExecutionModel model)
 {
    switch (model) {
@@ -5278,7 +5278,7 @@ vtn_handle_execution_mode(struct vtn_builder *b, struct vtn_value *entry_point,
       break;
 
    case SpvExecutionModeLocalSize:
-      if (gl_shader_stage_uses_workgroup(b->shader->info.stage)) {
+      if (mesa_shader_stage_uses_workgroup(b->shader->info.stage)) {
          b->shader->info.workgroup_size[0] = mode->operands[0];
          b->shader->info.workgroup_size[1] = mode->operands[1];
          b->shader->info.workgroup_size[2] = mode->operands[2];
@@ -5582,7 +5582,7 @@ vtn_handle_execution_mode_id(struct vtn_builder *b, struct vtn_value *entry_poin
 
    switch (mode->exec_mode) {
    case SpvExecutionModeLocalSizeId:
-      if (gl_shader_stage_uses_workgroup(b->shader->info.stage)) {
+      if (mesa_shader_stage_uses_workgroup(b->shader->info.stage)) {
          b->shader->info.workgroup_size[0] = vtn_constant_uint(b, mode->operands[0]);
          b->shader->info.workgroup_size[1] = vtn_constant_uint(b, mode->operands[1]);
          b->shader->info.workgroup_size[2] = vtn_constant_uint(b, mode->operands[2]);
@@ -6597,7 +6597,7 @@ is_glslang(const struct vtn_builder *b)
 
 struct vtn_builder*
 vtn_create_builder(const uint32_t *words, size_t word_count,
-                   gl_shader_stage stage, const char *entry_point_name,
+                   mesa_shader_stage stage, const char *entry_point_name,
                    const struct spirv_to_nir_options *options)
 {
    /* Initialize the vtn_builder object */
@@ -6794,7 +6794,7 @@ initialize_mesa_spirv_debug(void)
 nir_shader *
 spirv_to_nir(const uint32_t *words, size_t word_count,
              struct nir_spirv_specialization *spec, unsigned num_spec,
-             gl_shader_stage stage, const char *entry_point_name,
+             mesa_shader_stage stage, const char *entry_point_name,
              const struct spirv_to_nir_options *options,
              const nir_shader_compiler_options *nir_options)
 
@@ -6878,7 +6878,7 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
                                  vtn_handle_execution_mode_id, NULL);
 
    if (b->workgroup_size_builtin) {
-      vtn_assert(gl_shader_stage_uses_workgroup(stage));
+      vtn_assert(mesa_shader_stage_uses_workgroup(stage));
       vtn_assert(b->workgroup_size_builtin->type->type ==
                  glsl_vector_type(GLSL_TYPE_UINT, 3));
 

@@ -1659,7 +1659,7 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
 
       nir_shader *nir_stage = radv_pipeline_cache_handle_to_nir(device, stages[stage_idx].shader);
       assert(nir_stage);
-      ASSERTED gl_shader_stage type = nir_stage->info.stage;
+      ASSERTED mesa_shader_stage type = nir_stage->info.stage;
       assert(type == MESA_SHADER_RAYGEN || type == MESA_SHADER_CALLABLE ||
              type == MESA_SHADER_CLOSEST_HIT || type == MESA_SHADER_MISS);
 

@@ -531,7 +531,7 @@ llvmpipe_create_compute_state(struct pipe_context *pipe,
       const struct pipe_binary_program_header *hdr = templ->prog;
 
       blob_reader_init(&reader, hdr->blob, hdr->num_bytes);
-      shader->base.ir.nir = nir_deserialize(NULL, pipe->screen->get_compiler_options(pipe->screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE), &reader);
+      shader->base.ir.nir = nir_deserialize(NULL, pipe->screen->get_compiler_options(pipe->screen, PIPE_SHADER_IR_NIR, MESA_SHADER_COMPUTE), &reader);
       shader->base.type = PIPE_SHADER_IR_NIR;
 
       pipe->screen->finalize_nir(pipe->screen, shader->base.ir.nir);
@@ -650,7 +650,7 @@ llvmpipe_delete_compute_state(struct pipe_context *pipe,
 static struct lp_compute_shader_variant_key *
 make_variant_key(struct llvmpipe_context *lp,
                  struct lp_compute_shader *shader,
-                 enum pipe_shader_type sh_type,
+                 mesa_shader_stage sh_type,
                  char *store)
 {
    struct lp_compute_shader_variant_key *key =
@@ -821,7 +821,7 @@ lp_cs_get_ir_cache_key(struct lp_compute_shader_variant *variant,
 static struct lp_compute_shader_variant *
 generate_variant(struct llvmpipe_context *lp,
                  struct lp_compute_shader *shader,
-                 enum pipe_shader_type sh_type,
+                 mesa_shader_stage sh_type,
                  const struct lp_compute_shader_variant_key *key)
 {
    struct llvmpipe_screen *screen = llvmpipe_screen(lp->pipe.screen);
@@ -895,7 +895,7 @@ lp_cs_ctx_set_cs_variant(struct lp_cs_context *csctx,
 
 static struct lp_compute_shader_variant *
 llvmpipe_update_cs_variant(struct llvmpipe_context *lp,
-                           enum pipe_shader_type sh_type,
+                           mesa_shader_stage sh_type,
                            struct lp_compute_shader *shader)
 {
    char store[LP_CS_MAX_VARIANT_KEY_SIZE];
@@ -992,7 +992,7 @@ static void
 llvmpipe_update_cs(struct llvmpipe_context *lp)
 {
    struct lp_compute_shader_variant *variant;
-   variant = llvmpipe_update_cs_variant(lp, PIPE_SHADER_COMPUTE, lp->cs);
+   variant = llvmpipe_update_cs_variant(lp, MESA_SHADER_COMPUTE, lp->cs);
    /* Bind this variant */
    lp_cs_ctx_set_cs_variant(lp->csctx, variant);
 }
@@ -1378,32 +1378,32 @@ llvmpipe_cs_update_derived(struct llvmpipe_context *llvmpipe, const void *input)
 {
    if (llvmpipe->cs_dirty & LP_CSNEW_CONSTANTS) {
       lp_csctx_set_cs_constants(llvmpipe->csctx,
-                                ARRAY_SIZE(llvmpipe->constants[PIPE_SHADER_COMPUTE]),
-                                llvmpipe->constants[PIPE_SHADER_COMPUTE]);
+                                ARRAY_SIZE(llvmpipe->constants[MESA_SHADER_COMPUTE]),
+                                llvmpipe->constants[MESA_SHADER_COMPUTE]);
       update_csctx_consts(llvmpipe, llvmpipe->csctx);
    }
 
    if (llvmpipe->cs_dirty & LP_CSNEW_SSBOS) {
       lp_csctx_set_cs_ssbos(llvmpipe->csctx,
-                            ARRAY_SIZE(llvmpipe->ssbos[PIPE_SHADER_COMPUTE]),
-                            llvmpipe->ssbos[PIPE_SHADER_COMPUTE]);
+                            ARRAY_SIZE(llvmpipe->ssbos[MESA_SHADER_COMPUTE]),
+                            llvmpipe->ssbos[MESA_SHADER_COMPUTE]);
       update_csctx_ssbo(llvmpipe, llvmpipe->csctx);
    }
 
    if (llvmpipe->cs_dirty & LP_CSNEW_SAMPLER_VIEW)
       lp_csctx_set_sampler_views(llvmpipe->csctx,
-                                 llvmpipe->num_sampler_views[PIPE_SHADER_COMPUTE],
-                                 llvmpipe->sampler_views[PIPE_SHADER_COMPUTE]);
+                                 llvmpipe->num_sampler_views[MESA_SHADER_COMPUTE],
+                                 llvmpipe->sampler_views[MESA_SHADER_COMPUTE]);
 
    if (llvmpipe->cs_dirty & LP_CSNEW_SAMPLER)
       lp_csctx_set_sampler_state(llvmpipe->csctx,
-                                 llvmpipe->num_samplers[PIPE_SHADER_COMPUTE],
-                                 llvmpipe->samplers[PIPE_SHADER_COMPUTE]);
+                                 llvmpipe->num_samplers[MESA_SHADER_COMPUTE],
+                                 llvmpipe->samplers[MESA_SHADER_COMPUTE]);
 
    if (llvmpipe->cs_dirty & LP_CSNEW_IMAGES)
       lp_csctx_set_cs_images(llvmpipe->csctx,
-                              ARRAY_SIZE(llvmpipe->images[PIPE_SHADER_COMPUTE]),
-                              llvmpipe->images[PIPE_SHADER_COMPUTE]);
+                              ARRAY_SIZE(llvmpipe->images[MESA_SHADER_COMPUTE]),
+                              llvmpipe->images[MESA_SHADER_COMPUTE]);
 
    struct lp_cs_context *csctx = llvmpipe->csctx;
    csctx->cs.current.jit_resources.aniso_filter_table = lp_build_sample_aniso_filter_table();

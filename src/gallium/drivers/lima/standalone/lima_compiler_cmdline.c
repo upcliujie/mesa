@@ -84,7 +84,7 @@ fixup_varying_slots(nir_shader *nir, nir_variable_mode mode)
 }
 
 static nir_shader *
-load_glsl(unsigned num_files, char* const* files, gl_shader_stage stage)
+load_glsl(unsigned num_files, char* const* files, mesa_shader_stage stage)
 {
    static const struct standalone_options options = {
       .glsl_version = 110,
@@ -93,10 +93,10 @@ load_glsl(unsigned num_files, char* const* files, gl_shader_stage stage)
    unsigned shader = 0;
    switch (stage) {
    case MESA_SHADER_FRAGMENT:
-      shader = PIPE_SHADER_FRAGMENT;
+      shader = MESA_SHADER_FRAGMENT;
       break;
    case MESA_SHADER_VERTEX:
-      shader = PIPE_SHADER_VERTEX;
+      shader = MESA_SHADER_VERTEX;
       break;
    default:
       unreachable("bad stage");

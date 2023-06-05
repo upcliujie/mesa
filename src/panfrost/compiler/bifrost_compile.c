@@ -1508,7 +1508,7 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
    bi_index dst = nir_intrinsic_infos[instr->intrinsic].has_dest
                      ? bi_dest_index(&instr->dest)
                      : bi_null();
-   gl_shader_stage stage = b->shader->stage;
+   mesa_shader_stage stage = b->shader->stage;
 
    switch (instr->intrinsic) {
    case nir_intrinsic_load_barycentric_pixel:
@@ -4052,7 +4052,7 @@ bi_shader_stage_name(bi_context *ctx)
    else if (ctx->inputs->is_blend)
       return "MESA_SHADER_BLEND";
    else
-      return gl_shader_stage_name(ctx->stage);
+      return mesa_shader_stage_name(ctx->stage);
 }
 
 static char *
@@ -5167,7 +5167,7 @@ bifrost_compile_shader_nir(nir_shader *nir,
       bi_compile_variant(nir, inputs, binary, info, BI_IDVS_NONE);
    }
 
-   if (gl_shader_stage_is_compute(nir->info.stage)) {
+   if (mesa_shader_stage_is_compute(nir->info.stage)) {
       /* Workgroups may be merged if the structure of the workgroup is
        * not software visible. This is true if neither shared memory
        * nor barriers are used. The hardware may be able to optimize

@@ -94,6 +94,7 @@ fd6_emit_shader(struct fd_context *ctx, struct fd_ringbuffer *ring,
    case MESA_SHADER_CALLABLE:
       unreachable("Unsupported shader stage");
    case MESA_SHADER_NONE:
+   case MESA_SHADER_ALL_STAGES:
       unreachable("");
    }
 

@@ -133,7 +133,7 @@ radv_pipeline_init_scratch(const struct radv_device *device, struct radv_pipelin
    unsigned max_waves = 0;
    bool is_rt = pipeline->type == RADV_PIPELINE_RAY_TRACING;
 
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       if (pipeline->shaders[i] && (pipeline->shaders[i]->config.scratch_bytes_per_wave || is_rt)) {
          unsigned max_stage_waves = device->scratch_waves;
 
@@ -209,7 +209,7 @@ radv_get_hash_flags(const struct radv_device *device, bool stats)
 
 void
 radv_pipeline_stage_init(const VkPipelineShaderStageCreateInfo *sinfo,
-                         struct radv_pipeline_stage *out_stage, gl_shader_stage stage)
+                         struct radv_pipeline_stage *out_stage, mesa_shader_stage stage)
 {
    const VkShaderModuleCreateInfo *minfo =
       vk_find_struct_const(sinfo->pNext, SHADER_MODULE_CREATE_INFO);
@@ -719,7 +719,7 @@ radv_get_executable_count(struct radv_pipeline *pipeline)
       return 1;
 
    uint32_t ret = 0;
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       if (!pipeline->shaders[i])
          continue;
 
@@ -735,14 +735,14 @@ radv_get_executable_count(struct radv_pipeline *pipeline)
 
 static struct radv_shader *
 radv_get_shader_from_executable_index(struct radv_pipeline *pipeline, int index,
-                                      gl_shader_stage *stage)
+                                      mesa_shader_stage *stage)
 {
    if (pipeline->type == RADV_PIPELINE_RAY_TRACING) {
       *stage = MESA_SHADER_RAYGEN;
       return pipeline->shaders[*stage];
    }
 
-   for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
+   for (int i = 0; i < MESA_SHADER_VULKAN_STAGES; ++i) {
       if (!pipeline->shaders[i])
          continue;
       if (!index) {
@@ -791,7 +791,7 @@ radv_GetPipelineExecutablePropertiesKHR(VkDevice _device, const VkPipelineInfoKH
    }
 
    const uint32_t count = MIN2(total_count, *pExecutableCount);
-   for (unsigned i = 0, executable_idx = 0; i < MESA_VULKAN_SHADER_STAGES && executable_idx < count; ++i) {
+   for (unsigned i = 0, executable_idx = 0; i < MESA_SHADER_VULKAN_STAGES && executable_idx < count; ++i) {
       if (!pipeline->shaders[i])
          continue;
       pProperties[executable_idx].stages = mesa_to_vk_shader_stage(i);
@@ -906,7 +906,7 @@ radv_GetPipelineExecutableStatisticsKHR(VkDevice _device,
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
    RADV_FROM_HANDLE(radv_pipeline, pipeline, pExecutableInfo->pipeline);
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
    struct radv_shader *shader =
       radv_get_shader_from_executable_index(pipeline, pExecutableInfo->executableIndex, &stage);
 
@@ -1043,7 +1043,7 @@ radv_GetPipelineExecutableInternalRepresentationsKHR(
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
    RADV_FROM_HANDLE(radv_pipeline, pipeline, pExecutableInfo->pipeline);
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
    struct radv_shader *shader =
       radv_get_shader_from_executable_index(pipeline, pExecutableInfo->executableIndex, &stage);
 

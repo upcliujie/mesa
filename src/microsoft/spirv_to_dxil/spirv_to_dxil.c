@@ -73,7 +73,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    nir_shader *nir = spirv_to_nir(
       words, word_count, (struct nir_spirv_specialization *)specializations,
-      num_specializations, (gl_shader_stage)stage, entry_point_name,
+      num_specializations, (mesa_shader_stage)stage, entry_point_name,
       spirv_opts, &nir_options);
    if (!nir) {
       glsl_type_singleton_decref();

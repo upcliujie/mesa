@@ -1364,7 +1364,7 @@ clipdist_culling_es_part(nir_builder *b, lower_ngg_nogs_state *s,
 }
 
 static unsigned
-ngg_nogs_get_culling_pervertex_lds_size(gl_shader_stage stage,
+ngg_nogs_get_culling_pervertex_lds_size(mesa_shader_stage stage,
                                         bool uses_instance_id,
                                         bool uses_primitive_id,
                                         unsigned *num_repacked_variables)
@@ -2079,7 +2079,7 @@ ngg_nogs_build_streamout(nir_builder *b, lower_ngg_nogs_state *s)
 }
 
 static unsigned
-ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
+ngg_nogs_get_pervertex_lds_size(mesa_shader_stage stage,
                                 unsigned shader_num_outputs,
                                 bool streamout_enabled,
                                 bool export_prim_id,
@@ -3473,7 +3473,7 @@ ac_nir_lower_ngg_gs(nir_shader *shader, const ac_nir_lower_ngg_options *options)
 }
 
 unsigned
-ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
+ac_ngg_nogs_get_pervertex_lds_size(mesa_shader_stage stage,
                                    unsigned shader_num_outputs,
                                    bool streamout_enabled,
                                    bool export_prim_id,
@@ -3495,7 +3495,7 @@ ac_ngg_nogs_get_pervertex_lds_size(gl_shader_stage stage,
 }
 
 unsigned
-ac_ngg_get_scratch_lds_size(gl_shader_stage stage,
+ac_ngg_get_scratch_lds_size(mesa_shader_stage stage,
                             unsigned workgroup_size,
                             unsigned wave_size,
                             bool streamout_enabled,

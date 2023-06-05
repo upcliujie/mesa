@@ -523,7 +523,7 @@ struct ir3_instruction {
 
 struct ir3 {
    struct ir3_compiler *compiler;
-   gl_shader_stage type;
+   mesa_shader_stage type;
 
    DECLARE_ARRAY(struct ir3_instruction *, inputs);
 

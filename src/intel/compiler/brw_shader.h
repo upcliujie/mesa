@@ -75,7 +75,7 @@ public:
    cfg_t *cfg;
    brw_analysis<brw::idom_tree, backend_shader> idom_analysis;
 
-   gl_shader_stage stage;
+   mesa_shader_stage stage;
    bool debug_enabled;
    const char *stage_name;
    const char *stage_abbrev;
@@ -131,7 +131,7 @@ brw_get_scratch_size(int size)
 
 static inline nir_variable_mode
 brw_nir_no_indirect_mask(const struct brw_compiler *compiler,
-                         gl_shader_stage stage)
+                         mesa_shader_stage stage)
 {
    const struct intel_device_info *devinfo = compiler->devinfo;
    const bool is_scalar = compiler->scalar_stage[stage];

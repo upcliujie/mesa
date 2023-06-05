@@ -1131,7 +1131,7 @@ get_sampler_count(const struct anv_shader_bin *bin)
 
 static UNUSED struct anv_address
 get_scratch_address(struct anv_pipeline *pipeline,
-                    gl_shader_stage stage,
+                    mesa_shader_stage stage,
                     const struct anv_shader_bin *bin)
 {
    return (struct anv_address) {
@@ -1150,7 +1150,7 @@ get_scratch_space(const struct anv_shader_bin *bin)
 
 static UNUSED uint32_t
 get_scratch_surf(struct anv_pipeline *pipeline,
-                 gl_shader_stage stage,
+                 mesa_shader_stage stage,
                  const struct anv_shader_bin *bin)
 {
    if (bin->prog_data->total_scratch == 0)
