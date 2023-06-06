@@ -3081,7 +3081,7 @@ void si_schedule_initial_compile(struct si_context *sctx, gl_shader_stage stage,
 
 /* Return descriptor slot usage masks from the given shader info. */
 void si_get_active_slot_masks(struct si_screen *sscreen, const struct si_shader_info *info,
-                              uint64_t *const_and_shader_buffers, uint64_t *samplers_and_images)
+                              BITSET_WORD *const_and_shader_buffers, BITSET_WORD *samplers_and_images)
 {
    unsigned start, num_shaderbufs, num_constbufs, num_images, num_msaa_images, num_samplers;
 
@@ -3094,7 +3094,10 @@ void si_get_active_slot_masks(struct si_screen *sscreen, const struct si_shader_
 
    /* The layout is: sb[last] ... sb[0], cb[0] ... cb[last] */
    start = si_get_shaderbuf_slot(num_shaderbufs - 1);
-   *const_and_shader_buffers = u_bit_consecutive64(start, num_shaderbufs + num_constbufs);
+
+   int count = num_shaderbufs + num_constbufs;
+   if (count)
+      BITSET_SET_RANGE(const_and_shader_buffers, start, start + count - 1);
 
    /* The layout is:
     *   - fmask[last] ... fmask[0]     go to [15-last .. 15]
@@ -3106,10 +3109,12 @@ void si_get_active_slot_masks(struct si_screen *sscreen, const struct si_shader_
     * descriptors together.
     */
    if (sscreen->info.gfx_level < GFX11 && num_msaa_images)
-      num_images = SI_NUM_IMAGES + num_msaa_images; /* add FMASK descriptors */
+      num_images = SI_NUM_COMPUTE_IMAGES + num_msaa_images; /* add FMASK descriptors */
 
    start = si_get_image_slot(num_images - 1) / 2;
-   *samplers_and_images = u_bit_consecutive64(start, num_images / 2 + num_samplers);
+   count = num_images / 2 + num_samplers;
+   if (count)
+      BITSET_SET_RANGE(samplers_and_images, start, start + count - 1);
 }
 
 static void *si_create_shader_selector(struct pipe_context *ctx,
@@ -3152,8 +3157,8 @@ static void *si_create_shader_selector(struct pipe_context *ctx,
       nir_print_shader(sel->nir, stderr);
 
    p_atomic_inc(&sscreen->num_shaders_created);
-   si_get_active_slot_masks(sscreen, &sel->info, &sel->active_const_and_shader_buffers,
-                            &sel->active_samplers_and_images);
+   si_get_active_slot_masks(sscreen, &sel->info, sel->active_const_and_shader_buffers,
+                            sel->active_samplers_and_images);
 
    switch (sel->stage) {
    case MESA_SHADER_GEOMETRY:

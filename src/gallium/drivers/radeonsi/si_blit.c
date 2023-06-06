@@ -393,15 +393,12 @@ static bool si_decompress_sampler_depth_textures(struct si_context *sctx,
                                                  struct si_samplers *textures)
 {
    unsigned i;
-   unsigned mask = textures->needs_depth_decompress_mask;
    bool need_flush = false;
 
-   while (mask) {
+   BITSET_FOREACH_SET(i, textures->needs_depth_decompress_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct pipe_sampler_view *view;
       struct si_sampler_view *sview;
       struct si_texture *tex;
-
-      i = u_bit_scan(&mask);
 
       view = textures->views[i];
       assert(view);
@@ -564,13 +561,10 @@ static void si_decompress_sampler_color_textures(struct si_context *sctx,
                                                  struct si_samplers *textures)
 {
    unsigned i;
-   unsigned mask = textures->needs_color_decompress_mask;
 
-   while (mask) {
+   BITSET_FOREACH_SET(i, textures->needs_color_decompress_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct pipe_sampler_view *view;
       struct si_texture *tex;
-
-      i = u_bit_scan(&mask);
 
       view = textures->views[i];
       assert(view);
@@ -585,13 +579,10 @@ static void si_decompress_sampler_color_textures(struct si_context *sctx,
 static void si_decompress_image_color_textures(struct si_context *sctx, struct si_images *images)
 {
    unsigned i;
-   unsigned mask = images->needs_color_decompress_mask;
 
-   while (mask) {
+   BITSET_FOREACH_SET(i, images->needs_color_decompress_mask, SI_NUM_COMPUTE_IMAGES) {
       const struct pipe_image_view *view;
       struct si_texture *tex;
-
-      i = u_bit_scan(&mask);
 
       view = &images->views[i];
       assert(view->resource->target != PIPE_BUFFER);
@@ -633,15 +624,18 @@ static void si_check_render_feedback_texture(struct si_context *sctx, struct si_
 }
 
 static void si_check_render_feedback_textures(struct si_context *sctx, struct si_samplers *textures,
-                                              uint32_t in_use_mask)
+                                              const BITSET_WORD *in_use_mask)
 {
-   uint32_t mask = textures->enabled_mask & in_use_mask;
+   /* this will never be used on a compute shader so limited to 32-bits is fine. */
+   int i;
+   BITSET_DECLARE(enabled_mask, SI_NUM_SAMPLERS);
+   BITSET_COPY(enabled_mask, textures->enabled_mask);
 
-   while (mask) {
+   __bitset_and(enabled_mask, enabled_mask, in_use_mask, BITSET_WORDS(SI_NUM_SAMPLERS));
+
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_SAMPLERS) {
       const struct pipe_sampler_view *view;
       struct si_texture *tex;
-
-      unsigned i = u_bit_scan(&mask);
 
       view = textures->views[i];
       if (view->texture->target == PIPE_BUFFER)
@@ -655,15 +649,21 @@ static void si_check_render_feedback_textures(struct si_context *sctx, struct si
 }
 
 static void si_check_render_feedback_images(struct si_context *sctx, struct si_images *images,
-                                            uint32_t in_use_mask)
+                                            uint32_t num_images)
 {
-   uint32_t mask = images->enabled_mask & in_use_mask;
+   /* this will never be used on a compute shader so limited to 32-bits is fine. */
+   int i;
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_IMAGES);
+   BITSET_ZERO(enabled_mask);
 
-   while (mask) {
+   if (num_images)
+      BITSET_SET_RANGE(enabled_mask, 0, num_images - 1);
+
+   BITSET_AND(enabled_mask, enabled_mask, images->enabled_mask);
+
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       const struct pipe_image_view *view;
       struct si_texture *tex;
-
-      unsigned i = u_bit_scan(&mask);
 
       view = &images->views[i];
       if (view->resource->target == PIPE_BUFFER)
@@ -727,9 +727,9 @@ static void si_check_render_feedback(struct si_context *sctx)
 
       struct si_shader_info *info = &sctx->shaders[i].cso->info;
       si_check_render_feedback_images(sctx, &sctx->images[i],
-                                      u_bit_consecutive(0, info->base.num_images));
+                                      info->base.num_images);
       si_check_render_feedback_textures(sctx, &sctx->samplers[i],
-                                        info->base.textures_used[0]);
+                                        info->base.textures_used);
    }
 
    si_check_render_feedback_resident_images(sctx);
@@ -793,13 +793,13 @@ void si_decompress_textures(struct si_context *sctx, unsigned shader_mask)
    while (mask) {
       unsigned i = u_bit_scan(&mask);
 
-      if (sctx->samplers[i].needs_depth_decompress_mask) {
+      if (BITSET_COUNT(sctx->samplers[i].needs_depth_decompress_mask)) {
          need_flush |= si_decompress_sampler_depth_textures(sctx, &sctx->samplers[i]);
       }
-      if (sctx->samplers[i].needs_color_decompress_mask) {
+      if (BITSET_COUNT(sctx->samplers[i].needs_color_decompress_mask)) {
          si_decompress_sampler_color_textures(sctx, &sctx->samplers[i]);
       }
-      if (sctx->images[i].needs_color_decompress_mask) {
+      if (BITSET_COUNT(sctx->images[i].needs_color_decompress_mask)) {
          si_decompress_image_color_textures(sctx, &sctx->images[i]);
       }
    }

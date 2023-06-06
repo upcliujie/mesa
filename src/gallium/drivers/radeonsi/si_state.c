@@ -675,7 +675,7 @@ static bool si_check_blend_dst_sampler_noop(struct si_context *sctx)
          /* Now check if the texture is cleared to 1 */
          int unit = sctx->shader.ps.cso->info.writes_1_if_tex_is_1 - 1;
          struct si_samplers *samp = &sctx->samplers[PIPE_SHADER_FRAGMENT];
-         if ((1u << unit) & samp->enabled_mask) {
+         if (BITSET_TEST(samp->enabled_mask, unit)) {
             struct si_texture* tex = (struct si_texture*) samp->views[unit]->texture;
             if (tex->is_depth &&
                 tex->depth_cleared_level_mask & BITFIELD_BIT(samp->views[unit]->u.tex.first_level) &&
@@ -2717,9 +2717,10 @@ void si_set_sampler_depth_decompress_mask(struct si_context *sctx, struct si_tex
     * which samplers should be decompressed.
     */
    u_foreach_bit(sh, sctx->shader_has_depth_tex) {
-      u_foreach_bit(i, sctx->samplers[sh].has_depth_tex_mask) {
+     unsigned i;
+     BITSET_FOREACH_SET(i, sctx->samplers[sh].has_depth_tex_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
          if (sctx->samplers[sh].views[i]->texture == &tex->buffer.b.b) {
-            sctx->samplers[sh].needs_depth_decompress_mask |= 1 << i;
+            BITSET_SET(sctx->samplers[sh].needs_depth_decompress_mask, i);
             sctx->shader_needs_decompress_mask |= 1 << sh;
          }
       }

@@ -217,11 +217,9 @@ static void si_sampler_view_add_buffer(struct si_context *sctx, struct pipe_reso
 
 static void si_sampler_views_begin_new_cs(struct si_context *sctx, struct si_samplers *samplers)
 {
-   unsigned mask = samplers->enabled_mask;
-
    /* Add buffers to the CS. */
-   while (mask) {
-      int i = u_bit_scan(&mask);
+   unsigned i;
+   BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct si_sampler_view *sview = (struct si_sampler_view *)samplers->views[i];
 
       si_sampler_view_add_buffer(sctx, sview->base.texture, RADEON_USAGE_READ,
@@ -230,13 +228,16 @@ static void si_sampler_views_begin_new_cs(struct si_context *sctx, struct si_sam
 }
 
 static bool si_sampler_views_check_encrypted(struct si_context *sctx, struct si_samplers *samplers,
-                                             unsigned samplers_declared)
+                                             const BITSET_WORD *samplers_declared)
 {
-   unsigned mask = samplers->enabled_mask & samplers_declared;
+   unsigned i;
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
+   BITSET_COPY(enabled_mask, samplers->enabled_mask);
+
+   __bitset_and(enabled_mask, enabled_mask, samplers_declared, BITSET_WORDS(SI_NUM_COMPUTE_SAMPLER_VIEWS));
 
    /* Verify if a samplers uses an encrypted resource */
-   while (mask) {
-      int i = u_bit_scan(&mask);
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct si_sampler_view *sview = (struct si_sampler_view *)samplers->views[i];
 
       struct si_resource *res = si_resource(sview->base.texture);
@@ -533,7 +534,8 @@ static void si_set_sampler_views(struct si_context *sctx, unsigned shader,
 {
    struct si_samplers *samplers = &sctx->samplers[shader];
    struct si_descriptors *descs = si_sampler_and_image_descriptors(sctx, shader);
-   uint32_t unbound_mask = 0;
+   BITSET_DECLARE(unbound_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS);
+   BITSET_ZERO(unbound_mask);
 
    if (views) {
       for (unsigned i = 0; i < count; i++) {
@@ -558,26 +560,26 @@ static void si_set_sampler_views(struct si_context *sctx, unsigned shader,
 
             if (tex->buffer.b.b.target == PIPE_BUFFER) {
                tex->buffer.bind_history |= SI_BIND_SAMPLER_BUFFER(shader);
-               samplers->needs_depth_decompress_mask &= ~(1u << slot);
-               samplers->needs_color_decompress_mask &= ~(1u << slot);
+               BITSET_CLEAR(samplers->needs_depth_decompress_mask, slot);
+               BITSET_CLEAR(samplers->needs_color_decompress_mask, slot);
             } else {
                if (tex->is_depth) {
-                  samplers->has_depth_tex_mask |= 1u << slot;
-                  samplers->needs_color_decompress_mask &= ~(1u << slot);
+                  BITSET_SET(samplers->has_depth_tex_mask, slot);
+                  BITSET_CLEAR(samplers->needs_color_decompress_mask, slot);
 
                   if (depth_needs_decompression(tex, sview->is_stencil_sampler)) {
-                     samplers->needs_depth_decompress_mask |= 1u << slot;
+                     BITSET_SET(samplers->needs_depth_decompress_mask, slot);
                   } else {
-                     samplers->needs_depth_decompress_mask &= ~(1u << slot);
+                     BITSET_CLEAR(samplers->needs_depth_decompress_mask, slot);
                   }
                } else {
-                  samplers->has_depth_tex_mask &= ~(1u << slot);
-                  samplers->needs_depth_decompress_mask &= ~(1u << slot);
+                  BITSET_CLEAR(samplers->has_depth_tex_mask, slot);
+                  BITSET_CLEAR(samplers->needs_depth_decompress_mask, slot);
 
                   if (color_needs_decompression(tex)) {
-                     samplers->needs_color_decompress_mask |= 1u << slot;
+                     BITSET_SET(samplers->needs_color_decompress_mask, slot);
                   } else {
-                     samplers->needs_color_decompress_mask &= ~(1u << slot);
+                     BITSET_CLEAR(samplers->needs_color_decompress_mask, slot);
                   }
                }
 
@@ -592,7 +594,7 @@ static void si_set_sampler_views(struct si_context *sctx, unsigned shader,
             } else {
                pipe_sampler_view_reference(&samplers->views[slot], &sview->base);
             }
-            samplers->enabled_mask |= 1u << slot;
+            BITSET_SET(samplers->enabled_mask, slot);
 
             /* Since this can flush, it must be done after enabled_mask is
              * updated. */
@@ -600,7 +602,7 @@ static void si_set_sampler_views(struct si_context *sctx, unsigned shader,
                                        sview->is_stencil_sampler, true);
          } else {
             si_reset_sampler_view_slot(samplers, slot, desc);
-            unbound_mask |= 1u << slot;
+            BITSET_SET(unbound_mask, slot);
          }
       }
    } else {
@@ -617,11 +619,13 @@ static void si_set_sampler_views(struct si_context *sctx, unsigned shader,
          si_reset_sampler_view_slot(samplers, slot, desc);
    }
 
-   unbound_mask |= BITFIELD_RANGE(start_slot + count, unbind_num_trailing_slots);
-   samplers->enabled_mask &= ~unbound_mask;
-   samplers->has_depth_tex_mask &= ~unbound_mask;
-   samplers->needs_depth_decompress_mask &= ~unbound_mask;
-   samplers->needs_color_decompress_mask &= ~unbound_mask;
+   if (unbind_num_trailing_slots)
+      BITSET_SET_RANGE(unbound_mask, start_slot + count, start_slot + count + unbind_num_trailing_slots - 1);
+   BITSET_NOT(unbound_mask);
+   BITSET_AND(samplers->enabled_mask, samplers->enabled_mask, unbound_mask);
+   BITSET_AND(samplers->has_depth_tex_mask, samplers->has_depth_tex_mask, unbound_mask);
+   BITSET_AND(samplers->needs_depth_decompress_mask, samplers->needs_depth_decompress_mask, unbound_mask);
+   BITSET_AND(samplers->needs_color_decompress_mask, samplers->needs_color_decompress_mask, unbound_mask);
 
    sctx->descriptors_dirty |= 1u << si_sampler_and_image_descriptors_idx(shader);
 }
@@ -631,13 +635,14 @@ static void si_update_shader_needs_decompress_mask(struct si_context *sctx, unsi
    struct si_samplers *samplers = &sctx->samplers[shader];
    unsigned shader_bit = 1 << shader;
 
-   if (samplers->needs_depth_decompress_mask || samplers->needs_color_decompress_mask ||
-       sctx->images[shader].needs_color_decompress_mask)
+   if (BITSET_COUNT(samplers->needs_depth_decompress_mask) ||
+       BITSET_COUNT(samplers->needs_color_decompress_mask) ||
+       BITSET_COUNT(sctx->images[shader].needs_color_decompress_mask))
       sctx->shader_needs_decompress_mask |= shader_bit;
    else
       sctx->shader_needs_decompress_mask &= ~shader_bit;
 
-   if (samplers->has_depth_tex_mask)
+   if (BITSET_COUNT(samplers->has_depth_tex_mask))
       sctx->shader_has_depth_tex |= shader_bit;
    else
       sctx->shader_has_depth_tex &= ~shader_bit;
@@ -660,19 +665,18 @@ static void si_pipe_set_sampler_views(struct pipe_context *ctx, enum pipe_shader
 
 static void si_samplers_update_needs_color_decompress_mask(struct si_samplers *samplers)
 {
-   unsigned mask = samplers->enabled_mask;
+   int i;
 
-   while (mask) {
-      int i = u_bit_scan(&mask);
+   BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
       struct pipe_resource *res = samplers->views[i]->texture;
 
       if (res && res->target != PIPE_BUFFER) {
          struct si_texture *tex = (struct si_texture *)res;
 
          if (color_needs_decompression(tex)) {
-            samplers->needs_color_decompress_mask |= 1u << i;
+            BITSET_SET(samplers->needs_color_decompress_mask, i);
          } else {
-            samplers->needs_color_decompress_mask &= ~(1u << i);
+            BITSET_CLEAR(samplers->needs_color_decompress_mask, i);
          }
       }
    }
@@ -684,7 +688,7 @@ static void si_release_image_views(struct si_images *images)
 {
    unsigned i;
 
-   for (i = 0; i < SI_NUM_IMAGES; ++i) {
+   for (i = 0; i < SI_NUM_COMPUTE_IMAGES; ++i) {
       struct pipe_image_view *view = &images->views[i];
 
       pipe_resource_reference(&view->resource, NULL);
@@ -693,11 +697,10 @@ static void si_release_image_views(struct si_images *images)
 
 static void si_image_views_begin_new_cs(struct si_context *sctx, struct si_images *images)
 {
-   uint mask = images->enabled_mask;
+   int i;
 
    /* Add buffers to the CS. */
-   while (mask) {
-      int i = u_bit_scan(&mask);
+   BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       struct pipe_image_view *view = &images->views[i];
 
       assert(view->resource);
@@ -707,12 +710,18 @@ static void si_image_views_begin_new_cs(struct si_context *sctx, struct si_image
 }
 
 static bool si_image_views_check_encrypted(struct si_context *sctx, struct si_images *images,
-                                           unsigned images_declared)
+                                           unsigned num_images)
 {
-   uint mask = images->enabled_mask & images_declared;
+   BITSET_DECLARE(enabled_mask, SI_NUM_COMPUTE_IMAGES);
+   BITSET_ZERO(enabled_mask);
 
-   while (mask) {
-      int i = u_bit_scan(&mask);
+   if (num_images)
+      BITSET_SET_RANGE(enabled_mask, 0, num_images - 1);
+
+   BITSET_AND(enabled_mask, enabled_mask, images->enabled_mask);
+
+   int i;
+   BITSET_FOREACH_SET(i, enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       struct pipe_image_view *view = &images->views[i];
 
       assert(view->resource);
@@ -728,16 +737,16 @@ static void si_disable_shader_image(struct si_context *ctx, unsigned shader, uns
 {
    struct si_images *images = &ctx->images[shader];
 
-   if (images->enabled_mask & (1u << slot)) {
+   if (BITSET_TEST(images->enabled_mask, slot)) {
       struct si_descriptors *descs = si_sampler_and_image_descriptors(ctx, shader);
       unsigned desc_slot = si_get_image_slot(slot);
 
       pipe_resource_reference(&images->views[slot].resource, NULL);
-      images->needs_color_decompress_mask &= ~(1 << slot);
+      BITSET_CLEAR(images->needs_color_decompress_mask, slot);
 
       memcpy(descs->list + desc_slot * 8, null_image_descriptor, 8 * 4);
-      images->enabled_mask &= ~(1u << slot);
-      images->display_dcc_store_mask &= ~(1u << slot);
+      BITSET_CLEAR(images->enabled_mask, slot);
+      BITSET_CLEAR(images->display_dcc_store_mask, slot);
       ctx->descriptors_dirty |= 1u << si_sampler_and_image_descriptors_idx(shader);
    }
 }
@@ -852,40 +861,40 @@ static void si_set_shader_image(struct si_context *ctx, unsigned shader, unsigne
    res = si_resource(view->resource);
 
    si_set_shader_image_desc(ctx, view, skip_decompress, descs->list + si_get_image_slot(slot) * 8,
-                            descs->list + si_get_image_slot(slot + SI_NUM_IMAGES) * 8);
+                            descs->list + si_get_image_slot(slot + SI_NUM_COMPUTE_IMAGES) * 8);
 
    if (&images->views[slot] != view)
       util_copy_image_view(&images->views[slot], view);
 
    if (res->b.b.target == PIPE_BUFFER) {
-      images->needs_color_decompress_mask &= ~(1 << slot);
-      images->display_dcc_store_mask &= ~(1u << slot);
+      BITSET_CLEAR(images->needs_color_decompress_mask, slot);
+      BITSET_CLEAR(images->display_dcc_store_mask, slot);
       res->bind_history |= SI_BIND_IMAGE_BUFFER(shader);
    } else {
       struct si_texture *tex = (struct si_texture *)res;
       unsigned level = view->u.tex.level;
 
       if (color_needs_decompression(tex)) {
-         images->needs_color_decompress_mask |= 1 << slot;
+         BITSET_SET(images->needs_color_decompress_mask, slot);
       } else {
-         images->needs_color_decompress_mask &= ~(1 << slot);
+         BITSET_CLEAR(images->needs_color_decompress_mask, slot);
       }
 
       if (tex->surface.display_dcc_offset && view->access & PIPE_IMAGE_ACCESS_WRITE) {
-         images->display_dcc_store_mask |= 1u << slot;
+         BITSET_SET(images->display_dcc_store_mask, slot);
 
          /* Set displayable_dcc_dirty for non-compute stages conservatively (before draw calls). */
          if (shader != PIPE_SHADER_COMPUTE)
             tex->displayable_dcc_dirty = true;
       } else {
-         images->display_dcc_store_mask &= ~(1u << slot);
+         BITSET_CLEAR(images->display_dcc_store_mask, slot);
       }
 
       if (vi_dcc_enabled(tex, level) && p_atomic_read(&tex->framebuffers_bound))
          ctx->need_check_render_feedback = true;
    }
 
-   images->enabled_mask |= 1u << slot;
+   BITSET_SET(images->enabled_mask, slot);
    ctx->descriptors_dirty |= 1u << si_sampler_and_image_descriptors_idx(shader);
 
    /* Since this can flush, it must be done after enabled_mask is updated. */
@@ -908,7 +917,7 @@ static void si_set_shader_images(struct pipe_context *pipe, enum pipe_shader_typ
    if (!count && !unbind_num_trailing_slots)
       return;
 
-   assert(start_slot + count + unbind_num_trailing_slots <= SI_NUM_IMAGES);
+   assert(start_slot + count + unbind_num_trailing_slots <= SI_NUM_COMPUTE_IMAGES);
 
    if (views) {
       for (i = 0, slot = start_slot; i < count; ++i, ++slot)
@@ -931,19 +940,18 @@ static void si_set_shader_images(struct pipe_context *pipe, enum pipe_shader_typ
 
 static void si_images_update_needs_color_decompress_mask(struct si_images *images)
 {
-   unsigned mask = images->enabled_mask;
+   int i;
 
-   while (mask) {
-      int i = u_bit_scan(&mask);
+   BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
       struct pipe_resource *res = images->views[i].resource;
 
       if (res && res->target != PIPE_BUFFER) {
          struct si_texture *tex = (struct si_texture *)res;
 
          if (color_needs_decompression(tex)) {
-            images->needs_color_decompress_mask |= 1 << i;
+            BITSET_SET(images->needs_color_decompress_mask, i);
          } else {
-            images->needs_color_decompress_mask &= ~(1 << i);
+            BITSET_CLEAR(images->needs_color_decompress_mask, i);
          }
       }
    }
@@ -1787,10 +1795,9 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
       u_foreach_bit(shader, mask) {
          struct si_samplers *samplers = &sctx->samplers[shader];
          struct si_descriptors *descs = si_sampler_and_image_descriptors(sctx, shader);
-         unsigned mask = samplers->enabled_mask;
 
-         while (mask) {
-            unsigned i = u_bit_scan(&mask);
+         int i;
+         BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
             struct pipe_resource *buffer = samplers->views[i]->texture;
 
             if (buffer && buffer->target == PIPE_BUFFER && (!buf || buffer == buf)) {
@@ -1814,10 +1821,9 @@ void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf)
       u_foreach_bit(shader, mask) {
          struct si_images *images = &sctx->images[shader];
          struct si_descriptors *descs = si_sampler_and_image_descriptors(sctx, shader);
-         unsigned mask = images->enabled_mask;
+         int i;
 
-         while (mask) {
-            unsigned i = u_bit_scan(&mask);
+         BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
             struct pipe_resource *buffer = images->views[i].resource;
 
             if (buffer && buffer->target == PIPE_BUFFER && (!buf || buffer == buf)) {
@@ -2018,12 +2024,10 @@ void si_update_all_texture_descriptors(struct si_context *sctx)
    for (shader = 0; shader < SI_NUM_SHADERS; shader++) {
       struct si_samplers *samplers = &sctx->samplers[shader];
       struct si_images *images = &sctx->images[shader];
-      unsigned mask;
+      int i;
 
       /* Images. */
-      mask = images->enabled_mask;
-      while (mask) {
-         unsigned i = u_bit_scan(&mask);
+      BITSET_FOREACH_SET(i, images->enabled_mask, SI_NUM_COMPUTE_IMAGES) {
          struct pipe_image_view *view = &images->views[i];
 
          if (!view->resource || view->resource->target == PIPE_BUFFER)
@@ -2033,9 +2037,7 @@ void si_update_all_texture_descriptors(struct si_context *sctx)
       }
 
       /* Sampler views. */
-      mask = samplers->enabled_mask;
-      while (mask) {
-         unsigned i = u_bit_scan(&mask);
+      BITSET_FOREACH_SET(i, samplers->enabled_mask, SI_NUM_COMPUTE_SAMPLER_VIEWS) {
          struct pipe_sampler_view *view = samplers->views[i];
 
          if (!view || !view->texture || view->texture->target == PIPE_BUFFER)
@@ -2706,7 +2708,7 @@ void si_init_all_descriptors(struct si_context *sctx)
    for (i = first_shader; i < SI_NUM_SHADERS; i++) {
       bool is_2nd =
          sctx->gfx_level >= GFX9 && (i == PIPE_SHADER_TESS_CTRL || i == PIPE_SHADER_GEOMETRY);
-      unsigned num_sampler_slots = SI_NUM_IMAGE_SLOTS / 2 + SI_NUM_SAMPLERS;
+      unsigned num_sampler_slots = SI_NUM_IMAGE_SLOTS / 2 + SI_NUM_COMPUTE_SAMPLER_VIEWS;
       unsigned num_buffer_slots = SI_NUM_SHADER_BUFFERS + SI_NUM_CONST_BUFFERS;
       int rel_dw_offset;
       struct si_descriptors *desc;
@@ -2752,7 +2754,7 @@ void si_init_all_descriptors(struct si_context *sctx)
       int j;
       for (j = 0; j < SI_NUM_IMAGE_SLOTS; j++)
          memcpy(desc->list + j * 8, null_image_descriptor, 8 * 4);
-      for (; j < SI_NUM_IMAGE_SLOTS + SI_NUM_SAMPLERS * 2; j++)
+      for (; j < SI_NUM_IMAGE_SLOTS + SI_NUM_COMPUTE_SAMPLER_VIEWS * 2; j++)
          memcpy(desc->list + j * 8, null_texture_descriptor, 8 * 4);
    }
 
@@ -2879,9 +2881,9 @@ bool si_gfx_resources_check_encrypted(struct si_context *sctx)
          si_buffer_resources_check_encrypted(sctx, &sctx->const_and_shader_buffers[i]);
       use_encrypted_bo |=
          si_sampler_views_check_encrypted(sctx, &sctx->samplers[i],
-                                          current_shader->cso->info.base.textures_used[0]);
+                                          current_shader->cso->info.base.textures_used);
       use_encrypted_bo |= si_image_views_check_encrypted(sctx, &sctx->images[i],
-                                          u_bit_consecutive(0, current_shader->cso->info.base.num_images));
+                                                         current_shader->cso->info.base.num_images);
    }
    use_encrypted_bo |= si_buffer_resources_check_encrypted(sctx, &sctx->internal_bindings);
 
@@ -2966,8 +2968,8 @@ bool si_compute_resources_check_encrypted(struct si_context *sctx)
     * or all writable buffers are encrypted.
     */
    return si_buffer_resources_check_encrypted(sctx, &sctx->const_and_shader_buffers[sh]) ||
-          si_sampler_views_check_encrypted(sctx, &sctx->samplers[sh], info->base.textures_used[0]) ||
-          si_image_views_check_encrypted(sctx, &sctx->images[sh], u_bit_consecutive(0, info->base.num_images)) ||
+          si_sampler_views_check_encrypted(sctx, &sctx->samplers[sh], info->base.textures_used) ||
+          si_image_views_check_encrypted(sctx, &sctx->images[sh], info->base.num_images) ||
           si_buffer_resources_check_encrypted(sctx, &sctx->internal_bindings);
 }
 
@@ -2998,18 +3000,22 @@ void si_add_all_descriptors_to_bo_list(struct si_context *sctx)
    sctx->bo_list_add_all_compute_resources = true;
 }
 
-void si_set_active_descriptors(struct si_context *sctx, unsigned desc_idx, uint64_t new_active_mask)
+void si_set_active_descriptors(struct si_context *sctx, unsigned desc_idx, BITSET_WORD *new_active_mask)
 {
    struct si_descriptors *desc = &sctx->descriptors[desc_idx];
+   BITSET_DECLARE(desc_active, SI_ACTIVE_DESC_SLOTS);
+   BITSET_ZERO(desc_active);
 
+   if (desc->num_active_slots)
+      BITSET_SET_RANGE(desc_active, desc->first_active_slot, desc->first_active_slot + desc->num_active_slots - 1);
    /* Ignore no-op updates and updates that disable all slots. */
-   if (!new_active_mask ||
-       new_active_mask == u_bit_consecutive64(desc->first_active_slot, desc->num_active_slots))
+   if (!__bitset_count(new_active_mask, BITSET_WORDS(SI_ACTIVE_DESC_SLOTS)) ||
+       BITSET_EQUAL(desc_active, new_active_mask))
       return;
 
-   int first, count;
-   u_bit_scan_consecutive_range64(&new_active_mask, &first, &count);
-   assert(new_active_mask == 0);
+   unsigned first, count, end = 0;
+   __bitset_next_range(&first, &end, new_active_mask, SI_ACTIVE_DESC_SLOTS);
+   count = end - first;
 
    /* Upload/dump descriptors if slots are being enabled. */
    if (first < desc->first_active_slot ||

@@ -22,8 +22,12 @@ extern "C" {
 #define SI_NUM_SAMPLERS       32 /* OpenGL textures units per shader */
 #define SI_NUM_CONST_BUFFERS  16
 #define SI_NUM_IMAGES         16
-#define SI_NUM_IMAGE_SLOTS    (SI_NUM_IMAGES * 2) /* the second half are FMASK slots */
 #define SI_NUM_SHADER_BUFFERS 32
+
+#define SI_NUM_COMPUTE_IMAGES         64
+#define SI_NUM_IMAGE_SLOTS    (SI_NUM_COMPUTE_IMAGES * 2) /* the second half are FMASK slots */
+
+#define SI_NUM_COMPUTE_SAMPLER_VIEWS 128
 
 struct si_screen;
 struct si_shader;
@@ -505,7 +509,7 @@ void si_set_internal_const_buffer(struct si_context *sctx, uint slot,
 void si_set_internal_shader_buffer(struct si_context *sctx, uint slot,
                                    const struct pipe_shader_buffer *sbuffer);
 void si_set_active_descriptors(struct si_context *sctx, unsigned desc_idx,
-                               uint64_t new_active_mask);
+                               BITSET_WORD *new_active_mask);
 void si_set_active_descriptors_for_shader(struct si_context *sctx, struct si_shader_selector *sel);
 bool si_bindless_descriptor_can_reclaim_slab(void *priv, struct pb_slab_entry *entry);
 struct pb_slab *si_bindless_descriptor_slab_alloc(void *priv, unsigned heap, unsigned entry_size,
@@ -560,7 +564,7 @@ void si_schedule_initial_compile(struct si_context *sctx, gl_shader_stage stage,
                                  struct si_compiler_ctx_state *compiler_ctx_state, void *job,
                                  util_queue_execute_func execute);
 void si_get_active_slot_masks(struct si_screen *sscreen, const struct si_shader_info *info,
-                              uint64_t *const_and_shader_buffers, uint64_t *samplers_and_images);
+                              BITSET_WORD *const_and_shader_buffers, BITSET_WORD *samplers_and_images);
 int si_shader_select(struct pipe_context *ctx, struct si_shader_ctx_state *state);
 void si_vs_key_update_inputs(struct si_context *sctx);
 void si_get_vs_key_inputs(struct si_context *sctx, union si_shader_key *key,

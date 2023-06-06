@@ -456,12 +456,17 @@ static int si_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_typ
       return 1 << 26; /* 64 MB */
    case PIPE_SHADER_CAP_MAX_CONST_BUFFERS:
       return SI_NUM_CONST_BUFFERS;
-   case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
    case PIPE_SHADER_CAP_MAX_SAMPLER_VIEWS:
+      if (shader == PIPE_SHADER_COMPUTE)
+         return SI_NUM_COMPUTE_SAMPLER_VIEWS;
+      FALLTHROUGH;
+   case PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS:
       return SI_NUM_SAMPLERS;
    case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
       return SI_NUM_SHADER_BUFFERS;
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
+      if (shader == PIPE_SHADER_COMPUTE)
+         return SI_NUM_COMPUTE_IMAGES;
       return SI_NUM_IMAGES;
    case PIPE_SHADER_CAP_PREFERRED_IR:
       return PIPE_SHADER_IR_NIR;
