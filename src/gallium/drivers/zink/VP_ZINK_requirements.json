@@ -15,7 +15,6 @@
                 "VK_KHR_imageless_framebuffer": 1,
                 "VK_KHR_timeline_semaphore": 1,
                 "VK_EXT_custom_border_color": 1,
-                "VK_EXT_line_rasterization": 1,
                 "VK_KHR_swapchain_mutable_format": 1,
                 "VK_EXT_border_color_swizzle": 1,
                 "VK_KHR_descriptor_update_template": 1
@@ -389,6 +388,7 @@
                 "VK_EXT_extended_dynamic_state2": 1,
                 "VK_EXT_extended_dynamic_state3": 1,
                 "VK_EXT_graphics_pipeline_library": 1,
+                "VK_EXT_line_rasterization": 1,
                 "VK_EXT_non_seamless_cube_map": 1,
                 "VK_KHR_pipeline_library": 1
             },
@@ -414,6 +414,9 @@
                 },
                 "VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT": {
                     "graphicsPipelineLibrary": true
+                },
+                "VkPhysicalDeviceLineRasterizationFeaturesEXT": {
+                    "smoothLines": true
                 },
                 "VkPhysicalDeviceNonSeamlessCubeMapFeaturesEXT": {
                     "nonSeamlessCubeMap": true

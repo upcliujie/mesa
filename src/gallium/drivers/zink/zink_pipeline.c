@@ -159,8 +159,10 @@ zink_create_gfx_pipeline(struct zink_screen *screen,
 
    rast_state.depthClampEnable = hw_rast_state->depth_clamp;
    rast_state.rasterizerDiscardEnable = state->dyn_state2.rasterizer_discard;
-   rast_state.polygonMode = hw_rast_state->polygon_mode;
-   rast_state.cullMode = state->dyn_state1.cull_mode;
+   rast_state.polygonMode = !state->shader_keys.key[MESA_SHADER_FRAGMENT].key.fs.lower_line_smooth ?
+      VK_POLYGON_MODE_FILL : hw_rast_state->polygon_mode;
+   rast_state.cullMode = state->rast_prim == PIPE_PRIM_LINES ?
+      VK_CULL_MODE_NONE : state->dyn_state1.cull_mode;
    rast_state.frontFace = state->dyn_state1.front_face;
 
    rast_state.depthBiasEnable = VK_TRUE;

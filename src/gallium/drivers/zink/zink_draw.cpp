@@ -510,6 +510,8 @@ zink_draw(struct pipe_context *pctx,
 
    if ((mode_changed || prim_changed || rast_state_changed || ctx->gfx_pipeline_state.modules_changed)) {
       zink_set_primitive_emulation_keys(ctx);
+      if (zink_get_fs_key(ctx)->lower_line_smooth)
+         rast_state_changed = true;
    }
 
    if (index_size) {
@@ -634,9 +636,13 @@ zink_draw(struct pipe_context *pctx,
    }
    ctx->dsa_state_changed = false;
 
-   if (DYNAMIC_STATE != ZINK_NO_DYNAMIC_STATE && (BATCH_CHANGED || rast_state_changed)) {
+   if (DYNAMIC_STATE != ZINK_NO_DYNAMIC_STATE && (BATCH_CHANGED || rast_state_changed || rast_prim_changed)) {
       VKCTX(CmdSetFrontFaceEXT)(batch->state->cmdbuf, (VkFrontFace)ctx->gfx_pipeline_state.dyn_state1.front_face);
-      VKCTX(CmdSetCullModeEXT)(batch->state->cmdbuf, ctx->gfx_pipeline_state.dyn_state1.cull_mode);
+
+      if (ctx->gfx_pipeline_state.rast_prim == PIPE_PRIM_LINES)
+         VKCTX(CmdSetCullModeEXT)(batch->state->cmdbuf, VK_CULL_MODE_NONE);
+      else
+         VKCTX(CmdSetCullModeEXT)(batch->state->cmdbuf, ctx->gfx_pipeline_state.dyn_state1.cull_mode);
    }
    if ((BATCH_CHANGED || rast_state_changed) &&
        !screen->driver_workarounds.no_linestipple && (DYNAMIC_STATE >= ZINK_DYNAMIC_STATE3 || rast_state->base.line_stipple_enable))
@@ -645,7 +651,12 @@ zink_draw(struct pipe_context *pctx,
    if ((BATCH_CHANGED || rast_state_changed) && DYNAMIC_STATE >= ZINK_DYNAMIC_STATE3) {
       VKCTX(CmdSetDepthClipEnableEXT)(batch->state->cmdbuf, rast_state->hw_state.depth_clip);
       VKCTX(CmdSetDepthClampEnableEXT)(batch->state->cmdbuf, rast_state->hw_state.depth_clamp);
-      VKCTX(CmdSetPolygonModeEXT)(batch->state->cmdbuf, (VkPolygonMode)rast_state->hw_state.polygon_mode);
+
+      if (zink_get_fs_key(ctx)->lower_line_smooth)
+         VKCTX(CmdSetPolygonModeEXT)(batch->state->cmdbuf, VK_POLYGON_MODE_FILL);
+      else
+         VKCTX(CmdSetPolygonModeEXT)(batch->state->cmdbuf, (VkPolygonMode)rast_state->hw_state.polygon_mode);
+
       VKCTX(CmdSetDepthClipNegativeOneToOneEXT)(batch->state->cmdbuf, !rast_state->hw_state.clip_halfz);
       VKCTX(CmdSetProvokingVertexModeEXT)(batch->state->cmdbuf, rast_state->hw_state.pv_last ?
                                                                 VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT :
