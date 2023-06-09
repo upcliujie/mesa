@@ -50,8 +50,9 @@ is_color_output(nir_shader *shader, nir_variable *out)
 }
 
 static bool
-lower_intrinsic(nir_builder *b, nir_intrinsic_instr *intr, nir_shader *shader)
+lower_intrinsic(nir_builder *b, nir_intrinsic_instr *intr)
 {
+   nir_shader *shader = b->shader;
    nir_variable *out = NULL;
    nir_def *s;
 
@@ -92,7 +93,7 @@ static bool
 lower_instr(nir_builder *b, nir_instr *instr, void *cb_data)
 {
    if (instr->type == nir_instr_type_intrinsic)
-      return lower_intrinsic(b, nir_instr_as_intrinsic(instr), cb_data);
+      return lower_intrinsic(b, nir_instr_as_intrinsic(instr));
    return false;
 }
 
@@ -102,5 +103,5 @@ nir_lower_clamp_color_outputs(nir_shader *shader)
    return nir_shader_instructions_pass(shader, lower_instr,
                                        nir_metadata_block_index |
                                           nir_metadata_dominance,
-                                       shader);
+                                       NULL);
 }
