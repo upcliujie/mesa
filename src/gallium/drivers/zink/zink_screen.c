@@ -1029,6 +1029,10 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_STRING_MARKER:
       return screen->instance_info.have_EXT_debug_utils;
 
+   //st legacy emulation pipe caps
+   case PIPE_CAP_FRAGMENT_COLOR_CLAMPED:
+      return screen->optimal_keys;
+
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);
    }
