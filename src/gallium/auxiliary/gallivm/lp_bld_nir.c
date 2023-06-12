@@ -2794,6 +2794,8 @@ bool lp_build_nir_llvm(struct lp_build_nir_context *bld_base,
 {
    struct nir_function *func;
 
+   if (!is_aos(bld_base))
+      nir_lower_alu_to_scalar(nir, NULL, NULL);
    nir_convert_from_ssa(nir, true);
    nir_lower_locals_to_regs(nir);
    nir_remove_dead_derefs(nir);
