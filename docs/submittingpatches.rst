@@ -100,7 +100,7 @@ Patch formatting
       Acked-by: Joe Hacker <jhacker@foo.com>
 
 -  When updating a merge request add all the tags (``Acked-by:``, ``Reviewed-by:``,
-   ``Fixes:``, ``Cc: mesa-stable`` and/or other) to the commit messages.
+   ``Fixes:``, ``Stable: X.Y```, and/or other) to the commit messages.
    This provides reviewers with quick feedback if the patch has already
    been reviewed.
 
@@ -120,8 +120,8 @@ You can produce those fixes lines by running this command once::
 
 After that, using ``git fixes <sha1>`` will print the full line for you.
 
-The stable tag
-~~~~~~~~~~~~~~
+The ``Stable:`` tag
+~~~~~~~~~~~~~~~~~~~
 
 If you want a commit to be applied to a stable branch, you should add an
 appropriate note to the commit message.
@@ -131,16 +131,28 @@ is the preferred way to nominate a commit that should be backported.
 There are scripts that will figure out which releases to apply the patch
 to automatically, so you don't need to figure it out.
 
-Alternatively, you may use a "CC:" tag. Here are some examples of such a
+Alternatively, you may use the ``Stable:`` tag. Here are some examples:
+
+   Stable: 21.3
+   stable: 21.3 22.0
+
+The stable tag must contain at least one version which this patch applies to, it
+may, optionally, contian a second version. If no version is provided then the
+tag is ignored. Do not quote the versions.
+
+The ``CC:`` tag
+~~~~~~~~~~~~~~~~
+
+Historically mesa used a "CC:" tag. Here are some examples of such a
 note::
 
     Cc: mesa-stable
     Cc: 20.0 <mesa-stable>
     CC: 20.0 19.3 <mesa-stable>
 
-Using the CC tag **should** include the stable branches you want to
-nominate the patch to. If you do not provide any version it is nominated
-to all active stable branches.
+This has been deprecated in favor of the ``stable:`` tag, please use that
+instead. It is likely that at some point in the future the maintainer scripts
+will no longer search for Cc: tags.
 
 .. _testing:
 

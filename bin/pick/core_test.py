@@ -98,6 +98,42 @@ class TestRE:
             assert m is not None
             assert m.group(1) == '3d09bb390a39'
 
+    class TestStable:
+
+        def test_single_branch(self):
+            """Tests commit meant for a single branch, ie, 19.1"""
+            message = textwrap.dedent("""\
+                radv: fix DCC fast clear code for intensity formats
+
+                This fixes a rendering issue with DiRT 4 on GFX10. Only GFX10 was
+                affected because intensity formats are different.
+
+                Stable: 19.2
+                Closes: https://gitlab.freedesktop.org/mesa/mesa/-/issues/1923
+                Signed-off-by: Samuel Pitoiset <samuel.pitoiset@gmail.com>
+                Reviewed-by: Bas Nieuwenhuizen <bas@basnieuwenhuizen.nl>
+            """)
+            m = core.IS_STABLE.search(message)
+            assert m is not None
+            assert m.group(1) == '19.2'
+
+        def test_multiple_branches(self):
+            """Tests commit with more than one branch specified"""
+            message = textwrap.dedent("""\
+                radeonsi: enable zerovram for Rocket League
+
+                Fixes corruption on game startup.
+                Closes: https://gitlab.freedesktop.org/mesa/mesa/-/issues/1888
+
+                stable: 19.1 19.2
+                Reviewed-by: Pierre-Eric Pelloux-Prayer <pierre-eric.pelloux-prayer@amd.com>
+            """)
+
+            m = core.IS_STABLE.search(message)
+            assert m is not None
+            assert m.group(1) == '19.1'
+            assert m.group(2) == '19.2'
+
     class TestCC:
 
         def test_single_branch(self):
