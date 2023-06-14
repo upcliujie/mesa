@@ -1459,9 +1459,9 @@ struct radv_dynamic_state {
       } xform[MAX_VIEWPORTS];
    } hw_vp;
 
-   struct radv_sample_locations_state sample_location;
-
    VkImageAspectFlags feedback_loop_aspects;
+
+   struct radv_sample_locations_state sample_location; //THIS MUST BE LAST
 };
 
 const char *radv_get_debug_option_name(int id);
