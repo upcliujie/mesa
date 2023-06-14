@@ -63,6 +63,8 @@ rusticl_lower_intrinsics_instr(
     }
     case nir_intrinsic_load_base_global_invocation_id:
         return nir_load_var(b, state->base_global_invoc_id);
+    case nir_intrinsic_load_workgroup_size:
+        return nir_load_var(b, state->local_size);
     case nir_intrinsic_load_constant_base_ptr:
         return nir_load_var(b, state->const_buf);
     case nir_intrinsic_load_printf_buffer_address:
@@ -70,6 +72,9 @@ rusticl_lower_intrinsics_instr(
     case nir_intrinsic_load_work_dim:
         assert(state->work_dim);
         return nir_u2uN(b, nir_load_var(b, state->work_dim), nir_dest_bit_size(intrins->dest));
+    case nir_intrinsic_load_num_workgroups:
+        assert(state->num_workgroups);
+        return nir_u2uN(b, nir_load_var(b, state->num_workgroups), nir_dest_bit_size(intrins->dest));
     default:
         return NULL;
     }

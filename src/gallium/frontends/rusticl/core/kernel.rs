@@ -60,6 +60,8 @@ pub enum InternalKernelArgType {
     FormatArray,
     OrderArray,
     WorkDim,
+    NumWorkgroups,
+    LocalWorkSize,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -220,6 +222,8 @@ impl InternalKernelArg {
             InternalKernelArgType::FormatArray => bin.push(4),
             InternalKernelArgType::OrderArray => bin.push(5),
             InternalKernelArgType::WorkDim => bin.push(6),
+            InternalKernelArgType::NumWorkgroups => bin.push(7),
+            InternalKernelArgType::LocalWorkSize => bin.push(8),
         }
 
         bin
@@ -242,6 +246,8 @@ impl InternalKernelArg {
             4 => InternalKernelArgType::FormatArray,
             5 => InternalKernelArgType::OrderArray,
             6 => InternalKernelArgType::WorkDim,
+            7 => InternalKernelArgType::NumWorkgroups,
+            8 => InternalKernelArgType::LocalWorkSize,
             _ => return None,
         };
 
@@ -355,6 +361,14 @@ where
         res[i] = (*v).try_into().expect("64 bit work groups not supported");
     }
     res
+}
+
+fn u32_array_to_u64(input: [u32; 3]) -> Vec<u8> {
+    cl_prop::<[u64; 3]>([input[0] as u64, input[1] as u64, input[2] as u64])
+}
+
+fn u64_array_to_u32(input: [u64; 3]) -> Vec<u8> {
+    cl_prop::<[u32; 3]>([input[0] as u32, input[1] as u32, input[2] as u32])
 }
 
 fn opt_nir(nir: &mut NirShader, dev: &Device) {
@@ -550,93 +564,88 @@ fn lower_and_optimize_nir_late(
     );
     nir.extract_constant_initializers();
 
-    // TODO 32 bit devices
-    // add vars for global offsets
-    res.push(InternalKernelArg {
-        kind: InternalKernelArgType::GlobalWorkOffsets,
-        offset: 0,
-        size: (3 * dev.address_bits() / 8) as usize,
-    });
-
-    lower_state.base_global_invoc_id = nir.add_var(
-        nir_variable_mode::nir_var_uniform,
-        unsafe { glsl_vector_type(address_bits_base_type, 3) },
-        args.len() + res.len() - 1,
-        "base_global_invocation_id",
-    );
-    if nir.has_constant() {
-        res.push(InternalKernelArg {
-            kind: InternalKernelArgType::ConstantBuffer,
-            offset: 0,
-            size: 8,
-        });
-        lower_state.const_buf = nir.add_var(
-            nir_variable_mode::nir_var_uniform,
-            address_bits_ptr_type,
-            args.len() + res.len() - 1,
-            "constant_buffer_addr",
-        );
-    }
-    if nir.has_printf() {
-        res.push(InternalKernelArg {
-            kind: InternalKernelArgType::PrintfBuffer,
-            offset: 0,
-            size: 8,
-        });
-        lower_state.printf_buf = nir.add_var(
-            nir_variable_mode::nir_var_uniform,
-            address_bits_ptr_type,
-            args.len() + res.len() - 1,
-            "printf_buffer_addr",
-        );
-    }
-
     // run before gather info
     nir.pass0(nir_lower_system_values);
     let mut compute_options = nir_lower_compute_system_values_options::default();
     compute_options.set_has_base_global_invocation_id(true);
     nir.pass1(nir_lower_compute_system_values, &compute_options);
     nir.pass1(nir_shader_gather_info, nir.entrypoint());
-    if nir.num_images() > 0 || nir.num_textures() > 0 {
-        let count = nir.num_images() + nir.num_textures();
+
+    // local helper function to add internal args more easily
+    let mut add_internal_var = |arg_type: InternalKernelArgType,
+                                glsl_type: *const glsl_type,
+                                name: &str|
+     -> *mut nir_variable {
         res.push(InternalKernelArg {
-            kind: InternalKernelArgType::FormatArray,
+            kind: arg_type,
             offset: 0,
-            size: 2 * count as usize,
+            size: unsafe { glsl_get_cl_size(glsl_type) } as usize,
         });
 
-        res.push(InternalKernelArg {
-            kind: InternalKernelArgType::OrderArray,
-            offset: 0,
-            size: 2 * count as usize,
-        });
-
-        lower_state.format_arr = nir.add_var(
+        nir.add_var(
             nir_variable_mode::nir_var_uniform,
-            unsafe { glsl_array_type(glsl_int16_t_type(), count as u32, 2) },
-            args.len() + res.len() - 2,
-            "image_formats",
-        );
-
-        lower_state.order_arr = nir.add_var(
-            nir_variable_mode::nir_var_uniform,
-            unsafe { glsl_array_type(glsl_int16_t_type(), count as u32, 2) },
+            glsl_type,
             args.len() + res.len() - 1,
-            "image_orders",
+            name,
+        )
+    };
+
+    lower_state.base_global_invoc_id = add_internal_var(
+        InternalKernelArgType::GlobalWorkOffsets,
+        unsafe { glsl_vector_type(address_bits_base_type, 3) },
+        "base_global_invocation_id",
+    );
+
+    if nir.has_constant() {
+        lower_state.const_buf = add_internal_var(
+            InternalKernelArgType::ConstantBuffer,
+            address_bits_ptr_type,
+            "constant_buffer_addr",
+        );
+    }
+    if nir.has_printf() {
+        lower_state.printf_buf = add_internal_var(
+            InternalKernelArgType::PrintfBuffer,
+            address_bits_ptr_type,
+            "printf_buffer_addr",
         );
     }
 
+    if nir.num_images() > 0 || nir.num_textures() > 0 {
+        let count = nir.num_images() + nir.num_textures();
+        let glsl_type = unsafe { glsl_array_type(glsl_int16_t_type(), count as u32, 2) };
+
+        lower_state.format_arr = add_internal_var(
+            InternalKernelArgType::FormatArray,
+            glsl_type,
+            "image_formats",
+        );
+
+        lower_state.order_arr =
+            add_internal_var(InternalKernelArgType::OrderArray, glsl_type, "image_orders");
+    }
+
     if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_WORK_DIM) {
-        res.push(InternalKernelArg {
-            kind: InternalKernelArgType::WorkDim,
-            size: 1,
-            offset: 0,
-        });
-        lower_state.work_dim = nir.add_var(
-            nir_variable_mode::nir_var_uniform,
+        lower_state.work_dim = add_internal_var(
+            InternalKernelArgType::WorkDim,
             unsafe { glsl_uint8_t_type() },
-            args.len() + res.len() - 1,
             "work_dim",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_NUM_WORKGROUPS) {
+        lower_state.num_workgroups = add_internal_var(
+            InternalKernelArgType::NumWorkgroups,
+            unsafe { glsl_vector_type(address_bits_base_type, 3) },
+            "num_groups",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_WORKGROUP_SIZE) {
+        lower_state.local_size = add_internal_var(
+            InternalKernelArgType::LocalWorkSize,
+            unsafe { glsl_vector_type(glsl_base_type::GLSL_TYPE_UINT, 3) },
+            "local_size",
         );
     }
 
@@ -1002,12 +1011,11 @@ impl Kernel {
                     if q.device.address_bits() == 64 {
                         input.extend_from_slice(&cl_prop::<[u64; 3]>(offsets));
                     } else {
-                        input.extend_from_slice(&cl_prop::<[u32; 3]>([
-                            offsets[0] as u32,
-                            offsets[1] as u32,
-                            offsets[2] as u32,
-                        ]));
+                        input.extend_from_slice(&u64_array_to_u32(offsets));
                     }
+                }
+                InternalKernelArgType::LocalWorkSize => {
+                    input.extend_from_slice(&cl_prop::<[u32; 3]>(block));
                 }
                 InternalKernelArgType::PrintfBuffer => {
                     let buf = Arc::new(
@@ -1035,6 +1043,13 @@ impl Kernel {
                 }
                 InternalKernelArgType::WorkDim => {
                     input.extend_from_slice(&[work_dim as u8; 1]);
+                }
+                InternalKernelArgType::NumWorkgroups => {
+                    if q.device.address_bits() == 64 {
+                        input.extend_from_slice(&u32_array_to_u64(grid));
+                    } else {
+                        input.extend_from_slice(&cl_prop::<[u32; 3]>(grid));
+                    }
                 }
             }
         }
