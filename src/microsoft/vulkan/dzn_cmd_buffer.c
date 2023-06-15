@@ -4888,29 +4888,10 @@ dzn_rendering_attachment_initial_transition(struct dzn_cmd_buffer *cmdbuf,
    }
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBeginRendering(VkCommandBuffer commandBuffer,
-                      const VkRenderingInfo *pRenderingInfo)
+static void
+dzn_begin_rendering_immediate(struct dzn_cmd_buffer *cmdbuf,
+                              const VkRenderingInfo *pRenderingInfo)
 {
-   VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
-
-   D3D12_RECT new_render_area = {
-      .left = pRenderingInfo->renderArea.offset.x,
-      .top = pRenderingInfo->renderArea.offset.y,
-      .right = (LONG)(pRenderingInfo->renderArea.offset.x + pRenderingInfo->renderArea.extent.width),
-      .bottom = (LONG)(pRenderingInfo->renderArea.offset.y + pRenderingInfo->renderArea.extent.height),
-   };
-
-   // The render area has an impact on the scissor state.
-   if (memcmp(&cmdbuf->state.render.area, &new_render_area, sizeof(new_render_area))) {
-      cmdbuf->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
-      cmdbuf->state.render.area = new_render_area;
-   }
-
-   cmdbuf->state.render.flags = pRenderingInfo->flags;
-   cmdbuf->state.render.layer_count = pRenderingInfo->layerCount;
-   cmdbuf->state.render.view_mask = pRenderingInfo->viewMask;
-
    D3D12_CPU_DESCRIPTOR_HANDLE rt_handles[MAX_RTS] = { 0 };
    D3D12_CPU_DESCRIPTOR_HANDLE zs_handle = { 0 };
 
@@ -5059,16 +5040,40 @@ dzn_CmdBeginRendering(VkCommandBuffer commandBuffer,
          }
       }
    }
-
-   cmdbuf->state.multiview.num_views = MAX2(util_bitcount(pRenderingInfo->viewMask), 1);
-   cmdbuf->state.multiview.view_mask = MAX2(pRenderingInfo->viewMask, 1);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdEndRendering(VkCommandBuffer commandBuffer)
+dzn_CmdBeginRendering(VkCommandBuffer commandBuffer,
+                      const VkRenderingInfo *pRenderingInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
 
+   D3D12_RECT new_render_area = {
+      .left = pRenderingInfo->renderArea.offset.x,
+      .top = pRenderingInfo->renderArea.offset.y,
+      .right = (LONG)(pRenderingInfo->renderArea.offset.x + pRenderingInfo->renderArea.extent.width),
+      .bottom = (LONG)(pRenderingInfo->renderArea.offset.y + pRenderingInfo->renderArea.extent.height),
+   };
+
+   // The render area has an impact on the scissor state.
+   if (memcmp(&cmdbuf->state.render.area, &new_render_area, sizeof(new_render_area))) {
+      cmdbuf->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
+      cmdbuf->state.render.area = new_render_area;
+   }
+
+   cmdbuf->state.render.flags = pRenderingInfo->flags;
+   cmdbuf->state.render.layer_count = pRenderingInfo->layerCount;
+   cmdbuf->state.render.view_mask = pRenderingInfo->viewMask;
+
+   cmdbuf->state.multiview.num_views = MAX2(util_bitcount(pRenderingInfo->viewMask), 1);
+   cmdbuf->state.multiview.view_mask = MAX2(pRenderingInfo->viewMask, 1);
+
+   dzn_begin_rendering_immediate(cmdbuf, pRenderingInfo);
+}
+
+static void
+dzn_end_rendering_immediate(struct dzn_cmd_buffer *cmdbuf)
+{
    if (!(cmdbuf->state.render.flags & VK_RENDERING_SUSPENDING_BIT)) {
       for (uint32_t i = 0; i < cmdbuf->state.render.attachments.color_count; i++) {
          dzn_cmd_buffer_resolve_rendering_attachment(cmdbuf,
@@ -5088,6 +5093,14 @@ dzn_CmdEndRendering(VkCommandBuffer commandBuffer)
                                                   VK_IMAGE_ASPECT_STENCIL_BIT,
                                                   separate_stencil_resolve);
    }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdEndRendering(VkCommandBuffer commandBuffer)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
+
+   dzn_end_rendering_immediate(cmdbuf);
 
    memset(&cmdbuf->state.render, 0, sizeof(cmdbuf->state.render));
 }
