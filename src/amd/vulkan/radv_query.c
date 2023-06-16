@@ -58,11 +58,12 @@ radv_store_availability(nir_builder *b, nir_ssa_def *flags, nir_ssa_def *dst_buf
 
    nir_push_if(b, nir_test_mask(b, flags, VK_QUERY_RESULT_64_BIT));
 
-   nir_store_ssbo(b, nir_vec2(b, value32, nir_imm_int(b, 0)), dst_buf, offset, .align_mul = 8);
+   nir_store_ssbo(b, nir_vec2(b, value32, nir_imm_int(b, 0)), dst_buf, offset, .align_mul = 8,
+                  .access = ACCESS_COHERENT);
 
    nir_push_else(b, NULL);
 
-   nir_store_ssbo(b, value32, dst_buf, offset);
+   nir_store_ssbo(b, value32, dst_buf, offset, .access = ACCESS_COHERENT);
 
    nir_pop_if(b, NULL);
 
@@ -178,7 +179,8 @@ build_occlusion_query_shader(struct radv_device *device)
    nir_ssa_def *load_offset = nir_imul_imm(&b, current_outer_count, 16);
    load_offset = nir_iadd(&b, input_base, load_offset);
 
-   nir_ssa_def *load = nir_load_ssbo(&b, 2, 64, src_buf, load_offset, .align_mul = 16);
+   nir_ssa_def *load =
+      nir_load_ssbo(&b, 2, 64, src_buf, load_offset, .align_mul = 16, .access = ACCESS_COHERENT);
 
    nir_store_var(&b, start, nir_channel(&b, load, 0), 0x1);
    nir_store_var(&b, end, nir_channel(&b, load, 1), 0x1);
@@ -211,12 +213,13 @@ build_occlusion_query_shader(struct radv_device *device)
 
    nir_push_if(&b, result_is_64bit);
 
-   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base, .align_mul = 8);
+   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base, .align_mul = 8,
+                  .access = ACCESS_COHERENT);
 
    nir_push_else(&b, NULL);
 
-   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base,
-                  .align_mul = 8);
+   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base, .align_mul = 8,
+                  .access = ACCESS_COHERENT);
 
    nir_pop_if(&b, NULL);
    nir_pop_if(&b, NULL);
@@ -309,7 +312,8 @@ build_pipeline_statistics_query_shader(struct radv_device *device)
 
    avail_offset = nir_iadd(&b, avail_offset, nir_imul_imm(&b, global_id, 4));
 
-   nir_ssa_def *available32 = nir_load_ssbo(&b, 1, 32, src_buf, avail_offset);
+   nir_ssa_def *available32 =
+      nir_load_ssbo(&b, 1, 32, src_buf, avail_offset, .access = ACCESS_COHERENT);
 
    nir_ssa_def *result_is_64bit = nir_test_mask(&b, flags, VK_QUERY_RESULT_64_BIT);
    nir_ssa_def *elem_size = nir_bcsel(&b, result_is_64bit, nir_imm_int(&b, 8), nir_imm_int(&b, 4));
@@ -326,11 +330,12 @@ build_pipeline_statistics_query_shader(struct radv_device *device)
       nir_push_if(&b, nir_test_mask(&b, stats_mask, BITFIELD64_BIT(i)));
 
       nir_ssa_def *start_offset = nir_iadd_imm(&b, input_base, pipeline_statistics_indices[i] * 8);
-      nir_ssa_def *start = nir_load_ssbo(&b, 1, 64, src_buf, start_offset);
+      nir_ssa_def *start =
+         nir_load_ssbo(&b, 1, 64, src_buf, start_offset, .access = ACCESS_COHERENT);
 
       nir_ssa_def *end_offset =
          nir_iadd_imm(&b, input_base, pipeline_statistics_indices[i] * 8 + pipelinestat_block_size);
-      nir_ssa_def *end = nir_load_ssbo(&b, 1, 64, src_buf, end_offset);
+      nir_ssa_def *end = nir_load_ssbo(&b, 1, 64, src_buf, end_offset, .access = ACCESS_COHERENT);
 
       nir_store_var(&b, result, nir_isub(&b, end, start), 0x1);
 
@@ -341,11 +346,13 @@ build_pipeline_statistics_query_shader(struct radv_device *device)
          /* Compute the GDS result if needed. */
          nir_ssa_def *gds_start_offset =
             nir_iadd(&b, input_base, nir_imm_int(&b, pipelinestat_block_size * 2));
-         nir_ssa_def *gds_start = nir_load_ssbo(&b, 1, 64, src_buf, gds_start_offset);
+         nir_ssa_def *gds_start =
+            nir_load_ssbo(&b, 1, 64, src_buf, gds_start_offset, .access = ACCESS_COHERENT);
 
          nir_ssa_def *gds_end_offset =
             nir_iadd(&b, input_base, nir_imm_int(&b, pipelinestat_block_size * 2 + 8));
-         nir_ssa_def *gds_end = nir_load_ssbo(&b, 1, 64, src_buf, gds_end_offset);
+         nir_ssa_def *gds_end =
+            nir_load_ssbo(&b, 1, 64, src_buf, gds_end_offset, .access = ACCESS_COHERENT);
 
          nir_ssa_def *ngg_gds_result = nir_isub(&b, gds_end, gds_start);
 
@@ -356,11 +363,13 @@ build_pipeline_statistics_query_shader(struct radv_device *device)
       /* Store result */
       nir_push_if(&b, result_is_64bit);
 
-      nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, nir_load_var(&b, output_offset));
+      nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, nir_load_var(&b, output_offset),
+                     .access = ACCESS_COHERENT);
 
       nir_push_else(&b, NULL);
 
-      nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, nir_load_var(&b, output_offset));
+      nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf,
+                     nir_load_var(&b, output_offset), .access = ACCESS_COHERENT);
 
       nir_pop_if(&b, NULL);
 
@@ -387,11 +396,11 @@ build_pipeline_statistics_query_shader(struct radv_device *device)
    nir_ssa_def *output_elem = nir_iadd(&b, output_base, nir_imul(&b, elem_size, current_counter));
    nir_push_if(&b, result_is_64bit);
 
-   nir_store_ssbo(&b, nir_imm_int64(&b, 0), dst_buf, output_elem);
+   nir_store_ssbo(&b, nir_imm_int64(&b, 0), dst_buf, output_elem, .access = ACCESS_COHERENT);
 
    nir_push_else(&b, NULL);
 
-   nir_store_ssbo(&b, nir_imm_int(&b, 0), dst_buf, output_elem);
+   nir_store_ssbo(&b, nir_imm_int(&b, 0), dst_buf, output_elem, .access = ACCESS_COHERENT);
 
    nir_pop_if(&b, NULL);
 
@@ -466,9 +475,10 @@ build_tfb_query_shader(struct radv_device *device)
    nir_ssa_def *output_base = nir_imul(&b, output_stride, global_id);
 
    /* Load data from the query pool. */
-   nir_ssa_def *load1 = nir_load_ssbo(&b, 4, 32, src_buf, input_base, .align_mul = 32);
-   nir_ssa_def *load2 =
-      nir_load_ssbo(&b, 4, 32, src_buf, nir_iadd_imm(&b, input_base, 16), .align_mul = 16);
+   nir_ssa_def *load1 =
+      nir_load_ssbo(&b, 4, 32, src_buf, input_base, .align_mul = 32, .access = ACCESS_COHERENT);
+   nir_ssa_def *load2 = nir_load_ssbo(&b, 4, 32, src_buf, nir_iadd_imm(&b, input_base, 16),
+                                      .align_mul = 16, .access = ACCESS_COHERENT);
 
    /* Check if result is available. */
    nir_ssa_def *avails[2];
@@ -512,11 +522,12 @@ build_tfb_query_shader(struct radv_device *device)
    /* Store result. */
    nir_push_if(&b, result_is_64bit);
 
-   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base);
+   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base, .access = ACCESS_COHERENT);
 
    nir_push_else(&b, NULL);
 
-   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base);
+   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base,
+                  .access = ACCESS_COHERENT);
 
    nir_pop_if(&b, NULL);
    nir_pop_if(&b, NULL);
@@ -586,7 +597,8 @@ build_timestamp_query_shader(struct radv_device *device)
    nir_ssa_def *output_base = nir_imul(&b, output_stride, global_id);
 
    /* Load data from the query pool. */
-   nir_ssa_def *load = nir_load_ssbo(&b, 2, 32, src_buf, input_base, .align_mul = 8);
+   nir_ssa_def *load =
+      nir_load_ssbo(&b, 2, 32, src_buf, input_base, .align_mul = 8, .access = ACCESS_COHERENT);
 
    /* Pack the timestamp. */
    nir_ssa_def *timestamp;
@@ -616,11 +628,12 @@ build_timestamp_query_shader(struct radv_device *device)
    /* Store result. */
    nir_push_if(&b, result_is_64bit);
 
-   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base);
+   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base, .access = ACCESS_COHERENT);
 
    nir_push_else(&b, NULL);
 
-   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base);
+   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base,
+                  .access = ACCESS_COHERENT);
 
    nir_pop_if(&b, NULL);
 
@@ -706,9 +719,11 @@ build_pg_query_shader(struct radv_device *device)
    nir_ssa_def *output_base = nir_imul(&b, output_stride, global_id);
 
    /* Load data from the query pool. */
-   nir_ssa_def *load1 = nir_load_ssbo(&b, 2, 32, src_buf, input_base, .align_mul = 32);
-   nir_ssa_def *load2 = nir_load_ssbo(
-      &b, 2, 32, src_buf, nir_iadd(&b, input_base, nir_imm_int(&b, 16)), .align_mul = 16);
+   nir_ssa_def *load1 =
+      nir_load_ssbo(&b, 2, 32, src_buf, input_base, .align_mul = 32, .access = ACCESS_COHERENT);
+   nir_ssa_def *load2 =
+      nir_load_ssbo(&b, 2, 32, src_buf, nir_iadd(&b, input_base, nir_imm_int(&b, 16)),
+                    .align_mul = 16, .access = ACCESS_COHERENT);
 
    /* Check if result is available. */
    nir_ssa_def *avails[2];
@@ -735,9 +750,11 @@ build_pg_query_shader(struct radv_device *device)
    nir_push_if(&b, uses_gds);
    {
       nir_ssa_def *gds_start =
-         nir_load_ssbo(&b, 1, 32, src_buf, nir_iadd(&b, input_base, nir_imm_int(&b, 32)), .align_mul = 4);
+         nir_load_ssbo(&b, 1, 32, src_buf, nir_iadd(&b, input_base, nir_imm_int(&b, 32)),
+                       .align_mul = 4, .access = ACCESS_COHERENT);
       nir_ssa_def *gds_end =
-         nir_load_ssbo(&b, 1, 32, src_buf, nir_iadd(&b, input_base, nir_imm_int(&b, 36)), .align_mul = 4);
+         nir_load_ssbo(&b, 1, 32, src_buf, nir_iadd(&b, input_base, nir_imm_int(&b, 36)),
+                       .align_mul = 4, .access = ACCESS_COHERENT);
 
       nir_ssa_def *ngg_gds_result = nir_isub(&b, gds_end, gds_start);
 
@@ -761,11 +778,12 @@ build_pg_query_shader(struct radv_device *device)
    /* Store result. */
    nir_push_if(&b, result_is_64bit);
 
-   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base);
+   nir_store_ssbo(&b, nir_load_var(&b, result), dst_buf, output_base, .access = ACCESS_COHERENT);
 
    nir_push_else(&b, NULL);
 
-   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base);
+   nir_store_ssbo(&b, nir_u2u32(&b, nir_load_var(&b, result)), dst_buf, output_base,
+                  .access = ACCESS_COHERENT);
 
    nir_pop_if(&b, NULL);
    nir_pop_if(&b, NULL);
@@ -1065,11 +1083,6 @@ radv_query_shader(struct radv_cmd_buffer *cmd_buffer, VkPipeline *pipeline,
 
    radv_CmdPushConstants(radv_cmd_buffer_to_handle(cmd_buffer), device->meta_state.query.p_layout,
                          VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
-
-   cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_INV_L2 | RADV_CMD_FLAG_INV_VCACHE;
-
-   if (flags & VK_QUERY_RESULT_WAIT_BIT)
-      cmd_buffer->state.flush_bits |= RADV_CMD_FLUSH_AND_INV_FRAMEBUFFER;
 
    radv_unaligned_dispatch(cmd_buffer, count, 1, 1);
 
@@ -1978,11 +1991,6 @@ emit_end_query(struct radv_cmd_buffer *cmd_buffer, struct radv_query_pool *pool,
       radeon_emit(cs, va);
       radeon_emit(cs, va >> 32);
 
-      si_cs_emit_write_event_eop(cs, cmd_buffer->device->physical_device->rad_info.gfx_level,
-                                 radv_cmd_buffer_uses_mec(cmd_buffer), V_028A90_BOTTOM_OF_PIPE_TS,
-                                 0, EOP_DST_SEL_MEM, EOP_DATA_SEL_VALUE_32BIT, avail_va, 1,
-                                 cmd_buffer->gfx9_eop_bug_va);
-
       if (pool->uses_gds) {
          va += pipelinestat_block_size + 8;
 
@@ -1994,6 +2002,11 @@ emit_end_query(struct radv_cmd_buffer *cmd_buffer, struct radv_query_pool *pool,
          if (!cmd_buffer->state.active_pipeline_gds_queries)
             cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_QUERY;
       }
+
+      si_cs_emit_write_event_eop(cs, cmd_buffer->device->physical_device->rad_info.gfx_level,
+                                 radv_cmd_buffer_uses_mec(cmd_buffer), V_028A90_BOTTOM_OF_PIPE_TS,
+                                 0, EOP_DST_SEL_MEM, EOP_DATA_SEL_VALUE_32BIT, avail_va, 1,
+                                 cmd_buffer->gfx9_eop_bug_va);
       break;
    }
    case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
