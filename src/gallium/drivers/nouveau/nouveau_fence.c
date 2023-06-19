@@ -31,7 +31,7 @@
 #endif
 
 static bool
-_nouveau_fence_wait(struct nouveau_fence *fence, struct util_debug_callback *debug);
+_nouveau_fence_wait(struct nouveau_fence *fence, struct nouveau_context *nv);
 
 bool
 nouveau_fence_new(struct nouveau_context *nv, struct nouveau_fence **fence)
@@ -242,10 +242,11 @@ nouveau_fence_kick(struct nouveau_fence *fence)
 }
 
 static bool
-_nouveau_fence_wait(struct nouveau_fence *fence, struct util_debug_callback *debug)
+_nouveau_fence_wait(struct nouveau_fence *fence, struct nouveau_context *nv)
 {
    struct nouveau_screen *screen = fence->screen;
    struct nouveau_fence_list *fence_list = &screen->fence;
+   struct util_debug_callback *debug = nv ? &nv->debug : NULL;
    int64_t start = 0;
 
    simple_mtx_assert_locked(&fence_list->lock);
@@ -267,8 +268,12 @@ _nouveau_fence_wait(struct nouveau_fence *fence, struct util_debug_callback *deb
       }
 
       _nouveau_fence_update(screen, false);
-      if (fence->state != NOUVEAU_FENCE_STATE_SIGNALLED)
+      if (fence->state != NOUVEAU_FENCE_STATE_SIGNALLED) {
+         enum pipe_reset_status status = nouveau_check_dead_context(screen);
+         if (status != PIPE_NO_RESET)
+            nouveau_mark_dead_context(nv, status);
          return false;
+      }
 
       if (debug && debug->debug_message)
          util_debug_message(debug, PERF_INFO,
@@ -367,11 +372,11 @@ nouveau_fence_ref(struct nouveau_fence *fence, struct nouveau_fence **ref)
 }
 
 bool
-nouveau_fence_wait(struct nouveau_fence *fence, struct util_debug_callback *debug)
+nouveau_fence_wait(struct nouveau_fence *fence, struct nouveau_context *nv)
 {
    struct nouveau_fence_list *fence_list = &fence->screen->fence;
    simple_mtx_lock(&fence_list->lock);
-   bool res = _nouveau_fence_wait(fence, debug);
+   bool res = _nouveau_fence_wait(fence, nv);
    simple_mtx_unlock(&fence_list->lock);
    return res;
 }

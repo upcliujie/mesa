@@ -120,4 +120,38 @@ nouveau_context_update_frame_stats(struct nouveau_context *nv)
    }
 }
 
+/* Returns the appropiate pipe_reset_status depending on the screen
+ */
+static enum pipe_reset_status
+nouveau_dead_context_status(struct nouveau_screen *screen)
+{
+   if (screen->base.num_contexts > 1)
+      return PIPE_UNKNOWN_CONTEXT_RESET;
+   else
+      return PIPE_GUILTY_CONTEXT_RESET;
+}
+
+/* Calls into the device_reset_callback
+ */
+static inline void
+nouveau_mark_dead_context(struct nouveau_context *nv, enum pipe_reset_status status)
+{
+   if (nv) {
+      struct pipe_device_reset_callback *reset = &nv->device_reset_cb;
+
+      if (reset->reset)
+         reset->reset(reset->data, status);
+   }
+}
+
+static inline MUST_CHECK enum pipe_reset_status
+nouveau_check_dead_context(struct nouveau_screen *screen)
+{
+   enum pipe_reset_status status = nouveau_dead_context_status(screen);
+   if (nouveau_check_dead_channel(screen->drm, screen->channel))
+      return status;
+   else
+      return PIPE_NO_RESET;
+}
+
 #endif

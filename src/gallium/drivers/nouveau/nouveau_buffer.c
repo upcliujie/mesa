@@ -245,14 +245,14 @@ nouveau_buffer_sync(struct nouveau_context *nv,
          return true;
       NOUVEAU_DRV_STAT_RES(buf, buf_non_kernel_fence_sync_count,
                            !nouveau_fence_signalled(buf->fence_wr));
-      if (!nouveau_fence_wait(buf->fence_wr, &nv->debug))
+      if (!nouveau_fence_wait(buf->fence_wr, nv))
          return false;
    } else {
       if (!buf->fence)
          return true;
       NOUVEAU_DRV_STAT_RES(buf, buf_non_kernel_fence_sync_count,
                            !nouveau_fence_signalled(buf->fence));
-      if (!nouveau_fence_wait(buf->fence, &nv->debug))
+      if (!nouveau_fence_wait(buf->fence, nv))
          return false;
 
       nouveau_fence_ref(NULL, &buf->fence);
