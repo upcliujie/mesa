@@ -11,6 +11,7 @@ struct nv04_resource;
 
 struct nouveau_context {
    struct pipe_context pipe;
+   struct pipe_device_reset_callback device_reset_cb;
    struct nouveau_screen *screen;
 
    struct nouveau_client *client;

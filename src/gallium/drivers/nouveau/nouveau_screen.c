@@ -489,12 +489,24 @@ nouveau_set_debug_callback(struct pipe_context *pipe,
       memset(&context->debug, 0, sizeof(context->debug));
 }
 
+static void
+nouveau_set_device_reset_callback(struct pipe_context *pipe,
+                                  const struct pipe_device_reset_callback *cb)
+{
+   struct nouveau_context *context = nouveau_context(pipe);
+   if (cb)
+      context->device_reset_cb = *cb;
+   else
+      memset(&context->device_reset_cb, 0, sizeof(context->device_reset_cb));
+}
+
 int
 nouveau_context_init(struct nouveau_context *context, struct nouveau_screen *screen)
 {
    int ret;
 
    context->pipe.set_debug_callback = nouveau_set_debug_callback;
+   context->pipe.set_device_reset_callback = nouveau_set_device_reset_callback;
    context->screen = screen;
 
    ret = nouveau_client_new(screen->device, &context->client);
