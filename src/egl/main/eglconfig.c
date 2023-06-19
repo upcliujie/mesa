@@ -417,7 +417,7 @@ _eglValidateConfig(const _EGLConfig *conf, EGLBoolean for_matching)
       return EGL_FALSE;
    }
 
-   if (!(conf->SurfaceType & EGL_WINDOW_BIT)) {
+   if (!(conf->SurfaceType & (EGL_WINDOW_BIT | EGL_PBUFFER_BIT))) {
       if (conf->NativeVisualID != 0 || conf->NativeVisualType != EGL_NONE)
          valid = EGL_FALSE;
    }
