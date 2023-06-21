@@ -52,7 +52,7 @@ sanitize_32bit_sysval(nir_builder *b, nir_intrinsic_instr *intrin)
 }
 
 static nir_ssa_def*
-build_global_group_size(nir_builder *b, unsigned bit_size)
+lower_global_group_size(nir_builder *b, unsigned bit_size)
 {
    nir_ssa_def *group_size = nir_load_workgroup_size(b);
    nir_ssa_def *num_workgroups = nir_load_num_workgroups(b, bit_size);
@@ -113,6 +113,7 @@ lower_system_value_instr(nir_builder *b, nir_instr *instr, void *_state)
    case nir_intrinsic_load_local_invocation_id:
    case nir_intrinsic_load_local_invocation_index:
    case nir_intrinsic_load_workgroup_size:
+   case nir_intrinsic_load_enqueued_workgroup_size:
       return sanitize_32bit_sysval(b, intrin);
 
    case nir_intrinsic_interp_deref_at_centroid:
@@ -216,9 +217,6 @@ lower_system_value_instr(nir_builder *b, nir_instr *instr, void *_state)
          if (b->shader->options->lower_device_index_to_zero)
             return nir_imm_int(b, 0);
          break;
-
-      case SYSTEM_VALUE_GLOBAL_GROUP_SIZE:
-         return build_global_group_size(b, bit_size);
 
       case SYSTEM_VALUE_BARYCENTRIC_LINEAR_PIXEL:
          return nir_load_barycentric(b, nir_intrinsic_load_barycentric_pixel,
@@ -652,11 +650,18 @@ lower_compute_system_value_instr(nir_builder *b,
          return NULL;
       }
 
+   case nir_intrinsic_load_global_group_size: {
+      if (!options || !options->has_non_uniform_workgroup)
+         return lower_global_group_size(b, bit_size);
+      return NULL;
+   }
+
    case nir_intrinsic_load_workgroup_size:
-      if (b->shader->info.workgroup_size_variable) {
-         /* If the local work group size is variable it can't be lowered at
-          * this point.  We do, however, have to make sure that the intrinsic
-          * is only 32-bit.
+      if (b->shader->info.workgroup_size_variable ||
+          (options && options->has_non_uniform_workgroup)) {
+         /* If the local work group size is variable or we allow non uniform
+          * workgroups it can't be lowered at this point.  We do, however, have
+          * to make sure that the intrinsic is only 32-bit.
           */
          return NULL;
       } else {
@@ -670,10 +675,20 @@ lower_compute_system_value_instr(nir_builder *b,
          return nir_u2uN(b, nir_build_imm(b, 3, 32, workgroup_size_const), bit_size);
       }
 
+   case nir_intrinsic_load_enqueued_workgroup_size:
+      if (options && options->has_non_uniform_workgroup)
+         return NULL;
+      return nir_load_workgroup_size(b);
+
+   case nir_intrinsic_load_enqueued_num_subgroups:
+      if (options && options->has_non_uniform_workgroup)
+         return NULL;
+      return nir_load_num_subgroups(b);
+
    case nir_intrinsic_load_global_invocation_id_zero_base: {
       if ((options && options->has_base_workgroup_id) ||
           !b->shader->options->has_cs_global_id) {
-         nir_ssa_def *group_size = nir_load_workgroup_size(b);
+         nir_ssa_def *group_size = nir_load_enqueued_workgroup_size(b);
          nir_ssa_def *group_id = nir_load_workgroup_id(b, bit_size);
          nir_ssa_def *local_id = nir_load_local_invocation_id(b);
 
@@ -701,7 +716,7 @@ lower_compute_system_value_instr(nir_builder *b,
       assert(b->shader->info.stage == MESA_SHADER_KERNEL);
       nir_ssa_def *global_base_id = nir_load_base_global_invocation_id(b, bit_size);
       nir_ssa_def *global_id = nir_isub(b, nir_load_global_invocation_id(b, bit_size), global_base_id);
-      nir_ssa_def *global_size = build_global_group_size(b, bit_size);
+      nir_ssa_def *global_size = nir_load_global_group_size(b, bit_size);
 
       /* index = id.x + ((id.y + (id.z * size.y)) * size.x) */
       nir_ssa_def *index;

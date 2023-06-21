@@ -602,7 +602,7 @@ typedef enum
     * Builtin variables added by VK_KHR_subgroups
     */
    /*@{*/
-   SYSTEM_VALUE_NUM_SUBGROUPS,
+   SYSTEM_VALUE_NUM_SUBGROUPS, /**< num subgroups as seen by the current workgroup */
    SYSTEM_VALUE_SUBGROUP_ID,
    /*@}*/
 
@@ -795,10 +795,19 @@ typedef enum
    SYSTEM_VALUE_WORKGROUP_ID,
    SYSTEM_VALUE_WORKGROUP_INDEX,
    SYSTEM_VALUE_NUM_WORKGROUPS,
-   SYSTEM_VALUE_WORKGROUP_SIZE,
+   SYSTEM_VALUE_WORKGROUP_SIZE, /**< workgroup size of the current workgroup */
    SYSTEM_VALUE_GLOBAL_GROUP_SIZE,
    SYSTEM_VALUE_WORK_DIM,
    SYSTEM_VALUE_USER_DATA_AMD,
+   /*@}*/
+
+   /**
+    * \name OpenCL specific Compute shader system values
+    */
+   /*@{*/
+   /** nominal workgroup size for non uniform workgroups */
+   SYSTEM_VALUE_ENQUEUED_WORKGROUP_SIZE,
+   SYSTEM_VALUE_ENQUEUED_NUM_SUBGROUPS,
    /*@}*/
 
    /** Required for VK_KHR_device_group */
