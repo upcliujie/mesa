@@ -9,17 +9,17 @@
 
 #include "amdgpu_cs.h"
 
+#include <fcntl.h>
+#include <stdio.h>
+#include <xf86drm.h>
+#include "drm-uapi/amdgpu_drm.h"
+#include "util/hash_table.h"
 #include "util/os_file.h"
 #include "util/os_misc.h"
 #include "util/u_cpu_detect.h"
 #include "util/u_hash_table.h"
-#include "util/hash_table.h"
 #include "util/xmlconfig.h"
-#include "drm-uapi/amdgpu_drm.h"
-#include <xf86drm.h>
-#include <stdio.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include "ac_llvm_util.h"
 #include "sid.h"
 
@@ -32,42 +32,42 @@ DEBUG_GET_ONCE_BOOL_OPTION(all_bos, "RADEON_ALL_BOS", false)
 
 static void handle_env_var_force_family(struct amdgpu_winsys *ws)
 {
-      const char *family = debug_get_option("SI_FORCE_FAMILY", NULL);
-      unsigned i;
+   const char *family = debug_get_option("SI_FORCE_FAMILY", NULL);
+   unsigned i;
 
-      if (!family)
-               return;
+   if (!family)
+      return;
 
-      for (i = CHIP_TAHITI; i < CHIP_LAST; i++) {
-         if (!strcmp(family, ac_get_llvm_processor_name(i))) {
-            /* Override family and gfx_level. */
-            ws->info.family = i;
-            ws->info.name = "NOOP";
-            strcpy(ws->info.lowercase_name , "noop");
+   for (i = CHIP_TAHITI; i < CHIP_LAST; i++) {
+      if (!strcmp(family, ac_get_llvm_processor_name(i))) {
+         /* Override family and gfx_level. */
+         ws->info.family = i;
+         ws->info.name = "NOOP";
+         strcpy(ws->info.lowercase_name, "noop");
 
-            if (i >= CHIP_GFX1100)
-               ws->info.gfx_level = GFX11;
-            else if (i >= CHIP_NAVI21)
-               ws->info.gfx_level = GFX10_3;
-            else if (i >= CHIP_NAVI10)
-               ws->info.gfx_level = GFX10;
-            else if (i >= CHIP_VEGA10)
-               ws->info.gfx_level = GFX9;
-            else if (i >= CHIP_TONGA)
-               ws->info.gfx_level = GFX8;
-            else if (i >= CHIP_BONAIRE)
-               ws->info.gfx_level = GFX7;
-            else
-               ws->info.gfx_level = GFX6;
+         if (i >= CHIP_GFX1100)
+            ws->info.gfx_level = GFX11;
+         else if (i >= CHIP_NAVI21)
+            ws->info.gfx_level = GFX10_3;
+         else if (i >= CHIP_NAVI10)
+            ws->info.gfx_level = GFX10;
+         else if (i >= CHIP_VEGA10)
+            ws->info.gfx_level = GFX9;
+         else if (i >= CHIP_TONGA)
+            ws->info.gfx_level = GFX8;
+         else if (i >= CHIP_BONAIRE)
+            ws->info.gfx_level = GFX7;
+         else
+            ws->info.gfx_level = GFX6;
 
-            /* Don't submit any IBs. */
-            setenv("RADEON_NOOP", "1", 1);
-            return;
-         }
+         /* Don't submit any IBs. */
+         setenv("RADEON_NOOP", "1", 1);
+         return;
       }
+   }
 
-      fprintf(stderr, "radeonsi: Unknown family: %s\n", family);
-      exit(1);
+   fprintf(stderr, "radeonsi: Unknown family: %s\n", family);
+   exit(1);
 }
 
 /* Helper function to do the ioctls needed for setup and init. */
@@ -199,63 +199,63 @@ static uint64_t amdgpu_query_value(struct radeon_winsys *rws,
    uint64_t retval = 0;
 
    switch (value) {
-   case RADEON_REQUESTED_VRAM_MEMORY:
-      return ws->allocated_vram;
-   case RADEON_REQUESTED_GTT_MEMORY:
-      return ws->allocated_gtt;
-   case RADEON_MAPPED_VRAM:
-      return ws->mapped_vram;
-   case RADEON_MAPPED_GTT:
-      return ws->mapped_gtt;
-   case RADEON_SLAB_WASTED_VRAM:
-      return ws->slab_wasted_vram;
-   case RADEON_SLAB_WASTED_GTT:
-      return ws->slab_wasted_gtt;
-   case RADEON_BUFFER_WAIT_TIME_NS:
-      return ws->buffer_wait_time;
-   case RADEON_NUM_MAPPED_BUFFERS:
-      return ws->num_mapped_buffers;
-   case RADEON_TIMESTAMP:
-      amdgpu_query_info(ws->dev, AMDGPU_INFO_TIMESTAMP, 8, &retval);
-      return retval;
-   case RADEON_NUM_GFX_IBS:
-      return ws->num_gfx_IBs;
-   case RADEON_NUM_SDMA_IBS:
-      return ws->num_sdma_IBs;
-   case RADEON_GFX_BO_LIST_COUNTER:
-      return ws->gfx_bo_list_counter;
-   case RADEON_GFX_IB_SIZE_COUNTER:
-      return ws->gfx_ib_size_counter;
-   case RADEON_NUM_BYTES_MOVED:
-      amdgpu_query_info(ws->dev, AMDGPU_INFO_NUM_BYTES_MOVED, 8, &retval);
-      return retval;
-   case RADEON_NUM_EVICTIONS:
-      amdgpu_query_info(ws->dev, AMDGPU_INFO_NUM_EVICTIONS, 8, &retval);
-      return retval;
-   case RADEON_NUM_VRAM_CPU_PAGE_FAULTS:
-      amdgpu_query_info(ws->dev, AMDGPU_INFO_NUM_VRAM_CPU_PAGE_FAULTS, 8, &retval);
-      return retval;
-   case RADEON_VRAM_USAGE:
-      amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_VRAM, 0, &heap);
-      return heap.heap_usage;
-   case RADEON_VRAM_VIS_USAGE:
-      amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_VRAM,
-                             AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED, &heap);
-      return heap.heap_usage;
-   case RADEON_GTT_USAGE:
-      amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_GTT, 0, &heap);
-      return heap.heap_usage;
-   case RADEON_GPU_TEMPERATURE:
-      amdgpu_query_sensor_info(ws->dev, AMDGPU_INFO_SENSOR_GPU_TEMP, 4, &retval);
-      return retval;
-   case RADEON_CURRENT_SCLK:
-      amdgpu_query_sensor_info(ws->dev, AMDGPU_INFO_SENSOR_GFX_SCLK, 4, &retval);
-      return retval;
-   case RADEON_CURRENT_MCLK:
-      amdgpu_query_sensor_info(ws->dev, AMDGPU_INFO_SENSOR_GFX_MCLK, 4, &retval);
-      return retval;
-   case RADEON_CS_THREAD_TIME:
-      return util_queue_get_thread_time_nano(&ws->cs_queue, 0);
+      case RADEON_REQUESTED_VRAM_MEMORY:
+         return ws->allocated_vram;
+      case RADEON_REQUESTED_GTT_MEMORY:
+         return ws->allocated_gtt;
+      case RADEON_MAPPED_VRAM:
+         return ws->mapped_vram;
+      case RADEON_MAPPED_GTT:
+         return ws->mapped_gtt;
+      case RADEON_SLAB_WASTED_VRAM:
+         return ws->slab_wasted_vram;
+      case RADEON_SLAB_WASTED_GTT:
+         return ws->slab_wasted_gtt;
+      case RADEON_BUFFER_WAIT_TIME_NS:
+         return ws->buffer_wait_time;
+      case RADEON_NUM_MAPPED_BUFFERS:
+         return ws->num_mapped_buffers;
+      case RADEON_TIMESTAMP:
+         amdgpu_query_info(ws->dev, AMDGPU_INFO_TIMESTAMP, 8, &retval);
+         return retval;
+      case RADEON_NUM_GFX_IBS:
+         return ws->num_gfx_IBs;
+      case RADEON_NUM_SDMA_IBS:
+         return ws->num_sdma_IBs;
+      case RADEON_GFX_BO_LIST_COUNTER:
+         return ws->gfx_bo_list_counter;
+      case RADEON_GFX_IB_SIZE_COUNTER:
+         return ws->gfx_ib_size_counter;
+      case RADEON_NUM_BYTES_MOVED:
+         amdgpu_query_info(ws->dev, AMDGPU_INFO_NUM_BYTES_MOVED, 8, &retval);
+         return retval;
+      case RADEON_NUM_EVICTIONS:
+         amdgpu_query_info(ws->dev, AMDGPU_INFO_NUM_EVICTIONS, 8, &retval);
+         return retval;
+      case RADEON_NUM_VRAM_CPU_PAGE_FAULTS:
+         amdgpu_query_info(ws->dev, AMDGPU_INFO_NUM_VRAM_CPU_PAGE_FAULTS, 8, &retval);
+         return retval;
+      case RADEON_VRAM_USAGE:
+         amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_VRAM, 0, &heap);
+         return heap.heap_usage;
+      case RADEON_VRAM_VIS_USAGE:
+         amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_VRAM,
+                                AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED, &heap);
+         return heap.heap_usage;
+      case RADEON_GTT_USAGE:
+         amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_GTT, 0, &heap);
+         return heap.heap_usage;
+      case RADEON_GPU_TEMPERATURE:
+         amdgpu_query_sensor_info(ws->dev, AMDGPU_INFO_SENSOR_GPU_TEMP, 4, &retval);
+         return retval;
+      case RADEON_CURRENT_SCLK:
+         amdgpu_query_sensor_info(ws->dev, AMDGPU_INFO_SENSOR_GFX_SCLK, 4, &retval);
+         return retval;
+      case RADEON_CURRENT_MCLK:
+         amdgpu_query_sensor_info(ws->dev, AMDGPU_INFO_SENSOR_GFX_MCLK, 4, &retval);
+         return retval;
+      case RADEON_CS_THREAD_TIME:
+         return util_queue_get_thread_time_nano(&ws->cs_queue, 0);
    }
    return 0;
 }
@@ -299,7 +299,7 @@ static bool amdgpu_winsys_unref(struct radeon_winsys *rws)
    if (ret && sws->kms_handles) {
       struct drm_gem_close args;
 
-      hash_table_foreach(sws->kms_handles, entry) {
+      hash_table_foreach (sws->kms_handles, entry) {
          args.handle = (uintptr_t)entry->data;
          drmIoctl(sws->fd, DRM_IOCTL_GEM_CLOSE, &args);
       }
@@ -341,18 +341,18 @@ static uint32_t
 radeon_to_amdgpu_pstate(enum radeon_ctx_pstate pstate)
 {
    switch (pstate) {
-   case RADEON_CTX_PSTATE_NONE:
-      return AMDGPU_CTX_STABLE_PSTATE_NONE;
-   case RADEON_CTX_PSTATE_STANDARD:
-      return AMDGPU_CTX_STABLE_PSTATE_STANDARD;
-   case RADEON_CTX_PSTATE_MIN_SCLK:
-      return AMDGPU_CTX_STABLE_PSTATE_MIN_SCLK;
-   case RADEON_CTX_PSTATE_MIN_MCLK:
-      return AMDGPU_CTX_STABLE_PSTATE_MIN_MCLK;
-   case RADEON_CTX_PSTATE_PEAK:
-      return AMDGPU_CTX_STABLE_PSTATE_PEAK;
-   default:
-      unreachable("Invalid pstate");
+      case RADEON_CTX_PSTATE_NONE:
+         return AMDGPU_CTX_STABLE_PSTATE_NONE;
+      case RADEON_CTX_PSTATE_STANDARD:
+         return AMDGPU_CTX_STABLE_PSTATE_STANDARD;
+      case RADEON_CTX_PSTATE_MIN_SCLK:
+         return AMDGPU_CTX_STABLE_PSTATE_MIN_SCLK;
+      case RADEON_CTX_PSTATE_MIN_MCLK:
+         return AMDGPU_CTX_STABLE_PSTATE_MIN_MCLK;
+      case RADEON_CTX_PSTATE_PEAK:
+         return AMDGPU_CTX_STABLE_PSTATE_PEAK;
+      default:
+         unreachable("Invalid pstate");
    }
 }
 
@@ -362,7 +362,7 @@ amdgpu_cs_set_pstate(struct radeon_cmdbuf *rcs, enum radeon_ctx_pstate pstate)
    struct amdgpu_cs *cs = amdgpu_cs(rcs);
    uint32_t amdgpu_pstate = radeon_to_amdgpu_pstate(pstate);
    return amdgpu_cs_ctx_stable_pstate(cs->ctx->ctx,
-      AMDGPU_CTX_OP_SET_STABLE_PSTATE, amdgpu_pstate, NULL) == 0;
+                                      AMDGPU_CTX_OP_SET_STABLE_PSTATE, amdgpu_pstate, NULL) == 0;
 }
 
 static bool
@@ -397,7 +397,7 @@ amdgpu_drm_winsys_get_fd(struct radeon_winsys *rws)
 
 PUBLIC struct radeon_winsys *
 amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
-		     radeon_screen_create_t screen_create)
+                     radeon_screen_create_t screen_create)
 {
    struct amdgpu_screen_winsys *ws;
    struct amdgpu_winsys *aws;
@@ -494,7 +494,7 @@ amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
                     ((uint64_t)aws->info.vram_size_kb + aws->info.gart_size_kb) * 1024 / 8, aws,
                     /* Cast to void* because one of the function parameters
                      * is a struct pointer instead of void*. */
-                    (void*)amdgpu_bo_destroy, (void*)amdgpu_bo_can_reclaim);
+                    (void *)amdgpu_bo_destroy, (void *)amdgpu_bo_can_reclaim);
 
       unsigned min_slab_order = 8;  /* 256 bytes */
       unsigned max_slab_order = 20; /* 1 MB (slab size = 2 MB) */
@@ -515,7 +515,7 @@ amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
                             amdgpu_bo_slab_alloc,
                             /* Cast to void* because one of the function parameters
                              * is a struct pointer instead of void*. */
-                            (void*)amdgpu_bo_slab_free)) {
+                            (void *)amdgpu_bo_slab_free)) {
             amdgpu_winsys_destroy(&ws->base);
             simple_mtx_unlock(&dev_tab_mutex);
             return NULL;
@@ -533,12 +533,12 @@ amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
 #endif
       aws->bo_export_table = util_hash_table_create_ptr_keys();
 
-      (void) simple_mtx_init(&aws->sws_list_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->sws_list_lock, mtx_plain);
 #if DEBUG
-      (void) simple_mtx_init(&aws->global_bo_list_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->global_bo_list_lock, mtx_plain);
 #endif
-      (void) simple_mtx_init(&aws->bo_fence_lock, mtx_plain);
-      (void) simple_mtx_init(&aws->bo_export_table_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->bo_fence_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->bo_export_table_lock, mtx_plain);
 
       if (!util_queue_init(&aws->cs_queue, "cs", 8, 1,
                            UTIL_QUEUE_INIT_RESIZE_IF_FULL, NULL)) {

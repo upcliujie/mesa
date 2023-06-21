@@ -1,0 +1,11 @@
+BasedOnStyle: InheritParentConfig
+
+AlignOperands: Align
+AlignTrailingComments: true
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AlwaysBreakAfterReturnType: None
+ColumnLimit: 0
+SpaceAfterTemplateKeyword: false
+
+IndentCaseLabels: true

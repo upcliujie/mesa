@@ -5,37 +5,37 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "amdgpu_winsys.h"
 #include "util/format/u_format.h"
+#include "amdgpu_winsys.h"
 
 static int amdgpu_surface_sanity(const struct pipe_resource *tex)
 {
    switch (tex->target) {
-   case PIPE_TEXTURE_1D:
-      if (tex->height0 > 1)
+      case PIPE_TEXTURE_1D:
+         if (tex->height0 > 1)
+            return -EINVAL;
+         FALLTHROUGH;
+      case PIPE_TEXTURE_2D:
+      case PIPE_TEXTURE_RECT:
+         if (tex->depth0 > 1 || tex->array_size > 1)
+            return -EINVAL;
+         break;
+      case PIPE_TEXTURE_3D:
+         if (tex->array_size > 1)
+            return -EINVAL;
+         break;
+      case PIPE_TEXTURE_1D_ARRAY:
+         if (tex->height0 > 1)
+            return -EINVAL;
+         FALLTHROUGH;
+      case PIPE_TEXTURE_CUBE:
+      case PIPE_TEXTURE_2D_ARRAY:
+      case PIPE_TEXTURE_CUBE_ARRAY:
+         if (tex->depth0 > 1)
+            return -EINVAL;
+         break;
+      default:
          return -EINVAL;
-      FALLTHROUGH;
-   case PIPE_TEXTURE_2D:
-   case PIPE_TEXTURE_RECT:
-      if (tex->depth0 > 1 || tex->array_size > 1)
-         return -EINVAL;
-      break;
-   case PIPE_TEXTURE_3D:
-      if (tex->array_size > 1)
-         return -EINVAL;
-      break;
-   case PIPE_TEXTURE_1D_ARRAY:
-      if (tex->height0 > 1)
-         return -EINVAL;
-      FALLTHROUGH;
-   case PIPE_TEXTURE_CUBE:
-   case PIPE_TEXTURE_2D_ARRAY:
-   case PIPE_TEXTURE_CUBE_ARRAY:
-      if (tex->depth0 > 1)
-         return -EINVAL;
-      break;
-   default:
-      return -EINVAL;
    }
    return 0;
 }

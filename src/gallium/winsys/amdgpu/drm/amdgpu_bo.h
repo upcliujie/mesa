@@ -116,25 +116,22 @@ struct pb_slab *amdgpu_bo_slab_alloc(void *priv, unsigned heap, unsigned entry_s
                                      unsigned group_index);
 void amdgpu_bo_slab_free(struct amdgpu_winsys *ws, struct pb_slab *slab);
 
-static inline
-struct amdgpu_winsys_bo *amdgpu_winsys_bo(struct pb_buffer *bo)
+static inline struct amdgpu_winsys_bo *amdgpu_winsys_bo(struct pb_buffer *bo)
 {
    return (struct amdgpu_winsys_bo *)bo;
 }
 
-static inline
-struct amdgpu_slab *amdgpu_slab(struct pb_slab *slab)
+static inline struct amdgpu_slab *amdgpu_slab(struct pb_slab *slab)
 {
    return (struct amdgpu_slab *)slab;
 }
 
-static inline
-void amdgpu_winsys_bo_reference(struct amdgpu_winsys *ws,
-                                struct amdgpu_winsys_bo **dst,
-                                struct amdgpu_winsys_bo *src)
+static inline void amdgpu_winsys_bo_reference(struct amdgpu_winsys *ws,
+                                              struct amdgpu_winsys_bo **dst,
+                                              struct amdgpu_winsys_bo *src)
 {
    radeon_bo_reference(&ws->dummy_ws.base,
-                       (struct pb_buffer**)dst, (struct pb_buffer*)src);
+                       (struct pb_buffer **)dst, (struct pb_buffer *)src);
 }
 
 #endif
