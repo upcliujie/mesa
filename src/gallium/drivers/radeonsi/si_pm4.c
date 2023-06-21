@@ -4,12 +4,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_pipe.h"
-#include "si_build_pm4.h"
-#include "sid.h"
 #include "util/u_memory.h"
+#include "si_build_pm4.h"
+#include "si_pipe.h"
+#include "sid.h"
 
-static void si_pm4_cmd_begin(struct si_pm4_state *state, unsigned opcode)
+static void
+si_pm4_cmd_begin(struct si_pm4_state *state, unsigned opcode)
 {
    assert(state->max_dw);
    assert(state->ndw < state->max_dw);
@@ -18,7 +19,8 @@ static void si_pm4_cmd_begin(struct si_pm4_state *state, unsigned opcode)
    state->last_pm4 = state->ndw++;
 }
 
-void si_pm4_cmd_add(struct si_pm4_state *state, uint32_t dw)
+void
+si_pm4_cmd_add(struct si_pm4_state *state, uint32_t dw)
 {
    assert(state->max_dw);
    assert(state->ndw < state->max_dw);
@@ -26,15 +28,16 @@ void si_pm4_cmd_add(struct si_pm4_state *state, uint32_t dw)
    state->last_opcode = 255; /* invalid opcode */
 }
 
-static void si_pm4_cmd_end(struct si_pm4_state *state, bool predicate)
+static void
+si_pm4_cmd_end(struct si_pm4_state *state, bool predicate)
 {
    unsigned count;
    count = state->ndw - state->last_pm4 - 2;
    state->pm4[state->last_pm4] = PKT3(state->last_opcode, count, predicate);
 }
 
-static void si_pm4_set_reg_custom(struct si_pm4_state *state, unsigned reg, uint32_t val,
-                                  unsigned opcode, unsigned idx)
+static void
+si_pm4_set_reg_custom(struct si_pm4_state *state, unsigned reg, uint32_t val, unsigned opcode, unsigned idx)
 {
    reg >>= 2;
 
@@ -53,7 +56,8 @@ static void si_pm4_set_reg_custom(struct si_pm4_state *state, unsigned reg, uint
    si_pm4_cmd_end(state, false);
 }
 
-void si_pm4_set_reg(struct si_pm4_state *state, unsigned reg, uint32_t val)
+void
+si_pm4_set_reg(struct si_pm4_state *state, unsigned reg, uint32_t val)
 {
    unsigned opcode;
 
@@ -81,7 +85,8 @@ void si_pm4_set_reg(struct si_pm4_state *state, unsigned reg, uint32_t val)
    si_pm4_set_reg_custom(state, reg, val, opcode, 0);
 }
 
-void si_pm4_set_reg_idx3(struct si_pm4_state *state, unsigned reg, uint32_t val)
+void
+si_pm4_set_reg_idx3(struct si_pm4_state *state, unsigned reg, uint32_t val)
 {
    if (state->screen->info.uses_kernel_cu_mask) {
       assert(state->screen->info.gfx_level >= GFX10);
@@ -91,14 +96,15 @@ void si_pm4_set_reg_idx3(struct si_pm4_state *state, unsigned reg, uint32_t val)
    }
 }
 
-void si_pm4_set_reg_va(struct si_pm4_state *state, unsigned reg, uint32_t val)
+void
+si_pm4_set_reg_va(struct si_pm4_state *state, unsigned reg, uint32_t val)
 {
    si_pm4_set_reg(state, reg, val);
    state->reg_va_low_idx = state->ndw - 1;
 }
 
-void si_pm4_clear_state(struct si_pm4_state *state, struct si_screen *sscreen,
-                        bool is_compute_queue)
+void
+si_pm4_clear_state(struct si_pm4_state *state, struct si_screen *sscreen, bool is_compute_queue)
 {
    state->screen = sscreen;
    state->ndw = 0;
@@ -108,7 +114,8 @@ void si_pm4_clear_state(struct si_pm4_state *state, struct si_screen *sscreen,
       state->max_dw = ARRAY_SIZE(state->pm4);
 }
 
-void si_pm4_free_state(struct si_context *sctx, struct si_pm4_state *state, unsigned idx)
+void
+si_pm4_free_state(struct si_context *sctx, struct si_pm4_state *state, unsigned idx)
 {
    if (!state)
       return;
@@ -126,12 +133,13 @@ void si_pm4_free_state(struct si_context *sctx, struct si_pm4_state *state, unsi
    FREE(state);
 }
 
-void si_pm4_emit(struct si_context *sctx, struct si_pm4_state *state)
+void
+si_pm4_emit(struct si_context *sctx, struct si_pm4_state *state)
 {
    struct radeon_cmdbuf *cs = &sctx->gfx_cs;
 
    if (state->is_shader) {
-      radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, ((struct si_shader*)state)->bo,
+      radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, ((struct si_shader *)state)->bo,
                                 RADEON_USAGE_READ | RADEON_PRIO_SHADER_BINARY);
    }
 
@@ -143,7 +151,8 @@ void si_pm4_emit(struct si_context *sctx, struct si_pm4_state *state)
       state->atom.emit(sctx);
 }
 
-void si_pm4_reset_emitted(struct si_context *sctx)
+void
+si_pm4_reset_emitted(struct si_context *sctx)
 {
    memset(&sctx->emitted, 0, sizeof(sctx->emitted));
 
@@ -153,8 +162,8 @@ void si_pm4_reset_emitted(struct si_context *sctx)
    }
 }
 
-struct si_pm4_state *si_pm4_create_sized(struct si_screen *sscreen, unsigned max_dw,
-                                         bool is_compute_queue)
+struct si_pm4_state *
+si_pm4_create_sized(struct si_screen *sscreen, unsigned max_dw, bool is_compute_queue)
 {
    struct si_pm4_state *pm4;
    unsigned size = sizeof(*pm4) + 4 * (max_dw - ARRAY_SIZE(pm4->pm4));
@@ -167,10 +176,10 @@ struct si_pm4_state *si_pm4_create_sized(struct si_screen *sscreen, unsigned max
    return pm4;
 }
 
-struct si_pm4_state *si_pm4_clone(struct si_pm4_state *orig)
+struct si_pm4_state *
+si_pm4_clone(struct si_pm4_state *orig)
 {
-   struct si_pm4_state *pm4 = si_pm4_create_sized(orig->screen, orig->max_dw,
-                                                  orig->is_compute_queue);
+   struct si_pm4_state *pm4 = si_pm4_create_sized(orig->screen, orig->max_dw, orig->is_compute_queue);
    if (pm4)
       memcpy(pm4, orig, sizeof(*pm4) + 4 * (pm4->max_dw - ARRAY_SIZE(pm4->pm4)));
    return pm4;

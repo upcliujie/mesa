@@ -4,15 +4,16 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/u_memory.h"
+#include "util/u_suballoc.h"
 #include "si_pipe.h"
 #include "si_query.h"
 #include "sid.h"
-#include "util/u_memory.h"
-#include "util/u_suballoc.h"
 
 #include <stddef.h>
 
-static void emit_shader_query(struct si_context *sctx)
+static void
+emit_shader_query(struct si_context *sctx)
 {
    assert(!list_is_empty(&sctx->shader_query_buffers));
 
@@ -21,9 +22,9 @@ static void emit_shader_query(struct si_context *sctx)
    qbuf->head += sizeof(struct gfx11_sh_query_buffer_mem);
 }
 
-static void gfx11_release_query_buffers(struct si_context *sctx,
-                                        struct gfx11_sh_query_buffer *first,
-                                        struct gfx11_sh_query_buffer *last)
+static void
+gfx11_release_query_buffers(struct si_context *sctx, struct gfx11_sh_query_buffer *first,
+                            struct gfx11_sh_query_buffer *last)
 {
    while (first) {
       struct gfx11_sh_query_buffer *qbuf = first;
@@ -47,7 +48,8 @@ static void gfx11_release_query_buffers(struct si_context *sctx,
    }
 }
 
-static bool gfx11_alloc_query_buffer(struct si_context *sctx)
+static bool
+gfx11_alloc_query_buffer(struct si_context *sctx)
 {
    if (si_is_atom_dirty(sctx, &sctx->atoms.s.shader_query))
       return true;
@@ -60,8 +62,7 @@ static bool gfx11_alloc_query_buffer(struct si_context *sctx)
          goto success;
 
       qbuf = list_first_entry(&sctx->shader_query_buffers, struct gfx11_sh_query_buffer, list);
-      if (!qbuf->refcount &&
-          !si_cs_is_buffer_referenced(sctx, qbuf->buf->buf, RADEON_USAGE_READWRITE) &&
+      if (!qbuf->refcount && !si_cs_is_buffer_referenced(sctx, qbuf->buf->buf, RADEON_USAGE_READWRITE) &&
           sctx->ws->buffer_wait(sctx->ws, qbuf->buf->buf, 0, RADEON_USAGE_READWRITE)) {
          /* Can immediately re-use the oldest buffer */
          list_del(&qbuf->list);
@@ -76,8 +77,7 @@ static bool gfx11_alloc_query_buffer(struct si_context *sctx)
          return false;
 
       struct si_screen *screen = sctx->screen;
-      unsigned buf_size =
-         MAX2(sizeof(struct gfx11_sh_query_buffer_mem), screen->info.min_alloc_size);
+      unsigned buf_size = MAX2(sizeof(struct gfx11_sh_query_buffer_mem), screen->info.min_alloc_size);
       qbuf->buf = si_resource(pipe_buffer_create(&screen->b, 0, PIPE_USAGE_STAGING, buf_size));
       if (unlikely(!qbuf->buf)) {
          FREE(qbuf);
@@ -90,12 +90,10 @@ static bool gfx11_alloc_query_buffer(struct si_context *sctx)
     * We need to set the high bit of all the primitive counters for
     * compatibility with the SET_PREDICATION packet.
     */
-   uint64_t *results = sctx->ws->buffer_map(sctx->ws, qbuf->buf->buf, NULL,
-                                            PIPE_MAP_WRITE | PIPE_MAP_UNSYNCHRONIZED);
+   uint64_t *results = sctx->ws->buffer_map(sctx->ws, qbuf->buf->buf, NULL, PIPE_MAP_WRITE | PIPE_MAP_UNSYNCHRONIZED);
    assert(results);
 
-   for (unsigned i = 0, e = qbuf->buf->b.b.width0 / sizeof(struct gfx11_sh_query_buffer_mem); i < e;
-        ++i) {
+   for (unsigned i = 0, e = qbuf->buf->b.b.width0 / sizeof(struct gfx11_sh_query_buffer_mem); i < e; ++i) {
       for (unsigned j = 0; j < 16; ++j)
          results[32 * i + j] = (uint64_t)1 << 63;
       results[32 * i + 16] = 0;
@@ -117,14 +115,16 @@ success:;
    return true;
 }
 
-static void gfx11_sh_query_destroy(struct si_context *sctx, struct si_query *rquery)
+static void
+gfx11_sh_query_destroy(struct si_context *sctx, struct si_query *rquery)
 {
    struct gfx11_sh_query *query = (struct gfx11_sh_query *)rquery;
    gfx11_release_query_buffers(sctx, query->first, query->last);
    FREE(query);
 }
 
-static bool gfx11_sh_query_begin(struct si_context *sctx, struct si_query *rquery)
+static bool
+gfx11_sh_query_begin(struct si_context *sctx, struct si_query *rquery)
 {
    struct gfx11_sh_query *query = (struct gfx11_sh_query *)rquery;
 
@@ -143,7 +143,8 @@ static bool gfx11_sh_query_begin(struct si_context *sctx, struct si_query *rquer
    return true;
 }
 
-static bool gfx11_sh_query_end(struct si_context *sctx, struct si_query *rquery)
+static bool
+gfx11_sh_query_end(struct si_context *sctx, struct si_query *rquery)
 {
    struct gfx11_sh_query *query = (struct gfx11_sh_query *)rquery;
 
@@ -158,9 +159,8 @@ static bool gfx11_sh_query_end(struct si_context *sctx, struct si_query *rquery)
       uint64_t fence_va = query->last->buf->gpu_address;
       fence_va += query->last_end - sizeof(struct gfx11_sh_query_buffer_mem);
       fence_va += offsetof(struct gfx11_sh_query_buffer_mem, fence);
-      si_cp_release_mem(sctx, &sctx->gfx_cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM,
-                        EOP_INT_SEL_NONE, EOP_DATA_SEL_VALUE_32BIT, query->last->buf, fence_va,
-                        0xffffffff, PIPE_QUERY_GPU_FINISHED);
+      si_cp_release_mem(sctx, &sctx->gfx_cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM, EOP_INT_SEL_NONE,
+                        EOP_DATA_SEL_VALUE_32BIT, query->last->buf, fence_va, 0xffffffff, PIPE_QUERY_GPU_FINISHED);
    }
 
    sctx->num_active_shader_queries--;
@@ -178,9 +178,9 @@ static bool gfx11_sh_query_end(struct si_context *sctx, struct si_query *rquery)
    return true;
 }
 
-static void gfx11_sh_query_add_result(struct gfx11_sh_query *query,
-                                      struct gfx11_sh_query_buffer_mem *qmem,
-                                      union pipe_query_result *result)
+static void
+gfx11_sh_query_add_result(struct gfx11_sh_query *query, struct gfx11_sh_query_buffer_mem *qmem,
+                          union pipe_query_result *result)
 {
    static const uint64_t mask = ((uint64_t)1 << 63) - 1;
 
@@ -192,19 +192,15 @@ static void gfx11_sh_query_add_result(struct gfx11_sh_query *query,
       result->u64 += qmem->stream[query->stream].generated_primitives & mask;
       break;
    case PIPE_QUERY_SO_STATISTICS:
-      result->so_statistics.num_primitives_written +=
-         qmem->stream[query->stream].emitted_primitives & mask;
-      result->so_statistics.primitives_storage_needed +=
-         qmem->stream[query->stream].generated_primitives & mask;
+      result->so_statistics.num_primitives_written += qmem->stream[query->stream].emitted_primitives & mask;
+      result->so_statistics.primitives_storage_needed += qmem->stream[query->stream].generated_primitives & mask;
       break;
    case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-      result->b |= qmem->stream[query->stream].emitted_primitives !=
-                   qmem->stream[query->stream].generated_primitives;
+      result->b |= qmem->stream[query->stream].emitted_primitives != qmem->stream[query->stream].generated_primitives;
       break;
    case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
       for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream) {
-         result->b |= qmem->stream[stream].emitted_primitives !=
-                      qmem->stream[stream].generated_primitives;
+         result->b |= qmem->stream[stream].emitted_primitives != qmem->stream[stream].generated_primitives;
       }
       break;
    default:
@@ -212,8 +208,8 @@ static void gfx11_sh_query_add_result(struct gfx11_sh_query *query,
    }
 }
 
-static bool gfx11_sh_query_get_result(struct si_context *sctx, struct si_query *rquery, bool wait,
-                                      union pipe_query_result *result)
+static bool
+gfx11_sh_query_get_result(struct si_context *sctx, struct si_query *rquery, bool wait, union pipe_query_result *result)
 {
    struct gfx11_sh_query *query = (struct gfx11_sh_query *)rquery;
 
@@ -257,11 +253,10 @@ static bool gfx11_sh_query_get_result(struct si_context *sctx, struct si_query *
    return true;
 }
 
-static void gfx11_sh_query_get_result_resource(struct si_context *sctx, struct si_query *rquery,
-                                               enum pipe_query_flags flags,
-                                               enum pipe_query_value_type result_type,
-                                               int index, struct pipe_resource *resource,
-                                               unsigned offset)
+static void
+gfx11_sh_query_get_result_resource(struct si_context *sctx, struct si_query *rquery, enum pipe_query_flags flags,
+                                   enum pipe_query_value_type result_type, int index, struct pipe_resource *resource,
+                                   unsigned offset)
 {
    struct gfx11_sh_query *query = (struct gfx11_sh_query *)rquery;
    struct si_qbo_state saved_state = {};
@@ -387,9 +382,8 @@ static void gfx11_sh_query_get_result_resource(struct si_context *sctx, struct s
 
       /* ssbo[2] is either tmp_buffer or resource */
       assert(ssbo[2].buffer);
-      si_launch_grid_internal_ssbos(sctx, &grid, sctx->sh_query_result_shader,
-                                    SI_OP_SYNC_PS_BEFORE | SI_OP_SYNC_AFTER, SI_COHERENCY_SHADER,
-                                    3, ssbo, (1 << 2) | (ssbo[1].buffer ? 1 << 1 : 0));
+      si_launch_grid_internal_ssbos(sctx, &grid, sctx->sh_query_result_shader, SI_OP_SYNC_PS_BEFORE | SI_OP_SYNC_AFTER,
+                                    SI_COHERENCY_SHADER, 3, ssbo, (1 << 2) | (ssbo[1].buffer ? 1 << 1 : 0));
 
       if (qbuf == query->last)
          break;
@@ -408,8 +402,8 @@ static const struct si_query_ops gfx11_sh_query_ops = {
    .get_result_resource = gfx11_sh_query_get_result_resource,
 };
 
-struct pipe_query *gfx11_sh_query_create(struct si_screen *screen, enum pipe_query_type query_type,
-                                         unsigned index)
+struct pipe_query *
+gfx11_sh_query_create(struct si_screen *screen, enum pipe_query_type query_type, unsigned index)
 {
    struct gfx11_sh_query *query = CALLOC_STRUCT(gfx11_sh_query);
    if (unlikely(!query))
@@ -422,13 +416,15 @@ struct pipe_query *gfx11_sh_query_create(struct si_screen *screen, enum pipe_que
    return (struct pipe_query *)query;
 }
 
-void gfx11_init_query(struct si_context *sctx)
+void
+gfx11_init_query(struct si_context *sctx)
 {
    list_inithead(&sctx->shader_query_buffers);
    sctx->atoms.s.shader_query.emit = emit_shader_query;
 }
 
-void gfx11_destroy_query(struct si_context *sctx)
+void
+gfx11_destroy_query(struct si_context *sctx)
 {
    if (!sctx->shader_query_buffers.next)
       return;

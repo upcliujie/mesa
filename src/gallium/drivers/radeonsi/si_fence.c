@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
 #include "util/os_time.h"
 #include "util/u_memory.h"
 #include "util/u_queue.h"
 #include "util/u_upload_mgr.h"
+#include "si_build_pm4.h"
 
 #include <libsync.h>
 
@@ -45,14 +45,13 @@ struct si_fence {
  * \param old_value    Previous fence value (for a bug workaround)
  * \param new_value    Fence value to write for this event.
  */
-void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigned event,
-                       unsigned event_flags, unsigned dst_sel, unsigned int_sel, unsigned data_sel,
-                       struct si_resource *buf, uint64_t va, uint32_t new_fence,
-                       unsigned query_type)
+void
+si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigned event, unsigned event_flags,
+                  unsigned dst_sel, unsigned int_sel, unsigned data_sel, struct si_resource *buf, uint64_t va,
+                  uint32_t new_fence, unsigned query_type)
 {
-   unsigned op = EVENT_TYPE(event) |
-                 EVENT_INDEX(event == V_028A90_CS_DONE || event == V_028A90_PS_DONE ? 6 : 5) |
-                 event_flags;
+   unsigned op =
+      EVENT_TYPE(event) | EVENT_INDEX(event == V_028A90_CS_DONE || event == V_028A90_PS_DONE ? 6 : 5) | event_flags;
    unsigned sel = EOP_DST_SEL(dst_sel) | EOP_INT_SEL(int_sel) | EOP_DATA_SEL(data_sel);
    bool compute_ib = !ctx->has_graphics;
 
@@ -67,8 +66,7 @@ void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigne
        * always do ZPASS_DONE before the timestamp.
        */
       if (ctx->gfx_level == GFX9 && !compute_ib && query_type != PIPE_QUERY_OCCLUSION_COUNTER &&
-          query_type != PIPE_QUERY_OCCLUSION_PREDICATE &&
-          query_type != PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE) {
+          query_type != PIPE_QUERY_OCCLUSION_PREDICATE && query_type != PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE) {
          struct si_screen *sscreen = ctx->screen;
          struct si_resource *scratch;
 
@@ -77,13 +75,10 @@ void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigne
          } else {
             assert(ctx->screen->info.has_tmz_support);
             if (!ctx->eop_bug_scratch_tmz)
-               ctx->eop_bug_scratch_tmz =
-                  si_aligned_buffer_create(&sscreen->b,
-                                           PIPE_RESOURCE_FLAG_ENCRYPTED |
-                                           PIPE_RESOURCE_FLAG_UNMAPPABLE |
-                                           SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                           PIPE_USAGE_DEFAULT,
-                                           16 * sscreen->info.max_render_backends, 256);
+               ctx->eop_bug_scratch_tmz = si_aligned_buffer_create(
+                  &sscreen->b,
+                  PIPE_RESOURCE_FLAG_ENCRYPTED | PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                  PIPE_USAGE_DEFAULT, 16 * sscreen->info.max_render_backends, 256);
 
             scratch = ctx->eop_bug_scratch_tmz;
          }
@@ -94,8 +89,7 @@ void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigne
          radeon_emit(scratch->gpu_address);
          radeon_emit(scratch->gpu_address >> 32);
 
-         radeon_add_to_buffer_list(ctx, &ctx->gfx_cs, scratch,
-                                   RADEON_USAGE_WRITE | RADEON_PRIO_QUERY);
+         radeon_add_to_buffer_list(ctx, &ctx->gfx_cs, scratch, RADEON_USAGE_WRITE | RADEON_PRIO_QUERY);
       }
 
       radeon_emit(PKT3(PKT3_RELEASE_MEM, ctx->gfx_level >= GFX9 ? 6 : 5, 0));
@@ -123,8 +117,7 @@ void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigne
          radeon_emit(0); /* immediate data */
          radeon_emit(0); /* unused */
 
-         radeon_add_to_buffer_list(ctx, &ctx->gfx_cs, scratch,
-                                   RADEON_USAGE_WRITE | RADEON_PRIO_QUERY);
+         radeon_add_to_buffer_list(ctx, &ctx->gfx_cs, scratch, RADEON_USAGE_WRITE | RADEON_PRIO_QUERY);
       }
 
       radeon_emit(PKT3(PKT3_EVENT_WRITE_EOP, 4, 0));
@@ -142,7 +135,8 @@ void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigne
    }
 }
 
-unsigned si_cp_write_fence_dwords(struct si_screen *screen)
+unsigned
+si_cp_write_fence_dwords(struct si_screen *screen)
 {
    unsigned dwords = 6;
 
@@ -152,8 +146,9 @@ unsigned si_cp_write_fence_dwords(struct si_screen *screen)
    return dwords;
 }
 
-void si_cp_wait_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, uint64_t va, uint32_t ref,
-                    uint32_t mask, unsigned flags)
+void
+si_cp_wait_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, uint64_t va, uint32_t ref, uint32_t mask,
+               unsigned flags)
 {
    radeon_begin(cs);
    radeon_emit(PKT3(PKT3_WAIT_REG_MEM, 5, 0));
@@ -166,20 +161,22 @@ void si_cp_wait_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, uint64_t v
    radeon_end();
 }
 
-static void si_add_fence_dependency(struct si_context *sctx, struct pipe_fence_handle *fence)
+static void
+si_add_fence_dependency(struct si_context *sctx, struct pipe_fence_handle *fence)
 {
    struct radeon_winsys *ws = sctx->ws;
 
    ws->cs_add_fence_dependency(&sctx->gfx_cs, fence, 0);
 }
 
-static void si_add_syncobj_signal(struct si_context *sctx, struct pipe_fence_handle *fence)
+static void
+si_add_syncobj_signal(struct si_context *sctx, struct pipe_fence_handle *fence)
 {
    sctx->ws->cs_add_syncobj_signal(&sctx->gfx_cs, fence);
 }
 
-static void si_fence_reference(struct pipe_screen *screen, struct pipe_fence_handle **dst,
-                               struct pipe_fence_handle *src)
+static void
+si_fence_reference(struct pipe_screen *screen, struct pipe_fence_handle **dst, struct pipe_fence_handle *src)
 {
    struct radeon_winsys *ws = ((struct si_screen *)screen)->ws;
    struct si_fence **sdst = (struct si_fence **)dst;
@@ -194,7 +191,8 @@ static void si_fence_reference(struct pipe_screen *screen, struct pipe_fence_han
    *sdst = ssrc;
 }
 
-static struct si_fence *si_alloc_fence()
+static struct si_fence *
+si_alloc_fence()
 {
    struct si_fence *fence = CALLOC_STRUCT(si_fence);
    if (!fence)
@@ -206,8 +204,8 @@ static struct si_fence *si_alloc_fence()
    return fence;
 }
 
-struct pipe_fence_handle *si_create_fence(struct pipe_context *ctx,
-                                          struct tc_unflushed_batch_token *tc_token)
+struct pipe_fence_handle *
+si_create_fence(struct pipe_context *ctx, struct tc_unflushed_batch_token *tc_token)
 {
    struct si_fence *fence = si_alloc_fence();
    if (!fence)
@@ -219,10 +217,10 @@ struct pipe_fence_handle *si_create_fence(struct pipe_context *ctx,
    return (struct pipe_fence_handle *)fence;
 }
 
-static bool si_fine_fence_signaled(struct radeon_winsys *rws, const struct si_fine_fence *fine)
+static bool
+si_fine_fence_signaled(struct radeon_winsys *rws, const struct si_fine_fence *fine)
 {
-   char *map =
-      rws->buffer_map(rws, fine->buf->buf, NULL, PIPE_MAP_READ | PIPE_MAP_UNSYNCHRONIZED);
+   char *map = rws->buffer_map(rws, fine->buf->buf, NULL, PIPE_MAP_READ | PIPE_MAP_UNSYNCHRONIZED);
    if (!map)
       return false;
 
@@ -230,15 +228,16 @@ static bool si_fine_fence_signaled(struct radeon_winsys *rws, const struct si_fi
    return *fence != 0;
 }
 
-static void si_fine_fence_set(struct si_context *ctx, struct si_fine_fence *fine, unsigned flags)
+static void
+si_fine_fence_set(struct si_context *ctx, struct si_fine_fence *fine, unsigned flags)
 {
    uint32_t *fence_ptr;
 
    assert(util_bitcount(flags & (PIPE_FLUSH_TOP_OF_PIPE | PIPE_FLUSH_BOTTOM_OF_PIPE)) == 1);
 
    /* Use cached system memory for the fence. */
-   u_upload_alloc(ctx->cached_gtt_allocator, 0, 4, 4, &fine->offset,
-                  (struct pipe_resource **)&fine->buf, (void **)&fence_ptr);
+   u_upload_alloc(ctx->cached_gtt_allocator, 0, 4, 4, &fine->offset, (struct pipe_resource **)&fine->buf,
+                  (void **)&fence_ptr);
    if (!fine->buf)
       return;
 
@@ -252,16 +251,15 @@ static void si_fine_fence_set(struct si_context *ctx, struct si_fine_fence *fine
       uint64_t fence_va = fine->buf->gpu_address + fine->offset;
 
       radeon_add_to_buffer_list(ctx, &ctx->gfx_cs, fine->buf, RADEON_USAGE_WRITE | RADEON_PRIO_QUERY);
-      si_cp_release_mem(ctx, &ctx->gfx_cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM,
-                        EOP_INT_SEL_NONE, EOP_DATA_SEL_VALUE_32BIT, NULL, fence_va, 0x80000000,
-                        PIPE_QUERY_GPU_FINISHED);
+      si_cp_release_mem(ctx, &ctx->gfx_cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM, EOP_INT_SEL_NONE,
+                        EOP_DATA_SEL_VALUE_32BIT, NULL, fence_va, 0x80000000, PIPE_QUERY_GPU_FINISHED);
    } else {
       assert(false);
    }
 }
 
-static bool si_fence_finish(struct pipe_screen *screen, struct pipe_context *ctx,
-                            struct pipe_fence_handle *fence, uint64_t timeout)
+static bool
+si_fence_finish(struct pipe_screen *screen, struct pipe_context *ctx, struct pipe_fence_handle *fence, uint64_t timeout)
 {
    struct radeon_winsys *rws = ((struct si_screen *)screen)->ws;
    struct si_fence *sfence = (struct si_fence *)fence;
@@ -310,8 +308,7 @@ static bool si_fence_finish(struct pipe_screen *screen, struct pipe_context *ctx
    }
 
    /* Flush the gfx IB if it hasn't been flushed yet. */
-   if (sctx && sfence->gfx_unflushed.ctx == sctx &&
-       sfence->gfx_unflushed.ib_index == sctx->num_gfx_cs_flushes) {
+   if (sctx && sfence->gfx_unflushed.ctx == sctx && sfence->gfx_unflushed.ib_index == sctx->num_gfx_cs_flushes) {
       /* Section 4.1.2 (Signaling) of the OpenGL 4.6 (Core profile)
        * spec says:
        *
@@ -334,8 +331,7 @@ static bool si_fence_finish(struct pipe_screen *screen, struct pipe_context *ctx
        * This means we need to flush for such fences even when we're
        * not going to wait.
        */
-      si_flush_gfx_cs(sctx, (timeout ? 0 : PIPE_FLUSH_ASYNC) | RADEON_FLUSH_START_NEXT_GFX_IB_NOW,
-                      NULL);
+      si_flush_gfx_cs(sctx, (timeout ? 0 : PIPE_FLUSH_ASYNC) | RADEON_FLUSH_START_NEXT_GFX_IB_NOW, NULL);
       sfence->gfx_unflushed.ctx = NULL;
 
       if (!timeout)
@@ -359,8 +355,8 @@ static bool si_fence_finish(struct pipe_screen *screen, struct pipe_context *ctx
    return false;
 }
 
-static void si_create_fence_fd(struct pipe_context *ctx, struct pipe_fence_handle **pfence, int fd,
-                               enum pipe_fd_type type)
+static void
+si_create_fence_fd(struct pipe_context *ctx, struct pipe_fence_handle **pfence, int fd, enum pipe_fd_type type)
 {
    struct si_screen *sscreen = (struct si_screen *)ctx->screen;
    struct radeon_winsys *ws = sscreen->ws;
@@ -400,7 +396,8 @@ finish:
    *pfence = (struct pipe_fence_handle *)sfence;
 }
 
-static int si_fence_get_fd(struct pipe_screen *screen, struct pipe_fence_handle *fence)
+static int
+si_fence_get_fd(struct pipe_screen *screen, struct pipe_fence_handle *fence)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
    struct radeon_winsys *ws = sscreen->ws;
@@ -432,9 +429,8 @@ static int si_fence_get_fd(struct pipe_screen *screen, struct pipe_fence_handle 
    return gfx_fd;
 }
 
-static void si_flush_all_queues(struct pipe_context *ctx,
-                                struct pipe_fence_handle **fence,
-                                unsigned flags, bool force_flush)
+static void
+si_flush_all_queues(struct pipe_context *ctx, struct pipe_fence_handle **fence, unsigned flags, bool force_flush)
 {
    struct pipe_screen *screen = ctx->screen;
    struct si_context *sctx = (struct si_context *)ctx;
@@ -529,13 +525,14 @@ finish:
    }
 }
 
-static void si_flush_from_st(struct pipe_context *ctx, struct pipe_fence_handle **fence,
-                             unsigned flags)
+static void
+si_flush_from_st(struct pipe_context *ctx, struct pipe_fence_handle **fence, unsigned flags)
 {
    return si_flush_all_queues(ctx, fence, flags, false);
 }
 
-static void si_fence_server_signal(struct pipe_context *ctx, struct pipe_fence_handle *fence)
+static void
+si_fence_server_signal(struct pipe_context *ctx, struct pipe_fence_handle *fence)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    struct si_fence *sfence = (struct si_fence *)fence;
@@ -563,7 +560,8 @@ static void si_fence_server_signal(struct pipe_context *ctx, struct pipe_fence_h
    si_flush_all_queues(ctx, NULL, 0, true);
 }
 
-static void si_fence_server_sync(struct pipe_context *ctx, struct pipe_fence_handle *fence)
+static void
+si_fence_server_sync(struct pipe_context *ctx, struct pipe_fence_handle *fence)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    struct si_fence *sfence = (struct si_fence *)fence;
@@ -588,7 +586,8 @@ static void si_fence_server_sync(struct pipe_context *ctx, struct pipe_fence_han
       si_add_fence_dependency(sctx, sfence->gfx);
 }
 
-void si_init_fence_functions(struct si_context *ctx)
+void
+si_init_fence_functions(struct si_context *ctx)
 {
    ctx->b.flush = si_flush_from_st;
    ctx->b.create_fence_fd = si_create_fence_fd;
@@ -596,7 +595,8 @@ void si_init_fence_functions(struct si_context *ctx)
    ctx->b.fence_server_signal = si_fence_server_signal;
 }
 
-void si_init_screen_fence_functions(struct si_screen *screen)
+void
+si_init_screen_fence_functions(struct si_screen *screen)
 {
    screen->b.fence_finish = si_fence_finish;
    screen->b.fence_reference = si_fence_reference;

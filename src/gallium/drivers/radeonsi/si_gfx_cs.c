@@ -5,15 +5,16 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
-#include "si_pipe.h"
-#include "sid.h"
 #include "util/os_time.h"
 #include "util/u_log.h"
 #include "util/u_upload_mgr.h"
 #include "ac_debug.h"
+#include "si_build_pm4.h"
+#include "si_pipe.h"
+#include "sid.h"
 
-void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_handle **fence)
+void
+si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_handle **fence)
 {
    struct radeon_cmdbuf *cs = &ctx->gfx_cs;
    struct radeon_winsys *ws = ctx->ws;
@@ -41,8 +42,7 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
       /* The kernel flushes L2 before shaders are finished. */
       wait_flags |= wait_ps_cs;
    } else if (!(flags & RADEON_FLUSH_START_NEXT_GFX_IB_NOW) ||
-              ((flags & RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION) &&
-                !ws->cs_is_secure(cs))) {
+              ((flags & RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION) && !ws->cs_is_secure(cs))) {
       /* TODO: this workaround fixes subtitles rendering with mpv -vo=vaapi and
        * tmz but shouldn't be necessary.
        */
@@ -50,8 +50,7 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
    }
 
    /* Drop this flush if it's a no-op. */
-   if (!radeon_emitted(cs, ctx->initial_gfx_cs_size) &&
-       (!wait_flags || !ctx->gfx_last_ib_is_busy) &&
+   if (!radeon_emitted(cs, ctx->initial_gfx_cs_size) && (!wait_flags || !ctx->gfx_last_ib_is_busy) &&
        !(flags & RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION)) {
       tc_driver_internal_flush_notify(ctx->tc);
       return;
@@ -60,8 +59,7 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
    /* Non-aux contexts must set up no-op API dispatch on GPU resets. This is
     * similar to si_get_reset_status but here we can ignore soft-recoveries,
     * while si_get_reset_status can't. */
-   if (!(ctx->context_flags & SI_CONTEXT_FLAG_AUX) &&
-       ctx->device_reset_callback.reset) {
+   if (!(ctx->context_flags & SI_CONTEXT_FLAG_AUX) && ctx->device_reset_callback.reset) {
       enum pipe_reset_status status = ctx->ws->ctx_query_reset_status(ctx->ctx, true, NULL, NULL);
       if (status != PIPE_NO_RESET)
          ctx->device_reset_callback.reset(ctx->device_reset_callback.data, status);
@@ -159,7 +157,8 @@ void si_flush_gfx_cs(struct si_context *ctx, unsigned flags, struct pipe_fence_h
    ctx->gfx_flush_in_progress = false;
 }
 
-static void si_begin_gfx_cs_debug(struct si_context *ctx)
+static void
+si_begin_gfx_cs_debug(struct si_context *ctx)
 {
    static const uint32_t zeros[1];
    assert(!ctx->current_saved_cs);
@@ -170,16 +169,14 @@ static void si_begin_gfx_cs_debug(struct si_context *ctx)
 
    pipe_reference_init(&ctx->current_saved_cs->reference, 1);
 
-   ctx->current_saved_cs->trace_buf =
-      si_resource(pipe_buffer_create(ctx->b.screen, 0, PIPE_USAGE_STAGING, 4));
+   ctx->current_saved_cs->trace_buf = si_resource(pipe_buffer_create(ctx->b.screen, 0, PIPE_USAGE_STAGING, 4));
    if (!ctx->current_saved_cs->trace_buf) {
       free(ctx->current_saved_cs);
       ctx->current_saved_cs = NULL;
       return;
    }
 
-   pipe_buffer_write_nooverlap(&ctx->b, &ctx->current_saved_cs->trace_buf->b.b, 0, sizeof(zeros),
-                               zeros);
+   pipe_buffer_write_nooverlap(&ctx->b, &ctx->current_saved_cs->trace_buf->b.b, 0, sizeof(zeros), zeros);
    ctx->current_saved_cs->trace_id = 0;
 
    si_trace_emit(ctx);
@@ -188,13 +185,15 @@ static void si_begin_gfx_cs_debug(struct si_context *ctx)
                              RADEON_USAGE_READWRITE | RADEON_PRIO_FENCE_TRACE);
 }
 
-static void si_add_gds_to_buffer_list(struct si_context *sctx)
+static void
+si_add_gds_to_buffer_list(struct si_context *sctx)
 {
    if (sctx->screen->gds_oa)
       sctx->ws->cs_add_buffer(&sctx->gfx_cs, sctx->screen->gds_oa, RADEON_USAGE_READWRITE, 0);
 }
 
-void si_allocate_gds(struct si_context *sctx)
+void
+si_allocate_gds(struct si_context *sctx)
 {
    struct radeon_winsys *ws = sctx->ws;
 
@@ -214,7 +213,8 @@ void si_allocate_gds(struct si_context *sctx)
    si_add_gds_to_buffer_list(sctx);
 }
 
-void si_set_tracked_regs_to_clear_state(struct si_context *ctx)
+void
+si_set_tracked_regs_to_clear_state(struct si_context *ctx)
 {
    STATIC_ASSERT(SI_NUM_TRACKED_CONTEXT_REGS <= sizeof(ctx->tracked_regs.context_reg_saved_mask) * 8);
 
@@ -296,8 +296,8 @@ void si_set_tracked_regs_to_clear_state(struct si_context *ctx)
    ctx->tracked_regs.context_reg_saved_mask = BITFIELD64_MASK(SI_NUM_TRACKED_CONTEXT_REGS);
 }
 
-void si_install_draw_wrapper(struct si_context *sctx, pipe_draw_vbo_func wrapper,
-                             pipe_draw_vertex_state_func vstate_wrapper)
+void
+si_install_draw_wrapper(struct si_context *sctx, pipe_draw_vbo_func wrapper, pipe_draw_vertex_state_func vstate_wrapper)
 {
    if (wrapper) {
       if (wrapper != sctx->b.draw_vbo) {
@@ -315,48 +315,46 @@ void si_install_draw_wrapper(struct si_context *sctx, pipe_draw_vbo_func wrapper
    }
 }
 
-static void si_tmz_preamble(struct si_context *sctx)
+static void
+si_tmz_preamble(struct si_context *sctx)
 {
    bool secure = si_gfx_resources_check_encrypted(sctx);
    if (secure != sctx->ws->cs_is_secure(&sctx->gfx_cs)) {
-      si_flush_gfx_cs(sctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW |
-                            RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION, NULL);
+      si_flush_gfx_cs(sctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW | RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION, NULL);
    }
 }
 
-static void si_draw_vbo_tmz_preamble(struct pipe_context *ctx,
-                                     const struct pipe_draw_info *info,
-                                     unsigned drawid_offset,
-                                     const struct pipe_draw_indirect_info *indirect,
-                                     const struct pipe_draw_start_count_bias *draws,
-                                     unsigned num_draws) {
+static void
+si_draw_vbo_tmz_preamble(struct pipe_context *ctx, const struct pipe_draw_info *info, unsigned drawid_offset,
+                         const struct pipe_draw_indirect_info *indirect, const struct pipe_draw_start_count_bias *draws,
+                         unsigned num_draws)
+{
    struct si_context *sctx = (struct si_context *)ctx;
 
    si_tmz_preamble(sctx);
    sctx->real_draw_vbo(ctx, info, drawid_offset, indirect, draws, num_draws);
 }
 
-static void si_draw_vstate_tmz_preamble(struct pipe_context *ctx,
-                                        struct pipe_vertex_state *state,
-                                        uint32_t partial_velem_mask,
-                                        struct pipe_draw_vertex_state_info info,
-                                        const struct pipe_draw_start_count_bias *draws,
-                                        unsigned num_draws) {
+static void
+si_draw_vstate_tmz_preamble(struct pipe_context *ctx, struct pipe_vertex_state *state, uint32_t partial_velem_mask,
+                            struct pipe_draw_vertex_state_info info, const struct pipe_draw_start_count_bias *draws,
+                            unsigned num_draws)
+{
    struct si_context *sctx = (struct si_context *)ctx;
 
    si_tmz_preamble(sctx);
    sctx->real_draw_vertex_state(ctx, state, partial_velem_mask, info, draws, num_draws);
 }
 
-void si_begin_new_gfx_cs(struct si_context *ctx, bool first_cs)
+void
+si_begin_new_gfx_cs(struct si_context *ctx, bool first_cs)
 {
    bool is_secure = false;
 
    if (unlikely(radeon_uses_secure_bos(ctx->ws))) {
       is_secure = ctx->ws->cs_is_secure(&ctx->gfx_cs);
 
-      si_install_draw_wrapper(ctx, si_draw_vbo_tmz_preamble,
-                              si_draw_vstate_tmz_preamble);
+      si_install_draw_wrapper(ctx, si_draw_vbo_tmz_preamble, si_draw_vstate_tmz_preamble);
    }
 
    if (ctx->is_debug)
@@ -412,10 +410,8 @@ void si_begin_new_gfx_cs(struct si_context *ctx, bool first_cs)
 
    /* The CS initialization should be emitted before everything else. */
    if (ctx->cs_preamble_state) {
-      struct si_pm4_state *preamble = is_secure ? ctx->cs_preamble_state_tmz :
-                                                  ctx->cs_preamble_state;
-      ctx->ws->cs_set_preamble(&ctx->gfx_cs, preamble->pm4, preamble->ndw,
-                               preamble != ctx->last_preamble);
+      struct si_pm4_state *preamble = is_secure ? ctx->cs_preamble_state_tmz : ctx->cs_preamble_state;
+      ctx->ws->cs_set_preamble(&ctx->gfx_cs, preamble->pm4, preamble->ndw, preamble != ctx->last_preamble);
       ctx->last_preamble = preamble;
    }
 
@@ -451,8 +447,7 @@ void si_begin_new_gfx_cs(struct si_context *ctx, bool first_cs)
    /* CLEAR_STATE disables all colorbuffers, so only enable bound ones. */
    bool has_clear_state = ctx->screen->info.has_clear_state;
    if (has_clear_state) {
-      ctx->framebuffer.dirty_cbufs =
-            u_bit_consecutive(0, ctx->framebuffer.state.nr_cbufs);
+      ctx->framebuffer.dirty_cbufs = u_bit_consecutive(0, ctx->framebuffer.state.nr_cbufs);
       /* CLEAR_STATE disables the zbuffer, so only enable it if it's bound. */
       ctx->framebuffer.dirty_zsbuf = ctx->framebuffer.state.zsbuf != NULL;
    } else {
@@ -562,7 +557,8 @@ void si_begin_new_gfx_cs(struct si_context *ctx, bool first_cs)
    ctx->force_cb_shader_coherent = true;
 }
 
-void si_trace_emit(struct si_context *sctx)
+void
+si_trace_emit(struct si_context *sctx)
 {
    struct radeon_cmdbuf *cs = &sctx->gfx_cs;
    uint32_t trace_id = ++sctx->current_saved_cs->trace_id;
@@ -578,7 +574,8 @@ void si_trace_emit(struct si_context *sctx)
       u_log_flush(sctx->log);
 }
 
-void si_emit_surface_sync(struct si_context *sctx, struct radeon_cmdbuf *cs, unsigned cp_coher_cntl)
+void
+si_emit_surface_sync(struct si_context *sctx, struct radeon_cmdbuf *cs, unsigned cp_coher_cntl)
 {
    bool compute_ib = !sctx->has_graphics;
 
@@ -615,8 +612,8 @@ void si_emit_surface_sync(struct si_context *sctx, struct radeon_cmdbuf *cs, uns
       sctx->context_roll = true;
 }
 
-static struct si_resource *si_get_wait_mem_scratch_bo(struct si_context *ctx,
-                                                      struct radeon_cmdbuf *cs, bool is_secure)
+static struct si_resource *
+si_get_wait_mem_scratch_bo(struct si_context *ctx, struct radeon_cmdbuf *cs, bool is_secure)
 {
    struct si_screen *sscreen = ctx->screen;
 
@@ -627,22 +624,19 @@ static struct si_resource *si_get_wait_mem_scratch_bo(struct si_context *ctx,
    } else {
       assert(sscreen->info.has_tmz_support);
       if (!ctx->wait_mem_scratch_tmz) {
-         ctx->wait_mem_scratch_tmz =
-            si_aligned_buffer_create(&sscreen->b,
-                                     PIPE_RESOURCE_FLAG_UNMAPPABLE |
-                                     SI_RESOURCE_FLAG_DRIVER_INTERNAL |
-                                     PIPE_RESOURCE_FLAG_ENCRYPTED,
-                                     PIPE_USAGE_DEFAULT, 4,
-                                     sscreen->info.tcc_cache_line_size);
-         si_cp_write_data(ctx, ctx->wait_mem_scratch_tmz, 0, 4, V_370_MEM, V_370_ME,
-                          &ctx->wait_mem_number);
+         ctx->wait_mem_scratch_tmz = si_aligned_buffer_create(
+            &sscreen->b,
+            PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL | PIPE_RESOURCE_FLAG_ENCRYPTED,
+            PIPE_USAGE_DEFAULT, 4, sscreen->info.tcc_cache_line_size);
+         si_cp_write_data(ctx, ctx->wait_mem_scratch_tmz, 0, 4, V_370_MEM, V_370_ME, &ctx->wait_mem_number);
       }
 
       return ctx->wait_mem_scratch_tmz;
    }
 }
 
-void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
+void
+gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
 {
    uint32_t gcr_cntl = 0;
    unsigned cb_db_event = 0;
@@ -650,9 +644,8 @@ void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
 
    if (!ctx->has_graphics) {
       /* Only process compute flags. */
-      flags &= SI_CONTEXT_INV_ICACHE | SI_CONTEXT_INV_SCACHE | SI_CONTEXT_INV_VCACHE |
-               SI_CONTEXT_INV_L2 | SI_CONTEXT_WB_L2 | SI_CONTEXT_INV_L2_METADATA |
-               SI_CONTEXT_CS_PARTIAL_FLUSH;
+      flags &= SI_CONTEXT_INV_ICACHE | SI_CONTEXT_INV_SCACHE | SI_CONTEXT_INV_VCACHE | SI_CONTEXT_INV_L2 |
+               SI_CONTEXT_WB_L2 | SI_CONTEXT_INV_L2_METADATA | SI_CONTEXT_CS_PARTIAL_FLUSH;
    }
 
    /* We don't need these. */
@@ -769,16 +762,14 @@ void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
          unsigned gl2_wb = G_586_GL2_WB(gcr_cntl);
          unsigned gcr_seq = G_586_SEQ(gcr_cntl);
 
-         gcr_cntl &= C_586_GLM_WB & C_586_GLM_INV & C_586_GLK_WB & C_586_GLK_INV &
-                     C_586_GLV_INV & C_586_GL1_INV & C_586_GL2_INV & C_586_GL2_WB; /* keep SEQ */
+         gcr_cntl &= C_586_GLM_WB & C_586_GLM_INV & C_586_GLK_WB & C_586_GLK_INV & C_586_GLV_INV & C_586_GL1_INV &
+                     C_586_GL2_INV & C_586_GL2_WB; /* keep SEQ */
 
          /* Send an event that flushes caches. */
          radeon_emit(PKT3(PKT3_RELEASE_MEM, 6, 0));
-         radeon_emit(S_490_EVENT_TYPE(cb_db_event) |
-                     S_490_EVENT_INDEX(5) |
-                     S_490_GLM_WB(glm_wb) | S_490_GLM_INV(glm_inv) | S_490_GLV_INV(glv_inv) |
-                     S_490_GL1_INV(gl1_inv) | S_490_GL2_INV(gl2_inv) | S_490_GL2_WB(gl2_wb) |
-                     S_490_SEQ(gcr_seq) | S_490_GLK_WB(glk_wb) | S_490_GLK_INV(glk_inv) |
+         radeon_emit(S_490_EVENT_TYPE(cb_db_event) | S_490_EVENT_INDEX(5) | S_490_GLM_WB(glm_wb) |
+                     S_490_GLM_INV(glm_inv) | S_490_GLV_INV(glv_inv) | S_490_GL1_INV(gl1_inv) | S_490_GL2_INV(gl2_inv) |
+                     S_490_GL2_WB(gl2_wb) | S_490_SEQ(gcr_seq) | S_490_GLK_WB(glk_wb) | S_490_GLK_INV(glk_inv) |
                      S_490_PWS_ENABLE(1));
          radeon_emit(0); /* DST_SEL, INT_SEL, DATA_SEL */
          radeon_emit(0); /* ADDRESS_LO */
@@ -795,15 +786,12 @@ void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
 
          /* Wait for the event and invalidate remaining caches if needed. */
          radeon_emit(PKT3(PKT3_ACQUIRE_MEM, 6, 0));
-         radeon_emit(S_580_PWS_STAGE_SEL(flags & SI_CONTEXT_PFP_SYNC_ME ? V_580_CP_PFP :
-                                                                          V_580_CP_ME) |
-                     S_580_PWS_COUNTER_SEL(V_580_TS_SELECT) |
-                     S_580_PWS_ENA2(1) |
-                     S_580_PWS_COUNT(0));
+         radeon_emit(S_580_PWS_STAGE_SEL(flags & SI_CONTEXT_PFP_SYNC_ME ? V_580_CP_PFP : V_580_CP_ME) |
+                     S_580_PWS_COUNTER_SEL(V_580_TS_SELECT) | S_580_PWS_ENA2(1) | S_580_PWS_COUNT(0));
          radeon_emit(0xffffffff); /* GCR_SIZE */
          radeon_emit(0x01ffffff); /* GCR_SIZE_HI */
-         radeon_emit(0); /* GCR_BASE_LO */
-         radeon_emit(0); /* GCR_BASE_HI */
+         radeon_emit(0);          /* GCR_BASE_LO */
+         radeon_emit(0);          /* GCR_BASE_HI */
          radeon_emit(S_585_PWS_ENA(1));
          radeon_emit(gcr_cntl); /* GCR_CNTL */
 
@@ -819,8 +807,7 @@ void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
          /* GFX10 */
          radeon_end();
 
-         struct si_resource *wait_mem_scratch =
-           si_get_wait_mem_scratch_bo(ctx, cs, ctx->ws->cs_is_secure(cs));
+         struct si_resource *wait_mem_scratch = si_get_wait_mem_scratch_bo(ctx, cs, ctx->ws->cs_is_secure(cs));
 
          /* CB/DB flush and invalidate via RELEASE_MEM.
           * Combine this with other cache flushes when possible.
@@ -840,16 +827,15 @@ void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
          unsigned gl2_wb = G_586_GL2_WB(gcr_cntl);
          unsigned gcr_seq = G_586_SEQ(gcr_cntl);
 
-         gcr_cntl &= C_586_GLM_WB & C_586_GLM_INV & C_586_GLV_INV & C_586_GL1_INV & C_586_GL2_INV &
-                     C_586_GL2_WB; /* keep SEQ */
+         gcr_cntl &=
+            C_586_GLM_WB & C_586_GLM_INV & C_586_GLV_INV & C_586_GL1_INV & C_586_GL2_INV & C_586_GL2_WB; /* keep SEQ */
 
          si_cp_release_mem(ctx, cs, cb_db_event,
                            S_490_GLM_WB(glm_wb) | S_490_GLM_INV(glm_inv) | S_490_GLV_INV(glv_inv) |
-                           S_490_GL1_INV(gl1_inv) | S_490_GL2_INV(gl2_inv) | S_490_GL2_WB(gl2_wb) |
-                           S_490_SEQ(gcr_seq),
-                           EOP_DST_SEL_MEM, EOP_INT_SEL_SEND_DATA_AFTER_WR_CONFIRM,
-                           EOP_DATA_SEL_VALUE_32BIT, wait_mem_scratch, va, ctx->wait_mem_number,
-                           SI_NOT_QUERY);
+                              S_490_GL1_INV(gl1_inv) | S_490_GL2_INV(gl2_inv) | S_490_GL2_WB(gl2_wb) |
+                              S_490_SEQ(gcr_seq),
+                           EOP_DST_SEL_MEM, EOP_INT_SEL_SEND_DATA_AFTER_WR_CONFIRM, EOP_DATA_SEL_VALUE_32BIT,
+                           wait_mem_scratch, va, ctx->wait_mem_number, SI_NOT_QUERY);
 
          if (unlikely(ctx->sqtt_enabled)) {
             si_sqtt_describe_barrier_start(ctx, &ctx->gfx_cs);
@@ -875,12 +861,12 @@ void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
        */
       radeon_emit(PKT3(PKT3_ACQUIRE_MEM, 6, 0));
       radeon_emit(dont_sync_pfp); /* CP_COHER_CNTL */
-      radeon_emit(0xffffffff); /* CP_COHER_SIZE */
-      radeon_emit(0xffffff);   /* CP_COHER_SIZE_HI */
-      radeon_emit(0);          /* CP_COHER_BASE */
-      radeon_emit(0);          /* CP_COHER_BASE_HI */
-      radeon_emit(0x0000000A); /* POLL_INTERVAL */
-      radeon_emit(gcr_cntl);   /* GCR_CNTL */
+      radeon_emit(0xffffffff);    /* CP_COHER_SIZE */
+      radeon_emit(0xffffff);      /* CP_COHER_SIZE_HI */
+      radeon_emit(0);             /* CP_COHER_BASE */
+      radeon_emit(0);             /* CP_COHER_BASE_HI */
+      radeon_emit(0x0000000A);    /* POLL_INTERVAL */
+      radeon_emit(gcr_cntl);      /* GCR_CNTL */
    } else if (flags & SI_CONTEXT_PFP_SYNC_ME) {
       /* Synchronize PFP with ME. (this stalls PFP) */
       radeon_emit(PKT3(PKT3_PFP_SYNC_ME, 0, 0));
@@ -901,15 +887,15 @@ void gfx10_emit_cache_flush(struct si_context *ctx, struct radeon_cmdbuf *cs)
    ctx->flags = 0;
 }
 
-void si_emit_cache_flush(struct si_context *sctx, struct radeon_cmdbuf *cs)
+void
+si_emit_cache_flush(struct si_context *sctx, struct radeon_cmdbuf *cs)
 {
    uint32_t flags = sctx->flags;
 
    if (!sctx->has_graphics) {
       /* Only process compute flags. */
-      flags &= SI_CONTEXT_INV_ICACHE | SI_CONTEXT_INV_SCACHE | SI_CONTEXT_INV_VCACHE |
-               SI_CONTEXT_INV_L2 | SI_CONTEXT_WB_L2 | SI_CONTEXT_INV_L2_METADATA |
-               SI_CONTEXT_CS_PARTIAL_FLUSH;
+      flags &= SI_CONTEXT_INV_ICACHE | SI_CONTEXT_INV_SCACHE | SI_CONTEXT_INV_VCACHE | SI_CONTEXT_INV_L2 |
+               SI_CONTEXT_WB_L2 | SI_CONTEXT_INV_L2_METADATA | SI_CONTEXT_CS_PARTIAL_FLUSH;
    }
 
    uint32_t cp_coher_cntl = 0;
@@ -937,16 +923,15 @@ void si_emit_cache_flush(struct si_context *sctx, struct radeon_cmdbuf *cs)
 
    if (sctx->gfx_level <= GFX8) {
       if (flags & SI_CONTEXT_FLUSH_AND_INV_CB) {
-         cp_coher_cntl |= S_0085F0_CB_ACTION_ENA(1) | S_0085F0_CB0_DEST_BASE_ENA(1) |
-                          S_0085F0_CB1_DEST_BASE_ENA(1) | S_0085F0_CB2_DEST_BASE_ENA(1) |
-                          S_0085F0_CB3_DEST_BASE_ENA(1) | S_0085F0_CB4_DEST_BASE_ENA(1) |
-                          S_0085F0_CB5_DEST_BASE_ENA(1) | S_0085F0_CB6_DEST_BASE_ENA(1) |
-                          S_0085F0_CB7_DEST_BASE_ENA(1);
+         cp_coher_cntl |= S_0085F0_CB_ACTION_ENA(1) | S_0085F0_CB0_DEST_BASE_ENA(1) | S_0085F0_CB1_DEST_BASE_ENA(1) |
+                          S_0085F0_CB2_DEST_BASE_ENA(1) | S_0085F0_CB3_DEST_BASE_ENA(1) |
+                          S_0085F0_CB4_DEST_BASE_ENA(1) | S_0085F0_CB5_DEST_BASE_ENA(1) |
+                          S_0085F0_CB6_DEST_BASE_ENA(1) | S_0085F0_CB7_DEST_BASE_ENA(1);
 
          /* Necessary for DCC */
          if (sctx->gfx_level == GFX8)
-            si_cp_release_mem(sctx, cs, V_028A90_FLUSH_AND_INV_CB_DATA_TS, 0, EOP_DST_SEL_MEM,
-                              EOP_INT_SEL_NONE, EOP_DATA_SEL_DISCARD, NULL, 0, 0, SI_NOT_QUERY);
+            si_cp_release_mem(sctx, cs, V_028A90_FLUSH_AND_INV_CB_DATA_TS, 0, EOP_DST_SEL_MEM, EOP_INT_SEL_NONE,
+                              EOP_DATA_SEL_DISCARD, NULL, 0, 0, SI_NOT_QUERY);
       }
       if (flags & SI_CONTEXT_FLUSH_AND_INV_DB)
          cp_coher_cntl |= S_0085F0_DB_ACTION_ENA(1) | S_0085F0_DB_DEST_BASE_ENA(1);
@@ -1053,15 +1038,13 @@ void si_emit_cache_flush(struct si_context *sctx, struct radeon_cmdbuf *cs)
       }
 
       /* Do the flush (enqueue the event and wait for it). */
-      struct si_resource* wait_mem_scratch =
-        si_get_wait_mem_scratch_bo(sctx, cs, sctx->ws->cs_is_secure(cs));
+      struct si_resource *wait_mem_scratch = si_get_wait_mem_scratch_bo(sctx, cs, sctx->ws->cs_is_secure(cs));
 
       va = wait_mem_scratch->gpu_address;
       sctx->wait_mem_number++;
 
-      si_cp_release_mem(sctx, cs, cb_db_event, tc_flags, EOP_DST_SEL_MEM,
-                        EOP_INT_SEL_SEND_DATA_AFTER_WR_CONFIRM, EOP_DATA_SEL_VALUE_32BIT,
-                        wait_mem_scratch, va, sctx->wait_mem_number, SI_NOT_QUERY);
+      si_cp_release_mem(sctx, cs, cb_db_event, tc_flags, EOP_DST_SEL_MEM, EOP_INT_SEL_SEND_DATA_AFTER_WR_CONFIRM,
+                        EOP_DATA_SEL_VALUE_32BIT, wait_mem_scratch, va, sctx->wait_mem_number, SI_NOT_QUERY);
 
       if (unlikely(sctx->sqtt_enabled)) {
          si_sqtt_describe_barrier_start(sctx, &sctx->gfx_cs);
@@ -1103,9 +1086,7 @@ void si_emit_cache_flush(struct si_context *sctx, struct radeon_cmdbuf *cs)
           *
           * WB doesn't work without NC.
           */
-         si_emit_surface_sync(
-            sctx, cs,
-            cp_coher_cntl | S_0301F0_TC_WB_ACTION_ENA(1) | S_0301F0_TC_NC_ACTION_ENA(1));
+         si_emit_surface_sync(sctx, cs, cp_coher_cntl | S_0301F0_TC_WB_ACTION_ENA(1) | S_0301F0_TC_NC_ACTION_ENA(1));
          cp_coher_cntl = 0;
          sctx->num_L2_writebacks++;
       }

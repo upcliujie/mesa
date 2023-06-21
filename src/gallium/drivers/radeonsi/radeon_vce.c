@@ -9,11 +9,11 @@
 #include "radeon_vce.h"
 
 #include "pipe/p_video_codec.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_video.h"
 
 #include <stdio.h>
 
@@ -25,12 +25,13 @@
 #define FW_52_0_3  ((52 << 24) | (0 << 16) | (3 << 8))
 #define FW_52_4_3  ((52 << 24) | (4 << 16) | (3 << 8))
 #define FW_52_8_3  ((52 << 24) | (8 << 16) | (3 << 8))
-#define FW_53       (53 << 24)
+#define FW_53      (53 << 24)
 
 /**
  * flush commands to the hardware
  */
-static void flush(struct rvce_encoder *enc)
+static void
+flush(struct rvce_encoder *enc)
 {
    enc->ws->cs_flush(&enc->cs, PIPE_FLUSH_ASYNC, NULL);
    enc->task_info_idx = 0;
@@ -66,7 +67,8 @@ static void dump_feedback(struct rvce_encoder *enc, struct rvid_buffer *fb)
 /**
  * reset the CPB handling
  */
-static void reset_cpb(struct rvce_encoder *enc)
+static void
+reset_cpb(struct rvce_encoder *enc)
 {
    unsigned i;
 
@@ -84,7 +86,8 @@ static void reset_cpb(struct rvce_encoder *enc)
 /**
  * sort l0 and l1 to the top of the list
  */
-static void sort_cpb(struct rvce_encoder *enc)
+static void
+sort_cpb(struct rvce_encoder *enc)
 {
    struct rvce_cpb_slot *i, *l0 = NULL, *l1 = NULL;
 
@@ -116,7 +119,8 @@ static void sort_cpb(struct rvce_encoder *enc)
 /**
  * get number of cpbs based on dpb
  */
-static unsigned get_cpb_num(struct rvce_encoder *enc)
+static unsigned
+get_cpb_num(struct rvce_encoder *enc)
 {
    unsigned w = align(enc->base.width, 16) / 16;
    unsigned h = align(enc->base.height, 16) / 16;
@@ -170,7 +174,8 @@ static unsigned get_cpb_num(struct rvce_encoder *enc)
 /**
  * Get the slot for the currently encoded frame
  */
-struct rvce_cpb_slot *si_current_slot(struct rvce_encoder *enc)
+struct rvce_cpb_slot *
+si_current_slot(struct rvce_encoder *enc)
 {
    return list_entry(enc->cpb_slots.prev, struct rvce_cpb_slot, list);
 }
@@ -178,7 +183,8 @@ struct rvce_cpb_slot *si_current_slot(struct rvce_encoder *enc)
 /**
  * Get the slot for L0
  */
-struct rvce_cpb_slot *si_l0_slot(struct rvce_encoder *enc)
+struct rvce_cpb_slot *
+si_l0_slot(struct rvce_encoder *enc)
 {
    return list_entry(enc->cpb_slots.next, struct rvce_cpb_slot, list);
 }
@@ -186,7 +192,8 @@ struct rvce_cpb_slot *si_l0_slot(struct rvce_encoder *enc)
 /**
  * Get the slot for L1
  */
-struct rvce_cpb_slot *si_l1_slot(struct rvce_encoder *enc)
+struct rvce_cpb_slot *
+si_l1_slot(struct rvce_encoder *enc)
 {
    return list_entry(enc->cpb_slots.next->next, struct rvce_cpb_slot, list);
 }
@@ -194,8 +201,8 @@ struct rvce_cpb_slot *si_l1_slot(struct rvce_encoder *enc)
 /**
  * Calculate the offsets into the CPB
  */
-void si_vce_frame_offset(struct rvce_encoder *enc, struct rvce_cpb_slot *slot, signed *luma_offset,
-                         signed *chroma_offset)
+void
+si_vce_frame_offset(struct rvce_encoder *enc, struct rvce_cpb_slot *slot, signed *luma_offset, signed *chroma_offset)
 {
    struct si_screen *sscreen = (struct si_screen *)enc->screen;
    unsigned pitch, vpitch, fsize;
@@ -216,7 +223,8 @@ void si_vce_frame_offset(struct rvce_encoder *enc, struct rvce_cpb_slot *slot, s
 /**
  * destroy this video encoder
  */
-static void rvce_destroy(struct pipe_video_codec *encoder)
+static void
+rvce_destroy(struct pipe_video_codec *encoder)
 {
    struct rvce_encoder *enc = (struct rvce_encoder *)encoder;
    if (enc->stream_handle) {
@@ -234,21 +242,20 @@ static void rvce_destroy(struct pipe_video_codec *encoder)
    FREE(enc);
 }
 
-static void rvce_begin_frame(struct pipe_video_codec *encoder, struct pipe_video_buffer *source,
-                             struct pipe_picture_desc *picture)
+static void
+rvce_begin_frame(struct pipe_video_codec *encoder, struct pipe_video_buffer *source, struct pipe_picture_desc *picture)
 {
    struct rvce_encoder *enc = (struct rvce_encoder *)encoder;
    struct vl_video_buffer *vid_buf = (struct vl_video_buffer *)source;
    struct pipe_h264_enc_picture_desc *pic = (struct pipe_h264_enc_picture_desc *)picture;
 
-   bool need_rate_control =
-      enc->pic.rate_ctrl[0].rate_ctrl_method != pic->rate_ctrl[0].rate_ctrl_method ||
-      enc->pic.quant_i_frames != pic->quant_i_frames ||
-      enc->pic.quant_p_frames != pic->quant_p_frames ||
-      enc->pic.quant_b_frames != pic->quant_b_frames ||
-      enc->pic.rate_ctrl[0].target_bitrate != pic->rate_ctrl[0].target_bitrate ||
-      enc->pic.rate_ctrl[0].frame_rate_num != pic->rate_ctrl[0].frame_rate_num ||
-      enc->pic.rate_ctrl[0].frame_rate_den != pic->rate_ctrl[0].frame_rate_den;
+   bool need_rate_control = enc->pic.rate_ctrl[0].rate_ctrl_method != pic->rate_ctrl[0].rate_ctrl_method ||
+                            enc->pic.quant_i_frames != pic->quant_i_frames ||
+                            enc->pic.quant_p_frames != pic->quant_p_frames ||
+                            enc->pic.quant_b_frames != pic->quant_b_frames ||
+                            enc->pic.rate_ctrl[0].target_bitrate != pic->rate_ctrl[0].target_bitrate ||
+                            enc->pic.rate_ctrl[0].frame_rate_num != pic->rate_ctrl[0].frame_rate_num ||
+                            enc->pic.rate_ctrl[0].frame_rate_den != pic->rate_ctrl[0].frame_rate_den;
 
    enc->pic = *pic;
    enc->si_get_pic_param(enc, pic);
@@ -258,8 +265,7 @@ static void rvce_begin_frame(struct pipe_video_codec *encoder, struct pipe_video
 
    if (pic->picture_type == PIPE_H2645_ENC_PICTURE_TYPE_IDR)
       reset_cpb(enc);
-   else if (pic->picture_type == PIPE_H2645_ENC_PICTURE_TYPE_P ||
-            pic->picture_type == PIPE_H2645_ENC_PICTURE_TYPE_B)
+   else if (pic->picture_type == PIPE_H2645_ENC_PICTURE_TYPE_P || pic->picture_type == PIPE_H2645_ENC_PICTURE_TYPE_B)
       sort_cpb(enc);
 
    if (!enc->stream_handle) {
@@ -284,9 +290,9 @@ static void rvce_begin_frame(struct pipe_video_codec *encoder, struct pipe_video
    }
 }
 
-static void rvce_encode_bitstream(struct pipe_video_codec *encoder,
-                                  struct pipe_video_buffer *source,
-                                  struct pipe_resource *destination, void **fb)
+static void
+rvce_encode_bitstream(struct pipe_video_codec *encoder, struct pipe_video_buffer *source,
+                      struct pipe_resource *destination, void **fb)
 {
    struct rvce_encoder *enc = (struct rvce_encoder *)encoder;
    enc->get_buffer(destination, &enc->bs_handle, NULL);
@@ -303,8 +309,8 @@ static void rvce_encode_bitstream(struct pipe_video_codec *encoder,
    enc->feedback(enc);
 }
 
-static void rvce_end_frame(struct pipe_video_codec *encoder, struct pipe_video_buffer *source,
-                           struct pipe_picture_desc *picture)
+static void
+rvce_end_frame(struct pipe_video_codec *encoder, struct pipe_video_buffer *source, struct pipe_picture_desc *picture)
 {
    struct rvce_encoder *enc = (struct rvce_encoder *)encoder;
    struct rvce_cpb_slot *slot = list_entry(enc->cpb_slots.prev, struct rvce_cpb_slot, list);
@@ -322,14 +328,14 @@ static void rvce_end_frame(struct pipe_video_codec *encoder, struct pipe_video_b
    }
 }
 
-static void rvce_get_feedback(struct pipe_video_codec *encoder, void *feedback, unsigned *size)
+static void
+rvce_get_feedback(struct pipe_video_codec *encoder, void *feedback, unsigned *size)
 {
    struct rvce_encoder *enc = (struct rvce_encoder *)encoder;
    struct rvid_buffer *fb = feedback;
 
    if (size) {
-      uint32_t *ptr = enc->ws->buffer_map(enc->ws, fb->res->buf, &enc->cs,
-                                          PIPE_MAP_READ_WRITE | RADEON_MAP_TEMPORARY);
+      uint32_t *ptr = enc->ws->buffer_map(enc->ws, fb->res->buf, &enc->cs, PIPE_MAP_READ_WRITE | RADEON_MAP_TEMPORARY);
 
       if (ptr[1]) {
          *size = ptr[4] - ptr[9];
@@ -347,21 +353,23 @@ static void rvce_get_feedback(struct pipe_video_codec *encoder, void *feedback, 
 /**
  * flush any outstanding command buffers to the hardware
  */
-static void rvce_flush(struct pipe_video_codec *encoder)
+static void
+rvce_flush(struct pipe_video_codec *encoder)
 {
    struct rvce_encoder *enc = (struct rvce_encoder *)encoder;
 
    flush(enc);
 }
 
-static void rvce_cs_flush(void *ctx, unsigned flags, struct pipe_fence_handle **fence)
+static void
+rvce_cs_flush(void *ctx, unsigned flags, struct pipe_fence_handle **fence)
 {
    // just ignored
 }
 
-struct pipe_video_codec *si_vce_create_encoder(struct pipe_context *context,
-                                               const struct pipe_video_codec *templ,
-                                               struct radeon_winsys *ws, rvce_get_buffer get_buffer)
+struct pipe_video_codec *
+si_vce_create_encoder(struct pipe_context *context, const struct pipe_video_codec *templ, struct radeon_winsys *ws,
+                      rvce_get_buffer get_buffer)
 {
    struct si_screen *sscreen = (struct si_screen *)context->screen;
    struct si_context *sctx = (struct si_context *)context;
@@ -393,8 +401,7 @@ struct pipe_video_codec *si_vce_create_encoder(struct pipe_context *context,
        sscreen->info.family != CHIP_VEGAM)
       enc->dual_pipe = true;
    /* TODO enable B frame with dual instance */
-   if ((sscreen->info.family >= CHIP_TONGA) && (templ->max_references == 1) &&
-       (sscreen->info.vce_harvest_config == 0))
+   if ((sscreen->info.family >= CHIP_TONGA) && (templ->max_references == 1) && (sscreen->info.vce_harvest_config == 0))
       enc->dual_inst = true;
 
    enc->base = *templ;
@@ -436,8 +443,7 @@ struct pipe_video_codec *si_vce_create_encoder(struct pipe_context *context,
                       align(tmp_surf->u.legacy.level[0].nblk_y, 32)
                  :
 
-                 align(tmp_surf->u.gfx9.surf_pitch * tmp_surf->bpe, 256) *
-                    align(tmp_surf->u.gfx9.surf_height, 32);
+                 align(tmp_surf->u.gfx9.surf_pitch * tmp_surf->bpe, 256) * align(tmp_surf->u.gfx9.surf_height, 32);
 
    cpb_size = cpb_size * 3 / 2;
    cpb_size = cpb_size * enc->cpb_num;
@@ -495,7 +501,8 @@ error:
 /**
  * check if kernel has the right fw version loaded
  */
-bool si_vce_is_fw_version_supported(struct si_screen *sscreen)
+bool
+si_vce_is_fw_version_supported(struct si_screen *sscreen)
 {
    switch (sscreen->info.vce_fw_version) {
    case FW_40_2_2:
@@ -518,8 +525,9 @@ bool si_vce_is_fw_version_supported(struct si_screen *sscreen)
 /**
  * Add the buffer as relocation to the current command submission
  */
-void si_vce_add_buffer(struct rvce_encoder *enc, struct pb_buffer *buf, unsigned usage,
-                       enum radeon_bo_domain domain, signed offset)
+void
+si_vce_add_buffer(struct rvce_encoder *enc, struct pb_buffer *buf, unsigned usage, enum radeon_bo_domain domain,
+                  signed offset)
 {
    int reloc_idx;
 

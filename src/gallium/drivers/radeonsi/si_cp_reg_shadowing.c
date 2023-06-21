@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
+#include "util/u_memory.h"
 #include "ac_debug.h"
 #include "ac_shadowed_regs.h"
-#include "util/u_memory.h"
+#include "si_build_pm4.h"
 
-static void si_set_context_reg_array(struct radeon_cmdbuf *cs, unsigned reg, unsigned num,
-                                     const uint32_t *values)
+static void
+si_set_context_reg_array(struct radeon_cmdbuf *cs, unsigned reg, unsigned num, const uint32_t *values)
 {
    radeon_begin(cs);
    radeon_set_context_reg_seq(reg, num);
@@ -18,36 +18,26 @@ static void si_set_context_reg_array(struct radeon_cmdbuf *cs, unsigned reg, uns
    radeon_end();
 }
 
-void si_init_cp_reg_shadowing(struct si_context *sctx)
+void
+si_init_cp_reg_shadowing(struct si_context *sctx)
 {
-   if (sctx->has_graphics &&
-       sctx->screen->info.register_shadowing_required) {
+   if (sctx->has_graphics && sctx->screen->info.register_shadowing_required) {
       if (sctx->screen->info.has_fw_based_shadowing) {
-         sctx->shadowing.registers =
-               si_aligned_buffer_create(sctx->b.screen,
-                                        PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                        PIPE_USAGE_DEFAULT,
-                                        sctx->screen->info.fw_based_mcbp.shadow_size,
-                                        sctx->screen->info.fw_based_mcbp.shadow_alignment);
-         sctx->shadowing.csa =
-               si_aligned_buffer_create(sctx->b.screen,
-                                        PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                        PIPE_USAGE_DEFAULT,
-                                        sctx->screen->info.fw_based_mcbp.csa_size,
-                                        sctx->screen->info.fw_based_mcbp.csa_alignment);
+         sctx->shadowing.registers = si_aligned_buffer_create(
+            sctx->b.screen, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL, PIPE_USAGE_DEFAULT,
+            sctx->screen->info.fw_based_mcbp.shadow_size, sctx->screen->info.fw_based_mcbp.shadow_alignment);
+         sctx->shadowing.csa = si_aligned_buffer_create(
+            sctx->b.screen, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL, PIPE_USAGE_DEFAULT,
+            sctx->screen->info.fw_based_mcbp.csa_size, sctx->screen->info.fw_based_mcbp.csa_alignment);
          if (!sctx->shadowing.registers || !sctx->shadowing.csa)
             fprintf(stderr, "radeonsi: cannot create register shadowing buffer(s)\n");
          else
-            sctx->ws->cs_set_mcbp_reg_shadowing_va(&sctx->gfx_cs,
-                                                   sctx->shadowing.registers->gpu_address,
+            sctx->ws->cs_set_mcbp_reg_shadowing_va(&sctx->gfx_cs, sctx->shadowing.registers->gpu_address,
                                                    sctx->shadowing.csa->gpu_address);
       } else {
          sctx->shadowing.registers =
-               si_aligned_buffer_create(sctx->b.screen,
-                                        PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                        PIPE_USAGE_DEFAULT,
-                                        SI_SHADOWED_REG_BUFFER_SIZE,
-                                        4096);
+            si_aligned_buffer_create(sctx->b.screen, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                     PIPE_USAGE_DEFAULT, SI_SHADOWED_REG_BUFFER_SIZE, 4096);
          if (!sctx->shadowing.registers)
             fprintf(stderr, "radeonsi: cannot create a shadowed_regs buffer\n");
       }
@@ -57,9 +47,8 @@ void si_init_cp_reg_shadowing(struct si_context *sctx)
 
    if (sctx->shadowing.registers) {
       /* We need to clear the shadowed reg buffer. */
-      si_cp_dma_clear_buffer(sctx, &sctx->gfx_cs, &sctx->shadowing.registers->b.b,
-                             0, sctx->shadowing.registers->bo_size, 0, SI_OP_SYNC_AFTER,
-                             SI_COHERENCY_CP, L2_BYPASS);
+      si_cp_dma_clear_buffer(sctx, &sctx->gfx_cs, &sctx->shadowing.registers->b.b, 0,
+                             sctx->shadowing.registers->bo_size, 0, SI_OP_SYNC_AFTER, SI_COHERENCY_CP, L2_BYPASS);
 
       /* Create the shadowing preamble. */
       struct si_shadow_preamble {
@@ -69,11 +58,10 @@ void si_init_cp_reg_shadowing(struct si_context *sctx)
       struct si_pm4_state *shadowing_preamble = (struct si_pm4_state *)CALLOC_STRUCT(si_shadow_preamble);
 
       /* Add all the space that we allocated. */
-      shadowing_preamble->max_dw = (sizeof(struct si_shadow_preamble) -
-                                    offsetof(struct si_shadow_preamble, pm4.pm4)) / 4;
+      shadowing_preamble->max_dw =
+         (sizeof(struct si_shadow_preamble) - offsetof(struct si_shadow_preamble, pm4.pm4)) / 4;
 
-      ac_create_shadowing_ib_preamble(&sctx->screen->info,
-                                      (pm4_cmd_add_fn)si_pm4_cmd_add, shadowing_preamble,
+      ac_create_shadowing_ib_preamble(&sctx->screen->info, (pm4_cmd_add_fn)si_pm4_cmd_add, shadowing_preamble,
                                       sctx->shadowing.registers->gpu_address, sctx->screen->dpbb_allowed);
 
       /* Initialize shadowed registers as follows. */
@@ -95,8 +83,7 @@ void si_init_cp_reg_shadowing(struct si_context *sctx)
       /* Setup preemption. The shadowing preamble will be executed as a preamble IB,
        * which will load register values from memory on a context switch.
        */
-      sctx->ws->cs_setup_preemption(&sctx->gfx_cs, shadowing_preamble->pm4,
-                                    shadowing_preamble->ndw);
+      sctx->ws->cs_setup_preemption(&sctx->gfx_cs, shadowing_preamble->pm4, shadowing_preamble->ndw);
       si_pm4_free_state(sctx, shadowing_preamble, ~0);
    }
 }

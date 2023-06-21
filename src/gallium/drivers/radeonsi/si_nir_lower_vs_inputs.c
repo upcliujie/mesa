@@ -7,9 +7,9 @@
 #include "nir_builder.h"
 
 #include "ac_nir.h"
+#include "si_pipe.h"
 #include "si_shader_internal.h"
 #include "si_state.h"
-#include "si_pipe.h"
 
 struct lower_vs_inputs_state {
    struct si_shader *shader;
@@ -37,15 +37,12 @@ fast_udiv_nuw(nir_builder *b, nir_ssa_def *num, nir_ssa_def *divisor)
 }
 
 static nir_ssa_def *
-get_vertex_index_for_mono_shader(nir_builder *b, int input_index,
-                                 struct lower_vs_inputs_state *s)
+get_vertex_index_for_mono_shader(nir_builder *b, int input_index, struct lower_vs_inputs_state *s)
 {
    const union si_shader_key *key = &s->shader->key;
 
-   bool divisor_is_one =
-      key->ge.part.vs.prolog.instance_divisor_is_one & (1u << input_index);
-   bool divisor_is_fetched =
-      key->ge.part.vs.prolog.instance_divisor_is_fetched & (1u << input_index);
+   bool divisor_is_one = key->ge.part.vs.prolog.instance_divisor_is_one & (1u << input_index);
+   bool divisor_is_fetched = key->ge.part.vs.prolog.instance_divisor_is_fetched & (1u << input_index);
 
    if (divisor_is_one || divisor_is_fetched) {
       nir_ssa_def *instance_id = nir_load_instance_id(b);
@@ -58,8 +55,7 @@ get_vertex_index_for_mono_shader(nir_builder *b, int input_index,
          index = instance_id;
       } else {
          nir_ssa_def *offset = nir_imm_int(b, input_index * 16);
-         nir_ssa_def *divisor = nir_load_ubo(b, 4, 32, s->instance_divisor_constbuf, offset,
-                                             .range = ~0);
+         nir_ssa_def *divisor = nir_load_ubo(b, 4, 32, s->instance_divisor_constbuf, offset, .range = ~0);
 
          /* The faster NUW version doesn't work when InstanceID == UINT_MAX.
           * Such InstanceID might not be achievable in a reasonable time though.
@@ -78,8 +74,7 @@ get_vertex_index_for_mono_shader(nir_builder *b, int input_index,
 }
 
 static nir_ssa_def *
-get_vertex_index_for_part_shader(nir_builder *b, int input_index,
-                                 struct lower_vs_inputs_state *s)
+get_vertex_index_for_part_shader(nir_builder *b, int input_index, struct lower_vs_inputs_state *s)
 {
    return ac_nir_load_arg_at_offset(b, &s->args->ac, s->args->vertex_index0, input_index);
 }
@@ -99,21 +94,17 @@ get_vertex_index_for_all_inputs(nir_shader *nir, struct lower_vs_inputs_state *s
    const union si_shader_key *key = &s->shader->key;
 
    if (key->ge.part.vs.prolog.instance_divisor_is_fetched) {
-      s->instance_divisor_constbuf =
-         si_nir_load_internal_binding(b, s->args, SI_VS_CONST_INSTANCE_DIVISORS, 4);
+      s->instance_divisor_constbuf = si_nir_load_internal_binding(b, s->args, SI_VS_CONST_INSTANCE_DIVISORS, 4);
    }
 
    for (int i = 0; i < sel->info.num_inputs; i++) {
-      s->vertex_index[i] = s->shader->is_monolithic ?
-         get_vertex_index_for_mono_shader(b, i, s) :
-         get_vertex_index_for_part_shader(b, i, s);
+      s->vertex_index[i] = s->shader->is_monolithic ? get_vertex_index_for_mono_shader(b, i, s)
+                                                    : get_vertex_index_for_part_shader(b, i, s);
    }
 }
 
 static void
-load_vs_input_from_blit_sgpr(nir_builder *b, unsigned input_index,
-                             struct lower_vs_inputs_state *s,
-                             nir_ssa_def *out[4])
+load_vs_input_from_blit_sgpr(nir_builder *b, unsigned input_index, struct lower_vs_inputs_state *s, nir_ssa_def *out[4])
 {
    nir_ssa_def *vertex_id = nir_load_vertex_id_zero_base(b);
    nir_ssa_def *sel_x1 = nir_ule_imm(b, vertex_id, 1);
@@ -219,9 +210,8 @@ ufN_to_float(nir_builder *b, nir_ssa_def *src, unsigned exp_bits, unsigned mant_
  * - size = 8 bytes, format != {float,fixed} indicates a 2_10_10_10 data format
  */
 static void
-opencoded_load_format(nir_builder *b, nir_ssa_def *rsrc, nir_ssa_def *vindex,
-                      union si_vs_fix_fetch fix_fetch, bool known_aligned,
-                      enum amd_gfx_level gfx_level, nir_ssa_def *out[4])
+opencoded_load_format(nir_builder *b, nir_ssa_def *rsrc, nir_ssa_def *vindex, union si_vs_fix_fetch fix_fetch,
+                      bool known_aligned, enum amd_gfx_level gfx_level, nir_ssa_def *out[4])
 {
    unsigned log_size = fix_fetch.u.log_size;
    unsigned num_channels = fix_fetch.u.num_channels_m1 + 1;
@@ -293,8 +283,7 @@ opencoded_load_format(nir_builder *b, nir_ssa_def *rsrc, nir_ssa_def *vindex,
 
       /* Further split dwords and shorts if required */
       if (log_recombine < 0) {
-         for (unsigned src = load_num_channels, dst = load_num_channels << -log_recombine;
-              src > 0; --src) {
+         for (unsigned src = load_num_channels, dst = load_num_channels << -log_recombine; src > 0; --src) {
             unsigned dst_bits = 1 << (3 + load_log_size + log_recombine);
             nir_ssa_def *loaded = loads[src - 1];
             for (unsigned i = 1 << -log_recombine; i > 0; --i, --dst) {
@@ -421,9 +410,9 @@ opencoded_load_format(nir_builder *b, nir_ssa_def *rsrc, nir_ssa_def *vindex,
 
    while (num_channels < 4) {
       unsigned pad_value = num_channels == 3 ? 1 : 0;
-      loads[num_channels] =
-         format == AC_FETCH_FORMAT_UINT || format == AC_FETCH_FORMAT_SINT ?
-         nir_imm_int(b, pad_value) : nir_imm_float(b, pad_value);
+      loads[num_channels] = format == AC_FETCH_FORMAT_UINT || format == AC_FETCH_FORMAT_SINT
+                               ? nir_imm_int(b, pad_value)
+                               : nir_imm_float(b, pad_value);
       num_channels++;
    }
 
@@ -437,8 +426,7 @@ opencoded_load_format(nir_builder *b, nir_ssa_def *rsrc, nir_ssa_def *vindex,
 }
 
 static void
-load_vs_input_from_vertex_buffer(nir_builder *b, unsigned input_index,
-                                 struct lower_vs_inputs_state *s,
+load_vs_input_from_vertex_buffer(nir_builder *b, unsigned input_index, struct lower_vs_inputs_state *s,
                                  unsigned bit_size, nir_ssa_def *out[4])
 {
    const struct si_shader_selector *sel = s->shader->selector;
@@ -461,15 +449,12 @@ load_vs_input_from_vertex_buffer(nir_builder *b, unsigned input_index,
     */
    bool opencode = key->ge.mono.vs_fetch_opencode & (1 << input_index);
    union si_vs_fix_fetch fix_fetch = key->ge.mono.vs_fix_fetch[input_index];
-   if (opencode ||
-       (fix_fetch.u.log_size == 3 && fix_fetch.u.format == AC_FETCH_FORMAT_FLOAT) ||
+   if (opencode || (fix_fetch.u.log_size == 3 && fix_fetch.u.format == AC_FETCH_FORMAT_FLOAT) ||
        fix_fetch.u.log_size == 2) {
-      opencoded_load_format(b, vb_desc, vertex_index, fix_fetch, !opencode,
-                            sel->screen->info.gfx_level, out);
+      opencoded_load_format(b, vb_desc, vertex_index, fix_fetch, !opencode, sel->screen->info.gfx_level, out);
 
       if (bit_size == 16) {
-         if (fix_fetch.u.format == AC_FETCH_FORMAT_UINT ||
-             fix_fetch.u.format == AC_FETCH_FORMAT_SINT) {
+         if (fix_fetch.u.format == AC_FETCH_FORMAT_UINT || fix_fetch.u.format == AC_FETCH_FORMAT_SINT) {
             for (unsigned i = 0; i < 4; i++)
                out[i] = nir_u2u16(b, out[i]);
          } else {
@@ -505,10 +490,8 @@ load_vs_input_from_vertex_buffer(nir_builder *b, unsigned input_index,
 
    for (unsigned i = 0; i < num_fetches; ++i) {
       nir_ssa_def *zero = nir_imm_int(b, 0);
-      fetches[i] = nir_load_buffer_amd(b, channels_per_fetch, bit_size, vb_desc,
-                                       zero, zero, vertex_index,
-                                       .base = fetch_stride * i,
-                                       .access = ACCESS_USES_FORMAT_AMD);
+      fetches[i] = nir_load_buffer_amd(b, channels_per_fetch, bit_size, vb_desc, zero, zero, vertex_index,
+                                       .base = fetch_stride * i, .access = ACCESS_USES_FORMAT_AMD);
    }
 
    if (num_fetches == 1 && channels_per_fetch > 1) {
@@ -529,8 +512,7 @@ load_vs_input_from_vertex_buffer(nir_builder *b, unsigned input_index,
       else
          fetches[3] = nir_imm_floatN_t(b, 1, bit_size);
    } else if (fix_fetch.u.log_size == 3 &&
-              (fix_fetch.u.format == AC_FETCH_FORMAT_SNORM ||
-               fix_fetch.u.format == AC_FETCH_FORMAT_SSCALED ||
+              (fix_fetch.u.format == AC_FETCH_FORMAT_SNORM || fix_fetch.u.format == AC_FETCH_FORMAT_SSCALED ||
                fix_fetch.u.format == AC_FETCH_FORMAT_SINT) &&
               required_channels == 4) {
 
@@ -618,7 +600,6 @@ si_nir_lower_vs_inputs(nir_shader *nir, struct si_shader *shader, struct si_shad
    if (!sel->info.base.vs.blit_sgprs_amd)
       get_vertex_index_for_all_inputs(nir, &state);
 
-   return nir_shader_instructions_pass(nir, lower_vs_input_instr,
-                                       nir_metadata_dominance | nir_metadata_block_index,
+   return nir_shader_instructions_pass(nir, lower_vs_input_instr, nir_metadata_dominance | nir_metadata_block_index,
                                        &state);
 }

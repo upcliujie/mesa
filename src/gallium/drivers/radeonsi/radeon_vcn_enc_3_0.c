@@ -12,14 +12,15 @@
 
 #include "util/u_video.h"
 
-#include "si_pipe.h"
-#include "radeon_video.h"
 #include "radeon_vcn_enc.h"
+#include "radeon_video.h"
+#include "si_pipe.h"
 
-#define RENCODE_FW_INTERFACE_MAJOR_VERSION   1
-#define RENCODE_FW_INTERFACE_MINOR_VERSION   0
+#define RENCODE_FW_INTERFACE_MAJOR_VERSION 1
+#define RENCODE_FW_INTERFACE_MINOR_VERSION 0
 
-static void radeon_enc_spec_misc(struct radeon_encoder *enc)
+static void
+radeon_enc_spec_misc(struct radeon_encoder *enc)
 {
    enc->enc_pic.spec_misc.constrained_intra_pred_flag = 0;
    enc->enc_pic.spec_misc.half_pel_enabled = 1;
@@ -41,7 +42,8 @@ static void radeon_enc_spec_misc(struct radeon_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_enc_spec_misc_hevc(struct radeon_encoder *enc)
+static void
+radeon_enc_spec_misc_hevc(struct radeon_encoder *enc)
 {
    enc->enc_pic.hevc_spec_misc.transform_skip_discarded = 0;
    enc->enc_pic.hevc_spec_misc.cu_qp_delta_enabled_flag = 0;
@@ -59,13 +61,14 @@ static void radeon_enc_spec_misc_hevc(struct radeon_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_enc_encode_params_h264(struct radeon_encoder *enc)
+static void
+radeon_enc_encode_params_h264(struct radeon_encoder *enc)
 {
    enc->enc_pic.h264_enc_params.input_picture_structure = RENCODE_H264_PICTURE_STRUCTURE_FRAME;
    enc->enc_pic.h264_enc_params.input_pic_order_cnt = 0;
    enc->enc_pic.h264_enc_params.interlaced_mode = RENCODE_H264_INTERLACING_MODE_PROGRESSIVE;
    enc->enc_pic.h264_enc_params.l0_reference_picture1_index = 0xFFFFFFFF;
-   enc->enc_pic.h264_enc_params.l1_reference_picture0_index= 0xFFFFFFFF;
+   enc->enc_pic.h264_enc_params.l1_reference_picture0_index = 0xFFFFFFFF;
 
    RADEON_ENC_BEGIN(enc->cmd.enc_params_h264);
    RADEON_ENC_CS(enc->enc_pic.h264_enc_params.input_picture_structure);
@@ -88,7 +91,8 @@ static void radeon_enc_encode_params_h264(struct radeon_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_enc_nalu_pps_hevc(struct radeon_encoder *enc)
+static void
+radeon_enc_nalu_pps_hevc(struct radeon_encoder *enc)
 {
    uint32_t *size_in_bytes;
 
@@ -113,8 +117,7 @@ static void radeon_enc_nalu_pps_hevc(struct radeon_encoder *enc)
    radeon_enc_code_se(enc, 0x0);
    radeon_enc_code_fixed_bits(enc, enc->enc_pic.hevc_spec_misc.constrained_intra_pred_flag, 1);
    radeon_enc_code_fixed_bits(enc, 0x1, 1);
-   if (enc->enc_pic.rc_session_init.rate_control_method ==
-      RENCODE_RATE_CONTROL_METHOD_NONE)
+   if (enc->enc_pic.rc_session_init.rate_control_method == RENCODE_RATE_CONTROL_METHOD_NONE)
       radeon_enc_code_fixed_bits(enc, 0x0, 1);
    else {
       radeon_enc_code_fixed_bits(enc, 0x1, 1);
@@ -150,7 +153,8 @@ static void radeon_enc_nalu_pps_hevc(struct radeon_encoder *enc)
    RADEON_ENC_END();
 }
 
-static uint32_t radeon_enc_ref_swizzle_mode(struct radeon_encoder *enc)
+static uint32_t
+radeon_enc_ref_swizzle_mode(struct radeon_encoder *enc)
 {
    /* return RENCODE_REC_SWIZZLE_MODE_LINEAR; for debugging purpose */
    if (enc->enc_pic.bit_depth_luma_minus8 != 0)
@@ -159,7 +163,8 @@ static uint32_t radeon_enc_ref_swizzle_mode(struct radeon_encoder *enc)
       return RENCODE_REC_SWIZZLE_MODE_256B_S;
 }
 
-static void radeon_enc_ctx(struct radeon_encoder *enc)
+static void
+radeon_enc_ctx(struct radeon_encoder *enc)
 {
    enc->enc_pic.ctx_buf.swizzle_mode = radeon_enc_ref_swizzle_mode(enc);
    enc->enc_pic.ctx_buf.two_pass_search_center_map_offset = 0;
@@ -195,7 +200,8 @@ static void radeon_enc_ctx(struct radeon_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_enc_session_init(struct radeon_encoder *enc)
+static void
+radeon_enc_session_init(struct radeon_encoder *enc)
 {
    if (u_reduce_video_profile(enc->base.profile) == PIPE_VIDEO_FORMAT_MPEG4_AVC) {
       enc->enc_pic.session_init.encode_standard = RENCODE_ENCODE_STANDARD_H264;
@@ -205,10 +211,8 @@ static void radeon_enc_session_init(struct radeon_encoder *enc)
       enc->enc_pic.session_init.aligned_picture_width = align(enc->base.width, 64);
    }
    enc->enc_pic.session_init.aligned_picture_height = align(enc->base.height, 16);
-   enc->enc_pic.session_init.padding_width =
-      enc->enc_pic.session_init.aligned_picture_width - enc->base.width;
-   enc->enc_pic.session_init.padding_height =
-      enc->enc_pic.session_init.aligned_picture_height - enc->base.height;
+   enc->enc_pic.session_init.padding_width = enc->enc_pic.session_init.aligned_picture_width - enc->base.width;
+   enc->enc_pic.session_init.padding_height = enc->enc_pic.session_init.aligned_picture_height - enc->base.height;
    enc->enc_pic.session_init.slice_output_enabled = 0;
    enc->enc_pic.session_init.display_remote = 0;
    enc->enc_pic.session_init.pre_encode_mode = enc->enc_pic.quality_modes.pre_encode_mode;
@@ -227,7 +231,8 @@ static void radeon_enc_session_init(struct radeon_encoder *enc)
    RADEON_ENC_END();
 }
 
-void radeon_enc_3_0_init(struct radeon_encoder *enc)
+void
+radeon_enc_3_0_init(struct radeon_encoder *enc)
 {
    radeon_enc_2_0_init(enc);
 
@@ -246,5 +251,5 @@ void radeon_enc_3_0_init(struct radeon_encoder *enc)
 
    enc->enc_pic.session_info.interface_version =
       ((RENCODE_FW_INTERFACE_MAJOR_VERSION << RENCODE_IF_MAJOR_VERSION_SHIFT) |
-      (RENCODE_FW_INTERFACE_MINOR_VERSION << RENCODE_IF_MINOR_VERSION_SHIFT));
+       (RENCODE_FW_INTERFACE_MINOR_VERSION << RENCODE_IF_MINOR_VERSION_SHIFT));
 }

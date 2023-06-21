@@ -7,24 +7,25 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
-#include "radeon_vce.h"
-#include "radeon_video.h"
-#include "si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_vce.h"
+#include "radeon_video.h"
+#include "si_pipe.h"
 
 #include <stdio.h>
 
-static void session(struct rvce_encoder *enc)
+static void
+session(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x00000001); // session cmd
    RVCE_CS(enc->stream_handle);
    RVCE_END();
 }
 
-static void task_info(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint32_t fb_idx,
-                      uint32_t ring_idx)
+static void
+task_info(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint32_t fb_idx, uint32_t ring_idx)
 {
    RVCE_BEGIN(0x00000002); // task info
    if (op == 0x3) {
@@ -44,7 +45,8 @@ static void task_info(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint3
    RVCE_END();
 }
 
-static void feedback(struct rvce_encoder *enc)
+static void
+feedback(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x05000005);                                    // feedback buffer
    RVCE_WRITE(enc->fb->res->buf, enc->fb->res->domains, 0x0); // feedbackRingAddressHi/Lo
@@ -52,7 +54,8 @@ static void feedback(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void create(struct rvce_encoder *enc)
+static void
+create(struct rvce_encoder *enc)
 {
    enc->task_info(enc, 0x00000000, 0, 0, 0);
 
@@ -70,44 +73,47 @@ static void create(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void rate_control(struct rvce_encoder *enc)
+static void
+rate_control(struct rvce_encoder *enc)
 {
-   RVCE_BEGIN(0x04000005);                                 // rate control
+   RVCE_BEGIN(0x04000005);                                    // rate control
    RVCE_CS(enc->pic.rate_ctrl[0].rate_ctrl_method);           // encRateControlMethod
    RVCE_CS(enc->pic.rate_ctrl[0].target_bitrate);             // encRateControlTargetBitRate
    RVCE_CS(enc->pic.rate_ctrl[0].peak_bitrate);               // encRateControlPeakBitRate
    RVCE_CS(enc->pic.rate_ctrl[0].frame_rate_num);             // encRateControlFrameRateNum
-   RVCE_CS(0x00000000);                                    // encGOPSize
-   RVCE_CS(enc->pic.quant_i_frames);                       // encQP_I
-   RVCE_CS(enc->pic.quant_p_frames);                       // encQP_P
-   RVCE_CS(enc->pic.quant_b_frames);                       // encQP_B
+   RVCE_CS(0x00000000);                                       // encGOPSize
+   RVCE_CS(enc->pic.quant_i_frames);                          // encQP_I
+   RVCE_CS(enc->pic.quant_p_frames);                          // encQP_P
+   RVCE_CS(enc->pic.quant_b_frames);                          // encQP_B
    RVCE_CS(enc->pic.rate_ctrl[0].vbv_buffer_size);            // encVBVBufferSize
    RVCE_CS(enc->pic.rate_ctrl[0].frame_rate_den);             // encRateControlFrameRateDen
-   RVCE_CS(0x00000000);                                    // encVBVBufferLevel
-   RVCE_CS(0x00000000);                                    // encMaxAUSize
-   RVCE_CS(0x00000000);                                    // encQPInitialMode
+   RVCE_CS(0x00000000);                                       // encVBVBufferLevel
+   RVCE_CS(0x00000000);                                       // encMaxAUSize
+   RVCE_CS(0x00000000);                                       // encQPInitialMode
    RVCE_CS(enc->pic.rate_ctrl[0].target_bits_picture);        // encTargetBitsPerPicture
    RVCE_CS(enc->pic.rate_ctrl[0].peak_bits_picture_integer);  // encPeakBitsPerPictureInteger
    RVCE_CS(enc->pic.rate_ctrl[0].peak_bits_picture_fraction); // encPeakBitsPerPictureFractional
-   RVCE_CS(0x00000000);                                    // encMinQP
-   RVCE_CS(0x00000033);                                    // encMaxQP
-   RVCE_CS(0x00000000);                                    // encSkipFrameEnable
-   RVCE_CS(0x00000000);                                    // encFillerDataEnable
-   RVCE_CS(0x00000000);                                    // encEnforceHRD
-   RVCE_CS(0x00000000);                                    // encBPicsDeltaQP
-   RVCE_CS(0x00000000);                                    // encReferenceBPicsDeltaQP
-   RVCE_CS(0x00000000);                                    // encRateControlReInitDisable
+   RVCE_CS(0x00000000);                                       // encMinQP
+   RVCE_CS(0x00000033);                                       // encMaxQP
+   RVCE_CS(0x00000000);                                       // encSkipFrameEnable
+   RVCE_CS(0x00000000);                                       // encFillerDataEnable
+   RVCE_CS(0x00000000);                                       // encEnforceHRD
+   RVCE_CS(0x00000000);                                       // encBPicsDeltaQP
+   RVCE_CS(0x00000000);                                       // encReferenceBPicsDeltaQP
+   RVCE_CS(0x00000000);                                       // encRateControlReInitDisable
    RVCE_END();
 }
 
-static void config_extension(struct rvce_encoder *enc)
+static void
+config_extension(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000001); // config extension
    RVCE_CS(0x00000003);    // encEnablePerfLogging
    RVCE_END();
 }
 
-static void pic_control(struct rvce_encoder *enc)
+static void
+pic_control(struct rvce_encoder *enc)
 {
    unsigned encNumMBsPerSlice;
 
@@ -130,22 +136,23 @@ static void pic_control(struct rvce_encoder *enc)
    RVCE_CS(0x00000000);                                            // encForceIntraRefresh
    RVCE_CS(0x00000000);                                            // encForceIMBPeriod
    RVCE_CS(0x00000000);                                            // encPicOrderCntType
-   RVCE_CS(0x00000000);                            // log2_max_pic_order_cnt_lsb_minus4
-   RVCE_CS(0x00000000);                            // encSPSID
-   RVCE_CS(0x00000000);                            // encPPSID
-   RVCE_CS(0x00000040);                            // encConstraintSetFlags
-   RVCE_CS(MAX2(enc->base.max_references, 1) - 1); // encBPicPattern
-   RVCE_CS(0x00000000);                            // weightPredModeBPicture
-   RVCE_CS(MIN2(enc->base.max_references, 2));     // encNumberOfReferenceFrames
-   RVCE_CS(enc->base.max_references + 1);          // encMaxNumRefFrames
-   RVCE_CS(0x00000001);                            // encNumDefaultActiveRefL0
-   RVCE_CS(0x00000001);                            // encNumDefaultActiveRefL1
-   RVCE_CS(0x00000000);                            // encSliceMode
-   RVCE_CS(0x00000000);                            // encMaxSliceSize
+   RVCE_CS(0x00000000);                                            // log2_max_pic_order_cnt_lsb_minus4
+   RVCE_CS(0x00000000);                                            // encSPSID
+   RVCE_CS(0x00000000);                                            // encPPSID
+   RVCE_CS(0x00000040);                                            // encConstraintSetFlags
+   RVCE_CS(MAX2(enc->base.max_references, 1) - 1);                 // encBPicPattern
+   RVCE_CS(0x00000000);                                            // weightPredModeBPicture
+   RVCE_CS(MIN2(enc->base.max_references, 2));                     // encNumberOfReferenceFrames
+   RVCE_CS(enc->base.max_references + 1);                          // encMaxNumRefFrames
+   RVCE_CS(0x00000001);                                            // encNumDefaultActiveRefL0
+   RVCE_CS(0x00000001);                                            // encNumDefaultActiveRefL1
+   RVCE_CS(0x00000000);                                            // encSliceMode
+   RVCE_CS(0x00000000);                                            // encMaxSliceSize
    RVCE_END();
 }
 
-static void motion_estimation(struct rvce_encoder *enc)
+static void
+motion_estimation(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000007); // motion estimation
    RVCE_CS(0x00000001);    // encIMEDecimationSearch
@@ -175,7 +182,8 @@ static void motion_estimation(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void rdo(struct rvce_encoder *enc)
+static void
+rdo(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000008); // rdo
    RVCE_CS(0x00000000);    // encDisableTbePredIFrame
@@ -198,38 +206,39 @@ static void rdo(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void vui(struct rvce_encoder *enc)
+static void
+vui(struct rvce_encoder *enc)
 {
    int i;
 
    if (!enc->pic.rate_ctrl[0].frame_rate_num)
       return;
 
-   RVCE_BEGIN(0x04000009);                     // vui
-   RVCE_CS(0x00000000);                        // aspectRatioInfoPresentFlag
-   RVCE_CS(0x00000000);                        // aspectRatioInfo.aspectRatioIdc
-   RVCE_CS(0x00000000);                        // aspectRatioInfo.sarWidth
-   RVCE_CS(0x00000000);                        // aspectRatioInfo.sarHeight
-   RVCE_CS(0x00000000);                        // overscanInfoPresentFlag
-   RVCE_CS(0x00000000);                        // overScanInfo.overscanAppropFlag
-   RVCE_CS(0x00000000);                        // videoSignalTypePresentFlag
-   RVCE_CS(0x00000005);                        // videoSignalTypeInfo.videoFormat
-   RVCE_CS(0x00000000);                        // videoSignalTypeInfo.videoFullRangeFlag
-   RVCE_CS(0x00000000);                        // videoSignalTypeInfo.colorDescriptionPresentFlag
-   RVCE_CS(0x00000002);                        // videoSignalTypeInfo.colorPrim
-   RVCE_CS(0x00000002);                        // videoSignalTypeInfo.transferChar
-   RVCE_CS(0x00000002);                        // videoSignalTypeInfo.matrixCoef
-   RVCE_CS(0x00000000);                        // chromaLocInfoPresentFlag
-   RVCE_CS(0x00000000);                        // chromaLocInfo.chromaLocTop
-   RVCE_CS(0x00000000);                        // chromaLocInfo.chromaLocBottom
-   RVCE_CS(0x00000001);                        // timingInfoPresentFlag
-   RVCE_CS(enc->pic.rate_ctrl[0].frame_rate_den); // timingInfo.numUnitsInTick
+   RVCE_BEGIN(0x04000009);                            // vui
+   RVCE_CS(0x00000000);                               // aspectRatioInfoPresentFlag
+   RVCE_CS(0x00000000);                               // aspectRatioInfo.aspectRatioIdc
+   RVCE_CS(0x00000000);                               // aspectRatioInfo.sarWidth
+   RVCE_CS(0x00000000);                               // aspectRatioInfo.sarHeight
+   RVCE_CS(0x00000000);                               // overscanInfoPresentFlag
+   RVCE_CS(0x00000000);                               // overScanInfo.overscanAppropFlag
+   RVCE_CS(0x00000000);                               // videoSignalTypePresentFlag
+   RVCE_CS(0x00000005);                               // videoSignalTypeInfo.videoFormat
+   RVCE_CS(0x00000000);                               // videoSignalTypeInfo.videoFullRangeFlag
+   RVCE_CS(0x00000000);                               // videoSignalTypeInfo.colorDescriptionPresentFlag
+   RVCE_CS(0x00000002);                               // videoSignalTypeInfo.colorPrim
+   RVCE_CS(0x00000002);                               // videoSignalTypeInfo.transferChar
+   RVCE_CS(0x00000002);                               // videoSignalTypeInfo.matrixCoef
+   RVCE_CS(0x00000000);                               // chromaLocInfoPresentFlag
+   RVCE_CS(0x00000000);                               // chromaLocInfo.chromaLocTop
+   RVCE_CS(0x00000000);                               // chromaLocInfo.chromaLocBottom
+   RVCE_CS(0x00000001);                               // timingInfoPresentFlag
+   RVCE_CS(enc->pic.rate_ctrl[0].frame_rate_den);     // timingInfo.numUnitsInTick
    RVCE_CS(enc->pic.rate_ctrl[0].frame_rate_num * 2); // timingInfo.timeScale;
-   RVCE_CS(0x00000001);                            // timingInfo.fixedFrameRateFlag
-   RVCE_CS(0x00000000);                            // nalHRDParametersPresentFlag
-   RVCE_CS(0x00000000);                            // hrdParam.cpbCntMinus1
-   RVCE_CS(0x00000004);                            // hrdParam.bitRateScale
-   RVCE_CS(0x00000006);                            // hrdParam.cpbSizeScale
+   RVCE_CS(0x00000001);                               // timingInfo.fixedFrameRateFlag
+   RVCE_CS(0x00000000);                               // nalHRDParametersPresentFlag
+   RVCE_CS(0x00000000);                               // hrdParam.cpbCntMinus1
+   RVCE_CS(0x00000004);                               // hrdParam.bitRateScale
+   RVCE_CS(0x00000006);                               // hrdParam.cpbSizeScale
    for (i = 0; i < 32; i++) {
       RVCE_CS(0x00000000); // hrdParam.bitRateValueMinus
       RVCE_CS(0x00000000); // hrdParam.cpbSizeValueMinus
@@ -252,7 +261,8 @@ static void vui(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void config(struct rvce_encoder *enc)
+static void
+config(struct rvce_encoder *enc)
 {
    enc->task_info(enc, 0x00000002, 0, 0xffffffff, 0);
    enc->rate_control(enc);
@@ -264,7 +274,8 @@ static void config(struct rvce_encoder *enc)
    enc->pic_control(enc);
 }
 
-static void encode(struct rvce_encoder *enc)
+static void
+encode(struct rvce_encoder *enc)
 {
    signed luma_offset, chroma_offset;
    int i;
@@ -291,21 +302,21 @@ static void encode(struct rvce_encoder *enc)
    RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
              (uint64_t)enc->luma->u.legacy.level[0].offset_256B * 256); // inputPictureLumaAddressHi/Lo
    RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
-             (uint64_t)enc->chroma->u.legacy.level[0].offset_256B * 256);              // inputPictureChromaAddressHi/Lo
-   RVCE_CS(align(enc->luma->u.legacy.level[0].nblk_y, 16));       // encInputFrameYPitch
-   RVCE_CS(enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe); // encInputPicLumaPitch
-   RVCE_CS(enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe); // encInputPicChromaPitch
-   RVCE_CS(0x00000000);                                               // encInputPic(Addr|Array)Mode
-   RVCE_CS(0x00000000);                                               // encInputPicTileConfig
-   RVCE_CS(enc->pic.picture_type);                                    // encPicType
-   RVCE_CS(enc->pic.picture_type == PIPE_H2645_ENC_PICTURE_TYPE_IDR); // encIdrFlag
-   RVCE_CS(0x00000000);                                               // encIdrPicId
-   RVCE_CS(0x00000000);                                               // encMGSKeyPic
-   RVCE_CS(!enc->pic.not_referenced);                                 // encReferenceFlag
-   RVCE_CS(0x00000000);                                               // encTemporalLayerIndex
-   RVCE_CS(0x00000000); // num_ref_idx_active_override_flag
-   RVCE_CS(0x00000000); // num_ref_idx_l0_active_minus1
-   RVCE_CS(0x00000000); // num_ref_idx_l1_active_minus1
+             (uint64_t)enc->chroma->u.legacy.level[0].offset_256B * 256); // inputPictureChromaAddressHi/Lo
+   RVCE_CS(align(enc->luma->u.legacy.level[0].nblk_y, 16));               // encInputFrameYPitch
+   RVCE_CS(enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);         // encInputPicLumaPitch
+   RVCE_CS(enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe);     // encInputPicChromaPitch
+   RVCE_CS(0x00000000);                                                   // encInputPic(Addr|Array)Mode
+   RVCE_CS(0x00000000);                                                   // encInputPicTileConfig
+   RVCE_CS(enc->pic.picture_type);                                        // encPicType
+   RVCE_CS(enc->pic.picture_type == PIPE_H2645_ENC_PICTURE_TYPE_IDR);     // encIdrFlag
+   RVCE_CS(0x00000000);                                                   // encIdrPicId
+   RVCE_CS(0x00000000);                                                   // encMGSKeyPic
+   RVCE_CS(!enc->pic.not_referenced);                                     // encReferenceFlag
+   RVCE_CS(0x00000000);                                                   // encTemporalLayerIndex
+   RVCE_CS(0x00000000);                                                   // num_ref_idx_active_override_flag
+   RVCE_CS(0x00000000);                                                   // num_ref_idx_l0_active_minus1
+   RVCE_CS(0x00000000);                                                   // num_ref_idx_l1_active_minus1
 
    i = enc->pic.frame_num - enc->pic.ref_idx_l0_list[0];
    if (i > 1 && enc->pic.picture_type == PIPE_H2645_ENC_PICTURE_TYPE_P) {
@@ -392,7 +403,8 @@ static void encode(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void destroy(struct rvce_encoder *enc)
+static void
+destroy(struct rvce_encoder *enc)
 {
    enc->task_info(enc, 0x00000001, 0, 0, 0);
 
@@ -402,11 +414,13 @@ static void destroy(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-void si_vce_40_2_2_get_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
+void
+si_vce_40_2_2_get_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
 {
 }
 
-void si_vce_40_2_2_init(struct rvce_encoder *enc)
+void
+si_vce_40_2_2_init(struct rvce_encoder *enc)
 {
    enc->session = session;
    enc->task_info = task_info;

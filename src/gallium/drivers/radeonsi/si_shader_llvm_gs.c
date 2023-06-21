@@ -4,21 +4,23 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/u_memory.h"
 #include "ac_nir.h"
 #include "si_pipe.h"
-#include "si_shader_internal.h"
 #include "si_query.h"
+#include "si_shader_internal.h"
 #include "sid.h"
-#include "util/u_memory.h"
 
-LLVMValueRef si_is_es_thread(struct si_shader_context *ctx)
+LLVMValueRef
+si_is_es_thread(struct si_shader_context *ctx)
 {
    /* Return true if the current thread should execute an ES thread. */
    return LLVMBuildICmp(ctx->ac.builder, LLVMIntULT, ac_get_thread_id(&ctx->ac),
                         si_unpack_param(ctx, ctx->args->ac.merged_wave_info, 0, 8), "");
 }
 
-LLVMValueRef si_is_gs_thread(struct si_shader_context *ctx)
+LLVMValueRef
+si_is_gs_thread(struct si_shader_context *ctx)
 {
    /* Return true if the current thread should execute a GS thread. */
    return LLVMBuildICmp(ctx->ac.builder, LLVMIntULT, ac_get_thread_id(&ctx->ac),
@@ -26,7 +28,8 @@ LLVMValueRef si_is_gs_thread(struct si_shader_context *ctx)
 }
 
 /* Pass GS inputs from ES to GS on GFX9. */
-static void si_set_es_return_value_for_gs(struct si_shader_context *ctx)
+static void
+si_set_es_return_value_for_gs(struct si_shader_context *ctx)
 {
    if (!ctx->shader->is_monolithic)
       ac_build_endif(&ctx->ac, ctx->merged_wrap_if_label);
@@ -45,8 +48,8 @@ static void si_set_es_return_value_for_gs(struct si_shader_context *ctx)
    else
       ret = si_insert_input_ret(ctx, ret, ctx->args->ac.scratch_offset, 5);
    ret = si_insert_input_ptr(ctx, ret, ctx->args->internal_bindings, 8 + SI_SGPR_INTERNAL_BINDINGS);
-   ret = si_insert_input_ptr(ctx, ret, ctx->args->bindless_samplers_and_images,
-                             8 + SI_SGPR_BINDLESS_SAMPLERS_AND_IMAGES);
+   ret =
+      si_insert_input_ptr(ctx, ret, ctx->args->bindless_samplers_and_images, 8 + SI_SGPR_BINDLESS_SAMPLERS_AND_IMAGES);
    ret = si_insert_input_ptr(ctx, ret, ctx->args->vs_state_bits, 8 + SI_SGPR_VS_STATE_BITS);
    if (ctx->screen->use_ngg) {
       ret = si_insert_input_ptr(ctx, ret, ctx->args->small_prim_cull_info, 8 + GFX9_SGPR_SMALL_PRIM_CULL_INFO);
@@ -64,13 +67,15 @@ static void si_set_es_return_value_for_gs(struct si_shader_context *ctx)
    ctx->return_value = ret;
 }
 
-void si_llvm_es_build_end(struct si_shader_context *ctx)
+void
+si_llvm_es_build_end(struct si_shader_context *ctx)
 {
    if (ctx->screen->info.gfx_level >= GFX9)
       si_set_es_return_value_for_gs(ctx);
 }
 
-void si_llvm_gs_build_end(struct si_shader_context *ctx)
+void
+si_llvm_gs_build_end(struct si_shader_context *ctx)
 {
    if (ctx->screen->info.gfx_level >= GFX9)
       ac_build_endif(&ctx->ac, ctx->merged_wrap_if_label);

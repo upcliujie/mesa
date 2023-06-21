@@ -14,9 +14,9 @@
  * GPU load between the two samples.
  */
 
+#include "util/os_time.h"
 #include "si_pipe.h"
 #include "si_query.h"
-#include "util/os_time.h"
 
 /* For good accuracy at 1000 fps or lower. This will be inaccurate for higher
  * fps (there are too few samples per frame). */
@@ -51,15 +51,16 @@
 
 #define IDENTITY(x) x
 
-#define UPDATE_COUNTER(field, mask)                                                                \
-   do {                                                                                            \
-      if (mask(value))                                                                             \
-         p_atomic_inc(&counters->named.field.busy);                                                \
-      else                                                                                         \
-         p_atomic_inc(&counters->named.field.idle);                                                \
+#define UPDATE_COUNTER(field, mask)                                                                                    \
+   do {                                                                                                                \
+      if (mask(value))                                                                                                 \
+         p_atomic_inc(&counters->named.field.busy);                                                                    \
+      else                                                                                                             \
+         p_atomic_inc(&counters->named.field.idle);                                                                    \
    } while (0)
 
-static void si_update_mmio_counters(struct si_screen *sscreen, union si_mmio_counters *counters)
+static void
+si_update_mmio_counters(struct si_screen *sscreen, union si_mmio_counters *counters)
 {
    uint32_t value = 0;
    bool gui_busy, sdma_busy = false;
@@ -109,7 +110,8 @@ static void si_update_mmio_counters(struct si_screen *sscreen, union si_mmio_cou
 
 #undef UPDATE_COUNTER
 
-static int si_gpu_load_thread(void *param)
+static int
+si_gpu_load_thread(void *param)
 {
    struct si_screen *sscreen = (struct si_screen *)param;
    const int period_us = 1000000 / SAMPLES_PER_SEC;
@@ -139,7 +141,8 @@ static int si_gpu_load_thread(void *param)
    return 0;
 }
 
-void si_gpu_load_kill_thread(struct si_screen *sscreen)
+void
+si_gpu_load_kill_thread(struct si_screen *sscreen)
 {
    if (!sscreen->gpu_load_thread_created)
       return;
@@ -149,7 +152,8 @@ void si_gpu_load_kill_thread(struct si_screen *sscreen)
    sscreen->gpu_load_thread_created = false;
 }
 
-static uint64_t si_read_mmio_counter(struct si_screen *sscreen, unsigned busy_index)
+static uint64_t
+si_read_mmio_counter(struct si_screen *sscreen, unsigned busy_index)
 {
    /* Start the thread if needed. */
    if (!sscreen->gpu_load_thread_created) {
@@ -169,7 +173,8 @@ static uint64_t si_read_mmio_counter(struct si_screen *sscreen, unsigned busy_in
    return busy | ((uint64_t)idle << 32);
 }
 
-static unsigned si_end_mmio_counter(struct si_screen *sscreen, uint64_t begin, unsigned busy_index)
+static unsigned
+si_end_mmio_counter(struct si_screen *sscreen, uint64_t begin, unsigned busy_index)
 {
    uint64_t end = si_read_mmio_counter(sscreen, busy_index);
    unsigned busy = (end & 0xffffffff) - (begin & 0xffffffff);
@@ -192,10 +197,10 @@ static unsigned si_end_mmio_counter(struct si_screen *sscreen, uint64_t begin, u
    }
 }
 
-#define BUSY_INDEX(sscreen, field)                                                                 \
-   (&sscreen->mmio_counters.named.field.busy - sscreen->mmio_counters.array)
+#define BUSY_INDEX(sscreen, field) (&sscreen->mmio_counters.named.field.busy - sscreen->mmio_counters.array)
 
-static unsigned busy_index_from_type(struct si_screen *sscreen, unsigned type)
+static unsigned
+busy_index_from_type(struct si_screen *sscreen, unsigned type)
 {
    switch (type) {
    case SI_QUERY_GPU_LOAD:
@@ -245,13 +250,15 @@ static unsigned busy_index_from_type(struct si_screen *sscreen, unsigned type)
    }
 }
 
-uint64_t si_begin_counter(struct si_screen *sscreen, unsigned type)
+uint64_t
+si_begin_counter(struct si_screen *sscreen, unsigned type)
 {
    unsigned busy_index = busy_index_from_type(sscreen, type);
    return si_read_mmio_counter(sscreen, busy_index);
 }
 
-unsigned si_end_counter(struct si_screen *sscreen, unsigned type, uint64_t begin)
+unsigned
+si_end_counter(struct si_screen *sscreen, unsigned type, uint64_t begin)
 {
    unsigned busy_index = busy_index_from_type(sscreen, type);
    return si_end_mmio_counter(sscreen, begin, busy_index);

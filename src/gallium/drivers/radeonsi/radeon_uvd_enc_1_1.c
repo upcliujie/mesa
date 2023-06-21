@@ -7,36 +7,34 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
-#include "radeon_uvd_enc.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_uvd_enc.h"
+#include "radeon_video.h"
 
 #include <stdio.h>
 
 #define RADEON_ENC_CS(value) (enc->cs.current.buf[enc->cs.current.cdw++] = (value))
-#define RADEON_ENC_BEGIN(cmd)                                                                      \
-   {                                                                                               \
-      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++];                             \
+#define RADEON_ENC_BEGIN(cmd)                                                                                          \
+   {                                                                                                                   \
+      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++];                                                   \
       RADEON_ENC_CS(cmd)
-#define RADEON_ENC_READ(buf, domain, off)                                                          \
-   radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_READ, (domain), (off))
-#define RADEON_ENC_WRITE(buf, domain, off)                                                         \
-   radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_WRITE, (domain), (off))
-#define RADEON_ENC_READWRITE(buf, domain, off)                                                     \
+#define RADEON_ENC_READ(buf, domain, off)  radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_READ, (domain), (off))
+#define RADEON_ENC_WRITE(buf, domain, off) radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_WRITE, (domain), (off))
+#define RADEON_ENC_READWRITE(buf, domain, off)                                                                         \
    radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_READWRITE, (domain), (off))
-#define RADEON_ENC_END()                                                                           \
-   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4;                             \
-   enc->total_task_size += *begin;                                                                 \
+#define RADEON_ENC_END()                                                                                               \
+   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4;                                                   \
+   enc->total_task_size += *begin;                                                                                     \
    }
 
 static const unsigned index_to_shifts[4] = {24, 16, 8, 0};
 
-static void radeon_uvd_enc_add_buffer(struct radeon_uvd_encoder *enc, struct pb_buffer *buf,
-                                      unsigned usage, enum radeon_bo_domain domain,
-                                      signed offset)
+static void
+radeon_uvd_enc_add_buffer(struct radeon_uvd_encoder *enc, struct pb_buffer *buf, unsigned usage,
+                          enum radeon_bo_domain domain, signed offset)
 {
    enc->ws->cs_add_buffer(&enc->cs, buf, usage | RADEON_USAGE_SYNCHRONIZED, domain);
    uint64_t addr;
@@ -46,7 +44,8 @@ static void radeon_uvd_enc_add_buffer(struct radeon_uvd_encoder *enc, struct pb_
    RADEON_ENC_CS(addr);
 }
 
-static void radeon_uvd_enc_set_emulation_prevention(struct radeon_uvd_encoder *enc, bool set)
+static void
+radeon_uvd_enc_set_emulation_prevention(struct radeon_uvd_encoder *enc, bool set)
 {
    if (set != enc->emulation_prevention) {
       enc->emulation_prevention = set;
@@ -54,12 +53,12 @@ static void radeon_uvd_enc_set_emulation_prevention(struct radeon_uvd_encoder *e
    }
 }
 
-static void radeon_uvd_enc_output_one_byte(struct radeon_uvd_encoder *enc, unsigned char byte)
+static void
+radeon_uvd_enc_output_one_byte(struct radeon_uvd_encoder *enc, unsigned char byte)
 {
    if (enc->byte_index == 0)
       enc->cs.current.buf[enc->cs.current.cdw] = 0;
-   enc->cs.current.buf[enc->cs.current.cdw] |=
-      ((unsigned int)(byte) << index_to_shifts[enc->byte_index]);
+   enc->cs.current.buf[enc->cs.current.cdw] |= ((unsigned int)(byte) << index_to_shifts[enc->byte_index]);
    enc->byte_index++;
 
    if (enc->byte_index >= 4) {
@@ -68,11 +67,11 @@ static void radeon_uvd_enc_output_one_byte(struct radeon_uvd_encoder *enc, unsig
    }
 }
 
-static void radeon_uvd_enc_emulation_prevention(struct radeon_uvd_encoder *enc, unsigned char byte)
+static void
+radeon_uvd_enc_emulation_prevention(struct radeon_uvd_encoder *enc, unsigned char byte)
 {
    if (enc->emulation_prevention) {
-      if ((enc->num_zeros >= 2) &&
-          ((byte == 0x00) || (byte == 0x01) || (byte == 0x02) || (byte == 0x03))) {
+      if ((enc->num_zeros >= 2) && ((byte == 0x00) || (byte == 0x01) || (byte == 0x02) || (byte == 0x03))) {
          radeon_uvd_enc_output_one_byte(enc, 0x03);
          enc->bits_output += 8;
          enc->num_zeros = 0;
@@ -81,15 +80,14 @@ static void radeon_uvd_enc_emulation_prevention(struct radeon_uvd_encoder *enc, 
    }
 }
 
-static void radeon_uvd_enc_code_fixed_bits(struct radeon_uvd_encoder *enc, unsigned int value,
-                                           unsigned int num_bits)
+static void
+radeon_uvd_enc_code_fixed_bits(struct radeon_uvd_encoder *enc, unsigned int value, unsigned int num_bits)
 {
    unsigned int bits_to_pack = 0;
 
    while (num_bits > 0) {
       unsigned int value_to_pack = value & (0xffffffff >> (32 - num_bits));
-      bits_to_pack =
-         num_bits > (32 - enc->bits_in_shifter) ? (32 - enc->bits_in_shifter) : num_bits;
+      bits_to_pack = num_bits > (32 - enc->bits_in_shifter) ? (32 - enc->bits_in_shifter) : num_bits;
 
       if (bits_to_pack < num_bits)
          value_to_pack = value_to_pack >> (num_bits - bits_to_pack);
@@ -109,7 +107,8 @@ static void radeon_uvd_enc_code_fixed_bits(struct radeon_uvd_encoder *enc, unsig
    }
 }
 
-static void radeon_uvd_enc_reset(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_reset(struct radeon_uvd_encoder *enc)
 {
    enc->emulation_prevention = false;
    enc->shifter = 0;
@@ -119,7 +118,8 @@ static void radeon_uvd_enc_reset(struct radeon_uvd_encoder *enc)
    enc->byte_index = 0;
 }
 
-static void radeon_uvd_enc_byte_align(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_byte_align(struct radeon_uvd_encoder *enc)
 {
    unsigned int num_padding_zeros = (32 - enc->bits_in_shifter) % 8;
 
@@ -127,7 +127,8 @@ static void radeon_uvd_enc_byte_align(struct radeon_uvd_encoder *enc)
       radeon_uvd_enc_code_fixed_bits(enc, 0, num_padding_zeros);
 }
 
-static void radeon_uvd_enc_flush_headers(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_flush_headers(struct radeon_uvd_encoder *enc)
 {
    if (enc->bits_in_shifter != 0) {
       unsigned char output_byte = (unsigned char)(enc->shifter >> 24);
@@ -145,7 +146,8 @@ static void radeon_uvd_enc_flush_headers(struct radeon_uvd_encoder *enc)
    }
 }
 
-static void radeon_uvd_enc_code_ue(struct radeon_uvd_encoder *enc, unsigned int value)
+static void
+radeon_uvd_enc_code_ue(struct radeon_uvd_encoder *enc, unsigned int value)
 {
    int x = -1;
    unsigned int ue_code = value + 1;
@@ -160,7 +162,8 @@ static void radeon_uvd_enc_code_ue(struct radeon_uvd_encoder *enc, unsigned int 
    radeon_uvd_enc_code_fixed_bits(enc, ue_code, ue_length);
 }
 
-static void radeon_uvd_enc_code_se(struct radeon_uvd_encoder *enc, int value)
+static void
+radeon_uvd_enc_code_se(struct radeon_uvd_encoder *enc, int value)
 {
    unsigned int v = 0;
 
@@ -170,11 +173,11 @@ static void radeon_uvd_enc_code_se(struct radeon_uvd_encoder *enc, int value)
    radeon_uvd_enc_code_ue(enc, v);
 }
 
-static void radeon_uvd_enc_session_info(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_session_info(struct radeon_uvd_encoder *enc)
 {
-   unsigned int interface_version =
-      ((RENC_UVD_FW_INTERFACE_MAJOR_VERSION << RENC_UVD_IF_MAJOR_VERSION_SHIFT) |
-       (RENC_UVD_FW_INTERFACE_MINOR_VERSION << RENC_UVD_IF_MINOR_VERSION_SHIFT));
+   unsigned int interface_version = ((RENC_UVD_FW_INTERFACE_MAJOR_VERSION << RENC_UVD_IF_MAJOR_VERSION_SHIFT) |
+                                     (RENC_UVD_FW_INTERFACE_MINOR_VERSION << RENC_UVD_IF_MINOR_VERSION_SHIFT));
    RADEON_ENC_BEGIN(RENC_UVD_IB_PARAM_SESSION_INFO);
    RADEON_ENC_CS(0x00000000); // reserved
    RADEON_ENC_CS(interface_version);
@@ -182,7 +185,8 @@ static void radeon_uvd_enc_session_info(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_task_info(struct radeon_uvd_encoder *enc, bool need_feedback)
+static void
+radeon_uvd_enc_task_info(struct radeon_uvd_encoder *enc, bool need_feedback)
 {
    enc->enc_pic.task_info.task_id++;
 
@@ -198,14 +202,13 @@ static void radeon_uvd_enc_task_info(struct radeon_uvd_encoder *enc, bool need_f
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_session_init_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_session_init_hevc(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.session_init.aligned_picture_width = align(enc->base.width, 64);
    enc->enc_pic.session_init.aligned_picture_height = align(enc->base.height, 16);
-   enc->enc_pic.session_init.padding_width =
-      enc->enc_pic.session_init.aligned_picture_width - enc->base.width;
-   enc->enc_pic.session_init.padding_height =
-      enc->enc_pic.session_init.aligned_picture_height - enc->base.height;
+   enc->enc_pic.session_init.padding_width = enc->enc_pic.session_init.aligned_picture_width - enc->base.width;
+   enc->enc_pic.session_init.padding_height = enc->enc_pic.session_init.aligned_picture_height - enc->base.height;
    enc->enc_pic.session_init.pre_encode_mode = RENC_UVD_PREENCODE_MODE_NONE;
    enc->enc_pic.session_init.pre_encode_chroma_enabled = false;
 
@@ -219,7 +222,8 @@ static void radeon_uvd_enc_session_init_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_layer_control(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_layer_control(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.layer_ctrl.max_num_temporal_layers = 1;
    enc->enc_pic.layer_ctrl.num_temporal_layers = 1;
@@ -230,7 +234,8 @@ static void radeon_uvd_enc_layer_control(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_layer_select(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_layer_select(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.layer_sel.temporal_layer_index = 0;
 
@@ -239,7 +244,8 @@ static void radeon_uvd_enc_layer_select(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_slice_control_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_slice_control_hevc(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.hevc_slice_ctrl.slice_control_mode = RENC_UVD_SLICE_CONTROL_MODE_FIXED_CTBS;
    enc->enc_pic.hevc_slice_ctrl.fixed_ctbs_per_slice.num_ctbs_per_slice =
@@ -254,15 +260,13 @@ static void radeon_uvd_enc_slice_control_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_spec_misc_hevc(struct radeon_uvd_encoder *enc,
-                                          struct pipe_picture_desc *picture)
+static void
+radeon_uvd_enc_spec_misc_hevc(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *picture)
 {
    struct pipe_h265_enc_picture_desc *pic = (struct pipe_h265_enc_picture_desc *)picture;
-   enc->enc_pic.hevc_spec_misc.log2_min_luma_coding_block_size_minus3 =
-      pic->seq.log2_min_luma_coding_block_size_minus3;
+   enc->enc_pic.hevc_spec_misc.log2_min_luma_coding_block_size_minus3 = pic->seq.log2_min_luma_coding_block_size_minus3;
    enc->enc_pic.hevc_spec_misc.amp_disabled = !pic->seq.amp_enabled_flag;
-   enc->enc_pic.hevc_spec_misc.strong_intra_smoothing_enabled =
-      pic->seq.strong_intra_smoothing_enabled_flag;
+   enc->enc_pic.hevc_spec_misc.strong_intra_smoothing_enabled = pic->seq.strong_intra_smoothing_enabled_flag;
    enc->enc_pic.hevc_spec_misc.constrained_intra_pred_flag = pic->pic.constrained_intra_pred_flag;
    enc->enc_pic.hevc_spec_misc.cabac_init_flag = pic->slice.cabac_init_flag;
    enc->enc_pic.hevc_spec_misc.half_pel_enabled = 1;
@@ -279,8 +283,8 @@ static void radeon_uvd_enc_spec_misc_hevc(struct radeon_uvd_encoder *enc,
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_rc_session_init(struct radeon_uvd_encoder *enc,
-                                           struct pipe_picture_desc *picture)
+static void
+radeon_uvd_enc_rc_session_init(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *picture)
 {
    struct pipe_h265_enc_picture_desc *pic = (struct pipe_h265_enc_picture_desc *)picture;
    enc->enc_pic.rc_session_init.vbv_buffer_level = pic->rc.vbv_buf_lv;
@@ -294,8 +298,7 @@ static void radeon_uvd_enc_rc_session_init(struct radeon_uvd_encoder *enc,
       break;
    case PIPE_H2645_ENC_RATE_CONTROL_METHOD_VARIABLE_SKIP:
    case PIPE_H2645_ENC_RATE_CONTROL_METHOD_VARIABLE:
-      enc->enc_pic.rc_session_init.rate_control_method =
-         RENC_UVD_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR;
+      enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR;
       break;
    default:
       enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_NONE;
@@ -307,8 +310,8 @@ static void radeon_uvd_enc_rc_session_init(struct radeon_uvd_encoder *enc,
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_rc_layer_init(struct radeon_uvd_encoder *enc,
-                                         struct pipe_picture_desc *picture)
+static void
+radeon_uvd_enc_rc_layer_init(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *picture)
 {
    struct pipe_h265_enc_picture_desc *pic = (struct pipe_h265_enc_picture_desc *)picture;
    enc->enc_pic.rc_layer_init.target_bit_rate = pic->rc.target_bitrate;
@@ -332,14 +335,13 @@ static void radeon_uvd_enc_rc_layer_init(struct radeon_uvd_encoder *enc,
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_deblocking_filter_hevc(struct radeon_uvd_encoder *enc,
-                                                  struct pipe_picture_desc *picture)
+static void
+radeon_uvd_enc_deblocking_filter_hevc(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *picture)
 {
    struct pipe_h265_enc_picture_desc *pic = (struct pipe_h265_enc_picture_desc *)picture;
    enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled =
       pic->slice.slice_loop_filter_across_slices_enabled_flag;
-   enc->enc_pic.hevc_deblock.deblocking_filter_disabled =
-      pic->slice.slice_deblocking_filter_disabled_flag;
+   enc->enc_pic.hevc_deblock.deblocking_filter_disabled = pic->slice.slice_deblocking_filter_disabled_flag;
    enc->enc_pic.hevc_deblock.beta_offset_div2 = pic->slice.slice_beta_offset_div2;
    enc->enc_pic.hevc_deblock.tc_offset_div2 = pic->slice.slice_tc_offset_div2;
    enc->enc_pic.hevc_deblock.cb_qp_offset = pic->slice.slice_cb_qp_offset;
@@ -355,7 +357,8 @@ static void radeon_uvd_enc_deblocking_filter_hevc(struct radeon_uvd_encoder *enc
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_quality_params(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_quality_params(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.quality_params.vbaq_mode = 0;
    enc->enc_pic.quality_params.scene_change_sensitivity = 0;
@@ -368,7 +371,8 @@ static void radeon_uvd_enc_quality_params(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_nalu_sps_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_nalu_sps_hevc(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_PARAM_INSERT_NALU_BUFFER);
    RADEON_ENC_CS(RENC_UVD_NALU_TYPE_SPS);
@@ -427,8 +431,7 @@ static void radeon_uvd_enc_nalu_sps_hevc(struct radeon_uvd_encoder *enc)
    radeon_uvd_enc_code_ue(enc, 0x0);
    radeon_uvd_enc_code_ue(enc, enc->enc_pic.hevc_spec_misc.log2_min_luma_coding_block_size_minus3);
    /* Only support CTBSize 64 */
-   radeon_uvd_enc_code_ue(
-      enc, 6 - (enc->enc_pic.hevc_spec_misc.log2_min_luma_coding_block_size_minus3 + 3));
+   radeon_uvd_enc_code_ue(enc, 6 - (enc->enc_pic.hevc_spec_misc.log2_min_luma_coding_block_size_minus3 + 3));
    radeon_uvd_enc_code_ue(enc, enc->enc_pic.log2_min_transform_block_size_minus2);
    radeon_uvd_enc_code_ue(enc, enc->enc_pic.log2_diff_max_min_transform_block_size);
    radeon_uvd_enc_code_ue(enc, enc->enc_pic.max_transform_hierarchy_depth_inter);
@@ -448,8 +451,7 @@ static void radeon_uvd_enc_nalu_sps_hevc(struct radeon_uvd_encoder *enc)
    radeon_uvd_enc_code_fixed_bits(enc, 0x0, 1);
 
    radeon_uvd_enc_code_fixed_bits(enc, 0, 1);
-   radeon_uvd_enc_code_fixed_bits(enc, enc->enc_pic.hevc_spec_misc.strong_intra_smoothing_enabled,
-                                  1);
+   radeon_uvd_enc_code_fixed_bits(enc, enc->enc_pic.hevc_spec_misc.strong_intra_smoothing_enabled, 1);
 
    radeon_uvd_enc_code_fixed_bits(enc, 0x0, 1);
 
@@ -463,7 +465,8 @@ static void radeon_uvd_enc_nalu_sps_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_nalu_pps_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_nalu_pps_hevc(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_PARAM_INSERT_NALU_BUFFER);
    RADEON_ENC_CS(RENC_UVD_NALU_TYPE_PPS);
@@ -499,8 +502,7 @@ static void radeon_uvd_enc_nalu_pps_hevc(struct radeon_uvd_encoder *enc)
    radeon_uvd_enc_code_fixed_bits(enc, 0x0, 1);
    radeon_uvd_enc_code_fixed_bits(enc, 0x0, 1);
    radeon_uvd_enc_code_fixed_bits(enc, 0x0, 1);
-   radeon_uvd_enc_code_fixed_bits(enc, enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled,
-                                  1);
+   radeon_uvd_enc_code_fixed_bits(enc, enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled, 1);
    radeon_uvd_enc_code_fixed_bits(enc, 0x1, 1);
    radeon_uvd_enc_code_fixed_bits(enc, 0x0, 1);
    radeon_uvd_enc_code_fixed_bits(enc, enc->enc_pic.hevc_deblock.deblocking_filter_disabled, 1);
@@ -523,7 +525,8 @@ static void radeon_uvd_enc_nalu_pps_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_nalu_vps_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_nalu_vps_hevc(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_PARAM_INSERT_NALU_BUFFER);
    RADEON_ENC_CS(RENC_UVD_NALU_TYPE_VPS);
@@ -577,7 +580,8 @@ static void radeon_uvd_enc_nalu_vps_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_nalu_aud_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_nalu_aud_hevc(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_PARAM_INSERT_NALU_BUFFER);
    RADEON_ENC_CS(RENC_UVD_NALU_TYPE_AUD);
@@ -614,7 +618,8 @@ static void radeon_uvd_enc_nalu_aud_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_slice_header_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_slice_header_hevc(struct radeon_uvd_encoder *enc)
 {
    uint32_t instruction[RENC_UVD_SLICE_HEADER_TEMPLATE_MAX_NUM_INSTRUCTIONS] = {0};
    uint32_t num_bits[RENC_UVD_SLICE_HEADER_TEMPLATE_MAX_NUM_INSTRUCTIONS] = {0};
@@ -708,8 +713,7 @@ static void radeon_uvd_enc_slice_header_hevc(struct radeon_uvd_encoder *enc)
 
    if ((enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled) &&
        (!enc->enc_pic.hevc_deblock.deblocking_filter_disabled)) {
-      radeon_uvd_enc_code_fixed_bits(
-         enc, enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled, 1);
+      radeon_uvd_enc_code_fixed_bits(enc, enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled, 1);
 
       radeon_uvd_enc_flush_headers(enc);
       bit_index++;
@@ -732,15 +736,15 @@ static void radeon_uvd_enc_slice_header_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_ctx(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_ctx(struct radeon_uvd_encoder *enc)
 {
    struct si_screen *sscreen = (struct si_screen *)enc->screen;
 
    enc->enc_pic.ctx_buf.swizzle_mode = 0;
    if (sscreen->info.gfx_level < GFX9) {
       enc->enc_pic.ctx_buf.rec_luma_pitch = (enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);
-      enc->enc_pic.ctx_buf.rec_chroma_pitch =
-         (enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe);
+      enc->enc_pic.ctx_buf.rec_chroma_pitch = (enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe);
    } else {
       enc->enc_pic.ctx_buf.rec_luma_pitch = enc->luma->u.gfx9.surf_pitch * enc->luma->bpe;
       enc->enc_pic.ctx_buf.rec_chroma_pitch = enc->chroma->u.gfx9.surf_pitch * enc->chroma->bpe;
@@ -769,7 +773,8 @@ static void radeon_uvd_enc_ctx(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_bitstream(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_bitstream(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.bit_buf.mode = RENC_UVD_SWIZZLE_MODE_LINEAR;
    enc->enc_pic.bit_buf.video_bitstream_buffer_size = enc->bs_size;
@@ -783,7 +788,8 @@ static void radeon_uvd_enc_bitstream(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_feedback(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_feedback(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.fb_buf.mode = RENC_UVD_FEEDBACK_BUFFER_MODE_LINEAR;
    enc->enc_pic.fb_buf.feedback_buffer_size = 16;
@@ -797,7 +803,8 @@ static void radeon_uvd_enc_feedback(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_intra_refresh(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_intra_refresh(struct radeon_uvd_encoder *enc)
 {
    enc->enc_pic.intra_ref.intra_refresh_mode = RENC_UVD_INTRA_REFRESH_MODE_NONE;
    enc->enc_pic.intra_ref.offset = 0;
@@ -810,8 +817,8 @@ static void radeon_uvd_enc_intra_refresh(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_rc_per_pic(struct radeon_uvd_encoder *enc,
-                                      struct pipe_picture_desc *picture)
+static void
+radeon_uvd_enc_rc_per_pic(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *picture)
 {
    struct pipe_h265_enc_picture_desc *pic = (struct pipe_h265_enc_picture_desc *)picture;
    enc->enc_pic.rc_per_pic.qp = pic->rc.quant_i_frames;
@@ -833,7 +840,8 @@ static void radeon_uvd_enc_rc_per_pic(struct radeon_uvd_encoder *enc,
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_encode_params_hevc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_encode_params_hevc(struct radeon_uvd_encoder *enc)
 {
    struct si_screen *sscreen = (struct si_screen *)enc->screen;
    switch (enc->enc_pic.picture_type) {
@@ -856,14 +864,11 @@ static void radeon_uvd_enc_encode_params_hevc(struct radeon_uvd_encoder *enc)
 
    enc->enc_pic.enc_params.allowed_max_bitstream_size = enc->bs_size;
    if (sscreen->info.gfx_level < GFX9) {
-      enc->enc_pic.enc_params.input_pic_luma_pitch =
-         (enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);
-      enc->enc_pic.enc_params.input_pic_chroma_pitch =
-         (enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe);
+      enc->enc_pic.enc_params.input_pic_luma_pitch = (enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);
+      enc->enc_pic.enc_params.input_pic_chroma_pitch = (enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe);
    } else {
       enc->enc_pic.enc_params.input_pic_luma_pitch = enc->luma->u.gfx9.surf_pitch * enc->luma->bpe;
-      enc->enc_pic.enc_params.input_pic_chroma_pitch =
-         enc->chroma->u.gfx9.surf_pitch * enc->chroma->bpe;
+      enc->enc_pic.enc_params.input_pic_chroma_pitch = enc->chroma->u.gfx9.surf_pitch * enc->chroma->bpe;
    }
    enc->enc_pic.enc_params.input_pic_swizzle_mode = RENC_UVD_SWIZZLE_MODE_LINEAR;
 
@@ -894,43 +899,50 @@ static void radeon_uvd_enc_encode_params_hevc(struct radeon_uvd_encoder *enc)
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_op_init(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_op_init(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_OP_INITIALIZE);
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_op_close(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_op_close(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_OP_CLOSE_SESSION);
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_op_enc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_op_enc(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_OP_ENCODE);
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_op_init_rc(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_op_init_rc(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_OP_INIT_RC);
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_op_init_rc_vbv(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_op_init_rc_vbv(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_OP_INIT_RC_VBV_BUFFER_LEVEL);
    RADEON_ENC_END();
 }
 
-static void radeon_uvd_enc_op_speed(struct radeon_uvd_encoder *enc)
+static void
+radeon_uvd_enc_op_speed(struct radeon_uvd_encoder *enc)
 {
    RADEON_ENC_BEGIN(RENC_UVD_IB_OP_SET_SPEED_ENCODING_MODE);
    RADEON_ENC_END();
 }
 
-static void begin(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *pic)
+static void
+begin(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *pic)
 {
    radeon_uvd_enc_session_info(enc);
    enc->total_task_size = 0;
@@ -954,7 +966,8 @@ static void begin(struct radeon_uvd_encoder *enc, struct pipe_picture_desc *pic)
    *enc->p_task_size = (enc->total_task_size);
 }
 
-static void encode(struct radeon_uvd_encoder *enc)
+static void
+encode(struct radeon_uvd_encoder *enc)
 {
    radeon_uvd_enc_session_info(enc);
    enc->total_task_size = 0;
@@ -980,7 +993,8 @@ static void encode(struct radeon_uvd_encoder *enc)
    *enc->p_task_size = (enc->total_task_size);
 }
 
-static void destroy(struct radeon_uvd_encoder *enc)
+static void
+destroy(struct radeon_uvd_encoder *enc)
 {
    radeon_uvd_enc_session_info(enc);
    enc->total_task_size = 0;
@@ -989,7 +1003,8 @@ static void destroy(struct radeon_uvd_encoder *enc)
    *enc->p_task_size = (enc->total_task_size);
 }
 
-void radeon_uvd_enc_1_1_init(struct radeon_uvd_encoder *enc)
+void
+radeon_uvd_enc_1_1_init(struct radeon_uvd_encoder *enc)
 {
    enc->begin = begin;
    enc->encode = encode;

@@ -9,22 +9,19 @@
 #ifndef RADEON_VCE_H
 #define RADEON_VCE_H
 
-#include "radeon_video.h"
 #include "util/list.h"
+#include "radeon_video.h"
 
 #define RVCE_CS(value) (enc->cs.current.buf[enc->cs.current.cdw++] = (value))
-#define RVCE_BEGIN(cmd)                                                                            \
-   {                                                                                               \
-      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++];                             \
+#define RVCE_BEGIN(cmd)                                                                                                \
+   {                                                                                                                   \
+      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++];                                                   \
       RVCE_CS(cmd)
-#define RVCE_READ(buf, domain, off)                                                                \
-   si_vce_add_buffer(enc, (buf), RADEON_USAGE_READ, (domain), (off))
-#define RVCE_WRITE(buf, domain, off)                                                               \
-   si_vce_add_buffer(enc, (buf), RADEON_USAGE_WRITE, (domain), (off))
-#define RVCE_READWRITE(buf, domain, off)                                                           \
-   si_vce_add_buffer(enc, (buf), RADEON_USAGE_READWRITE, (domain), (off))
-#define RVCE_END()                                                                                 \
-   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4;                             \
+#define RVCE_READ(buf, domain, off)      si_vce_add_buffer(enc, (buf), RADEON_USAGE_READ, (domain), (off))
+#define RVCE_WRITE(buf, domain, off)     si_vce_add_buffer(enc, (buf), RADEON_USAGE_WRITE, (domain), (off))
+#define RVCE_READWRITE(buf, domain, off) si_vce_add_buffer(enc, (buf), RADEON_USAGE_READWRITE, (domain), (off))
+#define RVCE_END()                                                                                                     \
+   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4;                                                   \
    }
 
 #define RVCE_MAX_BITSTREAM_OUTPUT_ROW_SIZE (4096 * 16 * 2.5)
@@ -362,8 +359,7 @@ struct rvce_encoder {
    void (*config)(struct rvce_encoder *enc);
    void (*encode)(struct rvce_encoder *enc);
    void (*destroy)(struct rvce_encoder *enc);
-   void (*task_info)(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint32_t fb_idx,
-                     uint32_t ring_idx);
+   void (*task_info)(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint32_t fb_idx, uint32_t ring_idx);
    void (*si_get_pic_param)(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic);
 
    unsigned stream_handle;
@@ -406,15 +402,13 @@ struct rvce_cpb_slot *si_l1_slot(struct rvce_encoder *enc);
 void si_vce_frame_offset(struct rvce_encoder *enc, struct rvce_cpb_slot *slot, signed *luma_offset,
                          signed *chroma_offset);
 
-struct pipe_video_codec *si_vce_create_encoder(struct pipe_context *context,
-                                               const struct pipe_video_codec *templat,
-                                               struct radeon_winsys *ws,
-                                               rvce_get_buffer get_buffer);
+struct pipe_video_codec *si_vce_create_encoder(struct pipe_context *context, const struct pipe_video_codec *templat,
+                                               struct radeon_winsys *ws, rvce_get_buffer get_buffer);
 
 bool si_vce_is_fw_version_supported(struct si_screen *sscreen);
 
-void si_vce_add_buffer(struct rvce_encoder *enc, struct pb_buffer *buf, unsigned usage,
-                       enum radeon_bo_domain domain, signed offset);
+void si_vce_add_buffer(struct rvce_encoder *enc, struct pb_buffer *buf, unsigned usage, enum radeon_bo_domain domain,
+                       signed offset);
 
 /* init vce fw 40.2.2 specific callbacks */
 void si_vce_40_2_2_init(struct rvce_encoder *enc);

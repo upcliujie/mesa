@@ -7,9 +7,8 @@
 #include "radeon_vcn.h"
 
 /* vcn unified queue (sq) ib header */
-void rvcn_sq_header(struct radeon_cmdbuf *cs,
-                    struct rvcn_sq_var *sq,
-                    bool enc)
+void
+rvcn_sq_header(struct radeon_cmdbuf *cs, struct rvcn_sq_var *sq, bool enc)
 {
    /* vcn ib signature */
    radeon_emit(cs, RADEON_VCN_SIGNATURE_SIZE);
@@ -22,13 +21,12 @@ void rvcn_sq_header(struct radeon_cmdbuf *cs,
    /* vcn ib engine info */
    radeon_emit(cs, RADEON_VCN_ENGINE_INFO_SIZE);
    radeon_emit(cs, RADEON_VCN_ENGINE_INFO);
-   radeon_emit(cs, enc ? RADEON_VCN_ENGINE_TYPE_ENCODE
-                       : RADEON_VCN_ENGINE_TYPE_DECODE);
+   radeon_emit(cs, enc ? RADEON_VCN_ENGINE_TYPE_ENCODE : RADEON_VCN_ENGINE_TYPE_DECODE);
    radeon_emit(cs, 0);
 }
 
-void rvcn_sq_tail(struct radeon_cmdbuf *cs,
-                  struct rvcn_sq_var *sq)
+void
+rvcn_sq_tail(struct radeon_cmdbuf *cs, struct rvcn_sq_var *sq)
 {
    uint32_t *end;
    uint32_t size_in_dw;

@@ -9,12 +9,12 @@
 #ifndef _RADEON_VCN_DEC_H
 #define _RADEON_VCN_DEC_H
 
-#include "radeon_vcn.h"
 #include "util/list.h"
+#include "radeon_vcn.h"
 
 #include "ac_vcn_dec.h"
 
-#define NUM_BUFFERS                                         4
+#define NUM_BUFFERS 4
 
 struct rvcn_dec_dynamic_dpb_t2 {
    struct list_head list;
@@ -23,9 +23,9 @@ struct rvcn_dec_dynamic_dpb_t2 {
 };
 
 struct jpeg_registers {
-   #define RDECODE_JPEG_REG_VER_V1 0
-   #define RDECODE_JPEG_REG_VER_V2 1
-   #define RDECODE_JPEG_REG_VER_V3 2
+#define RDECODE_JPEG_REG_VER_V1 0
+#define RDECODE_JPEG_REG_VER_V2 1
+#define RDECODE_JPEG_REG_VER_V3 2
    unsigned version;
    unsigned jpeg_dec_soft_rst;
    unsigned jrbc_ib_cond_rd_timer;
@@ -106,17 +106,10 @@ struct radeon_decoder {
    } reg;
    struct jpeg_params jpg;
    struct jpeg_registers jpg_reg;
-   enum {
-      DPB_MAX_RES = 0,
-      DPB_DYNAMIC_TIER_1,
-      DPB_DYNAMIC_TIER_2
-   } dpb_type;
+   enum { DPB_MAX_RES = 0, DPB_DYNAMIC_TIER_1, DPB_DYNAMIC_TIER_2 } dpb_type;
 
    struct {
-      enum {
-         CODEC_8_BITS = 0,
-         CODEC_10_BITS
-      } bts;
+      enum { CODEC_8_BITS = 0, CODEC_10_BITS } bts;
       uint8_t index;
       unsigned ref_size;
       uint8_t ref_list[16];
@@ -125,8 +118,7 @@ struct radeon_decoder {
    struct list_head dpb_ref_list;
    struct list_head dpb_unref_list;
 
-   void (*send_cmd)(struct radeon_decoder *dec, struct pipe_video_buffer *target,
-                    struct pipe_picture_desc *picture);
+   void (*send_cmd)(struct radeon_decoder *dec, struct pipe_video_buffer *target, struct pipe_picture_desc *picture);
    /* Additional contexts for mJPEG */
    struct radeon_cmdbuf *jcs;
    struct radeon_winsys_ctx **jctx;
@@ -136,13 +128,10 @@ struct radeon_decoder {
    struct pipe_fence_handle *destroy_fence;
 };
 
-void send_cmd_dec(struct radeon_decoder *dec, struct pipe_video_buffer *target,
-                  struct pipe_picture_desc *picture);
+void send_cmd_dec(struct radeon_decoder *dec, struct pipe_video_buffer *target, struct pipe_picture_desc *picture);
 
-void send_cmd_jpeg(struct radeon_decoder *dec, struct pipe_video_buffer *target,
-                   struct pipe_picture_desc *picture);
+void send_cmd_jpeg(struct radeon_decoder *dec, struct pipe_video_buffer *target, struct pipe_picture_desc *picture);
 
-struct pipe_video_codec *radeon_create_decoder(struct pipe_context *context,
-                                               const struct pipe_video_codec *templat);
+struct pipe_video_codec *radeon_create_decoder(struct pipe_context *context, const struct pipe_video_codec *templat);
 
 #endif
