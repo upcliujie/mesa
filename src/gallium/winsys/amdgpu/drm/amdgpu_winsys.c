@@ -9,17 +9,17 @@
 
 #include "amdgpu_cs.h"
 
+#include <fcntl.h>
+#include <stdio.h>
+#include <xf86drm.h>
+#include "drm-uapi/amdgpu_drm.h"
+#include "util/hash_table.h"
 #include "util/os_file.h"
 #include "util/os_misc.h"
 #include "util/u_cpu_detect.h"
 #include "util/u_hash_table.h"
-#include "util/hash_table.h"
 #include "util/xmlconfig.h"
-#include "drm-uapi/amdgpu_drm.h"
-#include <xf86drm.h>
-#include <stdio.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include "ac_llvm_util.h"
 #include "sid.h"
 
@@ -30,50 +30,50 @@ static simple_mtx_t dev_tab_mutex = SIMPLE_MTX_INITIALIZER;
 DEBUG_GET_ONCE_BOOL_OPTION(all_bos, "RADEON_ALL_BOS", false)
 #endif
 
-static void handle_env_var_force_family(struct amdgpu_winsys *ws)
+static void
+handle_env_var_force_family(struct amdgpu_winsys *ws)
 {
-      const char *family = debug_get_option("SI_FORCE_FAMILY", NULL);
-      unsigned i;
+   const char *family = debug_get_option("SI_FORCE_FAMILY", NULL);
+   unsigned i;
 
-      if (!family)
-               return;
+   if (!family)
+      return;
 
-      for (i = CHIP_TAHITI; i < CHIP_LAST; i++) {
-         if (!strcmp(family, ac_get_llvm_processor_name(i))) {
-            /* Override family and gfx_level. */
-            ws->info.family = i;
-            ws->info.name = "NOOP";
-            strcpy(ws->info.lowercase_name , "noop");
+   for (i = CHIP_TAHITI; i < CHIP_LAST; i++) {
+      if (!strcmp(family, ac_get_llvm_processor_name(i))) {
+         /* Override family and gfx_level. */
+         ws->info.family = i;
+         ws->info.name = "NOOP";
+         strcpy(ws->info.lowercase_name, "noop");
 
-            if (i >= CHIP_GFX1100)
-               ws->info.gfx_level = GFX11;
-            else if (i >= CHIP_NAVI21)
-               ws->info.gfx_level = GFX10_3;
-            else if (i >= CHIP_NAVI10)
-               ws->info.gfx_level = GFX10;
-            else if (i >= CHIP_VEGA10)
-               ws->info.gfx_level = GFX9;
-            else if (i >= CHIP_TONGA)
-               ws->info.gfx_level = GFX8;
-            else if (i >= CHIP_BONAIRE)
-               ws->info.gfx_level = GFX7;
-            else
-               ws->info.gfx_level = GFX6;
+         if (i >= CHIP_GFX1100)
+            ws->info.gfx_level = GFX11;
+         else if (i >= CHIP_NAVI21)
+            ws->info.gfx_level = GFX10_3;
+         else if (i >= CHIP_NAVI10)
+            ws->info.gfx_level = GFX10;
+         else if (i >= CHIP_VEGA10)
+            ws->info.gfx_level = GFX9;
+         else if (i >= CHIP_TONGA)
+            ws->info.gfx_level = GFX8;
+         else if (i >= CHIP_BONAIRE)
+            ws->info.gfx_level = GFX7;
+         else
+            ws->info.gfx_level = GFX6;
 
-            /* Don't submit any IBs. */
-            setenv("RADEON_NOOP", "1", 1);
-            return;
-         }
+         /* Don't submit any IBs. */
+         setenv("RADEON_NOOP", "1", 1);
+         return;
       }
+   }
 
-      fprintf(stderr, "radeonsi: Unknown family: %s\n", family);
-      exit(1);
+   fprintf(stderr, "radeonsi: Unknown family: %s\n", family);
+   exit(1);
 }
 
 /* Helper function to do the ioctls needed for setup and init. */
-static bool do_winsys_init(struct amdgpu_winsys *ws,
-                           const struct pipe_screen_config *config,
-                           int fd)
+static bool
+do_winsys_init(struct amdgpu_winsys *ws, const struct pipe_screen_config *config, int fd)
 {
    if (!ac_query_gpu_info(fd, ws->dev, &ws->info))
       goto fail;
@@ -112,7 +112,8 @@ fail:
    return false;
 }
 
-static void do_winsys_deinit(struct amdgpu_winsys *ws)
+static void
+do_winsys_deinit(struct amdgpu_winsys *ws)
 {
    if (ws->reserve_vmid)
       amdgpu_vm_unreserve_vmid(ws->dev, 0);
@@ -138,7 +139,8 @@ static void do_winsys_deinit(struct amdgpu_winsys *ws)
    FREE(ws);
 }
 
-static void amdgpu_winsys_destroy_locked(struct radeon_winsys *rws, bool locked)
+static void
+amdgpu_winsys_destroy_locked(struct radeon_winsys *rws, bool locked)
 {
    struct amdgpu_screen_winsys *sws = amdgpu_screen_winsys(rws);
    struct amdgpu_winsys *ws = sws->aws;
@@ -172,27 +174,28 @@ static void amdgpu_winsys_destroy_locked(struct radeon_winsys *rws, bool locked)
    FREE(rws);
 }
 
-static void amdgpu_winsys_destroy(struct radeon_winsys *rws)
+static void
+amdgpu_winsys_destroy(struct radeon_winsys *rws)
 {
    amdgpu_winsys_destroy_locked(rws, false);
 }
 
-static void amdgpu_winsys_query_info(struct radeon_winsys *rws, struct radeon_info *info)
+static void
+amdgpu_winsys_query_info(struct radeon_winsys *rws, struct radeon_info *info)
 {
    struct amdgpu_winsys *ws = amdgpu_winsys(rws);
 
    *info = ws->info;
 }
 
-static bool amdgpu_cs_request_feature(struct radeon_cmdbuf *rcs,
-                                      enum radeon_feature_id fid,
-                                      bool enable)
+static bool
+amdgpu_cs_request_feature(struct radeon_cmdbuf *rcs, enum radeon_feature_id fid, bool enable)
 {
    return false;
 }
 
-static uint64_t amdgpu_query_value(struct radeon_winsys *rws,
-                                   enum radeon_value_id value)
+static uint64_t
+amdgpu_query_value(struct radeon_winsys *rws, enum radeon_value_id value)
 {
    struct amdgpu_winsys *ws = amdgpu_winsys(rws);
    struct amdgpu_heap_info heap;
@@ -239,8 +242,7 @@ static uint64_t amdgpu_query_value(struct radeon_winsys *rws,
       amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_VRAM, 0, &heap);
       return heap.heap_usage;
    case RADEON_VRAM_VIS_USAGE:
-      amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_VRAM,
-                             AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED, &heap);
+      amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_VRAM, AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED, &heap);
       return heap.heap_usage;
    case RADEON_GTT_USAGE:
       amdgpu_query_heap_info(ws->dev, AMDGPU_GEM_DOMAIN_GTT, 0, &heap);
@@ -260,17 +262,16 @@ static uint64_t amdgpu_query_value(struct radeon_winsys *rws,
    return 0;
 }
 
-static bool amdgpu_read_registers(struct radeon_winsys *rws,
-                                  unsigned reg_offset,
-                                  unsigned num_registers, uint32_t *out)
+static bool
+amdgpu_read_registers(struct radeon_winsys *rws, unsigned reg_offset, unsigned num_registers, uint32_t *out)
 {
    struct amdgpu_winsys *ws = amdgpu_winsys(rws);
 
-   return amdgpu_read_mm_registers(ws->dev, reg_offset / 4, num_registers,
-                                   0xffffffff, 0, out) == 0;
+   return amdgpu_read_mm_registers(ws->dev, reg_offset / 4, num_registers, 0xffffffff, 0, out) == 0;
 }
 
-static bool amdgpu_winsys_unref(struct radeon_winsys *rws)
+static bool
+amdgpu_winsys_unref(struct radeon_winsys *rws)
 {
    struct amdgpu_screen_winsys *sws = amdgpu_screen_winsys(rws);
    struct amdgpu_winsys *aws = sws->aws;
@@ -299,7 +300,7 @@ static bool amdgpu_winsys_unref(struct radeon_winsys *rws)
    if (ret && sws->kms_handles) {
       struct drm_gem_close args;
 
-      hash_table_foreach(sws->kms_handles, entry) {
+      hash_table_foreach (sws->kms_handles, entry) {
          args.handle = (uintptr_t)entry->data;
          drmIoctl(sws->fd, DRM_IOCTL_GEM_CLOSE, &args);
       }
@@ -309,29 +310,31 @@ static bool amdgpu_winsys_unref(struct radeon_winsys *rws)
    return ret;
 }
 
-static void amdgpu_pin_threads_to_L3_cache(struct radeon_winsys *rws,
-                                           unsigned cache)
+static void
+amdgpu_pin_threads_to_L3_cache(struct radeon_winsys *rws, unsigned cache)
 {
    struct amdgpu_winsys *ws = amdgpu_winsys(rws);
 
-   util_set_thread_affinity(ws->cs_queue.threads[0],
-                            util_get_cpu_caps()->L3_affinity_mask[cache],
-                            NULL, util_get_cpu_caps()->num_cpu_mask_bits);
+   util_set_thread_affinity(ws->cs_queue.threads[0], util_get_cpu_caps()->L3_affinity_mask[cache], NULL,
+                            util_get_cpu_caps()->num_cpu_mask_bits);
 }
 
-static uint32_t kms_handle_hash(const void *key)
+static uint32_t
+kms_handle_hash(const void *key)
 {
    const struct amdgpu_winsys_bo *bo = key;
 
    return bo->u.real.kms_handle;
 }
 
-static bool kms_handle_equals(const void *a, const void *b)
+static bool
+kms_handle_equals(const void *a, const void *b)
 {
    return a == b;
 }
 
-static bool amdgpu_cs_is_secure(struct radeon_cmdbuf *rcs)
+static bool
+amdgpu_cs_is_secure(struct radeon_cmdbuf *rcs)
 {
    struct amdgpu_cs *cs = amdgpu_cs(rcs);
    return cs->csc->secure;
@@ -361,8 +364,7 @@ amdgpu_cs_set_pstate(struct radeon_cmdbuf *rcs, enum radeon_ctx_pstate pstate)
 {
    struct amdgpu_cs *cs = amdgpu_cs(rcs);
    uint32_t amdgpu_pstate = radeon_to_amdgpu_pstate(pstate);
-   return amdgpu_cs_ctx_stable_pstate(cs->ctx->ctx,
-      AMDGPU_CTX_OP_SET_STABLE_PSTATE, amdgpu_pstate, NULL) == 0;
+   return amdgpu_cs_ctx_stable_pstate(cs->ctx->ctx, AMDGPU_CTX_OP_SET_STABLE_PSTATE, amdgpu_pstate, NULL) == 0;
 }
 
 static bool
@@ -396,8 +398,7 @@ amdgpu_drm_winsys_get_fd(struct radeon_winsys *rws)
 }
 
 PUBLIC struct radeon_winsys *
-amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
-		     radeon_screen_create_t screen_create)
+amdgpu_winsys_create(int fd, const struct pipe_screen_config *config, radeon_screen_create_t screen_create)
 {
    struct amdgpu_screen_winsys *ws;
    struct amdgpu_winsys *aws;
@@ -449,8 +450,7 @@ amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
       }
       simple_mtx_unlock(&aws->sws_list_lock);
 
-      ws->kms_handles = _mesa_hash_table_create(NULL, kms_handle_hash,
-                                                kms_handle_equals);
+      ws->kms_handles = _mesa_hash_table_create(NULL, kms_handle_hash, kms_handle_equals);
       if (!ws->kms_handles)
          goto fail;
 
@@ -469,8 +469,7 @@ amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
        */
       int device_fd = amdgpu_device_get_fd(dev);
       if (!are_file_descriptions_equal(device_fd, fd)) {
-         ws->kms_handles = _mesa_hash_table_create(NULL, kms_handle_hash,
-                                                   kms_handle_equals);
+         ws->kms_handles = _mesa_hash_table_create(NULL, kms_handle_hash, kms_handle_equals);
          if (!ws->kms_handles)
             goto fail;
          /* We could avoid storing the fd and use amdgpu_device_get_fd() where
@@ -489,33 +488,26 @@ amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
          goto fail_alloc;
 
       /* Create managers. */
-      pb_cache_init(&aws->bo_cache, RADEON_NUM_HEAPS,
-                    500000, aws->check_vm ? 1.0f : 2.0f, 0,
+      pb_cache_init(&aws->bo_cache, RADEON_NUM_HEAPS, 500000, aws->check_vm ? 1.0f : 2.0f, 0,
                     ((uint64_t)aws->info.vram_size_kb + aws->info.gart_size_kb) * 1024 / 8, aws,
                     /* Cast to void* because one of the function parameters
                      * is a struct pointer instead of void*. */
-                    (void*)amdgpu_bo_destroy, (void*)amdgpu_bo_can_reclaim);
+                    (void *)amdgpu_bo_destroy, (void *)amdgpu_bo_can_reclaim);
 
       unsigned min_slab_order = 8;  /* 256 bytes */
       unsigned max_slab_order = 20; /* 1 MB (slab size = 2 MB) */
-      unsigned num_slab_orders_per_allocator = (max_slab_order - min_slab_order) /
-                                               NUM_SLAB_ALLOCATORS;
+      unsigned num_slab_orders_per_allocator = (max_slab_order - min_slab_order) / NUM_SLAB_ALLOCATORS;
 
       /* Divide the size order range among slab managers. */
       for (unsigned i = 0; i < NUM_SLAB_ALLOCATORS; i++) {
          unsigned min_order = min_slab_order;
-         unsigned max_order = MIN2(min_order + num_slab_orders_per_allocator,
-                                   max_slab_order);
+         unsigned max_order = MIN2(min_order + num_slab_orders_per_allocator, max_slab_order);
 
-         if (!pb_slabs_init(&aws->bo_slabs[i],
-                            min_order, max_order,
-                            RADEON_NUM_HEAPS, true,
-                            aws,
-                            amdgpu_bo_can_reclaim_slab,
-                            amdgpu_bo_slab_alloc,
+         if (!pb_slabs_init(&aws->bo_slabs[i], min_order, max_order, RADEON_NUM_HEAPS, true, aws,
+                            amdgpu_bo_can_reclaim_slab, amdgpu_bo_slab_alloc,
                             /* Cast to void* because one of the function parameters
                              * is a struct pointer instead of void*. */
-                            (void*)amdgpu_bo_slab_free)) {
+                            (void *)amdgpu_bo_slab_free)) {
             amdgpu_winsys_destroy(&ws->base);
             simple_mtx_unlock(&dev_tab_mutex);
             return NULL;
@@ -533,15 +525,14 @@ amdgpu_winsys_create(int fd, const struct pipe_screen_config *config,
 #endif
       aws->bo_export_table = util_hash_table_create_ptr_keys();
 
-      (void) simple_mtx_init(&aws->sws_list_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->sws_list_lock, mtx_plain);
 #if DEBUG
-      (void) simple_mtx_init(&aws->global_bo_list_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->global_bo_list_lock, mtx_plain);
 #endif
-      (void) simple_mtx_init(&aws->bo_fence_lock, mtx_plain);
-      (void) simple_mtx_init(&aws->bo_export_table_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->bo_fence_lock, mtx_plain);
+      (void)simple_mtx_init(&aws->bo_export_table_lock, mtx_plain);
 
-      if (!util_queue_init(&aws->cs_queue, "cs", 8, 1,
-                           UTIL_QUEUE_INIT_RESIZE_IF_FULL, NULL)) {
+      if (!util_queue_init(&aws->cs_queue, "cs", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL, NULL)) {
          amdgpu_winsys_destroy(&ws->base);
          simple_mtx_unlock(&dev_tab_mutex);
          return NULL;

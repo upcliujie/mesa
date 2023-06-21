@@ -8,12 +8,12 @@
 #ifndef AMDGPU_WINSYS_H
 #define AMDGPU_WINSYS_H
 
+#include <amdgpu.h>
 #include "pipebuffer/pb_cache.h"
 #include "pipebuffer/pb_slab.h"
-#include "winsys/radeon_winsys.h"
 #include "util/simple_mtx.h"
 #include "util/u_queue.h"
-#include <amdgpu.h>
+#include "winsys/radeon_winsys.h"
 
 struct amdgpu_cs;
 
@@ -138,7 +138,7 @@ struct amdgpu_winsys {
 static inline struct amdgpu_screen_winsys *
 amdgpu_screen_winsys(struct radeon_winsys *base)
 {
-   return (struct amdgpu_screen_winsys*)base;
+   return (struct amdgpu_screen_winsys *)base;
 }
 
 static inline struct amdgpu_winsys *

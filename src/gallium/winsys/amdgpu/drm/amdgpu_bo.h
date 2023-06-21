@@ -98,43 +98,34 @@ struct amdgpu_slab {
 };
 
 bool amdgpu_bo_can_reclaim(struct amdgpu_winsys *ws, struct pb_buffer *_buf);
-struct pb_buffer *amdgpu_bo_create(struct amdgpu_winsys *ws,
-                                   uint64_t size,
-                                   unsigned alignment,
-                                   enum radeon_bo_domain domain,
-                                   enum radeon_bo_flag flags);
+struct pb_buffer *amdgpu_bo_create(struct amdgpu_winsys *ws, uint64_t size, unsigned alignment,
+                                   enum radeon_bo_domain domain, enum radeon_bo_flag flags);
 void amdgpu_bo_destroy(struct amdgpu_winsys *ws, struct pb_buffer *_buf);
-void *amdgpu_bo_map(struct radeon_winsys *rws,
-                    struct pb_buffer *buf,
-                    struct radeon_cmdbuf *rcs,
+void *amdgpu_bo_map(struct radeon_winsys *rws, struct pb_buffer *buf, struct radeon_cmdbuf *rcs,
                     enum pipe_map_flags usage);
 void amdgpu_bo_unmap(struct radeon_winsys *rws, struct pb_buffer *buf);
 void amdgpu_bo_init_functions(struct amdgpu_screen_winsys *ws);
 
 bool amdgpu_bo_can_reclaim_slab(void *priv, struct pb_slab_entry *entry);
-struct pb_slab *amdgpu_bo_slab_alloc(void *priv, unsigned heap, unsigned entry_size,
-                                     unsigned group_index);
+struct pb_slab *amdgpu_bo_slab_alloc(void *priv, unsigned heap, unsigned entry_size, unsigned group_index);
 void amdgpu_bo_slab_free(struct amdgpu_winsys *ws, struct pb_slab *slab);
 
-static inline
-struct amdgpu_winsys_bo *amdgpu_winsys_bo(struct pb_buffer *bo)
+static inline struct amdgpu_winsys_bo *
+amdgpu_winsys_bo(struct pb_buffer *bo)
 {
    return (struct amdgpu_winsys_bo *)bo;
 }
 
-static inline
-struct amdgpu_slab *amdgpu_slab(struct pb_slab *slab)
+static inline struct amdgpu_slab *
+amdgpu_slab(struct pb_slab *slab)
 {
    return (struct amdgpu_slab *)slab;
 }
 
-static inline
-void amdgpu_winsys_bo_reference(struct amdgpu_winsys *ws,
-                                struct amdgpu_winsys_bo **dst,
-                                struct amdgpu_winsys_bo *src)
+static inline void
+amdgpu_winsys_bo_reference(struct amdgpu_winsys *ws, struct amdgpu_winsys_bo **dst, struct amdgpu_winsys_bo *src)
 {
-   radeon_bo_reference(&ws->dummy_ws.base,
-                       (struct pb_buffer**)dst, (struct pb_buffer*)src);
+   radeon_bo_reference(&ws->dummy_ws.base, (struct pb_buffer **)dst, (struct pb_buffer *)src);
 }
 
 #endif

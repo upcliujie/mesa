@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "amdgpu_winsys.h"
 #include "util/format/u_format.h"
+#include "amdgpu_winsys.h"
 
-static int amdgpu_surface_sanity(const struct pipe_resource *tex)
+static int
+amdgpu_surface_sanity(const struct pipe_resource *tex)
 {
    switch (tex->target) {
    case PIPE_TEXTURE_1D:
@@ -40,12 +41,9 @@ static int amdgpu_surface_sanity(const struct pipe_resource *tex)
    return 0;
 }
 
-static int amdgpu_surface_init(struct radeon_winsys *rws,
-                               const struct radeon_info *info,
-                               const struct pipe_resource *tex,
-                               uint64_t flags, unsigned bpe,
-                               enum radeon_surf_mode mode,
-                               struct radeon_surf *surf)
+static int
+amdgpu_surface_init(struct radeon_winsys *rws, const struct radeon_info *info, const struct pipe_resource *tex,
+                    uint64_t flags, unsigned bpe, enum radeon_surf_mode mode, struct radeon_surf *surf)
 {
    struct amdgpu_winsys *ws = amdgpu_winsys(rws);
    int r;
@@ -69,12 +67,10 @@ static int amdgpu_surface_init(struct radeon_winsys *rws,
    config.info.storage_samples = tex->nr_storage_samples;
    config.info.levels = tex->last_level + 1;
    config.info.num_channels = util_format_get_nr_components(tex->format);
-   config.is_1d = tex->target == PIPE_TEXTURE_1D ||
-                  tex->target == PIPE_TEXTURE_1D_ARRAY;
+   config.is_1d = tex->target == PIPE_TEXTURE_1D || tex->target == PIPE_TEXTURE_1D_ARRAY;
    config.is_3d = tex->target == PIPE_TEXTURE_3D;
    config.is_cube = tex->target == PIPE_TEXTURE_CUBE;
-   config.is_array = tex->target == PIPE_TEXTURE_1D_ARRAY ||
-                     tex->target == PIPE_TEXTURE_2D_ARRAY ||
+   config.is_array = tex->target == PIPE_TEXTURE_1D_ARRAY || tex->target == PIPE_TEXTURE_2D_ARRAY ||
                      tex->target == PIPE_TEXTURE_CUBE_ARRAY;
 
    /* Use different surface counters for color and FMASK, so that MSAA MRTs
@@ -91,7 +87,8 @@ static int amdgpu_surface_init(struct radeon_winsys *rws,
    return ac_compute_surface(ws->addrlib, info, &config, mode, surf);
 }
 
-void amdgpu_surface_init_functions(struct amdgpu_screen_winsys *ws)
+void
+amdgpu_surface_init_functions(struct amdgpu_screen_winsys *ws)
 {
    ws->base.surface_init = amdgpu_surface_init;
 }
