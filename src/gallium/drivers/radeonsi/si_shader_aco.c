@@ -22,9 +22,9 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "si_shader_internal.h"
-#include "si_pipe.h"
 #include "aco_interface.h"
+#include "si_pipe.h"
+#include "si_shader_internal.h"
 
 static void
 si_aco_compiler_debug(void *private_data, enum aco_compiler_debug_level level,
@@ -79,19 +79,19 @@ si_fill_aco_shader_info(struct si_shader *shader, struct aco_shader_info *info)
    }
 
    switch (stage) {
-   case MESA_SHADER_VERTEX:
-      info->vs.as_es = key->ge.as_es;
-      info->vs.as_ls = key->ge.as_ls;
-      break;
-   case MESA_SHADER_TESS_EVAL:
-      info->tes.as_es = key->ge.as_es;
-      break;
-   case MESA_SHADER_FRAGMENT:
-      info->ps.num_interp = si_get_ps_num_interp(shader);
-      info->ps.spi_ps_input = shader->config.spi_ps_input_ena;
-      break;
-   default:
-      break;
+      case MESA_SHADER_VERTEX:
+         info->vs.as_es = key->ge.as_es;
+         info->vs.as_ls = key->ge.as_ls;
+         break;
+      case MESA_SHADER_TESS_EVAL:
+         info->tes.as_es = key->ge.as_es;
+         break;
+      case MESA_SHADER_FRAGMENT:
+         info->ps.num_interp = si_get_ps_num_interp(shader);
+         info->ps.spi_ps_input = shader->config.spi_ps_input_ena;
+         break;
+      default:
+         break;
    }
 }
 
@@ -134,11 +134,10 @@ si_aco_build_shader_binary(void **data, const struct ac_shader_config *config,
    shader->config = *config;
 }
 
-bool
-si_aco_compile_shader(struct si_shader *shader,
-                      struct si_shader_args *args,
-                      struct nir_shader *nir,
-                      struct util_debug_callback *debug)
+bool si_aco_compile_shader(struct si_shader *shader,
+                           struct si_shader_args *args,
+                           struct nir_shader *nir,
+                           struct util_debug_callback *debug)
 {
    struct aco_compiler_options options = {0};
    si_fill_aco_options(shader, &options, debug);
@@ -152,8 +151,7 @@ si_aco_compile_shader(struct si_shader *shader,
    return true;
 }
 
-void
-si_aco_resolve_symbols(struct si_shader *shader, uint32_t *code, uint64_t scratch_va)
+void si_aco_resolve_symbols(struct si_shader *shader, uint32_t *code, uint64_t scratch_va)
 {
    const struct aco_symbol *symbols = (struct aco_symbol *)shader->binary.symbols;
    const struct si_shader_selector *sel = shader->selector;
@@ -163,31 +161,31 @@ si_aco_resolve_symbols(struct si_shader *shader, uint32_t *code, uint64_t scratc
       uint32_t value = 0;
 
       switch (symbols[i].id) {
-      case aco_symbol_scratch_addr_lo:
-         value = scratch_va;
-         break;
-      case aco_symbol_scratch_addr_hi:
-         value = S_008F04_BASE_ADDRESS_HI(scratch_va >> 32);
+         case aco_symbol_scratch_addr_lo:
+            value = scratch_va;
+            break;
+         case aco_symbol_scratch_addr_hi:
+            value = S_008F04_BASE_ADDRESS_HI(scratch_va >> 32);
 
-         if (sel->screen->info.gfx_level >= GFX11)
-            value |= S_008F04_SWIZZLE_ENABLE_GFX11(1);
-         else
-            value |= S_008F04_SWIZZLE_ENABLE_GFX6(1);
-         break;
-      case aco_symbol_lds_ngg_scratch_base:
-         assert(sel->stage <= MESA_SHADER_GEOMETRY && key->ge.as_ngg);
-         value = shader->gs_info.esgs_ring_size * 4;
-         if (sel->stage == MESA_SHADER_GEOMETRY)
-            value += shader->ngg.ngg_emit_size * 4;
-         value = ALIGN(value, 8);
-         break;
-      case aco_symbol_lds_ngg_gs_out_vertex_base:
-         assert(sel->stage == MESA_SHADER_GEOMETRY && key->ge.as_ngg);
-         value = shader->gs_info.esgs_ring_size * 4;
-         break;
-      default:
-         unreachable("invalid aco symbol");
-         break;
+            if (sel->screen->info.gfx_level >= GFX11)
+               value |= S_008F04_SWIZZLE_ENABLE_GFX11(1);
+            else
+               value |= S_008F04_SWIZZLE_ENABLE_GFX6(1);
+            break;
+         case aco_symbol_lds_ngg_scratch_base:
+            assert(sel->stage <= MESA_SHADER_GEOMETRY && key->ge.as_ngg);
+            value = shader->gs_info.esgs_ring_size * 4;
+            if (sel->stage == MESA_SHADER_GEOMETRY)
+               value += shader->ngg.ngg_emit_size * 4;
+            value = ALIGN(value, 8);
+            break;
+         case aco_symbol_lds_ngg_gs_out_vertex_base:
+            assert(sel->stage == MESA_SHADER_GEOMETRY && key->ge.as_ngg);
+            value = shader->gs_info.esgs_ring_size * 4;
+            break;
+         default:
+            unreachable("invalid aco symbol");
+            break;
       }
 
       code[symbols[i].offset] = value;

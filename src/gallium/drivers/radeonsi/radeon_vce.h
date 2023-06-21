@@ -9,22 +9,22 @@
 #ifndef RADEON_VCE_H
 #define RADEON_VCE_H
 
-#include "radeon_video.h"
 #include "util/list.h"
+#include "radeon_video.h"
 
 #define RVCE_CS(value) (enc->cs.current.buf[enc->cs.current.cdw++] = (value))
-#define RVCE_BEGIN(cmd)                                                                            \
-   {                                                                                               \
-      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++];                             \
+#define RVCE_BEGIN(cmd)                                              \
+   {                                                                 \
+      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++]; \
       RVCE_CS(cmd)
-#define RVCE_READ(buf, domain, off)                                                                \
+#define RVCE_READ(buf, domain, off) \
    si_vce_add_buffer(enc, (buf), RADEON_USAGE_READ, (domain), (off))
-#define RVCE_WRITE(buf, domain, off)                                                               \
+#define RVCE_WRITE(buf, domain, off) \
    si_vce_add_buffer(enc, (buf), RADEON_USAGE_WRITE, (domain), (off))
-#define RVCE_READWRITE(buf, domain, off)                                                           \
+#define RVCE_READWRITE(buf, domain, off) \
    si_vce_add_buffer(enc, (buf), RADEON_USAGE_READWRITE, (domain), (off))
-#define RVCE_END()                                                                                 \
-   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4;                             \
+#define RVCE_END()                                                   \
+   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4; \
    }
 
 #define RVCE_MAX_BITSTREAM_OUTPUT_ROW_SIZE (4096 * 16 * 2.5)

@@ -7,11 +7,11 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
-#include "radeon_vcn_dec.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
+#include "radeon_vcn_dec.h"
+#include "radeon_video.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -35,13 +35,13 @@ static struct pb_buffer *radeon_jpeg_get_decode_param(struct radeon_decoder *dec
       case PIPE_FORMAT_R8_G8_B8_UNORM:
          chromav = (struct si_texture *)((struct vl_video_buffer *)target)->resources[2];
          dec->jpg.dt_chromav_top_offset = chromav->surface.u.gfx9.surf_offset;
-         chroma = (struct si_texture *)((struct vl_video_buffer*)target)->resources[1];
+         chroma = (struct si_texture *)((struct vl_video_buffer *)target)->resources[1];
          dec->jpg.dt_chroma_top_offset = chroma->surface.u.gfx9.surf_offset;
          break;
       case PIPE_FORMAT_NV12:
       case PIPE_FORMAT_P010:
       case PIPE_FORMAT_P016:
-         chroma = (struct si_texture *)((struct vl_video_buffer*)target)->resources[1];
+         chroma = (struct si_texture *)((struct vl_video_buffer *)target)->resources[1];
          dec->jpg.dt_chroma_top_offset = chroma->surface.u.gfx9.surf_offset;
          break;
       default:
@@ -297,7 +297,7 @@ static void send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer 
       }
       if (format_convert) {
          /* set fc timeout control */
-         set_reg_jpeg(dec, vcnipUVD_JPEG_FC_TMEOUT_CNT, COND0, TYPE0,(4244373504));
+         set_reg_jpeg(dec, vcnipUVD_JPEG_FC_TMEOUT_CNT, COND0, TYPE0, (4244373504));
          /* set alpha position and packed format */
          set_reg_jpeg(dec, vcnipUVD_JPEG_FC_SPS_INFO, COND0, TYPE0, fc_sps_info_val);
          /* coefs */
@@ -331,7 +331,7 @@ static void send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer 
       if (dec->jpg.crop_width && dec->jpg.crop_height)
          val = val | (0x1 << 24);
       if (format_convert)
-         val = val |  (1 << 16) | (1 << 18);
+         val = val | (1 << 16) | (1 << 18);
    }
    set_reg_jpeg(dec, dec->jpg_reg.jpeg_cntl, COND0, TYPE0, val);
 

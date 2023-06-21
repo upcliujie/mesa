@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
 #include "util/u_memory.h"
 #include "util/u_suballoc.h"
+#include "si_build_pm4.h"
 
 static void si_set_streamout_enable(struct si_context *sctx, bool enable);
 
@@ -224,8 +224,8 @@ static void si_flush_vgt_streamout(struct si_context *sctx)
    radeon_emit(EVENT_TYPE(V_028A90_SO_VGTSTREAMOUT_FLUSH) | EVENT_INDEX(0));
 
    radeon_emit(PKT3(PKT3_WAIT_REG_MEM, 5, 0));
-   radeon_emit(WAIT_REG_MEM_EQUAL); /* wait until the register is equal to the reference value */
-   radeon_emit(reg_strmout_cntl >> 2); /* register */
+   radeon_emit(WAIT_REG_MEM_EQUAL);             /* wait until the register is equal to the reference value */
+   radeon_emit(reg_strmout_cntl >> 2);          /* register */
    radeon_emit(0);
    radeon_emit(S_0084FC_OFFSET_UPDATE_DONE(1)); /* reference value */
    radeon_emit(S_0084FC_OFFSET_UPDATE_DONE(1)); /* mask */
@@ -269,7 +269,7 @@ static void si_emit_streamout_begin(struct si_context *sctx)
          radeon_begin(cs);
          radeon_set_context_reg_seq(R_028AD0_VGT_STRMOUT_BUFFER_SIZE_0 + 16 * i, 2);
          radeon_emit((t[i]->b.buffer_offset + t[i]->b.buffer_size) >> 2); /* BUFFER_SIZE (in DW) */
-         radeon_emit(sctx->streamout.stride_in_dw[i]);                                    /* VTX_STRIDE (in DW) */
+         radeon_emit(sctx->streamout.stride_in_dw[i]);                    /* VTX_STRIDE (in DW) */
 
          if (sctx->streamout.append_bitmask & (1 << i) && t[i]->buf_filled_size_valid) {
             uint64_t va = t[i]->buf_filled_size->gpu_address + t[i]->buf_filled_size_offset;
@@ -292,8 +292,8 @@ static void si_emit_streamout_begin(struct si_context *sctx)
                         STRMOUT_OFFSET_SOURCE(STRMOUT_OFFSET_FROM_PACKET)); /* control */
             radeon_emit(0);                                                 /* unused */
             radeon_emit(0);                                                 /* unused */
-            radeon_emit(t[i]->b.buffer_offset >> 2); /* buffer offset in DW */
-            radeon_emit(0);                          /* unused */
+            radeon_emit(t[i]->b.buffer_offset >> 2);                        /* buffer offset in DW */
+            radeon_emit(0);                                                 /* unused */
          }
          radeon_end_update_context_roll(sctx);
       }
@@ -332,10 +332,10 @@ void si_emit_streamout_end(struct si_context *sctx)
          radeon_emit(PKT3(PKT3_STRMOUT_BUFFER_UPDATE, 4, 0));
          radeon_emit(STRMOUT_SELECT_BUFFER(i) | STRMOUT_OFFSET_SOURCE(STRMOUT_OFFSET_NONE) |
                      STRMOUT_STORE_BUFFER_FILLED_SIZE); /* control */
-         radeon_emit(va);                                  /* dst address lo */
-         radeon_emit(va >> 32);                            /* dst address hi */
-         radeon_emit(0);                                   /* unused */
-         radeon_emit(0);                                   /* unused */
+         radeon_emit(va);                               /* dst address lo */
+         radeon_emit(va >> 32);                         /* dst address hi */
+         radeon_emit(0);                                /* unused */
+         radeon_emit(0);                                /* unused */
 
          /* Zero the buffer size. The counters (primitives generated,
           * primitives emitted) may be enabled even if there is not

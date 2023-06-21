@@ -14,9 +14,9 @@
  * GPU load between the two samples.
  */
 
+#include "util/os_time.h"
 #include "si_pipe.h"
 #include "si_query.h"
-#include "util/os_time.h"
 
 /* For good accuracy at 1000 fps or lower. This will be inaccurate for higher
  * fps (there are too few samples per frame). */
@@ -51,12 +51,12 @@
 
 #define IDENTITY(x) x
 
-#define UPDATE_COUNTER(field, mask)                                                                \
-   do {                                                                                            \
-      if (mask(value))                                                                             \
-         p_atomic_inc(&counters->named.field.busy);                                                \
-      else                                                                                         \
-         p_atomic_inc(&counters->named.field.idle);                                                \
+#define UPDATE_COUNTER(field, mask)                 \
+   do {                                             \
+      if (mask(value))                              \
+         p_atomic_inc(&counters->named.field.busy); \
+      else                                          \
+         p_atomic_inc(&counters->named.field.idle); \
    } while (0)
 
 static void si_update_mmio_counters(struct si_screen *sscreen, union si_mmio_counters *counters)
@@ -192,56 +192,56 @@ static unsigned si_end_mmio_counter(struct si_screen *sscreen, uint64_t begin, u
    }
 }
 
-#define BUSY_INDEX(sscreen, field)                                                                 \
+#define BUSY_INDEX(sscreen, field) \
    (&sscreen->mmio_counters.named.field.busy - sscreen->mmio_counters.array)
 
 static unsigned busy_index_from_type(struct si_screen *sscreen, unsigned type)
 {
    switch (type) {
-   case SI_QUERY_GPU_LOAD:
-      return BUSY_INDEX(sscreen, gpu);
-   case SI_QUERY_GPU_SHADERS_BUSY:
-      return BUSY_INDEX(sscreen, spi);
-   case SI_QUERY_GPU_TA_BUSY:
-      return BUSY_INDEX(sscreen, ta);
-   case SI_QUERY_GPU_GDS_BUSY:
-      return BUSY_INDEX(sscreen, gds);
-   case SI_QUERY_GPU_VGT_BUSY:
-      return BUSY_INDEX(sscreen, vgt);
-   case SI_QUERY_GPU_IA_BUSY:
-      return BUSY_INDEX(sscreen, ia);
-   case SI_QUERY_GPU_SX_BUSY:
-      return BUSY_INDEX(sscreen, sx);
-   case SI_QUERY_GPU_WD_BUSY:
-      return BUSY_INDEX(sscreen, wd);
-   case SI_QUERY_GPU_BCI_BUSY:
-      return BUSY_INDEX(sscreen, bci);
-   case SI_QUERY_GPU_SC_BUSY:
-      return BUSY_INDEX(sscreen, sc);
-   case SI_QUERY_GPU_PA_BUSY:
-      return BUSY_INDEX(sscreen, pa);
-   case SI_QUERY_GPU_DB_BUSY:
-      return BUSY_INDEX(sscreen, db);
-   case SI_QUERY_GPU_CP_BUSY:
-      return BUSY_INDEX(sscreen, cp);
-   case SI_QUERY_GPU_CB_BUSY:
-      return BUSY_INDEX(sscreen, cb);
-   case SI_QUERY_GPU_SDMA_BUSY:
-      return BUSY_INDEX(sscreen, sdma);
-   case SI_QUERY_GPU_PFP_BUSY:
-      return BUSY_INDEX(sscreen, pfp);
-   case SI_QUERY_GPU_MEQ_BUSY:
-      return BUSY_INDEX(sscreen, meq);
-   case SI_QUERY_GPU_ME_BUSY:
-      return BUSY_INDEX(sscreen, me);
-   case SI_QUERY_GPU_SURF_SYNC_BUSY:
-      return BUSY_INDEX(sscreen, surf_sync);
-   case SI_QUERY_GPU_CP_DMA_BUSY:
-      return BUSY_INDEX(sscreen, cp_dma);
-   case SI_QUERY_GPU_SCRATCH_RAM_BUSY:
-      return BUSY_INDEX(sscreen, scratch_ram);
-   default:
-      unreachable("invalid query type");
+      case SI_QUERY_GPU_LOAD:
+         return BUSY_INDEX(sscreen, gpu);
+      case SI_QUERY_GPU_SHADERS_BUSY:
+         return BUSY_INDEX(sscreen, spi);
+      case SI_QUERY_GPU_TA_BUSY:
+         return BUSY_INDEX(sscreen, ta);
+      case SI_QUERY_GPU_GDS_BUSY:
+         return BUSY_INDEX(sscreen, gds);
+      case SI_QUERY_GPU_VGT_BUSY:
+         return BUSY_INDEX(sscreen, vgt);
+      case SI_QUERY_GPU_IA_BUSY:
+         return BUSY_INDEX(sscreen, ia);
+      case SI_QUERY_GPU_SX_BUSY:
+         return BUSY_INDEX(sscreen, sx);
+      case SI_QUERY_GPU_WD_BUSY:
+         return BUSY_INDEX(sscreen, wd);
+      case SI_QUERY_GPU_BCI_BUSY:
+         return BUSY_INDEX(sscreen, bci);
+      case SI_QUERY_GPU_SC_BUSY:
+         return BUSY_INDEX(sscreen, sc);
+      case SI_QUERY_GPU_PA_BUSY:
+         return BUSY_INDEX(sscreen, pa);
+      case SI_QUERY_GPU_DB_BUSY:
+         return BUSY_INDEX(sscreen, db);
+      case SI_QUERY_GPU_CP_BUSY:
+         return BUSY_INDEX(sscreen, cp);
+      case SI_QUERY_GPU_CB_BUSY:
+         return BUSY_INDEX(sscreen, cb);
+      case SI_QUERY_GPU_SDMA_BUSY:
+         return BUSY_INDEX(sscreen, sdma);
+      case SI_QUERY_GPU_PFP_BUSY:
+         return BUSY_INDEX(sscreen, pfp);
+      case SI_QUERY_GPU_MEQ_BUSY:
+         return BUSY_INDEX(sscreen, meq);
+      case SI_QUERY_GPU_ME_BUSY:
+         return BUSY_INDEX(sscreen, me);
+      case SI_QUERY_GPU_SURF_SYNC_BUSY:
+         return BUSY_INDEX(sscreen, surf_sync);
+      case SI_QUERY_GPU_CP_DMA_BUSY:
+         return BUSY_INDEX(sscreen, cp_dma);
+      case SI_QUERY_GPU_SCRATCH_RAM_BUSY:
+         return BUSY_INDEX(sscreen, scratch_ram);
+      default:
+         unreachable("invalid query type");
    }
 }
 

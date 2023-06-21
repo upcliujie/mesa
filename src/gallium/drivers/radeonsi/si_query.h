@@ -24,8 +24,7 @@ struct si_resource;
 
 #define SI_MAX_STREAMS 4
 
-enum
-{
+enum {
    SI_QUERY_DRAW_CALLS = PIPE_QUERY_DRIVER_SPECIFIC,
    SI_QUERY_DECOMPRESS_CALLS,
    SI_QUERY_PRIM_RESTART_CALLS,
@@ -103,8 +102,7 @@ enum
    SI_QUERY_FIRST_PERFCOUNTER = PIPE_QUERY_DRIVER_SPECIFIC + 100,
 };
 
-enum
-{
+enum {
    SI_QUERY_GROUP_GPIN = 0,
    SI_NUM_SW_QUERY_GROUPS
 };
@@ -138,8 +136,7 @@ struct si_query {
    struct list_head active_list;
 };
 
-enum
-{
+enum {
    SI_QUERY_HW_FLAG_NO_START = (1 << 0),
    /* gap */
    /* whether begin_query doesn't clear the result */

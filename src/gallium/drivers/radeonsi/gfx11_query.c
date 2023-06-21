@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/u_memory.h"
+#include "util/u_suballoc.h"
 #include "si_pipe.h"
 #include "si_query.h"
 #include "sid.h"
-#include "util/u_memory.h"
-#include "util/u_suballoc.h"
 
 #include <stddef.h>
 
@@ -185,30 +185,30 @@ static void gfx11_sh_query_add_result(struct gfx11_sh_query *query,
    static const uint64_t mask = ((uint64_t)1 << 63) - 1;
 
    switch (query->b.type) {
-   case PIPE_QUERY_PRIMITIVES_EMITTED:
-      result->u64 += qmem->stream[query->stream].emitted_primitives & mask;
-      break;
-   case PIPE_QUERY_PRIMITIVES_GENERATED:
-      result->u64 += qmem->stream[query->stream].generated_primitives & mask;
-      break;
-   case PIPE_QUERY_SO_STATISTICS:
-      result->so_statistics.num_primitives_written +=
-         qmem->stream[query->stream].emitted_primitives & mask;
-      result->so_statistics.primitives_storage_needed +=
-         qmem->stream[query->stream].generated_primitives & mask;
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-      result->b |= qmem->stream[query->stream].emitted_primitives !=
-                   qmem->stream[query->stream].generated_primitives;
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-      for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream) {
-         result->b |= qmem->stream[stream].emitted_primitives !=
-                      qmem->stream[stream].generated_primitives;
-      }
-      break;
-   default:
-      assert(0);
+      case PIPE_QUERY_PRIMITIVES_EMITTED:
+         result->u64 += qmem->stream[query->stream].emitted_primitives & mask;
+         break;
+      case PIPE_QUERY_PRIMITIVES_GENERATED:
+         result->u64 += qmem->stream[query->stream].generated_primitives & mask;
+         break;
+      case PIPE_QUERY_SO_STATISTICS:
+         result->so_statistics.num_primitives_written +=
+            qmem->stream[query->stream].emitted_primitives & mask;
+         result->so_statistics.primitives_storage_needed +=
+            qmem->stream[query->stream].generated_primitives & mask;
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+         result->b |= qmem->stream[query->stream].emitted_primitives !=
+                      qmem->stream[query->stream].generated_primitives;
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+         for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream) {
+            result->b |= qmem->stream[stream].emitted_primitives !=
+                         qmem->stream[stream].generated_primitives;
+         }
+         break;
+      default:
+         assert(0);
    }
 }
 
@@ -293,28 +293,28 @@ static void gfx11_sh_query_get_result_resource(struct si_context *sctx, struct s
 
    if (index >= 0) {
       switch (query->b.type) {
-      case PIPE_QUERY_PRIMITIVES_GENERATED:
-         consts.offset = 4 * sizeof(uint64_t) * query->stream + 2 * sizeof(uint64_t);
-         consts.config = 0;
-         break;
-      case PIPE_QUERY_PRIMITIVES_EMITTED:
-         consts.offset = 4 * sizeof(uint64_t) * query->stream + 3 * sizeof(uint64_t);
-         consts.config = 0;
-         break;
-      case PIPE_QUERY_SO_STATISTICS:
-         consts.offset = sizeof(uint32_t) * (4 * index + query->stream);
-         consts.config = 0;
-         break;
-      case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-         consts.offset = 4 * sizeof(uint64_t) * query->stream;
-         consts.config = 2;
-         break;
-      case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-         consts.offset = 0;
-         consts.config = 3;
-         break;
-      default:
-         unreachable("bad query type");
+         case PIPE_QUERY_PRIMITIVES_GENERATED:
+            consts.offset = 4 * sizeof(uint64_t) * query->stream + 2 * sizeof(uint64_t);
+            consts.config = 0;
+            break;
+         case PIPE_QUERY_PRIMITIVES_EMITTED:
+            consts.offset = 4 * sizeof(uint64_t) * query->stream + 3 * sizeof(uint64_t);
+            consts.config = 0;
+            break;
+         case PIPE_QUERY_SO_STATISTICS:
+            consts.offset = sizeof(uint32_t) * (4 * index + query->stream);
+            consts.config = 0;
+            break;
+         case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+            consts.offset = 4 * sizeof(uint64_t) * query->stream;
+            consts.config = 2;
+            break;
+         case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+            consts.offset = 0;
+            consts.config = 3;
+            break;
+         default:
+            unreachable("bad query type");
       }
    } else {
       /* Check result availability. */

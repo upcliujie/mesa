@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
 #include "util/u_upload_mgr.h"
 #include "util/u_viewport.h"
+#include "si_build_pm4.h"
 
 #define SI_MAX_SCISSOR 16384
 
@@ -234,7 +234,7 @@ static void si_emit_one_scissor(struct si_context *ctx, struct radeon_cmdbuf *cs
    }
 
    radeon_emit(S_028250_TL_X(final.minx) | S_028250_TL_Y(final.miny) |
-                  S_028250_WINDOW_OFFSET_DISABLE(1));
+               S_028250_WINDOW_OFFSET_DISABLE(1));
    radeon_emit(S_028254_BR_X(final.maxx) | S_028254_BR_Y(final.maxy));
    radeon_end();
 }
@@ -275,8 +275,8 @@ static void si_emit_guardband(struct si_context *ctx)
 
    /* GFX6-GFX7 need to align the offset to an ubertile consisting of all SEs. */
    const unsigned hw_screen_offset_alignment =
-      ctx->gfx_level >= GFX11 ? 32 :
-      ctx->gfx_level >= GFX8 ? 16 : MAX2(ctx->screen->se_tile_repeat, 16);
+      ctx->gfx_level >= GFX11 ? 32 : ctx->gfx_level >= GFX8 ? 16
+                                                            : MAX2(ctx->screen->se_tile_repeat, 16);
 
    /* Indexed by quantization modes */
    static int max_viewport_size[] = {65535, 16383, 4095};
@@ -366,15 +366,15 @@ static void si_emit_guardband(struct si_context *ctx)
    radeon_begin(&ctx->gfx_cs);
    radeon_opt_set_context_reg5(ctx, R_028BE4_PA_SU_VTX_CNTL, SI_TRACKED_PA_SU_VTX_CNTL,
                                S_028BE4_PIX_CENTER(rs->half_pixel_center) |
-                               S_028BE4_ROUND_MODE(V_028BE4_X_ROUND_TO_EVEN) |
-                               S_028BE4_QUANT_MODE(V_028BE4_X_16_8_FIXED_POINT_1_256TH +
-                                                   vp_as_scissor.quant_mode),
+                                  S_028BE4_ROUND_MODE(V_028BE4_X_ROUND_TO_EVEN) |
+                                  S_028BE4_QUANT_MODE(V_028BE4_X_16_8_FIXED_POINT_1_256TH +
+                                                      vp_as_scissor.quant_mode),
                                fui(guardband_y), fui(discard_y),
                                fui(guardband_x), fui(discard_x));
    radeon_opt_set_context_reg(ctx, R_028234_PA_SU_HARDWARE_SCREEN_OFFSET,
                               SI_TRACKED_PA_SU_HARDWARE_SCREEN_OFFSET,
                               S_028234_HW_SCREEN_OFFSET_X(hw_screen_offset_x >> 4) |
-                              S_028234_HW_SCREEN_OFFSET_Y(hw_screen_offset_y >> 4));
+                                 S_028234_HW_SCREEN_OFFSET_Y(hw_screen_offset_y >> 4));
    radeon_end_update_context_roll(ctx);
 }
 
@@ -452,11 +452,11 @@ static void si_set_viewport_states(struct pipe_context *pctx, unsigned start_slo
        * 4k x 4k of the render target.
        */
 
-      if (max_corner <= 1024) /* 4K scanline area for guardband */
+      if (max_corner <= 1024)      /* 4K scanline area for guardband */
          scissor->quant_mode = SI_QUANT_MODE_12_12_FIXED_POINT_1_4096TH;
       else if (max_corner <= 4096) /* 16K scanline area for guardband */
          scissor->quant_mode = SI_QUANT_MODE_14_10_FIXED_POINT_1_1024TH;
-      else /* 64K scanline area for guardband */
+      else                         /* 64K scanline area for guardband */
          scissor->quant_mode = SI_QUANT_MODE_16_8_FIXED_POINT_1_256TH;
    }
 
@@ -623,7 +623,7 @@ static void si_emit_window_rectangles(struct si_context *sctx)
    static const unsigned outside[4] = {
       /* outside rectangle 0 */
       V_02820C_OUT | V_02820C_IN_1 | V_02820C_IN_2 | V_02820C_IN_21 | V_02820C_IN_3 |
-      V_02820C_IN_31 | V_02820C_IN_32 | V_02820C_IN_321,
+         V_02820C_IN_31 | V_02820C_IN_32 | V_02820C_IN_321,
       /* outside rectangles 0, 1 */
       V_02820C_OUT | V_02820C_IN_2 | V_02820C_IN_3 | V_02820C_IN_32,
       /* outside rectangles 0, 1, 2 */

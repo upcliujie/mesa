@@ -4,19 +4,19 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "ac_debug.h"
-#include "ac_rtld.h"
 #include "driver_ddebug/dd_util.h"
-#include "si_compute.h"
-#include "si_pipe.h"
-#include "sid.h"
-#include "sid_tables.h"
 #include "tgsi/tgsi_from_mesa.h"
 #include "util/u_dump.h"
 #include "util/u_log.h"
 #include "util/u_memory.h"
 #include "util/u_process.h"
 #include "util/u_string.h"
+#include "ac_debug.h"
+#include "ac_rtld.h"
+#include "si_compute.h"
+#include "si_pipe.h"
+#include "sid.h"
+#include "sid_tables.h"
 
 static void si_dump_bo_list(struct si_context *sctx, const struct radeon_saved_cs *saved, FILE *f);
 
@@ -91,8 +91,8 @@ static void si_dump_shader(struct si_screen *sscreen, struct si_shader *shader, 
       fprintf(f, "BO: VA=%" PRIx64 " Size=%u\n", shader->bo->gpu_address, size);
 
       const char *mapped = sscreen->ws->buffer_map(sscreen->ws,
-         shader->bo->buf, NULL,
-         PIPE_MAP_UNSYNCHRONIZED | PIPE_MAP_READ | RADEON_MAP_TEMPORARY);
+                                                   shader->bo->buf, NULL,
+                                                   PIPE_MAP_UNSYNCHRONIZED | PIPE_MAP_READ | RADEON_MAP_TEMPORARY);
 
       for (unsigned i = 0; i < size; i += 4) {
          fprintf(f, " %4x: %08x\n", i, *(uint32_t *)(mapped + i));
@@ -477,7 +477,9 @@ void si_log_hw_flush(struct si_context *sctx)
 
 static const char *priority_to_string(unsigned priority)
 {
-#define ITEM(x) if (priority == RADEON_PRIO_##x) return #x
+#define ITEM(x)                     \
+   if (priority == RADEON_PRIO_##x) \
+   return #x
    ITEM(FENCE_TRACE);
    ITEM(SO_FILLED_SIZE);
    ITEM(QUERY);
@@ -510,7 +512,8 @@ static const char *priority_to_string(unsigned priority)
 static int bo_list_compare_va(const struct radeon_bo_list_item *a,
                               const struct radeon_bo_list_item *b)
 {
-   return a->vm_address < b->vm_address ? -1 : a->vm_address > b->vm_address ? 1 : 0;
+   return a->vm_address < b->vm_address ? -1 : a->vm_address > b->vm_address ? 1
+                                                                             : 0;
 }
 
 static void si_dump_bo_list(struct si_context *sctx, const struct radeon_saved_cs *saved, FILE *f)
@@ -630,41 +633,41 @@ static void si_log_chunk_desc_list_print(void *data, FILE *f)
               chunk->elem_name, i, list_note);
 
       switch (chunk->element_dw_size) {
-      case 4:
-         for (unsigned j = 0; j < 4; j++)
-            ac_dump_reg(f, chunk->gfx_level, chunk->family,
-                        R_008F00_SQ_BUF_RSRC_WORD0 + j * 4, gpu_list[j], 0xffffffff);
-         break;
-      case 8:
-         for (unsigned j = 0; j < 8; j++)
-            ac_dump_reg(f, chunk->gfx_level, chunk->family,
-                        sq_img_rsrc_word0 + j * 4, gpu_list[j], 0xffffffff);
+         case 4:
+            for (unsigned j = 0; j < 4; j++)
+               ac_dump_reg(f, chunk->gfx_level, chunk->family,
+                           R_008F00_SQ_BUF_RSRC_WORD0 + j * 4, gpu_list[j], 0xffffffff);
+            break;
+         case 8:
+            for (unsigned j = 0; j < 8; j++)
+               ac_dump_reg(f, chunk->gfx_level, chunk->family,
+                           sq_img_rsrc_word0 + j * 4, gpu_list[j], 0xffffffff);
 
-         fprintf(f, COLOR_CYAN "    Buffer:" COLOR_RESET "\n");
-         for (unsigned j = 0; j < 4; j++)
-            ac_dump_reg(f, chunk->gfx_level, chunk->family,
-                        R_008F00_SQ_BUF_RSRC_WORD0 + j * 4, gpu_list[4 + j], 0xffffffff);
-         break;
-      case 16:
-         for (unsigned j = 0; j < 8; j++)
-            ac_dump_reg(f, chunk->gfx_level,  chunk->family,
-                        sq_img_rsrc_word0 + j * 4, gpu_list[j], 0xffffffff);
+            fprintf(f, COLOR_CYAN "    Buffer:" COLOR_RESET "\n");
+            for (unsigned j = 0; j < 4; j++)
+               ac_dump_reg(f, chunk->gfx_level, chunk->family,
+                           R_008F00_SQ_BUF_RSRC_WORD0 + j * 4, gpu_list[4 + j], 0xffffffff);
+            break;
+         case 16:
+            for (unsigned j = 0; j < 8; j++)
+               ac_dump_reg(f, chunk->gfx_level, chunk->family,
+                           sq_img_rsrc_word0 + j * 4, gpu_list[j], 0xffffffff);
 
-         fprintf(f, COLOR_CYAN "    Buffer:" COLOR_RESET "\n");
-         for (unsigned j = 0; j < 4; j++)
-            ac_dump_reg(f, chunk->gfx_level, chunk->family,
-                        R_008F00_SQ_BUF_RSRC_WORD0 + j * 4, gpu_list[4 + j], 0xffffffff);
+            fprintf(f, COLOR_CYAN "    Buffer:" COLOR_RESET "\n");
+            for (unsigned j = 0; j < 4; j++)
+               ac_dump_reg(f, chunk->gfx_level, chunk->family,
+                           R_008F00_SQ_BUF_RSRC_WORD0 + j * 4, gpu_list[4 + j], 0xffffffff);
 
-         fprintf(f, COLOR_CYAN "    FMASK:" COLOR_RESET "\n");
-         for (unsigned j = 0; j < 8; j++)
-            ac_dump_reg(f, chunk->gfx_level, chunk->family,
-                        sq_img_rsrc_word0 + j * 4, gpu_list[8 + j], 0xffffffff);
+            fprintf(f, COLOR_CYAN "    FMASK:" COLOR_RESET "\n");
+            for (unsigned j = 0; j < 8; j++)
+               ac_dump_reg(f, chunk->gfx_level, chunk->family,
+                           sq_img_rsrc_word0 + j * 4, gpu_list[8 + j], 0xffffffff);
 
-         fprintf(f, COLOR_CYAN "    Sampler state:" COLOR_RESET "\n");
-         for (unsigned j = 0; j < 4; j++)
-            ac_dump_reg(f, chunk->gfx_level, chunk->family,
-                        R_008F30_SQ_IMG_SAMP_WORD0 + j * 4, gpu_list[12 + j], 0xffffffff);
-         break;
+            fprintf(f, COLOR_CYAN "    Sampler state:" COLOR_RESET "\n");
+            for (unsigned j = 0; j < 4; j++)
+               ac_dump_reg(f, chunk->gfx_level, chunk->family,
+                           R_008F30_SQ_IMG_SAMP_WORD0 + j * 4, gpu_list[12 + j], 0xffffffff);
+            break;
       }
 
       if (memcmp(gpu_list, cpu_list, chunk->element_dw_size * 4) != 0) {
@@ -754,7 +757,8 @@ static void si_dump_descriptors(struct si_context *sctx, gl_shader_stage stage,
       for (int i = 0; i < SI_NUM_SHADER_BUFFERS; i++) {
          enabled_shaderbuf |=
             (sctx->const_and_shader_buffers[processor].enabled_mask &
-             1llu << (SI_NUM_SHADER_BUFFERS - i - 1)) << i;
+             1llu << (SI_NUM_SHADER_BUFFERS - i - 1))
+            << i;
       }
       enabled_samplers = sctx->samplers[processor].enabled_mask;
       enabled_images = sctx->images[processor].enabled_mask;
@@ -794,8 +798,8 @@ static void si_dump_compute_descriptors(struct si_context *sctx, struct u_log_co
 struct si_shader_inst {
    const char *text; /* start of disassembly for this instruction */
    unsigned textlen;
-   unsigned size; /* instruction size = 4 or 8 */
-   uint64_t addr; /* instruction address */
+   unsigned size;    /* instruction size = 4 or 8 */
+   uint64_t addr;    /* instruction address */
 };
 
 /**
@@ -1062,21 +1066,21 @@ void si_check_vm_faults(struct si_context *sctx, struct radeon_saved_cs *saved, 
       fprintf(f, "Last apitrace call: %u\n\n", sctx->apitrace_call_number);
 
    switch (ring) {
-   case AMD_IP_GFX: {
-      struct u_log_context log;
-      u_log_context_init(&log);
+      case AMD_IP_GFX: {
+         struct u_log_context log;
+         u_log_context_init(&log);
 
-      si_log_draw_state(sctx, &log);
-      si_log_compute_state(sctx, &log);
-      si_log_cs(sctx, &log, true);
+         si_log_draw_state(sctx, &log);
+         si_log_compute_state(sctx, &log);
+         si_log_cs(sctx, &log, true);
 
-      u_log_new_page_print(&log, f);
-      u_log_context_destroy(&log);
-      break;
-   }
+         u_log_new_page_print(&log, f);
+         u_log_context_destroy(&log);
+         break;
+      }
 
-   default:
-      break;
+      default:
+         break;
    }
 
    fclose(f);

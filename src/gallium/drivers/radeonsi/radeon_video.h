@@ -9,10 +9,10 @@
 #ifndef RADEON_VIDEO_H
 #define RADEON_VIDEO_H
 
-#include "winsys/radeon_winsys.h"
 #include "vl/vl_video_buffer.h"
+#include "winsys/radeon_winsys.h"
 
-#define RVID_ERR(fmt, args...)                                                                     \
+#define RVID_ERR(fmt, args...) \
    fprintf(stderr, "EE %s:%d %s UVD - " fmt, __FILE__, __LINE__, __func__, ##args)
 
 #define UVD_FW_1_66_16 ((1 << 24) | (66 << 16) | (16 << 8))

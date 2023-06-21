@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
 #include "util/os_time.h"
 #include "util/u_memory.h"
 #include "util/u_queue.h"
 #include "util/u_upload_mgr.h"
+#include "si_build_pm4.h"
 
 #include <libsync.h>
 
@@ -80,8 +80,8 @@ void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigne
                ctx->eop_bug_scratch_tmz =
                   si_aligned_buffer_create(&sscreen->b,
                                            PIPE_RESOURCE_FLAG_ENCRYPTED |
-                                           PIPE_RESOURCE_FLAG_UNMAPPABLE |
-                                           SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                              PIPE_RESOURCE_FLAG_UNMAPPABLE |
+                                              SI_RESOURCE_FLAG_DRIVER_INTERNAL,
                                            PIPE_USAGE_DEFAULT,
                                            16 * sscreen->info.max_render_backends, 256);
 
@@ -106,7 +106,7 @@ void si_cp_release_mem(struct si_context *ctx, struct radeon_cmdbuf *cs, unsigne
       radeon_emit(new_fence); /* immediate data lo */
       radeon_emit(0);         /* immediate data hi */
       if (ctx->gfx_level >= GFX9)
-         radeon_emit(0); /* unused */
+         radeon_emit(0);      /* unused */
    } else {
       if (ctx->gfx_level == GFX7 || ctx->gfx_level == GFX8) {
          struct si_resource *scratch = ctx->eop_bug_scratch;
@@ -373,22 +373,22 @@ static void si_create_fence_fd(struct pipe_context *ctx, struct pipe_fence_handl
       return;
 
    switch (type) {
-   case PIPE_FD_TYPE_NATIVE_SYNC:
-      if (!sscreen->info.has_fence_to_handle)
-         goto finish;
+      case PIPE_FD_TYPE_NATIVE_SYNC:
+         if (!sscreen->info.has_fence_to_handle)
+            goto finish;
 
-      sfence->gfx = ws->fence_import_sync_file(ws, fd);
-      break;
+         sfence->gfx = ws->fence_import_sync_file(ws, fd);
+         break;
 
-   case PIPE_FD_TYPE_SYNCOBJ:
-      if (!sscreen->info.has_syncobj)
-         goto finish;
+      case PIPE_FD_TYPE_SYNCOBJ:
+         if (!sscreen->info.has_syncobj)
+            goto finish;
 
-      sfence->gfx = ws->fence_import_syncobj(ws, fd);
-      break;
+         sfence->gfx = ws->fence_import_syncobj(ws, fd);
+         break;
 
-   default:
-      unreachable("bad fence fd type when importing");
+      default:
+         unreachable("bad fence fd type when importing");
    }
 
 finish:

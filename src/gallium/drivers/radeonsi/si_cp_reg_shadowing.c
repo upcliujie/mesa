@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
+#include "util/u_memory.h"
 #include "ac_debug.h"
 #include "ac_shadowed_regs.h"
-#include "util/u_memory.h"
+#include "si_build_pm4.h"
 
 static void si_set_context_reg_array(struct radeon_cmdbuf *cs, unsigned reg, unsigned num,
                                      const uint32_t *values)
@@ -24,17 +24,17 @@ void si_init_cp_reg_shadowing(struct si_context *sctx)
        sctx->screen->info.register_shadowing_required) {
       if (sctx->screen->info.has_fw_based_shadowing) {
          sctx->shadowing.registers =
-               si_aligned_buffer_create(sctx->b.screen,
-                                        PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                        PIPE_USAGE_DEFAULT,
-                                        sctx->screen->info.fw_based_mcbp.shadow_size,
-                                        sctx->screen->info.fw_based_mcbp.shadow_alignment);
+            si_aligned_buffer_create(sctx->b.screen,
+                                     PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                     PIPE_USAGE_DEFAULT,
+                                     sctx->screen->info.fw_based_mcbp.shadow_size,
+                                     sctx->screen->info.fw_based_mcbp.shadow_alignment);
          sctx->shadowing.csa =
-               si_aligned_buffer_create(sctx->b.screen,
-                                        PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                        PIPE_USAGE_DEFAULT,
-                                        sctx->screen->info.fw_based_mcbp.csa_size,
-                                        sctx->screen->info.fw_based_mcbp.csa_alignment);
+            si_aligned_buffer_create(sctx->b.screen,
+                                     PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                     PIPE_USAGE_DEFAULT,
+                                     sctx->screen->info.fw_based_mcbp.csa_size,
+                                     sctx->screen->info.fw_based_mcbp.csa_alignment);
          if (!sctx->shadowing.registers || !sctx->shadowing.csa)
             fprintf(stderr, "radeonsi: cannot create register shadowing buffer(s)\n");
          else
@@ -43,11 +43,11 @@ void si_init_cp_reg_shadowing(struct si_context *sctx)
                                                    sctx->shadowing.csa->gpu_address);
       } else {
          sctx->shadowing.registers =
-               si_aligned_buffer_create(sctx->b.screen,
-                                        PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                        PIPE_USAGE_DEFAULT,
-                                        SI_SHADOWED_REG_BUFFER_SIZE,
-                                        4096);
+            si_aligned_buffer_create(sctx->b.screen,
+                                     PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                     PIPE_USAGE_DEFAULT,
+                                     SI_SHADOWED_REG_BUFFER_SIZE,
+                                     4096);
          if (!sctx->shadowing.registers)
             fprintf(stderr, "radeonsi: cannot create a shadowed_regs buffer\n");
       }
@@ -70,7 +70,8 @@ void si_init_cp_reg_shadowing(struct si_context *sctx)
 
       /* Add all the space that we allocated. */
       shadowing_preamble->max_dw = (sizeof(struct si_shadow_preamble) -
-                                    offsetof(struct si_shadow_preamble, pm4.pm4)) / 4;
+                                    offsetof(struct si_shadow_preamble, pm4.pm4)) /
+                                   4;
 
       ac_create_shadowing_ib_preamble(&sctx->screen->info,
                                       (pm4_cmd_add_fn)si_pm4_cmd_add, shadowing_preamble,

@@ -7,29 +7,29 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
-#include "radeon_uvd_enc.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_uvd_enc.h"
+#include "radeon_video.h"
 
 #include <stdio.h>
 
 #define RADEON_ENC_CS(value) (enc->cs.current.buf[enc->cs.current.cdw++] = (value))
-#define RADEON_ENC_BEGIN(cmd)                                                                      \
-   {                                                                                               \
-      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++];                             \
+#define RADEON_ENC_BEGIN(cmd)                                        \
+   {                                                                 \
+      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++]; \
       RADEON_ENC_CS(cmd)
-#define RADEON_ENC_READ(buf, domain, off)                                                          \
+#define RADEON_ENC_READ(buf, domain, off) \
    radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_READ, (domain), (off))
-#define RADEON_ENC_WRITE(buf, domain, off)                                                         \
+#define RADEON_ENC_WRITE(buf, domain, off) \
    radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_WRITE, (domain), (off))
-#define RADEON_ENC_READWRITE(buf, domain, off)                                                     \
+#define RADEON_ENC_READWRITE(buf, domain, off) \
    radeon_uvd_enc_add_buffer(enc, (buf), RADEON_USAGE_READWRITE, (domain), (off))
-#define RADEON_ENC_END()                                                                           \
-   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4;                             \
-   enc->total_task_size += *begin;                                                                 \
+#define RADEON_ENC_END()                                             \
+   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4; \
+   enc->total_task_size += *begin;                                   \
    }
 
 static const unsigned index_to_shifts[4] = {24, 16, 8, 0};
@@ -285,20 +285,20 @@ static void radeon_uvd_enc_rc_session_init(struct radeon_uvd_encoder *enc,
    struct pipe_h265_enc_picture_desc *pic = (struct pipe_h265_enc_picture_desc *)picture;
    enc->enc_pic.rc_session_init.vbv_buffer_level = pic->rc.vbv_buf_lv;
    switch (pic->rc.rate_ctrl_method) {
-   case PIPE_H2645_ENC_RATE_CONTROL_METHOD_DISABLE:
-      enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_NONE;
-      break;
-   case PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT_SKIP:
-   case PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT:
-      enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_CBR;
-      break;
-   case PIPE_H2645_ENC_RATE_CONTROL_METHOD_VARIABLE_SKIP:
-   case PIPE_H2645_ENC_RATE_CONTROL_METHOD_VARIABLE:
-      enc->enc_pic.rc_session_init.rate_control_method =
-         RENC_UVD_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR;
-      break;
-   default:
-      enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_NONE;
+      case PIPE_H2645_ENC_RATE_CONTROL_METHOD_DISABLE:
+         enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_NONE;
+         break;
+      case PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT_SKIP:
+      case PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT:
+         enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_CBR;
+         break;
+      case PIPE_H2645_ENC_RATE_CONTROL_METHOD_VARIABLE_SKIP:
+      case PIPE_H2645_ENC_RATE_CONTROL_METHOD_VARIABLE:
+         enc->enc_pic.rc_session_init.rate_control_method =
+            RENC_UVD_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR;
+         break;
+      default:
+         enc->enc_pic.rc_session_init.rate_control_method = RENC_UVD_RATE_CONTROL_METHOD_NONE;
    }
 
    RADEON_ENC_BEGIN(RENC_UVD_IB_PARAM_RATE_CONTROL_SESSION_INIT);
@@ -592,18 +592,18 @@ static void radeon_uvd_enc_nalu_aud_hevc(struct radeon_uvd_encoder *enc)
    radeon_uvd_enc_byte_align(enc);
    radeon_uvd_enc_set_emulation_prevention(enc, true);
    switch (enc->enc_pic.picture_type) {
-   case PIPE_H2645_ENC_PICTURE_TYPE_I:
-   case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
-      radeon_uvd_enc_code_fixed_bits(enc, 0x00, 3);
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_P:
-      radeon_uvd_enc_code_fixed_bits(enc, 0x01, 3);
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_B:
-      radeon_uvd_enc_code_fixed_bits(enc, 0x02, 3);
-      break;
-   default:
-      assert(0 && "Unsupported picture type!");
+      case PIPE_H2645_ENC_PICTURE_TYPE_I:
+      case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
+         radeon_uvd_enc_code_fixed_bits(enc, 0x00, 3);
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_P:
+         radeon_uvd_enc_code_fixed_bits(enc, 0x01, 3);
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_B:
+         radeon_uvd_enc_code_fixed_bits(enc, 0x02, 3);
+         break;
+      default:
+         assert(0 && "Unsupported picture type!");
    }
 
    radeon_uvd_enc_code_fixed_bits(enc, 0x1, 1);
@@ -659,19 +659,19 @@ static void radeon_uvd_enc_slice_header_hevc(struct radeon_uvd_encoder *enc)
    inst_index++;
 
    switch (enc->enc_pic.picture_type) {
-   case PIPE_H2645_ENC_PICTURE_TYPE_I:
-   case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
-      radeon_uvd_enc_code_ue(enc, 0x2);
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_P:
-   case PIPE_H2645_ENC_PICTURE_TYPE_SKIP:
-      radeon_uvd_enc_code_ue(enc, 0x1);
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_B:
-      radeon_uvd_enc_code_ue(enc, 0x0);
-      break;
-   default:
-      radeon_uvd_enc_code_ue(enc, 0x1);
+      case PIPE_H2645_ENC_PICTURE_TYPE_I:
+      case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
+         radeon_uvd_enc_code_ue(enc, 0x2);
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_P:
+      case PIPE_H2645_ENC_PICTURE_TYPE_SKIP:
+         radeon_uvd_enc_code_ue(enc, 0x1);
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_B:
+         radeon_uvd_enc_code_ue(enc, 0x0);
+         break;
+      default:
+         radeon_uvd_enc_code_ue(enc, 0x1);
    }
 
    if ((enc->enc_pic.nal_unit_type != 19) && (enc->enc_pic.nal_unit_type != 20)) {
@@ -837,21 +837,21 @@ static void radeon_uvd_enc_encode_params_hevc(struct radeon_uvd_encoder *enc)
 {
    struct si_screen *sscreen = (struct si_screen *)enc->screen;
    switch (enc->enc_pic.picture_type) {
-   case PIPE_H2645_ENC_PICTURE_TYPE_I:
-   case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
-      enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_I;
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_P:
-      enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_P;
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_SKIP:
-      enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_P_SKIP;
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_B:
-      enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_B;
-      break;
-   default:
-      enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_I;
+      case PIPE_H2645_ENC_PICTURE_TYPE_I:
+      case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
+         enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_I;
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_P:
+         enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_P;
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_SKIP:
+         enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_P_SKIP;
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_B:
+         enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_B;
+         break;
+      default:
+         enc->enc_pic.enc_params.pic_type = RENC_UVD_PICTURE_TYPE_I;
    }
 
    enc->enc_pic.enc_params.allowed_max_bitstream_size = enc->bs_size;

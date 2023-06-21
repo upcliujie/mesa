@@ -6,19 +6,19 @@
 
 #include "si_compute.h"
 
-#include "ac_rtld.h"
-#include "amd_kernel_code_t.h"
 #include "nir/tgsi_to_nir.h"
-#include "si_build_pm4.h"
-#include "si_shader_internal.h"
 #include "util/u_async_debug.h"
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
+#include "ac_rtld.h"
+#include "amd_kernel_code_t.h"
+#include "si_build_pm4.h"
+#include "si_shader_internal.h"
 
-#define COMPUTE_DBG(sscreen, fmt, args...)                                                         \
-   do {                                                                                            \
-      if ((sscreen->debug_flags & DBG(COMPUTE)))                                                   \
-         fprintf(stderr, fmt, ##args);                                                             \
+#define COMPUTE_DBG(sscreen, fmt, args...)       \
+   do {                                          \
+      if ((sscreen->debug_flags & DBG(COMPUTE))) \
+         fprintf(stderr, fmt, ##args);           \
    } while (0);
 
 struct dispatch_packet {
@@ -179,7 +179,9 @@ static void si_create_compute_state_async(void *job, void *gdata, int thread_ind
 
       shader->config.rsrc1 = S_00B848_VGPRS((shader->config.num_vgprs - 1) /
                                             ((shader->wave_size == 32 ||
-                                              sscreen->info.wave64_vgpr_alloc_granularity == 8) ? 8 : 4)) |
+                                              sscreen->info.wave64_vgpr_alloc_granularity == 8)
+                                                ? 8
+                                                : 4)) |
                              S_00B848_DX10_CLAMP(1) |
                              S_00B848_MEM_ORDERED(si_shader_mem_ordered(shader)) |
                              S_00B848_FLOAT_MODE(shader->config.float_mode);
@@ -196,7 +198,8 @@ static void si_create_compute_state_async(void *job, void *gdata, int thread_ind
                              S_00B84C_TG_SIZE_EN(sel->info.uses_subgroup_info) |
                              S_00B84C_TIDIG_COMP_CNT(sel->info.uses_thread_id[2]
                                                         ? 2
-                                                        : sel->info.uses_thread_id[1] ? 1 : 0) |
+                                                     : sel->info.uses_thread_id[1] ? 1
+                                                                                   : 0) |
                              S_00B84C_LDS_SIZE(shader->config.lds_size);
 
       simple_mtx_lock(&sscreen->shader_cache_mutex);
@@ -329,7 +332,7 @@ static void si_bind_compute_state(struct pipe_context *ctx, void *state)
           * as we do for the gfx ones so just create a temp pipeline to be able to
           * call si_sqtt_register_pipeline, and then drop it.
           */
-         struct si_sqtt_fake_pipeline pipeline = { 0 };
+         struct si_sqtt_fake_pipeline pipeline = {0};
          pipeline.code_hash = pipeline_code_hash;
          pipeline.bo = program->shader.bo;
 
@@ -394,7 +397,7 @@ static bool si_setup_compute_scratch_buffer(struct si_context *sctx, struct si_s
       sctx->compute_scratch_buffer =
          si_aligned_buffer_create(&sctx->screen->b,
                                   PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL |
-                                  SI_RESOURCE_FLAG_DISCARDABLE,
+                                     SI_RESOURCE_FLAG_DISCARDABLE,
                                   PIPE_USAGE_DEFAULT,
                                   scratch_needed, sctx->screen->info.pte_fragment_size);
 
@@ -787,11 +790,11 @@ static void si_emit_dispatch_packets(struct si_context *sctx, const struct pipe_
       radeon_opt_set_sh_reg3(sctx, R_00B81C_COMPUTE_NUM_THREAD_X,
                              SI_TRACKED_COMPUTE_NUM_THREAD_X,
                              S_00B81C_NUM_THREAD_FULL(info->block[0]) |
-                             S_00B81C_NUM_THREAD_PARTIAL(partial[0]),
+                                S_00B81C_NUM_THREAD_PARTIAL(partial[0]),
                              S_00B820_NUM_THREAD_FULL(info->block[1]) |
-                             S_00B820_NUM_THREAD_PARTIAL(partial[1]),
+                                S_00B820_NUM_THREAD_PARTIAL(partial[1]),
                              S_00B824_NUM_THREAD_FULL(info->block[2]) |
-                             S_00B824_NUM_THREAD_PARTIAL(partial[2]));
+                                S_00B824_NUM_THREAD_PARTIAL(partial[2]));
 
       dispatch_initiator |= S_00B800_PARTIAL_TG_EN(1);
    } else {
@@ -929,8 +932,7 @@ static void si_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info
    if (unlikely(radeon_uses_secure_bos(sctx->ws))) {
       bool secure = si_compute_resources_check_encrypted(sctx);
       if (secure != sctx->ws->cs_is_secure(&sctx->gfx_cs)) {
-         si_flush_gfx_cs(sctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW |
-                               RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION,
+         si_flush_gfx_cs(sctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW | RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION,
                          NULL);
       }
    }
@@ -986,10 +988,12 @@ static void si_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info
 
    /* Mark displayable DCC as dirty for bound images. */
    unsigned display_dcc_store_mask = sctx->images[PIPE_SHADER_COMPUTE].display_dcc_store_mask &
-                               BITFIELD_MASK(program->sel.info.base.num_images);
+                                     BITFIELD_MASK(program->sel.info.base.num_images);
    while (display_dcc_store_mask) {
       struct si_texture *tex = (struct si_texture *)
-         sctx->images[PIPE_SHADER_COMPUTE].views[u_bit_scan(&display_dcc_store_mask)].resource;
+                                  sctx->images[PIPE_SHADER_COMPUTE]
+                                     .views[u_bit_scan(&display_dcc_store_mask)]
+                                     .resource;
 
       si_mark_display_dcc_dirty(sctx, tex);
    }

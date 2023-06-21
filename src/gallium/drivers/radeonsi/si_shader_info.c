@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_pipe.h"
 #include "util/mesa-sha1.h"
 #include "util/u_prim.h"
+#include "si_pipe.h"
 #include "sid.h"
-
 
 struct si_shader_profile {
    uint32_t sha1[SHA1_DIGEST_LENGTH32];
@@ -16,29 +15,29 @@ struct si_shader_profile {
 };
 
 static struct si_shader_profile profiles[] =
-{
    {
-      /* Plot3D */
-      {0x485320cd, 0x87a9ba05, 0x24a60e4f, 0x25aa19f7, 0xf5287451},
-      SI_PROFILE_VS_NO_BINNING,
-   },
-   {
-      /* Viewperf/Medical */
-      {0x4dce4331, 0x38f778d5, 0x1b75a717, 0x3e454fb9, 0xeb1527f0},
-      SI_PROFILE_PS_NO_BINNING,
-   },
-   {
-      /* Viewperf/Medical, a shader with a divergent loop doesn't benefit from Wave32,
-       * probably due to interpolation performance.
-       */
-      {0x29f0f4a0, 0x0672258d, 0x47ccdcfd, 0x31e67dcc, 0xdcb1fda8},
-      SI_PROFILE_WAVE64,
-   },
-   {
-      /* Viewperf/Creo */
-      {0x1f288a73, 0xba46cce5, 0xbf68e6c6, 0x58543651, 0xca3c8efd},
-      SI_PROFILE_CLAMP_DIV_BY_ZERO,
-   },
+      {
+         /* Plot3D */
+         {0x485320cd, 0x87a9ba05, 0x24a60e4f, 0x25aa19f7, 0xf5287451},
+         SI_PROFILE_VS_NO_BINNING,
+      },
+      {
+         /* Viewperf/Medical */
+         {0x4dce4331, 0x38f778d5, 0x1b75a717, 0x3e454fb9, 0xeb1527f0},
+         SI_PROFILE_PS_NO_BINNING,
+      },
+      {
+         /* Viewperf/Medical, a shader with a divergent loop doesn't benefit from Wave32,
+          * probably due to interpolation performance.
+          */
+         {0x29f0f4a0, 0x0672258d, 0x47ccdcfd, 0x31e67dcc, 0xdcb1fda8},
+         SI_PROFILE_WAVE64,
+      },
+      {
+         /* Viewperf/Creo */
+         {0x1f288a73, 0xba46cce5, 0xbf68e6c6, 0x58543651, 0xca3c8efd},
+         SI_PROFILE_CLAMP_DIV_BY_ZERO,
+      },
 };
 
 static unsigned get_inst_tessfactor_writemask(nir_intrinsic_instr *intrin)
@@ -62,90 +61,87 @@ static void scan_tess_ctrl(nir_cf_node *cf_node, unsigned *upper_block_tf_writem
                            bool *tessfactors_are_def_in_all_invocs, bool is_nested_cf)
 {
    switch (cf_node->type) {
-   case nir_cf_node_block: {
-      nir_block *block = nir_cf_node_as_block(cf_node);
-      nir_foreach_instr (instr, block) {
-         if (instr->type != nir_instr_type_intrinsic)
-            continue;
+      case nir_cf_node_block: {
+         nir_block *block = nir_cf_node_as_block(cf_node);
+         nir_foreach_instr (instr, block) {
+            if (instr->type != nir_instr_type_intrinsic)
+               continue;
 
-         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
-         if (intrin->intrinsic == nir_intrinsic_scoped_barrier &&
-             nir_intrinsic_execution_scope(intrin) >= SCOPE_WORKGROUP) {
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            if (intrin->intrinsic == nir_intrinsic_scoped_barrier &&
+                nir_intrinsic_execution_scope(intrin) >= SCOPE_WORKGROUP) {
 
-            /* If we find a barrier in nested control flow put this in the
-             * too hard basket. In GLSL this is not possible but it is in
-             * SPIR-V.
+               /* If we find a barrier in nested control flow put this in the
+                * too hard basket. In GLSL this is not possible but it is in
+                * SPIR-V.
+                */
+               if (is_nested_cf) {
+                  *tessfactors_are_def_in_all_invocs = false;
+                  return;
+               }
+
+               /* The following case must be prevented:
+                *    gl_TessLevelInner = ...;
+                *    barrier();
+                *    if (gl_InvocationID == 1)
+                *       gl_TessLevelInner = ...;
+                *
+                * If you consider disjoint code segments separated by barriers, each
+                * such segment that writes tess factor channels should write the same
+                * channels in all codepaths within that segment.
+                */
+               if (*upper_block_tf_writemask || *cond_block_tf_writemask) {
+                  /* Accumulate the result: */
+                  *tessfactors_are_def_in_all_invocs &=
+                     !(*cond_block_tf_writemask & ~(*upper_block_tf_writemask));
+
+                  /* Analyze the next code segment from scratch. */
+                  *upper_block_tf_writemask = 0;
+                  *cond_block_tf_writemask = 0;
+               }
+            } else
+               *upper_block_tf_writemask |= get_inst_tessfactor_writemask(intrin);
+         }
+
+         break;
+      }
+      case nir_cf_node_if: {
+         unsigned then_tessfactor_writemask = 0;
+         unsigned else_tessfactor_writemask = 0;
+
+         nir_if *if_stmt = nir_cf_node_as_if(cf_node);
+         foreach_list_typed (nir_cf_node, nested_node, node, &if_stmt->then_list) {
+            scan_tess_ctrl(nested_node, &then_tessfactor_writemask, cond_block_tf_writemask,
+                           tessfactors_are_def_in_all_invocs, true);
+         }
+
+         foreach_list_typed (nir_cf_node, nested_node, node, &if_stmt->else_list) {
+            scan_tess_ctrl(nested_node, &else_tessfactor_writemask, cond_block_tf_writemask,
+                           tessfactors_are_def_in_all_invocs, true);
+         }
+
+         if (then_tessfactor_writemask || else_tessfactor_writemask) {
+            /* If both statements write the same tess factor channels,
+             * we can say that the upper block writes them too.
              */
-            if (is_nested_cf) {
-               *tessfactors_are_def_in_all_invocs = false;
-               return;
-            }
+            *upper_block_tf_writemask |= then_tessfactor_writemask & else_tessfactor_writemask;
+            *cond_block_tf_writemask |= then_tessfactor_writemask | else_tessfactor_writemask;
+         }
 
-            /* The following case must be prevented:
-             *    gl_TessLevelInner = ...;
-             *    barrier();
-             *    if (gl_InvocationID == 1)
-             *       gl_TessLevelInner = ...;
-             *
-             * If you consider disjoint code segments separated by barriers, each
-             * such segment that writes tess factor channels should write the same
-             * channels in all codepaths within that segment.
-             */
-            if (*upper_block_tf_writemask || *cond_block_tf_writemask) {
-               /* Accumulate the result: */
-               *tessfactors_are_def_in_all_invocs &=
-                  !(*cond_block_tf_writemask & ~(*upper_block_tf_writemask));
-
-               /* Analyze the next code segment from scratch. */
-               *upper_block_tf_writemask = 0;
-               *cond_block_tf_writemask = 0;
-            }
-         } else
-            *upper_block_tf_writemask |= get_inst_tessfactor_writemask(intrin);
+         break;
       }
+      case nir_cf_node_loop: {
+         nir_loop *loop = nir_cf_node_as_loop(cf_node);
+         assert(!nir_loop_has_continue_construct(loop));
+         foreach_list_typed (nir_cf_node, nested_node, node, &loop->body) {
+            scan_tess_ctrl(nested_node, cond_block_tf_writemask, cond_block_tf_writemask,
+                           tessfactors_are_def_in_all_invocs, true);
+         }
 
-      break;
-   }
-   case nir_cf_node_if: {
-      unsigned then_tessfactor_writemask = 0;
-      unsigned else_tessfactor_writemask = 0;
-
-      nir_if *if_stmt = nir_cf_node_as_if(cf_node);
-      foreach_list_typed(nir_cf_node, nested_node, node, &if_stmt->then_list)
-      {
-         scan_tess_ctrl(nested_node, &then_tessfactor_writemask, cond_block_tf_writemask,
-                        tessfactors_are_def_in_all_invocs, true);
+         break;
       }
-
-      foreach_list_typed(nir_cf_node, nested_node, node, &if_stmt->else_list)
-      {
-         scan_tess_ctrl(nested_node, &else_tessfactor_writemask, cond_block_tf_writemask,
-                        tessfactors_are_def_in_all_invocs, true);
-      }
-
-      if (then_tessfactor_writemask || else_tessfactor_writemask) {
-         /* If both statements write the same tess factor channels,
-          * we can say that the upper block writes them too.
-          */
-         *upper_block_tf_writemask |= then_tessfactor_writemask & else_tessfactor_writemask;
-         *cond_block_tf_writemask |= then_tessfactor_writemask | else_tessfactor_writemask;
-      }
-
-      break;
-   }
-   case nir_cf_node_loop: {
-      nir_loop *loop = nir_cf_node_as_loop(cf_node);
-      assert(!nir_loop_has_continue_construct(loop));
-      foreach_list_typed(nir_cf_node, nested_node, node, &loop->body)
-      {
-         scan_tess_ctrl(nested_node, cond_block_tf_writemask, cond_block_tf_writemask,
-                        tessfactors_are_def_in_all_invocs, true);
-      }
-
-      break;
-   }
-   default:
-      unreachable("unknown cf node type");
+      default:
+         unreachable("unknown cf node type");
    }
 }
 
@@ -171,8 +167,7 @@ static bool are_tessfactors_def_in_all_invocs(const struct nir_shader *nir)
 
    nir_foreach_function (function, nir) {
       if (function->impl) {
-         foreach_list_typed(nir_cf_node, node, node, &function->impl->body)
-         {
+         foreach_list_typed (nir_cf_node, node, node, &function->impl->body) {
             scan_tess_ctrl(node, &main_block_tf_writemask, &cond_block_tf_writemask,
                            &tessfactors_are_def_in_all_invocs, false);
          }
@@ -306,8 +301,7 @@ static void scan_io_usage(const nir_shader *nir, struct si_shader_info *info,
             info->output_readmask[loc] |= mask;
          } else if (mask) {
             /* Output stores. */
-            unsigned gs_streams = (uint32_t)nir_intrinsic_io_semantics(intr).gs_streams <<
-                                  (nir_intrinsic_component(intr) * 2);
+            unsigned gs_streams = (uint32_t)nir_intrinsic_io_semantics(intr).gs_streams << (nir_intrinsic_component(intr) * 2);
             unsigned new_mask = mask & ~info->output_usagemask[loc];
 
             /* Iterate over all components. */
@@ -320,8 +314,7 @@ static void scan_io_usage(const nir_shader *nir, struct si_shader_info *info,
                }
 
                if (nir_intrinsic_has_io_xfb(intr)) {
-                  nir_io_xfb xfb = i < 2 ? nir_intrinsic_io_xfb(intr) :
-                                           nir_intrinsic_io_xfb2(intr);
+                  nir_io_xfb xfb = i < 2 ? nir_intrinsic_io_xfb(intr) : nir_intrinsic_io_xfb2(intr);
                   if (xfb.out[i % 2].num_components) {
                      unsigned stream = (gs_streams >> (i * 2)) & 0x3;
                      info->enabled_streamout_buffer_mask |=
@@ -380,17 +373,17 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
 
       /* Gather the types of used VMEM instructions that return something. */
       switch (tex->op) {
-      case nir_texop_tex:
-      case nir_texop_txb:
-      case nir_texop_txl:
-      case nir_texop_txd:
-      case nir_texop_lod:
-      case nir_texop_tg4:
-         info->uses_vmem_sampler_or_bvh = true;
-         break;
-      default:
-         info->uses_vmem_load_other = true;
-         break;
+         case nir_texop_tex:
+         case nir_texop_txb:
+         case nir_texop_txl:
+         case nir_texop_txd:
+         case nir_texop_lod:
+         case nir_texop_tg4:
+            info->uses_vmem_sampler_or_bvh = true;
+            break;
+         default:
+            info->uses_vmem_load_other = true;
+            break;
       }
 
       if (handle) {
@@ -417,35 +410,35 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
       /* Gather the types of used VMEM instructions that return something. */
       if (nir_intrinsic_infos[intr->intrinsic].has_dest) {
          switch (intr->intrinsic) {
-         case nir_intrinsic_load_ubo:
-            if (!nir_src_is_const(intr->src[1]))
-               info->uses_vmem_load_other = true;
-            break;
+            case nir_intrinsic_load_ubo:
+               if (!nir_src_is_const(intr->src[1]))
+                  info->uses_vmem_load_other = true;
+               break;
 
-         case nir_intrinsic_load_input:
-         case nir_intrinsic_load_input_vertex:
-         case nir_intrinsic_load_per_vertex_input:
-            if (nir->info.stage == MESA_SHADER_VERTEX ||
-                nir->info.stage == MESA_SHADER_TESS_EVAL)
-               info->uses_vmem_load_other = true;
-            break;
+            case nir_intrinsic_load_input:
+            case nir_intrinsic_load_input_vertex:
+            case nir_intrinsic_load_per_vertex_input:
+               if (nir->info.stage == MESA_SHADER_VERTEX ||
+                   nir->info.stage == MESA_SHADER_TESS_EVAL)
+                  info->uses_vmem_load_other = true;
+               break;
 
-         case nir_intrinsic_load_constant:
-         case nir_intrinsic_load_barycentric_at_sample: /* This loads sample positions. */
-         case nir_intrinsic_load_buffer_amd:
-            info->uses_vmem_load_other = true;
-            break;
-
-         default:
-            if (is_image ||
-                is_bindless_image ||
-                is_ssbo ||
-                (strstr(intr_name, "global") == intr_name ||
-                 intr->intrinsic == nir_intrinsic_load_global ||
-                 intr->intrinsic == nir_intrinsic_store_global) ||
-                strstr(intr_name, "scratch"))
+            case nir_intrinsic_load_constant:
+            case nir_intrinsic_load_barycentric_at_sample: /* This loads sample positions. */
+            case nir_intrinsic_load_buffer_amd:
                info->uses_vmem_load_other = true;
-            break;
+               break;
+
+            default:
+               if (is_image ||
+                   is_bindless_image ||
+                   is_ssbo ||
+                   (strstr(intr_name, "global") == intr_name ||
+                    intr->intrinsic == nir_intrinsic_load_global ||
+                    intr->intrinsic == nir_intrinsic_store_global) ||
+                   strstr(intr_name, "scratch"))
+                  info->uses_vmem_load_other = true;
+               break;
          }
       }
 
@@ -466,107 +459,107 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
          info->uses_indirect_descriptor = true;
 
       switch (intr->intrinsic) {
-      case nir_intrinsic_store_ssbo:
-         if (!nir_src_is_const(intr->src[1]))
-            info->uses_indirect_descriptor = true;
-         break;
-      case nir_intrinsic_load_ubo:
-         if (!nir_src_is_const(intr->src[0]))
-            info->uses_indirect_descriptor = true;
-         break;
-      case nir_intrinsic_load_local_invocation_id:
-      case nir_intrinsic_load_workgroup_id: {
-         unsigned mask = nir_ssa_def_components_read(&intr->dest.ssa);
-         while (mask) {
-            unsigned i = u_bit_scan(&mask);
-
-            if (intr->intrinsic == nir_intrinsic_load_workgroup_id)
-               info->uses_block_id[i] = true;
-            else
-               info->uses_thread_id[i] = true;
-         }
-         break;
-      }
-      case nir_intrinsic_load_color0:
-      case nir_intrinsic_load_color1: {
-         unsigned index = intr->intrinsic == nir_intrinsic_load_color1;
-         uint8_t mask = nir_ssa_def_components_read(&intr->dest.ssa);
-         info->colors_read |= mask << (index * 4);
-
-         switch (info->color_interpolate[index]) {
-         case INTERP_MODE_SMOOTH:
-            if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_SAMPLE)
-               info->uses_persp_sample = true;
-            else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTROID)
-               info->uses_persp_centroid = true;
-            else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTER)
-               info->uses_persp_center = true;
+         case nir_intrinsic_store_ssbo:
+            if (!nir_src_is_const(intr->src[1]))
+               info->uses_indirect_descriptor = true;
             break;
-         case INTERP_MODE_NOPERSPECTIVE:
-            if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_SAMPLE)
-               info->uses_linear_sample = true;
-            else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTROID)
-               info->uses_linear_centroid = true;
-            else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTER)
+         case nir_intrinsic_load_ubo:
+            if (!nir_src_is_const(intr->src[0]))
+               info->uses_indirect_descriptor = true;
+            break;
+         case nir_intrinsic_load_local_invocation_id:
+         case nir_intrinsic_load_workgroup_id: {
+            unsigned mask = nir_ssa_def_components_read(&intr->dest.ssa);
+            while (mask) {
+               unsigned i = u_bit_scan(&mask);
+
+               if (intr->intrinsic == nir_intrinsic_load_workgroup_id)
+                  info->uses_block_id[i] = true;
+               else
+                  info->uses_thread_id[i] = true;
+            }
+            break;
+         }
+         case nir_intrinsic_load_color0:
+         case nir_intrinsic_load_color1: {
+            unsigned index = intr->intrinsic == nir_intrinsic_load_color1;
+            uint8_t mask = nir_ssa_def_components_read(&intr->dest.ssa);
+            info->colors_read |= mask << (index * 4);
+
+            switch (info->color_interpolate[index]) {
+               case INTERP_MODE_SMOOTH:
+                  if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_SAMPLE)
+                     info->uses_persp_sample = true;
+                  else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTROID)
+                     info->uses_persp_centroid = true;
+                  else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTER)
+                     info->uses_persp_center = true;
+                  break;
+               case INTERP_MODE_NOPERSPECTIVE:
+                  if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_SAMPLE)
+                     info->uses_linear_sample = true;
+                  else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTROID)
+                     info->uses_linear_centroid = true;
+                  else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTER)
+                     info->uses_linear_center = true;
+                  break;
+               case INTERP_MODE_COLOR:
+                  /* We don't know the final value. This will be FLAT if flatshading is enabled
+                   * in the rasterizer state, otherwise it will be SMOOTH.
+                   */
+                  info->uses_interp_color = true;
+                  if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_SAMPLE)
+                     info->uses_persp_sample_color = true;
+                  else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTROID)
+                     info->uses_persp_centroid_color = true;
+                  else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTER)
+                     info->uses_persp_center_color = true;
+                  break;
+            }
+            break;
+         }
+         case nir_intrinsic_load_barycentric_at_offset: /* uses center */
+         case nir_intrinsic_load_barycentric_at_sample: /* uses center */
+            if (nir_intrinsic_interp_mode(intr) == INTERP_MODE_FLAT)
+               break;
+
+            if (nir_intrinsic_interp_mode(intr) == INTERP_MODE_NOPERSPECTIVE) {
                info->uses_linear_center = true;
+            } else {
+               info->uses_persp_center = true;
+            }
+            if (intr->intrinsic == nir_intrinsic_load_barycentric_at_sample)
+               info->uses_interp_at_sample = true;
             break;
-         case INTERP_MODE_COLOR:
-            /* We don't know the final value. This will be FLAT if flatshading is enabled
-             * in the rasterizer state, otherwise it will be SMOOTH.
-             */
-            info->uses_interp_color = true;
-            if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_SAMPLE)
-               info->uses_persp_sample_color = true;
-            else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTROID)
-               info->uses_persp_centroid_color = true;
-            else if (info->color_interpolate_loc[index] == TGSI_INTERPOLATE_LOC_CENTER)
-               info->uses_persp_center_color = true;
+         case nir_intrinsic_load_frag_coord:
+            info->reads_frag_coord_mask |= nir_ssa_def_components_read(&intr->dest.ssa);
             break;
-         }
-         break;
-      }
-      case nir_intrinsic_load_barycentric_at_offset:   /* uses center */
-      case nir_intrinsic_load_barycentric_at_sample:   /* uses center */
-         if (nir_intrinsic_interp_mode(intr) == INTERP_MODE_FLAT)
+         case nir_intrinsic_load_sample_pos:
+            info->reads_sample_pos_mask |= nir_ssa_def_components_read(&intr->dest.ssa);
             break;
-
-         if (nir_intrinsic_interp_mode(intr) == INTERP_MODE_NOPERSPECTIVE) {
-            info->uses_linear_center = true;
-         } else {
-            info->uses_persp_center = true;
-         }
-         if (intr->intrinsic == nir_intrinsic_load_barycentric_at_sample)
-            info->uses_interp_at_sample = true;
-         break;
-      case nir_intrinsic_load_frag_coord:
-         info->reads_frag_coord_mask |= nir_ssa_def_components_read(&intr->dest.ssa);
-         break;
-      case nir_intrinsic_load_sample_pos:
-         info->reads_sample_pos_mask |= nir_ssa_def_components_read(&intr->dest.ssa);
-         break;
-      case nir_intrinsic_load_input:
-      case nir_intrinsic_load_per_vertex_input:
-      case nir_intrinsic_load_input_vertex:
-      case nir_intrinsic_load_interpolated_input:
-         scan_io_usage(nir, info, intr, true);
-         break;
-      case nir_intrinsic_load_output:
-      case nir_intrinsic_load_per_vertex_output:
-      case nir_intrinsic_store_output:
-      case nir_intrinsic_store_per_vertex_output:
-         scan_io_usage(nir, info, intr, false);
-         break;
-      case nir_intrinsic_load_deref:
-      case nir_intrinsic_store_deref:
-         /* These can only occur if there is indirect temp indexing. */
-         break;
-      case nir_intrinsic_interp_deref_at_centroid:
-      case nir_intrinsic_interp_deref_at_sample:
-      case nir_intrinsic_interp_deref_at_offset:
-         unreachable("these opcodes should have been lowered");
-         break;
-      default:
-         break;
+         case nir_intrinsic_load_input:
+         case nir_intrinsic_load_per_vertex_input:
+         case nir_intrinsic_load_input_vertex:
+         case nir_intrinsic_load_interpolated_input:
+            scan_io_usage(nir, info, intr, true);
+            break;
+         case nir_intrinsic_load_output:
+         case nir_intrinsic_load_per_vertex_output:
+         case nir_intrinsic_store_output:
+         case nir_intrinsic_store_per_vertex_output:
+            scan_io_usage(nir, info, intr, false);
+            break;
+         case nir_intrinsic_load_deref:
+         case nir_intrinsic_store_deref:
+            /* These can only occur if there is indirect temp indexing. */
+            break;
+         case nir_intrinsic_interp_deref_at_centroid:
+         case nir_intrinsic_interp_deref_at_sample:
+         case nir_intrinsic_interp_deref_at_offset:
+            unreachable("these opcodes should have been lowered");
+            break;
+         default:
+            break;
       }
    }
 }
@@ -596,12 +589,10 @@ void si_nir_scan_shader(struct si_screen *sscreen, const struct nir_shader *nir,
             info->color_interpolate[i] = INTERP_MODE_COLOR;
       }
 
-      info->color_interpolate_loc[0] = nir->info.fs.color0_sample ? TGSI_INTERPOLATE_LOC_SAMPLE :
-                                       nir->info.fs.color0_centroid ? TGSI_INTERPOLATE_LOC_CENTROID :
-                                                                      TGSI_INTERPOLATE_LOC_CENTER;
-      info->color_interpolate_loc[1] = nir->info.fs.color1_sample ? TGSI_INTERPOLATE_LOC_SAMPLE :
-                                       nir->info.fs.color1_centroid ? TGSI_INTERPOLATE_LOC_CENTROID :
-                                                                      TGSI_INTERPOLATE_LOC_CENTER;
+      info->color_interpolate_loc[0] = nir->info.fs.color0_sample ? TGSI_INTERPOLATE_LOC_SAMPLE : nir->info.fs.color0_centroid ? TGSI_INTERPOLATE_LOC_CENTROID
+                                                                                                                               : TGSI_INTERPOLATE_LOC_CENTER;
+      info->color_interpolate_loc[1] = nir->info.fs.color1_sample ? TGSI_INTERPOLATE_LOC_SAMPLE : nir->info.fs.color1_centroid ? TGSI_INTERPOLATE_LOC_CENTROID
+                                                                                                                               : TGSI_INTERPOLATE_LOC_CENTER;
       /* Set an invalid value. Will be determined at draw time if needed when the expected
        * conditions are met.
        */
@@ -616,8 +607,8 @@ void si_nir_scan_shader(struct si_screen *sscreen, const struct nir_shader *nir,
 
    /* tess factors are loaded as input instead of system value */
    info->reads_tess_factors = nir->info.patch_inputs_read &
-      (BITFIELD64_BIT(VARYING_SLOT_TESS_LEVEL_INNER) |
-       BITFIELD64_BIT(VARYING_SLOT_TESS_LEVEL_OUTER));
+                              (BITFIELD64_BIT(VARYING_SLOT_TESS_LEVEL_INNER) |
+                               BITFIELD64_BIT(VARYING_SLOT_TESS_LEVEL_OUTER));
 
    info->uses_frontface = BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_FRONT_FACE);
    info->uses_instanceid = BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_INSTANCE_ID);
@@ -663,7 +654,7 @@ void si_nir_scan_shader(struct si_screen *sscreen, const struct nir_shader *nir,
       info->writes_position = nir->info.outputs_written & VARYING_BIT_POS;
    }
 
-   nir_function_impl *impl = nir_shader_get_entrypoint((nir_shader*)nir);
+   nir_function_impl *impl = nir_shader_get_entrypoint((nir_shader *)nir);
    nir_foreach_block (block, impl) {
       nir_foreach_instr (instr, block)
          scan_instruction(nir, info, instr);
@@ -723,7 +714,7 @@ void si_nir_scan_shader(struct si_screen *sscreen, const struct nir_shader *nir,
    for (unsigned i = 0; i < info->num_outputs; i++)
       info->output_readmask[i] &= info->output_usagemask[i];
 
-   info->has_divergent_loop = nir_has_divergent_loop((nir_shader*)nir);
+   info->has_divergent_loop = nir_has_divergent_loop((nir_shader *)nir);
 
    if (nir->info.stage == MESA_SHADER_VERTEX ||
        nir->info.stage == MESA_SHADER_TESS_CTRL ||
@@ -798,10 +789,8 @@ void si_nir_scan_shader(struct si_screen *sscreen, const struct nir_shader *nir,
          u_vertices_per_prim((enum mesa_prim)info->base.gs.input_primitive);
    }
 
-   info->clipdist_mask = info->writes_clipvertex ? SI_USER_CLIP_PLANE_MASK :
-                         u_bit_consecutive(0, info->base.clip_distance_array_size);
-   info->culldist_mask = u_bit_consecutive(0, info->base.cull_distance_array_size) <<
-                         info->base.clip_distance_array_size;
+   info->clipdist_mask = info->writes_clipvertex ? SI_USER_CLIP_PLANE_MASK : u_bit_consecutive(0, info->base.clip_distance_array_size);
+   info->culldist_mask = u_bit_consecutive(0, info->base.cull_distance_array_size) << info->base.clip_distance_array_size;
 
    if (nir->info.stage == MESA_SHADER_FRAGMENT) {
       for (unsigned i = 0; i < info->num_inputs; i++) {

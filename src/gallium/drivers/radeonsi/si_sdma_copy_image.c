@@ -5,13 +5,11 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/u_memory.h"
 #include "si_build_pm4.h"
 #include "sid.h"
-#include "util/u_memory.h"
 
-
-static
-bool si_prepare_for_sdma_copy(struct si_context *sctx, struct si_texture *dst,struct si_texture *src)
+static bool si_prepare_for_sdma_copy(struct si_context *sctx, struct si_texture *dst, struct si_texture *src)
 {
    if (dst->surface.bpe != src->surface.bpe)
       return false;
@@ -66,7 +64,7 @@ static bool si_sdma_v4_v5_copy_texture(struct si_context *sctx, struct si_textur
    unsigned copy_height = DIV_ROUND_UP(ssrc->buffer.b.b.height0, ssrc->surface.blk_h);
 
    bool tmz = (ssrc->buffer.flags & RADEON_FLAG_ENCRYPTED);
-   assert (!tmz || (sdst->buffer.flags & RADEON_FLAG_ENCRYPTED));
+   assert(!tmz || (sdst->buffer.flags & RADEON_FLAG_ENCRYPTED));
 
    /* Linear -> linear sub-window copy. */
    if (ssrc->surface.is_linear && sdst->surface.is_linear) {
@@ -165,8 +163,7 @@ static bool si_sdma_v4_v5_copy_texture(struct si_context *sctx, struct si_textur
    return false;
 }
 
-static
-bool cik_sdma_copy_texture(struct si_context *sctx, struct si_texture *sdst, struct si_texture *ssrc)
+static bool cik_sdma_copy_texture(struct si_context *sctx, struct si_texture *sdst, struct si_texture *ssrc)
 {
    struct radeon_info *info = &sctx->screen->info;
    unsigned bpp = sdst->surface.bpe;
@@ -286,20 +283,23 @@ bool cik_sdma_copy_texture(struct si_context *sctx, struct si_texture *sdst, str
 
       /* Deduce the size of reads from the linear surface. */
       switch (tiled_micro_mode) {
-      case V_009910_ADDR_SURF_DISPLAY_MICRO_TILING:
-         granularity = bpp == 1 ? 64 / (8 * bpp) : 128 / (8 * bpp);
-         break;
-      case V_009910_ADDR_SURF_THIN_MICRO_TILING:
-      case V_009910_ADDR_SURF_DEPTH_MICRO_TILING:
-         if (0 /* TODO: THICK microtiling */)
-            granularity =
-               bpp == 1 ? 32 / (8 * bpp)
-                        : bpp == 2 ? 64 / (8 * bpp) : bpp <= 8 ? 128 / (8 * bpp) : 256 / (8 * bpp);
-         else
-            granularity = bpp <= 2 ? 64 / (8 * bpp) : bpp <= 8 ? 128 / (8 * bpp) : 256 / (8 * bpp);
-         break;
-      default:
-         return false;
+         case V_009910_ADDR_SURF_DISPLAY_MICRO_TILING:
+            granularity = bpp == 1 ? 64 / (8 * bpp) : 128 / (8 * bpp);
+            break;
+         case V_009910_ADDR_SURF_THIN_MICRO_TILING:
+         case V_009910_ADDR_SURF_DEPTH_MICRO_TILING:
+            if (0 /* TODO: THICK microtiling */)
+               granularity =
+                  bpp == 1   ? 32 / (8 * bpp)
+                  : bpp == 2 ? 64 / (8 * bpp)
+                  : bpp <= 8 ? 128 / (8 * bpp)
+                             : 256 / (8 * bpp);
+            else
+               granularity = bpp <= 2 ? 64 / (8 * bpp) : bpp <= 8 ? 128 / (8 * bpp)
+                                                                  : 256 / (8 * bpp);
+            break;
+         default:
+            return false;
       }
 
       /* The linear reads start at tiled_x & ~(granularity - 1).
@@ -410,14 +410,12 @@ bool si_sdma_copy_image(struct si_context *sctx, struct si_texture *dst, struct 
          return false;
    }
 
-   radeon_add_to_buffer_list(sctx, sctx->sdma_cs, &src->buffer, RADEON_USAGE_READ |
-                             RADEON_PRIO_SAMPLER_TEXTURE);
-   radeon_add_to_buffer_list(sctx, sctx->sdma_cs, &dst->buffer, RADEON_USAGE_WRITE |
-                             RADEON_PRIO_SAMPLER_TEXTURE);
+   radeon_add_to_buffer_list(sctx, sctx->sdma_cs, &src->buffer, RADEON_USAGE_READ | RADEON_PRIO_SAMPLER_TEXTURE);
+   radeon_add_to_buffer_list(sctx, sctx->sdma_cs, &dst->buffer, RADEON_USAGE_WRITE | RADEON_PRIO_SAMPLER_TEXTURE);
 
    unsigned flags = RADEON_FLUSH_START_NEXT_GFX_IB_NOW;
    if (unlikely(radeon_uses_secure_bos(sctx->ws))) {
-      if ((bool) (src->buffer.flags & RADEON_FLAG_ENCRYPTED) !=
+      if ((bool)(src->buffer.flags & RADEON_FLAG_ENCRYPTED) !=
           sctx->ws->cs_is_secure(sctx->sdma_cs)) {
          flags = RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION;
       }

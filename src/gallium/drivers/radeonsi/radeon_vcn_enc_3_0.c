@@ -12,12 +12,12 @@
 
 #include "util/u_video.h"
 
-#include "si_pipe.h"
-#include "radeon_video.h"
 #include "radeon_vcn_enc.h"
+#include "radeon_video.h"
+#include "si_pipe.h"
 
-#define RENCODE_FW_INTERFACE_MAJOR_VERSION   1
-#define RENCODE_FW_INTERFACE_MINOR_VERSION   0
+#define RENCODE_FW_INTERFACE_MAJOR_VERSION 1
+#define RENCODE_FW_INTERFACE_MINOR_VERSION 0
 
 static void radeon_enc_spec_misc(struct radeon_encoder *enc)
 {
@@ -65,7 +65,7 @@ static void radeon_enc_encode_params_h264(struct radeon_encoder *enc)
    enc->enc_pic.h264_enc_params.input_pic_order_cnt = 0;
    enc->enc_pic.h264_enc_params.interlaced_mode = RENCODE_H264_INTERLACING_MODE_PROGRESSIVE;
    enc->enc_pic.h264_enc_params.l0_reference_picture1_index = 0xFFFFFFFF;
-   enc->enc_pic.h264_enc_params.l1_reference_picture0_index= 0xFFFFFFFF;
+   enc->enc_pic.h264_enc_params.l1_reference_picture0_index = 0xFFFFFFFF;
 
    RADEON_ENC_BEGIN(enc->cmd.enc_params_h264);
    RADEON_ENC_CS(enc->enc_pic.h264_enc_params.input_picture_structure);
@@ -114,7 +114,7 @@ static void radeon_enc_nalu_pps_hevc(struct radeon_encoder *enc)
    radeon_enc_code_fixed_bits(enc, enc->enc_pic.hevc_spec_misc.constrained_intra_pred_flag, 1);
    radeon_enc_code_fixed_bits(enc, 0x1, 1);
    if (enc->enc_pic.rc_session_init.rate_control_method ==
-      RENCODE_RATE_CONTROL_METHOD_NONE)
+       RENCODE_RATE_CONTROL_METHOD_NONE)
       radeon_enc_code_fixed_bits(enc, 0x0, 1);
    else {
       radeon_enc_code_fixed_bits(enc, 0x1, 1);
@@ -246,5 +246,5 @@ void radeon_enc_3_0_init(struct radeon_encoder *enc)
 
    enc->enc_pic.session_info.interface_version =
       ((RENCODE_FW_INTERFACE_MAJOR_VERSION << RENCODE_IF_MAJOR_VERSION_SHIFT) |
-      (RENCODE_FW_INTERFACE_MINOR_VERSION << RENCODE_IF_MINOR_VERSION_SHIFT));
+       (RENCODE_FW_INTERFACE_MINOR_VERSION << RENCODE_IF_MINOR_VERSION_SHIFT));
 }

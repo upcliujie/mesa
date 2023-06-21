@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "si_build_pm4.h"
 #include "si_pipe.h"
 #include "sid.h"
-#include "si_build_pm4.h"
 
 /* Set this if you want the ME to wait until CP DMA is done.
  * It should be set on the last CP DMA packet. */
@@ -25,8 +25,8 @@
 static inline unsigned cp_dma_max_byte_count(struct si_context *sctx)
 {
    unsigned max =
-      sctx->gfx_level >= GFX11 ? 32767 :
-      sctx->gfx_level >= GFX9 ? S_415_BYTE_COUNT_GFX9(~0u) : S_415_BYTE_COUNT_GFX6(~0u);
+      sctx->gfx_level >= GFX11 ? 32767 : sctx->gfx_level >= GFX9 ? S_415_BYTE_COUNT_GFX9(~0u)
+                                                                 : S_415_BYTE_COUNT_GFX6(~0u);
 
    /* make it aligned for optimal performance */
    return max & ~(SI_CPDMA_ALIGNMENT - 1);
@@ -243,7 +243,7 @@ static void si_cp_dma_realign_engine(struct si_context *sctx, unsigned size, uns
       si_resource_reference(&sctx->scratch_buffer, NULL);
       sctx->scratch_buffer = si_aligned_buffer_create(&sctx->screen->b,
                                                       PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL |
-                                                      SI_RESOURCE_FLAG_DISCARDABLE,
+                                                         SI_RESOURCE_FLAG_DISCARDABLE,
                                                       PIPE_USAGE_DEFAULT, scratch_size, 256);
       if (!sctx->scratch_buffer)
          return;
@@ -319,8 +319,7 @@ void si_cp_dma_copy_buffer(struct si_context *sctx, struct pipe_resource *dst,
       bool secure = src && (si_resource(src)->flags & RADEON_FLAG_ENCRYPTED);
       assert(!secure || (!dst || (si_resource(dst)->flags & RADEON_FLAG_ENCRYPTED)));
       if (secure != sctx->ws->cs_is_secure(&sctx->gfx_cs)) {
-         si_flush_gfx_cs(sctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW |
-                               RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION, NULL);
+         si_flush_gfx_cs(sctx, RADEON_FLUSH_ASYNC_START_NEXT_GFX_IB_NOW | RADEON_FLUSH_TOGGLE_SECURE_SUBMISSION, NULL);
       }
    }
 
@@ -334,7 +333,7 @@ void si_cp_dma_copy_buffer(struct si_context *sctx, struct pipe_resource *dst,
       sctx->flags |= SI_CONTEXT_PS_PARTIAL_FLUSH;
 
    if ((dst || src) && !(user_flags & SI_OP_SKIP_CACHE_INV_BEFORE))
-         sctx->flags |= si_get_flush_flags(sctx, coher, cache_policy);
+      sctx->flags |= si_get_flush_flags(sctx, coher, cache_policy);
 
    /* This is the main part doing the copying. Src is always aligned. */
    main_dst_offset = dst_offset + skipped_size;

@@ -85,7 +85,8 @@ void si_test_dma_perf(struct si_screen *sscreen)
             test_cs ? cs_waves_per_sh_list[cs_method / (3 * NUM_SHADERS)] : 0;
          cs_method %= 3 * NUM_SHADERS;
          unsigned cache_policy =
-            test_cp ? method % 3 : test_cs ? (cs_method / NUM_SHADERS) : 0;
+            test_cp ? method % 3 : test_cs ? (cs_method / NUM_SHADERS)
+                                           : 0;
          unsigned cs_dwords_per_thread =
             test_cs ? cs_dwords_per_thread_list[cs_method % NUM_SHADERS] : 0;
 
@@ -107,10 +108,12 @@ void si_test_dma_perf(struct si_screen *sscreen)
          printf("%s ,", placement_str[placement]);
          if (test_cs) {
             printf("CS x%-4u,%3s,", cs_dwords_per_thread,
-                   cache_policy == L2_LRU ? "LRU" : cache_policy == L2_STREAM ? "Str" : "");
+                   cache_policy == L2_LRU ? "LRU" : cache_policy == L2_STREAM ? "Str"
+                                                                              : "");
          } else {
             printf("%s,%3s,", method_str[method],
-                   method == L2_LRU ? "LRU" : method == L2_STREAM ? "Str" : "");
+                   method == L2_LRU ? "LRU" : method == L2_STREAM ? "Str"
+                                                                  : "");
          }
          if (test_cs && cs_waves_per_sh)
             printf("%2u,", cs_waves_per_sh);
@@ -120,7 +123,7 @@ void si_test_dma_perf(struct si_screen *sscreen)
          void *compute_shader = NULL;
          if (test_cs) {
             compute_shader = si_create_dma_compute_shader(ctx, cs_dwords_per_thread,
-                                              cache_policy == L2_STREAM, is_copy);
+                                                          cache_policy == L2_STREAM, is_copy);
          }
 
          double score = 0;
@@ -410,8 +413,8 @@ void si_test_dma_perf(struct si_screen *sscreen)
 
             assert(best);
             const char *cache_policy_str =
-               best->cache_policy == L2_BYPASS ? "L2_BYPASS" :
-               best->cache_policy == L2_LRU ? "L2_LRU   " : "L2_STREAM";
+               best->cache_policy == L2_BYPASS ? "L2_BYPASS" : best->cache_policy == L2_LRU ? "L2_LRU   "
+                                                                                            : "L2_STREAM";
 
             if (best->is_cp) {
                printf("CP_DMA(%s);\n", cache_policy_str);

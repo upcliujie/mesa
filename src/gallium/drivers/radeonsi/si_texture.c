@@ -6,9 +6,6 @@
  */
 
 #include "drm-uapi/drm_fourcc.h"
-#include "si_pipe.h"
-#include "si_query.h"
-#include "sid.h"
 #include "frontend/drm_driver.h"
 #include "util/format/u_format.h"
 #include "util/os_time.h"
@@ -18,6 +15,9 @@
 #include "util/u_resource.h"
 #include "util/u_surface.h"
 #include "util/u_transfer.h"
+#include "si_pipe.h"
+#include "si_query.h"
+#include "sid.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -133,7 +133,7 @@ static uint64_t si_texture_get_offset(struct si_screen *sscreen, struct si_textu
       return tex->surface.u.gfx9.surf_offset + box->z * tex->surface.u.gfx9.surf_slice_size +
              tex->surface.u.gfx9.offset[level] +
              (box->y / tex->surface.blk_h * (uint64_t)pitch + box->x / tex->surface.blk_w) *
-             tex->surface.bpe;
+                tex->surface.bpe;
    } else {
       *stride = tex->surface.u.legacy.level[level].nblk_x * tex->surface.bpe;
       assert((uint64_t)tex->surface.u.legacy.level[level].slice_size_dw * 4 <= UINT_MAX);
@@ -217,37 +217,37 @@ static int si_init_surface(struct si_screen *sscreen, struct radeon_surf *surfac
          flags |= RADEON_SURF_DISABLE_DCC;
 
       switch (sscreen->info.gfx_level) {
-      case GFX8:
-         /* Stoney: 128bpp MSAA textures randomly fail piglit tests with DCC. */
-         if (sscreen->info.family == CHIP_STONEY && bpe == 16 && ptex->nr_samples >= 2)
-            flags |= RADEON_SURF_DISABLE_DCC;
+         case GFX8:
+            /* Stoney: 128bpp MSAA textures randomly fail piglit tests with DCC. */
+            if (sscreen->info.family == CHIP_STONEY && bpe == 16 && ptex->nr_samples >= 2)
+               flags |= RADEON_SURF_DISABLE_DCC;
 
-         /* DCC clear for 4x and 8x MSAA array textures unimplemented. */
-         if (ptex->nr_storage_samples >= 4 && ptex->array_size > 1)
-            flags |= RADEON_SURF_DISABLE_DCC;
-         break;
+            /* DCC clear for 4x and 8x MSAA array textures unimplemented. */
+            if (ptex->nr_storage_samples >= 4 && ptex->array_size > 1)
+               flags |= RADEON_SURF_DISABLE_DCC;
+            break;
 
-      case GFX9:
-         /* DCC MSAA fails this on Raven:
-          *    https://www.khronos.org/registry/webgl/sdk/tests/deqp/functional/gles3/fbomultisample.2_samples.html
-          * and this on Picasso:
-          *    https://www.khronos.org/registry/webgl/sdk/tests/deqp/functional/gles3/fbomultisample.4_samples.html
-          */
-         if (sscreen->info.family == CHIP_RAVEN && ptex->nr_storage_samples >= 2 && bpe < 4)
-            flags |= RADEON_SURF_DISABLE_DCC;
-         break;
+         case GFX9:
+            /* DCC MSAA fails this on Raven:
+             *    https://www.khronos.org/registry/webgl/sdk/tests/deqp/functional/gles3/fbomultisample.2_samples.html
+             * and this on Picasso:
+             *    https://www.khronos.org/registry/webgl/sdk/tests/deqp/functional/gles3/fbomultisample.4_samples.html
+             */
+            if (sscreen->info.family == CHIP_RAVEN && ptex->nr_storage_samples >= 2 && bpe < 4)
+               flags |= RADEON_SURF_DISABLE_DCC;
+            break;
 
-      case GFX10:
-      case GFX10_3:
-         if (ptex->nr_storage_samples >= 2 && !sscreen->options.dcc_msaa)
-            flags |= RADEON_SURF_DISABLE_DCC;
-         break;
+         case GFX10:
+         case GFX10_3:
+            if (ptex->nr_storage_samples >= 2 && !sscreen->options.dcc_msaa)
+               flags |= RADEON_SURF_DISABLE_DCC;
+            break;
 
-      case GFX11:
-         break;
+         case GFX11:
+            break;
 
-      default:
-         assert(0);
+         default:
+            assert(0);
       }
    }
 
@@ -312,8 +312,7 @@ void si_eliminate_fast_color_clear(struct si_context *sctx, struct si_texture *t
 
    /* Flush only if any fast clear elimination took place. */
    bool flushed = false;
-   if (n != sctx->num_decompress_calls)
-   {
+   if (n != sctx->num_decompress_calls) {
       ctx->flush(ctx, NULL, 0);
       flushed = true;
    }
@@ -572,56 +571,57 @@ static bool si_resource_get_param(struct pipe_screen *screen, struct pipe_contex
    struct winsys_handle whandle;
 
    switch (param) {
-   case PIPE_RESOURCE_PARAM_NPLANES:
-      if (resource->target == PIPE_BUFFER)
-         *value = 1;
-      else if (tex->num_planes > 1)
-         *value = tex->num_planes;
-      else
-         *value = ac_surface_get_nplanes(&tex->surface);
-      return true;
+      case PIPE_RESOURCE_PARAM_NPLANES:
+         if (resource->target == PIPE_BUFFER)
+            *value = 1;
+         else if (tex->num_planes > 1)
+            *value = tex->num_planes;
+         else
+            *value = ac_surface_get_nplanes(&tex->surface);
+         return true;
 
-   case PIPE_RESOURCE_PARAM_STRIDE:
-      if (resource->target == PIPE_BUFFER)
-         *value = 0;
-      else
-         *value = ac_surface_get_plane_stride(sscreen->info.gfx_level,
-                                              &tex->surface, plane, level);
-      return true;
+      case PIPE_RESOURCE_PARAM_STRIDE:
+         if (resource->target == PIPE_BUFFER)
+            *value = 0;
+         else
+            *value = ac_surface_get_plane_stride(sscreen->info.gfx_level,
+                                                 &tex->surface, plane, level);
+         return true;
 
-   case PIPE_RESOURCE_PARAM_OFFSET:
-      if (resource->target == PIPE_BUFFER) {
-         *value = 0;
-      } else {
-         uint64_t level_offset = tex->surface.is_linear ? tex->surface.u.gfx9.offset[level] : 0;
-         *value = ac_surface_get_plane_offset(sscreen->info.gfx_level,
-                                              &tex->surface, plane, layer)  + level_offset;
-      }
-      return true;
+      case PIPE_RESOURCE_PARAM_OFFSET:
+         if (resource->target == PIPE_BUFFER) {
+            *value = 0;
+         } else {
+            uint64_t level_offset = tex->surface.is_linear ? tex->surface.u.gfx9.offset[level] : 0;
+            *value = ac_surface_get_plane_offset(sscreen->info.gfx_level,
+                                                 &tex->surface, plane, layer) +
+                     level_offset;
+         }
+         return true;
 
-   case PIPE_RESOURCE_PARAM_MODIFIER:
-      *value = tex->surface.modifier;
-      return true;
+      case PIPE_RESOURCE_PARAM_MODIFIER:
+         *value = tex->surface.modifier;
+         return true;
 
-   case PIPE_RESOURCE_PARAM_HANDLE_TYPE_SHARED:
-   case PIPE_RESOURCE_PARAM_HANDLE_TYPE_KMS:
-   case PIPE_RESOURCE_PARAM_HANDLE_TYPE_FD:
-      memset(&whandle, 0, sizeof(whandle));
+      case PIPE_RESOURCE_PARAM_HANDLE_TYPE_SHARED:
+      case PIPE_RESOURCE_PARAM_HANDLE_TYPE_KMS:
+      case PIPE_RESOURCE_PARAM_HANDLE_TYPE_FD:
+         memset(&whandle, 0, sizeof(whandle));
 
-      if (param == PIPE_RESOURCE_PARAM_HANDLE_TYPE_SHARED)
-         whandle.type = WINSYS_HANDLE_TYPE_SHARED;
-      else if (param == PIPE_RESOURCE_PARAM_HANDLE_TYPE_KMS)
-         whandle.type = WINSYS_HANDLE_TYPE_KMS;
-      else if (param == PIPE_RESOURCE_PARAM_HANDLE_TYPE_FD)
-         whandle.type = WINSYS_HANDLE_TYPE_FD;
+         if (param == PIPE_RESOURCE_PARAM_HANDLE_TYPE_SHARED)
+            whandle.type = WINSYS_HANDLE_TYPE_SHARED;
+         else if (param == PIPE_RESOURCE_PARAM_HANDLE_TYPE_KMS)
+            whandle.type = WINSYS_HANDLE_TYPE_KMS;
+         else if (param == PIPE_RESOURCE_PARAM_HANDLE_TYPE_FD)
+            whandle.type = WINSYS_HANDLE_TYPE_FD;
 
-      if (!screen->resource_get_handle(screen, context, resource, &whandle, handle_usage))
-         return false;
+         if (!screen->resource_get_handle(screen, context, resource, &whandle, handle_usage))
+            return false;
 
-      *value = whandle.handle;
-      return true;
-   case PIPE_RESOURCE_PARAM_LAYER_STRIDE:
-      break;
+         *value = whandle.handle;
+         return true;
+      case PIPE_RESOURCE_PARAM_LAYER_STRIDE:
+         break;
    }
    return false;
 }
@@ -1144,7 +1144,7 @@ static struct si_texture *si_texture_create_object(struct pipe_screen *screen,
       si_init_buffer_clear(&clears[num_clears++], &tex->buffer.b.b, tex->surface.display_dcc_offset,
                            tex->surface.u.gfx9.color.display_dcc_size,
                            sscreen->info.gfx_level >= GFX11 ? GFX11_DCC_CLEAR_1111_UNORM
-                                                             : GFX8_DCC_CLEAR_1111);
+                                                            : GFX8_DCC_CLEAR_1111);
    }
 
    /* Execute the clears. */
@@ -1264,8 +1264,7 @@ si_texture_create_with_modifier(struct pipe_screen *screen,
    enum radeon_surf_mode tile_mode = si_choose_tiling(sscreen, templ, tc_compatible_htile);
 
    /* This allocates textures with multiple planes like NV12 in 1 buffer. */
-   enum
-   {
+   enum {
       SI_TEXTURE_MAX_PLANES = 3
    };
    struct radeon_surf surface[SI_TEXTURE_MAX_PLANES] = {};
@@ -1352,7 +1351,7 @@ bool si_texture_commit(struct si_context *ctx, struct si_resource *res, unsigned
    assert(ctx->gfx_level >= GFX9);
 
    unsigned row_pitch = surface->u.gfx9.prt_level_pitch[level] *
-      surface->prt_tile_height * surface->prt_tile_depth * blks * samples;
+                        surface->prt_tile_height * surface->prt_tile_depth * blks * samples;
    uint64_t depth_pitch = surface->u.gfx9.surf_slice_size * surface->prt_tile_depth;
 
    unsigned x = box->x / surface->prt_tile_width;
@@ -1369,7 +1368,7 @@ bool si_texture_commit(struct si_context *ctx, struct si_resource *res, unsigned
    uint64_t level_base = ROUND_DOWN_TO(surface->u.gfx9.prt_level_offset[level],
                                        RADEON_SPARSE_PAGE_SIZE);
    uint64_t commit_base = level_base +
-      x * RADEON_SPARSE_PAGE_SIZE + y * (uint64_t)row_pitch + z * depth_pitch;
+                          x * RADEON_SPARSE_PAGE_SIZE + y * (uint64_t)row_pitch + z * depth_pitch;
 
    uint64_t size = (uint64_t)w * RADEON_SPARSE_PAGE_SIZE;
    for (int i = 0; i < d; i++) {
@@ -1394,13 +1393,14 @@ static void si_query_dmabuf_modifiers(struct pipe_screen *screen,
    struct si_screen *sscreen = (struct si_screen *)screen;
 
    unsigned ac_mod_count = max;
-   ac_get_supported_modifiers(&sscreen->info, &(struct ac_modifier_options) {
-         .dcc = !(sscreen->debug_flags & DBG(NO_DCC)),
-         /* Do not support DCC with retiling yet. This needs explicit
-          * resource flushes, but the app has no way to promise doing
-          * flushes with modifiers. */
-         .dcc_retile = !(sscreen->debug_flags & DBG(NO_DCC)),
-      }, format, &ac_mod_count,  max ? modifiers : NULL);
+   ac_get_supported_modifiers(&sscreen->info, &(struct ac_modifier_options){
+                                                 .dcc = !(sscreen->debug_flags & DBG(NO_DCC)),
+                                                 /* Do not support DCC with retiling yet. This needs explicit
+                                                  * resource flushes, but the app has no way to promise doing
+                                                  * flushes with modifiers. */
+                                                 .dcc_retile = !(sscreen->debug_flags & DBG(NO_DCC)),
+                                              },
+                              format, &ac_mod_count, max ? modifiers : NULL);
    if (max && external_only) {
       for (unsigned i = 0; i < ac_mod_count; ++i)
          external_only[i] = util_format_is_yuv(format);
@@ -1410,9 +1410,9 @@ static void si_query_dmabuf_modifiers(struct pipe_screen *screen,
 
 static bool
 si_is_dmabuf_modifier_supported(struct pipe_screen *screen,
-                               uint64_t modifier,
-                               enum pipe_format format,
-                               bool *external_only)
+                                uint64_t modifier,
+                                enum pipe_format format,
+                                bool *external_only)
 {
    int allowed_mod_count;
    si_query_dmabuf_modifiers(screen, format, 0, NULL, NULL, &allowed_mod_count);
@@ -1431,7 +1431,7 @@ si_is_dmabuf_modifier_supported(struct pipe_screen *screen,
    }
 
    si_query_dmabuf_modifiers(screen, format, allowed_mod_count, allowed_modifiers,
-                            external_array, &allowed_mod_count);
+                             external_array, &allowed_mod_count);
 
    bool supported = false;
    for (int i = 0; i < allowed_mod_count && !supported; ++i) {
@@ -1450,7 +1450,7 @@ si_is_dmabuf_modifier_supported(struct pipe_screen *screen,
 
 static unsigned
 si_get_dmabuf_modifier_planes(struct pipe_screen *pscreen, uint64_t modifier,
-                             enum pipe_format format)
+                              enum pipe_format format)
 {
    unsigned planes = util_format_get_num_planes(format);
 
@@ -1628,7 +1628,8 @@ static struct pipe_resource *si_texture_from_winsys_buffer(struct si_screen *ssc
    }
 
    if (ac_surface_get_plane_offset(sscreen->info.gfx_level, &tex->surface, 0, 0) +
-        tex->surface.total_size > buf->size) {
+          tex->surface.total_size >
+       buf->size) {
       si_texture_reference(&tex, NULL);
       return NULL;
    }
@@ -1695,24 +1696,24 @@ bool si_init_flushed_depth_texture(struct pipe_context *ctx, struct pipe_resourc
 
    if (!tex->can_sample_z && tex->can_sample_s) {
       switch (pipe_format) {
-      case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
-         /* Save memory by not allocating the S plane. */
-         pipe_format = PIPE_FORMAT_Z32_FLOAT;
-         break;
-      case PIPE_FORMAT_Z24_UNORM_S8_UINT:
-      case PIPE_FORMAT_S8_UINT_Z24_UNORM:
-         /* Save memory bandwidth by not copying the
-          * stencil part during flush.
-          *
-          * This potentially increases memory bandwidth
-          * if an application uses both Z and S texturing
-          * simultaneously (a flushed Z24S8 texture
-          * would be stored compactly), but how often
-          * does that really happen?
-          */
-         pipe_format = PIPE_FORMAT_Z24X8_UNORM;
-         break;
-      default:;
+         case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+            /* Save memory by not allocating the S plane. */
+            pipe_format = PIPE_FORMAT_Z32_FLOAT;
+            break;
+         case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+         case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+            /* Save memory bandwidth by not copying the
+             * stencil part during flush.
+             *
+             * This potentially increases memory bandwidth
+             * if an application uses both Z and S texturing
+             * simultaneously (a flushed Z24S8 texture
+             * would be stored compactly), but how often
+             * does that really happen?
+             */
+            pipe_format = PIPE_FORMAT_Z24X8_UNORM;
+            break;
+         default:;
       }
    } else if (!tex->can_sample_s && tex->can_sample_z) {
       assert(util_format_has_stencil(util_format_description(pipe_format)));
@@ -2157,48 +2158,48 @@ unsigned si_translate_colorswap(enum amd_gfx_level gfx_level, enum pipe_format f
       return ~0U;
 
    switch (desc->nr_channels) {
-   case 1:
-      if (HAS_SWIZZLE(0, X))
-         return V_028C70_SWAP_STD; /* X___ */
-      else if (HAS_SWIZZLE(3, X))
-         return V_028C70_SWAP_ALT_REV; /* ___X */
-      break;
-   case 2:
-      if ((HAS_SWIZZLE(0, X) && HAS_SWIZZLE(1, Y)) || (HAS_SWIZZLE(0, X) && HAS_SWIZZLE(1, NONE)) ||
-          (HAS_SWIZZLE(0, NONE) && HAS_SWIZZLE(1, Y)))
-         return V_028C70_SWAP_STD; /* XY__ */
-      else if ((HAS_SWIZZLE(0, Y) && HAS_SWIZZLE(1, X)) ||
-               (HAS_SWIZZLE(0, Y) && HAS_SWIZZLE(1, NONE)) ||
-               (HAS_SWIZZLE(0, NONE) && HAS_SWIZZLE(1, X)))
-         /* YX__ */
-         return (do_endian_swap ? V_028C70_SWAP_STD : V_028C70_SWAP_STD_REV);
-      else if (HAS_SWIZZLE(0, X) && HAS_SWIZZLE(3, Y))
-         return V_028C70_SWAP_ALT; /* X__Y */
-      else if (HAS_SWIZZLE(0, Y) && HAS_SWIZZLE(3, X))
-         return V_028C70_SWAP_ALT_REV; /* Y__X */
-      break;
-   case 3:
-      if (HAS_SWIZZLE(0, X))
-         return (do_endian_swap ? V_028C70_SWAP_STD_REV : V_028C70_SWAP_STD);
-      else if (HAS_SWIZZLE(0, Z))
-         return V_028C70_SWAP_STD_REV; /* ZYX */
-      break;
-   case 4:
-      /* check the middle channels, the 1st and 4th channel can be NONE */
-      if (HAS_SWIZZLE(1, Y) && HAS_SWIZZLE(2, Z)) {
-         return V_028C70_SWAP_STD; /* XYZW */
-      } else if (HAS_SWIZZLE(1, Z) && HAS_SWIZZLE(2, Y)) {
-         return V_028C70_SWAP_STD_REV; /* WZYX */
-      } else if (HAS_SWIZZLE(1, Y) && HAS_SWIZZLE(2, X)) {
-         return V_028C70_SWAP_ALT; /* ZYXW */
-      } else if (HAS_SWIZZLE(1, Z) && HAS_SWIZZLE(2, W)) {
-         /* YZWX */
-         if (desc->is_array)
-            return V_028C70_SWAP_ALT_REV;
-         else
-            return (do_endian_swap ? V_028C70_SWAP_ALT : V_028C70_SWAP_ALT_REV);
-      }
-      break;
+      case 1:
+         if (HAS_SWIZZLE(0, X))
+            return V_028C70_SWAP_STD;     /* X___ */
+         else if (HAS_SWIZZLE(3, X))
+            return V_028C70_SWAP_ALT_REV; /* ___X */
+         break;
+      case 2:
+         if ((HAS_SWIZZLE(0, X) && HAS_SWIZZLE(1, Y)) || (HAS_SWIZZLE(0, X) && HAS_SWIZZLE(1, NONE)) ||
+             (HAS_SWIZZLE(0, NONE) && HAS_SWIZZLE(1, Y)))
+            return V_028C70_SWAP_STD; /* XY__ */
+         else if ((HAS_SWIZZLE(0, Y) && HAS_SWIZZLE(1, X)) ||
+                  (HAS_SWIZZLE(0, Y) && HAS_SWIZZLE(1, NONE)) ||
+                  (HAS_SWIZZLE(0, NONE) && HAS_SWIZZLE(1, X)))
+            /* YX__ */
+            return (do_endian_swap ? V_028C70_SWAP_STD : V_028C70_SWAP_STD_REV);
+         else if (HAS_SWIZZLE(0, X) && HAS_SWIZZLE(3, Y))
+            return V_028C70_SWAP_ALT;     /* X__Y */
+         else if (HAS_SWIZZLE(0, Y) && HAS_SWIZZLE(3, X))
+            return V_028C70_SWAP_ALT_REV; /* Y__X */
+         break;
+      case 3:
+         if (HAS_SWIZZLE(0, X))
+            return (do_endian_swap ? V_028C70_SWAP_STD_REV : V_028C70_SWAP_STD);
+         else if (HAS_SWIZZLE(0, Z))
+            return V_028C70_SWAP_STD_REV; /* ZYX */
+         break;
+      case 4:
+         /* check the middle channels, the 1st and 4th channel can be NONE */
+         if (HAS_SWIZZLE(1, Y) && HAS_SWIZZLE(2, Z)) {
+            return V_028C70_SWAP_STD;     /* XYZW */
+         } else if (HAS_SWIZZLE(1, Z) && HAS_SWIZZLE(2, Y)) {
+            return V_028C70_SWAP_STD_REV; /* WZYX */
+         } else if (HAS_SWIZZLE(1, Y) && HAS_SWIZZLE(2, X)) {
+            return V_028C70_SWAP_ALT;     /* ZYXW */
+         } else if (HAS_SWIZZLE(1, Z) && HAS_SWIZZLE(2, W)) {
+            /* YZWX */
+            if (desc->is_array)
+               return V_028C70_SWAP_ALT_REV;
+            else
+               return (do_endian_swap ? V_028C70_SWAP_ALT : V_028C70_SWAP_ALT_REV);
+         }
+         break;
    }
    return ~0U;
 }
@@ -2230,14 +2231,14 @@ static void si_memobj_destroy(struct pipe_screen *screen, struct pipe_memory_obj
 {
    struct si_memory_object *memobj = (struct si_memory_object *)_memobj;
 
-   radeon_bo_reference(((struct si_screen*)screen)->ws, &memobj->buf, NULL);
+   radeon_bo_reference(((struct si_screen *)screen)->ws, &memobj->buf, NULL);
    free(memobj);
 }
 
 static struct pipe_resource *si_resource_from_memobj(struct pipe_screen *screen,
-                                                    const struct pipe_resource *templ,
-                                                    struct pipe_memory_object *_memobj,
-                                                    uint64_t offset)
+                                                     const struct pipe_resource *templ,
+                                                     struct pipe_memory_object *_memobj,
+                                                     uint64_t offset)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
    struct si_memory_object *memobj = (struct si_memory_object *)_memobj;
@@ -2296,36 +2297,36 @@ static int si_get_sparse_texture_virtual_page_size(struct pipe_screen *screen,
       return 0;
 
    static const int page_size_2d[][3] = {
-      { 256, 256, 1 }, /* 8bpp   */
-      { 256, 128, 1 }, /* 16bpp  */
-      { 128, 128, 1 }, /* 32bpp  */
-      { 128, 64,  1 }, /* 64bpp  */
-      { 64,  64,  1 }, /* 128bpp */
+      {256, 256, 1}, /* 8bpp   */
+      {256, 128, 1}, /* 16bpp  */
+      {128, 128, 1}, /* 32bpp  */
+      {128, 64, 1},  /* 64bpp  */
+      {64, 64, 1},   /* 128bpp */
    };
    static const int page_size_3d[][3] = {
-      { 64,  32,  32 }, /* 8bpp   */
-      { 32,  32,  32 }, /* 16bpp  */
-      { 32,  32,  16 }, /* 32bpp  */
-      { 32,  16,  16 }, /* 64bpp  */
-      { 16,  16,  16 }, /* 128bpp */
+      {64, 32, 32}, /* 8bpp   */
+      {32, 32, 32}, /* 16bpp  */
+      {32, 32, 16}, /* 32bpp  */
+      {32, 16, 16}, /* 64bpp  */
+      {16, 16, 16}, /* 128bpp */
    };
 
-   const int (*page_sizes)[3];
+   const int(*page_sizes)[3];
 
    /* Supported targets. */
    switch (target) {
-   case PIPE_TEXTURE_2D:
-   case PIPE_TEXTURE_CUBE:
-   case PIPE_TEXTURE_RECT:
-   case PIPE_TEXTURE_2D_ARRAY:
-   case PIPE_TEXTURE_CUBE_ARRAY:
-      page_sizes = page_size_2d;
-      break;
-   case PIPE_TEXTURE_3D:
-      page_sizes = page_size_3d;
-      break;
-   default:
-      return 0;
+      case PIPE_TEXTURE_2D:
+      case PIPE_TEXTURE_CUBE:
+      case PIPE_TEXTURE_RECT:
+      case PIPE_TEXTURE_2D_ARRAY:
+      case PIPE_TEXTURE_CUBE_ARRAY:
+         page_sizes = page_size_2d;
+         break;
+      case PIPE_TEXTURE_3D:
+         page_sizes = page_size_3d;
+         break;
+      default:
+         return 0;
    }
 
    /* ARB_sparse_texture2 need to query supported virtual page x/y/z without
@@ -2355,9 +2356,12 @@ static int si_get_sparse_texture_virtual_page_size(struct pipe_screen *screen,
 
    if (size) {
       unsigned index = util_logbase2(blk_size);
-      if (x) *x = page_sizes[index][0];
-      if (y) *y = page_sizes[index][1];
-      if (z) *z = page_sizes[index][2];
+      if (x)
+         *x = page_sizes[index][0];
+      if (y)
+         *y = page_sizes[index][1];
+      if (z)
+         *z = page_sizes[index][2];
    }
 
    return 1;

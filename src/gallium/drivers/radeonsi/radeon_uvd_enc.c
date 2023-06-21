@@ -9,11 +9,11 @@
 #include "radeon_uvd_enc.h"
 
 #include "pipe/p_video_codec.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_video.h"
 
 #include <stdio.h>
 
@@ -43,15 +43,15 @@ static void radeon_uvd_enc_get_param(struct radeon_uvd_encoder *enc,
                             (pic->picture_type == PIPE_H2645_ENC_PICTURE_TYPE_I);
 
    if (pic->seq.conformance_window_flag) {
-         enc->enc_pic.crop_left = pic->seq.conf_win_left_offset;
-         enc->enc_pic.crop_right = pic->seq.conf_win_right_offset;
-         enc->enc_pic.crop_top = pic->seq.conf_win_top_offset;
-         enc->enc_pic.crop_bottom = pic->seq.conf_win_bottom_offset;
+      enc->enc_pic.crop_left = pic->seq.conf_win_left_offset;
+      enc->enc_pic.crop_right = pic->seq.conf_win_right_offset;
+      enc->enc_pic.crop_top = pic->seq.conf_win_top_offset;
+      enc->enc_pic.crop_bottom = pic->seq.conf_win_bottom_offset;
    } else {
-         enc->enc_pic.crop_left = 0;
-         enc->enc_pic.crop_right = (align(enc->base.width, 16) - enc->base.width) / 2;
-         enc->enc_pic.crop_top = 0;
-         enc->enc_pic.crop_bottom = (align(enc->base.height, 16) - enc->base.height) / 2;
+      enc->enc_pic.crop_left = 0;
+      enc->enc_pic.crop_right = (align(enc->base.width, 16) - enc->base.width) / 2;
+      enc->enc_pic.crop_top = 0;
+      enc->enc_pic.crop_bottom = (align(enc->base.height, 16) - enc->base.height) / 2;
    }
 
    enc->enc_pic.general_tier_flag = pic->seq.general_tier_flag;
@@ -105,43 +105,43 @@ static unsigned get_cpb_num(struct radeon_uvd_encoder *enc)
    unsigned dpb;
 
    switch (enc->base.level) {
-   case UVD_HEVC_LEVEL_1:
-      dpb = 36864;
-      break;
+      case UVD_HEVC_LEVEL_1:
+         dpb = 36864;
+         break;
 
-   case UVD_HEVC_LEVEL_2:
-      dpb = 122880;
-      break;
+      case UVD_HEVC_LEVEL_2:
+         dpb = 122880;
+         break;
 
-   case UVD_HEVC_LEVEL_2_1:
-      dpb = 245760;
-      break;
+      case UVD_HEVC_LEVEL_2_1:
+         dpb = 245760;
+         break;
 
-   case UVD_HEVC_LEVEL_3:
-      dpb = 552960;
-      break;
+      case UVD_HEVC_LEVEL_3:
+         dpb = 552960;
+         break;
 
-   case UVD_HEVC_LEVEL_3_1:
-      dpb = 983040;
-      break;
+      case UVD_HEVC_LEVEL_3_1:
+         dpb = 983040;
+         break;
 
-   case UVD_HEVC_LEVEL_4:
-   case UVD_HEVC_LEVEL_4_1:
-      dpb = 2228224;
-      break;
+      case UVD_HEVC_LEVEL_4:
+      case UVD_HEVC_LEVEL_4_1:
+         dpb = 2228224;
+         break;
 
-   case UVD_HEVC_LEVEL_5:
-   case UVD_HEVC_LEVEL_5_1:
-   case UVD_HEVC_LEVEL_5_2:
-      dpb = 8912896;
-      break;
+      case UVD_HEVC_LEVEL_5:
+      case UVD_HEVC_LEVEL_5_1:
+      case UVD_HEVC_LEVEL_5_2:
+         dpb = 8912896;
+         break;
 
-   case UVD_HEVC_LEVEL_6:
-   case UVD_HEVC_LEVEL_6_1:
-   case UVD_HEVC_LEVEL_6_2:
-   default:
-      dpb = 35651584;
-      break;
+      case UVD_HEVC_LEVEL_6:
+      case UVD_HEVC_LEVEL_6_1:
+      case UVD_HEVC_LEVEL_6_2:
+      default:
+         dpb = 35651584;
+         break;
    }
 
    return MIN2(dpb / (w * h), 16);

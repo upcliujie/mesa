@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/u_memory.h"
+#include "util/u_prim.h"
 #include "ac_nir.h"
 #include "ac_nir_to_llvm.h"
 #include "ac_rtld.h"
 #include "si_pipe.h"
 #include "si_shader_internal.h"
 #include "sid.h"
-#include "util/u_memory.h"
-#include "util/u_prim.h"
 
 struct si_llvm_diagnostics {
    struct util_debug_callback *debug;
@@ -25,16 +25,16 @@ static void si_diagnostic_handler(LLVMDiagnosticInfoRef di, void *context)
    const char *severity_str = NULL;
 
    switch (severity) {
-   case LLVMDSError:
-      severity_str = "error";
-      break;
-   case LLVMDSWarning:
-      severity_str = "warning";
-      break;
-   case LLVMDSRemark:
-   case LLVMDSNote:
-   default:
-      return;
+      case LLVMDSError:
+         severity_str = "error";
+         break;
+      case LLVMDSWarning:
+         severity_str = "warning";
+         break;
+      case LLVMDSRemark:
+      case LLVMDSNote:
+      default:
+         return;
    }
 
    char *description = LLVMGetDiagInfoDescription(di);
@@ -142,24 +142,24 @@ void si_llvm_create_func(struct si_shader_context *ctx, const char *name, LLVMTy
    }
 
    switch (real_stage) {
-   case MESA_SHADER_VERTEX:
-   case MESA_SHADER_TESS_EVAL:
-      call_conv = AC_LLVM_AMDGPU_VS;
-      break;
-   case MESA_SHADER_TESS_CTRL:
-      call_conv = AC_LLVM_AMDGPU_HS;
-      break;
-   case MESA_SHADER_GEOMETRY:
-      call_conv = AC_LLVM_AMDGPU_GS;
-      break;
-   case MESA_SHADER_FRAGMENT:
-      call_conv = AC_LLVM_AMDGPU_PS;
-      break;
-   case MESA_SHADER_COMPUTE:
-      call_conv = AC_LLVM_AMDGPU_CS;
-      break;
-   default:
-      unreachable("Unhandle shader type");
+      case MESA_SHADER_VERTEX:
+      case MESA_SHADER_TESS_EVAL:
+         call_conv = AC_LLVM_AMDGPU_VS;
+         break;
+      case MESA_SHADER_TESS_CTRL:
+         call_conv = AC_LLVM_AMDGPU_HS;
+         break;
+      case MESA_SHADER_GEOMETRY:
+         call_conv = AC_LLVM_AMDGPU_GS;
+         break;
+      case MESA_SHADER_FRAGMENT:
+         call_conv = AC_LLVM_AMDGPU_PS;
+         break;
+      case MESA_SHADER_COMPUTE:
+         call_conv = AC_LLVM_AMDGPU_CS;
+         break;
+      default:
+         unreachable("Unhandle shader type");
    }
 
    /* Setup the function */
@@ -205,7 +205,6 @@ void si_llvm_create_main_func(struct si_shader_context *ctx)
             S_0286D0_SAMPLE_COVERAGE_ENA(1) | S_0286D0_POS_FIXED_PT_ENA(1));
    }
 
-
    if (ctx->stage <= MESA_SHADER_GEOMETRY &&
        (shader->key.ge.as_ls || ctx->stage == MESA_SHADER_TESS_CTRL)) {
       /* The LSHS size is not known until draw time, so we append it
@@ -213,11 +212,10 @@ void si_llvm_create_main_func(struct si_shader_context *ctx)
        * the shader (currently none, unless LLVM decides to do its
        * own LDS-based lowering).
        */
-      ctx->ac.lds = (struct ac_llvm_pointer) {
+      ctx->ac.lds = (struct ac_llvm_pointer){
          .value = LLVMAddGlobalInAddressSpace(ctx->ac.module, LLVMArrayType(ctx->ac.i32, 0),
-                                                "__lds_end", AC_ADDR_SPACE_LDS),
-         .pointee_type = LLVMArrayType(ctx->ac.i32, 0)
-      };
+                                              "__lds_end", AC_ADDR_SPACE_LDS),
+         .pointee_type = LLVMArrayType(ctx->ac.i32, 0)};
       LLVMSetAlignment(ctx->ac.lds.value, 256);
    }
 
@@ -381,7 +379,7 @@ static void si_llvm_declare_compute_memory(struct si_shader_context *ctx)
                                      "compute_lds", AC_ADDR_SPACE_LDS);
    LLVMSetAlignment(var, 64 * 1024);
 
-   ctx->ac.lds = (struct ac_llvm_pointer) {
+   ctx->ac.lds = (struct ac_llvm_pointer){
       .value = LLVMBuildBitCast(ctx->ac.builder, var, i8p, ""),
       .pointee_type = type,
    };
@@ -463,15 +461,15 @@ void si_build_wrapper_function(struct si_shader_context *ctx, struct ac_llvm_poi
    return_type = LLVMGetReturnType(last_func_type);
 
    switch (LLVMGetTypeKind(return_type)) {
-   case LLVMStructTypeKind:
-      num_returns = LLVMCountStructElementTypes(return_type);
-      assert(num_returns <= ARRAY_SIZE(returns));
-      LLVMGetStructElementTypes(return_type, returns);
-      break;
-   case LLVMVoidTypeKind:
-      break;
-   default:
-      unreachable("unexpected type");
+      case LLVMStructTypeKind:
+         num_returns = LLVMCountStructElementTypes(return_type);
+         assert(num_returns <= ARRAY_SIZE(returns));
+         LLVMGetStructElementTypes(return_type, returns);
+         break;
+      case LLVMVoidTypeKind:
+         break;
+      default:
+         unreachable("unexpected type");
    }
 
    si_llvm_create_func(ctx, "wrapper", returns, num_returns,
@@ -671,17 +669,17 @@ static LLVMValueRef si_llvm_load_intrinsic(struct ac_shader_abi *abi, nir_intrin
    struct si_shader_context *ctx = si_shader_context_from_abi(abi);
 
    switch (intrin->intrinsic) {
-   case nir_intrinsic_load_tess_rel_patch_id_amd:
-      return si_get_rel_patch_id(ctx);
+      case nir_intrinsic_load_tess_rel_patch_id_amd:
+         return si_get_rel_patch_id(ctx);
 
-   case nir_intrinsic_load_lds_ngg_scratch_base_amd:
-      return LLVMBuildPtrToInt(ctx->ac.builder, ctx->gs_ngg_scratch.value, ctx->ac.i32, "");
+      case nir_intrinsic_load_lds_ngg_scratch_base_amd:
+         return LLVMBuildPtrToInt(ctx->ac.builder, ctx->gs_ngg_scratch.value, ctx->ac.i32, "");
 
-   case nir_intrinsic_load_lds_ngg_gs_out_vertex_base_amd:
-      return LLVMBuildPtrToInt(ctx->ac.builder, ctx->gs_ngg_emit, ctx->ac.i32, "");
+      case nir_intrinsic_load_lds_ngg_gs_out_vertex_base_amd:
+         return LLVMBuildPtrToInt(ctx->ac.builder, ctx->gs_ngg_emit, ctx->ac.i32, "");
 
-   default:
-      return NULL;
+      default:
+         return NULL;
    }
 }
 
@@ -695,28 +693,28 @@ static LLVMValueRef si_llvm_load_sampler_desc(struct ac_shader_abi *abi, LLVMVal
       bool is_vec4 = false;
 
       switch (desc_type) {
-      case AC_DESC_IMAGE:
-         /* The image is at [0:7]. */
-         index = LLVMBuildMul(builder, index, LLVMConstInt(ctx->ac.i32, 2, 0), "");
-         break;
-      case AC_DESC_BUFFER:
-         /* The buffer is in [4:7]. */
-         index = ac_build_imad(&ctx->ac, index, LLVMConstInt(ctx->ac.i32, 4, 0), ctx->ac.i32_1);
-         is_vec4 = true;
-         break;
-      case AC_DESC_FMASK:
-         /* The FMASK is at [8:15]. */
-         assert(ctx->screen->info.gfx_level < GFX11);
-         index = ac_build_imad(&ctx->ac, index, LLVMConstInt(ctx->ac.i32, 2, 0), ctx->ac.i32_1);
-         break;
-      case AC_DESC_SAMPLER:
-         /* The sampler state is at [12:15]. */
-         index = ac_build_imad(&ctx->ac, index, LLVMConstInt(ctx->ac.i32, 4, 0),
-                               LLVMConstInt(ctx->ac.i32, 3, 0));
-         is_vec4 = true;
-         break;
-      default:
-         unreachable("invalid desc");
+         case AC_DESC_IMAGE:
+            /* The image is at [0:7]. */
+            index = LLVMBuildMul(builder, index, LLVMConstInt(ctx->ac.i32, 2, 0), "");
+            break;
+         case AC_DESC_BUFFER:
+            /* The buffer is in [4:7]. */
+            index = ac_build_imad(&ctx->ac, index, LLVMConstInt(ctx->ac.i32, 4, 0), ctx->ac.i32_1);
+            is_vec4 = true;
+            break;
+         case AC_DESC_FMASK:
+            /* The FMASK is at [8:15]. */
+            assert(ctx->screen->info.gfx_level < GFX11);
+            index = ac_build_imad(&ctx->ac, index, LLVMConstInt(ctx->ac.i32, 2, 0), ctx->ac.i32_1);
+            break;
+         case AC_DESC_SAMPLER:
+            /* The sampler state is at [12:15]. */
+            index = ac_build_imad(&ctx->ac, index, LLVMConstInt(ctx->ac.i32, 4, 0),
+                                  LLVMConstInt(ctx->ac.i32, 3, 0));
+            is_vec4 = true;
+            break;
+         default:
+            unreachable("invalid desc");
       }
 
       struct ac_llvm_pointer list = {
@@ -751,54 +749,53 @@ static bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shade
    si_llvm_create_main_func(ctx);
 
    switch (ctx->stage) {
-   case MESA_SHADER_VERTEX:
-      /* preload instance_divisor_constbuf to be used for input load after culling */
-      if (ctx->shader->key.ge.opt.ngg_culling &&
-          ctx->shader->key.ge.part.vs.prolog.instance_divisor_is_fetched) {
-         struct ac_llvm_pointer buf = ac_get_ptr_arg(&ctx->ac, &ctx->args->ac, ctx->args->internal_bindings);
-         ctx->instance_divisor_constbuf =
-            ac_build_load_to_sgpr(
-               &ctx->ac, buf, LLVMConstInt(ctx->ac.i32, SI_VS_CONST_INSTANCE_DIVISORS, 0));
+      case MESA_SHADER_VERTEX:
+         /* preload instance_divisor_constbuf to be used for input load after culling */
+         if (ctx->shader->key.ge.opt.ngg_culling &&
+             ctx->shader->key.ge.part.vs.prolog.instance_divisor_is_fetched) {
+            struct ac_llvm_pointer buf = ac_get_ptr_arg(&ctx->ac, &ctx->args->ac, ctx->args->internal_bindings);
+            ctx->instance_divisor_constbuf =
+               ac_build_load_to_sgpr(
+                  &ctx->ac, buf, LLVMConstInt(ctx->ac.i32, SI_VS_CONST_INSTANCE_DIVISORS, 0));
+         }
+         break;
+
+      case MESA_SHADER_TESS_CTRL:
+         si_llvm_init_tcs_callbacks(ctx);
+         break;
+
+      case MESA_SHADER_GEOMETRY:
+         if (ctx->shader->key.ge.as_ngg) {
+            LLVMTypeRef ai32 = LLVMArrayType(ctx->ac.i32, gfx10_ngg_get_scratch_dw_size(shader));
+            ctx->gs_ngg_scratch = (struct ac_llvm_pointer){
+               .value = LLVMAddGlobalInAddressSpace(ctx->ac.module, ai32, "ngg_scratch", AC_ADDR_SPACE_LDS),
+               .pointee_type = ai32};
+            LLVMSetInitializer(ctx->gs_ngg_scratch.value, LLVMGetUndef(ai32));
+            LLVMSetAlignment(ctx->gs_ngg_scratch.value, 8);
+
+            ctx->gs_ngg_emit = LLVMAddGlobalInAddressSpace(
+               ctx->ac.module, LLVMArrayType(ctx->ac.i32, 0), "ngg_emit", AC_ADDR_SPACE_LDS);
+            LLVMSetLinkage(ctx->gs_ngg_emit, LLVMExternalLinkage);
+            LLVMSetAlignment(ctx->gs_ngg_emit, 4);
+         }
+         break;
+
+      case MESA_SHADER_FRAGMENT: {
+         ctx->abi.kill_ps_if_inf_interp =
+            ctx->screen->options.no_infinite_interp &&
+            (ctx->shader->selector->info.uses_persp_center ||
+             ctx->shader->selector->info.uses_persp_centroid ||
+             ctx->shader->selector->info.uses_persp_sample);
+         break;
       }
-      break;
 
-   case MESA_SHADER_TESS_CTRL:
-      si_llvm_init_tcs_callbacks(ctx);
-      break;
+      case MESA_SHADER_COMPUTE:
+         if (ctx->shader->selector->info.base.shared_size)
+            si_llvm_declare_compute_memory(ctx);
+         break;
 
-   case MESA_SHADER_GEOMETRY:
-      if (ctx->shader->key.ge.as_ngg) {
-         LLVMTypeRef ai32 = LLVMArrayType(ctx->ac.i32, gfx10_ngg_get_scratch_dw_size(shader));
-         ctx->gs_ngg_scratch = (struct ac_llvm_pointer) {
-            .value = LLVMAddGlobalInAddressSpace(ctx->ac.module, ai32, "ngg_scratch", AC_ADDR_SPACE_LDS),
-            .pointee_type = ai32
-         };
-         LLVMSetInitializer(ctx->gs_ngg_scratch.value, LLVMGetUndef(ai32));
-         LLVMSetAlignment(ctx->gs_ngg_scratch.value, 8);
-
-         ctx->gs_ngg_emit = LLVMAddGlobalInAddressSpace(
-            ctx->ac.module, LLVMArrayType(ctx->ac.i32, 0), "ngg_emit", AC_ADDR_SPACE_LDS);
-         LLVMSetLinkage(ctx->gs_ngg_emit, LLVMExternalLinkage);
-         LLVMSetAlignment(ctx->gs_ngg_emit, 4);
-      }
-      break;
-
-   case MESA_SHADER_FRAGMENT: {
-      ctx->abi.kill_ps_if_inf_interp =
-         ctx->screen->options.no_infinite_interp &&
-         (ctx->shader->selector->info.uses_persp_center ||
-          ctx->shader->selector->info.uses_persp_centroid ||
-          ctx->shader->selector->info.uses_persp_sample);
-      break;
-   }
-
-   case MESA_SHADER_COMPUTE:
-      if (ctx->shader->selector->info.base.shared_size)
-         si_llvm_declare_compute_memory(ctx);
-      break;
-
-   default:
-      break;
+      default:
+         break;
    }
 
    bool is_merged_esgs_stage =
@@ -822,11 +819,10 @@ static bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shade
    if (is_nogs_ngg_stage &&
        (si_shader_uses_streamout(shader) || shader->key.ge.opt.ngg_culling)) {
       LLVMTypeRef asi32 = LLVMArrayType(ctx->ac.i32, gfx10_ngg_get_scratch_dw_size(shader));
-      ctx->gs_ngg_scratch = (struct ac_llvm_pointer) {
+      ctx->gs_ngg_scratch = (struct ac_llvm_pointer){
          .value = LLVMAddGlobalInAddressSpace(ctx->ac.module, asi32, "ngg_scratch",
                                               AC_ADDR_SPACE_LDS),
-         .pointee_type = asi32
-      };
+         .pointee_type = asi32};
       LLVMSetInitializer(ctx->gs_ngg_scratch.value, LLVMGetUndef(asi32));
       LLVMSetAlignment(ctx->gs_ngg_scratch.value, 8);
    }
@@ -847,8 +843,8 @@ static bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shade
                ac_init_exec_full_mask(&ctx->ac);
          } else {
             /* If the prolog is present, EXEC is set there instead. */
-             if (!si_vs_needs_prolog(sel, &shader->key.ge.part.vs.prolog))
-                ac_init_exec_full_mask(&ctx->ac);
+            if (!si_vs_needs_prolog(sel, &shader->key.ge.part.vs.prolog))
+               ac_init_exec_full_mask(&ctx->ac);
          }
       }
 
@@ -902,7 +898,7 @@ static bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shade
          /* We need the barrier only if TCS inputs are read from LDS. */
          if (!shader->key.ge.opt.same_patch_vertices ||
              shader->selector->info.base.inputs_read &
-             ~shader->selector->info.tcs_vgpr_only_inputs) {
+                ~shader->selector->info.tcs_vgpr_only_inputs) {
             ac_build_waitcnt(&ctx->ac, AC_WAIT_LGKM);
 
             /* If both input and output patches are wholly in one wave, we don't need a barrier.
@@ -956,35 +952,35 @@ static bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shade
       return false;
 
    switch (ctx->stage) {
-   case MESA_SHADER_VERTEX:
-      if (shader->key.ge.as_ls)
-         si_llvm_ls_build_end(ctx);
-      else if (shader->key.ge.as_es)
-         si_llvm_es_build_end(ctx);
-      break;
+      case MESA_SHADER_VERTEX:
+         if (shader->key.ge.as_ls)
+            si_llvm_ls_build_end(ctx);
+         else if (shader->key.ge.as_es)
+            si_llvm_es_build_end(ctx);
+         break;
 
-   case MESA_SHADER_TESS_CTRL:
-      if (!shader->is_monolithic)
-         si_llvm_tcs_build_end(ctx);
-      break;
+      case MESA_SHADER_TESS_CTRL:
+         if (!shader->is_monolithic)
+            si_llvm_tcs_build_end(ctx);
+         break;
 
-   case MESA_SHADER_TESS_EVAL:
-      if (ctx->shader->key.ge.as_es)
-         si_llvm_es_build_end(ctx);
-      break;
+      case MESA_SHADER_TESS_EVAL:
+         if (ctx->shader->key.ge.as_es)
+            si_llvm_es_build_end(ctx);
+         break;
 
-   case MESA_SHADER_GEOMETRY:
-      if (!ctx->shader->key.ge.as_ngg)
-         si_llvm_gs_build_end(ctx);
-      break;
+      case MESA_SHADER_GEOMETRY:
+         if (!ctx->shader->key.ge.as_ngg)
+            si_llvm_gs_build_end(ctx);
+         break;
 
-   case MESA_SHADER_FRAGMENT:
-      if (!shader->is_monolithic)
-         si_llvm_ps_build_end(ctx);
-      break;
+      case MESA_SHADER_FRAGMENT:
+         if (!shader->is_monolithic)
+            si_llvm_ps_build_end(ctx);
+         break;
 
-   default:
-      break;
+      default:
+         break;
    }
 
    si_llvm_build_ret(ctx, ctx->return_value);

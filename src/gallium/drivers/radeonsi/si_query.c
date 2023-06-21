@@ -10,11 +10,11 @@
 #include "si_build_pm4.h"
 
 #include "amd/common/sid.h"
-#include "si_pipe.h"
 #include "util/os_time.h"
 #include "util/u_memory.h"
 #include "util/u_suballoc.h"
 #include "util/u_upload_mgr.h"
+#include "si_pipe.h"
 
 static const struct si_query_ops query_hw_ops;
 
@@ -51,50 +51,50 @@ static void si_query_sw_destroy(struct si_context *sctx, struct si_query *squery
 static enum radeon_value_id winsys_id_from_type(unsigned type)
 {
    switch (type) {
-   case SI_QUERY_REQUESTED_VRAM:
-      return RADEON_REQUESTED_VRAM_MEMORY;
-   case SI_QUERY_REQUESTED_GTT:
-      return RADEON_REQUESTED_GTT_MEMORY;
-   case SI_QUERY_MAPPED_VRAM:
-      return RADEON_MAPPED_VRAM;
-   case SI_QUERY_MAPPED_GTT:
-      return RADEON_MAPPED_GTT;
-   case SI_QUERY_SLAB_WASTED_VRAM:
-      return RADEON_SLAB_WASTED_VRAM;
-   case SI_QUERY_SLAB_WASTED_GTT:
-      return RADEON_SLAB_WASTED_GTT;
-   case SI_QUERY_BUFFER_WAIT_TIME:
-      return RADEON_BUFFER_WAIT_TIME_NS;
-   case SI_QUERY_NUM_MAPPED_BUFFERS:
-      return RADEON_NUM_MAPPED_BUFFERS;
-   case SI_QUERY_NUM_GFX_IBS:
-      return RADEON_NUM_GFX_IBS;
-   case SI_QUERY_GFX_BO_LIST_SIZE:
-      return RADEON_GFX_BO_LIST_COUNTER;
-   case SI_QUERY_GFX_IB_SIZE:
-      return RADEON_GFX_IB_SIZE_COUNTER;
-   case SI_QUERY_NUM_BYTES_MOVED:
-      return RADEON_NUM_BYTES_MOVED;
-   case SI_QUERY_NUM_EVICTIONS:
-      return RADEON_NUM_EVICTIONS;
-   case SI_QUERY_NUM_VRAM_CPU_PAGE_FAULTS:
-      return RADEON_NUM_VRAM_CPU_PAGE_FAULTS;
-   case SI_QUERY_VRAM_USAGE:
-      return RADEON_VRAM_USAGE;
-   case SI_QUERY_VRAM_VIS_USAGE:
-      return RADEON_VRAM_VIS_USAGE;
-   case SI_QUERY_GTT_USAGE:
-      return RADEON_GTT_USAGE;
-   case SI_QUERY_GPU_TEMPERATURE:
-      return RADEON_GPU_TEMPERATURE;
-   case SI_QUERY_CURRENT_GPU_SCLK:
-      return RADEON_CURRENT_SCLK;
-   case SI_QUERY_CURRENT_GPU_MCLK:
-      return RADEON_CURRENT_MCLK;
-   case SI_QUERY_CS_THREAD_BUSY:
-      return RADEON_CS_THREAD_TIME;
-   default:
-      unreachable("query type does not correspond to winsys id");
+      case SI_QUERY_REQUESTED_VRAM:
+         return RADEON_REQUESTED_VRAM_MEMORY;
+      case SI_QUERY_REQUESTED_GTT:
+         return RADEON_REQUESTED_GTT_MEMORY;
+      case SI_QUERY_MAPPED_VRAM:
+         return RADEON_MAPPED_VRAM;
+      case SI_QUERY_MAPPED_GTT:
+         return RADEON_MAPPED_GTT;
+      case SI_QUERY_SLAB_WASTED_VRAM:
+         return RADEON_SLAB_WASTED_VRAM;
+      case SI_QUERY_SLAB_WASTED_GTT:
+         return RADEON_SLAB_WASTED_GTT;
+      case SI_QUERY_BUFFER_WAIT_TIME:
+         return RADEON_BUFFER_WAIT_TIME_NS;
+      case SI_QUERY_NUM_MAPPED_BUFFERS:
+         return RADEON_NUM_MAPPED_BUFFERS;
+      case SI_QUERY_NUM_GFX_IBS:
+         return RADEON_NUM_GFX_IBS;
+      case SI_QUERY_GFX_BO_LIST_SIZE:
+         return RADEON_GFX_BO_LIST_COUNTER;
+      case SI_QUERY_GFX_IB_SIZE:
+         return RADEON_GFX_IB_SIZE_COUNTER;
+      case SI_QUERY_NUM_BYTES_MOVED:
+         return RADEON_NUM_BYTES_MOVED;
+      case SI_QUERY_NUM_EVICTIONS:
+         return RADEON_NUM_EVICTIONS;
+      case SI_QUERY_NUM_VRAM_CPU_PAGE_FAULTS:
+         return RADEON_NUM_VRAM_CPU_PAGE_FAULTS;
+      case SI_QUERY_VRAM_USAGE:
+         return RADEON_VRAM_USAGE;
+      case SI_QUERY_VRAM_VIS_USAGE:
+         return RADEON_VRAM_VIS_USAGE;
+      case SI_QUERY_GTT_USAGE:
+         return RADEON_GTT_USAGE;
+      case SI_QUERY_GPU_TEMPERATURE:
+         return RADEON_GPU_TEMPERATURE;
+      case SI_QUERY_CURRENT_GPU_SCLK:
+         return RADEON_CURRENT_SCLK;
+      case SI_QUERY_CURRENT_GPU_MCLK:
+         return RADEON_CURRENT_MCLK;
+      case SI_QUERY_CS_THREAD_BUSY:
+         return RADEON_CS_THREAD_TIME;
+      default:
+         unreachable("query type does not correspond to winsys id");
    }
 }
 
@@ -104,152 +104,152 @@ static bool si_query_sw_begin(struct si_context *sctx, struct si_query *squery)
    enum radeon_value_id ws_id;
 
    switch (query->b.type) {
-   case PIPE_QUERY_TIMESTAMP_DISJOINT:
-   case PIPE_QUERY_GPU_FINISHED:
-      break;
-   case SI_QUERY_DRAW_CALLS:
-      query->begin_result = sctx->num_draw_calls;
-      break;
-   case SI_QUERY_DECOMPRESS_CALLS:
-      query->begin_result = sctx->num_decompress_calls;
-      break;
-   case SI_QUERY_PRIM_RESTART_CALLS:
-      query->begin_result = sctx->num_prim_restart_calls;
-      break;
-   case SI_QUERY_COMPUTE_CALLS:
-      query->begin_result = sctx->num_compute_calls;
-      break;
-   case SI_QUERY_CP_DMA_CALLS:
-      query->begin_result = sctx->num_cp_dma_calls;
-      break;
-   case SI_QUERY_NUM_VS_FLUSHES:
-      query->begin_result = sctx->num_vs_flushes;
-      break;
-   case SI_QUERY_NUM_PS_FLUSHES:
-      query->begin_result = sctx->num_ps_flushes;
-      break;
-   case SI_QUERY_NUM_CS_FLUSHES:
-      query->begin_result = sctx->num_cs_flushes;
-      break;
-   case SI_QUERY_NUM_CB_CACHE_FLUSHES:
-      query->begin_result = sctx->num_cb_cache_flushes;
-      break;
-   case SI_QUERY_NUM_DB_CACHE_FLUSHES:
-      query->begin_result = sctx->num_db_cache_flushes;
-      break;
-   case SI_QUERY_NUM_L2_INVALIDATES:
-      query->begin_result = sctx->num_L2_invalidates;
-      break;
-   case SI_QUERY_NUM_L2_WRITEBACKS:
-      query->begin_result = sctx->num_L2_writebacks;
-      break;
-   case SI_QUERY_NUM_RESIDENT_HANDLES:
-      query->begin_result = sctx->num_resident_handles;
-      break;
-   case SI_QUERY_TC_OFFLOADED_SLOTS:
-      query->begin_result = sctx->tc ? sctx->tc->num_offloaded_slots : 0;
-      break;
-   case SI_QUERY_TC_DIRECT_SLOTS:
-      query->begin_result = sctx->tc ? sctx->tc->num_direct_slots : 0;
-      break;
-   case SI_QUERY_TC_NUM_SYNCS:
-      query->begin_result = sctx->tc ? sctx->tc->num_syncs : 0;
-      break;
-   case SI_QUERY_REQUESTED_VRAM:
-   case SI_QUERY_REQUESTED_GTT:
-   case SI_QUERY_MAPPED_VRAM:
-   case SI_QUERY_MAPPED_GTT:
-   case SI_QUERY_SLAB_WASTED_VRAM:
-   case SI_QUERY_SLAB_WASTED_GTT:
-   case SI_QUERY_VRAM_USAGE:
-   case SI_QUERY_VRAM_VIS_USAGE:
-   case SI_QUERY_GTT_USAGE:
-   case SI_QUERY_GPU_TEMPERATURE:
-   case SI_QUERY_CURRENT_GPU_SCLK:
-   case SI_QUERY_CURRENT_GPU_MCLK:
-   case SI_QUERY_BACK_BUFFER_PS_DRAW_RATIO:
-   case SI_QUERY_NUM_MAPPED_BUFFERS:
-      query->begin_result = 0;
-      break;
-   case SI_QUERY_BUFFER_WAIT_TIME:
-   case SI_QUERY_GFX_IB_SIZE:
-   case SI_QUERY_NUM_GFX_IBS:
-   case SI_QUERY_NUM_BYTES_MOVED:
-   case SI_QUERY_NUM_EVICTIONS:
-   case SI_QUERY_NUM_VRAM_CPU_PAGE_FAULTS: {
-      enum radeon_value_id ws_id = winsys_id_from_type(query->b.type);
-      query->begin_result = sctx->ws->query_value(sctx->ws, ws_id);
-      break;
-   }
-   case SI_QUERY_GFX_BO_LIST_SIZE:
-      ws_id = winsys_id_from_type(query->b.type);
-      query->begin_result = sctx->ws->query_value(sctx->ws, ws_id);
-      query->begin_time = sctx->ws->query_value(sctx->ws, RADEON_NUM_GFX_IBS);
-      break;
-   case SI_QUERY_CS_THREAD_BUSY:
-      ws_id = winsys_id_from_type(query->b.type);
-      query->begin_result = sctx->ws->query_value(sctx->ws, ws_id);
-      query->begin_time = os_time_get_nano();
-      break;
-   case SI_QUERY_GALLIUM_THREAD_BUSY:
-      query->begin_result = sctx->tc ? util_queue_get_thread_time_nano(&sctx->tc->queue, 0) : 0;
-      query->begin_time = os_time_get_nano();
-      break;
-   case SI_QUERY_GPU_LOAD:
-   case SI_QUERY_GPU_SHADERS_BUSY:
-   case SI_QUERY_GPU_TA_BUSY:
-   case SI_QUERY_GPU_GDS_BUSY:
-   case SI_QUERY_GPU_VGT_BUSY:
-   case SI_QUERY_GPU_IA_BUSY:
-   case SI_QUERY_GPU_SX_BUSY:
-   case SI_QUERY_GPU_WD_BUSY:
-   case SI_QUERY_GPU_BCI_BUSY:
-   case SI_QUERY_GPU_SC_BUSY:
-   case SI_QUERY_GPU_PA_BUSY:
-   case SI_QUERY_GPU_DB_BUSY:
-   case SI_QUERY_GPU_CP_BUSY:
-   case SI_QUERY_GPU_CB_BUSY:
-   case SI_QUERY_GPU_SDMA_BUSY:
-   case SI_QUERY_GPU_PFP_BUSY:
-   case SI_QUERY_GPU_MEQ_BUSY:
-   case SI_QUERY_GPU_ME_BUSY:
-   case SI_QUERY_GPU_SURF_SYNC_BUSY:
-   case SI_QUERY_GPU_CP_DMA_BUSY:
-   case SI_QUERY_GPU_SCRATCH_RAM_BUSY:
-      query->begin_result = si_begin_counter(sctx->screen, query->b.type);
-      break;
-   case SI_QUERY_NUM_COMPILATIONS:
-      query->begin_result = p_atomic_read(&sctx->screen->num_compilations);
-      break;
-   case SI_QUERY_NUM_SHADERS_CREATED:
-      query->begin_result = p_atomic_read(&sctx->screen->num_shaders_created);
-      break;
-   case SI_QUERY_LIVE_SHADER_CACHE_HITS:
-      query->begin_result = sctx->screen->live_shader_cache.hits;
-      break;
-   case SI_QUERY_LIVE_SHADER_CACHE_MISSES:
-      query->begin_result = sctx->screen->live_shader_cache.misses;
-      break;
-   case SI_QUERY_MEMORY_SHADER_CACHE_HITS:
-      query->begin_result = sctx->screen->num_memory_shader_cache_hits;
-      break;
-   case SI_QUERY_MEMORY_SHADER_CACHE_MISSES:
-      query->begin_result = sctx->screen->num_memory_shader_cache_misses;
-      break;
-   case SI_QUERY_DISK_SHADER_CACHE_HITS:
-      query->begin_result = sctx->screen->num_disk_shader_cache_hits;
-      break;
-   case SI_QUERY_DISK_SHADER_CACHE_MISSES:
-      query->begin_result = sctx->screen->num_disk_shader_cache_misses;
-      break;
-   case SI_QUERY_GPIN_ASIC_ID:
-   case SI_QUERY_GPIN_NUM_SIMD:
-   case SI_QUERY_GPIN_NUM_RB:
-   case SI_QUERY_GPIN_NUM_SPI:
-   case SI_QUERY_GPIN_NUM_SE:
-      break;
-   default:
-      unreachable("si_query_sw_begin: bad query type");
+      case PIPE_QUERY_TIMESTAMP_DISJOINT:
+      case PIPE_QUERY_GPU_FINISHED:
+         break;
+      case SI_QUERY_DRAW_CALLS:
+         query->begin_result = sctx->num_draw_calls;
+         break;
+      case SI_QUERY_DECOMPRESS_CALLS:
+         query->begin_result = sctx->num_decompress_calls;
+         break;
+      case SI_QUERY_PRIM_RESTART_CALLS:
+         query->begin_result = sctx->num_prim_restart_calls;
+         break;
+      case SI_QUERY_COMPUTE_CALLS:
+         query->begin_result = sctx->num_compute_calls;
+         break;
+      case SI_QUERY_CP_DMA_CALLS:
+         query->begin_result = sctx->num_cp_dma_calls;
+         break;
+      case SI_QUERY_NUM_VS_FLUSHES:
+         query->begin_result = sctx->num_vs_flushes;
+         break;
+      case SI_QUERY_NUM_PS_FLUSHES:
+         query->begin_result = sctx->num_ps_flushes;
+         break;
+      case SI_QUERY_NUM_CS_FLUSHES:
+         query->begin_result = sctx->num_cs_flushes;
+         break;
+      case SI_QUERY_NUM_CB_CACHE_FLUSHES:
+         query->begin_result = sctx->num_cb_cache_flushes;
+         break;
+      case SI_QUERY_NUM_DB_CACHE_FLUSHES:
+         query->begin_result = sctx->num_db_cache_flushes;
+         break;
+      case SI_QUERY_NUM_L2_INVALIDATES:
+         query->begin_result = sctx->num_L2_invalidates;
+         break;
+      case SI_QUERY_NUM_L2_WRITEBACKS:
+         query->begin_result = sctx->num_L2_writebacks;
+         break;
+      case SI_QUERY_NUM_RESIDENT_HANDLES:
+         query->begin_result = sctx->num_resident_handles;
+         break;
+      case SI_QUERY_TC_OFFLOADED_SLOTS:
+         query->begin_result = sctx->tc ? sctx->tc->num_offloaded_slots : 0;
+         break;
+      case SI_QUERY_TC_DIRECT_SLOTS:
+         query->begin_result = sctx->tc ? sctx->tc->num_direct_slots : 0;
+         break;
+      case SI_QUERY_TC_NUM_SYNCS:
+         query->begin_result = sctx->tc ? sctx->tc->num_syncs : 0;
+         break;
+      case SI_QUERY_REQUESTED_VRAM:
+      case SI_QUERY_REQUESTED_GTT:
+      case SI_QUERY_MAPPED_VRAM:
+      case SI_QUERY_MAPPED_GTT:
+      case SI_QUERY_SLAB_WASTED_VRAM:
+      case SI_QUERY_SLAB_WASTED_GTT:
+      case SI_QUERY_VRAM_USAGE:
+      case SI_QUERY_VRAM_VIS_USAGE:
+      case SI_QUERY_GTT_USAGE:
+      case SI_QUERY_GPU_TEMPERATURE:
+      case SI_QUERY_CURRENT_GPU_SCLK:
+      case SI_QUERY_CURRENT_GPU_MCLK:
+      case SI_QUERY_BACK_BUFFER_PS_DRAW_RATIO:
+      case SI_QUERY_NUM_MAPPED_BUFFERS:
+         query->begin_result = 0;
+         break;
+      case SI_QUERY_BUFFER_WAIT_TIME:
+      case SI_QUERY_GFX_IB_SIZE:
+      case SI_QUERY_NUM_GFX_IBS:
+      case SI_QUERY_NUM_BYTES_MOVED:
+      case SI_QUERY_NUM_EVICTIONS:
+      case SI_QUERY_NUM_VRAM_CPU_PAGE_FAULTS: {
+         enum radeon_value_id ws_id = winsys_id_from_type(query->b.type);
+         query->begin_result = sctx->ws->query_value(sctx->ws, ws_id);
+         break;
+      }
+      case SI_QUERY_GFX_BO_LIST_SIZE:
+         ws_id = winsys_id_from_type(query->b.type);
+         query->begin_result = sctx->ws->query_value(sctx->ws, ws_id);
+         query->begin_time = sctx->ws->query_value(sctx->ws, RADEON_NUM_GFX_IBS);
+         break;
+      case SI_QUERY_CS_THREAD_BUSY:
+         ws_id = winsys_id_from_type(query->b.type);
+         query->begin_result = sctx->ws->query_value(sctx->ws, ws_id);
+         query->begin_time = os_time_get_nano();
+         break;
+      case SI_QUERY_GALLIUM_THREAD_BUSY:
+         query->begin_result = sctx->tc ? util_queue_get_thread_time_nano(&sctx->tc->queue, 0) : 0;
+         query->begin_time = os_time_get_nano();
+         break;
+      case SI_QUERY_GPU_LOAD:
+      case SI_QUERY_GPU_SHADERS_BUSY:
+      case SI_QUERY_GPU_TA_BUSY:
+      case SI_QUERY_GPU_GDS_BUSY:
+      case SI_QUERY_GPU_VGT_BUSY:
+      case SI_QUERY_GPU_IA_BUSY:
+      case SI_QUERY_GPU_SX_BUSY:
+      case SI_QUERY_GPU_WD_BUSY:
+      case SI_QUERY_GPU_BCI_BUSY:
+      case SI_QUERY_GPU_SC_BUSY:
+      case SI_QUERY_GPU_PA_BUSY:
+      case SI_QUERY_GPU_DB_BUSY:
+      case SI_QUERY_GPU_CP_BUSY:
+      case SI_QUERY_GPU_CB_BUSY:
+      case SI_QUERY_GPU_SDMA_BUSY:
+      case SI_QUERY_GPU_PFP_BUSY:
+      case SI_QUERY_GPU_MEQ_BUSY:
+      case SI_QUERY_GPU_ME_BUSY:
+      case SI_QUERY_GPU_SURF_SYNC_BUSY:
+      case SI_QUERY_GPU_CP_DMA_BUSY:
+      case SI_QUERY_GPU_SCRATCH_RAM_BUSY:
+         query->begin_result = si_begin_counter(sctx->screen, query->b.type);
+         break;
+      case SI_QUERY_NUM_COMPILATIONS:
+         query->begin_result = p_atomic_read(&sctx->screen->num_compilations);
+         break;
+      case SI_QUERY_NUM_SHADERS_CREATED:
+         query->begin_result = p_atomic_read(&sctx->screen->num_shaders_created);
+         break;
+      case SI_QUERY_LIVE_SHADER_CACHE_HITS:
+         query->begin_result = sctx->screen->live_shader_cache.hits;
+         break;
+      case SI_QUERY_LIVE_SHADER_CACHE_MISSES:
+         query->begin_result = sctx->screen->live_shader_cache.misses;
+         break;
+      case SI_QUERY_MEMORY_SHADER_CACHE_HITS:
+         query->begin_result = sctx->screen->num_memory_shader_cache_hits;
+         break;
+      case SI_QUERY_MEMORY_SHADER_CACHE_MISSES:
+         query->begin_result = sctx->screen->num_memory_shader_cache_misses;
+         break;
+      case SI_QUERY_DISK_SHADER_CACHE_HITS:
+         query->begin_result = sctx->screen->num_disk_shader_cache_hits;
+         break;
+      case SI_QUERY_DISK_SHADER_CACHE_MISSES:
+         query->begin_result = sctx->screen->num_disk_shader_cache_misses;
+         break;
+      case SI_QUERY_GPIN_ASIC_ID:
+      case SI_QUERY_GPIN_NUM_SIMD:
+      case SI_QUERY_GPIN_NUM_RB:
+      case SI_QUERY_GPIN_NUM_SPI:
+      case SI_QUERY_GPIN_NUM_SE:
+         break;
+      default:
+         unreachable("si_query_sw_begin: bad query type");
    }
 
    return true;
@@ -261,155 +261,155 @@ static bool si_query_sw_end(struct si_context *sctx, struct si_query *squery)
    enum radeon_value_id ws_id;
 
    switch (query->b.type) {
-   case PIPE_QUERY_TIMESTAMP_DISJOINT:
-      break;
-   case PIPE_QUERY_GPU_FINISHED:
-      sctx->b.flush(&sctx->b, &query->fence, PIPE_FLUSH_DEFERRED);
-      break;
-   case SI_QUERY_DRAW_CALLS:
-      query->end_result = sctx->num_draw_calls;
-      break;
-   case SI_QUERY_DECOMPRESS_CALLS:
-      query->end_result = sctx->num_decompress_calls;
-      break;
-   case SI_QUERY_PRIM_RESTART_CALLS:
-      query->end_result = sctx->num_prim_restart_calls;
-      break;
-   case SI_QUERY_COMPUTE_CALLS:
-      query->end_result = sctx->num_compute_calls;
-      break;
-   case SI_QUERY_CP_DMA_CALLS:
-      query->end_result = sctx->num_cp_dma_calls;
-      break;
-   case SI_QUERY_NUM_VS_FLUSHES:
-      query->end_result = sctx->num_vs_flushes;
-      break;
-   case SI_QUERY_NUM_PS_FLUSHES:
-      query->end_result = sctx->num_ps_flushes;
-      break;
-   case SI_QUERY_NUM_CS_FLUSHES:
-      query->end_result = sctx->num_cs_flushes;
-      break;
-   case SI_QUERY_NUM_CB_CACHE_FLUSHES:
-      query->end_result = sctx->num_cb_cache_flushes;
-      break;
-   case SI_QUERY_NUM_DB_CACHE_FLUSHES:
-      query->end_result = sctx->num_db_cache_flushes;
-      break;
-   case SI_QUERY_NUM_L2_INVALIDATES:
-      query->end_result = sctx->num_L2_invalidates;
-      break;
-   case SI_QUERY_NUM_L2_WRITEBACKS:
-      query->end_result = sctx->num_L2_writebacks;
-      break;
-   case SI_QUERY_NUM_RESIDENT_HANDLES:
-      query->end_result = sctx->num_resident_handles;
-      break;
-   case SI_QUERY_TC_OFFLOADED_SLOTS:
-      query->end_result = sctx->tc ? sctx->tc->num_offloaded_slots : 0;
-      break;
-   case SI_QUERY_TC_DIRECT_SLOTS:
-      query->end_result = sctx->tc ? sctx->tc->num_direct_slots : 0;
-      break;
-   case SI_QUERY_TC_NUM_SYNCS:
-      query->end_result = sctx->tc ? sctx->tc->num_syncs : 0;
-      break;
-   case SI_QUERY_REQUESTED_VRAM:
-   case SI_QUERY_REQUESTED_GTT:
-   case SI_QUERY_MAPPED_VRAM:
-   case SI_QUERY_MAPPED_GTT:
-   case SI_QUERY_SLAB_WASTED_VRAM:
-   case SI_QUERY_SLAB_WASTED_GTT:
-   case SI_QUERY_VRAM_USAGE:
-   case SI_QUERY_VRAM_VIS_USAGE:
-   case SI_QUERY_GTT_USAGE:
-   case SI_QUERY_GPU_TEMPERATURE:
-   case SI_QUERY_CURRENT_GPU_SCLK:
-   case SI_QUERY_CURRENT_GPU_MCLK:
-   case SI_QUERY_BUFFER_WAIT_TIME:
-   case SI_QUERY_GFX_IB_SIZE:
-   case SI_QUERY_NUM_MAPPED_BUFFERS:
-   case SI_QUERY_NUM_GFX_IBS:
-   case SI_QUERY_NUM_BYTES_MOVED:
-   case SI_QUERY_NUM_EVICTIONS:
-   case SI_QUERY_NUM_VRAM_CPU_PAGE_FAULTS: {
-      enum radeon_value_id ws_id = winsys_id_from_type(query->b.type);
-      query->end_result = sctx->ws->query_value(sctx->ws, ws_id);
-      break;
-   }
-   case SI_QUERY_GFX_BO_LIST_SIZE:
-      ws_id = winsys_id_from_type(query->b.type);
-      query->end_result = sctx->ws->query_value(sctx->ws, ws_id);
-      query->end_time = sctx->ws->query_value(sctx->ws, RADEON_NUM_GFX_IBS);
-      break;
-   case SI_QUERY_CS_THREAD_BUSY:
-      ws_id = winsys_id_from_type(query->b.type);
-      query->end_result = sctx->ws->query_value(sctx->ws, ws_id);
-      query->end_time = os_time_get_nano();
-      break;
-   case SI_QUERY_GALLIUM_THREAD_BUSY:
-      query->end_result = sctx->tc ? util_queue_get_thread_time_nano(&sctx->tc->queue, 0) : 0;
-      query->end_time = os_time_get_nano();
-      break;
-   case SI_QUERY_GPU_LOAD:
-   case SI_QUERY_GPU_SHADERS_BUSY:
-   case SI_QUERY_GPU_TA_BUSY:
-   case SI_QUERY_GPU_GDS_BUSY:
-   case SI_QUERY_GPU_VGT_BUSY:
-   case SI_QUERY_GPU_IA_BUSY:
-   case SI_QUERY_GPU_SX_BUSY:
-   case SI_QUERY_GPU_WD_BUSY:
-   case SI_QUERY_GPU_BCI_BUSY:
-   case SI_QUERY_GPU_SC_BUSY:
-   case SI_QUERY_GPU_PA_BUSY:
-   case SI_QUERY_GPU_DB_BUSY:
-   case SI_QUERY_GPU_CP_BUSY:
-   case SI_QUERY_GPU_CB_BUSY:
-   case SI_QUERY_GPU_SDMA_BUSY:
-   case SI_QUERY_GPU_PFP_BUSY:
-   case SI_QUERY_GPU_MEQ_BUSY:
-   case SI_QUERY_GPU_ME_BUSY:
-   case SI_QUERY_GPU_SURF_SYNC_BUSY:
-   case SI_QUERY_GPU_CP_DMA_BUSY:
-   case SI_QUERY_GPU_SCRATCH_RAM_BUSY:
-      query->end_result = si_end_counter(sctx->screen, query->b.type, query->begin_result);
-      query->begin_result = 0;
-      break;
-   case SI_QUERY_NUM_COMPILATIONS:
-      query->end_result = p_atomic_read(&sctx->screen->num_compilations);
-      break;
-   case SI_QUERY_NUM_SHADERS_CREATED:
-      query->end_result = p_atomic_read(&sctx->screen->num_shaders_created);
-      break;
-   case SI_QUERY_BACK_BUFFER_PS_DRAW_RATIO:
-      query->end_result = sctx->last_tex_ps_draw_ratio;
-      break;
-   case SI_QUERY_LIVE_SHADER_CACHE_HITS:
-      query->end_result = sctx->screen->live_shader_cache.hits;
-      break;
-   case SI_QUERY_LIVE_SHADER_CACHE_MISSES:
-      query->end_result = sctx->screen->live_shader_cache.misses;
-      break;
-   case SI_QUERY_MEMORY_SHADER_CACHE_HITS:
-      query->end_result = sctx->screen->num_memory_shader_cache_hits;
-      break;
-   case SI_QUERY_MEMORY_SHADER_CACHE_MISSES:
-      query->end_result = sctx->screen->num_memory_shader_cache_misses;
-      break;
-   case SI_QUERY_DISK_SHADER_CACHE_HITS:
-      query->end_result = sctx->screen->num_disk_shader_cache_hits;
-      break;
-   case SI_QUERY_DISK_SHADER_CACHE_MISSES:
-      query->end_result = sctx->screen->num_disk_shader_cache_misses;
-      break;
-   case SI_QUERY_GPIN_ASIC_ID:
-   case SI_QUERY_GPIN_NUM_SIMD:
-   case SI_QUERY_GPIN_NUM_RB:
-   case SI_QUERY_GPIN_NUM_SPI:
-   case SI_QUERY_GPIN_NUM_SE:
-      break;
-   default:
-      unreachable("si_query_sw_end: bad query type");
+      case PIPE_QUERY_TIMESTAMP_DISJOINT:
+         break;
+      case PIPE_QUERY_GPU_FINISHED:
+         sctx->b.flush(&sctx->b, &query->fence, PIPE_FLUSH_DEFERRED);
+         break;
+      case SI_QUERY_DRAW_CALLS:
+         query->end_result = sctx->num_draw_calls;
+         break;
+      case SI_QUERY_DECOMPRESS_CALLS:
+         query->end_result = sctx->num_decompress_calls;
+         break;
+      case SI_QUERY_PRIM_RESTART_CALLS:
+         query->end_result = sctx->num_prim_restart_calls;
+         break;
+      case SI_QUERY_COMPUTE_CALLS:
+         query->end_result = sctx->num_compute_calls;
+         break;
+      case SI_QUERY_CP_DMA_CALLS:
+         query->end_result = sctx->num_cp_dma_calls;
+         break;
+      case SI_QUERY_NUM_VS_FLUSHES:
+         query->end_result = sctx->num_vs_flushes;
+         break;
+      case SI_QUERY_NUM_PS_FLUSHES:
+         query->end_result = sctx->num_ps_flushes;
+         break;
+      case SI_QUERY_NUM_CS_FLUSHES:
+         query->end_result = sctx->num_cs_flushes;
+         break;
+      case SI_QUERY_NUM_CB_CACHE_FLUSHES:
+         query->end_result = sctx->num_cb_cache_flushes;
+         break;
+      case SI_QUERY_NUM_DB_CACHE_FLUSHES:
+         query->end_result = sctx->num_db_cache_flushes;
+         break;
+      case SI_QUERY_NUM_L2_INVALIDATES:
+         query->end_result = sctx->num_L2_invalidates;
+         break;
+      case SI_QUERY_NUM_L2_WRITEBACKS:
+         query->end_result = sctx->num_L2_writebacks;
+         break;
+      case SI_QUERY_NUM_RESIDENT_HANDLES:
+         query->end_result = sctx->num_resident_handles;
+         break;
+      case SI_QUERY_TC_OFFLOADED_SLOTS:
+         query->end_result = sctx->tc ? sctx->tc->num_offloaded_slots : 0;
+         break;
+      case SI_QUERY_TC_DIRECT_SLOTS:
+         query->end_result = sctx->tc ? sctx->tc->num_direct_slots : 0;
+         break;
+      case SI_QUERY_TC_NUM_SYNCS:
+         query->end_result = sctx->tc ? sctx->tc->num_syncs : 0;
+         break;
+      case SI_QUERY_REQUESTED_VRAM:
+      case SI_QUERY_REQUESTED_GTT:
+      case SI_QUERY_MAPPED_VRAM:
+      case SI_QUERY_MAPPED_GTT:
+      case SI_QUERY_SLAB_WASTED_VRAM:
+      case SI_QUERY_SLAB_WASTED_GTT:
+      case SI_QUERY_VRAM_USAGE:
+      case SI_QUERY_VRAM_VIS_USAGE:
+      case SI_QUERY_GTT_USAGE:
+      case SI_QUERY_GPU_TEMPERATURE:
+      case SI_QUERY_CURRENT_GPU_SCLK:
+      case SI_QUERY_CURRENT_GPU_MCLK:
+      case SI_QUERY_BUFFER_WAIT_TIME:
+      case SI_QUERY_GFX_IB_SIZE:
+      case SI_QUERY_NUM_MAPPED_BUFFERS:
+      case SI_QUERY_NUM_GFX_IBS:
+      case SI_QUERY_NUM_BYTES_MOVED:
+      case SI_QUERY_NUM_EVICTIONS:
+      case SI_QUERY_NUM_VRAM_CPU_PAGE_FAULTS: {
+         enum radeon_value_id ws_id = winsys_id_from_type(query->b.type);
+         query->end_result = sctx->ws->query_value(sctx->ws, ws_id);
+         break;
+      }
+      case SI_QUERY_GFX_BO_LIST_SIZE:
+         ws_id = winsys_id_from_type(query->b.type);
+         query->end_result = sctx->ws->query_value(sctx->ws, ws_id);
+         query->end_time = sctx->ws->query_value(sctx->ws, RADEON_NUM_GFX_IBS);
+         break;
+      case SI_QUERY_CS_THREAD_BUSY:
+         ws_id = winsys_id_from_type(query->b.type);
+         query->end_result = sctx->ws->query_value(sctx->ws, ws_id);
+         query->end_time = os_time_get_nano();
+         break;
+      case SI_QUERY_GALLIUM_THREAD_BUSY:
+         query->end_result = sctx->tc ? util_queue_get_thread_time_nano(&sctx->tc->queue, 0) : 0;
+         query->end_time = os_time_get_nano();
+         break;
+      case SI_QUERY_GPU_LOAD:
+      case SI_QUERY_GPU_SHADERS_BUSY:
+      case SI_QUERY_GPU_TA_BUSY:
+      case SI_QUERY_GPU_GDS_BUSY:
+      case SI_QUERY_GPU_VGT_BUSY:
+      case SI_QUERY_GPU_IA_BUSY:
+      case SI_QUERY_GPU_SX_BUSY:
+      case SI_QUERY_GPU_WD_BUSY:
+      case SI_QUERY_GPU_BCI_BUSY:
+      case SI_QUERY_GPU_SC_BUSY:
+      case SI_QUERY_GPU_PA_BUSY:
+      case SI_QUERY_GPU_DB_BUSY:
+      case SI_QUERY_GPU_CP_BUSY:
+      case SI_QUERY_GPU_CB_BUSY:
+      case SI_QUERY_GPU_SDMA_BUSY:
+      case SI_QUERY_GPU_PFP_BUSY:
+      case SI_QUERY_GPU_MEQ_BUSY:
+      case SI_QUERY_GPU_ME_BUSY:
+      case SI_QUERY_GPU_SURF_SYNC_BUSY:
+      case SI_QUERY_GPU_CP_DMA_BUSY:
+      case SI_QUERY_GPU_SCRATCH_RAM_BUSY:
+         query->end_result = si_end_counter(sctx->screen, query->b.type, query->begin_result);
+         query->begin_result = 0;
+         break;
+      case SI_QUERY_NUM_COMPILATIONS:
+         query->end_result = p_atomic_read(&sctx->screen->num_compilations);
+         break;
+      case SI_QUERY_NUM_SHADERS_CREATED:
+         query->end_result = p_atomic_read(&sctx->screen->num_shaders_created);
+         break;
+      case SI_QUERY_BACK_BUFFER_PS_DRAW_RATIO:
+         query->end_result = sctx->last_tex_ps_draw_ratio;
+         break;
+      case SI_QUERY_LIVE_SHADER_CACHE_HITS:
+         query->end_result = sctx->screen->live_shader_cache.hits;
+         break;
+      case SI_QUERY_LIVE_SHADER_CACHE_MISSES:
+         query->end_result = sctx->screen->live_shader_cache.misses;
+         break;
+      case SI_QUERY_MEMORY_SHADER_CACHE_HITS:
+         query->end_result = sctx->screen->num_memory_shader_cache_hits;
+         break;
+      case SI_QUERY_MEMORY_SHADER_CACHE_MISSES:
+         query->end_result = sctx->screen->num_memory_shader_cache_misses;
+         break;
+      case SI_QUERY_DISK_SHADER_CACHE_HITS:
+         query->end_result = sctx->screen->num_disk_shader_cache_hits;
+         break;
+      case SI_QUERY_DISK_SHADER_CACHE_MISSES:
+         query->end_result = sctx->screen->num_disk_shader_cache_misses;
+         break;
+      case SI_QUERY_GPIN_ASIC_ID:
+      case SI_QUERY_GPIN_NUM_SIMD:
+      case SI_QUERY_GPIN_NUM_RB:
+      case SI_QUERY_GPIN_NUM_SPI:
+      case SI_QUERY_GPIN_NUM_SE:
+         break;
+      default:
+         unreachable("si_query_sw_end: bad query type");
    }
 
    return true;
@@ -421,56 +421,56 @@ static bool si_query_sw_get_result(struct si_context *sctx, struct si_query *squ
    struct si_query_sw *query = (struct si_query_sw *)squery;
 
    switch (query->b.type) {
-   case PIPE_QUERY_TIMESTAMP_DISJOINT:
-      /* Convert from cycles per millisecond to cycles per second (Hz). */
-      result->timestamp_disjoint.frequency = (uint64_t)sctx->screen->info.clock_crystal_freq * 1000;
-      result->timestamp_disjoint.disjoint = false;
-      return true;
-   case PIPE_QUERY_GPU_FINISHED: {
-      struct pipe_screen *screen = sctx->b.screen;
-      struct pipe_context *ctx = squery->b.flushed ? NULL : &sctx->b;
+      case PIPE_QUERY_TIMESTAMP_DISJOINT:
+         /* Convert from cycles per millisecond to cycles per second (Hz). */
+         result->timestamp_disjoint.frequency = (uint64_t)sctx->screen->info.clock_crystal_freq * 1000;
+         result->timestamp_disjoint.disjoint = false;
+         return true;
+      case PIPE_QUERY_GPU_FINISHED: {
+         struct pipe_screen *screen = sctx->b.screen;
+         struct pipe_context *ctx = squery->b.flushed ? NULL : &sctx->b;
 
-      result->b = screen->fence_finish(screen, ctx, query->fence, wait ? OS_TIMEOUT_INFINITE : 0);
-      return result->b;
-   }
+         result->b = screen->fence_finish(screen, ctx, query->fence, wait ? OS_TIMEOUT_INFINITE : 0);
+         return result->b;
+      }
 
-   case SI_QUERY_GFX_BO_LIST_SIZE:
-      result->u64 =
-         (query->end_result - query->begin_result) / (query->end_time - query->begin_time);
-      return true;
-   case SI_QUERY_CS_THREAD_BUSY:
-   case SI_QUERY_GALLIUM_THREAD_BUSY:
-      result->u64 =
-         (query->end_result - query->begin_result) * 100 / (query->end_time - query->begin_time);
-      return true;
-   case SI_QUERY_GPIN_ASIC_ID:
-      result->u32 = 0;
-      return true;
-   case SI_QUERY_GPIN_NUM_SIMD:
-      result->u32 = sctx->screen->info.num_cu;
-      return true;
-   case SI_QUERY_GPIN_NUM_RB:
-      result->u32 = sctx->screen->info.max_render_backends;
-      return true;
-   case SI_QUERY_GPIN_NUM_SPI:
-      result->u32 = 1; /* all supported chips have one SPI per SE */
-      return true;
-   case SI_QUERY_GPIN_NUM_SE:
-      result->u32 = sctx->screen->info.max_se;
-      return true;
+      case SI_QUERY_GFX_BO_LIST_SIZE:
+         result->u64 =
+            (query->end_result - query->begin_result) / (query->end_time - query->begin_time);
+         return true;
+      case SI_QUERY_CS_THREAD_BUSY:
+      case SI_QUERY_GALLIUM_THREAD_BUSY:
+         result->u64 =
+            (query->end_result - query->begin_result) * 100 / (query->end_time - query->begin_time);
+         return true;
+      case SI_QUERY_GPIN_ASIC_ID:
+         result->u32 = 0;
+         return true;
+      case SI_QUERY_GPIN_NUM_SIMD:
+         result->u32 = sctx->screen->info.num_cu;
+         return true;
+      case SI_QUERY_GPIN_NUM_RB:
+         result->u32 = sctx->screen->info.max_render_backends;
+         return true;
+      case SI_QUERY_GPIN_NUM_SPI:
+         result->u32 = 1; /* all supported chips have one SPI per SE */
+         return true;
+      case SI_QUERY_GPIN_NUM_SE:
+         result->u32 = sctx->screen->info.max_se;
+         return true;
    }
 
    result->u64 = query->end_result - query->begin_result;
 
    switch (query->b.type) {
-   case SI_QUERY_BUFFER_WAIT_TIME:
-   case SI_QUERY_GPU_TEMPERATURE:
-      result->u64 /= 1000;
-      break;
-   case SI_QUERY_CURRENT_GPU_SCLK:
-   case SI_QUERY_CURRENT_GPU_MCLK:
-      result->u64 *= 1000000;
-      break;
+      case SI_QUERY_BUFFER_WAIT_TIME:
+      case SI_QUERY_GPU_TEMPERATURE:
+         result->u64 /= 1000;
+         break;
+      case SI_QUERY_CURRENT_GPU_SCLK:
+      case SI_QUERY_CURRENT_GPU_MCLK:
+         result->u64 *= 1000000;
+         break;
    }
 
    return true;
@@ -627,22 +627,33 @@ static unsigned si_query_pipestats_num_results(struct si_screen *sscreen)
 static unsigned si_query_pipestat_dw_offset(enum pipe_statistics_query_index index)
 {
    switch (index) {
-   case PIPE_STAT_QUERY_PS_INVOCATIONS: return 0;
-   case PIPE_STAT_QUERY_C_PRIMITIVES: return 2;
-   case PIPE_STAT_QUERY_C_INVOCATIONS: return 4;
-   case PIPE_STAT_QUERY_VS_INVOCATIONS: return 6;
-   case PIPE_STAT_QUERY_GS_INVOCATIONS: return 8;
-   case PIPE_STAT_QUERY_GS_PRIMITIVES: return 10;
-   case PIPE_STAT_QUERY_IA_PRIMITIVES: return 12;
-   case PIPE_STAT_QUERY_IA_VERTICES: return 14;
-   case PIPE_STAT_QUERY_HS_INVOCATIONS: return 16;
-   case PIPE_STAT_QUERY_DS_INVOCATIONS: return 18;
-   case PIPE_STAT_QUERY_CS_INVOCATIONS: return 20;
-   /* gfx11: MS_INVOCATIONS */
-   /* gfx11: MS_PRIMITIVES */
-   /* gfx11: TS_INVOCATIONS */
-   default:
-      assert(false);
+      case PIPE_STAT_QUERY_PS_INVOCATIONS:
+         return 0;
+      case PIPE_STAT_QUERY_C_PRIMITIVES:
+         return 2;
+      case PIPE_STAT_QUERY_C_INVOCATIONS:
+         return 4;
+      case PIPE_STAT_QUERY_VS_INVOCATIONS:
+         return 6;
+      case PIPE_STAT_QUERY_GS_INVOCATIONS:
+         return 8;
+      case PIPE_STAT_QUERY_GS_PRIMITIVES:
+         return 10;
+      case PIPE_STAT_QUERY_IA_PRIMITIVES:
+         return 12;
+      case PIPE_STAT_QUERY_IA_VERTICES:
+         return 14;
+      case PIPE_STAT_QUERY_HS_INVOCATIONS:
+         return 16;
+      case PIPE_STAT_QUERY_DS_INVOCATIONS:
+         return 18;
+      case PIPE_STAT_QUERY_CS_INVOCATIONS:
+         return 20;
+      /* gfx11: MS_INVOCATIONS */
+      /* gfx11: MS_PRIMITIVES */
+      /* gfx11: TS_INVOCATIONS */
+      default:
+         assert(false);
    }
    return ~0;
 }
@@ -687,49 +698,49 @@ static struct pipe_query *si_query_hw_create(struct si_screen *sscreen, unsigned
    query->ops = &query_hw_default_hw_ops;
 
    switch (query_type) {
-   case PIPE_QUERY_OCCLUSION_COUNTER:
-   case PIPE_QUERY_OCCLUSION_PREDICATE:
-   case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
-      query->result_size = 16 * sscreen->info.max_render_backends;
-      query->result_size += 16; /* for the fence + alignment */
-      query->b.num_cs_dw_suspend = 6 + si_cp_write_fence_dwords(sscreen);
-      break;
-   case PIPE_QUERY_TIME_ELAPSED:
-      query->result_size = 24;
-      query->b.num_cs_dw_suspend = 8 + si_cp_write_fence_dwords(sscreen);
-      break;
-   case PIPE_QUERY_TIMESTAMP:
-      query->result_size = 16;
-      query->b.num_cs_dw_suspend = 8 + si_cp_write_fence_dwords(sscreen);
-      query->flags = SI_QUERY_HW_FLAG_NO_START;
-      break;
-   case PIPE_QUERY_PRIMITIVES_EMITTED:
-   case PIPE_QUERY_PRIMITIVES_GENERATED:
-   case PIPE_QUERY_SO_STATISTICS:
-   case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-      /* NumPrimitivesWritten, PrimitiveStorageNeeded. */
-      query->result_size = 32;
-      query->b.num_cs_dw_suspend = 6;
-      query->stream = index;
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-      /* NumPrimitivesWritten, PrimitiveStorageNeeded. */
-      query->result_size = 32 * SI_MAX_STREAMS;
-      query->b.num_cs_dw_suspend = 6 * SI_MAX_STREAMS;
-      break;
-   case PIPE_QUERY_PIPELINE_STATISTICS:
-      query->result_size = si_query_pipestats_num_results(sscreen) * 16;
-      query->result_size += 8; /* for the fence + alignment */
-      query->b.num_cs_dw_suspend = 6 + si_cp_write_fence_dwords(sscreen);
-      query->index = index;
-      if ((index == PIPE_STAT_QUERY_GS_PRIMITIVES || index == PIPE_STAT_QUERY_GS_INVOCATIONS) &&
-          sscreen->use_ngg && (sscreen->info.gfx_level >= GFX10 && sscreen->info.gfx_level <= GFX10_3))
-         query->flags |= SI_QUERY_EMULATE_GS_COUNTERS;
-      break;
-   default:
-      assert(0);
-      FREE(query);
-      return NULL;
+      case PIPE_QUERY_OCCLUSION_COUNTER:
+      case PIPE_QUERY_OCCLUSION_PREDICATE:
+      case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
+         query->result_size = 16 * sscreen->info.max_render_backends;
+         query->result_size += 16; /* for the fence + alignment */
+         query->b.num_cs_dw_suspend = 6 + si_cp_write_fence_dwords(sscreen);
+         break;
+      case PIPE_QUERY_TIME_ELAPSED:
+         query->result_size = 24;
+         query->b.num_cs_dw_suspend = 8 + si_cp_write_fence_dwords(sscreen);
+         break;
+      case PIPE_QUERY_TIMESTAMP:
+         query->result_size = 16;
+         query->b.num_cs_dw_suspend = 8 + si_cp_write_fence_dwords(sscreen);
+         query->flags = SI_QUERY_HW_FLAG_NO_START;
+         break;
+      case PIPE_QUERY_PRIMITIVES_EMITTED:
+      case PIPE_QUERY_PRIMITIVES_GENERATED:
+      case PIPE_QUERY_SO_STATISTICS:
+      case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+         /* NumPrimitivesWritten, PrimitiveStorageNeeded. */
+         query->result_size = 32;
+         query->b.num_cs_dw_suspend = 6;
+         query->stream = index;
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+         /* NumPrimitivesWritten, PrimitiveStorageNeeded. */
+         query->result_size = 32 * SI_MAX_STREAMS;
+         query->b.num_cs_dw_suspend = 6 * SI_MAX_STREAMS;
+         break;
+      case PIPE_QUERY_PIPELINE_STATISTICS:
+         query->result_size = si_query_pipestats_num_results(sscreen) * 16;
+         query->result_size += 8; /* for the fence + alignment */
+         query->b.num_cs_dw_suspend = 6 + si_cp_write_fence_dwords(sscreen);
+         query->index = index;
+         if ((index == PIPE_STAT_QUERY_GS_PRIMITIVES || index == PIPE_STAT_QUERY_GS_INVOCATIONS) &&
+             sscreen->use_ngg && (sscreen->info.gfx_level >= GFX10 && sscreen->info.gfx_level <= GFX10_3))
+            query->flags |= SI_QUERY_EMULATE_GS_COUNTERS;
+         break;
+      default:
+         assert(0);
+         FREE(query);
+         return NULL;
    }
 
    return (struct pipe_query *)query;
@@ -763,15 +774,15 @@ static void si_update_occlusion_query_state(struct si_context *sctx, unsigned ty
 static unsigned event_type_for_stream(unsigned stream)
 {
    switch (stream) {
-   default:
-   case 0:
-      return V_028A90_SAMPLE_STREAMOUTSTATS;
-   case 1:
-      return V_028A90_SAMPLE_STREAMOUTSTATS1;
-   case 2:
-      return V_028A90_SAMPLE_STREAMOUTSTATS2;
-   case 3:
-      return V_028A90_SAMPLE_STREAMOUTSTATS3;
+      default:
+      case 0:
+         return V_028A90_SAMPLE_STREAMOUTSTATS;
+      case 1:
+         return V_028A90_SAMPLE_STREAMOUTSTATS1;
+      case 2:
+         return V_028A90_SAMPLE_STREAMOUTSTATS2;
+      case 3:
+         return V_028A90_SAMPLE_STREAMOUTSTATS3;
    }
 }
 
@@ -791,82 +802,82 @@ static void si_query_hw_do_emit_start(struct si_context *sctx, struct si_query_h
    struct radeon_cmdbuf *cs = &sctx->gfx_cs;
 
    switch (query->b.type) {
-   case PIPE_QUERY_OCCLUSION_COUNTER:
-   case PIPE_QUERY_OCCLUSION_PREDICATE:
-   case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE: {
-      radeon_begin(cs);
-      if (sctx->gfx_level >= GFX11 &&
-          sctx->screen->info.pfp_fw_version >= EVENT_WRITE_ZPASS_PFP_VERSION) {
-         radeon_emit(PKT3(PKT3_EVENT_WRITE_ZPASS, 1, 0));
-      } else {
-         radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
-         if (sctx->gfx_level >= GFX11)
-            radeon_emit(EVENT_TYPE(V_028A90_PIXEL_PIPE_STAT_DUMP) | EVENT_INDEX(1));
-         else
-            radeon_emit(EVENT_TYPE(V_028A90_ZPASS_DONE) | EVENT_INDEX(1));
-      }
-      radeon_emit(va);
-      radeon_emit(va >> 32);
-      radeon_end();
-      break;
-   }
-   case PIPE_QUERY_PRIMITIVES_EMITTED:
-   case PIPE_QUERY_PRIMITIVES_GENERATED:
-   case PIPE_QUERY_SO_STATISTICS:
-   case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-      emit_sample_streamout(cs, va, query->stream);
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-      for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream)
-         emit_sample_streamout(cs, va + 32 * stream, stream);
-      break;
-   case PIPE_QUERY_TIME_ELAPSED:
-      si_cp_release_mem(sctx, cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM, EOP_INT_SEL_NONE,
-                        EOP_DATA_SEL_TIMESTAMP, NULL, va, 0, query->b.type);
-      break;
-   case PIPE_QUERY_PIPELINE_STATISTICS: {
-      if (sctx->screen->use_ngg && query->flags & SI_QUERY_EMULATE_GS_COUNTERS) {
-         /* The hw GS primitive counter doesn't work when ngg is active.
-          * So if use_ngg is true, we don't use the hw version but instead
-          * emulate it in the GS shader.
-          * The value is written at the same position, so we don't need to
-          * change anything else.
-          * If ngg is enabled for the draw, the primitive count is written in
-          * gfx10_ngg_gs_emit_epilogue. If ngg is disabled, the number of exported
-          * vertices is stored in gs_emitted_vertices and the number of prim
-          * is computed based on the output prim type in emit_gs_epilogue.
-          */
-         struct pipe_shader_buffer sbuf;
-         sbuf.buffer = &buffer->b.b;
-         sbuf.buffer_offset = query->buffer.results_end;
-         sbuf.buffer_size = buffer->bo_size;
-         si_set_internal_shader_buffer(sctx, SI_GS_QUERY_EMULATED_COUNTERS_BUF, &sbuf);
-         SET_FIELD(sctx->current_gs_state, GS_STATE_PIPELINE_STATS_EMU, 1);
-
-         const uint32_t zero = 0;
+      case PIPE_QUERY_OCCLUSION_COUNTER:
+      case PIPE_QUERY_OCCLUSION_PREDICATE:
+      case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE: {
          radeon_begin(cs);
-         /* Clear the emulated counter end value. We don't clear start because it's unused. */
-         va += si_query_pipestat_end_dw_offset(sctx->screen, query->index) * 4;
-         radeon_emit(PKT3(PKT3_WRITE_DATA, 2 + 1, 0));
-         radeon_emit(S_370_DST_SEL(V_370_MEM) | S_370_WR_CONFIRM(1) | S_370_ENGINE_SEL(V_370_PFP));
-         radeon_emit(va);
-         radeon_emit(va >> 32);
-         radeon_emit(zero);
-         radeon_end();
-
-         sctx->num_pipeline_stat_emulated_queries++;
-      } else {
-         radeon_begin(cs);
-         radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
-         radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
+         if (sctx->gfx_level >= GFX11 &&
+             sctx->screen->info.pfp_fw_version >= EVENT_WRITE_ZPASS_PFP_VERSION) {
+            radeon_emit(PKT3(PKT3_EVENT_WRITE_ZPASS, 1, 0));
+         } else {
+            radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
+            if (sctx->gfx_level >= GFX11)
+               radeon_emit(EVENT_TYPE(V_028A90_PIXEL_PIPE_STAT_DUMP) | EVENT_INDEX(1));
+            else
+               radeon_emit(EVENT_TYPE(V_028A90_ZPASS_DONE) | EVENT_INDEX(1));
+         }
          radeon_emit(va);
          radeon_emit(va >> 32);
          radeon_end();
+         break;
       }
-      break;
-   }
-   default:
-      assert(0);
+      case PIPE_QUERY_PRIMITIVES_EMITTED:
+      case PIPE_QUERY_PRIMITIVES_GENERATED:
+      case PIPE_QUERY_SO_STATISTICS:
+      case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+         emit_sample_streamout(cs, va, query->stream);
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+         for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream)
+            emit_sample_streamout(cs, va + 32 * stream, stream);
+         break;
+      case PIPE_QUERY_TIME_ELAPSED:
+         si_cp_release_mem(sctx, cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM, EOP_INT_SEL_NONE,
+                           EOP_DATA_SEL_TIMESTAMP, NULL, va, 0, query->b.type);
+         break;
+      case PIPE_QUERY_PIPELINE_STATISTICS: {
+         if (sctx->screen->use_ngg && query->flags & SI_QUERY_EMULATE_GS_COUNTERS) {
+            /* The hw GS primitive counter doesn't work when ngg is active.
+             * So if use_ngg is true, we don't use the hw version but instead
+             * emulate it in the GS shader.
+             * The value is written at the same position, so we don't need to
+             * change anything else.
+             * If ngg is enabled for the draw, the primitive count is written in
+             * gfx10_ngg_gs_emit_epilogue. If ngg is disabled, the number of exported
+             * vertices is stored in gs_emitted_vertices and the number of prim
+             * is computed based on the output prim type in emit_gs_epilogue.
+             */
+            struct pipe_shader_buffer sbuf;
+            sbuf.buffer = &buffer->b.b;
+            sbuf.buffer_offset = query->buffer.results_end;
+            sbuf.buffer_size = buffer->bo_size;
+            si_set_internal_shader_buffer(sctx, SI_GS_QUERY_EMULATED_COUNTERS_BUF, &sbuf);
+            SET_FIELD(sctx->current_gs_state, GS_STATE_PIPELINE_STATS_EMU, 1);
+
+            const uint32_t zero = 0;
+            radeon_begin(cs);
+            /* Clear the emulated counter end value. We don't clear start because it's unused. */
+            va += si_query_pipestat_end_dw_offset(sctx->screen, query->index) * 4;
+            radeon_emit(PKT3(PKT3_WRITE_DATA, 2 + 1, 0));
+            radeon_emit(S_370_DST_SEL(V_370_MEM) | S_370_WR_CONFIRM(1) | S_370_ENGINE_SEL(V_370_PFP));
+            radeon_emit(va);
+            radeon_emit(va >> 32);
+            radeon_emit(zero);
+            radeon_end();
+
+            sctx->num_pipeline_stat_emulated_queries++;
+         } else {
+            radeon_begin(cs);
+            radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
+            radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
+            radeon_emit(va);
+            radeon_emit(va >> 32);
+            radeon_end();
+         }
+         break;
+      }
+      default:
+         assert(0);
    }
    radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, query->buffer.buf,
                              RADEON_USAGE_WRITE | RADEON_PRIO_QUERY);
@@ -906,75 +917,75 @@ static void si_query_hw_do_emit_stop(struct si_context *sctx, struct si_query_hw
    uint64_t fence_va = 0;
 
    switch (query->b.type) {
-   case PIPE_QUERY_OCCLUSION_COUNTER:
-   case PIPE_QUERY_OCCLUSION_PREDICATE:
-   case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE: {
-      va += 8;
-      radeon_begin(cs);
-      if (sctx->gfx_level >= GFX11 &&
-          sctx->screen->info.pfp_fw_version >= EVENT_WRITE_ZPASS_PFP_VERSION) {
-         radeon_emit(PKT3(PKT3_EVENT_WRITE_ZPASS, 1, 0));
-      } else {
-         radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
-         if (sctx->gfx_level >= GFX11)
-            radeon_emit(EVENT_TYPE(V_028A90_PIXEL_PIPE_STAT_DUMP) | EVENT_INDEX(1));
-         else
-            radeon_emit(EVENT_TYPE(V_028A90_ZPASS_DONE) | EVENT_INDEX(1));
-      }
-      radeon_emit(va);
-      radeon_emit(va >> 32);
-      radeon_end();
-
-      fence_va = va + sctx->screen->info.max_render_backends * 16 - 8;
-      break;
-   }
-   case PIPE_QUERY_PRIMITIVES_EMITTED:
-   case PIPE_QUERY_PRIMITIVES_GENERATED:
-   case PIPE_QUERY_SO_STATISTICS:
-   case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-      va += 16;
-      emit_sample_streamout(cs, va, query->stream);
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-      va += 16;
-      for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream)
-         emit_sample_streamout(cs, va + 32 * stream, stream);
-      break;
-   case PIPE_QUERY_TIME_ELAPSED:
-      va += 8;
-      FALLTHROUGH;
-   case PIPE_QUERY_TIMESTAMP:
-      si_cp_release_mem(sctx, cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM, EOP_INT_SEL_NONE,
-                        EOP_DATA_SEL_TIMESTAMP, NULL, va, 0, query->b.type);
-      fence_va = va + 8;
-      break;
-   case PIPE_QUERY_PIPELINE_STATISTICS: {
-      unsigned sample_size = (query->result_size - 8) / 2;
-
-      va += sample_size;
-
-      radeon_begin(cs);
-      if (sctx->screen->use_ngg && query->flags & SI_QUERY_EMULATE_GS_COUNTERS) {
-         radeon_emit(PKT3(PKT3_EVENT_WRITE, 0, 0));
-         radeon_emit(EVENT_TYPE(V_028A90_VS_PARTIAL_FLUSH) | EVENT_INDEX(4));
-
-         if (--sctx->num_pipeline_stat_emulated_queries == 0) {
-            si_set_internal_shader_buffer(sctx, SI_GS_QUERY_BUF, NULL);
-            SET_FIELD(sctx->current_gs_state, GS_STATE_PIPELINE_STATS_EMU, 0);
+      case PIPE_QUERY_OCCLUSION_COUNTER:
+      case PIPE_QUERY_OCCLUSION_PREDICATE:
+      case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE: {
+         va += 8;
+         radeon_begin(cs);
+         if (sctx->gfx_level >= GFX11 &&
+             sctx->screen->info.pfp_fw_version >= EVENT_WRITE_ZPASS_PFP_VERSION) {
+            radeon_emit(PKT3(PKT3_EVENT_WRITE_ZPASS, 1, 0));
+         } else {
+            radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
+            if (sctx->gfx_level >= GFX11)
+               radeon_emit(EVENT_TYPE(V_028A90_PIXEL_PIPE_STAT_DUMP) | EVENT_INDEX(1));
+            else
+               radeon_emit(EVENT_TYPE(V_028A90_ZPASS_DONE) | EVENT_INDEX(1));
          }
-      } else {
-         radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
-         radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
          radeon_emit(va);
          radeon_emit(va >> 32);
-      }
-      radeon_end();
+         radeon_end();
 
-      fence_va = va + sample_size;
-      break;
-   }
-   default:
-      assert(0);
+         fence_va = va + sctx->screen->info.max_render_backends * 16 - 8;
+         break;
+      }
+      case PIPE_QUERY_PRIMITIVES_EMITTED:
+      case PIPE_QUERY_PRIMITIVES_GENERATED:
+      case PIPE_QUERY_SO_STATISTICS:
+      case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+         va += 16;
+         emit_sample_streamout(cs, va, query->stream);
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+         va += 16;
+         for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream)
+            emit_sample_streamout(cs, va + 32 * stream, stream);
+         break;
+      case PIPE_QUERY_TIME_ELAPSED:
+         va += 8;
+         FALLTHROUGH;
+      case PIPE_QUERY_TIMESTAMP:
+         si_cp_release_mem(sctx, cs, V_028A90_BOTTOM_OF_PIPE_TS, 0, EOP_DST_SEL_MEM, EOP_INT_SEL_NONE,
+                           EOP_DATA_SEL_TIMESTAMP, NULL, va, 0, query->b.type);
+         fence_va = va + 8;
+         break;
+      case PIPE_QUERY_PIPELINE_STATISTICS: {
+         unsigned sample_size = (query->result_size - 8) / 2;
+
+         va += sample_size;
+
+         radeon_begin(cs);
+         if (sctx->screen->use_ngg && query->flags & SI_QUERY_EMULATE_GS_COUNTERS) {
+            radeon_emit(PKT3(PKT3_EVENT_WRITE, 0, 0));
+            radeon_emit(EVENT_TYPE(V_028A90_VS_PARTIAL_FLUSH) | EVENT_INDEX(4));
+
+            if (--sctx->num_pipeline_stat_emulated_queries == 0) {
+               si_set_internal_shader_buffer(sctx, SI_GS_QUERY_BUF, NULL);
+               SET_FIELD(sctx->current_gs_state, GS_STATE_PIPELINE_STATS_EMU, 0);
+            }
+         } else {
+            radeon_emit(PKT3(PKT3_EVENT_WRITE, 2, 0));
+            radeon_emit(EVENT_TYPE(V_028A90_SAMPLE_PIPELINESTAT) | EVENT_INDEX(2));
+            radeon_emit(va);
+            radeon_emit(va >> 32);
+         }
+         radeon_end();
+
+         fence_va = va + sample_size;
+         break;
+      }
+      default:
+         assert(0);
    }
    radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, query->buffer.buf,
                              RADEON_USAGE_WRITE | RADEON_PRIO_QUERY);
@@ -1061,7 +1072,7 @@ static void si_emit_query_predication(struct si_context *ctx)
       if (!invert)
          op |= PREDICATION_DRAW_NOT_VISIBLE; /* Draw if not visible or overflow */
       else
-         op |= PREDICATION_DRAW_VISIBLE; /* Draw if visible or no overflow */
+         op |= PREDICATION_DRAW_VISIBLE;     /* Draw if visible or no overflow */
 
       op |= flag_wait ? PREDICATION_HINT_WAIT : PREDICATION_HINT_NOWAIT_DRAW;
 
@@ -1106,19 +1117,19 @@ static void si_emit_query_predication(struct si_context *ctx)
          op = PRED_OP(PREDICATION_OP_BOOL64);
       } else {
          switch (query->b.type) {
-         case PIPE_QUERY_OCCLUSION_COUNTER:
-         case PIPE_QUERY_OCCLUSION_PREDICATE:
-         case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
-            op = PRED_OP(PREDICATION_OP_ZPASS);
-            break;
-         case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-         case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-            op = PRED_OP(PREDICATION_OP_PRIMCOUNT);
-            invert = !invert;
-            break;
-         default:
-            assert(0);
-            return;
+            case PIPE_QUERY_OCCLUSION_COUNTER:
+            case PIPE_QUERY_OCCLUSION_PREDICATE:
+            case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
+               op = PRED_OP(PREDICATION_OP_ZPASS);
+               break;
+            case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+            case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+               op = PRED_OP(PREDICATION_OP_PRIMCOUNT);
+               invert = !invert;
+               break;
+            default:
+               assert(0);
+               return;
          }
       }
 
@@ -1126,7 +1137,7 @@ static void si_emit_query_predication(struct si_context *ctx)
       if (invert)
          op |= PREDICATION_DRAW_NOT_VISIBLE; /* Draw if not visible or overflow */
       else
-         op |= PREDICATION_DRAW_VISIBLE; /* Draw if visible or no overflow */
+         op |= PREDICATION_DRAW_VISIBLE;     /* Draw if visible or no overflow */
 
       /* Use the value written by compute shader as a workaround. Note that
        * the wait flag does not apply in this predication mode.
@@ -1264,62 +1275,62 @@ static void si_get_hw_query_params(struct si_context *sctx, struct si_query_hw *
    params->pair_count = 1;
 
    switch (squery->b.type) {
-   case PIPE_QUERY_OCCLUSION_COUNTER:
-   case PIPE_QUERY_OCCLUSION_PREDICATE:
-   case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
-      params->start_offset = 0;
-      params->end_offset = 8;
-      params->fence_offset = max_rbs * 16;
-      params->pair_stride = 16;
-      params->pair_count = max_rbs;
-      break;
-   case PIPE_QUERY_TIME_ELAPSED:
-      params->start_offset = 0;
-      params->end_offset = 8;
-      params->fence_offset = 16;
-      break;
-   case PIPE_QUERY_TIMESTAMP:
-      params->start_offset = 0;
-      params->end_offset = 0;
-      params->fence_offset = 8;
-      break;
-   case PIPE_QUERY_PRIMITIVES_EMITTED:
-      params->start_offset = 8;
-      params->end_offset = 24;
-      params->fence_offset = params->end_offset + 4;
-      break;
-   case PIPE_QUERY_PRIMITIVES_GENERATED:
-      params->start_offset = 0;
-      params->end_offset = 16;
-      params->fence_offset = params->end_offset + 4;
-      break;
-   case PIPE_QUERY_SO_STATISTICS:
-      params->start_offset = 8 - index * 8;
-      params->end_offset = 24 - index * 8;
-      params->fence_offset = params->end_offset + 4;
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-      params->pair_count = SI_MAX_STREAMS;
-      params->pair_stride = 32;
-      FALLTHROUGH;
-   case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-      params->start_offset = 0;
-      params->end_offset = 16;
+      case PIPE_QUERY_OCCLUSION_COUNTER:
+      case PIPE_QUERY_OCCLUSION_PREDICATE:
+      case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
+         params->start_offset = 0;
+         params->end_offset = 8;
+         params->fence_offset = max_rbs * 16;
+         params->pair_stride = 16;
+         params->pair_count = max_rbs;
+         break;
+      case PIPE_QUERY_TIME_ELAPSED:
+         params->start_offset = 0;
+         params->end_offset = 8;
+         params->fence_offset = 16;
+         break;
+      case PIPE_QUERY_TIMESTAMP:
+         params->start_offset = 0;
+         params->end_offset = 0;
+         params->fence_offset = 8;
+         break;
+      case PIPE_QUERY_PRIMITIVES_EMITTED:
+         params->start_offset = 8;
+         params->end_offset = 24;
+         params->fence_offset = params->end_offset + 4;
+         break;
+      case PIPE_QUERY_PRIMITIVES_GENERATED:
+         params->start_offset = 0;
+         params->end_offset = 16;
+         params->fence_offset = params->end_offset + 4;
+         break;
+      case PIPE_QUERY_SO_STATISTICS:
+         params->start_offset = 8 - index * 8;
+         params->end_offset = 24 - index * 8;
+         params->fence_offset = params->end_offset + 4;
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+         params->pair_count = SI_MAX_STREAMS;
+         params->pair_stride = 32;
+         FALLTHROUGH;
+      case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
+         params->start_offset = 0;
+         params->end_offset = 16;
 
-      /* We can re-use the high dword of the last 64-bit value as a
-       * fence: it is initialized as 0, and the high bit is set by
-       * the write of the streamout stats event.
-       */
-      params->fence_offset = squery->result_size - 4;
-      break;
-   case PIPE_QUERY_PIPELINE_STATISTICS: {
-      params->start_offset = si_query_pipestat_dw_offset(index) * 4;
-      params->end_offset = si_query_pipestat_end_dw_offset(sctx->screen, index) * 4;
-      params->fence_offset = si_query_pipestats_num_results(sctx->screen) * 16;
-      break;
-   }
-   default:
-      unreachable("si_get_hw_query_params unsupported");
+         /* We can re-use the high dword of the last 64-bit value as a
+          * fence: it is initialized as 0, and the high bit is set by
+          * the write of the streamout stats event.
+          */
+         params->fence_offset = squery->result_size - 4;
+         break;
+      case PIPE_QUERY_PIPELINE_STATISTICS: {
+         params->start_offset = si_query_pipestat_dw_offset(index) * 4;
+         params->end_offset = si_query_pipestat_end_dw_offset(sctx->screen, index) * 4;
+         params->fence_offset = si_query_pipestats_num_results(sctx->screen) * 16;
+         break;
+      }
+      default:
+         unreachable("si_get_hw_query_params unsupported");
    }
 }
 
@@ -1344,61 +1355,61 @@ static void si_query_hw_add_result(struct si_screen *sscreen, struct si_query_hw
    unsigned max_rbs = sscreen->info.max_render_backends;
 
    switch (query->b.type) {
-   case PIPE_QUERY_OCCLUSION_COUNTER: {
-      for (unsigned i = 0; i < max_rbs; ++i) {
-         unsigned results_base = i * 16;
-         result->u64 += si_query_read_result(buffer + results_base, 0, 2, true);
+      case PIPE_QUERY_OCCLUSION_COUNTER: {
+         for (unsigned i = 0; i < max_rbs; ++i) {
+            unsigned results_base = i * 16;
+            result->u64 += si_query_read_result(buffer + results_base, 0, 2, true);
+         }
+         break;
       }
-      break;
-   }
-   case PIPE_QUERY_OCCLUSION_PREDICATE:
-   case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE: {
-      for (unsigned i = 0; i < max_rbs; ++i) {
-         unsigned results_base = i * 16;
-         result->b = result->b || si_query_read_result(buffer + results_base, 0, 2, true) != 0;
+      case PIPE_QUERY_OCCLUSION_PREDICATE:
+      case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE: {
+         for (unsigned i = 0; i < max_rbs; ++i) {
+            unsigned results_base = i * 16;
+            result->b = result->b || si_query_read_result(buffer + results_base, 0, 2, true) != 0;
+         }
+         break;
       }
-      break;
-   }
-   case PIPE_QUERY_TIME_ELAPSED:
-      result->u64 += si_query_read_result(buffer, 0, 2, false);
-      break;
-   case PIPE_QUERY_TIMESTAMP:
-      result->u64 = *(uint64_t *)buffer;
-      break;
-   case PIPE_QUERY_PRIMITIVES_EMITTED:
-      /* SAMPLE_STREAMOUTSTATS stores this structure:
-       * {
-       *    u64 NumPrimitivesWritten;
-       *    u64 PrimitiveStorageNeeded;
-       * }
-       * We only need NumPrimitivesWritten here. */
-      result->u64 += si_query_read_result(buffer, 2, 6, true);
-      break;
-   case PIPE_QUERY_PRIMITIVES_GENERATED:
-      /* Here we read PrimitiveStorageNeeded. */
-      result->u64 += si_query_read_result(buffer, 0, 4, true);
-      break;
-   case PIPE_QUERY_SO_STATISTICS:
-      result->so_statistics.num_primitives_written += si_query_read_result(buffer, 2, 6, true);
-      result->so_statistics.primitives_storage_needed += si_query_read_result(buffer, 0, 4, true);
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
-      result->b = result->b || si_query_read_result(buffer, 2, 6, true) !=
-                                  si_query_read_result(buffer, 0, 4, true);
-      break;
-   case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
-      for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream) {
+      case PIPE_QUERY_TIME_ELAPSED:
+         result->u64 += si_query_read_result(buffer, 0, 2, false);
+         break;
+      case PIPE_QUERY_TIMESTAMP:
+         result->u64 = *(uint64_t *)buffer;
+         break;
+      case PIPE_QUERY_PRIMITIVES_EMITTED:
+         /* SAMPLE_STREAMOUTSTATS stores this structure:
+          * {
+          *    u64 NumPrimitivesWritten;
+          *    u64 PrimitiveStorageNeeded;
+          * }
+          * We only need NumPrimitivesWritten here. */
+         result->u64 += si_query_read_result(buffer, 2, 6, true);
+         break;
+      case PIPE_QUERY_PRIMITIVES_GENERATED:
+         /* Here we read PrimitiveStorageNeeded. */
+         result->u64 += si_query_read_result(buffer, 0, 4, true);
+         break;
+      case PIPE_QUERY_SO_STATISTICS:
+         result->so_statistics.num_primitives_written += si_query_read_result(buffer, 2, 6, true);
+         result->so_statistics.primitives_storage_needed += si_query_read_result(buffer, 0, 4, true);
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_PREDICATE:
          result->b = result->b || si_query_read_result(buffer, 2, 6, true) !=
                                      si_query_read_result(buffer, 0, 4, true);
-         buffer = (char *)buffer + 32;
-      }
-      break;
-   case PIPE_QUERY_PIPELINE_STATISTICS:
-      for (int i = 0; i < 11; i++) {
-         result->pipeline_statistics.counters[i] +=
-            si_query_read_result(buffer, si_query_pipestat_dw_offset(i),
-                                 si_query_pipestat_end_dw_offset(sscreen, i), false);
-      }
+         break;
+      case PIPE_QUERY_SO_OVERFLOW_ANY_PREDICATE:
+         for (unsigned stream = 0; stream < SI_MAX_STREAMS; ++stream) {
+            result->b = result->b || si_query_read_result(buffer, 2, 6, true) !=
+                                        si_query_read_result(buffer, 0, 4, true);
+            buffer = (char *)buffer + 32;
+         }
+         break;
+      case PIPE_QUERY_PIPELINE_STATISTICS:
+         for (int i = 0; i < 11; i++) {
+            result->pipeline_statistics.counters[i] +=
+               si_query_read_result(buffer, si_query_pipestat_dw_offset(i),
+                                    si_query_pipestat_end_dw_offset(sscreen, i), false);
+         }
 #if 0 /* for testing */
       printf("Pipeline stats: IA verts=%llu, IA prims=%llu, VS=%llu, HS=%llu, "
              "DS=%llu, GS=%llu, GS prims=%llu, Clipper=%llu, "
@@ -1415,9 +1426,9 @@ static void si_query_hw_add_result(struct si_screen *sscreen, struct si_query_hw
              result->pipeline_statistics.ps_invocations,
              result->pipeline_statistics.cs_invocations);
 #endif
-      break;
-   default:
-      assert(0);
+         break;
+      default:
+         assert(0);
    }
 }
 
@@ -1578,15 +1589,15 @@ static void si_query_hw_get_result_resource(struct si_context *sctx, struct si_q
       consts.config |= 32;
 
    switch (result_type) {
-   case PIPE_QUERY_TYPE_U64:
-   case PIPE_QUERY_TYPE_I64:
-      consts.config |= 64;
-      break;
-   case PIPE_QUERY_TYPE_I32:
-      consts.config |= 128;
-      break;
-   case PIPE_QUERY_TYPE_U32:
-      break;
+      case PIPE_QUERY_TYPE_U64:
+      case PIPE_QUERY_TYPE_I64:
+         consts.config |= 64;
+         break;
+      case PIPE_QUERY_TYPE_I32:
+         consts.config |= 128;
+         break;
+      case PIPE_QUERY_TYPE_U32:
+         break;
    }
 
    sctx->flags |= sctx->screen->barrier_flags.cp_to_L2;
@@ -1723,10 +1734,10 @@ void si_resume_queries(struct si_context *sctx)
       .result_type = PIPE_DRIVER_QUERY_RESULT_TYPE_##result_type_, .group_id = group_id_           \
    }
 
-#define X(name_, query_type_, type_, result_type_)                                                 \
+#define X(name_, query_type_, type_, result_type_) \
    XFULL(name_, query_type_, type_, result_type_, ~(unsigned)0)
 
-#define XG(group_, name_, query_type_, type_, result_type_)                                        \
+#define XG(group_, name_, query_type_, type_, result_type_) \
    XFULL(name_, query_type_, type_, result_type_, SI_QUERY_GROUP_##group_)
 
 static struct pipe_driver_query_info si_driver_query_list[] = {
@@ -1860,24 +1871,24 @@ static int si_get_driver_query_info(struct pipe_screen *screen, unsigned index,
    *info = si_driver_query_list[index];
 
    switch (info->query_type) {
-   case SI_QUERY_REQUESTED_VRAM:
-   case SI_QUERY_VRAM_USAGE:
-   case SI_QUERY_MAPPED_VRAM:
-   case SI_QUERY_SLAB_WASTED_VRAM:
-      info->max_value.u64 = (uint64_t)sscreen->info.vram_size_kb * 1024;
-      break;
-   case SI_QUERY_REQUESTED_GTT:
-   case SI_QUERY_GTT_USAGE:
-   case SI_QUERY_MAPPED_GTT:
-   case SI_QUERY_SLAB_WASTED_GTT:
-      info->max_value.u64 = (uint64_t)sscreen->info.gart_size_kb * 1024;
-      break;
-   case SI_QUERY_GPU_TEMPERATURE:
-      info->max_value.u64 = 125;
-      break;
-   case SI_QUERY_VRAM_VIS_USAGE:
-      info->max_value.u64 = (uint64_t)sscreen->info.vram_vis_size_kb * 1024;
-      break;
+      case SI_QUERY_REQUESTED_VRAM:
+      case SI_QUERY_VRAM_USAGE:
+      case SI_QUERY_MAPPED_VRAM:
+      case SI_QUERY_SLAB_WASTED_VRAM:
+         info->max_value.u64 = (uint64_t)sscreen->info.vram_size_kb * 1024;
+         break;
+      case SI_QUERY_REQUESTED_GTT:
+      case SI_QUERY_GTT_USAGE:
+      case SI_QUERY_MAPPED_GTT:
+      case SI_QUERY_SLAB_WASTED_GTT:
+         info->max_value.u64 = (uint64_t)sscreen->info.gart_size_kb * 1024;
+         break;
+      case SI_QUERY_GPU_TEMPERATURE:
+         info->max_value.u64 = 125;
+         break;
+      case SI_QUERY_VRAM_VIS_USAGE:
+         info->max_value.u64 = (uint64_t)sscreen->info.vram_vis_size_kb * 1024;
+         break;
    }
 
    if (info->group_id != ~(unsigned)0 && sscreen->perfcounters)

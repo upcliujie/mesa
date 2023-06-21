@@ -7,9 +7,9 @@
 #include "si_build_pm4.h"
 
 /* For MSAA sample positions. */
-#define FILL_SREG(s0x, s0y, s1x, s1y, s2x, s2y, s3x, s3y)                                          \
-   ((((unsigned)(s0x)&0xf) << 0) | (((unsigned)(s0y)&0xf) << 4) | (((unsigned)(s1x)&0xf) << 8) |   \
-    (((unsigned)(s1y)&0xf) << 12) | (((unsigned)(s2x)&0xf) << 16) |                                \
+#define FILL_SREG(s0x, s0y, s1x, s1y, s2x, s2y, s3x, s3y)                                        \
+   ((((unsigned)(s0x)&0xf) << 0) | (((unsigned)(s0y)&0xf) << 4) | (((unsigned)(s1x)&0xf) << 8) | \
+    (((unsigned)(s1y)&0xf) << 12) | (((unsigned)(s2x)&0xf) << 16) |                              \
     (((unsigned)(s2y)&0xf) << 20) | (((unsigned)(s3x)&0xf) << 24) | (((unsigned)(s3y)&0xf) << 28))
 
 /* For obtaining location coordinates from registers */
@@ -111,22 +111,22 @@ static void si_get_sample_position(struct pipe_context *ctx, unsigned sample_cou
    const uint32_t *sample_locs;
 
    switch (sample_count) {
-   case 1:
-   default:
-      sample_locs = &sample_locs_1x;
-      break;
-   case 2:
-      sample_locs = &sample_locs_2x;
-      break;
-   case 4:
-      sample_locs = &sample_locs_4x;
-      break;
-   case 8:
-      sample_locs = sample_locs_8x;
-      break;
-   case 16:
-      sample_locs = sample_locs_16x;
-      break;
+      case 1:
+      default:
+         sample_locs = &sample_locs_1x;
+         break;
+      case 2:
+         sample_locs = &sample_locs_2x;
+         break;
+      case 4:
+         sample_locs = &sample_locs_4x;
+         break;
+      case 8:
+         sample_locs = sample_locs_8x;
+         break;
+      case 16:
+         sample_locs = sample_locs_16x;
+         break;
    }
 
    out_value[0] = (GET_SX(sample_locs, sample_index) + 8) / 16.0f;
@@ -183,22 +183,22 @@ static void si_emit_sample_locations(struct si_context *sctx)
     */
    if (nr_samples != sctx->sample_locs_num_samples) {
       switch (nr_samples) {
-      default:
-      case 1:
-         si_emit_max_4_sample_locs(cs, centroid_priority_1x, sample_locs_1x);
-         break;
-      case 2:
-         si_emit_max_4_sample_locs(cs, centroid_priority_2x, sample_locs_2x);
-         break;
-      case 4:
-         si_emit_max_4_sample_locs(cs, centroid_priority_4x, sample_locs_4x);
-         break;
-      case 8:
-         si_emit_max_16_sample_locs(cs, centroid_priority_8x, sample_locs_8x, 8);
-         break;
-      case 16:
-         si_emit_max_16_sample_locs(cs, centroid_priority_16x, sample_locs_16x, 16);
-         break;
+         default:
+         case 1:
+            si_emit_max_4_sample_locs(cs, centroid_priority_1x, sample_locs_1x);
+            break;
+         case 2:
+            si_emit_max_4_sample_locs(cs, centroid_priority_2x, sample_locs_2x);
+            break;
+         case 4:
+            si_emit_max_4_sample_locs(cs, centroid_priority_4x, sample_locs_4x);
+            break;
+         case 8:
+            si_emit_max_16_sample_locs(cs, centroid_priority_8x, sample_locs_8x, 8);
+            break;
+         case 16:
+            si_emit_max_16_sample_locs(cs, centroid_priority_16x, sample_locs_16x, 16);
+            break;
       }
       sctx->sample_locs_num_samples = nr_samples;
    }
@@ -222,8 +222,8 @@ static void si_emit_sample_locations(struct si_context *sctx)
       radeon_opt_set_context_reg(sctx, R_028830_PA_SU_SMALL_PRIM_FILTER_CNTL,
                                  SI_TRACKED_PA_SU_SMALL_PRIM_FILTER_CNTL,
                                  S_028830_SMALL_PRIM_FILTER_ENABLE(small_prim_filter_enable) |
-                                 /* Small line culling doesn't work on Polaris10-12. */
-                                 S_028830_LINE_FILTER_DISABLE(sctx->family <= CHIP_POLARIS12));
+                                    /* Small line culling doesn't work on Polaris10-12. */
+                                    S_028830_LINE_FILTER_DISABLE(sctx->family <= CHIP_POLARIS12));
       radeon_end();
    }
 }

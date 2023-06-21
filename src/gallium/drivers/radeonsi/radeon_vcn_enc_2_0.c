@@ -7,15 +7,15 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
+#include "util/u_video.h"
 #include "radeon_vcn_enc.h"
 #include "radeon_video.h"
 #include "si_pipe.h"
-#include "util/u_video.h"
 
 #include <stdio.h>
 
-#define RENCODE_FW_INTERFACE_MAJOR_VERSION         1
-#define RENCODE_FW_INTERFACE_MINOR_VERSION         1
+#define RENCODE_FW_INTERFACE_MAJOR_VERSION 1
+#define RENCODE_FW_INTERFACE_MINOR_VERSION 1
 
 #define RENCODE_IB_PARAM_SESSION_INFO              0x00000001
 #define RENCODE_IB_PARAM_TASK_INFO                 0x00000002
@@ -37,22 +37,22 @@
 #define RENCODE_IB_PARAM_FEEDBACK_BUFFER           0x00000015
 #define RENCODE_IB_PARAM_ENCODE_STATISTICS         0x00000019
 
-#define RENCODE_HEVC_IB_PARAM_SLICE_CONTROL        0x00100001
-#define RENCODE_HEVC_IB_PARAM_SPEC_MISC            0x00100002
-#define RENCODE_HEVC_IB_PARAM_LOOP_FILTER          0x00100003
+#define RENCODE_HEVC_IB_PARAM_SLICE_CONTROL 0x00100001
+#define RENCODE_HEVC_IB_PARAM_SPEC_MISC     0x00100002
+#define RENCODE_HEVC_IB_PARAM_LOOP_FILTER   0x00100003
 
-#define RENCODE_H264_IB_PARAM_SLICE_CONTROL        0x00200001
-#define RENCODE_H264_IB_PARAM_SPEC_MISC            0x00200002
-#define RENCODE_H264_IB_PARAM_ENCODE_PARAMS        0x00200003
-#define RENCODE_H264_IB_PARAM_DEBLOCKING_FILTER    0x00200004
+#define RENCODE_H264_IB_PARAM_SLICE_CONTROL     0x00200001
+#define RENCODE_H264_IB_PARAM_SPEC_MISC         0x00200002
+#define RENCODE_H264_IB_PARAM_ENCODE_PARAMS     0x00200003
+#define RENCODE_H264_IB_PARAM_DEBLOCKING_FILTER 0x00200004
 
 static void radeon_enc_op_preset(struct radeon_encoder *enc)
 {
    uint32_t preset_mode;
 
    if (enc->enc_pic.quality_modes.preset_mode == RENCODE_PRESET_MODE_SPEED &&
-         (enc->enc_pic.sample_adaptive_offset_enabled_flag &&
-         (u_reduce_video_profile(enc->base.profile) == PIPE_VIDEO_FORMAT_HEVC)))
+       (enc->enc_pic.sample_adaptive_offset_enabled_flag &&
+        (u_reduce_video_profile(enc->base.profile) == PIPE_VIDEO_FORMAT_HEVC)))
       preset_mode = RENCODE_IB_OP_SET_BALANCE_ENCODING_MODE;
    else if (enc->enc_pic.quality_modes.preset_mode == RENCODE_PRESET_MODE_QUALITY)
       preset_mode = RENCODE_IB_OP_SET_QUALITY_ENCODING_MODE;
@@ -71,7 +71,7 @@ static void radeon_enc_quality_params(struct radeon_encoder *enc)
    enc->enc_pic.quality_params.scene_change_sensitivity = 0;
    enc->enc_pic.quality_params.scene_change_min_idr_interval = 0;
    enc->enc_pic.quality_params.two_pass_search_center_map_mode =
-                    (enc->enc_pic.quality_modes.pre_encode_mode) ? 1 : 0;
+      (enc->enc_pic.quality_modes.pre_encode_mode) ? 1 : 0;
    enc->enc_pic.quality_params.vbaq_strength = 0;
 
    RADEON_ENC_BEGIN(enc->cmd.quality_params);
@@ -128,19 +128,19 @@ static void radeon_enc_slice_header_hevc(struct radeon_encoder *enc)
    inst_index++;
 
    switch (enc->enc_pic.picture_type) {
-   case PIPE_H2645_ENC_PICTURE_TYPE_I:
-   case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
-      radeon_enc_code_ue(enc, 0x2);
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_P:
-   case PIPE_H2645_ENC_PICTURE_TYPE_SKIP:
-      radeon_enc_code_ue(enc, 0x1);
-      break;
-   case PIPE_H2645_ENC_PICTURE_TYPE_B:
-      radeon_enc_code_ue(enc, 0x0);
-      break;
-   default:
-      radeon_enc_code_ue(enc, 0x1);
+      case PIPE_H2645_ENC_PICTURE_TYPE_I:
+      case PIPE_H2645_ENC_PICTURE_TYPE_IDR:
+         radeon_enc_code_ue(enc, 0x2);
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_P:
+      case PIPE_H2645_ENC_PICTURE_TYPE_SKIP:
+         radeon_enc_code_ue(enc, 0x1);
+         break;
+      case PIPE_H2645_ENC_PICTURE_TYPE_B:
+         radeon_enc_code_ue(enc, 0x0);
+         break;
+      default:
+         radeon_enc_code_ue(enc, 0x1);
    }
 
    if ((enc->enc_pic.nal_unit_type != 19) && (enc->enc_pic.nal_unit_type != 20)) {
@@ -185,18 +185,17 @@ static void radeon_enc_slice_header_hevc(struct radeon_encoder *enc)
    if ((enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled) &&
        (!enc->enc_pic.hevc_deblock.deblocking_filter_disabled ||
         enc->enc_pic.sample_adaptive_offset_enabled_flag)) {
-       if (enc->enc_pic.sample_adaptive_offset_enabled_flag) {
-           radeon_enc_flush_headers(enc);
-           instruction[inst_index] = RENCODE_HEADER_INSTRUCTION_COPY;
-           num_bits[inst_index] = enc->bits_output - bits_copied;
-           bits_copied = enc->bits_output;
-           inst_index++;
+      if (enc->enc_pic.sample_adaptive_offset_enabled_flag) {
+         radeon_enc_flush_headers(enc);
+         instruction[inst_index] = RENCODE_HEADER_INSTRUCTION_COPY;
+         num_bits[inst_index] = enc->bits_output - bits_copied;
+         bits_copied = enc->bits_output;
+         inst_index++;
 
-           instruction[inst_index] = RENCODE_HEVC_HEADER_INSTRUCTION_LOOP_FILTER_ACROSS_SLICES_ENABLE;
-           inst_index++;
-       }
-       else
-           radeon_enc_code_fixed_bits(enc, enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled, 1);
+         instruction[inst_index] = RENCODE_HEVC_HEADER_INSTRUCTION_LOOP_FILTER_ACROSS_SLICES_ENABLE;
+         inst_index++;
+      } else
+         radeon_enc_code_fixed_bits(enc, enc->enc_pic.hevc_deblock.loop_filter_across_slices_enabled, 1);
    }
 
    radeon_enc_flush_headers(enc);
@@ -274,14 +273,14 @@ static void radeon_enc_nalu_sps_hevc(struct radeon_encoder *enc)
    radeon_enc_code_ue(enc, pic->session_init.aligned_picture_width);
    radeon_enc_code_ue(enc, pic->session_init.aligned_picture_height);
 
-   if ((pic->crop_left != 0) || (pic->crop_right  != 0) ||
-       (pic->crop_top  != 0) || (pic->crop_bottom != 0)) {
+   if ((pic->crop_left != 0) || (pic->crop_right != 0) ||
+       (pic->crop_top != 0) || (pic->crop_bottom != 0)) {
       radeon_enc_code_fixed_bits(enc, 0x1, 1);
       radeon_enc_code_ue(enc, pic->crop_left);
       radeon_enc_code_ue(enc, pic->crop_right);
       radeon_enc_code_ue(enc, pic->crop_top);
       radeon_enc_code_ue(enc, pic->crop_bottom);
-   } else if (pic->session_init.padding_width  != 0 ||
+   } else if (pic->session_init.padding_width != 0 ||
               pic->session_init.padding_height != 0) {
       radeon_enc_code_fixed_bits(enc, 0x1, 1);
       radeon_enc_code_ue(enc, 0);
@@ -335,13 +334,13 @@ static void radeon_enc_nalu_sps_hevc(struct radeon_encoder *enc)
             radeon_enc_code_fixed_bits(enc, (pic->vui_info.sar_height), 16);
          }
       }
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* overscan info present flag */
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* video signal type present flag */
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* chroma loc info present flag */
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* neutral chroma indication flag */
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* field seq flag */
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* frame field info present flag */
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* default display windows flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* overscan info present flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* video signal type present flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* chroma loc info present flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* neutral chroma indication flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* field seq flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* frame field info present flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* default display windows flag */
       /* vui timing info present flag */
       radeon_enc_code_fixed_bits(enc, (pic->vui_info.flags.timing_info_present_flag), 1);
       if (pic->vui_info.flags.timing_info_present_flag) {
@@ -350,9 +349,9 @@ static void radeon_enc_nalu_sps_hevc(struct radeon_encoder *enc)
          radeon_enc_code_fixed_bits(enc, 0x0, 1);
          radeon_enc_code_fixed_bits(enc, 0x0, 1);
       }
-      radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* bitstream restriction flag */
+      radeon_enc_code_fixed_bits(enc, 0x0, 1); /* bitstream restriction flag */
    }
-   radeon_enc_code_fixed_bits(enc, 0x0, 1);  /* sps extension present flag */
+   radeon_enc_code_fixed_bits(enc, 0x0, 1);    /* sps extension present flag */
    radeon_enc_code_fixed_bits(enc, 0x1, 1);
 
    radeon_enc_byte_align(enc);

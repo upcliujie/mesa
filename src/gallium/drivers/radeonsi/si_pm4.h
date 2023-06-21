@@ -28,9 +28,9 @@ struct si_pm4_state {
    struct si_screen *screen;
 
    /* PKT3_SET_*_REG handling */
-   uint16_t last_reg;   /* register offset in dwords */
+   uint16_t last_reg; /* register offset in dwords */
    uint16_t last_pm4;
-   uint16_t ndw;        /* number of dwords in pm4 */
+   uint16_t ndw;      /* number of dwords in pm4 */
    uint8_t last_opcode;
    uint8_t last_idx;
    bool is_compute_queue;

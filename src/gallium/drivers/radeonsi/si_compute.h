@@ -7,8 +7,8 @@
 #ifndef SI_COMPUTE_H
 #define SI_COMPUTE_H
 
-#include "si_shader.h"
 #include "util/u_inlines.h"
+#include "si_shader.h"
 
 struct si_compute {
    struct si_shader_selector sel;

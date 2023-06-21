@@ -7,22 +7,22 @@
 #ifndef SI_PIPE_H
 #define SI_PIPE_H
 
-#include "si_shader.h"
-#include "si_state.h"
 #include "util/u_dynarray.h"
 #include "util/u_idalloc.h"
 #include "util/u_suballoc.h"
 #include "util/u_threaded_context.h"
 #include "util/u_vertex_state_cache.h"
-#include "ac_sqtt.h"
 #include "ac_spm.h"
+#include "ac_sqtt.h"
+#include "si_shader.h"
+#include "si_state.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define ATI_VENDOR_ID         0x1002
-#define SI_NOT_QUERY          0xffffffff
+#define ATI_VENDOR_ID 0x1002
+#define SI_NOT_QUERY  0xffffffff
 
 /* special primitive types */
 #define SI_PRIM_RECTANGLE_LIST MESA_PRIM_COUNT
@@ -45,7 +45,7 @@ extern "C" {
 #define SI_COMPUTE_CLEAR_DW_PER_THREAD 4
 #define SI_COMPUTE_COPY_DW_PER_THREAD  4
 /* L2 LRU is recommended because the compute shader can finish sooner due to fewer L2 evictions. */
-#define SI_COMPUTE_DST_CACHE_POLICY    L2_LRU
+#define SI_COMPUTE_DST_CACHE_POLICY L2_LRU
 
 /* Pipeline & streamout query controls. */
 #define SI_CONTEXT_START_PIPELINE_STATS  (1 << 0)
@@ -81,23 +81,23 @@ extern "C" {
 #define SI_CONTEXT_VGT_STREAMOUT_SYNC (1 << 16)
 /* PFP waits for ME to finish. Used to sync for index and indirect buffers and render
  * condition. It's typically set when doing a VS/PS/CS partial flush for buffers. */
-#define SI_CONTEXT_PFP_SYNC_ME        (1 << 17)
+#define SI_CONTEXT_PFP_SYNC_ME (1 << 17)
 
-#define SI_PREFETCH_LS              (1 << 1)
-#define SI_PREFETCH_HS              (1 << 2)
-#define SI_PREFETCH_ES              (1 << 3)
-#define SI_PREFETCH_GS              (1 << 4)
-#define SI_PREFETCH_VS              (1 << 5)
-#define SI_PREFETCH_PS              (1 << 6)
+#define SI_PREFETCH_LS (1 << 1)
+#define SI_PREFETCH_HS (1 << 2)
+#define SI_PREFETCH_ES (1 << 3)
+#define SI_PREFETCH_GS (1 << 4)
+#define SI_PREFETCH_VS (1 << 5)
+#define SI_PREFETCH_PS (1 << 6)
 
-#define SI_MAX_BORDER_COLORS              4096
-#define SI_MAX_VIEWPORTS                  16
-#define SI_MAP_BUFFER_ALIGNMENT           64
+#define SI_MAX_BORDER_COLORS    4096
+#define SI_MAX_VIEWPORTS        16
+#define SI_MAP_BUFFER_ALIGNMENT 64
 /* We only support the minimum allowed value (512), so that we can pack a 3D block size
  * in 1 SGPR. */
 #define SI_MAX_VARIABLE_THREADS_PER_BLOCK 512
 
-#define SI_CONTEXT_FLAG_AUX               (1u << 31)
+#define SI_CONTEXT_FLAG_AUX (1u << 31)
 
 #define SI_RESOURCE_FLAG_FORCE_LINEAR      (PIPE_RESOURCE_FLAG_DRV_PRIV << 0)
 #define SI_RESOURCE_FLAG_FLUSHED_DEPTH     (PIPE_RESOURCE_FLAG_DRV_PRIV << 1)
@@ -111,13 +111,13 @@ extern "C" {
 /* Set a micro tile mode: */
 #define SI_RESOURCE_FLAG_FORCE_MICRO_TILE_MODE (PIPE_RESOURCE_FLAG_DRV_PRIV << 9)
 #define SI_RESOURCE_FLAG_MICRO_TILE_MODE_SHIFT (util_logbase2(PIPE_RESOURCE_FLAG_DRV_PRIV) + 10)
-#define SI_RESOURCE_FLAG_MICRO_TILE_MODE_SET(x)                                                    \
+#define SI_RESOURCE_FLAG_MICRO_TILE_MODE_SET(x) \
    (((x)&0x3) << SI_RESOURCE_FLAG_MICRO_TILE_MODE_SHIFT)
-#define SI_RESOURCE_FLAG_MICRO_TILE_MODE_GET(x)                                                    \
+#define SI_RESOURCE_FLAG_MICRO_TILE_MODE_GET(x) \
    (((x) >> SI_RESOURCE_FLAG_MICRO_TILE_MODE_SHIFT) & 0x3)
-#define SI_RESOURCE_FLAG_GL2_BYPASS        (PIPE_RESOURCE_FLAG_DRV_PRIV << 12)
+#define SI_RESOURCE_FLAG_GL2_BYPASS (PIPE_RESOURCE_FLAG_DRV_PRIV << 12)
 /* Discard instead of evict. */
-#define SI_RESOURCE_FLAG_DISCARDABLE       (PIPE_RESOURCE_FLAG_DRV_PRIV << 13)
+#define SI_RESOURCE_FLAG_DISCARDABLE (PIPE_RESOURCE_FLAG_DRV_PRIV << 13)
 
 enum si_has_gs {
    GS_OFF,
@@ -136,24 +136,23 @@ enum si_has_ngg {
 
 #define DCC_CODE(x) (((x) << 24) | ((x) << 16) | ((x) << 8) | (x))
 
-enum si_clear_code
-{
+enum si_clear_code {
    /* Common clear codes. */
-   DCC_CLEAR_0000    = DCC_CODE(0x00), /* all bits are 0 */
-   DCC_UNCOMPRESSED  = DCC_CODE(0xFF),
+   DCC_CLEAR_0000 = DCC_CODE(0x00), /* all bits are 0 */
+   DCC_UNCOMPRESSED = DCC_CODE(0xFF),
 
-   GFX8_DCC_CLEAR_0000     = DCC_CLEAR_0000,
-   GFX8_DCC_CLEAR_0001     = DCC_CODE(0x40),
-   GFX8_DCC_CLEAR_1110     = DCC_CODE(0x80),
-   GFX8_DCC_CLEAR_1111     = DCC_CODE(0xC0),
-   GFX8_DCC_CLEAR_REG      = DCC_CODE(0x20),
-   GFX9_DCC_CLEAR_SINGLE   = DCC_CODE(0x10),
+   GFX8_DCC_CLEAR_0000 = DCC_CLEAR_0000,
+   GFX8_DCC_CLEAR_0001 = DCC_CODE(0x40),
+   GFX8_DCC_CLEAR_1110 = DCC_CODE(0x80),
+   GFX8_DCC_CLEAR_1111 = DCC_CODE(0xC0),
+   GFX8_DCC_CLEAR_REG = DCC_CODE(0x20),
+   GFX9_DCC_CLEAR_SINGLE = DCC_CODE(0x10),
 
-   GFX11_DCC_CLEAR_SINGLE     = DCC_CODE(0x01),
-   GFX11_DCC_CLEAR_0000       = DCC_CLEAR_0000, /* all bits are 0 */
+   GFX11_DCC_CLEAR_SINGLE = DCC_CODE(0x01),
+   GFX11_DCC_CLEAR_0000 = DCC_CLEAR_0000,       /* all bits are 0 */
    GFX11_DCC_CLEAR_1111_UNORM = DCC_CODE(0x02), /* all bits are 1 */
-   GFX11_DCC_CLEAR_1111_FP16  = DCC_CODE(0x04), /* all 16-bit words are 0x3c00, max 64bpp */
-   GFX11_DCC_CLEAR_1111_FP32  = DCC_CODE(0x06), /* all 32-bit words are 0x3f800000 */
+   GFX11_DCC_CLEAR_1111_FP16 = DCC_CODE(0x04),  /* all 16-bit words are 0x3c00, max 64bpp */
+   GFX11_DCC_CLEAR_1111_FP32 = DCC_CODE(0x06),  /* all 32-bit words are 0x3f800000 */
    /* Color bits are 0, alpha bits are 1; only 88, 8888, 16161616 */
    GFX11_DCC_CLEAR_0001_UNORM = DCC_CODE(0x08),
    /* Color bits are 1, alpha bits are 0, only 88, 8888, 16161616 */
@@ -165,8 +164,7 @@ enum si_clear_code
 #define SI_IMAGE_ACCESS_BLOCK_FORMAT_AS_UINT (1 << 10) /* for compressed/subsampled images */
 
 /* Debug flags. */
-enum
-{
+enum {
    /* Shader logging options: */
    DBG_VS = MESA_SHADER_VERTEX,
    DBG_TCS = MESA_SHADER_TESS_CTRL,
@@ -249,8 +247,7 @@ enum
    DBG_COUNT
 };
 
-enum
-{
+enum {
    /* Tests: */
    DBG_TEST_IMAGE_COPY,
    DBG_TEST_CB_RESOLVE,
@@ -266,15 +263,13 @@ enum
 #define DBG_ALL_SHADERS (((1 << (DBG_CS + 1)) - 1))
 #define DBG(name)       (1ull << DBG_##name)
 
-enum si_cache_policy
-{
+enum si_cache_policy {
    L2_BYPASS,
    L2_STREAM, /* same as SLC=1 */
    L2_LRU,    /* same as SLC=0 */
 };
 
-enum si_coherency
-{
+enum si_coherency {
    SI_COHERENCY_NONE, /* no cache flushes needed */
    SI_COHERENCY_SHADER,
    SI_COHERENCY_CB_META,
@@ -282,24 +277,24 @@ enum si_coherency
    SI_COHERENCY_CP,
 };
 
-#define SI_BIND_CONSTANT_BUFFER_SHIFT     0
-#define SI_BIND_SHADER_BUFFER_SHIFT       6
-#define SI_BIND_IMAGE_BUFFER_SHIFT        12
-#define SI_BIND_SAMPLER_BUFFER_SHIFT      18
-#define SI_BIND_OTHER_BUFFER_SHIFT        24
+#define SI_BIND_CONSTANT_BUFFER_SHIFT 0
+#define SI_BIND_SHADER_BUFFER_SHIFT   6
+#define SI_BIND_IMAGE_BUFFER_SHIFT    12
+#define SI_BIND_SAMPLER_BUFFER_SHIFT  18
+#define SI_BIND_OTHER_BUFFER_SHIFT    24
 
 /* Bind masks for all 6 shader stages. */
-#define SI_BIND_CONSTANT_BUFFER_ALL       (0x3f << SI_BIND_CONSTANT_BUFFER_SHIFT)
-#define SI_BIND_SHADER_BUFFER_ALL         (0x3f << SI_BIND_SHADER_BUFFER_SHIFT)
-#define SI_BIND_IMAGE_BUFFER_ALL          (0x3f << SI_BIND_IMAGE_BUFFER_SHIFT)
-#define SI_BIND_SAMPLER_BUFFER_ALL        (0x3f << SI_BIND_SAMPLER_BUFFER_SHIFT)
+#define SI_BIND_CONSTANT_BUFFER_ALL (0x3f << SI_BIND_CONSTANT_BUFFER_SHIFT)
+#define SI_BIND_SHADER_BUFFER_ALL   (0x3f << SI_BIND_SHADER_BUFFER_SHIFT)
+#define SI_BIND_IMAGE_BUFFER_ALL    (0x3f << SI_BIND_IMAGE_BUFFER_SHIFT)
+#define SI_BIND_SAMPLER_BUFFER_ALL  (0x3f << SI_BIND_SAMPLER_BUFFER_SHIFT)
 
-#define SI_BIND_CONSTANT_BUFFER(shader)   ((1 << (shader)) << SI_BIND_CONSTANT_BUFFER_SHIFT)
-#define SI_BIND_SHADER_BUFFER(shader)     ((1 << (shader)) << SI_BIND_SHADER_BUFFER_SHIFT)
-#define SI_BIND_IMAGE_BUFFER(shader)      ((1 << (shader)) << SI_BIND_IMAGE_BUFFER_SHIFT)
-#define SI_BIND_SAMPLER_BUFFER(shader)    ((1 << (shader)) << SI_BIND_SAMPLER_BUFFER_SHIFT)
-#define SI_BIND_VERTEX_BUFFER             (1 << (SI_BIND_OTHER_BUFFER_SHIFT + 0))
-#define SI_BIND_STREAMOUT_BUFFER          (1 << (SI_BIND_OTHER_BUFFER_SHIFT + 1))
+#define SI_BIND_CONSTANT_BUFFER(shader) ((1 << (shader)) << SI_BIND_CONSTANT_BUFFER_SHIFT)
+#define SI_BIND_SHADER_BUFFER(shader)   ((1 << (shader)) << SI_BIND_SHADER_BUFFER_SHIFT)
+#define SI_BIND_IMAGE_BUFFER(shader)    ((1 << (shader)) << SI_BIND_IMAGE_BUFFER_SHIFT)
+#define SI_BIND_SAMPLER_BUFFER(shader)  ((1 << (shader)) << SI_BIND_SAMPLER_BUFFER_SHIFT)
+#define SI_BIND_VERTEX_BUFFER           (1 << (SI_BIND_OTHER_BUFFER_SHIFT + 0))
+#define SI_BIND_STREAMOUT_BUFFER        (1 << (SI_BIND_OTHER_BUFFER_SHIFT + 1))
 
 struct si_compute;
 struct si_shader_context;
@@ -320,8 +315,8 @@ struct si_resource {
    /* Resource properties. */
    uint64_t bo_size;
    uint8_t bo_alignment_log2;
-   enum radeon_bo_domain domains:8;
-   enum radeon_bo_flag flags:16;
+   enum radeon_bo_domain domains : 8;
+   enum radeon_bo_flag flags : 16;
    unsigned bind_history; /* bitmask of SI_BIND_xxx_BUFFER */
 
    /* The buffer range which is initialized (with a write transfer,
@@ -375,7 +370,7 @@ struct si_texture {
     */
    uint64_t cmask_base_address_reg;
    struct si_resource *cmask_buffer;
-   unsigned cb_color_info; /* fast clear enable bit */
+   unsigned cb_color_info;        /* fast clear enable bit */
    unsigned color_clear_value[2]; /* not on gfx11 */
    unsigned last_msaa_resolve_target_micro_mode;
    bool swap_rgb_to_bgr_on_next_clear;
@@ -387,22 +382,22 @@ struct si_texture {
    /* Depth buffer compression and fast clear. */
    float depth_clear_value[RADEON_SURF_MAX_LEVELS];
    uint8_t stencil_clear_value[RADEON_SURF_MAX_LEVELS];
-   uint16_t depth_cleared_level_mask_once; /* if it was cleared at least once */
-   uint16_t depth_cleared_level_mask;     /* track if it's cleared (can be false negative) */
+   uint16_t depth_cleared_level_mask_once;   /* if it was cleared at least once */
+   uint16_t depth_cleared_level_mask;        /* track if it's cleared (can be false negative) */
    uint16_t stencil_cleared_level_mask_once; /* if it was cleared at least once */
-   uint16_t dirty_level_mask;         /* each bit says if that mipmap is compressed */
-   uint16_t stencil_dirty_level_mask; /* each bit says if that mipmap is compressed */
+   uint16_t dirty_level_mask;                /* each bit says if that mipmap is compressed */
+   uint16_t stencil_dirty_level_mask;        /* each bit says if that mipmap is compressed */
    enum pipe_format db_render_format : 16;
    bool fmask_is_identity : 1;
    bool tc_compatible_htile : 1;
    bool enable_tc_compatible_htile_next_clear : 1;
    bool htile_stencil_disabled : 1;
-   bool upgraded_depth : 1;  /* upgraded from unorm to Z32_FLOAT */
+   bool upgraded_depth : 1; /* upgraded from unorm to Z32_FLOAT */
    bool is_depth : 1;
    bool db_compatible : 1;
    bool can_sample_z : 1;
    bool can_sample_s : 1;
-   bool need_flush_after_depth_decompression: 1;
+   bool need_flush_after_depth_decompression : 1;
 
    /* We need to track DCC dirtiness, because st/dri usually calls
     * flush_resource twice per frame (not a bug) and we don't wanna
@@ -569,7 +564,7 @@ struct si_screen {
 
    struct {
 #define OPT_BOOL(name, dflt, description) bool name : 1;
-#define OPT_INT(name, dflt, description) int name;
+#define OPT_INT(name, dflt, description)  int name;
 #include "si_debug_options.h"
    } options;
 
@@ -763,8 +758,7 @@ struct si_framebuffer {
    bool has_dcc_msaa;
 };
 
-enum si_quant_mode
-{
+enum si_quant_mode {
    /* This is the list we want to support. */
    SI_QUANT_MODE_16_8_FIXED_POINT_1_256TH,
    SI_QUANT_MODE_14_10_FIXED_POINT_1_1024TH,
@@ -901,7 +895,7 @@ struct si_sqtt_fake_pipeline {
 struct si_small_prim_cull_info {
    float scale[2], translate[2];
    float scale_no_aa[2], translate_no_aa[2];
-   float clip_half_line_width[2];      /* line_width * 0.5 in clip space in X and Y directions */
+   float clip_half_line_width[2]; /* line_width * 0.5 in clip space in X and Y directions */
 };
 
 struct si_vertex_state {
@@ -990,14 +984,14 @@ struct si_context {
    unsigned wait_mem_number;
    uint16_t prefetch_L2_mask;
 
-   bool blitter_running:1;
-   bool suppress_update_ps_colorbuf0_slot:1;
-   bool is_noop:1;
-   bool has_graphics:1;
+   bool blitter_running : 1;
+   bool suppress_update_ps_colorbuf0_slot : 1;
+   bool is_noop : 1;
+   bool has_graphics : 1;
    bool gfx_flush_in_progress : 1;
    bool gfx_last_ib_is_busy : 1;
    bool compute_is_busy : 1;
-   bool gfx11_force_msaa_num_samples_zero:1;
+   bool gfx11_force_msaa_num_samples_zero : 1;
    int8_t pipeline_stats_enabled; /* -1 = unknown, 0 = disabled, 1 = enabled */
 
    unsigned num_gfx_cs_flushes;
@@ -1027,8 +1021,8 @@ struct si_context {
    struct pipe_clip_state clip_state;
    struct si_shader_data shader_pointers;
    struct si_stencil_ref stencil_ref;
-   bool blend_color_any_nonzeros:1;
-   bool clip_state_any_nonzeros:1;
+   bool blend_color_any_nonzeros : 1;
+   bool clip_state_any_nonzeros : 1;
    bool viewport0_y_inverted;
    struct pipe_scissor_state scissors[SI_MAX_VIEWPORTS];
    struct si_streamout streamout;
@@ -1103,7 +1097,7 @@ struct si_context {
    struct pipe_resource *tess_rings_tmz;
    union pipe_color_union *border_color_table; /* in CPU memory, any endian */
    struct si_resource *border_color_buffer;
-   union pipe_color_union *border_color_map; /* in VRAM (slow access), little endian */
+   union pipe_color_union *border_color_map;   /* in VRAM (slow access), little endian */
    unsigned border_color_count;
    unsigned num_vs_blit_sgprs;
    uint32_t vs_blit_sh_data[SI_VS_BLIT_SGPRS_POS_TEXCOORD];
@@ -1371,9 +1365,9 @@ void si_init_screen_buffer_functions(struct si_screen *sscreen);
 void si_init_buffer_functions(struct si_context *sctx);
 
 /* si_clear.c */
-#define SI_CLEAR_TYPE_CMASK  (1 << 0)
-#define SI_CLEAR_TYPE_DCC    (1 << 1)
-#define SI_CLEAR_TYPE_HTILE  (1 << 2)
+#define SI_CLEAR_TYPE_CMASK (1 << 0)
+#define SI_CLEAR_TYPE_DCC   (1 << 1)
+#define SI_CLEAR_TYPE_HTILE (1 << 2)
 
 struct si_clear_info {
    struct pipe_resource *resource;
@@ -1396,17 +1390,17 @@ void si_execute_clears(struct si_context *sctx, struct si_clear_info *info,
 void si_init_clear_functions(struct si_context *sctx);
 
 /* si_compute_blit.c */
-#define SI_OP_SYNC_CS_BEFORE              (1 << 0)
-#define SI_OP_SYNC_PS_BEFORE              (1 << 1)
-#define SI_OP_SYNC_CPDMA_BEFORE           (1 << 2) /* only affects CP DMA calls */
-#define SI_OP_SYNC_BEFORE                 (SI_OP_SYNC_CS_BEFORE | SI_OP_SYNC_PS_BEFORE | SI_OP_SYNC_CPDMA_BEFORE)
-#define SI_OP_SYNC_AFTER                  (1 << 3)
-#define SI_OP_SYNC_BEFORE_AFTER           (SI_OP_SYNC_BEFORE | SI_OP_SYNC_AFTER)
-#define SI_OP_SKIP_CACHE_INV_BEFORE       (1 << 4) /* don't invalidate caches */
-#define SI_OP_CS_IMAGE                    (1 << 5)
-#define SI_OP_CS_RENDER_COND_ENABLE       (1 << 6)
-#define SI_OP_CPDMA_SKIP_CHECK_CS_SPACE   (1 << 7) /* don't call need_cs_space */
-#define SI_OP_SYNC_GE_BEFORE              (1 << 8) /* only sync VS, TCS, TES, GS */
+#define SI_OP_SYNC_CS_BEFORE            (1 << 0)
+#define SI_OP_SYNC_PS_BEFORE            (1 << 1)
+#define SI_OP_SYNC_CPDMA_BEFORE         (1 << 2) /* only affects CP DMA calls */
+#define SI_OP_SYNC_BEFORE               (SI_OP_SYNC_CS_BEFORE | SI_OP_SYNC_PS_BEFORE | SI_OP_SYNC_CPDMA_BEFORE)
+#define SI_OP_SYNC_AFTER                (1 << 3)
+#define SI_OP_SYNC_BEFORE_AFTER         (SI_OP_SYNC_BEFORE | SI_OP_SYNC_AFTER)
+#define SI_OP_SKIP_CACHE_INV_BEFORE     (1 << 4) /* don't invalidate caches */
+#define SI_OP_CS_IMAGE                  (1 << 5)
+#define SI_OP_CS_RENDER_COND_ENABLE     (1 << 6)
+#define SI_OP_CPDMA_SKIP_CHECK_CS_SPACE (1 << 7) /* don't call need_cs_space */
+#define SI_OP_SYNC_GE_BEFORE            (1 << 8) /* only sync VS, TCS, TES, GS */
 
 unsigned si_get_flush_flags(struct si_context *sctx, enum si_coherency coher,
                             enum si_cache_policy cache_policy);
@@ -1415,9 +1409,9 @@ void si_launch_grid_internal_ssbos(struct si_context *sctx, struct pipe_grid_inf
                                    unsigned num_buffers, const struct pipe_shader_buffer *buffers,
                                    unsigned writeable_bitmask);
 enum si_clear_method {
-  SI_CP_DMA_CLEAR_METHOD,
-  SI_COMPUTE_CLEAR_METHOD,
-  SI_AUTO_SELECT_CLEAR_METHOD
+   SI_CP_DMA_CLEAR_METHOD,
+   SI_COMPUTE_CLEAR_METHOD,
+   SI_AUTO_SELECT_CLEAR_METHOD
 };
 void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst,
                      uint64_t offset, uint64_t size, uint32_t *clear_value,
@@ -1527,7 +1521,7 @@ void si_init_compute_functions(struct si_context *sctx);
 /* si_pipe.c */
 bool si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler);
 void si_init_aux_async_compute_ctx(struct si_screen *sscreen);
-struct si_context* si_get_aux_context(struct si_screen *sscreen);
+struct si_context *si_get_aux_context(struct si_screen *sscreen);
 void si_put_aux_context_flush(struct si_screen *sscreen);
 
 /* si_perfcounters.c */
@@ -1558,26 +1552,26 @@ void *si_create_passthrough_tcs(struct si_context *sctx);
 union si_compute_blit_shader_key {
    struct {
       /* The key saved in _mesa_hash_table_create_u32_keys() can't be 0. */
-      bool always_true:1;
+      bool always_true : 1;
       /* Declaration modifiers. */
-      bool src_is_1d:1;
-      bool dst_is_1d:1;
-      bool src_is_msaa:1;
-      bool dst_is_msaa:1;
-      uint8_t log2_samples:4;
-      bool sample0_only:1; /* src is MSAA, dst is not MSAA, log2_samples is ignored */
+      bool src_is_1d : 1;
+      bool dst_is_1d : 1;
+      bool src_is_msaa : 1;
+      bool dst_is_msaa : 1;
+      uint8_t log2_samples : 4;
+      bool sample0_only : 1; /* src is MSAA, dst is not MSAA, log2_samples is ignored */
       /* Source coordinate modifiers. */
-      bool xy_clamp_to_edge:1;
-      bool flip_x:1;
-      bool flip_y:1;
+      bool xy_clamp_to_edge : 1;
+      bool flip_x : 1;
+      bool flip_y : 1;
       /* Output modifiers. */
-      bool sint_to_uint:1;
-      bool uint_to_sint:1;
-      bool dst_is_srgb:1;
-      bool use_integer_one:1;
-      uint8_t last_src_channel:2;
-      uint8_t last_dst_channel:2;
-      bool fp16_rtz:1; /* only for equality with pixel shaders, not necessary otherwise */
+      bool sint_to_uint : 1;
+      bool uint_to_sint : 1;
+      bool dst_is_srgb : 1;
+      bool use_integer_one : 1;
+      uint8_t last_src_channel : 2;
+      uint8_t last_dst_channel : 2;
+      bool fp16_rtz : 1; /* only for equality with pixel shaders, not necessary otherwise */
    };
    uint32_t key;
 };
@@ -1647,27 +1641,23 @@ void si_init_screen_texture_functions(struct si_screen *sscreen);
 void si_init_context_texture_functions(struct si_context *sctx);
 
 /* si_sqtt.c */
-void si_sqtt_write_event_marker(struct si_context* sctx, struct radeon_cmdbuf *rcs,
+void si_sqtt_write_event_marker(struct si_context *sctx, struct radeon_cmdbuf *rcs,
                                 enum rgp_sqtt_marker_event_type api_type,
                                 uint32_t vertex_offset_user_data,
                                 uint32_t instance_offset_user_data,
                                 uint32_t draw_index_user_data);
-bool si_sqtt_register_pipeline(struct si_context* sctx, struct si_sqtt_fake_pipeline *pipeline, bool is_compute);
+bool si_sqtt_register_pipeline(struct si_context *sctx, struct si_sqtt_fake_pipeline *pipeline, bool is_compute);
 bool si_sqtt_pipeline_is_registered(struct ac_sqtt *sqtt,
                                     uint64_t pipeline_hash);
-void si_sqtt_describe_pipeline_bind(struct si_context* sctx, uint64_t pipeline_hash, int bind_point);
-void
-si_write_event_with_dims_marker(struct si_context* sctx, struct radeon_cmdbuf *rcs,
-                                enum rgp_sqtt_marker_event_type api_type,
-                                uint32_t x, uint32_t y, uint32_t z);
-void
-si_write_user_event(struct si_context* sctx, struct radeon_cmdbuf *rcs,
-                    enum rgp_sqtt_marker_user_event_type type,
-                    const char *str, int len);
-void
-si_sqtt_describe_barrier_start(struct si_context* sctx, struct radeon_cmdbuf *rcs);
-void
-si_sqtt_describe_barrier_end(struct si_context* sctx, struct radeon_cmdbuf *rcs, unsigned flags);
+void si_sqtt_describe_pipeline_bind(struct si_context *sctx, uint64_t pipeline_hash, int bind_point);
+void si_write_event_with_dims_marker(struct si_context *sctx, struct radeon_cmdbuf *rcs,
+                                     enum rgp_sqtt_marker_event_type api_type,
+                                     uint32_t x, uint32_t y, uint32_t z);
+void si_write_user_event(struct si_context *sctx, struct radeon_cmdbuf *rcs,
+                         enum rgp_sqtt_marker_user_event_type type,
+                         const char *str, int len);
+void si_sqtt_describe_barrier_start(struct si_context *sctx, struct radeon_cmdbuf *rcs);
+void si_sqtt_describe_barrier_end(struct si_context *sctx, struct radeon_cmdbuf *rcs, unsigned flags);
 bool si_init_sqtt(struct si_context *sctx);
 void si_destroy_sqtt(struct si_context *sctx);
 void si_handle_sqtt(struct si_context *sctx, struct radeon_cmdbuf *rcs);
@@ -1931,14 +1921,14 @@ static inline unsigned si_get_total_colormask(struct si_context *sctx)
    return colormask;
 }
 
-#define UTIL_ALL_PRIM_LINE_MODES                                                                   \
-   ((1 << MESA_PRIM_LINES) | (1 << MESA_PRIM_LINE_LOOP) | (1 << MESA_PRIM_LINE_STRIP) |            \
+#define UTIL_ALL_PRIM_LINE_MODES                                                        \
+   ((1 << MESA_PRIM_LINES) | (1 << MESA_PRIM_LINE_LOOP) | (1 << MESA_PRIM_LINE_STRIP) | \
     (1 << MESA_PRIM_LINES_ADJACENCY) | (1 << MESA_PRIM_LINE_STRIP_ADJACENCY))
 
-#define UTIL_ALL_PRIM_TRIANGLE_MODES \
-   ((1 << MESA_PRIM_TRIANGLES) | (1 << MESA_PRIM_TRIANGLE_STRIP) | \
+#define UTIL_ALL_PRIM_TRIANGLE_MODES                                                       \
+   ((1 << MESA_PRIM_TRIANGLES) | (1 << MESA_PRIM_TRIANGLE_STRIP) |                         \
     (1 << MESA_PRIM_TRIANGLE_FAN) | (1 << MESA_PRIM_QUADS) | (1 << MESA_PRIM_QUAD_STRIP) | \
-    (1 << MESA_PRIM_POLYGON) | (1 << MESA_PRIM_TRIANGLES_ADJACENCY) | \
+    (1 << MESA_PRIM_POLYGON) | (1 << MESA_PRIM_TRIANGLES_ADJACENCY) |                      \
     (1 << MESA_PRIM_TRIANGLE_STRIP_ADJACENCY))
 
 static inline bool util_prim_is_lines(unsigned prim)
@@ -2088,8 +2078,7 @@ static inline unsigned si_num_vbos_in_user_sgprs(struct si_screen *sscreen)
    return si_num_vbos_in_user_sgprs_inline(sscreen->info.gfx_level);
 }
 
-static inline
-void si_check_dirty_buffers_textures(struct si_context *sctx)
+static inline void si_check_dirty_buffers_textures(struct si_context *sctx)
 {
    /* Recompute and re-emit the texture resource states if needed. */
    unsigned dirty_tex_counter = p_atomic_read(&sctx->screen->dirty_tex_counter);
@@ -2148,15 +2137,15 @@ si_set_rasterized_prim(struct si_context *sctx, enum mesa_prim rast_prim,
          si_mark_atom_dirty(sctx, &sctx->atoms.s.guardband);
 
       sctx->current_rast_prim = rast_prim;
-      sctx->gs_out_prim = is_triangles ? V_028A6C_TRISTRIP :
-                          is_lines ? V_028A6C_LINESTRIP :
-                          is_rect ? V_028A6C_RECTLIST : V_028A6C_POINTLIST;
+      sctx->gs_out_prim = is_triangles ? V_028A6C_TRISTRIP : is_lines ? V_028A6C_LINESTRIP
+                                                          : is_rect   ? V_028A6C_RECTLIST
+                                                                      : V_028A6C_POINTLIST;
       sctx->do_update_shaders = true;
       si_update_ngg_prim_state_sgpr(sctx, hw_vs, ngg);
    }
 }
 
-#define PRINT_ERR(fmt, args...)                                                                    \
+#define PRINT_ERR(fmt, args...) \
    fprintf(stderr, "EE %s:%d %s - " fmt, __FILE__, __LINE__, __func__, ##args)
 
 #ifdef __cplusplus

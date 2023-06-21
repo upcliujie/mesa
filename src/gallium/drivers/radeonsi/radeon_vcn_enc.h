@@ -11,206 +11,206 @@
 
 #include "radeon_vcn.h"
 
-#define RENCODE_IB_OP_INITIALIZE                                                    0x01000001
-#define RENCODE_IB_OP_CLOSE_SESSION                                                 0x01000002
-#define RENCODE_IB_OP_ENCODE                                                        0x01000003
-#define RENCODE_IB_OP_INIT_RC                                                       0x01000004
-#define RENCODE_IB_OP_INIT_RC_VBV_BUFFER_LEVEL                                      0x01000005
-#define RENCODE_IB_OP_SET_SPEED_ENCODING_MODE                                       0x01000006
-#define RENCODE_IB_OP_SET_BALANCE_ENCODING_MODE                                     0x01000007
-#define RENCODE_IB_OP_SET_QUALITY_ENCODING_MODE                                     0x01000008
+#define RENCODE_IB_OP_INITIALIZE                0x01000001
+#define RENCODE_IB_OP_CLOSE_SESSION             0x01000002
+#define RENCODE_IB_OP_ENCODE                    0x01000003
+#define RENCODE_IB_OP_INIT_RC                   0x01000004
+#define RENCODE_IB_OP_INIT_RC_VBV_BUFFER_LEVEL  0x01000005
+#define RENCODE_IB_OP_SET_SPEED_ENCODING_MODE   0x01000006
+#define RENCODE_IB_OP_SET_BALANCE_ENCODING_MODE 0x01000007
+#define RENCODE_IB_OP_SET_QUALITY_ENCODING_MODE 0x01000008
 
-#define RENCODE_IF_MAJOR_VERSION_MASK                                               0xFFFF0000
-#define RENCODE_IF_MAJOR_VERSION_SHIFT                                              16
-#define RENCODE_IF_MINOR_VERSION_MASK                                               0x0000FFFF
-#define RENCODE_IF_MINOR_VERSION_SHIFT                                              0
+#define RENCODE_IF_MAJOR_VERSION_MASK  0xFFFF0000
+#define RENCODE_IF_MAJOR_VERSION_SHIFT 16
+#define RENCODE_IF_MINOR_VERSION_MASK  0x0000FFFF
+#define RENCODE_IF_MINOR_VERSION_SHIFT 0
 
-#define RENCODE_ENGINE_TYPE_ENCODE                                                  1
+#define RENCODE_ENGINE_TYPE_ENCODE 1
 
-#define RENCODE_ENCODE_STANDARD_HEVC                                                0
-#define RENCODE_ENCODE_STANDARD_H264                                                1
-#define RENCODE_ENCODE_STANDARD_AV1                                                 2
+#define RENCODE_ENCODE_STANDARD_HEVC 0
+#define RENCODE_ENCODE_STANDARD_H264 1
+#define RENCODE_ENCODE_STANDARD_AV1  2
 
-#define RENCODE_PREENCODE_MODE_NONE                                                 0x00000000
-#define RENCODE_PREENCODE_MODE_1X                                                   0x00000001
-#define RENCODE_PREENCODE_MODE_2X                                                   0x00000002
-#define RENCODE_PREENCODE_MODE_4X                                                   0x00000004
+#define RENCODE_PREENCODE_MODE_NONE 0x00000000
+#define RENCODE_PREENCODE_MODE_1X   0x00000001
+#define RENCODE_PREENCODE_MODE_2X   0x00000002
+#define RENCODE_PREENCODE_MODE_4X   0x00000004
 
-#define RENCODE_VBAQ_NONE                                                           0x00000000
-#define RENCODE_VBAQ_AUTO                                                           0x00000001
+#define RENCODE_VBAQ_NONE 0x00000000
+#define RENCODE_VBAQ_AUTO 0x00000001
 
-#define RENCODE_PRESET_MODE_SPEED                                                   0x00000000
-#define RENCODE_PRESET_MODE_BALANCE                                                 0x00000001
-#define RENCODE_PRESET_MODE_QUALITY                                                 0x00000002
+#define RENCODE_PRESET_MODE_SPEED   0x00000000
+#define RENCODE_PRESET_MODE_BALANCE 0x00000001
+#define RENCODE_PRESET_MODE_QUALITY 0x00000002
 
-#define RENCODE_H264_SLICE_CONTROL_MODE_FIXED_MBS                                   0x00000000
-#define RENCODE_H264_SLICE_CONTROL_MODE_FIXED_BITS                                  0x00000001
+#define RENCODE_H264_SLICE_CONTROL_MODE_FIXED_MBS  0x00000000
+#define RENCODE_H264_SLICE_CONTROL_MODE_FIXED_BITS 0x00000001
 
-#define RENCODE_HEVC_SLICE_CONTROL_MODE_FIXED_CTBS                                  0x00000000
-#define RENCODE_HEVC_SLICE_CONTROL_MODE_FIXED_BITS                                  0x00000001
+#define RENCODE_HEVC_SLICE_CONTROL_MODE_FIXED_CTBS 0x00000000
+#define RENCODE_HEVC_SLICE_CONTROL_MODE_FIXED_BITS 0x00000001
 
-#define RENCODE_RATE_CONTROL_METHOD_NONE                                            0x00000000
-#define RENCODE_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR                         0x00000001
-#define RENCODE_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR                            0x00000002
-#define RENCODE_RATE_CONTROL_METHOD_CBR                                             0x00000003
+#define RENCODE_RATE_CONTROL_METHOD_NONE                    0x00000000
+#define RENCODE_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR 0x00000001
+#define RENCODE_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR    0x00000002
+#define RENCODE_RATE_CONTROL_METHOD_CBR                     0x00000003
 
-#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_AUD                                         0x00000000
-#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_VPS                                         0x00000001
-#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_SPS                                         0x00000002
-#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_PPS                                         0x00000003
-#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_PREFIX                                      0x00000004
-#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_END_OF_SEQUENCE                             0x00000005
-#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_SEI                                         0x00000006
+#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_AUD             0x00000000
+#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_VPS             0x00000001
+#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_SPS             0x00000002
+#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_PPS             0x00000003
+#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_PREFIX          0x00000004
+#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_END_OF_SEQUENCE 0x00000005
+#define RENCODE_DIRECT_OUTPUT_NALU_TYPE_SEI             0x00000006
 
-#define RENCODE_SLICE_HEADER_TEMPLATE_MAX_TEMPLATE_SIZE_IN_DWORDS                   16
-#define RENCODE_SLICE_HEADER_TEMPLATE_MAX_NUM_INSTRUCTIONS                          16
+#define RENCODE_SLICE_HEADER_TEMPLATE_MAX_TEMPLATE_SIZE_IN_DWORDS 16
+#define RENCODE_SLICE_HEADER_TEMPLATE_MAX_NUM_INSTRUCTIONS        16
 
-#define RENCODE_HEADER_INSTRUCTION_END                                              0x00000000
-#define RENCODE_HEADER_INSTRUCTION_COPY                                             0x00000001
+#define RENCODE_HEADER_INSTRUCTION_END  0x00000000
+#define RENCODE_HEADER_INSTRUCTION_COPY 0x00000001
 
-#define RENCODE_HEVC_HEADER_INSTRUCTION_DEPENDENT_SLICE_END                         0x00010000
-#define RENCODE_HEVC_HEADER_INSTRUCTION_FIRST_SLICE                                 0x00010001
-#define RENCODE_HEVC_HEADER_INSTRUCTION_SLICE_SEGMENT                               0x00010002
-#define RENCODE_HEVC_HEADER_INSTRUCTION_SLICE_QP_DELTA                              0x00010003
-#define RENCODE_HEVC_HEADER_INSTRUCTION_SAO_ENABLE                                  0x00010004
-#define RENCODE_HEVC_HEADER_INSTRUCTION_LOOP_FILTER_ACROSS_SLICES_ENABLE            0x00010005
+#define RENCODE_HEVC_HEADER_INSTRUCTION_DEPENDENT_SLICE_END              0x00010000
+#define RENCODE_HEVC_HEADER_INSTRUCTION_FIRST_SLICE                      0x00010001
+#define RENCODE_HEVC_HEADER_INSTRUCTION_SLICE_SEGMENT                    0x00010002
+#define RENCODE_HEVC_HEADER_INSTRUCTION_SLICE_QP_DELTA                   0x00010003
+#define RENCODE_HEVC_HEADER_INSTRUCTION_SAO_ENABLE                       0x00010004
+#define RENCODE_HEVC_HEADER_INSTRUCTION_LOOP_FILTER_ACROSS_SLICES_ENABLE 0x00010005
 
-#define RENCODE_H264_HEADER_INSTRUCTION_FIRST_MB                                    0x00020000
-#define RENCODE_H264_HEADER_INSTRUCTION_SLICE_QP_DELTA                              0x00020001
+#define RENCODE_H264_HEADER_INSTRUCTION_FIRST_MB       0x00020000
+#define RENCODE_H264_HEADER_INSTRUCTION_SLICE_QP_DELTA 0x00020001
 
-#define RENCODE_AV1_BITSTREAM_INSTRUCTION_OBU_START                                 0x00000002
-#define RENCODE_AV1_BITSTREAM_INSTRUCTION_OBU_SIZE                                  0x00000003
-#define RENCODE_AV1_BITSTREAM_INSTRUCTION_OBU_END                                   0x00000004
+#define RENCODE_AV1_BITSTREAM_INSTRUCTION_OBU_START 0x00000002
+#define RENCODE_AV1_BITSTREAM_INSTRUCTION_OBU_SIZE  0x00000003
+#define RENCODE_AV1_BITSTREAM_INSTRUCTION_OBU_END   0x00000004
 
-#define RENCODE_OBU_START_TYPE_FRAME                                                1
-#define RENCODE_OBU_START_TYPE_FRAME_HEADER                                         2
-#define RENCODE_OBU_START_TYPE_TILE_GROUP                                           3
+#define RENCODE_OBU_START_TYPE_FRAME        1
+#define RENCODE_OBU_START_TYPE_FRAME_HEADER 2
+#define RENCODE_OBU_START_TYPE_TILE_GROUP   3
 
-#define RENCODE_OBU_TYPE_SEQUENCE_HEADER                                            1
-#define RENCODE_OBU_TYPE_TEMPORAL_DELIMITER                                         2
-#define RENCODE_OBU_TYPE_FRAME_HEADER                                               3
-#define RENCODE_OBU_TYPE_TILE_GROUP                                                 4
-#define RENCODE_OBU_TYPE_METADATA                                                   5
-#define RENCODE_OBU_TYPE_FRAME                                                      6
-#define RENCODE_OBU_TYPE_REDUNDANT_FRAME_HEADER                                     7
-#define RENCODE_OBU_TYPE_TILE_LIST                                                  8
-#define RENCODE_OBU_TYPE_PADDING                                                    15
+#define RENCODE_OBU_TYPE_SEQUENCE_HEADER        1
+#define RENCODE_OBU_TYPE_TEMPORAL_DELIMITER     2
+#define RENCODE_OBU_TYPE_FRAME_HEADER           3
+#define RENCODE_OBU_TYPE_TILE_GROUP             4
+#define RENCODE_OBU_TYPE_METADATA               5
+#define RENCODE_OBU_TYPE_FRAME                  6
+#define RENCODE_OBU_TYPE_REDUNDANT_FRAME_HEADER 7
+#define RENCODE_OBU_TYPE_TILE_LIST              8
+#define RENCODE_OBU_TYPE_PADDING                15
 
-#define RENCODE_AV1_MV_PRECISION_ALLOW_HIGH_PRECISION                               0x00
-#define RENCODE_AV1_MV_PRECISION_DISALLOW_HIGH_PRECISION                            0x10
-#define RENCODE_AV1_MV_PRECISION_FORCE_INTEGER_MV                                   0x30
+#define RENCODE_AV1_MV_PRECISION_ALLOW_HIGH_PRECISION    0x00
+#define RENCODE_AV1_MV_PRECISION_DISALLOW_HIGH_PRECISION 0x10
+#define RENCODE_AV1_MV_PRECISION_FORCE_INTEGER_MV        0x30
 
-#define RENCODE_AV1_CDEF_MODE_DISABLE                                               0
-#define RENCODE_AV1_CDEF_MODE_ENABLE                                                1
+#define RENCODE_AV1_CDEF_MODE_DISABLE 0
+#define RENCODE_AV1_CDEF_MODE_ENABLE  1
 
-#define RENCODE_AV1_ORDER_HINT_BITS                                                 8
-#define RENCODE_AV1_DELTA_FRAME_ID_LENGTH                                           15
-#define RENCODE_AV1_ADDITIONAL_FRAME_ID_LENGTH                                      1
+#define RENCODE_AV1_ORDER_HINT_BITS            8
+#define RENCODE_AV1_DELTA_FRAME_ID_LENGTH      15
+#define RENCODE_AV1_ADDITIONAL_FRAME_ID_LENGTH 1
 
-#define RENCDOE_AV1_NUM_REF_FRAMES                                                  8
-#define RENCDOE_AV1_REFS_PER_FRAME                                                  7
-#define RENCODE_AV1_SDB_FRAME_CONTEXT_SIZE                                          947200
-#define RENCODE_AV1_FRAME_CONTEXT_CDF_TABLE_SIZE                                    22528
-#define RENCODE_AV1_CDEF_ALGORITHM_FRAME_CONTEXT_SIZE                               (64 * 8 * 2)
+#define RENCDOE_AV1_NUM_REF_FRAMES                    8
+#define RENCDOE_AV1_REFS_PER_FRAME                    7
+#define RENCODE_AV1_SDB_FRAME_CONTEXT_SIZE            947200
+#define RENCODE_AV1_FRAME_CONTEXT_CDF_TABLE_SIZE      22528
+#define RENCODE_AV1_CDEF_ALGORITHM_FRAME_CONTEXT_SIZE (64 * 8 * 2)
 
-#define RENCODE_PICTURE_TYPE_B                                                      0
-#define RENCODE_PICTURE_TYPE_P                                                      1
-#define RENCODE_PICTURE_TYPE_I                                                      2
-#define RENCODE_PICTURE_TYPE_P_SKIP                                                 3
+#define RENCODE_PICTURE_TYPE_B      0
+#define RENCODE_PICTURE_TYPE_P      1
+#define RENCODE_PICTURE_TYPE_I      2
+#define RENCODE_PICTURE_TYPE_P_SKIP 3
 
-#define RENCODE_INPUT_SWIZZLE_MODE_LINEAR                                           0
-#define RENCODE_INPUT_SWIZZLE_MODE_256B_S                                           1
-#define RENCODE_INPUT_SWIZZLE_MODE_4kB_S                                            5
-#define RENCODE_INPUT_SWIZZLE_MODE_64kB_S                                           9
+#define RENCODE_INPUT_SWIZZLE_MODE_LINEAR 0
+#define RENCODE_INPUT_SWIZZLE_MODE_256B_S 1
+#define RENCODE_INPUT_SWIZZLE_MODE_4kB_S  5
+#define RENCODE_INPUT_SWIZZLE_MODE_64kB_S 9
 
-#define RENCODE_H264_PICTURE_STRUCTURE_FRAME                                        0
-#define RENCODE_H264_PICTURE_STRUCTURE_TOP_FIELD                                    1
-#define RENCODE_H264_PICTURE_STRUCTURE_BOTTOM_FIELD                                 2
+#define RENCODE_H264_PICTURE_STRUCTURE_FRAME        0
+#define RENCODE_H264_PICTURE_STRUCTURE_TOP_FIELD    1
+#define RENCODE_H264_PICTURE_STRUCTURE_BOTTOM_FIELD 2
 
-#define RENCODE_H264_INTERLACING_MODE_PROGRESSIVE                                   0
-#define RENCODE_H264_INTERLACING_MODE_INTERLACED_STACKED                            1
-#define RENCODE_H264_INTERLACING_MODE_INTERLACED_INTERLEAVED                        2
+#define RENCODE_H264_INTERLACING_MODE_PROGRESSIVE            0
+#define RENCODE_H264_INTERLACING_MODE_INTERLACED_STACKED     1
+#define RENCODE_H264_INTERLACING_MODE_INTERLACED_INTERLEAVED 2
 
-#define RENCODE_H264_DISABLE_DEBLOCKING_FILTER_IDC_ENABLE                           0
-#define RENCODE_H264_DISABLE_DEBLOCKING_FILTER_IDC_DISABLE                          1
-#define RENCODE_H264_DISABLE_DEBLOCKING_FILTER_IDC_DISABLE_ACROSS_SLICE_BOUNDARY    2
+#define RENCODE_H264_DISABLE_DEBLOCKING_FILTER_IDC_ENABLE                        0
+#define RENCODE_H264_DISABLE_DEBLOCKING_FILTER_IDC_DISABLE                       1
+#define RENCODE_H264_DISABLE_DEBLOCKING_FILTER_IDC_DISABLE_ACROSS_SLICE_BOUNDARY 2
 
-#define RENCODE_INTRA_REFRESH_MODE_NONE                                             0
-#define RENCODE_INTRA_REFRESH_MODE_CTB_MB_ROWS                                      1
-#define RENCODE_INTRA_REFRESH_MODE_CTB_MB_COLUMNS                                   2
+#define RENCODE_INTRA_REFRESH_MODE_NONE           0
+#define RENCODE_INTRA_REFRESH_MODE_CTB_MB_ROWS    1
+#define RENCODE_INTRA_REFRESH_MODE_CTB_MB_COLUMNS 2
 
-#define RENCODE_MAX_NUM_RECONSTRUCTED_PICTURES                                      34
+#define RENCODE_MAX_NUM_RECONSTRUCTED_PICTURES 34
 
-#define RENCODE_REC_SWIZZLE_MODE_LINEAR                                             0
-#define RENCODE_REC_SWIZZLE_MODE_256B_S                                             1
-#define RENCODE_REC_SWIZZLE_MODE_256B_D                                             2
-#define RENCODE_REC_SWIZZLE_MODE_8x8_1D_THIN_12_24BPP                               0x10000001
+#define RENCODE_REC_SWIZZLE_MODE_LINEAR               0
+#define RENCODE_REC_SWIZZLE_MODE_256B_S               1
+#define RENCODE_REC_SWIZZLE_MODE_256B_D               2
+#define RENCODE_REC_SWIZZLE_MODE_8x8_1D_THIN_12_24BPP 0x10000001
 
-#define RENCODE_VIDEO_BITSTREAM_BUFFER_MODE_LINEAR                                  0
-#define RENCODE_VIDEO_BITSTREAM_BUFFER_MODE_CIRCULAR                                1
+#define RENCODE_VIDEO_BITSTREAM_BUFFER_MODE_LINEAR   0
+#define RENCODE_VIDEO_BITSTREAM_BUFFER_MODE_CIRCULAR 1
 
-#define RENCODE_FEEDBACK_BUFFER_MODE_LINEAR                                         0
-#define RENCODE_FEEDBACK_BUFFER_MODE_CIRCULAR                                       1
+#define RENCODE_FEEDBACK_BUFFER_MODE_LINEAR   0
+#define RENCODE_FEEDBACK_BUFFER_MODE_CIRCULAR 1
 
-#define RENCODE_STATISTICS_TYPE_NONE                                                0
-#define RENCODE_STATISTICS_TYPE_0                                                   1
+#define RENCODE_STATISTICS_TYPE_NONE 0
+#define RENCODE_STATISTICS_TYPE_0    1
 
-#define RENCODE_MAX_NUM_TEMPORAL_LAYERS                                             4
+#define RENCODE_MAX_NUM_TEMPORAL_LAYERS 4
 
-#define PIPE_AV1_ENC_SB_SIZE                                                        64
-#define PIPE_H265_ENC_CTB_SIZE                                                      64
-#define PIPE_H264_MB_SIZE                                                           16
+#define PIPE_AV1_ENC_SB_SIZE   64
+#define PIPE_H265_ENC_CTB_SIZE 64
+#define PIPE_H264_MB_SIZE      16
 
-#define RENCODE_COLOR_VOLUME_G22_BT709                                              0
+#define RENCODE_COLOR_VOLUME_G22_BT709 0
 
-#define RENCODE_COLOR_RANGE_FULL                                                    0
-#define RENCODE_CHROMA_LOCATION_INTERSTITIAL                                        0
+#define RENCODE_COLOR_RANGE_FULL             0
+#define RENCODE_CHROMA_LOCATION_INTERSTITIAL 0
 
-#define RENCODE_COLOR_BIT_DEPTH_8_BIT                                               0
-#define RENCODE_COLOR_BIT_DEPTH_10_BIT                                              1
+#define RENCODE_COLOR_BIT_DEPTH_8_BIT  0
+#define RENCODE_COLOR_BIT_DEPTH_10_BIT 1
 
-#define RENCODE_CHROMA_SUBSAMPLING_4_2_0                                            0
+#define RENCODE_CHROMA_SUBSAMPLING_4_2_0 0
 
-#define RENCODE_COLOR_PACKING_FORMAT_NV12                                           0
-#define RENCODE_COLOR_PACKING_FORMAT_P010                                           1
+#define RENCODE_COLOR_PACKING_FORMAT_NV12 0
+#define RENCODE_COLOR_PACKING_FORMAT_P010 1
 
-#define RENCODE_COLOR_SPACE_YUV                                                     0
+#define RENCODE_COLOR_SPACE_YUV 0
 
-#define ALIGN_TO(value, align)                 (((value) + ((align) - 1))/(align))
+#define ALIGN_TO(value, align)                 (((value) + ((align)-1)) / (align))
 #define PIPE_ALIGN_IN_BLOCK_SIZE(value, align) ALIGN_TO(value, align)
 
 #define RADEON_ENC_CS(value) (enc->cs.current.buf[enc->cs.current.cdw++] = (value))
-#define RADEON_ENC_BEGIN(cmd)                                                                    \
-   {                                                                                             \
-      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++];                             \
+#define RADEON_ENC_BEGIN(cmd)                                        \
+   {                                                                 \
+      uint32_t *begin = &enc->cs.current.buf[enc->cs.current.cdw++]; \
       RADEON_ENC_CS(cmd)
-#define RADEON_ENC_READ(buf, domain, off)                                                        \
+#define RADEON_ENC_READ(buf, domain, off) \
    radeon_enc_add_buffer(enc, (buf), RADEON_USAGE_READ, (domain), (off))
-#define RADEON_ENC_WRITE(buf, domain, off)                                                       \
+#define RADEON_ENC_WRITE(buf, domain, off) \
    radeon_enc_add_buffer(enc, (buf), RADEON_USAGE_WRITE, (domain), (off))
-#define RADEON_ENC_READWRITE(buf, domain, off)                                                   \
+#define RADEON_ENC_READWRITE(buf, domain, off) \
    radeon_enc_add_buffer(enc, (buf), RADEON_USAGE_READWRITE, (domain), (off))
-#define RADEON_ENC_END()                                                                         \
-   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4;                             \
-   enc->total_task_size += *begin;                                                               \
+#define RADEON_ENC_END()                                             \
+   *begin = (&enc->cs.current.buf[enc->cs.current.cdw] - begin) * 4; \
+   enc->total_task_size += *begin;                                   \
    }
-#define RADEON_ENC_ADDR_SWAP()                                                                   \
-   do {                                                                                          \
-      unsigned int *low  = &enc->cs.current.buf[enc->cs.current.cdw - 2];                        \
-      unsigned int *high = &enc->cs.current.buf[enc->cs.current.cdw - 1];                        \
-      unsigned int temp = *low;                                                                  \
-      *low = *high;                                                                              \
-      *high = temp;                                                                              \
-   } while(0)
+#define RADEON_ENC_ADDR_SWAP()                                            \
+   do {                                                                   \
+      unsigned int *low = &enc->cs.current.buf[enc->cs.current.cdw - 2];  \
+      unsigned int *high = &enc->cs.current.buf[enc->cs.current.cdw - 1]; \
+      unsigned int temp = *low;                                           \
+      *low = *high;                                                       \
+      *high = temp;                                                       \
+   } while (0)
 
-#define RADEON_ENC_DESTROY_VIDEO_BUFFER(buf)                                                     \
-   do {                                                                                          \
-      if (buf) {                                                                                 \
-         si_vid_destroy_buffer(buf);                                                             \
-         FREE(buf);                                                                              \
-         (buf) = NULL;                                                                           \
-      }                                                                                          \
-   } while(0)
+#define RADEON_ENC_DESTROY_VIDEO_BUFFER(buf) \
+   do {                                      \
+      if (buf) {                             \
+         si_vid_destroy_buffer(buf);         \
+         FREE(buf);                          \
+         (buf) = NULL;                       \
+      }                                      \
+   } while (0)
 
 typedef struct rvcn_enc_session_info_s {
    uint32_t interface_version;
@@ -279,8 +279,8 @@ typedef struct rvcn_enc_h264_spec_misc_s {
    uint32_t b_picture_enabled;
    uint32_t weighted_bipred_idc;
    struct {
-      uint32_t deblocking_filter_control_present_flag:1;
-      uint32_t redundant_pic_cnt_present_flag:1;
+      uint32_t deblocking_filter_control_present_flag : 1;
+      uint32_t redundant_pic_cnt_present_flag : 1;
    };
 } rvcn_enc_h264_spec_misc_t;
 
@@ -422,8 +422,7 @@ typedef struct rvcn_enc_reconstructed_picture_s {
    };
 } rvcn_enc_reconstructed_picture_t;
 
-typedef struct rvcn_enc_picture_info_s
-{
+typedef struct rvcn_enc_picture_info_s {
    bool in_use;
    bool is_ltr;
    uint32_t pic_num;
@@ -454,7 +453,7 @@ typedef struct rvcn_enc_encode_context_buffer_s {
    uint32_t pre_encode_picture_luma_pitch;
    uint32_t pre_encode_picture_chroma_pitch;
    rvcn_enc_reconstructed_picture_t
-   pre_encode_reconstructed_pictures[RENCODE_MAX_NUM_RECONSTRUCTED_PICTURES];
+      pre_encode_reconstructed_pictures[RENCODE_MAX_NUM_RECONSTRUCTED_PICTURES];
    rvcn_enc_pre_encode_input_picture_t pre_encode_input_picture;
    uint32_t two_pass_search_center_map_offset;
    union {
@@ -487,29 +486,27 @@ typedef struct rvcn_enc_av1_cdf_default_table_s {
    uint32_t cdf_default_buffer_address_hi;
 } rvcn_enc_av1_cdf_default_table_t;
 
-typedef struct rvcn_encode_stats_type_0_s
-{
-    uint32_t qp_frame;
-    uint32_t qp_avg_ctb;
-    uint32_t qp_max_ctb;
-    uint32_t qp_min_ctb;
-    uint32_t pix_intra;
-    uint32_t pix_inter;
-    uint32_t pix_skip;
-    uint32_t bitcount_residual;
-    uint32_t bitcount_all_minus_header;
-    uint32_t bitcount_motion;
-    uint32_t bitcount_inter;
-    uint32_t bitcount_intra;
-    uint32_t mv_x_frame;
-    uint32_t mv_y_frame;
+typedef struct rvcn_encode_stats_type_0_s {
+   uint32_t qp_frame;
+   uint32_t qp_avg_ctb;
+   uint32_t qp_max_ctb;
+   uint32_t qp_min_ctb;
+   uint32_t pix_intra;
+   uint32_t pix_inter;
+   uint32_t pix_skip;
+   uint32_t bitcount_residual;
+   uint32_t bitcount_all_minus_header;
+   uint32_t bitcount_motion;
+   uint32_t bitcount_inter;
+   uint32_t bitcount_intra;
+   uint32_t mv_x_frame;
+   uint32_t mv_y_frame;
 } rvcn_encode_stats_type_0_t;
 
-typedef struct rvcn_encode_stats_s
-{
-    uint32_t encode_stats_type;
-    uint32_t encode_stats_buffer_address_hi;
-    uint32_t encode_stats_buffer_address_lo;
+typedef struct rvcn_encode_stats_s {
+   uint32_t encode_stats_type;
+   uint32_t encode_stats_buffer_address_hi;
+   uint32_t encode_stats_buffer_address_lo;
 } rvcn_enc_stats_t;
 
 typedef struct rvcn_enc_cmd_s {
@@ -545,15 +542,13 @@ typedef struct rvcn_enc_cmd_s {
    uint32_t enc_statistics;
 } rvcn_enc_cmd_t;
 
-typedef struct rvcn_enc_quality_modes_s
-{
+typedef struct rvcn_enc_quality_modes_s {
    unsigned pre_encode_mode;
    unsigned vbaq_mode;
    unsigned preset_mode;
 } rvcn_enc_quality_modes_t;
 
-typedef struct rvcn_enc_vui_info_s
-{
+typedef struct rvcn_enc_vui_info_s {
    uint32_t vui_parameters_present_flag;
    struct {
       uint32_t aspect_ratio_info_present_flag : 1;
@@ -564,10 +559,9 @@ typedef struct rvcn_enc_vui_info_s
    uint32_t sar_height;
    uint32_t num_units_in_tick;
    uint32_t time_scale;
-}rvcn_enc_vui_info;
+} rvcn_enc_vui_info;
 
-typedef struct rvcn_enc_input_format_s
-{
+typedef struct rvcn_enc_input_format_s {
    uint32_t input_color_volume;
    uint32_t input_color_space;
    uint32_t input_color_range;
@@ -577,32 +571,28 @@ typedef struct rvcn_enc_input_format_s
    uint32_t input_color_packing_format;
 } rvcn_enc_input_format_t;
 
-typedef struct rvcn_enc_output_format_s
-{
+typedef struct rvcn_enc_output_format_s {
    uint32_t output_color_volume;
    uint32_t output_color_range;
-   uint32_t output_chroma_location;  /* chroma location to luma */
+   uint32_t output_chroma_location; /* chroma location to luma */
    uint32_t output_color_bit_depth;
 } rvcn_enc_output_format_t;
 
-typedef struct rvcn_enc_av1_timing_info_s
-{
+typedef struct rvcn_enc_av1_timing_info_s {
    uint32_t num_units_in_display_tick;
    uint32_t time_scale;
    uint32_t num_tick_per_picture_minus1;
-}rvcn_enc_av1_timing_info_t;
+} rvcn_enc_av1_timing_info_t;
 
-typedef struct rvcn_enc_av1_color_description_s
-{
+typedef struct rvcn_enc_av1_color_description_s {
    uint32_t color_primaries;
    uint32_t transfer_characteristics;
    uint32_t maxtrix_coefficients;
    uint32_t color_range;
    uint32_t chroma_sample_position;
-}rvcn_enc_av1_color_description_t;
+} rvcn_enc_av1_color_description_t;
 
-typedef struct rvcn_enc_av1_ref_frame_s
-{
+typedef struct rvcn_enc_av1_ref_frame_s {
    bool in_use;
    uint32_t frame_id;
    uint32_t temporal_id;
@@ -610,8 +600,7 @@ typedef struct rvcn_enc_av1_ref_frame_s
    enum pipe_av1_enc_frame_type frame_type;
 } rvcn_enc_av1_ref_frame_t;
 
-typedef struct rvcn_enc_av1_recon_slot_s
-{
+typedef struct rvcn_enc_av1_recon_slot_s {
    bool in_use;
    bool is_orphaned;
 } rvcn_enc_av1_recon_slot_t;
@@ -677,19 +666,19 @@ struct radeon_enc_pic {
    struct {
       struct {
          struct {
-            uint32_t enable_tile_obu:1;
-            uint32_t enable_render_size:1;
-            uint32_t enable_error_resilient_mode:1;
-            uint32_t enable_order_hint:1;
-            uint32_t enable_color_description:1;
-            uint32_t timing_info_present:1;
-            uint32_t timing_info_equal_picture_interval:1;
-            uint32_t frame_id_numbers_present:1;
-            uint32_t force_integer_mv:1;
-            uint32_t disable_screen_content_tools:1;
-            uint32_t is_obu_frame:1;
-            uint32_t stream_obu_frame:1;  /* all frames have the same number of tiles */
-            uint32_t need_av1_seq:1;
+            uint32_t enable_tile_obu : 1;
+            uint32_t enable_render_size : 1;
+            uint32_t enable_error_resilient_mode : 1;
+            uint32_t enable_order_hint : 1;
+            uint32_t enable_color_description : 1;
+            uint32_t timing_info_present : 1;
+            uint32_t timing_info_equal_picture_interval : 1;
+            uint32_t frame_id_numbers_present : 1;
+            uint32_t force_integer_mv : 1;
+            uint32_t disable_screen_content_tools : 1;
+            uint32_t is_obu_frame : 1;
+            uint32_t stream_obu_frame : 1; /* all frames have the same number of tiles */
+            uint32_t need_av1_seq : 1;
          };
          uint32_t render_width;
          uint32_t render_height;

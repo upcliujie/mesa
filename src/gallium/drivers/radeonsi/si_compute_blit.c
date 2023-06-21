@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_pipe.h"
 #include "util/format/u_format.h"
 #include "util/format_srgb.h"
 #include "util/u_helpers.h"
+#include "si_pipe.h"
 
 static bool si_can_use_compute_blit(struct si_context *sctx, enum pipe_format format,
                                     unsigned num_samples, bool is_store, bool has_dcc)
@@ -68,8 +68,8 @@ static enum si_cache_policy get_cache_policy(struct si_context *sctx, enum si_co
                                              uint64_t size)
 {
    if ((sctx->gfx_level >= GFX9 && (coher == SI_COHERENCY_CB_META ||
-                                     coher == SI_COHERENCY_DB_META ||
-                                     coher == SI_COHERENCY_CP)) ||
+                                    coher == SI_COHERENCY_DB_META ||
+                                    coher == SI_COHERENCY_CP)) ||
        (sctx->gfx_level >= GFX7 && coher == SI_COHERENCY_SHADER))
       return L2_LRU; /* it's faster if L2 doesn't evict anything  */
 
@@ -80,17 +80,17 @@ unsigned si_get_flush_flags(struct si_context *sctx, enum si_coherency coher,
                             enum si_cache_policy cache_policy)
 {
    switch (coher) {
-   default:
-   case SI_COHERENCY_NONE:
-   case SI_COHERENCY_CP:
-      return 0;
-   case SI_COHERENCY_SHADER:
-      return SI_CONTEXT_INV_SCACHE | SI_CONTEXT_INV_VCACHE |
-             (cache_policy == L2_BYPASS ? SI_CONTEXT_INV_L2 : 0);
-   case SI_COHERENCY_CB_META:
-      return SI_CONTEXT_FLUSH_AND_INV_CB;
-   case SI_COHERENCY_DB_META:
-      return SI_CONTEXT_FLUSH_AND_INV_DB;
+      default:
+      case SI_COHERENCY_NONE:
+      case SI_COHERENCY_CP:
+         return 0;
+      case SI_COHERENCY_SHADER:
+         return SI_CONTEXT_INV_SCACHE | SI_CONTEXT_INV_VCACHE |
+                (cache_policy == L2_BYPASS ? SI_CONTEXT_INV_L2 : 0);
+      case SI_COHERENCY_CB_META:
+         return SI_CONTEXT_FLUSH_AND_INV_CB;
+      case SI_COHERENCY_DB_META:
+         return SI_CONTEXT_FLUSH_AND_INV_DB;
    }
 }
 
@@ -423,7 +423,7 @@ void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst,
    assert(size < (UINT_MAX & ~0xf)); /* TODO: test 64-bit sizes in all codepaths */
 
    uint32_t clamped;
-   if (util_lower_clearsize_to_dword(clear_value, (int*)&clear_value_size, &clamped))
+   if (util_lower_clearsize_to_dword(clear_value, (int *)&clear_value_size, &clamped))
       clear_value = &clamped;
 
    if (clear_value_size == 12) {
@@ -446,9 +446,8 @@ void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst,
       }
 
       /* TODO: use compute for unaligned big sizes */
-      if (method == SI_AUTO_SELECT_CLEAR_METHOD && (
-           clear_value_size > 4 ||
-           (clear_value_size == 4 && offset % 4 == 0 && size > compute_min_size))) {
+      if (method == SI_AUTO_SELECT_CLEAR_METHOD && (clear_value_size > 4 ||
+                                                    (clear_value_size == 4 && offset % 4 == 0 && size > compute_min_size))) {
          method = SI_COMPUTE_CLEAR_METHOD;
       }
       if (method == SI_COMPUTE_CLEAR_METHOD) {
@@ -472,10 +471,11 @@ void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst,
 
       sctx->b.buffer_subdata(&sctx->b, dst,
                              PIPE_MAP_WRITE |
-                             /* TC forbids drivers to invalidate buffers and infer unsynchronized mappings,
-                              * so suppress those optimizations. */
-                             (sctx->tc ? TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED |
-                                         TC_TRANSFER_MAP_NO_INVALIDATE : 0),
+                                /* TC forbids drivers to invalidate buffers and infer unsynchronized mappings,
+                                 * so suppress those optimizations. */
+                                (sctx->tc ? TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED |
+                                               TC_TRANSFER_MAP_NO_INVALIDATE
+                                          : 0),
                              offset, size, clear_value);
    }
 }
@@ -587,7 +587,7 @@ static void si_launch_grid_internal_images(struct si_context *sctx,
    /* This must be done before the compute shader. */
    for (unsigned i = 0; i < num_images; i++) {
       si_make_CB_shader_coherent(sctx, images[i].resource->nr_samples, true,
-            ((struct si_texture*)images[i].resource)->surface.u.gfx9.color.dcc.pipe_aligned);
+                                 ((struct si_texture *)images[i].resource)->surface.u.gfx9.color.dcc.pipe_aligned);
    }
 
    si_launch_grid_internal(sctx, info, shader, flags | SI_OP_CS_IMAGE);
@@ -603,8 +603,8 @@ bool si_compute_copy_image(struct si_context *sctx, struct pipe_resource *dst, u
                            unsigned dsty, unsigned dstz, const struct pipe_box *src_box,
                            unsigned flags)
 {
-   struct si_texture *ssrc = (struct si_texture*)src;
-   struct si_texture *sdst = (struct si_texture*)dst;
+   struct si_texture *ssrc = (struct si_texture *)src;
+   struct si_texture *sdst = (struct si_texture *)dst;
 
    si_use_compute_copy_for_float_formats(sctx, dst, dst_level);
 
@@ -635,21 +635,21 @@ bool si_compute_copy_image(struct si_context *sctx, struct pipe_resource *dst, u
        src_format == dst_format &&
        util_format_is_float(src_format) &&
        !util_format_is_compressed(src_format)) {
-      switch(util_format_get_blocksizebits(src_format)) {
-        case 16:
-          src_format = dst_format = PIPE_FORMAT_R16_UINT;
-          break;
-        case 32:
-          src_format = dst_format = PIPE_FORMAT_R32_UINT;
-          break;
-        case 64:
-          src_format = dst_format = PIPE_FORMAT_R32G32_UINT;
-          break;
-        case 128:
-          src_format = dst_format = PIPE_FORMAT_R32G32B32A32_UINT;
-          break;
-        default:
-          assert(false);
+      switch (util_format_get_blocksizebits(src_format)) {
+         case 16:
+            src_format = dst_format = PIPE_FORMAT_R16_UINT;
+            break;
+         case 32:
+            src_format = dst_format = PIPE_FORMAT_R32_UINT;
+            break;
+         case 64:
+            src_format = dst_format = PIPE_FORMAT_R32G32_UINT;
+            break;
+         case 128:
+            src_format = dst_format = PIPE_FORMAT_R32G32B32A32_UINT;
+            break;
+         default:
+            assert(false);
       }
    }
 
@@ -812,7 +812,7 @@ void si_retile_dcc(struct si_context *sctx, struct si_texture *tex)
 void gfx9_clear_dcc_msaa(struct si_context *sctx, struct pipe_resource *res, uint32_t clear_value,
                          unsigned flags, enum si_coherency coher)
 {
-   struct si_texture *tex = (struct si_texture*)res;
+   struct si_texture *tex = (struct si_texture *)res;
 
    assert(sctx->gfx_level < GFX11);
 
@@ -875,7 +875,7 @@ void si_compute_expand_fmask(struct pipe_context *ctx, struct pipe_resource *tex
       return;
 
    si_make_CB_shader_coherent(sctx, tex->nr_samples, true,
-                              ((struct si_texture*)tex)->surface.u.gfx9.color.dcc.pipe_aligned);
+                              ((struct si_texture *)tex)->surface.u.gfx9.color.dcc.pipe_aligned);
 
    /* Save states. */
    struct pipe_image_view saved_image = {0};
@@ -1010,7 +1010,7 @@ void si_compute_clear_render_target(struct pipe_context *ctx, struct pipe_surfac
 
    si_launch_grid_internal_images(sctx, &image, 1, &info, shader,
                                   SI_OP_SYNC_BEFORE_AFTER |
-                                  (render_condition_enabled ? SI_OP_CS_RENDER_COND_ENABLE : 0));
+                                     (render_condition_enabled ? SI_OP_CS_RENDER_COND_ENABLE : 0));
 
    ctx->set_constant_buffer(ctx, PIPE_SHADER_COMPUTE, 0, true, &saved_cb);
 }
@@ -1070,10 +1070,10 @@ bool si_compute_blit(struct si_context *sctx, const struct pipe_blit_info *info,
       return false;
 
    if (!si_can_use_compute_blit(sctx, info->dst.format, info->dst.resource->nr_samples, true,
-                                vi_dcc_enabled((struct si_texture*)info->dst.resource,
+                                vi_dcc_enabled((struct si_texture *)info->dst.resource,
                                                info->dst.level)) ||
        !si_can_use_compute_blit(sctx, info->src.format, info->src.resource->nr_samples, false,
-                                vi_dcc_enabled((struct si_texture*)info->src.resource,
+                                vi_dcc_enabled((struct si_texture *)info->src.resource,
                                                info->src.level)))
       return false;
 
@@ -1148,12 +1148,12 @@ bool si_compute_blit(struct si_context *sctx, const struct pipe_blit_info *info,
                       dst_desc->channel[i].size <= 10;
 
    struct hash_entry *entry = _mesa_hash_table_search(sctx->cs_blit_shaders,
-                                                      (void*)(uintptr_t)options.key);
+                                                      (void *)(uintptr_t)options.key);
    void *shader = entry ? entry->data : NULL;
    if (!shader) {
       shader = si_create_blit_cs(sctx, &options);
       _mesa_hash_table_insert(sctx->cs_blit_shaders,
-                              (void*)(uintptr_t)options.key, shader);
+                              (void *)(uintptr_t)options.key, shader);
    }
 
    sctx->cs_user_data[0] = (info->src.box.x & 0xffff) | ((info->dst.box.x & 0xffff) << 16);
@@ -1165,6 +1165,6 @@ bool si_compute_blit(struct si_context *sctx, const struct pipe_blit_info *info,
 
    si_launch_grid_internal_images(sctx, image, 2, &grid, shader,
                                   SI_OP_SYNC_BEFORE_AFTER |
-                                  (info->render_condition_enable ? SI_OP_CS_RENDER_COND_ENABLE : 0));
+                                     (info->render_condition_enable ? SI_OP_CS_RENDER_COND_ENABLE : 0));
    return true;
 }

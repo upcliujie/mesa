@@ -9,12 +9,12 @@
 #ifndef _RADEON_VCN_DEC_H
 #define _RADEON_VCN_DEC_H
 
-#include "radeon_vcn.h"
 #include "util/list.h"
+#include "radeon_vcn.h"
 
 #include "ac_vcn_dec.h"
 
-#define NUM_BUFFERS                                         4
+#define NUM_BUFFERS 4
 
 struct rvcn_dec_dynamic_dpb_t2 {
    struct list_head list;
@@ -23,9 +23,9 @@ struct rvcn_dec_dynamic_dpb_t2 {
 };
 
 struct jpeg_registers {
-   #define RDECODE_JPEG_REG_VER_V1 0
-   #define RDECODE_JPEG_REG_VER_V2 1
-   #define RDECODE_JPEG_REG_VER_V3 2
+#define RDECODE_JPEG_REG_VER_V1 0
+#define RDECODE_JPEG_REG_VER_V2 1
+#define RDECODE_JPEG_REG_VER_V3 2
    unsigned version;
    unsigned jpeg_dec_soft_rst;
    unsigned jrbc_ib_cond_rd_timer;

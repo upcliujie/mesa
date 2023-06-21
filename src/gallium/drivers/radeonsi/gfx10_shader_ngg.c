@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/u_prim.h"
 #include "si_pipe.h"
 #include "si_query.h"
 #include "si_shader_internal.h"
-#include "util/u_prim.h"
 
 unsigned gfx10_ngg_get_vertices_per_prim(struct si_shader *shader)
 {
@@ -67,7 +67,8 @@ unsigned gfx10_ngg_get_scratch_dw_size(struct si_shader *shader)
                                       si_get_max_workgroup_size(shader),
                                       shader->wave_size,
                                       si_shader_uses_streamout(shader),
-                                      shader->key.ge.opt.ngg_culling) / 4;
+                                      shader->key.ge.opt.ngg_culling) /
+          4;
 }
 
 /**
@@ -100,7 +101,8 @@ bool gfx10_ngg_calculate_subgroup_info(struct si_shader *shader)
    /* All these are per subgroup: */
    const unsigned min_esverts =
       gs_sel->screen->info.gfx_level >= GFX11 ? 3 : /* gfx11 requires at least 1 primitive per TG */
-      gs_sel->screen->info.gfx_level >= GFX10_3 ? 29 : (24 - 1 + max_verts_per_prim);
+         gs_sel->screen->info.gfx_level >= GFX10_3 ? 29
+                                                   : (24 - 1 + max_verts_per_prim);
    bool max_vert_out_per_gs_instance = false;
    unsigned max_gsprims_base, max_esverts_base;
 
@@ -110,7 +112,7 @@ bool gfx10_ngg_calculate_subgroup_info(struct si_shader *shader)
       bool force_multi_cycling = false;
       unsigned max_out_verts_per_gsprim = gs_sel->info.base.gs.vertices_out * gs_num_invocations;
 
-retry_select_mode:
+   retry_select_mode:
       if (max_out_verts_per_gsprim <= 256 && !force_multi_cycling) {
          if (max_out_verts_per_gsprim) {
             max_gsprims_base = MIN2(max_gsprims_base, 256 / max_out_verts_per_gsprim);
@@ -147,13 +149,14 @@ retry_select_mode:
       }
 
       esvert_lds_size = ac_ngg_nogs_get_pervertex_lds_size(
-         gs_stage, gs_sel->info.num_outputs,
-         si_shader_uses_streamout(shader),
-         shader->key.ge.mono.u.vs_export_prim_id,
-         gfx10_ngg_writes_user_edgeflags(shader),
-         shader->key.ge.opt.ngg_culling,
-         uses_instance_id,
-         uses_primitive_id) / 4;
+                           gs_stage, gs_sel->info.num_outputs,
+                           si_shader_uses_streamout(shader),
+                           shader->key.ge.mono.u.vs_export_prim_id,
+                           gfx10_ngg_writes_user_edgeflags(shader),
+                           shader->key.ge.opt.ngg_culling,
+                           uses_instance_id,
+                           uses_primitive_id) /
+                        4;
    }
 
    unsigned max_gsprims = max_gsprims_base;
@@ -229,9 +232,9 @@ retry_select_mode:
    unsigned max_out_vertices =
       max_vert_out_per_gs_instance
          ? gs_sel->info.base.gs.vertices_out
-         : gs_stage == MESA_SHADER_GEOMETRY
-              ? max_gsprims * gs_num_invocations * gs_sel->info.base.gs.vertices_out
-              : max_esverts;
+      : gs_stage == MESA_SHADER_GEOMETRY
+         ? max_gsprims * gs_num_invocations * gs_sel->info.base.gs.vertices_out
+         : max_esverts;
    assert(max_out_vertices <= 256);
 
    unsigned prim_amp_factor = 1;

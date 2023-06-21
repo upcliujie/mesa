@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "ac_nir.h"
 #include "nir_builder.h"
 #include "nir_xfb_info.h"
 #include "si_pipe.h"
-#include "ac_nir.h"
-
 
 bool si_alu_to_scalar_packed_math_filter(const nir_instr *instr, const void *data)
 {
@@ -32,11 +31,11 @@ static uint8_t si_vectorize_callback(const nir_instr *instr, const void *data)
    nir_alu_instr *alu = nir_instr_as_alu(instr);
    if (nir_dest_bit_size(alu->dest.dest) == 16) {
       switch (alu->op) {
-      case nir_op_unpack_32_2x16_split_x:
-      case nir_op_unpack_32_2x16_split_y:
-         return 1;
-      default:
-         return 2;
+         case nir_op_unpack_32_2x16_split_x:
+         case nir_op_unpack_32_2x16_split_y:
+            return 1;
+         default:
+            return 2;
       }
    }
 
@@ -51,13 +50,13 @@ static unsigned si_lower_bit_size_callback(const nir_instr *instr, void *data)
    nir_alu_instr *alu = nir_instr_as_alu(instr);
 
    switch (alu->op) {
-   case nir_op_imul_high:
-   case nir_op_umul_high:
-      if (nir_dest_bit_size(alu->dest.dest) < 32)
-         return 32;
-      break;
-   default:
-      break;
+      case nir_op_imul_high:
+      case nir_op_umul_high:
+         if (nir_dest_bit_size(alu->dest.dest) < 32)
+            return 32;
+         break;
+      default:
+         break;
    }
 
    return 0;
@@ -93,7 +92,7 @@ void si_nir_opts(struct si_screen *sscreen, struct nir_shader *nir, bool first)
       /* nir_opt_if_optimize_phi_true_false is disabled on LLVM14 (#6976) */
       NIR_PASS(lower_phis_to_scalar, nir, nir_opt_if,
                nir_opt_if_aggressive_last_continue |
-               nir_opt_if_optimize_phi_true_false);
+                  nir_opt_if_optimize_phi_true_false);
       NIR_PASS(progress, nir, nir_opt_dead_cf);
 
       if (lower_alu_to_scalar) {
@@ -229,13 +228,13 @@ lower_intrinsic_instr(nir_builder *b, nir_instr *instr, void *dummy)
    nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
 
    switch (intrin->intrinsic) {
-   case nir_intrinsic_is_sparse_texels_resident:
-      /* code==0 means sparse texels are resident */
-      return nir_ieq_imm(b, intrin->src[0].ssa, 0);
-   case nir_intrinsic_sparse_residency_code_and:
-      return nir_ior(b, intrin->src[0].ssa, intrin->src[1].ssa);
-   default:
-      return NULL;
+      case nir_intrinsic_is_sparse_texels_resident:
+         /* code==0 means sparse texels are resident */
+         return nir_ieq_imm(b, intrin->src[0].ssa, 0);
+      case nir_intrinsic_sparse_residency_code_and:
+         return nir_ior(b, intrin->src[0].ssa, intrin->src[1].ssa);
+      default:
+         return NULL;
    }
 }
 
@@ -312,8 +311,8 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
       unsigned flags = nir_lower_gs_intrinsics_per_stream;
       if (sscreen->use_ngg) {
          flags |= nir_lower_gs_intrinsics_count_primitives |
-            nir_lower_gs_intrinsics_count_vertices_per_primitive |
-            nir_lower_gs_intrinsics_overwrite_incomplete;
+                  nir_lower_gs_intrinsics_count_vertices_per_primitive |
+                  nir_lower_gs_intrinsics_overwrite_incomplete;
       }
 
       NIR_PASS_V(nir, nir_lower_gs_intrinsics, flags);
@@ -379,8 +378,8 @@ static bool si_mark_divergent_texture_non_uniform(struct nir_shader *nir)
    bool divergence_changed = false;
 
    nir_function_impl *impl = nir_shader_get_entrypoint(nir);
-   nir_foreach_block_safe(block, impl) {
-      nir_foreach_instr_safe(instr, block) {
+   nir_foreach_block_safe (block, impl) {
+      nir_foreach_instr_safe (instr, block) {
          if (instr->type != nir_instr_type_tex)
             continue;
 
@@ -389,22 +388,22 @@ static bool si_mark_divergent_texture_non_uniform(struct nir_shader *nir)
             bool divergent = tex->src[i].src.ssa->divergent;
 
             switch (tex->src[i].src_type) {
-            case nir_tex_src_texture_deref:
-            case nir_tex_src_texture_handle:
-               tex->texture_non_uniform |= divergent;
-               break;
-            case nir_tex_src_sampler_deref:
-            case nir_tex_src_sampler_handle:
-               tex->sampler_non_uniform |= divergent;
-               break;
-            default:
-               break;
+               case nir_tex_src_texture_deref:
+               case nir_tex_src_texture_handle:
+                  tex->texture_non_uniform |= divergent;
+                  break;
+               case nir_tex_src_sampler_deref:
+               case nir_tex_src_sampler_handle:
+                  tex->sampler_non_uniform |= divergent;
+                  break;
+               default:
+                  break;
             }
          }
 
          /* If dest is already divergent, divergence won't change. */
          divergence_changed |= !tex->dest.ssa.divergent &&
-            (tex->texture_non_uniform || tex->sampler_non_uniform);
+                               (tex->texture_non_uniform || tex->sampler_non_uniform);
       }
    }
 
@@ -424,17 +423,16 @@ char *si_finalize_nir(struct pipe_screen *screen, void *nirptr)
       NIR_PASS_V(nir, nir_lower_color_inputs);
 
    NIR_PASS_V(nir, ac_nir_lower_subdword_loads,
-              (ac_nir_lower_subdword_options) {
+              (ac_nir_lower_subdword_options){
                  .modes_1_comp = nir_var_mem_ubo,
-                 .modes_N_comps = nir_var_mem_ubo | nir_var_mem_ssbo
-              });
+                 .modes_N_comps = nir_var_mem_ubo | nir_var_mem_ssbo});
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared, nir_address_format_32bit_offset);
 
    /* Remove dead derefs, so that we can remove uniforms. */
    NIR_PASS_V(nir, nir_opt_dce);
 
    /* Remove uniforms because those should have been lowered to UBOs already. */
-   nir_foreach_variable_with_modes_safe(var, nir, nir_var_uniform) {
+   nir_foreach_variable_with_modes_safe (var, nir, nir_var_uniform) {
       if (!glsl_type_get_image_count(var->type) &&
           !glsl_type_get_texture_count(var->type) &&
           !glsl_type_get_sampler_count(var->type))
@@ -467,7 +465,7 @@ char *si_finalize_nir(struct pipe_screen *screen, void *nirptr)
       si_nir_opts(sscreen, nir, false);
 
    NIR_PASS_V(nir, nir_convert_to_lcssa, true, true); /* required by divergence analysis */
-   NIR_PASS_V(nir, nir_divergence_analysis); /* to find divergent loops */
+   NIR_PASS_V(nir, nir_divergence_analysis);          /* to find divergent loops */
 
    /* Must be after divergence analysis. */
    bool divergence_changed = false;

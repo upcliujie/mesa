@@ -4,44 +4,45 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
-#include "si_query.h"
-#include "si_shader_internal.h"
-#include "sid.h"
 #include "util/fast_idiv_by_const.h"
 #include "util/format/u_format.h"
 #include "util/format/u_format_s3tc.h"
+#include "util/u_blend.h"
 #include "util/u_dual_blend.h"
 #include "util/u_helpers.h"
 #include "util/u_memory.h"
 #include "util/u_resource.h"
 #include "util/u_upload_mgr.h"
-#include "util/u_blend.h"
+#include "si_build_pm4.h"
+#include "si_query.h"
+#include "si_shader_internal.h"
+#include "sid.h"
 
 #include "gfx10_format_table.h"
 
 static unsigned si_map_swizzle(unsigned swizzle)
 {
    switch (swizzle) {
-   case PIPE_SWIZZLE_Y:
-      return V_008F0C_SQ_SEL_Y;
-   case PIPE_SWIZZLE_Z:
-      return V_008F0C_SQ_SEL_Z;
-   case PIPE_SWIZZLE_W:
-      return V_008F0C_SQ_SEL_W;
-   case PIPE_SWIZZLE_0:
-      return V_008F0C_SQ_SEL_0;
-   case PIPE_SWIZZLE_1:
-      return V_008F0C_SQ_SEL_1;
-   default: /* PIPE_SWIZZLE_X */
-      return V_008F0C_SQ_SEL_X;
+      case PIPE_SWIZZLE_Y:
+         return V_008F0C_SQ_SEL_Y;
+      case PIPE_SWIZZLE_Z:
+         return V_008F0C_SQ_SEL_Z;
+      case PIPE_SWIZZLE_W:
+         return V_008F0C_SQ_SEL_W;
+      case PIPE_SWIZZLE_0:
+         return V_008F0C_SQ_SEL_0;
+      case PIPE_SWIZZLE_1:
+         return V_008F0C_SQ_SEL_1;
+      default: /* PIPE_SWIZZLE_X */
+         return V_008F0C_SQ_SEL_X;
    }
 }
 
 /* 12.4 fixed-point */
 static unsigned si_pack_float_12p4(float x)
 {
-   return x <= 0 ? 0 : x >= 4096 ? 0xffff : x * 16;
+   return x <= 0 ? 0 : x >= 4096 ? 0xffff
+                                 : x * 16;
 }
 
 /*
@@ -96,7 +97,7 @@ static void si_emit_cb_render_state(struct si_context *sctx)
       if (sctx->gfx_level >= GFX11) {
          radeon_opt_set_context_reg(sctx, R_028424_CB_FDCC_CONTROL, SI_TRACKED_CB_DCC_CONTROL,
                                     S_028424_SAMPLE_MASK_TRACKER_DISABLE(oc_disable) |
-                                    S_028424_SAMPLE_MASK_TRACKER_WATERMARK(0));
+                                       S_028424_SAMPLE_MASK_TRACKER_WATERMARK(0));
       } else {
          radeon_opt_set_context_reg(
             sctx, R_028424_CB_DCC_CONTROL, SI_TRACKED_CB_DCC_CONTROL,
@@ -117,7 +118,8 @@ static void si_emit_cb_render_state(struct si_context *sctx)
       unsigned sx_blend_opt_epsilon = 0;
       unsigned sx_blend_opt_control = 0;
       unsigned num_cbufs = util_last_bit(sctx->framebuffer.colorbuf_enabled_4bit &
-                                         blend->cb_target_enabled_4bit) / 4;
+                                         blend->cb_target_enabled_4bit) /
+                           4;
 
       for (i = 0; i < num_cbufs; i++) {
          struct si_surface *surf = (struct si_surface *)sctx->framebuffer.state.cbufs[i];
@@ -134,15 +136,13 @@ static void si_emit_cb_render_state(struct si_context *sctx)
             continue;
          }
 
-         format = sctx->gfx_level >= GFX11 ? G_028C70_FORMAT_GFX11(surf->cb_color_info):
-                                             G_028C70_FORMAT_GFX6(surf->cb_color_info);
+         format = sctx->gfx_level >= GFX11 ? G_028C70_FORMAT_GFX11(surf->cb_color_info) : G_028C70_FORMAT_GFX6(surf->cb_color_info);
          swap = G_028C70_COMP_SWAP(surf->cb_color_info);
          spi_format = (spi_shader_col_format >> (i * 4)) & 0xf;
          colormask = (cb_target_mask >> (i * 4)) & 0xf;
 
          /* Set if RGB and A are present. */
-         has_alpha = !(sctx->gfx_level >= GFX11 ? G_028C74_FORCE_DST_ALPHA_1_GFX11(surf->cb_color_attrib):
-                                                  G_028C74_FORCE_DST_ALPHA_1_GFX6(surf->cb_color_attrib));
+         has_alpha = !(sctx->gfx_level >= GFX11 ? G_028C74_FORCE_DST_ALPHA_1_GFX11(surf->cb_color_attrib) : G_028C74_FORCE_DST_ALPHA_1_GFX6(surf->cb_color_attrib));
 
          if (format == V_028C70_COLOR_8 || format == V_028C70_COLOR_16 ||
              format == V_028C70_COLOR_32)
@@ -169,78 +169,78 @@ static void si_emit_cb_render_state(struct si_context *sctx)
 
          /* Enable down-conversion for 32bpp and smaller formats. */
          switch (format) {
-         case V_028C70_COLOR_8:
-         case V_028C70_COLOR_8_8:
-         case V_028C70_COLOR_8_8_8_8:
-            /* For 1 and 2-channel formats, use the superset thereof. */
-            if (spi_format == V_028714_SPI_SHADER_FP16_ABGR ||
-                spi_format == V_028714_SPI_SHADER_UINT16_ABGR ||
-                spi_format == V_028714_SPI_SHADER_SINT16_ABGR) {
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_8_8_8_8 << (i * 4);
-               if (G_028C70_NUMBER_TYPE(surf->cb_color_info) != V_028C70_NUMBER_SRGB)
-                  sx_blend_opt_epsilon |= V_028758_8BIT_FORMAT_0_5 << (i * 4);
-            }
-            break;
+            case V_028C70_COLOR_8:
+            case V_028C70_COLOR_8_8:
+            case V_028C70_COLOR_8_8_8_8:
+               /* For 1 and 2-channel formats, use the superset thereof. */
+               if (spi_format == V_028714_SPI_SHADER_FP16_ABGR ||
+                   spi_format == V_028714_SPI_SHADER_UINT16_ABGR ||
+                   spi_format == V_028714_SPI_SHADER_SINT16_ABGR) {
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_8_8_8_8 << (i * 4);
+                  if (G_028C70_NUMBER_TYPE(surf->cb_color_info) != V_028C70_NUMBER_SRGB)
+                     sx_blend_opt_epsilon |= V_028758_8BIT_FORMAT_0_5 << (i * 4);
+               }
+               break;
 
-         case V_028C70_COLOR_5_6_5:
-            if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_5_6_5 << (i * 4);
-               sx_blend_opt_epsilon |= V_028758_6BIT_FORMAT_0_5 << (i * 4);
-            }
-            break;
+            case V_028C70_COLOR_5_6_5:
+               if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_5_6_5 << (i * 4);
+                  sx_blend_opt_epsilon |= V_028758_6BIT_FORMAT_0_5 << (i * 4);
+               }
+               break;
 
-         case V_028C70_COLOR_1_5_5_5:
-            if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_1_5_5_5 << (i * 4);
-               sx_blend_opt_epsilon |= V_028758_5BIT_FORMAT_0_5 << (i * 4);
-            }
-            break;
+            case V_028C70_COLOR_1_5_5_5:
+               if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_1_5_5_5 << (i * 4);
+                  sx_blend_opt_epsilon |= V_028758_5BIT_FORMAT_0_5 << (i * 4);
+               }
+               break;
 
-         case V_028C70_COLOR_4_4_4_4:
-            if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_4_4_4_4 << (i * 4);
-               sx_blend_opt_epsilon |= V_028758_4BIT_FORMAT_0_5 << (i * 4);
-            }
-            break;
+            case V_028C70_COLOR_4_4_4_4:
+               if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_4_4_4_4 << (i * 4);
+                  sx_blend_opt_epsilon |= V_028758_4BIT_FORMAT_0_5 << (i * 4);
+               }
+               break;
 
-         case V_028C70_COLOR_32:
-            if (swap == V_028C70_SWAP_STD && spi_format == V_028714_SPI_SHADER_32_R)
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_32_R << (i * 4);
-            else if (swap == V_028C70_SWAP_ALT_REV && spi_format == V_028714_SPI_SHADER_32_AR)
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_32_A << (i * 4);
-            break;
+            case V_028C70_COLOR_32:
+               if (swap == V_028C70_SWAP_STD && spi_format == V_028714_SPI_SHADER_32_R)
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_32_R << (i * 4);
+               else if (swap == V_028C70_SWAP_ALT_REV && spi_format == V_028714_SPI_SHADER_32_AR)
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_32_A << (i * 4);
+               break;
 
-         case V_028C70_COLOR_16:
-         case V_028C70_COLOR_16_16:
-            /* For 1-channel formats, use the superset thereof. */
-            if (spi_format == V_028714_SPI_SHADER_UNORM16_ABGR ||
-                spi_format == V_028714_SPI_SHADER_SNORM16_ABGR ||
-                spi_format == V_028714_SPI_SHADER_UINT16_ABGR ||
-                spi_format == V_028714_SPI_SHADER_SINT16_ABGR) {
-               if (swap == V_028C70_SWAP_STD || swap == V_028C70_SWAP_STD_REV)
-                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_16_16_GR << (i * 4);
-               else
-                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_16_16_AR << (i * 4);
-            }
-            break;
+            case V_028C70_COLOR_16:
+            case V_028C70_COLOR_16_16:
+               /* For 1-channel formats, use the superset thereof. */
+               if (spi_format == V_028714_SPI_SHADER_UNORM16_ABGR ||
+                   spi_format == V_028714_SPI_SHADER_SNORM16_ABGR ||
+                   spi_format == V_028714_SPI_SHADER_UINT16_ABGR ||
+                   spi_format == V_028714_SPI_SHADER_SINT16_ABGR) {
+                  if (swap == V_028C70_SWAP_STD || swap == V_028C70_SWAP_STD_REV)
+                     sx_ps_downconvert |= V_028754_SX_RT_EXPORT_16_16_GR << (i * 4);
+                  else
+                     sx_ps_downconvert |= V_028754_SX_RT_EXPORT_16_16_AR << (i * 4);
+               }
+               break;
 
-         case V_028C70_COLOR_10_11_11:
-            if (spi_format == V_028714_SPI_SHADER_FP16_ABGR)
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_10_11_11 << (i * 4);
-            break;
+            case V_028C70_COLOR_10_11_11:
+               if (spi_format == V_028714_SPI_SHADER_FP16_ABGR)
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_10_11_11 << (i * 4);
+               break;
 
-         case V_028C70_COLOR_2_10_10_10:
-         case V_028C70_COLOR_10_10_10_2:
-            if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_2_10_10_10 << (i * 4);
-               sx_blend_opt_epsilon |= V_028758_10BIT_FORMAT_0_5 << (i * 4);
-            }
-            break;
+            case V_028C70_COLOR_2_10_10_10:
+            case V_028C70_COLOR_10_10_10_2:
+               if (spi_format == V_028714_SPI_SHADER_FP16_ABGR) {
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_2_10_10_10 << (i * 4);
+                  sx_blend_opt_epsilon |= V_028758_10BIT_FORMAT_0_5 << (i * 4);
+               }
+               break;
 
-         case V_028C70_COLOR_5_9_9_9:
-            if (spi_format == V_028714_SPI_SHADER_FP16_ABGR)
-               sx_ps_downconvert |= V_028754_SX_RT_EXPORT_9_9_9_E5 << (i * 4);
-            break;
+            case V_028C70_COLOR_5_9_9_9:
+               if (spi_format == V_028714_SPI_SHADER_FP16_ABGR)
+                  sx_ps_downconvert |= V_028754_SX_RT_EXPORT_9_9_9_E5 << (i * 4);
+               break;
          }
       }
 
@@ -264,20 +264,20 @@ static void si_emit_cb_render_state(struct si_context *sctx)
 static uint32_t si_translate_blend_function(int blend_func)
 {
    switch (blend_func) {
-   case PIPE_BLEND_ADD:
-      return V_028780_COMB_DST_PLUS_SRC;
-   case PIPE_BLEND_SUBTRACT:
-      return V_028780_COMB_SRC_MINUS_DST;
-   case PIPE_BLEND_REVERSE_SUBTRACT:
-      return V_028780_COMB_DST_MINUS_SRC;
-   case PIPE_BLEND_MIN:
-      return V_028780_COMB_MIN_DST_SRC;
-   case PIPE_BLEND_MAX:
-      return V_028780_COMB_MAX_DST_SRC;
-   default:
-      PRINT_ERR("Unknown blend function %d\n", blend_func);
-      assert(0);
-      break;
+      case PIPE_BLEND_ADD:
+         return V_028780_COMB_DST_PLUS_SRC;
+      case PIPE_BLEND_SUBTRACT:
+         return V_028780_COMB_SRC_MINUS_DST;
+      case PIPE_BLEND_REVERSE_SUBTRACT:
+         return V_028780_COMB_DST_MINUS_SRC;
+      case PIPE_BLEND_MIN:
+         return V_028780_COMB_MIN_DST_SRC;
+      case PIPE_BLEND_MAX:
+         return V_028780_COMB_MAX_DST_SRC;
+      default:
+         PRINT_ERR("Unknown blend function %d\n", blend_func);
+         assert(0);
+         break;
    }
    return 0;
 }
@@ -285,56 +285,48 @@ static uint32_t si_translate_blend_function(int blend_func)
 static uint32_t si_translate_blend_factor(enum amd_gfx_level gfx_level, int blend_fact)
 {
    switch (blend_fact) {
-   case PIPE_BLENDFACTOR_ONE:
-      return V_028780_BLEND_ONE;
-   case PIPE_BLENDFACTOR_SRC_COLOR:
-      return V_028780_BLEND_SRC_COLOR;
-   case PIPE_BLENDFACTOR_SRC_ALPHA:
-      return V_028780_BLEND_SRC_ALPHA;
-   case PIPE_BLENDFACTOR_DST_ALPHA:
-      return V_028780_BLEND_DST_ALPHA;
-   case PIPE_BLENDFACTOR_DST_COLOR:
-      return V_028780_BLEND_DST_COLOR;
-   case PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE:
-      return V_028780_BLEND_SRC_ALPHA_SATURATE;
-   case PIPE_BLENDFACTOR_CONST_COLOR:
-      return gfx_level >= GFX11 ? V_028780_BLEND_CONSTANT_COLOR_GFX11:
-                                   V_028780_BLEND_CONSTANT_COLOR_GFX6;
-   case PIPE_BLENDFACTOR_CONST_ALPHA:
-      return gfx_level >= GFX11 ? V_028780_BLEND_CONSTANT_ALPHA_GFX11 :
-                                   V_028780_BLEND_CONSTANT_ALPHA_GFX6;
-   case PIPE_BLENDFACTOR_ZERO:
-      return V_028780_BLEND_ZERO;
-   case PIPE_BLENDFACTOR_INV_SRC_COLOR:
-      return V_028780_BLEND_ONE_MINUS_SRC_COLOR;
-   case PIPE_BLENDFACTOR_INV_SRC_ALPHA:
-      return V_028780_BLEND_ONE_MINUS_SRC_ALPHA;
-   case PIPE_BLENDFACTOR_INV_DST_ALPHA:
-      return V_028780_BLEND_ONE_MINUS_DST_ALPHA;
-   case PIPE_BLENDFACTOR_INV_DST_COLOR:
-      return V_028780_BLEND_ONE_MINUS_DST_COLOR;
-   case PIPE_BLENDFACTOR_INV_CONST_COLOR:
-      return gfx_level >= GFX11 ? V_028780_BLEND_ONE_MINUS_CONSTANT_COLOR_GFX11:
-                                   V_028780_BLEND_ONE_MINUS_CONSTANT_COLOR_GFX6;
-   case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
-      return gfx_level >= GFX11 ? V_028780_BLEND_ONE_MINUS_CONSTANT_ALPHA_GFX11:
-                                   V_028780_BLEND_ONE_MINUS_CONSTANT_ALPHA_GFX6;
-   case PIPE_BLENDFACTOR_SRC1_COLOR:
-      return gfx_level >= GFX11 ? V_028780_BLEND_SRC1_COLOR_GFX11:
-                                   V_028780_BLEND_SRC1_COLOR_GFX6;
-   case PIPE_BLENDFACTOR_SRC1_ALPHA:
-      return gfx_level >= GFX11 ? V_028780_BLEND_SRC1_ALPHA_GFX11:
-                                   V_028780_BLEND_SRC1_ALPHA_GFX6;
-   case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
-      return gfx_level >= GFX11 ? V_028780_BLEND_INV_SRC1_COLOR_GFX11:
-                                   V_028780_BLEND_INV_SRC1_COLOR_GFX6;
-   case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
-      return gfx_level >= GFX11 ? V_028780_BLEND_INV_SRC1_ALPHA_GFX11:
-                                   V_028780_BLEND_INV_SRC1_ALPHA_GFX6;
-   default:
-      PRINT_ERR("Bad blend factor %d not supported!\n", blend_fact);
-      assert(0);
-      break;
+      case PIPE_BLENDFACTOR_ONE:
+         return V_028780_BLEND_ONE;
+      case PIPE_BLENDFACTOR_SRC_COLOR:
+         return V_028780_BLEND_SRC_COLOR;
+      case PIPE_BLENDFACTOR_SRC_ALPHA:
+         return V_028780_BLEND_SRC_ALPHA;
+      case PIPE_BLENDFACTOR_DST_ALPHA:
+         return V_028780_BLEND_DST_ALPHA;
+      case PIPE_BLENDFACTOR_DST_COLOR:
+         return V_028780_BLEND_DST_COLOR;
+      case PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE:
+         return V_028780_BLEND_SRC_ALPHA_SATURATE;
+      case PIPE_BLENDFACTOR_CONST_COLOR:
+         return gfx_level >= GFX11 ? V_028780_BLEND_CONSTANT_COLOR_GFX11 : V_028780_BLEND_CONSTANT_COLOR_GFX6;
+      case PIPE_BLENDFACTOR_CONST_ALPHA:
+         return gfx_level >= GFX11 ? V_028780_BLEND_CONSTANT_ALPHA_GFX11 : V_028780_BLEND_CONSTANT_ALPHA_GFX6;
+      case PIPE_BLENDFACTOR_ZERO:
+         return V_028780_BLEND_ZERO;
+      case PIPE_BLENDFACTOR_INV_SRC_COLOR:
+         return V_028780_BLEND_ONE_MINUS_SRC_COLOR;
+      case PIPE_BLENDFACTOR_INV_SRC_ALPHA:
+         return V_028780_BLEND_ONE_MINUS_SRC_ALPHA;
+      case PIPE_BLENDFACTOR_INV_DST_ALPHA:
+         return V_028780_BLEND_ONE_MINUS_DST_ALPHA;
+      case PIPE_BLENDFACTOR_INV_DST_COLOR:
+         return V_028780_BLEND_ONE_MINUS_DST_COLOR;
+      case PIPE_BLENDFACTOR_INV_CONST_COLOR:
+         return gfx_level >= GFX11 ? V_028780_BLEND_ONE_MINUS_CONSTANT_COLOR_GFX11 : V_028780_BLEND_ONE_MINUS_CONSTANT_COLOR_GFX6;
+      case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
+         return gfx_level >= GFX11 ? V_028780_BLEND_ONE_MINUS_CONSTANT_ALPHA_GFX11 : V_028780_BLEND_ONE_MINUS_CONSTANT_ALPHA_GFX6;
+      case PIPE_BLENDFACTOR_SRC1_COLOR:
+         return gfx_level >= GFX11 ? V_028780_BLEND_SRC1_COLOR_GFX11 : V_028780_BLEND_SRC1_COLOR_GFX6;
+      case PIPE_BLENDFACTOR_SRC1_ALPHA:
+         return gfx_level >= GFX11 ? V_028780_BLEND_SRC1_ALPHA_GFX11 : V_028780_BLEND_SRC1_ALPHA_GFX6;
+      case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
+         return gfx_level >= GFX11 ? V_028780_BLEND_INV_SRC1_COLOR_GFX11 : V_028780_BLEND_INV_SRC1_COLOR_GFX6;
+      case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
+         return gfx_level >= GFX11 ? V_028780_BLEND_INV_SRC1_ALPHA_GFX11 : V_028780_BLEND_INV_SRC1_ALPHA_GFX6;
+      default:
+         PRINT_ERR("Bad blend factor %d not supported!\n", blend_fact);
+         assert(0);
+         break;
    }
    return 0;
 }
@@ -342,43 +334,43 @@ static uint32_t si_translate_blend_factor(enum amd_gfx_level gfx_level, int blen
 static uint32_t si_translate_blend_opt_function(int blend_func)
 {
    switch (blend_func) {
-   case PIPE_BLEND_ADD:
-      return V_028760_OPT_COMB_ADD;
-   case PIPE_BLEND_SUBTRACT:
-      return V_028760_OPT_COMB_SUBTRACT;
-   case PIPE_BLEND_REVERSE_SUBTRACT:
-      return V_028760_OPT_COMB_REVSUBTRACT;
-   case PIPE_BLEND_MIN:
-      return V_028760_OPT_COMB_MIN;
-   case PIPE_BLEND_MAX:
-      return V_028760_OPT_COMB_MAX;
-   default:
-      return V_028760_OPT_COMB_BLEND_DISABLED;
+      case PIPE_BLEND_ADD:
+         return V_028760_OPT_COMB_ADD;
+      case PIPE_BLEND_SUBTRACT:
+         return V_028760_OPT_COMB_SUBTRACT;
+      case PIPE_BLEND_REVERSE_SUBTRACT:
+         return V_028760_OPT_COMB_REVSUBTRACT;
+      case PIPE_BLEND_MIN:
+         return V_028760_OPT_COMB_MIN;
+      case PIPE_BLEND_MAX:
+         return V_028760_OPT_COMB_MAX;
+      default:
+         return V_028760_OPT_COMB_BLEND_DISABLED;
    }
 }
 
 static uint32_t si_translate_blend_opt_factor(int blend_fact, bool is_alpha)
 {
    switch (blend_fact) {
-   case PIPE_BLENDFACTOR_ZERO:
-      return V_028760_BLEND_OPT_PRESERVE_NONE_IGNORE_ALL;
-   case PIPE_BLENDFACTOR_ONE:
-      return V_028760_BLEND_OPT_PRESERVE_ALL_IGNORE_NONE;
-   case PIPE_BLENDFACTOR_SRC_COLOR:
-      return is_alpha ? V_028760_BLEND_OPT_PRESERVE_A1_IGNORE_A0
-                      : V_028760_BLEND_OPT_PRESERVE_C1_IGNORE_C0;
-   case PIPE_BLENDFACTOR_INV_SRC_COLOR:
-      return is_alpha ? V_028760_BLEND_OPT_PRESERVE_A0_IGNORE_A1
-                      : V_028760_BLEND_OPT_PRESERVE_C0_IGNORE_C1;
-   case PIPE_BLENDFACTOR_SRC_ALPHA:
-      return V_028760_BLEND_OPT_PRESERVE_A1_IGNORE_A0;
-   case PIPE_BLENDFACTOR_INV_SRC_ALPHA:
-      return V_028760_BLEND_OPT_PRESERVE_A0_IGNORE_A1;
-   case PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE:
-      return is_alpha ? V_028760_BLEND_OPT_PRESERVE_ALL_IGNORE_NONE
-                      : V_028760_BLEND_OPT_PRESERVE_NONE_IGNORE_A0;
-   default:
-      return V_028760_BLEND_OPT_PRESERVE_NONE_IGNORE_NONE;
+      case PIPE_BLENDFACTOR_ZERO:
+         return V_028760_BLEND_OPT_PRESERVE_NONE_IGNORE_ALL;
+      case PIPE_BLENDFACTOR_ONE:
+         return V_028760_BLEND_OPT_PRESERVE_ALL_IGNORE_NONE;
+      case PIPE_BLENDFACTOR_SRC_COLOR:
+         return is_alpha ? V_028760_BLEND_OPT_PRESERVE_A1_IGNORE_A0
+                         : V_028760_BLEND_OPT_PRESERVE_C1_IGNORE_C0;
+      case PIPE_BLENDFACTOR_INV_SRC_COLOR:
+         return is_alpha ? V_028760_BLEND_OPT_PRESERVE_A0_IGNORE_A1
+                         : V_028760_BLEND_OPT_PRESERVE_C0_IGNORE_C1;
+      case PIPE_BLENDFACTOR_SRC_ALPHA:
+         return V_028760_BLEND_OPT_PRESERVE_A1_IGNORE_A0;
+      case PIPE_BLENDFACTOR_INV_SRC_ALPHA:
+         return V_028760_BLEND_OPT_PRESERVE_A0_IGNORE_A1;
+      case PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE:
+         return is_alpha ? V_028760_BLEND_OPT_PRESERVE_ALL_IGNORE_NONE
+                         : V_028760_BLEND_OPT_PRESERVE_NONE_IGNORE_A0;
+      default:
+         return V_028760_BLEND_OPT_PRESERVE_NONE_IGNORE_NONE;
    }
 }
 
@@ -659,7 +651,7 @@ static bool si_check_blend_dst_sampler_noop(struct si_context *sctx)
          /* Determine if this fragment shader always writes vec4(1) if a specific texture
           * is all 1s.
           */
-         float in[4] = { 1.0, 1.0, 1.0, 1.0 };
+         float in[4] = {1.0, 1.0, 1.0, 1.0};
          float out[4];
          int texunit;
          if (si_nir_is_output_const_if_tex_is_const(nir, in, out, &texunit) &&
@@ -678,7 +670,7 @@ static bool si_check_blend_dst_sampler_noop(struct si_context *sctx)
          int unit = sctx->shader.ps.cso->info.writes_1_if_tex_is_1 - 1;
          struct si_samplers *samp = &sctx->samplers[PIPE_SHADER_FRAGMENT];
          if ((1u << unit) & samp->enabled_mask) {
-            struct si_texture* tex = (struct si_texture*) samp->views[unit]->texture;
+            struct si_texture *tex = (struct si_texture *)samp->views[unit]->texture;
             if (tex->is_depth &&
                 tex->depth_cleared_level_mask & BITFIELD_BIT(samp->views[unit]->u.tex.first_level) &&
                 tex->depth_clear_value[0] == 1) {
@@ -697,7 +689,8 @@ static void si_draw_blend_dst_sampler_noop(struct pipe_context *ctx,
                                            unsigned drawid_offset,
                                            const struct pipe_draw_indirect_info *indirect,
                                            const struct pipe_draw_start_count_bias *draws,
-                                           unsigned num_draws) {
+                                           unsigned num_draws)
+{
    struct si_context *sctx = (struct si_context *)ctx;
 
    if (!si_check_blend_dst_sampler_noop(sctx))
@@ -711,7 +704,8 @@ static void si_draw_vstate_blend_dst_sampler_noop(struct pipe_context *ctx,
                                                   uint32_t partial_velem_mask,
                                                   struct pipe_draw_vertex_state_info info,
                                                   const struct pipe_draw_start_count_bias *draws,
-                                                  unsigned num_draws) {
+                                                  unsigned num_draws)
+{
    struct si_context *sctx = (struct si_context *)ctx;
 
    if (!si_check_blend_dst_sampler_noop(sctx))
@@ -791,7 +785,7 @@ static void si_delete_blend_state(struct pipe_context *ctx, void *state)
    if (sctx->queued.named.blend == state)
       si_bind_blend_state(ctx, sctx->noop_blend);
 
-   si_pm4_free_state(sctx, (struct si_pm4_state*)state, SI_STATE_IDX(blend));
+   si_pm4_free_state(sctx, (struct si_pm4_state *)state, SI_STATE_IDX(blend));
 }
 
 static void si_set_blend_color(struct pipe_context *ctx, const struct pipe_blend_color *state)
@@ -854,8 +848,7 @@ static void si_emit_clip_regs(struct si_context *sctx)
    struct si_shader_selector *vs_sel = vs->selector;
    struct si_shader_info *info = &vs_sel->info;
    struct si_state_rasterizer *rs = sctx->queued.named.rasterizer;
-   bool window_space = vs_sel->stage == MESA_SHADER_VERTEX ?
-                          info->base.vs.window_space_position : 0;
+   bool window_space = vs_sel->stage == MESA_SHADER_VERTEX ? info->base.vs.window_space_position : 0;
    unsigned clipdist_mask = vs_sel->info.clipdist_mask;
    unsigned ucp_mask = clipdist_mask ? 0 : rs->clip_plane_enable & SI_USER_CLIP_PLANE_MASK;
    unsigned culldist_mask = vs_sel->info.culldist_mask;
@@ -898,16 +891,16 @@ static void si_update_poly_offset_state(struct si_context *sctx)
     * offset behaves as expected by applications.
     */
    switch (sctx->framebuffer.state.zsbuf->texture->format) {
-   case PIPE_FORMAT_Z16_UNORM:
-      si_pm4_bind_state(sctx, poly_offset, &rs->pm4_poly_offset[0]);
-      break;
-   default: /* 24-bit */
-      si_pm4_bind_state(sctx, poly_offset, &rs->pm4_poly_offset[1]);
-      break;
-   case PIPE_FORMAT_Z32_FLOAT:
-   case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
-      si_pm4_bind_state(sctx, poly_offset, &rs->pm4_poly_offset[2]);
-      break;
+      case PIPE_FORMAT_Z16_UNORM:
+         si_pm4_bind_state(sctx, poly_offset, &rs->pm4_poly_offset[0]);
+         break;
+      default: /* 24-bit */
+         si_pm4_bind_state(sctx, poly_offset, &rs->pm4_poly_offset[1]);
+         break;
+      case PIPE_FORMAT_Z32_FLOAT:
+      case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+         si_pm4_bind_state(sctx, poly_offset, &rs->pm4_poly_offset[2]);
+         break;
    }
 }
 
@@ -918,15 +911,15 @@ static void si_update_poly_offset_state(struct si_context *sctx)
 static uint32_t si_translate_fill(uint32_t func)
 {
    switch (func) {
-   case PIPE_POLYGON_MODE_FILL:
-      return V_028814_X_DRAW_TRIANGLES;
-   case PIPE_POLYGON_MODE_LINE:
-      return V_028814_X_DRAW_LINES;
-   case PIPE_POLYGON_MODE_POINT:
-      return V_028814_X_DRAW_POINTS;
-   default:
-      assert(0);
-      return V_028814_X_DRAW_POINTS;
+      case PIPE_POLYGON_MODE_FILL:
+         return V_028814_X_DRAW_TRIANGLES;
+      case PIPE_POLYGON_MODE_LINE:
+         return V_028814_X_DRAW_LINES;
+      case PIPE_POLYGON_MODE_POINT:
+         return V_028814_X_DRAW_POINTS;
+      default:
+         assert(0);
+         return V_028814_X_DRAW_POINTS;
    }
 }
 
@@ -970,9 +963,9 @@ static void *si_create_rs_state(struct pipe_context *ctx, const struct pipe_rast
    rs->polygon_mode_is_points =
       (state->fill_front == PIPE_POLYGON_MODE_POINT && !(state->cull_face & PIPE_FACE_FRONT)) ||
       (state->fill_back == PIPE_POLYGON_MODE_POINT && !(state->cull_face & PIPE_FACE_BACK));
-   rs->pa_sc_line_stipple = state->line_stipple_enable ?
-                               S_028A0C_LINE_PATTERN(state->line_stipple_pattern) |
-                               S_028A0C_REPEAT_COUNT(state->line_stipple_factor) : 0;
+   rs->pa_sc_line_stipple = state->line_stipple_enable ? S_028A0C_LINE_PATTERN(state->line_stipple_pattern) |
+                                                            S_028A0C_REPEAT_COUNT(state->line_stipple_factor)
+                                                       : 0;
    /* TODO: implement line stippling with perpendicular end caps. */
    /* Line width > 2 is an internal recommendation. */
    rs->perpendicular_end_caps = state->multisample &&
@@ -1046,16 +1039,16 @@ static void *si_create_rs_state(struct pipe_context *ctx, const struct pipe_rast
    /* Divide by two, because 0.5 = 1 pixel. */
    si_pm4_set_reg(pm4, R_028A04_PA_SU_POINT_MINMAX,
                   S_028A04_MIN_SIZE(si_pack_float_12p4(psize_min / 2)) |
-                  S_028A04_MAX_SIZE(si_pack_float_12p4(psize_max / 2)));
+                     S_028A04_MAX_SIZE(si_pack_float_12p4(psize_max / 2)));
    si_pm4_set_reg(pm4, R_028A08_PA_SU_LINE_CNTL,
                   S_028A08_WIDTH(si_pack_float_12p4(state->line_width / 2)));
 
    si_pm4_set_reg(pm4, R_028A48_PA_SC_MODE_CNTL_0,
                   S_028A48_LINE_STIPPLE_ENABLE(state->line_stipple_enable) |
-                  S_028A48_MSAA_ENABLE(state->multisample || state->poly_smooth ||
-                                       state->line_smooth) |
-                  S_028A48_VPORT_SCISSOR_ENABLE(1) |
-                  S_028A48_ALTERNATE_RBS_PER_TILE(sscreen->info.gfx_level >= GFX9));
+                     S_028A48_MSAA_ENABLE(state->multisample || state->poly_smooth ||
+                                          state->line_smooth) |
+                     S_028A48_VPORT_SCISSOR_ENABLE(1) |
+                     S_028A48_ALTERNATE_RBS_PER_TILE(sscreen->info.gfx_level >= GFX9));
 
    bool polygon_mode_enabled =
       (state->fill_front != PIPE_POLYGON_MODE_FILL && !(state->cull_face & PIPE_FACE_FRONT)) ||
@@ -1063,47 +1056,47 @@ static void *si_create_rs_state(struct pipe_context *ctx, const struct pipe_rast
 
    si_pm4_set_reg(pm4, R_028814_PA_SU_SC_MODE_CNTL,
                   S_028814_PROVOKING_VTX_LAST(!state->flatshade_first) |
-                  S_028814_CULL_FRONT((state->cull_face & PIPE_FACE_FRONT) ? 1 : 0) |
-                  S_028814_CULL_BACK((state->cull_face & PIPE_FACE_BACK) ? 1 : 0) |
-                  S_028814_FACE(!state->front_ccw) |
-                  S_028814_POLY_OFFSET_FRONT_ENABLE(util_get_offset(state, state->fill_front)) |
-                  S_028814_POLY_OFFSET_BACK_ENABLE(util_get_offset(state, state->fill_back)) |
-                  S_028814_POLY_OFFSET_PARA_ENABLE(state->offset_point || state->offset_line) |
-                  S_028814_POLY_MODE(polygon_mode_enabled) |
-                  S_028814_POLYMODE_FRONT_PTYPE(si_translate_fill(state->fill_front)) |
-                  S_028814_POLYMODE_BACK_PTYPE(si_translate_fill(state->fill_back)) |
-                  /* this must be set if POLY_MODE or PERPENDICULAR_ENDCAP_ENA is set */
-                  S_028814_KEEP_TOGETHER_ENABLE(sscreen->info.gfx_level >= GFX10 ?
-                                                   polygon_mode_enabled ||
-                                                   rs->perpendicular_end_caps : 0));
+                     S_028814_CULL_FRONT((state->cull_face & PIPE_FACE_FRONT) ? 1 : 0) |
+                     S_028814_CULL_BACK((state->cull_face & PIPE_FACE_BACK) ? 1 : 0) |
+                     S_028814_FACE(!state->front_ccw) |
+                     S_028814_POLY_OFFSET_FRONT_ENABLE(util_get_offset(state, state->fill_front)) |
+                     S_028814_POLY_OFFSET_BACK_ENABLE(util_get_offset(state, state->fill_back)) |
+                     S_028814_POLY_OFFSET_PARA_ENABLE(state->offset_point || state->offset_line) |
+                     S_028814_POLY_MODE(polygon_mode_enabled) |
+                     S_028814_POLYMODE_FRONT_PTYPE(si_translate_fill(state->fill_front)) |
+                     S_028814_POLYMODE_BACK_PTYPE(si_translate_fill(state->fill_back)) |
+                     /* this must be set if POLY_MODE or PERPENDICULAR_ENDCAP_ENA is set */
+                     S_028814_KEEP_TOGETHER_ENABLE(sscreen->info.gfx_level >= GFX10 ? polygon_mode_enabled ||
+                                                                                         rs->perpendicular_end_caps
+                                                                                    : 0));
 
    if (sscreen->info.gfx_level >= GFX10) {
       si_pm4_set_reg(pm4, R_028838_PA_CL_NGG_CNTL,
                      S_028838_INDEX_BUF_EDGE_FLAG_ENA(rs->polygon_mode_is_points ||
                                                       rs->polygon_mode_is_lines) |
-                     S_028838_VERTEX_REUSE_DEPTH(sscreen->info.gfx_level >= GFX10_3 ? 30 : 0));
+                        S_028838_VERTEX_REUSE_DEPTH(sscreen->info.gfx_level >= GFX10_3 ? 30 : 0));
    }
 
    if (state->bottom_edge_rule) {
       /* OpenGL windows should set this. */
       si_pm4_set_reg(pm4, R_028230_PA_SC_EDGERULE,
                      S_028230_ER_TRI(0xA) |
-                     S_028230_ER_POINT(0x5) |
-                     S_028230_ER_RECT(0x9) |
-                     S_028230_ER_LINE_LR(0x29) |
-                     S_028230_ER_LINE_RL(0x29) |
-                     S_028230_ER_LINE_TB(0xA) |
-                     S_028230_ER_LINE_BT(0xA));
+                        S_028230_ER_POINT(0x5) |
+                        S_028230_ER_RECT(0x9) |
+                        S_028230_ER_LINE_LR(0x29) |
+                        S_028230_ER_LINE_RL(0x29) |
+                        S_028230_ER_LINE_TB(0xA) |
+                        S_028230_ER_LINE_BT(0xA));
    } else {
       /* OpenGL FBOs and Direct3D should set this. */
       si_pm4_set_reg(pm4, R_028230_PA_SC_EDGERULE,
                      S_028230_ER_TRI(0xA) |
-                     S_028230_ER_POINT(0xA) |
-                     S_028230_ER_RECT(0xA) |
-                     S_028230_ER_LINE_LR(0x1A) |
-                     S_028230_ER_LINE_RL(0x26) |
-                     S_028230_ER_LINE_TB(0xA) |
-                     S_028230_ER_LINE_BT(0xA));
+                        S_028230_ER_POINT(0xA) |
+                        S_028230_ER_RECT(0xA) |
+                        S_028230_ER_LINE_LR(0x1A) |
+                        S_028230_ER_LINE_RL(0x26) |
+                        S_028230_ER_LINE_TB(0xA) |
+                        S_028230_ER_LINE_BT(0xA));
    }
 
    if (!rs->uses_poly_offset)
@@ -1126,19 +1119,19 @@ static void *si_create_rs_state(struct pipe_context *ctx, const struct pipe_rast
 
       if (!state->offset_units_unscaled) {
          switch (i) {
-         case 0: /* 16-bit zbuffer */
-            offset_units *= 4.0f;
-            pa_su_poly_offset_db_fmt_cntl = S_028B78_POLY_OFFSET_NEG_NUM_DB_BITS(-16);
-            break;
-         case 1: /* 24-bit zbuffer */
-            offset_units *= 2.0f;
-            pa_su_poly_offset_db_fmt_cntl = S_028B78_POLY_OFFSET_NEG_NUM_DB_BITS(-24);
-            break;
-         case 2: /* 32-bit zbuffer */
-            offset_units *= 1.0f;
-            pa_su_poly_offset_db_fmt_cntl =
-               S_028B78_POLY_OFFSET_NEG_NUM_DB_BITS(-23) | S_028B78_POLY_OFFSET_DB_IS_FLOAT_FMT(1);
-            break;
+            case 0: /* 16-bit zbuffer */
+               offset_units *= 4.0f;
+               pa_su_poly_offset_db_fmt_cntl = S_028B78_POLY_OFFSET_NEG_NUM_DB_BITS(-16);
+               break;
+            case 1: /* 24-bit zbuffer */
+               offset_units *= 2.0f;
+               pa_su_poly_offset_db_fmt_cntl = S_028B78_POLY_OFFSET_NEG_NUM_DB_BITS(-24);
+               break;
+            case 2: /* 32-bit zbuffer */
+               offset_units *= 1.0f;
+               pa_su_poly_offset_db_fmt_cntl =
+                  S_028B78_POLY_OFFSET_NEG_NUM_DB_BITS(-23) | S_028B78_POLY_OFFSET_DB_IS_FLOAT_FMT(1);
+               break;
          }
       }
 
@@ -1286,26 +1279,26 @@ static void si_set_stencil_ref(struct pipe_context *ctx, const struct pipe_stenc
 static uint32_t si_translate_stencil_op(int s_op)
 {
    switch (s_op) {
-   case PIPE_STENCIL_OP_KEEP:
-      return V_02842C_STENCIL_KEEP;
-   case PIPE_STENCIL_OP_ZERO:
-      return V_02842C_STENCIL_ZERO;
-   case PIPE_STENCIL_OP_REPLACE:
-      return V_02842C_STENCIL_REPLACE_TEST;
-   case PIPE_STENCIL_OP_INCR:
-      return V_02842C_STENCIL_ADD_CLAMP;
-   case PIPE_STENCIL_OP_DECR:
-      return V_02842C_STENCIL_SUB_CLAMP;
-   case PIPE_STENCIL_OP_INCR_WRAP:
-      return V_02842C_STENCIL_ADD_WRAP;
-   case PIPE_STENCIL_OP_DECR_WRAP:
-      return V_02842C_STENCIL_SUB_WRAP;
-   case PIPE_STENCIL_OP_INVERT:
-      return V_02842C_STENCIL_INVERT;
-   default:
-      PRINT_ERR("Unknown stencil op %d", s_op);
-      assert(0);
-      break;
+      case PIPE_STENCIL_OP_KEEP:
+         return V_02842C_STENCIL_KEEP;
+      case PIPE_STENCIL_OP_ZERO:
+         return V_02842C_STENCIL_ZERO;
+      case PIPE_STENCIL_OP_REPLACE:
+         return V_02842C_STENCIL_REPLACE_TEST;
+      case PIPE_STENCIL_OP_INCR:
+         return V_02842C_STENCIL_ADD_CLAMP;
+      case PIPE_STENCIL_OP_DECR:
+         return V_02842C_STENCIL_SUB_CLAMP;
+      case PIPE_STENCIL_OP_INCR_WRAP:
+         return V_02842C_STENCIL_ADD_WRAP;
+      case PIPE_STENCIL_OP_DECR_WRAP:
+         return V_02842C_STENCIL_SUB_WRAP;
+      case PIPE_STENCIL_OP_INVERT:
+         return V_02842C_STENCIL_INVERT;
+      default:
+         PRINT_ERR("Unknown stencil op %d", s_op);
+         assert(0);
+         break;
    }
    return 0;
 }
@@ -1342,7 +1335,7 @@ static void *si_create_dsa_state(struct pipe_context *ctx,
       return NULL;
    }
 
-   si_pm4_clear_state(pm4, (struct si_screen*)ctx->screen, false);
+   si_pm4_clear_state(pm4, (struct si_screen *)ctx->screen, false);
 
    dsa->stencil_ref.valuemask[0] = state->stencil[0].valuemask;
    dsa->stencil_ref.valuemask[1] = state->stencil[1].valuemask;
@@ -1467,7 +1460,7 @@ static void si_delete_dsa_state(struct pipe_context *ctx, void *state)
    if (sctx->queued.named.dsa == state)
       si_bind_dsa_state(ctx, sctx->noop_dsa);
 
-   si_pm4_free_state(sctx, (struct si_pm4_state*)state, SI_STATE_IDX(dsa));
+   si_pm4_free_state(sctx, (struct si_pm4_state *)state, SI_STATE_IDX(dsa));
 }
 
 static void *si_create_db_flush_dsa(struct si_context *sctx)
@@ -1609,8 +1602,7 @@ static void si_emit_db_render_state(struct si_context *sctx)
           * The shader writes the VRS rate and we either pass it through or do MIN(shader, 1x1)
           * to disable coarse shading.
           */
-         mode = sctx->screen->options.vrs2x2 && G_02880C_KILL_ENABLE(db_shader_control) ?
-                   V_028064_SC_VRS_COMB_MODE_MIN : V_028064_SC_VRS_COMB_MODE_PASSTHRU;
+         mode = sctx->screen->options.vrs2x2 && G_02880C_KILL_ENABLE(db_shader_control) ? V_028064_SC_VRS_COMB_MODE_MIN : V_028064_SC_VRS_COMB_MODE_PASSTHRU;
          log_rate_x = log_rate_y = 0; /* 1x1 VRS (log2(1) == 0) */
       }
 
@@ -1632,9 +1624,9 @@ static void si_emit_db_render_state(struct si_context *sctx)
    radeon_opt_set_context_reg(
       sctx, R_028010_DB_RENDER_OVERRIDE2, SI_TRACKED_DB_RENDER_OVERRIDE2,
       S_028010_DISABLE_ZMASK_EXPCLEAR_OPTIMIZATION(sctx->db_depth_disable_expclear) |
-      S_028010_DISABLE_SMEM_EXPCLEAR_OPTIMIZATION(sctx->db_stencil_disable_expclear) |
-      S_028010_DECOMPRESS_Z_ON_FLUSH(sctx->framebuffer.nr_samples >= 4) |
-      S_028010_CENTROID_COMPUTATION_MODE(sctx->gfx_level >= GFX10_3 ? 1 : 0));
+         S_028010_DISABLE_SMEM_EXPCLEAR_OPTIMIZATION(sctx->db_stencil_disable_expclear) |
+         S_028010_DECOMPRESS_Z_ON_FLUSH(sctx->framebuffer.nr_samples >= 4) |
+         S_028010_CENTROID_COMPUTATION_MODE(sctx->gfx_level >= GFX10_3 ? 1 : 0));
 
    radeon_opt_set_context_reg(sctx, R_02880C_DB_SHADER_CONTROL, SI_TRACKED_DB_SHADER_CONTROL,
                               db_shader_control);
@@ -1658,39 +1650,39 @@ static uint32_t si_colorformat_endian_swap(uint32_t colorformat)
 {
    if (UTIL_ARCH_BIG_ENDIAN) {
       switch (colorformat) {
-      /* 8-bit buffers. */
-      case V_028C70_COLOR_8:
-         return V_028C70_ENDIAN_NONE;
+         /* 8-bit buffers. */
+         case V_028C70_COLOR_8:
+            return V_028C70_ENDIAN_NONE;
 
-      /* 16-bit buffers. */
-      case V_028C70_COLOR_5_6_5:
-      case V_028C70_COLOR_1_5_5_5:
-      case V_028C70_COLOR_4_4_4_4:
-      case V_028C70_COLOR_16:
-      case V_028C70_COLOR_8_8:
-         return V_028C70_ENDIAN_8IN16;
+         /* 16-bit buffers. */
+         case V_028C70_COLOR_5_6_5:
+         case V_028C70_COLOR_1_5_5_5:
+         case V_028C70_COLOR_4_4_4_4:
+         case V_028C70_COLOR_16:
+         case V_028C70_COLOR_8_8:
+            return V_028C70_ENDIAN_8IN16;
 
-      /* 32-bit buffers. */
-      case V_028C70_COLOR_8_8_8_8:
-      case V_028C70_COLOR_2_10_10_10:
-      case V_028C70_COLOR_10_10_10_2:
-      case V_028C70_COLOR_8_24:
-      case V_028C70_COLOR_24_8:
-      case V_028C70_COLOR_16_16:
-         return V_028C70_ENDIAN_8IN32;
+         /* 32-bit buffers. */
+         case V_028C70_COLOR_8_8_8_8:
+         case V_028C70_COLOR_2_10_10_10:
+         case V_028C70_COLOR_10_10_10_2:
+         case V_028C70_COLOR_8_24:
+         case V_028C70_COLOR_24_8:
+         case V_028C70_COLOR_16_16:
+            return V_028C70_ENDIAN_8IN32;
 
-      /* 64-bit buffers. */
-      case V_028C70_COLOR_16_16_16_16:
-         return V_028C70_ENDIAN_8IN16;
+         /* 64-bit buffers. */
+         case V_028C70_COLOR_16_16_16_16:
+            return V_028C70_ENDIAN_8IN16;
 
-      case V_028C70_COLOR_32_32:
-         return V_028C70_ENDIAN_8IN32;
+         case V_028C70_COLOR_32_32:
+            return V_028C70_ENDIAN_8IN32;
 
-      /* 128-bit buffers. */
-      case V_028C70_COLOR_32_32_32_32:
-         return V_028C70_ENDIAN_8IN32;
-      default:
-         return V_028C70_ENDIAN_NONE; /* Unsupported. */
+         /* 128-bit buffers. */
+         case V_028C70_COLOR_32_32_32_32:
+            return V_028C70_ENDIAN_8IN32;
+         default:
+            return V_028C70_ENDIAN_NONE; /* Unsupported. */
       }
    } else {
       return V_028C70_ENDIAN_NONE;
@@ -1700,18 +1692,18 @@ static uint32_t si_colorformat_endian_swap(uint32_t colorformat)
 static uint32_t si_translate_dbformat(enum pipe_format format)
 {
    switch (format) {
-   case PIPE_FORMAT_Z16_UNORM:
-      return V_028040_Z_16;
-   case PIPE_FORMAT_S8_UINT_Z24_UNORM:
-   case PIPE_FORMAT_X8Z24_UNORM:
-   case PIPE_FORMAT_Z24X8_UNORM:
-   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
-      return V_028040_Z_24; /* deprecated on AMD GCN */
-   case PIPE_FORMAT_Z32_FLOAT:
-   case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
-      return V_028040_Z_32_FLOAT;
-   default:
-      return V_028040_Z_INVALID;
+      case PIPE_FORMAT_Z16_UNORM:
+         return V_028040_Z_16;
+      case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+      case PIPE_FORMAT_X8Z24_UNORM:
+      case PIPE_FORMAT_Z24X8_UNORM:
+      case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+         return V_028040_Z_24; /* deprecated on AMD GCN */
+      case PIPE_FORMAT_Z32_FLOAT:
+      case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+         return V_028040_Z_32_FLOAT;
+      default:
+         return V_028040_Z_INVALID;
    }
 }
 
@@ -1731,68 +1723,68 @@ static uint32_t si_translate_texformat(struct pipe_screen *screen, enum pipe_for
 
    /* Colorspace (return non-RGB formats directly). */
    switch (desc->colorspace) {
-   /* Depth stencil formats */
-   case UTIL_FORMAT_COLORSPACE_ZS:
-      switch (format) {
-      case PIPE_FORMAT_Z16_UNORM:
-         return V_008F14_IMG_DATA_FORMAT_16;
-      case PIPE_FORMAT_X24S8_UINT:
-      case PIPE_FORMAT_S8X24_UINT:
-         /*
-          * Implemented as an 8_8_8_8 data format to fix texture
-          * gathers in stencil sampling. This affects at least
-          * GL45-CTS.texture_cube_map_array.sampling on GFX8.
-          */
-         if (sscreen->info.gfx_level <= GFX8)
-            return V_008F14_IMG_DATA_FORMAT_8_8_8_8;
+      /* Depth stencil formats */
+      case UTIL_FORMAT_COLORSPACE_ZS:
+         switch (format) {
+            case PIPE_FORMAT_Z16_UNORM:
+               return V_008F14_IMG_DATA_FORMAT_16;
+            case PIPE_FORMAT_X24S8_UINT:
+            case PIPE_FORMAT_S8X24_UINT:
+               /*
+                * Implemented as an 8_8_8_8 data format to fix texture
+                * gathers in stencil sampling. This affects at least
+                * GL45-CTS.texture_cube_map_array.sampling on GFX8.
+                */
+               if (sscreen->info.gfx_level <= GFX8)
+                  return V_008F14_IMG_DATA_FORMAT_8_8_8_8;
 
-         if (format == PIPE_FORMAT_X24S8_UINT)
-            return V_008F14_IMG_DATA_FORMAT_8_24;
-         else
-            return V_008F14_IMG_DATA_FORMAT_24_8;
-      case PIPE_FORMAT_Z24X8_UNORM:
-      case PIPE_FORMAT_Z24_UNORM_S8_UINT:
-         return V_008F14_IMG_DATA_FORMAT_8_24;
-      case PIPE_FORMAT_X8Z24_UNORM:
-      case PIPE_FORMAT_S8_UINT_Z24_UNORM:
-         return V_008F14_IMG_DATA_FORMAT_24_8;
-      case PIPE_FORMAT_S8_UINT:
-         return V_008F14_IMG_DATA_FORMAT_8;
-      case PIPE_FORMAT_Z32_FLOAT:
-         return V_008F14_IMG_DATA_FORMAT_32;
-      case PIPE_FORMAT_X32_S8X24_UINT:
-      case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
-         return V_008F14_IMG_DATA_FORMAT_X24_8_32;
+               if (format == PIPE_FORMAT_X24S8_UINT)
+                  return V_008F14_IMG_DATA_FORMAT_8_24;
+               else
+                  return V_008F14_IMG_DATA_FORMAT_24_8;
+            case PIPE_FORMAT_Z24X8_UNORM:
+            case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+               return V_008F14_IMG_DATA_FORMAT_8_24;
+            case PIPE_FORMAT_X8Z24_UNORM:
+            case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+               return V_008F14_IMG_DATA_FORMAT_24_8;
+            case PIPE_FORMAT_S8_UINT:
+               return V_008F14_IMG_DATA_FORMAT_8;
+            case PIPE_FORMAT_Z32_FLOAT:
+               return V_008F14_IMG_DATA_FORMAT_32;
+            case PIPE_FORMAT_X32_S8X24_UINT:
+            case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+               return V_008F14_IMG_DATA_FORMAT_X24_8_32;
+            default:
+               goto out_unknown;
+         }
+
+      case UTIL_FORMAT_COLORSPACE_YUV:
+         goto out_unknown; /* TODO */
+
+      case UTIL_FORMAT_COLORSPACE_SRGB:
+         if (desc->nr_channels != 4 && desc->nr_channels != 1)
+            goto out_unknown;
+         break;
+
       default:
-         goto out_unknown;
-      }
-
-   case UTIL_FORMAT_COLORSPACE_YUV:
-      goto out_unknown; /* TODO */
-
-   case UTIL_FORMAT_COLORSPACE_SRGB:
-      if (desc->nr_channels != 4 && desc->nr_channels != 1)
-         goto out_unknown;
-      break;
-
-   default:
-      break;
+         break;
    }
 
    if (desc->layout == UTIL_FORMAT_LAYOUT_RGTC) {
       switch (format) {
-      case PIPE_FORMAT_RGTC1_SNORM:
-      case PIPE_FORMAT_LATC1_SNORM:
-      case PIPE_FORMAT_RGTC1_UNORM:
-      case PIPE_FORMAT_LATC1_UNORM:
-         return V_008F14_IMG_DATA_FORMAT_BC4;
-      case PIPE_FORMAT_RGTC2_SNORM:
-      case PIPE_FORMAT_LATC2_SNORM:
-      case PIPE_FORMAT_RGTC2_UNORM:
-      case PIPE_FORMAT_LATC2_UNORM:
-         return V_008F14_IMG_DATA_FORMAT_BC5;
-      default:
-         goto out_unknown;
+         case PIPE_FORMAT_RGTC1_SNORM:
+         case PIPE_FORMAT_LATC1_SNORM:
+         case PIPE_FORMAT_RGTC1_UNORM:
+         case PIPE_FORMAT_LATC1_UNORM:
+            return V_008F14_IMG_DATA_FORMAT_BC4;
+         case PIPE_FORMAT_RGTC2_SNORM:
+         case PIPE_FORMAT_LATC2_SNORM:
+         case PIPE_FORMAT_RGTC2_UNORM:
+         case PIPE_FORMAT_LATC2_UNORM:
+            return V_008F14_IMG_DATA_FORMAT_BC5;
+         default:
+            goto out_unknown;
       }
    }
 
@@ -1800,68 +1792,68 @@ static uint32_t si_translate_texformat(struct pipe_screen *screen, enum pipe_for
        (sscreen->info.family == CHIP_STONEY || sscreen->info.family == CHIP_VEGA10 ||
         sscreen->info.family == CHIP_RAVEN || sscreen->info.family == CHIP_RAVEN2)) {
       switch (format) {
-      case PIPE_FORMAT_ETC1_RGB8:
-      case PIPE_FORMAT_ETC2_RGB8:
-      case PIPE_FORMAT_ETC2_SRGB8:
-         return V_008F14_IMG_DATA_FORMAT_ETC2_RGB;
-      case PIPE_FORMAT_ETC2_RGB8A1:
-      case PIPE_FORMAT_ETC2_SRGB8A1:
-         return V_008F14_IMG_DATA_FORMAT_ETC2_RGBA1;
-      case PIPE_FORMAT_ETC2_RGBA8:
-      case PIPE_FORMAT_ETC2_SRGBA8:
-         return V_008F14_IMG_DATA_FORMAT_ETC2_RGBA;
-      case PIPE_FORMAT_ETC2_R11_UNORM:
-      case PIPE_FORMAT_ETC2_R11_SNORM:
-         return V_008F14_IMG_DATA_FORMAT_ETC2_R;
-      case PIPE_FORMAT_ETC2_RG11_UNORM:
-      case PIPE_FORMAT_ETC2_RG11_SNORM:
-         return V_008F14_IMG_DATA_FORMAT_ETC2_RG;
-      default:
-         goto out_unknown;
+         case PIPE_FORMAT_ETC1_RGB8:
+         case PIPE_FORMAT_ETC2_RGB8:
+         case PIPE_FORMAT_ETC2_SRGB8:
+            return V_008F14_IMG_DATA_FORMAT_ETC2_RGB;
+         case PIPE_FORMAT_ETC2_RGB8A1:
+         case PIPE_FORMAT_ETC2_SRGB8A1:
+            return V_008F14_IMG_DATA_FORMAT_ETC2_RGBA1;
+         case PIPE_FORMAT_ETC2_RGBA8:
+         case PIPE_FORMAT_ETC2_SRGBA8:
+            return V_008F14_IMG_DATA_FORMAT_ETC2_RGBA;
+         case PIPE_FORMAT_ETC2_R11_UNORM:
+         case PIPE_FORMAT_ETC2_R11_SNORM:
+            return V_008F14_IMG_DATA_FORMAT_ETC2_R;
+         case PIPE_FORMAT_ETC2_RG11_UNORM:
+         case PIPE_FORMAT_ETC2_RG11_SNORM:
+            return V_008F14_IMG_DATA_FORMAT_ETC2_RG;
+         default:
+            goto out_unknown;
       }
    }
 
    if (desc->layout == UTIL_FORMAT_LAYOUT_BPTC) {
       switch (format) {
-      case PIPE_FORMAT_BPTC_RGBA_UNORM:
-      case PIPE_FORMAT_BPTC_SRGBA:
-         return V_008F14_IMG_DATA_FORMAT_BC7;
-      case PIPE_FORMAT_BPTC_RGB_FLOAT:
-      case PIPE_FORMAT_BPTC_RGB_UFLOAT:
-         return V_008F14_IMG_DATA_FORMAT_BC6;
-      default:
-         goto out_unknown;
+         case PIPE_FORMAT_BPTC_RGBA_UNORM:
+         case PIPE_FORMAT_BPTC_SRGBA:
+            return V_008F14_IMG_DATA_FORMAT_BC7;
+         case PIPE_FORMAT_BPTC_RGB_FLOAT:
+         case PIPE_FORMAT_BPTC_RGB_UFLOAT:
+            return V_008F14_IMG_DATA_FORMAT_BC6;
+         default:
+            goto out_unknown;
       }
    }
 
    if (desc->layout == UTIL_FORMAT_LAYOUT_SUBSAMPLED) {
       switch (format) {
-      case PIPE_FORMAT_R8G8_B8G8_UNORM:
-      case PIPE_FORMAT_G8R8_B8R8_UNORM:
-         return V_008F14_IMG_DATA_FORMAT_GB_GR;
-      case PIPE_FORMAT_G8R8_G8B8_UNORM:
-      case PIPE_FORMAT_R8G8_R8B8_UNORM:
-         return V_008F14_IMG_DATA_FORMAT_BG_RG;
-      default:
-         goto out_unknown;
+         case PIPE_FORMAT_R8G8_B8G8_UNORM:
+         case PIPE_FORMAT_G8R8_B8R8_UNORM:
+            return V_008F14_IMG_DATA_FORMAT_GB_GR;
+         case PIPE_FORMAT_G8R8_G8B8_UNORM:
+         case PIPE_FORMAT_R8G8_R8B8_UNORM:
+            return V_008F14_IMG_DATA_FORMAT_BG_RG;
+         default:
+            goto out_unknown;
       }
    }
 
    if (desc->layout == UTIL_FORMAT_LAYOUT_S3TC) {
       switch (format) {
-      case PIPE_FORMAT_DXT1_RGB:
-      case PIPE_FORMAT_DXT1_RGBA:
-      case PIPE_FORMAT_DXT1_SRGB:
-      case PIPE_FORMAT_DXT1_SRGBA:
-         return V_008F14_IMG_DATA_FORMAT_BC1;
-      case PIPE_FORMAT_DXT3_RGBA:
-      case PIPE_FORMAT_DXT3_SRGBA:
-         return V_008F14_IMG_DATA_FORMAT_BC2;
-      case PIPE_FORMAT_DXT5_RGBA:
-      case PIPE_FORMAT_DXT5_SRGBA:
-         return V_008F14_IMG_DATA_FORMAT_BC3;
-      default:
-         goto out_unknown;
+         case PIPE_FORMAT_DXT1_RGB:
+         case PIPE_FORMAT_DXT1_RGBA:
+         case PIPE_FORMAT_DXT1_SRGB:
+         case PIPE_FORMAT_DXT1_SRGBA:
+            return V_008F14_IMG_DATA_FORMAT_BC1;
+         case PIPE_FORMAT_DXT3_RGBA:
+         case PIPE_FORMAT_DXT3_SRGBA:
+            return V_008F14_IMG_DATA_FORMAT_BC2;
+         case PIPE_FORMAT_DXT5_RGBA:
+         case PIPE_FORMAT_DXT5_SRGBA:
+            return V_008F14_IMG_DATA_FORMAT_BC3;
+         default:
+            goto out_unknown;
       }
    }
 
@@ -1908,83 +1900,83 @@ static uint32_t si_translate_texformat(struct pipe_screen *screen, enum pipe_for
    /* Non-uniform formats. */
    if (!uniform) {
       switch (desc->nr_channels) {
-      case 3:
-         if (desc->channel[0].size == 5 && desc->channel[1].size == 6 &&
-             desc->channel[2].size == 5) {
-            return V_008F14_IMG_DATA_FORMAT_5_6_5;
-         }
-         goto out_unknown;
-      case 4:
-         /* 5551 and 1555 UINT formats fail on Gfx8/Carrizo´. */
-         if (desc->channel[1].size == 5 &&
-             desc->channel[2].size == 5 &&
-             desc->channel[first_non_void].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-             desc->channel[first_non_void].pure_integer)
+         case 3:
+            if (desc->channel[0].size == 5 && desc->channel[1].size == 6 &&
+                desc->channel[2].size == 5) {
+               return V_008F14_IMG_DATA_FORMAT_5_6_5;
+            }
             goto out_unknown;
+         case 4:
+            /* 5551 and 1555 UINT formats fail on Gfx8/Carrizo´. */
+            if (desc->channel[1].size == 5 &&
+                desc->channel[2].size == 5 &&
+                desc->channel[first_non_void].type == UTIL_FORMAT_TYPE_UNSIGNED &&
+                desc->channel[first_non_void].pure_integer)
+               goto out_unknown;
 
-         if (desc->channel[0].size == 5 && desc->channel[1].size == 5 &&
-             desc->channel[2].size == 5 && desc->channel[3].size == 1) {
-            return V_008F14_IMG_DATA_FORMAT_1_5_5_5;
-         }
-         if (desc->channel[0].size == 1 && desc->channel[1].size == 5 &&
-             desc->channel[2].size == 5 && desc->channel[3].size == 5) {
-            return V_008F14_IMG_DATA_FORMAT_5_5_5_1;
-         }
-         if (desc->channel[0].size == 10 && desc->channel[1].size == 10 &&
-             desc->channel[2].size == 10 && desc->channel[3].size == 2) {
-            return V_008F14_IMG_DATA_FORMAT_2_10_10_10;
-         }
-         goto out_unknown;
+            if (desc->channel[0].size == 5 && desc->channel[1].size == 5 &&
+                desc->channel[2].size == 5 && desc->channel[3].size == 1) {
+               return V_008F14_IMG_DATA_FORMAT_1_5_5_5;
+            }
+            if (desc->channel[0].size == 1 && desc->channel[1].size == 5 &&
+                desc->channel[2].size == 5 && desc->channel[3].size == 5) {
+               return V_008F14_IMG_DATA_FORMAT_5_5_5_1;
+            }
+            if (desc->channel[0].size == 10 && desc->channel[1].size == 10 &&
+                desc->channel[2].size == 10 && desc->channel[3].size == 2) {
+               return V_008F14_IMG_DATA_FORMAT_2_10_10_10;
+            }
+            goto out_unknown;
       }
       goto out_unknown;
    }
 
    /* uniform formats */
    switch (desc->channel[first_non_void].size) {
-   case 4:
-      switch (desc->nr_channels) {
       case 4:
-         /* 4444 UINT formats fail on Gfx8/Carrizo´. */
-         if (desc->channel[first_non_void].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-             desc->channel[first_non_void].pure_integer)
-            goto out_unknown;
+         switch (desc->nr_channels) {
+            case 4:
+               /* 4444 UINT formats fail on Gfx8/Carrizo´. */
+               if (desc->channel[first_non_void].type == UTIL_FORMAT_TYPE_UNSIGNED &&
+                   desc->channel[first_non_void].pure_integer)
+                  goto out_unknown;
 
-         return V_008F14_IMG_DATA_FORMAT_4_4_4_4;
-      }
-      break;
-   case 8:
-      switch (desc->nr_channels) {
-      case 1:
-         return V_008F14_IMG_DATA_FORMAT_8;
-      case 2:
-         return V_008F14_IMG_DATA_FORMAT_8_8;
-      case 4:
-         return V_008F14_IMG_DATA_FORMAT_8_8_8_8;
-      }
-      break;
-   case 16:
-      switch (desc->nr_channels) {
-      case 1:
-         return V_008F14_IMG_DATA_FORMAT_16;
-      case 2:
-         return V_008F14_IMG_DATA_FORMAT_16_16;
-      case 4:
-         return V_008F14_IMG_DATA_FORMAT_16_16_16_16;
-      }
-      break;
-   case 32:
-      switch (desc->nr_channels) {
-      case 1:
-         return V_008F14_IMG_DATA_FORMAT_32;
-      case 2:
-         return V_008F14_IMG_DATA_FORMAT_32_32;
+               return V_008F14_IMG_DATA_FORMAT_4_4_4_4;
+         }
+         break;
+      case 8:
+         switch (desc->nr_channels) {
+            case 1:
+               return V_008F14_IMG_DATA_FORMAT_8;
+            case 2:
+               return V_008F14_IMG_DATA_FORMAT_8_8;
+            case 4:
+               return V_008F14_IMG_DATA_FORMAT_8_8_8_8;
+         }
+         break;
+      case 16:
+         switch (desc->nr_channels) {
+            case 1:
+               return V_008F14_IMG_DATA_FORMAT_16;
+            case 2:
+               return V_008F14_IMG_DATA_FORMAT_16_16;
+            case 4:
+               return V_008F14_IMG_DATA_FORMAT_16_16_16_16;
+         }
+         break;
+      case 32:
+         switch (desc->nr_channels) {
+            case 1:
+               return V_008F14_IMG_DATA_FORMAT_32;
+            case 2:
+               return V_008F14_IMG_DATA_FORMAT_32_32;
 #if 0 /* Not supported for render targets */
       case 3:
          return V_008F14_IMG_DATA_FORMAT_32_32_32;
 #endif
-      case 4:
-         return V_008F14_IMG_DATA_FORMAT_32_32_32_32;
-      }
+            case 4:
+               return V_008F14_IMG_DATA_FORMAT_32_32_32_32;
+         }
    }
 
 out_unknown:
@@ -1995,11 +1987,11 @@ static unsigned is_wrap_mode_legal(struct si_screen *screen, unsigned wrap)
 {
    if (!screen->info.has_3d_cube_border_color_mipmap) {
       switch (wrap) {
-      case PIPE_TEX_WRAP_CLAMP:
-      case PIPE_TEX_WRAP_CLAMP_TO_BORDER:
-      case PIPE_TEX_WRAP_MIRROR_CLAMP:
-      case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER:
-         return false;
+         case PIPE_TEX_WRAP_CLAMP:
+         case PIPE_TEX_WRAP_CLAMP_TO_BORDER:
+         case PIPE_TEX_WRAP_MIRROR_CLAMP:
+         case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER:
+            return false;
       }
    }
    return true;
@@ -2008,36 +2000,36 @@ static unsigned is_wrap_mode_legal(struct si_screen *screen, unsigned wrap)
 static unsigned si_tex_wrap(unsigned wrap)
 {
    switch (wrap) {
-   default:
-   case PIPE_TEX_WRAP_REPEAT:
-      return V_008F30_SQ_TEX_WRAP;
-   case PIPE_TEX_WRAP_CLAMP:
-      return V_008F30_SQ_TEX_CLAMP_HALF_BORDER;
-   case PIPE_TEX_WRAP_CLAMP_TO_EDGE:
-      return V_008F30_SQ_TEX_CLAMP_LAST_TEXEL;
-   case PIPE_TEX_WRAP_CLAMP_TO_BORDER:
-      return V_008F30_SQ_TEX_CLAMP_BORDER;
-   case PIPE_TEX_WRAP_MIRROR_REPEAT:
-      return V_008F30_SQ_TEX_MIRROR;
-   case PIPE_TEX_WRAP_MIRROR_CLAMP:
-      return V_008F30_SQ_TEX_MIRROR_ONCE_HALF_BORDER;
-   case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE:
-      return V_008F30_SQ_TEX_MIRROR_ONCE_LAST_TEXEL;
-   case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER:
-      return V_008F30_SQ_TEX_MIRROR_ONCE_BORDER;
+      default:
+      case PIPE_TEX_WRAP_REPEAT:
+         return V_008F30_SQ_TEX_WRAP;
+      case PIPE_TEX_WRAP_CLAMP:
+         return V_008F30_SQ_TEX_CLAMP_HALF_BORDER;
+      case PIPE_TEX_WRAP_CLAMP_TO_EDGE:
+         return V_008F30_SQ_TEX_CLAMP_LAST_TEXEL;
+      case PIPE_TEX_WRAP_CLAMP_TO_BORDER:
+         return V_008F30_SQ_TEX_CLAMP_BORDER;
+      case PIPE_TEX_WRAP_MIRROR_REPEAT:
+         return V_008F30_SQ_TEX_MIRROR;
+      case PIPE_TEX_WRAP_MIRROR_CLAMP:
+         return V_008F30_SQ_TEX_MIRROR_ONCE_HALF_BORDER;
+      case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE:
+         return V_008F30_SQ_TEX_MIRROR_ONCE_LAST_TEXEL;
+      case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER:
+         return V_008F30_SQ_TEX_MIRROR_ONCE_BORDER;
    }
 }
 
 static unsigned si_tex_mipfilter(unsigned filter)
 {
    switch (filter) {
-   case PIPE_TEX_MIPFILTER_NEAREST:
-      return V_008F38_SQ_TEX_Z_FILTER_POINT;
-   case PIPE_TEX_MIPFILTER_LINEAR:
-      return V_008F38_SQ_TEX_Z_FILTER_LINEAR;
-   default:
-   case PIPE_TEX_MIPFILTER_NONE:
-      return V_008F38_SQ_TEX_Z_FILTER_NONE;
+      case PIPE_TEX_MIPFILTER_NEAREST:
+         return V_008F38_SQ_TEX_Z_FILTER_POINT;
+      case PIPE_TEX_MIPFILTER_LINEAR:
+         return V_008F38_SQ_TEX_Z_FILTER_LINEAR;
+      default:
+      case PIPE_TEX_MIPFILTER_NONE:
+         return V_008F38_SQ_TEX_Z_FILTER_NONE;
    }
 }
 
@@ -2047,23 +2039,23 @@ static unsigned si_tex_compare(unsigned mode, unsigned compare)
       return V_008F30_SQ_TEX_DEPTH_COMPARE_NEVER;
 
    switch (compare) {
-   default:
-   case PIPE_FUNC_NEVER:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_NEVER;
-   case PIPE_FUNC_LESS:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_LESS;
-   case PIPE_FUNC_EQUAL:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_EQUAL;
-   case PIPE_FUNC_LEQUAL:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_LESSEQUAL;
-   case PIPE_FUNC_GREATER:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_GREATER;
-   case PIPE_FUNC_NOTEQUAL:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_NOTEQUAL;
-   case PIPE_FUNC_GEQUAL:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_GREATEREQUAL;
-   case PIPE_FUNC_ALWAYS:
-      return V_008F30_SQ_TEX_DEPTH_COMPARE_ALWAYS;
+      default:
+      case PIPE_FUNC_NEVER:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_NEVER;
+      case PIPE_FUNC_LESS:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_LESS;
+      case PIPE_FUNC_EQUAL:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_EQUAL;
+      case PIPE_FUNC_LEQUAL:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_LESSEQUAL;
+      case PIPE_FUNC_GREATER:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_GREATER;
+      case PIPE_FUNC_NOTEQUAL:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_NOTEQUAL;
+      case PIPE_FUNC_GEQUAL:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_GREATEREQUAL;
+      case PIPE_FUNC_ALWAYS:
+         return V_008F30_SQ_TEX_DEPTH_COMPARE_ALWAYS;
    }
 }
 
@@ -2089,21 +2081,21 @@ static unsigned si_tex_dim(struct si_screen *sscreen, struct si_texture *tex, un
    }
 
    switch (res_target) {
-   default:
-   case PIPE_TEXTURE_1D:
-      return V_008F1C_SQ_RSRC_IMG_1D;
-   case PIPE_TEXTURE_1D_ARRAY:
-      return V_008F1C_SQ_RSRC_IMG_1D_ARRAY;
-   case PIPE_TEXTURE_2D:
-   case PIPE_TEXTURE_RECT:
-      return nr_samples > 1 ? V_008F1C_SQ_RSRC_IMG_2D_MSAA : V_008F1C_SQ_RSRC_IMG_2D;
-   case PIPE_TEXTURE_2D_ARRAY:
-      return nr_samples > 1 ? V_008F1C_SQ_RSRC_IMG_2D_MSAA_ARRAY : V_008F1C_SQ_RSRC_IMG_2D_ARRAY;
-   case PIPE_TEXTURE_3D:
-      return V_008F1C_SQ_RSRC_IMG_3D;
-   case PIPE_TEXTURE_CUBE:
-   case PIPE_TEXTURE_CUBE_ARRAY:
-      return V_008F1C_SQ_RSRC_IMG_CUBE;
+      default:
+      case PIPE_TEXTURE_1D:
+         return V_008F1C_SQ_RSRC_IMG_1D;
+      case PIPE_TEXTURE_1D_ARRAY:
+         return V_008F1C_SQ_RSRC_IMG_1D_ARRAY;
+      case PIPE_TEXTURE_2D:
+      case PIPE_TEXTURE_RECT:
+         return nr_samples > 1 ? V_008F1C_SQ_RSRC_IMG_2D_MSAA : V_008F1C_SQ_RSRC_IMG_2D;
+      case PIPE_TEXTURE_2D_ARRAY:
+         return nr_samples > 1 ? V_008F1C_SQ_RSRC_IMG_2D_MSAA_ARRAY : V_008F1C_SQ_RSRC_IMG_2D_ARRAY;
+      case PIPE_TEXTURE_3D:
+         return V_008F1C_SQ_RSRC_IMG_3D;
+      case PIPE_TEXTURE_CUBE:
+      case PIPE_TEXTURE_CUBE_ARRAY:
+         return V_008F1C_SQ_RSRC_IMG_CUBE;
    }
 }
 
@@ -2156,53 +2148,53 @@ static uint32_t si_translate_buffer_dataformat(struct pipe_screen *screen,
    }
 
    switch (desc->channel[first_non_void].size) {
-   case 8:
-      switch (desc->nr_channels) {
-      case 1:
-      case 3: /* 3 loads */
-         return V_008F0C_BUF_DATA_FORMAT_8;
-      case 2:
-         return V_008F0C_BUF_DATA_FORMAT_8_8;
-      case 4:
-         return V_008F0C_BUF_DATA_FORMAT_8_8_8_8;
-      }
-      break;
-   case 16:
-      switch (desc->nr_channels) {
-      case 1:
-      case 3: /* 3 loads */
-         return V_008F0C_BUF_DATA_FORMAT_16;
-      case 2:
-         return V_008F0C_BUF_DATA_FORMAT_16_16;
-      case 4:
-         return V_008F0C_BUF_DATA_FORMAT_16_16_16_16;
-      }
-      break;
-   case 32:
-      switch (desc->nr_channels) {
-      case 1:
-         return V_008F0C_BUF_DATA_FORMAT_32;
-      case 2:
-         return V_008F0C_BUF_DATA_FORMAT_32_32;
-      case 3:
-         return V_008F0C_BUF_DATA_FORMAT_32_32_32;
-      case 4:
-         return V_008F0C_BUF_DATA_FORMAT_32_32_32_32;
-      }
-      break;
-   case 64:
-      /* Legacy double formats. */
-      switch (desc->nr_channels) {
-      case 1: /* 1 load */
-         return V_008F0C_BUF_DATA_FORMAT_32_32;
-      case 2: /* 1 load */
-         return V_008F0C_BUF_DATA_FORMAT_32_32_32_32;
-      case 3: /* 3 loads */
-         return V_008F0C_BUF_DATA_FORMAT_32_32;
-      case 4: /* 2 loads */
-         return V_008F0C_BUF_DATA_FORMAT_32_32_32_32;
-      }
-      break;
+      case 8:
+         switch (desc->nr_channels) {
+            case 1:
+            case 3: /* 3 loads */
+               return V_008F0C_BUF_DATA_FORMAT_8;
+            case 2:
+               return V_008F0C_BUF_DATA_FORMAT_8_8;
+            case 4:
+               return V_008F0C_BUF_DATA_FORMAT_8_8_8_8;
+         }
+         break;
+      case 16:
+         switch (desc->nr_channels) {
+            case 1:
+            case 3: /* 3 loads */
+               return V_008F0C_BUF_DATA_FORMAT_16;
+            case 2:
+               return V_008F0C_BUF_DATA_FORMAT_16_16;
+            case 4:
+               return V_008F0C_BUF_DATA_FORMAT_16_16_16_16;
+         }
+         break;
+      case 32:
+         switch (desc->nr_channels) {
+            case 1:
+               return V_008F0C_BUF_DATA_FORMAT_32;
+            case 2:
+               return V_008F0C_BUF_DATA_FORMAT_32_32;
+            case 3:
+               return V_008F0C_BUF_DATA_FORMAT_32_32_32;
+            case 4:
+               return V_008F0C_BUF_DATA_FORMAT_32_32_32_32;
+         }
+         break;
+      case 64:
+         /* Legacy double formats. */
+         switch (desc->nr_channels) {
+            case 1: /* 1 load */
+               return V_008F0C_BUF_DATA_FORMAT_32_32;
+            case 2: /* 1 load */
+               return V_008F0C_BUF_DATA_FORMAT_32_32_32_32;
+            case 3: /* 3 loads */
+               return V_008F0C_BUF_DATA_FORMAT_32_32;
+            case 4: /* 2 loads */
+               return V_008F0C_BUF_DATA_FORMAT_32_32_32_32;
+         }
+         break;
    }
 
    return V_008F0C_BUF_DATA_FORMAT_INVALID;
@@ -2220,26 +2212,26 @@ static uint32_t si_translate_buffer_numformat(struct pipe_screen *screen,
    assert(first_non_void >= 0);
 
    switch (desc->channel[first_non_void].type) {
-   case UTIL_FORMAT_TYPE_SIGNED:
-   case UTIL_FORMAT_TYPE_FIXED:
-      if (desc->channel[first_non_void].size >= 32 || desc->channel[first_non_void].pure_integer)
-         return V_008F0C_BUF_NUM_FORMAT_SINT;
-      else if (desc->channel[first_non_void].normalized)
-         return V_008F0C_BUF_NUM_FORMAT_SNORM;
-      else
-         return V_008F0C_BUF_NUM_FORMAT_SSCALED;
-      break;
-   case UTIL_FORMAT_TYPE_UNSIGNED:
-      if (desc->channel[first_non_void].size >= 32 || desc->channel[first_non_void].pure_integer)
-         return V_008F0C_BUF_NUM_FORMAT_UINT;
-      else if (desc->channel[first_non_void].normalized)
-         return V_008F0C_BUF_NUM_FORMAT_UNORM;
-      else
-         return V_008F0C_BUF_NUM_FORMAT_USCALED;
-      break;
-   case UTIL_FORMAT_TYPE_FLOAT:
-   default:
-      return V_008F0C_BUF_NUM_FORMAT_FLOAT;
+      case UTIL_FORMAT_TYPE_SIGNED:
+      case UTIL_FORMAT_TYPE_FIXED:
+         if (desc->channel[first_non_void].size >= 32 || desc->channel[first_non_void].pure_integer)
+            return V_008F0C_BUF_NUM_FORMAT_SINT;
+         else if (desc->channel[first_non_void].normalized)
+            return V_008F0C_BUF_NUM_FORMAT_SNORM;
+         else
+            return V_008F0C_BUF_NUM_FORMAT_SSCALED;
+         break;
+      case UTIL_FORMAT_TYPE_UNSIGNED:
+         if (desc->channel[first_non_void].size >= 32 || desc->channel[first_non_void].pure_integer)
+            return V_008F0C_BUF_NUM_FORMAT_UINT;
+         else if (desc->channel[first_non_void].normalized)
+            return V_008F0C_BUF_NUM_FORMAT_UNORM;
+         else
+            return V_008F0C_BUF_NUM_FORMAT_USCALED;
+         break;
+      case UTIL_FORMAT_TYPE_FLOAT:
+      default:
+         return V_008F0C_BUF_NUM_FORMAT_FLOAT;
    }
 }
 
@@ -2320,7 +2312,7 @@ static bool si_is_format_supported(struct pipe_screen *screen, enum pipe_format 
       usage |= PIPE_BIND_SAMPLER_VIEW;
 
    if ((target == PIPE_TEXTURE_3D || target == PIPE_TEXTURE_CUBE) &&
-        !sscreen->info.has_3d_cube_border_color_mipmap)
+       !sscreen->info.has_3d_cube_border_color_mipmap)
       return false;
 
    if (util_format_get_num_planes(format) >= 2)
@@ -2343,7 +2335,9 @@ static bool si_is_format_supported(struct pipe_screen *screen, enum pipe_format 
        */
       const unsigned max_eqaa_samples =
          (sscreen->info.gfx_level >= GFX11 ||
-          util_bitcount64(sscreen->info.enabled_rb_mask) <= 1) ? 8 : 16;
+          util_bitcount64(sscreen->info.enabled_rb_mask) <= 1)
+            ? 8
+            : 16;
       const unsigned max_samples = 8;
 
       /* MSAA support without framebuffer attachments. */
@@ -2731,8 +2725,8 @@ void si_set_sampler_depth_decompress_mask(struct si_context *sctx, struct si_tex
    /* Check all sampler bindings in all shaders where depth textures are bound, and update
     * which samplers should be decompressed.
     */
-   u_foreach_bit(sh, sctx->shader_has_depth_tex) {
-      u_foreach_bit(i, sctx->samplers[sh].has_depth_tex_mask) {
+   u_foreach_bit (sh, sctx->shader_has_depth_tex) {
+      u_foreach_bit (i, sctx->samplers[sh].has_depth_tex_mask) {
          if (sctx->samplers[sh].views[i]->texture == &tex->buffer.b.b) {
             sctx->samplers[sh].needs_depth_decompress_mask |= 1 << i;
             sctx->shader_needs_decompress_mask |= 1 << sh;
@@ -3043,35 +3037,35 @@ static void si_set_framebuffer_state(struct pipe_context *ctx,
 
       if (!sctx->sample_pos_buffer) {
          sctx->sample_pos_buffer = pipe_buffer_create_with_data(&sctx->b, 0, PIPE_USAGE_DEFAULT,
-                                                      sizeof(sctx->sample_positions),
-                                                      &sctx->sample_positions);
+                                                                sizeof(sctx->sample_positions),
+                                                                &sctx->sample_positions);
       }
       constbuf.buffer = sctx->sample_pos_buffer;
 
       /* Set sample locations as fragment shader constants. */
       switch (sctx->framebuffer.nr_samples) {
-      case 1:
-         constbuf.buffer_offset = 0;
-         break;
-      case 2:
-         constbuf.buffer_offset =
-            (ubyte *)sctx->sample_positions.x2 - (ubyte *)sctx->sample_positions.x1;
-         break;
-      case 4:
-         constbuf.buffer_offset =
-            (ubyte *)sctx->sample_positions.x4 - (ubyte *)sctx->sample_positions.x1;
-         break;
-      case 8:
-         constbuf.buffer_offset =
-            (ubyte *)sctx->sample_positions.x8 - (ubyte *)sctx->sample_positions.x1;
-         break;
-      case 16:
-         constbuf.buffer_offset =
-            (ubyte *)sctx->sample_positions.x16 - (ubyte *)sctx->sample_positions.x1;
-         break;
-      default:
-         PRINT_ERR("Requested an invalid number of samples %i.\n", sctx->framebuffer.nr_samples);
-         assert(0);
+         case 1:
+            constbuf.buffer_offset = 0;
+            break;
+         case 2:
+            constbuf.buffer_offset =
+               (ubyte *)sctx->sample_positions.x2 - (ubyte *)sctx->sample_positions.x1;
+            break;
+         case 4:
+            constbuf.buffer_offset =
+               (ubyte *)sctx->sample_positions.x4 - (ubyte *)sctx->sample_positions.x1;
+            break;
+         case 8:
+            constbuf.buffer_offset =
+               (ubyte *)sctx->sample_positions.x8 - (ubyte *)sctx->sample_positions.x1;
+            break;
+         case 16:
+            constbuf.buffer_offset =
+               (ubyte *)sctx->sample_positions.x16 - (ubyte *)sctx->sample_positions.x1;
+            break;
+         default:
+            PRINT_ERR("Requested an invalid number of samples %i.\n", sctx->framebuffer.nr_samples);
+            assert(0);
       }
       constbuf.buffer_size = sctx->framebuffer.nr_samples * 2 * 4;
       si_set_internal_const_buffer(sctx, SI_PS_CONST_SAMPLE_POSITIONS, &constbuf);
@@ -3121,31 +3115,26 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
           sctx->screen->info.rbplus_allowed &&
           !sctx->queued.named.blend->cb_target_mask) {
          radeon_set_context_reg(R_028C70_CB_COLOR0_INFO + i * 0x3C,
-                                (sctx->gfx_level >= GFX11 ?
-                                   S_028C70_FORMAT_GFX11(V_028C70_COLOR_32) :
-                                   S_028C70_FORMAT_GFX6(V_028C70_COLOR_32)) |
-                                S_028C70_NUMBER_TYPE(V_028C70_NUMBER_FLOAT));
+                                (sctx->gfx_level >= GFX11 ? S_028C70_FORMAT_GFX11(V_028C70_COLOR_32) : S_028C70_FORMAT_GFX6(V_028C70_COLOR_32)) |
+                                   S_028C70_NUMBER_TYPE(V_028C70_NUMBER_FLOAT));
          continue;
       }
 
       cb = (struct si_surface *)state->cbufs[i];
       if (!cb) {
          radeon_set_context_reg(R_028C70_CB_COLOR0_INFO + i * 0x3C,
-                                sctx->gfx_level >= GFX11 ?
-                                   S_028C70_FORMAT_GFX11(V_028C70_COLOR_INVALID) :
-                                   S_028C70_FORMAT_GFX6(V_028C70_COLOR_INVALID));
+                                sctx->gfx_level >= GFX11 ? S_028C70_FORMAT_GFX11(V_028C70_COLOR_INVALID) : S_028C70_FORMAT_GFX6(V_028C70_COLOR_INVALID));
          continue;
       }
 
       tex = (struct si_texture *)cb->base.texture;
       radeon_add_to_buffer_list(
-         sctx, &sctx->gfx_cs, &tex->buffer, RADEON_USAGE_READWRITE | RADEON_USAGE_NEEDS_IMPLICIT_SYNC |
-         (tex->buffer.b.b.nr_samples > 1 ? RADEON_PRIO_COLOR_BUFFER_MSAA : RADEON_PRIO_COLOR_BUFFER));
+         sctx, &sctx->gfx_cs, &tex->buffer, RADEON_USAGE_READWRITE | RADEON_USAGE_NEEDS_IMPLICIT_SYNC | (tex->buffer.b.b.nr_samples > 1 ? RADEON_PRIO_COLOR_BUFFER_MSAA : RADEON_PRIO_COLOR_BUFFER));
 
       if (tex->cmask_buffer && tex->cmask_buffer != &tex->buffer) {
          radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, tex->cmask_buffer,
                                    RADEON_USAGE_READWRITE | RADEON_USAGE_NEEDS_IMPLICIT_SYNC |
-                                   RADEON_PRIO_SEPARATE_META);
+                                      RADEON_PRIO_SEPARATE_META);
       }
 
       /* Compute mutable surface parameters. */
@@ -3170,7 +3159,6 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
 
          if (cb->base.u.tex.level > 0)
             cb_color_info &= C_028C70_FAST_CLEAR;
-
 
          if (vi_dcc_enabled(tex, cb->base.u.tex.level) && (i != 1 || !is_msaa_resolve))
             cb_color_info |= S_028C70_DCC_ENABLE(1);
@@ -3207,10 +3195,10 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
          radeon_set_context_reg(R_028C60_CB_COLOR0_BASE + i * 0x3C, cb_color_base);
 
          radeon_set_context_reg_seq(R_028C6C_CB_COLOR0_VIEW + i * 0x3C, 4);
-         radeon_emit(cb->cb_color_view);                      /* CB_COLOR0_VIEW */
-         radeon_emit(cb_color_info);                          /* CB_COLOR0_INFO */
-         radeon_emit(cb->cb_color_attrib);                    /* CB_COLOR0_ATTRIB */
-         radeon_emit(cb_fdcc_control);                        /* CB_COLOR0_FDCC_CONTROL */
+         radeon_emit(cb->cb_color_view);   /* CB_COLOR0_VIEW */
+         radeon_emit(cb_color_info);       /* CB_COLOR0_INFO */
+         radeon_emit(cb->cb_color_attrib); /* CB_COLOR0_ATTRIB */
+         radeon_emit(cb_fdcc_control);     /* CB_COLOR0_FDCC_CONTROL */
 
          radeon_set_context_reg(R_028C94_CB_COLOR0_DCC_BASE + i * 0x3C, cb_dcc_base);
          radeon_set_context_reg(R_028E40_CB_COLOR0_BASE_EXT + i * 4, cb_color_base >> 32);
@@ -3372,21 +3360,21 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
 
          radeon_set_context_reg_seq(R_028C60_CB_COLOR0_BASE + i * 0x3C,
                                     sctx->gfx_level >= GFX8 ? 14 : 13);
-         radeon_emit(cb_color_base);                              /* CB_COLOR0_BASE */
-         radeon_emit(cb_color_pitch);                             /* CB_COLOR0_PITCH */
-         radeon_emit(cb_color_slice);                             /* CB_COLOR0_SLICE */
-         radeon_emit(cb->cb_color_view);                          /* CB_COLOR0_VIEW */
-         radeon_emit(cb_color_info);                              /* CB_COLOR0_INFO */
-         radeon_emit(cb_color_attrib);                            /* CB_COLOR0_ATTRIB */
-         radeon_emit(cb->cb_dcc_control);                         /* CB_COLOR0_DCC_CONTROL */
-         radeon_emit(cb_color_cmask);                             /* CB_COLOR0_CMASK */
+         radeon_emit(cb_color_base);                                    /* CB_COLOR0_BASE */
+         radeon_emit(cb_color_pitch);                                   /* CB_COLOR0_PITCH */
+         radeon_emit(cb_color_slice);                                   /* CB_COLOR0_SLICE */
+         radeon_emit(cb->cb_color_view);                                /* CB_COLOR0_VIEW */
+         radeon_emit(cb_color_info);                                    /* CB_COLOR0_INFO */
+         radeon_emit(cb_color_attrib);                                  /* CB_COLOR0_ATTRIB */
+         radeon_emit(cb->cb_dcc_control);                               /* CB_COLOR0_DCC_CONTROL */
+         radeon_emit(cb_color_cmask);                                   /* CB_COLOR0_CMASK */
          radeon_emit(tex->surface.u.legacy.color.cmask_slice_tile_max); /* CB_COLOR0_CMASK_SLICE */
-         radeon_emit(cb_color_fmask);                             /* CB_COLOR0_FMASK */
-         radeon_emit(cb_color_fmask_slice);                       /* CB_COLOR0_FMASK_SLICE */
-         radeon_emit(tex->color_clear_value[0]);                  /* CB_COLOR0_CLEAR_WORD0 */
-         radeon_emit(tex->color_clear_value[1]);                  /* CB_COLOR0_CLEAR_WORD1 */
+         radeon_emit(cb_color_fmask);                                   /* CB_COLOR0_FMASK */
+         radeon_emit(cb_color_fmask_slice);                             /* CB_COLOR0_FMASK_SLICE */
+         radeon_emit(tex->color_clear_value[0]);                        /* CB_COLOR0_CLEAR_WORD0 */
+         radeon_emit(tex->color_clear_value[1]);                        /* CB_COLOR0_CLEAR_WORD1 */
 
-         if (sctx->gfx_level >= GFX8) /* R_028C94_CB_COLOR0_DCC_BASE */
+         if (sctx->gfx_level >= GFX8)                                   /* R_028C94_CB_COLOR0_DCC_BASE */
             radeon_emit(cb_dcc_base);
       }
    }
@@ -3402,9 +3390,7 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
       unsigned db_stencil_info = zb->db_stencil_info;
       unsigned db_htile_surface = zb->db_htile_surface;
 
-      radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, &tex->buffer, RADEON_USAGE_READWRITE |
-                                (zb->base.texture->nr_samples > 1 ? RADEON_PRIO_DEPTH_BUFFER_MSAA
-                                                                  : RADEON_PRIO_DEPTH_BUFFER));
+      radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, &tex->buffer, RADEON_USAGE_READWRITE | (zb->base.texture->nr_samples > 1 ? RADEON_PRIO_DEPTH_BUFFER_MSAA : RADEON_PRIO_DEPTH_BUFFER));
       bool tc_compat_htile = vi_tc_compat_htile_enabled(tex, zb->base.u.tex.level, PIPE_MASK_ZS);
 
       /* Set fields dependent on tc_compatile_htile. */
@@ -3446,13 +3432,13 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
             radeon_set_context_reg_seq(R_02803C_DB_DEPTH_INFO, 7);
             radeon_emit(S_02803C_RESOURCE_LEVEL(1)); /* DB_DEPTH_INFO */
          }
-         radeon_emit(db_z_info |                  /* DB_Z_INFO */
+         radeon_emit(db_z_info |                     /* DB_Z_INFO */
                      S_028038_ZRANGE_PRECISION(tex->depth_clear_value[level] != 0));
-         radeon_emit(db_stencil_info);     /* DB_STENCIL_INFO */
-         radeon_emit(zb->db_depth_base);   /* DB_Z_READ_BASE */
-         radeon_emit(zb->db_stencil_base); /* DB_STENCIL_READ_BASE */
-         radeon_emit(zb->db_depth_base);   /* DB_Z_WRITE_BASE */
-         radeon_emit(zb->db_stencil_base); /* DB_STENCIL_WRITE_BASE */
+         radeon_emit(db_stencil_info);               /* DB_STENCIL_INFO */
+         radeon_emit(zb->db_depth_base);             /* DB_Z_READ_BASE */
+         radeon_emit(zb->db_stencil_base);           /* DB_STENCIL_READ_BASE */
+         radeon_emit(zb->db_depth_base);             /* DB_Z_WRITE_BASE */
+         radeon_emit(zb->db_stencil_base);           /* DB_STENCIL_WRITE_BASE */
 
          radeon_set_context_reg_seq(R_028068_DB_Z_READ_BASE_HI, 5);
          radeon_emit(zb->db_depth_base >> 32);      /* DB_Z_READ_BASE_HI */
@@ -3462,9 +3448,9 @@ static void si_emit_framebuffer_state(struct si_context *sctx)
          radeon_emit(zb->db_htile_data_base >> 32); /* DB_HTILE_DATA_BASE_HI */
       } else if (sctx->gfx_level == GFX9) {
          radeon_set_context_reg_seq(R_028014_DB_HTILE_DATA_BASE, 3);
-         radeon_emit(zb->db_htile_data_base); /* DB_HTILE_DATA_BASE */
+         radeon_emit(zb->db_htile_data_base);                         /* DB_HTILE_DATA_BASE */
          radeon_emit(S_028018_BASE_HI(zb->db_htile_data_base >> 32)); /* DB_HTILE_DATA_BASE_HI */
-         radeon_emit(zb->db_depth_size);                          /* DB_DEPTH_SIZE */
+         radeon_emit(zb->db_depth_size);                              /* DB_DEPTH_SIZE */
 
          radeon_set_context_reg_seq(R_028038_DB_Z_INFO, 10);
          radeon_emit(db_z_info |                                   /* DB_Z_INFO */
@@ -3923,30 +3909,30 @@ static void cdna_emu_make_image_descriptor(struct si_screen *screen, struct si_t
 
    /* Adjust the image parameters according to the texture type. */
    switch (target) {
-   case PIPE_TEXTURE_1D:
-      height = 1;
-      FALLTHROUGH;
-   case PIPE_TEXTURE_2D:
-   case PIPE_TEXTURE_RECT:
-      depth = 1;
-      break;
+      case PIPE_TEXTURE_1D:
+         height = 1;
+         FALLTHROUGH;
+      case PIPE_TEXTURE_2D:
+      case PIPE_TEXTURE_RECT:
+         depth = 1;
+         break;
 
-   case PIPE_TEXTURE_1D_ARRAY:
-      height = 1;
-      FALLTHROUGH;
-   case PIPE_TEXTURE_2D_ARRAY:
-      first_layer = MIN2(first_layer, tex->buffer.b.b.array_size - 1);
-      last_layer = MIN2(last_layer, tex->buffer.b.b.array_size - 1);
-      last_layer = MAX2(last_layer, first_layer);
-      depth = last_layer - first_layer + 1;
-      break;
+      case PIPE_TEXTURE_1D_ARRAY:
+         height = 1;
+         FALLTHROUGH;
+      case PIPE_TEXTURE_2D_ARRAY:
+         first_layer = MIN2(first_layer, tex->buffer.b.b.array_size - 1);
+         last_layer = MIN2(last_layer, tex->buffer.b.b.array_size - 1);
+         last_layer = MAX2(last_layer, first_layer);
+         depth = last_layer - first_layer + 1;
+         break;
 
-   case PIPE_TEXTURE_3D:
-      first_layer = 0;
-      break;
+      case PIPE_TEXTURE_3D:
+         first_layer = 0;
+         break;
 
-   default:
-      unreachable("invalid texture target");
+      default:
+         unreachable("invalid texture target");
    }
 
    unsigned stride = desc->block.bits / 8;
@@ -4021,24 +4007,24 @@ static void gfx10_make_texture_descriptor(
       bool is_stencil = false;
 
       switch (pipe_format) {
-      case PIPE_FORMAT_S8_UINT_Z24_UNORM:
-      case PIPE_FORMAT_X32_S8X24_UINT:
-      case PIPE_FORMAT_X8Z24_UNORM:
-         util_format_compose_swizzles(swizzle_yyyy, state_swizzle, swizzle);
-         is_stencil = true;
-         break;
-      case PIPE_FORMAT_X24S8_UINT:
-         /*
-          * X24S8 is implemented as an 8_8_8_8 data format, to
-          * fix texture gathers. This affects at least
-          * GL45-CTS.texture_cube_map_array.sampling on GFX8.
-          */
-         util_format_compose_swizzles(swizzle_wwww, state_swizzle, swizzle);
-         is_stencil = true;
-         break;
-      default:
-         util_format_compose_swizzles(swizzle_xxxx, state_swizzle, swizzle);
-         is_stencil = pipe_format == PIPE_FORMAT_S8_UINT;
+         case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+         case PIPE_FORMAT_X32_S8X24_UINT:
+         case PIPE_FORMAT_X8Z24_UNORM:
+            util_format_compose_swizzles(swizzle_yyyy, state_swizzle, swizzle);
+            is_stencil = true;
+            break;
+         case PIPE_FORMAT_X24S8_UINT:
+            /*
+             * X24S8 is implemented as an 8_8_8_8 data format, to
+             * fix texture gathers. This affects at least
+             * GL45-CTS.texture_cube_map_array.sampling on GFX8.
+             */
+            util_format_compose_swizzles(swizzle_wwww, state_swizzle, swizzle);
+            is_stencil = true;
+            break;
+         default:
+            util_format_compose_swizzles(swizzle_xxxx, state_swizzle, swizzle);
+            is_stencil = pipe_format == PIPE_FORMAT_S8_UINT;
       }
 
       if (tex->upgraded_depth && !is_stencil) {
@@ -4094,8 +4080,7 @@ static void gfx10_make_texture_descriptor(
    state[5] = S_00A014_ARRAY_PITCH(!!(type == V_008F1C_SQ_RSRC_IMG_3D && !sampler)) |
               S_00A014_PERF_MOD(4);
 
-   unsigned max_mip = res->nr_samples > 1 ? util_logbase2(res->nr_samples) :
-                                            tex->buffer.b.b.last_level;
+   unsigned max_mip = res->nr_samples > 1 ? util_logbase2(res->nr_samples) : tex->buffer.b.b.last_level;
 
    if (screen->info.gfx_level >= GFX11) {
       state[1] |= S_00A004_MAX_MIP(max_mip);
@@ -4119,47 +4104,47 @@ static void gfx10_make_texture_descriptor(
 
 #define FMASK(s, f) (((unsigned)(MAX2(1, s)) * 16) + (MAX2(1, f)))
       switch (FMASK(res->nr_samples, res->nr_storage_samples)) {
-      case FMASK(2, 1):
-         format = V_008F0C_GFX10_FORMAT_FMASK8_S2_F1;
-         break;
-      case FMASK(2, 2):
-         format = V_008F0C_GFX10_FORMAT_FMASK8_S2_F2;
-         break;
-      case FMASK(4, 1):
-         format = V_008F0C_GFX10_FORMAT_FMASK8_S4_F1;
-         break;
-      case FMASK(4, 2):
-         format = V_008F0C_GFX10_FORMAT_FMASK8_S4_F2;
-         break;
-      case FMASK(4, 4):
-         format = V_008F0C_GFX10_FORMAT_FMASK8_S4_F4;
-         break;
-      case FMASK(8, 1):
-         format = V_008F0C_GFX10_FORMAT_FMASK8_S8_F1;
-         break;
-      case FMASK(8, 2):
-         format = V_008F0C_GFX10_FORMAT_FMASK16_S8_F2;
-         break;
-      case FMASK(8, 4):
-         format = V_008F0C_GFX10_FORMAT_FMASK32_S8_F4;
-         break;
-      case FMASK(8, 8):
-         format = V_008F0C_GFX10_FORMAT_FMASK32_S8_F8;
-         break;
-      case FMASK(16, 1):
-         format = V_008F0C_GFX10_FORMAT_FMASK16_S16_F1;
-         break;
-      case FMASK(16, 2):
-         format = V_008F0C_GFX10_FORMAT_FMASK32_S16_F2;
-         break;
-      case FMASK(16, 4):
-         format = V_008F0C_GFX10_FORMAT_FMASK64_S16_F4;
-         break;
-      case FMASK(16, 8):
-         format = V_008F0C_GFX10_FORMAT_FMASK64_S16_F8;
-         break;
-      default:
-         unreachable("invalid nr_samples");
+         case FMASK(2, 1):
+            format = V_008F0C_GFX10_FORMAT_FMASK8_S2_F1;
+            break;
+         case FMASK(2, 2):
+            format = V_008F0C_GFX10_FORMAT_FMASK8_S2_F2;
+            break;
+         case FMASK(4, 1):
+            format = V_008F0C_GFX10_FORMAT_FMASK8_S4_F1;
+            break;
+         case FMASK(4, 2):
+            format = V_008F0C_GFX10_FORMAT_FMASK8_S4_F2;
+            break;
+         case FMASK(4, 4):
+            format = V_008F0C_GFX10_FORMAT_FMASK8_S4_F4;
+            break;
+         case FMASK(8, 1):
+            format = V_008F0C_GFX10_FORMAT_FMASK8_S8_F1;
+            break;
+         case FMASK(8, 2):
+            format = V_008F0C_GFX10_FORMAT_FMASK16_S8_F2;
+            break;
+         case FMASK(8, 4):
+            format = V_008F0C_GFX10_FORMAT_FMASK32_S8_F4;
+            break;
+         case FMASK(8, 8):
+            format = V_008F0C_GFX10_FORMAT_FMASK32_S8_F8;
+            break;
+         case FMASK(16, 1):
+            format = V_008F0C_GFX10_FORMAT_FMASK16_S16_F1;
+            break;
+         case FMASK(16, 2):
+            format = V_008F0C_GFX10_FORMAT_FMASK32_S16_F2;
+            break;
+         case FMASK(16, 4):
+            format = V_008F0C_GFX10_FORMAT_FMASK64_S16_F4;
+            break;
+         case FMASK(16, 8):
+            format = V_008F0C_GFX10_FORMAT_FMASK64_S16_F8;
+            break;
+         default:
+            unreachable("invalid nr_samples");
       }
 #undef FMASK
       fmask_state[0] = (va >> 8) | tex->surface.fmask_tile_swizzle;
@@ -4216,24 +4201,24 @@ static void si_make_texture_descriptor(struct si_screen *screen, struct si_textu
       const unsigned char swizzle_wwww[4] = {3, 3, 3, 3};
 
       switch (pipe_format) {
-      case PIPE_FORMAT_S8_UINT_Z24_UNORM:
-      case PIPE_FORMAT_X32_S8X24_UINT:
-      case PIPE_FORMAT_X8Z24_UNORM:
-         util_format_compose_swizzles(swizzle_yyyy, state_swizzle, swizzle);
-         break;
-      case PIPE_FORMAT_X24S8_UINT:
-         /*
-          * X24S8 is implemented as an 8_8_8_8 data format, to
-          * fix texture gathers. This affects at least
-          * GL45-CTS.texture_cube_map_array.sampling on GFX8.
-          */
-         if (screen->info.gfx_level <= GFX8)
-            util_format_compose_swizzles(swizzle_wwww, state_swizzle, swizzle);
-         else
+         case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+         case PIPE_FORMAT_X32_S8X24_UINT:
+         case PIPE_FORMAT_X8Z24_UNORM:
             util_format_compose_swizzles(swizzle_yyyy, state_swizzle, swizzle);
-         break;
-      default:
-         util_format_compose_swizzles(swizzle_xxxx, state_swizzle, swizzle);
+            break;
+         case PIPE_FORMAT_X24S8_UINT:
+            /*
+             * X24S8 is implemented as an 8_8_8_8 data format, to
+             * fix texture gathers. This affects at least
+             * GL45-CTS.texture_cube_map_array.sampling on GFX8.
+             */
+            if (screen->info.gfx_level <= GFX8)
+               util_format_compose_swizzles(swizzle_wwww, state_swizzle, swizzle);
+            else
+               util_format_compose_swizzles(swizzle_yyyy, state_swizzle, swizzle);
+            break;
+         default:
+            util_format_compose_swizzles(swizzle_xxxx, state_swizzle, swizzle);
       }
    } else {
       util_format_compose_swizzles(desc->swizzle, state_swizzle, swizzle);
@@ -4242,69 +4227,69 @@ static void si_make_texture_descriptor(struct si_screen *screen, struct si_textu
    first_non_void = util_format_get_first_non_void_channel(pipe_format);
 
    switch (pipe_format) {
-   case PIPE_FORMAT_S8_UINT_Z24_UNORM:
-      num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
-      break;
-   default:
-      if (first_non_void < 0) {
-         if (util_format_is_compressed(pipe_format)) {
-            switch (pipe_format) {
-            case PIPE_FORMAT_DXT1_SRGB:
-            case PIPE_FORMAT_DXT1_SRGBA:
-            case PIPE_FORMAT_DXT3_SRGBA:
-            case PIPE_FORMAT_DXT5_SRGBA:
-            case PIPE_FORMAT_BPTC_SRGBA:
-            case PIPE_FORMAT_ETC2_SRGB8:
-            case PIPE_FORMAT_ETC2_SRGB8A1:
-            case PIPE_FORMAT_ETC2_SRGBA8:
-               num_format = V_008F14_IMG_NUM_FORMAT_SRGB;
-               break;
-            case PIPE_FORMAT_RGTC1_SNORM:
-            case PIPE_FORMAT_LATC1_SNORM:
-            case PIPE_FORMAT_RGTC2_SNORM:
-            case PIPE_FORMAT_LATC2_SNORM:
-            case PIPE_FORMAT_ETC2_R11_SNORM:
-            case PIPE_FORMAT_ETC2_RG11_SNORM:
-            /* implies float, so use SNORM/UNORM to determine
-               whether data is signed or not */
-            case PIPE_FORMAT_BPTC_RGB_FLOAT:
-               num_format = V_008F14_IMG_NUM_FORMAT_SNORM;
-               break;
-            default:
-               num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
-               break;
-            }
-         } else if (desc->layout == UTIL_FORMAT_LAYOUT_SUBSAMPLED) {
-            num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
-         } else {
-            num_format = V_008F14_IMG_NUM_FORMAT_FLOAT;
-         }
-      } else if (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB) {
-         num_format = V_008F14_IMG_NUM_FORMAT_SRGB;
-      } else {
+      case PIPE_FORMAT_S8_UINT_Z24_UNORM:
          num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
-
-         switch (desc->channel[first_non_void].type) {
-         case UTIL_FORMAT_TYPE_FLOAT:
-            num_format = V_008F14_IMG_NUM_FORMAT_FLOAT;
-            break;
-         case UTIL_FORMAT_TYPE_SIGNED:
-            if (desc->channel[first_non_void].normalized)
-               num_format = V_008F14_IMG_NUM_FORMAT_SNORM;
-            else if (desc->channel[first_non_void].pure_integer)
-               num_format = V_008F14_IMG_NUM_FORMAT_SINT;
-            else
-               num_format = V_008F14_IMG_NUM_FORMAT_SSCALED;
-            break;
-         case UTIL_FORMAT_TYPE_UNSIGNED:
-            if (desc->channel[first_non_void].normalized)
+         break;
+      default:
+         if (first_non_void < 0) {
+            if (util_format_is_compressed(pipe_format)) {
+               switch (pipe_format) {
+                  case PIPE_FORMAT_DXT1_SRGB:
+                  case PIPE_FORMAT_DXT1_SRGBA:
+                  case PIPE_FORMAT_DXT3_SRGBA:
+                  case PIPE_FORMAT_DXT5_SRGBA:
+                  case PIPE_FORMAT_BPTC_SRGBA:
+                  case PIPE_FORMAT_ETC2_SRGB8:
+                  case PIPE_FORMAT_ETC2_SRGB8A1:
+                  case PIPE_FORMAT_ETC2_SRGBA8:
+                     num_format = V_008F14_IMG_NUM_FORMAT_SRGB;
+                     break;
+                  case PIPE_FORMAT_RGTC1_SNORM:
+                  case PIPE_FORMAT_LATC1_SNORM:
+                  case PIPE_FORMAT_RGTC2_SNORM:
+                  case PIPE_FORMAT_LATC2_SNORM:
+                  case PIPE_FORMAT_ETC2_R11_SNORM:
+                  case PIPE_FORMAT_ETC2_RG11_SNORM:
+                  /* implies float, so use SNORM/UNORM to determine
+                     whether data is signed or not */
+                  case PIPE_FORMAT_BPTC_RGB_FLOAT:
+                     num_format = V_008F14_IMG_NUM_FORMAT_SNORM;
+                     break;
+                  default:
+                     num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
+                     break;
+               }
+            } else if (desc->layout == UTIL_FORMAT_LAYOUT_SUBSAMPLED) {
                num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
-            else if (desc->channel[first_non_void].pure_integer)
-               num_format = V_008F14_IMG_NUM_FORMAT_UINT;
-            else
-               num_format = V_008F14_IMG_NUM_FORMAT_USCALED;
+            } else {
+               num_format = V_008F14_IMG_NUM_FORMAT_FLOAT;
+            }
+         } else if (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB) {
+            num_format = V_008F14_IMG_NUM_FORMAT_SRGB;
+         } else {
+            num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
+
+            switch (desc->channel[first_non_void].type) {
+               case UTIL_FORMAT_TYPE_FLOAT:
+                  num_format = V_008F14_IMG_NUM_FORMAT_FLOAT;
+                  break;
+               case UTIL_FORMAT_TYPE_SIGNED:
+                  if (desc->channel[first_non_void].normalized)
+                     num_format = V_008F14_IMG_NUM_FORMAT_SNORM;
+                  else if (desc->channel[first_non_void].pure_integer)
+                     num_format = V_008F14_IMG_NUM_FORMAT_SINT;
+                  else
+                     num_format = V_008F14_IMG_NUM_FORMAT_SSCALED;
+                  break;
+               case UTIL_FORMAT_TYPE_UNSIGNED:
+                  if (desc->channel[first_non_void].normalized)
+                     num_format = V_008F14_IMG_NUM_FORMAT_UNORM;
+                  else if (desc->channel[first_non_void].pure_integer)
+                     num_format = V_008F14_IMG_NUM_FORMAT_UINT;
+                  else
+                     num_format = V_008F14_IMG_NUM_FORMAT_USCALED;
+            }
          }
-      }
    }
 
    data_format = si_translate_texformat(&screen->b, pipe_format, desc, first_non_void);
@@ -4398,91 +4383,91 @@ static void si_make_texture_descriptor(struct si_screen *screen, struct si_textu
       if (screen->info.gfx_level == GFX9) {
          data_format = V_008F14_IMG_DATA_FORMAT_FMASK;
          switch (FMASK(res->nr_samples, res->nr_storage_samples)) {
-         case FMASK(2, 1):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_2_1;
-            break;
-         case FMASK(2, 2):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_2_2;
-            break;
-         case FMASK(4, 1):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_4_1;
-            break;
-         case FMASK(4, 2):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_4_2;
-            break;
-         case FMASK(4, 4):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_4_4;
-            break;
-         case FMASK(8, 1):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_8_1;
-            break;
-         case FMASK(8, 2):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_16_8_2;
-            break;
-         case FMASK(8, 4):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_32_8_4;
-            break;
-         case FMASK(8, 8):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_32_8_8;
-            break;
-         case FMASK(16, 1):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_16_16_1;
-            break;
-         case FMASK(16, 2):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_32_16_2;
-            break;
-         case FMASK(16, 4):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_64_16_4;
-            break;
-         case FMASK(16, 8):
-            num_format = V_008F14_IMG_NUM_FORMAT_FMASK_64_16_8;
-            break;
-         default:
-            unreachable("invalid nr_samples");
+            case FMASK(2, 1):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_2_1;
+               break;
+            case FMASK(2, 2):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_2_2;
+               break;
+            case FMASK(4, 1):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_4_1;
+               break;
+            case FMASK(4, 2):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_4_2;
+               break;
+            case FMASK(4, 4):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_4_4;
+               break;
+            case FMASK(8, 1):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_8_8_1;
+               break;
+            case FMASK(8, 2):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_16_8_2;
+               break;
+            case FMASK(8, 4):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_32_8_4;
+               break;
+            case FMASK(8, 8):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_32_8_8;
+               break;
+            case FMASK(16, 1):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_16_16_1;
+               break;
+            case FMASK(16, 2):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_32_16_2;
+               break;
+            case FMASK(16, 4):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_64_16_4;
+               break;
+            case FMASK(16, 8):
+               num_format = V_008F14_IMG_NUM_FORMAT_FMASK_64_16_8;
+               break;
+            default:
+               unreachable("invalid nr_samples");
          }
       } else {
          switch (FMASK(res->nr_samples, res->nr_storage_samples)) {
-         case FMASK(2, 1):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S2_F1;
-            break;
-         case FMASK(2, 2):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S2_F2;
-            break;
-         case FMASK(4, 1):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S4_F1;
-            break;
-         case FMASK(4, 2):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S4_F2;
-            break;
-         case FMASK(4, 4):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S4_F4;
-            break;
-         case FMASK(8, 1):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S8_F1;
-            break;
-         case FMASK(8, 2):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK16_S8_F2;
-            break;
-         case FMASK(8, 4):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK32_S8_F4;
-            break;
-         case FMASK(8, 8):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK32_S8_F8;
-            break;
-         case FMASK(16, 1):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK16_S16_F1;
-            break;
-         case FMASK(16, 2):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK32_S16_F2;
-            break;
-         case FMASK(16, 4):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK64_S16_F4;
-            break;
-         case FMASK(16, 8):
-            data_format = V_008F14_IMG_DATA_FORMAT_FMASK64_S16_F8;
-            break;
-         default:
-            unreachable("invalid nr_samples");
+            case FMASK(2, 1):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S2_F1;
+               break;
+            case FMASK(2, 2):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S2_F2;
+               break;
+            case FMASK(4, 1):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S4_F1;
+               break;
+            case FMASK(4, 2):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S4_F2;
+               break;
+            case FMASK(4, 4):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S4_F4;
+               break;
+            case FMASK(8, 1):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK8_S8_F1;
+               break;
+            case FMASK(8, 2):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK16_S8_F2;
+               break;
+            case FMASK(8, 4):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK32_S8_F4;
+               break;
+            case FMASK(8, 8):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK32_S8_F8;
+               break;
+            case FMASK(16, 1):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK16_S16_F1;
+               break;
+            case FMASK(16, 2):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK32_S16_F2;
+               break;
+            case FMASK(16, 4):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK64_S16_F4;
+               break;
+            case FMASK(16, 8):
+               data_format = V_008F14_IMG_DATA_FORMAT_FMASK64_S16_F8;
+               break;
+            default:
+               unreachable("invalid nr_samples");
          }
          num_format = V_008F14_IMG_NUM_FORMAT_UINT;
       }
@@ -4600,23 +4585,23 @@ static struct pipe_sampler_view *si_create_sampler_view(struct pipe_context *ctx
          pipe_format = tex->db_render_format;
 
       switch (pipe_format) {
-      case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
-         pipe_format = PIPE_FORMAT_Z32_FLOAT;
-         break;
-      case PIPE_FORMAT_X8Z24_UNORM:
-      case PIPE_FORMAT_S8_UINT_Z24_UNORM:
-         /* Z24 is always stored like this for DB
-          * compatibility.
-          */
-         pipe_format = PIPE_FORMAT_Z24X8_UNORM;
-         break;
-      case PIPE_FORMAT_X24S8_UINT:
-      case PIPE_FORMAT_S8X24_UINT:
-      case PIPE_FORMAT_X32_S8X24_UINT:
-         pipe_format = PIPE_FORMAT_S8_UINT;
-         surflevel = tex->surface.u.legacy.zs.stencil_level;
-         break;
-      default:;
+         case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+            pipe_format = PIPE_FORMAT_Z32_FLOAT;
+            break;
+         case PIPE_FORMAT_X8Z24_UNORM:
+         case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+            /* Z24 is always stored like this for DB
+             * compatibility.
+             */
+            pipe_format = PIPE_FORMAT_Z24X8_UNORM;
+            break;
+         case PIPE_FORMAT_X24S8_UINT:
+         case PIPE_FORMAT_S8X24_UINT:
+         case PIPE_FORMAT_X32_S8X24_UINT:
+            pipe_format = PIPE_FORMAT_S8_UINT;
+            surflevel = tex->surface.u.legacy.zs.stencil_level;
+            break;
+         default:;
       }
    }
 
@@ -4660,14 +4645,14 @@ static uint32_t si_translate_border_color(struct si_context *sctx,
        !wrap_mode_uses_border_color(state->wrap_r, linear_filter))
       return S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_TRANS_BLACK);
 
-#define simple_border_types(elt)                                                                   \
-   do {                                                                                            \
-      if (color->elt[0] == 0 && color->elt[1] == 0 && color->elt[2] == 0 && color->elt[3] == 0)    \
-         return S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_TRANS_BLACK);              \
-      if (color->elt[0] == 0 && color->elt[1] == 0 && color->elt[2] == 0 && color->elt[3] == 1)    \
-         return S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_OPAQUE_BLACK);             \
-      if (color->elt[0] == 1 && color->elt[1] == 1 && color->elt[2] == 1 && color->elt[3] == 1)    \
-         return S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_OPAQUE_WHITE);             \
+#define simple_border_types(elt)                                                                \
+   do {                                                                                         \
+      if (color->elt[0] == 0 && color->elt[1] == 0 && color->elt[2] == 0 && color->elt[3] == 0) \
+         return S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_TRANS_BLACK);           \
+      if (color->elt[0] == 0 && color->elt[1] == 0 && color->elt[2] == 0 && color->elt[3] == 1) \
+         return S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_OPAQUE_BLACK);          \
+      if (color->elt[0] == 1 && color->elt[1] == 1 && color->elt[2] == 1 && color->elt[3] == 1) \
+         return S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_OPAQUE_WHITE);          \
    } while (false)
 
    if (is_integer)
@@ -4703,8 +4688,7 @@ static uint32_t si_translate_border_color(struct si_context *sctx,
       sctx->border_color_count++;
    }
 
-   return (sctx->screen->info.gfx_level >= GFX11 ? S_008F3C_BORDER_COLOR_PTR_GFX11(i):
-                                                    S_008F3C_BORDER_COLOR_PTR_GFX6(i)) |
+   return (sctx->screen->info.gfx_level >= GFX11 ? S_008F3C_BORDER_COLOR_PTR_GFX11(i) : S_008F3C_BORDER_COLOR_PTR_GFX6(i)) |
           S_008F3C_BORDER_COLOR_TYPE(V_008F3C_SQ_TEX_BORDER_COLOR_REGISTER);
 }
 
@@ -4883,7 +4867,7 @@ static void *si_create_vertex_elements(struct pipe_context *ctx, unsigned count,
       for (int i = 0; i < count; ++i) {
          const struct pipe_vertex_element *e = elements + i;
          fprintf(stderr, "elements[%d]: offset %2d, buffer_index %d, dual_slot %d, format %3d, divisor %u\n",
-                i, e->src_offset, e->vertex_buffer_index, e->dual_slot, e->src_format, e->instance_divisor);
+                 i, e->src_offset, e->vertex_buffer_index, e->dual_slot, e->src_format, e->instance_divisor);
       }
    }
 
@@ -4945,40 +4929,40 @@ static void *si_create_vertex_elements(struct pipe_context *ctx, unsigned count,
 
       if (channel) {
          switch (channel->type) {
-         case UTIL_FORMAT_TYPE_FLOAT:
-            fix_fetch.u.format = AC_FETCH_FORMAT_FLOAT;
-            break;
-         case UTIL_FORMAT_TYPE_FIXED:
-            fix_fetch.u.format = AC_FETCH_FORMAT_FIXED;
-            break;
-         case UTIL_FORMAT_TYPE_SIGNED: {
-            if (channel->pure_integer)
-               fix_fetch.u.format = AC_FETCH_FORMAT_SINT;
-            else if (channel->normalized)
-               fix_fetch.u.format = AC_FETCH_FORMAT_SNORM;
-            else
-               fix_fetch.u.format = AC_FETCH_FORMAT_SSCALED;
-            break;
-         }
-         case UTIL_FORMAT_TYPE_UNSIGNED: {
-            if (channel->pure_integer)
-               fix_fetch.u.format = AC_FETCH_FORMAT_UINT;
-            else if (channel->normalized)
-               fix_fetch.u.format = AC_FETCH_FORMAT_UNORM;
-            else
-               fix_fetch.u.format = AC_FETCH_FORMAT_USCALED;
-            break;
-         }
-         default:
-            unreachable("bad format type");
+            case UTIL_FORMAT_TYPE_FLOAT:
+               fix_fetch.u.format = AC_FETCH_FORMAT_FLOAT;
+               break;
+            case UTIL_FORMAT_TYPE_FIXED:
+               fix_fetch.u.format = AC_FETCH_FORMAT_FIXED;
+               break;
+            case UTIL_FORMAT_TYPE_SIGNED: {
+               if (channel->pure_integer)
+                  fix_fetch.u.format = AC_FETCH_FORMAT_SINT;
+               else if (channel->normalized)
+                  fix_fetch.u.format = AC_FETCH_FORMAT_SNORM;
+               else
+                  fix_fetch.u.format = AC_FETCH_FORMAT_SSCALED;
+               break;
+            }
+            case UTIL_FORMAT_TYPE_UNSIGNED: {
+               if (channel->pure_integer)
+                  fix_fetch.u.format = AC_FETCH_FORMAT_UINT;
+               else if (channel->normalized)
+                  fix_fetch.u.format = AC_FETCH_FORMAT_UNORM;
+               else
+                  fix_fetch.u.format = AC_FETCH_FORMAT_USCALED;
+               break;
+            }
+            default:
+               unreachable("bad format type");
          }
       } else {
          switch (elements[i].src_format) {
-         case PIPE_FORMAT_R11G11B10_FLOAT:
-            fix_fetch.u.format = AC_FETCH_FORMAT_FLOAT;
-            break;
-         default:
-            unreachable("bad other format");
+            case PIPE_FORMAT_R11G11B10_FLOAT:
+               fix_fetch.u.format = AC_FETCH_FORMAT_FLOAT;
+               break;
+            default:
+               unreachable("bad other format");
          }
       }
 
@@ -5034,8 +5018,8 @@ static void *si_create_vertex_elements(struct pipe_context *ctx, unsigned count,
        * is nicely aligned).
        */
       bool check_alignment =
-            log_hw_load_size >= 1 &&
-            (sscreen->info.gfx_level == GFX6 || sscreen->info.gfx_level >= GFX10);
+         log_hw_load_size >= 1 &&
+         (sscreen->info.gfx_level == GFX6 || sscreen->info.gfx_level >= GFX10);
       bool opencode = sscreen->options.vs_fetch_always_opencode;
 
       if (check_alignment && (elements[i].src_offset & ((1 << log_hw_load_size) - 1)) != 0)
@@ -5108,7 +5092,7 @@ static void si_bind_vertex_elements(struct pipe_context *ctx, void *state)
    if (old->instance_divisor_is_one != v->instance_divisor_is_one ||
        old->instance_divisor_is_fetched != v->instance_divisor_is_fetched ||
        (old->vb_alignment_check_mask ^ v->vb_alignment_check_mask) &
-       sctx->vertex_buffer_unaligned ||
+          sctx->vertex_buffer_unaligned ||
        ((v->vb_alignment_check_mask & sctx->vertex_buffer_unaligned) &&
         memcmp(old->vertex_buffer_index, v->vertex_buffer_index,
                sizeof(v->vertex_buffer_index[0]) * MAX2(old->count, v->count))) ||
@@ -5117,8 +5101,7 @@ static void si_bind_vertex_elements(struct pipe_context *ctx, void *state)
         * If they change and fix_fetch doesn't, it must be due to different
         * src_offset alignment, which is reflected in fix_fetch_opencode. */
        old->fix_fetch_opencode != v->fix_fetch_opencode ||
-       memcmp(old->fix_fetch, v->fix_fetch, sizeof(v->fix_fetch[0]) *
-              MAX2(old->count, v->count))) {
+       memcmp(old->fix_fetch, v->fix_fetch, sizeof(v->fix_fetch[0]) * MAX2(old->count, v->count))) {
       si_vs_key_update_inputs(sctx);
       sctx->do_update_shaders = true;
    }
@@ -5441,9 +5424,7 @@ void si_init_state_functions(struct si_context *sctx)
    }
 
    sctx->custom_blend_dcc_decompress =
-      si_create_blend_custom(sctx, sctx->gfx_level >= GFX11 ?
-                                V_028808_CB_DCC_DECOMPRESS_GFX11 :
-                                V_028808_CB_DCC_DECOMPRESS_GFX8);
+      si_create_blend_custom(sctx, sctx->gfx_level >= GFX11 ? V_028808_CB_DCC_DECOMPRESS_GFX11 : V_028808_CB_DCC_DECOMPRESS_GFX8);
 
    sctx->b.set_clip_state = si_set_clip_state;
    sctx->b.set_stencil_ref = si_set_stencil_ref;
@@ -5644,7 +5625,7 @@ static void gfx6_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg_
    /* If any sample location uses the -8 coordinate, the EXCLUSION fields should be set to 0. */
    si_pm4_set_reg(pm4, R_02882C_PA_SU_PRIM_FILTER_CNTL,
                   S_02882C_XMAX_RIGHT_EXCLUSION(sctx->gfx_level >= GFX7) |
-                  S_02882C_YMAX_BOTTOM_EXCLUSION(sctx->gfx_level >= GFX7));
+                     S_02882C_YMAX_BOTTOM_EXCLUSION(sctx->gfx_level >= GFX7));
 
    if (sctx->family >= CHIP_POLARIS10 && !sctx->screen->info.has_small_prim_filter_sample_loc_bug) {
       /* Polaris10-12 should disable small line culling, but those also have the sample loc bug,
@@ -5672,7 +5653,7 @@ static void gfx6_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg_
    if (sctx->gfx_level >= GFX7) {
       si_pm4_set_reg_idx3(pm4, R_00B01C_SPI_SHADER_PGM_RSRC3_PS,
                           ac_apply_cu_en(S_00B01C_CU_EN(0xffffffff) |
-                                         S_00B01C_WAVE_LIMIT(0x3F),
+                                            S_00B01C_WAVE_LIMIT(0x3F),
                                          C_00B01C_CU_EN, 0, &sscreen->info));
    }
 
@@ -5753,7 +5734,7 @@ static void gfx6_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg_
 
       si_pm4_set_reg(pm4, R_028060_DB_DFSM_CONTROL,
                      S_028060_PUNCHOUT_MODE(V_028060_FORCE_OFF) |
-                     S_028060_POPS_DRAIN_PS_ON_OVERLAP(1));
+                        S_028060_POPS_DRAIN_PS_ON_OVERLAP(1));
 
       si_pm4_set_reg_idx3(pm4, R_00B41C_SPI_SHADER_PGM_RSRC3_HS,
                           ac_apply_cu_en(S_00B41C_CU_EN(0xffff) | S_00B41C_WAVE_LIMIT(0x3F),
@@ -5761,7 +5742,7 @@ static void gfx6_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg_
 
       si_pm4_set_reg(pm4, R_028C48_PA_SC_BINNER_CNTL_1,
                      S_028C48_MAX_ALLOC_COUNT(sscreen->info.pbb_max_alloc_count - 1) |
-                     S_028C48_MAX_PRIM_PER_BATCH(1023));
+                        S_028C48_MAX_PRIM_PER_BATCH(1023));
       si_pm4_set_reg(pm4, R_028C4C_PA_SC_CONSERVATIVE_RASTERIZATION_CNTL,
                      S_028C4C_NULL_SQUAD_AA_MASK_ENABLE(1));
 
@@ -5827,15 +5808,14 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
    uint32_t compute_cu_en = S_00B858_SH0_CU_EN(sscreen->info.spi_cu_en) |
                             S_00B858_SH1_CU_EN(sscreen->info.spi_cu_en);
    unsigned meta_write_policy, meta_read_policy;
-   unsigned no_alloc = sctx->gfx_level >= GFX11 ? V_02807C_CACHE_NOA_GFX11:
-                                                  V_02807C_CACHE_NOA_GFX10;
+   unsigned no_alloc = sctx->gfx_level >= GFX11 ? V_02807C_CACHE_NOA_GFX11 : V_02807C_CACHE_NOA_GFX10;
    /* Enable CMASK/HTILE/DCC caching in L2 for small chips. */
    if (sscreen->info.max_render_backends <= 4) {
       meta_write_policy = V_02807C_CACHE_LRU_WR; /* cache writes */
       meta_read_policy = V_02807C_CACHE_LRU_RD;  /* cache reads */
    } else {
       meta_write_policy = V_02807C_CACHE_STREAM; /* write combine */
-      meta_read_policy = no_alloc; /* don't cache reads that miss */
+      meta_read_policy = no_alloc;               /* don't cache reads that miss */
    }
 
    /* We need more space because the preamble is large. */
@@ -5905,12 +5885,12 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
    }
    si_pm4_set_reg_idx3(pm4, R_00B01C_SPI_SHADER_PGM_RSRC3_PS,
                        ac_apply_cu_en(S_00B01C_CU_EN(cu_mask_ps) |
-                                      S_00B01C_WAVE_LIMIT(0x3F) |
-                                      S_00B01C_LDS_GROUP_SIZE(sctx->gfx_level >= GFX11),
+                                         S_00B01C_WAVE_LIMIT(0x3F) |
+                                         S_00B01C_LDS_GROUP_SIZE(sctx->gfx_level >= GFX11),
                                       C_00B01C_CU_EN, 0, &sscreen->info));
    si_pm4_set_reg(pm4, R_00B0C0_SPI_SHADER_REQ_CTRL_PS,
                   S_00B0C0_SOFT_GROUPING_EN(1) |
-                  S_00B0C0_NUMBER_OF_REQUESTS_PER_CU(4 - 1));
+                     S_00B0C0_NUMBER_OF_REQUESTS_PER_CU(4 - 1));
    si_pm4_set_reg(pm4, R_00B0C8_SPI_SHADER_USER_ACCUM_PS_0, 0);
    si_pm4_set_reg(pm4, R_00B0CC_SPI_SHADER_USER_ACCUM_PS_1, 0);
    si_pm4_set_reg(pm4, R_00B0D0_SPI_SHADER_USER_ACCUM_PS_2, 0);
@@ -5956,33 +5936,31 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
    if (sctx->gfx_level < GFX11) {
       si_pm4_set_reg(pm4, R_028038_DB_DFSM_CONTROL,
                      S_028038_PUNCHOUT_MODE(V_028038_FORCE_OFF) |
-                     S_028038_POPS_DRAIN_PS_ON_OVERLAP(1));
+                        S_028038_POPS_DRAIN_PS_ON_OVERLAP(1));
    }
    si_pm4_set_reg(pm4, R_02807C_DB_RMI_L2_CACHE_CONTROL,
                   S_02807C_Z_WR_POLICY(V_02807C_CACHE_STREAM) |
-                  S_02807C_S_WR_POLICY(V_02807C_CACHE_STREAM) |
-                  S_02807C_HTILE_WR_POLICY(meta_write_policy) |
-                  S_02807C_ZPCPSD_WR_POLICY(V_02807C_CACHE_STREAM) |
-                  S_02807C_Z_RD_POLICY(no_alloc) |
-                  S_02807C_S_RD_POLICY(no_alloc) |
-                  S_02807C_HTILE_RD_POLICY(meta_read_policy));
+                     S_02807C_S_WR_POLICY(V_02807C_CACHE_STREAM) |
+                     S_02807C_HTILE_WR_POLICY(meta_write_policy) |
+                     S_02807C_ZPCPSD_WR_POLICY(V_02807C_CACHE_STREAM) |
+                     S_02807C_Z_RD_POLICY(no_alloc) |
+                     S_02807C_S_RD_POLICY(no_alloc) |
+                     S_02807C_HTILE_RD_POLICY(meta_read_policy));
    si_pm4_set_reg(pm4, R_028080_TA_BC_BASE_ADDR, border_color_va >> 8);
    si_pm4_set_reg(pm4, R_028084_TA_BC_BASE_ADDR_HI, S_028084_ADDRESS(border_color_va >> 40));
 
    si_pm4_set_reg(pm4, R_028410_CB_RMI_GL2_CACHE_CONTROL,
-                  (sctx->gfx_level >= GFX11 ?
-                      S_028410_DCC_WR_POLICY_GFX11(meta_write_policy) |
-                      S_028410_COLOR_WR_POLICY_GFX11(V_028410_CACHE_STREAM) |
-                      S_028410_COLOR_RD_POLICY(V_028410_CACHE_NOA_GFX11)
-                    :
-                      S_028410_CMASK_WR_POLICY(meta_write_policy) |
-                      S_028410_FMASK_WR_POLICY(V_028410_CACHE_STREAM) |
-                      S_028410_DCC_WR_POLICY_GFX10(meta_write_policy) |
-                      S_028410_COLOR_WR_POLICY_GFX10(V_028410_CACHE_STREAM) |
-                      S_028410_CMASK_RD_POLICY(meta_read_policy) |
-                      S_028410_FMASK_RD_POLICY(V_028410_CACHE_NOA_GFX10) |
-                      S_028410_COLOR_RD_POLICY(V_028410_CACHE_NOA_GFX10)) |
-                  S_028410_DCC_RD_POLICY(meta_read_policy));
+                  (sctx->gfx_level >= GFX11 ? S_028410_DCC_WR_POLICY_GFX11(meta_write_policy) |
+                                                 S_028410_COLOR_WR_POLICY_GFX11(V_028410_CACHE_STREAM) |
+                                                 S_028410_COLOR_RD_POLICY(V_028410_CACHE_NOA_GFX11)
+                                            : S_028410_CMASK_WR_POLICY(meta_write_policy) |
+                                                 S_028410_FMASK_WR_POLICY(V_028410_CACHE_STREAM) |
+                                                 S_028410_DCC_WR_POLICY_GFX10(meta_write_policy) |
+                                                 S_028410_COLOR_WR_POLICY_GFX10(V_028410_CACHE_STREAM) |
+                                                 S_028410_CMASK_RD_POLICY(meta_read_policy) |
+                                                 S_028410_FMASK_RD_POLICY(V_028410_CACHE_NOA_GFX10) |
+                                                 S_028410_COLOR_RD_POLICY(V_028410_CACHE_NOA_GFX10)) |
+                     S_028410_DCC_RD_POLICY(meta_read_policy));
 
    if (sctx->gfx_level >= GFX10_3)
       si_pm4_set_reg(pm4, R_028750_SX_PS_DOWNCONVERT_CONTROL, 0xff);
@@ -5990,7 +5968,7 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
    /* If any sample location uses the -8 coordinate, the EXCLUSION fields should be set to 0. */
    si_pm4_set_reg(pm4, R_02882C_PA_SU_PRIM_FILTER_CNTL,
                   S_02882C_XMAX_RIGHT_EXCLUSION(1) |
-                  S_02882C_YMAX_BOTTOM_EXCLUSION(1));
+                     S_02882C_YMAX_BOTTOM_EXCLUSION(1));
    si_pm4_set_reg(pm4, R_028830_PA_SU_SMALL_PRIM_FILTER_CNTL,
                   S_028830_SMALL_PRIM_FILTER_ENABLE(1));
    if (sctx->gfx_level >= GFX10_3) {
@@ -6005,28 +5983,26 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
        */
       si_pm4_set_reg(pm4, R_028848_PA_CL_VRS_CNTL,
                      S_028848_VERTEX_RATE_COMBINER_MODE(V_028848_SC_VRS_COMB_MODE_OVERRIDE) |
-                     S_028848_SAMPLE_ITER_COMBINER_MODE(V_028848_SC_VRS_COMB_MODE_OVERRIDE));
+                        S_028848_SAMPLE_ITER_COMBINER_MODE(V_028848_SC_VRS_COMB_MODE_OVERRIDE));
    }
 
    si_pm4_set_reg(pm4, R_028A18_VGT_HOS_MAX_TESS_LEVEL, fui(64));
    si_pm4_set_reg(pm4, R_028AAC_VGT_ESGS_RING_ITEMSIZE, 1);
    si_pm4_set_reg(pm4, R_028B50_VGT_TESS_DISTRIBUTION,
-                  sctx->gfx_level >= GFX11 ?
-                     S_028B50_ACCUM_ISOLINE(128) |
-                     S_028B50_ACCUM_TRI(128) |
-                     S_028B50_ACCUM_QUAD(128) |
-                     S_028B50_DONUT_SPLIT_GFX9(24) |
-                     S_028B50_TRAP_SPLIT(6)
-                   :
-                     S_028B50_ACCUM_ISOLINE(12) |
-                     S_028B50_ACCUM_TRI(30) |
-                     S_028B50_ACCUM_QUAD(24) |
-                     S_028B50_DONUT_SPLIT_GFX9(24) |
-                     S_028B50_TRAP_SPLIT(6));
+                  sctx->gfx_level >= GFX11 ? S_028B50_ACCUM_ISOLINE(128) |
+                                                S_028B50_ACCUM_TRI(128) |
+                                                S_028B50_ACCUM_QUAD(128) |
+                                                S_028B50_DONUT_SPLIT_GFX9(24) |
+                                                S_028B50_TRAP_SPLIT(6)
+                                           : S_028B50_ACCUM_ISOLINE(12) |
+                                                S_028B50_ACCUM_TRI(30) |
+                                                S_028B50_ACCUM_QUAD(24) |
+                                                S_028B50_DONUT_SPLIT_GFX9(24) |
+                                                S_028B50_TRAP_SPLIT(6));
 
    si_pm4_set_reg(pm4, R_028C48_PA_SC_BINNER_CNTL_1,
                   S_028C48_MAX_ALLOC_COUNT(sscreen->info.pbb_max_alloc_count - 1) |
-                  S_028C48_MAX_PRIM_PER_BATCH(1023));
+                     S_028C48_MAX_PRIM_PER_BATCH(1023));
    /* Break up a pixel wave if it contains deallocs for more than
     * half the parameter cache.
     *
@@ -6065,8 +6041,8 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
       si_pm4_cmd_add(pm4, PKT3(PKT3_EVENT_WRITE, 2, 0));
       si_pm4_cmd_add(pm4, EVENT_TYPE(V_028A90_PIXEL_PIPE_STAT_CONTROL) | EVENT_INDEX(1));
       si_pm4_cmd_add(pm4, PIXEL_PIPE_STATE_CNTL_COUNTER_ID(0) |
-                          PIXEL_PIPE_STATE_CNTL_STRIDE(2) |
-                          PIXEL_PIPE_STATE_CNTL_INSTANCE_EN_LO(rb_mask));
+                             PIXEL_PIPE_STATE_CNTL_STRIDE(2) |
+                             PIXEL_PIPE_STATE_CNTL_INSTANCE_EN_LO(rb_mask));
       si_pm4_cmd_add(pm4, PIXEL_PIPE_STATE_CNTL_INSTANCE_EN_HI(rb_mask));
 
       /* We must wait for idle using an EOP event before changing the attribute ring registers.
@@ -6074,8 +6050,8 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
        */
       si_pm4_cmd_add(pm4, PKT3(PKT3_RELEASE_MEM, 6, 0));
       si_pm4_cmd_add(pm4, S_490_EVENT_TYPE(V_028A90_BOTTOM_OF_PIPE_TS) |
-                          S_490_EVENT_INDEX(5) |
-                          S_490_PWS_ENABLE(1));
+                             S_490_EVENT_INDEX(5) |
+                             S_490_PWS_ENABLE(1));
       si_pm4_cmd_add(pm4, 0); /* DST_SEL, INT_SEL, DATA_SEL */
       si_pm4_cmd_add(pm4, 0); /* ADDRESS_LO */
       si_pm4_cmd_add(pm4, 0); /* ADDRESS_HI */
@@ -6086,15 +6062,15 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
       /* Wait for the PWS counter. */
       si_pm4_cmd_add(pm4, PKT3(PKT3_ACQUIRE_MEM, 6, 0));
       si_pm4_cmd_add(pm4, S_580_PWS_STAGE_SEL(V_580_CP_ME) |
-                          S_580_PWS_COUNTER_SEL(V_580_TS_SELECT) |
-                          S_580_PWS_ENA2(1) |
-                          S_580_PWS_COUNT(0));
+                             S_580_PWS_COUNTER_SEL(V_580_TS_SELECT) |
+                             S_580_PWS_ENA2(1) |
+                             S_580_PWS_COUNT(0));
       si_pm4_cmd_add(pm4, 0xffffffff); /* GCR_SIZE */
       si_pm4_cmd_add(pm4, 0x01ffffff); /* GCR_SIZE_HI */
-      si_pm4_cmd_add(pm4, 0); /* GCR_BASE_LO */
-      si_pm4_cmd_add(pm4, 0); /* GCR_BASE_HI */
+      si_pm4_cmd_add(pm4, 0);          /* GCR_BASE_LO */
+      si_pm4_cmd_add(pm4, 0);          /* GCR_BASE_HI */
       si_pm4_cmd_add(pm4, S_585_PWS_ENA(1));
-      si_pm4_cmd_add(pm4, 0); /* GCR_CNTL */
+      si_pm4_cmd_add(pm4, 0);          /* GCR_CNTL */
 
       si_pm4_set_reg(pm4, R_031110_SPI_GS_THROTTLE_CNTL1, 0x12355123);
       si_pm4_set_reg(pm4, R_031114_SPI_GS_THROTTLE_CNTL2, 0x1544D);
@@ -6106,8 +6082,8 @@ static void gfx10_init_gfx_preamble_state(struct si_context *sctx, bool uses_reg
                      sscreen->attribute_ring->gpu_address >> 16);
       si_pm4_set_reg(pm4, R_03111C_SPI_ATTRIBUTE_RING_SIZE,
                      S_03111C_MEM_SIZE((sscreen->info.attribute_ring_size_per_se >> 16) - 1) |
-                     S_03111C_BIG_PAGE(sscreen->info.discardable_allows_big_page) |
-                     S_03111C_L1_POLICY(1));
+                        S_03111C_BIG_PAGE(sscreen->info.discardable_allows_big_page) |
+                        S_03111C_L1_POLICY(1));
    }
 
 done:

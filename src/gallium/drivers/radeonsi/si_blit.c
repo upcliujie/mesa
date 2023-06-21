@@ -5,14 +5,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_compute.h"
-#include "si_pipe.h"
 #include "util/format/u_format.h"
 #include "util/u_log.h"
 #include "util/u_surface.h"
+#include "si_compute.h"
+#include "si_pipe.h"
 
-enum
-{
+enum {
    SI_COPY =
       SI_SAVE_FRAMEBUFFER | SI_SAVE_TEXTURES | SI_SAVE_FRAGMENT_STATE | SI_DISABLE_RENDER_COND,
 
@@ -861,7 +860,7 @@ void gfx11_decompress_textures(struct si_context *sctx, unsigned shader_mask)
 
    /* Decompress depth textures if needed. */
    unsigned mask = sctx->shader_needs_decompress_mask & shader_mask;
-   u_foreach_bit(i, mask) {
+   u_foreach_bit (i, mask) {
       assert(sctx->samplers[i].needs_depth_decompress_mask);
       si_decompress_sampler_depth_textures(sctx, &sctx->samplers[i]);
    }
@@ -970,30 +969,30 @@ void si_resource_copy_region(struct pipe_context *ctx, struct pipe_resource *dst
 
    if (!util_blitter_is_copy_supported(sctx->blitter, dst, src)) {
       switch (ssrc->surface.bpe) {
-      case 1:
-         dst_templ.format = PIPE_FORMAT_R8_UNORM;
-         src_templ.format = PIPE_FORMAT_R8_UNORM;
-         break;
-      case 2:
-         dst_templ.format = PIPE_FORMAT_R8G8_UNORM;
-         src_templ.format = PIPE_FORMAT_R8G8_UNORM;
-         break;
-      case 4:
-         dst_templ.format = PIPE_FORMAT_R8G8B8A8_UNORM;
-         src_templ.format = PIPE_FORMAT_R8G8B8A8_UNORM;
-         break;
-      case 8:
-         dst_templ.format = PIPE_FORMAT_R16G16B16A16_UINT;
-         src_templ.format = PIPE_FORMAT_R16G16B16A16_UINT;
-         break;
-      case 16:
-         dst_templ.format = PIPE_FORMAT_R32G32B32A32_UINT;
-         src_templ.format = PIPE_FORMAT_R32G32B32A32_UINT;
-         break;
-      default:
-         fprintf(stderr, "Unhandled format %s with blocksize %u\n",
-                 util_format_short_name(src->format), ssrc->surface.bpe);
-         assert(0);
+         case 1:
+            dst_templ.format = PIPE_FORMAT_R8_UNORM;
+            src_templ.format = PIPE_FORMAT_R8_UNORM;
+            break;
+         case 2:
+            dst_templ.format = PIPE_FORMAT_R8G8_UNORM;
+            src_templ.format = PIPE_FORMAT_R8G8_UNORM;
+            break;
+         case 4:
+            dst_templ.format = PIPE_FORMAT_R8G8B8A8_UNORM;
+            src_templ.format = PIPE_FORMAT_R8G8B8A8_UNORM;
+            break;
+         case 8:
+            dst_templ.format = PIPE_FORMAT_R16G16B16A16_UINT;
+            src_templ.format = PIPE_FORMAT_R16G16B16A16_UINT;
+            break;
+         case 16:
+            dst_templ.format = PIPE_FORMAT_R32G32B32A32_UINT;
+            src_templ.format = PIPE_FORMAT_R32G32B32A32_UINT;
+            break;
+         default:
+            fprintf(stderr, "Unhandled format %s with blocksize %u\n",
+                    util_format_short_name(src->format), ssrc->surface.bpe);
+            assert(0);
       }
    }
 
@@ -1225,10 +1224,10 @@ static void si_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
          si_init_aux_async_compute_ctx(sscreen);
 
       if (sscreen->async_compute_context) {
-         si_compute_copy_image((struct si_context*)sctx->screen->async_compute_context,
+         si_compute_copy_image((struct si_context *)sctx->screen->async_compute_context,
                                info->dst.resource, 0, info->src.resource, 0, 0, 0, 0,
                                &info->src.box, 0);
-         si_flush_gfx_cs((struct si_context*)sctx->screen->async_compute_context, 0, NULL);
+         si_flush_gfx_cs((struct si_context *)sctx->screen->async_compute_context, 0, NULL);
          simple_mtx_unlock(&sscreen->async_compute_context_lock);
          return;
       }
@@ -1337,7 +1336,7 @@ static void si_flush_resource(struct pipe_context *ctx, struct pipe_resource *re
 
 void si_flush_implicit_resources(struct si_context *sctx)
 {
-   hash_table_foreach(sctx->dirty_implicit_resources, entry) {
+   hash_table_foreach (sctx->dirty_implicit_resources, entry) {
       si_flush_resource(&sctx->b, entry->data);
       pipe_resource_reference((struct pipe_resource **)&entry->data, NULL);
    }

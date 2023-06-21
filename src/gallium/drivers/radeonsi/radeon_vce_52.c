@@ -7,12 +7,12 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
-#include "radeon_vce.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_vce.h"
+#include "radeon_video.h"
 
 #include <stdio.h>
 
@@ -34,9 +34,9 @@ static void get_rate_control_param(struct rvce_encoder *enc, struct pipe_h264_en
     * as target bitrate.
     */
    if (enc->enc_pic.rc.rc_method == PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT) {
-           enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].target_bitrate;
+      enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].target_bitrate;
    } else {
-           enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].vbv_buffer_size;
+      enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].vbv_buffer_size;
    }
 
    enc->enc_pic.rc.vbv_buf_lv = pic->rate_ctrl[0].vbv_buf_lv;
@@ -163,22 +163,22 @@ static void create(struct rvce_encoder *enc)
    struct si_screen *sscreen = (struct si_screen *)enc->screen;
    enc->task_info(enc, 0x00000000, 0, 0, 0);
 
-   RVCE_BEGIN(0x01000001); // create cmd
+   RVCE_BEGIN(0x01000001);                             // create cmd
    RVCE_CS(enc->enc_pic.ec.enc_use_circular_buffer);
    RVCE_CS(u_get_h264_profile_idc(enc->base.profile)); // encProfile
    RVCE_CS(enc->base.level);                           // encLevel
    RVCE_CS(enc->enc_pic.ec.enc_pic_struct_restriction);
-   RVCE_CS(enc->base.width);  // encImageWidth
-   RVCE_CS(enc->base.height); // encImageHeight
+   RVCE_CS(enc->base.width);                           // encImageWidth
+   RVCE_CS(enc->base.height);                          // encImageHeight
 
    if (sscreen->info.gfx_level < GFX9) {
       RVCE_CS(enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);     // encRefPicLumaPitch
       RVCE_CS(enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe); // encRefPicChromaPitch
       RVCE_CS(align(enc->luma->u.legacy.level[0].nblk_y, 16) / 8);       // encRefYHeightInQw
    } else {
-      RVCE_CS(enc->luma->u.gfx9.surf_pitch * enc->luma->bpe);     // encRefPicLumaPitch
-      RVCE_CS(enc->chroma->u.gfx9.surf_pitch * enc->chroma->bpe); // encRefPicChromaPitch
-      RVCE_CS(align(enc->luma->u.gfx9.surf_height, 16) / 8);      // encRefYHeightInQw
+      RVCE_CS(enc->luma->u.gfx9.surf_pitch * enc->luma->bpe);            // encRefPicLumaPitch
+      RVCE_CS(enc->chroma->u.gfx9.surf_pitch * enc->chroma->bpe);        // encRefPicChromaPitch
+      RVCE_CS(align(enc->luma->u.gfx9.surf_height, 16) / 8);             // encRefYHeightInQw
    }
 
    RVCE_CS(enc->enc_pic.addrmode_arraymode_disrdo_distwoinstants);
@@ -236,7 +236,7 @@ static void encode(struct rvce_encoder *enc)
    RVCE_BEGIN(0x03000001);                       // encode
    RVCE_CS(enc->enc_pic.frame_num ? 0x0 : 0x11); // insertHeaders
    RVCE_CS(enc->enc_pic.eo.picture_structure);
-   RVCE_CS(enc->bs_size); // allowedMaxBitstreamSize
+   RVCE_CS(enc->bs_size);                        // allowedMaxBitstreamSize
    RVCE_CS(enc->enc_pic.eo.force_refresh_map);
    RVCE_CS(enc->enc_pic.eo.insert_aud);
    RVCE_CS(enc->enc_pic.eo.end_of_sequence);
@@ -244,15 +244,15 @@ static void encode(struct rvce_encoder *enc)
 
    if (sscreen->info.gfx_level < GFX9) {
       RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
-                (uint64_t)enc->luma->u.legacy.level[0].offset_256B * 256); // inputPictureLumaAddressHi/Lo
+                (uint64_t)enc->luma->u.legacy.level[0].offset_256B * 256);   // inputPictureLumaAddressHi/Lo
       RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
-                (uint64_t)enc->chroma->u.legacy.level[0].offset_256B * 256);        // inputPictureChromaAddressHi/Lo
-      RVCE_CS(align(enc->luma->u.legacy.level[0].nblk_y, 16)); // encInputFrameYPitch
-      RVCE_CS(enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);     // encInputPicLumaPitch
-      RVCE_CS(enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe); // encInputPicChromaPitch
+                (uint64_t)enc->chroma->u.legacy.level[0].offset_256B * 256); // inputPictureChromaAddressHi/Lo
+      RVCE_CS(align(enc->luma->u.legacy.level[0].nblk_y, 16));               // encInputFrameYPitch
+      RVCE_CS(enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);         // encInputPicLumaPitch
+      RVCE_CS(enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe);     // encInputPicChromaPitch
    } else {
       RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
-                enc->luma->u.gfx9.surf_offset); // inputPictureLumaAddressHi/Lo
+                enc->luma->u.gfx9.surf_offset);                   // inputPictureLumaAddressHi/Lo
       RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
                 enc->chroma->u.gfx9.surf_offset);                 // inputPictureChromaAddressHi/Lo
       RVCE_CS(align(enc->luma->u.gfx9.surf_height, 16));          // encInputFrameYPitch

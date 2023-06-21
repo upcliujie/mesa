@@ -96,9 +96,12 @@ static void si_alpha_test(struct si_shader_context *ctx, LLVMValueRef alpha)
 {
    if (ctx->shader->key.ps.part.epilog.alpha_func != PIPE_FUNC_NEVER) {
       static LLVMRealPredicate cond_map[PIPE_FUNC_ALWAYS + 1] = {
-         [PIPE_FUNC_LESS] = LLVMRealOLT,     [PIPE_FUNC_EQUAL] = LLVMRealOEQ,
-         [PIPE_FUNC_LEQUAL] = LLVMRealOLE,   [PIPE_FUNC_GREATER] = LLVMRealOGT,
-         [PIPE_FUNC_NOTEQUAL] = LLVMRealONE, [PIPE_FUNC_GEQUAL] = LLVMRealOGE,
+         [PIPE_FUNC_LESS] = LLVMRealOLT,
+         [PIPE_FUNC_EQUAL] = LLVMRealOEQ,
+         [PIPE_FUNC_LEQUAL] = LLVMRealOLE,
+         [PIPE_FUNC_GREATER] = LLVMRealOGT,
+         [PIPE_FUNC_NOTEQUAL] = LLVMRealONE,
+         [PIPE_FUNC_GEQUAL] = LLVMRealOGE,
       };
       LLVMRealPredicate cond = cond_map[ctx->shader->key.ps.part.epilog.alpha_func];
       assert(cond);
@@ -129,18 +132,18 @@ static LLVMValueRef get_color_32bit(struct si_shader_context *ctx, unsigned colo
                                     LLVMValueRef value)
 {
    switch (color_type) {
-   case SI_TYPE_FLOAT16:
-      return LLVMBuildFPExt(ctx->ac.builder, value, ctx->ac.f32, "");
-   case SI_TYPE_INT16:
-      value = ac_to_integer(&ctx->ac, value);
-      value = LLVMBuildSExt(ctx->ac.builder, value, ctx->ac.i32, "");
-      return ac_to_float(&ctx->ac, value);
-   case SI_TYPE_UINT16:
-      value = ac_to_integer(&ctx->ac, value);
-      value = LLVMBuildZExt(ctx->ac.builder, value, ctx->ac.i32, "");
-      return ac_to_float(&ctx->ac, value);
-   case SI_TYPE_ANY32:
-      return value;
+      case SI_TYPE_FLOAT16:
+         return LLVMBuildFPExt(ctx->ac.builder, value, ctx->ac.f32, "");
+      case SI_TYPE_INT16:
+         value = ac_to_integer(&ctx->ac, value);
+         value = LLVMBuildSExt(ctx->ac.builder, value, ctx->ac.i32, "");
+         return ac_to_float(&ctx->ac, value);
+      case SI_TYPE_UINT16:
+         value = ac_to_integer(&ctx->ac, value);
+         value = LLVMBuildZExt(ctx->ac.builder, value, ctx->ac.i32, "");
+         return ac_to_float(&ctx->ac, value);
+      case SI_TYPE_ANY32:
+         return value;
    }
    return NULL;
 }
@@ -190,73 +193,73 @@ static bool si_llvm_init_ps_export_args(struct si_shader_context *ctx, LLVMValue
    args->out[2] = f32undef;
    args->out[3] = f32undef;
 
-   LLVMValueRef (*packf)(struct ac_llvm_context * ctx, LLVMValueRef args[2]) = NULL;
-   LLVMValueRef (*packi)(struct ac_llvm_context * ctx, LLVMValueRef args[2], unsigned bits,
+   LLVMValueRef (*packf)(struct ac_llvm_context *ctx, LLVMValueRef args[2]) = NULL;
+   LLVMValueRef (*packi)(struct ac_llvm_context *ctx, LLVMValueRef args[2], unsigned bits,
                          bool hi) = NULL;
 
    switch (spi_shader_col_format) {
-   case V_028714_SPI_SHADER_32_R:
-      args->enabled_channels = 1; /* writemask */
-      args->out[0] = get_color_32bit(ctx, color_type, values[0]);
-      break;
+      case V_028714_SPI_SHADER_32_R:
+         args->enabled_channels = 1; /* writemask */
+         args->out[0] = get_color_32bit(ctx, color_type, values[0]);
+         break;
 
-   case V_028714_SPI_SHADER_32_GR:
-      args->enabled_channels = 0x3; /* writemask */
-      args->out[0] = get_color_32bit(ctx, color_type, values[0]);
-      args->out[1] = get_color_32bit(ctx, color_type, values[1]);
-      break;
-
-   case V_028714_SPI_SHADER_32_AR:
-      if (ctx->screen->info.gfx_level >= GFX10) {
+      case V_028714_SPI_SHADER_32_GR:
          args->enabled_channels = 0x3; /* writemask */
          args->out[0] = get_color_32bit(ctx, color_type, values[0]);
-         args->out[1] = get_color_32bit(ctx, color_type, values[3]);
-      } else {
-         args->enabled_channels = 0x9; /* writemask */
-         args->out[0] = get_color_32bit(ctx, color_type, values[0]);
-         args->out[3] = get_color_32bit(ctx, color_type, values[3]);
-      }
-      break;
+         args->out[1] = get_color_32bit(ctx, color_type, values[1]);
+         break;
 
-   case V_028714_SPI_SHADER_FP16_ABGR:
-      if (color_type != SI_TYPE_ANY32)
-         packf = pack_two_16bit;
-      else
-         packf = ac_build_cvt_pkrtz_f16;
-      break;
+      case V_028714_SPI_SHADER_32_AR:
+         if (ctx->screen->info.gfx_level >= GFX10) {
+            args->enabled_channels = 0x3; /* writemask */
+            args->out[0] = get_color_32bit(ctx, color_type, values[0]);
+            args->out[1] = get_color_32bit(ctx, color_type, values[3]);
+         } else {
+            args->enabled_channels = 0x9; /* writemask */
+            args->out[0] = get_color_32bit(ctx, color_type, values[0]);
+            args->out[3] = get_color_32bit(ctx, color_type, values[3]);
+         }
+         break;
 
-   case V_028714_SPI_SHADER_UNORM16_ABGR:
-      if (color_type != SI_TYPE_ANY32)
-         packf = ac_build_cvt_pknorm_u16_f16;
-      else
-         packf = ac_build_cvt_pknorm_u16;
-      break;
+      case V_028714_SPI_SHADER_FP16_ABGR:
+         if (color_type != SI_TYPE_ANY32)
+            packf = pack_two_16bit;
+         else
+            packf = ac_build_cvt_pkrtz_f16;
+         break;
 
-   case V_028714_SPI_SHADER_SNORM16_ABGR:
-      if (color_type != SI_TYPE_ANY32)
-         packf = ac_build_cvt_pknorm_i16_f16;
-      else
-         packf = ac_build_cvt_pknorm_i16;
-      break;
+      case V_028714_SPI_SHADER_UNORM16_ABGR:
+         if (color_type != SI_TYPE_ANY32)
+            packf = ac_build_cvt_pknorm_u16_f16;
+         else
+            packf = ac_build_cvt_pknorm_u16;
+         break;
 
-   case V_028714_SPI_SHADER_UINT16_ABGR:
-      if (color_type != SI_TYPE_ANY32)
-         packf = pack_two_16bit;
-      else
-         packi = ac_build_cvt_pk_u16;
-      break;
+      case V_028714_SPI_SHADER_SNORM16_ABGR:
+         if (color_type != SI_TYPE_ANY32)
+            packf = ac_build_cvt_pknorm_i16_f16;
+         else
+            packf = ac_build_cvt_pknorm_i16;
+         break;
 
-   case V_028714_SPI_SHADER_SINT16_ABGR:
-      if (color_type != SI_TYPE_ANY32)
-         packf = pack_two_16bit;
-      else
-         packi = ac_build_cvt_pk_i16;
-      break;
+      case V_028714_SPI_SHADER_UINT16_ABGR:
+         if (color_type != SI_TYPE_ANY32)
+            packf = pack_two_16bit;
+         else
+            packi = ac_build_cvt_pk_u16;
+         break;
 
-   case V_028714_SPI_SHADER_32_ABGR:
-      for (unsigned i = 0; i < 4; i++)
-         args->out[i] = get_color_32bit(ctx, color_type, values[i]);
-      break;
+      case V_028714_SPI_SHADER_SINT16_ABGR:
+         if (color_type != SI_TYPE_ANY32)
+            packf = pack_two_16bit;
+         else
+            packi = ac_build_cvt_pk_i16;
+         break;
+
+      case V_028714_SPI_SHADER_32_ABGR:
+         for (unsigned i = 0; i < 4; i++)
+            args->out[i] = get_color_32bit(ctx, color_type, values[i]);
+         break;
    }
 
    /* Pack f16 or norm_i16/u16. */
@@ -276,7 +279,9 @@ static bool si_llvm_init_ps_export_args(struct si_shader_context *ctx, LLVMValue
                                       ac_to_integer(&ctx->ac, values[2 * chan + 1])};
          LLVMValueRef packed;
 
-         packed = packi(&ctx->ac, pack_args, is_int8 ? 8 : is_int10 ? 10 : 16, chan == 1);
+         packed = packi(&ctx->ac, pack_args, is_int8 ? 8 : is_int10 ? 10
+                                                                    : 16,
+                        chan == 1);
          args->out[chan] = ac_to_float(&ctx->ac, packed);
       }
    }
@@ -366,29 +371,29 @@ void si_llvm_ps_build_end(struct si_shader_context *ctx)
       LLVMTypeRef type = ctx->abi.is_16bit[4 * i] ? ctx->ac.f16 : ctx->ac.f32;
 
       switch (semantic) {
-      case FRAG_RESULT_DEPTH:
-         depth = LLVMBuildLoad2(builder, type, addrs[4 * i + 0], "");
-         break;
-      case FRAG_RESULT_STENCIL:
-         stencil = LLVMBuildLoad2(builder, type, addrs[4 * i + 0], "");
-         break;
-      case FRAG_RESULT_SAMPLE_MASK:
-         samplemask = LLVMBuildLoad2(builder, type, addrs[4 * i + 0], "");
-         break;
-      default:
-         if (semantic >= FRAG_RESULT_DATA0 && semantic <= FRAG_RESULT_DATA7) {
-            unsigned index = semantic - FRAG_RESULT_DATA0;
+         case FRAG_RESULT_DEPTH:
+            depth = LLVMBuildLoad2(builder, type, addrs[4 * i + 0], "");
+            break;
+         case FRAG_RESULT_STENCIL:
+            stencil = LLVMBuildLoad2(builder, type, addrs[4 * i + 0], "");
+            break;
+         case FRAG_RESULT_SAMPLE_MASK:
+            samplemask = LLVMBuildLoad2(builder, type, addrs[4 * i + 0], "");
+            break;
+         default:
+            if (semantic >= FRAG_RESULT_DATA0 && semantic <= FRAG_RESULT_DATA7) {
+               unsigned index = semantic - FRAG_RESULT_DATA0;
 
-            for (j = 0; j < 4; j++) {
-               LLVMValueRef ptr = addrs[4 * i + j];
-               type = ctx->abi.is_16bit[4 * i + j] ? ctx->ac.f16 : ctx->ac.f32;
-               LLVMValueRef result = LLVMBuildLoad2(builder, type, ptr, "");
-               color[index][j] = result;
+               for (j = 0; j < 4; j++) {
+                  LLVMValueRef ptr = addrs[4 * i + j];
+                  type = ctx->abi.is_16bit[4 * i + j] ? ctx->ac.f16 : ctx->ac.f32;
+                  LLVMValueRef result = LLVMBuildLoad2(builder, type, ptr, "");
+                  color[index][j] = result;
+               }
+            } else {
+               fprintf(stderr, "Warning: Unhandled fs output type:%d\n", semantic);
             }
-         } else {
-            fprintf(stderr, "Warning: Unhandled fs output type:%d\n", semantic);
-         }
-         break;
+            break;
       }
    }
 
@@ -445,7 +450,7 @@ static void si_llvm_emit_polygon_stipple(struct si_shader_context *ctx,
    /* Load the buffer descriptor. */
    slot = LLVMConstInt(ctx->ac.i32, SI_PS_CONST_POLY_STIPPLE, 0);
 
-   desc = ac_build_load_to_sgpr(&ctx->ac, (struct ac_llvm_pointer) { .t = ctx->ac.v4i32, .v = param_internal_bindings }, slot);
+   desc = ac_build_load_to_sgpr(&ctx->ac, (struct ac_llvm_pointer){.t = ctx->ac.v4i32, .v = param_internal_bindings}, slot);
 
    /* The stipple pattern is 32x32, each row has 32 bits. */
    offset = LLVMBuildMul(builder, address[1], LLVMConstInt(ctx->ac.i32, 4, 0), "");
@@ -803,8 +808,8 @@ void si_llvm_build_ps_epilog(struct si_shader_context *ctx, union si_shader_part
    }
 
    if (exp.num) {
-      exp.args[exp.num - 1].valid_mask = 1;  /* whether the EXEC mask is valid */
-      exp.args[exp.num - 1].done = 1;        /* DONE bit */
+      exp.args[exp.num - 1].valid_mask = 1; /* whether the EXEC mask is valid */
+      exp.args[exp.num - 1].done = 1;       /* DONE bit */
 
       if (key->ps_epilog.states.dual_src_blend_swizzle) {
          assert(ctx->ac.gfx_level >= GFX11);
@@ -822,4 +827,3 @@ void si_llvm_build_ps_epilog(struct si_shader_context *ctx, union si_shader_part
    /* Compile. */
    LLVMBuildRetVoid(ctx->ac.builder);
 }
-

@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_transfer.h"
 #include "util/u_upload_mgr.h"
+#include "si_pipe.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -36,24 +36,24 @@ void si_init_resource_fields(struct si_screen *sscreen, struct si_resource *res,
    res->image_handle_allocated = false;
 
    switch (res->b.b.usage) {
-   case PIPE_USAGE_STREAM:
-      res->flags |= RADEON_FLAG_GTT_WC;
-      res->domains = RADEON_DOMAIN_GTT;
-      break;
-   case PIPE_USAGE_STAGING:
-      /* Transfers are likely to occur more often with these
-       * resources. */
-      res->domains = RADEON_DOMAIN_GTT;
-      break;
-   case PIPE_USAGE_DYNAMIC:
-   case PIPE_USAGE_DEFAULT:
-   case PIPE_USAGE_IMMUTABLE:
-   default:
-      /* Not listing GTT here improves performance in some
-       * apps. */
-      res->domains = RADEON_DOMAIN_VRAM;
-      res->flags |= RADEON_FLAG_GTT_WC;
-      break;
+      case PIPE_USAGE_STREAM:
+         res->flags |= RADEON_FLAG_GTT_WC;
+         res->domains = RADEON_DOMAIN_GTT;
+         break;
+      case PIPE_USAGE_STAGING:
+         /* Transfers are likely to occur more often with these
+          * resources. */
+         res->domains = RADEON_DOMAIN_GTT;
+         break;
+      case PIPE_USAGE_DYNAMIC:
+      case PIPE_USAGE_DEFAULT:
+      case PIPE_USAGE_IMMUTABLE:
+      default:
+         /* Not listing GTT here improves performance in some
+          * apps. */
+         res->domains = RADEON_DOMAIN_VRAM;
+         res->flags |= RADEON_FLAG_GTT_WC;
+         break;
    }
 
    if (res->b.b.target == PIPE_BUFFER && res->b.b.flags & PIPE_RESOURCE_FLAG_MAP_PERSISTENT) {
@@ -201,13 +201,13 @@ static void si_resource_destroy(struct pipe_screen *screen, struct pipe_resource
 
       threaded_resource_deinit(buf);
       util_range_destroy(&buffer->valid_buffer_range);
-      radeon_bo_reference(((struct si_screen*)screen)->ws, &buffer->buf, NULL);
+      radeon_bo_reference(((struct si_screen *)screen)->ws, &buffer->buf, NULL);
       util_idalloc_mt_free(&sscreen->buffer_ids, buffer->b.buffer_id_unique);
       FREE_CL(buffer);
    } else if (buf->flags & SI_RESOURCE_AUX_PLANE) {
       struct si_auxiliary_texture *tex = (struct si_auxiliary_texture *)buf;
 
-      radeon_bo_reference(((struct si_screen*)screen)->ws, &tex->buffer, NULL);
+      radeon_bo_reference(((struct si_screen *)screen)->ws, &tex->buffer, NULL);
       FREE_CL(tex);
    } else {
       struct si_texture *tex = (struct si_texture *)buf;
@@ -218,7 +218,7 @@ static void si_resource_destroy(struct pipe_screen *screen, struct pipe_resource
       if (tex->cmask_buffer != &tex->buffer) {
          si_resource_reference(&tex->cmask_buffer, NULL);
       }
-      radeon_bo_reference(((struct si_screen*)screen)->ws, &resource->buf, NULL);
+      radeon_bo_reference(((struct si_screen *)screen)->ws, &resource->buf, NULL);
       FREE_CL(tex);
    }
 }
@@ -663,19 +663,19 @@ struct pipe_resource *si_buffer_from_winsys_buffer(struct pipe_screen *screen,
 
    /* Deduce the usage. */
    switch (domains) {
-   case RADEON_DOMAIN_VRAM:
-   case RADEON_DOMAIN_VRAM_GTT:
-      res->b.b.usage = PIPE_USAGE_DEFAULT;
-      break;
+      case RADEON_DOMAIN_VRAM:
+      case RADEON_DOMAIN_VRAM_GTT:
+         res->b.b.usage = PIPE_USAGE_DEFAULT;
+         break;
 
-   default:
-      /* Other values are interpreted as GTT. */
-      domains = RADEON_DOMAIN_GTT;
+      default:
+         /* Other values are interpreted as GTT. */
+         domains = RADEON_DOMAIN_GTT;
 
-      if (flags & RADEON_FLAG_GTT_WC)
-         res->b.b.usage = PIPE_USAGE_STREAM;
-      else
-         res->b.b.usage = PIPE_USAGE_STAGING;
+         if (flags & RADEON_FLAG_GTT_WC)
+            res->b.b.usage = PIPE_USAGE_STREAM;
+         else
+            res->b.b.usage = PIPE_USAGE_STAGING;
    }
 
    si_init_resource_fields(sscreen, res, imported_buf->size,

@@ -7,9 +7,9 @@
 #include "nir_builder.h"
 
 #include "ac_nir.h"
+#include "si_pipe.h"
 #include "si_shader_internal.h"
 #include "si_state.h"
-#include "si_pipe.h"
 
 struct lower_vs_inputs_state {
    struct si_shader *shader;
@@ -104,9 +104,7 @@ get_vertex_index_for_all_inputs(nir_shader *nir, struct lower_vs_inputs_state *s
    }
 
    for (int i = 0; i < sel->info.num_inputs; i++) {
-      s->vertex_index[i] = s->shader->is_monolithic ?
-         get_vertex_index_for_mono_shader(b, i, s) :
-         get_vertex_index_for_part_shader(b, i, s);
+      s->vertex_index[i] = s->shader->is_monolithic ? get_vertex_index_for_mono_shader(b, i, s) : get_vertex_index_for_part_shader(b, i, s);
    }
 }
 
@@ -307,123 +305,122 @@ opencoded_load_format(nir_builder *b, nir_ssa_def *rsrc, nir_ssa_def *vindex,
 
    if (log_size == 3) {
       switch (format) {
-      case AC_FETCH_FORMAT_FLOAT: {
-         for (unsigned i = 0; i < num_channels; ++i)
-            loads[i] = nir_pack_64_2x32_split(b, loads[2 * i], loads[2 * i + 1]);
-         break;
-      }
-      case AC_FETCH_FORMAT_FIXED: {
-         /* 10_11_11_FLOAT */
-         nir_ssa_def *data = loads[0];
-         nir_ssa_def *red = nir_iand_imm(b, data, 2047);
-         nir_ssa_def *green = nir_iand_imm(b, nir_ushr_imm(b, data, 11), 2047);
-         nir_ssa_def *blue = nir_ushr_imm(b, data, 22);
+         case AC_FETCH_FORMAT_FLOAT: {
+            for (unsigned i = 0; i < num_channels; ++i)
+               loads[i] = nir_pack_64_2x32_split(b, loads[2 * i], loads[2 * i + 1]);
+            break;
+         }
+         case AC_FETCH_FORMAT_FIXED: {
+            /* 10_11_11_FLOAT */
+            nir_ssa_def *data = loads[0];
+            nir_ssa_def *red = nir_iand_imm(b, data, 2047);
+            nir_ssa_def *green = nir_iand_imm(b, nir_ushr_imm(b, data, 11), 2047);
+            nir_ssa_def *blue = nir_ushr_imm(b, data, 22);
 
-         loads[0] = ufN_to_float(b, red, 5, 6);
-         loads[1] = ufN_to_float(b, green, 5, 6);
-         loads[2] = ufN_to_float(b, blue, 5, 5);
+            loads[0] = ufN_to_float(b, red, 5, 6);
+            loads[1] = ufN_to_float(b, green, 5, 6);
+            loads[2] = ufN_to_float(b, blue, 5, 5);
 
-         num_channels = 3;
-         log_size = 2;
-         format = AC_FETCH_FORMAT_FLOAT;
-         break;
-      }
-      case AC_FETCH_FORMAT_UINT:
-      case AC_FETCH_FORMAT_UNORM:
-      case AC_FETCH_FORMAT_USCALED: {
-         /* 2_10_10_10 data formats */
-         nir_ssa_def *data = loads[0];
+            num_channels = 3;
+            log_size = 2;
+            format = AC_FETCH_FORMAT_FLOAT;
+            break;
+         }
+         case AC_FETCH_FORMAT_UINT:
+         case AC_FETCH_FORMAT_UNORM:
+         case AC_FETCH_FORMAT_USCALED: {
+            /* 2_10_10_10 data formats */
+            nir_ssa_def *data = loads[0];
 
-         loads[0] = nir_ubfe_imm(b, data, 0, 10);
-         loads[1] = nir_ubfe_imm(b, data, 10, 10);
-         loads[2] = nir_ubfe_imm(b, data, 20, 10);
-         loads[3] = nir_ubfe_imm(b, data, 30, 2);
+            loads[0] = nir_ubfe_imm(b, data, 0, 10);
+            loads[1] = nir_ubfe_imm(b, data, 10, 10);
+            loads[2] = nir_ubfe_imm(b, data, 20, 10);
+            loads[3] = nir_ubfe_imm(b, data, 30, 2);
 
-         num_channels = 4;
-         break;
-      }
-      case AC_FETCH_FORMAT_SINT:
-      case AC_FETCH_FORMAT_SNORM:
-      case AC_FETCH_FORMAT_SSCALED: {
-         /* 2_10_10_10 data formats */
-         nir_ssa_def *data = loads[0];
+            num_channels = 4;
+            break;
+         }
+         case AC_FETCH_FORMAT_SINT:
+         case AC_FETCH_FORMAT_SNORM:
+         case AC_FETCH_FORMAT_SSCALED: {
+            /* 2_10_10_10 data formats */
+            nir_ssa_def *data = loads[0];
 
-         loads[0] = nir_ibfe_imm(b, data, 0, 10);
-         loads[1] = nir_ibfe_imm(b, data, 10, 10);
-         loads[2] = nir_ibfe_imm(b, data, 20, 10);
-         loads[3] = nir_ibfe_imm(b, data, 30, 2);
+            loads[0] = nir_ibfe_imm(b, data, 0, 10);
+            loads[1] = nir_ibfe_imm(b, data, 10, 10);
+            loads[2] = nir_ibfe_imm(b, data, 20, 10);
+            loads[3] = nir_ibfe_imm(b, data, 30, 2);
 
-         num_channels = 4;
-         break;
-      }
-      default:
-         unreachable("invalid fetch format");
-         break;
+            num_channels = 4;
+            break;
+         }
+         default:
+            unreachable("invalid fetch format");
+            break;
       }
    }
 
    switch (format) {
-   case AC_FETCH_FORMAT_FLOAT:
-      if (log_size != 2) {
+      case AC_FETCH_FORMAT_FLOAT:
+         if (log_size != 2) {
+            for (unsigned chan = 0; chan < num_channels; ++chan)
+               loads[chan] = nir_f2f32(b, loads[chan]);
+         }
+         break;
+      case AC_FETCH_FORMAT_UINT:
+         if (log_size != 2) {
+            for (unsigned chan = 0; chan < num_channels; ++chan)
+               loads[chan] = nir_u2u32(b, loads[chan]);
+         }
+         break;
+      case AC_FETCH_FORMAT_SINT:
+         if (log_size != 2) {
+            for (unsigned chan = 0; chan < num_channels; ++chan)
+               loads[chan] = nir_i2i32(b, loads[chan]);
+         }
+         break;
+      case AC_FETCH_FORMAT_USCALED:
          for (unsigned chan = 0; chan < num_channels; ++chan)
-            loads[chan] = nir_f2f32(b, loads[chan]);
-      }
-      break;
-   case AC_FETCH_FORMAT_UINT:
-      if (log_size != 2) {
+            loads[chan] = nir_u2f32(b, loads[chan]);
+         break;
+      case AC_FETCH_FORMAT_SSCALED:
          for (unsigned chan = 0; chan < num_channels; ++chan)
-            loads[chan] = nir_u2u32(b, loads[chan]);
-      }
-      break;
-   case AC_FETCH_FORMAT_SINT:
-      if (log_size != 2) {
-         for (unsigned chan = 0; chan < num_channels; ++chan)
-            loads[chan] = nir_i2i32(b, loads[chan]);
-      }
-      break;
-   case AC_FETCH_FORMAT_USCALED:
-      for (unsigned chan = 0; chan < num_channels; ++chan)
-         loads[chan] = nir_u2f32(b, loads[chan]);
-      break;
-   case AC_FETCH_FORMAT_SSCALED:
-      for (unsigned chan = 0; chan < num_channels; ++chan)
-         loads[chan] = nir_i2f32(b, loads[chan]);
-      break;
-   case AC_FETCH_FORMAT_FIXED:
-      for (unsigned chan = 0; chan < num_channels; ++chan) {
-         nir_ssa_def *tmp = nir_i2f32(b, loads[chan]);
-         loads[chan] = nir_fmul_imm(b, tmp, 1.0 / 0x10000);
-      }
-      break;
-   case AC_FETCH_FORMAT_UNORM:
-      for (unsigned chan = 0; chan < num_channels; ++chan) {
-         /* 2_10_10_10 data formats */
-         unsigned bits = log_size == 3 ? (chan == 3 ? 2 : 10) : (8 << log_size);
-         nir_ssa_def *tmp = nir_u2f32(b, loads[chan]);
-         loads[chan] = nir_fmul_imm(b, tmp, 1.0 / BITFIELD64_MASK(bits));
-      }
-      break;
-   case AC_FETCH_FORMAT_SNORM:
-      for (unsigned chan = 0; chan < num_channels; ++chan) {
-         /* 2_10_10_10 data formats */
-         unsigned bits = log_size == 3 ? (chan == 3 ? 2 : 10) : (8 << log_size);
-         nir_ssa_def *tmp = nir_i2f32(b, loads[chan]);
-         tmp = nir_fmul_imm(b, tmp, 1.0 / BITFIELD64_MASK(bits - 1));
-         /* Clamp to [-1, 1] */
-         tmp = nir_fmax(b, tmp, nir_imm_float(b, -1));
-         loads[chan] = nir_fmin(b, tmp, nir_imm_float(b, 1));
-      }
-      break;
-   default:
-      unreachable("invalid fetch format");
-      break;
+            loads[chan] = nir_i2f32(b, loads[chan]);
+         break;
+      case AC_FETCH_FORMAT_FIXED:
+         for (unsigned chan = 0; chan < num_channels; ++chan) {
+            nir_ssa_def *tmp = nir_i2f32(b, loads[chan]);
+            loads[chan] = nir_fmul_imm(b, tmp, 1.0 / 0x10000);
+         }
+         break;
+      case AC_FETCH_FORMAT_UNORM:
+         for (unsigned chan = 0; chan < num_channels; ++chan) {
+            /* 2_10_10_10 data formats */
+            unsigned bits = log_size == 3 ? (chan == 3 ? 2 : 10) : (8 << log_size);
+            nir_ssa_def *tmp = nir_u2f32(b, loads[chan]);
+            loads[chan] = nir_fmul_imm(b, tmp, 1.0 / BITFIELD64_MASK(bits));
+         }
+         break;
+      case AC_FETCH_FORMAT_SNORM:
+         for (unsigned chan = 0; chan < num_channels; ++chan) {
+            /* 2_10_10_10 data formats */
+            unsigned bits = log_size == 3 ? (chan == 3 ? 2 : 10) : (8 << log_size);
+            nir_ssa_def *tmp = nir_i2f32(b, loads[chan]);
+            tmp = nir_fmul_imm(b, tmp, 1.0 / BITFIELD64_MASK(bits - 1));
+            /* Clamp to [-1, 1] */
+            tmp = nir_fmax(b, tmp, nir_imm_float(b, -1));
+            loads[chan] = nir_fmin(b, tmp, nir_imm_float(b, 1));
+         }
+         break;
+      default:
+         unreachable("invalid fetch format");
+         break;
    }
 
    while (num_channels < 4) {
       unsigned pad_value = num_channels == 3 ? 1 : 0;
       loads[num_channels] =
-         format == AC_FETCH_FORMAT_UINT || format == AC_FETCH_FORMAT_SINT ?
-         nir_imm_int(b, pad_value) : nir_imm_float(b, pad_value);
+         format == AC_FETCH_FORMAT_UINT || format == AC_FETCH_FORMAT_SINT ? nir_imm_int(b, pad_value) : nir_imm_float(b, pad_value);
       num_channels++;
    }
 
@@ -601,8 +598,7 @@ lower_vs_input_instr(nir_builder *b, nir_instr *instr, void *state)
    return true;
 }
 
-bool
-si_nir_lower_vs_inputs(nir_shader *nir, struct si_shader *shader, struct si_shader_args *args)
+bool si_nir_lower_vs_inputs(nir_shader *nir, struct si_shader *shader, struct si_shader_args *args)
 {
    const struct si_shader_selector *sel = shader->selector;
 

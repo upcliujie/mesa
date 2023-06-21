@@ -4,24 +4,22 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/u_memory.h"
+#include "ac_nir.h"
 #include "si_pipe.h"
 #include "si_shader_internal.h"
 #include "sid.h"
-#include "util/u_memory.h"
-#include "ac_nir.h"
 
 static LLVMValueRef get_vertex_index(struct si_shader_context *ctx,
                                      struct si_vs_prolog_bits *key, unsigned input_index,
                                      LLVMValueRef instance_divisor_constbuf,
                                      unsigned start_instance, unsigned base_vertex)
 {
-   LLVMValueRef instance_id = ctx->abi.instance_id_replaced ?
-      ctx->abi.instance_id_replaced : ctx->abi.instance_id;
-   LLVMValueRef vertex_id = ctx->abi.vertex_id_replaced ?
-      ctx->abi.vertex_id_replaced : ctx->abi.vertex_id;
+   LLVMValueRef instance_id = ctx->abi.instance_id_replaced ? ctx->abi.instance_id_replaced : ctx->abi.instance_id;
+   LLVMValueRef vertex_id = ctx->abi.vertex_id_replaced ? ctx->abi.vertex_id_replaced : ctx->abi.vertex_id;
 
    bool divisor_is_one = key->instance_divisor_is_one & (1u << input_index);
-   bool divisor_is_fetched =key->instance_divisor_is_fetched & (1u << input_index);
+   bool divisor_is_fetched = key->instance_divisor_is_fetched & (1u << input_index);
 
    LLVMValueRef index = NULL;
    if (divisor_is_one)
@@ -175,7 +173,7 @@ void si_llvm_build_vs_prolog(struct si_shader_context *ctx, union si_shader_part
       LLVMValueRef list = si_prolog_get_internal_bindings(ctx);
       LLVMValueRef buf_index = LLVMConstInt(ctx->ac.i32, SI_VS_CONST_INSTANCE_DIVISORS, 0);
       instance_divisor_constbuf = ac_build_load_to_sgpr(&ctx->ac,
-         (struct ac_llvm_pointer) { .v = list, .t = ctx->ac.v4i32 }, buf_index);
+                                                        (struct ac_llvm_pointer){.v = list, .t = ctx->ac.v4i32}, buf_index);
    }
 
    for (i = 0; i < key->vs_prolog.num_inputs; i++) {

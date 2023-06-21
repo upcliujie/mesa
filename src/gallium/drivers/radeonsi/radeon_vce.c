@@ -9,11 +9,11 @@
 #include "radeon_vce.h"
 
 #include "pipe/p_video_codec.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_video.h"
 
 #include <stdio.h>
 
@@ -25,7 +25,7 @@
 #define FW_52_0_3  ((52 << 24) | (0 << 16) | (3 << 8))
 #define FW_52_4_3  ((52 << 24) | (4 << 16) | (3 << 8))
 #define FW_52_8_3  ((52 << 24) | (8 << 16) | (3 << 8))
-#define FW_53       (53 << 24)
+#define FW_53      (53 << 24)
 
 /**
  * flush commands to the hardware
@@ -123,45 +123,45 @@ static unsigned get_cpb_num(struct rvce_encoder *enc)
    unsigned dpb;
 
    switch (enc->base.level) {
-   case 10:
-      dpb = 396;
-      break;
-   case 11:
-      dpb = 900;
-      break;
-   case 12:
-   case 13:
-   case 20:
-      dpb = 2376;
-      break;
-   case 21:
-      dpb = 4752;
-      break;
-   case 22:
-   case 30:
-      dpb = 8100;
-      break;
-   case 31:
-      dpb = 18000;
-      break;
-   case 32:
-      dpb = 20480;
-      break;
-   case 40:
-   case 41:
-      dpb = 32768;
-      break;
-   case 42:
-      dpb = 34816;
-      break;
-   case 50:
-      dpb = 110400;
-      break;
-   default:
-   case 51:
-   case 52:
-      dpb = 184320;
-      break;
+      case 10:
+         dpb = 396;
+         break;
+      case 11:
+         dpb = 900;
+         break;
+      case 12:
+      case 13:
+      case 20:
+         dpb = 2376;
+         break;
+      case 21:
+         dpb = 4752;
+         break;
+      case 22:
+      case 30:
+         dpb = 8100;
+         break;
+      case 31:
+         dpb = 18000;
+         break;
+      case 32:
+         dpb = 20480;
+         break;
+      case 40:
+      case 41:
+         dpb = 32768;
+         break;
+      case 42:
+         dpb = 34816;
+         break;
+      case 50:
+         dpb = 110400;
+         break;
+      default:
+      case 51:
+      case 52:
+         dpb = 184320;
+         break;
    }
 
    return MIN2(dpb / (w * h), 16);
@@ -456,28 +456,28 @@ struct pipe_video_codec *si_vce_create_encoder(struct pipe_context *context,
    reset_cpb(enc);
 
    switch (sscreen->info.vce_fw_version) {
-   case FW_40_2_2:
-      si_vce_40_2_2_init(enc);
-      break;
+      case FW_40_2_2:
+         si_vce_40_2_2_init(enc);
+         break;
 
-   case FW_50_0_1:
-   case FW_50_1_2:
-   case FW_50_10_2:
-   case FW_50_17_3:
-      si_vce_50_init(enc);
-      break;
+      case FW_50_0_1:
+      case FW_50_1_2:
+      case FW_50_10_2:
+      case FW_50_17_3:
+         si_vce_50_init(enc);
+         break;
 
-   case FW_52_0_3:
-   case FW_52_4_3:
-   case FW_52_8_3:
-      si_vce_52_init(enc);
-      break;
-
-   default:
-      if ((sscreen->info.vce_fw_version & (0xff << 24)) >= FW_53) {
+      case FW_52_0_3:
+      case FW_52_4_3:
+      case FW_52_8_3:
          si_vce_52_init(enc);
-      } else
-         goto error;
+         break;
+
+      default:
+         if ((sscreen->info.vce_fw_version & (0xff << 24)) >= FW_53) {
+            si_vce_52_init(enc);
+         } else
+            goto error;
    }
 
    return &enc->base;
@@ -498,20 +498,20 @@ error:
 bool si_vce_is_fw_version_supported(struct si_screen *sscreen)
 {
    switch (sscreen->info.vce_fw_version) {
-   case FW_40_2_2:
-   case FW_50_0_1:
-   case FW_50_1_2:
-   case FW_50_10_2:
-   case FW_50_17_3:
-   case FW_52_0_3:
-   case FW_52_4_3:
-   case FW_52_8_3:
-      return true;
-   default:
-      if ((sscreen->info.vce_fw_version & (0xff << 24)) >= FW_53)
+      case FW_40_2_2:
+      case FW_50_0_1:
+      case FW_50_1_2:
+      case FW_50_10_2:
+      case FW_50_17_3:
+      case FW_52_0_3:
+      case FW_52_4_3:
+      case FW_52_8_3:
          return true;
-      else
-         return false;
+      default:
+         if ((sscreen->info.vce_fw_version & (0xff << 24)) >= FW_53)
+            return true;
+         else
+            return false;
    }
 }
 

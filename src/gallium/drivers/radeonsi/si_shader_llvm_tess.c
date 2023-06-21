@@ -11,17 +11,15 @@
 LLVMValueRef si_get_rel_patch_id(struct si_shader_context *ctx)
 {
    switch (ctx->stage) {
-   case MESA_SHADER_TESS_CTRL:
-      return si_unpack_param(ctx, ctx->args->ac.tcs_rel_ids, 0, 8);
+      case MESA_SHADER_TESS_CTRL:
+         return si_unpack_param(ctx, ctx->args->ac.tcs_rel_ids, 0, 8);
 
-   case MESA_SHADER_TESS_EVAL:
-      return ctx->abi.tes_rel_patch_id_replaced ?
-         ctx->abi.tes_rel_patch_id_replaced :
-         ac_get_arg(&ctx->ac, ctx->args->ac.tes_rel_patch_id);
+      case MESA_SHADER_TESS_EVAL:
+         return ctx->abi.tes_rel_patch_id_replaced ? ctx->abi.tes_rel_patch_id_replaced : ac_get_arg(&ctx->ac, ctx->args->ac.tes_rel_patch_id);
 
-   default:
-      assert(0);
-      return NULL;
+      default:
+         assert(0);
+         return NULL;
    }
 }
 
@@ -167,8 +165,7 @@ static LLVMValueRef lshs_lds_load(struct si_shader_context *ctx, LLVMTypeRef typ
    return LLVMBuildBitCast(ctx->ac.builder, value, type, "");
 }
 
-enum si_tess_ring
-{
+enum si_tess_ring {
    TCS_FACTOR_RING,
    TESS_OFFCHIP_RING_TCS,
    TESS_OFFCHIP_RING_TES,
@@ -225,7 +222,7 @@ static LLVMValueRef si_nir_load_tcs_varyings(struct ac_shader_abi *abi, LLVMType
    ubyte semantic = info->input[driver_location].semantic;
    /* Load the TCS input from a VGPR. */
    unsigned func_param = ctx->args->ac.tcs_rel_ids.arg_index + 1 +
-      si_shader_io_get_unique_index(semantic) * 4;
+                         si_shader_io_get_unique_index(semantic) * 4;
 
    LLVMValueRef value[4];
    for (unsigned i = component; i < component + num_components; i++) {
@@ -266,24 +263,24 @@ static void si_write_tess_factors(struct si_shader_context *ctx, union si_shader
 
    /* Determine the layout of one tess factor element in the buffer. */
    switch (shader->key.ge.part.tcs.epilog.prim_mode) {
-   case TESS_PRIMITIVE_ISOLINES:
-      stride = 2; /* 2 dwords, 1 vec2 store */
-      outer_comps = 2;
-      inner_comps = 0;
-      break;
-   case TESS_PRIMITIVE_TRIANGLES:
-      stride = 4; /* 4 dwords, 1 vec4 store */
-      outer_comps = 3;
-      inner_comps = 1;
-      break;
-   case TESS_PRIMITIVE_QUADS:
-      stride = 6; /* 6 dwords, 2 stores (vec4 + vec2) */
-      outer_comps = 4;
-      inner_comps = 2;
-      break;
-   default:
-      assert(0);
-      return;
+      case TESS_PRIMITIVE_ISOLINES:
+         stride = 2; /* 2 dwords, 1 vec2 store */
+         outer_comps = 2;
+         inner_comps = 0;
+         break;
+      case TESS_PRIMITIVE_TRIANGLES:
+         stride = 4; /* 4 dwords, 1 vec4 store */
+         outer_comps = 3;
+         inner_comps = 1;
+         break;
+      case TESS_PRIMITIVE_QUADS:
+         stride = 6; /* 6 dwords, 2 stores (vec4 + vec2) */
+         outer_comps = 4;
+         inner_comps = 2;
+         break;
+      default:
+         assert(0);
+         return;
    }
 
    for (i = 0; i < 4; i++) {
@@ -478,8 +475,7 @@ void si_llvm_tcs_build_end(struct si_shader_context *ctx)
 
       for (unsigned i = 0; i < 6; i++) {
          int loc = i < 4 ? outer_loc : inner_loc;
-         LLVMValueRef value = loc < 0 ? LLVMGetUndef(ctx->ac.f32) :
-            LLVMBuildLoad2(builder, ctx->ac.f32, ctx->abi.outputs[loc * 4 + i % 4], "");
+         LLVMValueRef value = loc < 0 ? LLVMGetUndef(ctx->ac.f32) : LLVMBuildLoad2(builder, ctx->ac.f32, ctx->abi.outputs[loc * 4 + i % 4], "");
          value = ac_to_float(&ctx->ac, value);
          ret = LLVMBuildInsertValue(builder, ret, value, vgpr++, "");
       }
@@ -597,9 +593,9 @@ void si_llvm_build_tcs_epilog(struct si_shader_context *ctx, union si_shader_par
 
    ac_add_arg(&ctx->args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* VGPR gap */
    ac_add_arg(&ctx->args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, NULL); /* VGPR gap */
-   struct ac_arg rel_patch_id; /* patch index within the wave (REL_PATCH_ID) */
+   struct ac_arg rel_patch_id;                                   /* patch index within the wave (REL_PATCH_ID) */
    ac_add_arg(&ctx->args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &rel_patch_id);
-   struct ac_arg invocation_id; /* invocation ID within the patch */
+   struct ac_arg invocation_id;                                  /* invocation ID within the patch */
    ac_add_arg(&ctx->args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &invocation_id);
    struct ac_arg
       tcs_out_current_patch_data_offset; /* LDS offset where tess factors should be loaded from */

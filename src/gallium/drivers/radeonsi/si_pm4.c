@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_pipe.h"
-#include "si_build_pm4.h"
-#include "sid.h"
 #include "util/u_memory.h"
+#include "si_build_pm4.h"
+#include "si_pipe.h"
+#include "sid.h"
 
 static void si_pm4_cmd_begin(struct si_pm4_state *state, unsigned opcode)
 {
@@ -131,7 +131,7 @@ void si_pm4_emit(struct si_context *sctx, struct si_pm4_state *state)
    struct radeon_cmdbuf *cs = &sctx->gfx_cs;
 
    if (state->is_shader) {
-      radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, ((struct si_shader*)state)->bo,
+      radeon_add_to_buffer_list(sctx, &sctx->gfx_cs, ((struct si_shader *)state)->bo,
                                 RADEON_USAGE_READ | RADEON_PRIO_SHADER_BINARY);
    }
 

@@ -8,12 +8,12 @@
 
 #include "radeon_video.h"
 
-#include "radeon_vce.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_defines.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_vce.h"
 
 #include <unistd.h>
 
@@ -59,7 +59,6 @@ bool si_vid_create_tmz_buffer(struct pipe_screen *screen, struct rvid_buffer *bu
    return buffer->res != NULL;
 }
 
-
 /* destroy a buffer */
 void si_vid_destroy_buffer(struct rvid_buffer *buffer)
 {
@@ -90,10 +89,10 @@ bool si_vid_resize_buffer(struct pipe_screen *screen, struct radeon_cmdbuf *cs,
 
    if (buf_ofst_info) {
       memset(dst, 0, new_size);
-      for(int i =0; i < buf_ofst_info->num_units; i++) {
-          memcpy(dst, src, buf_ofst_info->old_offset);
-          dst += buf_ofst_info->new_offset;
-          src += buf_ofst_info->old_offset;
+      for (int i = 0; i < buf_ofst_info->num_units; i++) {
+         memcpy(dst, src, buf_ofst_info->old_offset);
+         dst += buf_ofst_info->new_offset;
+         src += buf_ofst_info->old_offset;
       }
    } else {
       memcpy(dst, src, bytes);

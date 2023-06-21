@@ -9,8 +9,8 @@
 #ifndef RADEON_UVD_H
 #define RADEON_UVD_H
 
-#include "winsys/radeon_winsys.h"
 #include "vl/vl_video_buffer.h"
+#include "winsys/radeon_winsys.h"
 
 #include "ac_uvd_dec.h"
 

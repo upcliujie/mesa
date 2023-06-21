@@ -6,10 +6,10 @@
 
 /* This file implements randomized texture blit tests. */
 
-#include "si_pipe.h"
+#include "amd/addrlib/inc/addrtypes.h"
 #include "util/rand_xor.h"
 #include "util/u_surface.h"
-#include "amd/addrlib/inc/addrtypes.h"
+#include "si_pipe.h"
 
 static uint64_t seed_xorshift128plus[2];
 
@@ -202,8 +202,8 @@ struct si_format_options {
 };
 
 static enum pipe_format get_random_format(struct si_screen *sscreen, bool render_target,
-                                          enum pipe_format color_or_zs, /* must be color or Z/S */
-                                          enum pipe_format res_format,  /* must have the same bpp */
+                                          enum pipe_format color_or_zs,    /* must be color or Z/S */
+                                          enum pipe_format res_format,     /* must have the same bpp */
                                           enum pipe_format integer_or_not, /* must be integer or non-integer */
                                           const struct si_format_options *options)
 {
@@ -320,37 +320,37 @@ static void set_random_image_attrs(struct pipe_resource *templ, bool allow_msaa,
    }
 
    switch (target_index) {
-   case 0:
-      templ->target = PIPE_TEXTURE_1D;
-      break;
-   case 1:
-      templ->target = PIPE_TEXTURE_2D;
-      break;
-   case 2:
-      if (util_format_is_depth_or_stencil(templ->format))
-         templ->target = PIPE_TEXTURE_2D_ARRAY; /* 3D doesn't support Z/S */
-      else
-         templ->target = PIPE_TEXTURE_3D;
-      break;
-   case 3:
-      templ->target = PIPE_TEXTURE_RECT;
-      break;
-   case 4:
-      templ->target = PIPE_TEXTURE_1D_ARRAY;
-      break;
-   case 5:
-      templ->target = PIPE_TEXTURE_2D_ARRAY;
-      break;
-   case 6:
-      templ->target = PIPE_TEXTURE_2D;
-      templ->nr_samples = 2 << (rand() % 3);
-      break;
-   case 7:
-      templ->target = PIPE_TEXTURE_2D_ARRAY;
-      templ->nr_samples = 2 << (rand() % 3);
-      break;
-   default:
-      unreachable("invalid path");
+      case 0:
+         templ->target = PIPE_TEXTURE_1D;
+         break;
+      case 1:
+         templ->target = PIPE_TEXTURE_2D;
+         break;
+      case 2:
+         if (util_format_is_depth_or_stencil(templ->format))
+            templ->target = PIPE_TEXTURE_2D_ARRAY; /* 3D doesn't support Z/S */
+         else
+            templ->target = PIPE_TEXTURE_3D;
+         break;
+      case 3:
+         templ->target = PIPE_TEXTURE_RECT;
+         break;
+      case 4:
+         templ->target = PIPE_TEXTURE_1D_ARRAY;
+         break;
+      case 5:
+         templ->target = PIPE_TEXTURE_2D_ARRAY;
+         break;
+      case 6:
+         templ->target = PIPE_TEXTURE_2D;
+         templ->nr_samples = 2 << (rand() % 3);
+         break;
+      case 7:
+         templ->target = PIPE_TEXTURE_2D_ARRAY;
+         templ->nr_samples = 2 << (rand() % 3);
+         break;
+      default:
+         unreachable("invalid path");
    }
 
    templ->usage = PIPE_USAGE_DEFAULT;
@@ -378,23 +378,23 @@ static void set_random_image_attrs(struct pipe_resource *templ, bool allow_msaa,
 
    /* Keep reducing the size until it we get a small enough size. */
    while (util_format_get_nblocks(templ->format, templ->width0, templ->height0) *
-          templ->depth0 * templ->array_size * util_format_get_blocksize(templ->format) >
+             templ->depth0 * templ->array_size * util_format_get_blocksize(templ->format) >
           MAX_ALLOC_SIZE) {
       switch (rand() % 3) {
-      case 0:
-         if (templ->width0 > 1)
-            templ->width0 /= 2;
-         break;
-      case 1:
-         if (templ->height0 > 1)
-            templ->height0 /= 2;
-         break;
-      case 2:
-         if (templ->depth0 > 1)
-            templ->depth0 /= 2;
-         else if (templ->array_size > 1)
-            templ->array_size /= 2;
-         break;
+         case 0:
+            if (templ->width0 > 1)
+               templ->width0 /= 2;
+            break;
+         case 1:
+            if (templ->height0 > 1)
+               templ->height0 /= 2;
+            break;
+         case 2:
+            if (templ->depth0 > 1)
+               templ->depth0 /= 2;
+            else if (templ->array_size > 1)
+               templ->array_size /= 2;
+            break;
       }
    }
 
@@ -643,30 +643,30 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
 
    /* The following tests always compare the tested operation with the gfx blit (u_blitter). */
    switch (test_flags) {
-   case DBG(TEST_CB_RESOLVE):
-      /* This is mostly failing because the precision of CB_RESOLVE is very different
-       * from the gfx blit. FP32 and FP16 are the only formats that mostly pass.
-       */
-      allow_float = true;
-      allow_unorm16_dst = true;
-      allow_srgb_dst = true;
-      break;
+      case DBG(TEST_CB_RESOLVE):
+         /* This is mostly failing because the precision of CB_RESOLVE is very different
+          * from the gfx blit. FP32 and FP16 are the only formats that mostly pass.
+          */
+         allow_float = true;
+         allow_unorm16_dst = true;
+         allow_srgb_dst = true;
+         break;
 
-   case DBG(TEST_COMPUTE_BLIT):
-      //allow_float = true;      /* precision difference: NaNs not preserved by CB (u_blitter) */
-      allow_unorm16_dst = true;
-      //allow_srgb_dst = true;   /* precision difference: sRGB is less precise in CB (u_blitter) */
-      //allow_filter = true;     /* not implemented by compute blits, lots of precision differences */
-      //allow_scaled_min = true; /* not implemented by compute blits, lots of precision differences */
-      //allow_scaled_mag = true; /* not implemented by compute blits, lots of precision differences */
-      allow_out_of_bounds_dst = true;
-      allow_out_of_bounds_src = true;
-      //allow_scissor = true;    /* not implemented by compute blits */
-      allow_flip = true;
-      break;
+      case DBG(TEST_COMPUTE_BLIT):
+         // allow_float = true;      /* precision difference: NaNs not preserved by CB (u_blitter) */
+         allow_unorm16_dst = true;
+         // allow_srgb_dst = true;   /* precision difference: sRGB is less precise in CB (u_blitter) */
+         // allow_filter = true;     /* not implemented by compute blits, lots of precision differences */
+         // allow_scaled_min = true; /* not implemented by compute blits, lots of precision differences */
+         // allow_scaled_mag = true; /* not implemented by compute blits, lots of precision differences */
+         allow_out_of_bounds_dst = true;
+         allow_out_of_bounds_src = true;
+         // allow_scissor = true;    /* not implemented by compute blits */
+         allow_flip = true;
+         break;
 
-   default:
-      assert(0);
+      default:
+         assert(0);
    }
 
    /* the seed for random test parameters */
@@ -857,15 +857,15 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
 
       if (util_format_is_depth_and_stencil(tsrc.format)) {
          switch (rand() % 3) {
-         case 0:
-            info.mask = PIPE_MASK_ZS;
-            break;
-         case 1:
-            info.mask = PIPE_MASK_Z;
-            break;
-         case 2:
-            info.mask = PIPE_MASK_S;
-            break;
+            case 0:
+               info.mask = PIPE_MASK_ZS;
+               break;
+            case 1:
+               info.mask = PIPE_MASK_Z;
+               break;
+            case 2:
+               info.mask = PIPE_MASK_S;
+               break;
          }
       } else {
          /* RGBA, Z, or S */

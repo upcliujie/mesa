@@ -4,14 +4,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_pipe.h"
-#include "sid.h"
 #include "util/format/u_format.h"
 #include "util/u_pack_color.h"
 #include "util/u_surface.h"
+#include "si_pipe.h"
+#include "sid.h"
 
-enum
-{
+enum {
    SI_CLEAR = SI_SAVE_FRAGMENT_STATE,
    SI_CLEAR_SURFACE = SI_SAVE_FRAMEBUFFER | SI_SAVE_FRAGMENT_STATE,
 };
@@ -305,7 +304,7 @@ static bool gfx11_get_dcc_clear_parameters(struct si_screen *sscreen, enum pipe_
       uint16_t us[8];
       uint32_t ui[4];
    } value = {};
-   util_pack_color_union(surface_format, (union util_color*)&value, color);
+   util_pack_color_union(surface_format, (union util_color *)&value, color);
 
    /* Check the cases where all components or bits are either all 0 or all 1. */
    bool all_bits_are_0 = true;
@@ -500,21 +499,21 @@ static void si_set_optimal_micro_tile_mode(struct si_screen *sscreen, struct si_
       assert(tex->surface.u.gfx9.swizzle_mode % 4 != 0);
 
       switch (tex->last_msaa_resolve_target_micro_mode) {
-      case RADEON_MICRO_MODE_DISPLAY:
-         tex->surface.u.gfx9.swizzle_mode &= ~0x3;
-         tex->surface.u.gfx9.swizzle_mode += 2; /* D */
-         break;
-      case RADEON_MICRO_MODE_STANDARD:
-         tex->surface.u.gfx9.swizzle_mode &= ~0x3;
-         tex->surface.u.gfx9.swizzle_mode += 1; /* S */
-         break;
-      case RADEON_MICRO_MODE_RENDER:
-         tex->surface.u.gfx9.swizzle_mode &= ~0x3;
-         tex->surface.u.gfx9.swizzle_mode += 3; /* R */
-         break;
-      default: /* depth */
-         assert(!"unexpected micro mode");
-         return;
+         case RADEON_MICRO_MODE_DISPLAY:
+            tex->surface.u.gfx9.swizzle_mode &= ~0x3;
+            tex->surface.u.gfx9.swizzle_mode += 2; /* D */
+            break;
+         case RADEON_MICRO_MODE_STANDARD:
+            tex->surface.u.gfx9.swizzle_mode &= ~0x3;
+            tex->surface.u.gfx9.swizzle_mode += 1; /* S */
+            break;
+         case RADEON_MICRO_MODE_RENDER:
+            tex->surface.u.gfx9.swizzle_mode &= ~0x3;
+            tex->surface.u.gfx9.swizzle_mode += 3; /* R */
+            break;
+         default:                                  /* depth */
+            assert(!"unexpected micro mode");
+            return;
       }
    } else if (sscreen->info.gfx_level >= GFX7) {
       /* These magic numbers were copied from addrlib. It doesn't use
@@ -522,53 +521,53 @@ static void si_set_optimal_micro_tile_mode(struct si_screen *sscreen, struct si_
        * modes with different bpp and micro tile mode.
        */
       switch (tex->last_msaa_resolve_target_micro_mode) {
-      case RADEON_MICRO_MODE_DISPLAY:
-         tex->surface.u.legacy.tiling_index[0] = 10;
-         break;
-      case RADEON_MICRO_MODE_STANDARD:
-         tex->surface.u.legacy.tiling_index[0] = 14;
-         break;
-      case RADEON_MICRO_MODE_RENDER:
-         tex->surface.u.legacy.tiling_index[0] = 28;
-         break;
-      default: /* depth, thick */
-         assert(!"unexpected micro mode");
-         return;
+         case RADEON_MICRO_MODE_DISPLAY:
+            tex->surface.u.legacy.tiling_index[0] = 10;
+            break;
+         case RADEON_MICRO_MODE_STANDARD:
+            tex->surface.u.legacy.tiling_index[0] = 14;
+            break;
+         case RADEON_MICRO_MODE_RENDER:
+            tex->surface.u.legacy.tiling_index[0] = 28;
+            break;
+         default: /* depth, thick */
+            assert(!"unexpected micro mode");
+            return;
       }
    } else { /* GFX6 */
       switch (tex->last_msaa_resolve_target_micro_mode) {
-      case RADEON_MICRO_MODE_DISPLAY:
-         switch (tex->surface.bpe) {
-         case 1:
-            tex->surface.u.legacy.tiling_index[0] = 10;
+         case RADEON_MICRO_MODE_DISPLAY:
+            switch (tex->surface.bpe) {
+               case 1:
+                  tex->surface.u.legacy.tiling_index[0] = 10;
+                  break;
+               case 2:
+                  tex->surface.u.legacy.tiling_index[0] = 11;
+                  break;
+               default: /* 4, 8 */
+                  tex->surface.u.legacy.tiling_index[0] = 12;
+                  break;
+            }
             break;
-         case 2:
-            tex->surface.u.legacy.tiling_index[0] = 11;
+         case RADEON_MICRO_MODE_STANDARD:
+            switch (tex->surface.bpe) {
+               case 1:
+                  tex->surface.u.legacy.tiling_index[0] = 14;
+                  break;
+               case 2:
+                  tex->surface.u.legacy.tiling_index[0] = 15;
+                  break;
+               case 4:
+                  tex->surface.u.legacy.tiling_index[0] = 16;
+                  break;
+               default: /* 8, 16 */
+                  tex->surface.u.legacy.tiling_index[0] = 17;
+                  break;
+            }
             break;
-         default: /* 4, 8 */
-            tex->surface.u.legacy.tiling_index[0] = 12;
-            break;
-         }
-         break;
-      case RADEON_MICRO_MODE_STANDARD:
-         switch (tex->surface.bpe) {
-         case 1:
-            tex->surface.u.legacy.tiling_index[0] = 14;
-            break;
-         case 2:
-            tex->surface.u.legacy.tiling_index[0] = 15;
-            break;
-         case 4:
-            tex->surface.u.legacy.tiling_index[0] = 16;
-            break;
-         default: /* 8, 16 */
-            tex->surface.u.legacy.tiling_index[0] = 17;
-            break;
-         }
-         break;
-      default: /* depth, thick */
-         assert(!"unexpected micro mode");
-         return;
+         default: /* depth, thick */
+            assert(!"unexpected micro mode");
+            return;
       }
    }
 
@@ -584,7 +583,7 @@ static uint32_t si_get_htile_clear_value(struct si_texture *tex, float depth)
 
    /* For clears, Zmask and Smem will always be set to zero. */
    const uint32_t zmask = 0;
-   const uint32_t smem  = 0;
+   const uint32_t smem = 0;
 
    /* Convert depthValue to 14-bit zmin/zmax uint values. */
    const uint32_t zmin = lroundf(depth * max_z_value);
@@ -621,9 +620,9 @@ static uint32_t si_get_htile_clear_value(struct si_texture *tex, float depth)
       const uint32_t sresults = 0xf;
 
       return ((zrange & 0xFFFFF) << 12) |
-             ((smem & 0x3) <<  8) |
-             ((sresults & 0xF) <<  4) |
-             ((zmask & 0xF) <<  0);
+             ((smem & 0x3) << 8) |
+             ((sresults & 0xF) << 4) |
+             ((zmask & 0xF) << 0);
    }
 }
 
@@ -895,7 +894,7 @@ static void si_fast_clear(struct si_context *sctx, unsigned *buffers,
 
       /* Transition from TC-incompatible to TC-compatible HTILE if requested. */
       if (zstex->enable_tc_compatible_htile_next_clear) {
-          /* If both depth and stencil are present, they must be cleared together. */
+         /* If both depth and stencil are present, they must be cleared together. */
          if ((*buffers & PIPE_CLEAR_DEPTHSTENCIL) == PIPE_CLEAR_DEPTHSTENCIL ||
              (*buffers & PIPE_CLEAR_DEPTH && (!zstex->surface.has_stencil ||
                                               zstex->htile_stencil_disabled))) {
