@@ -68,6 +68,7 @@ struct lp_cs_job_info {
    unsigned iter_size[3];
    unsigned grid_base[3];
    unsigned block_size[3];
+   unsigned last_block[3];
    unsigned req_local_mem;
    unsigned work_dim;
    unsigned draw_id;
@@ -685,9 +686,16 @@ generate_compute(struct llvmpipe_context *lp,
                                  "");
       subgroup_id = LLVMBuildAdd(gallivm->builder, subgroup_id, x_size_arg, "");
       system_values.subgroup_id = subgroup_id;
+      LLVMValueRef num_threads = LLVMBuildMul(builder, block_x_size_arg,
+                                              LLVMBuildMul(builder,
+                                                           block_y_size_arg, block_z_size_arg,
+                                                           ""), "");
+
+      /* has to be rounded up for non uniform sub-groups */
       LLVMValueRef num_subgroups = LLVMBuildUDiv(builder,
-                                                 LLVMBuildMul(builder, block_x_size_arg,
-                                                              LLVMBuildMul(builder, block_y_size_arg, block_z_size_arg, ""), ""),
+                                                 LLVMBuildSub(builder,
+                                                              LLVMBuildAdd(builder, num_threads, vec_length, ""),
+                                                              lp_build_const_int32(gallivm, 1), ""),
                                                  vec_length, "");
       LLVMValueRef subgroup_cmp = LLVMBuildICmp(gallivm->builder, LLVMIntEQ, num_subgroups, lp_build_const_int32(gallivm, 0), "");
       system_values.num_subgroups = LLVMBuildSelect(builder, subgroup_cmp, lp_build_const_int32(gallivm, 1), num_subgroups, "");
@@ -1775,6 +1783,7 @@ cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
    thread_data.payload = job_info->payload;
 
    unsigned grid_z, grid_y, grid_x;
+   unsigned block_size[3];
 
    if (job_info->use_iters) {
       grid_z = iter_idx / (job_info->iter_size[0] * job_info->iter_size[1]);
@@ -1785,6 +1794,10 @@ cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
       grid_y = (iter_idx - (grid_z * (job_info->grid_size[0] * job_info->grid_size[1]))) / job_info->grid_size[0];
       grid_x = (iter_idx - (grid_z * (job_info->grid_size[0] * job_info->grid_size[1])) - (grid_y * job_info->grid_size[0]));
    }
+
+   block_size[2] = grid_z == job_info->grid_size[2] - 1 ? job_info->last_block[2] : job_info->block_size[2];
+   block_size[1] = grid_y == job_info->grid_size[1] - 1 ? job_info->last_block[1] : job_info->block_size[1];
+   block_size[0] = grid_x == job_info->grid_size[0] - 1 ? job_info->last_block[0] : job_info->block_size[0];
 
    grid_z += job_info->grid_base[2];
    grid_y += job_info->grid_base[1];
@@ -1802,7 +1815,7 @@ cs_exec_fn(void *init_data, int iter_idx, struct lp_cs_local_mem *lmem)
    }
    variant->jit_function(&job_info->current->jit_context,
                          &job_info->current->jit_resources,
-                         job_info->block_size[0], job_info->block_size[1], job_info->block_size[2],
+                         block_size[0], block_size[1], block_size[2],
                          grid_x, grid_y, grid_z,
                          job_info->grid_size[0], job_info->grid_size[1], job_info->grid_size[2],
                          job_info->work_dim, job_info->draw_id,
@@ -1858,12 +1871,12 @@ llvmpipe_launch_grid(struct pipe_context *pipe,
 
    fill_grid_size(pipe, 0, info, job_info.grid_size);
 
-   job_info.grid_base[0] = info->grid_base[0];
-   job_info.grid_base[1] = info->grid_base[1];
-   job_info.grid_base[2] = info->grid_base[2];
-   job_info.block_size[0] = info->block[0];
-   job_info.block_size[1] = info->block[1];
-   job_info.block_size[2] = info->block[2];
+   for (unsigned i = 0; i < 3; i++) {
+      job_info.grid_base[i] = info->grid_base[i];
+      job_info.block_size[i] = info->block[i];
+      job_info.last_block[i] = info->last_block[i] ? info->last_block[i] : info->block[i];
+   }
+
    job_info.work_dim = info->work_dim;
    job_info.req_local_mem = llvmpipe->cs->req_local_mem + info->variable_shared_mem;
    job_info.zero_initialize_shared_memory = llvmpipe->cs->zero_initialize_shared_memory;
@@ -2260,12 +2273,11 @@ llvmpipe_draw_mesh_tasks(struct pipe_context *pipe,
    for (unsigned dr = 0; dr < draw_count; dr++) {
       fill_grid_size(pipe, dr, info, job_info.grid_size);
 
-      job_info.grid_base[0] = info->grid_base[0];
-      job_info.grid_base[1] = info->grid_base[1];
-      job_info.grid_base[2] = info->grid_base[2];
-      job_info.block_size[0] = info->block[0];
-      job_info.block_size[1] = info->block[1];
-      job_info.block_size[2] = info->block[2];
+      for (unsigned i = 0; i < 3; i++) {
+         job_info.grid_base[i] = info->grid_base[i];
+         job_info.block_size[i] = info->block[i];
+         job_info.last_block[i] = info->last_block[i] ? info->last_block[i] : info->block[i];
+      }
 
       void *payload = NULL;
       size_t payload_stride = 0;
