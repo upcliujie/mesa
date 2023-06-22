@@ -13,7 +13,9 @@ use std::mem::MaybeUninit;
 #[cl_info_entrypoint(cl_get_platform_info)]
 impl CLInfo<cl_platform_info> for cl_platform_id {
     fn query(&self, q: cl_platform_info, _: &[u8]) -> CLResult<Vec<MaybeUninit<u8>>> {
-        self.get_ref()?;
+        if !self.is_null() {
+            self.get_ref()?;
+        }
         Ok(match q {
             // TODO spirv
             CL_PLATFORM_EXTENSIONS => cl_prop(PLATFORM_EXTENSION_STR),

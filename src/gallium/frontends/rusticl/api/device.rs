@@ -322,8 +322,10 @@ fn get_device_ids(
     devices: *mut cl_device_id,
     num_devices: *mut cl_uint,
 ) -> CLResult<()> {
-    // CL_INVALID_PLATFORM if platform is not a valid platform.
-    platform.get_ref()?;
+    if !platform.is_null() {
+        // CL_INVALID_PLATFORM if platform is not a valid platform.
+        platform.get_ref()?;
+    }
 
     // CL_INVALID_DEVICE_TYPE if device_type is not a valid value.
     check_cl_device_type(device_type)?;
