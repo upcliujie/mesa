@@ -656,7 +656,15 @@ impl Device {
     }
 
     pub fn all() -> impl Iterator<Item = Device> {
-        load_screens().filter_map(Device::new)
+        #[cfg(not(test))]
+        {
+            load_screens().filter_map(Device::new)
+        }
+
+        #[cfg(test)]
+        {
+            std::iter::empty()
+        }
     }
 
     pub fn address_bits(&self) -> cl_uint {
