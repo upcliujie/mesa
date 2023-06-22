@@ -4100,7 +4100,7 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
           mask_is_shader_write(dep_info->pMemoryBarriers[i].srcAccessMask) &&
           stage_is_transfer(dep_info->pMemoryBarriers[i].dstStageMask)) {
          cmd_buffer->state.queries.buffer_write_bits |=
-            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS;
+            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS(cmd_buffer->device->info);
       }
    }
 
@@ -4115,7 +4115,7 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
           mask_is_shader_write(dep_info->pBufferMemoryBarriers[i].srcAccessMask) &&
           stage_is_transfer(dep_info->pBufferMemoryBarriers[i].dstStageMask)) {
          cmd_buffer->state.queries.buffer_write_bits |=
-            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS;
+            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS(cmd_buffer->device->info);
       }
    }
 
