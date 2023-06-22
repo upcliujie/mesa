@@ -6,10 +6,10 @@
 
 /* This file implements randomized texture blit tests. */
 
-#include "si_pipe.h"
+#include "amd/addrlib/inc/addrtypes.h"
 #include "util/rand_xor.h"
 #include "util/u_surface.h"
-#include "amd/addrlib/inc/addrtypes.h"
+#include "si_pipe.h"
 
 static uint64_t seed_xorshift128plus[2];
 
@@ -24,7 +24,8 @@ struct cpu_texture {
    unsigned stride;
 };
 
-static void alloc_cpu_texture(struct cpu_texture *tex, struct pipe_resource *templ, unsigned level)
+static void
+alloc_cpu_texture(struct cpu_texture *tex, struct pipe_resource *templ, unsigned level)
 {
    unsigned width = u_minify(templ->width0, level);
    unsigned height = u_minify(templ->height0, level);
@@ -36,8 +37,8 @@ static void alloc_cpu_texture(struct cpu_texture *tex, struct pipe_resource *tem
    assert(tex->ptr);
 }
 
-static void set_random_pixels(struct pipe_context *ctx, struct pipe_resource *tex,
-                              struct cpu_texture *cpu, unsigned level)
+static void
+set_random_pixels(struct pipe_context *ctx, struct pipe_resource *tex, struct cpu_texture *cpu, unsigned level)
 {
    struct pipe_transfer *t;
    uint8_t *map;
@@ -47,8 +48,7 @@ static void set_random_pixels(struct pipe_context *ctx, struct pipe_resource *te
    unsigned num_y_blocks = util_format_get_nblocksy(tex->format, height);
    unsigned num_layers = util_num_layers(tex, level);
 
-   map = pipe_texture_map_3d(ctx, tex, level, PIPE_MAP_WRITE, 0, 0, 0, width, height,
-                             num_layers, &t);
+   map = pipe_texture_map_3d(ctx, tex, level, PIPE_MAP_WRITE, 0, 0, 0, width, height, num_layers, &t);
    assert(map);
 
    for (z = 0; z < num_layers; z++) {
@@ -69,8 +69,8 @@ static void set_random_pixels(struct pipe_context *ctx, struct pipe_resource *te
    pipe_texture_unmap(ctx, t);
 }
 
-static void set_random_pixels_for_2_textures(struct pipe_context *ctx, struct pipe_resource *tex1,
-                                             struct pipe_resource *tex2)
+static void
+set_random_pixels_for_2_textures(struct pipe_context *ctx, struct pipe_resource *tex1, struct pipe_resource *tex2)
 {
    /* tex1 and tex2 are assumed to be the same size, format, and layout */
    for (unsigned level = 0; level <= tex1->last_level; level++) {
@@ -87,10 +87,10 @@ static void set_random_pixels_for_2_textures(struct pipe_context *ctx, struct pi
           */
          unsigned level_or_sample = tex1->nr_samples > 1 ? sample + 1 : level;
 
-         map1 = pipe_texture_map_3d(ctx, tex1, level_or_sample, PIPE_MAP_WRITE, 0, 0, 0, width, height,
-                                    num_layers, &t1);
-         map2 = pipe_texture_map_3d(ctx, tex2, level_or_sample, PIPE_MAP_WRITE, 0, 0, 0, width, height,
-                                    num_layers, &t2);
+         map1 =
+            pipe_texture_map_3d(ctx, tex1, level_or_sample, PIPE_MAP_WRITE, 0, 0, 0, width, height, num_layers, &t1);
+         map2 =
+            pipe_texture_map_3d(ctx, tex2, level_or_sample, PIPE_MAP_WRITE, 0, 0, 0, width, height, num_layers, &t2);
          assert(map1 && map2);
          assert(t1->stride == t2->stride);
 
@@ -115,8 +115,8 @@ static void set_random_pixels_for_2_textures(struct pipe_context *ctx, struct pi
    }
 }
 
-static bool compare_textures(struct pipe_context *ctx, struct pipe_resource *tex,
-                             struct cpu_texture *cpu, unsigned level)
+static bool
+compare_textures(struct pipe_context *ctx, struct pipe_resource *tex, struct cpu_texture *cpu, unsigned level)
 {
    struct pipe_transfer *t;
    uint8_t *map;
@@ -128,8 +128,7 @@ static bool compare_textures(struct pipe_context *ctx, struct pipe_resource *tex
    unsigned num_y_blocks = util_format_get_nblocksy(tex->format, height);
    unsigned num_layers = util_num_layers(tex, level);
 
-   map = pipe_texture_map_3d(ctx, tex, level, PIPE_MAP_READ, 0, 0, 0, width, height,
-                             num_layers, &t);
+   map = pipe_texture_map_3d(ctx, tex, level, PIPE_MAP_READ, 0, 0, 0, width, height, num_layers, &t);
    assert(map);
 
    for (z = 0; z < num_layers; z++) {
@@ -148,8 +147,8 @@ done:
    return pass;
 }
 
-static bool compare_gpu_textures(struct pipe_context *ctx, struct pipe_resource *tex1,
-                                 struct pipe_resource *tex2)
+static bool
+compare_gpu_textures(struct pipe_context *ctx, struct pipe_resource *tex1, struct pipe_resource *tex2)
 {
    /* tex1 and tex2 are assumed to be the same size, format, and layout */
    for (unsigned level = 0; level <= tex1->last_level; level++) {
@@ -161,10 +160,8 @@ static bool compare_gpu_textures(struct pipe_context *ctx, struct pipe_resource 
       unsigned num_y_blocks = util_format_get_nblocksy(tex1->format, height);
       unsigned num_layers = util_num_layers(tex1, level);
 
-      map1 = pipe_texture_map_3d(ctx, tex1, level, PIPE_MAP_READ, 0, 0, 0, width, height,
-                                 num_layers, &t1);
-      map2 = pipe_texture_map_3d(ctx, tex2, level, PIPE_MAP_READ, 0, 0, 0, width, height,
-                                 num_layers, &t2);
+      map1 = pipe_texture_map_3d(ctx, tex1, level, PIPE_MAP_READ, 0, 0, 0, width, height, num_layers, &t1);
+      map2 = pipe_texture_map_3d(ctx, tex2, level, PIPE_MAP_READ, 0, 0, 0, width, height, num_layers, &t2);
       assert(map1 && map2);
       assert(t1->stride == t2->stride);
 
@@ -201,11 +198,12 @@ struct si_format_options {
    bool allow_compressed;
 };
 
-static enum pipe_format get_random_format(struct si_screen *sscreen, bool render_target,
-                                          enum pipe_format color_or_zs, /* must be color or Z/S */
-                                          enum pipe_format res_format,  /* must have the same bpp */
-                                          enum pipe_format integer_or_not, /* must be integer or non-integer */
-                                          const struct si_format_options *options)
+static enum pipe_format
+get_random_format(struct si_screen *sscreen, bool render_target,
+                  enum pipe_format color_or_zs,    /* must be color or Z/S */
+                  enum pipe_format res_format,     /* must have the same bpp */
+                  enum pipe_format integer_or_not, /* must be integer or non-integer */
+                  const struct si_format_options *options)
 {
    /* Depth/stencil formats can only select Z/S using the blit mask, not via the view format. */
    if (res_format != PIPE_FORMAT_NONE && util_format_is_depth_or_stencil(res_format))
@@ -217,8 +215,7 @@ static enum pipe_format get_random_format(struct si_screen *sscreen, bool render
       enum pipe_format format = (rand() % (PIPE_FORMAT_COUNT - 1)) + 1;
       const struct util_format_description *desc = util_format_description(format);
 
-      if (desc->colorspace == UTIL_FORMAT_COLORSPACE_YUV ||
-          format == PIPE_FORMAT_Z24_UNORM_S8_UINT_AS_R8G8B8A8)
+      if (desc->colorspace == UTIL_FORMAT_COLORSPACE_YUV || format == PIPE_FORMAT_Z24_UNORM_S8_UINT_AS_R8G8B8A8)
          continue;
 
       if (!options->allow_srgb && desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB)
@@ -231,8 +228,7 @@ static enum pipe_format get_random_format(struct si_screen *sscreen, bool render
          continue;
 
       if (color_or_zs != PIPE_FORMAT_NONE &&
-          (util_format_is_depth_or_stencil(color_or_zs) !=
-           util_format_is_depth_or_stencil(format)))
+          (util_format_is_depth_or_stencil(color_or_zs) != util_format_is_depth_or_stencil(format)))
          continue;
 
       if (desc->layout == UTIL_FORMAT_LAYOUT_PLAIN) {
@@ -283,12 +279,10 @@ static enum pipe_format get_random_format(struct si_screen *sscreen, bool render
           * formats don't have that if floats are disallowed, which can cause an infinite loop later
           * if compat_type is non-integer.
           */
-         if (!options->allow_float &&
-             (util_format_is_float(format) || util_format_get_blocksizebits(format) == 128))
+         if (!options->allow_float && (util_format_is_float(format) || util_format_get_blocksizebits(format) == 128))
             continue;
 
-         if (!options->allow_unorm16 &&
-             desc->channel[0].size == 16 && desc->channel[0].normalized &&
+         if (!options->allow_unorm16 && desc->channel[0].size == 16 && desc->channel[0].normalized &&
              desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED)
             continue;
       }
@@ -308,8 +302,8 @@ static enum pipe_format get_random_format(struct si_screen *sscreen, bool render
 
 #define MAX_ALLOC_SIZE (64 * 1024 * 1024)
 
-static void set_random_image_attrs(struct pipe_resource *templ, bool allow_msaa,
-                                   bool only_cb_resolve)
+static void
+set_random_image_attrs(struct pipe_resource *templ, bool allow_msaa, bool only_cb_resolve)
 {
    unsigned target_index;
 
@@ -365,20 +359,18 @@ static void set_random_image_attrs(struct pipe_resource *templ, bool allow_msaa,
 
    templ->width0 = (rand() % max_tex_size) + 1;
 
-   if (templ->target != PIPE_TEXTURE_1D &&
-       templ->target != PIPE_TEXTURE_1D_ARRAY)
+   if (templ->target != PIPE_TEXTURE_1D && templ->target != PIPE_TEXTURE_1D_ARRAY)
       templ->height0 = (rand() % max_tex_size) + 1;
 
    if (templ->target == PIPE_TEXTURE_3D)
       templ->depth0 = (rand() % max_tex_size) + 1;
 
-   if (templ->target == PIPE_TEXTURE_1D_ARRAY ||
-       templ->target == PIPE_TEXTURE_2D_ARRAY)
+   if (templ->target == PIPE_TEXTURE_1D_ARRAY || templ->target == PIPE_TEXTURE_2D_ARRAY)
       templ->array_size = (rand() % max_tex_size) + 1;
 
    /* Keep reducing the size until it we get a small enough size. */
-   while (util_format_get_nblocks(templ->format, templ->width0, templ->height0) *
-          templ->depth0 * templ->array_size * util_format_get_blocksize(templ->format) >
+   while (util_format_get_nblocks(templ->format, templ->width0, templ->height0) * templ->depth0 * templ->array_size *
+             util_format_get_blocksize(templ->format) >
           MAX_ALLOC_SIZE) {
       switch (rand() % 3) {
       case 0:
@@ -410,18 +402,15 @@ static void set_random_image_attrs(struct pipe_resource *templ, bool allow_msaa,
    }
 }
 
-static void print_image_attrs(struct si_screen *sscreen, struct si_texture *tex)
+static void
+print_image_attrs(struct si_screen *sscreen, struct si_texture *tex)
 {
    const char *mode;
 
    if (sscreen->info.gfx_level >= GFX9) {
       static const char *modes[32] = {
-         [ADDR_SW_LINEAR] = "LINEAR",
-         [ADDR_SW_4KB_S_X] = "4KB_S_X",
-         [ADDR_SW_4KB_D_X] = "4KB_D_X",
-         [ADDR_SW_64KB_Z_X] = "64KB_Z_X",
-         [ADDR_SW_64KB_S_X] = "64KB_S_X",
-         [ADDR_SW_64KB_D_X] = "64KB_D_X",
+         [ADDR_SW_LINEAR] = "LINEAR",     [ADDR_SW_4KB_S_X] = "4KB_S_X",   [ADDR_SW_4KB_D_X] = "4KB_D_X",
+         [ADDR_SW_64KB_Z_X] = "64KB_Z_X", [ADDR_SW_64KB_S_X] = "64KB_S_X", [ADDR_SW_64KB_D_X] = "64KB_D_X",
          [ADDR_SW_64KB_R_X] = "64KB_R_X",
       };
       mode = modes[tex->surface.u.gfx9.swizzle_mode];
@@ -449,8 +438,7 @@ static void print_image_attrs(struct si_screen *sscreen, struct si_texture *tex)
    char size[64];
    if (tex->buffer.b.b.target == PIPE_TEXTURE_1D)
       snprintf(size, sizeof(size), "%u", tex->buffer.b.b.width0);
-   else if (tex->buffer.b.b.target == PIPE_TEXTURE_2D ||
-            tex->buffer.b.b.target == PIPE_TEXTURE_RECT)
+   else if (tex->buffer.b.b.target == PIPE_TEXTURE_2D || tex->buffer.b.b.target == PIPE_TEXTURE_RECT)
       snprintf(size, sizeof(size), "%ux%u", tex->buffer.b.b.width0, tex->buffer.b.b.height0);
    else
       snprintf(size, sizeof(size), "%ux%ux%u", tex->buffer.b.b.width0, tex->buffer.b.b.height0,
@@ -461,7 +449,8 @@ static void print_image_attrs(struct si_screen *sscreen, struct si_texture *tex)
           tex->buffer.b.b.nr_samples > 1 ? "samples" : "levels", mode);
 }
 
-void si_test_image_copy_region(struct si_screen *sscreen)
+void
+si_test_image_copy_region(struct si_screen *sscreen)
 {
    struct pipe_screen *screen = &sscreen->b;
    struct pipe_context *ctx = screen->context_create(screen, NULL, 0);
@@ -537,8 +526,8 @@ void si_test_image_copy_region(struct si_screen *sscreen)
 
       /* clear dst pixels */
       uint32_t zero = 0;
-      si_clear_buffer(sctx, dst, 0, sdst->surface.surf_size, &zero, 4, SI_OP_SYNC_BEFORE_AFTER,
-                      SI_COHERENCY_SHADER, SI_AUTO_SELECT_CLEAR_METHOD);
+      si_clear_buffer(sctx, dst, 0, sdst->surface.surf_size, &zero, 4, SI_OP_SYNC_BEFORE_AFTER, SI_COHERENCY_SHADER,
+                      SI_AUTO_SELECT_CLEAR_METHOD);
 
       for (j = 0; j < num_partial_copies; j++) {
          int width, height, depth;
@@ -590,9 +579,8 @@ void si_test_image_copy_region(struct si_screen *sscreen)
          cs_blits += sctx->num_compute_calls > old_num_cs_calls;
 
          /* CPU copy */
-         util_copy_box(dst_cpu[dst_level].ptr, tdst.format, dst_cpu[dst_level].stride,
-                       dst_cpu[dst_level].layer_stride, dstx, dsty, dstz,
-                       width, height, depth, src_cpu[src_level].ptr, src_cpu[src_level].stride,
+         util_copy_box(dst_cpu[dst_level].ptr, tdst.format, dst_cpu[dst_level].stride, dst_cpu[dst_level].layer_stride,
+                       dstx, dsty, dstz, width, height, depth, src_cpu[src_level].ptr, src_cpu[src_level].stride,
                        src_cpu[src_level].layer_stride, srcx, srcy, srcz);
       }
 
@@ -605,8 +593,8 @@ void si_test_image_copy_region(struct si_screen *sscreen)
       else
          num_fail++;
 
-      printf("BLITs: GFX = %2u, CS = %2u, %s [%u/%u]\n", gfx_blits, cs_blits,
-             pass ? "pass" : "fail", num_pass, num_pass + num_fail);
+      printf("BLITs: GFX = %2u, CS = %2u, %s [%u/%u]\n", gfx_blits, cs_blits, pass ? "pass" : "fail", num_pass,
+             num_pass + num_fail);
 
       /* cleanup */
       pipe_resource_reference(&src, NULL);
@@ -621,7 +609,8 @@ void si_test_image_copy_region(struct si_screen *sscreen)
    exit(0);
 }
 
-void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
+void
+si_test_blit(struct si_screen *sscreen, unsigned test_flags)
 {
    struct pipe_screen *screen = &sscreen->b;
    struct pipe_context *ctx = screen->context_create(screen, NULL, 0);
@@ -653,15 +642,15 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
       break;
 
    case DBG(TEST_COMPUTE_BLIT):
-      //allow_float = true;      /* precision difference: NaNs not preserved by CB (u_blitter) */
+      // allow_float = true;      /* precision difference: NaNs not preserved by CB (u_blitter) */
       allow_unorm16_dst = true;
-      //allow_srgb_dst = true;   /* precision difference: sRGB is less precise in CB (u_blitter) */
-      //allow_filter = true;     /* not implemented by compute blits, lots of precision differences */
-      //allow_scaled_min = true; /* not implemented by compute blits, lots of precision differences */
-      //allow_scaled_mag = true; /* not implemented by compute blits, lots of precision differences */
+      // allow_srgb_dst = true;   /* precision difference: sRGB is less precise in CB (u_blitter) */
+      // allow_filter = true;     /* not implemented by compute blits, lots of precision differences */
+      // allow_scaled_min = true; /* not implemented by compute blits, lots of precision differences */
+      // allow_scaled_mag = true; /* not implemented by compute blits, lots of precision differences */
       allow_out_of_bounds_dst = true;
       allow_out_of_bounds_src = true;
-      //allow_scissor = true;    /* not implemented by compute blits */
+      // allow_scissor = true;    /* not implemented by compute blits */
       allow_flip = true;
       break;
 
@@ -715,10 +704,10 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
 
       /* clear dst pixels */
       uint32_t zero = 0;
-      si_clear_buffer(sctx, gfx_dst, 0, ((struct si_texture *)gfx_dst)->surface.surf_size, &zero,
-                      4, SI_OP_SYNC_BEFORE_AFTER, SI_COHERENCY_SHADER, SI_AUTO_SELECT_CLEAR_METHOD);
-      si_clear_buffer(sctx, comp_dst, 0, ((struct si_texture *)comp_dst)->surface.surf_size, &zero,
-                      4, SI_OP_SYNC_BEFORE_AFTER, SI_COHERENCY_SHADER, SI_AUTO_SELECT_CLEAR_METHOD);
+      si_clear_buffer(sctx, gfx_dst, 0, ((struct si_texture *)gfx_dst)->surface.surf_size, &zero, 4,
+                      SI_OP_SYNC_BEFORE_AFTER, SI_COHERENCY_SHADER, SI_AUTO_SELECT_CLEAR_METHOD);
+      si_clear_buffer(sctx, comp_dst, 0, ((struct si_texture *)comp_dst)->surface.surf_size, &zero, 4,
+                      SI_OP_SYNC_BEFORE_AFTER, SI_COHERENCY_SHADER, SI_AUTO_SELECT_CLEAR_METHOD);
 
       /* TODO: These two fix quite a lot of BCn cases. */
       /*si_clear_buffer(sctx, gfx_src, 0, ((struct si_texture *)gfx_src)->surface.surf_size, &zero,
@@ -745,8 +734,7 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
          info.src.format = get_random_format(sscreen, false, 0, tsrc.format, 0, &format_options);
          format_options.allow_unorm16 = allow_unorm16_dst;
          format_options.allow_srgb = allow_srgb_dst;
-         info.dst.format = get_random_format(sscreen, true, 0, tdst.format, info.src.format,
-                                             &format_options);
+         info.dst.format = get_random_format(sscreen, true, 0, tdst.format, info.src.format, &format_options);
       }
 
       printf("%4u: dst = (", i);
@@ -771,8 +759,7 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
       unsigned max_dst_depth = util_num_layers(&tdst, dst_level);
 
       /* make sure that it doesn't divide by zero */
-      assert(max_src_width && max_src_height && max_src_depth &&
-             max_dst_width && max_dst_height && max_dst_depth);
+      assert(max_src_width && max_src_height && max_src_depth && max_dst_width && max_dst_height && max_dst_depth);
 
       /* random sub-rectangle copies from src to dst */
       src_width = (rand() % max_src_width) + 1;
@@ -873,8 +860,7 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
       }
 
       /* Don't filter MSAA and integer sources. */
-      if (allow_filter && tsrc.nr_samples <= 1 &&
-          !util_format_is_pure_integer(info.src.format) && rand() % 2)
+      if (allow_filter && tsrc.nr_samples <= 1 && !util_format_is_pure_integer(info.src.format) && rand() % 2)
          info.filter = PIPE_TEX_FILTER_LINEAR;
       else
          info.filter = PIPE_TEX_FILTER_NEAREST;
@@ -899,15 +885,13 @@ void si_test_blit(struct si_screen *sscreen, unsigned test_flags)
 
       char dstbox_s[128], srcbox_s[128], scissor[128];
 
-      snprintf(dstbox_s, sizeof(dstbox_s), "{%ix%ix%i .. %ix%ix%i}",
-               info.dst.box.x, info.dst.box.y, info.dst.box.z,
+      snprintf(dstbox_s, sizeof(dstbox_s), "{%ix%ix%i .. %ix%ix%i}", info.dst.box.x, info.dst.box.y, info.dst.box.z,
                info.dst.box.width, info.dst.box.height, info.dst.box.depth);
-      snprintf(srcbox_s, sizeof(srcbox_s), "{%ix%ix%i .. %ix%ix%i}",
-               info.src.box.x, info.src.box.y, info.src.box.z,
+      snprintf(srcbox_s, sizeof(srcbox_s), "{%ix%ix%i .. %ix%ix%i}", info.src.box.x, info.src.box.y, info.src.box.z,
                info.src.box.width, info.src.box.height, info.src.box.depth);
       if (info.scissor_enable) {
-         snprintf(scissor, sizeof(scissor), "(%u..%u, %u..%u)",
-                  info.scissor.minx, info.scissor.maxx, info.scissor.miny, info.scissor.maxy);
+         snprintf(scissor, sizeof(scissor), "(%u..%u, %u..%u)", info.scissor.minx, info.scissor.maxx, info.scissor.miny,
+                  info.scissor.maxy);
       } else {
          snprintf(scissor, sizeof(scissor), "(none)");
       }

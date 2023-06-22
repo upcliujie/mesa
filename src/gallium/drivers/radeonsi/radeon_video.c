@@ -8,17 +8,18 @@
 
 #include "radeon_video.h"
 
-#include "radeon_vce.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_defines.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_vce.h"
 
 #include <unistd.h>
 
 /* generate an stream handle */
-unsigned si_vid_alloc_stream_handle()
+unsigned
+si_vid_alloc_stream_handle()
 {
    static unsigned counter = 0;
    unsigned stream_handle = 0;
@@ -33,8 +34,8 @@ unsigned si_vid_alloc_stream_handle()
 }
 
 /* create a buffer in the winsys */
-bool si_vid_create_buffer(struct pipe_screen *screen, struct rvid_buffer *buffer, unsigned size,
-                          unsigned usage)
+bool
+si_vid_create_buffer(struct pipe_screen *screen, struct rvid_buffer *buffer, unsigned size, unsigned usage)
 {
    memset(buffer, 0, sizeof(*buffer));
    buffer->usage = usage;
@@ -49,27 +50,26 @@ bool si_vid_create_buffer(struct pipe_screen *screen, struct rvid_buffer *buffer
 }
 
 /* create a tmz buffer in the winsys */
-bool si_vid_create_tmz_buffer(struct pipe_screen *screen, struct rvid_buffer *buffer, unsigned size,
-                              unsigned usage)
+bool
+si_vid_create_tmz_buffer(struct pipe_screen *screen, struct rvid_buffer *buffer, unsigned size, unsigned usage)
 {
    memset(buffer, 0, sizeof(*buffer));
    buffer->usage = usage;
-   buffer->res = si_resource(pipe_buffer_create(screen, PIPE_BIND_CUSTOM | PIPE_BIND_PROTECTED,
-                                                usage, size));
+   buffer->res = si_resource(pipe_buffer_create(screen, PIPE_BIND_CUSTOM | PIPE_BIND_PROTECTED, usage, size));
    return buffer->res != NULL;
 }
 
-
 /* destroy a buffer */
-void si_vid_destroy_buffer(struct rvid_buffer *buffer)
+void
+si_vid_destroy_buffer(struct rvid_buffer *buffer)
 {
    si_resource_reference(&buffer->res, NULL);
 }
 
 /* reallocate a buffer, preserving its content */
-bool si_vid_resize_buffer(struct pipe_screen *screen, struct radeon_cmdbuf *cs,
-                          struct rvid_buffer *new_buf, unsigned new_size,
-                          struct rvid_buf_offset_info *buf_ofst_info)
+bool
+si_vid_resize_buffer(struct pipe_screen *screen, struct radeon_cmdbuf *cs, struct rvid_buffer *new_buf,
+                     unsigned new_size, struct rvid_buf_offset_info *buf_ofst_info)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
    struct radeon_winsys *ws = sscreen->ws;
@@ -90,10 +90,10 @@ bool si_vid_resize_buffer(struct pipe_screen *screen, struct radeon_cmdbuf *cs,
 
    if (buf_ofst_info) {
       memset(dst, 0, new_size);
-      for(int i =0; i < buf_ofst_info->num_units; i++) {
-          memcpy(dst, src, buf_ofst_info->old_offset);
-          dst += buf_ofst_info->new_offset;
-          src += buf_ofst_info->old_offset;
+      for (int i = 0; i < buf_ofst_info->num_units; i++) {
+         memcpy(dst, src, buf_ofst_info->old_offset);
+         dst += buf_ofst_info->new_offset;
+         src += buf_ofst_info->old_offset;
       }
    } else {
       memcpy(dst, src, bytes);
@@ -117,7 +117,8 @@ error:
 }
 
 /* clear the buffer with zeros */
-void si_vid_clear_buffer(struct pipe_context *context, struct rvid_buffer *buffer)
+void
+si_vid_clear_buffer(struct pipe_context *context, struct rvid_buffer *buffer)
 {
    struct si_context *sctx = (struct si_context *)context;
    uint32_t zero = 0;

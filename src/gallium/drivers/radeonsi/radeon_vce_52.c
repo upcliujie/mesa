@@ -7,16 +7,17 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
-#include "radeon_vce.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
 #include "vl/vl_video_buffer.h"
+#include "radeon_vce.h"
+#include "radeon_video.h"
 
 #include <stdio.h>
 
-static void get_rate_control_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
+static void
+get_rate_control_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
 {
    enc->enc_pic.rc.rc_method = pic->rate_ctrl[0].rate_ctrl_method;
    enc->enc_pic.rc.target_bitrate = pic->rate_ctrl[0].target_bitrate;
@@ -34,9 +35,9 @@ static void get_rate_control_param(struct rvce_encoder *enc, struct pipe_h264_en
     * as target bitrate.
     */
    if (enc->enc_pic.rc.rc_method == PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT) {
-           enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].target_bitrate;
+      enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].target_bitrate;
    } else {
-           enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].vbv_buffer_size;
+      enc->enc_pic.rc.vbv_buffer_size = pic->rate_ctrl[0].vbv_buffer_size;
    }
 
    enc->enc_pic.rc.vbv_buf_lv = pic->rate_ctrl[0].vbv_buf_lv;
@@ -47,8 +48,8 @@ static void get_rate_control_param(struct rvce_encoder *enc, struct pipe_h264_en
    enc->enc_pic.rc.peak_bits_picture_fraction = pic->rate_ctrl[0].peak_bits_picture_fraction;
 }
 
-static void get_motion_estimation_param(struct rvce_encoder *enc,
-                                        struct pipe_h264_enc_picture_desc *pic)
+static void
+get_motion_estimation_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
 {
    enc->enc_pic.me.motion_est_quarter_pixel = 0;
    enc->enc_pic.me.enc_disable_sub_mode = 254;
@@ -65,7 +66,8 @@ static void get_motion_estimation_param(struct rvce_encoder *enc,
    enc->enc_pic.me.enc_search1_range_y = 0x00000010;
 }
 
-static void get_pic_control_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
+static void
+get_pic_control_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
 {
    unsigned encNumMBsPerSlice;
    encNumMBsPerSlice = align(enc->base.width, 16) / 16;
@@ -77,8 +79,7 @@ static void get_pic_control_param(struct rvce_encoder *enc, struct pipe_h264_enc
       enc->enc_pic.pc.enc_crop_bottom_offset = pic->seq.enc_frame_crop_bottom_offset;
    } else {
       enc->enc_pic.pc.enc_crop_right_offset = (align(enc->base.width, 16) - enc->base.width) >> 1;
-      enc->enc_pic.pc.enc_crop_bottom_offset =
-         (align(enc->base.height, 16) - enc->base.height) >> 1;
+      enc->enc_pic.pc.enc_crop_bottom_offset = (align(enc->base.height, 16) - enc->base.height) >> 1;
    }
    enc->enc_pic.pc.enc_num_mbs_per_slice = encNumMBsPerSlice;
    enc->enc_pic.pc.enc_b_pic_pattern = MAX2(enc->base.max_references, 1) - 1;
@@ -90,22 +91,26 @@ static void get_pic_control_param(struct rvce_encoder *enc, struct pipe_h264_enc
    enc->enc_pic.pc.enc_constraint_set_flags = 0x00000040;
 }
 
-static void get_task_info_param(struct rvce_encoder *enc)
+static void
+get_task_info_param(struct rvce_encoder *enc)
 {
    enc->enc_pic.ti.offset_of_next_task_info = 0xffffffff;
 }
 
-static void get_feedback_buffer_param(struct rvce_encoder *enc)
+static void
+get_feedback_buffer_param(struct rvce_encoder *enc)
 {
    enc->enc_pic.fb.feedback_ring_size = 0x00000001;
 }
 
-static void get_config_ext_param(struct rvce_encoder *enc)
+static void
+get_config_ext_param(struct rvce_encoder *enc)
 {
    enc->enc_pic.ce.enc_enable_perf_logging = 0x00000003;
 }
 
-static void get_vui_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
+static void
+get_vui_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
 {
    enc->enc_pic.enable_vui = pic->enable_vui;
    enc->enc_pic.vui.video_format = 0x00000005;
@@ -131,7 +136,8 @@ static void get_vui_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture
    enc->enc_pic.vui.max_dec_frame_buffering = 0x00000003;
 }
 
-void si_vce_52_get_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
+void
+si_vce_52_get_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_desc *pic)
 {
    get_rate_control_param(enc, pic);
    get_motion_estimation_param(enc, pic);
@@ -158,7 +164,8 @@ void si_vce_52_get_param(struct rvce_encoder *enc, struct pipe_h264_enc_picture_
    enc->enc_pic.is_idr = (pic->picture_type == PIPE_H2645_ENC_PICTURE_TYPE_IDR);
 }
 
-static void create(struct rvce_encoder *enc)
+static void
+create(struct rvce_encoder *enc)
 {
    struct si_screen *sscreen = (struct si_screen *)enc->screen;
    enc->task_info(enc, 0x00000000, 0, 0, 0);
@@ -190,7 +197,8 @@ static void create(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void encode(struct rvce_encoder *enc)
+static void
+encode(struct rvce_encoder *enc)
 {
    struct si_screen *sscreen = (struct si_screen *)enc->screen;
    signed luma_offset, chroma_offset, bs_offset;
@@ -221,8 +229,7 @@ static void encode(struct rvce_encoder *enc)
    RVCE_END();
 
    if (enc->dual_pipe) {
-      unsigned aux_offset =
-         enc->cpb.res->buf->size - RVCE_MAX_AUX_BUFFER_NUM * RVCE_MAX_BITSTREAM_OUTPUT_ROW_SIZE * 2;
+      unsigned aux_offset = enc->cpb.res->buf->size - RVCE_MAX_AUX_BUFFER_NUM * RVCE_MAX_BITSTREAM_OUTPUT_ROW_SIZE * 2;
       RVCE_BEGIN(0x05000002); // auxiliary buffer
       for (i = 0; i < 8; ++i) {
          RVCE_CS(aux_offset);
@@ -246,10 +253,10 @@ static void encode(struct rvce_encoder *enc)
       RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
                 (uint64_t)enc->luma->u.legacy.level[0].offset_256B * 256); // inputPictureLumaAddressHi/Lo
       RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
-                (uint64_t)enc->chroma->u.legacy.level[0].offset_256B * 256);        // inputPictureChromaAddressHi/Lo
-      RVCE_CS(align(enc->luma->u.legacy.level[0].nblk_y, 16)); // encInputFrameYPitch
-      RVCE_CS(enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);     // encInputPicLumaPitch
-      RVCE_CS(enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe); // encInputPicChromaPitch
+                (uint64_t)enc->chroma->u.legacy.level[0].offset_256B * 256); // inputPictureChromaAddressHi/Lo
+      RVCE_CS(align(enc->luma->u.legacy.level[0].nblk_y, 16));               // encInputFrameYPitch
+      RVCE_CS(enc->luma->u.legacy.level[0].nblk_x * enc->luma->bpe);         // encInputPicLumaPitch
+      RVCE_CS(enc->chroma->u.legacy.level[0].nblk_x * enc->chroma->bpe);     // encInputPicChromaPitch
    } else {
       RVCE_READ(enc->handle, RADEON_DOMAIN_VRAM,
                 enc->luma->u.gfx9.surf_offset); // inputPictureLumaAddressHi/Lo
@@ -268,8 +275,7 @@ static void encode(struct rvce_encoder *enc)
    RVCE_CS(enc->enc_pic.eo.enc_input_pic_tile_config);
    RVCE_CS(enc->enc_pic.picture_type);                                    // encPicType
    RVCE_CS(enc->enc_pic.picture_type == PIPE_H2645_ENC_PICTURE_TYPE_IDR); // encIdrFlag
-   if ((enc->enc_pic.picture_type == PIPE_H2645_ENC_PICTURE_TYPE_IDR) &&
-       (enc->enc_pic.eo.enc_idr_pic_id != 0))
+   if ((enc->enc_pic.picture_type == PIPE_H2645_ENC_PICTURE_TYPE_IDR) && (enc->enc_pic.eo.enc_idr_pic_id != 0))
       enc->enc_pic.eo.enc_idr_pic_id = enc->enc_pic.idr_pic_id - 1;
    else
       enc->enc_pic.eo.enc_idr_pic_id = 0x00000000;
@@ -400,7 +406,8 @@ static void encode(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void rate_control(struct rvce_encoder *enc)
+static void
+rate_control(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000005); // rate control
    RVCE_CS(enc->enc_pic.rc.rc_method);
@@ -432,7 +439,8 @@ static void rate_control(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void config(struct rvce_encoder *enc)
+static void
+config(struct rvce_encoder *enc)
 {
    enc->task_info(enc, 0x00000002, 0, 0xffffffff, 0);
    enc->rate_control(enc);
@@ -444,14 +452,16 @@ static void config(struct rvce_encoder *enc)
    enc->pic_control(enc);
 }
 
-static void config_extension(struct rvce_encoder *enc)
+static void
+config_extension(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000001); // config extension
    RVCE_CS(enc->enc_pic.ce.enc_enable_perf_logging);
    RVCE_END();
 }
 
-static void feedback(struct rvce_encoder *enc)
+static void
+feedback(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x05000005);                                    // feedback buffer
    RVCE_WRITE(enc->fb->res->buf, enc->fb->res->domains, 0x0); // feedbackRingAddressHi/Lo
@@ -459,7 +469,8 @@ static void feedback(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void destroy(struct rvce_encoder *enc)
+static void
+destroy(struct rvce_encoder *enc)
 {
    enc->task_info(enc, 0x00000001, 0, 0, 0);
 
@@ -469,7 +480,8 @@ static void destroy(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void motion_estimation(struct rvce_encoder *enc)
+static void
+motion_estimation(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000007); // motion estimation
    RVCE_CS(enc->enc_pic.me.enc_ime_decimation_search);
@@ -499,7 +511,8 @@ static void motion_estimation(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void pic_control(struct rvce_encoder *enc)
+static void
+pic_control(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000002); // pic control
    RVCE_CS(enc->enc_pic.pc.enc_use_constrained_intra_pred);
@@ -532,7 +545,8 @@ static void pic_control(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void rdo(struct rvce_encoder *enc)
+static void
+rdo(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x04000008); // rdo
    RVCE_CS(enc->enc_pic.rdo.enc_disable_tbe_pred_i_frame);
@@ -555,15 +569,16 @@ static void rdo(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-static void session(struct rvce_encoder *enc)
+static void
+session(struct rvce_encoder *enc)
 {
    RVCE_BEGIN(0x00000001); // session cmd
    RVCE_CS(enc->stream_handle);
    RVCE_END();
 }
 
-static void task_info(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint32_t fb_idx,
-                      uint32_t ring_idx)
+static void
+task_info(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint32_t fb_idx, uint32_t ring_idx)
 {
    RVCE_BEGIN(0x00000002); // task info
    if (op == 0x3) {
@@ -587,7 +602,8 @@ static void task_info(struct rvce_encoder *enc, uint32_t op, uint32_t dep, uint3
    RVCE_END();
 }
 
-static void vui(struct rvce_encoder *enc)
+static void
+vui(struct rvce_encoder *enc)
 {
    int i;
 
@@ -641,7 +657,8 @@ static void vui(struct rvce_encoder *enc)
    RVCE_END();
 }
 
-void si_vce_52_init(struct rvce_encoder *enc)
+void
+si_vce_52_init(struct rvce_encoder *enc)
 {
    enc->session = session;
    enc->task_info = task_info;

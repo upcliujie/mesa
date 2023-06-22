@@ -10,9 +10,10 @@
 
 #include "nir_format_convert.h"
 
-static void *create_shader_state(struct si_context *sctx, nir_shader *nir)
+static void *
+create_shader_state(struct si_context *sctx, nir_shader *nir)
 {
-   sctx->b.screen->finalize_nir(sctx->b.screen, (void*)nir);
+   sctx->b.screen->finalize_nir(sctx->b.screen, (void *)nir);
 
    struct pipe_shader_state state = {0};
    state.type = PIPE_SHADER_IR_NIR;
@@ -39,7 +40,8 @@ static void *create_shader_state(struct si_context *sctx, nir_shader *nir)
    }
 }
 
-static nir_ssa_def *get_global_ids(nir_builder *b, unsigned num_components)
+static nir_ssa_def *
+get_global_ids(nir_builder *b, unsigned num_components)
 {
    unsigned mask = BITFIELD_MASK(num_components);
 
@@ -49,13 +51,15 @@ static nir_ssa_def *get_global_ids(nir_builder *b, unsigned num_components)
    return nir_iadd(b, nir_imul(b, block_ids, block_size), local_ids);
 }
 
-static void unpack_2x16(nir_builder *b, nir_ssa_def *src, nir_ssa_def **x, nir_ssa_def **y)
+static void
+unpack_2x16(nir_builder *b, nir_ssa_def *src, nir_ssa_def **x, nir_ssa_def **y)
 {
    *x = nir_iand(b, src, nir_imm_int(b, 0xffff));
    *y = nir_ushr(b, src, nir_imm_int(b, 16));
 }
 
-static void unpack_2x16_signed(nir_builder *b, nir_ssa_def *src, nir_ssa_def **x, nir_ssa_def **y)
+static void
+unpack_2x16_signed(nir_builder *b, nir_ssa_def *src, nir_ssa_def **x, nir_ssa_def **y)
 {
    *x = nir_i2i32(b, nir_u2u16(b, src));
    *y = nir_ishr(b, src, nir_imm_int(b, 16));
@@ -73,7 +77,8 @@ deref_ssa(nir_builder *b, nir_variable *var)
  * It expects the source and destination (x,y,z) coords as user_data_amd,
  * packed into 3 SGPRs as 2x16bits per component.
  */
-void *si_create_copy_image_cs(struct si_context *sctx, bool src_is_1d_array, bool dst_is_1d_array)
+void *
+si_create_copy_image_cs(struct si_context *sctx, bool src_is_1d_array, bool dst_is_1d_array)
 {
    const nir_shader_compiler_options *options =
       sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
@@ -102,11 +107,9 @@ void *si_create_copy_image_cs(struct si_context *sctx, bool src_is_1d_array, boo
    if (dst_is_1d_array)
       coord_dst = nir_swizzle(&b, coord_dst, swizzle_xz, 4);
 
-   const struct glsl_type *src_img_type = glsl_image_type(src_is_1d_array ? GLSL_SAMPLER_DIM_1D
-                                                                          : GLSL_SAMPLER_DIM_2D,
+   const struct glsl_type *src_img_type = glsl_image_type(src_is_1d_array ? GLSL_SAMPLER_DIM_1D : GLSL_SAMPLER_DIM_2D,
                                                           /*is_array*/ true, GLSL_TYPE_FLOAT);
-   const struct glsl_type *dst_img_type = glsl_image_type(dst_is_1d_array ? GLSL_SAMPLER_DIM_1D
-                                                                          : GLSL_SAMPLER_DIM_2D,
+   const struct glsl_type *dst_img_type = glsl_image_type(dst_is_1d_array ? GLSL_SAMPLER_DIM_1D : GLSL_SAMPLER_DIM_2D,
                                                           /*is_array*/ true, GLSL_TYPE_FLOAT);
 
    nir_variable *img_src = nir_variable_create(b.shader, nir_var_image, src_img_type, "img_src");
@@ -118,15 +121,16 @@ void *si_create_copy_image_cs(struct si_context *sctx, bool src_is_1d_array, boo
    nir_ssa_def *undef32 = nir_ssa_undef(&b, 1, 32);
    nir_ssa_def *zero = nir_imm_int(&b, 0);
 
-   nir_ssa_def *data = nir_image_deref_load(&b, /*num_components*/ 4, /*bit_size*/ 32,
-      deref_ssa(&b, img_src), coord_src, undef32, zero);
+   nir_ssa_def *data =
+      nir_image_deref_load(&b, /*num_components*/ 4, /*bit_size*/ 32, deref_ssa(&b, img_src), coord_src, undef32, zero);
 
    nir_image_deref_store(&b, deref_ssa(&b, img_dst), coord_dst, undef32, data, zero);
 
    return create_shader_state(sctx, b.shader);
 }
 
-void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
+void *
+si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
 {
    const nir_shader_compiler_options *options =
       sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
@@ -153,28 +157,29 @@ void *si_create_dcc_retile_cs(struct si_context *sctx, struct radeon_surf *surf)
    nir_ssa_def *zero = nir_imm_int(&b, 0);
 
    /* Multiply the coordinates by the DCC block size (they are DCC block coordinates). */
-   coord = nir_imul(&b, coord, nir_imm_ivec2(&b, surf->u.gfx9.color.dcc_block_width,
-                                             surf->u.gfx9.color.dcc_block_height));
+   coord =
+      nir_imul(&b, coord, nir_imm_ivec2(&b, surf->u.gfx9.color.dcc_block_width, surf->u.gfx9.color.dcc_block_height));
 
    nir_ssa_def *src_offset =
-      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf->bpe, &surf->u.gfx9.color.dcc_equation,
-                                 src_dcc_pitch, src_dcc_height, zero, /* DCC slice size */
+      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf->bpe, &surf->u.gfx9.color.dcc_equation, src_dcc_pitch,
+                                 src_dcc_height, zero,                                 /* DCC slice size */
                                  nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
-                                 zero, zero, zero); /* z, sample, pipe_xor */
+                                 zero, zero, zero);                                    /* z, sample, pipe_xor */
    src_offset = nir_iadd(&b, src_offset, src_dcc_offset);
-   nir_ssa_def *value = nir_load_ssbo(&b, 1, 8, zero, src_offset, .align_mul=1);
+   nir_ssa_def *value = nir_load_ssbo(&b, 1, 8, zero, src_offset, .align_mul = 1);
 
    nir_ssa_def *dst_offset =
       ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, surf->bpe, &surf->u.gfx9.color.display_dcc_equation,
-                                 dst_dcc_pitch, dst_dcc_height, zero, /* DCC slice size */
+                                 dst_dcc_pitch, dst_dcc_height, zero,                  /* DCC slice size */
                                  nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
-                                 zero, zero, zero); /* z, sample, pipe_xor */
-   nir_store_ssbo(&b, value, zero, dst_offset, .write_mask=0x1, .align_mul=1);
+                                 zero, zero, zero);                                    /* z, sample, pipe_xor */
+   nir_store_ssbo(&b, value, zero, dst_offset, .write_mask = 0x1, .align_mul = 1);
 
    return create_shader_state(sctx, b.shader);
 }
 
-void *gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *tex)
+void *
+gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *tex)
 {
    const nir_shader_compiler_options *options =
       sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
@@ -198,16 +203,15 @@ void *gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *
    nir_ssa_def *zero = nir_imm_int(&b, 0);
 
    /* Multiply the coordinates by the DCC block size (they are DCC block coordinates). */
-   coord = nir_imul(&b, coord,
-                    nir_imm_ivec3(&b, tex->surface.u.gfx9.color.dcc_block_width,
-                                      tex->surface.u.gfx9.color.dcc_block_height,
-                                      tex->surface.u.gfx9.color.dcc_block_depth));
+   coord =
+      nir_imul(&b, coord,
+               nir_imm_ivec3(&b, tex->surface.u.gfx9.color.dcc_block_width, tex->surface.u.gfx9.color.dcc_block_height,
+                             tex->surface.u.gfx9.color.dcc_block_depth));
 
    nir_ssa_def *offset =
-      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, tex->surface.bpe,
-                                 &tex->surface.u.gfx9.color.dcc_equation,
-                                 dcc_pitch, dcc_height, zero, /* DCC slice size */
-                                 nir_channel(&b, coord, 0), nir_channel(&b, coord, 1), /* x, y */
+      ac_nir_dcc_addr_from_coord(&b, &sctx->screen->info, tex->surface.bpe, &tex->surface.u.gfx9.color.dcc_equation,
+                                 dcc_pitch, dcc_height, zero,                                       /* DCC slice size */
+                                 nir_channel(&b, coord, 0), nir_channel(&b, coord, 1),              /* x, y */
                                  tex->buffer.b.b.array_size > 1 ? nir_channel(&b, coord, 2) : zero, /* z */
                                  zero, pipe_xor); /* sample, pipe_xor */
 
@@ -215,19 +219,19 @@ void *gfx9_create_clear_dcc_msaa_cs(struct si_context *sctx, struct si_texture *
     * in memory, so we only need to compute the address for sample 0 and the next DCC byte is always
     * sample 1. That's why the clear value has 2 bytes - we're clearing 2 samples at the same time.
     */
-   nir_store_ssbo(&b, clear_value, zero, offset, .write_mask=0x1, .align_mul=2);
+   nir_store_ssbo(&b, clear_value, zero, offset, .write_mask = 0x1, .align_mul = 2);
 
    return create_shader_state(sctx, b.shader);
 }
 
 /* Create a compute shader implementing clear_buffer or copy_buffer. */
-void *si_create_clear_buffer_rmw_cs(struct si_context *sctx)
+void *
+si_create_clear_buffer_rmw_cs(struct si_context *sctx)
 {
    const nir_shader_compiler_options *options =
       sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
 
-   nir_builder b =
-      nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, options, "clear_buffer_rmw_cs");
+   nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, options, "clear_buffer_rmw_cs");
    b.shader->info.workgroup_size[0] = 64;
    b.shader->info.workgroup_size[1] = 1;
    b.shader->info.workgroup_size[2] = 1;
@@ -239,7 +243,7 @@ void *si_create_clear_buffer_rmw_cs(struct si_context *sctx)
 
    /* address = address * 16; (byte offset, loading one vec4 per thread) */
    address = nir_ishl(&b, address, nir_imm_int(&b, 4));
-   
+
    nir_ssa_def *zero = nir_imm_int(&b, 0);
    nir_ssa_def *data = nir_load_ssbo(&b, 4, 32, zero, address, .align_mul = 4);
 
@@ -251,9 +255,8 @@ void *si_create_clear_buffer_rmw_cs(struct si_context *sctx)
    /* data |= clear_value_masked; */
    data = nir_ior(&b, data, nir_channel(&b, user_sgprs, 0));
 
-   nir_store_ssbo(&b, data, zero, address,
-      .access = SI_COMPUTE_DST_CACHE_POLICY != L2_LRU ? ACCESS_NON_TEMPORAL : 0,
-      .align_mul = 4);
+   nir_store_ssbo(&b, data, zero, address, .access = SI_COMPUTE_DST_CACHE_POLICY != L2_LRU ? ACCESS_NON_TEMPORAL : 0,
+                  .align_mul = 4);
 
    return create_shader_state(sctx, b.shader);
 }
@@ -262,11 +265,11 @@ void *si_create_clear_buffer_rmw_cs(struct si_context *sctx)
  * VS passes its outputs to TES directly, so the fixed-function shader only
  * has to write TESSOUTER and TESSINNER.
  */
-void *si_create_passthrough_tcs(struct si_context *sctx)
+void *
+si_create_passthrough_tcs(struct si_context *sctx)
 {
    const nir_shader_compiler_options *options =
-      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR,
-                                           PIPE_SHADER_TESS_CTRL);
+      sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_TESS_CTRL);
 
    unsigned locations[PIPE_MAX_SHADER_OUTPUTS];
 
@@ -275,14 +278,13 @@ void *si_create_passthrough_tcs(struct si_context *sctx)
       locations[i] = info->output_semantic[i];
    }
 
-   nir_shader *tcs =
-         nir_create_passthrough_tcs_impl(options, locations, info->num_outputs,
-                                         sctx->patch_vertices);
+   nir_shader *tcs = nir_create_passthrough_tcs_impl(options, locations, info->num_outputs, sctx->patch_vertices);
 
    return create_shader_state(sctx, tcs);
 }
 
-static nir_ssa_def *convert_linear_to_srgb(nir_builder *b, nir_ssa_def *input)
+static nir_ssa_def *
+convert_linear_to_srgb(nir_builder *b, nir_ssa_def *input)
 {
    /* There are small precision differences compared to CB, so the gfx blit will return slightly
     * different results.
@@ -296,7 +298,8 @@ static nir_ssa_def *convert_linear_to_srgb(nir_builder *b, nir_ssa_def *input)
    return nir_vec(b, comp, 4);
 }
 
-static nir_ssa_def *average_samples(nir_builder *b, nir_ssa_def **samples, unsigned num_samples)
+static nir_ssa_def *
+average_samples(nir_builder *b, nir_ssa_def **samples, unsigned num_samples)
 {
    /* This works like add-reduce by computing the sum of each pair independently, and then
     * computing the sum of each pair of sums, and so on, to get better instruction-level
@@ -320,8 +323,9 @@ static nir_ssa_def *average_samples(nir_builder *b, nir_ssa_def **samples, unsig
    return nir_fmul_imm(b, samples[0], 1.0 / num_samples); /* average the sum */
 }
 
-static nir_ssa_def *image_resolve_msaa(nir_builder *b, nir_variable *img, unsigned num_samples,
-                                       nir_ssa_def *coord, enum amd_gfx_level gfx_level)
+static nir_ssa_def *
+image_resolve_msaa(nir_builder *b, nir_variable *img, unsigned num_samples, nir_ssa_def *coord,
+                   enum amd_gfx_level gfx_level)
 {
    nir_ssa_def *zero = nir_imm_int(b, 0);
    nir_ssa_def *result = NULL;
@@ -352,8 +356,7 @@ static nir_ssa_def *image_resolve_msaa(nir_builder *b, nir_variable *img, unsign
    /* Load all samples. */
    nir_ssa_def *samples[16];
    for (unsigned i = 0; i < num_samples; i++) {
-      samples[i] = nir_image_deref_load(b, 4, 32, deref_ssa(b, img),
-                                        coord, sample_index[i], zero);
+      samples[i] = nir_image_deref_load(b, 4, 32, deref_ssa(b, img), coord, sample_index[i], zero);
    }
 
    result = average_samples(b, samples, num_samples);
@@ -368,8 +371,8 @@ static nir_ssa_def *image_resolve_msaa(nir_builder *b, nir_variable *img, unsign
    return result;
 }
 
-static nir_ssa_def *apply_blit_output_modifiers(nir_builder *b, nir_ssa_def *color,
-                                                const union si_compute_blit_shader_key *options)
+static nir_ssa_def *
+apply_blit_output_modifiers(nir_builder *b, nir_ssa_def *color, const union si_compute_blit_shader_key *options)
 {
    if (options->sint_to_uint)
       color = nir_imax(b, color, nir_imm_int(b, 0));
@@ -420,13 +423,13 @@ static nir_ssa_def *apply_blit_output_modifiers(nir_builder *b, nir_ssa_def *col
  * - MSAA copies are implemented but disabled because MSAA image stores don't
  *   work.
  */
-void *si_create_blit_cs(struct si_context *sctx, const union si_compute_blit_shader_key *options)
+void *
+si_create_blit_cs(struct si_context *sctx, const union si_compute_blit_shader_key *options)
 {
    const nir_shader_compiler_options *nir_options =
       sctx->b.screen->get_compiler_options(sctx->b.screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE);
 
-   nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, nir_options,
-                                                  "blit_non_scaled_cs");
+   nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, nir_options, "blit_non_scaled_cs");
    b.shader->info.num_images = 2;
    if (options->src_is_msaa)
       BITSET_SET(b.shader->info.msaa_images, 0);
@@ -438,11 +441,13 @@ void *si_create_blit_cs(struct si_context *sctx, const union si_compute_blit_sha
    b.shader->info.cs.user_data_components_amd = 3;
 
    const struct glsl_type *img_type[2] = {
-      glsl_image_type(options->src_is_1d ? GLSL_SAMPLER_DIM_1D :
-                      options->src_is_msaa ? GLSL_SAMPLER_DIM_MS : GLSL_SAMPLER_DIM_2D,
+      glsl_image_type(options->src_is_1d     ? GLSL_SAMPLER_DIM_1D
+                      : options->src_is_msaa ? GLSL_SAMPLER_DIM_MS
+                                             : GLSL_SAMPLER_DIM_2D,
                       /*is_array*/ true, GLSL_TYPE_FLOAT),
-      glsl_image_type(options->dst_is_1d ? GLSL_SAMPLER_DIM_1D :
-                      options->dst_is_msaa ? GLSL_SAMPLER_DIM_MS : GLSL_SAMPLER_DIM_2D,
+      glsl_image_type(options->dst_is_1d     ? GLSL_SAMPLER_DIM_1D
+                      : options->dst_is_msaa ? GLSL_SAMPLER_DIM_MS
+                                             : GLSL_SAMPLER_DIM_2D,
                       /*is_array*/ true, GLSL_TYPE_FLOAT),
    };
 
@@ -474,8 +479,7 @@ void *si_create_blit_cs(struct si_context *sctx, const union si_compute_blit_sha
 
    /* Add box.xyz. */
    nir_ssa_def *coord_src = NULL, *coord_dst = NULL;
-   unpack_2x16_signed(&b, nir_trim_vector(&b, nir_load_user_data_amd(&b), 3),
-                      &coord_src, &coord_dst);
+   unpack_2x16_signed(&b, nir_trim_vector(&b, nir_load_user_data_amd(&b), 3), &coord_src, &coord_dst);
    coord_dst = nir_iadd(&b, coord_dst, dst_xyz);
    coord_src = nir_iadd(&b, coord_src, src_xyz);
 
@@ -524,14 +528,12 @@ void *si_create_blit_cs(struct si_context *sctx, const union si_compute_blit_sha
       assert(num_samples > 1);
       /* Group loads together and then stores. */
       for (unsigned i = 0; i < num_samples; i++) {
-         color[i] = nir_image_deref_load(&b, 4, 32, deref_ssa(&b, img_src), coord_src,
-                                         nir_imm_int(&b, i), zero);
+         color[i] = nir_image_deref_load(&b, 4, 32, deref_ssa(&b, img_src), coord_src, nir_imm_int(&b, i), zero);
       }
       for (unsigned i = 0; i < num_samples; i++)
          color[i] = apply_blit_output_modifiers(&b, color[i], options);
       for (unsigned i = 0; i < num_samples; i++) {
-         nir_image_deref_store(&b, deref_ssa(&b, img_dst), coord_dst,
-                               nir_imm_int(&b, i), color[i], zero);
+         nir_image_deref_store(&b, deref_ssa(&b, img_dst), coord_dst, nir_imm_int(&b, i), color[i], zero);
       }
    } else if (!options->src_is_msaa && options->dst_is_msaa) {
       /* MSAA upsampling. */
@@ -539,8 +541,7 @@ void *si_create_blit_cs(struct si_context *sctx, const union si_compute_blit_sha
       color = nir_image_deref_load(&b, 4, 32, deref_ssa(&b, img_src), coord_src, zero, zero);
       color = apply_blit_output_modifiers(&b, color, options);
       for (unsigned i = 0; i < num_samples; i++) {
-         nir_image_deref_store(&b, deref_ssa(&b, img_dst), coord_dst,
-                               nir_imm_int(&b, i), color, zero);
+         nir_image_deref_store(&b, deref_ssa(&b, img_dst), coord_dst, nir_imm_int(&b, i), color, zero);
       }
    } else {
       /* Non-MSAA copy or read sample 0 only. */

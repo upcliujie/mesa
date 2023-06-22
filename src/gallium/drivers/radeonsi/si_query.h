@@ -24,8 +24,7 @@ struct si_resource;
 
 #define SI_MAX_STREAMS 4
 
-enum
-{
+enum {
    SI_QUERY_DRAW_CALLS = PIPE_QUERY_DRIVER_SPECIFIC,
    SI_QUERY_DECOMPRESS_CALLS,
    SI_QUERY_PRIM_RESTART_CALLS,
@@ -103,22 +102,16 @@ enum
    SI_QUERY_FIRST_PERFCOUNTER = PIPE_QUERY_DRIVER_SPECIFIC + 100,
 };
 
-enum
-{
-   SI_QUERY_GROUP_GPIN = 0,
-   SI_NUM_SW_QUERY_GROUPS
-};
+enum { SI_QUERY_GROUP_GPIN = 0, SI_NUM_SW_QUERY_GROUPS };
 
 struct si_query_ops {
    void (*destroy)(struct si_context *, struct si_query *);
    bool (*begin)(struct si_context *, struct si_query *);
    bool (*end)(struct si_context *, struct si_query *);
-   bool (*get_result)(struct si_context *, struct si_query *, bool wait,
-                      union pipe_query_result *result);
-   void (*get_result_resource)(struct si_context *, struct si_query *,
-                               enum pipe_query_flags flags,
-                               enum pipe_query_value_type result_type, int index,
-                               struct pipe_resource *resource, unsigned offset);
+   bool (*get_result)(struct si_context *, struct si_query *, bool wait, union pipe_query_result *result);
+   void (*get_result_resource)(struct si_context *, struct si_query *, enum pipe_query_flags flags,
+                               enum pipe_query_value_type result_type, int index, struct pipe_resource *resource,
+                               unsigned offset);
 
    void (*suspend)(struct si_context *, struct si_query *);
    void (*resume)(struct si_context *, struct si_query *);
@@ -138,8 +131,7 @@ struct si_query {
    struct list_head active_list;
 };
 
-enum
-{
+enum {
    SI_QUERY_HW_FLAG_NO_START = (1 << 0),
    /* gap */
    /* whether begin_query doesn't clear the result */
@@ -152,13 +144,10 @@ enum
 
 struct si_query_hw_ops {
    bool (*prepare_buffer)(struct si_context *, struct si_query_buffer *);
-   void (*emit_start)(struct si_context *, struct si_query_hw *, struct si_resource *buffer,
-                      uint64_t va);
-   void (*emit_stop)(struct si_context *, struct si_query_hw *, struct si_resource *buffer,
-                     uint64_t va);
+   void (*emit_start)(struct si_context *, struct si_query_hw *, struct si_resource *buffer, uint64_t va);
+   void (*emit_stop)(struct si_context *, struct si_query_hw *, struct si_resource *buffer, uint64_t va);
    void (*clear_result)(struct si_query_hw *, union pipe_query_result *);
-   void (*add_result)(struct si_screen *screen, struct si_query_hw *, void *buffer,
-                      union pipe_query_result *result);
+   void (*add_result)(struct si_screen *screen, struct si_query_hw *, void *buffer, union pipe_query_result *result);
 };
 
 struct si_query_buffer {
@@ -176,8 +165,7 @@ struct si_query_buffer {
 void si_query_buffer_destroy(struct si_screen *sctx, struct si_query_buffer *buffer);
 void si_query_buffer_reset(struct si_context *sctx, struct si_query_buffer *buffer);
 bool si_query_buffer_alloc(struct si_context *sctx, struct si_query_buffer *buffer,
-                           bool (*prepare_buffer)(struct si_context *, struct si_query_buffer *),
-                           unsigned size);
+                           bool (*prepare_buffer)(struct si_context *, struct si_query_buffer *), unsigned size);
 
 struct si_query_hw {
    struct si_query b;
@@ -201,8 +189,7 @@ struct si_query_hw {
    unsigned workaround_offset;
 };
 
-unsigned si_query_pipestat_end_dw_offset(struct si_screen *sscreen,
-                                         enum pipe_statistics_query_index index);
+unsigned si_query_pipestat_end_dw_offset(struct si_screen *sscreen, enum pipe_statistics_query_index index);
 void si_query_hw_destroy(struct si_context *sctx, struct si_query *squery);
 bool si_query_hw_begin(struct si_context *sctx, struct si_query *squery);
 bool si_query_hw_end(struct si_context *sctx, struct si_query *squery);
@@ -259,8 +246,7 @@ struct gfx11_sh_query {
    unsigned stream;
 };
 
-struct pipe_query *gfx11_sh_query_create(struct si_screen *screen, enum pipe_query_type query_type,
-                                         unsigned index);
+struct pipe_query *gfx11_sh_query_create(struct si_screen *screen, enum pipe_query_type query_type, unsigned index);
 
 /* Performance counters */
 struct si_perfcounters {
@@ -270,13 +256,10 @@ struct si_perfcounters {
    unsigned num_instance_cs_dwords;
 };
 
-struct pipe_query *si_create_batch_query(struct pipe_context *ctx, unsigned num_queries,
-                                         unsigned *query_types);
+struct pipe_query *si_create_batch_query(struct pipe_context *ctx, unsigned num_queries, unsigned *query_types);
 
-int si_get_perfcounter_info(struct si_screen *, unsigned index,
-                            struct pipe_driver_query_info *info);
-int si_get_perfcounter_group_info(struct si_screen *, unsigned index,
-                                  struct pipe_driver_query_group_info *info);
+int si_get_perfcounter_info(struct si_screen *, unsigned index, struct pipe_driver_query_info *info);
+int si_get_perfcounter_group_info(struct si_screen *, unsigned index, struct pipe_driver_query_group_info *info);
 
 struct si_qbo_state {
    struct pipe_constant_buffer saved_const0;

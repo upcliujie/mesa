@@ -21,6 +21,16 @@ running ``ninja -C build/ clang-format``.
 Most code editors also support automatically formatting code as you
 write it; check your editor or its pluggins to see how to enable this.
 
+If your distribution doesn't ship a ``clang-format`` binary, or if you want
+to use a specific version, you can use add a symlink manually or use
+something like ``sudo update-alternatives --install /usr/bin/clang-format  clang-format /usr/bin/clang-format-16 50`` to create it (at least on Debian
+based systems). Note that adding a ``clang-format`` entry to Meson's native
+file doesn't work.
+
+Running ``ninja -C build/ clang-format`` will format all the Mesa tree,
+but a faster alternative can be used: ``git-clang-format`` that will
+fix formatting of the staged changes and is thus much faster.
+
 Basic formatting guidelines
 ---------------------------
 

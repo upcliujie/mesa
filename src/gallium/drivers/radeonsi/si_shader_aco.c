@@ -22,13 +22,12 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "si_shader_internal.h"
-#include "si_pipe.h"
 #include "aco_interface.h"
+#include "si_pipe.h"
+#include "si_shader_internal.h"
 
 static void
-si_aco_compiler_debug(void *private_data, enum aco_compiler_debug_level level,
-                      const char *message)
+si_aco_compiler_debug(void *private_data, enum aco_compiler_debug_level level, const char *message)
 {
    struct util_debug_callback *debug = private_data;
 
@@ -36,14 +35,12 @@ si_aco_compiler_debug(void *private_data, enum aco_compiler_debug_level level,
 }
 
 static void
-si_fill_aco_options(struct si_shader *shader, struct aco_compiler_options *options,
-                    struct util_debug_callback *debug)
+si_fill_aco_options(struct si_shader *shader, struct aco_compiler_options *options, struct util_debug_callback *debug)
 {
    const struct si_shader_selector *sel = shader->selector;
 
-   options->dump_shader =
-      si_can_dump_shader(sel->screen, sel->stage, SI_DUMP_ACO_IR) ||
-      si_can_dump_shader(sel->screen, sel->stage, SI_DUMP_ASM);
+   options->dump_shader = si_can_dump_shader(sel->screen, sel->stage, SI_DUMP_ACO_IR) ||
+                          si_can_dump_shader(sel->screen, sel->stage, SI_DUMP_ASM);
    options->dump_preoptir = si_can_dump_shader(sel->screen, sel->stage, SI_DUMP_INIT_ACO_IR);
    options->record_ir = sel->screen->record_llvm_ir;
    options->is_opengl = true;
@@ -96,10 +93,9 @@ si_fill_aco_shader_info(struct si_shader *shader, struct aco_shader_info *info)
 }
 
 static void
-si_aco_build_shader_binary(void **data, const struct ac_shader_config *config,
-                           const char *llvm_ir_str, unsigned llvm_ir_size, const char *disasm_str,
-                           unsigned disasm_size, uint32_t *statistics, uint32_t stats_size,
-                           uint32_t exec_size, const uint32_t *code, uint32_t code_dw,
+si_aco_build_shader_binary(void **data, const struct ac_shader_config *config, const char *llvm_ir_str,
+                           unsigned llvm_ir_size, const char *disasm_str, unsigned disasm_size, uint32_t *statistics,
+                           uint32_t stats_size, uint32_t exec_size, const uint32_t *code, uint32_t code_dw,
                            const struct aco_symbol *symbols, unsigned num_symbols)
 {
    struct si_shader *shader = (struct si_shader *)data;
@@ -135,9 +131,7 @@ si_aco_build_shader_binary(void **data, const struct ac_shader_config *config,
 }
 
 bool
-si_aco_compile_shader(struct si_shader *shader,
-                      struct si_shader_args *args,
-                      struct nir_shader *nir,
+si_aco_compile_shader(struct si_shader *shader, struct si_shader_args *args, struct nir_shader *nir,
                       struct util_debug_callback *debug)
 {
    struct aco_compiler_options options = {0};
@@ -146,8 +140,7 @@ si_aco_compile_shader(struct si_shader *shader,
    struct aco_shader_info info = {0};
    si_fill_aco_shader_info(shader, &info);
 
-   aco_compile_shader(&options, &info, 1, &nir, &args->ac,
-                      si_aco_build_shader_binary, (void **)shader);
+   aco_compile_shader(&options, &info, 1, &nir, &args->ac, si_aco_build_shader_binary, (void **)shader);
 
    return true;
 }

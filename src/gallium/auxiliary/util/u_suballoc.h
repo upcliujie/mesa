@@ -31,6 +31,8 @@
 #ifndef U_SUBALLOC
 #define U_SUBALLOC
 
+#include "pipe/p_defines.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

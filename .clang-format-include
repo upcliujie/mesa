@@ -5,3 +5,5 @@ src/**/asahi/**/*
 src/**/panfrost/**/*
 src/amd/vulkan/**/*
 src/amd/compiler/**/*
+src/gallium/drivers/radeonsi/**/*
+src/gallium/winsys/amdgpu/**/*

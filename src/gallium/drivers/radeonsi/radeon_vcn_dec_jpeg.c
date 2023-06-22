@@ -7,18 +7,18 @@
  **************************************************************************/
 
 #include "pipe/p_video_codec.h"
-#include "radeon_vcn_dec.h"
-#include "radeon_video.h"
 #include "radeonsi/si_pipe.h"
 #include "util/u_memory.h"
 #include "util/u_video.h"
+#include "radeon_vcn_dec.h"
+#include "radeon_video.h"
 
 #include <assert.h>
 #include <stdio.h>
 
-static struct pb_buffer *radeon_jpeg_get_decode_param(struct radeon_decoder *dec,
-                                                      struct pipe_video_buffer *target,
-                                                      struct pipe_picture_desc *picture)
+static struct pb_buffer *
+radeon_jpeg_get_decode_param(struct radeon_decoder *dec, struct pipe_video_buffer *target,
+                             struct pipe_picture_desc *picture)
 {
    struct si_texture *luma = (struct si_texture *)((struct vl_video_buffer *)target)->resources[0];
    struct si_texture *chroma, *chromav;
@@ -29,23 +29,23 @@ static struct pb_buffer *radeon_jpeg_get_decode_param(struct radeon_decoder *dec
    dec->jpg.dt_chromav_top_offset = 0;
 
    switch (target->buffer_format) {
-      case PIPE_FORMAT_IYUV:
-      case PIPE_FORMAT_YV12:
-      case PIPE_FORMAT_Y8_U8_V8_444_UNORM:
-      case PIPE_FORMAT_R8_G8_B8_UNORM:
-         chromav = (struct si_texture *)((struct vl_video_buffer *)target)->resources[2];
-         dec->jpg.dt_chromav_top_offset = chromav->surface.u.gfx9.surf_offset;
-         chroma = (struct si_texture *)((struct vl_video_buffer*)target)->resources[1];
-         dec->jpg.dt_chroma_top_offset = chroma->surface.u.gfx9.surf_offset;
-         break;
-      case PIPE_FORMAT_NV12:
-      case PIPE_FORMAT_P010:
-      case PIPE_FORMAT_P016:
-         chroma = (struct si_texture *)((struct vl_video_buffer*)target)->resources[1];
-         dec->jpg.dt_chroma_top_offset = chroma->surface.u.gfx9.surf_offset;
-         break;
-      default:
-         break;
+   case PIPE_FORMAT_IYUV:
+   case PIPE_FORMAT_YV12:
+   case PIPE_FORMAT_Y8_U8_V8_444_UNORM:
+   case PIPE_FORMAT_R8_G8_B8_UNORM:
+      chromav = (struct si_texture *)((struct vl_video_buffer *)target)->resources[2];
+      dec->jpg.dt_chromav_top_offset = chromav->surface.u.gfx9.surf_offset;
+      chroma = (struct si_texture *)((struct vl_video_buffer *)target)->resources[1];
+      dec->jpg.dt_chroma_top_offset = chroma->surface.u.gfx9.surf_offset;
+      break;
+   case PIPE_FORMAT_NV12:
+   case PIPE_FORMAT_P010:
+   case PIPE_FORMAT_P016:
+      chroma = (struct si_texture *)((struct vl_video_buffer *)target)->resources[1];
+      dec->jpg.dt_chroma_top_offset = chroma->surface.u.gfx9.surf_offset;
+      break;
+   default:
+      break;
    }
    dec->jpg.dt_pitch = luma->surface.u.gfx9.surf_pitch * luma->surface.blk_w;
    dec->jpg.dt_uv_pitch = dec->jpg.dt_pitch / 2;
@@ -54,16 +54,17 @@ static struct pb_buffer *radeon_jpeg_get_decode_param(struct radeon_decoder *dec
 }
 
 /* add a new set register command to the IB */
-static void set_reg_jpeg(struct radeon_decoder *dec, unsigned reg, unsigned cond, unsigned type,
-                         uint32_t val)
+static void
+set_reg_jpeg(struct radeon_decoder *dec, unsigned reg, unsigned cond, unsigned type, uint32_t val)
 {
    radeon_emit(&dec->jcs[dec->cb_idx], RDECODE_PKTJ(reg, cond, type));
    radeon_emit(&dec->jcs[dec->cb_idx], val);
 }
 
 /* send a bitstream buffer command */
-static void send_cmd_bitstream(struct radeon_decoder *dec, struct pb_buffer *buf, uint32_t off,
-                               unsigned usage, enum radeon_bo_domain domain)
+static void
+send_cmd_bitstream(struct radeon_decoder *dec, struct pb_buffer *buf, uint32_t off, unsigned usage,
+                   enum radeon_bo_domain domain)
 {
    uint64_t addr;
 
@@ -90,8 +91,7 @@ static void send_cmd_bitstream(struct radeon_decoder *dec, struct pb_buffer *buf
    addr = addr + off;
 
    // set UVD_LMI_JPEG_READ_64BIT_BAR_LOW/HIGH based on bitstream buffer address
-   set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_LMI_JPEG_READ_64BIT_BAR_HIGH), COND0, TYPE0,
-                (addr >> 32));
+   set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_LMI_JPEG_READ_64BIT_BAR_HIGH), COND0, TYPE0, (addr >> 32));
    set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_LMI_JPEG_READ_64BIT_BAR_LOW), COND0, TYPE0, addr);
 
    // set jpeg_rb_base
@@ -105,14 +105,14 @@ static void send_cmd_bitstream(struct radeon_decoder *dec, struct pb_buffer *buf
 }
 
 /* send a target buffer command */
-static void send_cmd_target(struct radeon_decoder *dec, struct pb_buffer *buf, uint32_t off,
-                            unsigned usage, enum radeon_bo_domain domain)
+static void
+send_cmd_target(struct radeon_decoder *dec, struct pb_buffer *buf, uint32_t off, unsigned usage,
+                enum radeon_bo_domain domain)
 {
    uint64_t addr;
 
    set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_JPEG_PITCH), COND0, TYPE0, (dec->jpg.dt_pitch >> 4));
-   set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_JPEG_UV_PITCH), COND0, TYPE0,
-                ((dec->jpg.dt_uv_pitch * 2) >> 4));
+   set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_JPEG_UV_PITCH), COND0, TYPE0, ((dec->jpg.dt_uv_pitch * 2) >> 4));
 
    set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_JPEG_TILING_CTRL), COND0, TYPE0, 0);
    set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_JPEG_UV_TILING_CTRL), COND0, TYPE0, 0);
@@ -122,8 +122,7 @@ static void send_cmd_target(struct radeon_decoder *dec, struct pb_buffer *buf, u
    addr = addr + off;
 
    // set UVD_LMI_JPEG_WRITE_64BIT_BAR_LOW/HIGH based on target buffer address
-   set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_LMI_JPEG_WRITE_64BIT_BAR_HIGH), COND0, TYPE0,
-                (addr >> 32));
+   set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_LMI_JPEG_WRITE_64BIT_BAR_HIGH), COND0, TYPE0, (addr >> 32));
    set_reg_jpeg(dec, SOC15_REG_ADDR(mmUVD_LMI_JPEG_WRITE_64BIT_BAR_LOW), COND0, TYPE0, addr);
 
    // set output buffer data address
@@ -184,9 +183,9 @@ static void send_cmd_target(struct radeon_decoder *dec, struct pb_buffer *buf, u
 }
 
 /* send a bitstream buffer command */
-static void send_cmd_bitstream_direct(struct radeon_decoder *dec, struct pb_buffer *buf,
-                                      uint32_t off, unsigned usage,
-                                      enum radeon_bo_domain domain)
+static void
+send_cmd_bitstream_direct(struct radeon_decoder *dec, struct pb_buffer *buf, uint32_t off, unsigned usage,
+                          enum radeon_bo_domain domain)
 {
    uint64_t addr;
 
@@ -224,9 +223,9 @@ static void send_cmd_bitstream_direct(struct radeon_decoder *dec, struct pb_buff
 }
 
 /* send a target buffer command */
-static void send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer *buf, uint32_t off,
-                                   unsigned usage, enum radeon_bo_domain domain,
-                                   enum pipe_format buffer_format)
+static void
+send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer *buf, uint32_t off, unsigned usage,
+                       enum radeon_bo_domain domain, enum pipe_format buffer_format)
 {
    uint64_t addr;
    uint32_t val;
@@ -234,20 +233,20 @@ static void send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer 
    uint32_t fc_sps_info_val = 0;
 
    switch (buffer_format) {
-      case PIPE_FORMAT_R8G8B8A8_UNORM:
-         format_convert = true;
-         fc_sps_info_val = 1 | (1 << 4) | (0xff << 8);
-         break;
-      case PIPE_FORMAT_A8R8G8B8_UNORM:
-         format_convert = true;
-         fc_sps_info_val = 1 | (1 << 4) | (1 << 5) | (0xff << 8);
-         break;
-      case PIPE_FORMAT_R8_G8_B8_UNORM:
-         format_convert = true;
-         fc_sps_info_val = 1 | (1 << 5) | (0xff << 8);
-         break;
-      default:
-         break;
+   case PIPE_FORMAT_R8G8B8A8_UNORM:
+      format_convert = true;
+      fc_sps_info_val = 1 | (1 << 4) | (0xff << 8);
+      break;
+   case PIPE_FORMAT_A8R8G8B8_UNORM:
+      format_convert = true;
+      fc_sps_info_val = 1 | (1 << 4) | (1 << 5) | (0xff << 8);
+      break;
+   case PIPE_FORMAT_R8_G8_B8_UNORM:
+      format_convert = true;
+      fc_sps_info_val = 1 | (1 << 5) | (0xff << 8);
+      break;
+   default:
+      break;
    }
 
    if (dec->jpg_reg.version == RDECODE_JPEG_REG_VER_V3 && format_convert) {
@@ -285,19 +284,16 @@ static void send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer 
       set_reg_jpeg(dec, dec->jpg_reg.jpeg_chroma_base0_0, COND0, TYPE0, dec->jpg.dt_chroma_top_offset);
       set_reg_jpeg(dec, dec->jpg_reg.jpeg_chromav_base0_0, COND0, TYPE0, dec->jpg.dt_chromav_top_offset);
       if (dec->jpg.crop_width && dec->jpg.crop_height) {
-         set_reg_jpeg(dec, vcnipUVD_JPEG_ROI_CROP_POS_START, COND0, TYPE0,
-                      ((dec->jpg.crop_y << 16) | dec->jpg.crop_x));
+         set_reg_jpeg(dec, vcnipUVD_JPEG_ROI_CROP_POS_START, COND0, TYPE0, ((dec->jpg.crop_y << 16) | dec->jpg.crop_x));
          set_reg_jpeg(dec, vcnipUVD_JPEG_ROI_CROP_POS_STRIDE, COND0, TYPE0,
                       ((dec->jpg.crop_height << 16) | dec->jpg.crop_width));
       } else {
-         set_reg_jpeg(dec, vcnipUVD_JPEG_ROI_CROP_POS_START, COND0, TYPE0,
-                      ((0 << 16) | 0));
-         set_reg_jpeg(dec, vcnipUVD_JPEG_ROI_CROP_POS_STRIDE, COND0, TYPE0,
-                      ((1 << 16) | 1));
+         set_reg_jpeg(dec, vcnipUVD_JPEG_ROI_CROP_POS_START, COND0, TYPE0, ((0 << 16) | 0));
+         set_reg_jpeg(dec, vcnipUVD_JPEG_ROI_CROP_POS_STRIDE, COND0, TYPE0, ((1 << 16) | 1));
       }
       if (format_convert) {
          /* set fc timeout control */
-         set_reg_jpeg(dec, vcnipUVD_JPEG_FC_TMEOUT_CNT, COND0, TYPE0,(4244373504));
+         set_reg_jpeg(dec, vcnipUVD_JPEG_FC_TMEOUT_CNT, COND0, TYPE0, (4244373504));
          /* set alpha position and packed format */
          set_reg_jpeg(dec, vcnipUVD_JPEG_FC_SPS_INFO, COND0, TYPE0, fc_sps_info_val);
          /* coefs */
@@ -331,7 +327,7 @@ static void send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer 
       if (dec->jpg.crop_width && dec->jpg.crop_height)
          val = val | (0x1 << 24);
       if (format_convert)
-         val = val |  (1 << 16) | (1 << 18);
+         val = val | (1 << 16) | (1 << 18);
    }
    set_reg_jpeg(dec, dec->jpg_reg.jpeg_cntl, COND0, TYPE0, val);
 
@@ -357,8 +353,8 @@ static void send_cmd_target_direct(struct radeon_decoder *dec, struct pb_buffer 
 /**
  * send cmd for vcn jpeg
  */
-void send_cmd_jpeg(struct radeon_decoder *dec, struct pipe_video_buffer *target,
-                   struct pipe_picture_desc *picture)
+void
+send_cmd_jpeg(struct radeon_decoder *dec, struct pipe_video_buffer *target, struct pipe_picture_desc *picture)
 {
    struct pb_buffer *dt;
    struct rvid_buffer *bs_buf;

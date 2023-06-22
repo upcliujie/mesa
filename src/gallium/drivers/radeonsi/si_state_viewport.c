@@ -4,13 +4,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "si_build_pm4.h"
 #include "util/u_upload_mgr.h"
 #include "util/u_viewport.h"
+#include "si_build_pm4.h"
 
 #define SI_MAX_SCISSOR 16384
 
-static void si_get_small_prim_cull_info(struct si_context *sctx, struct si_small_prim_cull_info *out)
+static void
+si_get_small_prim_cull_info(struct si_context *sctx, struct si_small_prim_cull_info *out)
 {
    /* This is needed by the small primitive culling, because it's done
     * in screen space.
@@ -68,20 +69,19 @@ static void si_get_small_prim_cull_info(struct si_context *sctx, struct si_small
    *out = info;
 }
 
-static void si_emit_cull_state(struct si_context *sctx)
+static void
+si_emit_cull_state(struct si_context *sctx)
 {
    assert(sctx->screen->use_ngg_culling);
 
    struct si_small_prim_cull_info info;
    si_get_small_prim_cull_info(sctx, &info);
 
-   if (!sctx->small_prim_cull_info_buf ||
-       memcmp(&info, &sctx->last_small_prim_cull_info, sizeof(info))) {
+   if (!sctx->small_prim_cull_info_buf || memcmp(&info, &sctx->last_small_prim_cull_info, sizeof(info))) {
       unsigned offset = 0;
 
-      u_upload_data(sctx->b.const_uploader, 0, sizeof(info),
-                    si_optimal_tcc_alignment(sctx, sizeof(info)), &info, &offset,
-                    (struct pipe_resource **)&sctx->small_prim_cull_info_buf);
+      u_upload_data(sctx->b.const_uploader, 0, sizeof(info), si_optimal_tcc_alignment(sctx, sizeof(info)), &info,
+                    &offset, (struct pipe_resource **)&sctx->small_prim_cull_info_buf);
 
       sctx->small_prim_cull_info_address = sctx->small_prim_cull_info_buf->gpu_address + offset;
       sctx->last_small_prim_cull_info = info;
@@ -126,12 +126,12 @@ static void si_emit_cull_state(struct si_context *sctx)
     */
    SET_FIELD(sctx->current_gs_state, GS_STATE_SMALL_PRIM_PRECISION_NO_AA,
              (fui(small_prim_precision_no_aa) >> 23) & 0xf);
-   SET_FIELD(sctx->current_gs_state, GS_STATE_SMALL_PRIM_PRECISION,
-             (fui(small_prim_precision) >> 23) & 0xf);
+   SET_FIELD(sctx->current_gs_state, GS_STATE_SMALL_PRIM_PRECISION, (fui(small_prim_precision) >> 23) & 0xf);
 }
 
-static void si_set_scissor_states(struct pipe_context *pctx, unsigned start_slot,
-                                  unsigned num_scissors, const struct pipe_scissor_state *state)
+static void
+si_set_scissor_states(struct pipe_context *pctx, unsigned start_slot, unsigned num_scissors,
+                      const struct pipe_scissor_state *state)
 {
    struct si_context *ctx = (struct si_context *)pctx;
    int i;
@@ -148,9 +148,9 @@ static void si_set_scissor_states(struct pipe_context *pctx, unsigned start_slot
 /* Since the guard band disables clipping, we have to clip per-pixel
  * using a scissor.
  */
-static void si_get_scissor_from_viewport(struct si_context *ctx,
-                                         const struct pipe_viewport_state *vp,
-                                         struct si_signed_scissor *scissor)
+static void
+si_get_scissor_from_viewport(struct si_context *ctx, const struct pipe_viewport_state *vp,
+                             struct si_signed_scissor *scissor)
 {
    float tmp, minx, miny, maxx, maxy;
 
@@ -179,8 +179,8 @@ static void si_get_scissor_from_viewport(struct si_context *ctx,
    scissor->maxy = ceilf(maxy);
 }
 
-static void si_clamp_scissor(struct si_context *ctx, struct pipe_scissor_state *out,
-                             struct si_signed_scissor *scissor)
+static void
+si_clamp_scissor(struct si_context *ctx, struct pipe_scissor_state *out, struct si_signed_scissor *scissor)
 {
    out->minx = CLAMP(scissor->minx, 0, SI_MAX_SCISSOR);
    out->miny = CLAMP(scissor->miny, 0, SI_MAX_SCISSOR);
@@ -188,7 +188,8 @@ static void si_clamp_scissor(struct si_context *ctx, struct pipe_scissor_state *
    out->maxy = CLAMP(scissor->maxy, 0, SI_MAX_SCISSOR);
 }
 
-static void si_clip_scissor(struct pipe_scissor_state *out, struct pipe_scissor_state *clip)
+static void
+si_clip_scissor(struct pipe_scissor_state *out, struct pipe_scissor_state *clip)
 {
    out->minx = MAX2(out->minx, clip->minx);
    out->miny = MAX2(out->miny, clip->miny);
@@ -196,7 +197,8 @@ static void si_clip_scissor(struct pipe_scissor_state *out, struct pipe_scissor_
    out->maxy = MIN2(out->maxy, clip->maxy);
 }
 
-static void si_scissor_make_union(struct si_signed_scissor *out, struct si_signed_scissor *in)
+static void
+si_scissor_make_union(struct si_signed_scissor *out, struct si_signed_scissor *in)
 {
    out->minx = MIN2(out->minx, in->minx);
    out->miny = MIN2(out->miny, in->miny);
@@ -205,9 +207,9 @@ static void si_scissor_make_union(struct si_signed_scissor *out, struct si_signe
    out->quant_mode = MIN2(out->quant_mode, in->quant_mode);
 }
 
-static void si_emit_one_scissor(struct si_context *ctx, struct radeon_cmdbuf *cs,
-                                struct si_signed_scissor *vp_scissor,
-                                struct pipe_scissor_state *scissor)
+static void
+si_emit_one_scissor(struct si_context *ctx, struct radeon_cmdbuf *cs, struct si_signed_scissor *vp_scissor,
+                    struct pipe_scissor_state *scissor)
 {
    struct pipe_scissor_state final;
 
@@ -233,15 +235,15 @@ static void si_emit_one_scissor(struct si_context *ctx, struct radeon_cmdbuf *cs
       return;
    }
 
-   radeon_emit(S_028250_TL_X(final.minx) | S_028250_TL_Y(final.miny) |
-                  S_028250_WINDOW_OFFSET_DISABLE(1));
+   radeon_emit(S_028250_TL_X(final.minx) | S_028250_TL_Y(final.miny) | S_028250_WINDOW_OFFSET_DISABLE(1));
    radeon_emit(S_028254_BR_X(final.maxx) | S_028254_BR_Y(final.maxy));
    radeon_end();
 }
 
 #define MAX_PA_SU_HARDWARE_SCREEN_OFFSET 8176
 
-static void si_emit_guardband(struct si_context *ctx)
+static void
+si_emit_guardband(struct si_context *ctx)
 {
    const struct si_state_rasterizer *rs = ctx->queued.named.rasterizer;
    struct si_signed_scissor vp_as_scissor;
@@ -274,9 +276,9 @@ static void si_emit_guardband(struct si_context *ctx)
    int hw_screen_offset_y = (vp_as_scissor.maxy + vp_as_scissor.miny) / 2;
 
    /* GFX6-GFX7 need to align the offset to an ubertile consisting of all SEs. */
-   const unsigned hw_screen_offset_alignment =
-      ctx->gfx_level >= GFX11 ? 32 :
-      ctx->gfx_level >= GFX8 ? 16 : MAX2(ctx->screen->se_tile_repeat, 16);
+   const unsigned hw_screen_offset_alignment = ctx->gfx_level >= GFX11  ? 32
+                                               : ctx->gfx_level >= GFX8 ? 16
+                                                                        : MAX2(ctx->screen->se_tile_repeat, 16);
 
    /* Indexed by quantization modes */
    static int max_viewport_size[] = {65535, 16383, 4095};
@@ -366,19 +368,17 @@ static void si_emit_guardband(struct si_context *ctx)
    radeon_begin(&ctx->gfx_cs);
    radeon_opt_set_context_reg5(ctx, R_028BE4_PA_SU_VTX_CNTL, SI_TRACKED_PA_SU_VTX_CNTL,
                                S_028BE4_PIX_CENTER(rs->half_pixel_center) |
-                               S_028BE4_ROUND_MODE(V_028BE4_X_ROUND_TO_EVEN) |
-                               S_028BE4_QUANT_MODE(V_028BE4_X_16_8_FIXED_POINT_1_256TH +
-                                                   vp_as_scissor.quant_mode),
-                               fui(guardband_y), fui(discard_y),
-                               fui(guardband_x), fui(discard_x));
-   radeon_opt_set_context_reg(ctx, R_028234_PA_SU_HARDWARE_SCREEN_OFFSET,
-                              SI_TRACKED_PA_SU_HARDWARE_SCREEN_OFFSET,
-                              S_028234_HW_SCREEN_OFFSET_X(hw_screen_offset_x >> 4) |
-                              S_028234_HW_SCREEN_OFFSET_Y(hw_screen_offset_y >> 4));
+                                  S_028BE4_ROUND_MODE(V_028BE4_X_ROUND_TO_EVEN) |
+                                  S_028BE4_QUANT_MODE(V_028BE4_X_16_8_FIXED_POINT_1_256TH + vp_as_scissor.quant_mode),
+                               fui(guardband_y), fui(discard_y), fui(guardband_x), fui(discard_x));
+   radeon_opt_set_context_reg(
+      ctx, R_028234_PA_SU_HARDWARE_SCREEN_OFFSET, SI_TRACKED_PA_SU_HARDWARE_SCREEN_OFFSET,
+      S_028234_HW_SCREEN_OFFSET_X(hw_screen_offset_x >> 4) | S_028234_HW_SCREEN_OFFSET_Y(hw_screen_offset_y >> 4));
    radeon_end_update_context_roll(ctx);
 }
 
-static void si_emit_scissors(struct si_context *ctx)
+static void
+si_emit_scissors(struct si_context *ctx)
 {
    struct radeon_cmdbuf *cs = &ctx->gfx_cs;
    struct pipe_scissor_state *states = ctx->scissors;
@@ -404,13 +404,13 @@ static void si_emit_scissors(struct si_context *ctx)
    radeon_end();
 
    for (unsigned i = 0; i < SI_MAX_VIEWPORTS; i++) {
-      si_emit_one_scissor(ctx, cs, &ctx->viewports.as_scissor[i],
-                          scissor_enabled ? &states[i] : NULL);
+      si_emit_one_scissor(ctx, cs, &ctx->viewports.as_scissor[i], scissor_enabled ? &states[i] : NULL);
    }
 }
 
-static void si_set_viewport_states(struct pipe_context *pctx, unsigned start_slot,
-                                   unsigned num_viewports, const struct pipe_viewport_state *state)
+static void
+si_set_viewport_states(struct pipe_context *pctx, unsigned start_slot, unsigned num_viewports,
+                       const struct pipe_viewport_state *state)
 {
    struct si_context *ctx = (struct si_context *)pctx;
    int i;
@@ -423,9 +423,7 @@ static void si_set_viewport_states(struct pipe_context *pctx, unsigned start_slo
 
       si_get_scissor_from_viewport(ctx, &state[i], scissor);
 
-      int max_corner = MAX2(
-         MAX2(abs(scissor->maxx), abs(scissor->maxy)),
-         MAX2(abs(scissor->minx), abs(scissor->miny)));
+      int max_corner = MAX2(MAX2(abs(scissor->maxx), abs(scissor->maxy)), MAX2(abs(scissor->minx), abs(scissor->miny)));
 
       /* Determine the best quantization mode (subpixel precision),
        * but also leave enough space for the guardband.
@@ -461,8 +459,7 @@ static void si_set_viewport_states(struct pipe_context *pctx, unsigned start_slo
    }
 
    if (start_slot == 0) {
-      ctx->viewport0_y_inverted =
-         -state->scale[1] + state->translate[1] > state->scale[1] + state->translate[1];
+      ctx->viewport0_y_inverted = -state->scale[1] + state->translate[1] > state->scale[1] + state->translate[1];
 
       /* NGG cull state uses the viewport and quant mode. */
       if (ctx->screen->use_ngg_culling)
@@ -474,7 +471,8 @@ static void si_set_viewport_states(struct pipe_context *pctx, unsigned start_slo
    si_mark_atom_dirty(ctx, &ctx->atoms.s.scissors);
 }
 
-static void si_emit_one_viewport(struct si_context *ctx, struct pipe_viewport_state *state)
+static void
+si_emit_one_viewport(struct si_context *ctx, struct pipe_viewport_state *state)
 {
    struct radeon_cmdbuf *cs = &ctx->gfx_cs;
 
@@ -488,7 +486,8 @@ static void si_emit_one_viewport(struct si_context *ctx, struct pipe_viewport_st
    radeon_end();
 }
 
-static void si_emit_viewports(struct si_context *ctx)
+static void
+si_emit_viewports(struct si_context *ctx)
 {
    struct radeon_cmdbuf *cs = &ctx->gfx_cs;
    struct pipe_viewport_state *states = ctx->viewports.states;
@@ -514,8 +513,9 @@ static void si_emit_viewports(struct si_context *ctx)
       si_emit_one_viewport(ctx, &states[i]);
 }
 
-static inline void si_viewport_zmin_zmax(const struct pipe_viewport_state *vp, bool halfz,
-                                         bool window_space_position, float *zmin, float *zmax)
+static inline void
+si_viewport_zmin_zmax(const struct pipe_viewport_state *vp, bool halfz, bool window_space_position, float *zmin,
+                      float *zmax)
 {
    if (window_space_position) {
       *zmin = 0;
@@ -525,7 +525,8 @@ static inline void si_viewport_zmin_zmax(const struct pipe_viewport_state *vp, b
    util_viewport_zmin_zmax(vp, halfz, zmin, zmax);
 }
 
-static void si_emit_depth_ranges(struct si_context *ctx)
+static void
+si_emit_depth_ranges(struct si_context *ctx)
 {
    struct radeon_cmdbuf *cs = &ctx->gfx_cs;
    struct pipe_viewport_state *states = ctx->viewports.states;
@@ -558,7 +559,8 @@ static void si_emit_depth_ranges(struct si_context *ctx)
    radeon_end();
 }
 
-static void si_emit_viewport_states(struct si_context *ctx)
+static void
+si_emit_viewport_states(struct si_context *ctx)
 {
    si_emit_viewports(ctx);
    si_emit_depth_ranges(ctx);
@@ -574,7 +576,8 @@ static void si_emit_viewport_states(struct si_context *ctx)
  * is delayed. When a shader with VIEWPORT_INDEX appears, this should be
  * called to emit the rest.
  */
-void si_update_vs_viewport_state(struct si_context *ctx)
+void
+si_update_vs_viewport_state(struct si_context *ctx)
 {
    struct si_shader_ctx_state *vs = si_get_vs(ctx);
    struct si_shader_info *info = vs->cso ? &vs->cso->info : NULL;
@@ -609,7 +612,8 @@ void si_update_vs_viewport_state(struct si_context *ctx)
    }
 }
 
-static void si_emit_window_rectangles(struct si_context *sctx)
+static void
+si_emit_window_rectangles(struct si_context *sctx)
 {
    /* There are four clipping rectangles. Their corner coordinates are inclusive.
     * Every pixel is assigned a number from 0 and 15 by setting bits 0-3 depending
@@ -622,8 +626,8 @@ static void si_emit_window_rectangles(struct si_context *sctx)
    struct radeon_cmdbuf *cs = &sctx->gfx_cs;
    static const unsigned outside[4] = {
       /* outside rectangle 0 */
-      V_02820C_OUT | V_02820C_IN_1 | V_02820C_IN_2 | V_02820C_IN_21 | V_02820C_IN_3 |
-      V_02820C_IN_31 | V_02820C_IN_32 | V_02820C_IN_321,
+      V_02820C_OUT | V_02820C_IN_1 | V_02820C_IN_2 | V_02820C_IN_21 | V_02820C_IN_3 | V_02820C_IN_31 | V_02820C_IN_32 |
+         V_02820C_IN_321,
       /* outside rectangles 0, 1 */
       V_02820C_OUT | V_02820C_IN_2 | V_02820C_IN_3 | V_02820C_IN_32,
       /* outside rectangles 0, 1, 2 */
@@ -646,8 +650,7 @@ static void si_emit_window_rectangles(struct si_context *sctx)
       rule = outside[num_rectangles - 1];
 
    radeon_begin(cs);
-   radeon_opt_set_context_reg(sctx, R_02820C_PA_SC_CLIPRECT_RULE, SI_TRACKED_PA_SC_CLIPRECT_RULE,
-                              rule);
+   radeon_opt_set_context_reg(sctx, R_02820C_PA_SC_CLIPRECT_RULE, SI_TRACKED_PA_SC_CLIPRECT_RULE, rule);
    if (num_rectangles == 0) {
       radeon_end();
       return;
@@ -661,9 +664,9 @@ static void si_emit_window_rectangles(struct si_context *sctx)
    radeon_end();
 }
 
-static void si_set_window_rectangles(struct pipe_context *ctx, bool include,
-                                     unsigned num_rectangles,
-                                     const struct pipe_scissor_state *rects)
+static void
+si_set_window_rectangles(struct pipe_context *ctx, bool include, unsigned num_rectangles,
+                         const struct pipe_scissor_state *rects)
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
@@ -676,7 +679,8 @@ static void si_set_window_rectangles(struct pipe_context *ctx, bool include,
    si_mark_atom_dirty(sctx, &sctx->atoms.s.window_rectangles);
 }
 
-void si_init_viewport_functions(struct si_context *ctx)
+void
+si_init_viewport_functions(struct si_context *ctx)
 {
    ctx->atoms.s.guardband.emit = si_emit_guardband;
    ctx->atoms.s.scissors.emit = si_emit_scissors;

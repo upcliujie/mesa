@@ -7,14 +7,8 @@
 
 #include "si_pipe.h"
 
-#include "driver_ddebug/dd_util.h"
-#include "radeon_uvd.h"
-#include "si_compute.h"
-#include "si_public.h"
-#include "si_shader_internal.h"
-#include "sid.h"
-#include "ac_shadowed_regs.h"
 #include "compiler/nir/nir.h"
+#include "driver_ddebug/dd_util.h"
 #include "util/disk_cache.h"
 #include "util/hex.h"
 #include "util/u_cpu_detect.h"
@@ -25,6 +19,12 @@
 #include "util/u_upload_mgr.h"
 #include "util/xmlconfig.h"
 #include "vl/vl_decoder.h"
+#include "ac_shadowed_regs.h"
+#include "radeon_uvd.h"
+#include "si_compute.h"
+#include "si_public.h"
+#include "si_shader_internal.h"
+#include "sid.h"
 
 #include <xf86drm.h>
 
@@ -51,7 +51,8 @@ static const struct debug_named_value radeonsi_debug_options[] = {
    /* Shader compiler options the shader cache should be aware of: */
    {"w32ge", DBG(W32_GE), "Use Wave32 for vertex, tessellation, and geometry shaders."},
    {"w32ps", DBG(W32_PS), "Use Wave32 for pixel shaders."},
-   {"w32psdiscard", DBG(W32_PS_DISCARD), "Use Wave32 for pixel shaders even if they contain discard and LLVM is buggy."},
+   {"w32psdiscard", DBG(W32_PS_DISCARD),
+    "Use Wave32 for pixel shaders even if they contain discard and LLVM is buggy."},
    {"w32cs", DBG(W32_CS), "Use Wave32 for computes shaders."},
    {"w64ge", DBG(W64_GE), "Use Wave64 for vertex, tessellation, and geometry shaders."},
    {"w64ps", DBG(W64_PS), "Use Wave64 for pixel shaders."},
@@ -81,7 +82,7 @@ static const struct debug_named_value radeonsi_debug_options[] = {
    {"nofastdlist", DBG(NO_FAST_DISPLAY_LIST), "Disable fast display lists"},
 
    /* Multimedia options: */
-   { "noefc", DBG(NO_EFC), "Disable hardware based encoder colour format conversion."},
+   {"noefc", DBG(NO_EFC), "Disable hardware based encoder colour format conversion."},
 
    /* 3D engine options: */
    {"nogfx", DBG(NO_GFX), "Disable graphics. Only multimedia compute paths can be used."},
@@ -129,16 +130,15 @@ static const struct debug_named_value test_options[] = {
    DEBUG_NAMED_VALUE_END /* must be last */
 };
 
-bool si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler)
+bool
+si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compiler)
 {
    /* Only create the less-optimizing version of the compiler on APUs
     * predating Ryzen (Raven). */
-   bool create_low_opt_compiler =
-      !sscreen->info.has_dedicated_vram && sscreen->info.gfx_level <= GFX8;
+   bool create_low_opt_compiler = !sscreen->info.has_dedicated_vram && sscreen->info.gfx_level <= GFX8;
 
-   enum ac_target_machine_options tm_options =
-      (sscreen->debug_flags & DBG(CHECK_IR) ? AC_TM_CHECK_IR : 0) |
-      (create_low_opt_compiler ? AC_TM_CREATE_LOW_OPT : 0);
+   enum ac_target_machine_options tm_options = (sscreen->debug_flags & DBG(CHECK_IR) ? AC_TM_CHECK_IR : 0) |
+                                               (create_low_opt_compiler ? AC_TM_CREATE_LOW_OPT : 0);
 
    if (!ac_init_llvm_compiler(compiler, sscreen->info.family, tm_options))
       return false;
@@ -150,35 +150,36 @@ bool si_init_compiler(struct si_screen *sscreen, struct ac_llvm_compiler *compil
    return true;
 }
 
-void si_init_aux_async_compute_ctx(struct si_screen *sscreen)
+void
+si_init_aux_async_compute_ctx(struct si_screen *sscreen)
 {
    assert(!sscreen->async_compute_context);
-   sscreen->async_compute_context = si_create_context(
-      &sscreen->b,
-      SI_CONTEXT_FLAG_AUX |
-         (sscreen->options.aux_debug ? PIPE_CONTEXT_DEBUG : 0) |
-         PIPE_CONTEXT_COMPUTE_ONLY);
+   sscreen->async_compute_context =
+      si_create_context(&sscreen->b, SI_CONTEXT_FLAG_AUX | (sscreen->options.aux_debug ? PIPE_CONTEXT_DEBUG : 0) |
+                                        PIPE_CONTEXT_COMPUTE_ONLY);
 
    /* Limit the numbers of waves allocated for this context. */
    if (sscreen->async_compute_context)
-      ((struct si_context*)sscreen->async_compute_context)->cs_max_waves_per_sh = 2;
+      ((struct si_context *)sscreen->async_compute_context)->cs_max_waves_per_sh = 2;
 }
 
-static void si_destroy_compiler(struct ac_llvm_compiler *compiler)
+static void
+si_destroy_compiler(struct ac_llvm_compiler *compiler)
 {
    ac_destroy_llvm_compiler(compiler);
 }
 
-
-static void decref_implicit_resource(struct hash_entry *entry)
+static void
+decref_implicit_resource(struct hash_entry *entry)
 {
-   pipe_resource_reference((struct pipe_resource**)&entry->data, NULL);
+   pipe_resource_reference((struct pipe_resource **)&entry->data, NULL);
 }
 
 /*
  * pipe_context
  */
-static void si_destroy_context(struct pipe_context *context)
+static void
+si_destroy_context(struct pipe_context *context)
 {
    struct si_context *sctx = (struct si_context *)context;
 
@@ -198,7 +199,7 @@ static void si_destroy_context(struct pipe_context *context)
       struct si_screen *sscreen = sctx->screen;
       if (sscreen->info.has_stable_pstate && sscreen->b.num_contexts == 1 &&
           !(sctx->context_flags & SI_CONTEXT_FLAG_AUX))
-          sscreen->ws->cs_set_pstate(&sctx->gfx_cs, RADEON_CTX_PSTATE_NONE);
+         sscreen->ws->cs_set_pstate(&sctx->gfx_cs, RADEON_CTX_PSTATE_NONE);
 
       si_destroy_sqtt(sctx);
    }
@@ -225,7 +226,7 @@ static void si_destroy_context(struct pipe_context *context)
       si_pm4_free_state(sctx, sctx->cs_preamble_state_tmz, ~0);
 
    if (sctx->fixed_func_tcs_shader_cache) {
-      hash_table_foreach(sctx->fixed_func_tcs_shader_cache, entry) {
+      hash_table_foreach (sctx->fixed_func_tcs_shader_cache, entry) {
          sctx->b.delete_tcs_state(&sctx->b, entry->data);
       }
       _mesa_hash_table_destroy(sctx->fixed_func_tcs_shader_cache, NULL);
@@ -314,8 +315,7 @@ static void si_destroy_context(struct pipe_context *context)
    }
 
    if (sctx->dirty_implicit_resources)
-      _mesa_hash_table_destroy(sctx->dirty_implicit_resources,
-                               decref_implicit_resource);
+      _mesa_hash_table_destroy(sctx->dirty_implicit_resources, decref_implicit_resource);
 
    if (sctx->b.stream_uploader)
       u_upload_destroy(sctx->b.stream_uploader);
@@ -352,7 +352,7 @@ static void si_destroy_context(struct pipe_context *context)
       p_atomic_dec(&context->screen->num_contexts);
 
    if (sctx->cs_blit_shaders) {
-      hash_table_foreach(sctx->cs_blit_shaders, entry) {
+      hash_table_foreach (sctx->cs_blit_shaders, entry) {
          context->delete_compute_state(context, entry->data);
       }
       _mesa_hash_table_destroy(sctx->cs_blit_shaders, NULL);
@@ -361,15 +361,15 @@ static void si_destroy_context(struct pipe_context *context)
    FREE(sctx);
 }
 
-static enum pipe_reset_status si_get_reset_status(struct pipe_context *ctx)
+static enum pipe_reset_status
+si_get_reset_status(struct pipe_context *ctx)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    if (sctx->context_flags & SI_CONTEXT_FLAG_AUX)
       return PIPE_NO_RESET;
 
    bool needs_reset, reset_completed;
-   enum pipe_reset_status status = sctx->ws->ctx_query_reset_status(sctx->ctx, false,
-                                                                    &needs_reset, &reset_completed);
+   enum pipe_reset_status status = sctx->ws->ctx_query_reset_status(sctx->ctx, false, &needs_reset, &reset_completed);
 
    if (status != PIPE_NO_RESET) {
       if (sctx->has_reset_been_notified && reset_completed)
@@ -386,8 +386,8 @@ static enum pipe_reset_status si_get_reset_status(struct pipe_context *ctx)
    return status;
 }
 
-static void si_set_device_reset_callback(struct pipe_context *ctx,
-                                         const struct pipe_device_reset_callback *cb)
+static void
+si_set_device_reset_callback(struct pipe_context *ctx, const struct pipe_device_reset_callback *cb)
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
@@ -405,7 +405,8 @@ static void si_set_device_reset_callback(struct pipe_context *ctx,
  *      call and print the results.
  *   4) glretrace --benchmark --markers ..
  */
-static void si_emit_string_marker(struct pipe_context *ctx, const char *string, int len)
+static void
+si_emit_string_marker(struct pipe_context *ctx, const char *string, int len)
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
@@ -418,7 +419,8 @@ static void si_emit_string_marker(struct pipe_context *ctx, const char *string, 
       u_log_printf(sctx->log, "\nString marker: %*s\n", len, string);
 }
 
-static void si_set_debug_callback(struct pipe_context *ctx, const struct util_debug_callback *cb)
+static void
+si_set_debug_callback(struct pipe_context *ctx, const struct util_debug_callback *cb)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    struct si_screen *screen = sctx->screen;
@@ -432,7 +434,8 @@ static void si_set_debug_callback(struct pipe_context *ctx, const struct util_de
       memset(&sctx->debug, 0, sizeof(sctx->debug));
 }
 
-static void si_set_log_context(struct pipe_context *ctx, struct u_log_context *log)
+static void
+si_set_log_context(struct pipe_context *ctx, struct u_log_context *log)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    sctx->log = log;
@@ -441,8 +444,8 @@ static void si_set_log_context(struct pipe_context *ctx, struct u_log_context *l
       u_log_add_auto_logger(log, si_auto_log_cs, sctx);
 }
 
-static void si_set_context_param(struct pipe_context *ctx, enum pipe_context_param param,
-                                 unsigned value)
+static void
+si_set_context_param(struct pipe_context *ctx, enum pipe_context_param param, unsigned value)
 {
    struct radeon_winsys *ws = ((struct si_context *)ctx)->ws;
 
@@ -454,7 +457,8 @@ static void si_set_context_param(struct pipe_context *ctx, enum pipe_context_par
    }
 }
 
-static void si_set_frontend_noop(struct pipe_context *ctx, bool enable)
+static void
+si_set_frontend_noop(struct pipe_context *ctx, bool enable)
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
@@ -462,7 +466,8 @@ static void si_set_frontend_noop(struct pipe_context *ctx, bool enable)
    sctx->is_noop = enable;
 }
 
-static struct pipe_context *si_create_context(struct pipe_screen *screen, unsigned flags)
+static struct pipe_context *
+si_create_context(struct pipe_screen *screen, unsigned flags)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
    STATIC_ASSERT(DBG_COUNT <= 64);
@@ -504,9 +509,9 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    sctx->vcn_ip_ver = sscreen->info.vcn_ip_version;
 
    if (sctx->gfx_level == GFX7 || sctx->gfx_level == GFX8 || sctx->gfx_level == GFX9) {
-      sctx->eop_bug_scratch = si_aligned_buffer_create(
-         &sscreen->b, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-         PIPE_USAGE_DEFAULT, 16 * sscreen->info.max_render_backends, 256);
+      sctx->eop_bug_scratch =
+         si_aligned_buffer_create(&sscreen->b, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                  PIPE_USAGE_DEFAULT, 16 * sscreen->info.max_render_backends, 256);
       if (!sctx->eop_bug_scratch) {
          fprintf(stderr, "radeonsi: can't create eop_bug_scratch\n");
          goto fail;
@@ -537,13 +542,11 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
       goto fail;
    }
 
-   ws->cs_create(&sctx->gfx_cs, sctx->ctx, sctx->has_graphics ? AMD_IP_GFX : AMD_IP_COMPUTE,
-                 (void *)si_flush_gfx_cs, sctx,
-                 flags & (PIPE_CONTEXT_LOSE_CONTEXT_ON_RESET | SI_CONTEXT_FLAG_AUX));
+   ws->cs_create(&sctx->gfx_cs, sctx->ctx, sctx->has_graphics ? AMD_IP_GFX : AMD_IP_COMPUTE, (void *)si_flush_gfx_cs,
+                 sctx, flags & (PIPE_CONTEXT_LOSE_CONTEXT_ON_RESET | SI_CONTEXT_FLAG_AUX));
 
    /* Initialize private allocators. */
-   u_suballocator_init(&sctx->allocator_zeroed_memory, &sctx->b, 128 * 1024, 0,
-                       PIPE_USAGE_DEFAULT,
+   u_suballocator_init(&sctx->allocator_zeroed_memory, &sctx->b, 128 * 1024, 0, PIPE_USAGE_DEFAULT,
                        SI_RESOURCE_FLAG_CLEAR | SI_RESOURCE_FLAG_32BIT, false);
 
    sctx->cached_gtt_allocator = u_upload_create(&sctx->b, 16 * 1024, 0, PIPE_USAGE_STAGING, 0);
@@ -557,11 +560,9 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
     * - APUs: There is only one uploader instance writing to RAM. VRAM has the same perf on APUs.
     */
    bool is_apu = !sscreen->info.has_dedicated_vram;
-   sctx->b.stream_uploader =
-      u_upload_create(&sctx->b, 1024 * 1024, 0,
-                      sscreen->debug_flags & DBG(NO_WC_STREAM) ? PIPE_USAGE_STAGING
-                                                               : PIPE_USAGE_STREAM,
-                      SI_RESOURCE_FLAG_32BIT); /* same flags as const_uploader */
+   sctx->b.stream_uploader = u_upload_create(
+      &sctx->b, 1024 * 1024, 0, sscreen->debug_flags & DBG(NO_WC_STREAM) ? PIPE_USAGE_STAGING : PIPE_USAGE_STREAM,
+      SI_RESOURCE_FLAG_32BIT); /* same flags as const_uploader */
    if (!sctx->b.stream_uploader) {
       fprintf(stderr, "radeonsi: can't create stream_uploader\n");
       goto fail;
@@ -570,9 +571,7 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    if (is_apu) {
       sctx->b.const_uploader = sctx->b.stream_uploader;
    } else {
-      sctx->b.const_uploader =
-         u_upload_create(&sctx->b, 256 * 1024, 0, PIPE_USAGE_DEFAULT,
-                         SI_RESOURCE_FLAG_32BIT);
+      sctx->b.const_uploader = u_upload_create(&sctx->b, 256 * 1024, 0, PIPE_USAGE_DEFAULT, SI_RESOURCE_FLAG_32BIT);
       if (!sctx->b.const_uploader) {
          fprintf(stderr, "radeonsi: can't create const_uploader\n");
          goto fail;
@@ -587,15 +586,14 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
          goto fail;
       }
 
-      sctx->border_color_buffer = si_resource(pipe_buffer_create(
-         screen, 0, PIPE_USAGE_DEFAULT, SI_MAX_BORDER_COLORS * sizeof(*sctx->border_color_table)));
+      sctx->border_color_buffer = si_resource(
+         pipe_buffer_create(screen, 0, PIPE_USAGE_DEFAULT, SI_MAX_BORDER_COLORS * sizeof(*sctx->border_color_table)));
       if (!sctx->border_color_buffer) {
          fprintf(stderr, "radeonsi: can't create border_color_buffer\n");
          goto fail;
       }
 
-      sctx->border_color_map =
-         ws->buffer_map(ws, sctx->border_color_buffer->buf, NULL, PIPE_MAP_WRITE);
+      sctx->border_color_map = ws->buffer_map(ws, sctx->border_color_buffer->buf, NULL, PIPE_MAP_WRITE);
       if (!sctx->border_color_map) {
          fprintf(stderr, "radeonsi: can't map border_color_buffer\n");
          goto fail;
@@ -693,8 +691,8 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
 
    /* Initialize multimedia functions. */
    if (sscreen->info.ip[AMD_IP_UVD].num_queues ||
-       ((sscreen->info.vcn_ip_version >= VCN_4_0_0) ?
-	 sscreen->info.ip[AMD_IP_VCN_UNIFIED].num_queues : sscreen->info.ip[AMD_IP_VCN_DEC].num_queues) ||
+       ((sscreen->info.vcn_ip_version >= VCN_4_0_0) ? sscreen->info.ip[AMD_IP_VCN_UNIFIED].num_queues
+                                                    : sscreen->info.ip[AMD_IP_VCN_DEC].num_queues) ||
        sscreen->info.ip[AMD_IP_VCN_JPEG].num_queues || sscreen->info.ip[AMD_IP_VCE].num_queues ||
        sscreen->info.ip[AMD_IP_UVD_ENC].num_queues || sscreen->info.ip[AMD_IP_VCN_ENC].num_queues) {
       sctx->b.create_video_codec = si_uvd_create_decoder;
@@ -709,12 +707,9 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
    /* GFX7 cannot unbind a constant buffer (S_BUFFER_LOAD doesn't skip loads
     * if NUM_RECORDS == 0). We need to use a dummy buffer instead. */
    if (sctx->gfx_level == GFX7) {
-      sctx->null_const_buf.buffer =
-         pipe_aligned_buffer_create(screen,
-                                    PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_32BIT |
-                                    SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                    PIPE_USAGE_DEFAULT, 16,
-                                    sctx->screen->info.tcc_cache_line_size);
+      sctx->null_const_buf.buffer = pipe_aligned_buffer_create(
+         screen, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_32BIT | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+         PIPE_USAGE_DEFAULT, 16, sctx->screen->info.tcc_cache_line_size);
       if (!sctx->null_const_buf.buffer) {
          fprintf(stderr, "radeonsi: can't create null_const_buf\n");
          goto fail;
@@ -778,18 +773,14 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
 
    if (sctx->gfx_level >= GFX9 && sctx->gfx_level < GFX11) {
       sctx->wait_mem_scratch =
-           si_aligned_buffer_create(screen,
-                                    PIPE_RESOURCE_FLAG_UNMAPPABLE |
-                                    SI_RESOURCE_FLAG_DRIVER_INTERNAL,
-                                    PIPE_USAGE_DEFAULT, 4,
-                                    sscreen->info.tcc_cache_line_size);
+         si_aligned_buffer_create(screen, PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_DRIVER_INTERNAL,
+                                  PIPE_USAGE_DEFAULT, 4, sscreen->info.tcc_cache_line_size);
       if (!sctx->wait_mem_scratch) {
          fprintf(stderr, "radeonsi: can't create wait_mem_scratch\n");
          goto fail;
       }
 
-      si_cp_write_data(sctx, sctx->wait_mem_scratch, 0, 4, V_370_MEM, V_370_ME,
-                       &sctx->wait_mem_number);
+      si_cp_write_data(sctx, sctx->wait_mem_scratch, 0, 4, V_370_MEM, V_370_ME, &sctx->wait_mem_number);
    }
 
    if (sctx->gfx_level == GFX7) {
@@ -798,9 +789,8 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
        * for some reason when the compute codepath is used.
        */
       uint32_t clear_value = 0;
-      si_clear_buffer(sctx, sctx->null_const_buf.buffer, 0, sctx->null_const_buf.buffer->width0,
-                      &clear_value, 4, SI_OP_SYNC_AFTER, SI_COHERENCY_SHADER,
-                      SI_CP_DMA_CLEAR_METHOD);
+      si_clear_buffer(sctx, sctx->null_const_buf.buffer, 0, sctx->null_const_buf.buffer->width0, &clear_value, 4,
+                      SI_OP_SYNC_AFTER, SI_COHERENCY_SHADER, SI_CP_DMA_CLEAR_METHOD);
    }
 
    if (!(flags & SI_CONTEXT_FLAG_AUX)) {
@@ -809,8 +799,7 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
       /* Check if the aux_context needs to be recreated */
       struct si_context *saux = si_get_aux_context(sscreen);
 
-      enum pipe_reset_status status = sctx->ws->ctx_query_reset_status(
-         saux->ctx, true, NULL, NULL);
+      enum pipe_reset_status status = sctx->ws->ctx_query_reset_status(saux->ctx, true, NULL, NULL);
       if (status != PIPE_NO_RESET) {
          /* We lost the aux_context, create a new one */
          struct u_log_context *aux_log = (saux)->log;
@@ -818,9 +807,8 @@ static struct pipe_context *si_create_context(struct pipe_screen *screen, unsign
          saux->b.destroy(&saux->b);
 
          saux = (struct si_context *)si_create_context(
-            &sscreen->b, SI_CONTEXT_FLAG_AUX |
-                         (sscreen->options.aux_debug ? PIPE_CONTEXT_DEBUG : 0) |
-                         (sscreen->info.has_graphics ? 0 : PIPE_CONTEXT_COMPUTE_ONLY));
+            &sscreen->b, SI_CONTEXT_FLAG_AUX | (sscreen->options.aux_debug ? PIPE_CONTEXT_DEBUG : 0) |
+                            (sscreen->info.has_graphics ? 0 : PIPE_CONTEXT_COMPUTE_ONLY));
          saux->b.set_log_context(&saux->b, aux_log);
          sscreen->aux_context = saux;
       }
@@ -847,8 +835,8 @@ fail:
    return NULL;
 }
 
-static bool si_is_resource_busy(struct pipe_screen *screen, struct pipe_resource *resource,
-                                unsigned usage)
+static bool
+si_is_resource_busy(struct pipe_screen *screen, struct pipe_resource *resource, unsigned usage)
 {
    struct radeon_winsys *ws = ((struct si_screen *)screen)->ws;
 
@@ -859,8 +847,8 @@ static bool si_is_resource_busy(struct pipe_screen *screen, struct pipe_resource
                            usage & PIPE_MAP_WRITE ? RADEON_USAGE_READWRITE : RADEON_USAGE_WRITE);
 }
 
-static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, void *priv,
-                                                   unsigned flags)
+static struct pipe_context *
+si_pipe_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
    struct pipe_context *ctx;
@@ -902,11 +890,9 @@ static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, v
    /* Use asynchronous flushes only on amdgpu, since the radeon
     * implementation for fence_server_sync is incomplete. */
    struct pipe_context *tc =
-      threaded_context_create(ctx, &sscreen->pool_transfers,
-                              si_replace_buffer_storage,
+      threaded_context_create(ctx, &sscreen->pool_transfers, si_replace_buffer_storage,
                               &(struct threaded_context_options){
-                                 .create_fence = sscreen->info.is_amdgpu ?
-                                       si_create_fence : NULL,
+                                 .create_fence = sscreen->info.is_amdgpu ? si_create_fence : NULL,
                                  .is_resource_busy = si_is_resource_busy,
                                  .driver_calls_flush_notify = true,
                                  .unsynchronized_create_fence_fd = true,
@@ -922,11 +908,12 @@ static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, v
 /*
  * pipe_screen
  */
-static void si_destroy_screen(struct pipe_screen *pscreen)
+static void
+si_destroy_screen(struct pipe_screen *pscreen)
 {
    struct si_screen *sscreen = (struct si_screen *)pscreen;
-   struct si_shader_part *parts[] = {sscreen->vs_prologs, sscreen->tcs_epilogs,
-                                     sscreen->ps_prologs, sscreen->ps_epilogs};
+   struct si_shader_part *parts[] = {sscreen->vs_prologs, sscreen->tcs_epilogs, sscreen->ps_prologs,
+                                     sscreen->ps_epilogs};
    unsigned i;
 
    if (!sscreen->ws->unref(sscreen->ws))
@@ -1006,12 +993,14 @@ static void si_destroy_screen(struct pipe_screen *pscreen)
    FREE(sscreen);
 }
 
-static void si_init_gs_info(struct si_screen *sscreen)
+static void
+si_init_gs_info(struct si_screen *sscreen)
 {
    sscreen->gs_table_depth = ac_get_gs_table_depth(sscreen->info.gfx_level, sscreen->info.family);
 }
 
-static void si_test_vmfault(struct si_screen *sscreen, uint64_t test_flags)
+static void
+si_test_vmfault(struct si_screen *sscreen, uint64_t test_flags)
 {
    struct pipe_context *ctx = sscreen->aux_context;
    struct si_context *sctx = (struct si_context *)ctx;
@@ -1025,8 +1014,7 @@ static void si_test_vmfault(struct si_screen *sscreen, uint64_t test_flags)
    si_resource(buf)->gpu_address = 0; /* cause a VM fault */
 
    if (test_flags & DBG(TEST_VMFAULT_CP)) {
-      si_cp_dma_copy_buffer(sctx, buf, buf, 0, 4, 4, SI_OP_SYNC_BEFORE_AFTER,
-                            SI_COHERENCY_NONE, L2_BYPASS);
+      si_cp_dma_copy_buffer(sctx, buf, buf, 0, 4, 4, SI_OP_SYNC_BEFORE_AFTER, SI_COHERENCY_NONE, L2_BYPASS);
       ctx->flush(ctx, NULL, 0);
       puts("VM fault test: CP - done.");
    }
@@ -1037,8 +1025,9 @@ static void si_test_vmfault(struct si_screen *sscreen, uint64_t test_flags)
    exit(0);
 }
 
-static void si_test_gds_memory_management(struct si_context *sctx, unsigned alloc_size,
-                                          unsigned alignment, enum radeon_bo_domain domain)
+static void
+si_test_gds_memory_management(struct si_context *sctx, unsigned alloc_size, unsigned alignment,
+                              enum radeon_bo_domain domain)
 {
    struct radeon_winsys *ws = sctx->ws;
    struct radeon_cmdbuf cs[8];
@@ -1057,10 +1046,7 @@ static void si_test_gds_memory_management(struct si_context *sctx, unsigned allo
           * We don't care if GDS is present. Just add some packet
           * to make the GPU busy for a moment.
           */
-         si_cp_dma_clear_buffer(
-            sctx, &cs[i], NULL, 0, alloc_size, 0,
-            SI_OP_CPDMA_SKIP_CHECK_CS_SPACE, 0,
-            0);
+         si_cp_dma_clear_buffer(sctx, &cs[i], NULL, 0, alloc_size, 0, SI_OP_CPDMA_SKIP_CHECK_CS_SPACE, 0, 0);
 
          ws->cs_add_buffer(&cs[i], gds_bo[i], RADEON_USAGE_READWRITE, domain);
          ws->cs_flush(&cs[i], PIPE_FLUSH_ASYNC, NULL);
@@ -1069,7 +1055,8 @@ static void si_test_gds_memory_management(struct si_context *sctx, unsigned allo
    exit(0);
 }
 
-static void si_disk_cache_create(struct si_screen *sscreen)
+static void
+si_disk_cache_create(struct si_screen *sscreen)
 {
    /* Don't use the cache if shader dumping is enabled. */
    if (sscreen->debug_flags & DBG_ALL_SHADERS)
@@ -1088,11 +1075,11 @@ static void si_disk_cache_create(struct si_screen *sscreen)
    _mesa_sha1_final(&ctx, sha1);
    mesa_bytes_to_hex(cache_id, sha1, 20);
 
-   sscreen->disk_shader_cache = disk_cache_create(sscreen->info.name, cache_id,
-                                                  sscreen->info.address32_hi);
+   sscreen->disk_shader_cache = disk_cache_create(sscreen->info.name, cache_id, sscreen->info.address32_hi);
 }
 
-static void si_set_max_shader_compiler_threads(struct pipe_screen *screen, unsigned max_threads)
+static void
+si_set_max_shader_compiler_threads(struct pipe_screen *screen, unsigned max_threads)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
 
@@ -1102,16 +1089,16 @@ static void si_set_max_shader_compiler_threads(struct pipe_screen *screen, unsig
    /* Don't change the number of threads on the low priority queue. */
 }
 
-static bool si_is_parallel_shader_compilation_finished(struct pipe_screen *screen, void *shader,
-                                                       enum pipe_shader_type shader_type)
+static bool
+si_is_parallel_shader_compilation_finished(struct pipe_screen *screen, void *shader, enum pipe_shader_type shader_type)
 {
    struct si_shader_selector *sel = (struct si_shader_selector *)shader;
 
    return util_queue_fence_is_signalled(&sel->ready);
 }
 
-static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
-                                                       const struct pipe_screen_config *config)
+static struct pipe_screen *
+radeonsi_screen_create_impl(struct radeon_winsys *ws, const struct pipe_screen_config *config)
 {
    struct si_screen *sscreen = CALLOC_STRUCT(si_screen);
    unsigned hw_threads, num_comp_hi_threads, num_comp_lo_threads;
@@ -1122,10 +1109,8 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    }
 
    {
-#define OPT_BOOL(name, dflt, description)                                                          \
-   sscreen->options.name = driQueryOptionb(config->options, "radeonsi_" #name);
-#define OPT_INT(name, dflt, description)                                                           \
-   sscreen->options.name = driQueryOptioni(config->options, "radeonsi_" #name);
+#define OPT_BOOL(name, dflt, description) sscreen->options.name = driQueryOptionb(config->options, "radeonsi_" #name);
+#define OPT_INT(name, dflt, description)  sscreen->options.name = driQueryOptioni(config->options, "radeonsi_" #name);
 #include "si_debug_options.h"
    }
 
@@ -1135,8 +1120,8 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    if (sscreen->info.gfx_level >= GFX9) {
       sscreen->se_tile_repeat = 32 * sscreen->info.max_se;
    } else {
-      ac_get_raster_config(&sscreen->info, &sscreen->pa_sc_raster_config,
-                           &sscreen->pa_sc_raster_config_1, &sscreen->se_tile_repeat);
+      ac_get_raster_config(&sscreen->info, &sscreen->pa_sc_raster_config, &sscreen->pa_sc_raster_config_1,
+                           &sscreen->se_tile_repeat);
    }
 
    sscreen->debug_flags = debug_get_flags_option("R600_DEBUG", radeonsi_debug_options, 0);
@@ -1154,8 +1139,7 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    if (sscreen->debug_flags & DBG(NO_GFX))
       sscreen->info.has_graphics = false;
 
-   if ((sscreen->debug_flags & DBG(TMZ)) &&
-       !sscreen->info.has_tmz_support) {
+   if ((sscreen->debug_flags & DBG(TMZ)) && !sscreen->info.has_tmz_support) {
       fprintf(stderr, "radeonsi: requesting TMZ features but TMZ is not supported\n");
       FREE(sscreen);
       return NULL;
@@ -1187,8 +1171,7 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    si_init_screen_query_functions(sscreen);
    si_init_screen_live_shader_cache(sscreen);
 
-   sscreen->max_texel_buffer_elements = sscreen->b.get_param(
-      &sscreen->b, PIPE_CAP_MAX_TEXEL_BUFFER_ELEMENTS_UINT);
+   sscreen->max_texel_buffer_elements = sscreen->b.get_param(&sscreen->b, PIPE_CAP_MAX_TEXEL_BUFFER_ELEMENTS_UINT);
 
    if (sscreen->debug_flags & DBG(INFO))
       ac_print_gpu_info(&sscreen->info, stdout);
@@ -1263,23 +1246,20 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
     * slots will be increased.
     */
    int num_slots = num_comp_hi_threads == 1 ? 64 : 1;
-   if (!util_queue_init(&sscreen->shader_compiler_queue, "sh", num_slots,
-                        num_comp_hi_threads,
-                        UTIL_QUEUE_INIT_RESIZE_IF_FULL |
-                           UTIL_QUEUE_INIT_SCALE_THREADS |
-                           UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY, NULL)) {
+   if (!util_queue_init(
+          &sscreen->shader_compiler_queue, "sh", num_slots, num_comp_hi_threads,
+          UTIL_QUEUE_INIT_RESIZE_IF_FULL | UTIL_QUEUE_INIT_SCALE_THREADS | UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY,
+          NULL)) {
       si_destroy_shader_cache(sscreen);
       FREE(sscreen);
       glsl_type_singleton_decref();
       return NULL;
    }
 
-   if (!util_queue_init(&sscreen->shader_compiler_queue_low_priority, "shlo", num_slots,
-                        num_comp_lo_threads,
-                        UTIL_QUEUE_INIT_RESIZE_IF_FULL |
-                           UTIL_QUEUE_INIT_SCALE_THREADS |
-                           UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY |
-                           UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY, NULL)) {
+   if (!util_queue_init(&sscreen->shader_compiler_queue_low_priority, "shlo", num_slots, num_comp_lo_threads,
+                        UTIL_QUEUE_INIT_RESIZE_IF_FULL | UTIL_QUEUE_INIT_SCALE_THREADS |
+                           UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY | UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY,
+                        NULL)) {
       si_destroy_shader_cache(sscreen);
       FREE(sscreen);
       glsl_type_singleton_decref();
@@ -1295,12 +1275,9 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
 
    sscreen->has_draw_indirect_multi =
       (sscreen->info.family >= CHIP_POLARIS10) ||
-      (sscreen->info.gfx_level == GFX8 && sscreen->info.pfp_fw_version >= 121 &&
-       sscreen->info.me_fw_version >= 87) ||
-      (sscreen->info.gfx_level == GFX7 && sscreen->info.pfp_fw_version >= 211 &&
-       sscreen->info.me_fw_version >= 173) ||
-      (sscreen->info.gfx_level == GFX6 && sscreen->info.pfp_fw_version >= 79 &&
-       sscreen->info.me_fw_version >= 142);
+      (sscreen->info.gfx_level == GFX8 && sscreen->info.pfp_fw_version >= 121 && sscreen->info.me_fw_version >= 87) ||
+      (sscreen->info.gfx_level == GFX7 && sscreen->info.pfp_fw_version >= 211 && sscreen->info.me_fw_version >= 173) ||
+      (sscreen->info.gfx_level == GFX6 && sscreen->info.pfp_fw_version >= 79 && sscreen->info.me_fw_version >= 142);
 
    if (sscreen->debug_flags & DBG(NO_OUT_OF_ORDER))
       sscreen->info.has_out_of_order_rast = false;
@@ -1308,24 +1285,20 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    if (sscreen->info.gfx_level >= GFX11) {
       sscreen->use_ngg = true;
       /* TODO: Disable for now. Investigate if it helps.  */
-      sscreen->use_ngg_culling = (sscreen->debug_flags & DBG(ALWAYS_NGG_CULLING_ALL)) &&
-                                 !(sscreen->debug_flags & DBG(NO_NGG_CULLING));
+      sscreen->use_ngg_culling =
+         (sscreen->debug_flags & DBG(ALWAYS_NGG_CULLING_ALL)) && !(sscreen->debug_flags & DBG(NO_NGG_CULLING));
    } else {
-      sscreen->use_ngg = !(sscreen->debug_flags & DBG(NO_NGG)) &&
-                         sscreen->info.gfx_level >= GFX10 &&
-                         (sscreen->info.family != CHIP_NAVI14 ||
-                          sscreen->info.is_pro_graphics);
-      sscreen->use_ngg_culling = sscreen->use_ngg &&
-                                 sscreen->info.max_render_backends >= 2 &&
-                                 !(sscreen->debug_flags & DBG(NO_NGG_CULLING));
+      sscreen->use_ngg = !(sscreen->debug_flags & DBG(NO_NGG)) && sscreen->info.gfx_level >= GFX10 &&
+                         (sscreen->info.family != CHIP_NAVI14 || sscreen->info.is_pro_graphics);
+      sscreen->use_ngg_culling =
+         sscreen->use_ngg && sscreen->info.max_render_backends >= 2 && !(sscreen->debug_flags & DBG(NO_NGG_CULLING));
    }
 
    /* Only set this for the cases that are known to work, which are:
     * - GFX9 if bpp >= 4 (in bytes)
     */
    if (sscreen->info.gfx_level >= GFX10) {
-      memset(sscreen->allow_dcc_msaa_clear_to_reg_for_bpp, true,
-             sizeof(sscreen->allow_dcc_msaa_clear_to_reg_for_bpp));
+      memset(sscreen->allow_dcc_msaa_clear_to_reg_for_bpp, true, sizeof(sscreen->allow_dcc_msaa_clear_to_reg_for_bpp));
    } else if (sscreen->info.gfx_level == GFX9) {
       for (unsigned bpp_log2 = util_logbase2(1); bpp_log2 <= util_logbase2(16); bpp_log2++)
          sscreen->allow_dcc_msaa_clear_to_reg_for_bpp[bpp_log2] = true;
@@ -1334,17 +1307,16 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    /* DCC stores have 50% performance of uncompressed stores and sometimes
     * even less than that. It's risky to enable on dGPUs.
     */
-   sscreen->always_allow_dcc_stores = !(sscreen->debug_flags & DBG(NO_DCC_STORE)) &&
-                                      (sscreen->debug_flags & DBG(DCC_STORE) ||
-                                       sscreen->info.gfx_level >= GFX11 || /* always enabled on gfx11 */
-                                       (sscreen->info.gfx_level >= GFX10_3 &&
-                                        !sscreen->info.has_dedicated_vram));
+   sscreen->always_allow_dcc_stores =
+      !(sscreen->debug_flags & DBG(NO_DCC_STORE)) &&
+      (sscreen->debug_flags & DBG(DCC_STORE) || sscreen->info.gfx_level >= GFX11 || /* always enabled on gfx11 */
+       (sscreen->info.gfx_level >= GFX10_3 && !sscreen->info.has_dedicated_vram));
 
-   sscreen->dpbb_allowed = !(sscreen->debug_flags & DBG(NO_DPBB)) &&
-                           (sscreen->info.gfx_level >= GFX10 ||
-                            /* Only enable primitive binning on gfx9 APUs by default. */
-                            (sscreen->info.gfx_level == GFX9 && !sscreen->info.has_dedicated_vram) ||
-                            sscreen->debug_flags & DBG(DPBB));
+   sscreen->dpbb_allowed =
+      !(sscreen->debug_flags & DBG(NO_DPBB)) &&
+      (sscreen->info.gfx_level >= GFX10 ||
+       /* Only enable primitive binning on gfx9 APUs by default. */
+       (sscreen->info.gfx_level == GFX9 && !sscreen->info.has_dedicated_vram) || sscreen->debug_flags & DBG(DPBB));
 
    if (sscreen->dpbb_allowed) {
       /* Only bin draws that have no CONTEXT and SH register changes between them because higher
@@ -1355,10 +1327,8 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
       sscreen->pbb_context_states_per_bin = 1;
       sscreen->pbb_persistent_states_per_bin = 1;
 
-      assert(sscreen->pbb_context_states_per_bin >= 1 &&
-             sscreen->pbb_context_states_per_bin <= 6);
-      assert(sscreen->pbb_persistent_states_per_bin >= 1 &&
-             sscreen->pbb_persistent_states_per_bin <= 32);
+      assert(sscreen->pbb_context_states_per_bin >= 1 && sscreen->pbb_context_states_per_bin <= 6);
+      assert(sscreen->pbb_persistent_states_per_bin >= 1 && sscreen->pbb_persistent_states_per_bin <= 32);
    }
 
    (void)simple_mtx_init(&sscreen->shader_parts_mutex, mtx_plain);
@@ -1400,21 +1370,17 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
 
    if (sscreen->info.gfx_level >= GFX11) {
       unsigned attr_ring_size = sscreen->info.attribute_ring_size_per_se * sscreen->info.max_se;
-      sscreen->attribute_ring = si_aligned_buffer_create(&sscreen->b,
-                                                         PIPE_RESOURCE_FLAG_UNMAPPABLE |
-                                                         SI_RESOURCE_FLAG_32BIT |
-                                                         SI_RESOURCE_FLAG_DRIVER_INTERNAL |
-                                                         SI_RESOURCE_FLAG_DISCARDABLE,
-                                                         PIPE_USAGE_DEFAULT,
-                                                         attr_ring_size, 2 * 1024 * 1024);
+      sscreen->attribute_ring =
+         si_aligned_buffer_create(&sscreen->b,
+                                  PIPE_RESOURCE_FLAG_UNMAPPABLE | SI_RESOURCE_FLAG_32BIT |
+                                     SI_RESOURCE_FLAG_DRIVER_INTERNAL | SI_RESOURCE_FLAG_DISCARDABLE,
+                                  PIPE_USAGE_DEFAULT, attr_ring_size, 2 * 1024 * 1024);
    }
 
    /* Create the auxiliary context. This must be done last. */
-   sscreen->aux_context = si_create_context(
-      &sscreen->b,
-      SI_CONTEXT_FLAG_AUX |
-      (sscreen->options.aux_debug ? PIPE_CONTEXT_DEBUG : 0) |
-      (sscreen->info.has_graphics ? 0 : PIPE_CONTEXT_COMPUTE_ONLY));
+   sscreen->aux_context =
+      si_create_context(&sscreen->b, SI_CONTEXT_FLAG_AUX | (sscreen->options.aux_debug ? PIPE_CONTEXT_DEBUG : 0) |
+                                        (sscreen->info.has_graphics ? 0 : PIPE_CONTEXT_COMPUTE_ONLY));
 
    if (sscreen->options.aux_debug) {
       struct u_log_context *log = CALLOC_STRUCT(u_log_context);
@@ -1440,12 +1406,10 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
       si_test_gds((struct si_context *)sscreen->aux_context);
 
    if (test_flags & DBG(TEST_GDS_MM)) {
-      si_test_gds_memory_management((struct si_context *)sscreen->aux_context, 32 * 1024, 4,
-                                    RADEON_DOMAIN_GDS);
+      si_test_gds_memory_management((struct si_context *)sscreen->aux_context, 32 * 1024, 4, RADEON_DOMAIN_GDS);
    }
    if (test_flags & DBG(TEST_GDS_OA_MM)) {
-      si_test_gds_memory_management((struct si_context *)sscreen->aux_context, 4, 1,
-                                    RADEON_DOMAIN_OA);
+      si_test_gds_memory_management((struct si_context *)sscreen->aux_context, 4, 1, RADEON_DOMAIN_OA);
    }
 
    ac_print_nonshadowed_regs(sscreen->info.gfx_level, sscreen->info.family);
@@ -1453,14 +1417,15 @@ static struct pipe_screen *radeonsi_screen_create_impl(struct radeon_winsys *ws,
    return &sscreen->b;
 }
 
-struct pipe_screen *radeonsi_screen_create(int fd, const struct pipe_screen_config *config)
+struct pipe_screen *
+radeonsi_screen_create(int fd, const struct pipe_screen_config *config)
 {
    struct radeon_winsys *rw = NULL;
    drmVersionPtr version;
 
    version = drmGetVersion(fd);
    if (!version)
-     return NULL;
+      return NULL;
 
    /* LLVM must be initialized before util_queue because both u_queue and LLVM call atexit,
     * and LLVM must call it first because its atexit handler executes C++ destructors,
@@ -1470,8 +1435,7 @@ struct pipe_screen *radeonsi_screen_create(int fd, const struct pipe_screen_conf
     */
    ac_init_llvm_once();
 
-   driParseConfigFiles(config->options, config->options_info, 0, "radeonsi",
-                       NULL, NULL, NULL, 0, NULL, 0);
+   driParseConfigFiles(config->options, config->options_info, 0, "radeonsi", NULL, NULL, NULL, 0, NULL, 0);
 
    switch (version->version_major) {
    case 2:
@@ -1486,15 +1450,17 @@ struct pipe_screen *radeonsi_screen_create(int fd, const struct pipe_screen_conf
    return rw ? rw->screen : NULL;
 }
 
-struct si_context* si_get_aux_context(struct si_screen *sscreen)
+struct si_context *
+si_get_aux_context(struct si_screen *sscreen)
 {
    mtx_lock(&sscreen->aux_context_lock);
-   return (struct si_context*)sscreen->aux_context;
+   return (struct si_context *)sscreen->aux_context;
 }
 
-void si_put_aux_context_flush(struct si_screen *sscreen)
+void
+si_put_aux_context_flush(struct si_screen *sscreen)
 {
-   struct pipe_context *c = &((struct si_context*)sscreen->aux_context)->b;
+   struct pipe_context *c = &((struct si_context *)sscreen->aux_context)->b;
    c->flush(c, NULL, 0);
    mtx_unlock(&sscreen->aux_context_lock);
 }

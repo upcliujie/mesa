@@ -282,8 +282,7 @@ typedef struct ruvd_enc_encode_context_buffer_s {
    ruvd_enc_reconstructed_picture_t reconstructed_pictures[RENC_UVD_MAX_NUM_RECONSTRUCTED_PICTURES];
    uint32_t pre_encode_picture_luma_pitch;
    uint32_t pre_encode_picture_chroma_pitch;
-   ruvd_enc_reconstructed_picture_t
-      pre_encode_reconstructed_pictures[RENC_UVD_MAX_NUM_RECONSTRUCTED_PICTURES];
+   ruvd_enc_reconstructed_picture_t pre_encode_reconstructed_pictures[RENC_UVD_MAX_NUM_RECONSTRUCTED_PICTURES];
    ruvd_enc_reconstructed_picture_t pre_encode_input_picture;
 } ruvd_enc_encode_context_buffer_t;
 
@@ -306,10 +305,8 @@ typedef struct ruvd_enc_feedback_buffer_s {
 typedef void (*radeon_uvd_enc_get_buffer)(struct pipe_resource *resource, struct pb_buffer **handle,
                                           struct radeon_surf **surface);
 
-struct pipe_video_codec *radeon_uvd_create_encoder(struct pipe_context *context,
-                                                   const struct pipe_video_codec *templat,
-                                                   struct radeon_winsys *ws,
-                                                   radeon_uvd_enc_get_buffer get_buffer);
+struct pipe_video_codec *radeon_uvd_create_encoder(struct pipe_context *context, const struct pipe_video_codec *templat,
+                                                   struct radeon_winsys *ws, radeon_uvd_enc_get_buffer get_buffer);
 
 struct radeon_uvd_enc_pic {
    enum pipe_h2645_enc_picture_type picture_type;

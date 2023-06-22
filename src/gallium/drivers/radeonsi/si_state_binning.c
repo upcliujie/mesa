@@ -22,11 +22,10 @@ struct si_bin_size_map {
 typedef struct si_bin_size_map si_bin_size_subtable[3][10];
 
 /* Find the bin size where sum is >= table[i].start and < table[i + 1].start. */
-static struct uvec2 si_find_bin_size(struct si_screen *sscreen, const si_bin_size_subtable table[],
-                                     unsigned sum)
+static struct uvec2
+si_find_bin_size(struct si_screen *sscreen, const si_bin_size_subtable table[], unsigned sum)
 {
-   unsigned log_num_rb_per_se =
-      util_logbase2_ceil(sscreen->info.max_render_backends / sscreen->info.max_se);
+   unsigned log_num_rb_per_se = util_logbase2_ceil(sscreen->info.max_render_backends / sscreen->info.max_se);
    unsigned log_num_se = util_logbase2_ceil(sscreen->info.max_se);
    unsigned i;
 
@@ -42,7 +41,8 @@ static struct uvec2 si_find_bin_size(struct si_screen *sscreen, const si_bin_siz
    return size;
 }
 
-static struct uvec2 si_get_color_bin_size(struct si_context *sctx, unsigned cb_target_enabled_4bit)
+static struct uvec2
+si_get_color_bin_size(struct si_context *sctx, unsigned cb_target_enabled_4bit)
 {
    unsigned num_fragments = sctx->framebuffer.nr_color_samples;
    unsigned sum = 0;
@@ -156,7 +156,8 @@ static struct uvec2 si_get_color_bin_size(struct si_context *sctx, unsigned cb_t
    return si_find_bin_size(sctx->screen, table, sum);
 }
 
-static struct uvec2 si_get_depth_bin_size(struct si_context *sctx)
+static struct uvec2
+si_get_depth_bin_size(struct si_context *sctx)
 {
    struct si_state_dsa *dsa = sctx->queued.named.dsa;
 
@@ -281,8 +282,9 @@ static struct uvec2 si_get_depth_bin_size(struct si_context *sctx)
    return si_find_bin_size(sctx->screen, table, sum);
 }
 
-static void gfx10_get_bin_sizes(struct si_context *sctx, unsigned cb_target_enabled_4bit,
-                                struct uvec2 *color_bin_size, struct uvec2 *depth_bin_size)
+static void
+gfx10_get_bin_sizes(struct si_context *sctx, unsigned cb_target_enabled_4bit, struct uvec2 *color_bin_size,
+                    struct uvec2 *depth_bin_size)
 {
    const unsigned ZsTagSize = 64;
    const unsigned ZsNumTags = 312;
@@ -294,12 +296,9 @@ static void gfx10_get_bin_sizes(struct si_context *sctx, unsigned cb_target_enab
    const unsigned num_rbs = sctx->screen->info.max_render_backends;
    const unsigned num_pipes = MAX2(num_rbs, sctx->screen->info.num_tcc_blocks);
 
-   const unsigned depthBinSizeTagPart =
-      ((ZsNumTags * num_rbs / num_pipes) * (ZsTagSize * num_pipes));
-   const unsigned colorBinSizeTagPart =
-      ((CcReadTags * num_rbs / num_pipes) * (CcTagSize * num_pipes));
-   const unsigned fmaskBinSizeTagPart =
-      ((FcReadTags * num_rbs / num_pipes) * (FcTagSize * num_pipes));
+   const unsigned depthBinSizeTagPart = ((ZsNumTags * num_rbs / num_pipes) * (ZsTagSize * num_pipes));
+   const unsigned colorBinSizeTagPart = ((CcReadTags * num_rbs / num_pipes) * (CcTagSize * num_pipes));
+   const unsigned fmaskBinSizeTagPart = ((FcReadTags * num_rbs / num_pipes) * (FcTagSize * num_pipes));
 
    const unsigned minBinSizeX = 128;
    const unsigned minBinSizeY = 64;
@@ -372,8 +371,7 @@ static void gfx10_get_bin_sizes(struct si_context *sctx, unsigned cb_target_enab
 
       const unsigned cPerDepthSample = dsa->depth_enabled ? 5 : 0;
       const unsigned cPerStencilSample = dsa->stencil_enabled ? 1 : 0;
-      const unsigned cDepth =
-         (cPerDepthSample + cPerStencilSample) * MAX2(zstex->buffer.b.b.nr_samples, 1);
+      const unsigned cDepth = (cPerDepthSample + cPerStencilSample) * MAX2(zstex->buffer.b.b.nr_samples, 1);
 
       const unsigned depthLog2Pixels = util_logbase2(depthBinSizeTagPart / MAX2(cDepth, 1u));
       unsigned depthBinSizeX = 1 << ((depthLog2Pixels + 1) / 2);
@@ -384,7 +382,8 @@ static void gfx10_get_bin_sizes(struct si_context *sctx, unsigned cb_target_enab
    }
 }
 
-static void si_emit_dpbb_disable(struct si_context *sctx)
+static void
+si_emit_dpbb_disable(struct si_context *sctx)
 {
    radeon_begin(&sctx->gfx_cs);
 
@@ -400,30 +399,24 @@ static void si_emit_dpbb_disable(struct si_context *sctx)
       if (bin_size.y >= 32)
          bin_size_extend.y = util_logbase2(bin_size.y) - 5;
 
-      radeon_opt_set_context_reg(sctx, R_028C44_PA_SC_BINNER_CNTL_0,
-                                 SI_TRACKED_PA_SC_BINNER_CNTL_0,
-                                 S_028C44_BINNING_MODE(V_028C44_DISABLE_BINNING_USE_NEW_SC) |
-                                 S_028C44_BIN_SIZE_X(bin_size.x == 16) |
-                                 S_028C44_BIN_SIZE_Y(bin_size.y == 16) |
-                                 S_028C44_BIN_SIZE_X_EXTEND(bin_size_extend.x) |
-                                 S_028C44_BIN_SIZE_Y_EXTEND(bin_size_extend.y) |
-                                 S_028C44_DISABLE_START_OF_PRIM(1) |
-                                 S_028C44_FPOVS_PER_BATCH(63) |
-                                 S_028C44_OPTIMAL_BIN_SELECTION(1) |
-                                 S_028C44_FLUSH_ON_BINNING_TRANSITION(1));
+      radeon_opt_set_context_reg(
+         sctx, R_028C44_PA_SC_BINNER_CNTL_0, SI_TRACKED_PA_SC_BINNER_CNTL_0,
+         S_028C44_BINNING_MODE(V_028C44_DISABLE_BINNING_USE_NEW_SC) | S_028C44_BIN_SIZE_X(bin_size.x == 16) |
+            S_028C44_BIN_SIZE_Y(bin_size.y == 16) | S_028C44_BIN_SIZE_X_EXTEND(bin_size_extend.x) |
+            S_028C44_BIN_SIZE_Y_EXTEND(bin_size_extend.y) | S_028C44_DISABLE_START_OF_PRIM(1) |
+            S_028C44_FPOVS_PER_BATCH(63) | S_028C44_OPTIMAL_BIN_SELECTION(1) | S_028C44_FLUSH_ON_BINNING_TRANSITION(1));
    } else {
-      radeon_opt_set_context_reg(sctx, R_028C44_PA_SC_BINNER_CNTL_0,
-                                 SI_TRACKED_PA_SC_BINNER_CNTL_0,
-                                 S_028C44_BINNING_MODE(V_028C44_DISABLE_BINNING_USE_LEGACY_SC) |
-                                 S_028C44_DISABLE_START_OF_PRIM(1) |
-                                 S_028C44_FLUSH_ON_BINNING_TRANSITION(sctx->family == CHIP_VEGA12 ||
-                                                                      sctx->family == CHIP_VEGA20 ||
-                                                                      sctx->family >= CHIP_RAVEN2));
+      radeon_opt_set_context_reg(
+         sctx, R_028C44_PA_SC_BINNER_CNTL_0, SI_TRACKED_PA_SC_BINNER_CNTL_0,
+         S_028C44_BINNING_MODE(V_028C44_DISABLE_BINNING_USE_LEGACY_SC) | S_028C44_DISABLE_START_OF_PRIM(1) |
+            S_028C44_FLUSH_ON_BINNING_TRANSITION(sctx->family == CHIP_VEGA12 || sctx->family == CHIP_VEGA20 ||
+                                                 sctx->family >= CHIP_RAVEN2));
    }
    radeon_end_update_context_roll(sctx);
 }
 
-void si_emit_dpbb_state(struct si_context *sctx)
+void
+si_emit_dpbb_state(struct si_context *sctx)
 {
    struct si_screen *sscreen = sctx->screen;
    struct si_state_blend *blend = sctx->queued.named.blend;
@@ -432,15 +425,14 @@ void si_emit_dpbb_state(struct si_context *sctx)
 
    assert(sctx->gfx_level >= GFX9);
 
-   if (!sscreen->dpbb_allowed || sctx->dpbb_force_off ||
-       sctx->dpbb_force_off_profile_vs || sctx->dpbb_force_off_profile_ps) {
+   if (!sscreen->dpbb_allowed || sctx->dpbb_force_off || sctx->dpbb_force_off_profile_vs ||
+       sctx->dpbb_force_off_profile_ps) {
       si_emit_dpbb_disable(sctx);
       return;
    }
 
-   bool ps_can_kill =
-      G_02880C_KILL_ENABLE(db_shader_control) || G_02880C_MASK_EXPORT_ENABLE(db_shader_control) ||
-      G_02880C_COVERAGE_TO_MASK_ENABLE(db_shader_control) || blend->alpha_to_coverage;
+   bool ps_can_kill = G_02880C_KILL_ENABLE(db_shader_control) || G_02880C_MASK_EXPORT_ENABLE(db_shader_control) ||
+                      G_02880C_COVERAGE_TO_MASK_ENABLE(db_shader_control) || blend->alpha_to_coverage;
 
    bool db_can_reject_z_trivially = !G_02880C_Z_EXPORT_ENABLE(db_shader_control) ||
                                     G_02880C_CONSERVATIVE_Z_EXPORT(db_shader_control) ||
@@ -455,8 +447,7 @@ void si_emit_dpbb_state(struct si_context *sctx)
 
    /* Compute the bin size. */
    /* TODO: We could also look at enabled pixel shader outputs. */
-   unsigned cb_target_enabled_4bit =
-      sctx->framebuffer.colorbuf_enabled_4bit & blend->cb_target_enabled_4bit;
+   unsigned cb_target_enabled_4bit = sctx->framebuffer.colorbuf_enabled_4bit & blend->cb_target_enabled_4bit;
    struct uvec2 color_bin_size, depth_bin_size;
 
    if (sctx->gfx_level >= GFX10) {
@@ -491,19 +482,16 @@ void si_emit_dpbb_state(struct si_context *sctx)
       bin_size_extend.y = util_logbase2(bin_size.y) - 5;
 
    radeon_begin(&sctx->gfx_cs);
-   radeon_opt_set_context_reg(sctx, R_028C44_PA_SC_BINNER_CNTL_0, SI_TRACKED_PA_SC_BINNER_CNTL_0,
-                              S_028C44_BINNING_MODE(V_028C44_BINNING_ALLOWED) |
-                              S_028C44_BIN_SIZE_X(bin_size.x == 16) |
-                              S_028C44_BIN_SIZE_Y(bin_size.y == 16) |
-                              S_028C44_BIN_SIZE_X_EXTEND(bin_size_extend.x) |
-                              S_028C44_BIN_SIZE_Y_EXTEND(bin_size_extend.y) |
-                              S_028C44_CONTEXT_STATES_PER_BIN(sscreen->pbb_context_states_per_bin - 1) |
-                              S_028C44_PERSISTENT_STATES_PER_BIN(sscreen->pbb_persistent_states_per_bin - 1) |
-                              S_028C44_DISABLE_START_OF_PRIM(1) |
-                              S_028C44_FPOVS_PER_BATCH(fpovs_per_batch) |
-                              S_028C44_OPTIMAL_BIN_SELECTION(1) |
-                              S_028C44_FLUSH_ON_BINNING_TRANSITION(sctx->family == CHIP_VEGA12 ||
-                                                                   sctx->family == CHIP_VEGA20 ||
-                                                                   sctx->family >= CHIP_RAVEN2));
+   radeon_opt_set_context_reg(
+      sctx, R_028C44_PA_SC_BINNER_CNTL_0, SI_TRACKED_PA_SC_BINNER_CNTL_0,
+      S_028C44_BINNING_MODE(V_028C44_BINNING_ALLOWED) | S_028C44_BIN_SIZE_X(bin_size.x == 16) |
+         S_028C44_BIN_SIZE_Y(bin_size.y == 16) | S_028C44_BIN_SIZE_X_EXTEND(bin_size_extend.x) |
+         S_028C44_BIN_SIZE_Y_EXTEND(bin_size_extend.y) |
+         S_028C44_CONTEXT_STATES_PER_BIN(sscreen->pbb_context_states_per_bin - 1) |
+         S_028C44_PERSISTENT_STATES_PER_BIN(sscreen->pbb_persistent_states_per_bin - 1) |
+         S_028C44_DISABLE_START_OF_PRIM(1) | S_028C44_FPOVS_PER_BATCH(fpovs_per_batch) |
+         S_028C44_OPTIMAL_BIN_SELECTION(1) |
+         S_028C44_FLUSH_ON_BINNING_TRANSITION(sctx->family == CHIP_VEGA12 || sctx->family == CHIP_VEGA20 ||
+                                              sctx->family >= CHIP_RAVEN2));
    radeon_end_update_context_roll(sctx);
 }
