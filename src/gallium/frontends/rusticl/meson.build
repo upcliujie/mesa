@@ -180,6 +180,8 @@ rusticl_opencl_bindings_rs = rust.bindgen(
     '--raw-line', 'unsafe impl std::marker::Sync for _cl_image_desc {}',
     '--allowlist-type', 'cl_.*',
     '--allowlist-var', 'CL_.*',
+    # bindgen doesn't handle them pretty well and we won't need them anyway
+    '--blocklist-type', 'cl_.*(2|3|4|8|16)',
     # needed for gl_sharing extension
     '--allowlist-var', 'GL_.*',
     '--allowlist-var', 'MESA_GLINTEROP_.*',
