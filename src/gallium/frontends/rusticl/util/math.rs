@@ -18,6 +18,13 @@ where
     b
 }
 
+#[test]
+fn gcd_test() {
+    assert_eq!(gcd(5, 15), 5);
+    assert_eq!(gcd(7, 15), 1);
+    assert_eq!(gcd(60, 45), 15);
+}
+
 pub fn align<T>(val: T, a: T) -> T
 where
     T: Add<Output = T>,
@@ -70,4 +77,11 @@ impl Iterator for SetBitIndices<u32> {
             Some(pos)
         }
     }
+}
+
+#[test]
+fn align_test() {
+    assert_eq!(align(0x1, 0x4), 0x4);
+    assert_eq!(align(0x8, 0x2), 0x8);
+    assert_eq!(align(0x7, 0x200), 0x200);
 }
