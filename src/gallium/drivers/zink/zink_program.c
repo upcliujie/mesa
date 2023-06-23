@@ -240,7 +240,7 @@ create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_scr
                                        struct zink_shader *zs, struct zink_gfx_program *prog,
                                        gl_shader_stage stage,
                                        struct zink_gfx_pipeline_state *state,
-                                       bool compile_uber)
+                                       bool unpopulated, bool compile_uber)
 {
    struct zink_shader_module *zm;
    uint16_t *key;
@@ -264,7 +264,7 @@ create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_scr
    if (!zm) {
       return NULL;
    }
-   if (stage == MESA_SHADER_TESS_CTRL && zs->non_fs.is_generated && zs->spirv) {
+   if (!unpopulated && stage == MESA_SHADER_TESS_CTRL && zs->non_fs.is_generated && zs->spirv) {
       assert(ctx || screen->info.dynamic_state2_feats.extendedDynamicState2PatchControlPoints);
       unsigned patch_vertices = 3;
       if (ctx) {
@@ -272,10 +272,14 @@ create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_scr
          patch_vertices = tcs->patch_vertices;
       }
       zm->obj = zink_shader_tcs_compile(screen, zs, patch_vertices, prog->base.uses_shobj, &prog->base);
-   } else {
+   } else if (!unpopulated) {
       zm->obj = zink_shader_compile(screen, prog->base.uses_shobj, zs, zink_shader_blob_deserialize(screen, &prog->blobs[stage]),
-                                    (struct zink_shader_key*)key, NULL, compile_uber,
+                                    (struct zink_shader_key*)key, &state->shader_keys.st_key, false,
                                     shadow_needs_shader_swizzle ? &ctx->di.zs_swizzle[stage] : NULL, &prog->base);
+   } else {
+      /* This is an unpopulated entry used for async compilation.
+       * Therefore we need a fence */
+      util_queue_fence_init(&zm->fence);
    }
    if (!zm->obj.mod) {
       FREE(zm);
@@ -512,7 +516,7 @@ generate_gfx_program_modules_optimal(struct zink_context *ctx, struct zink_scree
 
       assert(prog->shaders[i]);
 
-      struct zink_shader_module *zm = create_shader_module_for_stage_optimal(ctx, screen, prog->shaders[i], prog, i, state, compile_uber);
+      struct zink_shader_module *zm = create_shader_module_for_stage_optimal(ctx, screen, prog->shaders[i], prog, i, state, false, compile_uber);
       if (compile_uber) {
          prog->uber_objs[i] = zm->obj;
          prog->uber_objects[i] = zm->obj.obj;
@@ -715,7 +719,7 @@ update_gfx_shader_module_optimal(struct zink_context *ctx, struct zink_gfx_progr
       util_queue_fence_wait(&prog->base.cache_fence);
    struct zink_shader_module *zm = get_shader_module_for_stage_optimal(ctx, screen, prog->shaders[pstage], prog, pstage, &ctx->gfx_pipeline_state);
    if (!zm) {
-      zm = create_shader_module_for_stage_optimal(ctx, screen, prog->shaders[pstage], prog, pstage, &ctx->gfx_pipeline_state, false);
+      zm = create_shader_module_for_stage_optimal(ctx, screen, prog->shaders[pstage], prog, pstage, &ctx->gfx_pipeline_state, false, false);
       perf_debug(ctx, "zink[gfx_compile]: %s shader variant required\n", _mesa_shader_stage_to_string(pstage));
    }
 

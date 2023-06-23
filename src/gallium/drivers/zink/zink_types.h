@@ -1007,6 +1007,7 @@ enum zink_gfx_push_constant_member {
  */
 struct zink_shader_module {
    struct zink_shader_object obj;
+   struct util_queue_fence fence;
    uint32_t hash;
    bool shobj;
    bool default_variant;
