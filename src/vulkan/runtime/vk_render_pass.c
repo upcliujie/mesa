@@ -645,7 +645,10 @@ vk_init_render_pass(struct vk_device *device,
                 desc->pInputAttachments[a].attachment) {
             VkImageAspectFlags aspects =
                subpass->input_attachments[a].aspects;
-            if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
+            if ((aspects & VK_IMAGE_ASPECT_DEPTH_BIT) &&
+                subpass->input_attachments[a].layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL &&
+                subpass->input_attachments[a].layout != VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL &&
+                subpass->input_attachments[a].layout != VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL) {
                subpass->input_attachments[a].layout =
                   VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT;
                subpass->depth_stencil_attachment->layout =
@@ -653,7 +656,10 @@ vk_init_render_pass(struct vk_device *device,
                subpass->pipeline_flags |=
                   VK_PIPELINE_CREATE_DEPTH_STENCIL_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT;
             }
-            if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
+            if ((aspects & VK_IMAGE_ASPECT_STENCIL_BIT) &&
+                subpass->input_attachments[a].layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL &&
+                subpass->input_attachments[a].layout != VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL &&
+                subpass->input_attachments[a].layout != VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL) {
                subpass->input_attachments[a].stencil_layout =
                   VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT;
                subpass->depth_stencil_attachment->stencil_layout =
