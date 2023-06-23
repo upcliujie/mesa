@@ -114,7 +114,7 @@ impl SPIRVBin {
 
                 let mut key = cache.gen_key(&key);
                 if let Some(data) = cache.get(&mut key) {
-                    return (Some(Self::from_bin(&data)), String::from(""));
+                    return (Some(Self::deserialize(&data)), String::from(""));
                 }
 
                 hash_key = Some(key);
@@ -160,7 +160,7 @@ impl SPIRVBin {
             // add cache entry
             if !has_includes {
                 if let Some(mut key) = hash_key {
-                    cache.as_ref().unwrap().put(spirv.to_bin(), &mut key);
+                    cache.as_ref().unwrap().put(&spirv.serialize(), &mut key);
                 }
             }
 
@@ -399,6 +399,61 @@ impl SPIRVBin {
         })
     }
 
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut res = Vec::new();
+
+        let mut size: usize = 0;
+        if let Some(info) = self.info {
+            let mut buffer = ptr::null_mut();
+
+            unsafe {
+                clc_serialize_parsed_spirv(&info, &mut buffer, &mut size);
+                res.extend_from_slice(&size.to_ne_bytes());
+                res.extend_from_slice(slice::from_raw_parts(buffer.cast(), size));
+                free(buffer);
+            }
+        } else {
+            res.extend_from_slice(&size.to_ne_bytes());
+        }
+
+        res.extend_from_slice(unsafe {
+            slice::from_raw_parts(self.spirv.data.cast(), self.spirv.size)
+        });
+
+        res
+    }
+
+    pub fn deserialize(mut bin: &[u8]) -> Self {
+        let info_size = read_ne_usize(&mut bin);
+
+        let pspirv = if info_size != 0 {
+            let mut pspirv = clc_parsed_spirv::default();
+
+            unsafe {
+                clc_deserialize_parsed_spirv(bin.as_ptr().cast(), info_size, &mut pspirv);
+            }
+
+            Some(pspirv)
+        } else {
+            None
+        };
+
+        bin = &bin[info_size..];
+        let spirv = unsafe {
+            let ptr = malloc(bin.len());
+            ptr::copy_nonoverlapping(bin.as_ptr(), ptr.cast(), bin.len());
+            clc_binary {
+                data: ptr,
+                size: bin.len(),
+            }
+        };
+
+        SPIRVBin {
+            spirv: spirv,
+            info: pspirv,
+        }
+    }
+
     pub fn to_bin(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.spirv.data.cast(), self.spirv.size) }
     }
@@ -447,7 +502,7 @@ impl SPIRVBin {
 
 impl Clone for SPIRVBin {
     fn clone(&self) -> Self {
-        Self::from_bin(self.to_bin())
+        Self::deserialize(&self.serialize())
     }
 }
 
