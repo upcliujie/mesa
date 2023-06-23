@@ -797,6 +797,7 @@ struct zink_shader_object {
       VkShaderModule mod;
    };
    struct spirv_shader *spirv;
+   VkPipeline gpl;
 };
 
 struct zink_shader {
