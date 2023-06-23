@@ -5042,6 +5042,327 @@ dzn_begin_rendering_immediate(struct dzn_cmd_buffer *cmdbuf,
    }
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateRenderPass2(VkDevice _device,
+                      const VkRenderPassCreateInfo2 *pCreateInfo,
+                      const VkAllocationCallbacks *pAllocator,
+                      VkRenderPass *pRenderPass)
+{
+   VK_FROM_HANDLE(dzn_device, device, _device);
+
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2);
+
+   enum aspect_state {
+      NOT_USED, PRESERVED, DISCARDED, PRESERVED_LOCAL_SRV, PRESERVED_LOCAL_RENDER
+   };
+   struct attachment_state {
+      uint8_t color_or_depth;
+      uint8_t stencil;
+   };
+
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, struct dzn_render_pass, pass, 1);
+   VK_MULTIALLOC_DECL(&ma, struct dzn_subpass, subpasses, pCreateInfo->subpassCount);
+   VK_MULTIALLOC_DECL(&ma, struct dzn_subpass_attachment, attachments, pCreateInfo->subpassCount * pCreateInfo->attachmentCount);
+   VK_MULTIALLOC_DECL(&ma, struct attachment_state, states, pCreateInfo->attachmentCount);
+   if (!vk_object_multizalloc(&device->vk, &ma, pAllocator, VK_OBJECT_TYPE_RENDER_PASS))
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   VkResult result = vk_init_render_pass(&device->vk, pCreateInfo, pAllocator, &pass->vk);
+   if (result != VK_SUCCESS) {
+      vk_object_free(&device->vk, pAllocator, pass);
+      return result;
+   }
+
+   const struct dzn_physical_device *pdev = container_of(device->vk.physical, struct dzn_physical_device, vk);
+   /* Cache some info about the pass */
+   pass->can_use_d3d_render_passes = pdev->options18.RenderPassesValid && !pass->vk.is_multiview;
+   for (uint32_t i = 0; i < pass->vk.subpass_count && pass->can_use_d3d_render_passes; ++i) {
+      if (pass->vk.subpasses[i].depth_resolve_mode == VK_RESOLVE_MODE_SAMPLE_ZERO_BIT ||
+          pass->vk.subpasses[i].stencil_resolve_mode == VK_RESOLVE_MODE_SAMPLE_ZERO_BIT ||
+          pass->vk.subpasses[i].depth_resolve_mode != pass->vk.subpasses[i].stencil_resolve_mode)
+         pass->can_use_d3d_render_passes = false;
+   }
+
+   if (pass->can_use_d3d_render_passes) {
+      pass->subpasses = subpasses;
+      for (uint32_t s = 0; s < pass->vk.subpass_count; ++s) {
+         pass->subpasses[s].attachments = attachments;
+         attachments += pass->vk.attachment_count;
+
+         /* Figure out how each attachment aspect is used in this subpass */
+         const struct vk_subpass *subpass = &pass->vk.subpasses[s];
+         for (uint32_t c = 0; c < subpass->color_count; ++c) {
+            if (subpass->color_attachments[c].attachment == VK_ATTACHMENT_UNUSED) {
+               /* TODO: Gaps in render target bindings */
+               pass->can_use_d3d_render_passes = false;
+               break;
+            }
+            pass->subpasses[s].attachments[subpass->color_attachments[c].attachment].color_depth_usage.output = true;
+         }
+         for (uint32_t r = 0; r < subpass->color_resolve_count; ++r) {
+            if (subpass->color_resolve_attachments[r].attachment == VK_ATTACHMENT_UNUSED)
+               continue;
+            pass->subpasses[s].attachments[subpass->color_attachments[r].attachment].color_depth_usage.resolve_src = true;
+            pass->subpasses[s].attachments[subpass->color_resolve_attachments[r].attachment].color_depth_usage.resolve_dst = true;
+         }
+         if (subpass->depth_stencil_attachment) {
+            uint32_t idx = subpass->depth_stencil_attachment->attachment;
+            if (subpass->depth_stencil_attachment->aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+               pass->subpasses[s].attachments[idx].color_depth_usage.output = true;
+            if (subpass->depth_stencil_attachment->aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
+               pass->subpasses[s].attachments[idx].stencil_usage.output = true;
+         }
+         if (subpass->depth_stencil_resolve_attachment) {
+            uint32_t src_idx = subpass->depth_stencil_attachment->attachment;
+            uint32_t dst_idx = subpass->depth_stencil_resolve_attachment->attachment;
+            if (subpass->depth_resolve_mode != VK_RESOLVE_MODE_NONE) {
+               pass->subpasses[s].attachments[src_idx].color_depth_usage.resolve_src = true;
+               pass->subpasses[s].attachments[dst_idx].color_depth_usage.resolve_dst = true;
+            }
+            if (subpass->stencil_resolve_mode != VK_RESOLVE_MODE_NONE) {
+               pass->subpasses[s].attachments[src_idx].stencil_usage.resolve_src = true;
+               pass->subpasses[s].attachments[dst_idx].stencil_usage.resolve_dst = true;
+            }
+         }
+         for (uint32_t p = 0; p < subpass->preserve_count; ++p) {
+            uint32_t idx = subpass->preserve_attachments[p].attachment;
+            assert(pass->subpasses[s].attachments[idx].color_depth_usage.used == 0 &&
+                   pass->subpasses[s].attachments[idx].stencil_usage.used == 0);
+            if (subpass->preserve_attachments[p].aspects & VK_IMAGE_ASPECT_COLOR_BIT)
+               pass->subpasses[s].attachments[idx].color_depth_usage.preserve = true;
+            if (subpass->preserve_attachments[p].aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+               pass->subpasses[s].attachments[idx].color_depth_usage.preserve = true;
+            if (subpass->preserve_attachments[p].aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
+               pass->subpasses[s].attachments[idx].stencil_usage.preserve = true;
+         }
+         for (uint32_t i = 0; i < subpass->input_count; ++i) {
+            uint32_t idx = subpass->input_attachments[i].attachment;
+            if (idx == VK_ATTACHMENT_UNUSED)
+               continue;
+            if (subpass->input_attachments[i].aspects & VK_IMAGE_ASPECT_COLOR_BIT)
+               pass->subpasses[s].attachments[idx].color_depth_usage.input = true;
+            if (subpass->input_attachments[i].aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
+               if (pass->subpasses[s].attachments[idx].color_depth_usage.output)
+                  pass->subpasses[s].flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_DEPTH;
+               pass->subpasses[s].attachments[idx].color_depth_usage.input = true;
+            }
+            if (subpass->input_attachments[i].aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
+               if (pass->subpasses[s].attachments[idx].stencil_usage.output)
+                  pass->subpasses[s].flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_STENCIL;
+               pass->subpasses[s].attachments[idx].stencil_usage.input = true;
+            }
+         }
+      }
+
+      for (uint32_t s = 0; s < pass->vk.subpass_count; ++s) {
+         for (uint32_t a = 0; a < pass->vk.attachment_count; ++a) {
+            struct dzn_subpass_attachment *satt = &pass->subpasses[s].attachments[a];
+            const struct vk_render_pass_attachment *att = &pass->vk.attachments[a];
+
+            satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+            satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+            satt->ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
+            satt->stencil_ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
+
+            /* Determine color, depth, and stencil beginning accesses */
+            switch (states[a].color_or_depth) {
+            case NOT_USED:
+               if (satt->color_depth_usage.output) {
+                  switch (att->load_op) {
+                  case VK_ATTACHMENT_LOAD_OP_CLEAR:
+                     /* The actual color comes later */
+                     satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+                     break;
+                  case VK_ATTACHMENT_LOAD_OP_LOAD:
+                     satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+                     break;
+                  case VK_ATTACHMENT_LOAD_OP_DONT_CARE:
+                     satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+                     break;
+                  default: unreachable("Invalid load op");
+                  }
+               }
+               break;
+            case PRESERVED:
+               if (satt->color_depth_usage.output)
+                  satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+               break;
+            case DISCARDED:
+               if (satt->color_depth_usage.output)
+                  satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+               break;
+            case PRESERVED_LOCAL_RENDER:
+               if (satt->color_depth_usage.output)
+                  satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE_LOCAL_RENDER;
+               else
+                  /* We're preserving it for an eventual render, but it's not in this subpass */
+                  satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE_LOCAL_SRV;
+               break;
+            case PRESERVED_LOCAL_SRV:
+               satt->beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE_LOCAL_SRV;
+               break;
+            }
+            switch (states[a].stencil) {
+            case NOT_USED:
+               if (satt->stencil_usage.output) {
+                  switch (att->stencil_load_op) {
+                  case VK_ATTACHMENT_LOAD_OP_CLEAR:
+                     /* The actual color comes later */
+                     satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+                     break;
+                  case VK_ATTACHMENT_LOAD_OP_LOAD:
+                     satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+                     break;
+                  case VK_ATTACHMENT_LOAD_OP_DONT_CARE:
+                     satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+                     break;
+                  default: unreachable("Invalid load op");
+                  }
+               }
+               break;
+            case PRESERVED:
+               if (satt->stencil_usage.output)
+                  satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+               break;
+            case DISCARDED:
+               if (satt->stencil_usage.output)
+                  satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+               break;
+            case PRESERVED_LOCAL_RENDER:
+               if (satt->stencil_usage.output)
+                  satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE_LOCAL_RENDER;
+               else
+                  /* We're preserving it for an eventual render, but it's not in this subpass */
+                  satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE_LOCAL_SRV;
+               break;
+            case PRESERVED_LOCAL_SRV:
+               satt->stencil_beginning.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE_LOCAL_SRV;
+               break;
+            }
+         }
+
+         /* For each attachment, figure out how it's used next */
+         for (uint32_t a = 0; a < pass->vk.attachment_count; ++a) {
+            struct dzn_subpass_attachment *satt = &pass->subpasses[s].attachments[a];
+            const struct vk_render_pass_attachment *att = &pass->vk.attachments[a];
+
+            /* If it wasn't used in this subpass then there's nothing to do */
+            if (satt->beginning.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS &&
+                satt->stencil_beginning.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS)
+               continue;
+
+            uint32_t next_subpass = s + 1;
+            for (; next_subpass < pass->vk.subpass_count; ++next_subpass)
+               if (pass->subpasses[next_subpass].attachments[a].color_depth_usage.used ||
+                   pass->subpasses[next_subpass].attachments[a].stencil_usage.used)
+                  break;
+
+            /* This attachment is unused in any of the dependencies, so apply the store op */
+            if (next_subpass == pass->vk.subpass_count) {
+               if (satt->color_depth_usage.used) {
+                  switch (att->store_op) {
+                  case VK_ATTACHMENT_STORE_OP_DONT_CARE:
+                     satt->ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+                     states[a].color_or_depth = DISCARDED;
+                     break;
+                  case VK_ATTACHMENT_STORE_OP_STORE:
+                     satt->ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+                     states[a].color_or_depth = PRESERVED;
+                     break;
+                  default: unreachable("Unsupported store op");
+                  }
+               }
+               if (satt->stencil_usage.used) {
+                  switch (att->stencil_store_op) {
+                  case VK_ATTACHMENT_STORE_OP_DONT_CARE:
+                     satt->stencil_ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+                     states[a].stencil = DISCARDED;
+                     break;
+                  case VK_ATTACHMENT_STORE_OP_STORE:
+                     satt->stencil_ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+                     states[a].stencil = PRESERVED;
+                     break;
+                  default: unreachable("Unsupported store op");
+                  }
+               }
+            } else {
+               /* We want to preserve local */
+               struct dzn_subpass_attachment *next_satt = &pass->subpasses[next_subpass].attachments[a];
+               if (next_satt->color_depth_usage.output) {
+                  satt->ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE_LOCAL_RENDER;
+                  states[a].color_or_depth = PRESERVED_LOCAL_RENDER;
+               } else if (next_satt->color_depth_usage.input || next_satt->color_depth_usage.preserve) {
+                  satt->ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE_LOCAL_SRV;
+                  states[a].color_or_depth = PRESERVED_LOCAL_SRV;
+               }
+               if (next_satt->stencil_usage.output) {
+                  satt->stencil_ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE_LOCAL_RENDER;
+                  states[a].stencil = PRESERVED_LOCAL_RENDER;
+               } else if (next_satt->stencil_usage.input || next_satt->stencil_usage.preserve) {
+                  satt->stencil_ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE_LOCAL_SRV;
+                  states[a].stencil = PRESERVED_LOCAL_SRV;
+               }
+            }
+
+            /* If we're resolving, update state to indicate we're just preserving or discarding */
+            if (satt->color_depth_usage.resolve_src) {
+               satt->ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_RESOLVE;
+               satt->ending.Resolve.ResolveMode = D3D12_RESOLVE_MODE_AVERAGE;
+               if (att->aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
+                  switch (pass->vk.subpasses[s].depth_resolve_mode) {
+                  case VK_RESOLVE_MODE_AVERAGE_BIT: break;
+                  case VK_RESOLVE_MODE_MAX_BIT: satt->ending.Resolve.ResolveMode = D3D12_RESOLVE_MODE_MAX; break;
+                  case VK_RESOLVE_MODE_MIN_BIT: satt->ending.Resolve.ResolveMode = D3D12_RESOLVE_MODE_MIN; break;
+                  default: unreachable("Should have skipped this for sample zero");
+                  }
+               }
+               if (states[a].color_or_depth != DISCARDED) {
+                  satt->ending.Resolve.PreserveResolveSource = TRUE;
+                  states[a].color_or_depth = PRESERVED;
+               }
+            }
+            if (satt->stencil_usage.resolve_src) {
+               satt->stencil_ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_RESOLVE;
+               switch (pass->vk.subpasses[s].stencil_resolve_mode) {
+               case VK_RESOLVE_MODE_AVERAGE_BIT: satt->stencil_ending.Resolve.ResolveMode = D3D12_RESOLVE_MODE_AVERAGE; break;
+               case VK_RESOLVE_MODE_MAX_BIT: satt->stencil_ending.Resolve.ResolveMode = D3D12_RESOLVE_MODE_MAX; break;
+               case VK_RESOLVE_MODE_MIN_BIT: satt->stencil_ending.Resolve.ResolveMode = D3D12_RESOLVE_MODE_MIN; break;
+               default: unreachable("Should have skipped this for sample zero");
+               }
+               if (states[a].stencil != DISCARDED) {
+                  satt->stencil_ending.Resolve.PreserveResolveSource = TRUE;
+                  states[a].stencil = PRESERVED;
+               }
+            }
+
+            /* For depth/stencil, if we're using an input or preserving in a pass where a *different*
+             * depth/stencil buffer will be bound as output, then just preserve instead */
+            if ((att->aspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) &&
+                (states[a].color_or_depth == PRESERVED_LOCAL_SRV || states[a].stencil == PRESERVED_LOCAL_SRV)) {
+               for (uint32_t other_pass = s + 1; other_pass <= next_subpass; ++other_pass) {
+                  if (pass->vk.subpasses[other_pass].depth_stencil_attachment &&
+                      pass->vk.subpasses[other_pass].depth_stencil_attachment->attachment != a) {
+                     if (states[a].color_or_depth == PRESERVED_LOCAL_SRV) {
+                        states[a].color_or_depth = PRESERVED;
+                        satt->ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+                     }
+                     if (states[a].stencil == PRESERVED_LOCAL_SRV) {
+                        states[a].stencil = PRESERVED;
+                        satt->stencil_ending.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+
+   *pRenderPass = dzn_render_pass_to_handle(pass);
+
+   return VK_SUCCESS;
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBeginRendering(VkCommandBuffer commandBuffer,
                       const VkRenderingInfo *pRenderingInfo)

@@ -1339,6 +1339,32 @@ struct dzn_query_pool {
    uint64_t *collect_map;
 };
 
+struct dzn_subpass_attachment {
+   union dzn_subpass_attachment_usage {
+      struct {
+         bool output : 1;
+         bool resolve_src : 1;
+         bool resolve_dst : 1;
+         bool input : 1;
+         bool preserve : 1;
+      };
+      uint8_t used;
+   } color_depth_usage, stencil_usage;
+   D3D12_RENDER_PASS_BEGINNING_ACCESS beginning, stencil_beginning;
+   D3D12_RENDER_PASS_ENDING_ACCESS ending, stencil_ending;
+};
+
+struct dzn_subpass {
+   struct dzn_subpass_attachment *attachments;
+   D3D12_RENDER_PASS_FLAGS flags;
+};
+
+struct dzn_render_pass {
+   struct vk_render_pass vk;
+   bool can_use_d3d_render_passes;
+   struct dzn_subpass *subpasses;
+};
+
 D3D12_QUERY_TYPE
 dzn_query_pool_get_query_type(const struct dzn_query_pool *qpool, VkQueryControlFlags flag);
 
@@ -1377,5 +1403,6 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_compute_pipeline, base.base, VkPipeline, VK_O
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_layout, vk.base, VkPipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, base, VkQueryPool, VK_OBJECT_TYPE_QUERY_POOL)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_sampler, base, VkSampler, VK_OBJECT_TYPE_SAMPLER)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_render_pass, vk.base, VkRenderPass, VK_OBJECT_TYPE_RENDER_PASS)
 
 #endif /* DZN_PRIVATE_H */
