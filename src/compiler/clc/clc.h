@@ -228,6 +228,16 @@ clc_parse_spirv(const struct clc_binary *in_spirv,
                 struct clc_parsed_spirv *out_data);
 
 void
+clc_serialize_parsed_spirv(const struct clc_parsed_spirv *data,
+                           void **buffer,
+                           size_t *size);
+
+void
+clc_deserialize_parsed_spirv(const void* data,
+                             size_t length,
+                             struct clc_parsed_spirv *out_data);
+
+void
 clc_free_parsed_spirv(struct clc_parsed_spirv *data);
 
 typedef union {
