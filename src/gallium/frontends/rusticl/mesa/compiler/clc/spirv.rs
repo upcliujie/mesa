@@ -246,7 +246,7 @@ impl SPIRVBin {
         self.kernel_info(name)
             .filter(|info| [1, 2, 3, 4, 8, 16].contains(&info.vec_hint_size))
             .map(|info| {
-                let cltype = match info.vec_hint_type {
+                let cltype = match info.vec_hint_type() {
                     clc_vec_hint_type::CLC_VEC_HINT_TYPE_CHAR => "uchar",
                     clc_vec_hint_type::CLC_VEC_HINT_TYPE_SHORT => "ushort",
                     clc_vec_hint_type::CLC_VEC_HINT_TYPE_INT => "uint",
@@ -285,14 +285,14 @@ impl SPIRVBin {
     pub fn args(&self, name: &str) -> Vec<SPIRVKernelArg> {
         match self.kernel_info(name) {
             None => Vec::new(),
-            Some(info) => unsafe { slice::from_raw_parts(info.args, info.num_args) }
+            Some(info) => unsafe { slice::from_raw_parts(info.args, info.num_args as usize) }
                 .iter()
                 .map(|a| SPIRVKernelArg {
                     name: c_string_to_string(a.name),
                     type_name: c_string_to_string(a.type_name),
-                    access_qualifier: clc_kernel_arg_access_qualifier(a.access_qualifier),
-                    address_qualifier: a.address_qualifier,
-                    type_qualifier: clc_kernel_arg_type_qualifier(a.type_qualifier),
+                    access_qualifier: clc_kernel_arg_access_qualifier(a.access_qualifier.into()),
+                    address_qualifier: a.address_qualifier(),
+                    type_qualifier: clc_kernel_arg_type_qualifier(a.type_qualifier.into()),
                 })
                 .collect(),
         }
@@ -435,7 +435,7 @@ impl SPIRVBin {
         spec_constants
             .iter()
             .find(|sc| sc.id == spec_id)
-            .map(|sc| sc.type_)
+            .map(|sc| sc.type_())
     }
 
     pub fn print(&self) {

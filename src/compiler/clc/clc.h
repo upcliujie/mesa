@@ -125,9 +125,9 @@ enum clc_kernel_arg_address_qualifier {
 struct clc_kernel_arg {
    const char *name;
    const char *type_name;
-   unsigned type_qualifier;
-   unsigned access_qualifier;
-   enum clc_kernel_arg_address_qualifier address_qualifier;
+   uint8_t type_qualifier;
+   uint8_t access_qualifier;
+   enum clc_kernel_arg_address_qualifier address_qualifier:8;
 };
 
 enum clc_vec_hint_type {
@@ -142,14 +142,14 @@ enum clc_vec_hint_type {
 
 struct clc_kernel_info {
    const char *name;
-   size_t num_args;
    const struct clc_kernel_arg *args;
-
-   unsigned vec_hint_size;
-   enum clc_vec_hint_type vec_hint_type;
+   unsigned num_args;
 
    unsigned local_size[3];
    unsigned local_size_hint[3];
+
+   uint8_t vec_hint_size;
+   enum clc_vec_hint_type vec_hint_type:8;
 };
 
 enum clc_spec_constant_type {
@@ -169,14 +169,13 @@ enum clc_spec_constant_type {
 
 struct clc_parsed_spec_constant {
    uint32_t id;
-   enum clc_spec_constant_type type;
+   enum clc_spec_constant_type type:8;
 };
 
 struct clc_parsed_spirv {
    const struct clc_kernel_info *kernels;
-   unsigned num_kernels;
-
    const struct clc_parsed_spec_constant *spec_constants;
+   unsigned num_kernels;
    unsigned num_spec_constants;
 };
 
