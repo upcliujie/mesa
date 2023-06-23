@@ -325,6 +325,7 @@ num_subpass_attachments2(const VkSubpassDescription2 *desc)
    return desc->inputAttachmentCount +
           desc->colorAttachmentCount +
           (desc->pResolveAttachments ? desc->colorAttachmentCount : 0) +
+          desc->preserveAttachmentCount +
           has_depth_stencil_attachment +
           has_depth_stencil_resolve_attachment +
           has_fragment_shading_rate_attachment;
@@ -378,6 +379,7 @@ vk_subpass_attachment_init(struct vk_subpass_attachment *att,
    };
 
    switch (usage) {
+   case 0:
    case VK_IMAGE_USAGE_TRANSFER_DST_BIT:
       break; /* No special aspect requirements */
 
@@ -606,6 +608,23 @@ vk_common_CreateRenderPass2(VkDevice _device,
             fsr_att_info->shadingRateAttachmentTexelSize;
          subpass->pipeline_flags |=
             VK_PIPELINE_CREATE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
+      }
+
+      subpass->preserve_count = desc->preserveAttachmentCount;
+      if (desc->preserveAttachmentCount > 0) {
+         subpass->preserve_attachments = next_subpass_attachment;
+         next_subpass_attachment += desc->preserveAttachmentCount;
+
+         for (uint32_t a = 0; a < desc->preserveAttachmentCount; ++a) {
+            VkAttachmentReference2 local_reference = {
+               .attachment = desc->pPreserveAttachments[a],
+            };
+            vk_subpass_attachment_init(&subpass->preserve_attachments[a],
+                                       pass, s,
+                                       &local_reference,
+                                       pCreateInfo->pAttachments,
+                                       0);
+         }
       }
 
       /* Figure out any self-dependencies */

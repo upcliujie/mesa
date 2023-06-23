@@ -140,6 +140,12 @@ struct vk_subpass {
    /** VkFragmentShadingRateAttachmentInfoKHR::pFragmentShadingRateAttachment */
    struct vk_subpass_attachment *fragment_shading_rate_attachment;
 
+   /** VkSubpassDescription2::preserveAttachmentCount */
+   uint32_t preserve_count;
+
+   /** VkSubpassDescription2::pPreserveAttachments */
+   struct vk_subpass_attachment *preserve_attachments;
+
    /** VkSubpassDescription2::viewMask or 1 for non-multiview
     *
     * For all view masks in the vk_render_pass data structure, we use a mask
