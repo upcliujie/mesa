@@ -420,18 +420,14 @@ vk_subpass_attachment_link_resolve(struct vk_subpass_attachment *att,
    att->resolve = resolve;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-vk_common_CreateRenderPass2(VkDevice _device,
-                            const VkRenderPassCreateInfo2 *pCreateInfo,
-                            const VkAllocationCallbacks *pAllocator,
-                            VkRenderPass *pRenderPass)
+VkResult
+vk_init_render_pass(struct vk_device *device,
+                    const VkRenderPassCreateInfo2 *pCreateInfo,
+                    const VkAllocationCallbacks *pAllocator,
+                    struct vk_render_pass *pass)
 {
-   VK_FROM_HANDLE(vk_device, device, _device);
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2);
 
    VK_MULTIALLOC(ma);
-   VK_MULTIALLOC_DECL(&ma, struct vk_render_pass, pass, 1);
    VK_MULTIALLOC_DECL(&ma, struct vk_render_pass_attachment, attachments,
                            pCreateInfo->attachmentCount);
    VK_MULTIALLOC_DECL(&ma, struct vk_subpass, subpasses,
@@ -454,8 +450,7 @@ vk_common_CreateRenderPass2(VkDevice _device,
    VK_MULTIALLOC_DECL(&ma, VkSampleCountFlagBits, subpass_color_samples,
                       subpass_color_attachment_count);
 
-   if (!vk_object_multizalloc(device, &ma, pAllocator,
-                              VK_OBJECT_TYPE_RENDER_PASS))
+   if (!vk_multialloc_zalloc2(&ma, &device->alloc, pAllocator, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    pass->attachment_count = pCreateInfo->attachmentCount;
@@ -840,6 +835,30 @@ vk_common_CreateRenderPass2(VkDevice _device,
       pass->fragment_density_map.layout = VK_IMAGE_LAYOUT_UNDEFINED;
    }
 
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+vk_common_CreateRenderPass2(VkDevice _device,
+                            const VkRenderPassCreateInfo2 *pCreateInfo,
+                            const VkAllocationCallbacks *pAllocator,
+                            VkRenderPass *pRenderPass)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2);
+
+   struct vk_render_pass *pass = vk_object_zalloc(device, pAllocator, sizeof(struct vk_render_pass),
+                                                  VK_OBJECT_TYPE_RENDER_PASS);
+   if (!pass)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   VkResult result = vk_init_render_pass(device, pCreateInfo, pAllocator, pass);
+   if (result != VK_SUCCESS) {
+      vk_object_free(device, pAllocator, pass);
+      return result;
+   }
+
    *pRenderPass = vk_render_pass_to_handle(pass);
 
    return VK_SUCCESS;
@@ -1066,6 +1085,8 @@ vk_common_DestroyRenderPass(VkDevice _device,
    if (!pass)
       return;
 
+   if (pass->attachments)
+      vk_free2(&device->alloc, pAllocator, pass->attachments);
    vk_object_free(device, pAllocator, pass);
 }
 

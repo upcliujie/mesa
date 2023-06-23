@@ -307,6 +307,12 @@ struct vk_render_pass {
 VK_DEFINE_NONDISP_HANDLE_CASTS(vk_render_pass, base, VkRenderPass,
                                VK_OBJECT_TYPE_RENDER_PASS);
 
+VkResult
+vk_init_render_pass(struct vk_device *device,
+                    const VkRenderPassCreateInfo2 *pCreateInfo,
+                    const VkAllocationCallbacks *pAllocator,
+                    struct vk_render_pass *pass);
+
 /** Returns the VkPipelineRenderingCreateInfo for a graphics pipeline
  *
  * For render-pass-free drivers, this can be used in the implementation of
