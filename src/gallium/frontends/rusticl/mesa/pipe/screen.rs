@@ -234,6 +234,17 @@ impl PipeScreen {
         }
     }
 
+    pub fn memory_info(&self) -> Option<pipe_memory_info> {
+        let mut buf = pipe_memory_info {
+            ..Default::default()
+        };
+        let ptr = &mut buf;
+        unsafe {
+            (*self.screen).query_memory_info?(self.screen, ptr);
+        }
+        Some(buf)
+    }
+
     pub fn device_node_mask(&self) -> Option<u32> {
         unsafe { Some((*self.screen).get_device_node_mask?(self.screen)) }
     }
