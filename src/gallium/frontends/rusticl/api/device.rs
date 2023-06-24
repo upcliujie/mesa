@@ -16,6 +16,8 @@ use std::ffi::CStr;
 use std::mem::{size_of, MaybeUninit};
 use std::ptr;
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 const SPIRV_SUPPORT_STRING: &str = "SPIR-V_1.0 SPIR-V_1.1 SPIR-V_1.2 SPIR-V_1.3 SPIR-V_1.4";
 const SPIRV_SUPPORT: [cl_name_version; 5] = [
@@ -293,6 +295,85 @@ impl CLInfo<cl_device_info> for cl_device_id {
                     .into(),
                 )
             }
+            // AMD
+            // device_attribute_query
+            CL_DEVICE_AVAILABLE_ASYNC_QUEUES_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_BOARD_NAME_AMD => cl_prop::<&str>(&dev.screen.name()),
+            CL_DEVICE_GFXIP_MAJOR_AMD => {
+                cl_prop::<Option<cl_uint>>(dev.screen.graphics_ip().map(|i| i.major))
+            }
+            CL_DEVICE_GFXIP_MINOR_AMD => {
+                cl_prop::<Option<cl_uint>>(dev.screen.graphics_ip().map(|i| i.minor))
+            }
+            // as per clinfo:
+            /*
+                returns 1 or 2 values depending on how it's called: if it's called with a
+                szval < 2*sizeof(size_t), it will only return 1 value, otherwise it will return 2.
+                At least now these are documented in the ROCm source code: the first value
+                is the total amount of free memory, and the second is the size of the largest free block
+            */
+            // I assume returning one value is a backwards compat thing so just return both.
+            CL_DEVICE_GLOBAL_FREE_MEMORY_AMD => {
+                let mem_info = dev.screen.memory_info();
+
+                let ret = mem_info.map(|m| {
+                    let free = m.avail_device_memory as usize;
+                    let total = m.total_device_memory as usize;
+                    [free, total]
+                });
+                cl_prop::<Option<[usize; 2]>>(ret)
+            }
+            // max_tcc_blocks
+            CL_DEVICE_GLOBAL_MEM_CHANNELS_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_GLOBAL_MEM_CHANNEL_BANKS_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_GLOBAL_MEM_CHANNEL_BANK_WIDTH_AMD => cl_prop::<cl_uint>(256u32),
+            CL_DEVICE_LOCAL_MEM_BANKS_AMD => cl_prop::<cl_uint>(32u32),
+            CL_DEVICE_LOCAL_MEM_SIZE_PER_COMPUTE_UNIT_AMD => cl_prop::<cl_uint>(64 * 1024u32),
+            CL_DEVICE_MAX_WORK_GROUP_SIZE_AMD => {
+                cl_prop::<cl_uint>(dev.max_threads_per_block().try_into().unwrap_or_default())
+            }
+            CL_DEVICE_PCIE_ID_AMD => cl_prop::<Option<cl_int>>(dev.pci_id()),
+            CL_DEVICE_PREFERRED_CONSTANT_BUFFER_SIZE_AMD => cl_prop::<cl_uint>(16 * 1024u32),
+            CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_PROFILING_TIMER_OFFSET_AMD => {
+                let res = dev.screen.param(pipe_cap::PIPE_CAP_TIMER_RESOLUTION) as u64;
+
+                // TODO: use device timer rather than host
+                let offset = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .map_err(|_| CL_PROFILING_INFO_NOT_AVAILABLE)?
+                    .as_nanos() as u64;
+
+                let ret = offset - (offset % res);
+                cl_prop::<cl_ulong>(ret)
+            }
+            CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD => cl_prop::<cl_uint>(1u32),
+            CL_DEVICE_SIMD_PER_COMPUTE_UNIT_AMD => cl_prop::<cl_uint>(4u32),
+            // 32 if rdna, 16 otherwise
+            CL_DEVICE_SIMD_WIDTH_AMD => {
+                let ret = if dev.screen.graphics_ip().map(|i| i.major) >= Some(10) {
+                    32
+                } else {
+                    16
+                };
+                cl_prop::<cl_uint>(ret)
+            }
+            CL_DEVICE_THREAD_TRACE_SUPPORTED_AMD => cl_prop::<cl_bool>(false.into()),
+            CL_DEVICE_TOPOLOGY_AMD => {
+                let pci = dev.pci_info().unwrap();
+
+                let topology = cl_device_topology_amd {
+                    pcie: cl_device_topology_amd__bindgen_ty_2 {
+                        type_: 1,
+                        unused: [0; 17],
+                        bus: pci.pci_bus as u8,
+                        device: pci.pci_device as u8,
+                        function: pci.pci_function as u8,
+                    },
+                };
+                cl_prop::<cl_device_topology_amd>(topology)
+            }
+            CL_DEVICE_WAVEFRONT_WIDTH_AMD => cl_prop::<cl_uint>(dev.subgroups()),
 
             // INTEL
             // unified_shared_memory
