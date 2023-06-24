@@ -57,6 +57,7 @@ struct pipe_resource;
 struct pipe_surface;
 struct pipe_transfer;
 struct pipe_box;
+struct pipe_graphics_ip;
 struct pipe_memory_info;
 struct pipe_vertex_buffer;
 struct pipe_vertex_element;
@@ -462,6 +463,12 @@ struct pipe_screen {
    int (*get_driver_query_group_info)(struct pipe_screen *screen,
                                       unsigned index,
                                       struct pipe_driver_query_group_info *info);
+
+   /**
+    * Query Graphics IP
+    */
+   void (*query_graphics_ip)(struct pipe_screen *screen,
+                             struct pipe_graphics_ip *ip);
 
    /**
     * Query information about memory usage.

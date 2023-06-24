@@ -1087,6 +1087,16 @@ struct pipe_device_reset_callback
 };
 
 /**
+ * Graphics IP version
+ */
+struct pipe_graphics_ip {
+   unsigned major;
+   unsigned minor;
+   unsigned patch;
+   char* name;
+};
+
+/**
  * Information about memory usage. All sizes are in kilobytes.
  */
 struct pipe_memory_info
