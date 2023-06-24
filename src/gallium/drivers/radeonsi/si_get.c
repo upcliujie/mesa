@@ -1132,6 +1132,17 @@ static uint64_t si_get_timestamp(struct pipe_screen *screen)
           sscreen->info.clock_crystal_freq;
 }
 
+static void si_query_graphics_ip(struct pipe_screen *screen, struct pipe_graphics_ip *info)
+{
+   struct si_screen *sscreen = (struct si_screen *)screen;
+   struct amd_ip_info *ip = sscreen->info.ip;
+
+   info->name = "gfx";
+   info->major = ip->ver_major;
+   info->minor = ip->ver_minor;
+   info->patch = ip->ver_rev;
+}
+
 static void si_query_memory_info(struct pipe_screen *screen, struct pipe_memory_info *info)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
@@ -1214,6 +1225,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
    sscreen->b.get_compiler_options = si_get_compiler_options;
    sscreen->b.get_device_uuid = si_get_device_uuid;
    sscreen->b.get_driver_uuid = si_get_driver_uuid;
+   sscreen->b.query_graphics_ip = si_query_graphics_ip;
    sscreen->b.query_memory_info = si_query_memory_info;
    sscreen->b.get_disk_shader_cache = si_get_disk_shader_cache;
 
