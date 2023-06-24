@@ -403,6 +403,27 @@ impl CLInfo<cl_device_info> for cl_device_id {
                 cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
             }
 
+            // NVIDIA
+            // device_attribute_query
+            CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV => cl_prop::<cl_uint>(
+                dev.screen
+                    .graphics_ip()
+                    .map(|i| i.major)
+                    .unwrap_or_default(),
+            ),
+            CL_DEVICE_COMPUTE_CAPABILITY_MINOR_NV => cl_prop::<cl_uint>(
+                dev.screen
+                    .graphics_ip()
+                    .map(|i| i.minor)
+                    .unwrap_or_default(),
+            ),
+            CL_DEVICE_GPU_OVERLAP_NV => cl_prop::<cl_bool>(0),
+            CL_DEVICE_INTEGRATED_MEMORY_NV => cl_prop::<cl_bool>(dev.unified_memory().into()),
+            // probably fine?
+            CL_DEVICE_KERNEL_EXEC_TIMEOUT_NV => cl_prop::<cl_bool>(false.into()),
+            CL_DEVICE_REGISTERS_PER_BLOCK_NV => cl_prop::<cl_uint>(0),
+            CL_DEVICE_WARP_SIZE_NV => cl_prop::<cl_uint>(0),
+
             // CL_INVALID_VALUE if param_name is not one of the supported values
             // CL_INVALID_VALUE [...] if param_name is a value that is available as an extension and the corresponding extension is not supported by the device.
             _ => return Err(CL_INVALID_VALUE),
