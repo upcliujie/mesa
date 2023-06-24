@@ -569,6 +569,19 @@ impl Device {
             add_ext(1, 0, 0, "cl_arm_shared_virtual_memory");
         }
 
+        match self.screen.device_vendor().to_ascii_lowercase().as_str() {
+            "amd" => {
+                add_ext(4, 0, 0, "cl_amd_device_attribute_query");
+            }
+            "intel" => {
+                add_ext(1, 0, 0, "cl_intel_device_attribute_query");
+            }
+            "nvidia" => {
+                add_ext(1, 0, 0, "cl_nv_device_attribute_query");
+            }
+            _ => {}
+        }
+
         self.extensions = exts;
         self.clc_features = feats;
         self.extension_string = format!("{} {}", PLATFORM_EXTENSION_STR, exts_str.join(" "));
