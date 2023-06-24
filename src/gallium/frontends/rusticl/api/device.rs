@@ -376,6 +376,16 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_WAVEFRONT_WIDTH_AMD => cl_prop::<cl_uint>(dev.subgroups()),
 
             // INTEL
+            // device_attribute_query
+            CL_DEVICE_FEATURE_CAPABILITIES_INTEL => {
+                cl_prop::<cl_device_feature_capabilities_intel>(0)
+            }
+            CL_DEVICE_ID_INTEL => cl_prop::<Option<cl_uint>>(dev.pci_id().map(|a| a as cl_uint)),
+            CL_DEVICE_IP_VERSION_INTEL => cl_prop::<cl_version>(0),
+            CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL => cl_prop::<cl_uint>(0),
+            CL_DEVICE_NUM_SLICES_INTEL => cl_prop::<cl_uint>(0),
+            CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL => cl_prop::<cl_uint>(0),
+            CL_DEVICE_NUM_THREADS_PER_EU_INTEL => cl_prop::<cl_uint>(0),
             // unified_shared_memory
             CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL => {
                 cl_prop::<cl_device_device_enqueue_capabilities>(0)
