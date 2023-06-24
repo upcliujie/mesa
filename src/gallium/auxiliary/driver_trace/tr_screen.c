@@ -1153,6 +1153,22 @@ trace_screen_destroy(struct pipe_screen *_screen)
 
    FREE(tr_scr);
 }
+static void
+trace_screen_query_graphics_ip(struct pipe_screen *_screen, struct pipe_graphics_ip *ip)
+{
+   struct trace_screen *tr_scr = trace_screen(_screen);
+   struct pipe_screen *screen = tr_scr->screen;
+
+   trace_dump_call_begin("pipe_screen", "query_graphics_ip");
+
+   trace_dump_arg(ptr, screen);
+
+   screen->query_graphics_ip(screen, ip);
+
+   trace_dump_ret(graphics_ip, ip);
+
+   trace_dump_call_end();
+}
 
 static void
 trace_screen_query_memory_info(struct pipe_screen *_screen, struct pipe_memory_info *info)
@@ -1444,6 +1460,7 @@ trace_screen_create(struct pipe_screen *screen)
    SCR_INIT(free_memory_fd);
    tr_scr->base.map_memory = trace_screen_map_memory;
    tr_scr->base.unmap_memory = trace_screen_unmap_memory;
+   SCR_INIT(query_graphics_ip);
    SCR_INIT(query_memory_info);
    SCR_INIT(query_dmabuf_modifiers);
    SCR_INIT(is_compute_copy_faster);

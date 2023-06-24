@@ -811,6 +811,23 @@ void trace_dump_image_view(const struct pipe_image_view *state)
    trace_dump_struct_end();
 }
 
+void trace_dump_graphics_ip(const struct pipe_graphics_ip *state)
+{
+   if (!trace_dumping_enabled_locked())
+      return;
+
+   if (!state) {
+      trace_dump_null();
+      return;
+   }
+
+   trace_dump_struct_begin("pipe_graphics_ip");
+   trace_dump_member(string, state, name);
+   trace_dump_member(uint, state, major);
+   trace_dump_member(uint, state, minor);
+   trace_dump_member(uint, state, patch);
+   trace_dump_struct_end();
+}
 
 void trace_dump_memory_info(const struct pipe_memory_info *state)
 {
