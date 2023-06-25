@@ -1142,6 +1142,8 @@ enum pipe_compute_cap
    PIPE_COMPUTE_CAP_IMAGES_SUPPORTED,
    PIPE_COMPUTE_CAP_SUBGROUP_SIZE,
    PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK,
+   /* do not add caps after here */
+   PIPE_COMPUTE_CAP_LAST,
 };
 
 /**

@@ -27,6 +27,8 @@ struct pipe_screen;
 struct pipe_screen_config;
 struct renderonly;
 enum pipe_cap;
+enum pipe_shader_ir;
+enum pipe_compute_cap;
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +37,12 @@ extern "C" {
 int
 u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
                                  enum pipe_cap param);
+
+int
+u_pipe_screen_get_compute_param_defaults(struct pipe_screen *pscreen,
+                                         enum pipe_shader_ir ir_type,
+                                         enum pipe_compute_cap param,
+                                         void *ret);
 
 uint64_t u_default_get_timestamp(struct pipe_screen *screen);
 
