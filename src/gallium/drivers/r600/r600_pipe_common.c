@@ -1124,6 +1124,18 @@ static bool r600_fence_finish(struct pipe_screen *screen,
 	return rws->fence_wait(rws, rfence->gfx, timeout);
 }
 
+static void r600_query_graphics_ip(struct pipe_screen *screen,
+                		   struct pipe_graphics_ip *info)
+{
+	struct r600_common_screen *rscreen = (struct r600_common_screen*)screen;
+	struct amd_ip_info *ip = rscreen->info.ip;
+
+	info->name = "gfx";
+	info->major = ip->ver_major;
+	info->minor = ip->ver_minor;
+	info->patch = ip->ver_rev;
+}
+
 static void r600_query_memory_info(struct pipe_screen *screen,
 				   struct pipe_memory_info *info)
 {
@@ -1247,6 +1259,7 @@ bool r600_common_screen_init(struct r600_common_screen *rscreen,
 	rscreen->b.fence_reference = r600_fence_reference;
 	rscreen->b.resource_destroy = r600_resource_destroy;
 	rscreen->b.resource_from_user_memory = r600_buffer_from_user_memory;
+	rscreen->b.query_graphics_ip = r600_query_graphics_ip;
 	rscreen->b.query_memory_info = r600_query_memory_info;
 
 	if (rscreen->info.ip[AMD_IP_UVD].num_queues) {
