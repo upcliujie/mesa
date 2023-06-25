@@ -1,3 +1,4 @@
+#include "gallium/drivers/svga/include/svga_types.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
 #include "pipe/p_state.h"
@@ -185,6 +186,21 @@ reserve_vma(uintptr_t start, uint64_t reserved_size)
    if (reserved == MAP_FAILED)
       return NULL;
    return reserved;
+}
+
+static void
+nouveau_query_graphics_ip(struct pipe_screen *pscreen,
+                          struct pipe_graphics_ip *ip)
+{
+   const struct nouveau_screen *screen = nouveau_screen(pscreen);
+   struct nouveau_device *dev = screen->device;
+
+   const uint8_t sm = sm_for_chipset(dev->chipset);
+
+   ip->name = "CUDA Compute Capability";
+   ip->major = sm & 0xF0;
+   ip->minor = sm & 0x0F;
+   ip->patch = 0;
 }
 
 static void
@@ -402,6 +418,7 @@ nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
    pscreen->fence_reference = nouveau_screen_fence_ref;
    pscreen->fence_finish = nouveau_screen_fence_finish;
 
+   pscreen->query_graphics_ip = nouveau_query_graphics_ip;
    pscreen->query_memory_info = nouveau_query_memory_info;
 
    nouveau_disk_cache_create(screen);
