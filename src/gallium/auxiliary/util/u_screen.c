@@ -582,6 +582,9 @@ u_pipe_screen_get_compute_param_defaults(struct pipe_screen *pscreen,
    case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
    case PIPE_COMPUTE_CAP_SUBGROUP_SIZE:
    case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
+   case PIPE_COMPUTE_CAP_ATTRIBUTE_QUERY_AMD:
+   case PIPE_COMPUTE_CAP_ATTRIBUTE_QUERY_INTEL:
+   case PIPE_COMPUTE_CAP_ATTRIBUTE_QUERY_NVIDIA:
       return 0;
    default:
       unreachable("Unknown compute param");
