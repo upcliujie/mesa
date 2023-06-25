@@ -188,24 +188,10 @@ impl SPIRVBin {
         let mut out = clc_binary::default();
         let res = unsafe { clc_link_spirv(&linker_args, &logger, &mut out) };
 
-        let info;
-        if !library {
-            let mut pspirv = clc_parsed_spirv::default();
-            let res = unsafe { clc_parse_spirv(&out, &logger, &mut pspirv) };
-
-            if res {
-                info = Some(pspirv);
-            } else {
-                info = None;
-            }
-        } else {
-            info = None;
-        }
-
         let res = if res {
             Some(SPIRVBin {
                 spirv: out,
-                info: info,
+                info: (!library).then(|| Self::parse_spirv(&out)).flatten(),
             })
         } else {
             None
@@ -467,17 +453,9 @@ impl SPIRVBin {
                 size: bin.len(),
             };
 
-            let mut pspirv = clc_parsed_spirv::default();
-
-            let info = if clc_parse_spirv(&spirv, ptr::null(), &mut pspirv) {
-                Some(pspirv)
-            } else {
-                None
-            };
-
             SPIRVBin {
                 spirv: spirv,
-                info: info,
+                info: Self::parse_spirv(&spirv),
             }
         }
     }
@@ -491,6 +469,15 @@ impl SPIRVBin {
             .iter()
             .find(|sc| sc.id == spec_id)
             .map(|sc| sc.type_())
+    }
+
+    fn parse_spirv(spirv: &clc_binary) -> Option<clc_parsed_spirv> {
+        let mut pspirv = clc_parsed_spirv::default();
+        if unsafe { clc_parse_spirv(spirv, ptr::null(), &mut pspirv) } {
+            Some(pspirv)
+        } else {
+            None
+        }
     }
 
     pub fn print(&self) {
