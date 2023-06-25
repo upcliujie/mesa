@@ -21,6 +21,7 @@
 #include <CL/cl_egl.h>
 #include <CL/cl_ext.h>
 #include <CL/cl_gl.h>
+#include <CL/cl_mesa_extras.h>
 
 #if defined(_WIN32)
 #include <CL/cl_d3d11.h>
