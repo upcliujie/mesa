@@ -589,7 +589,7 @@ lp_build_tgsi_info(const struct tgsi_token *tokens,
                   float value = parse.FullToken.FullImmediate.u[chan].Float;
                   ctx->imm[ctx->num_imms][chan] = value;
 
-                  if (value < 0.0f || value > 1.0f) {
+                  if (!isnanf(value) && (value < 0.0f || value > 1.0f)) {
                      info->unclamped_immediates = TRUE;
                   }
                }
