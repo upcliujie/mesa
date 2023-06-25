@@ -31,10 +31,16 @@
 #include <llvm/IR/DiagnosticPrinter.h>
 #include <llvm/IR/DiagnosticInfo.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Type.h>
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/Transforms/Scalar/DeadStoreElimination.h>
+#include <llvm/Transforms/Scalar/EarlyCSE.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/LoopInstSimplify.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/Target.h>
 #include <LLVMSPIRVLib/LLVMSPIRVLib.h>
@@ -960,7 +966,50 @@ clc_compile_to_llvm_module(LLVMContext &llvm_ctx,
       return {};
    }
 
-   return act.takeModule();
+   auto module = act.takeModule();
+
+   // No idea why, but we have to do this setup
+   llvm::LoopAnalysisManager LAM;
+   llvm::FunctionAnalysisManager FAM;
+   llvm::CGSCCAnalysisManager CGAM;
+   llvm::ModuleAnalysisManager MAM;
+   llvm::PipelineTuningOptions PTO;
+
+   llvm::PassBuilder PB(nullptr, PTO);
+
+   PB.registerModuleAnalyses(MAM);
+   PB.registerCGSCCAnalyses(CGAM);
+   PB.registerFunctionAnalyses(FAM);
+   PB.registerLoopAnalyses(LAM);
+   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+   // We run a few passes generally to reduce SPIR-V size as much as possible.
+   //
+   // Passes known to break stuff:
+   //  - InstCombinePass (invalid bit sizes)
+   //  - MergeFunctionsPass (function pointers)
+   //  - SimplifyCFGPass (causes compilation to never finish)
+   //  - SROA (invalid bit sizes)
+
+   PB.registerScalarOptimizerLateEPCallback([&](llvm::FunctionPassManager &FPM,
+                                                llvm::OptimizationLevel level) {
+      FPM.addPass(llvm::EarlyCSEPass(true));
+      FPM.addPass(llvm::GVNSinkPass());
+      FPM.addPass(llvm::GVNPass());
+      FPM.addPass(llvm::DSEPass());
+   });
+
+   PB.registerLateLoopOptimizationsEPCallback([&](llvm::LoopPassManager &LPM,
+                                                  llvm::OptimizationLevel level) {
+      LPM.addPass(llvm::LoopInstSimplifyPass());
+   });
+
+   // Even though we create the O0 default pipeline it comes with cleanup and DCE passes
+   llvm::ModulePassManager MPM = PB.buildO0DefaultPipeline(llvm::OptimizationLevel::O0);
+
+   MPM.run(*module, MAM);
+
+   return module;
 }
 
 static SPIRV::VersionNumber
