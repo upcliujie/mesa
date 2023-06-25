@@ -1028,6 +1028,12 @@ spirv_version_to_llvm_spirv_translator_version(enum clc_spirv_version version)
    }
 }
 
+bool
+clc_optimize_spirv(const char *data,
+                   size_t size,
+                   const struct clc_logger *logger,
+                   struct clc_binary *out);
+
 static int
 llvm_mod_to_spirv(std::unique_ptr<::llvm::Module> mod,
                   LLVMContext &context,
@@ -1081,9 +1087,9 @@ llvm_mod_to_spirv(std::unique_ptr<::llvm::Module> mod,
    }
 
    const std::string spv_out = spv_stream.str();
-   out_spirv->size = spv_out.size();
-   out_spirv->data = malloc(out_spirv->size);
-   memcpy(out_spirv->data, spv_out.data(), out_spirv->size);
+
+   if (!clc_optimize_spirv(spv_out.data(), spv_out.size(), logger, out_spirv))
+      return -1;
 
    return 0;
 }
@@ -1176,6 +1182,32 @@ public:
 private:
    const struct clc_logger *logger;
 };
+
+bool
+clc_optimize_spirv(const char *data,
+                   size_t size,
+                   const struct clc_logger *logger,
+                   struct clc_binary *out)
+{
+   SPIRVMessageConsumer msgconsumer(logger);
+   std::vector<uint32_t> result;
+   spv_optimizer_options options = spvOptimizerOptionsCreate();
+   spvtools::Optimizer opt(spirv_target);
+
+   spvOptimizerOptionsSetRunValidator(options, false);
+
+   opt.RegisterSizePasses();
+   opt.SetMessageConsumer(msgconsumer);
+   if (!opt.Run(reinterpret_cast<const uint32_t *>(data), size / 4, &result, options))
+      return false;
+   out->size = result.size() * 4;
+   out->data = malloc(out->size);
+   memcpy(out->data, result.data(), out->size);
+
+   spvOptimizerOptionsDestroy(options);
+
+   return true;
+}
 
 int
 clc_link_spirv_binaries(const struct clc_linker_args *args,
