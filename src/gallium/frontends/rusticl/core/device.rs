@@ -817,6 +817,15 @@ impl Device {
         1024 * 1024
     }
 
+    pub fn pci_id(&self) -> Option<i32> {
+        let id = self.screen.param(pipe_cap::PIPE_CAP_DEVICE_ID);
+        if id == -1 {
+            return None;
+        }
+
+        Some(id)
+    }
+
     pub fn pci_info(&self) -> Option<cl_device_pci_bus_info_khr> {
         if self.screen.device_type() != pipe_loader_device_type::PIPE_LOADER_DEVICE_PCI {
             return None;
