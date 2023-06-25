@@ -30,6 +30,7 @@
 #include "util/list.h"
 #include "util/u_draw_quad.h"
 #include "util/u_memory.h"
+#include "util/u_screen.h"
 #include "util/format/u_format_s3tc.h"
 #include "util/u_upload_mgr.h"
 #include "util/os_time.h"
@@ -1046,10 +1047,10 @@ static int r600_get_compute_param(struct pipe_screen *screen,
 			*max_variable_threads_per_block = 0;
 		}
 		return sizeof(uint64_t);
+	default:
+		return u_pipe_screen_get_compute_param_defaults(screen, ir_type, param, ret);
 	}
-
-        fprintf(stderr, "unknown PIPE_COMPUTE_CAP %d\n", param);
-        return 0;
+	return 0;
 }
 
 static uint64_t r600_get_timestamp(struct pipe_screen *screen)

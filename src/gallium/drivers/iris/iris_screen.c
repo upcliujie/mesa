@@ -640,7 +640,7 @@ iris_get_compute_param(struct pipe_screen *pscreen,
       RET((uint64_t []) { 1024 });
 
    default:
-      unreachable("unknown compute param");
+      return u_pipe_screen_get_compute_param_defaults(pscreen, ir_type, param, ret);
    }
 }
 

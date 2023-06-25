@@ -547,10 +547,9 @@ v3d_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
 
         case PIPE_COMPUTE_CAP_SUBGROUP_SIZE:
                 RET((uint32_t []) { 16 });
-
+        default:
+                return u_pipe_screen_get_compute_param_defaults(pscreen, ir_type, param, ret);
         }
-
-        return 0;
 }
 
 static bool

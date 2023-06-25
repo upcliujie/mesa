@@ -756,9 +756,12 @@ panfrost_get_compute_param(struct pipe_screen *pscreen,
 
    case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
       RET((uint64_t[]){1024}); // TODO
-   }
 
-   return 0;
+   case default:
+      return u_pipe_screen_get_compute_param_defaults(pscreen, ir_type, param,
+                                                      ret);
+
+   }
 }
 
 static void

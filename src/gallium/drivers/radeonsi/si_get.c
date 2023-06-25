@@ -1117,9 +1117,10 @@ static int si_get_compute_param(struct pipe_screen *screen, enum pipe_shader_ir 
             *max_variable_threads_per_block = SI_MAX_VARIABLE_THREADS_PER_BLOCK;
       }
       return sizeof(uint64_t);
-   }
 
-   fprintf(stderr, "unknown PIPE_COMPUTE_CAP %d\n", param);
+   default:
+      return u_pipe_screen_get_compute_param_defaults(screen, ir_type, param, ret);
+   }
    return 0;
 }
 

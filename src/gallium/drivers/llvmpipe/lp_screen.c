@@ -555,8 +555,9 @@ llvmpipe_get_compute_param(struct pipe_screen *_screen,
          *address_bits = sizeof(void*) * 8;
       }
       return sizeof(uint32_t);
+   default:
+      return u_pipe_screen_get_compute_param_defaults(_screen, ir_type, param, ret);
    }
-   return 0;
 }
 
 

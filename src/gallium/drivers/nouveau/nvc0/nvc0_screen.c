@@ -569,7 +569,7 @@ nvc0_screen_get_compute_param(struct pipe_screen *pscreen,
    case PIPE_COMPUTE_CAP_ADDRESS_BITS:
       RET((uint32_t []) { 64 });
    default:
-      return 0;
+      return u_pipe_screen_get_compute_param_defaults(pscreen, ir_type, param, data);
    }
 
 #undef RET
