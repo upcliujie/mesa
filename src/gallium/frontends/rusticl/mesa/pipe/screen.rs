@@ -107,6 +107,22 @@ impl PipeScreen {
         )
     }
 
+    pub fn graphics_ip(&self) -> Option<pipe_graphics_ip> {
+        let mut buf = pipe_graphics_ip {
+            ..Default::default()
+        };
+        let ptr = &mut buf;
+
+        unsafe {
+            (*self.screen).query_graphics_ip?(self.screen, ptr);
+        }
+
+        if c_string_to_string(buf.name).is_empty() {
+            return None;
+        }
+        Some(buf)
+    }
+
     fn resource_create(&self, tmpl: &pipe_resource) -> Option<PipeResource> {
         PipeResource::new(
             unsafe { (*self.screen).resource_create.unwrap()(self.screen, tmpl) },
