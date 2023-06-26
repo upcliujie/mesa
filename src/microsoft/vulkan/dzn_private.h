@@ -183,6 +183,26 @@ const struct dzn_meta_context *
 dzn_meta_blits_get_context(struct dzn_device *device,
                            const struct dzn_meta_blit_key *key);
 
+struct dzn_meta_clears {
+   mtx_t lock;
+   D3D12_SHADER_BYTECODE vs;
+   D3D12_SHADER_BYTECODE vs_arrayed;
+   struct hash_table *fs;
+   struct hash_table *contexts;
+};
+struct dzn_meta_clear_key {
+   struct dzn_nir_clear_fs_info fs;
+   DXGI_FORMAT dsv_format;
+   uint32_t sample_count : 5;
+   uint32_t view_mask : 3;
+   uint32_t clear_stencil : 1;
+   uint32_t arrayed_clear : 1;
+};
+
+const struct dzn_meta_context *
+dzn_meta_clears_get_context(struct dzn_device *device,
+                             const struct dzn_meta_clear_key *key);
+
 #define MAX_SYNC_TYPES 3
 #define MAX_QUEUE_FAMILIES 2
 
@@ -304,6 +324,7 @@ struct dzn_device {
    struct dzn_meta_indirect_draw indirect_draws[DZN_NUM_INDIRECT_DRAW_TYPES];
    struct dzn_meta_triangle_fan_rewrite_index triangle_fan[DZN_NUM_INDEX_TYPE];
    struct dzn_meta_blits blits;
+   struct dzn_meta_clears clears;
 
    struct {
 #define DZN_QUERY_REFS_SECTION_SIZE 4096
