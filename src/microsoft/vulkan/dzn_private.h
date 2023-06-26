@@ -166,7 +166,7 @@ struct dzn_meta_blit_key {
    };
 };
 
-struct dzn_meta_blit {
+struct dzn_meta_context {
    ID3D12RootSignature *root_sig;
    ID3D12PipelineState *pipeline_state;
 };
@@ -179,7 +179,7 @@ struct dzn_meta_blits {
    struct hash_table_u64 *contexts;
 };
 
-const struct dzn_meta_blit *
+const struct dzn_meta_context *
 dzn_meta_blits_get_context(struct dzn_device *device,
                            const struct dzn_meta_blit_key *key);
 
@@ -327,10 +327,6 @@ struct dzn_device {
 void dzn_meta_finish(struct dzn_device *device);
 
 VkResult dzn_meta_init(struct dzn_device *device);
-
-const struct dzn_meta_blit *
-dzn_meta_blits_get_context(struct dzn_device *device,
-                           const struct dzn_meta_blit_key *key);
 
 ID3D12RootSignature *
 dzn_device_create_root_sig(struct dzn_device *device,

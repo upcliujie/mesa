@@ -507,7 +507,7 @@ dzn_meta_blits_get_fs(struct dzn_device *device,
 }
 
 static void
-dzn_meta_blit_destroy(struct dzn_device *device, struct dzn_meta_blit *blit)
+dzn_meta_context_destroy(struct dzn_device *device, struct dzn_meta_context *blit)
 {
    if (!blit)
       return;
@@ -520,10 +520,10 @@ dzn_meta_blit_destroy(struct dzn_device *device, struct dzn_meta_blit *blit)
    vk_free(&device->vk.alloc, blit);
 }
 
-static struct dzn_meta_blit *
+static struct dzn_meta_context *
 dzn_meta_blit_create(struct dzn_device *device, const struct dzn_meta_blit_key *key)
 {
-   struct dzn_meta_blit *blit =
+   struct dzn_meta_context *blit =
       vk_zalloc(&device->vk.alloc, sizeof(*blit), 8,
                 VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
@@ -663,7 +663,7 @@ dzn_meta_blit_create(struct dzn_device *device, const struct dzn_meta_blit_key *
 
    blit->root_sig = dzn_device_create_root_sig(device, &root_sig_desc);
    if (!blit->root_sig) {
-      dzn_meta_blit_destroy(device, blit);
+      dzn_meta_context_destroy(device, blit);
       return NULL;
    }
 
@@ -673,7 +673,7 @@ dzn_meta_blit_create(struct dzn_device *device, const struct dzn_meta_blit_key *
 
    vs = dzn_meta_blits_get_vs(device);
    if (!vs) {
-      dzn_meta_blit_destroy(device, blit);
+      dzn_meta_context_destroy(device, blit);
       return NULL;
    }
 
@@ -682,7 +682,7 @@ dzn_meta_blit_create(struct dzn_device *device, const struct dzn_meta_blit_key *
 
    fs = dzn_meta_blits_get_fs(device, &blit_fs_info);
    if (!fs) {
-      dzn_meta_blit_destroy(device, blit);
+      dzn_meta_context_destroy(device, blit);
       return NULL;
    }
 
@@ -718,18 +718,18 @@ dzn_meta_blit_create(struct dzn_device *device, const struct dzn_meta_blit_key *
    if (FAILED(ID3D12Device1_CreateGraphicsPipelineState(device->dev, &desc,
                                                         &IID_ID3D12PipelineState,
                                                         (void **)&blit->pipeline_state))) {
-      dzn_meta_blit_destroy(device, blit);
+      dzn_meta_context_destroy(device, blit);
       return NULL;
    }
 
    return blit;
 }
 
-const struct dzn_meta_blit *
+const struct dzn_meta_context *
 dzn_meta_blits_get_context(struct dzn_device *device,
                            const struct dzn_meta_blit_key *key)
 {
-   struct dzn_meta_blit *out = NULL;
+   struct dzn_meta_context *out = NULL;
 
    STATIC_ASSERT(sizeof(*key) == sizeof(uint64_t));
 
@@ -764,7 +764,7 @@ dzn_meta_blits_finish(struct dzn_device *device)
 
    if (meta->contexts) {
       hash_table_foreach(meta->contexts->table, he)
-         dzn_meta_blit_destroy(device, he->data);
+         dzn_meta_context_destroy(device, he->data);
       _mesa_hash_table_u64_destroy(meta->contexts);
    }
 

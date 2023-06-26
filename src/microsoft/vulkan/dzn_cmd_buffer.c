@@ -2815,7 +2815,7 @@ dzn_cmd_buffer_blit_set_pipeline(struct dzn_cmd_buffer *cmdbuf,
       .padding = 0,
    };
 
-   const struct dzn_meta_blit *ctx =
+   const struct dzn_meta_context *ctx =
       dzn_meta_blits_get_context(device, &ctx_key);
    assert(ctx);
 
