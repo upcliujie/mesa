@@ -222,32 +222,6 @@ trace_screen_get_paramf(struct pipe_screen *_screen,
 
 
 static int
-trace_screen_get_compute_param(struct pipe_screen *_screen,
-                               enum pipe_shader_ir ir_type,
-                               enum pipe_compute_cap param,
-                               void *data)
-{
-   struct trace_screen *tr_scr = trace_screen(_screen);
-   struct pipe_screen *screen = tr_scr->screen;
-   int result;
-
-   trace_dump_call_begin("pipe_screen", "get_compute_param");
-
-   trace_dump_arg(ptr, screen);
-   trace_dump_arg_enum(pipe_shader_ir, ir_type);
-   trace_dump_arg_enum(pipe_compute_cap, param);
-   trace_dump_arg(ptr, data);
-
-   result = screen->get_compute_param(screen, ir_type, param, data);
-
-   trace_dump_ret(int, result);
-
-   trace_dump_call_end();
-
-   return result;
-}
-
-static int
 trace_screen_get_video_param(struct pipe_screen *_screen,
                              enum pipe_video_profile profile,
                              enum pipe_video_entrypoint entrypoint,
@@ -1499,7 +1473,6 @@ trace_screen_create(struct pipe_screen *screen)
    tr_scr->base.get_param = trace_screen_get_param;
    tr_scr->base.get_shader_param = trace_screen_get_shader_param;
    tr_scr->base.get_paramf = trace_screen_get_paramf;
-   tr_scr->base.get_compute_param = trace_screen_get_compute_param;
    SCR_INIT(get_video_param);
    tr_scr->base.is_format_supported = trace_screen_is_format_supported;
    SCR_INIT(is_video_format_supported);

@@ -551,37 +551,6 @@ d3d12_get_shader_param(struct pipe_screen *pscreen,
    }
 }
 
-static int
-d3d12_get_compute_param(struct pipe_screen *pscreen,
-                        enum pipe_shader_ir ir,
-                        enum pipe_compute_cap cap,
-                        void *ret)
-{
-   switch (cap) {
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE: {
-      uint64_t *grid = (uint64_t *)ret;
-      grid[0] = grid[1] = grid[2] = D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION;
-      return sizeof(uint64_t) * 3;
-   }
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE: {
-      uint64_t *block = (uint64_t *)ret;
-      block[0] = D3D12_CS_THREAD_GROUP_MAX_X;
-      block[1] = D3D12_CS_THREAD_GROUP_MAX_Y;
-      block[2] = D3D12_CS_THREAD_GROUP_MAX_Z;
-      return sizeof(uint64_t) * 3;
-   }
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      *(uint64_t *)ret = D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP;
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      *(uint64_t *)ret = D3D12_CS_TGSM_REGISTER_COUNT /*DWORDs*/ * 4;
-      return sizeof(uint64_t);
-   default:
-      return 0;
-   }
-}
-
 static void
 d3d12_query_compute_info(struct pipe_screen *pscreen,
                           enum pipe_shader_ir ir,
@@ -1401,7 +1370,6 @@ d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys, LU
    screen->base.get_param = d3d12_get_param;
    screen->base.get_paramf = d3d12_get_paramf;
    screen->base.get_shader_param = d3d12_get_shader_param;
-   screen->base.get_compute_param = d3d12_get_compute_param;
    screen->base.query_compute_info = d3d12_query_compute_info;
    screen->base.is_format_supported = d3d12_is_format_supported;
 

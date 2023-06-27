@@ -1930,77 +1930,6 @@ agx_get_shader_param(struct pipe_screen *pscreen, enum pipe_shader_type shader,
    return 0;
 }
 
-static int
-agx_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
-                      enum pipe_compute_cap param, void *ret)
-{
-#define RET(x)                                                                 \
-   do {                                                                        \
-      if (ret)                                                                 \
-         memcpy(ret, x, sizeof(x));                                            \
-      return sizeof(x);                                                        \
-   } while (0)
-
-   switch (param) {
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      RET((uint32_t[]){64});
-
-   case PIPE_COMPUTE_CAP_IR_TARGET:
-      if (ret)
-         sprintf(ret, "agx");
-      return strlen("agx") * sizeof(char);
-
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      RET((uint64_t[]){3});
-
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      RET(((uint64_t[]){65535, 65535, 65535}));
-
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      RET(((uint64_t[]){1024, 1024, 1024}));
-
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      RET((uint64_t[]){1024});
-
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE: {
-      uint64_t system_memory;
-
-      if (!os_get_total_physical_memory(&system_memory))
-         return 0;
-
-      RET((uint64_t[]){system_memory});
-   }
-
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      RET((uint64_t[]){32768});
-
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-      RET((uint64_t[]){4096});
-
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-      RET((uint32_t[]){800 /* MHz -- TODO */});
-
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-      RET((uint32_t[]){4 /* TODO */});
-
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t[]){1});
-
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      RET((uint32_t[]){32});
-
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-      RET((uint32_t[]){0 /* TODO */});
-
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      RET((uint64_t[]){1024}); // TODO
-   }
-
-   return 0;
-}
-
 static bool
 agx_is_format_supported(struct pipe_screen *pscreen, enum pipe_format format,
                         enum pipe_texture_target target, unsigned sample_count,
@@ -2258,7 +2187,6 @@ agx_screen_create(int fd, struct renderonly *ro,
    screen->get_device_vendor = agx_get_device_vendor;
    screen->get_param = agx_get_param;
    screen->get_shader_param = agx_get_shader_param;
-   screen->get_compute_param = agx_get_compute_param;
    screen->get_paramf = agx_get_paramf;
    screen->is_format_supported = agx_is_format_supported;
    screen->query_compute_info = agx_query_compute_info;

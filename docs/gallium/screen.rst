@@ -758,60 +758,6 @@ support different features.
 * ``PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS``: If atomic counters are
   separate, how many atomic counter buffers are available for this stage.
 
-.. _pipe_compute_cap:
-
-PIPE_COMPUTE_CAP_*
-^^^^^^^^^^^^^^^^^^
-
-Compute-specific capabilities. They can be queried using
-pipe_screen::get_compute_param.
-
-* ``PIPE_COMPUTE_CAP_IR_TARGET``: A description of the target of the form
-  ``processor-arch-manufacturer-os`` that will be passed on to the compiler.
-  This CAP is only relevant for drivers that specify PIPE_SHADER_IR_NATIVE for
-  their preferred IR.
-  Value type: null-terminated string. Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_GRID_DIMENSION``: Number of supported dimensions
-  for grid and block coordinates.  Value type: ``uint64_t``. Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_MAX_GRID_SIZE``: Maximum grid size in block
-  units.  Value type: ``uint64_t []``.  Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE``: Maximum block size in thread
-  units.  Value type: ``uint64_t []``. Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK``: Maximum number of threads that
-  a single block can contain.  Value type: ``uint64_t``. Shader IR type dependent.
-  This may be less than the product of the components of MAX_BLOCK_SIZE and is
-  usually limited by the number of threads that can be resident simultaneously
-  on a compute unit.
-* ``PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE``: Maximum size of the GLOBAL
-  resource.  Value type: ``uint64_t``. Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE``: Maximum size of the LOCAL
-  resource.  Value type: ``uint64_t``. Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE``: Maximum size of the PRIVATE
-  resource.  Value type: ``uint64_t``. Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_MAX_INPUT_SIZE``: Maximum size of the INPUT
-  resource.  Value type: ``uint64_t``. Shader IR type dependent.
-* ``PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE``: Maximum size of a memory object
-  allocation in bytes.  Value type: ``uint64_t``.
-* ``PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY``: Maximum frequency of the GPU
-  clock in MHz. Value type: ``uint32_t``
-* ``PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS``: Maximum number of compute units
-  Value type: ``uint32_t``
-* ``PIPE_COMPUTE_CAP_MAX_SUBGROUPS``: The max amount of subgroups there can be
-  inside a block. Non 0 indicates support for OpenCL subgroups including
-  implementing ``get_compute_state_subgroup_size`` if multiple subgroup sizes
-  are supported.
-* ``PIPE_COMPUTE_CAP_IMAGES_SUPPORTED``: Whether images are supported
-  non-zero means yes, zero means no. Value type: ``uint32_t``
-* ``PIPE_COMPUTE_CAP_SUBGROUP_SIZES``: Ored power of two sizes of a basic execution
-  unit in threads. Also known as wavefront size, warp size or SIMD width.
-  E.g. ``64 | 32``.
-* ``PIPE_COMPUTE_CAP_ADDRESS_BITS``: The default compute device address space
-  size specified as an unsigned integer value in bits.
-* ``PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK``: Maximum variable number
-  of threads that a single block can contain. This is similar to
-  PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK, except that the variable size is not
-  known a compile-time but at dispatch-time.
-
 .. _pipe_bind:
 
 PIPE_BIND_*

@@ -669,95 +669,6 @@ panfrost_is_dmabuf_modifier_supported(struct pipe_screen *screen,
    return count > 0;
 }
 
-static int
-panfrost_get_compute_param(struct pipe_screen *pscreen,
-                           enum pipe_shader_ir ir_type,
-                           enum pipe_compute_cap param, void *ret)
-{
-   struct panfrost_device *dev = pan_device(pscreen);
-   const char *const ir = "panfrost";
-
-#define RET(x)                                                                 \
-   do {                                                                        \
-      if (ret)                                                                 \
-         memcpy(ret, x, sizeof(x));                                            \
-      return sizeof(x);                                                        \
-   } while (0)
-
-   switch (param) {
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      RET((uint32_t[]){64});
-
-   case PIPE_COMPUTE_CAP_IR_TARGET:
-      if (ret)
-         sprintf(ret, "%s", ir);
-      return strlen(ir) * sizeof(char);
-
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      RET((uint64_t[]){3});
-
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      RET(((uint64_t[]){65535, 65535, 65535}));
-
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      /* Unpredictable behaviour at larger sizes. Mali-G52 advertises
-       * 384x384x384.
-       *
-       * On Midgard, we don't allow more than 128 threads in each
-       * direction to match PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK.
-       * That still exceeds the minimum-maximum.
-       */
-      if (dev->arch >= 6)
-         RET(((uint64_t[]){256, 256, 256}));
-      else
-         RET(((uint64_t[]){128, 128, 128}));
-
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      /* On Bifrost and newer, all GPUs can support at least 256 threads
-       * regardless of register usage, so we report 256.
-       *
-       * On Midgard, with maximum register usage, the maximum
-       * thread count is only 64. We would like to report 64 here, but
-       * the GLES3.1 spec minimum is 128, so we report 128 and limit
-       * the register allocation of affected compute kernels.
-       */
-      RET((uint64_t[]){dev->arch >= 6 ? 256 : 128});
-
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-      RET((uint64_t[]){1024 * 1024 * 512 /* Maybe get memory */});
-
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      RET((uint64_t[]){32768});
-
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-      RET((uint64_t[]){4096});
-
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-      RET((uint64_t[]){1024 * 1024 * 512 /* Maybe get memory */});
-
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-      RET((uint32_t[]){800 /* MHz -- TODO */});
-
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-      RET((uint32_t[]){dev->core_count});
-
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t[]){1});
-
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      RET((uint32_t[]){pan_subgroup_size(dev->arch)});
-
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-      RET((uint32_t[]){0 /* TODO */});
-
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      RET((uint64_t[]){1024}); // TODO
-   }
-
-   return 0;
-}
-
 static void
 panfrost_query_compute_info(struct pipe_screen *pscreen,
                             enum pipe_shader_ir ir_type,
@@ -919,7 +830,6 @@ panfrost_create_screen(int fd, const struct pipe_screen_config *config,
    screen->base.get_driver_query_info = panfrost_get_driver_query_info;
    screen->base.get_param = panfrost_get_param;
    screen->base.get_shader_param = panfrost_get_shader_param;
-   screen->base.get_compute_param = panfrost_get_compute_param;
    screen->base.get_paramf = panfrost_get_paramf;
    screen->base.get_timestamp = u_default_get_timestamp;
    screen->base.is_format_supported = panfrost_is_format_supported;

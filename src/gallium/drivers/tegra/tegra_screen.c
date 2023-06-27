@@ -109,18 +109,6 @@ tegra_screen_get_video_param(struct pipe_screen *pscreen,
                                        param);
 }
 
-static int
-tegra_screen_get_compute_param(struct pipe_screen *pscreen,
-                               enum pipe_shader_ir ir_type,
-                               enum pipe_compute_cap param,
-                               void *retp)
-{
-   struct tegra_screen *screen = to_tegra_screen(pscreen);
-
-   return screen->gpu->get_compute_param(screen->gpu, ir_type, param,
-                                         retp);
-}
-
 static uint64_t
 tegra_screen_get_timestamp(struct pipe_screen *pscreen)
 {
@@ -619,7 +607,6 @@ tegra_screen_create(int fd)
    screen->base.get_paramf = tegra_screen_get_paramf;
    screen->base.get_shader_param = tegra_screen_get_shader_param;
    screen->base.get_video_param = tegra_screen_get_video_param;
-   screen->base.get_compute_param = tegra_screen_get_compute_param;
    screen->base.get_timestamp = tegra_screen_get_timestamp;
    screen->base.context_create = tegra_screen_context_create;
    screen->base.is_format_supported = tegra_screen_is_format_supported;

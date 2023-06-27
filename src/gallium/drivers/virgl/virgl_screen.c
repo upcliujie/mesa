@@ -614,51 +614,6 @@ virgl_get_paramf(struct pipe_screen *screen, enum pipe_capf param)
    return 0.0;
 }
 
-static int
-virgl_get_compute_param(struct pipe_screen *screen,
-                        enum pipe_shader_ir ir_type,
-                        enum pipe_compute_cap param,
-                        void *ret)
-{
-   struct virgl_screen *vscreen = virgl_screen(screen);
-   if (!(vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_COMPUTE_SHADER))
-      return 0;
-   switch (param) {
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      if (ret) {
-         uint64_t *grid_size = ret;
-         grid_size[0] = vscreen->caps.caps.v2.max_compute_grid_size[0];
-         grid_size[1] = vscreen->caps.caps.v2.max_compute_grid_size[1];
-         grid_size[2] = vscreen->caps.caps.v2.max_compute_grid_size[2];
-      }
-      return 3 * sizeof(uint64_t) ;
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      if (ret) {
-         uint64_t *block_size = ret;
-         block_size[0] = vscreen->caps.caps.v2.max_compute_block_size[0];
-         block_size[1] = vscreen->caps.caps.v2.max_compute_block_size[1];
-         block_size[2] = vscreen->caps.caps.v2.max_compute_block_size[2];
-      }
-      return 3 * sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      if (ret) {
-         uint64_t *max_threads_per_block = ret;
-         *max_threads_per_block = vscreen->caps.caps.v2.max_compute_work_group_invocations;
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      if (ret) {
-         uint64_t *max_local_size = ret;
-         /* Value reported by the closed source driver. */
-         *max_local_size = vscreen->caps.caps.v2.max_compute_shared_memory_size;
-      }
-      return sizeof(uint64_t);
-   default:
-      break;
-   }
-   return 0;
-}
-
 static bool
 has_format_bit(struct virgl_supported_format_mask *mask,
                enum virgl_formats fmt)
@@ -1211,7 +1166,6 @@ virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *c
    screen->base.get_param = virgl_get_param;
    screen->base.get_shader_param = virgl_get_shader_param;
    screen->base.get_video_param = virgl_get_video_param;
-   screen->base.get_compute_param = virgl_get_compute_param;
    screen->base.get_paramf = virgl_get_paramf;
    screen->base.get_compiler_options = virgl_get_compiler_options;
    screen->base.is_format_supported = virgl_is_format_supported;

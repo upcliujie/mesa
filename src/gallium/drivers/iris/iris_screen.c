@@ -560,90 +560,6 @@ iris_get_shader_param(struct pipe_screen *pscreen,
    }
 }
 
-static int
-iris_get_compute_param(struct pipe_screen *pscreen,
-                       enum pipe_shader_ir ir_type,
-                       enum pipe_compute_cap param,
-                       void *ret)
-{
-   struct iris_screen *screen = (struct iris_screen *)pscreen;
-   const struct intel_device_info *devinfo = screen->devinfo;
-
-   const uint32_t max_invocations =
-      MIN2(1024, 32 * devinfo->max_cs_workgroup_threads);
-
-#define RET(x) do {                  \
-   if (ret)                          \
-      memcpy(ret, x, sizeof(x));     \
-   return sizeof(x);                 \
-} while (0)
-
-   switch (param) {
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      /* This gets queried on OpenCL device init and is never queried by the
-       * OpenGL state tracker.
-       */
-      iris_warn_cl();
-      RET((uint32_t []){ 64 });
-
-   case PIPE_COMPUTE_CAP_IR_TARGET:
-      if (ret)
-         strcpy(ret, "gen");
-      return 4;
-
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      RET((uint64_t []) { 3 });
-
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      RET(((uint64_t []) { UINT32_MAX, UINT32_MAX, UINT32_MAX }));
-
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      /* MaxComputeWorkGroupSize[0..2] */
-      RET(((uint64_t []) {max_invocations, max_invocations, max_invocations}));
-
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      /* MaxComputeWorkGroupInvocations */
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      /* MaxComputeVariableGroupInvocations */
-      RET((uint64_t []) { max_invocations });
-
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      /* MaxComputeSharedMemorySize */
-      RET((uint64_t []) { 64 * 1024 });
-
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t []) { 1 });
-
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      RET((uint32_t []) { 32 | 16 | 8 });
-
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-      RET((uint32_t []) { devinfo->max_cs_workgroup_threads });
-
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-      RET((uint64_t []) { 1 << 30 }); /* TODO */
-
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-      RET((uint32_t []) { 400 }); /* TODO */
-
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS: {
-      RET((uint32_t []) { intel_device_info_subslice_total(devinfo) });
-   }
-
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-      /* MaxComputeSharedMemorySize */
-      RET((uint64_t []) { 64 * 1024 });
-
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-      /* We could probably allow more; this is the OpenCL minimum */
-      RET((uint64_t []) { 1024 });
-
-   default:
-      unreachable("unknown compute param");
-   }
-}
-
 static uint64_t
 iris_get_timestamp(struct pipe_screen *pscreen)
 {
@@ -918,7 +834,6 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
    pscreen->get_screen_fd = iris_screen_get_fd;
    pscreen->get_param = iris_get_param;
    pscreen->get_shader_param = iris_get_shader_param;
-   pscreen->get_compute_param = iris_get_compute_param;
    pscreen->get_paramf = iris_get_paramf;
    pscreen->get_compiler_options = iris_get_compiler_options;
    pscreen->get_device_uuid = iris_get_device_uuid;

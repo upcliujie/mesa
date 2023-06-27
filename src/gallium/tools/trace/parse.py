@@ -43,7 +43,6 @@ trace_ignore_calls = set((
     ("pipe_screen", "get_param"),
     ("pipe_screen", "get_paramf"),
     ("pipe_screen", "get_shader_param"),
-    ("pipe_screen", "get_compute_param"),
     ("pipe_screen", "get_disk_shader_cache"),
 ))
 

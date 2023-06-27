@@ -475,116 +475,6 @@ llvmpipe_get_paramf(struct pipe_screen *screen, enum pipe_capf param)
    return 0.0;
 }
 
-
-static int
-llvmpipe_get_compute_param(struct pipe_screen *_screen,
-                           enum pipe_shader_ir ir_type,
-                           enum pipe_compute_cap param,
-                           void *ret)
-{
-   switch (param) {
-   case PIPE_COMPUTE_CAP_IR_TARGET:
-      return 0;
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      if (ret) {
-         uint64_t *grid_size = ret;
-         grid_size[0] = 65535;
-         grid_size[1] = 65535;
-         grid_size[2] = 65535;
-      }
-      return 3 * sizeof(uint64_t) ;
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      if (ret) {
-         uint64_t *block_size = ret;
-         block_size[0] = 1024;
-         block_size[1] = 1024;
-         block_size[2] = 1024;
-      }
-      return 3 * sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      if (ret) {
-         uint64_t *max_threads_per_block = ret;
-         *max_threads_per_block = 1024;
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      if (ret) {
-         uint64_t *max_local_size = ret;
-         *max_local_size = 32768;
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      if (ret) {
-         uint64_t *grid_dim = ret;
-         *grid_dim = 3;
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-      if (ret) {
-         uint64_t *max_global_size = ret;
-         *max_global_size = (1ULL << 31);
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-      if (ret) {
-         uint64_t *max_mem_alloc_size = ret;
-         *max_mem_alloc_size = (1ULL << 31);
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-      if (ret) {
-         uint64_t *max_private = ret;
-         *max_private = (1UL << 31);
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-      if (ret) {
-         uint64_t *max_input = ret;
-         *max_input = 1576;
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      if (ret) {
-         uint32_t *images = ret;
-         *images = LP_MAX_TGSI_SHADER_IMAGES;
-      }
-      return sizeof(uint32_t);
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      return 0;
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      if (ret) {
-         uint32_t *subgroup_size = ret;
-         *subgroup_size = lp_native_vector_width / 32;
-      }
-      return sizeof(uint32_t);
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-      if (ret) {
-         uint32_t *subgroup_size = ret;
-         *subgroup_size = 1024 / (lp_native_vector_width / 32);
-      }
-      return sizeof(uint32_t);
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-      if (ret) {
-         uint32_t *max_compute_units = ret;
-         *max_compute_units = 8;
-      }
-      return sizeof(uint32_t);
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-      if (ret) {
-         uint32_t *max_clock_freq = ret;
-         *max_clock_freq = 300;
-      }
-      return sizeof(uint32_t);
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      if (ret) {
-         uint32_t *address_bits = ret;
-         *address_bits = sizeof(void*) * 8;
-      }
-      return sizeof(uint32_t);
-   }
-   return 0;
-}
-
 static void
 llvmpipe_query_compute_info(struct pipe_screen *_screen,
                             enum pipe_shader_ir ir_type,
@@ -1158,7 +1048,6 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
    screen->base.get_screen_fd = llvmpipe_screen_get_fd;
    screen->base.get_param = llvmpipe_get_param;
    screen->base.get_shader_param = llvmpipe_get_shader_param;
-   screen->base.get_compute_param = llvmpipe_get_compute_param;
    screen->base.get_paramf = llvmpipe_get_paramf;
    screen->base.get_compiler_options = llvmpipe_get_compiler_options;
    screen->base.is_format_supported = llvmpipe_is_format_supported;

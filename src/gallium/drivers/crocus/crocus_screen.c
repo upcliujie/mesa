@@ -534,77 +534,6 @@ crocus_get_shader_param(struct pipe_screen *pscreen,
    }
 }
 
-static int
-crocus_get_compute_param(struct pipe_screen *pscreen,
-                         enum pipe_shader_ir ir_type,
-                         enum pipe_compute_cap param,
-                         void *ret)
-{
-   struct crocus_screen *screen = (struct crocus_screen *)pscreen;
-   const struct intel_device_info *devinfo = &screen->devinfo;
-
-   const uint32_t max_invocations = 32 * devinfo->max_cs_workgroup_threads;
-
-   if (devinfo->ver < 7)
-      return 0;
-#define RET(x) do {                  \
-   if (ret)                          \
-      memcpy(ret, x, sizeof(x));     \
-   return sizeof(x);                 \
-} while (0)
-
-   switch (param) {
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      RET((uint32_t []){ 32 });
-
-   case PIPE_COMPUTE_CAP_IR_TARGET:
-      if (ret)
-         strcpy(ret, "gen");
-      return 4;
-
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      RET((uint64_t []) { 3 });
-
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      RET(((uint64_t []) { 65535, 65535, 65535 }));
-
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      /* MaxComputeWorkGroupSize[0..2] */
-      RET(((uint64_t []) {max_invocations, max_invocations, max_invocations}));
-
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      /* MaxComputeWorkGroupInvocations */
-      RET((uint64_t []) { max_invocations });
-
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      /* MaxComputeSharedMemorySize */
-      RET((uint64_t []) { 64 * 1024 });
-
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t []) { 1 });
-
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      RET((uint32_t []) { ELK_SUBGROUP_SIZE });
-
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      RET((uint64_t []) { max_invocations });
-
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-
-      // XXX: I think these are for Clover...
-      return 0;
-
-   default:
-      unreachable("unknown compute param");
-   }
-}
-
 static uint64_t
 crocus_get_timestamp(struct pipe_screen *pscreen)
 {
@@ -837,7 +766,6 @@ crocus_screen_create(int fd, const struct pipe_screen_config *config)
    pscreen->get_screen_fd = crocus_screen_get_fd;
    pscreen->get_param = crocus_get_param;
    pscreen->get_shader_param = crocus_get_shader_param;
-   pscreen->get_compute_param = crocus_get_compute_param;
    pscreen->query_compute_info = crocus_query_compute_info;
    pscreen->get_paramf = crocus_get_paramf;
    pscreen->get_compiler_options = crocus_get_compiler_options;
