@@ -2531,6 +2531,38 @@ zink_get_loader_version(struct zink_screen *screen)
 }
 
 static void
+zink_query_compute_info(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
+                        struct pipe_compute_info *info)
+{
+   struct zink_screen *screen = zink_screen(pscreen);
+   struct VkPhysicalDeviceLimits *limits = &screen->info.props.limits;
+
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {limits->maxComputeWorkGroupCount[0],
+                        limits->maxComputeWorkGroupCount[1],
+                        limits->maxComputeWorkGroupCount[2]},
+      .max_block_size = {limits->maxComputeWorkGroupSize[0],
+                         limits->maxComputeWorkGroupSize[1],
+                         limits->maxComputeWorkGroupSize[2]},
+      .max_threads_per_block = limits->maxComputeWorkGroupInvocations,
+      .max_variable_threads_per_block = limits->maxComputeWorkGroupInvocations,
+
+      .address_bits = 64,
+      
+      .max_shared_mem_size = limits->maxComputeSharedMemorySize,
+      .subgroup_sizes = screen->info.props11.subgroupSize,
+
+      .max_mem_alloc_size = screen->clamp_video_mem,
+      .max_global_size = screen->total_video_mem,
+
+      // no way in vulkan to retrieve this information.
+      .max_compute_units = 1,
+   };
+}
+
+static void
 zink_query_memory_info(struct pipe_screen *pscreen, struct pipe_memory_info *info)
 {
    struct zink_screen *screen = zink_screen(pscreen);
@@ -3495,6 +3527,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config, int64_t dev
    screen->base.get_device_vendor = zink_get_device_vendor;
    screen->base.get_compute_param = zink_get_compute_param;
    screen->base.get_timestamp = zink_get_timestamp;
+   screen->base.query_compute_info = zink_query_compute_info;
    screen->base.query_memory_info = zink_query_memory_info;
    screen->base.get_param = zink_get_param;
    screen->base.get_paramf = zink_get_paramf;
