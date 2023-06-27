@@ -582,6 +582,22 @@ d3d12_get_compute_param(struct pipe_screen *pscreen,
    }
 }
 
+static void
+d3d12_query_compute_info(struct pipe_screen *pscreen,
+                          enum pipe_shader_ir ir,
+                          struct pipe_compute_info *info)
+{
+   const uint64_t thread_groups = D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION;
+   *info = (struct pipe_compute_info)
+   {
+      .max_grid_size = { thread_groups, thread_groups, thread_groups },
+      .max_block_size = { D3D12_CS_THREAD_GROUP_MAX_X, D3D12_CS_THREAD_GROUP_MAX_Y, D3D12_CS_THREAD_GROUP_MAX_Z },
+      .max_threads_per_block = D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP,
+      .max_variable_threads_per_block = D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP,
+      .max_shared_mem_size = D3D12_CS_TGSM_REGISTER_COUNT * 4,
+   };
+}
+
 static bool
 d3d12_is_format_supported(struct pipe_screen *pscreen,
                           enum pipe_format format,
@@ -1386,6 +1402,7 @@ d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys, LU
    screen->base.get_paramf = d3d12_get_paramf;
    screen->base.get_shader_param = d3d12_get_shader_param;
    screen->base.get_compute_param = d3d12_get_compute_param;
+   screen->base.query_compute_info = d3d12_query_compute_info;
    screen->base.is_format_supported = d3d12_is_format_supported;
 
    screen->base.context_create = d3d12_context_create;
