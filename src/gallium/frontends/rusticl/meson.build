@@ -372,6 +372,10 @@ rusticl_mesa_bindings_rs = rust.bindgen(
     '--allowlist-type',         'pipe_tex_wrap',
     '--constified-enum-module', 'pipe_tex_wrap',
 
+    # pipe_compute_info contains a pointer to the LLVM IR target string
+    '--raw-line', 'unsafe impl std::marker::Send for pipe_compute_info {}',
+    '--raw-line', 'unsafe impl std::marker::Sync for pipe_compute_info {}',
+
     # rusticl C functions
     '--allowlist-function',     'rusticl_.*',
     '--allowlist-function',     'std(err|out)_ptr',

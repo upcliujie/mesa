@@ -18,7 +18,6 @@ use std::os::raw::c_void;
 use std::ptr;
 use std::sync::Arc;
 
-#[derive(PartialEq)]
 pub struct PipeScreen {
     ldev: PipeLoaderDevice,
     screen: ThreadSafeCPtr<pipe_screen>,
@@ -290,6 +289,16 @@ impl PipeScreen {
         unsafe { self.screen().get_shader_param.unwrap()(self.screen.as_ptr(), t, cap) }
     }
 
+    pub fn compute_info(&self, ptr: &mut pipe_compute_info) {
+        unsafe {
+            self.screen().query_compute_info.unwrap()(
+                self.screen.as_ptr(),
+                pipe_shader_ir::PIPE_SHADER_IR_NIR,
+                ptr,
+            );
+        }
+    }
+
     fn compute_param_wrapped(&self, cap: pipe_compute_cap, ptr: *mut c_void) -> i32 {
         unsafe {
             self.screen().get_compute_param.unwrap()(
@@ -480,5 +489,6 @@ fn has_required_cbs(screen: *mut pipe_screen) -> bool {
         & has_required_feature!(screen, get_shader_param)
         & has_required_feature!(screen, get_timestamp)
         & has_required_feature!(screen, is_format_supported)
+        & has_required_feature!(screen, query_compute_info)
         & has_required_feature!(screen, resource_create)
 }

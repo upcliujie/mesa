@@ -37,6 +37,7 @@ pub struct Device {
     pub cl_version: CLVersion,
     pub clc_version: CLVersion,
     pub clc_versions: Vec<cl_name_version>,
+    pub compute_info: pipe_compute_info,
     pub custom: bool,
     pub embedded: bool,
     pub has_timestamp: bool, // Cached to keep API fast
@@ -220,14 +221,18 @@ impl Device {
             return None;
         }
 
+        let mut compute_info = pipe_compute_info::default();
+        screen.compute_info(&mut compute_info);
+
         let screen = Arc::new(screen);
         // Create before loading libclc as llvmpipe only creates the shader cache with the first
         // context being created.
         let helper_ctx = screen.create_context()?;
-        let lib_clc = spirv::SPIRVBin::get_lib_clc(&screen);
-        if lib_clc.is_none() {
+
+        let Some(lib_clc) = spirv::SPIRVBin::get_lib_clc(&screen, compute_info.address_bits) else {
             eprintln!("Libclc failed to load. Please make sure it is installed and provides spirv-mesa3d-.spv and/or spirv64-mesa3d-.spv");
-        }
+            return None;
+        };
 
         let mut d = Self {
             base: CLObjectBase::new(RusticlTypes::Device),
@@ -236,6 +241,7 @@ impl Device {
             cl_version: CLVersion::Cl3_0,
             clc_version: CLVersion::Cl3_0,
             clc_versions: Vec::new(),
+            compute_info: compute_info,
             custom: false,
             embedded: false,
             has_timestamp: false,
@@ -244,7 +250,7 @@ impl Device {
             spirv_extensions: Vec::new(),
             clc_features: Vec::new(),
             formats: HashMap::new(),
-            lib_clc: lib_clc?,
+            lib_clc: lib_clc,
         };
 
         d.fill_format_tables();
@@ -355,15 +361,15 @@ impl Device {
         // Max size of memory object allocation in bytes. The minimum value is
         // max(min(1024 × 1024 × 1024, 1/4th of CL_DEVICE_GLOBAL_MEM_SIZE), 32 × 1024 × 1024)
         // for devices that are not of type CL_DEVICE_TYPE_CUSTOM.
-        let mut limit = min(1024 * 1024 * 1024, self.global_mem_size() / 4);
+        let mut limit = min(1024 * 1024 * 1024, self.compute_info.max_global_size / 4);
         limit = max(limit, 32 * 1024 * 1024);
-        if self.max_mem_alloc() < limit {
+        if self.compute_info.max_mem_alloc_size < limit {
             return true;
         }
 
         // CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS
         // The minimum value is 3 for devices that are not of type CL_DEVICE_TYPE_CUSTOM.
-        if self.max_grid_dimensions() < 3 {
+        if self.compute_info.grid_dimension < 3 {
             return true;
         }
 
@@ -386,7 +392,7 @@ impl Device {
 
             // CL_DEVICE_LOCAL_MEM_SIZE
             // The minimum value is 1 KB for devices that are not of type CL_DEVICE_TYPE_CUSTOM.
-            if self.local_mem_size() < 1024 {
+            if self.compute_info.max_shared_mem_size < 1024 {
                 return true;
             }
         } else {
@@ -410,7 +416,7 @@ impl Device {
             // CL 1.0 spec:
             // CL_DEVICE_LOCAL_MEM_SIZE
             // The minimum value is 16 KB for devices that are not of type CL_DEVICE_TYPE_CUSTOM.
-            if self.local_mem_size() < 16 * 1024 {
+            if self.compute_info.max_shared_mem_size < 16 * 1024 {
                 return true;
             }
         }
@@ -515,7 +521,7 @@ impl Device {
          // The minimum FULL_PROFILE value for CL_DEVICE_MAX_PARAMETER_SIZE increased from 256 to 1024 bytes
          || self.param_max_size() < 1024
          // The minimum FULL_PROFILE value for CL_DEVICE_LOCAL_MEM_SIZE increased from 16 KB to 32 KB.
-         || self.local_mem_size() < 32 * 1024
+         || self.compute_info.max_shared_mem_size < 32 * 1024
         {
             res = CLVersion::Cl1_0;
         }
@@ -793,8 +799,7 @@ impl Device {
             };
             memory * 1024
         } else {
-            self.screen
-                .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE)
+            self.compute_info.max_global_size
         }
     }
 
@@ -911,11 +916,7 @@ impl Device {
 
     pub fn max_mem_alloc(&self) -> cl_ulong {
         // TODO: at the moment gallium doesn't support bigger buffers
-        min(
-            self.screen
-                .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE),
-            0x80000000,
-        )
+        min(self.compute_info.max_mem_alloc_size, 0x80000000)
     }
 
     pub fn max_samplers(&self) -> cl_uint {
@@ -963,12 +964,7 @@ impl Device {
     }
 
     pub fn subgroup_sizes(&self) -> Vec<usize> {
-        let subgroup_size = ComputeParam::<u32>::compute_param(
-            self.screen.as_ref(),
-            pipe_compute_cap::PIPE_COMPUTE_CAP_SUBGROUP_SIZES,
-        );
-
-        SetBitIndices::from_msb(subgroup_size)
+        SetBitIndices::from_msb(self.compute_info.subgroup_sizes)
             .map(|bit| 1 << bit)
             .collect()
     }
@@ -985,7 +981,7 @@ impl Device {
 
         // we need to be able to query a CSO for subgroup sizes if multiple sub group sizes are
         // supported, doing it without shareable shaders isn't practical
-        self.max_subgroups() > 0
+        self.compute_info.max_subgroups > 0
             && (subgroup_sizes == 1 || (subgroup_sizes > 1 && self.shareable_shaders()))
     }
 

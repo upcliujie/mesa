@@ -34,7 +34,7 @@ impl CLInfo<cl_device_info> for cl_device_id {
         // curses you CL_DEVICE_INTEGER_DOT_PRODUCT_ACCELERATION_PROPERTIES_4x8BIT_PACKED_KHR
         #[allow(non_upper_case_globals)]
         Ok(match q {
-            CL_DEVICE_ADDRESS_BITS => cl_prop::<cl_uint>(dev.address_bits()),
+            CL_DEVICE_ADDRESS_BITS => cl_prop::<cl_uint>(dev.compute_info.address_bits.into()),
             CL_DEVICE_ATOMIC_FENCE_CAPABILITIES => cl_prop::<cl_device_atomic_capabilities>(
                 (CL_DEVICE_ATOMIC_ORDER_RELAXED
                     | CL_DEVICE_ATOMIC_ORDER_ACQ_REL
@@ -86,7 +86,7 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_GLOBAL_MEM_CACHE_TYPE => cl_prop::<cl_device_mem_cache_type>(CL_NONE),
             CL_DEVICE_GLOBAL_MEM_CACHE_SIZE => cl_prop::<cl_ulong>(0),
             CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE => cl_prop::<cl_uint>(0),
-            CL_DEVICE_GLOBAL_MEM_SIZE => cl_prop::<cl_ulong>(dev.global_mem_size()),
+            CL_DEVICE_GLOBAL_MEM_SIZE => cl_prop::<cl_ulong>(dev.compute_info.max_global_size),
             CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE => cl_prop::<usize>(0),
             CL_DEVICE_HALF_FP_CONFIG => cl_prop::<cl_device_fp_config>(
                 if dev.fp16_supported() {
@@ -157,7 +157,9 @@ impl CLInfo<cl_device_info> for cl_device_id {
                 cl_prop::<&CStr>(dev.screen().cl_cts_version())
             }
             CL_DEVICE_LINKER_AVAILABLE => cl_prop::<bool>(true),
-            CL_DEVICE_LOCAL_MEM_SIZE => cl_prop::<cl_ulong>(dev.local_mem_size()),
+            CL_DEVICE_LOCAL_MEM_SIZE => {
+                cl_prop::<cl_ulong>(dev.compute_info.max_shared_mem_size.into())
+            }
             // TODO add query for CL_LOCAL vs CL_GLOBAL
             CL_DEVICE_LOCAL_MEM_TYPE => cl_prop::<cl_device_local_mem_type>(CL_GLOBAL),
             CL_DEVICE_LUID_KHR => cl_prop::<[cl_uchar; CL_LUID_SIZE_KHR as usize]>(
@@ -166,15 +168,17 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_LUID_VALID_KHR => {
                 cl_prop::<cl_bool>(dev.screen().device_luid().is_some().into())
             }
-            CL_DEVICE_MAX_CLOCK_FREQUENCY => cl_prop::<cl_uint>(dev.max_clock_freq()),
-            CL_DEVICE_MAX_COMPUTE_UNITS => cl_prop::<cl_uint>(dev.max_compute_units()),
+            CL_DEVICE_MAX_CLOCK_FREQUENCY => {
+                cl_prop::<cl_uint>(dev.compute_info.max_clock_frequency)
+            }
+            CL_DEVICE_MAX_COMPUTE_UNITS => cl_prop::<cl_uint>(dev.compute_info.max_compute_units),
             // TODO atm implemented as mem_const
             CL_DEVICE_MAX_CONSTANT_ARGS => cl_prop::<cl_uint>(dev.const_max_count()),
             CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE => cl_prop::<cl_ulong>(dev.const_max_size()),
             CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE => cl_prop::<usize>(0),
             CL_DEVICE_MAX_MEM_ALLOC_SIZE => cl_prop::<cl_ulong>(dev.max_mem_alloc()),
             CL_DEVICE_MAX_NUM_SUB_GROUPS => cl_prop::<cl_uint>(if dev.subgroups_supported() {
-                dev.max_subgroups()
+                dev.compute_info.max_subgroups
             } else {
                 0
             }),
@@ -191,9 +195,21 @@ impl CLInfo<cl_device_info> for cl_device_id {
                 })
             }
             CL_DEVICE_MAX_SAMPLERS => cl_prop::<cl_uint>(dev.max_samplers()),
-            CL_DEVICE_MAX_WORK_GROUP_SIZE => cl_prop::<usize>(dev.max_threads_per_block()),
-            CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS => cl_prop::<cl_uint>(dev.max_grid_dimensions()),
-            CL_DEVICE_MAX_WORK_ITEM_SIZES => cl_prop::<Vec<usize>>(dev.max_block_sizes()),
+            CL_DEVICE_MAX_WORK_GROUP_SIZE => cl_prop::<usize>(
+                dev.compute_info
+                    .max_threads_per_block
+                    .try_into()
+                    .unwrap_or_default(),
+            ),
+            CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS => cl_prop::<cl_uint>(
+                dev.compute_info
+                    .grid_dimension
+                    .try_into()
+                    .unwrap_or_default(),
+            ),
+            CL_DEVICE_MAX_WORK_ITEM_SIZES => {
+                cl_prop::<[usize; 3]>(dev.compute_info.max_block_size.map(|val| val as usize))
+            }
             CL_DEVICE_MAX_WRITE_IMAGE_ARGS => cl_prop::<cl_uint>(dev.image_write_count()),
             // TODO proper retrival from devices
             CL_DEVICE_MEM_BASE_ADDR_ALIGN => cl_prop::<cl_uint>(0x1000),

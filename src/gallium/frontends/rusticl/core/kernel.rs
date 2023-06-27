@@ -406,7 +406,7 @@ fn lower_and_optimize_nir(
     let global_address_format;
     let shared_address_format;
 
-    if dev.address_bits() == 64 {
+    if dev.compute_info.address_bits == 64 {
         address_bits_base_type = glsl_base_type::GLSL_TYPE_UINT64;
         address_bits_ptr_type = unsafe { glsl_uint64_t_type() };
         global_address_format = nir_address_format::nir_address_format_64bit_global;
@@ -533,7 +533,7 @@ fn lower_and_optimize_nir(
         internal_args.push(InternalKernelArg {
             kind: InternalKernelArgType::GlobalWorkOffsets,
             offset: 0,
-            size: (3 * dev.address_bits() / 8) as usize,
+            size: (3 * dev.compute_info.address_bits / 8) as usize,
         });
         lower_state.base_global_invoc_id_loc = args.len() + internal_args.len() - 1;
         nir.add_var(
@@ -548,7 +548,7 @@ fn lower_and_optimize_nir(
         internal_args.push(InternalKernelArg {
             kind: InternalKernelArgType::ConstantBuffer,
             offset: 0,
-            size: (dev.address_bits() / 8) as usize,
+            size: (dev.compute_info.address_bits / 8) as usize,
         });
         lower_state.const_buf_loc = args.len() + internal_args.len() - 1;
         nir.add_var(
@@ -562,7 +562,7 @@ fn lower_and_optimize_nir(
         internal_args.push(InternalKernelArg {
             kind: InternalKernelArgType::PrintfBuffer,
             offset: 0,
-            size: (dev.address_bits() / 8) as usize,
+            size: (dev.compute_info.address_bits / 8) as usize,
         });
         lower_state.printf_buf_loc = args.len() + internal_args.len() - 1;
         nir.add_var(
@@ -838,11 +838,11 @@ impl Kernel {
         block: &mut [usize],
     ) {
         let mut threads = self.max_threads_per_block(d);
-        let dim_threads = d.max_block_sizes();
+        let dim_threads = d.compute_info.max_block_size;
         let subgroups = self.preferred_simd_size(d);
 
         for i in 0..work_dim {
-            let t = cmp::min(threads, dim_threads[i]);
+            let t = cmp::min(threads, dim_threads[i] as usize);
             let gcd = gcd(t, grid[i]);
 
             block[i] = gcd;
@@ -918,7 +918,7 @@ impl Kernel {
         let mut tex_orders: Vec<u16> = Vec::new();
         let mut img_formats: Vec<u16> = Vec::new();
         let mut img_orders: Vec<u16> = Vec::new();
-        let null_ptr: &[u8] = if q.device.address_bits() == 64 {
+        let null_ptr: &[u8] = if q.device.compute_info.address_bits == 64 {
             &[0; 8]
         } else {
             &[0; 4]
@@ -943,7 +943,7 @@ impl Kernel {
                 KernelArgValue::Constant(c) => input.extend_from_slice(c),
                 KernelArgValue::Buffer(buffer) => {
                     let res = buffer.get_res_of_dev(q.device)?;
-                    if q.device.address_bits() == 64 {
+                    if q.device.compute_info.address_bits == 64 {
                         input.extend_from_slice(&buffer.offset.to_ne_bytes());
                     } else {
                         input.extend_from_slice(&(buffer.offset as u32).to_ne_bytes());
@@ -1002,7 +1002,7 @@ impl Kernel {
                     let pot = cmp::min(*size, 0x80);
                     variable_local_size =
                         align(variable_local_size, pot.next_power_of_two() as u64);
-                    if q.device.address_bits() == 64 {
+                    if q.device.compute_info.address_bits == 64 {
                         input.extend_from_slice(&variable_local_size.to_ne_bytes());
                     } else {
                         input.extend_from_slice(&(variable_local_size as u32).to_ne_bytes());
@@ -1040,7 +1040,7 @@ impl Kernel {
                     ));
                 }
                 InternalKernelArgType::GlobalWorkOffsets => {
-                    if q.device.address_bits() == 64 {
+                    if q.device.compute_info.address_bits == 64 {
                         input.extend_from_slice(unsafe { as_byte_slice(&offsets) });
                     } else {
                         input.extend_from_slice(unsafe {
