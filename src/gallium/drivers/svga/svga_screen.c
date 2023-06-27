@@ -830,6 +830,28 @@ svga_sm5_get_compute_param(struct pipe_screen *screen,
    return 0;
 }
 
+
+static void
+svga_sm5_query_compute_info(struct pipe_screen *screen,
+                            enum pipe_shader_ir ir_type,
+                            struct pipe_compute_info *info)
+{
+   ASSERTED struct svga_screen *svgascreen = svga_screen(screen);
+   ASSERTED struct svga_winsys_screen *sws = svgascreen->sws;
+
+   assert(sws->have_gl43);
+
+   *info = (struct pipe_compute_info)
+   {
+      .max_grid_size = {65535, 65535, 65535},
+      .max_block_size = {1024, 1024, 64},
+      .max_threads_per_block = 1024,
+      .max_shared_mem_size = 32768
+   };
+
+}
+
+
 static void
 svga_fence_reference(struct pipe_screen *screen,
                      struct pipe_fence_handle **ptr,
@@ -1075,6 +1097,7 @@ svga_screen_create(struct svga_winsys_screen *sws)
    screen->get_driver_query_info = svga_get_driver_query_info;
 
    screen->get_compute_param = svga_sm5_get_compute_param;
+   screen->query_compute_info = svga_sm5_query_compute_info;
 
    svgascreen->sws = sws;
 
