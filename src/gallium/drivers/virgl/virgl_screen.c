@@ -1007,6 +1007,30 @@ fixup_formats(union virgl_caps *caps, struct virgl_supported_format_mask *mask)
       mask->bitmask[i] = caps->v1.sampler.bitmask[i];
 }
 
+static void
+virgl_query_compute_info(struct pipe_screen *screen,
+                        enum pipe_shader_ir ir_type,
+                        struct pipe_compute_info *info)
+{
+   struct virgl_screen *vscreen = virgl_screen(screen);
+   struct virgl_caps_v2 *v2 = &vscreen->caps.caps.v2;
+
+   if (!(v2->capability_bits & VIRGL_CAP_COMPUTE_SHADER))
+      return;
+
+   *info = (struct pipe_compute_info)
+   {
+      .max_grid_size = {v2->max_compute_grid_size[0],
+                        v2->max_compute_grid_size[1],
+                        v2->max_compute_grid_size[2]},
+      .max_block_size = {v2->max_compute_block_size[0],
+                         v2->max_compute_block_size[1],
+                         v2->max_compute_block_size[2]},
+      .max_threads_per_block = v2->max_compute_work_group_invocations,
+      .max_shared_mem_size = v2->max_compute_shared_memory_size,
+   };
+}
+
 static void virgl_query_memory_info(struct pipe_screen *screen, struct pipe_memory_info *info)
 {
    struct virgl_screen *vscreen = virgl_screen(screen);
@@ -1201,6 +1225,7 @@ virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *c
    screen->base.fence_finish = virgl_fence_finish;
    screen->base.fence_get_fd = virgl_fence_get_fd;
    screen->base.query_memory_info = virgl_query_memory_info;
+   screen->base.query_compute_info = virgl_query_compute_info;
    screen->base.get_disk_shader_cache = virgl_get_disk_shader_cache;
    screen->base.is_dmabuf_modifier_supported = virgl_is_dmabuf_modifier_supported;
    screen->base.get_dmabuf_modifier_planes = virgl_get_dmabuf_modifier_planes;
