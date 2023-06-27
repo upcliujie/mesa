@@ -572,6 +572,19 @@ softpipe_screen_get_fd(struct pipe_screen *screen)
       return -1;
 }
 
+static void
+softpipe_query_compute_info(struct pipe_screen *_screen,
+                           enum pipe_shader_ir ir_type,
+                           struct pipe_compute_info *info)
+{
+   *info = (struct pipe_compute_info)
+   {
+      .max_grid_size = {65535, 65535, 65535},
+      .max_block_size = {1024, 1024, 1024},
+      .max_threads_per_block = 1024,
+      .max_shared_mem_size = 32768,
+   };
+}
 /**
  * Create a new pipe_screen object
  * Note: we're not presently subclassing pipe_screen (no softpipe_screen).
@@ -604,6 +617,7 @@ softpipe_create_screen(struct sw_winsys *winsys)
    screen->base.flush_frontbuffer = softpipe_flush_frontbuffer;
    screen->base.get_compute_param = softpipe_get_compute_param;
    screen->base.get_compiler_options = softpipe_get_compiler_options;
+   screen->base.query_compute_info = softpipe_query_compute_info;
    screen->use_llvm = sp_debug & SP_DBG_USE_LLVM;
 
    softpipe_init_screen_texture_funcs(&screen->base);
