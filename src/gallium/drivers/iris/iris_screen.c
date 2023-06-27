@@ -681,6 +681,50 @@ iris_screen_unref(struct pipe_screen *pscreen)
 }
 
 static void
+iris_query_compute_info(struct pipe_screen *pscreen,
+                        enum pipe_shader_ir ir_type,
+                        struct pipe_compute_info *info)
+{
+   struct iris_screen *screen = (struct iris_screen *)pscreen;
+   const struct intel_device_info *devinfo = screen->devinfo;
+
+   const uint32_t max_invocations =
+      MIN2(1024, 32 * devinfo->max_cs_workgroup_threads);
+
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {UINT32_MAX, UINT32_MAX, UINT32_MAX},
+      /* MaxComputeWorkGroupSize[0..2] */
+      .max_block_size = {max_invocations, max_invocations, max_invocations},
+      /* MaxComputeWorkGroupInvocations */
+      .max_threads_per_block = max_invocations,
+      /* MaxComputeWorkGroupInvocations */
+      .max_variable_threads_per_block = max_invocations,
+
+      /* TODO */
+      .max_global_size = 1 << 30,
+      /* MaxComputeSharedMemorySize */
+      .max_shared_mem_size = 64 * 1024,
+      /* We could probably allow more, this is the OpenCL minimum */
+      .max_input_size = 1024,
+      /* TODO */
+      .max_mem_alloc_size = 1 << 30,
+
+      .address_bits = 64,
+      /* TODO */
+      .max_clock_frequency = 400,
+
+      .max_subgroups = devinfo->max_cs_workgroup_threads,
+      .subgroup_sizes = 32 | 16 | 8,
+
+      .max_compute_units = intel_device_info_subslice_total(devinfo),
+      .images_supported = true,
+   };
+
+}
+
+static void
 iris_query_memory_info(struct pipe_screen *pscreen,
                        struct pipe_memory_info *info)
 {
