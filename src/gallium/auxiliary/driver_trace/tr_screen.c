@@ -1209,6 +1209,23 @@ trace_screen_destroy(struct pipe_screen *_screen)
 }
 
 static void
+trace_screen_query_compute_info(struct pipe_screen *_screen, enum pipe_shader_ir ir_type, struct pipe_compute_info *info)
+{
+   struct trace_screen *tr_scr = trace_screen(_screen);
+   struct pipe_screen *screen = tr_scr->screen;
+
+   trace_dump_call_begin("pipe_screen", "query_compute_info");
+
+   trace_dump_arg(ptr, screen);
+
+   screen->query_compute_info(screen, ir_type, info);
+
+   trace_dump_ret(compute_info, info);
+
+   trace_dump_call_end();
+}
+
+static void
 trace_screen_query_memory_info(struct pipe_screen *_screen, struct pipe_memory_info *info)
 {
    struct trace_screen *tr_scr = trace_screen(_screen);
@@ -1500,6 +1517,7 @@ trace_screen_create(struct pipe_screen *screen)
    SCR_INIT(free_memory_fd);
    tr_scr->base.map_memory = trace_screen_map_memory;
    tr_scr->base.unmap_memory = trace_screen_unmap_memory;
+   SCR_INIT(query_compute_info);
    SCR_INIT(query_memory_info);
    SCR_INIT(query_dmabuf_modifiers);
    SCR_INIT(is_compute_copy_faster);
