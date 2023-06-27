@@ -1105,6 +1105,68 @@ static unsigned get_max_threads_per_block(struct si_screen *screen, enum pipe_sh
    return 1024;
 }
 
+static void si_query_compute_info(struct pipe_screen *screen, enum pipe_shader_ir ir_type,
+                                  struct pipe_compute_info *info)
+{
+   struct si_screen *sscreen = (struct si_screen *)screen;
+
+   const uint64_t threads_per_block = get_max_threads_per_block(sscreen, ir_type);
+
+   /* Return 1/4 of the heap size as the maximum because the max size is not practically
+    * allocatable.
+    */
+   const uint64_t max_mem_alloc_size = (sscreen->info.max_heap_size_kb / 4) * 1024ull;
+
+   uint32_t subgroup_sizes;
+   uint32_t max_subgroups;
+   if (sscreen->debug_flags & DBG(W32_CS))
+      subgroup_sizes = 32;
+   else if (sscreen->debug_flags & DBG(W64_CS))
+      subgroup_sizes = 64;
+   else
+      subgroup_sizes = sscreen->info.gfx_level < GFX10 ? 64 : 64 | 32;
+
+   if (subgroup_sizes & 64)
+      max_subgroups = threads_per_block / 64;
+   else
+      max_subgroups = threads_per_block / 32;
+
+   // TODO: select these params by asic
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      /* Use this size, so that internal counters don't overflow 64 bits. */
+      .max_grid_size = {UINT32_MAX, UINT16_MAX, UINT16_MAX},
+      .max_block_size = {threads_per_block, threads_per_block, threads_per_block},
+      .max_threads_per_block = threads_per_block,
+      .max_variable_threads_per_block = SI_MAX_VARIABLE_THREADS_PER_BLOCK,
+      /* In OpenCL, the MAX_MEM_ALLOC_SIZE must be at least
+       * 1/4 of the MAX_GLOBAL_SIZE.  Since the
+       * MAX_MEM_ALLOC_SIZE is fixed for older kernels,
+       * make sure we never report more than
+       * 4 * MAX_MEM_ALLOC_SIZE.
+       */
+      .max_global_size = MIN2(4 * max_mem_alloc_size, sscreen->info.max_heap_size_kb * 1024ull),
+      /* Value reported by the closed source driver. */
+      .max_shared_mem_size = (sscreen->info.gfx_level == GFX6) ? 32 * 1024 : 64 * 1024,
+      /* Value reported by the closed source driver. */
+      .max_input_size = 1024,
+      .max_mem_alloc_size = max_mem_alloc_size,
+
+      .address_bits = 64,
+      .max_clock_frequency = sscreen->info.max_gpu_freq_mhz,
+
+      .max_subgroups = max_subgroups,
+      .subgroup_sizes = subgroup_sizes,
+      .max_compute_units = sscreen->info.num_cu,
+
+      .images_supported = false,
+   };
+
+   // TODO:
+   sprintf(info->ir_target, "%s-amdgcn-mesa-mesa3d", ac_get_llvm_processor_name(sscreen->info.family));
+}
+
 static int si_get_compute_param(struct pipe_screen *screen, enum pipe_shader_ir ir_type,
                                 enum pipe_compute_cap param, void *ret)
 {
@@ -1502,6 +1564,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
    sscreen->b.get_compiler_options = si_get_compiler_options;
    sscreen->b.get_device_uuid = si_get_device_uuid;
    sscreen->b.get_driver_uuid = si_get_driver_uuid;
+   sscreen->b.query_compute_info = si_query_compute_info;
    sscreen->b.query_memory_info = si_query_memory_info;
    sscreen->b.get_disk_shader_cache = si_get_disk_shader_cache;
 
