@@ -577,6 +577,55 @@ nvc0_screen_get_compute_param(struct pipe_screen *pscreen,
 }
 
 static void
+nvc0_screen_query_compute_info(struct pipe_screen *pscreen,
+                              enum pipe_shader_ir ir_type,
+                              struct pipe_compute_info *info)
+{
+   struct nvc0_screen *screen = nvc0_screen(pscreen);
+   struct nouveau_device *dev = screen->base.device;
+   const uint16_t obj_class = screen->compute->oclass;
+   const uint64_t global_mem = nouveau_device_get_global_mem_size(dev);
+
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {
+         (obj_class >= NVE4_COMPUTE_CLASS) ? 0x7fffffff : 0x0000ffff,
+         0x0000ffff,
+         0x0000ffff
+      },
+      .max_block_size = {1024, 1024, 62},
+      .max_threads_per_block = 1024,
+      .max_variable_threads_per_block = (obj_class >= NVE4_COMPUTE_CLASS) ? 1024 : 512,
+
+      .max_global_size = global_mem,
+      .max_input_size = 4096,
+      .max_mem_alloc_size = global_mem,
+
+      .address_bits = 64,
+      .max_clock_frequency = 512,
+
+      .subgroup_sizes = 32,
+      .max_subgroups = 0,
+      .max_compute_units = screen->mp_count_compute,
+      .images_supported = NVC0_MAX_IMAGES,
+
+   };
+   
+   switch (obj_class) {
+      case GM200_COMPUTE_CLASS:
+         info->max_shared_mem_size =  96 << 10;
+         break;
+      case GM107_COMPUTE_CLASS:
+         info->max_shared_mem_size =  64 << 10;
+         break;
+      default:
+         info->max_shared_mem_size =  48 << 10;
+         break;
+   }
+}
+
+static void
 nvc0_screen_get_sample_pixel_grid(struct pipe_screen *pscreen,
                                   unsigned sample_count,
                                   unsigned *width, unsigned *height)
@@ -810,6 +859,7 @@ nvc0_screen_init_compute(struct nvc0_screen *screen)
    int ret;
 
    screen->base.base.get_compute_param = nvc0_screen_get_compute_param;
+   screen->base.base.query_compute_info = nvc0_screen_query_compute_info;
 
    ret = nouveau_object_mclass(chan, computes);
    if (ret < 0) {

@@ -471,6 +471,37 @@ nv50_screen_get_compute_param(struct pipe_screen *pscreen,
 }
 
 static void
+nv50_screen_query_compute_info(struct pipe_screen *pscreen,
+                              enum pipe_shader_ir ir_type,
+                              struct pipe_compute_info *info)
+{
+   struct nv50_screen *screen = nv50_screen(pscreen);
+   struct nouveau_device *dev = screen->base.device;
+   const int global_mem = nouveau_device_get_global_mem_size(dev);
+
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {65535, 65535, 65535},
+      .max_block_size = {512, 512, 64},
+      .max_threads_per_block = 512,
+
+      .max_global_size = global_mem,
+      .max_shared_mem_size = 16 << 10,
+      .max_input_size = 4096,
+      .max_mem_alloc_size = global_mem,
+
+      .address_bits = 32,
+      /* FIXME: arbitrary limit */
+      .max_clock_frequency = 512,
+
+      .max_compute_units = screen->mp_count,
+
+      .images_supported = false,
+   };
+}
+
+static void
 nv50_screen_destroy(struct pipe_screen *pscreen)
 {
    struct nv50_screen *screen = nv50_screen(pscreen);
@@ -897,6 +928,7 @@ nv50_screen_create(struct nouveau_device *dev)
    pscreen->get_compute_param = nv50_screen_get_compute_param;
    pscreen->get_driver_query_info = nv50_screen_get_driver_query_info;
    pscreen->get_driver_query_group_info = nv50_screen_get_driver_query_group_info;
+   pscreen->query_compute_info = nv50_screen_query_compute_info;
 
    /* nir stuff */
    pscreen->get_compiler_options = nv50_screen_get_compiler_options;
