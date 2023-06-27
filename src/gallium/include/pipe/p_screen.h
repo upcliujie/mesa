@@ -57,6 +57,7 @@ struct pipe_resource;
 struct pipe_surface;
 struct pipe_transfer;
 struct pipe_box;
+struct pipe_compute_info;
 struct pipe_memory_info;
 struct pipe_vertex_buffer;
 struct pipe_vertex_element;
@@ -473,6 +474,13 @@ struct pipe_screen {
    int (*get_driver_query_group_info)(struct pipe_screen *screen,
                                       unsigned index,
                                       struct pipe_driver_query_group_info *info);
+
+   /**
+    * Query compute info
+    */
+   void (*query_compute_info)(struct pipe_screen *screen,
+                              enum pipe_shader_ir ir_type,
+                              struct pipe_compute_info *info);
 
    /**
     * Query information about memory usage.
