@@ -759,6 +759,52 @@ panfrost_get_compute_param(struct pipe_screen *pscreen,
 }
 
 static void
+panfrost_query_compute_info(struct pipe_screen *pscreen,
+                            enum pipe_shader_ir ir_type,
+                            struct pipe_compute_info *info)
+{
+   struct panfrost_device *dev = pan_device(pscreen);
+
+   *info = (struct pipe_compute_info){
+      .grid_dimension = 3,
+      .max_grid_size = {65535, 65535, 65535},
+      /* Unpredictable behaviour at larger sizes. Mali-G52 advertises
+       * 384x384x384.
+       *
+       * On Midgard, we don't allow more than 128 threads in each
+       * direction to match PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK.
+       * That still exceeds the minimum-maximum.
+       */
+      .max_block_size = (dev->arch >= 6) ? {256, 256, 256} : {128, 128, 128},
+      /* On Bifrost and newer, all GPUs can support at least 256 threads
+       * regardless of register usage, so we report 256.
+       *
+       * On Midgard, with maximum register usage, the maximum
+       * thread count is only 64. We would like to report 64 here, but
+       * the GLES3.1 spec minimum is 128, so we report 128 and limit
+       * the register allocation of affected compute kernels.
+       */
+      .threads_per_block = (dev->arch >= 6) ? 256 : 128,
+      /* TODO */
+      .max_variable_threads_per_block = 1024,
+
+      /* Maybe get memory */
+      .max_global_size = 1024 * 1024 * 512,
+      .max_shared_mem_size = 32768,
+      .max_input_size = 4096,
+      /* Maybe get memory */
+      .max_mem_alloc_size = 1024 * 1024 * 512,
+
+      .address_bits = 64,
+      /* MHz -- TODO */
+      .max_clock_frequency = 800,
+
+      .subgroup_size = pan_subgroup_size(dev->arch),
+      .max_compute_units = dev->core_count,
+   };
+}
+
+static void
 panfrost_destroy_screen(struct pipe_screen *pscreen)
 {
    struct panfrost_device *dev = pan_device(pscreen);
