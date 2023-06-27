@@ -2079,6 +2079,35 @@ agx_is_format_supported(struct pipe_screen *pscreen, enum pipe_format format,
 }
 
 static void
+agx_query_compute_info(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
+                       struct pipe_compute_info *info)
+{
+   uint64_t system_memory;
+
+   if (!os_get_total_physical_memory(&system_memory))
+      system_memory = 0;
+
+   *info = (struct pipe_compute_info){
+      .address_bits = 64,
+      .grid_dimension = 3,
+      .max_grid_size = {65535, 65535, 65535},
+      .max_block_size = {256, 256, 256},
+      .max_threads_per_block = 256,
+      .max_variable_threads_per_block = 1024,
+      .subgroup_sizes = 32,
+
+      .max_global_size = system_memory,
+      .max_mem_alloc_size = system_memory,
+      .max_shared_mem_size = 32768,
+
+      /* TODO */
+      .max_subgroups = 0,
+      .max_clock_frequency = 800,
+      .max_compute_units = 4,
+   };
+}
+
+static void
 agx_query_dmabuf_modifiers(struct pipe_screen *screen, enum pipe_format format,
                            int max, uint64_t *modifiers,
                            unsigned int *external_only, int *out_count)
@@ -2232,6 +2261,7 @@ agx_screen_create(int fd, struct renderonly *ro,
    screen->get_compute_param = agx_get_compute_param;
    screen->get_paramf = agx_get_paramf;
    screen->is_format_supported = agx_is_format_supported;
+   screen->query_compute_info = agx_query_compute_info;
    screen->query_dmabuf_modifiers = agx_query_dmabuf_modifiers;
    screen->is_dmabuf_modifier_supported = agx_is_dmabuf_modifier_supported;
    screen->context_create = agx_create_context;
