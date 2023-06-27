@@ -962,6 +962,43 @@ is_format_supported(struct pipe_screen *pscreen,
 }
 
 static void
+fd_query_compute_info(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
+                      struct pipe_compute_info *info)
+{
+   struct fd_screen *screen = fd_screen(pscreen);
+   if (!has_compute(screen))
+      return;
+
+   struct ir3_compiler *compiler = screen->compiler;
+
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {65535, 65535, 65535},
+      .max_grid_size = {1024, 1024, 64},
+      .max_threads_per_block = 1024,
+      .max_variable_threads_per_block = compiler->max_variable_workgroup_size,
+
+
+      .max_global_size = screen->ram_size,
+      .max_shared_mem_size = 32768,
+      .max_input_size = 4096,
+      .max_mem_alloc_size = screen->ram_size,
+
+      .address_bits = (screen->gen >= 5) ? 64 : 32,
+      .max_clock_frequency = screen->max_freq / 1000000,
+
+      // TODO
+      .subgroup_size = 32,
+      // TODO
+      .max_compute_units = 9999,
+
+      .images_supported = true,
+   };
+
+}
+
+static void
 fd_screen_query_dmabuf_modifiers(struct pipe_screen *pscreen,
                                  enum pipe_format format, int max,
                                  uint64_t *modifiers,
@@ -1287,6 +1324,8 @@ fd_screen_create(int fd,
 
    pscreen->get_device_uuid = fd_screen_get_device_uuid;
    pscreen->get_driver_uuid = fd_screen_get_driver_uuid;
+
+   pscreen->query_compute_info = fd_query_compute_info;
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct fd_transfer), 16);
 
