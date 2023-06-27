@@ -751,6 +751,36 @@ static const uint64_t v3d_available_modifiers[] = {
 };
 
 static void
+v3d_screen_query_compute_info(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
+                       struct pipe_compute_info *info)
+{
+        struct v3d_screen *screen = v3d_screen(pscreen);
+
+        if (!screen->has_csd)
+                return;
+        struct sysinfo si;
+        sysinfo(&si);
+
+        *info = (struct pipe_compute_info)
+        {
+                .grid_dimension = 3,
+                .max_grid_size = {65535, 65535, 65535},
+                .max_block_size = {256, 256, 256},
+                .max_threads_per_block = 256,
+                .max_variable_threads_per_block = 256,
+
+                .max_global_size = 1024 * 1024 * 1024,
+                .max_shared_mem_size = 32768,
+                .max_mem_alloc_size = si.totalram,
+
+                .address_bits = 32,
+
+                .subgroup_sizes = 16,
+                .max_compute_units = 1,
+        };
+}
+
+static void
 v3d_screen_query_dmabuf_modifiers(struct pipe_screen *pscreen,
                                   enum pipe_format format, int max,
                                   uint64_t *modifiers,
@@ -947,6 +977,7 @@ v3d_screen_create(int fd, const struct pipe_screen_config *config,
         pscreen->get_device_vendor = v3d_screen_get_vendor;
         pscreen->get_compiler_options = v3d_screen_get_compiler_options;
         pscreen->get_disk_shader_cache = v3d_screen_get_disk_shader_cache;
+        pscreen->query_compute_info = v3d_screen_query_compute_info;
         pscreen->query_dmabuf_modifiers = v3d_screen_query_dmabuf_modifiers;
         pscreen->is_dmabuf_modifier_supported =
                 v3d_screen_is_dmabuf_modifier_supported;
