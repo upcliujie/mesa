@@ -436,6 +436,16 @@ tegra_screen_get_driver_query_group_info(struct pipe_screen *pscreen,
 }
 
 static void
+tegra_screen_query_compute_info(struct pipe_screen *pscreen,
+                               enum pipe_shader_ir ir_type,
+                               struct pipe_compute_info *info)
+{
+   struct tegra_screen *screen = to_tegra_screen(pscreen);
+
+   screen->gpu->query_compute_info(screen->gpu, ir_type, info);
+}
+
+static void
 tegra_screen_query_memory_info(struct pipe_screen *pscreen,
                                struct pipe_memory_info *info)
 {
@@ -633,6 +643,7 @@ tegra_screen_create(int fd)
 
    screen->base.get_driver_query_info = tegra_screen_get_driver_query_info;
    screen->base.get_driver_query_group_info = tegra_screen_get_driver_query_group_info;
+   screen->base.query_compute_info = tegra_screen_query_compute_info;
    screen->base.query_memory_info = tegra_screen_query_memory_info;
 
    screen->base.get_compiler_options = tegra_screen_get_compiler_options;
