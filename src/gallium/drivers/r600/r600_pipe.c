@@ -558,12 +558,8 @@ static int r600_get_shader_param(struct pipe_screen* pscreen,
 		return 256; /* Max native temporaries. */
 	case PIPE_SHADER_CAP_MAX_CONST_BUFFER0_SIZE:
 		if (shader == PIPE_SHADER_COMPUTE) {
-			uint64_t max_const_buffer_size;
-			pscreen->get_compute_param(pscreen, PIPE_SHADER_IR_NIR,
-						   PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE,
-						   &max_const_buffer_size);
+			const uint32_t max_const_buffer_size = (rscreen->b.info.max_heap_size_kb / 4) * 1024ull;
 			return MIN2(max_const_buffer_size, INT_MAX);
-
 		} else {
 			return R600_MAX_CONST_BUFFER_SIZE;
 		}

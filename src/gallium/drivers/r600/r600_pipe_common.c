@@ -1106,6 +1106,49 @@ static bool r600_fence_finish(struct pipe_screen *screen,
 	return rws->fence_wait(rws, rfence->gfx, timeout);
 }
 
+static void r600_query_compute_info(struct pipe_screen *screen,
+				   enum pipe_shader_ir ir_type,
+				   struct pipe_compute_info *info)
+{
+	struct r600_common_screen *rscreen = (struct r600_common_screen *)screen;
+
+	const char *gpu = r600_get_llvm_processor_name(rscreen->family);
+	const char *triple = "r600--";
+	const uint32_t threads_per_block = get_max_threads_per_block(rscreen, ir_type);
+	// sprintf(info->ir_target, "%s-%s", gpu, triple);
+	const uint64_t max_mem_alloc_size = (rscreen->info.max_heap_size_kb / 4) * 1024ull;
+	//TODO: select these params by asic
+	*info = (struct pipe_compute_info)
+	{
+		.grid_dimension = 3,
+		.max_grid_size = {65535, 65535, 65535},
+		.max_block_size = {threads_per_block, threads_per_block, threads_per_block},
+		.max_threads_per_block = threads_per_block,
+
+		/* In OpenCL, the MAX_MEM_ALLOC_SIZE must be at least
+		 * 1/4 of the MAX_GLOBAL_SIZE.  Since the
+		 * MAX_MEM_ALLOC_SIZE is fixed for older kernels,
+		 * make sure we never report more than
+		 * 4 * MAX_MEM_ALLOC_SIZE.
+		 */
+		.max_global_size =
+		      MIN2(4 * max_mem_alloc_size, rscreen->info.max_heap_size_kb * 1024ull),
+		/* Value reported by the closed source driver. */
+		.max_shared_mem_size = 32768,
+		/* Value reported by the closed source driver. */
+		.max_input_size = 1024,
+		.max_mem_alloc_size = max_mem_alloc_size,
+
+		.address_bits = 32,
+		.max_clock_frequency = rscreen->info.max_gpu_freq_mhz,
+
+		.subgroup_size = r600_wavefront_size(rscreen->family),
+		.max_compute_units = rscreen->info.num_cu,
+
+		.images_supported = false,
+	};
+}
+
 static void r600_query_memory_info(struct pipe_screen *screen,
 				   struct pipe_memory_info *info)
 {
@@ -1273,6 +1316,7 @@ bool r600_common_screen_init(struct r600_common_screen *rscreen,
 	rscreen->b.fence_reference = r600_fence_reference;
 	rscreen->b.resource_destroy = r600_resource_destroy;
 	rscreen->b.resource_from_user_memory = r600_buffer_from_user_memory;
+        rscreen->b.query_compute_info = r600_query_compute_info;
 	rscreen->b.query_memory_info = r600_query_memory_info;
 	rscreen->b.get_device_uuid = r600_get_device_uuid;
 	rscreen->b.get_driver_uuid = r600_get_driver_uuid;
