@@ -585,6 +585,35 @@ llvmpipe_get_compute_param(struct pipe_screen *_screen,
    return 0;
 }
 
+static void
+llvmpipe_query_compute_info(struct pipe_screen *_screen,
+                            enum pipe_shader_ir ir_type,
+                            struct pipe_compute_info *info)
+{
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {65535, 65535, 65535},
+      .max_block_size = {1024, 1024, 1024},
+      .max_threads_per_block = 1024,
+
+      .max_global_size = 1ULL << 31,
+      .max_shared_mem_size = 32768,
+      .max_input_size = 1576,
+      .max_mem_alloc_size = 1ULL << 31,
+
+      .address_bits = sizeof(void *) * 8,
+      .max_clock_frequency = 300,
+
+      .subgroup_sizes = lp_native_vector_width / 32,
+      .max_subgroups = 1024 / (lp_native_vector_width / 32),
+
+      .max_compute_units = 8,
+
+      .images_supported = true,
+   };
+}
+
 
 static void
 llvmpipe_get_driver_uuid(struct pipe_screen *pscreen, char *uuid)
@@ -1141,6 +1170,7 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
 
    screen->base.get_timestamp = u_default_get_timestamp;
 
+   screen->base.query_compute_info = llvmpipe_query_compute_info;
    screen->base.query_memory_info = util_sw_query_memory_info;
 
    screen->base.get_driver_uuid = llvmpipe_get_driver_uuid;
