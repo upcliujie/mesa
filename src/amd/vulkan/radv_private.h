@@ -1447,7 +1447,7 @@ struct radv_dynamic_state {
    struct vk_dynamic_graphics_state vk;
 
    /**
-    * Bitmask of (1ull << VK_DYNAMIC_STATE_*).
+    * Bitmask of (1ull << RADV_DYNAMIC_*).
     * Defines the set of saved dynamic state.
     */
    uint64_t mask;
