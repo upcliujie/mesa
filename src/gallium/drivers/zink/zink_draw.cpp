@@ -404,9 +404,9 @@ update_gfx_pipeline(struct zink_context *ctx, struct zink_batch_state *bs, enum 
    VkPipeline pipeline = VK_NULL_HANDLE;
    if (!ctx->curr_program->base.uses_shobj) {
       if (screen->info.have_EXT_graphics_pipeline_library)
-         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, true>(ctx, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
+         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, true>(ctx, ctx->curr_program_uber, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
       else
-         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, false>(ctx, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
+         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, false>(ctx, ctx->curr_program, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
    }
    if (pipeline) {
       pipeline_changed = prev_pipeline != pipeline;
