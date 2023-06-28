@@ -1117,6 +1117,12 @@ struct zink_gfx_lib_cache {
    struct zink_gfx_library_key *uber_emulation;
 };
 
+struct zink_gfx_program_variant_key {
+   uint32_t optimal_key; //equals_pipeline_lib_optimal
+   uint32_t st_key;
+   struct zink_gfx_program *prog;
+};
+
 struct zink_gfx_program {
    struct zink_program base;
 
@@ -1138,12 +1144,14 @@ struct zink_gfx_program {
    uint32_t module_hash[ZINK_GFX_SHADER_COUNT];
    struct blob blobs[ZINK_GFX_SHADER_COUNT];
    struct util_dynarray shader_cache[ZINK_GFX_SHADER_COUNT][2][2]; //normal, nonseamless cubes, inline uniforms
+   struct set variants;
    unsigned inlined_variant_count[ZINK_GFX_SHADER_COUNT];
    uint32_t default_variant_hash;
    uint8_t inline_variants; //which stages are using inlined uniforms
    bool needs_inlining; // whether this program requires some uniforms to be inlined
    bool has_edgeflags;
    bool optimal_keys;
+   bool started_compiling;
 
    /* separable */
    struct zink_gfx_program *full_prog;
@@ -1857,6 +1865,7 @@ struct zink_context {
    simple_mtx_t program_lock[8];
    uint32_t gfx_hash;
    struct zink_gfx_program *curr_program;
+   struct zink_gfx_program *curr_program_uber;
    struct set gfx_inputs;
    struct set gfx_outputs;
 
