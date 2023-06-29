@@ -760,14 +760,14 @@ update_or_queue_gfx_shader_module_optimal(struct zink_context *ctx, struct zink_
 }
 
 static bool
-update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *prog, bool async)
+update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *prog, struct zink_gfx_program *variant_prog, bool async)
 {
    bool async_done = true;
    struct zink_shader_module *zms[3] = {0};
    const union zink_shader_key_optimal *optimal_key = (union zink_shader_key_optimal*)&prog->last_variant_hash;
    bool st_unmatch = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val != prog->st_key;
    if (st_unmatch || ctx->gfx_pipeline_state.shader_keys_optimal.key.vs_bits != optimal_key->vs_bits) {
-      assert(async || !prog->is_separable);
+      assert(!variant_prog->is_separable);
       zms[0] = update_or_queue_gfx_shader_module_optimal(ctx, prog, ctx->last_vertex_stage->info.stage, async);
       async_done &= !!zms[0];
    }
@@ -775,7 +775,7 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
    if (st_unmatch || ctx->gfx_pipeline_state.shader_keys_optimal.key.fs_bits != optimal_key->fs_bits ||
        /* always recheck shadow swizzles since they aren't directly part of the key */
        unlikely(shadow_needs_shader_swizzle)) {
-      assert(async || !prog->is_separable);
+      assert(!variant_prog->is_separable);
       zms[1] = update_or_queue_gfx_shader_module_optimal(ctx, prog, MESA_SHADER_FRAGMENT, async);
       async_done &= !!zms[1];
       if (unlikely(shadow_needs_shader_swizzle)) {
@@ -785,7 +785,7 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
    }
    if (prog->shaders[MESA_SHADER_TESS_CTRL] && prog->shaders[MESA_SHADER_TESS_CTRL]->non_fs.is_generated &&
        ctx->gfx_pipeline_state.shader_keys_optimal.key.tcs_bits != optimal_key->tcs_bits) {
-      assert(async || !prog->is_separable);
+      assert(!variant_prog->is_separable);
       zms[2] = update_or_queue_gfx_shader_module_optimal(ctx, prog, MESA_SHADER_TESS_CTRL, async);
       async_done &= !!zms[2];
    }
@@ -794,9 +794,9 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
       for (int i = 0;i < 3; i++) {
          if (!zms[i])
             continue;
-         bool changed = prog->objs[stages[i]].mod != zms[i]->obj.mod;
-         prog->objs[stages[i]] = zms[i]->obj;
-         prog->objects[stages[i]] = zms[i]->obj.obj;
+         bool changed = variant_prog->objs[stages[i]].mod != zms[i]->obj.mod;
+         variant_prog->objs[stages[i]] = zms[i]->obj;
+         variant_prog->objects[stages[i]] = zms[i]->obj.obj;
          /* /\* if doing async compile this must be set later when the GPl is also ready *\/ */
          /* if (!async) */
          /*    ctx->gfx_pipeline_state.modules_changed |= changed; */
@@ -878,13 +878,13 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
             }
          }
          if (needs_uber && prog->libs->uber_emulation) {
-            bool async_done = update_gfx_program_optimal(ctx, prog, true);
+            bool async_done = update_gfx_program_optimal(ctx, prog, prog, true);
             if (async_done)
                update_variant_gpl(screen, prog);
             ctx->gfx_pipeline_state.uber_required = !async_done;
          } else {
             ctx->gfx_pipeline_state.uber_required = false;
-            update_gfx_program_optimal(ctx, prog, false);
+            update_gfx_program_optimal(ctx, prog, prog, false);
          }
       } else {
          ctx->dirty_gfx_stages |= ctx->shader_stages;
@@ -922,7 +922,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
             simple_mtx_unlock(&ctx->program_lock[zink_program_cache_stages(ctx->shader_stages)]);
          }
       }
-      update_gfx_program_optimal(ctx, ctx->curr_program, false);
+      update_gfx_program_optimal(ctx, ctx->curr_program, ctx->curr_program, false);
       /* apply new hash */
       ctx->gfx_pipeline_state.final_hash ^= ctx->curr_program->last_variant_hash;
       ctx->gfx_pipeline_state.final_hash ^= ctx->curr_program->st_key;
