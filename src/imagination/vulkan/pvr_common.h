@@ -242,6 +242,8 @@ struct pvr_sampler {
    struct vk_sampler vk;
 
    union pvr_sampler_descriptor descriptor;
+
+   uint32_t border_color_table_index;
 };
 
 struct pvr_descriptor_size_info {
