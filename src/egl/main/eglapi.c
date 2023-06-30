@@ -2815,6 +2815,24 @@ eglQueryDevicesEXT(EGLint max_devices,
 }
 
 static EGLBoolean EGLAPIENTRY
+eglQueryDeviceBinaryEXT(EGLDeviceEXT device,
+                        EGLint name,
+                        EGLint max_size,
+                        void *value,
+                        EGLint *size)
+{
+   EGLBoolean ret;
+   _EGLDevice *dev = _eglLookupDevice(device);
+
+   _EGL_FUNC_START(NULL, EGL_NONE, NULL, EGL_FALSE);
+   if (!dev)
+      RETURN_EGL_ERROR(NULL, EGL_BAD_DEVICE_EXT, EGL_FALSE);
+
+   ret = _eglQueryDeviceBinaryEXT(dev, name, max_size, value, size);
+   RETURN_EGL_ERROR(NULL, ret, ret == EGL_SUCCESS);
+}
+
+static EGLBoolean EGLAPIENTRY
 eglQueryDisplayAttribEXT(EGLDisplay dpy,
                          EGLint attribute,
                          EGLAttrib *value)

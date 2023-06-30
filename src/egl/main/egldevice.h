@@ -80,6 +80,10 @@ EGLBoolean
 _eglQueryDevicesEXT(EGLint max_devices, _EGLDevice **devices,
                     EGLint *num_devices);
 
+EGLint
+_eglQueryDeviceBinaryEXT(_EGLDevice *device, EGLint name,
+                         EGLint max_size, void *value,
+                         EGLint *size);
 #ifdef __cplusplus
 }
 #endif

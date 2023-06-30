@@ -37,6 +37,7 @@
 #include "eglglobals.h"
 #include "egltypedefs.h"
 
+#include <string.h>
 
 struct _egl_device {
    _EGLDevice *Next;
@@ -46,6 +47,8 @@ struct _egl_device {
    EGLBoolean MESA_device_software;
    EGLBoolean EXT_device_drm;
    EGLBoolean EXT_device_drm_render_node;
+
+   char uuid[16];
 
 #ifdef HAVE_LIBDRM
    drmDevicePtr device;
@@ -99,7 +102,9 @@ _eglCheckDeviceHandle(EGLDeviceEXT device)
 
 _EGLDevice _eglSoftwareDevice = {
    /* TODO: EGL_EXT_device_drm support for KMS + llvmpipe */
-   .extensions = "EGL_MESA_device_software EGL_EXT_device_drm_render_node",
+   .extensions = "EGL_MESA_device_software EGL_EXT_device_drm_render_node"
+                " EGL_EXT_device_query EGL_EXT_device_persistent_id",
+   .uuid = "mesasha1goeshere", // XXX come on, man
    .MESA_device_software = EGL_TRUE,
    .EXT_device_drm_render_node = EGL_TRUE,
 };
@@ -142,13 +147,21 @@ _eglAddDRMDevice(drmDevicePtr device, _EGLDevice **out_dev)
    }
 
    dev = dev->Next;
-   dev->extensions = "EGL_EXT_device_drm";
+   dev->extensions = "EGL_EXT_device_drm EGL_EXT_device_query "
+                    " EGL_EXT_device_persistent_id";
    dev->EXT_device_drm = EGL_TRUE;
    dev->device = device;
 
+   // XXX this should be the same device uuid as we (would) get from Vulkan,
+   // only we haven't bothered to be consistent about how we generate those.
+   // just make something up for now.
+   for (char *dst = dev->uuid; dst < dev->uuid + 16; dst += sizeof(char *))
+      memcpy(dst, &dev, sizeof(void *)); // yes really
+
    /* TODO: EGL_EXT_device_drm_render_node support for kmsro + renderonly */
    if (device->available_nodes & (1 << DRM_NODE_RENDER)) {
-      dev->extensions = "EGL_EXT_device_drm EGL_EXT_device_drm_render_node";
+      dev->extensions = "EGL_EXT_device_drm EGL_EXT_device_drm_render_node "
+                       " EGL_EXT_device_query EGL_EXT_device_persistent_id";
       dev->EXT_device_drm_render_node = EGL_TRUE;
    }
 
@@ -253,9 +266,47 @@ _eglQueryDeviceStringEXT(_EGLDevice *dev, EGLint name)
       assert(_eglDeviceSupports(dev, _EGL_DEVICE_SOFTWARE));
       return NULL;
 #endif
+   case EGL_DRIVER_NAME_EXT:
+      /* EGL_EXT_device_persistent_id says:
+       *
+       *  3.  Do we need the EGL_DRIVER_NAME_EXT string?
+       *
+       *      RESOLVED: Yes, because the EGL_DEVICE_UUID_EXT alone is not
+       *      unique, and EGL_DRIVER_UUID_EXT is not persistent.
+       *
+       *      A (EGL_DRIVER_NAME_EXT, EGL_DEVICE_UUID_EXT) pair provides a
+       *      unique, persistent identifier.
+       *
+       *      In addition, on systems that use libglvnd, applications could
+       *      use EGL_DRIVER_NAME_EXT to match the vendor names from
+       *      GLX_EXT_libglvnd.
+       */
+      return "mesa"; // XXX should get this from meson
+
    }
    _eglError(EGL_BAD_PARAMETER, "eglQueryDeviceStringEXT");
    return NULL;
+}
+
+EGLint
+_eglQueryDeviceBinaryEXT(_EGLDevice *device,
+                         EGLint name,
+                         EGLint max_size,
+                         void *value,
+                         EGLint *size)
+{
+   switch (name) {
+   case EGL_DRIVER_UUID_EXT:
+      *size = MIN2(max_size, 16);
+      memcpy(value, "mesasha1goeshere", *size);
+      return EGL_SUCCESS;
+   case EGL_DEVICE_UUID_EXT:
+      *size = MIN2(max_size, 16);
+      memcpy(value, device->uuid, *size);
+      return EGL_SUCCESS;
+   default:
+      return EGL_BAD_ATTRIBUTE;
+   }
 }
 
 /* Do a fresh lookup for devices.
