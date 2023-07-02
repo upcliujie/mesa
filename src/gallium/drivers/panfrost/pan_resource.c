@@ -36,7 +36,9 @@
 
 #include "frontend/winsys_handle.h"
 #include "util/format/u_format.h"
+#include "util/os_time.h"
 #include "util/u_drm.h"
+#include "util/u_dump.h"
 #include "util/u_gen_mipmap.h"
 #include "util/u_memory.h"
 #include "util/u_surface.h"
@@ -612,6 +614,25 @@ panfrost_resource_set_damage_region(struct pipe_screen *screen,
    }
 }
 
+#ifdef PAN_DBG_ALLOC
+static inline void
+panfrost_print_resource(struct pipe_screen *screen,
+                        const struct pipe_resource *resource)
+{
+   struct panfrost_device *dev = pan_device(screen);
+
+   if (dev->debug & PAN_DBG_ALLOC && !getenv("PAN_DBG_ALLOC_CSV")) {
+      int64_t timestamp = os_time_get_nano();
+      int64_t us_timestamp = (timestamp % 1000000000) / 1000;
+      int64_t sec_timestamp = timestamp / 1000000000;
+      fprintf(dev->debug_fd, "[%" PRIi64 ".%06" PRIi64 "] ", sec_timestamp,
+              us_timestamp);
+      util_dump_resource(dev->debug_fd, resource);
+      fprintf(dev->debug_fd, "\n");
+   }
+}
+#endif
+
 static struct pipe_resource *
 panfrost_resource_create_with_modifier(struct pipe_screen *screen,
                                        const struct pipe_resource *template,
@@ -727,6 +748,13 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
                                              PAN_BO_DELAY_MMAP, label);
 
       so->constant_stencil = true;
+
+#ifdef PAN_DBG_ALLOC
+      /* Only log resources linked to newly attached BOs, unless VERBOSE is set,
+       * in which case we log even when reusing from the cache. */
+      if (so->image.data.bo->last_used == 0 || getenv("PAN_DBG_ALLOC_VERBOSE"))
+         panfrost_print_resource(screen, template);
+#endif
    }
 
    if (drm_is_afbc(so->image.layout.modifier))
@@ -736,6 +764,8 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
 
    if (template->bind & PIPE_BIND_INDEX_BUFFER)
       so->index_cache = CALLOC_STRUCT(panfrost_minmax_cache);
+
+   dev->num_active_resources++;
 
    return (struct pipe_resource *)so;
 }
@@ -776,11 +806,22 @@ panfrost_resource_destroy(struct pipe_screen *screen, struct pipe_resource *pt)
    struct panfrost_device *dev = pan_device(screen);
    struct panfrost_resource *rsrc = (struct panfrost_resource *)pt;
 
+   dev->num_active_resources--;
+
    if (rsrc->scanout)
       renderonly_scanout_destroy(rsrc->scanout, dev->ro);
 
-   if (rsrc->image.data.bo)
+   if (rsrc->image.data.bo) {
       panfrost_bo_unreference(rsrc->image.data.bo);
+
+#ifdef PAN_DBG_ALLOC
+      /* This doesn't work because the bo is only going to get free'd later.
+       * Is there a good way to keep track of the resource so we can print it
+       * when the BO is eventually freed? Is it even worth it to print it then? */
+      if (!rsrc->image.data.bo)
+         panfrost_print_resource(screen, pt);
+#endif
+   }
 
    free(rsrc->index_cache);
    free(rsrc->damage.tile_map.data);

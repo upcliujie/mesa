@@ -36,9 +36,45 @@
 #include "wrap.h"
 
 #include "util/os_mman.h"
+#include "util/os_time.h"
 
 #include "util/u_inlines.h"
 #include "util/u_math.h"
+
+#ifdef PAN_DBG_ALLOC
+static inline void
+panfrost_print_bo(struct panfrost_device *dev, const struct panfrost_bo *bo,
+                  const char *prefix)
+{
+   if ((dev->debug & PAN_DBG_ALLOC) && !(bo->flags & PAN_BO_GROWABLE)) {
+      int64_t timestamp = os_time_get_nano();
+      int64_t us_timestamp = (timestamp % 1000000000) / 1000;
+      int64_t sec_timestamp = timestamp / 1000000000;
+
+      assert(dev->total_bo_size >= dev->bo_cache_size);
+      if (getenv("PAN_DBG_ALLOC_CSV")) {
+         fprintf(dev->debug_fd, "%" PRIi64 ".%06" PRIi64 ", ", sec_timestamp,
+                 us_timestamp);
+         fprintf(dev->debug_fd,
+                 "%s, %s, %" PRIu64 ", %" PRIu64 ", %" PRIu64 "\n", prefix,
+                 bo->label, (uint64_t)bo->size, dev->bo_cache_size,
+                 dev->total_bo_size);
+      } else {
+         char total_size_str[20], cache_size_str[20];
+         panfrost_get_size_str(dev->total_bo_size, total_size_str, 20);
+         panfrost_get_size_str(dev->bo_cache_size, cache_size_str, 20);
+
+         fprintf(dev->debug_fd, "[%" PRIi64 ".%06" PRIi64 "] ", sec_timestamp,
+                 us_timestamp);
+         fprintf(dev->debug_fd,
+                 "%12s | %29s | %10" PRIu64 " b | Cache: %8s | Total: %8s |\n",
+                 prefix, bo->label, (uint64_t)bo->size, cache_size_str,
+                 total_size_str);
+      }
+      fflush(dev->debug_fd);
+   }
+}
+#endif
 
 /* This file implements a userspace BO cache. Allocating and freeing
  * GPU-visible buffers is very expensive, and even the extra kernel roundtrips
@@ -86,6 +122,15 @@ panfrost_bo_alloc(struct panfrost_device *dev, size_t size, uint32_t flags,
    bo->flags = flags;
    bo->dev = dev;
    bo->label = label;
+
+#ifdef PAN_DBG_ALLOC
+   if (!(bo->flags & PAN_BO_GROWABLE)) {
+      dev->total_bo_size += bo->size;
+   }
+
+   panfrost_print_bo(dev, bo, "allocate");
+#endif
+
    return bo;
 }
 
@@ -100,6 +145,14 @@ panfrost_bo_free(struct panfrost_bo *bo)
       fprintf(stderr, "DRM_IOCTL_GEM_CLOSE failed: %m\n");
       assert(0);
    }
+
+#ifdef PAN_DBG_ALLOC
+   if (!(bo->flags & PAN_BO_GROWABLE)) {
+      bo->dev->total_bo_size -= bo->size;
+   }
+
+   panfrost_print_bo(bo->dev, bo, "free");
+#endif
 
    /* BO will be freed with the sparse array, but zero to indicate free */
    memset(bo, 0, sizeof(*bo));
@@ -212,6 +265,9 @@ panfrost_bo_cache_fetch(struct panfrost_device *dev, size_t size,
 
       ret = drmIoctl(dev->fd, DRM_IOCTL_PANFROST_MADVISE, &madv);
       if (!ret && !madv.retained) {
+#ifdef PAN_DBG_ALLOC
+         dev->bo_cache_size -= entry->size;
+#endif
          panfrost_bo_free(entry);
          continue;
       }
@@ -220,6 +276,15 @@ panfrost_bo_cache_fetch(struct panfrost_device *dev, size_t size,
       bo->label = label;
       break;
    }
+
+#ifdef PAN_DBG_ALLOC
+   if (bo) {
+      bo->dev->bo_cache_size -= bo->size;
+      if (getenv("PAN_DBG_ALLOC_VERBOSE"))
+         panfrost_print_bo(dev, bo, "reuse cached");
+   }
+#endif
+
    pthread_mutex_unlock(&dev->bo_cache.lock);
 
    return bo;
@@ -246,6 +311,9 @@ panfrost_bo_cache_evict_stale_bos(struct panfrost_device *dev)
 
       list_del(&entry->bucket_link);
       list_del(&entry->lru_link);
+#ifdef PAN_DBG_ALLOC
+      dev->bo_cache_size -= entry->size;
+#endif
       panfrost_bo_free(entry);
    }
 }
@@ -258,7 +326,8 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
 {
    struct panfrost_device *dev = bo->dev;
 
-   if (bo->flags & PAN_BO_SHARED || dev->debug & PAN_DBG_NO_CACHE)
+   if (bo->flags & (PAN_BO_SHARED | PAN_BO_GROWABLE) ||
+       dev->debug & PAN_DBG_NO_CACHE)
       return false;
 
    /* Must be first */
@@ -287,6 +356,13 @@ panfrost_bo_cache_put(struct panfrost_bo *bo)
     */
    panfrost_bo_cache_evict_stale_bos(dev);
 
+#ifdef PAN_DBG_ALLOC
+   assert(!(bo->flags & PAN_BO_GROWABLE));
+   bo->dev->bo_cache_size += bo->size;
+   if (getenv("PAN_DBG_ALLOC_VERBOSE"))
+      panfrost_print_bo(dev, bo, "mv to cache");
+#endif
+
    /* Update the label to help debug BO cache memory usage issues */
    bo->label = "Unused (BO cache)";
 
@@ -311,6 +387,9 @@ panfrost_bo_cache_evict_all(struct panfrost_device *dev)
       list_for_each_entry_safe(struct panfrost_bo, entry, bucket, bucket_link) {
          list_del(&entry->bucket_link);
          list_del(&entry->lru_link);
+#ifdef PAN_DBG_ALLOC
+         dev->bo_cache_size -= entry->size;
+#endif
          panfrost_bo_free(entry);
       }
    }

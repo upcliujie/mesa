@@ -47,9 +47,9 @@
 #define PAN_DBG_LINEAR   0x1000
 #define PAN_DBG_NO_CACHE 0x2000
 #define PAN_DBG_DUMP     0x4000
-
 #ifndef NDEBUG
 #define PAN_DBG_OVERFLOW 0x8000
+#define PAN_DBG_ALLOC    0x10000
 #endif
 
 struct panfrost_device;
@@ -76,6 +76,24 @@ panfrost_last_nonnull(uint64_t *ptrs, unsigned count)
    }
 
    return 0;
+}
+
+static inline void
+panfrost_get_size_str(uint64_t size, char *str, int n)
+{
+   char *units[] = {"B", "KB", "MB", "GB"};
+
+   double approx_size = size;
+   int i = 0;
+   for (i = 0; i < ARRAY_SIZE(units); i++) {
+      if (!(approx_size > 1024.0)) {
+         break;
+      }
+      approx_size /= 1024.0;
+   }
+
+   assert(approx_size <= 1024.0);
+   snprintf(str, n, "%.1lf %s", approx_size, units[i]);
 }
 
 #endif /* PAN_UTIL_H */
