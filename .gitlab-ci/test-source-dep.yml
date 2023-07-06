@@ -44,6 +44,9 @@
 .core-rules:
   rules:
     - !reference [.no_scheduled_pipelines-rules, rules]
+    - changes:
+      - src/mesa/include/**/*
+      when: never
     - changes: &core_file_list
       - .gitlab-ci.yml
       - .gitlab-ci/**/*
@@ -58,7 +61,6 @@
       - src/include/**/*
       # Some src/util and src/compiler files use headers from mesa/ (e.g.
       # mtypes.h).  We should clean that up.
-      - src/mesa/**/*.h
       - src/tool/**/*
       - src/util/**/*
       when: on_success
@@ -143,6 +145,7 @@
       - src/loader/**/*
       - src/mapi/**/*
       - src/mesa/*
+      - src/mesa/include/**/*
       - src/mesa/main/**/*
       - src/mesa/math/**/*
       - src/mesa/program/**/*
