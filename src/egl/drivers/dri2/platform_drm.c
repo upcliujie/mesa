@@ -138,7 +138,7 @@ dri2_drm_config_is_compatible(struct dri2_egl_display *dri2_dpy,
 }
 
 static _EGLSurface *
-dri2_drm_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
+dri2_drm_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
                                void *native_surface, const EGLint *attrib_list)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
@@ -154,11 +154,11 @@ dri2_drm_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
       return NULL;
    }
 
-   if (!dri2_init_surface(&dri2_surf->base, disp, EGL_WINDOW_BIT, conf,
+   if (!dri2_init_surface(&dri2_surf->base, disp, type, conf,
                           attrib_list, false, native_surface))
       goto cleanup_surf;
 
-   config = dri2_get_dri_config(dri2_conf, EGL_WINDOW_BIT,
+   config = dri2_get_dri_config(dri2_conf, type,
                                 dri2_surf->base.GLColorspace);
 
    if (!config) {
@@ -166,19 +166,28 @@ dri2_drm_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
       goto cleanup_surf;
    }
 
-   if (!dri2_drm_config_is_compatible(dri2_dpy, config, surface)) {
-      _eglError(EGL_BAD_MATCH, "EGL config not compatible with GBM format");
-      goto cleanup_surf;
+   if (type == EGL_WINDOW_BIT) {
+      if (!dri2_drm_config_is_compatible(dri2_dpy, config, surface)) {
+         _eglError(EGL_BAD_MATCH, "EGL config not compatible with GBM format");
+         goto cleanup_surf;
+      }
+
+      surf = gbm_dri_surface(surface);
+      dri2_surf->gbm_surf = surf;
+      dri2_surf->base.Width =  surf->base.v0.width;
+      dri2_surf->base.Height = surf->base.v0.height;
+      surf->dri_private = dri2_surf;
+
+      if (!dri2_create_drawable(dri2_dpy, config, dri2_surf, dri2_surf->gbm_surf))
+         goto cleanup_surf;
+   } else {
+      dri2_surf->visual = dri2_image_format_for_pbuffer_config(dri2_dpy, config);
+      if (dri2_surf->visual == __DRI_IMAGE_FORMAT_NONE)
+         goto cleanup_surf;
+
+      if (!dri2_create_drawable(dri2_dpy, config, dri2_surf, dri2_surf))
+         goto cleanup_surf;
    }
-
-   surf = gbm_dri_surface(surface);
-   dri2_surf->gbm_surf = surf;
-   dri2_surf->base.Width =  surf->base.v0.width;
-   dri2_surf->base.Height = surf->base.v0.height;
-   surf->dri_private = dri2_surf;
-
-   if (!dri2_create_drawable(dri2_dpy, config, dri2_surf, dri2_surf->gbm_surf))
-      goto cleanup_surf;
 
    return &dri2_surf->base;
 
@@ -186,6 +195,22 @@ dri2_drm_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
    free(dri2_surf);
 
    return NULL;
+}
+
+static _EGLSurface *
+dri2_drm_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf,
+                                const EGLint *attrib_list)
+{
+   return dri2_drm_create_surface(disp, EGL_PBUFFER_BIT, conf,
+                                  NULL, attrib_list);
+}
+
+static _EGLSurface *
+dri2_drm_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
+                               void *native_surface, const EGLint *attrib_list)
+{
+   return dri2_drm_create_surface(disp, EGL_WINDOW_BIT, conf,
+                                  native_surface, attrib_list);
 }
 
 static _EGLSurface *
@@ -648,7 +673,7 @@ drm_add_configs_for_visuals(_EGLDisplay *disp)
          };
 
          dri2_conf = dri2_add_config(disp, dri2_dpy->driver_configs[i],
-               config_count + 1, EGL_WINDOW_BIT, attr_list, NULL, NULL);
+               config_count + 1, EGL_WINDOW_BIT | EGL_PBUFFER_BIT, attr_list, NULL, NULL);
          if (dri2_conf) {
             if (dri2_conf->base.ConfigID == config_count + 1)
                config_count++;
@@ -672,6 +697,7 @@ static const struct dri2_egl_display_vtbl dri2_drm_display_vtbl = {
    .authenticate = dri2_drm_authenticate,
    .create_window_surface = dri2_drm_create_window_surface,
    .create_pixmap_surface = dri2_drm_create_pixmap_surface,
+   .create_pbuffer_surface = dri2_drm_create_pbuffer_surface,
    .destroy_surface = dri2_drm_destroy_surface,
    .create_image = dri2_drm_create_image_khr,
    .swap_buffers = dri2_drm_swap_buffers,
