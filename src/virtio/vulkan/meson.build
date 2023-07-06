@@ -110,7 +110,7 @@ libvulkan_virtio = shared_library(
   'vulkan_virtio',
   [libvn_files, vn_entrypoints, sha1_h],
   include_directories : [
-    inc_include, inc_src, inc_virtio,
+    inc_vk, inc_src, inc_virtio,
   ],
   link_with : vn_libs,
   dependencies : [vn_deps],

@@ -74,7 +74,7 @@ foreach arch : ['6', '7']
       'panvk_vX_shader.c',
     ],
     include_directories : [
-      inc_include,
+      inc_vk,
       inc_src,
       inc_compiler,
       inc_gallium, # XXX: util/format/u_formats.h
@@ -103,7 +103,7 @@ libvulkan_panfrost = shared_library(
   'vulkan_panfrost',
   [libpanvk_files, panvk_entrypoints],
   include_directories : [
-    inc_include,
+    inc_vk,
     inc_src,
     inc_compiler,
     inc_gallium, # XXX: util/format/u_formats.h

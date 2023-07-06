@@ -117,7 +117,7 @@ libvulkan_powervr_mesa = shared_library(
     pvr_includes,
     inc_gallium_aux,
     inc_imagination,
-    inc_include,
+    inc_vk,
     inc_src,
     inc_mesa,
     inc_gallium,
