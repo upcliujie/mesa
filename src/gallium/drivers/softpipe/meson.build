@@ -78,7 +78,7 @@ files_softpipe = files(
 libsoftpipe = static_library(
   'softpipe',
   files_softpipe,
-  include_directories : [inc_gallium_aux, inc_gallium, inc_include, inc_src],
+  include_directories : [inc_gallium_aux, inc_gallium, inc_gl, inc_src],
   c_args : [c_msvc_compat_args],
   gnu_symbol_visibility : 'hidden',
   dependencies : idep_nir,

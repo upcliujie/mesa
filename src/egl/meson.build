@@ -25,7 +25,7 @@ c_args_for_egl = [asan_c_args]
 cpp_args_for_egl = []
 link_for_egl = []
 deps_for_egl = []
-incs_for_egl = [inc_include, inc_src, inc_egl]
+incs_for_egl = [inc_gl, inc_src, inc_egl]
 
 if with_gallium_softpipe
   c_args_for_egl += '-DGALLIUM_SOFTPIPE'

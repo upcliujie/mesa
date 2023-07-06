@@ -33,7 +33,7 @@ args_gbm = [
 ]
 deps_gbm = []
 incs_gbm = [
-  include_directories('main'), inc_include, inc_src, inc_loader,
+  include_directories('main'), inc_gl, inc_gl, inc_src, inc_loader,
 ]
 
 if with_dri2

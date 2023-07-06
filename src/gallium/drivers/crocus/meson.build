@@ -58,7 +58,7 @@ foreach v : ['40', '45', '50', '60', '70', '75', '80']
   crocus_per_hw_ver_libs += static_library(
     'crocus_per_hw_ver@0@'.format(v),
     ['crocus_blorp.c', 'crocus_query.c', 'crocus_state.c', 'crocus_blt.c', gen_xml_pack],
-    include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_intel],
+    include_directories : [inc_gl, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_intel],
     c_args : [
       no_override_init_args, sse2_args,
       '-DGFX_VERx10=@0@'.format(v),
@@ -72,7 +72,7 @@ libcrocus = static_library(
   'crocus',
   [files_libcrocus, gen_xml_pack],
   include_directories : [
-    inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_intel,
+    inc_gl, inc_src, inc_gallium, inc_gallium_aux, inc_intel,
     inc_gallium_drivers,
     # these should not be necessary, but main/macros.h...
     inc_mesa, inc_mapi

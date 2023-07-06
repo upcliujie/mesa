@@ -131,7 +131,7 @@ libr300 = static_library(
   'r300',
   files_r300, r300_nir_algebraic_c,
   include_directories : [
-    inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_gallium_drivers,
+    inc_src, inc_gl, inc_gallium, inc_gallium_aux, inc_gallium_drivers,
     inc_mesa,
   ],
   gnu_symbol_visibility : 'hidden',
@@ -162,7 +162,7 @@ if with_tests
         )
       ],
       include_directories : [
-        inc_src, inc_include, inc_gallium, inc_gallium_aux,
+        inc_src, inc_gl, inc_gallium, inc_gallium_aux,
         include_directories('compiler'),
       ],
       link_with : [libr300, libgallium],

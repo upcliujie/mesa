@@ -56,11 +56,11 @@ SOURCES = [
         'inc_folder': 'EGL',
         'sources': [
             Source('src/egl/generate/egl.xml',     'https://github.com/KhronosGroup/EGL-Registry/raw/main/api/egl.xml'),
-            Source('include/EGL/egl.h',            'https://github.com/KhronosGroup/EGL-Registry/raw/main/api/EGL/egl.h'),
-            Source('include/EGL/eglplatform.h',    'https://github.com/KhronosGroup/EGL-Registry/raw/main/api/EGL/eglplatform.h'),
-            Source('include/EGL/eglext.h',         'https://github.com/KhronosGroup/EGL-Registry/raw/main/api/EGL/eglext.h'),
-            Source('include/EGL/eglext_angle.h',   'https://chromium.googlesource.com/angle/angle/+/refs/heads/main/include/EGL/eglext_angle.h?format=TEXT'),
-            Source('include/EGL/eglmesaext.h',     None),
+            Source('src/mesa/include/EGL/egl.h',            'https://github.com/KhronosGroup/EGL-Registry/raw/main/api/EGL/egl.h'),
+            Source('src/mesa/include/EGL/eglplatform.h',    'https://github.com/KhronosGroup/EGL-Registry/raw/main/api/EGL/eglplatform.h'),
+            Source('src/mesa/include/EGL/eglext.h',         'https://github.com/KhronosGroup/EGL-Registry/raw/main/api/EGL/eglext.h'),
+            Source('src/mesa/include/EGL/eglext_angle.h',   'https://chromium.googlesource.com/angle/angle/+/refs/heads/main/include/EGL/eglext_angle.h?format=TEXT'),
+            Source('src/mesa/include/EGL/eglmesaext.h',     None),
         ],
     },
 
@@ -69,15 +69,15 @@ SOURCES = [
         'inc_folder': 'GL',
         'sources': [
             Source('src/mapi/glapi/registry/gl.xml', 'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/xml/gl.xml'),
-            Source('include/GL/glcorearb.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/glcorearb.h'),
-            Source('include/GL/glext.h',             'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/glext.h'),
-            Source('include/GL/glxext.h',            'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/glxext.h'),
-            Source('include/GL/wglext.h',            'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/wglext.h'),
-            Source('include/GL/gl.h',                None),  # FIXME: I don't know what the canonical source is
-            Source('include/GL/glx.h',               None),  # FIXME: I don't know what the canonical source is
-            Source('include/GL/internal/',           None),
-            Source('include/GL/mesa_glinterop.h',    None),
-            Source('include/GL/osmesa.h',            None),
+            Source('src/mesa/include/GL/glcorearb.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/glcorearb.h'),
+            Source('src/mesa/include/GL/glext.h',             'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/glext.h'),
+            Source('src/mesa/include/GL/glxext.h',            'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/glxext.h'),
+            Source('src/mesa/include/GL/wglext.h',            'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GL/wglext.h'),
+            Source('src/mesa/include/GL/gl.h',                None),  # FIXME: I don't know what the canonical source is
+            Source('src/mesa/include/GL/glx.h',               None),  # FIXME: I don't know what the canonical source is
+            Source('src/mesa/include/GL/internal/',           None),
+            Source('src/mesa/include/GL/mesa_glinterop.h',    None),
+            Source('src/mesa/include/GL/osmesa.h',            None),
         ],
     },
 
@@ -85,10 +85,10 @@ SOURCES = [
         'api': 'gles1',
         'inc_folder': 'GLES',
         'sources': [
-            Source('include/GLES/gl.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/gl.h'),
-            Source('include/GLES/glplatform.h', 'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/glplatform.h'),
-            Source('include/GLES/glext.h',      'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/glext.h'),
-            Source('include/GLES/egl.h',        'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/egl.h'),
+            Source('src/mesa/include/GLES/gl.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/gl.h'),
+            Source('src/mesa/include/GLES/glplatform.h', 'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/glplatform.h'),
+            Source('src/mesa/include/GLES/glext.h',      'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/glext.h'),
+            Source('src/mesa/include/GLES/egl.h',        'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES/egl.h'),
         ],
     },
 
@@ -96,9 +96,9 @@ SOURCES = [
         'api': 'gles2',
         'inc_folder': 'GLES2',
         'sources': [
-            Source('include/GLES2/gl2.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES2/gl2.h'),
-            Source('include/GLES2/gl2platform.h', 'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES2/gl2platform.h'),
-            Source('include/GLES2/gl2ext.h',      'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES2/gl2ext.h'),
+            Source('src/mesa/include/GLES2/gl2.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES2/gl2.h'),
+            Source('src/mesa/include/GLES2/gl2platform.h', 'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES2/gl2platform.h'),
+            Source('src/mesa/include/GLES2/gl2ext.h',      'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES2/gl2ext.h'),
         ],
     },
 
@@ -106,11 +106,11 @@ SOURCES = [
         'api': 'gles3',
         'inc_folder': 'GLES3',
         'sources': [
-            Source('include/GLES3/gl3.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl3.h'),
-            Source('include/GLES3/gl31.h',        'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl31.h'),
-            Source('include/GLES3/gl32.h',        'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl32.h'),
-            Source('include/GLES3/gl3platform.h', 'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl3platform.h'),
-            Source('include/GLES3/gl3ext.h',      None),  # FIXME: I don't know what the canonical source is
+            Source('src/mesa/include/GLES3/gl3.h',         'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl3.h'),
+            Source('src/mesa/include/GLES3/gl31.h',        'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl31.h'),
+            Source('src/mesa/include/GLES3/gl32.h',        'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl32.h'),
+            Source('src/mesa/include/GLES3/gl3platform.h', 'https://github.com/KhronosGroup/OpenGL-Registry/raw/main/api/GLES3/gl3platform.h'),
+            Source('src/mesa/include/GLES3/gl3ext.h',      None),  # FIXME: I don't know what the canonical source is
         ],
     },
 

@@ -43,7 +43,7 @@ panfrost_includes = [
   inc_mesa,
   inc_gallium,
   inc_gallium_aux,
-  inc_include,
+  inc_gl,
   inc_src,
   inc_panfrost,
 ]
