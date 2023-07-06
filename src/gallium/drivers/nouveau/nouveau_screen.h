@@ -161,4 +161,6 @@ nouveau_pushbuf_create(struct nouveau_screen *, struct nouveau_context *, struct
                        struct nouveau_pushbuf **);
 void nouveau_pushbuf_destroy(struct nouveau_pushbuf **);
 
+static uint8_t sm_for_chipset(uint16_t chipset);
+
 #endif

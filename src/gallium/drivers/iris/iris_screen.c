@@ -639,8 +639,14 @@ iris_get_compute_param(struct pipe_screen *pscreen,
       /* We could probably allow more; this is the OpenCL minimum */
       RET((uint64_t []) { 1024 });
 
+   case PIPE_COMPUTE_CAP_ATTRIBUTE_QUERY_INTEL:
+      RET(((uint64_t[]){ devinfo->num_slices,
+                          devinfo->max_subslices_per_slice,
+                          devinfo->max_eus_per_subslice,
+                          devinfo->num_thread_per_eu }));
+
    default:
-      unreachable("unknown compute param");
+      return u_pipe_screen_get_compute_param_defaults(pscreen, ir_type, param, ret);
    }
 }
 

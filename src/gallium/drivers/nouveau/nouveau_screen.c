@@ -1,3 +1,4 @@
+#include "gallium/drivers/svga/include/svga_types.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
 #include "pipe/p_state.h"
@@ -185,6 +186,21 @@ reserve_vma(uintptr_t start, uint64_t reserved_size)
    if (reserved == MAP_FAILED)
       return NULL;
    return reserved;
+}
+
+static void
+nouveau_query_graphics_ip(struct pipe_screen *pscreen,
+                          struct pipe_graphics_ip *ip)
+{
+   const struct nouveau_screen *screen = nouveau_screen(pscreen);
+   struct nouveau_device *dev = screen->device;
+
+   const uint8_t sm = sm_for_chipset(dev->chipset);
+
+   ip->name = "CUDA Compute Capability";
+   ip->major = sm & 0xF0;
+   ip->minor = sm & 0x0F;
+   ip->patch = 0;
 }
 
 static void
@@ -402,6 +418,7 @@ nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
    pscreen->fence_reference = nouveau_screen_fence_ref;
    pscreen->fence_finish = nouveau_screen_fence_finish;
 
+   pscreen->query_graphics_ip = nouveau_query_graphics_ip;
    pscreen->query_memory_info = nouveau_query_memory_info;
 
    nouveau_disk_cache_create(screen);
@@ -494,4 +511,62 @@ nouveau_context_init(struct nouveau_context *context, struct nouveau_screen *scr
       return ret;
 
    return 0;
+}
+
+/* coppied from nvk: https://gitlab.freedesktop.org/nouveau/mesa/-/blob/nvk/main/src/nouveau/winsys/nouveau_device.c */
+static uint8_t
+sm_for_chipset(uint16_t chipset)
+{
+   if (chipset >= 0x180)
+      return 0x90;
+   else if (chipset == 0x17b)
+      return 0x87;
+   else if (chipset >= 0x172)
+      return 0x86;
+   else if (chipset >= 0x170)
+      return 0x80;
+   else if (chipset >= 0x160)
+      return 0x75;
+   else if (chipset >= 0x14b)
+      return 0x72;
+   else if (chipset >= 0x140)
+      return 0x70;
+   else if (chipset >= 0x13b)
+      return 0x62;
+   else if (chipset >= 0x132)
+      return 0x61;
+   else if (chipset >= 0x130)
+      return 0x60;
+   else if (chipset >= 0x12b)
+      return 0x53;
+   else if (chipset >= 0x120)
+      return 0x52;
+   else if (chipset >= 0x110)
+      return 0x50;
+   // TODO: 0x37
+   else if (chipset >= 0x0f0)
+      return 0x35;
+   else if (chipset >= 0x0ea)
+      return 0x32;
+   else if (chipset >= 0x0e0)
+      return 0x30;
+   // GF110 is SM20
+   else if (chipset == 0x0c8)
+      return 0x20;
+   else if (chipset >= 0x0c1)
+      return 0x21;
+   else if (chipset >= 0x0c0)
+      return 0x20;
+   else if (chipset >= 0x0a3)
+      return 0x12;
+   // GT200 is SM13
+   else if (chipset >= 0x0a0)
+      return 0x13;
+   else if (chipset >= 0x080)
+      return 0x11;
+   // this has to be == because 0x63 is older than 0x50 and has no compute
+   else if (chipset == 0x050)
+      return 0x10;
+   // no compute
+   return 0x00;
 }

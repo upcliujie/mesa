@@ -121,6 +121,14 @@ dd_screen_get_timestamp(struct pipe_screen *_screen)
    return screen->get_timestamp(screen);
 }
 
+static void dd_screen_query_graphics_ip(struct pipe_screen *_screen,
+                                        struct pipe_graphics_ip *ip)
+{
+   struct pipe_screen *screen = dd_screen(_screen)->screen;
+
+   screen->query_graphics_ip(screen, ip);
+}
+
 static void dd_screen_query_memory_info(struct pipe_screen *_screen,
                                         struct pipe_memory_info *info)
 {
@@ -624,6 +632,7 @@ ddebug_screen_create(struct pipe_screen *screen)
    dscreen->base.get_paramf = dd_screen_get_paramf;
    dscreen->base.get_compute_param = dd_screen_get_compute_param;
    dscreen->base.get_shader_param = dd_screen_get_shader_param;
+   dscreen->base.query_graphics_ip = dd_screen_query_graphics_ip;
    dscreen->base.query_memory_info = dd_screen_query_memory_info;
    /* get_video_param */
    /* get_compute_param */

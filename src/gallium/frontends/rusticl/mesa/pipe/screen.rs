@@ -37,7 +37,7 @@ macro_rules! compute_param_impl {
             fn compute_param(&self, cap: pipe_compute_cap) -> $ty {
                 let size = self.compute_param_wrapped(cap, ptr::null_mut());
                 let mut d = [0; size_of::<$ty>()];
-                assert_eq!(size as usize, d.len());
+                debug_assert_eq!(size as usize, d.len());
                 self.compute_param_wrapped(cap, d.as_mut_ptr().cast());
                 <$ty>::from_ne_bytes(d)
             }
@@ -105,6 +105,22 @@ impl PipeScreen {
             },
             self,
         )
+    }
+
+    pub fn graphics_ip(&self) -> Option<pipe_graphics_ip> {
+        let mut buf = pipe_graphics_ip {
+            ..Default::default()
+        };
+        let ptr = &mut buf;
+
+        unsafe {
+            (*self.screen).query_graphics_ip?(self.screen, ptr);
+        }
+
+        if c_string_to_string(buf.name).is_empty() {
+            return None;
+        }
+        Some(buf)
     }
 
     fn resource_create(&self, tmpl: &pipe_resource) -> Option<PipeResource> {
@@ -232,6 +248,17 @@ impl PipeScreen {
             let s = *self.screen;
             c_string_to_string(s.get_name.unwrap()(self.screen))
         }
+    }
+
+    pub fn memory_info(&self) -> Option<pipe_memory_info> {
+        let mut buf = pipe_memory_info {
+            ..Default::default()
+        };
+        let ptr = &mut buf;
+        unsafe {
+            (*self.screen).query_memory_info?(self.screen, ptr);
+        }
+        Some(buf)
     }
 
     pub fn device_node_mask(&self) -> Option<u32> {

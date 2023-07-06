@@ -16,6 +16,8 @@ use std::ffi::CStr;
 use std::mem::{size_of, MaybeUninit};
 use std::ptr;
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 const SPIRV_SUPPORT_STRING: &str = "SPIR-V_1.0 SPIR-V_1.1 SPIR-V_1.2 SPIR-V_1.3 SPIR-V_1.4";
 const SPIRV_SUPPORT: [cl_name_version; 5] = [
@@ -35,6 +37,7 @@ impl CLInfo<cl_device_info> for cl_device_id {
         // curses you CL_DEVICE_INTEGER_DOT_PRODUCT_ACCELERATION_PROPERTIES_4x8BIT_PACKED_KHR
         #[allow(non_upper_case_globals)]
         Ok(match q {
+            // CORE
             CL_DEVICE_ADDRESS_BITS => cl_prop::<cl_uint>(dev.address_bits()),
             CL_DEVICE_ATOMIC_FENCE_CAPABILITIES => cl_prop::<cl_device_atomic_capabilities>(
                 (CL_DEVICE_ATOMIC_ORDER_RELAXED
@@ -50,14 +53,9 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_BUILT_IN_KERNELS => cl_prop::<&str>(""),
             CL_DEVICE_BUILT_IN_KERNELS_WITH_VERSION => cl_prop::<Vec<cl_name_version>>(Vec::new()),
             CL_DEVICE_COMPILER_AVAILABLE => cl_prop::<bool>(true),
-            CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL => {
-                cl_prop::<cl_device_device_enqueue_capabilities>(0)
-            }
+
             CL_DEVICE_DEVICE_ENQUEUE_CAPABILITIES => {
                 cl_prop::<cl_device_device_enqueue_capabilities>(0)
-            }
-            CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL => {
-                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
             }
             CL_DEVICE_DOUBLE_FP_CONFIG => cl_prop::<cl_device_fp_config>(
                 if dev.fp64_supported() {
@@ -97,9 +95,6 @@ impl CLInfo<cl_device_info> for cl_device_id {
                 }
                 .into(),
             ),
-            CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL => {
-                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
-            }
             CL_DEVICE_HOST_UNIFIED_MEMORY => cl_prop::<bool>(dev.unified_memory()),
             CL_DEVICE_IL_VERSION => cl_prop::<&str>(SPIRV_SUPPORT_STRING),
             CL_DEVICE_ILS_WITH_VERSION => cl_prop::<Vec<cl_name_version>>(SPIRV_SUPPORT.to_vec()),
@@ -115,42 +110,6 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_IMAGE3D_MAX_HEIGHT => cl_prop::<usize>(dev.image_3d_size()),
             CL_DEVICE_IMAGE3D_MAX_WIDTH => cl_prop::<usize>(dev.image_3d_size()),
             CL_DEVICE_IMAGE3D_MAX_DEPTH => cl_prop::<usize>(dev.image_3d_size()),
-            CL_DEVICE_INTEGER_DOT_PRODUCT_CAPABILITIES_KHR => {
-                cl_prop::<cl_device_integer_dot_product_capabilities_khr>(
-                    (CL_DEVICE_INTEGER_DOT_PRODUCT_INPUT_4x8BIT_PACKED_KHR
-                        | CL_DEVICE_INTEGER_DOT_PRODUCT_INPUT_4x8BIT_KHR)
-                        .into(),
-                )
-            }
-            CL_DEVICE_INTEGER_DOT_PRODUCT_ACCELERATION_PROPERTIES_8BIT_KHR => {
-                cl_prop::<ClDevIdpAccelProps>({
-                    let pack = dev.pack_32_4x8_supported();
-                    let sdot = dev.sdot_4x8_supported() && pack;
-                    let udot = dev.udot_4x8_supported() && pack;
-                    let sudot = dev.sudot_4x8_supported() && pack;
-                    IdpAccelProps::new(
-                        sdot.into(),
-                        udot.into(),
-                        sudot.into(),
-                        sdot.into(),
-                        udot.into(),
-                        sudot.into(),
-                    )
-                })
-            }
-            CL_DEVICE_INTEGER_DOT_PRODUCT_ACCELERATION_PROPERTIES_4x8BIT_PACKED_KHR => {
-                cl_prop::<ClDevIdpAccelProps>({
-                    IdpAccelProps::new(
-                        dev.sdot_4x8_supported().into(),
-                        dev.udot_4x8_supported().into(),
-                        dev.sudot_4x8_supported().into(),
-                        dev.sdot_4x8_supported().into(),
-                        dev.udot_4x8_supported().into(),
-                        dev.sudot_4x8_supported().into(),
-                    )
-                })
-            }
-
             CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED => {
                 cl_prop::<&CStr>(dev.screen().cl_cts_version())
             }
@@ -158,12 +117,6 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_LOCAL_MEM_SIZE => cl_prop::<cl_ulong>(dev.local_mem_size()),
             // TODO add query for CL_LOCAL vs CL_GLOBAL
             CL_DEVICE_LOCAL_MEM_TYPE => cl_prop::<cl_device_local_mem_type>(CL_GLOBAL),
-            CL_DEVICE_LUID_KHR => cl_prop::<[cl_uchar; CL_LUID_SIZE_KHR as usize]>(
-                dev.screen().device_luid().unwrap_or_default(),
-            ),
-            CL_DEVICE_LUID_VALID_KHR => {
-                cl_prop::<cl_bool>(dev.screen().device_luid().is_some().into())
-            }
             CL_DEVICE_MAX_CLOCK_FREQUENCY => cl_prop::<cl_uint>(dev.max_clock_freq()),
             CL_DEVICE_MAX_COMPUTE_UNITS => cl_prop::<cl_uint>(dev.max_compute_units()),
             // TODO atm implemented as mem_const
@@ -206,9 +159,6 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_NATIVE_VECTOR_WIDTH_INT => cl_prop::<cl_uint>(1),
             CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG => cl_prop::<cl_uint>(1),
             CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT => cl_prop::<cl_uint>(1),
-            CL_DEVICE_NODE_MASK_KHR => {
-                cl_prop::<cl_uint>(dev.screen().device_node_mask().unwrap_or_default())
-            }
             CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT => cl_prop::<bool>(false),
             CL_DEVICE_NUMERIC_VERSION => cl_prop::<cl_version>(dev.cl_version.into()),
             CL_DEVICE_OPENCL_C_ALL_VERSIONS => cl_prop::<&Vec<cl_name_version>>(&dev.clc_versions),
@@ -225,9 +175,6 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_PARTITION_MAX_SUB_DEVICES => cl_prop::<cl_uint>(0),
             CL_DEVICE_PARTITION_PROPERTIES => cl_prop::<Vec<cl_device_partition_property>>(vec![0]),
             CL_DEVICE_PARTITION_TYPE => cl_prop::<Vec<cl_device_partition_property>>(Vec::new()),
-            CL_DEVICE_PCI_BUS_INFO_KHR => {
-                cl_prop::<cl_device_pci_bus_info_khr>(dev.pci_info().ok_or(CL_INVALID_VALUE)?)
-            }
             CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS => cl_prop::<cl_uint>(0),
             CL_DEVICE_PIPE_MAX_PACKET_SIZE => cl_prop::<cl_uint>(0),
             CL_DEVICE_PIPE_SUPPORT => cl_prop::<bool>(false),
@@ -264,16 +211,77 @@ impl CLInfo<cl_device_info> for cl_device_id {
                 cl_prop::<cl_command_queue_properties>(CL_QUEUE_PROFILING_ENABLE.into())
             }
             CL_DEVICE_REFERENCE_COUNT => cl_prop::<cl_uint>(1),
-            CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL => {
-                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
-            }
-            CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL => {
-                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
-            }
             CL_DEVICE_SINGLE_FP_CONFIG => cl_prop::<cl_device_fp_config>(
                 (CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN) as cl_device_fp_config,
             ),
             CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS => cl_prop::<bool>(false),
+            CL_DEVICE_TYPE => cl_prop::<cl_device_type>(dev.device_type(false)),
+            CL_DEVICE_VENDOR => cl_prop::<&str>(&dev.screen().device_vendor()),
+            CL_DEVICE_VENDOR_ID => cl_prop::<cl_uint>(dev.vendor_id()),
+            CL_DEVICE_VERSION => cl_prop::<&str>(&format!("OpenCL {} ", dev.cl_version.api_str())),
+            CL_DRIVER_VERSION => cl_prop::<&CStr>(unsafe { CStr::from_ptr(mesa_version_string()) }),
+            CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT => cl_prop::<bool>(false),
+
+            // KHR
+            // device_uuid
+            CL_DEVICE_LUID_KHR => cl_prop::<[cl_uchar; CL_LUID_SIZE_KHR as usize]>(
+                dev.screen().device_luid().unwrap_or_default(),
+            ),
+            CL_DEVICE_LUID_VALID_KHR => {
+                cl_prop::<cl_bool>(dev.screen().device_luid().is_some().into())
+            }
+            CL_DEVICE_NODE_MASK_KHR => {
+                cl_prop::<cl_uint>(dev.screen().device_node_mask().unwrap_or_default())
+            }
+            CL_DEVICE_UUID_KHR => cl_prop::<[cl_uchar; CL_UUID_SIZE_KHR as usize]>(
+                dev.screen().device_uuid().unwrap_or_default(),
+            ),
+            CL_DRIVER_UUID_KHR => cl_prop::<[cl_char; CL_UUID_SIZE_KHR as usize]>(
+                dev.screen().driver_uuid().unwrap_or_default(),
+            ),
+            // integer_dot_product
+            CL_DEVICE_INTEGER_DOT_PRODUCT_CAPABILITIES_KHR => {
+                cl_prop::<cl_device_integer_dot_product_capabilities_khr>(
+                    (CL_DEVICE_INTEGER_DOT_PRODUCT_INPUT_4x8BIT_PACKED_KHR
+                        | CL_DEVICE_INTEGER_DOT_PRODUCT_INPUT_4x8BIT_KHR)
+                        .into(),
+                )
+            }
+            CL_DEVICE_INTEGER_DOT_PRODUCT_ACCELERATION_PROPERTIES_8BIT_KHR => {
+                cl_prop::<ClDevIdpAccelProps>({
+                    let pack = dev.pack_32_4x8_supported();
+                    let sdot = dev.sdot_4x8_supported() && pack;
+                    let udot = dev.udot_4x8_supported() && pack;
+                    let sudot = dev.sudot_4x8_supported() && pack;
+                    IdpAccelProps::new(
+                        sdot.into(),
+                        udot.into(),
+                        sudot.into(),
+                        sdot.into(),
+                        udot.into(),
+                        sudot.into(),
+                    )
+                })
+            }
+            CL_DEVICE_INTEGER_DOT_PRODUCT_ACCELERATION_PROPERTIES_4x8BIT_PACKED_KHR => {
+                cl_prop::<ClDevIdpAccelProps>({
+                    IdpAccelProps::new(
+                        dev.sdot_4x8_supported().into(),
+                        dev.udot_4x8_supported().into(),
+                        dev.sudot_4x8_supported().into(),
+                        dev.sdot_4x8_supported().into(),
+                        dev.udot_4x8_supported().into(),
+                        dev.sudot_4x8_supported().into(),
+                    )
+                })
+            }
+            // pci_bus_info
+            CL_DEVICE_PCI_BUS_INFO_KHR => {
+                cl_prop::<cl_device_pci_bus_info_khr>(dev.pci_info().ok_or(CL_INVALID_VALUE)?)
+            }
+
+            // ARM
+            // cl_arm_shared_virtual_memory
             CL_DEVICE_SVM_CAPABILITIES | CL_DEVICE_SVM_CAPABILITIES_ARM => {
                 cl_prop::<cl_device_svm_capabilities>(
                     if dev.svm_supported() {
@@ -286,18 +294,135 @@ impl CLInfo<cl_device_info> for cl_device_id {
                     .into(),
                 )
             }
-            CL_DEVICE_TYPE => cl_prop::<cl_device_type>(dev.device_type(false)),
-            CL_DEVICE_UUID_KHR => cl_prop::<[cl_uchar; CL_UUID_SIZE_KHR as usize]>(
-                dev.screen().device_uuid().unwrap_or_default(),
+            // AMD
+            // device_attribute_query
+            CL_DEVICE_AVAILABLE_ASYNC_QUEUES_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_BOARD_NAME_AMD => cl_prop::<&str>(&dev.screen.name()),
+            CL_DEVICE_GFXIP_MAJOR_AMD => {
+                cl_prop::<Option<cl_uint>>(dev.screen.graphics_ip().map(|i| i.major))
+            }
+            CL_DEVICE_GFXIP_MINOR_AMD => {
+                cl_prop::<Option<cl_uint>>(dev.screen.graphics_ip().map(|i| i.minor))
+            }
+            // as per clinfo:
+            /*
+                returns 1 or 2 values depending on how it's called: if it's called with a
+                szval < 2*sizeof(size_t), it will only return 1 value, otherwise it will return 2.
+                At least now these are documented in the ROCm source code: the first value
+                is the total amount of free memory, and the second is the size of the largest free block
+            */
+            // I assume returning one value is a backwards compat thing so just return both.
+            CL_DEVICE_GLOBAL_FREE_MEMORY_AMD => {
+                let mem_info = dev.screen.memory_info();
+
+                let ret = mem_info.map(|m| {
+                    let free = m.avail_device_memory as usize;
+                    let total = m.total_device_memory as usize;
+                    [free, total]
+                });
+                cl_prop::<Option<[usize; 2]>>(ret)
+            }
+            // max_tcc_blocks
+            CL_DEVICE_GLOBAL_MEM_CHANNELS_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_GLOBAL_MEM_CHANNEL_BANKS_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_GLOBAL_MEM_CHANNEL_BANK_WIDTH_AMD => cl_prop::<cl_uint>(256u32),
+            CL_DEVICE_LOCAL_MEM_BANKS_AMD => cl_prop::<cl_uint>(32u32),
+            CL_DEVICE_LOCAL_MEM_SIZE_PER_COMPUTE_UNIT_AMD => cl_prop::<cl_uint>(64 * 1024u32),
+            CL_DEVICE_MAX_WORK_GROUP_SIZE_AMD => {
+                cl_prop::<cl_uint>(dev.max_threads_per_block().try_into().unwrap_or_default())
+            }
+            CL_DEVICE_PCIE_ID_AMD => cl_prop::<Option<cl_int>>(dev.pci_id()),
+            CL_DEVICE_PREFERRED_CONSTANT_BUFFER_SIZE_AMD => cl_prop::<cl_uint>(16 * 1024u32),
+            CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_AMD => cl_prop::<cl_int>(0),
+            CL_DEVICE_PROFILING_TIMER_OFFSET_AMD => {
+                let res = dev.screen.param(pipe_cap::PIPE_CAP_TIMER_RESOLUTION) as u64;
+
+                // TODO: use device timer rather than host
+                let offset = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .map_err(|_| CL_PROFILING_INFO_NOT_AVAILABLE)?
+                    .as_nanos() as u64;
+
+                let ret = offset - (offset % res);
+                cl_prop::<cl_ulong>(ret)
+            }
+            CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD => cl_prop::<cl_uint>(1u32),
+            CL_DEVICE_SIMD_PER_COMPUTE_UNIT_AMD => cl_prop::<cl_uint>(4u32),
+            // 32 if rdna, 16 otherwise
+            CL_DEVICE_SIMD_WIDTH_AMD => {
+                let ret = if dev.screen.graphics_ip().map(|i| i.major) >= Some(10) {
+                    32
+                } else {
+                    16
+                };
+                cl_prop::<cl_uint>(ret)
+            }
+            CL_DEVICE_THREAD_TRACE_SUPPORTED_AMD => cl_prop::<cl_bool>(false.into()),
+            CL_DEVICE_TOPOLOGY_AMD => {
+                let pci = dev.pci_info().unwrap();
+
+                let topology = cl_device_topology_amd {
+                    pcie: cl_device_topology_amd__bindgen_ty_2 {
+                        type_: 1,
+                        unused: [0; 17],
+                        bus: pci.pci_bus as u8,
+                        device: pci.pci_device as u8,
+                        function: pci.pci_function as u8,
+                    },
+                };
+                cl_prop::<cl_device_topology_amd>(topology)
+            }
+            CL_DEVICE_WAVEFRONT_WIDTH_AMD => cl_prop::<cl_uint>(dev.subgroups()),
+
+            // INTEL
+            // device_attribute_query
+            CL_DEVICE_FEATURE_CAPABILITIES_INTEL => {
+                cl_prop::<cl_device_feature_capabilities_intel>(0)
+            }
+            CL_DEVICE_ID_INTEL => cl_prop::<Option<cl_uint>>(dev.pci_id().map(|a| a as cl_uint)),
+            CL_DEVICE_IP_VERSION_INTEL => cl_prop::<cl_version>(0),
+            CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL => cl_prop::<cl_uint>(0),
+            CL_DEVICE_NUM_SLICES_INTEL => cl_prop::<cl_uint>(0),
+            CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL => cl_prop::<cl_uint>(0),
+            CL_DEVICE_NUM_THREADS_PER_EU_INTEL => cl_prop::<cl_uint>(0),
+            // unified_shared_memory
+            CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL => {
+                cl_prop::<cl_device_device_enqueue_capabilities>(0)
+            }
+            CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL => {
+                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
+            }
+            CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL => {
+                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
+            }
+            CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL => {
+                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
+            }
+            CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL => {
+                cl_prop::<cl_device_unified_shared_memory_capabilities_intel>(0)
+            }
+
+            // NVIDIA
+            // device_attribute_query
+            CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV => cl_prop::<cl_uint>(
+                dev.screen
+                    .graphics_ip()
+                    .map(|i| i.major)
+                    .unwrap_or_default(),
             ),
-            CL_DEVICE_VENDOR => cl_prop::<&str>(&dev.screen().device_vendor()),
-            CL_DEVICE_VENDOR_ID => cl_prop::<cl_uint>(dev.vendor_id()),
-            CL_DEVICE_VERSION => cl_prop::<&str>(&format!("OpenCL {} ", dev.cl_version.api_str())),
-            CL_DRIVER_UUID_KHR => cl_prop::<[cl_char; CL_UUID_SIZE_KHR as usize]>(
-                dev.screen().driver_uuid().unwrap_or_default(),
+            CL_DEVICE_COMPUTE_CAPABILITY_MINOR_NV => cl_prop::<cl_uint>(
+                dev.screen
+                    .graphics_ip()
+                    .map(|i| i.minor)
+                    .unwrap_or_default(),
             ),
-            CL_DRIVER_VERSION => cl_prop::<&CStr>(unsafe { CStr::from_ptr(mesa_version_string()) }),
-            CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT => cl_prop::<bool>(false),
+            CL_DEVICE_GPU_OVERLAP_NV => cl_prop::<cl_bool>(0),
+            CL_DEVICE_INTEGRATED_MEMORY_NV => cl_prop::<cl_bool>(dev.unified_memory().into()),
+            // probably fine?
+            CL_DEVICE_KERNEL_EXEC_TIMEOUT_NV => cl_prop::<cl_bool>(false.into()),
+            CL_DEVICE_REGISTERS_PER_BLOCK_NV => cl_prop::<cl_uint>(0),
+            CL_DEVICE_WARP_SIZE_NV => cl_prop::<cl_uint>(0),
+
             // CL_INVALID_VALUE if param_name is not one of the supported values
             // CL_INVALID_VALUE [...] if param_name is a value that is available as an extension and the corresponding extension is not supported by the device.
             _ => return Err(CL_INVALID_VALUE),

@@ -548,20 +548,9 @@ softpipe_get_compute_param(struct pipe_screen *_screen,
          *max_local_size = 32768;
       }
       return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZE:
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      break;
+   default:
+      return u_pipe_screen_get_compute_param_defaults(_screen, ir_type, param, ret);
    }
-   return 0;
 }
 
 static int

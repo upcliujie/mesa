@@ -847,10 +847,12 @@ fd_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
       RET((uint32_t[]){32}); // TODO
 
    case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      RET((uint64_t[]){ compiler->max_variable_workgroup_size });
+      RET((uint64_t[]){compiler->max_variable_workgroup_size});
+
+   default:
+      return u_pipe_screen_get_compute_param_defaults(pscreen, ir_type, param, ret);
    }
 
-   return 0;
 }
 
 static const void *

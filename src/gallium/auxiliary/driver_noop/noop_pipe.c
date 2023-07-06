@@ -577,6 +577,15 @@ static bool noop_fence_finish(struct pipe_screen *screen,
    return true;
 }
 
+static void noop_query_graphics_ip(struct pipe_screen *pscreen,
+                                   struct pipe_graphics_ip *ip)
+{
+   struct noop_pipe_screen *noop_screen = (struct noop_pipe_screen*)pscreen;
+   struct pipe_screen *screen = noop_screen->oscreen;
+
+   screen->query_graphics_ip(screen, ip);
+}
+
 static void noop_query_memory_info(struct pipe_screen *pscreen,
                                    struct pipe_memory_info *info)
 {
@@ -788,6 +797,7 @@ struct pipe_screen *noop_screen_create(struct pipe_screen *oscreen)
    screen->get_timestamp = noop_get_timestamp;
    screen->fence_reference = noop_fence_reference;
    screen->fence_finish = noop_fence_finish;
+   screen->query_graphics_ip = noop_query_graphics_ip;
    screen->query_memory_info = noop_query_memory_info;
    screen->get_disk_shader_cache = noop_get_disk_shader_cache;
    screen->get_compiler_options = noop_get_compiler_options;

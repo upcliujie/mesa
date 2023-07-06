@@ -557,6 +557,41 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    }
 }
 
+int
+u_pipe_screen_get_compute_param_defaults(struct pipe_screen *pscreen,
+                                         enum pipe_shader_ir ir_type,
+                                         enum pipe_compute_cap param,
+                                         void *ret)
+{
+   assert(param < PIPE_COMPUTE_CAP_LAST);
+   
+   switch (param) {
+   case PIPE_COMPUTE_CAP_ADDRESS_BITS: 
+   case PIPE_COMPUTE_CAP_IR_TARGET:
+   case PIPE_COMPUTE_CAP_GRID_DIMENSION: 
+   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
+   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
+   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
+   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
+   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE :
+   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
+   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
+   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
+   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
+   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
+   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
+   case PIPE_COMPUTE_CAP_SUBGROUP_SIZE:
+   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
+   case PIPE_COMPUTE_CAP_ATTRIBUTE_QUERY_AMD:
+   case PIPE_COMPUTE_CAP_ATTRIBUTE_QUERY_INTEL:
+   case PIPE_COMPUTE_CAP_ATTRIBUTE_QUERY_NVIDIA:
+      return 0;
+   default:
+      unreachable("Unknown compute param");
+   }
+   return 0;
+}
+
 uint64_t u_default_get_timestamp(UNUSED struct pipe_screen *screen)
 {
    return os_time_get_nano();
