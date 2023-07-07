@@ -349,6 +349,24 @@ get_shader_module_for_stage_optimal_key(struct zink_context *ctx, struct zink_sc
    return NULL;
 }
 
+ALWAYS_INLINE static uint16_t *
+get_shader_module_optimal_key(struct zink_context *ctx, struct zink_gfx_program *prog,
+                              struct zink_shader *zs, gl_shader_stage stage)
+{
+   uint16_t *key;
+   if (zs == prog->last_vertex_stage) {
+      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.vs_base;
+   } else if (stage == MESA_SHADER_FRAGMENT) {
+      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.fs;
+   } else if (stage == MESA_SHADER_TESS_CTRL && zs->non_fs.is_generated) {
+      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.tcs;
+   } else {
+      key = NULL;
+   }
+
+   return key;
+}
+
 ALWAYS_INLINE static struct zink_shader_module *
 get_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_screen *screen,
                                     struct zink_shader *zs, struct zink_gfx_program *prog,
