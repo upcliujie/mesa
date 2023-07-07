@@ -65,6 +65,17 @@ _eglParseKHRImageAttribs(_EGLImageAttribs *attrs, _EGLDisplay *disp,
 
       attrs->ProtectedContent = val;
       break;
+   case EGL_GL_COLORSPACE:
+      switch (val) {
+      case EGL_GL_COLORSPACE_SRGB:
+      case EGL_GL_COLORSPACE_LINEAR:
+      case EGL_GL_COLORSPACE_DEFAULT_EXT:
+         break;
+      default:
+         return EGL_BAD_PARAMETER;
+      }
+      attrs->Colorspace = val;
+      break;
    default:
       return EGL_BAD_PARAMETER;
    }
