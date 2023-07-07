@@ -1145,6 +1145,7 @@ struct zink_gfx_program {
    struct blob blobs[ZINK_GFX_SHADER_COUNT];
    struct util_dynarray shader_cache[ZINK_GFX_SHADER_COUNT][2][2]; //normal, nonseamless cubes, inline uniforms
    struct set variants;
+   struct zink_gfx_program *base_variant; //quick access to base varitant (only !NULL when done compiling)
    unsigned inlined_variant_count[ZINK_GFX_SHADER_COUNT];
    uint32_t default_variant_hash;
    uint8_t inline_variants; //which stages are using inlined uniforms

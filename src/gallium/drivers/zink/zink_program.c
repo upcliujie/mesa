@@ -832,8 +832,8 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
          /* if (!async) */
          /*    ctx->gfx_pipeline_state.modules_changed |= changed; */
       }
-      prog->last_variant_hash = ctx->gfx_pipeline_state.optimal_key;
-      prog->st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
+      variant_prog->last_variant_hash = prog->last_variant_hash = ctx->gfx_pipeline_state.optimal_key;
+      variant_prog->st_key = prog->st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
    }
    return async_done;
 }
@@ -893,7 +893,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       if (entry) {
          prog = (struct zink_gfx_program*)entry->data;
          ctx->curr_program_uber = ctx->curr_program = prog;
-         if (needs_emulation) {
+         if (!prog->base_variant || needs_emulation) {
             struct program_variant_key prog_variant_key = {0};
             prog_variant_key.key = ctx->gfx_pipeline_state.optimal_key;
             prog_variant_key.st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
@@ -924,8 +924,15 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
             } else if(variant_prog_ready) {
                /* variant prog is ready, use it */
                ctx->curr_program = variant;
+               if (!needs_emulation)
+                  prog->base_variant = variant;
             }
             needs_uber |= !async_done || !variant_prog_ready;
+         } else if (prog->base_variant && !needs_emulation) {
+            ctx->curr_program = prog->base_variant;
+            ctx->curr_program_uber->last_variant_hash = ctx->curr_program->last_variant_hash;
+            ctx->curr_program_uber->st_key = ctx->curr_program->st_key;
+            needs_uber = false;
          }
          ctx->gfx_pipeline_state.uber_required = needs_uber;
 
@@ -934,7 +941,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       } else {
          ctx->dirty_gfx_stages |= ctx->shader_stages;
          prog = create_gfx_program_separable(ctx, ctx->gfx_stages, ctx->gfx_pipeline_state.dyn_state2.vertices_per_patch);
-         ctx->gfx_pipeline_state.uber_required = needs_emulation;
+         ctx->gfx_pipeline_state.uber_required = true;
          prog->base.removed = false;
          _mesa_hash_table_insert_pre_hashed(ht, hash, prog->shaders, prog);
          if (!prog->is_separable) {
@@ -948,7 +955,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       if (prog && prog != ctx->curr_program)
          zink_batch_reference_program(&ctx->batch, &prog->base);
       ctx->curr_program_uber = prog;
-      if (!needs_emulation || ctx->gfx_pipeline_state.uber_required)
+      if (ctx->gfx_pipeline_state.uber_required)
          ctx->curr_program = prog;
       ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->last_variant_hash;
       ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
