@@ -3298,7 +3298,8 @@ dri2_egl_unref_sync(struct dri2_egl_display *dri2_dpy,
    if (p_atomic_dec_zero(&dri2_sync->refcount)) {
       switch (dri2_sync->base.Type) {
       case EGL_SYNC_REUSABLE_KHR:
-         cnd_destroy(&dri2_sync->cond);
+         util_cnd_monotonic_destroy(&dri2_sync->cond);
+         util_mtx_monotonic_destroy(&dri2_sync->mutex);
          break;
       case EGL_SYNC_NATIVE_FENCE_ANDROID:
          if (dri2_sync->base.SyncFd != EGL_NO_NATIVE_FENCE_FD_ANDROID)
@@ -3322,8 +3323,6 @@ dri2_create_sync(_EGLDisplay *disp, EGLenum type, const EGLAttrib *attrib_list)
    struct dri2_egl_display *dri2_dpy = dri2_egl_display_lock(disp);
    struct dri2_egl_context *dri2_ctx = dri2_egl_context(ctx);
    struct dri2_egl_sync *dri2_sync;
-   EGLint ret;
-   pthread_condattr_t attr;
 
    dri2_sync = calloc(1, sizeof(struct dri2_egl_sync));
    if (!dri2_sync) {
@@ -3364,25 +3363,13 @@ dri2_create_sync(_EGLDisplay *disp, EGLenum type, const EGLAttrib *attrib_list)
       break;
 
    case EGL_SYNC_REUSABLE_KHR:
-      /* initialize attr */
-      ret = pthread_condattr_init(&attr);
-
-      if (ret) {
+      if (util_mtx_monotonic_init(&dri2_sync->mutex, mtx_plain) != thrd_success) {
          _eglError(EGL_BAD_ACCESS, "eglCreateSyncKHR");
          goto fail;
       }
 
-      /* change clock attribute to CLOCK_MONOTONIC */
-      ret = pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-
-      if (ret) {
-         _eglError(EGL_BAD_ACCESS, "eglCreateSyncKHR");
-         goto fail;
-      }
-
-      ret = pthread_cond_init(&dri2_sync->cond, &attr);
-
-      if (ret) {
+      if (util_cnd_monotonic_init(&dri2_sync->cond) != thrd_success) {
+         util_mtx_monotonic_destroy(&dri2_sync->mutex);
          _eglError(EGL_BAD_ACCESS, "eglCreateSyncKHR");
          goto fail;
       }
@@ -3431,7 +3418,7 @@ dri2_destroy_sync(_EGLDisplay *disp, _EGLSync *sync)
        dri2_sync->base.SyncStatus == EGL_UNSIGNALED_KHR) {
       dri2_sync->base.SyncStatus = EGL_SIGNALED_KHR;
       /* unblock all threads currently blocked by sync */
-      err = cnd_broadcast(&dri2_sync->cond);
+      err = util_cnd_monotonic_broadcast(&dri2_sync->cond);
 
       if (err) {
          _eglError(EGL_BAD_ACCESS, "eglDestroySyncKHR");
@@ -3529,9 +3516,9 @@ dri2_client_wait_sync(_EGLDisplay *disp, _EGLSync *sync,
 
       /* if timeout is EGL_FOREVER_KHR, it should wait without any timeout.*/
       if (timeout == EGL_FOREVER_KHR) {
-         mtx_lock(&dri2_sync->mutex);
-         cnd_wait(&dri2_sync->cond, &dri2_sync->mutex);
-         mtx_unlock(&dri2_sync->mutex);
+         util_mtx_monotonic_lock(&dri2_sync->mutex);
+         util_cnd_monotonic_wait(&dri2_sync->cond, &dri2_sync->mutex);
+         util_mtx_monotonic_unlock(&dri2_sync->mutex);
       } else {
          /* if reusable sync has not been yet signaled */
          if (dri2_sync->base.SyncStatus != EGL_SIGNALED_KHR) {
@@ -3541,7 +3528,7 @@ dri2_client_wait_sync(_EGLDisplay *disp, _EGLSync *sync,
 
             /* We override the clock to monotonic when creating the condition
              * variable. */
-            clock_gettime(CLOCK_MONOTONIC, &current);
+            timespec_get(&current, TIME_MONOTONIC);
 
             /* calculating when to expire */
             expire.tv_nsec = timeout % 1000000000L;
@@ -3556,9 +3543,9 @@ dri2_client_wait_sync(_EGLDisplay *disp, _EGLSync *sync,
                expire.tv_nsec -= 1000000000L;
             }
 
-            mtx_lock(&dri2_sync->mutex);
-            ret = cnd_timedwait(&dri2_sync->cond, &dri2_sync->mutex, &expire);
-            mtx_unlock(&dri2_sync->mutex);
+            util_mtx_monotonic_lock(&dri2_sync->mutex);
+            ret = util_cnd_monotonic_timedwait(&dri2_sync->cond, &dri2_sync->mutex, &expire);
+            util_mtx_monotonic_unlock(&dri2_sync->mutex);
 
             if (ret == thrd_timedout) {
                if (dri2_sync->base.SyncStatus == EGL_UNSIGNALED_KHR) {
@@ -3593,7 +3580,7 @@ dri2_signal_sync(_EGLDisplay *disp, _EGLSync *sync, EGLenum mode)
    dri2_sync->base.SyncStatus = mode;
 
    if (mode == EGL_SIGNALED_KHR) {
-      ret = cnd_broadcast(&dri2_sync->cond);
+      ret = util_cnd_monotonic_broadcast(&dri2_sync->cond);
 
       /* fail to broadcast */
       if (ret)

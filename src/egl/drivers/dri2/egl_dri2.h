@@ -93,6 +93,7 @@ struct zwp_linux_dmabuf_feedback_v1;
 
 #include "util/u_vector.h"
 #include "util/u_dynarray.h"
+#include "util/u_thread.h"
 #include "util/bitset.h"
 
 struct wl_buffer;
@@ -432,8 +433,8 @@ struct dri2_egl_image
 
 struct dri2_egl_sync {
    _EGLSync base;
-   mtx_t mutex;
-   cnd_t cond;
+   util_mtx_monotonic mutex;
+   util_cnd_monotonic cond;
    int refcount;
    void *fence;
 };

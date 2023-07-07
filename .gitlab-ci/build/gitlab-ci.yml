@@ -277,6 +277,8 @@ alpine-build-testing:
       -D shared-llvm=enabled
     UNWIND: "disabled"
     VULKAN_DRIVERS: "amd,broadcom,freedreno,intel,imagination-experimental"
+    EXTRA_OPTION:
+      -D native-c11-threads=enabled
   script:
     - .gitlab-ci/meson/build.sh
 

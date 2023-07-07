@@ -1,6 +1,7 @@
 /*
  * Copyright 1999-2006 Brian Paul
  * Copyright 2008 VMware, Inc.
+ * Copyright 2020 Lag Free Games, LLC
  * Copyright 2022 Yonggang Luo
  * SPDX-License-Identifier: MIT
  */
@@ -171,6 +172,214 @@ util_thread_get_time_nano(thrd_t thread)
 #else
    (void)thread;
    return 0;
+#endif
+}
+
+int
+util_mtx_monotonic_init(util_mtx_monotonic *mtx, int type)
+{
+   assert(mtx != NULL);
+   if (type != mtx_plain &&
+      type != mtx_timed &&
+      type != (mtx_plain | mtx_recursive) &&
+      type != (mtx_timed | mtx_recursive))
+      return thrd_error;
+#if defined(HAVE_PTHREAD)
+   mtx->mtx = malloc(sizeof(pthread_mutex_t));
+   if (mtx->mtx == NULL) {
+      return thrd_nomem;
+   }
+   pthread_mutexattr_t attr;
+   if ((type & mtx_recursive) == 0) {
+      pthread_mutex_init((pthread_mutex_t *)mtx->mtx, NULL);
+      return thrd_success;
+   }
+
+   pthread_mutexattr_init(&attr);
+   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+   pthread_mutex_init((pthread_mutex_t *)mtx->mtx, &attr);
+   pthread_mutexattr_destroy(&attr);
+   return thrd_success;
+#elif defined(_WIN32)
+   mtx->mtx = malloc(sizeof(CRITICAL_SECTION));
+   if (mtx->mtx == NULL) {
+      return thrd_nomem;
+   }
+   InitializeCriticalSection((PCRITICAL_SECTION)mtx->mtx);
+   return thrd_success;
+#else
+#error Not supported on this platform.
+#endif
+}
+
+void
+util_mtx_monotonic_destroy(util_mtx_monotonic *mtx)
+{
+   if (mtx != NULL && mtx->mtx != NULL) {
+#if defined(HAVE_PTHREAD)
+      pthread_mutex_destroy((pthread_mutex_t *)mtx->mtx);
+#elif defined(_WIN32)
+      DeleteCriticalSection((PCRITICAL_SECTION)mtx->mtx);
+#endif
+      free(mtx->mtx);
+      mtx->mtx = NULL;
+   }
+}
+
+int
+util_mtx_monotonic_lock(util_mtx_monotonic *mtx)
+{
+   assert(mtx != NULL);
+#if defined(HAVE_PTHREAD)
+   return (pthread_mutex_lock((pthread_mutex_t *)mtx->mtx) == 0) ? thrd_success : thrd_error;
+#elif defined(_WIN32)
+   EnterCriticalSection((PCRITICAL_SECTION)mtx->mtx);
+   return thrd_success;
+#endif
+}
+
+int
+util_mtx_monotonic_trylock(util_mtx_monotonic *mtx)
+{
+   assert(mtx != NULL);
+#if defined(HAVE_PTHREAD)
+   return (pthread_mutex_trylock((pthread_mutex_t *)mtx->mtx) == 0) ? thrd_success : thrd_busy;
+#elif defined(_WIN32)
+   return TryEnterCriticalSection((PCRITICAL_SECTION)mtx->mtx) ? thrd_success : thrd_busy;
+#endif
+}
+
+int
+util_mtx_monotonic_unlock(util_mtx_monotonic *mtx)
+{
+   assert(mtx != NULL);
+#if defined(HAVE_PTHREAD)
+   return (pthread_mutex_unlock((pthread_mutex_t *)mtx->mtx) == 0) ? thrd_success : thrd_error;
+#elif defined(_WIN32)
+   LeaveCriticalSection((PCRITICAL_SECTION)mtx->mtx);
+   return thrd_success;
+#endif
+}
+
+int
+util_cnd_monotonic_init(util_cnd_monotonic *cond)
+{
+   assert(cond != NULL);
+
+#if defined(HAVE_PTHREAD)
+   int ret = thrd_error;
+   pthread_condattr_t condattr;
+   cond->cond = malloc(sizeof(pthread_cond_t));
+   if (cond->cond == NULL) {
+      return thrd_nomem;
+   }
+   if (pthread_condattr_init(&condattr) == 0) {
+      if ((pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC) == 0) &&
+          (pthread_cond_init((pthread_cond_t *)cond->cond, &condattr) == 0)) {
+         ret = thrd_success;
+      }
+
+      pthread_condattr_destroy(&condattr);
+   }
+   if (ret != thrd_success) {
+      free(cond->cond);
+      cond->cond = NULL;
+   }
+   return ret;
+#elif defined(_WIN32)
+   cond->cond = malloc(sizeof(CONDITION_VARIABLE));
+   if (cond->cond == NULL) {
+      return thrd_nomem;
+   }
+   InitializeConditionVariable((PCONDITION_VARIABLE)cond->cond);
+   return thrd_success;
+#else
+#error Not supported on this platform.
+#endif
+}
+
+void
+util_cnd_monotonic_destroy(util_cnd_monotonic *cond)
+{
+   if (cond != NULL && cond->cond != NULL) {
+#if defined(HAVE_PTHREAD)
+      pthread_cond_destroy((pthread_cond_t *)cond->cond);
+#elif defined(_WIN32)
+      /* Do nothing*/
+#endif
+      free(cond->cond);
+      cond->cond = NULL;
+   }
+}
+
+int
+util_cnd_monotonic_broadcast(util_cnd_monotonic *cond)
+{
+   assert(cond != NULL);
+
+#if defined(HAVE_PTHREAD)
+   return (pthread_cond_broadcast((pthread_cond_t *)cond->cond) == 0) ? thrd_success : thrd_error;
+#elif defined(_WIN32)
+   WakeAllConditionVariable((PCONDITION_VARIABLE)cond->cond);
+   return thrd_success;
+#endif
+}
+
+int
+util_cnd_monotonic_signal(util_cnd_monotonic *cond)
+{
+   assert(cond != NULL);
+
+#if defined(HAVE_PTHREAD)
+   return (pthread_cond_signal((pthread_cond_t *)cond->cond) == 0) ? thrd_success : thrd_error;
+#elif defined(_WIN32)
+   WakeConditionVariable((PCONDITION_VARIABLE)cond->cond);
+   return thrd_success;
+#endif
+}
+
+int
+util_cnd_monotonic_timedwait(util_cnd_monotonic *cond, util_mtx_monotonic *mtx,
+                             const struct timespec *abs_time)
+{
+   assert(cond != NULL);
+   assert(mtx != NULL);
+   assert(abs_time != NULL);
+
+#if defined(HAVE_PTHREAD)
+   int rt =
+      pthread_cond_timedwait((pthread_cond_t *)cond->cond, (pthread_mutex_t *)mtx->mtx, abs_time);
+   if (rt == ETIMEDOUT)
+      return thrd_timedout;
+   return (rt == 0) ? thrd_success : thrd_error;
+#elif defined(_WIN32)
+   const int64_t future = (abs_time->tv_sec * 1000LL) + (abs_time->tv_nsec / 1000000LL);
+   struct timespec now_ts;
+   if (timespec_get(&now_ts, TIME_MONOTONIC) != TIME_MONOTONIC) {
+      return thrd_error;
+   }
+   const int64_t now = (now_ts.tv_sec * 1000LL) + (now_ts.tv_nsec / 1000000LL);
+   const DWORD timeout = (future > now) ? (DWORD)(future - now) : 0;
+   if (SleepConditionVariableCS((PCONDITION_VARIABLE)cond->cond, (PCRITICAL_SECTION)mtx->mtx,
+                                timeout))
+      return thrd_success;
+   return (GetLastError() == ERROR_TIMEOUT) ? thrd_timedout : thrd_error;
+#endif
+}
+
+int
+util_cnd_monotonic_wait(util_cnd_monotonic *cond, util_mtx_monotonic *mtx)
+{
+   assert(cond != NULL);
+   assert(mtx != NULL);
+
+#if defined(HAVE_PTHREAD)
+   return (pthread_cond_wait((pthread_cond_t *)cond->cond, (pthread_mutex_t *)mtx->mtx) == 0)
+             ? thrd_success
+             : thrd_error;
+#elif defined(_WIN32)
+   SleepConditionVariableCS((PCONDITION_VARIABLE)cond->cond, (PCRITICAL_SECTION)mtx->mtx, INFINITE);
+   return thrd_success;
 #endif
 }
 
