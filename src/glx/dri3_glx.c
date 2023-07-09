@@ -810,8 +810,8 @@ dri3_create_screen(int screen, struct glx_display * priv)
       return NULL;
    }
 
-   psc->fd_render_gpu = loader_dri3_open(c, RootWindow(priv->dpy, screen), None);
-   if (psc->fd_render_gpu < 0) {
+   psc->fd_display_gpu = loader_dri3_open(c, RootWindow(priv->dpy, screen), None);
+   if (psc->fd_display_gpu < 0) {
       int conn_error = xcb_connection_has_error(c);
 
       glx_screen_cleanup(&psc->base);
@@ -824,7 +824,8 @@ dri3_create_screen(int screen, struct glx_display * priv)
       return NULL;
    }
 
-   loader_get_user_preferred_fd(&psc->fd_render_gpu, &psc->fd_display_gpu);
+   psc->fd_render_gpu =
+      loader_get_user_preferred_fd(psc->fd_display_gpu);
 
    driverName = loader_get_driver_for_fd(psc->fd_render_gpu);
    if (!driverName) {

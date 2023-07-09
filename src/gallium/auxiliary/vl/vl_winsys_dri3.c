@@ -770,6 +770,7 @@ vl_dri3_screen_create(Display *display, int screen)
    xcb_xfixes_query_version_reply_t *xfixes_reply;
    xcb_generic_error_t *error;
    int fd;
+   int render_fd;
 
    assert(display);
 
@@ -821,7 +822,11 @@ vl_dri3_screen_create(Display *display, int screen)
    fcntl(fd, F_SETFD, FD_CLOEXEC);
    free(open_reply);
 
-   scrn->linear_display_buffer = loader_get_user_preferred_fd(&fd, NULL);
+   render_fd = loader_get_user_preferred_fd(fd);
+   scrn->linear_display_buffer = render_fd != fd;
+   if (render_fd != fd) {
+      close(fd);
+   }
 
    geom_cookie = xcb_get_geometry(scrn->conn, RootWindow(display, screen));
    geom_reply = xcb_get_geometry_reply(scrn->conn, geom_cookie, NULL);
@@ -842,7 +847,7 @@ vl_dri3_screen_create(Display *display, int screen)
    scrn->base.color_depth = geom_reply->depth;
    free(geom_reply);
 
-   if (pipe_loader_drm_probe_fd(&scrn->base.dev, fd))
+   if (pipe_loader_drm_probe_fd(&scrn->base.dev, render_fd))
       scrn->base.pscreen = pipe_loader_create_screen(scrn->base.dev);
 
    if (!scrn->base.pscreen)
@@ -863,7 +868,7 @@ vl_dri3_screen_create(Display *display, int screen)
 
    scrn->next_back = 1;
 
-   close(fd);
+   close(render_fd);
    
    return &scrn->base;
 

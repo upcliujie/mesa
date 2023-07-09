@@ -70,14 +70,12 @@ loader_open_driver(const char *driver_name,
 char *
 loader_get_device_name_for_fd(int fd);
 
-/* For dri prime gpu offloading this function will take current render fd and possibly
- * update it with new prime gpu offloading fd. For dri prime gpu offloading optionally
- * this function can return the original fd. Also this function returns true/false based
- * on render gpu is different from display gpu.
+/* For dri prime gpu offloading this function will return the desired device fd
+ * used for rendering.
  */
 
-bool
-loader_get_user_preferred_fd(int *fd_render_gpu, int *original_fd);
+int
+loader_get_user_preferred_fd(int original_fd);
 
 /* for logging.. keep this aligned with egllog.h so we can just use
  * _eglLog directly.

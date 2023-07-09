@@ -231,14 +231,17 @@ drm_create_adapter( int fd,
 
     /* Although the fd is provided from external source, mesa/nine
      * takes ownership of it. */
-    different_device = loader_get_user_preferred_fd(&fd, NULL);
-    ctx->fd = fd;
-    ctx->base.linear_framebuffer = different_device;
+    ctx->fd = loader_get_user_preferred_fd(&fd, fd);
+    ctx->base.linear_framebuffer = ctx->fd != fd;
 
-    if (!pipe_loader_drm_probe_fd(&ctx->dev, fd)) {
-        ERR("Failed to probe drm fd %d.\n", fd);
-        FREE(ctx);
+    if (render_fd != fd) {
         close(fd);
+    }
+
+    if (!pipe_loader_drm_probe_fd(&ctx->dev, ctx->fd)) {
+        ERR("Failed to probe drm fd %d.\n", ctx->fd);
+        FREE(ctx);
+        close(ctx->fd);
         return D3DERR_DRIVERINTERNALERROR;
     }
 
