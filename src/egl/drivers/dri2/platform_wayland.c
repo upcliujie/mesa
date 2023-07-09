@@ -974,6 +974,13 @@ create_dri_image_from_dmabuf_feedback(struct dri2_egl_surface *dri2_surf,
       if (tranche->flags & ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT)
          flags |= __DRI_IMAGE_USE_SCANOUT;
 
+      uint64_t linear_mod = DRM_FORMAT_MOD_LINEAR;
+      if (dri2_dpy->force_linear_modifier) {
+         flags |= __DRI_IMAGE_USE_LINEAR;
+         modifiers = &linear_mod;
+         num_modifiers = 1;
+      }
+
       dri2_surf->back->dri_image = loader_dri_create_image(
          dri2_dpy->dri_screen_render_gpu, dri2_dpy->image,
          dri2_surf->base.Width, dri2_surf->base.Height, dri_image_format,
@@ -1005,6 +1012,13 @@ create_dri_image(struct dri2_egl_surface *dri2_surf,
        (num_modifiers == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID)) {
       num_modifiers = 0;
       modifiers = NULL;
+   }
+
+   uint64_t linear_mod = DRM_FORMAT_MOD_LINEAR;
+   if (dri2_dpy->force_linear_modifier) {
+      use_flags |= __DRI_IMAGE_USE_LINEAR;
+      modifiers = &linear_mod;
+      num_modifiers = 1;
    }
 
    /* If our DRIImage implementation does not support createImageWithModifiers,
@@ -2251,6 +2265,9 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
 
    dri2_dpy->fd_render_gpu =
       loader_get_user_preferred_fd(dri2_dpy->fd_display_gpu);
+   if (dri2_dpy->fd_render_gpu != dri2_dpy->fd_display_gpu) {
+      dri2_dpy->force_linear_modifier = true;
+   }
 
    dev = _eglAddDevice(dri2_dpy->fd_render_gpu, false);
    if (!dev) {

@@ -307,6 +307,7 @@ struct dri2_egl_display {
    bool authenticated;
    uint32_t capabilities;
    char *device_name;
+   bool force_linear_modifier;
 #endif
 
 #ifdef HAVE_ANDROID_PLATFORM
