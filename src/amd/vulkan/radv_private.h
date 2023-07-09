@@ -2188,8 +2188,6 @@ void radv_hash_rt_shaders(unsigned char *hash, const VkRayTracingPipelineCreateI
 
 uint32_t radv_get_hash_flags(const struct radv_device *device, bool stats);
 
-bool radv_enable_rt(const struct radv_physical_device *pdevice, bool rt_pipelines);
-
 bool radv_emulate_rt(const struct radv_physical_device *pdevice);
 
 enum {

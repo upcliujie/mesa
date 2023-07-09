@@ -32,21 +32,9 @@
 static nir_def *build_node_to_addr(struct radv_device *device, nir_builder *b, nir_def *node, bool skip_type_and);
 
 bool
-radv_enable_rt(const struct radv_physical_device *pdevice, bool rt_pipelines)
-{
-   if (pdevice->rad_info.gfx_level < GFX10_3 && !radv_emulate_rt(pdevice))
-      return false;
-
-   if (rt_pipelines && pdevice->use_llvm)
-      return false;
-
-   return true;
-}
-
-bool
 radv_emulate_rt(const struct radv_physical_device *pdevice)
 {
-   return pdevice->instance->perftest_flags & RADV_PERFTEST_EMULATE_RT;
+   return pdevice->rad_info.gfx_level < GFX10_3 || (pdevice->instance->debug_flags & RADV_DEBUG_EMULATE_RT);
 }
 
 void
