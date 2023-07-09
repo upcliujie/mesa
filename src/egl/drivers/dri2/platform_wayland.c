@@ -1789,8 +1789,8 @@ drm_handle_device(void *data, struct wl_drm *drm, const char *device)
    if (!dri2_dpy->device_name)
       return;
 
-   dri2_dpy->fd_render_gpu = loader_open_device(dri2_dpy->device_name);
-   if (dri2_dpy->fd_render_gpu == -1) {
+   dri2_dpy->fd_display_gpu = loader_open_device(dri2_dpy->device_name);
+   if (dri2_dpy->fd_display_gpu == -1) {
       _eglLog(_EGL_WARNING, "wayland-egl: could not open %s (%s)",
               dri2_dpy->device_name, strerror(errno));
       free(dri2_dpy->device_name);
@@ -1798,12 +1798,12 @@ drm_handle_device(void *data, struct wl_drm *drm, const char *device)
       return;
    }
 
-   if (drmGetNodeTypeFromFd(dri2_dpy->fd_render_gpu) == DRM_NODE_RENDER) {
+   if (drmGetNodeTypeFromFd(dri2_dpy->fd_display_gpu) == DRM_NODE_RENDER) {
       dri2_dpy->authenticated = true;
    } else {
-      if (drmGetMagic(dri2_dpy->fd_render_gpu, &magic)) {
-         close(dri2_dpy->fd_render_gpu);
-         dri2_dpy->fd_render_gpu = -1;
+      if (drmGetMagic(dri2_dpy->fd_display_gpu, &magic)) {
+         close(dri2_dpy->fd_display_gpu);
+         dri2_dpy->fd_display_gpu = -1;
          free(dri2_dpy->device_name);
          dri2_dpy->device_name = NULL;
          _eglLog(_EGL_WARNING, "wayland-egl: drmGetMagic failed");
@@ -1931,7 +1931,7 @@ default_dmabuf_feedback_main_device(
    }
 
    dri2_dpy->device_name = node;
-   dri2_dpy->fd_render_gpu = fd;
+   dri2_dpy->fd_display_gpu = fd;
    dri2_dpy->authenticated = true;
 }
 
@@ -2233,7 +2233,7 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
 
    /* We couldn't retrieve a render node from the dma-buf feedback (or the
     * feedback was not advertised at all), so we must fallback to wl_drm. */
-   if (dri2_dpy->fd_render_gpu == -1) {
+   if (dri2_dpy->fd_display_gpu == -1) {
       /* wl_drm not advertised by compositor, so can't continue */
       if (dri2_dpy->wl_drm_name == 0)
          goto cleanup;
@@ -2241,7 +2241,7 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
 
       if (dri2_dpy->wl_drm == NULL)
          goto cleanup;
-      if (roundtrip(dri2_dpy) < 0 || dri2_dpy->fd_render_gpu == -1)
+      if (roundtrip(dri2_dpy) < 0 || dri2_dpy->fd_display_gpu == -1)
          goto cleanup;
 
       if (!dri2_dpy->authenticated &&
@@ -2249,8 +2249,8 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
          goto cleanup;
    }
 
-   loader_get_user_preferred_fd(&dri2_dpy->fd_render_gpu,
-                                &dri2_dpy->fd_display_gpu);
+   dri2_dpy->fd_render_gpu = dri2_dpy->fd_display_gpu;
+   loader_get_user_preferred_fd(&dri2_dpy->fd_render_gpu, NULL);
 
    dev = _eglAddDevice(dri2_dpy->fd_render_gpu, false);
    if (!dev) {
