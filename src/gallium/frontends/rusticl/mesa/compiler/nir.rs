@@ -40,6 +40,34 @@ impl<'a, T: 'a> Iterator for ExecListIter<'a, T> {
     }
 }
 
+pub struct NirPrintfInfo {
+    count: usize,
+    printf_info: *mut u_printf_info,
+    mem_ctx: *mut c_void,
+}
+
+impl NirPrintfInfo {
+    pub fn u_printf(&self, buf: &[u8]) {
+        unsafe {
+            u_printf(
+                stdout_ptr(),
+                buf.as_ptr().cast(),
+                buf.len(),
+                self.printf_info.cast(),
+                self.count as u32,
+            );
+        }
+    }
+}
+
+impl Drop for NirPrintfInfo {
+    fn drop(&mut self) {
+        unsafe {
+            ralloc_free(self.mem_ctx);
+        };
+    }
+}
+
 pub struct NirShader {
     nir: NonNull<nir_shader>,
 }
@@ -265,6 +293,38 @@ impl NirShader {
         } else {
             &[]
         }
+    }
+    pub fn take_printf_info(&mut self) -> Option<NirPrintfInfo> {
+        let nir = unsafe { self.nir.as_mut() };
+
+        let info = nir.printf_info;
+        if info.is_null() {
+            return None;
+        }
+        let count = nir.printf_info_count as usize;
+
+        let mem_ctx = unsafe {
+            let mem_ctx = ralloc_context(ptr::null());
+            ralloc_steal(mem_ctx, info.cast());
+
+            for i in 0..count {
+                ralloc_steal(mem_ctx, (*info.add(i)).arg_sizes.cast());
+                ralloc_steal(mem_ctx, (*info.add(i)).strings.cast());
+            }
+
+            mem_ctx
+        };
+
+        let result = Some(NirPrintfInfo {
+            count: count,
+            printf_info: info,
+            mem_ctx: mem_ctx,
+        });
+
+        nir.printf_info_count = 0;
+        nir.printf_info = ptr::null_mut();
+
+        result
     }
 
     pub fn get_constant_buffer(&self) -> &[u8] {
