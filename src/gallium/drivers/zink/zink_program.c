@@ -296,7 +296,7 @@ create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_scr
       zm->obj = zink_shader_tcs_compile(screen, zs, patch_vertices, prog->base.uses_shobj, &prog->base);
    } else if (!unpopulated) {
       zm->obj = zink_shader_compile(screen, prog->base.uses_shobj, zs, zink_shader_blob_deserialize(screen, &prog->blobs[stage]),
-                                    (struct zink_shader_key*)key, &state->shader_keys.st_key, false,
+                                    (struct zink_shader_key*)key, &state->shader_keys.st_key, compile_uber,
                                     shadow_needs_shader_swizzle ? &ctx->di.zs_swizzle[stage] : NULL, &prog->base);
    } else {
       /* This is an unpopulated entry used for async compilation.
@@ -801,8 +801,9 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
       zms[2] = update_or_queue_gfx_shader_module_optimal(ctx, prog, MESA_SHADER_TESS_CTRL, async);
       async_done &= !!zms[2];
    }
-   if (async && async_done) {
+   if (async_done) {
       for (int rstage = 0; rstage < MESA_SHADER_COMPUTE; rstage++) {
+         assert(!!variant_prog->shaders[rstage] == !!prog->shaders[rstage]);
          if (variant_prog->shaders[rstage] && !variant_prog->objs[rstage].mod) {
             assert(!variant_prog->is_separable);
             struct zink_shader_module *mod = update_or_queue_gfx_shader_module_optimal(ctx, prog, rstage, async);
@@ -885,6 +886,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
          ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
       }
       bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
+      bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
       bool needs_uber = false;
       if (entry) {
          prog = (struct zink_gfx_program*)entry->data;
@@ -905,19 +907,34 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
                needs_uber = true;
             } else
                variant = ((struct program_variant_key *)variant_entry->key)->prog;
+            /* makes sure blobs are present TODO why is this needed? */
+            if (!can_use_uber && prog->is_separable) {
+               for (unsigned i = 0; i < ZINK_GFX_SHADER_COUNT; i++) {
+                  if (!prog->shaders[i])
+                     continue;
+                  nir_shader *nir = zink_shader_deserialize(screen, prog->shaders[i]);
+                  zink_shader_serialize_blob(nir, &prog->blobs[i]);
+                  ralloc_free(nir);
+               }
+            }
             /* fetches shader modules from cache and starts async compilation on a miss */
-            bool async_done = update_gfx_program_optimal(ctx, prog, variant, true);
+            bool async_done = update_gfx_program_optimal(ctx, prog, variant, can_use_uber);
+            assert(can_use_uber || async_done);
 
-            bool variant_prog_ready = variant->started_compiling &&
-                                      util_queue_fence_is_signalled(&variant->base.cache_fence);
-            if (async_done && !variant->started_compiling && !variant_prog_ready) {
+            if (async_done && !variant->started_compiling) {
                /* Modules are ready but the program isn't. Start a job for it. */
                struct precompile_variant_data *data = CALLOC_STRUCT(precompile_variant_data);
                data->prog = variant;
                data->state = ctx->gfx_pipeline_state;
                util_queue_add_job(&screen->cache_get_thread, data, &variant->base.cache_fence, precompile_variant_job, NULL, 0);
                variant->started_compiling = true;
-            } else if(variant_prog_ready) {
+            }
+            if (!can_use_uber)
+               util_queue_fence_wait(&variant->base.cache_fence);
+            bool variant_prog_ready = variant->started_compiling &&
+                                      util_queue_fence_is_signalled(&variant->base.cache_fence);
+            assert(can_use_uber || variant_prog_ready);
+            if(variant_prog_ready) {
                /* variant prog is ready, use it */
                ctx->curr_program = variant;
                if (!needs_emulation)
