@@ -369,7 +369,7 @@ llvmpipe_nir_is_linear_compat(struct nir_shader *shader,
       return false;
    
    if (!shader->info.outputs_written || shader->info.fs.color_is_dual_source ||
-       (shader->info.outputs_written & ~BITFIELD64_BIT(FRAG_RESULT_DATA0)))
+       (shader->info.outputs_written & ~(0xff << FRAG_RESULT_DATA0)))
       return false;
 
    info->num_texs = 0;

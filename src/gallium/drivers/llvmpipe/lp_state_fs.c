@@ -3854,6 +3854,7 @@ generate_variant(struct llvmpipe_context *lp,
          !key->depth.enabled &&
          !nir->info.fs.uses_discard &&
          !key->blend.logicop_enable &&
+         key->nr_cbufs == 1 &&
          (key->cbuf_format[0] == PIPE_FORMAT_B8G8R8A8_UNORM ||
           key->cbuf_format[0] == PIPE_FORMAT_B8G8R8X8_UNORM ||
           key->cbuf_format[0] == PIPE_FORMAT_R8G8B8A8_UNORM ||
