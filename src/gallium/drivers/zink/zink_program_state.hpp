@@ -207,6 +207,8 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
             simple_mtx_lock(&variant_prog->libs->lock);
             if (variant_prog->libs->lib) {
                gkey = variant_prog->libs->lib;
+               assert(gkey->optimal_key == ctx->gfx_pipeline_state.optimal_key);
+               assert(gkey->st_key == state->shader_keys.st_key.small_key.val);
             } else {
                assert(!variant_prog->is_separable);
                gkey = zink_create_pipeline_lib(screen, variant_prog, &ctx->gfx_pipeline_state, false);
