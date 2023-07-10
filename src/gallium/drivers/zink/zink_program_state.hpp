@@ -200,8 +200,8 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
          struct zink_gfx_library_key *gkey;
          if (state->uber_required) {
             simple_mtx_lock(&prog->libs->lock);
-            assert(prog->libs->uber_emulation);
-            gkey = prog->libs->uber_emulation;
+            assert(prog->libs->lib);
+            gkey = prog->libs->lib;
             simple_mtx_unlock(&prog->libs->lock);
          } else {
             simple_mtx_lock(&variant_prog->libs->lock);

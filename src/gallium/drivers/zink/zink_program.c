@@ -1461,8 +1461,8 @@ create_gfx_program_separable(struct zink_context *ctx, struct zink_shader **stag
 
    if (!screen->info.have_EXT_shader_object) {
       VkPipeline uber_libs[] = {stages[MESA_SHADER_VERTEX]->precompile.emulation_gpl, stages[MESA_SHADER_FRAGMENT]->precompile.emulation_gpl};
-      prog->libs->uber_emulation = CALLOC_STRUCT(zink_gfx_library_key);
-      prog->libs->uber_emulation->pipeline = zink_create_gfx_pipeline_combined(screen, prog, VK_NULL_HANDLE, uber_libs, 2, VK_NULL_HANDLE, false, false);
+      prog->libs->lib = CALLOC_STRUCT(zink_gfx_library_key);
+      prog->libs->lib->pipeline = zink_create_gfx_pipeline_combined(screen, prog, VK_NULL_HANDLE, uber_libs, 2, VK_NULL_HANDLE, false, false);
    }
 
    if (!(zink_debug & ZINK_DEBUG_NOOPT))
@@ -2230,10 +2230,7 @@ zink_create_pipeline_lib(struct zink_screen *screen, struct zink_gfx_program *pr
    for (unsigned i = 0; i < ZINK_GFX_SHADER_COUNT; i++)
       gkey->modules[i] = (compile_uber ? prog->uber_objs : prog->objs)[i].mod;
    gkey->pipeline = zink_create_gfx_pipeline_library(screen, compile_uber ? prog->uber_objs : prog->objs, prog);
-   if (compile_uber)
-      prog->libs->uber_emulation = gkey;
-   else
-      prog->libs->lib = gkey;
+   prog->libs->lib = gkey;
    return gkey;
 }
 
