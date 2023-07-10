@@ -205,10 +205,8 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
             simple_mtx_unlock(&prog->libs->lock);
          } else {
             simple_mtx_lock(&variant_prog->libs->lock);
-            uint32_t hek[] = {ctx->gfx_pipeline_state.optimal_key, ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val};
-            struct set_entry *he = _mesa_set_search(&variant_prog->libs->libs, &hek);
-            if (he) {
-               gkey = (struct zink_gfx_library_key *)he->key;
+            if (variant_prog->libs->lib) {
+               gkey = variant_prog->libs->lib;
             } else {
                assert(!variant_prog->is_separable);
                gkey = zink_create_pipeline_lib(screen, variant_prog, &ctx->gfx_pipeline_state, false);
