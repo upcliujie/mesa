@@ -3798,7 +3798,6 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
 {
 }
 
-
 struct zink_shader_object
 zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs, nir_shader *nir,
                     const struct zink_shader_key *key, const struct zink_st_variant_key *st_key,

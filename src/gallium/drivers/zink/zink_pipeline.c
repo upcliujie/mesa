@@ -855,10 +855,10 @@ create_gfx_pipeline_library(struct zink_screen *screen, struct zink_shader_objec
 }
 
 VkPipeline
-zink_create_gfx_pipeline_library(struct zink_screen *screen, struct zink_gfx_program *prog)
+zink_create_gfx_pipeline_library(struct zink_screen *screen, struct zink_shader_object *objs, struct zink_gfx_program *prog)
 {
    u_rwlock_wrlock(&prog->base.pipeline_cache_lock);
-   VkPipeline pipeline = create_gfx_pipeline_library(screen, prog->objs, prog->stages_present, prog->base.layout, prog->base.pipeline_cache);
+   VkPipeline pipeline = create_gfx_pipeline_library(screen, objs, prog->stages_present, prog->base.layout, prog->base.pipeline_cache);
    u_rwlock_wrunlock(&prog->base.pipeline_cache_lock);
    return pipeline;
 }
