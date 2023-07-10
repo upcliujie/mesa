@@ -965,7 +965,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
             zink_screen_get_pipeline_cache(screen, &prog->base, false);
             perf_debug(ctx, "zink[gfx_compile]: new program created (probably legacy GL features in use)\n");
             prog->is_uber_program = true;
-            generate_gfx_program_modules_optimal(ctx, screen, prog, &ctx->gfx_pipeline_state, false);
+            precompile_job(prog, screen, 0);
          }
       }
       simple_mtx_unlock(&ctx->program_lock[zink_program_cache_stages(ctx->shader_stages)]);
