@@ -198,8 +198,7 @@ check_linear_rasterizer(struct llvmpipe_context *lp)
    /* permit_linear means guardband, hence fake scissor, which we can only
     * handle if there's just one vp. */
    const bool single_vp = lp->viewport_index_slot < 0;
-   const bool permit_linear = (!lp->framebuffer.zsbuf &&
-                               valid_cb_format &&
+   const bool permit_linear = ((valid_cb_format) &&
                                single_vp);
 
    /* Tell draw that we're happy doing our own x/y clipping.
