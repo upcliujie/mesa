@@ -202,7 +202,7 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
             gkey = (struct zink_gfx_library_key *)he->key;
          } else {
             assert(!prog->is_separable);
-            gkey = zink_create_pipeline_lib(screen, prog, &ctx->gfx_pipeline_state);
+            gkey = zink_create_pipeline_lib(screen, prog, &ctx->gfx_pipeline_state, false);
          }
          simple_mtx_unlock(&prog->libs->lock);
          struct zink_gfx_input_key *ikey = DYNAMIC_STATE == ZINK_DYNAMIC_VERTEX_INPUT ?
