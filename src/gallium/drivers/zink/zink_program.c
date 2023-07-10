@@ -555,41 +555,6 @@ generate_gfx_program_modules_optimal(struct zink_context *ctx, struct zink_scree
    }
 }
 
-static uint32_t
-hash_pipeline_lib_generated_tcs(const void *key)
-{
-   const struct zink_gfx_library_key *gkey = key;
-   return gkey->optimal_key;
-}
-
-
-static bool
-equals_pipeline_lib_generated_tcs(const void *a, const void *b)
-{
-   return !memcmp(a, b, sizeof(uint32_t));
-}
-
-static uint32_t
-hash_pipeline_lib(const void *key)
-{
-   const struct zink_gfx_library_key *gkey = key;
-   /* remove generated tcs bits */
-   return zink_shader_key_optimal_no_tcs(gkey->optimal_key);
-}
-
-static bool
-equals_pipeline_lib(const void *a, const void *b)
-{
-   const struct zink_gfx_library_key *ak = a;
-   const struct zink_gfx_library_key *bk = b;
-   /* remove generated tcs bits */
-   uint32_t val_a = zink_shader_key_optimal_no_tcs(ak->optimal_key);
-   uint32_t val_b = zink_shader_key_optimal_no_tcs(bk->optimal_key);
-   uint32_t val_a_st = ak->st_key;
-   uint32_t val_b_st = bk->st_key;
-   return val_a == val_b && val_a_st == val_b_st;
-}
-
 uint32_t
 hash_gfx_input_dynamic(const void *key)
 {
@@ -1217,14 +1182,11 @@ zink_gfx_lib_cache_unref(struct zink_screen *screen, struct zink_gfx_lib_cache *
 {
    if (!p_atomic_dec_zero(&libs->refcount))
       return;
-
-   simple_mtx_destroy(&libs->lock);
-   set_foreach_remove(&libs->libs, he) {
-      struct zink_gfx_library_key *gkey = (void*)he->key;
+   if (libs->lib) {
+      struct zink_gfx_library_key *gkey = libs->lib;
       VKSCR(DestroyPipeline)(screen->dev, gkey->pipeline, NULL);
       FREE(gkey);
    }
-   ralloc_free(libs->libs.table);
    FREE(libs);
 }
 
@@ -1234,18 +1196,16 @@ create_lib_cache(struct zink_gfx_program *prog, bool generated_tcs)
    struct zink_gfx_lib_cache *libs = CALLOC_STRUCT(zink_gfx_lib_cache);
    libs->stages_present = prog->stages_present;
    simple_mtx_init(&libs->lock, mtx_plain);
-   if (generated_tcs)
-      _mesa_set_init(&libs->libs, NULL, hash_pipeline_lib_generated_tcs, equals_pipeline_lib_generated_tcs);
-   else
-      _mesa_set_init(&libs->libs, NULL, hash_pipeline_lib, equals_pipeline_lib);
    return libs;
 }
 
 static struct zink_gfx_lib_cache *
-find_or_create_lib_cache(struct zink_screen *screen, struct zink_gfx_program *prog)
+find_or_create_lib_cache(struct zink_screen *screen, struct zink_gfx_program *prog, bool variant)
 {
    unsigned stages_present = prog->stages_present;
    bool generated_tcs = prog->shaders[MESA_SHADER_TESS_CTRL] && prog->shaders[MESA_SHADER_TESS_CTRL]->non_fs.is_generated;
+   if (variant)
+      return create_lib_cache(prog, generated_tcs);
    if (generated_tcs)
       stages_present &= ~BITFIELD_BIT(MESA_SHADER_TESS_CTRL);
    unsigned idx = zink_program_cache_stages(stages_present);
@@ -1353,7 +1313,7 @@ zink_create_gfx_program(struct zink_context *ctx,
    }
 
    if (screen->optimal_keys)
-      prog->libs = find_or_create_lib_cache(screen, prog);
+      prog->libs = find_or_create_lib_cache(screen, prog, variant);
    if (prog->libs)
       p_atomic_inc(&prog->libs->refcount);
 
@@ -1414,7 +1374,7 @@ create_gfx_program_separable(struct zink_context *ctx, struct zink_shader **stag
       /* ensure async shader creation is done */
       if (stages[i]) {
          util_queue_fence_wait(&stages[i]->precompile.fence);
-         if (!stages[i]->precompile.obj.mod)
+         if (!stages[i]->precompile.obj.mod && !stages[i]->precompile.emulation_obj.mod)
             return zink_create_gfx_program(ctx, stages, vertices_per_patch, ctx->gfx_hash, false);
       }
    }
@@ -1496,22 +1456,8 @@ create_gfx_program_separable(struct zink_context *ctx, struct zink_shader **stag
    prog->st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
 
    if (!screen->info.have_EXT_shader_object) {
-      VkPipeline libs[] = {stages[MESA_SHADER_VERTEX]->precompile.gpl, stages[MESA_SHADER_FRAGMENT]->precompile.gpl};
-      struct zink_gfx_library_key *gkey = CALLOC_STRUCT(zink_gfx_library_key);
-      if (!gkey) {
-         mesa_loge("ZINK: failed to allocate gkey!");
-         goto fail;
-      }
-      gkey->optimal_key = prog->last_variant_hash;
-      gkey->st_key = prog->st_key;
-      assert(gkey->optimal_key);
-      gkey->pipeline = zink_create_gfx_pipeline_combined(screen, prog, VK_NULL_HANDLE, libs, 2, VK_NULL_HANDLE, false, false);
-      _mesa_set_add(&prog->libs->libs, gkey);
-
       VkPipeline uber_libs[] = {stages[MESA_SHADER_VERTEX]->precompile.emulation_gpl, stages[MESA_SHADER_FRAGMENT]->precompile.emulation_gpl};
       prog->libs->uber_emulation = CALLOC_STRUCT(zink_gfx_library_key);
-      for (unsigned i = 0; i < ZINK_GFX_SHADER_COUNT; i++)
-         gkey->modules[i] = prog->objs[i].mod;
       prog->libs->uber_emulation->pipeline = zink_create_gfx_pipeline_combined(screen, prog, VK_NULL_HANDLE, uber_libs, 2, VK_NULL_HANDLE, false, false);
    }
 
@@ -2283,7 +2229,7 @@ zink_create_pipeline_lib(struct zink_screen *screen, struct zink_gfx_program *pr
    if (compile_uber)
       prog->libs->uber_emulation = gkey;
    else
-      _mesa_set_add(&prog->libs->libs, gkey);
+      prog->libs->lib = gkey;
    return gkey;
 }
 
