@@ -967,6 +967,7 @@ namespace {
                                10 /* XXX */, 100 /* XXX */, 0, 0, 0, 0);
 
       case VEC4_OPCODE_UNTYPED_ATOMIC:
+      case VEC4_OPCODE_TYPED_ATOMIC:
          if (devinfo->ver >= 7)
             return calculate_desc(info, EU_UNIT_DP_DC, 2, 0, 0,
                                   30 /* XXX */, 400 /* XXX */,
@@ -976,7 +977,9 @@ namespace {
             abort();
 
       case VEC4_OPCODE_UNTYPED_SURFACE_READ:
+      case VEC4_OPCODE_TYPED_SURFACE_READ:
       case VEC4_OPCODE_UNTYPED_SURFACE_WRITE:
+      case VEC4_OPCODE_TYPED_SURFACE_WRITE:
          if (devinfo->ver >= 7)
             return calculate_desc(info, EU_UNIT_DP_DC, 2, 0, 0,
                                   0, 20 /* XXX */,

@@ -54,12 +54,14 @@ namespace {
       /**
        * Convert a VEC4 into an array of registers with the layout expected by
        * the recipient shared unit.  If \p has_simd4x2 is true the argument is
-       * left unmodified in SIMD4x2 form, otherwise it will be rearranged into
-       * a SIMD8 vector.
+       * left in SIMD4x2 form, otherwise it will be rearranged into a SIMD8
+       * vector.  If \p one_d_array and \p has_simd4x2 are true, the input is
+       * reordered to put the array index into the location expected by the
+       * hardware.
        */
       static src_reg
       emit_insert(const vec4_builder &bld, const src_reg &src,
-                  unsigned n, bool has_simd4x2)
+                  unsigned n, bool has_simd4x2, bool one_d_array)
       {
          if (src.file == BAD_FILE || n == 0) {
             return src_reg();
@@ -68,6 +70,20 @@ namespace {
             /* Pad unused components with zeroes. */
             const unsigned mask = (1 << n) - 1;
             const dst_reg tmp = bld.vgrf(src.type);
+
+            /* From the Haswell PRM Vol. 7, "TypedUntyped Surface ReadWrite
+             * and TypedUntyped Atomic Operation":
+             *
+             * "Note: For 1D surface type SIMD4x2, the array index must be
+             * placed in the R address parameter instead of the V address
+             * parameter."
+             */
+            if (has_simd4x2 && one_d_array) {
+               assert(n == 2);
+               bld.MOV(tmp, brw_imm_d(0));
+               bld.MOV(writemask(tmp, 5), swizzle(src, BRW_SWIZZLE4(0, 0, 1, 1)));
+               return src_reg(tmp);
+            }
 
             bld.MOV(writemask(tmp, mask), src);
             if (n < 4)
@@ -147,7 +163,26 @@ namespace brw {
                         brw_predicate pred)
       {
          return emit_send(bld, VEC4_OPCODE_UNTYPED_SURFACE_READ, src_reg(),
-                          emit_insert(bld, addr, dims, true), 1,
+                          emit_insert(bld, addr, dims, true, false), 1,
+                          src_reg(), 0,
+                          surface, size, 1, pred);
+      }
+
+      /**
+       * Emit a typed surface read opcode. \p dims determines the number of
+       * components of the address and \p size the number of components of the
+       * returned value.
+       */
+      src_reg
+      emit_typed_read(const vec4_builder &bld,
+                      const src_reg &surface, const src_reg &addr,
+                      unsigned dims, unsigned size, bool one_d_array,
+                      brw_predicate pred)
+      {
+         const bool has_simd4x2 = bld.shader->devinfo->verx10 == 75;
+         return emit_send(bld, VEC4_OPCODE_TYPED_SURFACE_READ, brw_vec8_grf(0, 0),
+                          emit_insert(bld, addr, dims, has_simd4x2, one_d_array),
+                          has_simd4x2 ? 1 : dims,
                           src_reg(), 0,
                           surface, size, 1, pred);
       }
@@ -165,9 +200,29 @@ namespace brw {
       {
          const bool has_simd4x2 = bld.shader->devinfo->verx10 == 75;
          emit_send(bld, VEC4_OPCODE_UNTYPED_SURFACE_WRITE, src_reg(),
-                   emit_insert(bld, addr, dims, has_simd4x2),
+                   emit_insert(bld, addr, dims, has_simd4x2, false),
                    has_simd4x2 ? 1 : dims,
-                   emit_insert(bld, src, size, has_simd4x2),
+                   emit_insert(bld, src, size, has_simd4x2, false),
+                   has_simd4x2 ? 1 : size,
+                   surface, size, 0, pred);
+      }
+
+      /**
+       * Emit a typed surface write opcode. \p dims determines the number of
+       * components of the address and \p size the number of components of the
+       * argument.
+       */
+      void
+      emit_typed_write(const vec4_builder &bld, const src_reg &surface,
+                       const src_reg &addr, const src_reg &src,
+                       unsigned dims, unsigned size, bool one_d_array,
+                       brw_predicate pred)
+      {
+         const bool has_simd4x2 = bld.shader->devinfo->verx10 == 75;
+         emit_send(bld, VEC4_OPCODE_TYPED_SURFACE_WRITE, brw_vec8_grf(0, 0),
+                   emit_insert(bld, addr, dims, has_simd4x2, one_d_array),
+                   has_simd4x2 ? 1 : dims,
+                   emit_insert(bld, src, size, has_simd4x2, false),
                    has_simd4x2 ? 1 : size,
                    surface, size, 0, pred);
       }
@@ -203,9 +258,47 @@ namespace brw {
          }
 
          return emit_send(bld, VEC4_OPCODE_UNTYPED_ATOMIC, src_reg(),
-                          emit_insert(bld, addr, dims, has_simd4x2),
+                          emit_insert(bld, addr, dims, has_simd4x2, false),
                           has_simd4x2 ? 1 : dims,
-                          emit_insert(bld, src_reg(srcs), size, has_simd4x2),
+                          emit_insert(bld, src_reg(srcs), size, has_simd4x2, false),
+                          has_simd4x2 && size ? 1 : size,
+                          surface, op, rsize, pred);
+      }
+
+      /**
+       * Emit a typed surface atomic opcode. \p dims determines the number of
+       * components of the address and \p rsize the number of components of
+       * the returned value (either zero or one).
+       */
+      src_reg
+      emit_typed_atomic(const vec4_builder &bld,
+                        const src_reg &surface, const src_reg &addr,
+                        const src_reg &src0, const src_reg &src1,
+                        unsigned dims, unsigned rsize, unsigned op,
+                        bool one_d_array, brw_predicate pred)
+      {
+         const bool has_simd4x2 = bld.shader->devinfo->verx10 == 75;
+
+         /* Zip the components of both sources, they are represented as the X
+          * and Y components of the same vector.
+          */
+         const unsigned size = (src0.file != BAD_FILE) + (src1.file != BAD_FILE);
+         const dst_reg srcs = bld.vgrf(BRW_REGISTER_TYPE_UD);
+
+         if (size >= 1) {
+            bld.MOV(writemask(srcs, WRITEMASK_X),
+                    swizzle(src0, BRW_SWIZZLE_XXXX));
+         }
+
+         if (size >= 2) {
+            bld.MOV(writemask(srcs, WRITEMASK_Y),
+                    swizzle(src1, BRW_SWIZZLE_XXXX));
+         }
+
+         return emit_send(bld, VEC4_OPCODE_TYPED_ATOMIC, brw_vec8_grf(0, 0),
+                          emit_insert(bld, addr, dims, has_simd4x2, one_d_array),
+                          has_simd4x2 ? 1 : dims,
+                          emit_insert(bld, src_reg(srcs), size, has_simd4x2, false),
                           has_simd4x2 && size ? 1 : size,
                           surface, op, rsize, pred);
       }
