@@ -322,7 +322,7 @@ impl Program {
         context: Arc<Context>,
         devs: Vec<&'static Device>,
         bins: &[&[u8]],
-    ) -> Arc<Program> {
+    ) -> Option<Arc<Program>> {
         let mut builds = HashMap::new();
         let mut kernels = HashSet::new();
 
@@ -354,7 +354,8 @@ impl Program {
                             spirv_size as usize,
                         )));
                     }
-                    _ => panic!("unknown version"),
+                    // fail to parse if we hit a newer version
+                    _ => return None,
                 }
             }
 
@@ -384,13 +385,13 @@ impl Program {
         };
         build.build_nirs(false);
 
-        Arc::new(Self {
+        Some(Arc::new(Self {
             base: CLObjectBase::new(),
             context: context,
             devs: devs,
             src: ProgramSourceType::Binary,
             build: Mutex::new(build),
-        })
+        }))
     }
 
     pub fn from_spirv(context: Arc<Context>, spirv: &[u8]) -> Arc<Program> {
