@@ -2266,6 +2266,9 @@ struct nir_shader *si_get_nir_shader(struct si_shader *shader,
                .allow_fp16 = sel->screen->info.gfx_level >= GFX9,
             });
 
+   if (shader->use_aco) {
+      NIR_PASS(progress2, nir, ac_nir_lower_global_access);
+   }
    NIR_PASS(progress2, nir, si_nir_lower_abi, shader, args);
 
    if (progress2 || opt_offsets)
