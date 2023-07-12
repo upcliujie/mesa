@@ -3,6 +3,7 @@ use crate::core::context::*;
 use crate::core::device::*;
 use crate::core::kernel::*;
 use crate::core::platform::Platform;
+use crate::core::version::CLVersion;
 use crate::impl_cl_type_trait;
 
 use mesa_rust::compiler::clc::spirv::SPIRVBin;
@@ -31,7 +32,11 @@ const BIN_HEADER_SIZE_V1: usize =
     // 3. binary_type
     size_of::<cl_program_binary_type>();
 
-const BIN_HEADER_SIZE: usize = BIN_HEADER_SIZE_V1;
+const BIN_HEADER_SIZE_V2: usize = BIN_HEADER_SIZE_V1 +
+    // 4. selected program options
+    size_of::<bool>();
+
+const BIN_HEADER_SIZE: usize = BIN_HEADER_SIZE_V2;
 
 // kernel cache
 static mut DISK_CACHE: Option<DiskCache> = None;
@@ -228,20 +233,32 @@ impl ProgramBuild {
     }
 }
 
+#[derive(Default, Clone, Copy)]
+pub struct ProgramOptions {
+    pub non_uniform_work_group_size: bool,
+}
+
 struct ProgramDevBuild {
     spirv: Option<spirv::SPIRVBin>,
     status: cl_build_status,
-    options: String,
+    options: ProgramOptions,
+    options_str: String,
     log: String,
     bin_type: cl_program_binary_type,
 }
 
-fn prepare_options(options: &str, dev: &Device) -> Vec<CString> {
+fn prepare_options(options: &str, dev: &Device) -> (Vec<CString>, ProgramOptions) {
+    const CL_STD: &str = "-cl-std=CL";
     let mut options = options.to_owned();
-    if !options.contains("-cl-std=CL") {
-        options.push_str(" -cl-std=CL");
-        options.push_str(dev.clc_version.api_str());
+    let clc_version;
+
+    if let Some((_, version)) = options.split_once(CL_STD) {
+        clc_version = CLVersion::from_string(&version[..3]).unwrap();
+    } else {
+        clc_version = dev.clc_version;
+        options.push_str(&format!(" {CL_STD}{}", clc_version.api_str()));
     }
+
     if !dev.image_supported() {
         options.push_str(" -U__IMAGE_SUPPORT__");
     }
@@ -273,14 +290,22 @@ fn prepare_options(options: &str, dev: &Device) -> Vec<CString> {
     // add end of the string
     res.push(&options[old..]);
 
-    res.iter()
+    let program_options = ProgramOptions {
+        non_uniform_work_group_size: clc_version >= CLVersion::Cl2_0
+            && !res.contains(&"-cl-uniform-work-group-size"),
+    };
+
+    let options = res
+        .iter()
         .map(|&a| match a {
             "-cl-denorms-are-zero" => "-fdenormal-fp-math=positive-zero",
             _ => a,
         })
         .map(CString::new)
         .map(Result::unwrap)
-        .collect()
+        .collect();
+
+    (options, program_options)
 }
 
 impl Program {
@@ -295,7 +320,8 @@ impl Program {
                         spirv: None,
                         status: CL_BUILD_NONE,
                         log: String::from(""),
-                        options: String::from(""),
+                        options: ProgramOptions::default(),
+                        options_str: String::from(""),
                         bin_type: CL_PROGRAM_BINARY_TYPE_NONE,
                     },
                 )
@@ -330,6 +356,7 @@ impl Program {
             let mut ptr = b.as_ptr();
             let bin_type;
             let spirv;
+            let non_uniform_work_group_size;
 
             unsafe {
                 // 1. version
@@ -337,7 +364,7 @@ impl Program {
                 ptr = ptr.add(size_of::<u32>());
 
                 match version {
-                    1 => {
+                    1 | 2 => {
                         // 2. size of the spirv
                         let spirv_size = ptr.cast::<u32>().read();
                         ptr = ptr.add(size_of::<u32>());
@@ -346,9 +373,24 @@ impl Program {
                         bin_type = ptr.cast::<cl_program_binary_type>().read();
                         ptr = ptr.add(size_of::<cl_program_binary_type>());
 
-                        // 4. the spirv
-                        assert!(b.as_ptr().add(BIN_HEADER_SIZE_V1) == ptr);
-                        assert!(b.len() == BIN_HEADER_SIZE_V1 + spirv_size as usize);
+                        // 4. selected compilation options
+                        if version >= 2 {
+                            non_uniform_work_group_size = ptr.cast::<bool>().read();
+                            ptr = ptr.add(size_of::<bool>());
+                        } else {
+                            // wasn't supported before v2 existed
+                            non_uniform_work_group_size = false;
+                        }
+
+                        // 5. the spirv
+                        if version == 1 {
+                            assert!(b.as_ptr().add(BIN_HEADER_SIZE_V1) == ptr);
+                            assert!(b.len() == BIN_HEADER_SIZE_V1 + spirv_size as usize);
+                        } else {
+                            assert!(b.as_ptr().add(BIN_HEADER_SIZE_V2) == ptr);
+                            assert!(b.len() == BIN_HEADER_SIZE_V2 + spirv_size as usize);
+                        }
+
                         spirv = Some(spirv::SPIRVBin::from_bin(slice::from_raw_parts(
                             ptr,
                             spirv_size as usize,
@@ -371,7 +413,10 @@ impl Program {
                     spirv: spirv,
                     status: CL_BUILD_SUCCESS as cl_build_status,
                     log: String::from(""),
-                    options: String::from(""),
+                    options: ProgramOptions {
+                        non_uniform_work_group_size: non_uniform_work_group_size,
+                    },
+                    options_str: String::from(""),
                     bin_type: bin_type,
                 },
             );
@@ -432,7 +477,7 @@ impl Program {
     }
 
     pub fn options(&self, dev: &Device) -> String {
-        self.build_info().dev_build(dev).options.clone()
+        self.build_info().dev_build(dev).options_str.clone()
     }
 
     // we need to precalculate the size
@@ -474,7 +519,7 @@ impl Program {
 
             unsafe {
                 // 1. binary format version
-                ptr.cast::<u32>().write(1);
+                ptr.cast::<u32>().write(2);
                 ptr = ptr.add(size_of::<u32>());
 
                 // 2. size of the spirv
@@ -485,7 +530,12 @@ impl Program {
                 ptr.cast::<cl_program_binary_type>().write(info.bin_type);
                 ptr = ptr.add(size_of::<cl_program_binary_type>());
 
-                // 4. the spirv
+                // 4. selected compilation options
+                ptr.cast::<bool>()
+                    .write(info.options.non_uniform_work_group_size);
+                ptr = ptr.add(size_of::<bool>());
+
+                // 5. the spirv
                 assert!(ptrs[i].add(BIN_HEADER_SIZE) == ptr);
                 ptr::copy_nonoverlapping(spirv.as_ptr(), ptr, spirv.len());
             }
@@ -565,6 +615,7 @@ impl Program {
         info: &mut MutexGuard<ProgramBuild>,
     ) -> bool {
         let mut d = info.dev_build_mut(dev);
+        let (args, program_options) = prepare_options(&options, dev);
 
         let (spirv, log) = match &self.src {
             ProgramSourceType::Il(spirv) => {
@@ -579,8 +630,6 @@ impl Program {
                 }
             }
             ProgramSourceType::Src(src) => {
-                let args = prepare_options(&options, dev);
-
                 if Platform::dbg().clc {
                     let src = src.to_string_lossy();
                     eprintln!("dumping compilation inputs:");
@@ -609,7 +658,8 @@ impl Program {
 
         d.spirv = spirv;
         d.log = log;
-        d.options = options;
+        d.options_str = options;
+        d.options = program_options;
 
         if d.spirv.is_some() {
             d.status = CL_BUILD_SUCCESS as cl_build_status;
@@ -637,6 +687,8 @@ impl Program {
         let lib = options.contains("-create-library");
 
         for &d in devs {
+            let (_, program_options) = prepare_options(&options, d);
+
             let bins: Vec<_> = locks
                 .iter_mut()
                 .map(|l| l.dev_build(d).spirv.as_ref().unwrap())
@@ -667,7 +719,8 @@ impl Program {
                     spirv: spirv,
                     status: status,
                     log: log,
-                    options: String::from(""),
+                    options_str: String::from(""),
+                    options: program_options,
                     bin_type: bin_type,
                 },
             );

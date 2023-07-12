@@ -69,6 +69,19 @@ impl CLVersion {
             CLVersion::Cl3_0 => "300",
         }
     }
+
+    pub fn from_string(version: &str) -> Option<Self> {
+        Some(match version {
+            "1.0" => CLVersion::Cl1_0,
+            "1.1" => CLVersion::Cl1_1,
+            "1.2" => CLVersion::Cl1_2,
+            "2.0" => CLVersion::Cl2_0,
+            "2.1" => CLVersion::Cl2_1,
+            "2.2" => CLVersion::Cl2_2,
+            "3.0" => CLVersion::Cl3_0,
+            _ => return None,
+        })
+    }
 }
 
 impl From<CLVersion> for cl_version {
