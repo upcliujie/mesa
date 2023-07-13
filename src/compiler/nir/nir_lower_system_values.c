@@ -731,14 +731,12 @@ lower_compute_system_value_instr(nir_builder *b,
                                           options->num_workgroups,
                                           options->shortcut_1d_workgroup_id);
       }
-
-      return NULL;
-
+      return sanitize_32bit_sysval(b, intrin);
    }
 
    case nir_intrinsic_load_num_workgroups: {
       if (!options)
-         return NULL;
+         return sanitize_32bit_sysval(b, intrin);
 
       const uint16_t *num_wgs_imm = options->num_workgroups;
 
