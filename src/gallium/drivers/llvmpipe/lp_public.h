@@ -9,7 +9,8 @@ struct pipe_screen;
 struct sw_winsys;
 
 struct pipe_screen *
-llvmpipe_create_screen(struct sw_winsys *winsys);
+llvmpipe_create_screen(struct sw_winsys *winsys,
+                       const struct pipe_screen_config *config);
 
 #ifdef __cplusplus
 }

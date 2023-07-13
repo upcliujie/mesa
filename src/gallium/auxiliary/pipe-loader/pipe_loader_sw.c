@@ -396,12 +396,18 @@ pipe_loader_sw_release(struct pipe_loader_device **dev)
    pipe_loader_base_release(dev);
 }
 
+#if defined(HAVE_SWRAST)
+static const driOptionDescription lp_driconf[] = {
+    #include "gallium/drivers/llvmpipe/driinfo_llvmpipe.h"
+};
+
 static const struct driOptionDescription *
 pipe_loader_sw_get_driconf(struct pipe_loader_device *dev, unsigned *count)
 {
-   *count = 0;
-   return NULL;
+   *count = ARRAY_SIZE(lp_driconf);
+   return lp_driconf;
 }
+#endif
 
 #if defined(HAVE_DRI) && defined(HAVE_ZINK)
 static const driOptionDescription zink_driconf[] = {
