@@ -21,6 +21,7 @@ use std::cell::RefCell;
 use std::cmp;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 use std::slice;
@@ -57,6 +58,9 @@ pub enum InternalKernelArgType {
     FormatArray,
     OrderArray,
     WorkDim,
+    EnqueuedBlockSize,
+    EnqueuedNumSubgroups,
+    GridSize,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -217,6 +221,9 @@ impl InternalKernelArg {
             InternalKernelArgType::FormatArray => bin.push(4),
             InternalKernelArgType::OrderArray => bin.push(5),
             InternalKernelArgType::WorkDim => bin.push(6),
+            InternalKernelArgType::EnqueuedBlockSize => bin.push(7),
+            InternalKernelArgType::EnqueuedNumSubgroups => bin.push(8),
+            InternalKernelArgType::GridSize => bin.push(9),
         }
 
         bin
@@ -239,6 +246,9 @@ impl InternalKernelArg {
             4 => InternalKernelArgType::FormatArray,
             5 => InternalKernelArgType::OrderArray,
             6 => InternalKernelArgType::WorkDim,
+            7 => InternalKernelArgType::EnqueuedBlockSize,
+            8 => InternalKernelArgType::EnqueuedNumSubgroups,
+            9 => InternalKernelArgType::GridSize,
             _ => return None,
         };
 
@@ -296,6 +306,7 @@ struct KernelDevStateInner {
     nir_internal_info: NirInternalInfo,
     constant_buffer: Option<Arc<PipeResource>>,
     info: pipe_compute_state_object_info,
+    options: ProgramOptions,
 }
 
 pub struct KernelDevState {
@@ -303,10 +314,10 @@ pub struct KernelDevState {
 }
 
 impl KernelDevState {
-    pub fn new(nirs: HashMap<&'static Device, NirShader>) -> Arc<Self> {
+    pub fn new(nirs: HashMap<&'static Device, (NirShader, ProgramOptions)>) -> Arc<Self> {
         let states = nirs
             .into_iter()
-            .map(|(dev, mut nir)| {
+            .map(|(dev, (mut nir, options))| {
                 let wgs = nir.workgroup_size();
                 let nir_internal_info = NirInternalInfo {
                     shared_size: nir.shared_size() as u64,
@@ -333,6 +344,7 @@ impl KernelDevState {
                         nir_internal_info: nir_internal_info,
                         constant_buffer: cb,
                         info: info,
+                        options: options,
                     },
                 )
             })
@@ -502,6 +514,7 @@ fn lower_and_optimize_nir_late(
     dev: &Device,
     nir: &mut NirShader,
     args: &mut [KernelArg],
+    options: &ProgramOptions,
 ) -> Vec<InternalKernelArg> {
     let address_bits_base_type;
     let address_bits_ptr_type;
@@ -624,8 +637,11 @@ fn lower_and_optimize_nir_late(
 
     // run before gather info
     nir.pass0(nir_lower_system_values);
+
     let mut compute_options = nir_lower_compute_system_values_options::default();
     compute_options.set_has_base_global_invocation_id(true);
+    compute_options.set_has_non_uniform_workgroup(options.non_uniform_work_group_size);
+
     nir.pass1(nir_lower_compute_system_values, &compute_options);
     nir.pass1(nir_shader_gather_info, nir.entrypoint());
     if nir.num_images() > 0 || nir.num_textures() > 0 {
@@ -654,6 +670,48 @@ fn lower_and_optimize_nir_late(
             unsafe { glsl_array_type(glsl_int16_t_type(), count as u32, 2) },
             args.len() + res.len() - 1,
             "image_orders",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_ENQUEUED_WORKGROUP_SIZE) {
+        res.push(InternalKernelArg {
+            kind: InternalKernelArgType::EnqueuedBlockSize,
+            size: size_of::<[u32; 3]>(),
+            offset: 0,
+        });
+        lower_state.block_size = nir.add_var(
+            nir_variable_mode::nir_var_uniform,
+            unsafe { glsl_array_type(glsl_uint_type(), 3, 4) },
+            args.len() + res.len() - 1,
+            "enqueued_block_size",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_ENQUEUED_NUM_SUBGROUPS) {
+        res.push(InternalKernelArg {
+            kind: InternalKernelArgType::EnqueuedNumSubgroups,
+            size: size_of::<u32>(),
+            offset: 0,
+        });
+        lower_state.num_subgroups = nir.add_var(
+            nir_variable_mode::nir_var_uniform,
+            unsafe { glsl_uint_type() },
+            args.len() + res.len() - 1,
+            "enqueued_num_subgroups",
+        );
+    }
+
+    if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_GLOBAL_GROUP_SIZE) {
+        res.push(InternalKernelArg {
+            kind: InternalKernelArgType::GridSize,
+            size: size_of::<[usize; 3]>(),
+            offset: 0,
+        });
+        lower_state.grid_size = nir.add_var(
+            nir_variable_mode::nir_var_uniform,
+            unsafe { glsl_array_type(address_bits_ptr_type, 3, 4) },
+            args.len() + res.len() - 1,
+            "grid_size",
         );
     }
 
@@ -769,7 +827,12 @@ pub(super) fn convert_spirv_to_nir(
     name: &str,
     args: &[spirv::SPIRVKernelArg],
     dev: &Device,
-) -> (NirShader, Vec<KernelArg>, Vec<InternalKernelArg>) {
+) -> (
+    NirShader,
+    Vec<KernelArg>,
+    Vec<InternalKernelArg>,
+    ProgramOptions,
+) {
     let cache = dev.screen().shader_cache();
     let key = build.hash_key(dev, name);
 
@@ -782,10 +845,11 @@ pub(super) fn convert_spirv_to_nir(
         None
     };
 
-    if let Some(res) = res {
-        res
+    let options = build.dev_options(dev);
+    if let Some((nir, args, internal_args)) = res {
+        (nir, args, internal_args, options)
     } else {
-        let mut nir = build.to_nir(name, dev);
+        let (mut nir, options) = build.to_nir(name, dev);
 
         /* this is a hack until we support fp16 properly and check for denorms inside
          * vstore/vload_half
@@ -794,7 +858,7 @@ pub(super) fn convert_spirv_to_nir(
 
         lower_and_optimize_nir_pre_inputs(dev, &mut nir, &dev.lib_clc);
         let mut args = KernelArg::from_spirv_nir(args, &mut nir);
-        let internal_args = lower_and_optimize_nir_late(dev, &mut nir, &mut args);
+        let internal_args = lower_and_optimize_nir_late(dev, &mut nir, &mut args, &options);
 
         if let Some(cache) = cache {
             let mut bin = Vec::new();
@@ -816,7 +880,7 @@ pub(super) fn convert_spirv_to_nir(
             cache.put(&bin, &mut key.unwrap());
         }
 
-        (nir, args, internal_args)
+        (nir, args, internal_args, options)
     }
 }
 
@@ -848,40 +912,67 @@ impl Kernel {
         })
     }
 
-    fn optimize_local_size(&self, d: &Device, grid: &mut [u32; 3], block: &mut [u32; 3]) {
+    fn optimize_local_size(
+        &self,
+        d: &Device,
+        grid: &mut [u32; 3],
+        block: &mut [u32; 3],
+        last_block: &mut [u32; 3],
+    ) {
         let mut threads = self.max_threads_per_block(d) as u32;
         let dim_threads = d.max_block_sizes();
         let subgroups = self.preferred_simd_size(d) as u32;
+        let last_block_support = d.last_block_supported() && self.supports_last_block(d);
 
         if !block.contains(&0) {
             for i in 0..3 {
                 // we already made sure everything is fine
-                grid[i] /= block[i];
+                last_block[i] = grid[i] % block[i];
+                grid[i] = div_round_up(grid[i], block[i]);
+
+                if last_block[i] != 0 {
+                    debug_assert!(last_block_support);
+                }
             }
+
             return;
         }
 
-        for i in 0..3 {
-            let t = cmp::min(threads, dim_threads[i] as u32);
-            let gcd = gcd(t, grid[i]);
-
-            block[i] = gcd;
-            grid[i] /= gcd;
-
-            // update limits
-            threads /= block[i];
-        }
-
-        // if we didn't fill the subgroup we can do a bit better if we have threads remaining
-        let total_threads = block[0] * block[1] * block[2];
-        if threads != 1 && total_threads < subgroups {
+        // in cases we can't use last_block we try our best to utilize subgroups as much as possible
+        // TODO: saying that, this algo is kinda non optimal in some cases.
+        if !last_block_support {
             for i in 0..3 {
-                if grid[i] * total_threads < threads {
-                    block[i] *= grid[i];
-                    grid[i] = 1;
-                    // can only do it once as nothing is cleanly divisible
-                    break;
+                let t = cmp::min(threads, dim_threads[i] as u32);
+                let gcd = gcd(t, grid[i]);
+
+                block[i] = gcd;
+                grid[i] /= gcd;
+
+                // update limits
+                threads /= block[i];
+            }
+
+            // if we didn't fill the subgroup we can do a bit better if we have threads remaining
+            let total_threads = block[0] * block[1] * block[2];
+            if threads != 1 && total_threads < subgroups {
+                for i in 0..3 {
+                    if grid[i] * total_threads < threads {
+                        block[i] *= grid[i];
+                        grid[i] = 1;
+                        // can only do it once as nothing is cleanly divisible
+                        break;
+                    }
                 }
+            }
+        } else {
+            for i in 0..3 {
+                let cut = cmp::min(grid[i], threads);
+
+                block[i] = cut;
+                last_block[i] = grid[i] % cut;
+                grid[i] = div_round_up(grid[i], cut);
+
+                threads /= cut;
             }
         }
     }
@@ -898,6 +989,8 @@ impl Kernel {
     ) -> CLResult<EventSig> {
         let dev_state = self.build.dev_state.get(q.device);
         let mut block = create_kernel_arr::<u32>(block, 1);
+        let mut last_block = [0; 3];
+        let enqueued_grid = create_kernel_arr::<usize>(grid, 1);
         let mut grid = create_kernel_arr::<u32>(grid, 1);
         let offsets = create_kernel_arr::<u64>(offsets, 0);
         let mut input: Vec<u8> = Vec::new();
@@ -919,7 +1012,9 @@ impl Kernel {
             &[0; 4]
         };
 
-        self.optimize_local_size(q.device, &mut grid, &mut block);
+        print!("{block:?} {grid:?} => ");
+        self.optimize_local_size(q.device, &mut grid, &mut block, &mut last_block);
+        println!("{block:?} {last_block:?} {grid:?}");
 
         for (arg, val) in self.build.args.iter().zip(&self.values) {
             if arg.dead {
@@ -1058,6 +1153,16 @@ impl Kernel {
                 InternalKernelArgType::WorkDim => {
                     input.extend_from_slice(&[work_dim as u8; 1]);
                 }
+                InternalKernelArgType::EnqueuedBlockSize => {
+                    input.extend_from_slice(unsafe { as_byte_slice::<u32>(&block) });
+                }
+                InternalKernelArgType::EnqueuedNumSubgroups => {
+                    let num_subgroups = self.subgroups_for_block_32(q.device, &block) as u32;
+                    input.extend_from_slice(&num_subgroups.to_ne_bytes());
+                }
+                InternalKernelArgType::GridSize => {
+                    input.extend_from_slice(unsafe { as_byte_slice::<usize>(&enqueued_grid) });
+                }
             }
         }
 
@@ -1105,7 +1210,13 @@ impl Kernel {
             ctx.set_global_binding(resources.as_slice(), &mut globals);
             ctx.set_constant_buffer(0, &input);
 
-            ctx.launch_grid(work_dim, block, grid, variable_local_size as u32);
+            ctx.launch_grid(
+                work_dim,
+                block,
+                last_block,
+                grid,
+                variable_local_size as u32,
+            );
 
             ctx.clear_global_binding(globals.len() as u32);
             ctx.clear_shader_images(iviews.len() as u32);
@@ -1276,7 +1387,27 @@ impl Kernel {
         div_round_up(threads, subgroup_size)
     }
 
+    fn subgroups_for_block_32(&self, dev: &Device, block: &[u32; 3]) -> usize {
+        let subgroup_size = self.subgroup_size_for_block_32(dev, block);
+        if subgroup_size == 0 {
+            return 0;
+        }
+
+        let threads: u32 = block.iter().product();
+        div_round_up(threads as usize, subgroup_size)
+    }
+
     pub fn subgroup_size_for_block(&self, dev: &Device, block: &[usize]) -> usize {
+        let block = [
+            *block.first().unwrap_or(&1) as u32,
+            *block.get(1).unwrap_or(&1) as u32,
+            *block.get(2).unwrap_or(&1) as u32,
+        ];
+
+        self.subgroup_size_for_block_32(dev, &block)
+    }
+
+    fn subgroup_size_for_block_32(&self, dev: &Device, block: &[u32; 3]) -> usize {
         let subgroup_sizes = self.subgroup_sizes(dev);
         if subgroup_sizes.is_empty() {
             return 0;
@@ -1286,21 +1417,23 @@ impl Kernel {
             return subgroup_sizes[0];
         }
 
-        let block = [
-            *block.first().unwrap_or(&1) as u32,
-            *block.get(1).unwrap_or(&1) as u32,
-            *block.get(2).unwrap_or(&1) as u32,
-        ];
-
         match &self.build.dev_state.get(dev).nir_or_cso {
             KernelDevStateVariant::Cso(cso) => {
                 dev.helper_ctx()
-                    .compute_state_subgroup_size(cso.cso_ptr, &block) as usize
+                    .compute_state_subgroup_size(cso.cso_ptr, block) as usize
             }
             _ => {
                 panic!()
             }
         }
+    }
+
+    pub fn supports_last_block(&self, dev: &Device) -> bool {
+        self.build
+            .dev_state
+            .get(dev)
+            .options
+            .non_uniform_work_group_size
     }
 }
 

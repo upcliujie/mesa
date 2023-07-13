@@ -70,6 +70,24 @@ rusticl_lower_intrinsics_instr(
     case nir_intrinsic_load_work_dim:
         assert(state->work_dim);
         return nir_u2uN(b, nir_load_var(b, state->work_dim), nir_dest_bit_size(intrins->dest));
+    case nir_intrinsic_load_enqueued_workgroup_size: {
+        nir_deref_instr *deref = nir_build_deref_var(b, state->block_size);
+        return nir_vec3(b,
+            nir_load_deref(b, nir_build_deref_array_imm(b, deref, 0)),
+            nir_load_deref(b, nir_build_deref_array_imm(b, deref, 1)),
+            nir_load_deref(b, nir_build_deref_array_imm(b, deref, 2))
+        );
+    }
+    case nir_intrinsic_load_enqueued_num_subgroups:
+        return nir_load_var(b, state->num_subgroups);
+    case nir_intrinsic_load_global_group_size: {
+        nir_deref_instr *deref = nir_build_deref_var(b, state->grid_size);
+        return nir_vec3(b,
+            nir_load_deref(b, nir_build_deref_array_imm(b, deref, 0)),
+            nir_load_deref(b, nir_build_deref_array_imm(b, deref, 1)),
+            nir_load_deref(b, nir_build_deref_array_imm(b, deref, 2))
+        );
+    }
     default:
         return NULL;
     }

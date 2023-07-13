@@ -552,7 +552,7 @@ fn enqueue_ndrange_kernel(
         // CL_INVALID_WORK_GROUP_SIZE if the work-group size must be uniform and the
         // local_work_size is not NULL, [...] if the global_work_size is not evenly divisible by
         // the local_work_size.
-        if lws != 0 && gws % lws != 0 {
+        if !k.supports_last_block(dev) && lws != 0 && gws % lws != 0 {
             return Err(CL_INVALID_WORK_GROUP_SIZE);
         }
 

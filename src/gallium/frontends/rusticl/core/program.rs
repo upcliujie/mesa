@@ -124,9 +124,10 @@ impl ProgramBuild {
 
             // TODO: we could run this in parallel?
             for d in self.devs_with_build() {
-                let (nir, args, internal_args) = convert_spirv_to_nir(self, kernel_name, &args, d);
+                let (nir, args, internal_args, options) =
+                    convert_spirv_to_nir(self, kernel_name, &args, d);
                 let attributes_string = self.attribute_str(kernel_name, d);
-                nirs.insert(d, nir);
+                nirs.insert(d, (nir, options));
                 args_set.insert(args);
                 internal_args_set.insert(internal_args);
                 attributes_string_set.insert(attributes_string);
@@ -198,7 +199,7 @@ impl ProgramBuild {
         }
     }
 
-    pub fn to_nir(&self, kernel: &str, d: &Device) -> NirShader {
+    pub fn to_nir(&self, kernel: &str, d: &Device) -> (NirShader, ProgramOptions) {
         let mut spec_constants: Vec<_> = self
             .spec_constants
             .iter()
@@ -229,7 +230,11 @@ impl ProgramBuild {
             }
         };
 
-        nir.unwrap()
+        (nir.unwrap(), info.options)
+    }
+
+    pub fn dev_options(&self, d: &Device) -> ProgramOptions {
+        self.dev_build(d).options
     }
 }
 
@@ -292,7 +297,8 @@ fn prepare_options(options: &str, dev: &Device) -> (Vec<CString>, ProgramOptions
 
     let program_options = ProgramOptions {
         non_uniform_work_group_size: clc_version >= CLVersion::Cl2_0
-            && !res.contains(&"-cl-uniform-work-group-size"),
+            && !res.contains(&"-cl-uniform-work-group-size")
+            && dev.last_block_supported(),
     };
 
     let options = res
