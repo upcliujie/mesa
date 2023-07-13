@@ -1117,6 +1117,7 @@ llvmpipe_create_screen(struct sw_winsys *winsys, const struct pipe_screen_config
    if (config) {
       driParseConfigFiles(config->options, config->options_info, 0, "llvmpipe",
                           NULL, NULL, NULL, 0, NULL, 0);
+      screen->allow_fastpath_vertex_output = driQueryOptionb(config->options, "llvmpipe_fastpath_allow_vertex_output");
    }
    screen->allow_cl = !!getenv("LP_CL");
    screen->num_threads = util_get_cpu_caps()->nr_cpus > 1

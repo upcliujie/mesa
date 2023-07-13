@@ -4039,7 +4039,8 @@ llvmpipe_create_fs_state(struct pipe_context *pipe,
       shader->inputs[i].src_index = i+1;
    }
 
-   llvmpipe_fs_analyse_nir(shader);
+   llvmpipe_fs_analyse_nir(shader,
+                           llvmpipe_screen(pipe->screen)->allow_fastpath_vertex_output);
 
    return shader;
 }

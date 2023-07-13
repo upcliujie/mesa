@@ -213,7 +213,8 @@ check_load_const_in_zero_one(const nir_load_const_instr *load)
 static bool
 llvmpipe_nir_fn_is_linear_compat(const struct nir_shader *shader,
                                  nir_function_impl *impl,
-                                 struct lp_tgsi_info *info)
+                                 struct lp_tgsi_info *info,
+                                 bool allow_fastpath_vs_output)
 {
    nir_foreach_block(block, impl) {
       nir_foreach_instr_safe(instr, block) {
@@ -337,7 +338,7 @@ llvmpipe_nir_fn_is_linear_compat(const struct nir_shader *shader,
                      if (!check_load_const_in_zero_one(load)) {
                         return false;
                      }
-                  } else if (is_fs_input(&alu->src[s].src)) {
+                  } else if (!allow_fastpath_vs_output && is_fs_input(&alu->src[s].src)) {
                      /* we don't know if the fs inputs are in [0,1] */
                      return false;
                   }
@@ -361,7 +362,8 @@ llvmpipe_nir_fn_is_linear_compat(const struct nir_shader *shader,
 
 static bool
 llvmpipe_nir_is_linear_compat(struct nir_shader *shader,
-                              struct lp_tgsi_info *info)
+                              struct lp_tgsi_info *info,
+                              bool allow_fastpath_vs_output)
 {
    int num_tex = info->num_texs;
 
@@ -374,7 +376,7 @@ llvmpipe_nir_is_linear_compat(struct nir_shader *shader,
 
    info->num_texs = 0;
    nir_foreach_function_impl(impl, shader) {
-      if (!llvmpipe_nir_fn_is_linear_compat(shader, impl, info))
+      if (!llvmpipe_nir_fn_is_linear_compat(shader, impl, info, allow_fastpath_vs_output))
          return false;
    }
    info->num_texs = num_tex;
@@ -387,12 +389,13 @@ llvmpipe_nir_is_linear_compat(struct nir_shader *shader,
  * to LP_FS_KIND_x.
  */
 void
-llvmpipe_fs_analyse_nir(struct lp_fragment_shader *shader)
+llvmpipe_fs_analyse_nir(struct lp_fragment_shader *shader,
+                        bool allow_fastpath_vs_output)
 {
    if (!shader->info.indirect_textures &&
        !shader->info.sampler_texture_units_different &&
        shader->info.num_texs <= LP_MAX_LINEAR_TEXTURES &&
-       llvmpipe_nir_is_linear_compat(shader->base.ir.nir, &shader->info)) {
+       llvmpipe_nir_is_linear_compat(shader->base.ir.nir, &shader->info, allow_fastpath_vs_output)) {
       shader->kind = LP_FS_KIND_LLVM_LINEAR;
    } else {
       shader->kind = LP_FS_KIND_GENERAL;

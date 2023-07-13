@@ -711,4 +711,10 @@
 #define DRI_CONF_DZN_ENABLE_8BIT_LOADS_STORES(def) \
    DRI_CONF_OPT_B(dzn_enable_8bit_loads_stores, def, "Enable VK_KHR_8bit_loads_stores")
 
+/*
+ * \brief llvmpipe specific configuration options
+ */
+#define DRI_CONF_LLVMPIPE_FASTPATH_ALLOW_VERTEX_OUTPUT(def) \
+   DRI_CONF_OPT_B(llvmpipe_fastpath_allow_vertex_output, def, "Allow vertex output for fast path")
+
 #endif
