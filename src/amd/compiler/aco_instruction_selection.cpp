@@ -8409,6 +8409,25 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       bool create_helpers =
          instr->intrinsic == nir_intrinsic_reduce && nir_intrinsic_include_helpers(instr);
 
+      if (!nir_dest_is_divergent(instr->dest) && instr->intrinsic != nir_intrinsic_reduce &&
+          instr->dest.ssa.bit_size != 1) {
+         /* The lowest invocation must be src0 (inclusive scan) or identity (exclusive scan). Since
+          * the result is uniform, the higher ones much be the same.
+          */
+         ReduceOp reduce_op = get_reduce_op(op, instr->src[0].ssa->bit_size);
+         if (instr->intrinsic == nir_intrinsic_inclusive_scan) {
+            emit_uniform_subgroup(ctx, instr, get_ssa_temp(ctx, instr->src[0].ssa));
+         } else if (dst.bytes() == 8) {
+            uint32_t lo = get_reduction_identity(reduce_op, 0);
+            uint32_t hi = get_reduction_identity(reduce_op, 1);
+            bld.pseudo(aco_opcode::p_create_vector, Definition(dst), Operand::c32(lo),
+                       Operand::c32(hi));
+         } else {
+            bld.copy(Definition(dst), Operand::c32(get_reduction_identity(reduce_op, 0)));
+         }
+         break;
+      }
+
       if (!nir_src_is_divergent(instr->src[0]) && cluster_size == ctx->program->wave_size &&
           instr->dest.ssa.bit_size != 1) {
          /* We use divergence analysis to assign the regclass, so check if it's
