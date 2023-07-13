@@ -891,13 +891,16 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
                struct precompile_variant_data *data = CALLOC_STRUCT(precompile_variant_data);
                data->prog = variant;
                data->state = ctx->gfx_pipeline_state;
-               util_queue_add_job(&screen->cache_get_thread, data, &variant->base.cache_fence, precompile_variant_job, NULL, 0);
+               if (can_use_uber)
+                  util_queue_add_job(&screen->cache_get_thread, data, &variant->base.cache_fence, precompile_variant_job, NULL, 0);
+               else
+                  precompile_variant_job(data, screen, 0);
                variant->started_compiling = true;
             }
             if (!can_use_uber)
                util_queue_fence_wait(&variant->base.cache_fence);
             bool variant_prog_ready = variant->started_compiling &&
-                                      util_queue_fence_is_signalled(&variant->base.cache_fence);
+                                      (!can_use_uber || util_queue_fence_is_signalled(&variant->base.cache_fence));
             assert(can_use_uber || variant_prog_ready);
             if(variant_prog_ready) {
                /* variant prog is ready, use it */
