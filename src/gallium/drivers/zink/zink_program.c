@@ -860,7 +860,17 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       if (entry) {
          prog = (struct zink_gfx_program*)entry->data;
          ctx->curr_program_uber = ctx->curr_program = prog;
-         if (!prog->base_variant || needs_emulation) {
+         if (prog->is_separable) {
+            /* if uber cannot be used we need to compile the variant synchrously,
+             * so we need the full prog: sync and compile */
+            if (!can_use_uber)
+               util_queue_fence_wait(&prog->base.cache_fence);
+            /* If the optimized linked pipeline is done compiling, swap it into place. */
+            if (util_queue_fence_is_signalled(&prog->base.cache_fence)) {
+               prog = replace_separable_prog(screen, entry, prog);
+            }
+         }
+         if (!prog->is_separable && (!prog->base_variant || needs_emulation)) {
             struct program_variant_key prog_variant_key = {0};
             prog_variant_key.key = ctx->gfx_pipeline_state.optimal_key;
             prog_variant_key.st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
@@ -876,16 +886,6 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
                needs_uber = true;
             } else
                variant = ((struct program_variant_key *)variant_entry->key)->prog;
-            /* makes sure blobs are present TODO why is this needed? */
-            if (!can_use_uber && prog->is_separable) {
-               for (unsigned i = 0; i < ZINK_GFX_SHADER_COUNT; i++) {
-                  if (!prog->shaders[i])
-                     continue;
-                  nir_shader *nir = zink_shader_deserialize(screen, prog->shaders[i]);
-                  zink_shader_serialize_blob(nir, &prog->blobs[i]);
-                  ralloc_free(nir);
-               }
-            }
             /* fetches shader modules from cache and starts async compilation on a miss */
             bool async_done = update_gfx_program_optimal(ctx, prog, variant, can_use_uber);
             assert(can_use_uber || async_done);
