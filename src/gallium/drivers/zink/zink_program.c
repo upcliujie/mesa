@@ -766,22 +766,6 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
       zms[2] = update_or_queue_gfx_shader_module_optimal(ctx, prog, MESA_SHADER_TESS_CTRL, async);
       async_done &= !!zms[2];
    }
-   if (async_done) {
-      for (int rstage = 0; rstage < MESA_SHADER_COMPUTE; rstage++) {
-         assert(!!variant_prog->shaders[rstage] == !!prog->shaders[rstage]);
-         if (variant_prog->shaders[rstage] && !variant_prog->objs[rstage].mod) {
-            assert(!variant_prog->is_separable);
-            struct zink_shader_module *mod = update_or_queue_gfx_shader_module_optimal(ctx, prog, rstage, async);
-            async_done &= !!mod;
-            if (mod) {
-               bool changed = variant_prog->objs[rstage].mod != mod->obj.mod;
-               variant_prog->objs[rstage] = mod->obj;
-               variant_prog->objects[rstage] = mod->obj.obj;
-               ctx->gfx_pipeline_state.modules_changed |= changed;
-            }
-         }
-      }
-   }
    gl_shader_stage stages[] = {ctx->last_vertex_stage->info.stage, MESA_SHADER_FRAGMENT, MESA_SHADER_TESS_CTRL};
    if (async_done) {
       for (int i = 0;i < 3; i++) {
@@ -798,6 +782,43 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
       variant_prog->st_key = prog->st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
    }
    return async_done;
+}
+
+static bool
+update_gfx_program_missing_shaders(struct zink_context *ctx, struct zink_gfx_program *prog,
+                                   struct zink_gfx_program *variant_prog, bool async)
+{
+   bool async_done = true;
+   for (int rstage = 0; rstage < MESA_SHADER_COMPUTE; rstage++) {
+      assert(!!variant_prog->shaders[rstage] == !!prog->shaders[rstage]);
+      if (variant_prog->shaders[rstage] && !variant_prog->objs[rstage].mod) {
+         assert(!variant_prog->is_separable);
+         struct zink_shader_module *mod = update_or_queue_gfx_shader_module_optimal(ctx, prog, rstage, async);
+         async_done &= !!mod;
+         if (mod) {
+            bool changed = variant_prog->objs[rstage].mod != mod->obj.mod;
+            variant_prog->objs[rstage] = mod->obj;
+               variant_prog->objects[rstage] = mod->obj.obj;
+               ctx->gfx_pipeline_state.modules_changed |= changed;
+         }
+      }
+   }
+   return async_done;
+}
+
+static void
+copy_gfx_program_missing_shaders(struct zink_context *ctx, struct zink_gfx_program *base_prog,
+                                   struct zink_gfx_program *variant_prog)
+{
+   for (int rstage = 0; rstage < MESA_SHADER_COMPUTE; rstage++) {
+      assert(!!variant_prog->shaders[rstage] == !!base_prog->shaders[rstage]);
+      if (variant_prog->shaders[rstage] && !variant_prog->objs[rstage].mod) {
+         bool changed = variant_prog->objs[rstage].mod != base_prog->objs[rstage].mod;
+         variant_prog->objs[rstage] = base_prog->objs[rstage];
+         variant_prog->objects[rstage] = base_prog->objects[rstage];
+         ctx->gfx_pipeline_state.modules_changed |= changed;
+      }
+   }
 }
 
 static struct zink_gfx_program *
@@ -885,6 +906,13 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
             /* fetches shader modules from cache and starts async compilation on a miss */
             bool async_done = update_gfx_program_optimal(ctx, prog, variant, can_use_uber);
             assert(can_use_uber || async_done);
+            if (async_done) {
+               if (prog->base_variant)
+                  copy_gfx_program_missing_shaders(ctx, prog->base_variant, variant);
+               else
+                  async_done = update_gfx_program_missing_shaders(ctx, prog, variant, can_use_uber);
+               assert(can_use_uber || async_done);
+            }
 
             if (async_done && !variant->started_compiling) {
                /* Modules are ready but the program isn't. Start a job for it. */
