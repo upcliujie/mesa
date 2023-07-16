@@ -12,6 +12,11 @@ set -o xtrace
 apt-get install -y ca-certificates
 sed -i -e 's/http:\/\/deb/https:\/\/deb/g' /etc/apt/sources.list.d/*
 
+EPHEMERAL=(
+  python3-dev
+  python3-pip
+)
+
 DEPS=(
   cpio
   curl
@@ -30,9 +35,11 @@ DEPS=(
 
 apt-get update
 
-apt-get install -y --no-remove "${DEPS[@]}"
+apt-get install -y --no-remove "${DEPS[@]}" "${EPHEMERAL[@]}"
 
-# setup SNMPv2 SMI MIB
+python3 -m pip install --break-system-packages -r .gitlab-ci/labgrid/requirements.txt
+
+# setup SNMPv2 SMI_MIB
 curl -L --retry 4 -f --retry-all-errors --retry-delay 60 \
     https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-SMI.txt \
     -o /usr/share/snmp/mibs/SNMPv2-SMI.txt
@@ -50,3 +57,5 @@ ln -s \
     /baremetal-files/zImage \
     /baremetal-files/tegra124-jetson-tk1.dtb \
     /baremetal-files/jetson-tk1/boot/
+
+apt-get purge -y "${EPHEMERAL[@]}"
