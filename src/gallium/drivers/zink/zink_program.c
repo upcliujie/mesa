@@ -151,7 +151,7 @@ create_shader_module_for_stage(struct zink_context *ctx, struct zink_screen *scr
       assert(ctx); //TODO async
       zm->obj = zink_shader_tcs_compile(screen, zs, patch_vertices, prog->base.uses_shobj, &prog->base);
    } else {
-      zm->obj = zink_shader_compile(screen, prog->base.uses_shobj, zs, zink_shader_blob_deserialize(screen, &prog->blobs[stage]), key, false, &ctx->di.zs_swizzle[stage], &prog->base);
+      zm->obj = zink_shader_compile(screen, prog->base.uses_shobj, zs, zink_shader_blob_deserialize(screen, &prog->blobs[stage]), key, NULL, false, &ctx->di.zs_swizzle[stage], &prog->base);
    }
    if (!zm->obj.mod) {
       FREE(zm);
@@ -270,7 +270,7 @@ create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_scr
       zm->obj = zink_shader_tcs_compile(screen, zs, patch_vertices, prog->base.uses_shobj, &prog->base);
    } else {
       zm->obj = zink_shader_compile(screen, prog->base.uses_shobj, zs, zink_shader_blob_deserialize(screen, &prog->blobs[stage]),
-                                    (struct zink_shader_key*)key, false,
+                                    (struct zink_shader_key*)key, NULL, false,
                                     shadow_needs_shader_swizzle ? &ctx->di.zs_swizzle[stage] : NULL, &prog->base);
    }
    if (!zm->obj.mod) {
@@ -882,8 +882,7 @@ update_cs_shader_module(struct zink_context *ctx, struct zink_compute_program *c
          return;
       }
       zm->shobj = false;
-      zm->obj = zink_shader_compile(screen, false, zs, zink_shader_blob_deserialize(screen, &comp->shader->blob), key, false,
-                                    zs_swizzle_size ? &ctx->di.zs_swizzle[MESA_SHADER_COMPUTE] : NULL, &comp->base);
+      zm->obj = zink_shader_compile(screen, false, zs, zink_shader_blob_deserialize(screen, &comp->shader->blob), key, NULL, false, zs_swizzle_size ? &ctx->di.zs_swizzle[MESA_SHADER_COMPUTE] : NULL, &comp->base);
       if (!zm->obj.spirv) {
          FREE(zm);
          return;
@@ -1341,7 +1340,7 @@ precompile_compute_job(void *data, void *gdata, int thread_index)
    comp->curr = comp->module = CALLOC_STRUCT(zink_shader_module);
    assert(comp->module);
    comp->module->shobj = false;
-   comp->module->obj = zink_shader_compile(screen, false, comp->shader, comp->nir, NULL, false, NULL, &comp->base);
+   comp->module->obj = zink_shader_compile(screen, false, comp->shader, comp->nir, NULL, NULL, false, NULL, &comp->base);
    /* comp->nir will be freed by zink_shader_compile */
    comp->nir = NULL;
    assert(comp->module->obj.spirv);
