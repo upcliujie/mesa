@@ -28,6 +28,44 @@
 
 #include "compiler/shader_info.h"
 
+union zink_st_small_key {
+   struct {
+      uint8_t passthrough_edgeflags:1;
+      /** for ARB_color_buffer_float */
+      uint8_t clamp_color:1;
+      /** lower glPointSize to gl_PointSize */
+      uint8_t export_point_size:1;
+      /* for user-defined clip-planes */
+      uint8_t lower_ucp:1;
+      /* Whether st_variant::driver_shader is for the draw module,
+       * not for the driver.
+       */
+      uint8_t is_draw_shader:1;
+      uint8_t lower_flatshade:1;
+      uint8_t lower_alpha_test:1;
+      uint16_t pad: 9; // from here not key
+   };
+   uint16_t val;
+};
+
+struct zink_st_variant_key
+{
+   union zink_st_small_key small_key;
+
+   uint8_t ucp_enables: 8;
+
+   unsigned lower_alpha_func:3;
+
+
+   uint32_t pad2: 5; //next array aligned to uint32 for easy access
+
+   /* bitmask of sampler units; PIPE_CAP_GL_CLAMP */
+   uint32_t gl_clamp[3];
+
+   /* needs more than 128 bytes */
+   float ucp_state[8][4];
+};
+
 struct zink_vs_key_base {
    bool last_vertex_stage : 1;
    bool clip_halfz : 1;

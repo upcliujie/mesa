@@ -3800,9 +3800,9 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
 
 
 struct zink_shader_object
-zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs,
-                    nir_shader *nir, const struct zink_shader_key *key, bool compile_uber,
-                    const void *extra_data, struct zink_program *pg)
+zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs, nir_shader *nir,
+                    const struct zink_shader_key *key, const struct zink_st_variant_key *st_key,
+                    bool compile_uber, const void *extra_data, struct zink_program *pg)
 {
    bool need_optimize = true;
    bool inlined_uniforms = false;
@@ -3812,6 +3812,10 @@ zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shad
 
    if (compile_uber)
       zink_emulation_passes(nir, zs);
+   else if (st_key) {
+      zink_optimized_st_emulation_passes(nir, zs, st_key);
+      need_optimize = true;
+   }
 
    if (key) {
       if (key->inline_uniforms) {
