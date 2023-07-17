@@ -925,11 +925,13 @@ struct zink_gfx_pipeline_state {
    struct zink_vertex_elements_hw_state *element_state;
    struct zink_zs_swizzle_key *shadow;
    bool sample_locations_enabled;
+   unsigned st_emulation_lowering_counter;
    enum mesa_prim shader_rast_prim, rast_prim; /* reduced type or max for unknown */
    union {
       struct {
          struct zink_shader_key key[5];
          struct zink_shader_key last_vertex;
+         struct zink_st_variant_key st_key;
       } shader_keys;
       struct {
          union zink_shader_key_optimal key;
@@ -1665,7 +1667,6 @@ struct zink_framebuffer {
    VkFramebufferAttachmentImageInfo infos[PIPE_MAX_COLOR_BUFS + 1];
    struct hash_table objects;
 };
-
 
 /** context types */
 struct zink_sampler_state {
