@@ -1949,6 +1949,7 @@ anv_device_release_bo(struct anv_device *device,
    struct anv_bo old_bo = *bo;
 
    memset(bo, 0, sizeof(*bo));
+   __asm__ volatile("" ::: "memory");
 
    anv_bo_finish(device, &old_bo);
 
