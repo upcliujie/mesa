@@ -307,7 +307,7 @@ anv_measure_reset(struct anv_cmd_buffer *cmd_buffer)
     * yet been processed
     */
    intel_measure_gather(&device->physical->measure_device,
-                        device->info);
+                        device->info, NULL);
 
    assert(cmd_buffer->device != NULL);
 
@@ -334,7 +334,7 @@ anv_measure_destroy(struct anv_cmd_buffer *cmd_buffer)
    /* it is possible that the command buffer contains snapshots that have not
     * yet been processed
     */
-   intel_measure_gather(&physical->measure_device, &physical->info);
+   intel_measure_gather(&physical->measure_device, &physical->info, NULL);
 
    if (measure->bo != NULL)
       anv_device_release_bo(device, measure->bo);
@@ -423,7 +423,7 @@ _anv_measure_acquire(struct anv_device *device)
    intel_measure_frame_transition(p_atomic_inc_return(&measure_device->frame));
 
    /* iterate the queued snapshots and publish those that finished */
-   intel_measure_gather(measure_device, &device->physical->info);
+   intel_measure_gather(measure_device, &device->physical->info, NULL);
 }
 
 void

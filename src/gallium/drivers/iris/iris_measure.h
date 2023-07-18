@@ -33,14 +33,66 @@ struct iris_measure_batch {
    struct intel_measure_batch base;
 };
 
+/**
+ * Initialize the measure attributes of the iris_screen
+ *
+ * Does nothing if the INTEL_MEASURE env var is not set
+ *
+ * @param screen Pointer to an iris_Screen
+ */
 void iris_init_screen_measure(struct iris_screen *screen);
+
+/**
+ * Initialize the measure batch
+ *
+ * @param ice an iris_context object to get a bufmgr
+ * @param batch an iris_batch to initialize the measure attribute of
+ */
 void iris_init_batch_measure(struct iris_context *ice,
                              struct iris_batch *batch);
+
+/**
+ * free an intel_measure batch
+ *
+ * @param batch the iris_measure_batch to free
+ */
 void iris_destroy_batch_measure(struct iris_measure_batch *batch);
+
+/**
+ * Gather all remaining snapshots, which frees them
+ *
+ * @param ice the context to gether snapshots from
+ */
 void iris_destroy_ctx_measure(struct iris_context *ice);
+
+/**
+ * Cleanup the screen measure config
+ *
+ * @param screen the screen to cleanup
+ */
 void iris_destroy_screen_measure(struct iris_screen *screen);
+
+/**
+ * Iris hook to notify the measure framework a new frame is about to begin
+ *
+ * Dispatches to intel_measure_frame_transition and intel_measure_gather, to
+ * collect all pending snapshot data before the next frame begins.
+ *
+ * @param ice the iris_context to ge measure data from
+ */
 void iris_measure_frame_end(struct iris_context *ice);
+
+/**
+ * Iris hook to notify the measure framework that a new batch is about to begin
+ *
+ * gathers pending snapshots, then re-initializes the batch->measure attribute
+ * for the next batch.
+ *
+ * @param ice the iris context to get the measure information from
+ * @param batch the batch ending
+ */
 void iris_measure_batch_end(struct iris_context *ice, struct iris_batch *batch);
+
 void _iris_measure_snapshot(struct iris_context *ice,
                             struct iris_batch *batch,
                             enum intel_measure_snapshot_type type,

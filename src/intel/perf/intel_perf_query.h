@@ -102,6 +102,9 @@ void intel_perf_dump_query(struct intel_perf_context *perf_ctx,
                            struct intel_perf_query_object *obj,
                            void *current_batch);
 
+struct intel_perf_config *
+intel_perf_get_cfg_from_ctx(struct intel_perf_context * ctx);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
