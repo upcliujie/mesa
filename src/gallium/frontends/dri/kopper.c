@@ -71,11 +71,12 @@ kopper_invalidate_drawable(__DRIdrawable *dPriv)
 }
 
 static const __DRI2flushExtension driVkFlushExtension = {
-    .base = { __DRI2_FLUSH, 4 },
+    .base = { __DRI2_FLUSH, 5 },
 
     .flush                = dri_flush_drawable,
     .invalidate           = kopper_invalidate_drawable,
     .flush_with_flags     = dri_flush,
+    .loader_dri3_swap_buffers = dri_loader_dri3_swap_buffers,
 };
 
 static const __DRIrobustnessExtension dri2Robustness = {

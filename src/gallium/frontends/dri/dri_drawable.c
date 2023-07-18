@@ -39,6 +39,7 @@
 #include "util/u_inlines.h"
 
 #include "state_tracker/st_context.h"
+#include "main/marshal_generated.h"
 
 static uint32_t drifb_ID = 0;
 
@@ -426,7 +427,8 @@ notify_before_flush_cb(void* _args)
    /* Wait for glthread to finish because we can't use pipe_context from
     * multiple threads.
     */
-   _mesa_glthread_finish(st->ctx);
+   if (!(args->flags & __DRI2_FLUSH_FROM_GLTHREAD))
+      _mesa_glthread_finish(st->ctx);
 
    if (args->drawable->stvis.samples > 1 &&
        (args->reason == __DRI2_THROTTLE_SWAPBUFFER ||
@@ -491,7 +493,9 @@ dri_flush(__DRIcontext *cPriv,
    }
 
    st = ctx->st;
-   _mesa_glthread_finish(st->ctx);
+
+   if (!(flags & __DRI2_FLUSH_FROM_GLTHREAD))
+      _mesa_glthread_finish(st->ctx);
 
    if (drawable) {
       /* prevent recursion */
@@ -601,5 +605,43 @@ const __DRI2throttleExtension dri2ThrottleExtension = {
     .throttle          = dri_throttle,
 };
 
+/**
+ * This is called by the loader (libGL, libEGL).
+ */
+void
+dri_loader_dri3_swap_buffers(struct loader_dri3_drawable *loader_drawable,
+                             unsigned dri_flush_flags)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   if (ctx->GLApi == ctx->MarshalExec) {
+      dri_flush_flags |= __DRI2_FLUSH_FROM_GLTHREAD;
+
+      _mesa_marshal_LoaderDRI3SwapBuffers(ctx, loader_drawable,
+                                          dri_flush_flags);
+   } else {
+      struct dri_screen *screen =
+         (struct dri_screen *)ctx->st->frontend_screen;
+
+      /* The loader called us. Just call back to the loader to execute
+       * loader_dri3_swap_buffers_msc() if glthread is disabled.
+       */
+      screen->image.loader->loader_dri3_swap_buffers(loader_drawable,
+                                                     dri_flush_flags);
+   }
+}
+
+/**
+ * Called by glthread.
+ */
+void
+dri_call_loader_dri3_swap_buffers(struct pipe_frontend_screen *fscreen,
+                                  struct loader_dri3_drawable *draw,
+                                  unsigned dri_flush_flags)
+{
+   struct dri_screen *screen = (struct dri_screen *)fscreen;
+
+   screen->image.loader->loader_dri3_swap_buffers(draw, dri_flush_flags);
+}
 
 /* vim: set sw=3 ts=8 sts=3 expandtab: */

@@ -526,14 +526,29 @@ dri_is_thread_safe(void *loaderPrivate)
    return true;
 }
 
+static void
+dri3_destroy_loader_image_state(void *loaderPrivate)
+{
+   /* nothing to do */
+}
+
+static void
+dri3_loader_dri3_swap_buffers(struct loader_dri3_drawable *draw,
+                              unsigned dri_flush_flags)
+{
+   loader_dri3_swap_buffers_msc(draw, 0, 0, 0, dri_flush_flags, NULL, 0, false);
+}
+
 /* The image loader extension record for DRI3
  */
 static const __DRIimageLoaderExtension imageLoaderExtension = {
-   .base = { __DRI_IMAGE_LOADER, 3 },
+   .base = { __DRI_IMAGE_LOADER, 5 },
 
    .getBuffers          = loader_dri3_get_buffers,
    .flushFrontBuffer    = dri3_flush_front_buffer,
    .flushSwapBuffers    = dri3_flush_swap_buffers,
+   .destroyLoaderImageState = dri3_destroy_loader_image_state,
+   .loader_dri3_swap_buffers = dri3_loader_dri3_swap_buffers,
 };
 
 const __DRIuseInvalidateExtension dri3UseInvalidate = {
@@ -565,8 +580,13 @@ dri3_swap_buffers(__GLXDRIdrawable *pdraw, int64_t target_msc, int64_t divisor,
    struct dri3_drawable *priv = (struct dri3_drawable *) pdraw;
    unsigned flags = __DRI2_FLUSH_DRAWABLE;
 
-   if (flush)
+   if (flush && !target_msc && !divisor && !remainder) {
       flags |= __DRI2_FLUSH_CONTEXT;
+
+      priv->loader_drawable.ext->flush->loader_dri3_swap_buffers(
+            &priv->loader_drawable, flags);
+      return 0;
+   }
 
    return loader_dri3_swap_buffers_msc(&priv->loader_drawable,
                                        target_msc, divisor, remainder,
