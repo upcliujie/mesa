@@ -14,7 +14,7 @@ STABLE_EPHEMERAL=" \
 dpkg --add-architecture $arch
 apt-get update
 
-apt-get install -y --no-remove \
+apt-get install -oDebug::pkgProblemResolver=true -oDebug::pkgDepCache::Marker=1 -oDebug::pkgDepCache::AutoInstall=1 -y --no-remove \
         $EXTRA_LOCAL_PACKAGES \
         $STABLE_EPHEMERAL \
         crossbuild-essential-$arch \
