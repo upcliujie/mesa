@@ -1519,6 +1519,13 @@ nir_copy_prop_vars_impl(nir_function_impl *impl)
 
    gather_vars_written(&state, NULL, &impl->cf_node);
 
+   /* If there are too many variables this pass will take a very
+    * long time, so skip it in this case.
+    * This is a workaround for issue #9326. The real fix is !24227.
+    */
+   if (_mesa_hash_table_num_entries(state.vars_written_map) > 256)
+      return false;
+
    copy_prop_vars_cf_node(&state, NULL, &impl->cf_node);
 
    if (state.progress) {
