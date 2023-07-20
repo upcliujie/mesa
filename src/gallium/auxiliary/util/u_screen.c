@@ -414,6 +414,7 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
       return 2047;
 
    case PIPE_CAP_SURFACE_SAMPLE_COUNT:
+   case PIPE_CAP_AVOID_SURFACE_SAMPLE_COUNT:
       return 0;
    case PIPE_CAP_DEST_SURFACE_SRGB_CONTROL:
       return 1;

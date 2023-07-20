@@ -315,6 +315,7 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return is_a5xx(screen) || is_a6xx(screen);
 
    case PIPE_CAP_SURFACE_SAMPLE_COUNT:
+   case PIPE_CAP_AVOID_SURFACE_SAMPLE_COUNT:
       return is_a6xx(screen);
 
    case PIPE_CAP_DEPTH_CLIP_DISABLE:

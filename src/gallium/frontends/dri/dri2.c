@@ -535,7 +535,7 @@ dri2_allocate_textures(struct dri_context *ctx,
       pipe_resource_reference(&drawable->textures[i], NULL);
    }
 
-   if (drawable->stvis.samples > 1) {
+   if (drawable->uses_msaa_textures) {
       for (i = 0; i < ST_ATTACHMENT_COUNT; i++) {
          bool del = true;
 
@@ -662,7 +662,7 @@ dri2_allocate_textures(struct dri_context *ctx,
    }
 
    /* Allocate private MSAA colorbuffers. */
-   if (drawable->stvis.samples > 1) {
+   if (drawable->uses_msaa_textures) {
       for (i = 0; i < statts_count; i++) {
          enum st_attachment_type statt = statts[i];
 
@@ -724,7 +724,7 @@ dri2_allocate_textures(struct dri_context *ctx,
          templ.format = format;
          templ.bind = bind & ~PIPE_BIND_SHARED;
 
-         if (drawable->stvis.samples > 1) {
+         if (drawable->uses_msaa_textures) {
             templ.nr_samples = drawable->stvis.samples;
             templ.nr_storage_samples = drawable->stvis.samples;
             zsbuf = &drawable->msaa_textures[statt];
@@ -2136,7 +2136,7 @@ dri2_set_damage_region(__DRIdrawable *dPriv, unsigned int nrects, int *rects)
       struct pipe_screen *screen = drawable->screen->base.screen;
       struct pipe_resource *resource;
 
-      if (drawable->stvis.samples > 1)
+      if (drawable->uses_msaa_textures)
          resource = drawable->msaa_textures[ST_ATTACHMENT_BACK_LEFT];
       else
          resource = drawable->textures[ST_ATTACHMENT_BACK_LEFT];
