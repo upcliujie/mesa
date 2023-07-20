@@ -82,7 +82,7 @@ libvulkan_dzn = shared_library(
   [libdzn_files, dzn_entrypoints, sha1_h],
   vs_module_defs : vulkan_api_def,
   include_directories : [
-    inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux,
+    inc_vk, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux,
     inc_compiler, inc_util
   ],
   dependencies : [dzn_deps, idep_vulkan_wsi, idep_xmlconfig],

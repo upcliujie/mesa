@@ -18,7 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-inc_mesa = include_directories('mesa')
+inc_gl = [include_directories('mesa/include'), inc_include]
+inc_mesa = [include_directories('mesa'), inc_gl]
 inc_mapi = include_directories('mapi')
 inc_src = include_directories('.')
 inc_gallium = include_directories('gallium/include')
@@ -26,6 +27,7 @@ inc_gallium_aux = include_directories('gallium/auxiliary')
 inc_amd_common = include_directories('amd/common')
 inc_tool = include_directories('tool')
 inc_virtio_gpu = include_directories('virtio/virtio-gpu')
+inc_vk = [include_directories('vulkan/include'), inc_include]
 inc_frontends = include_directories('gallium/frontends')
 pps_datasources = []
 pps_includes = []

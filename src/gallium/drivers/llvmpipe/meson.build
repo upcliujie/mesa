@@ -118,7 +118,7 @@ libllvmpipe = static_library(
   c_args : [c_msvc_compat_args],
   cpp_args : [cpp_msvc_compat_args],
   gnu_symbol_visibility : 'hidden',
-  include_directories : [inc_gallium, inc_gallium_aux, inc_include, inc_src],
+  include_directories : [inc_gallium, inc_gallium_aux, inc_gl, inc_src],
   dependencies : [ dep_llvm, idep_nir_headers, idep_mesautil ],
 )
 
@@ -139,7 +139,7 @@ if with_tests and with_gallium_softpipe and draw_with_llvm
         t,
         ['@0@.c'.format(t), 'lp_test_main.c', sha1_h],
         dependencies : [dep_llvm, dep_dl, dep_clock, idep_mesautil],
-        include_directories : [inc_gallium, inc_gallium_aux, inc_include, inc_src],
+        include_directories : [inc_gallium, inc_gallium_aux, inc_gl, inc_src],
         link_with : [libllvmpipe, libgallium],
       ),
       suite : ['llvmpipe'],

@@ -46,7 +46,7 @@ libosmesa = shared_library(
   link_args : [ld_args_gc_sections, osmesa_link_args],
   vs_module_defs : osmesa_def,
   include_directories : [
-    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_gallium_winsys,
+    inc_gl, inc_src, inc_gallium, inc_gallium_aux, inc_gallium_winsys,
     inc_gallium_drivers,
   ],
   link_depends : osmesa_link_deps,
@@ -89,7 +89,7 @@ if with_tests
     executable(
       'osmesa-render',
       'test-render.cpp',
-      include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
+      include_directories : [inc_gl, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
       link_with: libosmesa,
       dependencies : [idep_gtest],
     ),

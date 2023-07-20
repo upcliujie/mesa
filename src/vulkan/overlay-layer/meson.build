@@ -40,7 +40,7 @@ vklayer_mesa_overlay = shared_library(
   c_args : [no_override_init_args],
   gnu_symbol_visibility : 'hidden',
   dependencies : [idep_vulkan_util, idep_mesautil, vulkan_wsi_deps, libimgui_core_dep, dep_dl],
-  include_directories : [inc_include, inc_src],
+  include_directories : [inc_vk, inc_src],
   link_args : cc.get_supported_link_arguments(['-Wl,-Bsymbolic-functions', '-Wl,-z,relro']),
   install : true
 )

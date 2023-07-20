@@ -45,7 +45,7 @@ vklayer_mesa_device_select = shared_library(
     idep_vulkan_util, idep_vulkan_wsi_headers, idep_mesautil, vklayer_deps,
     dep_libdrm, dep_dl
   ],
-  include_directories : [inc_include, inc_util, inc_src],
+  include_directories : [inc_vk, inc_util, inc_src],
   link_args : cc.get_supported_link_arguments(['-Wl,-Bsymbolic-functions', '-Wl,-z,relro']),
   install : true
 )

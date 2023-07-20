@@ -201,7 +201,7 @@ libvulkan_runtime = static_library(
    vk_cmd_queue, vk_cmd_enqueue_entrypoints,
    vk_dispatch_trampolines, vk_physical_device_features,
    vk_format_info],
-  include_directories : [inc_include, inc_src, inc_gallium],
+  include_directories : [inc_vk, inc_src, inc_gallium],
   dependencies : vulkan_runtime_deps,
   # For glsl_type_singleton
   link_with : libcompiler,

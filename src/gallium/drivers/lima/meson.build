@@ -101,7 +101,7 @@ liblima = static_library(
   'lima',
   files_lima, lima_nir_algebraic_c,
   include_directories : [
-    inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_gallium_drivers,
+    inc_src, inc_gl, inc_gallium, inc_gallium_aux, inc_gallium_drivers,
     inc_panfrost
   ],
   dependencies : [dep_libdrm, idep_nir_headers, idep_mesautil],
@@ -121,7 +121,7 @@ lima_compiler = executable(
     'standalone/glsl.cpp'
   ),
   include_directories : [
-    inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_gallium_drivers, inc_mesa, inc_mapi, inc_compiler,
+    inc_src, inc_gl, inc_gallium, inc_gallium_aux, inc_gallium_drivers, inc_mesa, inc_mapi, inc_compiler,
   ],
   dependencies : [
     idep_nir,
@@ -143,7 +143,7 @@ lima_disasm = executable(
     'standalone/lima_disasm.c',
   ),
   include_directories : [
-    inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_gallium_drivers, inc_mesa, inc_mapi, inc_compiler,
+    inc_src, inc_gl, inc_gallium, inc_gallium_aux, inc_gallium_drivers, inc_mesa, inc_mapi, inc_compiler,
   ],
   dependencies : [
     idep_mesautil,

@@ -66,7 +66,7 @@ libi915 = static_library(
   'i915',
   files_i915,
   gnu_symbol_visibility : 'hidden',
-  include_directories : [inc_include, inc_src, inc_gallium, inc_gallium_aux],
+  include_directories : [inc_gl, inc_src, inc_gallium, inc_gallium_aux],
   dependencies : idep_nir,
 )
 

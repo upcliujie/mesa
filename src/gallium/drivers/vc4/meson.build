@@ -89,7 +89,7 @@ if host_machine.cpu_family() == 'arm'
     'vc4_neon',
     'vc4_tiling_lt_neon.c',
     include_directories : [
-      inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_broadcom
+      inc_src, inc_gl, inc_gallium, inc_gallium_aux, inc_broadcom
     ],
     c_args : '-mfpu=neon',
   )
@@ -104,7 +104,7 @@ libvc4 = static_library(
   'vc4',
   [files_libvc4, v3d_xml_pack],
   include_directories : [
-    inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_broadcom,
+    inc_src, inc_gl, inc_gallium, inc_gallium_aux, inc_broadcom,
     inc_gallium_drivers,
   ],
   link_with: libvc4_neon,

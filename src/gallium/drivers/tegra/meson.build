@@ -30,7 +30,7 @@ libtegra = static_library(
   files_tegra,
   gnu_symbol_visibility : 'hidden',
   include_directories : [
-    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_gallium_drivers,
+    inc_gl, inc_src, inc_gallium, inc_gallium_aux, inc_gallium_drivers,
     inc_gallium_winsys,
   ],
   dependencies : [dep_libdrm, idep_mesautil],

@@ -107,7 +107,7 @@ libetnaviv = static_library(
   files_etnaviv,
   gnu_symbol_visibility : 'hidden',
   include_directories : [
-    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_etnaviv,
+    inc_gl, inc_src, inc_gallium, inc_gallium_aux, inc_etnaviv,
   ],
   link_with: libetnaviv_drm,
   dependencies : [dep_libdrm, idep_nir_headers, idep_mesautil],
@@ -117,7 +117,7 @@ etnaviv_compiler = executable(
   'etnaviv_compiler',
   'etnaviv_compiler_cmdline.c',
   include_directories : [
-    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_etnaviv,
+    inc_gl, inc_src, inc_gallium, inc_gallium_aux, inc_etnaviv,
   ],
   link_with : [libgallium, libetnaviv, libetnaviv_drm],
   build_by_default : with_tools.contains('etnaviv'),
@@ -139,7 +139,7 @@ if with_tests
       files('tests/lower_ubo_tests.cpp'),
       cpp_args : [cpp_msvc_compat_args],
       gnu_symbol_visibility : 'hidden',
-      include_directories : [inc_include, inc_src, inc_gallium],
+      include_directories : [inc_gl, inc_src, inc_gallium],
       link_with : [libetnaviv],
       dependencies : [idep_gtest, idep_nir],
     ),

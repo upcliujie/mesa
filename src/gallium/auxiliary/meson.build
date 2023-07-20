@@ -552,7 +552,7 @@ libgalliumvl_stub = static_library(
   c_args : [c_msvc_compat_args],
   cpp_args : [cpp_msvc_compat_args],
   gnu_symbol_visibility : 'hidden',
-  include_directories: [inc_gallium, inc_include, inc_src],
+  include_directories: [inc_gallium, inc_gl, inc_src],
   dependencies : idep_mesautil,
   build_by_default : false,
 )
@@ -563,7 +563,7 @@ libgalliumvl = static_library(
   c_args : [c_msvc_compat_args],
   cpp_args : [cpp_msvc_compat_args],
   gnu_symbol_visibility : 'hidden',
-  include_directories : [inc_gallium, inc_include, inc_src],
+  include_directories : [inc_gallium, inc_gl, inc_src],
   dependencies : idep_mesautil,
   build_by_default : false,
 )
@@ -572,7 +572,7 @@ libgalliumvl = static_library(
 libgalliumvlwinsys = static_library(
   'galliumvlwinsys',
   files_libgalliumvlwinsys,
-  include_directories : [inc_gallium, inc_include, inc_loader, inc_src],
+  include_directories : [inc_gallium, inc_gl, inc_loader, inc_src],
   dependencies : [dep_libdrm, vlwinsys_deps, idep_mesautil],
   build_by_default : false,
 )

@@ -95,7 +95,7 @@ libzink = static_library(
   'zink',
   [files_libzink, zink_device_info, zink_instance, zink_nir_algebraic_c, vk_dispatch_table],
   gnu_symbol_visibility : 'hidden',
-  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_vulkan_util, inc_zink_vk],
+  include_directories : [inc_gl, inc_vk, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_vulkan_util, inc_zink_vk],
   link_args : [ld_args_build_id],
   dependencies: [
     idep_nir_headers, idep_mesautil, idep_vulkan_util_headers,
@@ -116,7 +116,7 @@ if with_tests
       'zink_format_test',
       ['zink_format_test.c', 'zink_format.c'],
       dependencies : [idep_mesautil, idep_vulkan_util],
-      include_directories : [inc_gallium, inc_gallium_aux, inc_include, inc_src],
+      include_directories : [inc_gallium, inc_gallium_aux, inc_gl, inc_src],
     ),
     suite : ['zink'],
   )

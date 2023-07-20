@@ -62,7 +62,7 @@ libwgl = static_library(
     _c_args_wgl
   ],
   include_directories : [
-    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_mapi, inc_mesa,
+    inc_gl, inc_src, inc_gallium, inc_gallium_aux, inc_mapi, inc_mesa,
   ],
   dependencies : _wgl_deps,
 )
