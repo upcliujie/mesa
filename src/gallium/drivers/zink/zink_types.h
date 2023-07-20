@@ -1045,6 +1045,7 @@ typedef bool (*equals_gfx_pipeline_state_func)(const void *a, const void *b);
 
 struct zink_gfx_library_key {
    uint32_t optimal_key; //equals_pipeline_lib_optimal
+   uint32_t st_key;
    VkShaderModule modules[ZINK_GFX_SHADER_COUNT];
    VkPipeline pipeline;
 };
@@ -1143,6 +1144,7 @@ struct zink_gfx_program {
 
    struct hash_table pipelines[2][11]; // [dynamic, renderpass][number of draw modes we support]
    uint32_t last_variant_hash;
+   uint32_t st_key;
 
    uint32_t last_finalized_hash[2][4]; //[dynamic, renderpass][primtype idx]
    VkPipeline last_pipeline[2][4]; //[dynamic, renderpass][primtype idx]

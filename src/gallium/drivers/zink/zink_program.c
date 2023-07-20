@@ -471,6 +471,7 @@ generate_gfx_program_modules_optimal(struct zink_context *ctx, struct zink_scree
 
    state->modules_changed = true;
    prog->last_variant_hash = state->optimal_key;
+   prog->st_key = state->shader_keys.st_key.small_key.val;
 }
 
 static uint32_t
@@ -695,6 +696,7 @@ update_gfx_program_optimal(struct zink_context *ctx, struct zink_gfx_program *pr
       ctx->gfx_pipeline_state.modules_changed |= changed;
    }
    prog->last_variant_hash = ctx->gfx_pipeline_state.optimal_key;
+   prog->st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
 }
 
 static struct zink_gfx_program *
@@ -1255,6 +1257,7 @@ create_gfx_program_separable(struct zink_context *ctx, struct zink_shader **stag
    prog->base.layout = zink_pipeline_layout_create(screen, prog->base.dsl, prog->base.num_dsl, false, VK_PIPELINE_LAYOUT_CREATE_INDEPENDENT_SETS_BIT_EXT);
 
    prog->last_variant_hash = ctx->gfx_pipeline_state.optimal_key;
+   prog->st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
 
    if (!screen->info.have_EXT_shader_object) {
       VkPipeline libs[] = {stages[MESA_SHADER_VERTEX]->precompile.gpl, stages[MESA_SHADER_FRAGMENT]->precompile.gpl};
@@ -1264,6 +1267,7 @@ create_gfx_program_separable(struct zink_context *ctx, struct zink_shader **stag
          goto fail;
       }
       gkey->optimal_key = prog->last_variant_hash;
+      gkey->st_key = prog->st_key;
       assert(gkey->optimal_key);
       gkey->pipeline = zink_create_gfx_pipeline_combined(screen, prog, VK_NULL_HANDLE, libs, 2, VK_NULL_HANDLE, false, false);
       _mesa_set_add(&prog->libs->libs, gkey);
@@ -2018,6 +2022,7 @@ zink_create_pipeline_lib(struct zink_screen *screen, struct zink_gfx_program *pr
    }
       
    gkey->optimal_key = state->optimal_key;
+   gkey->st_key = state->shader_keys.st_key.small_key.val;
    assert(gkey->optimal_key);
    for (unsigned i = 0; i < ZINK_GFX_SHADER_COUNT; i++)
       gkey->modules[i] = prog->objs[i].mod;
