@@ -161,6 +161,9 @@ dri_flush(__DRIcontext *cPriv,
 void
 dri_flush_drawable(__DRIdrawable *dPriv);
 
+void dri_drawable_msaa_resolve(struct pipe_context *pctx, struct dri_drawable *drawable,
+                               enum st_attachment_type statt);
+
 extern const __DRItexBufferExtension driTexBufferExtension;
 extern const __DRI2throttleExtension dri2ThrottleExtension;
 #endif
