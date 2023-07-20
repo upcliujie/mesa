@@ -1111,6 +1111,7 @@ struct zink_gfx_lib_cache {
 
    simple_mtx_t lock;
    struct set libs; //zink_gfx_library_key -> VkPipeline
+   struct zink_gfx_library_key *uber_emulation;
 };
 
 struct zink_gfx_program {
