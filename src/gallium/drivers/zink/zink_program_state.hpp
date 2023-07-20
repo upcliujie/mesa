@@ -195,7 +195,8 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
       } else if (HAVE_LIB && zink_can_use_pipeline_libs(ctx)) {
          /* this is the graphics pipeline library path: find/construct all partial pipelines */
          simple_mtx_lock(&prog->libs->lock);
-         struct set_entry *he = _mesa_set_search(&prog->libs->libs, &ctx->gfx_pipeline_state.optimal_key);
+         uint32_t hek[] = {ctx->gfx_pipeline_state.optimal_key, ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val};
+         struct set_entry *he = _mesa_set_search(&prog->libs->libs, &hek);
          struct zink_gfx_library_key *gkey;
          if (he) {
             gkey = (struct zink_gfx_library_key *)he->key;
@@ -307,6 +308,8 @@ equals_gfx_pipeline_state(const void *a, const void *b)
    /* optimal keys are the fastest path: only a single uint32_t comparison for all shader module variants */
    if (STAGE_MASK & STAGE_MASK_OPTIMAL) {
       if (sa->optimal_key != sb->optimal_key)
+         return false;
+      if (sa->shader_keys.st_key.small_key.val != sb->shader_keys.st_key.small_key.val)
          return false;
       if (STAGE_MASK & STAGE_MASK_OPTIMAL_SHADOW) {
          if (sa->shadow != sb->shadow)
