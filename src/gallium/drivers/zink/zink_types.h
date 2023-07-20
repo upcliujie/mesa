@@ -828,9 +828,11 @@ struct zink_shader {
    struct {
       struct util_queue_fence fence;
       struct zink_shader_object obj;
+      struct zink_shader_object emulation_obj;
       VkDescriptorSetLayout dsl;
       VkPipelineLayout layout;
       VkPipeline gpl;
+      VkPipeline emulation_gpl;
       VkDescriptorSetLayoutBinding *bindings;
       unsigned num_bindings;
       struct zink_descriptor_template *db_template;
