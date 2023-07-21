@@ -230,6 +230,7 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
    case nir_intrinsic_load_rasterization_primitive_amd:
    case nir_intrinsic_load_global_constant_uniform_block_intel:
    case nir_intrinsic_load_debug_log_desc_amd:
+   case nir_intrinsic_load_global_base_ptr:
    case nir_intrinsic_cmat_length:
       is_divergent = false;
       break;
