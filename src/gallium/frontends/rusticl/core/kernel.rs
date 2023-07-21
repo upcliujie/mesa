@@ -60,6 +60,7 @@ pub enum InternalKernelArgType {
     FormatArray,
     OrderArray,
     WorkDim,
+    ProgVar,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone)]
@@ -220,6 +221,7 @@ impl InternalKernelArg {
             InternalKernelArgType::FormatArray => bin.push(4),
             InternalKernelArgType::OrderArray => bin.push(5),
             InternalKernelArgType::WorkDim => bin.push(6),
+            InternalKernelArgType::ProgVar => bin.push(7),
         }
 
         bin
@@ -242,6 +244,7 @@ impl InternalKernelArg {
             4 => InternalKernelArgType::FormatArray,
             5 => InternalKernelArgType::OrderArray,
             6 => InternalKernelArgType::WorkDim,
+            7 => InternalKernelArgType::ProgVar,
             _ => return None,
         };
 
@@ -527,6 +530,22 @@ fn lower_and_optimize_nir(
     let mut compute_options = nir_lower_compute_system_values_options::default();
     compute_options.set_has_base_global_invocation_id(true);
     nir_pass!(nir, nir_lower_compute_system_values, &compute_options);
+
+    // need to run after first opt loop and remove_dead_variables to get rid of uneccessary scratch
+    // memory
+    nir_pass!(
+        nir,
+        nir_lower_vars_to_explicit_types,
+        nir_variable_mode::nir_var_mem_shared
+            | nir_variable_mode::nir_var_function_temp
+            | nir_variable_mode::nir_var_shader_temp
+            | nir_variable_mode::nir_var_mem_global
+            | nir_variable_mode::nir_var_mem_generic,
+        Some(glsl_get_cl_type_size_align),
+    );
+
+    opt_nir(nir, dev, true);
+
     nir.gather_info();
 
     if nir.reads_sysval(gl_system_value::SYSTEM_VALUE_BASE_GLOBAL_INVOCATION_ID) {
@@ -570,6 +589,20 @@ fn lower_and_optimize_nir(
             address_bits_ptr_type,
             lower_state.printf_buf_loc,
             "printf_buffer_addr",
+        );
+    }
+    if nir.global_mem_size() > 0 {
+        internal_args.push(InternalKernelArg {
+            kind: InternalKernelArgType::ProgVar,
+            offset: 0,
+            size: (dev.address_bits() / 8) as usize,
+        });
+        lower_state.prog_var = args.len() + internal_args.len() - 1;
+        nir.add_var(
+            nir_variable_mode::nir_var_uniform,
+            address_bits_ptr_type,
+            lower_state.prog_var,
+            "prog_var_ptr",
         );
     }
 
@@ -619,17 +652,10 @@ fn lower_and_optimize_nir(
         );
     }
 
-    // need to run after first opt loop and remove_dead_variables to get rid of uneccessary scratch
-    // memory
     nir_pass!(
         nir,
         nir_lower_vars_to_explicit_types,
-        nir_variable_mode::nir_var_mem_shared
-            | nir_variable_mode::nir_var_function_temp
-            | nir_variable_mode::nir_var_shader_temp
-            | nir_variable_mode::nir_var_uniform
-            | nir_variable_mode::nir_var_mem_global
-            | nir_variable_mode::nir_var_mem_generic,
+        nir_variable_mode::nir_var_uniform,
         Some(glsl_get_cl_type_size_align),
     );
 
@@ -637,8 +663,7 @@ fn lower_and_optimize_nir(
     nir_pass!(nir, nir_lower_memcpy);
 
     // we might have got rid of more function_temp or shared memory
-    nir.reset_scratch_size();
-    nir.reset_shared_size();
+    nir.reset_variable_size();
     nir_pass!(
         nir,
         nir_remove_dead_variables,
@@ -650,6 +675,7 @@ fn lower_and_optimize_nir(
         nir_lower_vars_to_explicit_types,
         nir_variable_mode::nir_var_function_temp
             | nir_variable_mode::nir_var_mem_shared
+            | nir_variable_mode::nir_var_mem_global
             | nir_variable_mode::nir_var_mem_generic,
         Some(glsl_get_cl_type_size_align),
     );
@@ -729,6 +755,21 @@ fn deserialize_nir(
     assert!(bin.is_empty());
 
     Some((nir, args, internal_args))
+}
+
+/// Extracts the initial content of a prog var from a build per device.
+///
+/// This needs a custom nir pipeline as we are not interesting in any functions (so far), but only
+/// want to extract the global var initializers in a consistent way.
+pub(super) fn create_prog_var(build: &ProgramBuild, dev: &Device) -> Option<NirShader> {
+    let Some(mut nir) = build.to_prog_var_init(dev) else {
+        return None;
+    };
+
+    let (args, internal_args) = lower_and_optimize_nir(dev, &mut nir, &[], &dev.lib_clc);
+    debug_assert!(args.is_empty());
+    debug_assert_eq!(internal_args.len(), 1);
+    Some(nir)
 }
 
 pub(super) fn convert_spirv_to_nir(
@@ -1083,6 +1124,12 @@ impl Kernel {
                 }
                 InternalKernelArgType::WorkDim => {
                     input.extend_from_slice(&[work_dim as u8; 1]);
+                }
+                InternalKernelArgType::ProgVar => {
+                    let prog_var = self.prog.get_prog_var_for_dev(q.device);
+                    assert!(prog_var.is_some());
+                    input.extend_from_slice(null_ptr);
+                    resource_info.push((prog_var.unwrap(), arg.offset));
                 }
             }
         }

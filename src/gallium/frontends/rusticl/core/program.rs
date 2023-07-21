@@ -171,6 +171,48 @@ impl ProgramBuild {
     }
 
     fn build_nirs(&mut self, is_src: bool) {
+        for dev in self.devs_with_build() {
+            let Some(mut prog_var_nir) = create_prog_var(self, dev) else {
+                continue;
+            };
+
+            let prog_var_data = prog_var_nir.extract_global_initializers();
+            if prog_var_data.is_empty() {
+                continue;
+            }
+
+            let d = self.dev_build_mut(dev);
+            let len = prog_var_data.len() as u32;
+
+            let prog_var = Arc::new(
+                dev.screen()
+                    .resource_create_buffer(len, ResourceType::Normal, PIPE_BIND_GLOBAL)
+                    .unwrap(),
+            );
+
+            // TODO: pointer math is kinda wrong
+            prog_var_nir.print();
+            let cso = dev.helper_ctx().create_compute_state(&prog_var_nir, 0);
+            dev.helper_ctx()
+                .exec(|ctx| {
+                    let mut input: Vec<u8> = vec![0; 8];
+                    let mut globals: Vec<*mut u32> = Vec::new();
+
+                    globals.push(input.as_mut_ptr().cast());
+
+                    ctx.buffer_subdata(&prog_var, 0, prog_var_data.as_ptr().cast(), len);
+                    ctx.bind_compute_state(cso);
+                    ctx.set_global_binding(&[&prog_var], &mut globals);
+                    ctx.set_constant_buffer(0, &input);
+                    ctx.launch_grid();
+                    ctx.bind_compute_state(ptr::null_mut());
+                })
+                .wait();
+            dev.helper_ctx().delete_compute_state(cso);
+
+            d.prog_var = Some(prog_var);
+        }
+
         for kernel_name in &self.kernels.clone() {
             let kernel_args: HashSet<_> = self
                 .devs_with_build()
@@ -279,6 +321,27 @@ impl ProgramBuild {
 
         nir.unwrap()
     }
+
+    pub fn to_prog_var_init(&self, d: &Device) -> Option<NirShader> {
+        let info = self.dev_build(d);
+        assert_eq!(info.status, CL_BUILD_SUCCESS as cl_build_status);
+
+        let mut log = Platform::dbg().program.then(Vec::new);
+        let nir = info.spirv.as_ref().unwrap().to_prog_var_init(
+            d.screen
+                .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE),
+            d.address_bits(),
+            log.as_mut(),
+        );
+
+        if let Some(log) = log {
+            for line in log {
+                eprintln!("{}", line);
+            }
+        };
+
+        nir
+    }
 }
 
 pub struct ProgramDevBuild {
@@ -288,6 +351,7 @@ pub struct ProgramDevBuild {
     log: String,
     bin_type: cl_program_binary_type,
     pub kernels: HashMap<String, Arc<NirKernelBuild>>,
+    prog_var: Option<Arc<PipeResource>>,
 }
 
 fn prepare_options(options: &str, dev: &Device) -> Vec<CString> {
@@ -349,6 +413,7 @@ impl Program {
                         options: String::from(""),
                         bin_type: CL_PROGRAM_BINARY_TYPE_NONE,
                         kernels: HashMap::new(),
+                        prog_var: None,
                     },
                 )
             })
@@ -425,6 +490,7 @@ impl Program {
                     options: String::from(""),
                     bin_type: bin_type,
                     kernels: HashMap::new(),
+                    prog_var: None,
                 },
             );
         }
@@ -741,6 +807,7 @@ impl Program {
                     options: String::from(""),
                     bin_type: bin_type,
                     kernels: HashMap::new(),
+                    prog_var: None,
                 },
             );
         }
@@ -798,5 +865,17 @@ impl Program {
         };
 
         lock.spec_constants.insert(spec_id, val);
+    }
+
+    pub fn get_prog_var_for_dev(&self, dev: &Device) -> Option<Arc<PipeResource>> {
+        self.build_info().dev_build(dev).prog_var.clone()
+    }
+
+    pub fn get_prog_var_size_for_dev(&self, dev: &Device) -> u32 {
+        if let Some(prog_var) = &self.build_info().dev_build(dev).prog_var {
+            prog_var.width()
+        } else {
+            0
+        }
     }
 }

@@ -67,7 +67,13 @@ impl CLInfoObj<cl_program_build_info, cl_device_id> for cl_program {
         let dev = Device::ref_from_raw(d)?;
         Ok(match q {
             CL_PROGRAM_BINARY_TYPE => cl_prop::<cl_program_binary_type>(prog.bin_type(dev)),
-            CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE => cl_prop::<usize>(0),
+            CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE => {
+                cl_prop::<usize>(if Platform::features().prog_var {
+                    prog.get_prog_var_size_for_dev(dev) as usize
+                } else {
+                    0
+                })
+            }
             CL_PROGRAM_BUILD_LOG => cl_prop::<&str>(&prog.log(dev)),
             CL_PROGRAM_BUILD_OPTIONS => cl_prop::<&str>(&prog.options(dev)),
             CL_PROGRAM_BUILD_STATUS => cl_prop::<cl_build_status>(prog.status(dev)),
