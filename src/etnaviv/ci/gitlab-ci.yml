@@ -21,6 +21,29 @@
         *etnaviv_file_list
       when: manual
 
+.heidelberg-etnaviv-rules:
+  stage: etnaviv
+  rules:
+    - !reference [.heidelberg-farm-rules, rules]
+    - !reference [.gl-rules, rules]
+    - changes: &etnaviv_file_list
+      - src/etnaviv/**/*
+      - src/gallium/drivers/etnaviv/**/*
+      - src/gallium/winsys/etnaviv/**/*
+      - src/gallium/auxiliary/renderonly/**/*
+      - src/gallium/winsys/kmsro/**/*
+      when: on_success
+
+.heidelberg-etnaviv-manual-rules:
+  stage: etnaviv
+  retry: !reference [.scheduled_pipeline-rules, retry]
+  rules:
+    - !reference [.heidelberg-farm-manual-rules, rules]
+    - !reference [.gl-manual-rules, rules]
+    - changes:
+        *etnaviv_file_list
+      when: manual
+
 .austriancoder-etnaviv-test:
   extends:
     - .austriancoder-etnaviv-rules
@@ -97,3 +120,31 @@ gc7000_gles2:
   variables:
     HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
     DEQP_VER: gles2
+
+# 2 devices (2023-07-25)
+.heidelberg:imx8mq-librem5-devkit:arm64:
+  extends:
+    - .labgrid-test:arm64
+    - .etnaviv-gc7000:arm64
+    - .heidelberg-etnaviv-rules
+  tags:
+    - heidelberg:imx8mq-librem5-devkit
+
+gc7000-gles2:arm64:
+  extends:
+    - .heidelberg:imx8mq-librem5-devkit:arm64
+  variables:
+    HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
+    DEQP_VER: gles2
+
+# not stable yet, multiple traces randomly flaking
+gc7000-traces:arm64:
+  extends:
+    - .heidelberg:imx8mq-librem5-devkit:arm64
+    - .heidelberg-etnaviv-manual-rules
+  variables:
+    HWCI_TEST_SCRIPT: "/install/piglit/piglit-traces.sh"
+    HWCI_START_WESTON: 1
+    PIGLIT_PLATFORM: mixed_glx_egl
+    PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-etnaviv.yml"
+    PIGLIT_REPLAY_DEVICE_NAME: $GPU_VERSION

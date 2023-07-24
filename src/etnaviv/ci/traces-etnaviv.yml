@@ -1,0 +1,267 @@
+%YAML 1.2
+---
+traces-db:
+  download-url: http://caching-proxy/cache/?uri=https://s3.freedesktop.org/mesa-tracie-public/
+
+traces:
+  valve/half-life-2-v2.trace:
+    etnaviv-gc7000:
+      checksum: 70bc21731cf591a267d6d0dbd193cc4a
+
+  valve/portal-2-v2.trace:
+    etnaviv-gc7000:
+      checksum: ab8b86925b088f83b8998dae994ce927
+
+  valve/counterstrike-source-v2.trace:
+    etnaviv-gc7000:
+      checksum: fc47ff99573826d4a8bed95f7c535de5
+
+  xonotic/xonotic-keybench-high-v2.trace:
+    etnaviv-gc7000:
+      label: [skip, broken]
+      text: GLSL 1.40 is not supported
+
+  godot/godot-tps-gles3-high.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context.
+
+  godot/godot-thrive.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context.
+
+  supertuxkart/supertuxkart-mansion-egl-gles-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: needs OpenGL ES 3.0
+
+  0ad/0ad-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: aa000a0aa2a4c6a2cb05c145133f1739
+      text: Missing lot of textures
+
+  valve/counterstrike-v2.trace:
+    etnaviv-gc7000:
+      checksum: 057e3ad94722657e5f8225f9b1c3322b
+
+  neverball/neverball-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: a74db9957669e5f869aade0253dbb7d2
+      text: textures missing
+
+  behdad-glyphy/glyphy-v2.trace:
+    etnaviv-gc7000:
+      checksum: 8316fd5221bf6c0fd749bec236cc043b
+
+  minetest/minetest-high-v2.trace:
+    etnaviv-gc7000:
+      label: [crash]
+
+  minetest/minetest-v2.trace:
+    etnaviv-gc7000:
+      label: [crash]
+
+  filament/filament-default.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 4.1 core context.
+
+  glxgears/glxgears-2-v2.trace:
+    etnaviv-gc7000:
+      label: [skip, flakes]
+      checksum: 164176c52473a30619bab166628d8594
+      text: sometimes viewport gets set wrongly
+
+  gputest/furmark-v2.trace:
+    etnaviv-gc7000:
+      label: [skip, broken]
+      checksum: daeed657f52a63f2f7476a2e9fe4ab4d
+      text: Broken with 6.4 kernel, works on 5.18.
+
+  gputest/gimark-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL 3.3 core context.
+
+  gputest/pixmark-julia-fp32-v2.trace:
+    etnaviv-gc7000:
+      checksum: e47e08db7f974bc72b339d96830eb63d
+
+  gputest/pixmark-julia-fp64-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 4.0 core context
+
+  gputest/pixmark-piano-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: dc24c3fc28241639905f2527416a0ea8
+      text: etna_draw_vbo:307 compiled shaders are not okay
+
+  gputest/pixmark-volplosion-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: 2a99e051c8a0126f2283e6b9bbb2fb40
+      text: Black screen
+
+  gputest/plot3d-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: 3f61c9f6b785e205e1957a9a920cc8b0
+
+  gputest/tessmark-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      checksum: af356a98c4d55fb10613a11fbe687adb
+      text: failed to create OpenGL 4.0 core context
+
+  gputest/triangle-v2.trace:
+    etnaviv-gc7000:
+      checksum: 03e1adbacfd7dd9d465aae4874fb9b6c
+
+  humus/AmbientAperture-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: a25eab35e56bbb513aa9b3d77148ee7c
+      text: GLSL 1.30 is not supported
+
+  humus/CelShading-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: e2401975469a24ef9b0ed9f6166dd7da
+      text: Some lines are incorrect.
+
+  humus/DynamicBranching3-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: a6ae98ec0d91c0bcac1e52429cec8af8
+      text: GLSL 1.30 is not supported
+
+  humus/HDR-v2.trace:
+    etnaviv-gc7000:
+      checksum: b3c72a3920e3f8ae96e80688cd2de422
+
+  humus/Portals-v2.trace:
+    etnaviv-gc7000:
+      checksum: 33b25f98d6086933439163b6b96f148e
+
+  humus/RaytracedShadows-v2.trace:
+    etnaviv-gc7000:
+      checksum: c9366b8074e6176faaa22928150bfe4f
+
+  humus/VolumetricFogging2-v2.trace:
+    etnaviv-gc7000:
+      label: [broken]
+      checksum: 9c1c2331584a611d5061e33edd6c1d20
+      text: nothing rendered
+
+  paraview/pv-manyspheres-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  paraview/pv-waveletcontour-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  paraview/pv-waveletvolume-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  pathfinder/canvas_moire-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  pathfinder/canvas_text-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  pathfinder/canvas_text_v2-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  pathfinder/demo-v2.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  ror/ror-default.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: expected OpenGL 3.0, but got OpenGL 2.1
+
+  nheko/nheko-colors.trace:
+    etnaviv-gc7000:
+      checksum: fb7d36dd437e6d720c367bd9e2b46f07
+
+  blender/blender-demo-cube_diorama.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL 4.5
+
+  blender/blender-demo-ellie_pose.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL 4.5
+
+  freedoom/freedoom-phase2-gl-high.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL 4.6
+
+  unvanquished/unvanquished-lowest.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.2 core context
+
+  unvanquished/unvanquished-ultra.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.2 core context
+
+  warzone2100/warzone2100-default.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: expected OpenGL 3.1, but got OpenGL 2.1
+
+  pioneer/pioneer.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.2 core context
+
+  thedarkmod/thedarkmod.trace:
+    etnaviv-gc7000:
+      label: [skip]
+      text: failed to create OpenGL 3.3 core context
+
+  jvgs/jvgs-d27fb67-v2.trace:
+    etnaviv-gc7000:
+      checksum: 05e6f24365524b8c8f591a08cf93c7ad
+
+  supertuxkart/supertuxkart-antediluvian-abyss.rdc:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL >= 3.0
+
+  supertuxkart/supertuxkart-menu.rdc:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL >= 3.0
+
+  supertuxkart/supertuxkart-ravenbridge-mansion.rdc:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL >= 3.0
+
+  godot/Material Testers.x86_64_2020.04.08_13.38_frame799.rdc:
+    etnaviv-gc7000:
+      label: [skip]
+      text: OpenGL 4.5
