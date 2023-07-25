@@ -302,26 +302,18 @@ create_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_scr
 }
 
 ALWAYS_INLINE static struct zink_shader_module *
-get_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_screen *screen,
+get_shader_module_for_stage_optimal_key(struct zink_context *ctx, struct zink_screen *screen,
                                     struct zink_shader *zs, struct zink_gfx_program *prog,
                                     gl_shader_stage stage,
-                                    struct zink_gfx_pipeline_state *state)
+                                    struct zink_gfx_pipeline_state *state, uint16_t *key, uint16_t *st_key)
 {
    /* non-generated tcs won't use the shader key */
    const bool is_nongenerated_tcs = stage == MESA_SHADER_TESS_CTRL && !zs->non_fs.is_generated;
    bool shadow_needs_shader_swizzle = false;
-   uint16_t *key;
-   unsigned mask = stage == MESA_SHADER_FRAGMENT ? BITFIELD_MASK(16) : BITFIELD_MASK(8);
-   if (zs == prog->last_vertex_stage) {
-      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.vs_base;
-   } else if (stage == MESA_SHADER_FRAGMENT) {
-      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.fs;
+   if (stage == MESA_SHADER_FRAGMENT)
       shadow_needs_shader_swizzle = ctx->gfx_pipeline_state.shader_keys_optimal.key.fs.shadow_needs_shader_swizzle;
-   } else if (stage == MESA_SHADER_TESS_CTRL && zs->non_fs.is_generated) {
-      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.tcs;
-   } else {
-      key = NULL;
-   }
+   unsigned mask = stage == MESA_SHADER_FRAGMENT ? BITFIELD_MASK(16) : BITFIELD_MASK(8);
+
    struct util_dynarray *shader_cache = &prog->shader_cache[stage][0][0];
    unsigned count = util_dynarray_num_elements(shader_cache, struct zink_shader_module *);
    struct zink_shader_module **pzm = shader_cache->data;
@@ -339,7 +331,7 @@ get_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_screen
             if (memcmp(iter->key + sizeof(uint16_t), &ctx->di.zs_swizzle[stage], sizeof(struct zink_zs_swizzle_key)))
                continue;
          }
-         uint16_t st_val = state->shader_keys.st_key.small_key.val;
+         uint16_t st_val = *st_key;
          uint8_t *p = iter->key + sizeof(uint16_t);
          if (unlikely(shadow_needs_shader_swizzle))
             p += sizeof(struct zink_zs_swizzle_key);
@@ -355,6 +347,28 @@ get_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_screen
    }
 
    return NULL;
+}
+
+ALWAYS_INLINE static struct zink_shader_module *
+get_shader_module_for_stage_optimal(struct zink_context *ctx, struct zink_screen *screen,
+                                    struct zink_shader *zs, struct zink_gfx_program *prog,
+                                    gl_shader_stage stage,
+                                    struct zink_gfx_pipeline_state *state)
+{
+   /* non-generated tcs won't use the shader key */
+   uint16_t *key, st_key;
+   if (zs == prog->last_vertex_stage) {
+      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.vs_base;
+   } else if (stage == MESA_SHADER_FRAGMENT) {
+      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.fs;
+   } else if (stage == MESA_SHADER_TESS_CTRL && zs->non_fs.is_generated) {
+      key = (uint16_t*)&ctx->gfx_pipeline_state.shader_keys_optimal.key.tcs;
+   } else {
+      key = NULL;
+   }
+
+   st_key = state->shader_keys.st_key.small_key.val;
+   return get_shader_module_for_stage_optimal_key(ctx, screen, zs, prog, stage, state, key, &st_key);
 }
 
 static void
