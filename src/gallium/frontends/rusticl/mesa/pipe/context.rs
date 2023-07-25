@@ -397,6 +397,7 @@ impl PipeContext {
         &self,
         work_dim: u32,
         block: [u32; 3],
+        last_block: [u32; 3],
         grid: [u32; 3],
         variable_local_mem: u32,
     ) {
@@ -406,7 +407,7 @@ impl PipeContext {
             variable_shared_mem: variable_local_mem,
             work_dim: work_dim,
             block: block,
-            last_block: [0; 3],
+            last_block: last_block,
             grid: grid,
             grid_base: [0; 3],
             indirect: ptr::null_mut(),
@@ -419,7 +420,7 @@ impl PipeContext {
         unsafe { self.pipe.as_ref().launch_grid.unwrap()(self.pipe.as_ptr(), &info) }
     }
 
-    pub fn set_global_binding(&self, res: &[Arc<PipeResource>], out: &mut [*mut u32]) {
+    pub fn set_global_binding(&self, res: &[&Arc<PipeResource>], out: &mut [*mut u32]) {
         let mut res: Vec<_> = res.iter().map(|r| r.pipe()).collect();
         unsafe {
             self.pipe.as_ref().set_global_binding.unwrap()(

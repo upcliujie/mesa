@@ -94,7 +94,7 @@ impl CLInfoObj<cl_kernel_work_group_info, cl_device_id> for cl_kernel {
         }
 
         Ok(match *q {
-            CL_KERNEL_COMPILE_WORK_GROUP_SIZE => cl_prop::<[usize; 3]>(kernel.work_group_size),
+            CL_KERNEL_COMPILE_WORK_GROUP_SIZE => cl_prop::<[usize; 3]>(kernel.work_group_size()),
             CL_KERNEL_LOCAL_MEM_SIZE => cl_prop::<cl_ulong>(kernel.local_mem_size(dev)),
             CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE => {
                 cl_prop::<usize>(kernel.preferred_simd_size(dev))
@@ -211,8 +211,8 @@ impl CLInfoObj<cl_kernel_sub_group_info, (cl_device_id, usize, *const c_void, us
                 }
                 cl_prop::<usize>(result)
             }
-            CL_KERNEL_COMPILE_NUM_SUB_GROUPS => cl_prop::<usize>(kernel.num_subgroups),
-            CL_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL => cl_prop::<usize>(kernel.subgroup_size),
+            CL_KERNEL_COMPILE_NUM_SUB_GROUPS => cl_prop::<usize>(kernel.num_subgroups()),
+            CL_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL => cl_prop::<usize>(kernel.subgroup_size()),
             // CL_INVALID_VALUE if param_name is not one of the supported values
             _ => return Err(CL_INVALID_VALUE),
         })
@@ -503,6 +503,7 @@ fn enqueue_ndrange_kernel(
 ) -> CLResult<()> {
     let q = command_queue.get_arc()?;
     let k = kernel.get_arc()?;
+    let dev = q.device;
     let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_CONTEXT if context associated with command_queue and kernel are not the same
@@ -512,7 +513,7 @@ fn enqueue_ndrange_kernel(
 
     // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program executable available
     // for device associated with command_queue.
-    if k.prog.status(q.device) != CL_BUILD_SUCCESS as cl_build_status {
+    if k.prog.status(dev) != CL_BUILD_SUCCESS as cl_build_status {
         return Err(CL_INVALID_PROGRAM_EXECUTABLE);
     }
 
@@ -523,7 +524,7 @@ fn enqueue_ndrange_kernel(
 
     // CL_INVALID_WORK_DIMENSION if work_dim is not a valid value (i.e. a value between 1 and
     // CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS).
-    if work_dim == 0 || work_dim > q.device.max_grid_dimensions() {
+    if work_dim == 0 || work_dim > dev.max_grid_dimensions() {
         return Err(CL_INVALID_WORK_DIMENSION);
     }
 
@@ -532,7 +533,7 @@ fn enqueue_ndrange_kernel(
     let local_work_size = unsafe { kernel_work_arr_or_default(local_work_size, work_dim) };
     let global_work_offset = unsafe { kernel_work_arr_or_default(global_work_offset, work_dim) };
 
-    let device_bits = q.device.address_bits();
+    let device_bits = dev.address_bits();
     let device_max = u64::MAX >> (u64::BITS - device_bits);
 
     for i in 0..work_dim as usize {
@@ -544,20 +545,20 @@ fn enqueue_ndrange_kernel(
         // local_work_size[0], … local_work_size[work_dim - 1] is greater than the corresponding
         // values specified by
         // CL_DEVICE_MAX_WORK_ITEM_SIZES[0], …, CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim - 1].
-        if lws > q.device.max_block_sizes()[i] {
+        if lws > dev.max_block_sizes()[i] {
             return Err(CL_INVALID_WORK_ITEM_SIZE);
         }
 
         // CL_INVALID_WORK_GROUP_SIZE if the work-group size must be uniform and the
         // local_work_size is not NULL, [...] if the global_work_size is not evenly divisible by
         // the local_work_size.
-        if lws != 0 && gws % lws != 0 {
+        if !k.supports_last_block(dev) && lws != 0 && gws % lws != 0 {
             return Err(CL_INVALID_WORK_GROUP_SIZE);
         }
 
         // CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and does not match the
         // required work-group size for kernel in the program source.
-        if lws != 0 && k.work_group_size[i] != 0 && lws != k.work_group_size[i] {
+        if lws != 0 && k.work_group_size()[i] != 0 && lws != k.work_group_size()[i] {
             return Err(CL_INVALID_WORK_GROUP_SIZE);
         }
 
@@ -597,7 +598,6 @@ fn enqueue_ndrange_kernel(
 
     create_and_queue(q, CL_COMMAND_NDRANGE_KERNEL, evs, event, false, cb)
 
-    //• CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and is not consistent with the required number of sub-groups for kernel in the program source.
     //• CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the total number of work-items in the work-group computed as local_work_size[0] × … local_work_size[work_dim - 1] is greater than the value specified by CL_KERNEL_WORK_GROUP_SIZE in the Kernel Object Device Queries table.
     //• CL_MISALIGNED_SUB_BUFFER_OFFSET if a sub-buffer object is specified as the value for an argument that is a buffer object and the offset specified when the sub-buffer object is created is not aligned to CL_DEVICE_MEM_BASE_ADDR_ALIGN value for device associated with queue. This error code
     //• CL_INVALID_IMAGE_SIZE if an image object is specified as an argument value and the image dimensions (image width, height, specified or compute row and/or slice pitch) are not supported by device associated with queue.

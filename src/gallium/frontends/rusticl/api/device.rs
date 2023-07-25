@@ -212,7 +212,7 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_NODE_MASK_KHR => {
                 cl_prop::<cl_uint>(dev.screen().device_node_mask().unwrap_or_default())
             }
-            CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT => cl_prop::<bool>(false),
+            CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT => cl_prop::<bool>(dev.last_block_supported()),
             CL_DEVICE_NUMERIC_VERSION => cl_prop::<cl_version>(dev.cl_version.into()),
             CL_DEVICE_OPENCL_C_ALL_VERSIONS => cl_prop::<&Vec<cl_name_version>>(&dev.clc_versions),
             CL_DEVICE_OPENCL_C_FEATURES => cl_prop::<&Vec<cl_name_version>>(&dev.clc_features),

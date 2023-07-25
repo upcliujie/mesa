@@ -236,10 +236,19 @@ fn create_program_with_binary(
         return Err(err);
     }
 
-    let prog = Program::from_bins(c, devs, &bins);
+    if let Some(prog) = Program::from_bins(c, devs, &bins) {
+        Ok(cl_program::from_arc(prog))
+    } else {
+        // CL_INVALID_BINARY if an invalid program binary was encountered for any device.
+        // binary_status will return specific status for each device.
+        for i in 0..num_devices as usize {
+            if !binary_status.is_null() {
+                unsafe { binary_status.add(i).write(CL_INVALID_BINARY) };
+            }
+        }
 
-    Ok(cl_program::from_arc(prog))
-    //• CL_INVALID_BINARY if an invalid program binary was encountered for any device. binary_status will return specific status for each device.
+        Err(CL_INVALID_BINARY)
+    }
 }
 
 #[cl_entrypoint]

@@ -705,6 +705,12 @@ impl Device {
         self.screen.param(pipe_cap::PIPE_CAP_INT64) == 1
     }
 
+    pub fn last_block_supported(&self) -> bool {
+        self.screen
+            .param(pipe_cap::PIPE_CAP_COMPUTE_GRID_INFO_LAST_BLOCK)
+            == 1
+    }
+
     pub fn global_mem_size(&self) -> cl_ulong {
         self.screen
             .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE)

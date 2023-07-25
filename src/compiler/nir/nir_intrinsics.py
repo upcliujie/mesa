@@ -872,6 +872,12 @@ system_value("subgroup_lt_mask", 0, bit_sizes=[32, 64])
 system_value("num_subgroups", 1)
 system_value("subgroup_id", 1)
 system_value("workgroup_size", 3)
+system_value("enqueued_workgroup_size", 3)
+system_value("enqueued_num_subgroups", 1)
+# note: calculating the global_group_size as workgroup_size * num_workgroups
+# only works for uniform workgroups as the last_block will have a different
+# workgroup_size
+system_value("global_group_size", 3, bit_sizes=[32, 64])
 # note: the definition of global_invocation_id_zero_base is based on
 # (workgroup_id * workgroup_size) + local_invocation_id.
 # it is *not* based on workgroup_id_zero_base, meaning the work group
