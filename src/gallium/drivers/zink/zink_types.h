@@ -928,6 +928,7 @@ struct zink_gfx_pipeline_state {
    struct zink_zs_swizzle_key *shadow;
    bool sample_locations_enabled;
    unsigned st_emulation_lowering_counter;
+   bool uber_required; // emulation needed && !async compilation done
    enum mesa_prim shader_rast_prim, rast_prim; /* reduced type or max for unknown */
    union {
       struct {
