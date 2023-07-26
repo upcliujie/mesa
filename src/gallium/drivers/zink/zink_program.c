@@ -788,7 +788,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       if (entry) {
          prog = (struct zink_gfx_program*)entry->data;
          bool needs_uber = needs_st_emulation(ctx) && (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) == ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
-         if (prog->is_separable && !(zink_debug & ZINK_DEBUG_NOOPT)) {
+         if (!needs_uber && prog->is_separable && !(zink_debug & ZINK_DEBUG_NOOPT)) {
             /* shader variants can't be handled by separable programs: sync and compile */
             if (!ZINK_SHADER_KEY_OPTIMAL_IS_DEFAULT(ctx->gfx_pipeline_state.optimal_key))
                util_queue_fence_wait(&prog->base.cache_fence);
