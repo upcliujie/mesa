@@ -787,6 +787,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       }
       if (entry) {
          prog = (struct zink_gfx_program*)entry->data;
+         bool needs_uber = needs_st_emulation(ctx) && (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) == ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
          if (prog->is_separable && !(zink_debug & ZINK_DEBUG_NOOPT)) {
             /* shader variants can't be handled by separable programs: sync and compile */
             if (!ZINK_SHADER_KEY_OPTIMAL_IS_DEFAULT(ctx->gfx_pipeline_state.optimal_key))
@@ -794,9 +795,15 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
             /* If the optimized linked pipeline is done compiling, swap it into place. */
             if (util_queue_fence_is_signalled(&prog->base.cache_fence)) {
                prog = replace_separable_prog(screen, entry, prog);
+               needs_uber = false;
             }
          }
-         update_gfx_program_optimal(ctx, prog);
+         if (needs_uber && prog->libs->uber_emulation) {
+            ctx->gfx_pipeline_state.uber_required = true;
+         } else {
+            ctx->gfx_pipeline_state.uber_required = false;
+            update_gfx_program_optimal(ctx, prog);
+         }
       } else {
          ctx->dirty_gfx_stages |= ctx->shader_stages;
          prog = create_gfx_program_separable(ctx, ctx->gfx_stages, ctx->gfx_pipeline_state.dyn_state2.vertices_per_patch);
