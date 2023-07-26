@@ -164,15 +164,15 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
    const int rp_idx = state->render_pass ? 1 : 0;
    /* shortcut for reusing previous pipeline across program changes */
    if (DYNAMIC_STATE == ZINK_DYNAMIC_VERTEX_INPUT || DYNAMIC_STATE == ZINK_DYNAMIC_VERTEX_INPUT2) {
-      if (prog->last_finalized_hash[0][rp_idx][idx] == state->final_hash &&
-          !prog->inline_variants && likely(prog->last_pipeline[0][rp_idx][idx]) &&
+      if (prog->last_finalized_hash[state->uber_required][rp_idx][idx] == state->final_hash &&
+          !prog->inline_variants && likely(prog->last_pipeline[state->uber_required][rp_idx][idx]) &&
           /* this data is too big to compare in the fast-path */
           likely(!prog->shaders[MESA_SHADER_FRAGMENT]->fs.legacy_shadow_mask)) {
-         state->pipeline = prog->last_pipeline[0][rp_idx][idx];
+         state->pipeline = prog->last_pipeline[state->uber_required][rp_idx][idx];
          return state->pipeline;
       }
    }
-   entry = _mesa_hash_table_search_pre_hashed(&prog->pipelines[0][rp_idx][idx], state->final_hash, state);
+   entry = _mesa_hash_table_search_pre_hashed(&prog->pipelines[state->uber_required][rp_idx][idx], state->final_hash, state);
 
    if (!entry) {
       /* always wait on async precompile/cache fence */
@@ -188,21 +188,26 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
       pc_entry->prog = prog;
       /* init the optimized background compile fence */
       util_queue_fence_init(&pc_entry->fence);
-      entry = _mesa_hash_table_insert_pre_hashed(&prog->pipelines[0][rp_idx][idx], state->final_hash, pc_entry, pc_entry);
+      entry = _mesa_hash_table_insert_pre_hashed(&prog->pipelines[state->uber_required][rp_idx][idx], state->final_hash, pc_entry, pc_entry);
       if (prog->base.uses_shobj && !prog->is_separable) {
          memcpy(pc_entry->shobjs, prog->objs, sizeof(prog->objs));
          zink_gfx_program_compile_queue(ctx, pc_entry);
       } else if (HAVE_LIB && zink_can_use_pipeline_libs(ctx)) {
          /* this is the graphics pipeline library path: find/construct all partial pipelines */
          simple_mtx_lock(&prog->libs->lock);
-         uint32_t hek[] = {ctx->gfx_pipeline_state.optimal_key, ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val};
-         struct set_entry *he = _mesa_set_search(&prog->libs->libs, &hek);
          struct zink_gfx_library_key *gkey;
-         if (he) {
-            gkey = (struct zink_gfx_library_key *)he->key;
+         if (state->uber_required) {
+            assert(prog->libs->uber_emulation);
+            gkey = prog->libs->uber_emulation;
          } else {
-            assert(!prog->is_separable);
-            gkey = zink_create_pipeline_lib(screen, prog, &ctx->gfx_pipeline_state, false);
+            uint32_t hek[] = {ctx->gfx_pipeline_state.optimal_key, ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val};
+            struct set_entry *he = _mesa_set_search(&prog->libs->libs, &hek);
+            if (he) {
+               gkey = (struct zink_gfx_library_key *)he->key;
+            } else {
+               assert(!prog->is_separable);
+               gkey = zink_create_pipeline_lib(screen, prog, &ctx->gfx_pipeline_state, false);
+            }
          }
          simple_mtx_unlock(&prog->libs->lock);
          struct zink_gfx_input_key *ikey = DYNAMIC_STATE == ZINK_DYNAMIC_VERTEX_INPUT ?
@@ -245,8 +250,8 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
    state->pipeline = cache_entry->pipeline;
    /* update states for fastpath */
    if (DYNAMIC_STATE >= ZINK_DYNAMIC_VERTEX_INPUT) {
-      prog->last_finalized_hash[0][rp_idx][idx] = state->final_hash;
-      prog->last_pipeline[0][rp_idx][idx] = cache_entry->pipeline;
+      prog->last_finalized_hash[state->uber_required][rp_idx][idx] = state->final_hash;
+      prog->last_pipeline[state->uber_required][rp_idx][idx] = cache_entry->pipeline;
    }
    return state->pipeline;
 }
