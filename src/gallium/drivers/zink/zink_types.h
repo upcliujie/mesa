@@ -1146,12 +1146,12 @@ struct zink_gfx_program {
    /* separable */
    struct zink_gfx_program *full_prog;
 
-   struct hash_table pipelines[2][11]; // [dynamic, renderpass][number of draw modes we support]
+   struct hash_table pipelines[2][2][11]; // [uber_emulation, dynamic, renderpass][number of draw modes we support]
    uint32_t last_variant_hash;
    uint32_t st_key;
 
-   uint32_t last_finalized_hash[2][4]; //[dynamic, renderpass][primtype idx]
-   VkPipeline last_pipeline[2][4]; //[dynamic, renderpass][primtype idx]
+   uint32_t last_finalized_hash[2][2][4]; //[uber_emulation, dynamic, renderpass][primtype idx]
+   VkPipeline last_pipeline[2][2][4]; //[uber_emulation, dynamic, renderpass][primtype idx]
 
    struct zink_gfx_lib_cache *libs;
 };
