@@ -1212,8 +1212,17 @@ lower_system_values_to_push_constants(nir_builder *b, nir_intrinsic_instr *intri
    }
 
    b->cursor = nir_instr_remove(&intrin->instr);
-   nir_def *new_dest_def = nir_load_push_constant_zink(b, 1, 32,
-                                                      nir_imm_int(b, push_constant_index));
+
+   int num_dwords = intrin->def.bit_size / 32;
+   nir_def *dwords = NULL;
+   for (unsigned i = 0; i < num_dwords; i++)
+      dwords = nir_load_push_constant_zink(b, 2, 32,
+                                           nir_imm_int(b, push_constant_index));
+   nir_def *new_dest_def;
+   if (intrin->def.bit_size == 32)
+      new_dest_def = dwords;
+   else
+      new_dest_def = nir_pack_64_2x32_split(b, nir_channel(b, dwords, 0), nir_channel(b, dwords, 1));
    nir_def_rewrite_uses(&intrin->def, new_dest_def);
    return true;
 }
@@ -4986,7 +4995,7 @@ fixup_io_locations(nir_shader *nir)
    return true;
 }
 
-static uint64_t
+uint64_t
 zink_flat_flags(struct nir_shader *shader)
 {
    uint64_t flat_flags = 0;

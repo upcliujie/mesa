@@ -67,6 +67,9 @@ zink_lower_system_values_to_inlined_uniforms(nir_shader *nir);
 bool
 zink_lower_system_values_to_push_constants(nir_shader *nir);
 
+uint64_t
+zink_flat_flags(struct nir_shader *shader);
+
 void
 zink_screen_init_compiler(struct zink_screen *screen);
 void
