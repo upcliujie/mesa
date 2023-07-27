@@ -336,6 +336,11 @@ typedef enum ir3_instruction_flags {
     */
    IR3_INSTR_MARK = BIT(15),
    IR3_INSTR_UNUSED = BIT(16),
+
+   /* a7xx, set on a nop after all cat6 */
+   IR3_INSTR_EOLM = BIT(17),
+   /* a7xx, set on a nop after all cat5/cat6 */
+   IR3_INSTR_EOGM = BIT(18),
 } ir3_instruction_flags;
 
 struct ir3_instruction {
