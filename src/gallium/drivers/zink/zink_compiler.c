@@ -4974,7 +4974,7 @@ fixup_io_locations(nir_shader *nir)
    return true;
 }
 
-static uint32_t
+uint32_t
 zink_flat_flags(struct nir_shader *shader)
 {
    uint32_t flat_flags = 0, c = 0;

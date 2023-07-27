@@ -2509,7 +2509,8 @@ zink_set_primitive_emulation_keys(struct zink_context *ctx)
                   lower_edge_flags,
                   lower_line_stipple || lower_quad_prim);
             }
-            zink_lower_system_values_to_inlined_uniforms(nir);
+            //zink_lower_system_values_to_inlined_uniforms(nir);
+            zink_lower_system_values_to_push_constants(nir);
 
             zink_add_inline_uniform(nir, ZINK_INLINE_VAL_FLAT_MASK);
             zink_add_inline_uniform(nir, ZINK_INLINE_VAL_PV_LAST_VERT);

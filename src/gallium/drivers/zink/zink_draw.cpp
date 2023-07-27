@@ -946,6 +946,18 @@ zink_draw(struct pipe_context *pctx,
       }
    }
 
+   //TODO if push comstant variant
+   if (ctx->curr_program->shaders[MESA_SHADER_GEOMETRY] &&
+       ctx->curr_program->shaders[MESA_SHADER_GEOMETRY]->non_fs.is_generated) {
+      VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                         offsetof(struct zink_gfx_push_constant, flat_mask), sizeof(uint32_t),
+                         &ctx->curr_program->shaders[MESA_SHADER_FRAGMENT]->flat_flags);
+      uint32_t pv_last_last = ctx->gfx_pipeline_state.dyn_state3.pv_last;
+      VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                         offsetof(struct zink_gfx_push_constant, pv_last_vert), sizeof(uint32_t),
+                         &pv_last_last);
+   }
+
    if (!screen->optimal_keys) {
       if (zink_get_fs_key(ctx)->lower_line_stipple ||
           zink_get_gs_key(ctx)->lower_gl_point ||
