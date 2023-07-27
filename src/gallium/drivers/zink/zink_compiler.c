@@ -91,6 +91,8 @@ fields[member_idx].offset = offsetof(struct zink_gfx_push_constant, field);
    PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_LINE_STIPPLE_PATTERN, line_stipple_pattern);
    PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_VIEWPORT_SCALE, viewport_scale);
    PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_LINE_WIDTH, line_width);
+   PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_FLAT_MASK, flat_mask);
+   PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_PV_LAST_VERT, pv_last_vert);
 
    pushconst = nir_variable_create(nir, nir_var_mem_push_const,
                                    glsl_struct_type(fields, ZINK_GFX_PUSHCONST_MAX, "struct", false),
