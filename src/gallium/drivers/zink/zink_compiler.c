@@ -3787,15 +3787,32 @@ compile_module(struct zink_screen *screen, struct zink_shader *zs, nir_shader *n
    return obj;
 }
 
+static void
+zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
+                                   const struct zink_st_variant_key *key)
+{
+}
+
+static void
+zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
+{
+}
+
+
 struct zink_shader_object
 zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs,
-                    nir_shader *nir, const struct zink_shader_key *key, const void *extra_data, struct zink_program *pg)
+                    nir_shader *nir, const struct zink_shader_key *key, bool compile_uber,
+                    const void *extra_data, struct zink_program *pg)
 {
    bool need_optimize = true;
    bool inlined_uniforms = false;
 
    NIR_PASS_V(nir, add_derefs);
    NIR_PASS_V(nir, nir_lower_fragcolor, nir->info.fs.color_is_dual_source ? 1 : 8);
+
+   if (compile_uber)
+      zink_emulation_passes(nir, zs);
+
    if (key) {
       if (key->inline_uniforms) {
          NIR_PASS_V(nir, nir_inline_uniforms,
@@ -4021,6 +4038,9 @@ zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs)
       NIR_PASS_V(nir, rewrite_bo_access, screen);
       NIR_PASS_V(nir, remove_bo_access, zs);
    }
+
+   zink_emulation_passes(nir, zs);
+
    optimize_nir(nir, zs, true);
    zink_descriptor_shader_init(screen, zs);
    nir_shader *nir_clone = NULL;
