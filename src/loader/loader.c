@@ -320,7 +320,7 @@ static char *drm_get_id_path_tag_for_fd(int fd)
    return tag;
 }
 
-bool loader_get_user_preferred_fd(int *fd_render_gpu, int *original_fd)
+int loader_get_user_preferred_fd(int original_fd)
 {
    const char *dri_prime = getenv("DRI_PRIME");
    char *default_tag, *prime = NULL;
@@ -337,11 +337,11 @@ bool loader_get_user_preferred_fd(int *fd_render_gpu, int *original_fd)
 #endif
 
    if (prime == NULL)
-      goto no_prime_gpu_offloading;
+      return original_fd;
    else
       prime_is_vid_did = sscanf(prime, "%hx:%hx", &vendor_id, &device_id) == 2;
 
-   default_tag = drm_get_id_path_tag_for_fd(*fd_render_gpu);
+   default_tag = drm_get_id_path_tag_for_fd(original_fd);
    if (default_tag == NULL)
       goto err;
 
@@ -387,30 +387,11 @@ bool loader_get_user_preferred_fd(int *fd_render_gpu, int *original_fd)
    if (fd < 0)
       goto err;
 
-   bool is_render_and_display_gpu_diff = !!strcmp(default_tag, prime);
-   if (original_fd) {
-      if (is_render_and_display_gpu_diff) {
-         *original_fd = *fd_render_gpu;
-         *fd_render_gpu = fd;
-      } else {
-         *original_fd = *fd_render_gpu;
-         close(fd);
-      }
-   } else {
-      close(*fd_render_gpu);
-      *fd_render_gpu = fd;
-   }
-
-   free(default_tag);
-   free(prime);
-   return is_render_and_display_gpu_diff;
+   return fd;
  err:
    free(default_tag);
    free(prime);
- no_prime_gpu_offloading:
-   if (original_fd)
-      *original_fd = *fd_render_gpu;
-   return false;
+   return original_fd;
 }
 
 static bool

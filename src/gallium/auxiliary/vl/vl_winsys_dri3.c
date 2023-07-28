@@ -91,7 +91,7 @@ struct vl_dri3_screen
    uint64_t send_sbc, recv_sbc;
    int64_t last_ust, ns_frame, last_msc, next_msc;
 
-   bool is_different_gpu;
+   bool linear_display_buffer;
 };
 
 static void
@@ -261,7 +261,7 @@ dri3_alloc_back_buffer(struct vl_dri3_screen *scrn)
    templ.depth0 = 1;
    templ.array_size = 1;
 
-   if (scrn->is_different_gpu) {
+   if (scrn->linear_display_buffer) {
       buffer->texture = (scrn->output_texture) ? scrn->output_texture :
                         scrn->base.pscreen->resource_create(scrn->base.pscreen, &templ);
       if (!buffer->texture)
@@ -343,7 +343,7 @@ dri3_get_back_buffer(struct vl_dri3_screen *scrn)
       if (!buffer || buffer->width < scrn->width ||
           buffer->height < scrn->height)
          allocate_new_buffer = true;
-      else if (scrn->is_different_gpu)
+      else if (scrn->linear_display_buffer)
          /* In case of different gpu we can reuse the linear
           * texture so we only need to set the external
           * texture for copying
@@ -598,7 +598,7 @@ vl_dri3_flush_frontbuffer(struct pipe_screen *screen,
    }
    xcb_xfixes_set_region(scrn->conn, back->region, 1, &rectangle);
 
-   if (scrn->is_different_gpu) {
+   if (scrn->linear_display_buffer) {
       u_box_origin_2d(back->width, back->height, &src_box);
       scrn->pipe->resource_copy_region(scrn->pipe,
                                        back->linear_texture,
@@ -770,6 +770,7 @@ vl_dri3_screen_create(Display *display, int screen)
    xcb_xfixes_query_version_reply_t *xfixes_reply;
    xcb_generic_error_t *error;
    int fd;
+   int render_fd;
 
    assert(display);
 
@@ -821,7 +822,11 @@ vl_dri3_screen_create(Display *display, int screen)
    fcntl(fd, F_SETFD, FD_CLOEXEC);
    free(open_reply);
 
-   scrn->is_different_gpu = loader_get_user_preferred_fd(&fd, NULL);
+   render_fd = loader_get_user_preferred_fd(fd);
+   scrn->linear_display_buffer = render_fd != fd;
+   if (render_fd != fd) {
+      close(fd);
+   }
 
    geom_cookie = xcb_get_geometry(scrn->conn, RootWindow(display, screen));
    geom_reply = xcb_get_geometry_reply(scrn->conn, geom_cookie, NULL);
@@ -842,7 +847,7 @@ vl_dri3_screen_create(Display *display, int screen)
    scrn->base.color_depth = geom_reply->depth;
    free(geom_reply);
 
-   if (pipe_loader_drm_probe_fd(&scrn->base.dev, fd))
+   if (pipe_loader_drm_probe_fd(&scrn->base.dev, render_fd))
       scrn->base.pscreen = pipe_loader_create_screen(scrn->base.dev);
 
    if (!scrn->base.pscreen)
@@ -863,7 +868,7 @@ vl_dri3_screen_create(Display *display, int screen)
 
    scrn->next_back = 1;
 
-   close(fd);
+   close(render_fd);
    
    return &scrn->base;
 

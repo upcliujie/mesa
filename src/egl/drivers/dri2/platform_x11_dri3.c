@@ -612,9 +612,9 @@ dri3_x11_connect(struct dri2_egl_display *dri2_dpy)
    }
    free(xfixes_query);
 
-   dri2_dpy->fd_render_gpu =
+   dri2_dpy->fd_display_gpu =
       loader_dri3_open(dri2_dpy->conn, dri2_dpy->screen->root, 0);
-   if (dri2_dpy->fd_render_gpu < 0) {
+   if (dri2_dpy->fd_display_gpu < 0) {
       int conn_error = xcb_connection_has_error(dri2_dpy->conn);
       _eglLog(_EGL_WARNING, "DRI3: Screen seems not DRI3 capable");
 
@@ -624,8 +624,8 @@ dri3_x11_connect(struct dri2_egl_display *dri2_dpy)
       return EGL_FALSE;
    }
 
-   loader_get_user_preferred_fd(&dri2_dpy->fd_render_gpu,
-                                &dri2_dpy->fd_display_gpu);
+   dri2_dpy->fd_render_gpu =
+      loader_get_user_preferred_fd(dri2_dpy->fd_display_gpu);
 
    dri2_dpy->driver_name = loader_get_driver_for_fd(dri2_dpy->fd_render_gpu);
    if (!dri2_dpy->driver_name) {
