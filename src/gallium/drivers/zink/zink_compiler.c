@@ -3767,6 +3767,100 @@ compile_module(struct zink_screen *screen, struct zink_shader *zs, nir_shader *n
    return obj;
 }
 
+static nir_def *
+push_constant_bool_key(nir_builder *b, nir_def *push_consts, uint32_t key_mask)
+{
+   return nir_b2b1(b, nir_iand_imm(b, nir_channel(b, push_consts, 0), key_mask));
+}
+
+static nir_def *
+push_constant_integer_key(nir_builder *b, nir_def *push_consts, uint32_t offset, uint8_t bitsize)
+{
+   return nir_iand_imm(b, nir_ishr_imm(b, push_consts, offset), ~(-1 << bitsize));
+}
+
+#define ST_VARIANT_KEY_MASK(field)                      \
+   *(uint32_t*)&(struct zink_st_variant_key){           \
+      .small_key = (union zink_st_small_key) {          \
+         .field = 1,                                    \
+      }                                                 \
+}
+
+struct lower_st_key_sysvals_instr_state {
+   nir_def *push_consts[16];
+   nir_variable *ucp_state_var;
+};
+
+static bool
+lower_st_key_sysvals_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   struct lower_st_key_sysvals_instr_state *state = data;
+
+   b->cursor = nir_before_instr(instr);
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+   uint32_t key_mask = 0, offset, bitsize, component = 0;
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_clamp_color_enabled:
+      key_mask = ST_VARIANT_KEY_MASK(clamp_color);
+      break;
+   case nir_intrinsic_load_user_clip_plane:
+   {
+      uint32_t offset_bytes = offsetof(struct zink_st_variant_key, ucp_state);
+      nir_def *components[4];
+      //TODO maybe use nir_channels? would be a bit slower
+      for (unsigned i = 0; i < 4; i++)
+         components[i] = state->push_consts[offset_bytes / 4 + i];
+      nir_def *new_dest_def = nir_vec4(b, components[0], components[1],
+                                           components[2], components[3]);
+      nir_def_rewrite_uses(&intrin->def, new_dest_def);
+      nir_instr_remove(instr);
+      return true;
+      break;
+   }
+   default:
+      return false;
+   }
+
+   b->cursor = nir_before_instr(&intrin->instr);
+   nir_def *new_dest_def;
+   if (key_mask) {
+      new_dest_def = push_constant_bool_key(b, state->push_consts[0], key_mask);
+   } else if (component == 0) {
+      new_dest_def = push_constant_integer_key(b, state->push_consts[0], offset, bitsize);
+   } else {
+      new_dest_def = state->push_consts[component];
+   }
+   nir_def_rewrite_uses(&intrin->def, new_dest_def);
+
+   nir_instr_remove(instr);
+   return true;
+}
+
+static bool
+lower_st_key_sysvals(nir_shader *shader)
+{
+   nir_builder b;
+   nir_function_impl *entry = nir_shader_get_entrypoint(shader);
+   b = nir_builder_at(nir_before_cf_list(&entry->body));
+
+   nir_variable *ucp_state_var = NULL;
+   struct lower_st_key_sysvals_instr_state state = {
+      .ucp_state_var = ucp_state_var,
+   };
+   for (unsigned i = 0; i < 16; i++) {
+      state.push_consts[i] = nir_load_push_constant_zink(&b, 1, 32,
+                                                    nir_imm_int(&b, ZINK_GFX_PUSHCONST_ST_VARIANT_KEY),
+                                                    .component = i);;
+   }
+   return nir_shader_instructions_pass(shader, lower_st_key_sysvals_instr,
+                                       nir_metadata_dominance, &state);
+}
+
 static void
 zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
                                    const struct zink_st_variant_key *key)
