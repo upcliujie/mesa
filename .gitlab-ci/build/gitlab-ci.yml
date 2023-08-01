@@ -685,6 +685,21 @@ debian-x86_32:
     EXTRA_OPTION: >
       -D vulkan-layers=device-select,overlay
 
+debian-riscv64:
+  extends:
+    - .meson-cross
+    - .use-debian/riscv64_build
+  variables:
+    CROSS: riscv64
+    EXTRA_OPTION: >
+      -D vulkan-layers=device-select,overlay
+    GALLIUM_DRIVERS: "iris,nouveau,r300,r600,radeonsi,swrast,virgl,zink"
+    LLVM_VERSION: 15
+    # for mesa:llvmpipe see the https://gitlab.freedesktop.org/mesa/mesa/-/issues/7769
+    # mesa:intel is too slow on RISC-V
+    MESON_TEST_ARGS: "--no-suite mesa:llvmpipe --no-suite mesa:intel"
+    VULKAN_DRIVERS: intel,amd,swrast,virtio-experimental
+
 debian-s390x:
   extends:
     - debian-ppc64el

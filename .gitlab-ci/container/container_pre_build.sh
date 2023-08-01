@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# shellcheck disable=SC2154 # arch is assigned in previous scripts
 
 if test -x /usr/bin/ccache; then
     if test -f /etc/debian_version; then
@@ -27,9 +28,11 @@ fi
 # linkers to gold, since it's so much faster for building.  We can't use
 # lld because we're on old debian and it's buggy.  ming fails meson builds
 # with it with "meson.build:21:0: ERROR: Unable to determine dynamic linker"
-find /usr/bin -name \*-ld -o -name ld | \
-    grep -v mingw | \
-    xargs -n 1 -I '{}' ln -sf '{}.gold' '{}'
+if [[ "$arch" != "riscv64" ]]; then
+    find /usr/bin -name \*-ld -o -name ld | \
+        grep -v mingw | \
+        xargs -n 1 -I '{}' ln -sf '{}.gold' '{}'
+fi
 
 # Make a wrapper script for ninja to always include the -j flags
 {

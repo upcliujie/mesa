@@ -7,7 +7,7 @@ set -o xtrace
 export DEBIAN_FRONTEND=noninteractive
 export LLVM_VERSION="${LLVM_VERSION:=15}"
 
-apt-get install -y ca-certificates
+apt-get install -y ca-certificates gnupg2 software-properties-common debian-ports-archive-keyring
 sed -i -e 's/http:\/\/deb/https:\/\/deb/g' /etc/apt/sources.list.d/*
 
 # Ephemeral packages (installed for this script and removed again at
