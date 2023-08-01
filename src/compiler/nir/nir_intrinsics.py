@@ -925,6 +925,8 @@ system_value("frag_invocation_count", 1)
 # Whether smooth lines or polygon smoothing is enabled
 system_value("poly_line_smooth_enabled", 1, bit_sizes=[1])
 
+system_value("clamp_color_enabled", 1)
+
 # System values for ray tracing.
 system_value("ray_launch_id", 3)
 system_value("ray_launch_size", 3)
