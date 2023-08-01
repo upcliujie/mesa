@@ -50,11 +50,11 @@ is_color_output(nir_shader *shader, nir_variable *out)
 }
 
 static bool
-lower_intrinsic(nir_builder *b, nir_intrinsic_instr *intr)
+lower_intrinsic(nir_builder *b, nir_intrinsic_instr *intr, bool *enable)
 {
    nir_shader *shader = b->shader;
    nir_variable *out = NULL;
-   nir_def *s;
+   nir_def *s, *orig;
 
    switch (intr->intrinsic) {
    case nir_intrinsic_store_deref:
@@ -81,8 +81,12 @@ lower_intrinsic(nir_builder *b, nir_intrinsic_instr *intr)
    if (is_color_output(shader, out)) {
       b->cursor = nir_before_instr(&intr->instr);
       int src = intr->intrinsic == nir_intrinsic_store_deref ? 1 : 0;
-      s = intr->src[src].ssa;
-      s = nir_fsat(b, s);
+      orig = intr->src[src].ssa;
+      s = nir_fsat(b, orig);
+      if (*enable) {
+         nir_def *clamp_color_enabled = nir_b2b1(b, nir_load_clamp_color_enabled(b));
+         s = nir_bcsel(b, clamp_color_enabled, s, orig);
+      }
       nir_src_rewrite(&intr->src[src], s);
    }
 
@@ -93,15 +97,26 @@ static bool
 lower_instr(nir_builder *b, nir_instr *instr, void *cb_data)
 {
    if (instr->type == nir_instr_type_intrinsic)
-      return lower_intrinsic(b, nir_instr_as_intrinsic(instr));
+      return lower_intrinsic(b, nir_instr_as_intrinsic(instr), cb_data);
    return false;
 }
 
 bool
 nir_lower_clamp_color_outputs(nir_shader *shader)
 {
+   bool enable = false;
    return nir_shader_instructions_pass(shader, lower_instr,
                                        nir_metadata_block_index |
                                           nir_metadata_dominance,
-                                       NULL);
+                                       &enable);
+}
+
+bool
+nir_lower_clamp_color_outputs_enable(nir_shader *shader)
+{
+   bool enable = true;
+   return nir_shader_instructions_pass(shader, lower_instr,
+                                       nir_metadata_block_index |
+                                       nir_metadata_dominance,
+                                       &enable);
 }
