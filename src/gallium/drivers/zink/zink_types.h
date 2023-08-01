@@ -983,6 +983,7 @@ struct zink_gfx_push_constant {
    float line_width;
    uint32_t flat_mask;
    uint32_t pv_last_vert;
+   uint32_t st_variant_key[4 + 8 * 4];
 };
 
 /* The order of the enums MUST match the order of the zink_gfx_push_constant
@@ -999,6 +1000,7 @@ enum zink_gfx_push_constant_member {
    ZINK_GFX_PUSHCONST_LINE_WIDTH,
    ZINK_GFX_PUSHCONST_FLAT_MASK,
    ZINK_GFX_PUSHCONST_PV_LAST_VERT,
+   ZINK_GFX_PUSHCONST_ST_VARIANT_KEY,
    ZINK_GFX_PUSHCONST_MAX
 };
 
