@@ -961,6 +961,13 @@ zink_draw(struct pipe_context *pctx,
                          offsetof(struct zink_gfx_push_constant, pv_last_vert), sizeof(uint32_t),
                          &pv_last_last);
    }
+   uint32_t st_key_push[4 + 8 * 4];
+   assert(sizeof(st_key_push) == sizeof(zink_st_variant_key));
+   memcpy(&st_key_push, &ctx->gfx_pipeline_state.shader_keys.st_key, sizeof(st_key_push));
+   VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                           offsetof(struct zink_gfx_push_constant, st_variant_key), sizeof(zink_st_variant_key),
+                           &st_key_push);
+
 
    if (!screen->optimal_keys) {
       if (zink_get_fs_key(ctx)->lower_line_stipple ||
