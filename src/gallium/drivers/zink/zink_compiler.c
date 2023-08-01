@@ -3865,11 +3865,46 @@ static void
 zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
                                    const struct zink_st_variant_key *key)
 {
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+      if (key->small_key.clamp_color)
+         NIR_PASS_V(nir, nir_lower_clamp_color_outputs);
+      break;
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      break;
+   case MESA_SHADER_FRAGMENT:
+      if (key->small_key.clamp_color)
+         NIR_PASS_V(nir, nir_lower_clamp_color_outputs);
+      break;
+
+   default: break;
+   }
+   NIR_PASS_V(nir, lower_st_key_sysvals);
 }
 
 static void
 zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
 {
+   bool need_optimize = false;
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+      NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
+      need_optimize = true;
+      break;
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      break;
+   case MESA_SHADER_FRAGMENT:
+      NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
+      need_optimize = true;
+      break;
+
+   default: break;
+   }
+   NIR_PASS_V(nir, lower_st_key_sysvals);
+   if (need_optimize)
+      optimize_nir(nir, zs, true);
 }
 
 struct zink_shader_object
