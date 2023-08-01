@@ -6027,6 +6027,8 @@ bool nir_lower_two_sided_color(nir_shader *shader, bool face_sysval);
 
 bool nir_lower_clamp_color_outputs(nir_shader *shader);
 
+bool nir_lower_clamp_color_outputs_enable(nir_shader *shader);
+
 bool nir_lower_flatshade(nir_shader *shader);
 
 void nir_lower_passthrough_edgeflags(nir_shader *shader);
