@@ -332,6 +332,14 @@ struct kgsl_syncobj
    int fd;
 };
 
+struct tu_u_trace_syncobj
+{
+   uint32_t msm_queue_id;
+   uint32_t timestamp;
+};
+
+static uint64_t timestamp_offset = 0;
+
 static void
 kgsl_syncobj_init(struct kgsl_syncobj *s, bool signaled)
 {
@@ -930,6 +938,9 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
 {
    MESA_TRACE_FUNC();
 
+   bool u_trace_enabled = u_trace_should_process(&queue->device->trace_context);
+   bool has_trace_points = false; 
+
    if (vk_submit->command_buffer_count == 0) {
       pthread_mutex_lock(&queue->device->submit_mutex);
 
@@ -1006,6 +1017,14 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
          entry_count++;
 
       entry_count += cmd_buffer->cs.entry_count;
+
+      if (u_trace_enabled && u_trace_has_points(&cmd_buffers[i]->trace)) {
+         if (!(cmd_buffers[i]->usage_flags &
+               VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT))
+            entry_count++;
+
+         has_trace_points = true;
+      }
    }
 
    if (tu_autotune_submit_requires_fence(cmd_buffers, cmdbuf_count))
@@ -1018,6 +1037,21 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
       pthread_mutex_unlock(&queue->device->submit_mutex);
       return vk_error(queue, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
+
+
+   struct tu_u_trace_submission_data * u_trace_submission_data = NULL;
+   if (has_trace_points) {
+      result =
+         tu_u_trace_submission_data_create(
+            queue->device, cmd_buffers,
+            cmdbuf_count,
+            &u_trace_submission_data);
+
+      if (result != VK_SUCCESS) {
+         return result;
+      }
+   }
+   
 
    uint32_t entry_idx = 0;
    for (uint32_t i = 0; i < cmdbuf_count; i++) {
@@ -1042,6 +1076,20 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
             .size = cs->entries[j].size,
             .flags = KGSL_CMDLIST_IB,
             .id = cs->entries[j].bo->gem_handle,
+         };
+      }
+
+      if (u_trace_submission_data &&
+          u_trace_submission_data->cmd_trace_data[i].timestamp_copy_cs) {
+         struct tu_cs_entry *trace_cs_entry =
+            &u_trace_submission_data->cmd_trace_data[i]
+                .timestamp_copy_cs->entries[0];
+         cmds[entry_idx++] = (struct kgsl_command_object) {
+            .offset = trace_cs_entry->offset,
+            .gpuaddr = trace_cs_entry->bo->iova,
+            .size = trace_cs_entry->size,
+            .flags = KGSL_CMDLIST_IB,
+            .id = trace_cs_entry->bo->gem_handle,
          };
       }
    }
@@ -1137,16 +1185,77 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
       signal_sync->timestamp = req.timestamp;
    }
 
+#if HAVE_PERFETTO
+   tu_perfetto_submit(queue->device, queue->device->submit_count);
+#endif
+
+   if (u_trace_submission_data) {
+      struct tu_u_trace_submission_data *submission_data =
+         u_trace_submission_data;
+      submission_data->submission_id = queue->device->submit_count;
+      /* We have to allocate it here since it is different between drm/kgsl */
+      submission_data->syncobj = (struct tu_u_trace_syncobj *)
+         vk_alloc(&queue->device->vk.alloc, sizeof(struct tu_u_trace_syncobj),
+               8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+         submission_data->syncobj->timestamp = req.timestamp;
+         submission_data->syncobj->msm_queue_id = queue->msm_queue_id;
+
+      u_trace_submission_data = NULL;
+
+      for (uint32_t i = 0; i < submission_data->cmd_buffer_count; i++) {
+         bool free_data = i == submission_data->last_buffer_with_tracepoints;
+         if (submission_data->cmd_trace_data[i].trace)
+            u_trace_flush(submission_data->cmd_trace_data[i].trace,
+                          submission_data, free_data);
+
+         if (!submission_data->cmd_trace_data[i].timestamp_copy_cs) {
+            /* u_trace is owned by cmd_buffer */
+            submission_data->cmd_trace_data[i].trace = NULL;
+         }
+      }
+   }
+
+   queue->device->submit_count++;
+
    pthread_mutex_unlock(&queue->device->submit_mutex);
    pthread_cond_broadcast(&queue->device->timeline_cond);
 
+   u_trace_context_process(&queue->device->trace_context, true);
    return result;
 }
 
 static VkResult
 kgsl_device_wait_u_trace(struct tu_device *dev, struct tu_u_trace_syncobj *syncobj)
 {
-   tu_finishme("tu_device_wait_u_trace");
+   struct kgsl_device_waittimestamp_ctxtid req = {
+      .context_id = syncobj->msm_queue_id,
+      .timestamp = syncobj->timestamp,
+      .timeout = 5000, // 5s
+   };
+
+   int ret = safe_ioctl(dev->fd, IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID, &req);
+
+   if (ret) {
+      assert(errno == ETIME);
+      return VK_TIMEOUT;
+   }
+
+   if (timestamp_offset == 0) {
+      struct kgsl_perfcounter_read_group perf = {
+         .groupid = KGSL_PERFCOUNTER_GROUP_ALWAYSON,
+         .countable = 0,
+         .value = 0
+      };
+
+      struct kgsl_perfcounter_read req = {
+         .reads = &perf,
+         .count = 1,
+      };
+
+      ret = safe_ioctl(dev->fd, IOCTL_KGSL_PERFCOUNTER_READ, &req);
+
+      timestamp_offset = (perf.value & 0xffffffff);
+   }
    return VK_SUCCESS;
 }
 
@@ -1166,8 +1275,45 @@ kgsl_device_finish(struct tu_device *dev)
 static int
 kgsl_device_get_gpu_timestamp(struct tu_device *dev, uint64_t *ts)
 {
-   tu_finishme("tu_device_get_gpu_timestamp");
-   return 0;
+   if (timestamp_offset == 0)
+      return 0;
+
+   /* There is no ioctl to get on-gpu timestamp, so we have to use ALWAYSON
+    * counter. Unfortunately, it's far from perfect, if something e.g.
+    * libgpudataproducer did IOCTL_KGSL_PERFCOUNTER_GET for
+    * KGSL_PERFCOUNTER_GROUP_ALWAYSON kernel would save the value between
+    * gpu suspends, however even if we do release the counter the value is
+    * never reset, and there is no way to query the offset.
+    *
+    * Alternatively there is KGSL_CMDBATCH_PROFILING flag for kgsl_gpu_command
+    * which makes kernel to profile submitted draw objects and retrieve
+    * gpu and cpu times together (adreno_get_submit_time) for the purpose of
+    * their correlation. They are being written into
+    * kgsl_cmdbatch_profiling_buffer after that (adreno_profile_submit_time).
+    *
+    * TODO: Find out how to use KGSL_CMDBATCH_PROFILING.
+    */
+
+   struct kgsl_perfcounter_read_group perf = {
+      .groupid = KGSL_PERFCOUNTER_GROUP_ALWAYSON,
+      .countable = 0,
+      .value = 0
+   };
+
+   struct kgsl_perfcounter_read req = {
+      .reads = &perf,
+      .count = 1,
+   };
+
+   int ret = safe_ioctl(dev->fd, IOCTL_KGSL_PERFCOUNTER_READ, &req);
+
+   /* For some reason high 32bit could be garbage, even if kgsl
+    * code indicates that it could happen only on pre 530 GPUs.
+    */
+   *ts = (perf.value & 0xffffffff) - timestamp_offset;
+
+   mesa_logi("kgsl_device_get_gpu_timestamp %lu", *ts);
+   return ret;
 }
 
 static int
