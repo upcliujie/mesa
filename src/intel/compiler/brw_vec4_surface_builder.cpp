@@ -194,12 +194,12 @@ namespace brw {
 
          if (size >= 1) {
             bld.MOV(writemask(srcs, WRITEMASK_X),
-                    swizzle(src0, BRW_SWIZZLE_XXXX));
+                    swizzle(src0, SWIZZLE_XXXX));
          }
 
          if (size >= 2) {
             bld.MOV(writemask(srcs, WRITEMASK_Y),
-                    swizzle(src1, BRW_SWIZZLE_XXXX));
+                    swizzle(src1, SWIZZLE_XXXX));
          }
 
          return emit_send(bld, VEC4_OPCODE_UNTYPED_ATOMIC, src_reg(),

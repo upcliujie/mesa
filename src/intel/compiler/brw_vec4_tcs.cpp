@@ -176,7 +176,7 @@ vec4_tcs_visitor::emit_input_urb_read(const dst_reg &dst,
     * Also attempt to deal with gl_PointSize being in the .w component.
     */
    if (inst->offset == 0 && indirect_offset.file == BAD_FILE) {
-      emit(MOV(dst, swizzle(src_reg(temp), BRW_SWIZZLE_WWWW)));
+      emit(MOV(dst, swizzle(src_reg(temp), SWIZZLE_WWWW)));
    } else {
       src_reg src = src_reg(temp);
       src.swizzle = BRW_SWZ_COMP_INPUT(first_component);
@@ -287,14 +287,14 @@ vec4_tcs_visitor::nir_emit_intrinsic(nir_intrinsic_instr *instr)
       assert(nir_src_bit_size(instr->src[0]) == 32);
       src_reg value = get_nir_src(instr->src[0]);
       unsigned mask = nir_intrinsic_write_mask(instr);
-      unsigned swiz = BRW_SWIZZLE_XYZW;
+      unsigned swiz = SWIZZLE_XYZW;
 
       src_reg indirect_offset = get_indirect_offset(instr);
       unsigned imm_offset = nir_intrinsic_base(instr);
 
       unsigned first_component = nir_intrinsic_component(instr);
       if (first_component) {
-         assert(swiz == BRW_SWIZZLE_XYZW);
+         assert(swiz == SWIZZLE_XYZW);
          swiz = BRW_SWZ_COMP_OUTPUT(first_component);
          mask = mask << first_component;
       }

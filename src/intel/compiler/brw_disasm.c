@@ -1099,16 +1099,16 @@ src_ia1(FILE *file,
 static int
 src_swizzle(FILE *file, unsigned swiz)
 {
-   unsigned x = BRW_GET_SWZ(swiz, BRW_CHANNEL_X);
-   unsigned y = BRW_GET_SWZ(swiz, BRW_CHANNEL_Y);
-   unsigned z = BRW_GET_SWZ(swiz, BRW_CHANNEL_Z);
-   unsigned w = BRW_GET_SWZ(swiz, BRW_CHANNEL_W);
+   unsigned x = GET_SWZ(swiz, BRW_CHANNEL_X);
+   unsigned y = GET_SWZ(swiz, BRW_CHANNEL_Y);
+   unsigned z = GET_SWZ(swiz, BRW_CHANNEL_Z);
+   unsigned w = GET_SWZ(swiz, BRW_CHANNEL_W);
    int err = 0;
 
    if (x == y && x == z && x == w) {
       string(file, ".");
       err |= control(file, "channel select", chan_sel, x, NULL);
-   } else if (swiz != BRW_SWIZZLE_XYZW) {
+   } else if (swiz != SWIZZLE_XYZW) {
       string(file, ".");
       err |= control(file, "channel select", chan_sel, x, NULL);
       err |= control(file, "channel select", chan_sel, y, NULL);
@@ -1153,7 +1153,7 @@ src_da16(FILE *file,
    string(file, "<");
    err |= control(file, "vert stride", vert_stride, _vert_stride, NULL);
    string(file, ">");
-   err |= src_swizzle(file, BRW_SWIZZLE4(swz_x, swz_y, swz_z, swz_w));
+   err |= src_swizzle(file, MAKE_SWIZZLE4(swz_x, swz_y, swz_z, swz_w));
    string(file, brw_reg_type_to_letters(type));
    return err;
 }

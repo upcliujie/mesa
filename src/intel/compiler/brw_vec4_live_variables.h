@@ -118,7 +118,7 @@ var_from_reg(const simple_allocator &alloc, const src_reg &reg,
    const unsigned csize = DIV_ROUND_UP(type_sz(reg.type), 4);
    unsigned result =
       8 * alloc.offsets[reg.nr] + reg.offset / 4 +
-      (BRW_GET_SWZ(reg.swizzle, c) + k / csize * 4) * csize + k % csize;
+      (GET_SWZ(reg.swizzle, c) + k / csize * 4) * csize + k % csize;
    /* Do not exceed the limit for this register */
    assert(result < 8 * (alloc.offsets[reg.nr] + alloc.sizes[reg.nr]));
    return result;

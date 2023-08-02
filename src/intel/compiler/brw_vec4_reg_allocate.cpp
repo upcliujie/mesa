@@ -488,7 +488,7 @@ vec4_visitor::spill_reg(unsigned spill_reg_nr)
                src_reg temp = inst->src[i];
                temp.nr = scratch_reg;
                temp.offset = 0;
-               temp.swizzle = BRW_SWIZZLE_XYZW;
+               temp.swizzle = SWIZZLE_XYZW;
                emit_scratch_read(block, inst,
                                  dst_reg(temp), inst->src[i], spill_offset);
                temp.offset = inst->src[i].offset;

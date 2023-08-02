@@ -469,7 +469,7 @@ gfx6_sol_program(struct brw_ff_gs_compile *c, const struct brw_ff_gs_prog_key *k
             vertex_slot.subnr = (slot % 2) * 16;
             /* gl_PointSize is stored in VARYING_SLOT_PSIZ.w. */
             vertex_slot.swizzle = varying == VARYING_SLOT_PSIZ
-               ? BRW_SWIZZLE_WWWW : key->transform_feedback_swizzles[binding];
+               ? SWIZZLE_WWWW : key->transform_feedback_swizzles[binding];
             brw_set_default_access_mode(p, BRW_ALIGN_16);
             brw_push_insn_state(p);
             brw_set_default_exec_size(p, BRW_EXECUTE_4);

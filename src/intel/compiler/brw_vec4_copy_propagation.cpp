@@ -75,7 +75,7 @@ is_channel_updated(vec4_instruction *inst, src_reg *values[4], int ch)
 
    return regions_overlap(*src, REG_SIZE, inst->dst, inst->size_written) &&
           (inst->dst.offset != src->offset ||
-           inst->dst.writemask & (1 << BRW_GET_SWZ(src->swizzle, ch)));
+           inst->dst.writemask & (1 << GET_SWZ(src->swizzle, ch)));
 }
 
 /**
@@ -97,12 +97,12 @@ get_copy_value(const copy_entry &entry, unsigned readmask)
             if (src.file == IMM) {
                swz[i] = i;
             } else {
-               swz[i] = BRW_GET_SWZ(src.swizzle, i);
+               swz[i] = GET_SWZ(src.swizzle, i);
                /* Overwrite the original swizzle so the src_reg::equals call
                 * below doesn't care about it, the correct swizzle will be
                 * calculated once the swizzles of all components are known.
                 */
-               src.swizzle = BRW_SWIZZLE_XYZW;
+               src.swizzle = SWIZZLE_XYZW;
             }
 
             if (value.file == BAD_FILE) {
@@ -118,7 +118,7 @@ get_copy_value(const copy_entry &entry, unsigned readmask)
 
    return swizzle(value,
                   brw_compose_swizzle(brw_swizzle_for_mask(readmask),
-                                      BRW_SWIZZLE4(swz[0], swz[1],
+                                      MAKE_SWIZZLE4(swz[0], swz[1],
                                                    swz[2], swz[3])));
 }
 
@@ -355,7 +355,7 @@ try_copy_propagate(const struct brw_compiler *compiler,
       return false;
 
    /* Reject cases that would violate register regioning restrictions. */
-   if ((value.file == UNIFORM || value.swizzle != BRW_SWIZZLE_XYZW) &&
+   if ((value.file == UNIFORM || value.swizzle != SWIZZLE_XYZW) &&
        ((devinfo->ver == 6 && inst->is_math()) ||
         inst->is_send_from_grf() ||
         inst->uses_indirect_addressing())) {
@@ -379,7 +379,7 @@ try_copy_propagate(const struct brw_compiler *compiler,
     * so copy-propagation won't be safe if the composed swizzle is anything
     * other than the identity.
     */
-   if (is_align1_opcode(inst->opcode) && composed_swizzle != BRW_SWIZZLE_XYZW)
+   if (is_align1_opcode(inst->opcode) && composed_swizzle != SWIZZLE_XYZW)
       return false;
 
    if (inst->is_3src(compiler) &&
