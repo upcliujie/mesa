@@ -6004,14 +6004,14 @@ typedef struct nir_input_attachment_options {
 bool nir_lower_input_attachments(nir_shader *shader,
                                  const nir_input_attachment_options *options);
 
-bool nir_lower_clip_vs(nir_shader *shader, unsigned ucp_enables,
+bool nir_lower_clip_vs(nir_shader *shader, unsigned *ucp_enables,
                        bool use_vars,
                        bool use_clipdist_array,
                        const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH]);
-bool nir_lower_clip_gs(nir_shader *shader, unsigned ucp_enables,
+bool nir_lower_clip_gs(nir_shader *shader, unsigned *ucp_enables,
                        bool use_clipdist_array,
                        const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH]);
-bool nir_lower_clip_fs(nir_shader *shader, unsigned ucp_enables,
+bool nir_lower_clip_fs(nir_shader *shader, unsigned *ucp_enables,
                        bool use_clipdist_array);
 
 void nir_lower_clip_cull_distance_to_vec4s(nir_shader *shader);

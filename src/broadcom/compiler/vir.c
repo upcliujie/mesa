@@ -1094,7 +1094,8 @@ static void
 v3d_nir_lower_gs_late(struct v3d_compile *c)
 {
         if (c->key->ucp_enables) {
-                NIR_PASS(_, c->s, nir_lower_clip_gs, c->key->ucp_enables,
+                unsigned ucp_enables = c->key->ucp_enables;
+                NIR_PASS(_, c->s, nir_lower_clip_gs, &ucp_enables,
                          false, NULL);
         }
 
@@ -1106,7 +1107,8 @@ static void
 v3d_nir_lower_vs_late(struct v3d_compile *c)
 {
         if (c->key->ucp_enables) {
-                NIR_PASS(_, c->s, nir_lower_clip_vs, c->key->ucp_enables,
+                unsigned ucp_enables = c->key->ucp_enables;
+                NIR_PASS(_, c->s, nir_lower_clip_vs, &ucp_enables,
                          false, false, NULL);
                 NIR_PASS_V(c->s, nir_lower_io_to_scalar,
                            nir_var_shader_out, NULL, NULL);
@@ -1126,8 +1128,9 @@ v3d_nir_lower_fs_late(struct v3d_compile *c)
          * OpenGL and Vulkan so we do't have to care about the API we
          * are using.
          */
+        unsigned ucp_enables = c->key->ucp_enables;
         if (c->key->ucp_enables)
-                NIR_PASS(_, c->s, nir_lower_clip_fs, c->key->ucp_enables, true);
+                NIR_PASS(_, c->s, nir_lower_clip_fs, &ucp_enables, true);
 
         NIR_PASS_V(c->s, nir_lower_io_to_scalar, nir_var_shader_in, NULL, NULL);
 }
