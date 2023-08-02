@@ -689,11 +689,12 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
    /* Note that it is intentional to use the VS lowering pass for GS, since we
     * lower GS into something that looks more like a VS in ir3_nir_lower_gs():
     */
+   unsigned ucp_enables = so->key.ucp_enables;
    if (lower_ucp_vs(so)) {
-      progress |= OPT(s, nir_lower_clip_vs, so->key.ucp_enables, false, true, NULL);
+      progress |= OPT(s, nir_lower_clip_vs, &ucp_enables, false, true, NULL);
    } else if (s->info.stage == MESA_SHADER_FRAGMENT) {
       if (so->key.ucp_enables && !so->compiler->has_clip_cull)
-         progress |= OPT(s, nir_lower_clip_fs, so->key.ucp_enables, true);
+         progress |= OPT(s, nir_lower_clip_fs, &ucp_enables, true);
    }
 
    /* Move large constant variables to the constants attached to the NIR
