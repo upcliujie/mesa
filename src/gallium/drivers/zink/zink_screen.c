@@ -998,7 +998,6 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    case PIPE_CAP_FLATSHADE:
    case PIPE_CAP_ALPHA_TEST:
-   case PIPE_CAP_CLIP_PLANES:
    case PIPE_CAP_POINT_SIZE_FIXED:
    case PIPE_CAP_TWO_SIDED_COLOR:
       return 0;
@@ -1030,6 +1029,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return screen->instance_info.have_EXT_debug_utils;
 
    //st legacy emulation pipe caps
+   case PIPE_CAP_CLIP_PLANES:
    case PIPE_CAP_FRAGMENT_COLOR_CLAMPED:
       return screen->optimal_keys;
 
