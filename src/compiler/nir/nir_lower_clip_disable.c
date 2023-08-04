@@ -37,14 +37,19 @@
  * then overwrite it if that plane isn't enabled
  */
 static void
-recursive_if_chain(nir_builder *b, nir_deref_instr *deref, nir_def *value, unsigned clip_plane_enable, nir_def *index, unsigned start, unsigned end)
+recursive_if_chain(nir_builder *b, nir_deref_instr *deref, nir_def *value, unsigned *clip_plane_enable, nir_def *index, unsigned start, unsigned end)
 {
    if (start == end - 1) {
       /* store the original value again if the clip plane is enabled */
-      if (clip_plane_enable & (1 << start))
-         nir_store_deref(b, deref, value, 1 << start);
+      nir_def *clip_plane_enable_def;
+      if (clip_plane_enable)
+         clip_plane_enable_def = nir_imm_int(b, *clip_plane_enable);
       else
-         nir_store_deref(b, deref, nir_imm_int(b, 0), 1 << start);
+         clip_plane_enable_def = nir_load_clip_plane_enable(b);
+      nir_store_deref(b, deref,
+                      nir_bcsel(b, nir_iand_imm(b, clip_plane_enable_def, 1 << start),
+                                value, nir_imm_int(b, 0)),
+                      1 << start);
       return;
    }
 
@@ -63,7 +68,7 @@ static bool
 lower_clip_plane_store(nir_builder *b, nir_intrinsic_instr *instr,
                        void *cb_data)
 {
-   unsigned clip_plane_enable = *(unsigned *)cb_data;
+   unsigned *clip_plane_enable = (unsigned *)cb_data;
    nir_variable *out;
    unsigned plane;
 
@@ -87,10 +92,15 @@ lower_clip_plane_store(nir_builder *b, nir_intrinsic_instr *instr,
       /* rewrite components as zeroes for planes that aren't enabled */
       for (int i = 0; i < 4; i++) {
          if (wrmask & (1 << i)) {
-            if (!(clip_plane_enable & (1 << (start + i))))
-               components[i] = nir_imm_int(b, 0);
+            nir_def *clip_plane_enable_def;
+            if (clip_plane_enable)
+               clip_plane_enable_def = nir_imm_bool(b, !!(*clip_plane_enable & (1 << (start + i))));
             else
-               components[i] = nir_channel(b, instr->src[1].ssa, i);
+               clip_plane_enable_def = nir_b2b1(b, nir_iand_imm(b, nir_load_clip_plane_enable(b),
+                                                                   (1 << (start + i))));
+            components[i] = nir_bcsel(b, clip_plane_enable_def,
+                                      nir_channel(b, instr->src[1].ssa, i),
+                                      nir_imm_int(b, 0));
          } else
             components[i] = nir_undef(b, 1, 32);
       }
@@ -99,11 +109,27 @@ lower_clip_plane_store(nir_builder *b, nir_intrinsic_instr *instr,
       /* storing using a constant index */
       plane = nir_src_as_uint(deref->arr.index);
       /* no need to make changes if the clip plane is enabled */
-      if (clip_plane_enable & (1 << plane))
-         return false;
-
       assert(nir_intrinsic_write_mask(instr) == 1);
-      nir_store_deref(b, deref, nir_imm_int(b, 0), 1);
+      if (clip_plane_enable) {
+         if (*clip_plane_enable & (1 << plane))
+            return false;
+
+         nir_store_deref(b, deref, nir_imm_int(b, 0), 1);
+      } else {
+         nir_def *clip_plane_enables_def = nir_load_clip_plane_enable(b);
+         nir_def *clip_plane_enable_def = nir_b2b1(b, nir_iand_imm(b, clip_plane_enables_def,
+                                                                   (1 << plane)));
+         /* normally we don;t get here if all clip planes are disabled so we
+          * need an extra check */
+         nir_push_if(b, nir_ior(b, clip_plane_enable_def,
+                                nir_ieq_imm(b, clip_plane_enables_def, 0)));
+         nir_store_deref(b, deref, instr->src[1].ssa, 1);
+         /* maybe we could instead just clone the insturction with */
+         /* nir_instr_insert_before(&instr->instr, nir_instr_clone(b->shader, &instr->instr)); */
+         nir_push_else(b, NULL);
+         nir_store_deref(b, deref, nir_imm_int(b, 0), 1);
+         nir_pop_if(b, NULL);
+      }
    } else {
       /* storing using a variable index */
       nir_def *index = deref->arr.index.ssa;
@@ -116,16 +142,16 @@ lower_clip_plane_store(nir_builder *b, nir_intrinsic_instr *instr,
 }
 
 bool
-nir_lower_clip_disable(nir_shader *shader, unsigned clip_plane_enable)
+nir_lower_clip_disable(nir_shader *shader, unsigned *clip_plane_enable)
 {
    /* if all user planes are enabled in API that are written in the array, always ignore;
     * this explicitly covers the 2x vec4 case
     */
-   if (clip_plane_enable == u_bit_consecutive(0, shader->info.clip_distance_array_size))
+   if (clip_plane_enable && *clip_plane_enable == u_bit_consecutive(0, shader->info.clip_distance_array_size))
       return false;
 
    return nir_shader_intrinsics_pass(shader, lower_clip_plane_store,
                                        nir_metadata_block_index |
                                           nir_metadata_dominance,
-                                       &clip_plane_enable);
+                                       clip_plane_enable);
 }
