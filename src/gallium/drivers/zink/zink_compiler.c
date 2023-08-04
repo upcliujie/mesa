@@ -3808,6 +3808,11 @@ lower_st_key_sysvals_instr(nir_builder *b, nir_instr *instr, void *data)
    case nir_intrinsic_load_clamp_color_enabled:
       key_mask = ST_VARIANT_KEY_MASK(clamp_color);
       break;
+   case nir_intrinsic_load_clip_plane_enable:
+      /* TODO find a way of not hardcoding size and offset? */
+      offset = 16;
+      bitsize = 8;
+      break;
    case nir_intrinsic_load_user_clip_plane:
    {
       uint32_t offset_bytes = offsetof(struct zink_st_variant_key, ucp_state);
@@ -3862,6 +3867,34 @@ lower_st_key_sysvals(nir_shader *shader)
 }
 
 static void
+lower_ucp(struct zink_shader *za,
+          struct nir_shader *nir)
+{
+   /* Cull and Clip distance seem to be interacting in undesiderable ways
+    * TODO verify this is by spec and not a driver bug */
+   if (nir->info.outputs_written & VARYING_BIT_CULL_DIST0)
+      return;
+   if (nir->info.outputs_written & VARYING_BIT_CLIP_DIST0)
+      NIR_PASS_V(nir, nir_lower_clip_disable, NULL);
+   else {
+      bool can_compact = true;
+
+      if (nir->info.stage == MESA_SHADER_VERTEX ||
+          nir->info.stage == MESA_SHADER_TESS_EVAL) {
+         NIR_PASS_V(nir, nir_lower_clip_vs, NULL,
+                    true, can_compact, NULL);
+      } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
+         NIR_PASS_V(nir, nir_lower_clip_gs, NULL ,
+                    can_compact, NULL);
+      }
+
+      /* NIR_PASS_V(nir, nir_lower_io_to_temporaries, */
+      /*            nir_shader_get_entrypoint(nir), true, false); */
+      /* NIR_PASS_V(nir, nir_lower_global_vars_to_local); */
+   }
+}
+
+static void
 zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
                                    const struct zink_st_variant_key *key)
 {
@@ -3878,6 +3911,15 @@ zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
          NIR_PASS_V(nir, nir_lower_clamp_color_outputs);
       break;
 
+   default: break;
+   }
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      if (key->small_key.lower_ucp)
+         lower_ucp(zs, nir);
+      break;
    default: break;
    }
    NIR_PASS_V(nir, lower_st_key_sysvals);
@@ -3900,6 +3942,14 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
       need_optimize = true;
       break;
 
+   default: break;
+   }
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      lower_ucp(zs, nir);
+      break;
    default: break;
    }
    NIR_PASS_V(nir, lower_st_key_sysvals);

@@ -2550,6 +2550,8 @@ static void
 zink_set_clip_state(struct pipe_context *pctx,
                     const struct pipe_clip_state *pcs)
 {
+   struct zink_context *ctx = zink_context(pctx);
+   update_st_key_clip(ctx, pcs);
 }
 
 static void
