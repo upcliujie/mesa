@@ -35,9 +35,9 @@ r300_should_vectorize_instr(const nir_instr *instr, const void *data)
 
 static bool
 r300_should_vectorize_io(unsigned align, unsigned bit_size,
-                        unsigned num_components, unsigned high_offset,
-                        nir_intrinsic_instr *low, nir_intrinsic_instr *high,
-                        void *data)
+                         unsigned num_components, unsigned high_offset,
+                         nir_intrinsic_instr *low, nir_intrinsic_instr *high,
+                         void *data)
 {
    if (bit_size != 32)
       return false;
@@ -85,8 +85,11 @@ r300_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
       NIR_PASS(progress, s, nir_opt_copy_prop_vars);
       NIR_PASS(progress, s, nir_opt_dead_write_vars);
 
-      NIR_PASS(progress, s, nir_opt_if, nir_opt_if_aggressive_last_continue | nir_opt_if_optimize_phi_true_false);
-      NIR_PASS(progress, s, nir_opt_peephole_select, is_r500 ? 8 : ~0, true, true);
+      NIR_PASS(progress, s, nir_opt_if,
+               nir_opt_if_aggressive_last_continue |
+                  nir_opt_if_optimize_phi_true_false);
+      NIR_PASS(progress, s, nir_opt_peephole_select, is_r500 ? 8 : ~0, true,
+               true);
       NIR_PASS(progress, s, nir_opt_algebraic);
       NIR_PASS(progress, s, nir_opt_constant_folding);
       nir_load_store_vectorize_options vectorize_opts = {
@@ -98,9 +101,10 @@ r300_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
       NIR_PASS(progress, s, nir_opt_shrink_stores, true);
       NIR_PASS(progress, s, nir_opt_shrink_vectors);
       NIR_PASS(progress, s, nir_opt_trivial_continues);
-      NIR_PASS(progress, s, nir_opt_vectorize, r300_should_vectorize_instr, NULL);
+      NIR_PASS(progress, s, nir_opt_vectorize, r300_should_vectorize_instr,
+               NULL);
       NIR_PASS(progress, s, nir_opt_undef);
-      if(!progress)
+      if (!progress)
          NIR_PASS(progress, s, nir_lower_undef_to_zero);
       NIR_PASS(progress, s, nir_opt_loop_unroll);
 
@@ -123,10 +127,11 @@ r300_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
 
    NIR_PASS_V(s, nir_lower_var_copies);
    NIR_PASS(progress, s, nir_remove_dead_variables, nir_var_function_temp,
-			NULL);
+            NULL);
 }
 
-static char *r300_check_control_flow(nir_shader *s)
+static char *
+r300_check_control_flow(nir_shader *s)
 {
    nir_function_impl *impl = nir_shader_get_entrypoint(s);
    nir_block *first = nir_start_block(impl);
@@ -134,12 +139,14 @@ static char *r300_check_control_flow(nir_shader *s)
 
    if (next) {
       switch (next->type) {
-         case nir_cf_node_if:
-            return "If/then statements not supported by R300/R400 shaders, should have been flattened by peephole_select.";
-         case nir_cf_node_loop:
-            return "Looping not supported R300/R400 shaders, all loops must be statically unrollable.";
-         default:
-            return "Unknown control flow type";
+      case nir_cf_node_if:
+         return "If/then statements not supported by R300/R400 shaders, "
+                "should have been flattened by peephole_select.";
+      case nir_cf_node_loop:
+         return "Looping not supported R300/R400 shaders, all loops must be "
+                "statically unrollable.";
+      default:
+         return "Unknown control flow type";
       }
    }
 
@@ -159,7 +166,7 @@ r300_finalize_nir(struct pipe_screen *pscreen, void *nir)
     * because they're needed for YUV variant lowering.
     */
    nir_remove_dead_derefs(s);
-   nir_foreach_uniform_variable_safe(var, s) {
+   nir_foreach_uniform_variable_safe (var, s) {
       if (var->data.mode == nir_var_uniform &&
           (glsl_type_get_image_count(var->type) ||
            glsl_type_get_sampler_count(var->type)))
