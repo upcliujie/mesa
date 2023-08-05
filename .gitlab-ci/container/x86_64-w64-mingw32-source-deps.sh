@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # shellcheck disable=SC2086 # we want word splitting
 
 set -e
+set -o xtrace
 
-# Building libdrm (libva dependency)
-. .gitlab-ci/container/build-libdrm.sh
+. .gitlab-ci/container/setup-wine.sh ~/.wine
 
 wd=$PWD
 CMAKE_TOOLCHAIN_MINGW_PATH=$wd/.gitlab-ci/container/x86_64-w64-mingw32-toolchain.cmake
@@ -12,7 +12,7 @@ mkdir -p ~/tmp
 pushd ~/tmp
 
 # Building DirectX-Headers
-git clone https://github.com/microsoft/DirectX-Headers -b v1.606.4 --depth 1
+git clone https://github.com/microsoft/DirectX-Headers -b v1.711.3-preview --depth 1
 mkdir -p DirectX-Headers/build
 pushd DirectX-Headers/build
 meson .. \
@@ -25,11 +25,7 @@ ninja install
 popd
 
 # Building libva
-git clone https://github.com/intel/libva
-pushd libva/
-# libva-win32 is released with libva version 2.17 (see https://github.com/intel/libva/releases/tag/2.17.0)
-git checkout 2.17.0
-popd
+git clone https://github.com/intel/libva -b 2.17.0 --depth 1
 # libva already has a build dir in their repo, use builddir instead
 mkdir -p libva/builddir
 pushd libva/builddir
@@ -42,14 +38,14 @@ meson .. \
 ninja install
 popd
 
-export VULKAN_SDK_VERSION=1.3.211.0
+export VULKAN_SDK_VERSION=1.3.250.1
 
 # Building SPIRV Tools
 git clone -b sdk-$VULKAN_SDK_VERSION --depth=1 \
 https://github.com/KhronosGroup/SPIRV-Tools SPIRV-Tools
 
 git clone -b sdk-$VULKAN_SDK_VERSION --depth=1 \
-https://github.com/KhronosGroup/SPIRV-Headers SPIRV-Tools/external/SPIRV-Headers
+https://github.com/KhronosGroup/SPIRV-Headers SPIRV-Tools/external/spirv-headers
 
 mkdir -p SPIRV-Tools/build
 pushd SPIRV-Tools/build
@@ -59,62 +55,6 @@ cmake .. \
 -GNinja -DCMAKE_BUILD_TYPE=Release \
 -DCMAKE_CROSSCOMPILING=1 \
 -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
-
-ninja install
-popd
-
-# Building LLVM
-git clone -b release/15.x --depth=1 \
-https://github.com/llvm/llvm-project llvm-project
-
-git clone -b v15.0.0 --depth=1 \
-https://github.com/KhronosGroup/SPIRV-LLVM-Translator llvm-project/llvm/projects/SPIRV-LLVM-Translator
-
-mkdir llvm-project/build
-pushd llvm-project/build
-cmake ../llvm \
--DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_MINGW_PATH \
--DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32/ \
--GNinja -DCMAKE_BUILD_TYPE=Release \
--DCMAKE_CROSSCOMPILING=1 \
--DLLVM_ENABLE_RTTI=ON \
--DCROSS_TOOLCHAIN_FLAGS_NATIVE=-DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=$PWD/../../SPIRV-Tools/external/SPIRV-Headers \
--DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=$PWD/../../SPIRV-Tools/external/SPIRV-Headers \
--DLLVM_ENABLE_PROJECTS="clang" \
--DLLVM_TARGETS_TO_BUILD="AMDGPU;X86" \
--DLLVM_OPTIMIZED_TABLEGEN=TRUE \
--DLLVM_ENABLE_ASSERTIONS=TRUE \
--DLLVM_INCLUDE_UTILS=OFF \
--DLLVM_INCLUDE_RUNTIMES=OFF \
--DLLVM_INCLUDE_TESTS=OFF \
--DLLVM_INCLUDE_EXAMPLES=OFF \
--DLLVM_INCLUDE_GO_TESTS=OFF \
--DLLVM_INCLUDE_BENCHMARKS=OFF \
--DLLVM_BUILD_LLVM_C_DYLIB=OFF \
--DLLVM_ENABLE_DIA_SDK=OFF \
--DCLANG_BUILD_TOOLS=ON \
--DLLVM_SPIRV_INCLUDE_TESTS=OFF
-
-ninja install
-popd
-
-# Building libclc
-mkdir llvm-project/build-libclc
-pushd llvm-project/build-libclc
-cmake ../libclc \
--DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_MINGW_PATH \
--DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32/ \
--GNinja -DCMAKE_BUILD_TYPE=Release \
--DCMAKE_CROSSCOMPILING=1 \
--DCMAKE_POLICY_DEFAULT_CMP0091=NEW \
--DCMAKE_CXX_FLAGS="-m64" \
--DLLVM_CONFIG="/usr/x86_64-w64-mingw32/bin/llvm-config" \
--DLLVM_CLANG="/usr/x86_64-w64-mingw32/bin/clang" \
--DLLVM_AS="/usr/x86_64-w64-mingw32/bin/llvm-as" \
--DLLVM_LINK="/usr/x86_64-w64-mingw32/bin/llvm-link" \
--DLLVM_OPT="/usr/x86_64-w64-mingw32/bin/opt" \
--DLLVM_SPIRV="/usr/x86_64-w64-mingw32/bin/llvm-spirv" \
--DLIBCLC_TARGETS_TO_BUILD="spirv-mesa3d-;spirv64-mesa3d-"
 
 ninja install
 popd
