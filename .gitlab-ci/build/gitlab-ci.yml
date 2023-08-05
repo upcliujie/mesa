@@ -746,4 +746,4 @@ debian-ppc64el:
       -D cpp_rtti=true
       -D shared-glapi=enabled
       -D zlib=enabled
-      --cross-file=.gitlab-ci/x86_64-w64-mingw32
+      --cross-file=.gitlab-ci/container/x86_64-w64-mingw32

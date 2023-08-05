@@ -7,7 +7,7 @@ set -e
 . .gitlab-ci/container/build-libdrm.sh
 
 wd=$PWD
-CMAKE_TOOLCHAIN_MINGW_PATH=$wd/.gitlab-ci/container/debian/x86_mingw-toolchain.cmake
+CMAKE_TOOLCHAIN_MINGW_PATH=$wd/.gitlab-ci/container/x86_64-w64-mingw32-toolchain.cmake
 mkdir -p ~/tmp
 pushd ~/tmp
 
@@ -19,7 +19,7 @@ meson .. \
 --backend=ninja \
 --buildtype=release -Dbuild-test=false \
 -Dprefix=/usr/x86_64-w64-mingw32/ \
---cross-file=$wd/.gitlab-ci/x86_64-w64-mingw32
+--cross-file=$wd/.gitlab-ci/container/x86_64-w64-mingw32
 
 ninja install
 popd
@@ -37,7 +37,7 @@ meson .. \
 --backend=ninja \
 --buildtype=release \
 -Dprefix=/usr/x86_64-w64-mingw32/ \
---cross-file=$wd/.gitlab-ci/x86_64-w64-mingw32
+--cross-file=$wd/.gitlab-ci/container/x86_64-w64-mingw32
 
 ninja install
 popd
