@@ -60,7 +60,6 @@
   extends:
     - .build-linux
     - .use-debian/x86_64_build_mingw
-    - .use-wine
   stage: build-x86_64
   script:
     - .gitlab-ci/meson/build.sh

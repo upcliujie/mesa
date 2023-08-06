@@ -51,6 +51,7 @@ fi
 
 # Only debian-mingw32 needs wine and Xvfb for running unittest
 if [ "$CI_JOB_NAME" == "debian-mingw32-x86_64" ]; then
+    . .gitlab-ci/container/setup-wine.sh ~/.wine
     Xvfb :0 -screen 0 1024x768x16 &
     xvfb_pid=$!
     export DISPLAY=:0.0
