@@ -209,6 +209,9 @@ struct panfrost_device {
     * unconditionally on Bifrost, and useful for sharing with Midgard */
 
    struct panfrost_bo *sample_positions;
+
+   uint64_t total_bo_size;
+   uint64_t bo_cache_size;
 };
 
 void panfrost_open_device(void *memctx, int fd, struct panfrost_device *dev);
