@@ -29,6 +29,19 @@ tu_wsi_can_present_on_device(VkPhysicalDevice physicalDevice, int fd)
    return wsi_common_drm_devices_equal(fd, pdevice->local_fd);
 }
 
+/* This controls the presence of the WSI BO's memory in the global BO list.  The
+ * WSI code uses it to remove BOs owned by the winsys from our driver's view,
+ * which can help us keep from over-synchronizing on them.
+ */
+static void
+tu_wsi_set_memory_ownership(VkDevice _device, VkDeviceMemory _mem, VkBool32 ownership)
+{
+   TU_FROM_HANDLE(tu_device, device, _device);
+   TU_FROM_HANDLE(tu_device_memory, mem, _mem);
+
+   tu_bo_make_resident(device, mem->bo, ownership);
+}
+
 VkResult
 tu_wsi_init(struct tu_physical_device *physical_device)
 {
@@ -48,6 +61,8 @@ tu_wsi_init(struct tu_physical_device *physical_device)
    physical_device->wsi_device.supports_modifiers = true;
    physical_device->wsi_device.can_present_on_device =
       tu_wsi_can_present_on_device;
+   physical_device->wsi_device.set_memory_ownership =
+      tu_wsi_set_memory_ownership;
 
    physical_device->vk.wsi_device = &physical_device->wsi_device;
 
