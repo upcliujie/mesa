@@ -1005,7 +1005,7 @@ lower_txb_to_txl(nir_builder *b, nir_tex_instr *tex)
 }
 
 static nir_tex_instr *
-saturate_src(nir_builder *b, nir_tex_instr *tex, unsigned sat_mask)
+saturate_src(nir_builder *b, nir_tex_instr *tex, unsigned *sat_mask)
 {
    if (tex->op == nir_texop_tex)
       tex = lower_tex_to_txd(b, tex);
@@ -1032,18 +1032,25 @@ saturate_src(nir_builder *b, nir_tex_instr *tex, unsigned sat_mask)
       if (tex->is_array)
          ncomp--;
 
+      nir_def *new_comp[4];
       for (unsigned j = 0; j < ncomp; j++) {
-         if ((1 << j) & sat_mask) {
+         if (!sat_mask || (1 << j) & *sat_mask) {
             if (tex->sampler_dim == GLSL_SAMPLER_DIM_RECT) {
                /* non-normalized texture coords, so clamp to texture
                 * size rather than [0.0, 1.0]
                 */
                nir_def *txs = nir_i2f32(b, nir_get_texture_size(b, tex));
-               comp[j] = nir_fmax(b, comp[j], nir_imm_float(b, 0.0));
-               comp[j] = nir_fmin(b, comp[j], nir_channel(b, txs, j));
+               new_comp[j] = nir_fmax(b, comp[j], nir_imm_float(b, 0.0));
+               new_comp[j] = nir_fmin(b, new_comp[j], nir_channel(b, txs, j));
             } else {
-               comp[j] = nir_fsat(b, comp[j]);
+               new_comp[j] = nir_fsat(b, comp[j]);
             }
+            if (sat_mask)
+               comp[j] = new_comp[j];
+            else
+               comp[j] = nir_bcsel(b, nir_b2b1(b, nir_iand_imm(b, nir_load_txc_sat(b, j),
+                                                               (1 << tex->sampler_index))),
+                                   new_comp[j], comp[j]);
          }
       }
 
@@ -1651,7 +1658,7 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
       }
 
       if (sat_mask) {
-         tex = saturate_src(b, tex, sat_mask);
+         tex = saturate_src(b, tex, &sat_mask);
          progress = true;
       }
 
@@ -1782,6 +1789,34 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
 }
 
 static bool
+nir_lower_tex_block_sysvals(nir_block *block, nir_builder *b,
+                    const struct nir_shader_compiler_options *compiler_options)
+{
+   bool progress = false;
+
+   nir_foreach_instr_safe(instr, block) {
+      if (instr->type != nir_instr_type_tex)
+         continue;
+
+      nir_tex_instr *tex = nir_instr_as_tex(instr);
+
+      /* If we are clamping any coords, we must lower projector first
+       * as clamping happens *after* projection:
+       */
+      progress |= project_src(b, tex);
+
+      if (nir_tex_instr_src_index(tex, nir_tex_src_coord) >= 0) {
+         progress = lower_offset(b, tex) || progress;
+      }
+
+      tex = saturate_src(b, tex, NULL);
+      progress = true;
+   }
+
+   return progress;
+}
+
+static bool
 nir_lower_tex_impl(nir_function_impl *impl,
                    const nir_lower_tex_options *options,
                    const struct nir_shader_compiler_options *compiler_options)
@@ -1789,9 +1824,14 @@ nir_lower_tex_impl(nir_function_impl *impl,
    bool progress = false;
    nir_builder builder = nir_builder_create(impl);
 
-   nir_foreach_block(block, impl) {
-      progress |= nir_lower_tex_block(block, &builder, options, compiler_options);
-   }
+   if (options)
+      nir_foreach_block(block, impl) {
+         progress |= nir_lower_tex_block(block, &builder, options, compiler_options);
+      }
+   else
+      nir_foreach_block(block, impl) {
+         progress |= nir_lower_tex_block_sysvals(block, &builder, compiler_options);
+      }
 
    nir_metadata_preserve(impl, nir_metadata_block_index |
                                   nir_metadata_dominance);
@@ -1807,7 +1847,7 @@ nir_lower_tex(nir_shader *shader, const nir_lower_tex_options *options)
     * if lower_tg4_broadcom_swizzle is also requested so when both are set
     * we want to run lower_tg4_offsets in a separate pass first.
     */
-   if (options->lower_tg4_offsets && options->lower_tg4_broadcom_swizzle) {
+   if (options && options->lower_tg4_offsets && options->lower_tg4_broadcom_swizzle) {
       nir_lower_tex_options _options = {
          .lower_tg4_offsets = true,
       };
