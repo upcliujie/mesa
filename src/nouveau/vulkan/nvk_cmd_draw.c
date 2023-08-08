@@ -721,13 +721,14 @@ nvk_CmdBeginRendering(VkCommandBuffer commandBuffer,
       P_IMMD(p, NV9097, SET_ZT_SELECT, 0 /* target_count */);
    }
 
+   if (render->flags & VK_RENDERING_RESUMING_BIT)
+      return;
+
    if (sample_layout == NIL_SAMPLE_LAYOUT_INVALID)
       sample_layout = NIL_SAMPLE_LAYOUT_1X1;
 
+   /* this is left here for clears to work */
    P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sample_layout));
-
-   if (render->flags & VK_RENDERING_RESUMING_BIT)
-      return;
 
    uint32_t clear_count = 0;
    VkClearAttachment clear_att[NVK_MAX_RTS + 1];
