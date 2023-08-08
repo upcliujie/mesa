@@ -37,13 +37,14 @@ union zink_st_small_key {
       uint8_t export_point_size:1;
       /* for user-defined clip-planes */
       uint8_t lower_ucp:1;
+      uint8_t lower_txc_sat: 1;
       /* Whether st_variant::driver_shader is for the draw module,
        * not for the driver.
        */
       uint8_t is_draw_shader:1;
       uint8_t lower_flatshade:1;
       uint8_t lower_alpha_test:1;
-      uint16_t pad: 9; // from here not key
+      uint8_t pad: 8; // from here not key
    };
    uint16_t val;
 };

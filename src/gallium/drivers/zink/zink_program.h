@@ -481,6 +481,43 @@ update_st_key_clip(struct zink_context *ctx, const struct pipe_clip_state *pcs) 
    memcpy(key->ucp_state, &pcs->ucp, sizeof(float[8][4]));
 }
 
+static inline void
+upsate_st_key_sampler_state(struct zink_context *ctx, struct zink_sampler_state *state, unsigned slot)
+{
+   struct zink_st_variant_key *key = &ctx->gfx_pipeline_state.shader_keys.st_key;
+   bool lower_txc_sat = false;
+   for (unsigned i = 0; i < 3; i++) {
+      key->gl_clamp[i] &= ~(1 << slot);
+      if (state)
+         key->gl_clamp[i] |= ((state->sat_mask >> i) & 1) << slot;
+      lower_txc_sat |= key->gl_clamp[i] != 0;
+   }
+   UPDATE_ST_SMALL_KEY(ctx, lower_txc_sat, lower_txc_sat);
+}
+
+static inline void
+update_st_key_sampler_state_dbg(struct zink_context *ctx)
+{
+   struct zink_st_variant_key *key = &ctx->gfx_pipeline_state.shader_keys.st_key;
+   key->gl_clamp[0] = key->gl_clamp[1] = key->gl_clamp[2] = 0;
+   bool lower_txc_sat = false;
+   for (unsigned slot =0; slot < 32; slot++) {
+      if (!ctx->sampler_states[MESA_SHADER_FRAGMENT][slot])
+         continue;
+      uint8_t sat_mask = ctx->sampler_states[MESA_SHADER_FRAGMENT][slot]->sat_mask;
+      if (sat_mask & 1)
+         key->gl_clamp[0] |= BITFIELD64_BIT(slot);
+      if (sat_mask & 1 << 1)
+         key->gl_clamp[1] |= BITFIELD64_BIT(slot);
+      if (sat_mask & 1 << 2)
+         key->gl_clamp[2] |= BITFIELD64_BIT(slot);
+   }
+   lower_txc_sat |= key->gl_clamp[0] != 0;
+   lower_txc_sat |= key->gl_clamp[1] != 0;
+   lower_txc_sat |= key->gl_clamp[2] != 0;
+   UPDATE_ST_SMALL_KEY(ctx, lower_txc_sat, lower_txc_sat);
+}
+
 static inline uint16_t
 get_st_vs_key(struct zink_gfx_pipeline_state *state)
 {

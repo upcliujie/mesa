@@ -845,6 +845,8 @@ zink_bind_sampler_states(struct pipe_context *pctx,
       struct zink_sampler_state *state = samplers[i];
       if (samplers[i] == ctx->sampler_states[shader][start_slot + i])
          continue;
+      if (shader == MESA_SHADER_FRAGMENT)
+         upsate_st_key_sampler_state(ctx, state, i);
       ctx->invalidate_descriptor_state(ctx, shader, ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW, start_slot, 1);
       ctx->sampler_states[shader][start_slot + i] = state;
       if (state) {
