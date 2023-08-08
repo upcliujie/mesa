@@ -601,6 +601,9 @@ zink_create_sampler_state(struct pipe_context *pctx,
          return NULL;
       }
    }
+   sampler->sat_mask = (state->wrap_s == PIPE_TEX_WRAP_CLAMP) |
+                       (state->wrap_t == PIPE_TEX_WRAP_CLAMP) << 1|
+                       (state->wrap_r == PIPE_TEX_WRAP_CLAMP) << 2;
    sampler->custom_border_color = need_custom;
    if (!screen->info.have_EXT_non_seamless_cube_map)
       sampler->emulate_nonseamless = !state->seamless_cube_map;

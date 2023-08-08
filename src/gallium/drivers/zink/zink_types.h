@@ -1694,6 +1694,7 @@ struct zink_framebuffer {
 struct zink_sampler_state {
    VkSampler sampler;
    VkSampler sampler_clamped;
+   uint8_t sat_mask;
    bool custom_border_color;
    bool emulate_nonseamless;
 };
