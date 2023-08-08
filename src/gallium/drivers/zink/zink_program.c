@@ -855,6 +855,81 @@ equals_program_variant(const void *a, const void *b)
 
 #define CURR_KEY_PROGRAM(ctx) (ctx->gfx_pipeline_state.uber_required ? ctx->curr_program_uber: ctx->curr_program)
 
+static void
+async_variant_program_update(struct zink_context *ctx, bool can_use_uber, bool needs_emulation)
+{
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   bool needs_uber = false;
+   if (!ctx->curr_program_uber->is_separable && (!ctx->curr_program_uber->base_variant || needs_emulation)) {
+      struct program_variant_key prog_variant_key = {0};
+      prog_variant_key.key = ctx->gfx_pipeline_state.optimal_key;
+      prog_variant_key.st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
+      struct set_entry * variant_entry = _mesa_set_search(&ctx->curr_program_uber->variants, &prog_variant_key);
+      struct zink_gfx_program *variant;
+      if (!variant_entry) {
+         variant = zink_create_gfx_program(ctx->curr_program_uber->ctx, ctx->curr_program_uber->shaders, 0, ctx->curr_program_uber->gfx_hash, true);
+         util_queue_fence_init(&variant->base.cache_fence);
+         struct program_variant_key *prog_variant_key_p = MALLOC(sizeof(struct program_variant_key));
+         memcpy(prog_variant_key_p, &prog_variant_key, sizeof(struct program_variant_key));
+         prog_variant_key_p->prog = variant;
+         _mesa_set_add(&ctx->curr_program_uber->variants, prog_variant_key_p);
+         needs_uber = true;
+      } else
+         variant = ((struct program_variant_key *)variant_entry->key)->prog;
+      /* fetches shader modules from cache and starts async compilation on a miss */
+      bool async_done = update_gfx_program_optimal(ctx, ctx->curr_program_uber, variant, can_use_uber);
+      assert(can_use_uber || async_done);
+      if (async_done) {
+         if (ctx->curr_program_uber->base_variant)
+            copy_gfx_program_missing_shaders(ctx, ctx->curr_program_uber->base_variant, variant);
+         else
+            async_done = update_gfx_program_missing_shaders(ctx, ctx->curr_program_uber, variant, can_use_uber);
+         assert(can_use_uber || async_done);
+      }
+      needs_uber &= !async_done;
+
+      if (async_done && !variant->started_compiling) {
+         /* Modules are ready but the program isn't. Start a job for it. */
+         struct precompile_variant_data *data = CALLOC_STRUCT(precompile_variant_data);
+         data->prog = variant;
+         data->state = ctx->gfx_pipeline_state;
+         if (can_use_uber)
+            util_queue_add_job(&screen->cache_get_thread, data, &variant->base.cache_fence, precompile_variant_job, NULL, 0);
+         else
+            precompile_variant_job(data, screen, 0);
+         variant->started_compiling = true;
+      }
+      if (!can_use_uber)
+         util_queue_fence_wait(&variant->base.cache_fence);
+      bool variant_prog_ready = variant->started_compiling &&
+                                (!can_use_uber || util_queue_fence_is_signalled(&variant->base.cache_fence));
+      assert(can_use_uber || variant_prog_ready);
+      if(variant_prog_ready) {
+         /* variant prog is ready, use it */
+         if (ctx->curr_program != variant) {
+            ctx->gfx_pipeline_state.modules_changed = true;
+            ctx->curr_program = variant;
+         }
+         assert(async_done);
+         if (!needs_emulation)
+            ctx->curr_program_uber->base_variant = variant;
+      }
+      needs_uber |= !async_done || !variant_prog_ready;
+   } else if (ctx->curr_program_uber->base_variant && !needs_emulation) {
+      ctx->curr_program = ctx->curr_program_uber->base_variant;
+      ctx->curr_program_uber->last_variant_hash = ctx->curr_program->last_variant_hash;
+      ctx->curr_program_uber->st_key = ctx->curr_program->st_key;
+      needs_uber = false;
+   }
+   if (ctx->gfx_pipeline_state.uber_required != needs_uber) {
+      ctx->gfx_pipeline_state.modules_changed = true;
+      ctx->gfx_pipeline_state.uber_required = needs_uber;
+   }
+
+   if (needs_uber || !ctx->curr_program_uber)
+      ctx->curr_program = ctx->curr_program_uber;
+}
+
 void
 zink_gfx_program_update_optimal(struct zink_context *ctx)
 {
@@ -871,12 +946,10 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
          ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->last_variant_hash;
          ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
       }
-      bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
-      bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
-      bool needs_uber = false;
       if (entry) {
+         bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
+         bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
          prog = (struct zink_gfx_program*)entry->data;
-         ctx->curr_program_uber = ctx->curr_program = prog;
          if (prog->is_separable) {
             /* if uber cannot be used we need to compile the variant synchrously,
              * so we need the full prog: sync and compile */
@@ -887,66 +960,8 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
                prog = replace_separable_prog(screen, entry, prog);
             }
          }
-         if (!prog->is_separable && (!prog->base_variant || needs_emulation)) {
-            struct program_variant_key prog_variant_key = {0};
-            prog_variant_key.key = ctx->gfx_pipeline_state.optimal_key;
-            prog_variant_key.st_key = ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val;
-            struct set_entry * variant_entry = _mesa_set_search(&prog->variants, &prog_variant_key);
-            struct zink_gfx_program *variant;
-            if (!variant_entry) {
-               variant = zink_create_gfx_program(prog->ctx, prog->shaders, 0, prog->gfx_hash, true);
-               util_queue_fence_init(&variant->base.cache_fence);
-               struct program_variant_key *prog_variant_key_p = MALLOC(sizeof(struct program_variant_key));
-               memcpy(prog_variant_key_p, &prog_variant_key, sizeof(struct program_variant_key));
-               prog_variant_key_p->prog = variant;
-               _mesa_set_add(&prog->variants, prog_variant_key_p);
-               needs_uber = true;
-            } else
-               variant = ((struct program_variant_key *)variant_entry->key)->prog;
-            /* fetches shader modules from cache and starts async compilation on a miss */
-            bool async_done = update_gfx_program_optimal(ctx, prog, variant, can_use_uber);
-            assert(can_use_uber || async_done);
-            if (async_done) {
-               if (prog->base_variant)
-                  copy_gfx_program_missing_shaders(ctx, prog->base_variant, variant);
-               else
-                  async_done = update_gfx_program_missing_shaders(ctx, prog, variant, can_use_uber);
-               assert(can_use_uber || async_done);
-            }
-
-            if (async_done && !variant->started_compiling) {
-               /* Modules are ready but the program isn't. Start a job for it. */
-               struct precompile_variant_data *data = CALLOC_STRUCT(precompile_variant_data);
-               data->prog = variant;
-               data->state = ctx->gfx_pipeline_state;
-               if (can_use_uber)
-                  util_queue_add_job(&screen->cache_get_thread, data, &variant->base.cache_fence, precompile_variant_job, NULL, 0);
-               else
-                  precompile_variant_job(data, screen, 0);
-               variant->started_compiling = true;
-            }
-            if (!can_use_uber)
-               util_queue_fence_wait(&variant->base.cache_fence);
-            bool variant_prog_ready = variant->started_compiling &&
-                                      (!can_use_uber || util_queue_fence_is_signalled(&variant->base.cache_fence));
-            assert(can_use_uber || variant_prog_ready);
-            if(variant_prog_ready) {
-               /* variant prog is ready, use it */
-               ctx->curr_program = variant;
-               if (!needs_emulation)
-                  prog->base_variant = variant;
-            }
-            needs_uber |= !async_done || !variant_prog_ready;
-         } else if (prog->base_variant && !needs_emulation) {
-            ctx->curr_program = prog->base_variant;
-            ctx->curr_program_uber->last_variant_hash = ctx->curr_program->last_variant_hash;
-            ctx->curr_program_uber->st_key = ctx->curr_program->st_key;
-            needs_uber = false;
-         }
-         ctx->gfx_pipeline_state.uber_required = needs_uber;
-
-         if (needs_uber || !entry || !ctx->curr_program_uber)
-            ctx->curr_program = ctx->curr_program_uber;
+         ctx->curr_program_uber = prog;
+         async_variant_program_update(ctx, can_use_uber, needs_emulation);
       } else {
          ctx->dirty_gfx_stages |= ctx->shader_stages;
          prog = create_gfx_program_separable(ctx, ctx->gfx_stages, ctx->gfx_pipeline_state.dyn_state2.vertices_per_patch);
@@ -969,29 +984,32 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->last_variant_hash;
       ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
    } else if (ctx->dirty_gfx_stages) {
-      abort();
       /* remove old hash */
       ctx->gfx_pipeline_state.optimal_key = zink_sanitize_optimal_key(ctx->gfx_stages, ctx->gfx_pipeline_state.shader_keys_optimal.key.val);
-      ctx->gfx_pipeline_state.final_hash ^= ctx->curr_program->last_variant_hash;
-      ctx->gfx_pipeline_state.final_hash ^= ctx->curr_program->st_key;
+      ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->last_variant_hash;
+      ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
+      bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
+      bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
       if (ctx->curr_program->is_separable && !(zink_debug & ZINK_DEBUG_NOOPT)) {
-         struct zink_gfx_program *prog = ctx->curr_program;
-         if (!ZINK_SHADER_KEY_OPTIMAL_IS_DEFAULT(ctx->gfx_pipeline_state.optimal_key)) {
-            util_queue_fence_wait(&prog->base.cache_fence);
-            /* shader variants can't be handled by separable programs: sync and compile */
+         struct zink_gfx_program *prog = ctx->curr_program_uber;
+         if (needs_emulation || ctx->curr_program_uber->is_separable) {
+            if (!can_use_uber)
+               util_queue_fence_wait(&prog->base.cache_fence);
             perf_debug(ctx, "zink[gfx_compile]: non-default shader variant required with separate shader object program\n");
-            struct hash_table *ht = &ctx->program_cache[zink_program_cache_stages(ctx->shader_stages)];
-            const uint32_t hash = ctx->gfx_hash;
-            simple_mtx_lock(&ctx->program_lock[zink_program_cache_stages(ctx->shader_stages)]);
-            struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(ht, hash, ctx->gfx_stages);
-            ctx->curr_program = replace_separable_prog(screen, entry, prog);
-            simple_mtx_unlock(&ctx->program_lock[zink_program_cache_stages(ctx->shader_stages)]);
+            if (util_queue_fence_is_signalled(&prog->base.cache_fence)) {
+               struct hash_table *ht = &ctx->program_cache[zink_program_cache_stages(ctx->shader_stages)];
+               const uint32_t hash = ctx->gfx_hash;
+               simple_mtx_lock(&ctx->program_lock[zink_program_cache_stages(ctx->shader_stages)]);
+               struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(ht, hash, ctx->gfx_stages);
+               ctx->curr_program_uber = replace_separable_prog(screen, entry, prog);
+               simple_mtx_unlock(&ctx->program_lock[zink_program_cache_stages(ctx->shader_stages)]);
+            }
          }
       }
-      update_gfx_program_optimal(ctx, ctx->curr_program, ctx->curr_program, false);
+      async_variant_program_update(ctx, can_use_uber, needs_emulation);
       /* apply new hash */
-      ctx->gfx_pipeline_state.final_hash ^= ctx->curr_program->last_variant_hash;
-      ctx->gfx_pipeline_state.final_hash ^= ctx->curr_program->st_key;
+      ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->last_variant_hash;
+      ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
    }
    ctx->dirty_gfx_stages = 0;
    ctx->gfx_dirty = false;
