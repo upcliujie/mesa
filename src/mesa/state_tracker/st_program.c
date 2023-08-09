@@ -907,7 +907,8 @@ st_create_fp_variant(struct st_context *st,
 
    if (key->lower_alpha_func != COMPARE_FUNC_ALWAYS) {
       _mesa_add_state_reference(params, alpha_ref_state);
-      NIR_PASS_V(state.ir.nir, nir_lower_alpha_test, key->lower_alpha_func,
+      unsigned lower_alpha_func = key->lower_alpha_func;
+      NIR_PASS_V(state.ir.nir, nir_lower_alpha_test, &lower_alpha_func,
                   false, alpha_ref_state);
       finalize = true;
    }
