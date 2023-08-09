@@ -27,6 +27,7 @@
 #include "state_tracker/st_texture.h"
 #include "state_tracker/st_context.h"
 #include "main/texobj.h"
+#include "main/teximage.h"
 
 #include "dri_helpers.h"
 
@@ -397,7 +398,7 @@ dri2_create_from_texture(__DRIcontext *context, int target, unsigned texture,
    struct pipe_context *p_ctx = st->pipe;
    struct gl_texture_object *obj;
    struct pipe_resource *tex;
-   GLuint face = 0;
+   GLuint face = _mesa_tex_target_to_face(target);
 
    /* Wait for glthread to finish to get up-to-date GL object lookups. */
    _mesa_glthread_finish(st->ctx);
@@ -413,9 +414,6 @@ dri2_create_from_texture(__DRIcontext *context, int target, unsigned texture,
       *error = __DRI_IMAGE_ERROR_BAD_PARAMETER;
       return NULL;
    }
-
-   if (target == GL_TEXTURE_CUBE_MAP)
-      face = depth;
 
    _mesa_test_texobj_completeness(ctx, obj);
    if (!obj->_BaseComplete || (level > 0 && !obj->_MipmapComplete)) {

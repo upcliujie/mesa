@@ -927,6 +927,7 @@ dri2_setup_screen(_EGLDisplay *disp)
       disp->Extensions.KHR_gl_renderbuffer_image = EGL_TRUE;
       disp->Extensions.KHR_gl_texture_2D_image = EGL_TRUE;
       disp->Extensions.KHR_gl_texture_cubemap_image = EGL_TRUE;
+      disp->Extensions.MESA_gl_texture_cubemap_image = EGL_TRUE;
 
       if (get_screen_param(disp, PIPE_CAP_MAX_TEXTURE_3D_LEVELS) != 0)
          disp->Extensions.KHR_gl_texture_3D_image = EGL_TRUE;
@@ -2360,6 +2361,15 @@ dri2_create_image_khr_texture(_EGLDisplay *disp, _EGLContext *ctx,
       }
 
       depth = target - EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_X_KHR;
+      gl_target = GL_TEXTURE_CUBE_MAP_POSITIVE_X + depth;
+      break;
+   case EGL_GL_TEXTURE_CUBE_MAP_MESA:
+      if (!disp->Extensions.MESA_gl_texture_cubemap_image) {
+         _eglError(EGL_BAD_PARAMETER, "EGL_MESA_gl_texture_cubemap_image "
+            "extension not available");
+         return EGL_NO_IMAGE_KHR;
+      }
+      depth = 0;
       gl_target = GL_TEXTURE_CUBE_MAP;
       break;
    default:
@@ -3095,6 +3105,7 @@ dri2_create_image_khr(_EGLDisplay *disp, _EGLContext *ctx, EGLenum target,
    case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_KHR:
    case EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Z_KHR:
    case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_KHR:
+   case EGL_GL_TEXTURE_CUBE_MAP_MESA:
    case EGL_GL_TEXTURE_3D_KHR:
       return dri2_create_image_khr_texture(disp, ctx, target, buffer,
                                            attr_list);
