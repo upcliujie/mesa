@@ -981,6 +981,9 @@ system_value("blend_const_color_rgba", 4)
 system_value("blend_const_color_rgba8888_unorm", 1)
 system_value("blend_const_color_aaaa8888_unorm", 1)
 
+# Alpha test reference value
+system_value("alpha_reference", 1)
+
 # System values for gl_Color, for radeonsi which interpolates these in the
 # shader prolog to handle two-sided color without recompiles and therefore
 # doesn't handle these in the main shader part like normal varyings.
@@ -1684,9 +1687,6 @@ intrinsic("export_row_amd", [0, 1], indices=[BASE, WRITE_MASK, FLAGS])
 # Export dual source blend outputs with swizzle operation
 # src[] = { mrt0, mrt1 }
 intrinsic("export_dual_src_blend_amd", [0, 0], indices=[WRITE_MASK])
-
-# Alpha test reference value
-system_value("alpha_reference_amd", 1)
 
 # Whether to enable barycentric optimization
 system_value("barycentric_optimize_amd", dest_comp=1, bit_sizes=[1])

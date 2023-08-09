@@ -333,7 +333,7 @@ emit_ps_color_clamp_and_alpha_test(nir_builder *b, lower_ps_state *s)
          } else if (s->options->alpha_func == COMPARE_FUNC_NEVER) {
             nir_discard(b);
          } else if (s->outputs[slot][3]) {
-            nir_def *ref = nir_load_alpha_reference_amd(b);
+            nir_def *ref = nir_load_alpha_reference(b);
             nir_def *cond =
                nir_compare_func(b, s->options->alpha_func, s->outputs[slot][3], ref);
             nir_discard_if(b, nir_inot(b, cond));
