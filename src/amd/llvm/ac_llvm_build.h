@@ -91,7 +91,6 @@ struct ac_llvm_context {
    LLVMTypeRef v4f32;
    LLVMTypeRef v8i32;
    LLVMTypeRef iN_wavemask;
-   LLVMTypeRef iN_ballotmask;
 
    LLVMValueRef i8_0;
    LLVMValueRef i8_1;
@@ -127,7 +126,6 @@ struct ac_llvm_context {
    enum amd_gfx_level gfx_level;
 
    unsigned wave_size;
-   unsigned ballot_mask_bits;
 
    unsigned float_mode;
 
@@ -140,10 +138,11 @@ struct ac_llvm_context {
    int ring_offsets_index;
 };
 
-void ac_llvm_context_init(struct ac_llvm_context *ctx, struct ac_llvm_compiler *compiler,
-                          const struct radeon_info *info, enum ac_float_mode float_mode,
-                          unsigned wave_size, unsigned ballot_mask_bits, bool exports_color_null,
-                          bool exports_mrtz);
+void ac_llvm_context_init(struct ac_llvm_context *ctx,
+                          struct ac_llvm_compiler *compiler,
+                          const struct radeon_info *info,
+                          enum ac_float_mode float_mode, unsigned wave_size,
+                          bool exports_color_null, bool exports_mrtz);
 
 void ac_llvm_context_dispose(struct ac_llvm_context *ctx);
 
