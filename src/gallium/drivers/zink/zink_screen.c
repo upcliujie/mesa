@@ -994,7 +994,6 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 1;
 
    case PIPE_CAP_FLATSHADE:
-   case PIPE_CAP_ALPHA_TEST:
    case PIPE_CAP_POINT_SIZE_FIXED:
    case PIPE_CAP_TWO_SIDED_COLOR:
       return 0;
@@ -1029,6 +1028,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_CLIP_PLANES:
    case PIPE_CAP_FRAGMENT_COLOR_CLAMPED:
    case PIPE_CAP_GL_CLAMP:
+   case PIPE_CAP_ALPHA_TEST:
       return screen->optimal_keys;
 
    default:
