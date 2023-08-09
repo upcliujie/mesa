@@ -63,6 +63,9 @@ struct zink_st_variant_key
    /* bitmask of sampler units; PIPE_CAP_GL_CLAMP */
    uint32_t gl_clamp[3];
 
+   /* alpha test reference value */
+   float alpha_test_reference;
+
    /* needs more than 128 bytes */
    float ucp_state[8][4];
 };
