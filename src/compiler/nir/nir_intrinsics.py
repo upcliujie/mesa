@@ -984,6 +984,9 @@ system_value("blend_const_color_aaaa8888_unorm", 1)
 # Alpha test reference value
 system_value("alpha_reference", 1)
 
+# Alpha compare function
+system_value("alpha_compare_func", 1);
+
 # System values for gl_Color, for radeonsi which interpolates these in the
 # shader prolog to handle two-sided color without recompiles and therefore
 # doesn't handle these in the main shader part like normal varyings.
