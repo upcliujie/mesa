@@ -3830,6 +3830,13 @@ lower_st_key_sysvals_instr(nir_builder *b, nir_instr *instr, void *data)
    case nir_intrinsic_load_txc_sat:
       component = 1 + nir_intrinsic_txc_sat_id(intrin);
       break;
+   case nir_intrinsic_load_alpha_reference:
+      component = offsetof(struct zink_st_variant_key, alpha_test_reference) / 4;
+      break;
+   case nir_intrinsic_load_alpha_compare_func:
+      offset = 24;
+      bitsize = 3;
+      break;
    default:
       return false;
    }
@@ -3914,6 +3921,11 @@ zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
          NIR_PASS_V(nir, nir_lower_clamp_color_outputs);
       if (key->small_key.lower_txc_sat)
          NIR_PASS_V(nir, nir_lower_tex, NULL);
+      if (key->small_key.lower_alpha_test) {
+         NIR_PASS_V(nir, nir_lower_alpha_test, NULL,
+                    false, NULL);
+         NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
+      }
       break;
 
    default: break;
@@ -3945,6 +3957,9 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
    case MESA_SHADER_FRAGMENT:
       NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
       NIR_PASS_V(nir, nir_lower_tex, NULL);
+      NIR_PASS_V(nir, nir_lower_alpha_test, NULL,
+                 false, NULL);
+      NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
       need_optimize = true;
       break;
 
