@@ -470,6 +470,7 @@ update_st_key_dsa(struct zink_context *ctx)
 
    key->lower_alpha_func = ctx->dsa_state->base.alpha_enabled ?
                            ctx->dsa_state->base.alpha_func : COMPARE_FUNC_ALWAYS;
+   key->alpha_test_reference = ctx->dsa_state->base.alpha_ref_value;
    UPDATE_ST_SMALL_KEY(ctx, lower_alpha_test,
                             ctx->dsa_state->base.alpha_enabled && COMPARE_FUNC_ALWAYS != key->lower_alpha_func);
 }
