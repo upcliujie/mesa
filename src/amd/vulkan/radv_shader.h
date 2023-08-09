@@ -292,7 +292,6 @@ struct radv_shader_info {
    bool uses_invocation_id;
    bool uses_prim_id;
    uint8_t wave_size;
-   uint8_t ballot_bit_size;
    struct radv_userdata_locations user_sgprs_locs;
    bool is_ngg;
    bool is_ngg_passthrough;
@@ -848,6 +847,8 @@ void radv_lower_ngg(struct radv_device *device, struct radv_shader_stage *ngg_st
 
 bool radv_consider_culling(const struct radv_physical_device *pdevice, struct nir_shader *nir, uint64_t ps_inputs_read,
                            unsigned num_vertices_per_primitive, const struct radv_shader_info *info);
+
+unsigned radv_get_api_subgroup_size(const struct radv_shader_stage_key *stage_key);
 
 void radv_get_nir_options(struct radv_physical_device *device);
 
