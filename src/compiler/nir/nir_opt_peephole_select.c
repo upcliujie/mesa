@@ -106,7 +106,7 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *alu_count,
                 * because that flow control may be trying to avoid invalid
                 * loads.
                 */
-               if (!options->indirect_load_ok && nir_deref_instr_has_indirect(deref))
+               if (!options->indirect_register_load_ok && nir_deref_instr_has_indirect(deref))
                   return false;
 
                break;
@@ -117,6 +117,13 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *alu_count,
             break;
          }
 
+         case nir_intrinsic_load_ubo:
+            if ((!options->indirect_ubo_resource_ok &&
+                 !nir_src_as_const_value(intrin->src[0])) ||
+                 (!options->indirect_ubo_offset_ok &&
+                  !nir_src_as_const_value(intrin->src[1])))
+               return false;
+            FALLTHROUGH;
          case nir_intrinsic_load_uniform:
          case nir_intrinsic_load_preamble:
          case nir_intrinsic_load_helper_invocation:
@@ -327,7 +334,7 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader,
 
    if (parent_if->control == nir_selection_control_flatten) {
       /* Override driver defaults */
-      local_options.indirect_load_ok = true;
+      local_options.indirect_register_load_ok = true;
       local_options.expensive_alu_ok = true;
    }
 
@@ -419,7 +426,7 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
 
    if (if_stmt->control == nir_selection_control_flatten) {
       /* Override driver defaults */
-      local_options.indirect_load_ok = true;
+      local_options.indirect_register_load_ok = true;
       local_options.expensive_alu_ok = true;
    }
 
@@ -528,7 +535,7 @@ nir_opt_peephole_select(nir_shader *shader, unsigned limit,
 
    nir_opt_peephole_select_options options = {
       .alu_limit = limit,
-      .indirect_load_ok = indirect_load_ok,
+      .indirect_register_load_ok = indirect_load_ok,
       .expensive_alu_ok = expensive_alu_ok
    };
 
