@@ -3904,6 +3904,251 @@ lower_ucp(struct zink_shader *za,
    }
 }
 
+struct lower_flatsahde_state {
+   nir_variable *varyings[VARYING_SLOT_MAX][4];
+   nir_def *flat_shading_enabled;
+};
+
+static bool
+flatshading_var_should_lower(nir_variable *var)
+{
+   return (var->data.location == VARYING_SLOT_COL0 ||
+           var->data.location == VARYING_SLOT_COL1 ||
+           var->data.location == VARYING_SLOT_BFC0 ||
+           var->data.location == VARYING_SLOT_BFC1);
+}
+
+static bool
+lower_flatshade_load(nir_builder *b,
+                       nir_intrinsic_instr *intrin,
+                       struct lower_flatsahde_state *state)
+{
+   b->cursor = nir_before_instr(&intrin->instr);
+   nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+   if (nir_deref_mode_is(deref, nir_var_shader_in)) {
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+      gl_varying_slot location = var->data.location;
+      unsigned location_frac = var->data.location_frac;
+      if (!state->varyings[location][location_frac])
+         return false;
+      nir_deref_instr *smooth_deref = nir_build_deref_var(b, state->varyings[location][location_frac]);
+      // recreate the chain of deref that lead to the load.
+      nir_deref_instr *new_top_deref = replicate_derefs(b, deref, smooth_deref);
+      nir_def *smooth_def = nir_load_deref(b, new_top_deref);
+      nir_def *flat_def = nir_load_deref(b, deref);
+      nir_def *new_def = nir_bcsel(b, state->flat_shading_enabled,
+                                       flat_def, smooth_def);//TODO
+      nir_def_rewrite_uses(&intrin->def, new_def);
+      nir_instr_remove(&intrin->instr);
+      return true;
+   }
+
+   return false;
+}
+
+static bool
+lower_flatshade_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   struct lower_flatsahde_state *state = data;
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_deref:
+      return lower_flatshade_load(b, intrin, state);
+   case nir_intrinsic_copy_deref:
+      unreachable("should be lowered");
+   default:
+      return false;
+   }
+}
+
+static bool
+zink_lower_input_flat(nir_shader *shader, nir_variable *var)
+{
+   if (var->data.interpolation == INTERP_MODE_NONE &&
+       flatshading_var_should_lower(var)) {
+      var->data.interpolation = INTERP_MODE_FLAT;
+      return true;
+   }
+   return false;
+}
+
+bool
+static lower_flatshade_enable(nir_shader *shader)
+{
+   bool progress = false;
+   nir_builder b;
+   nir_function_impl *entry = nir_shader_get_entrypoint(shader);
+
+   struct lower_flatsahde_state state;
+   memset(state.varyings, 0, sizeof(state.varyings));
+
+   b = nir_builder_at(nir_before_cf_list(&entry->body));
+   nir_def *push_consts = nir_load_push_constant_zink(&b, 4, 32,
+                                                          nir_imm_int(&b, ZINK_GFX_PUSHCONST_ST_VARIANT_KEY));
+   state.flat_shading_enabled = push_constant_bool_key(&b, push_consts, ST_VARIANT_KEY_MASK(lower_flatshade));
+
+   nir_foreach_shader_in_variable(var, shader) {
+      bool needs_lowering = zink_lower_input_flat(shader, var);
+      progress |= needs_lowering;
+      /* make room for duplicated variables without making assumptions about
+       * previous stage interface, works like hilbert's hotel */
+      var->data.driver_location *= 2;
+      if (needs_lowering) {
+         state.varyings[var->data.location][var->data.location_frac] = var;
+      }
+   }
+
+   for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
+      for (unsigned j = 0; j < 4; j++) {
+         nir_variable *var = state.varyings[i][j];
+         if (!var)
+            continue;
+         char name[100];
+         if (var->name)
+            snprintf(name, sizeof(name), "__smooth_%s", var->name);
+         else
+            snprintf(name, sizeof(name), "__smooth_%d", var->data.driver_location);
+
+         nir_variable *smooth_var = nir_variable_clone(var, shader);
+         ralloc_free(smooth_var->name);
+         smooth_var->name = ralloc_strdup(smooth_var, name);
+         smooth_var->data.mode = nir_var_shader_in;
+         smooth_var->data.interpolation = INTERP_MODE_SMOOTH;
+         state.varyings[var->data.location][var->data.location_frac] = smooth_var;
+         smooth_var->data.driver_location += 1; // new guest goes in odd slot
+         smooth_var->data.location = MAX2(util_last_bit64(shader->info.inputs_read), VARYING_SLOT_VAR0);
+         shader->info.inputs_read |= BITFIELD64_BIT(smooth_var->data.location);
+         shader->num_inputs++;
+         nir_shader_add_variable(shader, smooth_var);
+      }
+   }
+
+   progress |= nir_shader_instructions_pass(shader, lower_flatshade_instr,
+                                            nir_metadata_dominance, &state);
+   return progress;
+}
+
+static bool
+lower_flatshade_store(nir_builder *b,
+                       nir_intrinsic_instr *intrin,
+                       struct lower_flatsahde_state *state)
+{
+   b->cursor = nir_before_instr(&intrin->instr);
+   nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+   if (nir_deref_mode_is(deref, nir_var_shader_out)) {
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+      if (!flatshading_var_should_lower(var))
+         return false;
+      gl_varying_slot location = var->data.location;
+      unsigned location_frac = var->data.location_frac;
+      assert(state->varyings[location][location_frac]);
+      nir_deref_instr *smooth_deref = nir_build_deref_var(b, state->varyings[location][location_frac]);
+      // recreate the chain of deref that lead to the load.
+      nir_deref_instr *new_top_deref = replicate_derefs(b, deref, smooth_deref);
+      //struct nir_instr* new_store = nir_instr_clone(b->shader, &intrin->instr);
+      nir_store_deref(b, new_top_deref, intrin->src[1].ssa, nir_intrinsic_write_mask(intrin));
+      return true;
+   }
+
+   return false;
+}
+
+static bool
+lower_flatshade_out_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   struct lower_flatsahde_state *state = data;
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_store_deref:
+      return lower_flatshade_store(b, intrin, state);
+   case nir_intrinsic_copy_deref:
+      unreachable("should be lowered");
+   default:
+      return false;
+   }
+}
+
+static bool
+var_is_spv_builtin(nir_variable *var)
+{
+   switch (var->data.location) {
+   case VARYING_SLOT_POS:
+   case VARYING_SLOT_PNTC:
+   case VARYING_SLOT_LAYER:
+   case VARYING_SLOT_PRIMITIVE_ID:
+   case VARYING_SLOT_CLIP_DIST0:
+   case VARYING_SLOT_CULL_DIST0:
+   case VARYING_SLOT_VIEWPORT:
+   case VARYING_SLOT_FACE:
+      return true;
+   default:
+      return false;
+   }
+}
+
+static bool
+lower_flatshade_out_variables(nir_shader *shader)
+{
+   struct lower_flatsahde_state state;
+   memset(state.varyings, 0, sizeof(state.varyings));
+   unsigned int num_outputs = 0;
+   nir_foreach_shader_out_variable(var, shader) {
+      if (var->data.driver_location == UINT_MAX)
+         continue;
+      bool needs_lowering = flatshading_var_should_lower(var);
+      num_outputs += !var_is_spv_builtin(var);
+      /* make room for duplicated variables without making assumptions about
+       * fs interface, works like hilbert's hotel */
+      var->data.driver_location *= 2;
+      if (needs_lowering) {
+         state.varyings[var->data.location][var->data.location_frac] = var;
+
+      }
+   }
+
+   for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
+      for (unsigned j = 0; j < 4; j++) {
+         nir_variable *var = state.varyings[i][j];
+         if (!var)
+            continue;
+         char name[100];
+         if (var->name)
+            snprintf(name, sizeof(name), "__smooth_%s", var->name);
+         else
+            snprintf(name, sizeof(name), "__smooth_%d", var->data.driver_location);
+
+         unsigned location = 0;
+         nir_foreach_shader_out_variable(var, shader) {
+            if (var->data.driver_location >= location)
+               location = var->data.driver_location + 1;
+         }
+
+         nir_variable *smooth_var = nir_variable_clone(var, shader);
+         ralloc_free(smooth_var->name);
+         smooth_var->name = ralloc_strdup(smooth_var, name);
+         smooth_var->data.mode = nir_var_shader_out;
+         smooth_var->data.interpolation = INTERP_MODE_SMOOTH;
+         state.varyings[var->data.location][var->data.location_frac] = smooth_var;
+         smooth_var->data.driver_location += 1;
+         smooth_var->data.location = MAX2(util_last_bit64(shader->info.outputs_written), VARYING_SLOT_VAR0);
+         shader->info.outputs_written |= BITFIELD64_BIT(smooth_var->data.location);
+         shader->num_outputs++;
+         nir_shader_add_variable(shader, smooth_var);
+      }
+   }
+
+   return nir_shader_instructions_pass(shader, lower_flatshade_out_instr,
+                                       nir_metadata_dominance, &state);
+}
+
 static void
 zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
                                    const struct zink_st_variant_key *key)
@@ -3926,6 +4171,8 @@ zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
                     false, NULL);
          NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
       }
+      if (key->small_key.lower_flatshade)
+         NIR_PASS_V(nir, nir_lower_flatshade);
       break;
 
    default: break;
@@ -3949,6 +4196,7 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
    switch (zs->info.stage) {
    case MESA_SHADER_VERTEX:
       NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
+      NIR_PASS_V(nir, lower_flatshade_out_variables);
       need_optimize = true;
       break;
    case MESA_SHADER_TESS_EVAL:
@@ -3957,6 +4205,7 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
    case MESA_SHADER_FRAGMENT:
       NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
       NIR_PASS_V(nir, nir_lower_tex, NULL);
+      NIR_PASS_V(nir, lower_flatshade_enable);
       NIR_PASS_V(nir, nir_lower_alpha_test, NULL,
                  false, NULL);
       NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
