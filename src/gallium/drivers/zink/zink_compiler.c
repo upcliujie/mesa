@@ -303,15 +303,15 @@ lower_pv_mode_gs_ring_index(nir_builder *b,
 static nir_deref_instr*
 replicate_derefs(nir_builder *b, nir_deref_instr *old, nir_deref_instr *new)
 {
-   nir_deref_instr *parent = nir_deref_instr_parent(old);
-   if (!parent)
-      return new;
+   nir_deref_instr *parent;
    switch(old->deref_type) {
    case nir_deref_type_var:
       return new;
    case nir_deref_type_array:
+      parent = nir_deref_instr_parent(old);
       return nir_build_deref_array(b, replicate_derefs(b, parent, new), old->arr.index.ssa);
    case nir_deref_type_struct:
+      parent = nir_deref_instr_parent(old);
       return nir_build_deref_struct(b, replicate_derefs(b, parent, new), old->strct.index);
    case nir_deref_type_array_wildcard:
    case nir_deref_type_ptr_as_array:
