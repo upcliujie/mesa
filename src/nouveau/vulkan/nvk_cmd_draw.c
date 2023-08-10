@@ -30,6 +30,7 @@
 #include "nvk_clc397.h"
 #include "nvk_clc597.h"
 #include "drf.h"
+#include "vk_graphics_state.h"
 
 static inline uint16_t
 nvk_cmd_buffer_3d_cls(struct nvk_cmd_buffer *cmd)
@@ -724,11 +725,25 @@ nvk_CmdBeginRendering(VkCommandBuffer commandBuffer,
    if (render->flags & VK_RENDERING_RESUMING_BIT)
       return;
 
-   if (sample_layout == NIL_SAMPLE_LAYOUT_INVALID)
-      sample_layout = NIL_SAMPLE_LAYOUT_1X1;
-
-   /* this is left here for clears to work */
-   P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sample_layout));
+   /* This is left here for clears to work, but only in the case we have any
+    * attachments. As the Vulkan 1.3.261 says for VkFramebufferCreateInfo:
+    *
+    *    "It is legal for a subpass to use no color or depth/stencil
+    *    attachments, either because it has no attachment references or because
+    *    all of them are VK_ATTACHMENT_UNUSED. This kind of subpass can use
+    *    shader side effects such as image stores and atomics to produce
+    *    an output.
+    *    In this case, the subpass continues to use ... the rasterizationSamples
+    *    from each pipeline’s VkPipelineMultisampleStateCreateInfo to define
+    *    the number of samples used in rasterization;"
+    *
+    * In the case of dynamic rasterization state the samples, we should not
+    * disrupt the state if the sample layout is invalid. If the layout is not
+    * invalid the rasterization state should be the same as the attachments';
+    */
+   if (sample_layout != NIL_SAMPLE_LAYOUT_INVALID) {
+      P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sample_layout));
+   }
 
    uint32_t clear_count = 0;
    VkClearAttachment clear_att[NVK_MAX_RTS + 1];
@@ -1218,6 +1233,15 @@ nvk_flush_ms_state(struct nvk_cmd_buffer *cmd)
 {
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_RASTERIZATION_SAMPLES)) {
+      const uint32_t samples = dyn->ms.rasterization_samples;
+      const enum nil_sample_layout sl =
+         nil_choose_sample_layout(samples);
+
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
+      P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sl));
+   }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_SAMPLE_LOCATIONS) ||
        BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_SAMPLE_LOCATIONS_ENABLE)) {
