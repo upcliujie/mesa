@@ -62,48 +62,38 @@ nir_nextafter(nir_builder *b, nir_ssa_def *x, nir_ssa_def *y)
 {
    nir_ssa_def *zero = nir_imm_intN_t(b, 0, x->bit_size);
    nir_ssa_def *one = nir_imm_intN_t(b, 1, x->bit_size);
+   nir_ssa_def *minus_one = nir_imm_intN_t(b, -1, x->bit_size);
 
-   nir_ssa_def *condeq = nir_feq(b, x, y);
-   nir_ssa_def *conddir = nir_flt(b, x, y);
-   nir_ssa_def *condzero = nir_feq(b, x, zero);
+   /* modelled after clc */
+   nir_ssa_def *sign_bit = nir_imm_intN_t(b, (1ull << (x->bit_size - 1)), x->bit_size);
+   nir_ssa_def *sign_bit_mask = nir_imm_intN_t(b, (1ull << (x->bit_size - 1)) - 1, x->bit_size);
 
-   uint64_t sign_mask = 1ull << (x->bit_size - 1);
-   uint64_t min_abs = 1;
+   nir_ssa_def *ax = nir_iand(b, x, sign_bit_mask);
+   nir_ssa_def *mx = nir_isub(b, sign_bit, x);
+   nir_ssa_def *xlt0 = nir_ilt(b, x, zero);
+   mx = nir_bcsel(b, xlt0, mx, x);
 
-   if (nir_is_denorm_flush_to_zero(b->shader->info.float_controls_execution_mode, x->bit_size)) {
-      switch (x->bit_size) {
-      case 16:
-         min_abs = 1 << 10;
-         break;
-      case 32:
-         min_abs = 1 << 23;
-         break;
-      case 64:
-         min_abs = 1ULL << 52;
-         break;
-      }
+   nir_ssa_def *ay = nir_iand(b, y, sign_bit_mask);
+   nir_ssa_def *my = nir_isub(b, sign_bit, y);
+   nir_ssa_def *ylt0 = nir_ilt(b, y, zero);
+   my = nir_bcsel(b, ylt0, my, y);
 
-      /* Flush denorm to zero to avoid returning a denorm when condeq is true. */
-      x = nir_fmul_imm(b, x, 1.0);
-   }
+   nir_ssa_def *mxltmy = nir_ilt(b, mx, my);
+   nir_ssa_def *t = nir_iadd(b, mx, nir_bcsel(b, mxltmy, one, minus_one));
+   nir_ssa_def *r = nir_isub(b, sign_bit, t);
 
-   /* beware of: +/-0.0 - 1 == NaN */
-   nir_ssa_def *xn =
-      nir_bcsel(b,
-                condzero,
-                nir_imm_intN_t(b, sign_mask | min_abs, x->bit_size),
-                nir_isub(b, x, one));
+   nir_ssa_def *tlt0 = nir_ilt(b, t, zero);
+   r = nir_bcsel(b, tlt0, r, t);
 
-   /* beware of -0.0 + 1 == -0x1p-149 */
-   nir_ssa_def *xp = nir_bcsel(b, condzero,
-                               nir_imm_intN_t(b, min_abs, x->bit_size),
-                               nir_iadd(b, x, one));
+   r = nir_nan_check2(b, x, y, r);
 
-   /* nextafter can be implemented by just +/- 1 on the int value */
-   nir_ssa_def *res =
-      nir_bcsel(b, nir_ixor(b, conddir, nir_flt(b, x, zero)), xp, xn);
+   nir_ssa_def *ax_or_ay = nir_ieq(b, nir_ior(b, ax, ay), zero);
+   nir_ssa_def *ix_eq_iy = nir_ieq(b, x, y);
 
-   return nir_nan_check2(b, x, y, nir_bcsel(b, condeq, x, res));
+   ix_eq_iy = nir_ior(b, ix_eq_iy, ax_or_ay);
+
+   r = nir_bcsel(b, ix_eq_iy, y, r);
+   return r;
 }
 
 nir_ssa_def*
