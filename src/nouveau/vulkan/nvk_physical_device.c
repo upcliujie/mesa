@@ -189,7 +189,7 @@ nvk_get_device_features(const struct nv_device_info *info,
       .sparseResidencyBuffer = info->cls_eng3d >= MAXWELL_A,
 #endif
       /* TODO: sparseResidency* */
-      /* TODO: variableMultisampleRate */
+      .variableMultisampleRate = true,
       /* TODO: inheritedQueries */
       .inheritedQueries = true,
 
