@@ -29,6 +29,7 @@ struct var_info {
    nir_variable *var;
 
    bool is_constant;
+   bool is_vector;
    bool found_read;
    bool duplicate;
 
@@ -101,8 +102,41 @@ build_constant_load(nir_builder *b, nir_deref_instr *deref,
 }
 
 static void
+save_constant(char* dst, nir_const_value *val,
+               unsigned index_dst, unsigned index_src,
+               unsigned bit_size)
+{
+   assert(val != NULL);
+   switch (bit_size) {
+      case 1:
+         /* Booleans are special-cased to be 32-bit */
+         ((int32_t *)dst)[index_dst] = -(int)val[index_src].b;
+         break;
+
+      case 8:
+         ((uint8_t *)dst)[index_dst] = val[index_src].u8;
+         break;
+
+      case 16:
+         ((uint16_t *)dst)[index_dst] = val[index_src].u16;
+         break;
+
+      case 32:
+         ((uint32_t *)dst)[index_dst] = val[index_src].u32;
+         break;
+
+      case 64:
+         ((uint64_t *)dst)[index_dst] = val[index_src].u64;
+         break;
+
+      default:
+         unreachable("Invalid bit size");
+   }
+}
+
+static void
 handle_constant_store(void *mem_ctx, struct var_info *info,
-                      nir_deref_instr *deref, nir_const_value *val,
+                      nir_deref_instr *deref, nir_src src,
                       unsigned writemask,
                       glsl_type_size_align_func size_align)
 {
@@ -127,30 +161,16 @@ handle_constant_store(void *mem_ctx, struct var_info *info,
       if (!(writemask & (1 << i)))
          continue;
 
-      switch (bit_size) {
-      case 1:
-         /* Booleans are special-cased to be 32-bit */
-         ((int32_t *)dst)[i] = -(int)val[i].b;
-         break;
+      if (info->is_vector) {
+         nir_alu_instr *parent_alu = nir_instr_as_alu(src.ssa->parent_instr);
+         assert(parent_alu != NULL);
 
-      case 8:
-         ((uint8_t *)dst)[i] = val[i].u8;
-         break;
-
-      case 16:
-         ((uint16_t *)dst)[i] = val[i].u16;
-         break;
-
-      case 32:
-         ((uint32_t *)dst)[i] = val[i].u32;
-         break;
-
-      case 64:
-         ((uint64_t *)dst)[i] = val[i].u64;
-         break;
-
-      default:
-         unreachable("Invalid bit size");
+         nir_const_value *val = nir_src_as_const_value(parent_alu->src[i].src);
+         save_constant(dst, val, i, 0, bit_size);
+      }
+      else {
+         nir_const_value *val = nir_src_as_const_value(src);
+         save_constant(dst, val, i, i, bit_size);
       }
    }
 }
@@ -254,16 +274,25 @@ nir_opt_large_constants(nir_shader *shader,
 
             /* We only consider variables constant if they only have constant
              * stores, all the stores come before any reads, and all stores
-             * come from the same block.  We also can't handle indirect stores.
+             * come from the same block.  We also can't handle indirect stores,
+             * except vectors.
              */
-            if (!src_is_const || info->found_read || block != info->block ||
-                nir_deref_instr_has_indirect(dst_deref)) {
-               info->is_constant = false;
-            } else {
-               nir_const_value *val = nir_src_as_const_value(intrin->src[1]);
-               handle_constant_store(var_infos, info, dst_deref, val, writemask,
-                                     size_align);
+            if (!src_is_const && nir_src_is_const_vector(intrin->src[1])) {
+               info->is_vector = true;
+               info->is_constant = true;
             }
+            else {
+               info->is_constant = false;
+            }
+
+            if (info->found_read || block != info->block ||
+               nir_deref_instr_has_indirect(dst_deref)) {
+               info->is_constant = false;
+            }
+
+            if (info->is_constant)
+               handle_constant_store(var_infos, info, dst_deref, intrin->src[1],
+                                     writemask, size_align);
          }
 
          if (src_deref && nir_deref_mode_must_be(src_deref, nir_var_function_temp)) {
