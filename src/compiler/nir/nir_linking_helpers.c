@@ -1067,7 +1067,7 @@ replace_varying_input_by_constant_load(nir_shader *shader,
          if (!does_varying_match(out_var, in_var))
             continue;
 
-         b.cursor = nir_before_instr(instr);
+         b.cursor = nir_after_instr(instr);
 
          nir_load_const_instr *out_const =
             nir_instr_as_load_const(store_intr->src[1].ssa->parent_instr);
@@ -1077,9 +1077,50 @@ replace_varying_input_by_constant_load(nir_shader *shader,
                                              intr->dest.ssa.bit_size,
                                              out_const->value);
 
-         nir_ssa_def_rewrite_uses(&intr->dest.ssa, nconst);
+         nir_foreach_use_including_if_safe(use_src, &intr->dest.ssa) {
+            if (use_src->ssa->num_components == nconst->num_components) {
+               nir_src_rewrite_ssa(use_src, nconst);
+               progress = true;
+            } else if (use_src->ssa->num_components < nconst->num_components) {
+               nir_src_rewrite_ssa(use_src, nir_trim_vector(&b, nconst, use_src->ssa->num_components));
+               progress = true;
+            } else {
+               if (use_src->parent_instr->type == nir_instr_type_alu) {
+                  nir_alu_instr *alu = nir_instr_as_alu(use_src->parent_instr);
+                  unsigned mask = 0;
+                  unsigned src_idx = 0;
+                  /* gather swizzle mask */
+                  for (unsigned i = 0; i < nir_op_infos[alu->op].num_inputs; i++) {
+                     if (&alu->src[i].src == use_src) {
+                        mask = nir_alu_instr_src_read_mask(alu, i);
+                        src_idx = i;
+                        break;
+                     }
+                  }
+                  assert(mask);
+                  /* gather output mask */
+                  unsigned out_mask = BITFIELD_RANGE(out_var->data.location_frac, glsl_get_vector_elements(out_var->type));
+                  /* if masks have no overlap, this output does not write this input */
+                  if (!(out_mask & mask))
+                     continue;
+                  /* partial overlap */
+                  nir_ssa_def *vec[4] = {NULL};
+                  unsigned c = 0;
+                  u_foreach_bit(i, mask)
+                     vec[i] = nir_channel(&b, nconst, c++);
+                  for (unsigned i = 0; i < use_src->ssa->num_components; i++) {
+                     if (!vec[i])
+                        vec[i] = nir_channel(&b, use_src->ssa, i);
+                  }
+                  nir_src_rewrite_ssa(use_src, nir_vec(&b, vec, use_src->ssa->num_components));
+                  progress = true;
+               } else {
+                  /* ??? */
+                  abort();
+               }
+            }
+         }
 
-         progress = true;
       }
    }
 
