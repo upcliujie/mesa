@@ -1530,6 +1530,7 @@ vc4_optimize_nir(struct nir_shader *s)
                 }
 
                 NIR_PASS(progress, s, nir_opt_undef);
+                NIR_PASS(progress, s, nir_lower_undef_to_zero);
                 NIR_PASS(progress, s, nir_opt_loop_unroll);
         } while (progress);
 }
@@ -1659,18 +1660,6 @@ ntq_emit_load_const(struct vc4_compile *c, nir_load_const_instr *instr)
                 qregs[i] = qir_uniform_ui(c, instr->value[i].u32);
 
         _mesa_hash_table_insert(c->def_ht, &instr->def, qregs);
-}
-
-static void
-ntq_emit_ssa_undef(struct vc4_compile *c, nir_ssa_undef_instr *instr)
-{
-        struct qreg *qregs = ntq_init_ssa_def(c, &instr->def);
-
-        /* QIR needs there to be *some* value, so pick 0 (same as for
-         * ntq_setup_registers().
-         */
-        for (int i = 0; i < instr->def.num_components; i++)
-                qregs[i] = qir_uniform_ui(c, 0);
 }
 
 static void
@@ -2006,10 +1995,6 @@ ntq_emit_instr(struct vc4_compile *c, nir_instr *instr)
 
         case nir_instr_type_load_const:
                 ntq_emit_load_const(c, nir_instr_as_load_const(instr));
-                break;
-
-        case nir_instr_type_ssa_undef:
-                ntq_emit_ssa_undef(c, nir_instr_as_ssa_undef(instr));
                 break;
 
         case nir_instr_type_tex:
