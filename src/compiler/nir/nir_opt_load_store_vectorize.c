@@ -47,6 +47,8 @@
 #include "nir_builder.h"
 #include "nir_worklist.h"
 #include "util/u_dynarray.h"
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
 
 #include <stdlib.h>
 
