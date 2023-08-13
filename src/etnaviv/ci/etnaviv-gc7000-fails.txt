@@ -37,3 +37,12 @@ dEQP-GLES2.functional.texture.vertex.cube.filtering.nearest_mipmap_linear_linear
 dEQP-GLES2.functional.texture.vertex.cube.filtering.nearest_mipmap_nearest_linear_clamp,Fail
 dEQP-GLES2.functional.texture.vertex.cube.filtering.nearest_mipmap_nearest_linear_mirror,Fail
 dEQP-GLES2.functional.texture.vertex.cube.filtering.nearest_mipmap_nearest_linear_repeat,Fail
+
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_int_17,Fail
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_int_19,Fail
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_int_23,Fail
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_int_29,Fail
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_uint_17,Fail
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_uint_19,Fail
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_uint_23,Fail
+dEQP-GLES3.functional.read_pixels.rowlength.rgba_uint_29,Fail

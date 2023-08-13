@@ -137,6 +137,15 @@ gc7000-gles2:arm64:
     HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
     DEQP_VER: gles2
 
+gc7000-gles3:arm64:
+  extends:
+    - .heidelberg:imx8mq-librem5-devkit:arm64
+  variables:
+    HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
+    DEQP_VER: gles3
+    ETNA_MESA_DEBUG: deqp
+    MESA_GLES_VERSION_OVERRIDE: "3.0"
+
 # not stable yet, multiple traces randomly flaking
 gc7000-traces:arm64:
   extends:
