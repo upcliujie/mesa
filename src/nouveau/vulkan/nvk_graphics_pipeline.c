@@ -61,8 +61,7 @@ nvk_populate_fs_key(struct nvk_fs_key *key,
 
 static void
 emit_pipeline_ms_state(struct nv_push *p,
-                       const struct vk_multisample_state *ms,
-                       bool force_max_samples)
+                       const struct vk_multisample_state *ms)
 {
    P_IMMD(p, NV9097, SET_ANTI_ALIAS_ALPHA_CONTROL, {
       .alpha_to_coverage   = ms->alpha_to_coverage_enable,
@@ -74,16 +73,15 @@ emit_pipeline_ms_state(struct nv_push *p,
    P_NV9097_SET_SAMPLE_MASK_X1_Y0(p, ms->sample_mask & 0xffff);
    P_NV9097_SET_SAMPLE_MASK_X0_Y1(p, ms->sample_mask & 0xffff);
    P_NV9097_SET_SAMPLE_MASK_X1_Y1(p, ms->sample_mask & 0xffff);
+}
 
+static float
+calculate_min_sample_shading(const struct vk_multisample_state *ms,
+                             bool force_max_samples)
+{
    const float min_sample_shading = force_max_samples ? 1 :
       (ms->sample_shading_enable ? CLAMP(ms->min_sample_shading, 0, 1) : 0);
-   uint32_t min_samples = ceilf(ms->rasterization_samples * min_sample_shading);
-   min_samples = util_next_power_of_two(MAX2(1, min_samples));
-
-   P_IMMD(p, NV9097, SET_HYBRID_ANTI_ALIAS_CONTROL, {
-      .passes = min_samples,
-      .centroid = min_samples > 1 ? CENTROID_PER_PASS : CENTROID_PER_FRAGMENT,
-   });
+   return min_sample_shading;
 }
 
 static uint32_t
@@ -473,8 +471,15 @@ nvk_graphics_pipeline_create(struct nvk_device *dev,
    if (state.ts) emit_pipeline_ts_state(&push, state.ts);
    if (state.vp) emit_pipeline_vp_state(&push, state.vp);
    if (state.rs) emit_pipeline_rs_state(&push, state.rs);
-   if (state.ms) emit_pipeline_ms_state(&push, state.ms, force_max_samples);
+   if (state.ms) emit_pipeline_ms_state(&push, state.ms);
    if (state.cb) emit_pipeline_cb_state(&push, state.cb);
+
+   if (state.ms) {
+      const float s = calculate_min_sample_shading(state.ms, force_max_samples);
+      pipeline->min_sample_shading = s;
+   } else {
+      pipeline->min_sample_shading = 0.0f;
+   }
 
    pipeline->push_dw_count = nv_push_dw_count(&push);
 

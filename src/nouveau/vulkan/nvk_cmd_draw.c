@@ -879,6 +879,12 @@ nvk_cmd_bind_graphics_pipeline(struct nvk_cmd_buffer *cmd,
    cmd->state.gfx.pipeline = pipeline;
    vk_cmd_set_dynamic_graphics_state(&cmd->vk, &pipeline->dynamic);
 
+   if (pipeline->min_sample_shading != cmd->state.gfx.min_sample_shading) {
+      BITSET_SET(cmd->vk.dynamic_graphics_state.dirty,
+                 MESA_VK_DYNAMIC_MS_RASTERIZATION_SAMPLES);
+      cmd->state.gfx.min_sample_shading = pipeline->min_sample_shading;
+   }
+
    struct nv_push *p = nvk_cmd_buffer_push(cmd, pipeline->push_dw_count);
    nv_push_raw(p, pipeline->push_data, pipeline->push_dw_count);
 }
@@ -1239,8 +1245,17 @@ nvk_flush_ms_state(struct nvk_cmd_buffer *cmd)
       const enum nil_sample_layout sl =
          nil_choose_sample_layout(samples);
 
-      struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 4);
       P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sl));
+
+      uint32_t min_samples = ceilf(samples * cmd->state.gfx.min_sample_shading);
+      min_samples = util_next_power_of_two(MAX2(1, min_samples));
+
+      P_IMMD(p, NV9097, SET_HYBRID_ANTI_ALIAS_CONTROL, {
+         .passes = min_samples,
+         .centroid = min_samples > 1 ? CENTROID_PER_PASS :
+                                       CENTROID_PER_FRAGMENT,
+      });
    }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_SAMPLE_LOCATIONS) ||

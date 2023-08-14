@@ -56,6 +56,7 @@ struct nvk_graphics_pipeline {
    struct vk_vertex_input_state _dynamic_vi;
    struct vk_sample_locations_state _dynamic_sl;
    struct vk_dynamic_graphics_state dynamic;
+   float min_sample_shading;
 };
 
 VkResult
