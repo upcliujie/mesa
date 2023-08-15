@@ -27,6 +27,7 @@
 #include <stdbool.h>
 
 #include "vk_alloc.h"
+#include "vk_object.h"
 #include "vk_dispatch_table.h"
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_icd.h>
@@ -90,6 +91,14 @@ struct wsi_memory_signal_submit_info {
     const void *pNext;
     VkDeviceMemory memory;
 };
+
+struct wsi_common_vk_surface {
+   struct vk_object_base base;
+   VkIcdSurfaceBase *surface_base;
+};
+
+VK_DEFINE_HANDLE_CASTS(wsi_common_vk_surface, base, VkSurfaceKHR,
+                       VK_OBJECT_TYPE_SURFACE_KHR);
 
 struct wsi_interface;
 struct vk_instance;
