@@ -252,6 +252,12 @@ if with_perfetto
   deps_for_libmesa_util += dep_perfetto
 endif
 
+if host_machine.cpu_family() == 'aarch64'
+  files_mesa_util += files(
+    'sha1/aarch64.S',
+  )
+endif
+
 u_trace_py = files('perf/u_trace.py')
 
 libmesa_util_sse41 = static_library(

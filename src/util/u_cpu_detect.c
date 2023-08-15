@@ -70,6 +70,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <elf.h>
+#include <sys/auxv.h>
 #endif
 
 #if DETECT_OS_UNIX
@@ -443,6 +444,13 @@ static void
 check_os_arm_support(void)
 {
     util_cpu_caps.has_neon = true;
+#if defined(__ARM_FEATURE_CRYPTO)
+    util_cpu_caps.has_sha1 = true;
+#elif defined(PIPE_OS_LINUX)
+    unsigned long hwcap = getauxval(AT_HWCAP);
+    if (hwcap & HWCAP_SHA1)
+        util_cpu_caps.has_sha1 = true;
+#endif
 }
 #endif /* DETECT_ARCH_ARM || DETECT_ARCH_AARCH64 */
 
@@ -977,6 +985,7 @@ _util_cpu_detect_once(void)
       printf("util_cpu_caps.has_altivec = %u\n", util_cpu_caps.has_altivec);
       printf("util_cpu_caps.has_vsx = %u\n", util_cpu_caps.has_vsx);
       printf("util_cpu_caps.has_neon = %u\n", util_cpu_caps.has_neon);
+      printf("util_cpu_caps.has_sha1 = %u\n", util_cpu_caps.has_sha1);
       printf("util_cpu_caps.has_msa = %u\n", util_cpu_caps.has_msa);
       printf("util_cpu_caps.has_daz = %u\n", util_cpu_caps.has_daz);
       printf("util_cpu_caps.has_avx512f = %u\n", util_cpu_caps.has_avx512f);

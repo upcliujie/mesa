@@ -19,6 +19,16 @@
 #include "u_endian.h"
 #include "sha1.h"
 
+#ifdef __aarch64__
+/* This implementation is defined in aarch64.S */
+extern void
+SHA1TransformAArch64(uint32_t state[5], const uint8_t buffer[SHA1_BLOCK_LENGTH]);
+# ifndef __ARM_FEATURE_CRYPTO
+#  include "util/macros.h"
+#  include "util/u_cpu_detect.h"
+# endif
+#endif
+
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
 /*
@@ -48,12 +58,19 @@ typedef union {
 	uint32_t l[16];
 } CHAR64LONG16;
 
+#ifdef __ARM_FEATURE_CRYPTO
+#define SHA1Transform SHA1TransformAArch64
+#else
 /*
  * Hash a single 512-bit block. This is the core of the algorithm.
  */
 static void
 SHA1Transform(uint32_t state[5], const uint8_t buffer[SHA1_BLOCK_LENGTH])
 {
+#ifdef __aarch64__
+	if (likely(util_get_cpu_caps()->has_sha1))
+		return SHA1TransformAArch64(state, buffer);
+#endif
 	uint32_t a, b, c, d, e;
 	uint8_t workspace[SHA1_BLOCK_LENGTH];
 	CHAR64LONG16 *block = (CHAR64LONG16 *)workspace;
@@ -99,6 +116,7 @@ SHA1Transform(uint32_t state[5], const uint8_t buffer[SHA1_BLOCK_LENGTH])
 	/* Wipe variables */
 	a = b = c = d = e = 0;
 }
+#endif
 
 
 /*
