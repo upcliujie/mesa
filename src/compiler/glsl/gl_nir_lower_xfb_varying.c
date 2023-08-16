@@ -87,11 +87,7 @@ get_deref(nir_builder *b, const char *name, nir_variable *toplevel_var,
       unsigned index = strtol(name + 1, &endptr, 10);
       assert(*type != NULL && glsl_type_is_array(*type) && endptr[0] == ']');
 
-      nir_load_const_instr *c = nir_load_const_instr_create(b->shader, 1, 32);
-      c->value[0].u32 = index;
-      nir_builder_instr_insert(b, &c->instr);
-
-      *deref = nir_build_deref_array(b, *deref, &c->def);
+      *deref = nir_build_deref_array_imm(b, *deref, index);
       *type = glsl_without_array(*type);
       return get_deref(b, endptr + 1, NULL, deref, type);
    } else if (name[0] == '.') {
@@ -132,13 +128,9 @@ copy_to_new_var(nir_builder *b, nir_deref_instr *deref,
    if (is_matrix) {
       unsigned array_size = glsl_get_length(type);
       for (unsigned i = 0; i < array_size; i++) {
-         nir_load_const_instr *c = nir_load_const_instr_create(b->shader, 1, 32);
-         c->value[0].u32 = i;
-         nir_builder_instr_insert(b, &c->instr);
-
-         nir_deref_instr *m_deref = nir_build_deref_array(b, deref, &c->def);
+         nir_deref_instr *m_deref = nir_build_deref_array_imm(b, deref, i);
          nir_deref_instr *new_var_m_deref =
-            nir_build_deref_array(b, new_var_deref, &c->def);
+            nir_build_deref_array_imm(b, new_var_deref, i);
 
          nir_def *value = nir_load_deref(b, m_deref);
          nir_store_deref(b, new_var_m_deref, value, writemask);
