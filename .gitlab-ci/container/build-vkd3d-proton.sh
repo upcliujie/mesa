@@ -37,6 +37,7 @@ git submodule update --init --recursive
 git submodule update --recursive
 build_arch 64
 build_arch 86
+cp -r "tests" "$VKD3D_PROTON_DST_DIR"
 popd
 
 rm -rf "$VKD3D_PROTON_BUILD_DIR"
