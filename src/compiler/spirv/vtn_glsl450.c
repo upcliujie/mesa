@@ -632,65 +632,55 @@ static void
 handle_glsl450_interpolation(struct vtn_builder *b, enum GLSLstd450 opcode,
                              const uint32_t *w, unsigned count)
 {
-   nir_intrinsic_op op;
-   switch (opcode) {
-   case GLSLstd450InterpolateAtCentroid:
-      op = nir_intrinsic_interp_deref_at_centroid;
-      break;
-   case GLSLstd450InterpolateAtSample:
-      op = nir_intrinsic_interp_deref_at_sample;
-      break;
-   case GLSLstd450InterpolateAtOffset:
-      op = nir_intrinsic_interp_deref_at_offset;
-      break;
-   default:
-      vtn_fail("Invalid opcode");
-   }
-
-   nir_intrinsic_instr *intrin = nir_intrinsic_instr_create(b->nb.shader, op);
-
    struct vtn_pointer *ptr =
       vtn_value(b, w[5], vtn_value_type_pointer)->pointer;
    nir_deref_instr *deref = vtn_pointer_to_deref(b, ptr);
+
+   /* The extended instructions say this has to be a 32-bit types but 16-bit
+    * FS inputs can be interpolated with VK_KHR_16bit_storage.
+    */
+   enum glsl_base_type base_type = glsl_get_base_type(deref->type);
+   vtn_fail_if(base_type != GLSL_TYPE_FLOAT && base_type != GLSL_TYPE_FLOAT16,
+               "The operand interpolant must be a pointer to a scalar or "
+               "vector whose component type is 32-bit floating-point.");
 
    /* If the value we are interpolating has an index into a vector then
     * interpolate the vector and index the result of that instead. This is
     * necessary because the index will get generated as a series of nir_bcsel
     * instructions so it would no longer be an input variable.
     */
-   const bool vec_array_deref = deref->deref_type == nir_deref_type_array &&
-      glsl_type_is_vector(nir_deref_instr_parent(deref)->type);
-
-   nir_deref_instr *vec_deref = NULL;
-   if (vec_array_deref) {
-      vec_deref = deref;
+   nir_deref_instr *vec_arr_deref = NULL;
+   if (deref->deref_type == nir_deref_type_array &&
+       glsl_type_is_vector(nir_deref_instr_parent(deref)->type)) {
+      vec_arr_deref = deref;
       deref = nir_deref_instr_parent(deref);
    }
-   intrin->src[0] = nir_src_for_ssa(&deref->def);
 
+   const uint8_t num_components = glsl_get_vector_elements(deref->type);
+   const uint8_t bit_size = glsl_get_bit_size(deref->type);
+
+   nir_def *res;
    switch (opcode) {
    case GLSLstd450InterpolateAtCentroid:
+      res = nir_interp_deref_at_centroid(&b->nb, num_components, bit_size,
+                                         &deref->def);
       break;
    case GLSLstd450InterpolateAtSample:
+      res = nir_interp_deref_at_sample(&b->nb, num_components, bit_size,
+                                       &deref->def, vtn_get_nir_ssa(b, w[6]));
+      break;
    case GLSLstd450InterpolateAtOffset:
-      intrin->src[1] = nir_src_for_ssa(vtn_get_nir_ssa(b, w[6]));
+      res = nir_interp_deref_at_offset(&b->nb, num_components, bit_size,
+                                       &deref->def, vtn_get_nir_ssa(b, w[6]));
       break;
    default:
       vtn_fail("Invalid opcode");
    }
 
-   intrin->num_components = glsl_get_vector_elements(deref->type);
-   nir_def_init(&intrin->instr, &intrin->def,
-                glsl_get_vector_elements(deref->type),
-                glsl_get_bit_size(deref->type));
+   if (vec_arr_deref)
+      res = nir_vector_extract(&b->nb, res, vec_arr_deref->arr.index.ssa);
 
-   nir_builder_instr_insert(&b->nb, &intrin->instr);
-
-   nir_def *def = &intrin->def;
-   if (vec_array_deref)
-      def = nir_vector_extract(&b->nb, def, vec_deref->arr.index.ssa);
-
-   vtn_push_nir_ssa(b, w[2], def);
+   vtn_push_nir_ssa(b, w[2], res);
 }
 
 bool
