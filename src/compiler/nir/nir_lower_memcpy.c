@@ -93,6 +93,8 @@ memcpy_store_deref_elem_imm(nir_builder *b, nir_deref_instr *parent,
 static bool
 lower_memcpy_instr(nir_builder *b, nir_instr *instr, void *data)
 {
+   const uint64_t max_unroll_size = 256;
+
    if (instr->type != nir_instr_type_intrinsic)
       return false;
 
@@ -104,7 +106,8 @@ lower_memcpy_instr(nir_builder *b, nir_instr *instr, void *data)
 
    nir_deref_instr *dst = nir_src_as_deref(cpy->src[0]);
    nir_deref_instr *src = nir_src_as_deref(cpy->src[1]);
-   if (nir_src_is_const(cpy->src[2])) {
+   if (nir_src_is_const(cpy->src[2]) &&
+       nir_src_as_uint(cpy->src[2]) <= max_unroll_size) {
       uint64_t size = nir_src_as_uint(cpy->src[2]);
       uint64_t offset = 0;
       while (offset < size) {
