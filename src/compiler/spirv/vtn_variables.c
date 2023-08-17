@@ -240,22 +240,15 @@ vtn_variable_resource_index(struct vtn_builder *b, struct vtn_variable *var,
       _mesa_set_add(b->vars_used_indirectly, var->var);
    }
 
-   nir_intrinsic_instr *instr =
-      nir_intrinsic_instr_create(b->nb.shader,
-                                 nir_intrinsic_vulkan_resource_index);
-   instr->src[0] = nir_src_for_ssa(desc_array_index);
-   nir_intrinsic_set_desc_set(instr, var->descriptor_set);
-   nir_intrinsic_set_binding(instr, var->binding);
-   nir_intrinsic_set_desc_type(instr, vk_desc_type_for_mode(b, var->mode));
-
    nir_address_format addr_format = vtn_mode_to_address_format(b, var->mode);
-   nir_def_init(&instr->instr, &instr->def,
-                nir_address_format_num_components(addr_format),
-                nir_address_format_bit_size(addr_format));
-   instr->num_components = instr->def.num_components;
-   nir_builder_instr_insert(&b->nb, &instr->instr);
-
-   return &instr->def;
+   uint8_t num_components = nir_address_format_num_components(addr_format);
+   uint8_t bit_size = nir_address_format_bit_size(addr_format);
+   VkDescriptorType desc_type = vk_desc_type_for_mode(b, var->mode);
+   return nir_vulkan_resource_index(&b->nb, num_components, bit_size,
+                                    desc_array_index,
+                                    .desc_set = var->descriptor_set,
+                                    .binding = var->binding,
+                                    .desc_type = desc_type);
 }
 
 static nir_def *
@@ -264,21 +257,16 @@ vtn_resource_reindex(struct vtn_builder *b, enum vtn_variable_mode mode,
 {
    vtn_assert(b->options->environment == NIR_SPIRV_VULKAN);
 
-   nir_intrinsic_instr *instr =
-      nir_intrinsic_instr_create(b->nb.shader,
-                                 nir_intrinsic_vulkan_resource_reindex);
-   instr->src[0] = nir_src_for_ssa(base_index);
-   instr->src[1] = nir_src_for_ssa(offset_index);
-   nir_intrinsic_set_desc_type(instr, vk_desc_type_for_mode(b, mode));
-
    nir_address_format addr_format = vtn_mode_to_address_format(b, mode);
-   nir_def_init(&instr->instr, &instr->def,
-                nir_address_format_num_components(addr_format),
-                nir_address_format_bit_size(addr_format));
-   instr->num_components = instr->def.num_components;
-   nir_builder_instr_insert(&b->nb, &instr->instr);
+   vtn_assert(base_index->num_components ==
+              nir_address_format_num_components(addr_format));
+   vtn_assert(base_index->bit_size ==
+              nir_address_format_bit_size(addr_format));
 
-   return &instr->def;
+   VkDescriptorType desc_type = vk_desc_type_for_mode(b, mode);
+   return nir_vulkan_resource_reindex(&b->nb, base_index->bit_size,
+                                      base_index, offset_index,
+                                      .desc_type = desc_type);
 }
 
 static nir_def *
@@ -287,20 +275,12 @@ vtn_descriptor_load(struct vtn_builder *b, enum vtn_variable_mode mode,
 {
    vtn_assert(b->options->environment == NIR_SPIRV_VULKAN);
 
-   nir_intrinsic_instr *desc_load =
-      nir_intrinsic_instr_create(b->nb.shader,
-                                 nir_intrinsic_load_vulkan_descriptor);
-   desc_load->src[0] = nir_src_for_ssa(desc_index);
-   nir_intrinsic_set_desc_type(desc_load, vk_desc_type_for_mode(b, mode));
-
    nir_address_format addr_format = vtn_mode_to_address_format(b, mode);
-   nir_def_init(&desc_load->instr, &desc_load->def,
-                nir_address_format_num_components(addr_format),
-                nir_address_format_bit_size(addr_format));
-   desc_load->num_components = desc_load->def.num_components;
-   nir_builder_instr_insert(&b->nb, &desc_load->instr);
-
-   return &desc_load->def;
+   uint8_t num_components = nir_address_format_num_components(addr_format);
+   uint8_t bit_size = nir_address_format_bit_size(addr_format);
+   VkDescriptorType desc_type = vk_desc_type_for_mode(b, mode);
+   return nir_load_vulkan_descriptor(&b->nb, num_components, bit_size,
+                                     desc_index, .desc_type = desc_type);
 }
 
 static struct vtn_pointer *
