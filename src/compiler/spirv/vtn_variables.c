@@ -2794,31 +2794,20 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
 
    case SpvOpSubgroupBlockReadINTEL: {
       struct vtn_type *res_type = vtn_get_type(b, w[1]);
+      const unsigned num_components = glsl_get_vector_elements(res_type->type);
+      const unsigned bit_size = glsl_get_bit_size(res_type->type);
+
       nir_deref_instr *src = vtn_nir_deref(b, w[3]);
-
-      nir_intrinsic_instr *load =
-         nir_intrinsic_instr_create(b->nb.shader,
-                                    nir_intrinsic_load_deref_block_intel);
-      load->src[0] = nir_src_for_ssa(&src->def);
-      nir_def_init_for_type(&load->instr, &load->def, res_type->type);
-      load->num_components = load->def.num_components;
-      nir_builder_instr_insert(&b->nb, &load->instr);
-
-      vtn_push_nir_ssa(b, w[2], &load->def);
+      nir_def *res = nir_load_deref_block_intel(&b->nb, num_components,
+                                                bit_size, &src->def);
+      vtn_push_nir_ssa(b, w[2], res);
       break;
    }
 
    case SpvOpSubgroupBlockWriteINTEL: {
       nir_deref_instr *dest = vtn_nir_deref(b, w[1]);
       nir_def *data = vtn_ssa_value(b, w[2])->def;
-
-      nir_intrinsic_instr *store =
-         nir_intrinsic_instr_create(b->nb.shader,
-                                    nir_intrinsic_store_deref_block_intel);
-      store->src[0] = nir_src_for_ssa(&dest->def);
-      store->src[1] = nir_src_for_ssa(data);
-      store->num_components = data->num_components;
-      nir_builder_instr_insert(&b->nb, &store->instr);
+      nir_store_deref_block_intel(&b->nb, &dest->def, data);
       break;
    }
 
