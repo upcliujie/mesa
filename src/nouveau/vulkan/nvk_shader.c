@@ -831,9 +831,9 @@ static void
 nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
                                      struct nvk_shader *shader)
 {
-   // TODO: this is a little confusing because nouveau codegen uses
-   // MESA_PRIM_POINTS for unspecified domain and
-   // MESA_PRIM_POINTS = 0, the same as NV9097 ISOLINE enum
+   /* Before compiling we call merge_tess_info() so all the required execution
+    * modes should already exist in the tessellation evaluation shader
+    */
    uint32_t domain_type;
    switch (info->prop.tp.domain) {
    case MESA_PRIM_LINES:
@@ -846,13 +846,9 @@ nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
       domain_type = NV9097_SET_TESSELLATION_PARAMETERS_DOMAIN_TYPE_QUAD;
       break;
    default:
-      domain_type = ~0;
-      break;
+      unreachable("Invalid tessellation domain type");
    }
-   shader->tp.domain_type = domain_type;
-   if (domain_type == ~0) {
-      return;
-   }
+   shader->tes.domain_type = domain_type;
 
    uint32_t spacing;
    switch (info->prop.tp.partitioning) {
@@ -866,10 +862,9 @@ nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
       spacing = NV9097_SET_TESSELLATION_PARAMETERS_SPACING_FRACTIONAL_EVEN;
       break;
    default:
-      assert(!"invalid tessellator partitioning");
-      break;
+      unreachable("Invalid tessellator partitioning");
    }
-   shader->tp.spacing = spacing;
+   shader->tes.spacing = spacing;
 
    uint32_t output_prims;
    if (info->prop.tp.outputPrim == MESA_PRIM_POINTS) { // point_mode
@@ -883,7 +878,7 @@ nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
          output_prims = NV9097_SET_TESSELLATION_PARAMETERS_OUTPUT_PRIMITIVES_TRIANGLES_CCW;
       }
    }
-   shader->tp.output_prims = output_prims;
+   shader->tes.output_prims = output_prims;
 }
 
 static int
@@ -911,8 +906,6 @@ nvk_tcs_gen_header(struct nvk_shader *tcs, struct nv50_ir_prog_info_out *info)
       tcs->hdr[3] = (opcs & 0x0f) << 28;
       tcs->hdr[4] |= (opcs & 0xf0) << 16;
    }
-
-   nvk_generate_tessellation_parameters(info, tcs);
 
    return 0;
 }

@@ -70,10 +70,10 @@ struct nvk_shader {
    } fs;
 
    struct {
-      uint32_t domain_type; /* ~0 if params defined by the other stage */
+      uint32_t domain_type;
       uint32_t spacing;
       uint32_t output_prims;
-   } tp;
+   } tes;
 
    struct {
       uint32_t smem_size; /* shared memory (TGSI LOCAL resource) size */

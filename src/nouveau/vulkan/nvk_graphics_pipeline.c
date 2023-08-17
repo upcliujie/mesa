@@ -209,7 +209,7 @@ emit_tessellation_paramaters(struct nv_push *p,
 {
    const uint32_t cw = NV9097_SET_TESSELLATION_PARAMETERS_OUTPUT_PRIMITIVES_TRIANGLES_CW;
    const uint32_t ccw = NV9097_SET_TESSELLATION_PARAMETERS_OUTPUT_PRIMITIVES_TRIANGLES_CCW;
-   uint32_t output_prims = shader->tp.output_prims;
+   uint32_t output_prims = shader->tes.output_prims;
    /* When the origin is lower-left, we have to flip the winding order */
    if (state->domain_origin == VK_TESSELLATION_DOMAIN_ORIGIN_LOWER_LEFT) {
       if (output_prims == cw) {
@@ -220,8 +220,8 @@ emit_tessellation_paramaters(struct nv_push *p,
    }
    P_MTHD(p, NV9097, SET_TESSELLATION_PARAMETERS);
    P_NV9097_SET_TESSELLATION_PARAMETERS(p, {
-      shader->tp.domain_type,
-      shader->tp.spacing,
+      shader->tes.domain_type,
+      shader->tes.spacing,
       output_prims
    });
 }
@@ -387,6 +387,7 @@ nvk_graphics_pipeline_create(struct nvk_device *dev,
       switch (stage) {
       case MESA_SHADER_VERTEX:
       case MESA_SHADER_GEOMETRY:
+      case MESA_SHADER_TESS_CTRL:
          break;
 
       case MESA_SHADER_FRAGMENT:
@@ -419,11 +420,8 @@ nvk_graphics_pipeline_create(struct nvk_device *dev,
                              shader->fs.uses_sample_shading;
          break;
 
-      case MESA_SHADER_TESS_CTRL:
       case MESA_SHADER_TESS_EVAL:
-         if (shader->tp.domain_type != ~0) {
-            emit_tessellation_paramaters(p, shader, state.ts);
-         }
+         emit_tessellation_paramaters(p, shader, state.ts);
          break;
 
       default:
