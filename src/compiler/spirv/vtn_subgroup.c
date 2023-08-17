@@ -23,6 +23,8 @@
 
 #include "vtn_private.h"
 
+#include "spirv_info.h"
+
 static struct vtn_ssa_value *
 vtn_build_subgroup_instr(struct vtn_builder *b,
                          nir_intrinsic_op nir_op,
@@ -79,11 +81,7 @@ vtn_handle_subgroup(struct vtn_builder *b, SpvOp opcode,
    case SpvOpGroupNonUniformElect: {
       vtn_fail_if(dest_type->type != glsl_bool_type(),
                   "OpGroupNonUniformElect must return a Bool");
-      nir_intrinsic_instr *elect =
-         nir_intrinsic_instr_create(b->nb.shader, nir_intrinsic_elect);
-      nir_def_init_for_type(&elect->instr, &elect->def, dest_type->type);
-      nir_builder_instr_insert(&b->nb, &elect->instr);
-      vtn_push_nir_ssa(b, w[2], &elect->def);
+      vtn_push_nir_ssa(b, w[2], nir_elect(&b->nb, 1));
       break;
    }
 
@@ -92,88 +90,81 @@ vtn_handle_subgroup(struct vtn_builder *b, SpvOp opcode,
       bool has_scope = (opcode != SpvOpSubgroupBallotKHR);
       vtn_fail_if(dest_type->type != glsl_vector_type(GLSL_TYPE_UINT, 4),
                   "OpGroupNonUniformBallot must return a uvec4");
-      nir_intrinsic_instr *ballot =
-         nir_intrinsic_instr_create(b->nb.shader, nir_intrinsic_ballot);
-      ballot->src[0] = nir_src_for_ssa(vtn_get_nir_ssa(b, w[3 + has_scope]));
-      nir_def_init(&ballot->instr, &ballot->def, 4, 32);
-      ballot->num_components = 4;
-      nir_builder_instr_insert(&b->nb, &ballot->instr);
-      vtn_push_nir_ssa(b, w[2], &ballot->def);
+      nir_def *src = vtn_get_nir_ssa(b, w[3 + has_scope]);
+      vtn_push_nir_ssa(b, w[2], nir_ballot(&b->nb, 4, 32, src));
       break;
    }
 
    case SpvOpGroupNonUniformInverseBallot: {
+      vtn_fail_if(dest_type->type != glsl_bool_type(),
+                  "OpGroupNonUniformInverseBallot must return a Bool");
       /* This one is just a BallotBitfieldExtract with subgroup invocation.
        * We could add a NIR intrinsic but it's easier to just lower it on the
        * spot.
        */
-      nir_intrinsic_instr *intrin =
-         nir_intrinsic_instr_create(b->nb.shader,
-                                    nir_intrinsic_ballot_bitfield_extract);
-
-      intrin->src[0] = nir_src_for_ssa(vtn_get_nir_ssa(b, w[4]));
-      intrin->src[1] = nir_src_for_ssa(nir_load_subgroup_invocation(&b->nb));
-
-      nir_def_init_for_type(&intrin->instr, &intrin->def,
-                            dest_type->type);
-      nir_builder_instr_insert(&b->nb, &intrin->instr);
-
-      vtn_push_nir_ssa(b, w[2], &intrin->def);
+      nir_def *src = vtn_get_nir_ssa(b, w[4]);
+      nir_def *invoc = nir_load_subgroup_invocation(&b->nb);
+      nir_def *ballot = nir_ballot_bitfield_extract(&b->nb, 1, src, invoc);
+      vtn_push_nir_ssa(b, w[2], ballot);
       break;
    }
 
-   case SpvOpGroupNonUniformBallotBitExtract:
-   case SpvOpGroupNonUniformBallotBitCount:
+   case SpvOpGroupNonUniformBallotBitExtract: {
+      vtn_fail_if(dest_type->type != glsl_bool_type(),
+                  "OpGroupNonUniformBallotBitExtract must return a Bool");
+      nir_def *src = vtn_get_nir_ssa(b, w[4]);
+      nir_def *invoc = vtn_get_nir_ssa(b, w[5]);
+      nir_def *ballot = nir_ballot_bitfield_extract(&b->nb, 1, src, invoc);
+      vtn_push_nir_ssa(b, w[2], ballot);
+      break;
+   }
+
+   case SpvOpGroupNonUniformBallotBitCount: {
+      vtn_fail_if(!glsl_type_is_integer(dest_type->type),
+                  "OpGroupNonUniformBitCount must return an integer type");
+      nir_def *src = vtn_get_nir_ssa(b, w[5]);
+
+      nir_def *count;
+      switch ((SpvGroupOperation)w[4]) {
+      case SpvGroupOperationReduce:
+         count = nir_ballot_bit_count_reduce(&b->nb, 32, src);
+         break;
+      case SpvGroupOperationInclusiveScan:
+         count = nir_ballot_bit_count_inclusive(&b->nb, 32, src);
+         break;
+      case SpvGroupOperationExclusiveScan:
+         count = nir_ballot_bit_count_exclusive(&b->nb, 32, src);
+         break;
+      default:
+         unreachable("Invalid group operation");
+      }
+
+      count = nir_u2uN(&b->nb, count, glsl_get_bit_size(dest_type->type));
+      vtn_push_nir_ssa(b, w[2], count);
+      break;
+   }
+
    case SpvOpGroupNonUniformBallotFindLSB:
    case SpvOpGroupNonUniformBallotFindMSB: {
-      nir_def *src0, *src1 = NULL;
-      nir_intrinsic_op op;
+      vtn_fail_if(!glsl_type_is_integer(dest_type->type),
+                  "%s must return an integer type",
+                  spirv_op_to_string(opcode));
+      nir_def *src = vtn_get_nir_ssa(b, w[4]);
+
+      nir_def *res;
       switch (opcode) {
-      case SpvOpGroupNonUniformBallotBitExtract:
-         op = nir_intrinsic_ballot_bitfield_extract;
-         src0 = vtn_get_nir_ssa(b, w[4]);
-         src1 = vtn_get_nir_ssa(b, w[5]);
-         break;
-      case SpvOpGroupNonUniformBallotBitCount:
-         switch ((SpvGroupOperation)w[4]) {
-         case SpvGroupOperationReduce:
-            op = nir_intrinsic_ballot_bit_count_reduce;
-            break;
-         case SpvGroupOperationInclusiveScan:
-            op = nir_intrinsic_ballot_bit_count_inclusive;
-            break;
-         case SpvGroupOperationExclusiveScan:
-            op = nir_intrinsic_ballot_bit_count_exclusive;
-            break;
-         default:
-            unreachable("Invalid group operation");
-         }
-         src0 = vtn_get_nir_ssa(b, w[5]);
-         break;
       case SpvOpGroupNonUniformBallotFindLSB:
-         op = nir_intrinsic_ballot_find_lsb;
-         src0 = vtn_get_nir_ssa(b, w[4]);
+         res = nir_ballot_find_lsb(&b->nb, 32, src);
          break;
       case SpvOpGroupNonUniformBallotFindMSB:
-         op = nir_intrinsic_ballot_find_msb;
-         src0 = vtn_get_nir_ssa(b, w[4]);
+         res = nir_ballot_find_msb(&b->nb, 32, src);
          break;
       default:
          unreachable("Unhandled opcode");
       }
 
-      nir_intrinsic_instr *intrin =
-         nir_intrinsic_instr_create(b->nb.shader, op);
-
-      intrin->src[0] = nir_src_for_ssa(src0);
-      if (src1)
-         intrin->src[1] = nir_src_for_ssa(src1);
-
-      nir_def_init_for_type(&intrin->instr, &intrin->def,
-                            dest_type->type);
-      nir_builder_instr_insert(&b->nb, &intrin->instr);
-
-      vtn_push_nir_ssa(b, w[2], &intrin->def);
+      res = nir_u2uN(&b->nb, res, glsl_get_bit_size(dest_type->type));
+      vtn_push_nir_ssa(b, w[2], res);
       break;
    }
 
@@ -208,27 +199,37 @@ vtn_handle_subgroup(struct vtn_builder *b, SpvOp opcode,
    case SpvOpSubgroupAllEqualKHR: {
       vtn_fail_if(dest_type->type != glsl_bool_type(),
                   "OpGroupNonUniform(All|Any|AllEqual) must return a bool");
-      nir_intrinsic_op op;
+
+      nir_def *src;
+      if (opcode == SpvOpGroupNonUniformAll || opcode == SpvOpGroupAll ||
+          opcode == SpvOpGroupNonUniformAny || opcode == SpvOpGroupAny ||
+          opcode == SpvOpGroupNonUniformAllEqual) {
+         src = vtn_get_nir_ssa(b, w[4]);
+      } else {
+         src = vtn_get_nir_ssa(b, w[3]);
+      }
+
+      nir_def *res;
       switch (opcode) {
       case SpvOpGroupNonUniformAll:
       case SpvOpGroupAll:
       case SpvOpSubgroupAllKHR:
-         op = nir_intrinsic_vote_all;
+         res = nir_vote_all(&b->nb, 1, src);
          break;
       case SpvOpGroupNonUniformAny:
       case SpvOpGroupAny:
       case SpvOpSubgroupAnyKHR:
-         op = nir_intrinsic_vote_any;
+         res = nir_vote_any(&b->nb, 1, src);
          break;
       case SpvOpSubgroupAllEqualKHR:
-         op = nir_intrinsic_vote_ieq;
+         res = nir_vote_ieq(&b->nb, 1, src);
          break;
       case SpvOpGroupNonUniformAllEqual:
          switch (glsl_get_base_type(vtn_ssa_value(b, w[4])->type)) {
          case GLSL_TYPE_FLOAT:
          case GLSL_TYPE_FLOAT16:
          case GLSL_TYPE_DOUBLE:
-            op = nir_intrinsic_vote_feq;
+            res = nir_vote_feq(&b->nb, 1, src);
             break;
          case GLSL_TYPE_UINT:
          case GLSL_TYPE_INT:
@@ -239,7 +240,7 @@ vtn_handle_subgroup(struct vtn_builder *b, SpvOp opcode,
          case GLSL_TYPE_UINT64:
          case GLSL_TYPE_INT64:
          case GLSL_TYPE_BOOL:
-            op = nir_intrinsic_vote_ieq;
+            res = nir_vote_ieq(&b->nb, 1, src);
             break;
          default:
             unreachable("Unhandled type");
@@ -249,24 +250,7 @@ vtn_handle_subgroup(struct vtn_builder *b, SpvOp opcode,
          unreachable("Unhandled opcode");
       }
 
-      nir_def *src0;
-      if (opcode == SpvOpGroupNonUniformAll || opcode == SpvOpGroupAll ||
-          opcode == SpvOpGroupNonUniformAny || opcode == SpvOpGroupAny ||
-          opcode == SpvOpGroupNonUniformAllEqual) {
-         src0 = vtn_get_nir_ssa(b, w[4]);
-      } else {
-         src0 = vtn_get_nir_ssa(b, w[3]);
-      }
-      nir_intrinsic_instr *intrin =
-         nir_intrinsic_instr_create(b->nb.shader, op);
-      if (nir_intrinsic_infos[op].src_components[0] == 0)
-         intrin->num_components = src0->num_components;
-      intrin->src[0] = nir_src_for_ssa(src0);
-      nir_def_init_for_type(&intrin->instr, &intrin->def,
-                            dest_type->type);
-      nir_builder_instr_insert(&b->nb, &intrin->instr);
-
-      vtn_push_nir_ssa(b, w[2], &intrin->def);
+      vtn_push_nir_ssa(b, w[2], res);
       break;
    }
 
