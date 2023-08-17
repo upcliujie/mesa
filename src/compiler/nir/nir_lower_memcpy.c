@@ -91,111 +91,86 @@ memcpy_store_deref_elem_imm(nir_builder *b, nir_deref_instr *parent,
 }
 
 static bool
-lower_memcpy_impl(nir_function_impl *impl)
+lower_memcpy_instr(nir_builder *b, nir_instr *instr, void *data)
 {
-   nir_builder b = nir_builder_create(impl);
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
 
-   bool found_const_memcpy = false, found_non_const_memcpy = false;
+   nir_intrinsic_instr *cpy = nir_instr_as_intrinsic(instr);
+   if (cpy->intrinsic != nir_intrinsic_memcpy_deref)
+      return false;
 
-   nir_foreach_block_safe(block, impl) {
-      nir_foreach_instr_safe(instr, block) {
-         if (instr->type != nir_instr_type_intrinsic)
-            continue;
+   b->cursor = nir_instr_remove(&cpy->instr);
 
-         nir_intrinsic_instr *cpy = nir_instr_as_intrinsic(instr);
-         if (cpy->intrinsic != nir_intrinsic_memcpy_deref)
-            continue;
+   nir_deref_instr *dst = nir_src_as_deref(cpy->src[0]);
+   nir_deref_instr *src = nir_src_as_deref(cpy->src[1]);
+   if (nir_src_is_const(cpy->src[2])) {
+      uint64_t size = nir_src_as_uint(cpy->src[2]);
+      uint64_t offset = 0;
+      while (offset < size) {
+         uint64_t remaining = size - offset;
+         /* Find the largest chunk size power-of-two (MSB in remaining)
+          * and limit our chunk to 16B (a vec4). It's important to do as
+          * many 16B chunks as possible first so that the index
+          * computation is correct for
+          * memcpy_(load|store)_deref_elem_imm.
+          */
+         unsigned copy_size = 1u << MIN2(util_last_bit64(remaining) - 1, 4);
+         const struct glsl_type *copy_type =
+            copy_type_for_byte_size(copy_size);
 
-         b.cursor = nir_instr_remove(&cpy->instr);
+         nir_deref_instr *copy_dst =
+            nir_build_deref_cast(b, &dst->def, dst->modes,
+                                 copy_type, copy_size);
+         nir_deref_instr *copy_src =
+            nir_build_deref_cast(b, &src->def, src->modes,
+                                 copy_type, copy_size);
 
-         nir_deref_instr *dst = nir_src_as_deref(cpy->src[0]);
-         nir_deref_instr *src = nir_src_as_deref(cpy->src[1]);
-         if (nir_src_is_const(cpy->src[2])) {
-            found_const_memcpy = true;
-            uint64_t size = nir_src_as_uint(cpy->src[2]);
-            uint64_t offset = 0;
-            while (offset < size) {
-               uint64_t remaining = size - offset;
-               /* Find the largest chunk size power-of-two (MSB in remaining)
-                * and limit our chunk to 16B (a vec4). It's important to do as
-                * many 16B chunks as possible first so that the index
-                * computation is correct for
-                * memcpy_(load|store)_deref_elem_imm.
-                */
-               unsigned copy_size = 1u << MIN2(util_last_bit64(remaining) - 1, 4);
-               const struct glsl_type *copy_type =
-                  copy_type_for_byte_size(copy_size);
-
-               nir_deref_instr *copy_dst =
-                  nir_build_deref_cast(&b, &dst->def, dst->modes,
-                                       copy_type, copy_size);
-               nir_deref_instr *copy_src =
-                  nir_build_deref_cast(&b, &src->def, src->modes,
-                                       copy_type, copy_size);
-
-               uint64_t index = offset / copy_size;
-               nir_def *value =
-                  memcpy_load_deref_elem_imm(&b, copy_src, index);
-               memcpy_store_deref_elem_imm(&b, copy_dst, index, value);
-               offset += copy_size;
-            }
-         } else {
-            found_non_const_memcpy = true;
-            nir_def *size = cpy->src[2].ssa;
-
-            /* In this case, we don't have any idea what the size is so we
-             * emit a loop which copies one byte at a time.
-             */
-            nir_deref_instr *copy_dst =
-               nir_build_deref_cast(&b, &dst->def, dst->modes,
-                                    glsl_uint8_t_type(), 1);
-            nir_deref_instr *copy_src =
-               nir_build_deref_cast(&b, &src->def, src->modes,
-                                    glsl_uint8_t_type(), 1);
-
-            nir_variable *i = nir_local_variable_create(impl,
-                                                        glsl_uintN_t_type(size->bit_size), NULL);
-            nir_store_var(&b, i, nir_imm_intN_t(&b, 0, size->bit_size), ~0);
-            nir_push_loop(&b);
-            {
-               nir_def *index = nir_load_var(&b, i);
-               nir_push_if(&b, nir_uge(&b, index, size));
-               {
-                  nir_jump(&b, nir_jump_break);
-               }
-               nir_pop_if(&b, NULL);
-
-               nir_def *value =
-                  memcpy_load_deref_elem(&b, copy_src, index);
-               memcpy_store_deref_elem(&b, copy_dst, index, value);
-               nir_store_var(&b, i, nir_iadd_imm(&b, index, 1), ~0);
-            }
-            nir_pop_loop(&b, NULL);
-         }
+         uint64_t index = offset / copy_size;
+         nir_def *value =
+            memcpy_load_deref_elem_imm(b, copy_src, index);
+         memcpy_store_deref_elem_imm(b, copy_dst, index, value);
+         offset += copy_size;
       }
-   }
-
-   if (found_non_const_memcpy) {
-      nir_metadata_preserve(impl, nir_metadata_none);
-   } else if (found_const_memcpy) {
-      nir_metadata_preserve(impl, nir_metadata_block_index |
-                                     nir_metadata_dominance);
    } else {
-      nir_metadata_preserve(impl, nir_metadata_all);
+      nir_def *size = cpy->src[2].ssa;
+
+      /* In this case, we don't have any idea what the size is so we
+       * emit a loop which copies one byte at a time.
+       */
+      nir_deref_instr *copy_dst =
+         nir_build_deref_cast(b, &dst->def, dst->modes,
+                              glsl_uint8_t_type(), 1);
+      nir_deref_instr *copy_src =
+         nir_build_deref_cast(b, &src->def, src->modes,
+                              glsl_uint8_t_type(), 1);
+
+      nir_variable *i = nir_local_variable_create(b->impl,
+                                                  glsl_uintN_t_type(size->bit_size), NULL);
+      nir_store_var(b, i, nir_imm_intN_t(b, 0, size->bit_size), ~0);
+      nir_push_loop(b);
+      {
+         nir_def *index = nir_load_var(b, i);
+         nir_push_if(b, nir_uge(b, index, size));
+         {
+            nir_jump(b, nir_jump_break);
+         }
+         nir_pop_if(b, NULL);
+
+         nir_def *value =
+            memcpy_load_deref_elem(b, copy_src, index);
+         memcpy_store_deref_elem(b, copy_dst, index, value);
+         nir_store_var(b, i, nir_iadd_imm(b, index, 1), ~0);
+      }
+      nir_pop_loop(b, NULL);
    }
 
-   return found_const_memcpy || found_non_const_memcpy;
+   return true;
 }
 
 bool
 nir_lower_memcpy(nir_shader *shader)
 {
-   bool progress = false;
-
-   nir_foreach_function_impl(impl, shader) {
-      if (lower_memcpy_impl(impl))
-         progress = true;
-   }
-
-   return progress;
+   return nir_shader_instructions_pass(shader, lower_memcpy_instr,
+                                       nir_metadata_none, NULL);
 }
