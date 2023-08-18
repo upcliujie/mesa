@@ -49,45 +49,38 @@ copy_type_for_byte_size(unsigned size)
    }
 }
 
-static nir_def *
-memcpy_load_deref_elem(nir_builder *b, nir_deref_instr *parent,
-                       nir_def *index)
+static nir_deref_instr *
+deref_offset_cast(nir_builder *b, nir_deref_instr *p,
+                  nir_def *offset, unsigned offset_align,
+                  const struct glsl_type *type)
 {
-   nir_deref_instr *deref;
+   offset = nir_u2uN(b, offset, p->def.bit_size);
 
-   index = nir_i2iN(b, index, parent->def.bit_size);
-   assert(parent->deref_type == nir_deref_type_cast);
-   deref = nir_build_deref_ptr_as_array(b, parent, index);
+   nir_deref_instr *p_u8 =
+      nir_build_deref_cast(b, &p->def, p->modes, glsl_uint8_t_type(), 1);
 
-   return nir_load_deref(b, deref);
+   nir_deref_instr *p_off_u8 =
+      nir_build_deref_ptr_as_array(b, p_u8, offset);
+
+   nir_deref_instr *p_off_t =
+      nir_build_deref_cast(b, &p_off_u8->def, p->modes, type, 0);
+
+   uint32_t align_mul, align_offset;
+   if (nir_get_explicit_deref_align(p, true, &align_mul, &align_offset)) {
+      p_off_t->cast.align_mul = MIN2(align_mul, offset_align);
+      p_off_t->cast.align_offset = align_offset % p_off_t->cast.align_mul;
+   }
+
+   return p_off_t;
 }
 
-static nir_def *
-memcpy_load_deref_elem_imm(nir_builder *b, nir_deref_instr *parent,
-                           uint64_t index)
+static nir_deref_instr *
+deref_offset_cast_imm(nir_builder *b, nir_deref_instr *p,
+                      uint64_t offset, const struct glsl_type *type)
 {
-   nir_def *idx = nir_imm_intN_t(b, index, parent->def.bit_size);
-   return memcpy_load_deref_elem(b, parent, idx);
-}
-
-static void
-memcpy_store_deref_elem(nir_builder *b, nir_deref_instr *parent,
-                        nir_def *index, nir_def *value)
-{
-   nir_deref_instr *deref;
-
-   index = nir_i2iN(b, index, parent->def.bit_size);
-   assert(parent->deref_type == nir_deref_type_cast);
-   deref = nir_build_deref_ptr_as_array(b, parent, index);
-   nir_store_deref(b, deref, value, ~0);
-}
-
-static void
-memcpy_store_deref_elem_imm(nir_builder *b, nir_deref_instr *parent,
-                            uint64_t index, nir_def *value)
-{
-   nir_def *idx = nir_imm_intN_t(b, index, parent->def.bit_size);
-   memcpy_store_deref_elem(b, parent, idx, value);
+   unsigned offset_align = offset ? (1 << (ffsll(offset) - 1)) : (1 << 16);
+   nir_def *off = nir_imm_intN_t(b, offset, p->def.bit_size);
+   return deref_offset_cast(b, p, off, offset_align, type);
 }
 
 static bool
@@ -122,17 +115,13 @@ lower_memcpy_instr(nir_builder *b, nir_instr *instr, void *data)
          const struct glsl_type *copy_type =
             copy_type_for_byte_size(copy_size);
 
-         nir_deref_instr *copy_dst =
-            nir_build_deref_cast(b, &dst->def, dst->modes,
-                                 copy_type, copy_size);
-         nir_deref_instr *copy_src =
-            nir_build_deref_cast(b, &src->def, src->modes,
-                                 copy_type, copy_size);
+         nir_deref_instr *dst_off =
+            deref_offset_cast_imm(b, dst, offset, copy_type);
+         nir_deref_instr *src_off =
+            deref_offset_cast_imm(b, src, offset, copy_type);
 
-         uint64_t index = offset / copy_size;
-         nir_def *value =
-            memcpy_load_deref_elem_imm(b, copy_src, index);
-         memcpy_store_deref_elem_imm(b, copy_dst, index, value);
+         nir_store_deref(b, dst_off, nir_load_deref(b, src_off), 0xf);
+
          offset += copy_size;
       }
    } else {
@@ -141,31 +130,54 @@ lower_memcpy_instr(nir_builder *b, nir_instr *instr, void *data)
       /* In this case, we don't have any idea what the size is so we
        * emit a loop which copies one byte at a time.
        */
-      nir_deref_instr *copy_dst =
-         nir_build_deref_cast(b, &dst->def, dst->modes,
-                              glsl_uint8_t_type(), 1);
-      nir_deref_instr *copy_src =
-         nir_build_deref_cast(b, &src->def, src->modes,
-                              glsl_uint8_t_type(), 1);
+      const struct glsl_type *size_type = glsl_uintN_t_type(size->bit_size);
+      nir_variable *pos = nir_local_variable_create(b->impl, size_type, NULL);
+      nir_store_var(b, pos, nir_imm_intN_t(b, 0, size->bit_size), ~0);
 
-      nir_variable *i = nir_local_variable_create(b->impl,
-                                                  glsl_uintN_t_type(size->bit_size), NULL);
-      nir_store_var(b, i, nir_imm_intN_t(b, 0, size->bit_size), ~0);
+      /* Byte loops are slow.  Start off copying whole vec4s */
+      uint8_t max_copy_size = 16;
+      nir_def *mcs_1 = nir_imm_intN_t(b, max_copy_size - 1, size->bit_size);
+      nir_def *end = nir_usub_sat(b, size, mcs_1);
       nir_push_loop(b);
       {
-         nir_def *index = nir_load_var(b, i);
-         nir_push_if(b, nir_uge(b, index, size));
+         nir_def *p = nir_load_var(b, pos);
+         nir_push_if(b, nir_uge(b, p, end));
          {
             nir_jump(b, nir_jump_break);
          }
          nir_pop_if(b, NULL);
 
-         nir_def *value =
-            memcpy_load_deref_elem(b, copy_src, index);
-         memcpy_store_deref_elem(b, copy_dst, index, value);
-         nir_store_var(b, i, nir_iadd_imm(b, index, 1), ~0);
+         const struct glsl_type *copy_type =
+            copy_type_for_byte_size(max_copy_size);
+         nir_deref_instr *dst_off =
+            deref_offset_cast(b, dst, p, max_copy_size, copy_type);
+         nir_deref_instr *src_off =
+            deref_offset_cast(b, src, p, max_copy_size, copy_type);
+
+         nir_store_deref(b, dst_off, nir_load_deref(b, src_off), 0xf);
+
+         nir_store_var(b, pos, nir_iadd_imm(b, p, max_copy_size), ~0);
       }
       nir_pop_loop(b, NULL);
+
+      for (uint8_t copy_size = max_copy_size >> 1;
+           copy_size > 0; copy_size >>= 1) {
+         nir_def *p = nir_load_var(b, pos);
+         nir_push_if(b, nir_uge_imm(b, nir_isub(b, size, p), copy_size));
+         {
+            const struct glsl_type *copy_type =
+               copy_type_for_byte_size(copy_size);
+            nir_deref_instr *dst_off =
+               deref_offset_cast(b, dst, p, copy_size, copy_type);
+            nir_deref_instr *src_off =
+               deref_offset_cast(b, src, p, copy_size, copy_type);
+
+            nir_store_deref(b, dst_off, nir_load_deref(b, src_off), 0xf);
+
+            nir_store_var(b, pos, nir_iadd_imm(b, p, copy_size), ~0);
+         }
+         nir_pop_if(b, NULL);
+      }
    }
 
    return true;
