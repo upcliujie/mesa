@@ -1029,9 +1029,8 @@ radv_amdgpu_dump_bo_ranges(struct radeon_winsys *_ws, FILE *file)
    if (ws->debug_all_bos) {
       u_rwlock_rdlock(&ws->global_bo_list.lock);
       rb_tree_foreach (struct radv_amdgpu_winsys_bo, bo, &ws->global_bo_list.bos, global_list_node) {
-         fprintf(file, "  VA=%.16llx-%.16llx, handle=%d%s\n", (long long)radv_amdgpu_canonicalize_va(bo->base.va),
-                 (long long)radv_amdgpu_canonicalize_va(bo->base.va + bo->size), bo->bo_handle,
-                 bo->is_virtual ? " sparse" : "");
+         fprintf(file, "  VA=%.16llx-%.16llx, handle=%d\n", (long long)radv_amdgpu_canonicalize_va(bo->base.va),
+                 (long long)radv_amdgpu_canonicalize_va(bo->base.va + bo->size), bo->bo_handle);
       }
       u_rwlock_rdunlock(&ws->global_bo_list.lock);
    } else
