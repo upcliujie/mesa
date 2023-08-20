@@ -29,6 +29,7 @@
 #ifndef RADV_AMDGPU_BO_H
 #define RADV_AMDGPU_BO_H
 
+#include "util/rb_tree.h"
 #include "radv_amdgpu_winsys.h"
 
 struct radv_amdgpu_map_range {
@@ -50,6 +51,7 @@ struct radv_amdgpu_winsys_bo {
       struct {
          amdgpu_bo_handle bo;
          uint32_t bo_handle;
+         struct rb_node global_list_node;
       };
       /* virtual bo */
       struct {
