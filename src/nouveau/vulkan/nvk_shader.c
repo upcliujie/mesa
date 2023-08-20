@@ -317,14 +317,20 @@ assign_io_locations(nir_shader *nir)
    }
 }
 
+struct ycbcr_conversion_cb_data
+{
+   struct vk_descriptor_set_layout *set_layouts[VK_MESA_PIPELINE_LAYOUT_MAX_SETS];
+   uint32_t set_count;
+};
+
 static const struct vk_ycbcr_conversion_state *
-lookup_ycbcr_conversion(const void *_layout, uint32_t set,
+lookup_ycbcr_conversion(const void *_cb_data, uint32_t set,
                         uint32_t binding, uint32_t array_index)
 {
-   const struct vk_pipeline_layout *pipeline_layout = _layout;
-   assert(set < pipeline_layout->set_count);
+   const struct ycbcr_conversion_cb_data *cb_data = _cb_data;
+   assert(set < cb_data->set_count);
    const struct nvk_descriptor_set_layout *set_layout =
-      vk_to_nvk_descriptor_set_layout(pipeline_layout->set_layouts[set]);
+      vk_to_nvk_descriptor_set_layout(cb_data->set_layouts[set]);
    assert(binding < set_layout->binding_count);
 
    const struct nvk_descriptor_set_binding_layout *bind_layout =
@@ -432,7 +438,13 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
                });
    }
 
-   NIR_PASS(_, nir, nir_vk_lower_ycbcr_tex, lookup_ycbcr_conversion, layout);
+
+   struct ycbcr_conversion_cb_data cb_data = {};
+   cb_data.set_count = layout->set_count;
+   for (uint32_t i = 0; i < layout->set_count; ++i) {
+      cb_data.set_layouts[i] = layout->set_layouts[i];
+   }
+   NIR_PASS(_, nir, nir_vk_lower_ycbcr_tex, lookup_ycbcr_conversion, &cb_data);
 
    nir_lower_compute_system_values_options csv_options = {
       .has_base_workgroup_id = true,
