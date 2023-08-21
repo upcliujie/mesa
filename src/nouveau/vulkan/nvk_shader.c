@@ -407,7 +407,8 @@ void
 nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
               const struct vk_pipeline_robustness_state *rs,
               bool is_multiview,
-              const struct vk_pipeline_layout *layout)
+              struct vk_descriptor_set_layout *const *set_layouts,
+              uint32_t set_count)
 {
    struct nvk_physical_device *pdev = nvk_device_physical(dev);
 
@@ -440,9 +441,9 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
 
 
    struct ycbcr_conversion_cb_data cb_data = {};
-   cb_data.set_count = layout->set_count;
-   for (uint32_t i = 0; i < layout->set_count; ++i) {
-      cb_data.set_layouts[i] = layout->set_layouts[i];
+   cb_data.set_count = set_count;
+   for (uint32_t i = 0; i < set_count; ++i) {
+      cb_data.set_layouts[i] = set_layouts[i];
    }
    NIR_PASS(_, nir, nir_vk_lower_ycbcr_tex, lookup_ycbcr_conversion, &cb_data);
 
@@ -499,7 +500,7 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
       NIR_PASS(_, nir, nir_lower_non_uniform_access, &opts);
    }
 
-   NIR_PASS(_, nir, nvk_nir_lower_descriptors, rs, layout);
+   NIR_PASS(_, nir, nvk_nir_lower_descriptors, rs, set_layouts, set_count);
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_global,
             nir_address_format_64bit_global);
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_ssbo,

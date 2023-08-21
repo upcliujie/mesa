@@ -8,7 +8,8 @@
 #include "nir_deref.h"
 
 struct lower_descriptors_ctx {
-   const struct vk_pipeline_layout *layout;
+   struct vk_descriptor_set_layout *const *set_layouts;
+   uint32_t set_count;
    bool clamp_desc_array_bounds;
    nir_address_format ubo_addr_format;
    nir_address_format ssbo_addr_format;
@@ -30,11 +31,9 @@ static const struct nvk_descriptor_set_binding_layout *
 get_binding_layout(uint32_t set, uint32_t binding,
                    const struct lower_descriptors_ctx *ctx)
 {
-   const struct vk_pipeline_layout *layout = ctx->layout;
-
-   assert(set < layout->set_count);
+   assert(set < ctx->set_count);
    const struct nvk_descriptor_set_layout *set_layout =
-      vk_to_nvk_descriptor_set_layout(layout->set_layouts[set]);
+      vk_to_nvk_descriptor_set_layout(ctx->set_layouts[set]);
 
    assert(binding < set_layout->binding_count);
    return &set_layout->binding[binding];
@@ -56,8 +55,8 @@ load_descriptor(nir_builder *b, unsigned num_components, unsigned bit_size,
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
       /* Get the index in the root descriptor table dynamic_buffers array. */
       uint8_t dynamic_buffer_start =
-         nvk_descriptor_set_layout_dynbuf_start(ctx->layout->set_layouts,
-                                                ctx->layout->set_count,
+         nvk_descriptor_set_layout_dynbuf_start(ctx->set_layouts,
+                                                ctx->set_count,
                                                 set);
 
       index = nir_iadd_imm(b, index,
@@ -465,8 +464,8 @@ lower_ssbo_resource_index(nir_builder *b, nir_intrinsic_instr *intrin,
                       .align_mul = 8, .align_offset = 0, .range = ~0);
 
       uint8_t dynamic_buffer_start =
-         nvk_descriptor_set_layout_dynbuf_start(ctx->layout->set_layouts,
-                                                ctx->layout->set_count, set);
+         nvk_descriptor_set_layout_dynbuf_start(ctx->set_layouts,
+                                                ctx->set_count, set);
       dynamic_buffer_start += binding_layout->dynamic_buffer_index;
 
       const uint32_t dynamic_binding_offset =
@@ -630,10 +629,12 @@ lower_ssbo_descriptor_instr(nir_builder *b, nir_instr *instr,
 bool
 nvk_nir_lower_descriptors(nir_shader *nir,
                           const struct vk_pipeline_robustness_state *rs,
-                          const struct vk_pipeline_layout *layout)
+                          struct vk_descriptor_set_layout *const *set_layouts,
+                          uint32_t set_count)
 {
    struct lower_descriptors_ctx ctx = {
-      .layout = layout,
+      .set_layouts = set_layouts,
+      .set_count = set_count,
       .clamp_desc_array_bounds =
          rs->storage_buffers != VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT ||
          rs->uniform_buffers != VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT ||

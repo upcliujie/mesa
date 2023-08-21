@@ -191,7 +191,8 @@ nvk_graphics_pipeline_create(struct nvk_device *dev,
       const VkPipelineShaderStageCreateInfo *sinfo = &pCreateInfo->pStages[i];
       gl_shader_stage stage = vk_to_mesa_shader_stage(sinfo->stage);
       nvk_lower_nir(dev, nir[stage], &robustness[stage],
-                    state.rp->view_mask != 0, pipeline_layout);
+                    state.rp->view_mask != 0, pipeline_layout->set_layouts,
+                    pipeline_layout->set_count);
    }
 
    for (gl_shader_stage stage = 0; stage < MESA_SHADER_STAGES; stage++) {

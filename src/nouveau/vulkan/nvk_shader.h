@@ -12,6 +12,7 @@ struct vk_pipeline_robustness_state;
 struct nvk_device;
 struct nvk_physical_device;
 struct nvk_pipeline_compilation_ctx;
+struct nvk_descriptor_set_layout;
 
 #define GF100_SHADER_HEADER_SIZE (20 * 4)
 #define TU102_SHADER_HEADER_SIZE (32 * 4)
@@ -114,13 +115,15 @@ nvk_physical_device_spirv_options(const struct nvk_physical_device *pdev,
 bool
 nvk_nir_lower_descriptors(nir_shader *nir,
                           const struct vk_pipeline_robustness_state *rs,
-                          const struct vk_pipeline_layout *layout);
+                          struct vk_descriptor_set_layout *const *set_layouts,
+                          uint32_t set_count);
 
 void
 nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
               const struct vk_pipeline_robustness_state *rs,
               bool is_multiview,
-              const struct vk_pipeline_layout *layout);
+              struct vk_descriptor_set_layout *const *set_layouts,
+              uint32_t set_count);
 
 VkResult
 nvk_compile_nir(struct nvk_physical_device *dev, nir_shader *nir,
