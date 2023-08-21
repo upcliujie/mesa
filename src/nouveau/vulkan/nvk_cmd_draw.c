@@ -1486,7 +1486,7 @@ nvk_flush_cb_state(struct nvk_cmd_buffer *cmd)
       &cmd->vk.dynamic_graphics_state;
 
    struct nv_push *p = nvk_cmd_buffer_push(cmd,
-                                           9 + dyn->cb.attachment_count * 10);
+                                           11 + dyn->cb.attachment_count * 12);
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_LOGIC_OP_ENABLE))
       P_IMMD(p, NV9097, SET_LOGIC_OP, dyn->cb.logic_op_enable);
@@ -1497,6 +1497,24 @@ nvk_flush_cb_state(struct nvk_cmd_buffer *cmd)
    }
 
    /* MESA_VK_DYNAMIC_CB_COLOR_WRITE_ENABLES */
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_WRITE_MASKS)) {
+      bool indep_color_masks = true;
+      for (uint8_t a = 0; a < dyn->cb.attachment_count; ++a) {
+         const struct vk_color_blend_attachment_state *att =
+            &dyn->cb.attachments[a];
+         P_IMMD(p, NV9097, SET_CT_WRITE(a), {
+            .r_enable = (att->write_mask & BITFIELD_BIT(0)) != 0,
+            .g_enable = (att->write_mask & BITFIELD_BIT(1)) != 0,
+            .b_enable = (att->write_mask & BITFIELD_BIT(2)) != 0,
+            .a_enable = (att->write_mask & BITFIELD_BIT(3)) != 0,
+         });
+
+         if (att->write_mask != dyn->cb.attachments[0].write_mask)
+            indep_color_masks = false;
+      }
+      P_IMMD(p, NV9097, SET_SINGLE_CT_WRITE_CONTROL, indep_color_masks);
+   }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_ENABLES)) {
       for (uint8_t a = 0; a < dyn->cb.attachment_count; ++a) {
