@@ -26,6 +26,8 @@
 #include "clc397.h"
 #include "clc597.h"
 #include "nvk_cl9097.h"
+#include "nvk_clc397.h"
+#include "nvk_clb197.h"
 
 static void
 shared_var_info(const struct glsl_type *type, unsigned *size, unsigned *align)
@@ -1436,3 +1438,128 @@ nvk_GetShaderBinaryDataEXT(VkDevice device, VkShaderEXT _shader,
       }
    }
 }
+
+// duplicates to nvk_graphics_pipeline
+static const uint32_t mesa_to_nv9097_shader_type[] = {
+   [MESA_SHADER_VERTEX]    = NV9097_SET_PIPELINE_SHADER_TYPE_VERTEX,
+   [MESA_SHADER_TESS_CTRL] = NV9097_SET_PIPELINE_SHADER_TYPE_TESSELLATION_INIT,
+   [MESA_SHADER_TESS_EVAL] = NV9097_SET_PIPELINE_SHADER_TYPE_TESSELLATION,
+   [MESA_SHADER_GEOMETRY]  = NV9097_SET_PIPELINE_SHADER_TYPE_GEOMETRY,
+   [MESA_SHADER_FRAGMENT]  = NV9097_SET_PIPELINE_SHADER_TYPE_PIXEL,
+};
+
+static void nvk_cmd_bind_empty_shader(struct nvk_cmd_buffer *cmd,
+                                      gl_shader_stage stage)
+{
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
+   uint32_t idx = mesa_to_nv9097_shader_type[stage];
+   P_IMMD(p, NV9097, SET_PIPELINE_SHADER(idx), {
+      .enable  = ENABLE_FALSE,
+      .type    = mesa_to_nv9097_shader_type[stage],
+   });
+}
+
+static void nvk_cmd_bind_shader(struct nvk_cmd_buffer *cmd,
+                                gl_shader_stage stage,
+                                struct nvk_shader *shader)
+{
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 16);
+   assert(shader->upload_size > 0);
+   struct nvk_device *dev = nvk_cmd_buffer_device(cmd);
+
+   assert(shader->stage == stage);
+   uint32_t idx = mesa_to_nv9097_shader_type[stage];
+   P_IMMD(p, NV9097, SET_PIPELINE_SHADER(idx), {
+      .enable  = ENABLE_TRUE,
+      .type    = mesa_to_nv9097_shader_type[stage], });
+
+   uint64_t addr = nvk_shader_address(shader);
+   if (dev->pdev->info.cls_eng3d >= VOLTA_A) {
+      P_MTHD(p, NVC397, SET_PIPELINE_PROGRAM_ADDRESS_A(idx));
+      P_NVC397_SET_PIPELINE_PROGRAM_ADDRESS_A(p, idx, addr >> 32);
+      P_NVC397_SET_PIPELINE_PROGRAM_ADDRESS_B(p, idx, addr);
+   } else {
+      assert(addr < 0xffffffff);
+      P_IMMD(p, NV9097, SET_PIPELINE_PROGRAM(idx), addr);
+   }
+
+   P_IMMD(p, NV9097, SET_PIPELINE_REGISTER_COUNT(idx), shader->num_gprs);
+
+   switch (stage) {
+      case MESA_SHADER_VERTEX:
+      case MESA_SHADER_GEOMETRY:
+      case MESA_SHADER_TESS_CTRL:
+         break;
+
+      case MESA_SHADER_FRAGMENT:
+         P_IMMD(p, NV9097, SET_SUBTILING_PERF_KNOB_A, {
+            .fraction_of_spm_register_file_per_subtile         = 0x10,
+            .fraction_of_spm_pixel_output_buffer_per_subtile   = 0x40,
+            .fraction_of_spm_triangle_ram_per_subtile          = 0x16,
+            .fraction_of_max_quads_per_subtile                 = 0x20,
+         });
+         P_NV9097_SET_SUBTILING_PERF_KNOB_B(p, 0x20);
+
+         P_IMMD(p, NV9097, SET_API_MANDATED_EARLY_Z, shader->fs.early_z);
+
+         // TODO: fix
+         P_IMMD(p, NVB197, SET_POST_Z_PS_IMASK,
+               shader->fs.post_depth_coverage);
+         //if (dev->pdev->info.cls_eng3d >= MAXWELL_B) {
+         //   P_IMMD(p, NVB197, SET_POST_Z_PS_IMASK,
+         //         shader->fs.post_depth_coverage);
+         //} else {
+         //   assert(!shader->fs.post_depth_coverage);
+         //}
+
+         P_MTHD(p, NV9097, SET_ZCULL_BOUNDS);
+         P_INLINE_DATA(p, shader->flags[0]);
+
+#if 0
+         /* If we're using the incoming sample mask and doing sample shading,
+          * we have to do sample shading "to the max", otherwise there's no
+          * way to tell which sets of samples are covered by the current
+          * invocation.
+          */
+         force_max_samples = shader->fs.sample_mask_in ||
+            shader->fs.uses_sample_shading;
+#endif
+         break;
+
+      case MESA_SHADER_TESS_EVAL:
+         P_MTHD(p, NV9097, SET_TESSELLATION_PARAMETERS);
+         P_NV9097_SET_TESSELLATION_PARAMETERS(p, {
+            shader->tes.domain_type,
+            shader->tes.spacing,
+            shader->tes.output_prims
+         });
+         break;
+
+      default:
+         unreachable("Unsupported shader stage");
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdBindShadersEXT(VkCommandBuffer commandBuffer, uint32_t stageCount,
+                      const VkShaderStageFlagBits* pStages,
+                      const VkShaderEXT* pShaders)
+{
+   VK_FROM_HANDLE(nvk_cmd_buffer, cmd, commandBuffer);
+
+   /* If pShaders is NULL, vkCmdBindShadersEXT behaves as if pShaders was an
+    * array of stageCount VK_NULL_HANDLE values
+    * (i.e., any shaders bound to the stages specified in pStages are unbound).
+    */
+   for (uint32_t i = 0; i < stageCount; ++i) {
+      gl_shader_stage stage = vk_to_mesa_shader_stage(pStages[i]);
+      if (!pShaders || pShaders[i] == VK_NULL_HANDLE) {
+         nvk_cmd_bind_empty_shader(cmd, stage);
+      } else {
+         VK_FROM_HANDLE(nvk_shader, shader, pShaders[i]);
+         nvk_cmd_bind_shader(cmd, stage, shader);
+      }
+   }
+}
+
+
