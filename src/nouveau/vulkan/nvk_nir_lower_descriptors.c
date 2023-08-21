@@ -56,7 +56,9 @@ load_descriptor(nir_builder *b, unsigned num_components, unsigned bit_size,
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
       /* Get the index in the root descriptor table dynamic_buffers array. */
       uint8_t dynamic_buffer_start =
-         nvk_descriptor_set_layout_dynbuf_start(ctx->layout, set);
+         nvk_descriptor_set_layout_dynbuf_start(ctx->layout->set_layouts,
+                                                ctx->layout->set_count,
+                                                set);
 
       index = nir_iadd_imm(b, index,
                            dynamic_buffer_start +
@@ -462,9 +464,10 @@ lower_ssbo_resource_index(nir_builder *b, nir_intrinsic_instr *intrin,
                       nir_imm_int(b, root_desc_addr_offset),
                       .align_mul = 8, .align_offset = 0, .range = ~0);
 
-      const uint8_t dynamic_buffer_start =
-         nvk_descriptor_set_layout_dynbuf_start(ctx->layout, set) +
-         binding_layout->dynamic_buffer_index;
+      uint8_t dynamic_buffer_start =
+         nvk_descriptor_set_layout_dynbuf_start(ctx->layout->set_layouts,
+                                                ctx->layout->set_count, set);
+      dynamic_buffer_start += binding_layout->dynamic_buffer_index;
 
       const uint32_t dynamic_binding_offset =
          nvk_root_descriptor_offset(dynamic_buffers) +

@@ -391,16 +391,17 @@ nvk_GetDescriptorSetLayoutSupport(VkDevice _device,
 }
 
 uint8_t
-nvk_descriptor_set_layout_dynbuf_start(const struct vk_pipeline_layout *pipeline_layout,
-                                 int set_layout_idx)
+nvk_descriptor_set_layout_dynbuf_start(
+      struct vk_descriptor_set_layout *const *set_layouts, uint32_t set_count,
+      uint32_t set_layout_idx)
 {
    uint8_t dynamic_buffer_start = 0;
 
-   assert(set_layout_idx <= pipeline_layout->set_count);
+   assert(set_layout_idx <= set_count);
 
    for (uint32_t i = 0; i < set_layout_idx; i++) {
       const struct nvk_descriptor_set_layout *set_layout =
-         vk_to_nvk_descriptor_set_layout(pipeline_layout->set_layouts[i]);
+         vk_to_nvk_descriptor_set_layout(set_layouts[i]);
 
       dynamic_buffer_start += set_layout->dynamic_buffer_count;
    }
