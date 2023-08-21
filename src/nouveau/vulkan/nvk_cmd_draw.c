@@ -1122,7 +1122,7 @@ vk_to_nv9097_provoking_vertex(VkProvokingVertexModeEXT vk_mode)
 static void
 nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
 {
-   struct nv_push *p = nvk_cmd_buffer_push(cmd, 34);
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 36);
 
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
@@ -1167,6 +1167,25 @@ nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
       P_IMMD(p, NV9097, SET_DEPTH_BIAS, fui(dyn->rs.depth_bias.constant));
       P_IMMD(p, NV9097, SET_SLOPE_SCALE_DEPTH_BIAS, fui(dyn->rs.depth_bias.slope));
       P_IMMD(p, NV9097, SET_DEPTH_BIAS_CLAMP, fui(dyn->rs.depth_bias.clamp));
+   }
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_CLIP_ENABLE) ||
+       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_CLAMP_ENABLE)) {
+      const bool depth_clip_enable =
+         vk_rasterization_state_depth_clip_enable(&dyn->rs);
+      const enum vk_mesa_depth_clip_enable dce = dyn->rs.depth_clip_enable;
+      P_IMMD(p, NV9097, SET_VIEWPORT_CLIP_CONTROL, {
+         .min_z_zero_max_z_one      = MIN_Z_ZERO_MAX_Z_ONE_TRUE,
+         .pixel_min_z               = !depth_clip_enable ? PIXEL_MIN_Z_CLAMP :
+                                                           PIXEL_MIN_Z_CLIP,
+         .pixel_max_z               = !depth_clip_enable ? PIXEL_MAX_Z_CLAMP :
+                                                           PIXEL_MAX_Z_CLIP,
+         .geometry_guardband        = GEOMETRY_GUARDBAND_SCALE_256,
+         .line_point_cull_guardband = LINE_POINT_CULL_GUARDBAND_SCALE_256,
+         .geometry_clip             = !dce ? GEOMETRY_CLIP_WZERO_CLIP_NO_Z_CULL :
+                                             GEOMETRY_CLIP_WZERO_CLIP,
+         .geometry_guardband_z      = GEOMETRY_GUARDBAND_Z_SAME_AS_XY_GUARDBAND,
+      });
    }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_LINE_WIDTH)) {
