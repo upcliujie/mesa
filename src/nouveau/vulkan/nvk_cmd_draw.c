@@ -1433,10 +1433,11 @@ vk_to_nv9097_logic_op(VkLogicOp vk_op)
 static void
 nvk_flush_cb_state(struct nvk_cmd_buffer *cmd)
 {
-   struct nv_push *p = nvk_cmd_buffer_push(cmd, 9);
-
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
+
+   struct nv_push *p = nvk_cmd_buffer_push(cmd,
+                                           9 + dyn->cb.attachment_count * 2);
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_LOGIC_OP_ENABLE))
       P_IMMD(p, NV9097, SET_LOGIC_OP, dyn->cb.logic_op_enable);
@@ -1447,6 +1448,12 @@ nvk_flush_cb_state(struct nvk_cmd_buffer *cmd)
    }
 
    /* MESA_VK_DYNAMIC_CB_COLOR_WRITE_ENABLES */
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_ENABLES)) {
+      for (uint8_t a = 0; a < dyn->cb.attachment_count; ++a) {
+         P_IMMD(p, NV9097, SET_BLEND(a), dyn->cb.attachments[a].blend_enable);
+      }
+   }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_CONSTANTS)) {
       P_MTHD(p, NV9097, SET_BLEND_CONST_RED);
