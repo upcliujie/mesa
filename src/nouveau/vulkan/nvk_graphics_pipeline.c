@@ -89,7 +89,6 @@ static void
 emit_pipeline_cb_state(struct nv_push *p,
                        const struct vk_color_blend_state *cb)
 {
-   P_IMMD(p, NV9097, SET_BLEND_STATE_PER_TARGET, ENABLE_TRUE);
 }
 
 static void
