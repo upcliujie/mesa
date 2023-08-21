@@ -31,6 +31,8 @@ struct nvk_transform_feedback_state {
 };
 
 struct nvk_shader {
+   struct vk_object_base base;
+
    gl_shader_stage stage;
 
    uint8_t *code_ptr;
@@ -82,8 +84,13 @@ struct nvk_shader {
    } cp;
 
    struct nvk_transform_feedback_state *xfb;
+
+   unsigned char *temp_shader_binary;
+   size_t temp_shader_binary_size;
 };
 
+VK_DEFINE_NONDISP_HANDLE_CASTS(nvk_shader, base, VkShaderEXT,
+                               VK_OBJECT_TYPE_SHADER_EXT)
 static inline uint64_t
 nvk_shader_address(const struct nvk_shader *shader)
 {

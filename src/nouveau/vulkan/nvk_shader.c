@@ -9,6 +9,7 @@
 
 #include "nouveau_bo.h"
 #include "nouveau_context.h"
+#include "vk_nir.h"
 #include "vk_nir_convert_ycbcr.h"
 #include "vk_pipeline.h"
 #include "vk_shader_module.h"
@@ -1241,4 +1242,197 @@ nvk_shader_upload(struct nvk_device *dev, struct nvk_shader *shader)
    free(data);
 
    return result;
+}
+
+static VkResult nvk_create_spirv_shader(struct nvk_device *dev,
+                                        const VkShaderCreateInfoEXT *pCreateInfo,
+                                        const VkAllocationCallbacks *pAllocator,
+                                        VkShaderEXT *pShader)
+{
+   struct nvk_physical_device *pdev = nvk_device_physical(dev);
+
+   bool is_binary = pCreateInfo->codeType == VK_SHADER_CODE_TYPE_BINARY_EXT;
+   const uint32_t *spirv_code = is_binary ? pCreateInfo->pCode+20 :
+                                                 pCreateInfo->pCode;
+   const size_t spirv_code_size = is_binary ? pCreateInfo->codeSize-20 :
+                                              pCreateInfo->codeSize;
+
+   const gl_shader_stage stage = vk_to_mesa_shader_stage(pCreateInfo->stage);
+   struct vk_pipeline_robustness_state rs;
+   vk_pipeline_robustness_state_fill(&dev->vk, &rs, NULL, NULL);
+
+   const nir_shader_compiler_options *nir_options =
+      nvk_physical_device_nir_options(pdev, stage);
+   const struct spirv_to_nir_options spirv_options =
+      nvk_physical_device_spirv_options(pdev, &rs);
+
+   assert(vk_spirv_version(spirv_code, spirv_code_size) <= 0x10600);
+   // TODO: do better, as this is copied from vk common
+   nir_shader *nir = vk_spirv_to_nir(&dev->vk, spirv_code, spirv_code_size,
+                                     stage, pCreateInfo->pName,
+                                     stage == MESA_SHADER_COMPUTE ? SUBGROUP_SIZE_FULL_SUBGROUPS : SUBGROUP_SIZE_API_CONSTANT,
+                                     pCreateInfo->pSpecializationInfo,
+                                     &spirv_options, nir_options, NULL);
+
+   if (nir == NULL) {
+      return vk_errorf(dev, VK_ERROR_UNKNOWN, "spirv_to_nir_failed");
+   }
+
+   // no need to call merge tess info because all execution modes must be in tess
+
+   // TODO: check for null
+   struct vk_descriptor_set_layout *set_layouts[VK_MESA_PIPELINE_LAYOUT_MAX_SETS];
+   for (uint32_t i = 0; i < pCreateInfo->setLayoutCount; ++i) {
+      VK_FROM_HANDLE(vk_descriptor_set_layout, layout, pCreateInfo->pSetLayouts[i]);
+      set_layouts[i] = layout;
+   }
+
+   // TODO multiview
+   nvk_lower_nir(dev, nir, &rs, false, set_layouts, pCreateInfo->setLayoutCount);
+
+   struct nvk_shader *shader;
+   VkResult result = VK_SUCCESS;
+
+   shader = vk_object_zalloc(&dev->vk, pAllocator, sizeof(*shader),
+                             VK_OBJECT_TYPE_SHADER_EXT);
+   // TODO nir leak
+   if (shader == NULL) {
+      return vk_error(dev, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+
+   // populate nvk_fs_key
+   struct nvk_fs_key *fs_key = NULL;
+   result = nvk_compile_nir(pdev, nir, fs_key, shader);
+   ralloc_free(nir);
+
+   if (result != VK_SUCCESS) {
+      goto fail;
+   }
+
+   result = nvk_shader_upload(dev, shader);
+   if (result != VK_SUCCESS) {
+      goto fail;
+   }
+
+   *pShader = nvk_shader_to_handle(shader);
+
+   unsigned char key[20];
+   struct mesa_sha1 sha1_ctx;
+   _mesa_sha1_init(&sha1_ctx);
+   _mesa_sha1_update(&sha1_ctx, spirv_code, spirv_code_size);
+   _mesa_sha1_final(&sha1_ctx, key);
+
+   shader->temp_shader_binary_size = sizeof(key) + spirv_code_size;
+   shader->temp_shader_binary = vk_zalloc(&dev->vk.alloc,
+                                          shader->temp_shader_binary_size, 16,
+                                          VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
+   memcpy(shader->temp_shader_binary, key, sizeof(key));
+   memcpy(shader->temp_shader_binary+sizeof(key), spirv_code, spirv_code_size);
+
+   return VK_SUCCESS;
+
+fail:
+   vk_object_free(&dev->vk, pAllocator, shader);
+   return result;
+}
+
+static bool
+check_shader_binary_compatibility(const VkShaderCreateInfoEXT *info)
+{
+   const unsigned char *binary = info->pCode;
+   const size_t size = info->codeSize;
+
+   unsigned char key[20];
+   if (size <= sizeof(key)) {
+      return false;
+   }
+
+   const unsigned char *spirv_code = binary+sizeof(key);
+   size_t spirv_code_size = size-sizeof(key);
+
+   struct mesa_sha1 sha1_ctx;
+   _mesa_sha1_init(&sha1_ctx);
+   _mesa_sha1_update(&sha1_ctx, spirv_code, spirv_code_size);
+   _mesa_sha1_final(&sha1_ctx, key);
+
+   return !memcmp(key, binary, sizeof(key));
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_CreateShadersEXT(VkDevice _device, uint32_t createInfoCount,
+                     const VkShaderCreateInfoEXT *pCreateInfos,
+                     const VkAllocationCallbacks *pAllocator,
+                     VkShaderEXT *pShaders)
+{
+   VK_FROM_HANDLE(nvk_device, dev, _device);
+   VkResult result = VK_SUCCESS;
+
+   uint32_t i = 0;
+   for (; i < createInfoCount; i++) {
+      // check if binary (spirv) is compatible
+      if (pCreateInfos[i].codeType == VK_SHADER_CODE_TYPE_BINARY_EXT &&
+          !check_shader_binary_compatibility(&pCreateInfos[i])) {
+         result = VK_ERROR_INCOMPATIBLE_SHADER_BINARY_EXT;
+         pShaders[i] = VK_NULL_HANDLE;
+         break;
+      }
+
+      VkResult r = nvk_create_spirv_shader(dev, &pCreateInfos[i],
+            pAllocator, &pShaders[i]);
+
+      /*
+       *  When this function returns, whether or not it succeeds,
+       *  it is guaranteed that every element of pShaders will have been
+       *  overwritten by either VK_NULL_HANDLE or a valid VkShaderEXT handle.
+
+       *  This means that whenever shader creation fails, the application can
+       *  determine which shader the returned error pertains to by locating
+       *  the first VK_NULL_HANDLE element in pShaders.
+       *  It also means that an application can reliably clean up from a
+       *  failed call by iterating over the pShaders array and destroying
+       *  every element that is not VK_NULL_HANDLE.
+       */
+
+      if (r != VK_SUCCESS) {
+         result = r;
+         pShaders[i] = VK_NULL_HANDLE;
+         break;
+      }
+   }
+
+   for (; i < createInfoCount; ++i)
+      pShaders[i] = VK_NULL_HANDLE;
+
+   return result;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_DestroyShaderEXT(VkDevice device, VkShaderEXT shader,
+                     const VkAllocationCallbacks *pAllocator)
+{
+   // TODO
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_GetShaderBinaryDataEXT(VkDevice device, VkShaderEXT _shader,
+                           size_t *pDataSize, void *pData)
+{
+   assert(pDataSize);
+   VK_FROM_HANDLE(nvk_shader, shader, _shader);
+
+   if (pData == NULL) {
+      *pDataSize = shader->temp_shader_binary_size;
+      return VK_SUCCESS;
+   } else {
+      if (*pDataSize < shader->temp_shader_binary_size) {
+         *pDataSize = 0;
+         return VK_INCOMPLETE;
+      } else {
+         memcpy(pData, shader->temp_shader_binary,
+                shader->temp_shader_binary_size);
+         *pDataSize = shader->temp_shader_binary_size;
+         return VK_SUCCESS;
+      }
+   }
 }
