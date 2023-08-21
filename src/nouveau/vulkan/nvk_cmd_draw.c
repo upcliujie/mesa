@@ -2727,3 +2727,80 @@ nvk_CmdEndConditionalRenderingEXT(VkCommandBuffer commandBuffer)
    P_NV90C0_SET_RENDER_ENABLE_B(p, 0);
    P_NV90C0_SET_RENDER_ENABLE_C(p, MODE_TRUE);
 }
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetViewportWScalingEnableNV(VkCommandBuffer commandBuffer,
+                                   VkBool32 viewportWScalingEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageReductionModeNV(
+      VkCommandBuffer commandBuffer,
+      VkCoverageReductionModeNV coverageReductionMode)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageToColorEnableNV(VkCommandBuffer commandBuffer,
+                                  VkBool32 coverageToColorEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageToColorLocationNV(VkCommandBuffer commandBuffer,
+                                    uint32_t coverageToColorLocation)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageModulationModeNV(
+      VkCommandBuffer commandBuffer,
+      VkCoverageModulationModeNV coverageModulationMode)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageModulationTableEnableNV(
+      VkCommandBuffer commandBuffer,
+      VkBool32 coverageModulationTableEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageModulationTableNV(VkCommandBuffer commandBuffer,
+                                    uint32_t coverageModulationTableCount,
+                                    const float* pCoverageModulationTable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetRepresentativeFragmentTestEnableNV(
+      VkCommandBuffer commandBuffer,
+      VkBool32 representativeFragmentTestEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetShadingRateImageEnableNV(VkCommandBuffer commandBuffer,
+                                   VkBool32 shadingRateImageEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetViewportSwizzleNV(VkCommandBuffer commandBuffer,
+                            uint32_t firstViewport,
+                            uint32_t viewportCount,
+                            const VkViewportSwizzleNV* pViewportSwizzles)
+{
+   nvk_stub();
+}
