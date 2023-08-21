@@ -63,10 +63,6 @@ static void
 emit_pipeline_ms_state(struct nv_push *p,
                        const struct vk_multisample_state *ms)
 {
-   P_IMMD(p, NV9097, SET_ANTI_ALIAS_ALPHA_CONTROL, {
-      .alpha_to_coverage   = ms->alpha_to_coverage_enable,
-      .alpha_to_one        = ms->alpha_to_one_enable,
-   });
 }
 
 static float
