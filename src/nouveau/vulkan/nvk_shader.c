@@ -1459,9 +1459,9 @@ static void nvk_cmd_bind_empty_shader(struct nvk_cmd_buffer *cmd,
    });
 }
 
-static void nvk_cmd_bind_shader(struct nvk_cmd_buffer *cmd,
-                                gl_shader_stage stage,
-                                struct nvk_shader *shader)
+static void nvk_cmd_bind_graphics_shader(struct nvk_cmd_buffer *cmd,
+                                         gl_shader_stage stage,
+                                         struct nvk_shader *shader)
 {
    struct nv_push *p = nvk_cmd_buffer_push(cmd, 16);
    assert(shader->upload_size > 0);
@@ -1540,6 +1540,13 @@ static void nvk_cmd_bind_shader(struct nvk_cmd_buffer *cmd,
    }
 }
 
+static void nvk_cmd_bind_compute_shader(struct nvk_cmd_buffer *cmd,
+                                        struct nvk_shader *shader)
+{
+   cmd->state.cs.compute_shader = shader;
+}
+
+
 VKAPI_ATTR void VKAPI_CALL
 nvk_CmdBindShadersEXT(VkCommandBuffer commandBuffer, uint32_t stageCount,
                       const VkShaderStageFlagBits* pStages,
@@ -1554,10 +1561,18 @@ nvk_CmdBindShadersEXT(VkCommandBuffer commandBuffer, uint32_t stageCount,
    for (uint32_t i = 0; i < stageCount; ++i) {
       gl_shader_stage stage = vk_to_mesa_shader_stage(pStages[i]);
       if (!pShaders || pShaders[i] == VK_NULL_HANDLE) {
-         nvk_cmd_bind_empty_shader(cmd, stage);
+         if (stage == MESA_SHADER_COMPUTE) {
+            nvk_cmd_bind_compute_shader(cmd, NULL);
+         } else {
+            nvk_cmd_bind_empty_shader(cmd, stage);
+         }
       } else {
          VK_FROM_HANDLE(nvk_shader, shader, pShaders[i]);
-         nvk_cmd_bind_shader(cmd, stage, shader);
+         if (stage == MESA_SHADER_COMPUTE) {
+            nvk_cmd_bind_compute_shader(cmd, shader);
+         } else {
+            nvk_cmd_bind_graphics_shader(cmd, stage, shader);
+         }
       }
    }
 }

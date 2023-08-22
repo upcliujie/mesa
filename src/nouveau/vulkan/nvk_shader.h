@@ -139,4 +139,9 @@ nvk_compile_nir(struct nvk_physical_device *dev, nir_shader *nir,
 
 VkResult
 nvk_shader_upload(struct nvk_device *dev, struct nvk_shader *shader);
+
+void nvk_compute_shader_get_qmd_template(const struct nvk_device *dev,
+                                         const struct nvk_shader *shader,
+                                         uint32_t qmd[64]);
+
 #endif

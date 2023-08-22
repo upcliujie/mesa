@@ -102,6 +102,7 @@ struct nvk_graphics_state {
 
 struct nvk_compute_state {
    struct nvk_compute_pipeline *pipeline;
+   struct nvk_shader *compute_shader;
    struct nvk_descriptor_state descriptors;
 };
 

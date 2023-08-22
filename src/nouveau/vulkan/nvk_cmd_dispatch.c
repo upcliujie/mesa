@@ -117,14 +117,14 @@ nvk_cmd_bind_compute_pipeline(struct nvk_cmd_buffer *cmd,
                               struct nvk_compute_pipeline *pipeline)
 {
    cmd->state.cs.pipeline = pipeline;
+   cmd->state.cs.compute_shader = &pipeline->base.shaders[MESA_SHADER_COMPUTE];
 }
 
 static uint32_t
 nvk_compute_local_size(struct nvk_cmd_buffer *cmd)
 {
-   const struct nvk_compute_pipeline *pipeline = cmd->state.cs.pipeline;
-   const struct nvk_shader *shader =
-      &pipeline->base.shaders[MESA_SHADER_COMPUTE];
+   assert(cmd->state.cs.compute_shader);
+   const struct nvk_shader *shader = cmd->state.cs.compute_shader;
 
    return shader->cp.block_size[0] *
           shader->cp.block_size[1] *
@@ -135,7 +135,7 @@ static uint64_t
 nvk_flush_compute_state(struct nvk_cmd_buffer *cmd,
                         uint64_t *root_desc_addr_out)
 {
-   const struct nvk_compute_pipeline *pipeline = cmd->state.cs.pipeline;
+   const struct nvk_shader *shader = cmd->state.cs.compute_shader;;
    const struct nvk_device *dev = nvk_cmd_buffer_device(cmd);
    struct nvk_descriptor_state *desc = &cmd->state.cs.descriptors;
    VkResult result;
@@ -162,7 +162,7 @@ nvk_flush_compute_state(struct nvk_cmd_buffer *cmd,
 
    uint32_t qmd[128];
    memset(qmd, 0, sizeof(qmd));
-   memcpy(qmd, pipeline->qmd_template, sizeof(pipeline->qmd_template));
+   nvk_compute_shader_get_qmd_template(dev, shader, qmd);
 
    if (dev->pdev->info.cls_compute >= AMPERE_COMPUTE_A) {
       nvc6c0_qmd_set_dispatch_size(nvk_cmd_buffer_device(cmd), qmd,
