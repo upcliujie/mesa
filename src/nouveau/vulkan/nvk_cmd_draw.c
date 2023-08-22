@@ -1537,24 +1537,31 @@ nvk_flush_cb_state(struct nvk_cmd_buffer *cmd)
       P_IMMD(p, NV9097, SET_LOGIC_OP_FUNC, func);
    }
 
-   /* MESA_VK_DYNAMIC_CB_COLOR_WRITE_ENABLES */
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_WRITE_MASKS) ||
+       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_COLOR_WRITE_ENABLES)) {
+      bool dependant_color_masks = true;
+      const uint8_t first_write_mask = dyn->cb.attachments[0].write_mask;
+      const bool first_write_enabled =
+         (dyn->cb.color_write_enables & BITFIELD_BIT(0)) != 0;
 
-   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_WRITE_MASKS)) {
-      bool indep_color_masks = true;
       for (uint8_t a = 0; a < dyn->cb.attachment_count; ++a) {
          const struct vk_color_blend_attachment_state *att =
             &dyn->cb.attachments[a];
+         const bool write_enable =
+            (dyn->cb.color_write_enables & BITFIELD_BIT(a)) != 0;
          P_IMMD(p, NV9097, SET_CT_WRITE(a), {
-            .r_enable = (att->write_mask & BITFIELD_BIT(0)) != 0,
-            .g_enable = (att->write_mask & BITFIELD_BIT(1)) != 0,
-            .b_enable = (att->write_mask & BITFIELD_BIT(2)) != 0,
-            .a_enable = (att->write_mask & BITFIELD_BIT(3)) != 0,
+            .r_enable = write_enable && (att->write_mask & BITFIELD_BIT(0)) != 0,
+            .g_enable = write_enable && (att->write_mask & BITFIELD_BIT(1)) != 0,
+            .b_enable = write_enable && (att->write_mask & BITFIELD_BIT(2)) != 0,
+            .a_enable = write_enable && (att->write_mask & BITFIELD_BIT(3)) != 0,
          });
 
-         if (att->write_mask != dyn->cb.attachments[0].write_mask)
-            indep_color_masks = false;
+         if (att->write_mask != first_write_mask ||
+             write_enable != first_write_enabled) {
+            dependant_color_masks = false;
+         }
       }
-      P_IMMD(p, NV9097, SET_SINGLE_CT_WRITE_CONTROL, indep_color_masks);
+      P_IMMD(p, NV9097, SET_SINGLE_CT_WRITE_CONTROL, dependant_color_masks);
    }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_ENABLES)) {
