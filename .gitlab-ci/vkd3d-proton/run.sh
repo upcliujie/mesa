@@ -52,9 +52,10 @@ fi
 
 quiet printf "%s\n" "Running vkd3d-proton testsuite..."
 
-set +e
-if ! /vkd3d-proton-tests/x64/bin/d3d12 > "$RESULTS/vkd3d-proton.log";
+pushd /vkd3d-proton-tests
+if ! tests/test-runner.sh --jobs "${FDO_CI_CONCURRENT:-4}" x64/bin/d3d12 > "$RESULTS/vkd3d-proton.log"
 then
+    popd
     error printf "%s\n" "Failed, see vkd3d-proton.log!"
 
     # Collect all the failures
@@ -78,6 +79,8 @@ then
     fi
 
     exit 1
+else
+    popd
 fi
 
 printf "%s\n" "vkd3d-proton execution: SUCCESS"
