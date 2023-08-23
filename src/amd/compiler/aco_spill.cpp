@@ -1521,21 +1521,21 @@ spill_vgpr(spill_ctx& ctx, Block& block, std::vector<aco_ptr<Instruction>>& inst
          Temp elem = split->definitions[i].getTemp();
          if (ctx.program->gfx_level >= GFX9) {
             bld.scratch(aco_opcode::scratch_store_dword, Operand(v1), ctx.scratch_rsrc, elem,
-                        offset, memory_sync_info(storage_vgpr_spill, semantic_private));
+                        offset, memory_sync_info(storage_vgpr_spill));
          } else {
             Instruction* instr =
                bld.mubuf(aco_opcode::buffer_store_dword, ctx.scratch_rsrc, Operand(v1),
                          ctx.program->scratch_offset, elem, offset, false, true);
-            instr->mubuf().sync = memory_sync_info(storage_vgpr_spill, semantic_private);
+            instr->mubuf().sync = memory_sync_info(storage_vgpr_spill);
          }
       }
    } else if (ctx.program->gfx_level >= GFX9) {
       bld.scratch(aco_opcode::scratch_store_dword, Operand(v1), ctx.scratch_rsrc, temp, offset,
-                  memory_sync_info(storage_vgpr_spill, semantic_private));
+                  memory_sync_info(storage_vgpr_spill));
    } else {
       Instruction* instr = bld.mubuf(aco_opcode::buffer_store_dword, ctx.scratch_rsrc, Operand(v1),
                                      ctx.program->scratch_offset, temp, offset, false, true);
-      instr->mubuf().sync = memory_sync_info(storage_vgpr_spill, semantic_private);
+      instr->mubuf().sync = memory_sync_info(storage_vgpr_spill);
    }
 }
 
