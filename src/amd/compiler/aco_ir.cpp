@@ -1334,37 +1334,6 @@ get_op_fixed_to_def(Instruction* instr)
 }
 
 bool
-dealloc_vgprs(Program* program)
-{
-   if (program->gfx_level < GFX11)
-      return false;
-
-   /* skip if deallocating VGPRs won't increase occupancy */
-   uint16_t max_waves = program->dev.max_wave64_per_simd * (64 / program->wave_size);
-   max_waves = max_suitable_waves(program, max_waves);
-   if (program->max_reg_demand.vgpr <= get_addr_vgpr_from_waves(program, max_waves))
-      return false;
-
-   /* sendmsg(dealloc_vgprs) releases scratch, so this isn't safe if there is a in-progress scratch
-    * store. */
-   if (uses_scratch(program))
-      return false;
-
-   Block& block = program->blocks.back();
-
-   /* don't bother checking if there is a pending VMEM store or export: there almost always is */
-   Builder bld(program);
-   if (!block.instructions.empty() && block.instructions.back()->opcode == aco_opcode::s_endpgm) {
-      bld.reset(&block.instructions, block.instructions.begin() + (block.instructions.size() - 1));
-      /* Due to a hazard, an s_nop is needed before "s_sendmsg sendmsg_dealloc_vgprs". */
-      bld.sopp(aco_opcode::s_nop, -1, 0);
-      bld.sopp(aco_opcode::s_sendmsg, -1, sendmsg_dealloc_vgprs);
-   }
-
-   return true;
-}
-
-bool
 Instruction::isTrans() const noexcept
 {
    return instr_info.classes[(int)opcode] == instr_class::valu_transcendental32 ||

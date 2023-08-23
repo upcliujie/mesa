@@ -2258,7 +2258,6 @@ void lower_to_hw_instr(Program* program);
 void schedule_program(Program* program, live& live_vars);
 void spill(Program* program, live& live_vars);
 void insert_wait_states(Program* program);
-bool dealloc_vgprs(Program* program);
 void insert_NOPs(Program* program);
 void form_hard_clauses(Program* program);
 unsigned emit_program(Program* program, std::vector<uint32_t>& code,

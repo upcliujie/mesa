@@ -986,6 +986,34 @@ emit_delay_alu(wait_ctx& ctx, std::vector<aco_ptr<Instruction>>& instructions,
    delay = alu_delay_info();
 }
 
+bool
+should_insert_dealloc_vgpr(Program* program)
+{
+   if (program->gfx_level < GFX11)
+      return false;
+
+   /* skip if deallocating VGPRs won't increase occupancy */
+   uint16_t max_waves = program->dev.max_wave64_per_simd * (64 / program->wave_size);
+   max_waves = max_suitable_waves(program, max_waves);
+   if (program->max_reg_demand.vgpr <= get_addr_vgpr_from_waves(program, max_waves))
+      return false;
+
+   /* sendmsg(dealloc_vgprs) releases scratch, so this isn't safe if there is a in-progress scratch
+    * store. */
+   if (uses_scratch(program))
+      return false;
+
+   return true;
+}
+
+void
+insert_dealloc_vgpr(Builder& bld)
+{
+   /* Due to a hazard, an s_nop is needed before "s_sendmsg sendmsg_dealloc_vgprs". */
+   bld.sopp(aco_opcode::s_nop, -1, 0);
+   bld.sopp(aco_opcode::s_sendmsg, -1, sendmsg_dealloc_vgprs);
+}
+
 void
 handle_block(Program* program, Block& block, wait_ctx& ctx)
 {
@@ -1033,6 +1061,13 @@ handle_block(Program* program, Block& block, wait_ctx& ctx)
    if (!queued_delay.empty())
       emit_delay_alu(ctx, new_instructions, queued_delay);
 
+   if (!new_instructions.empty() && new_instructions.back()->opcode == aco_opcode::s_endpgm &&
+       should_insert_dealloc_vgpr(program)) {
+      Builder bld(program);
+      bld.reset(&new_instructions, std::prev(new_instructions.end()));
+      insert_dealloc_vgpr(bld);
+   }
+
    block.instructions.swap(new_instructions);
 }
 
@@ -1067,6 +1102,11 @@ insert_wait_states(Program* program)
           * not possible to join it with its predecessors this way.
           * We emit all required waits when emitting the discard block.
           */
+         if (should_insert_dealloc_vgpr(program)) {
+            Builder bld(program);
+            bld.reset(&current.instructions, std::prev(current.instructions.end()));
+            insert_dealloc_vgpr(bld);
+         }
          continue;
       }
 
