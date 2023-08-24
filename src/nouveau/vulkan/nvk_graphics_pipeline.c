@@ -16,24 +16,6 @@
 #include "nvk_clc397.h"
 
 static void
-emit_pipeline_ts_state(struct nv_push *p,
-                       const struct vk_tessellation_state *ts)
-{
-}
-
-static void
-emit_pipeline_vp_state(struct nv_push *p,
-                       const struct vk_viewport_state *vp)
-{
-}
-
-static void
-emit_pipeline_rs_state(struct nv_push *p,
-                       const struct vk_rasterization_state *rs)
-{
-}
-
-static void
 nvk_populate_fs_key(struct nvk_fs_key *key,
                     const struct vk_multisample_state *ms)
 {
@@ -47,12 +29,6 @@ nvk_populate_fs_key(struct nvk_fs_key *key,
       key->force_per_sample = true;
 }
 
-static void
-emit_pipeline_ms_state(struct nv_push *p,
-                       const struct vk_multisample_state *ms)
-{
-}
-
 static float
 calculate_min_sample_shading(const struct vk_multisample_state *ms,
                              bool force_max_samples)
@@ -60,13 +36,6 @@ calculate_min_sample_shading(const struct vk_multisample_state *ms,
    const float min_sample_shading = force_max_samples ? 1 :
       (ms->sample_shading_enable ? CLAMP(ms->min_sample_shading, 0, 1) : 0);
    return min_sample_shading;
-}
-
-
-static void
-emit_pipeline_cb_state(struct nv_push *p,
-                       const struct vk_color_blend_state *cb)
-{
 }
 
 static void
@@ -361,12 +330,6 @@ nvk_graphics_pipeline_create(struct nvk_device *dev,
    if (last_geom->xfb) {
       emit_pipeline_xfb_state(&push, last_geom->xfb);
    }
-
-   if (state.ts) emit_pipeline_ts_state(&push, state.ts);
-   if (state.vp) emit_pipeline_vp_state(&push, state.vp);
-   if (state.rs) emit_pipeline_rs_state(&push, state.rs);
-   if (state.ms) emit_pipeline_ms_state(&push, state.ms);
-   if (state.cb) emit_pipeline_cb_state(&push, state.cb);
 
    if (state.ms) {
       const float s = calculate_min_sample_shading(state.ms, force_max_samples);
