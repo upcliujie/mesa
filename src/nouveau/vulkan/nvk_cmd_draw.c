@@ -1122,7 +1122,7 @@ vk_to_nv9097_provoking_vertex(VkProvokingVertexModeEXT vk_mode)
 static void
 nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
 {
-   struct nv_push *p = nvk_cmd_buffer_push(cmd, 36);
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 38);
 
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
@@ -1228,6 +1228,9 @@ nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
          .pattern = dyn->rs.line.stipple.pattern,
       });
    }
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_RASTERIZATION_STREAM))
+      P_IMMD(p, NV9097, SET_RASTER_INPUT, dyn->rs.rasterization_stream);
 }
 
 static VkSampleLocationEXT

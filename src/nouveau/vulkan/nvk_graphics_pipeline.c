@@ -31,8 +31,6 @@ static void
 emit_pipeline_rs_state(struct nv_push *p,
                        const struct vk_rasterization_state *rs)
 {
-
-   P_IMMD(p, NV9097, SET_RASTER_INPUT, rs->rasterization_stream);
 }
 
 static void
