@@ -2455,11 +2455,13 @@ zink_set_primitive_emulation_keys(struct zink_context *ctx)
                enum mesa_prim prim = ctx->gfx_pipeline_state.gfx_prim_mode;
                if (prev_vertex_stage == MESA_SHADER_TESS_EVAL)
                   prim = zink_tess_prim_type(ctx->gfx_stages[MESA_SHADER_TESS_EVAL]);
+               bool emulate_edgeflags = lower_edge_flags &&
+                                        !!nir_find_variable_with_location(prev_stage, nir_var_shader_out, VARYING_SLOT_EDGE);
                nir = nir_create_passthrough_gs(
                   &screen->nir_options,
                   prev_stage,
                   prim,
-                  lower_edge_flags,
+                  emulate_edgeflags,
                   lower_line_stipple || lower_quad_prim);
             }
             zink_lower_system_values_to_inlined_uniforms(nir);
