@@ -598,6 +598,9 @@ nvk_get_device_properties(const struct nvk_instance *instance,
       .sampleLocationSubPixelBits = 4,
       .variableSampleLocations = true,
 
+      /* VK_EXT_shader_object */
+      .shaderBinaryVersion = 0,
+
       /* VK_EXT_transform_feedback */
       .maxTransformFeedbackStreams = 4,
       .maxTransformFeedbackBuffers = 4,
@@ -632,6 +635,9 @@ nvk_get_device_properties(const struct nvk_instance *instance,
    snprintf(properties->driverName, VK_MAX_DRIVER_NAME_SIZE, "NVK");
    snprintf(properties->driverInfo, VK_MAX_DRIVER_INFO_SIZE,
             "Mesa " PACKAGE_VERSION MESA_GIT_SHA1);
+
+   /* VK_EXT_shader_object */
+   memcpy(properties->shaderBinaryUUID, &instance->driver_uuid, VK_UUID_SIZE);
 }
 
 VkResult
