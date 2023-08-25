@@ -998,11 +998,6 @@ should_insert_dealloc_vgpr(Program* program)
    if (program->max_reg_demand.vgpr <= get_addr_vgpr_from_waves(program, max_waves))
       return false;
 
-   /* sendmsg(dealloc_vgprs) releases scratch, so this isn't safe if there is a in-progress scratch
-    * store. */
-   if (uses_scratch(program))
-      return false;
-
    return true;
 }
 
@@ -1056,16 +1051,31 @@ handle_block(Program* program, Block& block, wait_ctx& ctx)
       }
    }
 
+   bool dealloc = !new_instructions.empty() &&
+                  new_instructions.back()->opcode == aco_opcode::s_endpgm &&
+                  should_insert_dealloc_vgpr(program);
+
+   aco_ptr<Instruction> endpgm;
+   if (dealloc) {
+      endpgm = std::move(new_instructions.back());
+      new_instructions.pop_back();
+
+      /* sendmsg(dealloc_vgprs) releases scratch, so this isn't safe if there is a in-progress
+       * scratch store.
+       */
+      memory_sync_info sync(storage_scratch | storage_vgpr_spill, semantic_release, scope_device);
+      perform_barrier(ctx, queued_imm, sync, semantic_release);
+   }
+
    if (!queued_imm.empty())
       emit_waitcnt(ctx, new_instructions, queued_imm);
    if (!queued_delay.empty())
       emit_delay_alu(ctx, new_instructions, queued_delay);
 
-   if (!new_instructions.empty() && new_instructions.back()->opcode == aco_opcode::s_endpgm &&
-       should_insert_dealloc_vgpr(program)) {
-      Builder bld(program);
-      bld.reset(&new_instructions, std::prev(new_instructions.end()));
+   if (dealloc) {
+      Builder bld(program, &new_instructions);
       insert_dealloc_vgpr(bld);
+      bld.insert(std::move(endpgm));
    }
 
    block.instructions.swap(new_instructions);
@@ -1102,7 +1112,7 @@ insert_wait_states(Program* program)
           * not possible to join it with its predecessors this way.
           * We emit all required waits when emitting the discard block.
           */
-         if (should_insert_dealloc_vgpr(program)) {
+         if (should_insert_dealloc_vgpr(program) && !uses_scratch(program)) {
             Builder bld(program);
             bld.reset(&current.instructions, std::prev(current.instructions.end()));
             insert_dealloc_vgpr(bld);
