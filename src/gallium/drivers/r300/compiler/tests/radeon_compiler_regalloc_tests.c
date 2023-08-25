@@ -31,70 +31,69 @@
 #include "rc_test_helpers.h"
 #include "unit_test.h"
 
-static void dummy_allocate_hw_inputs(
-	struct r300_fragment_program_compiler * c,
-	void (*allocate)(void * data, unsigned input, unsigned hwreg),
-	void * mydata)
+static void
+dummy_allocate_hw_inputs(struct r300_fragment_program_compiler *c,
+                         void (*allocate)(void *data, unsigned input,
+                                          unsigned hwreg),
+                         void *mydata)
 {
-	unsigned i;
-	for (i = 0; i < 10; i++) {
-		allocate(mydata, i, i);
-	}
+   unsigned i;
+   for (i = 0; i < 10; i++) {
+      allocate(mydata, i, i);
+   }
 }
 
-static void test_runner_rc_regalloc(
-	struct test_result *result,
-	struct radeon_compiler *c,
-	const char *filename)
+static void
+test_runner_rc_regalloc(struct test_result *result, struct radeon_compiler *c,
+                        const char *filename)
 {
-	struct rc_test_file test_file;
-	unsigned optimizations = 1;
-	unsigned do_full_regalloc = 1;
-	struct rc_instruction *inst;
-	unsigned pass = 1;
+   struct rc_test_file test_file;
+   unsigned optimizations = 1;
+   unsigned do_full_regalloc = 1;
+   struct rc_instruction *inst;
+   unsigned pass = 1;
 
-	test_begin(result);
+   test_begin(result);
 
-	if (!load_program(c, &test_file, filename)) {
-		fprintf(stderr, "Failed to load program\n");
-	}
+   if (!load_program(c, &test_file, filename)) {
+      fprintf(stderr, "Failed to load program\n");
+   }
 
-	rc_pair_translate(c, NULL);
-	rc_pair_schedule(c, &optimizations);
-	rc_pair_remove_dead_sources(c, NULL);
-	rc_pair_regalloc(c, &do_full_regalloc);
+   rc_pair_translate(c, NULL);
+   rc_pair_schedule(c, &optimizations);
+   rc_pair_remove_dead_sources(c, NULL);
+   rc_pair_regalloc(c, &do_full_regalloc);
 
-	for(inst = c->Program.Instructions.Next;
-				inst != &c->Program.Instructions;
-				inst = inst->Next) {
-		if (inst->Type == RC_INSTRUCTION_NORMAL &&
-				inst->U.I.Opcode != RC_OPCODE_BEGIN_TEX) {
-			if (GET_SWZ(inst->U.I.SrcReg[0].Swizzle, 0)
-							!= RC_SWIZZLE_X) {
-				pass = 0;
-			}
-		}
-	}
+   for (inst = c->Program.Instructions.Next; inst != &c->Program.Instructions;
+        inst = inst->Next) {
+      if (inst->Type == RC_INSTRUCTION_NORMAL &&
+          inst->U.I.Opcode != RC_OPCODE_BEGIN_TEX) {
+         if (GET_SWZ(inst->U.I.SrcReg[0].Swizzle, 0) != RC_SWIZZLE_X) {
+            pass = 0;
+         }
+      }
+   }
 
-	test_check(result, pass);
+   test_check(result, pass);
 }
 
-static void tex_1d_swizzle(struct test_result *result)
+static void
+tex_1d_swizzle(struct test_result *result)
 {
-	struct r300_fragment_program_compiler c;
+   struct r300_fragment_program_compiler c;
 
-	memset(&c, 0, sizeof(c));
-	init_compiler(&c.Base, RC_FRAGMENT_PROGRAM, 0, 0);
-	c.AllocateHwInputs = dummy_allocate_hw_inputs;
+   memset(&c, 0, sizeof(c));
+   init_compiler(&c.Base, RC_FRAGMENT_PROGRAM, 0, 0);
+   c.AllocateHwInputs = dummy_allocate_hw_inputs;
 
-	test_runner_rc_regalloc(result, &c.Base, "regalloc_tex_1d_swizzle.test");
+   test_runner_rc_regalloc(result, &c.Base, "regalloc_tex_1d_swizzle.test");
 }
 
-unsigned radeon_compiler_regalloc_run_tests()
+unsigned
+radeon_compiler_regalloc_run_tests()
 {
-	static struct test tests[] = {
-		{"rc_pair_regalloc() => TEX 1D Swizzle - r300", tex_1d_swizzle },
-		{NULL, NULL}
-	};
-	return run_tests(tests);
+   static struct test tests[] = {
+      {"rc_pair_regalloc() => TEX 1D Swizzle - r300", tex_1d_swizzle},
+      {NULL, NULL}};
+   return run_tests(tests);
 }

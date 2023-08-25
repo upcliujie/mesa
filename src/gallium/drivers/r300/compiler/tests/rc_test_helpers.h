@@ -30,42 +30,32 @@
 #include "radeon_compiler.h"
 
 struct rc_test_file {
-	unsigned num_input_lines;
-	char **input;
-	unsigned num_expected_lines;
-	char **expected;
+   unsigned num_input_lines;
+   char **input;
+   unsigned num_expected_lines;
+   char **expected;
 };
 
-int init_rc_normal_src(
-	struct rc_instruction * inst,
-	unsigned int src_index,
-	const char * src_str);
+int init_rc_normal_src(struct rc_instruction *inst, unsigned int src_index,
+                       const char *src_str);
 
-int init_rc_normal_dst(
-	struct rc_instruction * inst,
-	const char * dst_str);
+int init_rc_normal_dst(struct rc_instruction *inst, const char *dst_str);
 
-int parse_rc_normal_instruction(
-	struct rc_instruction * inst,
-	const char * inst_str);
+int parse_rc_normal_instruction(struct rc_instruction *inst,
+                                const char *inst_str);
 
 int parse_constant(unsigned *index, float *data, const char *const_str);
 
-int init_rc_normal_instruction(
-	struct rc_instruction * inst,
-	const char * inst_str);
+int init_rc_normal_instruction(struct rc_instruction *inst,
+                               const char *inst_str);
 
-void add_instruction(struct radeon_compiler *c, const char * inst_string);
+void add_instruction(struct radeon_compiler *c, const char *inst_string);
 
 int add_constant(struct radeon_compiler *c, const char *const_str);
 
-void init_compiler(
-	struct radeon_compiler *c,
-	enum rc_program_type program_type,
-	unsigned is_r500,
-	unsigned is_r400);
+void init_compiler(struct radeon_compiler *c,
+                   enum rc_program_type program_type, unsigned is_r500,
+                   unsigned is_r400);
 
-unsigned load_program(
-	struct radeon_compiler *c,
-	struct rc_test_file *test,
-	const char *filename);
+unsigned load_program(struct radeon_compiler *c, struct rc_test_file *test,
+                      const char *filename);

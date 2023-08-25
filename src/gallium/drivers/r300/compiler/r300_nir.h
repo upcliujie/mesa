@@ -23,8 +23,8 @@
 #ifndef R300_NIR_H
 #define R300_NIR_H
 
-#include "pipe/p_screen.h"
 #include "compiler/nir/nir.h"
+#include "pipe/p_screen.h"
 
 char *r300_finalize_nir(struct pipe_screen *pscreen, void *nir);
 
