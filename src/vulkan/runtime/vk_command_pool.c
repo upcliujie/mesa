@@ -198,7 +198,7 @@ vk_common_AllocateCommandBuffers(VkDevice device,
    VkResult result;
    uint32_t i;
 
-   assert(device == vk_device_to_handle(pool->base.device));
+   assert(vk_device_from_handle(device) == pool->base.device);
 
    for (i = 0; i < pAllocateInfo->commandBufferCount; i++) {
       struct vk_command_buffer *cmd_buffer = vk_command_pool_find_free(pool);
