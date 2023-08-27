@@ -205,6 +205,8 @@ private:
    // tex stuff
    unsigned int getNIRArgCount(TexInstruction::Target&);
 
+   void runOptLoop();
+
    struct nv50_ir_prog_info *info;
    struct nv50_ir_prog_info_out *info_out;
 
@@ -3330,11 +3332,28 @@ Converter::lowerBitSizeCB(const nir_instr *instr, void *data)
    }
 }
 
+void
+Converter::runOptLoop()
+{
+   bool progress;
+   do {
+      progress = false;
+      NIR_PASS(progress, nir, nir_copy_prop);
+      NIR_PASS(progress, nir, nir_opt_remove_phis);
+      NIR_PASS(progress, nir, nir_opt_trivial_continues);
+      NIR_PASS(progress, nir, nir_opt_cse);
+      NIR_PASS(progress, nir, nir_opt_algebraic);
+      NIR_PASS(progress, nir, nir_opt_constant_folding);
+      NIR_PASS(progress, nir, nir_copy_prop);
+      NIR_PASS(progress, nir, nir_opt_dce);
+      NIR_PASS(progress, nir, nir_opt_dead_cf);
+      NIR_PASS(progress, nir, nir_lower_64bit_phis);
+   } while (progress);
+}
+
 bool
 Converter::run()
 {
-   bool progress;
-
    if (prog->dbgFlags & NV50_IR_DEBUG_VERBOSE)
       nir_print_shader(nir, stderr);
 
@@ -3386,15 +3405,6 @@ Converter::run()
 
    NIR_PASS_V(nir, nir_lower_tex, &tex_options);
 
-   nir_lower_mem_access_bit_sizes_options mem_bit_sizes = {};
-   mem_bit_sizes.modes = nir_var_mem_global |
-                         nir_var_mem_constant |
-                         nir_var_mem_ssbo |
-                         nir_var_mem_shared;
-   mem_bit_sizes.callback = Converter::getMemAccessSizeAlign;
-   mem_bit_sizes.cb_data = this;
-   NIR_PASS_V(nir, nir_lower_mem_access_bit_sizes, &mem_bit_sizes);
-
    NIR_PASS_V(nir, nir_lower_load_const_to_scalar);
    NIR_PASS_V(nir, nir_lower_alu_to_scalar, NULL, NULL);
    NIR_PASS_V(nir, nir_lower_phis_to_scalar, false);
@@ -3407,21 +3417,9 @@ Converter::run()
    nir_lower_idiv_options idiv_options = {
       .allow_fp16 = true,
    };
-   NIR_PASS(progress, nir, nir_lower_idiv, &idiv_options);
+   NIR_PASS_V(nir, nir_lower_idiv, &idiv_options);
 
-   do {
-      progress = false;
-      NIR_PASS(progress, nir, nir_copy_prop);
-      NIR_PASS(progress, nir, nir_opt_remove_phis);
-      NIR_PASS(progress, nir, nir_opt_trivial_continues);
-      NIR_PASS(progress, nir, nir_opt_cse);
-      NIR_PASS(progress, nir, nir_opt_algebraic);
-      NIR_PASS(progress, nir, nir_opt_constant_folding);
-      NIR_PASS(progress, nir, nir_copy_prop);
-      NIR_PASS(progress, nir, nir_opt_dce);
-      NIR_PASS(progress, nir, nir_opt_dead_cf);
-      NIR_PASS(progress, nir, nir_lower_64bit_phis);
-   } while (progress);
+   runOptLoop();
 
    /* codegen assumes vec4 alignment for memory */
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
@@ -3429,8 +3427,17 @@ Converter::run()
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_function_temp, nir_address_format_32bit_offset);
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
 
-   mem_bit_sizes.modes = nir_var_shader_temp | nir_var_function_temp;
+   nir_lower_mem_access_bit_sizes_options mem_bit_sizes = {};
+   mem_bit_sizes.modes = nir_var_mem_global |
+                         nir_var_mem_constant |
+                         nir_var_mem_ssbo |
+                         nir_var_mem_shared |
+                         nir_var_shader_temp | nir_var_function_temp;
+   mem_bit_sizes.callback = Converter::getMemAccessSizeAlign;
+   mem_bit_sizes.cb_data = this;
    NIR_PASS_V(nir, nir_lower_mem_access_bit_sizes, &mem_bit_sizes);
+
+   runOptLoop();
 
    NIR_PASS_V(nir, nir_opt_combine_barriers, NULL, NULL);
 
@@ -3445,7 +3452,7 @@ Converter::run()
    if (nir->info.stage == MESA_SHADER_FRAGMENT)
       NIR_PASS_V(nir, nv_nir_move_stores_to_end);
 
-   NIR_PASS(progress, nir, nir_opt_algebraic_late);
+   NIR_PASS_V(nir, nir_opt_algebraic_late);
 
    NIR_PASS_V(nir, nir_lower_bool_to_int32);
    NIR_PASS_V(nir, nir_lower_bit_size, Converter::lowerBitSizeCB, this);
