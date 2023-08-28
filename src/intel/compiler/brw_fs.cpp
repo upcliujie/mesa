@@ -1147,33 +1147,6 @@ fs_visitor::import_uniforms(fs_visitor *v)
    this->uniforms = v->uniforms;
 }
 
-void
-fs_visitor::emit_fragcoord_interpolation(fs_reg wpos)
-{
-   assert(stage == MESA_SHADER_FRAGMENT);
-
-   /* gl_FragCoord.x */
-   bld.MOV(wpos, this->pixel_x);
-   wpos = offset(wpos, bld, 1);
-
-   /* gl_FragCoord.y */
-   bld.MOV(wpos, this->pixel_y);
-   wpos = offset(wpos, bld, 1);
-
-   /* gl_FragCoord.z */
-   if (devinfo->ver >= 6) {
-      bld.MOV(wpos, this->pixel_z);
-   } else {
-      bld.emit(FS_OPCODE_LINTERP, wpos,
-               this->delta_xy[BRW_BARYCENTRIC_PERSPECTIVE_PIXEL],
-               component(interp_reg(VARYING_SLOT_POS, 2), 0));
-   }
-   wpos = offset(wpos, bld, 1);
-
-   /* gl_FragCoord.w: Already set up in emit_interpolation */
-   bld.MOV(wpos, this->wpos_w);
-}
-
 enum brw_barycentric_mode
 brw_barycentric_mode(nir_intrinsic_instr *intr)
 {
@@ -7265,7 +7238,9 @@ fs_visitor::run_fs(bool allow_spilling, bool do_rep_send)
       emit_repclear_shader();
    } else {
       if (nir->info.inputs_read > 0 ||
-          BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_FRAG_COORD) ||
+          BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_PIXEL_COORD) ||
+          BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_FRAG_COORD_Z) ||
+          BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_FRAG_COORD_W) ||
           (nir->info.outputs_read > 0 && !wm_key->coherent_fb_fetch)) {
          if (devinfo->ver < 6)
             emit_interpolation_setup_gfx4();
@@ -7770,12 +7745,13 @@ brw_nir_populate_wm_prog_data(nir_shader *shader,
                            prog_data->coarse_pixel_dispatch != BRW_NEVER;
 
    prog_data->uses_src_w =
-      BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_FRAG_COORD);
+      BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_FRAG_COORD_W);
    prog_data->uses_src_depth =
-      BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_FRAG_COORD) &&
+      BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_FRAG_COORD_Z) &&
       prog_data->coarse_pixel_dispatch != BRW_ALWAYS;
+   /* Note that these coefficients are used for load_frag_coord_z (pixel_z) setup, not w! */
    prog_data->uses_depth_w_coefficients =
-      BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_FRAG_COORD) &&
+      BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_FRAG_COORD_Z) &&
       prog_data->coarse_pixel_dispatch != BRW_NEVER;
 
    calculate_urb_setup(devinfo, key, prog_data, shader, mue_map);

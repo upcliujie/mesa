@@ -173,6 +173,8 @@ fs_visitor::emit_interpolation_setup_gfx4()
    this->pixel_y = vgrf(glsl_type::uint_type);
    this->pixel_x.type = BRW_REGISTER_TYPE_UW;
    this->pixel_y.type = BRW_REGISTER_TYPE_UW;
+   this->uw_pixel_x = this->pixel_x;
+   this->uw_pixel_y = this->pixel_y;
    abld.ADD(this->pixel_x,
             fs_reg(stride(suboffset(g1_uw, 4), 2, 4, 0)),
             fs_reg(brw_imm_v(0x10101010)));
@@ -456,8 +458,8 @@ fs_visitor::emit_interpolation_setup_gfx6()
       break;
    }
 
-   fs_reg uw_pixel_x = abld.vgrf(BRW_REGISTER_TYPE_UW);
-   fs_reg uw_pixel_y = abld.vgrf(BRW_REGISTER_TYPE_UW);
+   this->uw_pixel_x = abld.vgrf(BRW_REGISTER_TYPE_UW);
+   this->uw_pixel_y = abld.vgrf(BRW_REGISTER_TYPE_UW);
 
    for (unsigned i = 0; i < DIV_ROUND_UP(dispatch_width, 16); i++) {
       const fs_builder hbld = abld.group(MIN2(16, dispatch_width), i);

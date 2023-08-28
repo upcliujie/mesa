@@ -3627,7 +3627,29 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
    }
 
    case nir_intrinsic_load_frag_coord:
-      emit_fragcoord_interpolation(dest);
+      unreachable("should be lowered by brw_nir_lower_frag_coord");
+
+   case nir_intrinsic_load_pixel_coord:
+      /* gl_FragCoord.xy: Just load the pixel xy from the payload, or more
+      * complicated emit_interpolation_setup_gfx6 setup
+      */
+      dest = retype(dest, BRW_REGISTER_TYPE_UW);
+      bld.MOV(dest, this->uw_pixel_x);
+      bld.MOV(offset(dest, bld, 1), this->uw_pixel_y);
+      break;
+
+   case nir_intrinsic_load_frag_coord_z:
+      if (devinfo->ver >= 6) {
+         bld.MOV(dest, this->pixel_z);
+      } else {
+         bld.emit(FS_OPCODE_LINTERP, dest,
+                  this->delta_xy[BRW_BARYCENTRIC_PERSPECTIVE_PIXEL],
+                  component(interp_reg(VARYING_SLOT_POS, 2), 0));
+      }
+      break;
+
+   case nir_intrinsic_load_frag_coord_w:
+      bld.MOV(dest, this->wpos_w);
       break;
 
    case nir_intrinsic_load_interpolated_input: {

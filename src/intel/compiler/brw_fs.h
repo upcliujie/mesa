@@ -299,7 +299,6 @@ public:
 
    void emit_dummy_fs();
    void emit_repclear_shader();
-   void emit_fragcoord_interpolation(fs_reg wpos);
    void emit_is_helper_invocation(fs_reg result);
    fs_reg emit_frontfacing_interpolation();
    fs_reg emit_samplepos_setup();
@@ -530,6 +529,8 @@ public:
    bool source_depth_to_render_target;
    bool runtime_check_aads_emit;
 
+   fs_reg uw_pixel_x;
+   fs_reg uw_pixel_y;
    fs_reg pixel_x;
    fs_reg pixel_y;
    fs_reg pixel_z;

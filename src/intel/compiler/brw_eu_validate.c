@@ -1672,7 +1672,6 @@ region_alignment_rules(const struct brw_isa_info *isa,
     * float destination type as well. We emit such instructions from
     *
     *    fs_visitor::emit_interpolation_setup_gfx6
-    *    fs_visitor::emit_fragcoord_interpolation
     *
     * and have for years with no ill effects.
     *
