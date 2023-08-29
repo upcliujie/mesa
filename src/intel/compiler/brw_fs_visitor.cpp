@@ -216,9 +216,6 @@ fs_visitor::emit_interpolation_setup_gfx4()
    this->wpos_w = vgrf(glsl_type::float_type);
    abld.emit(FS_OPCODE_LINTERP, wpos_w, delta_xy,
              component(interp_reg(VARYING_SLOT_POS, 3), 0));
-   /* Compute the pixel 1/W value from wpos.w. */
-   this->pixel_w = vgrf(glsl_type::float_type);
-   abld.emit(SHADER_OPCODE_RCP, this->pixel_w, wpos_w);
 }
 
 static unsigned
@@ -603,9 +600,8 @@ fs_visitor::emit_interpolation_setup_gfx6()
 
    if (wm_prog_data->uses_src_w) {
       abld = bld.annotate("compute pos.w");
-      this->pixel_w = fetch_payload_reg(abld, fs_payload().source_w_reg);
       this->wpos_w = vgrf(glsl_type::float_type);
-      abld.emit(SHADER_OPCODE_RCP, this->wpos_w, this->pixel_w);
+      abld.emit(SHADER_OPCODE_RCP, this->wpos_w, fetch_payload_reg(abld, fs_payload().source_w_reg));
    }
 
    if (wm_key->persample_interp == BRW_SOMETIMES) {

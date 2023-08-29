@@ -3660,8 +3660,6 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       nir_intrinsic_instr *bary_intrinsic =
          nir_instr_as_intrinsic(instr->src[0].ssa->parent_instr);
       nir_intrinsic_op bary_intrin = bary_intrinsic->intrinsic;
-      enum glsl_interp_mode interp_mode =
-         (enum glsl_interp_mode) nir_intrinsic_interp_mode(bary_intrinsic);
       fs_reg dst_xy;
 
       if (bary_intrin == nir_intrinsic_load_barycentric_at_offset ||
@@ -3681,13 +3679,7 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
          interp.type = BRW_REGISTER_TYPE_F;
          dest.type = BRW_REGISTER_TYPE_F;
 
-         if (devinfo->ver < 6 && interp_mode == INTERP_MODE_SMOOTH) {
-            fs_reg tmp = vgrf(glsl_type::float_type);
-            bld.emit(FS_OPCODE_LINTERP, tmp, dst_xy, interp);
-            bld.MUL(offset(dest, bld, i), tmp, this->pixel_w);
-         } else {
-            bld.emit(FS_OPCODE_LINTERP, offset(dest, bld, i), dst_xy, interp);
-         }
+         bld.emit(FS_OPCODE_LINTERP, offset(dest, bld, i), dst_xy, interp);
       }
       break;
    }
