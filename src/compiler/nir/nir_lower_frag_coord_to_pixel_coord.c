@@ -21,8 +21,8 @@ lower(nir_builder *b, nir_intrinsic_instr *intr, UNUSED void *data)
    nir_def *xy = nir_fadd_imm(b, top_left_xy, 0.5);
 
    nir_def *vec = nir_vec4(b, nir_channel(b, xy, 0), nir_channel(b, xy, 1),
-                           nir_load_frag_coord_zw(b, .component = 2),
-                           nir_load_frag_coord_zw(b, .component = 3));
+                           nir_load_frag_coord_z(b),
+                           nir_load_frag_coord_w(b));
    nir_def_rewrite_uses(&intr->def, vec);
    return true;
 }

@@ -22,7 +22,7 @@
 static void
 insert_z_write(nir_builder *b)
 {
-   nir_def *z = nir_load_frag_coord_zw(b, .component = 2);
+   nir_def *z = nir_load_frag_coord_z(b);
 
    nir_store_output(b, z, nir_imm_int(b, 0),
                     .io_semantics.location = FRAG_RESULT_DEPTH,

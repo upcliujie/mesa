@@ -1643,8 +1643,12 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
       bi_mov_i32_to(b, dst, bi_preload(b, 59));
       break;
 
-   case nir_intrinsic_load_frag_coord_zw:
-      bi_emit_load_frag_coord_zw(b, dst, nir_intrinsic_component(instr));
+   case nir_intrinsic_load_frag_coord_z:
+      bi_emit_load_frag_coord_zw(b, dst, 2);
+      break;
+
+   case nir_intrinsic_load_frag_coord_w:
+      bi_emit_load_frag_coord_zw(b, dst, 3);
       break;
 
    case nir_intrinsic_load_converted_output_pan:

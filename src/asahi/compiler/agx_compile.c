@@ -1016,9 +1016,14 @@ agx_emit_intrinsic(agx_builder *b, nir_intrinsic_instr *instr)
             agx_get_sr(b, 16, AGX_SR_THREAD_POSITION_IN_GRID_Y),
          });
 
-   case nir_intrinsic_load_frag_coord_zw: {
-      agx_index cf = agx_get_cf(b->shader, true, false, VARYING_SLOT_POS,
-                                nir_intrinsic_component(instr), 1);
+   case nir_intrinsic_load_frag_coord_z: {
+      agx_index cf = agx_get_cf(b->shader, true, false, VARYING_SLOT_POS, 2, 1);
+
+      return agx_iter_to(b, dst, cf, agx_zero(), 1, AGX_INTERPOLATION_CENTER);
+   }
+
+   case nir_intrinsic_load_frag_coord_w: {
+      agx_index cf = agx_get_cf(b->shader, true, false, VARYING_SLOT_POS, 3, 1);
 
       return agx_iter_to(b, dst, cf, agx_zero(), 1, AGX_INTERPOLATION_CENTER);
    }
