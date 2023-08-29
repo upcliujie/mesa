@@ -3639,13 +3639,7 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       break;
 
    case nir_intrinsic_load_frag_coord_z:
-      if (devinfo->ver >= 6) {
-         bld.MOV(dest, this->pixel_z);
-      } else {
-         bld.emit(FS_OPCODE_LINTERP, dest,
-                  this->delta_xy[BRW_BARYCENTRIC_PERSPECTIVE_PIXEL],
-                  component(interp_reg(VARYING_SLOT_POS, 2), 0));
-      }
+      bld.MOV(dest, this->pixel_z);
       break;
 
    case nir_intrinsic_load_frag_coord_w:
