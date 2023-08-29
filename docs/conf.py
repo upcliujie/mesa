@@ -243,6 +243,7 @@ rst_prolog = '''
 # -- Options for ExtLinks -------------------------------------------------
 
 extlinks = {
+    'repo-raw': ('https://gitlab.freedesktop.org/mesa/mesa/-/%s', None),
     'repo-file': ('https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/%s',
                   '%s'),
     'commit': ('https://gitlab.freedesktop.org/mesa/mesa/-/commit/%s',

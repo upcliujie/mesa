@@ -224,9 +224,7 @@ to perform an interactive rebase over everything since the last release is:
 
    git rebase -i mesa-$(cat VERSION)
 
-Now go to
-`GitLab <https://gitlab.freedesktop.org/mesa/mesa/-/milestones>`__ and
-add the new Mesa version X.Y.
+Now go to :repo-raw:`GitLab <milestones>` and add the new Mesa version X.Y.
 
 Check that there are no distribution breaking changes and revert them if
 needed. For example: files being overwritten on install, etc. Happens
