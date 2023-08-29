@@ -3645,7 +3645,7 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
    case nir_intrinsic_load_frag_coord_w:
       /* Lowered to interpolation pre-gen6. */
       assert(devinfo->ver >= 6);
-      bld.MOV(dest, this->wpos_w);
+      bld.emit(SHADER_OPCODE_RCP, dest, fetch_payload_reg(bld, fs_payload().source_w_reg));
       break;
 
    case nir_intrinsic_load_interpolated_input: {

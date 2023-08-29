@@ -532,7 +532,6 @@ public:
    fs_reg uw_pixel_x;
    fs_reg uw_pixel_y;
    fs_reg pixel_z;
-   fs_reg wpos_w;
    fs_reg delta_xy[BRW_BARYCENTRIC_MODE_COUNT];
    fs_reg final_gs_vertex_count;
    fs_reg control_data_bits;

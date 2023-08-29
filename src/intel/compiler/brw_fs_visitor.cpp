@@ -210,12 +210,6 @@ fs_visitor::emit_interpolation_setup_gfx4()
       this->delta_xy[BRW_BARYCENTRIC_PERSPECTIVE_PIXEL];
 
    abld = bld.annotate("compute pos.w and 1/pos.w");
-   /* Compute wpos.w.  It's always in our setup, since it's needed to
-    * interpolate the other attributes.
-    */
-   this->wpos_w = vgrf(glsl_type::float_type);
-   abld.emit(FS_OPCODE_LINTERP, wpos_w, delta_xy,
-             component(interp_reg(VARYING_SLOT_POS, 3), 0));
 }
 
 static unsigned
@@ -596,12 +590,6 @@ fs_visitor::emit_interpolation_setup_gfx6()
          this->pixel_z = coarse_z;
          break;
       }
-   }
-
-   if (wm_prog_data->uses_src_w) {
-      abld = bld.annotate("compute pos.w");
-      this->wpos_w = vgrf(glsl_type::float_type);
-      abld.emit(SHADER_OPCODE_RCP, this->wpos_w, fetch_payload_reg(abld, fs_payload().source_w_reg));
    }
 
    if (wm_key->persample_interp == BRW_SOMETIMES) {
