@@ -3649,6 +3649,8 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       break;
 
    case nir_intrinsic_load_frag_coord_w:
+      /* Lowered to interpolation pre-gen6. */
+      assert(devinfo->ver >= 6);
       bld.MOV(dest, this->wpos_w);
       break;
 
