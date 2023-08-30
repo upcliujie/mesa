@@ -63,17 +63,24 @@ wp_protos = {
   'presentation-time': 'stable/presentation-time/presentation-time.xml',
   'tearing-control-v1': 'staging/tearing-control/tearing-control-v1.xml',
 }
+
+# Due to Meson issues (bug? misfeature?) a sandbox violation will be generated
+# for Meson < 0.63 when using a wrap here.
+if dep_wl_protocols.type_name() == 'internal' and meson.version().version_compare('< 0.63')
+  error('Meson < 0.63 will always generate an incorrect sandbox violation error when using wayland-protocols as as wrap. Either update Meson or use an installed version of wayland-protocols')
+endif
+
 wp_files = {}
 foreach name, xml : wp_protos
   code = custom_target(
     name + '-protocol.c',
-    input : join_paths(wp_dir, xml),
+    input : wp_dir / xml,
     output : name + '-protocol.c',
     command : [prog_wl_scanner, wl_scanner_arg, '@INPUT@', '@OUTPUT@'],
   )
   header = custom_target(
     name + '-client-protocol.h',
-    input : join_paths(wp_dir, xml),
+    input : wp_dir / xml,
     output : name + '-client-protocol.h',
     command : [prog_wl_scanner, 'client-header', '@INPUT@', '@OUTPUT@'],
   )
