@@ -188,6 +188,26 @@
       when: never
     - !reference [.austriancoder-farm-rules, rules]
 
+.heidelberg-farm-rules:
+  rules:
+    - exists: [ .ci-farms-disabled/heidelberg ]
+      when: never
+    - changes: [ .ci-farms-disabled/heidelberg ]
+      if: '$CI_PIPELINE_SOURCE != "schedule"'
+      when: on_success
+    - changes: [ .ci-farms-disabled/* ]
+      if: '$CI_PIPELINE_SOURCE != "schedule"'
+      when: never
+
+.heidelberg-farm-manual-rules:
+  rules:
+    - exists: [ .ci-farms-disabled/heidelberg ]
+      when: never
+    - changes: [ .ci-farms-disabled/heidelberg ]
+      if: '$CI_PIPELINE_SOURCE != "schedule"'
+      when: never
+    - !reference [.heidelberg-farm-rules, rules]
+
 
 .freedreno-farm-rules:
   rules:

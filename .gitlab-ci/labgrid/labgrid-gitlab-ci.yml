@@ -1,0 +1,42 @@
+.labgrid-test:
+  extends:
+    - .test
+  interruptible: true
+  before_script:
+    - !reference [default, before_script]
+    # Use this instead of gitlab's artifacts download because it hits packet.net
+    # instead of fd.o.  Set FDO_HTTP_CACHE_URI to an http cache for your test lab to
+    # improve it even more (see https://docs.mesa3d.org/ci/bare-metal.html for
+    # setup).
+    - section_start artifacts_download "Downloading artifacts from s3"
+    # Note: Build dir (and thus install) may be dirty due to GIT_STRATEGY
+    - rm -rf install
+    - (set -x; curl -L --retry 4 -f --retry-all-errors --retry-delay 60 ${FDO_HTTP_CACHE_URI:-}https://${PIPELINE_ARTIFACTS_BASE}/${S3_ARTIFACT_NAME}.tar.zst | tar --zstd -x)
+    - section_end artifacts_download
+  variables:
+    GIT_STRATEGY: none
+    ROOTFS: /rootfs-${DEBIAN_ARCH}
+    FDO_HTTP_CACHE_URI: "http://caching-proxy/cache/?uri="
+    # per-job build artifacts
+    JOB_ROOTFS_OVERLAY_PATH: "${JOB_ARTIFACTS_BASE}/job-rootfs-overlay.tar.gz"
+    JOB_RESULTS_PATH: "${JOB_ARTIFACTS_BASE}/results.tar.zst"
+  script:
+    - ./install/labgrid/labgrid-submit.sh
+  tags:
+    - $RUNNER_TAG  # format farm:dtb_name
+
+.labgrid-test:arm64:
+  variables:
+    ARCH: arm64
+    DEBIAN_ARCH: arm64
+    S3_ARTIFACT_NAME: mesa-arm64-default-debugoptimized
+  extends:
+    - .use-debian/arm64_build
+    - .labgrid-test
+    - .use-debian/arm64_test
+  dependencies:
+    - debian-arm64
+  needs:
+    - debian/arm64_test
+    - job: debian-arm64
+      artifacts: false
