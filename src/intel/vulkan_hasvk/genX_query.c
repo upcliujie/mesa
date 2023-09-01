@@ -39,7 +39,6 @@
  *    - GPR 15 for conditional rendering
  */
 #define MI_BUILDER_NUM_ALLOC_GPRS 14
-#define MI_BUILDER_CAN_WRITE_BATCH GFX_VER >= 8
 #define __gen_get_batch_dwords anv_batch_emit_dwords
 #define __gen_address_offset anv_address_add
 #define __gen_get_batch_address(b, a) anv_batch_address(b, a)
