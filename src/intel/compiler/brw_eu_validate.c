@@ -2624,7 +2624,7 @@ brw_validate_instructions(const struct brw_isa_info *isa,
    bool valid = true;
 
    for (int src_offset = start_offset; src_offset < end_offset;) {
-      const brw_inst *inst = assembly + src_offset;
+      const brw_inst *inst = (const brw_inst *)((char *)assembly + src_offset);
       bool is_compact = brw_inst_cmpt_control(devinfo, inst);
       unsigned inst_size = is_compact ? sizeof(brw_compact_inst)
                                       : sizeof(brw_inst);

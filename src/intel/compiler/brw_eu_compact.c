@@ -2511,8 +2511,8 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
    int compacted_count = 0;
    for (int src_offset = 0; src_offset < p->next_insn_offset - start_offset;
         src_offset += sizeof(brw_inst)) {
-      brw_inst *src = store + src_offset;
-      void *dst = store + offset;
+      brw_inst *src = (brw_inst *)((char *)store + src_offset);
+      void *dst = (char *)store + offset;
 
       old_ip[offset / sizeof(brw_compact_inst)] = src_offset / sizeof(brw_inst);
       compacted_counts[src_offset / sizeof(brw_inst)] = compacted_count;
@@ -2536,7 +2536,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
          /* All uncompacted instructions need to be aligned on G45. */
          if ((offset & sizeof(brw_compact_inst)) != 0 &&
              devinfo->platform == INTEL_PLATFORM_G4X) {
-            brw_compact_inst *align = store + offset;
+            brw_compact_inst *align = (brw_compact_inst *)((char *)store + offset);
             memset(align, 0, sizeof(*align));
             brw_compact_inst_set_hw_opcode(
                devinfo, align, brw_opcode_encode(p->isa, BRW_OPCODE_NENOP));
@@ -2546,7 +2546,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
             compacted_counts[src_offset / sizeof(brw_inst)] = compacted_count;
             old_ip[offset / sizeof(brw_compact_inst)] = src_offset / sizeof(brw_inst);
 
-            dst = store + offset;
+            dst = (char *)store + offset;
          }
 
          /* If we didn't compact this instruction, we need to move it down into
@@ -2569,7 +2569,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
    p->next_insn_offset = start_offset + offset;
    for (offset = 0; offset < p->next_insn_offset - start_offset;
         offset = next_offset(devinfo, store, offset)) {
-      brw_inst *insn = store + offset;
+      brw_inst *insn = (brw_inst *)((char *)store + offset);
       int this_old_ip = old_ip[offset / sizeof(brw_compact_inst)];
       int this_compacted_count = compacted_counts[this_old_ip];
 
@@ -2654,7 +2654,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
     * compile passes) parses correctly.
     */
    if (p->next_insn_offset & sizeof(brw_compact_inst)) {
-      brw_compact_inst *align = store + offset;
+      brw_compact_inst *align = (brw_compact_inst *)((char *)store + offset);
       memset(align, 0, sizeof(*align));
       brw_compact_inst_set_hw_opcode(
          devinfo, align, brw_opcode_encode(p->isa, BRW_OPCODE_NOP));

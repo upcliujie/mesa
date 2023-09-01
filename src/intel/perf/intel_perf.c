@@ -1336,27 +1336,27 @@ intel_perf_query_result_accumulate_fields(struct intel_perf_query_result *result
 
       if (field->type == INTEL_PERF_QUERY_FIELD_TYPE_MI_RPC) {
          intel_perf_query_result_read_frequencies(result, devinfo,
-                                                start + field->location,
-                                                end + field->location);
+                                                (const uint32_t *)((char *)start + field->location),
+                                                (const uint32_t *)((char *)end + field->location));
          /* no_oa_accumulate=true is used when doing GL perf queries, we
           * manually parse the OA reports from the OA buffer and subtract
           * unrelated deltas, so don't accumulate the begin/end reports here.
           */
          if (!no_oa_accumulate) {
             intel_perf_query_result_accumulate(result, query,
-                                               start + field->location,
-                                               end + field->location);
+                                               (const uint32_t *)((char *)start + field->location),
+                                               (const uint32_t *)((char *)end + field->location));
          }
       } else {
          uint64_t v0, v1;
 
          if (field->size == 4) {
-            v0 = *(const uint32_t *)(start + field->location);
-            v1 = *(const uint32_t *)(end + field->location);
+            v0 = *(const uint32_t *)((char *)start + field->location);
+            v1 = *(const uint32_t *)((char *)end + field->location);
          } else {
             assert(field->size == 8);
-            v0 = *(const uint64_t *)(start + field->location);
-            v1 = *(const uint64_t *)(end + field->location);
+            v0 = *(const uint64_t *)((char *)start + field->location);
+            v1 = *(const uint64_t *)((char *)end + field->location);
          }
 
          if (field->mask) {
@@ -1390,7 +1390,7 @@ intel_perf_query_result_print_fields(const struct intel_perf_query_info *query,
 
    for (uint32_t r = 0; r < layout->n_fields; r++) {
       const struct intel_perf_query_field *field = &layout->fields[r];
-      const uint32_t *value32 = data + field->location;
+      const uint32_t *value32 = (const uint32_t *)((char *)data + field->location);
 
       switch (field->type) {
       case INTEL_PERF_QUERY_FIELD_TYPE_MI_RPC:

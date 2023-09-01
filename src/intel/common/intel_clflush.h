@@ -32,11 +32,11 @@ static inline void
 intel_clflush_range(void *start, size_t size)
 {
    void *p = (void *) (((uintptr_t) start) & ~CACHELINE_MASK);
-   void *end = start + size;
+   void *end = (char *)start + size;
 
    while (p < end) {
       __builtin_ia32_clflush(p);
-      p += CACHELINE_SIZE;
+      p = (char *)p + CACHELINE_SIZE;
    }
 }
 
@@ -65,7 +65,7 @@ intel_invalidate_range(void *start, size_t size)
     * ("drm: Restore double clflush on the last partial cacheline")
     * and https://bugs.freedesktop.org/show_bug.cgi?id=92845.
     */
-   __builtin_ia32_clflush(start + size - 1);
+   __builtin_ia32_clflush((char *)start + size - 1);
    __builtin_ia32_mfence();
 }
 #endif /* SUPPORT_INTEL_INTEGRATED_GPUS */

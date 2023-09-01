@@ -137,7 +137,7 @@ i965_postprocess_labels()
    LIST_FOR_EACH_ENTRY(tlabel, &target_labels, link) {
       LIST_FOR_EACH_ENTRY_SAFE(ilabel, s, &instr_labels, link) {
          if (!strcmp(tlabel->name, ilabel->name)) {
-            brw_inst *inst = store + ilabel->offset;
+            brw_inst *inst = (brw_inst *)((char *)store + ilabel->offset);
 
             int relative_offset = (tlabel->offset - ilabel->offset) / sizeof(brw_inst);
             relative_offset *= to_bytes_scale;
@@ -343,7 +343,7 @@ int main(int argc, char **argv)
       brw_compact_instructions(p, start_offset, disasm_info);
 
    for (int i = 0; i < nr_insn; i++) {
-      const brw_inst *insn = store + offset;
+      const brw_inst *insn = (const brw_inst *)((char *)store + offset);
       bool compacted = false;
 
       if (compact && brw_inst_cmpt_control(p->devinfo, insn)) {

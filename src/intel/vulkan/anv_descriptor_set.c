@@ -1321,9 +1321,9 @@ anv_descriptor_set_create(struct anv_device *device,
       set->desc_mem.alloc_size = descriptor_buffer_size;
 
       if (pool->host_only)
-         set->desc_mem.map = pool->host_bo + set->desc_mem.offset;
+         set->desc_mem.map = (char *)pool->host_bo + set->desc_mem.offset;
       else
-         set->desc_mem.map = pool->bo->map + set->desc_mem.offset;
+         set->desc_mem.map = (char *)pool->bo->map + set->desc_mem.offset;
 
       set->desc_addr = (struct anv_address) {
          .bo = pool->bo,
@@ -1408,7 +1408,7 @@ anv_descriptor_set_create(struct anv_device *device,
          for (uint32_t b = 0; b < set->buffer_view_count; b++) {
             set->buffer_views[b].general.state = (struct anv_state) {
                .alloc_size = ANV_SURFACE_STATE_SIZE,
-               .map = host_surface_states + b * ANV_SURFACE_STATE_SIZE,
+               .map = (char *)host_surface_states + b * ANV_SURFACE_STATE_SIZE,
             };
          }
       }
@@ -1617,7 +1617,8 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
       .sampler = sampler,
    };
 
-   void *desc_map = set->desc_mem.map + bind_layout->descriptor_offset +
+   void *desc_map = (char *)set->desc_mem.map +
+                    bind_layout->descriptor_offset +
                     element * bind_layout->descriptor_stride;
 
    enum anv_descriptor_data data =
@@ -1671,7 +1672,7 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
    if (data & ANV_DESCRIPTOR_SAMPLER) {
       if (sampler) {
          for (unsigned p = 0; p < sampler->n_planes; p++) {
-            memcpy(desc_map + p * ANV_SAMPLER_STATE_SIZE,
+            memcpy((char *)desc_map + p * ANV_SAMPLER_STATE_SIZE,
                    sampler->state[p], ANV_SAMPLER_STATE_SIZE);
          }
       } else {
@@ -1683,7 +1684,7 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
       unsigned max_plane_count = image_view ? image_view->n_planes : 1;
 
       for (unsigned p = 0; p < max_plane_count; p++) {
-         void *plane_map = desc_map + p * ANV_SURFACE_STATE_SIZE;
+         void *plane_map = (char *)desc_map + p * ANV_SURFACE_STATE_SIZE;
 
          if (image_view) {
             memcpy(plane_map,
@@ -1702,7 +1703,7 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
               sampler ? sampler->n_planes : 1);
 
       for (unsigned p = 0; p < max_plane_count; p++) {
-         void *plane_map = desc_map + p * 2 * ANV_SURFACE_STATE_SIZE;
+         void *plane_map = (char *)desc_map + p * 2 * ANV_SURFACE_STATE_SIZE;
 
          if (image_view) {
             memcpy(plane_map,
@@ -1714,10 +1715,10 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
          }
 
          if (sampler) {
-            memcpy(plane_map + ANV_SURFACE_STATE_SIZE,
+            memcpy((char *)plane_map + ANV_SURFACE_STATE_SIZE,
                    sampler->state[p], ANV_SAMPLER_STATE_SIZE);
          } else {
-            memset(plane_map + ANV_SURFACE_STATE_SIZE, 0,
+            memset((char *)plane_map + ANV_SURFACE_STATE_SIZE, 0,
                    ANV_SAMPLER_STATE_SIZE);
          }
       }
@@ -1763,7 +1764,8 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
       anv_descriptor_data_for_type(device->physical, type) :
       bind_layout->data;
 
-   void *desc_map = set->desc_mem.map + bind_layout->descriptor_offset +
+   void *desc_map = (char *)set->desc_mem.map +
+                    bind_layout->descriptor_offset +
                     element * bind_layout->descriptor_stride;
 
    if (buffer_view == NULL) {
@@ -1851,7 +1853,8 @@ anv_descriptor_set_write_buffer(struct anv_device *device,
       anv_descriptor_data_for_type(device->physical, type) :
       bind_layout->data;
 
-   void *desc_map = set->desc_mem.map + bind_layout->descriptor_offset +
+   void *desc_map = (char *)set->desc_mem.map +
+                    bind_layout->descriptor_offset +
                     element * bind_layout->descriptor_stride;
 
    if (buffer == NULL) {
@@ -1932,9 +1935,9 @@ anv_descriptor_set_write_inline_uniform_data(struct anv_device *device,
 
    assert(bind_layout->data & ANV_DESCRIPTOR_INLINE_UNIFORM);
 
-   void *desc_map = set->desc_mem.map + bind_layout->descriptor_offset;
+   void *desc_map = (char *)set->desc_mem.map + bind_layout->descriptor_offset;
 
-   memcpy(desc_map + offset, data, size);
+   memcpy((char *)desc_map + offset, data, size);
 }
 
 void
@@ -1962,7 +1965,8 @@ anv_descriptor_set_write_acceleration_structure(struct anv_device *device,
    }
    assert(sizeof(desc_data) <= bind_layout->descriptor_stride);
 
-   void *desc_map = set->desc_mem.map + bind_layout->descriptor_offset +
+   void *desc_map = (char *)set->desc_mem.map +
+                    bind_layout->descriptor_offset +
                     element * bind_layout->descriptor_stride;
    memcpy(desc_map, &desc_data, sizeof(desc_data));
 }
@@ -2072,7 +2076,7 @@ void anv_UpdateDescriptorSets(
       if (src_layout->type == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK) {
          anv_descriptor_set_write_inline_uniform_data(device, dst,
                                                       copy->dstBinding,
-                                                      src->desc_mem.map + src_layout->descriptor_offset + copy->srcArrayElement,
+                                                      (char *)src->desc_mem.map + src_layout->descriptor_offset + copy->srcArrayElement,
                                                       copy->dstArrayElement,
                                                       copy->descriptorCount);
          continue;
@@ -2096,10 +2100,10 @@ void anv_UpdateDescriptorSets(
           *    - RENDER_SURFACE_STATE
           *    - SAMPLER_STATE
           */
-         memcpy(dst->desc_mem.map +
+         memcpy((char *)dst->desc_mem.map +
                 dst_layout->descriptor_offset +
                 (copy->dstArrayElement + j) * dst_layout->descriptor_stride,
-                src->desc_mem.map +
+                (char *)src->desc_mem.map +
                 src_layout->descriptor_offset +
                 (copy->srcArrayElement + j) * src_layout->descriptor_stride,
                 copy_element_size);
@@ -2156,8 +2160,8 @@ anv_descriptor_set_write_template(struct anv_device *device,
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
          for (uint32_t j = 0; j < entry->array_count; j++) {
-            const VkDescriptorImageInfo *info =
-               data + entry->offset + j * entry->stride;
+            const VkDescriptorImageInfo *info = (const VkDescriptorImageInfo *)
+               ((char *)data + entry->offset + j * entry->stride);
             anv_descriptor_set_write_image_view(device, set,
                                                 info, entry->type,
                                                 entry->binding,
@@ -2168,8 +2172,8 @@ anv_descriptor_set_write_template(struct anv_device *device,
       case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
       case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
          for (uint32_t j = 0; j < entry->array_count; j++) {
-            const VkBufferView *_bview =
-               data + entry->offset + j * entry->stride;
+            const VkBufferView *_bview = (const VkBufferView *)
+               ((char *)data + entry->offset + j * entry->stride);
             ANV_FROM_HANDLE(anv_buffer_view, bview, *_bview);
 
             anv_descriptor_set_write_buffer_view(device, set,
@@ -2185,8 +2189,8 @@ anv_descriptor_set_write_template(struct anv_device *device,
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
       case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
          for (uint32_t j = 0; j < entry->array_count; j++) {
-            const VkDescriptorBufferInfo *info =
-               data + entry->offset + j * entry->stride;
+            const VkDescriptorBufferInfo *info = (const VkDescriptorBufferInfo *)
+               ((char *)data + entry->offset + j * entry->stride);
             ANV_FROM_HANDLE(anv_buffer, buffer, info->buffer);
 
             anv_descriptor_set_write_buffer(device, set,
@@ -2201,7 +2205,7 @@ anv_descriptor_set_write_template(struct anv_device *device,
       case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK:
          anv_descriptor_set_write_inline_uniform_data(device, set,
                                                       entry->binding,
-                                                      data + entry->offset,
+                                                      (char *)data + entry->offset,
                                                       entry->array_element,
                                                       entry->array_count);
          break;
@@ -2209,7 +2213,7 @@ anv_descriptor_set_write_template(struct anv_device *device,
       case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
          for (uint32_t j = 0; j < entry->array_count; j++) {
             VkAccelerationStructureKHR *accel_obj =
-               (VkAccelerationStructureKHR *)(data + entry->offset + j * entry->stride);
+               (VkAccelerationStructureKHR *)((char *)data + entry->offset + j * entry->stride);
             ANV_FROM_HANDLE(vk_acceleration_structure, accel, *accel_obj);
 
             anv_descriptor_set_write_acceleration_structure(device, set,

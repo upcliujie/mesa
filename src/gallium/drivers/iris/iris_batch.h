@@ -238,7 +238,7 @@ bool iris_batch_syncobj_to_sync_file_fd(struct iris_batch *batch, int *out_fd);
 static inline unsigned
 iris_batch_bytes_used(struct iris_batch *batch)
 {
-   return batch->map_next - batch->map;
+   return (char *)batch->map_next - (char *)batch->map;
 }
 
 /**
@@ -274,7 +274,7 @@ iris_get_command_space(struct iris_batch *batch, unsigned bytes)
    }
    iris_require_command_space(batch, bytes);
    void *map = batch->map_next;
-   batch->map_next += bytes;
+   batch->map_next = (char *)batch->map_next + bytes;
    return map;
 }
 

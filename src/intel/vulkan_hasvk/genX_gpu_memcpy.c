@@ -244,7 +244,7 @@ genX(emit_so_memcpy_fini)(struct anv_memcpy_state *state)
 
    anv_batch_emit(state->batch, GENX(MI_BATCH_BUFFER_END), end);
 
-   if ((state->batch->next - state->batch->start) & 4)
+   if (((char *)state->batch->next - (char *)state->batch->start) & 4)
       anv_batch_emit(state->batch, GENX(MI_NOOP), noop);
 }
 

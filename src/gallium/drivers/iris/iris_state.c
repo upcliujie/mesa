@@ -2672,7 +2672,7 @@ update_surface_state_addrs(struct u_upload_mgr *mgr,
     */
    for (unsigned i = 0; i < surf_state->num_states; i++) {
       *ss_addr = *ss_addr - surf_state->bo_address + bo->address;
-      ss_addr = ((void *) ss_addr) + SURFACE_STATE_ALIGNMENT;
+      ss_addr = (uint64_t *)(((char *) ss_addr) + SURFACE_STATE_ALIGNMENT);
    }
 
    /* Next, upload the updated copies to a GPU buffer. */
@@ -2774,7 +2774,7 @@ fill_surface_states(struct isl_device *isl_dev,
                     uint32_t tile_x_sa,
                     uint32_t tile_y_sa)
 {
-   void *map = surf_state->cpu;
+   char *map = (char *)surf_state->cpu;
    unsigned aux_modes = surf_state->aux_usages;
 
    while (aux_modes) {
@@ -2783,7 +2783,7 @@ fill_surface_states(struct isl_device *isl_dev,
       fill_surface_state(isl_dev, map, res, surf, view, aux_usage,
                          extra_main_offset, tile_x_sa, tile_y_sa);
 
-      map += SURFACE_STATE_ALIGNMENT;
+      map = (char *)map + SURFACE_STATE_ALIGNMENT;
    }
 }
 
@@ -3813,7 +3813,7 @@ upload_sysvals(struct iris_context *ice,
    if (shader->kernel_input_size > 0)
       memcpy(map, grid->input, shader->kernel_input_size);
 
-   uint32_t *sysval_map = map + system_values_start;
+   uint32_t *sysval_map = (uint32_t *)((char *)map + system_values_start);
    for (int i = 0; i < shader->num_system_values; i++) {
       uint32_t sysval = shader->system_values[i];
       uint32_t value = 0;
@@ -5502,7 +5502,8 @@ iris_populate_binding_table(struct iris_context *ice,
    struct iris_shader_state *shs = &ice->state.shaders[stage];
    uint32_t surf_base_offset = GFX_VER < 11 ? binder->bo->address : 0;
 
-   uint32_t *bt_map = binder->map + binder->bt_offset[stage];
+   uint32_t *bt_map =
+    (uint32_t *)((char *)binder->map + binder->bt_offset[stage]);
    int s = 0;
 
    const struct shader_info *info = iris_get_shader_info(ice, stage);

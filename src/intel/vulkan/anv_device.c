@@ -2834,7 +2834,7 @@ anv_device_init_trivial_batch(struct anv_device *device)
    struct anv_batch batch = {
       .start = device->trivial_batch_bo->map,
       .next = device->trivial_batch_bo->map,
-      .end = device->trivial_batch_bo->map + 4096,
+      .end = (char *)device->trivial_batch_bo->map + 4096,
    };
 
    anv_batch_emit(&batch, GFX7_MI_BATCH_BUFFER_END, bbe);
@@ -2842,7 +2842,8 @@ anv_device_init_trivial_batch(struct anv_device *device)
 
 #ifdef SUPPORT_INTEL_INTEGRATED_GPUS
    if (device->physical->memory.need_clflush)
-      intel_clflush_range(batch.start, batch.next - batch.start);
+      intel_clflush_range(batch.start,
+                          (char *)batch.next - (char *)batch.start);
 #endif
 
    return VK_SUCCESS;
@@ -3316,7 +3317,7 @@ VkResult anv_CreateDevice(
    device->workarounds.doom64_images = NULL;
 
    device->rt_uuid_addr = anv_address_add(device->workaround_address, 8);
-   memcpy(device->rt_uuid_addr.bo->map + device->rt_uuid_addr.offset,
+   memcpy((char *)device->rt_uuid_addr.bo->map + device->rt_uuid_addr.offset,
           physical_device->rt_uuid,
           sizeof(physical_device->rt_uuid));
 
@@ -4088,7 +4089,7 @@ VkResult anv_MapMemory2KHR(
    }
 
    if (mem->vk.host_ptr) {
-      *ppData = mem->vk.host_ptr + pMemoryMapInfo->offset;
+      *ppData = (char *)mem->vk.host_ptr + pMemoryMapInfo->offset;
       return VK_SUCCESS;
    }
 
@@ -4144,7 +4145,7 @@ VkResult anv_MapMemory2KHR(
    mem->map = map;
    mem->map_size = map_size;
    mem->map_delta = (offset - map_offset);
-   *ppData = mem->map + mem->map_delta;
+   *ppData = (char *)mem->map + mem->map_delta;
 
    return VK_SUCCESS;
 }
@@ -4191,7 +4192,7 @@ VkResult anv_FlushMappedMemoryRanges(
       if (map_offset >= mem->map_size)
          continue;
 
-      intel_clflush_range(mem->map + map_offset,
+      intel_clflush_range((char *)mem->map + map_offset,
                           MIN2(pMemoryRanges[i].size,
                                mem->map_size - map_offset));
    }
@@ -4219,7 +4220,7 @@ VkResult anv_InvalidateMappedMemoryRanges(
       if (map_offset >= mem->map_size)
          continue;
 
-      intel_invalidate_range(mem->map + map_offset,
+      intel_invalidate_range((char *)mem->map + map_offset,
                              MIN2(pMemoryRanges[i].size,
                                   mem->map_size - map_offset));
    }

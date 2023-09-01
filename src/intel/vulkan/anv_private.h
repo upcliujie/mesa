@@ -541,7 +541,7 @@ anv_address_map(struct anv_address addr)
    if (addr.bo->map == NULL)
       return NULL;
 
-   return addr.bo->map + addr.offset;
+   return (char *)addr.bo->map + addr.offset;
 }
 
 /* Represent a virtual address range */
@@ -1529,7 +1529,7 @@ anv_batch_set_storage(struct anv_batch *batch, struct anv_address addr,
 {
    batch->start_addr = addr;
    batch->next = batch->start = map;
-   batch->end = map + size;
+   batch->end = (char *)map + size;
 }
 
 static inline VkResult

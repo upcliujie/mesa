@@ -239,7 +239,7 @@ aub_file_open(const char *filename)
    close(fd);
 
    file->cursor = file->map;
-   file->end = file->map + sb.st_size;
+   file->end = (char *)file->map + sb.st_size;
 
    return file;
 }
@@ -397,8 +397,8 @@ int main(int argc, char *argv[])
    int consumed;
    while (aub_file_more_stuff(file) &&
           (consumed = aub_read_command(&aub_read, file->cursor,
-                                       file->end - file->cursor)) > 0) {
-      file->cursor += consumed;
+                                       (char *)file->end - (char *)file->cursor)) > 0) {
+      file->cursor = (char *)file->cursor + consumed;
    }
 
    aub_mem_fini(&mem);

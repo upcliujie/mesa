@@ -1086,7 +1086,7 @@ read_oa_samples_for_query(struct intel_perf_context *perf_ctx,
       query->oa.map = perf_cfg->vtbl.bo_map(perf_ctx->ctx, query->oa.bo, MAP_READ);
 
    start = last = query->oa.map;
-   end = query->oa.map + perf_ctx->perf->query_layout.size;
+   end = (uint32_t *)((char *)query->oa.map + perf_ctx->perf->query_layout.size);
 
    if (start[0] != query->oa.begin_report_id) {
       DBG("Spurious start report id=%"PRIu32"\n", start[0]);
@@ -1277,7 +1277,7 @@ accumulate_oa_reports(struct intel_perf_context *perf_ctx,
    assert(query->oa.map != NULL);
 
    start = last = query->oa.map;
-   end = query->oa.map + perf_ctx->perf->query_layout.size;
+   end = (uint32_t *)((char *)query->oa.map + perf_ctx->perf->query_layout.size);
 
    if (start[0] != query->oa.begin_report_id) {
       DBG("Spurious start report id=%"PRIu32"\n", start[0]);
@@ -1579,7 +1579,7 @@ intel_perf_get_query_data(struct intel_perf_context *perf_ctx,
             ;
 
          uint32_t *begin_report = query->oa.map;
-         uint32_t *end_report = query->oa.map + perf_cfg->query_layout.size;
+         uint32_t *end_report = (uint32_t *)((char *)query->oa.map + perf_cfg->query_layout.size);
          intel_perf_query_result_accumulate_fields(&query->oa.result,
                                                  query->queryinfo,
                                                  begin_report,

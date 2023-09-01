@@ -128,10 +128,11 @@ iris_upload_border_color(struct iris_border_color_pool *pool,
    }
 
    offset = pool->insert_point;
-   memcpy(pool->map + offset, color, sizeof(*color));
+   memcpy((char *)pool->map + offset, color, sizeof(*color));
    pool->insert_point += BC_ALIGNMENT;
 
-   _mesa_hash_table_insert_pre_hashed(pool->ht, hash, pool->map + offset,
+   _mesa_hash_table_insert_pre_hashed(pool->ht, hash,
+                                      (char *)pool->map + offset,
                                       (void *) (uintptr_t) offset);
 out:
    simple_mtx_unlock(&pool->lock);

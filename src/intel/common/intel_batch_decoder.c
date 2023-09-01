@@ -112,7 +112,7 @@ ctx_get_bo(struct intel_batch_decode_ctx *ctx, bool ppgtt, uint64_t addr)
    if (bo.map != NULL) {
       assert(bo.addr <= addr);
       uint64_t offset = addr - bo.addr;
-      bo.map += offset;
+      bo.map = (char *)bo.map + offset;
       bo.addr += offset;
       bo.size -= offset;
    }
@@ -194,7 +194,7 @@ ctx_print_buffer(struct intel_batch_decode_ctx *ctx,
                  int max_lines)
 {
    const uint32_t *dw_end =
-         bo.map + ROUND_DOWN_TO(MIN2(bo.size, read_length), 4);
+         (const uint32_t *)((char *)bo.map + ROUND_DOWN_TO(MIN2(bo.size, read_length), 4));
 
    int column_count = 0, pitch_col_count = 0, line_count = -1;
    for (const uint32_t *dw = bo.map; dw < dw_end; dw++) {
@@ -358,7 +358,7 @@ dump_binding_table(struct intel_batch_decode_ctx *ctx,
 
       fprintf(ctx->fp, "pointer %u: 0x%08x\n", i, pointers[i]);
       if (ctx->flags & INTEL_BATCH_DECODE_SURFACES)
-         ctx_print_group(ctx, strct, addr, bo.map + (addr - bo.addr));
+         ctx_print_group(ctx, strct, addr, (char *)bo.map + (addr - bo.addr));
    }
 }
 
@@ -396,7 +396,7 @@ dump_samplers(struct intel_batch_decode_ctx *ctx, uint32_t offset, int count)
       if (ctx->flags & INTEL_BATCH_DECODE_SAMPLERS)
          ctx_print_group(ctx, strct, state_addr, state_map);
       state_addr += sampler_state_size;
-      state_map += sampler_state_size;
+      state_map = (char *)state_map + sampler_state_size;
    }
 }
 
@@ -470,7 +470,7 @@ handle_media_interface_descriptor_load(struct intel_batch_decode_ctx *ctx,
 
       handle_interface_descriptor_data(ctx, desc, desc_map);
 
-      desc_map += desc->dw_length;
+      desc_map = (char *)desc_map + desc->dw_length;
       desc_addr += desc->dw_length * 4;
    }
 }
@@ -610,20 +610,20 @@ handle_3dstate_index_buffer(struct intel_batch_decode_ctx *ctx,
    }
 
    const void *m = ib.map;
-   const void *ib_end = ib.map + MIN2(ib.size, ib_size);
+   const void *ib_end = (char *)ib.map + MIN2(ib.size, ib_size);
    for (int i = 0; m < ib_end && i < 10; i++) {
       switch (format) {
       case 0:
          fprintf(ctx->fp, "%3d ", *(uint8_t *)m);
-         m += 1;
+         m = (char *)m + 1;
          break;
       case 1:
          fprintf(ctx->fp, "%3d ", *(uint16_t *)m);
-         m += 2;
+         m = (char *)m + 2;
          break;
       case 2:
          fprintf(ctx->fp, "%3d ", *(uint32_t *)m);
-         m += 4;
+         m = (char *)m + 4;
          break;
       }
    }
@@ -985,7 +985,7 @@ decode_dynamic_state(struct intel_batch_decode_ctx *ctx,
       ctx_print_group(ctx, state, state_addr, state_map);
 
       state_addr += state->dw_length * 4;
-      state_map += state->dw_length * 4;
+      state_map = (char *)state_map + state->dw_length * 4;
 
       struct_type = "BLEND_STATE_ENTRY";
       state = intel_spec_find_struct(ctx->spec, struct_type);
@@ -999,7 +999,7 @@ decode_dynamic_state(struct intel_batch_decode_ctx *ctx,
       ctx_print_group(ctx, state, state_addr, state_map);
 
       state_addr += state->dw_length * 4;
-      state_map += state->dw_length * 4;
+      state_map = (char *)state_map + state->dw_length * 4;
    }
 }
 

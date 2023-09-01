@@ -887,20 +887,20 @@ anv_cmd_buffer_cs_push_constants(struct anv_cmd_buffer *cmd_buffer)
 
    if (cs_prog_data->push.cross_thread.size > 0) {
       memcpy(dst, src, cs_prog_data->push.cross_thread.size);
-      dst += cs_prog_data->push.cross_thread.size;
-      src += cs_prog_data->push.cross_thread.size;
+      dst = (char *)dst + cs_prog_data->push.cross_thread.size;
+      src = (char *)src + cs_prog_data->push.cross_thread.size;
    }
 
    if (cs_prog_data->push.per_thread.size > 0) {
       for (unsigned t = 0; t < dispatch.threads; t++) {
          memcpy(dst, src, cs_prog_data->push.per_thread.size);
 
-         uint32_t *subgroup_id = dst +
+          uint32_t *subgroup_id = (uint32_t *)((char *)dst +
             offsetof(struct anv_push_constants, cs.subgroup_id) -
-            (range->start * 32 + cs_prog_data->push.cross_thread.size);
+            (range->start * 32 + cs_prog_data->push.cross_thread.size));
          *subgroup_id = t;
 
-         dst += cs_prog_data->push.per_thread.size;
+         dst = (char *)dst + cs_prog_data->push.per_thread.size;
       }
    }
 

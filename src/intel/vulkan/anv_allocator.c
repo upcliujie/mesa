@@ -474,7 +474,7 @@ anv_block_pool_map(struct anv_block_pool *pool, int32_t offset, uint32_t size)
    assert(offset >= bo_offset);
    assert((offset - bo_offset) + size <= bo->size);
 
-   return bo->map + (offset - bo_offset);
+   return (char *)bo->map + (offset - bo_offset);
 }
 
 /** Grows and re-centers the block pool.
@@ -1022,7 +1022,7 @@ anv_state_stream_alloc(struct anv_state_stream *stream,
    struct anv_state state = stream->block;
    state.offset += offset;
    state.alloc_size = size;
-   state.map += offset;
+   state.map = (char *)state.map + offset;
 
    stream->next = offset + size;
 

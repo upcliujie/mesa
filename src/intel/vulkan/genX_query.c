@@ -247,8 +247,8 @@ VkResult genX(CreateQueryPool)(
       for (uint32_t p = 0; p < pool->n_passes; p++) {
          struct mi_builder b;
          struct anv_batch batch = {
-            .start = pool->bo->map + khr_perf_query_preamble_offset(pool, p),
-            .end = pool->bo->map + khr_perf_query_preamble_offset(pool, p) + pool->data_offset,
+            .start = (char *)pool->bo->map + khr_perf_query_preamble_offset(pool, p),
+            .end = (char *)pool->bo->map + khr_perf_query_preamble_offset(pool, p) + pool->data_offset,
          };
          batch.next = batch.start;
 
@@ -414,7 +414,7 @@ cpu_write_query_result(void *dst_slot, VkQueryResultFlags flags,
 static void *
 query_slot(struct anv_query_pool *pool, uint32_t query)
 {
-   return pool->bo->map + query * pool->stride;
+   return (char *)pool->bo->map + query * pool->stride;
 }
 
 static bool
@@ -422,8 +422,8 @@ query_is_available(struct anv_query_pool *pool, uint32_t query)
 {
    if (pool->vk.query_type == VK_QUERY_TYPE_PERFORMANCE_QUERY_KHR) {
       for (uint32_t p = 0; p < pool->n_passes; p++) {
-         volatile uint64_t *slot =
-            pool->bo->map + khr_perf_query_availability_offset(pool, query, p);
+         volatile uint64_t *slot = (uint64_t *)((char *)pool->bo->map +
+            khr_perf_query_availability_offset(pool, query, p));
          if (!slot[0])
             return false;
       }
@@ -497,7 +497,7 @@ VkResult genX(GetQueryPoolResults)(
    if (pData == NULL)
       return VK_SUCCESS;
 
-   void *data_end = pData + dataSize;
+   void *data_end = (char *)pData + dataSize;
 
    VkResult status = VK_SUCCESS;
    for (uint32_t i = 0; i < queryCount; i++) {
@@ -612,8 +612,8 @@ VkResult genX(GetQueryPoolResults)(
             struct intel_perf_query_result result;
             intel_perf_query_result_clear(&result);
             intel_perf_query_result_accumulate_fields(&result, query,
-                                                      pool->bo->map + khr_perf_query_data_offset(pool, firstQuery + i, p, false),
-                                                      pool->bo->map + khr_perf_query_data_offset(pool, firstQuery + i, p, true),
+                                                      (char *)pool->bo->map + khr_perf_query_data_offset(pool, firstQuery + i, p, false),
+                                                      (char *)pool->bo->map + khr_perf_query_data_offset(pool, firstQuery + i, p, true),
                                                       false /* no_oa_accumulate */);
             anv_perf_write_pass_results(pdevice->perf, pool, p, &result, pData);
          }
@@ -628,13 +628,13 @@ VkResult genX(GetQueryPoolResults)(
          struct intel_perf_query_result result;
          intel_perf_query_result_clear(&result);
          intel_perf_query_result_accumulate_fields(&result, query,
-                                                   query_data + intel_perf_query_data_offset(pool, false),
-                                                   query_data + intel_perf_query_data_offset(pool, true),
+                                                   (char *)query_data + intel_perf_query_data_offset(pool, false),
+                                                   (char *)query_data + intel_perf_query_data_offset(pool, true),
                                                    false /* no_oa_accumulate */);
          intel_perf_query_result_write_mdapi(pData, stride,
                                              device->info,
                                              query, &result);
-         const uint64_t *marker = query_data + intel_perf_marker_offset();
+         const uint64_t *marker = (const uint64_t *)((char *)query_data + intel_perf_marker_offset());
          intel_perf_query_mdapi_write_marker(pData, stride, device->info, *marker);
          break;
       }
@@ -657,7 +657,7 @@ VkResult genX(GetQueryPoolResults)(
       if (flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT)
          cpu_write_query_result(pData, flags, idx, available);
 
-      pData += stride;
+      pData = (char *)pData + stride;
       if (pData >= data_end)
          break;
    }
@@ -887,8 +887,8 @@ void genX(ResetQueryPool)(
    for (uint32_t i = 0; i < queryCount; i++) {
       if (pool->vk.query_type == VK_QUERY_TYPE_PERFORMANCE_QUERY_KHR) {
          for (uint32_t p = 0; p < pool->n_passes; p++) {
-            uint64_t *pass_slot = pool->bo->map +
-               khr_perf_query_availability_offset(pool, firstQuery + i, p);
+            uint64_t *pass_slot = (uint64_t *)((char *)pool->bo->map +
+               khr_perf_query_availability_offset(pool, firstQuery + i, p));
             *pass_slot = 0;
          }
       } else {
@@ -1126,7 +1126,7 @@ void genX(CmdBeginQueryIndexedEXT)(
                                   .MemoryAddress = query_addr /* Will be overwritten */);
             _mi_resolve_address_token(&b,
                                       cmd_buffer->self_mod_locations[cmd_buffer->perf_reloc_idx++],
-                                      dws +
+                                      (char *)dws +
                                       GENX(MI_REPORT_PERF_COUNT_MemoryAddress_start) / 8);
             break;
 
@@ -1143,7 +1143,7 @@ void genX(CmdBeginQueryIndexedEXT)(
                                .MemoryAddress = query_addr /* Will be overwritten */ );
             _mi_resolve_address_token(&b,
                                       cmd_buffer->self_mod_locations[cmd_buffer->perf_reloc_idx++],
-                                      dws +
+                                      (char *)dws +
                                       GENX(MI_STORE_REGISTER_MEM_MemoryAddress_start) / 8);
             if (field->size == 8) {
                dws =
@@ -1154,7 +1154,7 @@ void genX(CmdBeginQueryIndexedEXT)(
                                   .MemoryAddress = query_addr /* Will be overwritten */ );
                _mi_resolve_address_token(&b,
                                          cmd_buffer->self_mod_locations[cmd_buffer->perf_reloc_idx++],
-                                         dws +
+                                         (char *)dws +
                                          GENX(MI_STORE_REGISTER_MEM_MemoryAddress_start) / 8);
             }
             break;
@@ -1270,7 +1270,7 @@ void genX(CmdEndQueryIndexedEXT)(
                                   .MemoryAddress = query_addr /* Will be overwritten */);
             _mi_resolve_address_token(&b,
                                       cmd_buffer->self_mod_locations[cmd_buffer->perf_reloc_idx++],
-                                      dws +
+                                      (char *)dws +
                                       GENX(MI_REPORT_PERF_COUNT_MemoryAddress_start) / 8);
             break;
 
@@ -1287,7 +1287,7 @@ void genX(CmdEndQueryIndexedEXT)(
                                .MemoryAddress = query_addr /* Will be overwritten */ );
             _mi_resolve_address_token(&b,
                                       cmd_buffer->self_mod_locations[cmd_buffer->perf_reloc_idx++],
-                                      dws +
+                                      (char *)dws +
                                       GENX(MI_STORE_REGISTER_MEM_MemoryAddress_start) / 8);
             if (field->size == 8) {
                dws =
@@ -1298,7 +1298,7 @@ void genX(CmdEndQueryIndexedEXT)(
                                   .MemoryAddress = query_addr /* Will be overwritten */ );
                _mi_resolve_address_token(&b,
                                          cmd_buffer->self_mod_locations[cmd_buffer->perf_reloc_idx++],
-                                         dws +
+                                         (char *)dws +
                                          GENX(MI_STORE_REGISTER_MEM_MemoryAddress_start) / 8);
             }
             break;
@@ -1316,7 +1316,7 @@ void genX(CmdEndQueryIndexedEXT)(
                          .ImmediateData = true);
       _mi_resolve_address_token(&b,
                                 cmd_buffer->self_mod_locations[cmd_buffer->perf_reloc_idx++],
-                                dws +
+                                (char *)dws +
                                 GENX(MI_STORE_DATA_IMM_Address_start) / 8);
 
       assert(cmd_buffer->perf_reloc_idx == pdevice->n_perf_query_commands);
