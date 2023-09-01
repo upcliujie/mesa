@@ -1047,6 +1047,21 @@ nir_divergence_analysis(nir_shader *shader)
 {
    shader->info.divergence_analysis_run = true;
 
+   if (nir_shader_is_single_invocation(shader)) {
+      /* If the workgroup is only a single invocation, then everything is uniform. */
+      nir_foreach_function_impl(impl, shader) {
+         nir_foreach_block(block, impl) {
+            nir_foreach_instr(instr, block)
+               nir_foreach_ssa_def(instr, set_ssa_def_not_divergent, NULL);
+
+            nir_cf_node *next = nir_cf_node_next(&block->cf_node);
+            if (next && next->type == nir_cf_node_loop)
+               nir_cf_node_as_loop(next)->divergent = false;
+         }
+      }
+      return;
+   }
+
    struct divergence_state state = {
       .stage = shader->info.stage,
       .shader = shader,
@@ -1063,6 +1078,9 @@ bool
 nir_update_instr_divergence(nir_shader *shader, nir_instr *instr)
 {
    nir_foreach_def(instr, set_ssa_def_not_divergent, NULL);
+
+   if (nir_shader_is_single_invocation(shader))
+      return true;
 
    if (instr->type == nir_instr_type_phi) {
       nir_cf_node *prev = nir_cf_node_prev(&instr->block->cf_node);

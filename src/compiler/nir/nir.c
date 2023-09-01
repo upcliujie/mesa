@@ -2123,6 +2123,15 @@ nir_shader_supports_implicit_lod(nir_shader *shader)
             shader->info.cs.derivative_group != DERIVATIVE_GROUP_NONE));
 }
 
+bool nir_shader_is_single_invocation(nir_shader *shader)
+{
+   nir_divergence_options options = shader->options->divergence_analysis_options;
+   return gl_shader_stage_uses_workgroup(shader->info.stage) &&
+          !shader->info.workgroup_size_variable && shader->info.workgroup_size[0] == 1 &&
+          shader->info.workgroup_size[1] == 1 && shader->info.workgroup_size[2] == 1 &&
+          !(options & nir_divergence_multiple_workgroup_per_compute_subgroup);
+}
+
 nir_intrinsic_op
 nir_intrinsic_from_system_value(gl_system_value val)
 {

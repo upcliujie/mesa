@@ -349,10 +349,7 @@ nir_opt_uniform_atomics(nir_shader *shader)
    /* A 1x1x1 workgroup only ever has one active lane, so there's no point in
     * optimizing any atomics.
     */
-   if (gl_shader_stage_uses_workgroup(shader->info.stage) &&
-       !shader->info.workgroup_size_variable &&
-       shader->info.workgroup_size[0] == 1 && shader->info.workgroup_size[1] == 1 &&
-       shader->info.workgroup_size[2] == 1)
+   if (nir_shader_is_single_invocation(shader))
       return false;
 
    nir_foreach_function_impl(impl, shader) {

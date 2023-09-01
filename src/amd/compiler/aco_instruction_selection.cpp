@@ -8398,6 +8398,25 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       bool create_helpers =
          instr->intrinsic == nir_intrinsic_reduce && nir_intrinsic_include_helpers(instr);
 
+      if (!nir_dest_is_divergent(instr->dest) && instr->intrinsic != nir_intrinsic_reduce &&
+          instr->dest.ssa.bit_size != 1) {
+         /* The lowest invocation must be src0 (inclusive scan) or identity (exclusive scan). Since
+          * the result is uniform, the higher ones much be the same.
+          */
+         ReduceOp reduce_op = get_reduce_op(op, instr->src[0].ssa->bit_size);
+         if (instr->intrinsic == nir_intrinsic_inclusive_scan) {
+            emit_uniform_subgroup(ctx, instr, get_ssa_temp(ctx, instr->src[0].ssa));
+         } else if (dst.bytes() == 8) {
+            uint32_t lo = get_reduction_identity(reduce_op, 0);
+            uint32_t hi = get_reduction_identity(reduce_op, 1);
+            bld.pseudo(aco_opcode::p_create_vector, Definition(dst), Operand::c32(lo),
+                       Operand::c32(hi));
+         } else {
+            bld.copy(Definition(dst), Operand::c32(get_reduction_identity(reduce_op, 0)));
+         }
+         break;
+      }
+
       if (!nir_src_is_divergent(instr->src[0]) && cluster_size == ctx->program->wave_size &&
           instr->def.bit_size != 1) {
          /* We use divergence analysis to assign the regclass, so check if it's
@@ -8437,11 +8456,16 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
          default: assert(false);
          }
       } else if (cluster_size == 1) {
-         bld.copy(Definition(dst), src);
+         if (dst.type() == RegType::sgpr && src.type() == RegType::vgpr)
+            bld.pseudo(aco_opcode::p_as_uniform, Definition(dst), src);
+         else
+            bld.copy(Definition(dst), src);
       } else {
          unsigned bit_size = instr->src[0].ssa->bit_size;
-
          src = emit_extract_vector(ctx, src, 0, RegClass::get(RegType::vgpr, bit_size / 8));
+         Temp tmp = dst.type() == RegType::sgpr && cluster_size < ctx->program->wave_size
+                       ? bld.tmp(src.regClass())
+                       : dst;
 
          ReduceOp reduce_op = get_reduce_op(op, bit_size);
 
@@ -8453,9 +8477,12 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
          default: unreachable("unknown reduce intrinsic");
          }
 
-         Temp tmp_dst = emit_reduction_instr(ctx, aco_op, reduce_op, cluster_size,
-                                             bld.def(dst.regClass()), src);
-         emit_wqm(bld, tmp_dst, dst, create_helpers);
+         Temp pre_wqm_dst = emit_reduction_instr(ctx, aco_op, reduce_op, cluster_size,
+                                                 bld.def(tmp.regClass()), src);
+         emit_wqm(bld, pre_wqm_dst, tmp, create_helpers);
+
+         if (tmp != dst)
+            bld.pseudo(aco_opcode::p_as_uniform, Definition(dst), tmp);
       }
       break;
    }

@@ -5873,6 +5873,7 @@ bool nir_lower_fp16_casts(nir_shader *shader, nir_lower_fp16_cast_options option
 bool nir_normalize_cubemap_coords(nir_shader *shader);
 
 bool nir_shader_supports_implicit_lod(nir_shader *shader);
+bool nir_shader_is_single_invocation(nir_shader *shader);
 
 void nir_live_defs_impl(nir_function_impl *impl);
 

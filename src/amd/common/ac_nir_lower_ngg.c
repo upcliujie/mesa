@@ -4775,6 +4775,13 @@ ac_nir_lower_ngg_ms(nir_shader *shader,
    emit_ms_finale(b, &state);
    nir_metadata_preserve(impl, nir_metadata_none);
 
+   /* Use the correct workgroup size (aligned to wave_size, since all lanes start active). Local
+    * invocation IDs are lowered earlier.
+    */
+   shader->info.workgroup_size[0] = ALIGN(hw_workgroup_size, wave_size);
+   shader->info.workgroup_size[1] = 1;
+   shader->info.workgroup_size[2] = 1;
+
    /* Cleanup */
    nir_lower_vars_to_ssa(shader);
    nir_remove_dead_variables(shader, nir_var_function_temp, NULL);
