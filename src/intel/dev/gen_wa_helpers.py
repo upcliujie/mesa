@@ -56,6 +56,8 @@ HEADER_TEMPLATE = Template("""\
 
 #include "util/macros.h"
 
+#pragma GCC diagnostic warning "-Wundef"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
