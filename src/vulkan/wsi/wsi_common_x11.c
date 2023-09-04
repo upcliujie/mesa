@@ -966,6 +966,7 @@ wsi_CreateXcbSurfaceKHR(VkInstance _instance,
                         VkSurfaceKHR *pSurface)
 {
    VK_FROM_HANDLE(vk_instance, instance, _instance);
+   struct wsi_common_vk_surface *wsi_surface;
    struct wsi_x11_vk_surface *surface;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR);
@@ -976,10 +977,15 @@ wsi_CreateXcbSurfaceKHR(VkInstance _instance,
    if (!visual)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
+   wsi_surface = vk_alloc2(&instance->alloc, pAllocator, sizeof(struct wsi_common_vk_surface), 8,
+                           VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    surface = vk_alloc2(&instance->alloc, pAllocator, sizeof(struct wsi_x11_vk_surface), 8,
                        VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (surface == NULL)
+   if (surface == NULL || wsi_surface == NULL)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   vk_object_base_init(NULL, &wsi_surface->base, VK_OBJECT_TYPE_SURFACE_KHR);
+   wsi_surface->surface_base = &surface->xlib.base;
 
    surface->xcb.base.platform = VK_ICD_WSI_PLATFORM_XCB;
    surface->xcb.connection = pCreateInfo->connection;
@@ -987,7 +993,7 @@ wsi_CreateXcbSurfaceKHR(VkInstance _instance,
 
    surface->has_alpha = visual_has_alpha(visual, visual_depth);
 
-   *pSurface = VkIcdSurfaceBase_to_handle(&surface->xcb.base);
+   *pSurface = (VkSurfaceKHR)wsi_common_vk_surface_to_handle(wsi_surface);
    return VK_SUCCESS;
 }
 
@@ -998,6 +1004,7 @@ wsi_CreateXlibSurfaceKHR(VkInstance _instance,
                          VkSurfaceKHR *pSurface)
 {
    VK_FROM_HANDLE(vk_instance, instance, _instance);
+   struct wsi_common_vk_surface *wsi_surface;
    struct wsi_x11_vk_surface *surface;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR);
@@ -1008,10 +1015,15 @@ wsi_CreateXlibSurfaceKHR(VkInstance _instance,
    if (!visual)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
+   wsi_surface = vk_alloc2(&instance->alloc, pAllocator, sizeof(struct wsi_common_vk_surface), 8,
+                           VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    surface = vk_alloc2(&instance->alloc, pAllocator, sizeof(struct wsi_x11_vk_surface), 8,
                        VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (surface == NULL)
+   if (surface == NULL || wsi_surface == NULL)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   vk_object_base_init(NULL, &wsi_surface->base, VK_OBJECT_TYPE_SURFACE_KHR);
+   wsi_surface->surface_base = &surface->xlib.base;
 
    surface->xlib.base.platform = VK_ICD_WSI_PLATFORM_XLIB;
    surface->xlib.dpy = pCreateInfo->dpy;
@@ -1019,7 +1031,7 @@ wsi_CreateXlibSurfaceKHR(VkInstance _instance,
 
    surface->has_alpha = visual_has_alpha(visual, visual_depth);
 
-   *pSurface = VkIcdSurfaceBase_to_handle(&surface->xlib.base);
+   *pSurface = (VkSurfaceKHR)wsi_common_vk_surface_to_handle(wsi_surface);
    return VK_SUCCESS;
 }
 

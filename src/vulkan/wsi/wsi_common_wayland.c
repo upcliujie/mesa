@@ -1612,22 +1612,27 @@ wsi_CreateWaylandSurfaceKHR(VkInstance _instance,
 {
    VK_FROM_HANDLE(vk_instance, instance, _instance);
    struct wsi_wl_surface *wsi_wl_surface;
+   struct wsi_common_vk_surface *wsi_surface;
    VkIcdSurfaceWayland *surface;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR);
 
+   wsi_surface = vk_alloc2(&instance->alloc, pAllocator, sizeof(struct wsi_common_vk_surface),
+                           8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    wsi_wl_surface = vk_zalloc2(&instance->alloc, pAllocator, sizeof *wsi_wl_surface,
                                8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (wsi_wl_surface == NULL)
+   if (wsi_wl_surface == NULL || wsi_surface == NULL)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    surface = &wsi_wl_surface->base;
+   vk_object_base_init(NULL, &wsi_surface->base, VK_OBJECT_TYPE_SURFACE_KHR);
+   wsi_surface->surface_base = &surface->base;
 
    surface->base.platform = VK_ICD_WSI_PLATFORM_WAYLAND;
    surface->display = pCreateInfo->display;
    surface->surface = pCreateInfo->surface;
 
-   *pSurface = VkIcdSurfaceBase_to_handle(&surface->base);
+   *pSurface = (VkSurfaceKHR)wsi_common_vk_surface_to_handle(wsi_surface);
 
    return VK_SUCCESS;
 }
