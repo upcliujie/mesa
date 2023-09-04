@@ -959,40 +959,111 @@ tu6_emit_sysmem_resolves(struct tu_cmd_buffer *cmd,
 }
 
 static void
-tu6_emit_tile_store(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
+tu6_emit_gmem_resolves(struct tu_cmd_buffer *cmd, const struct tu_subpass *subpass, struct tu_cs *cs)
 {
    const struct tu_render_pass *pass = cmd->state.pass;
-   const struct tu_subpass *subpass = &pass->subpasses[pass->subpass_count-1];
    const struct tu_framebuffer *fb = cmd->state.framebuffer;
+
+   if (subpass->resolve_attachments) {
+      bool emitted_scissor = false;
+
+      for (unsigned i = 0; i < subpass->resolve_count; i++) {
+         uint32_t a = subpass->resolve_attachments[i].attachment;
+         if (a == VK_ATTACHMENT_UNUSED)
+            continue;
+
+         if (!emitted_scissor) {
+            tu6_emit_blit_scissor(cmd, cs, true);
+            emitted_scissor = true;
+         }
+
+         uint32_t gmem_a = tu_subpass_get_attachment_to_resolve(subpass, i);
+
+         tu_store_gmem_attachment(cmd, cs, a, gmem_a, fb->layers,
+                                  subpass->multiview_mask, false);
+
+         if (pass->attachments[a].gmem) {
+            /* check if the resolved attachment is needed by later subpasses,
+             * if it is, should be doing a GMEM->GMEM resolve instead of GMEM->MEM->GMEM..
+             */
+            perf_debug(cmd->device, "TODO: missing GMEM->GMEM resolve path\n");
+            tu_load_gmem_attachment(cmd, cs, a, false, true);
+         }
+      }
+   }
+}
+
+/* Emits any tile stores at the end of a subpass.
+ *
+ * These are emitted into draw_cs for non-final subpasses, and tile_store_cs for
+ * the final subpass. The draw_cs ones mean that we have to disable IB2 skipping
+ * for the draw_cs so we don't exit before storing.  The separate tile_store_cs
+ * lets us handle leave IB2 skipping enabled in the common case of a
+ * single-subpass renderpass (or dynamic rendering).
+ *
+ * To do better in the multi-subpass case, we'd need the individual CS entries
+ * of draw_cs to have a flag for whether they can be skipped or not, and
+ * interleave drawing cs entries with store cs entries.
+ *
+ * This is independent of cond_store_allowed, which is about "can we skip doing
+ * the store if no other rendering happened in the tile?"  We can only skip if
+ * the cond that we set up at the start of the tile (or reset just before
+ * calling tile_store_cs) is still in place.
+ */
+static void
+tu6_emit_gmem_stores(struct tu_cmd_buffer *cmd,
+                     struct tu_cs *cs,
+                     const struct tu_subpass *subpass)
+{
+   const struct tu_render_pass *pass = cmd->state.pass;
+   const struct tu_framebuffer *fb = cmd->state.framebuffer;
+   uint32_t subpass_idx = subpass - cmd->state.pass->subpasses;
+   const bool cond_store_allowed = cmd->state.tiling->binning_possible &&
+                                   cmd->state.pass->has_cond_load_store &&
+                                   (!cmd->state.rp.draw_cs_writes_to_cond_pred ||
+                                   cs != &cmd->draw_cs);
 
    if (pass->has_fdm)
       tu_cs_set_writeable(cs, true);
 
+   bool scissor_emitted = false;
+   for (uint32_t a = 0; a < pass->attachment_count; ++a) {
+      const struct tu_render_pass_attachment *att = &pass->attachments[a];
+      /* Note: att->cond_store_allowed implies at least one of att->store_* set */
+      if (att->gmem && att->last_subpass_idx == subpass_idx) {
+         if (!scissor_emitted) {
+            tu6_emit_blit_scissor(cmd, cs, true);
+            scissor_emitted = true;
+         }
+         tu_store_gmem_attachment(cmd, cs, a, a, fb->layers,
+                                  subpass->multiview_mask,
+                                  cond_store_allowed);
+      }
+   }
+}
+
+static void
+tu6_emit_tile_store_cs(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
+{
+   const struct tu_render_pass *pass = cmd->state.pass;
+   uint32_t subpass_idx = pass->subpass_count - 1;
+   const struct tu_subpass *subpass = &pass->subpasses[subpass_idx];
+
+   /* We believe setting the marker affects what state HW blocks save/restore
+    * during preemption.  So we only emit it before the stores at the end of the
+    * last subpass, not other resolves.
+    */
    tu_cs_emit_pkt7(cs, CP_SET_MARKER, 1);
    tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_RESOLVE));
 
-   tu6_emit_blit_scissor(cmd, cs, true);
+   tu6_emit_gmem_stores(cmd, cs, subpass);
 
-   for (uint32_t a = 0; a < pass->attachment_count; ++a) {
-      if (pass->attachments[a].gmem) {
-         const bool cond_exec_allowed = cmd->state.tiling->binning_possible &&
-                                        cmd->state.pass->has_cond_load_store;
-         tu_store_gmem_attachment(cmd, cs, a, a,
-                                  fb->layers, subpass->multiview_mask,
-                                  cond_exec_allowed);
-      }
-   }
 
-   if (subpass->resolve_attachments) {
-      for (unsigned i = 0; i < subpass->resolve_count; i++) {
-         uint32_t a = subpass->resolve_attachments[i].attachment;
-         if (a != VK_ATTACHMENT_UNUSED) {
-            uint32_t gmem_a = tu_subpass_get_attachment_to_resolve(subpass, i);
-            tu_store_gmem_attachment(cmd, cs, a, gmem_a, fb->layers,
-                                     subpass->multiview_mask, false);
-         }
-      }
-   }
+   /* Note that we're emitting the resolves into the tile store CS, which is
+    * unconditionally executed (unlike draw_cs which depends on geometry having
+    * been generated).
+    */
+   tu6_emit_gmem_resolves(cmd, subpass, cs);
 
    if (pass->has_fdm)
       tu_cs_set_writeable(cs, false);
@@ -1523,6 +1594,7 @@ tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 {
    struct tu_physical_device *phys_dev = cmd->device->physical_device;
    const struct tu_tiling_config *tiling = cmd->state.tiling;
+   const struct tu_render_pass *pass = cmd->state.pass;
    tu_lrz_tiling_begin(cmd, cs);
 
    tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
@@ -1556,10 +1628,18 @@ tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
       tu_cs_emit_regs(cs,
                       A6XX_VFD_POWER_CNTL(phys_dev->info->a6xx.magic.PC_POWER_CNTL));
 
-      tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
-      tu_cs_emit(cs, 0x1);
-      tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_LOCAL, 1);
-      tu_cs_emit(cs, 0x1);
+      /* Enable early return from CP_INDIRECT_BUFFER once the visibility stream
+       * is done.  We don't enable this if there are stores in a non-final
+       * subpass, because it's more important to be able to share gmem space
+       * between attachments by storing early, than it is to do IB2 skipping
+       * (which has an effect we struggle to even measure).
+       */
+      if (pass->allow_ib2_skipping) {
+         tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
+         tu_cs_emit(cs, 0x1);
+         tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_LOCAL, 1);
+         tu_cs_emit(cs, 0x1);
+      }
    } else {
       tu6_emit_bin_size(cs, tiling->tile0.width, tiling->tile0.height,
                         A6XX_RB_BIN_CONTROL_LRZ_FEEDBACK_ZMODE_MASK(0x6));
@@ -1609,8 +1689,14 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
    if (cmd->state.rp.draw_cs_writes_to_cond_pred)
       tu6_emit_cond_for_load_stores(cmd, cs, pipe, slot, false);
 
-   tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
-   tu_cs_emit(cs, 0x0);
+   if (cmd->state.pass->allow_ib2_skipping) {
+      /* Disable CP_INDIRECT_BUFFER/CP_DRAW skipping again at the end of the
+       * pass -- tile_store_cs is for stores that can't be skipped based on
+       * visibility.
+       */
+      tu_cs_emit_pkt7(cs, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
+      tu_cs_emit(cs, 0x0);
+   }
 
    tu_cs_emit_call(cs, &cmd->tile_store_cs);
 
@@ -1648,13 +1734,13 @@ tu_cmd_render_tiles(struct tu_cmd_buffer *cmd,
       fdm = cmd->state.attachments[cmd->state.pass->fragment_density_map.attachment];
    }
 
-   /* Create gmem stores now (at EndRenderPass time)) because they needed to
-    * know whether to allow their conditional execution, which was tied to a
-    * state that was known only at the end of the renderpass.  They will be
-    * called from tu6_render_tile().
+   /* Create unconditional gmem stores (or the last subpass's conditional
+    * stores) now at EndRenderPass time, because we don't have a per-subpass CS
+    * that gets unconditionally executed. They will be called from
+    * tu6_render_tile().
     */
    tu_cs_begin(&cmd->tile_store_cs);
-   tu6_emit_tile_store(cmd, &cmd->tile_store_cs);
+   tu6_emit_tile_store_cs(cmd, &cmd->tile_store_cs);
    tu_cs_end(&cmd->tile_store_cs);
 
    cmd->trace_renderpass_end = u_trace_end_iterator(&cmd->trace);
@@ -3896,19 +3982,17 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
       return;
    }
 
-   const struct tu_render_pass *pass = cmd->state.pass;
-   const struct tu_framebuffer *fb = cmd->state.framebuffer;
    struct tu_cs *cs = &cmd->draw_cs;
-   const struct tu_subpass *last_subpass = cmd->state.subpass;
 
    const struct tu_subpass *subpass = cmd->state.subpass++;
+   const struct tu_subpass *new_subpass = cmd->state.subpass;
 
    /* Track LRZ valid state
     *
     * TODO: Improve this tracking for keeping the state of the past depth/stencil images,
     * so if they become active again, we reuse its old state.
     */
-   if (last_subpass->depth_stencil_attachment.attachment != subpass->depth_stencil_attachment.attachment) {
+   if (new_subpass->depth_stencil_attachment.attachment != subpass->depth_stencil_attachment.attachment) {
       cmd->state.lrz.valid = false;
       cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
    }
@@ -3919,29 +4003,9 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
 
       tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_GMEM);
 
-      if (subpass->resolve_attachments) {
-         tu6_emit_blit_scissor(cmd, cs, true);
+      tu6_emit_gmem_stores(cmd, &cmd->draw_cs, subpass);
 
-         for (unsigned i = 0; i < subpass->resolve_count; i++) {
-            uint32_t a = subpass->resolve_attachments[i].attachment;
-            if (a == VK_ATTACHMENT_UNUSED)
-               continue;
-
-            uint32_t gmem_a = tu_subpass_get_attachment_to_resolve(subpass, i);
-
-            tu_store_gmem_attachment(cmd, cs, a, gmem_a, fb->layers,
-                                    subpass->multiview_mask, false);
-
-            if (!pass->attachments[a].gmem)
-               continue;
-
-            /* check if the resolved attachment is needed by later subpasses,
-            * if it is, should be doing a GMEM->GMEM resolve instead of GMEM->MEM->GMEM..
-            */
-            perf_debug(cmd->device, "TODO: missing GMEM->GMEM resolve path\n");
-            tu_load_gmem_attachment(cmd, cs, a, false, true);
-         }
-      }
+      tu6_emit_gmem_resolves(cmd, subpass, cs);
 
       tu_cond_exec_end(cs);
 
