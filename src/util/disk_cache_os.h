@@ -49,6 +49,16 @@ extern "C" {
 /* The number of keys that can be stored in the index. */
 #define CACHE_INDEX_MAX_KEYS (1 << CACHE_INDEX_KEY_BITS)
 
+/* Count of threads the cache queue gets.
+ * 4 threads were chosen below because just about all modern CPUs currently
+ * available that run Mesa have *at least* 4 cores. For these CPUs allowing
+ * more threads can result in the queue being processed faster, thus
+ * avoiding excessive memory use due to a backlog of cache entrys building
+ * up in the queue. Since we set the UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY
+ * flag this should have little negative impact on low core systems.
+ */
+#define CACHE_QUEUE_THREADS_COUNT 4
+
 enum disk_cache_type {
    DISK_CACHE_NONE,
    DISK_CACHE_MULTI_FILE,
@@ -70,8 +80,10 @@ struct disk_cache {
 
    enum disk_cache_type type;
 
-   /* Seed for rand, which is used to pick a random directory */
-   uint64_t seed_xorshift128plus[2];
+   /* Seeds for rand, which are used to pick a random directory.
+    * Each thread gets its own 128-bit seed.
+    */
+   uint64_t seeds_xorshift128plus[CACHE_QUEUE_THREADS_COUNT][2];
 
    /* A pointer to the mmapped index file within the cache directory. */
    uint8_t *index_mmap;
@@ -133,7 +145,7 @@ disk_cache_generate_cache_dir(void *mem_ctx, const char *gpu_name,
                               enum disk_cache_type cache_type);
 
 void
-disk_cache_evict_lru_item(struct disk_cache *cache);
+disk_cache_evict_lru_item(struct disk_cache *cache, int thread_index);
 
 void
 disk_cache_evict_item(struct disk_cache *cache, char *filename);

@@ -76,17 +76,11 @@ disk_cache_init_queue(struct disk_cache *cache)
    if (util_queue_is_initialized(&cache->cache_queue))
       return true;
 
-   /* 4 threads were chosen below because just about all modern CPUs currently
-    * available that run Mesa have *at least* 4 cores. For these CPUs allowing
-    * more threads can result in the queue being processed faster, thus
-    * avoiding excessive memory use due to a backlog of cache entrys building
-    * up in the queue. Since we set the UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY
-    * flag this should have little negative impact on low core systems.
-    *
-    * The queue will resize automatically when it's full, so adding new jobs
+   /* The queue will resize automatically when it's full, so adding new jobs
     * doesn't stall.
     */
-   return util_queue_init(&cache->cache_queue, "disk$", 32, 4,
+   return util_queue_init(&cache->cache_queue, "disk$", 32,
+                          CACHE_QUEUE_THREADS_COUNT,
                           UTIL_QUEUE_INIT_RESIZE_IF_FULL |
                           UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY |
                           UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY, NULL);
@@ -244,8 +238,21 @@ disk_cache_type_create(const char *gpu_name,
    DRV_KEY_CPY(drv_key_blob, &ptr_size, ptr_size_size)
    DRV_KEY_CPY(drv_key_blob, &driver_flags, driver_flags_size)
 
-   /* Seed our rand function */
-   s_rand_xorshift128plus(cache->seed_xorshift128plus, true);
+   /* Seed our rand function for each thread. */
+   for (int i = 0; i < CACHE_QUEUE_THREADS_COUNT; i++) {
+      s_rand_xorshift128plus(cache->seeds_xorshift128plus[i], true);
+
+      /* On platforms like Windows "random" seeds might be the same for
+       * consectuive calls, so aditionally randomize them before using.
+       */
+      if (!i)
+         continue;
+
+      cache->seeds_xorshift128plus[i][0] ^=
+            rand_xorshift128plus(cache->seeds_xorshift128plus[0]);
+      cache->seeds_xorshift128plus[i][1] ^=
+            rand_xorshift128plus(cache->seeds_xorshift128plus[0]);
+   }
 
    ralloc_free(local);
 
@@ -442,9 +449,9 @@ cache_put(void *job, void *gdata, int thread_index)
          goto done;
 
       /* If the cache is too large, evict something else first. */
-      while (*dc_job->cache->size + dc_job->size > dc_job->cache->max_size &&
-             i < 8) {
-         disk_cache_evict_lru_item(dc_job->cache);
+      while (p_atomic_read(dc_job->cache->size) + dc_job->size >
+             dc_job->cache->max_size && i < 8) {
+         disk_cache_evict_lru_item(dc_job->cache, thread_index);
          i++;
       }
 
