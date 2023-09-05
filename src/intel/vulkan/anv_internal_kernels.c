@@ -351,8 +351,9 @@ anv_device_init_internal_kernels(struct anv_device *device)
          .spirv_size = ARRAY_SIZE(generated_draws_spv_source),
          .send_count = /* 2 * (2 loads + 3 stores) +  ** gfx11 **
                         * 2 * (2 loads + 6 stores) +  ** gfx9  **
-                        * 1 load + 2 store
-                        */ 28,
+                        * 1 load + 2 store +
+                        * 1 WA 16014538804
+                        */ 28 + intel_needs_workaround(device->info, 16014538804),
          .bind_map   = {
             .num_bindings = 5,
             .bindings     = {

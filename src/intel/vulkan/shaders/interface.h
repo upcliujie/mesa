@@ -47,6 +47,9 @@
 /* Whether the generation shader writes to the ring buffer */
 #define ANV_GENERATED_FLAG_RING_MODE  BITFIELD_BIT(5)
 
+/* WA 16014538804 handling */
+#define ANV_GENERATED_WA_16014538804  BITFIELD_BIT(6)
+
 struct anv_generated_indirect_draw_params {
    /* Draw ID buffer address (only used on Gfx9) */
    uint64_t draw_id_addr;

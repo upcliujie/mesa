@@ -186,6 +186,8 @@ void main()
    uint cmd_idx = item_idx * _3dprim_dw_size;
    uint draw_id = params.draw_base + item_idx;
    uint draw_count = _draw_count;
+   bool needs_wa_16014538804 =
+        (params.flags & ANV_GENERATED_WA_16014538804) != 0;
 
    if (draw_id < min(draw_count, params.max_draw_count)) {
       if (gfx_ver == 9)
@@ -193,6 +195,10 @@ void main()
       else
          gfx11_write_draw(item_idx, cmd_idx, draw_id);
    }
+
+   if (needs_wa_16014538804 && cmd_idx % 3 == 0)
+      write_empty_PIPE_CONTROL(cmd_idx + _3dprim_dw_size);
+
 
    end_generated_draws(item_idx, cmd_idx, draw_id, draw_count);
 }

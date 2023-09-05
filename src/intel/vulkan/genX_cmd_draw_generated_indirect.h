@@ -91,6 +91,8 @@ genX(cmd_buffer_emit_generate_draws)(struct anv_cmd_buffer *cmd_buffer,
                                              ISL_SURF_USAGE_VERTEX_BUFFER_BIT) << 8) |
                                    (!anv_address_is_null(count_addr) ?
                                     ANV_GENERATED_FLAG_COUNT : 0) |
+                                   (intel_needs_workaround(device->info, 16014538804) ?
+                                    ANV_GENERATED_WA_16014538804 : 0) |
                                    (ring_count != 0 ? ANV_GENERATED_FLAG_RING_MODE : 0) |
                                    ((generated_cmd_stride / 4) << 16) |
                                    device->info->ver << 24,
@@ -179,7 +181,15 @@ genX(cmd_buffer_get_generated_draw_stride)(struct anv_cmd_buffer *cmd_buffer)
     * VERTEX_BUFFER_STATE.
     */
 #if GFX_VER >= 11
-   return 4 * GENX(3DPRIMITIVE_EXTENDED_length);
+   const uint32_t size = 4 * GENX(3DPRIMITIVE_EXTENDED_length);
+
+#if INTEL_NEEDS_WA_16014538804
+   if (intel_needs_workaround(cmd_buffer->device->info, 16014538804) &&
+       cmd_buffer->batch.num_3d_primitives_emitted == 3)
+      return size + 4 * GENX(PIPE_CONTROL_length);
+#endif
+
+   return size;
 #else
    struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
    const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
