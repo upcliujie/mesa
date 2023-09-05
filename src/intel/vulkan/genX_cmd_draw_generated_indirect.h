@@ -91,6 +91,8 @@ genX(cmd_buffer_emit_generate_draws)(struct anv_cmd_buffer *cmd_buffer,
                                              ISL_SURF_USAGE_VERTEX_BUFFER_BIT) << 8) |
                                    (!anv_address_is_null(count_addr) ?
                                     ANV_GENERATED_FLAG_COUNT : 0) |
+                                   (intel_needs_workaround(device->info, 16014538804) ?
+                                    ANV_GENERATED_WA_16014538804 : 0) |
                                    (ring_count != 0 ? ANV_GENERATED_FLAG_RING_MODE : 0) |
                                    ((generated_cmd_stride / 4) << 16) |
                                    device->info->ver << 24,
@@ -291,7 +293,10 @@ genX(cmd_buffer_emit_indirect_generated_draws_inplace)(struct anv_cmd_buffer *cm
    while (item_base < max_draw_count) {
       const uint32_t item_count = MIN2(max_draw_count - item_base,
                                        MAX_GENERATED_DRAW_COUNT);
-      const uint32_t draw_cmd_size = item_count * draw_cmd_stride;
+      const uint32_t draw_cmd_size =
+            item_count * draw_cmd_stride +
+            (INTEL_NEEDS_WA_16014538804 ?
+            GENX(PIPE_CONTROL_length) * (item_count / 3) : 0);
 
       /* Ensure we have enough contiguous space for all the draws so that the
        * compute shader can edit all the 3DPRIMITIVEs from a single base

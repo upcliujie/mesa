@@ -121,6 +121,20 @@ void write_3DPRIMITIVE_EXTENDED(uint write_offset,
    commands[write_offset + 9] = param_draw_id;
 }
 
+void write_empty_PIPE_CONTROL(uint write_offset)
+{
+
+   commands[write_offset + 0] = (3 << 29 |         /* Command Type */
+                                 3 << 27 |         /* Command SubType */
+                                 2 << 24 |         /* 3D Command Opcode */
+                                 4 << 0);          /* DWord Length */
+   commands[write_offset + 1] = 0;
+   commands[write_offset + 2] = 0;
+   commands[write_offset + 3] = 0;
+   commands[write_offset + 4] = 0;
+   commands[write_offset + 5] = 0;
+}
+
 void write_MI_BATCH_BUFFER_START(uint write_offset,
                                  uint64_t addr)
 {
@@ -140,6 +154,13 @@ void end_generated_draws(uint item_idx, uint cmd_idx, uint draw_id, uint draw_co
    /* We can have an indirect draw count = 0. */
    uint last_draw_id = draw_count == 0 ? 0 : (min(draw_count, params.max_draw_count) - 1);
    uint jump_offset = draw_count == 0 ? 0 : _3dprim_dw_size;
+   bool needs_wa_16014538804 =
+        (params.flags & ANV_GENERATED_WA_16014538804) != 0;
+
+   if (needs_wa_16014538804 && cmd_idx % 3 == 0) {
+        jump_offset += 6 /* PIPE_CONTROL */;
+        cmd_idx += _3dprim_dw_size;
+   }
 
    if (ring_mode) {
       if (draw_id == last_draw_id) {
