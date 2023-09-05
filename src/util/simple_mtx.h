@@ -37,6 +37,22 @@
 #else
 #  define HG(x)
 #endif
+
+#if defined(__has_feature)
+#  if __has_feature(thread_sanitizer)
+#    define HAS_TSAN
+#  endif
+#elif defined(__SANITIZE_THREAD__)
+#  define HAS_TSAN
+#endif
+
+#if defined(HAS_TSAN)
+#  include <sanitizer/tsan_interface.h>
+#  define TSAN_ANNOTATE(ann_func, ...) ann_func(__VA_ARGS__)
+#else
+#  define TSAN_ANNOTATE(ann_func, ...)
+#endif
+
 #else /* !UTIL_FUTEX_SUPPORTED */
 #  include "c11/threads.h"
 #endif /* UTIL_FUTEX_SUPPORTED */
@@ -86,6 +102,7 @@ simple_mtx_init(simple_mtx_t *mtx, ASSERTED int type)
 
    mtx->val = 0;
 
+   TSAN_ANNOTATE(__tsan_mutex_create, mtx, __tsan_mutex_not_static);
    HG(ANNOTATE_RWLOCK_CREATE(mtx));
 }
 
@@ -93,6 +110,7 @@ static inline void
 simple_mtx_destroy(ASSERTED simple_mtx_t *mtx)
 {
    HG(ANNOTATE_RWLOCK_DESTROY(mtx));
+   TSAN_ANNOTATE(__tsan_mutex_destroy, mtx, __tsan_mutex_not_static);
 #ifndef NDEBUG
    mtx->val = _SIMPLE_MTX_INVALID_VALUE;
 #endif
@@ -103,6 +121,7 @@ simple_mtx_lock(simple_mtx_t *mtx)
 {
    uint32_t c;
 
+   TSAN_ANNOTATE(__tsan_mutex_pre_lock, mtx, 0);
    c = p_atomic_cmpxchg(&mtx->val, 0, 1);
 
    assert(c != _SIMPLE_MTX_INVALID_VALUE);
@@ -116,6 +135,7 @@ simple_mtx_lock(simple_mtx_t *mtx)
       }
    }
 
+   TSAN_ANNOTATE(__tsan_mutex_post_lock, mtx, 0, 0);
    HG(ANNOTATE_RWLOCK_ACQUIRED(mtx, 1));
 }
 
@@ -125,15 +145,18 @@ simple_mtx_unlock(simple_mtx_t *mtx)
    uint32_t c;
 
    HG(ANNOTATE_RWLOCK_RELEASED(mtx, 1));
+   TSAN_ANNOTATE(__tsan_mutex_pre_unlock, mtx, 0);
 
    c = p_atomic_fetch_add(&mtx->val, -1);
 
    assert(c != _SIMPLE_MTX_INVALID_VALUE);
 
    if (__builtin_expect(c != 1, 0)) {
-      mtx->val = 0;
+      p_atomic_set(&mtx->val, 0);
       futex_wake(&mtx->val, 1);
    }
+
+   TSAN_ANNOTATE(__tsan_mutex_post_unlock, mtx, 0);
 }
 
 static inline void
