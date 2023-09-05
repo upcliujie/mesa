@@ -448,6 +448,18 @@ debug_get_option_ ## sufix (void) \
    return value; \
 }
 
+#define DEBUG_GET_ONCE_STRING_OPTION(sufix, name, dfault) \
+static char * \
+debug_get_option_ ## sufix (void) \
+{ \
+   static bool initialized = false; \
+   static char *value; \
+   if (unlikely(!p_atomic_read_relaxed(&initialized))) { \
+      p_atomic_set(&value, debug_get_option_cached(name, dfault)); \
+      p_atomic_set(&initialized, true); \
+   } \
+   return value; \
+}
 
 #ifdef __cplusplus
 }
