@@ -68,19 +68,25 @@ struct util_queue_fence {
     *  2 - unsignaled, may have waiters
     */
    uint32_t val;
+   /* Counts how many threads are currently waiting for this fence.
+    * Fence destruction is blocked until this value is 0.
+    */
+   uint32_t waiters;
 };
 
 static inline void
 util_queue_fence_init(struct util_queue_fence *fence)
 {
-   fence->val = 0;
+   p_atomic_set(&fence->val, 0);
+   p_atomic_set(&fence->waiters, 0);
 }
 
 static inline void
 util_queue_fence_destroy(struct util_queue_fence *fence)
 {
-   assert(p_atomic_read_relaxed(&fence->val) == 0);
-   /* no-op */
+   assert(p_atomic_read(&fence->val) == 0);
+   while (p_atomic_read(&fence->waiters) > 0)
+      thrd_yield();
 }
 
 static inline void
@@ -104,7 +110,7 @@ static inline void
 util_queue_fence_reset(struct util_queue_fence *fence)
 {
 #ifdef NDEBUG
-   fence->val = 1;
+   p_atomic_set(&fence->val, 1);
 #else
    uint32_t v = p_atomic_xchg(&fence->val, 1);
    assert(v == 0);
@@ -114,7 +120,7 @@ util_queue_fence_reset(struct util_queue_fence *fence)
 static inline bool
 util_queue_fence_is_signalled(struct util_queue_fence *fence)
 {
-   return p_atomic_read_relaxed(&fence->val) == 0;
+   return p_atomic_read(&fence->val) == 0;
 }
 #endif
 
