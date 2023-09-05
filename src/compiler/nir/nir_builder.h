@@ -1526,7 +1526,7 @@ nir_build_deref_follower(nir_builder *b, nir_deref_instr *parent,
    switch (leader->deref_type) {
    case nir_deref_type_var:
       unreachable("A var dereference cannot have a parent");
-      break;
+      return NULL;
 
    case nir_deref_type_array:
    case nir_deref_type_array_wildcard:
@@ -1554,6 +1554,7 @@ nir_build_deref_follower(nir_builder *b, nir_deref_instr *parent,
 
    default:
       unreachable("Invalid deref instruction type");
+      return NULL;
    }
 }
 
