@@ -557,7 +557,7 @@ intel_perf_active_queries(struct intel_perf_context *perf_ctx,
 
    default:
       unreachable("Unknown query type");
-      break;
+      return 0;
    }
 }
 
