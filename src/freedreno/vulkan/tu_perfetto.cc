@@ -13,6 +13,8 @@
 
 #include "tu_tracepoints.h"
 #include "tu_tracepoints_perfetto.h"
+#include "vk_object.h"
+#include "vk_util.h"
 
 /* we can't include tu_knl.h and tu_device.h */
 
@@ -101,12 +103,8 @@ static uint64_t last_suspend_count;
 static uint64_t gpu_max_timestamp;
 static uint64_t gpu_timestamp_offset;
 
-struct TuRenderpassIncrementalState {
-   bool was_cleared = true;
-};
-
 struct TuRenderpassTraits : public perfetto::DefaultDataSourceTraits {
-   using IncrementalStateType = TuRenderpassIncrementalState;
+   using IncrementalStateType = MesaRenderpassIncrementalState;
 };
 
 class TuRenderpassDataSource : public MesaRenderpassDataSource<TuRenderpassDataSource,
@@ -132,8 +130,14 @@ PERFETTO_DECLARE_DATA_SOURCE_STATIC_MEMBERS(TuRenderpassDataSource);
 PERFETTO_DEFINE_DATA_SOURCE_STATIC_MEMBERS(TuRenderpassDataSource);
 
 static void
-send_descriptors(TuRenderpassDataSource::TraceContext &ctx)
+setup_incremental_state(TuRenderpassDataSource::TraceContext &ctx)
 {
+   auto state = ctx.GetIncrementalState();
+   if (!state->was_cleared)
+      return;
+
+   state->was_cleared = false;
+
    PERFETTO_LOG("Sending renderstage descriptors");
 
    auto packet = ctx.NewTracePacket();
@@ -265,10 +269,7 @@ stage_end(struct tu_device *dev, uint64_t ts_ns, enum tu_stage_id stage_id,
       return;
 
    TuRenderpassDataSource::Trace([=](TuRenderpassDataSource::TraceContext tctx) {
-      if (auto state = tctx.GetIncrementalState(); state->was_cleared) {
-         send_descriptors(tctx);
-         state->was_cleared = false;
-      }
+      setup_incremental_state(tctx);
 
       auto packet = tctx.NewTracePacket();
 
@@ -446,6 +447,20 @@ CREATE_EVENT_CALLBACK(gmem_load, GMEM_LOAD_STAGE_ID)
 CREATE_EVENT_CALLBACK(gmem_store, GMEM_STORE_STAGE_ID)
 CREATE_EVENT_CALLBACK(sysmem_resolve, SYSMEM_RESOLVE_STAGE_ID)
 
+/* Don't pass the payload's string as metadata like the codegenned extra func
+ * does, just set the cmdbuf id and let
+ * tu_perfetto_start_cmd_buffer_annotation() -> stage_start() set the payload
+ * string as the stage.
+ * */
+static void UNUSED
+custom_trace_payload_as_extra_start_cmd_buffer_annotation(
+   perfetto::protos::pbzero::GpuRenderStageEvent *event,
+   const struct trace_start_cmd_buffer_annotation *payload)
+{
+   event->set_command_buffer_handle(
+      (uint64_t) payload->command_buffer_handle);
+}
+
 void
 tu_perfetto_start_cmd_buffer_annotation(
    struct tu_device *dev,
@@ -454,8 +469,10 @@ tu_perfetto_start_cmd_buffer_annotation(
    const struct trace_start_cmd_buffer_annotation *payload)
 {
    /* No extra func necessary, the only arg is in the end payload.*/
-   stage_start(dev, ts_ns, CMD_BUFFER_ANNOTATION_STAGE_ID, payload->str, payload,
-               sizeof(*payload), NULL);
+   stage_start(dev, ts_ns, CMD_BUFFER_ANNOTATION_STAGE_ID, payload->str,
+               payload, sizeof(*payload),
+               (trace_payload_as_extra_func)
+                  custom_trace_payload_as_extra_start_cmd_buffer_annotation);
 }
 
 void
@@ -496,6 +513,28 @@ tu_perfetto_end_cmd_buffer_annotation_rp(
     */
    stage_end(dev, ts_ns, CMD_BUFFER_ANNOTATION_RENDER_PASS_STAGE_ID,
              flush_data, payload, NULL);
+}
+
+void
+tu_perfetto_set_debug_utils_object_name(const VkDebugUtilsObjectNameInfoEXT *pNameInfo)
+{
+   TuRenderpassDataSource::Trace([=](auto tctx) {
+      /* Do we need this for SEQ_INCREMENTAL_STATE_CLEARED for the object name to stick? */
+      setup_incremental_state(tctx);
+
+      tctx.GetDataSourceLocked()->SetDebugUtilsObjectNameEXT(tctx, pNameInfo);
+   });
+}
+
+void
+tu_perfetto_refresh_debug_utils_object_name(const struct vk_object_base *object)
+{
+   TuRenderpassDataSource::Trace([=](auto tctx) {
+      /* Do we need this for SEQ_INCREMENTAL_STATE_CLEARED for the object name to stick? */
+      setup_incremental_state(tctx);
+
+      tctx.GetDataSourceLocked()->RefreshSetDebugUtilsObjectNameEXT(tctx, object);
+   });
 }
 
 #ifdef __cplusplus

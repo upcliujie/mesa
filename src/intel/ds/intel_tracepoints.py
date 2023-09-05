@@ -85,7 +85,8 @@ def define_tracepoints(args):
 
     # Command buffer tracepoints, only for Anv
     begin_end_tp('cmd_buffer',
-                 tp_args=[Arg(type='uint8_t', var='level', c_format='%hhu'),],
+                 tp_args=[Arg(type='uint64_t', var='command_buffer_handle', c_format='%" PRIu64 "',  perfetto_field=True),
+                          Arg(type='uint8_t', var='level', c_format='%hhu'),],
                  end_pipelined=False)
 
     # Annotations for Cmd(Begin|End)DebugUtilsLabelEXT

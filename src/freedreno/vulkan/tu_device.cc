@@ -3404,10 +3404,10 @@ tu_CmdBeginDebugUtilsLabelEXT(VkCommandBuffer _commandBuffer,
    const char *label = pLabelInfo->pLabelName;
    if (cmd_buffer->state.pass) {
       trace_start_cmd_buffer_annotation_rp(
-         &cmd_buffer->trace, &cmd_buffer->draw_cs, strlen(label), label);
+         &cmd_buffer->trace, &cmd_buffer->draw_cs, cmd_buffer, strlen(label), label);
    } else {
       trace_start_cmd_buffer_annotation(&cmd_buffer->trace, &cmd_buffer->cs,
-                                        strlen(label), label);
+                                        cmd_buffer, strlen(label), label);
    }
 }
 
@@ -3426,4 +3426,17 @@ tu_CmdEndDebugUtilsLabelEXT(VkCommandBuffer _commandBuffer)
    }
 
    vk_common_CmdEndDebugUtilsLabelEXT(_commandBuffer);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+tu_SetDebugUtilsObjectNameEXT(
+   VkDevice device,
+   const VkDebugUtilsObjectNameInfoEXT *pNameInfo)
+{
+   VkResult result = vk_common_SetDebugUtilsObjectNameEXT(device, pNameInfo);
+
+   if (result == VK_SUCCESS)
+      tu_perfetto_set_debug_utils_object_name(pNameInfo);
+
+   return result;
 }
