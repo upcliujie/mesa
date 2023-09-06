@@ -687,7 +687,7 @@ brw_append_data(struct brw_codegen *p, void *data,
 
    /* If it's not a whole number of instructions, memset the end */
    if (size < nr_insn * sizeof(brw_inst))
-      memset(dst + size, 0, nr_insn * sizeof(brw_inst) - size);
+      memset((char *)dst + size, 0, nr_insn * sizeof(brw_inst) - size);
 
    return dst - (void *)p->store;
 }
@@ -2927,7 +2927,7 @@ brw_find_next_block_end(struct brw_codegen *p, int start_offset)
    for (offset = next_offset(devinfo, store, start_offset);
         offset < p->next_insn_offset;
         offset = next_offset(devinfo, store, offset)) {
-      brw_inst *insn = store + offset;
+      brw_inst *insn = (brw_inst *)((char *)store + offset);
 
       switch (brw_inst_opcode(p->isa, insn)) {
       case BRW_OPCODE_IF:
@@ -2977,7 +2977,7 @@ brw_find_loop_end(struct brw_codegen *p, int start_offset)
    for (offset = next_offset(devinfo, store, start_offset);
         offset < p->next_insn_offset;
         offset = next_offset(devinfo, store, offset)) {
-      brw_inst *insn = store + offset;
+      brw_inst *insn = (brw_inst *)((char *)store + offset);
 
       if (brw_inst_opcode(p->isa, insn) == BRW_OPCODE_WHILE) {
 	 if (while_jumps_before_offset(devinfo, insn, offset, start_offset))
@@ -3004,7 +3004,7 @@ brw_set_uip_jip(struct brw_codegen *p, int start_offset)
       return;
 
    for (offset = start_offset; offset < p->next_insn_offset; offset += 16) {
-      brw_inst *insn = store + offset;
+      brw_inst *insn = (brw_inst *)((char *)store + offset);
       assert(brw_inst_cmpt_control(devinfo, insn) == 0);
 
       switch (brw_inst_opcode(p->isa, insn)) {

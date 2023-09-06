@@ -155,7 +155,7 @@ void *
 anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords)
 {
    uint32_t size = num_dwords * 4;
-   if (batch->next + size > batch->end) {
+   if ((char *)batch->next + size > (char *)batch->end) {
       VkResult result = batch->extend_cb(batch, size, batch->user_data);
       if (result != VK_SUCCESS) {
          anv_batch_set_error(batch, result);
@@ -165,7 +165,7 @@ anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords)
 
    void *p = batch->next;
 
-   batch->next += num_dwords * 4;
+   batch->next = (char *)batch->next + num_dwords * 4;
    assert(batch->next <= batch->end);
 
    return p;
@@ -175,7 +175,7 @@ anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords)
 VkResult
 anv_batch_emit_ensure_space(struct anv_batch *batch, uint32_t size)
 {
-   if (batch->next + size > batch->end) {
+   if ((char *)batch->next + size > (char *)batch->end) {
       VkResult result = batch->extend_cb(batch, size, batch->user_data);
       if (result != VK_SUCCESS) {
          anv_batch_set_error(batch, result);
@@ -183,7 +183,7 @@ anv_batch_emit_ensure_space(struct anv_batch *batch, uint32_t size)
       }
    }
 
-   assert(batch->next + size <= batch->end);
+   assert((char *)batch->next + size <= (char *)batch->end);
 
    return VK_SUCCESS;
 }
@@ -191,9 +191,9 @@ anv_batch_emit_ensure_space(struct anv_batch *batch, uint32_t size)
 void
 anv_batch_advance(struct anv_batch *batch, uint32_t size)
 {
-   assert(batch->next + size <= batch->end);
+   assert((char *)batch->next + size <= (char *)batch->end);
 
-   batch->next += size;
+   batch->next = (char *)batch->next + size;
 }
 
 struct anv_address
@@ -204,16 +204,17 @@ anv_batch_address(struct anv_batch *batch, void *batch_location)
    /* Allow a jump at the current location of the batch. */
    assert(batch->next >= batch_location);
 
-   return anv_address_add(batch->start_addr, batch_location - batch->start);
+   return anv_address_add(batch->start_addr,
+      (char *)batch_location - (char *)batch->start);
 }
 
 void
 anv_batch_emit_batch(struct anv_batch *batch, struct anv_batch *other)
 {
-   uint32_t size = other->next - other->start;
+   uint32_t size = (char *)other->next - (char *)other->start;
    assert(size % 4 == 0);
 
-   if (batch->next + size > batch->end) {
+   if ((char *)batch->next + size > (char *)batch->end) {
       VkResult result = batch->extend_cb(batch, size, batch->user_data);
       if (result != VK_SUCCESS) {
          anv_batch_set_error(batch, result);
@@ -221,7 +222,7 @@ anv_batch_emit_batch(struct anv_batch *batch, struct anv_batch *other)
       }
    }
 
-   assert(batch->next + size <= batch->end);
+   assert((char *)batch->next + size <= (char *)batch->end);
 
    VG(VALGRIND_CHECK_MEM_IS_DEFINED(other->start, size));
    memcpy(batch->next, other->start, size);
@@ -232,7 +233,7 @@ anv_batch_emit_batch(struct anv_batch *batch, struct anv_batch *other)
       return;
    }
 
-   batch->next += size;
+   batch->next = (char *)batch->next + size;
 }
 
 /*-----------------------------------------------------------------------*
@@ -324,8 +325,8 @@ anv_batch_bo_continue(struct anv_batch_bo *bbo, struct anv_batch *batch,
 {
    batch->start_addr = (struct anv_address) { .bo = bbo->bo, };
    batch->start = bbo->bo->map;
-   batch->next = bbo->bo->map + bbo->length;
-   batch->end = bbo->bo->map + bbo->bo->size - batch_padding;
+   batch->next = (char *)bbo->bo->map + bbo->length;
+   batch->end = (char *)bbo->bo->map + bbo->bo->size - batch_padding;
    batch->relocs = &bbo->relocs;
 }
 
@@ -333,7 +334,7 @@ static void
 anv_batch_bo_finish(struct anv_batch_bo *bbo, struct anv_batch *batch)
 {
    assert(batch->start == bbo->bo->map);
-   bbo->length = batch->next - batch->start;
+   bbo->length = (char *)batch->next - (char *)batch->start;
    VG(VALGRIND_CHECK_MEM_IS_DEFINED(batch->start, bbo->length));
 }
 
@@ -345,13 +346,14 @@ anv_batch_bo_link(struct anv_cmd_buffer *cmd_buffer,
 {
    const uint32_t bb_start_offset =
       prev_bbo->length - GFX8_MI_BATCH_BUFFER_START_length * 4;
-   ASSERTED const uint32_t *bb_start = prev_bbo->bo->map + bb_start_offset;
+   ASSERTED const uint32_t *bb_start =
+      (const uint32_t *)((char *)prev_bbo->bo->map + bb_start_offset);
 
    /* Make sure we're looking at a MI_BATCH_BUFFER_START */
    assert(((*bb_start >> 29) & 0x07) == 0);
    assert(((*bb_start >> 23) & 0x3f) == 49);
 
-   uint64_t *map = prev_bbo->bo->map + bb_start_offset + 4;
+   uint64_t *map = (uint64_t *)((char *)prev_bbo->bo->map + bb_start_offset + 4);
    *map = intel_canonical_address(next_bbo->bo->offset + next_bbo_offset);
 
 #ifdef SUPPORT_INTEL_INTEGRATED_GPUS
@@ -481,8 +483,9 @@ cmd_buffer_chain_to_batch_bo(struct anv_cmd_buffer *cmd_buffer,
     * have room for the chaining command.  Since we're about to emit the
     * chaining command, let's set it back where it should go.
     */
-   batch->end += GFX8_MI_BATCH_BUFFER_START_length * 4;
-   assert(batch->end == current_bbo->bo->map + current_bbo->bo->size);
+   batch->end = (char *)batch->end + GFX8_MI_BATCH_BUFFER_START_length * 4;
+   assert((char *)batch->end ==
+      (char *)current_bbo->bo->map + current_bbo->bo->size);
 
    emit_batch_buffer_start(batch, bbo->bo, 0);
 
@@ -513,7 +516,7 @@ anv_cmd_buffer_record_chain_submit(struct anv_cmd_buffer *cmd_buffer_from,
    };
    struct anv_batch local_batch = {
       .start  = last_bbo->bo->map,
-      .end    = last_bbo->bo->map + last_bbo->bo->size,
+      .end    = (char *)last_bbo->bo->map + last_bbo->bo->size,
       .relocs = &last_bbo->relocs,
       .alloc  = &cmd_buffer_from->vk.pool->alloc,
    };
@@ -701,7 +704,7 @@ anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
 
    state.alloc_size = bt_size;
    cmd_buffer->bt_next.offset += bt_size;
-   cmd_buffer->bt_next.map += bt_size;
+   cmd_buffer->bt_next.map = (char *)cmd_buffer->bt_next.map + bt_size;
    cmd_buffer->bt_next.alloc_size -= bt_size;
 
    if (cmd_buffer->device->info->verx10 >= 125) {
@@ -967,9 +970,11 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
        * that padding before we end the batch; otherwise, we may end up
        * with our BATCH_BUFFER_END in another BO.
        */
-      cmd_buffer->batch.end += GFX8_MI_BATCH_BUFFER_START_length * 4;
+      cmd_buffer->batch.end = (char *)cmd_buffer->batch.end +
+                              GFX8_MI_BATCH_BUFFER_START_length * 4;
       assert(cmd_buffer->batch.start == batch_bo->bo->map);
-      assert(cmd_buffer->batch.end == batch_bo->bo->map + batch_bo->bo->size);
+      assert((char *)cmd_buffer->batch.end ==
+             (char *)batch_bo->bo->map + batch_bo->bo->size);
 
       /* Save end instruction location to override it later. */
       cmd_buffer->batch_end = cmd_buffer->batch.next;
@@ -984,7 +989,7 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
          anv_batch_emit(&cmd_buffer->batch, GFX8_MI_BATCH_BUFFER_END, bbe);
 
       /* Round batch up to an even number of dwords. */
-      if ((cmd_buffer->batch.next - cmd_buffer->batch.start) & 4)
+      if (((char *)cmd_buffer->batch.next - (char *)cmd_buffer->batch.start) & 4)
          anv_batch_emit(&cmd_buffer->batch, GFX8_MI_NOOP, noop);
 
       cmd_buffer->exec_mode = ANV_CMD_BUFFER_EXEC_MODE_PRIMARY;
@@ -995,7 +1000,8 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
        * determine this statically here so that this stays in sync with the
        * actual ExecuteCommands implementation.
        */
-      const uint32_t length = cmd_buffer->batch.next - cmd_buffer->batch.start;
+      const uint32_t length =
+         (char *)cmd_buffer->batch.next - (char *)cmd_buffer->batch.start;
       if (cmd_buffer->device->physical->use_call_secondary) {
          cmd_buffer->exec_mode = ANV_CMD_BUFFER_EXEC_MODE_CALL_AND_RETURN;
          /* If the secondary command buffer begins & ends in the same BO and
@@ -1007,18 +1013,18 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
             const enum intel_engine_class engine_class = cmd_buffer->queue_family->engine_class;
             /* Careful to have everything in signed integer. */
             int32_t prefetch_len = devinfo->engine_class_prefetch[engine_class];
-            int32_t batch_len = cmd_buffer->batch.next - cmd_buffer->batch.start;
+            int32_t batch_len = (char *)cmd_buffer->batch.next - (char *)cmd_buffer->batch.start;
 
             for (int32_t i = 0; i < (prefetch_len - batch_len); i += 4)
                anv_batch_emit(&cmd_buffer->batch, GFX8_MI_NOOP, noop);
          }
 
          void *jump_addr =
-            anv_batch_emitn(&cmd_buffer->batch,
-                            GFX8_MI_BATCH_BUFFER_START_length,
-                            GFX8_MI_BATCH_BUFFER_START,
-                            .AddressSpaceIndicator = ASI_PPGTT,
-                            .SecondLevelBatchBuffer = Firstlevelbatch) +
+            (char *)anv_batch_emitn(&cmd_buffer->batch,
+                                    GFX8_MI_BATCH_BUFFER_START_length,
+                                    GFX8_MI_BATCH_BUFFER_START,
+                                    .AddressSpaceIndicator = ASI_PPGTT,
+                                    .SecondLevelBatchBuffer = Firstlevelbatch) +
             (GFX8_MI_BATCH_BUFFER_START_BatchBufferStartAddress_start / 8);
          cmd_buffer->return_addr = anv_batch_address(&cmd_buffer->batch, jump_addr);
 
@@ -1047,9 +1053,11 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
           * have room for the chaining command.  Since we're about to emit the
           * chaining command, let's set it back where it should go.
           */
-         cmd_buffer->batch.end += GFX8_MI_BATCH_BUFFER_START_length * 4;
-         assert(cmd_buffer->batch.start == batch_bo->bo->map);
-         assert(cmd_buffer->batch.end == batch_bo->bo->map + batch_bo->bo->size);
+         cmd_buffer->batch.end = (char *)cmd_buffer->batch.end +
+                                 GFX8_MI_BATCH_BUFFER_START_length * 4;
+         assert((char *)cmd_buffer->batch.start == batch_bo->bo->map);
+         assert((char *)cmd_buffer->batch.end ==
+            (char *)batch_bo->bo->map + batch_bo->bo->size);
 
          emit_batch_buffer_start(&cmd_buffer->batch, batch_bo->bo, 0);
          assert(cmd_buffer->batch.start == batch_bo->bo->map);
@@ -1100,7 +1108,8 @@ anv_cmd_buffer_add_secondary(struct anv_cmd_buffer *primary,
 
       struct anv_batch_bo *this_bbo = anv_cmd_buffer_current_batch_bo(primary);
       assert(primary->batch.start == this_bbo->bo->map);
-      uint32_t offset = primary->batch.next - primary->batch.start;
+      uint32_t offset = (char *)primary->batch.next -
+                        (char *)primary->batch.start;
 
       /* Make the tail of the secondary point back to right after the
        * MI_BATCH_BUFFER_START in the primary batch.
@@ -1139,11 +1148,11 @@ anv_cmd_buffer_add_secondary(struct anv_cmd_buffer *primary,
          list_first_entry(&secondary->batch_bos, struct anv_batch_bo, link);
 
       uint64_t *write_return_addr =
-         anv_batch_emitn(&primary->batch,
+         (uint64_t *)((char *)anv_batch_emitn(&primary->batch,
                          GFX8_MI_STORE_DATA_IMM_length + 1 /* QWord write */,
                          GFX8_MI_STORE_DATA_IMM,
                          .Address = secondary->return_addr)
-         + (GFX8_MI_STORE_DATA_IMM_ImmediateData_start / 8);
+         + (GFX8_MI_STORE_DATA_IMM_ImmediateData_start / 8));
 
       emit_batch_buffer_start(&primary->batch, first_bbo->bo, 0);
 
@@ -1210,7 +1219,7 @@ anv_cmd_buffer_exec_batch_debug(struct anv_queue *queue,
             khr_perf_query_preamble_offset(perf_query_pool, perf_query_pass);
 
          intel_print_batch(queue->decoder,
-                           pass_batch_bo->map + pass_batch_offset, 64,
+                           (void *)((char *)pass_batch_bo->map + pass_batch_offset), 64,
                            pass_batch_bo->offset + pass_batch_offset, false);
       }
 
@@ -1416,7 +1425,7 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
     */
    assert(vk_queue_is_empty(&queue->vk));
 
-   uint32_t batch_size = align(batch->next - batch->start, 8);
+   uint32_t batch_size = align((char *)batch->next - (char *)batch->start, 8);
 
    struct anv_bo *batch_bo = NULL;
    result = anv_bo_pool_alloc(&device->batch_bo_pool, batch_size, &batch_bo);
@@ -1457,7 +1466,7 @@ anv_cmd_buffer_clflush(struct anv_cmd_buffer **cmd_buffers,
    for (uint32_t i = 0; i < num_cmd_buffers; i++) {
       u_vector_foreach(bbo, &cmd_buffers[i]->seen_bbos) {
          for (uint32_t l = 0; l < (*bbo)->length; l += CACHELINE_SIZE)
-            __builtin_ia32_clflush((*bbo)->bo->map + l);
+            __builtin_ia32_clflush((char *)(*bbo)->bo->map + l);
       }
    }
 #endif

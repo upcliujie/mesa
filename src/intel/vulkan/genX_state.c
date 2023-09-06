@@ -734,7 +734,7 @@ genX(init_cps_device_state)(struct anv_device *device)
       };
 
       GENX(CPS_STATE_pack)(NULL, cps_state_ptr, &cps_state);
-      cps_state_ptr += GENX(CPS_STATE_length) * 4;
+      cps_state_ptr = (char*)cps_state_ptr + GENX(CPS_STATE_length) * 4;
    }
 
    maybe_for_each_shading_rate_op(op0) {
@@ -762,7 +762,7 @@ genX(init_cps_device_state)(struct anv_device *device)
 
                for (uint32_t __v = 0; __v < MAX_VIEWPORTS; __v++) {
                   GENX(CPS_STATE_pack)(NULL, cps_state_ptr, &cps_state);
-                  cps_state_ptr += GENX(CPS_STATE_length) * 4;
+                  cps_state_ptr = (char *)cps_state_ptr + GENX(CPS_STATE_length) * 4;
                }
             }
          }
@@ -1093,7 +1093,7 @@ VkResult genX(CreateSampler)(
       GENX(SAMPLER_STATE_pack)(NULL, sampler->state[p], &sampler_state);
 
       if (sampler->bindless_state.map) {
-         memcpy(sampler->bindless_state.map + p * 32,
+         memcpy((char *)sampler->bindless_state.map + p * 32,
                 sampler->state[p], GENX(SAMPLER_STATE_length) * 4);
       }
    }

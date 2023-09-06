@@ -521,7 +521,7 @@ setup_utrace_execbuf(struct anv_execbuf *execbuf, struct anv_queue *queue,
       .buffers_ptr = (uintptr_t) execbuf->objects,
       .buffer_count = execbuf->bo_count,
       .batch_start_offset = 0,
-      .batch_len = submit->batch.next - submit->batch.start,
+      .batch_len = (char *)submit->batch.next - (char *)submit->batch.start,
       .flags = I915_EXEC_NO_RELOC |
                I915_EXEC_HANDLE_LUT |
                I915_EXEC_FENCE_ARRAY |

@@ -604,7 +604,7 @@ anv_h265_decode_video(struct anv_cmd_buffer *cmd_buffer,
    /* All slices should be parsed in advance to collect information necessary */
    for (unsigned s = 0; s < h265_pic_info->sliceSegmentCount; s++) {
       uint32_t current_offset = h265_pic_info->pSliceSegmentOffsets[s];
-      void *map = slice_map + current_offset;
+      void *map = (char *)slice_map + current_offset;
       uint32_t slice_size = 0;
 
       if (s == last_slice)

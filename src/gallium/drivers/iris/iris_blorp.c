@@ -165,7 +165,7 @@ blorp_alloc_binding_table(struct blorp_batch *blorp_batch,
 
    unsigned bt_offset =
       iris_binder_reserve(ice, num_entries * sizeof(uint32_t));
-   uint32_t *bt_map = binder->map + bt_offset;
+   uint32_t *bt_map = (uint32_t *)((char *)binder->map + bt_offset);
 
    uint32_t surf_base_offset = GFX_VER < 11 ? binder->bo->address : 0;
 

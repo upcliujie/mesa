@@ -1334,7 +1334,7 @@ anv_cmd_buffer_init_attachments(struct anv_cmd_buffer *cmd_buffer,
 
    gfx->null_surface_state = next_state;
    next_state.offset += ss_stride;
-   next_state.map += ss_stride;
+   next_state.map = (char *)next_state.map + ss_stride;
 
    gfx->color_att_count = color_att_count;
    for (uint32_t i = 0; i < color_att_count; i++) {
@@ -1342,7 +1342,7 @@ anv_cmd_buffer_init_attachments(struct anv_cmd_buffer *cmd_buffer,
          .surface_state.state = next_state,
       };
       next_state.offset += ss_stride;
-      next_state.map += ss_stride;
+      next_state.map = (char *)next_state.map + ss_stride;
    }
    gfx->depth_att = (struct anv_attachment) { };
    gfx->stencil_att = (struct anv_attachment) { };
@@ -2275,7 +2275,7 @@ emit_samplers(struct anv_cmd_buffer *cmd_buffer,
       if (sampler == NULL)
          continue;
 
-      memcpy(state->map + (s * 16),
+      memcpy((char *)state->map + (s * 16),
              sampler->state[binding->plane], sizeof(sampler->state[0]));
    }
 
@@ -3023,7 +3023,7 @@ cmd_buffer_emit_viewport(struct anv_cmd_buffer *cmd_buffer)
                                         &sfv.YMaxClipGuardband);
       }
 
-      GENX(SF_CLIP_VIEWPORT_pack)(NULL, sf_clip_state.map + i * 64, &sfv);
+      GENX(SF_CLIP_VIEWPORT_pack)(NULL, (char *)sf_clip_state.map + i * 64, &sfv);
    }
 
    anv_batch_emit(&cmd_buffer->batch,
@@ -3058,7 +3058,7 @@ cmd_buffer_emit_depth_viewport(struct anv_cmd_buffer *cmd_buffer)
          .MaximumDepth = dyn->rs.depth_clamp_enable ? max_depth : 1.0f,
       };
 
-      GENX(CC_VIEWPORT_pack)(NULL, cc_state.map + i * 8, &cc_viewport);
+      GENX(CC_VIEWPORT_pack)(NULL, (char *)cc_state.map + i * 8, &cc_viewport);
    }
 
    anv_batch_emit(&cmd_buffer->batch,
@@ -3135,10 +3135,10 @@ cmd_buffer_emit_scissor(struct anv_cmd_buffer *cmd_buffer)
       };
 
       if (s->extent.width <= 0 || s->extent.height <= 0) {
-         GENX(SCISSOR_RECT_pack)(NULL, scissor_state.map + i * 8,
+         GENX(SCISSOR_RECT_pack)(NULL, (char *)scissor_state.map + i * 8,
                                  &empty_scissor);
       } else {
-         GENX(SCISSOR_RECT_pack)(NULL, scissor_state.map + i * 8, &scissor);
+         GENX(SCISSOR_RECT_pack)(NULL, (char *)scissor_state.map + i * 8, &scissor);
       }
    }
 
@@ -6082,17 +6082,17 @@ genX(cmd_buffer_dispatch_kernel)(struct anv_cmd_buffer *cmd_buffer,
 
    memcpy(indirect_data.map, &sysvals, sizeof(sysvals));
 
-   void *args_map = indirect_data.map + sizeof(sysvals);
+   void *args_map = (char *)indirect_data.map + sizeof(sysvals);
    for (unsigned i = 0; i < kernel->bin->bind_map.kernel_arg_count; i++) {
       struct brw_kernel_arg_desc *arg_desc =
          &kernel->bin->bind_map.kernel_args[i];
       assert(i < arg_count);
       const struct anv_kernel_arg *arg = &args[i];
       if (arg->is_ptr) {
-         memcpy(args_map + arg_desc->offset, arg->ptr, arg_desc->size);
+         memcpy((char *)args_map + arg_desc->offset, arg->ptr, arg_desc->size);
       } else {
          assert(arg_desc->size <= sizeof(arg->u64));
-         memcpy(args_map + arg_desc->offset, &arg->u64, arg_desc->size);
+         memcpy((char *)args_map + arg_desc->offset, &arg->u64, arg_desc->size);
       }
    }
 
@@ -6366,7 +6366,7 @@ cmd_buffer_trace_rays(struct anv_cmd_buffer *cmd_buffer,
                                     sizeof(struct anv_push_constants)));
    assert(GENX(RT_DISPATCH_GLOBALS_length) * 4 <= BRW_RT_PUSH_CONST_OFFSET);
    /* Push constants go after the RT_DISPATCH_GLOBALS */
-   memcpy(rtdg_state.map + BRW_RT_PUSH_CONST_OFFSET,
+   memcpy((char *)rtdg_state.map + BRW_RT_PUSH_CONST_OFFSET,
           &cmd_buffer->state.rt.base.push_constants,
           sizeof(struct anv_push_constants));
 

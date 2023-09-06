@@ -847,7 +847,7 @@ void anv_CmdUpdateBuffer(
 
       dataSize -= copy_size;
       dstOffset += copy_size;
-      pData = (void *)pData + copy_size;
+      pData = (char *)pData + copy_size;
    }
 
    anv_add_buffer_write_pending_bits(cmd_buffer, "update buffer");

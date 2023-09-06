@@ -47,7 +47,7 @@ intel_disassemble_find_end(const struct brw_isa_info *isa,
 
    /* This loop exits when send-with-EOT or when opcode is 0 */
    while (true) {
-      const brw_inst *insn = assembly + offset;
+      const brw_inst *insn = (const brw_inst *)((char *)assembly + offset);
 
       if (brw_inst_cmpt_control(devinfo, insn)) {
          offset += 8;

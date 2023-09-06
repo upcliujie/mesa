@@ -1548,7 +1548,7 @@ blorp_emit_surface_state(struct blorp_batch *batch,
        * surface buffer addresses are always 4K page alinged.
        */
       assert((surface->aux_addr.offset & 0xfff) == 0);
-      uint32_t *aux_addr = state + isl_dev->ss.aux_addr_offset;
+      uint32_t *aux_addr = (uint32_t *)((char *)state + isl_dev->ss.aux_addr_offset);
       blorp_surface_reloc(batch, state_offset + isl_dev->ss.aux_addr_offset,
                           surface->aux_addr, *aux_addr);
    }
@@ -1556,7 +1556,7 @@ blorp_emit_surface_state(struct blorp_batch *batch,
    if (aux_usage != ISL_AUX_USAGE_NONE && surface->clear_color_addr.buffer) {
 #if GFX_VER >= 10
       assert((surface->clear_color_addr.offset & 0x3f) == 0);
-      uint32_t *clear_addr = state + isl_dev->ss.clear_color_state_offset;
+      uint32_t *clear_addr = (uint32_t *)((char *)state + isl_dev->ss.clear_color_state_offset);
       blorp_surface_reloc(batch, state_offset +
                           isl_dev->ss.clear_color_state_offset,
                           surface->clear_color_addr, *clear_addr);
@@ -2096,8 +2096,8 @@ blorp_get_compute_push_const(struct blorp_batch *batch,
 
    if (cs_prog_data->push.cross_thread.size > 0) {
       memcpy(dst, src, cs_prog_data->push.cross_thread.size);
-      dst += cs_prog_data->push.cross_thread.size;
-      src += cs_prog_data->push.cross_thread.size;
+      dst = (char *)dst + cs_prog_data->push.cross_thread.size;
+      src = (char *)src + cs_prog_data->push.cross_thread.size;
    }
 
    assert(GFX_VERx10 < 125 || cs_prog_data->push.per_thread.size == 0);
@@ -2106,10 +2106,10 @@ blorp_get_compute_push_const(struct blorp_batch *batch,
       for (unsigned t = 0; t < threads; t++) {
          memcpy(dst, src, (cs_prog_data->push.per_thread.dwords - 1) * 4);
 
-         uint32_t *subgroup_id = dst + cs_prog_data->push.per_thread.size - 4;
+         uint32_t *subgroup_id = (uint32_t *)((char *)dst + cs_prog_data->push.per_thread.size - 4);
          *subgroup_id = t;
 
-         dst += cs_prog_data->push.per_thread.size;
+         dst = (char *)dst + cs_prog_data->push.per_thread.size;
       }
    }
 #endif

@@ -435,7 +435,7 @@ swrast_put_image2(__DRIdrawable *driDrawable, int op, int x, int y, int width,
 
    internal_stride = bo->base.v0.stride;
 
-   dst = bo->map + x_bytes + (y * internal_stride);
+   dst = (char *)bo->map + x_bytes + (y * internal_stride);
    src = data;
 
    for (int i = 0; i < height; i++) {
@@ -477,7 +477,7 @@ swrast_get_image(__DRIdrawable *driDrawable, int x, int y, int width,
       return;
 
    dst = data;
-   src = bo->map + x_bytes + (y * internal_stride);
+   src = (char *)bo->map + x_bytes + (y * internal_stride);
 
    for (int i = 0; i < height; i++) {
       memcpy(dst, src, width_bytes);

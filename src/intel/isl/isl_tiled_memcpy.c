@@ -166,17 +166,17 @@ rgba8_copy_aligned_dst(void *dst, const void *src, size_t bytes)
 
 #if defined(__SSSE3__) || defined(__SSE2__)
    if (bytes == 64) {
-      rgba8_copy_16_aligned_dst(dst +  0, src +  0);
-      rgba8_copy_16_aligned_dst(dst + 16, src + 16);
-      rgba8_copy_16_aligned_dst(dst + 32, src + 32);
-      rgba8_copy_16_aligned_dst(dst + 48, src + 48);
+      rgba8_copy_16_aligned_dst((char *)dst +  0, (char *)src +  0);
+      rgba8_copy_16_aligned_dst((char *)dst + 16, (char *)src + 16);
+      rgba8_copy_16_aligned_dst((char *)dst + 32, (char *)src + 32);
+      rgba8_copy_16_aligned_dst((char *)dst + 48, (char *)src + 48);
       return dst;
    }
 
    while (bytes >= 16) {
       rgba8_copy_16_aligned_dst(dst, src);
-      src += 16;
-      dst += 16;
+      src = (char *)src + 16;
+      dst = (char *)dst + 16;
       bytes -= 16;
    }
 #endif
@@ -196,17 +196,17 @@ rgba8_copy_aligned_src(void *dst, const void *src, size_t bytes)
 
 #if defined(__SSSE3__) || defined(__SSE2__)
    if (bytes == 64) {
-      rgba8_copy_16_aligned_src(dst +  0, src +  0);
-      rgba8_copy_16_aligned_src(dst + 16, src + 16);
-      rgba8_copy_16_aligned_src(dst + 32, src + 32);
-      rgba8_copy_16_aligned_src(dst + 48, src + 48);
+      rgba8_copy_16_aligned_src((char *)dst +  0, (char *)src +  0);
+      rgba8_copy_16_aligned_src((char *)dst + 16, (char *)src + 16);
+      rgba8_copy_16_aligned_src((char *)dst + 32, (char *)src + 32);
+      rgba8_copy_16_aligned_src((char *)dst + 48, (char *)src + 48);
       return dst;
    }
 
    while (bytes >= 16) {
       rgba8_copy_16_aligned_src(dst, src);
-      src += 16;
-      dst += 16;
+      src = (char *)src + 16;
+      dst = (char *)dst + 16;
       bytes -= 16;
    }
 #endif

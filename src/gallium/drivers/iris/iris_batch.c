@@ -438,7 +438,7 @@ iris_batch_maybe_noop(struct iris_batch *batch)
 
       map[0] = (0xA << 23);
 
-      batch->map_next += 4;
+      batch->map_next = (char *)batch->map_next + 4;
    }
 }
 
@@ -584,8 +584,8 @@ void
 iris_chain_to_new_batch(struct iris_batch *batch)
 {
    uint32_t *cmd = batch->map_next;
-   uint64_t *addr = batch->map_next + 4;
-   batch->map_next += 12;
+   uint64_t *addr = (uint64_t *)((char *)batch->map_next + 4);
+   batch->map_next = (char *)batch->map_next + 12;
 
    record_batch_sizes(batch);
 
@@ -663,7 +663,7 @@ iris_finish_batch(struct iris_batch *batch)
 
    map[0] = (0xA << 23);
 
-   batch->map_next += 4;
+   batch->map_next = (char *)batch->map_next + 4;
 
    record_batch_sizes(batch);
 }

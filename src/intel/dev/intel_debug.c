@@ -260,7 +260,7 @@ intel_debug_write_identifiers(void *_output,
    assert(output_size > intel_debug_identifier_size());
 
    memcpy(output, intel_debug_identifier(), intel_debug_identifier_size());
-   output += intel_debug_identifier_size();
+   output = (char *)output + intel_debug_identifier_size();
 
    for (uint32_t id = INTEL_DEBUG_BLOCK_TYPE_DRIVER; id < INTEL_DEBUG_BLOCK_TYPE_MAX; id++) {
       switch (id) {
@@ -270,13 +270,13 @@ intel_debug_write_identifiers(void *_output,
                .type = id,
             },
          };
-         int len = snprintf(output + sizeof(driver_desc),
-                            output_end - (output + sizeof(driver_desc)),
+         int len = snprintf((char *)output + sizeof(driver_desc),
+                            (char *)output_end - ((char *)output + sizeof(driver_desc)),
                             "%s " PACKAGE_VERSION " build " MESA_GIT_SHA1,
                             driver_name);
          driver_desc.base.length = sizeof(driver_desc) + len + 1;
          memcpy(output, &driver_desc, sizeof(driver_desc));
-         output += driver_desc.base.length;
+         output = (char *)output + driver_desc.base.length;
          break;
       }
 
@@ -288,7 +288,7 @@ intel_debug_write_identifiers(void *_output,
             },
          };
          memcpy(output, &frame_desc, sizeof(frame_desc));
-         output += sizeof(frame_desc);
+         output = (char *)output + sizeof(frame_desc);
          break;
       }
 
@@ -304,7 +304,7 @@ intel_debug_write_identifiers(void *_output,
       .length = sizeof(end),
    };
    memcpy(output, &end, sizeof(end));
-   output += sizeof(end);
+   output = (char *)output + sizeof(end);
 
    assert(output < output_end);
 
@@ -314,7 +314,7 @@ intel_debug_write_identifiers(void *_output,
    const unsigned unpadded_len = output - _output;
    const unsigned padding = ALIGN(unpadded_len + 8, 8) - unpadded_len;
    memset(output, 0, padding);
-   output += padding;
+   output = (char *)output + padding;
 
    assert(output < output_end);
 
@@ -329,8 +329,8 @@ intel_debug_get_identifier_block(void *_buffer,
                                  uint32_t buffer_size,
                                  enum intel_debug_block_type type)
 {
-   void *buffer = _buffer + intel_debug_identifier_size(),
-      *end_buffer = _buffer + buffer_size;
+   void *buffer = (char *)_buffer + intel_debug_identifier_size(),
+      *end_buffer = (char *)_buffer + buffer_size;
 
    while (buffer < end_buffer) {
       struct intel_debug_block_base *item = buffer;
@@ -340,7 +340,7 @@ intel_debug_get_identifier_block(void *_buffer,
       if (item->type == INTEL_DEBUG_BLOCK_TYPE_END)
          return NULL;
 
-      buffer += item->length;
+      buffer = (char *)buffer + item->length;
    }
 
    return NULL;
