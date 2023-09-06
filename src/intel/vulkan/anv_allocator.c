@@ -441,12 +441,16 @@ anv_block_pool_expand_range(struct anv_block_pool *pool, uint32_t size)
    if (result != VK_SUCCESS)
       return result;
 
-   pool->bos[pool->nbos++] = new_bo;
+   uint32_t new_bo_ind = p_atomic_read_relaxed(&pool->nbos);
+   assert(new_bo_ind < ANV_MAX_BLOCK_POOL_BOS);
+
+   pool->bos[new_bo_ind] = new_bo;
 
    /* This pointer will always point to the first BO in the list */
-   pool->bo = pool->bos[0];
+   if (new_bo_ind == 0)
+      pool->bo = new_bo;
 
-   assert(pool->nbos < ANV_MAX_BLOCK_POOL_BOS);
+   p_atomic_set(&pool->nbos, new_bo_ind + 1);
    pool->size = size;
 
    return VK_SUCCESS;
