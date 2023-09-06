@@ -67,7 +67,7 @@ do {                                                                            
 
 static void
 nva0c0_compute_setup_launch_desc_template(uint32_t *qmd,
-                                          struct nvk_shader *shader)
+                                          const struct nvk_shader *shader)
 {
    base_compute_setup_launch_desc_template(qmd, shader, A0C0, 00, 06);
 
@@ -95,7 +95,7 @@ nva0c0_compute_setup_launch_desc_template(uint32_t *qmd,
 
 static void
 nvc0c0_compute_setup_launch_desc_template(uint32_t *qmd,
-                                          struct nvk_shader *shader)
+                                          const struct nvk_shader *shader)
 {
    base_compute_setup_launch_desc_template(qmd, shader, C0C0, 02, 01);
 
@@ -109,7 +109,7 @@ nvc0c0_compute_setup_launch_desc_template(uint32_t *qmd,
 
 static void
 nvc3c0_compute_setup_launch_desc_template(uint32_t *qmd,
-                                          struct nvk_shader *shader)
+                                          const struct nvk_shader *shader)
 {
    base_compute_setup_launch_desc_template(qmd, shader, C3C0, 02, 02);
 
@@ -131,7 +131,7 @@ nvc3c0_compute_setup_launch_desc_template(uint32_t *qmd,
 
 static void
 nvc6c0_compute_setup_launch_desc_template(uint32_t *qmd,
-                                          struct nvk_shader *shader)
+                                          const struct nvk_shader *shader)
 {
    base_compute_setup_launch_desc_template(qmd, shader, C6C0, 03, 00);
 
@@ -187,7 +187,8 @@ nvk_compute_pipeline_create(struct nvk_device *dev,
    if (result != VK_SUCCESS)
       goto fail;
 
-   nvk_lower_nir(dev, nir, &robustness, false, pipeline_layout);
+   nvk_lower_nir(dev, nir, &robustness, false, pipeline_layout->set_layouts,
+                 pipeline_layout->set_count);
 
    result = nvk_compile_nir(pdev, nir, NULL,
                             &pipeline->base.shaders[MESA_SHADER_COMPUTE]);
@@ -218,4 +219,23 @@ nvk_compute_pipeline_create(struct nvk_device *dev,
 fail:
    nvk_pipeline_free(dev, &pipeline->base, pAllocator);
    return result;
+}
+
+void nvk_compute_shader_get_qmd_template(const struct nvk_device *dev,
+                                         const struct nvk_shader *shader,
+                                         uint32_t qmd_template[64])
+{
+   struct nvk_physical_device *pdev = dev->pdev;
+   assert(shader->stage == MESA_SHADER_COMPUTE);
+
+   if (pdev->info.cls_compute >= AMPERE_COMPUTE_A)
+      nvc6c0_compute_setup_launch_desc_template(qmd_template, shader);
+   else if (pdev->info.cls_compute >= VOLTA_COMPUTE_A)
+      nvc3c0_compute_setup_launch_desc_template(qmd_template, shader);
+   else if (pdev->info.cls_compute >= PASCAL_COMPUTE_A)
+      nvc0c0_compute_setup_launch_desc_template(qmd_template, shader);
+   else if (pdev->info.cls_compute >= KEPLER_COMPUTE_A)
+      nva0c0_compute_setup_launch_desc_template(qmd_template, shader);
+   else
+      unreachable("Fermi and older not supported!");
 }

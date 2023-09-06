@@ -68,6 +68,7 @@ vk_to_nvk_descriptor_set_layout(struct vk_descriptor_set_layout *layout)
 }
 
 uint8_t
-nvk_descriptor_set_layout_dynbuf_start(const struct vk_pipeline_layout *pipeline_layout,
-                                       int set_layout_idx);
+nvk_descriptor_set_layout_dynbuf_start(
+      struct vk_descriptor_set_layout *const *set_layouts, uint32_t num_layouts,
+      uint32_t set_layout_idx);
 #endif

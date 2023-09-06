@@ -97,6 +97,7 @@ nvk_get_device_extensions(const struct nv_device_info *info,
       .EXT_4444_formats = true,
       .EXT_border_color_swizzle = true,
       .EXT_buffer_device_address = true,
+      .EXT_color_write_enable = true,
       .EXT_conditional_rendering = true,
       .EXT_custom_border_color = true,
       .EXT_depth_clip_control = true,
@@ -124,6 +125,7 @@ nvk_get_device_extensions(const struct nv_device_info *info,
       .EXT_sampler_filter_minmax = info->cls_eng3d >= MAXWELL_B,
       .EXT_separate_stencil_usage = true,
       .EXT_shader_demote_to_helper_invocation = true,
+      .EXT_shader_object = true,
       .EXT_shader_viewport_index_layer = info->cls_eng3d >= MAXWELL_B,
       .EXT_tooling_info = true,
       .EXT_transform_feedback = true,
@@ -189,7 +191,7 @@ nvk_get_device_features(const struct nv_device_info *info,
       .sparseResidencyBuffer = info->cls_eng3d >= MAXWELL_A,
 #endif
       /* TODO: sparseResidency* */
-      /* TODO: variableMultisampleRate */
+      .variableMultisampleRate = true,
       /* TODO: inheritedQueries */
       .inheritedQueries = true,
 
@@ -259,6 +261,9 @@ nvk_get_device_features(const struct nv_device_info *info,
       /* VK_EXT_buffer_device_address */
       .bufferDeviceAddressCaptureReplayEXT = false,
 
+      /* VK_EXT_color_write_enable */
+      .colorWriteEnable = true,
+
       /* VK_EXT_custom_border_color */
       .customBorderColors = true,
       .customBorderColorWithoutFormat = true,
@@ -279,20 +284,20 @@ nvk_get_device_features(const struct nv_device_info *info,
 
       /* VK_EXT_extended_dynamic_state3 */
       .extendedDynamicState3TessellationDomainOrigin = false,
-      .extendedDynamicState3DepthClampEnable = false,
+      .extendedDynamicState3DepthClampEnable = true,
       .extendedDynamicState3PolygonMode = true,
-      .extendedDynamicState3RasterizationSamples = false,
-      .extendedDynamicState3SampleMask = false,
-      .extendedDynamicState3AlphaToCoverageEnable = false,
-      .extendedDynamicState3AlphaToOneEnable = false,
+      .extendedDynamicState3RasterizationSamples = true,
+      .extendedDynamicState3SampleMask = true,
+      .extendedDynamicState3AlphaToCoverageEnable = true,
+      .extendedDynamicState3AlphaToOneEnable = true,
       .extendedDynamicState3LogicOpEnable = true,
-      .extendedDynamicState3ColorBlendEnable = false,
-      .extendedDynamicState3ColorBlendEquation = false,
-      .extendedDynamicState3ColorWriteMask = false,
-      .extendedDynamicState3RasterizationStream = false,
+      .extendedDynamicState3ColorBlendEnable = true,
+      .extendedDynamicState3ColorBlendEquation = true,
+      .extendedDynamicState3ColorWriteMask = true,
+      .extendedDynamicState3RasterizationStream = true,
       .extendedDynamicState3ConservativeRasterizationMode = false,
       .extendedDynamicState3ExtraPrimitiveOverestimationSize = false,
-      .extendedDynamicState3DepthClipEnable = false,
+      .extendedDynamicState3DepthClipEnable = true,
       .extendedDynamicState3SampleLocationsEnable = info->cls_eng3d >= MAXWELL_B,
       .extendedDynamicState3ColorBlendAdvanced = false,
       .extendedDynamicState3ProvokingVertexMode = true,
@@ -593,6 +598,9 @@ nvk_get_device_properties(const struct nvk_instance *instance,
       .sampleLocationSubPixelBits = 4,
       .variableSampleLocations = true,
 
+      /* VK_EXT_shader_object */
+      .shaderBinaryVersion = 0,
+
       /* VK_EXT_transform_feedback */
       .maxTransformFeedbackStreams = 4,
       .maxTransformFeedbackBuffers = 4,
@@ -627,6 +635,9 @@ nvk_get_device_properties(const struct nvk_instance *instance,
    snprintf(properties->driverName, VK_MAX_DRIVER_NAME_SIZE, "NVK");
    snprintf(properties->driverInfo, VK_MAX_DRIVER_INFO_SIZE,
             "Mesa " PACKAGE_VERSION MESA_GIT_SHA1);
+
+   /* VK_EXT_shader_object */
+   memcpy(properties->shaderBinaryUUID, &instance->driver_uuid, VK_UUID_SIZE);
 }
 
 VkResult

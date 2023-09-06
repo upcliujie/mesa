@@ -12,6 +12,7 @@ struct vk_pipeline_robustness_state;
 struct nvk_device;
 struct nvk_physical_device;
 struct nvk_pipeline_compilation_ctx;
+struct nvk_descriptor_set_layout;
 
 #define GF100_SHADER_HEADER_SIZE (20 * 4)
 #define TU102_SHADER_HEADER_SIZE (32 * 4)
@@ -30,6 +31,8 @@ struct nvk_transform_feedback_state {
 };
 
 struct nvk_shader {
+   struct vk_object_base base;
+
    gl_shader_stage stage;
 
    uint8_t *code_ptr;
@@ -70,10 +73,10 @@ struct nvk_shader {
    } fs;
 
    struct {
-      uint32_t domain_type; /* ~0 if params defined by the other stage */
+      uint32_t domain_type;
       uint32_t spacing;
       uint32_t output_prims;
-   } tp;
+   } tes;
 
    struct {
       uint32_t smem_size; /* shared memory (TGSI LOCAL resource) size */
@@ -81,8 +84,13 @@ struct nvk_shader {
    } cp;
 
    struct nvk_transform_feedback_state *xfb;
+
+   unsigned char *temp_shader_binary;
+   size_t temp_shader_binary_size;
 };
 
+VK_DEFINE_NONDISP_HANDLE_CASTS(nvk_shader, base, VkShaderEXT,
+                               VK_OBJECT_TYPE_SHADER_EXT)
 static inline uint64_t
 nvk_shader_address(const struct nvk_shader *shader)
 {
@@ -114,13 +122,15 @@ nvk_physical_device_spirv_options(const struct nvk_physical_device *pdev,
 bool
 nvk_nir_lower_descriptors(nir_shader *nir,
                           const struct vk_pipeline_robustness_state *rs,
-                          const struct vk_pipeline_layout *layout);
+                          struct vk_descriptor_set_layout *const *set_layouts,
+                          uint32_t set_count);
 
 void
 nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
               const struct vk_pipeline_robustness_state *rs,
               bool is_multiview,
-              const struct vk_pipeline_layout *layout);
+              struct vk_descriptor_set_layout *const *set_layouts,
+              uint32_t set_count);
 
 VkResult
 nvk_compile_nir(struct nvk_physical_device *dev, nir_shader *nir,
@@ -129,4 +139,9 @@ nvk_compile_nir(struct nvk_physical_device *dev, nir_shader *nir,
 
 VkResult
 nvk_shader_upload(struct nvk_device *dev, struct nvk_shader *shader);
+
+void nvk_compute_shader_get_qmd_template(const struct nvk_device *dev,
+                                         const struct nvk_shader *shader,
+                                         uint32_t qmd[64]);
+
 #endif

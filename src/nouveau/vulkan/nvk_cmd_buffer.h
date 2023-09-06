@@ -95,10 +95,14 @@ struct nvk_graphics_state {
    /* Needed by vk_command_buffer::dynamic_graphics_state */
    struct vk_vertex_input_state _dynamic_vi;
    struct vk_sample_locations_state _dynamic_sl;
+
+   /* used to support dynamic rasterization samples state */
+   float min_sample_shading;
 };
 
 struct nvk_compute_state {
    struct nvk_compute_pipeline *pipeline;
+   struct nvk_shader *compute_shader;
    struct nvk_descriptor_state descriptors;
 };
 

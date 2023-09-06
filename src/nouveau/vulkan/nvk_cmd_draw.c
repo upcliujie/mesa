@@ -30,6 +30,7 @@
 #include "nvk_clc397.h"
 #include "nvk_clc597.h"
 #include "drf.h"
+#include "vk_graphics_state.h"
 
 static inline uint16_t
 nvk_cmd_buffer_3d_cls(struct nvk_cmd_buffer *cmd)
@@ -250,6 +251,7 @@ nvk_queue_init_context_draw_state(struct nvk_queue *queue)
 
    P_IMMD(p, NV9097, SET_BLEND_OPT_CONTROL, ALLOW_FLOAT_PIXEL_KILLS_TRUE);
    P_IMMD(p, NV9097, SET_BLEND_FLOAT_OPTION, ZERO_TIMES_ANYTHING_IS_ZERO_TRUE);
+   P_IMMD(p, NV9097, SET_BLEND_STATE_PER_TARGET, ENABLE_TRUE);
 
    if (dev->pdev->info.cls_eng3d < MAXWELL_A)
       P_IMMD(p, NV9097, SET_MAX_TI_WARPS_PER_BATCH, 3);
@@ -721,13 +723,28 @@ nvk_CmdBeginRendering(VkCommandBuffer commandBuffer,
       P_IMMD(p, NV9097, SET_ZT_SELECT, 0 /* target_count */);
    }
 
-   if (sample_layout == NIL_SAMPLE_LAYOUT_INVALID)
-      sample_layout = NIL_SAMPLE_LAYOUT_1X1;
-
-   P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sample_layout));
-
    if (render->flags & VK_RENDERING_RESUMING_BIT)
       return;
+
+   /* This is left here for clears to work, but only in the case we have any
+    * attachments. As the Vulkan 1.3.261 says for VkFramebufferCreateInfo:
+    *
+    *    "It is legal for a subpass to use no color or depth/stencil
+    *    attachments, either because it has no attachment references or because
+    *    all of them are VK_ATTACHMENT_UNUSED. This kind of subpass can use
+    *    shader side effects such as image stores and atomics to produce
+    *    an output.
+    *    In this case, the subpass continues to use ... the rasterizationSamples
+    *    from each pipeline’s VkPipelineMultisampleStateCreateInfo to define
+    *    the number of samples used in rasterization;"
+    *
+    * In the case of dynamic rasterization state the samples, we should not
+    * disrupt the state if the sample layout is invalid. If the layout is not
+    * invalid the rasterization state should be the same as the attachments';
+    */
+   if (sample_layout != NIL_SAMPLE_LAYOUT_INVALID) {
+      P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sample_layout));
+   }
 
    uint32_t clear_count = 0;
    VkClearAttachment clear_att[NVK_MAX_RTS + 1];
@@ -862,6 +879,12 @@ nvk_cmd_bind_graphics_pipeline(struct nvk_cmd_buffer *cmd,
 {
    cmd->state.gfx.pipeline = pipeline;
    vk_cmd_set_dynamic_graphics_state(&cmd->vk, &pipeline->dynamic);
+
+   if (pipeline->min_sample_shading != cmd->state.gfx.min_sample_shading) {
+      BITSET_SET(cmd->vk.dynamic_graphics_state.dirty,
+                 MESA_VK_DYNAMIC_MS_RASTERIZATION_SAMPLES);
+      cmd->state.gfx.min_sample_shading = pipeline->min_sample_shading;
+   }
 
    struct nv_push *p = nvk_cmd_buffer_push(cmd, pipeline->push_dw_count);
    nv_push_raw(p, pipeline->push_data, pipeline->push_dw_count);
@@ -1099,7 +1122,7 @@ vk_to_nv9097_provoking_vertex(VkProvokingVertexModeEXT vk_mode)
 static void
 nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
 {
-   struct nv_push *p = nvk_cmd_buffer_push(cmd, 34);
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 38);
 
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
@@ -1146,6 +1169,25 @@ nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
       P_IMMD(p, NV9097, SET_DEPTH_BIAS_CLAMP, fui(dyn->rs.depth_bias.clamp));
    }
 
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_CLIP_ENABLE) ||
+       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_CLAMP_ENABLE)) {
+      const bool depth_clip_enable =
+         vk_rasterization_state_depth_clip_enable(&dyn->rs);
+      const enum vk_mesa_depth_clip_enable dce = dyn->rs.depth_clip_enable;
+      P_IMMD(p, NV9097, SET_VIEWPORT_CLIP_CONTROL, {
+         .min_z_zero_max_z_one      = MIN_Z_ZERO_MAX_Z_ONE_TRUE,
+         .pixel_min_z               = !depth_clip_enable ? PIXEL_MIN_Z_CLAMP :
+                                                           PIXEL_MIN_Z_CLIP,
+         .pixel_max_z               = !depth_clip_enable ? PIXEL_MAX_Z_CLAMP :
+                                                           PIXEL_MAX_Z_CLIP,
+         .geometry_guardband        = GEOMETRY_GUARDBAND_SCALE_256,
+         .line_point_cull_guardband = LINE_POINT_CULL_GUARDBAND_SCALE_256,
+         .geometry_clip             = !dce ? GEOMETRY_CLIP_WZERO_CLIP_NO_Z_CULL :
+                                             GEOMETRY_CLIP_WZERO_CLIP,
+         .geometry_guardband_z      = GEOMETRY_GUARDBAND_Z_SAME_AS_XY_GUARDBAND,
+      });
+   }
+
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_LINE_WIDTH)) {
       P_MTHD(p, NV9097, SET_LINE_WIDTH_FLOAT);
       P_NV9097_SET_LINE_WIDTH_FLOAT(p, fui(dyn->rs.line.width));
@@ -1186,6 +1228,9 @@ nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
          .pattern = dyn->rs.line.stipple.pattern,
       });
    }
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_RS_RASTERIZATION_STREAM))
+      P_IMMD(p, NV9097, SET_RASTER_INPUT, dyn->rs.rasterization_stream);
 }
 
 static VkSampleLocationEXT
@@ -1217,6 +1262,33 @@ nvk_flush_ms_state(struct nvk_cmd_buffer *cmd)
 {
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_ALPHA_TO_COVERAGE_ENABLE) ||
+       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_ALPHA_TO_ONE_ENABLE)) {
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
+      P_IMMD(p, NV9097, SET_ANTI_ALIAS_ALPHA_CONTROL, {
+         .alpha_to_coverage = dyn->ms.alpha_to_coverage_enable,
+         .alpha_to_one      = dyn->ms.alpha_to_one_enable,
+      });
+   }
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_RASTERIZATION_SAMPLES)) {
+      const uint32_t samples = dyn->ms.rasterization_samples;
+      const enum nil_sample_layout sl =
+         nil_choose_sample_layout(samples);
+
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 4);
+      P_IMMD(p, NV9097, SET_ANTI_ALIAS, nil_to_nv9097_samples_mode(sl));
+
+      uint32_t min_samples = ceilf(samples * cmd->state.gfx.min_sample_shading);
+      min_samples = util_next_power_of_two(MAX2(1, min_samples));
+
+      P_IMMD(p, NV9097, SET_HYBRID_ANTI_ALIAS_CONTROL, {
+         .passes = min_samples,
+         .centroid = min_samples > 1 ? CENTROID_PER_PASS :
+                                       CENTROID_PER_FRAGMENT,
+      });
+   }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_SAMPLE_LOCATIONS) ||
        BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_SAMPLE_LOCATIONS_ENABLE)) {
@@ -1254,6 +1326,15 @@ nvk_flush_ms_state(struct nvk_cmd_buffer *cmd)
             });
          }
       }
+   }
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_SAMPLE_MASK)) {
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 5);
+      P_MTHD(p, NV9097, SET_SAMPLE_MASK_X0_Y0);
+      P_NV9097_SET_SAMPLE_MASK_X0_Y0(p, dyn->ms.sample_mask & 0xffff);
+      P_NV9097_SET_SAMPLE_MASK_X1_Y0(p, dyn->ms.sample_mask & 0xffff);
+      P_NV9097_SET_SAMPLE_MASK_X0_Y1(p, dyn->ms.sample_mask & 0xffff);
+      P_NV9097_SET_SAMPLE_MASK_X1_Y1(p, dyn->ms.sample_mask & 0xffff);
    }
 }
 
@@ -1390,13 +1471,63 @@ vk_to_nv9097_logic_op(VkLogicOp vk_op)
    return nv9097_op;
 }
 
+static uint32_t
+vk_to_nv9097_blend_op(VkBlendOp vk_op)
+{
+#define OP(vk, nv) [VK_BLEND_OP_##vk] = NV9097_SET_BLEND_COLOR_OP_V_OGL_##nv
+   ASSERTED uint16_t vk_to_nv9097[] = {
+      OP(ADD,              FUNC_ADD),
+      OP(SUBTRACT,         FUNC_SUBTRACT),
+      OP(REVERSE_SUBTRACT, FUNC_REVERSE_SUBTRACT),
+      OP(MIN,              MIN),
+      OP(MAX,              MAX),
+   };
+   assert(vk_op < ARRAY_SIZE(vk_to_nv9097));
+#undef OP
+
+   return vk_to_nv9097[vk_op];
+}
+
+static uint32_t
+vk_to_nv9097_blend_factor(VkBlendFactor vk_factor)
+{
+#define FACTOR(vk, nv) [VK_BLEND_FACTOR_##vk] = \
+   NV9097_SET_BLEND_COLOR_SOURCE_COEFF_V_##nv
+   ASSERTED uint16_t vk_to_nv9097[] = {
+      FACTOR(ZERO,                     OGL_ZERO),
+      FACTOR(ONE,                      OGL_ONE),
+      FACTOR(SRC_COLOR,                OGL_SRC_COLOR),
+      FACTOR(ONE_MINUS_SRC_COLOR,      OGL_ONE_MINUS_SRC_COLOR),
+      FACTOR(DST_COLOR,                OGL_DST_COLOR),
+      FACTOR(ONE_MINUS_DST_COLOR,      OGL_ONE_MINUS_DST_COLOR),
+      FACTOR(SRC_ALPHA,                OGL_SRC_ALPHA),
+      FACTOR(ONE_MINUS_SRC_ALPHA,      OGL_ONE_MINUS_SRC_ALPHA),
+      FACTOR(DST_ALPHA,                OGL_DST_ALPHA),
+      FACTOR(ONE_MINUS_DST_ALPHA,      OGL_ONE_MINUS_DST_ALPHA),
+      FACTOR(CONSTANT_COLOR,           OGL_CONSTANT_COLOR),
+      FACTOR(ONE_MINUS_CONSTANT_COLOR, OGL_ONE_MINUS_CONSTANT_COLOR),
+      FACTOR(CONSTANT_ALPHA,           OGL_CONSTANT_ALPHA),
+      FACTOR(ONE_MINUS_CONSTANT_ALPHA, OGL_ONE_MINUS_CONSTANT_ALPHA),
+      FACTOR(SRC_ALPHA_SATURATE,       OGL_SRC_ALPHA_SATURATE),
+      FACTOR(SRC1_COLOR,               OGL_SRC1COLOR),
+      FACTOR(ONE_MINUS_SRC1_COLOR,     OGL_INVSRC1COLOR),
+      FACTOR(SRC1_ALPHA,               OGL_SRC1ALPHA),
+      FACTOR(ONE_MINUS_SRC1_ALPHA,     OGL_INVSRC1ALPHA),
+   };
+   assert(vk_factor < ARRAY_SIZE(vk_to_nv9097));
+#undef FACTOR
+
+   return vk_to_nv9097[vk_factor];
+}
+
 static void
 nvk_flush_cb_state(struct nvk_cmd_buffer *cmd)
 {
-   struct nv_push *p = nvk_cmd_buffer_push(cmd, 9);
-
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
+
+   struct nv_push *p = nvk_cmd_buffer_push(cmd,
+                                           11 + dyn->cb.attachment_count * 12);
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_LOGIC_OP_ENABLE))
       P_IMMD(p, NV9097, SET_LOGIC_OP, dyn->cb.logic_op_enable);
@@ -1406,7 +1537,59 @@ nvk_flush_cb_state(struct nvk_cmd_buffer *cmd)
       P_IMMD(p, NV9097, SET_LOGIC_OP_FUNC, func);
    }
 
-   /* MESA_VK_DYNAMIC_CB_COLOR_WRITE_ENABLES */
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_WRITE_MASKS) ||
+       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_COLOR_WRITE_ENABLES)) {
+      bool dependant_color_masks = true;
+      const uint8_t first_write_mask = dyn->cb.attachments[0].write_mask;
+      const bool first_write_enabled =
+         (dyn->cb.color_write_enables & BITFIELD_BIT(0)) != 0;
+
+      for (uint8_t a = 0; a < dyn->cb.attachment_count; ++a) {
+         const struct vk_color_blend_attachment_state *att =
+            &dyn->cb.attachments[a];
+         const bool write_enable =
+            (dyn->cb.color_write_enables & BITFIELD_BIT(a)) != 0;
+         P_IMMD(p, NV9097, SET_CT_WRITE(a), {
+            .r_enable = write_enable && (att->write_mask & BITFIELD_BIT(0)) != 0,
+            .g_enable = write_enable && (att->write_mask & BITFIELD_BIT(1)) != 0,
+            .b_enable = write_enable && (att->write_mask & BITFIELD_BIT(2)) != 0,
+            .a_enable = write_enable && (att->write_mask & BITFIELD_BIT(3)) != 0,
+         });
+
+         if (att->write_mask != first_write_mask ||
+             write_enable != first_write_enabled) {
+            dependant_color_masks = false;
+         }
+      }
+      P_IMMD(p, NV9097, SET_SINGLE_CT_WRITE_CONTROL, dependant_color_masks);
+   }
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_ENABLES)) {
+      for (uint8_t a = 0; a < dyn->cb.attachment_count; ++a) {
+         P_IMMD(p, NV9097, SET_BLEND(a), dyn->cb.attachments[a].blend_enable);
+      }
+   }
+
+   if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_EQUATIONS)) {
+      for (uint8_t a = 0; a < dyn->cb.attachment_count; ++a) {
+         const struct vk_color_blend_attachment_state *att =
+            &dyn->cb.attachments[a];
+         P_MTHD(p, NV9097, SET_BLEND_PER_TARGET_SEPARATE_FOR_ALPHA(a));
+         P_NV9097_SET_BLEND_PER_TARGET_SEPARATE_FOR_ALPHA(p, a, ENABLE_TRUE);
+         P_NV9097_SET_BLEND_PER_TARGET_COLOR_OP(p, a,
+               vk_to_nv9097_blend_op(att->color_blend_op));
+         P_NV9097_SET_BLEND_PER_TARGET_COLOR_SOURCE_COEFF(p, a,
+               vk_to_nv9097_blend_factor(att->src_color_blend_factor));
+         P_NV9097_SET_BLEND_PER_TARGET_COLOR_DEST_COEFF(p, a,
+               vk_to_nv9097_blend_factor(att->dst_color_blend_factor));
+         P_NV9097_SET_BLEND_PER_TARGET_ALPHA_OP(p, a,
+               vk_to_nv9097_blend_op(att->alpha_blend_op));
+         P_NV9097_SET_BLEND_PER_TARGET_ALPHA_SOURCE_COEFF(p, a,
+               vk_to_nv9097_blend_factor(att->src_alpha_blend_factor));
+         P_NV9097_SET_BLEND_PER_TARGET_ALPHA_DEST_COEFF(p, a,
+               vk_to_nv9097_blend_factor(att->dst_alpha_blend_factor));
+      }
+   }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_CONSTANTS)) {
       P_MTHD(p, NV9097, SET_BLEND_CONST_RED);
@@ -2543,4 +2726,81 @@ nvk_CmdEndConditionalRenderingEXT(VkCommandBuffer commandBuffer)
    P_NV90C0_SET_RENDER_ENABLE_A(p, 0);
    P_NV90C0_SET_RENDER_ENABLE_B(p, 0);
    P_NV90C0_SET_RENDER_ENABLE_C(p, MODE_TRUE);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetViewportWScalingEnableNV(VkCommandBuffer commandBuffer,
+                                   VkBool32 viewportWScalingEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageReductionModeNV(
+      VkCommandBuffer commandBuffer,
+      VkCoverageReductionModeNV coverageReductionMode)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageToColorEnableNV(VkCommandBuffer commandBuffer,
+                                  VkBool32 coverageToColorEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageToColorLocationNV(VkCommandBuffer commandBuffer,
+                                    uint32_t coverageToColorLocation)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageModulationModeNV(
+      VkCommandBuffer commandBuffer,
+      VkCoverageModulationModeNV coverageModulationMode)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageModulationTableEnableNV(
+      VkCommandBuffer commandBuffer,
+      VkBool32 coverageModulationTableEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetCoverageModulationTableNV(VkCommandBuffer commandBuffer,
+                                    uint32_t coverageModulationTableCount,
+                                    const float* pCoverageModulationTable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetRepresentativeFragmentTestEnableNV(
+      VkCommandBuffer commandBuffer,
+      VkBool32 representativeFragmentTestEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetShadingRateImageEnableNV(VkCommandBuffer commandBuffer,
+                                   VkBool32 shadingRateImageEnable)
+{
+   nvk_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdSetViewportSwizzleNV(VkCommandBuffer commandBuffer,
+                            uint32_t firstViewport,
+                            uint32_t viewportCount,
+                            const VkViewportSwizzleNV* pViewportSwizzles)
+{
+   nvk_stub();
 }

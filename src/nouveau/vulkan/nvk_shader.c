@@ -9,6 +9,7 @@
 
 #include "nouveau_bo.h"
 #include "nouveau_context.h"
+#include "vk_nir.h"
 #include "vk_nir_convert_ycbcr.h"
 #include "vk_pipeline.h"
 #include "vk_shader_module.h"
@@ -25,6 +26,8 @@
 #include "clc397.h"
 #include "clc597.h"
 #include "nvk_cl9097.h"
+#include "nvk_clc397.h"
+#include "nvk_clb197.h"
 
 static void
 shared_var_info(const struct glsl_type *type, unsigned *size, unsigned *align)
@@ -311,14 +314,20 @@ assign_io_locations(nir_shader *nir)
    }
 }
 
+struct ycbcr_conversion_cb_data
+{
+   struct vk_descriptor_set_layout *set_layouts[VK_MESA_PIPELINE_LAYOUT_MAX_SETS];
+   uint32_t set_count;
+};
+
 static const struct vk_ycbcr_conversion_state *
-lookup_ycbcr_conversion(const void *_layout, uint32_t set,
+lookup_ycbcr_conversion(const void *_cb_data, uint32_t set,
                         uint32_t binding, uint32_t array_index)
 {
-   const struct vk_pipeline_layout *pipeline_layout = _layout;
-   assert(set < pipeline_layout->set_count);
+   const struct ycbcr_conversion_cb_data *cb_data = _cb_data;
+   assert(set < cb_data->set_count);
    const struct nvk_descriptor_set_layout *set_layout =
-      vk_to_nvk_descriptor_set_layout(pipeline_layout->set_layouts[set]);
+      vk_to_nvk_descriptor_set_layout(cb_data->set_layouts[set]);
    assert(binding < set_layout->binding_count);
 
    const struct nvk_descriptor_set_binding_layout *bind_layout =
@@ -395,7 +404,8 @@ void
 nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
               const struct vk_pipeline_robustness_state *rs,
               bool is_multiview,
-              const struct vk_pipeline_layout *layout)
+              struct vk_descriptor_set_layout *const *set_layouts,
+              uint32_t set_count)
 {
    struct nvk_physical_device *pdev = nvk_device_physical(dev);
 
@@ -426,7 +436,13 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
                });
    }
 
-   NIR_PASS(_, nir, nir_vk_lower_ycbcr_tex, lookup_ycbcr_conversion, layout);
+
+   struct ycbcr_conversion_cb_data cb_data = {};
+   cb_data.set_count = set_count;
+   for (uint32_t i = 0; i < set_count; ++i) {
+      cb_data.set_layouts[i] = set_layouts[i];
+   }
+   NIR_PASS(_, nir, nir_vk_lower_ycbcr_tex, lookup_ycbcr_conversion, &cb_data);
 
    nir_lower_compute_system_values_options csv_options = {
       .has_base_workgroup_id = true,
@@ -481,7 +497,7 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
       NIR_PASS(_, nir, nir_lower_non_uniform_access, &opts);
    }
 
-   NIR_PASS(_, nir, nvk_nir_lower_descriptors, rs, layout);
+   NIR_PASS(_, nir, nvk_nir_lower_descriptors, rs, set_layouts, set_count);
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_global,
             nir_address_format_64bit_global);
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_ssbo,
@@ -825,9 +841,9 @@ static void
 nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
                                      struct nvk_shader *shader)
 {
-   // TODO: this is a little confusing because nouveau codegen uses
-   // MESA_PRIM_POINTS for unspecified domain and
-   // MESA_PRIM_POINTS = 0, the same as NV9097 ISOLINE enum
+   /* Before compiling we call merge_tess_info() so all the required execution
+    * modes should already exist in the tessellation evaluation shader
+    */
    uint32_t domain_type;
    switch (info->prop.tp.domain) {
    case MESA_PRIM_LINES:
@@ -840,13 +856,9 @@ nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
       domain_type = NV9097_SET_TESSELLATION_PARAMETERS_DOMAIN_TYPE_QUAD;
       break;
    default:
-      domain_type = ~0;
-      break;
+      unreachable("Invalid tessellation domain type");
    }
-   shader->tp.domain_type = domain_type;
-   if (domain_type == ~0) {
-      return;
-   }
+   shader->tes.domain_type = domain_type;
 
    uint32_t spacing;
    switch (info->prop.tp.partitioning) {
@@ -860,10 +872,9 @@ nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
       spacing = NV9097_SET_TESSELLATION_PARAMETERS_SPACING_FRACTIONAL_EVEN;
       break;
    default:
-      assert(!"invalid tessellator partitioning");
-      break;
+      unreachable("Invalid tessellator partitioning");
    }
-   shader->tp.spacing = spacing;
+   shader->tes.spacing = spacing;
 
    uint32_t output_prims;
    if (info->prop.tp.outputPrim == MESA_PRIM_POINTS) { // point_mode
@@ -877,7 +888,7 @@ nvk_generate_tessellation_parameters(const struct nv50_ir_prog_info_out *info,
          output_prims = NV9097_SET_TESSELLATION_PARAMETERS_OUTPUT_PRIMITIVES_TRIANGLES_CCW;
       }
    }
-   shader->tp.output_prims = output_prims;
+   shader->tes.output_prims = output_prims;
 }
 
 static int
@@ -905,8 +916,6 @@ nvk_tcs_gen_header(struct nvk_shader *tcs, struct nv50_ir_prog_info_out *info)
       tcs->hdr[3] = (opcs & 0x0f) << 28;
       tcs->hdr[4] |= (opcs & 0xf0) << 16;
    }
-
-   nvk_generate_tessellation_parameters(info, tcs);
 
    return 0;
 }
@@ -1230,3 +1239,336 @@ nvk_shader_upload(struct nvk_device *dev, struct nvk_shader *shader)
 
    return result;
 }
+
+static VkResult nvk_create_spirv_shader(struct nvk_device *dev,
+                                        const VkShaderCreateInfoEXT *pCreateInfo,
+                                        const VkAllocationCallbacks *pAllocator,
+                                        VkShaderEXT *pShader)
+{
+   struct nvk_physical_device *pdev = nvk_device_physical(dev);
+
+   bool is_binary = pCreateInfo->codeType == VK_SHADER_CODE_TYPE_BINARY_EXT;
+   const uint32_t *spirv_code = is_binary ? pCreateInfo->pCode+20 :
+                                                 pCreateInfo->pCode;
+   const size_t spirv_code_size = is_binary ? pCreateInfo->codeSize-20 :
+                                              pCreateInfo->codeSize;
+
+   const gl_shader_stage stage = vk_to_mesa_shader_stage(pCreateInfo->stage);
+   struct vk_pipeline_robustness_state rs;
+   vk_pipeline_robustness_state_fill(&dev->vk, &rs, NULL, NULL);
+
+   const nir_shader_compiler_options *nir_options =
+      nvk_physical_device_nir_options(pdev, stage);
+   const struct spirv_to_nir_options spirv_options =
+      nvk_physical_device_spirv_options(pdev, &rs);
+
+   assert(vk_spirv_version(spirv_code, spirv_code_size) <= 0x10600);
+   // TODO: do better, as this is copied from vk common
+   nir_shader *nir = vk_spirv_to_nir(&dev->vk, spirv_code, spirv_code_size,
+                                     stage, pCreateInfo->pName,
+                                     stage == MESA_SHADER_COMPUTE ? SUBGROUP_SIZE_FULL_SUBGROUPS : SUBGROUP_SIZE_API_CONSTANT,
+                                     pCreateInfo->pSpecializationInfo,
+                                     &spirv_options, nir_options, NULL);
+
+   if (nir == NULL) {
+      return vk_errorf(dev, VK_ERROR_UNKNOWN, "spirv_to_nir_failed");
+   }
+
+   // no need to call merge tess info because all execution modes must be in tess
+
+   // TODO: check for null
+   struct vk_descriptor_set_layout *set_layouts[VK_MESA_PIPELINE_LAYOUT_MAX_SETS];
+   for (uint32_t i = 0; i < pCreateInfo->setLayoutCount; ++i) {
+      VK_FROM_HANDLE(vk_descriptor_set_layout, layout, pCreateInfo->pSetLayouts[i]);
+      set_layouts[i] = layout;
+   }
+
+   // TODO multiview
+   nvk_lower_nir(dev, nir, &rs, false, set_layouts, pCreateInfo->setLayoutCount);
+
+   struct nvk_shader *shader;
+   VkResult result = VK_SUCCESS;
+
+   shader = vk_object_zalloc(&dev->vk, pAllocator, sizeof(*shader),
+                             VK_OBJECT_TYPE_SHADER_EXT);
+   // TODO nir leak
+   if (shader == NULL) {
+      return vk_error(dev, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+
+   // populate nvk_fs_key
+   struct nvk_fs_key *fs_key = NULL;
+   result = nvk_compile_nir(pdev, nir, fs_key, shader);
+   ralloc_free(nir);
+
+   if (result != VK_SUCCESS) {
+      goto fail;
+   }
+
+   result = nvk_shader_upload(dev, shader);
+   if (result != VK_SUCCESS) {
+      goto fail;
+   }
+
+   *pShader = nvk_shader_to_handle(shader);
+
+   unsigned char key[20];
+   struct mesa_sha1 sha1_ctx;
+   _mesa_sha1_init(&sha1_ctx);
+   _mesa_sha1_update(&sha1_ctx, spirv_code, spirv_code_size);
+   _mesa_sha1_final(&sha1_ctx, key);
+
+   shader->temp_shader_binary_size = sizeof(key) + spirv_code_size;
+   shader->temp_shader_binary = vk_zalloc(&dev->vk.alloc,
+                                          shader->temp_shader_binary_size, 16,
+                                          VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
+   memcpy(shader->temp_shader_binary, key, sizeof(key));
+   memcpy(shader->temp_shader_binary+sizeof(key), spirv_code, spirv_code_size);
+
+   return VK_SUCCESS;
+
+fail:
+   vk_object_free(&dev->vk, pAllocator, shader);
+   return result;
+}
+
+static bool
+check_shader_binary_compatibility(const VkShaderCreateInfoEXT *info)
+{
+   const unsigned char *binary = info->pCode;
+   const size_t size = info->codeSize;
+
+   unsigned char key[20];
+   if (size <= sizeof(key)) {
+      return false;
+   }
+
+   const unsigned char *spirv_code = binary+sizeof(key);
+   size_t spirv_code_size = size-sizeof(key);
+
+   struct mesa_sha1 sha1_ctx;
+   _mesa_sha1_init(&sha1_ctx);
+   _mesa_sha1_update(&sha1_ctx, spirv_code, spirv_code_size);
+   _mesa_sha1_final(&sha1_ctx, key);
+
+   return !memcmp(key, binary, sizeof(key));
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_CreateShadersEXT(VkDevice _device, uint32_t createInfoCount,
+                     const VkShaderCreateInfoEXT *pCreateInfos,
+                     const VkAllocationCallbacks *pAllocator,
+                     VkShaderEXT *pShaders)
+{
+   VK_FROM_HANDLE(nvk_device, dev, _device);
+   VkResult result = VK_SUCCESS;
+
+   uint32_t i = 0;
+   for (; i < createInfoCount; i++) {
+      // check if binary (spirv) is compatible
+      if (pCreateInfos[i].codeType == VK_SHADER_CODE_TYPE_BINARY_EXT &&
+          !check_shader_binary_compatibility(&pCreateInfos[i])) {
+         result = VK_ERROR_INCOMPATIBLE_SHADER_BINARY_EXT;
+         pShaders[i] = VK_NULL_HANDLE;
+         break;
+      }
+
+      VkResult r = nvk_create_spirv_shader(dev, &pCreateInfos[i],
+            pAllocator, &pShaders[i]);
+
+      /*
+       *  When this function returns, whether or not it succeeds,
+       *  it is guaranteed that every element of pShaders will have been
+       *  overwritten by either VK_NULL_HANDLE or a valid VkShaderEXT handle.
+
+       *  This means that whenever shader creation fails, the application can
+       *  determine which shader the returned error pertains to by locating
+       *  the first VK_NULL_HANDLE element in pShaders.
+       *  It also means that an application can reliably clean up from a
+       *  failed call by iterating over the pShaders array and destroying
+       *  every element that is not VK_NULL_HANDLE.
+       */
+
+      if (r != VK_SUCCESS) {
+         result = r;
+         pShaders[i] = VK_NULL_HANDLE;
+         break;
+      }
+   }
+
+   for (; i < createInfoCount; ++i)
+      pShaders[i] = VK_NULL_HANDLE;
+
+   return result;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_DestroyShaderEXT(VkDevice device, VkShaderEXT shader,
+                     const VkAllocationCallbacks *pAllocator)
+{
+   // TODO
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_GetShaderBinaryDataEXT(VkDevice device, VkShaderEXT _shader,
+                           size_t *pDataSize, void *pData)
+{
+   assert(pDataSize);
+   VK_FROM_HANDLE(nvk_shader, shader, _shader);
+
+   if (pData == NULL) {
+      *pDataSize = shader->temp_shader_binary_size;
+      return VK_SUCCESS;
+   } else {
+      if (*pDataSize < shader->temp_shader_binary_size) {
+         *pDataSize = 0;
+         return VK_INCOMPLETE;
+      } else {
+         memcpy(pData, shader->temp_shader_binary,
+                shader->temp_shader_binary_size);
+         *pDataSize = shader->temp_shader_binary_size;
+         return VK_SUCCESS;
+      }
+   }
+}
+
+// duplicates to nvk_graphics_pipeline
+static const uint32_t mesa_to_nv9097_shader_type[] = {
+   [MESA_SHADER_VERTEX]    = NV9097_SET_PIPELINE_SHADER_TYPE_VERTEX,
+   [MESA_SHADER_TESS_CTRL] = NV9097_SET_PIPELINE_SHADER_TYPE_TESSELLATION_INIT,
+   [MESA_SHADER_TESS_EVAL] = NV9097_SET_PIPELINE_SHADER_TYPE_TESSELLATION,
+   [MESA_SHADER_GEOMETRY]  = NV9097_SET_PIPELINE_SHADER_TYPE_GEOMETRY,
+   [MESA_SHADER_FRAGMENT]  = NV9097_SET_PIPELINE_SHADER_TYPE_PIXEL,
+};
+
+static void nvk_cmd_bind_empty_shader(struct nvk_cmd_buffer *cmd,
+                                      gl_shader_stage stage)
+{
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
+   uint32_t idx = mesa_to_nv9097_shader_type[stage];
+   P_IMMD(p, NV9097, SET_PIPELINE_SHADER(idx), {
+      .enable  = ENABLE_FALSE,
+      .type    = mesa_to_nv9097_shader_type[stage],
+   });
+}
+
+static void nvk_cmd_bind_graphics_shader(struct nvk_cmd_buffer *cmd,
+                                         gl_shader_stage stage,
+                                         struct nvk_shader *shader)
+{
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 16);
+   assert(shader->upload_size > 0);
+   struct nvk_device *dev = nvk_cmd_buffer_device(cmd);
+
+   assert(shader->stage == stage);
+   uint32_t idx = mesa_to_nv9097_shader_type[stage];
+   P_IMMD(p, NV9097, SET_PIPELINE_SHADER(idx), {
+      .enable  = ENABLE_TRUE,
+      .type    = mesa_to_nv9097_shader_type[stage], });
+
+   uint64_t addr = nvk_shader_address(shader);
+   if (dev->pdev->info.cls_eng3d >= VOLTA_A) {
+      P_MTHD(p, NVC397, SET_PIPELINE_PROGRAM_ADDRESS_A(idx));
+      P_NVC397_SET_PIPELINE_PROGRAM_ADDRESS_A(p, idx, addr >> 32);
+      P_NVC397_SET_PIPELINE_PROGRAM_ADDRESS_B(p, idx, addr);
+   } else {
+      assert(addr < 0xffffffff);
+      P_IMMD(p, NV9097, SET_PIPELINE_PROGRAM(idx), addr);
+   }
+
+   P_IMMD(p, NV9097, SET_PIPELINE_REGISTER_COUNT(idx), shader->num_gprs);
+
+   switch (stage) {
+      case MESA_SHADER_VERTEX:
+      case MESA_SHADER_GEOMETRY:
+      case MESA_SHADER_TESS_CTRL:
+         break;
+
+      case MESA_SHADER_FRAGMENT:
+         P_IMMD(p, NV9097, SET_SUBTILING_PERF_KNOB_A, {
+            .fraction_of_spm_register_file_per_subtile         = 0x10,
+            .fraction_of_spm_pixel_output_buffer_per_subtile   = 0x40,
+            .fraction_of_spm_triangle_ram_per_subtile          = 0x16,
+            .fraction_of_max_quads_per_subtile                 = 0x20,
+         });
+         P_NV9097_SET_SUBTILING_PERF_KNOB_B(p, 0x20);
+
+         P_IMMD(p, NV9097, SET_API_MANDATED_EARLY_Z, shader->fs.early_z);
+
+         // TODO: fix
+         P_IMMD(p, NVB197, SET_POST_Z_PS_IMASK,
+               shader->fs.post_depth_coverage);
+         //if (dev->pdev->info.cls_eng3d >= MAXWELL_B) {
+         //   P_IMMD(p, NVB197, SET_POST_Z_PS_IMASK,
+         //         shader->fs.post_depth_coverage);
+         //} else {
+         //   assert(!shader->fs.post_depth_coverage);
+         //}
+
+         P_MTHD(p, NV9097, SET_ZCULL_BOUNDS);
+         P_INLINE_DATA(p, shader->flags[0]);
+
+#if 0
+         /* If we're using the incoming sample mask and doing sample shading,
+          * we have to do sample shading "to the max", otherwise there's no
+          * way to tell which sets of samples are covered by the current
+          * invocation.
+          */
+         force_max_samples = shader->fs.sample_mask_in ||
+            shader->fs.uses_sample_shading;
+#endif
+         break;
+
+      case MESA_SHADER_TESS_EVAL:
+         P_MTHD(p, NV9097, SET_TESSELLATION_PARAMETERS);
+         P_NV9097_SET_TESSELLATION_PARAMETERS(p, {
+            shader->tes.domain_type,
+            shader->tes.spacing,
+            shader->tes.output_prims
+         });
+         break;
+
+      default:
+         unreachable("Unsupported shader stage");
+   }
+}
+
+static void nvk_cmd_bind_compute_shader(struct nvk_cmd_buffer *cmd,
+                                        struct nvk_shader *shader)
+{
+   cmd->state.cs.compute_shader = shader;
+}
+
+
+VKAPI_ATTR void VKAPI_CALL
+nvk_CmdBindShadersEXT(VkCommandBuffer commandBuffer, uint32_t stageCount,
+                      const VkShaderStageFlagBits* pStages,
+                      const VkShaderEXT* pShaders)
+{
+   VK_FROM_HANDLE(nvk_cmd_buffer, cmd, commandBuffer);
+
+   /* If pShaders is NULL, vkCmdBindShadersEXT behaves as if pShaders was an
+    * array of stageCount VK_NULL_HANDLE values
+    * (i.e., any shaders bound to the stages specified in pStages are unbound).
+    */
+   for (uint32_t i = 0; i < stageCount; ++i) {
+      gl_shader_stage stage = vk_to_mesa_shader_stage(pStages[i]);
+      if (!pShaders || pShaders[i] == VK_NULL_HANDLE) {
+         if (stage == MESA_SHADER_COMPUTE) {
+            nvk_cmd_bind_compute_shader(cmd, NULL);
+         } else {
+            nvk_cmd_bind_empty_shader(cmd, stage);
+         }
+      } else {
+         VK_FROM_HANDLE(nvk_shader, shader, pShaders[i]);
+         if (stage == MESA_SHADER_COMPUTE) {
+            nvk_cmd_bind_compute_shader(cmd, shader);
+         } else {
+            nvk_cmd_bind_graphics_shader(cmd, stage, shader);
+         }
+      }
+   }
+}
+
+
