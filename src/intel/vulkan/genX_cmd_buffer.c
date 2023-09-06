@@ -3371,8 +3371,10 @@ genX(emit_hs)(struct anv_cmd_buffer *cmd_buffer)
 ALWAYS_INLINE static void
 genX(emit_ds)(struct anv_cmd_buffer *cmd_buffer)
 {
-#if GFX_VERx10 >= 125
-   /* Wa_14019750404:
+   if (!intel_needs_workaround(cmd_buffer->device->info, 22018402687))
+      return;
+
+   /* Wa_22018402687:
     *   In any 3D enabled context, just before any Tessellation enabled draw
     *   call (3D Primitive), re-send the last programmed 3DSTATE_DS again.
     *   This will make sure that the 3DSTATE_INT generated just before the
@@ -3384,7 +3386,6 @@ genX(emit_ds)(struct anv_cmd_buffer *cmd_buffer)
     * We don't need to track said switch, as it matters at the HW level, and
     * can be triggered even across processes, so we apply the Wa at all times.
     *
-    * FIXME: Use INTEL_NEEDS_WA_14019750404 once the tool picks it up.
     */
    struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
    if (!anv_pipeline_has_stage(pipeline, MESA_SHADER_TESS_EVAL))
@@ -3394,7 +3395,6 @@ genX(emit_ds)(struct anv_cmd_buffer *cmd_buffer)
       anv_batch_emitn(&cmd_buffer->batch, GENX(3DSTATE_DS_length),
                          GENX(3DSTATE_DS));
    memcpy(dw, &pipeline->gfx8.ds, sizeof(pipeline->gfx8.ds));
-#endif
 }
 
 ALWAYS_INLINE static void
