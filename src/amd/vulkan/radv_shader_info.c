@@ -339,10 +339,11 @@ assign_outinfo_params(struct radv_vs_output_info *outinfo, uint64_t mask, unsign
 
 static unsigned
 radv_get_cs_subgroup_size(const struct radv_device *const device, const nir_shader *nir,
-                          const struct radv_shader_info *info, const struct radv_shader_stage_key *stage_key)
+                          const struct radv_shader_stage_key *stage_key)
 {
+   const bool uses_rt = gl_shader_stage_is_rt(nir->info.stage) || nir->info.ray_queries;
    const unsigned default_wave_size =
-      info->cs.uses_rt ? device->physical_device->rt_wave_size : device->physical_device->cs_wave_size;
+      uses_rt ? device->physical_device->rt_wave_size : device->physical_device->cs_wave_size;
    const unsigned local_size = nir->info.workgroup_size[0] * nir->info.workgroup_size[1] * nir->info.workgroup_size[2];
 
    const unsigned required_subgroup_size = stage_key->subgroup_required_size * 32;
@@ -928,8 +929,7 @@ gather_shader_info_cs(struct radv_device *device, const nir_shader *nir, const s
 {
    info->cs.uses_ray_launch_size = BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_RAY_LAUNCH_SIZE_ADDR_AMD);
 
-   info->cs.subgroup_size =
-      radv_get_cs_subgroup_size(device, nir, info, &pipeline_key->stage_info[MESA_SHADER_COMPUTE]);
+   info->cs.subgroup_size = radv_get_cs_subgroup_size(device, nir, &pipeline_key->stage_info[MESA_SHADER_COMPUTE]);
 
    if (device->physical_device->rad_info.has_cs_regalloc_hang_bug) {
       info->cs.regalloc_hang_bug = info->cs.block_size[0] * info->cs.block_size[1] * info->cs.block_size[2] > 256;
