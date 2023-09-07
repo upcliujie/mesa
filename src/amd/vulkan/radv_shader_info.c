@@ -337,7 +337,7 @@ assign_outinfo_params(struct radv_vs_output_info *outinfo, uint64_t mask, unsign
    }
 }
 
-static unsigned
+unsigned
 radv_get_cs_subgroup_size(const struct radv_device *const device, const nir_shader *nir,
                           const struct radv_shader_stage_key *stage_key)
 {

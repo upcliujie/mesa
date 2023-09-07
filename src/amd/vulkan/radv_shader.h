@@ -850,6 +850,9 @@ bool radv_consider_culling(const struct radv_physical_device *pdevice, struct ni
 
 unsigned radv_get_api_subgroup_size(const struct radv_shader_stage_key *stage_key);
 
+unsigned radv_get_cs_subgroup_size(const struct radv_device *const device, const nir_shader *nir,
+                                   const struct radv_shader_stage_key *stage_key);
+
 void radv_get_nir_options(struct radv_physical_device *device);
 
 nir_shader *radv_build_traversal_shader(struct radv_device *device, struct radv_ray_tracing_pipeline *pipeline,

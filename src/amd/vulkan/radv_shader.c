@@ -638,6 +638,9 @@ radv_shader_spirv_to_nir(struct radv_device *device, const struct radv_shader_st
                .lower_quad_broadcast_dynamic_to_const = gfx7minus,
                .lower_shuffle_to_swizzle_amd = 1,
                .lower_ballot_bit_count_to_mbcnt_amd = 1,
+               .lower_cs_local_id_yz_to_subgroup_id =
+                  nir->info.stage == MESA_SHADER_COMPUTE &&
+                  subgroup_size == radv_get_cs_subgroup_size(device, nir, &key->stage_info[stage->stage]),
             });
 
    NIR_PASS(_, nir, nir_lower_load_const_to_scalar);
