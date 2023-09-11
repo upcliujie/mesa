@@ -456,36 +456,61 @@ fs_visitor::emit_interpolation_setup_gfx6()
       break;
    }
 
+   fs_reg uw_pixel_x = abld.vgrf(BRW_REGISTER_TYPE_UW);
+   fs_reg uw_pixel_y = abld.vgrf(BRW_REGISTER_TYPE_UW);
+
    for (unsigned i = 0; i < DIV_ROUND_UP(dispatch_width, 16); i++) {
       const fs_builder hbld = abld.group(MIN2(16, dispatch_width), i);
       struct brw_reg gi_uw = retype(brw_vec1_grf(1 + i, 0), BRW_REGISTER_TYPE_UW);
 
+      fs_reg int_pixel_x = offset(uw_pixel_x, hbld, i);
+      fs_reg int_pixel_y = offset(uw_pixel_y, hbld, i);
+
       if (devinfo->verx10 >= 125) {
+         /* We compute two sets of int pixel x/y: one with a 2 byte stride for
+          * future load_pixel_coord, and one with a 4 byte stride to meet
+          * regioning restrictions for the add into a float result that
+          * implements the current load_frag_coord.
+          */
          const fs_builder dbld =
             abld.exec_all().group(hbld.dispatch_width() * 2, 0);
-         const fs_reg int_pixel_x = dbld.vgrf(BRW_REGISTER_TYPE_UW);
-         const fs_reg int_pixel_y = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+         const fs_reg int_pixel_x_4b = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+         const fs_reg int_pixel_y_4b = dbld.vgrf(BRW_REGISTER_TYPE_UW);
 
-         dbld.ADD(int_pixel_x,
+         hbld.ADD(int_pixel_x,
                   fs_reg(stride(suboffset(gi_uw, 4), 2, 8, 0)),
                   int_pixel_offset_x);
-         dbld.ADD(int_pixel_y,
+         hbld.ADD(int_pixel_y,
+                  fs_reg(stride(suboffset(gi_uw, 5), 2, 8, 0)),
+                  int_pixel_offset_y);
+         dbld.ADD(int_pixel_x_4b,
+                  fs_reg(stride(suboffset(gi_uw, 4), 2, 8, 0)),
+                  int_pixel_offset_x);
+         dbld.ADD(int_pixel_y_4b,
                   fs_reg(stride(suboffset(gi_uw, 5), 2, 8, 0)),
                   int_pixel_offset_y);
 
          if (wm_prog_data->coarse_pixel_dispatch != BRW_NEVER) {
-            fs_inst *addx = dbld.ADD(int_pixel_x, int_pixel_x,
+            fs_inst *addx = hbld.ADD(int_pixel_x, int_pixel_x,
                                      horiz_stride(half_int_pixel_offset_x, 0));
-            fs_inst *addy = dbld.ADD(int_pixel_y, int_pixel_y,
+            fs_inst *addy = hbld.ADD(int_pixel_y, int_pixel_y,
                                      horiz_stride(half_int_pixel_offset_y, 0));
+            if (wm_prog_data->coarse_pixel_dispatch != BRW_ALWAYS) {
+               addx->predicate = BRW_PREDICATE_NORMAL;
+               addy->predicate = BRW_PREDICATE_NORMAL;
+            }
+            addx = dbld.ADD(int_pixel_x_4b, int_pixel_x_4b,
+                            horiz_stride(half_int_pixel_offset_x, 0));
+            addy = dbld.ADD(int_pixel_y_4b, int_pixel_y_4b,
+                            horiz_stride(half_int_pixel_offset_y, 0));
             if (wm_prog_data->coarse_pixel_dispatch != BRW_ALWAYS) {
                addx->predicate = BRW_PREDICATE_NORMAL;
                addy->predicate = BRW_PREDICATE_NORMAL;
             }
          }
 
-         hbld.MOV(offset(pixel_x, hbld, i), horiz_stride(int_pixel_x, 2));
-         hbld.MOV(offset(pixel_y, hbld, i), horiz_stride(int_pixel_y, 2));
+         hbld.MOV(offset(pixel_x, hbld, i), horiz_stride(int_pixel_x_4b, 2));
+         hbld.MOV(offset(pixel_y, hbld, i), horiz_stride(int_pixel_y_4b, 2));
 
       } else if (devinfo->ver >= 8 || dispatch_width == 8) {
          /* The "Register Region Restrictions" page says for BDW (and newer,
@@ -506,10 +531,13 @@ fs_visitor::emit_interpolation_setup_gfx6()
                   fs_reg(stride(suboffset(gi_uw, 4), 1, 4, 0)),
                   int_pixel_offset_xy);
 
-         hbld.emit(FS_OPCODE_PIXEL_X, offset(pixel_x, hbld, i), int_pixel_xy,
+         hbld.emit(FS_OPCODE_PIXEL_X, int_pixel_x, int_pixel_xy,
                                       horiz_stride(half_int_pixel_offset_x, 0));
-         hbld.emit(FS_OPCODE_PIXEL_Y, offset(pixel_y, hbld, i), int_pixel_xy,
+         hbld.emit(FS_OPCODE_PIXEL_Y, int_pixel_y, int_pixel_xy,
                                       horiz_stride(half_int_pixel_offset_y, 0));
+
+         hbld.MOV(offset(pixel_x, hbld, i), int_pixel_x);
+         hbld.MOV(offset(pixel_y, hbld, i), int_pixel_y);
       } else {
          /* The "Register Region Restrictions" page says for SNB, IVB, HSW:
           *
@@ -519,9 +547,6 @@ fs_visitor::emit_interpolation_setup_gfx6()
           * Since the GRF source of the ADD will only read a single register,
           * we must do two separate ADDs in SIMD16.
           */
-         const fs_reg int_pixel_x = hbld.vgrf(BRW_REGISTER_TYPE_UW);
-         const fs_reg int_pixel_y = hbld.vgrf(BRW_REGISTER_TYPE_UW);
-
          hbld.ADD(int_pixel_x,
                   fs_reg(stride(suboffset(gi_uw, 4), 2, 4, 0)),
                   fs_reg(brw_imm_v(0x10101010)));
