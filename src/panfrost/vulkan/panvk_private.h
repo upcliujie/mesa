@@ -88,6 +88,11 @@ typedef uint32_t xcb_window_t;
 
 #include "panvk_entrypoints.h"
 
+#ifdef ANDROID
+struct panvk_android_image;
+struct u_gralloc;
+#endif
+
 #define MAX_BIND_POINTS             2 /* compute + graphics */
 #define MAX_VBS                     16
 #define MAX_VERTEX_ATTRIBS          16
@@ -203,6 +208,10 @@ enum panvk_debug_flags {
 
 struct panvk_instance {
    struct vk_instance vk;
+
+#ifdef ANDROID
+   struct u_gralloc *u_gralloc;
+#endif
 
    uint32_t api_version;
 
@@ -896,6 +905,9 @@ struct panvk_pipeline {
 
 struct panvk_image {
    struct vk_image vk;
+#ifdef ANDROID
+   struct panvk_android_image *android_image;
+#endif
 
    struct pan_image pimage;
 };
@@ -1109,6 +1121,27 @@ struct nir_shader;
 bool panvk_per_arch(nir_lower_descriptors)(
    struct nir_shader *nir, struct panvk_device *dev,
    const struct panvk_pipeline_layout *layout, bool *has_img_access_out);
+#endif
+
+#ifdef ANDROID
+VkResult panvk_android_image_create(VkDevice device_h,
+                                    const VkImageCreateInfo *pCreateInfo,
+                                    const VkAllocationCallbacks *pAllocator,
+                                    struct panvk_android_image **out_aimage);
+
+void panvk_android_image_destroy(VkDevice device_h,
+                                 const VkAllocationCallbacks *pAllocator,
+                                 struct panvk_android_image **aimage);
+
+VkResult panvk_import_anb(VkDevice device_h,
+                          const VkImageCreateInfo *pCreateInfo,
+                          const VkAllocationCallbacks *alloc, VkImage image_h);
+
+VkResult panvk_process_anb(struct panvk_android_image *aimage,
+                           uint64_t *out_modifier,
+                           const VkSubresourceLayout **out_layouts);
+
+bool panvk_is_image_anb(struct panvk_image *image);
 #endif
 
 #endif /* PANVK_PRIVATE_H */

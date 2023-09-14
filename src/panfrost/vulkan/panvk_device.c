@@ -57,6 +57,10 @@
 #include <wayland-client.h>
 #endif
 
+#ifdef ANDROID
+#include "util/u_gralloc/u_gralloc.h"
+#endif
+
 #include "panvk_cs.h"
 
 VkResult
@@ -160,6 +164,12 @@ panvk_get_device_extensions(const struct panvk_physical_device *device,
       .EXT_index_type_uint8 = true,
       .EXT_vertex_attribute_divisor = true,
    };
+
+#ifdef ANDROID
+   if (device->instance->u_gralloc != NULL) {
+      ext->ANDROID_native_buffer = true;
+   }
+#endif
 }
 
 static void
@@ -348,6 +358,10 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
 
    VG(VALGRIND_CREATE_MEMPOOL(instance, 0, false));
 
+#ifdef ANDROID
+   instance->u_gralloc = u_gralloc_create(U_GRALLOC_TYPE_AUTO);
+#endif
+
    *pInstance = panvk_instance_to_handle(instance);
 
    return VK_SUCCESS;
@@ -361,6 +375,10 @@ panvk_DestroyInstance(VkInstance _instance,
 
    if (!instance)
       return;
+
+#ifdef ANDROID
+   u_gralloc_destroy(&instance->u_gralloc);
+#endif
 
    vk_instance_finish(&instance->vk);
    vk_free(&instance->vk.alloc, instance);
@@ -411,6 +429,8 @@ panvk_physical_device_init(struct panvk_physical_device *device,
    if (instance->debug_flags & PANVK_DEBUG_STARTUP)
       vk_logi(VK_LOG_NO_OBJS(instance), "Found compatible device '%s'.", path);
 
+   device->instance = instance;
+
    struct vk_device_extension_table supported_extensions;
    panvk_get_device_extensions(device, &supported_extensions);
 
@@ -431,8 +451,6 @@ panvk_physical_device_init(struct panvk_physical_device *device,
       vk_error(instance, result);
       goto fail;
    }
-
-   device->instance = instance;
 
    if (instance->vk.enabled_extensions.KHR_display) {
       master_fd = open(drm_device->nodes[DRM_NODE_PRIMARY], O_RDWR | O_CLOEXEC);
@@ -720,6 +738,21 @@ panvk_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          properties->maxVertexAttribDivisor = UINT32_MAX / (16 * 2048);
          break;
       }
+#ifdef ANDROID
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENTATION_PROPERTIES_ANDROID: {
+         VkPhysicalDevicePresentationPropertiesANDROID *props =
+            (VkPhysicalDevicePresentationPropertiesANDROID *)ext;
+         uint64_t front_rendering_usage = 0;
+         if (pdevice->instance->u_gralloc)
+            u_gralloc_get_front_rendering_usage(pdevice->instance->u_gralloc,
+                                                &front_rendering_usage);
+         props->sharedImage = front_rendering_usage ? VK_TRUE : VK_FALSE;
+         break;
+      }
+#pragma GCC diagnostic pop
+#endif
       default:
          break;
       }

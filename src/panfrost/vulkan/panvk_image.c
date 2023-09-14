@@ -77,6 +77,20 @@ panvk_image_create(VkDevice _device, const VkImageCreateInfo *pCreateInfo,
    if (!image)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+#ifdef ANDROID
+   VkResult result = panvk_android_image_create(_device, pCreateInfo, alloc,
+                                                &image->android_image);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   if (panvk_is_image_anb(image)) {
+      result =
+         panvk_process_anb(image->android_image, &modifier, &plane_layouts);
+      if (result != VK_SUCCESS)
+         goto fail;
+   }
+#endif
+
    image->pimage.layout = (struct pan_image_layout){
       .modifier = modifier,
       .format = vk_format_to_pipe_format(image->vk.format),
@@ -91,8 +105,24 @@ panvk_image_create(VkDevice _device, const VkImageCreateInfo *pCreateInfo,
 
    pan_image_layout_init(pdev, &image->pimage.layout, NULL);
 
-   *pImage = panvk_image_to_handle(image);
+   VkImage _image = panvk_image_to_handle(image);
+#ifdef ANDROID
+   if (panvk_is_image_anb(image)) {
+      result = panvk_import_anb(_device, pCreateInfo, alloc, _image);
+      if (result != VK_SUCCESS)
+         goto fail;
+   }
+#endif
+
+   *pImage = _image;
    return VK_SUCCESS;
+
+#ifdef ANDROID
+fail:
+   panvk_android_image_destroy(_device, alloc, &image->android_image);
+   vk_image_destroy(&device->vk, alloc, &image->vk);
+   return result;
+#endif
 }
 
 static uint64_t
@@ -213,6 +243,9 @@ panvk_DestroyImage(VkDevice _device, VkImage _image,
    if (!image)
       return;
 
+#ifdef ANDROID
+   panvk_android_image_destroy(_device, pAllocator, &image->android_image);
+#endif
    vk_image_destroy(&device->vk, pAllocator, &image->vk);
 }
 
