@@ -462,6 +462,9 @@ etna_reset_gpu_state(struct etna_context *ctx)
    etna_set_state(stream, VIVS_RA_HDEPTH_CONTROL, 0x00007000);
    etna_set_state(stream, VIVS_PS_CONTROL_EXT, 0x00000000);
 
+   if (screen->specs.num_rts == 8)
+      etna_set_state(stream, VIVS_PS_UNK01038, 0x00000000);
+
    /* There is no HALTI0 specific state */
    if (screen->specs.halti >= 1) { /* Only on HALTI1+ */
       etna_set_state(stream, VIVS_VS_HALTI1_UNK00884, 0x00000808);
