@@ -357,3 +357,31 @@
   variables:
     FDO_CI_CONCURRENT: 12
     GPU_VERSION: crocus-hsw
+
+# Austriancoder farm
+
+# x devices (2023-xx-xx)
+.austriancoder-imx6q-cubox-i:arm32:
+  variables:
+    BM_CMDLINE: "ip=dhcp console=ttymxc0,115200n8 root=/dev/nfs rw nfsrootdebug init=/init $BM_KERNELARGS"
+    BM_DTB: imx6q-cubox-i
+    BM_KERNEL: zImage
+    DEQP_EXPECTED_RENDERER: GC2000
+    GPU_VERSION: "etnaviv-gc2000"
+  script:
+    - ./install/bare-metal/fastboot.sh
+  tags:
+    - etnaviv-gc2000
+
+# x devices (2023-xx-xx)
+.austriancoder-imx8mq-nitrogen:arm64:
+  variables:
+    BM_CMDLINE: "ip=dhcp console=ttymxc0,115200n8 root=/dev/nfs rw nfsrootdebug init=/init $BM_KERNELARGS"
+    BM_DTB: imx8mq-nitrogen
+    BM_KERNEL: Image
+    DEQP_EXPECTED_RENDERER: GC7000
+    GPU_VERSION: "etnaviv-gc7000"
+  script:
+    - ./install/bare-metal/fastboot.sh
+  tags:
+    - austriancoder-etnaviv-imx8mq-nitrogen
