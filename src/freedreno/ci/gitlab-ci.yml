@@ -304,8 +304,6 @@ a530-traces:
     .lava-test:arm64
   variables:
     FLAKES_CHANNEL: "#freedreno-ci"
-    BOOT_METHOD: depthcharge
-    KERNEL_IMAGE_TYPE: ""
     # Increase the hangcheck timer for our spilling tests which bump up against
     # the .5s default.
     FREEDRENO_HANGCHECK_MS: 2000
@@ -315,18 +313,12 @@ a530-traces:
 .a618-test-kingoftown:
   extends:
     - .a618-test
-  variables:
-    DEVICE_TYPE: sc7180-trogdor-kingoftown
-    DTB: sc7180-trogdor-kingoftown
-    RUNNER_TAG: mesa-ci-x86-64-lava-sc7180-trogdor-kingoftown
+    - .lava-sc7180-trogdor-kingoftown:arm64
 
 .a618-test-limozeen-nots-r5:
   extends:
     - .a618-test
-  variables:
-    DEVICE_TYPE: sc7180-trogdor-lazor-limozeen
-    DTB: sc7180-trogdor-lazor-limozeen-nots-r5
-    RUNNER_TAG: mesa-ci-x86-64-lava-sc7180-trogdor-lazor-limozeen
+    - .lava-sc7180-trogdor-lazor-limozeen:arm64
 
 a618_vk:
   extends:
@@ -430,25 +422,11 @@ a618-traces-performance:
     - !reference [a618-traces, needs]
     - !reference [.piglit-performance:arm64, needs]
 
-.lava-sm8350-hdk:
-  variables:
-    BOOT_METHOD: fastboot
-    KERNEL_IMAGE_NAME: "Image.gz"
-    KERNEL_IMAGE_TYPE: ""
-    # Increase the hangcheck timer for our spilling tests which bump up against
-    # the .5s default.
-    FREEDRENO_HANGCHECK_MS: 2000
-    DEVICE_TYPE: sm8350-hdk
-    DTB: sm8350-hdk
-    GPU_VERSION: freedreno-a660
-    RUNNER_TAG: mesa-ci-x86-64-lava-sm8350-hdk
-    VK_DRIVER: freedreno
-
 a660_gl:
   extends:
     - .lava-test-deqp:arm64
     - .collabora-freedreno-rules
-    - .lava-sm8350-hdk
+    - .lava-sm8350-hdk:arm64
   parallel: 2
   variables:
     DEQP_SUITE: freedreno-a660
@@ -457,7 +435,7 @@ a660_vk:
   extends:
     - .lava-test-deqp:arm64
     - .collabora-turnip-rules
-    - .lava-sm8350-hdk
+    - .lava-sm8350-hdk:arm64
   parallel: 5
   variables:
     DEQP_SUITE: freedreno-a660-vk

@@ -22,3 +22,239 @@
     - igalia-rpi4
 
 
+# Collabora farm
+
+# https://lava.collabora.dev/scheduler/device_type/acer-cb317-1h-c3z6-dedede
+.lava-acer-cb317-1h-c3z6-dedede:x86_64:
+  variables:
+    DEVICE_TYPE: acer-cb317-1h-c3z6-dedede
+    FDO_CI_CONCURRENT: 3
+    GPU_VERSION: iris-jsl
+    RUNNER_TAG: mesa-ci-x86-64-lava-acer-cb317-1h-c3z6-dedede
+
+# https://lava.collabora.dev/scheduler/device_type/acer-R721T-grunt
+.lava-acer-R721T-grunt:x86_64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: acer-R721T-grunt
+    DTB: ""
+    FDO_CI_CONCURRENT: 3
+    HWCI_FREQ_MAX: "true"
+    HWCI_KERNEL_MODULES: amdgpu
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-acer-R721T-grunt
+    VK_DRIVER: radeon
+
+# https://lava.collabora.dev/scheduler/device_type/asus-C433TA-AJ0005-rammus
+.lava-asus-C433TA-AJ0005-rammus:x86_64:
+  variables:
+    DEVICE_TYPE: asus-C433TA-AJ0005-rammus
+    FDO_CI_CONCURRENT: 5
+    GPU_VERSION: iris-amly
+    RUNNER_TAG: mesa-ci-x86-64-lava-asus-C433TA-AJ0005-rammus
+
+# https://lava.collabora.dev/scheduler/device_type/asus-C436FA-Flip-hatch
+.lava-asus-C436FA-Flip-hatch:x86_64:
+  variables:
+    DEVICE_TYPE: asus-C436FA-Flip-hatch
+    FDO_CI_CONCURRENT: 9
+    GPU_VERSION: iris-cml
+    RUNNER_TAG: mesa-ci-x86-64-lava-asus-C436FA-flip-hatch
+
+# https://lava.collabora.dev/scheduler/device_type/asus-C523NA-A20057-coral
+.lava-asus-C523NA-A20057-coral:x86_64:
+  variables:
+    DEVICE_TYPE: asus-C523NA-A20057-coral
+    FDO_CI_CONCURRENT: 5
+    GPU_VERSION: iris-apl
+    RUNNER_TAG: mesa-ci-x86-64-lava-asus-C523NA-A20057-coral
+
+# https://lava.collabora.dev/scheduler/device_type/asus-CM1400CXA-dalboz
+.lava-asus-CM1400CXA-dalboz:x86_64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: asus-CM1400CXA-dalboz
+    DTB: ""
+#   FDO_CI_CONCURRENT: ?
+    HWCI_FREQ_MAX: "true"
+    HWCI_KERNEL_MODULES: amdgpu
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-asus-CM1400CXA-dalboz
+
+# https://lava.collabora.dev/scheduler/device_type/asus-cx9400-volteer
+.lava-asus-cx9400-volteer:x86_64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: asus-cx9400-volteer
+    FDO_CI_CONCURRENT: 9
+    GPU_VERSION: anv-tgl
+    RUNNER_TAG: mesa-ci-x86-64-lava-asus-cx9400-volteer
+
+# https://lava.collabora.dev/scheduler/device_type/dell-latitude-5400-8665U-sarien
+.lava-dell-latitude-5400-8665U-sarien:x86_64:
+  variables:
+    DEVICE_TYPE: dell-latitude-5400-8665U-sarien
+    FDO_CI_CONCURRENT: 9
+    GPU_VERSION: iris-whl
+    RUNNER_TAG: mesa-ci-x86-64-lava-dell-latitude-5400-8665U-sarien
+
+# https://lava.collabora.dev/scheduler/device_type/hp-14-db0003na-grunt
+.lava-hp-14-db0003na-grunt:x86_64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: hp-14-db0003na-grunt
+    DTB: ""
+    FDO_CI_CONCURRENT: 3
+    HWCI_FREQ_MAX: "true"
+    HWCI_KERNEL_MODULES: amdgpu
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-hp-14-db0003na-grunt
+    VK_DRIVER: radeon
+
+# https://lava.collabora.dev/scheduler/device_type/hp-x360-12b-ca0010nr-n4020-octopus
+.lava-hp-x360-12b-ca0010nr-n4020-octopus:x86_64:
+  variables:
+    DEVICE_TYPE: hp-x360-12b-ca0010nr-n4020-octopus
+    GPU_VERSION: iris-glk
+    RUNNER_TAG: mesa-ci-x86-64-lava-hp-x360-12b-ca0010nr-n4020-octopus
+    FDO_CI_CONCURRENT: 3
+
+
+# https://lava.collabora.dev/scheduler/device_type/hp-x360-14-G1-sona
+.lava-hp-x360-14-G1-sona:x86_64:
+  variables:
+    DEVICE_TYPE: hp-x360-14-G1-sona
+    FDO_CI_CONCURRENT: 9
+    GPU_VERSION: iris-kbl
+    RUNNER_TAG: mesa-ci-x86-64-lava-hp-x360-14-G1-sona
+
+# https://lava.collabora.dev/scheduler/device_type/lenovo-TPad-C13-Yoga-zork
+.lava-lenovo-TPad-C13-Yoga-zork:x86_64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: lenovo-TPad-C13-Yoga-zork
+    DTB: ""
+#   FDO_CI_CONCURRENT: ?
+    HWCI_FREQ_MAX: "true"
+    HWCI_KERNEL_MODULES: amdgpu
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-lenovo-TPad-C13-Yoga-zork
+
+# https://lava.collabora.dev/scheduler/device_type/meson-g12b-a311d-khadas-vim3
+.lava-meson-g12b-a311d-khadas-vim3:arm64:
+  variables:
+    DEVICE_TYPE: meson-g12b-a311d-khadas-vim3
+    DTB: meson-g12b-a311d-khadas-vim3
+#   FDO_CI_CONCURRENT: ?
+    GPU_VERSION: panfrost-g52
+    HWCI_FREQ_MAX: "true"
+    RUNNER_TAG: mesa-ci-x86-64-lava-meson-g12b-a311d-khadas-vim3
+    VK_DRIVER: panfrost
+
+# https://lava.collabora.dev/scheduler/device_type/mt8183-kukui-jacuzzi-juniper-sku16
+.lava-mt8183-kukui-jacuzzi-juniper-sku16:arm64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: mt8183-kukui-jacuzzi-juniper-sku16
+    DTB: mt8183-kukui-jacuzzi-juniper-sku16
+#   FDO_CI_CONCURRENT: ?
+    GPU_VERSION: panfrost-g72
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-mt8183-kukui-jacuzzi-juniper-sku16
+
+
+# https://lava.collabora.dev/scheduler/device_type/mt8192-asurada-spherion-r0
+.lava-mt8192-asurada-spherion-r0:arm64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: mt8192-asurada-spherion-r0
+    DTB: mt8192-asurada-spherion-r0
+#   FDO_CI_CONCURRENT: ?
+    GPU_VERSION: panfrost-g57
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-mt8192-asurada-spherion-r0
+
+# https://lava.collabora.dev/scheduler/device_type/rk3288-veyron-jaq
+.lava-rk3288-veyron-jaq:arm32:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: rk3288-veyron-jaq
+    DEQP_SUITE: panfrost-t760
+    DRIVER_NAME: panfrost
+    DTB: rk3288-veyron-jaq
+    FDO_CI_CONCURRENT: 6
+    GPU_VERSION: panfrost-t760
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-rk3288-veyron-jaq
+
+# https://lava.collabora.dev/scheduler/device_type/rk3399-gru-kevin
+.lava-rk3399-gru-kevin:arm64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: rk3399-gru-kevin
+    DTB: rk3399-gru-kevin
+    DRIVER_NAME: panfrost
+#   FDO_CI_CONCURRENT: ?
+    GPU_VERSION: panfrost-t860
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-rk3399-gru-kevin
+
+# https://lava.collabora.dev/scheduler/device_type/sc7180-trogdor-kingoftown
+.lava-sc7180-trogdor-kingoftown:arm64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: sc7180-trogdor-kingoftown
+    DTB: sc7180-trogdor-kingoftown
+#   FDO_CI_CONCURRENT: ?
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-sc7180-trogdor-kingoftown
+    VK_DRIVER: freedreno
+
+# https://lava.collabora.dev/scheduler/device_type/sc7180-trogdor-lazor-limozeen
+.lava-sc7180-trogdor-lazor-limozeen:arm64:
+  variables:
+    BOOT_METHOD: depthcharge
+    DEVICE_TYPE: sc7180-trogdor-lazor-limozeen
+    DTB: sc7180-trogdor-lazor-limozeen-nots-r5
+#   FDO_CI_CONCURRENT: ?
+    KERNEL_IMAGE_TYPE: ""
+    RUNNER_TAG: mesa-ci-x86-64-lava-sc7180-trogdor-lazor-limozeen
+    VK_DRIVER: freedreno
+
+# https://lava.collabora.dev/scheduler/device_type/sm8350-hdk
+.lava-sm8350-hdk:arm64:
+  variables:
+    BOOT_METHOD: fastboot
+    DEVICE_TYPE: sm8350-hdk
+    DTB: sm8350-hdk
+#   FDO_CI_CONCURRENT: ?
+    GPU_VERSION: freedreno-a660
+    KERNEL_IMAGE_NAME: "Image.gz"
+    KERNEL_IMAGE_TYPE: ""
+    # Increase the hangcheck timer for our spilling tests which bump up against
+    # the .5s default.
+    FREEDRENO_HANGCHECK_MS: 2000
+    RUNNER_TAG: mesa-ci-x86-64-lava-sm8350-hdk
+    VK_DRIVER: freedreno
+
+# https://lava.collabora.dev/scheduler/device_type/sun50i-h6-pine-h64
+.lava-sun50i-h6-pine-h64:arm64:
+  variables:
+    DEVICE_TYPE: sun50i-h6-pine-h64
+    DTB: sun50i-h6-pine-h64
+    GPU_VERSION: panfrost-t720
+    DEQP_SUITE: panfrost-t720
+    FDO_CI_CONCURRENT: 6
+    HWCI_FREQ_MAX: "true"
+    RUNNER_TAG: mesa-ci-x86-64-lava-sun50i-h6-pine-h64
+
+# Lima farm
+
+# X devices (2023-xx-xx)
+.lava-meson-gxl-s805x-libretech-ac:arm64:
+  variables:
+    DEVICE_TYPE: meson-gxl-s805x-libretech-ac
+    DTB: ${DEVICE_TYPE}
+    FDO_CI_CONCURRENT: 4
+    GPU_VERSION: lima
+    RUNNER_TAG: mesa-ci-x86-64-lava-lima
