@@ -299,3 +299,61 @@
     - ./install/bare-metal/cros-servo.sh
   tags:
     - google-freedreno-cheza
+
+# Anholt farm
+
+# 0 devices (2023-02-08)
+.google-tegra210-p3450-0000:arm64:
+  variables:
+    BM_BOOTFS: /baremetal-files/jetson-nano/
+    BM_CMDLINE: "console=ttyS0,115200n8 rw nfsrootdebug init=/init nfsroot=,tcp,nfsvers=4.2"
+    # 4 CPUs, but spawn a couple extra threads to make sure they stay busy while
+    # some are waiting for the GPU.
+    FDO_CI_CONCURRENT: 6
+    GPU_VERSION: nouveau-gm20b
+    # We package nouveau as a module so that we can load it after the firmware is
+    # available on NFS.
+    HWCI_KERNEL_MODULES: tegra-drm,nouveau
+  script:
+    - ./install/bare-metal/poe-powered.sh
+  tags:
+    - google-nouveau-jetson-nano
+
+# 6 devices (2023-xx-xx)
+.anholt-tegra124-jetson-tk1:arm32:
+  variables:
+    BM_BOOTFS: /baremetal-files/jetson-tk1/
+    BM_CMDLINE: "console=ttyS0,115200n8 rw nfsrootdebug init=/init ip=dhcp root=/dev/nfs nfsroot=,tcp,nfsvers=4.2"
+    # 4 CPUs, but spawn a couple extra threads to make sure they stay busy while
+    # some are waiting for the GPU.
+    FDO_CI_CONCURRENT: 6
+    GPU_VERSION: nouveau-gk20a
+    # We package nouveau as a module so that we can load it after the firmware is
+    # available on NFS.
+    HWCI_KERNEL_MODULES: tegra-drm,nouveau
+  script:
+    - ./install/bare-metal/poe-powered.sh
+  tags:
+    - anholt-nouveau-jetson-tk1
+
+# 0 devices (2023-02-08)
+.anholt-g33:x86_64:
+  tags:
+    - anholt-g33
+  variables:
+    GPU_VERSION: i915-g33
+
+# 0 devices (2023-02-08)
+.anholt-g41:x86_64:
+  tags:
+    - anholt-g41
+  variables:
+    GPU_VERSION: crocus-g41
+
+# x devices (2023-xx-xx)
+.anholt-hsw:x86_64:
+  tags:
+    - anholt-hsw
+  variables:
+    FDO_CI_CONCURRENT: 12
+    GPU_VERSION: crocus-hsw
