@@ -54,6 +54,7 @@
 #include "vk_command_pool.h"
 #include "vk_descriptor_set_layout.h"
 #include "vk_device.h"
+#include "vk_device_memory.h"
 #include "vk_image.h"
 #include "vk_instance.h"
 #include "vk_log.h"
@@ -304,7 +305,7 @@ struct panvk_event_op {
 };
 
 struct panvk_device_memory {
-   struct vk_object_base base;
+   struct vk_device_memory vk;
    struct panfrost_bo *bo;
 };
 
@@ -1040,7 +1041,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_descriptor_set, base, VkDescriptorSet,
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_descriptor_set_layout, vk.base,
                                VkDescriptorSetLayout,
                                VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)
-VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_device_memory, base, VkDeviceMemory,
+VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_device_memory, vk.base, VkDeviceMemory,
                                VK_OBJECT_TYPE_DEVICE_MEMORY)
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_framebuffer, base, VkFramebuffer,
@@ -1142,6 +1143,11 @@ VkResult panvk_process_anb(struct panvk_android_image *aimage,
                            const VkSubresourceLayout **out_layouts);
 
 bool panvk_is_image_anb(struct panvk_image *image);
+bool panvk_is_image_ahb(struct panvk_image *image);
+
+VkResult panvk_process_ahb(VkDevice device_h, struct panvk_image *image,
+                           struct vk_device_memory *mem, uint64_t *out_modifier,
+                           const VkSubresourceLayout **out_layouts);
 #endif
 
 #endif /* PANVK_PRIVATE_H */

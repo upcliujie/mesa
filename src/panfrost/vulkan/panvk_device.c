@@ -58,6 +58,7 @@
 #endif
 
 #ifdef ANDROID
+#include <vndk/hardware_buffer.h>
 #include "util/u_gralloc/u_gralloc.h"
 #endif
 
@@ -127,6 +128,12 @@ static const struct debug_control panvk_debug_options[] = {
 
 #define PANVK_API_VERSION VK_MAKE_VERSION(1, 0, VK_HEADER_VERSION)
 
+#ifdef ANDROID
+#undef PANVK_API_VERSION
+/* AHB requires 1.1 :) */
+#define PANVK_API_VERSION VK_MAKE_VERSION(1, 1, VK_HEADER_VERSION)
+#endif
+
 VkResult
 panvk_EnumerateInstanceVersion(uint32_t *pApiVersion)
 {
@@ -144,6 +151,11 @@ static const struct vk_instance_extension_table panvk_instance_extensions = {
 #endif
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
    .KHR_wayland_surface = true,
+#endif
+#ifdef ANDROID
+   .KHR_external_memory_capabilities = true,
+   .KHR_external_semaphore_capabilities = true,
+   .KHR_external_fence_capabilities = true,
 #endif
 };
 
@@ -167,7 +179,17 @@ panvk_get_device_extensions(const struct panvk_physical_device *device,
 
 #ifdef ANDROID
    if (device->instance->u_gralloc != NULL) {
+      ext->ANDROID_external_memory_android_hardware_buffer = true;
       ext->ANDROID_native_buffer = true;
+      ext->KHR_external_semaphore_fd = true;
+      ext->KHR_external_memory = true;
+      ext->KHR_external_fence_fd = true;
+      ext->KHR_external_memory_fd = true;
+      ext->EXT_external_memory_dma_buf = true;
+      ext->EXT_queue_family_foreign = true;
+      ext->KHR_sampler_ycbcr_conversion = true;
+      ext->KHR_dedicated_allocation = true;
+      ext->KHR_get_memory_requirements2 = true;
    }
 #endif
 }
@@ -1088,8 +1110,8 @@ panvk_AllocateMemory(VkDevice _device,
       return VK_SUCCESS;
    }
 
-   mem = vk_object_alloc(&device->vk, pAllocator, sizeof(*mem),
-                         VK_OBJECT_TYPE_DEVICE_MEMORY);
+   mem = vk_device_memory_create(&device->vk, pAllocateInfo, pAllocator,
+                                 sizeof(*mem));
    if (mem == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -1112,6 +1134,14 @@ panvk_AllocateMemory(VkDevice _device,
       mem->bo = panfrost_bo_import(&device->physical_device->pdev, fd_info->fd);
       /* take ownership and close the fd */
       close(fd_info->fd);
+   } else if (mem->vk.ahardware_buffer) {
+#ifdef ANDROID
+      const native_handle_t *handle = AHardwareBuffer_getNativeHandle(mem->vk.ahardware_buffer);
+      assert(handle->numFds > 0);
+      mem->bo = panfrost_bo_import(&device->physical_device->pdev, handle->data[0]);
+#else
+      result = VK_ERROR_FEATURE_NOT_PRESENT;
+#endif
    } else {
       mem->bo = panfrost_bo_create(&device->physical_device->pdev,
                                    pAllocateInfo->allocationSize, 0,
@@ -1136,7 +1166,7 @@ panvk_FreeMemory(VkDevice _device, VkDeviceMemory _mem,
       return;
 
    panfrost_bo_unreference(mem->bo);
-   vk_object_free(&device->vk, pAllocator, mem);
+   vk_device_memory_destroy(&device->vk, pAllocator, &mem->vk);
 }
 
 VkResult
@@ -1254,6 +1284,19 @@ panvk_BindImageMemory2(VkDevice device, uint32_t bindInfoCount,
    for (uint32_t i = 0; i < bindInfoCount; ++i) {
       VK_FROM_HANDLE(panvk_image, image, pBindInfos[i].image);
       VK_FROM_HANDLE(panvk_device_memory, mem, pBindInfos[i].memory);
+
+#ifdef ANDROID
+      if (panvk_is_image_ahb(image)) {
+         uint64_t modifier = 0;
+         const VkSubresourceLayout *layouts = NULL;
+         VkResult result =
+            panvk_process_ahb(device, image, &mem->vk, &modifier, &layouts);
+         if (result != VK_SUCCESS)
+            return result;
+
+         /* TODO: Update image layout */
+      }
+#endif
 
       if (mem) {
          image->pimage.data.bo = mem->bo;
