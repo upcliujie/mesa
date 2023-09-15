@@ -258,3 +258,44 @@
     FDO_CI_CONCURRENT: 4
     GPU_VERSION: lima
     RUNNER_TAG: mesa-ci-x86-64-lava-lima
+
+# Google farm (Freedreno devices)
+
+# X devices (2023-xx-xx)
+.google-apq8016-sbc:arm64:
+  variables:
+    BM_CMDLINE: "ip=dhcp console=ttyMSM0,115200n8 $BM_KERNEL_EXTRA_ARGS root=/dev/nfs rw nfsrootdebug nfsroot=,tcp,nfsvers=4.2 init=/init $BM_KERNELARGS"
+    BM_DTB: apq8016-sbc
+    BM_KERNEL: Image.gz
+    FDO_CI_CONCURRENT: 4
+    GPU_VERSION: freedreno-a307
+  script:
+    - ./install/bare-metal/fastboot.sh
+  tags:
+    - google-freedreno-db410c
+
+# 8 devices (2023-04-15)
+.google-apq8096-db820c:arm64:
+  variables:
+    BM_CMDLINE: "ip=dhcp console=ttyMSM0,115200n8 $BM_KERNEL_EXTRA_ARGS root=/dev/nfs rw nfsrootdebug nfsroot=,tcp,nfsvers=4.2 init=/init $BM_KERNELARGS"
+    BM_DTB: apq8096-db820c
+    BM_KERNEL: Image.gz
+#   FDO_CI_CONCURRENT: ?
+    GPU_VERSION: freedreno-a530
+  script:
+    - ./install/bare-metal/fastboot.sh
+  tags:
+    - google-freedreno-db820c
+
+# 6 devices (2023-07-06)
+.google-sdm845-cheza:arm64:
+  variables:
+    BM_KERNEL: cheza-kernel
+    BM_CMDLINE: "ip=dhcp console=ttyMSM0,115200n8 root=/dev/nfs rw nfsrootdebug nfsroot=,tcp,nfsvers=4.2 init=/init"
+    FDO_CI_CONCURRENT: 10
+    GPU_VERSION: freedreno-a630
+    VK_DRIVER: freedreno
+  script:
+    - ./install/bare-metal/cros-servo.sh
+  tags:
+    - google-freedreno-cheza
