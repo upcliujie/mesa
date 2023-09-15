@@ -113,6 +113,7 @@ include:
   - local: '.gitlab-ci/build/gitlab-ci.yml'
   - local: '.gitlab-ci/test/gitlab-ci.yml'
   - local: '.gitlab-ci/farm-rules.yml'
+  - local: '.gitlab-ci/farm-devices.yml'
   - local: '.gitlab-ci/test-source-dep.yml'
   - local: 'docs/gitlab-ci.yml'
   - local: 'src/amd/ci/gitlab-ci.yml'

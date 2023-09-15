@@ -1,0 +1,24 @@
+# Igalia farm
+
+# ? devices (2023-??-??)
+.igalia-bcm2837-rpi-3-b:arm64:
+  variables:
+    GPU_VERSION: broadcom-rpi3
+    HWCI_KERNEL_MODULES: vc4
+  script:
+    - ./install/bare-metal/poe-powered.sh
+  tags:
+    - igalia-rpi3
+
+# ? devices (2023-??-??)
+.igalia-bcm2711-rpi-4:arm64:
+  variables:
+    GPU_VERSION: broadcom-rpi4
+    HWCI_KERNEL_MODULES: v3d,vc4
+    VK_DRIVER: broadcom
+  script:
+    - ./install/bare-metal/poe-powered.sh
+  tags:
+    - igalia-rpi4
+
+
