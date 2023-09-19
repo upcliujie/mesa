@@ -103,7 +103,7 @@ void u_printf(FILE *out, const char *buffer, size_t buffer_size,
               const u_printf_info *info, unsigned info_size)
 {
    for (size_t buf_pos = 0; buf_pos < buffer_size;) {
-      uint32_t fmt_idx = *(uint32_t*)&buffer[buf_pos];
+      uint64_t fmt_idx = *(uint64_t*)&buffer[buf_pos];
 
       /* the idx is 1 based */
       assert(fmt_idx > 0);
@@ -145,6 +145,7 @@ void u_printf(FILE *out, const char *buffer, size_t buffer_size,
          /* print the formated part */
          if (print_str[spec_pos] == 's') {
             uint64_t idx;
+            buf_pos = ALIGN(buf_pos, arg_size);
             memcpy(&idx, &buffer[buf_pos], 8);
             fprintf(out, print_str, &fmt->strings[idx]);
 
@@ -170,6 +171,9 @@ void u_printf(FILE *out, const char *buffer, size_t buffer_size,
             int men_components = component_count == 3 ? 4 : component_count;
             size_t elmt_size = arg_size / men_components;
             bool is_float = strpbrk(print_str, "fFeEgGaA") != NULL;
+
+            /* align for 64 bit arguments */
+            buf_pos = ALIGN(buf_pos, elmt_size);
 
             for (int i = 0; i < component_count; i++) {
                size_t elmt_buf_pos = buf_pos + i * elmt_size;
@@ -230,5 +234,8 @@ void u_printf(FILE *out, const char *buffer, size_t buffer_size,
 
       /* print remaining */
       fprintf(out, "%s", format);
+
+      /* fix alignment */
+      buf_pos = ALIGN(buf_pos, sizeof(fmt_idx));
    }
 }

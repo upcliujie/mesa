@@ -22,6 +22,7 @@ use std::cell::RefCell;
 use std::cmp;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::mem::size_of_val;
 use std::os::raw::c_void;
 use std::ptr;
 use std::slice;
@@ -1055,12 +1056,12 @@ impl Kernel {
             }
 
             if let Some(printf_buf) = &printf_buf {
-                let init_data: [u8; 1] = [4];
+                let init_data: [u64; 1] = [8];
                 ctx.buffer_subdata(
                     printf_buf,
                     0,
                     init_data.as_ptr().cast(),
-                    init_data.len() as u32,
+                    size_of_val(&init_data) as u32,
                 );
             }
 
@@ -1107,10 +1108,10 @@ impl Kernel {
                     .with_ctx(ctx);
                 let mut buf: &[u8] =
                     unsafe { slice::from_raw_parts(tx.ptr().cast(), printf_size as usize) };
-                let length = u32::from_ne_bytes(*extract(&mut buf));
+                let length = u64::from_ne_bytes(*extract(&mut buf));
 
                 // update our slice to make sure we don't go out of bounds
-                buf = &buf[0..(length - 4) as usize];
+                buf = &buf[0..(length - 8) as usize];
                 if let Some(pf) = printf_format.as_ref() {
                     pf.u_printf(buf)
                 }
