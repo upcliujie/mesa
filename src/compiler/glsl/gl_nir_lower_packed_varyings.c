@@ -345,12 +345,7 @@ get_packed_varying_deref(struct lower_packed_varyings_state *state,
       /* When lowering GS inputs, the packed variable is an array, so we need
        * to dereference it using vertex_index.
        */
-      nir_load_const_instr *c_idx =
-         nir_load_const_instr_create(state->b.shader, 1, 32);
-      c_idx->value[0].u32 = vertex_index;
-      nir_builder_instr_insert(&state->b, &c_idx->instr);
-
-      deref = nir_build_deref_array(&state->b, deref, &c_idx->def);
+      deref = nir_build_deref_array_imm(&state->b, deref, vertex_index);
    }
 
    return deref;
@@ -589,13 +584,8 @@ lower_arraylike(struct lower_packed_varyings_state *state,
 
    type = glsl_get_array_element(type);
    for (unsigned i = 0; i < array_size; i++) {
-      nir_load_const_instr *c_idx =
-         nir_load_const_instr_create(state->b.shader, 1, 32);
-      c_idx->value[0].u32 = i;
-      nir_builder_instr_insert(&state->b, &c_idx->instr);
-
       nir_deref_instr *unpacked_array_deref =
-         nir_build_deref_array(&state->b, unpacked_var_deref, &c_idx->def);
+         nir_build_deref_array_imm(&state->b, unpacked_var_deref, i);
 
       if (gs_input_toplevel) {
          /* Geometry shader inputs are a special case.  Instead of storing

@@ -241,22 +241,15 @@ vtn_variable_resource_index(struct vtn_builder *b, struct vtn_variable *var,
       _mesa_set_add(b->vars_used_indirectly, var->var);
    }
 
-   nir_intrinsic_instr *instr =
-      nir_intrinsic_instr_create(b->nb.shader,
-                                 nir_intrinsic_vulkan_resource_index);
-   instr->src[0] = nir_src_for_ssa(desc_array_index);
-   nir_intrinsic_set_desc_set(instr, var->descriptor_set);
-   nir_intrinsic_set_binding(instr, var->binding);
-   nir_intrinsic_set_desc_type(instr, vk_desc_type_for_mode(b, var->mode));
-
    nir_address_format addr_format = vtn_mode_to_address_format(b, var->mode);
-   nir_def_init(&instr->instr, &instr->def,
-                nir_address_format_num_components(addr_format),
-                nir_address_format_bit_size(addr_format));
-   instr->num_components = instr->def.num_components;
-   nir_builder_instr_insert(&b->nb, &instr->instr);
-
-   return &instr->def;
+   uint8_t num_components = nir_address_format_num_components(addr_format);
+   uint8_t bit_size = nir_address_format_bit_size(addr_format);
+   VkDescriptorType desc_type = vk_desc_type_for_mode(b, var->mode);
+   return nir_vulkan_resource_index(&b->nb, num_components, bit_size,
+                                    desc_array_index,
+                                    .desc_set = var->descriptor_set,
+                                    .binding = var->binding,
+                                    .desc_type = desc_type);
 }
 
 static nir_def *
@@ -265,21 +258,16 @@ vtn_resource_reindex(struct vtn_builder *b, enum vtn_variable_mode mode,
 {
    vtn_assert(b->options->environment == NIR_SPIRV_VULKAN);
 
-   nir_intrinsic_instr *instr =
-      nir_intrinsic_instr_create(b->nb.shader,
-                                 nir_intrinsic_vulkan_resource_reindex);
-   instr->src[0] = nir_src_for_ssa(base_index);
-   instr->src[1] = nir_src_for_ssa(offset_index);
-   nir_intrinsic_set_desc_type(instr, vk_desc_type_for_mode(b, mode));
-
    nir_address_format addr_format = vtn_mode_to_address_format(b, mode);
-   nir_def_init(&instr->instr, &instr->def,
-                nir_address_format_num_components(addr_format),
-                nir_address_format_bit_size(addr_format));
-   instr->num_components = instr->def.num_components;
-   nir_builder_instr_insert(&b->nb, &instr->instr);
+   vtn_assert(base_index->num_components ==
+              nir_address_format_num_components(addr_format));
+   vtn_assert(base_index->bit_size ==
+              nir_address_format_bit_size(addr_format));
 
-   return &instr->def;
+   VkDescriptorType desc_type = vk_desc_type_for_mode(b, mode);
+   return nir_vulkan_resource_reindex(&b->nb, base_index->bit_size,
+                                      base_index, offset_index,
+                                      .desc_type = desc_type);
 }
 
 static nir_def *
@@ -288,20 +276,12 @@ vtn_descriptor_load(struct vtn_builder *b, enum vtn_variable_mode mode,
 {
    vtn_assert(b->options->environment == NIR_SPIRV_VULKAN);
 
-   nir_intrinsic_instr *desc_load =
-      nir_intrinsic_instr_create(b->nb.shader,
-                                 nir_intrinsic_load_vulkan_descriptor);
-   desc_load->src[0] = nir_src_for_ssa(desc_index);
-   nir_intrinsic_set_desc_type(desc_load, vk_desc_type_for_mode(b, mode));
-
    nir_address_format addr_format = vtn_mode_to_address_format(b, mode);
-   nir_def_init(&desc_load->instr, &desc_load->def,
-                nir_address_format_num_components(addr_format),
-                nir_address_format_bit_size(addr_format));
-   desc_load->num_components = desc_load->def.num_components;
-   nir_builder_instr_insert(&b->nb, &desc_load->instr);
-
-   return &desc_load->def;
+   uint8_t num_components = nir_address_format_num_components(addr_format);
+   uint8_t bit_size = nir_address_format_bit_size(addr_format);
+   VkDescriptorType desc_type = vk_desc_type_for_mode(b, mode);
+   return nir_load_vulkan_descriptor(&b->nb, num_components, bit_size,
+                                     desc_index, .desc_type = desc_type);
 }
 
 static struct vtn_pointer *
@@ -2854,31 +2834,20 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
 
    case SpvOpSubgroupBlockReadINTEL: {
       struct vtn_type *res_type = vtn_get_type(b, w[1]);
+      const unsigned num_components = glsl_get_vector_elements(res_type->type);
+      const unsigned bit_size = glsl_get_bit_size(res_type->type);
+
       nir_deref_instr *src = vtn_nir_deref(b, w[3]);
-
-      nir_intrinsic_instr *load =
-         nir_intrinsic_instr_create(b->nb.shader,
-                                    nir_intrinsic_load_deref_block_intel);
-      load->src[0] = nir_src_for_ssa(&src->def);
-      nir_def_init_for_type(&load->instr, &load->def, res_type->type);
-      load->num_components = load->def.num_components;
-      nir_builder_instr_insert(&b->nb, &load->instr);
-
-      vtn_push_nir_ssa(b, w[2], &load->def);
+      nir_def *res = nir_load_deref_block_intel(&b->nb, num_components,
+                                                bit_size, &src->def);
+      vtn_push_nir_ssa(b, w[2], res);
       break;
    }
 
    case SpvOpSubgroupBlockWriteINTEL: {
       nir_deref_instr *dest = vtn_nir_deref(b, w[1]);
       nir_def *data = vtn_ssa_value(b, w[2])->def;
-
-      nir_intrinsic_instr *store =
-         nir_intrinsic_instr_create(b->nb.shader,
-                                    nir_intrinsic_store_deref_block_intel);
-      store->src[0] = nir_src_for_ssa(&dest->def);
-      store->src[1] = nir_src_for_ssa(data);
-      store->num_components = data->num_components;
-      nir_builder_instr_insert(&b->nb, &store->instr);
+      nir_store_deref_block_intel(&b->nb, &dest->def, data);
       break;
    }
 

@@ -5817,40 +5817,30 @@ vtn_handle_ray_intrinsic(struct vtn_builder *b, SpvOp opcode,
    }
 
    case SpvOpReportIntersectionKHR: {
-      intrin = nir_intrinsic_instr_create(b->nb.shader,
-                                          nir_intrinsic_report_ray_intersection);
-      intrin->src[0] = nir_src_for_ssa(vtn_ssa_value(b, w[3])->def);
-      intrin->src[1] = nir_src_for_ssa(vtn_ssa_value(b, w[4])->def);
-      nir_def_init(&intrin->instr, &intrin->def, 1, 1);
-      nir_builder_instr_insert(&b->nb, &intrin->instr);
-      vtn_push_nir_ssa(b, w[2], &intrin->def);
+      nir_def *hit = vtn_get_nir_ssa(b, w[3]);
+      nir_def *hit_kind = vtn_get_nir_ssa(b, w[4]);
+      nir_def *res = nir_report_ray_intersection(&b->nb, 1, hit, hit_kind);
+      vtn_push_nir_ssa(b, w[2], res);
       break;
    }
 
    case SpvOpIgnoreIntersectionNV:
-      intrin = nir_intrinsic_instr_create(b->nb.shader,
-                                          nir_intrinsic_ignore_ray_intersection);
-      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      nir_ignore_ray_intersection(&b->nb);
       break;
 
    case SpvOpTerminateRayNV:
-      intrin = nir_intrinsic_instr_create(b->nb.shader,
-                                          nir_intrinsic_terminate_ray);
-      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      nir_terminate_ray(&b->nb);
       break;
 
    case SpvOpExecuteCallableNV:
    case SpvOpExecuteCallableKHR: {
-      intrin = nir_intrinsic_instr_create(b->nb.shader,
-                                          nir_intrinsic_execute_callable);
-      intrin->src[0] = nir_src_for_ssa(vtn_ssa_value(b, w[1])->def);
+      nir_def *sbt_index = vtn_get_nir_ssa(b, w[1]);
       nir_deref_instr *payload;
       if (opcode == SpvOpExecuteCallableNV)
          payload = vtn_get_call_payload_for_location(b, w[2]);
       else
          payload = vtn_nir_deref(b, w[2]);
-      intrin->src[1] = nir_src_for_ssa(&payload->def);
-      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      nir_execute_callable(&b->nb, sbt_index, &payload->def);
       break;
    }
 
