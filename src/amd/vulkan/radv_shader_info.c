@@ -337,6 +337,35 @@ assign_outinfo_params(struct radv_vs_output_info *outinfo, uint64_t mask, unsign
    }
 }
 
+unsigned
+radv_get_cs_subgroup_size(const struct radv_device *const device, const nir_shader *nir,
+                          const struct radv_shader_stage_key *stage_key)
+{
+   const bool uses_rt = gl_shader_stage_is_rt(nir->info.stage) || nir->info.ray_queries;
+   const unsigned default_wave_size =
+      uses_rt ? device->physical_device->rt_wave_size : device->physical_device->cs_wave_size;
+   const unsigned local_size = nir->info.workgroup_size[0] * nir->info.workgroup_size[1] * nir->info.workgroup_size[2];
+
+   const unsigned required_subgroup_size = stage_key->subgroup_required_size * 32;
+   if (required_subgroup_size)
+      return required_subgroup_size;
+
+   /* Games don't always request full subgroups when they should, which can cause bugs if cswave32
+    * is enabled.
+    */
+   const bool require_full_subgroups =
+      stage_key->subgroup_require_full ||
+      (default_wave_size == 32 && nir->info.uses_wide_subgroup_intrinsics && local_size % RADV_SUBGROUP_SIZE == 0);
+   if (require_full_subgroups)
+      return RADV_SUBGROUP_SIZE;
+
+   /* Use wave32 for small workgroups. */
+   if (device->physical_device->rad_info.gfx_level >= GFX10 && local_size <= 32)
+      return 32;
+
+   return default_wave_size;
+}
+
 static uint8_t
 radv_get_wave_size(struct radv_device *device, gl_shader_stage stage, const struct radv_shader_info *info,
                    const struct radv_shader_stage_key *stage_key)
@@ -358,9 +387,8 @@ radv_get_wave_size(struct radv_device *device, gl_shader_stage stage, const stru
       return device->physical_device->ge_wave_size;
 }
 
-static uint8_t
-radv_get_ballot_bit_size(struct radv_device *device, gl_shader_stage stage, const struct radv_shader_info *info,
-                         const struct radv_shader_stage_key *stage_key)
+unsigned
+radv_get_api_subgroup_size(const struct radv_shader_stage_key *stage_key)
 {
    if (stage_key->subgroup_required_size)
       return stage_key->subgroup_required_size * 32;
@@ -901,31 +929,7 @@ gather_shader_info_cs(struct radv_device *device, const nir_shader *nir, const s
 {
    info->cs.uses_ray_launch_size = BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_RAY_LAUNCH_SIZE_ADDR_AMD);
 
-   unsigned default_wave_size = device->physical_device->cs_wave_size;
-   if (info->cs.uses_rt)
-      default_wave_size = device->physical_device->rt_wave_size;
-
-   unsigned local_size = nir->info.workgroup_size[0] * nir->info.workgroup_size[1] * nir->info.workgroup_size[2];
-
-   /* Games don't always request full subgroups when they should, which can cause bugs if cswave32
-    * is enabled.
-    */
-   const bool require_full_subgroups =
-      pipeline_key->stage_info[MESA_SHADER_COMPUTE].subgroup_require_full ||
-      (default_wave_size == 32 && nir->info.uses_wide_subgroup_intrinsics && local_size % RADV_SUBGROUP_SIZE == 0);
-
-   const unsigned required_subgroup_size = pipeline_key->stage_info[MESA_SHADER_COMPUTE].subgroup_required_size * 32;
-
-   if (required_subgroup_size) {
-      info->cs.subgroup_size = required_subgroup_size;
-   } else if (require_full_subgroups) {
-      info->cs.subgroup_size = RADV_SUBGROUP_SIZE;
-   } else if (device->physical_device->rad_info.gfx_level >= GFX10 && local_size <= 32) {
-      /* Use wave32 for small workgroups. */
-      info->cs.subgroup_size = 32;
-   } else {
-      info->cs.subgroup_size = default_wave_size;
-   }
+   info->cs.subgroup_size = radv_get_cs_subgroup_size(device, nir, &pipeline_key->stage_info[MESA_SHADER_COMPUTE]);
 
    if (device->physical_device->rad_info.has_cs_regalloc_hang_bug) {
       info->cs.regalloc_hang_bug = info->cs.block_size[0] * info->cs.block_size[1] * info->cs.block_size[2] > 256;
@@ -1197,7 +1201,6 @@ radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *n
 
    const struct radv_shader_stage_key *stage_key = &pipeline_key->stage_info[nir->info.stage];
    info->wave_size = radv_get_wave_size(device, nir->info.stage, info, stage_key);
-   info->ballot_bit_size = radv_get_ballot_bit_size(device, nir->info.stage, info, stage_key);
 
    switch (nir->info.stage) {
    case MESA_SHADER_COMPUTE:

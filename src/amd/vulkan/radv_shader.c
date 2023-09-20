@@ -341,17 +341,6 @@ nir_shader *
 radv_shader_spirv_to_nir(struct radv_device *device, const struct radv_shader_stage *stage,
                          const struct radv_pipeline_key *key, bool is_internal)
 {
-   unsigned subgroup_size = 64, ballot_bit_size = 64;
-   const unsigned required_subgroup_size = key->stage_info[stage->stage].subgroup_required_size * 32;
-   if (required_subgroup_size) {
-      /* Only compute/mesh/task shaders currently support requiring a
-       * specific subgroup size.
-       */
-      assert(stage->stage >= MESA_SHADER_COMPUTE);
-      subgroup_size = required_subgroup_size;
-      ballot_bit_size = required_subgroup_size;
-   }
-
    nir_shader *nir;
 
    if (stage->internal_nir) {
@@ -624,10 +613,11 @@ radv_shader_spirv_to_nir(struct radv_device *device, const struct radv_shader_st
    NIR_PASS(_, nir, nir_lower_global_vars_to_local);
    NIR_PASS(_, nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
    bool gfx7minus = device->physical_device->rad_info.gfx_level <= GFX7;
+   const unsigned subgroup_size = radv_get_api_subgroup_size(&key->stage_info[stage->stage]);
    NIR_PASS(_, nir, nir_lower_subgroups,
             &(struct nir_lower_subgroups_options){
                .subgroup_size = subgroup_size,
-               .ballot_bit_size = ballot_bit_size,
+               .ballot_bit_size = subgroup_size,
                .ballot_components = 1,
                .lower_to_scalar = 1,
                .lower_subgroup_masks = 1,
@@ -638,6 +628,9 @@ radv_shader_spirv_to_nir(struct radv_device *device, const struct radv_shader_st
                .lower_quad_broadcast_dynamic_to_const = gfx7minus,
                .lower_shuffle_to_swizzle_amd = 1,
                .lower_ballot_bit_count_to_mbcnt_amd = 1,
+               .lower_cs_local_id_yz_to_subgroup_id =
+                  nir->info.stage == MESA_SHADER_COMPUTE &&
+                  subgroup_size == radv_get_cs_subgroup_size(device, nir, &key->stage_info[stage->stage]),
             });
 
    NIR_PASS(_, nir, nir_lower_load_const_to_scalar);
