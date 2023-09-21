@@ -168,12 +168,8 @@
     - .baremetal-test-arm64
     - .google-freedreno-rules
   variables:
-    VK_DRIVER: freedreno
     FLAKES_CHANNEL: "#freedreno-ci"
     PIGLIT_PLATFORM: mixed_glx_egl
-    BM_CMDLINE: "ip=dhcp console=ttyMSM0,115200n8 $BM_KERNEL_EXTRA_ARGS root=/dev/nfs rw nfsrootdebug nfsroot=,tcp,nfsvers=4.2 init=/init $BM_KERNELARGS"
-  script:
-    - ./install/bare-metal/fastboot.sh
 
 .baremetal-deqp-test-freedreno-vk:
   extends:
@@ -195,20 +191,11 @@
     reports:
       junit: results/junit.xml
 
-.a306-test:
-  extends:
-    - .google-freedreno-test
-  variables:
-    BM_KERNEL: Image.gz
-    BM_DTB: apq8016-sbc
-    GPU_VERSION: freedreno-a307
-  tags:
-    - google-freedreno-db410c
-
 a306_gl:
   extends:
     - .baremetal-deqp-test
-    - .a306-test
+    - .google-freedreno-test
+    - .google-apq8016-sbc:arm64
   variables:
     DEQP_SUITE: freedreno-a307
     FDO_CI_CONCURRENT: 6
@@ -218,7 +205,8 @@ a306_gl:
 .a306_piglit:
   extends:
     - .piglit-test
-    - .a306-test
+    - .google-freedreno-test
+    - .google-apq8016-sbc:arm64
     - .google-freedreno-manual-rules
   variables:
     HWCI_START_XORG: 1
@@ -243,26 +231,17 @@ a306_piglit_shader:
 a306-traces:
   extends:
     - .google-freedreno-test-traces
-    - .a306-test
+    - .google-freedreno-test
+    - .google-apq8016-sbc:arm64
   variables:
     PIGLIT_REPLAY_DEVICE_NAME: "freedreno-a306"
     PIGLIT_RESULTS: "freedreno-a306-replay"
 
-# 8 devices (2023-04-15)
-.a530-test:
-  extends:
-    - .google-freedreno-test
-  variables:
-    BM_KERNEL: Image.gz
-    BM_DTB: apq8096-db820c
-    GPU_VERSION: freedreno-a530
-  tags:
-    - google-freedreno-db820c
-
 a530_gl:
   extends:
     - .baremetal-deqp-test
-    - .a530-test
+    - .google-freedreno-test
+    - .google-apq8096-db820c:arm64
   variables:
     DEQP_SUITE: freedreno-a530
     PIGLIT_PLATFORM: gbm
@@ -277,7 +256,8 @@ a530_gl:
 .a530_piglit:
   extends:
     - .baremetal-deqp-test
-    - .a530-test
+    - .google-freedreno-test
+    - .google-apq8096-db820c:arm64
   parallel: 2
   variables:
     DEQP_SUITE: freedreno-a530-piglit
@@ -294,7 +274,8 @@ a530_gl:
 a530-traces:
   extends:
     - .google-freedreno-test-traces
-    - .a530-test
+    - .google-freedreno-test
+    - .google-apq8096-db820c:arm64
   variables:
     PIGLIT_REPLAY_DEVICE_NAME: "freedreno-a530"
     PIGLIT_RESULTS: "freedreno-a530-replay"
@@ -304,8 +285,6 @@ a530-traces:
     .lava-test:arm64
   variables:
     FLAKES_CHANNEL: "#freedreno-ci"
-    BOOT_METHOD: depthcharge
-    KERNEL_IMAGE_TYPE: ""
     # Increase the hangcheck timer for our spilling tests which bump up against
     # the .5s default.
     FREEDRENO_HANGCHECK_MS: 2000
@@ -315,18 +294,12 @@ a530-traces:
 .a618-test-kingoftown:
   extends:
     - .a618-test
-  variables:
-    DEVICE_TYPE: sc7180-trogdor-kingoftown
-    DTB: sc7180-trogdor-kingoftown
-    RUNNER_TAG: mesa-ci-x86-64-lava-sc7180-trogdor-kingoftown
+    - .lava-sc7180-trogdor-kingoftown:arm64
 
 .a618-test-limozeen-nots-r5:
   extends:
     - .a618-test
-  variables:
-    DEVICE_TYPE: sc7180-trogdor-lazor-limozeen
-    DTB: sc7180-trogdor-lazor-limozeen-nots-r5
-    RUNNER_TAG: mesa-ci-x86-64-lava-sc7180-trogdor-lazor-limozeen
+    - .lava-sc7180-trogdor-lazor-limozeen:arm64
 
 a618_vk:
   extends:
@@ -430,25 +403,11 @@ a618-traces-performance:
     - !reference [a618-traces, needs]
     - !reference [.piglit-performance:arm64, needs]
 
-.lava-sm8350-hdk:
-  variables:
-    BOOT_METHOD: fastboot
-    KERNEL_IMAGE_NAME: "Image.gz"
-    KERNEL_IMAGE_TYPE: ""
-    # Increase the hangcheck timer for our spilling tests which bump up against
-    # the .5s default.
-    FREEDRENO_HANGCHECK_MS: 2000
-    DEVICE_TYPE: sm8350-hdk
-    DTB: sm8350-hdk
-    GPU_VERSION: freedreno-a660
-    RUNNER_TAG: mesa-ci-x86-64-lava-sm8350-hdk
-    VK_DRIVER: freedreno
-
 a660_gl:
   extends:
     - .lava-test-deqp:arm64
     - .collabora-freedreno-rules
-    - .lava-sm8350-hdk
+    - .lava-sm8350-hdk:arm64
   parallel: 2
   variables:
     DEQP_SUITE: freedreno-a660
@@ -457,7 +416,7 @@ a660_vk:
   extends:
     - .lava-test-deqp:arm64
     - .collabora-turnip-rules
-    - .lava-sm8350-hdk
+    - .lava-sm8350-hdk:arm64
   parallel: 5
   variables:
     DEQP_SUITE: freedreno-a660-vk
@@ -473,20 +432,6 @@ a660_vk_full:
     DEQP_SUITE: freedreno-a660-vk-full
     JOB_TIMEOUT: 180
 
-# 6 devices (2023-07-06)
-.a630-test:
-  extends:
-    - .google-freedreno-test
-  variables:
-    FDO_CI_CONCURRENT: 10
-    BM_KERNEL: cheza-kernel
-    BM_CMDLINE: "ip=dhcp console=ttyMSM0,115200n8 root=/dev/nfs rw nfsrootdebug nfsroot=,tcp,nfsvers=4.2 init=/init"
-    GPU_VERSION: freedreno-a630
-  tags:
-    - google-freedreno-cheza
-  script:
-    - ./install/bare-metal/cros-servo.sh
-
 .a630-full:
   tags:
     - google-freedreno-cheza-long
@@ -494,7 +439,8 @@ a660_vk_full:
 a630_gl:
   extends:
     - .baremetal-deqp-test
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
   parallel: 4
   variables:
     DEQP_SUITE: freedreno-a630
@@ -504,7 +450,8 @@ a630_gl:
 a630_egl:
   extends:
     - .baremetal-deqp-test
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
   variables:
     DEQP_VER: egl
     HWCI_START_XORG: 1
@@ -514,7 +461,8 @@ a630_egl:
 a630_gles_asan:
   extends:
     - .baremetal-deqp-test
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
     - .baremetal-arm64-asan-test
   variables:
     DEQP_VER: gles31
@@ -526,7 +474,8 @@ a630_gles_asan:
 a630_skqp:
   extends:
     - .baremetal-deqp-test
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
     # SKQP tests both the GL and VK drivers.
     - .google-freedreno-turnip-rules
   variables:
@@ -535,7 +484,8 @@ a630_skqp:
 
 a630_vk:
   extends:
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
     - .baremetal-deqp-test-freedreno-vk
     - .google-turnip-rules
   variables:
@@ -558,7 +508,8 @@ a630_vk_full:
 
 a630_vk_asan:
   extends:
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
     - .baremetal-deqp-test-freedreno-vk
     - .baremetal-arm64-asan-test
     - .google-turnip-rules
@@ -570,7 +521,8 @@ a630_vk_asan:
 a630_piglit:
   extends:
     - .baremetal-deqp-test
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
     # Note that piglit has GL+VK integration testing.
     - .google-freedreno-turnip-rules
   variables:
@@ -580,7 +532,8 @@ a630_piglit:
 a630-traces:
   extends:
     - .google-freedreno-test-traces
-    - .a630-test
+    - .google-freedreno-test
+    - .google-sdm845-cheza:arm64
   variables:
     PIGLIT_REPLAY_DEVICE_NAME: "freedreno-a630"
     PIGLIT_RESULTS: "freedreno-a630-replay"
