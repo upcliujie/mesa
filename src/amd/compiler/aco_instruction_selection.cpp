@@ -7503,7 +7503,7 @@ visit_store_scratch(isel_context* ctx, nir_intrinsic_instr* instr)
             saddr = bld.copy(bld.def(s1), Operand::c32(ROUND_DOWN_TO(const_offset, max)));
 
          bld.scratch(op, addr, saddr, write_datas[i], const_offset % max,
-                     memory_sync_info(storage_scratch, semantic_private));
+                     memory_sync_info(storage_scratch));
       }
    } else {
       Temp rsrc = get_scratch_resource(ctx);
@@ -7512,7 +7512,7 @@ visit_store_scratch(isel_context* ctx, nir_intrinsic_instr* instr)
          aco_opcode op = get_buffer_store_op(write_datas[i].bytes());
          Instruction* mubuf = bld.mubuf(op, rsrc, offset, ctx->program->scratch_offset,
                                         write_datas[i], offsets[i], true, true);
-         mubuf->mubuf().sync = memory_sync_info(storage_scratch, semantic_private);
+         mubuf->mubuf().sync = memory_sync_info(storage_scratch);
       }
    }
 }
