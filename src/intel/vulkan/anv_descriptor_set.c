@@ -1321,6 +1321,7 @@ anv_descriptor_pool_heap_init(struct anv_device *device,
                                                  (samplers ?
                                                   ANV_BO_ALLOC_SAMPLER_POOL :
                                                   ANV_BO_ALLOC_DESCRIPTOR_POOL),
+                                                 false /* dedicated */,
                                                  0 /* explicit_address */,
                                                  &heap->bo);
       if (result != VK_SUCCESS)

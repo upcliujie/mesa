@@ -965,8 +965,10 @@ vk_bind_to_anv_vm_bind(struct anv_sparse_binding_data *sparse,
    assert(vk_bind->resourceOffset + vk_bind->size <= sparse->size);
 
    if (vk_bind->memory != VK_NULL_HANDLE) {
-      anv_bind.bo = anv_device_memory_from_handle(vk_bind->memory)->bo;
-      anv_bind.bo_offset = vk_bind->memoryOffset,
+      struct anv_shared_bo *bo =
+         anv_device_memory_from_handle(vk_bind->memory)->bo;
+      anv_bind.bo = anv_shared_bo_bo(bo);
+      anv_bind.bo_offset = bo->address.offset + vk_bind->memoryOffset,
       assert(vk_bind->memoryOffset + vk_bind->size <= anv_bind.bo->size);
    }
 
