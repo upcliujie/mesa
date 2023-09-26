@@ -2063,6 +2063,10 @@ struct anv_device {
         */
        struct util_dynarray                      prints;
     } printf;
+
+    struct {
+       uint32_t trash;
+    } debug;
 };
 
 static inline uint32_t
