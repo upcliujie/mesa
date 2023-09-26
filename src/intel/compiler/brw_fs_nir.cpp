@@ -3180,8 +3180,8 @@ fs_visitor::emit_non_coherent_fb_read(const fs_builder &bld, const fs_reg &dst,
 
    /* Calculate the fragment coordinates. */
    const fs_reg coords = bld.vgrf(BRW_REGISTER_TYPE_UD, 3);
-   bld.MOV(offset(coords, bld, 0), pixel_x);
-   bld.MOV(offset(coords, bld, 1), pixel_y);
+   bld.MOV(offset(coords, bld, 0), uw_pixel_x);
+   bld.MOV(offset(coords, bld, 1), uw_pixel_y);
    bld.MOV(offset(coords, bld, 2), fetch_render_target_array_index(bld));
 
    /* Calculate the sample index and MCS payload when multisampling.  Luckily
