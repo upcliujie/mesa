@@ -173,8 +173,6 @@ fs_visitor::emit_interpolation_setup_gfx4()
    this->uw_pixel_y = vgrf(glsl_type::uint_type);
    this->uw_pixel_x.type = BRW_REGISTER_TYPE_UW;
    this->uw_pixel_y.type = BRW_REGISTER_TYPE_UW;
-   this->pixel_x = this->uw_pixel_x;
-   this->pixel_y = this->uw_pixel_y;
    abld.ADD(this->uw_pixel_x,
             fs_reg(stride(suboffset(g1_uw, 4), 2, 4, 0)),
             fs_reg(brw_imm_v(0x10101010)));
@@ -293,9 +291,6 @@ void
 fs_visitor::emit_interpolation_setup_gfx6()
 {
    fs_builder abld = bld.annotate("compute pixel centers");
-
-   this->pixel_x = vgrf(glsl_type::float_type);
-   this->pixel_y = vgrf(glsl_type::float_type);
 
    const struct brw_wm_prog_key *wm_key = (brw_wm_prog_key*) this->key;
    struct brw_wm_prog_data *wm_prog_data = brw_wm_prog_data(prog_data);
@@ -469,26 +464,10 @@ fs_visitor::emit_interpolation_setup_gfx6()
       fs_reg int_pixel_y = offset(uw_pixel_y, hbld, i);
 
       if (devinfo->verx10 >= 125) {
-         /* We compute two sets of int pixel x/y: one with a 2 byte stride for
-          * future load_pixel_coord, and one with a 4 byte stride to meet
-          * regioning restrictions for the add into a float result that
-          * implements the current load_frag_coord.
-          */
-         const fs_builder dbld =
-            abld.exec_all().group(hbld.dispatch_width() * 2, 0);
-         const fs_reg int_pixel_x_4b = dbld.vgrf(BRW_REGISTER_TYPE_UW);
-         const fs_reg int_pixel_y_4b = dbld.vgrf(BRW_REGISTER_TYPE_UW);
-
          hbld.ADD(int_pixel_x,
                   fs_reg(stride(suboffset(gi_uw, 4), 2, 8, 0)),
                   int_pixel_offset_x);
          hbld.ADD(int_pixel_y,
-                  fs_reg(stride(suboffset(gi_uw, 5), 2, 8, 0)),
-                  int_pixel_offset_y);
-         dbld.ADD(int_pixel_x_4b,
-                  fs_reg(stride(suboffset(gi_uw, 4), 2, 8, 0)),
-                  int_pixel_offset_x);
-         dbld.ADD(int_pixel_y_4b,
                   fs_reg(stride(suboffset(gi_uw, 5), 2, 8, 0)),
                   int_pixel_offset_y);
 
@@ -501,18 +480,7 @@ fs_visitor::emit_interpolation_setup_gfx6()
                addx->predicate = BRW_PREDICATE_NORMAL;
                addy->predicate = BRW_PREDICATE_NORMAL;
             }
-            addx = dbld.ADD(int_pixel_x_4b, int_pixel_x_4b,
-                            horiz_stride(half_int_pixel_offset_x, 0));
-            addy = dbld.ADD(int_pixel_y_4b, int_pixel_y_4b,
-                            horiz_stride(half_int_pixel_offset_y, 0));
-            if (wm_prog_data->coarse_pixel_dispatch != BRW_ALWAYS) {
-               addx->predicate = BRW_PREDICATE_NORMAL;
-               addy->predicate = BRW_PREDICATE_NORMAL;
-            }
          }
-
-         hbld.MOV(offset(pixel_x, hbld, i), horiz_stride(int_pixel_x_4b, 2));
-         hbld.MOV(offset(pixel_y, hbld, i), horiz_stride(int_pixel_y_4b, 2));
 
       } else if (devinfo->ver >= 8 || dispatch_width == 8) {
          /* The "Register Region Restrictions" page says for BDW (and newer,
@@ -537,9 +505,6 @@ fs_visitor::emit_interpolation_setup_gfx6()
                                       horiz_stride(half_int_pixel_offset_x, 0));
          hbld.emit(FS_OPCODE_PIXEL_Y, int_pixel_y, int_pixel_xy,
                                       horiz_stride(half_int_pixel_offset_y, 0));
-
-         hbld.MOV(offset(pixel_x, hbld, i), int_pixel_x);
-         hbld.MOV(offset(pixel_y, hbld, i), int_pixel_y);
       } else {
          /* The "Register Region Restrictions" page says for SNB, IVB, HSW:
           *
@@ -555,13 +520,6 @@ fs_visitor::emit_interpolation_setup_gfx6()
          hbld.ADD(int_pixel_y,
                   fs_reg(stride(suboffset(gi_uw, 5), 2, 4, 0)),
                   fs_reg(brw_imm_v(0x11001100)));
-
-         /* As of gfx6, we can no longer mix float and int sources.  We have
-          * to turn the integer pixel centers into floats for their actual
-          * use.
-          */
-         hbld.MOV(offset(pixel_x, hbld, i), int_pixel_x);
-         hbld.MOV(offset(pixel_y, hbld, i), int_pixel_y);
       }
    }
 
@@ -583,8 +541,10 @@ fs_visitor::emit_interpolation_setup_gfx6()
       const fs_reg float_pixel_x = abld.vgrf(BRW_REGISTER_TYPE_F);
       const fs_reg float_pixel_y = abld.vgrf(BRW_REGISTER_TYPE_F);
 
-      abld.ADD(float_pixel_x, this->pixel_x, negate(x_start));
-      abld.ADD(float_pixel_y, this->pixel_y, negate(y_start));
+      abld.MOV(float_pixel_x, this->uw_pixel_x);
+      abld.MOV(float_pixel_y, this->uw_pixel_y);
+      abld.ADD(float_pixel_x, float_pixel_x, negate(x_start));
+      abld.ADD(float_pixel_y, float_pixel_y, negate(y_start));
 
       /* r1.0 - 0:7 ActualCoarsePixelShadingSize.X */
       const fs_reg u8_cps_width = fs_reg(retype(brw_vec1_grf(1, 0), BRW_REGISTER_TYPE_UB));
