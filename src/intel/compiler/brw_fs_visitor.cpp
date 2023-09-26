@@ -169,16 +169,16 @@ fs_visitor::emit_interpolation_setup_gfx4()
    struct brw_reg g1_uw = retype(brw_vec1_grf(1, 0), BRW_REGISTER_TYPE_UW);
 
    fs_builder abld = bld.annotate("compute pixel centers");
-   this->pixel_x = vgrf(glsl_type::uint_type);
-   this->pixel_y = vgrf(glsl_type::uint_type);
-   this->pixel_x.type = BRW_REGISTER_TYPE_UW;
-   this->pixel_y.type = BRW_REGISTER_TYPE_UW;
-   this->uw_pixel_x = this->pixel_x;
-   this->uw_pixel_y = this->pixel_y;
-   abld.ADD(this->pixel_x,
+   this->uw_pixel_x = vgrf(glsl_type::uint_type);
+   this->uw_pixel_y = vgrf(glsl_type::uint_type);
+   this->uw_pixel_x.type = BRW_REGISTER_TYPE_UW;
+   this->uw_pixel_y.type = BRW_REGISTER_TYPE_UW;
+   this->pixel_x = this->uw_pixel_x;
+   this->pixel_y = this->uw_pixel_y;
+   abld.ADD(this->uw_pixel_x,
             fs_reg(stride(suboffset(g1_uw, 4), 2, 4, 0)),
             fs_reg(brw_imm_v(0x10101010)));
-   abld.ADD(this->pixel_y,
+   abld.ADD(this->uw_pixel_y,
             fs_reg(stride(suboffset(g1_uw, 5), 2, 4, 0)),
             fs_reg(brw_imm_v(0x11001100)));
 
@@ -193,13 +193,13 @@ fs_visitor::emit_interpolation_setup_gfx4()
    if (devinfo->has_pln) {
       for (unsigned i = 0; i < dispatch_width / 8; i++) {
          abld.quarter(i).ADD(quarter(offset(delta_xy, abld, 0), i),
-                             quarter(this->pixel_x, i), xstart);
+                             quarter(this->uw_pixel_x, i), xstart);
          abld.quarter(i).ADD(quarter(offset(delta_xy, abld, 1), i),
-                             quarter(this->pixel_y, i), ystart);
+                             quarter(this->uw_pixel_y, i), ystart);
       }
    } else {
-      abld.ADD(offset(delta_xy, abld, 0), this->pixel_x, xstart);
-      abld.ADD(offset(delta_xy, abld, 1), this->pixel_y, ystart);
+      abld.ADD(offset(delta_xy, abld, 0), this->uw_pixel_x, xstart);
+      abld.ADD(offset(delta_xy, abld, 1), this->uw_pixel_y, ystart);
    }
 
    this->pixel_z = fetch_payload_reg(bld, fs_payload().source_depth_reg);
