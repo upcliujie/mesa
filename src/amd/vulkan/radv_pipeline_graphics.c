@@ -3600,7 +3600,7 @@ gfx103_pipeline_vrs_coarse_shading(const struct radv_device *device, const struc
 {
    struct radv_shader *ps = pipeline->base.shaders[MESA_SHADER_FRAGMENT];
 
-   if (device->physical_device->rad_info.gfx_level != GFX10_3)
+   if (device->physical_device->rad_info.gfx_level < GFX10_3)
       return false;
 
    if (device->instance->debug_flags & RADV_DEBUG_NO_VRS_FLAT_SHADING)
