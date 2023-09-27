@@ -3614,7 +3614,8 @@ gfx103_pipeline_vrs_coarse_shading(const struct radv_device *device, const struc
 
 void
 gfx103_emit_vrs_state(const struct radv_device *device, struct radeon_cmdbuf *ctx_cs, const struct radv_shader *ps,
-                      bool enable_vrs, bool enable_vrs_coarse_shading, bool force_vrs_per_vertex)
+                      bool enable_vrs, bool enable_vrs_coarse_shading, bool force_vrs_per_vertex,
+                      uint8_t force_vrs_mode)
 {
    const struct radv_physical_device *pdevice = device->physical_device;
    uint32_t mode = V_028064_SC_VRS_COMB_MODE_PASSTHRU;
@@ -3635,10 +3636,7 @@ gfx103_emit_vrs_state(const struct radv_device *device, struct radeon_cmdbuf *ct
                              S_028848_SAMPLE_ITER_COMBINER_MODE(V_028848_SC_VRS_COMB_MODE_OVERRIDE) |
                                 S_028848_VERTEX_RATE_COMBINER_MODE(V_028848_SC_VRS_COMB_MODE_OVERRIDE));
 
-      /* If the shader is using discard, turn off coarse shading because discard at 2x2 pixel
-       * granularity degrades quality too much. MIN allows sample shading but not coarse shading.
-       */
-      mode = ps->info.ps.can_discard ? V_028064_SC_VRS_COMB_MODE_MIN : V_028064_SC_VRS_COMB_MODE_PASSTHRU;
+      mode = force_vrs_mode;
    }
 
    if (pdevice->rad_info.gfx_level < GFX11) {
@@ -3707,7 +3705,8 @@ radv_pipeline_emit_pm4(const struct radv_device *device, struct radv_graphics_pi
 
       gfx103_emit_vgt_draw_payload_cntl(ctx_cs, pipeline->base.shaders[MESA_SHADER_MESH], enable_vrs);
       gfx103_emit_vrs_state(device, ctx_cs, pipeline->base.shaders[MESA_SHADER_FRAGMENT], enable_vrs,
-                            gfx103_pipeline_vrs_coarse_shading(device, pipeline), pipeline->force_vrs_per_vertex);
+                            gfx103_pipeline_vrs_coarse_shading(device, pipeline), pipeline->force_vrs_per_vertex,
+                            pipeline->force_vrs_mode);
    }
 
    pipeline->base.ctx_cs_hash = _mesa_hash_data(ctx_cs->buf, ctx_cs->cdw * 4);
@@ -4058,6 +4057,15 @@ radv_graphics_pipeline_init(struct radv_graphics_pipeline *pipeline, struct radv
    pipeline->has_ngg_culling =
       pipeline->is_ngg && pipeline->base.shaders[pipeline->last_vgt_api_stage]->info.has_ngg_culling;
    pipeline->force_vrs_per_vertex = pipeline->base.shaders[pipeline->last_vgt_api_stage]->info.force_vrs_per_vertex;
+
+   if (pipeline->force_vrs_per_vertex) {
+      /* If the shader is using discard, turn off coarse shading because discard at 2x2 pixel
+       * granularity degrades quality too much. MIN allows sample shading but not coarse shading.
+       */
+      pipeline->force_vrs_mode =
+         ps->info.ps.can_discard ? V_028064_SC_VRS_COMB_MODE_MIN : V_028064_SC_VRS_COMB_MODE_PASSTHRU;
+   }
+
    pipeline->rast_prim = vgt_gs_out_prim_type;
    pipeline->uses_out_of_order_rast = state.rs->rasterization_order_amd == VK_RASTERIZATION_ORDER_RELAXED_AMD;
    pipeline->uses_vrs_attachment = radv_pipeline_uses_vrs_attachment(pipeline, &state);
