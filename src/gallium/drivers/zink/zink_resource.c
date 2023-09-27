@@ -1834,10 +1834,6 @@ zink_resource_from_handle(struct pipe_screen *pscreen,
                  unsigned usage)
 {
 #ifdef ZINK_USE_DMABUF
-   if (whandle->modifier != DRM_FORMAT_MOD_INVALID &&
-       !zink_screen(pscreen)->info.have_EXT_image_drm_format_modifier)
-      return NULL;
-
    struct pipe_resource templ2 = *templ;
    if (templ->format == PIPE_FORMAT_NONE)
       templ2.format = whandle->format;
@@ -1848,7 +1844,10 @@ zink_resource_from_handle(struct pipe_screen *pscreen,
       modifier = whandle->modifier;
    else
       whandle->modifier = modifier;
-   templ2.bind |= ZINK_BIND_DMABUF;
+   if (zink_screen(pscreen)->info.have_EXT_image_drm_format_modifier || whandle->modifier == DRM_FORMAT_MOD_INVALID)
+      templ2.bind |= ZINK_BIND_DMABUF;
+   else
+      templ2.bind |= ZINK_BIND_VIDEO;
    struct pipe_resource *pres = resource_create(pscreen, &templ2, whandle, usage, &modifier, modifier_count, NULL, NULL);
    if (pres) {
       struct zink_resource *res = zink_resource(pres);
