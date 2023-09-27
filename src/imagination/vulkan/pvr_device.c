@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <vulkan/vulkan.h>
 #include <xf86drm.h>
 
@@ -171,6 +172,7 @@ static void pvr_physical_device_get_supported_extensions(
       .KHR_swapchain = PVR_USE_WSI_PLATFORM,
       .KHR_timeline_semaphore = true,
       .EXT_external_memory_dma_buf = true,
+      .EXT_physical_device_drm = true,
       .EXT_private_data = true,
       .EXT_tooling_info = true,
    };
@@ -369,6 +371,7 @@ static VkResult pvr_physical_device_init(struct pvr_physical_device *pdevice,
 {
    struct vk_physical_device_dispatch_table dispatch_table;
    struct vk_device_extension_table supported_extensions;
+   struct stat primary_stat = {0}, render_stat = {0};
    struct vk_features supported_features;
    struct pvr_winsys *ws;
    char *render_path;
@@ -413,6 +416,24 @@ static VkResult pvr_physical_device_init(struct pvr_physical_device *pdevice,
    } else {
       display_path = NULL;
    }
+
+   if (stat(master_path, &primary_stat) != 0) {
+      result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+                         "failed to stat DRM primary node %s",
+                         master_path);
+      goto err_vk_free_display_path;
+   }
+   pdevice->has_primary = true;
+   pdevice->primary_devid = primary_stat.st_rdev;
+
+   if (stat(render_path, &render_stat) != 0) {
+      result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+                         "failed to stat DRM render node %s",
+                         render_path);
+      goto err_vk_free_display_path;
+   }
+   pdevice->has_render = true;
+   pdevice->render_devid = render_stat.st_rdev;
 
    result =
       pvr_winsys_create(render_path, display_path, master_path,
@@ -1237,6 +1258,21 @@ void pvr_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          continue;
 
       switch (ext->sType) {
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
+         VkPhysicalDeviceDrmPropertiesEXT *props =
+            (VkPhysicalDeviceDrmPropertiesEXT *)ext;
+         props->hasPrimary = pdevice->has_primary;
+         if (props->hasPrimary) {
+            props->primaryMajor = (int64_t) major(pdevice->primary_devid);
+            props->primaryMinor = (int64_t) minor(pdevice->primary_devid);
+         }
+         props->hasRender = pdevice->has_render;
+         if (props->hasRender) {
+            props->renderMajor = (int64_t) major(pdevice->render_devid);
+            props->renderMinor = (int64_t) minor(pdevice->render_devid);
+         }
+         break;
+      }
       default: {
          pvr_debug_ignored_stype(ext->sType);
          break;
