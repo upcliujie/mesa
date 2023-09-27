@@ -943,7 +943,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
       }
    }
 
-   if (device->physical_device->rad_info.gfx_level == GFX10_3) {
+   if (device->physical_device->rad_info.gfx_level >= GFX10_3) {
       if (getenv("RADV_FORCE_VRS_CONFIG_FILE")) {
          const char *file = radv_get_force_vrs_config_file();
 
