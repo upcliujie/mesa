@@ -1781,6 +1781,7 @@ struct radv_cmd_state {
    bool uses_dynamic_patch_control_points;
    bool uses_dynamic_vertex_binding_stride;
    uint8_t force_vrs_mode;
+   bool force_vrs_flat_shading;
 };
 
 struct radv_cmd_buffer_upload {
@@ -2261,6 +2262,9 @@ struct radv_graphics_pipeline {
    bool force_vrs_per_vertex;
    uint8_t force_vrs_mode;
 
+   /* Whether the pipeline force VRS for flat shading (GFX10.3+)/ */
+   bool force_vrs_flat_shading;
+
    /* Whether the pipeline uses NGG (GFX10+). */
    bool is_ngg;
    bool has_ngg_culling;
@@ -2498,8 +2502,7 @@ void gfx103_emit_vgt_draw_payload_cntl(struct radeon_cmdbuf *ctx_cs, const struc
                                        bool enable_vrs);
 
 void gfx103_emit_vrs_state(const struct radv_device *device, struct radeon_cmdbuf *ctx_cs, const struct radv_shader *ps,
-                           bool enable_vrs, bool enable_vrs_coarse_shading, bool force_vrs_per_vertex,
-                           uint8_t force_vrs_mode);
+                           bool force_vrs_flat_shading, bool force_vrs_per_vertex, uint8_t force_vrs_mode);
 
 void radv_emit_geometry_shader(const struct radv_device *device, struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf *cs,
                                const struct radv_shader *gs, const struct radv_shader *es,

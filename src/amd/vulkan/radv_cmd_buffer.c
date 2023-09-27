@@ -1959,7 +1959,8 @@ radv_emit_graphics_pipeline(struct radv_cmd_buffer *cmd_buffer)
       }
 
       if (cmd_buffer->state.emitted_graphics_pipeline->db_render_control != pipeline->db_render_control ||
-          (cmd_buffer->state.emitted_graphics_pipeline->force_vrs_mode != pipeline->force_vrs_mode &&
+          ((cmd_buffer->state.emitted_graphics_pipeline->force_vrs_mode != pipeline->force_vrs_mode ||
+            cmd_buffer->state.emitted_graphics_pipeline->force_vrs_flat_shading != pipeline->force_vrs_flat_shading) &&
            device->physical_device->rad_info.gfx_level >= GFX11))
          cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
    }
@@ -3645,6 +3646,7 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
    if (cmd_buffer->device->physical_device->rad_info.gfx_level >= GFX11) {
       bool vrs_surface_enable = render->vrs_att.iview != NULL;
       unsigned xmax = 0, ymax = 0;
+      uint8_t rate = 0, mode = 0;
       uint64_t va = 0;
 
       if (vrs_surface_enable) {
@@ -3662,9 +3664,16 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
       radeon_emit(cmd_buffer->cs, S_0283F4_BASE_256B(va >> 40));
       radeon_emit(cmd_buffer->cs, S_0283F8_X_MAX(xmax) | S_0283F8_Y_MAX(ymax));
 
+      if (cmd_buffer->state.force_vrs_flat_shading) {
+         mode = V_0283D0_SC_VRS_COMB_MODE_OVERRIDE;
+         rate = V_0283D0_VRS_SHADING_RATE_2X2;
+      } else {
+         mode = cmd_buffer->state.force_vrs_mode;
+      }
+
       radeon_set_context_reg(cmd_buffer->cs, R_0283D0_PA_SC_VRS_OVERRIDE_CNTL,
                              S_0283D0_VRS_SURFACE_ENABLE(vrs_surface_enable) |
-                                S_0283D0_VRS_OVERRIDE_RATE_COMBINER_MODE(cmd_buffer->state.force_vrs_mode));
+                                S_0283D0_VRS_OVERRIDE_RATE_COMBINER_MODE(mode) | S_0283D0_VRS_RATE(rate));
    }
 
    if (cmd_buffer->device->physical_device->rad_info.gfx_level >= GFX8) {
@@ -6797,6 +6806,7 @@ radv_CmdBindPipeline(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipeline
       cmd_buffer->state.uses_dynamic_vertex_binding_stride =
          !!(graphics_pipeline->dynamic_states & (RADV_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE | RADV_DYNAMIC_VERTEX_INPUT));
       cmd_buffer->state.force_vrs_mode = graphics_pipeline->force_vrs_mode;
+      cmd_buffer->state.force_vrs_flat_shading = graphics_pipeline->force_vrs_flat_shading;
       break;
    }
    default:
@@ -9154,7 +9164,7 @@ radv_emit_shaders(struct radv_cmd_buffer *cmd_buffer)
 
    if (cmd_buffer->device->physical_device->rad_info.gfx_level >= GFX10_3) {
       gfx103_emit_vgt_draw_payload_cntl(cs, cmd_buffer->state.shaders[MESA_SHADER_MESH], false);
-      gfx103_emit_vrs_state(device, cs, NULL, false, false, false, 0);
+      gfx103_emit_vrs_state(device, cs, NULL, false, false, 0);
    }
 
    cmd_buffer->state.dirty &= ~RADV_CMD_DIRTY_SHADERS;
