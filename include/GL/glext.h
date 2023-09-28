@@ -12906,6 +12906,11 @@ GLAPI void APIENTRY glReplacementCodeuiTexCoord2fColor4fNormal3fVertex3fvSUN (co
 #define GL_FOG_SPECULAR_TEXTURE_WIN       0x80EC
 #endif /* GL_WIN_specular_fog */
 
+#ifndef GL_MESA_texture_tiling
+#define GL_MESA_texture_tiling 1
+#define GL_CONST_BW_TILING                0x8BBE
+#endif
+
 #ifdef __cplusplus
 }
 #endif
