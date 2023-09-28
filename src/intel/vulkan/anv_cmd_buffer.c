@@ -705,6 +705,16 @@ void anv_CmdBindPipeline(
          push->gfx.fs_msaa_flags = new_pipeline->fs_msaa_flags;
          cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_FRAGMENT_BIT;
       }
+      if (anv_pipeline_has_stage(new_pipeline, MESA_SHADER_FRAGMENT)) {
+         if (push->gfx.fs_rt_map != new_pipeline->fs_rt_map) {
+            push->gfx.fs_rt_map = new_pipeline->fs_rt_map;
+            cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_FRAGMENT_BIT;
+         }
+         if (push->gfx.fs_active_rts != new_pipeline->written_color_outputs) {
+            push->gfx.fs_active_rts = new_pipeline->written_color_outputs;
+            cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_FRAGMENT_BIT;
+         }
+      }
 
       anv_cmd_buffer_flush_pipeline_state(cmd_buffer, old_pipeline, new_pipeline);
       break;

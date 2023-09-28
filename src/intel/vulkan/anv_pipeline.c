@@ -609,6 +609,7 @@ populate_wm_prog_key(struct anv_pipeline_stage *stage,
                      const BITSET_WORD *dynamic,
                      const struct vk_multisample_state *ms,
                      const struct vk_fragment_shading_rate_state *fsr,
+                     const struct vk_color_attachment_location_state *cal,
                      const struct vk_render_pass_state *rp,
                      const enum brw_sometimes is_mesh)
 {
@@ -634,6 +635,18 @@ populate_wm_prog_key(struct anv_pipeline_stage *stage,
    /* Consider all inputs as valid until look at the NIR variables. */
    key->color_outputs_valid = rp_color_mask(rp);
    key->nr_color_regions = util_last_bit(key->color_outputs_valid);
+
+   if (device->vk.enabled_extensions.KHR_dynamic_rendering_local_read &&
+       cal != NULL)
+      key->color_output_map = anv_build_fs_color_map(cal);
+   /* Apply remapping if we don't have the identity or don't know the
+    * remapping yet (this will regenerate shader relocations for us to update
+    * later)
+    */
+   key->remap_color_outputs =
+      device->vk.enabled_extensions.KHR_dynamic_rendering_local_read ?
+      (cal == NULL ? BRW_RT_REMAP_DYNAMIC : BRW_RT_REMAP_STATIC) :
+      BRW_RT_REMAP_NONE;
 
    /* To reduce possible shader recompilations we would need to know if
     * there is a SampleMask output variable to compute if we should emit
@@ -740,6 +753,13 @@ anv_graphics_pipeline_stage_fragment_dynamic(const struct anv_pipeline_stage *st
           stage->key.wm.alpha_to_coverage == BRW_SOMETIMES;
 }
 
+static bool
+anv_graphics_pipeline_stage_rt_output_dynamic(const struct anv_pipeline_stage *stage)
+{
+   return stage->stage == MESA_SHADER_FRAGMENT &&
+          stage->key.wm.remap_color_outputs == BRW_RT_REMAP_DYNAMIC;
+}
+
 static void
 anv_pipeline_hash_common(struct mesa_sha1 *ctx,
                          const struct anv_pipeline *pipeline)
@@ -778,6 +798,18 @@ anv_pipeline_hash_graphics(struct anv_graphics_base_pipeline *pipeline,
                            sizeof(stages[s].shader_sha1));
          _mesa_sha1_update(&ctx, &stages[s].key, brw_prog_key_size(s));
       }
+   }
+
+   /* Enabling local read means that outputs can be remapped which means we
+    * cannot bound the highest render target used. We have to assume MAX_RTS
+    * are used by any fragment shader that is not complete. This affects the
+    * anv_pipeline_bind_map which affects the apply_layout pass, leading to
+    * differently compiled shaders.
+    */
+   if (stages[MESA_SHADER_FRAGMENT].info != NULL) {
+      bool local_read_enabled =
+         device->vk.enabled_extensions.KHR_dynamic_rendering_local_read;
+      _mesa_sha1_update(&ctx, &local_read_enabled, sizeof(local_read_enabled));
    }
 
    if (stages[MESA_SHADER_MESH].info || stages[MESA_SHADER_TASK].info) {
@@ -1138,8 +1170,9 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
    stage->dynamic_push_values = anv_nir_compute_dynamic_push_bits(nir);
 
    NIR_PASS_V(nir, anv_nir_compute_push_layout,
-              pdevice, stage->key.base.robust_flags,
+              pipeline->device, stage->key.base.robust_flags,
               anv_graphics_pipeline_stage_fragment_dynamic(stage),
+              anv_graphics_pipeline_stage_rt_output_dynamic(stage),
               prog_data, &stage->bind_map, &push_map,
               pipeline->layout.type, mem_ctx);
 
@@ -1476,10 +1509,14 @@ anv_pipeline_compile_mesh(const struct brw_compiler *compiler,
 }
 
 static void
-anv_pipeline_link_fs(const struct brw_compiler *compiler,
+anv_pipeline_link_fs(const struct anv_device *device,
+                     const struct brw_compiler *compiler,
                      struct anv_pipeline_stage *stage,
-                     const struct vk_render_pass_state *rp)
+                     const struct vk_graphics_pipeline_state *state)
 {
+   const struct vk_render_pass_state *rp = state->rp;
+   const uint32_t rp_mask = rp_color_mask(rp);
+
    /* Initially the valid outputs value is set to all possible render targets
     * valid (see populate_wm_prog_key()), before we look at the shader
     * variables. Here we look at the output variables of the shader an compute
@@ -1495,41 +1532,43 @@ anv_pipeline_link_fs(const struct brw_compiler *compiler,
          glsl_type_is_array(var->type) ? glsl_get_length(var->type) : 1;
       assert(rt + array_len <= MAX_RTS);
 
-      stage->key.wm.color_outputs_valid |= BITFIELD_RANGE(rt, array_len);
+      for (unsigned i = 0; i < array_len; i++) {
+         /* Compute where the shader write output in the render pass. */
+         unsigned remapped_output =
+            stage->key.wm.remap_color_outputs == BRW_RT_REMAP_STATIC ?
+            ((stage->key.wm.color_output_map >> (rt + i) * 4) & 0xf) : rt + i;
+         /* If the output written is available in the render pass, mark the
+          * color output as valid. Otherwise the backend compiler will cull
+          * it.
+          */
+         if ((BITFIELD_BIT(remapped_output) & rp_mask) &&
+             (state->cal == NULL ||
+              state->cal->color_map[remapped_output] != MESA_VK_ATTACHMENT_UNUSED)) {
+            stage->key.wm.color_outputs_valid |= BITFIELD_BIT(rt + i);
+         }
+      }
    }
-   stage->key.wm.color_outputs_valid &= rp_color_mask(rp);
+
    stage->key.wm.nr_color_regions =
       util_last_bit(stage->key.wm.color_outputs_valid);
 
-   unsigned num_rt_bindings;
+   unsigned num_rt_bindings = rp_mask == 0 ? 1 : util_last_bit(rp_mask);
+   assert(num_rt_bindings <= MAX_RTS);
    struct anv_pipeline_binding rt_bindings[MAX_RTS];
-   if (stage->key.wm.nr_color_regions > 0) {
-      assert(stage->key.wm.nr_color_regions <= MAX_RTS);
-      for (unsigned rt = 0; rt < stage->key.wm.nr_color_regions; rt++) {
-         if (stage->key.wm.color_outputs_valid & BITFIELD_BIT(rt)) {
-            rt_bindings[rt] = (struct anv_pipeline_binding) {
-               .set = ANV_DESCRIPTOR_SET_COLOR_ATTACHMENTS,
-               .index = rt,
-               .binding = UINT32_MAX,
-
-            };
-         } else {
-            /* Setup a null render target */
-            rt_bindings[rt] = (struct anv_pipeline_binding) {
-               .set = ANV_DESCRIPTOR_SET_COLOR_ATTACHMENTS,
-               .index = UINT32_MAX,
-               .binding = UINT32_MAX,
-            };
-         }
+   for (unsigned rt = 0; rt < num_rt_bindings; rt++) {
+      if (rp_mask == 0 || (rp_mask & BITFIELD_BIT(rt)) == 0) {
+         rt_bindings[rt] = (struct anv_pipeline_binding) {
+            .set = ANV_DESCRIPTOR_SET_COLOR_ATTACHMENTS,
+            .index = UINT32_MAX,
+            .binding = UINT32_MAX,
+         };
+      } else {
+         rt_bindings[rt] = (struct anv_pipeline_binding) {
+            .set = ANV_DESCRIPTOR_SET_COLOR_ATTACHMENTS,
+            .index = rt,
+            .binding = UINT32_MAX,
+         };
       }
-      num_rt_bindings = stage->key.wm.nr_color_regions;
-   } else {
-      /* Setup a null render target */
-      rt_bindings[0] = (struct anv_pipeline_binding) {
-         .set = ANV_DESCRIPTOR_SET_COLOR_ATTACHMENTS,
-         .index = UINT32_MAX,
-      };
-      num_rt_bindings = 1;
    }
 
    assert(num_rt_bindings <= MAX_RTS);
@@ -1831,7 +1870,7 @@ anv_graphics_pipeline_init_keys(struct anv_graphics_base_pipeline *pipeline,
                               pipeline,
                               state->dynamic,
                               raster_enabled ? state->ms : NULL,
-                              state->fsr, state->rp, is_mesh);
+                              state->fsr, state->cal, state->rp, is_mesh);
          break;
       }
 
@@ -2329,7 +2368,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_base_pipeline *pipeline,
          anv_pipeline_link_mesh(compiler, stage, next_stage);
          break;
       case MESA_SHADER_FRAGMENT:
-         anv_pipeline_link_fs(compiler, stage, state->rp);
+         anv_pipeline_link_fs(device, compiler, stage, state);
          break;
       default:
          unreachable("Invalid graphics shader stage");
@@ -2917,6 +2956,41 @@ anv_graphics_pipeline_emit(struct anv_graphics_pipeline *pipeline,
 
    if (pipeline->base.shaders[MESA_SHADER_FRAGMENT]) {
       const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
+
+      if (state->cal != NULL) {
+         if (wm_prog_data->remap_color_outputs != BRW_RT_REMAP_DYNAMIC) {
+            pipeline->written_color_outputs =
+               wm_prog_data->written_color_outputs;
+         } else {
+            for (unsigned i = 0; i < ARRAY_SIZE(state->cal->color_map); i++) {
+               if (state->cal->color_map[i] == MESA_VK_ATTACHMENT_UNUSED)
+                  continue;
+
+               if (wm_prog_data->remap_color_outputs == BRW_RT_REMAP_DYNAMIC &&
+                   (BITFIELD_BIT(state->cal->color_map[i]) &
+                    wm_prog_data->written_color_outputs)) {
+                  pipeline->written_color_outputs |=
+                     BITFIELD_BIT(state->cal->color_map[i]);
+               }
+            }
+         }
+
+         pipeline->fs_rt_map = anv_build_fs_color_map(state->cal);
+      } else {
+         /* If there is no color output location information, it's because
+          * rasterization is disabled.
+          *
+          * Unfortunately the writes to the render targets are counting for
+          * the occlusion queries. So we have to enable writes for one (maybe
+          * all?) output. Pick the render target 0 as mapping for all output
+          * writes and enable only a single render target write (which will
+          * likely be a null render target).
+          */
+         pipeline->fs_rt_map = 0;
+         pipeline->written_color_outputs =
+            wm_prog_data->written_color_outputs == 0 ? 0 :
+            ffs(wm_prog_data->written_color_outputs);
+      }
 
       if (wm_prog_data_dynamic(wm_prog_data)) {
          pipeline->fs_msaa_flags = INTEL_MSAA_FLAG_ENABLE_DYNAMIC;

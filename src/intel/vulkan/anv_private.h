@@ -3356,6 +3356,12 @@ struct anv_push_constants {
          /** Dynamic MSAA value */
          uint32_t fs_msaa_flags;
 
+         /** Mapping of render targets (array of 4bit elements) */
+         uint32_t fs_rt_map;
+
+         /** Bitfield of active render targets */
+         uint32_t fs_active_rts;
+
          /** Dynamic TCS input vertices */
          uint32_t tcs_input_vertices;
       } gfx;
@@ -4540,6 +4546,19 @@ struct anv_graphics_pipeline {
    uint32_t                                     vertex_input_elems;
    uint32_t                                     vertex_input_data[2 * 31 /* MAX_VES + 2 internal */];
 
+   /* Bitfield of written color ouputs by the fragment shader (masked
+    * according to the render pass color attachments available as well as the
+    * color output locations from the KHR_dynamic_rendering_local_read
+    * extension)
+    */
+   uint8_t                                      written_color_outputs;
+
+   /* An array of 4bit values mapping render targets (shader output index) to
+    * attachments (binding table offset)
+    */
+   uint32_t                                     fs_rt_map;
+
+   /* Bitfield of dynamic bits passed into the shader */
    enum intel_msaa_flags                        fs_msaa_flags;
 
    /* Pre computed CS instructions that can directly be copied into
@@ -5618,7 +5637,8 @@ static inline const struct anv_surface_state *
 anv_image_view_texture_surface_state(const struct anv_image_view *iview,
                                      uint32_t plane, VkImageLayout layout)
 {
-   return layout == VK_IMAGE_LAYOUT_GENERAL ?
+   return (layout == VK_IMAGE_LAYOUT_GENERAL ||
+           layout == VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ_KHR) ?
           &iview->planes[plane].general_sampler :
           &iview->planes[plane].optimal_sampler;
 }
@@ -5736,6 +5756,21 @@ anv_is_dual_src_blend_equation(const struct vk_color_blend_attachment_state *cb)
           anv_is_dual_src_blend_factor(cb->dst_color_blend_factor) &&
           anv_is_dual_src_blend_factor(cb->src_alpha_blend_factor) &&
           anv_is_dual_src_blend_factor(cb->dst_alpha_blend_factor);
+}
+
+static inline uint32_t
+anv_build_fs_color_map(const struct vk_color_attachment_location_state *cal)
+{
+   uint32_t map = 0;
+   uint8_t fs_map[MAX_RTS];
+   memset(fs_map, MESA_VK_ATTACHMENT_UNUSED, sizeof(MAX_RTS));
+   for (uint32_t i = 0; i < MAX_RTS; i++) {
+      if (cal->color_map[i] != MESA_VK_ATTACHMENT_UNUSED) {
+         map |= i << (4 * cal->color_map[i]);
+         fs_map[cal->color_map[i]] = i;
+      }
+   }
+   return map;
 }
 
 VkFormatFeatureFlags2
