@@ -632,7 +632,8 @@ fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
       if (this->outputs[target].file == BAD_FILE)
          continue;
 
-      if (key->remap_color_outputs == BRW_RT_REMAP_STATIC &&
+      if (key->remap_color_outputs != BRW_RT_REMAP_DYNAMIC &&
+          key->color_outputs_valid != 0 &&
           ((1u << target) & key->color_outputs_valid) == 0)
          continue;
 

@@ -242,6 +242,7 @@ get_device_extensions(const struct anv_physical_device *device,
       .KHR_draw_indirect_count               = true,
       .KHR_driver_properties                 = true,
       .KHR_dynamic_rendering                 = true,
+      .KHR_dynamic_rendering_local_read      = true,
       .KHR_external_fence                    = has_syncobj_wait,
       .KHR_external_fence_fd                 = has_syncobj_wait,
       .KHR_external_memory                   = true,
@@ -923,6 +924,9 @@ get_features(const struct anv_physical_device *pdevice,
       /* VK_EXT_swapchain_maintenance1 */
       .swapchainMaintenance1 = true,
 #endif
+
+      /* VK_KHR_dynamic_rendering_local_read */
+      .dynamicRenderingLocalRead = true,
    };
 
    /* The new DOOM and Wolfenstein games require depthBounds without

@@ -88,9 +88,10 @@ void anv_nir_apply_pipeline_layout(nir_shader *shader,
                                    void *push_map_mem_ctx);
 
 void anv_nir_compute_push_layout(nir_shader *nir,
-                                 const struct anv_physical_device *pdevice,
+                                 const struct anv_device *device,
                                  enum brw_robustness_flags robust_flags,
                                  bool fragment_dynamic,
+                                 bool fragment_output_dynamic,
                                  struct brw_stage_prog_data *prog_data,
                                  struct anv_pipeline_bind_map *map,
                                  const struct anv_pipeline_push_map *push_map,

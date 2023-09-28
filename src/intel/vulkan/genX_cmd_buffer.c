@@ -26,6 +26,7 @@
 
 #include "anv_private.h"
 #include "anv_measure.h"
+#include "vk_common_entrypoints.h"
 #include "vk_render_pass.h"
 #include "vk_util.h"
 
@@ -3011,6 +3012,22 @@ genX(BeginCommandBuffer)(
       if (pBeginInfo->pInheritanceInfo->occlusionQueryEnable) {
          cmd_buffer->state.gfx.n_occlusion_queries = 1;
          cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_OCCLUSION_QUERY_ACTIVE;
+      }
+
+      const VkRenderingAttachmentLocationInfoKHR *att_loc_info =
+         vk_find_struct_const(pBeginInfo->pInheritanceInfo->pNext,
+                              RENDERING_ATTACHMENT_LOCATION_INFO_KHR);
+      if (att_loc_info != NULL) {
+         vk_common_CmdSetRenderingAttachmentLocationsKHR(commandBuffer,
+                                                         att_loc_info);
+      }
+
+      const VkRenderingInputAttachmentIndexInfoKHR *input_att_idx_info =
+         vk_find_struct_const(pBeginInfo->pInheritanceInfo->pNext,
+                              RENDERING_INPUT_ATTACHMENT_INDEX_INFO_KHR);
+      if (input_att_idx_info != NULL) {
+         vk_common_CmdSetRenderingInputAttachmentIndicesKHR(
+            commandBuffer, input_att_idx_info);
       }
    }
 
