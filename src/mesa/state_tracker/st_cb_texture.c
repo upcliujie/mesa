@@ -3340,8 +3340,15 @@ st_texture_create_from_memory(struct st_context *st,
    pt.bind = bind;
    /* only set this for OpenGL textures, not renderbuffers */
    pt.flags = PIPE_RESOURCE_FLAG_TEXTURING_MORE_LIKELY;
-   if (memObj->TextureTiling == GL_LINEAR_TILING_EXT)
+   if (memObj->TextureTiling == GL_LINEAR_TILING_EXT) {
       pt.bind |= PIPE_BIND_LINEAR;
+   } else if (memObj->TextureTiling == GL_CONST_BW_TILING) {
+      if (screen->get_param(screen, PIPE_CAP_HAS_CONST_BW)) {
+         pt.bind |= PIPE_BIND_CONST_BW;
+      } else {
+         pt.bind |= PIPE_BIND_LINEAR;
+      }
+   }
 
    pt.nr_samples = nr_samples;
    pt.nr_storage_samples = nr_samples;
