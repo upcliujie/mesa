@@ -5285,6 +5285,8 @@ struct anv_image {
       struct anv_sparse_binding_data sparse_data;
    } bindings[ANV_IMAGE_MEMORY_BINDING_END];
 
+   struct anv_shared_bo *private_bo;
+
    /**
     * Image subsurfaces
     *
