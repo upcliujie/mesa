@@ -123,8 +123,7 @@ def monitor_pipeline(
             ]:
                 to_cancel.append(job)
 
-        if target_job:
-            cancel_jobs(project, to_cancel)
+        cancel_jobs(project, to_cancel)
 
         if stress:
             for job_name, status in stress_status.items():
