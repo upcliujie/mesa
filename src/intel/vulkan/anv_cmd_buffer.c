@@ -161,7 +161,7 @@ anv_create_cmd_buffer(struct vk_command_pool *pool,
                          &device->push_descriptor_buffer_pool, 4096);
 
    int success = u_vector_init_pow2(&cmd_buffer->dynamic_bos, 8,
-                                    sizeof(struct anv_bo *));
+                                    sizeof(struct anv_shared_bo *));
    if (!success)
       goto fail_batch_bo;
 
@@ -212,8 +212,8 @@ destroy_cmd_buffer(struct anv_cmd_buffer *cmd_buffer)
    anv_state_stream_finish(&cmd_buffer->push_descriptor_buffer_stream);
 
    while (u_vector_length(&cmd_buffer->dynamic_bos) > 0) {
-      struct anv_bo **bo = u_vector_remove(&cmd_buffer->dynamic_bos);
-      anv_bo_pool_free((*bo)->map != NULL ?
+      struct anv_shared_bo **bo = u_vector_remove(&cmd_buffer->dynamic_bos);
+      anv_bo_pool_free(anv_shared_bo_map(*bo) != NULL ?
                        &cmd_buffer->device->batch_bo_pool :
                        &cmd_buffer->device->bvh_bo_pool, *bo);
    }
@@ -290,8 +290,10 @@ reset_cmd_buffer(struct anv_cmd_buffer *cmd_buffer,
                          &cmd_buffer->device->push_descriptor_buffer_pool, 4096);
 
    while (u_vector_length(&cmd_buffer->dynamic_bos) > 0) {
-      struct anv_bo **bo = u_vector_remove(&cmd_buffer->dynamic_bos);
-      anv_device_release_bo(cmd_buffer->device, *bo);
+      struct anv_shared_bo **bo = u_vector_remove(&cmd_buffer->dynamic_bos);
+      anv_bo_pool_free(anv_shared_bo_map(*bo) != NULL ?
+                       &cmd_buffer->device->batch_bo_pool :
+                       &cmd_buffer->device->bvh_bo_pool, *bo);
    }
 
    anv_measure_reset(cmd_buffer);

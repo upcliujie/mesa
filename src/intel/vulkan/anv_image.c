@@ -1541,6 +1541,7 @@ alloc_private_binding(struct anv_device *device,
                                               binding->memory_range.size,
                                               binding->memory_range.alignment,
                                               0 /* alloc_flags */,
+                                              false /* dedicated */,
                                               0 /* explicit_address */,
                                               &image->private_bo);
    if (result == VK_SUCCESS) {
