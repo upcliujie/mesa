@@ -90,6 +90,9 @@ nir_lower_alpha_test(nir_shader *shader, enum compare_func *func,
                    out->data.location != FRAG_RESULT_DATA0)
                   continue;
 
+               if (!alpha_to_one && glsl_get_components(out->type) < 4)
+                  continue;
+
                b.cursor = nir_before_instr(&intr->instr);
 
                nir_def *alpha;
