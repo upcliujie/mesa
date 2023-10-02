@@ -202,6 +202,7 @@ lower_shuffle_to_swizzle(nir_builder *b, nir_intrinsic_instr *intrin)
    swizzle->num_components = intrin->num_components;
    swizzle->src[0] = nir_src_for_ssa(intrin->src[0].ssa);
    nir_intrinsic_set_swizzle_mask(swizzle, (mask << 10) | 0x1f);
+   nir_intrinsic_set_fetch_inactive(swizzle, true);
    nir_def_init(&swizzle->instr, &swizzle->def,
                 intrin->def.num_components, intrin->def.bit_size);
 
