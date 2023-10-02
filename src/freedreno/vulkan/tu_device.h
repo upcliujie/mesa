@@ -367,6 +367,7 @@ struct tu_device
    uint64_t fault_count;
 
    struct u_trace_context trace_context;
+   uint64_t trace_first_timestamp;
 
    #ifdef HAVE_PERFETTO
    struct tu_perfetto_state perfetto;

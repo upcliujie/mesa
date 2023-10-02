@@ -1702,7 +1702,11 @@ tu_trace_read_ts(struct u_trace_context *utctx,
    if (ts[idx] == U_TRACE_NO_TIMESTAMP)
       return U_TRACE_NO_TIMESTAMP;
 
-   return tu_device_ticks_to_ns(device, ts[idx]);
+   if (idx == 0 && device->trace_first_timestamp == 0) {
+      device->trace_first_timestamp = ts[idx];
+   }
+
+   return tu_device_ticks_to_ns(device, ts[idx] - device->trace_first_timestamp);
 }
 
 static void
@@ -2325,6 +2329,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    tu_gpu_tracepoint_config_variable();
 
    device->submit_count = 0;
+   device->trace_first_timestamp = 0;
    u_trace_context_init(&device->trace_context, device,
                      tu_trace_create_ts_buffer,
                      tu_trace_destroy_ts_buffer,
