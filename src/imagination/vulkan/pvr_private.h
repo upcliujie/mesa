@@ -100,6 +100,7 @@ struct pvr_physical_device {
    char *name;
    char *render_path;
    char *display_path;
+   char *master_path;
 
    struct pvr_winsys *ws;
    struct pvr_device_info dev_info;

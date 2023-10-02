@@ -453,6 +453,7 @@ struct pvr_winsys {
 
    int render_fd;
    int display_fd;
+   int master_fd;
 
    const VkAllocationCallbacks *alloc;
 
@@ -466,6 +467,7 @@ struct pvr_winsys {
 void pvr_winsys_destroy(struct pvr_winsys *ws);
 VkResult pvr_winsys_create(const char *render_path,
                            const char *display_path,
+                           const char *master_path,
                            const VkAllocationCallbacks *alloc,
                            struct pvr_winsys **ws_out);
 

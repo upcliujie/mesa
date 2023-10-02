@@ -51,6 +51,7 @@ void pvr_winsys_destroy(struct pvr_winsys *ws)
 
 VkResult pvr_winsys_create(const char *render_path,
                            const char *display_path,
+                           const char *master_path,
                            const VkAllocationCallbacks *alloc,
                            struct pvr_winsys **const ws_out)
 {
@@ -58,6 +59,7 @@ VkResult pvr_winsys_create(const char *render_path,
    VkResult result;
    int display_fd;
    int render_fd;
+   int master_fd;
 
    render_fd = open(render_path, O_RDWR | O_CLOEXEC);
    if (render_fd < 0) {
@@ -68,6 +70,15 @@ VkResult pvr_winsys_create(const char *render_path,
       goto err_out;
    }
 
+   master_fd = open(master_path, O_RDWR | O_CLOEXEC);
+   if (master_fd < 0) {
+      result = vk_errorf(NULL,
+                         VK_ERROR_INITIALIZATION_FAILED,
+                         "Failed to open master device %s",
+                         master_path);
+      goto err_close_render_fd;
+   }
+
    if (display_path) {
       display_fd = open(display_path, O_RDWR | O_CLOEXEC);
       if (display_fd < 0) {
@@ -75,7 +86,7 @@ VkResult pvr_winsys_create(const char *render_path,
                             VK_ERROR_INITIALIZATION_FAILED,
                             "Failed to open display device %s",
                             display_path);
-         goto err_close_render_fd;
+         goto err_close_master_fd;
       }
    } else {
       display_fd = -1;
@@ -90,10 +101,10 @@ VkResult pvr_winsys_create(const char *render_path,
    }
 
    if (strcmp(version->name, "powervr") == 0) {
-      result = pvr_drm_winsys_create(render_fd, display_fd, alloc, ws_out);
+      result = pvr_drm_winsys_create(render_fd, display_fd, master_fd, alloc, ws_out);
 #if defined(PVR_SUPPORT_SERVICES_DRIVER)
    } else if (strcmp(version->name, "pvr") == 0) {
-      result = pvr_srv_winsys_create(render_fd, display_fd, alloc, ws_out);
+      result = pvr_srv_winsys_create(render_fd, display_fd, master_fd, alloc, ws_out);
 #endif
    } else {
       result = vk_errorf(
@@ -112,6 +123,9 @@ VkResult pvr_winsys_create(const char *render_path,
 err_close_display_fd:
    if (display_fd >= 0)
       close(display_fd);
+
+err_close_master_fd:
+   close(master_fd);
 
 err_close_render_fd:
    close(render_fd);
