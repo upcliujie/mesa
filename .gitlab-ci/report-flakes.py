@@ -59,7 +59,10 @@ class Connection:
                 self.s.sendall((line + '\n').encode())
                 return
             except BrokenPipeError:
-                print(f"Network error during attempt {attempt + 1}, retrying")
+                retry_delay = 2 ** attempt
+                print(f"Network error during attempt {attempt + 1}, "
+                      f"waiting {retry_delay} seconds and retrying")
+                time.sleep(retry_delay)
                 self.disconnect()
                 self.connect()
 
