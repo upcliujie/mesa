@@ -29,6 +29,7 @@ import time
 
 
 RETRY_ATTEMPTS = 3
+RETRY_DELAY = 2  # seconds
 
 
 class Connection:
@@ -46,7 +47,9 @@ class Connection:
                 self.s.sendall((line + '\n').encode())
                 return
             except BrokenPipeError:
-                print(f"Network error during attempt {attempt + 1}, retrying")
+                print(f"Network error during attempt {attempt + 1}, "
+                      f"waiting {RETRY_DELAY} seconds and retrying")
+                time.sleep(RETRY_DELAY)
 
     def wait(self, secs):
         for i in range(secs):
