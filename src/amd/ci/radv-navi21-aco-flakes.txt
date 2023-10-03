@@ -17,8 +17,6 @@ dEQP-VK.rasterization.primitives_multisample_2_bit.static_stipple.bresenham_line
 dEQP-VK.draw.renderpass.linear_interpolation.no_offset_\d_samples
 dEQP-VK.draw.renderpass.multi_draw.mosaic.indexed_mixed.max_draws.stride_extra_12.2_instances_base_3.with_tess.multiview.offset_6
 
-dEQP-VK.pipeline.fast_linked_library.multisample_interpolation.sample_interpolate_at_ignores_centroid.128_128_1.samples_8
-
 dEQP-VK.mesh_shader.ext.query.all_stats_query.triangles.host_reset.copy.wait.indirect_draw.32bit.with_availability.single_block.task_mesh.inside_rp.single_view.only_primary
 
 dEQP-VK.query_pool.statistics_query.host_query_reset.geometry_shader_invocations.secondary.32bits_dstoffset_cmdcopyquerypoolresults_line_list

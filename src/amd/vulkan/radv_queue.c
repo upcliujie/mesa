@@ -1146,6 +1146,13 @@ radv_update_preamble_cs(struct radv_queue_state *queue, struct radv_device *devi
    queue->gds_bo = gds_bo;
    queue->gds_oa_bo = gds_oa_bo;
    queue->ring_info = *needs;
+
+   /* Make sure to re-initialize the sample locations state in case a new descriptor BO has been
+    * filled without them. Otherwise, they will be missing for upcoming submissions.
+    */
+   if (!add_sample_positions)
+      queue->ring_info.sample_positions = false;
+
    return VK_SUCCESS;
 fail:
    for (int i = 0; i < ARRAY_SIZE(dest_cs); ++i)
