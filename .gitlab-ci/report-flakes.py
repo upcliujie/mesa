@@ -28,6 +28,9 @@ import socket
 import time
 
 
+RETRY_ATTEMPTS = 3
+
+
 class Connection:
     def __init__(self, host, port, verbose):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -38,7 +41,12 @@ class Connection:
     def send_line(self, line):
         if self.verbose:
             print(f"IRC: sending {line}")
-        self.s.sendall((line + '\n').encode())
+        for attempt in range(RETRY_ATTEMPTS):
+            try:
+                self.s.sendall((line + '\n').encode())
+                return
+            except BrokenPipeError:
+                print(f"Network error during attempt {attempt + 1}, retrying")
 
     def wait(self, secs):
         for i in range(secs):
