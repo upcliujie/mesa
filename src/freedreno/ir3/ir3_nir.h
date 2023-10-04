@@ -49,8 +49,7 @@ bool ir3_nir_lower_wide_load_store(nir_shader *shader);
 bool ir3_nir_lower_layer_id(nir_shader *shader);
 
 void ir3_nir_lower_to_explicit_output(nir_shader *shader,
-                                      struct ir3_shader_variant *v,
-                                      unsigned topology);
+                                      struct ir3_shader_variant *v);
 void ir3_nir_lower_to_explicit_input(nir_shader *shader,
                                      struct ir3_shader_variant *v);
 void ir3_nir_lower_tess_ctrl(nir_shader *shader, struct ir3_shader_variant *v,

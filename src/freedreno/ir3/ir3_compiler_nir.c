@@ -2118,11 +2118,8 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       dst[0] = create_uniform(b, primitive_map + idx);
       break;
 
-   case nir_intrinsic_load_gs_header_ir3:
-      dst[0] = ctx->gs_header;
-      break;
-   case nir_intrinsic_load_tcs_header_ir3:
-      dst[0] = ctx->tcs_header;
+   case nir_intrinsic_load_tcs_gs_header_ir3:
+      dst[0] = ctx->tcs_gs_header;
       break;
 
    case nir_intrinsic_load_rel_patch_id_ir3:
@@ -4401,30 +4398,25 @@ emit_instructions(struct ir3_context *ctx)
    bool has_gs = ctx->so->key.has_gs;
    switch (ctx->so->type) {
    case MESA_SHADER_VERTEX:
-      if (has_tess) {
-         ctx->tcs_header =
-            create_sysval_input(ctx, SYSTEM_VALUE_TCS_HEADER_IR3, 0x1);
+      if (has_tess || has_gs) {
+         ctx->tcs_gs_header =
+            create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
          ctx->rel_patch_id =
             create_sysval_input(ctx, SYSTEM_VALUE_REL_PATCH_ID_IR3, 0x1);
-         ctx->primitive_id =
-            create_sysval_input(ctx, SYSTEM_VALUE_PRIMITIVE_ID, 0x1);
-      } else if (has_gs) {
-         ctx->gs_header =
-            create_sysval_input(ctx, SYSTEM_VALUE_GS_HEADER_IR3, 0x1);
          ctx->primitive_id =
             create_sysval_input(ctx, SYSTEM_VALUE_PRIMITIVE_ID, 0x1);
       }
       break;
    case MESA_SHADER_TESS_CTRL:
-      ctx->tcs_header =
-         create_sysval_input(ctx, SYSTEM_VALUE_TCS_HEADER_IR3, 0x1);
+      ctx->tcs_gs_header =
+         create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
       ctx->rel_patch_id =
          create_sysval_input(ctx, SYSTEM_VALUE_REL_PATCH_ID_IR3, 0x1);
       break;
    case MESA_SHADER_TESS_EVAL:
       if (has_gs) {
-         ctx->gs_header =
-            create_sysval_input(ctx, SYSTEM_VALUE_GS_HEADER_IR3, 0x1);
+         ctx->tcs_gs_header =
+            create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
          ctx->primitive_id =
             create_sysval_input(ctx, SYSTEM_VALUE_PRIMITIVE_ID, 0x1);
       }
@@ -4432,8 +4424,8 @@ emit_instructions(struct ir3_context *ctx)
          create_sysval_input(ctx, SYSTEM_VALUE_REL_PATCH_ID_IR3, 0x1);
       break;
    case MESA_SHADER_GEOMETRY:
-      ctx->gs_header =
-         create_sysval_input(ctx, SYSTEM_VALUE_GS_HEADER_IR3, 0x1);
+      ctx->tcs_gs_header =
+         create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
       break;
    default:
       break;
@@ -4717,10 +4709,7 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
          struct ir3_instruction *out = ir3_collect(ctx->block, ctx->primitive_id);
          outputs[outputs_count] = out;
          outidxs[outputs_count] = n;
-         if (so->type == MESA_SHADER_VERTEX && ctx->rel_patch_id)
-            regids[outputs_count] = regid(0, 2);
-         else
-            regids[outputs_count] = regid(0, 1);
+         regids[outputs_count] = regid(0, 2);
          outputs_count++;
       }
 
@@ -4734,20 +4723,10 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
          outputs_count++;
       }
 
-      if (ctx->gs_header) {
+      if (ctx->tcs_gs_header) {
          unsigned n = so->outputs_count++;
-         so->outputs[n].slot = VARYING_SLOT_GS_HEADER_IR3;
-         struct ir3_instruction *out = ir3_collect(ctx->block, ctx->gs_header);
-         outputs[outputs_count] = out;
-         outidxs[outputs_count] = n;
-         regids[outputs_count] = regid(0, 0);
-         outputs_count++;
-      }
-
-      if (ctx->tcs_header) {
-         unsigned n = so->outputs_count++;
-         so->outputs[n].slot = VARYING_SLOT_TCS_HEADER_IR3;
-         struct ir3_instruction *out = ir3_collect(ctx->block, ctx->tcs_header);
+         so->outputs[n].slot = VARYING_SLOT_TCS_GS_HEADER_IR3;
+         struct ir3_instruction *out = ir3_collect(ctx->block, ctx->tcs_gs_header);
          outputs[outputs_count] = out;
          outidxs[outputs_count] = n;
          regids[outputs_count] = regid(0, 0);
@@ -4928,24 +4907,17 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 
          in->dsts[0]->num = so->nonbinning->inputs[inidx].regid;
       }
-   } else if (ctx->tcs_header) {
-      /* We need to have these values in the same registers between VS and TCS
-       * since the VS chains to TCS and doesn't get the sysvals redelivered.
+   } else if (ctx->tcs_gs_header) {
+      /* We need to have these values in the same registers between VS and
+       * TCS/GS since the VS chains to TCS or GS and doesn't get the sysvals
+       * redelivered.
        */
 
-      ctx->tcs_header->dsts[0]->num = regid(0, 0);
-      ctx->rel_patch_id->dsts[0]->num = regid(0, 1);
+      ctx->tcs_gs_header->dsts[0]->num = regid(0, 0);
+      if (ctx->rel_patch_id)
+         ctx->rel_patch_id->dsts[0]->num = regid(0, 1);
       if (ctx->primitive_id)
          ctx->primitive_id->dsts[0]->num = regid(0, 2);
-   } else if (ctx->gs_header) {
-      /* We need to have these values in the same registers between producer
-       * (VS or DS) and GS since the producer chains to GS and doesn't get
-       * the sysvals redelivered.
-       */
-
-      ctx->gs_header->dsts[0]->num = regid(0, 0);
-      if (ctx->primitive_id)
-         ctx->primitive_id->dsts[0]->num = regid(0, 1);
    } else if (so->num_sampler_prefetch) {
       assert(so->type == MESA_SHADER_FRAGMENT);
       int idx = 0;

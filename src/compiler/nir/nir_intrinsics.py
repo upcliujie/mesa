@@ -1251,14 +1251,13 @@ intrinsic("ssbo_atomic_swap_ir3",  src_comp=[1, 1, 1, 1, 1], dest_comp=1,
 # System values for freedreno geometry shaders.
 system_value("vs_primitive_stride_ir3", 1)
 system_value("vs_vertex_stride_ir3", 1)
-system_value("gs_header_ir3", 1)
+system_value("tcs_gs_header_ir3", 1)
 system_value("primitive_location_ir3", 1, indices=[DRIVER_LOCATION])
 
 # System values for freedreno tessellation shaders.
 system_value("hs_patch_stride_ir3", 1)
 system_value("tess_factor_base_ir3", 2)
 system_value("tess_param_base_ir3", 2)
-system_value("tcs_header_ir3", 1)
 system_value("rel_patch_id_ir3", 1)
 
 # System values for freedreno compute shaders.

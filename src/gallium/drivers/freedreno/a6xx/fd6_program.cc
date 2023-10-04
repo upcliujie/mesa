@@ -539,7 +539,7 @@ emit_vs_system_values(struct fd_ringbuffer *ring,
    const uint32_t ds_rel_patch_regid =
          ir3_find_sysval_regid(b->ds, SYSTEM_VALUE_REL_PATCH_ID_IR3);
    const uint32_t hs_invocation_regid =
-         ir3_find_sysval_regid(b->hs, SYSTEM_VALUE_TCS_HEADER_IR3);
+         ir3_find_sysval_regid(b->hs, SYSTEM_VALUE_TCS_GS_HEADER_IR3);
    const uint32_t gs_primitiveid_regid =
          ir3_find_sysval_regid(b->gs, SYSTEM_VALUE_PRIMITIVE_ID);
    const uint32_t vs_primitiveid_regid = b->hs ?
@@ -548,7 +548,7 @@ emit_vs_system_values(struct fd_ringbuffer *ring,
    const uint32_t ds_primitiveid_regid =
          ir3_find_sysval_regid(b->ds, SYSTEM_VALUE_PRIMITIVE_ID);
    const uint32_t gsheader_regid =
-         ir3_find_sysval_regid(b->gs, SYSTEM_VALUE_GS_HEADER_IR3);
+         ir3_find_sysval_regid(b->gs, SYSTEM_VALUE_TCS_GS_HEADER_IR3);
 
    /* Note: we currently don't support multiview.
     */

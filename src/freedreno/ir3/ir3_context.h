@@ -92,10 +92,9 @@ struct ir3_context {
 
    /* For geometry shaders: */
    struct ir3_instruction *primitive_id;
-   struct ir3_instruction *gs_header;
+   struct ir3_instruction *tcs_gs_header;
 
    /* For tessellation shaders: */
-   struct ir3_instruction *tcs_header;
    struct ir3_instruction *tess_coord;
    struct ir3_instruction *rel_patch_id;
 

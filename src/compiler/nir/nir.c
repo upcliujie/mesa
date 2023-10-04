@@ -2392,10 +2392,8 @@ nir_system_value_from_intrinsic(nir_intrinsic_op intrin)
       return SYSTEM_VALUE_USER_DATA_AMD;
    case nir_intrinsic_load_barycentric_model:
       return SYSTEM_VALUE_BARYCENTRIC_PULL_MODEL;
-   case nir_intrinsic_load_gs_header_ir3:
-      return SYSTEM_VALUE_GS_HEADER_IR3;
-   case nir_intrinsic_load_tcs_header_ir3:
-      return SYSTEM_VALUE_TCS_HEADER_IR3;
+   case nir_intrinsic_load_tcs_gs_header_ir3:
+      return SYSTEM_VALUE_TCS_GS_HEADER_IR3;
    case nir_intrinsic_load_ray_launch_id:
       return SYSTEM_VALUE_RAY_LAUNCH_ID;
    case nir_intrinsic_load_ray_launch_size:

@@ -285,13 +285,12 @@ lower_block_to_explicit_output(nir_block *block, nir_builder *b,
 static nir_def *
 local_thread_id(nir_builder *b)
 {
-   return bitfield_extract(b, nir_load_gs_header_ir3(b), 16, 1023);
+   return bitfield_extract(b, nir_load_tcs_gs_header_ir3(b), 16, 1023);
 }
 
 void
 ir3_nir_lower_to_explicit_output(nir_shader *shader,
-                                 struct ir3_shader_variant *v,
-                                 unsigned topology)
+                                 struct ir3_shader_variant *v)
 {
    struct state state = {};
 
@@ -303,10 +302,7 @@ ir3_nir_lower_to_explicit_output(nir_shader *shader,
 
    nir_builder b = nir_builder_at(nir_before_impl(impl));
 
-   if (v->type == MESA_SHADER_VERTEX && topology != IR3_TESS_NONE)
-      state.header = nir_load_tcs_header_ir3(&b);
-   else
-      state.header = nir_load_gs_header_ir3(&b);
+   state.header = nir_load_tcs_gs_header_ir3(&b);
 
    nir_foreach_block_safe (block, impl)
       lower_block_to_explicit_output(block, &b, &state);
@@ -377,10 +373,7 @@ ir3_nir_lower_to_explicit_input(nir_shader *shader,
 
    nir_builder b = nir_builder_at(nir_before_impl(impl));
 
-   if (shader->info.stage == MESA_SHADER_GEOMETRY)
-      state.header = nir_load_gs_header_ir3(&b);
-   else
-      state.header = nir_load_tcs_header_ir3(&b);
+   state.header = nir_load_tcs_gs_header_ir3(&b);
 
    nir_foreach_block_safe (block, impl)
       lower_block_to_explicit_input(block, &b, &state);
@@ -680,7 +673,7 @@ ir3_nir_lower_tess_ctrl(nir_shader *shader, struct ir3_shader_variant *v,
 
    nir_builder b = nir_builder_at(nir_before_impl(impl));
 
-   state.header = nir_load_tcs_header_ir3(&b);
+   state.header = nir_load_tcs_gs_header_ir3(&b);
 
    /* If required, store gl_PrimitiveID. */
    if (v->key.tcs_store_primid) {
@@ -712,7 +705,7 @@ ir3_nir_lower_tess_ctrl(nir_shader *shader, struct ir3_shader_variant *v,
    b.cursor = nir_after_impl(impl);
 
    /* Re-emit the header, since the old one got moved into the if branch */
-   state.header = nir_load_tcs_header_ir3(&b);
+   state.header = nir_load_tcs_gs_header_ir3(&b);
    nir_def *iid = build_invocation_id(&b, &state);
 
    const uint32_t nvertices = shader->info.tess.tcs_vertices_out;
@@ -1017,7 +1010,7 @@ ir3_nir_lower_gs(nir_shader *shader)
 
    nir_builder b = nir_builder_at(nir_before_impl(impl));
 
-   state.header = nir_load_gs_header_ir3(&b);
+   state.header = nir_load_tcs_gs_header_ir3(&b);
 
    /* Generate two set of shadow vars for the output variables.  The first
     * set replaces the real outputs and the second set (emit_outputs) we'll

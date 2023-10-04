@@ -1202,9 +1202,8 @@ void print_raw(FILE *out, const BITSET_WORD *data, size_t size);
 void ir3_link_stream_out(struct ir3_shader_linkage *l,
                          const struct ir3_shader_variant *v);
 
-#define VARYING_SLOT_GS_HEADER_IR3       (VARYING_SLOT_MAX + 0)
+#define VARYING_SLOT_TCS_GS_HEADER_IR3   (VARYING_SLOT_MAX + 0)
 #define VARYING_SLOT_GS_VERTEX_FLAGS_IR3 (VARYING_SLOT_MAX + 1)
-#define VARYING_SLOT_TCS_HEADER_IR3      (VARYING_SLOT_MAX + 2)
 #define VARYING_SLOT_REL_PATCH_ID_IR3    (VARYING_SLOT_MAX + 3)
 
 static inline uint32_t

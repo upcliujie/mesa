@@ -1735,7 +1735,7 @@ tu6_emit_hs(struct tu_cs *cs,
    const uint32_t hs_rel_patch_regid =
          ir3_find_sysval_regid(hs, SYSTEM_VALUE_REL_PATCH_ID_IR3);
    const uint32_t hs_invocation_regid =
-         ir3_find_sysval_regid(hs, SYSTEM_VALUE_TCS_HEADER_IR3);
+         ir3_find_sysval_regid(hs, SYSTEM_VALUE_TCS_GS_HEADER_IR3);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_VFD_CONTROL_2, 1);
    tu_cs_emit(cs, A6XX_VFD_CONTROL_2_REGID_HSRELPATCHID(hs_rel_patch_regid) |
@@ -1792,7 +1792,7 @@ tu6_emit_gs(struct tu_cs *cs,
             const struct ir3_shader_variant *gs)
 {
    const uint32_t gsheader_regid =
-         ir3_find_sysval_regid(gs, SYSTEM_VALUE_GS_HEADER_IR3);
+         ir3_find_sysval_regid(gs, SYSTEM_VALUE_TCS_GS_HEADER_IR3);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_VFD_CONTROL_5, 1);
    tu_cs_emit(cs, A6XX_VFD_CONTROL_5_REGID_GSHEADER(gsheader_regid) |
