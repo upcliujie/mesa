@@ -1038,7 +1038,7 @@ tu6_emit_patch_control_points(struct tu_cs *cs,
    uint64_t tess_factor_iova, tess_param_iova;
    tu_get_tess_iova(dev, &tess_factor_iova, &tess_param_iova);
 
-   uint32_t hs_params[8] = {
+   uint32_t hs_params[12] = {
       vs->variant->output_size * patch_control_points * 4,  /* hs primitive stride */
       vs->variant->output_size * 4,                         /* hs vertex stride */
       tcs->variant->output_size,
@@ -1047,6 +1047,8 @@ tu6_emit_patch_control_points(struct tu_cs *cs,
       tess_param_iova >> 32,
       tess_factor_iova,
       tess_factor_iova >> 32,
+      ir3_tess_level_outer_components(tes->variant->key.tessellation),
+      ir3_tess_level_inner_components(tes->variant->key.tessellation),
    };
 
    const struct ir3_const_state *hs_const =
@@ -2134,7 +2136,7 @@ tu_emit_program_state(struct tu_cs *sub_cs,
       unsigned hs_constlen =
          prog->link[MESA_SHADER_TESS_CTRL].constlen;
       uint32_t hs_base = hs_const->offsets.primitive_param;
-      prog->hs_param_dwords = MIN2((hs_constlen - hs_base) * 4, 8);
+      prog->hs_param_dwords = MIN2((hs_constlen - hs_base) * 4, 12);
    }
 
    const struct ir3_shader_variant *last_shader;

@@ -326,7 +326,8 @@ struct ir3_shader_key {
 #define IR3_TESS_QUADS     1
 #define IR3_TESS_TRIANGLES 2
 #define IR3_TESS_ISOLINES  3
-         unsigned tessellation : 2;
+#define IR3_TESS_UNKNOWN   4
+         unsigned tessellation : 3;
 
          unsigned has_gs : 1;
 
@@ -371,19 +372,41 @@ ir3_tess_mode(enum tess_primitive_mode tess_mode)
 }
 
 static inline uint32_t
-ir3_tess_factor_stride(unsigned patch_type)
+ir3_tess_level_inner_components(unsigned patch_type)
 {
-   /* note: this matches the stride used by ir3's build_tessfactor_base */
    switch (patch_type) {
    case IR3_TESS_ISOLINES:
-      return 12;
+      return 0;
    case IR3_TESS_TRIANGLES:
-      return 20;
+      return 1;
    case IR3_TESS_QUADS:
-      return 28;
+      return 2;
    default:
       unreachable("bad tessmode");
    }
+}
+
+static inline uint32_t
+ir3_tess_level_outer_components(unsigned patch_type)
+{
+   switch (patch_type) {
+   case IR3_TESS_ISOLINES:
+      return 2;
+   case IR3_TESS_TRIANGLES:
+      return 3;
+   case IR3_TESS_QUADS:
+      return 4;
+   default:
+      unreachable("bad tessmode");
+   }
+}
+
+static inline uint32_t
+ir3_tess_factor_stride(unsigned patch_type)
+{
+   /* note: this matches the stride used by ir3's build_tessfactor_base */
+   return 4 * (1 + ir3_tess_level_inner_components(patch_type) +
+               ir3_tess_level_outer_components(patch_type));
 }
 
 static inline bool

@@ -2196,6 +2196,10 @@ nir_intrinsic_from_system_value(gl_system_value val)
       return nir_intrinsic_load_tess_level_outer_default;
    case SYSTEM_VALUE_TESS_LEVEL_INNER_DEFAULT:
       return nir_intrinsic_load_tess_level_inner_default;
+   case SYSTEM_VALUE_TESS_LEVEL_OUTER_COUNT:
+      return nir_intrinsic_load_tess_level_outer_count;
+   case SYSTEM_VALUE_TESS_LEVEL_INNER_COUNT:
+      return nir_intrinsic_load_tess_level_inner_count;
    case SYSTEM_VALUE_VERTICES_IN:
       return nir_intrinsic_load_patch_vertices_in;
    case SYSTEM_VALUE_HELPER_INVOCATION:

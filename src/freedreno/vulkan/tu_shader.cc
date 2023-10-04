@@ -2535,7 +2535,7 @@ tu6_get_tessmode(const struct nir_shader *shader)
    case TESS_PRIMITIVE_QUADS:
       return IR3_TESS_QUADS;
    case TESS_PRIMITIVE_UNSPECIFIED:
-      return IR3_TESS_NONE;
+      return IR3_TESS_UNKNOWN;
    default:
       unreachable("bad tessmode");
    }
@@ -2614,7 +2614,7 @@ tu_compile_shaders(struct tu_device *device,
     * and then from this point on we will use the modes in the TES (and output
     * vertices on the TCS).
     */
-   if (nir[MESA_SHADER_TESS_EVAL]) {
+   if (nir[MESA_SHADER_TESS_EVAL] && nir[MESA_SHADER_TESS_CTRL]) {
       nir_shader *tcs = nir[MESA_SHADER_TESS_CTRL];
       nir_shader *tes = nir[MESA_SHADER_TESS_EVAL];
 
@@ -2632,6 +2632,12 @@ tu_compile_shaders(struct tu_device *device,
          tcs->info.tess.tcs_vertices_out = tes->info.tess.tcs_vertices_out;
 
       ir3_key.tessellation = tu6_get_tessmode(tes);
+   }
+
+   if (nir[MESA_SHADER_TESS_EVAL]) {
+      ir3_key.tessellation = tu6_get_tessmode(nir[MESA_SHADER_TESS_EVAL]);
+   } else if (nir[MESA_SHADER_TESS_CTRL]) {
+      ir3_key.tessellation = tu6_get_tessmode(nir[MESA_SHADER_TESS_CTRL]);
    }
 
    for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < MESA_SHADER_STAGES;

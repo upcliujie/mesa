@@ -2111,7 +2111,12 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       dst[0] = create_uniform(b, primitive_param + 6);
       dst[1] = create_uniform(b, primitive_param + 7);
       break;
-
+   case nir_intrinsic_load_tess_level_outer_count:
+      dst[0] = create_uniform(b, primitive_param + 8);
+      break;
+   case nir_intrinsic_load_tess_level_inner_count:
+      dst[0] = create_uniform(b, primitive_param + 9);
+      break;
    case nir_intrinsic_load_primitive_location_ir3:
       idx = nir_intrinsic_driver_location(intr);
       dst[0] = create_uniform(b, primitive_map + idx);
