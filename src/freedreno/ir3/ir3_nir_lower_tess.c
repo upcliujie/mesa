@@ -265,8 +265,6 @@ lower_block_to_explicit_output(nir_block *block, nir_builder *b,
          assert(
             util_is_power_of_two_nonzero(nir_intrinsic_write_mask(intr) + 1));
 
-         b->cursor = nir_instr_remove(&intr->instr);
-
          nir_def *vertex_id = build_vertex_id(b, state);
          nir_def *offset = build_local_offset(
             b, state, vertex_id, nir_intrinsic_io_semantics(intr).location,
@@ -303,6 +301,10 @@ ir3_nir_lower_to_explicit_output(nir_shader *shader,
    nir_builder b = nir_builder_at(nir_before_impl(impl));
 
    state.header = nir_load_tcs_gs_header_ir3(&b);
+
+   b.cursor = nir_after_impl(impl);
+
+   nir_terminate_if_not_merged_ir3(&b);
 
    nir_foreach_block_safe (block, impl)
       lower_block_to_explicit_output(block, &b, &state);

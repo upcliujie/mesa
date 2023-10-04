@@ -311,7 +311,7 @@ alloc_variant(struct ir3_shader *shader, const struct ir3_shader_key *key,
 static bool
 needs_binning_variant(struct ir3_shader_variant *v)
 {
-   if ((v->type == MESA_SHADER_VERTEX) && ir3_has_binning_vs(&v->key))
+   if (v->type == MESA_SHADER_VERTEX)
       return true;
    return false;
 }

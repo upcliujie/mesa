@@ -1278,6 +1278,11 @@ intrinsic("cond_end_ir3", src_comp=[1])
 # signals the TE that the patch is complete and can be tessellated.
 intrinsic("end_patch_ir3")
 
+# kill the shader and emit all outputs if there isn't a following merged
+# shader. A merged shader is a TCS or GS following a VS or a GS following a
+# TES.
+intrinsic("terminate_if_not_merged_ir3")
+
 # Per-view gl_FragSizeEXT and gl_FragCoord offset.
 intrinsic("load_frag_size_ir3", src_comp=[1], dest_comp=2, indices=[RANGE],
         flags=[CAN_ELIMINATE, CAN_REORDER], bit_sizes=[32])

@@ -1557,6 +1557,7 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
    const VkPipelineShaderStageCreateInfo *stage_infos[MESA_SHADER_STAGES] = {
       NULL
    };
+   gl_shader_stage next_stages[MESA_SHADER_STAGES] = { };
    VkPipelineCreationFeedback pipeline_feedback = {
       .flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT,
    };
@@ -1740,10 +1741,21 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
          return VK_PIPELINE_COMPILE_REQUIRED;
       }
 
+      gl_shader_stage prev_stage = MESA_SHADER_NONE;
+      for (gl_shader_stage stage = MESA_SHADER_VERTEX;
+           stage < ARRAY_SIZE(next_stages); stage = (gl_shader_stage) (stage+1)) {
+         if (nir[stage] || stage_infos[stage] || stage == MESA_SHADER_FRAGMENT) {
+            if (prev_stage != MESA_SHADER_NONE)
+               next_stages[prev_stage] = stage;
+            prev_stage = stage;
+         }
+      }
+
       result = tu_compile_shaders(builder->device,
                                   &builder->device->vk.alloc,
                                   stage_infos,
                                   nir,
+                                  next_stages,
                                   keys,
                                   &builder->layout,
                                   pipeline_sha1,
@@ -1855,7 +1867,7 @@ done:
       const struct ir3_shader_variant *vs =
          shaders[MESA_SHADER_VERTEX]->variant;
 
-      if (!vs->stream_output.num_outputs && ir3_has_binning_vs(&vs->key)) {
+      if (!vs->stream_output.num_outputs) {
          tu_append_executable(pipeline, vs->binning, NULL);
       }
    }

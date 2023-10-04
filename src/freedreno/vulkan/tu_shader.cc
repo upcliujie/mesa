@@ -2546,6 +2546,7 @@ tu_compile_shaders(struct tu_device *device,
                    const VkAllocationCallbacks *alloc,
                    const VkPipelineShaderStageCreateInfo **stage_infos,
                    nir_shader **nir,
+                   const gl_shader_stage *next_stages,
                    const struct tu_shader_key *keys,
                    struct tu_pipeline_layout *layout,
                    const unsigned char *pipeline_sha1,
@@ -2577,8 +2578,14 @@ tu_compile_shaders(struct tu_device *device,
       stage_feedbacks[stage].duration += os_time_get_nano() - stage_start;
    }
 
-   if (nir[MESA_SHADER_GEOMETRY])
+   if (nir[MESA_SHADER_GEOMETRY]) {
       ir3_key.has_gs = true;
+   } else if (nir[MESA_SHADER_TESS_EVAL]) {
+      /* Force ir3 to assume there may be a following GS if we don't know.
+       */
+      if (next_stages[MESA_SHADER_TESS_EVAL] != MESA_SHADER_FRAGMENT)
+         ir3_key.has_gs = true;
+   }
 
    ir3_key.sample_shading = keys[MESA_SHADER_FRAGMENT].force_sample_interp;
 
@@ -2638,6 +2645,12 @@ tu_compile_shaders(struct tu_device *device,
       ir3_key.tessellation = tu6_get_tessmode(nir[MESA_SHADER_TESS_EVAL]);
    } else if (nir[MESA_SHADER_TESS_CTRL]) {
       ir3_key.tessellation = tu6_get_tessmode(nir[MESA_SHADER_TESS_CTRL]);
+   } else if (nir[MESA_SHADER_VERTEX]) {
+      /* Force ir3 to assume there may be a following TCS or GS if we don't
+       * know.
+       */
+      if (next_stages[MESA_SHADER_VERTEX] != MESA_SHADER_FRAGMENT)
+         ir3_key.tessellation = IR3_TESS_UNKNOWN;
    }
 
    for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < MESA_SHADER_STAGES;

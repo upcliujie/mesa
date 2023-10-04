@@ -181,7 +181,7 @@ ir3_retrieve_variant(struct blob_reader *blob, struct ir3_compiler *compiler,
 
    retrieve_variant(blob, v);
 
-   if (v->type == MESA_SHADER_VERTEX && ir3_has_binning_vs(&v->key)) {
+   if (v->type == MESA_SHADER_VERTEX) {
       v->binning = rzalloc_size(v, sizeof(*v->binning));
       v->binning->id = 0;
       v->binning->compiler = compiler;
@@ -207,7 +207,7 @@ ir3_store_variant(struct blob *blob, const struct ir3_shader_variant *v)
 
    store_variant(blob, v);
 
-   if (v->type == MESA_SHADER_VERTEX && ir3_has_binning_vs(&v->key)) {
+   if (v->type == MESA_SHADER_VERTEX) {
       store_variant(blob, v->binning);
    }
 }

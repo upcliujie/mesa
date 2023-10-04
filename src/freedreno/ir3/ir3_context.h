@@ -160,6 +160,9 @@ struct ir3_context {
 
    unsigned prefetch_limit;
 
+   /* Whether we've emitted an end instruction */
+   bool emitted_end;
+
    /* set if we encounter something we can't handle yet, so we
     * can bail cleanly and fallback to TGSI compiler f/e
     */

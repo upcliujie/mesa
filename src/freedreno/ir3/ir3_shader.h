@@ -661,7 +661,7 @@ struct ir3_shader_variant {
       uint8_t regid;
       uint8_t view;
       bool half : 1;
-   } outputs[32 + 2]; /* +POSITION +PSIZE */
+   } outputs[32 + 5]; /* +POSITION +PSIZE +HEADER +RELPATCHID +PRIMITIVEID */
    bool writes_pos, writes_smask, writes_psize, writes_viewport, writes_stencilref;
 
    /* Size in dwords of all outputs for VS, size of entire patch for HS. */
@@ -862,18 +862,6 @@ ir3_shader_stage(struct ir3_shader_variant *v)
       unreachable("invalid type");
       return NULL;
    }
-}
-
-/* Currently we do not do binning for tess.  And for GS there is no
- * cross-stage VS+GS optimization, so the full VS+GS is used in
- * the binning pass.
- */
-static inline bool
-ir3_has_binning_vs(const struct ir3_shader_key *key)
-{
-   if (key->tessellation || key->has_gs)
-      return false;
-   return true;
 }
 
 /**
