@@ -1127,8 +1127,8 @@ emit_intrinsic_load_shared_ir3(struct ir3_context *ctx,
    load = ir3_LDLW(b, offset, 0, create_immed(b, base), 0,
                    create_immed(b, intr->num_components), 0);
 
-   /* for a650, use LDL for tess ctrl inputs: */
-   if (ctx->so->type == MESA_SHADER_TESS_CTRL && ctx->compiler->tess_use_shared)
+   /* for a650, use LDL: */
+   if (ctx->compiler->tess_use_shared)
       load->opc = OPC_LDL;
 
    load->cat6.type = utype_def(&intr->def);
@@ -1156,9 +1156,8 @@ emit_intrinsic_store_shared_ir3(struct ir3_context *ctx,
                     ir3_create_collect(b, value, intr->num_components), 0,
                     create_immed(b, intr->num_components), 0);
 
-   /* for a650, use STL for vertex outputs used by tess ctrl shader: */
-   if (ctx->so->type == MESA_SHADER_VERTEX && ctx->so->key.tessellation &&
-       ctx->compiler->tess_use_shared)
+   /* for a650, use STL: */
+   if (ctx->compiler->tess_use_shared)
       store->opc = OPC_STL;
 
    store->cat6.dst_offset = nir_intrinsic_base(intr);
