@@ -2104,14 +2104,32 @@ tu_shader_deserialize(struct vk_pipeline_cache *cache,
                       struct blob_reader *blob);
 
 static void
+tu_shader_destroy(struct tu_device *dev,
+                  struct tu_shader *shader,
+                  const VkAllocationCallbacks *alloc)
+{
+   tu_cs_finish(&shader->cs);
+
+   pthread_mutex_lock(&dev->pipeline_mutex);
+   tu_suballoc_bo_free(&dev->pipeline_suballoc, &shader->bo);
+   pthread_mutex_unlock(&dev->pipeline_mutex);
+
+   if (shader->pvtmem_bo)
+      tu_bo_finish(dev, shader->pvtmem_bo);
+
+   vk_object_free(&dev->vk, alloc, shader);
+}
+
+static void
 tu_shader_destroy(struct vk_device *device,
                   struct vk_pipeline_cache_object *object)
 {
+   struct tu_device *dev =
+      container_of(device, struct tu_device, vk);
    struct tu_shader *shader =
-      container_of(object, struct tu_shader, base);
+      container_of(object, struct tu_shader, cache);
 
-   vk_pipeline_cache_object_finish(&shader->base);
-   vk_free(&device->alloc, shader);
+   tu_shader_destroy(dev, shader, &device->alloc);
 }
 
 const struct vk_pipeline_cache_object_ops tu_shader_ops = {
@@ -2121,19 +2139,20 @@ const struct vk_pipeline_cache_object_ops tu_shader_ops = {
 };
 
 static struct tu_shader *
-tu_shader_init(struct tu_device *dev, const void *key_data, size_t key_size)
+tu_shader_init(struct tu_device *dev, const VkAllocationCallbacks *alloc,
+               const void *key_data, size_t key_size)
 {
    VK_MULTIALLOC(ma);
    VK_MULTIALLOC_DECL(&ma, struct tu_shader, shader, 1);
    VK_MULTIALLOC_DECL_SIZE(&ma, char, obj_key_data, key_size);
 
-   if (!vk_multialloc_zalloc(&ma, &dev->vk.alloc,
-                             VK_SYSTEM_ALLOCATION_SCOPE_DEVICE))
+   if (!vk_object_multizalloc(&dev->vk, &ma, alloc,
+                              VK_OBJECT_TYPE_SHADER_EXT))
       return NULL;
 
    memcpy(obj_key_data, key_data, key_size);
 
-   vk_pipeline_cache_object_init(&dev->vk, &shader->base,
+   vk_pipeline_cache_object_init(&dev->vk, &shader->cache,
                                  &tu_shader_ops, obj_key_data, key_size);
 
    return shader;
@@ -2144,7 +2163,7 @@ tu_shader_serialize(struct vk_pipeline_cache_object *object,
                     struct blob *blob)
 {
    struct tu_shader *shader =
-      container_of(object, struct tu_shader, base);
+      container_of(object, struct tu_shader, cache);
 
    blob_write_bytes(blob, &shader->const_state, sizeof(shader->const_state));
    blob_write_bytes(blob, &shader->dynamic_descriptor_sizes,
@@ -2186,7 +2205,7 @@ tu_shader_deserialize(struct vk_pipeline_cache *cache,
    struct tu_device *dev =
       container_of(cache->base.device, struct tu_device, vk);
    struct tu_shader *shader =
-      tu_shader_init(dev, key_data, key_size);
+      tu_shader_init(dev, &dev->vk.alloc, key_data, key_size);
 
    if (!shader)
       return NULL;
@@ -2220,12 +2239,13 @@ tu_shader_deserialize(struct vk_pipeline_cache *cache,
       return NULL;
    }
 
-   return &shader->base;
+   return &shader->cache;
 }
 
 VkResult
 tu_shader_create(struct tu_device *dev,
                  struct tu_shader **shader_out,
+                 const VkAllocationCallbacks *alloc,
                  nir_shader *nir,
                  const struct tu_shader_key *key,
                  const struct ir3_shader_key *ir3_key,
@@ -2234,7 +2254,7 @@ tu_shader_create(struct tu_device *dev,
                  struct tu_pipeline_layout *layout,
                  bool executable_info)
 {
-   struct tu_shader *shader = tu_shader_init(dev, key_data, key_size);
+   struct tu_shader *shader = tu_shader_init(dev, alloc, key_data, key_size);
 
    if (!shader)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -2523,6 +2543,7 @@ tu6_get_tessmode(const struct nir_shader *shader)
 
 VkResult
 tu_compile_shaders(struct tu_device *device,
+                   const VkAllocationCallbacks *alloc,
                    const VkPipelineShaderStageCreateInfo **stage_infos,
                    nir_shader **nir,
                    const struct tu_shader_key *keys,
@@ -2646,10 +2667,10 @@ tu_compile_shaders(struct tu_device *device,
       memcpy(shader_sha1, pipeline_sha1, 20);
       shader_sha1[20] = (unsigned char) stage;
 
-      result = tu_shader_create(device,
-                                &shaders[stage], nir[stage], &keys[stage],
-                                &ir3_key, shader_sha1, sizeof(shader_sha1),
-                                layout, !!nir_initial_disasm);
+      result = tu_shader_create(device, &shaders[stage], alloc, nir[stage],
+                                &keys[stage], &ir3_key, shader_sha1,
+                                sizeof(shader_sha1), layout,
+                                !!nir_initial_disasm);
       if (result != VK_SUCCESS) {
          goto fail;
       }
@@ -2667,7 +2688,7 @@ fail:
    for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < MESA_SHADER_STAGES;
         stage = (gl_shader_stage) (stage + 1)) {
       if (shaders[stage]) {
-         tu_shader_destroy(device, shaders[stage]);
+         tu_shader_destroy(device, shaders[stage], alloc);
       }
       if (nir_out && nir_out[stage]) {
          ralloc_free(nir_out[stage]);
@@ -2722,7 +2743,7 @@ tu_empty_shader_create(struct tu_device *dev,
                        struct tu_shader **shader_out,
                        gl_shader_stage stage)
 {
-   struct tu_shader *shader = tu_shader_init(dev, NULL, 0);
+   struct tu_shader *shader = tu_shader_init(dev, &dev->vk.alloc, NULL, 0);
 
    if (!shader)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -2764,7 +2785,7 @@ tu_empty_fs_create(struct tu_device *dev, struct tu_shader **shader,
    fs_b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, nir_options,
                                          "noop_fs");
 
-   *shader = tu_shader_init(dev, NULL, 0);
+   *shader = tu_shader_init(dev, &dev->vk.alloc, NULL, 0);
    if (!*shader)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -2811,40 +2832,25 @@ tu_init_empty_shaders(struct tu_device *dev)
 
 out:
    if (dev->empty_tcs)
-      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tcs->base);
+      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tcs->cache);
    if (dev->empty_tes)
-      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tes->base);
+      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tes->cache);
    if (dev->empty_gs)
-      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_gs->base);
+      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_gs->cache);
    if (dev->empty_fs)
-      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs->base);
+      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs->cache);
    if (dev->empty_fs_fdm)
-      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs_fdm->base);
+      vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs_fdm->cache);
    return result;
 }
 
 void
 tu_destroy_empty_shaders(struct tu_device *dev)
 {
-   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tcs->base);
-   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tes->base);
-   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_gs->base);
-   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs->base);
-   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs_fdm->base);
+   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tcs->cache);
+   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_tes->cache);
+   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_gs->cache);
+   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs->cache);
+   vk_pipeline_cache_object_unref(&dev->vk, &dev->empty_fs_fdm->cache);
 }
 
-void
-tu_shader_destroy(struct tu_device *dev,
-                  struct tu_shader *shader)
-{
-   tu_cs_finish(&shader->cs);
-
-   pthread_mutex_lock(&dev->pipeline_mutex);
-   tu_suballoc_bo_free(&dev->pipeline_suballoc, &shader->bo);
-   pthread_mutex_unlock(&dev->pipeline_mutex);
-
-   if (shader->pvtmem_bo)
-      tu_bo_finish(dev, shader->pvtmem_bo);
-
-   vk_free(&dev->vk.alloc, shader);
-}

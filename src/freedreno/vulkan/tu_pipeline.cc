@@ -1418,7 +1418,7 @@ tu_pipeline_cache_lookup(struct vk_pipeline_cache *cache,
       vk_pipeline_cache_lookup_object(cache, key_data, key_size,
                                       &tu_shader_ops, application_cache_hit);
    if (object)
-      return container_of(object, struct tu_shader, base);
+      return container_of(object, struct tu_shader, cache);
    else
       return NULL;
 }
@@ -1428,8 +1428,8 @@ tu_pipeline_cache_insert(struct vk_pipeline_cache *cache,
                          struct tu_shader *shader)
 {
    struct vk_pipeline_cache_object *object =
-      vk_pipeline_cache_add_object(cache, &shader->base);
-   return container_of(object, struct tu_shader, base);
+      vk_pipeline_cache_add_object(cache, &shader->cache);
+   return container_of(object, struct tu_shader, cache);
 }
 
 static bool
@@ -1739,6 +1739,7 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
       }
 
       result = tu_compile_shaders(builder->device,
+                                  &builder->device->vk.alloc,
                                   stage_infos,
                                   nir,
                                   keys,
@@ -1785,15 +1786,15 @@ done:
        VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT) {
       if (!shaders[MESA_SHADER_TESS_CTRL]) {
          shaders[MESA_SHADER_TESS_CTRL] = builder->device->empty_tcs;
-         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_TESS_CTRL]->base);
+         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_TESS_CTRL]->cache);
       }
       if (!shaders[MESA_SHADER_TESS_EVAL]) {
          shaders[MESA_SHADER_TESS_EVAL] = builder->device->empty_tes;
-         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_TESS_EVAL]->base);
+         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_TESS_EVAL]->cache);
       }
       if (!shaders[MESA_SHADER_GEOMETRY]) {
          shaders[MESA_SHADER_GEOMETRY] = builder->device->empty_gs;
-         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_GEOMETRY]->base);
+         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_GEOMETRY]->cache);
       }
    }
 
@@ -1803,7 +1804,7 @@ done:
          shaders[MESA_SHADER_FRAGMENT] =
             builder->fragment_density_map ?
             builder->device->empty_fs_fdm : builder->device->empty_fs;
-         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_FRAGMENT]->base);
+         vk_pipeline_cache_object_ref(&shaders[MESA_SHADER_FRAGMENT]->cache);
       }
    }
 
@@ -1843,7 +1844,7 @@ done:
 
          if (!shaders[stage] && library->base.shaders[stage]) {
             shaders[stage] = library->base.shaders[stage];
-            vk_pipeline_cache_object_ref(&shaders[stage]->base);
+            vk_pipeline_cache_object_ref(&shaders[stage]->cache);
          }
       }
    }
@@ -1958,7 +1959,7 @@ tu_pipeline_builder_parse_libraries(struct tu_pipeline_builder *builder,
          for (unsigned i = 0; i < ARRAY_SIZE(pipeline->shaders); i++) {
             if (library->base.shaders[i]) {
                pipeline->shaders[i] = library->base.shaders[i];
-               vk_pipeline_cache_object_ref(&pipeline->shaders[i]->base);
+               vk_pipeline_cache_object_ref(&pipeline->shaders[i]->cache);
             }
          }
       }
@@ -3584,7 +3585,7 @@ tu_pipeline_finish(struct tu_pipeline *pipeline,
    for (unsigned i = 0; i < ARRAY_SIZE(pipeline->shaders); i++) {
       if (pipeline->shaders[i])
          vk_pipeline_cache_object_unref(&dev->vk,
-                                        &pipeline->shaders[i]->base);
+                                        &pipeline->shaders[i]->cache);
    }
 
    ralloc_free(pipeline->executables_mem_ctx);
@@ -4113,7 +4114,7 @@ tu_compute_pipeline_create(VkDevice device,
       nir_initial_disasm = executable_info ?
          nir_shader_as_str(nir, pipeline->base.executables_mem_ctx) : NULL;
 
-      result = tu_shader_create(dev, &shader, nir, &key, &ir3_key,
+      result = tu_shader_create(dev, &shader, &dev->vk.alloc, nir, &key, &ir3_key,
                                 pipeline_sha1, sizeof(pipeline_sha1), layout,
                                 executable_info);
       if (!shader) {
@@ -4163,7 +4164,7 @@ tu_compute_pipeline_create(VkDevice device,
 
 fail:
    if (shader)
-      vk_pipeline_cache_object_unref(&dev->vk, &shader->base);
+      vk_pipeline_cache_object_unref(&dev->vk, &shader->cache);
 
    ralloc_free(pipeline_mem_ctx);
 
