@@ -2158,13 +2158,10 @@ tu_shader_init(struct tu_device *dev, const VkAllocationCallbacks *alloc,
    return shader;
 }
 
-static bool
-tu_shader_serialize(struct vk_pipeline_cache_object *object,
+static void
+tu_shader_serialize(struct tu_shader *shader,
                     struct blob *blob)
 {
-   struct tu_shader *shader =
-      container_of(object, struct tu_shader, cache);
-
    blob_write_bytes(blob, &shader->const_state, sizeof(shader->const_state));
    blob_write_bytes(blob, &shader->dynamic_descriptor_sizes,
                     sizeof(shader->dynamic_descriptor_sizes));
@@ -2192,23 +2189,32 @@ tu_shader_serialize(struct vk_pipeline_cache_object *object,
    default:
       break;
    }
+}
 
+static bool
+tu_shader_serialize(struct vk_pipeline_cache_object *object,
+                    struct blob *blob)
+{
+   struct tu_shader *shader =
+      container_of(object, struct tu_shader, cache);
+
+   tu_shader_serialize(shader, blob);
    return true;
 }
 
-static struct vk_pipeline_cache_object *
-tu_shader_deserialize(struct vk_pipeline_cache *cache,
+static VkResult
+tu_shader_deserialize(struct tu_device *dev,
+                      struct tu_shader **shader_out,
                       const void *key_data,
                       size_t key_size,
-                      struct blob_reader *blob)
+                      struct blob_reader *blob,
+                      const VkAllocationCallbacks *alloc)
 {
-   struct tu_device *dev =
-      container_of(cache->base.device, struct tu_device, vk);
    struct tu_shader *shader =
-      tu_shader_init(dev, &dev->vk.alloc, key_data, key_size);
+      tu_shader_init(dev, alloc, key_data, key_size);
 
    if (!shader)
-      return NULL;
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    blob_copy_bytes(blob, &shader->const_state, sizeof(shader->const_state));
    blob_copy_bytes(blob, &shader->dynamic_descriptor_sizes,
@@ -2235,9 +2241,30 @@ tu_shader_deserialize(struct vk_pipeline_cache *cache,
 
    VkResult result = tu_upload_shader(dev, shader);
    if (result != VK_SUCCESS) {
-      vk_free(&dev->vk.alloc, shader);
-      return NULL;
+      vk_object_free(&dev->vk, alloc, shader);
+      return result;
    }
+
+   *shader_out = shader;
+   return VK_SUCCESS;
+}
+
+static struct vk_pipeline_cache_object *
+tu_shader_deserialize(struct vk_pipeline_cache *cache,
+                      const void *key_data,
+                      size_t key_size,
+                      struct blob_reader *blob)
+{
+   struct tu_device *dev =
+      container_of(cache->base.device, struct tu_device, vk);
+   struct tu_shader *shader;
+
+   VkResult result =
+      tu_shader_deserialize(dev, &shader, key_data, key_size, blob,
+                            &dev->vk.alloc);
+
+   if (result != VK_SUCCESS)
+      return NULL;
 
    return &shader->cache;
 }
@@ -2755,6 +2782,272 @@ tu_shader_key_subgroup_size(struct tu_shader_key *key,
 
    key->api_wavesize = api_wavesize;
    key->real_wavesize = real_wavesize;
+}
+
+static VkResult
+tu_create_shaders(struct tu_device *device,
+                  const VkShaderCreateInfoEXT **create_infos,
+                  const VkAllocationCallbacks *alloc,
+                  VkShaderEXT *shaders_out)
+{
+   struct tu_shader *shaders[MESA_SHADER_STAGES] = { NULL };
+   VkShaderModuleCreateInfo module_infos[MESA_SHADER_STAGES];
+   VkPipelineShaderStageCreateInfo stage_infos[MESA_SHADER_STAGES];
+   gl_shader_stage next_stages[MESA_SHADER_STAGES];
+   const VkPipelineShaderStageCreateInfo *p_stage_infos[MESA_SHADER_STAGES] = { };
+   nir_shader *nir[MESA_SHADER_STAGES] = { };
+   struct tu_shader_key keys[MESA_SHADER_STAGES] = { };
+   VkPipelineCreationFeedback stage_feedbacks[MESA_SHADER_STAGES] = { };
+   struct tu_pipeline_layout layout = { };
+
+   for (gl_shader_stage stage = MESA_SHADER_VERTEX;
+        stage < ARRAY_SIZE(keys); stage = (gl_shader_stage) (stage+1)) {
+      const struct VkShaderCreateInfoEXT *create_info = create_infos[stage];
+      const VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *subgroup_info = NULL;
+      if (create_info)
+         subgroup_info = vk_find_struct_const(create_info,
+                                              PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO);
+      bool allow_varying_subgroup_size =
+         !create_info ||
+         (create_info->flags &
+          VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT_EXT);
+      bool require_full_subgroups =
+         create_info &&
+         (create_info->flags &
+          VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT_EXT);
+
+      tu_shader_key_subgroup_size(&keys[stage], allow_varying_subgroup_size,
+                                  require_full_subgroups, subgroup_info,
+                                  device);
+
+      if (create_info) {
+         if (create_info->flags &
+             VK_SHADER_CREATE_FRAGMENT_DENSITY_MAP_ATTACHMENT_BIT_EXT)
+            keys[stage].fragment_density_map = true;
+
+         module_infos[stage] = (VkShaderModuleCreateInfo) {
+            VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            NULL,
+            0,
+            create_info->codeSize,
+            (uint32_t *) create_info->pCode,
+         };
+         stage_infos[stage] = (VkPipelineShaderStageCreateInfo) {
+            VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            &module_infos[stage],
+            0,
+            create_info->stage,
+            VK_NULL_HANDLE,
+            create_info->pName,
+            create_info->pSpecializationInfo,
+         };
+         p_stage_infos[stage] = &stage_infos[stage];
+
+         for (unsigned i = 0; i < create_info->pushConstantRangeCount; i++) {
+            const VkPushConstantRange *range =
+               &create_info->pPushConstantRanges[i];
+            layout.push_constant_size =
+               MAX2(layout.push_constant_size, range->offset + range->size);
+         }
+
+         layout.num_sets = MAX2(layout.num_sets, create_info->setLayoutCount);
+         for (unsigned i = 0; i < create_info->setLayoutCount; i++) {
+            TU_FROM_HANDLE(tu_descriptor_set_layout, desc_layout,
+                           create_info->pSetLayouts[i]);
+            layout.set[i].layout = desc_layout;
+         }
+
+         if (util_is_power_of_two_nonzero(create_info->nextStage)) {
+            next_stages[stage] =
+               vk_to_mesa_shader_stage((VkShaderStageFlagBits)create_info->nextStage);
+         } else {
+            next_stages[stage] = MESA_SHADER_NONE;
+         }
+      }
+   }
+
+   layout.push_constant_size = align(layout.push_constant_size, 16);
+
+   unsigned char pipeline_sha1[20] = { };
+
+   VkResult result = tu_compile_shaders(
+      device,
+      alloc,
+      p_stage_infos,
+      nir,
+      next_stages,
+      keys,
+      &layout,
+      pipeline_sha1,
+      shaders,
+      NULL, /* nir_initial_disasm */
+      NULL, /* nir_initial_disasm_mem_ctx */
+      NULL, /* nir_out */
+      stage_feedbacks); /* stage_feedbacks */
+
+   if (result != VK_SUCCESS)
+      return result;
+
+   for (gl_shader_stage stage = MESA_SHADER_VERTEX;
+        stage < ARRAY_SIZE(shaders); stage = (gl_shader_stage) (stage+1)) {
+      if (shaders[stage])
+         shaders_out[stage] = tu_shader_to_handle(shaders[stage]);
+   }
+
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+tu_CreateShadersEXT(VkDevice _device,
+                    uint32_t createInfoCount,
+                    const VkShaderCreateInfoEXT *pCreateInfos,
+                    const VkAllocationCallbacks *pAllocator,
+                    VkShaderEXT *pShaders)
+{
+   TU_FROM_HANDLE(tu_device, device, _device);
+
+   const VkShaderCreateInfoEXT *linked_create_infos[MESA_SHADER_STAGES] = {};
+   VkShaderEXT linked_shaders[MESA_SHADER_STAGES] = {};
+   VkResult result;
+
+   for (unsigned i = 0; i < createInfoCount; i++) {
+      pShaders[i] = VK_NULL_HANDLE;
+   }
+
+   /* First, gather all linked shaders */
+   bool has_linked_shaders = false;
+   for (unsigned i = 0; i < createInfoCount; i++) {
+      if ((pCreateInfos[i].flags & VK_SHADER_CREATE_LINK_STAGE_BIT_EXT) &&
+          pCreateInfos[i].codeType == VK_SHADER_CODE_TYPE_SPIRV_EXT) {
+         gl_shader_stage stage =
+            vk_to_mesa_shader_stage(pCreateInfos[i].stage);
+         linked_create_infos[stage] = &pCreateInfos[i];
+         has_linked_shaders = true;
+      }
+   }
+
+   if (has_linked_shaders) {
+      result = tu_create_shaders(device, linked_create_infos, pAllocator,
+                                 linked_shaders);
+      if (result != VK_SUCCESS)
+         return result;
+
+      for (unsigned i = 0; i < createInfoCount; i++) {
+         if ((pCreateInfos[i].flags & VK_SHADER_CREATE_LINK_STAGE_BIT_EXT) &&
+             pCreateInfos[i].codeType == VK_SHADER_CODE_TYPE_SPIRV_EXT) {
+            gl_shader_stage stage =
+               vk_to_mesa_shader_stage(pCreateInfos[i].stage);
+            pShaders[i] = linked_shaders[stage];
+         }
+      }
+   }
+
+   const VkShaderCreateInfoEXT *create_infos[MESA_SHADER_STAGES] = {};
+   VkShaderEXT shaders[MESA_SHADER_STAGES] = {};
+
+   for (unsigned i = 0; i < createInfoCount; i++) {
+      if (pShaders[i])
+         continue;
+
+      switch (pCreateInfos[i].codeType) {
+      case VK_SHADER_CODE_TYPE_SPIRV_EXT: {
+         gl_shader_stage stage =
+            vk_to_mesa_shader_stage(pCreateInfos[i].stage);
+         create_infos[stage] = &pCreateInfos[i];
+         result = tu_create_shaders(device, create_infos, pAllocator, shaders);
+         create_infos[stage] = NULL;
+         if (result != VK_SUCCESS)
+            return result;
+         pShaders[i] = shaders[stage];
+         break;
+      }
+      case VK_SHADER_CODE_TYPE_BINARY_EXT: {
+         if (pCreateInfos[i].codeSize < SHA1_DIGEST_LENGTH + VK_UUID_SIZE + 1)
+            return vk_error(device, VK_ERROR_INCOMPATIBLE_SHADER_BINARY_EXT);
+
+         uint8_t *data = (uint8_t *)pCreateInfos[i].pCode;
+
+         uint8_t uuid[VK_UUID_SIZE];
+         tu_device_get_cache_uuid(device->physical_device, uuid);
+         if (memcmp(uuid, data, VK_UUID_SIZE))
+            return vk_error(device, VK_ERROR_INCOMPATIBLE_SHADER_BINARY_EXT);
+
+         size_t size = pCreateInfos[i].codeSize - SHA1_DIGEST_LENGTH - VK_UUID_SIZE;
+         unsigned char sha1[20];
+
+         struct mesa_sha1 sctx;
+         _mesa_sha1_init(&sctx);
+         _mesa_sha1_update(&sctx, data + SHA1_DIGEST_LENGTH + VK_UUID_SIZE, size);
+         _mesa_sha1_final(&sctx, sha1);
+         if (memcmp(sha1, data + VK_UUID_SIZE, SHA1_DIGEST_LENGTH))
+            return vk_error(device, VK_ERROR_INCOMPATIBLE_SHADER_BINARY_EXT);
+
+         struct blob_reader blob;
+         blob_reader_init(&blob, data + SHA1_DIGEST_LENGTH + VK_UUID_SIZE, size);
+         struct tu_shader *shader;
+         result = tu_shader_deserialize(device, &shader, NULL, 0, &blob, pAllocator);
+         if (result != VK_SUCCESS)
+            return result;
+
+         pShaders[i] = tu_shader_to_handle(shader);
+         break;
+      }
+      default:
+         unreachable("unknown code type");
+      }
+   }
+
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+tu_GetShaderBinaryDataEXT(VkDevice _device,
+                          VkShaderEXT _shader,
+                          size_t *pDataSize,
+                          void *pData)
+{
+   TU_FROM_HANDLE(tu_device, device, _device);
+   TU_FROM_HANDLE(tu_shader, shader, _shader);
+
+   struct blob blob;
+   blob_init_fixed(&blob, NULL, SIZE_MAX);
+
+   tu_shader_serialize(shader, &blob);
+
+   if (!pData) {
+      *pDataSize = blob.size + VK_UUID_SIZE + SHA1_DIGEST_LENGTH;
+      return VK_SUCCESS;
+   } else if (*pDataSize < blob.size + VK_UUID_SIZE + SHA1_DIGEST_LENGTH) {
+      *pDataSize = 0;
+      return VK_INCOMPLETE;
+   }
+
+   *pDataSize = blob.size + VK_UUID_SIZE + SHA1_DIGEST_LENGTH;
+
+   uint8_t *data = (uint8_t *)pData;
+
+   tu_device_get_cache_uuid(device->physical_device, data);
+
+   blob_init_fixed(&blob, data + VK_UUID_SIZE + SHA1_DIGEST_LENGTH, blob.size);
+   tu_shader_serialize(shader, &blob);
+
+   struct mesa_sha1 sctx;
+   _mesa_sha1_init(&sctx);
+   _mesa_sha1_update(&sctx, data + VK_UUID_SIZE + SHA1_DIGEST_LENGTH, blob.size);
+   _mesa_sha1_final(&sctx, data + VK_UUID_SIZE);
+
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_DestroyShaderEXT(VkDevice _device,
+                    VkShaderEXT _shader,
+                    const VkAllocationCallbacks *alloc)
+{
+   TU_FROM_HANDLE(tu_device, device, _device);
+   TU_FROM_HANDLE(tu_shader, shader, _shader);
+
+   tu_shader_destroy(device, shader, alloc);
 }
 
 static VkResult

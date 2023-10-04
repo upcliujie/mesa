@@ -2036,7 +2036,7 @@ tu_pipeline_set_linkage(struct tu_program_descriptor_linkage *link,
 }
 
 template <chip CHIP>
-static void
+void
 tu_emit_program_state(struct tu_cs *sub_cs,
                       struct tu_program_state *prog,
                       struct tu_shader **shaders)
@@ -2164,6 +2164,7 @@ tu_emit_program_state(struct tu_cs *sub_cs,
       shaders[MESA_SHADER_FRAGMENT]->fs.has_fdm &&
       dev->physical_device->info->a6xx.has_per_view_viewport;
 }
+TU_GENX(tu_emit_program_state);
 
 static const enum mesa_vk_dynamic_graphics_state tu_vertex_input_state[] = {
    MESA_VK_DYNAMIC_VI,

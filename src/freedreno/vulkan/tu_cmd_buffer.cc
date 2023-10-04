@@ -2126,6 +2126,14 @@ tu_cmd_buffer_begin(struct tu_cmd_buffer *cmd_buffer,
    cmd_buffer->vk.dynamic_graphics_state.ms.sample_locations = &cmd_buffer->state.sl;
    cmd_buffer->state.index_size = 0xff; /* dirty restart index */
    cmd_buffer->state.gmem_layout = TU_GMEM_LAYOUT_COUNT; /* dirty value */
+   cmd_buffer->state.shaders[MESA_SHADER_TESS_CTRL] =
+      cmd_buffer->device->empty_tcs;
+   cmd_buffer->state.shaders[MESA_SHADER_TESS_EVAL] =
+      cmd_buffer->device->empty_tes;
+   cmd_buffer->state.shaders[MESA_SHADER_GEOMETRY] =
+      cmd_buffer->device->empty_gs;
+   cmd_buffer->state.shaders[MESA_SHADER_FRAGMENT] =
+      cmd_buffer->device->empty_fs;
 
    tu_cache_init(&cmd_buffer->state.cache);
    tu_cache_init(&cmd_buffer->state.renderpass_cache);
@@ -3136,6 +3144,67 @@ tu_CmdBindPipeline(VkCommandBuffer commandBuffer,
       cmd->state.pipeline_feedback_loop_ds = gfx_pipeline->feedback_loop_ds;
       cmd->state.dirty |= TU_CMD_DIRTY_LRZ;
    }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_CmdBindShadersEXT(VkCommandBuffer commandBuffer,
+                     uint32_t stageCount,
+                     const VkShaderStageFlagBits *pStages,
+                     const VkShaderEXT *pShaders)
+{
+   TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
+
+   for (unsigned i = 0; i < stageCount; i++) {
+      TU_FROM_HANDLE(tu_shader, shader, pShaders ? pShaders[i] :
+                     VK_NULL_HANDLE);
+
+      switch (pStages[i]) {
+      case VK_SHADER_STAGE_VERTEX_BIT:
+         tu_bind_vs(cmd, shader);
+         break;
+      case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+         tu_bind_tcs(cmd, shader ? shader : cmd->device->empty_tcs);
+         break;
+      case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+         tu_bind_tes(cmd, shader ? shader : cmd->device->empty_tes);
+         break;
+      case VK_SHADER_STAGE_GEOMETRY_BIT:
+         tu_bind_gs(cmd, shader ? shader : cmd->device->empty_gs);
+         break;
+      case VK_SHADER_STAGE_FRAGMENT_BIT:
+         tu_bind_fs(cmd, shader ? shader : cmd->device->empty_fs);
+         break;
+      case VK_SHADER_STAGE_COMPUTE_BIT:
+         cmd->state.shaders[MESA_SHADER_COMPUTE] = shader;
+         if (shader)
+            tu_cs_emit_state_ib(&cmd->cs, shader->state);
+         cmd->state.compute_load_state = {};
+         break;
+      default:
+         unreachable("unknown shader stage");
+      }
+   }
+
+   cmd->state.load_state = {};
+
+   cmd->state.dirty |= TU_CMD_DIRTY_DESC_SETS | TU_CMD_DIRTY_SHADER_CONSTS |
+                       TU_CMD_DIRTY_VS_PARAMS | TU_CMD_DIRTY_PROGRAM |
+                       TU_CMD_DIRTY_SHADERS;
+
+   struct tu_cs cs;
+   cmd->state.prim_order_gmem = tu_cs_draw_state(&cmd->sub_cs, &cs, 2);
+   tu_cs_emit_write_reg(&cs, REG_A6XX_GRAS_SC_CNTL,
+                        A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2) |
+                        A6XX_GRAS_SC_CNTL_SINGLE_PRIM_MODE(NO_FLUSH));
+
+   cmd->state.prim_order_sysmem = tu_cs_draw_state(&cmd->sub_cs, &cs, 2);
+   tu_cs_emit_write_reg(&cs, REG_A6XX_GRAS_SC_CNTL,
+                        A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2) |
+                        A6XX_GRAS_SC_CNTL_SINGLE_PRIM_MODE(NO_FLUSH));
+
+   cmd->state.pipeline_blend_lrz = false;
+   cmd->state.pipeline_bandwidth = false;
+   cmd->state.pipeline_draw_states = 0;
 }
 
 static void
@@ -4673,6 +4742,40 @@ tu6_emit_fs_params(struct tu_cmd_buffer *cmd)
 }
 
 template <chip CHIP>
+static void
+tu_draw_program(struct tu_cmd_buffer *cmd,
+                struct tu_cs *cs)
+{
+   if (cmd->state.dirty & TU_CMD_DIRTY_SHADERS) {
+      tu_emit_program_state<CHIP>(&cmd->sub_cs, &cmd->state.program,
+                                  cmd->state.shaders);
+
+      if (!(cmd->state.dirty & TU_CMD_DIRTY_DRAW_STATE)) {
+         tu_cs_emit_pkt7(cs, CP_SET_DRAW_STATE, 3 * 11);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_PROGRAM_CONFIG, cmd->state.program.config_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS, cmd->state.program.vs_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_BINNING, cmd->state.program.vs_binning_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_HS, cmd->state.program.hs_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_DS, cmd->state.program.ds_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_GS, cmd->state.program.gs_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_GS_BINNING, cmd->state.program.gs_binning_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_FS, cmd->state.program.fs_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VPC, cmd->state.program.vpc_state);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_PRIM_MODE_SYSMEM, cmd->state.prim_order_sysmem);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_PRIM_MODE_GMEM, cmd->state.prim_order_gmem);
+      }
+
+      if (cmd->state.shaders[MESA_SHADER_TESS_CTRL]->variant)
+         cmd->state.rp.has_tess = true;
+
+      if (cmd->state.program.per_view_viewport != cmd->state.per_view_viewport) {
+         cmd->state.per_view_viewport = cmd->state.program.per_view_viewport;
+         cmd->state.dirty |= TU_CMD_DIRTY_PER_VIEW_VIEWPORT;
+      }
+   }
+}
+
+template <chip CHIP>
 static VkResult
 tu6_draw_common(struct tu_cmd_buffer *cmd,
                 struct tu_cs *cs,
@@ -5036,6 +5139,8 @@ tu_CmdDraw(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
 
+   tu_draw_program<CHIP>(cmd, cs);
+
    tu6_emit_vs_params(cmd, 0, firstVertex, firstInstance);
 
    tu6_draw_common<CHIP>(cmd, cs, false, vertexCount);
@@ -5072,6 +5177,8 @@ tu_CmdDrawMultiEXT(VkCommandBuffer commandBuffer,
       }
    }
 
+   tu_draw_program<CHIP>(cmd, cs);
+
    uint32_t i = 0;
    vk_foreach_multi_draw(draw, i, pVertexInfo, drawCount, stride) {
       tu6_emit_vs_params(cmd, i, draw->firstVertex, firstInstance);
@@ -5104,6 +5211,8 @@ tu_CmdDrawIndexed(VkCommandBuffer commandBuffer,
 {
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
+
+   tu_draw_program<CHIP>(cmd, cs);
 
    tu6_emit_vs_params(cmd, 0, vertexOffset, firstInstance);
 
@@ -5144,6 +5253,8 @@ tu_CmdDrawMultiIndexedEXT(VkCommandBuffer commandBuffer,
          max_index_count = MAX2(max_index_count, draw->indexCount);
       }
    }
+
+   tu_draw_program<CHIP>(cmd, cs);
 
    uint32_t i = 0;
    vk_foreach_multi_draw_indexed(draw, i, pIndexInfo, drawCount, stride) {
@@ -5196,6 +5307,8 @@ tu_CmdDrawIndirect(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_buffer, buf, _buffer);
    struct tu_cs *cs = &cmd->draw_cs;
 
+   tu_draw_program<CHIP>(cmd, cs);
+
    tu6_emit_empty_vs_params(cmd);
 
    if (cmd->device->physical_device->info->a6xx.indirect_draw_wfm_quirk)
@@ -5224,6 +5337,8 @@ tu_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    TU_FROM_HANDLE(tu_buffer, buf, _buffer);
    struct tu_cs *cs = &cmd->draw_cs;
+
+   tu_draw_program<CHIP>(cmd, cs);
 
    tu6_emit_empty_vs_params(cmd);
 
@@ -5258,6 +5373,8 @@ tu_CmdDrawIndirectCount(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_buffer, buf, _buffer);
    TU_FROM_HANDLE(tu_buffer, count_buf, countBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
+
+   tu_draw_program<CHIP>(cmd, cs);
 
    tu6_emit_empty_vs_params(cmd);
 
@@ -5295,6 +5412,8 @@ tu_CmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_buffer, buf, _buffer);
    TU_FROM_HANDLE(tu_buffer, count_buf, countBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
+
+   tu_draw_program<CHIP>(cmd, cs);
 
    tu6_emit_empty_vs_params(cmd);
 
@@ -5335,6 +5454,8 @@ tu_CmdDrawIndirectByteCountEXT(VkCommandBuffer commandBuffer,
     * complete which means we need a WAIT_FOR_ME anyway.
     */
    draw_wfm(cmd);
+
+   tu_draw_program<CHIP>(cmd, cs);
 
    tu6_emit_vs_params(cmd, 0, 0, firstInstance);
 

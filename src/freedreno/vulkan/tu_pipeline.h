@@ -261,6 +261,12 @@ tu6_emit_vpc(struct tu_cs *cs,
              const struct ir3_shader_variant *gs,
              const struct ir3_shader_variant *fs);
 
+template <chip CHIP>
+void
+tu_emit_program_state(struct tu_cs *sub_cs,
+                      struct tu_program_state *prog,
+                      struct tu_shader **shaders);
+
 void
 tu_fill_render_pass_state(struct vk_render_pass_state *rp,
                           const struct tu_render_pass *pass,
