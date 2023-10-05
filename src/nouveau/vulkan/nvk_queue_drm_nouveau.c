@@ -305,8 +305,7 @@ nvk_queue_submit_drm_nouveau(struct nvk_queue *queue,
    struct nvk_device *dev = nvk_queue_device(queue);
    struct push_builder pb;
 
-   const bool is_vmbind = submit->buffer_bind_count > 0 ||
-                          submit->image_opaque_bind_count > 0;
+   const bool is_vmbind = vk_queue_submit_has_bind(submit);
    push_builder_init(dev, &pb, is_vmbind);
 
    for (uint32_t i = 0; i < submit->wait_count; i++)
