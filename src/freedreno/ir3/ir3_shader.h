@@ -698,7 +698,13 @@ struct ir3_shader_variant {
       bool rasterflat : 1; /* special handling for emit->rasterflat */
       bool half       : 1;
       bool flat       : 1;
-   } inputs[32 + 2]; /* +POSITION +FACE */
+      /* For the FS we can have these additional inputs:
+       * +POSITION +FACE
+       * For the VS we can have these additional inputs:
+       * +VERTEXID +INSTANCEID +HEADER +RELPATCHID +PRIMITIVEID
+       * Other stages don't have user inputs in this array, only a few sysvals.
+       */
+   } inputs[32 + 5];
    bool reads_primid;
 
    /* sum of input components (scalar).  For frag shaders, it only counts
