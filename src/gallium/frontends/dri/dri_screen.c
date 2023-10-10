@@ -602,10 +602,17 @@ dri_fill_in_modes(struct dri_screen *screen)
 
          /* Multi-sample configs without an accumulation buffer. */
          if (num_msaa_modes > 1) {
+            /* Don't do special GLX_OML_swap_method modes for MSAA configs.  The
+             * feature isn't important enough, and it's too much of an explosion
+             * of configs advertised.  Also, it was probably always broken since
+             * we didn't keep track of multiple MSAA backbuffers and swap them
+             * appropriately.
+             */
+            static const GLenum swap_undefined = __DRI_ATTRIB_SWAP_UNDEFINED;
             new_configs = driCreateConfigs(mesa_formats[format],
                                            depth_bits_array, stencil_bits_array,
-                                           depth_buffer_factor, back_buffer_modes,
-                                           ARRAY_SIZE(back_buffer_modes),
+                                           depth_buffer_factor, &swap_undefined,
+                                           1,
                                            msaa_modes+1, num_msaa_modes-1,
                                            GL_FALSE, !mixed_color_depth);
             configs = driConcatConfigs(configs, new_configs);
