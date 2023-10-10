@@ -349,6 +349,8 @@ radv_physical_device_init_mem_types(struct radv_physical_device *device)
    for (unsigned i = 0; i < type_count; ++i) {
       if (device->memory_flags[i] & RADEON_FLAG_32BIT)
          device->memory_types_32bit |= BITFIELD_BIT(i);
+      if (device->memory_flags[i] & RADEON_FLAG_CPU_ACCESS)
+         device->memory_types_host_visible |= BITFIELD_BIT(i);
    }
 }
 
@@ -496,6 +498,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .EXT_global_priority_query = true,
       .EXT_graphics_pipeline_library = !device->use_llvm && !(device->instance->debug_flags & RADV_DEBUG_NO_GPL),
       .EXT_host_query_reset = true,
+      .EXT_host_image_copy = true,
       .EXT_image_2d_view_of_3d = true,
       .EXT_image_drm_format_modifier = device->rad_info.gfx_level >= GFX9,
       .EXT_image_robustness = true,
@@ -1038,6 +1041,9 @@ radv_physical_device_get_features(const struct radv_physical_device *pdevice, st
       .deviceGeneratedCompute = true,
       .deviceGeneratedComputePipelines = false,
       .deviceGeneratedComputeCaptureReplay = false,
+
+      /* VK_EXT_host_image_copy */
+      .hostImageCopy = true,
    };
 }
 
@@ -1094,6 +1100,26 @@ radv_get_compiler_string(struct radv_physical_device *pdevice)
    unreachable("LLVM is not available");
 #endif
 }
+
+static VkImageLayout radv_host_image_copy_layouts[] = {
+   VK_IMAGE_LAYOUT_GENERAL,
+   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+   VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+   VK_IMAGE_LAYOUT_PREINITIALIZED,
+   VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
+   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL,
+   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+   VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
+   VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
+   VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL,
+   VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+   VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+};
 
 static void
 radv_get_physical_device_properties(struct radv_physical_device *pdevice)
@@ -1710,6 +1736,12 @@ radv_get_physical_device_properties(struct radv_physical_device *pdevice)
    p->polygonModePointSize = true;
    p->nonStrictSinglePixelWideLinesUseParallelogram = false;
    p->nonStrictWideLinesUseParallelogram = false;
+
+   p->pCopySrcLayouts = radv_host_image_copy_layouts;
+   p->copySrcLayoutCount = ARRAY_SIZE(radv_host_image_copy_layouts);
+   p->pCopyDstLayouts = radv_host_image_copy_layouts;
+   p->copyDstLayoutCount = ARRAY_SIZE(radv_host_image_copy_layouts);
+   p->identicalMemoryTypeRequirements = true;
 }
 
 static VkResult

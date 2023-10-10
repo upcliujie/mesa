@@ -781,6 +781,14 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
       tiled |= VK_FORMAT_FEATURE_2_STORAGE_IMAGE_ATOMIC_BIT;
    }
 
+   if (!vk_format_is_depth_or_stencil(format)) {
+      if (linear & VK_FORMAT_FEATURE_2_TRANSFER_SRC_BIT)
+         linear |= VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT;
+
+      if (tiled & VK_FORMAT_FEATURE_2_TRANSFER_SRC_BIT)
+         tiled |= VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT;
+   }
+
    switch (format) {
    case VK_FORMAT_A2R10G10B10_SNORM_PACK32:
    case VK_FORMAT_A2B10G10R10_SNORM_PACK32:
@@ -1089,6 +1097,8 @@ radv_get_modifier_flags(struct radv_physical_device *dev, VkFormat format, uint6
 
    /* Unconditionally disable DISJOINT support for modifiers for now */
    features &= ~VK_FORMAT_FEATURE_2_DISJOINT_BIT;
+
+   features &= ~VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT;
 
    if (ac_modifier_has_dcc(modifier)) {
       /* Only disable support for STORAGE_IMAGE on modifiers that
@@ -1485,6 +1495,12 @@ radv_get_image_format_properties(struct radv_physical_device *physical_device,
       }
    }
 
+   if (info->usage & VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT) {
+      if (!(format_feature_flags & VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT)) {
+         goto unsupported;
+      }
+   }
+
    /* Sparse resources with multi-planar formats are unsupported. */
    if (info->flags & VK_IMAGE_CREATE_SPARSE_BINDING_BIT) {
       if (vk_format_get_plane_count(format) > 1)
@@ -1498,6 +1514,9 @@ radv_get_image_format_properties(struct radv_physical_device *physical_device,
 
       if (vk_format_get_plane_count(format) > 1 || info->type == VK_IMAGE_TYPE_1D ||
           info->tiling != VK_IMAGE_TILING_OPTIMAL || vk_format_is_depth_or_stencil(format))
+         goto unsupported;
+
+      if (info->usage & VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT)
          goto unsupported;
    }
 
@@ -1619,6 +1638,7 @@ radv_GetPhysicalDeviceImageFormatProperties2(VkPhysicalDevice physicalDevice,
    struct VkAndroidHardwareBufferUsageANDROID *android_usage = NULL;
    VkSamplerYcbcrConversionImageFormatProperties *ycbcr_props = NULL;
    VkTextureLODGatherFormatPropertiesAMD *texture_lod_props = NULL;
+   VkHostImageCopyDevicePerformanceQueryEXT *host_performance = NULL;
    VkResult result;
    VkFormat format = radv_select_android_external_format(base_info->pNext, base_info->format);
 
@@ -1651,6 +1671,9 @@ radv_GetPhysicalDeviceImageFormatProperties2(VkPhysicalDevice physicalDevice,
          break;
       case VK_STRUCTURE_TYPE_TEXTURE_LOD_GATHER_FORMAT_PROPERTIES_AMD:
          texture_lod_props = (void *)s;
+         break;
+      case VK_STRUCTURE_TYPE_HOST_IMAGE_COPY_DEVICE_PERFORMANCE_QUERY_EXT:
+         host_performance = (void *)s;
          break;
       default:
          break;
@@ -1703,6 +1726,11 @@ radv_GetPhysicalDeviceImageFormatProperties2(VkPhysicalDevice physicalDevice,
       } else {
          texture_lod_props->supportsTextureGatherLODBiasAMD = !vk_format_is_int(format);
       }
+   }
+
+   if (host_performance) {
+      host_performance->optimalDeviceAccess = true;
+      host_performance->identicalMemoryLayout = true;
    }
 
    return VK_SUCCESS;

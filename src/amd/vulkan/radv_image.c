@@ -47,6 +47,9 @@ radv_choose_tiling(struct radv_device *device, const VkImageCreateInfo *pCreateI
       return RADEON_SURF_MODE_LINEAR_ALIGNED;
    }
 
+   if (pCreateInfo->usage & VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT)
+      return RADEON_SURF_MODE_LINEAR_ALIGNED;
+
    if (pCreateInfo->usage & (VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR))
       return RADEON_SURF_MODE_LINEAR_ALIGNED;
 
@@ -76,6 +79,9 @@ radv_use_tc_compat_htile_for_image(struct radv_device *device, const VkImageCrea
       return false;
 
    if (pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR)
+      return false;
+
+   if (pCreateInfo->usage & VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT)
       return false;
 
    /* Do not enable TC-compatible HTILE if the image isn't readable by a
@@ -249,6 +255,9 @@ radv_use_dcc_for_image_early(struct radv_device *device, struct radv_image *imag
       return false;
 
    if (pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR)
+      return false;
+
+   if (pCreateInfo->usage & VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT)
       return false;
 
    if (vk_format_is_subsampled(format) || vk_format_get_plane_count(format) > 1)
@@ -2550,6 +2559,10 @@ radv_GetImageSubresourceLayout2KHR(VkDevice _device, VkImage _image, const VkIma
       if (image->vk.image_type == VK_IMAGE_TYPE_3D)
          pLayout->subresourceLayout.size *= u_minify(image->vk.extent.depth, level);
    }
+
+   VkSubresourceHostMemcpySizeEXT *host_size = vk_find_struct(pLayout, SUBRESOURCE_HOST_MEMCPY_SIZE_EXT);
+   if (host_size)
+      host_size->size = pLayout->subresourceLayout.size;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
