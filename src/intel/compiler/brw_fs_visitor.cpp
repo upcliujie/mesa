@@ -169,14 +169,14 @@ fs_visitor::emit_interpolation_setup_gfx4()
    struct brw_reg g1_uw = retype(brw_vec1_grf(1, 0), BRW_REGISTER_TYPE_UW);
 
    fs_builder abld = bld.annotate("compute pixel centers");
-   this->pixel_x = vgrf(glsl_type::uint_type);
-   this->pixel_y = vgrf(glsl_type::uint_type);
-   this->pixel_x.type = BRW_REGISTER_TYPE_UW;
-   this->pixel_y.type = BRW_REGISTER_TYPE_UW;
-   abld.ADD(this->pixel_x,
+   this->uw_pixel_x = vgrf(glsl_type::uint_type);
+   this->uw_pixel_y = vgrf(glsl_type::uint_type);
+   this->uw_pixel_x.type = BRW_REGISTER_TYPE_UW;
+   this->uw_pixel_y.type = BRW_REGISTER_TYPE_UW;
+   abld.ADD(this->uw_pixel_x,
             fs_reg(stride(suboffset(g1_uw, 4), 2, 4, 0)),
             fs_reg(brw_imm_v(0x10101010)));
-   abld.ADD(this->pixel_y,
+   abld.ADD(this->uw_pixel_y,
             fs_reg(stride(suboffset(g1_uw, 5), 2, 4, 0)),
             fs_reg(brw_imm_v(0x11001100)));
 
@@ -191,13 +191,13 @@ fs_visitor::emit_interpolation_setup_gfx4()
    if (devinfo->has_pln) {
       for (unsigned i = 0; i < dispatch_width / 8; i++) {
          abld.quarter(i).ADD(quarter(offset(delta_xy, abld, 0), i),
-                             quarter(this->pixel_x, i), xstart);
+                             quarter(this->uw_pixel_x, i), xstart);
          abld.quarter(i).ADD(quarter(offset(delta_xy, abld, 1), i),
-                             quarter(this->pixel_y, i), ystart);
+                             quarter(this->uw_pixel_y, i), ystart);
       }
    } else {
-      abld.ADD(offset(delta_xy, abld, 0), this->pixel_x, xstart);
-      abld.ADD(offset(delta_xy, abld, 1), this->pixel_y, ystart);
+      abld.ADD(offset(delta_xy, abld, 0), this->uw_pixel_x, xstart);
+      abld.ADD(offset(delta_xy, abld, 1), this->uw_pixel_y, ystart);
    }
 
    this->pixel_z = fetch_payload_reg(bld, fs_payload().source_depth_reg);
@@ -210,15 +210,6 @@ fs_visitor::emit_interpolation_setup_gfx4()
       this->delta_xy[BRW_BARYCENTRIC_PERSPECTIVE_PIXEL];
 
    abld = bld.annotate("compute pos.w and 1/pos.w");
-   /* Compute wpos.w.  It's always in our setup, since it's needed to
-    * interpolate the other attributes.
-    */
-   this->wpos_w = vgrf(glsl_type::float_type);
-   abld.emit(FS_OPCODE_LINTERP, wpos_w, delta_xy,
-             component(interp_reg(VARYING_SLOT_POS, 3), 0));
-   /* Compute the pixel 1/W value from wpos.w. */
-   this->pixel_w = vgrf(glsl_type::float_type);
-   abld.emit(SHADER_OPCODE_RCP, this->pixel_w, wpos_w);
 }
 
 static unsigned
@@ -291,9 +282,6 @@ void
 fs_visitor::emit_interpolation_setup_gfx6()
 {
    fs_builder abld = bld.annotate("compute pixel centers");
-
-   this->pixel_x = vgrf(glsl_type::float_type);
-   this->pixel_y = vgrf(glsl_type::float_type);
 
    const struct brw_wm_prog_key *wm_key = (brw_wm_prog_key*) this->key;
    struct brw_wm_prog_data *wm_prog_data = brw_wm_prog_data(prog_data);
@@ -456,36 +444,34 @@ fs_visitor::emit_interpolation_setup_gfx6()
       break;
    }
 
+   this->uw_pixel_x = abld.vgrf(BRW_REGISTER_TYPE_UW);
+   this->uw_pixel_y = abld.vgrf(BRW_REGISTER_TYPE_UW);
+
    for (unsigned i = 0; i < DIV_ROUND_UP(dispatch_width, 16); i++) {
       const fs_builder hbld = abld.group(MIN2(16, dispatch_width), i);
       struct brw_reg gi_uw = retype(brw_vec1_grf(1 + i, 0), BRW_REGISTER_TYPE_UW);
 
-      if (devinfo->verx10 >= 125) {
-         const fs_builder dbld =
-            abld.exec_all().group(hbld.dispatch_width() * 2, 0);
-         const fs_reg int_pixel_x = dbld.vgrf(BRW_REGISTER_TYPE_UW);
-         const fs_reg int_pixel_y = dbld.vgrf(BRW_REGISTER_TYPE_UW);
+      fs_reg int_pixel_x = offset(uw_pixel_x, hbld, i);
+      fs_reg int_pixel_y = offset(uw_pixel_y, hbld, i);
 
-         dbld.ADD(int_pixel_x,
+      if (devinfo->verx10 >= 125) {
+         hbld.ADD(int_pixel_x,
                   fs_reg(stride(suboffset(gi_uw, 4), 2, 8, 0)),
                   int_pixel_offset_x);
-         dbld.ADD(int_pixel_y,
+         hbld.ADD(int_pixel_y,
                   fs_reg(stride(suboffset(gi_uw, 5), 2, 8, 0)),
                   int_pixel_offset_y);
 
          if (wm_prog_data->coarse_pixel_dispatch != BRW_NEVER) {
-            fs_inst *addx = dbld.ADD(int_pixel_x, int_pixel_x,
+            fs_inst *addx = hbld.ADD(int_pixel_x, int_pixel_x,
                                      horiz_stride(half_int_pixel_offset_x, 0));
-            fs_inst *addy = dbld.ADD(int_pixel_y, int_pixel_y,
+            fs_inst *addy = hbld.ADD(int_pixel_y, int_pixel_y,
                                      horiz_stride(half_int_pixel_offset_y, 0));
             if (wm_prog_data->coarse_pixel_dispatch != BRW_ALWAYS) {
                addx->predicate = BRW_PREDICATE_NORMAL;
                addy->predicate = BRW_PREDICATE_NORMAL;
             }
          }
-
-         hbld.MOV(offset(pixel_x, hbld, i), horiz_stride(int_pixel_x, 2));
-         hbld.MOV(offset(pixel_y, hbld, i), horiz_stride(int_pixel_y, 2));
 
       } else if (devinfo->ver >= 8 || dispatch_width == 8) {
          /* The "Register Region Restrictions" page says for BDW (and newer,
@@ -506,9 +492,9 @@ fs_visitor::emit_interpolation_setup_gfx6()
                   fs_reg(stride(suboffset(gi_uw, 4), 1, 4, 0)),
                   int_pixel_offset_xy);
 
-         hbld.emit(FS_OPCODE_PIXEL_X, offset(pixel_x, hbld, i), int_pixel_xy,
+         hbld.emit(FS_OPCODE_PIXEL_X, int_pixel_x, int_pixel_xy,
                                       horiz_stride(half_int_pixel_offset_x, 0));
-         hbld.emit(FS_OPCODE_PIXEL_Y, offset(pixel_y, hbld, i), int_pixel_xy,
+         hbld.emit(FS_OPCODE_PIXEL_Y, int_pixel_y, int_pixel_xy,
                                       horiz_stride(half_int_pixel_offset_y, 0));
       } else {
          /* The "Register Region Restrictions" page says for SNB, IVB, HSW:
@@ -519,22 +505,12 @@ fs_visitor::emit_interpolation_setup_gfx6()
           * Since the GRF source of the ADD will only read a single register,
           * we must do two separate ADDs in SIMD16.
           */
-         const fs_reg int_pixel_x = hbld.vgrf(BRW_REGISTER_TYPE_UW);
-         const fs_reg int_pixel_y = hbld.vgrf(BRW_REGISTER_TYPE_UW);
-
          hbld.ADD(int_pixel_x,
                   fs_reg(stride(suboffset(gi_uw, 4), 2, 4, 0)),
                   fs_reg(brw_imm_v(0x10101010)));
          hbld.ADD(int_pixel_y,
                   fs_reg(stride(suboffset(gi_uw, 5), 2, 4, 0)),
                   fs_reg(brw_imm_v(0x11001100)));
-
-         /* As of gfx6, we can no longer mix float and int sources.  We have
-          * to turn the integer pixel centers into floats for their actual
-          * use.
-          */
-         hbld.MOV(offset(pixel_x, hbld, i), int_pixel_x);
-         hbld.MOV(offset(pixel_y, hbld, i), int_pixel_y);
       }
    }
 
@@ -556,8 +532,10 @@ fs_visitor::emit_interpolation_setup_gfx6()
       const fs_reg float_pixel_x = abld.vgrf(BRW_REGISTER_TYPE_F);
       const fs_reg float_pixel_y = abld.vgrf(BRW_REGISTER_TYPE_F);
 
-      abld.ADD(float_pixel_x, this->pixel_x, negate(x_start));
-      abld.ADD(float_pixel_y, this->pixel_y, negate(y_start));
+      abld.MOV(float_pixel_x, this->uw_pixel_x);
+      abld.MOV(float_pixel_y, this->uw_pixel_y);
+      abld.ADD(float_pixel_x, float_pixel_x, negate(x_start));
+      abld.ADD(float_pixel_y, float_pixel_y, negate(y_start));
 
       /* r1.0 - 0:7 ActualCoarsePixelShadingSize.X */
       const fs_reg u8_cps_width = fs_reg(retype(brw_vec1_grf(1, 0), BRW_REGISTER_TYPE_UB));
@@ -612,13 +590,6 @@ fs_visitor::emit_interpolation_setup_gfx6()
          this->pixel_z = coarse_z;
          break;
       }
-   }
-
-   if (wm_prog_data->uses_src_w) {
-      abld = bld.annotate("compute pos.w");
-      this->pixel_w = fetch_payload_reg(abld, fs_payload().source_w_reg);
-      this->wpos_w = vgrf(glsl_type::float_type);
-      abld.emit(SHADER_OPCODE_RCP, this->wpos_w, this->pixel_w);
    }
 
    if (wm_key->persample_interp == BRW_SOMETIMES) {

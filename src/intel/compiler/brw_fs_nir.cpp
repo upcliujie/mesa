@@ -3171,8 +3171,8 @@ fs_visitor::emit_non_coherent_fb_read(const fs_builder &bld, const fs_reg &dst,
 
    /* Calculate the fragment coordinates. */
    const fs_reg coords = bld.vgrf(BRW_REGISTER_TYPE_UD, 3);
-   bld.MOV(offset(coords, bld, 0), pixel_x);
-   bld.MOV(offset(coords, bld, 1), pixel_y);
+   bld.MOV(offset(coords, bld, 0), uw_pixel_x);
+   bld.MOV(offset(coords, bld, 1), uw_pixel_y);
    bld.MOV(offset(coords, bld, 2), fetch_render_target_array_index(bld));
 
    /* Calculate the sample index and MCS payload when multisampling.  Luckily
@@ -3618,7 +3618,25 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
    }
 
    case nir_intrinsic_load_frag_coord:
-      emit_fragcoord_interpolation(dest);
+      unreachable("should be lowered by brw_nir_lower_frag_coord");
+
+   case nir_intrinsic_load_pixel_coord:
+      /* gl_FragCoord.xy: Just load the pixel xy from the payload, or more
+      * complicated emit_interpolation_setup_gfx6 setup
+      */
+      dest = retype(dest, BRW_REGISTER_TYPE_UW);
+      bld.MOV(dest, this->uw_pixel_x);
+      bld.MOV(offset(dest, bld, 1), this->uw_pixel_y);
+      break;
+
+   case nir_intrinsic_load_frag_coord_z:
+      bld.MOV(dest, this->pixel_z);
+      break;
+
+   case nir_intrinsic_load_frag_coord_w:
+      /* Lowered to interpolation pre-gen6. */
+      assert(devinfo->ver >= 6);
+      bld.emit(SHADER_OPCODE_RCP, dest, fetch_payload_reg(bld, fs_payload().source_w_reg));
       break;
 
    case nir_intrinsic_load_interpolated_input: {
@@ -3627,8 +3645,6 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       nir_intrinsic_instr *bary_intrinsic =
          nir_instr_as_intrinsic(instr->src[0].ssa->parent_instr);
       nir_intrinsic_op bary_intrin = bary_intrinsic->intrinsic;
-      enum glsl_interp_mode interp_mode =
-         (enum glsl_interp_mode) nir_intrinsic_interp_mode(bary_intrinsic);
       fs_reg dst_xy;
 
       if (bary_intrin == nir_intrinsic_load_barycentric_at_offset ||
@@ -3648,13 +3664,7 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
          interp.type = BRW_REGISTER_TYPE_F;
          dest.type = BRW_REGISTER_TYPE_F;
 
-         if (devinfo->ver < 6 && interp_mode == INTERP_MODE_SMOOTH) {
-            fs_reg tmp = vgrf(glsl_type::float_type);
-            bld.emit(FS_OPCODE_LINTERP, tmp, dst_xy, interp);
-            bld.MUL(offset(dest, bld, i), tmp, this->pixel_w);
-         } else {
-            bld.emit(FS_OPCODE_LINTERP, offset(dest, bld, i), dst_xy, interp);
-         }
+         bld.emit(FS_OPCODE_LINTERP, offset(dest, bld, i), dst_xy, interp);
       }
       break;
    }
