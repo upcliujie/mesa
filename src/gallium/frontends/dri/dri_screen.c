@@ -484,11 +484,6 @@ dri_fill_in_modes(struct dri_screen *screen)
    bool allow_rgb10;
    bool allow_fp16;
 
-   static const GLenum back_buffer_modes[] = {
-      __DRI_ATTRIB_SWAP_NONE, __DRI_ATTRIB_SWAP_UNDEFINED,
-      __DRI_ATTRIB_SWAP_COPY
-   };
-
    if (driQueryOptionb(&screen->dev->option_cache, "always_have_depth_buffer")) {
       /* all visuals will have a depth buffer */
       depth_buffer_factor = 0;
@@ -591,7 +586,23 @@ dri_fill_in_modes(struct dri_screen *screen)
       }
 
       if (num_msaa_modes) {
-         /* Single-sample configs with an accumulation buffer. */
+         /* Single-sample configs with an accumulation buffer: front-buffer
+          * config with matching depth buffer size (front buffer rendering
+          * doesn't care about fine grained control), and back-buffer with
+          * OML_swap_method and mixed color/depth resolution.
+          */
+         static const GLenum swap_none = __DRI_ATTRIB_SWAP_NONE;
+         new_configs = driCreateConfigs(mesa_formats[format],
+                                        depth_bits_array, stencil_bits_array,
+                                        depth_buffer_factor, &swap_none,
+                                        1,
+                                        msaa_modes, 1,
+                                        GL_TRUE, true);
+         configs = driConcatConfigs(configs, new_configs);
+
+         static const GLenum back_buffer_modes[] = {
+            __DRI_ATTRIB_SWAP_UNDEFINED, __DRI_ATTRIB_SWAP_COPY
+         };
          new_configs = driCreateConfigs(mesa_formats[format],
                                         depth_bits_array, stencil_bits_array,
                                         depth_buffer_factor, back_buffer_modes,
