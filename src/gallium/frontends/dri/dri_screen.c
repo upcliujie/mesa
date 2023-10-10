@@ -592,11 +592,12 @@ dri_fill_in_modes(struct dri_screen *screen)
           * OML_swap_method and mixed color/depth resolution.
           */
          static const GLenum swap_none = __DRI_ATTRIB_SWAP_NONE;
+         static const uint8_t sample_count_0 = 0;
          new_configs = driCreateConfigs(mesa_formats[format],
                                         depth_bits_array, stencil_bits_array,
                                         depth_buffer_factor, &swap_none,
                                         1,
-                                        msaa_modes, 1,
+                                        &sample_count_0, 1,
                                         GL_TRUE, true);
          configs = driConcatConfigs(configs, new_configs);
 
@@ -607,7 +608,7 @@ dri_fill_in_modes(struct dri_screen *screen)
                                         depth_bits_array, stencil_bits_array,
                                         depth_buffer_factor, back_buffer_modes,
                                         ARRAY_SIZE(back_buffer_modes),
-                                        msaa_modes, 1,
+                                        &sample_count_0, 1,
                                         GL_TRUE, !mixed_color_depth);
          configs = driConcatConfigs(configs, new_configs);
 
@@ -618,11 +619,15 @@ dri_fill_in_modes(struct dri_screen *screen)
              * of configs advertised.  Also, it was probably always broken since
              * we didn't keep track of multiple MSAA backbuffers and swap them
              * appropriately.
+             *
+             * Also, always advertise a depth buffer.  Given that winsys MSAA
+             * doesn't increase fragment shading rate by default, we can assume
+             * that MSAA is only desired in combination with depth.
              */
             static const GLenum swap_undefined = __DRI_ATTRIB_SWAP_UNDEFINED;
             new_configs = driCreateConfigs(mesa_formats[format],
-                                           depth_bits_array, stencil_bits_array,
-                                           depth_buffer_factor, &swap_undefined,
+                                           depth_bits_array + 1, stencil_bits_array + 1,
+                                           depth_buffer_factor - 1, &swap_undefined,
                                            1,
                                            msaa_modes+1, num_msaa_modes-1,
                                            GL_FALSE, !mixed_color_depth);
