@@ -80,7 +80,7 @@ zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shad
                     const struct zink_shader_key *key, const struct zink_st_variant_key *st_key,
                     bool compile_uber, const void *extra_data, struct zink_program *pg);
 struct zink_shader_object
-zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs);
+zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs, bool compile_uber);
 struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir);
 

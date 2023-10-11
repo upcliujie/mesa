@@ -4454,7 +4454,7 @@ zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shad
 }
 
 struct zink_shader_object
-zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs)
+zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs, bool compile_uber)
 {
    nir_shader *nir = zink_shader_deserialize(screen, zs);
    /* TODO: maybe compile multiple variants for different set counts for compact mode? */
@@ -4492,7 +4492,8 @@ zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs)
       NIR_PASS_V(nir, remove_bo_access, zs);
    }
 
-   zink_emulation_passes(nir, zs);
+   if (compile_uber)
+      zink_emulation_passes(nir, zs);
 
    optimize_nir(nir, zs, true);
    zink_descriptor_shader_init(screen, zs);
@@ -4507,7 +4508,7 @@ zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs)
          /* use max pcp for compat */
          zs->non_fs.generated_tcs = zink_shader_tcs_create(screen, nir_clone, 32, &nir_tcs);
          nir_tcs->info.separate_shader = true;
-         zs->non_fs.generated_tcs->precompile.obj = zink_shader_compile_separate(screen, zs->non_fs.generated_tcs);
+         zs->non_fs.generated_tcs->precompile.obj = zink_shader_compile_separate(screen, zs->non_fs.generated_tcs, compile_uber);
          ralloc_free(nir_tcs);
       }
    }
