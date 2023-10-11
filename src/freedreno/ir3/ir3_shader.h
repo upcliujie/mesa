@@ -183,6 +183,19 @@ enum ir3_push_consts_type {
  * Note UBO size in bytes should be aligned to vec4
  */
 struct ir3_const_state {
+   uint32_t *immediates;
+
+   /*
+    * The following macros are used by the shader disk cache save/
+    * restore paths to serialize/deserialize the variant.  Any
+    * pointers that require special handling in store_variant()
+    * and retrieve_variant() should go above here.
+    */
+#define CONST_CACHE_START  offsetof(struct ir3_const_state, num_ubos)
+#define CONST_CACHE_PTR(s) (((char *)s) + CONST_CACHE_START)
+#define CONST_CACHE_SIZE                                                        \
+   (sizeof(struct ir3_const_state) - CONST_CACHE_START)
+
    unsigned num_ubos;
    unsigned num_driver_params; /* scalar */
 
@@ -214,7 +227,6 @@ struct ir3_const_state {
 
    unsigned immediates_count;
    unsigned immediates_size;
-   uint32_t *immediates;
 
    unsigned preamble_size;
 
