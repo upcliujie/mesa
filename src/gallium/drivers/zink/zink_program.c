@@ -2401,11 +2401,11 @@ precompile_job(void *data, void *gdata, int thread_index)
    state.shader_keys_optimal.key.vs_base.last_vertex_stage = true;
    state.shader_keys_optimal.key.tcs.patch_vertices = 3; //random guess, generated tcs precompile is hard
    state.optimal_key = state.shader_keys_optimal.key.val;
-   generate_gfx_program_modules_optimal(NULL, screen, prog, &state, true);
+   generate_gfx_program_modules_optimal(NULL, screen, prog, &state, prog->is_uber_program);
    zink_screen_get_pipeline_cache(screen, &prog->base, true);
    if (!screen->info.have_EXT_shader_object) {
       simple_mtx_lock(&prog->libs->lock);
-      zink_create_pipeline_lib(screen, prog, &state, true);
+      zink_create_pipeline_lib(screen, prog, &state, prog->is_uber_program);
       simple_mtx_unlock(&prog->libs->lock);
    }
    zink_screen_update_pipeline_cache(screen, &prog->base, true);
