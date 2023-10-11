@@ -46,7 +46,6 @@ struct ir3_instruction;
 struct ir3_block;
 
 struct ir3_info {
-   void *data; /* used internally in ir3 assembler */
    /* Size in bytes of the shader binary, including NIR constants and
     * padding
     */

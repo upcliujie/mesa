@@ -85,10 +85,10 @@ is_shared_consts(struct ir3_compiler *compiler,
 }
 
 static void
-collect_reg_info(struct ir3_instruction *instr, struct ir3_register *reg,
+collect_reg_info(struct ir3_shader_variant *v,
+                 struct ir3_instruction *instr, struct ir3_register *reg,
                  struct ir3_info *info)
 {
-   struct ir3_shader_variant *v = info->data;
    unsigned repeat = instr->repeat;
 
    if (reg->flags & IR3_REG_IMMED) {
@@ -271,7 +271,6 @@ ir3_collect_info(struct ir3_shader_variant *v)
    const struct ir3_compiler *compiler = v->compiler;
 
    memset(info, 0, sizeof(*info));
-   info->data = v;
    info->max_reg = -1;
    info->max_half_reg = -1;
    info->max_const = -1;
@@ -302,12 +301,12 @@ ir3_collect_info(struct ir3_shader_variant *v)
       foreach_instr (instr, &block->instr_list) {
 
          foreach_src (reg, instr) {
-            collect_reg_info(instr, reg, info);
+            collect_reg_info(v, instr, reg, info);
          }
 
          foreach_dst (reg, instr) {
             if (is_dest_gpr(reg)) {
-               collect_reg_info(instr, reg, info);
+               collect_reg_info(v, instr, reg, info);
             }
          }
 
