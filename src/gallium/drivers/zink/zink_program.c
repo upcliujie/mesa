@@ -2413,7 +2413,7 @@ precompile_separate_shader_job(void *data, void *gdata, int thread_index)
    struct zink_screen *screen = gdata;
    struct zink_shader *zs = data;
 
-   zs->precompile.emulation_obj = zink_shader_compile_separate(screen, zs);
+   zs->precompile.emulation_obj = zink_shader_compile_separate(screen, zs, zs->is_uber);
    if (!screen->info.have_EXT_shader_object) {
       struct zink_shader_object objs[ZINK_GFX_SHADER_COUNT] = {0};
       objs[zs->info.stage].mod = zs->precompile.emulation_obj.mod;
@@ -2530,6 +2530,7 @@ zink_create_gfx_shader_state(struct pipe_context *pctx, const struct pipe_shader
       struct zink_shader *zs = ret;
       /* sample shading can't precompile */
       if (nir->info.stage != MESA_SHADER_FRAGMENT || !nir->info.fs.uses_sample_shading) {
+         zs->is_uber = true;
          if (zink_debug & ZINK_DEBUG_NOBGC)
             precompile_separate_shader_job(zs, screen, 0);
          else
