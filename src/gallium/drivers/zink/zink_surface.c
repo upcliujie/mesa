@@ -347,6 +347,7 @@ zink_create_surface(struct pipe_context *pctx,
       struct pipe_resource rtempl = *pres;
       rtempl.nr_samples = templ->nr_samples;
       rtempl.bind |= ZINK_BIND_TRANSIENT;
+      rtempl.bind &= ~ZINK_BIND_DMABUF;
       struct zink_resource *transient = zink_resource(pctx->screen->resource_create(pctx->screen, &rtempl));
       if (!transient)
          return NULL;
