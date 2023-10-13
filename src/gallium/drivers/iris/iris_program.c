@@ -1313,6 +1313,9 @@ iris_compile_vs(struct iris_screen *screen,
       }
    }
 
+   if (key->vue.clamp_pointsize)
+      nir_lower_point_size(nir, 1.0, 255.0);
+
    prog_data->use_alt_mode = nir->info.use_legacy_math_rules;
 
    iris_setup_uniforms(devinfo, mem_ctx, nir, prog_data, 0, &system_values,
@@ -1657,6 +1660,9 @@ iris_compile_tes(struct iris_screen *screen,
       nir_shader_gather_info(nir, impl);
    }
 
+   if (key->vue.clamp_pointsize)
+      nir_lower_point_size(nir, 1.0, 255.0);
+
    iris_setup_uniforms(devinfo, mem_ctx, nir, prog_data, 0, &system_values,
                        &num_system_values, &num_cbufs);
 
@@ -1799,6 +1805,9 @@ iris_compile_gs(struct iris_screen *screen,
       nir_lower_vars_to_ssa(nir);
       nir_shader_gather_info(nir, impl);
    }
+
+   if (key->vue.clamp_pointsize)
+      nir_lower_point_size(nir, 1.0, 255.0);
 
    iris_setup_uniforms(devinfo, mem_ctx, nir, prog_data, 0, &system_values,
                        &num_system_values, &num_cbufs);

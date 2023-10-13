@@ -4749,6 +4749,10 @@ iris_populate_vs_key(const struct iris_context *ice,
        (info->outputs_written & (VARYING_BIT_POS | VARYING_BIT_CLIP_VERTEX)) &&
        last_stage == MESA_SHADER_VERTEX)
       key->vue.nr_userclip_plane_consts = cso_rast->num_clip_plane_consts;
+
+   if (last_stage == MESA_SHADER_VERTEX &&
+       info->outputs_written & (VARYING_BIT_PSIZ))
+      key->vue.clamp_pointsize = 1;
 }
 
 /**
@@ -4775,6 +4779,10 @@ iris_populate_tes_key(const struct iris_context *ice,
        (info->outputs_written & (VARYING_BIT_POS | VARYING_BIT_CLIP_VERTEX)) &&
        last_stage == MESA_SHADER_TESS_EVAL)
       key->vue.nr_userclip_plane_consts = cso_rast->num_clip_plane_consts;
+
+   if (last_stage == MESA_SHADER_TESS_EVAL &&
+       info->outputs_written & (VARYING_BIT_PSIZ))
+      key->vue.clamp_pointsize = 1;
 }
 
 /**
@@ -4792,6 +4800,10 @@ iris_populate_gs_key(const struct iris_context *ice,
        (info->outputs_written & (VARYING_BIT_POS | VARYING_BIT_CLIP_VERTEX)) &&
        last_stage == MESA_SHADER_GEOMETRY)
       key->vue.nr_userclip_plane_consts = cso_rast->num_clip_plane_consts;
+
+   if (last_stage == MESA_SHADER_GEOMETRY &&
+       info->outputs_written & (VARYING_BIT_PSIZ))
+      key->vue.clamp_pointsize = 1;
 }
 
 /**

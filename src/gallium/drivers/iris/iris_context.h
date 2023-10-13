@@ -228,7 +228,8 @@ struct iris_vue_prog_key {
    struct iris_base_prog_key base;
 
    unsigned nr_userclip_plane_consts:4;
-   unsigned padding:28;
+   unsigned clamp_pointsize:1;
+   unsigned padding:27;
 };
 
 struct iris_vs_prog_key {
