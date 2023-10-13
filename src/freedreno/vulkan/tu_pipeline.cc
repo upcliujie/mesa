@@ -1432,120 +1432,6 @@ tu_pipeline_cache_insert(struct vk_pipeline_cache *cache,
    return container_of(object, struct tu_shader, base);
 }
 
-static bool
-tu_nir_shaders_serialize(struct vk_pipeline_cache_object *object,
-                         struct blob *blob);
-
-static struct vk_pipeline_cache_object *
-tu_nir_shaders_deserialize(struct vk_pipeline_cache *cache,
-                           const void *key_data,
-                           size_t key_size,
-                           struct blob_reader *blob);
-
-static void
-tu_nir_shaders_destroy(struct vk_device *device,
-                       struct vk_pipeline_cache_object *object)
-{
-   struct tu_nir_shaders *shaders =
-      container_of(object, struct tu_nir_shaders, base);
-
-   for (unsigned i = 0; i < ARRAY_SIZE(shaders->nir); i++)
-      ralloc_free(shaders->nir[i]);
-
-   vk_pipeline_cache_object_finish(&shaders->base);
-   vk_free(&device->alloc, shaders);
-}
-
-const struct vk_pipeline_cache_object_ops tu_nir_shaders_ops = {
-   .serialize = tu_nir_shaders_serialize,
-   .deserialize = tu_nir_shaders_deserialize,
-   .destroy = tu_nir_shaders_destroy,
-};
-
-static struct tu_nir_shaders *
-tu_nir_shaders_init(struct tu_device *dev, const void *key_data, size_t key_size)
-{
-   VK_MULTIALLOC(ma);
-   VK_MULTIALLOC_DECL(&ma, struct tu_nir_shaders, shaders, 1);
-   VK_MULTIALLOC_DECL_SIZE(&ma, char, obj_key_data, key_size);
-
-   if (!vk_multialloc_zalloc(&ma, &dev->vk.alloc,
-                             VK_SYSTEM_ALLOCATION_SCOPE_DEVICE))
-      return NULL;
-
-   memcpy(obj_key_data, key_data, key_size);
-   vk_pipeline_cache_object_init(&dev->vk, &shaders->base,
-                                 &tu_nir_shaders_ops, obj_key_data, key_size);
-
-   return shaders;
-}
-
-static bool
-tu_nir_shaders_serialize(struct vk_pipeline_cache_object *object,
-                         struct blob *blob)
-{
-   struct tu_nir_shaders *shaders =
-      container_of(object, struct tu_nir_shaders, base);
-
-   for (unsigned i = 0; i < ARRAY_SIZE(shaders->nir); i++) {
-      if (shaders->nir[i]) {
-         blob_write_uint8(blob, 1);
-         nir_serialize(blob, shaders->nir[i], true);
-      } else {
-         blob_write_uint8(blob, 0);
-      }
-   }
-
-   return true;
-}
-
-static struct vk_pipeline_cache_object *
-tu_nir_shaders_deserialize(struct vk_pipeline_cache *cache,
-                           const void *key_data,
-                           size_t key_size,
-                           struct blob_reader *blob)
-{
-   struct tu_device *dev =
-      container_of(cache->base.device, struct tu_device, vk);
-   struct tu_nir_shaders *shaders =
-      tu_nir_shaders_init(dev, key_data, key_size);
-
-   if (!shaders)
-      return NULL;
-
-   for (unsigned i = 0; i < ARRAY_SIZE(shaders->nir); i++) {
-      if (blob_read_uint8(blob)) {
-         shaders->nir[i] =
-            nir_deserialize(NULL, ir3_get_compiler_options(dev->compiler), blob);
-      }
-   }
-
-   return &shaders->base;
-}
-
-static struct tu_nir_shaders *
-tu_nir_cache_lookup(struct vk_pipeline_cache *cache,
-                    const void *key_data, size_t key_size,
-                    bool *application_cache_hit)
-{
-   struct vk_pipeline_cache_object *object =
-      vk_pipeline_cache_lookup_object(cache, key_data, key_size,
-                                      &tu_nir_shaders_ops, application_cache_hit);
-   if (object)
-      return container_of(object, struct tu_nir_shaders, base);
-   else
-      return NULL;
-}
-
-static struct tu_nir_shaders *
-tu_nir_cache_insert(struct vk_pipeline_cache *cache,
-                    struct tu_nir_shaders *shaders)
-{
-   struct vk_pipeline_cache_object *object =
-      vk_pipeline_cache_add_object(cache, &shaders->base);
-   return container_of(object, struct tu_nir_shaders, base);
-}
-
 static VkResult
 tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
                                     struct tu_pipeline *pipeline)
@@ -1586,6 +1472,7 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
 
    /* Forward declare everything due to the goto usage */
    nir_shader *nir[ARRAY_SIZE(stage_infos)] = { NULL };
+   struct vk_raw_data_cache_object *serialized_nir[ARRAY_SIZE(stage_infos)] = { NULL };
    struct tu_shader *shaders[ARRAY_SIZE(stage_infos)] = { NULL };
    nir_shader *post_link_nir[ARRAY_SIZE(nir)] = { NULL };
    char *nir_initial_disasm[ARRAY_SIZE(stage_infos)] = { NULL };
@@ -1613,14 +1500,23 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
 
    if (builder->create_flags &
        VK_PIPELINE_CREATE_2_LINK_TIME_OPTIMIZATION_BIT_EXT) {
+      const nir_shader_compiler_options *nir_options =
+         ir3_get_compiler_options(compiler);
+
       for (unsigned i = 0; i < builder->num_libraries; i++) {
          struct tu_graphics_lib_pipeline *library = builder->libraries[i];
 
          for (unsigned j = 0; j < ARRAY_SIZE(library->shaders); j++) {
-            if (library->shaders[j].nir) {
+            if (library->shaders[j].serialized_nir) {
                assert(!nir[j]);
-               nir[j] = nir_shader_clone(builder->mem_ctx,
-                     library->shaders[j].nir);
+               struct blob_reader blob;
+               blob_reader_init(&blob,
+                                library->shaders[j].serialized_nir->data,
+                                library->shaders[j].serialized_nir->data_size);
+               nir[j] = nir_deserialize(builder->mem_ctx, nir_options, &blob);
+               serialized_nir[j] = library->shaders[j].serialized_nir;
+               vk_pipeline_cache_object_ref(&serialized_nir[j]->base);
+               assert(!blob.overrun);
                keys[j] = library->shaders[j].key;
                must_compile = true;
             }
@@ -1628,7 +1524,6 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
       }
    }
 
-   struct tu_nir_shaders *nir_shaders = NULL;
    if (!must_compile)
       goto done;
 
@@ -1716,14 +1611,31 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
       if (cache_hit &&
           (builder->create_flags &
            VK_PIPELINE_CREATE_2_RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT)) {
-         bool nir_application_cache_hit = false;
-         nir_shaders =
-            tu_nir_cache_lookup(builder->cache, &nir_sha1,
-                                sizeof(nir_sha1),
-                                &nir_application_cache_hit);
+         unsigned char shader_nir_sha1[22];
+         memcpy(shader_nir_sha1, nir_sha1, sizeof(nir_sha1));
 
-         application_cache_hit &= nir_application_cache_hit;
-         cache_hit &= !!nir_shaders;
+         for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
+              stage = (gl_shader_stage) (stage + 1)) {
+            if (stage_infos[stage] || nir[stage]) {
+               bool shader_application_cache_hit;
+               shader_nir_sha1[21] = (unsigned char) stage;
+               struct vk_pipeline_cache_object *object =
+                  vk_pipeline_cache_lookup_object(builder->cache, &shader_nir_sha1,
+                                                  sizeof(shader_nir_sha1),
+                                                  &vk_raw_data_cache_object_ops,
+                                                  &shader_application_cache_hit);
+
+               if (!object) {
+                  cache_hit = false;
+                  break;
+               }
+
+               serialized_nir[stage] =
+                  container_of(object, struct vk_raw_data_cache_object, base);
+
+               application_cache_hit &= shader_application_cache_hit;
+            }
+         }
       }
 
       if (application_cache_hit && builder->cache != builder->device->mem_cache) {
@@ -1754,17 +1666,32 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
          goto fail;
 
       if (retain_nir) {
-         nir_shaders =
-            tu_nir_shaders_init(builder->device, &nir_sha1, sizeof(nir_sha1));
-         for (gl_shader_stage stage = MESA_SHADER_VERTEX;
-              stage < ARRAY_SIZE(nir); stage = (gl_shader_stage) (stage + 1)) {
+         unsigned char shader_nir_sha1[22];
+         memcpy(shader_nir_sha1, nir_sha1, sizeof(nir_sha1));
+
+         for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
+              stage = (gl_shader_stage) (stage + 1)) {
             if (!post_link_nir[stage])
                continue;
 
-            nir_shaders->nir[stage] = post_link_nir[stage];
-         }
+            if (!serialized_nir[stage]) {
+               shader_nir_sha1[21] = (unsigned char) stage;
+               struct blob blob;
+               blob_init(&blob);
 
-         nir_shaders = tu_nir_cache_insert(builder->cache, nir_shaders);
+               nir_serialize(&blob, post_link_nir[stage], false);
+
+               serialized_nir[stage] =
+                  vk_raw_data_cache_object_create(&builder->device->vk,
+                                                  shader_nir_sha1,
+                                                  sizeof(shader_nir_sha1),
+                                                  blob.data, blob.size);
+
+               blob_finish(&blob);
+            }
+
+            ralloc_free(post_link_nir[stage]);
+         }
       }
 
       for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
@@ -1815,18 +1742,6 @@ done:
       }
    }
 
-   /* We may have deduplicated a cache entry, in which case our original
-    * post_link_nir may be gone.
-    */
-   if (nir_shaders) {
-      for (gl_shader_stage stage = MESA_SHADER_VERTEX;
-           stage < ARRAY_SIZE(nir); stage = (gl_shader_stage) (stage + 1)) {
-         if (nir_shaders->nir[stage]) {
-            post_link_nir[stage] = nir_shaders->nir[stage];
-         }
-      }
-   }
-   
    /* In the case where we're building a library without link-time
     * optimization but with sub-libraries that retain LTO info, we should
     * retain it ourselves in case another pipeline includes us with LTO.
@@ -1836,9 +1751,10 @@ done:
       for (gl_shader_stage stage = MESA_SHADER_VERTEX;
            stage < ARRAY_SIZE(library->shaders);
            stage = (gl_shader_stage) (stage + 1)) {
-         if (!post_link_nir[stage] && library->shaders[stage].nir) {
-            post_link_nir[stage] = library->shaders[stage].nir;
+         if (!serialized_nir[stage] && library->shaders[stage].serialized_nir) {
+            serialized_nir[stage] = library->shaders[stage].serialized_nir;
             keys[stage] = library->shaders[stage].key;
+            vk_pipeline_cache_object_ref(&serialized_nir[stage]->base);
          }
 
          if (!shaders[stage] && library->base.shaders[stage]) {
@@ -1861,17 +1777,20 @@ done:
       /* It doesn't make much sense to use RETAIN_LINK_TIME_OPTIMIZATION_INFO
        * when compiling all stages, but make sure we don't leak.
        */
-      if (nir_shaders)
-         vk_pipeline_cache_object_unref(&builder->device->vk,
-                                        &nir_shaders->base);
+      for (gl_shader_stage stage = MESA_SHADER_VERTEX;
+           stage < ARRAY_SIZE(serialized_nir);
+           stage = (gl_shader_stage) (stage + 1)) {
+         if (serialized_nir[stage])
+            vk_pipeline_cache_object_unref(&builder->device->vk,
+                                           &serialized_nir[stage]->base);
+      }
    } else {
       struct tu_graphics_lib_pipeline *library =
          tu_pipeline_to_graphics_lib(pipeline);
-      library->nir_shaders = nir_shaders;
       for (gl_shader_stage stage = MESA_SHADER_VERTEX;
            stage < ARRAY_SIZE(library->shaders);
            stage = (gl_shader_stage) (stage + 1)) {
-         library->shaders[stage].nir = post_link_nir[stage];
+         library->shaders[stage].serialized_nir = serialized_nir[stage];
          library->shaders[stage].key = keys[stage];
       }
    }
@@ -1897,9 +1816,13 @@ done:
    return VK_SUCCESS;
 
 fail:
-   if (nir_shaders)
-      vk_pipeline_cache_object_unref(&builder->device->vk,
-                                     &nir_shaders->base);
+   for (gl_shader_stage stage = MESA_SHADER_VERTEX;
+        stage < ARRAY_SIZE(serialized_nir);
+        stage = (gl_shader_stage) (stage + 1)) {
+      if (serialized_nir[stage])
+         vk_pipeline_cache_object_unref(&builder->device->vk,
+                                        &serialized_nir[stage]->base);
+   }
 
    return result;
 }
@@ -3569,9 +3492,11 @@ tu_pipeline_finish(struct tu_pipeline *pipeline,
       struct tu_graphics_lib_pipeline *library =
          tu_pipeline_to_graphics_lib(pipeline);
 
-      if (library->nir_shaders)
-         vk_pipeline_cache_object_unref(&dev->vk,
-                                        &library->nir_shaders->base);
+      for (unsigned i = 0; i < ARRAY_SIZE(library->shaders); i++) {
+         if (library->shaders[i].serialized_nir)
+            vk_pipeline_cache_object_unref(&dev->vk,
+                                           &library->shaders[i].serialized_nir->base);
+      }
 
       for (unsigned i = 0; i < library->num_sets; i++) {
          if (library->layouts[i])
