@@ -38,7 +38,8 @@ int v3dX(simulator_get_param_ioctl)(struct v3d_hw *v3d,
                                     struct drm_v3d_get_param *args);
 void v3dX(simulator_submit_cl_ioctl)(struct v3d_hw *v3d,
                                      struct drm_v3d_submit_cl *args,
-                                     uint32_t gmp_offset);
+                                     uint32_t gmp_offset,
+                                     uint32_t framenum);
 int v3dX(simulator_submit_tfu_ioctl)(struct v3d_hw *v3d,
                                      struct drm_v3d_submit_tfu *args);
 int v3dX(simulator_submit_csd_ioctl)(struct v3d_hw *v3d,

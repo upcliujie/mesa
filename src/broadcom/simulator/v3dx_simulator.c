@@ -40,6 +40,8 @@
 #include "v3d_simulator.h"
 #include "v3d_simulator_wrapper.h"
 
+#include "common/v3d_debug.h"
+
 #include "util/macros.h"
 #include "util/bitscan.h"
 #include "drm-uapi/v3d_drm.h"
@@ -457,8 +459,17 @@ v3dX(simulator_init_regs)(struct v3d_hw *v3d)
 void
 v3dX(simulator_submit_cl_ioctl)(struct v3d_hw *v3d,
                                 struct drm_v3d_submit_cl *submit,
-                                uint32_t gmp_ofs)
+                                uint32_t gmp_ofs,
+                                uint32_t framenum)
 {
+#if V3D_VERSION >= 41
+        if (V3D_DBG(AUTOCLIF)) {
+                char *output;
+                asprintf(&output, "record.%.4u.clif", framenum);
+                v3d_hw_autoclif_cl(v3d, submit, output);
+                free(output);
+        }
+#endif
         int last_bfc = (V3D_READ(V3D_CLE_0_BFC) &
                         V3D_CLE_0_BFC_BMFCT_SET);
 
