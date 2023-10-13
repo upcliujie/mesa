@@ -29,6 +29,7 @@
 
 VkResult pvr_drm_winsys_create(const int render_fd,
                                const int display_fd,
+                               const int master_fd,
                                const VkAllocationCallbacks *alloc,
                                struct pvr_winsys **const ws_out)
 {

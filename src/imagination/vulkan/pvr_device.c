@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <vulkan/vulkan.h>
 #include <xf86drm.h>
 
@@ -172,6 +173,7 @@ static void pvr_physical_device_get_supported_extensions(
       .KHR_swapchain = PVR_USE_WSI_PLATFORM,
       .KHR_timeline_semaphore = true,
       .EXT_external_memory_dma_buf = true,
+      .EXT_physical_device_drm = true,
       .EXT_private_data = true,
       .EXT_tooling_info = true,
    };
@@ -289,6 +291,7 @@ static void pvr_physical_device_destroy(struct vk_physical_device *vk_pdevice)
 
    vk_free(&pdevice->vk.instance->alloc, pdevice->render_path);
    vk_free(&pdevice->vk.instance->alloc, pdevice->display_path);
+   vk_free(&pdevice->vk.instance->alloc, pdevice->master_path);
 
    vk_physical_device_finish(&pdevice->vk);
 
@@ -369,10 +372,12 @@ static VkResult pvr_physical_device_init(struct pvr_physical_device *pdevice,
 {
    struct vk_physical_device_dispatch_table dispatch_table;
    struct vk_device_extension_table supported_extensions;
+   struct stat primary_stat = {0}, render_stat = {0};
    struct vk_features supported_features;
    struct pvr_winsys *ws;
-   char *display_path;
    char *render_path;
+   char *display_path;
+   char *master_path;
    VkResult result;
 
    if (!getenv("PVR_I_WANT_A_BROKEN_VULKAN_DRIVER")) {
@@ -392,26 +397,55 @@ static VkResult pvr_physical_device_init(struct pvr_physical_device *pdevice,
       goto err_out;
    }
 
+   master_path = vk_strdup(&instance->vk.alloc,
+                           drm_render_device->nodes[DRM_NODE_PRIMARY],
+                           VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+
+   if (!master_path) {
+      result = VK_ERROR_OUT_OF_HOST_MEMORY;
+      goto err_vk_free_render_path;
+   }
+
    if (instance->vk.enabled_extensions.KHR_display) {
       display_path = vk_strdup(&instance->vk.alloc,
                                drm_display_device->nodes[DRM_NODE_PRIMARY],
                                VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
       if (!display_path) {
          result = VK_ERROR_OUT_OF_HOST_MEMORY;
-         goto err_vk_free_render_path;
+         goto err_vk_free_master_path;
       }
    } else {
       display_path = NULL;
    }
 
+   if (stat(master_path, &primary_stat) != 0) {
+      result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+                         "failed to stat DRM primary node %s",
+                         master_path);
+      goto err_vk_free_display_path;
+   }
+   pdevice->has_primary = true;
+   pdevice->primary_devid = primary_stat.st_rdev;
+
+   if (stat(render_path, &render_stat) != 0) {
+      result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+                         "failed to stat DRM render node %s",
+                         render_path);
+      goto err_vk_free_display_path;
+   }
+   pdevice->has_render = true;
+   pdevice->render_devid = render_stat.st_rdev;
+
    result =
-      pvr_winsys_create(render_path, display_path, &instance->vk.alloc, &ws);
+      pvr_winsys_create(render_path, display_path, master_path,
+                        &instance->vk.alloc, &ws);
    if (result != VK_SUCCESS)
       goto err_vk_free_display_path;
 
    pdevice->instance = instance;
    pdevice->render_path = render_path;
    pdevice->display_path = display_path;
+   pdevice->master_path = master_path;
    pdevice->ws = ws;
 
    result = ws->ops->device_info_init(ws,
@@ -501,6 +535,9 @@ err_pvr_winsys_destroy:
 
 err_vk_free_display_path:
    vk_free(&instance->vk.alloc, display_path);
+
+err_vk_free_master_path:
+   vk_free(&instance->vk.alloc, master_path);
 
 err_vk_free_render_path:
    vk_free(&instance->vk.alloc, render_path);
@@ -1222,6 +1259,21 @@ void pvr_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          continue;
 
       switch (ext->sType) {
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
+         VkPhysicalDeviceDrmPropertiesEXT *props =
+            (VkPhysicalDeviceDrmPropertiesEXT *)ext;
+         props->hasPrimary = pdevice->has_primary;
+         if (props->hasPrimary) {
+            props->primaryMajor = (int64_t) major(pdevice->primary_devid);
+            props->primaryMinor = (int64_t) minor(pdevice->primary_devid);
+         }
+         props->hasRender = pdevice->has_render;
+         if (props->hasRender) {
+            props->renderMajor = (int64_t) major(pdevice->render_devid);
+            props->renderMinor = (int64_t) minor(pdevice->render_devid);
+         }
+         break;
+      }
       default: {
          pvr_debug_ignored_stype(ext->sType);
          break;
@@ -1880,6 +1932,7 @@ VkResult pvr_CreateDevice(VkPhysicalDevice physicalDevice,
 
    result = pvr_winsys_create(pdevice->render_path,
                               pdevice->display_path,
+                              pdevice->master_path,
                               pAllocator ? pAllocator : &instance->vk.alloc,
                               &ws);
    if (result != VK_SUCCESS)
