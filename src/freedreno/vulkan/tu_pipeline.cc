@@ -1887,7 +1887,7 @@ done:
    if (creation_feedback) {
       *creation_feedback->pPipelineCreationFeedback = pipeline_feedback;
 
-      for (uint32_t i = 0; i < builder->create_info->stageCount; i++) {
+      for (uint32_t i = 0; i < creation_feedback->pipelineStageCreationFeedbackCount; i++) {
          gl_shader_stage s =
             vk_to_mesa_shader_stage(builder->create_info->pStages[i].stage);
          creation_feedback->pPipelineStageCreationFeedbacks[i] = stage_feedbacks[s];
