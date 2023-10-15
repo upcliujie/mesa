@@ -64,7 +64,6 @@ struct etna_resource_level {
    unsigned offset; /* offset into memory area */
    uint32_t stride; /* row stride */
    uint32_t layer_stride; /* layer stride */
-   unsigned size; /* total size of memory area */
 
    uint32_t ts_offset;
    uint32_t ts_layer_stride;

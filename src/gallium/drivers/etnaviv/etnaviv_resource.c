@@ -238,10 +238,9 @@ setup_miptree(struct etna_resource *rsc, unsigned paddingX, unsigned paddingY,
       mip->stride = util_format_get_stride(prsc->format, mip->padded_width);
       mip->offset = size;
       mip->layer_stride = mip->stride * util_format_get_nblocksy(prsc->format, mip->padded_height);
-      mip->size = prsc->array_size * mip->layer_stride;
 
       /* align levels to 64 bytes to be able to render to them */
-      size += align(mip->size, ETNA_PE_ALIGNMENT) * depth;
+      size += align(prsc->array_size * mip->layer_stride, ETNA_PE_ALIGNMENT) * depth;
 
       width = u_minify(width, 1);
       height = u_minify(height, 1);
@@ -697,7 +696,6 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
 
    level->layer_stride = level->stride * util_format_get_nblocksy(prsc->format,
                                                                   level->padded_height);
-   level->size = level->layer_stride;
 
    if (screen->ro)
       rsc->scanout = renderonly_create_gpu_import_for_resource(prsc, screen->ro,
