@@ -1217,8 +1217,23 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
 
 #if WITH_XMLCONFIG
    char *home;
+   char *add_drirc_path_env;
 
    parseConfigDir(&userData, datadir);
+
+   if ((add_drirc_path_env = getenv("MESA_ADD_DRICONF_PATH"))) {
+      char *add_drirc_path = strdup(add_drirc_path_env);
+      char *path;
+      char *savestr;
+
+      path = strtok_r(add_drirc_path, ":", &savestr);
+      while (path) {
+         parseConfigDir(&userData, path);
+         path = strtok_r(NULL, ":", &savestr);
+      }
+      free(add_drirc_path);
+   }
+
    parseOneConfigFile(&userData, SYSCONFDIR "/drirc");
 
    if ((home = getenv("HOME"))) {
