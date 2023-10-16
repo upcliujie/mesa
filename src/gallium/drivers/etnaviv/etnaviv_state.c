@@ -209,7 +209,7 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
 
       cs->PE_COLOR_STRIDE = cbuf->level->stride;
 
-      if (cbuf->level->ts_size) {
+      if (res->ts_bo) {
          cs->TS_COLOR_CLEAR_VALUE = cbuf->level->clear_value;
          cs->TS_COLOR_CLEAR_VALUE_EXT = cbuf->level->clear_value >> 32;
 
@@ -290,7 +290,7 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
       cs->PE_HDEPTH_CONTROL = VIVS_PE_HDEPTH_CONTROL_FORMAT_DISABLED;
       cs->PE_DEPTH_NORMALIZE = fui(exp2f(depth_bits) - 1.0f);
 
-      if (zsbuf->level->ts_size) {
+      if (res->ts_bo) {
          cs->TS_DEPTH_CLEAR_VALUE = zsbuf->level->clear_value;
 
          cs->TS_DEPTH_STATUS_BASE = zsbuf->ts_reloc;
