@@ -33,6 +33,7 @@
 #include "zink_screen.h"
 #include "zink_state.h"
 
+#include "util/perf/cpu_trace.h"
 #include "util/u_debug.h"
 #include "util/u_prim.h"
 
@@ -46,6 +47,8 @@ zink_create_gfx_pipeline(struct zink_screen *screen,
                          bool optimize,
                          struct util_dynarray *dgc)
 {
+   MESA_TRACE_FUNC();
+
    struct zink_rasterizer_hw_state *hw_rast_state = (void*)&state->dyn_state3;
    VkPipelineVertexInputStateCreateInfo vertex_input_state;
    bool needs_vi = !screen->info.have_EXT_vertex_input_dynamic_state;

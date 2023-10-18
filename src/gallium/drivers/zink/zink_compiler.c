@@ -41,6 +41,7 @@
 #include "nir/tgsi_to_nir.h"
 #include "tgsi/tgsi_dump.h"
 
+#include "util/perf/cpu_trace.h"
 #include "util/u_memory.h"
 
 #include "compiler/spirv/nir_spirv.h"
@@ -5312,6 +5313,8 @@ lower_vec816_alu(const nir_instr *instr, const void *cb_data)
 struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir)
 {
+   MESA_TRACE_FUNC();
+
    struct zink_shader *ret = rzalloc(NULL, struct zink_shader);
    bool have_psiz = false;
 
