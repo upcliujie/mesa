@@ -820,6 +820,10 @@ struct vk_dynamic_graphics_state {
    /** Color blend state */
    struct vk_color_blend_state cb;
 
+   struct {
+      VkImageAspectFlags attachment_feedback_loop_aspects;
+   } rp;
+
    /** For pipelines, which bits of dynamic state are set */
    BITSET_DECLARE(set, MESA_VK_DYNAMIC_GRAPHICS_STATE_ENUM_MAX);
 

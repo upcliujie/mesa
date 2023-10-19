@@ -1140,7 +1140,19 @@ static void
 vk_dynamic_graphics_state_init_rp(struct vk_dynamic_graphics_state *dst,
                                   const BITSET_WORD *needed,
                                   const struct vk_render_pass_state *rp)
-{ }
+{
+   if (BITSET_TEST(needed, MESA_VK_DYNAMIC_ATTACHMENT_FEEDBACK_LOOP_ENABLE)) {
+      VkImageAspectFlags aspects = 0;
+      if (rp->pipeline_flags & VK_PIPELINE_CREATE_COLOR_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT)
+         aspects |= VK_IMAGE_ASPECT_COLOR_BIT;
+
+      if (rp->pipeline_flags & VK_PIPELINE_CREATE_DEPTH_STENCIL_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT)
+         aspects |= VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+
+      dst->rp.attachment_feedback_loop_aspects =
+         aspects & rp->attachment_aspects;
+   }
+}
 
 #define FOREACH_STATE_GROUP(f)                           \
    f(MESA_VK_GRAPHICS_STATE_VERTEX_INPUT_BIT,            \
@@ -2019,6 +2031,9 @@ vk_dynamic_graphics_state_copy(struct vk_dynamic_graphics_state *dst,
    if (IS_SET_IN_SRC(CB_BLEND_CONSTANTS))
       COPY_ARRAY(CB_BLEND_CONSTANTS, cb.blend_constants, 4);
 
+   COPY_IF_SET(ATTACHMENT_FEEDBACK_LOOP_ENABLE,
+               rp.attachment_feedback_loop_aspects);
+
 #undef IS_SET_IN_SRC
 #undef MARK_DIRTY
 #undef COPY_MEMBER
@@ -2881,6 +2896,17 @@ vk_common_CmdSetDepthBias2EXT(
       SET_DYN_VALUE(dyn, RS_DEPTH_BIAS_FACTORS,
                     rs.depth_bias.exact, false);
    }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetAttachmentFeedbackLoopEnableEXT(VkCommandBuffer commandBuffer,
+                                                VkImageAspectFlags aspectMask)
+{
+   VK_FROM_HANDLE(vk_command_buffer, cmd, commandBuffer);
+   struct vk_dynamic_graphics_state *dyn = &cmd->dynamic_graphics_state;
+
+   SET_DYN_VALUE(dyn, ATTACHMENT_FEEDBACK_LOOP_ENABLE,
+                 rp.attachment_feedback_loop_aspects, aspectMask);
 }
 
 const char *
