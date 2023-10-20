@@ -537,13 +537,13 @@ transition_stencil_buffer(struct anv_cmd_buffer *cmd_buffer,
    if (image->planes[plane].aux_usage == ISL_AUX_USAGE_NONE)
       return;
 
-   if ((initial_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
-        initial_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) &&
-       cmd_buffer->device->physical->has_implicit_ccs &&
-       cmd_buffer->device->info->has_aux_map) {
-      anv_image_init_aux_tt(cmd_buffer, image, VK_IMAGE_ASPECT_STENCIL_BIT,
-                            base_level, level_count, base_layer, layer_count);
-
+   if (initial_layout == VK_IMAGE_LAYOUT_UNDEFINED ||
+       initial_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
+      if (cmd_buffer->device->physical->has_implicit_ccs &&
+          cmd_buffer->device->info->has_aux_map) {
+         anv_image_init_aux_tt(cmd_buffer, image, VK_IMAGE_ASPECT_STENCIL_BIT,
+                               base_level, level_count, base_layer, layer_count);
+      }
       /* If will_full_fast_clear is set, the caller promises to fast-clear the
        * largest portion of the specified range as it can.
        */
