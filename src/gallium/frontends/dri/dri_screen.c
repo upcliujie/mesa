@@ -484,11 +484,6 @@ dri_fill_in_modes(struct dri_screen *screen)
    bool allow_rgb10;
    bool allow_fp16;
 
-   static const GLenum back_buffer_modes[] = {
-      __DRI_ATTRIB_SWAP_NONE, __DRI_ATTRIB_SWAP_UNDEFINED,
-      __DRI_ATTRIB_SWAP_COPY
-   };
-
    if (driQueryOptionb(&screen->dev->option_cache, "always_have_depth_buffer")) {
       /* all visuals will have a depth buffer */
       depth_buffer_factor = 0;
@@ -591,21 +586,49 @@ dri_fill_in_modes(struct dri_screen *screen)
       }
 
       if (num_msaa_modes) {
-         /* Single-sample configs with an accumulation buffer. */
+         /* Single-sample configs with an accumulation buffer: front-buffer
+          * config with matching depth buffer size (front buffer rendering
+          * doesn't care about fine grained control), and back-buffer with
+          * OML_swap_method and mixed color/depth resolution.
+          */
+         static const GLenum swap_none = __DRI_ATTRIB_SWAP_NONE;
+         static const uint8_t sample_count_0 = 0;
+         new_configs = driCreateConfigs(mesa_formats[format],
+                                        depth_bits_array, stencil_bits_array,
+                                        depth_buffer_factor, &swap_none,
+                                        1,
+                                        &sample_count_0, 1,
+                                        GL_TRUE, true);
+         configs = driConcatConfigs(configs, new_configs);
+
+         static const GLenum back_buffer_modes[] = {
+            __DRI_ATTRIB_SWAP_UNDEFINED, __DRI_ATTRIB_SWAP_COPY
+         };
          new_configs = driCreateConfigs(mesa_formats[format],
                                         depth_bits_array, stencil_bits_array,
                                         depth_buffer_factor, back_buffer_modes,
                                         ARRAY_SIZE(back_buffer_modes),
-                                        msaa_modes, 1,
+                                        &sample_count_0, 1,
                                         GL_TRUE, !mixed_color_depth);
          configs = driConcatConfigs(configs, new_configs);
 
          /* Multi-sample configs without an accumulation buffer. */
          if (num_msaa_modes > 1) {
+            /* Don't do special GLX_OML_swap_method modes for MSAA configs.  The
+             * feature isn't important enough, and it's too much of an explosion
+             * of configs advertised.  Also, it was probably always broken since
+             * we didn't keep track of multiple MSAA backbuffers and swap them
+             * appropriately.
+             *
+             * Also, always advertise a depth buffer.  Given that winsys MSAA
+             * doesn't increase fragment shading rate by default, we can assume
+             * that MSAA is only desired in combination with depth.
+             */
+            static const GLenum swap_undefined = __DRI_ATTRIB_SWAP_UNDEFINED;
             new_configs = driCreateConfigs(mesa_formats[format],
-                                           depth_bits_array, stencil_bits_array,
-                                           depth_buffer_factor, back_buffer_modes,
-                                           ARRAY_SIZE(back_buffer_modes),
+                                           depth_bits_array + 1, stencil_bits_array + 1,
+                                           depth_buffer_factor - 1, &swap_undefined,
+                                           1,
                                            msaa_modes+1, num_msaa_modes-1,
                                            GL_FALSE, !mixed_color_depth);
             configs = driConcatConfigs(configs, new_configs);
