@@ -713,7 +713,7 @@ radv_flush_gang_semaphore(struct radv_cmd_buffer *cmd_buffer, struct radeon_cmdb
    return true;
 }
 
-ALWAYS_INLINE static bool
+bool
 radv_flush_gang_leader_semaphore(struct radv_cmd_buffer *cmd_buffer)
 {
    if (!radv_gang_leader_sem_dirty(cmd_buffer))
@@ -724,7 +724,7 @@ radv_flush_gang_leader_semaphore(struct radv_cmd_buffer *cmd_buffer)
    return radv_flush_gang_semaphore(cmd_buffer, cmd_buffer->cs, cmd_buffer->qf, 0, cmd_buffer->gang.sem.leader_value);
 }
 
-ALWAYS_INLINE static bool
+bool
 radv_flush_gang_follower_semaphore(struct radv_cmd_buffer *cmd_buffer)
 {
    if (!radv_gang_follower_sem_dirty(cmd_buffer))
@@ -745,14 +745,14 @@ radv_wait_gang_semaphore(struct radv_cmd_buffer *cmd_buffer, struct radeon_cmdbu
    radv_cp_wait_mem(cs, qf, WAIT_REG_MEM_GREATER_OR_EQUAL, cmd_buffer->gang.sem.va + va_off, value, 0xffffffff);
 }
 
-ALWAYS_INLINE static void
+void
 radv_wait_gang_leader(struct radv_cmd_buffer *cmd_buffer)
 {
    /* Follower waits for the semaphore which the gang leader wrote. */
    radv_wait_gang_semaphore(cmd_buffer, cmd_buffer->gang.cs, RADV_QUEUE_COMPUTE, 0, cmd_buffer->gang.sem.leader_value);
 }
 
-ALWAYS_INLINE static void
+void
 radv_wait_gang_follower(struct radv_cmd_buffer *cmd_buffer)
 {
    /* Gang leader waits for the semaphore which the follower wrote. */

@@ -3148,6 +3148,12 @@ VkResult radv_rra_dump_trace(VkQueue vk_queue, char *filename);
 void radv_rra_trace_clear_ray_history(VkDevice _device, struct radv_rra_trace_data *data);
 void radv_rra_trace_finish(VkDevice vk_device, struct radv_rra_trace_data *data);
 
+bool radv_flush_gang_leader_semaphore(struct radv_cmd_buffer *cmd_buffer);
+bool radv_flush_gang_follower_semaphore(struct radv_cmd_buffer *cmd_buffer);
+void radv_wait_gang_leader(struct radv_cmd_buffer *cmd_buffer);
+void radv_wait_gang_follower(struct radv_cmd_buffer *cmd_buffer);
+bool radv_gang_init(struct radv_cmd_buffer *cmd_buffer);
+
 void radv_memory_trace_init(struct radv_device *device);
 void radv_rmv_log_bo_allocate(struct radv_device *device, struct radeon_winsys_bo *bo, uint32_t size, bool is_internal);
 void radv_rmv_log_bo_destroy(struct radv_device *device, struct radeon_winsys_bo *bo);
