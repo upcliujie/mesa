@@ -26,6 +26,14 @@ pushd /VK-GL-CTS
 # patches.
 
 cts_commits_to_backport=(
+        # Fix test using dynamic scsissor and viewport with ESO
+        6b03f46aa362ba2e064ee089dede825b47be68c7
+
+        # Improve performance when skipping ESO and GPL tests
+        f4141f6996c724b37c5d7d5e5c938997df0208f3
+
+        # Fix support checks in attachment feedback loop layout tests
+        236e76e88e22d6f8d88303065c378ccc84a7188c
 )
 
 for commit in "${cts_commits_to_backport[@]}"
