@@ -29,7 +29,6 @@
 #include "main/context.h"
 #include "util/glheader.h"
 #include "main/enums.h"
-#include "main/mesa_private.h"
 #include "main/dispatch.h"
 #include "glapi/glapi.h"
 
