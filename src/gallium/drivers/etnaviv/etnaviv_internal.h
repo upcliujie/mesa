@@ -254,6 +254,8 @@ struct compiled_shader_state {
    uint32_t GL_VARYING_COMPONENT_USE[2];
    uint32_t GL_HALTI5_SH_SPECIALS;
    uint32_t FE_HALTI5_ID_CONFIG;
+   uint8_t VS_OUTPUT16_REG;
+   uint8_t VS_OUTPUT17_REG;
    unsigned vs_inst_mem_size;
    unsigned ps_inst_mem_size;
    uint32_t *VS_INST_MEM;

@@ -364,8 +364,13 @@ etna_emit_state(struct etna_context *ctx)
    }
 
    if (unlikely(dirty & (ETNA_DIRTY_SHADER | ETNA_DIRTY_RASTERIZER))) {
-
-      /*00804*/ EMIT_STATE(VS_OUTPUT_COUNT, vs_output_count);
+      if (screen->specs.halti < 5) {
+         /*00804*/ EMIT_STATE(VS_OUTPUT_COUNT, vs_output_count |
+                                               VIVS_VS_OUTPUT_COUNT_OUTPUT16_REG(ctx->shader_state.VS_OUTPUT16_REG) |
+                                               VIVS_VS_OUTPUT_COUNT_OUTPUT17_REG(ctx->shader_state.VS_OUTPUT17_REG));
+      } else {
+         /*00804*/ EMIT_STATE(VS_OUTPUT_COUNT, vs_output_count);
+      }
    }
    if (unlikely(dirty & (ETNA_DIRTY_VERTEX_ELEMENTS | ETNA_DIRTY_SHADER))) {
       /*00808*/ EMIT_STATE(VS_INPUT_COUNT, ctx->shader_state.VS_INPUT_COUNT);

@@ -167,6 +167,12 @@ etna_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
    if (vs->vs_pointsize_out_reg >= 0)
       outputs[varid++] = vs->vs_pointsize_out_reg; /* pointsize is last */
 
+   /* keep track of output register 16 and 17 */
+   if (varid == 16)
+      cs->VS_OUTPUT16_REG = outputs[16];
+   if (varid == 17)
+      cs->VS_OUTPUT17_REG = outputs[17];
+
    /* pack outputs */
    DEFINE_ETNA_BITARRAY(vs_output, ETNA_ALL_VARYINGS, 8) = {0};
    assert(varid <= ETNA_ALL_VARYINGS);
