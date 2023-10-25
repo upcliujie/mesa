@@ -122,7 +122,8 @@ class LAVAJobDefinition:
             "device_type": self.job_submitter.device_type,
             "visibility": {"group": [self.job_submitter.visibility_group]},
             "priority": JOB_PRIORITY,
-            "context": {"extra_nfsroot_args": " init=/init rootwait usbcore.quirks=0bda:8153:k"},
+            "context": {"extra_nfsroot_args": " init=/init rootwait usbcore.quirks=0bda:8153:k",
+                        "extra_kernel_args": "etnaviv.hw_job_limit=1 etnaviv.job_hang_limit=0"},
             "timeouts": {
                 "job": {"minutes": self.job_submitter.job_timeout_min},
                 "actions": {

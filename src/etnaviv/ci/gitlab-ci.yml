@@ -39,6 +39,7 @@
     BM_KERNEL: zImage
     DEQP_EXPECTED_RENDERER: GC2000
     GPU_VERSION: "etnaviv-gc2000"
+    HWCI_KERNEL_MODULES: etnaviv
   script:
     - ./install/bare-metal/fastboot.sh
   tags:
@@ -52,6 +53,7 @@
     BM_KERNEL: Image
     DEQP_EXPECTED_RENDERER: GC7000
     GPU_VERSION: "etnaviv-gc7000"
+    HWCI_KERNEL_MODULES: etnaviv
   script:
     - ./install/bare-metal/fastboot.sh
   tags:
@@ -100,3 +102,19 @@ gc7000_gles2:
     HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
     DEQP_VER: gles2
   timeout: 20m
+
+vipnano:
+  extends:
+    - .etnaviv-rules
+    - .lava-test:arm64
+  parallel: 2
+  variables:
+    DEVICE_TYPE: meson-g12b-a311d-khadas-vim3
+    DTB: $DEVICE_TYPE
+    RUNNER_TAG: mesa-ci-x86-64-lava-meson-g12b-a311d-khadas-vim3
+    GPU_VERSION: "etnaviv-vipnano"
+    HWCI_TEST_SCRIPT: "/install/gtest-runner.sh"
+    GTEST: "/install/test_teflon"
+    TEFLON_TEST_DELEGATE: "/install/lib/libteflon.so"
+    TEFLON_TEST_DATA: "/install/teflon-data"
+    HWCI_KERNEL_MODULES: etnaviv
