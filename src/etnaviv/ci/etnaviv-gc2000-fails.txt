@@ -143,8 +143,8 @@ shaders@glsl-fs-texturecube-bias,Fail
 shaders@glsl-kwin-blur-1,Crash
 shaders@glsl-kwin-blur-2,Crash
 
-shaders@glsl-max-varyings,Crash
-shaders@glsl-max-varyings >max_varying_components,Crash
+shaders@glsl-max-varyings,Fail
+shaders@glsl-max-varyings >max_varying_components,Fail
 shaders@glsl-novertexdata,Fail
 shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges,Timeout
 shaders@glsl-uniform-interstage-limits@subdivide 5,Timeout
@@ -469,32 +469,32 @@ spec@glsl-1.10@execution@samplers@glsl-fs-shadow2d-clamp-z,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-varying-array-mat4-index-col-rd,Fail
 spec@glsl-1.10@execution@variable-indexing@fs-varying-array-mat4-index-col-row-rd,Fail
 spec@glsl-1.10@execution@variable-indexing@vs-output-array-vec2-index-wr-no-unroll,Fail
-spec@glsl-1.10@execution@varying-packing@simple float array,Crash
-spec@glsl-1.10@execution@varying-packing@simple float separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat2 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat2 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat2x3 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat2x3 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat2x4 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat2x4 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat3 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat3 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat3x2 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat3x2 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat3x4 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat3x4 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat4 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat4 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat4x2 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat4x2 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat4x3 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple mat4x3 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple vec2 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple vec2 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple vec3 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple vec3 separate,Crash
-spec@glsl-1.10@execution@varying-packing@simple vec4 array,Crash
-spec@glsl-1.10@execution@varying-packing@simple vec4 separate,Crash
+spec@glsl-1.10@execution@varying-packing@simple float array,Fail
+spec@glsl-1.10@execution@varying-packing@simple float separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat2 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat2 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat2x3 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat2x3 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat2x4 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat2x4 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat3 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat3 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat3x2 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat3x2 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat3x4 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat3x4 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat4 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat4 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat4x2 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat4x2 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat4x3 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple mat4x3 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple vec2 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple vec2 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple vec3 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple vec3 separate,Fail
+spec@glsl-1.10@execution@varying-packing@simple vec4 array,Fail
+spec@glsl-1.10@execution@varying-packing@simple vec4 separate,Fail
 spec@glsl-1.20@execution@built-in-functions@vs-op-mult,Fail
 spec@glsl-1.20@execution@clipping@fixed-clip-enables,Fail
 spec@glsl-1.20@execution@clipping@vs-clip-vertex-const-reject,Fail
