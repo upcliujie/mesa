@@ -5168,6 +5168,8 @@ nir_assign_linked_io_var_locations(nir_shader *producer,
 typedef int (*nir_lower_io_type_size_cb)(const struct glsl_type *,
                                          bool is_bindless);
 
+int nir_io_type_size_vec4(const struct glsl_type *, bool is_bindless);
+
 void nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
                               unsigned *size,
                               nir_lower_io_type_size_cb type_size);

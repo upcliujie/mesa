@@ -393,12 +393,6 @@ shader_module_compile_to_nir(struct v3dv_device *device,
    return nir;
 }
 
-static int
-type_size_vec4(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 /* FIXME: the number of parameters for this method is somewhat big. Perhaps
  * rethink.
  */
@@ -934,7 +928,7 @@ lower_fs_io(nir_shader *nir)
                                MESA_SHADER_FRAGMENT);
 
    NIR_PASS(_, nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-            type_size_vec4, 0);
+            nir_io_type_size_vec4, 0);
 }
 
 static void

@@ -5274,12 +5274,6 @@ eliminate_io_wrmasks_instr(const nir_instr *instr, const void *data)
    return false;
 }
 
-static int
-zink_type_size(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 static nir_mem_access_size_align
 mem_access_size_align_cb(nir_intrinsic_op intrin, uint8_t bytes,
                          uint8_t bit_size, uint32_t align,
@@ -5407,10 +5401,10 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir)
       NIR_PASS_V(nir, nir_split_var_copies);
       NIR_PASS_V(nir, nir_lower_var_copies);
    }
-   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_out, zink_type_size, lower_io_flags);
+   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_out, nir_io_type_size_vec4, lower_io_flags);
    if (nir->info.stage == MESA_SHADER_VERTEX)
       lower_io_flags |= nir_lower_io_lower_64bit_to_32;
-   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in, zink_type_size, lower_io_flags);
+   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in, nir_io_type_size_vec4, lower_io_flags);
    nir->info.io_lowered = true;
 
    if (nir->info.stage == MESA_SHADER_KERNEL) {

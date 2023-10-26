@@ -2157,12 +2157,6 @@ ntr_emit_impl(struct ntr_compile *c, nir_function_impl *impl)
 
 }
 
-static int
-type_size(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 /* Allow vectorizing of ALU instructions.
  */
 static uint8_t
@@ -2389,7 +2383,7 @@ const void *nir_to_rc_options(struct nir_shader *s,
    }
 
    NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-              type_size, (nir_lower_io_options)0);
+              nir_io_type_size_vec4, (nir_lower_io_options)0);
 
    nir_to_rc_lower_txp(s);
    NIR_PASS_V(s, nir_to_rc_lower_tex);

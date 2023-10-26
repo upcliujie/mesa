@@ -587,12 +587,6 @@ vir_compile_init(const struct v3d_compiler *compiler,
         return c;
 }
 
-static int
-type_size_vec4(const struct glsl_type *type, bool bindless)
-{
-        return glsl_count_attribute_slots(type, false);
-}
-
 static enum nir_lower_tex_packing
 lower_tex_packing_cb(const nir_tex_instr *tex, const void *data)
 {
@@ -925,8 +919,7 @@ v3d_nir_lower_vs_early(struct v3d_compile *c)
                 NIR_PASS(_, c->s, nir_lower_point_size, 1.0f, 0.0f);
 
         NIR_PASS(_, c->s, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-                 type_size_vec4,
-                 (nir_lower_io_options)0);
+                 nir_io_type_size_vec4, (nir_lower_io_options)0);
         /* clean up nir_lower_io's deref_var remains and do a constant folding pass
          * on the code it generated.
          */
@@ -959,8 +952,7 @@ v3d_nir_lower_gs_early(struct v3d_compile *c)
                 NIR_PASS(_, c->s, nir_lower_point_size, 1.0f, 0.0f);
 
         NIR_PASS(_, c->s, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-                 type_size_vec4,
-                 (nir_lower_io_options)0);
+                 nir_io_type_size_vec4, (nir_lower_io_options)0);
         /* clean up nir_lower_io's deref_var remains and do a constant folding pass
          * on the code it generated.
          */

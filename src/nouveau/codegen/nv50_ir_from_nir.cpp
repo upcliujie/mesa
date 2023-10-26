@@ -43,12 +43,6 @@ namespace {
 
 using namespace nv50_ir;
 
-int
-type_size(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 static void
 function_temp_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
 {
@@ -3277,7 +3271,7 @@ Converter::run()
    NIR_PASS_V(nir, nir_lower_vars_to_ssa);
 
    NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-              type_size, (nir_lower_io_options)0);
+              nir_io_type_size_vec4, (nir_lower_io_options)0);
 
    NIR_PASS_V(nir, nir_lower_subgroups, &subgroup_options);
 

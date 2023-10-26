@@ -469,12 +469,6 @@ using r600::r600_lower_fs_out_to_vector;
 using r600::r600_lower_scratch_addresses;
 using r600::r600_lower_ubo_to_align16;
 
-int
-r600_glsl_type_size(const struct glsl_type *type, bool is_bindless)
-{
-   return glsl_count_vec4_slots(type, false, is_bindless);
-}
-
 void
 r600_get_natural_size_align_bytes(const struct glsl_type *type,
                                   unsigned *size,
@@ -779,7 +773,7 @@ r600_lower_and_optimize_nir(nir_shader *sh,
    NIR_PASS_V(sh,
               nir_lower_io,
               io_modes,
-              r600_glsl_type_size,
+              nir_io_type_size_vec4,
               nir_lower_io_lower_64bit_to_32);
 
    if (sh->info.stage == MESA_SHADER_FRAGMENT)

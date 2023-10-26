@@ -48,11 +48,6 @@ static const nir_shader_compiler_options nir_options = {
    .fuse_ffma32 = true,
 };
 
-static int rogue_glsl_type_size(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 /**
  * \brief Applies optimizations and passes required to lower the NIR shader into
  * a form suitable for lowering to Rogue IR.
@@ -84,7 +79,7 @@ static void rogue_nir_passes(struct rogue_build_ctx *ctx,
    NIR_PASS_V(nir,
               nir_lower_io,
               nir_var_shader_in | nir_var_shader_out,
-              rogue_glsl_type_size,
+              nir_io_type_size_vec4,
               (nir_lower_io_options)0);
 
    /* Load inputs to scalars (single registers later). */

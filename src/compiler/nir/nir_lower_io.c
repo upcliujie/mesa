@@ -33,6 +33,12 @@
 
 #include "util/u_math.h"
 
+int
+nir_io_type_size_vec4(const struct glsl_type *type, bool is_bindless)
+{
+   return glsl_count_vec4_slots(type, false, is_bindless);
+}
+
 struct lower_io_state {
    void *dead_ctx;
    nir_builder builder;
@@ -3143,12 +3149,6 @@ nir_io_add_intrinsic_xfb_info(nir_shader *nir)
    return progress;
 }
 
-static int
-type_size_vec4(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 /**
  * This runs all compiler passes needed to lower IO, lower indirect IO access,
  * set transform feedback info in IO intrinsics, and clean up the IR.
@@ -3202,7 +3202,7 @@ nir_lower_io_passes(nir_shader *nir, bool renumber_vs_inputs)
    }
 
    NIR_PASS_V(nir, nir_lower_io, nir_var_shader_out | nir_var_shader_in,
-              type_size_vec4, nir_lower_io_lower_64bit_to_32);
+              nir_io_type_size_vec4, nir_lower_io_lower_64bit_to_32);
 
    /* nir_io_add_const_offset_to_base needs actual constants. */
    NIR_PASS_V(nir, nir_opt_constant_folding);

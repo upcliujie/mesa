@@ -327,6 +327,12 @@ ir3_nir_lower_array_sampler(nir_shader *shader)
       nir_metadata_block_index | nir_metadata_dominance, NULL);
 }
 
+static int
+amul_type_size_vec4(const struct glsl_type *type, bool _unused)
+{
+   return glsl_count_attribute_slots(type, false);
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -357,7 +363,7 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
       NIR_PASS_V(s, ir3_nir_lower_gs);
 
    NIR_PASS_V(s, nir_lower_frexp);
-   NIR_PASS_V(s, nir_lower_amul, ir3_glsl_type_size);
+   NIR_PASS_V(s, nir_lower_amul, amul_type_size_vec4);
 
    OPT_V(s, nir_lower_wrmasks, should_split_wrmask, s);
 
@@ -473,7 +479,7 @@ ir3_nir_post_finalize(struct ir3_shader *shader)
    MESA_TRACE_FUNC();
 
    NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-              ir3_glsl_type_size, nir_lower_io_lower_64bit_to_32);
+              nir_io_type_size_vec4, nir_lower_io_lower_64bit_to_32);
 
    if (s->info.stage == MESA_SHADER_FRAGMENT) {
       /* NOTE: lower load_barycentric_at_sample first, since it
@@ -753,7 +759,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 
    progress |= OPT(s, ir3_nir_lower_preamble, so);
 
-   OPT_V(s, nir_lower_amul, ir3_glsl_type_size);
+   OPT_V(s, nir_lower_amul, amul_type_size_vec4);
 
    /* UBO offset lowering has to come after we've decided what will
     * be left as load_ubo
