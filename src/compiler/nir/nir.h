@@ -5164,11 +5164,18 @@ nir_assign_linked_io_var_locations(nir_shader *producer,
  *  - is_bindless:  The variable has the bindless flag set and that texture
  *    and sampler types take actual size.  For input/output variable, this is
  *    always true.
+ *
+ *  - compact:  In this case, scalar types should not be expanded to whole
+ *    vectors.  This is set for compact variables (such as clip distances and
+ *    tessellation factors) and for array derefs of vectors.
  */
 typedef int (*nir_lower_io_type_size_cb)(const struct glsl_type *,
-                                         bool is_bindless);
+                                         bool is_bindless,
+                                         bool is_compact);
 
-int nir_io_type_size_vec4(const struct glsl_type *, bool is_bindless);
+int nir_io_type_size_vec4(const struct glsl_type *,
+                          bool is_bindless,
+                          bool is_compact);
 
 void nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
                               unsigned *size,

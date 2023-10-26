@@ -640,7 +640,7 @@ type_size_xvec4(const struct glsl_type *type, bool as_vec4, bool bindless)
  * store a particular type.
  */
 extern "C" int
-type_size_vec4(const struct glsl_type *type, bool bindless)
+type_size_vec4(const struct glsl_type *type, bool bindless, bool compact)
 {
    return type_size_xvec4(type, true, bindless);
 }
@@ -665,7 +665,7 @@ type_size_vec4(const struct glsl_type *type, bool bindless)
  * type fits in one or two vec4 slots.
  */
 extern "C" int
-type_size_dvec4(const struct glsl_type *type, bool bindless)
+type_size_dvec4(const struct glsl_type *type, bool bindless, bool compact)
 {
    return type_size_xvec4(type, false, bindless);
 }
@@ -675,7 +675,7 @@ src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type)
    init();
 
    this->file = VGRF;
-   this->nr = v->alloc.allocate(type_size_vec4(type, false));
+   this->nr = v->alloc.allocate(type_size_vec4(type, false, false));
 
    if (type->is_array() || type->is_struct()) {
       this->swizzle = BRW_SWIZZLE_NOOP;
@@ -693,7 +693,7 @@ src_reg::src_reg(class vec4_visitor *v, const struct glsl_type *type, int size)
    init();
 
    this->file = VGRF;
-   this->nr = v->alloc.allocate(type_size_vec4(type, false) * size);
+   this->nr = v->alloc.allocate(type_size_vec4(type, false, false) * size);
 
    this->swizzle = BRW_SWIZZLE_NOOP;
 
@@ -705,7 +705,7 @@ dst_reg::dst_reg(class vec4_visitor *v, const struct glsl_type *type)
    init();
 
    this->file = VGRF;
-   this->nr = v->alloc.allocate(type_size_vec4(type, false));
+   this->nr = v->alloc.allocate(type_size_vec4(type, false, false));
 
    if (type->is_array() || type->is_struct()) {
       this->writemask = WRITEMASK_XYZW;

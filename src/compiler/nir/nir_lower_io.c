@@ -34,9 +34,16 @@
 #include "util/u_math.h"
 
 int
-nir_io_type_size_vec4(const struct glsl_type *type, bool is_bindless)
+nir_io_type_size_vec4(const struct glsl_type *type,
+                      bool is_bindless,
+                      bool is_compact)
 {
-   return glsl_count_vec4_slots(type, false, is_bindless);
+   if (is_compact) {
+      unsigned dw = glsl_count_dword_slots(type, is_bindless);
+      return DIV_ROUND_UP(dw, 4);
+   } else {
+      return glsl_count_vec4_slots(type, false, is_bindless);
+   }
 }
 
 struct lower_io_state {
@@ -120,7 +127,7 @@ variable_size(const nir_variable *var, gl_shader_stage stage,
                    var->data.mode == nir_var_shader_out ||
                    var->data.bindless;
 
-   return type_size(type, bindless);
+   return type_size(type, bindless, var->data.compact);
 }
 
 void
@@ -209,7 +216,7 @@ get_number_of_slots(struct lower_io_state *state,
        !nir_is_arrayed_io(var, state->builder.shader->info.stage))
       return 1;
 
-   return state->type_size(type, var->data.bindless) /
+   return state->type_size(type, var->data.bindless, false) /
           (uses_high_dvec2_semantic(state, var) ? 2 : 1);
 }
 
@@ -234,16 +241,26 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
       p++;
    }
 
-   if (path.path[0]->var->data.compact) {
+   nir_variable *var = path.path[0]->var;
+   if (var->data.compact) {
       assert((*p)->deref_type == nir_deref_type_array);
       assert(glsl_type_is_scalar((*p)->type));
 
-      /* We always lower indirect dereferences for "compact" array vars. */
-      const unsigned index = nir_src_as_uint((*p)->arr.index);
-      const unsigned total_offset = *component + index;
-      const unsigned slot_offset = total_offset / 4;
-      *component = total_offset % 4;
-      return nir_imm_int(b, type_size(glsl_vec4_type(), bts) * slot_offset);
+      if (nir_src_is_const((*p)->arr.index)) {
+         /* For compact array vars, if we have a constant index, we can lower
+          * to a component which will work on any hardware which can handle
+          * partial vector read/writes to I/O even if it can't handle
+          * indirects on individual components.  For this lowering, we work in
+          * terms of dwords until we need to actually return a size.
+          */
+         const unsigned index = nir_src_as_uint((*p)->arr.index);
+         const unsigned total_offset = *component + index;
+         const unsigned slot_offset = total_offset / 4;
+         *component = total_offset % 4;
+
+         const unsigned slot_size = type_size(glsl_vec4_type(), bts, false);
+         return nir_imm_int(b, slot_size * slot_offset);
+      }
    }
 
    /* Just emit code and let constant-folding go to town */
@@ -251,7 +268,9 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
 
    for (; *p; p++) {
       if ((*p)->deref_type == nir_deref_type_array) {
-         unsigned size = type_size((*p)->type, bts);
+         nir_deref_instr *parent = *(p - 1);
+         bool compact = var->data.compact || glsl_type_is_vector(parent->type);
+         unsigned size = type_size((*p)->type, bts, compact);
 
          nir_def *mul =
             nir_amul_imm(b, (*p)->arr.index.ssa, size);
@@ -263,7 +282,8 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
 
          unsigned field_offset = 0;
          for (unsigned i = 0; i < (*p)->strct.index; i++) {
-            field_offset += type_size(glsl_get_struct_field(parent->type, i), bts);
+            field_offset += type_size(glsl_get_struct_field(parent->type, i),
+                                      bts, false);
          }
          offset = nir_iadd_imm(b, offset, field_offset);
       } else {
@@ -392,7 +412,8 @@ lower_load(nir_intrinsic_instr *intrin, struct lower_io_state *state,
       if (use_high_dvec2_semantic)
          offset = nir_ushr_imm(b, offset, 1);
 
-      const unsigned slot_size = state->type_size(glsl_dvec_type(2), false);
+      const unsigned slot_size =
+         state->type_size(glsl_dvec_type(2), false, false);
 
       nir_def *comp64[4];
       assert(component == 0 || component == 2);
@@ -515,7 +536,8 @@ lower_store(nir_intrinsic_instr *intrin, struct lower_io_state *state,
                                            nir_lower_io_lower_64bit_to_32_new)))) {
       nir_builder *b = &state->builder;
 
-      const unsigned slot_size = state->type_size(glsl_dvec_type(2), false);
+      const unsigned slot_size =
+         state->type_size(glsl_dvec_type(2), false, false);
 
       assert(component == 0 || component == 2);
       unsigned src_comp = 0;

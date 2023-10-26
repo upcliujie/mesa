@@ -307,9 +307,14 @@ nak_attribute_attr_addr(gl_vert_attrib attrib)
 }
 
 static int
-type_size_vec4_bytes(const struct glsl_type *type, bool bindless)
+type_size_vec4_bytes(const struct glsl_type *type,
+                     bool is_bindless,
+                     bool is_compact)
 {
-   return glsl_count_vec4_slots(type, false, bindless) * 16;
+   if (is_compact)
+      return glsl_count_dword_slots(type, is_bindless) * 4;
+   else
+      return glsl_count_vec4_slots(type, false, is_bindless) * 16;
 }
 
 static bool
@@ -796,10 +801,11 @@ nak_nir_lower_fs_inputs(nir_shader *nir,
 }
 
 static int
-fs_out_size(const struct glsl_type *type, bool bindless)
+fs_out_size(const struct glsl_type *type, bool bindless, bool is_compact)
 {
    assert(glsl_type_is_vector_or_scalar(type));
-   return 16;
+   assert(!is_compact || glsl_type_is_scalar(type));
+   return is_compact ? 4 : 16;
 }
 
 static bool

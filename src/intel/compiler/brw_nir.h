@@ -33,19 +33,21 @@
 extern "C" {
 #endif
 
-int type_size_vec4(const struct glsl_type *type, bool bindless);
-int type_size_dvec4(const struct glsl_type *type, bool bindless);
+int type_size_vec4(const struct glsl_type *type, bool bindless, bool compact);
+int type_size_dvec4(const struct glsl_type *type, bool bindless, bool compact);
 
 static inline int
-type_size_scalar_bytes(const struct glsl_type *type, bool bindless)
+type_size_scalar_bytes(const struct glsl_type *type,
+                       bool bindless, bool compact)
 {
    return glsl_count_dword_slots(type, bindless) * 4;
 }
 
 static inline int
-type_size_vec4_bytes(const struct glsl_type *type, bool bindless)
+type_size_vec4_bytes(const struct glsl_type *type,
+                     bool bindless, bool compact)
 {
-   return type_size_vec4(type, bindless) * 16;
+   return type_size_vec4(type, bindless, compact) * 16;
 }
 
 /* Flags set in the instr->pass_flags field by i965 analysis passes */

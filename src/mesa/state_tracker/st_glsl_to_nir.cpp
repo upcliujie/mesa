@@ -818,14 +818,17 @@ st_nir_lower_samplers(struct pipe_screen *screen, nir_shader *nir,
 }
 
 static int
-st_packed_uniforms_type_size(const struct glsl_type *type, bool bindless)
+st_packed_uniforms_type_size(const struct glsl_type *type,
+                             bool bindless, bool compact)
 {
    return glsl_count_dword_slots(type, bindless);
 }
 
 static int
-st_unpacked_uniforms_type_size(const struct glsl_type *type, bool bindless)
+st_unpacked_uniforms_type_size(const struct glsl_type *type,
+                               bool bindless, bool compact)
 {
+   assert(!compact);
    return glsl_count_vec4_slots(type, false, bindless);
 }
 
