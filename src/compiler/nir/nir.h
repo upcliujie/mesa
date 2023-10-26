@@ -5112,10 +5112,6 @@ void nir_gather_types(nir_function_impl *impl,
                       BITSET_WORD *float_types,
                       BITSET_WORD *int_types);
 
-void nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
-                              unsigned *size,
-                              int (*type_size)(const struct glsl_type *, bool));
-
 /* Some helpers to do very simple linking */
 bool nir_remove_unused_varyings(nir_shader *producer, nir_shader *consumer);
 bool nir_remove_unused_io_vars(nir_shader *shader, nir_variable_mode mode,
@@ -5160,6 +5156,22 @@ nir_linked_io_var_info
 nir_assign_linked_io_var_locations(nir_shader *producer,
                                    nir_shader *consumer);
 
+/** Returns the size of a type
+ *
+ * The value returned by this callback is potentially modified by the
+ * following flags:
+ *
+ *  - is_bindless:  The variable has the bindless flag set and that texture
+ *    and sampler types take actual size.  For input/output variable, this is
+ *    always true.
+ */
+typedef int (*nir_lower_io_type_size_cb)(const struct glsl_type *,
+                                         bool is_bindless);
+
+void nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
+                              unsigned *size,
+                              nir_lower_io_type_size_cb type_size);
+
 typedef enum {
    /* If set, this causes all 64-bit IO operations to be lowered on-the-fly
     * to 32-bit operations.  This is only valid for nir_var_shader_in/out
@@ -5192,7 +5204,7 @@ typedef enum {
 } nir_lower_io_options;
 bool nir_lower_io(nir_shader *shader,
                   nir_variable_mode modes,
-                  int (*type_size)(const struct glsl_type *, bool),
+                  nir_lower_io_type_size_cb type_size,
                   nir_lower_io_options);
 
 bool nir_io_add_const_offset_to_base(nir_shader *nir, nir_variable_mode modes);

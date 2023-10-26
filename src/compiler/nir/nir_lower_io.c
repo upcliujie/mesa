@@ -36,7 +36,7 @@
 struct lower_io_state {
    void *dead_ctx;
    nir_builder builder;
-   int (*type_size)(const struct glsl_type *type, bool);
+   nir_lower_io_type_size_cb type_size;
    nir_variable_mode modes;
    nir_lower_io_options options;
 };
@@ -105,7 +105,7 @@ task_payload_atomic_for_deref(nir_intrinsic_op deref_op)
 void
 nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
                          unsigned *size,
-                         int (*type_size)(const struct glsl_type *, bool))
+                         nir_lower_io_type_size_cb type_size)
 {
    unsigned location = 0;
 
@@ -198,7 +198,7 @@ get_number_of_slots(struct lower_io_state *state,
 static nir_def *
 get_io_offset(nir_builder *b, nir_deref_instr *deref,
               nir_def **array_index,
-              int (*type_size)(const struct glsl_type *, bool),
+              nir_lower_io_type_size_cb type_size,
               unsigned *component, bool bts)
 {
    nir_deref_path path;
@@ -752,7 +752,7 @@ nir_lower_io_block(nir_block *block,
 static bool
 nir_lower_io_impl(nir_function_impl *impl,
                   nir_variable_mode modes,
-                  int (*type_size)(const struct glsl_type *, bool),
+                  nir_lower_io_type_size_cb type_size,
                   nir_lower_io_options options)
 {
    struct lower_io_state state;
@@ -790,7 +790,7 @@ nir_lower_io_impl(nir_function_impl *impl,
  */
 bool
 nir_lower_io(nir_shader *shader, nir_variable_mode modes,
-             int (*type_size)(const struct glsl_type *, bool),
+             nir_lower_io_type_size_cb type_size,
              nir_lower_io_options options)
 {
    bool progress = false;
