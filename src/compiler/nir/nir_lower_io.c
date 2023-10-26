@@ -108,6 +108,21 @@ task_payload_atomic_for_deref(nir_intrinsic_op deref_op)
    }
 }
 
+static int
+variable_size(const nir_variable *var, gl_shader_stage stage,
+              nir_lower_io_type_size_cb type_size)
+{
+   const struct glsl_type *type = var->type;
+   if (nir_is_arrayed_io(var, stage))
+      type = glsl_get_array_element(type);
+
+   bool bindless = var->data.mode == nir_var_shader_in ||
+                   var->data.mode == nir_var_shader_out ||
+                   var->data.bindless;
+
+   return type_size(type, bindless);
+}
+
 void
 nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
                          unsigned *size,
@@ -117,10 +132,7 @@ nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
 
    nir_foreach_variable_with_modes(var, shader, mode) {
       var->data.driver_location = location;
-      bool bindless_type_size = var->data.mode == nir_var_shader_in ||
-                                var->data.mode == nir_var_shader_out ||
-                                var->data.bindless;
-      location += type_size(var->type, bindless_type_size);
+      location += variable_size(var, shader->info.stage, type_size);
    }
 
    *size = location;
@@ -322,11 +334,8 @@ emit_load(struct lower_io_state *state,
 
    nir_intrinsic_set_base(load, var->data.driver_location);
    if (nir_intrinsic_has_range(load)) {
-      const struct glsl_type *type = var->type;
-      if (array_index)
-         type = glsl_get_array_element(type);
-      unsigned var_size = state->type_size(type, var->data.bindless);
-      nir_intrinsic_set_range(load, var_size);
+      nir_intrinsic_set_range(load, variable_size(var, nir->info.stage,
+                                                  state->type_size));
    }
 
    if (mode == nir_var_shader_in || mode == nir_var_shader_out)
@@ -451,12 +460,9 @@ emit_store(struct lower_io_state *state, nir_def *data,
 
    store->src[0] = nir_src_for_ssa(data);
 
-   const struct glsl_type *type = var->type;
-   if (array_index)
-      type = glsl_get_array_element(type);
-   unsigned var_size = state->type_size(type, var->data.bindless);
    nir_intrinsic_set_base(store, var->data.driver_location);
-   nir_intrinsic_set_range(store, var_size);
+   nir_intrinsic_set_range(store, variable_size(var, b->shader->info.stage,
+                                                state->type_size));
    nir_intrinsic_set_component(store, component);
    nir_intrinsic_set_src_type(store, src_type);
 
