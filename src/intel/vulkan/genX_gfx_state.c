@@ -1714,6 +1714,23 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
       genX(cmd_buffer_enable_pma_fix)(cmd_buffer, hw_state->pma_fix);
 #endif
 
+   /* Wa_14014097488
+    *
+    *    "The semi-pipe state change which is impacting thread dispatch is
+    *     3dstate_depth_buffer, 3dsate_stencil_buffer, 3dstate_WM. If these
+    *     states are changing then we need to add the extra (2) dummy state
+    *     change"
+    *
+    * The rest of the Wa_14014097488 workaround implementation is happening in
+    * genX_cmd_buffer.c
+    */
+   if (intel_needs_workaround(cmd_buffer->device->info, 14014097488) &&
+       BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_WM)) {
+      genx_batch_emit_pipe_control_write(
+         &cmd_buffer->batch, cmd_buffer->device->info, WriteImmediateData,
+         cmd_buffer->device->workaround_address, 0, 0);
+   }
+
 #undef INIT
 #undef SET
 
