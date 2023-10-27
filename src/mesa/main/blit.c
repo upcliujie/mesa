@@ -526,8 +526,8 @@ static void
 do_blit_framebuffer(struct gl_context *ctx,
                     struct gl_framebuffer *readFB,
                     struct gl_framebuffer *drawFB,
-                    GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
-                    GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+                    GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint srcLayer,
+                    GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLint dstLayer,
                     GLbitfield mask, GLenum filter)
 {
    struct st_context *st = st_context(ctx);
@@ -882,8 +882,8 @@ blit_framebuffer(struct gl_context *ctx,
    }
 
    do_blit_framebuffer(ctx, readFb, drawFb,
-                       srcX0, srcY0, srcX1, srcY1,
-                       dstX0, dstY0, dstX1, dstY1,
+                       srcX0, srcY0, srcX1, srcY1, -1,
+                       dstX0, dstY0, dstX1, dstY1, -1,
                        mask, filter);
 }
 
