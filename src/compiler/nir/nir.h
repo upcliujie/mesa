@@ -5083,6 +5083,7 @@ typedef enum {
    nir_lower_direct_array_deref_of_vec_store = (1 << 2),
    nir_lower_indirect_array_deref_of_vec_store = (1 << 3),
 } nir_lower_array_deref_of_vec_options;
+MESA_DEFINE_CPP_ENUM_BITFIELD_OPERATORS(nir_lower_array_deref_of_vec_options)
 
 bool nir_lower_array_deref_of_vec(nir_shader *shader, nir_variable_mode modes,
                                   nir_lower_array_deref_of_vec_options options);

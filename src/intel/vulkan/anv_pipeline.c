@@ -239,6 +239,17 @@ anv_shader_stage_to_nir(struct anv_device *device,
    NIR_PASS_V(nir, nir_lower_io_to_temporaries,
               nir_shader_get_entrypoint(nir), true, false);
 
+   if (stage == MESA_SHADER_TESS_CTRL) {
+      /* Tessellation control shaders may have array derefs of vectors on
+       * outputs and our compiler can't handle those.
+       */
+      NIR_PASS(_, nir, nir_lower_array_deref_of_vec, nir_var_shader_out,
+               nir_lower_direct_array_deref_of_vec_load |
+               nir_lower_indirect_array_deref_of_vec_load |
+               nir_lower_direct_array_deref_of_vec_store |
+               nir_lower_indirect_array_deref_of_vec_store);
+   }
+
    return nir;
 }
 

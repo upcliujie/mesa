@@ -99,6 +99,17 @@ tu_spirv_to_nir(struct tu_device *dev,
       nir_print_shader(nir, stderr);
    }
 
+   if (stage == MESA_SHADER_TESS_CTRL) {
+      /* Tessellation control shaders may have array derefs of vectors on
+       * outputs and compilers may not be able to handle those.
+       */
+      NIR_PASS_V(nir, nir_lower_array_deref_of_vec, nir_var_shader_out,
+                 nir_lower_direct_array_deref_of_vec_load |
+                 nir_lower_indirect_array_deref_of_vec_load |
+                 nir_lower_direct_array_deref_of_vec_store |
+                 nir_lower_indirect_array_deref_of_vec_store);
+   }
+
    const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
       .point_coord = true,
    };
