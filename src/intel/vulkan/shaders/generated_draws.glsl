@@ -183,9 +183,12 @@ void main()
    uint _3dprim_dw_size = (params.flags >> 16) & 0xff;
    uint gfx_ver = (params.flags >> 24) & 0xff;
    uint item_idx = uint(gl_FragCoord.y) * 8192 + uint(gl_FragCoord.x);
-   uint cmd_idx = item_idx * _3dprim_dw_size;
+   uint cmd_idx =
+        item_idx * _3dprim_dw_size + 6 * item_idx / 3;
    uint draw_id = params.draw_base + item_idx;
    uint draw_count = _draw_count;
+   bool needs_wa_16014538804 =
+        (params.flags & ANV_GENERATED_WA_16014538804) != 0;
 
    if (draw_id < min(draw_count, params.max_draw_count)) {
       if (gfx_ver == 9)
@@ -193,6 +196,10 @@ void main()
       else
          gfx11_write_draw(item_idx, cmd_idx, draw_id);
    }
+
+   if (needs_wa_16014538804 && cmd_idx % 3 == 2)
+      write_empty_PIPE_CONTROL(cmd_idx + _3dprim_dw_size);
+
 
    end_generated_draws(item_idx, cmd_idx, draw_id, draw_count);
 }
