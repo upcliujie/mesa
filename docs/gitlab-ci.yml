@@ -37,6 +37,7 @@ test-docs:
   stage: deploy
   needs: []
   rules:
+    - !reference [.common-rules, rules]
     - !reference [.no_scheduled_pipelines-rules, rules]
     - if: '$CI_COMMIT_BRANCH && $CI_PROJECT_NAMESPACE != "mesa"'
       changes: *docs-or-ci
@@ -61,6 +62,7 @@ linkcheck-docs:
   stage: deploy
   needs: []
   rules:
+    - !reference [.common-rules, rules]
     - !reference [.scheduled_pipeline-rules, rules]
   allow_failure: true
   variables:
