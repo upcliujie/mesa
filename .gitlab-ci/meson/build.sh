@@ -49,6 +49,14 @@ if [ -n "$CROSS" ]; then
     fi
 fi
 
+# Only debian-mingw32 needs wine and Xvfb for running unittest
+if [ "$CI_JOB_NAME" == "debian-mingw32-x86_64" ]; then
+    . .gitlab-ci/container/setup-wine.sh ~/.wine
+    Xvfb :0 -screen 0 1024x768x16 &
+    xvfb_pid=$!
+    export DISPLAY=:0.0
+fi
+
 # Only use GNU time if available, not any shell built-in command
 case $CI_JOB_NAME in
     # strace and wine don't seem to mix well
@@ -57,8 +65,6 @@ case $CI_JOB_NAME in
         if test -f /usr/bin/time; then
             MESON_TEST_ARGS+=--wrapper=$PWD/.gitlab-ci/meson/time.sh
         fi
-        Xvfb :0 -screen 0 1024x768x16 &
-        export DISPLAY=:0.0
         ;;
     *)
         if test -f /usr/bin/time -a -f /usr/bin/strace; then
@@ -67,6 +73,8 @@ case $CI_JOB_NAME in
         ;;
 esac
 
+mkdir -p $PWD/install
+echo "*" > $PWD/install/.gitignore
 rm -rf _build
 meson setup _build \
       --native-file=native.file \
@@ -91,7 +99,9 @@ meson setup _build \
       -D werror=true \
       ${EXTRA_OPTION}
 cd _build
-meson configure
+# Do not redirect output to a pager. So that build.sh locally
+# there is no need navigate with pager.
+meson configure --no-pager
 
 uncollapsed_section_switch meson-build "meson: build"
 
@@ -111,3 +121,8 @@ else
 fi
 cd ..
 section_end meson-test
+
+if [ -n "$xvfb_pid" ]; then
+    kill -9 "$xvfb_pid"
+    rm -rf xdg-runtime-*
+fi

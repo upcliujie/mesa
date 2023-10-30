@@ -1,0 +1,23 @@
+[binaries]
+c = ['ccache', '/usr/x86_64-w64-mingw32/bin/clang' ]
+c_ld = '/usr/x86_64-w64-mingw32/bin/ld'
+cpp = ['ccache', '/usr/x86_64-w64-mingw32/bin/clang++' ]
+cpp_ld = '/usr/x86_64-w64-mingw32/bin/ld'
+ar = '/usr/x86_64-w64-mingw32/bin/ar'
+strip = '/usr/x86_64-w64-mingw32/bin/strip'
+pkgconfig = '/usr/x86_64-w64-mingw32/bin/pkgconf'
+llvm-config = '/usr/x86_64-w64-mingw32/bin/llvm-config'
+windres = '/usr/x86_64-w64-mingw32/bin/windres'
+exe_wrapper = ['wine']
+
+[properties]
+needs_exe_wrapper = True
+sys_root = '/usr/x86_64-w64-mingw32/'
+
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+; vim: ft=dosini

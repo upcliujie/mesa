@@ -1,0 +1,93 @@
+ARG base_image
+FROM ${base_image}
+
+ENV LLVM_VERSION=15
+COPY debian/x86_64_build-mingw-install.sh .gitlab-ci/container/debian/x86_64_build-mingw-install.sh
+RUN bash .gitlab-ci/container/debian/x86_64_build-mingw-install.sh
+
+COPY x86_64-w64-mingw32-download.sh .gitlab-ci/container/x86_64-w64-mingw32-download.sh
+RUN bash .gitlab-ci/container/x86_64-w64-mingw32-download.sh
+
+COPY setup-wine.sh .gitlab-ci/container/setup-wine.sh
+COPY x86_64-w64-mingw32 .gitlab-ci/container/x86_64-w64-mingw32
+COPY x86_64-w64-mingw32-toolchain.cmake .gitlab-ci/container/x86_64-w64-mingw32-toolchain.cmake
+COPY x86_64-w64-mingw32-source-deps.sh .gitlab-ci/container/x86_64-w64-mingw32-source-deps.sh
+RUN bash .gitlab-ci/container/x86_64-w64-mingw32-source-deps.sh
+RUN rm -rf .gitlab-ci
+
+# For local development
+RUN apt install -y clang-format-$LLVM_VERSION shellcheck
+
+# Prepare the bash env
+SHELL ["/bin/bash", "--login", "-c"]
+RUN \
+  echo "if [ -f /app/.gitlab-ci/setup-test-env.sh ]; then" >> /etc/bash.bashrc && \
+  echo "  source /app/.gitlab-ci/setup-test-env.sh" >> /etc/bash.bashrc && \
+  echo "fi" >> /etc/bash.bashrc
+
+ENV CI_JOB_NAME=debian-mingw32-x86_64
+ENV CI_JOB_STARTED_AT=2023-07-16T20:12:38Z
+
+# The following environment variables should be synced with
+# debian-mingw32-x86_64: in .gitlab-ci\build\gitlab-ci.yml
+ENV BUILDTYPE=debug
+ENV UNWIND="disabled"
+ENV C_ARGS=" \
+  -Wno-error=format \
+  -Wno-error=unused-but-set-variable \
+  -Wno-error=constant-conversion \
+  -Wno-error=incompatible-pointer-types \
+  -Wno-error=enum-conversion \
+  -Wno-error=sometimes-uninitialized \
+  -Wno-error=implicit-const-int-float-conversion \
+  -Wno-error=unknown-attributes \
+  "
+ENV CPP_ARGS=" \
+  -Wno-error=format \
+  -Wno-error=unused-function \
+  -Wno-error=unused-variable \
+  -Wno-error=sign-compare \
+  -Wno-error=narrowing \
+  -Wno-error=unknown-pragmas \
+  -Wno-error=missing-braces \
+  -Wno-error=string-plus-int \
+  -Wno-error=#warnings \
+  "
+ENV C_LINK_ARGS=-Wl,/force:multiple
+ENV CPP_LINK_ARGS=-Wl,/force:multiple
+ENV GALLIUM_DRIVERS="swrast,d3d12,zink"
+ENV VULKAN_DRIVERS="swrast,amd,microsoft-experimental"
+ENV GALLIUM_ST=" \
+  -D gallium-opencl=icd \
+  -D gallium-rusticl=false \
+  -D opencl-spirv=true \
+  -D microsoft-clc=enabled \
+  -D static-libclc=all \
+  -D opencl-external-clang-headers=disabled \
+  -D llvm=enabled \
+  -D gallium-va=enabled \
+  -D video-codecs=h264dec,h264enc,h265dec,h265enc,vc1dec \
+  "
+ENV EXTRA_OPTION=" \
+  -D min-windows-version=7 \
+  -D spirv-to-dxil=true \
+  -D gles1=enabled \
+  -D gles2=enabled \
+  -D osmesa=true \
+  -D cpp_rtti=true \
+  -D shared-glapi=enabled \
+  -D zlib=enabled \
+  --cross-file=.gitlab-ci/container/x86_64-w64-mingw32 \
+  "
+
+# Prepare the container:
+# $base_image should use newest debian x86_64_build-base image that pulled from harbor.freedesktop.org
+# cd $MESA_SOURCE_DIR
+# pushd .gitlab-ci/container
+# export base_image=harbor.freedesktop.org/mesa/mesa/debian/x86_64_build-base:2023-07-26-meson-1.2--d5aa3941aa03c2f716595116354fb81eb8012acb
+# docker build -f Dockerfile_debian_mingw --progress=plain --tag debian/x86_64_build-mingw  . --build-arg base_image="$base_image"
+
+# Build/Unittest/Install:
+# cd $MESA_SOURCE_DIR
+# docker run -it --rm -v $PWD:/app debian/x86_64_build-mingw
+# time bash .gitlab-ci/meson/build.sh

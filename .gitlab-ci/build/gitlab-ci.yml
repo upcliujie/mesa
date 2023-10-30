@@ -65,7 +65,6 @@
   extends:
     - .build-linux
     - .use-debian/x86_64_build_mingw
-    - .use-wine
   stage: build-x86_64
   script:
     - .gitlab-ci/meson/build.sh
@@ -689,21 +688,35 @@ debian-ppc64el:
     GALLIUM_DRIVERS: "nouveau,radeonsi,swrast,virgl,zink"
     VULKAN_DRIVERS: "amd,swrast"
 
-# Disabled as it hangs with winedbg on shared runners
-.debian-mingw32-x86_64:
+debian-mingw32-x86_64:
   extends: .meson-build_mingw
   stage: build-misc
   variables:
+    # The following environment variables should be synced with
+    # .gitlab-ci\container\Dockerfile_debian_mingw
+    BUILDTYPE: debug
     UNWIND: "disabled"
     C_ARGS: >
       -Wno-error=format
       -Wno-error=unused-but-set-variable
+      -Wno-error=constant-conversion
+      -Wno-error=incompatible-pointer-types
+      -Wno-error=enum-conversion
+      -Wno-error=sometimes-uninitialized
+      -Wno-error=implicit-const-int-float-conversion
+      -Wno-error=unknown-attributes
     CPP_ARGS: >
       -Wno-error=format
       -Wno-error=unused-function
       -Wno-error=unused-variable
       -Wno-error=sign-compare
       -Wno-error=narrowing
+      -Wno-error=unknown-pragmas
+      -Wno-error=missing-braces
+      -Wno-error=string-plus-int
+      -Wno-error=#warnings
+    C_LINK_ARGS: "-Wl,/force:multiple"
+    CPP_LINK_ARGS: "-Wl,/force:multiple"
     GALLIUM_DRIVERS: "swrast,d3d12,zink"
     VULKAN_DRIVERS: "swrast,amd,microsoft-experimental"
     GALLIUM_ST: >
@@ -725,4 +738,4 @@ debian-ppc64el:
       -D cpp_rtti=true
       -D shared-glapi=enabled
       -D zlib=enabled
-      --cross-file=.gitlab-ci/x86_64-w64-mingw32
+      --cross-file=.gitlab-ci/container/x86_64-w64-mingw32

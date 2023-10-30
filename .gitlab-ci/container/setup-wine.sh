@@ -2,6 +2,7 @@
 
 export WINEPREFIX="$1"
 export WINEDEBUG="-all"
+export WINEPATH="/usr/x86_64-w64-mingw32/bin;/usr/x86_64-w64-mingw32/lib;/usr/lib/gcc/x86_64-w64-mingw32/12-posix;c:/windows;c:/windows/system32"
 
 # We don't want crash dialogs
 cat >crashdialog.reg <<EOF
