@@ -10771,8 +10771,13 @@ radv_CmdEndTransformFeedbackEXT(VkCommandBuffer commandBuffer, uint32_t firstCou
 
    assert(firstCounterBuffer + counterBufferCount <= MAX_SO_BUFFERS);
 
-   if (!cmd_buffer->device->physical_device->use_ngg_streamout)
+   if (cmd_buffer->device->physical_device->use_ngg_streamout) {
+      /* Wait for GDS to be idle to fix a synchronization issue. */
+      cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_PS_PARTIAL_FLUSH;
+      si_emit_cache_flush(cmd_buffer);
+   } else {
       radv_flush_vgt_streamout(cmd_buffer);
+   }
 
    ASSERTED unsigned cdw_max = radeon_check_space(cmd_buffer->device->ws, cmd_buffer->cs, MAX_SO_BUFFERS * 12);
 
