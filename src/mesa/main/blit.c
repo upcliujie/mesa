@@ -350,13 +350,184 @@ validate_depth_buffer(struct gl_context *ctx, struct gl_framebuffer *readFb,
    return true;
 }
 
+static bool
+validate_mask(struct gl_context *ctx,
+           struct gl_framebuffer *readFb, struct gl_framebuffer *drawFb,
+           GLbitfield *mask, GLenum filter, bool no_error, const char *func)
+{
+   GLbitfield m = *mask;
+
+   if (m & GL_COLOR_BUFFER_BIT) {
+      const GLuint numColorDrawBuffers = drawFb->_NumColorDrawBuffers;
+      const struct gl_renderbuffer *colorReadRb = readFb->_ColorReadBuffer;
+
+      /* From the EXT_framebuffer_object spec:
+       *
+       *     "If a buffer is specified in <mask> and does not exist in both
+       *     the read and draw framebuffers, the corresponding bit is silently
+       *     ignored."
+       */
+      if (!colorReadRb || numColorDrawBuffers == 0) {
+         m &= ~GL_COLOR_BUFFER_BIT;
+      } else if (!no_error) {
+         if (!validate_color_buffer(ctx, readFb, drawFb, filter, func))
+            return false;
+      }
+   }
+
+   if (m & GL_STENCIL_BUFFER_BIT) {
+      struct gl_renderbuffer *readRb =
+         readFb->Attachment[BUFFER_STENCIL].Renderbuffer;
+      struct gl_renderbuffer *drawRb =
+         drawFb->Attachment[BUFFER_STENCIL].Renderbuffer;
+
+      /* From the EXT_framebuffer_object spec:
+       *
+       *     "If a buffer is specified in <mask> and does not exist in both
+       *     the read and draw framebuffers, the corresponding bit is silently
+       *     ignored."
+       */
+      if ((readRb == NULL) || (drawRb == NULL)) {
+         m &= ~GL_STENCIL_BUFFER_BIT;
+      } else if (!no_error) {
+         if (!validate_stencil_buffer(ctx, readFb, drawFb, func))
+            return false;
+      }
+   }
+
+   if (m & GL_DEPTH_BUFFER_BIT) {
+      struct gl_renderbuffer *readRb =
+         readFb->Attachment[BUFFER_DEPTH].Renderbuffer;
+      struct gl_renderbuffer *drawRb =
+         drawFb->Attachment[BUFFER_DEPTH].Renderbuffer;
+
+      /* From the EXT_framebuffer_object spec:
+       *
+       *     "If a buffer is specified in <mask> and does not exist in both
+       *     the read and draw framebuffers, the corresponding bit is silently
+       *     ignored."
+       */
+      if ((readRb == NULL) || (drawRb == NULL)) {
+         m &= ~GL_DEPTH_BUFFER_BIT;
+      } else if (!no_error) {
+         if (!validate_depth_buffer(ctx, readFb, drawFb, func))
+            return false;
+      }
+   }
+
+   *mask = m;
+   return true;
+}
+
+static bool
+validate_blit_framebuffers(struct gl_context *ctx,
+                           struct gl_framebuffer *readFb, struct gl_framebuffer *drawFb,
+                           GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+                           GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+                           GLbitfield mask, GLenum filter, const char *func)
+{
+   const GLbitfield legalMaskBits = (GL_COLOR_BUFFER_BIT |
+                                     GL_DEPTH_BUFFER_BIT |
+                                     GL_STENCIL_BUFFER_BIT);
+
+   /* check for complete framebuffers */
+   if (drawFb->_Status != GL_FRAMEBUFFER_COMPLETE_EXT ||
+       readFb->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
+      _mesa_error(ctx, GL_INVALID_FRAMEBUFFER_OPERATION_EXT,
+                  "%s(incomplete draw/read buffers)", func);
+      return false;
+   }
+
+   if (!is_valid_blit_filter(ctx, filter)) {
+      _mesa_error(ctx, GL_INVALID_ENUM, "%s(invalid filter %s)", func,
+         _mesa_enum_to_string(filter));
+      return false;
+   }
+
+   if ((filter == GL_SCALED_RESOLVE_FASTEST_EXT ||
+         filter == GL_SCALED_RESOLVE_NICEST_EXT) &&
+         (readFb->Visual.samples == 0 || drawFb->Visual.samples > 0)) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "%s(%s: invalid samples)", func,
+         _mesa_enum_to_string(filter));
+      return false;
+   }
+
+   if (mask & ~legalMaskBits) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "%s(invalid mask bits set)", func);
+      return false;
+   }
+
+   /* depth/stencil must be blitted with nearest filtering */
+   if ((mask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT))
+        && filter != GL_NEAREST) {
+      _mesa_error(ctx, GL_INVALID_OPERATION,
+             "%s(depth/stencil requires GL_NEAREST filter)", func);
+      return false;
+   }
+
+   if (_mesa_is_gles3(ctx)) {
+      /* Page 194 (page 206 of the PDF) in section 4.3.2 of the OpenGL ES
+       * 3.0.1 spec says:
+       *
+       *     "If SAMPLE_BUFFERS for the draw framebuffer is greater than
+       *     zero, an INVALID_OPERATION error is generated."
+       */
+      if (drawFb->Visual.samples > 0) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "%s(destination samples must be 0)", func);
+         return false;
+      }
+
+      /* Page 194 (page 206 of the PDF) in section 4.3.2 of the OpenGL ES
+       * 3.0.1 spec says:
+       *
+       *     "If SAMPLE_BUFFERS for the read framebuffer is greater than
+       *     zero, no copy is performed and an INVALID_OPERATION error is
+       *     generated if the formats of the read and draw framebuffers are
+       *     not identical or if the source and destination rectangles are
+       *     not defined with the same (X0, Y0) and (X1, Y1) bounds."
+       *
+       * The format check was made above because desktop OpenGL has the same
+       * requirement.
+       */
+      if (readFb->Visual.samples > 0
+          && (srcX0 != dstX0 || srcY0 != dstY0
+              || srcX1 != dstX1 || srcY1 != dstY1)) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "%s(bad src/dst multisample region)", func);
+         return false;
+      }
+   } else {
+      if (readFb->Visual.samples > 0 &&
+          drawFb->Visual.samples > 0 &&
+          readFb->Visual.samples != drawFb->Visual.samples) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "%s(mismatched samples)", func);
+         return false;
+      }
+
+      /* extra checks for multisample copies... */
+      if ((readFb->Visual.samples > 0 || drawFb->Visual.samples > 0) &&
+          (filter == GL_NEAREST || filter == GL_LINEAR)) {
+         /* src and dest region sizes must be the same */
+         if (abs(srcX1 - srcX0) != abs(dstX1 - dstX0) ||
+             abs(srcY1 - srcY0) != abs(dstY1 - dstY0)) {
+            _mesa_error(ctx, GL_INVALID_OPERATION,
+                        "%s(bad src/dst multisample region sizes)", func);
+            return false;
+         }
+      }
+   }
+
+   return true;
+}
 
 static void
 do_blit_framebuffer(struct gl_context *ctx,
                     struct gl_framebuffer *readFB,
                     struct gl_framebuffer *drawFB,
-                    GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
-                    GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+                    GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint srcLayer,
+                    GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLint dstLayer,
                     GLbitfield mask, GLenum filter)
 {
    struct st_context *st = st_context(ctx);
@@ -635,9 +806,6 @@ blit_framebuffer(struct gl_context *ctx,
    FLUSH_VERTICES(ctx, 0, 0);
 
    if (!readFb || !drawFb) {
-      /* This will normally never happen but someday we may want to
-       * support MakeCurrent() with no drawables.
-       */
       return;
    }
 
@@ -647,159 +815,12 @@ blit_framebuffer(struct gl_context *ctx,
    /* Make sure drawFb has an initialized bounding box. */
    _mesa_update_draw_buffer_bounds(ctx, drawFb);
 
-   if (!no_error) {
-      const GLbitfield legalMaskBits = (GL_COLOR_BUFFER_BIT |
-                                        GL_DEPTH_BUFFER_BIT |
-                                        GL_STENCIL_BUFFER_BIT);
+   if (!no_error && !validate_blit_framebuffers(ctx, readFb, drawFb, srcX0,
+         srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter, func))
+      return;
 
-      /* check for complete framebuffers */
-      if (drawFb->_Status != GL_FRAMEBUFFER_COMPLETE_EXT ||
-          readFb->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
-         _mesa_error(ctx, GL_INVALID_FRAMEBUFFER_OPERATION_EXT,
-                     "%s(incomplete draw/read buffers)", func);
-         return;
-      }
-
-      if (!is_valid_blit_filter(ctx, filter)) {
-         _mesa_error(ctx, GL_INVALID_ENUM, "%s(invalid filter %s)", func,
-                     _mesa_enum_to_string(filter));
-         return;
-      }
-
-      if ((filter == GL_SCALED_RESOLVE_FASTEST_EXT ||
-           filter == GL_SCALED_RESOLVE_NICEST_EXT) &&
-           (readFb->Visual.samples == 0 || drawFb->Visual.samples > 0)) {
-         _mesa_error(ctx, GL_INVALID_OPERATION, "%s(%s: invalid samples)", func,
-                     _mesa_enum_to_string(filter));
-         return;
-      }
-
-      if (mask & ~legalMaskBits) {
-         _mesa_error(ctx, GL_INVALID_VALUE, "%s(invalid mask bits set)", func);
-         return;
-      }
-
-      /* depth/stencil must be blitted with nearest filtering */
-      if ((mask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT))
-           && filter != GL_NEAREST) {
-         _mesa_error(ctx, GL_INVALID_OPERATION,
-                "%s(depth/stencil requires GL_NEAREST filter)", func);
-         return;
-      }
-
-      if (_mesa_is_gles3(ctx)) {
-         /* Page 194 (page 206 of the PDF) in section 4.3.2 of the OpenGL ES
-          * 3.0.1 spec says:
-          *
-          *     "If SAMPLE_BUFFERS for the draw framebuffer is greater than
-          *     zero, an INVALID_OPERATION error is generated."
-          */
-         if (drawFb->Visual.samples > 0) {
-            _mesa_error(ctx, GL_INVALID_OPERATION,
-                        "%s(destination samples must be 0)", func);
-            return;
-         }
-
-         /* Page 194 (page 206 of the PDF) in section 4.3.2 of the OpenGL ES
-          * 3.0.1 spec says:
-          *
-          *     "If SAMPLE_BUFFERS for the read framebuffer is greater than
-          *     zero, no copy is performed and an INVALID_OPERATION error is
-          *     generated if the formats of the read and draw framebuffers are
-          *     not identical or if the source and destination rectangles are
-          *     not defined with the same (X0, Y0) and (X1, Y1) bounds."
-          *
-          * The format check was made above because desktop OpenGL has the same
-          * requirement.
-          */
-         if (readFb->Visual.samples > 0
-             && (srcX0 != dstX0 || srcY0 != dstY0
-                 || srcX1 != dstX1 || srcY1 != dstY1)) {
-            _mesa_error(ctx, GL_INVALID_OPERATION,
-                        "%s(bad src/dst multisample region)", func);
-            return;
-         }
-      } else {
-         if (readFb->Visual.samples > 0 &&
-             drawFb->Visual.samples > 0 &&
-             readFb->Visual.samples != drawFb->Visual.samples) {
-            _mesa_error(ctx, GL_INVALID_OPERATION,
-                        "%s(mismatched samples)", func);
-            return;
-         }
-
-         /* extra checks for multisample copies... */
-         if ((readFb->Visual.samples > 0 || drawFb->Visual.samples > 0) &&
-             (filter == GL_NEAREST || filter == GL_LINEAR)) {
-            /* src and dest region sizes must be the same */
-            if (abs(srcX1 - srcX0) != abs(dstX1 - dstX0) ||
-                abs(srcY1 - srcY0) != abs(dstY1 - dstY0)) {
-               _mesa_error(ctx, GL_INVALID_OPERATION,
-                           "%s(bad src/dst multisample region sizes)", func);
-               return;
-            }
-         }
-      }
-   }
-
-   /* get color read/draw renderbuffers */
-   if (mask & GL_COLOR_BUFFER_BIT) {
-      const GLuint numColorDrawBuffers = drawFb->_NumColorDrawBuffers;
-      const struct gl_renderbuffer *colorReadRb = readFb->_ColorReadBuffer;
-
-      /* From the EXT_framebuffer_object spec:
-       *
-       *     "If a buffer is specified in <mask> and does not exist in both
-       *     the read and draw framebuffers, the corresponding bit is silently
-       *     ignored."
-       */
-      if (!colorReadRb || numColorDrawBuffers == 0) {
-         mask &= ~GL_COLOR_BUFFER_BIT;
-      } else if (!no_error) {
-         if (!validate_color_buffer(ctx, readFb, drawFb, filter, func))
-            return;
-      }
-   }
-
-   if (mask & GL_STENCIL_BUFFER_BIT) {
-      struct gl_renderbuffer *readRb =
-         readFb->Attachment[BUFFER_STENCIL].Renderbuffer;
-      struct gl_renderbuffer *drawRb =
-         drawFb->Attachment[BUFFER_STENCIL].Renderbuffer;
-
-      /* From the EXT_framebuffer_object spec:
-       *
-       *     "If a buffer is specified in <mask> and does not exist in both
-       *     the read and draw framebuffers, the corresponding bit is silently
-       *     ignored."
-       */
-      if ((readRb == NULL) || (drawRb == NULL)) {
-         mask &= ~GL_STENCIL_BUFFER_BIT;
-      } else if (!no_error) {
-         if (!validate_stencil_buffer(ctx, readFb, drawFb, func))
-            return;
-      }
-   }
-
-   if (mask & GL_DEPTH_BUFFER_BIT) {
-      struct gl_renderbuffer *readRb =
-         readFb->Attachment[BUFFER_DEPTH].Renderbuffer;
-      struct gl_renderbuffer *drawRb =
-         drawFb->Attachment[BUFFER_DEPTH].Renderbuffer;
-
-      /* From the EXT_framebuffer_object spec:
-       *
-       *     "If a buffer is specified in <mask> and does not exist in both
-       *     the read and draw framebuffers, the corresponding bit is silently
-       *     ignored."
-       */
-      if ((readRb == NULL) || (drawRb == NULL)) {
-         mask &= ~GL_DEPTH_BUFFER_BIT;
-      } else if (!no_error) {
-         if (!validate_depth_buffer(ctx, readFb, drawFb, func))
-            return;
-      }
-   }
+   if (!validate_mask(ctx, readFb, drawFb, &mask, filter, no_error, func))
+      return;
 
    /* Debug code */
    if (DEBUG_BLIT) {
@@ -858,8 +879,8 @@ blit_framebuffer(struct gl_context *ctx,
    }
 
    do_blit_framebuffer(ctx, readFb, drawFb,
-                       srcX0, srcY0, srcX1, srcY1,
-                       dstX0, dstY0, dstX1, dstY1,
+                       srcX0, srcY0, srcX1, srcY1, -1,
+                       dstX0, dstY0, dstX1, dstY1, -1,
                        mask, filter);
 }
 
@@ -1012,4 +1033,188 @@ _mesa_BlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer,
                           srcX0, srcY0, srcX1, srcY1,
                           dstX0, dstY0, dstX1, dstY1,
                           mask, filter, false);
+}
+
+void GLAPIENTRY
+_mesa_BlitFramebufferLayerEXT(GLint srcX0, GLint srcY0, GLint srcX1,
+                              GLint srcY1, GLint srcLayer, GLint dstX0,
+                              GLint dstY0, GLint dstX1, GLint dstY1,
+                              GLint dstLayer, GLbitfield mask, GLenum filter)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx,
+                  "glBlitFramebufferLayerEXT(%d, %d, %d, %d, %d, "
+                  " %d, %d, %d, %d, %d, 0x%x, %s)\n",
+                  srcX0, srcY0, srcX1, srcY1, srcLayer,
+                  dstX0, dstY0, dstX1, dstY1, dstLayer,
+                  mask, _mesa_enum_to_string(filter));
+
+   if (!mask ||
+       (srcX1 - srcX0) == 0 || (srcY1 - srcY0) == 0 ||
+       (dstX1 - dstX0) == 0 || (dstY1 - dstY0) == 0)
+      return;
+
+   struct gl_framebuffer *readFb = ctx->ReadBuffer;
+   struct gl_framebuffer *drawFb = ctx->DrawBuffer;
+
+   if (!readFb || !drawFb)
+      return;
+
+   FLUSH_VERTICES(ctx, 0, 0);
+
+   /* Update completeness status of readFb and drawFb. */
+   _mesa_update_framebuffer(ctx, readFb, drawFb);
+
+   /* Make sure drawFb has an initialized bounding box. */
+   _mesa_update_draw_buffer_bounds(ctx, drawFb);
+
+   const char *func = "glBlitFramebufferLayerEXT";
+   if (!validate_blit_framebuffers(ctx, readFb, drawFb, srcX0, srcY0, srcX1,
+         srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter, func))
+      return;
+
+   if (!validate_mask(ctx, readFb, drawFb, &mask, filter, false, func))
+      return;
+
+   /* GL_EXT_framebuffer_blit_layers
+    * Calling BlitFramebufferLayerEXT will result in an INVALID_VALUE if
+    * srcLayer or dstLayer is negative, larger than the value of
+    * MAX_ARRAY_TEXTURE_LAYERS minus one, or larger than the number of layers
+    * in the attached texture.
+    */
+   if (srcLayer < 0 || dstLayer < 0) {
+      _mesa_error(ctx, GL_INVALID_VALUE,
+                  "%s(read/draw requested layer is negative)", func);
+      return;
+   } else if (srcLayer >= ctx->Const.MaxArrayTextureLayers
+         || dstLayer >= ctx->Const.MaxArrayTextureLayers) {
+      _mesa_error(ctx, GL_INVALID_VALUE,
+                  "%s(read/draw requested layer is bigger than "
+                  "GL_MAX_ARRAY_TEXTURE_LAYERS)", func);
+      return;
+   } else if (srcLayer >= readFb->MaxNumLayers
+         || dstLayer >= drawFb->MaxNumLayers) {
+      _mesa_error(ctx, GL_INVALID_VALUE,
+                  "%s(read/draw requested layer is bigger than the number of "
+                  "layers)", func);
+      return;
+   }
+
+   do_blit_framebuffer(ctx, readFb, drawFb,
+                       srcX0, srcY0, srcX1, srcY1, srcLayer,
+                       dstX0, dstY0, dstX1, dstY1, dstLayer,
+                       mask, filter);
+}
+
+void GLAPIENTRY
+_mesa_BlitFramebufferLayersEXT(GLint srcX0, GLint srcY0, GLint srcX1,
+                               GLint srcY1, GLint dstX0, GLint dstY0,
+                               GLint dstX1, GLint dstY1, GLbitfield mask,
+                               GLenum filter)
+{
+
+   GET_CURRENT_CONTEXT(ctx);
+
+   if (MESA_VERBOSE & VERBOSE_API)
+      _mesa_debug(ctx,
+                  "glBlitFramebufferLayersEXT(%d, %d, %d, %d, "
+                  " %d, %d, %d, %d, 0x%x, %s)\n",
+                  srcX0, srcY0, srcX1, srcY1,
+                  dstX0, dstY0, dstX1, dstY1,
+                  mask, _mesa_enum_to_string(filter));
+   
+   if (!mask ||
+       (srcX1 - srcX0) == 0 || (srcY1 - srcY0) == 0 ||
+       (dstX1 - dstX0) == 0 || (dstY1 - dstY0) == 0)
+      return;
+
+   struct gl_framebuffer *readFb = ctx->ReadBuffer;
+   struct gl_framebuffer *drawFb = ctx->DrawBuffer;
+
+   if (!readFb || !drawFb)
+      return;
+
+   FLUSH_VERTICES(ctx, 0, 0);
+
+   /* Update completeness status of readFb and drawFb. */
+   _mesa_update_framebuffer(ctx, readFb, drawFb);
+
+   /* Make sure drawFb has an initialized bounding box. */
+   _mesa_update_draw_buffer_bounds(ctx, drawFb);
+
+   const char *func = "glBlitFramebufferLayersEXT";
+   if (!validate_mask(ctx, readFb, drawFb, &mask, filter, false, func))
+      return;
+
+   if (!validate_blit_framebuffers(ctx, readFb, drawFb, srcX0, srcY0, srcX1,
+         srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter, func))
+      return;
+
+   /* GL_EXT_framebuffer_blit_layers
+    * Calling BlitFramebufferLayersEXT will result in an INVALID_OPERATION if
+    * the read and the draw framebuffers don't have the same number of layers.
+    */
+   if (readFb->MaxNumLayers != drawFb->MaxNumLayers) {
+      _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "%s(source and destination don't have the same number of"
+                     " layer %u != %u)", func, readFb->MaxNumLayers,
+                     drawFb->MaxNumLayers);
+      return;
+   }
+
+   struct gl_renderbuffer_attachment *srcAtt =
+         &readFb->Attachment[readFb->_ColorReadBufferIndex];
+   if (srcAtt)
+      printf("srcAtt->Zoffset %u + srcAtt->CubeMapFace %u\n",
+         srcAtt->Zoffset,  srcAtt->CubeMapFace);
+
+   struct gl_renderbuffer_attachment *dstAtt =
+         &drawFb->Attachment[drawFb->_ColorReadBufferIndex];
+   if (dstAtt)
+      printf("dstAtt->Zoffset %u + dstAtt->CubeMapFace %u\n",
+         dstAtt->Zoffset,  dstAtt->CubeMapFace);
+
+   struct gl_renderbuffer *srcRb = readFb->_ColorReadBuffer;
+   if (srcRb)
+      printf("srcRb->surface->u.tex.first_layer %u\n",
+         srcRb->surface->u.tex.first_layer);
+
+   struct gl_renderbuffer *srcDepthRb =
+         readFb->Attachment[BUFFER_DEPTH].Renderbuffer;
+   if (srcDepthRb)
+      printf("srcDepthRb->surface->u.tex.first_layer %u\n",
+         srcDepthRb->surface->u.tex.first_layer);
+
+   struct gl_renderbuffer *srcStencilRb =
+         readFb->Attachment[BUFFER_STENCIL].Renderbuffer;
+   if (srcStencilRb)
+      printf("srcStencilRb->surface->u.tex.first_layer %u\n",
+         srcStencilRb->surface->u.tex.first_layer);
+
+   for (int i = 0; i < drawFb->_NumColorDrawBuffers; ++i) {
+      struct gl_renderbuffer *dstRb = drawFb->_ColorDrawBuffers[i];
+      if (dstRb)
+         printf("dstRb->dstSurf->u.tex.first_layer %d %u\n", i,
+            dstRb->surface->u.tex.first_layer);
+   }
+
+   struct gl_renderbuffer *dstDepthRb =
+         drawFb->Attachment[BUFFER_DEPTH].Renderbuffer;
+   if (dstDepthRb)
+      printf("dstDepthRb->dstDepthSurf->u.tex.first_layer %u\n",
+         dstDepthRb->surface->u.tex.first_layer);
+
+   struct gl_renderbuffer *dstStencilRb =
+         drawFb->Attachment[BUFFER_STENCIL].Renderbuffer;
+   if (dstStencilRb)
+      printf("dstStencilRb->dstStencilSurf->u.tex.first_layer %u\n",
+         dstStencilRb->surface->u.tex.first_layer);
+
+   for (GLint i = 0; i < readFb->MaxNumLayers; ++i)
+      do_blit_framebuffer(ctx, readFb, drawFb,
+                          srcX0, srcY0, srcX1, srcY1, i,
+                          dstX0, dstY0, dstX1, dstY1, i,
+                          mask, filter);
 }

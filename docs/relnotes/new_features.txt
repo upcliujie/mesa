@@ -1,3 +1,4 @@
 New features
 ------------
 VK_EXT_image_compression_control on RADV
+GL_EXT_framebuffer_blit_layers

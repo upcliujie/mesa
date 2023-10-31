@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!DOCTYPE OpenGLAPI SYSTEM "gl_API.dtd">
+
+<OpenGLAPI>
+
+<category name="EXT_framebuffer_blit_layers" number="558">
+
+    <function name="BlitFramebufferLayerEXT" es2="3.0">
+        <param name="srcX0" type="GLint"/>
+        <param name="srcY0" type="GLint"/>
+        <param name="srcX1" type="GLint"/>
+        <param name="srcY1" type="GLint"/>
+        <param name="srcLayer" type="GLint"/>
+        <param name="dstX0" type="GLint"/>
+        <param name="dstY0" type="GLint"/>
+        <param name="dstX1" type="GLint"/>
+        <param name="dstY1" type="GLint"/>
+        <param name="dstLayer" type="GLint"/>
+        <param name="mask" type="GLbitfield"/>
+        <param name="filter" type="GLenum"/>
+    </function>
+
+    <function name="BlitFramebufferLayersEXT" es2="3.0">
+        <param name="srcX0" type="GLint"/>
+        <param name="srcY0" type="GLint"/>
+        <param name="srcX1" type="GLint"/>
+        <param name="srcY1" type="GLint"/>
+        <param name="dstX0" type="GLint"/>
+        <param name="dstY0" type="GLint"/>
+        <param name="dstX1" type="GLint"/>
+        <param name="dstY1" type="GLint"/>
+        <param name="mask" type="GLbitfield"/>
+        <param name="filter" type="GLenum"/>
+    </function>
+
+</category>
+
+</OpenGLAPI>
+

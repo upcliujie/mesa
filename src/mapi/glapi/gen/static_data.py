@@ -1704,6 +1704,8 @@ offsets = {
     "DrawArraysInstancedBaseInstanceDrawID": 1668,
     "DrawElementsInstancedBaseVertexBaseInstanceDrawID": 1669,
     "InternalInvalidateFramebufferAncillaryMESA": 1670,
+    "BlitFramebufferLayerEXT": 1671,
+    "BlitFramebufferLayersEXT": 1672,
 }
 
 functions = [
