@@ -3461,7 +3461,7 @@ st_texture_storage(struct gl_context *ctx,
                                     ptLayers, num_samples,
                                     bindings,
                                     texObj->IsSparse,
-                                    GL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT);
+                                    texObj->CompressionRate);
    }
 
    if (!texObj->pt) {
@@ -3483,6 +3483,8 @@ st_texture_storage(struct gl_context *ctx,
 
    /* Update gl_texture_object for texture parameter query. */
    texObj->NumSparseLevels = texObj->pt->nr_sparse_levels;
+   texObj->CompressionRate =
+      st_from_pipe_compression_rate(texObj->pt->compression_rate);
 
    /* The texture is in a validated state, so no need to check later. */
    texObj->needs_validation = false;
