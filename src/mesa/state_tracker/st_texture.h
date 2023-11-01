@@ -146,6 +146,8 @@ st_get_view_format(struct gl_texture_object *stObj)
    return stObj->surface_based ? stObj->surface_format : stObj->pt->format;
 }
 
+extern GLint
+st_from_pipe_compression_rate(uint32_t rate);
 
 extern struct pipe_resource *
 st_texture_create(struct st_context *st,
@@ -158,7 +160,8 @@ st_texture_create(struct st_context *st,
                   GLuint layers,
                   GLuint nr_samples,
                   GLuint tex_usage,
-                  bool sparse);
+                  bool sparse,
+                  GLint compression);
 
 
 extern void

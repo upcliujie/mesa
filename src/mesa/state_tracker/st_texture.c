@@ -45,6 +45,55 @@
 
 #define DBG if(0) printf
 
+GLint
+st_from_pipe_compression_rate(uint32_t rate)
+{
+   switch (rate) {
+   case PIPE_COMPRESSION_FIXED_RATE_NONE:
+      return GL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT;
+   case PIPE_COMPRESSION_FIXED_RATE_DEFAULT:
+      return GL_SURFACE_COMPRESSION_FIXED_RATE_DEFAULT_EXT;
+   case 1: return GL_SURFACE_COMPRESSION_FIXED_RATE_1BPC_EXT;
+   case 2: return GL_SURFACE_COMPRESSION_FIXED_RATE_2BPC_EXT;
+   case 3: return GL_SURFACE_COMPRESSION_FIXED_RATE_3BPC_EXT;
+   case 4: return GL_SURFACE_COMPRESSION_FIXED_RATE_4BPC_EXT;
+   case 5: return GL_SURFACE_COMPRESSION_FIXED_RATE_5BPC_EXT;
+   case 6: return GL_SURFACE_COMPRESSION_FIXED_RATE_6BPC_EXT;
+   case 7: return GL_SURFACE_COMPRESSION_FIXED_RATE_7BPC_EXT;
+   case 8: return GL_SURFACE_COMPRESSION_FIXED_RATE_8BPC_EXT;
+   case 9: return GL_SURFACE_COMPRESSION_FIXED_RATE_9BPC_EXT;
+   case 10: return GL_SURFACE_COMPRESSION_FIXED_RATE_10BPC_EXT;
+   case 11: return GL_SURFACE_COMPRESSION_FIXED_RATE_11BPC_EXT;
+   case 12: return GL_SURFACE_COMPRESSION_FIXED_RATE_12BPC_EXT;
+   default:
+      unreachable("Unexpected value in st_from_pipe_compression_rate");
+   }
+}
+
+static uint32_t
+st_gl_compression_rate_to_pipe(GLint rate)
+{
+   switch (rate) {
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT:
+      return PIPE_COMPRESSION_FIXED_RATE_NONE;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_DEFAULT_EXT:
+      return PIPE_COMPRESSION_FIXED_RATE_DEFAULT;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_1BPC_EXT: return 1;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_2BPC_EXT: return 2;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_3BPC_EXT: return 3;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_4BPC_EXT: return 4;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_5BPC_EXT: return 5;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_6BPC_EXT: return 6;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_7BPC_EXT: return 7;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_8BPC_EXT: return 8;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_9BPC_EXT: return 9;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_10BPC_EXT: return 10;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_11BPC_EXT: return 11;
+   case GL_SURFACE_COMPRESSION_FIXED_RATE_12BPC_EXT: return 12;
+   default:
+      unreachable("Unexpected value in st_gl_compression_rate_to_pipe()");
+   }
+}
 
 /**
  * Allocate a new pipe_resource object
@@ -63,7 +112,8 @@ st_texture_create(struct st_context *st,
                   GLuint layers,
                   GLuint nr_samples,
                   GLuint bind,
-                  bool sparse)
+                  bool sparse,
+                  GLint compression)
 {
    struct pipe_resource pt, *newtex;
    struct pipe_screen *screen = st->screen;
@@ -96,6 +146,7 @@ st_texture_create(struct st_context *st,
    pt.flags = PIPE_RESOURCE_FLAG_TEXTURING_MORE_LIKELY;
    pt.nr_samples = nr_samples;
    pt.nr_storage_samples = nr_samples;
+   pt.compression_rate = st_gl_compression_rate_to_pipe(compression);
 
    if (sparse)
       pt.flags |= PIPE_RESOURCE_FLAG_SPARSE;
@@ -443,7 +494,8 @@ st_create_color_map_texture(struct gl_context *ctx)
 
    /* create texture for color map/table */
    pt = st_texture_create(st, PIPE_TEXTURE_2D, format, 0,
-                          texSize, texSize, 1, 1, 0, PIPE_BIND_SAMPLER_VIEW, false);
+                          texSize, texSize, 1, 1, 0, PIPE_BIND_SAMPLER_VIEW, false,
+                          GL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT);
    return pt;
 }
 
