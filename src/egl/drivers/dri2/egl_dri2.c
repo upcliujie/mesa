@@ -275,6 +275,37 @@ static const EGLint dri2_to_egl_attribute_map[__DRI_ATTRIB_MAX] = {
    [__DRI_ATTRIB_YINVERTED] = EGL_Y_INVERTED_NOK,
 };
 
+static const EGLint dri2_to_egl_compression_rate_map[0x10] = {
+   [__DRI_FIXED_RATE_COMPRESSION_NONE] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_1BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_1BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_2BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_2BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_3BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_3BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_4BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_4BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_5BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_5BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_6BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_6BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_7BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_7BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_8BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_8BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_9BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_9BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_10BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_10BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_11BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_11BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_12BPC] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_12BPC_EXT,
+   [__DRI_FIXED_RATE_COMPRESSION_DEFAULT] =
+      EGL_SURFACE_COMPRESSION_FIXED_RATE_DEFAULT_EXT,
+};
+
 const __DRIconfig *
 dri2_get_dri_config(struct dri2_egl_config *conf, EGLint surface_type,
                     EGLenum colorspace)
@@ -332,6 +363,23 @@ dri2_image_format_for_pbuffer_config(struct dri2_egl_display *dri2_dpy,
 {
    struct gl_config *gl_config = (struct gl_config *) config;
    return gl_config->color_format;
+}
+
+EGLint
+dri2_from_dri_compression_rate(enum __DRIFixedRateCompression rate)
+{
+   assert(rate < ARRAY_SIZE(dri2_to_egl_compression_rate_map));
+   return dri2_to_egl_compression_rate_map[rate];
+}
+
+enum __DRIFixedRateCompression
+dri2_to_dri_compression_rate(EGLint rate)
+{
+   for (int i = 0; i < ARRAY_SIZE(dri2_to_egl_compression_rate_map); ++i) {
+      if (dri2_to_egl_compression_rate_map[i] == rate)
+         return (enum __DRIFixedRateCompression)i;
+   }
+   unreachable("unknown EGL fixed-rate compression value");
 }
 
 struct dri2_egl_config *
@@ -834,6 +882,7 @@ dri2_setup_screen(_EGLDisplay *disp)
             disp->Extensions.MESA_image_dma_buf_export = EGL_TRUE;
       }
 
+      disp->Extensions.EXT_surface_compression = EGL_TRUE;
       disp->Extensions.KHR_image_base = EGL_TRUE;
       disp->Extensions.KHR_gl_renderbuffer_image = EGL_TRUE;
       disp->Extensions.KHR_gl_texture_2D_image = EGL_TRUE;
@@ -3621,6 +3670,36 @@ dri2_interop_flush_objects(_EGLDisplay *disp, _EGLContext *ctx, unsigned count,
                                            objects, out);
 }
 
+static EGLBoolean
+dri2_query_supported_compression_rates(_EGLDisplay *disp, _EGLConfig *config,
+                                       const EGLAttrib *attr_list,
+                                       EGLint *rates, EGLint rate_size,
+                                       EGLint *num_rate)
+{
+   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
+   struct dri2_egl_config *conf = dri2_egl_config(config);
+   enum __DRIFixedRateCompression dri_rates[rate_size];
+
+   if (dri2_dpy->image->base.version >= 22 &&
+       dri2_dpy->image->queryCompressionRates) {
+      const __DRIconfig *dri_conf =
+         dri2_get_dri_config(conf, EGL_WINDOW_BIT, EGL_GL_COLORSPACE_LINEAR);
+      if (!dri2_dpy->image->queryCompressionRates(
+             dri2_dpy->dri_screen_render_gpu, dri_conf, rate_size, dri_rates,
+             num_rate))
+         return EGL_FALSE;
+
+      for (int i = 0; i < *num_rate; ++i) {
+         assert(dri_rates[i] < ARRAY_SIZE(dri2_to_egl_compression_rate_map));
+         rates[i] = dri2_to_egl_compression_rate_map[dri_rates[i]];
+      }
+
+      return EGL_TRUE;
+   }
+   *num_rate = 0;
+   return EGL_TRUE;
+}
+
 const _EGLDriver _eglDriver = {
    .Initialize = dri2_initialize,
    .Terminate = dri2_terminate,
@@ -3673,4 +3752,5 @@ const _EGLDriver _eglDriver = {
    .GLInteropFlushObjects = dri2_interop_flush_objects,
    .DupNativeFenceFDANDROID = dri2_dup_native_fence_fd,
    .SetBlobCacheFuncsANDROID = dri2_set_blob_cache_funcs,
+   .QuerySupportedCompressionRatesEXT = dri2_query_supported_compression_rates,
 };
