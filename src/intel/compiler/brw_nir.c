@@ -961,6 +961,11 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
    OPT(nir_split_var_copies);
    OPT(nir_split_struct_vars, nir_var_function_temp);
 
+   const nir_move_options sink_options =
+      nir_move_const_undef | nir_move_copies | (devinfo->ver >= 9 ? nir_move_alu : 0);
+
+   OPT(nir_opt_sink, sink_options);
+
    brw_nir_optimize(nir, compiler);
 
    OPT(nir_lower_doubles, opts->softfp64, nir->options->lower_doubles_options);
