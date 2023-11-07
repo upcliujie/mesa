@@ -42,6 +42,9 @@ librusticl = shared_library(
   ],
   link_whole : librusticl,
   link_with : [
+    rusticl_mesa_bindings_inline_wrapper,
+    rusticl_system_bindings_wrapper,
+    libgallium,
     libpipe_loader_static,
     libswdri,
     libswkmsdri,
@@ -57,6 +60,7 @@ librusticl = shared_library(
     driver_radeonsi,
     driver_swrast,
     driver_zink,
+    idep_mesaclc,
     idep_nir,
     idep_vtn,
   ],

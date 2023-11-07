@@ -345,12 +345,6 @@ libmesa_rust_gen = static_library(
   'mesa_rust_gen',
   rusticl_mesa_bindings_rs,
   gnu_symbol_visibility : 'hidden',
-  link_with: [
-    libgallium,
-  ],
-  dependencies: [
-    idep_mesaclc,
-  ],
   rust_crate_type : 'rlib',
   rust_args : [
     rusticl_gen_args,
@@ -389,8 +383,6 @@ libmesa_rust = static_library(
     libc_rust_gen,
     libmesa_rust_gen,
     libmesa_rust_util,
-    rusticl_mesa_bindings_inline_wrapper,
-    rusticl_system_bindings_wrapper,
   ]
 )
 
