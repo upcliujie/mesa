@@ -358,6 +358,7 @@ radv_shader_spirv_to_nir(struct radv_device *device, const struct radv_shader_st
                .device_group = true,
                .draw_parameters = true,
                .float_controls = true,
+               .float_controls2 = true,
                .float16 = pdev->info.has_packed_math_16bit,
                .float32_atomic_add = true,
                .float32_atomic_min_max = true,
