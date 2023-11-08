@@ -3365,6 +3365,14 @@ struct anv_cmd_pipeline_state {
 struct anv_cmd_graphics_state {
    struct anv_cmd_pipeline_state base;
 
+   /**
+    * The last pipeline that has been programmed into the HW.
+    *
+    * If different from base.pipeline, we need to diff the 2 pipelines and
+    * reemit the states that changed.
+    */
+   struct anv_graphics_pipeline *last_programmed_pipeline;
+
    VkRenderingFlags rendering_flags;
    VkRect2D render_area;
    uint32_t layer_count;

@@ -429,6 +429,125 @@ calculate_tile_dimensions(struct anv_cmd_buffer *cmd_buffer,
 }
 #endif
 
+void
+genX(cmd_buffer_flush_gfx_pipeline)(struct anv_cmd_buffer *cmd_buffer)
+{
+   struct anv_graphics_pipeline *old_pipeline =
+      cmd_buffer->state.gfx.last_programmed_pipeline;
+   struct anv_graphics_pipeline *new_pipeline =
+      anv_pipeline_to_graphics(cmd_buffer->state.gfx.base.pipeline);
+   struct anv_cmd_graphics_state *gfx = &cmd_buffer->state.gfx;
+   struct anv_gfx_dynamic_state *hw_state = &gfx->dyn_state;
+
+#define diff_fix_state(bit, name)                                       \
+   do {                                                                 \
+      /* Fixed states should always have matching sizes */              \
+      assert(old_pipeline == NULL ||                                    \
+             old_pipeline->name.len == new_pipeline->name.len);         \
+      /* Don't bother memcmp if the state is already dirty */           \
+      if (!BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_##bit) &&         \
+          (old_pipeline == NULL ||                                      \
+           memcmp(&old_pipeline->batch_data[old_pipeline->name.offset], \
+                  &new_pipeline->batch_data[new_pipeline->name.offset], \
+                  4 * new_pipeline->name.len) != 0))                    \
+         BITSET_SET(hw_state->dirty, ANV_GFX_STATE_##bit);              \
+   } while (0)
+#define diff_var_state(bit, name)                                       \
+   do {                                                                 \
+      /* Don't bother memcmp if the state is already dirty */           \
+      /* Also if the new state is empty, avoid marking dirty */         \
+      if (!BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_##bit) &&         \
+          new_pipeline->name.len != 0 &&                                \
+          (old_pipeline == NULL ||                                      \
+           old_pipeline->name.len != new_pipeline->name.len ||          \
+           memcmp(&old_pipeline->batch_data[old_pipeline->name.offset], \
+                  &new_pipeline->batch_data[new_pipeline->name.offset], \
+                  4 * new_pipeline->name.len) != 0))                    \
+         BITSET_SET(hw_state->dirty, ANV_GFX_STATE_##bit);              \
+   } while (0)
+#define assert_identical(bit, name)                                     \
+   do {                                                                 \
+      /* Fixed states should always have matching sizes */              \
+      assert(old_pipeline == NULL ||                                    \
+             old_pipeline->name.len == new_pipeline->name.len);         \
+      assert(old_pipeline == NULL ||                                    \
+             memcmp(&old_pipeline->batch_data[old_pipeline->name.offset], \
+                    &new_pipeline->batch_data[new_pipeline->name.offset], \
+                    4 * new_pipeline->name.len) == 0);                  \
+   } while (0)
+#define assert_empty(name) assert(new_pipeline->name.len == 0)
+
+   /* Compare all states, including partial packed ones, the dynamic part is
+    * left at 0 but the static part could still change.
+    */
+   diff_fix_state(URB,                      final.urb);
+   diff_fix_state(VF_SGVS,                  final.vf_sgvs);
+   if (cmd_buffer->device->info->ver >= 11)
+      diff_fix_state(VF_SGVS_2,             final.vf_sgvs_2);
+   if (cmd_buffer->device->info->ver >= 12)
+      diff_fix_state(PRIMITIVE_REPLICATION, final.primitive_replication);
+   diff_fix_state(SBE,                      final.sbe);
+   diff_fix_state(SBE_SWIZ,                 final.sbe_swiz);
+   diff_fix_state(MULTISAMPLE,              final.ms);
+   diff_fix_state(VS,                       final.vs);
+   diff_fix_state(HS,                       final.hs);
+   diff_fix_state(DS,                       final.ds);
+   diff_fix_state(PS,                       final.ps);
+   diff_fix_state(PS_EXTRA,                 final.ps_extra);
+
+   diff_fix_state(CLIP,                     partial.clip);
+   diff_fix_state(SF,                       partial.sf);
+   diff_fix_state(RASTER,                   partial.raster);
+   diff_fix_state(WM,                       partial.wm);
+   diff_fix_state(STREAMOUT,                partial.so);
+   diff_fix_state(GS,                       partial.gs);
+   diff_fix_state(TE,                       partial.te);
+   diff_fix_state(VFG,                      partial.vfg);
+
+   if (cmd_buffer->device->vk.enabled_extensions.EXT_mesh_shader) {
+      diff_fix_state(TASK_CONTROL,          final.task_control);
+      diff_fix_state(TASK_SHADER,           final.task_shader);
+      diff_fix_state(TASK_REDISTRIB,        final.task_redistrib);
+      diff_fix_state(MESH_CONTROL,          final.mesh_control);
+      diff_fix_state(MESH_SHADER,           final.mesh_shader);
+      diff_fix_state(MESH_DISTRIB,          final.mesh_distrib);
+      diff_fix_state(CLIP_MESH,             final.clip_mesh);
+      diff_fix_state(SBE_MESH,              final.sbe_mesh);
+   } else {
+      assert_empty(final.task_control);
+      assert_empty(final.task_shader);
+      assert_empty(final.task_redistrib);
+      assert_empty(final.mesh_control);
+      assert_empty(final.mesh_shader);
+      assert_empty(final.mesh_distrib);
+      assert_empty(final.clip_mesh);
+      assert_empty(final.sbe_mesh);
+   }
+
+   /* States that should never vary between pipelines, but can be affected by
+    * blorp etc...
+    */
+   assert_identical(VF_STATISTICS,            final.vf_statistics);
+
+   /* States that can vary in length */
+   diff_var_state(VF_SGVS_INSTANCING,       final.vf_sgvs_instancing);
+   diff_var_state(SO_DECL_LIST,             final.so_decl_list);
+
+#undef diff_fix_state
+#undef diff_var_state
+#undef assert_identical
+#undef assert_empty
+
+   /* We're not diffing the following :
+    *    - anv_graphics_pipeline::vertex_input_data
+    *    - anv_graphics_pipeline::final::vf_instancing
+    *
+    * since they are tracked by the runtime.
+    */
+
+   cmd_buffer->state.gfx.last_programmed_pipeline = new_pipeline;
+}
+
 /**
  * This function takes the vulkan runtime values & dirty states and updates
  * the values in anv_gfx_dynamic_state, flagging HW instructions for

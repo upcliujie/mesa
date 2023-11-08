@@ -3206,6 +3206,10 @@ genX(cmd_buffer_flush_gfx_state)(struct anv_cmd_buffer *cmd_buffer)
       }
    }
 
+   /* Flush the pipeline if it changed */
+   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_PIPELINE)
+      genX(cmd_buffer_flush_gfx_pipeline)(cmd_buffer);
+
    /* Flush the runtime state into the HW state tracking */
    if (cmd_buffer->state.gfx.dirty || any_dynamic_state_dirty)
       genX(cmd_buffer_flush_gfx_runtime_state)(cmd_buffer);
