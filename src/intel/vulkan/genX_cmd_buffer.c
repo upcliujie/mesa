@@ -3765,6 +3765,8 @@ genX(CmdExecuteCommands)(
    memcpy(container->state.gfx.dyn_state.dirty,
           device->gfx_dirty_state,
           sizeof(container->state.gfx.dyn_state.dirty));
+   memset(&container->state.gfx.retained_instructions, 0,
+          sizeof(container->state.gfx.retained_instructions));
 
    /* Each of the secondary command buffers will use its own state base
     * address.  We need to re-emit state base address for the container after

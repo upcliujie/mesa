@@ -1528,39 +1528,39 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
     * State emission
     */
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_URB))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.urb);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, urb);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_MULTISAMPLE))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.ms);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, ms);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_PRIMITIVE_REPLICATION))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.primitive_replication);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, primitive_replication);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VF_SGVS))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.vf_sgvs);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, vf_sgvs);
 
 #if GFX_VER >= 11
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VF_SGVS_2))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.vf_sgvs_2);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, vf_sgvs_2);
 #endif
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VS))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.vs);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, vs);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_HS))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.hs);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, hs);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_DS))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.ds);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, ds);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VF_STATISTICS))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.vf_statistics);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, vf_statistics);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_SBE))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.sbe);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, sbe);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_SBE_SWIZ))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.sbe_swiz);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, sbe_swiz);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_SO_DECL_LIST)) {
       /* Wa_16011773973:
@@ -1592,35 +1592,35 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_PS))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.ps);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, ps);
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_PS_EXTRA))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.ps_extra);
+      anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, ps_extra);
 
    if (device->vk.enabled_extensions.EXT_mesh_shader) {
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_MESH_CONTROL))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.mesh_control);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, mesh_control);
 
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_MESH_SHADER))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.mesh_shader);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, mesh_shader);
 
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_MESH_DISTRIB))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.mesh_distrib);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, mesh_distrib);
 
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_TASK_CONTROL))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.task_control);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, task_control);
 
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_TASK_SHADER))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.task_shader);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, task_shader);
 
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_TASK_REDISTRIB))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.task_redistrib);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, task_redistrib);
 
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_SBE_MESH))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.sbe_mesh);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, sbe_mesh);
 
       if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_CLIP_MESH))
-         anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.clip_mesh);
+         anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline, final, clip_mesh);
    } else {
       assert(!BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_MESH_CONTROL) &&
              !BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_MESH_SHADER) &&
@@ -1640,8 +1640,8 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    /* Now the potentially dynamic instructions */
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_CLIP)) {
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_CLIP),
-                           pipeline, partial.clip, clip) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_CLIP),
+                                         pipeline, partial, clip, clip) {
          SET(clip, clip, APIMode);
          SET(clip, clip, ViewportXYClipTestEnable);
          SET(clip, clip, TriangleStripListProvokingVertexSelect);
@@ -1654,8 +1654,8 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_STREAMOUT)) {
       genX(streamout_prologue)(cmd_buffer);
 
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_STREAMOUT),
-                           pipeline, partial.so, so) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_STREAMOUT),
+                                         pipeline, partial, so, so) {
          SET(so, so, RenderingDisable);
          SET(so, so, RenderStreamSelect);
          SET(so, so, ReorderMode);
@@ -1741,7 +1741,8 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VF_TOPOLOGY)) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_VF_TOPOLOGY), vft) {
+      anv_cmd_buffer_emit_retained(cmd_buffer, GENX(3DSTATE_VF_TOPOLOGY),
+                                   vf_topology, vft) {
          SET(vft, vft, PrimitiveTopologyType);
       }
    }
@@ -1791,29 +1792,32 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
                                           GENX(3DSTATE_VF_INSTANCING_length));
                if (!dw)
                   break;
+               memcpy(cmd_buffer->state.gfx.retained_instructions.vf_instancing[i],
+                      cmd_buffer->state.gfx.dyn_state.vf_instancing[i],
+                      GENX(3DSTATE_VF_INSTANCING_length) * 4);
                memcpy(dw, cmd_buffer->state.gfx.dyn_state.vf_instancing[i],
                       GENX(3DSTATE_VF_INSTANCING_length) * 4);
             } else {
-               anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline,
-                                             final.vf_instancing[i]);
+               anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline,
+                                                 final, vf_instancing[i]);
             }
          } else {
-            anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline,
-                                          final.vf_instancing[i]);
+            anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline,
+                                              final, vf_instancing[i]);
          }
       }
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_TE)) {
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_TE),
-                           pipeline, partial.te, te) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_TE),
+                                         pipeline, partial, te, te) {
          SET(te, te, OutputTopology);
       }
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_GS)) {
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_GS),
-                           pipeline, partial.gs, gs) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_GS),
+                                         pipeline, partial, gs, gs) {
          SET(gs, gs, ReorderMode);
       }
    }
@@ -1851,8 +1855,8 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_SF)) {
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_SF),
-                           pipeline, partial.sf, sf) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_SF),
+                                         pipeline, partial, sf, sf) {
          SET(sf, sf, LineWidth);
          SET(sf, sf, TriangleStripListProvokingVertexSelect);
          SET(sf, sf, LineStripListProvokingVertexSelect);
@@ -1862,8 +1866,8 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_RASTER)) {
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_RASTER),
-                           pipeline, partial.raster, raster) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_RASTER),
+                                         pipeline, partial, raster, raster) {
          SET(raster, raster, APIMode);
          SET(raster, raster, DXMultisampleRasterizationEnable);
          SET(raster, raster, AntialiasingEnable);
@@ -1903,13 +1907,15 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_SAMPLE_MASK)) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_SAMPLE_MASK), sm) {
+      anv_cmd_buffer_emit_retained(cmd_buffer, GENX(3DSTATE_SAMPLE_MASK),
+                                   sm, sm) {
          SET(sm, sm, SampleMask);
       }
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_WM_DEPTH_STENCIL)) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_WM_DEPTH_STENCIL), ds) {
+      anv_cmd_buffer_emit_retained(cmd_buffer, GENX(3DSTATE_WM_DEPTH_STENCIL),
+                                   wm_ds, ds) {
          SET(ds, ds, DoubleSidedStencilEnable);
          SET(ds, ds, StencilTestMask);
          SET(ds, ds, StencilWriteMask);
@@ -1935,7 +1941,8 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
 
 #if GFX_VER >= 12
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_DEPTH_BOUNDS)) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_DEPTH_BOUNDS), db) {
+      anv_cmd_buffer_emit_retained(cmd_buffer, GENX(3DSTATE_DEPTH_BOUNDS),
+                                   db, db) {
          SET(db, db, DepthBoundsTestEnable);
          SET(db, db, DepthBoundsTestMinValue);
          SET(db, db, DepthBoundsTestMaxValue);
@@ -1991,8 +1998,8 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
 
 #if GFX_VERx10 >= 125
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VFG)) {
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_VFG),
-                           pipeline, partial.vfg, vfg) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_VFG),
+                                         pipeline, partial, vfg, vfg) {
          SET(vfg, vfg, ListCutIndexEnable);
       }
    }
@@ -2005,15 +2012,16 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_WM)) {
-      anv_batch_emit_merge(&cmd_buffer->batch, GENX(3DSTATE_WM),
-                           pipeline, partial.wm, wm) {
+      anv_cmd_buffer_merge_retained_pipe(cmd_buffer, GENX(3DSTATE_WM),
+                                         pipeline, partial, wm, wm) {
          SET(wm, wm, ForceThreadDispatchEnable);
          SET(wm, wm, LineStippleEnable);
       }
    }
 
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_PS_BLEND)) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_PS_BLEND), blend) {
+      anv_cmd_buffer_emit_retained(cmd_buffer, GENX(3DSTATE_PS_BLEND),
+                                   ps_blend, blend) {
          SET(blend, ps_blend, HasWriteableRT);
          SET(blend, ps_blend, ColorBufferBlendEnable);
          SET(blend, ps_blend, SourceAlphaBlendFactor);
