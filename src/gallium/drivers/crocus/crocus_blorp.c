@@ -319,7 +319,7 @@ crocus_blorp_exec(struct blorp_batch *blorp_batch,
    crocus_emit_depth_stall_flushes(batch);
 #endif
 
-   blorp_emit(blorp_batch, GENX(3DSTATE_DRAWING_RECTANGLE), rect) {
+   blorp_gfx_emit(blorp_batch, GENX(3DSTATE_DRAWING_RECTANGLE), rect) {
       rect.ClippedDrawingRectangleXMax = MAX2(params->x1, params->x0) - 1;
       rect.ClippedDrawingRectangleYMax = MAX2(params->y1, params->y0) - 1;
    }
