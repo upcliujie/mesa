@@ -465,6 +465,17 @@ genX(cmd_buffer_flush_gfx_pipeline)(struct anv_cmd_buffer *cmd_buffer)
                   4 * new_pipeline->name.len) != 0))                    \
          BITSET_SET(hw_state->dirty, ANV_GFX_STATE_##bit);              \
    } while (0)
+#define diff_vertex_element(bit, index)                                 \
+   do {                                                                 \
+      /* Don't bother memcmp if the state is already dirty */           \
+      /* Also if the new state is empty, avoid marking dirty */         \
+      if (!BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_##bit) &&         \
+          (old_pipeline == NULL ||                                      \
+           memcmp(&old_pipeline->vs_elem_state[index],                  \
+                  &new_pipeline->vs_elem_state[index],                  \
+                  GENX(VERTEX_ELEMENT_STATE_length) * 4) != 0))         \
+         BITSET_SET(hw_state->dirty, ANV_GFX_STATE_##bit);              \
+   } while (0)
 #define assert_identical(bit, name)                                     \
    do {                                                                 \
       /* Fixed states should always have matching sizes */              \
@@ -504,6 +515,40 @@ genX(cmd_buffer_flush_gfx_pipeline)(struct anv_cmd_buffer *cmd_buffer)
    diff_fix_state(TE,                       partial.te);
    diff_fix_state(VFG,                      partial.vfg);
 
+   /* If the number of elements is different, dirty the whole set of vertex
+    * input. Otherwise diff each non dynamic elements.
+    */
+   if (old_pipeline == NULL ||
+       old_pipeline->vs_input_elements != new_pipeline->vs_input_elements ||
+       old_pipeline->sgvs_count != new_pipeline->sgvs_count) {
+      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS);
+      BITSET_SET_RANGE(hw_state->dirty,
+                       ANV_GFX_STATE_VF_INSTANCING,
+                       ANV_GFX_STATE_VF_INSTANCING +
+                       MAX2(new_pipeline->vs_input_elements +
+                            new_pipeline->sgvs_count - 1, 0));
+   } else {
+      /* We rely on the runtime to flag any difference between pipeline (because
+       * we have to reprogram all of them regardless). But the SGVS related
+       * elements are not know by the runtime, so we need to diff those.
+       */
+      for (uint32_t i = new_pipeline->vs_input_elements;
+           i < (new_pipeline->vs_input_elements +
+                new_pipeline->sgvs_count); i++)
+         diff_vertex_element(VERTEX_ELEMENTS, i);
+
+      /* For 3DSTATE_VF_INSTANCING, we can program each element separately so we
+       * diff what we can. If the VF input is dynamic, we rely on the pipeline,
+       * otherwise we diff what we packed in the pipeline. Either way we always
+       * diff the SGVS related elements.
+       */
+      uint32_t begin_elem = new_pipeline->vs_input_dynamic ?
+         new_pipeline->vs_input_elements : 0;
+      for (uint32_t i = begin_elem; i < (new_pipeline->vs_input_elements +
+                                         new_pipeline->sgvs_count); i++)
+         diff_var_state(VF_INSTANCING + i,     final.vf_instancing[i]);
+   }
+
    if (cmd_buffer->device->vk.enabled_extensions.EXT_mesh_shader) {
       diff_fix_state(TASK_CONTROL,          final.task_control);
       diff_fix_state(TASK_SHADER,           final.task_shader);
@@ -530,11 +575,11 @@ genX(cmd_buffer_flush_gfx_pipeline)(struct anv_cmd_buffer *cmd_buffer)
    assert_identical(VF_STATISTICS,            final.vf_statistics);
 
    /* States that can vary in length */
-   diff_var_state(VF_SGVS_INSTANCING,       final.vf_sgvs_instancing);
    diff_var_state(SO_DECL_LIST,             final.so_decl_list);
 
 #undef diff_fix_state
 #undef diff_var_state
+#undef diff_vertex_element
 #undef assert_identical
 #undef assert_empty
 
@@ -560,7 +605,7 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
 {
    UNUSED struct anv_device *device = cmd_buffer->device;
    struct anv_cmd_graphics_state *gfx = &cmd_buffer->state.gfx;
-   const struct anv_graphics_pipeline *pipeline =
+   struct anv_graphics_pipeline *pipeline =
       anv_pipeline_to_graphics(gfx->base.pipeline);
    const struct vk_dynamic_graphics_state *dyn =
       &cmd_buffer->vk.dynamic_graphics_state;
@@ -677,11 +722,31 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
       SET(VF_TOPOLOGY, vft.PrimitiveTopologyType, topology);
    }
 
-   if ((gfx->dirty & ANV_CMD_DIRTY_PIPELINE) ||
-       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_VI) ||
-       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_VI_BINDINGS_VALID) ||
-       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_VI_BINDING_STRIDES))
-      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_INPUT);
+   if (anv_pipeline_is_primitive(pipeline)) {
+      const bool any_vs_input_changed =
+         BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_VI) ||
+         BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_VI_BINDINGS_VALID) ||
+         BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_VI_BINDING_STRIDES);
+
+      if (any_vs_input_changed) {
+         /* All VERTEX_ELEMENT_STATE have to be reemitted */
+         BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS);
+
+         /* Only repack VERTEX_ELEMENT_STATE if dynamic and also only dirty
+          * VF_INSTANCING HW states when VS input is dynamic. The pipeline
+          * diffing will take care of the static case VF_INSTANCING.
+          */
+         if (pipeline->vs_input_dynamic) {
+            genX(cmd_buffer_emit_vertex_input)(cmd_buffer, pipeline, dyn->vi,
+                                               false /* emit_in_pipeline */);
+
+            BITSET_SET_RANGE(hw_state->dirty,
+                             ANV_GFX_STATE_VF_INSTANCING,
+                             ANV_GFX_STATE_VF_INSTANCING +
+                             MAX2(pipeline->vs_input_elements - 1, 0));
+         }
+      }
+   }
 
 #if GFX_VER >= 11
    if (cmd_buffer->device->vk.enabled_extensions.KHR_fragment_shading_rate &&
@@ -1471,9 +1536,6 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_PRIMITIVE_REPLICATION))
       anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.primitive_replication);
 
-   if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VF_SGVS_INSTANCING))
-      anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.vf_sgvs_instancing);
-
    if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VF_SGVS))
       anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline, final.vf_sgvs);
 
@@ -1684,34 +1746,60 @@ genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer)
       }
    }
 
-   if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VERTEX_INPUT)) {
-      const uint32_t ve_count =
-         pipeline->vs_input_elements + pipeline->svgs_count;
-      const uint32_t num_dwords = 1 + 2 * MAX2(1, ve_count);
+   const uint32_t vs_input_elems =
+      pipeline->vs_input_elements + pipeline->sgvs_count;
+
+   if (BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS)) {
+      const uint32_t num_dwords = 1 +
+         GENX(VERTEX_ELEMENT_STATE_length) * MAX2(1, vs_input_elems);
       uint32_t *p = anv_batch_emitn(&cmd_buffer->batch, num_dwords,
                                     GENX(3DSTATE_VERTEX_ELEMENTS));
-
       if (p) {
-         if (ve_count == 0) {
+         if (vs_input_elems == 0) {
             memcpy(p + 1, cmd_buffer->device->empty_vs_input,
                    sizeof(cmd_buffer->device->empty_vs_input));
-         } else if (ve_count == pipeline->vertex_input_elems) {
-            /* MESA_VK_DYNAMIC_VI is not dynamic for this pipeline, so
-             * everything is in pipeline->vertex_input_data and we can just
-             * memcpy
-             */
-            memcpy(p + 1, pipeline->vertex_input_data, 4 * 2 * ve_count);
-            anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline,
-                                          final.vf_instancing);
          } else {
-            assert(pipeline->final.vf_instancing.len == 0);
-            /* Use dyn->vi to emit the dynamic VERTEX_ELEMENT_STATE input. */
-            genX(emit_vertex_input)(&cmd_buffer->batch, p + 1,
-                                    pipeline, dyn->vi, false /* emit_in_pipeline */);
-            /* Then append the VERTEX_ELEMENT_STATE for the draw parameters */
-            memcpy(p + 1 + 2 * pipeline->vs_input_elements,
-                   pipeline->vertex_input_data,
-                   4 * 2 * pipeline->vertex_input_elems);
+            for (uint32_t i = 0; i < vs_input_elems; i++) {
+               /* Non dynamic or sgvs elements are located in the pipeline,
+                * otherwise it's in the command buffer in
+                * hw_state->vs_elem_state.
+                */
+               const uint32_t *vs_elem_state =
+                  (!pipeline->vs_input_dynamic ||
+                   i >= pipeline->vs_input_elements) ?
+                  pipeline->vs_elem_state[i] : hw_state->vs_elem_state[i];
+
+               memcpy(p + 1 + i * GENX(VERTEX_ELEMENT_STATE_length),
+                      vs_elem_state, GENX(VERTEX_ELEMENT_STATE_length) * 4);
+            }
+         }
+      }
+   }
+
+   if (vs_input_elems > 0 &&
+       BITSET_TEST_RANGE(hw_state->dirty,
+                         ANV_GFX_STATE_VF_INSTANCING,
+                         ANV_GFX_STATE_VF_INSTANCING + (vs_input_elems - 1))) {
+      for (uint32_t i = 0; i < vs_input_elems; i++) {
+         if (!BITSET_TEST(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING + i))
+            continue;
+
+         if (i < pipeline->vs_input_elements) {
+            if (pipeline->vs_input_dynamic) {
+               uint32_t *dw;
+               dw = anv_batch_emit_dwords(&cmd_buffer->batch,
+                                          GENX(3DSTATE_VF_INSTANCING_length));
+               if (!dw)
+                  break;
+               memcpy(dw, cmd_buffer->state.gfx.dyn_state.vf_instancing[i],
+                      GENX(3DSTATE_VF_INSTANCING_length) * 4);
+            } else {
+               anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline,
+                                             final.vf_instancing[i]);
+            }
+         } else {
+            anv_batch_emit_pipeline_state(&cmd_buffer->batch, pipeline,
+                                          final.vf_instancing[i]);
          }
       }
    }

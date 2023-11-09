@@ -303,8 +303,10 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_URB);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_STATISTICS);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF);
+   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS);
+   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING + 0);
+   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING + 1);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_TOPOLOGY);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_INPUT);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS);
 #if GFX_VER >= 11
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS_2);

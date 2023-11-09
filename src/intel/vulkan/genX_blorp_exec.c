@@ -355,8 +355,12 @@ blorp_exec_on_render(struct blorp_batch *batch,
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_URB);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_STATISTICS);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF);
+   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS);
+   const uint32_t num_vf_instancing =
+      blorp_batch_num_vf_instancing(batch, params);
+   for (uint32_t i = 0; i < num_vf_instancing; i++)
+      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING + i);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_TOPOLOGY);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_INPUT);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS);
 #if GFX_VER >= 11
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS_2);

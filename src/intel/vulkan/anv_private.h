@@ -1212,8 +1212,8 @@ enum anv_gfx_state_bits {
    ANV_GFX_STATE_VF_STATISTICS,
    ANV_GFX_STATE_VF_SGVS,
    ANV_GFX_STATE_VF_SGVS_2,
-   ANV_GFX_STATE_VF_SGVS_VI, /* 3DSTATE_VERTEX_ELEMENTS for sgvs elements */
-   ANV_GFX_STATE_VF_SGVS_INSTANCING, /* 3DSTATE_VF_INSTANCING for sgvs elements */
+   ANV_GFX_STATE_VF_INSTANCING,
+   ANV_GFX_STATE_VF_INSTANCING_LAST = ANV_GFX_STATE_VF_INSTANCING + 32,
    ANV_GFX_STATE_PRIMITIVE_REPLICATION,
    ANV_GFX_STATE_MULTISAMPLE,
    ANV_GFX_STATE_SBE,
@@ -1250,10 +1250,10 @@ enum anv_gfx_state_bits {
    ANV_GFX_STATE_SF,
    ANV_GFX_STATE_STREAMOUT,
    ANV_GFX_STATE_TE,
-   ANV_GFX_STATE_VERTEX_INPUT,
    ANV_GFX_STATE_VF,
    ANV_GFX_STATE_VF_TOPOLOGY,
    ANV_GFX_STATE_VFG,
+   ANV_GFX_STATE_VERTEX_ELEMENTS,
    ANV_GFX_STATE_VIEWPORT_CC,
    ANV_GFX_STATE_VIEWPORT_SF_CLIP,
    ANV_GFX_STATE_WM,
@@ -1503,6 +1503,12 @@ struct anv_gfx_dynamic_state {
       unsigned TileBoxCheck;
    } tbimr;
    bool use_tbimr;
+
+   /* 3DSTATE_VERTEX_ELEMENTS */
+   uint32_t vs_elem_state[MAX_VES][2];
+
+   /* 3DSTATE_VERTEX_ELEMENTS */
+   uint32_t vf_instancing[MAX_VES][3];
 
    bool pma_fix;
 
@@ -4191,27 +4197,28 @@ struct anv_graphics_pipeline {
    bool                                         uses_xfb;
    bool                                         primitive_id_override;
 
-   /* Number of VERTEX_ELEMENT_STATE input elements used by the shader */
+   /* Whether the shader vertex input is dynamic. If true, vs_elem_state[0,
+    * vs_input_elements] and vf_instancing[0, vs_input_elements] are empty.
+    */
+   bool                                         vs_input_dynamic;
+
+   /* Number of VERTEX_ELEMENT_STATE input elements used by the application
+    * shader
+    */
    uint32_t                                     vs_input_elements;
 
    /* Number of VERTEX_ELEMENT_STATE elements we need to implement some of the
     * draw parameters
     */
-   uint32_t                                     svgs_count;
+   uint32_t                                     sgvs_count;
 
    /* Pre computed VERTEX_ELEMENT_STATE structures for the vertex input that
     * can be copied into the anv_cmd_buffer behind a 3DSTATE_VERTEX_BUFFER.
     *
-    * When MESA_VK_DYNAMIC_VI is not dynamic
-    *
-    *     vertex_input_elems = vs_input_elements + svgs_count
-    *
-    * All the VERTEX_ELEMENT_STATE can be directly copied behind a
-    * 3DSTATE_VERTEX_ELEMENTS instruction in the command buffer. Otherwise
-    * this array only holds the svgs_count elements.
+    * When MESA_VK_DYNAMIC_VI is dynamic the first vs_input_elements elements
+    * are empty.
     */
-   uint32_t                                     vertex_input_elems;
-   uint32_t                                     vertex_input_data[2 * 31 /* MAX_VES + 2 internal */];
+   uint32_t                                     vs_elem_state[MAX_VES + 2][2];
 
    enum brw_wm_msaa_flags                       fs_msaa_flags;
 
@@ -4226,8 +4233,7 @@ struct anv_graphics_pipeline {
       struct anv_gfx_state_ptr                  vf_statistics;
       struct anv_gfx_state_ptr                  vf_sgvs;
       struct anv_gfx_state_ptr                  vf_sgvs_2;
-      struct anv_gfx_state_ptr                  vf_sgvs_instancing;
-      struct anv_gfx_state_ptr                  vf_instancing;
+      struct anv_gfx_state_ptr                  vf_instancing[MAX_VES + 2];
       struct anv_gfx_state_ptr                  primitive_replication;
       struct anv_gfx_state_ptr                  sbe;
       struct anv_gfx_state_ptr                  sbe_swiz;

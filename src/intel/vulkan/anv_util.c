@@ -94,16 +94,51 @@ anv_dump_pipe_bits(enum anv_pipe_bits bits, FILE *f)
       fputs("+ccs_flush ", f);
 }
 
+#pragma GCC diagnostic ignored "-Wswitch"
+
 const char *
 anv_gfx_state_bit_to_str(enum anv_gfx_state_bits state)
 {
 #define NAME(name) case ANV_GFX_STATE_##name: return #name;
+#define NAME_IDX(name, idx) case (ANV_GFX_STATE_##name + idx): return #name #idx
    switch (state) {
       NAME(URB);
       NAME(VF_STATISTICS);
       NAME(VF_SGVS);
       NAME(VF_SGVS_2);
-      NAME(VF_SGVS_INSTANCING);
+      NAME_IDX(VF_INSTANCING, 0);
+      NAME_IDX(VF_INSTANCING, 1);
+      NAME_IDX(VF_INSTANCING, 2);
+      NAME_IDX(VF_INSTANCING, 3);
+      NAME_IDX(VF_INSTANCING, 4);
+      NAME_IDX(VF_INSTANCING, 5);
+      NAME_IDX(VF_INSTANCING, 6);
+      NAME_IDX(VF_INSTANCING, 7);
+      NAME_IDX(VF_INSTANCING, 8);
+      NAME_IDX(VF_INSTANCING, 9);
+      NAME_IDX(VF_INSTANCING, 10);
+      NAME_IDX(VF_INSTANCING, 11);
+      NAME_IDX(VF_INSTANCING, 12);
+      NAME_IDX(VF_INSTANCING, 13);
+      NAME_IDX(VF_INSTANCING, 14);
+      NAME_IDX(VF_INSTANCING, 15);
+      NAME_IDX(VF_INSTANCING, 16);
+      NAME_IDX(VF_INSTANCING, 17);
+      NAME_IDX(VF_INSTANCING, 18);
+      NAME_IDX(VF_INSTANCING, 19);
+      NAME_IDX(VF_INSTANCING, 20);
+      NAME_IDX(VF_INSTANCING, 21);
+      NAME_IDX(VF_INSTANCING, 22);
+      NAME_IDX(VF_INSTANCING, 23);
+      NAME_IDX(VF_INSTANCING, 24);
+      NAME_IDX(VF_INSTANCING, 25);
+      NAME_IDX(VF_INSTANCING, 26);
+      NAME_IDX(VF_INSTANCING, 27);
+      NAME_IDX(VF_INSTANCING, 28);
+      NAME_IDX(VF_INSTANCING, 29);
+      NAME_IDX(VF_INSTANCING, 30);
+      NAME_IDX(VF_INSTANCING, 31);
+      NAME_IDX(VF_INSTANCING, 32);
       NAME(PRIMITIVE_REPLICATION);
       NAME(MULTISAMPLE);
       NAME(SBE);
@@ -123,6 +158,7 @@ anv_gfx_state_bit_to_str(enum anv_gfx_state_bits state)
       NAME(TASK_CONTROL);
       NAME(TASK_SHADER);
       NAME(TASK_REDISTRIB);
+      NAME(BLEND_STATE);
       NAME(BLEND_STATE_POINTERS);
       NAME(CLIP);
       NAME(CC_STATE);
@@ -138,10 +174,10 @@ anv_gfx_state_bit_to_str(enum anv_gfx_state_bits state)
       NAME(SF);
       NAME(STREAMOUT);
       NAME(TE);
-      NAME(VERTEX_INPUT);
       NAME(VF);
       NAME(VF_TOPOLOGY);
       NAME(VFG);
+      NAME(VERTEX_ELEMENTS);
       NAME(VIEWPORT_CC);
       NAME(VIEWPORT_SF_CLIP);
       NAME(WM);
@@ -151,4 +187,6 @@ anv_gfx_state_bit_to_str(enum anv_gfx_state_bits state)
       NAME(TBIMR_TILE_PASS_INFO);
    default: unreachable("invalid state");
    }
+#undef NAME
+#undef NAME_IDX
 }
