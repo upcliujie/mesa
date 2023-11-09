@@ -4346,6 +4346,36 @@ struct anv_graphics_pipeline {
            _dst = NULL;                                                 \
          }))
 
+/* Helper to emit retained state with diffing, with all the values defined at
+ * the calling site.
+ */
+#define anv_cmd_buffer_emit_diff_retained(cmd_buffer, _batch, cmd,      \
+                                          _dirty_bit, _state, name)     \
+   for (struct cmd name = { __anv_cmd_header(cmd) }, *_dst = &name;     \
+        __builtin_expect(_dst != NULL, 1);                              \
+        ({                                                              \
+           assert(ARRAY_SIZE(cmd_buffer->state.gfx.retained_instructions._state) >= \
+                  __anv_cmd_length(cmd));                               \
+           uint32_t _state_data[__anv_cmd_length(cmd)];                 \
+           __anv_cmd_pack(cmd)(_batch, _state_data, &name);             \
+           if ((INTEL_DEBUG(DEBUG_REEMIT) ||                            \
+                true ||                                                 \
+                memcmp(_state_data,                                     \
+                       (cmd_buffer)->state.gfx.retained_instructions._state, \
+                       __anv_cmd_length(cmd) * 4)) &&                   \
+                (_dst = anv_batch_emit_dwords(                          \
+                  _batch, __anv_cmd_length(cmd))) != NULL) {            \
+              memcpy((cmd_buffer)->state.gfx.retained_instructions._state, \
+                     _state_data, __anv_cmd_length(cmd) * 4);           \
+              memcpy(_dst, _state_data, __anv_cmd_length(cmd) * 4);     \
+              VG(VALGRIND_CHECK_MEM_IS_DEFINED(                         \
+                    _dst, __anv_cmd_length(cmd) * 4));                  \
+              BITSET_SET((cmd_buffer)->state.gfx.dyn_state.dirty,       \
+                         ANV_GFX_STATE_##_dirty_bit);                   \
+           }                                                            \
+           _dst = NULL;                                                 \
+         }))
+
 /* Helper to emit retained state completely defined in the pipeline. */
 #define anv_cmd_buffer_merge_retained_pipe(cmd_buffer, cmd, pipeline,   \
                                            _mode, _state, name)         \

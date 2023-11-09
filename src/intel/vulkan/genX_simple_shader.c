@@ -35,9 +35,10 @@
 static void
 genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
 {
-   assert(state->cmd_buffer == NULL ||
-          state->cmd_buffer->state.current_pipeline == _3D);
+   assert(state->cmd_buffer != NULL);
+   assert(state->cmd_buffer->state.current_pipeline == _3D);
 
+   struct anv_cmd_buffer *cmd_buffer = state->cmd_buffer;
    struct anv_batch *batch = state->batch;
    struct anv_device *device = state->device;
    const struct brw_wm_prog_data *prog_data =
@@ -77,25 +78,37 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
          .Component3Control   = VFCOMP_STORE_1_FP,
       });
 
-   anv_batch_emit(batch, GENX(3DSTATE_VF_STATISTICS), vf);
-   anv_batch_emit(batch, GENX(3DSTATE_VF_SGVS), sgvs) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_VF_STATISTICS),
+                                     VF_STATISTICS, vf_statistics, vf);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_VF_SGVS),
+                                     VF_SGVS, vf_sgvs, sgvs) {
       sgvs.InstanceIDEnable = true;
       sgvs.InstanceIDComponentNumber = COMP_1;
       sgvs.InstanceIDElementOffset = 0;
    }
 #if GFX_VER >= 11
-   anv_batch_emit(batch, GENX(3DSTATE_VF_SGVS_2), sgvs);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_VF_SGVS_2),
+                                     VF_SGVS_2, vf_sgvs_2, sgvs);
 #endif
-   anv_batch_emit(batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_VF_INSTANCING),
+                                     VF_INSTANCING, vf_instancing[0], vfi) {
       vfi.InstancingEnable   = false;
       vfi.VertexElementIndex = 0;
    }
-   anv_batch_emit(batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_VF_INSTANCING),
+                                     VF_INSTANCING, vf_instancing[1], vfi) {
       vfi.InstancingEnable   = false;
       vfi.VertexElementIndex = 1;
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_VF_TOPOLOGY), topo) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_VF_TOPOLOGY),
+                                     VF_TOPOLOGY, vf_topology, topo) {
       topo.PrimitiveTopologyType = _3DPRIM_RECTLIST;
    }
 
@@ -114,56 +127,77 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
                         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                         entry_size, &deref_block_size);
 
-   anv_batch_emit(batch, GENX(3DSTATE_PS_BLEND), ps_blend) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_PS_BLEND),
+                                     PS_BLEND, ps_blend, ps_blend) {
       ps_blend.HasWriteableRT = true;
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_WM_DEPTH_STENCIL), wm);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_WM_DEPTH_STENCIL),
+                                     WM_DEPTH_STENCIL, wm_ds, wm);
 
 #if GFX_VER >= 12
-   anv_batch_emit(batch, GENX(3DSTATE_DEPTH_BOUNDS), db) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_DEPTH_BOUNDS),
+                                     DEPTH_BOUNDS, db, db) {
       db.DepthBoundsTestEnable = false;
       db.DepthBoundsTestMinValue = 0.0;
       db.DepthBoundsTestMaxValue = 1.0;
    }
 #endif
 
-   anv_batch_emit(batch, GENX(3DSTATE_MULTISAMPLE), ms);
-   anv_batch_emit(batch, GENX(3DSTATE_SAMPLE_MASK), sm) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_MULTISAMPLE),
+                                     MULTISAMPLE, ms, ms);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_SAMPLE_MASK),
+                                     SAMPLE_MASK, sm, sm) {
       sm.SampleMask = 0x1;
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_VS), vs);
-   anv_batch_emit(batch, GENX(3DSTATE_HS), hs);
-   anv_batch_emit(batch, GENX(3DSTATE_TE), te);
-   anv_batch_emit(batch, GENX(3DSTATE_DS), DS);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_VS), VS, vs, vs);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_HS), HS, hs, hs);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_TE), TE, te, te);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_DS), DS, ds, ds);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_GS), GS, gs, gs);
 
 #if GFX_VERx10 >= 125
    if (device->vk.enabled_extensions.EXT_mesh_shader) {
-      anv_batch_emit(batch, GENX(3DSTATE_MESH_CONTROL), mesh);
-      anv_batch_emit(batch, GENX(3DSTATE_TASK_CONTROL), task);
+      anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                        GENX(3DSTATE_MESH_CONTROL),
+                                        MESH_CONTROL, mesh_control, mesh);
+      anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                        GENX(3DSTATE_TASK_CONTROL),
+                                        TASK_CONTROL, task_control, task);
    }
 #endif
 
-   anv_batch_emit(batch, GENX(3DSTATE_STREAMOUT), so);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_STREAMOUT),
+                                     STREAMOUT, so, so);
 
-   anv_batch_emit(batch, GENX(3DSTATE_GS), gs);
-
-   anv_batch_emit(batch, GENX(3DSTATE_CLIP), clip) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_CLIP),
+                                     CLIP, clip, clip) {
       clip.PerspectiveDivideDisable = true;
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_SF), sf) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_SF),
+                                     SF, sf, sf) {
 #if GFX_VER >= 12
       sf.DerefBlockSize = deref_block_size;
 #endif
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_RASTER), raster) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_RASTER),
+                                     RASTER, raster, raster) {
       raster.CullMode = CULLMODE_NONE;
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_SBE), sbe) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_SBE),
+                                     SBE, sbe, sbe) {
       sbe.VertexURBEntryReadOffset = 1;
       sbe.NumberofSFOutputAttributes = prog_data->num_varying_inputs;
       sbe.VertexURBEntryReadLength = MAX2((prog_data->num_varying_inputs + 1) / 2, 1);
@@ -174,9 +208,11 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
          sbe.AttributeActiveComponentFormat[i] = ACF_XYZW;
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_WM), wm);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_WM),
+                                     WM, wm, wm);
 
-   anv_batch_emit(batch, GENX(3DSTATE_PS), ps) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_PS),
+                                     PS, ps, ps) {
       intel_set_ps_dispatch_state(&ps, device->info, prog_data,
                                   1 /* rasterization_samples */,
                                   0 /* msaa_flags */);
@@ -204,7 +240,8 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
       ps.MaximumNumberofThreadsPerPSD = device->info->max_threads_per_psd - 1;
    }
 
-   anv_batch_emit(batch, GENX(3DSTATE_PS_EXTRA), psx) {
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch, GENX(3DSTATE_PS_EXTRA),
+                                     PS_EXTRA, ps_extra, psx) {
       psx.PixelShaderValid = true;
       psx.AttributeEnable = prog_data->num_varying_inputs > 0;
       psx.PixelShaderIsPerSample = prog_data->persample_dispatch;
@@ -229,7 +266,10 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
 
 #if GFX_VER >= 12
    /* Disable Primitive Replication. */
-   anv_batch_emit(batch, GENX(3DSTATE_PRIMITIVE_REPLICATION), pr);
+   anv_cmd_buffer_emit_diff_retained(cmd_buffer, batch,
+                                     GENX(3DSTATE_PRIMITIVE_REPLICATION),
+                                     PRIMITIVE_REPLICATION,
+                                     primitive_replication, pr);
 #endif
 
    anv_batch_emit(batch, GENX(3DSTATE_PUSH_CONSTANT_ALLOC_VS), alloc);
@@ -300,43 +340,10 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
    struct anv_gfx_dynamic_state *hw_state =
       &state->cmd_buffer->state.gfx.dyn_state;
 
+   /* These states we don't diff automatically. */
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_URB);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_STATISTICS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING + 0);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING + 1);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_TOPOLOGY);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS);
-#if GFX_VER >= 11
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS_2);
-#endif
-#if GFX_VER >= 12
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PRIMITIVE_REPLICATION);
-#endif
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_STREAMOUT);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VIEWPORT_CC);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_CLIP);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_RASTER);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_SAMPLE_MASK);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_MULTISAMPLE);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_DEPTH_BOUNDS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_WM);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_WM_DEPTH_STENCIL);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_SF);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_SBE);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_HS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_DS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_TE);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_GS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PS_EXTRA);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PS_BLEND);
-   if (device->vk.enabled_extensions.EXT_mesh_shader) {
-      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_MESH_CONTROL);
-      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_TASK_CONTROL);
-   }
 
    state->cmd_buffer->state.gfx.vb_dirty = BITFIELD_BIT(0);
    state->cmd_buffer->state.gfx.dirty |= ~(ANV_CMD_DIRTY_RENDER_AREA |
