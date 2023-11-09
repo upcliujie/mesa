@@ -31,6 +31,31 @@
 #undef __gen_user_data
 #undef __gen_combine_address
 
+#define blorp_gfx_emit_retained(_batch, cmd, _dirty_bit, _state, name)  \
+   for (struct cmd name = { __anv_cmd_header(cmd) }, *_dst = &name;     \
+        __builtin_expect(_dst != NULL, 1);                              \
+        ({                                                              \
+           struct anv_cmd_buffer *cmd_buffer = _batch->driver_batch;    \
+           assert(ARRAY_SIZE(cmd_buffer->state.gfx.retained_instructions._state) >= \
+                  __anv_cmd_length(cmd));                               \
+           uint32_t _state_data[__anv_cmd_length(cmd)];                 \
+           __anv_cmd_pack(cmd)(_batch, _state_data, &name);             \
+           if (memcmp(_state_data,                                      \
+                      cmd_buffer->state.gfx.retained_instructions._state, \
+                      __anv_cmd_length(cmd) * 4) &&                     \
+               (_dst = anv_batch_emit_dwords(                           \
+                  &cmd_buffer->batch, __anv_cmd_length(cmd))) != NULL) { \
+              memcpy(cmd_buffer->state.gfx.retained_instructions._state, \
+                     _state_data, __anv_cmd_length(cmd) * 4);           \
+              memcpy(_dst, _state_data, __anv_cmd_length(cmd) * 4);     \
+              VG(VALGRIND_CHECK_MEM_IS_DEFINED(                         \
+                    _dst, __anv_cmd_length(cmd) * 4));                  \
+              BITSET_SET(cmd_buffer->state.gfx.dyn_state.dirty,         \
+                         ANV_GFX_STATE_##_dirty_bit);                   \
+           }                                                            \
+           _dst = NULL;                                                 \
+         }))
+
 #include "common/intel_l3_config.h"
 #include "blorp/blorp_genX_exec.h"
 
@@ -351,50 +376,19 @@ blorp_exec_on_render(struct blorp_batch *batch,
    }
 #endif
 
-   /* Flag all the instructions emitted by BLORP. */
+   /* Flag the instructions emitted not automatically retained/flagged by
+    * blorp as dirty.
+    */
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_URB);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_STATISTICS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS);
-   const uint32_t num_vf_instancing =
-      blorp_batch_num_vf_instancing(batch, params);
-   for (uint32_t i = 0; i < num_vf_instancing; i++)
-      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING + i);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_TOPOLOGY);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS);
-#if GFX_VER >= 11
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS_2);
-#endif
-#if GFX_VER >= 12
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PRIMITIVE_REPLICATION);
-#endif
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VIEWPORT_CC);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_STREAMOUT);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_RASTER);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_CLIP);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_SAMPLE_MASK);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_MULTISAMPLE);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_SF);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_SBE);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_SBE_SWIZ);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_DEPTH_BOUNDS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_WM);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_WM_DEPTH_STENCIL);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_HS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_DS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_TE);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_GS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PS);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PS_EXTRA);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_BLEND_STATE_POINTERS);
    if (batch->blorp->config.use_mesh_shading) {
       BITSET_SET(hw_state->dirty, ANV_GFX_STATE_MESH_CONTROL);
       BITSET_SET(hw_state->dirty, ANV_GFX_STATE_TASK_CONTROL);
    }
    if (params->wm_prog_data) {
       BITSET_SET(hw_state->dirty, ANV_GFX_STATE_CC_STATE);
-      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_PS_BLEND);
+      BITSET_SET(hw_state->dirty, ANV_GFX_STATE_BLEND_STATE_POINTERS);
    }
 
    anv_cmd_dirty_mask_t dirty = ~(ANV_CMD_DIRTY_RENDER_AREA |
