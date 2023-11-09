@@ -337,7 +337,8 @@ genX(emit_simpler_shader_init_fragment)(struct anv_simple_shader *state)
    }
 
    state->cmd_buffer->state.gfx.vb_dirty = BITFIELD_BIT(0);
-   state->cmd_buffer->state.gfx.dirty |= ~(ANV_CMD_DIRTY_INDEX_BUFFER |
+   state->cmd_buffer->state.gfx.dirty |= ~(ANV_CMD_DIRTY_RENDER_AREA |
+                                           ANV_CMD_DIRTY_INDEX_BUFFER |
                                            ANV_CMD_DIRTY_XFB_ENABLE);
    state->cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_FRAGMENT_BIT;
    state->cmd_buffer->state.gfx.push_constant_stages = VK_SHADER_STAGE_FRAGMENT_BIT;
