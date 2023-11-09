@@ -1222,67 +1222,54 @@ static uint32_t
 blorp_emit_depth_stencil_state(struct blorp_batch *batch,
                                const struct blorp_params *params)
 {
-#if GFX_VER >= 8
-   struct GENX(3DSTATE_WM_DEPTH_STENCIL) ds = {
-      GENX(3DSTATE_WM_DEPTH_STENCIL_header),
-   };
+   uint32_t offset = 0;
+#if GFX_VER < 8
+   blorp_emit_dynamic(batch, GENX(DEPTH_STENCIL_STATE), ds, 64, &offset) {
 #else
-   struct GENX(DEPTH_STENCIL_STATE) ds = { 0 };
+   blorp_emit(batch, GENX(3DSTATE_WM_DEPTH_STENCIL), ds) {
 #endif
+      if (params->depth.enabled) {
+         ds.DepthBufferWriteEnable = true;
 
-   if (params->depth.enabled) {
-      ds.DepthBufferWriteEnable = true;
+         switch (params->hiz_op) {
+            /* See the following sections of the Sandy Bridge PRM, Volume 2, Part1:
+             *   - 7.5.3.1 Depth Buffer Clear
+             *   - 7.5.3.2 Depth Buffer Resolve
+             *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
+             */
+         case ISL_AUX_OP_FULL_RESOLVE:
+            ds.DepthTestEnable = true;
+            ds.DepthTestFunction = COMPAREFUNCTION_NEVER;
+            break;
 
-      switch (params->hiz_op) {
-      /* See the following sections of the Sandy Bridge PRM, Volume 2, Part1:
-       *   - 7.5.3.1 Depth Buffer Clear
-       *   - 7.5.3.2 Depth Buffer Resolve
-       *   - 7.5.3.3 Hierarchical Depth Buffer Resolve
-       */
-      case ISL_AUX_OP_FULL_RESOLVE:
-         ds.DepthTestEnable = true;
-         ds.DepthTestFunction = COMPAREFUNCTION_NEVER;
-         break;
+         case ISL_AUX_OP_NONE:
+         case ISL_AUX_OP_FAST_CLEAR:
+         case ISL_AUX_OP_AMBIGUATE:
+            ds.DepthTestEnable = false;
+            break;
+         case ISL_AUX_OP_PARTIAL_RESOLVE:
+            unreachable("Invalid HIZ op");
+         }
+      }
 
-      case ISL_AUX_OP_NONE:
-      case ISL_AUX_OP_FAST_CLEAR:
-      case ISL_AUX_OP_AMBIGUATE:
-         ds.DepthTestEnable = false;
-         break;
-      case ISL_AUX_OP_PARTIAL_RESOLVE:
-         unreachable("Invalid HIZ op");
+      if (params->stencil.enabled) {
+         ds.StencilBufferWriteEnable = true;
+         ds.StencilTestEnable = true;
+         ds.DoubleSidedStencilEnable = false;
+
+         ds.StencilTestFunction = COMPAREFUNCTION_ALWAYS;
+         ds.StencilPassDepthPassOp = STENCILOP_REPLACE;
+
+         ds.StencilWriteMask = params->stencil_mask;
+#if GFX_VER >= 9
+         ds.StencilReferenceValue = params->stencil_ref;
+#endif
       }
    }
 
-   if (params->stencil.enabled) {
-      ds.StencilBufferWriteEnable = true;
-      ds.StencilTestEnable = true;
-      ds.DoubleSidedStencilEnable = false;
-
-      ds.StencilTestFunction = COMPAREFUNCTION_ALWAYS;
-      ds.StencilPassDepthPassOp = STENCILOP_REPLACE;
-
-      ds.StencilWriteMask = params->stencil_mask;
-#if GFX_VER >= 9
-      ds.StencilReferenceValue = params->stencil_ref;
-#endif
+#if 0
+   /* Just there to make text editors happy. */
    }
-
-#if GFX_VER >= 8
-   uint32_t offset = 0;
-   uint32_t *dw = blorp_emit_dwords(batch,
-                                    GENX(3DSTATE_WM_DEPTH_STENCIL_length));
-   if (!dw)
-      return 0;
-
-   GENX(3DSTATE_WM_DEPTH_STENCIL_pack)(NULL, dw, &ds);
-#else
-   uint32_t offset;
-   void *state = blorp_alloc_dynamic_state(batch,
-                                           GENX(DEPTH_STENCIL_STATE_length) * 4,
-                                           64, &offset);
-   GENX(DEPTH_STENCIL_STATE_pack)(NULL, state, &ds);
-   blorp_flush_range(batch, state, GENX(DEPTH_STENCIL_STATE_length) * 4);
 #endif
 
 #if GFX_VER == 7
