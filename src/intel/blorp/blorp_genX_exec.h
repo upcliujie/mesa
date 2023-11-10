@@ -445,14 +445,31 @@ blorp_emit_vertex_buffers(struct blorp_batch *batch,
    }
 }
 
+static uint32_t
+blorp_batch_num_vf_instancing(struct blorp_batch *batch,
+                              const struct blorp_params *params)
+{
+   if (batch->flags & (BLORP_BATCH_USE_BLITTER | BLORP_BATCH_USE_COMPUTE))
+      return 0;
+
+#if GFX_VER >= 8
+   if (params->hiz_op != ISL_AUX_OP_NONE)
+      return 0;
+#endif
+
+   const unsigned num_varyings =
+      params->wm_prog_data ? params->wm_prog_data->num_varying_inputs : 0;
+   bool need_ndc = batch->blorp->compiler->devinfo->ver <= 5;
+   return 2 + need_ndc + num_varyings;
+}
+
 static void
 blorp_emit_vertex_elements(struct blorp_batch *batch,
                            const struct blorp_params *params)
 {
-   const unsigned num_varyings =
-      params->wm_prog_data ? params->wm_prog_data->num_varying_inputs : 0;
+   const unsigned num_elements = blorp_batch_num_vf_instancing(batch, params);
    bool need_ndc = batch->blorp->compiler->devinfo->ver <= 5;
-   const unsigned num_elements = 2 + need_ndc + num_varyings;
+   const unsigned num_varyings = num_elements - 2 - need_ndc;
 
    struct GENX(VERTEX_ELEMENT_STATE) ve[num_elements];
    memset(ve, 0, num_elements * sizeof(*ve));
