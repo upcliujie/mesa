@@ -424,3 +424,16 @@ TEST(bitset, test_setrange_across_word_boundary)
 
    EXPECT_EQ(BITSET_TEST(r, 66), false);
 }
+
+TEST(bitset, test_count_range)
+{
+   BITSET_DECLARE(r, 128);
+   BITSET_ZERO(r);
+
+   BITSET_SET_RANGE(r, 32, 65);
+
+   EXPECT_EQ(BITSET_COUNT_RANGE(r,  0, 31), 0);
+   EXPECT_EQ(BITSET_COUNT_RANGE(r, 32, 63), 32);
+   EXPECT_EQ(BITSET_COUNT_RANGE(r,  0, 63), 32);
+   EXPECT_EQ(BITSET_COUNT_RANGE(r, 33, 95), 33);
+}
