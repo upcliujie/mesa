@@ -34,7 +34,6 @@ gmem-dEQP-VK.spirv_assembly.instruction.graphics.16bit_storage.struct_mixed_type
 
 # New CTS failures in 1.3.7.0
 dEQP-VK.api.version_check.unavailable_entry_points,Fail
-dEQP-VK.dynamic_rendering.primary_cmd_buff.basic.partial_binding_depth_stencil,Fail
 dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.32bit.line_list.draw,Fail
 dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.32bit.line_list.indirect,Fail
 dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.32bit.line_list_with_adjacency.draw,Fail
