@@ -85,3 +85,16 @@ spec@arb_query_buffer_object@qbo@query-GL_PRIMITIVES_GENERATED-ASYNC-GL_UNSIGNED
 # contradicts the resolution of GL_ARB_fragment_shader_interlock issue 1.
 # https://gitlab.freedesktop.org/mesa/piglit/-/issues/93
 spec@arb_fragment_shader_interlock@arb_fragment_shader_interlock-image-load-store
+
+# uprev Piglit in Mesa
+spec@arb_shader_image_load_store@shader-mem-barrier@Geometry shader/'coherent' qualifier memory barrier test/modulus=16
+spec@arb_shader_image_load_store@shader-mem-barrier@Geometry shader/'coherent' qualifier memory barrier test/modulus=4
+spec@arb_shader_image_load_store@shader-mem-barrier@Geometry shader/'volatile' qualifier memory barrier test/modulus=16
+spec@arb_shader_image_load_store@shader-mem-barrier@Geometry shader/'volatile' qualifier memory barrier test/modulus=4
+spec@arb_shader_image_load_store@shader-mem-barrier@Vertex shader/'coherent' qualifier memory barrier test/modulus=16
+spec@arb_shader_image_load_store@shader-mem-barrier@Vertex shader/'coherent' qualifier memory barrier test/modulus=4
+spec@arb_shader_image_load_store@shader-mem-barrier@Vertex shader/'volatile' qualifier memory barrier test/modulus=16
+spec@arb_shader_image_load_store@shader-mem-barrier@Vertex shader/'volatile' qualifier memory barrier test/modulus=4
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-modifiers
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-modifiers@autogen-AR24-0x200000000801b02-modifiers_test
+

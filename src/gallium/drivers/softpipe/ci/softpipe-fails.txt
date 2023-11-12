@@ -1283,3 +1283,7 @@ spec@arb_texture_buffer_object@texture-buffer-size-clamp@rg8ui_texture_buffer_si
 spec@arb_texture_buffer_object@texture-buffer-size-clamp@rg8ui_texture_buffer_size_via_sampler,Fail
 spec@arb_texture_buffer_object@texture-buffer-size-clamp@rgba8ui_texture_buffer_size_via_image,Fail
 spec@arb_texture_buffer_object@texture-buffer-size-clamp@rgba8ui_texture_buffer_size_via_sampler,Fail
+
+# uprev Piglit in Mesa
+spec@glsl-1.40@uniform_buffer@two-stages,Fail
+

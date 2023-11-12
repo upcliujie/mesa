@@ -690,3 +690,11 @@ KHR-GL46.sparse_texture_tests.SparseTextureCommitment,Crash
 # Assertion `size % ZINK_SPARSE_BUFFER_PAGE_SIZE == 0 || offset + size == bo->base.size' failed.
 spec@arb_sparse_buffer@basic,Crash
 spec@arb_sparse_buffer@buffer-data,Crash
+
+# uprev Piglit in Mesa
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-export,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_xrgb8888,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_y410,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_yvyu,Fail
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-transcode-nv12-as-r8-gr88,Fail
+

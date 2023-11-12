@@ -745,3 +745,8 @@ spec@arb_copy_image@arb_copy_image-formats --samples=4@Source: GL_RGBA8_SNORM/De
 spec@arb_copy_image@arb_copy_image-formats --samples=4@Source: GL_RGBA8_SNORM/Destination: GL_RG16UI,Fail
 spec@arb_copy_image@arb_copy_image-formats --samples=4@Source: GL_RGBA8_SNORM/Destination: GL_RGBA8I,Fail
 spec@arb_copy_image@arb_copy_image-formats --samples=4@Source: GL_RGBA8_SNORM/Destination: GL_RGBA8UI,Fail
+
+# uprev Piglit in Mesa
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-modifiers,Crash
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-refcount-multithread,Crash
+
