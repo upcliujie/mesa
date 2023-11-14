@@ -4359,7 +4359,6 @@ struct anv_graphics_pipeline {
            uint32_t _state_data[__anv_cmd_length(cmd)];                 \
            __anv_cmd_pack(cmd)(_batch, _state_data, &name);             \
            if ((INTEL_DEBUG(DEBUG_REEMIT) ||                            \
-                true ||                                                 \
                 memcmp(_state_data,                                     \
                        (cmd_buffer)->state.gfx.retained_instructions._state, \
                        __anv_cmd_length(cmd) * 4)) &&                   \
