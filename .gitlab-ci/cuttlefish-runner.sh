@@ -76,9 +76,21 @@ android_replace_vendor_mesa_libs() {
 
     # replace on /vendor/lib64
 
+    # Cuttlefish delivers a builtin EGL_mesa implementation.
+    # Android looks for both bundled EGL/GLES library or the split one.
+    # Bundled: /vendor/lib{,64}/egl/libGLES_mesa.so
+    # Split:
+    # - /vendor/lib{,64}/egl/libEGL_mesa.so
+    # - /vendor/lib{,64}/egl/libGLESv1_CM_mesa.so
+    # - /vendor/lib{,64}/egl/libGLESv2_mesa.so
+    # For reference https://android.googlesource.com/platform/frameworks/native/+/master/opengl/libs/EGL/Loader.cpp#41
+    adb shell rm /vendor/lib64/egl/libGLES_mesa.so
+    adb push install/lib/libEGL.so /vendor/lib64/egl/libEGL_mesa.so
+    adb push install/lib/libGLESv1_CM.so /vendor/lib64/egl/libGLESv1_CM_mesa.so
+    adb push install/lib/libGLESv2.so /vendor/lib64/egl/libGLESv2_mesa.so
+
     adb push install/lib/dri/${ANDROID_DRIVER}_dri.so /vendor/lib64/dri/${ANDROID_DRIVER}_dri.so
     adb push install/lib/libglapi.so /vendor/lib64/libglapi.so
-    adb push install/lib/libEGL.so /vendor/lib64/egl/libEGL_mesa.so
 
     adb shell rm /vendor/lib64/egl/libEGL_angle.so
     adb shell rm /vendor/lib64/egl/libEGL_emulation.so
