@@ -101,7 +101,7 @@ android_replace_vendor_mesa_libs() {
 }
 
 android_run_deqp_runner() {
-    adb shell "mkdir /data/results; cd /data; ./deqp-runner \
+    adb shell "mkdir /data/results; export EGL_PLATFORM=$EGL_PLATFORM; cd /data; ./deqp-runner \
         suite \
         --suite /data/deqp-$DEQP_SUITE.toml \
         --output $RESULTS \
