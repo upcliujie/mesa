@@ -22,8 +22,9 @@ host_setup() {
 
 android_connect_init() {
     adb connect $ANDROID_SERIAL
+    adb wait-for-device
     adb root
-    sleep 1
+    adb wait-for-device
     adb shell echo Hi from Android
     # shellcheck disable=SC2035
     adb logcat dEQP:D *:S &
