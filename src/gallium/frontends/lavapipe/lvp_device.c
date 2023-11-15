@@ -36,6 +36,7 @@
 #include "frontend/drisw_api.h"
 
 #include "util/u_inlines.h"
+#include "util/os_file.h"
 #include "util/os_memory.h"
 #include "util/os_time.h"
 #include "util/u_thread.h"
@@ -2104,7 +2105,7 @@ lvp_GetMemoryFdKHR(VkDevice _device, const VkMemoryGetFdInfoKHR *pGetFdInfo, int
    assert(pGetFdInfo->sType == VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR);
    assert(pGetFdInfo->handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT);
 
-   *pFD = dup(memory->backed_fd);
+   *pFD = os_dupfd_cloexec(memory->backed_fd);
    assert(*pFD >= 0);
    return VK_SUCCESS;
 }
