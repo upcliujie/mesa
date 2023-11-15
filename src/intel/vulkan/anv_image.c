@@ -673,11 +673,13 @@ add_aux_state_tracking_buffer(struct anv_device *device,
       binding = ANV_IMAGE_MEMORY_BINDING_PRIVATE;
    }
 
-   /* We believe that 256B alignment may be sufficient, but we choose 4K due to
-    * lack of testing.  And MI_LOAD/STORE operations require dword-alignment.
+   /* Add some padding to make sure the fast clear color state buffer starts at
+    * 64B alignment on Gfx12.5+ and 4K alignment on previous platforms. And
+    * MI_LOAD/STORE operations require dword-alignment.
     */
+   uint32_t alignment = device->info->verx10 >= 125 ? 64 : 4096;
    return image_binding_grow(device, image, binding,
-                             state_offset, state_size, 4096,
+                             state_offset, state_size, alignment,
                              &image->planes[plane].fast_clear_memory_range);
 }
 
@@ -1155,11 +1157,13 @@ check_memory_bindings(const struct anv_device *device,
             binding = ANV_IMAGE_MEMORY_BINDING_PRIVATE;
          }
 
-         /* We believe that 256B alignment may be sufficient, but we choose 4K
-          * due to lack of testing.  And MI_LOAD/STORE operations require
-          * dword-alignment.
+         /* Testing proved that Gfx12.5+ accept the smaller(64B) alignement but on Gfx11
+          * and Gfx12 still has issues so choose 4K alignment.
+          *
+          * MI_LOAD/STORE operations require dword-alignment.
           */
-         assert(plane->fast_clear_memory_range.alignment == 4096);
+         uint32_t alignment = device->info->verx10 >= 125 ? 64 : 4096;
+         assert(plane->fast_clear_memory_range.alignment == alignment);
          check_memory_range(accum_ranges,
                             .test_range = &plane->fast_clear_memory_range,
                             .expect_binding = binding);
