@@ -1373,10 +1373,16 @@ dri2_fill_context_attribs(struct dri2_egl_context *dri2_ctx,
 
    assert(*num_attribs >= NUM_ATTRIBS);
 
+#ifdef HAS_STATIC_ASSERT_OF_CONST_VAR
+   ASSERTED const unsigned num_attribs_base = __COUNTER__;
+#endif
+
 #define CTX_ATTRIB_ADD(name, value)                                            \
    do {                                                                        \
       ctx_attribs[pos++] = __DRI_CTX_ATTRIB_##name;                            \
       ctx_attribs[pos++] = value;                                              \
+      (void)__COUNTER__;                                                       \
+      (void)__COUNTER__;                                                       \
    } while (0)
 
    CTX_ATTRIB_ADD(MAJOR_VERSION, dri2_ctx->base.ClientMajorVersion);
@@ -1426,6 +1432,12 @@ dri2_fill_context_attribs(struct dri2_egl_context *dri2_ctx,
    }
 
 #undef CTX_ATTRIB_ADD
+
+#ifdef HAS_STATIC_ASSERT_OF_CONST_VAR
+   ASSERTED const unsigned num_attribs_needed =
+      __COUNTER__ - 1 - num_attribs_base;
+   static_assert(num_attribs_needed == NUM_ATTRIBS);
+#endif
 
    *num_attribs = pos;
 
