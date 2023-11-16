@@ -1373,20 +1373,22 @@ dri2_fill_context_attribs(struct dri2_egl_context *dri2_ctx,
 
    assert(*num_attribs >= NUM_ATTRIBS);
 
-   ctx_attribs[pos++] = __DRI_CTX_ATTRIB_MAJOR_VERSION;
-   ctx_attribs[pos++] = dri2_ctx->base.ClientMajorVersion;
-   ctx_attribs[pos++] = __DRI_CTX_ATTRIB_MINOR_VERSION;
-   ctx_attribs[pos++] = dri2_ctx->base.ClientMinorVersion;
+#define CTX_ATTRIB_ADD(name, value)                                            \
+   do {                                                                        \
+      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_##name;                            \
+      ctx_attribs[pos++] = value;                                              \
+   } while (0)
+
+   CTX_ATTRIB_ADD(MAJOR_VERSION, dri2_ctx->base.ClientMajorVersion);
+   CTX_ATTRIB_ADD(MINOR_VERSION, dri2_ctx->base.ClientMinorVersion);
 
    if (dri2_ctx->base.Flags != 0) {
-      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_FLAGS;
-      ctx_attribs[pos++] = dri2_ctx->base.Flags;
+      CTX_ATTRIB_ADD(FLAGS, dri2_ctx->base.Flags);
    }
 
    if (dri2_ctx->base.ResetNotificationStrategy !=
        EGL_NO_RESET_NOTIFICATION_KHR) {
-      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_RESET_STRATEGY;
-      ctx_attribs[pos++] = __DRI_CTX_RESET_LOSE_CONTEXT;
+      CTX_ATTRIB_ADD(RESET_STRATEGY, __DRI_CTX_RESET_LOSE_CONTEXT);
    }
 
    if (dri2_ctx->base.ContextPriority != EGL_CONTEXT_PRIORITY_MEDIUM_IMG) {
@@ -1407,25 +1409,23 @@ dri2_fill_context_attribs(struct dri2_egl_context *dri2_ctx,
          return false;
       }
 
-      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_PRIORITY;
-      ctx_attribs[pos++] = val;
+      CTX_ATTRIB_ADD(PRIORITY, val);
    }
 
    if (dri2_ctx->base.ReleaseBehavior ==
        EGL_CONTEXT_RELEASE_BEHAVIOR_NONE_KHR) {
-      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_RELEASE_BEHAVIOR;
-      ctx_attribs[pos++] = __DRI_CTX_RELEASE_BEHAVIOR_NONE;
+      CTX_ATTRIB_ADD(RELEASE_BEHAVIOR, __DRI_CTX_RELEASE_BEHAVIOR_NONE);
    }
 
    if (dri2_ctx->base.NoError) {
-      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_NO_ERROR;
-      ctx_attribs[pos++] = true;
+      CTX_ATTRIB_ADD(NO_ERROR, true);
    }
 
    if (dri2_ctx->base.Protected) {
-      ctx_attribs[pos++] = __DRI_CTX_ATTRIB_PROTECTED;
-      ctx_attribs[pos++] = true;
+      CTX_ATTRIB_ADD(PROTECTED, true);
    }
+
+#undef CTX_ATTRIB_ADD
 
    *num_attribs = pos;
 
