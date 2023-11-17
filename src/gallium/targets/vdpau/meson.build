@@ -26,8 +26,15 @@ vdpau_link_args = []
 vdpau_link_depends = []
 vdpau_drivers = []
 
-vdpau_sym = configure_file(input : 'vdpau.sym.in', output : 'vdpau.sym', configuration : sym_config)
-dri_dyn = configure_file(input : '../dri.dyn.in', output : 'dri.dyn', configuration : sym_config)
+vdpau_sym_config = configuration_data()
+foreach key : sym_config.keys()
+  if not ['radeon_drm_winsys_create'].contains(key)
+    vdpau_sym_config.set(key, sym_config.get(key))
+  endif
+endforeach
+
+vdpau_sym = configure_file(input : 'vdpau.sym.in', output : 'vdpau.sym', configuration : vdpau_sym_config)
+dri_dyn = configure_file(input : '../dri.dyn.in', output : 'dri.dyn', configuration : vdpau_sym_config)
 
 if with_ld_version_script
   vdpau_link_args += ['-Wl,--version-script', join_paths(meson.current_build_dir(), 'vdpau.sym')]
