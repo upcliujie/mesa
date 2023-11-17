@@ -342,7 +342,8 @@ genX(cmd_buffer_so_memcpy)(struct anv_cmd_buffer *cmd_buffer,
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_STATISTICS);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_TOPOLOGY);
-   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_INPUT);
+   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VERTEX_ELEMENTS);
+   BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_INSTANCING);
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS);
 #if GFX_VER >= 11
    BITSET_SET(hw_state->dirty, ANV_GFX_STATE_VF_SGVS_2);

@@ -1854,6 +1854,7 @@ anv_graphics_pipeline_load_cached_shaders(struct anv_graphics_base_pipeline *pip
             continue;
 
          pipeline->shaders[s] = anv_shader_bin_ref(stages[s].imported.bin);
+         pipeline->source_hashes[s] = stages[s].source_hash;
          imported++;
       }
    }
@@ -2815,17 +2816,16 @@ anv_graphics_pipeline_emit(struct anv_graphics_pipeline *pipeline,
       /* The total number of vertex elements we need to program. We might need
        * a couple more to implement some of the draw parameters.
        */
-      pipeline->svgs_count =
+      pipeline->sgvs_count =
          (vs_prog_data->uses_vertexid ||
           vs_prog_data->uses_instanceid ||
           vs_prog_data->uses_firstvertex ||
           vs_prog_data->uses_baseinstance) + vs_prog_data->uses_drawid;
 
-      pipeline->vs_input_elements = get_vs_input_elements(vs_prog_data);
+      pipeline->vs_input_dynamic =
+         BITSET_TEST(state->dynamic, MESA_VK_DYNAMIC_VI);
 
-      pipeline->vertex_input_elems =
-         (BITSET_TEST(state->dynamic, MESA_VK_DYNAMIC_VI) ?
-          0 : pipeline->vs_input_elements) + pipeline->svgs_count;
+      pipeline->vs_input_elements = get_vs_input_elements(vs_prog_data);
 
       /* Our implementation of VK_KHR_multiview uses instancing to draw the
        * different views when primitive replication cannot be used.  If the

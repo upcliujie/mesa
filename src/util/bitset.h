@@ -239,6 +239,26 @@ __bitset_test_range(const BITSET_WORD *r, unsigned start, unsigned end)
 #define BITSET_TEST_RANGE(x, b, e) \
    __bitset_test_range(x, b, e)
 
+static inline unsigned
+__bitset_count_range(const BITSET_WORD *r, unsigned start, unsigned end)
+{
+   const unsigned size = end - start + 1;
+   const unsigned start_mod = start % BITSET_WORDBITS;
+
+   if (start_mod + size <= BITSET_WORDBITS) {
+      return util_bitcount(r[BITSET_BITWORD(start)] &
+                           BITSET_RANGE(start_mod, start_mod + size - 1));
+   } else {
+      const unsigned first_size = BITSET_WORDBITS - start_mod;
+
+      return __bitset_count_range(r, start, start + first_size - 1) +
+             __bitset_count_range(r, start + first_size, end);
+   }
+}
+
+#define BITSET_COUNT_RANGE(x, b, e) \
+   __bitset_count_range(x, b, e)
+
 static inline void
 __bitset_set_range(BITSET_WORD *r, unsigned start, unsigned end)
 {

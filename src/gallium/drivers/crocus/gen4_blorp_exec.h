@@ -174,7 +174,7 @@ blorp_emit_pipeline(struct blorp_batch *blorp_batch,
 
    emit_urb_config(blorp_batch, params, NULL);
 
-   blorp_emit(blorp_batch, GENX(3DSTATE_PIPELINED_POINTERS), pp) {
+   blorp_gfx_emit(blorp_batch, GENX(3DSTATE_PIPELINED_POINTERS), pp) {
       pp.PointertoVSState = blorp_emit_vs_state(blorp_batch);
       pp.GSEnable = false;
       pp.ClipEnable = false;
@@ -185,6 +185,6 @@ blorp_emit_pipeline(struct blorp_batch *blorp_batch,
 
    batch->screen->vtbl.upload_urb_fence(batch);
 
-   blorp_emit(blorp_batch, GENX(CS_URB_STATE), curb);
-   blorp_emit(blorp_batch, GENX(CONSTANT_BUFFER), curb);
+   blorp_gfx_emit(blorp_batch, GENX(CS_URB_STATE), curb);
+   blorp_gfx_emit(blorp_batch, GENX(CONSTANT_BUFFER), curb);
 }

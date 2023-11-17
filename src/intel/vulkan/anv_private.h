@@ -1214,8 +1214,8 @@ enum anv_gfx_state_bits {
    ANV_GFX_STATE_VF_STATISTICS,
    ANV_GFX_STATE_VF_SGVS,
    ANV_GFX_STATE_VF_SGVS_2,
-   ANV_GFX_STATE_VF_SGVS_VI, /* 3DSTATE_VERTEX_ELEMENTS for sgvs elements */
-   ANV_GFX_STATE_VF_SGVS_INSTANCING, /* 3DSTATE_VF_INSTANCING for sgvs elements */
+   ANV_GFX_STATE_VF_INSTANCING,
+   ANV_GFX_STATE_VF_INSTANCING_LAST = ANV_GFX_STATE_VF_INSTANCING + 32,
    ANV_GFX_STATE_PRIMITIVE_REPLICATION,
    ANV_GFX_STATE_MULTISAMPLE,
    ANV_GFX_STATE_SBE,
@@ -1252,10 +1252,10 @@ enum anv_gfx_state_bits {
    ANV_GFX_STATE_SF,
    ANV_GFX_STATE_STREAMOUT,
    ANV_GFX_STATE_TE,
-   ANV_GFX_STATE_VERTEX_INPUT,
    ANV_GFX_STATE_VF,
    ANV_GFX_STATE_VF_TOPOLOGY,
    ANV_GFX_STATE_VFG,
+   ANV_GFX_STATE_VERTEX_ELEMENTS,
    ANV_GFX_STATE_VIEWPORT_CC,
    ANV_GFX_STATE_VIEWPORT_SF_CLIP,
    ANV_GFX_STATE_WM,
@@ -1505,6 +1505,12 @@ struct anv_gfx_dynamic_state {
       unsigned TileBoxCheck;
    } tbimr;
    bool use_tbimr;
+
+   /* 3DSTATE_VERTEX_ELEMENTS */
+   uint32_t vs_elem_state[MAX_VES][2];
+
+   /* 3DSTATE_VERTEX_ELEMENTS */
+   uint32_t vf_instancing[MAX_VES][3];
 
    bool pma_fix;
 
@@ -2065,21 +2071,6 @@ _anv_combine_address(struct anv_batch *batch, void *location,
       __dst;                                               \
    })
 
-#define anv_batch_emit_merge(batch, cmd, pipeline, state, name)         \
-   for (struct cmd name = { 0 },                                        \
-        *_dst = anv_batch_emit_dwords(batch, __anv_cmd_length(cmd));    \
-        __builtin_expect(_dst != NULL, 1);                              \
-        ({ uint32_t _partial[__anv_cmd_length(cmd)];                    \
-           assert((pipeline)->state.len == __anv_cmd_length(cmd));      \
-           __anv_cmd_pack(cmd)(batch, _partial, &name);                 \
-           for (uint32_t i = 0; i < __anv_cmd_length(cmd); i++) {       \
-              ((uint32_t *)_dst)[i] = _partial[i] |                     \
-                 (pipeline)->batch_data[(pipeline)->state.offset + i];  \
-           }                                                            \
-           VG(VALGRIND_CHECK_MEM_IS_DEFINED(_dst, __anv_cmd_length(cmd) * 4)); \
-           _dst = NULL;                                                 \
-         }))
-
 #define anv_batch_emit(batch, cmd, name)                            \
    for (struct cmd name = { __anv_cmd_header(cmd) },                    \
         *_dst = anv_batch_emit_dwords(batch, __anv_cmd_length(cmd));    \
@@ -2088,6 +2079,18 @@ _anv_combine_address(struct anv_batch *batch, void *location,
            VG(VALGRIND_CHECK_MEM_IS_DEFINED(_dst, __anv_cmd_length(cmd) * 4)); \
            _dst = NULL;                                                 \
          }))
+
+#define anv_batch_emit_pipeline_state(batch, pipeline, state)           \
+   do {                                                                 \
+      if ((pipeline)->state.len == 0)                                   \
+         break;                                                         \
+      uint32_t *dw;                                                     \
+      dw = anv_batch_emit_dwords(batch, (pipeline)->state.len);         \
+      if (!dw)                                                          \
+         break;                                                         \
+      memcpy(dw, &(pipeline)->batch_data[(pipeline)->state.offset],     \
+             4 * (pipeline)->state.len);                                \
+   } while (0)
 
 #define anv_batch_write_reg(batch, reg, name)                           \
    for (struct reg name = {}, *_cont = (struct reg *)1; _cont != NULL;  \
@@ -3351,7 +3354,15 @@ struct anv_cmd_pipeline_state {
       uint32_t                                  offsets[MAX_DYNAMIC_BUFFERS];
    }                                            dynamic_offsets[MAX_SETS];
 
+   /**
+    * The current bound pipeline.
+    */
    struct anv_pipeline      *pipeline;
+};
+
+struct anv_gfx_instr_ptr {
+   uint32_t *ptr;
+   uint32_t  len;
 };
 
 /** State tracking for graphics pipeline
@@ -3364,7 +3375,64 @@ struct anv_cmd_pipeline_state {
 struct anv_cmd_graphics_state {
    struct anv_cmd_pipeline_state base;
 
-   struct anv_graphics_pipeline *pipeline;
+   /**
+    * The last pipeline that has been programmed into the HW.
+    *
+    * If different from base.pipeline, we need to diff the 2 pipelines and
+    * reemit the states that changed.
+    */
+   struct anv_graphics_pipeline *last_programmed_pipeline;
+
+   /**
+    * Retained instruction data.
+    */
+   struct {
+      uint32_t urb[5 * 2 + 2 * 3];
+      uint32_t vf_statistics[1];
+      uint32_t vf_sgvs[2];
+      uint32_t vf_sgvs_2[3];
+      uint32_t vf_instancing[33][3];
+      uint32_t vf_topology[2];
+      uint32_t vfg[4];
+      uint32_t primitive_replication[6];
+      uint32_t so[5];
+      uint32_t db[4];
+      uint32_t clip[4];
+      uint32_t raster[5];
+      uint32_t sf[4];
+      uint32_t sbe[6];
+      uint32_t sbe_swiz[11];
+      uint32_t sm[2];
+      uint32_t te[4];
+      uint32_t ms[2];
+      uint32_t wm[2];
+      uint32_t wm_ds[4];
+      uint32_t vs[9];
+      uint32_t hs[9];
+      uint32_t ds[11];
+      uint32_t gs[10];
+      uint32_t ps[12];
+      uint32_t ps_extra[2];
+      uint32_t ps_blend[2];
+
+      uint32_t task_control[3];
+      uint32_t task_shader[7];
+      uint32_t task_redistrib[2];
+      uint32_t clip_mesh[2];
+      uint32_t mesh_control[3];
+      uint32_t mesh_shader[8];
+      uint32_t mesh_distrib[2];
+      uint32_t sbe_mesh[2];
+
+      /* Missing from this list is :
+       *    - 3DSTATE_SO_DECL_LIST
+       *    - 3DSTATE_CPS*
+       *
+       * Only used by application pipelines and we can diff it between those
+       * and not care for blorp & other internal shaders.
+       */
+
+   } retained_instructions;
 
    VkRenderingFlags rendering_flags;
    VkRect2D render_area;
@@ -3439,8 +3507,6 @@ enum anv_depth_reg_mode {
 struct anv_cmd_compute_state {
    struct anv_cmd_pipeline_state base;
 
-   struct anv_compute_pipeline *pipeline;
-
    bool pipeline_dirty;
 
    struct anv_state push_data;
@@ -3452,8 +3518,6 @@ struct anv_cmd_compute_state {
 
 struct anv_cmd_ray_tracing_state {
    struct anv_cmd_pipeline_state base;
-
-   struct anv_ray_tracing_pipeline *pipeline;
 
    bool pipeline_dirty;
 
@@ -4188,27 +4252,28 @@ struct anv_graphics_pipeline {
    bool                                         uses_xfb;
    bool                                         primitive_id_override;
 
-   /* Number of VERTEX_ELEMENT_STATE input elements used by the shader */
+   /* Whether the shader vertex input is dynamic. If true, vs_elem_state[0,
+    * vs_input_elements] and vf_instancing[0, vs_input_elements] are empty.
+    */
+   bool                                         vs_input_dynamic;
+
+   /* Number of VERTEX_ELEMENT_STATE input elements used by the application
+    * shader
+    */
    uint32_t                                     vs_input_elements;
 
    /* Number of VERTEX_ELEMENT_STATE elements we need to implement some of the
     * draw parameters
     */
-   uint32_t                                     svgs_count;
+   uint32_t                                     sgvs_count;
 
    /* Pre computed VERTEX_ELEMENT_STATE structures for the vertex input that
     * can be copied into the anv_cmd_buffer behind a 3DSTATE_VERTEX_BUFFER.
     *
-    * When MESA_VK_DYNAMIC_VI is not dynamic
-    *
-    *     vertex_input_elems = vs_input_elements + svgs_count
-    *
-    * All the VERTEX_ELEMENT_STATE can be directly copied behind a
-    * 3DSTATE_VERTEX_ELEMENTS instruction in the command buffer. Otherwise
-    * this array only holds the svgs_count elements.
+    * When MESA_VK_DYNAMIC_VI is dynamic the first vs_input_elements elements
+    * are empty.
     */
-   uint32_t                                     vertex_input_elems;
-   uint32_t                                     vertex_input_data[2 * 31 /* MAX_VES + 2 internal */];
+   uint32_t                                     vs_elem_state[MAX_VES + 2][2];
 
    enum brw_wm_msaa_flags                       fs_msaa_flags;
 
@@ -4223,8 +4288,7 @@ struct anv_graphics_pipeline {
       struct anv_gfx_state_ptr                  vf_statistics;
       struct anv_gfx_state_ptr                  vf_sgvs;
       struct anv_gfx_state_ptr                  vf_sgvs_2;
-      struct anv_gfx_state_ptr                  vf_sgvs_instancing;
-      struct anv_gfx_state_ptr                  vf_instancing;
+      struct anv_gfx_state_ptr                  vf_instancing[MAX_VES + 2];
       struct anv_gfx_state_ptr                  primitive_replication;
       struct anv_gfx_state_ptr                  sbe;
       struct anv_gfx_state_ptr                  sbe_swiz;
@@ -4261,30 +4325,104 @@ struct anv_graphics_pipeline {
    } partial;
 };
 
-#define anv_batch_merge_pipeline_state(batch, dwords0, pipeline, state) \
-   do {                                                                 \
-      uint32_t *dw;                                                     \
-                                                                        \
-      assert(ARRAY_SIZE(dwords0) == (pipeline)->state.len);             \
-      dw = anv_batch_emit_dwords((batch), ARRAY_SIZE(dwords0));         \
-      if (!dw)                                                          \
-         break;                                                         \
-      for (uint32_t i = 0; i < ARRAY_SIZE(dwords0); i++)                \
-         dw[i] = (dwords0)[i] |                                         \
-            (pipeline)->batch_data[(pipeline)->state.offset + i];       \
-      VG(VALGRIND_CHECK_MEM_IS_DEFINED(dw, ARRAY_SIZE(dwords0) * 4));   \
-   } while (0)
+/* Helper to emit retained state, with all the values defined at the calling
+ * site.
+ */
+#define anv_cmd_buffer_emit_retained(cmd_buffer, cmd, _state, name)     \
+   for (struct cmd name = { __anv_cmd_header(cmd) },                    \
+           *_dst = anv_batch_emit_dwords(&(cmd_buffer)->batch,          \
+                                         __anv_cmd_length(cmd));        \
+        __builtin_expect(_dst != NULL, 1);                              \
+        ({                                                              \
+           assert(ARRAY_SIZE(cmd_buffer->state.gfx.retained_instructions._state) >= \
+                  __anv_cmd_length(cmd));                               \
+           __anv_cmd_pack(cmd)(                                         \
+              &(cmd_buffer)->batch,                                     \
+              cmd_buffer->state.gfx.retained_instructions._state,       \
+              &name);                                                   \
+           memcpy(_dst,                                                 \
+                  (cmd_buffer)->state.gfx.retained_instructions._state, \
+                  __anv_cmd_length(cmd) * 4);                           \
+           VG(VALGRIND_CHECK_MEM_IS_DEFINED(                            \
+                 _dst, __anv_cmd_length(cmd) * 4));                     \
+           _dst = NULL;                                                 \
+         }))
 
-#define anv_batch_emit_pipeline_state(batch, pipeline, state)           \
+/* Helper to emit retained state with diffing, with all the values defined at
+ * the calling site.
+ */
+#define anv_cmd_buffer_emit_diff_retained(cmd_buffer, _batch, cmd,      \
+                                          _dirty_bit, _state, name)     \
+   for (struct cmd name = { __anv_cmd_header(cmd) }, *_dst = &name;     \
+        __builtin_expect(_dst != NULL, 1);                              \
+        ({                                                              \
+           assert(ARRAY_SIZE(cmd_buffer->state.gfx.retained_instructions._state) >= \
+                  __anv_cmd_length(cmd));                               \
+           uint32_t _state_data[__anv_cmd_length(cmd)];                 \
+           __anv_cmd_pack(cmd)(_batch, _state_data, &name);             \
+           if ((INTEL_DEBUG(DEBUG_REEMIT) ||                            \
+                memcmp(_state_data,                                     \
+                       (cmd_buffer)->state.gfx.retained_instructions._state, \
+                       __anv_cmd_length(cmd) * 4)) &&                   \
+                (_dst = anv_batch_emit_dwords(                          \
+                  _batch, __anv_cmd_length(cmd))) != NULL) {            \
+              memcpy((cmd_buffer)->state.gfx.retained_instructions._state, \
+                     _state_data, __anv_cmd_length(cmd) * 4);           \
+              memcpy(_dst, _state_data, __anv_cmd_length(cmd) * 4);     \
+              VG(VALGRIND_CHECK_MEM_IS_DEFINED(                         \
+                    _dst, __anv_cmd_length(cmd) * 4));                  \
+              BITSET_SET((cmd_buffer)->state.gfx.dyn_state.dirty,       \
+                         ANV_GFX_STATE_##_dirty_bit);                   \
+           }                                                            \
+           _dst = NULL;                                                 \
+         }))
+
+/* Helper to emit retained state completely defined in the pipeline. */
+#define anv_cmd_buffer_merge_retained_pipe(cmd_buffer, cmd, pipeline,   \
+                                           _mode, _state, name)         \
+   for (struct cmd name = { 0 },                                        \
+           *_dst = anv_batch_emit_dwords(&(cmd_buffer)->batch,          \
+                                         __anv_cmd_length(cmd));        \
+        __builtin_expect(_dst != NULL, 1);                              \
+        ({ uint32_t _partial[__anv_cmd_length(cmd)];                    \
+           assert(ARRAY_SIZE((cmd_buffer)->state.gfx.retained_instructions._state) >= \
+                  __anv_cmd_length(cmd));                               \
+           assert((pipeline)->_mode._state.len == __anv_cmd_length(cmd)); \
+           __anv_cmd_pack(cmd)(&(cmd_buffer)->batch, _partial, &name);  \
+           uint32_t dw_offset = (pipeline)->_mode._state.offset;        \
+           for (uint32_t i = 0; i < __anv_cmd_length(cmd); i++) {       \
+              (cmd_buffer)->state.gfx.retained_instructions._state[i] = \
+                 _partial[i] | (pipeline)->batch_data[dw_offset + i];   \
+           }                                                            \
+           memcpy(_dst,                                                 \
+                  (cmd_buffer)->state.gfx.retained_instructions._state, \
+                  4 * __anv_cmd_length(cmd));                           \
+           VG(VALGRIND_CHECK_MEM_IS_DEFINED(                            \
+                 _dst, __anv_cmd_length(cmd) * 4));                     \
+           _dst = NULL;                                                 \
+         }))
+
+/* Helper to emit retained state partially defined in the pipeline and
+ * partially at the calling site.
+ */
+#define anv_cmd_buffer_emit_retained_pipe(cmd_buffer, pipeline,         \
+                                          _mode, _inst)                 \
    do {                                                                 \
-      if ((pipeline)->state.len == 0)                                   \
+      struct anv_batch *batch = &(cmd_buffer)->batch;                   \
+      if ((pipeline)->_mode._inst.len == 0)                             \
          break;                                                         \
       uint32_t *dw;                                                     \
-      dw = anv_batch_emit_dwords((batch), (pipeline)->state.len);       \
+      dw = anv_batch_emit_dwords(batch, (pipeline)->_mode._inst.len);   \
       if (!dw)                                                          \
          break;                                                         \
-      memcpy(dw, &(pipeline)->batch_data[(pipeline)->state.offset],     \
-             4 * (pipeline)->state.len);                                \
+      uint32_t dw_offset = (pipeline)->_mode._inst.offset;              \
+      uint32_t dw_length = (pipeline)->_mode._inst.len;                 \
+      assert(ARRAY_SIZE(cmd_buffer->state.gfx.retained_instructions._inst) >= \
+             dw_length);                                                \
+      memcpy(cmd_buffer->state.gfx.retained_instructions._inst,         \
+             &(pipeline)->batch_data[dw_offset], 4 * dw_length);        \
+      memcpy(dw, cmd_buffer->state.gfx.retained_instructions._inst,     \
+             4 * dw_length);                                            \
    } while (0)
 
 

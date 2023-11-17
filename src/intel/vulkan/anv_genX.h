@@ -94,11 +94,10 @@ void genX(emit_pipeline_select)(struct anv_batch *batch, uint32_t pipeline);
 
 void genX(apply_task_urb_workaround)(struct anv_cmd_buffer *cmd_buffer);
 
-void genX(emit_vertex_input)(struct anv_batch *batch,
-                             uint32_t *vertex_element_dws,
-                             struct anv_graphics_pipeline *pipeline,
-                             const struct vk_vertex_input_state *vi,
-                             bool emit_in_pipeline);
+void genX(cmd_buffer_emit_vertex_input)(struct anv_cmd_buffer *cmd_buffer,
+                                        struct anv_graphics_pipeline *pipeline,
+                                        const struct vk_vertex_input_state *vi,
+                                        bool emit_in_pipeline);
 
 enum anv_pipe_bits
 genX(emit_apply_pipe_flushes)(struct anv_batch *batch,
@@ -126,7 +125,7 @@ void genX(emit_l3_config)(struct anv_batch *batch,
 void genX(cmd_buffer_config_l3)(struct anv_cmd_buffer *cmd_buffer,
                                 const struct intel_l3_config *cfg);
 
-void genX(cmd_buffer_flush_gfx_hw_state)(struct anv_cmd_buffer *cmd_buffer);
+void genX(cmd_buffer_flush_gfx_pipeline)(struct anv_cmd_buffer *cmd_buffer);
 
 void genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer);
 
@@ -186,7 +185,7 @@ genX(batch_emit_post_3dprimitive_was)(struct anv_batch *batch,
                                       uint32_t vertex_count);
 
 VkPolygonMode
-genX(raster_polygon_mode)(struct anv_graphics_pipeline *pipeline,
+genX(raster_polygon_mode)(const struct anv_graphics_pipeline *pipeline,
                           VkPolygonMode polygon_mode,
                           VkPrimitiveTopology primitive_topology);
 
