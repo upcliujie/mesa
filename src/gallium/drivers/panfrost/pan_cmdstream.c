@@ -712,10 +712,8 @@ panfrost_emit_frag_shader(struct panfrost_context *ctx,
 
    /* Merge with CSO state and upload */
    if (panfrost_fs_required(fs, ctx->blend, &ctx->pipe_framebuffer, zsa)) {
-      struct mali_renderer_state_packed *partial_rsd =
-         (struct mali_renderer_state_packed *)&fs->partial_rsd;
-      STATIC_ASSERT(sizeof(fs->partial_rsd) == sizeof(*partial_rsd));
-      pan_merge(rsd, *partial_rsd, RENDERER_STATE);
+      STATIC_ASSERT(sizeof(fs->partial_rsd) == sizeof(rsd));
+      pan_merge_helper(rsd.opaque, fs->partial_rsd, pan_size(RENDERER_STATE));
    } else {
       pan_merge_empty_fs(&rsd);
    }
@@ -4497,14 +4495,10 @@ init_batch(struct panfrost_batch *batch)
    batch->tls = batch->framebuffer;
 
 #if PAN_ARCH == 5
-   struct mali_framebuffer_pointer_packed ptr;
-
-   pan_pack(ptr.opaque, FRAMEBUFFER_POINTER, cfg) {
+   pan_pack(&batch->tls.gpu, FRAMEBUFFER_POINTER, cfg) {
       cfg.pointer = batch->framebuffer.gpu;
       cfg.render_target_count = 1; /* a necessary lie */
    }
-
-   batch->tls.gpu = ptr.opaque[0];
 #endif
 #endif
 }

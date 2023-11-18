@@ -76,8 +76,11 @@ enum bi_swizzle {
 static inline uint32_t
 bi_apply_swizzle(uint32_t value, enum bi_swizzle swz)
 {
-   const uint16_t *h = (const uint16_t *)&value;
-   const uint8_t *b = (const uint8_t *)&value;
+   uint16_t h[2];
+   uint8_t b[4];
+
+   memcpy(h, &value, sizeof(value));
+   memcpy(b, &value, sizeof(value));
 
 #define H(h0, h1) (h[h0] | ((uint32_t)h[h1] << 16))
 #define B(b0, b1, b2, b3)                                                      \
