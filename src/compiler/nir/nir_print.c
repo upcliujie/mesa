@@ -52,6 +52,9 @@ typedef struct {
    /** set of names used so far for nir_variables */
    struct set *syms;
 
+   /* set of struct types that were already printed */
+   struct set *struct_types;
+
    /* an index used to make new non-conflicting names */
    unsigned index;
 
@@ -821,8 +824,40 @@ print_access(enum gl_access_qualifier access, print_state *state, const char *se
 }
 
 static void
+print_struct(const struct glsl_type *type, print_state *state)
+{
+   if (_mesa_set_search(state->struct_types, type))
+      return;
+
+   _mesa_set_add(state->struct_types, type);
+
+   FILE *fp = state->fp;
+
+   for (uint32_t i = 0; i < type->length; i++) {
+      const struct glsl_type *field_type =
+         glsl_without_array(glsl_get_struct_field(type, i));
+
+      if (glsl_type_is_struct_or_ifc(field_type))
+         print_struct(field_type, state);
+   }
+
+   fprintf(fp, "struct %s {\n", get_name(type, glsl_get_type_name(type), "type", state));
+
+   for (uint32_t i = 0; i < type->length; i++) {
+      fprintf(fp, "   %s %s;\n", glsl_get_type_name(glsl_get_struct_field(type, i)),
+              type->fields.structure[i].name);
+   }
+
+   fprintf(fp, "}\n");
+}
+
+static void
 print_var_decl(nir_variable *var, print_state *state)
 {
+   const struct glsl_type *type = glsl_without_array(var->type);
+   if (glsl_type_is_struct_or_ifc(type))
+      print_struct(type, state);
+
    FILE *fp = state->fp;
 
    fprintf(fp, "decl_var ");
@@ -898,9 +933,9 @@ print_var_decl(nir_variable *var, print_state *state)
          fprintf(fp, " (%s%s)", loc, components);
       } else {
          fprintf(fp, " (%s%s, %u, %u)%s", loc,
-               components,
-               var->data.driver_location, var->data.binding,
-               var->data.compact ? " compact" : "");
+                 components,
+                 var->data.driver_location, var->data.binding,
+                 var->data.compact ? " compact" : "");
       }
    }
 
@@ -2249,6 +2284,7 @@ init_print_state(print_state *state, nir_shader *shader, FILE *fp)
    state->ht = _mesa_pointer_hash_table_create(NULL);
    state->syms = _mesa_set_create(NULL, _mesa_hash_string,
                                   _mesa_key_string_equal);
+   state->struct_types = _mesa_pointer_set_create(NULL);
    state->index = 0;
    state->int_types = NULL;
    state->float_types = NULL;
@@ -2261,6 +2297,7 @@ destroy_print_state(print_state *state)
 {
    _mesa_hash_table_destroy(state->ht, NULL);
    _mesa_set_destroy(state->syms, NULL);
+   _mesa_set_destroy(state->struct_types, NULL);
 }
 
 static const char *
