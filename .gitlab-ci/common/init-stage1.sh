@@ -17,7 +17,11 @@ mkdir /dev/shm
 mount -t tmpfs -o noexec,nodev,nosuid tmpfs /dev/shm
 mount -t tmpfs tmpfs /tmp
 
-echo "nameserver 8.8.8.8" > /etc/resolv.conf
+# Use FreeDesktop.org's DNS resolver, so that any change we need to make is
+# instantly propagated.
+# Note: any domain not under freedesktop.org will fail to resolve.
+echo "nameserver 131.252.210.177" > /etc/resolv.conf
+
 [ -z "$NFS_SERVER_IP" ] || echo "$NFS_SERVER_IP caching-proxy" >> /etc/hosts
 
 # Set the time so we can validate certificates before we fetch anything;

@@ -4,7 +4,11 @@ server {
 	listen 10.42.0.1:80 default_server;
 	listen 127.0.0.1:80 default_server;
 	listen [::]:80 default_server;
-	resolver 8.8.8.8;
+
+	# Use FreeDesktop.org's DNS resolver, so that any change we need to make is
+	# instantly propagated.
+	# Note: any domain not under freedesktop.org will fail to resolve.
+	resolver 131.252.210.177;
 
 	root /var/www/html;
 
