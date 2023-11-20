@@ -80,8 +80,8 @@ apt-get purge -y "${EPHEMERAL[@]}"
 
 . .gitlab-ci/container/container_post_build.sh
 
-# This needs to be done after container_post_build.sh, or apt-get breaks in there
 if [[ $arch != "armhf" ]]; then
+    apt-get autoremove -y --purge
     apt-get download llvm-"${LLVM_VERSION}"-{dev,tools}:"$arch"
     dpkg -i --force-depends llvm-"${LLVM_VERSION}"-*_"${arch}".deb
     rm llvm-"${LLVM_VERSION}"-*_"${arch}".deb
