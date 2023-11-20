@@ -4,6 +4,8 @@
 set -e
 set -o xtrace
 
+. .gitlab-ci/container/container_pre_build.sh
+
 export LLVM_VERSION="${LLVM_VERSION:=15}"
 
 apt-get -y install ca-certificates
@@ -74,8 +76,6 @@ pip3 install --break-system-packages git+http://gitlab.freedesktop.org/freedeskt
 
 arch=armhf
 . .gitlab-ci/container/cross_build.sh
-
-. .gitlab-ci/container/container_pre_build.sh
 
 . .gitlab-ci/container/build-mold.sh
 
