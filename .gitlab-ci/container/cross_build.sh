@@ -66,9 +66,6 @@ fi
 . .gitlab-ci/container/create-cross-file.sh $arch
 
 
-. .gitlab-ci/container/container_pre_build.sh
-
-
 # dependencies where we want a specific version
 MULTIARCH_PATH=$(dpkg-architecture -A $arch -qDEB_TARGET_MULTIARCH)
 export EXTRA_MESON_ARGS="--cross-file=/cross_file-${arch}.txt -D libdir=lib/${MULTIARCH_PATH}"
@@ -78,10 +75,8 @@ export EXTRA_MESON_ARGS="--cross-file=/cross_file-${arch}.txt -D libdir=lib/${MU
 
 apt-get purge -y "${EPHEMERAL[@]}"
 
-. .gitlab-ci/container/container_post_build.sh
-
-# This needs to be done after container_post_build.sh, or apt-get breaks in there
 if [[ $arch != "armhf" ]]; then
+    apt-get autoremove -y --purge
     apt-get download llvm-"${LLVM_VERSION}"-{dev,tools}:"$arch"
     dpkg -i --force-depends llvm-"${LLVM_VERSION}"-*_"${arch}".deb
     rm llvm-"${LLVM_VERSION}"-*_"${arch}".deb
