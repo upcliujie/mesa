@@ -857,7 +857,7 @@ print_var_decl(nir_variable *var, print_state *state)
       fprintf(fp, "%s ", precisions[var->data.precision]);
    }
 
-   fprintf(fp, "%s %s", glsl_get_type_name(var->type),
+   fprintf(fp, "%s %s", get_name(var->type, glsl_get_type_name(var->type), "type", state),
            get_name(var, var->name, "", state));
 
    if (var->data.mode & (nir_var_shader_in |
