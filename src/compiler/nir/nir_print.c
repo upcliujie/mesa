@@ -491,35 +491,36 @@ print_alu_instr(nir_alu_instr *instr, print_state *state)
 }
 
 static const char *
-get_var_name(nir_variable *var, print_state *state)
+get_name(const void *ctx, const char *identifier, const char *default_name,
+         print_state *state)
 {
    if (state->ht == NULL)
-      return var->name ? var->name : "unnamed";
+      return identifier ? identifier : "unnamed";
 
    assert(state->syms);
 
-   struct hash_entry *entry = _mesa_hash_table_search(state->ht, var);
+   struct hash_entry *entry = _mesa_hash_table_search(state->ht, ctx);
    if (entry)
       return entry->data;
 
    char *name;
-   if (var->name == NULL) {
-      name = ralloc_asprintf(state->syms, "#%u", state->index++);
+   if (identifier == NULL || strlen(identifier) == 0) {
+      name = ralloc_asprintf(state->syms, "%s#%u", default_name, state->index++);
    } else {
-      struct set_entry *set_entry = _mesa_set_search(state->syms, var->name);
+      struct set_entry *set_entry = _mesa_set_search(state->syms, identifier);
       if (set_entry != NULL) {
          /* we have a collision with another name, append an # + a unique
           * index */
-         name = ralloc_asprintf(state->syms, "%s#%u", var->name,
+         name = ralloc_asprintf(state->syms, "%s#%u", identifier,
                                 state->index++);
       } else {
          /* Mark this one as seen */
-         _mesa_set_add(state->syms, var->name);
-         name = var->name;
+         _mesa_set_add(state->syms, identifier);
+         name = (char *)identifier;
       }
    }
 
-   _mesa_hash_table_insert(state->ht, var, name);
+   _mesa_hash_table_insert(state->ht, ctx, name);
 
    return name;
 }
@@ -857,7 +858,7 @@ print_var_decl(nir_variable *var, print_state *state)
    }
 
    fprintf(fp, "%s %s", glsl_get_type_name(var->type),
-           get_var_name(var, state));
+           get_name(var, var->name, "", state));
 
    if (var->data.mode & (nir_var_shader_in |
                          nir_var_shader_out |
@@ -919,7 +920,7 @@ print_var_decl(nir_variable *var, print_state *state)
               get_constant_sampler_filter_mode(var->data.sampler.filter_mode));
    }
    if (var->pointer_initializer)
-      fprintf(fp, " = &%s", get_var_name(var->pointer_initializer, state));
+      fprintf(fp, " = &%s", get_name(var->pointer_initializer, var->pointer_initializer->name, "", state));
 
    fprintf(fp, "\n");
    print_annotation(state, var);
@@ -931,7 +932,7 @@ print_deref_link(const nir_deref_instr *instr, bool whole_chain, print_state *st
    FILE *fp = state->fp;
 
    if (instr->deref_type == nir_deref_type_var) {
-      fprintf(fp, "%s", get_var_name(instr->var, state));
+      fprintf(fp, "%s", get_name(instr->var, instr->var->name, "", state));
       return;
    } else if (instr->deref_type == nir_deref_type_cast) {
       fprintf(fp, "(%s *)", glsl_get_type_name(instr->type));
