@@ -245,6 +245,10 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_SEAMLESS_CUBE_MAP_PER_TEXTURE:
       return screen->specs.seamless_cube_map;
 
+   /* Render targets. */
+   case PIPE_CAP_MAX_RENDER_TARGETS:
+      return screen->specs.num_rts;
+
    /* Queries. */
    case PIPE_CAP_OCCLUSION_QUERY:
    case PIPE_CAP_CONDITIONAL_RENDER:
@@ -788,6 +792,12 @@ etna_screen_get_dmabuf_modifier_planes(struct pipe_screen *pscreen,
 }
 
 static void
+etna_determine_num_rts(struct etna_screen *screen)
+{
+   screen->specs.num_rts = 1;
+}
+
+static void
 etna_determine_uniform_limits(struct etna_screen *screen)
 {
    /* values for the non unified case are taken from
@@ -1027,6 +1037,7 @@ etna_get_specs(struct etna_screen *screen)
       screen->specs.vertex_max_elements = 10;
    }
 
+   etna_determine_num_rts(screen);
    etna_determine_uniform_limits(screen);
    etna_determine_sampler_limits(screen);
 
