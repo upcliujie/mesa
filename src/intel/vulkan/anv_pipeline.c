@@ -144,6 +144,7 @@ anv_shader_stage_to_nir(struct anv_device *device,
    const bool rt_enabled = ANV_SUPPORT_RT && pdevice->info.has_ray_tracing;
    const struct spirv_to_nir_options spirv_options = {
       .caps = {
+         .amd_image_read_write_lod = device->info.ver >= 9,
          .demote_to_helper_invocation = true,
          .derivative_group = true,
          .descriptor_array_dynamic_indexing = true,

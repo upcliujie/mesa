@@ -4404,9 +4404,41 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          break;
       }
 
-      srcs[SURFACE_LOGICAL_SRC_ADDRESS] = get_nir_src(instr->src[1]);
-      srcs[SURFACE_LOGICAL_SRC_IMM_DIMS] =
-         brw_imm_ud(nir_image_intrinsic_coord_components(instr));
+      unsigned addr_comps = nir_image_intrinsic_coord_components(instr);
+      fs_reg addr = get_nir_src(instr->src[1]);
+
+      fs_reg lod = brw_imm_ud(0);
+      switch (instr->intrinsic) {
+      case nir_intrinsic_image_load:
+      case nir_intrinsic_bindless_image_load:
+         lod = get_nir_src_imm(instr->src[3]);
+         break;
+      case nir_intrinsic_image_store:
+      case nir_intrinsic_bindless_image_store:
+         lod = get_nir_src_imm(instr->src[4]);
+         break;
+      default:
+         break;
+      }
+
+      if (lod.file != IMM || lod.ud != 0) {
+         fs_reg tmp = bld.vgrf(BRW_REGISTER_TYPE_UD, 4);
+
+         assert(addr_comps <= 3);
+         for (unsigned i = 0; i < addr_comps; i++)
+            bld.MOV(offset(tmp, bld, i), offset(addr, bld, i));
+
+         for (unsigned i = addr_comps; i < 3; i++)
+            bld.MOV(offset(tmp, bld, i), brw_imm_ud(0));
+
+         bld.MOV(offset(tmp, bld, 3), lod);
+
+         addr = tmp;
+         addr_comps = 4;
+      }
+
+      srcs[SURFACE_LOGICAL_SRC_ADDRESS] = addr;
+      srcs[SURFACE_LOGICAL_SRC_IMM_DIMS] = brw_imm_ud(addr_comps);
 
       /* Emit an image load, store or atomic op. */
       if (instr->intrinsic == nir_intrinsic_image_load ||
