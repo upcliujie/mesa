@@ -332,7 +332,7 @@ etna_blit_clear_color_rs(struct pipe_context *pctx, struct pipe_surface *dst,
    struct etna_surface *surf = etna_surface(dst);
    uint64_t new_clear_value = etna_clear_blit_pack_rgba(surf->base.format, color);
 
-   if (surf->level->ts_size) { /* TS: use precompiled clear command */
+   if (etna_resource(dst->texture)->ts_bo) { /* TS: use precompiled clear command */
       ctx->framebuffer.TS_COLOR_CLEAR_VALUE = new_clear_value;
       ctx->framebuffer.TS_COLOR_CLEAR_VALUE_EXT = new_clear_value >> 32;
 
@@ -397,7 +397,7 @@ etna_blit_clear_zs_rs(struct pipe_context *pctx, struct pipe_surface *dst,
     * We may be better off recording the pending clear operation,
     * delaying the actual clear to the first use.  This way, we can merge
     * consecutive clears together. */
-   if (surf->level->ts_size) { /* TS: use precompiled clear command */
+   if (etna_resource(surf->base.texture)->ts_bo) { /* TS: use precompiled clear command */
       /* Set new clear depth value */
       ctx->framebuffer.TS_DEPTH_CLEAR_VALUE = new_clear_value;
       if (VIV_FEATURE(ctx->screen, chipMinorFeatures1, AUTO_DISABLE)) {
@@ -446,13 +446,13 @@ etna_clear_rs(struct pipe_context *pctx, unsigned buffers, const struct pipe_sci
    if ((buffers & PIPE_CLEAR_COLOR) && ctx->framebuffer_s.nr_cbufs) {
       struct etna_surface *surf = etna_surface(ctx->framebuffer_s.cbufs[0]);
 
-      if (surf->level->ts_size)
+      if (etna_resource(surf->base.texture)->ts_bo)
          need_ts_flush = true;
    }
    if ((buffers & PIPE_CLEAR_DEPTHSTENCIL) && ctx->framebuffer_s.zsbuf != NULL) {
       struct etna_surface *surf = etna_surface(ctx->framebuffer_s.zsbuf);
 
-      if (surf->level->ts_size)
+      if (etna_resource(surf->base.texture)->ts_bo)
          need_ts_flush = true;
    }
 

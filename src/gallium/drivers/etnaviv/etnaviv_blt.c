@@ -232,7 +232,7 @@ etna_blit_clear_color_blt(struct pipe_context *pctx, struct pipe_surface *dst,
    clr.dest.stride = surf->level->stride;
    clr.dest.tiling = res->layout;
 
-   if (surf->level->ts_size) {
+   if (res->ts_bo) {
       clr.dest.use_ts = 1;
       clr.dest.ts_addr.bo = res->ts_bo;
       clr.dest.ts_addr.offset = surf->ts_offset;
@@ -255,7 +255,7 @@ etna_blit_clear_color_blt(struct pipe_context *pctx, struct pipe_surface *dst,
    emit_blt_clearimage(ctx->stream, &clr);
 
    /* This made the TS valid */
-   if (surf->level->ts_size) {
+   if (res->ts_bo) {
       ctx->framebuffer.TS_COLOR_CLEAR_VALUE = new_clear_value;
       ctx->framebuffer.TS_COLOR_CLEAR_VALUE_EXT = new_clear_value >> 32;
 
@@ -321,7 +321,7 @@ etna_blit_clear_zs_blt(struct pipe_context *pctx, struct pipe_surface *dst,
    clr.dest.stride = surf->level->stride;
    clr.dest.tiling = res->layout;
 
-   if (surf->level->ts_size) {
+   if (res->ts_bo) {
       clr.dest.use_ts = 1;
       clr.dest.ts_addr.bo = res->ts_bo;
       clr.dest.ts_addr.offset = surf->ts_offset;
@@ -344,7 +344,7 @@ etna_blit_clear_zs_blt(struct pipe_context *pctx, struct pipe_surface *dst,
    emit_blt_clearimage(ctx->stream, &clr);
 
    /* This made the TS valid */
-   if (surf->level->ts_size) {
+   if (res->ts_bo) {
       ctx->framebuffer.TS_DEPTH_CLEAR_VALUE = surf->level->clear_value;
       etna_resource_level_ts_mark_valid(surf->level);
       ctx->dirty |= ETNA_DIRTY_TS | ETNA_DIRTY_DERIVE_TS;
@@ -496,7 +496,7 @@ etna_try_blt_blit(struct pipe_context *pctx,
       op.ts_clear_value[0] = src_lev->clear_value;
       op.ts_clear_value[1] = src_lev->clear_value >> 32;
       op.ts_mode = src_lev->ts_mode;
-      op.num_tiles = DIV_ROUND_UP(src_lev->size, tile_size);
+      op.num_tiles = src_lev->layer_stride / tile_size;
       op.bpp = util_format_get_blocksize(src->base.format);
 
       etna_set_state(ctx->stream, VIVS_GL_FLUSH_CACHE, 0x00000c23);

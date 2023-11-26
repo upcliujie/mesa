@@ -58,27 +58,28 @@ struct etna_ts_sw_meta {
 };
 
 struct etna_resource_level {
-   unsigned width, height; /* in pixels */
-   unsigned padded_width, padded_height; /* in samples */
-   unsigned depth;
-   unsigned offset; /* offset into memory area */
+   uint32_t width; /* in pixels */
+   uint32_t padded_width; /* in samples */
+   uint16_t height; /* in pixels */
+   uint16_t padded_height; /* in samples */
+   uint16_t depth;
+   uint32_t offset; /* offset into memory area */
    uint32_t stride; /* row stride */
    uint32_t layer_stride; /* layer stride */
-   unsigned size; /* total size of memory area */
 
    uint32_t ts_offset;
-   uint32_t ts_layer_stride;
-   uint32_t ts_size;
    uint64_t clear_value; /* clear value of resource level (mainly for TS) */
+   uint32_t ts_layer_stride;
+
    bool ts_valid;
    uint8_t ts_mode;
    int8_t ts_compress_fmt; /* COLOR_COMPRESSION_FORMAT_* (-1 = disable) */
 
-   struct etna_ts_sw_meta *ts_meta; /* metadata for shared TS */
-
    /* keep track if we have done some per block patching */
    bool patched;
    struct util_dynarray *patch_offsets;
+
+   struct etna_ts_sw_meta *ts_meta; /* metadata for shared TS */
 
    uint32_t seqno;
    uint32_t flush_seqno;
