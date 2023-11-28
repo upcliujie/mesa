@@ -1291,6 +1291,13 @@ find_used_components_impl(nir_function_impl *impl,
             break;
          }
 
+         case nir_intrinsic_deref_atomic:
+         case nir_intrinsic_deref_atomic_swap:
+            mark_deref_used(nir_src_as_deref(intrin->src[0]),
+                            1, 1,
+                            NULL, var_usage_map, modes, mem_ctx);
+            break;
+
          default:
             break;
          }
@@ -1300,7 +1307,7 @@ find_used_components_impl(nir_function_impl *impl,
 
 static bool
 shrink_vec_var_list(struct exec_list *vars,
-                    nir_variable_mode mode,
+                    nir_variable_mode modes,
                     struct hash_table *var_usage_map)
 {
    /* Initialize the components kept field of each variable.  This is the
@@ -1320,7 +1327,7 @@ shrink_vec_var_list(struct exec_list *vars,
     * to leave components and array_len of any wildcards alone.
     */
    nir_foreach_variable_in_list(var, vars) {
-      if (var->data.mode != mode)
+      if (!(var->data.mode & modes))
          continue;
 
       struct vec_var_usage *usage =
@@ -1356,7 +1363,7 @@ shrink_vec_var_list(struct exec_list *vars,
    do {
       fp_progress = false;
       nir_foreach_variable_in_list(var, vars) {
-         if (var->data.mode != mode)
+         if (!(var->data.mode & modes))
             continue;
 
          struct vec_var_usage *var_usage =
@@ -1396,7 +1403,7 @@ shrink_vec_var_list(struct exec_list *vars,
 
    bool vars_shrunk = false;
    nir_foreach_variable_in_list_safe(var, vars) {
-      if (var->data.mode != mode)
+      if (!(var->data.mode & modes))
          continue;
 
       struct vec_var_usage *usage =
@@ -1690,7 +1697,7 @@ function_impl_has_vars_with_modes(nir_function_impl *impl,
 bool
 nir_shrink_vec_array_vars(nir_shader *shader, nir_variable_mode modes)
 {
-   assert((modes & (nir_var_shader_temp | nir_var_function_temp)) == modes);
+   assert((modes & (nir_var_shader_temp | nir_var_function_temp | nir_var_mem_shared)) == modes);
 
    void *mem_ctx = ralloc_context(NULL);
 
@@ -1716,9 +1723,10 @@ nir_shrink_vec_array_vars(nir_shader *shader, nir_variable_mode modes)
    }
 
    bool globals_shrunk = false;
-   if (modes & nir_var_shader_temp) {
+   nir_variable_mode global_modes = modes & ~nir_var_function_temp;
+   if (global_modes) {
       globals_shrunk = shrink_vec_var_list(&shader->variables,
-                                           nir_var_shader_temp,
+                                           global_modes,
                                            var_usage_map);
    }
 
