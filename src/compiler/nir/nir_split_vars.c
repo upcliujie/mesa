@@ -1106,6 +1106,7 @@ mark_deref_used(nir_deref_instr *deref,
                 nir_component_mask_t comps_written,
                 nir_deref_instr *copy_deref,
                 struct hash_table *var_usage_map,
+                struct hash_table *range_ht,
                 nir_variable_mode modes,
                 void *mem_ctx)
 {
@@ -1161,7 +1162,9 @@ mark_deref_used(nir_deref_instr *deref,
 
       unsigned max_used;
       if (deref->deref_type == nir_deref_type_array) {
-         max_used = nir_src_is_const(deref->arr.index) ? nir_src_as_uint(deref->arr.index) : UINT_MAX;
+         nir_shader* shader = nir_cf_node_get_function(&deref->instr.block->cf_node)->function->shader;
+         max_used = nir_unsigned_upper_bound(shader, range_ht, nir_get_scalar(deref->arr.index.ssa, 0), NULL);
+         max_used = max_used >= level->array_len ? UINT_MAX : max_used;
       } else {
          /* For wildcards, we read or wrote the whole thing. */
          assert(deref->deref_type == nir_deref_type_array_wildcard);
@@ -1255,6 +1258,7 @@ get_non_self_referential_store_comps(nir_intrinsic_instr *store)
 static void
 find_used_components_impl(nir_function_impl *impl,
                           struct hash_table *var_usage_map,
+                          struct hash_table *range_ht,
                           nir_variable_mode modes,
                           void *mem_ctx)
 {
@@ -1273,21 +1277,21 @@ find_used_components_impl(nir_function_impl *impl,
          case nir_intrinsic_load_deref:
             mark_deref_used(nir_src_as_deref(intrin->src[0]),
                             nir_def_components_read(&intrin->def), 0,
-                            NULL, var_usage_map, modes, mem_ctx);
+                            NULL, var_usage_map, range_ht, modes, mem_ctx);
             break;
 
          case nir_intrinsic_store_deref:
             mark_deref_used(nir_src_as_deref(intrin->src[0]),
                             0, get_non_self_referential_store_comps(intrin),
-                            NULL, var_usage_map, modes, mem_ctx);
+                            NULL, var_usage_map, range_ht, modes, mem_ctx);
             break;
 
          case nir_intrinsic_copy_deref: {
             /* Just mark everything used for copies. */
             nir_deref_instr *dst = nir_src_as_deref(intrin->src[0]);
             nir_deref_instr *src = nir_src_as_deref(intrin->src[1]);
-            mark_deref_used(dst, 0, ~0, src, var_usage_map, modes, mem_ctx);
-            mark_deref_used(src, ~0, 0, dst, var_usage_map, modes, mem_ctx);
+            mark_deref_used(dst, 0, ~0, src, var_usage_map, range_ht, modes, mem_ctx);
+            mark_deref_used(src, ~0, 0, dst, var_usage_map, range_ht, modes, mem_ctx);
             break;
          }
 
@@ -1295,7 +1299,7 @@ find_used_components_impl(nir_function_impl *impl,
          case nir_intrinsic_deref_atomic_swap:
             mark_deref_used(nir_src_as_deref(intrin->src[0]),
                             1, 1,
-                            NULL, var_usage_map, modes, mem_ctx);
+                            NULL, var_usage_map, range_ht, modes, mem_ctx);
             break;
 
          default:
@@ -1704,6 +1708,9 @@ nir_shrink_vec_array_vars(nir_shader *shader, nir_variable_mode modes)
    struct hash_table *var_usage_map =
       _mesa_pointer_hash_table_create(mem_ctx);
 
+   struct hash_table *range_ht =
+      _mesa_pointer_hash_table_create(mem_ctx);
+
    bool has_vars_to_shrink = false;
    nir_foreach_function_impl(impl, shader) {
       /* Don't even bother crawling the IR if we don't have any variables.
@@ -1712,7 +1719,7 @@ nir_shrink_vec_array_vars(nir_shader *shader, nir_variable_mode modes)
        */
       if (function_impl_has_vars_with_modes(impl, modes)) {
          has_vars_to_shrink = true;
-         find_used_components_impl(impl, var_usage_map,
+         find_used_components_impl(impl, var_usage_map, range_ht,
                                    modes, mem_ctx);
       }
    }
