@@ -598,6 +598,8 @@ init_dispatch_tables(struct radv_device *device, struct radv_physical_device *ph
       add_entrypoints(&b, &metro_exodus_device_entrypoints, RADV_APP_DISPATCH_TABLE);
    } else if (!strcmp(physical_device->instance->app_layer, "rage2")) {
       add_entrypoints(&b, &rage2_device_entrypoints, RADV_APP_DISPATCH_TABLE);
+   } else if (!strcmp(physical_device->instance->app_layer, "acceleration_structure_batch")) {
+      add_entrypoints(&b, &batch_device_entrypoints, RADV_APP_DISPATCH_TABLE);
    }
 
    if (physical_device->instance->vk.trace_mode & RADV_TRACE_MODE_RGP)

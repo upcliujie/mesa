@@ -1902,6 +1902,12 @@ struct radv_cmd_buffer {
    uint64_t shader_upload_seq;
 
    uint32_t sqtt_cb_id;
+
+   struct radv_batch_state {
+      struct util_dynarray accel_struct_build_infos;
+      struct util_dynarray accel_struct_geometry_infos;
+      VkAccelerationStructureTypeKHR last_accel_struct_type;
+   } batch_state;
 };
 
 static inline bool

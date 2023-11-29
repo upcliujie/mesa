@@ -354,6 +354,9 @@ radv_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
 
    vk_object_base_finish(&cmd_buffer->meta_push_descriptors.base);
 
+   util_dynarray_fini(&cmd_buffer->batch_state.accel_struct_build_infos);
+   util_dynarray_fini(&cmd_buffer->batch_state.accel_struct_geometry_infos);
+
    vk_command_buffer_finish(&cmd_buffer->vk);
    vk_free(&cmd_buffer->vk.pool->alloc, cmd_buffer);
 }
@@ -398,6 +401,9 @@ radv_create_cmd_buffer(struct vk_command_pool *pool, struct vk_command_buffer **
 
    for (unsigned i = 0; i < MAX_BIND_POINTS; i++)
       vk_object_base_init(&device->vk, &cmd_buffer->descriptors[i].push_set.set.base, VK_OBJECT_TYPE_DESCRIPTOR_SET);
+
+   util_dynarray_init(&cmd_buffer->batch_state.accel_struct_build_infos, NULL);
+   util_dynarray_init(&cmd_buffer->batch_state.accel_struct_geometry_infos, NULL);
 
    *cmd_buffer_out = &cmd_buffer->vk;
 
