@@ -35,6 +35,7 @@ enum nvk_mme_scratch {
    NVK_MME_SCRATCH_DRAW_PAD_DW,
    NVK_MME_SCRATCH_DRAW_IDX,
    NVK_MME_SCRATCH_VIEW_MASK,
+   NVK_MME_SCRATCH_DRAW_TAIL_SIZE,
 
    /* Must be at the end */
    NVK_MME_NUM_SCRATCH,
