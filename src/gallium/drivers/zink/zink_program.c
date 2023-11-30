@@ -1355,6 +1355,7 @@ zink_create_gfx_program(struct zink_context *ctx,
    else
       prog->last_vertex_stage = stages[MESA_SHADER_VERTEX];
 
+   //                         TODO look at v
    _mesa_set_init(&prog->variants, NULL/* prog */, hash_gfx_program, equals_program_variant);
 
    for (int u = 0; u < ARRAY_SIZE(prog->pipelines); ++u) {
