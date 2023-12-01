@@ -22,17 +22,17 @@ from unittest import mock
 
 import pytest
 
-from . import post_version
+from . import post_release
 
 
-@mock.patch('bin.post_version.subprocess.run', mock.Mock())
+@mock.patch('bin.post_release.subprocess.run', mock.Mock())
 class TestUpdateCalendar:
 
     @pytest.fixture(autouse=True)
     def mock_sideffects(self) -> None:
         """Mock out side effects."""
-        with mock.patch('bin.post_version.subprocess.run', mock.Mock()), \
-                mock.patch('bin.post_version.pathlib', mock.MagicMock()):
+        with mock.patch('bin.post_release.subprocess.run', mock.Mock()), \
+                mock.patch('bin.post_release.pathlib', mock.MagicMock()):
             yield
 
     def test_basic(self):
@@ -42,9 +42,9 @@ class TestUpdateCalendar:
         ]
 
         m = mock.Mock()
-        with mock.patch('bin.post_version.csv.reader', mock.Mock(return_value=data.copy())), \
-                mock.patch('bin.post_version.csv.writer', mock.Mock(return_value=m)):
-            post_version.update_calendar('20.3.3')
+        with mock.patch('bin.post_release.csv.reader', mock.Mock(return_value=data.copy())), \
+                mock.patch('bin.post_release.csv.writer', mock.Mock(return_value=m)):
+            post_release.update_calendar('20.3.3')
 
             m.writerows.assert_called_with([data[1]])
 
@@ -57,9 +57,9 @@ class TestUpdateCalendar:
         ]
 
         m = mock.Mock()
-        with mock.patch('bin.post_version.csv.reader', mock.Mock(return_value=data.copy())), \
-                mock.patch('bin.post_version.csv.writer', mock.Mock(return_value=m)):
-            post_version.update_calendar('20.3.3')
+        with mock.patch('bin.post_release.csv.reader', mock.Mock(return_value=data.copy())), \
+                mock.patch('bin.post_release.csv.writer', mock.Mock(return_value=m)):
+            post_release.update_calendar('20.3.3')
 
             d = data.copy()
             del d[0]

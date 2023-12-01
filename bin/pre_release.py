@@ -21,6 +21,7 @@
 
 """Generates release notes for a given version of mesa."""
 
+import argparse
 import asyncio
 import datetime
 import os
@@ -32,19 +33,24 @@ import textwrap
 import typing
 import urllib.parse
 
-import aiohttp
-from mako.template import Template
 from mako import exceptions
-
-import docutils.utils
+from mako.template import Template
+import aiohttp
 import docutils.parsers.rst.states as states
+import docutils.utils
+
+if typing.TYPE_CHECKING:
+
+    class Arguments(typing.Protocol):
+
+        stable: bool
 
 CURRENT_GL_VERSION = '4.6'
 CURRENT_VK_VERSION = '1.3'
 
 TEMPLATE = Template(textwrap.dedent("""\
-    ${header}
-    ${header_underline}
+    Mesa ${this_version} Release Notes / ${today}
+    ${'=' * (5 + len(this_version) + 17 + len(str(today)))}
 
     %if not bugfix:
     Mesa ${this_version} is a new development release. People who are concerned
@@ -171,7 +177,7 @@ class Inliner(states.Inliner):
         checked = re.sub('@', '\\@', checked)
         return docutils.utils.unescape(checked, 1)
 
-inliner = Inliner();
+inliner = Inliner()
 
 
 async def gather_commits(version: str) -> str:
@@ -218,22 +224,18 @@ async def parse_issues(commits: str) -> typing.List[str]:
 
 async def gather_bugs(version: str) -> typing.List[str]:
     commits = await gather_commits(version)
-    if commits:
-        issues = await parse_issues(commits)
-    else:
-        issues = []
+    issues = await parse_issues(commits)
 
     loop = asyncio.get_event_loop()
     async with aiohttp.ClientSession(loop=loop) as session:
         results = await asyncio.gather(*[get_bug(session, i) for i in issues])
-    typing.cast(typing.Tuple[str, ...], results)
-    bugs = list(results)
+    bugs = list(typing.cast(typing.Tuple[str, ...], results))
     if not bugs:
         bugs = ['None']
     return bugs
 
 
-async def get_bug(session: aiohttp.ClientSession, bug_id: str) -> str:
+async def get_bug(session: aiohttp.ClientSession, bug_id: str) -> typing.Optional[str]:
     """Query gitlab to get the name of the issue that was closed."""
     # Mesa's gitlab id is 176,
     url = 'https://gitlab.freedesktop.org/api/v4/projects/176/issues'
@@ -259,6 +261,11 @@ async def get_shortlog(version: str) -> str:
 
 
 def walk_shortlog(log: str) -> typing.Generator[typing.Tuple[str, bool], None, None]:
+    """Walk over the shortlog emitting either an authorline or a patch line
+
+    :param log: The raw shortlog output
+    :yield: A tuple of (value, is_author_line).
+    """
     for l in log.split('\n'):
         if l.startswith(' '): # this means we have a patch description
             yield l.lstrip(), False
@@ -266,11 +273,16 @@ def walk_shortlog(log: str) -> typing.Generator[typing.Tuple[str, bool], None, N
             yield l, True
 
 
-def calculate_next_version(version: str, is_point: bool) -> str:
+def calculate_next_version(version: str, is_point: bool, make_stable: bool) -> str:
     """Calculate the version about to be released."""
     if '-' in version:
-        version = version.split('-')[0]
-    if is_point:
+        assert not is_point, 'should not try to make a point release straight from an -rc'
+        if make_stable:
+            version = version.split('-')[0]
+        else:
+            raw, number = version.rsplit('-rc', 1)
+            version = f'{raw}-rc{int(number) + 1}'
+    elif is_point:
         base = version.split('.')
         base[2] = str(int(base[2]) + 1)
         return '.'.join(base)
@@ -299,14 +311,16 @@ def calculate_previous_version(version: str, is_point: bool) -> str:
 
 
 def get_features(is_point_release: bool) -> typing.Generator[str, None, None]:
-    p = pathlib.Path('docs') / 'relnotes' / 'new_features.txt'
-    if p.exists() and p.stat().st_size > 0:
+    p = pathlib.Path(__file__).parent.parent / 'docs' / 'relnotes' / 'new_features.txt'
+    if p.exists():
         if is_point_release:
             print("WARNING: new features being introduced in a point release", file=sys.stderr)
         with p.open('rt') as f:
             for line in f:
-                yield line.rstrip()
+                yield line
         p.unlink()
+        subprocess.run(['git', 'add', p])
+        subprocess.run(['git', 'commit', '-m', f'docs: truncate new_features.txt'])
     else:
         yield "None"
 
@@ -337,25 +351,17 @@ def update_release_notes_index(version: str) -> None:
     subprocess.run(['git', 'add', relnotes_index_path])
 
 
-async def main() -> None:
-    v = pathlib.Path('VERSION')
-    with v.open('rt') as f:
-        raw_version = f.read().strip()
-    is_point_release = '-rc' not in raw_version
-    assert '-devel' not in raw_version, 'Do not run this script on -devel'
-    version = raw_version.split('-')[0]
-    previous_version = calculate_previous_version(version, is_point_release)
-    this_version = calculate_next_version(version, is_point_release)
-    today = datetime.date.today()
-    header = f'Mesa {this_version} Release Notes / {today}'
-    header_underline = '=' * len(header)
+async def update_release_notes(previous_version: str, this_version: str, is_point_release: bool) -> None:
+    # This means we're doing an rc -> rc bump, don't generate release notes
+    if '-rc' in this_version:
+        return
 
     shortlog, bugs = await asyncio.gather(
         get_shortlog(previous_version),
         gather_bugs(previous_version),
     )
 
-    final = pathlib.Path('docs') / 'relnotes' / f'{this_version}.rst'
+    final = pathlib.Path(__file__).parent.parent / 'docs' / 'relnotes' / f'{this_version}.rst'
     with final.open('wt') as f:
         try:
             f.write(TEMPLATE.render(
@@ -365,24 +371,47 @@ async def main() -> None:
                 features=get_features(is_point_release),
                 gl_version=CURRENT_GL_VERSION,
                 this_version=this_version,
-                header=header,
-                header_underline=header_underline,
+                today=datetime.date.today(),
                 previous_version=previous_version,
                 vk_version=CURRENT_VK_VERSION,
                 rst_escape=inliner.quoteInline,
             ))
         except:
             print(exceptions.text_error_template().render())
-            return
+            raise
 
     subprocess.run(['git', 'add', final])
-
     update_release_notes_index(this_version)
+    subprocess.run(['git', 'commit', '-m', f'docs: add release notes for {this_version}'])
 
-    subprocess.run(['git', 'commit', '-m',
-                    f'docs: add release notes for {this_version}'])
+
+def update_version_file(v: pathlib.Path, this_version: str) -> None:
+    with v.open('w') as f:
+        f.write(this_version)
+    subprocess.run(['git', 'add', v])
+    subprocess.run(['git', 'commit', '--gpg-sign', '-m',
+                    f'VERSION: update to {this_version}'])
+
+
+async def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--stable', action='store_true', help="Make a stable release if on RCs")
+    args: Arguments = parser.parse_args()
+
+    v = pathlib.Path(__file__).parent.parent / 'VERSION'
+    with v.open('rt') as f:
+        raw_version = f.read().strip()
+    assert '-devel' not in raw_version, 'Do not run this script on -devel'
+    is_point_release = '-rc' not in raw_version 
+    version = raw_version.split('-')[0]
+    previous_version = calculate_previous_version(version, is_point_release)
+    this_version = calculate_next_version(version, is_point_release, args.stable)
+
+    await update_release_notes(previous_version, this_version, is_point_release)
+    update_version_file(v, this_version)
+    subprocess.run(['git', 'push'])
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     loop.run_until_complete(main())

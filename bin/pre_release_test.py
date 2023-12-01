@@ -31,35 +31,53 @@ if sys.version_info >= (3, 8):
 else:
     import mock
 
-from .gen_release_notes import *
+from . import pre_release
+
+@pytest.mark.parametrize(
+    ['version', 'is_point', 'make_stable', 'expected'],
+    [
+        ('1.0.0-rc1', False, False, '1.0.0-rc2'),
+        ('1.0.0-rc1', False, True, '1.0.0'),
+        ('1.0.0', True, True, '1.0.1'),
+        ('1.0.0', True, False, '1.0.1'),
+    ]
+)
+def test_calculate_next_version(version: str, is_point: bool, make_stable: bool, expected: str) -> None:
+    result = pre_release.calculate_next_version(version, is_point, make_stable)
+    assert result == expected
 
 
 @pytest.mark.parametrize(
-    'current, is_point, expected',
+    ['version', 'is_point', 'expected'],
     [
-        ('19.2.0', True, '19.2.1'),
-        ('19.3.6', True, '19.3.7'),
-        ('20.0.0-rc4', False, '20.0.0'),
-    ])
-def test_next_version(current: str, is_point: bool, expected: str) -> None:
-    assert calculate_next_version(current, is_point) == expected
+        ('2.0.0-rc1', False, '1.3.0'),
+        ('1.1.0', False, '1.0.0'),
+        ('2.0.0', True, '2.0.0'),
+    ]
+)
+def test_calculate_previous_version(version: str, is_point: bool, expected: str) -> None:
+    result = pre_release.calculate_previous_version(version, is_point)
+    assert result == expected
 
 
-@pytest.mark.parametrize(
-    'current, is_point, expected',
-    [
-        ('19.3.6', True, '19.3.6'),
-        ('20.0.0-rc4', False, '19.3.0'),
-    ])
-def test_previous_version(current: str, is_point: bool, expected: str) -> None:
-    assert calculate_previous_version(current, is_point) == expected
+def test_walk_shortlog() -> None:
+    log = textwrap.dedent("""\
+        A. Author (1)
+            patch: Do some stuff
+
+        J. Author (1)
+            patch: Do some other stuff
+        """)
+    got = list(pre_release.walk_shortlog(log))
+    assert got == [('A. Author (1)', True), ('patch: Do some stuff', False),
+                   ('J. Author (1)', True), ('patch: Do some other stuff', False)]
 
 
 @pytest.mark.asyncio
 async def test_get_shortlog():
     # Certainly not perfect, but it's something
     version = '19.2.0'
-    out = await get_shortlog(version)
+    out = await pre_release.get_shortlog(version)
     assert out
 
 
@@ -67,7 +85,7 @@ async def test_get_shortlog():
 async def test_gather_commits():
     # Certainly not perfect, but it's something
     version = '19.2.0'
-    out = await gather_commits(version)
+    out = await pre_release.gather_commits(version)
     assert out
 
 
@@ -194,9 +212,9 @@ async def test_parse_issues(content: str, bugs: typing.List[str]) -> None:
     mock_p.communicate = mock_com
     mock_exec = mock.AsyncMock(return_value=mock_p)
 
-    with mock.patch('bin.gen_release_notes.asyncio.create_subprocess_exec', mock_exec), \
-            mock.patch('bin.gen_release_notes.gather_commits', mock.AsyncMock(return_value='sha\n')):
-        ids = await parse_issues('1234 not used')
+    with mock.patch('bin.pre_release.asyncio.create_subprocess_exec', mock_exec), \
+            mock.patch('bin.pre_release.gather_commits', mock.AsyncMock(return_value='sha\n')):
+        ids = await pre_release.parse_issues('1234 not used')
         assert set(ids) == set(bugs)
 
 @pytest.mark.asyncio
