@@ -30,16 +30,25 @@
 
 #define LIN_OFF(y, tw, x) ((y * tw) + x)
 #define IMAGE_FORMAT ISL_FORMAT_R32G32B32_UINT
+#define TILEW_IMAGE_FORMAT ISL_FORMAT_R8_UINT
 
 enum TILE_CONV {LIN_TO_TILE, TILE_TO_LIN};
 
 typedef uint8_t *(*swizzle_func_t)(const uint8_t *base_addr, uint32_t x_B, uint32_t y_px, uint32_t pitch);
 
-#define TILE_COORDINATES  std::make_tuple(0, 128, 0, 32), \
-                          std::make_tuple(19, 20, 25, 32), \
-                          std::make_tuple(59, 83, 13, 32), \
-                          std::make_tuple(10, 12, 5, 8), \
-                          std::make_tuple(245, 521, 5, 8)
+#define TILE_COORDINATES                 \
+                 /* x1,  x2, y1, y2 */   \
+   std::make_tuple(  0,   1,  0,  1),    \
+   std::make_tuple(  0,   2,  0,  1),    \
+   std::make_tuple(  0,   4,  0,  1),    \
+   std::make_tuple(  0,   8,  0,  8),    \
+   std::make_tuple(  0, 128,  0, 32),    \
+   std::make_tuple( 19,  20, 25, 32),    \
+   std::make_tuple( 59,  83, 13, 32),    \
+   std::make_tuple( 10,  12,  5,  8),    \
+   std::make_tuple( 64,  65, 16, 17),    \
+   std::make_tuple(128, 129,  0, 32),    \
+   std::make_tuple(245, 521,  5,  8)
 
 struct tile_swizzle_ops {
    enum isl_tiling tiling;
@@ -119,10 +128,37 @@ uint8_t *linear_to_tileX_swizzle(const uint8_t * base_addr, uint32_t x_B, uint32
    return (uint8_t *) (base_addr + tiled_off);
 }
 
+uint8_t *linear_to_tileW_swizzle(const uint8_t * base_addr, uint32_t x_B, uint32_t y_px, uint32_t pitch)
+{
+   const uint32_t cu = 6, cv = 6;
+   const uint32_t tile_id = (y_px >> cv) * (pitch >> cu) + (x_B >> cu);
+
+   /* The table below represents the mapping from coordinate (x_B, y_px) to
+    * byte offset in a 64x64px 1Bpp image:
+    *
+    *    Bit ind : 11 10  9  8  7  6  5  4  3  2  1  0
+    *     Tile-W : u5 u4 u3 v5 v4 v3 v2 u2 v1 u1 v0 u0
+    */
+   uint32_t tiled_off;
+
+   tiled_off = tile_id * 4096 |
+               swizzle_bitops(x_B,  1, 0, 0) |
+               swizzle_bitops(y_px, 1, 0, 1) |
+               swizzle_bitops(x_B,  1, 1, 2) |
+               swizzle_bitops(y_px, 1, 1, 3) |
+               swizzle_bitops(x_B,  1, 2, 4) |
+               swizzle_bitops(y_px, 1, 2, 5) |
+               swizzle_bitops(y_px, 3, 3, 6) |
+               swizzle_bitops(x_B,  3, 3, 9);
+
+   return (uint8_t *) (base_addr + tiled_off);
+}
+
 struct tile_swizzle_ops swizzle_opers[] = {
    {ISL_TILING_Y0, linear_to_tileY_swizzle},
    {ISL_TILING_4, linear_to_tile4_swizzle},
    {ISL_TILING_X, linear_to_tileX_swizzle},
+   {ISL_TILING_W, linear_to_tileW_swizzle},
 };
 
 class tileTFixture: public ::testing::Test {
@@ -163,6 +199,11 @@ class tile4Fixture : public tileTFixture,
 {};
 
 class tileXFixture : public tileTFixture,
+                     public ::testing::WithParamInterface<std::tuple<int, int,
+                                                                     int, int>>
+{};
+
+class tileWFixture : public tileTFixture,
                      public ::testing::WithParamInterface<std::tuple<int, int,
                                                                      int, int>>
 {};
@@ -280,7 +321,7 @@ void tileTFixture::compare_conv_result(uint32_t x1, uint32_t x2,
    for(uint32_t y = 0; y < y_max; y++) {
       for (uint32_t x = 0; x < x_max; x++) {
 
-         if (x < x1 || x > x2 || y < y1 || y > y2) {
+         if (x < x1 || x >= x2 || y < y1 || y >= y2) {
             if (conv == LIN_TO_TILE) {
                EXPECT_EQ(*(buf_src + LIN_OFF(y, tile_width, x)), 0xcc)
                   << "Not matching for x:" << x << " and y:" << y << std::endl;
@@ -365,7 +406,26 @@ TEST_P(tileXFixture, tiletolin)
     run_test(x1, x2, y1, y2);
 }
 
+TEST_P(tileWFixture, lintotile)
+{
+    auto [x1, x2, y1, y2] = GetParam();
+    test_setup(LIN_TO_TILE, ISL_TILING_W, TILEW_IMAGE_FORMAT, x2, y2);
+    if (print_results)
+       printf("Coordinates: x1=%d x2=%d y1=%d y2=%d \n", x1, x2, y1, y2);
+    run_test(x1, x2, y1, y2);
+}
+
+TEST_P(tileWFixture, tiletolin)
+{
+    auto [x1, x2, y1, y2] = GetParam();
+    test_setup(TILE_TO_LIN, ISL_TILING_W, TILEW_IMAGE_FORMAT, x2, y2);
+    if (print_results)
+       printf("Coordinates: x1=%d x2=%d y1=%d y2=%d \n", x1, x2, y1, y2);
+    run_test(x1, x2, y1, y2);
+}
+
 
 INSTANTIATE_TEST_SUITE_P(tileY, tileYFixture, testing::Values(TILE_COORDINATES));
 INSTANTIATE_TEST_SUITE_P(tile4, tile4Fixture, testing::Values(TILE_COORDINATES));
 INSTANTIATE_TEST_SUITE_P(tileX, tileXFixture, testing::Values(TILE_COORDINATES));
+INSTANTIATE_TEST_SUITE_P(tileW, tileWFixture, testing::Values(TILE_COORDINATES));
