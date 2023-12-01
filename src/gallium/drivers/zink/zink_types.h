@@ -1152,6 +1152,8 @@ struct zink_gfx_program {
    bool has_edgeflags;
    bool optimal_keys;
    bool started_compiling;
+   bool is_uber_program;
+   bool is_variant_program;
 
    /* separable */
    struct zink_gfx_program *full_prog;

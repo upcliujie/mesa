@@ -153,7 +153,8 @@ struct zink_gfx_program *
 zink_create_gfx_program(struct zink_context *ctx,
                         struct zink_shader **stages,
                         unsigned vertices_per_patch,
-                        uint32_t gfx_hash);
+                        uint32_t gfx_hash,
+                        bool variant);
 
 void
 zink_destroy_gfx_program(struct zink_screen *screen,

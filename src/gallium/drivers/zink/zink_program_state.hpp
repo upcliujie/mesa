@@ -188,7 +188,7 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
        */
       memcpy(&pc_entry->state, state, sizeof(*state));
       pc_entry->state.rendering_info.pColorAttachmentFormats = pc_entry->state.rendering_formats;
-      pc_entry->prog = variant_prog;
+      pc_entry->prog = state->uber_required ? prog : variant_prog;
       /* init the optimized background compile fence */
       util_queue_fence_init(&pc_entry->fence);
       entry = _mesa_hash_table_insert_pre_hashed(&variant_prog->pipelines[state->uber_required][rp_idx][idx], state->final_hash, pc_entry, pc_entry);
@@ -236,11 +236,12 @@ zink_get_gfx_pipeline(struct zink_context *ctx,
                zink_gfx_program_compile_queue(ctx, pc_entry);
          }
       } else {
+         struct zink_shader_object *objs = state->uber_required ? prog->uber_objs : variant_prog->objs;
          /* optimize by default only when expecting precompiles in order to reduce stuttering */
          if (DYNAMIC_STATE != ZINK_DYNAMIC_VERTEX_INPUT2 && DYNAMIC_STATE != ZINK_DYNAMIC_VERTEX_INPUT)
-            pc_entry->pipeline = zink_create_gfx_pipeline(screen, variant_prog, variant_prog->objs, state, state->element_state->binding_map, vkmode, !HAVE_LIB, NULL);
+            pc_entry->pipeline = zink_create_gfx_pipeline(screen, variant_prog, objs, state, state->element_state->binding_map, vkmode, !HAVE_LIB, NULL);
          else
-            pc_entry->pipeline = zink_create_gfx_pipeline(screen, variant_prog, variant_prog->objs, state, NULL, vkmode, !HAVE_LIB, NULL);
+            pc_entry->pipeline = zink_create_gfx_pipeline(screen, variant_prog, objs, state, NULL, vkmode, !HAVE_LIB, NULL);
          if (HAVE_LIB && !variant_prog->is_separable)
             /* trigger async optimized pipeline compile if this was an unoptimized pipeline */
             zink_gfx_program_compile_queue(ctx, pc_entry);
