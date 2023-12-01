@@ -1800,11 +1800,13 @@ fs_nir_emit_load_const(nir_to_brw_state &ntb,
                        nir_load_const_instr *instr)
 {
    const intel_device_info *devinfo = ntb.devinfo;
-   const fs_builder &bld = ntb.bld;
+   const fs_builder &bld = ntb.bld.exec_all().group(8 * reg_unit(devinfo), 0);
 
    const brw_reg_type reg_type =
       brw_type_with_size(BRW_TYPE_D, instr->def.bit_size);
    brw_reg reg = bld.vgrf(reg_type, instr->def.num_components);
+
+   reg.is_scalar = true;
 
    brw_reg comps[instr->def.num_components];
 
@@ -4931,9 +4933,7 @@ try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
       nir_def *def = resources.array[0];
 
       if (def->parent_instr->type == nir_instr_type_load_const) {
-         nir_load_const_instr *load_const =
-            nir_instr_as_load_const(def->parent_instr);
-         return brw_imm_ud(load_const->value[0].i32);
+         unreachable("load_const should already be is_scalar");
       } else if (def->parent_instr->type == nir_instr_type_intrinsic) {
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(def->parent_instr);
          switch (intrin->intrinsic) {
@@ -4991,11 +4991,7 @@ try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
       nir_instr *instr = def->parent_instr;
       switch (instr->type) {
       case nir_instr_type_load_const: {
-         nir_load_const_instr *load_const =
-            nir_instr_as_load_const(instr);
-         ubld8.MOV(brw_imm_d(load_const->value[0].i32),
-                   &ntb.resource_insts[def->index]);
-         break;
+         unreachable("load_const should already be is_scalar");
       }
 
       case nir_instr_type_alu: {
