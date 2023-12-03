@@ -4800,16 +4800,12 @@ void nir_validate_ssa_dominance(nir_shader *shader, const char *when);
 void nir_metadata_set_validation_flag(nir_shader *shader);
 void nir_metadata_check_validation_flag(nir_shader *shader);
 
+DEBUG_GET_ONCE_STRING_OPTION(nir_skip, "NIR_SKIP", "")
+
 static inline bool
 should_skip_nir(const char *name)
 {
-   static const char *list = NULL;
-   if (!list) {
-      /* Comma separated list of names to skip. */
-      list = getenv("NIR_SKIP");
-      if (!list)
-         list = "";
-   }
+   const char *list = debug_get_option_nir_skip();
 
    if (!list[0])
       return false;

@@ -371,6 +371,7 @@ lower_int64_compare(nir_builder *b, nir_op op, nir_def *x, nir_def *y)
       return nir_inot(b, lower_int64_compare(b, nir_op_ilt, x, y));
    default:
       unreachable("Invalid comparison");
+      return NULL;
    }
 }
 
@@ -1338,11 +1339,13 @@ lower_int64_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin)
          return split_64bit_subgroup_op(b, intrin);
       default:
          unreachable("Unsupported subgroup scan/reduce op");
+         return NULL;
       }
       break;
 
    default:
       unreachable("Unsupported intrinsic");
+      return NULL;
    }
 }
 

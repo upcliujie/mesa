@@ -438,7 +438,7 @@ write_all(int fd, const void *buf, size_t count)
 
 /* Evict least recently used cache item */
 void
-disk_cache_evict_lru_item(struct disk_cache *cache)
+disk_cache_evict_lru_item(struct disk_cache *cache, int thread_index)
 {
    char *dir_path;
 
@@ -447,7 +447,8 @@ disk_cache_evict_lru_item(struct disk_cache *cache)
     * and reasonably expect the directory to exist with a file in it.
     * Provides pseudo-LRU eviction to reduce checking all cache files.
     */
-   uint64_t rand64 = rand_xorshift128plus(cache->seed_xorshift128plus);
+   assert(thread_index < CACHE_QUEUE_THREADS_COUNT);
+   uint64_t rand64 = rand_xorshift128plus(cache->seeds_xorshift128plus[thread_index]);
    if (asprintf(&dir_path, "%s/%02" PRIx64 , cache->path, rand64 & 0xff) < 0)
       return;
 

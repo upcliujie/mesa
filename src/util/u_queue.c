@@ -115,28 +115,34 @@ static bool
 do_futex_fence_wait(struct util_queue_fence *fence,
                     bool timeout, int64_t abs_timeout)
 {
+   p_atomic_inc(&fence->waiters);
+
    uint32_t v = p_atomic_read_relaxed(&fence->val);
    struct timespec ts;
    ts.tv_sec = abs_timeout / (1000*1000*1000);
    ts.tv_nsec = abs_timeout % (1000*1000*1000);
 
+   bool result = true;
    while (v != 0) {
       if (v != 2) {
          v = p_atomic_cmpxchg(&fence->val, 1, 2);
          if (v == 0)
-            return true;
+            break;
       }
 
       int r = futex_wait(&fence->val, 2, timeout ? &ts : NULL);
       if (timeout && r < 0) {
-         if (errno == ETIMEDOUT)
-            return false;
+         if (errno == ETIMEDOUT) {
+            result = false;
+            break;
+         }
       }
 
-      v = p_atomic_read_relaxed(&fence->val);
+      v = p_atomic_read(&fence->val);
    }
 
-   return true;
+   p_atomic_dec(&fence->waiters);
+   return result;
 }
 
 void

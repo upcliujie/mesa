@@ -118,7 +118,15 @@ static inline bool u_thread_is_self(thrd_t thread)
 
 #if defined(HAVE_PTHREAD) && !defined(__APPLE__) && !defined(__HAIKU__)
 
-typedef pthread_barrier_t util_barrier;
+typedef struct {
+   /* Native pthread implementation.
+    */
+   pthread_barrier_t barrier;
+   /* Counts how many threads are currently waiting on this barrier.
+    * Barrier destruction is blocked until this value is 0.
+    */
+   uint32_t waiters;
+} util_barrier;
 
 #else /* If the OS doesn't have its own, implement barriers using a mutex and a condvar */
 

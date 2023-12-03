@@ -594,8 +594,9 @@ struct anv_block_state {
 };
 
 #define anv_block_pool_foreach_bo(bo, pool)  \
-   for (struct anv_bo **_pp_bo = (pool)->bos, *bo; \
-        _pp_bo != &(pool)->bos[(pool)->nbos] && (bo = *_pp_bo, true); \
+   for (struct anv_bo **_pp_bo = (pool)->bos, *bo, \
+        **_pp_bos_end = &(pool)->bos[p_atomic_read(&(pool)->nbos)]; \
+        _pp_bo != _pp_bos_end && (bo = *_pp_bo, true); \
         _pp_bo++)
 
 #define ANV_MAX_BLOCK_POOL_BOS 20

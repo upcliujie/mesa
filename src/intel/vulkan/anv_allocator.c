@@ -173,7 +173,7 @@ anv_state_table_expand_range(struct anv_state_table *table, uint32_t size)
    struct anv_state_table_cleanup *cleanup;
 
    /* Assert that we only ever grow the pool */
-   assert(size >= table->state.end);
+   assert(size >= p_atomic_read_relaxed(&table->state.end));
 
    /* Make sure that we don't go outside the bounds of the memfd */
    if (size > BLOCK_POOL_MEMFD_SIZE)
@@ -212,8 +212,8 @@ anv_state_table_grow(struct anv_state_table *table)
 {
    VkResult result = VK_SUCCESS;
 
-   uint32_t used = align(table->state.next * ANV_STATE_ENTRY_SIZE,
-                         PAGE_SIZE);
+   uint32_t used = align(p_atomic_read_relaxed(&table->state.next) *
+                        ANV_STATE_ENTRY_SIZE, PAGE_SIZE);
    uint32_t old_size = table->size;
 
    /* The block pool is always initialized to a nonzero size and this function
@@ -309,12 +309,12 @@ anv_free_list_push(union anv_free_list *list,
    uint32_t last = first;
 
    for (uint32_t i = 1; i < count; i++, last++)
-      table->map[last].next = last + 1;
+      p_atomic_set_relaxed(&table->map[last].next, last + 1);
 
-   old.u64 = list->u64;
+   old.u64 = p_atomic_read_relaxed(&list->u64);
    do {
       current = old;
-      table->map[last].next = current.offset;
+      p_atomic_set_relaxed(&table->map[last].next, current.offset);
       new.offset = first;
       new.count = current.count + 1;
       old.u64 = __sync_val_compare_and_swap(&list->u64, current.u64, new.u64);
@@ -327,10 +327,10 @@ anv_free_list_pop(union anv_free_list *list,
 {
    union anv_free_list current, new, old;
 
-   current.u64 = list->u64;
+   current.u64 = p_atomic_read_relaxed(&list->u64);
    while (current.offset != EMPTY) {
       __sync_synchronize();
-      new.offset = table->map[current.offset].next;
+      new.offset = p_atomic_read_relaxed(&table->map[current.offset].next);
       new.count = current.count + 1;
       old.u64 = __sync_val_compare_and_swap(&list->u64, current.u64, new.u64);
       if (old.u64 == current.u64) {
@@ -405,7 +405,7 @@ static VkResult
 anv_block_pool_expand_range(struct anv_block_pool *pool, uint32_t size)
 {
    /* Assert that we only ever grow the pool */
-   assert(size >= pool->state.end);
+   assert(size >= p_atomic_read_relaxed(&pool->state.end));
 
    /* For state pool BOs we have to be a bit careful about where we place them
     * in the GTT.  There are two documented workarounds for state base address
@@ -445,12 +445,16 @@ anv_block_pool_expand_range(struct anv_block_pool *pool, uint32_t size)
    if (result != VK_SUCCESS)
       return result;
 
-   pool->bos[pool->nbos++] = new_bo;
+   uint32_t new_bo_ind = p_atomic_read_relaxed(&pool->nbos);
+   assert(new_bo_ind < ANV_MAX_BLOCK_POOL_BOS);
+
+   pool->bos[new_bo_ind] = new_bo;
 
    /* This pointer will always point to the first BO in the list */
-   pool->bo = pool->bos[0];
+   if (new_bo_ind == 0)
+      pool->bo = new_bo;
 
-   assert(pool->nbos < ANV_MAX_BLOCK_POOL_BOS);
+   p_atomic_set(&pool->nbos, new_bo_ind + 1);
    pool->size = size;
 
    return VK_SUCCESS;
@@ -521,7 +525,7 @@ anv_block_pool_grow(struct anv_block_pool *pool, struct anv_block_state *state,
     * We align to a page size because it makes it easier to do our
     * calculations later in such a way that we state page-aigned.
     */
-   uint32_t total_used = align(pool->state.next, PAGE_SIZE);
+   uint32_t total_used = align(p_atomic_read_relaxed(&pool->state.next), PAGE_SIZE);
 
    uint32_t old_size = pool->size;
 

@@ -6,6 +6,7 @@
  */
 
 #include "util/u_thread.h"
+#include "util/u_atomic.h"
 
 #include "macros.h"
 
@@ -178,17 +179,28 @@ util_thread_get_time_nano(thrd_t thread)
 
 void util_barrier_init(util_barrier *barrier, unsigned count)
 {
-   pthread_barrier_init(barrier, NULL, count);
+   pthread_barrier_init(&barrier->barrier, NULL, count);
+   p_atomic_set(&barrier->waiters, 0);
 }
 
 void util_barrier_destroy(util_barrier *barrier)
 {
-   pthread_barrier_destroy(barrier);
+   while (p_atomic_read(&barrier->waiters) != 0)
+      thrd_yield();
+
+   pthread_barrier_destroy(&barrier->barrier);
 }
 
 bool util_barrier_wait(util_barrier *barrier)
 {
-   return pthread_barrier_wait(barrier) == PTHREAD_BARRIER_SERIAL_THREAD;
+   p_atomic_inc(&barrier->waiters);
+
+   bool result = pthread_barrier_wait(&barrier->barrier) ==
+                 PTHREAD_BARRIER_SERIAL_THREAD;
+
+   p_atomic_dec(&barrier->waiters);
+
+   return result;
 }
 
 #else /* If the OS doesn't have its own, implement barriers using a mutex and a condvar */

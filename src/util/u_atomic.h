@@ -41,6 +41,7 @@
 
 /* The builtins with explicit memory model are available since GCC 4.7. */
 #define p_atomic_set(_v, _i) __atomic_store_n((_v), (_i), __ATOMIC_RELEASE)
+#define p_atomic_set_relaxed(_v, _i) __atomic_store_n((_v), (_i), __ATOMIC_RELAXED)
 #define p_atomic_read(_v) __atomic_load_n((_v), __ATOMIC_ACQUIRE)
 #define p_atomic_read_relaxed(_v) __atomic_load_n((_v), __ATOMIC_RELAXED)
 #define p_atomic_dec_zero(v) (__atomic_sub_fetch((v), 1, __ATOMIC_ACQ_REL) == 0)
@@ -57,6 +58,7 @@
 #else
 
 #define p_atomic_set(_v, _i) (*(_v) = (_i))
+#define p_atomic_set_relaxed(_v, _i) (*(_v) = (_i))
 #define p_atomic_read(_v) (*(_v))
 #define p_atomic_read_relaxed(_v) (*(_v))
 #define p_atomic_dec_zero(v) (__sync_sub_and_fetch((v), 1) == 0)
@@ -90,6 +92,7 @@
 #define PIPE_ATOMIC "Unlocked"
 
 #define p_atomic_set(_v, _i) (*(_v) = (_i))
+#define p_atomic_set_relaxed(_v, _i) (*(_v) = (_i))
 #define p_atomic_read(_v) (*(_v))
 #define p_atomic_read_relaxed(_v) (*(_v))
 #define p_atomic_dec_zero(_v) (p_atomic_dec_return(_v) == 0)
@@ -136,6 +139,7 @@ __forceinline short _interlockedadd16(short volatile * _Addend, short _Value)
  */
 
 #define p_atomic_set(_v, _i) (*(_v) = (_i))
+#define p_atomic_set_relaxed(_v, _i) (*(_v) = (_i))
 #define p_atomic_read(_v) (*(_v))
 #define p_atomic_read_relaxed(_v) (*(_v))
 
