@@ -115,7 +115,7 @@ impl SPIRVBin {
 
                 let mut key = cache.gen_key(&key);
                 if let Some(data) = cache.get(&mut key) {
-                    return (Some(Self::from_bin(&data)), String::from(""));
+                    return (Some(Self::deserialize(&data)), String::from(""));
                 }
 
                 hash_key = Some(key);
@@ -161,7 +161,7 @@ impl SPIRVBin {
             // add cache entry
             if !has_includes {
                 if let Some(mut key) = hash_key {
-                    cache.as_ref().unwrap().put(spirv.to_bin(), &mut key);
+                    cache.as_ref().unwrap().put(&spirv.serialize(), &mut key);
                 }
             }
 
@@ -189,24 +189,10 @@ impl SPIRVBin {
         let mut out = clc_binary::default();
         let res = unsafe { clc_link_spirv(&linker_args, &logger, &mut out) };
 
-        let info;
-        if !library {
-            let mut pspirv = clc_parsed_spirv::default();
-            let res = unsafe { clc_parse_spirv(&out, &logger, &mut pspirv) };
-
-            if res {
-                info = Some(pspirv);
-            } else {
-                info = None;
-            }
-        } else {
-            info = None;
-        }
-
         let res = if res {
             Some(SPIRVBin {
                 spirv: out,
-                info: info,
+                info: (!library).then(|| Self::parse_spirv(&out)).flatten(),
             })
         } else {
             None
@@ -247,7 +233,7 @@ impl SPIRVBin {
         self.kernel_info(name)
             .filter(|info| [1, 2, 3, 4, 8, 16].contains(&info.vec_hint_size))
             .map(|info| {
-                let cltype = match info.vec_hint_type {
+                let cltype = match info.vec_hint_type() {
                     clc_vec_hint_type::CLC_VEC_HINT_TYPE_CHAR => "uchar",
                     clc_vec_hint_type::CLC_VEC_HINT_TYPE_SHORT => "ushort",
                     clc_vec_hint_type::CLC_VEC_HINT_TYPE_INT => "uint",
@@ -286,14 +272,14 @@ impl SPIRVBin {
     pub fn args(&self, name: &str) -> Vec<SPIRVKernelArg> {
         match self.kernel_info(name) {
             None => Vec::new(),
-            Some(info) => unsafe { slice::from_raw_parts(info.args, info.num_args) }
+            Some(info) => unsafe { slice::from_raw_parts(info.args, info.num_args as usize) }
                 .iter()
                 .map(|a| SPIRVKernelArg {
                     name: c_string_to_string(a.name),
                     type_name: c_string_to_string(a.type_name),
-                    access_qualifier: clc_kernel_arg_access_qualifier(a.access_qualifier),
-                    address_qualifier: a.address_qualifier,
-                    type_qualifier: clc_kernel_arg_type_qualifier(a.type_qualifier),
+                    access_qualifier: clc_kernel_arg_access_qualifier(a.access_qualifier.into()),
+                    address_qualifier: a.address_qualifier(),
+                    type_qualifier: clc_kernel_arg_type_qualifier(a.type_qualifier.into()),
                 })
                 .collect(),
         }
@@ -401,6 +387,61 @@ impl SPIRVBin {
         })
     }
 
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut res = Vec::new();
+
+        let mut size: usize = 0;
+        if let Some(info) = self.info {
+            let mut buffer = ptr::null_mut();
+
+            unsafe {
+                clc_serialize_parsed_spirv(&info, &mut buffer, &mut size);
+                res.extend_from_slice(&size.to_ne_bytes());
+                res.extend_from_slice(slice::from_raw_parts(buffer.cast(), size));
+                free(buffer);
+            }
+        } else {
+            res.extend_from_slice(&size.to_ne_bytes());
+        }
+
+        res.extend_from_slice(unsafe {
+            slice::from_raw_parts(self.spirv.data.cast(), self.spirv.size)
+        });
+
+        res
+    }
+
+    pub fn deserialize(mut bin: &[u8]) -> Self {
+        let info_size = read_ne_usize(&mut bin);
+
+        let pspirv = if info_size != 0 {
+            let mut pspirv = clc_parsed_spirv::default();
+
+            unsafe {
+                clc_deserialize_parsed_spirv(bin.as_ptr().cast(), info_size, &mut pspirv);
+            }
+
+            Some(pspirv)
+        } else {
+            None
+        };
+
+        bin = &bin[info_size..];
+        let spirv = unsafe {
+            let ptr = malloc(bin.len());
+            ptr::copy_nonoverlapping(bin.as_ptr(), ptr.cast(), bin.len());
+            clc_binary {
+                data: ptr,
+                size: bin.len(),
+            }
+        };
+
+        SPIRVBin {
+            spirv: spirv,
+            info: pspirv,
+        }
+    }
+
     pub fn to_bin(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.spirv.data.cast(), self.spirv.size) }
     }
@@ -414,17 +455,9 @@ impl SPIRVBin {
                 size: bin.len(),
             };
 
-            let mut pspirv = clc_parsed_spirv::default();
-
-            let info = if clc_parse_spirv(&spirv, ptr::null(), &mut pspirv) {
-                Some(pspirv)
-            } else {
-                None
-            };
-
             SPIRVBin {
                 spirv: spirv,
-                info: info,
+                info: Self::parse_spirv(&spirv),
             }
         }
     }
@@ -437,7 +470,16 @@ impl SPIRVBin {
         spec_constants
             .iter()
             .find(|sc| sc.id == spec_id)
-            .map(|sc| sc.type_)
+            .map(|sc| sc.type_())
+    }
+
+    fn parse_spirv(spirv: &clc_binary) -> Option<clc_parsed_spirv> {
+        let mut pspirv = clc_parsed_spirv::default();
+        if unsafe { clc_parse_spirv(spirv, ptr::null(), &mut pspirv) } {
+            Some(pspirv)
+        } else {
+            None
+        }
     }
 
     pub fn print(&self) {
@@ -449,7 +491,7 @@ impl SPIRVBin {
 
 impl Clone for SPIRVBin {
     fn clone(&self) -> Self {
-        Self::from_bin(self.to_bin())
+        Self::deserialize(&self.serialize())
     }
 }
 

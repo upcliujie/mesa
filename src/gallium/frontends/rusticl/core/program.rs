@@ -384,10 +384,9 @@ impl Program {
                         // 4. the spirv
                         assert!(b.as_ptr().add(BIN_HEADER_SIZE_V1) == ptr);
                         assert!(b.len() == BIN_HEADER_SIZE_V1 + spirv_size as usize);
-                        spirv = Some(spirv::SPIRVBin::from_bin(slice::from_raw_parts(
-                            ptr,
-                            spirv_size as usize,
-                        )));
+
+                        let spirv_bin = slice::from_raw_parts(ptr, spirv_size as usize);
+                        spirv = Some(spirv::SPIRVBin::from_bin(spirv_bin))
                     }
                     _ => panic!("unknown version"),
                 }

@@ -29,6 +29,7 @@
 #include "clc_helpers.h"
 #include "nir_clc_helpers.h"
 #include "spirv/nir_spirv.h"
+#include "util/blob.h"
 #include "util/u_debug.h"
 
 #include <stdlib.h>
@@ -266,6 +267,105 @@ clc_parse_spirv(const struct clc_binary *in_spirv,
       clc_print_kernels_info(out_data);
 
    return true;
+}
+
+void
+clc_serialize_parsed_spirv(const struct clc_parsed_spirv *data,
+                           void **buffer,
+                           size_t *size)
+{
+   struct blob blob;
+   blob_init(&blob);
+
+   /* split up writing data into a uint32_t and uint8_t section so we won't get any padding */
+   blob_write_uint32(&blob, data->num_kernels);
+   blob_write_uint32(&blob, data->num_spec_constants);
+
+   for (unsigned s = 0; s < data->num_spec_constants; s++)
+      blob_write_uint32(&blob, data->spec_constants[s].id);
+
+   for (unsigned k = 0; k < data->num_kernels; k++) {
+      const struct clc_kernel_info *kernel = &data->kernels[k];
+
+      blob_write_uint32(&blob, kernel->num_args);
+      for (unsigned i = 0; i < 3; i++) {
+         blob_write_uint32(&blob, kernel->local_size[i]);
+         blob_write_uint32(&blob, kernel->local_size_hint[i]);
+      }
+   }
+
+   for (unsigned k = 0; k < data->num_kernels; k++) {
+      const struct clc_kernel_info *kernel = &data->kernels[k];
+      blob_write_uint8(&blob, kernel->vec_hint_size);
+      blob_write_uint8(&blob, kernel->vec_hint_type);
+      blob_write_string(&blob, kernel->name);
+
+      for (unsigned a = 0; a < kernel->num_args; a++) {
+         const struct clc_kernel_arg *arg = &kernel->args[a];
+
+         if (arg->name)
+            blob_write_string(&blob, arg->name);
+         else
+            blob_write_string(&blob, "");
+         blob_write_string(&blob, arg->type_name);
+         blob_write_uint8(&blob, arg->type_qualifier);
+         blob_write_uint8(&blob, arg->access_qualifier);
+         blob_write_uint8(&blob, arg->address_qualifier);
+      }
+   }
+
+   for (unsigned s = 0; s < data->num_spec_constants; s++)
+      blob_write_uint8(&blob, data->spec_constants[s].type);
+
+   blob_finish_get_buffer(&blob, buffer, size);
+}
+
+void
+clc_deserialize_parsed_spirv(const void* data, size_t length, struct clc_parsed_spirv *out_data)
+{
+   struct blob_reader blob;
+   blob_reader_init(&blob, data, length);
+
+   out_data->num_kernels = blob_read_uint32(&blob);
+   out_data->num_spec_constants = blob_read_uint32(&blob);
+
+   struct clc_kernel_info *kernels = calloc(out_data->num_kernels, sizeof(*kernels));
+   struct clc_parsed_spec_constant *spec_constants =
+      calloc(out_data->num_spec_constants, sizeof(*spec_constants));
+
+   out_data->kernels = kernels;
+   out_data->spec_constants = spec_constants;
+
+   for (unsigned s = 0; s < out_data->num_spec_constants; s++)
+      spec_constants[s].id = blob_read_uint32(&blob);
+
+   for (unsigned k = 0; k < out_data->num_kernels; k++) {
+      kernels[k].num_args = blob_read_uint32(&blob);
+      for (unsigned i = 0; i < 3; i++) {
+         kernels[k].local_size[i] = blob_read_uint32(&blob);
+         kernels[k].local_size_hint[i] = blob_read_uint32(&blob);
+      }
+   }
+
+   for (unsigned k = 0; k < out_data->num_kernels; k++) {
+      kernels[k].vec_hint_size = blob_read_uint8(&blob);
+      kernels[k].vec_hint_type = blob_read_uint8(&blob);
+      kernels[k].name = strdup(blob_read_string(&blob));
+
+      struct clc_kernel_arg *args = calloc(kernels[k].num_args, sizeof(*args));
+      for (unsigned a = 0; a < kernels[k].num_args; a++) {
+         args[a].name = strdup(blob_read_string(&blob));
+         args[a].type_name = strdup(blob_read_string(&blob));
+         args[a].type_qualifier = blob_read_uint8(&blob);
+         args[a].access_qualifier = blob_read_uint8(&blob);
+         args[a].address_qualifier = blob_read_uint8(&blob);
+      }
+
+      kernels[k].args = args;
+   }
+
+   for (unsigned s = 0; s < out_data->num_spec_constants; s++)
+      spec_constants[s].type = blob_read_uint8(&blob);
 }
 
 void clc_free_parsed_spirv(struct clc_parsed_spirv *data)
