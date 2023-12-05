@@ -114,7 +114,8 @@ find_and_remove_unused(struct ir3 *ir, struct ir3_shader_variant *so)
       foreach_instr (instr, &block->instr_list) {
          if (instr->opc == OPC_META_INPUT) {
             /* Without GS header geometry shader is never invoked. */
-            if (instr->input.sysval == SYSTEM_VALUE_GS_HEADER_IR3)
+            if (so->type == MESA_SHADER_GEOMETRY &&
+                instr->input.sysval == SYSTEM_VALUE_TCS_GS_HEADER_IR3)
                continue;
          }
 

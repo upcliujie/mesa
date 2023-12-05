@@ -127,6 +127,9 @@ struct tu_physical_device
 VK_DEFINE_HANDLE_CASTS(tu_physical_device, vk.base, VkPhysicalDevice,
                        VK_OBJECT_TYPE_PHYSICAL_DEVICE)
 
+int
+tu_device_get_cache_uuid(struct tu_physical_device *device, void *uuid);
+
 struct tu_knl;
 
 struct tu_instance

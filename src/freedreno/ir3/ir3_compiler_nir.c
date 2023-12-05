@@ -1127,8 +1127,8 @@ emit_intrinsic_load_shared_ir3(struct ir3_context *ctx,
    load = ir3_LDLW(b, offset, 0, create_immed(b, base), 0,
                    create_immed(b, intr->num_components), 0);
 
-   /* for a650, use LDL for tess ctrl inputs: */
-   if (ctx->so->type == MESA_SHADER_TESS_CTRL && ctx->compiler->tess_use_shared)
+   /* for a650, use LDL: */
+   if (ctx->compiler->tess_use_shared)
       load->opc = OPC_LDL;
 
    load->cat6.type = utype_def(&intr->def);
@@ -1156,9 +1156,8 @@ emit_intrinsic_store_shared_ir3(struct ir3_context *ctx,
                     ir3_create_collect(b, value, intr->num_components), 0,
                     create_immed(b, intr->num_components), 0);
 
-   /* for a650, use STL for vertex outputs used by tess ctrl shader: */
-   if (ctx->so->type == MESA_SHADER_VERTEX && ctx->so->key.tessellation &&
-       ctx->compiler->tess_use_shared)
+   /* for a650, use STL: */
+   if (ctx->compiler->tess_use_shared)
       store->opc = OPC_STL;
 
    store->cat6.dst_offset = nir_intrinsic_base(intr);
@@ -1982,6 +1981,146 @@ emit_intrinsic_reduce(struct ir3_context *ctx, nir_intrinsic_instr *intr)
    return create_multidst_mov(ctx->block, dst);
 }
 
+static bool
+output_slot_used_for_binning(gl_varying_slot slot)
+{
+   return slot == VARYING_SLOT_POS || slot == VARYING_SLOT_PSIZ ||
+          slot == VARYING_SLOT_CLIP_DIST0 || slot == VARYING_SLOT_CLIP_DIST1 ||
+          slot == VARYING_SLOT_VIEWPORT;
+}
+
+static void
+fixup_binning_pass(struct ir3_context *ctx, struct ir3_instruction *end)
+{
+   struct ir3_shader_variant *so = ctx->so;
+   unsigned i, j;
+
+   /* first pass, remove unused outputs from the IR level outputs: */
+   for (i = 0, j = 0; i < end->srcs_count; i++) {
+      unsigned outidx = end->end.outidxs[i];
+      unsigned slot = so->outputs[outidx].slot;
+
+      if (output_slot_used_for_binning(slot)) {
+         end->srcs[j] = end->srcs[i];
+         end->end.outidxs[j] = end->end.outidxs[i];
+         j++;
+      }
+   }
+   end->srcs_count = j;
+
+   /* second pass, cleanup the unused slots in ir3_shader_variant::outputs
+    * table:
+    */
+   for (i = 0, j = 0; i < so->outputs_count; i++) {
+      unsigned slot = so->outputs[i].slot;
+
+      if (output_slot_used_for_binning(slot)) {
+         so->outputs[j] = so->outputs[i];
+
+         /* fixup outidx to point to new output table entry: */
+         for (unsigned k = 0; k < end->srcs_count; k++) {
+            if (end->end.outidxs[k] == i) {
+               end->end.outidxs[k] = j;
+               break;
+            }
+         }
+
+         j++;
+      }
+   }
+   so->outputs_count = j;
+}
+
+static void
+emit_end(struct ir3_context *ctx, struct ir3_block *end_block)
+{
+   assert(!ctx->emitted_end);
+   assert((ctx->noutputs % 4) == 0);
+   unsigned outidxs[ctx->noutputs / 4];
+   struct ir3_instruction *outputs[ctx->noutputs / 4];
+   unsigned outputs_count = 0;
+
+   /* Setup IR level outputs, which are "collects" that gather
+    * the scalar components of outputs.
+    */
+   for (unsigned i = 0; i < ctx->noutputs; i += 4) {
+      unsigned ncomp = 0;
+      /* figure out the # of components written:
+       *
+       * TODO do we need to handle holes, ie. if .x and .z
+       * components written, but .y component not written?
+       */
+      for (unsigned j = 0; j < 4; j++) {
+         if (!ctx->outputs[i + j])
+            break;
+         ncomp++;
+      }
+
+      /* Note that in some stages, like TCS, store_output is
+       * lowered to memory writes, so no components of the
+       * are "written" from the PoV of traditional store-
+       * output instructions:
+       */
+      if (!ncomp)
+         continue;
+
+      struct ir3_instruction *out =
+         ir3_create_collect(ctx->block, &ctx->outputs[i], ncomp);
+
+      int outidx = i / 4;
+      assert(outidx < ctx->so->outputs_count);
+
+      outidxs[outputs_count] = outidx;
+      outputs[outputs_count] = out;
+      outputs_count++;
+   }
+
+   /* for a6xx+, binning and draw pass VS use same VBO state, so we
+    * need to make sure not to remove any inputs that are used by
+    * the nonbinning VS.
+    */
+   if (ctx->compiler->gen >= 6 && ctx->so->binning_pass &&
+       ctx->so->type == MESA_SHADER_VERTEX) {
+      for (int i = 0; i < ctx->ninputs; i++) {
+         struct ir3_instruction *in = ctx->inputs[i];
+
+         if (!in)
+            continue;
+
+         unsigned n = i / 4;
+         unsigned c = i % 4;
+
+         assert(n < ctx->so->nonbinning->inputs_count);
+
+         if (ctx->so->nonbinning->inputs[n].sysval)
+            continue;
+
+         /* be sure to keep inputs, even if only used in VS */
+         if (ctx->so->nonbinning->inputs[n].compmask & (1 << c))
+            array_insert(in->block, in->block->keeps, in);
+      }
+   }
+
+   struct ir3_instruction *end =
+      ir3_instr_create(end_block, OPC_END, 0, outputs_count);
+
+   for (unsigned i = 0; i < outputs_count; i++) {
+      __ssa_src(end, outputs[i], 0);
+   }
+
+   end->barrier_class = end->barrier_conflict = IR3_BARRIER_EVERYTHING;
+   end->end.outidxs = ralloc_array(end, unsigned, outputs_count);
+   memcpy(end->end.outidxs, outidxs, sizeof(unsigned) * outputs_count);
+
+   array_insert(end_block, end_block->keeps, end);
+
+   /* at this point, for binning pass, throw away unneeded outputs: */
+   if (ctx->so->binning_pass && (ctx->compiler->gen < 6))
+      fixup_binning_pass(ctx, end);
+
+   ctx->emitted_end = true;
+}
+
 static void setup_input(struct ir3_context *ctx, nir_intrinsic_instr *intr);
 static void setup_output(struct ir3_context *ctx, nir_intrinsic_instr *intr);
 
@@ -2112,17 +2251,19 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       dst[0] = create_uniform(b, primitive_param + 6);
       dst[1] = create_uniform(b, primitive_param + 7);
       break;
-
+   case nir_intrinsic_load_tess_level_outer_count:
+      dst[0] = create_uniform(b, primitive_param + 8);
+      break;
+   case nir_intrinsic_load_tess_level_inner_count:
+      dst[0] = create_uniform(b, primitive_param + 9);
+      break;
    case nir_intrinsic_load_primitive_location_ir3:
       idx = nir_intrinsic_driver_location(intr);
       dst[0] = create_uniform(b, primitive_map + idx);
       break;
 
-   case nir_intrinsic_load_gs_header_ir3:
-      dst[0] = ctx->gs_header;
-      break;
-   case nir_intrinsic_load_tcs_header_ir3:
-      dst[0] = ctx->tcs_header;
+   case nir_intrinsic_load_tcs_gs_header_ir3:
+      dst[0] = ctx->tcs_gs_header;
       break;
 
    case nir_intrinsic_load_rel_patch_id_ir3:
@@ -2693,6 +2834,9 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
                  load->push_consts.dst_base + load->push_consts.src_size, 4));
       break;
    }
+   case nir_intrinsic_terminate_if_not_merged_ir3:
+      emit_end(ctx, ctx->block);
+      break;
    default:
       ir3_context_error(ctx, "Unhandled intrinsic type: %s\n",
                         nir_intrinsic_infos[intr->intrinsic].name);
@@ -3645,7 +3789,7 @@ emit_block(struct ir3_context *ctx, nir_block *nblock)
       ctx->cur_instr = instr;
       emit_instr(ctx, instr);
       ctx->cur_instr = NULL;
-      if (ctx->error)
+      if (ctx->error || (ctx->emitted_end && ctx->so->binning_pass))
          return;
    }
 
@@ -3766,6 +3910,8 @@ emit_cf_list(struct ir3_context *ctx, struct exec_list *list)
       switch (node->type) {
       case nir_cf_node_block:
          emit_block(ctx, nir_cf_node_as_block(node));
+         if (ctx->emitted_end && ctx->so->binning_pass)
+            return;
          break;
       case nir_cf_node_if:
          stack_push(ctx);
@@ -4306,9 +4452,7 @@ uses_store_output(struct ir3_shader_variant *so)
 {
    switch (so->type) {
    case MESA_SHADER_VERTEX:
-      return !so->key.has_gs && !so->key.tessellation;
    case MESA_SHADER_TESS_EVAL:
-      return !so->key.has_gs;
    case MESA_SHADER_GEOMETRY:
    case MESA_SHADER_FRAGMENT:
       return true;
@@ -4401,30 +4545,25 @@ emit_instructions(struct ir3_context *ctx)
    bool has_gs = ctx->so->key.has_gs;
    switch (ctx->so->type) {
    case MESA_SHADER_VERTEX:
-      if (has_tess) {
-         ctx->tcs_header =
-            create_sysval_input(ctx, SYSTEM_VALUE_TCS_HEADER_IR3, 0x1);
+      if (has_tess || has_gs) {
+         ctx->tcs_gs_header =
+            create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
          ctx->rel_patch_id =
             create_sysval_input(ctx, SYSTEM_VALUE_REL_PATCH_ID_IR3, 0x1);
-         ctx->primitive_id =
-            create_sysval_input(ctx, SYSTEM_VALUE_PRIMITIVE_ID, 0x1);
-      } else if (has_gs) {
-         ctx->gs_header =
-            create_sysval_input(ctx, SYSTEM_VALUE_GS_HEADER_IR3, 0x1);
          ctx->primitive_id =
             create_sysval_input(ctx, SYSTEM_VALUE_PRIMITIVE_ID, 0x1);
       }
       break;
    case MESA_SHADER_TESS_CTRL:
-      ctx->tcs_header =
-         create_sysval_input(ctx, SYSTEM_VALUE_TCS_HEADER_IR3, 0x1);
+      ctx->tcs_gs_header =
+         create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
       ctx->rel_patch_id =
          create_sysval_input(ctx, SYSTEM_VALUE_REL_PATCH_ID_IR3, 0x1);
       break;
    case MESA_SHADER_TESS_EVAL:
       if (has_gs) {
-         ctx->gs_header =
-            create_sysval_input(ctx, SYSTEM_VALUE_GS_HEADER_IR3, 0x1);
+         ctx->tcs_gs_header =
+            create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
          ctx->primitive_id =
             create_sysval_input(ctx, SYSTEM_VALUE_PRIMITIVE_ID, 0x1);
       }
@@ -4432,8 +4571,8 @@ emit_instructions(struct ir3_context *ctx)
          create_sysval_input(ctx, SYSTEM_VALUE_REL_PATCH_ID_IR3, 0x1);
       break;
    case MESA_SHADER_GEOMETRY:
-      ctx->gs_header =
-         create_sysval_input(ctx, SYSTEM_VALUE_GS_HEADER_IR3, 0x1);
+      ctx->tcs_gs_header =
+         create_sysval_input(ctx, SYSTEM_VALUE_TCS_GS_HEADER_IR3, 0x1);
       break;
    default:
       break;
@@ -4545,66 +4684,16 @@ fixup_tg4(struct ir3_context *ctx)
    }
 }
 
-static bool
-output_slot_used_for_binning(gl_varying_slot slot)
-{
-   return slot == VARYING_SLOT_POS || slot == VARYING_SLOT_PSIZ ||
-          slot == VARYING_SLOT_CLIP_DIST0 || slot == VARYING_SLOT_CLIP_DIST1 ||
-          slot == VARYING_SLOT_VIEWPORT;
-}
-
 static struct ir3_instruction *
 find_end(struct ir3 *ir)
 {
    foreach_block_rev (block, &ir->block_list) {
       foreach_instr_rev (instr, &block->instr_list) {
-         if (instr->opc == OPC_END || instr->opc == OPC_CHMASK)
+         if (instr->opc == OPC_END)
             return instr;
       }
    }
    unreachable("couldn't find end instruction");
-}
-
-static void
-fixup_binning_pass(struct ir3_context *ctx, struct ir3_instruction *end)
-{
-   struct ir3_shader_variant *so = ctx->so;
-   unsigned i, j;
-
-   /* first pass, remove unused outputs from the IR level outputs: */
-   for (i = 0, j = 0; i < end->srcs_count; i++) {
-      unsigned outidx = end->end.outidxs[i];
-      unsigned slot = so->outputs[outidx].slot;
-
-      if (output_slot_used_for_binning(slot)) {
-         end->srcs[j] = end->srcs[i];
-         end->end.outidxs[j] = end->end.outidxs[i];
-         j++;
-      }
-   }
-   end->srcs_count = j;
-
-   /* second pass, cleanup the unused slots in ir3_shader_variant::outputs
-    * table:
-    */
-   for (i = 0, j = 0; i < so->outputs_count; i++) {
-      unsigned slot = so->outputs[i].slot;
-
-      if (output_slot_used_for_binning(slot)) {
-         so->outputs[j] = so->outputs[i];
-
-         /* fixup outidx to point to new output table entry: */
-         for (unsigned k = 0; k < end->srcs_count; k++) {
-            if (end->end.outidxs[k] == i) {
-               end->end.outidxs[k] = j;
-               break;
-            }
-         }
-
-         j++;
-      }
-   }
-   so->outputs_count = j;
 }
 
 static void
@@ -4717,10 +4806,7 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
          struct ir3_instruction *out = ir3_collect(ctx->block, ctx->primitive_id);
          outputs[outputs_count] = out;
          outidxs[outputs_count] = n;
-         if (so->type == MESA_SHADER_VERTEX && ctx->rel_patch_id)
-            regids[outputs_count] = regid(0, 2);
-         else
-            regids[outputs_count] = regid(0, 1);
+         regids[outputs_count] = regid(0, 2);
          outputs_count++;
       }
 
@@ -4734,20 +4820,10 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
          outputs_count++;
       }
 
-      if (ctx->gs_header) {
+      if (ctx->tcs_gs_header) {
          unsigned n = so->outputs_count++;
-         so->outputs[n].slot = VARYING_SLOT_GS_HEADER_IR3;
-         struct ir3_instruction *out = ir3_collect(ctx->block, ctx->gs_header);
-         outputs[outputs_count] = out;
-         outidxs[outputs_count] = n;
-         regids[outputs_count] = regid(0, 0);
-         outputs_count++;
-      }
-
-      if (ctx->tcs_header) {
-         unsigned n = so->outputs_count++;
-         so->outputs[n].slot = VARYING_SLOT_TCS_HEADER_IR3;
-         struct ir3_instruction *out = ir3_collect(ctx->block, ctx->tcs_header);
+         so->outputs[n].slot = VARYING_SLOT_TCS_GS_HEADER_IR3;
+         struct ir3_instruction *out = ir3_collect(ctx->block, ctx->tcs_gs_header);
          outputs[outputs_count] = out;
          outidxs[outputs_count] = n;
          regids[outputs_count] = regid(0, 0);
@@ -4771,95 +4847,18 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
       chsh->barrier_class = IR3_BARRIER_EVERYTHING;
       chsh->barrier_conflict = IR3_BARRIER_EVERYTHING;
    } else {
-      assert((ctx->noutputs % 4) == 0);
-      unsigned outidxs[ctx->noutputs / 4];
-      struct ir3_instruction *outputs[ctx->noutputs / 4];
-      unsigned outputs_count = 0;
-
       struct ir3_block *b = ctx->block;
-      /* Insert these collect's in the block before the end-block if
-       * possible, so that any moves they generate can be shuffled around to
-       * reduce nop's:
+      /* Insert collect's in the block before the end-block if possible, so that
+       * any moves they generate can be shuffled around to reduce nop's. However
+       * the end itself must be in the end-block, so that the kill workaround
+       * can produce a jump to the end instruction.
        */
       if (ctx->block->predecessors_count == 1)
-         b = ctx->block->predecessors[0];
+         ctx->block = ctx->block->predecessors[0];
 
-      /* Setup IR level outputs, which are "collects" that gather
-       * the scalar components of outputs.
-       */
-      for (unsigned i = 0; i < ctx->noutputs; i += 4) {
-         unsigned ncomp = 0;
-         /* figure out the # of components written:
-          *
-          * TODO do we need to handle holes, ie. if .x and .z
-          * components written, but .y component not written?
-          */
-         for (unsigned j = 0; j < 4; j++) {
-            if (!ctx->outputs[i + j])
-               break;
-            ncomp++;
-         }
+      emit_end(ctx, b);
 
-         /* Note that in some stages, like TCS, store_output is
-          * lowered to memory writes, so no components of the
-          * are "written" from the PoV of traditional store-
-          * output instructions:
-          */
-         if (!ncomp)
-            continue;
-
-         struct ir3_instruction *out =
-            ir3_create_collect(b, &ctx->outputs[i], ncomp);
-
-         int outidx = i / 4;
-         assert(outidx < so->outputs_count);
-
-         outidxs[outputs_count] = outidx;
-         outputs[outputs_count] = out;
-         outputs_count++;
-      }
-
-      /* for a6xx+, binning and draw pass VS use same VBO state, so we
-       * need to make sure not to remove any inputs that are used by
-       * the nonbinning VS.
-       */
-      if (ctx->compiler->gen >= 6 && so->binning_pass &&
-          so->type == MESA_SHADER_VERTEX) {
-         for (int i = 0; i < ctx->ninputs; i++) {
-            struct ir3_instruction *in = ctx->inputs[i];
-
-            if (!in)
-               continue;
-
-            unsigned n = i / 4;
-            unsigned c = i % 4;
-
-            assert(n < so->nonbinning->inputs_count);
-
-            if (so->nonbinning->inputs[n].sysval)
-               continue;
-
-            /* be sure to keep inputs, even if only used in VS */
-            if (so->nonbinning->inputs[n].compmask & (1 << c))
-               array_insert(in->block, in->block->keeps, in);
-         }
-      }
-
-      struct ir3_instruction *end =
-         ir3_instr_create(ctx->block, OPC_END, 0, outputs_count);
-
-      for (unsigned i = 0; i < outputs_count; i++) {
-         __ssa_src(end, outputs[i], 0);
-      }
-
-      end->end.outidxs = ralloc_array(end, unsigned, outputs_count);
-      memcpy(end->end.outidxs, outidxs, sizeof(unsigned) * outputs_count);
-
-      array_insert(ctx->block, ctx->block->keeps, end);
-
-      /* at this point, for binning pass, throw away unneeded outputs: */
-      if (so->binning_pass && (ctx->compiler->gen < 6))
-         fixup_binning_pass(ctx, end);
+      ctx->block = b;
    }
 
    if (so->type == MESA_SHADER_FRAGMENT &&
@@ -4928,24 +4927,17 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 
          in->dsts[0]->num = so->nonbinning->inputs[inidx].regid;
       }
-   } else if (ctx->tcs_header) {
-      /* We need to have these values in the same registers between VS and TCS
-       * since the VS chains to TCS and doesn't get the sysvals redelivered.
+   } else if (ctx->tcs_gs_header) {
+      /* We need to have these values in the same registers between VS and
+       * TCS/GS since the VS chains to TCS or GS and doesn't get the sysvals
+       * redelivered.
        */
 
-      ctx->tcs_header->dsts[0]->num = regid(0, 0);
-      ctx->rel_patch_id->dsts[0]->num = regid(0, 1);
+      ctx->tcs_gs_header->dsts[0]->num = regid(0, 0);
+      if (ctx->rel_patch_id)
+         ctx->rel_patch_id->dsts[0]->num = regid(0, 1);
       if (ctx->primitive_id)
          ctx->primitive_id->dsts[0]->num = regid(0, 2);
-   } else if (ctx->gs_header) {
-      /* We need to have these values in the same registers between producer
-       * (VS or DS) and GS since the producer chains to GS and doesn't get
-       * the sysvals redelivered.
-       */
-
-      ctx->gs_header->dsts[0]->num = regid(0, 0);
-      if (ctx->primitive_id)
-         ctx->primitive_id->dsts[0]->num = regid(0, 1);
    } else if (so->num_sampler_prefetch) {
       assert(so->type == MESA_SHADER_FRAGMENT);
       int idx = 0;

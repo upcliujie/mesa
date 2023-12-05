@@ -71,8 +71,9 @@ enum tu_cmd_dirty_bits
    TU_CMD_DIRTY_PER_VIEW_VIEWPORT = BIT(9),
    TU_CMD_DIRTY_TES = BIT(10),
    TU_CMD_DIRTY_PROGRAM = BIT(11),
+   TU_CMD_DIRTY_SHADERS = BIT(12),
    /* all draw states were disabled and need to be re-enabled: */
-   TU_CMD_DIRTY_DRAW_STATE = BIT(12)
+   TU_CMD_DIRTY_DRAW_STATE = BIT(13)
 };
 
 /* There are only three cache domains we have to care about: the CCU, or

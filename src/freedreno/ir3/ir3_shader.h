@@ -183,6 +183,19 @@ enum ir3_push_consts_type {
  * Note UBO size in bytes should be aligned to vec4
  */
 struct ir3_const_state {
+   uint32_t *immediates;
+
+   /*
+    * The following macros are used by the shader disk cache save/
+    * restore paths to serialize/deserialize the variant.  Any
+    * pointers that require special handling in store_variant()
+    * and retrieve_variant() should go above here.
+    */
+#define CONST_CACHE_START  offsetof(struct ir3_const_state, num_ubos)
+#define CONST_CACHE_PTR(s) (((char *)s) + CONST_CACHE_START)
+#define CONST_CACHE_SIZE                                                        \
+   (sizeof(struct ir3_const_state) - CONST_CACHE_START)
+
    unsigned num_ubos;
    unsigned num_driver_params; /* scalar */
 
@@ -214,7 +227,6 @@ struct ir3_const_state {
 
    unsigned immediates_count;
    unsigned immediates_size;
-   uint32_t *immediates;
 
    unsigned preamble_size;
 
@@ -326,7 +338,8 @@ struct ir3_shader_key {
 #define IR3_TESS_QUADS     1
 #define IR3_TESS_TRIANGLES 2
 #define IR3_TESS_ISOLINES  3
-         unsigned tessellation : 2;
+#define IR3_TESS_UNKNOWN   4
+         unsigned tessellation : 3;
 
          unsigned has_gs : 1;
 
@@ -371,19 +384,41 @@ ir3_tess_mode(enum tess_primitive_mode tess_mode)
 }
 
 static inline uint32_t
-ir3_tess_factor_stride(unsigned patch_type)
+ir3_tess_level_inner_components(unsigned patch_type)
 {
-   /* note: this matches the stride used by ir3's build_tessfactor_base */
    switch (patch_type) {
    case IR3_TESS_ISOLINES:
-      return 12;
+      return 0;
    case IR3_TESS_TRIANGLES:
-      return 20;
+      return 1;
    case IR3_TESS_QUADS:
-      return 28;
+      return 2;
    default:
       unreachable("bad tessmode");
    }
+}
+
+static inline uint32_t
+ir3_tess_level_outer_components(unsigned patch_type)
+{
+   switch (patch_type) {
+   case IR3_TESS_ISOLINES:
+      return 2;
+   case IR3_TESS_TRIANGLES:
+      return 3;
+   case IR3_TESS_QUADS:
+      return 4;
+   default:
+      unreachable("bad tessmode");
+   }
+}
+
+static inline uint32_t
+ir3_tess_factor_stride(unsigned patch_type)
+{
+   /* note: this matches the stride used by ir3's build_tessfactor_base */
+   return 4 * (1 + ir3_tess_level_inner_components(patch_type) +
+               ir3_tess_level_outer_components(patch_type));
 }
 
 static inline bool
@@ -638,7 +673,7 @@ struct ir3_shader_variant {
       uint8_t regid;
       uint8_t view;
       bool half : 1;
-   } outputs[32 + 2]; /* +POSITION +PSIZE */
+   } outputs[32 + 5]; /* +POSITION +PSIZE +HEADER +RELPATCHID +PRIMITIVEID */
    bool writes_pos, writes_smask, writes_psize, writes_viewport, writes_stencilref;
 
    /* Size in dwords of all outputs for VS, size of entire patch for HS. */
@@ -675,7 +710,13 @@ struct ir3_shader_variant {
       bool rasterflat : 1; /* special handling for emit->rasterflat */
       bool half       : 1;
       bool flat       : 1;
-   } inputs[32 + 2]; /* +POSITION +FACE */
+      /* For the FS we can have these additional inputs:
+       * +POSITION +FACE
+       * For the VS we can have these additional inputs:
+       * +VERTEXID +INSTANCEID +HEADER +RELPATCHID +PRIMITIVEID
+       * Other stages don't have user inputs in this array, only a few sysvals.
+       */
+   } inputs[32 + 5];
    bool reads_primid;
 
    /* sum of input components (scalar).  For frag shaders, it only counts
@@ -839,18 +880,6 @@ ir3_shader_stage(struct ir3_shader_variant *v)
       unreachable("invalid type");
       return NULL;
    }
-}
-
-/* Currently we do not do binning for tess.  And for GS there is no
- * cross-stage VS+GS optimization, so the full VS+GS is used in
- * the binning pass.
- */
-static inline bool
-ir3_has_binning_vs(const struct ir3_shader_key *key)
-{
-   if (key->tessellation || key->has_gs)
-      return false;
-   return true;
 }
 
 /**
@@ -1202,9 +1231,8 @@ void print_raw(FILE *out, const BITSET_WORD *data, size_t size);
 void ir3_link_stream_out(struct ir3_shader_linkage *l,
                          const struct ir3_shader_variant *v);
 
-#define VARYING_SLOT_GS_HEADER_IR3       (VARYING_SLOT_MAX + 0)
+#define VARYING_SLOT_TCS_GS_HEADER_IR3   (VARYING_SLOT_MAX + 0)
 #define VARYING_SLOT_GS_VERTEX_FLAGS_IR3 (VARYING_SLOT_MAX + 1)
-#define VARYING_SLOT_TCS_HEADER_IR3      (VARYING_SLOT_MAX + 2)
 #define VARYING_SLOT_REL_PATCH_ID_IR3    (VARYING_SLOT_MAX + 3)
 
 static inline uint32_t

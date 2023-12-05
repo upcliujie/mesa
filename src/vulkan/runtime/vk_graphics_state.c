@@ -2537,7 +2537,6 @@ vk_common_CmdSetSampleMaskEXT(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(vk_command_buffer, cmd, commandBuffer);
    struct vk_dynamic_graphics_state *dyn = &cmd->dynamic_graphics_state;
 
-   assert(samples <= MESA_VK_MAX_SAMPLES);
    VkSampleMask sample_mask = *pSampleMask & BITFIELD_MASK(MESA_VK_MAX_SAMPLES);
 
    SET_DYN_VALUE(dyn, MS_SAMPLE_MASK, ms.sample_mask, sample_mask);
@@ -2966,6 +2965,81 @@ vk_common_CmdSetDepthBias2EXT(
       SET_DYN_VALUE(dyn, RS_DEPTH_BIAS_FACTORS,
                     rs.depth_bias.exact, false);
    }
+}
+
+/* These are stubs required by VK_EXT_shader_object */
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetViewportWScalingEnableNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBool32                                    viewportWScalingEnable)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetCoverageReductionModeNV(
+    VkCommandBuffer                             commandBuffer,
+    VkCoverageReductionModeNV                   coverageReductionMode)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetCoverageToColorEnableNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBool32                                    coverageToColorEnable)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetCoverageToColorLocationNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    coverageToColorLocation)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetCoverageModulationModeNV(
+    VkCommandBuffer                             commandBuffer,
+    VkCoverageModulationModeNV                  coverageModulationMode)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetCoverageModulationTableEnableNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBool32                                    coverageModulationTableEnable)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetCoverageModulationTableNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    coverageModulationTableCount,
+    const float*                                pCoverageModulationTable)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetRepresentativeFragmentTestEnableNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBool32                                    representativeFragmentTestEnable)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetShadingRateImageEnableNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBool32                                    shadingRateImageEnable)
+{
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_CmdSetViewportSwizzleNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstViewport,
+    uint32_t                                    viewportCount,
+    const VkViewportSwizzleNV*                  pViewportSwizzles)
+{
 }
 
 const char *

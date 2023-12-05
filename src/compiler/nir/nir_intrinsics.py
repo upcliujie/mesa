@@ -864,6 +864,9 @@ system_value("tess_level_outer", 4)
 system_value("tess_level_inner", 2)
 system_value("tess_level_outer_default", 4)
 system_value("tess_level_inner_default", 2)
+# The number of inner and outer levels, when the primitive type isn't known
+system_value("tess_level_outer_count", 1)
+system_value("tess_level_inner_count", 1)
 system_value("patch_vertices_in", 1)
 system_value("local_invocation_id", 3)
 system_value("local_invocation_index", 1)
@@ -1260,14 +1263,13 @@ intrinsic("ssbo_atomic_swap_ir3",  src_comp=[1, 1, 1, 1, 1], dest_comp=1,
 # System values for freedreno geometry shaders.
 system_value("vs_primitive_stride_ir3", 1)
 system_value("vs_vertex_stride_ir3", 1)
-system_value("gs_header_ir3", 1)
+system_value("tcs_gs_header_ir3", 1)
 system_value("primitive_location_ir3", 1, indices=[DRIVER_LOCATION])
 
 # System values for freedreno tessellation shaders.
 system_value("hs_patch_stride_ir3", 1)
 system_value("tess_factor_base_ir3", 2)
 system_value("tess_param_base_ir3", 2)
-system_value("tcs_header_ir3", 1)
 system_value("rel_patch_id_ir3", 1)
 
 # System values for freedreno compute shaders.
@@ -1284,6 +1286,11 @@ intrinsic("cond_end_ir3", src_comp=[1])
 # end_patch_ir3 is used just before thread 0 exist the TCS and presumably
 # signals the TE that the patch is complete and can be tessellated.
 intrinsic("end_patch_ir3")
+
+# kill the shader and emit all outputs if there isn't a following merged
+# shader. A merged shader is a TCS or GS following a VS or a GS following a
+# TES.
+intrinsic("terminate_if_not_merged_ir3")
 
 # Per-view gl_FragSizeEXT and gl_FragCoord offset.
 intrinsic("load_frag_size_ir3", src_comp=[1], dest_comp=2, indices=[RANGE],

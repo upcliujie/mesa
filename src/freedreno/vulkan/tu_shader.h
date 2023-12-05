@@ -13,6 +13,7 @@
 #include "tu_common.h"
 #include "tu_cs.h"
 #include "tu_suballoc.h"
+#include "tu_descriptor_set.h"
 
 struct tu_inline_ubo
 {
@@ -52,7 +53,8 @@ struct tu_const_state
 
 struct tu_shader
 {
-   struct vk_pipeline_cache_object base;
+   struct vk_object_base base;
+   struct vk_pipeline_cache_object cache;
 
    const struct ir3_shader_variant *variant;
    const struct ir3_shader_variant *safe_const_variant;
@@ -68,6 +70,13 @@ struct tu_shader
    struct tu_const_state const_state;
    uint32_t view_mask;
    uint8_t active_desc_sets;
+
+   /* The dynamic buffer descriptor size for descriptor sets that we know
+    * about. This is used when linking to piece together the sizes and from
+    * there calculate the offsets. It's -1 if we don't know because the
+    * descriptor set layout is NULL.
+    */
+   int dynamic_descriptor_sizes[MAX_SETS];
 
    union {
       struct {
@@ -87,6 +96,9 @@ struct tu_shader
       } fs;
    };
 };
+
+VK_DEFINE_NONDISP_HANDLE_CASTS(tu_shader, base, VkShaderEXT,
+                               VK_OBJECT_TYPE_SHADER_EXT)
 
 struct tu_shader_key {
    unsigned multiview_mask;
@@ -137,6 +149,7 @@ tu6_emit_fs(struct tu_cs *cs, const struct ir3_shader_variant *fs);
 VkResult
 tu_shader_create(struct tu_device *dev,
                  struct tu_shader **shader_out,
+                 const VkAllocationCallbacks *alloc,
                  nir_shader *nir,
                  const struct tu_shader_key *key,
                  const struct ir3_shader_key *ir3_key,
@@ -145,14 +158,32 @@ tu_shader_create(struct tu_device *dev,
                  struct tu_pipeline_layout *layout,
                  bool executable_info);
 
+void
+tu_shader_key_subgroup_size(struct tu_shader_key *key,
+                            bool allow_varying_subgroup_size,
+                            bool require_full_subgroups,
+                            const VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *subgroup_info,
+                            struct tu_device *dev);
+
+VkResult
+tu_compile_shaders(struct tu_device *device,
+                   const VkAllocationCallbacks *alloc,
+                   const VkPipelineShaderStageCreateInfo **stage_infos,
+                   nir_shader **nir,
+                   const gl_shader_stage *next_stages,
+                   const struct tu_shader_key *keys,
+                   struct tu_pipeline_layout *layout,
+                   const unsigned char *pipeline_sha1,
+                   struct tu_shader **shaders,
+                   char **nir_initial_disasm,
+                   void *nir_initial_disasm_mem_ctx,
+                   nir_shader **nir_out,
+                   VkPipelineCreationFeedback *stage_feedbacks);
+
 VkResult
 tu_init_empty_shaders(struct tu_device *device);
 
 void
 tu_destroy_empty_shaders(struct tu_device *device);
-
-void
-tu_shader_destroy(struct tu_device *dev,
-                  struct tu_shader *shader);
 
 #endif /* TU_SHADER_H */

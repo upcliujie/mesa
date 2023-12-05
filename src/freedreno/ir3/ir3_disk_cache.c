@@ -134,7 +134,7 @@ retrieve_variant(struct blob_reader *blob, struct ir3_shader_variant *v)
    blob_copy_bytes(blob, v->bin, v->info.size);
 
    if (!v->binning_pass) {
-      blob_copy_bytes(blob, v->const_state, sizeof(*v->const_state));
+      blob_copy_bytes(blob, CONST_CACHE_PTR(v->const_state), CONST_CACHE_SIZE);
       unsigned immeds_sz = v->const_state->immediates_size *
                            sizeof(v->const_state->immediates[0]);
       v->const_state->immediates = ralloc_size(v->const_state, immeds_sz);
@@ -156,7 +156,7 @@ store_variant(struct blob *blob, const struct ir3_shader_variant *v)
    /* No saving constant_data, it's already baked into bin at this point. */
 
    if (!v->binning_pass) {
-      blob_write_bytes(blob, v->const_state, sizeof(*v->const_state));
+      blob_write_bytes(blob, CONST_CACHE_PTR(v->const_state), CONST_CACHE_SIZE);
       unsigned immeds_sz = v->const_state->immediates_size *
                            sizeof(v->const_state->immediates[0]);
       blob_write_bytes(blob, v->const_state->immediates, immeds_sz);
@@ -181,7 +181,7 @@ ir3_retrieve_variant(struct blob_reader *blob, struct ir3_compiler *compiler,
 
    retrieve_variant(blob, v);
 
-   if (v->type == MESA_SHADER_VERTEX && ir3_has_binning_vs(&v->key)) {
+   if (v->type == MESA_SHADER_VERTEX) {
       v->binning = rzalloc_size(v, sizeof(*v->binning));
       v->binning->id = 0;
       v->binning->compiler = compiler;
@@ -207,7 +207,7 @@ ir3_store_variant(struct blob *blob, const struct ir3_shader_variant *v)
 
    store_variant(blob, v);
 
-   if (v->type == MESA_SHADER_VERTEX && ir3_has_binning_vs(&v->key)) {
+   if (v->type == MESA_SHADER_VERTEX) {
       store_variant(blob, v->binning);
    }
 }

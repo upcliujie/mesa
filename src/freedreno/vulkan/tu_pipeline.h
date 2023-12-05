@@ -99,6 +99,8 @@ struct tu_program_state
 
       struct tu_program_descriptor_linkage link[MESA_SHADER_STAGES];
 
+      unsigned dynamic_descriptor_offsets[MAX_SETS];
+
       bool per_view_viewport;
 };
 
@@ -185,8 +187,6 @@ struct tu_graphics_lib_pipeline {
       struct tu_shader_key key;
    } shaders[MESA_SHADER_FRAGMENT + 1];
 
-   struct ir3_shader_key ir3_key;
-
    /* Used to stitch together an overall layout for the final pipeline. */
    struct tu_descriptor_set_layout *layouts[MAX_SETS];
    unsigned num_sets;
@@ -260,6 +260,12 @@ tu6_emit_vpc(struct tu_cs *cs,
              const struct ir3_shader_variant *ds,
              const struct ir3_shader_variant *gs,
              const struct ir3_shader_variant *fs);
+
+template <chip CHIP>
+void
+tu_emit_program_state(struct tu_cs *sub_cs,
+                      struct tu_program_state *prog,
+                      struct tu_shader **shaders);
 
 void
 tu_fill_render_pass_state(struct vk_render_pass_state *rp,

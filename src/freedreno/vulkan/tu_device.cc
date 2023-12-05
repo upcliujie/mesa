@@ -48,7 +48,7 @@
 #endif
 
 
-static int
+int
 tu_device_get_cache_uuid(struct tu_physical_device *device, void *uuid)
 {
    struct mesa_sha1 ctx;
@@ -258,6 +258,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_separate_stencil_usage = true,
       .EXT_shader_demote_to_helper_invocation = true,
       .EXT_shader_module_identifier = true,
+      .EXT_shader_object = true,
       .EXT_shader_stencil_export = true,
       .EXT_shader_viewport_index_layer = TU_DEBUG(NOCONFORM) ? true : device->info->a6xx.has_hw_multiview,
       .EXT_subgroup_size_control = true,
@@ -580,6 +581,9 @@ tu_get_features(struct tu_physical_device *pdevice,
 
    /* VK_KHR_maintenance5 */
    features->maintenance5 = true;
+
+   /* VK_EXT_shader_object */
+   features->shaderObject = true;
 }
 
 static const struct vk_pipeline_cache_object_ops *const cache_import_ops[] = {
@@ -1401,6 +1405,13 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          properties->polygonModePointSize = true;
          properties->nonStrictWideLinesUseParallelogram = false;
          properties->nonStrictSinglePixelWideLinesUseParallelogram = false;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_PROPERTIES_EXT: {
+         VkPhysicalDeviceShaderObjectPropertiesEXT *properties =
+            (VkPhysicalDeviceShaderObjectPropertiesEXT *)ext;
+         memcpy(properties->shaderBinaryUUID, pdevice->cache_uuid, VK_UUID_SIZE);
+         properties->shaderBinaryVersion = 1;
          break;
       }
       default:
