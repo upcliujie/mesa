@@ -168,7 +168,7 @@ tu6_emit_load_state(struct tu_device *device,
          case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
             assert(device->physical_device->reserved_set_idx >= 0);
             base = device->physical_device->reserved_set_idx;
-            offset = (layout->set[i].dynamic_offset_start +
+            offset = (pipeline->program.dynamic_descriptor_offsets[i] +
                       binding->dynamic_offset_offset) / 4;
             FALLTHROUGH;
          case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
@@ -205,7 +205,7 @@ tu6_emit_load_state(struct tu_device *device,
          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
             assert(device->physical_device->reserved_set_idx >= 0);
             base = device->physical_device->reserved_set_idx;
-            offset = (layout->set[i].dynamic_offset_start +
+            offset = (pipeline->program.dynamic_descriptor_offsets[i] +
                       binding->dynamic_offset_offset) / 4;
             FALLTHROUGH;
          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
@@ -405,7 +405,7 @@ static void
 tu6_emit_dynamic_offset(struct tu_cs *cs,
                         const struct ir3_shader_variant *xs,
                         const struct tu_shader *shader,
-                        struct tu_pipeline_builder *builder)
+                        const struct tu_program_state *program)
 {
    const struct tu_physical_device *phys_dev = cs->device->physical_device;
    if (!xs || shader->const_state.dynamic_offset_loc == UINT32_MAX)
@@ -422,8 +422,8 @@ tu6_emit_dynamic_offset(struct tu_cs *cs,
 
    for (unsigned i = 0; i < phys_dev->usable_sets; i++) {
       unsigned dynamic_offset_start =
-         builder->layout.set[i].dynamic_offset_start / (A6XX_TEX_CONST_DWORDS * 4);
-      tu_cs_emit(cs, i < builder->layout.num_sets ? dynamic_offset_start : 0);
+         program->dynamic_descriptor_offsets[i] / (A6XX_TEX_CONST_DWORDS * 4);
+      tu_cs_emit(cs, dynamic_offset_start);
    }
 }
 
@@ -1151,14 +1151,14 @@ tu6_emit_geom_tess_consts(struct tu_cs *cs,
 template <chip CHIP>
 static void
 tu6_emit_program_config(struct tu_cs *cs,
-                        struct tu_pipeline *pipeline,
-                        struct tu_pipeline_builder *builder,
+                        const struct tu_program_state *prog,
+                        struct tu_shader **shaders,
                         const struct ir3_shader_variant **variants)
 {
    STATIC_ASSERT(MESA_SHADER_VERTEX == 0);
 
-   bool shared_consts_enable = tu6_shared_constants_enable(&builder->layout,
-         builder->device->compiler);
+   bool shared_consts_enable =
+      prog->shared_consts.type == IR3_PUSH_CONSTS_SHARED;
    tu6_emit_shared_consts_enable<CHIP>(cs, shared_consts_enable);
 
    tu_cs_emit_regs(cs, HLSQ_INVALIDATE_CMD(CHIP,
@@ -1178,7 +1178,7 @@ tu6_emit_program_config(struct tu_cs *cs,
    for (size_t stage_idx = MESA_SHADER_VERTEX;
         stage_idx <= MESA_SHADER_FRAGMENT; stage_idx++) {
       gl_shader_stage stage = (gl_shader_stage) stage_idx;
-      tu6_emit_dynamic_offset(cs, variants[stage], pipeline->shaders[stage], builder);
+      tu6_emit_dynamic_offset(cs, variants[stage], shaders[stage], prog);
    }
 
    const struct ir3_shader_variant *vs = variants[MESA_SHADER_VERTEX];
@@ -1315,111 +1315,6 @@ tu_pipeline_allocate_cs(struct tu_device *dev,
 }
 
 static void
-tu_pipeline_shader_key_init(struct ir3_shader_key *key,
-                            const struct tu_pipeline *pipeline,
-                            struct tu_pipeline_builder *builder,
-                            nir_shader **nir)
-{
-   /* We set this after we compile to NIR because we need the prim mode */
-   key->tessellation = IR3_TESS_NONE;
-
-   for (unsigned i = 0; i < builder->num_libraries; i++) {
-      if (!(builder->libraries[i]->state &
-            (VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT |
-             VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT)))
-         continue;
-
-      const struct ir3_shader_key *library_key =
-         &builder->libraries[i]->ir3_key;
-
-      if (library_key->tessellation != IR3_TESS_NONE)
-         key->tessellation = library_key->tessellation;
-      key->has_gs |= library_key->has_gs;
-      key->sample_shading |= library_key->sample_shading;
-   }
-
-   for (uint32_t i = 0; i < builder->create_info->stageCount; i++) {
-      if (builder->create_info->pStages[i].stage == VK_SHADER_STAGE_GEOMETRY_BIT) {
-         key->has_gs = true;
-         break;
-      }
-   }
-
-   if (!(builder->state & VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT))
-      return;
-
-   if (builder->rasterizer_discard)
-      return;
-
-   const VkPipelineMultisampleStateCreateInfo *msaa_info =
-      builder->create_info->pMultisampleState;
-
-   /* The 1.3.215 spec says:
-    *
-    *    Sample shading can be used to specify a minimum number of unique
-    *    samples to process for each fragment. If sample shading is enabled,
-    *    an implementation must provide a minimum of
-    *
-    *       max(ceil(minSampleShadingFactor * totalSamples), 1)
-    *
-    *    unique associated data for each fragment, where
-    *    minSampleShadingFactor is the minimum fraction of sample shading.
-    *
-    * The definition is pretty much the same as OpenGL's GL_SAMPLE_SHADING.
-    * They both require unique associated data.
-    *
-    * There are discussions to change the definition, such that
-    * sampleShadingEnable does not imply unique associated data.  Before the
-    * discussions are settled and before apps (i.e., ANGLE) are fixed to
-    * follow the new and incompatible definition, we should stick to the
-    * current definition.
-    *
-    * Note that ir3_shader_key::sample_shading is not actually used by ir3,
-    * just checked in tu6_emit_fs_inputs.  We will also copy the value to
-    * tu_shader_key::force_sample_interp in a bit.
-    */
-   if (msaa_info && msaa_info->sampleShadingEnable)
-      key->sample_shading = true;
-}
-
-static uint32_t
-tu6_get_tessmode(const struct nir_shader *shader)
-{
-   enum tess_primitive_mode primitive_mode = shader->info.tess._primitive_mode;
-   switch (primitive_mode) {
-   case TESS_PRIMITIVE_ISOLINES:
-      return IR3_TESS_ISOLINES;
-   case TESS_PRIMITIVE_TRIANGLES:
-      return IR3_TESS_TRIANGLES;
-   case TESS_PRIMITIVE_QUADS:
-      return IR3_TESS_QUADS;
-   case TESS_PRIMITIVE_UNSPECIFIED:
-      return IR3_TESS_NONE;
-   default:
-      unreachable("bad tessmode");
-   }
-}
-
-static uint64_t
-tu_upload_variant(struct tu_pipeline *pipeline,
-                  const struct ir3_shader_variant *variant)
-{
-   struct tu_cs_memory memory;
-
-   if (!variant)
-      return 0;
-
-   /* this expects to get enough alignment because shaders are allocated first
-    * and total size is always aligned correctly
-    * note: an assert in tu6_emit_xs_config validates the alignment
-    */
-   tu_cs_alloc(&pipeline->cs, variant->info.size / 4, 1, &memory);
-
-   memcpy(memory.map, variant->bin, variant->info.size);
-   return memory.iova;
-}
-
-static void
 tu_append_executable(struct tu_pipeline *pipeline,
                      const struct ir3_shader_variant *variant,
                      char *nir_from_spirv)
@@ -1434,106 +1329,6 @@ tu_append_executable(struct tu_pipeline *pipeline,
    };
 
    util_dynarray_append(&pipeline->executables, struct tu_pipeline_executable, exe);
-}
-
-static void
-tu_link_shaders(struct tu_pipeline_builder *builder,
-                nir_shader **shaders, unsigned shaders_count)
-{
-   nir_shader *consumer = NULL;
-   for (gl_shader_stage stage = (gl_shader_stage) (shaders_count - 1);
-        stage >= MESA_SHADER_VERTEX; stage = (gl_shader_stage) (stage - 1)) {
-      if (!shaders[stage])
-         continue;
-
-      nir_shader *producer = shaders[stage];
-      if (!consumer) {
-         consumer = producer;
-         continue;
-      }
-
-      if (nir_link_opt_varyings(producer, consumer)) {
-         NIR_PASS_V(consumer, nir_opt_constant_folding);
-         NIR_PASS_V(consumer, nir_opt_algebraic);
-         NIR_PASS_V(consumer, nir_opt_dce);
-      }
-
-      const nir_remove_dead_variables_options out_var_opts = {
-         .can_remove_var = nir_vk_is_not_xfb_output,
-      };
-      NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_out, &out_var_opts);
-
-      NIR_PASS_V(consumer, nir_remove_dead_variables, nir_var_shader_in, NULL);
-
-      bool progress = nir_remove_unused_varyings(producer, consumer);
-
-      nir_compact_varyings(producer, consumer, true);
-      if (progress) {
-         if (nir_lower_global_vars_to_local(producer)) {
-            /* Remove dead writes, which can remove input loads */
-            NIR_PASS_V(producer, nir_remove_dead_variables, nir_var_shader_temp, NULL);
-            NIR_PASS_V(producer, nir_opt_dce);
-         }
-         nir_lower_global_vars_to_local(consumer);
-      }
-
-      consumer = producer;
-   }
-
-   /* Gather info after linking so that we can fill out the ir3 shader key.
-    */
-   for (gl_shader_stage stage = MESA_SHADER_VERTEX;
-        stage <= MESA_SHADER_FRAGMENT; stage = (gl_shader_stage) (stage + 1)) {
-      if (shaders[stage])
-         nir_shader_gather_info(shaders[stage],
-                                nir_shader_get_entrypoint(shaders[stage]));
-   }
-}
-
-static void
-tu_shader_key_init(struct tu_shader_key *key,
-                   const VkPipelineShaderStageCreateInfo *stage_info,
-                   struct tu_device *dev)
-{
-   enum ir3_wavesize_option api_wavesize, real_wavesize;
-   if (!dev->physical_device->info->a6xx.supports_double_threadsize) {
-      api_wavesize = IR3_SINGLE_ONLY;
-      real_wavesize = IR3_SINGLE_ONLY;
-   } else if (stage_info) {
-      if (stage_info->flags &
-          VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT) {
-         api_wavesize = real_wavesize = IR3_SINGLE_OR_DOUBLE;
-      } else {
-         const VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *size_info =
-            vk_find_struct_const(stage_info->pNext,
-                                 PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO);
-
-         if (size_info) {
-            if (size_info->requiredSubgroupSize == dev->compiler->threadsize_base) {
-               api_wavesize = IR3_SINGLE_ONLY;
-            } else {
-               assert(size_info->requiredSubgroupSize == dev->compiler->threadsize_base * 2);
-               api_wavesize = IR3_DOUBLE_ONLY;
-            }
-         } else {
-            /* Match the exposed subgroupSize. */
-            api_wavesize = IR3_DOUBLE_ONLY;
-         }
-
-         if (stage_info->flags &
-             VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT)
-            real_wavesize = api_wavesize;
-         else if (api_wavesize == IR3_SINGLE_ONLY)
-            real_wavesize = IR3_SINGLE_ONLY;
-         else
-            real_wavesize = IR3_SINGLE_OR_DOUBLE;
-      }
-   } else {
-      api_wavesize = real_wavesize = IR3_SINGLE_OR_DOUBLE;
-   }
-
-   key->api_wavesize = api_wavesize;
-   key->real_wavesize = real_wavesize;
 }
 
 static void
@@ -1574,7 +1369,6 @@ tu_hash_shaders(unsigned char *hash,
                 nir_shader *const *nir,
                 const struct tu_pipeline_layout *layout,
                 const struct tu_shader_key *keys,
-                const struct ir3_shader_key *ir3_key,
                 VkGraphicsPipelineLibraryFlagsEXT state,
                 const struct ir3_compiler *compiler)
 {
@@ -1584,8 +1378,6 @@ tu_hash_shaders(unsigned char *hash,
 
    if (layout)
       _mesa_sha1_update(&ctx, layout->sha1, sizeof(layout->sha1));
-
-   _mesa_sha1_update(&ctx, ir3_key, sizeof(ir3_key));
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
       if (stages[i] || nir[i]) {
@@ -1640,120 +1432,6 @@ tu_pipeline_cache_insert(struct vk_pipeline_cache *cache,
    return container_of(object, struct tu_shader, base);
 }
 
-static bool
-tu_nir_shaders_serialize(struct vk_pipeline_cache_object *object,
-                         struct blob *blob);
-
-static struct vk_pipeline_cache_object *
-tu_nir_shaders_deserialize(struct vk_pipeline_cache *cache,
-                           const void *key_data,
-                           size_t key_size,
-                           struct blob_reader *blob);
-
-static void
-tu_nir_shaders_destroy(struct vk_device *device,
-                       struct vk_pipeline_cache_object *object)
-{
-   struct tu_nir_shaders *shaders =
-      container_of(object, struct tu_nir_shaders, base);
-
-   for (unsigned i = 0; i < ARRAY_SIZE(shaders->nir); i++)
-      ralloc_free(shaders->nir[i]);
-
-   vk_pipeline_cache_object_finish(&shaders->base);
-   vk_free(&device->alloc, shaders);
-}
-
-const struct vk_pipeline_cache_object_ops tu_nir_shaders_ops = {
-   .serialize = tu_nir_shaders_serialize,
-   .deserialize = tu_nir_shaders_deserialize,
-   .destroy = tu_nir_shaders_destroy,
-};
-
-static struct tu_nir_shaders *
-tu_nir_shaders_init(struct tu_device *dev, const void *key_data, size_t key_size)
-{
-   VK_MULTIALLOC(ma);
-   VK_MULTIALLOC_DECL(&ma, struct tu_nir_shaders, shaders, 1);
-   VK_MULTIALLOC_DECL_SIZE(&ma, char, obj_key_data, key_size);
-
-   if (!vk_multialloc_zalloc(&ma, &dev->vk.alloc,
-                             VK_SYSTEM_ALLOCATION_SCOPE_DEVICE))
-      return NULL;
-
-   memcpy(obj_key_data, key_data, key_size);
-   vk_pipeline_cache_object_init(&dev->vk, &shaders->base,
-                                 &tu_nir_shaders_ops, obj_key_data, key_size);
-
-   return shaders;
-}
-
-static bool
-tu_nir_shaders_serialize(struct vk_pipeline_cache_object *object,
-                         struct blob *blob)
-{
-   struct tu_nir_shaders *shaders =
-      container_of(object, struct tu_nir_shaders, base);
-
-   for (unsigned i = 0; i < ARRAY_SIZE(shaders->nir); i++) {
-      if (shaders->nir[i]) {
-         blob_write_uint8(blob, 1);
-         nir_serialize(blob, shaders->nir[i], true);
-      } else {
-         blob_write_uint8(blob, 0);
-      }
-   }
-
-   return true;
-}
-
-static struct vk_pipeline_cache_object *
-tu_nir_shaders_deserialize(struct vk_pipeline_cache *cache,
-                           const void *key_data,
-                           size_t key_size,
-                           struct blob_reader *blob)
-{
-   struct tu_device *dev =
-      container_of(cache->base.device, struct tu_device, vk);
-   struct tu_nir_shaders *shaders =
-      tu_nir_shaders_init(dev, key_data, key_size);
-
-   if (!shaders)
-      return NULL;
-
-   for (unsigned i = 0; i < ARRAY_SIZE(shaders->nir); i++) {
-      if (blob_read_uint8(blob)) {
-         shaders->nir[i] =
-            nir_deserialize(NULL, ir3_get_compiler_options(dev->compiler), blob);
-      }
-   }
-
-   return &shaders->base;
-}
-
-static struct tu_nir_shaders *
-tu_nir_cache_lookup(struct vk_pipeline_cache *cache,
-                    const void *key_data, size_t key_size,
-                    bool *application_cache_hit)
-{
-   struct vk_pipeline_cache_object *object =
-      vk_pipeline_cache_lookup_object(cache, key_data, key_size,
-                                      &tu_nir_shaders_ops, application_cache_hit);
-   if (object)
-      return container_of(object, struct tu_nir_shaders, base);
-   else
-      return NULL;
-}
-
-static struct tu_nir_shaders *
-tu_nir_cache_insert(struct vk_pipeline_cache *cache,
-                    struct tu_nir_shaders *shaders)
-{
-   struct vk_pipeline_cache_object *object =
-      vk_pipeline_cache_add_object(cache, &shaders->base);
-   return container_of(object, struct tu_nir_shaders, base);
-}
-
 static VkResult
 tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
                                     struct tu_pipeline *pipeline)
@@ -1771,6 +1449,10 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
    const bool executable_info =
       builder->create_flags &
       VK_PIPELINE_CREATE_2_CAPTURE_INTERNAL_REPRESENTATIONS_BIT_KHR;
+
+   bool retain_nir =
+      builder->create_flags &
+      VK_PIPELINE_CREATE_2_RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT;
 
    int64_t pipeline_start = os_time_get_nano();
 
@@ -1790,26 +1472,51 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
 
    /* Forward declare everything due to the goto usage */
    nir_shader *nir[ARRAY_SIZE(stage_infos)] = { NULL };
+   struct vk_raw_data_cache_object *serialized_nir[ARRAY_SIZE(stage_infos)] = { NULL };
    struct tu_shader *shaders[ARRAY_SIZE(stage_infos)] = { NULL };
    nir_shader *post_link_nir[ARRAY_SIZE(nir)] = { NULL };
    char *nir_initial_disasm[ARRAY_SIZE(stage_infos)] = { NULL };
+   bool cache_hit = false;
 
    struct tu_shader_key keys[ARRAY_SIZE(stage_infos)] = { };
    for (gl_shader_stage stage = MESA_SHADER_VERTEX;
         stage < ARRAY_SIZE(keys); stage = (gl_shader_stage) (stage+1)) {
-      tu_shader_key_init(&keys[stage], stage_infos[stage], builder->device);
+      const VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *subgroup_info = NULL;
+      if (stage_infos[stage])
+         subgroup_info = vk_find_struct_const(stage_infos[stage],
+                                              PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO);
+      bool allow_varying_subgroup_size =
+         !stage_infos[stage] ||
+         (stage_infos[stage]->flags &
+          VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT_EXT);
+      bool require_full_subgroups =
+         stage_infos[stage] &&
+         (stage_infos[stage]->flags &
+          VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT_EXT);
+      tu_shader_key_subgroup_size(&keys[stage], allow_varying_subgroup_size,
+                                  require_full_subgroups, subgroup_info,
+                                  builder->device);
    }
 
    if (builder->create_flags &
        VK_PIPELINE_CREATE_2_LINK_TIME_OPTIMIZATION_BIT_EXT) {
+      const nir_shader_compiler_options *nir_options =
+         ir3_get_compiler_options(compiler);
+
       for (unsigned i = 0; i < builder->num_libraries; i++) {
          struct tu_graphics_lib_pipeline *library = builder->libraries[i];
 
          for (unsigned j = 0; j < ARRAY_SIZE(library->shaders); j++) {
-            if (library->shaders[j].nir) {
+            if (library->shaders[j].serialized_nir) {
                assert(!nir[j]);
-               nir[j] = nir_shader_clone(builder->mem_ctx,
-                     library->shaders[j].nir);
+               struct blob_reader blob;
+               blob_reader_init(&blob,
+                                library->shaders[j].serialized_nir->data,
+                                library->shaders[j].serialized_nir->data_size);
+               nir[j] = nir_deserialize(builder->mem_ctx, nir_options, &blob);
+               serialized_nir[j] = library->shaders[j].serialized_nir;
+               vk_pipeline_cache_object_ref(&serialized_nir[j]->base);
+               assert(!blob.overrun);
                keys[j] = library->shaders[j].key;
                must_compile = true;
             }
@@ -1817,10 +1524,6 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
       }
    }
 
-   struct ir3_shader_key ir3_key = {};
-   tu_pipeline_shader_key_init(&ir3_key, pipeline, builder, nir);
-
-   struct tu_nir_shaders *nir_shaders = NULL;
    if (!must_compile)
       goto done;
 
@@ -1833,23 +1536,52 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
    if (builder->state & VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT) {
       keys[MESA_SHADER_FRAGMENT].multiview_mask =
          builder->graphics_state.rp->view_mask;
-      keys[MESA_SHADER_FRAGMENT].force_sample_interp = ir3_key.sample_shading;
       keys[MESA_SHADER_FRAGMENT].fragment_density_map =
          builder->fragment_density_map;
       keys[MESA_SHADER_FRAGMENT].unscaled_input_fragcoord =
          builder->unscaled_input_fragcoord;
+
+      const VkPipelineMultisampleStateCreateInfo *msaa_info =
+         builder->create_info->pMultisampleState;
+
+      /* The 1.3.215 spec says:
+       *
+       *    Sample shading can be used to specify a minimum number of unique
+       *    samples to process for each fragment. If sample shading is enabled,
+       *    an implementation must provide a minimum of
+       *
+       *       max(ceil(minSampleShadingFactor * totalSamples), 1)
+       *
+       *    unique associated data for each fragment, where
+       *    minSampleShadingFactor is the minimum fraction of sample shading.
+       *
+       * The definition is pretty much the same as OpenGL's GL_SAMPLE_SHADING.
+       * They both require unique associated data.
+       *
+       * There are discussions to change the definition, such that
+       * sampleShadingEnable does not imply unique associated data.  Before the
+       * discussions are settled and before apps (i.e., ANGLE) are fixed to
+       * follow the new and incompatible definition, we should stick to the
+       * current definition.
+       *
+       * Note that ir3_shader_key::sample_shading is not actually used by ir3,
+       * just checked in tu6_emit_fs_inputs.  We will also copy the value to
+       * tu_shader_key::force_sample_interp in a bit.
+       */
+      keys[MESA_SHADER_FRAGMENT].force_sample_interp =
+         !builder->rasterizer_discard && msaa_info && msaa_info->sampleShadingEnable;
    }
 
    unsigned char pipeline_sha1[20];
    tu_hash_shaders(pipeline_sha1, stage_infos, nir, &builder->layout, keys,
-                   &ir3_key, builder->state, compiler);
+                   builder->state, compiler);
 
    unsigned char nir_sha1[21];
    memcpy(nir_sha1, pipeline_sha1, sizeof(pipeline_sha1));
    nir_sha1[20] = 'N';
 
    if (!executable_info) {
-      bool cache_hit = true;
+      cache_hit = true;
       bool application_cache_hit = false;
 
       unsigned char shader_sha1[21];
@@ -1879,153 +1611,100 @@ tu_pipeline_builder_compile_shaders(struct tu_pipeline_builder *builder,
       if (cache_hit &&
           (builder->create_flags &
            VK_PIPELINE_CREATE_2_RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT)) {
-         bool nir_application_cache_hit = false;
-         nir_shaders =
-            tu_nir_cache_lookup(builder->cache, &nir_sha1,
-                                sizeof(nir_sha1),
-                                &nir_application_cache_hit);
+         unsigned char shader_nir_sha1[22];
+         memcpy(shader_nir_sha1, nir_sha1, sizeof(nir_sha1));
 
-         application_cache_hit &= nir_application_cache_hit;
-         cache_hit &= !!nir_shaders;
+         for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
+              stage = (gl_shader_stage) (stage + 1)) {
+            if (stage_infos[stage] || nir[stage]) {
+               bool shader_application_cache_hit;
+               shader_nir_sha1[21] = (unsigned char) stage;
+               struct vk_pipeline_cache_object *object =
+                  vk_pipeline_cache_lookup_object(builder->cache, &shader_nir_sha1,
+                                                  sizeof(shader_nir_sha1),
+                                                  &vk_raw_data_cache_object_ops,
+                                                  &shader_application_cache_hit);
+
+               if (!object) {
+                  cache_hit = false;
+                  break;
+               }
+
+               serialized_nir[stage] =
+                  container_of(object, struct vk_raw_data_cache_object, base);
+
+               application_cache_hit &= shader_application_cache_hit;
+            }
+         }
       }
 
       if (application_cache_hit && builder->cache != builder->device->mem_cache) {
          pipeline_feedback.flags |=
             VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT;
       }
-
-      if (cache_hit)
-         goto done;
    }
 
-   if (builder->create_flags &
-       VK_PIPELINE_CREATE_2_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT_KHR) {
-      return VK_PIPELINE_COMPILE_REQUIRED;
-   }
+   if (!cache_hit) {
+      if (builder->create_flags &
+          VK_PIPELINE_CREATE_2_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT_KHR) {
+         return VK_PIPELINE_COMPILE_REQUIRED;
+      }
 
-   for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
-        stage = (gl_shader_stage) (stage + 1)) {
-      const VkPipelineShaderStageCreateInfo *stage_info = stage_infos[stage];
-      if (!stage_info)
-         continue;
+      result = tu_compile_shaders(builder->device,
+                                  stage_infos,
+                                  nir,
+                                  keys,
+                                  &builder->layout,
+                                  pipeline_sha1,
+                                  shaders,
+                                  executable_info ? nir_initial_disasm : NULL,
+                                  pipeline->executables_mem_ctx,
+                                  retain_nir ? post_link_nir : NULL,
+                                  stage_feedbacks);
 
-      int64_t stage_start = os_time_get_nano();
-
-      nir[stage] = tu_spirv_to_nir(builder->device, builder->mem_ctx, stage_info, stage);
-      if (!nir[stage]) {
-         result = VK_ERROR_OUT_OF_HOST_MEMORY;
+      if (result != VK_SUCCESS)
          goto fail;
+
+      if (retain_nir) {
+         unsigned char shader_nir_sha1[22];
+         memcpy(shader_nir_sha1, nir_sha1, sizeof(nir_sha1));
+
+         for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
+              stage = (gl_shader_stage) (stage + 1)) {
+            if (!post_link_nir[stage])
+               continue;
+
+            if (!serialized_nir[stage]) {
+               shader_nir_sha1[21] = (unsigned char) stage;
+               struct blob blob;
+               blob_init(&blob);
+
+               nir_serialize(&blob, post_link_nir[stage], false);
+
+               serialized_nir[stage] =
+                  vk_raw_data_cache_object_create(&builder->device->vk,
+                                                  shader_nir_sha1,
+                                                  sizeof(shader_nir_sha1),
+                                                  blob.data, blob.size);
+
+               blob_finish(&blob);
+            }
+
+            ralloc_free(post_link_nir[stage]);
+         }
       }
 
-      stage_feedbacks[stage].flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT;
-      stage_feedbacks[stage].duration += os_time_get_nano() - stage_start;
-   }
-
-   if (executable_info) {
-      for (gl_shader_stage stage = MESA_SHADER_VERTEX;
-           stage < ARRAY_SIZE(nir);
+      for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
            stage = (gl_shader_stage) (stage + 1)) {
-      if (!nir[stage])
-         continue;
-
-      nir_initial_disasm[stage] =
-         nir_shader_as_str(nir[stage], pipeline->executables_mem_ctx);
-      }
-   }
-
-   tu_link_shaders(builder, nir, ARRAY_SIZE(nir));
-
-   if (builder->create_flags &
-       VK_PIPELINE_CREATE_2_RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT) {
-      nir_shaders =
-         tu_nir_shaders_init(builder->device, &nir_sha1, sizeof(nir_sha1));
-      for (gl_shader_stage stage = MESA_SHADER_VERTEX;
-           stage < ARRAY_SIZE(nir); stage = (gl_shader_stage) (stage + 1)) {
          if (!nir[stage])
             continue;
 
-         nir_shaders->nir[stage] = nir_shader_clone(NULL, nir[stage]);
+         shaders[stage] = tu_pipeline_cache_insert(builder->cache, shaders[stage]);
       }
-
-      nir_shaders = tu_nir_cache_insert(builder->cache, nir_shaders);
-   }
-
-   /* With pipelines, tessellation modes can be set on either shader, for
-    * compatibility with HLSL and GLSL, and the driver is supposed to merge
-    * them. Shader objects requires modes to be set on at least the TES except
-    * for OutputVertices which has to be set at least on the TCS. Make sure
-    * all modes are set on the TES when compiling together multiple shaders,
-    * and then from this point on we will use the modes in the TES (and output
-    * vertices on the TCS).
-    */
-   if (nir[MESA_SHADER_TESS_EVAL]) {
-      nir_shader *tcs = nir[MESA_SHADER_TESS_CTRL];
-      nir_shader *tes = nir[MESA_SHADER_TESS_EVAL];
-
-      if (tes->info.tess._primitive_mode == TESS_PRIMITIVE_UNSPECIFIED)
-         tes->info.tess._primitive_mode = tcs->info.tess._primitive_mode;
-
-      tes->info.tess.point_mode |= tcs->info.tess.point_mode;
-      tes->info.tess.ccw |= tcs->info.tess.ccw;
-
-      if (tes->info.tess.spacing == TESS_SPACING_UNSPECIFIED) {
-         tes->info.tess.spacing = tcs->info.tess.spacing;
-      }
-
-      if (tcs->info.tess.tcs_vertices_out == 0)
-         tcs->info.tess.tcs_vertices_out = tes->info.tess.tcs_vertices_out;
-
-      ir3_key.tessellation = tu6_get_tessmode(tes);
-   }
-
-   for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
-        stage = (gl_shader_stage) (stage + 1)) {
-      if (!nir[stage])
-         continue;
-
-      if (stage > MESA_SHADER_TESS_CTRL) {
-         if (stage == MESA_SHADER_FRAGMENT) {
-            ir3_key.tcs_store_primid = ir3_key.tcs_store_primid ||
-               (nir[stage]->info.inputs_read & (1ull << VARYING_SLOT_PRIMITIVE_ID));
-         } else {
-            ir3_key.tcs_store_primid = ir3_key.tcs_store_primid ||
-               BITSET_TEST(nir[stage]->info.system_values_read, SYSTEM_VALUE_PRIMITIVE_ID);
-         }
-      }
-   }
-
-   /* In the the tess-but-not-FS case we don't know whether the FS will read
-    * PrimID so we need to unconditionally store it.
-    */
-   if (nir[MESA_SHADER_TESS_CTRL] && !nir[MESA_SHADER_FRAGMENT])
-      ir3_key.tcs_store_primid = true;
-
-
-   for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
-        stage = (gl_shader_stage) (stage + 1)) {
-      if (!nir[stage] || shaders[stage])
-         continue;
-
-      int64_t stage_start = os_time_get_nano();
-
-      unsigned char shader_sha1[21];
-      memcpy(shader_sha1, pipeline_sha1, sizeof(pipeline_sha1));
-      shader_sha1[20] = (unsigned char) stage;
-
-      result = tu_shader_create(builder->device,
-                                &shaders[stage], nir[stage], &keys[stage],
-                                &ir3_key, shader_sha1, sizeof(shader_sha1),
-                                &builder->layout, executable_info);
-      if (result != VK_SUCCESS) {
-         goto fail;
-      }
-
-      shaders[stage] = tu_pipeline_cache_insert(builder->cache, shaders[stage]);
-
-      stage_feedbacks[stage].duration += os_time_get_nano() - stage_start;
    }
 
 done:
+
    /* Create empty shaders which contain the draw states to initialize
     * registers for unused shader stages.
     */
@@ -2063,15 +1742,6 @@ done:
       }
    }
 
-   if (nir_shaders) {
-      for (gl_shader_stage stage = MESA_SHADER_VERTEX;
-           stage < ARRAY_SIZE(nir); stage = (gl_shader_stage) (stage + 1)) {
-         if (nir_shaders->nir[stage]) {
-            post_link_nir[stage] = nir_shaders->nir[stage];
-         }
-      }
-   }
-   
    /* In the case where we're building a library without link-time
     * optimization but with sub-libraries that retain LTO info, we should
     * retain it ourselves in case another pipeline includes us with LTO.
@@ -2081,9 +1751,10 @@ done:
       for (gl_shader_stage stage = MESA_SHADER_VERTEX;
            stage < ARRAY_SIZE(library->shaders);
            stage = (gl_shader_stage) (stage + 1)) {
-         if (!post_link_nir[stage] && library->shaders[stage].nir) {
-            post_link_nir[stage] = library->shaders[stage].nir;
+         if (!serialized_nir[stage] && library->shaders[stage].serialized_nir) {
+            serialized_nir[stage] = library->shaders[stage].serialized_nir;
             keys[stage] = library->shaders[stage].key;
+            vk_pipeline_cache_object_ref(&serialized_nir[stage]->base);
          }
 
          if (!shaders[stage] && library->base.shaders[stage]) {
@@ -2106,18 +1777,20 @@ done:
       /* It doesn't make much sense to use RETAIN_LINK_TIME_OPTIMIZATION_INFO
        * when compiling all stages, but make sure we don't leak.
        */
-      if (nir_shaders)
-         vk_pipeline_cache_object_unref(&builder->device->vk,
-                                        &nir_shaders->base);
+      for (gl_shader_stage stage = MESA_SHADER_VERTEX;
+           stage < ARRAY_SIZE(serialized_nir);
+           stage = (gl_shader_stage) (stage + 1)) {
+         if (serialized_nir[stage])
+            vk_pipeline_cache_object_unref(&builder->device->vk,
+                                           &serialized_nir[stage]->base);
+      }
    } else {
       struct tu_graphics_lib_pipeline *library =
          tu_pipeline_to_graphics_lib(pipeline);
-      library->nir_shaders = nir_shaders;
-      library->ir3_key = ir3_key;
       for (gl_shader_stage stage = MESA_SHADER_VERTEX;
            stage < ARRAY_SIZE(library->shaders);
            stage = (gl_shader_stage) (stage + 1)) {
-         library->shaders[stage].nir = post_link_nir[stage];
+         library->shaders[stage].serialized_nir = serialized_nir[stage];
          library->shaders[stage].key = keys[stage];
       }
    }
@@ -2133,7 +1806,7 @@ done:
    if (creation_feedback) {
       *creation_feedback->pPipelineCreationFeedback = pipeline_feedback;
 
-      for (uint32_t i = 0; i < builder->create_info->stageCount; i++) {
+      for (uint32_t i = 0; i < creation_feedback->pipelineStageCreationFeedbackCount; i++) {
          gl_shader_stage s =
             vk_to_mesa_shader_stage(builder->create_info->pStages[i].stage);
          creation_feedback->pPipelineStageCreationFeedbacks[i] = stage_feedbacks[s];
@@ -2143,16 +1816,13 @@ done:
    return VK_SUCCESS;
 
 fail:
-   for (gl_shader_stage stage = MESA_SHADER_VERTEX; stage < ARRAY_SIZE(nir);
+   for (gl_shader_stage stage = MESA_SHADER_VERTEX;
+        stage < ARRAY_SIZE(serialized_nir);
         stage = (gl_shader_stage) (stage + 1)) {
-      if (shaders[stage]) {
-         tu_shader_destroy(builder->device, shaders[stage]);
-      }
+      if (serialized_nir[stage])
+         vk_pipeline_cache_object_unref(&builder->device->vk,
+                                        &serialized_nir[stage]->base);
    }
-
-   if (nir_shaders)
-      vk_pipeline_cache_object_unref(&builder->device->vk,
-                                     &nir_shaders->base);
 
    return result;
 }
@@ -2245,7 +1915,6 @@ tu_pipeline_builder_parse_layout(struct tu_pipeline_builder *builder,
          }
 
          builder->layout.push_constant_size = library->push_constant_size;
-         builder->layout.independent_sets |= library->independent_sets;
       }
 
       tu_pipeline_layout_init(&builder->layout);
@@ -2261,7 +1930,6 @@ tu_pipeline_builder_parse_layout(struct tu_pipeline_builder *builder,
             vk_descriptor_set_layout_ref(&library->layouts[i]->vk);
       }
       library->push_constant_size = builder->layout.push_constant_size;
-      library->independent_sets = builder->layout.independent_sets;
    }
 }
 
@@ -2277,33 +1945,65 @@ tu_pipeline_set_linkage(struct tu_program_descriptor_linkage *link,
 
 template <chip CHIP>
 static void
-tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
-                                        struct tu_pipeline *pipeline)
+tu_emit_program_state(struct tu_cs *sub_cs,
+                      struct tu_program_state *prog,
+                      struct tu_shader **shaders)
 {
+   struct tu_device *dev = sub_cs->device;
    struct tu_cs prog_cs;
 
-   const struct ir3_shader_variant *variants[ARRAY_SIZE(pipeline->shaders)];
-   struct tu_draw_state draw_states[ARRAY_SIZE(pipeline->shaders)];
+   const struct ir3_shader_variant *variants[MESA_SHADER_STAGES];
+   struct tu_draw_state draw_states[MESA_SHADER_STAGES];
    
    for (gl_shader_stage stage = MESA_SHADER_VERTEX;
         stage < ARRAY_SIZE(variants); stage = (gl_shader_stage) (stage+1)) {
-      variants[stage] = pipeline->shaders[stage] ?
-         pipeline->shaders[stage]->variant : NULL;
+      variants[stage] = shaders[stage] ? shaders[stage]->variant : NULL;
    }
 
    uint32_t safe_variants =
-      ir3_trim_constlen(variants, builder->device->compiler);
+      ir3_trim_constlen(variants, dev->compiler);
+
+   unsigned dynamic_descriptor_sizes[MAX_SETS] = { };
 
    for (gl_shader_stage stage = MESA_SHADER_VERTEX;
         stage < ARRAY_SIZE(variants); stage = (gl_shader_stage) (stage+1)) {
-      if (pipeline->shaders[stage]) {
+      if (shaders[stage]) {
          if (safe_variants & (1u << stage)) {
-            variants[stage] = pipeline->shaders[stage]->safe_const_variant;
-            draw_states[stage] = pipeline->shaders[stage]->safe_const_state;
+            variants[stage] = shaders[stage]->safe_const_variant;
+            draw_states[stage] = shaders[stage]->safe_const_state;
          } else {
-            draw_states[stage] = pipeline->shaders[stage]->state;
+            draw_states[stage] = shaders[stage]->state;
+         }
+
+         for (unsigned i = 0; i < MAX_SETS; i++) {
+            if (shaders[stage]->dynamic_descriptor_sizes[i] >= 0) {
+               dynamic_descriptor_sizes[i] =
+                  shaders[stage]->dynamic_descriptor_sizes[i];
+            }
          }
       }
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(variants); i++) {
+      if (!variants[i])
+         continue;
+
+      tu_pipeline_set_linkage(&prog->link[i],
+                              &shaders[i]->const_state,
+                              variants[i]);
+
+      struct tu_push_constant_range *push_consts =
+         &shaders[i]->const_state.push_consts;
+      if (push_consts->type == IR3_PUSH_CONSTS_SHARED ||
+          push_consts->type == IR3_PUSH_CONSTS_SHARED_PREAMBLE) {
+         prog->shared_consts = *push_consts;
+      }
+   }
+
+   unsigned dynamic_descriptor_offset = 0;
+   for (unsigned i = 0; i < MAX_SETS; i++) {
+      prog->dynamic_descriptor_offsets[i] = dynamic_descriptor_offset;
+      dynamic_descriptor_offset += dynamic_descriptor_sizes[i];
    }
 
    /* Emit HLSQ_xS_CNTL/HLSQ_SP_xS_CONFIG *first*, before emitting anything
@@ -2317,44 +2017,28 @@ tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
     * consts are emitted in state groups that are shared between the binning
     * and draw passes.
     */
-   tu_cs_begin_sub_stream(&pipeline->cs, 512, &prog_cs);
-   tu6_emit_program_config<CHIP>(&prog_cs, pipeline, builder, variants);
-   pipeline->program.config_state = tu_cs_end_draw_state(&pipeline->cs, &prog_cs);
+   tu_cs_begin_sub_stream(sub_cs, 512, &prog_cs);
+   tu6_emit_program_config<CHIP>(&prog_cs, prog, shaders, variants);
+   prog->config_state = tu_cs_end_draw_state(sub_cs, &prog_cs);
 
-   pipeline->program.vs_state = draw_states[MESA_SHADER_VERTEX];
+   prog->vs_state = draw_states[MESA_SHADER_VERTEX];
 
   /* Don't use the binning pass variant when GS is present because we don't
    * support compiling correct binning pass variants with GS.
    */
    if (variants[MESA_SHADER_GEOMETRY]) {
-      pipeline->program.vs_binning_state = pipeline->program.vs_state;
+      prog->vs_binning_state = prog->vs_state;
    } else {
-      pipeline->program.vs_binning_state =
-         pipeline->shaders[MESA_SHADER_VERTEX]->binning_state;
+      prog->vs_binning_state =
+         shaders[MESA_SHADER_VERTEX]->binning_state;
    }
 
-   pipeline->program.hs_state = draw_states[MESA_SHADER_TESS_CTRL];
-   pipeline->program.ds_state = draw_states[MESA_SHADER_TESS_EVAL];
-   pipeline->program.gs_state = draw_states[MESA_SHADER_GEOMETRY];
-   pipeline->program.gs_binning_state =
-      pipeline->shaders[MESA_SHADER_GEOMETRY]->binning_state;
-   pipeline->program.fs_state = draw_states[MESA_SHADER_FRAGMENT];
-
-   for (unsigned i = 0; i < ARRAY_SIZE(variants); i++) {
-      if (!variants[i])
-         continue;
-
-      tu_pipeline_set_linkage(&pipeline->program.link[i],
-                              &pipeline->shaders[i]->const_state,
-                              variants[i]);
-
-      struct tu_push_constant_range *push_consts =
-         &pipeline->shaders[i]->const_state.push_consts;
-      if (push_consts->type == IR3_PUSH_CONSTS_SHARED ||
-          push_consts->type == IR3_PUSH_CONSTS_SHARED_PREAMBLE) {
-         pipeline->program.shared_consts = *push_consts;
-      }
-   }
+   prog->hs_state = draw_states[MESA_SHADER_TESS_CTRL];
+   prog->ds_state = draw_states[MESA_SHADER_TESS_EVAL];
+   prog->gs_state = draw_states[MESA_SHADER_GEOMETRY];
+   prog->gs_binning_state =
+      shaders[MESA_SHADER_GEOMETRY]->binning_state;
+   prog->fs_state = draw_states[MESA_SHADER_FRAGMENT];
 
    const struct ir3_shader_variant *vs = variants[MESA_SHADER_VERTEX];
    const struct ir3_shader_variant *hs = variants[MESA_SHADER_TESS_CTRL];
@@ -2362,18 +2046,17 @@ tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
    const struct ir3_shader_variant *gs = variants[MESA_SHADER_GEOMETRY];
    const struct ir3_shader_variant *fs = variants[MESA_SHADER_FRAGMENT];
 
-   tu_cs_begin_sub_stream(&pipeline->cs, 512, &prog_cs);
+   tu_cs_begin_sub_stream(sub_cs, 512, &prog_cs);
    tu6_emit_vpc<CHIP>(&prog_cs, vs, hs, ds, gs, fs);
-   pipeline->program.vpc_state = tu_cs_end_draw_state(&pipeline->cs, &prog_cs);
+   prog->vpc_state = tu_cs_end_draw_state(sub_cs, &prog_cs);
    
    if (hs) {
       const struct ir3_const_state *hs_const =
-         &pipeline->program.link[MESA_SHADER_TESS_CTRL].const_state;
+         &prog->link[MESA_SHADER_TESS_CTRL].const_state;
       unsigned hs_constlen =
-         pipeline->program.link[MESA_SHADER_TESS_CTRL].constlen;
+         prog->link[MESA_SHADER_TESS_CTRL].constlen;
       uint32_t hs_base = hs_const->offsets.primitive_param;
-      pipeline->program.hs_param_dwords =
-         MIN2((hs_constlen - hs_base) * 4, 8);
+      prog->hs_param_dwords = MIN2((hs_constlen - hs_base) * 4, 8);
    }
 
    const struct ir3_shader_variant *last_shader;
@@ -2384,10 +2067,10 @@ tu_pipeline_builder_parse_shader_stages(struct tu_pipeline_builder *builder,
    else
       last_shader = vs;
 
-   pipeline->program.per_view_viewport =
+   prog->per_view_viewport =
       !last_shader->writes_viewport &&
-      builder->fragment_density_map &&
-      builder->device->physical_device->info->a6xx.has_per_view_viewport;
+      shaders[MESA_SHADER_FRAGMENT]->fs.has_fdm &&
+      dev->physical_device->info->a6xx.has_per_view_viewport;
 }
 
 static const enum mesa_vk_dynamic_graphics_state tu_vertex_input_state[] = {
@@ -3809,9 +3492,11 @@ tu_pipeline_finish(struct tu_pipeline *pipeline,
       struct tu_graphics_lib_pipeline *library =
          tu_pipeline_to_graphics_lib(pipeline);
 
-      if (library->nir_shaders)
-         vk_pipeline_cache_object_unref(&dev->vk,
-                                        &library->nir_shaders->base);
+      for (unsigned i = 0; i < ARRAY_SIZE(library->shaders); i++) {
+         if (library->shaders[i].serialized_nir)
+            vk_pipeline_cache_object_unref(&dev->vk,
+                                           &library->shaders[i].serialized_nir->base);
+      }
 
       for (unsigned i = 0; i < library->num_sets; i++) {
          if (library->layouts[i])
@@ -3918,7 +3603,8 @@ tu_pipeline_builder_build(struct tu_pipeline_builder *builder,
          return result;
       }
 
-      tu_pipeline_builder_parse_shader_stages<CHIP>(builder, *pipeline);
+      tu_emit_program_state<CHIP>(&(*pipeline)->cs, &(*pipeline)->program,
+                                  (*pipeline)->shaders);
 
       if (CHIP == A6XX) {
          /* Blob doesn't preload state on A7XX, likely preloading either
@@ -4273,7 +3959,18 @@ tu_compute_pipeline_create(VkDevice device,
    pipeline->base.active_stages = VK_SHADER_STAGE_COMPUTE_BIT;
 
    struct tu_shader_key key = { };
-   tu_shader_key_init(&key, stage_info, dev);
+   bool allow_varying_subgroup_size =
+      (stage_info->flags &
+       VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT_EXT);
+   bool require_full_subgroups =
+      stage_info->flags &
+      VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT_EXT;
+   const VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *subgroup_info =
+      vk_find_struct_const(stage_info,
+                           PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO);
+   tu_shader_key_subgroup_size(&key, allow_varying_subgroup_size,
+                               require_full_subgroups, subgroup_info,
+                               dev);
 
    void *pipeline_mem_ctx = ralloc_context(NULL);
 

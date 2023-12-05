@@ -314,7 +314,7 @@ ir3_compiler_create(struct fd_device *dev, const struct fd_dev_id *dev_id,
 }
 
 const nir_shader_compiler_options *
-ir3_get_compiler_options(struct ir3_compiler *compiler)
+ir3_get_compiler_options(const struct ir3_compiler *compiler)
 {
    return &compiler->nir_options;
 }

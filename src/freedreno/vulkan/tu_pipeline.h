@@ -50,18 +50,6 @@ struct tu_bandwidth
    bool valid;
 };
 
-struct tu_nir_shaders
-{
-   struct vk_pipeline_cache_object base;
-
-   /* This is optional, and is only filled out when a library pipeline is
-    * compiled with RETAIN_LINK_TIME_OPTIMIZATION_INFO.
-    */
-   nir_shader *nir[MESA_SHADER_STAGES];
-};
-
-extern const struct vk_pipeline_cache_object_ops tu_nir_shaders_ops;
-
 static bool inline
 tu6_shared_constants_enable(const struct tu_pipeline_layout *layout,
                             const struct ir3_compiler *compiler)
@@ -98,6 +86,8 @@ struct tu_program_state
       struct tu_push_constant_range shared_consts;
 
       struct tu_program_descriptor_linkage link[MESA_SHADER_STAGES];
+
+      unsigned dynamic_descriptor_offsets[MAX_SETS];
 
       bool per_view_viewport;
 };
@@ -179,13 +169,10 @@ struct tu_graphics_lib_pipeline {
    /* For vk_graphics_pipeline_state */
    void *state_data;
 
-   struct tu_nir_shaders *nir_shaders;
    struct {
-      nir_shader *nir;
+      struct vk_raw_data_cache_object *serialized_nir;
       struct tu_shader_key key;
    } shaders[MESA_SHADER_FRAGMENT + 1];
-
-   struct ir3_shader_key ir3_key;
 
    /* Used to stitch together an overall layout for the final pipeline. */
    struct tu_descriptor_set_layout *layouts[MAX_SETS];

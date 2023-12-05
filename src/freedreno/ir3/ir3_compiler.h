@@ -270,7 +270,7 @@ void ir3_disk_cache_store(struct ir3_shader *shader,
                           struct ir3_shader_variant *v);
 
 const nir_shader_compiler_options *
-ir3_get_compiler_options(struct ir3_compiler *compiler);
+ir3_get_compiler_options(const struct ir3_compiler *compiler);
 
 int ir3_compile_shader_nir(struct ir3_compiler *compiler,
                            struct ir3_shader *shader,
