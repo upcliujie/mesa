@@ -148,6 +148,7 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
    uint32_t pe_mem_config = 0;
    uint32_t pe_logic_op = 0;
 
+   const bool use_ts = etna_use_ts_for_mrt(screen, fb);
    unsigned rt = 0;
 
    for (unsigned i = 0; i < fb->nr_cbufs; i++) {
@@ -158,6 +159,12 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
       struct etna_resource *res = etna_resource(cbuf->base.texture);
       bool color_supertiled = (res->layout & ETNA_LAYOUT_BIT_SUPER) != 0;
       uint32_t fmt = translate_pe_format(cbuf->base.format);
+
+      /* Resolve TS if needed */
+      if (!use_ts) {
+         assert(res->base.last_level == 0);
+         etna_copy_resource(pctx, &res->base, &res->base, 0, 0);
+      }
 
       assert((res->layout & ETNA_LAYOUT_BIT_TILE) ||
              VIV_FEATURE(screen, chipMinorFeatures2, LINEAR_PE));
@@ -217,7 +224,7 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
 
          cs->PE_COLOR_STRIDE = cbuf->level->stride;
 
-         if (cbuf->level->ts_size) {
+         if (use_ts && cbuf->level->ts_size) {
             cs->TS_COLOR_CLEAR_VALUE = cbuf->level->clear_value;
             cs->TS_COLOR_CLEAR_VALUE_EXT = cbuf->level->clear_value >> 32;
 
@@ -250,7 +257,7 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
             RT_CONFIG_FORMAT(fmt) |
             COND(color_supertiled, RT_CONFIG_SUPER_TILED);
 
-         if (cbuf->level->ts_size) {
+         if (use_ts && cbuf->level->ts_size) {
             if (VIV_FEATURE(ctx->screen, chipMinorFeatures6, CACHE128B256BPERLINE)) {
                cs->PE_RT_CONFIG[rt - 1] |=
                   COND(color_supertiled, RT_CONFIG_TS_MODE(cbuf->level->ts_mode));
@@ -371,7 +378,7 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
       cs->PE_HDEPTH_CONTROL = VIVS_PE_HDEPTH_CONTROL_FORMAT_DISABLED;
       cs->PE_DEPTH_NORMALIZE = fui(exp2f(depth_bits) - 1.0f);
 
-      if (zsbuf->level->ts_size) {
+      if (use_ts && zsbuf->level->ts_size) {
          cs->TS_DEPTH_CLEAR_VALUE = zsbuf->level->clear_value;
 
          cs->TS_DEPTH_STATUS_BASE = zsbuf->ts_reloc;
