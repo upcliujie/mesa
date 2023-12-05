@@ -603,7 +603,7 @@ init_dispatch_tables(struct radv_device *device, struct radv_physical_device *ph
    if (physical_device->instance->vk.trace_mode & RADV_TRACE_MODE_RGP)
       add_entrypoints(&b, &sqtt_device_entrypoints, RADV_RGP_DISPATCH_TABLE);
 
-   if ((physical_device->instance->vk.trace_mode & RADV_TRACE_MODE_RRA) && radv_enable_rt(physical_device, false))
+   if (physical_device->instance->vk.trace_mode & RADV_TRACE_MODE_RRA)
       add_entrypoints(&b, &rra_device_entrypoints, RADV_RRA_DISPATCH_TABLE);
 
 #ifndef _WIN32
@@ -1188,7 +1188,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
       }
    }
 
-   if ((device->instance->vk.trace_mode & RADV_TRACE_MODE_RRA) && radv_enable_rt(physical_device, false)) {
+   if (device->instance->vk.trace_mode & RADV_TRACE_MODE_RRA) {
       radv_rra_trace_init(device);
    }
 

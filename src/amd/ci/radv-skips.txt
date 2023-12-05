@@ -18,6 +18,7 @@ dEQP-VK.memory.pipeline_barrier.host_write_transfer_src.1048576
 dEQP-VK.memory.pipeline_barrier.transfer_src_transfer_dst.1048576
 
 # Those cases take very long.
+dEQP-VK.ray_tracing_pipeline.build.*.*.*_1048576_1_1
 dEQP-VK.ray_tracing_pipeline.build.*1048576.*
 dEQP-VK.ray_tracing_pipeline.build.*65536.*
 dEQP-VK.ray_tracing_pipeline.build.*_4096_4_4

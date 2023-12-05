@@ -32,21 +32,9 @@
 static nir_def *build_node_to_addr(struct radv_device *device, nir_builder *b, nir_def *node, bool skip_type_and);
 
 bool
-radv_enable_rt(const struct radv_physical_device *pdevice, bool rt_pipelines)
-{
-   if (pdevice->rad_info.gfx_level < GFX10_3 && !radv_emulate_rt(pdevice))
-      return false;
-
-   if (rt_pipelines && pdevice->use_llvm)
-      return false;
-
-   return true;
-}
-
-bool
 radv_emulate_rt(const struct radv_physical_device *pdevice)
 {
-   return pdevice->instance->perftest_flags & RADV_PERFTEST_EMULATE_RT;
+   return pdevice->rad_info.gfx_level < GFX10_3 || (pdevice->instance->debug_flags & RADV_DEBUG_EMULATE_RT);
 }
 
 void
@@ -367,6 +355,18 @@ insert_traversal_triangle_case(struct radv_device *device, nir_builder *b, const
    intersection.t = nir_fdiv(b, intersection.t, div);
 
    nir_def *tmax = nir_load_deref(b, args->vars.tmax);
+   /* t values within 10 ULP of the current hit t are most likely duplicate hits along shared edges, which
+    * might occur with emulated RT. The Vulkan spec discourages double-hits along shared-edges, so reject them
+    * here by subtracting 10 ULP from t.
+    */
+   if (radv_emulate_rt(device->physical_device)) {
+      nir_def *abs_t = nir_fabs(b, tmax);
+      nir_def *sign_t = nir_fsign(b, tmax);
+
+      nir_def *tm1 = nir_iadd(b, tmax, nir_imul_imm(b, nir_f2i32(b, sign_t), -10));
+      nir_def *tm2 = nir_fmul(b, nir_isub_imm(b, 10, abs_t), nir_fneg(b, sign_t));
+      tmax = nir_bcsel(b, nir_ige_imm(b, abs_t, 10), tm1, tm2);
+   }
 
    nir_push_if(b, nir_flt(b, intersection.t, tmax));
    {
@@ -402,20 +402,6 @@ insert_traversal_triangle_case(struct radv_device *device, nir_builder *b, const
          {
             nir_def *divs[2] = {div, div};
             intersection.barycentrics = nir_fdiv(b, nir_channels(b, result, 0xc), nir_vec(b, divs, 2));
-
-            nir_def *hit_t = intersection.t;
-            /* t values within 10 ULP of the current hit t are most likely duplicate hits along shared edges, which
-             * might occur with emulated RT. The Vulkan spec discourages double-hits along shared-edges, so reject them
-             * here by subtracting 10 ULP from t.
-             */
-            if (radv_emulate_rt(device->physical_device)) {
-               nir_def *abs_t = nir_fabs(b, hit_t);
-               nir_def *sign_t = nir_fsign(b, hit_t);
-
-               nir_def *tm1 = nir_iadd(b, hit_t, nir_imul_imm(b, nir_f2i32(b, sign_t), -10));
-               nir_def *tm2 = nir_fmul(b, nir_isub_imm(b, 10, abs_t), nir_fneg(b, sign_t));
-               intersection.t = nir_bcsel(b, nir_ige_imm(b, abs_t, 10), tm1, tm2);
-            }
 
             args->triangle_cb(b, &intersection, args, ray_flags);
          }

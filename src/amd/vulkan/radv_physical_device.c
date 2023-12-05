@@ -393,7 +393,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
    *ext = (struct vk_device_extension_table){
       .KHR_8bit_storage = true,
       .KHR_16bit_storage = true,
-      .KHR_acceleration_structure = radv_enable_rt(device, false),
+      .KHR_acceleration_structure = true,
       .KHR_cooperative_matrix = device->rad_info.gfx_level >= GFX11 && !device->use_llvm,
       .KHR_bind_memory2 = true,
       .KHR_buffer_device_address = true,
@@ -443,9 +443,9 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .KHR_present_wait = driQueryOptionb(&device->instance->dri_options, "vk_khr_present_wait") ||
                           wsi_common_vk_instance_supports_present_wait(&device->instance->vk),
       .KHR_push_descriptor = true,
-      .KHR_ray_query = radv_enable_rt(device, false),
-      .KHR_ray_tracing_maintenance1 = radv_enable_rt(device, false),
-      .KHR_ray_tracing_pipeline = radv_enable_rt(device, true),
+      .KHR_ray_query = true,
+      .KHR_ray_tracing_maintenance1 = true,
+      .KHR_ray_tracing_pipeline = !device->use_llvm,
       .KHR_relaxed_block_layout = true,
       .KHR_sampler_mirror_clamp_to_edge = true,
       .KHR_sampler_ycbcr_conversion = true,
@@ -534,7 +534,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
 #endif
       .EXT_pipeline_creation_cache_control = true,
       .EXT_pipeline_creation_feedback = true,
-      .EXT_pipeline_library_group_handles = radv_enable_rt(device, true),
+      .EXT_pipeline_library_group_handles = !device->use_llvm,
       .EXT_pipeline_robustness = !device->use_llvm,
       .EXT_post_depth_coverage = device->rad_info.gfx_level >= GFX10,
       .EXT_primitive_topology_list_restart = true,
@@ -919,7 +919,7 @@ radv_physical_device_get_features(const struct radv_physical_device *pdevice, st
 
       /* VK_KHR_ray_tracing_maintenance1 */
       .rayTracingMaintenance1 = true,
-      .rayTracingPipelineTraceRaysIndirect2 = radv_enable_rt(pdevice, true),
+      .rayTracingPipelineTraceRaysIndirect2 = !pdevice->use_llvm,
 
       /* VK_EXT_vertex_input_dynamic_state */
       .vertexInputDynamicState = true,
@@ -1272,7 +1272,7 @@ radv_get_physical_device_properties(struct radv_physical_device *pdevice)
    if (radv_taskmesh_enabled(pdevice))
       p->subgroupSupportedStages |= VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_TASK_BIT_EXT;
 
-   if (radv_enable_rt(pdevice, true))
+   if (!pdevice->use_llvm)
       p->subgroupSupportedStages |= RADV_RT_STAGE_BITS;
    p->subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_VOTE_BIT |
                                     VK_SUBGROUP_FEATURE_ARITHMETIC_BIT | VK_SUBGROUP_FEATURE_BALLOT_BIT |

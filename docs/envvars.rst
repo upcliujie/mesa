@@ -1214,6 +1214,8 @@ RADV driver environment variables
       force all allocated buffers to be referenced in submissions
    ``checkir``
       validate the LLVM IR before LLVM compiles the shader
+   ``emulate_rt``
+      forces ray-tracing to be emulated in software on GFX10_3+
    ``epilogs``
       dump fragment shader epilogs
    ``extra_md``
@@ -1323,9 +1325,6 @@ RADV driver environment variables
       enable DCC for MSAA images
    ``dmashaders``
       upload shaders to invisible VRAM (might be useful for non-resizable BAR systems)
-   ``emulate_rt``
-      forces ray-tracing to be emulated in software on GFX10_3+ and enables
-      rt extensions with older hardware.
    ``gewave32``
       enable wave32 for vertex/tess/geometry shaders (GFX10+)
    ``localbos``
