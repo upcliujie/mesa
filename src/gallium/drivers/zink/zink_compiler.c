@@ -4149,6 +4149,40 @@ lower_flatshade_out_variables(nir_shader *shader)
                                        nir_metadata_dominance, &state);
 }
 
+static bool
+lower_uber_sample_pass(nir_shader *nir)
+{
+
+   if (nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)) {
+      //TODO dynamic version for uber shader
+      /* VK will always use gl_SampleMask[] values even if sample count is 0,
+       * so we need to skip this write here to mimic GL's behavior of ignoring it
+       */
+      nir_foreach_shader_out_variable(var, nir) {
+         if (var->data.location == FRAG_RESULT_SAMPLE_MASK)
+            var->data.mode = nir_var_shader_temp;
+      }
+      nir_fixup_deref_modes(nir);
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_temp, NULL);
+      return true;
+   }
+   puts("aaaaa");
+   if (!(nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)))
+      return false;
+   /* VK will always use gl_SampleMask[] values even if sample count is 0,
+    * so we need to skip this write here to mimic GL's behavior of ignoring it
+    */
+   nir_variable *sample_mask = nir_find_variable_with_location(nir, nir_var_shader_out, FRAG_RESULT_SAMPLE_MASK);
+   if (!sample_mask)
+      return false;
+
+   nir_print_shader(nir, stdout);exit(0);
+   /* return nir_shader_instructions_pass(shader, lower_flatshade_out_instr, */
+   /*                                     nir_metadata_dominance, &state); */
+
+   return true;
+}
+
 static void
 zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
                                    const struct zink_st_variant_key *key)
@@ -4209,6 +4243,7 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
       NIR_PASS_V(nir, nir_lower_alpha_test, NULL,
                  false, NULL);
       NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
+      /* NIR_PASS_V(nir, lower_uber_sample_pass); */
       need_optimize = true;
       break;
 
@@ -4348,6 +4383,7 @@ zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shad
 
          if (!zink_fs_key_base(key)->samples &&
             nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)) {
+            //TODO dynamic version for uber shader
             /* VK will always use gl_SampleMask[] values even if sample count is 0,
             * so we need to skip this write here to mimic GL's behavior of ignoring it
             */
