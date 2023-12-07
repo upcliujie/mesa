@@ -439,11 +439,13 @@ isl_get_miptail_base_row(enum isl_tiling tiling)
     * don't support levels > 1 with multisampling, the base miptail level is
     * really simple :
     */
-   if (tiling == ISL_TILING_SKL_Yf ||
-       tiling == ISL_TILING_ICL_Yf)
-      return 4;
-   else
-      return 0;
+   switch (tiling) {
+      case ISL_TILING_SKL_Yf:
+      case ISL_TILING_ICL_Yf:
+         return 4;
+      default:
+         return 0;
+   }
 }
 
 static const uint8_t skl_std_y_2d_miptail_offset_el[][5][2] = {
