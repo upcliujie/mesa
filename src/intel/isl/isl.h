@@ -2306,14 +2306,19 @@ isl_aux_usage_has_mcs(enum isl_aux_usage usage)
 static inline bool
 isl_aux_usage_has_ccs(enum isl_aux_usage usage)
 {
-   return usage == ISL_AUX_USAGE_CCS_D ||
-          usage == ISL_AUX_USAGE_CCS_E ||
-          usage == ISL_AUX_USAGE_FCV_CCS_E ||
-          usage == ISL_AUX_USAGE_MC ||
-          usage == ISL_AUX_USAGE_HIZ_CCS_WT ||
-          usage == ISL_AUX_USAGE_HIZ_CCS ||
-          usage == ISL_AUX_USAGE_MCS_CCS ||
-          usage == ISL_AUX_USAGE_STC_CCS;
+   switch (usage) {
+   case ISL_AUX_USAGE_CCS_D:
+   case ISL_AUX_USAGE_CCS_E:
+   case ISL_AUX_USAGE_FCV_CCS_E:
+   case ISL_AUX_USAGE_MC:
+   case ISL_AUX_USAGE_HIZ_CCS_WT:
+   case ISL_AUX_USAGE_HIZ_CCS:
+   case ISL_AUX_USAGE_MCS_CCS:
+   case ISL_AUX_USAGE_STC_CCS:
+      return true;
+   default:
+      return false;
+   }
 }
 
 static inline bool
