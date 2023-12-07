@@ -2337,9 +2337,14 @@ isl_aux_usage_has_ccs_e(enum isl_aux_usage usage)
 static inline bool
 isl_aux_state_has_valid_primary(enum isl_aux_state state)
 {
-   return state == ISL_AUX_STATE_RESOLVED ||
-          state == ISL_AUX_STATE_PASS_THROUGH ||
-          state == ISL_AUX_STATE_AUX_INVALID;
+   switch (state) {
+   case ISL_AUX_STATE_RESOLVED:
+   case ISL_AUX_STATE_PASS_THROUGH:
+   case ISL_AUX_STATE_AUX_INVALID:
+      return true;
+   default:
+      return false;
+   }
 }
 
 /***/
