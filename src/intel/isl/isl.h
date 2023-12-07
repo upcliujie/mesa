@@ -2088,10 +2088,15 @@ isl_format_is_hiz(enum isl_format fmt)
 static inline bool
 isl_format_is_planar(enum isl_format fmt)
 {
-   return fmt == ISL_FORMAT_PLANAR_420_8 ||
-          fmt == ISL_FORMAT_PLANAR_420_10 ||
-          fmt == ISL_FORMAT_PLANAR_420_12 ||
-          fmt == ISL_FORMAT_PLANAR_420_16;
+   switch (fmt) {
+   case ISL_FORMAT_PLANAR_420_8:
+   case ISL_FORMAT_PLANAR_420_10:
+   case ISL_FORMAT_PLANAR_420_12:
+   case ISL_FORMAT_PLANAR_420_16:
+      return true;
+   default:
+      return false;
+   }
 }
 
 static inline bool
