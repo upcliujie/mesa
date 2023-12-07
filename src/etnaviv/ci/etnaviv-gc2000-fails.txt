@@ -524,7 +524,6 @@ spec@!opengl 1.0@gl-1.0-blend-func,Fail
 
 spec@!opengl 1.0@gl-1.0-dlist-materials,Fail
 spec@!opengl 1.0@gl-1.0-dlist-shademodel,Fail
-spec@!opengl 1.0@gl-1.0-drawbuffer-modes,Fail
 spec@!opengl 1.0@gl-1.0-edgeflag-const,Fail
 spec@!opengl 1.0@gl-1.0-edgeflag,Fail
 spec@!opengl 1.0@gl-1.0-edgeflag-quads,Fail
@@ -2003,3 +2002,7 @@ spec@!opengl es 2.0@glsl-fs-pointcoord,Fail
 
 # Failure since 2024-01-30
 spec@arb_vertex_buffer_object@pos-array,Fail
+
+# Follwing tests are failing only in CI
+spec@arb_framebuffer_object@fbo-drawbuffers-none glblitframebuffer,Fail
+spec@arb_framebuffer_object@fbo-drawbuffers-none glclear,Crash
