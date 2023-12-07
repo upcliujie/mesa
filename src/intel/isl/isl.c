@@ -2006,14 +2006,18 @@ isl_calc_phys_total_extent_el_gfx6_stencil_hiz(
       const uint32_t w = isl_align(W, tile_extent_sa.w);
       const uint32_t h = isl_align(H, tile_extent_sa.h);
 
-      if (l == 0) {
+      switch (l) {
+      case 0:
          total_top_w = w;
          total_h = h;
-      } else if (l == 1) {
+         break;
+      case 1:
          total_bottom_w = w;
          total_h += h;
-      } else {
+         break;
+      default:
          total_bottom_w += w;
+         break;
       }
    }
 
