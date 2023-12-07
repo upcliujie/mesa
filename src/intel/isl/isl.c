@@ -3369,10 +3369,9 @@ get_image_offset_sa_gfx6_stencil_hiz(const struct isl_surf *surf,
       const uint32_t h = isl_align(H * surf->phys_level0_sa.a,
                                    tile_extent_sa.h);
 
-      if (l == 0) {
-         y += h;
-      } else {
-         x += w;
+      switch (l) {
+      case 0: y += h; break;
+      default: x += w; break;
       }
    }
 
