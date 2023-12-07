@@ -625,6 +625,9 @@ amdgpu_do_add_real_buffer(struct amdgpu_cs_context *cs,
 {
    struct amdgpu_cs_buffer *buffer;
    int idx;
+   assert(bo && bo->base.vtbl);
+   if (!bo)
+      return -1;
 
    /* New buffer, check if the backing array is large enough. */
    if (cs->num_real_buffers >= cs->max_real_buffers) {
@@ -642,6 +645,12 @@ amdgpu_do_add_real_buffer(struct amdgpu_cs_context *cs,
 
       memcpy(new_buffers, cs->real_buffers, cs->num_real_buffers * sizeof(*new_buffers));
 
+      #ifndef NDEBUG
+      /* Overwrite the old buffers list with a pattern. This may help debugging
+       * races between threads.
+       */
+      memset(cs->real_buffers, 0xab, cs->num_real_buffers * sizeof(*new_buffers));
+      #endif
       FREE(cs->real_buffers);
 
       cs->max_real_buffers = new_max;
@@ -669,6 +678,8 @@ amdgpu_lookup_or_add_real_buffer(struct radeon_cmdbuf *rcs, struct amdgpu_cs_con
       return idx;
 
    idx = amdgpu_do_add_real_buffer(cs, bo);
+   if (idx < 0)
+      return -1;
 
    hash = bo->unique_id & (BUFFER_HASHLIST_SIZE-1);
    cs->buffer_indices_hashlist[hash] = idx & 0x7fff;
@@ -703,13 +714,22 @@ static int amdgpu_lookup_or_add_slab_buffer(struct radeon_cmdbuf *rcs,
          MAX2(cs->max_slab_buffers + 16, (unsigned)(cs->max_slab_buffers * 1.3));
       struct amdgpu_cs_buffer *new_buffers;
 
-      new_buffers = REALLOC(cs->slab_buffers,
-                            cs->max_slab_buffers * sizeof(*new_buffers),
-                            new_max * sizeof(*new_buffers));
+      new_buffers = MALLOC(new_max * sizeof(*new_buffers));
+
       if (!new_buffers) {
          fprintf(stderr, "amdgpu_lookup_or_add_slab_buffer: allocation failed\n");
          return -1;
       }
+
+      memcpy(new_buffers, cs->slab_buffers, cs->num_slab_buffers * sizeof(*new_buffers));
+
+      #ifndef NDEBUG
+      /* Overwrite the old buffers list with a pattern. This may help debugging
+       * races between threads.
+       */
+      memset(cs->slab_buffers, 0xcd, cs->num_slab_buffers * sizeof(*new_buffers));
+      #endif
+      FREE(cs->slab_buffers);
 
       cs->max_slab_buffers = new_max;
       cs->slab_buffers = new_buffers;
@@ -746,13 +766,22 @@ static int amdgpu_lookup_or_add_sparse_buffer(struct radeon_cmdbuf *rcs,
          MAX2(cs->max_sparse_buffers + 16, (unsigned)(cs->max_sparse_buffers * 1.3));
       struct amdgpu_cs_buffer *new_buffers;
 
-      new_buffers = REALLOC(cs->sparse_buffers,
-                            cs->max_sparse_buffers * sizeof(*new_buffers),
-                            new_max * sizeof(*new_buffers));
+      new_buffers = MALLOC(new_max * sizeof(*new_buffers));
+
       if (!new_buffers) {
          fprintf(stderr, "amdgpu_lookup_or_add_sparse_buffer: allocation failed\n");
          return -1;
       }
+
+      memcpy(new_buffers, cs->sparse_buffers, cs->num_sparse_buffers * sizeof(*new_buffers));
+
+      #ifndef NDEBUG
+      /* Overwrite the old buffers list with a pattern. This may help debugging
+       * races between threads.
+       */
+      memset(cs->sparse_buffers, 0xef, cs->num_sparse_buffers * sizeof(*new_buffers));
+      #endif
+      FREE(cs->sparse_buffers);
 
       cs->max_sparse_buffers = new_max;
       cs->sparse_buffers = new_buffers;
