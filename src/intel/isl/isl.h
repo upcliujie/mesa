@@ -2324,8 +2324,13 @@ isl_aux_usage_has_ccs(enum isl_aux_usage usage)
 static inline bool
 isl_aux_usage_has_ccs_e(enum isl_aux_usage usage)
 {
-   return usage == ISL_AUX_USAGE_CCS_E ||
-          usage == ISL_AUX_USAGE_FCV_CCS_E;
+   switch (usage) {
+   case ISL_AUX_USAGE_CCS_E:
+   case ISL_AUX_USAGE_FCV_CCS_E:
+      return true;
+   default:
+      return false;
+   }
 }
 
 /***/
