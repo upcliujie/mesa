@@ -4159,15 +4159,16 @@ isl_color_value_channel(union isl_color_value src,
                         enum isl_channel_select chan,
                         uint32_t one)
 {
-   if (chan == ISL_CHANNEL_SELECT_ZERO)
+   switch (chan) {
+   case ISL_CHANNEL_SELECT_ZERO:
       return 0;
-   if (chan == ISL_CHANNEL_SELECT_ONE)
+   case ISL_CHANNEL_SELECT_ONE:
       return one;
-
-   assert(chan >= ISL_CHANNEL_SELECT_RED);
-   assert(chan < ISL_CHANNEL_SELECT_RED + 4);
-
-   return src.u32[chan - ISL_CHANNEL_SELECT_RED];
+   default:
+      assert(chan >= ISL_CHANNEL_SELECT_RED);
+      assert(chan < ISL_CHANNEL_SELECT_RED + 4);
+      return src.u32[chan - ISL_CHANNEL_SELECT_RED];
+   }
 }
 
 /** Applies an inverse swizzle to a color value */
