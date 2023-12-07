@@ -3260,14 +3260,17 @@ get_image_offset_sa_gfx4_3d(const struct isl_surf *surf,
                             uint32_t *y_offset_sa)
 {
    assert(level < surf->levels);
-   if (surf->dim == ISL_SURF_DIM_3D) {
+   switch (surf->dim) {
+   case ISL_SURF_DIM_3D:
       assert(surf->phys_level0_sa.array_len == 1);
       assert(logical_z_offset_px < isl_minify(surf->phys_level0_sa.depth, level));
-   } else {
+      break;
+   default:
       assert(surf->dim == ISL_SURF_DIM_2D);
       assert(surf->usage & ISL_SURF_USAGE_CUBE_BIT);
       assert(surf->phys_level0_sa.array_len == 6);
       assert(logical_z_offset_px < surf->phys_level0_sa.array_len);
+      break;
    }
 
    const struct isl_extent3d image_align_sa =
@@ -3283,9 +3286,16 @@ get_image_offset_sa_gfx4_3d(const struct isl_surf *surf,
 
    for (uint32_t l = 0; l < level; ++l) {
       const uint32_t level_h = isl_align_npot(isl_minify(H0, l), image_align_sa.h);
-      const uint32_t level_d =
-         isl_align_npot(surf->dim == ISL_SURF_DIM_3D ? isl_minify(D0, l) : AL,
-                        image_align_sa.d);
+      uint32_t level_d;
+
+      switch (surf->dim) {
+      case ISL_SURF_DIM_3D:
+         level_d = isl_align_npot(isl_minify(D0, l), image_align_sa.d);
+         break;
+      default:
+         level_d = isl_align_npot(AL, image_align_sa.d);
+         break;
+      }
       const uint32_t max_layers_vert = isl_align(level_d, 1u << l) / (1u << l);
 
       y += level_h * max_layers_vert;
@@ -3293,9 +3303,16 @@ get_image_offset_sa_gfx4_3d(const struct isl_surf *surf,
 
    const uint32_t level_w = isl_align_npot(isl_minify(W0, level), image_align_sa.w);
    const uint32_t level_h = isl_align_npot(isl_minify(H0, level), image_align_sa.h);
-   const uint32_t level_d =
-      isl_align_npot(surf->dim == ISL_SURF_DIM_3D ? isl_minify(D0, level) : AL,
-                     image_align_sa.d);
+   uint32_t level_d;
+
+   switch (surf->dim) {
+   case ISL_SURF_DIM_3D:
+      level_d = isl_align_npot(isl_minify(D0, level), image_align_sa.d);
+      break;
+   default:
+      level_d = isl_align_npot(AL, image_align_sa.d);
+      break;
+   }
 
    const uint32_t max_layers_horiz = MIN(level_d, 1u << level);
 
