@@ -246,8 +246,15 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return screen->specs.seamless_cube_map;
 
    /* Render targets. */
-   case PIPE_CAP_MAX_RENDER_TARGETS:
+   case PIPE_CAP_MAX_RENDER_TARGETS: {
+      /* If the GPU supports float formats we need to reserve half of
+       * the available render targets for emulation proposes.
+       */
+      if (VIV_FEATURE(screen, chipMinorFeatures4, HALTI2))
+         return screen->specs.num_rts / 2;
+
       return screen->specs.num_rts;
+   }
 
    /* Queries. */
    case PIPE_CAP_OCCLUSION_QUERY:
