@@ -1229,7 +1229,8 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
                               struct isl_extent3d *image_align_el)
 {
    const struct isl_format_layout *fmtl = isl_format_get_layout(info->format);
-   if (fmtl->txc == ISL_TXC_MCS) {
+   switch (fmtl->txc) {
+   case ISL_TXC_MCS: {
       /*
        * IvyBrigde PRM Vol 2, Part 1, "11.7 MCS Buffer for Render Target(s)":
        *
@@ -1249,7 +1250,10 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
          *image_align_el = isl_extent3d(4, 4, 1);
       }
       return;
-   } else if (fmtl->txc == ISL_TXC_HIZ) {
+   }
+   break;
+
+   case ISL_TXC_HIZ: {
       assert(ISL_GFX_VER(dev) >= 6);
       if (ISL_GFX_VER(dev) == 6) {
          /* HiZ surfaces on Sandy Bridge are packed tightly. */
@@ -1298,6 +1302,9 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
          *image_align_el = isl_extent3d(16 / fmtl->bw, 16 / fmtl->bh, 1);
       }
       return;
+   }
+   break;
+   default: break;
    }
 
    if (ISL_GFX_VERX10(dev) >= 125) {
