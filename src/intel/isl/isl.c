@@ -3198,15 +3198,17 @@ get_image_offset_sa_gfx4_2d(const struct isl_surf *surf,
    const uint32_t phys_layer = logical_array_layer *
       (surf->msaa_layout == ISL_MSAA_LAYOUT_ARRAY ? surf->samples : 1);
 
-   uint32_t x = 0, y;
+   uint32_t x = 0, y = 0;
    if (isl_tiling_is_std_y(surf->tiling) || surf->tiling == ISL_TILING_64) {
-      y = 0;
-      if (surf->dim == ISL_SURF_DIM_3D) {
+      switch (surf->dim) {
+      case ISL_SURF_DIM_3D:
          *z_offset_sa = logical_array_layer;
          *array_offset = 0;
-      } else {
+         break;
+      default:
          *z_offset_sa = 0;
          *array_offset = phys_layer;
+         break;
       }
    } else {
       y = phys_layer * isl_surf_get_array_pitch_sa_rows(surf);
@@ -3215,12 +3217,15 @@ get_image_offset_sa_gfx4_2d(const struct isl_surf *surf,
    }
 
    for (uint32_t l = 0; l < MIN(level, surf->miptail_start_level); ++l) {
-      if (l == 1) {
+      switch (l) {
+      case 1:
          uint32_t W = isl_minify(W0, l);
          x += isl_align_npot(W, image_align_sa.w);
-      } else {
+         break;
+      default:
          uint32_t H = isl_minify(H0, l);
          y += isl_align_npot(H, image_align_sa.h);
+         break;
       }
    }
 
