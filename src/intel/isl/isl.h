@@ -2279,9 +2279,14 @@ isl_aux_usage_has_compression(enum isl_aux_usage usage);
 static inline bool
 isl_aux_usage_has_hiz(enum isl_aux_usage usage)
 {
-   return usage == ISL_AUX_USAGE_HIZ ||
-          usage == ISL_AUX_USAGE_HIZ_CCS_WT ||
-          usage == ISL_AUX_USAGE_HIZ_CCS;
+   switch (usage) {
+      case ISL_AUX_USAGE_HIZ:
+      case ISL_AUX_USAGE_HIZ_CCS_WT:
+      case ISL_AUX_USAGE_HIZ_CCS:
+         return true;
+      default:
+         return false;
+   }
 }
 
 /***/
