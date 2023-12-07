@@ -1814,18 +1814,23 @@ isl_calc_phys_slice0_extent_sa_gfx4_2d(
       uint32_t w = isl_align_npot(W, image_align_sa->w);
       uint32_t h = isl_align_npot(H, image_align_sa->h);
 
-      if (l == 0) {
+      switch (l) {
+      case 0:
          slice_top_w = w;
          slice_left_h = h;
          slice_right_h = h;
-      } else if (l == 1) {
+         break;
+      case 1:
          slice_bottom_w = w;
          slice_left_h += h;
-      } else if (l == 2) {
+         break;
+      case 2:
          slice_bottom_w += w;
          slice_right_h += h;
-      } else {
+         break;
+      default:
          slice_right_h += h;
+         break;
       }
 
       if (l >= miptail_start_level) {
