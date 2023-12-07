@@ -2528,7 +2528,9 @@ isl_calc_base_alignment(const struct isl_device *dev,
                         const struct isl_tile_info *tile_info)
 {
    uint32_t base_alignment_B;
-   if (tile_info->tiling == ISL_TILING_LINEAR) {
+
+   switch (tile_info->tiling) {
+   case ISL_TILING_LINEAR: {
       /* From the Broadwell PRM Vol 2d,
        * RENDER_SURFACE_STATE::SurfaceBaseAddress:
        *
@@ -2558,7 +2560,11 @@ isl_calc_base_alignment(const struct isl_device *dev,
        */
       if (isl_surf_usage_is_display(info->usage))
          base_alignment_B = MAX(base_alignment_B, 64);
-   } else {
+
+      break;
+   }
+
+   default: {
       const uint32_t tile_size_B = tile_info->phys_extent_B.width *
                                    tile_info->phys_extent_B.height;
       assert(isl_is_pow2(info->min_alignment_B) && isl_is_pow2(tile_size_B));
@@ -2587,6 +2593,9 @@ isl_calc_base_alignment(const struct isl_device *dev,
          base_alignment_B = MAX(base_alignment_B, dev->info->verx10 >= 125 ?
                1024 * 1024 : 64 * 1024);
       }
+
+      break;
+   }
    }
 
    /* If for some reason we can't support the appropriate tiling format and
