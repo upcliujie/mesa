@@ -2128,17 +2128,72 @@ isl_calc_row_pitch_alignment(const struct isl_device *dev,
                              const struct isl_surf_init_info *surf_info,
                              const struct isl_tile_info *tile_info)
 {
-   if (tile_info->tiling != ISL_TILING_LINEAR) {
+   switch (tile_info->tiling) {
+   case ISL_TILING_LINEAR: {
+      /* We only support tiled fragment shading rate buffers. */
+      assert((surf_info->usage & ISL_SURF_USAGE_CPB_BIT) == 0);
+
+      /* From the Broadwel PRM >> Volume 2d: Command Reference: Structures >>
+      * RENDER_SURFACE_STATE Surface Pitch (p349):
+      *
+      *    - For linear render target surfaces and surfaces accessed with the
+      *      typed data port messages, the pitch must be a multiple of the
+      *      element size for non-YUV surface formats.  Pitch must be
+      *      a multiple of 2 * element size for YUV surface formats.
+      *
+      *    - [Requirements for SURFTYPE_BUFFER and SURFTYPE_STRBUF, which we
+      *      ignore because isl doesn't do buffers.]
+      *
+      *    - For other linear surfaces, the pitch can be any multiple of
+      *      bytes.
+      */
+      const struct isl_format_layout *fmtl = isl_format_get_layout(surf_info->format);
+      const uint32_t bs = fmtl->bpb / 8;
+      uint32_t alignment = 1;
+
+      if (surf_info->usage & ISL_SURF_USAGE_RENDER_TARGET_BIT) {
+         if (isl_format_is_yuv(surf_info->format)) {
+            alignment = 2 * bs;
+         } else  {
+            alignment = bs;
+         }
+      }
+
+      /* From the Broadwell PRM >> Volume 2c: Command Reference: Registers >>
+      * PRI_STRIDE Stride (p1254):
+      *
+      *    "When using linear memory, this must be at least 64 byte aligned."
+      *
+      * However, when displaying on NVIDIA and recent AMD GPUs via PRIME,
+      * we need a larger pitch of 256 bytes.
+      *
+      * If the ISL caller didn't specify a row_pitch_B, then we should assume
+      * the NVIDIA/AMD requirements. Otherwise, if we have a specified
+      * row_pitch_B, this is probably because the caller is trying to import a
+      * buffer. In that case we limit the minimum row pitch to the Intel HW
+      * requirement.
+      */
+      if (surf_info->usage & ISL_SURF_USAGE_DISPLAY_BIT) {
+         switch (surf_info->row_pitch_B) {
+            case 0: alignment = isl_align(alignment, 256); break;
+            default: alignment = isl_align(alignment, 64); break;
+         }
+      }
+
+      return alignment;
+   }
+
+   default: {
       /* According to BSpec: 44930, Gfx12's CCS-compressed surface pitches must
-       * be 512B-aligned. CCS is only support on Y tilings.
-       *
-       * Only consider 512B alignment when :
-       *    - AUX is not explicitly disabled
-       *    - the caller has specified no pitch
-       *
-       * isl_surf_get_ccs_surf() will check that the main surface alignment
-       * matches CCS expectations.
-       */
+      * be 512B-aligned. CCS is only support on Y tilings.
+      *
+      * Only consider 512B alignment when :
+      *    - AUX is not explicitly disabled
+      *    - the caller has specified no pitch
+      *
+      * isl_surf_get_ccs_surf() will check that the main surface alignment
+      * matches CCS expectations.
+      */
       if (ISL_GFX_VER(dev) >= 12 &&
           isl_format_supports_ccs_e(dev->info, surf_info->format) &&
           tile_info->tiling != ISL_TILING_X &&
@@ -2149,60 +2204,7 @@ isl_calc_row_pitch_alignment(const struct isl_device *dev,
 
       return tile_info->phys_extent_B.width;
    }
-
-   /* We only support tiled fragment shading rate buffers. */
-   assert((surf_info->usage & ISL_SURF_USAGE_CPB_BIT) == 0);
-
-   /* From the Broadwel PRM >> Volume 2d: Command Reference: Structures >>
-    * RENDER_SURFACE_STATE Surface Pitch (p349):
-    *
-    *    - For linear render target surfaces and surfaces accessed with the
-    *      typed data port messages, the pitch must be a multiple of the
-    *      element size for non-YUV surface formats.  Pitch must be
-    *      a multiple of 2 * element size for YUV surface formats.
-    *
-    *    - [Requirements for SURFTYPE_BUFFER and SURFTYPE_STRBUF, which we
-    *      ignore because isl doesn't do buffers.]
-    *
-    *    - For other linear surfaces, the pitch can be any multiple of
-    *      bytes.
-    */
-   const struct isl_format_layout *fmtl = isl_format_get_layout(surf_info->format);
-   const uint32_t bs = fmtl->bpb / 8;
-   uint32_t alignment;
-
-   if (surf_info->usage & ISL_SURF_USAGE_RENDER_TARGET_BIT) {
-      if (isl_format_is_yuv(surf_info->format)) {
-         alignment = 2 * bs;
-      } else  {
-         alignment = bs;
-      }
-   } else {
-      alignment = 1;
    }
-
-   /* From the Broadwell PRM >> Volume 2c: Command Reference: Registers >>
-    * PRI_STRIDE Stride (p1254):
-    *
-    *    "When using linear memory, this must be at least 64 byte aligned."
-    *
-    * However, when displaying on NVIDIA and recent AMD GPUs via PRIME,
-    * we need a larger pitch of 256 bytes.
-    *
-    * If the ISL caller didn't specify a row_pitch_B, then we should assume
-    * the NVIDIA/AMD requirements. Otherwise, if we have a specified
-    * row_pitch_B, this is probably because the caller is trying to import a
-    * buffer. In that case we limit the minimum row pitch to the Intel HW
-    * requirement.
-    */
-   if (surf_info->usage & ISL_SURF_USAGE_DISPLAY_BIT) {
-      if (surf_info->row_pitch_B == 0)
-         alignment = isl_align(alignment, 256);
-      else
-         alignment = isl_align(alignment, 64);
-   }
-
-   return alignment;
 }
 
 static uint32_t
@@ -2248,13 +2250,12 @@ isl_calc_min_row_pitch(const struct isl_device *dev,
                        const struct isl_extent4d *phys_total_el,
                        uint32_t alignment_B)
 {
-   if (tile_info->tiling == ISL_TILING_LINEAR) {
+   if (tile_info->tiling == ISL_TILING_LINEAR)
       return isl_calc_linear_min_row_pitch(dev, surf_info, phys_total_el,
                                            alignment_B);
-   } else {
-      return isl_calc_tiled_min_row_pitch(dev, surf_info, tile_info,
-                                          phys_total_el, alignment_B);
-   }
+
+   return isl_calc_tiled_min_row_pitch(dev, surf_info, tile_info,
+                                       phys_total_el, alignment_B);
 }
 
 /**
