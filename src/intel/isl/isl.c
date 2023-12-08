@@ -4212,7 +4212,7 @@ isl_color_value_swizzle_inv(union isl_color_value src,
 uint8_t
 isl_format_get_aux_map_encoding(enum isl_format format)
 {
-   switch(format) {
+   switch (format) {
    case ISL_FORMAT_R32G32B32A32_FLOAT: return 0x11;
    case ISL_FORMAT_R32G32B32X32_FLOAT: return 0x11;
    case ISL_FORMAT_R32G32B32A32_SINT: return 0x12;
@@ -4294,7 +4294,7 @@ uint8_t
 isl_get_render_compression_format(enum isl_format format)
 {
    /* From the Bspec, Enumeration_RenderCompressionFormat section (53726): */
-   switch(format) {
+   switch (format) {
    case ISL_FORMAT_R32G32B32A32_FLOAT:
    case ISL_FORMAT_R32G32B32X32_FLOAT:
    case ISL_FORMAT_R32G32B32A32_SINT:
