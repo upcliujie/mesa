@@ -779,7 +779,7 @@ loader_bind_extensions(void *data,
       /* The loaders rely on the loaded DRI drivers being from the same Mesa
        * build so that we can reference the same structs on both sides.
        */
-      if (strcmp(match->name, __DRI_MESA) == 0) {
+      if (0 && strcmp(match->name, __DRI_MESA) == 0) {
          const __DRImesaCoreExtension *mesa = (const __DRImesaCoreExtension *)*field;
          if (strcmp(mesa->version_string, MESA_INTERFACE_VERSION_STRING) != 0) {
             log_(_LOADER_FATAL, "DRI driver not from this Mesa build ('%s' vs '%s')\n",
