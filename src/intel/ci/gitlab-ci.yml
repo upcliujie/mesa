@@ -9,6 +9,7 @@ anv-jsl:
     DEQP_SUITE: anv-jsl
     VK_DRIVER: intel
     DEQP_FRACTION: 2
+    ANV_VIDEO_DECODE: "true"
   parallel: 4
 
 # We don't enable a full run of anv-jsl nightly because it's about 8 hours of
@@ -29,6 +30,7 @@ anv-tgl:
     DEQP_SUITE: anv-tgl
     DEQP_FRACTION: 5 # temporarily drop network load
     VK_DRIVER: intel
+    ANV_VIDEO_DECODE: "true"
   parallel: 6 # 15 - 3 zink - 3 post-merge perf + headroom
 
 anv-tgl-full:
@@ -39,6 +41,7 @@ anv-tgl-full:
     DEQP_SUITE: anv-tgl-full
     DEQP_FRACTION: 1
     JOB_TIMEOUT: 90
+    ANV_VIDEO_DECODE: "true"
   timeout: 100m
   parallel: 4
 
@@ -85,6 +88,7 @@ anv-tgl-angle:
   variables:
     DEQP_SUITE: anv-tgl-angle
     GPU_VERSION: angle-anv-tgl
+    ANV_VIDEO_DECODE: "true"
 
 anv-tgl-angle-full:
   extends:
