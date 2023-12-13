@@ -199,7 +199,6 @@ radv_amdgpu_winsys_destroy(struct radeon_winsys *rws)
       return;
 
    u_rwlock_destroy(&ws->global_bo_list.lock);
-   free(ws->global_bo_list.bos);
 
    if (ws->reserve_vmid)
       amdgpu_vm_unreserve_vmid(ws->dev, 0);
@@ -312,6 +311,7 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags,
    ws->perftest = perftest_flags;
    ws->zero_all_vram_allocs = debug_flags & RADV_DEBUG_ZERO_VRAM;
    u_rwlock_init(&ws->global_bo_list.lock);
+   rb_tree_init(&ws->global_bo_list.bos);
    list_inithead(&ws->log_bo_list);
    u_rwlock_init(&ws->log_bo_list_lock);
    ws->base.query_info = radv_amdgpu_winsys_query_info;

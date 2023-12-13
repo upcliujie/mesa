@@ -866,12 +866,17 @@ radv_amdgpu_add_cs_array_to_bo_list(struct radeon_cmdbuf **cs_array, unsigned nu
 static unsigned
 radv_amdgpu_copy_global_bo_list(struct radv_amdgpu_winsys *ws, struct drm_amdgpu_bo_list_entry *handles)
 {
-   for (uint32_t i = 0; i < ws->global_bo_list.count; i++) {
-      handles[i].bo_handle = ws->global_bo_list.bos[i]->bo_handle;
-      handles[i].bo_priority = ws->global_bo_list.bos[i]->priority;
-   }
+   unsigned i = 0;
+   rb_tree_foreach (struct radv_amdgpu_winsys_bo, bo, &ws->global_bo_list.bos, global_list_node) {
+      /* Global BO list can contain duplicate entries if exported then imported. */
+      if (i != 0 && handles[i - 1].bo_handle == bo->bo_handle)
+         continue;
 
-   return ws->global_bo_list.count;
+      handles[i].bo_handle = bo->bo_handle;
+      handles[i].bo_priority = bo->priority;
+      ++i;
+   }
+   return i;
 }
 
 static VkResult
@@ -1337,8 +1342,8 @@ radv_amdgpu_winsys_get_cpu_addr(void *_cs, uint64_t addr)
       }
    }
    u_rwlock_rdlock(&cs->ws->global_bo_list.lock);
-   for (uint32_t i = 0; i < cs->ws->global_bo_list.count; i++) {
-      struct radv_amdgpu_winsys_bo *bo = cs->ws->global_bo_list.bos[i];
+   /* TODO: Use rb_tree search instead of iteration. */
+   rb_tree_foreach (struct radv_amdgpu_winsys_bo, bo, &cs->ws->global_bo_list.bos, global_list_node) {
       if (addr >= bo->base.va && addr - bo->base.va < bo->size) {
          if (amdgpu_bo_cpu_map(bo->bo, &ret) == 0) {
             u_rwlock_rdunlock(&cs->ws->global_bo_list.lock);

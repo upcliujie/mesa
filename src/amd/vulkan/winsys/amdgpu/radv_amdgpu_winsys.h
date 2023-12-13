@@ -35,6 +35,7 @@
 #include "ac_gpu_info.h"
 #include "radv_radeon_winsys.h"
 
+#include "util/rb_tree.h"
 #include "vk_sync.h"
 #include "vk_sync_timeline.h"
 
@@ -58,9 +59,8 @@ struct radv_amdgpu_winsys {
 
    /* Global BO list */
    struct {
-      struct radv_amdgpu_winsys_bo **bos;
+      struct rb_tree bos;
       uint32_t count;
-      uint32_t capacity;
       struct u_rwlock lock;
    } global_bo_list;
 

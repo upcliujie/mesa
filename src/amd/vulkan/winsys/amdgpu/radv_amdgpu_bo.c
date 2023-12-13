@@ -151,7 +151,7 @@ radv_amdgpu_winsys_bo_virtual_bind(struct radeon_winsys *_ws, struct radeon_wins
     * The issue still exists for non-global BO but it will be addressed later, once we are 100% it's
     * RADV fault (mostly because the solution looks more complicated).
     */
-   if (bo && bo->base.use_global_list) {
+   if (bo && radv_buffer_is_resident(&bo->base)) {
       bo = NULL;
       bo_offset = 0;
    }
@@ -287,22 +287,30 @@ radv_amdgpu_log_bo(struct radv_amdgpu_winsys *ws, struct radv_amdgpu_winsys_bo *
 }
 
 static int
+radv_amdgpu_bo_cmp(const struct rb_node *_a, const struct rb_node *_b)
+{
+   const struct radv_amdgpu_winsys_bo *a = rb_node_data(struct radv_amdgpu_winsys_bo, _a, global_list_node);
+   const struct radv_amdgpu_winsys_bo *b = rb_node_data(struct radv_amdgpu_winsys_bo, _b, global_list_node);
+   assert(!a->is_virtual && !b->is_virtual);
+
+   if (a->base.va < b->base.va)
+      return -1;
+   if (a->base.va > b->base.va)
+      return 1;
+
+   if (a->bo_handle > b->bo_handle)
+      return -1;
+   if (a->bo_handle < b->bo_handle)
+      return 1;
+   return 0;
+}
+
+static int
 radv_amdgpu_global_bo_list_add(struct radv_amdgpu_winsys *ws, struct radv_amdgpu_winsys_bo *bo)
 {
    u_rwlock_wrlock(&ws->global_bo_list.lock);
-   if (ws->global_bo_list.count == ws->global_bo_list.capacity) {
-      unsigned capacity = MAX2(4, ws->global_bo_list.capacity * 2);
-      void *data = realloc(ws->global_bo_list.bos, capacity * sizeof(struct radv_amdgpu_winsys_bo *));
-      if (!data) {
-         u_rwlock_wrunlock(&ws->global_bo_list.lock);
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
-      }
-
-      ws->global_bo_list.bos = (struct radv_amdgpu_winsys_bo **)data;
-      ws->global_bo_list.capacity = capacity;
-   }
-
-   ws->global_bo_list.bos[ws->global_bo_list.count++] = bo;
+   rb_tree_insert(&ws->global_bo_list.bos, &bo->global_list_node, radv_amdgpu_bo_cmp);
+   ws->global_bo_list.count++;
    bo->base.use_global_list = true;
    u_rwlock_wrunlock(&ws->global_bo_list.lock);
    return VK_SUCCESS;
@@ -312,13 +320,10 @@ static void
 radv_amdgpu_global_bo_list_del(struct radv_amdgpu_winsys *ws, struct radv_amdgpu_winsys_bo *bo)
 {
    u_rwlock_wrlock(&ws->global_bo_list.lock);
-   for (unsigned i = ws->global_bo_list.count; i-- > 0;) {
-      if (ws->global_bo_list.bos[i] == bo) {
-         ws->global_bo_list.bos[i] = ws->global_bo_list.bos[ws->global_bo_list.count - 1];
-         --ws->global_bo_list.count;
-         bo->base.use_global_list = false;
-         break;
-      }
+   if (bo->base.use_global_list) {
+      rb_tree_remove(&ws->global_bo_list.bos, &bo->global_list_node);
+      ws->global_bo_list.count--;
+      bo->base.use_global_list = false;
    }
    u_rwlock_wrunlock(&ws->global_bo_list.lock);
 }
@@ -514,7 +519,7 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws, uint64_t size, unsigned 
 
    bo->bo = buf_handle;
    bo->base.initial_domain = initial_domain;
-   bo->base.use_global_list = bo->base.is_local;
+   bo->base.use_global_list = false;
    bo->priority = priority;
 
    r = amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_kms, &bo->bo_handle);
@@ -1036,28 +1041,11 @@ radv_amdgpu_dump_bo_ranges(struct radeon_winsys *_ws, FILE *file)
 {
    struct radv_amdgpu_winsys *ws = radv_amdgpu_winsys(_ws);
    if (ws->debug_all_bos) {
-      struct radv_amdgpu_winsys_bo **bos = NULL;
-      int i = 0;
-
       u_rwlock_rdlock(&ws->global_bo_list.lock);
-      bos = malloc(sizeof(*bos) * ws->global_bo_list.count);
-      if (!bos) {
-         u_rwlock_rdunlock(&ws->global_bo_list.lock);
-         fprintf(file, "  Failed to allocate memory to sort VA ranges for dumping\n");
-         return;
+      rb_tree_foreach (struct radv_amdgpu_winsys_bo, bo, &ws->global_bo_list.bos, global_list_node) {
+         fprintf(file, "  VA=%.16llx-%.16llx, handle=%d\n", (long long)radv_amdgpu_canonicalize_va(bo->base.va),
+                 (long long)radv_amdgpu_canonicalize_va(bo->base.va + bo->size), bo->bo_handle);
       }
-
-      for (i = 0; i < ws->global_bo_list.count; i++) {
-         bos[i] = ws->global_bo_list.bos[i];
-      }
-      qsort(bos, ws->global_bo_list.count, sizeof(bos[0]), radv_amdgpu_bo_va_compare);
-
-      for (i = 0; i < ws->global_bo_list.count; ++i) {
-         fprintf(file, "  VA=%.16llx-%.16llx, handle=%d%s\n", (long long)radv_amdgpu_canonicalize_va(bos[i]->base.va),
-                 (long long)radv_amdgpu_canonicalize_va(bos[i]->base.va + bos[i]->size), bos[i]->bo_handle,
-                 bos[i]->is_virtual ? " sparse" : "");
-      }
-      free(bos);
       u_rwlock_rdunlock(&ws->global_bo_list.lock);
    } else
       fprintf(file, "  To get BO VA ranges, please specify RADV_DEBUG=allbos\n");
