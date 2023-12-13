@@ -147,20 +147,38 @@ etna_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
                     COND(last_varying_2x, VIVS_RA_CONTROL_LAST_VARYING_2X);
 
    cs->PA_ATTRIBUTE_ELEMENT_COUNT = VIVS_PA_ATTRIBUTE_ELEMENT_COUNT_COUNT(link.num_varyings);
-   for (int idx = 0; idx < link.num_varyings; ++idx)
+   for (int idx = 0; idx < MIN2(link.num_varyings, VIVS_PA_SHADER_ATTRIBUTES__LEN); ++idx)
       cs->PA_SHADER_ATTRIBUTES[idx] = link.varyings[idx].pa_attributes;
 
    cs->VS_END_PC = vs->code_size / 4;
    cs->VS_OUTPUT_COUNT = 1 + link.num_varyings; /* position + varyings */
 
    /* vs outputs (varyings) */
-   DEFINE_ETNA_BITARRAY(vs_output, 16, 8) = {0};
-   int varid = 0;
-   etna_bitarray_set(vs_output, 8, varid++, vs->vs_pos_out_reg);
-   for (int idx = 0; idx < link.num_varyings; ++idx)
-      etna_bitarray_set(vs_output, 8, varid++, link.varyings[idx].reg);
+   #define ETNA_ALL_VARYINGS (ETNA_NUM_VARYINGS + 2) /* varyings + position + point size */
+   uint8_t outputs[ETNA_ALL_VARYINGS];
+   unsigned varid = 0;
+
+   /* fill outputs array */
+   outputs[varid++] = vs->vs_pos_out_reg;
+
+   for (unsigned i = 0; i < link.num_varyings; i++)
+      outputs[varid++] = link.varyings[i].reg;
+
    if (vs->vs_pointsize_out_reg >= 0)
-      etna_bitarray_set(vs_output, 8, varid++, vs->vs_pointsize_out_reg); /* pointsize is last */
+      outputs[varid++] = vs->vs_pointsize_out_reg; /* pointsize is last */
+
+   /* keep track of output register 16 and 17 */
+   if (varid == 16)
+      cs->VS_OUTPUT16_REG = outputs[16];
+   if (varid == 17)
+      cs->VS_OUTPUT17_REG = outputs[17];
+
+   /* pack outputs */
+   DEFINE_ETNA_BITARRAY(vs_output, ETNA_ALL_VARYINGS, 8) = {0};
+   assert(varid <= ETNA_ALL_VARYINGS);
+
+   for (unsigned i = 0; i < varid; i++)
+      etna_bitarray_set(vs_output, 8, i, outputs[i]);
 
    for (int idx = 0; idx < ARRAY_SIZE(cs->VS_OUTPUT); ++idx)
       cs->VS_OUTPUT[idx] = vs_output[idx];

@@ -35,8 +35,8 @@
 
 #include "drm/etnaviv_drmif.h"
 
-#define ETNA_NUM_INPUTS (16)
-#define ETNA_NUM_VARYINGS 16
+#define ETNA_NUM_INPUTS (30)
+#define ETNA_NUM_VARYINGS 30
 #define ETNA_NUM_LOD (14)
 #define ETNA_NUM_LAYERS (6)
 #define ETNA_MAX_UNIFORMS (256)
@@ -238,7 +238,7 @@ struct compiled_shader_state {
    uint32_t VS_OUTPUT_COUNT_PSIZE; /* number of outputs of point size per vertex enabled */
    uint32_t VS_INPUT_COUNT;
    uint32_t VS_TEMP_REGISTER_CONTROL;
-   uint32_t VS_OUTPUT[4];
+   uint32_t VS_OUTPUT[8];
    uint32_t VS_INPUT[4];
    uint32_t VS_LOAD_BALANCING;
    uint32_t VS_START_PC;
@@ -254,6 +254,8 @@ struct compiled_shader_state {
    uint32_t GL_VARYING_COMPONENT_USE[2];
    uint32_t GL_HALTI5_SH_SPECIALS;
    uint32_t FE_HALTI5_ID_CONFIG;
+   uint8_t VS_OUTPUT16_REG;
+   uint8_t VS_OUTPUT17_REG;
    unsigned vs_inst_mem_size;
    unsigned ps_inst_mem_size;
    uint32_t *VS_INST_MEM;

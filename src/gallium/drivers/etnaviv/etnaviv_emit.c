@@ -135,7 +135,7 @@ emit_halti5_only_state(struct etna_context *ctx, int vs_output_count)
       /*007C4*/ EMIT_STATE(FE_HALTI5_ID_CONFIG, ctx->shader_state.FE_HALTI5_ID_CONFIG);
       /*00870*/ EMIT_STATE(VS_HALTI5_OUTPUT_COUNT, vs_output_count | ((vs_output_count * 0x10) << 8));
       /*008A0*/ EMIT_STATE(VS_HALTI5_UNK008A0, 0x0001000e | ((0x110/vs_output_count) << 20));
-      for (int x = 0; x < 4; ++x) {
+      for (int x = 0; x < VIVS_VS_HALTI5_OUTPUT__LEN; ++x) {
          /*008E0*/ EMIT_STATE(VS_HALTI5_OUTPUT(x), ctx->shader_state.VS_OUTPUT[x]);
       }
    }
@@ -168,7 +168,7 @@ emit_pre_halti5_state(struct etna_context *ctx)
       /*00800*/ EMIT_STATE(VS_END_PC, ctx->shader_state.VS_END_PC);
    }
    if (unlikely(dirty & (ETNA_DIRTY_SHADER))) {
-      for (int x = 0; x < 4; ++x) {
+      for (int x = 0; x < VIVS_VS_OUTPUT__LEN; ++x) {
         /*00810*/ EMIT_STATE(VS_OUTPUT(x), ctx->shader_state.VS_OUTPUT[x]);
       }
    }
@@ -364,8 +364,13 @@ etna_emit_state(struct etna_context *ctx)
    }
 
    if (unlikely(dirty & (ETNA_DIRTY_SHADER | ETNA_DIRTY_RASTERIZER))) {
-
-      /*00804*/ EMIT_STATE(VS_OUTPUT_COUNT, vs_output_count);
+      if (screen->specs.halti < 5) {
+         /*00804*/ EMIT_STATE(VS_OUTPUT_COUNT, vs_output_count |
+                                               VIVS_VS_OUTPUT_COUNT_OUTPUT16_REG(ctx->shader_state.VS_OUTPUT16_REG) |
+                                               VIVS_VS_OUTPUT_COUNT_OUTPUT17_REG(ctx->shader_state.VS_OUTPUT17_REG));
+      } else {
+         /*00804*/ EMIT_STATE(VS_OUTPUT_COUNT, vs_output_count);
+      }
    }
    if (unlikely(dirty & (ETNA_DIRTY_VERTEX_ELEMENTS | ETNA_DIRTY_SHADER))) {
       /*00808*/ EMIT_STATE(VS_INPUT_COUNT, ctx->shader_state.VS_INPUT_COUNT);
