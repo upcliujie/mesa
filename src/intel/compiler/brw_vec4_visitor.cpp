@@ -742,7 +742,7 @@ vec4_visitor::emit_pull_constant_load_reg(dst_reg dst,
 
    vec4_instruction *pull;
 
-   if (devinfo->ver >= 7) {
+   if (devinfo->ver >= 6) {
       dst_reg grf_offset = dst_reg(this, glsl_type::uint_type);
 
       grf_offset.type = offset_reg.type;

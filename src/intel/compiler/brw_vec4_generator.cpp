@@ -1353,8 +1353,11 @@ generate_pull_constant_load_gfx7(struct brw_codegen *p,
    const struct intel_device_info *devinfo = p->devinfo;
    assert(surf_index.type == BRW_REGISTER_TYPE_UD);
 
-   if (surf_index.file == BRW_IMMEDIATE_VALUE) {
+   if (devinfo->ver <= 6) {
+       gfx6_resolve_implied_move(p, &offset, inst->base_mrf);
+   }
 
+   if (surf_index.file == BRW_IMMEDIATE_VALUE) {
       brw_inst *insn = brw_next_insn(p, BRW_OPCODE_SEND);
       brw_inst_set_sfid(devinfo, insn, BRW_SFID_SAMPLER);
       brw_set_dest(p, insn, dst);
