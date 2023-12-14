@@ -950,9 +950,9 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
          ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->last_variant_hash;
          ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
       }
+      bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
+      bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
       if (entry) {
-         bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
-         bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
          prog = (struct zink_gfx_program*)entry->data;
          if (prog->is_separable) {
             /* if uber cannot be used we need to compile the variant synchrously,
@@ -977,6 +977,10 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
             perf_debug(ctx, "zink[gfx_compile]: new program created (probably legacy GL features in use)\n");
             prog->is_uber_program = true;
             precompile_job(prog, screen, 0);
+            if (needs_emulation && !can_use_uber) {
+               ctx->curr_program_uber = prog;
+               async_variant_program_update(ctx, can_use_uber, needs_emulation);
+            }
          }
       }
       simple_mtx_unlock(&ctx->program_lock[zink_program_cache_stages(ctx->shader_stages)]);
