@@ -719,7 +719,11 @@
 
 #define DRI_CONF_ANV_ASSUME_FULL_SUBGROUPS(def) \
    DRI_CONF_OPT_B(anv_assume_full_subgroups, def, \
-                  "Allow assuming full subgroups requirement even when it's not specified explicitly")
+                  "Allow assuming full subgroups requirement for shaders using subgroup operations even when it's not specified explicitly")
+
+#define DRI_CONF_ANV_ASSUME_FULL_SUBGROUPS_WITH_SHARED_MEMORY(def) \
+   DRI_CONF_OPT_B(anv_assume_full_subgroups_with_shared_memory, def, \
+                  "Allow assuming full subgroups requirement for shaders using shared memory even when it's not specified explicitly")
 
 #define DRI_CONF_ANV_SAMPLE_MASK_OUT_OPENGL_BEHAVIOUR(def) \
    DRI_CONF_OPT_B(anv_sample_mask_out_opengl_behaviour, def, \
