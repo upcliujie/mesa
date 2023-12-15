@@ -32,8 +32,14 @@
 #include "util/format_srgb.h"
 #include "util/half_float.h"
 #include "vulkan/util/vk_format.h"
+#include "vk_enum_defines.h"
 #include "vk_format.h"
 #include "vk_util.h"
+
+#ifdef ANDROID
+#include "vk_android.h"
+#endif
+#include <vulkan/vulkan_android.h>
 
 static void
 get_format_properties(struct panvk_physical_device *physical_device,
@@ -365,6 +371,7 @@ panvk_GetPhysicalDeviceImageFormatProperties2(
    const VkPhysicalDeviceExternalImageFormatInfo *external_info = NULL;
    const VkPhysicalDeviceImageViewImageFormatInfoEXT *image_view_info = NULL;
    VkExternalImageFormatProperties *external_props = NULL;
+   UNUSED VkAndroidHardwareBufferUsageANDROID *android_usage = NULL;
    VkFilterCubicImageViewImageFormatPropertiesEXT *cubic_props = NULL;
    VkFormatFeatureFlags format_feature_flags;
    VkSamplerYcbcrConversionImageFormatProperties *ycbcr_props = NULL;
@@ -396,6 +403,9 @@ panvk_GetPhysicalDeviceImageFormatProperties2(
       case VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES:
          external_props = (void *)s;
          break;
+      case VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_USAGE_ANDROID:
+         android_usage = (void *)s;
+         break;
       case VK_STRUCTURE_TYPE_FILTER_CUBIC_IMAGE_VIEW_IMAGE_FORMAT_PROPERTIES_EXT:
          cubic_props = (void *)s;
          break;
@@ -414,11 +424,33 @@ panvk_GetPhysicalDeviceImageFormatProperties2(
     *    present and VkExternalImageFormatProperties will be ignored.
     */
    if (external_info && external_info->handleType != 0) {
-      result = panvk_get_external_image_format_properties(
-         physical_device, base_info, external_info->handleType,
-         &external_props->externalMemoryProperties);
-      if (result != VK_SUCCESS)
-         goto fail;
+      if (external_info->handleType ==
+          VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) {
+         if (external_props) {
+            external_props->externalMemoryProperties
+               .exportFromImportedHandleTypes = 0;
+            external_props->externalMemoryProperties.compatibleHandleTypes =
+               VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+            external_props->externalMemoryProperties.externalMemoryFeatures =
+               VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT |
+               VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
+               VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+         }
+      } else {
+
+         result = panvk_get_external_image_format_properties(
+            physical_device, base_info, external_info->handleType,
+            &external_props->externalMemoryProperties);
+         if (result != VK_SUCCESS)
+            goto fail;
+      }
+   }
+
+   if (android_usage) {
+#ifdef ANDROID
+      android_usage->androidHardwareBufferUsage =
+         vk_image_usage_to_ahb_usage(base_info->flags, base_info->usage);
+#endif
    }
 
    if (cubic_props) {
@@ -483,5 +515,44 @@ panvk_GetPhysicalDeviceExternalBufferProperties(
    const VkPhysicalDeviceExternalBufferInfo *pExternalBufferInfo,
    VkExternalBufferProperties *pExternalBufferProperties)
 {
-   panvk_stub();
+   /* The Vulkan 1.0.42 spec says "handleType must be a valid
+    * VkExternalMemoryHandleTypeFlagBits value" in
+    * VkPhysicalDeviceExternalBufferInfo. This differs from
+    * VkPhysicalDeviceExternalImageFormatInfo, which surprisingly permits
+    * handleType == 0.
+    */
+   assert(pExternalBufferInfo->handleType != 0);
+
+   /* All of the current flags are for sparse which we don't support. */
+   if (pExternalBufferInfo->flags)
+      goto unsupported;
+
+   switch (pExternalBufferInfo->handleType) {
+   case VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT:
+   case VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:
+      /* clang-format off */
+      pExternalBufferProperties->externalMemoryProperties.externalMemoryFeatures =
+         VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
+         VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+      pExternalBufferProperties->externalMemoryProperties.exportFromImportedHandleTypes =
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT |
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+      pExternalBufferProperties->externalMemoryProperties.compatibleHandleTypes =
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT |
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+      /* clang-format on */
+      return;
+   default:
+      break;
+   }
+
+unsupported:
+   /* From the Vulkan 1.1.113 spec:
+    *
+    *    compatibleHandleTypes must include at least handleType.
+    */
+   pExternalBufferProperties->externalMemoryProperties =
+      (VkExternalMemoryProperties){
+         .compatibleHandleTypes = pExternalBufferInfo->handleType,
+      };
 }

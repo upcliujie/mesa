@@ -54,6 +54,7 @@
 #include "vk_command_pool.h"
 #include "vk_descriptor_set_layout.h"
 #include "vk_device.h"
+#include "vk_device_memory.h"
 #include "vk_image.h"
 #include "vk_instance.h"
 #include "vk_log.h"
@@ -87,6 +88,11 @@ typedef uint32_t xcb_window_t;
 #include <vulkan/vulkan.h>
 
 #include "panvk_entrypoints.h"
+
+#ifdef ANDROID
+struct panvk_android_image;
+struct u_gralloc;
+#endif
 
 #define MAX_BIND_POINTS             2 /* compute + graphics */
 #define MAX_VBS                     16
@@ -205,6 +211,10 @@ enum panvk_debug_flags {
 struct panvk_instance {
    struct vk_instance vk;
 
+#ifdef ANDROID
+   struct u_gralloc *u_gralloc;
+#endif
+
    uint32_t api_version;
 
    enum panvk_debug_flags debug_flags;
@@ -296,7 +306,7 @@ struct panvk_event_op {
 };
 
 struct panvk_device_memory {
-   struct vk_object_base base;
+   struct vk_device_memory vk;
    struct panfrost_bo *bo;
 };
 
@@ -897,6 +907,9 @@ struct panvk_pipeline {
 
 struct panvk_image {
    struct vk_image vk;
+#ifdef ANDROID
+   struct panvk_android_image *android_image;
+#endif
 
    struct pan_image pimage;
 };
@@ -1029,7 +1042,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_descriptor_set, base, VkDescriptorSet,
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_descriptor_set_layout, vk.base,
                                VkDescriptorSetLayout,
                                VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)
-VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_device_memory, base, VkDeviceMemory,
+VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_device_memory, vk.base, VkDeviceMemory,
                                VK_OBJECT_TYPE_DEVICE_MEMORY)
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_framebuffer, base, VkFramebuffer,
@@ -1110,6 +1123,32 @@ struct nir_shader;
 bool panvk_per_arch(nir_lower_descriptors)(
    struct nir_shader *nir, struct panvk_device *dev,
    const struct panvk_pipeline_layout *layout, bool *has_img_access_out);
+#endif
+
+#ifdef ANDROID
+VkResult panvk_android_image_create(VkDevice device_h,
+                                    const VkImageCreateInfo *pCreateInfo,
+                                    const VkAllocationCallbacks *pAllocator,
+                                    struct panvk_android_image **out_aimage);
+
+void panvk_android_image_destroy(VkDevice device_h,
+                                 const VkAllocationCallbacks *pAllocator,
+                                 struct panvk_android_image **aimage);
+
+VkResult panvk_import_anb(VkDevice device_h,
+                          const VkImageCreateInfo *pCreateInfo,
+                          const VkAllocationCallbacks *alloc, VkImage image_h);
+
+VkResult panvk_process_anb(struct panvk_android_image *aimage,
+                           uint64_t *out_modifier,
+                           const VkSubresourceLayout **out_layouts);
+
+bool panvk_is_image_anb(struct panvk_image *image);
+bool panvk_is_image_ahb(struct panvk_image *image);
+
+VkResult panvk_process_ahb(VkDevice device_h, struct panvk_image *image,
+                           struct vk_device_memory *mem, uint64_t *out_modifier,
+                           const VkSubresourceLayout **out_layouts);
 #endif
 
 #endif /* PANVK_PRIVATE_H */
