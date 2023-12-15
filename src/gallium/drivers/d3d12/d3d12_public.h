@@ -24,29 +24,21 @@
 #ifndef D3D12_PUBLIC_H
 #define D3D12_PUBLIC_H
 
+#include <stdint.h>
 struct pipe_screen;
 struct sw_winsys;
 typedef struct _LUID LUID;
-
-#ifdef _WIN32
-#include <unknwn.h>
-#endif
+typedef struct IUnknown IUnknown;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef _WIN32
 struct pipe_screen *
-d3d12_create_dxgi_screen(struct sw_winsys *winsys, LUID *adapter_luid);
+d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid);
 
 struct pipe_screen *
-d3d12_create_dxcore_screen_from_d3d12_device(struct sw_winsys *winsys, IUnknown* pDevUnknown, LUID **out_adapter_luid);
-
-#endif
-
-struct pipe_screen *
-d3d12_create_dxcore_screen(struct sw_winsys *winsys, LUID *adapter_luid);
+d3d12_create_screen_from_d3d12_device(struct sw_winsys *winsys, IUnknown* pDevUnknown, LUID **out_adapter_luid);
 
 #ifdef __cplusplus
 }

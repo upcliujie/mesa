@@ -111,24 +111,13 @@ endif
 
 endif # with_gallium_d3d12_video
 
-is_xbox = target_machine.system().startswith('Gaming.Xbox')
-if host_machine.system() == 'windows'
-  if is_xbox
-    files_libd3d12 += files('d3d12_dxgi_xbox_screen.cpp')
-  else
-    files_libd3d12 += files('d3d12_dxgi_screen.cpp')
-  endif
-endif
-if is_xbox == false
-  files_libd3d12 += files('d3d12_dxcore_screen.cpp')
-endif
 
 libd3d12 = static_library(
   'd3d12',
   [files_libd3d12, sha1_h],
   gnu_symbol_visibility : 'hidden',
   include_directories : [inc_include, inc_src, inc_mesa, inc_gallium, inc_gallium_aux],
-  dependencies: [idep_nir_headers, idep_libdxil_compiler, dep_dxheaders],
+  dependencies: [idep_nir_headers, idep_libdxil_compiler, dep_dxheaders, idep_libmicrosoft_common],
 )
 
 driver_d3d12 = declare_dependency(

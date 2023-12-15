@@ -2605,7 +2605,7 @@ d3d12_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    d3d12_context_state_table_init(ctx);
 
    ctx->D3D12SerializeVersionedRootSignature =
-      (PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE)util_dl_get_proc_address(screen->d3d12_mod, "D3D12SerializeVersionedRootSignature");
+      (PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE)util_dl_get_proc_address(screen->device_info.d3d12_mod, "D3D12SerializeVersionedRootSignature");
 #ifndef _GAMING_XBOX
    (void)screen->dev->QueryInterface(&ctx->dev_config);
 #endif

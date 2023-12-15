@@ -31,6 +31,7 @@
 
 #include "nir.h"
 #include "dxil_versions.h"
+#include "d3d_device.h"
 
 #include "d3d12_common.h"
 
@@ -53,25 +54,26 @@ enum resource_dimension
    RESOURCE_DIMENSION_COUNT
 };
 
-struct d3d12_memory_info {
-   uint64_t usage;
-   uint64_t budget;
-};
-
 struct d3d12_screen {
    struct pipe_screen base;
    struct sw_winsys *winsys;
-   LUID adapter_luid;
+   bool from_device;
+   IUnknown *from_device_unknow;
+   d3d_device_luid adapter_luid_choosed_value;
+   d3d_device_luid *adapter_luid_choosed;
+
    char driver_uuid[PIPE_UUID_SIZE];
    char device_uuid[PIPE_UUID_SIZE];
+   char name[1024];
 
-   util_dl_library *d3d12_mod;
+   d3d_device_info device_info;
+   d3d_device_item *device_item;
    ID3D12Device3 *dev;
    ID3D12Device10 *dev10;
    ID3D12CommandQueue *cmdqueue;
    bool (*init)(struct d3d12_screen *screen);
    void (*deinit)(struct d3d12_screen *screen);
-   void (*get_memory_info)(struct d3d12_screen *screen, struct d3d12_memory_info *output);
+   void (*get_memory_info)(struct d3d12_screen *screen, d3d_device_memory_info *output);
 
    mtx_t submit_mutex;
    ID3D12Fence *fence;
@@ -125,13 +127,6 @@ struct d3d12_screen {
 
    nir_shader_compiler_options nir_options;
 
-   /* description */
-   uint32_t vendor_id;
-   uint32_t device_id;
-   uint32_t subsys_id;
-   uint32_t revision;
-   uint64_t driver_version;
-   uint64_t memory_size_megabytes;
    float timestamp_multiplier;
    bool have_load_at_vertex;
    bool support_shader_images;
@@ -147,49 +142,5 @@ d3d12_screen(struct pipe_screen *pipe)
 {
    return (struct d3d12_screen *)pipe;
 }
-
-struct d3d12_dxgi_screen {
-   struct d3d12_screen base;
-
-#ifndef _GAMING_XBOX
-   struct IDXGIFactory4 *factory;
-   struct IDXGIAdapter3 *adapter;
-#else
-   struct IDXGIAdapter *adapter;
-#endif
-   wchar_t description[128];
-};
-
-static inline struct d3d12_dxgi_screen *
-d3d12_dxgi_screen(struct d3d12_screen *screen)
-{
-   return (struct d3d12_dxgi_screen *)screen;
-}
-
-struct d3d12_dxcore_screen {
-   struct d3d12_screen base;
-
-   struct IDXCoreAdapterFactory *factory;
-   struct IDXCoreAdapter *adapter;
-   char description[256];
-};
-
-static inline struct d3d12_dxcore_screen *
-d3d12_dxcore_screen(struct d3d12_screen *screen)
-{
-   return (struct d3d12_dxcore_screen *)screen;
-}
-
-bool
-d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys, LUID *adapter_luid);
-
-bool
-d3d12_init_screen(struct d3d12_screen *screen, IUnknown *adapter);
-
-void
-d3d12_deinit_screen(struct d3d12_screen *screen);
-
-void
-d3d12_destroy_screen(struct d3d12_screen *screen);
 
 #endif

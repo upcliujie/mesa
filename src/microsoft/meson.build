@@ -20,6 +20,7 @@
 # IN THE SOFTWARE.
 
 
+subdir('common')
 subdir('compiler')
 if with_microsoft_clc
   subdir('clc')
