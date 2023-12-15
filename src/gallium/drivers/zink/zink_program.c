@@ -951,7 +951,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
          ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
       }
       bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
-      bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
+      bool can_use_uber = zink_can_use_uber(ctx);
       if (entry) {
          prog = (struct zink_gfx_program*)entry->data;
          if (prog->is_separable) {
@@ -997,7 +997,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx)
       ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->last_variant_hash;
       ctx->gfx_pipeline_state.final_hash ^= CURR_KEY_PROGRAM(ctx)->st_key;
       bool needs_emulation = needs_st_emulation(ctx) || (zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT);
-      bool can_use_uber = zink_can_use_uber(&ctx->gfx_pipeline_state);
+      bool can_use_uber = zink_can_use_uber(ctx);
       if (ctx->curr_program->is_separable && !(zink_debug & ZINK_DEBUG_NOOPT)) {
          struct zink_gfx_program *prog = ctx->curr_program_uber;
          if (needs_emulation || ctx->curr_program_uber->is_separable) {
