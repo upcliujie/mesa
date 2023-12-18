@@ -72,8 +72,6 @@ d3d12_debug_options[] = {
    DEBUG_NAMED_VALUE_END
 };
 
-DEBUG_GET_ONCE_FLAGS_OPTION(d3d12_debug, "D3D12_DEBUG", d3d12_debug_options, 0)
-
 uint32_t
 d3d12_debug;
 
@@ -1296,7 +1294,7 @@ bool
 d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys, LUID *adapter_luid)
 {
    glsl_type_singleton_init_or_ref();
-   d3d12_debug = debug_get_option_d3d12_debug();
+   d3d12_debug = debug_get_flags_option("D3D12_DEBUG", d3d12_debug_options, 0);
 
    screen->winsys = winsys;
    if (adapter_luid)
