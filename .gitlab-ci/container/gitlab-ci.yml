@@ -440,8 +440,8 @@ windows_msvc:
   extends:
     - .windows_container_build
   variables:
-    MESA_IMAGE_PATH: &windows_vs_image_path ${WINDOWS_X64_VS_PATH}
-    MESA_IMAGE_TAG: &windows_vs_image_tag ${WINDOWS_X64_VS_TAG}
+    MESA_IMAGE_PATH: &windows_vs_image_path ${WINDOWS_X64_MSVC_PATH}
+    MESA_IMAGE_TAG: &windows_vs_image_tag ${WINDOWS_X64_MSVC_TAG}
     DOCKERFILE: Dockerfile_msvc
     MESA_BASE_IMAGE: "mcr.microsoft.com/windows/server:ltsc2022"
 
