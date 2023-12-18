@@ -1,6 +1,6 @@
 # Download new TLS certs from Windows Update
+Write-Host "Updating TLS certificate store at:"
 Get-Date
-Write-Host "Updating TLS certificate store"
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "_tlscerts" | Out-Null
 $certdir = (New-Item -ItemType Directory -Name "_tlscerts")
 certutil -syncwithWU "$certdir"
@@ -9,20 +9,42 @@ Foreach ($file in (Get-ChildItem -Path "$certdir\*" -Include "*.crt")) {
 }
 Remove-Item -Recurse -Path $certdir
 
-
+Write-Host "Installing graphics tools (DirectX debug layer) at:"
 Get-Date
-Write-Host "Installing Chocolatey"
+Set-Service -Name wuauserv -StartupType Manual
+if (!$?) {
+  Write-Host "Failed to enable Windows Update"
+  Exit 1
+}
+
+For ($i = 0; $i -lt 5; $i++) {
+  Dism /online /quiet /add-capability /capabilityname:Tools.Graphics.DirectX~~~~0.0.1.0
+  $graphics_tools_installed = $?
+  if ($graphics_tools_installed) {
+    Break
+  }
+}
+
+if (!$graphics_tools_installed) {
+  Write-Host "Failed to install graphics tools"
+  Get-Content C:\Windows\Logs\DISM\dism.log
+  Exit 1
+}
+
+Write-Host "Installing Chocolatey at:"
+Get-Date
 Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 Import-Module "$env:ProgramData\chocolatey\helpers\chocolateyProfile.psm1"
 Update-SessionEnvironment
-Write-Host "Installing Chocolatey packages"
+Write-Host "Installing Chocolatey packages at:"
+Get-Date
 
 # Chocolatey tries to download winflexbison from SourceForge, which is not super reliable, and has no retry
 # loop of its own - so we give it a helping hand here
 For ($i = 0; $i -lt 5; $i++) {
   choco install --no-progress -y python3 --params="/InstallDir:C:\python3"
   $python_install = $?
-  choco install --allow-empty-checksums --no-progress -y cmake git git-lfs ninja pkgconfiglite winflexbison --installargs "ADD_CMAKE_TO_PATH=System"
+  choco install --allow-empty-checksums --no-progress -y cmake git git-lfs ninja pkgconfiglite winflexbison3  --installargs "ADD_CMAKE_TO_PATH=System"
   $other_install = $?
   $choco_installed = $other_install -and $python_install
   if ($choco_installed) {
@@ -43,53 +65,42 @@ $env:PATH = "C:\python3;C:\python3\scripts;C:\Program Files\CMake\bin;$env:PATH"
 
 Start-Process -NoNewWindow -Wait git -ArgumentList 'config --global core.autocrlf false'
 
+Write-Host "Upgrading pip at:"
 Get-Date
-Write-Host "Installing Meson, Mako and numpy"
-pip3 install meson mako numpy --progress-bar off
+python -m pip install  --upgrade pip --progress-bar off
+Write-Host "Installing packaging, Meson, Mako and numpy for python at:"
+Get-Date
+pip3 install packaging meson mako numpy --progress-bar off
 if (!$?) {
   Write-Host "Failed to install dependencies from pip"
   Exit 1
 }
 
+$VULKAN_SDK_URL="https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe"
+Write-Host "Downloading Vulkan-SDK $VULKAN_SDK_URL at:"
 Get-Date
-Write-Host "Downloading Vulkan-SDK"
-Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe" -OutFile 'C:\vulkan_sdk.exe'
-C:\vulkan_sdk.exe --am --al -c in
+Invoke-WebRequest -Uri "$VULKAN_SDK_URL" -OutFile "${env:TMP}\vulkan_sdk.exe" | Out-Null
+Write-Host "Installing Vulkan-SDK at:"
+Get-Date
+Start-Process -NoNewWindow -Wait "${env:TMP}\vulkan_sdk.exe" -ArgumentList "--am --al -c in"
 if (!$?) {
     Write-Host "Failed to install Vulkan SDK"
     Exit 1
 }
-Remove-Item C:\vulkan_sdk.exe -Force
+Remove-Item "${env:TMP}\vulkan_sdk.exe" -Force
 
+$VULKAN_RUNTIME_URL="https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanRT-$env:VULKAN_SDK_VERSION-Installer.exe"
+Write-Host "Downloading Vulkan-Runtime $VULKAN_RUNTIME_URL at:"
 Get-Date
-Write-Host "Downloading Vulkan-Runtime"
-Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanRT-$env:VULKAN_SDK_VERSION-Installer.exe" -OutFile 'C:\vulkan-runtime.exe' | Out-Null
-Write-Host "Installing Vulkan-Runtime"
-Start-Process -NoNewWindow -Wait C:\vulkan-runtime.exe -ArgumentList '/S'
+Invoke-WebRequest -Uri "$VULKAN_RUNTIME_URL" -OutFile "${env:TMP}\vulkan-runtime.exe" | Out-Null
+Write-Host "Installing Vulkan-Runtime at:"
+Get-Date
+Start-Process -NoNewWindow -Wait "${env:TMP}\vulkan-runtime.exe" -ArgumentList '/S'
 if (!$?) {
   Write-Host "Failed to install Vulkan-Runtime"
   Exit 1
 }
-Remove-Item C:\vulkan-runtime.exe -Force
+Remove-Item "${env:TMP}\vulkan-runtime.exe" -Force
 
+Write-Host "Installing Vulkan-Runtime finished at:"
 Get-Date
-Write-Host "Installing graphics tools (DirectX debug layer)"
-Set-Service -Name wuauserv -StartupType Manual
-if (!$?) {
-  Write-Host "Failed to enable Windows Update"
-  Exit 1
-}
-
-For ($i = 0; $i -lt 5; $i++) {
-  Dism /online /quiet /add-capability /capabilityname:Tools.Graphics.DirectX~~~~0.0.1.0
-  $graphics_tools_installed = $?
-  if ($graphics_tools_installed) {
-    Break
-  }
-}
-
-if (!$graphics_tools_installed) {
-  Write-Host "Failed to install graphics tools"
-  Get-Content C:\Windows\Logs\DISM\dism.log
-  Exit 1
-}
