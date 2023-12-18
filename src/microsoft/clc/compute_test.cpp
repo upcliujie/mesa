@@ -32,52 +32,13 @@
 #include <wrl.h>
 #include <dxguids/dxguids.h>
 
+#include "d3d12_common.h"
 #include "util/u_debug.h"
 #include "clc_compiler.h"
 #include "compute_test.h"
 #include "dxil_validator.h"
 
 #include <spirv-tools/libspirv.hpp>
-
-#if (defined(_WIN32) && defined(_MSC_VER))
-inline D3D12_CPU_DESCRIPTOR_HANDLE
-GetCPUDescriptorHandleForHeapStart(ID3D12DescriptorHeap *heap)
-{
-   return heap->GetCPUDescriptorHandleForHeapStart();
-}
-inline D3D12_GPU_DESCRIPTOR_HANDLE
-GetGPUDescriptorHandleForHeapStart(ID3D12DescriptorHeap *heap)
-{
-   return heap->GetGPUDescriptorHandleForHeapStart();
-}
-inline D3D12_HEAP_PROPERTIES
-GetCustomHeapProperties(ID3D12Device *dev, D3D12_HEAP_TYPE type)
-{
-   return dev->GetCustomHeapProperties(0, type);
-}
-#else
-inline D3D12_CPU_DESCRIPTOR_HANDLE
-GetCPUDescriptorHandleForHeapStart(ID3D12DescriptorHeap *heap)
-{
-   D3D12_CPU_DESCRIPTOR_HANDLE ret;
-   heap->GetCPUDescriptorHandleForHeapStart(&ret);
-   return ret;
-}
-inline D3D12_GPU_DESCRIPTOR_HANDLE
-GetGPUDescriptorHandleForHeapStart(ID3D12DescriptorHeap *heap)
-{
-   D3D12_GPU_DESCRIPTOR_HANDLE ret;
-   heap->GetGPUDescriptorHandleForHeapStart(&ret);
-   return ret;
-}
-inline D3D12_HEAP_PROPERTIES
-GetCustomHeapProperties(ID3D12Device *dev, D3D12_HEAP_TYPE type)
-{
-   D3D12_HEAP_PROPERTIES ret;
-   dev->GetCustomHeapProperties(&ret, 0, type);
-   return ret;
-}
-#endif
 
 using std::runtime_error;
 using Microsoft::WRL::ComPtr;
@@ -91,7 +52,6 @@ enum compute_test_debug_flags {
 
 static const struct debug_named_value compute_debug_options[] = {
    { "experimental_shaders",  COMPUTE_DEBUG_EXPERIMENTAL_SHADERS, "Enable experimental shaders" },
-   { "use_hw_d3d",            COMPUTE_DEBUG_USE_HW_D3D,           "Use a hardware D3D device"   },
    { "optimize_libclc",       COMPUTE_DEBUG_OPTIMIZE_LIBCLC,      "Optimize the clc_libclc before using it" },
    { "serialize_libclc",      COMPUTE_DEBUG_SERIALIZE_LIBCLC,     "Serialize and deserialize the clc_libclc" },
    DEBUG_NAMED_VALUE_END
@@ -115,110 +75,33 @@ static const struct clc_logger logger = {
    warning_callback,
 };
 
-void
-ComputeTest::enable_d3d12_debug_layer()
-{
-   HMODULE hD3D12Mod = LoadLibrary("D3D12.DLL");
-   if (!hD3D12Mod) {
-      fprintf(stderr, "D3D12: failed to load D3D12.DLL\n");
-      return;
-   }
-
-   typedef HRESULT(WINAPI * PFN_D3D12_GET_DEBUG_INTERFACE)(REFIID riid,
-                                                           void **ppFactory);
-   PFN_D3D12_GET_DEBUG_INTERFACE D3D12GetDebugInterface = (PFN_D3D12_GET_DEBUG_INTERFACE)GetProcAddress(hD3D12Mod, "D3D12GetDebugInterface");
-   if (!D3D12GetDebugInterface) {
-      fprintf(stderr, "D3D12: failed to load D3D12GetDebugInterface from D3D12.DLL\n");
-      return;
-   }
-
-   ID3D12Debug *debug;
-   if (FAILED(D3D12GetDebugInterface(__uuidof(ID3D12Debug), (void **)& debug))) {
-      fprintf(stderr, "D3D12: D3D12GetDebugInterface failed\n");
-      return;
-   }
-
-   debug->EnableDebugLayer();
-}
-
-IDXGIFactory4 *
-ComputeTest::get_dxgi_factory()
-{
-   static const GUID IID_IDXGIFactory4 = {
-      0x1bc6ea02, 0xef36, 0x464f,
-      { 0xbf, 0x0c, 0x21, 0xca, 0x39, 0xe5, 0x16, 0x8a }
-   };
-
-   typedef HRESULT(WINAPI * PFN_CREATE_DXGI_FACTORY)(REFIID riid,
-                                                     void **ppFactory);
-   PFN_CREATE_DXGI_FACTORY CreateDXGIFactory;
-
-   HMODULE hDXGIMod = LoadLibrary("DXGI.DLL");
-   if (!hDXGIMod)
-      throw runtime_error("Failed to load DXGI.DLL");
-
-   CreateDXGIFactory = (PFN_CREATE_DXGI_FACTORY)GetProcAddress(hDXGIMod, "CreateDXGIFactory");
-   if (!CreateDXGIFactory)
-      throw runtime_error("Failed to load CreateDXGIFactory from DXGI.DLL");
-
-   IDXGIFactory4 *factory = NULL;
-   HRESULT hr = CreateDXGIFactory(IID_IDXGIFactory4, (void **)&factory);
-   if (FAILED(hr))
-      throw runtime_error("CreateDXGIFactory failed");
-
-   return factory;
-}
-
-IDXGIAdapter1 *
-ComputeTest::choose_adapter(IDXGIFactory4 *factory)
-{
-   IDXGIAdapter1 *ret;
-
-   if (debug_get_option_debug_compute() & COMPUTE_DEBUG_USE_HW_D3D) {
-      for (unsigned i = 0; SUCCEEDED(factory->EnumAdapters1(i, &ret)); i++) {
-         DXGI_ADAPTER_DESC1 desc;
-         ret->GetDesc1(&desc);
-         if (!(desc.Flags & D3D_DRIVER_TYPE_SOFTWARE))
-            return ret;
-      }
-      throw runtime_error("Failed to enum hardware adapter");
-   } else {
-      if (FAILED(factory->EnumWarpAdapter(__uuidof(IDXGIAdapter1),
-         (void **)& ret)))
-         throw runtime_error("Failed to enum warp adapter");
-      return ret;
-   }
-}
-
 ID3D12Device *
-ComputeTest::create_device(IDXGIAdapter1 *adapter)
+ComputeTest::create_device(d3d_device_info &info)
 {
-   typedef HRESULT(WINAPI *PFN_D3D12CREATEDEVICE)(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **);
-   PFN_D3D12CREATEDEVICE D3D12CreateDevice;
-
-   HMODULE hD3D12Mod = LoadLibrary("D3D12.DLL");
-   if (!hD3D12Mod)
-      throw runtime_error("failed to load D3D12.DLL");
-
-   if (debug_get_option_debug_compute() & COMPUTE_DEBUG_EXPERIMENTAL_SHADERS) {
-      typedef HRESULT(WINAPI *PFN_D3D12ENABLEEXPERIMENTALFEATURES)(UINT, const IID *, void *, UINT *);
-      PFN_D3D12ENABLEEXPERIMENTALFEATURES D3D12EnableExperimentalFeatures;
-      D3D12EnableExperimentalFeatures = (PFN_D3D12ENABLEEXPERIMENTALFEATURES)
-         GetProcAddress(hD3D12Mod, "D3D12EnableExperimentalFeatures");
-      if (FAILED(D3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModels, NULL, NULL)))
-         throw runtime_error("failed to enable experimental shader models");
+   d3d_device_info_optoins options = {};
+   options.load_list = true;
+   options.dxgi_factory_debug = true;
+   options.debug_debug_layer = true;
+   options.debug_gpu_validator = false;
+   options.agility_sdk_path_cached = os_get_option_cached("D3D12_AGILITY_RELATIVE_PATH");
+   options.agility_sdk_version = debug_get_num_option("D3D12_AGILITY_SDK_VERSION", 0);
+   if (!d3d_device_info_load(&info, &options))
+      throw runtime_error("d3d_device_info_load failed");
+   d3d_device_choose_options choose_options = {};
+   choose_options.adapter_luid_env_key = "MESA_D3D12_DEFAULT_ADAPTER_LUID_HEX";
+   choose_options.adapter_name_env_key = "MESA_D3D12_DEFAULT_ADAPTER_NAME";
+   choose_options.adapter_type_env_key = "MESA_D3D12_DEFAULT_ADAPTER_TYPE";
+   d3d_device_item *adapter_item = d3d_device_list_choose(&info.list, &choose_options);
+   if (!adapter_item) {
+      d3d_device_info_unload(&info);
+      throw runtime_error("Failed to enum graphics adapter");
    }
 
-   D3D12CreateDevice = (PFN_D3D12CREATEDEVICE)GetProcAddress(hD3D12Mod, "D3D12CreateDevice");
-   if (!D3D12CreateDevice)
-      throw runtime_error("failed to load D3D12CreateDevice from D3D12.DLL");
-
-   ID3D12Device *dev;
-   if (FAILED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0,
-       __uuidof(ID3D12Device), (void **)& dev)))
-      throw runtime_error("D3D12CreateDevice failed");
-
-   return dev;
+   d3d_device_create_options create_options = {};
+   create_options.d3d_feature_level = D3D_FEATURE_LEVEL_12_0;
+   create_options.debug_experimental = debug_get_option_debug_compute() & COMPUTE_DEBUG_EXPERIMENTAL_SHADERS;
+   create_options.debug_singleton = false;
+   return d3d_device_info_create_d3d12(&info, &create_options, adapter_item->adapter);
 }
 
 ComPtr<ID3D12RootSignature>
@@ -692,17 +575,7 @@ ComputeTest::SetUp()
    }
    compiler_ctx = compiler_ctx_g;
 
-   enable_d3d12_debug_layer();
-
-   factory = get_dxgi_factory();
-   if (!factory)
-      throw runtime_error("failed to create DXGI factory");
-
-   adapter = choose_adapter(factory);
-   if (!adapter)
-      throw runtime_error("failed to choose adapter");
-
-   dev = create_device(adapter);
+   dev = create_device(device_info);
    if (!dev)
       throw runtime_error("failed to create device");
 
@@ -757,8 +630,7 @@ ComputeTest::TearDown()
    cmdqueue->Release();
    cmdqueue_fence->Release();
    dev->Release();
-   adapter->Release();
-   factory->Release();
+   d3d_device_info_unload(&device_info);
 }
 
 PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE ComputeTest::D3D12SerializeVersionedRootSignature;
