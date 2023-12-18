@@ -4230,7 +4230,7 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
    switch (zs->info.stage) {
    case MESA_SHADER_VERTEX:
       NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
-      NIR_PASS_V(nir, lower_flatshade_out_variables);
+      //NIR_PASS_V(nir, lower_flatshade_out_variables);
       need_optimize = true;
       break;
    case MESA_SHADER_TESS_EVAL:
@@ -4239,7 +4239,7 @@ zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
    case MESA_SHADER_FRAGMENT:
       NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
       NIR_PASS_V(nir, nir_lower_tex, NULL);
-      NIR_PASS_V(nir, lower_flatshade_enable);
+      //NIR_PASS_V(nir, lower_flatshade_enable);
       NIR_PASS_V(nir, nir_lower_alpha_test, NULL,
                  false, NULL);
       NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
