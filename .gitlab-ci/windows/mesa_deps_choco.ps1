@@ -68,39 +68,12 @@ Start-Process -NoNewWindow -Wait git -ArgumentList 'config --global core.autocrl
 Write-Host "Upgrading pip at:"
 Get-Date
 python -m pip install  --upgrade pip --progress-bar off
-Write-Host "Installing packaging, Meson, Mako and numpy for python at:"
+Write-Host "Installing python packages at:"
 Get-Date
 pip3 install packaging meson mako numpy --progress-bar off
 if (!$?) {
   Write-Host "Failed to install dependencies from pip"
   Exit 1
 }
-
-$VULKAN_SDK_URL="https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe"
-Write-Host "Downloading Vulkan-SDK $VULKAN_SDK_URL at:"
-Get-Date
-Invoke-WebRequest -Uri "$VULKAN_SDK_URL" -OutFile "${env:TMP}\vulkan_sdk.exe" | Out-Null
-Write-Host "Installing Vulkan-SDK at:"
-Get-Date
-Start-Process -NoNewWindow -Wait "${env:TMP}\vulkan_sdk.exe" -ArgumentList "--am --al -c in"
-if (!$?) {
-    Write-Host "Failed to install Vulkan SDK"
-    Exit 1
-}
-Remove-Item "${env:TMP}\vulkan_sdk.exe" -Force
-
-$VULKAN_RUNTIME_URL="https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanRT-$env:VULKAN_SDK_VERSION-Installer.exe"
-Write-Host "Downloading Vulkan-Runtime $VULKAN_RUNTIME_URL at:"
-Get-Date
-Invoke-WebRequest -Uri "$VULKAN_RUNTIME_URL" -OutFile "${env:TMP}\vulkan-runtime.exe" | Out-Null
-Write-Host "Installing Vulkan-Runtime at:"
-Get-Date
-Start-Process -NoNewWindow -Wait "${env:TMP}\vulkan-runtime.exe" -ArgumentList '/S'
-if (!$?) {
-  Write-Host "Failed to install Vulkan-Runtime"
-  Exit 1
-}
-Remove-Item "${env:TMP}\vulkan-runtime.exe" -Force
-
-Write-Host "Installing Vulkan-Runtime finished at:"
+Write-Host "Installing python packages finished at:"
 Get-Date
