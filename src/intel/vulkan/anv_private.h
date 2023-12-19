@@ -1263,6 +1263,8 @@ struct anv_instance {
     unsigned                                    force_vk_vendor;
     bool                                        has_fake_sparse;
     bool                                        disable_fcv;
+    /** Image tile count up to which we disable CCS */
+    unsigned                                    ccs_tile_threshold;
 
     /* HW workarounds */
     bool                                        no_16bit;

@@ -89,6 +89,7 @@ static const driOptionDescription anv_dri_options[] = {
       DRI_CONF_ANV_QUERY_CLEAR_WITH_BLORP_THRESHOLD(6)
       DRI_CONF_ANV_QUERY_COPY_WITH_SHADER_THRESHOLD(6)
       DRI_CONF_ANV_FORCE_INDIRECT_DESCRIPTORS(false)
+      DRI_CONF_ANV_CCS_TILE_THRESHOLD(3)
       DRI_CONF_SHADER_SPILLING_RATE(0)
       DRI_CONF_OPT_B(intel_tbimr, true, "Enable TBIMR tiled rendering")
    DRI_CONF_SECTION_END
@@ -2627,6 +2628,8 @@ anv_init_dri_options(struct anv_instance *instance)
             driQueryOptionb(&instance->dri_options, "anv_disable_fcv");
     instance->external_memory_implicit_sync =
             driQueryOptionb(&instance->dri_options, "anv_external_memory_implicit_sync");
+    instance->ccs_tile_threshold =
+       driQueryOptioni(&instance->dri_options, "anv_ccs_tile_threshold");
 }
 
 VkResult anv_CreateInstance(
