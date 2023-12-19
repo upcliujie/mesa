@@ -702,6 +702,14 @@ ComputeTest::SetUp()
    if (!adapter)
       throw runtime_error("failed to choose adapter");
 
+   static bool device_name_printed = false;
+   if (!device_name_printed) {
+      device_name_printed = true;
+      DXGI_ADAPTER_DESC1 desc;
+      adapter->GetDesc1(&desc);
+      wprintf(L"The compute test used device is: %s\n", desc.Description);
+   }
+
    dev = create_device(adapter);
    if (!dev)
       throw runtime_error("failed to create device");
