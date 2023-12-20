@@ -1139,7 +1139,7 @@ fs_visitor::fs_visitor(const struct brw_compiler *compiler,
      key(key), gs_compile(NULL), prog_data(prog_data),
      live_analysis(this), regpressure_analysis(this),
      performance_analysis(this),
-     needs_register_pressure(needs_register_pressure),
+     needs_register_pressure(needs_register_pressure || debug_enabled),
      dispatch_width(dispatch_width),
      api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width))
 {
@@ -1163,7 +1163,7 @@ fs_visitor::fs_visitor(const struct brw_compiler *compiler,
      prog_data(&prog_data->base.base),
      live_analysis(this), regpressure_analysis(this),
      performance_analysis(this),
-     needs_register_pressure(needs_register_pressure),
+     needs_register_pressure(needs_register_pressure || debug_enabled),
      dispatch_width(8),
      api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width))
 {

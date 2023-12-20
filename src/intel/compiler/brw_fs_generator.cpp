@@ -2393,6 +2393,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
               "%d:%d spills:fills, %u sends, "
               "scheduled with mode %s. "
               "Promoted %u constants. "
+              "Max live registers %u. "
               "Compacted %d to %d bytes (%.0f%%)\n",
               shader_name, params->source_hash, sha1buf,
               dispatch_width, before_size / 16,
@@ -2402,6 +2403,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
               send_count,
               shader_stats.scheduler_mode,
               shader_stats.promoted_constants,
+              shader_stats.max_register_pressure,
               before_size, after_size,
               100.0f * (before_size - after_size) / before_size);
 
@@ -2427,6 +2429,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
                         "%d:%d spills:fills, %u sends, "
                         "scheduled with mode %s, "
                         "Promoted %u constants, "
+                        "Max live registers %u, "
                         "compacted %d to %d bytes.\n",
                         _mesa_shader_stage_to_abbrev(stage),
                         dispatch_width, before_size / 16 - nop_count,
@@ -2436,6 +2439,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
                         send_count,
                         shader_stats.scheduler_mode,
                         shader_stats.promoted_constants,
+                        shader_stats.max_register_pressure,
                         before_size, after_size);
    if (stats) {
       stats->dispatch_width = dispatch_width;
