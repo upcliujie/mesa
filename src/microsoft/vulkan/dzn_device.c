@@ -53,9 +53,7 @@
 #include <c99_alloca.h>
 
 #ifdef _WIN32
-#include <windows.h>
 #include <shlobj.h>
-#include "dzn_dxgi.h"
 #endif
 
 #include <directx/d3d12sdklayers.h>
@@ -226,100 +224,13 @@ dzn_instance_destroy(struct dzn_instance *instance, const VkAllocationCallbacks 
 
    vk_instance_finish(&instance->vk);
 
+   d3d_device_info_unload(&instance->device_info);
+
 #ifdef _WIN32
    dxil_destroy_validator(instance->dxil_validator);
 #endif
 
-   if (instance->factory)
-      ID3D12DeviceFactory_Release(instance->factory);
-
-   if (instance->d3d12_mod)
-      util_dl_close(instance->d3d12_mod);
-
    vk_free2(vk_default_allocator(), alloc, instance);
-}
-
-#ifdef _WIN32
-extern IMAGE_DOS_HEADER __ImageBase;
-static const char *
-try_find_d3d12core_next_to_self(char *path, size_t path_arr_size)
-{
-   uint32_t path_size = GetModuleFileNameA((HINSTANCE)&__ImageBase,
-                                           path, path_arr_size);
-   if (!path_arr_size || path_size == path_arr_size) {
-      mesa_loge("Unable to get path to self\n");
-      return NULL;
-   }
-
-   char *last_slash = strrchr(path, '\\');
-   if (!last_slash) {
-      mesa_loge("Unable to get path to self\n");
-      return NULL;
-   }
-
-   *(last_slash + 1) = '\0';
-   if (strcat_s(path, path_arr_size, "D3D12Core.dll") != 0) {
-      mesa_loge("Unable to get path to D3D12Core.dll next to self\n");
-      return NULL;
-   }
-
-   if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) {
-      return NULL;
-   }
-
-   return path;
-}
-#endif
-
-static ID3D12DeviceFactory *
-try_create_device_factory(struct util_dl_library *d3d12_mod)
-{
-   /* A device factory allows us to isolate things like debug layer enablement from other callers,
-   * and can potentially even refer to a different D3D12 redist implementation from others.
-   */
-   ID3D12DeviceFactory *factory = NULL;
-
-   PFN_D3D12_GET_INTERFACE D3D12GetInterface = (PFN_D3D12_GET_INTERFACE)util_dl_get_proc_address(d3d12_mod, "D3D12GetInterface");
-   if (!D3D12GetInterface) {
-      mesa_loge("Failed to retrieve D3D12GetInterface\n");
-      return NULL;
-   }
-
-#ifdef _WIN32
-   /* First, try to create a device factory from a DLL-parallel D3D12Core.dll */
-   ID3D12SDKConfiguration *sdk_config = NULL;
-   if (SUCCEEDED(D3D12GetInterface(&CLSID_D3D12SDKConfiguration, &IID_ID3D12SDKConfiguration, (void **)&sdk_config))) {
-      ID3D12SDKConfiguration1 *sdk_config1 = NULL;
-      if (SUCCEEDED(IUnknown_QueryInterface(sdk_config, &IID_ID3D12SDKConfiguration1, (void **)&sdk_config1))) {
-         char self_path[MAX_PATH];
-         const char *d3d12core_path = try_find_d3d12core_next_to_self(self_path, sizeof(self_path));
-         if (d3d12core_path) {
-            if (SUCCEEDED(ID3D12SDKConfiguration1_CreateDeviceFactory(sdk_config1, D3D12_PREVIEW_SDK_VERSION, d3d12core_path, &IID_ID3D12DeviceFactory, (void **)&factory)) ||
-                SUCCEEDED(ID3D12SDKConfiguration1_CreateDeviceFactory(sdk_config1, D3D12_SDK_VERSION, d3d12core_path, &IID_ID3D12DeviceFactory, (void **)&factory))) {
-               ID3D12SDKConfiguration_Release(sdk_config);
-               ID3D12SDKConfiguration1_Release(sdk_config1);
-               return factory;
-            }
-         }
-
-         /* Nope, seems we don't have a matching D3D12Core.dll next to ourselves */
-         ID3D12SDKConfiguration1_Release(sdk_config1);
-      }
-
-      /* It's possible there's a D3D12Core.dll next to the .exe, for development/testing purposes. If so, we'll be notified
-      * by environment variables what the relative path is and the version to use.
-      */
-      const char *d3d12core_relative_path = getenv("DZN_AGILITY_RELATIVE_PATH");
-      const char *d3d12core_sdk_version = getenv("DZN_AGILITY_SDK_VERSION");
-      if (d3d12core_relative_path && d3d12core_sdk_version) {
-         ID3D12SDKConfiguration_SetSDKVersion(sdk_config, atoi(d3d12core_sdk_version), d3d12core_relative_path);
-      }
-      ID3D12SDKConfiguration_Release(sdk_config);
-   }
-#endif
-
-   (void)D3D12GetInterface(&CLSID_D3D12DeviceFactory, &IID_ID3D12DeviceFactory, (void **)&factory);
-   return factory;
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -797,7 +708,7 @@ dzn_physical_device_get_properties(const struct dzn_physical_device *pdev,
    const VkSampleCountFlags supported_sample_counts = VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT;
 
    VkPhysicalDeviceType devtype = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
-   if (pdev->desc.is_warp)
+   if (pdev->desc.type == d3d_device_software)
       devtype = VK_PHYSICAL_DEVICE_TYPE_CPU;
    else if (!pdev->architecture.UMA) {
       devtype = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
@@ -1070,7 +981,7 @@ dzn_physical_device_get_properties(const struct dzn_physical_device *pdev,
 static VkResult
 dzn_physical_device_create(struct vk_instance *instance,
                            IUnknown *adapter,
-                           const struct dzn_physical_device_desc *desc)
+                           const d3d_device_desc *desc)
 {
    struct dzn_physical_device *pdev =
       vk_zalloc(&instance->alloc, sizeof(*pdev), 8,
@@ -1115,10 +1026,17 @@ dzn_physical_device_create(struct vk_instance *instance,
 
    pdev->vk.pipeline_cache_import_ops = dzn_pipeline_cache_import_ops;
 
-   pdev->dev = d3d12_create_device(dzn_instance->d3d12_mod,
-                                   pdev->adapter,
-                                   dzn_instance->factory,
-                                   !dzn_instance->dxil_validator);
+   d3d_device_create_options create_options;
+   memset(&create_options, 0, sizeof(create_options));
+   create_options.d3d_feature_level = D3D_FEATURE_LEVEL_11_0;
+   create_options.debug_experimental = !dzn_instance->dxil_validator;
+   create_options.debug_singleton = false;
+   ID3D12Device3 *dev = d3d_device_info_create_d3d12(&dzn_instance->device_info, &create_options, adapter);
+   if (FAILED(ID3D12Device1_QueryInterface(dev, &IID_ID3D12Device4, (void **)&pdev->dev))) {
+      ID3D12Device3_Release(dev);
+      pdev->dev = NULL;
+   }
+
    if (!pdev->dev) {
       list_del(&pdev->vk.link);
       dzn_physical_device_destroy(&pdev->vk);
@@ -1712,11 +1630,11 @@ dzn_GetPhysicalDeviceExternalBufferProperties(VkPhysicalDevice physicalDevice,
 VkResult
 dzn_instance_add_physical_device(struct vk_instance *instance,
                                  IUnknown *adapter,
-                                 const struct dzn_physical_device_desc *desc)
+                                 const d3d_device_desc *desc)
 {
    struct dzn_instance *dzn_instance = container_of(instance, struct dzn_instance, vk);
    if ((dzn_instance->debug_flags & DZN_DEBUG_WARP) &&
-       !desc->is_warp)
+       (desc->type != d3d_device_software))
       return VK_SUCCESS;
 
    return dzn_physical_device_create(instance, adapter, desc);
@@ -1725,12 +1643,14 @@ dzn_instance_add_physical_device(struct vk_instance *instance,
 static VkResult
 dzn_enumerate_physical_devices(struct vk_instance *instance)
 {
-   VkResult result = dzn_enumerate_physical_devices_dxcore(instance);
-#ifdef _WIN32
-   if (result != VK_SUCCESS)
-      result = dzn_enumerate_physical_devices_dxgi(instance);
-#endif
-
+   struct dzn_instance *dzn_instance = container_of(instance, struct dzn_instance, vk);
+   VkResult result = VK_SUCCESS;
+   list_for_each_entry(d3d_device_item, pos, &dzn_instance->device_info.list, link) {
+      result = dzn_instance_add_physical_device(instance, pos->adapter, &pos->desc);
+      if (result != VK_SUCCESS) {
+         break;
+      }
+   }
    return result;
 }
 
@@ -1815,24 +1735,25 @@ dzn_instance_create(const VkInstanceCreateInfo *pCreateInfo,
       return vk_error(NULL, VK_ERROR_INITIALIZATION_FAILED);
    }
 
-   instance->d3d12_mod = util_dl_open(UTIL_DL_PREFIX "d3d12" UTIL_DL_EXT);
-   if (!instance->d3d12_mod) {
+   d3d_device_info_optoins options;
+   memset(&options, 0, sizeof(options));
+   options.load_list = true;
+   options.dxgi_factory_debug = false;
+   options.debug_debug_layer = !!(instance->debug_flags & DZN_DEBUG_D3D12);
+   options.debug_gpu_validator = !!(instance->debug_flags & DZN_DEBUG_GBV);
+   options.agility_sdk_path_cached = os_get_option_cached("DZN_AGILITY_RELATIVE_PATH");
+   options.agility_sdk_version = debug_get_num_option("DZN_AGILITY_SDK_VERSION", 0);
+   if (!d3d_device_info_load(&instance->device_info, &options)) {
       dzn_instance_destroy(instance, pAllocator);
       return vk_error(NULL, VK_ERROR_INITIALIZATION_FAILED);
    }
 
-   instance->d3d12.serialize_root_sig = d3d12_get_serialize_root_sig(instance->d3d12_mod);
+   instance->d3d12.serialize_root_sig = d3d12_get_serialize_root_sig(instance->device_info.d3d12_mod);
    if (!instance->d3d12.serialize_root_sig) {
+      d3d_device_info_unload(&instance->device_info);
       dzn_instance_destroy(instance, pAllocator);
       return vk_error(NULL, VK_ERROR_INITIALIZATION_FAILED);
    }
-
-   instance->factory = try_create_device_factory(instance->d3d12_mod);
-
-   if (instance->debug_flags & DZN_DEBUG_D3D12)
-      d3d12_enable_debug_layer(instance->d3d12_mod, instance->factory);
-   if (instance->debug_flags & DZN_DEBUG_GBV)
-      d3d12_enable_gpu_validation(instance->d3d12_mod, instance->factory);
 
    instance->sync_binary_type = vk_sync_binary_get_type(&dzn_sync_type);
    dzn_init_dri_config(instance);

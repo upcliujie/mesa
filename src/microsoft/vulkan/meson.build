@@ -35,7 +35,6 @@ libdzn_files = files(
   'dzn_cmd_buffer.c',
   'dzn_descriptor_set.c',
   'dzn_device.c',
-  'dzn_dxcore.cpp',
   'dzn_image.c',
   'dzn_meta.c',
   'dzn_nir.c',
@@ -47,6 +46,7 @@ libdzn_files = files(
 )
 
 dzn_deps = [
+  idep_libmicrosoft_common,
   idep_libdxil_compiler,
   idep_libspirv_to_dxil,
   idep_nir,
@@ -62,7 +62,6 @@ dzn_cpp_flags = [ ]
 
 if with_platform_windows
   dzn_flags += '-DVK_USE_PLATFORM_WIN32_KHR'
-  libdzn_files += files('dzn_dxgi.c')
 endif
 
 if cc.get_argument_syntax() != 'msvc'
