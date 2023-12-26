@@ -1048,6 +1048,7 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
                                 struct iris_resource *res)
 {
    struct iris_screen *screen = (struct iris_screen *)pscreen;
+   uint32_t alignment = screen->devinfo->verx10 >= 125 ? 64 : 4096;
 
    /* Create an array of resources. Combining main and aux planes is easier
     * with indexing as opposed to scanning the linked list.
@@ -1072,14 +1073,15 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
       /* Add on a clear color BO.
        *
        * Also add some padding to make sure the fast clear color state buffer
-       * starts at a 4K alignment to avoid some unknown issues.  See the
-       * matching comment in iris_resource_create_with_modifiers().
+       * starts at a 64B alignment on Gfx12.5+ and 4K alignment on older
+       * platforms to avoid some unknown issues. See the matching comment in
+       * iris_resource_create_with_modifiers().
        */
       if (iris_get_aux_clear_color_state_size(screen, res) > 0) {
          res->aux.clear_color_bo =
             iris_bo_alloc(screen->bufmgr, "clear color_buffer",
                           iris_get_aux_clear_color_state_size(screen, res),
-                          4096, IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
+                          alignment, IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
       }
       break;
    case I915_FORMAT_MOD_4_TILED_DG2_RC_CCS:
@@ -1088,7 +1090,7 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
       res->aux.clear_color_bo =
          iris_bo_alloc(screen->bufmgr, "clear color_buffer",
                        iris_get_aux_clear_color_state_size(screen, res),
-                       4096, IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
+                       alignment, IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
       break;
    case I915_FORMAT_MOD_4_TILED_MTL_RC_CCS_CC:
    case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS_CC:
@@ -1275,11 +1277,12 @@ iris_resource_create_for_image(struct pipe_screen *pscreen,
    /* Allocate space for the indirect clear color.
     *
     * Also add some padding to make sure the fast clear color state buffer
-    * starts at a 4K alignment. We believe that 256B might be enough, but due
-    * to lack of testing we will leave this as 4K for now.
+    * starts at a 64B alignment on Gfx12.5+ and 4K alignment on previous
+    * platforms.
     */
    if (iris_get_aux_clear_color_state_size(screen, res) > 0) {
-      res->aux.clear_color_offset = ALIGN(bo_size, 4096);
+      uint32_t alignment = devinfo->verx10 >= 125 ? 64 : 4096;
+      res->aux.clear_color_offset = ALIGN(bo_size, alignment);
       bo_size = res->aux.clear_color_offset +
                 iris_get_aux_clear_color_state_size(screen, res);
    }
