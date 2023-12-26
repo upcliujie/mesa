@@ -1,0 +1,19 @@
+.ondracka-rv530-test:
+  extends:
+    - .r300-manual-rules
+    - .b2c-test-gl
+  tags:
+    - radeon:codename:RV530
+  variables:
+    RADEON_DEBUG: nohyperz
+    B2C_KERNEL_URL: http://pavel.ondracka.cz/linux-x86_64
+
+ondracka-rv530:
+  extends:
+    - .ondracka-rv530-test
+    - .deqp-test
+  rules:
+    - when: always
+  variables:
+    DEQP_VER: gles2
+    DEQP_EXPECTED_RENDERER: RV530

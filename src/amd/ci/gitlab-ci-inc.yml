@@ -114,6 +114,27 @@
         *radeonsi_file_list
       when: manual
 
+.r300-rules:
+  stage: amd
+  rules:
+    - !reference [.test, rules]
+    - !reference [.gl-rules, rules]
+#    - !reference [.ondracka-farm-rules, rules]
+    - changes: &r300_file_list
+        - src/gallium/drivers/r300/**/*
+        - src/gallium/winsys/radeon/**/*
+      when: on_success
+
+.r300-manual-rules:
+  stage: amd
+  retry: !reference [.scheduled_pipeline-rules, retry]
+  rules:
+    - !reference [.test, rules]
+    - !reference [.gl-manual-rules, rules]
+#    - !reference [.ondracka-farm-manual-rules, rules]
+    - changes:
+        *r300_file_list
+      when: manual
 
 # Status: https://lava.collabora.dev/scheduler/device_type/acer-R721T-grunt
 .lava-acer-R721T-grunt:x86_64:
