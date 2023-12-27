@@ -523,6 +523,20 @@ get_properties(const struct v3dv_physical_device *pdevice,
    const float timestamp_period =
       clock_res.tv_sec * 1000000000.0f + clock_res.tv_nsec;
 
+   /* We don't really have special restrictions for the maximum
+    * descriptors per set, other than maybe not exceeding the limits
+    * of addressable memory in a single allocation on either the host
+    * or the GPU. This will be a much larger limit than any of the
+    * per-stage limits already available in Vulkan though, so in practice,
+    * it is not expected to limit anything beyond what is already
+    * constrained through per-stage limits.
+    */
+   const uint32_t max_host_descriptors =
+      (UINT32_MAX - sizeof(struct v3dv_descriptor_set)) /
+      sizeof(struct v3dv_descriptor);
+   const uint32_t max_gpu_descriptors =
+      (UINT32_MAX / v3dv_X(pdevice, max_descriptor_bo_size)());
+
    *properties = (struct vk_properties){
       /* VkPhysicalDeviceProperties */
       .apiVersion = V3DV_API_VERSION,
@@ -660,6 +674,156 @@ get_properties(const struct v3dv_physical_device *pdevice,
       .optimalBufferCopyOffsetAlignment         = 32,
       .optimalBufferCopyRowPitchAlignment       = 32,
       .nonCoherentAtomSize                      = V3D_NON_COHERENT_ATOM_SIZE,
+
+      /* VkPhysicalDeviceVulkan11Properties */
+      .deviceLUIDValid = false,
+      .subgroupSize = V3D_CHANNELS,
+      .subgroupSupportedStages = VK_SHADER_STAGE_COMPUTE_BIT,
+      .subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT,
+      .subgroupQuadOperationsInAllStages = false,
+      .pointClippingBehavior = VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES,
+      .maxMultiviewViewCount = MAX_MULTIVIEW_VIEW_COUNT,
+      .maxMultiviewInstanceIndex = UINT32_MAX - 1,
+      .protectedNoFault = false,
+      .maxPerSetDescriptors = MIN2(max_host_descriptors, max_gpu_descriptors),
+      /* Minimum required by the spec */
+      .maxMemoryAllocationSize = MAX_MEMORY_ALLOCATION_SIZE,
+
+      /* VkPhysicalDeviceVulkan12Properties */
+      .driverID = VK_DRIVER_ID_MESA_V3DV,
+      .conformanceVersion = {
+         .major = 1,
+         .minor = 3,
+         .subminor = 6,
+         .patch = 1,
+      },
+      .supportedDepthResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT,
+      .supportedStencilResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT,
+      /* FIXME: if we want to support independentResolveNone then we would
+       * need to honor attachment load operations on resolve attachments,
+       * which we currently ignore because the resolve makes them irrelevant,
+       * as it unconditionally writes all pixels in the render area. However,
+       * with independentResolveNone, it is possible to have one aspect of a
+       * D/S resolve attachment stay unresolved, in which case the attachment
+       * load operation is relevant.
+       *
+       * NOTE: implementing attachment load for resolve attachments isn't
+       * immediately trivial because these attachments are not part of the
+       * framebuffer and therefore we can't use the same mechanism we use
+       * for framebuffer attachments. Instead, we should probably have to
+       * emit a meta operation for that right at the start of the render
+       * pass (or subpass).
+       */
+      .independentResolveNone = false,
+      .independentResolve = false,
+      .maxTimelineSemaphoreValueDifference = UINT64_MAX,
+
+      .denormBehaviorIndependence = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL,
+      .roundingModeIndependence = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL,
+      .shaderSignedZeroInfNanPreserveFloat16 = true,
+      .shaderSignedZeroInfNanPreserveFloat32 = true,
+      .shaderSignedZeroInfNanPreserveFloat64 = false,
+      .shaderDenormPreserveFloat16 = true,
+      .shaderDenormPreserveFloat32 = true,
+      .shaderDenormPreserveFloat64 = false,
+      .shaderDenormFlushToZeroFloat16 = false,
+      .shaderDenormFlushToZeroFloat32 = false,
+      .shaderDenormFlushToZeroFloat64 = false,
+      .shaderRoundingModeRTEFloat16 = true,
+      .shaderRoundingModeRTEFloat32 = true,
+      .shaderRoundingModeRTEFloat64 = false,
+      .shaderRoundingModeRTZFloat16 = false,
+      .shaderRoundingModeRTZFloat32 = false,
+      .shaderRoundingModeRTZFloat64 = false,
+
+      /* V3D doesn't support min/max filtering */
+      .filterMinmaxSingleComponentFormats = false,
+      .filterMinmaxImageComponentMapping = false,
+
+      .framebufferIntegerColorSampleCounts =
+         VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT,
+
+      /* VkPhysicalDeviceVulkan13Properties */
+      .maxInlineUniformBlockSize = 4096,
+      .maxPerStageDescriptorInlineUniformBlocks = MAX_INLINE_UNIFORM_BUFFERS,
+      .maxDescriptorSetInlineUniformBlocks = MAX_INLINE_UNIFORM_BUFFERS,
+      .maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks =
+         MAX_INLINE_UNIFORM_BUFFERS,
+      .maxDescriptorSetUpdateAfterBindInlineUniformBlocks =
+         MAX_INLINE_UNIFORM_BUFFERS,
+      .maxBufferSize = V3D_MAX_BUFFER_RANGE,
+      .storageTexelBufferOffsetAlignmentBytes = V3D_TMU_TEXEL_ALIGN,
+      .storageTexelBufferOffsetSingleTexelAlignment = false,
+      .uniformTexelBufferOffsetAlignmentBytes = V3D_TMU_TEXEL_ALIGN,
+      .uniformTexelBufferOffsetSingleTexelAlignment = false,
+      /* No native acceleration for integer dot product. We use NIR lowering. */
+      .integerDotProduct8BitUnsignedAccelerated = false,
+      .integerDotProduct8BitMixedSignednessAccelerated = false,
+      .integerDotProduct4x8BitPackedUnsignedAccelerated = false,
+      .integerDotProduct4x8BitPackedSignedAccelerated = false,
+      .integerDotProduct4x8BitPackedMixedSignednessAccelerated = false,
+      .integerDotProduct16BitUnsignedAccelerated = false,
+      .integerDotProduct16BitSignedAccelerated = false,
+      .integerDotProduct16BitMixedSignednessAccelerated = false,
+      .integerDotProduct32BitUnsignedAccelerated = false,
+      .integerDotProduct32BitSignedAccelerated = false,
+      .integerDotProduct32BitMixedSignednessAccelerated = false,
+      .integerDotProduct64BitUnsignedAccelerated = false,
+      .integerDotProduct64BitSignedAccelerated = false,
+      .integerDotProduct64BitMixedSignednessAccelerated = false,
+      .integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating8BitSignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = false,
+      .integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated = false,
+      .integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating16BitSignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = false,
+      .integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating32BitSignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = false,
+      .integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating64BitSignedAccelerated = false,
+      .integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = false,
+
+      /* VkPhysicalDeviceCustomBorderColorPropertiesEXT */
+      .maxCustomBorderColorSamplers = V3D_MAX_TEXTURE_SAMPLERS,
+
+      /* VkPhysicalDeviceProvokingVertexPropertiesEXT */
+      .provokingVertexModePerPipeline = true,
+      /* FIXME: update when supporting EXT_transform_feedback */
+      .transformFeedbackPreservesTriangleFanProvokingVertex = false,
+
+      /* VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT */
+      .maxVertexAttribDivisor = 0xffff,
+
+      /* VkPhysicalDevicePerformanceQueryPropertiesKHR */
+      .allowCommandBufferQueryCopies = true,
+
+      /* VkPhysicalDeviceDrmPropertiesEXT */
+      .drmHasPrimary = pdevice->has_primary,
+      .drmPrimaryMajor = (int64_t) major(pdevice->primary_devid),
+      .drmPrimaryMinor = (int64_t) minor(pdevice->primary_devid),
+      .drmHasRender = pdevice->has_render,
+      .drmRenderMajor = (int64_t) major(pdevice->render_devid),
+      .drmRenderMinor = (int64_t) minor(pdevice->render_devid),
+
+      /* VkPhysicalDeviceLineRasterizationPropertiesEXT */
+      .lineSubPixelPrecisionBits = V3D_COORD_SHIFT,
+
+      /* VkPhysicalDevicePipelineRobustnessPropertiesEXT */
+      .defaultRobustnessStorageBuffers =
+         VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT_EXT,
+      .defaultRobustnessUniformBuffers =
+         VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT_EXT,
+      .defaultRobustnessVertexInputs =
+         VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT_EXT,
+      .defaultRobustnessImages =
+         VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DEVICE_DEFAULT_EXT,
+
+      /* VkPhysicalDeviceMultiDrawPropertiesEXT */
+      .maxMultiDrawCount = 2048,
    };
 
    /* VkPhysicalDeviceProperties */
@@ -667,6 +831,22 @@ get_properties(const struct v3dv_physical_device *pdevice,
             "%s", pdevice->name);
    memcpy(properties->pipelineCacheUUID,
           pdevice->pipeline_cache_uuid, VK_UUID_SIZE);
+
+   /* VkPhysicalDeviceVulkan11Properties */
+   memcpy(properties->deviceUUID, pdevice->device_uuid, VK_UUID_SIZE);
+   memcpy(properties->driverUUID, pdevice->driver_uuid, VK_UUID_SIZE);
+
+   /* VkPhysicalDeviceVulkan12Properties */
+   snprintf(properties->driverName, VK_MAX_DRIVER_NAME_SIZE, "V3DV Mesa");
+   snprintf(properties->driverInfo, VK_MAX_DRIVER_INFO_SIZE,
+            "Mesa " PACKAGE_VERSION MESA_GIT_SHA1);
+
+   /* VkPhysicalDeviceShaderModuleIdentifierPropertiesEXT */
+   STATIC_ASSERT(sizeof(vk_shaderModuleIdentifierAlgorithmUUID) ==
+                 sizeof(properties->shaderModuleIdentifierAlgorithmUUID));
+   memcpy(properties->shaderModuleIdentifierAlgorithmUUID,
+          vk_shaderModuleIdentifierAlgorithmUUID,
+          sizeof(properties->shaderModuleIdentifierAlgorithmUUID));
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -1234,183 +1414,10 @@ VKAPI_ATTR void VKAPI_CALL
 v3dv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
                                   VkPhysicalDeviceProperties2 *pProperties)
 {
-   V3DV_FROM_HANDLE(v3dv_physical_device, pdevice, physicalDevice);
-
    vk_common_GetPhysicalDeviceProperties2(physicalDevice, pProperties);
 
-   /* We don't really have special restrictions for the maximum
-    * descriptors per set, other than maybe not exceeding the limits
-    * of addressable memory in a single allocation on either the host
-    * or the GPU. This will be a much larger limit than any of the
-    * per-stage limits already available in Vulkan though, so in practice,
-    * it is not expected to limit anything beyond what is already
-    * constrained through per-stage limits.
-    */
-   const uint32_t max_host_descriptors =
-      (UINT32_MAX - sizeof(struct v3dv_descriptor_set)) /
-      sizeof(struct v3dv_descriptor);
-   const uint32_t max_gpu_descriptors =
-      (UINT32_MAX / v3dv_X(pdevice, max_descriptor_bo_size)());
-
-   VkPhysicalDeviceVulkan13Properties vk13 = {
-      .maxInlineUniformBlockSize = 4096,
-      .maxPerStageDescriptorInlineUniformBlocks = MAX_INLINE_UNIFORM_BUFFERS,
-      .maxDescriptorSetInlineUniformBlocks = MAX_INLINE_UNIFORM_BUFFERS,
-      .maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks =
-         MAX_INLINE_UNIFORM_BUFFERS,
-      .maxDescriptorSetUpdateAfterBindInlineUniformBlocks =
-         MAX_INLINE_UNIFORM_BUFFERS,
-      .maxBufferSize = V3D_MAX_BUFFER_RANGE,
-      .storageTexelBufferOffsetAlignmentBytes = V3D_TMU_TEXEL_ALIGN,
-      .storageTexelBufferOffsetSingleTexelAlignment = false,
-      .uniformTexelBufferOffsetAlignmentBytes = V3D_TMU_TEXEL_ALIGN,
-      .uniformTexelBufferOffsetSingleTexelAlignment = false,
-      /* No native acceleration for integer dot product. We use NIR lowering. */
-      .integerDotProduct8BitUnsignedAccelerated = false,
-      .integerDotProduct8BitMixedSignednessAccelerated = false,
-      .integerDotProduct4x8BitPackedUnsignedAccelerated = false,
-      .integerDotProduct4x8BitPackedSignedAccelerated = false,
-      .integerDotProduct4x8BitPackedMixedSignednessAccelerated = false,
-      .integerDotProduct16BitUnsignedAccelerated = false,
-      .integerDotProduct16BitSignedAccelerated = false,
-      .integerDotProduct16BitMixedSignednessAccelerated = false,
-      .integerDotProduct32BitUnsignedAccelerated = false,
-      .integerDotProduct32BitSignedAccelerated = false,
-      .integerDotProduct32BitMixedSignednessAccelerated = false,
-      .integerDotProduct64BitUnsignedAccelerated = false,
-      .integerDotProduct64BitSignedAccelerated = false,
-      .integerDotProduct64BitMixedSignednessAccelerated = false,
-      .integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating8BitSignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = false,
-      .integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated = false,
-      .integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating16BitSignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = false,
-      .integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating32BitSignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = false,
-      .integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating64BitSignedAccelerated = false,
-      .integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = false,
-   };
-
-   VkPhysicalDeviceVulkan12Properties vk12 = {
-      .driverID = VK_DRIVER_ID_MESA_V3DV,
-      .conformanceVersion = {
-         .major = 1,
-         .minor = 3,
-         .subminor = 6,
-         .patch = 1,
-      },
-      .supportedDepthResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT,
-      .supportedStencilResolveModes = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT,
-      /* FIXME: if we want to support independentResolveNone then we would
-       * need to honor attachment load operations on resolve attachments,
-       * which we currently ignore because the resolve makes them irrelevant,
-       * as it unconditionally writes all pixels in the render area. However,
-       * with independentResolveNone, it is possible to have one aspect of a
-       * D/S resolve attachment stay unresolved, in which case the attachment
-       * load operation is relevant.
-       *
-       * NOTE: implementing attachment load for resolve attachments isn't
-       * immediately trivial because these attachments are not part of the
-       * framebuffer and therefore we can't use the same mechanism we use
-       * for framebuffer attachments. Instead, we should probably have to
-       * emit a meta operation for that right at the start of the render
-       * pass (or subpass).
-       */
-      .independentResolveNone = false,
-      .independentResolve = false,
-      .maxTimelineSemaphoreValueDifference = UINT64_MAX,
-
-      .denormBehaviorIndependence = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL,
-      .roundingModeIndependence = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL,
-      .shaderSignedZeroInfNanPreserveFloat16 = true,
-      .shaderSignedZeroInfNanPreserveFloat32 = true,
-      .shaderSignedZeroInfNanPreserveFloat64 = false,
-      .shaderDenormPreserveFloat16 = true,
-      .shaderDenormPreserveFloat32 = true,
-      .shaderDenormPreserveFloat64 = false,
-      .shaderDenormFlushToZeroFloat16 = false,
-      .shaderDenormFlushToZeroFloat32 = false,
-      .shaderDenormFlushToZeroFloat64 = false,
-      .shaderRoundingModeRTEFloat16 = true,
-      .shaderRoundingModeRTEFloat32 = true,
-      .shaderRoundingModeRTEFloat64 = false,
-      .shaderRoundingModeRTZFloat16 = false,
-      .shaderRoundingModeRTZFloat32 = false,
-      .shaderRoundingModeRTZFloat64 = false,
-
-      /* V3D doesn't support min/max filtering */
-      .filterMinmaxSingleComponentFormats = false,
-      .filterMinmaxImageComponentMapping = false,
-
-      .framebufferIntegerColorSampleCounts =
-         VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT,
-   };
-   memset(vk12.driverName, 0, VK_MAX_DRIVER_NAME_SIZE);
-   snprintf(vk12.driverName, VK_MAX_DRIVER_NAME_SIZE, "V3DV Mesa");
-   memset(vk12.driverInfo, 0, VK_MAX_DRIVER_INFO_SIZE);
-   snprintf(vk12.driverInfo, VK_MAX_DRIVER_INFO_SIZE,
-            "Mesa " PACKAGE_VERSION MESA_GIT_SHA1);
-
-   VkPhysicalDeviceVulkan11Properties vk11 = {
-      .deviceLUIDValid = false,
-      .subgroupSize = V3D_CHANNELS,
-      .subgroupSupportedStages = VK_SHADER_STAGE_COMPUTE_BIT,
-      .subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT,
-      .subgroupQuadOperationsInAllStages = false,
-      .pointClippingBehavior = VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES,
-      .maxMultiviewViewCount = MAX_MULTIVIEW_VIEW_COUNT,
-      .maxMultiviewInstanceIndex = UINT32_MAX - 1,
-      .protectedNoFault = false,
-      .maxPerSetDescriptors = MIN2(max_host_descriptors, max_gpu_descriptors),
-      /* Minimum required by the spec */
-      .maxMemoryAllocationSize = MAX_MEMORY_ALLOCATION_SIZE,
-   };
-   memcpy(vk11.deviceUUID, pdevice->device_uuid, VK_UUID_SIZE);
-   memcpy(vk11.driverUUID, pdevice->driver_uuid, VK_UUID_SIZE);
-
-
    vk_foreach_struct(ext, pProperties->pNext) {
-      if (vk_get_physical_device_core_1_1_property_ext(ext, &vk11))
-         continue;
-      if (vk_get_physical_device_core_1_2_property_ext(ext, &vk12))
-         continue;
-      if (vk_get_physical_device_core_1_3_property_ext(ext, &vk13))
-         continue;
-
       switch (ext->sType) {
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_PROPERTIES_EXT: {
-         VkPhysicalDeviceCustomBorderColorPropertiesEXT *props =
-            (VkPhysicalDeviceCustomBorderColorPropertiesEXT *)ext;
-         props->maxCustomBorderColorSamplers = V3D_MAX_TEXTURE_SAMPLERS;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_PROPERTIES_EXT: {
-         VkPhysicalDeviceProvokingVertexPropertiesEXT *props =
-            (VkPhysicalDeviceProvokingVertexPropertiesEXT *)ext;
-         props->provokingVertexModePerPipeline = true;
-         /* FIXME: update when supporting EXT_transform_feedback */
-         props->transformFeedbackPreservesTriangleFanProvokingVertex = false;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT: {
-         VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT *props =
-            (VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT *)ext;
-         props->maxVertexAttribDivisor = 0xffff;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_PROPERTIES_KHR : {
-         VkPhysicalDevicePerformanceQueryPropertiesKHR *props =
-            (VkPhysicalDevicePerformanceQueryPropertiesKHR *)ext;
-
-         props->allowCommandBufferQueryCopies = true;
-         break;
-      }
 #ifdef ANDROID
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch"
@@ -1429,63 +1436,7 @@ v3dv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       }
 #pragma GCC diagnostic pop
 #endif
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
-         VkPhysicalDeviceDrmPropertiesEXT *props =
-            (VkPhysicalDeviceDrmPropertiesEXT *)ext;
-         props->hasPrimary = pdevice->has_primary;
-         if (props->hasPrimary) {
-            props->primaryMajor = (int64_t) major(pdevice->primary_devid);
-            props->primaryMinor = (int64_t) minor(pdevice->primary_devid);
-         }
-         props->hasRender = pdevice->has_render;
-         if (props->hasRender) {
-            props->renderMajor = (int64_t) major(pdevice->render_devid);
-            props->renderMinor = (int64_t) minor(pdevice->render_devid);
-         }
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT: {
-         VkPhysicalDeviceLineRasterizationPropertiesEXT *props =
-            (VkPhysicalDeviceLineRasterizationPropertiesEXT *)ext;
-         props->lineSubPixelPrecisionBits = V3D_COORD_SHIFT;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT:
-         /* Do nothing, not even logging. This is a non-PCI device, so we will
-          * never provide this extension.
-          */
-         break;
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MODULE_IDENTIFIER_PROPERTIES_EXT: {
-         VkPhysicalDeviceShaderModuleIdentifierPropertiesEXT *props =
-            (VkPhysicalDeviceShaderModuleIdentifierPropertiesEXT *)ext;
-         STATIC_ASSERT(sizeof(vk_shaderModuleIdentifierAlgorithmUUID) ==
-                       sizeof(props->shaderModuleIdentifierAlgorithmUUID));
-         memcpy(props->shaderModuleIdentifierAlgorithmUUID,
-                vk_shaderModuleIdentifierAlgorithmUUID,
-                sizeof(props->shaderModuleIdentifierAlgorithmUUID));
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_ROBUSTNESS_PROPERTIES_EXT: {
-         VkPhysicalDevicePipelineRobustnessPropertiesEXT *props =
-            (VkPhysicalDevicePipelineRobustnessPropertiesEXT *)ext;
-         props->defaultRobustnessStorageBuffers =
-            VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT_EXT;
-         props->defaultRobustnessUniformBuffers =
-            VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT_EXT;
-         props->defaultRobustnessVertexInputs =
-            VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT_EXT;
-         props->defaultRobustnessImages =
-            VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DEVICE_DEFAULT_EXT;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT: {
-         VkPhysicalDeviceMultiDrawPropertiesEXT *properties =
-            (VkPhysicalDeviceMultiDrawPropertiesEXT *)ext;
-         properties->maxMultiDrawCount = 2048;
-         break;
-      }
       default:
-         v3dv_debug_ignored_stype(ext->sType);
          break;
       }
    }
