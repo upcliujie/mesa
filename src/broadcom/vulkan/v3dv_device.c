@@ -44,6 +44,7 @@
 #include "compiler/v3d_compiler.h"
 
 #include "drm-uapi/v3d_drm.h"
+#include "vk_common_entrypoints.h"
 #include "vk_drm_syncobj.h"
 #include "vk_util.h"
 #include "git_sha1.h"
@@ -447,6 +448,227 @@ get_features(const struct v3dv_physical_device *physical_device,
    };
 }
 
+static uint64_t
+compute_heap_size()
+{
+#if !using_v3d_simulator
+   /* Query the total ram from the system */
+   struct sysinfo info;
+   sysinfo(&info);
+
+   uint64_t total_ram = (uint64_t)info.totalram * (uint64_t)info.mem_unit;
+#else
+   uint64_t total_ram = (uint64_t) v3d_simulator_get_mem_size();
+#endif
+
+   /* We don't want to burn too much ram with the GPU.  If the user has 4GB
+    * or less, we use at most half.  If they have more than 4GB we limit it
+    * to 3/4 with a max. of 4GB since the GPU cannot address more than that.
+    */
+   const uint64_t MAX_HEAP_SIZE = 4ull * 1024ull * 1024ull * 1024ull;
+   uint64_t available;
+   if (total_ram <= MAX_HEAP_SIZE)
+      available = total_ram / 2;
+   else
+      available = MIN2(MAX_HEAP_SIZE, total_ram * 3 / 4);
+
+   return available;
+}
+
+static uint64_t
+compute_memory_budget(struct v3dv_physical_device *device)
+{
+   uint64_t heap_size = device->memory.memoryHeaps[0].size;
+   uint64_t heap_used = device->heap_used;
+   uint64_t sys_available;
+#if !using_v3d_simulator
+   ASSERTED bool has_available_memory =
+      os_get_available_system_memory(&sys_available);
+   assert(has_available_memory);
+#else
+   sys_available = (uint64_t) v3d_simulator_get_mem_free();
+#endif
+
+   /* Let's not incite the app to starve the system: report at most 90% of
+    * available system memory.
+    */
+   uint64_t heap_available = sys_available * 9 / 10;
+   return MIN2(heap_size, heap_used + heap_available);
+}
+
+static void
+get_properties(const struct v3dv_physical_device *pdevice,
+               struct vk_properties *properties)
+{
+   STATIC_ASSERT(MAX_SAMPLED_IMAGES + MAX_STORAGE_IMAGES + MAX_INPUT_ATTACHMENTS
+                 <= V3D_MAX_TEXTURE_SAMPLERS);
+   STATIC_ASSERT(MAX_UNIFORM_BUFFERS >= MAX_DYNAMIC_UNIFORM_BUFFERS);
+   STATIC_ASSERT(MAX_STORAGE_BUFFERS >= MAX_DYNAMIC_STORAGE_BUFFERS);
+
+   const uint32_t page_size = 4096;
+   const uint64_t mem_size = compute_heap_size();
+
+   const uint32_t max_varying_components = 16 * 4;
+
+   const float v3d_point_line_granularity = 2.0f / (1 << V3D_COORD_SHIFT);
+   const uint32_t max_fb_size = V3D_MAX_IMAGE_DIMENSION;
+
+   const VkSampleCountFlags supported_sample_counts =
+      VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT;
+
+   const uint8_t max_rts = V3D_MAX_RENDER_TARGETS(pdevice->devinfo.ver);
+
+   struct timespec clock_res;
+   clock_getres(CLOCK_MONOTONIC, &clock_res);
+   const float timestamp_period =
+      clock_res.tv_sec * 1000000000.0f + clock_res.tv_nsec;
+
+   *properties = (struct vk_properties){
+      /* VkPhysicalDeviceProperties */
+      .apiVersion = V3DV_API_VERSION,
+      .driverVersion = vk_get_driver_version(),
+      .vendorID = v3dv_physical_device_vendor_id(pdevice),
+      .deviceID = v3dv_physical_device_device_id(pdevice),
+      .deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
+
+      /* VkPhysicalDeviceLimits */
+      /* FIXME: this will probably require an in-depth review */
+      .maxImageDimension1D                      = V3D_MAX_IMAGE_DIMENSION,
+      .maxImageDimension2D                      = V3D_MAX_IMAGE_DIMENSION,
+      .maxImageDimension3D                      = V3D_MAX_IMAGE_DIMENSION,
+      .maxImageDimensionCube                    = V3D_MAX_IMAGE_DIMENSION,
+      .maxImageArrayLayers                      = V3D_MAX_ARRAY_LAYERS,
+      .maxTexelBufferElements                   = (1ul << 28),
+      .maxUniformBufferRange                    = V3D_MAX_BUFFER_RANGE,
+      .maxStorageBufferRange                    = V3D_MAX_BUFFER_RANGE,
+      .maxPushConstantsSize                     = MAX_PUSH_CONSTANTS_SIZE,
+      .maxMemoryAllocationCount                 = mem_size / page_size,
+      .maxSamplerAllocationCount                = 64 * 1024,
+      .bufferImageGranularity                   = V3D_NON_COHERENT_ATOM_SIZE,
+      .sparseAddressSpaceSize                   = 0,
+      .maxBoundDescriptorSets                   = MAX_SETS,
+      .maxPerStageDescriptorSamplers            = V3D_MAX_TEXTURE_SAMPLERS,
+      .maxPerStageDescriptorUniformBuffers      = MAX_UNIFORM_BUFFERS,
+      .maxPerStageDescriptorStorageBuffers      = MAX_STORAGE_BUFFERS,
+      .maxPerStageDescriptorSampledImages       = MAX_SAMPLED_IMAGES,
+      .maxPerStageDescriptorStorageImages       = MAX_STORAGE_IMAGES,
+      .maxPerStageDescriptorInputAttachments    = MAX_INPUT_ATTACHMENTS,
+      .maxPerStageResources                     = 128,
+
+      /* Some of these limits are multiplied by 6 because they need to
+       * include all possible shader stages (even if not supported). See
+       * 'Required Limits' table in the Vulkan spec.
+       */
+      .maxDescriptorSetSamplers                 = 6 * V3D_MAX_TEXTURE_SAMPLERS,
+      .maxDescriptorSetUniformBuffers           = 6 * MAX_UNIFORM_BUFFERS,
+      .maxDescriptorSetUniformBuffersDynamic    = MAX_DYNAMIC_UNIFORM_BUFFERS,
+      .maxDescriptorSetStorageBuffers           = 6 * MAX_STORAGE_BUFFERS,
+      .maxDescriptorSetStorageBuffersDynamic    = MAX_DYNAMIC_STORAGE_BUFFERS,
+      .maxDescriptorSetSampledImages            = 6 * MAX_SAMPLED_IMAGES,
+      .maxDescriptorSetStorageImages            = 6 * MAX_STORAGE_IMAGES,
+      .maxDescriptorSetInputAttachments         = MAX_INPUT_ATTACHMENTS,
+
+      /* Vertex limits */
+      .maxVertexInputAttributes                 = MAX_VERTEX_ATTRIBS,
+      .maxVertexInputBindings                   = MAX_VBS,
+      .maxVertexInputAttributeOffset            = 0xffffffff,
+      .maxVertexInputBindingStride              = 0xffffffff,
+      .maxVertexOutputComponents                = max_varying_components,
+
+      /* Tessellation limits */
+      .maxTessellationGenerationLevel           = 0,
+      .maxTessellationPatchSize                 = 0,
+      .maxTessellationControlPerVertexInputComponents = 0,
+      .maxTessellationControlPerVertexOutputComponents = 0,
+      .maxTessellationControlPerPatchOutputComponents = 0,
+      .maxTessellationControlTotalOutputComponents = 0,
+      .maxTessellationEvaluationInputComponents = 0,
+      .maxTessellationEvaluationOutputComponents = 0,
+
+      /* Geometry limits */
+      .maxGeometryShaderInvocations             = 32,
+      .maxGeometryInputComponents               = 64,
+      .maxGeometryOutputComponents              = 64,
+      .maxGeometryOutputVertices                = 256,
+      .maxGeometryTotalOutputComponents         = 1024,
+
+      /* Fragment limits */
+      .maxFragmentInputComponents               = max_varying_components,
+      .maxFragmentOutputAttachments             = 4,
+      .maxFragmentDualSrcAttachments            = 0,
+      .maxFragmentCombinedOutputResources       = max_rts +
+                                                  MAX_STORAGE_BUFFERS +
+                                                  MAX_STORAGE_IMAGES,
+
+      /* Compute limits */
+      .maxComputeSharedMemorySize               = 16384,
+      .maxComputeWorkGroupCount                 = { 65535, 65535, 65535 },
+      .maxComputeWorkGroupInvocations           = 256,
+      .maxComputeWorkGroupSize                  = { 256, 256, 256 },
+
+      .subPixelPrecisionBits                    = V3D_COORD_SHIFT,
+      .subTexelPrecisionBits                    = 8,
+      .mipmapPrecisionBits                      = 8,
+      .maxDrawIndexedIndexValue                 = pdevice->devinfo.ver >= 71 ?
+                                                  0xffffffff : 0x00ffffff,
+      .maxDrawIndirectCount                     = 0x7fffffff,
+      .maxSamplerLodBias                        = 14.0f,
+      .maxSamplerAnisotropy                     = 16.0f,
+      .maxViewports                             = MAX_VIEWPORTS,
+      .maxViewportDimensions                    = { max_fb_size, max_fb_size },
+      .viewportBoundsRange                      = { -2.0 * max_fb_size,
+                                                    2.0 * max_fb_size - 1 },
+      .viewportSubPixelBits                     = 0,
+      .minMemoryMapAlignment                    = page_size,
+      .minTexelBufferOffsetAlignment            = V3D_TMU_TEXEL_ALIGN,
+      .minUniformBufferOffsetAlignment          = 32,
+      .minStorageBufferOffsetAlignment          = 32,
+      .minTexelOffset                           = -8,
+      .maxTexelOffset                           = 7,
+      .minTexelGatherOffset                     = -8,
+      .maxTexelGatherOffset                     = 7,
+      .minInterpolationOffset                   = -0.5,
+      .maxInterpolationOffset                   = 0.5,
+      .subPixelInterpolationOffsetBits          = V3D_COORD_SHIFT,
+      .maxFramebufferWidth                      = max_fb_size,
+      .maxFramebufferHeight                     = max_fb_size,
+      .maxFramebufferLayers                     = 256,
+      .framebufferColorSampleCounts             = supported_sample_counts,
+      .framebufferDepthSampleCounts             = supported_sample_counts,
+      .framebufferStencilSampleCounts           = supported_sample_counts,
+      .framebufferNoAttachmentsSampleCounts     = supported_sample_counts,
+      .maxColorAttachments                      = max_rts,
+      .sampledImageColorSampleCounts            = supported_sample_counts,
+      .sampledImageIntegerSampleCounts          = supported_sample_counts,
+      .sampledImageDepthSampleCounts            = supported_sample_counts,
+      .sampledImageStencilSampleCounts          = supported_sample_counts,
+      .storageImageSampleCounts                 = VK_SAMPLE_COUNT_1_BIT,
+      .maxSampleMaskWords                       = 1,
+      .timestampComputeAndGraphics              = true,
+      .timestampPeriod                          = timestamp_period,
+      .maxClipDistances                         = 8,
+      .maxCullDistances                         = 0,
+      .maxCombinedClipAndCullDistances          = 8,
+      .discreteQueuePriorities                  = 2,
+      .pointSizeRange                           = { v3d_point_line_granularity,
+                                                    V3D_MAX_POINT_SIZE },
+      .lineWidthRange                           = { 1.0f, V3D_MAX_LINE_WIDTH },
+      .pointSizeGranularity                     = v3d_point_line_granularity,
+      .lineWidthGranularity                     = v3d_point_line_granularity,
+      .strictLines                              = true,
+      .standardSampleLocations                  = false,
+      .optimalBufferCopyOffsetAlignment         = 32,
+      .optimalBufferCopyRowPitchAlignment       = 32,
+      .nonCoherentAtomSize                      = V3D_NON_COHERENT_ATOM_SIZE,
+   };
+
+   /* VkPhysicalDeviceProperties */
+   snprintf(properties->deviceName, sizeof(properties->deviceName),
+            "%s", pdevice->name);
+   memcpy(properties->pipelineCacheUUID,
+          pdevice->pipeline_cache_uuid, VK_UUID_SIZE);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 v3dv_EnumerateInstanceExtensionProperties(const char *pLayerName,
                                           uint32_t *pPropertyCount,
@@ -592,54 +814,6 @@ v3dv_DestroyInstance(VkInstance _instance,
 
    vk_instance_finish(&instance->vk);
    vk_free(&instance->vk.alloc, instance);
-}
-
-static uint64_t
-compute_heap_size()
-{
-#if !using_v3d_simulator
-   /* Query the total ram from the system */
-   struct sysinfo info;
-   sysinfo(&info);
-
-   uint64_t total_ram = (uint64_t)info.totalram * (uint64_t)info.mem_unit;
-#else
-   uint64_t total_ram = (uint64_t) v3d_simulator_get_mem_size();
-#endif
-
-   /* We don't want to burn too much ram with the GPU.  If the user has 4GB
-    * or less, we use at most half.  If they have more than 4GB we limit it
-    * to 3/4 with a max. of 4GB since the GPU cannot address more than that.
-    */
-   const uint64_t MAX_HEAP_SIZE = 4ull * 1024ull * 1024ull * 1024ull;
-   uint64_t available;
-   if (total_ram <= MAX_HEAP_SIZE)
-      available = total_ram / 2;
-   else
-      available = MIN2(MAX_HEAP_SIZE, total_ram * 3 / 4);
-
-   return available;
-}
-
-static uint64_t
-compute_memory_budget(struct v3dv_physical_device *device)
-{
-   uint64_t heap_size = device->memory.memoryHeaps[0].size;
-   uint64_t heap_used = device->heap_used;
-   uint64_t sys_available;
-#if !using_v3d_simulator
-   ASSERTED bool has_available_memory =
-      os_get_available_system_memory(&sys_available);
-   assert(has_available_memory);
-#else
-   sys_available = (uint64_t) v3d_simulator_get_mem_free();
-#endif
-
-   /* Let's not incite the app to starve the system: report at most 90% of
-    * available system memory.
-    */
-   uint64_t heap_available = sys_available * 9 / 10;
-   return MIN2(heap_size, heap_used + heap_available);
 }
 
 static bool
@@ -1034,13 +1208,13 @@ enumerate_devices(struct vk_instance *vk_instance)
 }
 
 uint32_t
-v3dv_physical_device_vendor_id(struct v3dv_physical_device *dev)
+v3dv_physical_device_vendor_id(const struct v3dv_physical_device *dev)
 {
    return 0x14E4; /* Broadcom */
 }
 
 uint32_t
-v3dv_physical_device_device_id(struct v3dv_physical_device *dev)
+v3dv_physical_device_device_id(const struct v3dv_physical_device *dev)
 {
 #if using_v3d_simulator
    return dev->device_id;
@@ -1057,188 +1231,12 @@ v3dv_physical_device_device_id(struct v3dv_physical_device *dev)
 }
 
 VKAPI_ATTR void VKAPI_CALL
-v3dv_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
-                                 VkPhysicalDeviceProperties *pProperties)
-{
-   V3DV_FROM_HANDLE(v3dv_physical_device, pdevice, physicalDevice);
-
-   STATIC_ASSERT(MAX_SAMPLED_IMAGES + MAX_STORAGE_IMAGES + MAX_INPUT_ATTACHMENTS
-                 <= V3D_MAX_TEXTURE_SAMPLERS);
-   STATIC_ASSERT(MAX_UNIFORM_BUFFERS >= MAX_DYNAMIC_UNIFORM_BUFFERS);
-   STATIC_ASSERT(MAX_STORAGE_BUFFERS >= MAX_DYNAMIC_STORAGE_BUFFERS);
-
-   const uint32_t page_size = 4096;
-   const uint64_t mem_size = compute_heap_size();
-
-   const uint32_t max_varying_components = 16 * 4;
-
-   const float v3d_point_line_granularity = 2.0f / (1 << V3D_COORD_SHIFT);
-   const uint32_t max_fb_size = V3D_MAX_IMAGE_DIMENSION;
-
-   const VkSampleCountFlags supported_sample_counts =
-      VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT;
-
-   const uint8_t max_rts = V3D_MAX_RENDER_TARGETS(pdevice->devinfo.ver);
-
-   struct timespec clock_res;
-   clock_getres(CLOCK_MONOTONIC, &clock_res);
-   const float timestamp_period =
-      clock_res.tv_sec * 1000000000.0f + clock_res.tv_nsec;
-
-   /* FIXME: this will probably require an in-depth review */
-   VkPhysicalDeviceLimits limits = {
-      .maxImageDimension1D                      = V3D_MAX_IMAGE_DIMENSION,
-      .maxImageDimension2D                      = V3D_MAX_IMAGE_DIMENSION,
-      .maxImageDimension3D                      = V3D_MAX_IMAGE_DIMENSION,
-      .maxImageDimensionCube                    = V3D_MAX_IMAGE_DIMENSION,
-      .maxImageArrayLayers                      = V3D_MAX_ARRAY_LAYERS,
-      .maxTexelBufferElements                   = (1ul << 28),
-      .maxUniformBufferRange                    = V3D_MAX_BUFFER_RANGE,
-      .maxStorageBufferRange                    = V3D_MAX_BUFFER_RANGE,
-      .maxPushConstantsSize                     = MAX_PUSH_CONSTANTS_SIZE,
-      .maxMemoryAllocationCount                 = mem_size / page_size,
-      .maxSamplerAllocationCount                = 64 * 1024,
-      .bufferImageGranularity                   = V3D_NON_COHERENT_ATOM_SIZE,
-      .sparseAddressSpaceSize                   = 0,
-      .maxBoundDescriptorSets                   = MAX_SETS,
-      .maxPerStageDescriptorSamplers            = V3D_MAX_TEXTURE_SAMPLERS,
-      .maxPerStageDescriptorUniformBuffers      = MAX_UNIFORM_BUFFERS,
-      .maxPerStageDescriptorStorageBuffers      = MAX_STORAGE_BUFFERS,
-      .maxPerStageDescriptorSampledImages       = MAX_SAMPLED_IMAGES,
-      .maxPerStageDescriptorStorageImages       = MAX_STORAGE_IMAGES,
-      .maxPerStageDescriptorInputAttachments    = MAX_INPUT_ATTACHMENTS,
-      .maxPerStageResources                     = 128,
-
-      /* Some of these limits are multiplied by 6 because they need to
-       * include all possible shader stages (even if not supported). See
-       * 'Required Limits' table in the Vulkan spec.
-       */
-      .maxDescriptorSetSamplers                 = 6 * V3D_MAX_TEXTURE_SAMPLERS,
-      .maxDescriptorSetUniformBuffers           = 6 * MAX_UNIFORM_BUFFERS,
-      .maxDescriptorSetUniformBuffersDynamic    = MAX_DYNAMIC_UNIFORM_BUFFERS,
-      .maxDescriptorSetStorageBuffers           = 6 * MAX_STORAGE_BUFFERS,
-      .maxDescriptorSetStorageBuffersDynamic    = MAX_DYNAMIC_STORAGE_BUFFERS,
-      .maxDescriptorSetSampledImages            = 6 * MAX_SAMPLED_IMAGES,
-      .maxDescriptorSetStorageImages            = 6 * MAX_STORAGE_IMAGES,
-      .maxDescriptorSetInputAttachments         = MAX_INPUT_ATTACHMENTS,
-
-      /* Vertex limits */
-      .maxVertexInputAttributes                 = MAX_VERTEX_ATTRIBS,
-      .maxVertexInputBindings                   = MAX_VBS,
-      .maxVertexInputAttributeOffset            = 0xffffffff,
-      .maxVertexInputBindingStride              = 0xffffffff,
-      .maxVertexOutputComponents                = max_varying_components,
-
-      /* Tessellation limits */
-      .maxTessellationGenerationLevel           = 0,
-      .maxTessellationPatchSize                 = 0,
-      .maxTessellationControlPerVertexInputComponents = 0,
-      .maxTessellationControlPerVertexOutputComponents = 0,
-      .maxTessellationControlPerPatchOutputComponents = 0,
-      .maxTessellationControlTotalOutputComponents = 0,
-      .maxTessellationEvaluationInputComponents = 0,
-      .maxTessellationEvaluationOutputComponents = 0,
-
-      /* Geometry limits */
-      .maxGeometryShaderInvocations             = 32,
-      .maxGeometryInputComponents               = 64,
-      .maxGeometryOutputComponents              = 64,
-      .maxGeometryOutputVertices                = 256,
-      .maxGeometryTotalOutputComponents         = 1024,
-
-      /* Fragment limits */
-      .maxFragmentInputComponents               = max_varying_components,
-      .maxFragmentOutputAttachments             = 4,
-      .maxFragmentDualSrcAttachments            = 0,
-      .maxFragmentCombinedOutputResources       = max_rts +
-                                                  MAX_STORAGE_BUFFERS +
-                                                  MAX_STORAGE_IMAGES,
-
-      /* Compute limits */
-      .maxComputeSharedMemorySize               = 16384,
-      .maxComputeWorkGroupCount                 = { 65535, 65535, 65535 },
-      .maxComputeWorkGroupInvocations           = 256,
-      .maxComputeWorkGroupSize                  = { 256, 256, 256 },
-
-      .subPixelPrecisionBits                    = V3D_COORD_SHIFT,
-      .subTexelPrecisionBits                    = 8,
-      .mipmapPrecisionBits                      = 8,
-      .maxDrawIndexedIndexValue                 = pdevice->devinfo.ver >= 71 ?
-                                                  0xffffffff : 0x00ffffff,
-      .maxDrawIndirectCount                     = 0x7fffffff,
-      .maxSamplerLodBias                        = 14.0f,
-      .maxSamplerAnisotropy                     = 16.0f,
-      .maxViewports                             = MAX_VIEWPORTS,
-      .maxViewportDimensions                    = { max_fb_size, max_fb_size },
-      .viewportBoundsRange                      = { -2.0 * max_fb_size,
-                                                    2.0 * max_fb_size - 1 },
-      .viewportSubPixelBits                     = 0,
-      .minMemoryMapAlignment                    = page_size,
-      .minTexelBufferOffsetAlignment            = V3D_TMU_TEXEL_ALIGN,
-      .minUniformBufferOffsetAlignment          = 32,
-      .minStorageBufferOffsetAlignment          = 32,
-      .minTexelOffset                           = -8,
-      .maxTexelOffset                           = 7,
-      .minTexelGatherOffset                     = -8,
-      .maxTexelGatherOffset                     = 7,
-      .minInterpolationOffset                   = -0.5,
-      .maxInterpolationOffset                   = 0.5,
-      .subPixelInterpolationOffsetBits          = V3D_COORD_SHIFT,
-      .maxFramebufferWidth                      = max_fb_size,
-      .maxFramebufferHeight                     = max_fb_size,
-      .maxFramebufferLayers                     = 256,
-      .framebufferColorSampleCounts             = supported_sample_counts,
-      .framebufferDepthSampleCounts             = supported_sample_counts,
-      .framebufferStencilSampleCounts           = supported_sample_counts,
-      .framebufferNoAttachmentsSampleCounts     = supported_sample_counts,
-      .maxColorAttachments                      = max_rts,
-      .sampledImageColorSampleCounts            = supported_sample_counts,
-      .sampledImageIntegerSampleCounts          = supported_sample_counts,
-      .sampledImageDepthSampleCounts            = supported_sample_counts,
-      .sampledImageStencilSampleCounts          = supported_sample_counts,
-      .storageImageSampleCounts                 = VK_SAMPLE_COUNT_1_BIT,
-      .maxSampleMaskWords                       = 1,
-      .timestampComputeAndGraphics              = true,
-      .timestampPeriod                          = timestamp_period,
-      .maxClipDistances                         = 8,
-      .maxCullDistances                         = 0,
-      .maxCombinedClipAndCullDistances          = 8,
-      .discreteQueuePriorities                  = 2,
-      .pointSizeRange                           = { v3d_point_line_granularity,
-                                                    V3D_MAX_POINT_SIZE },
-      .lineWidthRange                           = { 1.0f, V3D_MAX_LINE_WIDTH },
-      .pointSizeGranularity                     = v3d_point_line_granularity,
-      .lineWidthGranularity                     = v3d_point_line_granularity,
-      .strictLines                              = true,
-      .standardSampleLocations                  = false,
-      .optimalBufferCopyOffsetAlignment         = 32,
-      .optimalBufferCopyRowPitchAlignment       = 32,
-      .nonCoherentAtomSize                      = V3D_NON_COHERENT_ATOM_SIZE,
-   };
-
-   *pProperties = (VkPhysicalDeviceProperties) {
-      .apiVersion = V3DV_API_VERSION,
-      .driverVersion = vk_get_driver_version(),
-      .vendorID = v3dv_physical_device_vendor_id(pdevice),
-      .deviceID = v3dv_physical_device_device_id(pdevice),
-      .deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
-      .limits = limits,
-      .sparseProperties = { 0 },
-   };
-
-   snprintf(pProperties->deviceName, sizeof(pProperties->deviceName),
-            "%s", pdevice->name);
-   memcpy(pProperties->pipelineCacheUUID,
-          pdevice->pipeline_cache_uuid, VK_UUID_SIZE);
-}
-
-VKAPI_ATTR void VKAPI_CALL
 v3dv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
                                   VkPhysicalDeviceProperties2 *pProperties)
 {
    V3DV_FROM_HANDLE(v3dv_physical_device, pdevice, physicalDevice);
 
-   v3dv_GetPhysicalDeviceProperties(physicalDevice, &pProperties->properties);
+   vk_common_GetPhysicalDeviceProperties2(physicalDevice, pProperties);
 
    /* We don't really have special restrictions for the maximum
     * descriptors per set, other than maybe not exceeding the limits
