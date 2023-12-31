@@ -250,8 +250,23 @@ radv_dump_descriptors(struct radv_device *device, FILE *f)
    }
 }
 
+/* The maximum instruction length is 5 dwords (Image NSA instructions in RDNA2) */
+static unsigned
+get_instruction_length(unsigned hex_string_size)
+{
+   if (hex_string_size > 38)
+      return 20; /* 5 dwords */
+   else if (hex_string_size > 29)
+      return 16; /* 4 dwords */
+   else if (hex_string_size > 20)
+      return 12; /* 3 dwords */
+   else if (hex_string_size > 11)
+      return 8; /* 2 dwords */
+   return 4;    /* 1 dword */
+}
+
 struct radv_shader_inst {
-   char text[160];  /* one disasm line */
+   char text[256];  /* one disasm line */
    unsigned offset; /* instruction offset */
    unsigned size;   /* instruction size = 4 or 8 */
 };
@@ -259,7 +274,8 @@ struct radv_shader_inst {
 /* Split a disassembly string into lines and add them to the array pointed
  * to by "instructions". */
 static void
-si_add_split_disasm(const char *disasm, uint64_t start_addr, unsigned *num, struct radv_shader_inst *instructions)
+si_add_split_disasm(const char *disasm, uint64_t start_addr, unsigned *num, unsigned max_num,
+                    struct radv_shader_inst *instructions)
 {
    struct radv_shader_inst *last_inst = *num ? &instructions[*num - 1] : NULL;
    char *next;
@@ -267,6 +283,26 @@ si_add_split_disasm(const char *disasm, uint64_t start_addr, unsigned *num, stru
    while ((next = strchr(disasm, '\n'))) {
       struct radv_shader_inst *inst = &instructions[*num];
       unsigned len = next - disasm;
+
+      const char *buffer = strstr(disasm, "(then");
+      if (!strncmp(disasm, "\t(then", 6)) {
+         unsigned repeat;
+         if (sscanf(buffer + 1, "then repeated %u times", &repeat) == 1) {
+            assert(last_inst);
+
+            for (unsigned i = 0; i < repeat; ++i) {
+               inst = &instructions[*num];
+               memcpy(inst, last_inst, sizeof(struct radv_shader_inst));
+               inst->offset = last_inst->offset + last_inst->size;
+
+               last_inst = inst;
+               (*num)++;
+               assert(*num < max_num);
+            }
+            disasm = next + 1;
+            continue;
+         }
+      }
 
       if (!memchr(disasm, ';', len)) {
          /* Ignore everything that is not an instruction. */
@@ -281,16 +317,20 @@ si_add_split_disasm(const char *disasm, uint64_t start_addr, unsigned *num, stru
 
       const char *semicolon = strchr(disasm, ';');
       assert(semicolon);
-      /* More than 16 chars after ";" means the instruction is 8 bytes long. */
-      inst->size = next - semicolon > 16 ? 8 : 4;
-
-      snprintf(inst->text + len, ARRAY_SIZE(inst->text) - len, " [PC=0x%" PRIx64 ", off=%u, size=%u]",
-               start_addr + inst->offset, inst->offset, inst->size);
+      inst->size = get_instruction_length(next - semicolon);
 
       last_inst = inst;
       (*num)++;
       disasm = next + 1;
    }
+
+   for (unsigned i = 0; i < *num; i++) {
+      struct radv_shader_inst *inst = &instructions[i];
+      unsigned len = strlen(inst->text);
+      snprintf(inst->text + len, ARRAY_SIZE(inst->text) - len, " [PC=0x%" PRIx64 ", off=%u, size=%u]",
+               start_addr + inst->offset, inst->offset, inst->size);
+   }
+
 }
 
 static void
@@ -325,7 +365,7 @@ radv_dump_annotated_shader(const struct radv_shader *shader, gl_shader_stage sta
    unsigned num_inst = 0;
    struct radv_shader_inst *instructions = calloc(shader->code_size / 4, sizeof(struct radv_shader_inst));
 
-   si_add_split_disasm(shader->disasm_string, start_addr, &num_inst, instructions);
+   si_add_split_disasm(shader->disasm_string, start_addr, &num_inst, shader->code_size / 4, instructions);
 
    fprintf(f, COLOR_YELLOW "%s - annotated disassembly:" COLOR_RESET "\n", radv_get_shader_name(&shader->info, stage));
 
@@ -970,7 +1010,7 @@ radv_dump_faulty_shader(struct radv_device *device, uint64_t faulty_pc)
    struct radv_shader_inst *instructions = calloc(shader->code_size / 4, sizeof(struct radv_shader_inst));
 
    /* Split the disassembly string into instructions. */
-   si_add_split_disasm(shader->disasm_string, start_addr, &num_inst, instructions);
+   si_add_split_disasm(shader->disasm_string, start_addr, &num_inst, shader->code_size / 4, instructions);
 
    /* Print instructions with annotations. */
    for (unsigned i = 0; i < num_inst; i++) {
