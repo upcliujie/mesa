@@ -54,6 +54,7 @@
 #include "vk_nir.h"
 #include "vk_semaphore.h"
 #include "vk_sync.h"
+#include "vk_util_nir.h"
 
 #include "aco_shader_info.h"
 #include "radv_aco_shader_info.h"

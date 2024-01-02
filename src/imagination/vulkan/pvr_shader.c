@@ -35,6 +35,7 @@
 #include "vk_format.h"
 #include "vk_shader_module.h"
 #include "vk_util.h"
+#include "vk_util_nir.h"
 
 /**
  * \file pvr_shader.c

@@ -45,6 +45,7 @@
 
 #include "compiler/spirv/nir_spirv.h"
 #include "vk_util.h"
+#include "vk_util_nir.h"
 
 bool
 zink_lower_cubemap_to_array(nir_shader *s, uint32_t nonseamless_cube_mask);

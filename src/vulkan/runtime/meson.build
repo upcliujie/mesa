@@ -67,7 +67,6 @@ vulkan_lite_runtime_files = files(
 vulkan_lite_runtime_deps = [
   vulkan_wsi_deps,
   idep_mesautil,
-  idep_nir_headers,
   idep_vulkan_util,
 ]
 

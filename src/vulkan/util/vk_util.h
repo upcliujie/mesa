@@ -23,12 +23,14 @@
 #ifndef VK_UTIL_H
 #define VK_UTIL_H
 
-#include "util/bitscan.h"
-#include "util/macros.h"
-#include "compiler/shader_enums.h"
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vulkan/vulkan_core.h>
 
+#include "compiler/shader_enums.h"
+#include "util/bitscan.h"
+#include "util/macros.h"
 #include "vk_struct_type_cast.h"
 
 #ifdef __cplusplus
@@ -37,7 +39,6 @@ extern "C" {
 
 /* common inlines and macros for vulkan drivers */
 
-#include <vulkan/vulkan_core.h>
 
 struct vk_pnext_iterator {
    VkBaseOutStructure *pos;
@@ -342,13 +343,6 @@ mesa_to_vk_shader_stage(gl_shader_stage mesa_stage)
    for (const VkMultiDrawInfoEXT *_draw = (const VkMultiDrawInfoEXT*)(_pDrawInfo); \
         (_i) < (_num_draws); \
         (_i)++, (_draw) = (const VkMultiDrawInfoEXT*)((const uint8_t*)(_draw) + (_stride)))
-
-
-struct nir_spirv_specialization;
-
-struct nir_spirv_specialization*
-vk_spec_info_to_nir_spirv(const VkSpecializationInfo *spec_info,
-                          uint32_t *out_num_spec_entries);
 
 #define STACK_ARRAY_SIZE 8
 

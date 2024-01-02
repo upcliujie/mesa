@@ -28,6 +28,7 @@
 #include "compiler/spirv/nir_spirv.h"
 #include "vk_log.h"
 #include "vk_util.h"
+#include "vk_util_nir.h"
 
 #define SPIR_V_MAGIC_NUMBER 0x07230203
 
