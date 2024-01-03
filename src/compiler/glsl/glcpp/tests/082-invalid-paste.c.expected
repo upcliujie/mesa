@@ -1,3 +1,10 @@
+
+<
+0
+1
+2
+34
+45.2
 0:2(7): preprocessor error: 
 Pasting "<" and ">" does not give a valid preprocessing token.
 0:3(7): preprocessor error: 
@@ -10,10 +17,3 @@ Pasting "2" and "~" does not give a valid preprocessing token.
 Pasting "3" and "-" does not give a valid preprocessing token.
 0:7(7): preprocessor error: 
 Pasting "4" and "+" does not give a valid preprocessing token.
-
-<
-0
-1
-2
-34
-45.2
