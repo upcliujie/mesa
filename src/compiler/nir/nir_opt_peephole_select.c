@@ -57,14 +57,15 @@
  */
 
 static bool
-block_check_for_allowed_instrs(nir_block *block, unsigned *count,
-                               unsigned limit, bool indirect_load_ok,
-                               bool expensive_alu_ok)
+block_check_for_allowed_instrs(nir_block *block, unsigned *alu_count,
+                               unsigned *tex_count,
+                               nir_opt_peephole_select_options *options)
 {
-   bool alu_ok = limit != 0;
+   bool alu_ok = options->alu_limit != 0;
+   bool tex_ok = options->tex_limit != 0;
 
    /* Used on non-control-flow HW to flatten all IFs. */
-   if (limit == ~0) {
+   if (options->alu_limit == ~0) {
       nir_foreach_instr(instr, block) {
          switch (instr->type) {
          case nir_instr_type_alu:
@@ -117,7 +118,7 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
                 * because that flow control may be trying to avoid invalid
                 * loads.
                 */
-               if (!indirect_load_ok && nir_deref_instr_has_indirect(deref))
+               if (!options->indirect_register_load_ok && nir_deref_instr_has_indirect(deref))
                   return false;
 
                break;
@@ -128,6 +129,13 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
             break;
          }
 
+         case nir_intrinsic_load_ubo:
+            if ((!options->indirect_ubo_resource_ok &&
+                 !nir_src_as_const_value(intrin->src[0])) ||
+                 (!options->indirect_ubo_offset_ok &&
+                  !nir_src_as_const_value(intrin->src[1])))
+               return false;
+            FALLTHROUGH;
          case nir_intrinsic_load_uniform:
          case nir_intrinsic_load_preamble:
          case nir_intrinsic_load_helper_invocation:
@@ -174,6 +182,12 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
          break;
       }
 
+      case nir_instr_type_tex:
+         if (!tex_ok)
+            return false;
+         (*tex_count)++;
+         break;
+
       case nir_instr_type_deref:
       case nir_instr_type_load_const:
       case nir_instr_type_undef:
@@ -211,7 +225,7 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
          case nir_op_idiv:
          case nir_op_irem:
          case nir_op_udiv:
-            if (!alu_ok || !expensive_alu_ok)
+            if (!alu_ok || !options->expensive_alu_ok)
                return false;
 
             break;
@@ -231,7 +245,7 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
              * other instruction.
              */
             if (mov->op != nir_op_fsat && !movelike)
-               (*count)++;
+               (*alu_count)++;
          } else {
             /* The only uses of this definition must be phis in the successor */
             nir_foreach_use_including_if(use, &mov->def) {
@@ -275,8 +289,8 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
  *
  */
 static bool
-nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader, unsigned limit,
-                    bool indirect_load_ok, bool expensive_alu_ok)
+nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader,
+                    nir_opt_peephole_select_options *options)
 {
    /* the if has to be nested */
    if (if_stmt->cf_node.parent->type != nir_cf_node_if)
@@ -328,20 +342,26 @@ nir_opt_collapse_if(nir_if *if_stmt, nir_shader *shader, unsigned limit,
       }
    }
 
+   nir_opt_peephole_select_options local_options = *options;
+
    if (parent_if->control == nir_selection_control_flatten) {
       /* Override driver defaults */
-      indirect_load_ok = true;
-      expensive_alu_ok = true;
+      local_options.indirect_register_load_ok = true;
+      local_options.expensive_alu_ok = true;
    }
 
    /* check if the block before the nested if matches the requirements */
    nir_block *first = nir_if_first_then_block(parent_if);
-   unsigned count = 0;
-   if (!block_check_for_allowed_instrs(first, &count, limit != 0,
-                                       indirect_load_ok, expensive_alu_ok))
+   unsigned alu_count = 0;
+   unsigned tex_count = 0;
+
+   if (!block_check_for_allowed_instrs(first, &alu_count, &tex_count,
+                                       &local_options))
       return false;
 
-   if (count > limit && parent_if->control != nir_selection_control_flatten)
+   if ((alu_count > local_options.alu_limit ||
+        tex_count > local_options.tex_limit) &&
+       parent_if->control != nir_selection_control_flatten)
       return false;
 
    /* trivialize succeeding phis */
@@ -402,8 +422,7 @@ rewrite_discard_conds(nir_instr *instr, nir_def *if_cond, bool is_else)
 
 static bool
 nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
-                              unsigned limit, bool indirect_load_ok,
-                              bool expensive_alu_ok)
+                              nir_opt_peephole_select_options *options)
 {
    if (nir_cf_node_is_first(&block->cf_node))
       return false;
@@ -426,8 +445,7 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
    nir_if *if_stmt = nir_cf_node_as_if(prev_node);
 
    /* first, try to collapse the if */
-   if (nir_opt_collapse_if(if_stmt, shader, limit,
-                           indirect_load_ok, expensive_alu_ok))
+   if (nir_opt_collapse_if(if_stmt, shader, options))
       return true;
 
    if (if_stmt->control == nir_selection_control_dont_flatten)
@@ -441,21 +459,26 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
        nir_if_last_else_block(if_stmt) != else_block)
       return false;
 
+   nir_opt_peephole_select_options local_options = *options;
+
    if (if_stmt->control == nir_selection_control_flatten) {
       /* Override driver defaults */
-      indirect_load_ok = true;
-      expensive_alu_ok = true;
+      local_options.indirect_register_load_ok = true;
+      local_options.expensive_alu_ok = true;
    }
 
    /* ... and those blocks must only contain "allowed" instructions. */
-   unsigned count = 0;
-   if (!block_check_for_allowed_instrs(then_block, &count, limit,
-                                       indirect_load_ok, expensive_alu_ok) ||
-       !block_check_for_allowed_instrs(else_block, &count, limit,
-                                       indirect_load_ok, expensive_alu_ok))
+   unsigned alu_count = 0;
+   unsigned tex_count = 0;
+   if (!block_check_for_allowed_instrs(then_block, &alu_count, &tex_count,
+                                       &local_options) ||
+       !block_check_for_allowed_instrs(else_block, &alu_count, &tex_count,
+                                       &local_options))
       return false;
 
-   if (count > limit && if_stmt->control != nir_selection_control_flatten)
+   if ((alu_count > local_options.alu_limit ||
+        tex_count > local_options.tex_limit ) &&
+       if_stmt->control != nir_selection_control_flatten)
       return false;
 
    /* At this point, we know that the previous CFG node is an if-then
@@ -511,16 +534,14 @@ nir_opt_peephole_select_block(nir_block *block, nir_shader *shader,
 }
 
 static bool
-nir_opt_peephole_select_impl(nir_function_impl *impl, unsigned limit,
-                             bool indirect_load_ok, bool expensive_alu_ok)
+nir_opt_peephole_select_impl(nir_function_impl *impl,
+                             nir_opt_peephole_select_options *options)
 {
    nir_shader *shader = impl->function->shader;
    bool progress = false;
 
    nir_foreach_block_safe(block, impl) {
-      progress |= nir_opt_peephole_select_block(block, shader, limit,
-                                                indirect_load_ok,
-                                                expensive_alu_ok);
+      progress |= nir_opt_peephole_select_block(block, shader, options);
    }
 
    if (progress) {
@@ -532,16 +553,34 @@ nir_opt_peephole_select_impl(nir_function_impl *impl, unsigned limit,
    return progress;
 }
 
+bool nir_opt_peephole_select_extended(nir_shader *shader,
+                                      nir_opt_peephole_select_options *options)
+{
+   bool progress = false;
+
+   nir_foreach_function(function, shader) {
+      if (function->impl)
+         progress |= nir_opt_peephole_select_impl(function->impl, options);
+   }
+
+   return progress;
+}
+
 bool
 nir_opt_peephole_select(nir_shader *shader, unsigned limit,
                         bool indirect_load_ok, bool expensive_alu_ok)
 {
    bool progress = false;
 
-   nir_foreach_function_impl(impl, shader) {
-      progress |= nir_opt_peephole_select_impl(impl, limit,
-                                               indirect_load_ok,
-                                               expensive_alu_ok);
+   nir_opt_peephole_select_options options = {
+      .alu_limit = limit,
+      .indirect_register_load_ok = indirect_load_ok,
+      .expensive_alu_ok = expensive_alu_ok
+   };
+
+   nir_foreach_function(function, shader) {
+      if (function->impl)
+         progress |= nir_opt_peephole_select_impl(function->impl, &options);
    }
 
    return progress;

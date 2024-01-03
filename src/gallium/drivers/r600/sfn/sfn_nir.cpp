@@ -656,7 +656,15 @@ optimize_once(nir_shader *shader)
    NIR_PASS(progress, shader, nir_opt_if, nir_opt_if_optimize_phi_true_false);
    NIR_PASS(progress, shader, nir_opt_dead_cf);
    NIR_PASS(progress, shader, nir_opt_cse);
-   NIR_PASS(progress, shader, nir_opt_peephole_select, 200, true, true);
+   static nir_opt_peephole_select_options peephole_select_options = {0};
+   peephole_select_options.alu_limit = 200;
+   peephole_select_options.tex_limit = 2;
+   peephole_select_options.indirect_register_load_ok = true;
+   peephole_select_options.indirect_ubo_resource_ok= true;
+   peephole_select_options.expensive_alu_ok = true;
+
+   NIR_PASS(progress, shader, nir_opt_peephole_select_extended,
+            &peephole_select_options);
 
    NIR_PASS(progress, shader, nir_opt_conditional_discard);
    NIR_PASS(progress, shader, nir_opt_dce);
