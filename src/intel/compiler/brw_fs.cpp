@@ -6486,8 +6486,10 @@ find_halt_control_flow_region_start(const fs_visitor *v)
 bool
 fs_visitor::fixup_nomask_control_flow()
 {
-   if (devinfo->ver != 12)
+   if (!intel_needs_workaround(devinfo, 1407528679))
       return false;
+
+   assert(devinfo->ver == 12);
 
    const brw_predicate pred = dispatch_width > 16 ? BRW_PREDICATE_ALIGN1_ANY32H :
                               dispatch_width > 8 ? BRW_PREDICATE_ALIGN1_ANY16H :
