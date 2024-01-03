@@ -24,11 +24,11 @@
 #ifndef DZN_PHYSICAL_DEVICE_ENUM_H
 #define DZN_PHYSICAL_DEVICE_ENUM_H
 
-#include <vulkan/vulkan.h>
-
 #include <wsl/winadapter.h>
-
+#include <vulkan/vulkan.h>
 #include <stdbool.h>
+
+#include "d3d_device.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,29 +36,10 @@ extern "C" {
 
 struct vk_instance;
 
-struct dzn_physical_device_desc {
-   uint32_t vendor_id;
-   uint32_t device_id;
-   uint32_t subsys_id;
-   uint32_t revision;
-   uint64_t shared_system_memory;
-   uint64_t dedicated_system_memory;
-   uint64_t dedicated_video_memory;
-   LUID adapter_luid;
-   bool is_warp;
-   char description[128];
-};
-
-VkResult
-dzn_enumerate_physical_devices_dxgi(struct vk_instance *instance);
-
-VkResult
-dzn_enumerate_physical_devices_dxcore(struct vk_instance *instance);
-
 VkResult
 dzn_instance_add_physical_device(struct vk_instance *instance,
                                  IUnknown *adapter,
-                                 const struct dzn_physical_device_desc *desc);
+                                 const d3d_device_desc *desc);
 
 #ifdef __cplusplus
 }

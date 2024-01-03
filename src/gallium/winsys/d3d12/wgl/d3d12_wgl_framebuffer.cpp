@@ -95,7 +95,7 @@ d3d12_wgl_framebuffer_resize(stw_winsys_framebuffer *fb,
                              pipe_resource *templ)
 {
    struct d3d12_wgl_framebuffer *framebuffer = d3d12_wgl_framebuffer(fb);
-   struct d3d12_dxgi_screen *screen = d3d12_dxgi_screen(framebuffer->screen);
+   struct d3d12_screen *screen = framebuffer->screen;
 
    DXGI_SWAP_CHAIN_DESC1 desc = {};
    desc.BufferCount = num_buffers;
@@ -111,8 +111,8 @@ d3d12_wgl_framebuffer_resize(stw_winsys_framebuffer *fb,
 
    if (!framebuffer->swapchain) {
       ComPtr<IDXGISwapChain1> swapchain1;
-      if (FAILED(screen->factory->CreateSwapChainForHwnd(
-         screen->base.cmdqueue,
+      if (FAILED(screen->device_info.dxgi_factory->CreateSwapChainForHwnd(
+         screen->cmdqueue,
          framebuffer->window,
          &desc,
          nullptr,
@@ -124,7 +124,7 @@ d3d12_wgl_framebuffer_resize(stw_winsys_framebuffer *fb,
 
       swapchain1.As(&framebuffer->swapchain);
 
-      screen->factory->MakeWindowAssociation(framebuffer->window,
+      screen->device_info.dxgi_factory->MakeWindowAssociation(framebuffer->window,
                                              DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_PRINT_SCREEN);
    }
    else {

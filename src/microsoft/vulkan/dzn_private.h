@@ -26,6 +26,7 @@
 
 #define COBJMACROS
 
+#include "d3d_device.h"
 #include "vk_command_pool.h"
 #include "vk_command_buffer.h"
 #include "vk_cmd_queue.h"
@@ -184,7 +185,7 @@ struct dzn_physical_device {
    struct vk_physical_device_dispatch_table dispatch;
 
    IUnknown *adapter;
-   struct dzn_physical_device_desc desc;
+   d3d_device_desc desc;
 
    uint32_t queue_family_count;
    struct dzn_queue_family {
@@ -244,15 +245,6 @@ dzn_get_shader_model(const struct dzn_physical_device *pdev);
 
 PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE
 d3d12_get_serialize_root_sig(struct util_dl_library *d3d12_mod);
-
-void
-d3d12_enable_debug_layer(struct util_dl_library *d3d12_mod, ID3D12DeviceFactory *factory);
-
-void
-d3d12_enable_gpu_validation(struct util_dl_library *d3d12_mod, ID3D12DeviceFactory *factory);
-
-ID3D12Device4 *
-d3d12_create_device(struct util_dl_library *d3d12_mod, IUnknown *adapter, ID3D12DeviceFactory *factory, bool experimental_features);
 
 struct dzn_queue {
    struct vk_queue vk;
@@ -1252,8 +1244,7 @@ struct dzn_instance {
    struct vk_instance vk;
 
    struct dxil_validator *dxil_validator;
-   struct util_dl_library *d3d12_mod;
-   ID3D12DeviceFactory *factory;
+   d3d_device_info device_info;
    struct {
       PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE serialize_root_sig;
    } d3d12;

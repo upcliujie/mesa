@@ -31,6 +31,7 @@
 #include <wrl.h>
 
 #include "clc_compiler.h"
+#include "d3d_device.h"
 
 using std::runtime_error;
 using Microsoft::WRL::ComPtr;
@@ -57,17 +58,8 @@ protected:
       std::shared_ptr<struct clc_dxil_object> dxil;
    };
 
-   static void
-   enable_d3d12_debug_layer();
-
-   static IDXGIFactory4 *
-   get_dxgi_factory();
-
-   static IDXGIAdapter1 *
-   choose_adapter(IDXGIFactory4 *factory);
-
    static ID3D12Device *
-   create_device(IDXGIAdapter1 *adapter);
+   create_device(d3d_device_info &info);
 
    struct Resources {
       void add(ComPtr<ID3D12Resource> res,
@@ -336,8 +328,7 @@ protected:
       run_shader_with_raw_args(compile({ source }), compile_args, raw_args);
    }
 
-   IDXGIFactory4 *factory;
-   IDXGIAdapter1 *adapter;
+   d3d_device_info device_info;
    ID3D12Device *dev;
    ID3D12Fence *cmdqueue_fence;
    ID3D12CommandQueue *cmdqueue;

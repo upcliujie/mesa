@@ -33,6 +33,7 @@
 #endif
 #include "d3d12_format.h"
 #include "d3d12_interop_public.h"
+#include "d3d12_public.h"
 #include "d3d12_residency.h"
 #include "d3d12_resource.h"
 #include "d3d12_nir_passes.h"
@@ -72,8 +73,6 @@ d3d12_debug_options[] = {
    DEBUG_NAMED_VALUE_END
 };
 
-DEBUG_GET_ONCE_FLAGS_OPTION(d3d12_debug, "D3D12_DEBUG", d3d12_debug_options, 0)
-
 uint32_t
 d3d12_debug;
 
@@ -83,6 +82,13 @@ enum {
     HW_VENDOR_MICROSOFT             = 0x1414,
     HW_VENDOR_NVIDIA                = 0x10de,
 };
+
+static const char *
+d3d12_get_name(struct pipe_screen *pscreen)
+{
+   struct d3d12_screen *screen = d3d12_screen(pscreen);
+   return screen->name;
+}
 
 static const char *
 d3d12_get_vendor(struct pipe_screen *pscreen)
@@ -95,7 +101,7 @@ d3d12_get_device_vendor(struct pipe_screen *pscreen)
 {
    struct d3d12_screen* screen = d3d12_screen(pscreen);
 
-   switch (screen->vendor_id) {
+   switch (screen->device_item->desc.vendor_id) {
    case HW_VENDOR_MICROSOFT:
       return "Microsoft";
    case HW_VENDOR_AMD:
@@ -112,9 +118,7 @@ d3d12_get_device_vendor(struct pipe_screen *pscreen)
 static int
 d3d12_get_video_mem(struct pipe_screen *pscreen)
 {
-   struct d3d12_screen* screen = d3d12_screen(pscreen);
-
-   return screen->memory_size_megabytes;
+   return (int)d3d12_screen(pscreen)->device_item->desc.memory_size_megabytes;
 }
 
 static int
@@ -235,7 +239,7 @@ d3d12_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 1;
 
    case PIPE_CAP_ACCELERATED:
-      return screen->vendor_id != HW_VENDOR_MICROSOFT;
+      return screen->device_item->desc.vendor_id != HW_VENDOR_MICROSOFT;
 
    case PIPE_CAP_VIDEO_MEMORY:
       return d3d12_get_video_mem(pscreen);
@@ -710,7 +714,7 @@ d3d12_is_format_supported(struct pipe_screen *pscreen,
    return true;
 }
 
-void
+static void
 d3d12_deinit_screen(struct d3d12_screen *screen)
 {
    if (screen->rtv_pool) {
@@ -768,9 +772,12 @@ d3d12_deinit_screen(struct d3d12_screen *screen)
    }
 }
 
-void
-d3d12_destroy_screen(struct d3d12_screen *screen)
+static void
+d3d12_destroy_screen(struct pipe_screen *pscreen)
 {
+   struct d3d12_screen *screen = d3d12_screen(pscreen);
+   d3d12_deinit_screen(screen);
+
    if (screen->winsys) {
       screen->winsys->destroy(screen->winsys);
       screen->winsys = nullptr;
@@ -780,8 +787,7 @@ d3d12_destroy_screen(struct d3d12_screen *screen)
    mtx_destroy(&screen->descriptor_pool_mutex);
    d3d12_varying_cache_destroy(screen);
    mtx_destroy(&screen->varying_info_mutex);
-   if (screen->d3d12_mod)
-      util_dl_close(screen->d3d12_mod);
+   d3d_device_info_unload(&screen->device_info);
    glsl_type_singleton_decref();
    FREE(screen);
 }
@@ -833,155 +839,10 @@ d3d12_flush_frontbuffer(struct pipe_screen * pscreen,
    winsys->displaytarget_display(winsys, res->dt, winsys_drawable_handle, sub_box);
 }
 
-#ifndef _GAMING_XBOX
-static ID3D12Debug *
-get_debug_interface(util_dl_library *d3d12_mod, ID3D12DeviceFactory *factory)
-{
-   ID3D12Debug *debug = nullptr;
-   if (factory) {
-      factory->GetConfigurationInterface(CLSID_D3D12Debug, IID_PPV_ARGS(&debug));
-      return debug;
-   }
-
-   typedef HRESULT(WINAPI *PFN_D3D12_GET_DEBUG_INTERFACE)(REFIID riid, void **ppFactory);
-   PFN_D3D12_GET_DEBUG_INTERFACE D3D12GetDebugInterface;
-
-   D3D12GetDebugInterface = (PFN_D3D12_GET_DEBUG_INTERFACE)util_dl_get_proc_address(d3d12_mod, "D3D12GetDebugInterface");
-   if (!D3D12GetDebugInterface) {
-      debug_printf("D3D12: failed to load D3D12GetDebugInterface from D3D12.DLL\n");
-      return NULL;
-   }
-
-   if (FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)))) {
-      debug_printf("D3D12: D3D12GetDebugInterface failed\n");
-      return NULL;
-   }
-
-   return debug;
-}
-
-static void
-enable_d3d12_debug_layer(util_dl_library *d3d12_mod, ID3D12DeviceFactory *factory)
-{
-   ID3D12Debug *debug = get_debug_interface(d3d12_mod, factory);
-   if (debug) {
-      debug->EnableDebugLayer();
-      debug->Release();
-   }
-}
-
-static void
-enable_gpu_validation(util_dl_library *d3d12_mod, ID3D12DeviceFactory *factory)
-{
-   ID3D12Debug *debug = get_debug_interface(d3d12_mod, factory);
-   ID3D12Debug3 *debug3;
-   if (debug) {
-      if (SUCCEEDED(debug->QueryInterface(IID_PPV_ARGS(&debug3)))) {
-         debug3->SetEnableGPUBasedValidation(true);
-         debug3->Release();
-      }
-      debug->Release();
-   }
-}
-#endif
-
-#ifdef _GAMING_XBOX
-
-static ID3D12Device3 *
-create_device(util_dl_library *d3d12_mod, IUnknown *adapter)
-{
-   D3D12XBOX_PROCESS_DEBUG_FLAGS debugFlags =
-      D3D12XBOX_PROCESS_DEBUG_FLAG_ENABLE_COMMON_STATE_PROMOTION; /* For compatibility with desktop D3D12 */
-
-   if (d3d12_debug & D3D12_DEBUG_EXPERIMENTAL) {
-      debug_printf("D3D12: experimental shader models are not supported on GDKX\n");
-      return nullptr;
-   }
-
-   if (d3d12_debug & D3D12_DEBUG_GPU_VALIDATOR) {
-      debug_printf("D3D12: gpu validation is not supported on GDKX\n"); /* FIXME: Is this right? */
-      return nullptr;
-   }
-
-   if (d3d12_debug & D3D12_DEBUG_DEBUG_LAYER)
-      debugFlags |= D3D12XBOX_PROCESS_DEBUG_FLAG_DEBUG;
-
-   D3D12XBOX_CREATE_DEVICE_PARAMETERS params = {};
-   params.Version = D3D12_SDK_VERSION;
-   params.ProcessDebugFlags = debugFlags;
-   params.GraphicsCommandQueueRingSizeBytes = D3D12XBOX_DEFAULT_SIZE_BYTES;
-   params.GraphicsScratchMemorySizeBytes = D3D12XBOX_DEFAULT_SIZE_BYTES;
-   params.ComputeScratchMemorySizeBytes = D3D12XBOX_DEFAULT_SIZE_BYTES;
-
-   ID3D12Device3 *dev = nullptr;
-
-   typedef HRESULT(WINAPI * PFN_D3D12XBOXCREATEDEVICE)(IGraphicsUnknown *, const D3D12XBOX_CREATE_DEVICE_PARAMETERS *, REFIID, void **);
-   PFN_D3D12XBOXCREATEDEVICE D3D12XboxCreateDevice =
-      (PFN_D3D12XBOXCREATEDEVICE) util_dl_get_proc_address(d3d12_mod, "D3D12XboxCreateDevice");
-   if (!D3D12XboxCreateDevice) {
-      debug_printf("D3D12: failed to load D3D12XboxCreateDevice from D3D12 DLL\n");
-      return NULL;
-   }
-   if (FAILED(D3D12XboxCreateDevice((IGraphicsUnknown*) adapter, &params, IID_PPV_ARGS(&dev))))
-      debug_printf("D3D12: D3D12XboxCreateDevice failed\n");
-
-   return dev;
-}
-
-#else
-
-static ID3D12Device3 *
-create_device(util_dl_library *d3d12_mod, IUnknown *adapter, ID3D12DeviceFactory *factory)
-{
-
-#ifdef _WIN32
-   if (d3d12_debug & D3D12_DEBUG_EXPERIMENTAL)
-#endif
-   {
-      if (factory) {
-         if (FAILED(factory->EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModels, nullptr, nullptr))) {
-            debug_printf("D3D12: failed to enable experimental shader models\n");
-            return nullptr;
-         }
-      } else {
-         typedef HRESULT(WINAPI *PFN_D3D12ENABLEEXPERIMENTALFEATURES)(UINT, const IID*, void*, UINT*);
-         PFN_D3D12ENABLEEXPERIMENTALFEATURES D3D12EnableExperimentalFeatures =
-            (PFN_D3D12ENABLEEXPERIMENTALFEATURES)util_dl_get_proc_address(d3d12_mod, "D3D12EnableExperimentalFeatures");
-
-         if (!D3D12EnableExperimentalFeatures ||
-             FAILED(D3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModels, NULL, NULL))) {
-            debug_printf("D3D12: failed to enable experimental shader models\n");
-            return nullptr;
-         }
-      }
-   }
-
-   ID3D12Device3 *dev = nullptr;
-   if (factory) {
-      factory->SetFlags(D3D12_DEVICE_FACTORY_FLAG_ALLOW_RETURNING_EXISTING_DEVICE |
-         D3D12_DEVICE_FACTORY_FLAG_ALLOW_RETURNING_INCOMPATIBLE_EXISTING_DEVICE);
-      if (FAILED(factory->CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&dev))))
-         debug_printf("D3D12: D3D12CreateDevice failed\n");
-   } else {
-      typedef HRESULT(WINAPI *PFN_D3D12CREATEDEVICE)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
-      PFN_D3D12CREATEDEVICE D3D12CreateDevice = (PFN_D3D12CREATEDEVICE)util_dl_get_proc_address(d3d12_mod, "D3D12CreateDevice");
-      if (!D3D12CreateDevice) {
-         debug_printf("D3D12: failed to load D3D12CreateDevice from D3D12.DLL\n");
-         return NULL;
-      }
-      if (FAILED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&dev))))
-         debug_printf("D3D12: D3D12CreateDevice failed\n");
-   }
-
-   return dev;
-}
-
-#endif /* _GAMING_XBOX */
-
 static bool
 can_attribute_at_vertex(struct d3d12_screen *screen)
 {
-   switch (screen->vendor_id)  {
+   switch (screen->device_item->desc.vendor_id)  {
    case HW_VENDOR_MICROSOFT:
       return true;
    default:
@@ -1193,7 +1054,7 @@ static void
 d3d12_get_adapter_luid(struct pipe_screen *pscreen, char *luid)
 {
    struct d3d12_screen *screen = d3d12_screen(pscreen);
-   memcpy(luid, &screen->adapter_luid, PIPE_LUID_SIZE);
+   memcpy(luid, &screen->device_item->desc.adapter_luid, PIPE_LUID_SIZE);
 }
 
 static void
@@ -1239,9 +1100,9 @@ d3d12_interop_query_device_info(struct pipe_screen *pscreen, uint32_t data_size,
    d3d12_interop_device_info *info = (d3d12_interop_device_info *)data;
    struct d3d12_screen *screen = d3d12_screen(pscreen);
 
-   static_assert(sizeof(info->adapter_luid) == sizeof(screen->adapter_luid),
+   static_assert(sizeof(info->adapter_luid) == sizeof(screen->device_item->desc.adapter_luid),
                  "Using uint64_t instead of Windows-specific type");
-   memcpy(&info->adapter_luid, &screen->adapter_luid, sizeof(screen->adapter_luid));
+   memcpy(&info->adapter_luid, &screen->device_item->desc.adapter_luid, sizeof(info->adapter_luid));
    info->device = screen->dev;
    info->queue = screen->cmdqueue;
    return sizeof(*info);
@@ -1292,15 +1153,24 @@ static void* d3d12_fence_get_win32_handle(struct pipe_screen *pscreen,
 }
 #endif
 
-bool
-d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys, LUID *adapter_luid)
+static bool
+d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys,
+                       bool from_device, IUnknown* pDevUnknown, LUID *adapter_luid)
 {
    glsl_type_singleton_init_or_ref();
-   d3d12_debug = debug_get_option_d3d12_debug();
+   d3d12_debug = debug_get_flags_option("D3D12_DEBUG", d3d12_debug_options, 0);
 
    screen->winsys = winsys;
-   if (adapter_luid)
-      screen->adapter_luid = *adapter_luid;
+   screen->from_device = from_device;
+   screen->from_device_unknow = pDevUnknown;
+   if (adapter_luid) {
+      /* This is for avoid wild pointer of adapter_luid by copy content */
+      screen->adapter_luid_choosed_value = *(d3d_device_luid *)adapter_luid;
+      screen->adapter_luid_choosed = &screen->adapter_luid_choosed_value;
+   } else {
+      screen->adapter_luid_choosed = nullptr;
+   }
+
    mtx_init(&screen->descriptor_pool_mutex, mtx_plain);
    mtx_init(&screen->submit_mutex, mtx_plain);
 
@@ -1316,6 +1186,8 @@ d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys, LU
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct d3d12_transfer), 16);
 
+   screen->base.destroy = d3d12_destroy_screen;
+   screen->base.get_name = d3d12_get_name;
    screen->base.get_vendor = d3d12_get_vendor;
    screen->base.get_device_vendor = d3d12_get_device_vendor;
    screen->base.get_screen_fd = d3d12_screen_get_fd;
@@ -1339,146 +1211,59 @@ d3d12_init_screen_base(struct d3d12_screen *screen, struct sw_winsys *winsys, LU
    screen->base.fence_get_win32_handle = d3d12_fence_get_win32_handle;
 #endif
 
-   screen->d3d12_mod = util_dl_open(
-      UTIL_DL_PREFIX
-#ifdef _GAMING_XBOX_SCARLETT
-      "d3d12_xs"
-#elif defined(_GAMING_XBOX)
-      "d3d12_x"
-#else
-      "d3d12"
-#endif
-      UTIL_DL_EXT
-   );
-   if (!screen->d3d12_mod) {
-      debug_printf("D3D12: failed to load D3D12.DLL\n");
+   d3d_device_info_optoins options = {};
+   options.load_list = true;
+   options.dxgi_factory_debug = !!(d3d12_debug & D3D12_DEBUG_DEBUG_LAYER);
+   options.debug_debug_layer = !!(d3d12_debug & D3D12_DEBUG_DEBUG_LAYER);
+   options.debug_gpu_validator = !!(d3d12_debug & D3D12_DEBUG_GPU_VALIDATOR);
+   options.agility_sdk_path_cached = os_get_option_cached("D3D12_AGILITY_RELATIVE_PATH");
+   options.agility_sdk_version = debug_get_num_option("D3D12_AGILITY_SDK_VERSION", 0);
+   return d3d_device_info_load(&screen->device_info, &options);
+}
+
+static bool
+d3d12_init_screen(struct d3d12_screen *screen)
+{
+   d3d_device_item *device_item = nullptr;
+   ID3D12Device3 *dev = nullptr;
+   /* device list are loaded */
+   if (screen->from_device) {
+      // Device can be imported with d3d12_create_screen_from_d3d12_device
+      if (screen->from_device_unknow) {
+         /* Import from from_device_unknow */
+         screen->from_device_unknow->QueryInterface(IID_PPV_ARGS(&dev));
+      }
+      if (dev) {
+         /* Choose device_item/adapter from dev */
+         LUID adapter_luid = GetAdapterLuid(dev);
+         device_item = d3d_device_list_find_by_luid(&screen->device_info.list, (d3d_device_luid *)&adapter_luid);
+      }
+   } else {
+      d3d_device_choose_options choose_options = {};
+      choose_options.adapter_luid = screen->adapter_luid_choosed;
+      choose_options.adapter_luid_env_key = "MESA_D3D12_DEFAULT_ADAPTER_LUID_HEX";
+      choose_options.adapter_name_env_key = "MESA_D3D12_DEFAULT_ADAPTER_NAME";
+      choose_options.adapter_type_env_key = "MESA_D3D12_DEFAULT_ADAPTER_TYPE";
+      device_item = d3d_device_list_choose(&screen->device_info.list, &choose_options);
+      if (device_item) {
+         d3d_device_create_options create_options = {};
+         create_options.d3d_feature_level = D3D_FEATURE_LEVEL_11_0;
+         create_options.debug_experimental = !!(d3d12_debug & D3D12_DEBUG_EXPERIMENTAL);
+         create_options.debug_singleton = !!(d3d12_debug & D3D12_DEBUG_SINGLETON);
+         dev = d3d_device_info_create_d3d12(&screen->device_info, &create_options, device_item->adapter);
+      }
+   }
+
+   if (!dev || !device_item) {
+      if (screen->from_device) {
+         debug_printf("D3D12: failed to create screen from exist device\n");
+      } else {
+         debug_printf("D3D12: failed to create screen from new device\n");
+      }
       return false;
    }
-   return true;
-}
-
-#ifdef _WIN32
-extern "C" IMAGE_DOS_HEADER __ImageBase;
-static const char *
-try_find_d3d12core_next_to_self(char *path, size_t path_arr_size)
-{
-   uint32_t path_size = GetModuleFileNameA((HINSTANCE)&__ImageBase,
-                                           path, path_arr_size);
-   if (!path_arr_size || path_size == path_arr_size) {
-      debug_printf("Unable to get path to self");
-      return nullptr;
-   }
-
-   auto last_slash = strrchr(path, '\\');
-   if (!last_slash) {
-      debug_printf("Unable to get path to self");
-      return nullptr;
-   }
-
-   *(last_slash + 1) = '\0';
-   if (strcat_s(path, path_arr_size, "D3D12Core.dll") != 0) {
-      debug_printf("Unable to get path to D3D12Core.dll next to self");
-      return nullptr;
-   }
-
-   if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) {
-      debug_printf("No D3D12Core.dll exists next to self");
-      return nullptr;
-   }
-
-   return path;
-}
-#endif
-
-#ifndef _GAMING_XBOX
-static ID3D12DeviceFactory *
-try_create_device_factory(util_dl_library *d3d12_mod)
-{
-   if (d3d12_debug & D3D12_DEBUG_SINGLETON)
-      return nullptr;
-
-   /* A device factory allows us to isolate things like debug layer enablement from other callers,
-    * and can potentially even refer to a different D3D12 redist implementation from others.
-    */
-   ID3D12DeviceFactory *factory = nullptr;
-
-   typedef HRESULT(WINAPI *PFN_D3D12_GET_INTERFACE)(REFCLSID clsid, REFIID riid, void **ppFactory);
-   PFN_D3D12_GET_INTERFACE D3D12GetInterface = (PFN_D3D12_GET_INTERFACE)util_dl_get_proc_address(d3d12_mod, "D3D12GetInterface");
-   if (!D3D12GetInterface) {
-      debug_printf("D3D12: Failed to retrieve D3D12GetInterface");
-      return nullptr;
-   }
-
-#ifdef _WIN32
-   /* First, try to create a device factory from a DLL-parallel D3D12Core.dll */
-   ID3D12SDKConfiguration *sdk_config = nullptr;
-   if (SUCCEEDED(D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&sdk_config)))) {
-      ID3D12SDKConfiguration1 *sdk_config1 = nullptr;
-      if (SUCCEEDED(sdk_config->QueryInterface(&sdk_config1))) {
-         char self_path[MAX_PATH];
-         const char *d3d12core_path = try_find_d3d12core_next_to_self(self_path, sizeof(self_path));
-         if (d3d12core_path) {
-            if (SUCCEEDED(sdk_config1->CreateDeviceFactory(D3D12_PREVIEW_SDK_VERSION, d3d12core_path, IID_PPV_ARGS(&factory))) ||
-                SUCCEEDED(sdk_config1->CreateDeviceFactory(D3D12_SDK_VERSION, d3d12core_path, IID_PPV_ARGS(&factory)))) {
-               sdk_config->Release();
-               sdk_config1->Release();
-               return factory;
-            }
-         }
-
-         /* Nope, seems we don't have a matching D3D12Core.dll next to ourselves */
-         sdk_config1->Release();
-      }
-
-      /* It's possible there's a D3D12Core.dll next to the .exe, for development/testing purposes. If so, we'll be notified
-       * by environment variables what the relative path is and the version to use.
-       */
-      const char *d3d12core_relative_path = getenv("D3D12_AGILITY_RELATIVE_PATH");
-      const char *d3d12core_sdk_version = getenv("D3D12_AGILITY_SDK_VERSION");
-      if (d3d12core_relative_path && d3d12core_sdk_version) {
-         (void)sdk_config->SetSDKVersion(atoi(d3d12core_sdk_version), d3d12core_relative_path);
-      }
-      sdk_config->Release();
-   }
-#endif
-
-   (void)D3D12GetInterface(CLSID_D3D12DeviceFactory, IID_PPV_ARGS(&factory));
-   return factory;
-}
-#endif
-
-bool
-d3d12_init_screen(struct d3d12_screen *screen, IUnknown *adapter)
-{
-   assert(screen->base.destroy != nullptr);
-
-   // Device can be imported with d3d12_create_dxcore_screen_from_d3d12_device
-   if (!screen->dev) {
-#ifndef _GAMING_XBOX
-      ID3D12DeviceFactory *factory = try_create_device_factory(screen->d3d12_mod);
-
-#ifndef DEBUG
-      if (d3d12_debug & D3D12_DEBUG_DEBUG_LAYER)
-#endif
-         enable_d3d12_debug_layer(screen->d3d12_mod, factory);
-
-      if (d3d12_debug & D3D12_DEBUG_GPU_VALIDATOR)
-         enable_gpu_validation(screen->d3d12_mod, factory);
-
-      screen->dev = create_device(screen->d3d12_mod, adapter, factory);
-
-      if (factory)
-         factory->Release();
-#else
-      screen->dev = create_device(screen->d3d12_mod, adapter);
-#endif
-
-      if (!screen->dev) {
-         debug_printf("D3D12: failed to create device\n");
-         return false;
-      }
-   }
-   screen->adapter_luid = GetAdapterLuid(screen->dev);
+   screen->dev = dev;
+   screen->device_item = device_item;
 
 #ifndef _GAMING_XBOX
    ID3D12InfoQueue *info_queue;
@@ -1680,9 +1465,10 @@ d3d12_init_screen(struct d3d12_screen *screen, IUnknown *adapter)
    screen->dev->QueryInterface(&screen->dev10);
 #endif
 
+   d3d_device_desc *device_desc = &screen->device_item->desc;
    static constexpr uint64_t known_good_warp_version = 10ull << 48 | 22000ull << 16;
    bool warp_with_broken_int64 =
-      (screen->vendor_id == HW_VENDOR_MICROSOFT && screen->driver_version < known_good_warp_version);
+      (device_desc->vendor_id == HW_VENDOR_MICROSOFT && device_desc->driver_version < known_good_warp_version);
    unsigned supported_int_sizes = 32 | (screen->opts1.Int64ShaderOps && !warp_with_broken_int64 ? 64 : 0);
    unsigned supported_float_sizes = 32 | (screen->opts.DoublePrecisionFloatShaderOps ? 64 : 0);
    dxil_get_nir_compiler_options(&screen->nir_options,
@@ -1705,12 +1491,72 @@ d3d12_init_screen(struct d3d12_screen *screen, IUnknown *adapter)
 
    /* The device UUID uniquely identifies the given device within the machine. */
    _mesa_sha1_init(&sha1_ctx);
-   _mesa_sha1_update(&sha1_ctx, &screen->vendor_id, sizeof(screen->vendor_id));
-   _mesa_sha1_update(&sha1_ctx, &screen->device_id, sizeof(screen->device_id));
-   _mesa_sha1_update(&sha1_ctx, &screen->subsys_id, sizeof(screen->subsys_id));
-   _mesa_sha1_update(&sha1_ctx, &screen->revision, sizeof(screen->revision));
+   _mesa_sha1_update(&sha1_ctx, &device_desc->vendor_id, sizeof(device_desc->vendor_id));
+   _mesa_sha1_update(&sha1_ctx, &device_desc->device_id, sizeof(device_desc->device_id));
+   _mesa_sha1_update(&sha1_ctx, &device_desc->subsys_id, sizeof(device_desc->subsys_id));
+   _mesa_sha1_update(&sha1_ctx, &device_desc->revision, sizeof(device_desc->revision));
    _mesa_sha1_final(&sha1_ctx, sha1);
    memcpy(screen->device_uuid, sha1, PIPE_UUID_SIZE);
 
+   const char *description = "Unknown";
+   if (device_desc->description[0] != '\0')
+      description = device_desc->description;
+   snprintf(screen->name, sizeof(screen->name), "D3D12 (%s)", description);
+
    return true;
+}
+
+static void
+d3d12_get_memory_info(struct d3d12_screen *screen, d3d_device_memory_info *output)
+{
+   d3d_device_get_memory_info(&screen->device_info, screen->device_item, output);
+}
+
+static struct d3d12_screen *
+d3d12_create_screen_impl(struct sw_winsys *winsys, bool from_device, IUnknown* pDevUnknown, LUID *adapter_luid)
+{
+   struct d3d12_screen *screen = CALLOC_STRUCT(d3d12_screen);
+   if (!screen)
+      return nullptr;
+   if (!d3d12_init_screen_base(screen, winsys, from_device, pDevUnknown, adapter_luid)) {
+      d3d12_destroy_screen(&screen->base);
+      return nullptr;
+   }
+
+   screen->init = d3d12_init_screen;
+   screen->deinit = d3d12_deinit_screen;
+   screen->get_memory_info = d3d12_get_memory_info;
+
+   if (!d3d12_init_screen(screen)) {
+      if (screen->device_item) {
+         d3d_device_desc *device_desc = &screen->device_item->desc;
+         debug_printf("D3D12: failed to initialize screen for %s luid:0x%08x%08x\n",
+                      device_desc->description, device_desc->adapter_luid.high, device_desc->adapter_luid.low);
+      }
+      d3d12_destroy_screen(&screen->base);
+      return nullptr;
+   }
+
+   return screen;
+}
+
+struct pipe_screen *
+d3d12_create_screen(struct sw_winsys *winsys, LUID *adapter_luid)
+{
+   struct d3d12_screen *screen = d3d12_create_screen_impl(winsys, false, nullptr, adapter_luid);
+   if (screen) {
+      return &screen->base;
+   }
+   return nullptr;
+}
+
+struct pipe_screen *
+d3d12_create_screen_from_d3d12_device(struct sw_winsys *winsys, IUnknown* pDevUnknown, LUID **out_adapter_luid)
+{
+   struct d3d12_screen *screen = d3d12_create_screen_impl(winsys, true, pDevUnknown, nullptr);
+   if (screen) {
+      *out_adapter_luid = (LUID *)&screen->device_item->desc.adapter_luid;
+      return &screen->base;
+   }
+   return nullptr;
 }

@@ -63,7 +63,7 @@ sw_screen_create_named(struct sw_winsys *winsys, const struct pipe_screen_config
 
 #if defined(GALLIUM_D3D12)
    if (screen == NULL && strcmp(driver, "d3d12") == 0)
-      screen = d3d12_create_dxcore_screen(winsys, NULL);
+      screen = d3d12_create_screen(winsys, NULL);
 #endif
 
    return screen;

@@ -109,7 +109,7 @@ static constexpr int64_t eviction_grace_period_microseconds_max =
 static constexpr double trim_percentage_usage_threshold = 0.7;
 
 static int64_t
-get_eviction_grace_period(struct d3d12_memory_info *mem_info)
+get_eviction_grace_period(d3d_device_memory_info *mem_info)
 {
    double pressure = double(mem_info->usage) / double(mem_info->budget);
    pressure = MIN2(pressure, 1.0);
@@ -154,7 +154,7 @@ gather_base_bos(struct d3d12_screen *screen, set *base_bo_set, struct d3d12_bo *
 void
 d3d12_process_batch_residency(struct d3d12_screen *screen, struct d3d12_batch *batch)
 {
-   d3d12_memory_info mem_info;
+   d3d_device_memory_info mem_info;
    screen->get_memory_info(screen, &mem_info);
 
    uint64_t completed_fence_value = screen->fence->GetCompletedValue();

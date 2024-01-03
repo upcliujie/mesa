@@ -19,21 +19,20 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-files_libd3d12winsys = files('d3d12_wgl_winsys.c')
-if target_machine.system().startswith('Gaming.Xbox')
-  files_libd3d12winsys += files('d3d12_wgl_framebuffer_xbox.cpp')
-else
-  files_libd3d12winsys += files('d3d12_wgl_framebuffer.cpp')
-endif
+files_libmicrosoft_common = files(
+  'd3d_device.cpp',
+)
 
-libd3d12winsys = static_library(
-  'd3d12winsys',
-  files_libd3d12winsys,
-  include_directories : [inc_src, inc_wgl, inc_include, inc_gallium, inc_gallium_aux, inc_gallium_drivers],
-  dependencies : [dep_dxheaders, idep_nir_headers, idep_libdxil_compiler, idep_libmicrosoft_common],
+libmicrosoft_common = static_library(
+  'dxil_compiler',
+  [files_libmicrosoft_common],
+  include_directories : [inc_include, inc_src],
+  dependencies: [idep_mesautil, dep_valgrind, dep_dxheaders, dep_version],
   gnu_symbol_visibility : 'hidden',
 )
 
-winsys_d3d12_wgl = declare_dependency(
-  link_with : [libd3d12winsys],
+idep_libmicrosoft_common = declare_dependency(
+  link_with : libmicrosoft_common,
+  dependencies : [idep_mesautil, dep_valgrind, dep_dxheaders, dep_version],
+  include_directories : include_directories('.')
 )

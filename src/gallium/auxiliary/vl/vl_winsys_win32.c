@@ -62,8 +62,8 @@ vl_win32_screen_create(LUID *adapter)
    if (!winsys)
       goto release_pipe;
 
-   /* If adapter is null, d3d12_create_dxcore_screen will choose one */
-   vscreen->base.pscreen = d3d12_create_dxcore_screen(winsys, adapter);
+   /* If adapter is null, d3d12_create_screen will choose one */
+   vscreen->base.pscreen = d3d12_create_screen(winsys, adapter);
 
    if (!vscreen->base.pscreen)
       goto release_pipe;
@@ -95,7 +95,7 @@ vl_win32_screen_create_from_d3d12_device(IUnknown* d3d12_device)
    if (!winsys)
       goto release_pipe;
 
-   vscreen->base.pscreen = d3d12_create_dxcore_screen_from_d3d12_device(winsys, d3d12_device, &vscreen->adapter_luid);
+   vscreen->base.pscreen = d3d12_create_screen_from_d3d12_device(winsys, d3d12_device, &vscreen->adapter_luid);
 
    if (!vscreen->base.pscreen)
       goto release_pipe;
