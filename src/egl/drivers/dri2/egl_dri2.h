@@ -307,7 +307,10 @@ struct dri2_egl_display {
    bool authenticated;
    uint32_t capabilities;
    char *device_name;
+   dev_t display_device_dev;
    bool is_render_node;
+   dev_t pending_tranche_target_device;
+   uint32_t pending_tranche_flags;
 #endif
 
 #ifdef HAVE_ANDROID_PLATFORM

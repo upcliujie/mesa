@@ -1468,6 +1468,16 @@ create_wl_buffer(struct dri2_egl_display *dri2_dpy,
       if (dri2_surf)
          wl_proxy_set_queue((struct wl_proxy *)params, dri2_surf->wl_queue);
 
+      if (wl_proxy_get_version((struct wl_proxy *)dri2_dpy->wl_dmabuf) >=
+          ZWP_LINUX_BUFFER_PARAMS_V1_SET_TARGET_DEVICE_SINCE_VERSION) {
+          struct wl_array dev;
+          wl_array_init(&dev);
+          wl_array_add(&dev, sizeof(dev_t));
+          memcpy(dev.data, &dri2_dpy->display_device_dev, sizeof(dev_t));
+          zwp_linux_buffer_params_v1_set_target_device(params, &dev);
+          wl_array_release(&dev);
+      }
+
       for (i = 0; i < num_planes; i++) {
          __DRIimage *p_image;
          int stride, offset;
@@ -1873,17 +1883,14 @@ default_dmabuf_feedback_format_table(
 }
 
 static void
-default_dmabuf_feedback_main_device(
-   void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback,
-   struct wl_array *device)
+dri2_wl_init_display_dev(
+   struct dri2_egl_display *dri2_dpy,
+   dev_t dev)
 {
-   struct dri2_egl_display *dri2_dpy = data;
    char *node;
    int fd;
-   dev_t dev;
 
    /* Given the device, look for a render node and try to open it. */
-   memcpy(&dev, device->data, sizeof(dev));
    node = loader_get_render_node(dev);
    if (!node)
       return;
@@ -1893,9 +1900,22 @@ default_dmabuf_feedback_main_device(
       return;
    }
 
+   dri2_dpy->display_device_dev = dev;
    dri2_dpy->device_name = node;
    dri2_dpy->fd_render_gpu = fd;
    dri2_dpy->authenticated = true;
+}
+
+static void
+default_dmabuf_feedback_main_device(
+   void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback,
+   struct wl_array *device)
+{
+   struct dri2_egl_display *dri2_dpy = data;
+   dev_t dev;
+
+   memcpy(&dev, device->data, sizeof(dev));
+   dri2_wl_init_display_dev(dri2_dpy, dev);
 }
 
 static void
@@ -1903,7 +1923,11 @@ default_dmabuf_feedback_tranche_target_device(
    void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback,
    struct wl_array *device)
 {
-   /* ignore this event */
+   struct dri2_egl_display *dri2_dpy = data;
+   dev_t dev;
+
+   memcpy(&dev, device->data, sizeof(dev));
+   dri2_dpy->pending_tranche_target_device = dev;
 }
 
 static void
@@ -1911,7 +1935,9 @@ default_dmabuf_feedback_tranche_flags(
    void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback,
    uint32_t flags)
 {
-   /* ignore this event */
+   struct dri2_egl_display *dri2_dpy = data;
+
+   dri2_dpy->pending_tranche_flags = flags;
 }
 
 static void
@@ -1959,7 +1985,14 @@ static void
 default_dmabuf_feedback_tranche_done(
    void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback)
 {
-   /* ignore this event */
+   struct dri2_egl_display *dri2_dpy = data;
+
+   if (dri2_dpy->fd_render_gpu -= -1 &&
+       (dri2_dpy->pending_tranche_flags & ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SAMPLING) != 0)
+       dri2_wl_init_display_dev(dri2_dpy, dri2_dpy->pending_tranche_target_device);
+
+   dri2_dpy->pending_tranche_target_device = 0;
+   dri2_dpy->pending_tranche_flags = 0;
 }
 
 static void
@@ -1994,7 +2027,7 @@ registry_handle_global_drm(void *data, struct wl_registry *registry,
               version >= 3) {
       dri2_dpy->wl_dmabuf = wl_registry_bind(
          registry, name, &zwp_linux_dmabuf_v1_interface,
-         MIN2(version, ZWP_LINUX_DMABUF_V1_GET_DEFAULT_FEEDBACK_SINCE_VERSION));
+         MIN2(version, ZWP_LINUX_BUFFER_PARAMS_V1_SET_TARGET_DEVICE_SINCE_VERSION));
       zwp_linux_dmabuf_v1_add_listener(dri2_dpy->wl_dmabuf, &dmabuf_listener,
                                        dri2_dpy);
    }
