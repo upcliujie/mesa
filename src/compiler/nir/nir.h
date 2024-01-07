@@ -1865,6 +1865,10 @@ typedef struct {
    nir_instr instr;
 
    struct nir_function *callee;
+   /* If this function call is indirect, the function pointer to call.
+    * Otherwise, null initialized.
+    */
+   nir_src indirect_callee;
 
    unsigned num_params;
    nir_src params[];
@@ -3537,6 +3541,15 @@ typedef struct {
    /* True if this parameter is a deref used for returning values */
    bool is_return;
 
+   /* Drivers may optionally stash flags here describing the parameter.
+    * For example, this might encode whether the driver expects the value
+    * to be uniform or divergent, if the driver handles divergent parameters
+    * differently from uniform ones.
+    *
+    * NIR will preserve this value but does not interpret it in any way.
+    */
+   uint32_t driver_attributes;
+
    /* The type of the function param */
    const struct glsl_type *type;
 } nir_parameter;
@@ -3558,6 +3571,14 @@ typedef struct nir_function {
     * nir_function_set_impl to maintain IR invariants.
     */
    nir_function_impl *impl;
+
+   /* Drivers may optionally stash flags here describing the function call.
+    * For example, this might encode the ABI used for the call if a driver
+    * supports multiple ABIs.
+    *
+    * NIR will preserve this value but does not interpret it in any way.
+    */
+   uint32_t driver_attributes;
 
    bool is_entrypoint;
    /* from SPIR-V linkage, only for libraries */
