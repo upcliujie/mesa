@@ -520,7 +520,7 @@ zink_can_use_pipeline_libs(const struct zink_context *ctx)
 ALWAYS_INLINE static bool
 zink_can_use_uber(struct zink_context *ctx)
 {
-   return zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) != ZINK_SHADER_KEY_OPTIMAL_DEFAULT &&
+   return zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) == ZINK_SHADER_KEY_OPTIMAL_DEFAULT &&
       zink_can_use_pipeline_libs(ctx);
 }
 
