@@ -872,6 +872,8 @@ async_variant_program_update(struct zink_context *ctx, bool can_use_uber, bool n
       struct zink_gfx_program *variant;
       if (!variant_entry) {
          variant = zink_create_gfx_program(ctx->curr_program_uber->ctx, ctx->curr_program_uber->shaders, 0, ctx->curr_program_uber->gfx_hash, true);
+         printf("allocated variant %p\n", variant);
+         zink_batch_reference_program(&ctx->batch, &variant->base);
          util_queue_fence_init(&variant->base.cache_fence);
          struct program_variant_key *prog_variant_key_p = MALLOC(sizeof(struct program_variant_key));
          memcpy(prog_variant_key_p, &prog_variant_key, sizeof(struct program_variant_key));
