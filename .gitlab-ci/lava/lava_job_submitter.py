@@ -12,19 +12,21 @@
 import contextlib
 import json
 import pathlib
+import signal
 import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass, fields
 from datetime import datetime, timedelta
 from os import environ, getenv, path
-from typing import Any, Optional
+from typing import Any, NoReturn, Optional
 
 import fire
 from lavacli.utils import flow_yaml as lava_yaml
 
 from lava.exceptions import (
     MesaCIException,
+    MesaCIKillException,
     MesaCIParseException,
     MesaCIRetryError,
     MesaCITimeoutError,
@@ -289,6 +291,10 @@ def execute_job_with_retries(
     proxy, job_definition, retry_count, jobs_log
 ) -> Optional[LAVAJob]:
     last_failed_job = None
+    # If the job fails, we will retry it a few times before giving up.
+    # But there are some exceptions that we should not retry, like when the
+    # user kills the script.
+    fatal_exception: Optional[BaseException] = None
     for attempt_no in range(1, retry_count + 2):
         # Need to get the logger value from its object to enable autosave
         # features, if AutoSaveDict is enabled from StructuredLogging module
@@ -304,7 +310,11 @@ def execute_job_with_retries(
             follow_job_execution(job, log_follower)
             return job
 
-        except (MesaCIException, KeyboardInterrupt) as exception:
+        except (MesaCIKillException, KeyboardInterrupt) as exception:
+            job.handle_exception(exception)
+            fatal_exception = exception
+
+        except MesaCIException as exception:
             job.handle_exception(exception)
 
         finally:
@@ -318,6 +328,8 @@ def execute_job_with_retries(
                 f"Finished executing LAVA job in the attempt #{attempt_no}"
                 f"{CONSOLE_LOG['RESET']}"
             )
+            if fatal_exception:
+                raise fatal_exception
 
     return last_failed_job
 
@@ -521,6 +533,19 @@ class StructuredLoggerWrapper:
         return context
 
 
+def signal_handler(sig, frame) -> NoReturn:
+    """
+    Signal handler function to handle early exit signals
+    """
+    raise MesaCIKillException(sig)
+
+
+def setup_signal_handler() -> None:
+    signal.signal(signal.SIGHUP, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGQUIT, signal_handler)
+
+
 if __name__ == "__main__":
     # given that we proxy from DUT -> LAVA dispatcher -> LAVA primary -> us ->
     # GitLab runner -> GitLab primary -> user, safe to say we don't need any
@@ -533,5 +558,7 @@ if __name__ == "__main__":
     # lifetime follows the script one.
     environ["TZ"] = "UTC"
     time.tzset()
+
+    setup_signal_handler()
 
     fire.Fire(LAVAJobSubmitter)
