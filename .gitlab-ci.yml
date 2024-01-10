@@ -309,3 +309,18 @@ sanity:
       optional: true
     - job: rustfmt
       optional: true
+
+test-sigterm:
+  before_script: []
+  after_script: []
+  artifacts:
+    paths:
+      - sigterm_test.log
+  script:
+  - sh .gitlab-ci/sigterm_test.sh | tee sigterm_test.log
+  interruptible: true
+  stage: sanity
+  needs: []
+  tags:
+    # Run in some brea, as it has gitlab-runner 16.6+
+    - mesa-ci-x86-64-lava-hp-x360-14-G1-sona
