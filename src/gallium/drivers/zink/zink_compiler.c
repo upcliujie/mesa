@@ -91,6 +91,9 @@ fields[member_idx].offset = offsetof(struct zink_gfx_push_constant, field);
    PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_LINE_STIPPLE_PATTERN, line_stipple_pattern);
    PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_VIEWPORT_SCALE, viewport_scale);
    PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_LINE_WIDTH, line_width);
+   PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_FLAT_MASK, flat_mask);
+   PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_PV_LAST_VERT, pv_last_vert);
+   PUSHCONST_MEMBER(ZINK_GFX_PUSHCONST_ST_VARIANT_KEY, st_variant_key);
 
    pushconst = nir_variable_create(nir, nir_var_mem_push_const,
                                    glsl_struct_type(fields, ZINK_GFX_PUSHCONST_MAX, "struct", false),
@@ -300,15 +303,15 @@ lower_pv_mode_gs_ring_index(nir_builder *b,
 static nir_deref_instr*
 replicate_derefs(nir_builder *b, nir_deref_instr *old, nir_deref_instr *new)
 {
-   nir_deref_instr *parent = nir_deref_instr_parent(old);
-   if (!parent)
-      return new;
+   nir_deref_instr *parent;
    switch(old->deref_type) {
    case nir_deref_type_var:
       return new;
    case nir_deref_type_array:
+      parent = nir_deref_instr_parent(old);
       return nir_build_deref_array(b, replicate_derefs(b, parent, new), old->arr.index.ssa);
    case nir_deref_type_struct:
+      parent = nir_deref_instr_parent(old);
       return nir_build_deref_struct(b, replicate_derefs(b, parent, new), old->strct.index);
    case nir_deref_type_array_wildcard:
    case nir_deref_type_ptr_as_array:
@@ -1180,6 +1183,35 @@ zink_lower_system_values_to_inlined_uniforms(nir_shader *nir)
    return nir_shader_intrinsics_pass(nir,
                                        lower_system_values_to_inlined_uniforms_instr,
                                        nir_metadata_dominance, NULL);
+}
+
+static bool
+lower_system_values_to_push_constants(nir_builder *b, nir_intrinsic_instr *intrin, void *data)
+{
+   int push_constant_index;
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_flat_mask:
+      push_constant_index = ZINK_GFX_PUSHCONST_FLAT_MASK;
+      break;
+   case nir_intrinsic_load_provoking_last:
+      push_constant_index = ZINK_GFX_PUSHCONST_PV_LAST_VERT;
+      break;
+   default:
+      return false;
+   }
+
+   b->cursor = nir_instr_remove(&intrin->instr);
+   nir_def *new_dest_def = nir_load_push_constant_zink(b, 1, 32,
+                                                      nir_imm_int(b, push_constant_index));
+   nir_def_rewrite_uses(&intrin->def, new_dest_def);
+   return true;
+}
+
+bool
+zink_lower_system_values_to_push_constants(nir_shader *nir)
+{
+   return nir_shader_intrinsics_pass(nir, lower_system_values_to_push_constants,
+                                     nir_metadata_dominance, NULL);
 }
 
 void
@@ -3735,15 +3767,519 @@ compile_module(struct zink_screen *screen, struct zink_shader *zs, nir_shader *n
    return obj;
 }
 
+static nir_def *
+push_constant_bool_key(nir_builder *b, nir_def *push_consts, uint32_t key_mask)
+{
+   return nir_b2b1(b, nir_iand_imm(b, nir_channel(b, push_consts, 0), key_mask));
+}
+
+static nir_def *
+push_constant_integer_key(nir_builder *b, nir_def *push_consts, uint32_t offset, uint8_t bitsize)
+{
+   return nir_iand_imm(b, nir_ishr_imm(b, push_consts, offset), ~(-1 << bitsize));
+}
+
+#define ST_VARIANT_KEY_MASK(field)                      \
+   *(uint32_t*)&(struct zink_st_variant_key){           \
+      .small_key = (union zink_st_small_key) {          \
+         .field = 1,                                    \
+      }                                                 \
+}
+
+struct lower_st_key_sysvals_instr_state {
+   nir_def *push_consts[16];
+   nir_variable *ucp_state_var;
+};
+
+static bool
+lower_st_key_sysvals_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   struct lower_st_key_sysvals_instr_state *state = data;
+
+   b->cursor = nir_before_instr(instr);
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+   uint32_t key_mask = 0, offset, bitsize, component = 0;
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_clamp_color_enabled:
+      key_mask = ST_VARIANT_KEY_MASK(clamp_color);
+      break;
+   case nir_intrinsic_load_clip_plane_enable:
+      /* TODO find a way of not hardcoding size and offset? */
+      offset = 16;
+      bitsize = 8;
+      break;
+   case nir_intrinsic_load_user_clip_plane:
+   {
+      uint32_t offset_bytes = offsetof(struct zink_st_variant_key, ucp_state);
+      nir_def *components[4];
+      //TODO maybe use nir_channels? would be a bit slower
+      for (unsigned i = 0; i < 4; i++)
+         components[i] = state->push_consts[offset_bytes / 4 + i];
+      nir_def *new_dest_def = nir_vec4(b, components[0], components[1],
+                                           components[2], components[3]);
+      nir_def_rewrite_uses(&intrin->def, new_dest_def);
+      nir_instr_remove(instr);
+      return true;
+      break;
+   }
+   case nir_intrinsic_load_txc_sat:
+      component = 1 + nir_intrinsic_txc_sat_id(intrin);
+      break;
+   case nir_intrinsic_load_alpha_reference:
+      component = offsetof(struct zink_st_variant_key, alpha_test_reference) / 4;
+      break;
+   case nir_intrinsic_load_alpha_compare_func:
+      offset = 24;
+      bitsize = 3;
+      break;
+   default:
+      return false;
+   }
+
+   b->cursor = nir_before_instr(&intrin->instr);
+   nir_def *new_dest_def;
+   if (key_mask) {
+      new_dest_def = push_constant_bool_key(b, state->push_consts[0], key_mask);
+   } else if (component == 0) {
+      new_dest_def = push_constant_integer_key(b, state->push_consts[0], offset, bitsize);
+   } else {
+      new_dest_def = state->push_consts[component];
+   }
+   nir_def_rewrite_uses(&intrin->def, new_dest_def);
+
+   nir_instr_remove(instr);
+   return true;
+}
+
+static bool
+lower_st_key_sysvals(nir_shader *shader)
+{
+   nir_builder b;
+   nir_function_impl *entry = nir_shader_get_entrypoint(shader);
+   b = nir_builder_at(nir_before_cf_list(&entry->body));
+
+   nir_variable *ucp_state_var = NULL;
+   struct lower_st_key_sysvals_instr_state state = {
+      .ucp_state_var = ucp_state_var,
+   };
+   for (unsigned i = 0; i < 16; i++) {
+      state.push_consts[i] = nir_load_push_constant_zink(&b, 1, 32,
+                                                    nir_imm_int(&b, ZINK_GFX_PUSHCONST_ST_VARIANT_KEY),
+                                                    .component = i);;
+   }
+   return nir_shader_instructions_pass(shader, lower_st_key_sysvals_instr,
+                                       nir_metadata_dominance, &state);
+}
+
+static void
+lower_ucp(struct zink_shader *za,
+          struct nir_shader *nir)
+{
+   /* Cull and Clip distance seem to be interacting in undesiderable ways
+    * TODO verify this is by spec and not a driver bug */
+   if (nir->info.outputs_written & VARYING_BIT_CULL_DIST0)
+      return;
+   if (nir->info.outputs_written & VARYING_BIT_CLIP_DIST0)
+      NIR_PASS_V(nir, nir_lower_clip_disable, NULL);
+   else {
+      bool can_compact = true;
+
+      if (nir->info.stage == MESA_SHADER_VERTEX ||
+          nir->info.stage == MESA_SHADER_TESS_EVAL) {
+         NIR_PASS_V(nir, nir_lower_clip_vs, NULL,
+                    true, can_compact, NULL);
+      } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
+         NIR_PASS_V(nir, nir_lower_clip_gs, NULL ,
+                    can_compact, NULL);
+      }
+
+      /* NIR_PASS_V(nir, nir_lower_io_to_temporaries, */
+      /*            nir_shader_get_entrypoint(nir), true, false); */
+      /* NIR_PASS_V(nir, nir_lower_global_vars_to_local); */
+   }
+}
+
+struct lower_flatsahde_state {
+   nir_variable *varyings[VARYING_SLOT_MAX][4];
+   nir_def *flat_shading_enabled;
+};
+
+static bool
+flatshading_var_should_lower(nir_variable *var)
+{
+   return (var->data.location == VARYING_SLOT_COL0 ||
+           var->data.location == VARYING_SLOT_COL1 ||
+           var->data.location == VARYING_SLOT_BFC0 ||
+           var->data.location == VARYING_SLOT_BFC1);
+}
+
+static bool
+lower_flatshade_load(nir_builder *b,
+                       nir_intrinsic_instr *intrin,
+                       struct lower_flatsahde_state *state)
+{
+   b->cursor = nir_before_instr(&intrin->instr);
+   nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+   if (nir_deref_mode_is(deref, nir_var_shader_in)) {
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+      gl_varying_slot location = var->data.location;
+      unsigned location_frac = var->data.location_frac;
+      if (!state->varyings[location][location_frac])
+         return false;
+      nir_deref_instr *smooth_deref = nir_build_deref_var(b, state->varyings[location][location_frac]);
+      // recreate the chain of deref that lead to the load.
+      nir_deref_instr *new_top_deref = replicate_derefs(b, deref, smooth_deref);
+      nir_def *smooth_def = nir_load_deref(b, new_top_deref);
+      nir_def *flat_def = nir_load_deref(b, deref);
+      nir_def *new_def = nir_bcsel(b, state->flat_shading_enabled,
+                                       flat_def, smooth_def);//TODO
+      nir_def_rewrite_uses(&intrin->def, new_def);
+      nir_instr_remove(&intrin->instr);
+      return true;
+   }
+
+   return false;
+}
+
+static bool
+lower_flatshade_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   struct lower_flatsahde_state *state = data;
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_deref:
+      return lower_flatshade_load(b, intrin, state);
+   case nir_intrinsic_copy_deref:
+      unreachable("should be lowered");
+   default:
+      return false;
+   }
+}
+
+static bool
+zink_lower_input_flat(nir_shader *shader, nir_variable *var)
+{
+   if (var->data.interpolation == INTERP_MODE_NONE &&
+       flatshading_var_should_lower(var)) {
+      var->data.interpolation = INTERP_MODE_FLAT;
+      return true;
+   }
+   return false;
+}
+
+bool
+static lower_flatshade_enable(nir_shader *shader)
+{
+   bool progress = false;
+   nir_builder b;
+   nir_function_impl *entry = nir_shader_get_entrypoint(shader);
+
+   struct lower_flatsahde_state state;
+   memset(state.varyings, 0, sizeof(state.varyings));
+
+   b = nir_builder_at(nir_before_cf_list(&entry->body));
+   nir_def *push_consts = nir_load_push_constant_zink(&b, 4, 32,
+                                                          nir_imm_int(&b, ZINK_GFX_PUSHCONST_ST_VARIANT_KEY));
+   state.flat_shading_enabled = push_constant_bool_key(&b, push_consts, ST_VARIANT_KEY_MASK(lower_flatshade));
+
+   nir_foreach_shader_in_variable(var, shader) {
+      bool needs_lowering = zink_lower_input_flat(shader, var);
+      progress |= needs_lowering;
+      /* make room for duplicated variables without making assumptions about
+       * previous stage interface, works like hilbert's hotel */
+      var->data.driver_location *= 2;
+      if (needs_lowering) {
+         state.varyings[var->data.location][var->data.location_frac] = var;
+      }
+   }
+
+   for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
+      for (unsigned j = 0; j < 4; j++) {
+         nir_variable *var = state.varyings[i][j];
+         if (!var)
+            continue;
+         char name[100];
+         if (var->name)
+            snprintf(name, sizeof(name), "__smooth_%s", var->name);
+         else
+            snprintf(name, sizeof(name), "__smooth_%d", var->data.driver_location);
+
+         nir_variable *smooth_var = nir_variable_clone(var, shader);
+         ralloc_free(smooth_var->name);
+         smooth_var->name = ralloc_strdup(smooth_var, name);
+         smooth_var->data.mode = nir_var_shader_in;
+         smooth_var->data.interpolation = INTERP_MODE_SMOOTH;
+         state.varyings[var->data.location][var->data.location_frac] = smooth_var;
+         smooth_var->data.driver_location += 1; // new guest goes in odd slot
+         smooth_var->data.location = MAX2(util_last_bit64(shader->info.inputs_read), VARYING_SLOT_VAR0);
+         shader->info.inputs_read |= BITFIELD64_BIT(smooth_var->data.location);
+         shader->num_inputs++;
+         nir_shader_add_variable(shader, smooth_var);
+      }
+   }
+
+   progress |= nir_shader_instructions_pass(shader, lower_flatshade_instr,
+                                            nir_metadata_dominance, &state);
+   return progress;
+}
+
+static bool
+lower_flatshade_store(nir_builder *b,
+                       nir_intrinsic_instr *intrin,
+                       struct lower_flatsahde_state *state)
+{
+   b->cursor = nir_before_instr(&intrin->instr);
+   nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+   if (nir_deref_mode_is(deref, nir_var_shader_out)) {
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+      if (!flatshading_var_should_lower(var))
+         return false;
+      gl_varying_slot location = var->data.location;
+      unsigned location_frac = var->data.location_frac;
+      assert(state->varyings[location][location_frac]);
+      nir_deref_instr *smooth_deref = nir_build_deref_var(b, state->varyings[location][location_frac]);
+      // recreate the chain of deref that lead to the load.
+      nir_deref_instr *new_top_deref = replicate_derefs(b, deref, smooth_deref);
+      //struct nir_instr* new_store = nir_instr_clone(b->shader, &intrin->instr);
+      nir_store_deref(b, new_top_deref, intrin->src[1].ssa, nir_intrinsic_write_mask(intrin));
+      return true;
+   }
+
+   return false;
+}
+
+static bool
+lower_flatshade_out_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   struct lower_flatsahde_state *state = data;
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_store_deref:
+      return lower_flatshade_store(b, intrin, state);
+   case nir_intrinsic_copy_deref:
+      unreachable("should be lowered");
+   default:
+      return false;
+   }
+}
+
+static bool
+var_is_spv_builtin(nir_variable *var)
+{
+   switch (var->data.location) {
+   case VARYING_SLOT_POS:
+   case VARYING_SLOT_PNTC:
+   case VARYING_SLOT_LAYER:
+   case VARYING_SLOT_PRIMITIVE_ID:
+   case VARYING_SLOT_CLIP_DIST0:
+   case VARYING_SLOT_CULL_DIST0:
+   case VARYING_SLOT_VIEWPORT:
+   case VARYING_SLOT_FACE:
+      return true;
+   default:
+      return false;
+   }
+}
+
+static bool
+lower_flatshade_out_variables(nir_shader *shader)
+{
+   struct lower_flatsahde_state state;
+   memset(state.varyings, 0, sizeof(state.varyings));
+   unsigned int num_outputs = 0;
+   nir_foreach_shader_out_variable(var, shader) {
+      if (var->data.driver_location == UINT_MAX)
+         continue;
+      bool needs_lowering = flatshading_var_should_lower(var);
+      num_outputs += !var_is_spv_builtin(var);
+      /* make room for duplicated variables without making assumptions about
+       * fs interface, works like hilbert's hotel */
+      var->data.driver_location *= 2;
+      if (needs_lowering) {
+         state.varyings[var->data.location][var->data.location_frac] = var;
+
+      }
+   }
+
+   for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
+      for (unsigned j = 0; j < 4; j++) {
+         nir_variable *var = state.varyings[i][j];
+         if (!var)
+            continue;
+         char name[100];
+         if (var->name)
+            snprintf(name, sizeof(name), "__smooth_%s", var->name);
+         else
+            snprintf(name, sizeof(name), "__smooth_%d", var->data.driver_location);
+
+         unsigned location = 0;
+         nir_foreach_shader_out_variable(var, shader) {
+            if (var->data.driver_location >= location)
+               location = var->data.driver_location + 1;
+         }
+
+         nir_variable *smooth_var = nir_variable_clone(var, shader);
+         ralloc_free(smooth_var->name);
+         smooth_var->name = ralloc_strdup(smooth_var, name);
+         smooth_var->data.mode = nir_var_shader_out;
+         smooth_var->data.interpolation = INTERP_MODE_SMOOTH;
+         state.varyings[var->data.location][var->data.location_frac] = smooth_var;
+         smooth_var->data.driver_location += 1;
+         smooth_var->data.location = MAX2(util_last_bit64(shader->info.outputs_written), VARYING_SLOT_VAR0);
+         shader->info.outputs_written |= BITFIELD64_BIT(smooth_var->data.location);
+         shader->num_outputs++;
+         nir_shader_add_variable(shader, smooth_var);
+      }
+   }
+
+   return nir_shader_instructions_pass(shader, lower_flatshade_out_instr,
+                                       nir_metadata_dominance, &state);
+}
+
+static bool
+lower_uber_sample_pass(nir_shader *nir)
+{
+
+   if (nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)) {
+      //TODO dynamic version for uber shader
+      /* VK will always use gl_SampleMask[] values even if sample count is 0,
+       * so we need to skip this write here to mimic GL's behavior of ignoring it
+       */
+      nir_foreach_shader_out_variable(var, nir) {
+         if (var->data.location == FRAG_RESULT_SAMPLE_MASK)
+            var->data.mode = nir_var_shader_temp;
+      }
+      nir_fixup_deref_modes(nir);
+      NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_temp, NULL);
+      return true;
+   }
+   puts("aaaaa");
+   if (!(nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)))
+      return false;
+   /* VK will always use gl_SampleMask[] values even if sample count is 0,
+    * so we need to skip this write here to mimic GL's behavior of ignoring it
+    */
+   nir_variable *sample_mask = nir_find_variable_with_location(nir, nir_var_shader_out, FRAG_RESULT_SAMPLE_MASK);
+   if (!sample_mask)
+      return false;
+
+   nir_print_shader(nir, stdout);exit(0);
+   /* return nir_shader_instructions_pass(shader, lower_flatshade_out_instr, */
+   /*                                     nir_metadata_dominance, &state); */
+
+   return true;
+}
+
+static void
+zink_optimized_st_emulation_passes(nir_shader *nir, struct zink_shader *zs,
+                                   const struct zink_st_variant_key *key)
+{
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+      if (key->small_key.clamp_color)
+         NIR_PASS_V(nir, nir_lower_clamp_color_outputs);
+      break;
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      break;
+   case MESA_SHADER_FRAGMENT:
+      if (key->small_key.clamp_color)
+         NIR_PASS_V(nir, nir_lower_clamp_color_outputs);
+      if (key->small_key.lower_txc_sat)
+         NIR_PASS_V(nir, nir_lower_tex, NULL);
+      if (key->small_key.lower_alpha_test) {
+         NIR_PASS_V(nir, nir_lower_alpha_test, NULL,
+                    false, NULL);
+         NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
+      }
+      if (key->small_key.lower_flatshade)
+         NIR_PASS_V(nir, nir_lower_flatshade);
+      break;
+
+   default: break;
+   }
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      if (key->small_key.lower_ucp)
+         lower_ucp(zs, nir);
+      break;
+   default: break;
+   }
+   NIR_PASS_V(nir, lower_st_key_sysvals);
+}
+
+static void
+zink_emulation_passes(nir_shader *nir, struct zink_shader *zs)
+{
+   bool need_optimize = false;
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+      NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
+      //NIR_PASS_V(nir, lower_flatshade_out_variables);
+      need_optimize = true;
+      break;
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      break;
+   case MESA_SHADER_FRAGMENT:
+      NIR_PASS_V(nir, nir_lower_clamp_color_outputs_enable);
+      NIR_PASS_V(nir, nir_lower_tex, NULL);
+      //NIR_PASS_V(nir, lower_flatshade_enable);
+      NIR_PASS_V(nir, nir_lower_alpha_test, NULL,
+                 false, NULL);
+      NIR_PASS_V(nir, nir_lower_discard_if, nir_lower_discard_if_to_cf);
+      /* NIR_PASS_V(nir, lower_uber_sample_pass); */
+      need_optimize = true;
+      break;
+
+   default: break;
+   }
+   switch (zs->info.stage) {
+   case MESA_SHADER_VERTEX:
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_GEOMETRY:
+      lower_ucp(zs, nir);
+      break;
+   default: break;
+   }
+   NIR_PASS_V(nir, lower_st_key_sysvals);
+   if (need_optimize)
+      optimize_nir(nir, zs, true);
+}
+
 struct zink_shader_object
-zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs,
-                    nir_shader *nir, const struct zink_shader_key *key, const void *extra_data, struct zink_program *pg)
+zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs, nir_shader *nir,
+                    const struct zink_shader_key *key, const struct zink_st_variant_key *st_key,
+                    bool compile_uber, const void *extra_data, struct zink_program *pg)
 {
    bool need_optimize = true;
    bool inlined_uniforms = false;
 
    NIR_PASS_V(nir, add_derefs);
    NIR_PASS_V(nir, nir_lower_fragcolor, nir->info.fs.color_is_dual_source ? 1 : 8);
+
+   if (compile_uber)
+      zink_emulation_passes(nir, zs);
+   else if (st_key) {
+      zink_optimized_st_emulation_passes(nir, zs, st_key);
+      need_optimize = true;
+   }
+
    if (key) {
       if (key->inline_uniforms) {
          NIR_PASS_V(nir, nir_inline_uniforms,
@@ -3847,6 +4383,7 @@ zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shad
 
          if (!zink_fs_key_base(key)->samples &&
             nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_SAMPLE_MASK)) {
+            //TODO dynamic version for uber shader
             /* VK will always use gl_SampleMask[] values even if sample count is 0,
             * so we need to skip this write here to mimic GL's behavior of ignoring it
             */
@@ -3932,7 +4469,7 @@ zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shad
 }
 
 struct zink_shader_object
-zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs)
+zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs, bool compile_uber)
 {
    nir_shader *nir = zink_shader_deserialize(screen, zs);
    /* TODO: maybe compile multiple variants for different set counts for compact mode? */
@@ -3969,6 +4506,10 @@ zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs)
       NIR_PASS_V(nir, rewrite_bo_access, screen);
       NIR_PASS_V(nir, remove_bo_access, zs);
    }
+
+   if (compile_uber)
+      zink_emulation_passes(nir, zs);
+
    optimize_nir(nir, zs, true);
    zink_descriptor_shader_init(screen, zs);
    nir_shader *nir_clone = NULL;
@@ -3982,7 +4523,7 @@ zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs)
          /* use max pcp for compat */
          zs->non_fs.generated_tcs = zink_shader_tcs_create(screen, nir_clone, 32, &nir_tcs);
          nir_tcs->info.separate_shader = true;
-         zs->non_fs.generated_tcs->precompile.obj = zink_shader_compile_separate(screen, zs->non_fs.generated_tcs);
+         zs->non_fs.generated_tcs->precompile.obj = zink_shader_compile_separate(screen, zs->non_fs.generated_tcs, compile_uber);
          ralloc_free(nir_tcs);
       }
    }
@@ -4943,7 +5484,7 @@ fixup_io_locations(nir_shader *nir)
    return true;
 }
 
-static uint32_t
+uint32_t
 zink_flat_flags(struct nir_shader *shader)
 {
    uint32_t flat_flags = 0, c = 0;
@@ -5722,14 +6263,16 @@ zink_gfx_shader_free(struct zink_screen *screen, struct zink_shader *shader)
          simple_mtx_unlock(&prog->ctx->program_lock[idx]);
          util_queue_fence_wait(&prog->base.cache_fence);
 
-         for (unsigned r = 0; r < ARRAY_SIZE(prog->pipelines); r++) {
-            for (int i = 0; i < ARRAY_SIZE(prog->pipelines[0]); ++i) {
-               hash_table_foreach(&prog->pipelines[r][i], entry) {
-                  struct zink_gfx_pipeline_cache_entry *pc_entry = entry->data;
+         for (unsigned u = 0; u < ARRAY_SIZE(prog->pipelines); u++) {
+            for (unsigned r = 0; r < ARRAY_SIZE(prog->pipelines[0]); r++) {
+               for (int i = 0; i < ARRAY_SIZE(prog->pipelines[0][0]); ++i) {
+                  hash_table_foreach(&prog->pipelines[u][r][i], entry) {
+                     struct zink_gfx_pipeline_cache_entry *pc_entry = entry->data;
 
-                  util_queue_fence_wait(&pc_entry->fence);
+                     util_queue_fence_wait(&pc_entry->fence);
+                  }
                }
-            }
+         }
          }
 
       }

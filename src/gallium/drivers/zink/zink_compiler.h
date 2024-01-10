@@ -64,15 +64,23 @@ zink_create_quads_emulation_gs(const nir_shader_compiler_options *options,
 bool
 zink_lower_system_values_to_inlined_uniforms(nir_shader *nir);
 
+bool
+zink_lower_system_values_to_push_constants(nir_shader *nir);
+
+uint32_t
+zink_flat_flags(struct nir_shader *shader);
+
 void
 zink_screen_init_compiler(struct zink_screen *screen);
 void
 zink_compiler_assign_io(struct zink_screen *screen, nir_shader *producer, nir_shader *consumer);
 /* pass very large shader key data with extra_data */
 struct zink_shader_object
-zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs, nir_shader *nir, const struct zink_shader_key *key, const void *extra_data, struct zink_program *pg);
+zink_shader_compile(struct zink_screen *screen, bool can_shobj, struct zink_shader *zs, nir_shader *nir,
+                    const struct zink_shader_key *key, const struct zink_st_variant_key *st_key,
+                    bool compile_uber, const void *extra_data, struct zink_program *pg);
 struct zink_shader_object
-zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs);
+zink_shader_compile_separate(struct zink_screen *screen, struct zink_shader *zs, bool compile_uber);
 struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir);
 

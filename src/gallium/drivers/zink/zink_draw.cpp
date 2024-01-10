@@ -404,9 +404,9 @@ update_gfx_pipeline(struct zink_context *ctx, struct zink_batch_state *bs, enum 
    VkPipeline pipeline = VK_NULL_HANDLE;
    if (!ctx->curr_program->base.uses_shobj) {
       if (screen->info.have_EXT_graphics_pipeline_library)
-         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, true>(ctx, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
+         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, true>(ctx, ctx->curr_program_uber, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
       else
-         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, false>(ctx, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
+         pipeline = zink_get_gfx_pipeline<DYNAMIC_STATE, false>(ctx, ctx->curr_program, ctx->curr_program, &ctx->gfx_pipeline_state, mode);
    }
    if (pipeline) {
       pipeline_changed = prev_pipeline != pipeline;
@@ -946,6 +946,28 @@ zink_draw(struct pipe_context *pctx,
                            &ctx->tess_levels[0]);
       }
    }
+
+   //TODO if push comstant variant
+   if (ctx->curr_program->shaders[MESA_SHADER_GEOMETRY] &&
+       ctx->curr_program->shaders[MESA_SHADER_GEOMETRY]->non_fs.is_generated) {
+      uint32_t flat_flags = ctx->curr_program->shaders[MESA_SHADER_FRAGMENT]->flat_flags;
+      if (ctx->gfx_pipeline_state.shader_keys.st_key.small_key.lower_flatshade)
+         flat_flags |= -1;
+      VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                         offsetof(struct zink_gfx_push_constant, flat_mask), sizeof(uint32_t),
+                         &flat_flags);
+      uint32_t pv_last_last = ctx->gfx_pipeline_state.dyn_state3.pv_last;
+      VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                         offsetof(struct zink_gfx_push_constant, pv_last_vert), sizeof(uint32_t),
+                         &pv_last_last);
+   }
+   uint32_t st_key_push[5 + 8 * 4];
+   assert(sizeof(st_key_push) == sizeof(zink_st_variant_key));
+   memcpy(&st_key_push, &ctx->gfx_pipeline_state.shader_keys.st_key, sizeof(st_key_push));
+   VKCTX(CmdPushConstants)(batch->state->cmdbuf, ctx->curr_program->base.layout, VK_SHADER_STAGE_ALL_GRAPHICS,
+                           offsetof(struct zink_gfx_push_constant, st_variant_key), sizeof(zink_st_variant_key),
+                           &st_key_push);
+
 
    if (!screen->optimal_keys) {
       if (zink_get_fs_key(ctx)->lower_line_stipple ||

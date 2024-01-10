@@ -797,6 +797,7 @@ struct zink_shader_object {
       VkShaderModule mod;
    };
    struct spirv_shader *spirv;
+   VkPipeline gpl;
 };
 
 struct zink_shader {
@@ -823,14 +824,17 @@ struct zink_shader {
    bool has_uniforms;
    bool has_edgeflags;
    bool needs_inlining;
+   bool is_uber;
    struct spirv_shader *spirv;
 
    struct {
       struct util_queue_fence fence;
       struct zink_shader_object obj;
+      struct zink_shader_object emulation_obj;
       VkDescriptorSetLayout dsl;
       VkPipelineLayout layout;
       VkPipeline gpl;
+      VkPipeline emulation_gpl;
       VkDescriptorSetLayoutBinding *bindings;
       unsigned num_bindings;
       struct zink_descriptor_template *db_template;
@@ -925,11 +929,14 @@ struct zink_gfx_pipeline_state {
    struct zink_vertex_elements_hw_state *element_state;
    struct zink_zs_swizzle_key *shadow;
    bool sample_locations_enabled;
+   unsigned st_emulation_lowering_counter;
+   bool uber_required; // emulation needed && !async compilation done
    enum mesa_prim shader_rast_prim, rast_prim; /* reduced type or max for unknown */
    union {
       struct {
          struct zink_shader_key key[5];
          struct zink_shader_key last_vertex;
+         struct zink_st_variant_key st_key;
       } shader_keys;
       struct {
          union zink_shader_key_optimal key;
@@ -975,6 +982,9 @@ struct zink_gfx_push_constant {
    uint32_t line_stipple_pattern;
    float viewport_scale[2];
    float line_width;
+   uint32_t flat_mask;
+   uint32_t pv_last_vert;
+   uint32_t st_variant_key[4 + 8 * 4];
 };
 
 /* The order of the enums MUST match the order of the zink_gfx_push_constant
@@ -989,6 +999,9 @@ enum zink_gfx_push_constant_member {
    ZINK_GFX_PUSHCONST_LINE_STIPPLE_PATTERN,
    ZINK_GFX_PUSHCONST_VIEWPORT_SCALE,
    ZINK_GFX_PUSHCONST_LINE_WIDTH,
+   ZINK_GFX_PUSHCONST_FLAT_MASK,
+   ZINK_GFX_PUSHCONST_PV_LAST_VERT,
+   ZINK_GFX_PUSHCONST_ST_VARIANT_KEY,
    ZINK_GFX_PUSHCONST_MAX
 };
 
@@ -998,6 +1011,7 @@ enum zink_gfx_push_constant_member {
  */
 struct zink_shader_module {
    struct zink_shader_object obj;
+   struct util_queue_fence fence;
    uint32_t hash;
    bool shobj;
    bool default_variant;
@@ -1037,6 +1051,7 @@ typedef bool (*equals_gfx_pipeline_state_func)(const void *a, const void *b);
 
 struct zink_gfx_library_key {
    uint32_t optimal_key; //equals_pipeline_lib_optimal
+   uint32_t st_key;
    VkShaderModule modules[ZINK_GFX_SHADER_COUNT];
    VkPipeline pipeline;
 };
@@ -1101,7 +1116,13 @@ struct zink_gfx_lib_cache {
    uint8_t stages_present;
 
    simple_mtx_t lock;
-   struct set libs; //zink_gfx_library_key -> VkPipeline
+   struct zink_gfx_library_key *lib; //zink_gfx_library_key -> VkPipeline
+};
+
+struct zink_gfx_program_variant_key {
+   uint32_t optimal_key; //equals_pipeline_lib_optimal
+   uint32_t st_key;
+   struct zink_gfx_program *prog;
 };
 
 struct zink_gfx_program {
@@ -1117,27 +1138,35 @@ struct zink_gfx_program {
    struct zink_shader *shaders[ZINK_GFX_SHADER_COUNT];
    struct zink_shader *last_vertex_stage;
    struct zink_shader_object objs[ZINK_GFX_SHADER_COUNT];
+   struct zink_shader_object uber_objs[ZINK_GFX_SHADER_COUNT];
 
    /* full */
    VkShaderEXT objects[ZINK_GFX_SHADER_COUNT];
+   VkShaderEXT uber_objects[ZINK_GFX_SHADER_COUNT];
    uint32_t module_hash[ZINK_GFX_SHADER_COUNT];
    struct blob blobs[ZINK_GFX_SHADER_COUNT];
    struct util_dynarray shader_cache[ZINK_GFX_SHADER_COUNT][2][2]; //normal, nonseamless cubes, inline uniforms
+   struct set variants;
+   struct zink_gfx_program *base_variant; //quick access to base varitant (only !NULL when done compiling)
    unsigned inlined_variant_count[ZINK_GFX_SHADER_COUNT];
    uint32_t default_variant_hash;
    uint8_t inline_variants; //which stages are using inlined uniforms
    bool needs_inlining; // whether this program requires some uniforms to be inlined
    bool has_edgeflags;
    bool optimal_keys;
+   bool started_compiling;
+   bool is_uber_program;
+   bool is_variant_program;
 
    /* separable */
    struct zink_gfx_program *full_prog;
 
-   struct hash_table pipelines[2][11]; // [dynamic, renderpass][number of draw modes we support]
+   struct hash_table pipelines[2][2][11]; // [uber_emulation, dynamic, renderpass][number of draw modes we support]
    uint32_t last_variant_hash;
+   uint32_t st_key;
 
-   uint32_t last_finalized_hash[2][4]; //[dynamic, renderpass][primtype idx]
-   VkPipeline last_pipeline[2][4]; //[dynamic, renderpass][primtype idx]
+   uint32_t last_finalized_hash[2][2][4]; //[uber_emulation, dynamic, renderpass][primtype idx]
+   VkPipeline last_pipeline[2][2][4]; //[uber_emulation, dynamic, renderpass][primtype idx]
 
    struct zink_gfx_lib_cache *libs;
 };
@@ -1662,11 +1691,11 @@ struct zink_framebuffer {
    struct hash_table objects;
 };
 
-
 /** context types */
 struct zink_sampler_state {
    VkSampler sampler;
    VkSampler sampler_clamped;
+   uint8_t sat_mask;
    bool custom_border_color;
    bool emulate_nonseamless;
 };
@@ -1842,6 +1871,7 @@ struct zink_context {
    simple_mtx_t program_lock[8];
    uint32_t gfx_hash;
    struct zink_gfx_program *curr_program;
+   struct zink_gfx_program *curr_program_uber;
    struct set gfx_inputs;
    struct set gfx_outputs;
 

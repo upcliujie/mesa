@@ -35,12 +35,23 @@
 #include "nir/nir.h"
 #include "nir/nir_builder.h"
 
+static nir_def *
+compare_func_sysval(nir_builder *b, nir_def *src0, nir_def *src1)
+{
+   nir_def *func = nir_load_alpha_compare_func(b);
+   nir_def *comparison_result = nir_ine_imm(b, nir_imm_int(b, 0), 0); //COMPARE_FUNC_NEVER
+   for (enum compare_func f = COMPARE_FUNC_NEVER + 1; f <= COMPARE_FUNC_ALWAYS; f++) {
+      comparison_result = nir_bcsel(b, nir_ieq_imm(b, func, f),
+                                    nir_ine_imm(b, nir_compare_func(b, f, src0, src1), 0), comparison_result);
+   }
+   return comparison_result;
+}
+
 void
-nir_lower_alpha_test(nir_shader *shader, enum compare_func func,
+nir_lower_alpha_test(nir_shader *shader, enum compare_func *func,
                      bool alpha_to_one,
                      const gl_state_index16 *alpha_ref_state_tokens)
 {
-   assert(alpha_ref_state_tokens);
    assert(shader->info.stage == MESA_SHADER_FRAGMENT);
 
    nir_foreach_function_impl(impl, shader) {
@@ -79,6 +90,9 @@ nir_lower_alpha_test(nir_shader *shader, enum compare_func func,
                    out->data.location != FRAG_RESULT_DATA0)
                   continue;
 
+               if (!alpha_to_one && glsl_get_components(out->type) < 4)
+                  continue;
+
                b.cursor = nir_before_instr(&intr->instr);
 
                nir_def *alpha;
@@ -92,13 +106,21 @@ nir_lower_alpha_test(nir_shader *shader, enum compare_func func,
                                       3);
                }
 
-               nir_variable *var = nir_state_variable_create(shader, glsl_float_type(),
-                                                             "gl_AlphaRefMESA",
-                                                             alpha_ref_state_tokens);
-               nir_def *alpha_ref = nir_load_var(&b, var);
+               nir_def *alpha_ref;
+               if (alpha_ref_state_tokens) {
+                  nir_variable *var = nir_state_variable_create(shader, glsl_float_type(),
+                                                                "gl_AlphaRefMESA",
+                                                                alpha_ref_state_tokens);
+                  alpha_ref = nir_load_var(&b, var);
+               } else {
+                  alpha_ref = nir_load_alpha_reference(&b);
+               }
 
-               nir_def *condition =
-                  nir_compare_func(&b, func, alpha, alpha_ref);
+               nir_def *condition;
+               if (func)
+                  condition = nir_compare_func(&b, *func, alpha, alpha_ref);
+               else
+                  condition = compare_func_sysval(&b, alpha, alpha_ref);
 
                nir_discard_if(&b, nir_inot(&b, condition));
                shader->info.fs.uses_discard = true;

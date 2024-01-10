@@ -125,7 +125,7 @@ zink_gfx_program_update_optimal(struct zink_context *ctx);
 
 
 struct zink_gfx_library_key *
-zink_create_pipeline_lib(struct zink_screen *screen, struct zink_gfx_program *prog, struct zink_gfx_pipeline_state *state);
+zink_create_pipeline_lib(struct zink_screen *screen, struct zink_gfx_program *prog, struct zink_gfx_pipeline_state *state, bool compile_uber);
 uint32_t hash_gfx_output(const void *key);
 uint32_t hash_gfx_output_ds3(const void *key);
 uint32_t hash_gfx_input(const void *key);
@@ -153,7 +153,8 @@ struct zink_gfx_program *
 zink_create_gfx_program(struct zink_context *ctx,
                         struct zink_shader **stages,
                         unsigned vertices_per_patch,
-                        uint32_t gfx_hash);
+                        uint32_t gfx_hash,
+                        bool variant);
 
 void
 zink_destroy_gfx_program(struct zink_screen *screen,
@@ -402,6 +403,142 @@ zink_set_zs_needs_shader_swizzle_key(struct zink_context *ctx, gl_shader_stage p
       zink_set_shader_key_base(ctx, pstage)->needs_zs_shader_swizzle = enable;
 }
 
+static inline union zink_st_small_key *
+zink_set_st_small_key(struct zink_context *ctx) {
+   ctx->dirty_gfx_stages |= ctx->shader_stages & (MESA_SHADER_VERTEX | MESA_SHADER_GEOMETRY | MESA_SHADER_FRAGMENT);
+   assert(zink_screen(ctx->base.screen)->optimal_keys);
+   return &ctx->gfx_pipeline_state.shader_keys.st_key.small_key;
+}
+
+static inline struct zink_st_variant_key *
+zink_set_st_key(struct zink_context *ctx) {
+   return &ctx->gfx_pipeline_state.shader_keys.st_key;
+}
+
+static inline struct zink_st_variant_key *
+zink_get_st_key(struct zink_context *ctx) {
+   return &ctx->gfx_pipeline_state.shader_keys.st_key;
+}
+
+#define UPDATE_ST_SMALL_KEY(ctx, field, val)   \
+   if ((zink_get_st_key(ctx)->small_key.field) != (val))\
+      (zink_set_st_small_key(ctx)->field) = (val);\
+
+static inline void
+update_st_key(struct zink_context *ctx)
+{
+   struct zink_st_variant_key *key = &ctx->gfx_pipeline_state.shader_keys.st_key;
+
+   //memset(&key, 0, sizeof(key));
+
+   /* When this is true, we will add an extra input to the vertex
+    * shader translation (for edgeflags), an extra output with
+    * edgeflag semantics, and extend the vertex shader to pass through
+    * the input to the output.  We'll need to use similar logic to set
+    * up the extra vertex_element input for edgeflags.
+    */
+   UPDATE_ST_SMALL_KEY(ctx, passthrough_edgeflags, 0);//TODO //st->ctx->Array._PerVertexEdgeFlagsEnabled;
+
+   /* key.clamp_color = ctx->rast_state->base.clamp_vertex_color; //TODO //st->ctx->Light._ClampVertexColor */
+                     /* &&
+                     (vp->info.outputs_written &
+                      (VARYING_SLOT_COL0 |
+                       VARYING_SLOT_COL1 |
+                       VARYING_SLOT_BFC0 |
+                       VARYING_SLOT_BFC1))*/;
+
+   UPDATE_ST_SMALL_KEY(ctx, clamp_color, ctx->rast_state->base.clamp_vertex_color);
+
+   if (!ctx->gfx_stages[MESA_SHADER_GEOMETRY] &&
+       !ctx->gfx_stages[MESA_SHADER_TESS_EVAL]) {
+      /* _NEW_POINT */
+      UPDATE_ST_SMALL_KEY(ctx, export_point_size, 0);//!st->ctx->VertexProgram.PointSizeEnabled && !st->ctx->PointSizeIsSet;
+      /* _NEW_TRANSFORM */
+      /* if (st->lower_ucp && st_user_clip_planes_enabled(st->ctx)) */
+      /*    key.lower_ucp = st->ctx->Transform.ClipPlanesEnabled; */
+   }
+
+   UPDATE_ST_SMALL_KEY(ctx, lower_flatshade, ctx->rast_state->base.flatshade);
+   zink_set_st_key(ctx)->ucp_enables = ctx->rast_state->base.clip_plane_enable;
+   UPDATE_ST_SMALL_KEY(ctx, lower_ucp, !!key->ucp_enables);
+}
+
+static inline void
+update_st_key_dsa(struct zink_context *ctx)
+{
+   struct zink_st_variant_key *key = &ctx->gfx_pipeline_state.shader_keys.st_key;
+
+   key->lower_alpha_func = ctx->dsa_state->base.alpha_enabled ?
+                           ctx->dsa_state->base.alpha_func : COMPARE_FUNC_ALWAYS;
+   key->alpha_test_reference = ctx->dsa_state->base.alpha_ref_value;
+   UPDATE_ST_SMALL_KEY(ctx, lower_alpha_test,
+                            ctx->dsa_state->base.alpha_enabled && COMPARE_FUNC_ALWAYS != key->lower_alpha_func);
+}
+
+static inline void
+update_st_key_clip(struct zink_context *ctx, const struct pipe_clip_state *pcs) {
+   struct zink_st_variant_key *key = &ctx->gfx_pipeline_state.shader_keys.st_key;
+
+   memcpy(key->ucp_state, &pcs->ucp, sizeof(float[8][4]));
+}
+
+static inline void
+upsate_st_key_sampler_state(struct zink_context *ctx, struct zink_sampler_state *state, unsigned slot)
+{
+   struct zink_st_variant_key *key = &ctx->gfx_pipeline_state.shader_keys.st_key;
+   bool lower_txc_sat = false;
+   for (unsigned i = 0; i < 3; i++) {
+      key->gl_clamp[i] &= ~(1 << slot);
+      if (state)
+         key->gl_clamp[i] |= ((state->sat_mask >> i) & 1) << slot;
+      lower_txc_sat |= key->gl_clamp[i] != 0;
+   }
+   UPDATE_ST_SMALL_KEY(ctx, lower_txc_sat, lower_txc_sat);
+}
+
+static inline void
+update_st_key_sampler_state_dbg(struct zink_context *ctx)
+{
+   struct zink_st_variant_key *key = &ctx->gfx_pipeline_state.shader_keys.st_key;
+   key->gl_clamp[0] = key->gl_clamp[1] = key->gl_clamp[2] = 0;
+   bool lower_txc_sat = false;
+   for (unsigned slot =0; slot < 32; slot++) {
+      if (!ctx->sampler_states[MESA_SHADER_FRAGMENT][slot])
+         continue;
+      uint8_t sat_mask = ctx->sampler_states[MESA_SHADER_FRAGMENT][slot]->sat_mask;
+      if (sat_mask & 1)
+         key->gl_clamp[0] |= BITFIELD64_BIT(slot);
+      if (sat_mask & 1 << 1)
+         key->gl_clamp[1] |= BITFIELD64_BIT(slot);
+      if (sat_mask & 1 << 2)
+         key->gl_clamp[2] |= BITFIELD64_BIT(slot);
+   }
+   lower_txc_sat |= key->gl_clamp[0] != 0;
+   lower_txc_sat |= key->gl_clamp[1] != 0;
+   lower_txc_sat |= key->gl_clamp[2] != 0;
+   UPDATE_ST_SMALL_KEY(ctx, lower_txc_sat, lower_txc_sat);
+}
+
+static inline uint16_t
+get_st_vs_key(struct zink_gfx_pipeline_state *state)
+{
+   //TODO mask vs bits
+   return state->shader_keys.st_key.small_key.val;
+}
+
+static inline uint16_t
+get_st_fs_key(struct zink_gfx_pipeline_state *state)
+{
+   //TODO mask fs buts
+   return state->shader_keys.st_key.small_key.val;
+}
+
+static inline bool
+needs_st_emulation(struct zink_context *ctx)
+{
+   return ctx->gfx_pipeline_state.shader_keys.st_key.small_key.val != 0;
+}
+
 ALWAYS_INLINE static bool
 zink_can_use_pipeline_libs(const struct zink_context *ctx)
 {
@@ -416,6 +553,13 @@ zink_can_use_pipeline_libs(const struct zink_context *ctx)
           !ctx->gfx_pipeline_state.force_persample_interp &&
           !ctx->gfx_pipeline_state.min_samples &&
           !ctx->is_generated_gs_bound;
+}
+
+ALWAYS_INLINE static bool
+zink_can_use_uber(struct zink_context *ctx)
+{
+   return zink_shader_key_optimal_no_tcs(ctx->gfx_pipeline_state.optimal_key) == ZINK_SHADER_KEY_OPTIMAL_DEFAULT &&
+      zink_can_use_pipeline_libs(ctx);
 }
 
 bool

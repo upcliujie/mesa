@@ -5555,7 +5555,7 @@ bool nir_clear_shared_memory(nir_shader *shader,
 bool nir_move_vec_src_uses_to_dest(nir_shader *shader, bool skip_const_srcs);
 bool nir_lower_vec_to_regs(nir_shader *shader, nir_instr_writemask_filter_cb cb,
                            const void *_data);
-void nir_lower_alpha_test(nir_shader *shader, enum compare_func func,
+void nir_lower_alpha_test(nir_shader *shader, enum compare_func *func,
                           bool alpha_to_one,
                           const gl_state_index16 *alpha_ref_state_tokens);
 bool nir_lower_alu(nir_shader *shader);
@@ -6004,19 +6004,19 @@ typedef struct nir_input_attachment_options {
 bool nir_lower_input_attachments(nir_shader *shader,
                                  const nir_input_attachment_options *options);
 
-bool nir_lower_clip_vs(nir_shader *shader, unsigned ucp_enables,
+bool nir_lower_clip_vs(nir_shader *shader, unsigned *ucp_enables,
                        bool use_vars,
                        bool use_clipdist_array,
                        const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH]);
-bool nir_lower_clip_gs(nir_shader *shader, unsigned ucp_enables,
+bool nir_lower_clip_gs(nir_shader *shader, unsigned *ucp_enables,
                        bool use_clipdist_array,
                        const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH]);
-bool nir_lower_clip_fs(nir_shader *shader, unsigned ucp_enables,
+bool nir_lower_clip_fs(nir_shader *shader, unsigned *ucp_enables,
                        bool use_clipdist_array);
 
 void nir_lower_clip_cull_distance_to_vec4s(nir_shader *shader);
 bool nir_lower_clip_cull_distance_arrays(nir_shader *nir);
-bool nir_lower_clip_disable(nir_shader *shader, unsigned clip_plane_enable);
+bool nir_lower_clip_disable(nir_shader *shader, unsigned *clip_plane_enable);
 
 void nir_lower_point_size_mov(nir_shader *shader,
                               const gl_state_index16 *pointsize_state_tokens);
@@ -6026,6 +6026,8 @@ bool nir_lower_frexp(nir_shader *nir);
 bool nir_lower_two_sided_color(nir_shader *shader, bool face_sysval);
 
 bool nir_lower_clamp_color_outputs(nir_shader *shader);
+
+bool nir_lower_clamp_color_outputs_enable(nir_shader *shader);
 
 bool nir_lower_flatshade(nir_shader *shader);
 

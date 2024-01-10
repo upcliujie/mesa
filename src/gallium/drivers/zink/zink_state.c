@@ -559,6 +559,8 @@ zink_bind_depth_stencil_alpha_state(struct pipe_context *pctx, void *cso)
          state->dirty |= !zink_screen(pctx->screen)->info.have_EXT_extended_dynamic_state;
          ctx->dsa_state_changed = true;
       }
+      if (zink_screen(ctx->base.screen)->optimal_keys)
+         update_st_key_dsa(ctx);
    }
    if (!ctx->track_renderpasses && !ctx->blitting)
       ctx->rp_tc_info_updated = true;
@@ -775,6 +777,9 @@ zink_bind_rasterizer_state(struct pipe_context *pctx, void *cso)
 
       if (!screen->optimal_keys)
          zink_update_gs_key_rectangular_line(ctx);
+
+      if (screen->optimal_keys)
+         update_st_key(ctx);
    }
 }
 

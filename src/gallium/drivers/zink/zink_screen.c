@@ -736,9 +736,6 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VERTEX_ATTRIB_ELEMENT_ALIGNED_ONLY:
       return 1;
 
-   case PIPE_CAP_GL_CLAMP:
-      return 0;
-
    case PIPE_CAP_PREFER_IMM_ARRAYS_AS_CONSTBUF:
       return 0; /* Assume that the vk driver is capable of moving imm arrays to some sort of constant storage on its own. */
 
@@ -996,9 +993,6 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED:
       return 1;
 
-   case PIPE_CAP_FLATSHADE:
-   case PIPE_CAP_ALPHA_TEST:
-   case PIPE_CAP_CLIP_PLANES:
    case PIPE_CAP_POINT_SIZE_FIXED:
    case PIPE_CAP_TWO_SIDED_COLOR:
       return 0;
@@ -1028,6 +1022,16 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    case PIPE_CAP_STRING_MARKER:
       return screen->instance_info.have_EXT_debug_utils;
+
+   //st legacy emulation pipe caps
+   case PIPE_CAP_CLIP_PLANES:
+   case PIPE_CAP_FRAGMENT_COLOR_CLAMPED:
+   case PIPE_CAP_GL_CLAMP:
+   case PIPE_CAP_ALPHA_TEST:
+      return screen->optimal_keys;
+
+   case PIPE_CAP_FLATSHADE:
+      return 0;
 
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);

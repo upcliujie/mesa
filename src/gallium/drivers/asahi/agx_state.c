@@ -1884,7 +1884,8 @@ agx_compile_variant(struct agx_device *dev, struct pipe_context *pctx,
        * the flat/linear masks that get propagated back to the VS.
        */
       if (key->clip_plane_enable) {
-         NIR_PASS_V(nir, nir_lower_clip_fs, key->clip_plane_enable, false);
+         unsigned ucp_enables = key->clip_plane_enable;
+         NIR_PASS_V(nir, nir_lower_clip_fs, &ucp_enables, false);
       }
 
       /* Similarly for cull distancing lowering */

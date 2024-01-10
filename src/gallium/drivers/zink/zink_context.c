@@ -367,6 +367,7 @@ sampler_address_mode(enum pipe_tex_wrap filter)
 {
    switch (filter) {
    case PIPE_TEX_WRAP_REPEAT: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+   case PIPE_TEX_WRAP_CLAMP: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
    case PIPE_TEX_WRAP_CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
    case PIPE_TEX_WRAP_CLAMP_TO_BORDER: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
    case PIPE_TEX_WRAP_MIRROR_REPEAT: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
@@ -601,6 +602,9 @@ zink_create_sampler_state(struct pipe_context *pctx,
          return NULL;
       }
    }
+   sampler->sat_mask = (state->wrap_s == PIPE_TEX_WRAP_CLAMP) |
+                       (state->wrap_t == PIPE_TEX_WRAP_CLAMP) << 1|
+                       (state->wrap_r == PIPE_TEX_WRAP_CLAMP) << 2;
    sampler->custom_border_color = need_custom;
    if (!screen->info.have_EXT_non_seamless_cube_map)
       sampler->emulate_nonseamless = !state->seamless_cube_map;
@@ -869,6 +873,8 @@ zink_bind_sampler_states(struct pipe_context *pctx,
       struct zink_sampler_state *state = samplers[i];
       if (samplers[i] == ctx->sampler_states[shader][start_slot + i])
          continue;
+      if (shader == MESA_SHADER_FRAGMENT)
+         upsate_st_key_sampler_state(ctx, state, i);
       ctx->invalidate_descriptor_state(ctx, shader, ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW, start_slot, 1);
       ctx->sampler_states[shader][start_slot + i] = state;
       if (state) {
@@ -2587,6 +2593,8 @@ static void
 zink_set_clip_state(struct pipe_context *pctx,
                     const struct pipe_clip_state *pcs)
 {
+   struct zink_context *ctx = zink_context(pctx);
+   update_st_key_clip(ctx, pcs);
 }
 
 static void

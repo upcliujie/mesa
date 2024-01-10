@@ -234,7 +234,7 @@ get_ucp(nir_builder *b, int plane,
 static void
 lower_clip_outputs(nir_builder *b, nir_variable *position,
                    nir_variable *clipvertex, nir_variable **out,
-                   unsigned ucp_enables, bool use_vars,
+                   unsigned *ucp_enables, bool use_vars,
                    bool use_clipdist_array,
                    const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH])
 {
@@ -258,16 +258,15 @@ lower_clip_outputs(nir_builder *b, nir_variable *position,
    }
 
    for (int plane = 0; plane < MAX_CLIP_PLANES; plane++) {
-      if (ucp_enables & (1 << plane)) {
-         nir_def *ucp = get_ucp(b, plane, clipplane_state_tokens);
-
-         /* calculate clipdist[plane] - dot(ucp, cv): */
-         clipdist[plane] = nir_fdot(b, ucp, cv);
-      } else {
-         /* 0.0 == don't-clip == disabled: */
-         clipdist[plane] = nir_imm_float(b, 0.0);
-      }
-      if (use_clipdist_array && use_vars && plane < util_last_bit(ucp_enables)) {
+      nir_def *ucp = get_ucp(b, plane, clipplane_state_tokens);
+      nir_def *ucp_enable_def;
+      if (!ucp_enables)
+         ucp_enable_def = nir_load_clip_plane_enable(b);
+      else
+         ucp_enable_def = nir_imm_int(b, *ucp_enables);
+      clipdist[plane] = nir_bcsel(b, nir_b2b1(b, nir_iand_imm(b, ucp_enable_def, 1 << plane)),
+                                  nir_fdot(b, ucp, cv), nir_imm_float(b, 0.0));
+      if (use_clipdist_array && use_vars && (!ucp_enables || plane < util_last_bit(*ucp_enables))) {
          nir_deref_instr *deref;
          deref = nir_build_deref_array_imm(b,
                                            nir_build_deref_var(b, out[0]),
@@ -278,19 +277,19 @@ lower_clip_outputs(nir_builder *b, nir_variable *position,
 
    if (!use_clipdist_array || !use_vars) {
       if (use_vars) {
-         if (ucp_enables & 0x0f)
+         if (!ucp_enables || *ucp_enables & 0x0f)
             nir_store_var(b, out[0], nir_vec(b, clipdist, 4), 0xf);
-         if (ucp_enables & 0xf0)
+         if (!ucp_enables || *ucp_enables & 0xf0)
             nir_store_var(b, out[1], nir_vec(b, &clipdist[4], 4), 0xf);
       } else if (use_clipdist_array) {
-         if (ucp_enables & 0x0f)
+         if (!ucp_enables || *ucp_enables & 0x0f)
             store_clipdist_output(b, out[0], 0, &clipdist[0]);
-         if (ucp_enables & 0xf0)
+         if (!ucp_enables || *ucp_enables & 0xf0)
             store_clipdist_output(b, out[0], 1, &clipdist[4]);
       } else {
-         if (ucp_enables & 0x0f)
+         if (!ucp_enables || *ucp_enables & 0x0f)
             store_clipdist_output(b, out[0], 0, &clipdist[0]);
-         if (ucp_enables & 0xf0)
+         if (!ucp_enables || *ucp_enables & 0xf0)
             store_clipdist_output(b, out[1], 0, &clipdist[4]);
       }
    }
@@ -310,7 +309,7 @@ lower_clip_outputs(nir_builder *b, nir_variable *position,
  * clipdist output instead of two vec4s.
  */
 bool
-nir_lower_clip_vs(nir_shader *shader, unsigned ucp_enables, bool use_vars,
+nir_lower_clip_vs(nir_shader *shader, unsigned *ucp_enables, bool use_vars,
                   bool use_clipdist_array,
                   const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH])
 {
@@ -320,7 +319,7 @@ nir_lower_clip_vs(nir_shader *shader, unsigned ucp_enables, bool use_vars,
    nir_variable *clipvertex = NULL;
    nir_variable *out[2] = { NULL };
 
-   if (!ucp_enables)
+   if (ucp_enables && !*ucp_enables)
       return false;
 
    b = nir_builder_create(impl);
@@ -342,7 +341,7 @@ nir_lower_clip_vs(nir_shader *shader, unsigned ucp_enables, bool use_vars,
       return false;
 
    /* insert CLIPDIST outputs */
-   create_clipdist_vars(shader, out, ucp_enables, true,
+   create_clipdist_vars(shader, out, ucp_enables ? *ucp_enables : 0xff, true,
                         use_clipdist_array);
 
    lower_clip_outputs(&b, position, clipvertex, out, ucp_enables, use_vars,
@@ -356,7 +355,7 @@ nir_lower_clip_vs(nir_shader *shader, unsigned ucp_enables, bool use_vars,
 static void
 lower_clip_in_gs_block(nir_builder *b, nir_block *block, nir_variable *position,
                        nir_variable *clipvertex, nir_variable **out,
-                       unsigned ucp_enables, bool use_clipdist_array,
+                       unsigned *ucp_enables, bool use_clipdist_array,
                        const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH])
 {
    nir_foreach_instr_safe(instr, block) {
@@ -383,7 +382,7 @@ lower_clip_in_gs_block(nir_builder *b, nir_block *block, nir_variable *position,
  */
 
 bool
-nir_lower_clip_gs(nir_shader *shader, unsigned ucp_enables,
+nir_lower_clip_gs(nir_shader *shader, unsigned *ucp_enables,
                   bool use_clipdist_array,
                   const gl_state_index16 clipplane_state_tokens[][STATE_LENGTH])
 {
@@ -393,7 +392,7 @@ nir_lower_clip_gs(nir_shader *shader, unsigned ucp_enables,
    nir_variable *clipvertex = NULL;
    nir_variable *out[2] = { NULL };
 
-   if (!ucp_enables)
+   if (ucp_enables && !*ucp_enables)
       return false;
 
    /* find clipvertex/position outputs */
@@ -401,7 +400,7 @@ nir_lower_clip_gs(nir_shader *shader, unsigned ucp_enables,
       return false;
 
    /* insert CLIPDIST outputs */
-   create_clipdist_vars(shader, out, ucp_enables, true,
+   create_clipdist_vars(shader, out, ucp_enables ? *ucp_enables : 0xff, true,
                         use_clipdist_array);
 
    b = nir_builder_create(impl);
@@ -458,6 +457,37 @@ lower_clip_fs(nir_function_impl *impl, unsigned ucp_enables,
    nir_metadata_preserve(impl, nir_metadata_dominance);
 }
 
+static void
+lower_clip_fs_sysvals(nir_function_impl *impl,
+                      nir_variable **in, bool use_clipdist_array)
+{
+   nir_def *clipdist[MAX_CLIP_PLANES];
+   nir_builder b = nir_builder_at(nir_before_cf_list(&impl->body));
+
+   if (!use_clipdist_array) {
+      load_clipdist_input(&b, in[0], 0, &clipdist[0]);
+      load_clipdist_input(&b, in[1], 0, &clipdist[4]);
+   } else {
+      load_clipdist_input(&b, in[0], 0, &clipdist[0]);
+      load_clipdist_input(&b, in[0], 1, &clipdist[4]);
+   }
+
+   nir_def *cond = nir_imm_int(&b, 0);
+
+   for (int plane = 0; plane < MAX_CLIP_PLANES; plane++) {
+      nir_def *this_cond =
+         nir_iand(&b, nir_flt(&b, clipdist[plane], nir_imm_float(&b, 0.0)),
+                  nir_iand_imm(&b, nir_load_user_clip_plane(&b), (1 << plane)));
+
+      cond = nir_ior(&b, cond, this_cond);
+   }
+
+   nir_discard_if(&b, cond);
+   b.shader->info.fs.uses_discard = true;
+
+   nir_metadata_preserve(impl, nir_metadata_dominance);
+}
+
 static bool
 fs_has_clip_dist_input_var(nir_shader *shader, nir_variable **io_vars,
                            unsigned *ucp_enables)
@@ -480,26 +510,30 @@ fs_has_clip_dist_input_var(nir_shader *shader, nir_variable **io_vars,
 /* insert conditional kill based on interpolated CLIPDIST
  */
 bool
-nir_lower_clip_fs(nir_shader *shader, unsigned ucp_enables,
+nir_lower_clip_fs(nir_shader *shader, unsigned *ucp_enables,
                   bool use_clipdist_array)
 {
    nir_variable *in[2] = { 0 };
 
-   if (!ucp_enables)
+   if (ucp_enables && !*ucp_enables)
       return false;
 
    /* No hard reason to require use_clipdist_arr to work with
     * frag-shader-based gl_ClipDistance, except that the only user that does
     * not enable this does not support GL 3.0 (or EXT_clip_cull_distance).
     */
-   if (!fs_has_clip_dist_input_var(shader, in, &ucp_enables))
-      create_clipdist_vars(shader, in, ucp_enables, false, use_clipdist_array);
+   if (!fs_has_clip_dist_input_var(shader, in, ucp_enables))
+      create_clipdist_vars(shader, in,  ucp_enables ? *ucp_enables : 0xff, false, use_clipdist_array);
    else
       assert(use_clipdist_array);
 
    nir_foreach_function_with_impl(function, impl, shader) {
-      if (!strcmp(function->name, "main"))
-         lower_clip_fs(impl, ucp_enables, in, use_clipdist_array);
+      if (!strcmp(function->name, "main")) {
+         if (*ucp_enables)
+            lower_clip_fs_sysvals(impl, in, use_clipdist_array);
+         else
+            lower_clip_fs(impl, *ucp_enables, in, use_clipdist_array);
+      }
    }
 
    return true;

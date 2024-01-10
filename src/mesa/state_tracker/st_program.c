@@ -602,7 +602,7 @@ lower_ucp(struct st_context *st,
           struct gl_program_parameter_list *params)
 {
    if (nir->info.outputs_written & VARYING_BIT_CLIP_DIST0)
-      NIR_PASS_V(nir, nir_lower_clip_disable, ucp_enables);
+      NIR_PASS_V(nir, nir_lower_clip_disable, &ucp_enables);
    else {
       struct pipe_screen *screen = st->screen;
       bool can_compact = screen->get_param(screen,
@@ -623,10 +623,10 @@ lower_ucp(struct st_context *st,
 
       if (nir->info.stage == MESA_SHADER_VERTEX ||
           nir->info.stage == MESA_SHADER_TESS_EVAL) {
-         NIR_PASS_V(nir, nir_lower_clip_vs, ucp_enables,
+         NIR_PASS_V(nir, nir_lower_clip_vs, &ucp_enables,
                     true, can_compact, clipplane_state);
       } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
-         NIR_PASS_V(nir, nir_lower_clip_gs, ucp_enables,
+         NIR_PASS_V(nir, nir_lower_clip_gs, &ucp_enables,
                     can_compact, clipplane_state);
       }
 
@@ -907,7 +907,8 @@ st_create_fp_variant(struct st_context *st,
 
    if (key->lower_alpha_func != COMPARE_FUNC_ALWAYS) {
       _mesa_add_state_reference(params, alpha_ref_state);
-      NIR_PASS_V(state.ir.nir, nir_lower_alpha_test, key->lower_alpha_func,
+      unsigned lower_alpha_func = key->lower_alpha_func;
+      NIR_PASS_V(state.ir.nir, nir_lower_alpha_test, &lower_alpha_func,
                   false, alpha_ref_state);
       finalize = true;
    }
