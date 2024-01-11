@@ -833,8 +833,15 @@ Vulkan mesa device select layer environment variables
 EGL environment variables
 -------------------------
 
-Mesa EGL supports different sets of environment variables. See the
-:doc:`Mesa EGL <egl>` page for the details.
+.. envvar:: EGL_PLATFORM
+   This variable specifies the native platform. The valid values are the same
+   as those for ``meson configure -D platforms=...``. When the variable is not
+   set, the main library uses the first platform listed in ``-D platforms=...``
+   as the native platform.
+
+.. envvar:: EGL_LOG_LEVEL
+   This changes the log level of the EGL library. The valid values are:
+   ``debug``, ``info``, ``warning``, and ``fatal``.
 
 Gallium environment variables
 -----------------------------

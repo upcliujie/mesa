@@ -1,50 +1,31 @@
 EGL
 ===
 
-The current version of EGL in Mesa implements EGL 1.4. More information
-about EGL can be found at https://www.khronos.org/egl/.
+EGL is a platform-neutral binding to the OpenGL family of APIs. Compared
+to GLX or WGL, EGL minimizes the dependence on any particular platform
+or window system and allows most of the application code to work portably.
+Mesa's EGL implementation generically supports EGL 1.4, and can support
+EGL 1.5 if the driver and window system supports the necessary features.
+More information about EGL can be found at https://www.khronos.org/egl/.
+The Mesa project maintains a small collection of EGL demos and utilities
+at https://gitlab.freedesktop.org/mesa/demos/.
 
-The Mesa's implementation of EGL uses a driver architecture. The main
-library (``libEGL``) is window system neutral. It provides the EGL API
-entry points and helper functions for use by the drivers. Drivers are
-dynamically loaded by the main library and most of the EGL API calls are
-directly dispatched to the drivers.
-
-The driver in use decides the window system to support.
+Mesa's implementation of EGL uses a driver architecture. The main library
+(``libEGL``) is window system neutral. It provides the EGL API entry points and
+helper functions for use by the drivers. The "driver" is bound at compile time
+based on the host platform, and most of the EGL API calls are directly
+dispatched to the drivers.
 
 Build EGL
 ---------
 
-#. Configure your build with the desired client APIs and enable the
-   driver for your hardware. For example:
-
-   .. code-block:: console
-
-      $ meson configure \
-              -D egl=enabled \
-              -D gles1=enabled \
-              -D gles2=enabled \
-              -D gallium-drivers=...
-
-   The main library and OpenGL is enabled by default. The first two
-   options above enables :doc:`OpenGL ES 1.x and 2.x <opengles>`. The
-   last two options enables the listed classic and Gallium drivers
-   respectively.
-
-#. Build and install Mesa as usual.
-
-In the given example, it will build and install ``libEGL``, ``libGL``,
-``libGLESv1_CM``, ``libGLESv2``, and one or more EGL drivers.
-
-Configure Options
-~~~~~~~~~~~~~~~~~
-
 There are several options that control the build of EGL at configuration
-time
+time.
 
 ``-D egl=enabled``
-   By default, EGL is enabled. When disabled, the main library and the
-   drivers will not be built.
+   By default, EGL is enabled when building on a supported host. Presently
+   the supported hosts are Windows, Haiku, and the various DRM-based OSes
+   like Linux and FreeBSD.
 
 ``-D platforms=...``
    List the platforms (window systems) to support. Its argument is a
@@ -59,46 +40,6 @@ time
    Unless for special needs, the build system should select the right
    platforms automatically.
 
-``-D gles1=enabled`` and ``-D gles2=enabled``
-   These options enable OpenGL ES support in OpenGL. The result is one
-   big internal library that supports multiple APIs.
-
-``-D shared-glapi=enabled``
-   By default, ``libGL`` has its own copy of ``libglapi``. This options
-   makes ``libGL`` use the shared ``libglapi``. This is required if
-   applications mix OpenGL and OpenGL ES.
-
-Use EGL
--------
-
-Demos
-~~~~~
-
-There are demos for the client APIs supported by EGL. They can be found
-in mesa/demos repository.
-
-Environment Variables
-~~~~~~~~~~~~~~~~~~~~~
-
-There are several environment variables that control the behavior of EGL
-at runtime
-
-``EGL_PLATFORM``
-   This variable specifies the native platform. The valid values are the
-   same as those for ``-D platforms=...``. When the variable is not set,
-   the main library uses the first platform listed in
-   ``-D platforms=...`` as the native platform.
-
-``EGL_LOG_LEVEL``
-   This changes the log level of the main library and the drivers. The
-   valid values are: ``debug``, ``info``, ``warning``, and ``fatal``.
-
-Packaging
----------
-
-The ABI between the main library and its drivers are not stable. Nor is
-there a plan to stabilize it at the moment.
-
 Developers
 ----------
 
@@ -110,7 +51,7 @@ The code basically consists of two things:
 1. An EGL API dispatcher. This directly routes all the ``eglFooBar()``
    API calls into driver-specific functions.
 
-2. Two EGL drivers (``dri2`` and ``haiku``), implementing the API
+2. EGL drivers (``dri2``, ``haiku``, ``wgl``), implementing the API
    functions handling the platforms' specifics.
 
 Two of API functions are optional (``eglQuerySurface()`` and
@@ -124,24 +65,11 @@ them are only needed for extensions, like ``eglSwapBuffersWithDamageEXT()``.
 See ``src/egl/main/egldriver.h`` to see which driver hooks are only
 required by extensions.
 
-Bootstrapping
-~~~~~~~~~~~~~
-
-When the apps calls ``eglInitialize()``, the driver's ``Initialize()``
-function is called. If the first driver initialization attempt fails,
-a second one is tried using only software components (this can be forced
-using the ``LIBGL_ALWAYS_SOFTWARE`` environment variable). Typically,
-this function takes care of setting up visual configs, creating EGL
-devices, etc.
-
-Teardown
-~~~~~~~~
-
-When ``eglTerminate()`` is called, the ``driver->Terminate()`` function
-is called. The driver should clean up after itself.
-
-Subclassing
-~~~~~~~~~~~
+When the apps calls ``eglInitialize()``, the driver's ``Initialize()`` function
+is called. Typically, this function takes care of setting up visual configs,
+creating EGL devices, etc. When ``eglTerminate()`` is called, the
+``driver->Terminate()`` function is called. The driver should clean up after
+itself.
 
 The internal libEGL data structures such as ``_EGLDisplay``,
 ``_EGLContext``, ``_EGLSurface``, etc. should be considered base classes
@@ -157,12 +85,15 @@ EGL Drivers
    directly using (XCB-)DRI3 protocol when available, and falls back to
    DRI2 if necessary (can be forced with ``LIBGL_DRI3_DISABLE``).
 
-   This driver can share DRI drivers with ``libGL``.
+   This driver shares DRI drivers with the GLX support in ``libGL``.
 
 ``haiku``
    This driver supports only the `Haiku <https://www.haiku-os.org/>`__
    platform. It is also much less feature-complete than ``egl_dri2``,
    supporting only part of EGL 1.4 and none of the extensions beyond it.
+
+``wgl``
+   This driver supports only the Windows platform.
 
 Lifetime of Display Resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
