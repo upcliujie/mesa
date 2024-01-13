@@ -390,7 +390,7 @@ nvk_get_device_features(const struct nv_device_info *info,
       /* VK_EXT_depth_bias_control */
       .depthBiasControl = true,
       .leastRepresentableValueForceUnormRepresentation = true,
-      .floatRepresentation = false,
+      .floatRepresentation = true,
       .depthBiasExact = true,
 
       /* VK_EXT_depth_clip_control */

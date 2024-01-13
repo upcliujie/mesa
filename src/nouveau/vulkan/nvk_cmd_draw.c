@@ -455,6 +455,7 @@ nvk_cmd_buffer_dirty_render_pass(struct nvk_cmd_buffer *cmd)
    BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_DS_DEPTH_WRITE_ENABLE);
    BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_DS_DEPTH_BOUNDS_TEST_ENABLE);
    BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_DS_STENCIL_TEST_ENABLE);
+   BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_BIAS_FACTORS);
 }
 
 void
@@ -1233,6 +1234,7 @@ nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
 {
    struct nv_push *p = nvk_cmd_buffer_push(cmd, 40);
 
+   const struct nvk_rendering_state *render = &cmd->state.gfx.render;
    const struct vk_dynamic_graphics_state *dyn =
       &cmd->vk.dynamic_graphics_state;
 
@@ -1315,17 +1317,39 @@ nvk_flush_rs_state(struct nvk_cmd_buffer *cmd)
       case VK_DEPTH_BIAS_REPRESENTATION_LEAST_REPRESENTABLE_VALUE_FORMAT_EXT:
          P_IMMD(p, NV9097, SET_DEPTH_BIAS_CONTROL,
                 DEPTH_FORMAT_DEPENDENT_TRUE);
+         /* TODO: The blob multiplies by 2 for some reason. We don't. */
+         P_IMMD(p, NV9097, SET_DEPTH_BIAS, fui(dyn->rs.depth_bias.constant));
          break;
       case VK_DEPTH_BIAS_REPRESENTATION_LEAST_REPRESENTABLE_VALUE_FORCE_UNORM_EXT:
          P_IMMD(p, NV9097, SET_DEPTH_BIAS_CONTROL,
                 DEPTH_FORMAT_DEPENDENT_FALSE);
+         P_IMMD(p, NV9097, SET_DEPTH_BIAS, fui(dyn->rs.depth_bias.constant));
          break;
       case VK_DEPTH_BIAS_REPRESENTATION_FLOAT_EXT:
+         P_IMMD(p, NV9097, SET_DEPTH_BIAS_CONTROL,
+                DEPTH_FORMAT_DEPENDENT_FALSE);
+
+         switch (render->depth_att.vk_format) {
+         case VK_FORMAT_D16_UNORM:
+         case VK_FORMAT_D16_UNORM_S8_UINT:
+            P_IMMD(p, NV9097, SET_DEPTH_BIAS,
+                   fui(ldexp(dyn->rs.depth_bias.constant, 16)));
+            break;
+         case VK_FORMAT_UNDEFINED:
+         case VK_FORMAT_X8_D24_UNORM_PACK32:
+         case VK_FORMAT_D24_UNORM_S8_UINT:
+         case VK_FORMAT_D32_SFLOAT:
+         case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            P_IMMD(p, NV9097, SET_DEPTH_BIAS,
+                   fui(ldexp(dyn->rs.depth_bias.constant, 24)));
+            break;
+         default:
+            unreachable("Unsupported depth format");
+         }
+         break;
       default:
          unreachable("Unsupported depth bias representation");
       }
-      /* TODO: The blob multiplies by 2 for some reason. We don't. */
-      P_IMMD(p, NV9097, SET_DEPTH_BIAS, fui(dyn->rs.depth_bias.constant));
       P_IMMD(p, NV9097, SET_SLOPE_SCALE_DEPTH_BIAS, fui(dyn->rs.depth_bias.slope));
       P_IMMD(p, NV9097, SET_DEPTH_BIAS_CLAMP, fui(dyn->rs.depth_bias.clamp));
    }
