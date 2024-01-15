@@ -1113,6 +1113,9 @@ iris_resource_create_for_image(struct pipe_screen *pscreen,
    uint64_t modifier =
       select_best_modifier(devinfo, templ, modifiers, modifiers_count);
 
+   if (modifiers_count == 0 && INTEL_DEBUG(DEBUG_NO_TILING))
+       modifier = DRM_FORMAT_MOD_NONE;
+
    if (modifier == DRM_FORMAT_MOD_INVALID && modifiers_count > 0) {
       fprintf(stderr, "Unsupported modifier, resource creation failed.\n");
       goto fail;

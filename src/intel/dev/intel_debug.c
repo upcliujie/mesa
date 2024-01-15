@@ -83,6 +83,7 @@ static const struct debug_control debug_control[] = {
    { "do32",        DEBUG_DO32 },
    { "norbc",       DEBUG_NO_CCS },
    { "noccs",       DEBUG_NO_CCS },
+   { "notiling",    DEBUG_NO_TILING },
    { "nohiz",       DEBUG_NO_HIZ },
    { "color",       DEBUG_COLOR },
    { "reemit",      DEBUG_REEMIT },

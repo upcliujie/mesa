@@ -555,6 +555,8 @@ Intel driver environment variables
       disable fast clears
    ``noccs``
       disable lossless color compression
+   ``notiling``
+      ensure that the memory layout of the resource is not tiled
    ``optimizer``
       dump shader assembly to files at each optimization pass and
       iteration that make progress
