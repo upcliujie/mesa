@@ -47,21 +47,21 @@ lower_printf_intrin(nir_builder *b, nir_intrinsic_instr *prntf, void *_options)
    nir_def *buffer_addr = nir_load_printf_buffer_address(b, ptr_bit_size);
    nir_deref_instr *buffer =
       nir_build_deref_cast(b, buffer_addr, nir_var_mem_global,
-                           glsl_array_type(glsl_uint8_t_type(), 0, 4), 0);
+                           glsl_array_type(glsl_uint8_t_type(), 0, 8), 0);
 
-   /* Align the struct size to 4 */
+   /* Align the struct size to 8 */
    assert(glsl_type_is_struct_or_ifc(args->type));
-   int args_size = align(glsl_get_cl_size(args->type), 4);
+   int args_size = align(glsl_get_cl_size(args->type), 8);
    assert(fmt_str_id->bit_size == 32);
-   int fmt_str_id_size = 4;
+   int fmt_str_id_size = 8;
 
    /* Increment the counter at the beginning of the buffer */
-   const unsigned counter_size = 4;
+   const unsigned counter_size = 8;
    nir_deref_instr *counter = nir_build_deref_array_imm(b, buffer, 0);
    counter = nir_build_deref_cast(b, &counter->def,
                                   nir_var_mem_global,
                                   glsl_uint_type(), 0);
-   counter->cast.align_mul = 4;
+   counter->cast.align_mul = 8;
    nir_def *offset =
       nir_deref_atomic(b, 32, &counter->def,
                        nir_imm_int(b, fmt_str_id_size + args_size),
@@ -84,7 +84,7 @@ lower_printf_intrin(nir_builder *b, nir_intrinsic_instr *prntf, void *_options)
    fmt_str_id_deref = nir_build_deref_cast(b, &fmt_str_id_deref->def,
                                            nir_var_mem_global,
                                            glsl_uint_type(), 0);
-   fmt_str_id_deref->cast.align_mul = 4;
+   fmt_str_id_deref->cast.align_mul = 8;
    nir_store_deref(b, fmt_str_id_deref, fmt_str_id, ~0);
 
    /* Write the format args */
@@ -99,10 +99,12 @@ lower_printf_intrin(nir_builder *b, nir_intrinsic_instr *prntf, void *_options)
        * them. For those drivers, convert them back to float before writing.
        * Copy prop and other optimizations should remove all hints of doubles.
        */
-      if (glsl_get_base_type(arg_type) == GLSL_TYPE_DOUBLE &&
+      enum glsl_base_type base_type = glsl_get_base_type(arg_type);
+      if (base_type == GLSL_TYPE_DOUBLE &&
           options && options->treat_doubles_as_floats) {
          arg = nir_f2f32(b, arg);
          arg_type = glsl_float_type();
+         base_type = GLSL_TYPE_FLOAT;
       }
 
       unsigned field_offset = glsl_get_struct_field_offset(args->type, i);
@@ -113,8 +115,10 @@ lower_printf_intrin(nir_builder *b, nir_intrinsic_instr *prntf, void *_options)
          nir_build_deref_array(b, buffer, arg_offset);
       dst_arg_deref = nir_build_deref_cast(b, &dst_arg_deref->def,
                                            nir_var_mem_global, arg_type, 0);
-      assert(field_offset % 4 == 0);
-      dst_arg_deref->cast.align_mul = 4;
+
+      unsigned align = MAX2(4, glsl_base_type_bit_size(base_type) / 8);
+      assert(field_offset % align == 0);
+      dst_arg_deref->cast.align_mul = align;
       nir_store_deref(b, dst_arg_deref, arg, ~0);
    }
 
