@@ -299,6 +299,13 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
    fs_reg sample_mask = inst->src[FB_WRITE_LOGICAL_SRC_OMASK];
    const unsigned components =
       inst->src[FB_WRITE_LOGICAL_SRC_COMPONENTS].ud;
+  const fs_reg desc_rts = inst->src[FB_WRITE_LOGICAL_SRC_DESC_RTS];
+  const fs_reg ex_desc_rts = inst->src[FB_WRITE_LOGICAL_SRC_EX_DESC_RTS];
+  const bool null_rt =
+     inst->src[FB_WRITE_LOGICAL_SRC_NULL_RT].file == IMM &&
+     inst->src[FB_WRITE_LOGICAL_SRC_NULL_RT].ud != 0;
+
+  assert(desc_rts.file == ex_desc_rts.file);
 
    assert(inst->target != 0 || src0_alpha.file == BAD_FILE);
 
@@ -307,7 +314,8 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
    unsigned length = 0;
 
    if (devinfo->ver < 11 &&
-      (color1.file != BAD_FILE || key->nr_color_regions > 1)) {
+      (color1.file != BAD_FILE || key->nr_color_regions > 1 ||
+       desc_rts.file != BAD_FILE)) {
       assert(devinfo->ver < 20);
 
       /* From the Sandy Bridge PRM, volume 4, page 198:
@@ -358,11 +366,13 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
       }
 
       /* Set the render target index for choosing BLEND_STATE. */
-      if (inst->target > 0) {
+      if (desc_rts.file != BAD_FILE) {
+         ubld.group(1, 0).MOV(component(header, 2), component(desc_rts, inst->target));
+      } else if (inst->target > 0) {
          ubld.group(1, 0).MOV(component(header, 2), brw_imm_ud(inst->target));
       }
 
-      if (prog_data->uses_kill) {
+      if (prog_data->uses_kill || desc_rts.file != BAD_FILE) {
          ubld.group(1, 0).MOV(retype(component(header, 15),
                                      BRW_REGISTER_TYPE_UW),
                               brw_sample_mask_reg(bld));
@@ -466,7 +476,9 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
    /* XXX - Bit 13 Per-sample PS enable */
    inst->desc =
       (inst->group / 16) << 11 | /* rt slot group */
-      brw_fb_write_desc(devinfo, inst->target, msg_ctl, inst->last_rt,
+      brw_fb_write_desc(devinfo,
+                        desc_rts.file != BAD_FILE ? 0 : inst->target,
+                        msg_ctl, inst->last_rt,
                         0 /* coarse_rt_write */);
 
    fs_reg desc = brw_imm_ud(0);
@@ -478,33 +490,52 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
       desc = ubld.vgrf(BRW_REGISTER_TYPE_UD);
       ubld.AND(desc, dynamic_msaa_flags(prog_data),
                brw_imm_ud(INTEL_MSAA_FLAG_COARSE_RT_WRITES));
-      desc = component(desc, 0);
    }
 
-   uint32_t ex_desc = 0;
+   if (desc_rts.file != BAD_FILE) {
+      const fs_builder &ubld = bld.exec_all().group(8, 0);
+      if (desc.file == VGRF)
+         ubld.OR(desc, desc, component(desc_rts, inst->target));
+      else
+         desc = component(desc_rts, inst->target);
+   }
+
+   fs_reg ex_desc = brw_imm_ud(0);
+   uint32_t ex_desc_imm = 0;
    if (devinfo->ver >= 20) {
-      ex_desc = inst->target << 21 |
-                (key->nr_color_regions == 0) << 20 |
-                (src0_alpha.file != BAD_FILE) << 15 |
-                (src_stencil.file != BAD_FILE) << 14 |
-                (src_depth.file != BAD_FILE) << 13 |
-                (sample_mask.file != BAD_FILE) << 12;
-   } else if (devinfo->ver >= 11) {
-      /* Set the "Render Target Index" and "Src0 Alpha Present" fields
-       * in the extended message descriptor, in lieu of using a header.
-       */
-      ex_desc = inst->target << 12 | (src0_alpha.file != BAD_FILE) << 15;
+      ex_desc_imm = (src0_alpha.file != BAD_FILE) << 15 |
+                    (src_stencil.file != BAD_FILE) << 14 |
+                    (src_depth.file != BAD_FILE) << 13 |
+                    (sample_mask.file != BAD_FILE) << 12;
 
-      if (key->nr_color_regions == 0)
-         ex_desc |= 1 << 20; /* Null Render Target */
+      if (ex_desc_rts.file != BAD_FILE) {
+         const fs_builder &ubld = bld.exec_all().group(1, 0);
+         ex_desc = ubld.vgrf(BRW_REGISTER_TYPE_UD);
+         ubld.MOV(ex_desc, component(ex_desc_rts, inst->target));
+      } else {
+         ex_desc_imm |= (key->nr_color_regions == 0) << 20;
+         ex_desc_imm |= inst->target << 21;
+      }
+   } else if (devinfo->ver >= 11) {
+      /* Set the "Render Target Index" and "Src0 Alpha Present" fields in the
+       * extended message descriptor, in lieu of using a header.
+       */
+      ex_desc_imm |= (src0_alpha.file != BAD_FILE) << 15;
+
+      if (ex_desc_rts.file != BAD_FILE) {
+         ex_desc = component(ex_desc_rts, inst->target);
+      } else {
+         ex_desc_imm |= null_rt << 20;
+         ex_desc_imm |= inst->target << 12;
+      }
    }
-   inst->ex_desc = ex_desc;
+   inst->ex_desc = ex_desc_imm;
 
    inst->opcode = SHADER_OPCODE_SEND;
    inst->resize_sources(3);
    inst->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
-   inst->src[0] = desc;
-   inst->src[1] = brw_imm_ud(0);
+   inst->src[0] = component(desc, 0);
+   inst->src[1] = component(ex_desc, 0);
    inst->src[2] = payload;
    inst->mlen = regs_written(load);
    inst->ex_mlen = 0;

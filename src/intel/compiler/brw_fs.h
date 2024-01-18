@@ -298,7 +298,9 @@ public:
 
    fs_inst *emit_single_fb_write(const brw::fs_builder &bld,
                                  fs_reg color1, fs_reg color2,
-                                 fs_reg src0_alpha, unsigned components);
+                                 fs_reg src0_alpha, unsigned components,
+                                 fs_reg desc_rts, fs_reg ex_desc_rts,
+                                 bool null_rt);
    void do_emit_fb_writes(int nr_color_regions, bool replicate_alpha);
    void emit_fb_writes();
    void emit_urb_writes(const fs_reg &gs_vertex_count = fs_reg());
@@ -559,6 +561,20 @@ namespace brw {
    dynamic_msaa_flags(const struct brw_wm_prog_data *wm_prog_data)
    {
       return fs_reg(UNIFORM, wm_prog_data->msaa_flags_param,
+                    BRW_REGISTER_TYPE_UD);
+   }
+
+   inline fs_reg
+   rt_map_param(const struct brw_wm_prog_data *wm_prog_data)
+   {
+      return fs_reg(UNIFORM, wm_prog_data->rt_map_param,
+                    BRW_REGISTER_TYPE_UD);
+   }
+
+   inline fs_reg
+   rt_active_param(const struct brw_wm_prog_data *wm_prog_data)
+   {
+      return fs_reg(UNIFORM, wm_prog_data->rt_active_param,
                     BRW_REGISTER_TYPE_UD);
    }
 

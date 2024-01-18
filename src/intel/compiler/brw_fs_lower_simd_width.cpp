@@ -482,7 +482,11 @@ emit_unzip(const fs_builder &lbld, fs_inst *inst, unsigned i)
    /* Specified channel group from the source region. */
    const fs_reg src = horiz_offset(inst->src[i], lbld.group() - inst->group);
 
-   if (needs_src_copy(lbld, inst, i)) {
+   if (inst->opcode == FS_OPCODE_FB_WRITE_LOGICAL &&
+       (i == FB_WRITE_LOGICAL_SRC_DESC_RTS ||
+        i == FB_WRITE_LOGICAL_SRC_EX_DESC_RTS)) {
+      return inst->src[i];
+   } else if (needs_src_copy(lbld, inst, i)) {
       const fs_reg tmp = lbld.vgrf(inst->src[i].type, inst->components_read(i));
 
       for (unsigned k = 0; k < inst->components_read(i); ++k)
