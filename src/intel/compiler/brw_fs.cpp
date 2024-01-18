@@ -918,6 +918,12 @@ fs_inst::size_read(int arg) const
       }
       break;
 
+   case FS_OPCODE_FB_WRITE_LOGICAL:
+      if (arg == FB_WRITE_LOGICAL_SRC_DESC_RTS ||
+          arg == FB_WRITE_LOGICAL_SRC_EX_DESC_RTS)
+         return REG_SIZE;
+      break;
+
    case FS_OPCODE_FB_READ:
    case FS_OPCODE_INTERPOLATE_AT_SAMPLE:
    case FS_OPCODE_INTERPOLATE_AT_SHARED_OFFSET:
@@ -3728,6 +3734,8 @@ brw_nir_populate_wm_prog_data(nir_shader *shader,
    prog_data->computed_stencil =
       shader->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_STENCIL);
 
+   prog_data->remap_color_outputs = key->remap_color_outputs;
+
    prog_data->sample_shading =
       shader->info.fs.uses_sample_shading ||
       shader->info.outputs_read;
@@ -3942,6 +3950,11 @@ brw_compile_fs(const struct brw_compiler *compiler,
       }
       v8->limit_dispatch_width(16, "SIMD32 not supported with coarse"
                                " pixel shading.\n");
+   }
+
+   if (key->remap_color_outputs == BRW_RT_REMAP_DYNAMIC) {
+      v8->limit_dispatch_width(16, "SIMD32 hangs with dynamic remapping of "
+                                   "RT writes.\n");
    }
 
    if (!has_spilled &&

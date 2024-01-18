@@ -527,7 +527,8 @@ fs_visitor::emit_interpolation_setup()
 fs_inst *
 fs_visitor::emit_single_fb_write(const fs_builder &bld,
                                  fs_reg color0, fs_reg color1,
-                                 fs_reg src0_alpha, unsigned components)
+                                 fs_reg src0_alpha, unsigned components,
+                                 fs_reg desc_rts, fs_reg ex_desc_rts)
 {
    assert(stage == MESA_SHADER_FRAGMENT);
    struct brw_wm_prog_data *prog_data = brw_wm_prog_data(this->prog_data);
@@ -542,16 +543,23 @@ fs_visitor::emit_single_fb_write(const fs_builder &bld,
    if (nir->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_STENCIL))
       src_stencil = frag_stencil;
 
-   const fs_reg sources[] = {
-      color0, color1, src0_alpha, src_depth, dst_depth, src_stencil,
-      (prog_data->uses_omask ? sample_mask : fs_reg()),
-      brw_imm_ud(components)
-   };
-   assert(ARRAY_SIZE(sources) - 1 == FB_WRITE_LOGICAL_SRC_COMPONENTS);
+   fs_reg sources[FB_WRITE_LOGICAL_NUM_SRCS];
+   sources[FB_WRITE_LOGICAL_SRC_COLOR0]      = color0;
+   sources[FB_WRITE_LOGICAL_SRC_COLOR1]      = color1;
+   sources[FB_WRITE_LOGICAL_SRC_SRC0_ALPHA]  = src0_alpha;
+   sources[FB_WRITE_LOGICAL_SRC_SRC_DEPTH]   = src_depth;
+   sources[FB_WRITE_LOGICAL_SRC_DST_DEPTH]   = dst_depth;
+   sources[FB_WRITE_LOGICAL_SRC_SRC_STENCIL] = src_stencil;
+   sources[FB_WRITE_LOGICAL_SRC_OMASK]       = prog_data->uses_omask ?
+                                               sample_mask : fs_reg();
+   sources[FB_WRITE_LOGICAL_SRC_COMPONENTS]  = brw_imm_ud(components);
+   sources[FB_WRITE_LOGICAL_SRC_DESC_RTS]    = desc_rts;
+   sources[FB_WRITE_LOGICAL_SRC_EX_DESC_RTS] = ex_desc_rts;
+
    fs_inst *write = bld.emit(FS_OPCODE_FB_WRITE_LOGICAL, fs_reg(),
                              sources, ARRAY_SIZE(sources));
 
-   if (prog_data->uses_kill) {
+   if (prog_data->uses_kill || (devinfo->ver == 9 && desc_rts.file != BAD_FILE)) {
       write->predicate = BRW_PREDICATE_NORMAL;
       write->flag_subreg = sample_mask_flag_subreg(*this);
    }
@@ -563,13 +571,67 @@ void
 fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
 {
    const fs_builder bld = fs_builder(this).at_end();
+   brw_wm_prog_key *key = (brw_wm_prog_key*) this->key;
    struct brw_wm_prog_data *prog_data = brw_wm_prog_data(this->prog_data);
    fs_inst *inst = NULL;
+
+   const bool save_restore_flag_reg =
+      prog_data->uses_kill && key->remap_color_outputs == BRW_RT_REMAP_DYNAMIC;
+   const fs_builder ubld8 = bld.exec_all().group(8, 0);
+   fs_reg tmp_sample_mask;
+   unsigned flag_subreg = sample_mask_flag_subreg(*this);
+   fs_reg flag_reg =
+      retype(brw_flag_subreg(flag_subreg), BRW_REGISTER_TYPE_UD);
+
+   if (save_restore_flag_reg) {
+      tmp_sample_mask = ubld8.vgrf(BRW_REGISTER_TYPE_UD);
+      ubld8.MOV(tmp_sample_mask, flag_reg);
+   }
+
+   /* Build 2 or 3 GRF (32B) :
+    *    - flag mask for the send instruction (only Gfx9)
+    *    - descriptor value for render target
+    *    - extended descriptor value for render target + null flag (flag only on Gfx11)
+    *
+    * Each render target write message will pull the value from it own lane to
+    * build the final descriptors.
+    */
+   fs_reg rts_flag_values, desc_rts, ex_desc_rts;
+   if (key->remap_color_outputs == BRW_RT_REMAP_DYNAMIC) {
+      fs_reg idx = ubld8.vgrf(BRW_REGISTER_TYPE_UW);
+      ubld8.MOV(idx, brw_imm_v(0x76543210));
+
+      rts_flag_values = ubld8.vgrf(BRW_REGISTER_TYPE_UD);
+      ubld8.SHL(rts_flag_values, brw_imm_ud(1), idx);
+      ubld8.AND(rts_flag_values, rts_flag_values, rt_active_param(prog_data));
+      ubld8.CMP(rts_flag_values, rts_flag_values, brw_imm_ud(0), BRW_CONDITIONAL_NZ);
+
+      /* Build a map of all */
+      fs_reg shifts = ubld8.vgrf(BRW_REGISTER_TYPE_UD);
+      ubld8.SHL(shifts, idx, brw_imm_ud(2));
+      desc_rts = ubld8.vgrf(BRW_REGISTER_TYPE_UD);
+      ubld8.SHL(desc_rts, brw_imm_ud(0xf), shifts);
+      ubld8.AND(desc_rts, desc_rts, rt_map_param(prog_data));
+      ubld8.SHR(desc_rts, desc_rts, shifts);
+
+      ex_desc_rts = ubld8.vgrf(BRW_REGISTER_TYPE_UD);
+      ubld8.SHL(ex_desc_rts, desc_rts, brw_imm_ud(devinfo->ver >= 20 ? 21 : 12));
+      if (devinfo->ver >= 11) {
+         fs_reg null_flags = ubld8.vgrf(BRW_REGISTER_TYPE_UD);
+         ubld8.CMP(null_flags, rts_flag_values, brw_imm_ud(0), BRW_CONDITIONAL_Z);
+         ubld8.AND(null_flags, null_flags, brw_imm_ud(1 << 20));
+         ubld8.OR(ex_desc_rts, ex_desc_rts, null_flags);
+      }
+   }
 
    prog_data->written_color_outputs = 0;
    for (int target = 0; target < nr_color_regions; target++) {
       /* Skip over outputs that weren't written. */
       if (this->outputs[target].file == BAD_FILE)
+         continue;
+
+      if (key->remap_color_outputs == BRW_RT_REMAP_STATIC &&
+          ((1u << target) & key->color_outputs_valid) == 0)
          continue;
 
       const fs_builder abld = bld.annotate(
@@ -579,12 +641,29 @@ fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
       if (replicate_alpha && target != 0)
          src0_alpha = offset(outputs[0], bld, 3);
 
-      inst = emit_single_fb_write(abld, this->outputs[target],
-                                  this->dual_src_output, src0_alpha, 4);
-      inst->target = target;
+      if (key->remap_color_outputs == BRW_RT_REMAP_DYNAMIC && devinfo->ver == 9) {
+         if (prog_data->uses_kill) {
+            inst =
+               abld.exec_all().group(1, 0).AND(flag_reg,
+                                               component(tmp_sample_mask, 0),
+                                               component(rts_flag_values, target));
+         } else {
+            abld.exec_all().group(1, 0).MOV(flag_reg,
+                                            component(rts_flag_values, target));
+         }
+      }
 
-      prog_data->written_color_outputs |= BITFIELD_BIT(target);
+      inst = emit_single_fb_write(abld, this->outputs[target],
+                                  this->dual_src_output, src0_alpha, 4,
+                                  desc_rts, ex_desc_rts);
+      inst->target = key->remap_color_outputs == BRW_RT_REMAP_STATIC ?
+         ((key->color_output_map >> (4 * target)) & 0xf) : target;
+
+      prog_data->written_color_outputs |= BITFIELD_BIT(inst->target);
    }
+
+   if (save_restore_flag_reg)
+      bld.exec_all().group(1, 0).MOV(flag_reg, component(tmp_sample_mask, 0));
 
    if (inst == NULL) {
       /* Even if there's no color buffers enabled, we still need to send
@@ -599,7 +678,8 @@ fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
       const fs_reg tmp = bld.vgrf(BRW_REGISTER_TYPE_UD, 4);
       bld.LOAD_PAYLOAD(tmp, srcs, 4, 0);
 
-      inst = emit_single_fb_write(bld, tmp, reg_undef, reg_undef, 4);
+      inst = emit_single_fb_write(bld, tmp, reg_undef, reg_undef, 4,
+                                  reg_undef, reg_undef);
       inst->target = 0;
    }
 
