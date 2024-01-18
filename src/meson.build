@@ -76,6 +76,13 @@ endif
 if with_platform_wayland
   subdir('egl/wayland/wayland-drm')
 endif
+subdir('loader')
+if with_gbm
+  subdir('gbm')
+else
+  inc_gbm = []
+  dep_gbm = declare_dependency()
+endif
 if with_any_vk or with_gallium_zink
   subdir('vulkan')
 endif
@@ -114,14 +121,6 @@ if with_any_nouveau
 endif
 if with_gallium_asahi or with_tools.contains('asahi')
   subdir('asahi')
-endif
-if with_gallium or with_gbm
-  subdir('loader')
-endif
-if with_gbm
-  subdir('gbm')
-else
-  inc_gbm = []
 endif
 if with_gallium
   subdir('mesa')

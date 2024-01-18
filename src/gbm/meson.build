@@ -64,6 +64,11 @@ libgbm = shared_library(
   install : true,
 )
 
+dep_gbm = declare_dependency(
+  link_with: libgbm,
+  include_directories: include_directories('main'),
+)
+
 if with_tests
   abi_check = executable('gbm_abi_check', 'main/gbm_abi_check.c')
   test('gbm-abi-check', abi_check, suite : ['gbm'])
