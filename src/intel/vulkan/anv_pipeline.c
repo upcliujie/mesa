@@ -667,10 +667,6 @@ populate_wm_prog_key(struct anv_pipeline_stage *stage,
       if (device->physical->instance->sample_mask_out_opengl_behaviour)
          key->ignore_sample_mask_out = !key->multisample_fbo;
    } else {
-      /* Consider all inputs as valid until we look at the NIR variables. */
-      key->color_outputs_valid = (1u << MAX_RTS) - 1;
-      key->nr_color_regions = MAX_RTS;
-
       key->alpha_to_coverage = BRW_SOMETIMES;
       key->multisample_fbo = BRW_SOMETIMES;
       key->persample_interp = BRW_SOMETIMES;
