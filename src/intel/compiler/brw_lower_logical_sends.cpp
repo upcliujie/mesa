@@ -160,7 +160,7 @@ lower_urb_write_logical_send(const fs_builder &bld, fs_inst *inst)
       payload_sources[header_size++] = inst->src[URB_LOGICAL_SRC_CHANNEL_MASK];
 
    for (unsigned i = header_size, j = 0; i < length; i++, j++)
-      payload_sources[i] = offset(inst->src[URB_LOGICAL_SRC_DATA], bld, j);
+      payload_sources[i] = offset_to_component(inst->src[URB_LOGICAL_SRC_DATA], bld, j);
 
    bld.LOAD_PAYLOAD(payload, payload_sources, length, header_size);
 
@@ -925,14 +925,14 @@ lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst,
        * [hdr], [ref], x, dPdx.x, dPdy.x, y, dPdx.y, dPdy.y, z, dPdx.z, dPdy.z
        */
       for (unsigned i = 0; i < coord_components; i++) {
-         bld.MOV(sources[length++], offset(coordinate, bld, i));
+         bld.MOV(sources[length++], offset_to_component(coordinate, bld, i));
 
          /* For cube map array, the coordinate is (u,v,r,ai) but there are
           * only derivatives for (u, v, r).
           */
          if (i < grad_components) {
-            bld.MOV(sources[length++], offset(lod, bld, i));
-            bld.MOV(sources[length++], offset(lod2, bld, i));
+            bld.MOV(sources[length++], offset_to_component(lod, bld, i));
+            bld.MOV(sources[length++], offset_to_component(lod2, bld, i));
          }
       }
 
@@ -950,11 +950,11 @@ lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst,
    case SHADER_OPCODE_TXF_LOGICAL:
        /* On Gfx9 the parameters are intermixed they are u, v, lod, r. */
       sources[length] = retype(sources[length], payload_signed_type);
-      bld.MOV(sources[length++], coordinate);
+      bld.MOV(sources[length++], offset_to_component(coordinate, bld, 0));
 
       if (coord_components >= 2) {
          sources[length] = retype(sources[length], payload_signed_type);
-         bld.MOV(sources[length], offset(coordinate, bld, 1));
+         bld.MOV(sources[length], offset_to_component(coordinate, bld, 1));
       } else {
          sources[length] = brw_imm_d(0);
       }
@@ -967,7 +967,7 @@ lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst,
 
       for (unsigned i = 2; i < coord_components; i++) {
          sources[length] = retype(sources[length], payload_signed_type);
-         bld.MOV(sources[length++], offset(coordinate, bld, i));
+         bld.MOV(sources[length++], offset_to_component(coordinate, bld, i));
       }
 
       coordinate_done = true;
@@ -1015,7 +1015,7 @@ lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst,
        */
       for (unsigned i = 0; i < coord_components; i++) {
          sources[length] = retype(sources[length], payload_signed_type);
-         bld.MOV(sources[length++], offset(coordinate, bld, i));
+         bld.MOV(sources[length++], offset_to_component(coordinate, bld, i));
       }
 
       coordinate_done = true;
@@ -1023,15 +1023,15 @@ lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst,
    case SHADER_OPCODE_TG4_OFFSET_LOGICAL:
       /* More crazy intermixing */
       for (unsigned i = 0; i < 2; i++) /* u, v */
-         bld.MOV(sources[length++], offset(coordinate, bld, i));
+         bld.MOV(sources[length++], offset_to_component(coordinate, bld, i));
 
       for (unsigned i = 0; i < 2; i++) { /* offu, offv */
          sources[length] = retype(sources[length], payload_signed_type);
-         bld.MOV(sources[length++], offset(tg4_offset, bld, i));
+         bld.MOV(sources[length++], offset_to_component(tg4_offset, bld, i));
       }
 
       if (coord_components == 3) /* r if present */
-         bld.MOV(sources[length++], offset(coordinate, bld, 2));
+         bld.MOV(sources[length++], offset_to_component(coordinate, bld, 2));
 
       coordinate_done = true;
       break;
@@ -1043,7 +1043,7 @@ lower_sampler_logical_send(const fs_builder &bld, fs_inst *inst,
    if (!coordinate_done) {
       for (unsigned i = 0; i < coord_components; i++)
          bld.MOV(retype(sources[length++], payload_type),
-                 offset(coordinate, bld, i));
+                 offset_to_component(coordinate, bld, i));
    }
 
    if (min_lod.file != BAD_FILE && !min_lod_is_first) {
@@ -1490,10 +1490,10 @@ lower_surface_logical_send(const fs_builder &bld, fs_inst *inst)
          components[n++] = header;
 
       for (unsigned i = 0; i < addr_sz; i++)
-         components[n++] = offset(addr, bld, i);
+         components[n++] = offset_to_component(addr, bld, i);
 
       for (unsigned i = 0; i < src_sz; i++)
-         components[n++] = offset(src, bld, i);
+         components[n++] = offset_to_component(src, bld, i);
 
       bld.LOAD_PAYLOAD(payload, components, sz, header_sz);
       mlen = header_sz + (addr_sz + src_sz) * inst->exec_size / 8;
