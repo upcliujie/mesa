@@ -385,8 +385,17 @@ namespace brw {
          const brw_reg chan_index = vgrf(BRW_TYPE_UD);
          const brw_reg dst = vgrf(src.type);
 
-         ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index);
-         ubld.emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
+         if (is_uniform(src)) {
+            /* Must make a copy of the source (which will hopefully be
+             * eliminated by copy-prop) because some callers will modify the
+             * value in the returned register and expect the input register
+             * contents to be constant.
+             */
+            ubld.MOV(dst, component(src, 0));
+         } else {
+            ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index);
+            ubld.emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
+         }
 
          return brw_reg(component(dst, 0));
       }
