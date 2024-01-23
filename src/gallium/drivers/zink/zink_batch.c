@@ -719,25 +719,28 @@ submit_queue(void *data, void *gdata, int thread_index)
                                    bs->unordered_write_stages, 0,
                                    0, 1, &mb, 0, NULL, 0, NULL);
       }
-      VRAM_ALLOC_LOOP(result,
-         VKSCR(EndCommandBuffer)(bs->reordered_cmdbuf),
-         if (result != VK_SUCCESS) {
-            mesa_loge("ZINK: vkEndCommandBuffer failed (%s)", vk_Result_to_str(result));
-            bs->is_device_lost = true;
-            goto end;
-         }
-      );
    }
-   if (bs->has_unsync) {
-      VRAM_ALLOC_LOOP(result,
-         VKSCR(EndCommandBuffer)(bs->unsynchronized_cmdbuf),
-         if (result != VK_SUCCESS) {
-            mesa_loge("ZINK: vkEndCommandBuffer failed (%s)", vk_Result_to_str(result));
-            bs->is_device_lost = true;
-            goto end;
-         }
-      );
-   }
+
+   // On pre 2024 Nvidia drivers, calling vkResetCommandPool() with command buffers that haven't
+   // ended recording, leads to a race condition inside of vkResetCommandPool() in Nvidias background thread.
+   // The workaround is to manually end command buffer recording before trying to reset them, even though that's spec conform
+   VRAM_ALLOC_LOOP(result,
+      VKSCR(EndCommandBuffer)(bs->reordered_cmdbuf),
+      if (result != VK_SUCCESS) {
+         mesa_loge("ZINK: vkEndCommandBuffer failed (%s)", vk_Result_to_str(result));
+         bs->is_device_lost = true;
+         goto end;
+      }
+   );
+
+   VRAM_ALLOC_LOOP(result,
+      VKSCR(EndCommandBuffer)(bs->unsynchronized_cmdbuf),
+      if (result != VK_SUCCESS) {
+         mesa_loge("ZINK: vkEndCommandBuffer failed (%s)", vk_Result_to_str(result));
+         bs->is_device_lost = true;
+         goto end;
+      }
+   );
 
    if (!si[ZINK_SUBMIT_SIGNAL].signalSemaphoreCount)
       num_si--;
