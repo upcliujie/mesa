@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef ANV_GENERATED_INDIRECT_DRAWS_H
-#define ANV_GENERATED_INDIRECT_DRAWS_H
+#pragma once
 
 #include "shaders/interface.h"
 
@@ -75,5 +74,3 @@ struct PACKED anv_memcpy_params {
 
    uint64_t dst_addr;
 };
-
-#endif /* ANV_GENERATED_INDIRECT_DRAWS_H */

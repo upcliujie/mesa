@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef GENX_CMD_DRAW_GENERATED_FLUSH_H
-#define GENX_CMD_DRAW_GENERATED_FLUSH_H
+#pragma once
 
 #include <assert.h>
 #include <stdbool.h>
@@ -75,5 +74,3 @@ genX(cmd_buffer_flush_generated_draws)(struct anv_cmd_buffer *cmd_buffer)
 
    cmd_buffer->generation.return_addr = ANV_NULL_ADDRESS;
 }
-
-#endif /* GENX_CMD_DRAW_GENERATED_FLUSH_H */

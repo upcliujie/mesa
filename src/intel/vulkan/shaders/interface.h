@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef _SHADERS_INTERFACE_H_
-#define _SHADERS_INTERFACE_H_
+#pragma once
 
 #ifdef _IN_SHADER_
 #define BITFIELD_BIT(i) (1u << i)
@@ -117,5 +116,3 @@ struct PACKED anv_query_copy_shader_params {
     */
    uint32_t padding;
 };
-
-#endif /* _SHADERS_INTERFACE_H_ */

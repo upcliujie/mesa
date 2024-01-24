@@ -21,8 +21,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef ANV_MEASURE_H
-#define ANV_MEASURE_H
+#pragma once
 
 #include "anv_private.h"
 #include "common/intel_measure.h"
@@ -78,5 +77,3 @@ _anv_measure_add_secondary(struct anv_cmd_buffer *primary,
 #define anv_measure_add_secondary(primary, secondary) \
    if (unlikely(primary->measure)) \
       _anv_measure_add_secondary(primary, secondary)
-
-#endif   /* ANV_MEASURE_H */

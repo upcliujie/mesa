@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef ANV_NIR_H
-#define ANV_NIR_H
+#pragma once
 
 #include "nir/nir.h"
 #include "anv_private.h"
@@ -121,5 +120,3 @@ uint32_t anv_nir_push_desc_ubo_fully_promoted(nir_shader *nir,
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* ANV_NIR_H */

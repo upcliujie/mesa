@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef ANV_ANDROID_H
-#define ANV_ANDROID_H
+#pragma once
 
 #if defined(ANDROID) && ANDROID_API_LEVEL >= 26
 #include <vndk/hardware_buffer.h>
@@ -52,4 +51,3 @@ VkResult anv_import_ahw_memory(VkDevice device_h,
 VkResult anv_create_ahw_memory(VkDevice device_h,
                                struct anv_device_memory *mem,
                                const VkMemoryDedicatedAllocateInfo *dedicated_info);
-#endif /* ANV_ANDROID_H */

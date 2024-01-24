@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef ANV_PRIVATE_H
-#define ANV_PRIVATE_H
+#pragma once
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -5717,5 +5716,3 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(anv_video_session_params, vk.base,
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* ANV_PRIVATE_H */

@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef ANV_GRL_H
-#define ANV_GRL_H
+#pragma once
 
 #include "grl/grl_cl_kernel.h"
 #include "genxml/gen_macros.h"
@@ -51,4 +50,3 @@ genX(grl_max_scratch_size)(void);
 } /* extern "C" */
 #endif
 
-#endif /* ANV_GRL_H */
