@@ -2088,10 +2088,15 @@ isl_format_is_hiz(enum isl_format fmt)
 static inline bool
 isl_format_is_planar(enum isl_format fmt)
 {
-   return fmt == ISL_FORMAT_PLANAR_420_8 ||
-          fmt == ISL_FORMAT_PLANAR_420_10 ||
-          fmt == ISL_FORMAT_PLANAR_420_12 ||
-          fmt == ISL_FORMAT_PLANAR_420_16;
+   switch (fmt) {
+   case ISL_FORMAT_PLANAR_420_8:
+   case ISL_FORMAT_PLANAR_420_10:
+   case ISL_FORMAT_PLANAR_420_12:
+   case ISL_FORMAT_PLANAR_420_16:
+      return true;
+   default:
+      return false;
+   }
 }
 
 static inline bool
@@ -2276,47 +2281,72 @@ isl_aux_usage_has_compression(enum isl_aux_usage usage);
 static inline bool
 isl_aux_usage_has_hiz(enum isl_aux_usage usage)
 {
-   return usage == ISL_AUX_USAGE_HIZ ||
-          usage == ISL_AUX_USAGE_HIZ_CCS_WT ||
-          usage == ISL_AUX_USAGE_HIZ_CCS;
+   switch (usage) {
+      case ISL_AUX_USAGE_HIZ:
+      case ISL_AUX_USAGE_HIZ_CCS_WT:
+      case ISL_AUX_USAGE_HIZ_CCS:
+         return true;
+      default:
+         return false;
+   }
 }
 
 /***/
 static inline bool
 isl_aux_usage_has_mcs(enum isl_aux_usage usage)
 {
-   return usage == ISL_AUX_USAGE_MCS ||
-          usage == ISL_AUX_USAGE_MCS_CCS;
+   switch (usage) {
+   case ISL_AUX_USAGE_MCS:
+   case ISL_AUX_USAGE_MCS_CCS:
+      return true;
+   default:
+      return false;
+   }
 }
 
 /***/
 static inline bool
 isl_aux_usage_has_ccs(enum isl_aux_usage usage)
 {
-   return usage == ISL_AUX_USAGE_CCS_D ||
-          usage == ISL_AUX_USAGE_CCS_E ||
-          usage == ISL_AUX_USAGE_FCV_CCS_E ||
-          usage == ISL_AUX_USAGE_MC ||
-          usage == ISL_AUX_USAGE_HIZ_CCS_WT ||
-          usage == ISL_AUX_USAGE_HIZ_CCS ||
-          usage == ISL_AUX_USAGE_MCS_CCS ||
-          usage == ISL_AUX_USAGE_STC_CCS;
+   switch (usage) {
+   case ISL_AUX_USAGE_CCS_D:
+   case ISL_AUX_USAGE_CCS_E:
+   case ISL_AUX_USAGE_FCV_CCS_E:
+   case ISL_AUX_USAGE_MC:
+   case ISL_AUX_USAGE_HIZ_CCS_WT:
+   case ISL_AUX_USAGE_HIZ_CCS:
+   case ISL_AUX_USAGE_MCS_CCS:
+   case ISL_AUX_USAGE_STC_CCS:
+      return true;
+   default:
+      return false;
+   }
 }
 
 static inline bool
 isl_aux_usage_has_ccs_e(enum isl_aux_usage usage)
 {
-   return usage == ISL_AUX_USAGE_CCS_E ||
-          usage == ISL_AUX_USAGE_FCV_CCS_E;
+   switch (usage) {
+   case ISL_AUX_USAGE_CCS_E:
+   case ISL_AUX_USAGE_FCV_CCS_E:
+      return true;
+   default:
+      return false;
+   }
 }
 
 /***/
 static inline bool
 isl_aux_state_has_valid_primary(enum isl_aux_state state)
 {
-   return state == ISL_AUX_STATE_RESOLVED ||
-          state == ISL_AUX_STATE_PASS_THROUGH ||
-          state == ISL_AUX_STATE_AUX_INVALID;
+   switch (state) {
+   case ISL_AUX_STATE_RESOLVED:
+   case ISL_AUX_STATE_PASS_THROUGH:
+   case ISL_AUX_STATE_AUX_INVALID:
+      return true;
+   default:
+      return false;
+   }
 }
 
 /***/

@@ -452,11 +452,13 @@ isl_get_miptail_base_row(enum isl_tiling tiling)
     * don't support levels > 1 with multisampling, the base miptail level is
     * really simple :
     */
-   if (tiling == ISL_TILING_SKL_Yf ||
-       tiling == ISL_TILING_ICL_Yf)
-      return 4;
-   else
-      return 0;
+   switch (tiling) {
+      case ISL_TILING_SKL_Yf:
+      case ISL_TILING_ICL_Yf:
+         return 4;
+      default:
+         return 0;
+   }
 }
 
 static const uint8_t skl_std_y_2d_miptail_offset_el[][5][2] = {
@@ -1240,7 +1242,8 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
                               struct isl_extent3d *image_align_el)
 {
    const struct isl_format_layout *fmtl = isl_format_get_layout(info->format);
-   if (fmtl->txc == ISL_TXC_MCS) {
+   switch (fmtl->txc) {
+   case ISL_TXC_MCS: {
       /*
        * IvyBrigde PRM Vol 2, Part 1, "11.7 MCS Buffer for Render Target(s)":
        *
@@ -1260,7 +1263,10 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
          *image_align_el = isl_extent3d(4, 4, 1);
       }
       return;
-   } else if (fmtl->txc == ISL_TXC_HIZ) {
+   }
+   break;
+
+   case ISL_TXC_HIZ: {
       assert(ISL_GFX_VER(dev) >= 6);
       if (ISL_GFX_VER(dev) == 6) {
          /* HiZ surfaces on Sandy Bridge are packed tightly. */
@@ -1309,6 +1315,9 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
          *image_align_el = isl_extent3d(16 / fmtl->bw, 16 / fmtl->bh, 1);
       }
       return;
+   }
+   break;
+   default: break;
    }
 
    if (ISL_GFX_VERX10(dev) >= 125) {
@@ -1818,18 +1827,23 @@ isl_calc_phys_slice0_extent_sa_gfx4_2d(
       uint32_t w = isl_align_npot(W, image_align_sa->w);
       uint32_t h = isl_align_npot(H, image_align_sa->h);
 
-      if (l == 0) {
+      switch (l) {
+      case 0:
          slice_top_w = w;
          slice_left_h = h;
          slice_right_h = h;
-      } else if (l == 1) {
+         break;
+      case 1:
          slice_bottom_w = w;
          slice_left_h += h;
-      } else if (l == 2) {
+         break;
+      case 2:
          slice_bottom_w += w;
          slice_right_h += h;
-      } else {
+         break;
+      default:
          slice_right_h += h;
+         break;
       }
 
       if (l >= miptail_start_level) {
@@ -2005,14 +2019,18 @@ isl_calc_phys_total_extent_el_gfx6_stencil_hiz(
       const uint32_t w = isl_align(W, tile_extent_sa.w);
       const uint32_t h = isl_align(H, tile_extent_sa.h);
 
-      if (l == 0) {
+      switch (l) {
+      case 0:
          total_top_w = w;
          total_h = h;
-      } else if (l == 1) {
+         break;
+      case 1:
          total_bottom_w = w;
          total_h += h;
-      } else {
+         break;
+      default:
          total_bottom_w += w;
+         break;
       }
    }
 
@@ -2123,17 +2141,72 @@ isl_calc_row_pitch_alignment(const struct isl_device *dev,
                              const struct isl_surf_init_info *surf_info,
                              const struct isl_tile_info *tile_info)
 {
-   if (tile_info->tiling != ISL_TILING_LINEAR) {
+   switch (tile_info->tiling) {
+   case ISL_TILING_LINEAR: {
+      /* We only support tiled fragment shading rate buffers. */
+      assert((surf_info->usage & ISL_SURF_USAGE_CPB_BIT) == 0);
+
+      /* From the Broadwel PRM >> Volume 2d: Command Reference: Structures >>
+      * RENDER_SURFACE_STATE Surface Pitch (p349):
+      *
+      *    - For linear render target surfaces and surfaces accessed with the
+      *      typed data port messages, the pitch must be a multiple of the
+      *      element size for non-YUV surface formats.  Pitch must be
+      *      a multiple of 2 * element size for YUV surface formats.
+      *
+      *    - [Requirements for SURFTYPE_BUFFER and SURFTYPE_STRBUF, which we
+      *      ignore because isl doesn't do buffers.]
+      *
+      *    - For other linear surfaces, the pitch can be any multiple of
+      *      bytes.
+      */
+      const struct isl_format_layout *fmtl = isl_format_get_layout(surf_info->format);
+      const uint32_t bs = fmtl->bpb / 8;
+      uint32_t alignment = 1;
+
+      if (surf_info->usage & ISL_SURF_USAGE_RENDER_TARGET_BIT) {
+         if (isl_format_is_yuv(surf_info->format)) {
+            alignment = 2 * bs;
+         } else  {
+            alignment = bs;
+         }
+      }
+
+      /* From the Broadwell PRM >> Volume 2c: Command Reference: Registers >>
+      * PRI_STRIDE Stride (p1254):
+      *
+      *    "When using linear memory, this must be at least 64 byte aligned."
+      *
+      * However, when displaying on NVIDIA and recent AMD GPUs via PRIME,
+      * we need a larger pitch of 256 bytes.
+      *
+      * If the ISL caller didn't specify a row_pitch_B, then we should assume
+      * the NVIDIA/AMD requirements. Otherwise, if we have a specified
+      * row_pitch_B, this is probably because the caller is trying to import a
+      * buffer. In that case we limit the minimum row pitch to the Intel HW
+      * requirement.
+      */
+      if (surf_info->usage & ISL_SURF_USAGE_DISPLAY_BIT) {
+         switch (surf_info->row_pitch_B) {
+            case 0: alignment = isl_align(alignment, 256); break;
+            default: alignment = isl_align(alignment, 64); break;
+         }
+      }
+
+      return alignment;
+   }
+
+   default: {
       /* According to BSpec: 44930, Gfx12's CCS-compressed surface pitches must
-       * be 512B-aligned. CCS is only support on Y tilings.
-       *
-       * Only consider 512B alignment when :
-       *    - AUX is not explicitly disabled
-       *    - the caller has specified no pitch
-       *
-       * isl_surf_get_ccs_surf() will check that the main surface alignment
-       * matches CCS expectations.
-       */
+      * be 512B-aligned. CCS is only support on Y tilings.
+      *
+      * Only consider 512B alignment when :
+      *    - AUX is not explicitly disabled
+      *    - the caller has specified no pitch
+      *
+      * isl_surf_get_ccs_surf() will check that the main surface alignment
+      * matches CCS expectations.
+      */
       if (ISL_GFX_VER(dev) >= 12 &&
           isl_format_supports_ccs_e(dev->info, surf_info->format) &&
           tile_info->tiling != ISL_TILING_X &&
@@ -2144,60 +2217,7 @@ isl_calc_row_pitch_alignment(const struct isl_device *dev,
 
       return tile_info->phys_extent_B.width;
    }
-
-   /* We only support tiled fragment shading rate buffers. */
-   assert((surf_info->usage & ISL_SURF_USAGE_CPB_BIT) == 0);
-
-   /* From the Broadwel PRM >> Volume 2d: Command Reference: Structures >>
-    * RENDER_SURFACE_STATE Surface Pitch (p349):
-    *
-    *    - For linear render target surfaces and surfaces accessed with the
-    *      typed data port messages, the pitch must be a multiple of the
-    *      element size for non-YUV surface formats.  Pitch must be
-    *      a multiple of 2 * element size for YUV surface formats.
-    *
-    *    - [Requirements for SURFTYPE_BUFFER and SURFTYPE_STRBUF, which we
-    *      ignore because isl doesn't do buffers.]
-    *
-    *    - For other linear surfaces, the pitch can be any multiple of
-    *      bytes.
-    */
-   const struct isl_format_layout *fmtl = isl_format_get_layout(surf_info->format);
-   const uint32_t bs = fmtl->bpb / 8;
-   uint32_t alignment;
-
-   if (surf_info->usage & ISL_SURF_USAGE_RENDER_TARGET_BIT) {
-      if (isl_format_is_yuv(surf_info->format)) {
-         alignment = 2 * bs;
-      } else  {
-         alignment = bs;
-      }
-   } else {
-      alignment = 1;
    }
-
-   /* From the Broadwell PRM >> Volume 2c: Command Reference: Registers >>
-    * PRI_STRIDE Stride (p1254):
-    *
-    *    "When using linear memory, this must be at least 64 byte aligned."
-    *
-    * However, when displaying on NVIDIA and recent AMD GPUs via PRIME,
-    * we need a larger pitch of 256 bytes.
-    *
-    * If the ISL caller didn't specify a row_pitch_B, then we should assume
-    * the NVIDIA/AMD requirements. Otherwise, if we have a specified
-    * row_pitch_B, this is probably because the caller is trying to import a
-    * buffer. In that case we limit the minimum row pitch to the Intel HW
-    * requirement.
-    */
-   if (surf_info->usage & ISL_SURF_USAGE_DISPLAY_BIT) {
-      if (surf_info->row_pitch_B == 0)
-         alignment = isl_align(alignment, 256);
-      else
-         alignment = isl_align(alignment, 64);
-   }
-
-   return alignment;
 }
 
 static uint32_t
@@ -2243,13 +2263,12 @@ isl_calc_min_row_pitch(const struct isl_device *dev,
                        const struct isl_extent4d *phys_total_el,
                        uint32_t alignment_B)
 {
-   if (tile_info->tiling == ISL_TILING_LINEAR) {
+   if (tile_info->tiling == ISL_TILING_LINEAR)
       return isl_calc_linear_min_row_pitch(dev, surf_info, phys_total_el,
                                            alignment_B);
-   } else {
-      return isl_calc_tiled_min_row_pitch(dev, surf_info, tile_info,
-                                          phys_total_el, alignment_B);
-   }
+
+   return isl_calc_tiled_min_row_pitch(dev, surf_info, tile_info,
+                                       phys_total_el, alignment_B);
 }
 
 /**
@@ -2522,7 +2541,9 @@ isl_calc_base_alignment(const struct isl_device *dev,
                         const struct isl_tile_info *tile_info)
 {
    uint32_t base_alignment_B;
-   if (tile_info->tiling == ISL_TILING_LINEAR) {
+
+   switch (tile_info->tiling) {
+   case ISL_TILING_LINEAR: {
       /* From the Broadwell PRM Vol 2d,
        * RENDER_SURFACE_STATE::SurfaceBaseAddress:
        *
@@ -2552,7 +2573,11 @@ isl_calc_base_alignment(const struct isl_device *dev,
        */
       if (isl_surf_usage_is_display(info->usage))
          base_alignment_B = MAX(base_alignment_B, 64);
-   } else {
+
+      break;
+   }
+
+   default: {
       const uint32_t tile_size_B = tile_info->phys_extent_B.width *
                                    tile_info->phys_extent_B.height;
       assert(isl_is_pow2(info->min_alignment_B) && isl_is_pow2(tile_size_B));
@@ -2607,6 +2632,9 @@ isl_calc_base_alignment(const struct isl_device *dev,
          base_alignment_B = MAX(base_alignment_B, dev->info->verx10 >= 125 ?
                                 1024 * 1024 : 64 * 1024);
       }
+
+      break;
+   }
    }
 
    /* If for some reason we can't support the appropriate tiling format and
@@ -2997,14 +3025,17 @@ isl_surf_supports_ccs(const struct isl_device *dev,
           (format_bpb == 64 || format_bpb == 128))
          return false;
 
-      /* TODO: Handle the other tiling formats */
-      if (surf->tiling != ISL_TILING_Y0 && surf->tiling != ISL_TILING_4 &&
-          surf->tiling != ISL_TILING_64)
+      switch (surf->tiling) {
+      case ISL_TILING_Y0:
+      case ISL_TILING_4:
+         return true;
+      case ISL_TILING_64:
+         /* TODO: Handle single-sampled Tile64. */
+         return surf->samples != 1;
+      default:
+         /* TODO: Handle the other tiling formats */
          return false;
-
-      /* TODO: Handle single-sampled Tile64. */
-      if (surf->samples == 1 && surf->tiling == ISL_TILING_64)
-         return false;
+      }
    } else {
       /* ISL_GFX_VER(dev) < 12 */
       if (surf->samples > 1)
@@ -3206,15 +3237,17 @@ get_image_offset_sa_gfx4_2d(const struct isl_surf *surf,
    const uint32_t phys_layer = logical_array_layer *
       (surf->msaa_layout == ISL_MSAA_LAYOUT_ARRAY ? surf->samples : 1);
 
-   uint32_t x = 0, y;
+   uint32_t x = 0, y = 0;
    if (isl_tiling_is_std_y(surf->tiling) || surf->tiling == ISL_TILING_64) {
-      y = 0;
-      if (surf->dim == ISL_SURF_DIM_3D) {
+      switch (surf->dim) {
+      case ISL_SURF_DIM_3D:
          *z_offset_sa = logical_array_layer;
          *array_offset = 0;
-      } else {
+         break;
+      default:
          *z_offset_sa = 0;
          *array_offset = phys_layer;
+         break;
       }
    } else {
       y = phys_layer * isl_surf_get_array_pitch_sa_rows(surf);
@@ -3223,12 +3256,15 @@ get_image_offset_sa_gfx4_2d(const struct isl_surf *surf,
    }
 
    for (uint32_t l = 0; l < MIN(level, surf->miptail_start_level); ++l) {
-      if (l == 1) {
+      switch (l) {
+      case 1:
          uint32_t W = isl_minify(W0, l);
          x += isl_align_npot(W, image_align_sa.w);
-      } else {
+         break;
+      default:
          uint32_t H = isl_minify(H0, l);
          y += isl_align_npot(H, image_align_sa.h);
+         break;
       }
    }
 
@@ -3263,14 +3299,17 @@ get_image_offset_sa_gfx4_3d(const struct isl_surf *surf,
                             uint32_t *y_offset_sa)
 {
    assert(level < surf->levels);
-   if (surf->dim == ISL_SURF_DIM_3D) {
+   switch (surf->dim) {
+   case ISL_SURF_DIM_3D:
       assert(surf->phys_level0_sa.array_len == 1);
       assert(logical_z_offset_px < isl_minify(surf->phys_level0_sa.depth, level));
-   } else {
+      break;
+   default:
       assert(surf->dim == ISL_SURF_DIM_2D);
       assert(surf->usage & ISL_SURF_USAGE_CUBE_BIT);
       assert(surf->phys_level0_sa.array_len == 6);
       assert(logical_z_offset_px < surf->phys_level0_sa.array_len);
+      break;
    }
 
    const struct isl_extent3d image_align_sa =
@@ -3286,9 +3325,16 @@ get_image_offset_sa_gfx4_3d(const struct isl_surf *surf,
 
    for (uint32_t l = 0; l < level; ++l) {
       const uint32_t level_h = isl_align_npot(isl_minify(H0, l), image_align_sa.h);
-      const uint32_t level_d =
-         isl_align_npot(surf->dim == ISL_SURF_DIM_3D ? isl_minify(D0, l) : AL,
-                        image_align_sa.d);
+      uint32_t level_d;
+
+      switch (surf->dim) {
+      case ISL_SURF_DIM_3D:
+         level_d = isl_align_npot(isl_minify(D0, l), image_align_sa.d);
+         break;
+      default:
+         level_d = isl_align_npot(AL, image_align_sa.d);
+         break;
+      }
       const uint32_t max_layers_vert = isl_align(level_d, 1u << l) / (1u << l);
 
       y += level_h * max_layers_vert;
@@ -3296,9 +3342,16 @@ get_image_offset_sa_gfx4_3d(const struct isl_surf *surf,
 
    const uint32_t level_w = isl_align_npot(isl_minify(W0, level), image_align_sa.w);
    const uint32_t level_h = isl_align_npot(isl_minify(H0, level), image_align_sa.h);
-   const uint32_t level_d =
-      isl_align_npot(surf->dim == ISL_SURF_DIM_3D ? isl_minify(D0, level) : AL,
-                     image_align_sa.d);
+   uint32_t level_d;
+
+   switch (surf->dim) {
+   case ISL_SURF_DIM_3D:
+      level_d = isl_align_npot(isl_minify(D0, level), image_align_sa.d);
+      break;
+   default:
+      level_d = isl_align_npot(AL, image_align_sa.d);
+      break;
+   }
 
    const uint32_t max_layers_horiz = MIN(level_d, 1u << level);
 
@@ -3355,10 +3408,9 @@ get_image_offset_sa_gfx6_stencil_hiz(const struct isl_surf *surf,
       const uint32_t h = isl_align(H * surf->phys_level0_sa.a,
                                    tile_extent_sa.h);
 
-      if (l == 0) {
-         y += h;
-      } else {
-         x += w;
+      switch (l) {
+      case 0: y += h; break;
+      default: x += w; break;
       }
    }
 
@@ -4145,15 +4197,16 @@ isl_color_value_channel(union isl_color_value src,
                         enum isl_channel_select chan,
                         uint32_t one)
 {
-   if (chan == ISL_CHANNEL_SELECT_ZERO)
+   switch (chan) {
+   case ISL_CHANNEL_SELECT_ZERO:
       return 0;
-   if (chan == ISL_CHANNEL_SELECT_ONE)
+   case ISL_CHANNEL_SELECT_ONE:
       return one;
-
-   assert(chan >= ISL_CHANNEL_SELECT_RED);
-   assert(chan < ISL_CHANNEL_SELECT_RED + 4);
-
-   return src.u32[chan - ISL_CHANNEL_SELECT_RED];
+   default:
+      assert(chan >= ISL_CHANNEL_SELECT_RED);
+      assert(chan < ISL_CHANNEL_SELECT_RED + 4);
+      return src.u32[chan - ISL_CHANNEL_SELECT_RED];
+   }
 }
 
 /** Applies an inverse swizzle to a color value */
@@ -4198,7 +4251,7 @@ isl_color_value_swizzle_inv(union isl_color_value src,
 uint8_t
 isl_format_get_aux_map_encoding(enum isl_format format)
 {
-   switch(format) {
+   switch (format) {
    case ISL_FORMAT_R32G32B32A32_FLOAT: return 0x11;
    case ISL_FORMAT_R32G32B32X32_FLOAT: return 0x11;
    case ISL_FORMAT_R32G32B32A32_SINT: return 0x12;
@@ -4280,7 +4333,7 @@ uint8_t
 isl_get_render_compression_format(enum isl_format format)
 {
    /* From the Bspec, Enumeration_RenderCompressionFormat section (53726): */
-   switch(format) {
+   switch (format) {
    case ISL_FORMAT_R32G32B32A32_FLOAT:
    case ISL_FORMAT_R32G32B32X32_FLOAT:
    case ISL_FORMAT_R32G32B32A32_SINT:
