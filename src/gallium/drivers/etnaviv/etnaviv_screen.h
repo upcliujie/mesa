@@ -97,6 +97,8 @@ struct etna_screen {
 
    /* dummy texture descriptor */
    struct etna_reloc dummy_desc_reloc;
+
+   bool dma_coherent;
 };
 
 static inline struct etna_screen *

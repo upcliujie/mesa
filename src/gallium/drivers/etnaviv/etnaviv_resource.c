@@ -381,6 +381,9 @@ etna_resource_alloc(struct pipe_screen *pscreen, unsigned layout,
    } else {
       uint32_t flags = DRM_ETNA_GEM_CACHE_WC;
 
+      if (screen->dma_coherent)
+         flags = DRM_ETNA_GEM_CACHE_CACHED;
+
       if (templat->bind & PIPE_BIND_VERTEX_BUFFER)
          flags |= DRM_ETNA_GEM_FORCE_MMU;
 

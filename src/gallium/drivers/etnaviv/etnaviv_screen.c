@@ -898,6 +898,12 @@ etna_get_specs(struct etna_screen *screen)
    }
    screen->specs.max_varyings = MAX2(val, ETNA_NUM_VARYINGS);
 
+   if (etna_gpu_get_param(screen->gpu, ETNA_GPU_DMA_COHERENT, &val)) {
+      DBG("could not get ETNA_GPU_DMA_COHERENT");
+      screen->dma_coherent = false;
+   } else {
+      screen->dma_coherent = val;
+   }
    /* Figure out gross GPU architecture. See rnndb/common.xml for a specific
     * description of the differences. */
    if (VIV_FEATURE(screen, chipMinorFeatures5, HALTI5))
