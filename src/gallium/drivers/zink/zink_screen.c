@@ -2959,6 +2959,22 @@ fixup_driver_props(struct zink_screen *screen)
          }
       }
    }
+
+   /* handle extension promotions */
+   if (screen->info.have_EXT_line_rasterization && !screen->info.have_KHR_line_rasterization) {
+      memcpy(&screen->info.line_rast_feats, &screen->info.line_rast_ext_feats, sizeof(screen->info.line_rast_ext_feats));
+      memcpy(&screen->info.line_rast_props, &screen->info.line_rast_ext_props, sizeof(screen->info.line_rast_ext_feats));
+   }
+   screen->info.have_KHR_line_rasterization |= screen->info.have_EXT_line_rasterization;
+   if (screen->info.have_EXT_index_type_uint8 && !screen->info.have_KHR_index_type_uint8) {
+      memcpy(&screen->info.index_uint8_feats, &screen->info.index_uint8_ext_feats, sizeof(screen->info.index_uint8_ext_feats));
+   }
+   screen->info.have_KHR_index_type_uint8 |= screen->info.have_EXT_index_type_uint8;
+   if (screen->info.have_EXT_vertex_attribute_divisor && !screen->info.have_KHR_vertex_attribute_divisor) {
+      memcpy(&screen->info.vdiv_feats, &screen->info.vdiv_ext_feats, sizeof(screen->info.vdiv_ext_feats));
+      memcpy(&screen->info.vdiv_props, &screen->info.vdiv_ext_props, sizeof(screen->info.vdiv_ext_feats));
+   }
+   screen->info.have_KHR_vertex_attribute_divisor |= screen->info.have_EXT_vertex_attribute_divisor;
 }
 
 static void
