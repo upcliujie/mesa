@@ -939,3 +939,7 @@ gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_s
 gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_1.pgq_32bit_xfb_64bit.triangle_fan.indirect,Fail
 gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.32bit.triangle_list_with_adjacency.indirect,Fail
 nobin-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.32bit.triangle_list_with_adjacency.indirect,Fail
+
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.clipped,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.min_image_count,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.present_mode,Crash
