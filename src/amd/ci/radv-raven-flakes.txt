@@ -5,3 +5,5 @@ dEQP-VK.pipeline.pipeline_library.framebuffer_attachment.diff_attachments_2d_32x
 dEQP-VK.dynamic_rendering.primary_cmd_buff.basic.2_secondary_2_primary_cmdbuffers_resuming
 dEQP-VK.dynamic_rendering.primary_cmd_buff.basic.contents_secondary_primary_cmdbuffers_resuming
 
+dEQP-VK.wsi.xcb.maintenance1.scaling.resize_window.fifo.aspect_stretch.min_min.swapchain_smaller_wider_aspect
+dEQP-VK.wsi.xlib.maintenance1.scaling.resize_window.mailbox.one_to_one.center_min.same_size_and_aspect

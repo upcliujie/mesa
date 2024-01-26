@@ -1,0 +1,2 @@
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.clipped,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_array_layers,Crash

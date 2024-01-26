@@ -12,3 +12,4 @@ multisample-dEQP-GLES31.functional.blend_equation_advanced.basic.colordodge
 multisample-dEQP-GLES31.functional.blend_equation_advanced.basic.darken
 multisample-dEQP-GLES31.functional.blend_equation_advanced.basic.overlay
 
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_extent

@@ -68,3 +68,13 @@ dEQP-VK.api.copy_and_blit.dedicated_allocation.image_to_buffer.2d_images.mip_cop
 
 # New CTS failures in 1.3.7.0.
 dEQP-VK.api.version_check.unavailable_entry_points,Fail
+
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.clipped,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.exclusive_nonzero_queues,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_array_layers,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_extent,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_format,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_usage,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.min_image_count,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.pre_transform,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.present_mode,Crash

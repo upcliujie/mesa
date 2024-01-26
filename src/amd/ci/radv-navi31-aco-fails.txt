@@ -102,3 +102,5 @@ dEQP-VK.compute.shader_object_spirv.cooperative_matrix.khr_r.matrixmuladd_min.ui
 dEQP-VK.compute.shader_object_spirv.cooperative_matrix.khr_r.matrixmuladd_min.uint8_uint32.workgroup.rowmajor,Fail
 dEQP-VK.compute.shader_object_spirv.cooperative_matrix.khr_r.matrixmuladd_min.uint8_uint32.workgroup_varptr.colmajor,Fail
 dEQP-VK.compute.shader_object_spirv.cooperative_matrix.khr_r.matrixmuladd_min.uint8_uint32.workgroup_varptr.rowmajor,Fail
+
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.clipped,Crash

@@ -1,6 +1,5 @@
-# Exclude WSI related tests.
-dEQP-VK.image.swapchain_mutable.*
-dEQP-VK.wsi.*
+# Exclude WSI direct_drm tests as they all fail and some hang as well.
+dEQP-VK.wsi.direct_drm.*
 
 # Exclude these memory tests that usually take more than 30s to complete.
 dEQP-VK.memory.mapping.dedicated_alloc.image.full.1048577.*
