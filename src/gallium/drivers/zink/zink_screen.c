@@ -675,7 +675,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
               screen->info.have_KHR_shader_draw_parameters;
 
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR:
-      return screen->info.have_EXT_vertex_attribute_divisor;
+      return screen->info.have_KHR_vertex_attribute_divisor;
 
    case PIPE_CAP_MAX_VERTEX_STREAMS:
       return screen->info.tf_props.maxTransformFeedbackStreams;
@@ -1345,7 +1345,7 @@ zink_is_format_supported(struct pipe_screen *pscreen,
 
    if (bind & PIPE_BIND_INDEX_BUFFER) {
       if (format == PIPE_FORMAT_R8_UINT &&
-          !screen->info.have_EXT_index_type_uint8)
+          !screen->info.have_KHR_index_type_uint8)
          return false;
       if (format != PIPE_FORMAT_R8_UINT &&
           format != PIPE_FORMAT_R16_UINT &&
@@ -2650,7 +2650,7 @@ check_base_requirements(struct zink_screen *screen)
          screen->info.have_EXT_scalar_block_layout) ||
        !screen->info.have_KHR_maintenance1 ||
        !screen->info.have_EXT_custom_border_color ||
-       !screen->info.have_EXT_line_rasterization) {
+       !screen->info.have_KHR_line_rasterization) {
       fprintf(stderr, "WARNING: Some incorrect rendering "
               "might occur because the selected Vulkan device (%s) doesn't support "
               "base Zink requirements: ", screen->info.props.deviceName);
@@ -2664,7 +2664,7 @@ check_base_requirements(struct zink_screen *screen)
          fprintf(stderr, "scalarBlockLayout OR EXT_scalar_block_layout ");
       CHECK_OR_PRINT(have_KHR_maintenance1);
       CHECK_OR_PRINT(have_EXT_custom_border_color);
-      CHECK_OR_PRINT(have_EXT_line_rasterization);
+      CHECK_OR_PRINT(have_KHR_line_rasterization);
       fprintf(stderr, "\n");
    }
    if (screen->info.driver_props.driverID == VK_DRIVER_ID_MESA_V3DV) {
@@ -2762,7 +2762,7 @@ init_driver_workarounds(struct zink_screen *screen)
    if (!screen->info.have_KHR_maintenance5)
       screen->driver_workarounds.missing_a8_unorm = true;
 
-   if ((!screen->info.have_EXT_line_rasterization ||
+   if ((!screen->info.have_KHR_line_rasterization ||
         !screen->info.line_rast_feats.stippledBresenhamLines) &&
        screen->info.feats.features.geometryShader &&
        screen->info.feats.features.sampleRateShading) {
@@ -2987,7 +2987,7 @@ init_optimal_keys(struct zink_screen *screen)
          fprintf(stderr, "smooth point emulation is enabled\n");
       if (screen->driver_workarounds.needs_zs_shader_swizzle)
          fprintf(stderr, "Z/S shader swizzle workaround is enabled\n");
-      CHECK_OR_PRINT(have_EXT_line_rasterization);
+      CHECK_OR_PRINT(have_KHR_line_rasterization);
       CHECK_OR_PRINT(line_rast_feats.stippledBresenhamLines);
       CHECK_OR_PRINT(feats.features.geometryShader);
       CHECK_OR_PRINT(feats.features.sampleRateShading);
