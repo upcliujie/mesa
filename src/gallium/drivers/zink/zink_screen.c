@@ -3290,7 +3290,6 @@ zink_internal_create_screen(const struct pipe_screen_config *config, int64_t dev
       screen->debug_mem_sizes = _mesa_hash_table_create(screen, _mesa_hash_string, _mesa_key_string_equal);
    }
 
-   fixup_driver_props(screen);
 
    init_driver_workarounds(screen);
 
@@ -3301,6 +3300,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config, int64_t dev
    vk_device_dispatch_table_load(&screen->vk.device,
                                  screen->vk_GetDeviceProcAddr,
                                  screen->dev);
+   fixup_driver_props(screen);
 
    init_queue(screen);
 
