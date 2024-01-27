@@ -133,6 +133,7 @@ nouveau_ws_device_set_dbg_flags(struct nouveau_ws_device *dev)
       { "zero_memory", NVK_DEBUG_ZERO_MEMORY },
       { "vm", NVK_DEBUG_VM },
       { "no_cbuf", NVK_DEBUG_NO_CBUF },
+      { "state", NVK_DEBUG_STATE_DUMP },
       { NULL, 0 },
    };
 

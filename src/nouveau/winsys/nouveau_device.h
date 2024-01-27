@@ -40,6 +40,12 @@ enum nvk_debug {
     * Root descriptors still end up in a cbuf
     */
    NVK_DEBUG_NO_CBUF = 1ull << 5,
+
+   /* Dump GPU state before command buffers
+    *
+    * This should be used together with PUSH_SYNC
+    */
+   NVK_DEBUG_STATE_DUMP = 1ull << 6,
 };
 
 struct nouveau_ws_device {

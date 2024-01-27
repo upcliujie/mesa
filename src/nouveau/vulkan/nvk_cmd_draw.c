@@ -454,6 +454,59 @@ nvk_queue_init_context_draw_state(struct nvk_queue *queue)
 }
 
 static void
+mme_dump_state(struct mme_builder *b,
+               struct mme_value64 dump_addr,
+               struct mme_value pair,
+               bool high)
+{
+   uint32_t header_imm = NVC0_FIFO_PKHDR_SQ(SUBC_NV9097, 0, 1);
+
+   struct mme_value header =
+      mme_merge(b, mme_imm(header_imm), pair, 0, 13, 2 + (high * 16));
+
+   mme_mthd(b, NV9097_SET_REPORT_SEMAPHORE_A);
+   mme_emit_addr64(b, dump_addr);
+   mme_emit(b, header);
+   mme_emit(b, mme_imm(0x10000000));
+   mme_add64_to(b, dump_addr, dump_addr, mme_imm64(4));
+
+   mme_free_reg(b, header);
+
+   struct mme_value state =
+      mme_merge(b, mme_zero(), pair, 0, 14, 2 + (high * 16));
+   mme_state_arr_to(b, state, 0, state);
+
+   mme_mthd(b, NV9097_SET_REPORT_SEMAPHORE_A);
+   mme_emit_addr64(b, dump_addr);
+   mme_emit(b, state);
+   mme_emit(b, mme_imm(0x10000000));
+   mme_add64_to(b, dump_addr, dump_addr, mme_imm64(4));
+
+   mme_free_reg(b, state);
+}
+
+void
+nvk_mme_dump_gpu_state(struct mme_builder *b)
+{
+   struct mme_value64 dump_addr = mme_load_addr64(b);
+   struct mme_value count = mme_load(b);
+
+   mme_while(b, ine, count, mme_imm(0)) {
+      struct mme_value pair = mme_load(b);
+
+      mme_dump_state(b, dump_addr, pair, false);
+      mme_sub_to(b, count, count, mme_imm(1));
+
+      mme_if(b, ine, count, mme_zero()) {
+         mme_dump_state(b, dump_addr, pair, true);
+         mme_sub_to(b, count, count, mme_imm(1));
+      }
+
+      mme_free_reg(b, pair);
+   }
+}
+
+static void
 nvk_cmd_buffer_dirty_render_pass(struct nvk_cmd_buffer *cmd)
 {
    struct vk_dynamic_graphics_state *dyn = &cmd->vk.dynamic_graphics_state;
@@ -478,6 +531,9 @@ void
 nvk_cmd_buffer_begin_graphics(struct nvk_cmd_buffer *cmd,
                               const VkCommandBufferBeginInfo *pBeginInfo)
 {
+   struct nvk_device *dev = nvk_cmd_buffer_device(cmd);
+   VkResult result;
+
    if (cmd->vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
       struct nv_push *p = nvk_cmd_buffer_push(cmd, 5);
       P_MTHD(p, NV9097, INVALIDATE_SAMPLER_CACHE_NO_WFI);
@@ -491,6 +547,50 @@ nvk_cmd_buffer_begin_graphics(struct nvk_cmd_buffer *cmd,
       P_IMMD(p, NVA097, INVALIDATE_SHADER_CACHES_NO_WFI, {
          .constant = CONSTANT_TRUE,
       });
+   }
+
+   if (dev->ws_dev->debug_flags & NVK_DEBUG_STATE_DUMP) {
+      size_t mthd_count;
+      const uint16_t *mthds;
+      if (nvk_cmd_buffer_3d_cls(cmd) >= 0xc597) {
+         P_GET_NVC597_MTHDS(&mthd_count, &mthds);
+      } else if (nvk_cmd_buffer_3d_cls(cmd) >= 0xc397) {
+         P_GET_NVC397_MTHDS(&mthd_count, &mthds);
+      } else if (nvk_cmd_buffer_3d_cls(cmd) >= 0xb197) {
+         P_GET_NVB197_MTHDS(&mthd_count, &mthds);
+      } else if (nvk_cmd_buffer_3d_cls(cmd) >= 0xb097) {
+         P_GET_NVB097_MTHDS(&mthd_count, &mthds);
+      } else if (nvk_cmd_buffer_3d_cls(cmd) >= 0xa097) {
+         P_GET_NVA097_MTHDS(&mthd_count, &mthds);
+      } else if (nvk_cmd_buffer_3d_cls(cmd) >= 0x9097) {
+         P_GET_NV9097_MTHDS(&mthd_count, &mthds);
+      }
+
+      assert(cmd->state_capture_bo == NULL);
+
+      result = nvk_cmd_buffer_alloc_bo(cmd, true, &cmd->state_capture_bo);
+      if (unlikely(result != VK_SUCCESS)) {
+         vk_command_buffer_set_error(&cmd->vk, result);
+         return;
+      }
+      assert(mthd_count * 2 * 4 <= cmd->state_capture_bo->bo->size);
+      cmd->state_capture_dw_count = mthd_count * 2;
+
+      const uint32_t pairs = DIV_ROUND_UP(mthd_count, 2);
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 4 + pairs);
+
+      P_1INC(p, NV9097, CALL_MME_MACRO(NVK_MME_DUMP_GPU_STATE));
+      uint64_t dump_addr = cmd->state_capture_bo->bo->offset;
+      P_INLINE_DATA(p, dump_addr >> 32);
+      P_INLINE_DATA(p, dump_addr);
+      P_INLINE_DATA(p, mthd_count);
+
+      for (uint32_t i = 0; i < pairs; i++) {
+         uint32_t pair = mthds[i * 2];
+         if (i * 2 + 1 < mthd_count)
+            pair |= (uint32_t)mthds[i * 2 + 1] << 16;
+         P_INLINE_DATA(p, pair);
+      }
    }
 
    if (cmd->vk.level != VK_COMMAND_BUFFER_LEVEL_PRIMARY &&
