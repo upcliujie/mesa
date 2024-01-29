@@ -161,6 +161,15 @@ dri_flush(__DRIcontext *cPriv,
 void
 dri_flush_drawable(__DRIdrawable *dPriv);
 
+void
+dri_loader_dri3_swap_buffers(struct loader_dri3_drawable *loader_drawable,
+                             unsigned flags);
+
+void
+dri_call_loader_dri3_swap_buffers(struct pipe_frontend_screen *fscreen,
+                                  struct loader_dri3_drawable *draw,
+                                  unsigned dri_flush_flags);
+
 extern const __DRItexBufferExtension driTexBufferExtension;
 extern const __DRI2throttleExtension dri2ThrottleExtension;
 #endif

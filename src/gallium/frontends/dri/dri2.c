@@ -103,11 +103,12 @@ dri2_invalidate_drawable(__DRIdrawable *dPriv)
 }
 
 static const __DRI2flushExtension dri2FlushExtension = {
-    .base = { __DRI2_FLUSH, 4 },
+    .base = { __DRI2_FLUSH, 5 },
 
     .flush                = dri_flush_drawable,
     .invalidate           = dri2_invalidate_drawable,
     .flush_with_flags     = dri_flush,
+    .loader_dri3_swap_buffers = dri_loader_dri3_swap_buffers,
 };
 
 /**

@@ -32,6 +32,7 @@
 #include "dri_screen.h"
 #include "dri_context.h"
 #include "dri_helpers.h"
+#include "dri_drawable.h"
 
 #include "util/u_inlines.h"
 #include "pipe/p_screen.h"
@@ -869,6 +870,8 @@ dri_init_screen(struct dri_screen *screen,
    screen->base.get_egl_image = dri_get_egl_image;
    screen->base.get_param = dri_get_param;
    screen->base.set_background_context = dri_set_background_context;
+   screen->base.call_loader_dri3_swap_buffers =
+      dri_call_loader_dri3_swap_buffers;
 
    if (screen->validate_egl_image)
       screen->base.validate_egl_image = dri_validate_egl_image;

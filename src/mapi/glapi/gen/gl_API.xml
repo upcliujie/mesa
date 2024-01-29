@@ -12963,6 +12963,12 @@
     <!-- Internal function for glthread to implement ancillary buffer invalidation. -->
     <function name="InternalInvalidateFramebufferAncillaryMESA" es2="3.0">
     </function>
+
+    <function name="LoaderDRI3SwapBuffers" es1="1.0" es2="2.0" marshal="custom">
+        <param name="ctx" type="GLvoid *"/> <!-- struct gl_context *  -->
+        <param name="loader_drawable" type="GLvoid *"/> <!-- struct loader_dri3_drawable * -->
+        <param name="dri_flush_flags" type="GLbitfield"/> <!-- __DRI2_FLUSH_*  -->
+    </function>
 </category>
 
 <xi:include href="OES_EGL_image.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>

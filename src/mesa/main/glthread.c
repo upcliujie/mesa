@@ -39,6 +39,7 @@
 #include "util/u_atomic.h"
 #include "util/u_thread.h"
 #include "util/u_cpu_detect.h"
+#include "mapi/glapi/gen/api_exec_decl.h"
 
 #include "state_tracker/st_context.h"
 
@@ -457,4 +458,48 @@ _mesa_glthread_invalidate_zsbuf(struct gl_context *ctx)
       return false;
    _mesa_marshal_InternalInvalidateFramebufferAncillaryMESA();
    return true;
+}
+
+struct marshal_cmd_LoaderDRI3SwapBuffers
+{
+   struct marshal_cmd_base cmd_base;
+   GLbitfield dri_flush_flags;
+   GLvoid *loader_drawable;
+};
+
+uint32_t
+_mesa_unmarshal_LoaderDRI3SwapBuffers(struct gl_context *ctx,
+                                      const struct marshal_cmd_LoaderDRI3SwapBuffers *restrict cmd)
+{
+   struct pipe_frontend_screen *fscreen = ctx->st->frontend_screen;
+
+   fscreen->call_loader_dri3_swap_buffers(fscreen, cmd->loader_drawable,
+                                          cmd->dri_flush_flags);
+
+   const unsigned cmd_size = (align(sizeof(struct marshal_cmd_LoaderDRI3SwapBuffers), 8) / 8);
+   assert(cmd_size == cmd->cmd_base.cmd_size);
+   return cmd_size;
+}
+
+void
+_mesa_marshal_LoaderDRI3SwapBuffers(GLvoid *ctx_ptr,
+                                    GLvoid *loader_drawable,
+                                    GLbitfield dri_flush_flags)
+{
+   struct gl_context *ctx = (struct gl_context *)ctx_ptr;
+   struct marshal_cmd_LoaderDRI3SwapBuffers *cmd =
+      _mesa_glthread_allocate_command(ctx, DISPATCH_CMD_LoaderDRI3SwapBuffers,
+                                      sizeof(struct marshal_cmd_LoaderDRI3SwapBuffers));
+   cmd->loader_drawable = loader_drawable;
+   cmd->dri_flush_flags = dri_flush_flags;
+
+   /* Flush glthread, so that SwapBuffers is executed in a finite time. */
+   _mesa_glthread_flush_batch(ctx);
+}
+
+void GLAPIENTRY
+_mesa_LoaderDRI3SwapBuffers(GLvoid *ctx, GLvoid *loader_drawable,
+                            GLbitfield dri_flush_flags)
+{
+   unreachable("never used - only required to be present for the GL dispatch");
 }

@@ -81,6 +81,8 @@ typedef struct __DRI2bufferDamageExtensionRec   __DRI2bufferDamageExtension;
 typedef struct __DRIimageLoaderExtensionRec     __DRIimageLoaderExtension;
 typedef struct __DRIimageDriverExtensionRec     __DRIimageDriverExtension;
 
+struct loader_dri3_drawable;
+
 /*@}*/
 
 
@@ -232,11 +234,12 @@ struct __DRItexBufferExtensionRec {
  * Used by drivers that implement DRI2.  Version 3 is used by the X server.
  */
 #define __DRI2_FLUSH "DRI2_Flush"
-#define __DRI2_FLUSH_VERSION 4
+#define __DRI2_FLUSH_VERSION 5
 
 #define __DRI2_FLUSH_DRAWABLE (1 << 0) /* the drawable should be flushed. */
 #define __DRI2_FLUSH_CONTEXT  (1 << 1) /* glFlush should be called */
 #define __DRI2_FLUSH_INVALIDATE_ANCILLARY (1 << 2)
+#define __DRI2_FLUSH_FROM_GLTHREAD        (1 << 3) /* since version 5, set by the driver */
 
 enum __DRI2throttleReason {
    __DRI2_THROTTLE_SWAPBUFFER,
@@ -279,6 +282,24 @@ struct __DRI2flushExtensionRec {
                              __DRIdrawable *drawable,
                              unsigned flags,
                              enum __DRI2throttleReason throttle_reason);
+
+    /**
+     * Called from the loader. The driver can pass this to glthread and
+     * then forward this back to the loader from the driver thread using
+     * __DRIimageLoaderExtension::loader_dri3_swap_buffers.
+     *
+     * If glthread is disabled, the driver should immediately forward this
+     * to the loader using the image loader.
+     *
+     * This "loader -> driver -> loader" detour is really just for glthread
+     * to pass the call to the driver thread, so that SwapBuffers can be
+     * executed asynchronously with zero overhead from the application point
+     * of view.
+     *
+     * \since 5
+     */
+    void (*loader_dri3_swap_buffers)(struct loader_dri3_drawable *loader_drawable,
+                                     unsigned flags);
 };
 
 
@@ -2006,7 +2027,7 @@ struct __DRIimageList {
 };
 
 #define __DRI_IMAGE_LOADER "DRI_IMAGE_LOADER"
-#define __DRI_IMAGE_LOADER_VERSION 4
+#define __DRI_IMAGE_LOADER_VERSION 5
 
 struct __DRIimageLoaderExtensionRec {
     __DRIextension base;
@@ -2074,6 +2095,14 @@ struct __DRIimageLoaderExtensionRec {
      * \since 4
      */
     void (*destroyLoaderImageState)(void *loaderPrivate);
+
+    /**
+     * Call loader_dri3_swap_buffers_msc() in the loader.
+     *
+     * \since 5
+     */
+    void (*loader_dri3_swap_buffers)(struct loader_dri3_drawable *draw,
+                                     unsigned dri_flush_flags);
 };
 
 /**

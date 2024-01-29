@@ -30,6 +30,7 @@
 #include "util/format/u_formats.h"
 
 struct st_context;
+struct loader_dri3_drawable;
 
 /**
  * \file API for communication between gallium frontends and supporting
@@ -328,6 +329,13 @@ struct pipe_frontend_screen
     */
    void (*set_background_context)(struct st_context *st,
                                   struct util_queue_monitoring *queue_info);
+
+   /**
+    * Call loader_dri3_swap_buffers_msc(). This is called by glthread.
+    */
+   void (*call_loader_dri3_swap_buffers)(struct pipe_frontend_screen *fscreen,
+                                         struct loader_dri3_drawable *draw,
+                                         unsigned dri_flush_flags);
 
    /**
     * GL frontend state associated with the screen.
