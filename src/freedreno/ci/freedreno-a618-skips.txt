@@ -57,3 +57,59 @@ spec@nv_copy_image@nv_copy_image.*
 
 # Exclude this test which might fail when a new extension is implemented.
 dEQP-VK.info.device_extensions
+
+# Depth/stencil settings, blend settings, image formats/sizes and sampler
+# settings are unlikely to be affected by whether we link shader objects
+# together or not and whether we serialize. This cuts out the majority of the
+# runtime.
+
+dEQP-VK.pipeline.shader_object_linked_spirv.stencil.format.*
+dEQP-VK.pipeline.shader_object_linked_spirv.stencil.nocolor.format.*
+dEQP-VK.pipeline.shader_object_linked_spirv.blend.format.*
+dEQP-VK.pipeline.shader_object_linked_spirv.blend.dual_source.format.*
+dEQP-VK.pipeline.shader_object_linked_spirv.depth.format.*
+dEQP-VK.pipeline.shader_object_linked_spirv.depth.nocolor.format.*
+dEQP-VK.pipeline.shader_object_linked_spirv.image.suballocation.*
+dEQP-VK.pipeline.shader_object_linked_spirv.sampler.view_type.*
+dEQP-VK.pipeline.shader_object_linked_spirv.sampler.border_swizzle.*
+dEQP-VK.pipeline.shader_object_linked_spirv.image_view.view_type.*
+dEQP-VK.pipeline.shader_object_linked_spirv.extended_dynamic_state.*
+
+dEQP-VK.pipeline.shader_object_linked_binary.stencil.format.*
+dEQP-VK.pipeline.shader_object_linked_binary.stencil.nocolor.format.*
+dEQP-VK.pipeline.shader_object_linked_binary.blend.format.*
+dEQP-VK.pipeline.shader_object_linked_binary.blend.dual_source.format.*
+dEQP-VK.pipeline.shader_object_linked_binary.depth.format.*
+dEQP-VK.pipeline.shader_object_linked_binary.depth.nocolor.format.*
+dEQP-VK.pipeline.shader_object_linked_binary.image.suballocation.*
+dEQP-VK.pipeline.shader_object_linked_binary.sampler.view_type.*
+dEQP-VK.pipeline.shader_object_linked_binary.sampler.border_swizzle.*
+dEQP-VK.pipeline.shader_object_linked_binary.image_view.view_type.*
+dEQP-VK.pipeline.shader_object_linked_binary.extended_dynamic_state.*
+
+dEQP-VK.pipeline.shader_object_unlinked_binary.stencil.format.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.stencil.nocolor.format.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.blend.format.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.blend.dual_source.format.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.depth.format.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.depth.nocolor.format.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.image.suballocation.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.sampler.view_type.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.sampler.border_swizzle.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.image_view.view_type.*
+dEQP-VK.pipeline.shader_object_unlinked_binary.extended_dynamic_state.*
+
+# With pipeline libraries, we care more about state as it needs to be linked
+# correctly by the pipeline. However we can still ignore image/sampler related
+# tests since image/sampler descriptor setup should be orthogonal to whether
+# we're compiling a library or not.
+
+dEQP-VK.pipeline.pipeline_library.image.suballocation.*
+dEQP-VK.pipeline.pipeline_library.sampler.view_type.*
+dEQP-VK.pipeline.pipeline_library.sampler.border_swizzle.*
+dEQP-VK.pipeline.pipeline_library.image_view.view_type.*
+
+dEQP-VK.pipeline.fast_linked_library.image.suballocation.*
+dEQP-VK.pipeline.fast_linked_library.sampler.view_type.*
+dEQP-VK.pipeline.fast_linked_library.sampler.border_swizzle.*
+dEQP-VK.pipeline.fast_linked_library.image_view.view_type.*
