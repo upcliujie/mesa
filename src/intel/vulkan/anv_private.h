@@ -4360,6 +4360,10 @@ anv_shader_bin_unref(struct anv_device *device, struct anv_shader_bin *shader)
    vk_pipeline_cache_object_unref(&device->vk, &shader->base);
 }
 
+/* Describe a shader executable for VK_KHR_pipeline_executable_properties. You
+ * can have multiple of those structure for each of the SIMD variant of a
+ * anv_shader_bin.
+ */
 struct anv_pipeline_executable {
    gl_shader_stage stage;
 
@@ -4411,6 +4415,7 @@ struct anv_pipeline {
    /* Layout of the sets used by the pipeline. */
    struct anv_pipeline_sets_layout              layout;
 
+   /* Array of anv_pipeline_executable for pipeline executable properties. */
    struct util_dynarray                         executables;
 
    const struct intel_l3_config *               l3_config;
