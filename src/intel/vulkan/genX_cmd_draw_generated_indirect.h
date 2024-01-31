@@ -155,7 +155,7 @@ genX(cmd_buffer_emit_indirect_generated_draws_init)(struct anv_cmd_buffer *cmd_b
       .general_state_stream = &cmd_buffer->general_state_stream,
       .batch                = &cmd_buffer->generation.batch,
       .kernel               = gen_kernel,
-      .l3_config            = device->internal_kernels_l3_config,
+      .l3_config            = device->internal_kernels.l3_config,
       .urb_cfg              = &cmd_buffer->state.gfx.urb_cfg,
    };
 
@@ -493,7 +493,7 @@ genX(cmd_buffer_emit_indirect_generated_draws_inring)(struct anv_cmd_buffer *cmd
       .general_state_stream = &cmd_buffer->general_state_stream,
       .batch                = &cmd_buffer->batch,
       .kernel               = gen_kernel,
-      .l3_config            = device->internal_kernels_l3_config,
+      .l3_config            = device->internal_kernels.l3_config,
       .urb_cfg              = &cmd_buffer->state.gfx.urb_cfg,
    };
    genX(emit_simple_shader_init)(&simple_state);

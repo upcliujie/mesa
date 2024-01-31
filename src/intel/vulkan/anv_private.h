@@ -1866,13 +1866,11 @@ struct anv_device {
 
     enum anv_rt_bvh_build_method                bvh_build_method;
 
-    /** Draw generation shader
-     *
-     * Generates direct draw calls out of indirect parameters. Used to
-     * workaround slowness with indirect draw calls.
-     */
-    struct anv_shader_bin                      *internal_kernels[ANV_INTERNAL_KERNEL_COUNT];
-    const struct intel_l3_config               *internal_kernels_l3_config;
+    /** Various internal shaders to speed things up */
+    struct {
+       struct anv_shader_bin                      *binaries[ANV_INTERNAL_KERNEL_COUNT];
+       const struct intel_l3_config               *l3_config;
+    } internal_kernels;
 
     pthread_mutex_t                             mutex;
     pthread_cond_t                              queue_submit;
