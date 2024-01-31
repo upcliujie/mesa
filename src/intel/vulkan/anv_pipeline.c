@@ -3091,8 +3091,6 @@ anv_graphics_lib_pipeline_create(struct anv_device *device,
                               pAllocator);
    if (result != VK_SUCCESS) {
       vk_free2(&device->vk.alloc, pAllocator, pipeline);
-      if (result == VK_PIPELINE_COMPILE_REQUIRED)
-         *pPipeline = VK_NULL_HANDLE;
       return result;
    }
 
