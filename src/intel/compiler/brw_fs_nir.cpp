@@ -206,11 +206,14 @@ static brw_reg
 emit_work_group_id_setup(nir_to_brw_state &ntb)
 {
    fs_visitor &s = ntb.s;
-   const fs_builder &bld = ntb.bld;
+   const fs_builder &bld =
+      ntb.bld.exec_all().group(8 * reg_unit(ntb.devinfo), 0);
 
    assert(gl_shader_stage_is_compute(s.stage));
 
    brw_reg id = bld.vgrf(BRW_TYPE_UD, 3);
+
+   id.is_scalar = true;
 
    struct brw_reg r0_1(retype(brw_vec1_grf(0, 1), BRW_TYPE_UD));
    bld.MOV(id, r0_1);
@@ -1930,6 +1933,10 @@ get_nir_def(nir_to_brw_state &ntb, const nir_def &def)
          nir_instr_as_intrinsic(def.parent_instr);
 
       switch (instr->intrinsic) {
+      case nir_intrinsic_load_workgroup_id:
+         is_scalar = true;
+         break;
+
       case nir_intrinsic_load_uniform:
          is_scalar = get_nir_src(ntb, instr->src[0]).is_scalar;
          break;
@@ -4597,10 +4604,14 @@ fs_nir_emit_cs_intrinsic(nir_to_brw_state &ntb,
 
    case nir_intrinsic_load_workgroup_id: {
       brw_reg val = ntb.system_values[SYSTEM_VALUE_WORKGROUP_ID];
+      const fs_builder ubld = bld.exec_all().group(8 * reg_unit(devinfo), 0);
+
       assert(val.file != BAD_FILE);
+      assert(val.is_scalar);
+
       dest.type = val.type;
       for (unsigned i = 0; i < 3; i++)
-         bld.MOV(offset(dest, bld, i), offset(val, bld, i));
+         ubld.MOV(offset(dest, ubld, i), offset_to_component(val, ubld, i));
       break;
    }
 
