@@ -1197,7 +1197,7 @@ anv_pipeline_link_vs(const struct brw_compiler *compiler,
 static void
 anv_pipeline_compile_vs(const struct brw_compiler *compiler,
                         void *mem_ctx,
-                        struct anv_graphics_base_pipeline *pipeline,
+                        struct anv_device *device,
                         struct anv_pipeline_stage *vs_stage,
                         uint32_t view_mask)
 {
@@ -1223,7 +1223,7 @@ anv_pipeline_compile_vs(const struct brw_compiler *compiler,
       .base = {
          .nir = vs_stage->nir,
          .stats = vs_stage->stats,
-         .log_data = pipeline->base.device,
+         .log_data = device,
          .mem_ctx = mem_ctx,
          .source_hash = vs_stage->source_hash,
       },
@@ -1545,7 +1545,6 @@ anv_pipeline_compile_fs(const struct brw_compiler *compiler,
                         struct anv_device *device,
                         struct anv_pipeline_stage *fs_stage,
                         struct anv_pipeline_stage *prev_stage,
-                        struct anv_graphics_base_pipeline *pipeline,
                         uint32_t view_mask,
                         bool use_primitive_replication)
 {
@@ -2447,7 +2446,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_base_pipeline *pipeline,
 
       switch (s) {
       case MESA_SHADER_VERTEX:
-         anv_pipeline_compile_vs(compiler, stage_ctx, pipeline,
+         anv_pipeline_compile_vs(compiler, stage_ctx, device,
                                  stage, view_mask);
          break;
       case MESA_SHADER_TESS_CTRL:
@@ -2472,8 +2471,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_base_pipeline *pipeline,
          break;
       case MESA_SHADER_FRAGMENT:
          anv_pipeline_compile_fs(compiler, stage_ctx, device,
-                                 stage, prev_stage, pipeline,
-                                 view_mask,
+                                 stage, prev_stage, view_mask,
                                  use_primitive_replication);
          break;
       default:
