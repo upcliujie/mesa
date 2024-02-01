@@ -5535,6 +5535,13 @@ static void si_bind_vertex_elements(struct pipe_context *ctx, void *state)
       cb.buffer_size = 0xffffffff;
       si_set_internal_const_buffer(sctx, SI_VS_CONST_INSTANCE_DIVISORS, &cb);
    }
+
+   /* Unbind all vertex buffers. set_vertex_buffers is required to be called after this.
+    * If it's not called, no buffers will be enabled.
+    */
+   unsigned old_num_vertex_buffers = old->num_vertex_buffers;
+   for (unsigned i = 0; i < old_num_vertex_buffers; i++)
+      pipe_resource_reference(&sctx->vertex_buffer[i].buffer.resource, NULL);
 }
 
 static void si_delete_vertex_element(struct pipe_context *ctx, void *state)
@@ -5580,11 +5587,6 @@ static void si_set_vertex_buffers(struct pipe_context *ctx, unsigned count,
       }
    }
 
-   unsigned last_count = sctx->num_vertex_buffers;
-   for (; i < last_count; i++)
-      pipe_resource_reference(&sctx->vertex_buffer[i].buffer.resource, NULL);
-
-   sctx->num_vertex_buffers = count;
    sctx->vertex_buffers_dirty = count > 0;
    sctx->vertex_buffer_unaligned = unaligned;
 #ifndef NDEBUG
