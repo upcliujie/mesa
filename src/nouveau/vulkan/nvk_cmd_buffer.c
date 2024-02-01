@@ -88,6 +88,8 @@ nvk_reset_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer,
 
    nvk_cmd_pool_free_bo_list(pool, &cmd->bos);
    nvk_cmd_pool_free_gart_bo_list(pool, &cmd->gart_bos);
+   cmd->state_capture_bo = NULL;
+   cmd->state_capture_dw_count = 0;
    cmd->upload_bo = NULL;
    cmd->push_bo = NULL;
    cmd->push_bo_limit = NULL;
@@ -107,8 +109,9 @@ const struct vk_command_buffer_ops nvk_cmd_buffer_ops = {
 /* If we ever fail to allocate a push, we use this */
 static uint32_t push_runout[NVK_CMD_BUFFER_MAX_PUSH];
 
-static VkResult
-nvk_cmd_buffer_alloc_bo(struct nvk_cmd_buffer *cmd, bool force_gart, struct nvk_cmd_bo **bo_out)
+VkResult
+nvk_cmd_buffer_alloc_bo(struct nvk_cmd_buffer *cmd, bool force_gart,
+                        struct nvk_cmd_bo **bo_out)
 {
    VkResult result = nvk_cmd_pool_alloc_bo(nvk_cmd_buffer_pool(cmd), force_gart, bo_out);
    if (result != VK_SUCCESS)
@@ -831,6 +834,19 @@ void
 nvk_cmd_buffer_dump(struct nvk_cmd_buffer *cmd, FILE *fp)
 {
    struct nvk_device *dev = nvk_cmd_buffer_device(cmd);
+
+   if (cmd->state_capture_bo != NULL) {
+      fprintf(fp, "Initial state:\n\n");
+
+      struct nv_push push = {
+         .start = (uint32_t *)cmd->state_capture_bo->map,
+         .end = (uint32_t *)cmd->state_capture_bo->map +
+                cmd->state_capture_dw_count,
+      };
+      vk_push_print(fp, &push, &dev->pdev->info);
+   }
+
+   fprintf(fp, "Command buffer:\n\n");
 
    util_dynarray_foreach(&cmd->pushes, struct nvk_cmd_push, p) {
       if (p->map) {

@@ -135,6 +135,8 @@ __${nvcl}_${mthd}(uint32_t *val_out, struct nv_${nvcl.lower()}_${mthd} st)
 const char *P_PARSE_${nvcl}_MTHD(uint16_t idx);
 void P_DUMP_${nvcl}_MTHD_DATA(FILE *fp, uint16_t idx, uint32_t data,
                               const char *prefix);
+
+void P_GET_${nvcl}_MTHDS(size_t *count, const uint16_t **mthds);
 """)
 
 TEMPLATE_C = Template("""\
@@ -219,6 +221,28 @@ P_DUMP_${nvcl}_MTHD_DATA(FILE *fp, uint16_t idx, uint32_t data,
         fprintf(fp, "%s.VALUE = 0x%x${bs}n", prefix, data);
         break;
     }
+}
+
+static const uint16_t all_mthds[] = {
+%for mthd in mthddict:
+  %if mthd.startswith('CALL_MME'):
+    <% continue %>
+  %endif
+  %if mthddict[mthd].is_array:
+    %for i in range(mthddict[mthd].array_size):
+    ${nvcl}_${mthd}(${i}),
+    %endfor
+  %else:
+    ${nvcl}_${mthd},
+  %endif
+%endfor
+};
+
+void
+P_GET_${nvcl}_MTHDS(size_t *count, const uint16_t **mthds)
+{
+    *count = ARRAY_SIZE(all_mthds);
+    *mthds = all_mthds;
 }
 """)
 

@@ -350,7 +350,8 @@ mme_fermi_load_imm_to_reg(struct mme_builder *b, struct mme_value data)
 
          mme_fermi_add_imm18(fb, dst, mme_zero(), high_bits);
          mme_fermi_sll_to(fb, dst, dst, mme_imm(16));
-         mme_fermi_add_imm18(fb, dst, dst, low_bits);
+         if (low_bits != 0)
+            mme_fermi_add_imm18(fb, dst, dst, low_bits);
       }
 
       return dst;

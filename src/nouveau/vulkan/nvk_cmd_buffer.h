@@ -142,6 +142,9 @@ struct nvk_cmd_buffer {
    struct list_head bos;
    struct list_head gart_bos;
 
+   struct nvk_cmd_bo *state_capture_bo;
+   uint32_t state_capture_dw_count;
+
    struct nvk_cmd_bo *upload_bo;
    uint32_t upload_offset;
 
@@ -181,7 +184,7 @@ nvk_cmd_buffer_pool(struct nvk_cmd_buffer *cmd)
 
 void nvk_cmd_buffer_new_push(struct nvk_cmd_buffer *cmd);
 
-#define NVK_CMD_BUFFER_MAX_PUSH 512
+#define NVK_CMD_BUFFER_MAX_PUSH 1024
 
 static inline struct nv_push *
 nvk_cmd_buffer_push(struct nvk_cmd_buffer *cmd, uint32_t dw_count)
@@ -230,6 +233,9 @@ nvk_get_descriptors_state(struct nvk_cmd_buffer *cmd,
       unreachable("Unhandled bind point");
    }
 };
+
+VkResult nvk_cmd_buffer_alloc_bo(struct nvk_cmd_buffer *cmd, bool force_gart,
+                                 struct nvk_cmd_bo **bo_out);
 
 VkResult nvk_cmd_buffer_upload_alloc(struct nvk_cmd_buffer *cmd,
                                      uint32_t size, uint32_t alignment,
