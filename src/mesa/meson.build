@@ -467,10 +467,15 @@ if with_platform_windows
   endif
 endif
 
+_trial_mesa_extra_c_args = [
+  '-Wshadow'
+]
+_mesa_extra_c_args = cc.get_supported_arguments(_trial_mesa_extra_c_args)
+
 libmesa = static_library(
   'mesa',
   files_libmesa,
-  c_args : [c_msvc_compat_args, _mesa_windows_args],
+  c_args : [c_msvc_compat_args, _mesa_windows_args, _mesa_extra_c_args],
   cpp_args : [cpp_msvc_compat_args, _mesa_windows_args],
   gnu_symbol_visibility : 'hidden',
   include_directories : [
