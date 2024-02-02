@@ -802,6 +802,31 @@ by a particular renderpass/blit.
 	<value value="37" name="PERF_UCHE_READ_REQUESTS_PC"/>
 	<value value="38" name="PERF_UCHE_RAM_READ_REQ"/>
 	<value value="39" name="PERF_UCHE_RAM_WRITE_REQ"/>
+	<value value="40" name="PERF_UCHE_STARVED_CYCLES_VBIF_DECMP"/>
+	<value value="41" name="PERF_UCHE_STALL_CYCLES_DECMP"/>
+	<value value="42" name="PERF_UCHE_ARBITER_STALL_CYCLES_VBIF"/>
+	<value value="43" name="PERF_UCHE_BANK_REQ8"/>
+	<value value="44" name="PERF_UCHE_BANK_REQ9"/>
+	<value value="45" name="PERF_UCHE_BANK_REQ10"/>
+	<value value="46" name="PERF_UCHE_BANK_REQ11"/>
+	<value value="47" name="PERF_UCHE_BANK_REQ12"/>
+	<value value="48" name="PERF_UCHE_BANK_REQ13"/>
+	<value value="49" name="PERF_UCHE_BANK_REQ14"/>
+	<value value="50" name="PERF_UCHE_BANK_REQ15"/>
+	<value value="51" name="PERF_UCHE_TPH_CONFLICT_CL0"/>
+	<value value="52" name="PERF_UCHE_TPH_CONFLICT_CL1"/>
+	<value value="53" name="PERF_UCHE_TPH_CONFLICT_CL2"/>
+	<value value="54" name="PERF_UCHE_TPH_CONFLICT_CL3"/>
+	<value value="55" name="PERF_UCHE_TPH_CONFLICT_CL4"/>
+	<value value="56" name="PERF_UCHE_TPH_CONFLICT_CL5"/>
+	<value value="57" name="PERF_UCHE_TPH_CONFLICT_CL6"/>
+	<value value="58" name="PERF_UCHE_DBANK_CONFLICT_CL0"/>
+	<value value="59" name="PERF_UCHE_DBANK_CONFLICT_CL1"/>
+	<value value="60" name="PERF_UCHE_DBANK_CONFLICT_CL2"/>
+	<value value="61" name="PERF_UCHE_DBANK_CONFLICT_CL3"/>
+	<value value="62" name="PERF_UCHE_DBANK_CONFLICT_CL4"/>
+	<value value="63" name="PERF_UCHE_DBANK_CONFLICT_CL5"/>
+	<value value="64" name="PERF_UCHE_DBANK_CONFLICT_CL6"/>
 </enum>
 
 <enum name="a6xx_tp_perfcounter_select">
