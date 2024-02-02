@@ -633,7 +633,6 @@ fs_visitor::emit_fb_writes()
 
    prog_data->dual_src_blend = (this->dual_src_output.file != BAD_FILE &&
                                 this->outputs[0].file != BAD_FILE);
-   assert(!prog_data->dual_src_blend || key->nr_color_regions == 1);
 
    /* Following condition implements Wa_14017468336:
     *
