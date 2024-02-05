@@ -5552,8 +5552,8 @@ static void si_delete_vertex_element(struct pipe_context *ctx, void *state)
    FREE(state);
 }
 
-static void si_set_vertex_buffers(struct pipe_context *ctx, unsigned count,
-                                  const struct pipe_vertex_buffer *buffers)
+static inline void si_set_vertex_buffers(struct pipe_context *ctx, unsigned count,
+                                         const struct pipe_vertex_buffer *buffers)
 {
    struct si_context *sctx = (struct si_context *)ctx;
    uint32_t unaligned = 0;
@@ -5600,6 +5600,15 @@ static void si_set_vertex_buffers(struct pipe_context *ctx, unsigned count,
       si_vs_key_update_inputs(sctx);
       sctx->do_update_shaders = true;
    }
+}
+
+/* restrict really makes a performance difference here (according to sysprof). */
+uint16_t si_tc_set_vertex_buffers(struct pipe_context *ctx, void *restrict call)
+{
+   struct tc_vertex_buffers *p = (struct tc_vertex_buffers *)call;
+
+   si_set_vertex_buffers(ctx, p->count, p->slot);
+   return p->base.num_slots;
 }
 
 static struct pipe_vertex_state *
