@@ -3102,7 +3102,7 @@ anv_pipe_invalidate_bits_for_access_flags(struct anv_cmd_buffer *cmd_buffer,
          /* For CmdDipatchIndirect, we also load gl_NumWorkGroups through a
           * UBO from the buffer, so we need to invalidate constant cache.
           */
-         pipe_bits |= ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT;
+         pipe_bits |= genX(device_constant_cache_flush_bits)(device, false);
          pipe_bits |= ANV_PIPE_DATA_CACHE_FLUSH_BIT;
          /* Tile cache flush needed For CmdDipatchIndirect since command
           * streamer and vertex fetch aren't L3 coherent.
@@ -3124,7 +3124,7 @@ anv_pipe_invalidate_bits_for_access_flags(struct anv_cmd_buffer *cmd_buffer,
           * invalidate the texture cache (sampler) & constant cache (data
           * port) to avoid stale data.
           */
-         pipe_bits |= ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT;
+         pipe_bits |= genX(device_constant_cache_flush_bits)(device, false);
          if (device->physical->compiler->indirect_ubos_use_sampler) {
             pipe_bits |= ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT;
          } else {
@@ -3144,7 +3144,7 @@ anv_pipe_invalidate_bits_for_access_flags(struct anv_cmd_buffer *cmd_buffer,
          /* Same as VK_ACCESS_2_UNIFORM_READ_BIT and
           * VK_ACCESS_2_SHADER_SAMPLED_READ_BIT cases above
           */
-         pipe_bits |= ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT |
+         pipe_bits |= genX(device_constant_cache_flush_bits)(device, false) |
                       ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT;
          if (!device->physical->compiler->indirect_ubos_use_sampler) {
             pipe_bits |= ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
