@@ -99,8 +99,11 @@ shade_quads(struct lp_rasterizer_task *task,
    const unsigned stride = scene->cbufs[0].stride;
    uint8_t *cbufs[1] = { scene->cbufs[0].map + y * stride + x * 4 };
    unsigned strides[1] = { stride };
+   uint8_t *zsbuf = NULL;
+   unsigned zstride = 0;
 
-   assert(!variant->key.depth.enabled);
+   zstride = scene->zsbuf.stride;
+   zsbuf = scene->zsbuf.map + y * zstride + x * scene->zsbuf.format_bytes;
 
    /* Propagate non-interpolated raster state */
    task->thread_data.raster_state.viewport_index = inputs->viewport_index;
@@ -116,10 +119,10 @@ shade_quads(struct lp_rasterizer_task *task,
                                    GET_DADX(inputs),
                                    GET_DADY(inputs),
                                    cbufs,
-                                   NULL,
+                                   zsbuf,
                                    mask,
                                    &task->thread_data,
-                                   strides, 0, 0, 0);
+                                   strides, zstride, 0, 0);
    END_JIT_CALL();
 }
 

@@ -40,7 +40,7 @@ sw_screen_create_named(struct sw_winsys *winsys, const struct pipe_screen_config
 
 #if defined(GALLIUM_LLVMPIPE)
    if (screen == NULL && strcmp(driver, "llvmpipe") == 0)
-      screen = llvmpipe_create_screen(winsys);
+      screen = llvmpipe_create_screen(winsys, config);
 #endif
 
 #if defined(GALLIUM_VIRGL)

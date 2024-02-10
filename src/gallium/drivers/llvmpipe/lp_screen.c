@@ -43,6 +43,7 @@
 #include "util/os_misc.h"
 #include "util/os_time.h"
 #include "util/u_helpers.h"
+#include "util/xmlconfig.h"
 #include "lp_texture.h"
 #include "lp_fence.h"
 #include "lp_jit.h"
@@ -1071,7 +1072,7 @@ out:
  * Note: we're not presently subclassing pipe_screen (no llvmpipe_screen).
  */
 struct pipe_screen *
-llvmpipe_create_screen(struct sw_winsys *winsys)
+llvmpipe_create_screen(struct sw_winsys *winsys, const struct pipe_screen_config *config)
 {
    struct llvmpipe_screen *screen;
 
@@ -1117,6 +1118,11 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
    screen->base.get_disk_shader_cache = lp_get_disk_shader_cache;
    llvmpipe_init_screen_resource_funcs(&screen->base);
 
+   if (config) {
+      driParseConfigFiles(config->options, config->options_info, 0, "llvmpipe",
+                          NULL, NULL, NULL, 0, NULL, 0);
+      screen->allow_fastpath_vertex_output = driQueryOptionb(config->options, "llvmpipe_fastpath_allow_vertex_output");
+   }
    screen->allow_cl = !!getenv("LP_CL");
    screen->num_threads = util_get_cpu_caps()->nr_cpus > 1
       ? util_get_cpu_caps()->nr_cpus : 0;

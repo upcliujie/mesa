@@ -63,6 +63,7 @@ struct llvmpipe_screen
    mtx_t cs_mutex;
 
    bool allow_cl;
+   bool allow_fastpath_vertex_output;
 
    mtx_t late_mutex;
    bool late_init_done;

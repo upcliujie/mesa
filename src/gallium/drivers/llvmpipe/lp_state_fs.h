@@ -223,7 +223,8 @@ struct lp_fragment_shader
 
 
 void
-llvmpipe_fs_analyse_nir(struct lp_fragment_shader *shader);
+llvmpipe_fs_analyse_nir(struct lp_fragment_shader *shader,
+                        bool allow_fastpath_vs_output);
 
 void
 llvmpipe_fs_variant_fastpath(struct lp_fragment_shader_variant *variant);
