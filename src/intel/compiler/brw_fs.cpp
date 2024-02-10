@@ -766,7 +766,8 @@ fs_inst::components_read(unsigned i) const
 
    case SHADER_OPCODE_A64_UNTYPED_WRITE_LOGICAL:
       assert(src[A64_LOGICAL_ARG].file == IMM);
-      return i == A64_LOGICAL_SRC ? src[A64_LOGICAL_ARG].ud : 1;
+      return i == A64_LOGICAL_SRC && !is_uniform(src[i]) ?
+             src[A64_LOGICAL_ARG].ud : 1;
 
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_LOGICAL:
       assert(src[A64_LOGICAL_ARG].file == IMM);
@@ -908,7 +909,9 @@ fs_inst::size_read(const struct intel_device_info *devinfo, int arg) const
    case FIXED_GRF:
    case VGRF:
    case ATTR:
-      return components_read(arg) * src[arg].component_size(exec_size);
+      /* Regardless of exec_size, values marked as scalar are SIMD8. */
+      return components_read(arg) *
+             src[arg].component_size(src[arg].is_scalar ? 8 * reg_unit(devinfo) : exec_size);
    }
    return 0;
 }
