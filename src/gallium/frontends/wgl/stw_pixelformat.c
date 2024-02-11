@@ -307,7 +307,7 @@ add_color_format_variants(const struct stw_pf_color_info *color_formats,
 
                for (f = 0; f < ARRAY_SIZE(stw_pf_flag); f++) {
                   stw_pfd_flag flag = stw_pf_flag[f];
-                  if (!(supported_flags & flag) || (flag == stw_pfd_double_buffer && !doublebuffer))
+                  if (!(supported_flags & flag))
                      continue;
                   for (acc = 0; acc < 2; acc++) {
                      stw_pixelformat_add(stw_dev, extended, &color_formats[cfmt],
