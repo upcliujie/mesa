@@ -148,23 +148,23 @@ load_glsl(unsigned num_files, char *const *files, gl_shader_stage stage)
    switch (stage) {
    case MESA_SHADER_VERTEX:
       nir_assign_var_locations(nir, nir_var_shader_in, &nir->num_inputs,
-                               ir3_glsl_type_size);
+                               nir_io_type_size_vec4);
 
       /* Re-lower global vars, to deal with any dead VS inputs. */
       NIR_PASS_V(nir, nir_lower_global_vars_to_local);
 
       sort_varyings(nir, nir_var_shader_out);
       nir_assign_var_locations(nir, nir_var_shader_out, &nir->num_outputs,
-                               ir3_glsl_type_size);
+                               nir_io_type_size_vec4);
       fixup_varying_slots(nir, nir_var_shader_out);
       break;
    case MESA_SHADER_FRAGMENT:
       sort_varyings(nir, nir_var_shader_in);
       nir_assign_var_locations(nir, nir_var_shader_in, &nir->num_inputs,
-                               ir3_glsl_type_size);
+                               nir_io_type_size_vec4);
       fixup_varying_slots(nir, nir_var_shader_in);
       nir_assign_var_locations(nir, nir_var_shader_out, &nir->num_outputs,
-                               ir3_glsl_type_size);
+                               nir_io_type_size_vec4);
       break;
    case MESA_SHADER_COMPUTE:
    case MESA_SHADER_KERNEL:
@@ -174,7 +174,7 @@ load_glsl(unsigned num_files, char *const *files, gl_shader_stage stage)
    }
 
    nir_assign_var_locations(nir, nir_var_uniform, &nir->num_uniforms,
-                            ir3_glsl_type_size);
+                            nir_io_type_size_vec4);
 
    NIR_PASS_V(nir, nir_lower_system_values);
    NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
@@ -182,7 +182,7 @@ load_glsl(unsigned num_files, char *const *files, gl_shader_stage stage)
    NIR_PASS_V(nir, nir_lower_frexp);
    NIR_PASS_V(nir, nir_lower_io,
               nir_var_shader_in | nir_var_shader_out | nir_var_uniform,
-              ir3_glsl_type_size, (nir_lower_io_options)0);
+              nir_io_type_size_vec4, (nir_lower_io_options)0);
    NIR_PASS_V(nir, gl_nir_lower_samplers, prog);
 
    return nir;
@@ -399,7 +399,7 @@ main(int argc, char **argv)
       nir = load_spirv(filenames[0], spirv_entry, stage);
 
       NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-                 ir3_glsl_type_size, (nir_lower_io_options)0);
+                 nir_io_type_size_vec4, (nir_lower_io_options)0);
 
       /* TODO do this somewhere else */
       nir_lower_int64(nir);

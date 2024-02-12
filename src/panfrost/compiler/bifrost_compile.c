@@ -4141,12 +4141,6 @@ va_print_stats(bi_context *ctx, unsigned size)
                           ctx->fills);
 }
 
-static int
-glsl_type_size(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 /* Split stores to memory. We don't split stores to vertex outputs, since
  * nir_lower_io_to_temporaries will ensure there's only a single write.
  */
@@ -4665,7 +4659,7 @@ bifrost_preprocess_nir(nir_shader *nir, unsigned gpu_id)
    NIR_PASS_V(nir, nir_lower_var_copies);
    NIR_PASS_V(nir, nir_lower_vars_to_ssa);
    NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-              glsl_type_size, 0);
+              nir_io_type_size_vec4, 0);
 
    /* nir_lower[_explicit]_io is lazy and emits mul+add chains even for
     * offsets it could figure out are constant.  Do some constant folding

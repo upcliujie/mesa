@@ -33,10 +33,23 @@
 
 #include "util/u_math.h"
 
+int
+nir_io_type_size_vec4(const struct glsl_type *type,
+                      bool is_bindless,
+                      bool is_compact)
+{
+   if (is_compact) {
+      unsigned dw = glsl_count_dword_slots(type, is_bindless);
+      return DIV_ROUND_UP(dw, 4);
+   } else {
+      return glsl_count_vec4_slots(type, false, is_bindless);
+   }
+}
+
 struct lower_io_state {
    void *dead_ctx;
    nir_builder builder;
-   int (*type_size)(const struct glsl_type *type, bool);
+   nir_lower_io_type_size_cb type_size;
    nir_variable_mode modes;
    nir_lower_io_options options;
 };
@@ -102,19 +115,31 @@ task_payload_atomic_for_deref(nir_intrinsic_op deref_op)
    }
 }
 
+static int
+variable_size(const nir_variable *var, gl_shader_stage stage,
+              nir_lower_io_type_size_cb type_size)
+{
+   const struct glsl_type *type = var->type;
+   if (nir_is_arrayed_io(var, stage))
+      type = glsl_get_array_element(type);
+
+   bool bindless = var->data.mode == nir_var_shader_in ||
+                   var->data.mode == nir_var_shader_out ||
+                   var->data.bindless;
+
+   return type_size(type, bindless, var->data.compact);
+}
+
 void
 nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
                          unsigned *size,
-                         int (*type_size)(const struct glsl_type *, bool))
+                         nir_lower_io_type_size_cb type_size)
 {
    unsigned location = 0;
 
    nir_foreach_variable_with_modes(var, shader, mode) {
       var->data.driver_location = location;
-      bool bindless_type_size = var->data.mode == nir_var_shader_in ||
-                                var->data.mode == nir_var_shader_out ||
-                                var->data.bindless;
-      location += type_size(var->type, bindless_type_size);
+      location += variable_size(var, shader->info.stage, type_size);
    }
 
    *size = location;
@@ -191,14 +216,14 @@ get_number_of_slots(struct lower_io_state *state,
        !nir_is_arrayed_io(var, state->builder.shader->info.stage))
       return 1;
 
-   return state->type_size(type, var->data.bindless) /
+   return state->type_size(type, var->data.bindless, false) /
           (uses_high_dvec2_semantic(state, var) ? 2 : 1);
 }
 
 static nir_def *
 get_io_offset(nir_builder *b, nir_deref_instr *deref,
               nir_def **array_index,
-              int (*type_size)(const struct glsl_type *, bool),
+              nir_lower_io_type_size_cb type_size,
               unsigned *component, bool bts)
 {
    nir_deref_path path;
@@ -216,16 +241,26 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
       p++;
    }
 
-   if (path.path[0]->var->data.compact) {
+   nir_variable *var = path.path[0]->var;
+   if (var->data.compact) {
       assert((*p)->deref_type == nir_deref_type_array);
       assert(glsl_type_is_scalar((*p)->type));
 
-      /* We always lower indirect dereferences for "compact" array vars. */
-      const unsigned index = nir_src_as_uint((*p)->arr.index);
-      const unsigned total_offset = *component + index;
-      const unsigned slot_offset = total_offset / 4;
-      *component = total_offset % 4;
-      return nir_imm_int(b, type_size(glsl_vec4_type(), bts) * slot_offset);
+      if (nir_src_is_const((*p)->arr.index)) {
+         /* For compact array vars, if we have a constant index, we can lower
+          * to a component which will work on any hardware which can handle
+          * partial vector read/writes to I/O even if it can't handle
+          * indirects on individual components.  For this lowering, we work in
+          * terms of dwords until we need to actually return a size.
+          */
+         const unsigned index = nir_src_as_uint((*p)->arr.index);
+         const unsigned total_offset = *component + index;
+         const unsigned slot_offset = total_offset / 4;
+         *component = total_offset % 4;
+
+         const unsigned slot_size = type_size(glsl_vec4_type(), bts, false);
+         return nir_imm_int(b, slot_size * slot_offset);
+      }
    }
 
    /* Just emit code and let constant-folding go to town */
@@ -233,7 +268,9 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
 
    for (; *p; p++) {
       if ((*p)->deref_type == nir_deref_type_array) {
-         unsigned size = type_size((*p)->type, bts);
+         nir_deref_instr *parent = *(p - 1);
+         bool compact = var->data.compact || glsl_type_is_vector(parent->type);
+         unsigned size = type_size((*p)->type, bts, compact);
 
          nir_def *mul =
             nir_amul_imm(b, (*p)->arr.index.ssa, size);
@@ -245,7 +282,8 @@ get_io_offset(nir_builder *b, nir_deref_instr *deref,
 
          unsigned field_offset = 0;
          for (unsigned i = 0; i < (*p)->strct.index; i++) {
-            field_offset += type_size(glsl_get_struct_field(parent->type, i), bts);
+            field_offset += type_size(glsl_get_struct_field(parent->type, i),
+                                      bts, false);
          }
          offset = nir_iadd_imm(b, offset, field_offset);
       } else {
@@ -316,11 +354,8 @@ emit_load(struct lower_io_state *state,
 
    nir_intrinsic_set_base(load, var->data.driver_location);
    if (nir_intrinsic_has_range(load)) {
-      const struct glsl_type *type = var->type;
-      if (array_index)
-         type = glsl_get_array_element(type);
-      unsigned var_size = state->type_size(type, var->data.bindless);
-      nir_intrinsic_set_range(load, var_size);
+      nir_intrinsic_set_range(load, variable_size(var, nir->info.stage,
+                                                  state->type_size));
    }
 
    if (mode == nir_var_shader_in || mode == nir_var_shader_out)
@@ -377,7 +412,8 @@ lower_load(nir_intrinsic_instr *intrin, struct lower_io_state *state,
       if (use_high_dvec2_semantic)
          offset = nir_ushr_imm(b, offset, 1);
 
-      const unsigned slot_size = state->type_size(glsl_dvec_type(2), false);
+      const unsigned slot_size =
+         state->type_size(glsl_dvec_type(2), false, false);
 
       nir_def *comp64[4];
       assert(component == 0 || component == 2);
@@ -445,12 +481,9 @@ emit_store(struct lower_io_state *state, nir_def *data,
 
    store->src[0] = nir_src_for_ssa(data);
 
-   const struct glsl_type *type = var->type;
-   if (array_index)
-      type = glsl_get_array_element(type);
-   unsigned var_size = state->type_size(type, var->data.bindless);
    nir_intrinsic_set_base(store, var->data.driver_location);
-   nir_intrinsic_set_range(store, var_size);
+   nir_intrinsic_set_range(store, variable_size(var, b->shader->info.stage,
+                                                state->type_size));
    nir_intrinsic_set_component(store, component);
    nir_intrinsic_set_src_type(store, src_type);
 
@@ -503,7 +536,8 @@ lower_store(nir_intrinsic_instr *intrin, struct lower_io_state *state,
                                            nir_lower_io_lower_64bit_to_32_new)))) {
       nir_builder *b = &state->builder;
 
-      const unsigned slot_size = state->type_size(glsl_dvec_type(2), false);
+      const unsigned slot_size =
+         state->type_size(glsl_dvec_type(2), false, false);
 
       assert(component == 0 || component == 2);
       unsigned src_comp = 0;
@@ -752,7 +786,7 @@ nir_lower_io_block(nir_block *block,
 static bool
 nir_lower_io_impl(nir_function_impl *impl,
                   nir_variable_mode modes,
-                  int (*type_size)(const struct glsl_type *, bool),
+                  nir_lower_io_type_size_cb type_size,
                   nir_lower_io_options options)
 {
    struct lower_io_state state;
@@ -790,7 +824,7 @@ nir_lower_io_impl(nir_function_impl *impl,
  */
 bool
 nir_lower_io(nir_shader *shader, nir_variable_mode modes,
-             int (*type_size)(const struct glsl_type *, bool),
+             nir_lower_io_type_size_cb type_size,
              nir_lower_io_options options)
 {
    bool progress = false;
@@ -3170,12 +3204,6 @@ nir_io_add_intrinsic_xfb_info(nir_shader *nir)
    return progress;
 }
 
-static int
-type_size_vec4(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 /**
  * This runs all compiler passes needed to lower IO, lower indirect IO access,
  * set transform feedback info in IO intrinsics, and clean up the IR.
@@ -3228,7 +3256,7 @@ nir_lower_io_passes(nir_shader *nir, bool renumber_vs_inputs)
    }
 
    NIR_PASS_V(nir, nir_lower_io, nir_var_shader_out | nir_var_shader_in,
-              type_size_vec4, nir_lower_io_lower_64bit_to_32);
+              nir_io_type_size_vec4, nir_lower_io_lower_64bit_to_32);
 
    /* nir_io_add_const_offset_to_base needs actual constants. */
    NIR_PASS_V(nir, nir_opt_constant_folding);

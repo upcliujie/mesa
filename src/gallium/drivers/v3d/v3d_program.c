@@ -184,12 +184,6 @@ v3d_set_transform_feedback_outputs(struct v3d_uncompiled_shader *so,
         memcpy(so->tf_outputs, slots, sizeof(*slots) * slot_count);
 }
 
-static int
-type_size(const struct glsl_type *type, bool bindless)
-{
-        return glsl_count_attribute_slots(type, false);
-}
-
 static void
 precompile_all_outputs(nir_shader *s,
                        struct v3d_varying_slot *outputs,
@@ -369,7 +363,7 @@ v3d_uncompiled_shader_create(struct pipe_context *pctx,
             s->info.stage != MESA_SHADER_GEOMETRY) {
                 NIR_PASS(_, s, nir_lower_io,
                          nir_var_shader_in | nir_var_shader_out,
-                         type_size, (nir_lower_io_options)0);
+                         nir_io_type_size_vec4, (nir_lower_io_options)0);
         }
 
         NIR_PASS(_, s, nir_normalize_cubemap_coords);

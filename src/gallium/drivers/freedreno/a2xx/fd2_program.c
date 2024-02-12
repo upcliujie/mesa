@@ -83,12 +83,6 @@ emit(struct fd_ringbuffer *ring, gl_shader_stage type,
       OUT_RING(ring, info->dwords[i]);
 }
 
-static int
-ir2_glsl_type_size(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 static void *
 fd2_fp_state_create(struct pipe_context *pctx,
                     const struct pipe_shader_state *cso)
@@ -102,7 +96,7 @@ fd2_fp_state_create(struct pipe_context *pctx,
                 : tgsi_to_nir(cso->tokens, pctx->screen, false);
 
    NIR_PASS_V(so->nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-              ir2_glsl_type_size, (nir_lower_io_options)0);
+              nir_io_type_size_vec4, (nir_lower_io_options)0);
 
    if (ir2_optimize_nir(so->nir, true))
       goto fail;
@@ -140,7 +134,7 @@ fd2_vp_state_create(struct pipe_context *pctx,
                 : tgsi_to_nir(cso->tokens, pctx->screen, false);
 
    NIR_PASS_V(so->nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
-              ir2_glsl_type_size, (nir_lower_io_options)0);
+              nir_io_type_size_vec4, (nir_lower_io_options)0);
 
    if (ir2_optimize_nir(so->nir, true))
       goto fail;

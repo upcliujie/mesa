@@ -174,12 +174,6 @@ etna_optimize_loop(nir_shader *s)
    while (progress);
 }
 
-static int
-etna_glsl_type_size(const struct glsl_type *type, bool bindless)
-{
-   return glsl_count_attribute_slots(type, false);
-}
-
 static void
 copy_uniform_state_to_shader(struct etna_shader_variant *sobj, uint64_t *consts, unsigned count)
 {
@@ -1164,8 +1158,8 @@ etna_compile_shader(struct etna_shader_variant *v)
       assert(sf->num_reg == count);
    }
 
-   NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_uniform, etna_glsl_type_size,
-            (nir_lower_io_options)0);
+   NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_uniform,
+              nir_io_type_size_vec4, (nir_lower_io_options)0);
 
    NIR_PASS_V(s, nir_lower_vars_to_ssa);
    NIR_PASS_V(s, nir_lower_indirect_derefs, nir_var_all, UINT32_MAX);

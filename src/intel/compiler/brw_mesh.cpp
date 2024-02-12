@@ -76,7 +76,8 @@ brw_nir_lower_load_uniforms(nir_shader *nir)
 }
 
 static inline int
-type_size_scalar_dwords(const struct glsl_type *type, bool bindless)
+type_size_scalar_dwords(const struct glsl_type *type,
+                        bool bindless, bool compact)
 {
    return glsl_count_dword_slots(type, bindless);
 }

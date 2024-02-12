@@ -355,7 +355,21 @@ compile_spirv(struct lvp_device *pdevice, const VkPipelineShaderStageCreateInfo 
    result = vk_pipeline_shader_stage_to_nir(&pdevice->vk, sinfo,
                                             &spirv_options, pdevice->physical_device->drv_options[stage],
                                             NULL, nir);
-   return result;
+   if (result != VK_SUCCESS)
+      return result;
+
+   if (stage == MESA_SHADER_TESS_CTRL) {
+      /* Tessellation control shaders may have array derefs of vectors on
+       * outputs and compilers may not be able to handle those.
+       */
+      NIR_PASS_V(*nir, nir_lower_array_deref_of_vec, nir_var_shader_out,
+                 nir_lower_direct_array_deref_of_vec_load |
+                 nir_lower_indirect_array_deref_of_vec_load |
+                 nir_lower_direct_array_deref_of_vec_store |
+                 nir_lower_indirect_array_deref_of_vec_store);
+   }
+
+   return VK_SUCCESS;
 }
 
 static bool
