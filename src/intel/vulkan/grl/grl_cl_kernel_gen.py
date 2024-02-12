@@ -33,8 +33,7 @@ from mako.template import Template
 TEMPLATE_H = Template(COPYRIGHT + """
 /* This file generated from ${filename}, don't edit directly. */
 
-#ifndef GRL_CL_KERNEL_H
-#define GRL_CL_KERNEL_H
+#pragma once
 
 #include "genxml/gen_macros.h"
 #include "compiler/brw_kernel.h"
@@ -59,8 +58,6 @@ void genX(grl_get_cl_kernel)(struct brw_kernel *kernel, enum grl_cl_kernel id);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
-
-#endif /* INTEL_GRL_H */
 """)
 
 TEMPLATE_C = Template(COPYRIGHT + """

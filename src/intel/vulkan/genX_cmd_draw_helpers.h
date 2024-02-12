@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef GENX_CMD_DRAW_HELPERS_H
-#define GENX_CMD_DRAW_HELPERS_H
+#pragma once
 
 #include <assert.h>
 #include <stdbool.h>
@@ -151,5 +150,3 @@ cmd_buffer_emit_vertex_constants_and_flush(struct anv_cmd_buffer *cmd_buffer,
       genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 }
 #endif
-
-#endif /* GENX_CMD_DRAW_HELPERS_H */

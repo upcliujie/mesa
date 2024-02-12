@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef GENX_CMD_DRAW_GENERATED_INDIRECT_H
-#define GENX_CMD_DRAW_GENERATED_INDIRECT_H
+#pragma once
 
 #include <assert.h>
 #include <stdbool.h>
@@ -637,5 +636,3 @@ genX(cmd_buffer_emit_indirect_generated_draws)(struct anv_cmd_buffer *cmd_buffer
                                                              indexed);
    }
 }
-
-#endif /* GENX_CMD_DRAW_GENERATED_INDIRECT_H */

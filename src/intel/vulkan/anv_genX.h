@@ -32,10 +32,6 @@
  * In this header file, the usual genx() macro is available.
  */
 
-#ifndef ANV_PRIVATE_H
-#error This file is included by means other than anv_private.h
-#endif
-
 struct intel_sample_positions;
 struct intel_urb_config;
 

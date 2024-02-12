@@ -21,8 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef ANV_RMV_H
-#define ANV_RMV_H
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -114,5 +113,3 @@ void anv_rmv_log_event_create(struct anv_device *device,
                               struct anv_event *event,
                               VkEventCreateFlags flags, bool is_internal);
 void anv_rmv_log_resource_destroy(struct anv_device *device, const void *obj);
-
-#endif /* ANV_RMV_H */

@@ -844,11 +844,10 @@ class MetaKernel(object):
         w.write('}\n')
 
 HEADER_PROLOGUE = COPYRIGHT + '''
+#pragma once
+
 #include "anv_private.h"
 #include "grl/genX_grl.h"
-
-#ifndef {0}
-#define {0}
 
 #ifdef __cplusplus
 extern "C" {{
@@ -860,8 +859,6 @@ HEADER_EPILOGUE = '''
 #ifdef __cplusplus
 }}
 #endif
-
-#endif /* {0} */
 '''
 
 C_PROLOGUE = COPYRIGHT + '''
@@ -918,11 +915,10 @@ def main():
     m.compact_regs()
 
     with open(args.out_h, 'w') as f:
-        guard = os.path.splitext(os.path.basename(args.out_h))[0].upper()
         w = Writer(f)
-        w.write(HEADER_PROLOGUE, guard)
+        w.write(HEADER_PROLOGUE)
         m.write_h(w)
-        w.write(HEADER_EPILOGUE, guard)
+        w.write(HEADER_EPILOGUE)
 
     with open(args.out_c, 'w') as f:
         w = Writer(f)

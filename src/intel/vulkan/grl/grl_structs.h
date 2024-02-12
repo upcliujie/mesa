@@ -29,8 +29,7 @@
  * header files directly so we have to redefine stuff here.
  */
 
-#ifndef GRL_STRUCTS_H
-#define GRL_STRUCTS_H
+#pragma once
 
 #include "GRLStructs.h"
 #include "GRLRTASCommon.h"
@@ -475,5 +474,3 @@ struct SAHBuildBuffersInfo
    dword   _pad;
    gpuva_t _pad2;
 };
-
-#endif /* GRL_STRUCTS_H */
