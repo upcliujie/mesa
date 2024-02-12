@@ -3484,7 +3484,7 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
           mask_is_shader_write(dep_info->pMemoryBarriers[i].srcAccessMask) &&
           stage_is_transfer(dep_info->pMemoryBarriers[i].dstStageMask)) {
          cmd_buffer->state.queries.buffer_write_bits |=
-            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS;
+            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS(cmd_buffer->device->info);
       }
 
       /* There's no way of knowing if this memory barrier is related to sparse
@@ -3509,7 +3509,7 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
           mask_is_shader_write(buf_barrier->srcAccessMask) &&
           stage_is_transfer(buf_barrier->dstStageMask)) {
          cmd_buffer->state.queries.buffer_write_bits |=
-            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS;
+            ANV_QUERY_COMPUTE_WRITES_PENDING_BITS(cmd_buffer->device->info);
       }
 
       if (anv_buffer_is_sparse(buffer) && mask_is_write(src_flags))

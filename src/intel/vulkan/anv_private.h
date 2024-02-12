@@ -3047,8 +3047,9 @@ enum anv_query_bits {
       devinfo->verx10 < 125) ? ANV_QUERY_WRITES_TILE_FLUSH : 0) | \
    ANV_QUERY_WRITES_RT_FLUSH | \
    ANV_QUERY_WRITES_CS_STALL)
-#define ANV_QUERY_COMPUTE_WRITES_PENDING_BITS \
-   (ANV_QUERY_WRITES_DATA_FLUSH | \
+#define ANV_QUERY_COMPUTE_WRITES_PENDING_BITS(devinfo) \
+   (((devinfo->verx10 >= 120 && \
+      devinfo->verx10 < 125) ? ANV_QUERY_WRITES_DATA_FLUSH : 0) | \
     ANV_QUERY_WRITES_CS_STALL)
 
 #define ANV_PIPE_QUERY_BITS(pending_query_bits) ( \
