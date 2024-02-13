@@ -68,6 +68,7 @@ valhall_archs = [10]
 valhall_inc_dir = ['valhall']
 valhall_files = [
   'valhall/panvk_vX_descriptor_set_layout.c',
+  'valhall/panvk_vX_pipeline_layout.c',
 ]
 
 jm_archs = [6, 7]
