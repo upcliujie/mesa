@@ -64,6 +64,12 @@ bifrost_files = [
   'bifrost/panvk_vX_pipeline_layout.c',
 ]
 
+valhall_archs = [10]
+valhall_inc_dir = ['valhall']
+valhall_files = [
+  'valhall/panvk_vX_descriptor_set_layout.c',
+]
+
 jm_archs = [6, 7]
 jm_inc_dir = ['jm']
 jm_files = [
@@ -141,6 +147,11 @@ foreach arch : [10]
 
   per_arch_files = common_per_arch_files
   inc_panvk_per_arch = []
+
+  if arch in valhall_archs
+    inc_panvk_per_arch += valhall_inc_dir
+    per_arch_files += valhall_files
+  endif
 
   if arch in csf_archs
     inc_panvk_per_arch += csf_inc_dir
