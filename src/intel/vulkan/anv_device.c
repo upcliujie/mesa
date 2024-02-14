@@ -1210,6 +1210,29 @@ get_properties(const struct anv_physical_device *pdevice,
    VkSampleCountFlags sample_counts =
       isl_device_get_sample_counts(&pdevice->isl_dev);
 
+   /* First generation XeSS causes hangs on proton for Intel due to missing
+    * Intel interface. Avoid hang by pretending to be non-Intel if libxess.dll
+    * mapped into memory. Will remove once interface lands in proton.
+    */
+#if defined(__linux__)
+   if (pdevice->instance->force_vk_vendor == 0) {
+      char filename[64];
+      snprintf(filename, sizeof(filename), "/proc/%u/maps", getpid());
+      FILE* file = fopen(filename, "r");
+
+      if (file) {
+         char buffer[1024];
+         pdevice->instance->force_vk_vendor = 0x8086;
+         while (fgets(buffer, sizeof(buffer), file)) {
+            if (strstr(buffer, "libxess.dll")) {
+               pdevice->instance->force_vk_vendor = -1;
+               break;
+            }
+         }
+         fclose(file);
+      }
+   }
+#endif
 
    *props = (struct vk_properties) {
       .apiVersion = ANV_API_VERSION,
