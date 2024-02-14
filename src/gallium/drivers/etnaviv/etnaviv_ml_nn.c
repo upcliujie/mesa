@@ -898,57 +898,71 @@ static uint32_t calculate_bias_correction(uint8_t *weights, const struct etna_op
    return correction;
 }
 
+struct bitstream {
+   unsigned bits_in_buffer;
+   uint64_t buffer;
+   uint32_t **map;
+   bool do_write;
+};
 
 static void
-append_bits(uint32_t value, size_t size, unsigned *bits_in_buffer, uint64_t *buffer, uint32_t **dest, bool do_write)
+append_bits(uint32_t value, size_t size, struct bitstream *bitstream)
 {
-   *buffer |= (uint64_t)value << *bits_in_buffer;
-   *bits_in_buffer += size;
-   if (*bits_in_buffer >= 32) {
-      if (do_write)
-         **dest = *buffer & 0xffffffff;
-      *dest += 1;
-      *buffer >>= 32;
-      *bits_in_buffer -= 32;
+   if (!size)
+      return;
+   bitstream->buffer |= (uint64_t)value << bitstream->bits_in_buffer;
+   bitstream->bits_in_buffer += size;
+   if (bitstream->bits_in_buffer >= 32) {
+      if (bitstream->do_write)
+         **bitstream->map = bitstream->buffer & 0xffffffff;
+      *bitstream->map += 1;
+      bitstream->buffer >>= 32;
+      bitstream->bits_in_buffer -= 32;
    }
 }
 
+static void
+flush_bits(struct bitstream *bitstream)
+{
+   if (bitstream->bits_in_buffer > 0)
+      append_bits(0, 32 - bitstream->bits_in_buffer, bitstream);
+}
+
 struct wb_stream {
+   struct bitstream bitstream;
    unsigned zero_point;
    unsigned zrl_bits;
-   unsigned *bits_in_buffer;
-   uint64_t *buffer;
-   uint32_t **map;
-   bool do_write;
-
    unsigned accum_zeroes;
 };
 
 static void
 wb_stream_flush_zeroes(struct wb_stream *wb_stream)
 {
+   struct bitstream *bitstream = &wb_stream->bitstream;
+
    if (wb_stream->accum_zeroes == 0)
       return;
 
-   append_bits(wb_stream->accum_zeroes - 1, wb_stream->zrl_bits, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(wb_stream->accum_zeroes - 1, wb_stream->zrl_bits, bitstream);
    wb_stream->accum_zeroes = 0;
-   append_bits(wb_stream->zero_point, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(wb_stream->zero_point, 8, bitstream);
 }
 
 static void
 wb_stream_write(struct wb_stream *wb_stream, unsigned value)
 {
+   struct bitstream *bitstream = &wb_stream->bitstream;
    unsigned max_zeroes = (1 << wb_stream->zrl_bits) - 1;
 
    if (wb_stream->zrl_bits == 0) {
-      append_bits(value, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+      append_bits(value, 8, bitstream);
       return;
    }
 
    if (wb_stream->accum_zeroes == max_zeroes) {
-      append_bits(max_zeroes, wb_stream->zrl_bits, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+      append_bits(max_zeroes, wb_stream->zrl_bits, bitstream);
       wb_stream->accum_zeroes = 0;
-      append_bits(value, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+      append_bits(value, 8, bitstream);
       return;
    }
 
@@ -957,9 +971,9 @@ wb_stream_write(struct wb_stream *wb_stream, unsigned value)
       return;
    }
 
-   append_bits(wb_stream->accum_zeroes, wb_stream->zrl_bits, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(wb_stream->accum_zeroes, wb_stream->zrl_bits, bitstream);
    wb_stream->accum_zeroes = 0;
-   append_bits(value, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(value, 8, bitstream);
 }
 
 static unsigned
@@ -979,21 +993,18 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
    uint8_t *weights_maps[DIV_ROUND_UP(kernels_per_core, superblocks)];
    uint32_t *initial_ptr = map;
    bool do_write = initial_ptr != NULL;
-   uint64_t buffer = 0;
-   unsigned bits_in_buffer = 0;
    struct wb_stream wb_stream = {
       .zero_point = operation->weight_zero_point,
       .zrl_bits = zrl_bits,
-      .bits_in_buffer = &bits_in_buffer,
-      .buffer = &buffer,
-      .map = &map,
-      .do_write = do_write,
+      .bitstream.map = &map,
+      .bitstream.do_write = do_write,
    };
+   struct bitstream *bitstream = &wb_stream.bitstream;
 
    ML_DBG("%s core %d zrl_bits %d\n", __func__, core, zrl_bits);
 
-   append_bits(zrl_bits, 8, &bits_in_buffer, &buffer, &map, do_write);
-   append_bits(kernels_per_core, 16, &bits_in_buffer, &buffer, &map, do_write);
+   append_bits(zrl_bits, 8, bitstream);
+   append_bits(kernels_per_core, 16, bitstream);
 
    for (unsigned superblock = 0; superblock < superblocks; superblock++) {
 
@@ -1015,7 +1026,7 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
 
                uint32_t corr = calculate_bias_correction(weights_maps[kernel], operation);
                wb_stream_flush_zeroes(&wb_stream);
-               append_bits(biases[out_channel] - corr, 32, &bits_in_buffer, &buffer, &map, do_write);
+               append_bits(biases[out_channel] - corr, 32, bitstream);
 
                for (int i = 1; i < stride; i++) {
                   wb_stream_write(&wb_stream, weights_maps[kernel][i]);
@@ -1028,7 +1039,7 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
             }
             if (block == DIV_ROUND_UP(input_channels, stride) - 1) {
                wb_stream_flush_zeroes(&wb_stream);
-               append_bits(out_values_per_channel * out_channel, 32, &bits_in_buffer, &buffer, &map, do_write);
+               append_bits(out_values_per_channel * out_channel, 32, bitstream);
             }
          }
       }
@@ -1036,8 +1047,7 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
 
    wb_stream_flush_zeroes(&wb_stream);
 
-   if (bits_in_buffer > 0)
-      append_bits(0, 32 - bits_in_buffer, &bits_in_buffer, &buffer, &map, do_write);
+   flush_bits(bitstream);
 
    return (uint8_t *)map - (uint8_t *)initial_ptr - 1;
 }
@@ -1058,21 +1068,18 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
    uint8_t (*weights_map)[input_channels][operation->weight_width][operation->weight_height] = (void *)input;
    uint32_t *initial_ptr = map;
    bool do_write = initial_ptr != NULL;
-   uint64_t buffer = 0;
-   unsigned bits_in_buffer = 0;
    struct wb_stream wb_stream = {
       .zero_point = operation->weight_zero_point,
       .zrl_bits = zrl_bits,
-      .bits_in_buffer = &bits_in_buffer,
-      .buffer = &buffer,
-      .map = &map,
-      .do_write = do_write,
+      .bitstream.map = &map,
+      .bitstream.do_write = do_write,
    };
+   struct bitstream *bitstream = &wb_stream.bitstream;
 
    ML_DBG("%s core %d zrl_bits %d map %p\n", __func__, core, zrl_bits, map);
 
-   append_bits(zrl_bits, 8, &bits_in_buffer, &buffer, &map, do_write);
-   append_bits(kernels_per_core, 16, &bits_in_buffer, &buffer, &map, do_write);
+   append_bits(zrl_bits, 8, bitstream);
+   append_bits(kernels_per_core, 16, bitstream);
 
    for (unsigned superblock = 0; superblock < superblocks; superblock++) {
 
@@ -1096,7 +1103,7 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
                      if (x == 0 && y == 0 && z == 0) {
                         uint32_t corr = calculate_bias_correction((uint8_t *)weights_map[out_channel], operation);
                         wb_stream_flush_zeroes(&wb_stream);
-                        append_bits(biases[out_channel] - corr, 32, &bits_in_buffer, &buffer, &map, do_write);
+                        append_bits(biases[out_channel] - corr, 32, bitstream);
                      }
                   }
                }
@@ -1113,7 +1120,7 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
 
             if (z == input_channels - 1) {
                wb_stream_flush_zeroes(&wb_stream);
-               append_bits(out_values_per_channel * out_channel, 32, &bits_in_buffer, &buffer, &map, do_write);
+               append_bits(out_values_per_channel * out_channel, 32, bitstream);
             }
          }
          if (superblock == superblocks - 1)
@@ -1123,8 +1130,7 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
 
    wb_stream_flush_zeroes(&wb_stream);
 
-   if (bits_in_buffer > 0)
-      append_bits(0, 32 - bits_in_buffer, &bits_in_buffer, &buffer, &map, do_write);
+   flush_bits(bitstream);
 
    return (uint8_t *)map - (uint8_t *)initial_ptr;
 }
@@ -1143,21 +1149,18 @@ write_core_sequential(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned
    unsigned superblocks = calculate_tiling(etna_context(pctx), operation, NULL, NULL);
    uint32_t *initial_ptr = map;
    bool do_write = initial_ptr != NULL;
-   uint64_t buffer = 0;
-   unsigned bits_in_buffer = 0;
    struct wb_stream wb_stream = {
       .zero_point = operation->weight_zero_point,
       .zrl_bits = zrl_bits,
-      .bits_in_buffer = &bits_in_buffer,
-      .buffer = &buffer,
-      .map = &map,
-      .do_write = do_write,
+      .bitstream.map = &map,
+      .bitstream.do_write = do_write,
    };
+   struct bitstream *bitstream = &wb_stream.bitstream;
 
    ML_DBG("%s core %d zrl_bits %d superblocks %d\n", __func__, core, zrl_bits, superblocks);
 
-   append_bits(zrl_bits, 8, &bits_in_buffer, &buffer, &map, do_write);
-   append_bits(kernels_per_core, 16, &bits_in_buffer, &buffer, &map, do_write);
+   append_bits(zrl_bits, 8, bitstream);
+   append_bits(kernels_per_core, 16, bitstream);
 
    for (unsigned superblock = 0; superblock < superblocks; superblock++) {
 
@@ -1184,7 +1187,7 @@ write_core_sequential(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned
                   if (x == 0 && y == 0) {
                      uint32_t corr = calculate_bias_correction((uint8_t *)weights_map, operation);
                      wb_stream_flush_zeroes(&wb_stream);
-                     append_bits(biases[out_channel] - corr, 32, &bits_in_buffer, &buffer, &map, do_write);
+                     append_bits(biases[out_channel] - corr, 32, bitstream);
                   }
                }
             }
@@ -1201,16 +1204,15 @@ write_core_sequential(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned
          }
          wb_stream_flush_zeroes(&wb_stream);
          if (operation->addition)
-            append_bits(operation->addition_offset, 32, &bits_in_buffer, &buffer, &map, do_write);
+            append_bits(operation->addition_offset, 32, bitstream);
          else
-            append_bits(out_values_per_channel * out_channel, 32, &bits_in_buffer, &buffer, &map, do_write);
+            append_bits(out_values_per_channel * out_channel, 32, bitstream);
       }
    }
 
    wb_stream_flush_zeroes(&wb_stream);
 
-   if (bits_in_buffer > 0)
-      append_bits(0, 32 - bits_in_buffer, &bits_in_buffer, &buffer, &map, do_write);
+   flush_bits(bitstream);
 
    return (uint8_t *)map - (uint8_t *)initial_ptr - 1;
 }
