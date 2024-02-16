@@ -290,7 +290,7 @@ get_device_extensions(const struct tu_physical_device *device,
 #endif
       .EXT_texel_buffer_alignment = true,
       .EXT_tooling_info = true,
-      .EXT_transform_feedback = true,
+      .EXT_transform_feedback = !device->info->a6xx.is_a702,
       .EXT_vertex_attribute_divisor = true,
       .EXT_vertex_input_dynamic_state = true,
 
@@ -323,15 +323,15 @@ tu_get_features(struct tu_physical_device *pdevice,
    features->fullDrawIndexUint32 = true;
    features->imageCubeArray = true;
    features->independentBlend = true;
-   features->geometryShader = true;
-   features->tessellationShader = true;
+   features->geometryShader = !pdevice->info->a6xx.is_a702;
+   features->tessellationShader = !pdevice->info->a6xx.is_a702;
    features->sampleRateShading = true;
    features->dualSrcBlend = true;
    features->logicOp = true;
    features->multiDrawIndirect = true;
    features->drawIndirectFirstInstance = true;
    features->depthClamp = true;
-   features->depthBiasClamp = true;
+   features->depthBiasClamp = !pdevice->info->a6xx.is_a702;
    features->fillModeNonSolid = true;
    features->depthBounds = true;
    features->wideLines = pdevice->info->a6xx.line_width_max > 1.0;
@@ -452,7 +452,7 @@ tu_get_features(struct tu_physical_device *pdevice,
    features->indexTypeUint8 = true;
 
    /* VK_KHR_line_rasterization */
-   features->rectangularLines = true;
+   features->rectangularLines = !pdevice->info->a6xx.is_a702;
    features->bresenhamLines = true;
    features->smoothLines = false;
    features->stippledRectangularLines = false;
@@ -943,7 +943,7 @@ tu_get_properties(struct tu_physical_device *pdevice,
    props->subPixelInterpolationOffsetBits = 4;
    props->maxFramebufferWidth = (1 << 14);
    props->maxFramebufferHeight = (1 << 14);
-   props->maxFramebufferLayers = (1 << 10);
+   props->maxFramebufferLayers = (1 << (pdevice->info->a6xx.is_a702 ? 8 : 10));
    props->framebufferColorSampleCounts = sample_counts;
    props->framebufferDepthSampleCounts = sample_counts;
    props->framebufferStencilSampleCounts = sample_counts;

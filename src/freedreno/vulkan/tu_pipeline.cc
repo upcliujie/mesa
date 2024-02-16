@@ -3034,11 +3034,10 @@ tu6_rast_size(struct tu_device *dev,
               bool multiview,
               bool per_view_viewport)
 {
-   if (CHIP == A6XX) {
-      return 15 + (dev->physical_device->info->a6xx.has_shading_rate ? 8 : 0);
-   } else {
+   if (CHIP == A7XX || dev->physical_device->info->a6xx.is_a702)
       return 17;
-   }
+   else
+      return 15 + (dev->physical_device->info->a6xx.has_shading_rate ? 8 : 0);
 }
 
 template <chip CHIP>
@@ -3083,9 +3082,9 @@ tu6_emit_rast(struct tu_cs *cs,
    tu_cs_emit_regs(cs,
                    PC_POLYGON_MODE(CHIP, polygon_mode));
 
-   if (CHIP == A7XX) {
+   if (CHIP == A7XX || cs->device->physical_device->info->a6xx.is_a702) {
       tu_cs_emit_regs(cs,
-                     A7XX_VPC_POLYGON_MODE2(polygon_mode));
+                     A6XX_VPC_POLYGON_MODE2(polygon_mode));
    }
 
    tu_cs_emit_regs(cs, PC_RASTER_CNTL(CHIP,
