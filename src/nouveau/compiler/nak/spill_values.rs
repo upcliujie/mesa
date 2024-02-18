@@ -606,82 +606,6 @@ fn spill_values<S: Spill>(
                 Op::PhiSrcs(_) => {
                     // We handle phi sources later.  For now, leave them be.
                 }
-                Op::ParCopy(pcopy) => {
-                    let mut num_w_dsts = 0_u32;
-                    for (dst, src) in pcopy.dsts_srcs.iter_mut() {
-                        let dst_vec = dst.as_ssa().unwrap();
-                        debug_assert!(dst_vec.comps() == 1);
-                        let dst_ssa = &dst_vec[0];
-
-                        debug_assert!(src.src_mod.is_none());
-                        let src_vec = src.src_ref.as_ssa().unwrap();
-                        debug_assert!(src_vec.comps() == 1);
-                        let src_ssa = &src_vec[0];
-
-                        debug_assert!(dst_ssa.file() == src_ssa.file());
-                        if src_ssa.file() != file {
-                            continue;
-                        }
-
-                        // If it's not resident, rewrite to just move from one
-                        // spill to another, assuming that copying in spill
-                        // space is efficient
-                        if b.w.contains(src_ssa) {
-                            num_w_dsts += 1;
-                        } else {
-                            debug_assert!(b.s.contains(src_ssa));
-                            b.s.insert(*dst_ssa);
-                            *src = spill.get_spill(*src_ssa).into();
-                            *dst = spill.get_spill(*dst_ssa).into();
-                        }
-                    }
-
-                    // We can now assume that a source is in W if and only if
-                    // the file matches.  Remove all killed sources from W.
-                    for (_, src) in pcopy.dsts_srcs.iter() {
-                        let src_ssa = &src.src_ref.as_ssa().unwrap()[0];
-                        if !bl.is_live_after_ip(src_ssa, ip) {
-                            b.w.remove(src_ssa);
-                        }
-                    }
-
-                    let rel_limit = limit - b.w.count(file);
-                    if num_w_dsts > rel_limit {
-                        let count = num_w_dsts - rel_limit;
-                        let count = count.try_into().unwrap();
-
-                        let mut spills = SpillChooser::new(bl, ip, count);
-                        for (dst, _) in pcopy.dsts_srcs.iter() {
-                            let dst_ssa = &dst.as_ssa().unwrap()[0];
-                            if dst_ssa.file() == file {
-                                spills.add_candidate(*dst_ssa);
-                            }
-                        }
-
-                        let spills: HashSet<SSAValue> =
-                            HashSet::from_iter(spills);
-
-                        for (dst, src) in pcopy.dsts_srcs.iter_mut() {
-                            let dst_ssa = &dst.as_ssa().unwrap()[0];
-                            let src_ssa = &src.src_ref.as_ssa().unwrap()[0];
-                            if spills.contains(dst_ssa) {
-                                if b.s.insert(*src_ssa) {
-                                    instrs.push(spill.spill(*src_ssa));
-                                }
-                                b.s.insert(*dst_ssa);
-                                *src = spill.get_spill(*src_ssa).into();
-                                *dst = spill.get_spill(*dst_ssa).into();
-                            }
-                        }
-                    }
-
-                    for (dst, _) in pcopy.dsts_srcs.iter() {
-                        let dst_ssa = &dst.as_ssa().unwrap()[0];
-                        if dst_ssa.file() == file {
-                            b.w.insert(*dst_ssa);
-                        }
-                    }
-                }
                 _ => {
                     // First compute fills even though those have to come
                     // after spills.
@@ -839,9 +763,6 @@ fn spill_values<S: Spill>(
 impl Function {
     /// Spill values from @file to fit within @limit registers
     ///
-    /// This pass assumes that the function is already in CSSA form.  See
-    /// @to_cssa for more details.
-    ///
     /// The algorithm implemented here is roughly based on "Register Spilling
     /// and Live-Range Splitting for SSA-Form Programs" by Braun and Hack.  The
     /// primary contributions of the Braun and Hack paper are the global
@@ -860,16 +781,18 @@ impl Function {
     /// the W and S from the end of each of the forward edge predecessor blocks.
     ///
     /// What Braun and Hack do not describe is how to handle phis and parallel
-    /// copies.  Because we assume the function is already in CSSA form, we can
-    /// use a fairly simple algorithm.  On the first pass, we ignore phi sources
-    /// and assign phi destinations based on W at the start of the block.  If
-    /// the phi destination is in W, we leave it alone.  If it is not in W, then
-    /// we allocate a new spill value and assign it to the phi destination.  In
-    /// a second pass, we handle phi sources based on the destination.  If the
-    /// destination is in W, we leave it alone.  If the destination is spilled,
-    /// we read from the spill value corresponding to the source, spilling first
-    /// if needed.  In the second pass, we also handle spilling across blocks as
-    /// needed for values that do not pass through a phi.
+    /// copies.  We use a fairly simple algorithm.  On the first pass, we ignore
+    /// phi sources and assign phi destinations based on W at the start of the
+    /// block.  If the phi destination is in W, we leave it alone.  If it is not
+    /// in W, then we allocate a new spill value and assign it to the phi
+    /// destination.  In a second pass, we handle phi sources based on the
+    /// destination.  If the destination is in W, we leave it alone.  If the
+    /// destination is spilled, we read from the spill value corresponding to
+    /// the source, spilling first if needed.  This means that two phi sources
+    /// with the same SSA value may end up reading different things, one from
+    /// the SSA value and one from the spilled version.  In the second pass, we
+    /// also handle spilling across blocks as needed for values that do not pass
+    /// through a phi.
     ///
     /// A special case is also required for parallel copies because they can
     /// have an unbounded number of destinations.  For any source values not in

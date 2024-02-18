@@ -993,43 +993,6 @@ impl AssignRegsBlock {
                     Some(instr)
                 }
             }
-            Op::ParCopy(pcopy) => {
-                for (_, src) in pcopy.dsts_srcs.iter_mut() {
-                    if let SrcRef::SSA(src_vec) = src.src_ref {
-                        debug_assert!(src_vec.comps() == 1);
-                        let src_ssa = &src_vec[0];
-                        src.src_ref = self.get_scalar(*src_ssa).into();
-                    }
-                }
-
-                self.ra.free_killed(srcs_killed);
-
-                // Try to coalesce destinations into sources, if possible
-                pcopy.dsts_srcs.retain(|dst, src| match dst {
-                    Dst::None => false,
-                    Dst::SSA(dst_vec) => {
-                        debug_assert!(dst_vec.comps() == 1);
-                        !self.try_coalesce(dst_vec[0], src)
-                    }
-                    Dst::Reg(_) => true,
-                });
-
-                for (dst, _) in pcopy.dsts_srcs.iter_mut() {
-                    if let Dst::SSA(dst_vec) = dst {
-                        debug_assert!(dst_vec.comps() == 1);
-                        *dst = self.alloc_scalar(ip, sum, dst_vec[0]).into();
-                    }
-                }
-
-                self.ra.free_killed(dsts_killed);
-
-                pcopy.tmp = self.pcopy_tmp();
-                if pcopy.is_empty() {
-                    None
-                } else {
-                    Some(instr)
-                }
-            }
             Op::FSOut(out) => {
                 for src in out.srcs.iter_mut() {
                     if let SrcRef::SSA(src_vec) = src.src_ref {
@@ -1183,9 +1146,6 @@ impl Shader {
     pub fn assign_regs(&mut self) {
         assert!(self.functions.len() == 1);
         let f = &mut self.functions[0];
-
-        // Convert to CSSA before we spill or assign registers
-        f.to_cssa();
 
         let mut live = SimpleLiveness::for_function(f);
         let mut max_live = live.calc_max_live(f);
