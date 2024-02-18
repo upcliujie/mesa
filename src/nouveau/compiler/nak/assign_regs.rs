@@ -1,6 +1,7 @@
 // Copyright © 2022 Collabora, Ltd.
 // SPDX-License-Identifier: MIT
 
+use crate::api::{GetDebugFlags, DEBUG};
 use crate::bitset::BitSet;
 use crate::ir::*;
 use crate::liveness::{BlockLiveness, Liveness, SimpleLiveness};
@@ -1214,7 +1215,22 @@ impl Shader {
         let mut gpr_limit = max(max_live[RegFile::GPR], 16);
         let mut total_gprs = gpr_limit + u32::from(tmp_gprs);
 
-        let max_gprs = RegFile::GPR.num_regs(self.info.sm);
+        let max_gprs = if DEBUG.spill() {
+            let fs_out_regs =
+                if let ShaderIoInfo::Fragment(info) = &self.info.io {
+                    info.writes_color.count_ones()
+                        + (info.writes_depth as u32)
+                        + (info.writes_sample_mask as u32)
+                } else {
+                    0
+                };
+
+            // We need at least 16 registers to satisfy RA constraints for
+            // texture ops and another 2 for parallel copy lowering
+            max(16, fs_out_regs) + 2
+        } else {
+            RegFile::GPR.num_regs(self.info.sm)
+        };
         if total_gprs > max_gprs {
             // If we're spilling GPRs, we need to reserve 2 GPRs for OpParCopy
             // lowering because it needs to be able lower Mem copies which

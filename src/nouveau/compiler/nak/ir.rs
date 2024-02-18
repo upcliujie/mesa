@@ -6,7 +6,6 @@ extern crate nak_ir_proc;
 
 use bitview::BitMutView;
 
-use crate::api::{GetDebugFlags, DEBUG};
 pub use crate::builder::{Builder, InstrBuilder, SSABuilder, SSAInstrBuilder};
 use crate::cfg::CFG;
 use crate::sph::{OutputTopology, PixelImap};
@@ -132,11 +131,7 @@ impl RegFile {
     pub fn num_regs(&self, sm: u8) -> u32 {
         match self {
             RegFile::GPR => {
-                if DEBUG.spill() {
-                    // We need at least 16 registers to satisfy RA constraints
-                    // for texture ops and another 2 for parallel copy lowering
-                    18
-                } else if sm >= 70 {
+                if sm >= 70 {
                     // Volta+ has a maximum of 253 registers.  Presumably
                     // because two registers get burned for UGPRs? Unclear
                     // on why we need it on Volta though.
