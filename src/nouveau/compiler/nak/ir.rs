@@ -4602,7 +4602,7 @@ impl SrcsAsSlice for OpPhiSrcs {
     }
 
     fn src_types(&self) -> SrcTypeList {
-        SrcTypeList::Uniform(SrcType::GPR)
+        SrcTypeList::Uniform(SrcType::SSA)
     }
 }
 
