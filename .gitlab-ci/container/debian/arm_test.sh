@@ -23,6 +23,7 @@ DEPS=(
     python3-serial
     rsync
     snmp
+    sysbench
     zstd
 )
 
