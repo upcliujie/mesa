@@ -183,6 +183,17 @@ libintel_compiler = static_library(
   build_by_default : false,
 )
 
+libintel_compiler_test = static_library(
+  'intel_compiler_test',
+  [libintel_compiler_files, intel_nir_files, brw_nir_trig, ir_expression_operation_h, [brw_device_sha1_gen_src]],
+  include_directories : [inc_include, inc_src, inc_intel],
+  c_args : [no_override_init_args, '-DTEST_COMPILER_KEY'],
+  cpp_args : [no_override_init_args, '-DTEST_COMPILER_KEY'],
+  gnu_symbol_visibility : 'hidden',
+  dependencies : [idep_nir_headers, idep_mesautil, idep_intel_dev],
+  build_by_default : false,
+)
+
 # For now this tool is only going to be used by Anv
 if get_option('intel-clc') == 'system'
   prog_intel_clc = find_program('intel_clc', native : true)
@@ -234,6 +245,14 @@ if with_tests
     ),
     suite : ['intel'],
     protocol : 'gtest',
+  )
+
+  test_compiler_hash = executable(
+    'test_compiler_hash',
+    ['test_compiler_hash.c'],
+    link_with : [libintel_compiler_test],
+    dependencies : [idep_intel_dev],
+    install : false,
   )
 endif
 

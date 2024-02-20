@@ -162,5 +162,15 @@ def main():
         sys.exit(1)
     outf.close()
 
+    if len(sys.argv) > 2:
+        outf = open(sys.argv[2], 'w', encoding='utf-8')
+        devinfo = TYPES_BY_NAME["intel_device_info"]
+        for index in range(len(devinfo.members), 0, -1):
+            if not devinfo.members[index - 1].compiler_field:
+                del devinfo.members[index - 1]
+        outf.write(Template(template).render(format_enum_value=format_enum_value,
+                                             format_struct_member=format_struct_member,
+                                             format_define=format_define))
+    outf.close()
 if __name__ == "__main__":
     main()

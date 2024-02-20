@@ -43,7 +43,7 @@ intel_dev_wa_src = custom_target('intel_wa.[ch]',
 intel_dev_info_gen_src = custom_target('intel_device_info_gen.h',
                                        input : 'intel_device_info_gen_h.py',
                                        depend_files: 'intel_device_info.py',
-                                       output : ['intel_device_info_gen.h'],
+                                       output : ['intel_device_info_gen.h', 'intel_device_info_gen_compiler.h'],
                                        command : [prog_python, '@INPUT@', '@OUTPUT@'])
 
 intel_dev_serialize_src = custom_target('intel_device_info_serialize_gen.c',
