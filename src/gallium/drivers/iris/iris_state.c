@@ -1711,6 +1711,7 @@ iris_bind_blend_state(struct pipe_context *ctx, void *state)
 
    ice->state.cso_blend = cso;
 
+   ice->state.dirty |= IRIS_DIRTY_WM;
    ice->state.dirty |= IRIS_DIRTY_PS_BLEND;
    ice->state.dirty |= IRIS_DIRTY_BLEND_STATE;
    ice->state.stage_dirty |= ice->state.stage_dirty_for_nos[IRIS_NOS_BLEND];
@@ -1891,7 +1892,7 @@ iris_bind_zsa_state(struct pipe_context *ctx, void *state)
          ice->state.dirty |= IRIS_DIRTY_COLOR_CALC_STATE;
 
       if (cso_changed(alpha_enabled))
-         ice->state.dirty |= IRIS_DIRTY_PS_BLEND | IRIS_DIRTY_BLEND_STATE;
+         ice->state.dirty |= IRIS_DIRTY_WM | IRIS_DIRTY_PS_BLEND | IRIS_DIRTY_BLEND_STATE;
 
       if (cso_changed(alpha_func))
          ice->state.dirty |= IRIS_DIRTY_BLEND_STATE;
@@ -7515,6 +7516,8 @@ iris_upload_dirty_render_state(struct iris_context *ice,
 
    if (dirty & IRIS_DIRTY_WM) {
       struct iris_rasterizer_state *cso = ice->state.cso_rast;
+      struct iris_blend_state *cso_blend = ice->state.cso_blend;
+      struct iris_depth_stencil_alpha_state *cso_zsa = ice->state.cso_zsa;
       uint32_t dynamic_wm[GENX(3DSTATE_WM_length)];
 
       iris_pack_command(GENX(3DSTATE_WM), &dynamic_wm, wm) {
@@ -7530,8 +7533,31 @@ iris_upload_dirty_render_state(struct iris_context *ice,
          else
             wm.EarlyDepthStencilControl = EDSC_NORMAL;
 
-         /* We could skip this bit if color writes are enabled. */
-         if (wm_prog_data->has_side_effects || wm_prog_data->uses_kill)
+         /* Gen8+ hardware tries to compute ThreadDispatchEnable for us but
+          * doesn't take into account PixelShaderKillsPixel when no depth
+          * or stencil writes are enabled. In order for occlusion queries
+          * to work correctly with no attachments, we need to force-enable
+          * PS thread dispatch.
+          *
+          * Also, even though setting PixelShaderKillsPixel on Gen8+ is
+          * needed only for kill/discard, we know that at least Alpha Test
+          * is also not considered by the hardware. So it seems like we
+          * still have to calculate "PixelShaderKillsPixel" here as if
+          * we're on pre-Gen8 hardware.
+          *
+          * The BDW docs are pretty clear that this bit isn't validated
+          * and probably shouldn't be used in production:
+          *
+          *    "This must always be set to Normal. This field should not be
+          *    tested for functional validation."
+          *
+          * Unfortunately, however, the other mechanism we have for doing this
+          * is 3DSTATE_PS_EXTRA::PixelShaderHasUAV which causes hangs on BDW.
+          * Given two bad options, we choose the one which works.
+          */
+         if (wm_prog_data->has_side_effects || wm_prog_data->uses_kill ||
+             wm_prog_data->uses_omask || cso_blend->alpha_to_coverage ||
+             (cso_zsa->alpha_enabled && ice->state.occlusion_query_active))
             wm.ForceThreadDispatchEnable = ForceON;
       }
       iris_emit_merge(batch, cso->wm, dynamic_wm, ARRAY_SIZE(cso->wm));

@@ -7343,8 +7343,33 @@ crocus_upload_dirty_render_state(struct crocus_context *ice,
            wm.EarlyDepthStencilControl = EDSC_PSEXEC;
 #endif
 #if GFX_VER == 8
-         /* We could skip this bit if color writes are enabled. */
-         if (wm_prog_data->has_side_effects || wm_prog_data->uses_kill)
+         /* Gen8+ hardware tries to compute ThreadDispatchEnable for us but
+          * doesn't take into account PixelShaderKillsPixel when no depth
+          * or stencil writes are enabled. In order for occlusion queries
+          * to work correctly with no attachments, we need to force-enable
+          * PS thread dispatch.
+          *
+          * Also, even though setting PixelShaderKillsPixel on Gen8+ is
+          * needed only for kill/discard, we know that at least Alpha Test
+          * is also not considered by the hardware. So it seems like we
+          * still have to calculate "PixelShaderKillsPixel" here as if
+          * we're on pre-Gen8 hardware.
+          *
+          * The BDW docs are pretty clear that this bit isn't validated
+          * and probably shouldn't be used in production:
+          *
+          *    "This must always be set to Normal. This field should not be
+          *    tested for functional validation."
+          *
+          * Unfortunately, however, the other mechanism we have for doing this
+          * is 3DSTATE_PS_EXTRA::PixelShaderHasUAV which causes hangs on BDW.
+          * Given two bad options, we choose the one which works.
+          */
+         if (wm_prog_data->has_side_effects || wm_prog_data->uses_kill ||
+             wm_prog_data->uses_omask ||
+             ice->state.cso_blend->cso.alpha_to_coverage ||
+             (ice->state.cso_zsa->cso.alpha_enabled &&
+              ice->state.statistics_counters_enabled))
             wm.ForceThreadDispatchEnable = ForceON;
 #endif
       };
