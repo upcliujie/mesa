@@ -14,6 +14,8 @@ INSTALL="$PWD/install"
 export LD_LIBRARY_PATH="$INSTALL/lib/"
 export EGL_PLATFORM=surfaceless
 export VK_ICD_FILENAMES="$INSTALL/share/vulkan/icd.d/${VK_DRIVER}_icd.${VK_CPU:-$(uname -m)}.json"
+export ZINK_DEBUG=${ZINK_DEBUG/validation}
+export ZINK_DEBUG=${ZINK_DEBUG/vvl}
 
 RESULTS=$PWD/${PIGLIT_RESULTS_DIR:-results}
 mkdir -p $RESULTS
