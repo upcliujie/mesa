@@ -48,6 +48,12 @@ template = COPYRIGHT + """
 #include "compiler/shader_enums.h"
 #include "intel/dev/intel_wa.h"
 
+#ifdef BUILDING_INTEL_COMPILER
+#define M(X) _not_for_compiler ## X
+#else
+#define M(X) X
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -67,7 +73,7 @@ ${format_enum_value(value)}
 struct ${decl.name}
 {
 % for member in decl.members:
-${format_struct_member(member)}
+${format_struct_member(member, decl.name=="intel_device_info")}
 % endfor
 % if decl.name == "intel_device_info":
    BITSET_DECLARE(workarounds, INTEL_WA_NUM);
@@ -79,6 +85,8 @@ ${format_struct_member(member)}
 #ifdef __cplusplus
 }
 #endif
+
+#undef M
 
 #endif /* INTEL_DEVICE_INFO_GEN_H */
 """
@@ -115,7 +123,7 @@ def format_define(v):
         comment = f" /* {v.comment} */"
     return f"#define {v.name} ({v.value}){comment}"
 
-def format_struct_member(m):
+def format_struct_member(m, exclude_noncompiler_fields=False):
     """
     Routine to format the printing of a struct member.  Mako templates are not
     helpful in formatting the following aspects of intel_device_info structs:
@@ -141,7 +149,10 @@ def format_struct_member(m):
             member_type = f"enum {member_type}"
         else:
             member_type = f"struct {member_type}"
-    return indent(f"{comment}{member_type} {m.name}{array};", "   ")
+
+    if not exclude_noncompiler_fields or m.compiler_field:
+        return indent(f"{comment}{member_type} {m.name}{array};", "   ")
+    return indent(f"{comment}{member_type} M({m.name}{array});", "   ")
 
 def main():
     """print intel_device_info_gen.h at the specified path"""
@@ -162,15 +173,5 @@ def main():
         sys.exit(1)
     outf.close()
 
-    if len(sys.argv) > 2:
-        outf = open(sys.argv[2], 'w', encoding='utf-8')
-        devinfo = TYPES_BY_NAME["intel_device_info"]
-        for index in range(len(devinfo.members), 0, -1):
-            if not devinfo.members[index - 1].compiler_field:
-                del devinfo.members[index - 1]
-        outf.write(Template(template).render(format_enum_value=format_enum_value,
-                                             format_struct_member=format_struct_member,
-                                             format_define=format_define))
-    outf.close()
 if __name__ == "__main__":
     main()

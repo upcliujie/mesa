@@ -34,12 +34,7 @@
 #include "intel_kmd.h"
 
 #include "intel/dev/intel_wa.h"
-
-#ifdef TEST_COMPILER_KEY
-#include "intel/dev/intel_device_info_gen_compiler.h"
-#else
 #include "intel/dev/intel_device_info_gen.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,7 +84,7 @@ extern "C" {
 
 #endif
 
-#ifndef TEST_COMPILER_KEY
+#ifndef BUILDING_INTEL_COMPILER
 
 static inline bool
 intel_device_info_slice_available(const struct intel_device_info *devinfo,
