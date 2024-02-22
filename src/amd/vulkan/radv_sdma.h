@@ -95,6 +95,7 @@ void radv_sdma_copy_buffer(const struct radv_device *device, struct radeon_cmdbu
                            uint64_t size);
 void radv_sdma_fill_buffer(const struct radv_device *device, struct radeon_cmdbuf *cs, const uint64_t va,
                            const uint64_t size, const uint32_t value);
+bool radv_sdma_supports_image(const struct radv_device *device, const struct radv_image *image);
 
 #ifdef __cplusplus
 }

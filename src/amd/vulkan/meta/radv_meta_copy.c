@@ -101,6 +101,10 @@ transfer_copy_buffer_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffe
    radv_cs_add_buffer(device->ws, cs, image->bindings[binding_idx].bo);
    radv_cs_add_buffer(device->ws, cs, buffer->bo);
 
+   if (!radv_sdma_supports_image(device, image)) {
+      return;
+   }
+
    struct radv_sdma_surf buf = radv_sdma_get_buf_surf(buffer, image, region, aspect_mask);
    const struct radv_sdma_surf img =
       radv_sdma_get_surf(device, image, region->imageSubresource, region->imageOffset, aspect_mask);
@@ -390,6 +394,10 @@ transfer_copy_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_i
    const struct radv_device *device = cmd_buffer->device;
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
    unsigned int dst_aspect_mask_remaining = region->dstSubresource.aspectMask;
+
+   if (!radv_sdma_supports_image(device, src_image) || !radv_sdma_supports_image(device, dst_image)) {
+      return;
+   }
 
    u_foreach_bit (b, region->srcSubresource.aspectMask) {
       const VkImageAspectFlags src_aspect_mask = BITFIELD_BIT(b);
