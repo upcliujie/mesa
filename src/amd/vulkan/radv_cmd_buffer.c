@@ -830,6 +830,36 @@ radv_gang_finalize(struct radv_cmd_buffer *cmd_buffer)
    return device->ws->cs_finalize(ace_cs);
 }
 
+bool
+radv_init_follower_temp_cmdbuf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer *follower)
+{
+   if (!radv_gang_init(cmd_buffer))
+      return false;
+
+   if (radv_init_cmd_buffer(follower, cmd_buffer->vk.pool, RADV_QUEUE_COMPUTE) != VK_SUCCESS)
+      return false;
+
+   return true;
+}
+
+void
+radv_finish_follower_temp_cmdbuf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer *follower)
+{
+   /* Save the temp follower's upload BO to the original command buffer
+    * so that we keep until the original command buffer is used.
+    */
+   radv_cmd_buffer_prepend_upload_buf(cmd_buffer, &follower->upload);
+   follower->upload.upload_bo = NULL;
+
+   /* Copy the commands emitted to the temp follower's CS into
+    * the gang follower CS of the original cmd buffer.
+    */
+   cmd_buffer->device->ws->cs_finalize(follower->cs);
+   cmd_buffer->device->ws->cs_execute_secondary(cmd_buffer->gang.cs, follower->cs, false);
+
+   radv_free_cmd_buffer_resources(follower);
+}
+
 static void
 radv_cmd_buffer_after_draw(struct radv_cmd_buffer *cmd_buffer, enum radv_cmd_flush_bits flags, bool dgc)
 {

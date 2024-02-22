@@ -3153,6 +3153,8 @@ bool radv_flush_gang_follower_semaphore(struct radv_cmd_buffer *cmd_buffer);
 void radv_wait_gang_leader(struct radv_cmd_buffer *cmd_buffer);
 void radv_wait_gang_follower(struct radv_cmd_buffer *cmd_buffer);
 bool radv_gang_init(struct radv_cmd_buffer *cmd_buffer);
+bool radv_init_follower_temp_cmdbuf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer *follower);
+void radv_finish_follower_temp_cmdbuf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer *follower);
 
 void radv_memory_trace_init(struct radv_device *device);
 void radv_rmv_log_bo_allocate(struct radv_device *device, struct radeon_winsys_bo *bo, uint32_t size, bool is_internal);
