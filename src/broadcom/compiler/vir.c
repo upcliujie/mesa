@@ -595,13 +595,7 @@ type_size_vec4(const struct glsl_type *type, bool bindless)
 static enum nir_lower_tex_packing
 lower_tex_packing_cb(const nir_tex_instr *tex, const void *data)
 {
-   struct v3d_compile *c = (struct v3d_compile *) data;
-
-   int sampler_index = nir_tex_instr_need_sampler(tex) ?
-      tex->sampler_index : tex->backend_flags;
-
-   assert(sampler_index < c->key->num_samplers_used);
-   return c->key->sampler[sampler_index].return_size == 16 ?
+   return tex->backend_flags == V3D_TEX_PRECISION_16BIT ?
       nir_lower_tex_packing_16 : nir_lower_tex_packing_none;
 }
 
