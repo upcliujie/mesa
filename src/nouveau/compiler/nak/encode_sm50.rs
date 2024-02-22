@@ -1083,7 +1083,22 @@ impl SM50Instr {
     }
 
     fn encode_tex(&mut self, op: &OpTex) {
-        self.set_opcode(0xdeb8);
+        match op.tex {
+            TexRef::Bound(idx) => {
+                self.set_opcode(0x0380);
+                self.set_field(36..49, idx);
+                self.set_bit(54, op.offset);
+                self.set_tex_lod_mode(55..57, op.lod_mode);
+            }
+            TexRef::CBuf { .. } => {
+                panic!("CBuf doesn't have CBuf textures");
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0xdeb8);
+                self.set_bit(36, op.offset);
+                self.set_tex_lod_mode(37..39, op.lod_mode);
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         assert!(op.dsts[1].is_none());
@@ -1094,14 +1109,23 @@ impl SM50Instr {
         self.set_tex_dim(28..31, op.dim);
         self.set_field(31..35, op.mask);
         self.set_bit(35, false); // ToDo: NDV
-        self.set_bit(36, op.offset);
-        self.set_tex_lod_mode(37..39, op.lod_mode);
         self.set_bit(49, false); // TODO: .NODEP
         self.set_bit(50, op.z_cmpr);
     }
 
     fn encode_tld(&mut self, op: &OpTld) {
-        self.set_opcode(0xdd38);
+        match op.tex {
+            TexRef::Bound(idx) => {
+                self.set_opcode(0xdc38);
+                self.set_field(36..49, idx);
+            }
+            TexRef::CBuf { .. } => {
+                panic!("CBuf doesn't have CBuf textures");
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0xdd38);
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         assert!(op.dsts[1].is_none());
@@ -1122,7 +1146,27 @@ impl SM50Instr {
     }
 
     fn encode_tld4(&mut self, op: &OpTld4) {
-        self.set_opcode(0xdef8);
+        let offset_mode = match op.offset_mode {
+            Tld4OffsetMode::None => 0_u8,
+            Tld4OffsetMode::AddOffI => 1_u8,
+            Tld4OffsetMode::PerPx => 2_u8,
+        };
+        match op.tex {
+            TexRef::Bound(idx) => {
+                self.set_opcode(0xc838);
+                self.set_field(36..49, idx);
+                self.set_field(54..56, offset_mode);
+                self.set_field(56..58, op.comp);
+            }
+            TexRef::CBuf { .. } => {
+                panic!("CBuf doesn't have CBuf textures");
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0xdef8);
+                self.set_field(36..38, offset_mode);
+                self.set_field(38..40, op.comp);
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         assert!(op.dsts[1].is_none());
@@ -1133,21 +1177,23 @@ impl SM50Instr {
         self.set_tex_dim(28..31, op.dim);
         self.set_field(31..35, op.mask);
         self.set_bit(35, false); // ToDo: NDV
-        self.set_field(
-            36..38,
-            match op.offset_mode {
-                Tld4OffsetMode::None => 0_u8,
-                Tld4OffsetMode::AddOffI => 1_u8,
-                Tld4OffsetMode::PerPx => 2_u8,
-            },
-        );
-        self.set_field(38..40, op.comp);
         self.set_bit(49, false); // TODO: .NODEP
         self.set_bit(50, op.z_cmpr);
     }
 
     fn encode_tmml(&mut self, op: &OpTmml) {
-        self.set_opcode(0xdf60);
+        match op.tex {
+            TexRef::Bound(idx) => {
+                self.set_opcode(0xdf58);
+                self.set_field(36..49, idx);
+            }
+            TexRef::CBuf { .. } => {
+                panic!("CBuf doesn't have CBuf textures");
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0xdf60);
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         assert!(op.dsts[1].is_none());
@@ -1161,7 +1207,18 @@ impl SM50Instr {
     }
 
     fn encode_txd(&mut self, op: &OpTxd) {
-        self.set_opcode(0xde78);
+        match op.tex {
+            TexRef::Bound(idx) => {
+                self.set_opcode(0xde38);
+                self.set_field(36..49, idx);
+            }
+            TexRef::CBuf { .. } => {
+                panic!("CBuf doesn't have CBuf textures");
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0xde78);
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         assert!(op.dsts[1].is_none());
@@ -1176,7 +1233,18 @@ impl SM50Instr {
     }
 
     fn encode_txq(&mut self, op: &OpTxq) {
-        self.set_opcode(0xdf50);
+        match op.tex {
+            TexRef::Bound(idx) => {
+                self.set_opcode(0xdf48);
+                self.set_field(36..49, idx);
+            }
+            TexRef::CBuf { .. } => {
+                panic!("CBuf doesn't have CBuf textures");
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0xdf50);
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         assert!(op.dsts[1].is_none());
