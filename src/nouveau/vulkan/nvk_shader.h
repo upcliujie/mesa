@@ -118,6 +118,7 @@ nvk_physical_device_spirv_options(const struct nvk_physical_device *pdev,
 
 bool
 nvk_nir_lower_descriptors(nir_shader *nir,
+                          const struct nvk_physical_device *pdef,
                           const struct vk_pipeline_robustness_state *rs,
                           uint32_t set_layout_count,
                           struct vk_descriptor_set_layout * const *set_layouts,
