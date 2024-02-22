@@ -555,9 +555,7 @@ v3d_setup_shared_key(struct v3d_context *v3d, struct v3d_key *key,
 {
         const struct v3d_device_info *devinfo = &v3d->screen->devinfo;
 
-        key->num_tex_used = texstate->num_textures;
         key->num_samplers_used = texstate->num_textures;
-        assert(key->num_tex_used == key->num_samplers_used);
         for (int i = 0; i < texstate->num_textures; i++) {
                 struct pipe_sampler_view *sampler = texstate->textures[i];
 
@@ -576,13 +574,6 @@ v3d_setup_shared_key(struct v3d_context *v3d, struct v3d_key *key,
                 } else {
                         key->sampler[i].return_channels = 4;
                 }
-
-                /* We let the sampler state handle the swizzle.
-                 */
-                key->tex[i].swizzle[0] = PIPE_SWIZZLE_X;
-                key->tex[i].swizzle[1] = PIPE_SWIZZLE_Y;
-                key->tex[i].swizzle[2] = PIPE_SWIZZLE_Z;
-                key->tex[i].swizzle[3] = PIPE_SWIZZLE_W;
         }
 }
 
@@ -596,16 +587,10 @@ v3d_setup_shared_precompile_key(struct v3d_uncompiled_shader *uncompiled,
          * using the same index. On OpenGL they are the same (they are
          * combined)
          */
-        key->num_tex_used = s->info.num_textures;
         key->num_samplers_used = s->info.num_textures;
         for (int i = 0; i < s->info.num_textures; i++) {
                 key->sampler[i].return_size = 16;
                 key->sampler[i].return_channels = 2;
-
-                key->tex[i].swizzle[0] = PIPE_SWIZZLE_X;
-                key->tex[i].swizzle[1] = PIPE_SWIZZLE_Y;
-                key->tex[i].swizzle[2] = PIPE_SWIZZLE_Z;
-                key->tex[i].swizzle[3] = PIPE_SWIZZLE_W;
         }
 }
 
