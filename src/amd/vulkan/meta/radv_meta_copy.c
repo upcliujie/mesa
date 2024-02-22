@@ -91,7 +91,7 @@ alloc_transfer_temp_bo(struct radv_cmd_buffer *cmd_buffer)
 
 static void
 transfer_copy_buffer_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buffer, struct radv_image *image,
-                           const VkBufferImageCopy2 *region, bool to_image)
+                           const VkImageLayout layout, const VkBufferImageCopy2 *region, bool to_image)
 {
    const struct radv_device *device = cmd_buffer->device;
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
@@ -126,7 +126,7 @@ copy_buffer_to_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
                      VkImageLayout layout, const VkBufferImageCopy2 *region)
 {
    if (cmd_buffer->qf == RADV_QUEUE_TRANSFER) {
-      transfer_copy_buffer_image(cmd_buffer, buffer, image, region, true);
+      transfer_copy_buffer_image(cmd_buffer, buffer, image, layout, region, true);
       return;
    }
 
@@ -277,7 +277,7 @@ copy_image_to_buffer(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
 {
    struct radv_device *device = cmd_buffer->device;
    if (cmd_buffer->qf == RADV_QUEUE_TRANSFER) {
-      transfer_copy_buffer_image(cmd_buffer, buffer, image, region, false);
+      transfer_copy_buffer_image(cmd_buffer, buffer, image, layout, region, false);
       return;
    }
 
