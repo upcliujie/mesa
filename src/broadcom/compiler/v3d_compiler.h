@@ -68,6 +68,10 @@
  */
 #define MAX_UNIFA_SKIP_DISTANCE 16
 
+/* Texture sampling precision */
+#define V3D_TEX_PRECISION_32BIT 0
+#define V3D_TEX_PRECISION_16BIT 1
+
 struct nir_builder;
 
 struct v3d_fs_inputs {
@@ -400,12 +404,6 @@ static inline uint8_t v3d_slot_get_component(struct v3d_varying_slot slot)
 }
 
 struct v3d_key {
-        struct {
-                uint8_t return_size;
-                uint8_t return_channels;
-        } sampler[V3D_MAX_TEXTURE_SAMPLERS];
-
-        uint8_t num_samplers_used;
         uint8_t ucp_enables;
         bool is_last_geometry_stage;
         bool robust_uniform_access;

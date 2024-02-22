@@ -467,7 +467,6 @@ descriptor_map_add(struct v3dv_descriptor_map *map,
 struct lower_pipeline_layout_state {
    struct v3dv_pipeline *pipeline;
    const struct v3dv_pipeline_layout *layout;
-   bool needs_default_sampler_state;
 };
 
 
@@ -729,14 +728,8 @@ lower_sampler(nir_builder *b,
    if (texture_idx < 0 && sampler_idx < 0)
       return false;
 
-   /* If the instruction doesn't have a sampler (i.e. txf) we use backend_flags
-    * to bind a default sampler state to configure precission.
-    */
-   if (sampler_idx < 0) {
-      state->needs_default_sampler_state = true;
-      instr->backend_flags = return_size == 16 ?
-         V3DV_NO_SAMPLER_16BIT_IDX : V3DV_NO_SAMPLER_32BIT_IDX;
-   }
+   instr->backend_flags = return_size == 16 ? V3D_TEX_PRECISION_16BIT :
+                                              V3D_TEX_PRECISION_32BIT;
 
    return true;
 }
@@ -879,22 +872,18 @@ lower_pipeline_layout_cb(nir_builder *b,
 static bool
 lower_pipeline_layout_info(nir_shader *shader,
                            struct v3dv_pipeline *pipeline,
-                           const struct v3dv_pipeline_layout *layout,
-                           bool *needs_default_sampler_state)
+                           const struct v3dv_pipeline_layout *layout)
 {
    bool progress = false;
 
    struct lower_pipeline_layout_state state = {
       .pipeline = pipeline,
       .layout = layout,
-      .needs_default_sampler_state = false,
    };
 
    progress = nir_shader_instructions_pass(shader, lower_pipeline_layout_cb,
                                            nir_metadata_control_flow,
                                            &state);
-
-   *needs_default_sampler_state = state.needs_default_sampler_state;
 
    return progress;
 }
@@ -990,23 +979,6 @@ pipeline_populate_v3d_key(struct v3d_key *key,
 {
    assert(p_stage->pipeline->shared_data &&
           p_stage->pipeline->shared_data->maps[p_stage->stage]);
-
-   /* The following values are default values used at pipeline create. We use
-    * there 32 bit as default return size.
-    */
-   struct v3dv_descriptor_map *sampler_map =
-      &p_stage->pipeline->shared_data->maps[p_stage->stage]->sampler_map;
-
-   key->num_samplers_used = sampler_map->num_desc;
-   assert(key->num_samplers_used <= V3D_MAX_TEXTURE_SAMPLERS);
-   for (uint32_t sampler_idx = 0; sampler_idx < sampler_map->num_desc;
-        sampler_idx++) {
-      key->sampler[sampler_idx].return_size =
-         sampler_map->return_size[sampler_idx];
-
-      key->sampler[sampler_idx].return_channels =
-         key->sampler[sampler_idx].return_size == 32 ? 4 : 2;
-   }
 
    switch (p_stage->stage) {
    case BROADCOM_SHADER_VERTEX:
@@ -1762,34 +1734,8 @@ pipeline_lower_nir(struct v3dv_pipeline *pipeline,
 
    nir_shader_gather_info(p_stage->nir, nir_shader_get_entrypoint(p_stage->nir));
 
-   /* We add this because we need a valid sampler for nir_lower_tex to do
-    * unpacking of the texture operation result, even for the case where there
-    * is no sampler state.
-    *
-    * We add two of those, one for the case we need a 16bit return_size, and
-    * another for the case we need a 32bit return size.
-    */
-   struct v3dv_descriptor_maps *maps =
-      pipeline->shared_data->maps[p_stage->stage];
-
-   UNUSED unsigned index;
-   index = descriptor_map_add(&maps->sampler_map, -1, -1, -1, 0, 0, 16, 0);
-   assert(index == V3DV_NO_SAMPLER_16BIT_IDX);
-
-   index = descriptor_map_add(&maps->sampler_map, -2, -2, -2, 0, 0, 32, 0);
-   assert(index == V3DV_NO_SAMPLER_32BIT_IDX);
-
    /* Apply the actual pipeline layout to UBOs, SSBOs, and textures */
-   bool needs_default_sampler_state = false;
-   NIR_PASS(_, p_stage->nir, lower_pipeline_layout_info, pipeline, layout,
-            &needs_default_sampler_state);
-
-   /* If in the end we didn't need to use the default sampler states and the
-    * shader doesn't need any other samplers, get rid of them so we can
-    * recognize that this program doesn't use any samplers at all.
-    */
-   if (!needs_default_sampler_state && maps->sampler_map.num_desc == 2)
-      maps->sampler_map.num_desc = 0;
+   NIR_PASS(_, p_stage->nir, lower_pipeline_layout_info, pipeline, layout);
 
    p_stage->feedback.duration += os_time_get_nano() - stage_start;
 }
