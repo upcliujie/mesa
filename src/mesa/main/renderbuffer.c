@@ -652,9 +652,9 @@ _mesa_update_renderbuffer_surface(struct gl_context *ctx,
       surf_tmpl.u.tex.last_layer = last_layer;
 
       /* create -> destroy to avoid blowing up cached surfaces */
-      struct pipe_surface *surf = pipe->create_surface(pipe, resource, &surf_tmpl);
+      struct pipe_surface *new_surf = pipe->create_surface(pipe, resource, &surf_tmpl);
       pipe_surface_release(pipe, psurf);
-      *psurf = surf;
+      *psurf = new_surf;
    }
    rb->surface = *psurf;
 }

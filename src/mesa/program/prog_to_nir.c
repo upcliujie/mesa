@@ -791,10 +791,11 @@ setup_registers_and_variables(struct ptn_compile *c)
    }
 
    /* Create system value variables */
-   int i;
-   BITSET_FOREACH_SET(i, c->prog->info.system_values_read, SYSTEM_VALUE_MAX) {
-      c->sysval_vars[i] = nir_create_variable_with_location(b->shader, nir_var_system_value,
-                                                            i, glsl_vec4_type());
+   int sysval_index;
+   BITSET_FOREACH_SET(sysval_index, c->prog->info.system_values_read, SYSTEM_VALUE_MAX) {
+      c->sysval_vars[sysval_index] =
+         nir_create_variable_with_location(b->shader, nir_var_system_value,
+                                           sysval_index, glsl_vec4_type());
    }
 
    /* Create output registers and variables. */
