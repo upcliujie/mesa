@@ -321,10 +321,8 @@ radv_cmd_buffer_init_shader_part_cache(struct radv_device *device, struct radv_c
 }
 
 static void
-radv_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
+radv_free_cmd_buffer_resources(struct radv_cmd_buffer *cmd_buffer)
 {
-   struct radv_cmd_buffer *cmd_buffer = container_of(vk_cmd_buffer, struct radv_cmd_buffer, vk);
-
    if (cmd_buffer->qf != RADV_QUEUE_SPARSE) {
       util_dynarray_fini(&cmd_buffer->ray_history);
 
@@ -361,44 +359,42 @@ radv_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
    }
 
    vk_command_buffer_finish(&cmd_buffer->vk);
+}
+
+static void
+radv_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
+{
+   struct radv_cmd_buffer *cmd_buffer = container_of(vk_cmd_buffer, struct radv_cmd_buffer, vk);
+   radv_free_cmd_buffer_resources(cmd_buffer);
    vk_free(&cmd_buffer->vk.pool->alloc, cmd_buffer);
 }
 
 static VkResult
-radv_create_cmd_buffer(struct vk_command_pool *pool, struct vk_command_buffer **cmd_buffer_out)
+radv_init_cmd_buffer(struct radv_cmd_buffer *cmd_buffer, struct vk_command_pool *pool, const enum radv_queue_family qf)
 {
    struct radv_device *device = container_of(pool->base.device, struct radv_device, vk);
 
-   struct radv_cmd_buffer *cmd_buffer;
-   unsigned ring;
-   cmd_buffer = vk_zalloc(&pool->alloc, sizeof(*cmd_buffer), 8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (cmd_buffer == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
    VkResult result = vk_command_buffer_init(pool, &cmd_buffer->vk, &radv_cmd_buffer_ops, 0);
-   if (result != VK_SUCCESS) {
-      vk_free(&cmd_buffer->vk.pool->alloc, cmd_buffer);
+   if (result != VK_SUCCESS)
       return result;
-   }
 
    cmd_buffer->device = device;
+   cmd_buffer->qf = qf;
 
-   cmd_buffer->qf = vk_queue_to_radv(device->physical_device, pool->queue_family_index);
-
-   if (cmd_buffer->qf != RADV_QUEUE_SPARSE) {
+   if (qf != RADV_QUEUE_SPARSE) {
       list_inithead(&cmd_buffer->upload.list);
 
       if (!radv_cmd_buffer_init_shader_part_cache(device, cmd_buffer)) {
-         radv_destroy_cmd_buffer(&cmd_buffer->vk);
+         radv_free_cmd_buffer_resources(cmd_buffer);
          return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       }
 
-      ring = radv_queue_family_to_ring(device->physical_device, cmd_buffer->qf);
+      const unsigned ring = radv_queue_family_to_ring(device->physical_device, cmd_buffer->qf);
 
       cmd_buffer->cs =
          device->ws->cs_create(device->ws, ring, cmd_buffer->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY);
       if (!cmd_buffer->cs) {
-         radv_destroy_cmd_buffer(&cmd_buffer->vk);
+         radv_free_cmd_buffer_resources(cmd_buffer);
          return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
       }
 
@@ -410,8 +406,27 @@ radv_create_cmd_buffer(struct vk_command_pool *pool, struct vk_command_buffer **
       util_dynarray_init(&cmd_buffer->ray_history, NULL);
    }
 
-   *cmd_buffer_out = &cmd_buffer->vk;
+   return VK_SUCCESS;
+}
 
+static VkResult
+radv_create_cmd_buffer(struct vk_command_pool *pool, struct vk_command_buffer **cmd_buffer_out)
+{
+   struct radv_device *device = container_of(pool->base.device, struct radv_device, vk);
+
+   struct radv_cmd_buffer *cmd_buffer;
+   cmd_buffer = vk_zalloc(&pool->alloc, sizeof(*cmd_buffer), 8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (cmd_buffer == NULL)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   const enum radv_queue_family qf = vk_queue_to_radv(device->physical_device, pool->queue_family_index);
+   VkResult result = radv_init_cmd_buffer(cmd_buffer, pool, qf);
+   if (result != VK_SUCCESS) {
+      vk_free(&cmd_buffer->vk.pool->alloc, cmd_buffer);
+      return result;
+   }
+
+   *cmd_buffer_out = &cmd_buffer->vk;
    return VK_SUCCESS;
 }
 
