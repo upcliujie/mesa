@@ -499,11 +499,28 @@ const struct vk_command_buffer_ops radv_cmd_buffer_ops = {
 };
 
 static bool
+radv_cmd_buffer_prepend_upload_buf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer_upload *data)
+{
+   if (!data->upload_bo)
+      return true;
+
+   struct radv_cmd_buffer_upload *upload = malloc(sizeof(struct radv_cmd_buffer_upload));
+
+   if (!upload) {
+      vk_command_buffer_set_error(&cmd_buffer->vk, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return false;
+   }
+
+   memcpy(upload, data, sizeof(struct radv_cmd_buffer_upload));
+   list_add(&upload->list, &cmd_buffer->upload.list);
+   return true;
+}
+
+static bool
 radv_cmd_buffer_resize_upload_buf(struct radv_cmd_buffer *cmd_buffer, uint64_t min_needed)
 {
    uint64_t new_size;
    struct radeon_winsys_bo *bo = NULL;
-   struct radv_cmd_buffer_upload *upload;
    struct radv_device *device = cmd_buffer->device;
 
    new_size = MAX2(min_needed, 16 * 1024);
@@ -520,17 +537,9 @@ radv_cmd_buffer_resize_upload_buf(struct radv_cmd_buffer *cmd_buffer, uint64_t m
    }
 
    radv_cs_add_buffer(device->ws, cmd_buffer->cs, bo);
-   if (cmd_buffer->upload.upload_bo) {
-      upload = malloc(sizeof(*upload));
-
-      if (!upload) {
-         vk_command_buffer_set_error(&cmd_buffer->vk, VK_ERROR_OUT_OF_HOST_MEMORY);
-         device->ws->buffer_destroy(device->ws, bo);
-         return false;
-      }
-
-      memcpy(upload, &cmd_buffer->upload, sizeof(*upload));
-      list_add(&upload->list, &cmd_buffer->upload.list);
+   if (!radv_cmd_buffer_prepend_upload_buf(cmd_buffer, &cmd_buffer->upload)) {
+      device->ws->buffer_destroy(device->ws, bo);
+      return false;
    }
 
    cmd_buffer->upload.upload_bo = bo;
