@@ -216,6 +216,8 @@ typedef struct
    nir_variable *primitive_count_var;
    nir_variable *vertex_count_var;
 
+   /* True if the shader has waves that don't execute the API shader at all. */
+   bool has_non_api_waves;
    /* True if the lowering needs to insert the layer output. */
    bool insert_layer_output;
    /* True if cull flags are used */
@@ -4668,12 +4670,15 @@ handle_smaller_ms_api_workgroup(nir_builder *b,
     *    barrier on the extra waves.
     */
    assert(s->hw_workgroup_size % s->wave_size == 0);
-   bool scan_barriers = ALIGN(s->api_workgroup_size, s->wave_size) < s->hw_workgroup_size;
-   bool can_shrink_barriers = s->api_workgroup_size <= s->wave_size;
-   bool need_additional_barriers = scan_barriers && !can_shrink_barriers;
+   const unsigned num_api_waves = DIV_ROUND_UP(s->api_workgroup_size, s->wave_size);
+   const unsigned num_hw_waves = DIV_ROUND_UP(s->hw_workgroup_size, s->wave_size);
+   const bool scan_barriers = num_api_waves < num_hw_waves;
+   const bool can_shrink_barriers = s->api_workgroup_size <= s->wave_size;
 
-   unsigned api_waves_in_flight_addr = s->layout.lds.workgroup_info_addr + lds_ms_num_api_waves;
-   unsigned num_api_waves = DIV_ROUND_UP(s->api_workgroup_size, s->wave_size);
+   bool need_additional_barriers = scan_barriers && !can_shrink_barriers;
+   const unsigned api_waves_in_flight_addr = s->layout.lds.workgroup_info_addr + lds_ms_num_api_waves;
+
+   s->has_non_api_waves = scan_barriers;
 
    /* Scan the shader for workgroup barriers. */
    if (scan_barriers) {
