@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # shellcheck disable=SC1090
 # shellcheck disable=SC1091
 # shellcheck disable=SC2086 # we want word splitting
@@ -156,6 +156,17 @@ fi
 if [ -x /capture-devcoredump.sh ]; then
   /capture-devcoredump.sh &
   BACKGROUND_PIDS="$! $BACKGROUND_PIDS"
+fi
+
+# Smoke test, when doing kernel uprev, one test = 10s
+if [ -n "$HWCI_SMOKE_TEST" ]; then
+  echo "=============================================="
+  echo "KERNEL_TAG: $KERNEL_TAG"
+  echo "FORCE_KERNEL_TAG: $FORCE_KERNEL_TAG"
+  uname -r
+  sysbench cpu run --threads=$FDO_CI_CONCURRENT
+  sysbench memory run --threads=$FDO_CI_CONCURRENT
+  echo "=============================================="
 fi
 
 # If we want Xorg to be running for the test, then we start it up before the

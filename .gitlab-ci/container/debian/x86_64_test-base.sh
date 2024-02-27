@@ -93,6 +93,7 @@ DEPS=(
     python3-six
     python3-yaml
     socat
+    sysbench
     vulkan-tools
     waffle-utils
     xauth

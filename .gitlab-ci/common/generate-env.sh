@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 for var in \
     ACO_DEBUG \
@@ -65,6 +65,7 @@ for var in \
     HWCI_KVM \
     HWCI_START_WESTON \
     HWCI_START_XORG \
+    HWCI_SMOKE_TEST \
     HWCI_TEST_SCRIPT \
     IR3_SHADER_DEBUG \
     JOB_ARTIFACTS_BASE \

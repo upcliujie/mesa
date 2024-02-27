@@ -170,6 +170,7 @@ PKG_CI=(
   libasan8
   git
   python3-dev python3-pip python3-setuptools python3-wheel
+  sysbench # smoke test
   weston # Wayland
   xinit xserver-xorg-core xwayland # X11
 )
