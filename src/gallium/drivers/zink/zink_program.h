@@ -178,6 +178,8 @@ zink_gfx_program_reference(struct zink_screen *screen,
    struct zink_gfx_program *old_dst = dst ? *dst : NULL;
    bool ret = false;
 
+   if (old_dst)
+      printf("refcount is %i\n", old_dst->base.reference.count);
    if (pipe_reference_described(old_dst ? &old_dst->base.reference : NULL, &src->base.reference,
                                 (debug_reference_descriptor)debug_describe_zink_gfx_program)) {
       zink_destroy_gfx_program(screen, old_dst);

@@ -6241,17 +6241,23 @@ zink_shader_finalize(struct pipe_screen *pscreen, void *nirptr)
 void
 zink_shader_free(struct zink_screen *screen, struct zink_shader *shader)
 {
+   printf("freeing shader %p\n", shader);
    _mesa_set_destroy(shader->programs, NULL);
    util_queue_fence_wait(&shader->precompile.fence);
    util_queue_fence_destroy(&shader->precompile.fence);
    zink_descriptor_shader_deinit(screen, shader);
    if (screen->info.have_EXT_shader_object) {
       VKSCR(DestroyShaderEXT)(screen->dev, shader->precompile.obj.obj, NULL);
+      //TODO emulation obj?
    } else {
       if (shader->precompile.obj.mod)
          VKSCR(DestroyShaderModule)(screen->dev, shader->precompile.obj.mod, NULL);
+      if (shader->precompile.emulation_obj.mod)
+         VKSCR(DestroyShaderModule)(screen->dev, shader->precompile.emulation_obj.mod, NULL);
       if (shader->precompile.gpl)
          VKSCR(DestroyPipeline)(screen->dev, shader->precompile.gpl, NULL);
+      if (shader->precompile.emulation_gpl)
+         VKSCR(DestroyPipeline)(screen->dev, shader->precompile.emulation_gpl, NULL);
    }
    blob_finish(&shader->blob);
    ralloc_free(shader->spirv);
@@ -6262,10 +6268,12 @@ zink_shader_free(struct zink_screen *screen, struct zink_shader *shader)
 void
 zink_gfx_shader_free(struct zink_screen *screen, struct zink_shader *shader)
 {
+   printf("zink_gfx_shader_free\n");
    assert(shader->info.stage != MESA_SHADER_COMPUTE);
    util_queue_fence_wait(&shader->precompile.fence);
    set_foreach(shader->programs, entry) {
       struct zink_gfx_program *prog = (void*)entry->key;
+      printf("is uber %b\n", prog->is_uber_program);
       gl_shader_stage stage = shader->info.stage;
       assert(stage < ZINK_GFX_SHADER_COUNT);
       unsigned stages_present = prog->stages_present;
@@ -6324,7 +6332,11 @@ zink_gfx_shader_free(struct zink_screen *screen, struct zink_shader *shader)
           shader) {
          prog->shaders[MESA_SHADER_GEOMETRY] = NULL;
       }
-      zink_gfx_program_reference(screen, &prog, NULL);
+      /* variant programs are owned and destroyed by their parent */
+      if (!prog->is_variant_program) {
+         printf("dereffing prog %p shader %p\n", prog, shader);
+         zink_gfx_program_reference(screen, &prog, NULL);
+      }
    }
    if (shader->info.stage == MESA_SHADER_TESS_EVAL &&
        shader->non_fs.generated_tcs) {

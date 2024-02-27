@@ -3296,8 +3296,9 @@ zink_update_descriptor_refs(struct zink_context *ctx, bool compute)
                res->obj->unordered_read = false;
          }
       }
-      if (ctx->curr_program)
-         zink_batch_reference_program(batch, &ctx->curr_program->base);
+      // TODO should be curr_program_uber bu that crashes
+      if (ctx->curr_program_uber)
+         zink_batch_reference_program(batch, &ctx->curr_program_uber->base);
    }
    if (ctx->di.bindless_refs_dirty) {
       ctx->di.bindless_refs_dirty = false;
