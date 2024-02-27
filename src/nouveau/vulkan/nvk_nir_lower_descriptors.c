@@ -5,6 +5,7 @@
 #include "nvk_cmd_buffer.h"
 #include "nvk_descriptor_set.h"
 #include "nvk_descriptor_set_layout.h"
+#include "nvk_physical_device.h"
 #include "nvk_shader.h"
 
 #include "vk_pipeline.h"
@@ -58,6 +59,7 @@ compar_cbufs(const void *_a, const void *_b)
 }
 
 struct lower_descriptors_ctx {
+   bool use_nak;
    const struct nvk_descriptor_set_layout *set_layouts[NVK_MAX_SETS];
 
    bool clamp_desc_array_bounds;
@@ -965,7 +967,8 @@ lower_tex(nir_builder *b, nir_tex_instr *tex,
    }
 
    /* TODO: The nv50 back-end assumes it's 64-bit because of GL */
-   combined_handle = nir_u2u64(b, combined_handle);
+   if (!ctx->use_nak)
+      combined_handle = nir_u2u64(b, combined_handle);
 
    /* TODO: The nv50 back-end assumes it gets handles both places, even for
     * texelFetch.
@@ -1203,12 +1206,15 @@ lower_ssbo_descriptor_instr(nir_builder *b, nir_instr *instr,
 
 bool
 nvk_nir_lower_descriptors(nir_shader *nir,
+                          const struct nvk_physical_device *pdev,
                           const struct vk_pipeline_robustness_state *rs,
                           uint32_t set_layout_count,
                           struct vk_descriptor_set_layout * const *set_layouts,
                           struct nvk_cbuf_map *cbuf_map_out)
 {
    struct lower_descriptors_ctx ctx = {
+      .use_nak = (nvk_nak_stages(&pdev->info) &
+                  mesa_to_vk_shader_stage(nir->info.stage)) != 0,
       .clamp_desc_array_bounds =
          rs->storage_buffers != VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT ||
          rs->uniform_buffers != VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT ||

@@ -376,7 +376,7 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
       };
    }
 
-   NIR_PASS(_, nir, nvk_nir_lower_descriptors, rs,
+   NIR_PASS(_, nir, nvk_nir_lower_descriptors, pdev, rs,
             layout->set_count, layout->set_layouts, cbuf_map);
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_global,
             nir_address_format_64bit_global);

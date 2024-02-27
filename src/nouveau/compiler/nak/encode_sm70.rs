@@ -1108,6 +1108,14 @@ impl SM70Instr {
         self.set_pred_src(87..90, 90, op.srcs[0]);
     }
 
+    fn set_tex_cb_ref(&mut self, range: Range<usize>, cb: TexCBufRef) {
+        assert!(range.len() == 19);
+        let mut v = BitMutView::new_subset(self, range);
+        assert!(cb.offset % 4 == 0);
+        v.set_field(0..14, cb.offset / 4);
+        v.set_field(14..19, cb.idx);
+    }
+
     fn set_tex_dim(&mut self, range: Range<usize>, dim: TexDim) {
         assert!(range.len() == 3);
         self.set_field(
@@ -1140,8 +1148,19 @@ impl SM70Instr {
     }
 
     fn encode_tex(&mut self, op: &OpTex) {
-        self.set_opcode(0x361);
-        self.set_bit(59, true); // .B
+        match op.tex {
+            TexRef::Bound(_) => {
+                panic!("SM70+ doesn't have legacy bound textures");
+            }
+            TexRef::CBuf(cb) => {
+                self.set_opcode(0xb60);
+                self.set_tex_cb_ref(40..59, cb);
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0x361);
+                self.set_bit(59, true); // .B
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         if let Dst::Reg(reg) = op.dsts[1] {
@@ -1165,8 +1184,19 @@ impl SM70Instr {
     }
 
     fn encode_tld(&mut self, op: &OpTld) {
-        self.set_opcode(0x367);
-        self.set_bit(59, true); // .B
+        match op.tex {
+            TexRef::Bound(_) => {
+                panic!("SM70+ doesn't have legacy bound textures");
+            }
+            TexRef::CBuf(cb) => {
+                self.set_opcode(0xb66);
+                self.set_tex_cb_ref(40..59, cb);
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0x367);
+                self.set_bit(59, true); // .B
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         if let Dst::Reg(reg) = op.dsts[1] {
@@ -1193,8 +1223,19 @@ impl SM70Instr {
     }
 
     fn encode_tld4(&mut self, op: &OpTld4) {
-        self.set_opcode(0x364);
-        self.set_bit(59, true); // .B
+        match op.tex {
+            TexRef::Bound(_) => {
+                panic!("SM70+ doesn't have legacy bound textures");
+            }
+            TexRef::CBuf(cb) => {
+                self.set_opcode(0xb63);
+                self.set_tex_cb_ref(40..59, cb);
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0x364);
+                self.set_bit(59, true); // .B
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         if let Dst::Reg(reg) = op.dsts[1] {
@@ -1225,8 +1266,19 @@ impl SM70Instr {
     }
 
     fn encode_tmml(&mut self, op: &OpTmml) {
-        self.set_opcode(0x36a);
-        self.set_bit(59, true); // .B
+        match op.tex {
+            TexRef::Bound(_) => {
+                panic!("SM70+ doesn't have legacy bound textures");
+            }
+            TexRef::CBuf(cb) => {
+                self.set_opcode(0xb69);
+                self.set_tex_cb_ref(40..59, cb);
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0x36a);
+                self.set_bit(59, true); // .B
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         if let Dst::Reg(reg) = op.dsts[1] {
@@ -1245,8 +1297,19 @@ impl SM70Instr {
     }
 
     fn encode_txd(&mut self, op: &OpTxd) {
-        self.set_opcode(0x36d);
-        self.set_bit(59, true); // .B
+        match op.tex {
+            TexRef::Bound(_) => {
+                panic!("SM70+ doesn't have legacy bound textures");
+            }
+            TexRef::CBuf(cb) => {
+                self.set_opcode(0xb6c);
+                self.set_tex_cb_ref(40..59, cb);
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0x36d);
+                self.set_bit(59, true); // .B
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         if let Dst::Reg(reg) = op.dsts[1] {
@@ -1267,8 +1330,19 @@ impl SM70Instr {
     }
 
     fn encode_txq(&mut self, op: &OpTxq) {
-        self.set_opcode(0x370);
-        self.set_bit(59, true); // .B
+        match op.tex {
+            TexRef::Bound(_) => {
+                panic!("SM70+ doesn't have legacy bound textures");
+            }
+            TexRef::CBuf(cb) => {
+                self.set_opcode(0xb6f);
+                self.set_tex_cb_ref(40..59, cb);
+            }
+            TexRef::Bindless => {
+                self.set_opcode(0x370);
+                self.set_bit(59, true); // .B
+            }
+        }
 
         self.set_dst(op.dsts[0]);
         if let Dst::Reg(reg) = op.dsts[1] {
