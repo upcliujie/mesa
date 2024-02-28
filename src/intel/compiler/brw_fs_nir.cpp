@@ -1944,8 +1944,13 @@ get_nir_def(nir_to_brw_state &ntb, const nir_def &def, bool all_sources_uniform)
       case nir_intrinsic_load_btd_global_arg_addr_intel:
       case nir_intrinsic_load_btd_local_arg_addr_intel:
       case nir_intrinsic_load_btd_shader_type_intel:
+      case nir_intrinsic_load_global_const_block_intel:
+      case nir_intrinsic_load_global_constant_uniform_block_intel:
       case nir_intrinsic_load_mesh_inline_data_intel:
       case nir_intrinsic_load_reloc_const_intel:
+      case nir_intrinsic_load_shared_uniform_block_intel:
+      case nir_intrinsic_load_ssbo_uniform_block_intel:
+      case nir_intrinsic_load_ubo_uniform_block_intel:
       case nir_intrinsic_load_workgroup_id:
          is_scalar = true;
          break;
@@ -5166,18 +5171,7 @@ try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
 
          case nir_intrinsic_load_ubo_uniform_block_intel:
          case nir_intrinsic_load_ssbo_uniform_block_intel: {
-            enum brw_reg_type type =
-               brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size);
-            brw_reg src_data = retype(ntb.ssa_values[def->index], type);
-            unsigned n_components = ntb.s.alloc.sizes[src_data.nr] /
-                                    (bld.dispatch_width() / 8);
-            brw_reg dst_data = ubld8.vgrf(type, n_components);
-            ntb.resource_insts[def->index] = ubld8.MOV(dst_data, src_data);
-            for (unsigned i = 1; i < n_components; i++) {
-               ubld8.MOV(offset(dst_data, ubld8, i),
-                         offset(src_data, bld, i));
-            }
-            break;
+            unreachable("load_{ubo,ssbo}_uniform_block_intel should already be is_scalar");
          }
 
          default:
@@ -6751,8 +6745,8 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
             }
 
             for (unsigned c = 0; c < instr->num_components; c++) {
-               bld.MOV(retype(offset(dest, bld, c), BRW_TYPE_UD),
-                       component(packed_consts, c));
+               xbld.MOV(retype(offset(dest, xbld, c), BRW_TYPE_UD),
+                        component(packed_consts, c));
             }
 
             s.prog_data->has_ubo_pull = true;
@@ -6963,8 +6957,8 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
        * will generally clean them up for us.
        */
       for (unsigned i = 0; i < instr->num_components; i++) {
-         bld.MOV(retype(offset(dest, bld, i), BRW_TYPE_UD),
-                 component(load_val, i));
+         xbld.MOV(retype(offset(dest, xbld, i), BRW_TYPE_UD),
+                  component(load_val, i));
       }
       break;
    }
@@ -6978,13 +6972,14 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
       const fs_builder ubld8 = bld.exec_all().group(8, 0);
       const fs_builder ubld16 = bld.exec_all().group(16, 0);
 
-      ntb.uniform_values[instr->src[0].ssa->index] =
-         try_rebuild_source(ntb, bld, instr->src[0].ssa, true);
-      bool no_mask = ntb.uniform_values[instr->src[0].ssa->index].file != BAD_FILE;
+      bool no_mask = ntb.ssa_values[instr->src[0].ssa->index].is_scalar;
       brw_reg address =
-         ntb.uniform_values[instr->src[0].ssa->index].file != BAD_FILE ?
-         ntb.uniform_values[instr->src[0].ssa->index] :
+         no_mask ?
+         component(ntb.ssa_values[instr->src[0].ssa->index], 0) :
          bld.emit_uniformize(get_nir_src(ntb, instr->src[0]));
+
+      ntb.uniform_values[instr->src[0].ssa->index] =
+         no_mask ? address : brw_reg();
 
       const brw_reg packed_consts =
          ubld1.vgrf(BRW_TYPE_UD, total_dwords);
@@ -7014,9 +7009,10 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
          loaded_dwords += block;
       }
 
-      for (unsigned c = 0; c < instr->num_components; c++)
-         bld.MOV(retype(offset(dest, bld, c), BRW_TYPE_UD),
-                 component(packed_consts, c));
+      for (unsigned c = 0; c < instr->num_components; c++) {
+         xbld.MOV(retype(offset(dest, xbld, c), BRW_TYPE_UD),
+                  component(packed_consts, c));
+      }
 
       break;
    }
@@ -7160,9 +7156,10 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
                    brw_imm_ud(block_bytes));
       }
 
-      for (unsigned c = 0; c < instr->num_components; c++)
-         bld.MOV(retype(offset(dest, bld, c), BRW_TYPE_UD),
-                 component(packed_consts, c));
+      for (unsigned c = 0; c < instr->num_components; c++) {
+         xbld.MOV(retype(offset(dest, xbld, c), BRW_TYPE_UD),
+                  component(packed_consts, c));
+      }
 
       break;
    }
