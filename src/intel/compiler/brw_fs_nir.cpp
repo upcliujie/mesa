@@ -1944,6 +1944,7 @@ get_nir_def(nir_to_brw_state &ntb, const nir_def &def, bool all_sources_uniform)
          is_scalar = get_nir_src(ntb, instr->src[0]).is_scalar;
          break;
 
+      case nir_intrinsic_ballot:
       case nir_intrinsic_resource_intel:
          is_scalar = !def.divergent;
          break;
@@ -7255,7 +7256,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
           nir_src_as_bool(instr->src[0])) {
          brw_reg tmp = bld.vgrf(BRW_TYPE_UD);
          bld.exec_all().emit(SHADER_OPCODE_LOAD_LIVE_CHANNELS, tmp);
-         bld.MOV(dest, brw_reg(component(tmp, 0)));
+         xbld.MOV(dest, brw_reg(component(tmp, 0)));
          break;
       }
 
@@ -7268,7 +7269,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
 
       bld.exec_all().group(1, 0).MOV(flag, retype(brw_imm_ud(0u), flag.type));
       bld.CMP(bld.null_reg_ud(), value, brw_imm_ud(0u), BRW_CONDITIONAL_NZ);
-      bld.MOV(dest, flag);
+      xbld.MOV(dest, flag);
       break;
    }
 
