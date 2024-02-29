@@ -567,7 +567,9 @@ genX(cmd_buffer_emit_indirect_generated_draws_inring)(struct anv_cmd_buffer *cmd
                                mi_imm(ring_count)));
 
       anv_add_pending_pipe_bits(cmd_buffer,
-                                ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT,
+                                genX(device_constant_cache_flush_bits)(
+                                   device,
+                                   ANV_DEVINFO_HAS_COHERENT_L3_CS(device->info)),
                                 "after generated draws batch increment");
       genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 
@@ -586,7 +588,9 @@ genX(cmd_buffer_emit_indirect_generated_draws_inring)(struct anv_cmd_buffer *cmd
       mi_store(&b, mi_mem32(draw_base_addr), mi_imm(0));
 
       anv_add_pending_pipe_bits(cmd_buffer,
-                                ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT,
+                                genX(device_constant_cache_flush_bits)(
+                                   device,
+                                   ANV_DEVINFO_HAS_COHERENT_L3_CS(device->info)),
                                 "after generated draws end");
 
       params->gen_addr = anv_address_physical(inc_addr);

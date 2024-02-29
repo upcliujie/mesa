@@ -374,3 +374,28 @@ genX(cmd_buffer_flush_push_descriptors)(struct anv_cmd_buffer *cmd_buffer,
    /* Return the binding table stages that need to be updated */
    return push_buffer_dirty | push_descriptor_dirty;
 }
+
+static inline enum anv_pipe_bits
+genX(device_constant_cache_flush_bits)(struct anv_device *device,
+                                       bool l3_non_coherent)
+{
+#if INTEL_NEEDS_WA_14010840176
+   /* Wa_14010840176:
+    *
+    *    "If the intention of “constant cache invalidate” is to invalidate the
+    *     L1 cache (which can cache constants), use “HDC pipeline flush”
+    *     instead of Constant Cache invalidate command."
+    *
+    *    "Some units bypass the L3 cache when they access memory - CS, MediaFF
+    *     and Guc. When data sharing (e.g. semaphore) between these units and
+    *     a shader is needed, the L3 cache may need to be invalidated using a
+    *     pipe-control CS command with a "Const cache Invalidate" set. In
+    *     these cases, the w/a should be to set the "State $ invalidate" in
+    *     the pipecontrol command, in addition to the "HDC pipeline flush"."
+    */
+   return ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
+          (l3_non_coherent ? ANV_PIPE_STATE_CACHE_INVALIDATE_BIT : 0);
+#else
+   return ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT;
+#endif
+}
