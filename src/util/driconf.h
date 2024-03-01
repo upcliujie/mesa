@@ -780,6 +780,10 @@
    DRI_CONF_OPT_B(force_indirect_descriptors, def, \
                   "Use an indirection to access buffer/image/texture/sampler handles")
 
+#define DRI_CONF_ANV_DISABLE_TRTT_DESCRIPTOR_BUFFER(def) \
+   DRI_CONF_OPT_B(anv_disable_trtt_decriptor_buffer, def, \
+                  "Disable VK_EXT_descriptor_buffer when TR-TT is used")
+
 #define DRI_CONF_ANV_DISABLE_FCV(def) \
    DRI_CONF_OPT_B(anv_disable_fcv, def, \
                   "Disable FCV optimization")

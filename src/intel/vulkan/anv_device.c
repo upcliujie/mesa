@@ -89,6 +89,7 @@ static const driOptionDescription anv_dri_options[] = {
       DRI_CONF_ANV_QUERY_CLEAR_WITH_BLORP_THRESHOLD(6)
       DRI_CONF_ANV_QUERY_COPY_WITH_SHADER_THRESHOLD(6)
       DRI_CONF_ANV_FORCE_INDIRECT_DESCRIPTORS(false)
+      DRI_CONF_ANV_DISABLE_TRTT_DESCRIPTOR_BUFFER(false)
       DRI_CONF_SHADER_SPILLING_RATE(0)
       DRI_CONF_OPT_B(intel_tbimr, true, "Enable TBIMR tiled rendering")
    DRI_CONF_SECTION_END
@@ -340,7 +341,8 @@ get_device_extensions(const struct anv_physical_device *device,
       .EXT_depth_clip_control                = true,
       .EXT_depth_range_unrestricted          = device->info.ver >= 20,
       .EXT_depth_clip_enable                 = true,
-      .EXT_descriptor_buffer                 = true,
+      .EXT_descriptor_buffer                 = !(device->has_sparse && device->sparse_uses_trtt) ||
+                                               !device->instance->disable_trtt_descriptor_buffer,
       .EXT_descriptor_indexing               = true,
 #ifdef VK_USE_PLATFORM_DISPLAY_KHR
       .EXT_display_control                   = true,
@@ -2591,6 +2593,8 @@ anv_init_dri_options(struct anv_instance *instance)
             driQueryOptionb(&instance->dri_options, "anv_disable_fcv");
     instance->external_memory_implicit_sync =
             driQueryOptionb(&instance->dri_options, "anv_external_memory_implicit_sync");
+    instance->disable_trtt_descriptor_buffer =
+            driQueryOptionb(&instance->dri_options, "anv_disable_trtt_decriptor_buffer");
 }
 
 VkResult anv_CreateInstance(

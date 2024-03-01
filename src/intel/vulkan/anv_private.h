@@ -1226,6 +1226,7 @@ struct anv_instance {
     int                                         mesh_conv_prim_attrs_to_vert_attrs;
     bool                                        enable_tbimr;
     bool                                        external_memory_implicit_sync;
+    bool                                        disable_trtt_descriptor_buffer;
 
     /**
      * Workarounds for game bugs.
