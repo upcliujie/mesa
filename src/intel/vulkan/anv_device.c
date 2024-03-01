@@ -5016,6 +5016,23 @@ VkResult anv_CreateBuffer(
       fprintf(stderr, "=== %s %s:%d flags:0x%08x\n", __func__, __FILE__,
               __LINE__, pCreateInfo->flags);
 
+   /* In theory this puts us out of spec. This failure is here to let us
+    * disable the extension in case we run into this.
+    */
+   const VkBufferUsageFlags descriptor_buffer_usages =
+      VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT |
+      VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT |
+      VK_BUFFER_USAGE_PUSH_DESCRIPTORS_DESCRIPTOR_BUFFER_BIT_EXT;
+   const VkBufferCreateFlags sparse_flags =
+      VK_BUFFER_CREATE_SPARSE_BINDING_BIT |
+      VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT |
+      VK_BUFFER_CREATE_SPARSE_ALIASED_BIT;
+   if (device->physical->has_sparse &&
+       device->physical->sparse_uses_trtt &&
+       (pCreateInfo->usage & descriptor_buffer_usages) != 0 &&
+       (pCreateInfo->flags & sparse_flags) != 0)
+      return vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
+
    /* Don't allow creating buffers bigger than our address space.  The real
     * issue here is that we may align up the buffer size and we don't want
     * doing so to cause roll-over.  However, no one has any business
