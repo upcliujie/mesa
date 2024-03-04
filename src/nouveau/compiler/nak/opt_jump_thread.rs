@@ -4,6 +4,7 @@
 use crate::cfg::{CFGBuilder, CFG};
 use crate::ir::*;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 fn clone_branch(op: &Op) -> Op {
     match op {
@@ -150,6 +151,87 @@ impl Shader {
     pub fn opt_jump_thread(&mut self) {
         for f in &mut self.functions {
             f.opt_jump_thread();
+        }
+    }
+}
+
+fn merge_blocks(func: &mut Function) {
+    let mut to_merge = HashSet::new();
+    for i in 1..func.blocks.len() {
+        let &[pred_i] = func.blocks.pred_indices(i) else {
+            continue;
+        };
+        if func.blocks.succ_indices(pred_i).len() != 1 {
+            continue;
+        }
+
+        // CFG construction should reorder these blocks to be adjacent
+        assert!(pred_i == i - 1);
+        // so there is no jump, thanks to opt_fall_through()
+        assert!(func.blocks[pred_i].branch().is_none());
+
+        to_merge.insert(func.blocks[i].label);
+
+        // Handle phis
+        if func.blocks[i].phi_dsts().is_some() {
+            let mut phi_to_dst = HashMap::<u32, Dst>::new();
+            if let Op::PhiDsts(phi_dsts) = func.blocks[i].instrs.remove(0).op {
+                for (&p, &d) in phi_dsts.dsts.iter() {
+                    phi_to_dst.insert(p, d);
+                }
+            } else {
+                unreachable!();
+            };
+
+            let pred = &mut func.blocks[pred_i];
+            if let Op::PhiSrcs(phi_srcs) = pred.instrs.pop().unwrap().op {
+                pred.instrs.extend(phi_srcs.srcs.iter().map(|(p, s)| {
+                    Instr::new_boxed(OpCopy {
+                        src: *s,
+                        dst: phi_to_dst[p],
+                    })
+                }));
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    if to_merge.is_empty() {
+        return;
+    }
+
+    let mut blocks: Vec<_> = std::mem::take(&mut func.blocks).into();
+    blocks.dedup_by(|second, first| {
+        if to_merge.contains(&second.label) {
+            first.instrs.extend(std::mem::take(&mut second.instrs));
+            true
+        } else {
+            false
+        }
+    });
+    func.blocks = rewrite_cfg(blocks);
+}
+
+impl Shader {
+    /// A pass to merge basic blocks
+    ///
+    /// Merges basic blocks in cases like this:
+    /// block a {
+    ///    phi_srcs
+    /// } // succs: [b]
+    /// block b { // preds: [a]
+    ///    phi_dsts
+    /// }
+    /// This can happen if B previously had an unreachable predecessor C that
+    /// we removed during CFG construction
+    ///
+    /// We don't want to leave these around because they hinder optimization
+    /// and are a weird edge case for the rest of the backend to deal with.
+    pub fn merge_blocks(&mut self) {
+        for f in &mut self.functions {
+            opt_fall_through(f);
+            merge_blocks(f);
         }
     }
 }
