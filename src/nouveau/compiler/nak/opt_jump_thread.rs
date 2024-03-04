@@ -1,7 +1,7 @@
 // Copyright © 2023 Mel Henning
 // SPDX-License-Identifier: MIT
 
-use crate::cfg::CFGBuilder;
+use crate::cfg::{CFGBuilder, CFG};
 use crate::ir::*;
 use std::collections::HashMap;
 
@@ -83,22 +83,22 @@ fn jump_thread(func: &mut Function) -> bool {
 
     if progress {
         // We don't update the CFG above, so rewrite it if we made progress
-        rewrite_cfg(func);
+        func.blocks = rewrite_cfg(std::mem::take(&mut func.blocks).into());
     }
 
     progress
 }
 
-fn rewrite_cfg(func: &mut Function) {
+fn rewrite_cfg(blocks: Vec<BasicBlock>) -> CFG<BasicBlock> {
     // CFGBuilder takes care of removing dead blocks for us
     // We use the basic block's label to identify it
     let mut builder = CFGBuilder::new();
 
-    for i in 0..func.blocks.len() {
-        let block = &func.blocks[i];
+    for i in 0..blocks.len() {
+        let block = &blocks[i];
         // Note: fall-though must be first edge
         if block.falls_through() {
-            let next_block = &func.blocks[i + 1];
+            let next_block = &blocks[i + 1];
             builder.add_edge(block.label, next_block.label);
         }
         if let Some(control_flow) = block.branch() {
@@ -112,10 +112,10 @@ fn rewrite_cfg(func: &mut Function) {
         }
     }
 
-    for block in func.blocks.drain() {
+    for block in blocks {
         builder.add_node(block.label, block);
     }
-    let _ = std::mem::replace(&mut func.blocks, builder.as_cfg());
+    builder.as_cfg()
 }
 
 /// Replace jumps to the following block with fall-through
