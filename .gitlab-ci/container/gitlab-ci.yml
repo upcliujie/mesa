@@ -71,7 +71,7 @@ debian/x86_64_build-base:
   rules:
     # python-test requires debian/x86_64_build, which requires this job
     - !reference [python-test, rules]
-    - !reference [.container, rules]
+    - !reference [.1st-line-container-rules, rules]
 
 .use-debian/x86_64_build-base:
   extends:
@@ -247,6 +247,7 @@ debian/arm64_build:
   extends:
     - .fdo.container-build@debian
     - .container
+    - .1st-line-container-rules
     - .debian-container
   tags:
     - aarch64
@@ -269,6 +270,7 @@ debian/arm64_build:
   extends:
     - .fdo.container-build@alpine
     - .container
+    - .1st-line-container-rules
   variables:
     FDO_DISTRIBUTION_VERSION: "edge"  # switch to 3.20 when gets released
     FDO_BASE_IMAGE: alpine:$FDO_DISTRIBUTION_VERSION  # since cbuild ignores it
@@ -301,6 +303,7 @@ fedora/x86_64_build:
   extends:
     - .fdo.container-build@fedora
     - .container
+    - .1st-line-container-rules
   variables:
     FDO_DISTRIBUTION_VERSION: 38
     MESA_IMAGE_TAG: &fedora-x86_64_build ${FEDORA_X86_64_BUILD_TAG}
@@ -457,6 +460,7 @@ windows_msvc:
     default: [retry]
   extends:
     - .windows_container_build
+    - .1st-line-container-rules
   variables:
     MESA_IMAGE_PATH: &windows_msvc_image_path ${WINDOWS_X64_MSVC_PATH}
     MESA_IMAGE_TAG: ${WINDOWS_X64_MSVC_TAG}
