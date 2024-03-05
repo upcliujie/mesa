@@ -228,7 +228,7 @@ include:
     - if: *is-pre-merge
       changes:
         *all_paths
-      when: manual
+      when: on_success
     # Skip everything for pre-merge and merge pipelines which don't change
     # anything in the build
     - if: *is-merge-attempt
