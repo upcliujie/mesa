@@ -566,7 +566,6 @@ vlVaGetImage(VADriverContextP ctx, VASurfaceID surface, int x, int y,
       }
    }
 
-   memset(view_resources, 0, sizeof(view_resources));
    surf->buffer->get_resources(surf->buffer, view_resources);
 
    for (i = 0; i < MIN2(vaimage->num_planes, 3); i++) {
@@ -697,7 +696,6 @@ vlVaPutImage(VADriverContextP ctx, VASurfaceID surface, VAImageID image,
       surf->buffer = tmp_buf;
    }
 
-   memset(view_resources, 0, sizeof(view_resources));
    surf->buffer->get_resources(surf->buffer, view_resources);
 
    for (i = 0; i < MIN2(vaimage->num_planes, 3); i++) {
