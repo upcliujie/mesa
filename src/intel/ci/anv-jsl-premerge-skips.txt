@@ -2,3 +2,6 @@
 dEQP-VK.*robustness.*.no_fmt_qual.*samples_1.*_array.frag
 dEQP-VK.*robustness.*.no_fmt_qual.*samples_1.3d.frag
 dEQP-VK.*robustness.*.no_fmt_qual.*samples_1.cube.frag
+
+# Timeout: these tests take longer than 60 sec to execute
+dEQP-VK.wsi.wayland.incremental_present.scale_none.fifo.identity.pre_multiplied.reference
