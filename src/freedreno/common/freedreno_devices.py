@@ -791,6 +791,7 @@ a7xx_base = A6XXProps(
         supports_ibo_ubwc = True,
         line_width_min = 1.0,
         line_width_max = 127.5,
+        has_fsdt = True,
     )
 
 a7xx_725 = A7XXProps(
