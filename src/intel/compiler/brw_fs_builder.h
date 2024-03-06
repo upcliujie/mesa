@@ -377,12 +377,12 @@ namespace brw {
           * dispatch. Once we teach const/copy propagation about scalars we
           * should go back to scalar destinations here.
           */
-         const fs_builder ubld = exec_all();
-         const fs_reg chan_index = vgrf(BRW_REGISTER_TYPE_UD);
+         const fs_builder ubld = group(8, 0).exec_all();
+         const fs_reg chan_index = ubld.vgrf(BRW_REGISTER_TYPE_UD);
          const fs_reg dst = vgrf(src.type);
 
          ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index);
-         ubld.emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
+         exec_all().emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
 
          return fs_reg(component(dst, 0));
       }
