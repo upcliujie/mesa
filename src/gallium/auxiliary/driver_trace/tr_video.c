@@ -405,22 +405,6 @@ trace_video_buffer_destroy(struct pipe_video_buffer *_buffer)
     ralloc_free(tr_vbuffer);
 }
 
-static void
-trace_video_buffer_get_resources(struct pipe_video_buffer *_buffer, struct pipe_resource **resources)
-{
-    struct trace_video_buffer *tr_vbuffer = trace_video_buffer(_buffer);
-    struct pipe_video_buffer *buffer = tr_vbuffer->video_buffer;
-
-    trace_dump_call_begin("pipe_video_buffer", "get_resources");
-    trace_dump_arg(ptr, buffer);
-
-    buffer->get_resources(buffer, resources);
-
-    // TODO: A `trace_dump_ret_arg` style of function would be more appropriate
-    trace_dump_arg_array(ptr, resources, VL_NUM_COMPONENTS);
-    trace_dump_call_end();
-}
-
 static struct pipe_sampler_view **
 trace_video_buffer_get_sampler_view_planes(struct pipe_video_buffer *_buffer)
 {
@@ -523,7 +507,6 @@ trace_video_buffer_create(struct trace_context *tr_ctx,
    tr_vbuffer->base . _member = video_buffer -> _member ? trace_video_buffer_ ## _member : NULL
 
     TR_VB_INIT(destroy);
-    TR_VB_INIT(get_resources);
     TR_VB_INIT(get_sampler_view_planes);
     TR_VB_INIT(get_sampler_view_components);
     TR_VB_INIT(get_surfaces);
