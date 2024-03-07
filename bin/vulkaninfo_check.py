@@ -136,6 +136,31 @@ def main():
     )
 
     test_driver(
+        driver='intel',
+        folder=SRC / 'intel' / 'vulkan',
+        shim_name='intel',
+        hw_envvar='INTEL_STUB_GPU_PLATFORM',
+        hw_variants=[
+            'tgl', 'rkl', 'adl', 'rpl', 'dg1', 'sg1',
+            'dg2',
+        ],
+    )
+
+    test_driver(
+        driver='intel_hasvk',
+        folder=SRC / 'intel' / 'vulkan_hasvk',
+        shim_name='intel',
+        hw_envvar='INTEL_STUB_GPU_PLATFORM',
+        hw_variants=[
+            'ivb', 'byt',
+            'hsw',
+            'bdw', 'chv',
+            # 'skl', 'kbl', 'aml', 'cml', 'whl', 'bxt', 'glk',
+            # 'icl', 'ehl', 'jsl',
+        ],
+    )
+
+    test_driver(
         driver='lvp',
         folder=SRC / 'gallium' / 'frontends' / 'lavapipe',
     )
