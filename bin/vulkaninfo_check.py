@@ -165,6 +165,11 @@ def main():
         folder=SRC / 'gallium' / 'frontends' / 'lavapipe',
     )
 
+    test_driver(
+        driver='radeon',
+        folder=SRC / 'amd' / 'vulkan',
+        shim_name='amdgpu',
+    )
 
 if __name__ == '__main__':
     main()
