@@ -130,6 +130,12 @@ def test_driver(
 
 def main():
     test_driver(
+        driver='freedreno',
+        folder=SRC / 'freedreno' / 'vulkan',
+        shim_name='freedreno',
+    )
+
+    test_driver(
         driver='lvp',
         folder=SRC / 'gallium' / 'frontends' / 'lavapipe',
     )
