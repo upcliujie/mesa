@@ -95,6 +95,19 @@ visit_alu(nir_alu_instr *instr, struct divergence_state *state)
 }
 
 static bool
+any_intrin_srcs_divergent(nir_intrinsic_instr *intrin)
+{
+   const unsigned num_srcs = nir_intrinsic_infos[intrin->intrinsic].num_srcs;
+
+   for (unsigned i = 0; i < num_srcs; i++) {
+      if (intrin->src[i].ssa->divergent)
+         return true;
+   }
+
+   return false;
+}
+
+static bool
 visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
 {
    if (!nir_intrinsic_infos[instr->intrinsic].has_dest)
@@ -511,13 +524,7 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
    case nir_intrinsic_resource_intel:
    case nir_intrinsic_load_reg:
    case nir_intrinsic_load_reg_indirect: {
-      unsigned num_srcs = nir_intrinsic_infos[instr->intrinsic].num_srcs;
-      for (unsigned i = 0; i < num_srcs; i++) {
-         if (instr->src[i].ssa->divergent) {
-            is_divergent = true;
-            break;
-         }
-      }
+      is_divergent = any_intrin_srcs_divergent(instr);
       break;
    }
 
