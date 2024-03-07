@@ -129,7 +129,10 @@ def test_driver(
 
 
 def main():
-    ...
+    test_driver(
+        driver='lvp',
+        folder=SRC / 'gallium' / 'frontends' / 'lavapipe',
+    )
 
 
 if __name__ == '__main__':
