@@ -166,6 +166,16 @@ def main():
     )
 
     test_driver(
+        driver='nouveau',
+        folder=SRC / 'nouveau' / 'vulkan',
+        shim_name='nouveau',
+        hw_envvar='NOUVEAU_CHIPSET',
+        hw_variants=[
+            '162',
+        ],
+    )
+
+    test_driver(
         driver='radeon',
         folder=SRC / 'amd' / 'vulkan',
         shim_name='amdgpu',
