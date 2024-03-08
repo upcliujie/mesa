@@ -321,10 +321,8 @@ radv_cmd_buffer_init_shader_part_cache(struct radv_device *device, struct radv_c
 }
 
 static void
-radv_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
+radv_free_cmd_buffer_resources(struct radv_cmd_buffer *cmd_buffer)
 {
-   struct radv_cmd_buffer *cmd_buffer = container_of(vk_cmd_buffer, struct radv_cmd_buffer, vk);
-
    if (cmd_buffer->qf != RADV_QUEUE_SPARSE) {
       util_dynarray_fini(&cmd_buffer->ray_history);
 
@@ -361,44 +359,42 @@ radv_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
    }
 
    vk_command_buffer_finish(&cmd_buffer->vk);
+}
+
+static void
+radv_destroy_cmd_buffer(struct vk_command_buffer *vk_cmd_buffer)
+{
+   struct radv_cmd_buffer *cmd_buffer = container_of(vk_cmd_buffer, struct radv_cmd_buffer, vk);
+   radv_free_cmd_buffer_resources(cmd_buffer);
    vk_free(&cmd_buffer->vk.pool->alloc, cmd_buffer);
 }
 
 static VkResult
-radv_create_cmd_buffer(struct vk_command_pool *pool, struct vk_command_buffer **cmd_buffer_out)
+radv_init_cmd_buffer(struct radv_cmd_buffer *cmd_buffer, struct vk_command_pool *pool, const enum radv_queue_family qf)
 {
    struct radv_device *device = container_of(pool->base.device, struct radv_device, vk);
 
-   struct radv_cmd_buffer *cmd_buffer;
-   unsigned ring;
-   cmd_buffer = vk_zalloc(&pool->alloc, sizeof(*cmd_buffer), 8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (cmd_buffer == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
    VkResult result = vk_command_buffer_init(pool, &cmd_buffer->vk, &radv_cmd_buffer_ops, 0);
-   if (result != VK_SUCCESS) {
-      vk_free(&cmd_buffer->vk.pool->alloc, cmd_buffer);
+   if (result != VK_SUCCESS)
       return result;
-   }
 
    cmd_buffer->device = device;
+   cmd_buffer->qf = qf;
 
-   cmd_buffer->qf = vk_queue_to_radv(device->physical_device, pool->queue_family_index);
-
-   if (cmd_buffer->qf != RADV_QUEUE_SPARSE) {
+   if (qf != RADV_QUEUE_SPARSE) {
       list_inithead(&cmd_buffer->upload.list);
 
       if (!radv_cmd_buffer_init_shader_part_cache(device, cmd_buffer)) {
-         radv_destroy_cmd_buffer(&cmd_buffer->vk);
+         radv_free_cmd_buffer_resources(cmd_buffer);
          return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       }
 
-      ring = radv_queue_family_to_ring(device->physical_device, cmd_buffer->qf);
+      const unsigned ring = radv_queue_family_to_ring(device->physical_device, cmd_buffer->qf);
 
       cmd_buffer->cs =
          device->ws->cs_create(device->ws, ring, cmd_buffer->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY);
       if (!cmd_buffer->cs) {
-         radv_destroy_cmd_buffer(&cmd_buffer->vk);
+         radv_free_cmd_buffer_resources(cmd_buffer);
          return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
       }
 
@@ -410,8 +406,27 @@ radv_create_cmd_buffer(struct vk_command_pool *pool, struct vk_command_buffer **
       util_dynarray_init(&cmd_buffer->ray_history, NULL);
    }
 
-   *cmd_buffer_out = &cmd_buffer->vk;
+   return VK_SUCCESS;
+}
 
+static VkResult
+radv_create_cmd_buffer(struct vk_command_pool *pool, struct vk_command_buffer **cmd_buffer_out)
+{
+   struct radv_device *device = container_of(pool->base.device, struct radv_device, vk);
+
+   struct radv_cmd_buffer *cmd_buffer;
+   cmd_buffer = vk_zalloc(&pool->alloc, sizeof(*cmd_buffer), 8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (cmd_buffer == NULL)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   const enum radv_queue_family qf = vk_queue_to_radv(device->physical_device, pool->queue_family_index);
+   VkResult result = radv_init_cmd_buffer(cmd_buffer, pool, qf);
+   if (result != VK_SUCCESS) {
+      vk_free(&cmd_buffer->vk.pool->alloc, cmd_buffer);
+      return result;
+   }
+
+   *cmd_buffer_out = &cmd_buffer->vk;
    return VK_SUCCESS;
 }
 
@@ -485,11 +500,28 @@ const struct vk_command_buffer_ops radv_cmd_buffer_ops = {
 };
 
 static bool
+radv_cmd_buffer_prepend_upload_buf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer_upload *data)
+{
+   if (!data->upload_bo)
+      return true;
+
+   struct radv_cmd_buffer_upload *upload = malloc(sizeof(struct radv_cmd_buffer_upload));
+
+   if (!upload) {
+      vk_command_buffer_set_error(&cmd_buffer->vk, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return false;
+   }
+
+   memcpy(upload, data, sizeof(struct radv_cmd_buffer_upload));
+   list_add(&upload->list, &cmd_buffer->upload.list);
+   return true;
+}
+
+static bool
 radv_cmd_buffer_resize_upload_buf(struct radv_cmd_buffer *cmd_buffer, uint64_t min_needed)
 {
    uint64_t new_size;
    struct radeon_winsys_bo *bo = NULL;
-   struct radv_cmd_buffer_upload *upload;
    struct radv_device *device = cmd_buffer->device;
 
    new_size = MAX2(min_needed, 16 * 1024);
@@ -506,17 +538,9 @@ radv_cmd_buffer_resize_upload_buf(struct radv_cmd_buffer *cmd_buffer, uint64_t m
    }
 
    radv_cs_add_buffer(device->ws, cmd_buffer->cs, bo);
-   if (cmd_buffer->upload.upload_bo) {
-      upload = malloc(sizeof(*upload));
-
-      if (!upload) {
-         vk_command_buffer_set_error(&cmd_buffer->vk, VK_ERROR_OUT_OF_HOST_MEMORY);
-         device->ws->buffer_destroy(device->ws, bo);
-         return false;
-      }
-
-      memcpy(upload, &cmd_buffer->upload, sizeof(*upload));
-      list_add(&upload->list, &cmd_buffer->upload.list);
+   if (!radv_cmd_buffer_prepend_upload_buf(cmd_buffer, &cmd_buffer->upload)) {
+      device->ws->buffer_destroy(device->ws, bo);
+      return false;
    }
 
    cmd_buffer->upload.upload_bo = bo;
@@ -626,10 +650,30 @@ radv_gang_barrier(struct radv_cmd_buffer *cmd_buffer, VkPipelineStageFlags2 src_
         VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT))
       dst_stage_mask |= cmd_buffer->state.dma_is_busy ? VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT : 0;
 
-   /* Increment the GFX/ACE semaphore when task shaders are blocked. */
-   if (dst_stage_mask & (VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
-                         VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT))
+   /* Increment the leader to follower semaphore when the leader wants to block the follower:
+    * - graphics command buffer: task shader execution needs to wait for something
+    * - transfer command buffer: a transfer operation on ACE needs to wait for a previous operation on SDMA
+    */
+   const VkPipelineStageFlags2 gang_leader_flags =
+      cmd_buffer->qf == RADV_QUEUE_TRANSFER
+         ? (VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR | VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR |
+            VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT)
+         : (VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR | VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
+            VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT);
+   if (dst_stage_mask & gang_leader_flags)
       cmd_buffer->gang.sem.leader_value++;
+
+   /* Increment the follower to leader semaphore when the follower wants to block the leader:
+    * - graphics command buffer: not necessary yet
+    * - transfer command buffer: a transfer operation on SDMA needs to wait for a previous operation on ACE
+    */
+   const VkPipelineStageFlags2 gang_follower_flags =
+      cmd_buffer->qf == RADV_QUEUE_TRANSFER
+         ? (VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT_KHR | VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR |
+            VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT)
+         : 0;
+   if (src_stage_mask & gang_follower_flags)
+      cmd_buffer->gang.sem.follower_value++;
 }
 
 void
@@ -694,7 +738,7 @@ radv_flush_gang_semaphore(struct radv_cmd_buffer *cmd_buffer, struct radeon_cmdb
    return true;
 }
 
-ALWAYS_INLINE static bool
+bool
 radv_flush_gang_leader_semaphore(struct radv_cmd_buffer *cmd_buffer)
 {
    if (!radv_gang_leader_sem_dirty(cmd_buffer))
@@ -705,7 +749,7 @@ radv_flush_gang_leader_semaphore(struct radv_cmd_buffer *cmd_buffer)
    return radv_flush_gang_semaphore(cmd_buffer, cmd_buffer->cs, cmd_buffer->qf, 0, cmd_buffer->gang.sem.leader_value);
 }
 
-ALWAYS_INLINE static bool
+bool
 radv_flush_gang_follower_semaphore(struct radv_cmd_buffer *cmd_buffer)
 {
    if (!radv_gang_follower_sem_dirty(cmd_buffer))
@@ -726,14 +770,14 @@ radv_wait_gang_semaphore(struct radv_cmd_buffer *cmd_buffer, struct radeon_cmdbu
    radv_cp_wait_mem(cs, qf, WAIT_REG_MEM_GREATER_OR_EQUAL, cmd_buffer->gang.sem.va + va_off, value, 0xffffffff);
 }
 
-ALWAYS_INLINE static void
+void
 radv_wait_gang_leader(struct radv_cmd_buffer *cmd_buffer)
 {
    /* Follower waits for the semaphore which the gang leader wrote. */
    radv_wait_gang_semaphore(cmd_buffer, cmd_buffer->gang.cs, RADV_QUEUE_COMPUTE, 0, cmd_buffer->gang.sem.leader_value);
 }
 
-ALWAYS_INLINE static void
+void
 radv_wait_gang_follower(struct radv_cmd_buffer *cmd_buffer)
 {
    /* Gang leader waits for the semaphore which the follower wrote. */
@@ -785,6 +829,36 @@ radv_gang_finalize(struct radv_cmd_buffer *cmd_buffer)
    }
 
    return device->ws->cs_finalize(ace_cs);
+}
+
+bool
+radv_init_follower_temp_cmdbuf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer *follower)
+{
+   if (!radv_gang_init(cmd_buffer))
+      return false;
+
+   if (radv_init_cmd_buffer(follower, cmd_buffer->vk.pool, RADV_QUEUE_COMPUTE) != VK_SUCCESS)
+      return false;
+
+   return true;
+}
+
+void
+radv_finish_follower_temp_cmdbuf(struct radv_cmd_buffer *cmd_buffer, struct radv_cmd_buffer *follower)
+{
+   /* Save the temp follower's upload BO to the original command buffer
+    * so that we keep until the original command buffer is used.
+    */
+   radv_cmd_buffer_prepend_upload_buf(cmd_buffer, &follower->upload);
+   follower->upload.upload_bo = NULL;
+
+   /* Copy the commands emitted to the temp follower's CS into
+    * the gang follower CS of the original cmd buffer.
+    */
+   cmd_buffer->device->ws->cs_finalize(follower->cs);
+   cmd_buffer->device->ws->cs_execute_secondary(cmd_buffer->gang.cs, follower->cs, false);
+
+   radv_free_cmd_buffer_resources(follower);
 }
 
 static void

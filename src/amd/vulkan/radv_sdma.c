@@ -796,3 +796,20 @@ radv_sdma_copy_image_t2t_scanline(const struct radv_device *device, struct radeo
       }
    }
 }
+
+bool
+radv_sdma_supports_image(const struct radv_device *device, const struct radv_image *image)
+{
+   if (radv_is_format_emulated(device->physical_device, image->vk.format))
+      return false;
+
+   if (!device->physical_device->rad_info.sdma_supports_sparse &&
+       (image->vk.create_flags & (VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT |
+                                  VK_IMAGE_CREATE_SPARSE_ALIASED_BIT)))
+      return false;
+
+   if (image->vk.samples != VK_SAMPLE_COUNT_1_BIT)
+      return false;
+
+   return true;
+}

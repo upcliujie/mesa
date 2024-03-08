@@ -91,7 +91,7 @@ alloc_transfer_temp_bo(struct radv_cmd_buffer *cmd_buffer)
 
 static void
 transfer_copy_buffer_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buffer, struct radv_image *image,
-                           const VkBufferImageCopy2 *region, bool to_image)
+                           const VkImageLayout layout, const VkBufferImageCopy2 *region, bool to_image)
 {
    const struct radv_device *device = cmd_buffer->device;
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
@@ -100,6 +100,47 @@ transfer_copy_buffer_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffe
 
    radv_cs_add_buffer(device->ws, cs, image->bindings[binding_idx].bo);
    radv_cs_add_buffer(device->ws, cs, buffer->bo);
+
+   if (!radv_sdma_supports_image(device, image)) {
+      struct radv_cmd_buffer follower = {0};
+      if (!radv_init_follower_temp_cmdbuf(cmd_buffer, &follower))
+         return;
+
+      if (radv_flush_gang_leader_semaphore(cmd_buffer))
+         radv_wait_gang_leader(cmd_buffer);
+
+      radv_gang_cache_flush(cmd_buffer);
+
+      if (to_image) {
+         VkCopyBufferToImageInfo2 info = {
+            .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
+            .pNext = NULL,
+            .regionCount = 1,
+            .pRegions = region,
+            .dstImage = radv_image_to_handle(image),
+            .dstImageLayout = layout,
+            .srcBuffer = radv_buffer_to_handle(buffer),
+         };
+         radv_CmdCopyBufferToImage2(radv_cmd_buffer_to_handle(&follower), &info);
+      } else {
+         VkCopyImageToBufferInfo2 info = {
+            .sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2,
+            .pNext = NULL,
+            .regionCount = 1,
+            .pRegions = region,
+            .srcImage = radv_image_to_handle(image),
+            .srcImageLayout = layout,
+            .dstBuffer = radv_buffer_to_handle(buffer),
+         };
+         radv_CmdCopyImageToBuffer2(radv_cmd_buffer_to_handle(&follower), &info);
+      }
+
+      radv_finish_follower_temp_cmdbuf(cmd_buffer, &follower);
+      return;
+   }
+
+   if (cmd_buffer->gang.cs && radv_flush_gang_follower_semaphore(cmd_buffer))
+      radv_wait_gang_follower(cmd_buffer);
 
    struct radv_sdma_surf buf = radv_sdma_get_buf_surf(buffer, image, region, aspect_mask);
    const struct radv_sdma_surf img =
@@ -122,7 +163,7 @@ copy_buffer_to_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
                      VkImageLayout layout, const VkBufferImageCopy2 *region)
 {
    if (cmd_buffer->qf == RADV_QUEUE_TRANSFER) {
-      transfer_copy_buffer_image(cmd_buffer, buffer, image, region, true);
+      transfer_copy_buffer_image(cmd_buffer, buffer, image, layout, region, true);
       return;
    }
 
@@ -273,7 +314,7 @@ copy_image_to_buffer(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
 {
    struct radv_device *device = cmd_buffer->device;
    if (cmd_buffer->qf == RADV_QUEUE_TRANSFER) {
-      transfer_copy_buffer_image(cmd_buffer, buffer, image, region, false);
+      transfer_copy_buffer_image(cmd_buffer, buffer, image, layout, region, false);
       return;
    }
 
@@ -390,6 +431,35 @@ transfer_copy_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_i
    const struct radv_device *device = cmd_buffer->device;
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
    unsigned int dst_aspect_mask_remaining = region->dstSubresource.aspectMask;
+
+   if (!radv_sdma_supports_image(device, src_image) || !radv_sdma_supports_image(device, dst_image)) {
+      struct radv_cmd_buffer follower = {0};
+      if (!radv_init_follower_temp_cmdbuf(cmd_buffer, &follower))
+         return;
+
+      if (radv_flush_gang_leader_semaphore(cmd_buffer))
+         radv_wait_gang_leader(cmd_buffer);
+
+      radv_gang_cache_flush(cmd_buffer);
+
+      VkCopyImageInfo2 info = {
+         .sType = VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2,
+         .pNext = NULL,
+         .regionCount = 1,
+         .pRegions = region,
+         .dstImage = radv_image_to_handle(dst_image),
+         .dstImageLayout = dst_image_layout,
+         .srcImage = radv_image_to_handle(src_image),
+         .srcImageLayout = src_image_layout,
+      };
+
+      radv_CmdCopyImage2(radv_cmd_buffer_to_handle(&follower), &info);
+      radv_finish_follower_temp_cmdbuf(cmd_buffer, &follower);
+      return;
+   }
+
+   if (cmd_buffer->gang.cs && radv_flush_gang_follower_semaphore(cmd_buffer))
+      radv_wait_gang_follower(cmd_buffer);
 
    u_foreach_bit (b, region->srcSubresource.aspectMask) {
       const VkImageAspectFlags src_aspect_mask = BITFIELD_BIT(b);

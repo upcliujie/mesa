@@ -79,6 +79,10 @@ radv_transfer_queue_enabled(const struct radv_physical_device *pdevice)
        !(pdevice->instance->perftest_flags & RADV_PERFTEST_TRANSFER_QUEUE))
       return false;
 
+   if (!pdevice->rad_info.has_gang_submit || !pdevice->rad_info.ip[AMD_IP_COMPUTE].num_queues ||
+       (pdevice->instance->debug_flags & RADV_DEBUG_NO_COMPUTE_QUEUE))
+      return false;
+
    return pdevice->rad_info.gfx_level >= GFX9;
 }
 
