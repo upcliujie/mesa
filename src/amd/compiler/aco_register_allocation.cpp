@@ -832,21 +832,39 @@ update_renames(ra_ctx& ctx, RegisterFile& reg_file, std::vector<parallelcopy>& p
          if (!other.def.isTemp())
             continue;
          if (it->op.getTemp() == other.def.getTemp()) {
-            other.def.setFixed(it->def.physReg());
-            ctx.assignments[other.def.tempId()].reg = other.def.physReg();
-            it = parallelcopies.erase(it);
-            is_def = true;
+            bool other_ensures_precoloring = false;
+
             /* check if we moved an operand, again */
             bool fill = true;
             for (Operand& op : instr->operands) {
-               if (op.isTemp() && op.tempId() == other.def.tempId()) {
-                  // FIXME: ensure that the operand can use this reg
-                  op.setFixed(other.def.physReg());
-                  fill = (flags & fill_killed_ops) || !op.isKillBeforeDef();
-               }
+               if (!op.isTemp() || op.tempId() != other.def.tempId())
+                  continue;
+               bool isKillBeforeDef = op.isFirstKillBeforeDef();
+               fill = (flags & fill_killed_ops) || !isKillBeforeDef;
+
+               if (other.def.physReg() == op.physReg() && op.isPrecolored())
+                  other_ensures_precoloring = true;
+               else
+                  op.setFixed(it->def.physReg());
+               break;
             }
+
+            Definition fill_def;
+
+            if (other_ensures_precoloring) {
+               it->op = other.op;
+               ctx.assignments[other.op.tempId()].reg = it->def.physReg();
+               fill_def = it->def;
+            } else {
+               other.def.setFixed(it->def.physReg());
+               ctx.assignments[other.def.tempId()].reg = other.def.physReg();
+               it = parallelcopies.erase(it);
+               fill_def = other.def;
+            }
+            is_def = true;
+
             if (fill)
-               reg_file.fill(other.def);
+               reg_file.fill(fill_def);
             break;
          }
       }
@@ -867,7 +885,7 @@ update_renames(ra_ctx& ctx, RegisterFile& reg_file, std::vector<parallelcopy>& p
             continue;
          if (op.tempId() == copy.op.tempId()) {
             /* only rename precolored operands if the copy-location matches */
-            bool omit_renaming = (flags & rename_precolored_ops) && op.isFixed() &&
+            bool omit_renaming = (flags & rename_precolored_ops) && op.isPrecolored() &&
                                  op.physReg() != copy.def.physReg();
 
             /* Omit renaming in some cases for p_create_vector in order to avoid
@@ -3033,6 +3051,8 @@ register_allocation(Program* program, ra_test_policy policy)
             operand.setTemp(read_variable(ctx, operand.getTemp(), block.index));
             assert(ctx.assignments[operand.tempId()].assigned);
 
+            operand.setPrecolored(operand.isFixed());
+
             fixed |=
                operand.isFixed() && ctx.assignments[operand.tempId()].reg != operand.physReg();
          }
@@ -3105,7 +3125,9 @@ register_allocation(Program* program, ra_test_policy policy)
                RegisterFile tmp_file(register_file);
                /* re-enable the killed operands, so that we don't move the blocking vars there */
                for (const Operand& op : instr->operands) {
-                  if (op.isTemp() && op.isFirstKillBeforeDef())
+                  if (op.isPrecolored())
+                     tmp_file.block(op.physReg(), op.regClass());
+                  else if (op.isTemp() && op.isKillBeforeDef())
                      tmp_file.fill(op);
                }
 
