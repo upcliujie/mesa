@@ -1,5 +1,0 @@
-# Timeouts
-dEQP-VK.wsi.wayland.incremental_present.scale_none.fifo.identity.opaque.incremental_present
-dEQP-VK.wsi.wayland.incremental_present.scale_none.fifo.identity.opaque.reference
-dEQP-VK.wsi.wayland.incremental_present.scale_none.fifo.identity.pre_multiplied.incremental_present
-dEQP-VK.wsi.wayland.incremental_present.scale_none.fifo.identity.pre_multiplied.reference
