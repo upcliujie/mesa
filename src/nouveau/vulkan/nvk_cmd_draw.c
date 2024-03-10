@@ -170,12 +170,17 @@ nvk_push_draw_state_init(struct nvk_device *dev, struct nv_push *p)
     *
     *    - 2: api_stack_error_report
     *    - 14: oor_addr_report
+    *    - 14: misaligned_addr_report
+    *    - 18: invalid_const_addr_pdc_report
     */
    if (dev->pdev->info.cls_eng3d >= MAXWELL_B) {
       unsigned reg = pdev->info.cls_eng3d >= VOLTA_A ? 0x419ea8 : 0x419e44;
       P_1INC(p, NV9097, CALL_MME_MACRO(NVK_MME_SET_PRIV_REG));
       P_INLINE_DATA(p, 0);
-      P_INLINE_DATA(p, BITFIELD_BIT(2) | BITFIELD_BIT(14));
+      P_INLINE_DATA(p, BITFIELD_BIT(2)
+                     | BITFIELD_BIT(14)
+                     | BITFIELD_BIT(15)
+                     | BITFIELD_BIT(18));
       P_INLINE_DATA(p, reg);
    }
 
