@@ -92,7 +92,7 @@ nouveau_screen_fence_finish(struct pipe_screen *screen,
    if (!timeout)
       return nouveau_fence_signalled(nouveau_fence(pfence));
 
-   return nouveau_fence_wait(nouveau_fence(pfence), NULL);
+   return nouveau_fence_wait(nouveau_fence(pfence), nouveau_context(ctx));
 }
 
 
@@ -489,12 +489,35 @@ nouveau_set_debug_callback(struct pipe_context *pipe,
       memset(&context->debug, 0, sizeof(context->debug));
 }
 
+static enum pipe_reset_status
+nouveau_get_device_reset_status(struct pipe_context *pipe)
+{
+   struct nouveau_context *context = nouveau_context(pipe);
+   enum pipe_reset_status status = nouveau_check_dead_context(context->screen);
+   if (status != PIPE_NO_RESET)
+      nouveau_mark_dead_context(context, status);
+   return status;
+}
+
+static void
+nouveau_set_device_reset_callback(struct pipe_context *pipe,
+                                  const struct pipe_device_reset_callback *cb)
+{
+   struct nouveau_context *context = nouveau_context(pipe);
+   if (cb)
+      context->device_reset_cb = *cb;
+   else
+      memset(&context->device_reset_cb, 0, sizeof(context->device_reset_cb));
+}
+
 int
 nouveau_context_init(struct nouveau_context *context, struct nouveau_screen *screen)
 {
    int ret;
 
    context->pipe.set_debug_callback = nouveau_set_debug_callback;
+   context->pipe.get_device_reset_status = nouveau_get_device_reset_status;
+   context->pipe.set_device_reset_callback = nouveau_set_device_reset_callback;
    context->screen = screen;
 
    ret = nouveau_client_new(screen->device, &context->client);

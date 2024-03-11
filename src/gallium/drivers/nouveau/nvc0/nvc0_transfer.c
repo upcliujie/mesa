@@ -365,8 +365,8 @@ nvc0_mt_sync(struct nvc0_context *nvc0, struct nv50_miptree *mt, unsigned usage)
       return !BO_WAIT(&nvc0->screen->base, mt->base.bo, access, nvc0->base.client);
    }
    if (usage & PIPE_MAP_WRITE)
-      return !mt->base.fence || nouveau_fence_wait(mt->base.fence, &nvc0->base.debug);
-   return !mt->base.fence_wr || nouveau_fence_wait(mt->base.fence_wr, &nvc0->base.debug);
+      return !mt->base.fence || nouveau_fence_wait(mt->base.fence, &nvc0->base);
+   return !mt->base.fence_wr || nouveau_fence_wait(mt->base.fence_wr, &nvc0->base);
 }
 
 void *

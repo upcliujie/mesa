@@ -11,6 +11,7 @@
 #include <nouveau.h>
 
 #include "nouveau_screen.h"
+#include "nouveau_context.h"
 
 #ifndef NV04_PFIFO_MAX_PACKET_LEN
 #define NV04_PFIFO_MAX_PACKET_LEN 2047
@@ -95,7 +96,9 @@ PUSH_KICK(struct nouveau_pushbuf *push)
 {
    struct nouveau_pushbuf_priv *ppush = push->user_priv;
    simple_mtx_lock(&ppush->screen->fence.lock);
-   nouveau_pushbuf_kick(push, push->channel);
+   /* We get -ENODEV when submitting to a dead channel */
+   if (nouveau_pushbuf_kick(push, push->channel) == -ENODEV)
+      nouveau_mark_dead_context(ppush->context, nouveau_dead_context_status(ppush->screen));
    simple_mtx_unlock(&ppush->screen->fence.lock);
 }
 
