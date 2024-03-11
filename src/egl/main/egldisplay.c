@@ -368,6 +368,7 @@ _eglFindDisplay(_EGLPlatformType plat, void *plat_dpy,
    assert(!disp);
    disp = calloc(1, sizeof(_EGLDisplay));
    if (!disp)
+      _eglError(EGL_BAD_ALLOC, "eglGetPlatformDisplay");
       goto out;
 
    simple_mtx_init(&disp->Mutex, mtx_plain);
@@ -387,6 +388,7 @@ _eglFindDisplay(_EGLPlatformType plat, void *plat_dpy,
       if (!disp->Options.Attribs) {
          free(disp);
          disp = NULL;
+         _eglError(EGL_BAD_ALLOC, "eglGetPlatformDisplay");
          goto out;
       }
       memcpy(disp->Options.Attribs, attrib_list,
