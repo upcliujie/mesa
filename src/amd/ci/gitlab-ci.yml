@@ -9,6 +9,7 @@ radv-stoney-vkcts:x86_64:
   parallel: 5
   variables:
     DEQP_FRACTION: 11
+    HWCI_START_WESTON: 1
 
 radv-stoney-angle:
   extends:
@@ -58,6 +59,7 @@ radv-raven-vkcts:x86_64:
   variables:
     DEQP_VER: vk
     DEQP_FRACTION: 6
+    HWCI_START_WESTON: 1
 
 amd-raven-skqp:x86_64:
   extends:
@@ -138,6 +140,7 @@ radeonsi-raven-va-full:x86_64:
     B2C_TIMEOUT_BOOT_MINUTES: 710
     B2C_TIMEOUT_OVERALL_MINUTES: 710
     B2C_TIMEOUT_BOOT_RETRIES: 0
+    HWCI_START_WESTON: 1
 
 # Disabled for now due to Igalia farm issues.
 .vkcts-stoney-valve:
@@ -156,6 +159,7 @@ radeonsi-raven-va-full:x86_64:
     B2C_TIMEOUT_BOOT_MINUTES: 240
     B2C_TIMEOUT_OVERALL_MINUTES: 240
     B2C_TIMEOUT_BOOT_RETRIES: 0
+    HWCI_START_WESTON: 1
   tags:
     - farm:$RUNNER_FARM_LOCATION
     - amdgpu:codename:STONEY
@@ -184,6 +188,7 @@ vkcts-polaris10-valve:
     B2C_TIMEOUT_BOOT_MINUTES: 70
     B2C_TIMEOUT_OVERALL_MINUTES: 70
     RADV_PERFTEST: shader_object
+    HWCI_START_WESTON: 1
 
 vkcts-vega10-valve:
   extends:
@@ -196,6 +201,7 @@ vkcts-vega10-valve:
     B2C_TIMEOUT_BOOT_MINUTES: 70
     B2C_TIMEOUT_OVERALL_MINUTES: 70
     RADV_PERFTEST: shader_object
+    HWCI_START_WESTON: 1
 
 vkcts-renoir-valve:
   extends:
@@ -207,6 +213,7 @@ vkcts-renoir-valve:
     GPU_VERSION: radv-renoir-aco
     B2C_TIMEOUT_BOOT_MINUTES: 130
     B2C_TIMEOUT_OVERALL_MINUTES: 130
+    HWCI_START_WESTON: 1
 
 vkcts-navi10-valve:
   parallel: 2
@@ -217,6 +224,7 @@ vkcts-navi10-valve:
   variables:
     GPU_VERSION: radv-navi10-aco
     RADV_PERFTEST: shader_object
+    HWCI_START_WESTON: 1
 
 vkcts-navi21-valve:
   timeout: 35m
@@ -230,6 +238,7 @@ vkcts-navi21-valve:
     B2C_TIMEOUT_BOOT_MINUTES: 30
     B2C_TIMEOUT_OVERALL_MINUTES: 30
     RADV_PERFTEST: shader_object
+    HWCI_START_WESTON: 1
 
 # Disabled due to its extremelly-broken nature
 .vkcts-navi21-llvm-valve:
@@ -251,6 +260,7 @@ vkcts-vangogh-valve:
   variables:
     GPU_VERSION: radv-vangogh-aco
     RADV_PERFTEST: shader_object
+    HWCI_START_WESTON: 1
 
 glcts-vangogh-valve:
   extends:
@@ -272,6 +282,7 @@ vkcts-navi31-valve:
     GPU_VERSION: radv-navi31-aco
     RADV_DEBUG: nomeshshader # Disable mesh shaders until task shaders stop hanging
     RADV_PERFTEST: shader_object
+    HWCI_START_WESTON: 1
 
 ############### Fossilize
 radv-fossils:
