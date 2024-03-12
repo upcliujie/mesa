@@ -225,7 +225,7 @@ def instruction_bits(ins):
     return ranges
 
 def print_instruction(instr):
-    create_rst_subsection(instr.get_c_name())
+    create_rst_subsection(instr.name)
 
     ranges = instruction_bits(instr)
     builder = Opcode(64)
