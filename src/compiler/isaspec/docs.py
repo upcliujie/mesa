@@ -21,16 +21,147 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-import json
 import textwrap
-from isa import ISA, get_bitrange
-import re
+from isa import ISA, BitSetDerivedField, get_bitrange
 import sys
 
 xml = sys.argv[1]
 dst = sys.argv[2]
 
 isa = ISA(xml)
+
+
+class Opcode(object):
+	def __init__(self, bits, byte_hints=True, hint_lines=None):
+		self.hint_lines = hint_lines or []
+		self.byte_hints = byte_hints
+		self.bits = [None] * bits
+		self.colspan = [1] * bits
+		self.borders = ['left right'] * bits
+		self.left ='left'
+		self.right = 'right'
+		self.extra_row = [''] * bits
+		self.extra_colspan = [1] * bits
+
+	def add_constant(self, offset, size, value, name=None):
+		assert (value & ~((1 << size) - 1)) == 0
+		for i in range(size-2):
+			self.borders[offset + 1 + i] = ''
+		if size >= 2:
+			self.borders[offset] = self.right
+			self.borders[offset + size - 1] = self.left
+		for i in range(size):
+			assert self.bits[offset + i] is None
+			self.bits[offset + i] = (value >> i) & 1
+
+	def add_field(self, offset, size, name):
+		on_extra_row = False
+		for i in range(size):
+			if self.bits[offset + i] is not None:
+				on_extra_row = True
+				break
+		if on_extra_row:
+			for i in range(size):
+				assert not self.extra_row[offset + i]
+				self.extra_row[offset + i] = name
+				self.extra_colspan[offset + i] = size
+		else:
+			for i in range(size):
+				assert self.bits[offset + i] is None
+				self.bits[offset + i] = name
+				self.colspan[offset + i] = size
+
+	def to_html(self):
+		for i in range(len(self.bits)-1):
+			if self.bits[i] is None and self.bits[i+1] is None:
+				self.borders[i] = self.borders[i].replace(self.left, '').strip()
+				self.borders[i+1] = self.borders[i+1].replace(self.right, '').strip()
+
+		parts = []
+		# parts.append('<div class="opcodewrapper wrapped">')
+
+		# start = 0
+		# for i in [16, 32, 40, 48, 64]:
+		# 	if len(self.bits) > i and i-start > 8:
+		# 		if self.bits[i] and self.bits[i-1] and self.bits[i] == self.bits[i-1]:
+		# 			pass
+		# 		else:
+		# 			parts.append(self.to_html_line(start, i))
+		# 			start = i
+
+		# if start < len(self.bits):
+		# 	parts.append(self.to_html_line(start))
+
+		# parts.append('</div>')
+
+		parts.append('<div class="opcodewrapper notwrapped">')
+		parts.append(self.to_html_line())
+		parts.append('</div>')
+		return ''.join(parts)
+
+	def to_html_line(self, line_low=None, line_high=None):
+		if line_low is None:
+			line_low = 0
+		if line_high is None:
+			line_high = len(self.bits)
+
+		start = line_high - 1
+		end = line_low - 1
+		step = -1
+
+		parts = ['<table class="opcodebits">']
+
+		parts.append('<thead><tr>')
+
+		for i in  range(start, end, step):
+			if (i+1) % 8 == 0 and self.byte_hints:
+				parts.append('<td class="%s">%d</td>' % (self.left, i))
+			elif i % 8 == 0 and self.byte_hints:
+				parts.append('<td class="%s">%d</td>' % (self.right, i))
+			elif i in self.hint_lines:
+				parts.append('<td class="%s">%d</td>' % (self.left, i))
+			else:
+				parts.append('<td>%d</td>' % i)
+		parts.append('</tr></thead>')
+
+		parts.append('<tbody><tr>')
+
+		o = start
+		while o > end:
+			i = self.bits[o]
+			css_class = self.borders[o]
+			if i is None:
+				css_class = ('unknown ' + css_class).strip()
+			parts.append('<td colspan="%d" class="%s">' % (self.colspan[o], css_class))
+			if i is None:
+				parts.append('x')
+			elif isinstance(i, int):
+				parts.append('%d' % i)
+			elif isinstance(i, str):
+				parts.append('%s' % i)
+			parts.append('</td>')
+			o -= self.colspan[o]
+
+		parts.append('</tr>')
+		parts.append('</tbody>')
+
+		if any(self.extra_row):
+			parts.append('<tfoot>')
+			parts.append('<tr>')
+			o = start
+			while o > end:
+				i = self.extra_row[o]
+				css_class = 'left right' if i else ''
+				parts.append('<td colspan="%d" class="%s">' % (self.extra_colspan[o], css_class))
+				parts.append('%s' % i)
+				parts.append('</td>')
+				o -= self.extra_colspan[o]
+			parts.append('</tr>')
+			parts.append('</tbody>')
+
+
+		parts.append('</table>')
+		return ''.join(parts)
 
 def trim_string(string):
     return textwrap.dedent(string).strip()
@@ -94,57 +225,34 @@ def instruction_bits(ins):
     return ranges
 
 def print_instruction(instr):
-    ranges = sorted(instruction_bits(instr), key=lambda x: x.low)
-
-    bitfields_data = []
-
-    for range in ranges:
-        bitfield = {"bits": range.high - range.low + 1}
-        if hasattr(range, "name"):
-            bitfield["name"] = range.name
-        if hasattr(range, "attr"):
-            bitfield["attr"] = range.attr
-        if hasattr(range, "type"):
-            bitfield["type"] = range.type
-        bitfields_data.append(bitfield)
-
-    json_output = json.dumps(bitfields_data, indent=4)
-    print(json_output)
-
-def print_instruction(instr):
     create_rst_subsection(instr.get_c_name())
+
+    ranges = instruction_bits(instr)
+    builder = Opcode(64)
+
+    for r in ranges:
+        if isinstance(r, BitSetDerivedField):
+            continue
+        if hasattr(r, "type"):
+            builder.add_field(r.low, r.high - r.low + 1, r.name)
+        else:
+            for idx in range(0, r.high - r.low + 1):
+                if r.name[idx] == '0':
+                    builder.add_constant(r.low + idx, 1, 0)
+                elif r.name[idx] == '1':
+                    builder.add_constant(r.low + idx, 1, 1)
+
+    indented_html = "\n".join("   " + line for line in builder.to_html().splitlines())
+
+    print('.. raw:: html')
+    print('')
+    print(indented_html)
+    print('')
 
     if instr.doc is not None:
         print(f"{trim_string(instr.doc.text)}")
         print("")
 
-    ranges = sorted(instruction_bits(instr), key=lambda x: x.low)
-    bitfields_data = []
-
-    for range in ranges:
-        how_many_bits = range.high - range.low + 1
-        bitfield = {"bits": how_many_bits}
-        bitfield["name"] = range.name
-
-        if len(range.name) > how_many_bits:
-            bitfield["rotate"] = -90
-
-        bitfields_data.append(bitfield)
-
-    json_output = json.dumps(bitfields_data, indent=4)
-    indented_json = "\n".join("           " + line for line in json_output.splitlines())
-
-    print('.. container:: highlight')
-    print('')
-    print('   .. bitfield::')
-    print('       :hspace: 964')
-    print('       :vspace: 160')
-    print('       :uneven:')
-    print(f"       :bits: {isa.bitsize}")
-    print(f"       :lanes: {int(isa.bitsize / 32)}")
-    print('')
-    print(indented_json)
-    print('')
     print('')
 
 with open(dst, 'w') as f:

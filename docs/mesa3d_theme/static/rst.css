@@ -72,10 +72,34 @@ div.code-block-caption {
   color: var(--bs-alert-link-color);
 }
 
-text {
-  fill: var(--bs-body-color);
+table.opcodebits {
+  border-collapse: collapse;
+  text-align: center;
+  font-size: small;
+  margin-top: 6px;
+  margin-bottom: 6px;
+  display: inline-block;
+  vertical-align: top;
 }
 
-line {
-  stroke: var(--bs-body-color);
+table.opcodebits thead td {
+  font-size: smaller; width: 18px;
+}
+
+table.opcodebits tbody {
+  border-left: 1px solid #000;
+  border-right: 1px solid #000;
+}
+
+table.opcodebits tbody td {
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+}
+
+table.opcodebits td.left {
+  border-left: 1px solid #000;
+}
+
+table.opcodebits td.right {
+  border-right: 1px solid #000;
 }

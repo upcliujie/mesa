@@ -9,7 +9,7 @@
     - public/
   script:
   - apk --no-cache add coreutils graphviz py3-clang clang-dev musl-dev linux-headers
-  - pip3 install sphinx===5.1.1 mako===1.2.3 hawkmoth===0.16.0 sphinxcontrib-bitfield===1.0.0
+  - pip3 install sphinx===5.1.1 mako===1.2.3 hawkmoth===0.16.0
   - docs/isaspec-doc-wrapper.py --out-dir=docs/isaspec_rst
   - sphinx-build -W -b $BUILDER docs public
 
