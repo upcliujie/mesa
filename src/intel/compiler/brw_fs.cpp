@@ -1042,6 +1042,19 @@ fs_inst::has_sampler_residency() const
    }
 }
 
+bool
+fs_inst::uses_address_register() const
+{
+   switch (opcode) {
+   case SHADER_OPCODE_BROADCAST:
+   case SHADER_OPCODE_SHUFFLE:
+   case SHADER_OPCODE_MOV_INDIRECT:
+      return true;
+   default:
+      return false;
+   }
+}
+
 /* For SIMD16, we need to follow from the uniform setup of SIMD8 dispatch.
  * This brings in those uniform definitions
  */
@@ -2503,7 +2516,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file, const brw:
          fprintf(file, "null");
          break;
       case BRW_ARF_ADDRESS:
-         fprintf(file, "a0.%d", inst->dst.subnr);
+         fprintf(file, "a0.%d-%d", inst->dst.subnr, inst->dst.arfnr);
          break;
       case BRW_ARF_ACCUMULATOR:
          if (inst->dst.subnr == 0)
@@ -2614,7 +2627,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file, const brw:
             fprintf(file, "null");
             break;
          case BRW_ARF_ADDRESS:
-            fprintf(file, "a0.%d", inst->src[i].subnr);
+            fprintf(file, "a0.%d-%d", inst->src[i].subnr, inst->src[i].arfnr);
             break;
          case BRW_ARF_ACCUMULATOR:
             if (inst->src[i].subnr == 0)

@@ -286,6 +286,19 @@ brw_reg::is_accumulator() const
 }
 
 bool
+brw_reg::is_address() const
+{
+   return file == ARF && nr >= BRW_ARF_ADDRESS && nr < BRW_ARF_ACCUMULATOR;
+}
+
+unsigned
+brw_reg::address_slot(unsigned byte_offset) const
+{
+   assert(is_address());
+   return (subnr + byte_offset) / 2;
+}
+
+bool
 fs_inst::is_commutative() const
 {
    switch (opcode) {

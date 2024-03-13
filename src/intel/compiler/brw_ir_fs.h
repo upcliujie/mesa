@@ -122,6 +122,11 @@ public:
     */
    bool has_sampler_residency() const;
 
+   /**
+    * Return true if this instruction is using the address register.
+    */
+   bool uses_address_register() const;
+
    /** @{
     * Annotation for the generated IR.  One of the two can be set.
     */
