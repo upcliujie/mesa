@@ -123,6 +123,7 @@ nvk_get_spirv_options(struct vk_physical_device *vk_pdev,
    return (struct spirv_to_nir_options) {
       .caps = {
          .demote_to_helper_invocation = true,
+         .derivative_group = true,
          .descriptor_array_dynamic_indexing = true,
          .descriptor_array_non_uniform_indexing = true,
          .descriptor_indexing = true,

@@ -633,7 +633,7 @@ Khronos extensions that are not part of any Vulkan version:
   VK_GOOGLE_hlsl_functionality1                         DONE (anv, hasvk, lvp, radv)
   VK_GOOGLE_user_type                                   DONE (anv, hasvk, radv)
   VK_IMG_filter_cubic                                   DONE (tu/a650)
-  VK_NV_compute_shader_derivatives                      DONE (anv, hasvk, radv)
+  VK_NV_compute_shader_derivatives                      DONE (anv, hasvk, nvk, radv)
   VK_EXT_acquire_drm_display                            DONE (anv, nvk, radv, tu, v3dv)
   VK_VALVE_mutable_descriptor_type                      DONE (anv, hasvk, radv, tu, vn)
   VK_AMD_buffer_marker                                  DONE (anv, radv, tu)

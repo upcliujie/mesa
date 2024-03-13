@@ -225,6 +225,7 @@ nvk_get_device_extensions(const struct nvk_instance *instance,
       .EXT_vertex_input_dynamic_state = true,
       .EXT_ycbcr_2plane_444_formats = true,
       .EXT_ycbcr_image_arrays = true,
+      .NV_compute_shader_derivatives = true,
       .NV_shader_sm_builtins = true,
    };
 }
@@ -565,6 +566,10 @@ nvk_get_device_features(const struct nv_device_info *info,
 
       /* VK_EXT_ycbcr_image_arrays */
       .ycbcrImageArrays = true,
+
+      /* VK_NV_compute_shader_derivatives */
+      .computeDerivativeGroupQuads = false, /* TODO */
+      .computeDerivativeGroupLinear = true,
 
       /* VK_NV_shader_sm_builtins */
       .shaderSMBuiltins = true,
