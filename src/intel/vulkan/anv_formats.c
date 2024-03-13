@@ -783,18 +783,6 @@ anv_get_image_format_features2(const struct anv_physical_device *physical_device
          /* For simplicity, keep DISJOINT disabled for multi-planar format. */
          flags &= ~VK_FORMAT_FEATURE_2_DISJOINT_BIT;
 
-         /* VK_ANDROID_external_memory_android_hardware_buffer in Virtio-GPU
-          * Venus driver layers on top of VK_EXT_image_drm_format_modifier of
-          * the host Vulkan driver, and both VK_FORMAT_G8_B8R8_2PLANE_420_UNORM
-          * and VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM and required to support
-          * camera/media interop in Android.
-          */
-         if (vk_format != VK_FORMAT_G8_B8R8_2PLANE_420_UNORM &&
-             vk_format != VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM) {
-            anv_finishme("support more multi-planar formats with DRM modifiers");
-            return 0;
-         }
-
          /* Currently there is no way to properly map memory planes to format
           * planes and aux planes due to the lack of defined ABI for external
           * multi-planar images.
