@@ -296,8 +296,7 @@ swizzle_to_component(VkComponentSwizzle swizzle)
 }
 
 struct lower_ycbcr_tex_state {
-   nir_vk_ycbcr_conversion_lookup_cb cb;
-   const void *cb_data;
+   const struct nir_vk_lower_ycbcr_tex_options *options;
 };
 
 static bool
@@ -336,7 +335,7 @@ lower_ycbcr_tex_instr(nir_builder *b, nir_instr *instr, void *_state)
    }
 
    const struct vk_ycbcr_conversion_state *conversion =
-      state->cb(state->cb_data, set, binding, array_index);
+      state->options->lookup_cb(state->options->lookup_cb_data, set, binding, array_index);
    if (conversion == NULL)
       return false;
 
@@ -443,12 +442,10 @@ lower_ycbcr_tex_instr(nir_builder *b, nir_instr *instr, void *_state)
 }
 
 bool nir_vk_lower_ycbcr_tex(nir_shader *nir,
-                            nir_vk_ycbcr_conversion_lookup_cb cb,
-                            const void *cb_data)
+                            const struct nir_vk_lower_ycbcr_tex_options *options)
 {
    struct lower_ycbcr_tex_state state = {
-      .cb = cb,
-      .cb_data = cb_data,
+      .options = options,
    };
 
    return nir_shader_instructions_pass(nir, lower_ycbcr_tex_instr,
