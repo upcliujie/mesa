@@ -934,3 +934,8 @@ nobin-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_
 nobin-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.pgq_64bit_xfb_32bit.line_strip.draw,Fail
 nobin-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.32bit.triangle_strip.indirect,Fail
 nobin-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.64bit.line_strip.draw,Fail
+
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.composite_alpha,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_array_layers,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.image_format,Crash
+dEQP-VK.wsi.wayland.swapchain.simulate_oom.pre_transform,Crash

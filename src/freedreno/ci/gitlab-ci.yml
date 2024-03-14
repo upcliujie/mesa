@@ -54,6 +54,7 @@ a618_vk:
     FLAKES_CHANNEL: "#freedreno-ci"
     MESA_VK_IGNORE_CONFORMANCE_WARNING: 1
     DEQP_FRACTION: 2
+    HWCI_START_WESTON: 1
 
 a618_vk_full:
   extends:
@@ -170,6 +171,7 @@ a660_gl:
   variables:
     DEQP_SUITE: freedreno-a660-vk
     DEQP_FRACTION: 4
+    HWCI_START_WESTON: 1
 
 a660_vk_full:
   extends:
@@ -211,6 +213,7 @@ a630_vk:
     - .google-turnip-rules
   variables:
     DEQP_SUITE: freedreno-a630-vk
+    HWCI_START_WESTON: 1
 
 # Takes too long since the 1.3.7.0 CTS uprev.
 .a630_vk_full:
@@ -238,6 +241,7 @@ a630_vk_asan:
     DEQP_SUITE: freedreno-a630-vk-asan
     FDO_CI_CONCURRENT: 2 # We get OOMkills if we go too wide with asan enabled
     GPU_VERSION: freedreno-a630-asan
+    HWCI_START_WESTON: 1
 
 a630_piglit:
   extends:
