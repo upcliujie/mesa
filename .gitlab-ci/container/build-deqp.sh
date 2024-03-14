@@ -209,7 +209,7 @@ if [ "${DEQP_TARGET}" != 'android' ]; then
     if [ "${DEQP_API}" = 'VK' ]; then
         for mustpass in $(< /VK-GL-CTS/external/vulkancts/mustpass/main/vk-default.txt) ; do
             cat /VK-GL-CTS/external/vulkancts/mustpass/main/$mustpass \
-                >> /deqp/mustpass/vk-master.txt
+                >> /deqp/mustpass/vk.txt
         done
     fi
 
