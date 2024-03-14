@@ -103,6 +103,10 @@ PIGLIT_BUILD_TARGETS="piglit_replayer" . .gitlab-ci/container/build-piglit.sh
 
 ############### Build dEQP VK
 
+DEQP_API=VK-main \
+DEQP_TARGET=default \
+. .gitlab-ci/container/build-deqp.sh
+
 DEQP_API=VK \
 DEQP_TARGET=default \
 . .gitlab-ci/container/build-deqp.sh
