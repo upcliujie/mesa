@@ -1379,6 +1379,22 @@ apply_var_decoration(struct vtn_builder *b,
           */
          var_data->per_primitive = true;
          break;
+      case SpvBuiltInHelperInvocation:
+         /* SPIR-V spec says:
+          *
+          *     After an invocation executes this instruction, any subsequent
+          *     load of HelperInvocation within that invocation will load an
+          *     undefined value unless the HelperInvocation built-in variable
+          *     is decorated with Volatile or the load included Volatile in
+          *     its Memory Operands.
+          *
+          * To prevent issues, when DemoteToHelperInvocation capability is
+          * used, assume all access to HelperInvocation is going to be
+          * Volatile.
+          */
+         if (b->uses_demote_to_helper_invocation || b->convert_discard_to_demote)
+            var_data->access |= ACCESS_VOLATILE;
+         break;
       default:
          break;
       }
