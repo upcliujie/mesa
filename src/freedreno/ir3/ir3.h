@@ -1153,6 +1153,7 @@ is_load(struct ir3_instruction *instr)
    case OPC_LDLW:
    case OPC_LDC:
    case OPC_LDLV:
+   case OPC_RAY_INTERSECTION:
       /* probably some others too.. */
       return true;
    default:
@@ -2862,6 +2863,7 @@ INSTR4(ATOMIC_S_OR)
 INSTR4(ATOMIC_S_XOR)
 #endif
 INSTR4NODST(LDG_K)
+INSTR5(RAY_INTERSECTION)
 
 /* cat7 instructions: */
 INSTR0(BAR)
