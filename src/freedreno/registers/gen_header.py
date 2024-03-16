@@ -266,13 +266,17 @@ class Array(object):
 		self.offset = int(attrs["offset"], 0)
 		self.stride = int(attrs["stride"], 0)
 		self.length = int(attrs["length"], 0)
+		self.full_name = self.domain + "_" + self.name
 		if "usage" in attrs:
 			self.usages = attrs["usage"].split(',')
 		else:
 			self.usages = None
 
 	def dump(self):
-		print("#define REG_%s_%s(i0) (0x%08x + 0x%x*(i0))\n" % (self.domain, self.name, self.offset, self.stride))
+		print("#define REG_%s(i0) (0x%08x + 0x%x*(i0))" % (self.full_name, self.offset, self.stride))
+		tab_to("#define REG_%s__ESIZE" % self.full_name, "0x%08x" % self.stride)
+		tab_to("#define REG_%s__LEN" % self.full_name, "0x%08x" % self.length)
+		print()
 
 	def dump_pack_struct(self):
 		pass
