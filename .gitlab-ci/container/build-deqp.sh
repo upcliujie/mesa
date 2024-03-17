@@ -16,6 +16,7 @@ set -ex -o pipefail
 # - the GL release produces `glcts`, and
 # - the GLES release produces `deqp-gles*` and `deqp-egl`
 
+DEQP_VK_MAIN_VERSION=87353392d2d29dd9af34738123a7b87abfea2d48
 DEQP_VK_VERSION=1.3.7.0
 DEQP_GL_VERSION=4.6.4.0
 DEQP_GLES_VERSION=3.2.10.0
@@ -98,44 +99,53 @@ git config --global user.name "Mesa CI"
 
 # shellcheck disable=SC2153
 case "${DEQP_API}" in
+  VK-main) DEQP_VERSION="$DEQP_VK_MAIN_VERSION";;
   VK) DEQP_VERSION="vulkan-cts-$DEQP_VK_VERSION";;
   GL) DEQP_VERSION="opengl-cts-$DEQP_GL_VERSION";;
   GLES) DEQP_VERSION="opengl-es-cts-$DEQP_GLES_VERSION";;
 esac
 
-git clone \
-    https://github.com/KhronosGroup/VK-GL-CTS.git \
-    -b $DEQP_VERSION \
-    --depth 1 \
-    /VK-GL-CTS
+mkdir /VK-GL-CTS
 pushd /VK-GL-CTS
+git init
+git remote add origin https://github.com/KhronosGroup/VK-GL-CTS.git
+git fetch --depth 1 origin "$DEQP_VERSION"
+git checkout FETCH_HEAD
+DEQP_COMMIT=$(git rev-parse FETCH_HEAD)
 
 mkdir -p /deqp
 
 # shellcheck disable=SC2153
 deqp_api=${DEQP_API,,}
 
-cts_commits_to_backport="${deqp_api}_cts_commits_to_backport[@]"
-for commit in "${!cts_commits_to_backport}"
-do
-  PATCH_URL="https://github.com/KhronosGroup/VK-GL-CTS/commit/$commit.patch"
-  echo "Apply patch to ${DEQP_API} CTS from $PATCH_URL"
-  curl -L --retry 4 -f --retry-all-errors --retry-delay 60 $PATCH_URL | \
-    git am -
-done
+if [ "${DEQP_API}" != 'VK-main' ]; then
+  cts_commits_to_backport="${deqp_api}_cts_commits_to_backport[@]"
+  for commit in "${!cts_commits_to_backport}"
+  do
+    PATCH_URL="https://github.com/KhronosGroup/VK-GL-CTS/commit/$commit.patch"
+    echo "Apply patch to ${DEQP_API} CTS from $PATCH_URL"
+    curl -L --retry 4 -f --retry-all-errors --retry-delay 60 $PATCH_URL | \
+      git am -
+  done
 
-cts_patch_files="${deqp_api}_cts_patch_files[@]"
-for patch in "${!cts_patch_files}"
-do
-  echo "Apply patch to ${DEQP_API} CTS from $patch"
-  git am < $OLDPWD/.gitlab-ci/container/patches/$patch
-done
+  cts_patch_files="${deqp_api}_cts_patch_files[@]"
+  for patch in "${!cts_patch_files}"
+  do
+    echo "Apply patch to ${DEQP_API} CTS from $patch"
+    git am < $OLDPWD/.gitlab-ci/container/patches/$patch
+  done
 
-{
-  echo "dEQP base version $DEQP_VERSION"
-  echo "The following local patches are applied on top:"
-  git log --reverse --oneline $DEQP_VERSION.. --format=%s | sed 's/^/- /'
-} > /deqp/version-$deqp_api
+  {
+    echo "dEQP base version $DEQP_VERSION"
+    echo "The following local patches are applied on top:"
+    git log --reverse --oneline "$DEQP_COMMIT".. --format='- %s'
+  } > /deqp/version-$deqp_api
+else
+  {
+    commit_desc=$(git show --no-patch --format='%h on %ci' --abbrev=10 "$DEQP_COMMIT")
+    echo "dEQP main at commit $commit_desc"
+  } > /deqp/version-$deqp_api
+fi
 
 # --insecure is due to SSL cert failures hitting sourceforge for zlib and
 # libpng (sigh).  The archives get their checksums checked anyway, and git
@@ -189,7 +199,7 @@ fi
 
 deqp_build_targets=()
 case "${DEQP_API}" in
-  VK)
+  VK|VK-main)
     deqp_build_targets+=(deqp-vk)
     ;;
   GL)
@@ -208,14 +218,25 @@ fi
 
 mold --run ninja "${deqp_build_targets[@]}"
 
+if [ "${DEQP_API}" = 'VK-main' ]; then
+  mv external/vulkancts/modules/vulkan/deqp-vk{,-main}
+fi
+
 if [ "${DEQP_TARGET}" != 'android' ]; then
     # Copy out the mustpass lists we want.
     mkdir -p /deqp/mustpass
 
+    if [ "${DEQP_API}" = 'VK-main' ]; then
+        for mustpass in $(< /VK-GL-CTS/external/vulkancts/mustpass/main/vk-default.txt) ; do
+            cat /VK-GL-CTS/external/vulkancts/mustpass/main/$mustpass \
+                >> /deqp/mustpass/vk-main.txt
+        done
+    fi
+
     if [ "${DEQP_API}" = 'VK' ]; then
         for mustpass in $(< /VK-GL-CTS/external/vulkancts/mustpass/main/vk-default.txt) ; do
             cat /VK-GL-CTS/external/vulkancts/mustpass/main/$mustpass \
-                >> /deqp/mustpass/vk-master.txt
+                >> /deqp/mustpass/vk.txt
         done
     fi
 
@@ -258,6 +279,9 @@ rm -rf /deqp/modules/internal
 rm -rf /deqp/execserver
 rm -rf /deqp/framework
 find . -depth \( -iname '*cmake*' -o -name '*ninja*' -o -name '*.o' -o -name '*.a' \) -exec rm -rf {} \;
+if [ "${DEQP_API}" = 'VK-main' ]; then
+  ${STRIP_CMD:-strip} external/vulkancts/modules/vulkan/deqp-vk-main
+fi
 if [ "${DEQP_API}" = 'VK' ]; then
   ${STRIP_CMD:-strip} external/vulkancts/modules/vulkan/deqp-vk
 fi

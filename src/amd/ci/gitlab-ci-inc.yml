@@ -375,7 +375,7 @@
     - .b2c-test-radv-vk
     - .deqp-test-valve
   variables:
-    DEQP_VER: vk
+    DEQP_VER: vk-main
 
 ############### vkd3d-proton
 .vkd3d-test-valve:

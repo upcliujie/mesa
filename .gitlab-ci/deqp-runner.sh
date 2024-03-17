@@ -52,15 +52,18 @@ if [ -z "$DEQP_SUITE" ]; then
     DEQP_OPTIONS="$DEQP_OPTIONS --deqp-gl-config-name=$DEQP_CONFIG"
     DEQP_OPTIONS="$DEQP_OPTIONS --deqp-visibility=hidden"
 
-    if [ "$DEQP_VER" = "vk" ] && [ -z "$VK_DRIVER" ]; then
+    if [[ "$DEQP_VER" = "vk"* ]] && [ -z "$VK_DRIVER" ]; then
         echo 'VK_DRIVER must be to something like "radeon" or "intel" for the test run'
         exit 1
     fi
 
     # Generate test case list file.
     if [ "$DEQP_VER" = "vk" ]; then
-       MUSTPASS=/deqp/mustpass/vk-master.txt
+       MUSTPASS=/deqp/mustpass/vk.txt
        DEQP=/deqp/external/vulkancts/modules/vulkan/deqp-vk
+    elif [ "$DEQP_VER" = "vk-main" ]; then
+       MUSTPASS=/deqp/mustpass/vk-main.txt
+       DEQP=/deqp/external/vulkancts/modules/vulkan/deqp-vk-main
     elif [ "$DEQP_VER" = "gles2" ] || [ "$DEQP_VER" = "gles3" ] || [ "$DEQP_VER" = "gles31" ] || [ "$DEQP_VER" = "egl" ]; then
        MUSTPASS=/deqp/mustpass/$DEQP_VER-main.txt
        DEQP=/deqp/modules/$DEQP_VER/deqp-$DEQP_VER
