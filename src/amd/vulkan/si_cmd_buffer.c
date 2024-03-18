@@ -603,14 +603,6 @@ radv_emit_graphics(struct radv_device *device, struct radeon_cmdbuf *cs)
       radeon_set_uconfig_reg(cs, R_031114_SPI_GS_THROTTLE_CNTL2, 0x1544D);
    }
 
-   /* The exclusion bits can be set to improve rasterization efficiency if no sample lies on the
-    * pixel boundary (-8 sample offset). It's currently always TRUE because the driver doesn't
-    * support 16 samples.
-    */
-   bool exclusion = physical_device->rad_info.gfx_level >= GFX7;
-   radeon_set_context_reg(cs, R_02882C_PA_SU_PRIM_FILTER_CNTL,
-                          S_02882C_XMAX_RIGHT_EXCLUSION(exclusion) | S_02882C_YMAX_BOTTOM_EXCLUSION(exclusion));
-
    radeon_set_context_reg(cs, R_028828_PA_SU_LINE_STIPPLE_SCALE, 0x3f800000);
    if (physical_device->rad_info.gfx_level >= GFX7) {
       radeon_set_uconfig_reg(cs, R_030A00_PA_SU_LINE_STIPPLE_VALUE, 0);
@@ -1965,7 +1957,7 @@ radv_get_default_max_sample_dist(int log_samples)
 }
 
 void
-radv_emit_default_sample_locations(struct radeon_cmdbuf *cs, int nr_samples)
+radv_emit_default_sample_locations(struct radeon_cmdbuf *cs, enum amd_gfx_level gfx_level, int nr_samples)
 {
    switch (nr_samples) {
    default:
@@ -2006,6 +1998,15 @@ radv_emit_default_sample_locations(struct radeon_cmdbuf *cs, int nr_samples)
       radeon_emit_array(cs, sample_locs_8x, 4);
       radeon_emit_array(cs, sample_locs_8x, 2);
       break;
+   }
+
+   /* The exclusion bits can be set to improve rasterization efficiency if no sample lies on the
+    * pixel boundary (-8 sample offset). It's currently always TRUE because the driver doesn't
+    * support 16 samples.
+    */
+   if (gfx_level >= GFX7) {
+      radeon_set_context_reg(cs, R_02882C_PA_SU_PRIM_FILTER_CNTL,
+                             S_02882C_XMAX_RIGHT_EXCLUSION(1) | S_02882C_YMAX_BOTTOM_EXCLUSION(1));
    }
 }
 

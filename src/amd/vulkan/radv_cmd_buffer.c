@@ -1178,6 +1178,22 @@ radv_emit_sample_locations(struct radv_cmd_buffer *cmd_buffer)
    radeon_set_context_reg_seq(cs, R_028BD4_PA_SC_CENTROID_PRIORITY_0, 2);
    radeon_emit(cs, centroid_priority);
    radeon_emit(cs, centroid_priority >> 32);
+
+   if (cmd_buffer->device->physical_device->rad_info.gfx_level >= GFX7) {
+      /* The exclusion bits can be set to improve rasterization efficiency if no sample lies on the pixel boundary
+       * (-8 sample offset).
+       */
+      uint32_t pa_su_prim_filter_cntl = S_02882C_XMAX_RIGHT_EXCLUSION(1) | S_02882C_YMAX_BOTTOM_EXCLUSION(1);
+      for (uint32_t i = 0; i < 4; ++i) {
+         for (uint32_t j = 0; j < num_samples; ++j) {
+            if (sample_locs[i][j].x <= -8)
+               pa_su_prim_filter_cntl &= C_02882C_XMAX_RIGHT_EXCLUSION;
+            if (sample_locs[i][j].y <= -8)
+               pa_su_prim_filter_cntl &= C_02882C_YMAX_BOTTOM_EXCLUSION;
+         }
+      }
+      radeon_set_context_reg(cs, R_02882C_PA_SU_PRIM_FILTER_CNTL, pa_su_prim_filter_cntl);
+   }
 }
 
 static void
@@ -2762,7 +2778,7 @@ radv_emit_rasterization_samples(struct radv_cmd_buffer *cmd_buffer)
       S_028A4C_WALK_ALIGN8_PRIM_FITS_ST(pdevice->rad_info.gfx_level < GFX11 || !cmd_buffer->state.uses_vrs_attachment);
 
    if (!d->sample_location.count)
-      radv_emit_default_sample_locations(cmd_buffer->cs, rasterization_samples);
+      radv_emit_default_sample_locations(cmd_buffer->cs, pdevice->rad_info.gfx_level, rasterization_samples);
 
    if (ps_iter_samples > 1) {
       spi_baryc_cntl |= S_0286E0_POS_FLOAT_LOCATION(2);
