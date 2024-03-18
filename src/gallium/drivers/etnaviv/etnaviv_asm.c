@@ -72,7 +72,7 @@ etna_assemble(uint32_t *out, const struct etna_inst *inst, const struct etna_spe
 
    assert(!(inst->opcode&~0x7f));
 
-   isa_assemble_instruction(out, inst);
+   isa_assemble_instruction(out, inst, specs->halti);
 
    return 0;
 }
