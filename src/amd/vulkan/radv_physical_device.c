@@ -1685,7 +1685,7 @@ radv_get_physical_device_properties(struct radv_physical_device *pdevice)
    p->fragmentShadingRateWithShaderSampleMask = false;
    p->fragmentShadingRateWithConservativeRasterization = true;
    p->fragmentShadingRateWithFragmentShaderInterlock = pdevice->rad_info.gfx_level >= GFX11 && radv_has_pops(pdevice);
-   p->fragmentShadingRateWithCustomSampleLocations = false;
+   p->fragmentShadingRateWithCustomSampleLocations = true;
    p->fragmentShadingRateStrictMultiplyCombiner = true;
 
    /* VK_EXT_provoking_vertex */
