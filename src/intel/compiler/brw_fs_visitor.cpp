@@ -563,8 +563,10 @@ void
 fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
 {
    const fs_builder bld = fs_builder(this).at_end();
+   struct brw_wm_prog_data *prog_data = brw_wm_prog_data(this->prog_data);
    fs_inst *inst = NULL;
 
+   prog_data->written_color_outputs = 0;
    for (int target = 0; target < nr_color_regions; target++) {
       /* Skip over outputs that weren't written. */
       if (this->outputs[target].file == BAD_FILE)
@@ -580,6 +582,8 @@ fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
       inst = emit_single_fb_write(abld, this->outputs[target],
                                   this->dual_src_output, src0_alpha, 4);
       inst->target = target;
+
+      prog_data->written_color_outputs |= BITFIELD_BIT(target);
    }
 
    if (inst == NULL) {

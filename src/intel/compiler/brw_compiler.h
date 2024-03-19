@@ -626,6 +626,11 @@ struct brw_wm_prog_data {
     */
    uint8_t dispatch_multi;
 
+   /**
+    * Bitfield of color outputs written by the shader.
+    */
+   uint8_t written_color_outputs;
+
    bool computed_stencil;
    bool early_fragment_tests;
    bool post_depth_coverage;
