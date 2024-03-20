@@ -4302,7 +4302,6 @@ static void cdna_emu_make_image_descriptor(struct si_screen *screen, struct si_t
        tex->buffer.b.b.last_level > 0 ||
        tex->buffer.b.b.nr_samples >= 2 ||
        desc->colorspace != UTIL_FORMAT_COLORSPACE_RGB ||
-       desc->layout == UTIL_FORMAT_LAYOUT_SUBSAMPLED ||
        util_format_is_compressed(pipe_format)) {
       assert(!"unexpected texture type");
       memset(state, 0, 8 * 4);
@@ -4372,7 +4371,7 @@ static void cdna_emu_make_image_descriptor(struct si_screen *screen, struct si_t
    /* Additional fields used by image opcode emulation. */
    state[4] = width | (height << 16);
    state[5] = depth | (first_layer << 16);
-   state[6] = tex->surface.u.gfx9.surf_pitch;
+   state[6] = tex->surface.u.gfx9.surf_pitch | (desc->layout == UTIL_FORMAT_LAYOUT_SUBSAMPLED ? (pipe_format << 16) : (0u));
    state[7] = (uint32_t)tex->surface.u.gfx9.surf_pitch * tex->surface.u.gfx9.surf_height;
 }
 
