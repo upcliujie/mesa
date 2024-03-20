@@ -104,6 +104,66 @@ static nir_def *lower_image_coords(nir_builder *b, nir_def *desc, nir_def *coord
    return index;
 }
 
+enum packing_format { YUYV, UYVY };
+
+static nir_def *emulated_unpack_subsampled(nir_builder *b, nir_def *rem,
+                                           nir_def *data, enum packing_format type,
+                                           unsigned swizzle[])
+{
+   nir_def *zero = nir_imm_int(b, 0);
+   nir_def *x, *y, *z, *pixel_subchannel_1, *pixel_subchannel_2;
+
+   unsigned *indices = (type == YUYV) ? (unsigned[4]){0, 2, 1, 3}
+                        : (unsigned[4]){1, 3, 0, 2};
+
+   nir_if *if_even = nir_push_if(b, nir_ieq(b, rem, zero)); {
+      pixel_subchannel_1 = nir_channel(b, data, indices[0]);
+   }
+   nir_push_else(b, if_even); {
+      pixel_subchannel_2 = nir_channel(b, data, indices[1]);
+   }
+   nir_pop_if(b, if_even);
+
+   x = nir_if_phi(b, pixel_subchannel_1, pixel_subchannel_2);
+   y = nir_channel(b, data, indices[2]);
+   z = nir_channel(b, data, indices[3]);
+
+   return nir_swizzle(b, nir_vec4(b, x, y, z, nir_imm_float(b, 1.0f)), swizzle, 4);
+}
+
+static nir_def *emulated_pack_subsampled(nir_builder *b, nir_def *prev_data,
+                                         nir_def* data, nir_def* rem, enum packing_format type,
+                                         unsigned swizzle[])
+{
+   nir_def *zero = nir_imm_int(b, 0);
+
+   nir_def *swizzled = nir_swizzle(b, data, swizzle, 3);
+   nir_def *x = nir_channel(b, swizzled, 0);
+   nir_def *y = nir_channel(b, swizzled, 1);
+   nir_def *z = nir_channel(b, swizzled, 2);
+
+   nir_def *data_pack_1, *data_pack_2;
+   if (type == YUYV) {
+      nir_if *if_even = nir_push_if(b, nir_ieq(b, rem, zero)); {
+         data_pack_1 = nir_vec4(b, x, y, nir_channel(b, prev_data, 2), z);
+      }
+      nir_push_else(b, if_even); {
+         data_pack_2 = nir_vec4(b, nir_channel(b, prev_data, 0), y, x, z);
+      }
+      nir_pop_if(b, if_even);
+   } else if (type == UYVY) {
+      nir_if *if_even = nir_push_if(b, nir_ieq(b, rem, zero)); {
+         data_pack_1 = nir_vec4(b, y, x, z, nir_channel(b, prev_data, 3));
+      }
+      nir_push_else(b, if_even); {
+         data_pack_2 = nir_vec4(b, y, nir_channel(b, prev_data, 1), z, x);
+      }
+      nir_pop_if(b, if_even);
+   }
+
+   return nir_if_phi(b, data_pack_1, data_pack_2);
+}
+
 static nir_def *emulated_image_load(nir_builder *b, unsigned num_components, unsigned bit_size,
                                         nir_def *desc, nir_def *coord,
                                         enum gl_access_qualifier access, enum glsl_sampler_dim dim,
