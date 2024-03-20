@@ -71,7 +71,7 @@ static nir_def *lower_image_coords(nir_builder *b, nir_def *desc, nir_def *coord
    /* Compute the buffer element index. */
    nir_def *index = x;
    if (y) {
-      nir_def *pitch = nir_channel(b, desc, 6);
+      nir_def *pitch = get_field(b, desc, 6, 0xffff);
       index = nir_iadd(b, index, nir_imul(b, pitch, y));
    }
    if (z) {
