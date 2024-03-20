@@ -164,6 +164,18 @@ static nir_def *emulated_pack_subsampled(nir_builder *b, nir_def *prev_data,
    return nir_if_phi(b, data_pack_1, data_pack_2);
 }
 
+static nir_def *yuv_downsampling_of_chroma(nir_builder *b, nir_def *format, nir_def *index)
+{
+   nir_def *zero = nir_imm_int(b, 0);
+
+   // horizontal downsampling of the chroma by a factor of two
+   nir_push_if(b, nir_ine(b, format, zero));
+      nir_def *subsampled_index = nir_udiv(b, index, nir_imm_int(b, 2));
+   nir_pop_if(b, NULL);
+
+   return nir_if_phi(b, subsampled_index, index);
+}
+
 static nir_def *emulated_image_load(nir_builder *b, unsigned num_components, unsigned bit_size,
                                         nir_def *desc, nir_def *coord,
                                         enum gl_access_qualifier access, enum glsl_sampler_dim dim,
