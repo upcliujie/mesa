@@ -420,9 +420,9 @@ panfrost_emit_blend(struct panfrost_batch *batch, void *rts,
 }
 #endif
 
-static mali_ptr
-panfrost_emit_compute_shader_meta(struct panfrost_batch *batch,
-                                  enum pipe_shader_type stage)
+mali_ptr
+GENX(panfrost_emit_compute_shader_meta)(struct panfrost_batch *batch,
+                                        enum pipe_shader_type stage)
 {
    struct panfrost_compiled_shader *ss = batch->ctx->prog[stage];
 
@@ -1248,6 +1248,23 @@ panfrost_upload_sysvals(struct panfrost_batch *batch, void *ptr_cpu,
          break;
       }
 
+      case PAN_SYSVAL_XFB_POSITION: {
+         unsigned buf = PAN_SYSVAL_ID(sysval);
+
+         struct panfrost_streamout_target *target = NULL;
+         if (buf < batch->ctx->streamout.num_targets)
+            target = pan_so_target(batch->ctx->streamout.targets[buf]);
+
+         if (!target) {
+            /* Memory sink */
+            uniforms[i].du[0] = 0x8ull << 60;
+            break;
+         }
+
+         uniforms[i].du[0] = target->count_buffer_shadow.gpu;
+         break;
+      }
+
       case PAN_SYSVAL_NUM_VERTICES:
          uniforms[i].u[0] = batch->ctx->vertex_count;
          break;
@@ -1348,10 +1365,11 @@ panfrost_emit_ubo(void *base, unsigned index, mali_ptr address, size_t size)
 #endif
 }
 
-static mali_ptr
-panfrost_emit_const_buf(struct panfrost_batch *batch,
-                        enum pipe_shader_type stage, unsigned *buffer_count,
-                        mali_ptr *push_constants, unsigned *pushed_words)
+mali_ptr
+GENX(panfrost_emit_const_buf)(struct panfrost_batch *batch,
+                              enum pipe_shader_type stage,
+                              unsigned *buffer_count, mali_ptr *push_constants,
+                              unsigned *pushed_words)
 {
    struct panfrost_context *ctx = batch->ctx;
    struct panfrost_constant_buffer *buf = &ctx->constant_buffer[stage];
@@ -2650,6 +2668,17 @@ panfrost_update_streamout_offsets(struct panfrost_context *ctx)
    }
 }
 
+static void
+panfrost_create_streamout_offset_shadow(struct panfrost_batch *batch)
+{
+   struct panfrost_context *ctx = batch->ctx;
+
+   for (unsigned i = 0; i < ctx->streamout.num_targets; ++i) {
+      pan_so_target(batch->ctx->streamout.targets[i])->count_buffer_shadow =
+         pan_pool_alloc_aligned(&batch->pool.base, 4, 16);
+   }
+}
+
 /* On Bifrost and older, the Renderer State Descriptor aggregates many pieces of
  * 3D state. In particular, it groups the fragment shader descriptor with
  * depth/stencil, blend, polygon offset, and multisampling state. These pieces
@@ -2690,7 +2719,7 @@ panfrost_update_shader_state(struct panfrost_batch *batch,
     * standalone and is emitted here.
     */
    if ((dirty & PAN_DIRTY_STAGE_SHADER) && !((PAN_ARCH <= 7) && frag)) {
-      batch->rsd[st] = panfrost_emit_compute_shader_meta(batch, st);
+      batch->rsd[st] = GENX(panfrost_emit_compute_shader_meta)(batch, st);
    }
 
 #if PAN_ARCH >= 9
@@ -2701,7 +2730,7 @@ panfrost_update_shader_state(struct panfrost_batch *batch,
 #endif
 
    if ((dirty & ss->dirty_shader) || (dirty_3d & ss->dirty_3d)) {
-      batch->uniform_buffers[st] = panfrost_emit_const_buf(
+      batch->uniform_buffers[st] = GENX(panfrost_emit_const_buf)(
          batch, st, &batch->nr_uniform_buffers[st], &batch->push_uniforms[st],
          &batch->nr_push_uniforms[st]);
    }
@@ -2803,12 +2832,12 @@ panfrost_launch_xfb(struct panfrost_batch *batch,
    ctx->uncompiled[PIPE_SHADER_VERTEX] = NULL; /* should not be read */
    ctx->prog[PIPE_SHADER_VERTEX] = vs_uncompiled->xfb;
    batch->rsd[PIPE_SHADER_VERTEX] =
-      panfrost_emit_compute_shader_meta(batch, PIPE_SHADER_VERTEX);
+      GENX(panfrost_emit_compute_shader_meta)(batch, PIPE_SHADER_VERTEX);
 
-   batch->uniform_buffers[PIPE_SHADER_VERTEX] =
-      panfrost_emit_const_buf(batch, PIPE_SHADER_VERTEX, NULL,
-                              &batch->push_uniforms[PIPE_SHADER_VERTEX],
-                              &batch->nr_push_uniforms[PIPE_SHADER_VERTEX]);
+   batch->uniform_buffers[PIPE_SHADER_VERTEX] = GENX(panfrost_emit_const_buf)(
+      batch, PIPE_SHADER_VERTEX, NULL,
+      &batch->push_uniforms[PIPE_SHADER_VERTEX],
+      &batch->nr_push_uniforms[PIPE_SHADER_VERTEX]);
 
    JOBX(launch_xfb)(batch, info, count);
    batch->compute_count++;
@@ -2934,6 +2963,11 @@ panfrost_single_draw_direct(struct panfrost_batch *batch,
 
    panfrost_statistics_record(ctx, info, draw);
 
+#if PAN_GPU_SUPPORTS_DRAW_INDIRECT
+   /* If indirect draw is supported, the counter is GPU side */
+   panfrost_create_streamout_offset_shadow(batch);
+#endif
+
    panfrost_update_state_3d(batch);
    panfrost_update_shader_state(batch, PIPE_SHADER_VERTEX);
    panfrost_update_shader_state(batch, PIPE_SHADER_FRAGMENT);
@@ -2943,8 +2977,10 @@ panfrost_single_draw_direct(struct panfrost_batch *batch,
       panfrost_launch_xfb(batch, info, draw->count);
    }
 
+#if !PAN_GPU_SUPPORTS_DRAW_INDIRECT
    /* Increment transform feedback offsets */
    panfrost_update_streamout_offsets(ctx);
+#endif
 
    /* Any side effects must be handled by the XFB shader, so we only need
     * to run vertex shaders if we need rasterization.
@@ -3066,17 +3102,12 @@ panfrost_draw_indirect(struct pipe_context *pipe,
       batch->indices = index_buffer->image.data.base;
    }
 
+   panfrost_create_streamout_offset_shadow(batch);
+
    panfrost_update_state_3d(batch);
    panfrost_update_shader_state(batch, PIPE_SHADER_VERTEX);
    panfrost_update_shader_state(batch, PIPE_SHADER_FRAGMENT);
    panfrost_clean_state_3d(ctx);
-
-   if (ctx->uncompiled[PIPE_SHADER_VERTEX]->xfb) {
-      panfrost_launch_xfb(batch, &tmp_info, 0);
-   }
-
-   /* Increment transform feedback offsets */
-   panfrost_update_streamout_offsets(ctx);
 
    /* Any side effects must be handled by the XFB shader, so we only need
     * to run vertex shaders if we need rasterization.
