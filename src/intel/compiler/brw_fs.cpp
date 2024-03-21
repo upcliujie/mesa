@@ -2772,7 +2772,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file) const
          fprintf(file, ":%s", brw_reg_type_to_letters(inst->src[i].type));
       }
 
-      if (i < inst->sources - 1 && inst->src[i + 1].file != BAD_FILE)
+      if (i < inst->sources - 1)
          fprintf(file, ", ");
    }
 
