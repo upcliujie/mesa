@@ -49,6 +49,10 @@ panfrost_analyze_sysvals(struct panfrost_compiled_shader *ss)
          dirty |= PAN_DIRTY_SO;
          break;
 
+      case PAN_SYSVAL_XFB_POSITION:
+         dirty |= PAN_DIRTY_SO;
+         break;
+
       case PAN_SYSVAL_SAMPLER:
          dirty_shader |= PAN_DIRTY_STAGE_SAMPLER;
          break;

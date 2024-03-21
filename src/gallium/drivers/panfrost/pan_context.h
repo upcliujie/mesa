@@ -112,6 +112,8 @@ struct panfrost_query {
 
 struct panfrost_streamout_target {
    struct pipe_stream_output_target base;
+   struct pipe_resource *count_buffer;
+   struct panfrost_ptr count_buffer_shadow;
    uint32_t offset;
 };
 
@@ -289,6 +291,7 @@ enum {
    PAN_SYSVAL_DRAWID = 15,
    PAN_SYSVAL_BLEND_CONSTANTS = 16,
    PAN_SYSVAL_XFB = 17,
+   PAN_SYSVAL_XFB_POSITION = 19,
    PAN_SYSVAL_NUM_VERTICES = 18,
 };
 
