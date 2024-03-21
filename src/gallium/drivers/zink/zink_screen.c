@@ -82,7 +82,7 @@ bool zink_tracing = false;
 
 #if defined(__APPLE__)
 // Source of MVK_VERSION
-#include "MoltenVK/vk_mvk_moltenvk.h"
+#include <MoltenVK/mvk_vulkan.h>
 #endif
 
 #ifdef HAVE_LIBDRM

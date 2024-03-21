@@ -61,7 +61,7 @@
 
 #if defined(__APPLE__)
 // Source of MVK_VERSION
-#include "MoltenVK/vk_mvk_moltenvk.h"
+#include <MoltenVK/mvk_vulkan.h>
 #endif
 
 #define ZINK_EXTERNAL_MEMORY_HANDLE 999
