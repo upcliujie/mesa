@@ -71,7 +71,7 @@ static nir_def *lower_image_coords(nir_builder *b, nir_def *desc, nir_def *coord
    /* Compute the buffer element index. */
    nir_def *index = x;
    if (y) {
-      nir_def *pitch = nir_channel(b, desc, 6);
+      nir_def *pitch = get_field(b, desc, 6, 0xffff);
       index = nir_iadd(b, index, nir_imul(b, pitch, y));
    }
    if (z) {
@@ -104,30 +104,198 @@ static nir_def *lower_image_coords(nir_builder *b, nir_def *desc, nir_def *coord
    return index;
 }
 
+enum packing_format { YUYV, UYVY };
+
+static nir_def *emulated_unpack_subsampled(nir_builder *b, nir_def *rem,
+                                           nir_def *data, enum packing_format type,
+                                           unsigned swizzle[])
+{
+   nir_def *zero = nir_imm_int(b, 0);
+   nir_def *x, *y, *z, *pixel_subchannel_1, *pixel_subchannel_2;
+
+   unsigned *indices = (type == YUYV) ? (unsigned[4]){0, 2, 1, 3}
+                        : (unsigned[4]){1, 3, 0, 2};
+
+   nir_if *if_even = nir_push_if(b, nir_ieq(b, rem, zero)); {
+      pixel_subchannel_1 = nir_channel(b, data, indices[0]);
+   }
+   nir_push_else(b, if_even); {
+      pixel_subchannel_2 = nir_channel(b, data, indices[1]);
+   }
+   nir_pop_if(b, if_even);
+
+   x = nir_if_phi(b, pixel_subchannel_1, pixel_subchannel_2);
+   y = nir_channel(b, data, indices[2]);
+   z = nir_channel(b, data, indices[3]);
+
+   return nir_swizzle(b, nir_vec4(b, x, y, z, nir_imm_float(b, 1.0f)), swizzle, 4);
+}
+
+static nir_def *emulated_pack_subsampled(nir_builder *b, nir_def *prev_data,
+                                         nir_def* data, nir_def* rem, enum packing_format type,
+                                         unsigned swizzle[])
+{
+   nir_def *zero = nir_imm_int(b, 0);
+
+   nir_def *swizzled = nir_swizzle(b, data, swizzle, 3);
+   nir_def *x = nir_channel(b, swizzled, 0);
+   nir_def *y = nir_channel(b, swizzled, 1);
+   nir_def *z = nir_channel(b, swizzled, 2);
+
+   nir_def *data_pack_1, *data_pack_2;
+   if (type == YUYV) {
+      nir_if *if_even = nir_push_if(b, nir_ieq(b, rem, zero)); {
+         data_pack_1 = nir_vec4(b, x, y, nir_channel(b, prev_data, 2), z);
+      }
+      nir_push_else(b, if_even); {
+         data_pack_2 = nir_vec4(b, nir_channel(b, prev_data, 0), y, x, z);
+      }
+      nir_pop_if(b, if_even);
+   } else if (type == UYVY) {
+      nir_if *if_even = nir_push_if(b, nir_ieq(b, rem, zero)); {
+         data_pack_1 = nir_vec4(b, y, x, z, nir_channel(b, prev_data, 3));
+      }
+      nir_push_else(b, if_even); {
+         data_pack_2 = nir_vec4(b, y, nir_channel(b, prev_data, 1), z, x);
+      }
+      nir_pop_if(b, if_even);
+   }
+
+   return nir_if_phi(b, data_pack_1, data_pack_2);
+}
+
+static nir_def *yuv_downsampling_of_chroma(nir_builder *b, nir_def *format, nir_def *index)
+{
+   nir_def *zero = nir_imm_int(b, 0);
+
+   // horizontal downsampling of the chroma by a factor of two
+   nir_push_if(b, nir_ine(b, format, zero));
+      nir_def *subsampled_index = nir_udiv(b, index, nir_imm_int(b, 2));
+   nir_pop_if(b, NULL);
+
+   return nir_if_phi(b, subsampled_index, index);
+}
+
 static nir_def *emulated_image_load(nir_builder *b, unsigned num_components, unsigned bit_size,
                                         nir_def *desc, nir_def *coord,
                                         enum gl_access_qualifier access, enum glsl_sampler_dim dim,
                                         bool is_array, bool handle_out_of_bounds)
 {
    nir_def *zero = nir_imm_int(b, 0);
+   nir_def *index = lower_image_coords(b, desc, coord, dim, is_array,
+                                       handle_out_of_bounds);
+   nir_def *format = get_field(b, desc, 6, 0xffff0000);
 
-   return nir_load_buffer_amd(b, num_components, bit_size, nir_channels(b, desc, 0xf),
-                              zero, zero,
-                              lower_image_coords(b, desc, coord, dim, is_array,
-                                                 handle_out_of_bounds),
+   if (num_components == 4) {
+      index = yuv_downsampling_of_chroma(b, format, index);
+   }
+
+   nir_def *data = nir_load_buffer_amd(b, num_components, bit_size, nir_channels(b, desc, 0xf),
+                              zero, zero, index,
                               .base = 0,
                               .memory_modes = nir_var_image,
                               .access = access | ACCESS_USES_FORMAT_AMD);
+
+   if (num_components == 4) {
+      nir_function_impl *e = nir_shader_get_entrypoint(b->shader);
+      nir_variable *data_subsampled = nir_local_variable_create(e, glsl_vec4_type(), "data_subsampled");
+      nir_store_var(b, data_subsampled, data, 0xf);
+
+      nir_def *new_data;
+      nir_if *if_subsampled_format = nir_push_if(b, nir_ine(b, format, zero)); {
+         nir_def *rem = nir_irem(b, nir_channel(b, coord, 0), nir_imm_int(b, 2));
+         unsigned swizzle_rgb[4] = {0, 1, 2, 3}, swizzle_grb[4] = {1, 0, 2, 3};
+
+         nir_if *if_R8G8_R8B8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 280))); {
+            nir_def *unpacked_data = emulated_unpack_subsampled(b, rem, data, YUYV, swizzle_rgb);
+            nir_store_var(b, data_subsampled, unpacked_data, 0xf);
+         }
+         nir_pop_if(b, if_R8G8_R8B8);
+
+         nir_if *if_G8R8_G8B8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 177))); {
+            nir_def *unpacked_data = emulated_unpack_subsampled(b, rem, data, YUYV, swizzle_grb);
+            nir_store_var(b, data_subsampled, unpacked_data, 0xf);
+         }
+         nir_pop_if(b, if_G8R8_G8B8);
+
+         nir_if *if_R8G8_B8G8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 176))); {
+            nir_def *unpacked_data = emulated_unpack_subsampled(b, rem, data, UYVY, swizzle_grb);
+            nir_store_var(b, data_subsampled, unpacked_data, 0xf);
+         }
+         nir_pop_if(b, if_R8G8_B8G8);
+
+         nir_if *if_G8R8_B8R8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 282))); {
+            nir_def *unpacked_data = emulated_unpack_subsampled(b, rem, data, UYVY, swizzle_rgb);
+            nir_store_var(b, data_subsampled, unpacked_data, 0xf);
+         }
+         nir_pop_if(b, if_G8R8_B8R8);
+
+         new_data = nir_load_var(b, data_subsampled);
+      }
+      nir_pop_if(b, if_subsampled_format);
+
+      data = nir_if_phi(b, new_data, data);
+   }
+
+   return data;
 }
 
-static void emulated_image_store(nir_builder *b, nir_def *desc, nir_def *coord,
+static void emulated_image_store(nir_builder *b, unsigned num_components, nir_def *desc, nir_def *coord,
                                  nir_def *data, enum gl_access_qualifier access,
                                  enum glsl_sampler_dim dim, bool is_array)
 {
    nir_def *zero = nir_imm_int(b, 0);
+   nir_def *index = lower_image_coords(b, desc, coord, dim, is_array,
+                                       true);
+   nir_def *format = get_field(b, desc, 6, 0xffff0000);
 
-   nir_store_buffer_amd(b, data, nir_channels(b, desc, 0xf), zero, zero,
-                        lower_image_coords(b, desc, coord, dim, is_array, true),
+   if (num_components == 4) {
+      index = yuv_downsampling_of_chroma(b, format, index);
+
+      nir_def *prev_data = nir_load_buffer_amd(b, num_components, 8, nir_channels(b, desc, 0xf),
+                              zero, zero, index,
+                              .base = 0,
+                              .memory_modes = nir_var_image,
+                              .access = access | ACCESS_USES_FORMAT_AMD);
+
+      nir_function_impl *e = nir_shader_get_entrypoint(b->shader);
+      nir_variable *new_data = nir_local_variable_create(e, glsl_vec4_type(), "new_data");
+      nir_store_var(b, new_data, data, 0xf);
+
+      nir_if *if_subsampled_format = nir_push_if(b, nir_ine(b, format, zero)); {
+         nir_def *rem = nir_irem(b, nir_channel(b, coord, 0), nir_imm_int(b, 2));
+         unsigned swizzle_rgb[3] = {0, 1, 2}, swizzle_grb[3] = {1, 0, 2};
+
+         nir_if *if_R8G8_R8B8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 280))); {
+            nir_def *packed_data = emulated_pack_subsampled(b, prev_data, data, rem, YUYV, swizzle_rgb);
+            nir_store_var(b, new_data, packed_data, 0xf);
+         }
+         nir_pop_if(b, if_R8G8_R8B8);
+
+         nir_if *if_G8R8_G8B8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 177))); {
+            nir_def *packed_data = emulated_pack_subsampled(b, prev_data, data, rem, YUYV, swizzle_grb);
+            nir_store_var(b, new_data, packed_data, 0xf);
+         }
+         nir_pop_if(b, if_G8R8_G8B8);
+
+         nir_if *if_R8G8_B8G8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 176))); {
+            nir_def *packed_data = emulated_pack_subsampled(b, prev_data, data, rem, UYVY, swizzle_grb);
+            nir_store_var(b, new_data, packed_data, 0xf);
+         }
+         nir_pop_if(b, if_R8G8_B8G8);
+
+         nir_if *if_G8R8_B8R8 = nir_push_if(b, nir_ieq(b, format, nir_imm_int(b, 282))); {
+            nir_def *packed_data = emulated_pack_subsampled(b, prev_data, data, rem, UYVY, swizzle_rgb);
+            nir_store_var(b, new_data, packed_data, 0xf);
+         }
+         nir_pop_if(b, if_G8R8_B8R8);
+      }
+      nir_pop_if(b, if_subsampled_format);
+
+      data = nir_if_phi(b, nir_load_var(b, new_data), data);
+   }
+
+   nir_store_buffer_amd(b, data, nir_channels(b, desc, 0xf), zero, zero, index,
                         .base = 0,
                         .memory_modes = nir_var_image,
                         .access = access | ACCESS_USES_FORMAT_AMD);
@@ -366,7 +534,7 @@ static bool lower_image_opcodes(nir_builder *b, nir_instr *instr, void *data)
       case nir_intrinsic_image_store:
       case nir_intrinsic_image_deref_store:
       case nir_intrinsic_bindless_image_store:
-         emulated_image_store(b, desc, intr->src[1].ssa, intr->src[3].ssa, access, dim, is_array);
+         emulated_image_store(b, intr->def.num_components, desc, intr->src[1].ssa, intr->src[3].ssa, access, dim, is_array);
          nir_instr_remove(instr);
          return true;
 
