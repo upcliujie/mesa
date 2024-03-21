@@ -166,6 +166,15 @@ panfrost_emit_primitive_size(struct panfrost_context *ctx, bool points,
    }
 }
 
+mali_ptr
+GENX(panfrost_emit_const_buf)(struct panfrost_batch *batch,
+                              enum pipe_shader_type stage, unsigned *buffer_count,
+                              mali_ptr *push_constants, unsigned *pushed_words);
+
+mali_ptr
+GENX(panfrost_emit_compute_shader_meta)(struct panfrost_batch *batch,
+                                        enum pipe_shader_type stage);
+
 static inline uint8_t
 pan_draw_mode(enum mesa_prim mode)
 {

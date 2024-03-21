@@ -72,6 +72,9 @@ sysval_for_intrinsic(nir_intrinsic_instr *intr, unsigned *offset)
    case nir_intrinsic_load_xfb_address:
       return PAN_SYSVAL(XFB, nir_intrinsic_base(intr));
 
+   case nir_intrinsic_load_xfb_position:
+      return PAN_SYSVAL(XFB_POSITION, nir_intrinsic_base(intr));
+
    case nir_intrinsic_load_work_dim:
       return PAN_SYSVAL_WORK_DIM;
 

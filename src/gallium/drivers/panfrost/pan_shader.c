@@ -129,7 +129,7 @@ panfrost_shader_compile(struct panfrost_screen *screen, const nir_shader *ir,
          NIR_PASS_V(s, nir_io_add_const_offset_to_base,
                     nir_var_shader_in | nir_var_shader_out);
          NIR_PASS_V(s, nir_io_add_intrinsic_xfb_info);
-         NIR_PASS_V(s, pan_lower_xfb);
+         NIR_PASS_V(s, pan_lower_xfb, dev->arch >= 10);
       }
    }
 

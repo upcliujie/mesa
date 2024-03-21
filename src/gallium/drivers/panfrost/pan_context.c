@@ -32,6 +32,7 @@
 #include "pan_context.h"
 #include "pan_minmax_cache.h"
 
+#include "pipe/p_defines.h"
 #include "util/format/u_format.h"
 #include "util/half_float.h"
 #include "util/libsync.h"
@@ -773,6 +774,12 @@ panfrost_create_stream_output_target(struct pipe_context *pctx,
    target->buffer_offset = buffer_offset;
    target->buffer_size = buffer_size;
 
+   pipe_resource_reference(&target->buffer, prsc);
+
+   pan_so_target(target)->count_buffer = pipe_buffer_create(pctx->screen, 0, PIPE_USAGE_DEFAULT, 8);
+   uint32_t zero[] = {0, 0};
+   pipe_buffer_write(pctx, pan_so_target(target)->count_buffer, 0, 8, &zero);
+
    return target;
 }
 
@@ -780,6 +787,7 @@ static void
 panfrost_stream_output_target_destroy(struct pipe_context *pctx,
                                       struct pipe_stream_output_target *target)
 {
+   pipe_resource_reference(&pan_so_target(target)->count_buffer, NULL);
    pipe_resource_reference(&target->buffer, NULL);
    ralloc_free(target);
 }
@@ -804,6 +812,12 @@ panfrost_set_stream_output_targets(struct pipe_context *pctx,
 
    for (unsigned i = num_targets; i < so->num_targets; i++)
       pipe_so_target_reference(&so->targets[i], NULL);
+
+   /* reset position buffers to 0 */
+   uint32_t zero[] = {0, 0};
+   for (unsigned i = num_targets; i < so->num_targets; i++)
+      if (so->targets[i])
+         pipe_buffer_write(pctx, pan_so_target(so->targets[i])->count_buffer, 0, 8, &zero);
 
    so->num_targets = num_targets;
    ctx->dirty |= PAN_DIRTY_SO;
