@@ -43,24 +43,30 @@
 
 #include <optional>
 
+#if 1
+
 #define D(...)
 #define DD(...)
 #define E(...)
 
-// #define D(...) do { \
-//     VERBOSE_PRINT(init,__VA_ARGS__); \
-//     android_opengl_logger_write(__VA_ARGS__); \
-// } while(0);
-//
-// #define DD(...) do { \
-//     VERBOSE_PRINT(gles,__VA_ARGS__); \
-//     android_opengl_logger_write(__VA_ARGS__); \
-// } while(0);
-//
-// #define E(fmt,...) do { \
-//     derror(fmt, ##__VA_ARGS__); \
-//     android_opengl_logger_write(fmt "\n", ##__VA_ARGS__); \
-// } while(0);
+#else
+
+#define D(...) do { \
+    VERBOSE_PRINT(init,__VA_ARGS__); \
+    android_opengl_logger_write(__VA_ARGS__); \
+} while(0);
+
+#define DD(...) do { \
+    VERBOSE_PRINT(gles,__VA_ARGS__); \
+    android_opengl_logger_write(__VA_ARGS__); \
+} while(0);
+
+#define E(fmt,...) do { \
+    derror(fmt, ##__VA_ARGS__); \
+    android_opengl_logger_write(fmt "\n", ##__VA_ARGS__); \
+} while(0);
+
+#endif
 
 using android::base::pj;
 using android::base::SharedLibrary;
