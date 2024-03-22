@@ -54,12 +54,19 @@ AluInstr::AluInstr(EAluOp opcode,
       switch (m_opcode) {
       case op2_dot_ieee: m_allowed_dest_mask = (1 << (5 - slots)) - 1;
          break;
+      case op2_sete_64:
+      case op2_setge_64:
+      case op2_setgt_64:
+      case op2_setne_64:
+      case op1v_flt64_to_flt32: m_allowed_dest_mask = 1 | 4;
+	 break;
       default:
          if (has_alu_flag(alu_is_cayman_trans)) {
             m_allowed_dest_mask = (1 << slots) - 1;
          }
       }
    }
+
    assert(!dest || (m_allowed_dest_mask & (1 << dest->chan())));
 }
 
@@ -803,14 +810,22 @@ AluInstr::split(ValueFactory& vf)
    m_dest->del_parent(this);
 
    int start_slot = 0;
-   bool is_dot = m_opcode == op2_dot_ieee;
    auto last_opcode = m_opcode;
 
-   if (is_dot) {
-      start_slot = m_dest->chan();
+   switch (m_opcode) {
+   case op2_dot_ieee:
       last_opcode = op2_mul_ieee;
+      FALLTHROUGH;
+   case op2_sete_64:
+   case op2_setge_64:
+   case op2_setgt_64:
+   case op2_setne_64:
+   case op1v_flt64_to_flt32:
+      start_slot = m_dest->chan();
+      break;
+   default:
+      ;
    }
-
 
    for (int k = 0; k < m_alu_slots; ++k) {
       int s = k + start_slot;
