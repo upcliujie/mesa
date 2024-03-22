@@ -48,7 +48,6 @@ public:
             mFallbackPtrs.insert(fallbackPtr);
             return fallbackPtr;
         }
-        size_t avail = mStorage.size() * sizeof(uint64_t) - mAllocPos;
         void* allocPtr = (void*)(((unsigned char*)mStorage.data()) + mAllocPos);
         mAllocPos += wantedSizeRoundedUp;
         return allocPtr;
