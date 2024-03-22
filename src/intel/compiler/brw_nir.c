@@ -728,7 +728,7 @@ brw_nir_optimize(nir_shader *nir,
        * code.
        */
       if (nir->info.stage != MESA_SHADER_KERNEL)
-         LOOP_OPT(nir_split_array_vars, nir_var_function_temp);
+         LOOP_OPT(nir_split_array_vars, nir_var_function_temp, false);
       LOOP_OPT(nir_shrink_vec_array_vars, nir_var_function_temp);
       LOOP_OPT(nir_opt_deref);
       if (LOOP_OPT(nir_opt_memcpy))

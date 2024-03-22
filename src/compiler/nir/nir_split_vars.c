@@ -570,6 +570,8 @@ create_split_array_vars(struct array_var_info *var_info,
                         const char *name,
                         nir_shader *shader,
                         nir_function_impl *impl,
+                        bool preserve_driver_locations,
+                        unsigned base_location,
                         void *mem_ctx)
 {
    while (level < var_info->num_levels && !var_info->levels[level].split) {
@@ -592,6 +594,8 @@ create_split_array_vars(struct array_var_info *var_info,
                                           var_info->split_var_type, name);
       }
       split->var->data.ray_query = var_info->base_var->data.ray_query;
+      if (preserve_driver_locations)
+         split->var->data.driver_location = base_location;
    } else {
       assert(var_info->levels[level].split);
       split->num_splits = var_info->levels[level].array_len;
@@ -600,7 +604,12 @@ create_split_array_vars(struct array_var_info *var_info,
       for (unsigned i = 0; i < split->num_splits; i++) {
          create_split_array_vars(var_info, level + 1, &split->splits[i],
                                  ralloc_asprintf(mem_ctx, "%s[%d]", name, i),
-                                 shader, impl, mem_ctx);
+                                 shader, impl, preserve_driver_locations, base_location, mem_ctx);
+         if (preserve_driver_locations) {
+            unsigned size, align;
+            glsl_get_natural_size_align_bytes(var_info->split_var_type, &size, &align);
+            base_location += size;
+         }
       }
    }
 }
@@ -611,6 +620,7 @@ split_var_list_arrays(nir_shader *shader,
                       struct exec_list *vars,
                       nir_variable_mode mode,
                       struct hash_table *var_info_map,
+                      bool preserve_driver_locations,
                       void *mem_ctx)
 {
    struct exec_list split_vars;
@@ -666,7 +676,7 @@ split_var_list_arrays(nir_shader *shader,
    nir_foreach_variable_in_list(var, &split_vars) {
       struct array_var_info *info = get_array_var_info(var, var_info_map);
       create_split_array_vars(info, 0, &info->root_split, var->name,
-                              shader, impl, mem_ctx);
+                              shader, impl, preserve_driver_locations, var->data.driver_location, mem_ctx);
    }
 
    return !exec_list_is_empty(&split_vars);
@@ -924,7 +934,8 @@ split_array_access_impl(nir_function_impl *impl,
  * so it's best to just run nir_split_struct_vars first.
  */
 bool
-nir_split_array_vars(nir_shader *shader, nir_variable_mode modes)
+nir_split_array_vars(nir_shader *shader, nir_variable_mode modes,
+                     bool preserve_driver_locations)
 {
    void *mem_ctx = ralloc_context(NULL);
    struct hash_table *var_info_map = _mesa_pointer_hash_table_create(mem_ctx);
@@ -970,7 +981,9 @@ nir_split_array_vars(nir_shader *shader, nir_variable_mode modes)
       has_global_splits = split_var_list_arrays(shader, NULL,
                                                 &shader->variables,
                                                 modes,
-                                                var_info_map, mem_ctx);
+                                                var_info_map,
+                                                preserve_driver_locations,
+                                                mem_ctx);
    }
 
    bool progress = false;
@@ -980,7 +993,9 @@ nir_split_array_vars(nir_shader *shader, nir_variable_mode modes)
          has_local_splits = split_var_list_arrays(shader, impl,
                                                   &impl->locals,
                                                   nir_var_function_temp,
-                                                  var_info_map, mem_ctx);
+                                                  var_info_map,
+                                                  preserve_driver_locations,
+                                                  mem_ctx);
       }
 
       if (has_global_splits || has_local_splits) {
