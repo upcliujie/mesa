@@ -337,3 +337,5 @@ gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_s
 spec@glsl-1.30@execution@fs-uint-to-float-of-extract-int16,Fail
 spec@glsl-1.30@execution@fs-uint-to-float-of-extract-int8,Fail
 
+# https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/5199
+dEQP-VK.compute.pipeline.workgroup_memory_explicit_layout.copy_memory.variable_pointers,Fail

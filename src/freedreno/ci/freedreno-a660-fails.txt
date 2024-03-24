@@ -759,3 +759,6 @@ gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_s
 gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_1.pgq_64bit_xfb_32bit.line_strip.draw,Fail
 nobin-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.pgq_32bit_xfb_64bit.point_list.indirect,Fail
 dEQP-VK.clipping.user_defined.clip_cull_distance_dynamic_index.vert_geom.8,Fail
+
+# https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/5199
+dEQP-VK.compute.pipeline.workgroup_memory_explicit_layout.copy_memory.variable_pointers,Fail

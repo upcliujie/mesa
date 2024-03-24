@@ -370,3 +370,6 @@ gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_s
 nobin-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_3.pgq_64bit_xfb_32bit.triangle_strip_with_adjacency.indirect,Fail
 gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_1.pgq_64bit_xfb_32bit.line_strip.draw,Fail
 gmem-dEQP-VK.transform_feedback.primitives_generated_query.concurrent.pipeline_statistics_1.32bit.line_strip_with_adjacency.indirect,Fail
+
+# https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/5199
+dEQP-VK.compute.pipeline.workgroup_memory_explicit_layout.copy_memory.variable_pointers,Fail
