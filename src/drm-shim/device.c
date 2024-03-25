@@ -386,11 +386,12 @@ drm_shim_bo_get_handle(struct shim_fd *shim_fd, struct shim_bo *bo)
     * number.
     */
    mtx_lock(&shim_fd->handle_lock);
-   for (int new_handle = 1; ; new_handle++) {
+   for (int new_handle = shim_fd->last_handle + 1; ; new_handle++) {
       void *key = (void *)(uintptr_t)new_handle;
       if (!_mesa_hash_table_search(shim_fd->handles, key)) {
          drm_shim_bo_get(bo);
          _mesa_hash_table_insert(shim_fd->handles, key, bo);
+         shim_fd->last_handle = new_handle;
          mtx_unlock(&shim_fd->handle_lock);
          return new_handle;
       }
