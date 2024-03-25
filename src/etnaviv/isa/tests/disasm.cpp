@@ -35,7 +35,8 @@ struct DisasmTest : testing::Test, testing::WithParamInterface<disasm_state> {
 
    DisasmTest()
    {
-      static const struct isa_decode_options options = {.show_errors = true,
+      static const struct isa_decode_options options = {.gpu_id = ~0U,
+                                                        .show_errors = true,
                                                         .branch_labels = false};
 
       constexpr int output_size = 4096;
