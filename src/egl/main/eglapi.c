@@ -91,6 +91,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef HAVE_X11_PLATFORM
+#include <X11/Xlib.h>
+#endif
+
+#ifdef HAVE_XCB_PLATFORM
+#include <xcb/xcb.h>
+#endif
+
+#ifdef HAVE_DRM_PLATFORM
+#include <gbm.h>
+#endif
+
+#ifdef HAVE_WAYLAND_PLATFORM
+#include <wayland-client.h>
+#endif
+
 #include "c11/threads.h"
 #include "mapi/glapi/glapi.h"
 #include "util/detect_os.h"
@@ -207,7 +224,7 @@ _eglCheckDisplay(_EGLDisplay *disp, const char *msg)
       _eglError(EGL_BAD_DISPLAY, msg);
       return false;
    }
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       _eglError(EGL_NOT_INITIALIZED, msg);
       return false;
    }
@@ -432,36 +449,55 @@ _eglGetPlatformDisplayCommon(EGLenum platform, void *native_display,
    switch (platform) {
 #ifdef HAVE_X11_PLATFORM
    case EGL_PLATFORM_X11_EXT:
-      disp = _eglGetX11Display((Display *)native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_X11,
+                             (Display *)native_display,
+                             attrib_list);
       break;
 #endif
 #ifdef HAVE_XCB_PLATFORM
    case EGL_PLATFORM_XCB_EXT:
-      disp = _eglGetXcbDisplay((xcb_connection_t *)native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_XCB,
+                             (xcb_connection_t *)native_display,
+                             attrib_list);
       break;
 #endif
 #ifdef HAVE_DRM_PLATFORM
    case EGL_PLATFORM_GBM_MESA:
-      disp =
-         _eglGetGbmDisplay((struct gbm_device *)native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_DRM,
+                             (struct gbm_device *)native_display,
+                             attrib_list);
       break;
 #endif
 #ifdef HAVE_WAYLAND_PLATFORM
    case EGL_PLATFORM_WAYLAND_EXT:
-      disp = _eglGetWaylandDisplay((struct wl_display *)native_display,
-                                   attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_WAYLAND,
+                             (struct wl_display *)native_display,
+                             attrib_list);
       break;
 #endif
    case EGL_PLATFORM_SURFACELESS_MESA:
-      disp = _eglGetSurfacelessDisplay(native_display, attrib_list);
+      /* This platform has no native display. */
+      if (native_display != NULL) {
+         _eglError(EGL_BAD_PARAMETER, "eglGetPlatformDisplay");
+         disp = NULL;
+      } else {
+         disp = _eglFindDisplay(_EGL_PLATFORM_SURFACELESS,
+                                native_display,
+                                attrib_list);
+      }
       break;
 #ifdef HAVE_ANDROID_PLATFORM
    case EGL_PLATFORM_ANDROID_KHR:
-      disp = _eglGetAndroidDisplay(native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_ANDROID,
+                             native_display,
+                             attrib_list);
       break;
 #endif
    case EGL_PLATFORM_DEVICE_EXT:
-      disp = _eglGetDeviceDisplay(native_display, attrib_list);
+      disp = _eglFindDisplay(_EGL_PLATFORM_DEVICE, native_display, attrib_list);
+      if (!disp) {
+         _eglError(EGL_BAD_ALLOC, "eglGetPlatformDisplay");
+      }
       break;
    default:
       RETURN_EGL_ERROR(NULL, EGL_BAD_PARAMETER, NULL);
@@ -673,7 +709,7 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
    if (!disp)
       RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
 
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       /* set options */
       disp->Options.ForceSoftware =
          debug_get_bool_option("LIBGL_ALWAYS_SOFTWARE", false);
@@ -710,7 +746,6 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
          }
       }
 
-      disp->Initialized = EGL_TRUE;
       disp->Driver = &_eglDriver;
 
       /* limit to APIs supported by core */
@@ -745,6 +780,8 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
                disp->Version / 10, disp->Version % 10);
    }
 
+   disp->RefCount++;
+
    /* Update applications version of major and minor if not NULL */
    if ((major != NULL) && (minor != NULL)) {
       *major = disp->Version / 10;
@@ -764,16 +801,26 @@ eglTerminate(EGLDisplay dpy)
    if (!disp)
       RETURN_EGL_ERROR(NULL, EGL_BAD_DISPLAY, EGL_FALSE);
 
-   if (disp->Initialized) {
-      disp->Driver->Terminate(disp);
-      /* do not reset disp->Driver */
-      disp->ClientAPIsString[0] = 0;
-      disp->Initialized = EGL_FALSE;
+   /* Already terminated */
+   if (disp->RefCount == 0)
+      RETURN_EGL_SUCCESS(disp, EGL_TRUE);
 
-      /* Reset blob cache funcs on terminate. */
-      disp->BlobCacheSet = NULL;
-      disp->BlobCacheGet = NULL;
-   }
+   disp->RefCount--;
+
+   /* If we track references and have some left, we're done here */
+   if (disp->RefCount > 0 && disp->TrackReferences)
+      RETURN_EGL_SUCCESS(disp, EGL_TRUE);
+
+   /* Otherwise, this Terminate is the final one for this display */
+   disp->RefCount = 0;
+
+   disp->Driver->Terminate(disp);
+   /* do not reset disp->Driver */
+   disp->ClientAPIsString[0] = 0;
+
+   /* Reset blob cache funcs on terminate. */
+   disp->BlobCacheSet = NULL;
+   disp->BlobCacheGet = NULL;
 
    simple_mtx_unlock(&disp->Mutex);
    u_rwlock_wrunlock(&disp->TerminateLock);
@@ -935,7 +982,7 @@ eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLContext ctx)
       RETURN_EGL_ERROR(disp, EGL_BAD_DISPLAY, EGL_FALSE);
 
    /* display is allowed to be uninitialized under certain condition */
-   if (!disp->Initialized) {
+   if (disp->RefCount == 0) {
       if (draw != EGL_NO_SURFACE || read != EGL_NO_SURFACE ||
           ctx != EGL_NO_CONTEXT)
          RETURN_EGL_ERROR(disp, EGL_BAD_DISPLAY, EGL_FALSE);
@@ -1611,7 +1658,7 @@ _eglWaitClientCommon(void)
       RETURN_EGL_ERROR(disp, EGL_BAD_CURRENT_SURFACE, EGL_FALSE);
 
    /* a valid current context implies an initialized current display */
-   assert(disp->Initialized);
+   assert(disp->RefCount > 0);
 
    egl_relax (disp, &ctx->Resource) {
       ret = disp->Driver->WaitClient(disp, ctx);
@@ -1656,7 +1703,7 @@ eglWaitNative(EGLint engine)
       RETURN_EGL_ERROR(disp, EGL_BAD_CURRENT_SURFACE, EGL_FALSE);
 
    /* a valid current context implies an initialized current display */
-   assert(disp->Initialized);
+   assert(disp->RefCount > 0);
 
    egl_relax (disp) {
       ret = disp->Driver->WaitNative(engine);
@@ -2754,10 +2801,21 @@ eglQueryDisplayAttribEXT(EGLDisplay dpy, EGLint attribute, EGLAttrib *value)
    case EGL_DEVICE_EXT:
       *value = (EGLAttrib)disp->Device;
       break;
+   case EGL_TRACK_REFERENCES_KHR:
+      *value = disp->TrackReferences;
+      break;
    default:
       RETURN_EGL_ERROR(disp, EGL_BAD_ATTRIBUTE, EGL_FALSE);
    }
    RETURN_EGL_SUCCESS(disp, EGL_TRUE);
+}
+
+static EGLBoolean EGLAPIENTRY
+eglQueryDisplayAttribKHR(EGLDisplay dpy,
+                         EGLint attribute,
+                         EGLAttrib *value)
+{
+   return eglQueryDisplayAttribEXT(dpy, attribute, value);
 }
 
 static char *EGLAPIENTRY
@@ -2827,7 +2885,7 @@ _eglLockDisplayInterop(EGLDisplay dpy, EGLContext context, _EGLDisplay **disp,
 {
 
    *disp = _eglLockDisplay(dpy);
-   if (!*disp || !(*disp)->Initialized || !(*disp)->Driver) {
+   if (!*disp || (*disp)->RefCount == 0 || !(*disp)->Driver) {
       if (*disp)
          _eglUnlockDisplay(*disp);
       return MESA_GLINTEROP_INVALID_DISPLAY;

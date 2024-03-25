@@ -246,5 +246,9 @@ EGL_FUNCTIONS = (
     _eglFunc("eglGLInteropQueryDeviceInfoMESA",      "display"),
     _eglFunc("eglGLInteropExportObjectMESA",         "display"),
     _eglFunc("eglGLInteropFlushObjectsMESA",         "display"),
+
+    # EGL_KHR_display_reference
+    _eglFunc("eglQueryDisplayAttribKHR",             "display"),
+
 )
 
