@@ -74,8 +74,10 @@ uint_key_compare(const void *a, const void *b)
 /**
  * Called when the first libc shim is called, to initialize GEM simulation
  * state (other than the shims themselves).
+ *
+ * Note, only public so that mesa can detect when it is running under shim.
  */
-void
+PUBLIC void
 drm_shim_device_init(void)
 {
    shim_device.fd_map = _mesa_hash_table_create(NULL,
