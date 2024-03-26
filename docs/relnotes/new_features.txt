@@ -6,6 +6,7 @@ VK_KHR_index_type_uint8 on RADV, ANV, NVK and Turnip
 VK_KHR_shader_expect_assume on all Vulkan drivers
 VK_KHR_shader_maximal_reconvergence on RADV
 VK_KHR_shader_quad_control on RADV
+VK_EXT_sample_locations on RADV for GFX10+
 OpenGL 4.6 on Asahi
 OpenGL ES 3.2 on Asahi
 Mali G610 and G310 on Panfrost

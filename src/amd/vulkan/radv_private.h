@@ -474,6 +474,15 @@ struct vk_pipeline_cache_object *radv_pipeline_cache_nir_to_handle(struct radv_d
 struct nir_shader *radv_pipeline_cache_handle_to_nir(struct radv_device *device,
                                                      struct vk_pipeline_cache_object *object);
 
+enum radv_resolve_compute_type {
+   RADV_RESOLVE_COMPUTE_NORM,
+   RADV_RESOLVE_COMPUTE_NORM_SRGB,
+   RADV_RESOLVE_COMPUTE_INTEGER,
+   RADV_RESOLVE_COMPUTE_FLOAT,
+
+   RADV_RESOLVE_COMPUTE_COUNT,
+};
+
 struct radv_meta_state {
    VkAllocationCallbacks alloc;
 
@@ -607,9 +616,7 @@ struct radv_meta_state {
       VkDescriptorSetLayout ds_layout;
       VkPipelineLayout p_layout;
       struct {
-         VkPipeline pipeline;
-         VkPipeline i_pipeline;
-         VkPipeline srgb_pipeline;
+         VkPipeline pipelines[RADV_RESOLVE_COMPUTE_COUNT];
       } rc[MAX_SAMPLES_LOG2];
 
       VkPipeline depth_zero_pipeline;
@@ -2083,7 +2090,7 @@ void radv_write_vertex_descriptors(const struct radv_cmd_buffer *cmd_buffer,
                                    const struct radv_graphics_pipeline *pipeline, bool full_null_descriptors,
                                    void *vb_ptr);
 
-void radv_emit_default_sample_locations(struct radeon_cmdbuf *cs, int nr_samples);
+void radv_emit_default_sample_locations(struct radeon_cmdbuf *cs, enum amd_gfx_level gfx_level, int nr_samples);
 unsigned radv_get_default_max_sample_dist(int log_samples);
 void radv_device_init_msaa(struct radv_device *device);
 VkResult radv_device_init_vrs_state(struct radv_device *device);

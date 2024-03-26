@@ -631,7 +631,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .EXT_provoking_vertex = true,
       .EXT_queue_family_foreign = true,
       .EXT_robustness2 = true,
-      .EXT_sample_locations = device->rad_info.gfx_level < GFX10,
+      .EXT_sample_locations = true,
       .EXT_sampler_filter_minmax = true,
       .EXT_scalar_block_layout = device->rad_info.gfx_level >= GFX7,
       .EXT_separate_stencil_usage = true,
@@ -1648,11 +1648,13 @@ radv_get_physical_device_properties(struct radv_physical_device *pdevice)
 
    /* VK_EXT_sample_locations */
    p->sampleLocationSampleCounts = VK_SAMPLE_COUNT_2_BIT | VK_SAMPLE_COUNT_4_BIT | VK_SAMPLE_COUNT_8_BIT;
+   if (pdevice->rad_info.gfx_level >= GFX10)
+      p->sampleLocationSampleCounts |= VK_SAMPLE_COUNT_1_BIT;
    p->maxSampleLocationGridSize = (VkExtent2D){2, 2};
    p->sampleLocationCoordinateRange[0] = 0.0f;
    p->sampleLocationCoordinateRange[1] = 0.9375f;
    p->sampleLocationSubPixelBits = 4;
-   p->variableSampleLocations = false;
+   p->variableSampleLocations = true;
 
    /* VK_KHR_line_rasterization */
    p->lineSubPixelPrecisionBits = 4;
@@ -1685,7 +1687,7 @@ radv_get_physical_device_properties(struct radv_physical_device *pdevice)
    p->fragmentShadingRateWithShaderSampleMask = false;
    p->fragmentShadingRateWithConservativeRasterization = true;
    p->fragmentShadingRateWithFragmentShaderInterlock = pdevice->rad_info.gfx_level >= GFX11 && radv_has_pops(pdevice);
-   p->fragmentShadingRateWithCustomSampleLocations = false;
+   p->fragmentShadingRateWithCustomSampleLocations = true;
    p->fragmentShadingRateStrictMultiplyCombiner = true;
 
    /* VK_EXT_provoking_vertex */
@@ -2535,7 +2537,10 @@ VKAPI_ATTR void VKAPI_CALL
 radv_GetPhysicalDeviceMultisamplePropertiesEXT(VkPhysicalDevice physicalDevice, VkSampleCountFlagBits samples,
                                                VkMultisamplePropertiesEXT *pMultisampleProperties)
 {
+   VK_FROM_HANDLE(radv_physical_device, pdevice, physicalDevice);
    VkSampleCountFlagBits supported_samples = VK_SAMPLE_COUNT_2_BIT | VK_SAMPLE_COUNT_4_BIT | VK_SAMPLE_COUNT_8_BIT;
+   if (pdevice->rad_info.gfx_level >= GFX10)
+      supported_samples |= VK_SAMPLE_COUNT_1_BIT;
 
    if (samples & supported_samples) {
       pMultisampleProperties->maxSampleLocationGridSize = (VkExtent2D){2, 2};

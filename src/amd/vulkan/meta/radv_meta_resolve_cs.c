@@ -44,14 +44,54 @@ radv_meta_build_resolve_srgb_conversion(nir_builder *b, nir_def *input)
    return nir_vec(b, comp, 4);
 }
 
-static nir_shader *
-build_resolve_compute_shader(struct radv_device *dev, bool is_integer, bool is_srgb, int samples)
+static const char *
+radv_resolve_compute_type_name(enum radv_resolve_compute_type type)
 {
-   enum glsl_base_type img_base_type = is_integer ? GLSL_TYPE_UINT : GLSL_TYPE_FLOAT;
+   switch (type) {
+   case RADV_RESOLVE_COMPUTE_NORM:
+      return "norm";
+   case RADV_RESOLVE_COMPUTE_NORM_SRGB:
+      return "srgb";
+   case RADV_RESOLVE_COMPUTE_INTEGER:
+      return "integer";
+   default:
+   case RADV_RESOLVE_COMPUTE_FLOAT:
+      return "float";
+   }
+}
+
+static enum radv_resolve_compute_type
+radv_resolve_compute_type_from_vk_format(VkFormat format)
+{
+   if (vk_format_is_int(format))
+      return RADV_RESOLVE_COMPUTE_INTEGER;
+
+   if (vk_format_is_unorm(format) || vk_format_is_snorm(format)) {
+      uint32_t max_bit_size = 0;
+      for (uint32_t i = 0; i < vk_format_get_nr_components(format); i++)
+         max_bit_size = MAX2(max_bit_size, vk_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB, i));
+
+      /* srgb formats are all 8-bit */
+      if (vk_format_is_srgb(format)) {
+         assert(max_bit_size == 8);
+         return RADV_RESOLVE_COMPUTE_NORM_SRGB;
+      }
+
+      if (max_bit_size <= 10)
+         return RADV_RESOLVE_COMPUTE_NORM;
+   }
+
+   return RADV_RESOLVE_COMPUTE_FLOAT;
+}
+
+static nir_shader *
+build_resolve_compute_shader(struct radv_device *dev, enum radv_resolve_compute_type type, int samples)
+{
+   enum glsl_base_type img_base_type = type == RADV_RESOLVE_COMPUTE_INTEGER ? GLSL_TYPE_UINT : GLSL_TYPE_FLOAT;
    const struct glsl_type *sampler_type = glsl_sampler_type(GLSL_SAMPLER_DIM_MS, false, false, img_base_type);
    const struct glsl_type *img_type = glsl_image_type(GLSL_SAMPLER_DIM_2D, false, img_base_type);
    nir_builder b = radv_meta_init_shader(dev, MESA_SHADER_COMPUTE, "meta_resolve_cs-%d-%s", samples,
-                                         is_integer ? "int" : (is_srgb ? "srgb" : "float"));
+                                         radv_resolve_compute_type_name(type));
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
 
@@ -73,11 +113,16 @@ build_resolve_compute_shader(struct radv_device *dev, bool is_integer, bool is_s
 
    nir_variable *color = nir_local_variable_create(b.impl, glsl_vec4_type(), "color");
 
-   radv_meta_build_resolve_shader_core(dev, &b, is_integer, samples, input_img, color, src_coord);
+   radv_meta_build_resolve_shader_core(dev, &b, type == RADV_RESOLVE_COMPUTE_INTEGER, samples, input_img, color,
+                                       src_coord);
 
    nir_def *outval = nir_load_var(&b, color);
-   if (is_srgb)
+
+   if (type == RADV_RESOLVE_COMPUTE_NORM_SRGB)
       outval = radv_meta_build_resolve_srgb_conversion(&b, outval);
+
+   if (type == RADV_RESOLVE_COMPUTE_NORM || type == RADV_RESOLVE_COMPUTE_NORM_SRGB)
+      outval = nir_f2f32(&b, nir_f2f16_rtz(&b, outval));
 
    nir_def *img_coord = nir_vec4(&b, nir_channel(&b, dst_coord, 0), nir_channel(&b, dst_coord, 1), nir_undef(&b, 1, 32),
                                  nir_undef(&b, 1, 32));
@@ -227,7 +272,8 @@ fail:
 }
 
 static VkResult
-create_resolve_pipeline(struct radv_device *device, int samples, bool is_integer, bool is_srgb, VkPipeline *pipeline)
+create_resolve_pipeline(struct radv_device *device, int samples, enum radv_resolve_compute_type type,
+                        VkPipeline *pipeline)
 {
    VkResult result;
 
@@ -237,7 +283,7 @@ create_resolve_pipeline(struct radv_device *device, int samples, bool is_integer
       return VK_SUCCESS;
    }
 
-   nir_shader *cs = build_resolve_compute_shader(device, is_integer, is_srgb, samples);
+   nir_shader *cs = build_resolve_compute_shader(device, type, samples);
 
    /* compute shader */
 
@@ -330,17 +376,12 @@ radv_device_init_meta_resolve_compute_state(struct radv_device *device, bool on_
    for (uint32_t i = 0; i < MAX_SAMPLES_LOG2; ++i) {
       uint32_t samples = 1 << i;
 
-      res = create_resolve_pipeline(device, samples, false, false, &state->resolve_compute.rc[i].pipeline);
-      if (res != VK_SUCCESS)
-         return res;
-
-      res = create_resolve_pipeline(device, samples, true, false, &state->resolve_compute.rc[i].i_pipeline);
-      if (res != VK_SUCCESS)
-         return res;
-
-      res = create_resolve_pipeline(device, samples, false, true, &state->resolve_compute.rc[i].srgb_pipeline);
-      if (res != VK_SUCCESS)
-         return res;
+      for (uint32_t j = 0; j < RADV_RESOLVE_COMPUTE_COUNT; j++) {
+         res = create_resolve_pipeline(device, samples, (enum radv_resolve_compute_type)j,
+                                       &state->resolve_compute.rc[i].pipelines[j]);
+         if (res != VK_SUCCESS)
+            return res;
+      }
 
       res = create_depth_stencil_resolve_pipeline(device, samples, DEPTH_RESOLVE, VK_RESOLVE_MODE_AVERAGE_BIT,
                                                   &state->resolve_compute.depth[i].average_pipeline);
@@ -382,11 +423,9 @@ radv_device_finish_meta_resolve_compute_state(struct radv_device *device)
 {
    struct radv_meta_state *state = &device->meta_state;
    for (uint32_t i = 0; i < MAX_SAMPLES_LOG2; ++i) {
-      radv_DestroyPipeline(radv_device_to_handle(device), state->resolve_compute.rc[i].pipeline, &state->alloc);
-
-      radv_DestroyPipeline(radv_device_to_handle(device), state->resolve_compute.rc[i].i_pipeline, &state->alloc);
-
-      radv_DestroyPipeline(radv_device_to_handle(device), state->resolve_compute.rc[i].srgb_pipeline, &state->alloc);
+      for (uint32_t j = 0; j < RADV_RESOLVE_COMPUTE_COUNT; j++) {
+         radv_DestroyPipeline(radv_device_to_handle(device), state->resolve_compute.rc[i].pipelines[j], &state->alloc);
+      }
 
       radv_DestroyPipeline(radv_device_to_handle(device), state->resolve_compute.depth[i].average_pipeline,
                            &state->alloc);
@@ -419,19 +458,14 @@ radv_get_resolve_pipeline(struct radv_cmd_buffer *cmd_buffer, struct radv_image_
    uint32_t samples = src_iview->image->vk.samples;
    uint32_t samples_log2 = ffs(samples) - 1;
    VkPipeline *pipeline;
+   enum radv_resolve_compute_type type = radv_resolve_compute_type_from_vk_format(src_iview->vk.format);
 
-   if (vk_format_is_int(src_iview->vk.format))
-      pipeline = &state->resolve_compute.rc[samples_log2].i_pipeline;
-   else if (vk_format_is_srgb(src_iview->vk.format))
-      pipeline = &state->resolve_compute.rc[samples_log2].srgb_pipeline;
-   else
-      pipeline = &state->resolve_compute.rc[samples_log2].pipeline;
+   pipeline = &state->resolve_compute.rc[samples_log2].pipelines[type];
 
    if (!*pipeline) {
       VkResult ret;
 
-      ret = create_resolve_pipeline(device, samples, vk_format_is_int(src_iview->vk.format),
-                                    vk_format_is_srgb(src_iview->vk.format), pipeline);
+      ret = create_resolve_pipeline(device, samples, type, pipeline);
       if (ret != VK_SUCCESS) {
          vk_command_buffer_set_error(&cmd_buffer->vk, ret);
          return NULL;
