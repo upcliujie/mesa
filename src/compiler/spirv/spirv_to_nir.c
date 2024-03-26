@@ -1817,15 +1817,10 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
       } else {
          vtn_fail_if(sampled_type->base_type != vtn_base_type_scalar,
                      "Sampled type of OpTypeImage must be a scalar");
-         if (b->options->caps.image_atomic_int64) {
-            vtn_fail_if(glsl_get_bit_size(sampled_type->type) != 32 &&
-                        glsl_get_bit_size(sampled_type->type) != 64,
-                        "Sampled type of OpTypeImage must be a 32 or 64-bit "
-                        "scalar");
-         } else {
-            vtn_fail_if(glsl_get_bit_size(sampled_type->type) != 32,
-                        "Sampled type of OpTypeImage must be a 32-bit scalar");
-         }
+         vtn_fail_if(glsl_get_bit_size(sampled_type->type) != 32 &&
+                     glsl_get_bit_size(sampled_type->type) != 64,
+                     "Sampled type of OpTypeImage must be a 32 or 64-bit "
+                     "scalar");
       }
 
       enum glsl_sampler_dim dim;
