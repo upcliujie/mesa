@@ -46,6 +46,7 @@
 #include "presentation-time-client-protocol.h"
 #include "linux-drm-syncobj-v1-client-protocol.h"
 #include "tearing-control-v1-client-protocol.h"
+#include "color-management-v1-client-protocol.h"
 
 #include <util/compiler.h>
 #include <util/hash_table.h>
@@ -108,7 +109,12 @@ struct wsi_wl_display {
    struct wp_tearing_control_manager_v1 *tearing_control_manager;
    struct wp_linux_drm_syncobj_manager_v1 *wl_syncobj;
 
+   struct mesa_color_manager_v1 *color_manager;
+
    struct dmabuf_feedback_format_table format_table;
+
+   struct u_vector color_primaries;
+   struct u_vector color_transfer_funcs;
 
    /* users want per-chain wsi_wl_swapchain->present_ids.wp_presentation */
    struct wp_presentation *wp_presentation_notwrapped;
@@ -117,6 +123,9 @@ struct wsi_wl_display {
 
    /* Formats populated by zwp_linux_dmabuf_v1 or wl_shm interfaces */
    struct u_vector formats;
+
+   /* Additional colorspaces returned by wp_color_management_v1. */
+   struct u_vector colorspaces;
 
    bool sw;
 
@@ -163,6 +172,8 @@ struct wsi_wl_surface {
    struct dmabuf_feedback dmabuf_feedback, pending_dmabuf_feedback;
 
    struct wp_linux_drm_syncobj_surface_v1 *wl_syncobj_surface;
+
+   struct mesa_color_management_surface_v1 *color_surface;
 };
 
 struct wsi_wl_swapchain {
@@ -267,6 +278,10 @@ wsi_wl_display_add_vk_format(struct wsi_wl_display *display,
 
    return f;
 }
+
+struct wsi_wl_colorspace {
+   bool ready;
+};
 
 static void
 wsi_wl_format_add_modifier(struct wsi_wl_format *format, uint64_t modifier)
@@ -795,6 +810,284 @@ static const struct wl_shm_listener shm_listener = {
    .format = shm_handle_format
 };
 
+static bool
+vector_search(struct u_vector *vec, unsigned int val)
+{
+   unsigned int *ptr;
+
+   u_vector_foreach(ptr, vec)
+      if (*ptr == val)
+         return true;
+
+   return false;
+}
+
+static void
+wsi_wl_display_add_supported_tf(struct wsi_wl_display *display,
+                                unsigned int tf)
+{
+   unsigned int *new_tf;
+
+   if (vector_search(&display->color_transfer_funcs, tf))
+      return;
+
+   new_tf = u_vector_add(&display->color_transfer_funcs);
+   if (new_tf)
+      *new_tf = tf;
+}
+
+static void
+wsi_wl_display_add_supported_primaries(struct wsi_wl_display *display,
+                                       unsigned int ps)
+{
+   unsigned int *new_ps;
+
+   if (vector_search(&display->color_primaries, ps))
+      return;
+
+   new_ps = u_vector_add(&display->color_primaries);
+   if (new_ps)
+      *new_ps = ps;
+}
+
+static bool wsi_wl_display_add_colorspace(struct wsi_wl_display *display,
+                                          VkColorSpaceKHR colorspace)
+{
+   VkColorSpaceKHR *new_cs;
+
+   new_cs = u_vector_add(&display->colorspaces);
+   if (new_cs)
+      *new_cs = colorspace;
+
+   return new_cs != NULL;
+}
+
+static int
+wsi_wl_display_determine_colorspaces(struct wsi_wl_display *display)
+{
+   u_vector_finish(&display->colorspaces);
+   if (!u_vector_init(&display->colorspaces, 8, sizeof(VkColorSpaceKHR)))
+      return -1;
+
+   // SRGB_NONLINEAR is always supported.
+   if (!wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR))
+      return -1;
+
+   // If the compositor supports color management, and the user has requested
+   // the correct extension, we can support additional colorspaces.
+   if (!display->color_manager)
+      return 0;
+
+   // TODO: Return if the user hasn't enabled the extension.
+
+   struct u_vector *tfs = &display->color_transfer_funcs;
+   unsigned int *ps;
+   u_vector_foreach(ps, &display->color_primaries) {
+      switch(*ps) {
+      case MESA_COLOR_MANAGER_V1_PRIMARIES_SRGB:
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_BT709) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_BT709_NONLINEAR_EXT))
+            return -1;
+
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT))
+            return -1;
+
+         break;
+      case MESA_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3:
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_SRGB) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT))
+            return -1;
+
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT))
+            return -1;
+
+         break;
+      case MESA_COLOR_MANAGER_V1_PRIMARIES_DCI_P3:
+         // The wayland protocol doesn't have an enum for the DCI-P3 transfer function.
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_DCI_P3_LINEAR_EXT))
+            return -1;
+
+         break;
+      case MESA_COLOR_MANAGER_V1_PRIMARIES_BT2020:
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_HDR10_ST2084_EXT))
+            return -1;
+
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_HDR10_HLG_EXT))
+            return -1;
+
+         if (vector_search(tfs, MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR) &&
+            !wsi_wl_display_add_colorspace(display, VK_COLOR_SPACE_BT2020_LINEAR_EXT))
+            return -1;
+
+         break;
+      default:
+         break;
+      }
+   }
+
+   return 0;
+}
+
+static void
+color_management_handle_supported_intent(void *data,
+                                         struct mesa_color_manager_v1 *color_manager,
+                                         unsigned int intent)
+{
+   // We only support the perceptual rendering intent, which is required to be supported.
+}
+
+static void
+color_management_handle_supported_features(void *data,
+                                           struct mesa_color_manager_v1 *color_manager,
+                                           unsigned int feature)
+{
+   // We don't use any non-default features.
+}
+
+static void
+color_management_handle_supported_tf_named(void *data,
+                                           struct mesa_color_manager_v1 *color_manager,
+                                           unsigned int tf)
+{
+   struct wsi_wl_display *display = data;
+   wsi_wl_display_add_supported_tf(display, tf);
+}
+
+static void
+color_management_handle_supported_primaries_named(void *data,
+                                                  struct mesa_color_manager_v1 *color_manager,
+                                                  unsigned int primaries)
+{
+   struct wsi_wl_display *display = data;
+   wsi_wl_display_add_supported_primaries(display, primaries);
+}
+
+static const struct mesa_color_manager_v1_listener color_manager_listener = {
+   .supported_intent = color_management_handle_supported_intent,
+   .supported_feature = color_management_handle_supported_features,
+   .supported_tf_named = color_management_handle_supported_tf_named,
+   .supported_primaries_named = color_management_handle_supported_primaries_named,
+};
+
+static void
+color_management_handle_image_desc_failed(void *data,
+                                          struct mesa_image_description_v1 *desc,
+                                          unsigned int cause,
+                                          const char *msg)
+{
+   struct wsi_wl_colorspace *cs = data;
+   cs->ready = false;
+}
+
+static void
+color_management_handle_image_desc_ready(void *data,
+                                        struct mesa_image_description_v1 *desc,
+                                        unsigned int id)
+{
+   struct wsi_wl_colorspace *cs = data;
+   cs->ready = true;
+}
+
+static const struct mesa_image_description_v1_listener image_description_listener = {
+   .failed = color_management_handle_image_desc_failed,
+   .ready = color_management_handle_image_desc_ready,
+};
+
+
+static int
+wsi_wl_swapchain_set_colorspace(struct wsi_wl_swapchain *chain,
+                                VkColorSpaceKHR colorspace) {
+
+   struct wsi_wl_display *display = chain->wsi_wl_surface->display;
+
+   if (!display->color_manager || !chain->wsi_wl_surface->color_surface)
+      return -1;
+
+   struct mesa_image_description_creator_params_v1 *creator = 
+      mesa_color_manager_v1_new_parametric_creator(display->color_manager);
+
+   if (!creator)
+      return -1;
+
+   unsigned int primaries;
+   unsigned int tf;
+
+   switch (colorspace) {
+   case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_SRGB;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_SRGB;
+      break;
+   case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_SRGB;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR;
+      break;
+   case VK_COLOR_SPACE_BT709_NONLINEAR_EXT:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_SRGB;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_BT709;
+      break;
+   case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_SRGB;
+      break;
+   case VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR;
+      break;
+   // Vulkan does not ditinguish between the DISPLAY_P3 and DCI_P3
+   // primaries. They only differ in terms of white point.
+   // case VK_COLOR_SPACE_DCI_P3_LINEAR_EXT:
+   //    primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_DCI_P3;
+   //    tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR;
+   //    break;
+   case VK_COLOR_SPACE_HDR10_ST2084_EXT:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_BT2020;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ;
+      break;
+   case VK_COLOR_SPACE_HDR10_HLG_EXT:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_BT2020;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG;
+      break;
+   case VK_COLOR_SPACE_BT2020_LINEAR_EXT:
+      primaries = MESA_COLOR_MANAGER_V1_PRIMARIES_BT2020;
+      tf = MESA_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LINEAR;
+      break;
+   default:
+      return -1;
+   }
+
+   mesa_image_description_creator_params_v1_set_primaries_named(creator, primaries);
+   mesa_image_description_creator_params_v1_set_tf_named(creator, tf);
+
+   struct mesa_image_description_v1 *image_desc =
+      mesa_image_description_creator_params_v1_create(creator);
+   if (!image_desc)
+      return -1;
+
+   struct wsi_wl_colorspace cs;
+   mesa_image_description_v1_add_listener(image_desc, &image_description_listener, &cs);
+
+   wl_display_roundtrip_queue(display->wl_display, display->queue);
+   if(!cs.ready) {
+      mesa_image_description_v1_destroy(image_desc);
+      return -1;
+   }
+
+   mesa_color_management_surface_v1_set_image_description(
+      chain->wsi_wl_surface->color_surface,
+      image_desc,
+      MESA_COLOR_MANAGER_V1_RENDER_INTENT_PERCEPTUAL);
+
+   mesa_image_description_v1_destroy(image_desc);
+
+   return 0;
+}
+
+
 static void
 registry_handle_global(void *data, struct wl_registry *registry,
                        uint32_t name, const char *interface, uint32_t version)
@@ -826,6 +1119,17 @@ registry_handle_global(void *data, struct wl_registry *registry,
       display->tearing_control_manager =
          wl_registry_bind(registry, name, &wp_tearing_control_manager_v1_interface, 1);
    }
+
+   if (strcmp(interface, mesa_color_manager_v1_interface.name) == 0) {
+      display->color_manager =
+         wl_registry_bind(registry, name, &mesa_color_manager_v1_interface, 1);
+
+      u_vector_init(&display->color_primaries, 8, sizeof(unsigned int));
+      u_vector_init(&display->color_transfer_funcs, 8, sizeof(unsigned int));
+
+      mesa_color_manager_v1_add_listener(display->color_manager,
+                                          &color_manager_listener, display);
+   }
 }
 
 static void
@@ -845,6 +1149,10 @@ wsi_wl_display_finish(struct wsi_wl_display *display)
    u_vector_foreach(f, &display->formats)
       u_vector_finish(&f->modifiers);
    u_vector_finish(&display->formats);
+   u_vector_finish(&display->colorspaces);
+   u_vector_finish(&display->color_primaries);
+   u_vector_finish(&display->color_transfer_funcs);
+
    if (display->wl_shm)
       wl_shm_destroy(display->wl_shm);
    if (display->wl_syncobj)
@@ -855,6 +1163,8 @@ wsi_wl_display_finish(struct wsi_wl_display *display)
       wp_presentation_destroy(display->wp_presentation_notwrapped);
    if (display->tearing_control_manager)
       wp_tearing_control_manager_v1_destroy(display->tearing_control_manager);
+   if (display->color_manager)
+      mesa_color_manager_v1_destroy(display->color_manager);
    if (display->wl_display_wrapper)
       wl_proxy_wrapper_destroy(display->wl_display_wrapper);
    if (display->queue)
@@ -945,6 +1255,11 @@ wsi_wl_display_init(struct wsi_wayland *wsi_wl,
 
    /* Round-trip again to get formats and modifiers */
    wl_display_roundtrip_queue(display->wl_display, display->queue);
+
+   if (wsi_wl_display_determine_colorspaces(display) < 0) {
+      result = VK_ERROR_OUT_OF_HOST_MEMORY;
+      goto fail;
+   }
 
    if (wsi_wl->wsi->force_bgra8_unorm_first) {
       /* Find BGRA8_UNORM in the list and swap it to the first position if we
@@ -1228,18 +1543,21 @@ wsi_wl_surface_get_formats(VkIcdSurfaceBase *icd_surface,
    VK_OUTARRAY_MAKE_TYPED(VkSurfaceFormatKHR, out,
                           pSurfaceFormats, pSurfaceFormatCount);
 
-   struct wsi_wl_format *disp_fmt;
-   u_vector_foreach(disp_fmt, &display.formats) {
-      /* Skip formats for which we can't support both alpha & opaque
-       * formats.
-       */
-      if (!(disp_fmt->flags & WSI_WL_FMT_ALPHA) ||
-          !(disp_fmt->flags & WSI_WL_FMT_OPAQUE))
-         continue;
+   VkColorSpaceKHR *cs;
+   u_vector_foreach(cs, &display.colorspaces) {
+      struct wsi_wl_format *disp_fmt;
+      u_vector_foreach(disp_fmt, &display.formats) {
+         /* Skip formats for which we can't support both alpha & opaque
+         * formats.
+         */
+         if (!(disp_fmt->flags & WSI_WL_FMT_ALPHA) ||
+            !(disp_fmt->flags & WSI_WL_FMT_OPAQUE))
+            continue;
 
-      vk_outarray_append_typed(VkSurfaceFormatKHR, &out, out_fmt) {
-         out_fmt->format = disp_fmt->vk_format;
-         out_fmt->colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+         vk_outarray_append_typed(VkSurfaceFormatKHR, &out, out_fmt) {
+            out_fmt->format = disp_fmt->vk_format;
+            out_fmt->colorSpace = *cs;
+         }
       }
    }
 
@@ -1370,6 +1688,9 @@ wsi_wl_surface_destroy(VkIcdSurfaceBase *icd_surface, VkInstance _instance,
 
    if (wsi_wl_surface->display)
       wsi_wl_display_destroy(wsi_wl_surface->display);
+
+   if (wsi_wl_surface->color_surface)
+      mesa_color_management_surface_v1_destroy(wsi_wl_surface->color_surface);
 
    vk_free2(&instance->alloc, pAllocator, wsi_wl_surface);
 }
@@ -1619,6 +1940,11 @@ static VkResult wsi_wl_surface_init(struct wsi_wl_surface *wsi_wl_surface,
       wl_display_roundtrip_queue(wsi_wl_surface->display->wl_display,
                                  wsi_wl_surface->display->queue);
    }
+
+   if (wsi_wl_surface->display->color_manager)
+         wsi_wl_surface->color_surface = mesa_color_manager_v1_get_surface(
+            wsi_wl_surface->display->color_manager, wsi_wl_surface->surface);
+
 
    if (wsi_wl_use_explicit_sync(wsi_wl_surface->display, wsi_device)) {
       wsi_wl_surface->wl_syncobj_surface =
@@ -2391,6 +2717,12 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
       }
       wp_tearing_control_v1_set_presentation_hint(chain->tearing_control,
                                                           WP_TEARING_CONTROL_V1_PRESENTATION_HINT_ASYNC);
+   }
+
+   if (wsi_wl_surface->display->color_manager &&
+       wsi_wl_swapchain_set_colorspace(chain, pCreateInfo->imageColorSpace) < 0) {
+      result = VK_ERROR_INITIALIZATION_FAILED;
+      goto fail;
    }
 
    enum wsi_wl_buffer_type buffer_type;
