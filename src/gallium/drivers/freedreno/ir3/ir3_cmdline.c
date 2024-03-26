@@ -229,15 +229,6 @@ static nir_shader *
 load_spirv(const char *filename, const char *entry, gl_shader_stage stage)
 {
    const struct spirv_to_nir_options spirv_options = {
-      /* these caps are just make-believe */
-      .caps = {
-         .draw_parameters = true,
-         .float64 = true,
-         .image_read_without_format = true,
-         .image_write_without_format = true,
-         .int64 = true,
-         .variable_pointers = true,
-      },
       .debug = {
          .func = debug_func,
       }

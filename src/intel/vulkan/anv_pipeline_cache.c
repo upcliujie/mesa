@@ -532,13 +532,6 @@ anv_load_fp64_shader(struct anv_device *device)
       return;
 
    struct spirv_to_nir_options spirv_options = {
-      .caps = {
-         .address = true,
-         .float64 = true,
-         .int8 = true,
-         .int16 = true,
-         .int64 = true,
-      },
       .environment = NIR_SPIRV_VULKAN,
       .create_library = true
    };
