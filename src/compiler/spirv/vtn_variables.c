@@ -913,10 +913,9 @@ vtn_get_builtin_location(struct vtn_builder *b,
          *mode = nir_var_shader_in;
       else if (b->shader->info.stage == MESA_SHADER_GEOMETRY)
          *mode = nir_var_shader_out;
-      else if (b->options && b->options->caps.shader_viewport_index_layer &&
-               (b->shader->info.stage == MESA_SHADER_VERTEX ||
-                b->shader->info.stage == MESA_SHADER_TESS_EVAL ||
-                b->shader->info.stage == MESA_SHADER_MESH))
+      else if (b->shader->info.stage == MESA_SHADER_VERTEX ||
+               b->shader->info.stage == MESA_SHADER_TESS_EVAL ||
+               b->shader->info.stage == MESA_SHADER_MESH)
          *mode = nir_var_shader_out;
       else
          vtn_fail("invalid stage for SpvBuiltInLayer");
@@ -925,10 +924,9 @@ vtn_get_builtin_location(struct vtn_builder *b,
       *location = VARYING_SLOT_VIEWPORT;
       if (b->shader->info.stage == MESA_SHADER_GEOMETRY)
          *mode = nir_var_shader_out;
-      else if (b->options && b->options->caps.shader_viewport_index_layer &&
-               (b->shader->info.stage == MESA_SHADER_VERTEX ||
-                b->shader->info.stage == MESA_SHADER_TESS_EVAL ||
-                b->shader->info.stage == MESA_SHADER_MESH))
+      else if (b->shader->info.stage == MESA_SHADER_VERTEX ||
+               b->shader->info.stage == MESA_SHADER_TESS_EVAL ||
+               b->shader->info.stage == MESA_SHADER_MESH)
          *mode = nir_var_shader_out;
       else if (b->shader->info.stage == MESA_SHADER_FRAGMENT)
          *mode = nir_var_shader_in;
