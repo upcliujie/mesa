@@ -975,10 +975,8 @@ vtn_type_needs_explicit_layout(struct vtn_builder *b, struct vtn_type *type,
    case vtn_variable_mode_ubo:
    case vtn_variable_mode_push_constant:
    case vtn_variable_mode_shader_record:
-      return true;
-
    case vtn_variable_mode_workgroup:
-      return b->options->caps.workgroup_memory_explicit_layout;
+      return true;
 
    default:
       return false;
@@ -1786,10 +1784,6 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
          /* Only certain storage classes use ArrayStride. */
          switch (storage_class) {
          case SpvStorageClassWorkgroup:
-            if (!b->options->caps.workgroup_memory_explicit_layout)
-               break;
-            FALLTHROUGH;
-
          case SpvStorageClassUniform:
          case SpvStorageClassPushConstant:
          case SpvStorageClassStorageBuffer:
