@@ -352,6 +352,11 @@ struct dri2_egl_surface {
    struct wl_display *wl_dpy_wrapper;
    struct wl_drm *wl_drm_wrapper;
    struct wl_callback *throttle_callback;
+   bool throttle_ready;
+   bool has_lowest_tick_rate;
+   struct timespec lowest_tick_rate;
+   struct timespec last_throttle_callback;
+   struct timespec last_swap_buffers;
    struct zwp_linux_dmabuf_feedback_v1 *wl_dmabuf_feedback;
    struct dmabuf_feedback dmabuf_feedback, pending_dmabuf_feedback;
    bool compositor_using_another_device;
