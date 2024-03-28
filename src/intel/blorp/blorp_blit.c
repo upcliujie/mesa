@@ -1714,6 +1714,7 @@ blorp_surf_retile_w_to_y(const struct isl_device *isl_dev,
       ALIGN(info->surf.logical_level0_px.width, x_align) * 2;
    info->surf.logical_level0_px.height =
       ALIGN(info->surf.logical_level0_px.height, y_align) / 2;
+   info->surf.row_pitch_B *= 2;
    info->tile_x_sa *= 2;
    info->tile_y_sa /= 2;
 }

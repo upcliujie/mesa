@@ -270,7 +270,21 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
       sb.StencilBufferEnable = true;
 #endif
       sb.SurfaceBaseAddress = info->stencil_address;
-      sb.SurfacePitch = info->stencil_surf->row_pitch_B - 1;
+      /* From the Broadwell PRM Vol 2a, 3DSTATE_STENCIL_BUFFER::SurfacePitch:
+      *
+      *     "Since this surface is tiled, the pitch specified must be a
+      *      multiple of the tile pitch, in the range [128B, 128KB]."
+      *
+      *     "The pitch must be set to 2x the value computed based on width, as
+      *      the stencil buffer is stored with two rows interleaved."
+      *
+      * Since we're using a 64x64 physical tiling size, we have to multiple by
+      * 2.
+      */
+      if (info->stencil_surf->tiling == ISL_TILING_W)
+         sb.SurfacePitch = info->stencil_surf->row_pitch_B * 2 - 1;
+      else
+         sb.SurfacePitch = info->stencil_surf->row_pitch_B - 1;
 #if GFX_VER >= 8
       sb.SurfaceQPitch =
          isl_surf_get_array_pitch_el_rows(info->stencil_surf) >> 2;
