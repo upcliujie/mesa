@@ -2229,7 +2229,7 @@ iris_unmap_s8(struct iris_transfer *map)
 
          for (uint32_t y = 0; y < box->height; y++) {
             for (uint32_t x = 0; x < box->width; x++) {
-               ptrdiff_t offset = s8_offset(surf->row_pitch_B,
+               ptrdiff_t offset = s8_offset(surf->row_pitch_B * 2,
                                             x0_el + box->x + x,
                                             y0_el + box->y + y);
                tiled_s8_map[offset] =
@@ -2276,7 +2276,7 @@ iris_map_s8(struct iris_transfer *map)
 
          for (uint32_t y = 0; y < box->height; y++) {
             for (uint32_t x = 0; x < box->width; x++) {
-               ptrdiff_t offset = s8_offset(surf->row_pitch_B,
+               ptrdiff_t offset = s8_offset(surf->row_pitch_B * 2,
                                             x0_el + box->x + x,
                                             y0_el + box->y + y);
                untiled_s8_map[s * xfer->layer_stride + y * xfer->stride + x] =
@@ -2752,7 +2752,7 @@ iris_texture_subdata(struct pipe_context *ctx,
 
          for (unsigned y = 0; y < box->height; y++) {
             for (unsigned x = 0; x < box->width; x++) {
-               ptrdiff_t offset = s8_offset(surf->row_pitch_B,
+               ptrdiff_t offset = s8_offset(surf->row_pitch_B * 2,
                                             x0_el + box->x + x,
                                             y0_el + box->y + y);
                dst[offset] = src[y * stride + x];
