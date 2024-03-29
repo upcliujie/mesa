@@ -26,6 +26,7 @@
 #include "util/bitscan.h"
 #include "util/macros.h"
 #include "compiler/shader_enums.h"
+#include "c99_alloca.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -359,12 +360,13 @@ vk_spec_info_to_nir_spirv(const VkSpecializationInfo *spec_info,
  * may work for you.
  */
 #define STACK_ARRAY(type, name, size) \
-   type _stack_##name[STACK_ARRAY_SIZE]; \
-   type *const name = \
-     ((size) <= STACK_ARRAY_SIZE ? _stack_##name : (type *)malloc((size) * sizeof(type)))
+   const bool _##name##_stack_array_on_stack = (size) <= STACK_ARRAY_SIZE; \
+   type *const name = _##name##_stack_array_on_stack ? \
+                        (type *)alloca((size) * sizeof(type)) : \
+                        (type *)malloc((size) * sizeof(type))
 
 #define STACK_ARRAY_FINISH(name) \
-   if (name != _stack_##name) free(name)
+   if (!_##name##_stack_array_on_stack) free(name)
 
 static inline uint8_t
 vk_index_type_to_bytes(enum VkIndexType type)
