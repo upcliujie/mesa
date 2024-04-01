@@ -788,11 +788,6 @@ static void
 handle_printf(struct vtn_builder *b, uint32_t opcode,
               const uint32_t *w_src, unsigned num_srcs, const uint32_t *w_dest)
 {
-   if (!b->options->caps.printf) {
-      vtn_push_nir_ssa(b, w_dest[1], nir_imm_int(&b->nb, -1));
-      return;
-   }
-
    /* Step 1. extract the format string */
 
    /*

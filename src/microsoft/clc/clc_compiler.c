@@ -627,15 +627,6 @@ clc_libclc_new(const struct clc_logger *logger, const struct clc_libclc_options 
       .shared_addr_format = nir_address_format_32bit_offset_as_64bit,
       .temp_addr_format = nir_address_format_32bit_offset_as_64bit,
       .float_controls_execution_mode = FLOAT_CONTROLS_DENORM_FLUSH_TO_ZERO_FP32,
-      .caps = {
-         .address = true,
-         .float64 = true,
-         .int8 = true,
-         .int16 = true,
-         .int64 = true,
-         .kernel = true,
-         .linkage = true,
-      },
    };
 
    glsl_type_singleton_init_or_ref();
@@ -750,23 +741,6 @@ clc_spirv_to_dxil(struct clc_libclc *lib,
       .shared_addr_format = nir_address_format_32bit_offset_as_64bit,
       .temp_addr_format = nir_address_format_32bit_offset_as_64bit,
       .float_controls_execution_mode = FLOAT_CONTROLS_DENORM_FLUSH_TO_ZERO_FP32,
-      .caps = {
-         .address = true,
-         .float64 = true,
-         .int8 = true,
-         .int16 = true,
-         .int64 = true,
-         .kernel = true,
-         .kernel_image = true,
-         .kernel_image_read_write = true,
-         .literal_sampler = true,
-         .printf = true,
-
-         // These aren't fully supported, but silence warnings about them from
-         // code that doesn't really use them.
-         .linkage = true,
-         .generic_pointers = true,
-      },
    };
    unsigned supported_int_sizes = (16 | 32 | 64);
    unsigned supported_float_sizes = (16 | 32);

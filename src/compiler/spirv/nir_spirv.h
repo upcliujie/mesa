@@ -79,8 +79,6 @@ struct spirv_to_nir_options {
     */
    bool mediump_16bit_derivatives;
 
-   struct spirv_supported_capabilities caps;
-
    /* Address format for various kinds of pointers. */
    nir_address_format ubo_addr_format;
    nir_address_format ssbo_addr_format;
