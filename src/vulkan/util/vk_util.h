@@ -351,7 +351,7 @@ struct nir_spirv_specialization*
 vk_spec_info_to_nir_spirv(const VkSpecializationInfo *spec_info,
                           uint32_t *out_num_spec_entries);
 
-#define STACK_ARRAY_SIZE 8
+#define STACK_ARRAY_SIZE_B 1024
 
 /* Sometimes gcc may claim -Wmaybe-uninitialized for the stack array in some
  * places it can't verify that when size is 0 nobody down the call chain reads
@@ -360,10 +360,12 @@ vk_spec_info_to_nir_spirv(const VkSpecializationInfo *spec_info,
  * may work for you.
  */
 #define STACK_ARRAY(type, name, size) \
-   const bool _##name##_stack_array_on_stack = (size) <= STACK_ARRAY_SIZE; \
+   const size_t _##name##_alloc_size = (size) * sizeof(type); \
+   const bool _##name##_stack_array_on_stack = \
+      _##name##_alloc_size <= STACK_ARRAY_SIZE_B; \
    type *const name = _##name##_stack_array_on_stack ? \
-                        (type *)alloca((size) * sizeof(type)) : \
-                        (type *)malloc((size) * sizeof(type))
+                        (type *)alloca(_##name##_alloc_size) : \
+                        (type *)malloc(_##name##_alloc_size)
 
 #define STACK_ARRAY_FINISH(name) \
    if (!_##name##_stack_array_on_stack) free(name)
