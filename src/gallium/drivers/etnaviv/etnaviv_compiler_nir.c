@@ -103,9 +103,15 @@ etna_emit_output(struct etna_compile *c, nir_variable *var, struct etna_inst_src
 
    if (is_fs(c)) {
       switch (var->data.location) {
-      case FRAG_RESULT_COLOR:
-      case FRAG_RESULT_DATA0: /* DATA0 is used by gallium shaders for color */
-         c->variant->ps_color_out_reg = src.reg;
+      case FRAG_RESULT_DATA0:
+      case FRAG_RESULT_DATA1:
+      case FRAG_RESULT_DATA2:
+      case FRAG_RESULT_DATA3:
+      case FRAG_RESULT_DATA4:
+      case FRAG_RESULT_DATA5:
+      case FRAG_RESULT_DATA6:
+      case FRAG_RESULT_DATA7:
+         c->variant->ps_color_out_reg[var->data.location - FRAG_RESULT_DATA0] = src.reg;
          break;
       case FRAG_RESULT_DEPTH:
          c->variant->ps_depth_out_reg = src.reg;
@@ -1126,8 +1132,10 @@ etna_compile_shader(struct etna_shader_variant *v)
    v->vs_id_in_reg = -1;
    v->vs_pos_out_reg = -1;
    v->vs_pointsize_out_reg = -1;
-   v->ps_color_out_reg = 0; /* 0 for shader that doesn't write fragcolor.. */
    v->ps_depth_out_reg = -1;
+
+   if (s->info.stage == MESA_SHADER_FRAGMENT)
+      NIR_PASS_V(s, nir_lower_fragcolor, specs->num_rts);
 
    /*
     * Lower glTexCoord, fixes e.g. neverball point sprite (exit cylinder stars)
