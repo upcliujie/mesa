@@ -122,6 +122,15 @@ radv_resume_queries(const struct radv_meta_saved_state *state, struct radv_cmd_b
    }
 }
 
+static ALWAYS_INLINE void
+radv_meta_copy_dynamic_state(struct radv_dynamic_state *dst, const struct radv_dynamic_state *src)
+{
+   if (src->mask & RADV_DYNAMIC_SAMPLE_LOCATIONS)
+      *dst = *src;
+   else
+      memcpy(dst, src, offsetof(struct radv_dynamic_state, sample_location));
+}
+
 void
 radv_meta_save(struct radv_meta_saved_state *state, struct radv_cmd_buffer *cmd_buffer, uint32_t flags)
 {
@@ -149,7 +158,7 @@ radv_meta_save(struct radv_meta_saved_state *state, struct radv_cmd_buffer *cmd_
       }
 
       /* Save all dynamic states. */
-      state->dynamic = cmd_buffer->state.dynamic;
+      radv_meta_copy_dynamic_state(&state->dynamic, &cmd_buffer->state.dynamic);
    }
 
    if (state->flags & RADV_META_SAVE_COMPUTE_PIPELINE) {
@@ -211,7 +220,7 @@ radv_meta_restore(const struct radv_meta_saved_state *state, struct radv_cmd_buf
       }
 
       /* Restore all dynamic states. */
-      cmd_buffer->state.dynamic = state->dynamic;
+      radv_meta_copy_dynamic_state(&cmd_buffer->state.dynamic, &state->dynamic);
       cmd_buffer->state.dirty |= RADV_DYNAMIC_ALL;
 
       /* Re-emit the guardband state because meta operations changed dynamic states. */

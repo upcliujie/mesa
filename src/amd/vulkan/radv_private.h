@@ -1528,7 +1528,7 @@ struct radv_dynamic_state {
    struct vk_dynamic_graphics_state vk;
 
    /**
-    * Bitmask of (1ull << VK_DYNAMIC_STATE_*).
+    * Bitmask of (1ull << RADV_DYNAMIC_*).
     * Defines the set of saved dynamic state.
     */
    uint64_t mask;
@@ -1540,9 +1540,9 @@ struct radv_dynamic_state {
       } xform[MAX_VIEWPORTS];
    } hw_vp;
 
-   struct radv_sample_locations_state sample_location;
-
    VkImageAspectFlags feedback_loop_aspects;
+
+   struct radv_sample_locations_state sample_location; //THIS MUST BE LAST
 };
 
 const char *radv_get_debug_option_name(int id);
