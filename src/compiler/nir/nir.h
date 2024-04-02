@@ -28,6 +28,7 @@
 #ifndef NIR_H
 #define NIR_H
 
+#include <stdint.h>
 #include "compiler/glsl_types.h"
 #include "compiler/glsl/list.h"
 #include "compiler/shader_enums.h"
@@ -3587,6 +3588,8 @@ typedef enum {
     * components of VARn to POS until it's fully used.
     */
    nir_io_dont_use_pos_for_non_fs_varyings = BITFIELD_BIT(1),
+
+   nir_io_16bit_input_output_support = BITFIELD_BIT(2),
 
    /* Options affecting the GLSL compiler are below. */
 

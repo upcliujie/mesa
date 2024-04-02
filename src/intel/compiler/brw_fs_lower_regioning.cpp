@@ -146,7 +146,6 @@ namespace {
           * don't support 64-bit types at all.
           */
          if ((!devinfo->has_64bit_int ||
-              devinfo->platform == INTEL_PLATFORM_CHV ||
               intel_device_info_is_9lp(devinfo)) && type_sz(t) > 4)
             return BRW_REGISTER_TYPE_UD;
          else if (has_dst_aligned_region_restriction(devinfo, inst))
@@ -188,16 +187,6 @@ namespace {
             return BRW_REGISTER_TYPE_UD;
          else
             return brw_int_type(type_sz(t), false);
-
-      case SHADER_OPCODE_BROADCAST:
-      case SHADER_OPCODE_MOV_INDIRECT:
-         if (((intel_device_info_is_9lp(devinfo) ||
-               devinfo->verx10 >= 125) && type_sz(inst->src[0].type) > 4) ||
-             (devinfo->verx10 >= 125 &&
-              brw_reg_type_is_floating_point(inst->src[0].type)))
-            return brw_int_type(type_sz(t), false);
-         else
-            return t;
 
       default:
          return t;
