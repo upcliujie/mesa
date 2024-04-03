@@ -37,8 +37,12 @@
 #include "ac_vcn_av1_default.h"
 #include "ac_vcn_dec.h"
 
+#include "radv_buffer.h"
 #include "radv_cs.h"
 #include "radv_debug.h"
+#include "radv_image.h"
+#include "radv_image_view.h"
+#include "radv_video.h"
 
 #define NUM_H2645_REFS               16
 #define FB_BUFFER_OFFSET             0x1000

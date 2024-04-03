@@ -25,13 +25,18 @@
  * IN THE SOFTWARE.
  */
 
+#include "radv_image.h"
 #include "util/u_atomic.h"
 #include "util/u_debug.h"
 #include "ac_drm_fourcc.h"
+#include "radv_buffer.h"
+#include "radv_buffer_view.h"
 #include "radv_debug.h"
 #include "radv_formats.h"
+#include "radv_image_view.h"
 #include "radv_private.h"
 #include "radv_radeon_winsys.h"
+#include "radv_video.h"
 #include "sid.h"
 #include "vk_format.h"
 #include "vk_render_pass.h"

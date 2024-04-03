@@ -36,6 +36,7 @@
 #include "util/u_debug.h"
 #include "radv_debug.h"
 #include "radv_private.h"
+#include "radv_video.h"
 
 #ifdef _WIN32
 typedef void *drmDevicePtr;
@@ -131,6 +132,13 @@ static bool
 radv_is_conformant(const struct radv_physical_device *pdev)
 {
    return pdev->info.gfx_level >= GFX8;
+}
+
+bool
+radv_device_supports_etc(const struct radv_physical_device *pdev)
+{
+   return pdev->info.family == CHIP_VEGA10 || pdev->info.family == CHIP_RAVEN || pdev->info.family == CHIP_RAVEN2 ||
+          pdev->info.family == CHIP_STONEY;
 }
 
 static void

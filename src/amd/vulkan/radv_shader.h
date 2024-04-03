@@ -241,19 +241,22 @@ enum radv_ud_index {
    /* We might not know the previous stage when compiling a geometry shader, so we just
     * declare both TES and VS user SGPRs.
     */
-   AC_UD_TES_STATE = AC_UD_VS_MAX_UD,
-   AC_UD_TES_MAX_UD,
+   AC_UD_TES_MAX_UD = AC_UD_TCS_MAX_UD,
    AC_UD_MAX_UD = AC_UD_CS_MAX_UD,
 };
 
 #define SET_SGPR_FIELD(field, value) (((unsigned)(value)&field##__MASK) << field##__SHIFT)
 
-#define TCS_OFFCHIP_LAYOUT_PATCH_CONTROL_POINTS__SHIFT 0
-#define TCS_OFFCHIP_LAYOUT_PATCH_CONTROL_POINTS__MASK  0x3f
-#define TCS_OFFCHIP_LAYOUT_NUM_PATCHES__SHIFT          6
-#define TCS_OFFCHIP_LAYOUT_NUM_PATCHES__MASK           0x3f
-#define TCS_OFFCHIP_LAYOUT_LSHS_VERTEX_STRIDE__SHIFT   12
-#define TCS_OFFCHIP_LAYOUT_LSHS_VERTEX_STRIDE__MASK    0xff /* max 32 * 4 + 1 (to reduce LDS bank conflicts) */
+#define TCS_OFFCHIP_LAYOUT_NUM_PATCHES__SHIFT          0
+#define TCS_OFFCHIP_LAYOUT_NUM_PATCHES__MASK           0x7f
+#define TCS_OFFCHIP_LAYOUT_PATCH_CONTROL_POINTS__SHIFT 12
+#define TCS_OFFCHIP_LAYOUT_PATCH_CONTROL_POINTS__MASK  0x1f
+#define TCS_OFFCHIP_LAYOUT_OUT_PATCH_CP__SHIFT         7
+#define TCS_OFFCHIP_LAYOUT_OUT_PATCH_CP__MASK          0x1f
+#define TCS_OFFCHIP_LAYOUT_NUM_LS_OUTPUTS__SHIFT       17
+#define TCS_OFFCHIP_LAYOUT_NUM_LS_OUTPUTS__MASK        0x3f
+#define TCS_OFFCHIP_LAYOUT_NUM_HS_OUTPUTS__SHIFT       23
+#define TCS_OFFCHIP_LAYOUT_NUM_HS_OUTPUTS__MASK        0x3f
 #define TCS_OFFCHIP_LAYOUT_PRIMITIVE_MODE__SHIFT       29
 #define TCS_OFFCHIP_LAYOUT_PRIMITIVE_MODE__MASK        0x03
 #define TCS_OFFCHIP_LAYOUT_TES_READS_TF__SHIFT         31

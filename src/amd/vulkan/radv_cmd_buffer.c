@@ -28,6 +28,8 @@
 #include "meta/radv_meta.h"
 #include "radv_cs.h"
 #include "radv_debug.h"
+#include "radv_device_generated_commands.h"
+#include "radv_event.h"
 #include "radv_private.h"
 #include "radv_radeon_winsys.h"
 #include "radv_shader.h"
@@ -2690,25 +2692,22 @@ radv_emit_patch_control_points(struct radv_cmd_buffer *cmd_buffer)
    assert(offchip->num_sgprs == 1);
 
    unsigned tcs_offchip_layout =
-      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_PATCH_CONTROL_POINTS, d->vk.ts.patch_control_points) |
-      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_NUM_PATCHES, cmd_buffer->state.tess_num_patches) |
-      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_LSHS_VERTEX_STRIDE,
-                     get_tcs_input_vertex_stride(vs->info.vs.num_linked_outputs) / 4) |
+      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_PATCH_CONTROL_POINTS, d->vk.ts.patch_control_points - 1) |
+      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_OUT_PATCH_CP, tcs->info.tcs.tcs_vertices_out - 1) |
+      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_NUM_PATCHES, cmd_buffer->state.tess_num_patches - 1) |
+      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_NUM_LS_OUTPUTS, vs->info.vs.num_linked_outputs) |
+      SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_NUM_HS_OUTPUTS, tcs->info.tcs.num_linked_outputs) |
       SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_TES_READS_TF, tes->info.tes.reads_tess_factors) |
       SET_SGPR_FIELD(TCS_OFFCHIP_LAYOUT_PRIMITIVE_MODE, tes->info.tes._primitive_mode);
 
    base_reg = tcs->info.user_data_0;
    radeon_set_sh_reg(cmd_buffer->cs, base_reg + offchip->sgpr_idx * 4, tcs_offchip_layout);
 
-   const struct radv_userdata_info *num_patches = radv_get_user_sgpr(tes, AC_UD_TES_STATE);
-   assert(num_patches->sgpr_idx != -1 && num_patches->num_sgprs == 1);
-
-   const unsigned tes_state = SET_SGPR_FIELD(TES_STATE_NUM_PATCHES, cmd_buffer->state.tess_num_patches) |
-                              SET_SGPR_FIELD(TES_STATE_TCS_VERTICES_OUT, tcs->info.tcs.tcs_vertices_out) |
-                              SET_SGPR_FIELD(TES_STATE_NUM_TCS_OUTPUTS, tcs->info.tcs.num_linked_outputs);
+   const struct radv_userdata_info *tes_offchip = radv_get_user_sgpr(tes, AC_UD_TCS_OFFCHIP_LAYOUT);
+   assert(tes_offchip->sgpr_idx != -1 && tes_offchip->num_sgprs == 1);
 
    base_reg = tes->info.user_data_0;
-   radeon_set_sh_reg(cmd_buffer->cs, base_reg + num_patches->sgpr_idx * 4, tes_state);
+   radeon_set_sh_reg(cmd_buffer->cs, base_reg + tes_offchip->sgpr_idx * 4, tcs_offchip_layout);
 }
 
 static void

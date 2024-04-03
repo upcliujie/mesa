@@ -25,7 +25,10 @@
  * IN THE SOFTWARE.
  */
 
+#include "radv_image_view.h"
+#include "radv_buffer_view.h"
 #include "radv_formats.h"
+#include "radv_image.h"
 #include "radv_private.h"
 
 #include "gfx10_format_table.h"

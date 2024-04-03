@@ -30,7 +30,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ac_gpu_info.h"
+#include "radv_buffer.h"
+#include "radv_event.h"
+#include "radv_image.h"
 #include "radv_private.h"
+#include "radv_query.h"
 
 #define RADV_FTRACE_INSTANCE_PATH "/sys/kernel/tracing/instances/amd_rmv"
 

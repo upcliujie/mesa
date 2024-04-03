@@ -22,8 +22,9 @@
  * IN THE SOFTWARE.
  */
 
-#include "radv_debug.h"
 #include "radv_formats.h"
+#include "radv_debug.h"
+#include "radv_image.h"
 #include "radv_private.h"
 
 #include "sid.h"
@@ -688,13 +689,6 @@ radv_is_format_emulated(const struct radv_physical_device *pdev, VkFormat format
       return true;
 
    return false;
-}
-
-bool
-radv_device_supports_etc(const struct radv_physical_device *pdev)
-{
-   return pdev->info.family == CHIP_VEGA10 || pdev->info.family == CHIP_RAVEN || pdev->info.family == CHIP_RAVEN2 ||
-          pdev->info.family == CHIP_STONEY;
 }
 
 static void
