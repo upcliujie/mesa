@@ -288,6 +288,16 @@ static nir_def *get_num_vertices_per_prim(nir_builder *b, struct lower_abi_state
       return nir_iadd_imm(b, GET_FIELD_NIR(GS_STATE_OUTPRIM), 1);
 }
 
+static unsigned get_const_lshs_stride(struct si_shader_selector *sel, union si_shader_key *key)
+{
+   const uint64_t tcs_vgpr_inputs = key->ge.opt.same_patch_vertices ? sel->info.tcs_vgpr_only_inputs : 0;
+   const uint64_t tcs_inputs_in_lds = sel->info.base.inputs_read & ~tcs_vgpr_inputs;
+
+   const unsigned num_lds_vs_outputs = util_last_bit64(tcs_inputs_in_lds);
+   const unsigned input_vertex_size = num_lds_vs_outputs ? (num_lds_vs_outputs * 16 + 4) : 0;
+   return input_vertex_size;
+}
+
 static bool lower_intrinsic(nir_builder *b, nir_instr *instr, struct lower_abi_state *s)
 {
    nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
@@ -350,13 +360,14 @@ static bool lower_intrinsic(nir_builder *b, nir_instr *instr, struct lower_abi_s
       break;
    case nir_intrinsic_load_lshs_vertex_stride_amd:
       if (stage == MESA_SHADER_VERTEX) {
-         replacement = nir_imm_int(b, sel->info.lshs_vertex_stride);
+         replacement = nir_imm_int(b, get_const_lshs_stride(sel, key));
       } else if (stage == MESA_SHADER_TESS_CTRL) {
          if (sel->screen->info.gfx_level >= GFX9 && shader->is_monolithic) {
-            replacement = nir_imm_int(b, key->ge.part.tcs.ls->info.lshs_vertex_stride);
+            replacement = nir_imm_int(b, get_const_lshs_stride(key->ge.part.tcs.ls, key));
          } else {
             nir_def *num_ls_out = ac_nir_unpack_arg(b, &args->ac, args->tcs_offchip_layout, 17, 6);
-            replacement = nir_iadd_imm_nuw(b, nir_ishl_imm(b, num_ls_out, 4), 4);
+            nir_def *extra_dw = nir_bcsel(b, nir_ieq_imm(b, num_ls_out, 0), nir_imm_int(b, 0), nir_imm_int(b, 4));
+            replacement = nir_iadd_nuw(b, nir_ishl_imm(b, num_ls_out, 4), extra_dw);
          }
       } else {
          unreachable("no nir_load_lshs_vertex_stride_amd");

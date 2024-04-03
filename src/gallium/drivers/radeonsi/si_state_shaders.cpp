@@ -4450,7 +4450,6 @@ static void si_set_patch_vertices(struct pipe_context *ctx, uint8_t patch_vertic
 void si_update_tess_io_layout_state(struct si_context *sctx)
 {
    struct si_shader *ls_current;
-   struct si_shader_selector *ls;
    struct si_shader_selector *tcs = sctx->shader.tcs.cso;
    unsigned tess_uses_primid = sctx->ia_multi_vgt_param_key.u.tess_uses_prim_id;
    bool has_primid_instancing_bug = sctx->gfx_level == GFX6 && sctx->screen->info.max_se == 1;
@@ -4462,11 +4461,11 @@ void si_update_tess_io_layout_state(struct si_context *sctx)
    /* Since GFX9 has merged LS-HS in the TCS state, set LS = TCS. */
    if (sctx->gfx_level >= GFX9) {
       ls_current = sctx->shader.tcs.current;
-      ls = ls_current->key.ge.part.tcs.ls;
    } else {
       ls_current = sctx->shader.vs.current;
-      ls = sctx->shader.vs.cso;
    }
+
+   const union si_shader_key *const key = &ls_current->key;
 
    if (sctx->last_ls == ls_current && sctx->last_tcs == tcs &&
        sctx->last_tes_sh_base == tes_sh_base && sctx->last_num_tcs_input_cp == num_tcs_input_cp &&
@@ -4485,17 +4484,18 @@ void si_update_tess_io_layout_state(struct si_context *sctx)
    unsigned num_tcs_output_cp = tcs->info.base.tess.tcs_vertices_out;
    unsigned num_tcs_patch_outputs = util_last_bit64(tcs->info.patch_outputs_written);
 
-   unsigned input_vertex_size = ls->info.lshs_vertex_stride;
-   unsigned num_vs_outputs = (input_vertex_size - 4) / 16;
-   unsigned output_vertex_size = num_tcs_outputs * 16;
-   unsigned input_patch_size;
+   const uint64_t tcs_vgpr_inputs = key->ge.opt.same_patch_vertices ? tcs->info.tcs_vgpr_only_inputs : 0;
+   const uint64_t tcs_inputs_in_lds = tcs->info.base.inputs_read & ~tcs_vgpr_inputs;
 
-   /* Allocate LDS for TCS inputs only if it's used. */
-   if (!ls_current->key.ge.opt.same_patch_vertices ||
-       tcs->info.base.inputs_read & ~tcs->info.tcs_vgpr_only_inputs)
-      input_patch_size = num_tcs_input_cp * input_vertex_size;
-   else
-      input_patch_size = 0;
+   unsigned num_lds_vs_outputs = util_last_bit64(tcs_inputs_in_lds);
+
+   /* Add 1 dword to reduce LDS bank conflicts, so that each vertex
+    * will start on a different bank. (except for the maximum 32*16).
+    * Also make sure the input vertex size stays 0 when there are no VS outputs in LDS.
+    */
+   unsigned input_vertex_size = num_lds_vs_outputs ? (num_lds_vs_outputs * 16 + 4) : 0;
+   unsigned output_vertex_size = num_tcs_outputs * 16;
+   unsigned input_patch_size = num_tcs_input_cp * input_vertex_size;
 
    unsigned pervertex_output_patch_size = num_tcs_output_cp * output_vertex_size;
    unsigned output_patch_size = pervertex_output_patch_size + num_tcs_patch_outputs * 16;
@@ -4591,7 +4591,7 @@ void si_update_tess_io_layout_state(struct si_context *sctx)
    assert(num_tcs_input_cp <= 32);
    assert(num_tcs_output_cp <= 32);
    assert(num_patches <= 128);
-   assert(num_vs_outputs <= 63);
+   assert(num_lds_vs_outputs <= 63);
    assert(num_tcs_outputs <= 63);
 
    uint64_t ring_va =
@@ -4604,7 +4604,7 @@ void si_update_tess_io_layout_state(struct si_context *sctx)
    sctx->tcs_offchip_layout &= 0xe0000000;
    sctx->tcs_offchip_layout |=
       (num_patches - 1) | ((num_tcs_output_cp - 1) << 7) | ((num_tcs_input_cp - 1) << 12) |
-      (num_vs_outputs << 17) | (num_tcs_outputs << 23);
+      (num_lds_vs_outputs << 17) | (num_tcs_outputs << 23);
 
    /* Compute the LDS size. */
    unsigned lds_size = lds_per_patch * num_patches;
