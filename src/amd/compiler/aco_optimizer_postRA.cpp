@@ -49,12 +49,14 @@ struct pr_opt_ctx {
    Block* current_block;
    uint32_t current_instr_idx;
    std::vector<uint16_t> uses;
-   std::unique_ptr<Idx_array[]> instr_idx_by_regs;
+   Idx_array* instr_idx_by_regs;
 
    pr_opt_ctx(Program* p)
-       : program(p), current_block(nullptr), current_instr_idx(0), uses(dead_code_analysis(p)),
-         instr_idx_by_regs(std::unique_ptr<Idx_array[]>{new Idx_array[p->blocks.size()]})
-   {}
+       : program(p), current_block(nullptr), current_instr_idx(0), uses(dead_code_analysis(p))
+   {
+      instr_idx_by_regs = new Idx_array[p->blocks.size()];
+   }
+   ~pr_opt_ctx() { delete[] instr_idx_by_regs; }
 
    ALWAYS_INLINE void reset_block_regs(const Block::edge_vec& preds, const unsigned block_index,
                                        const unsigned min_reg, const unsigned num_regs)
