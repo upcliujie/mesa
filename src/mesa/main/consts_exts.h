@@ -222,6 +222,7 @@ struct gl_extensions
    GLboolean OES_texture_view;
    GLboolean OES_viewport_array;
    /* vendor extensions */
+   GLboolean AMD_blend_minmax_factor;
    GLboolean AMD_compressed_ATC_texture;
    GLboolean AMD_framebuffer_multisample_advanced;
    GLboolean AMD_depth_clamp_separate;
@@ -231,7 +232,6 @@ struct gl_extensions
    GLboolean AMD_seamless_cubemap_per_texture;
    GLboolean AMD_vertex_shader_layer;
    GLboolean AMD_vertex_shader_viewport_index;
-   GLboolean AMD_blend_minmax_factor;
    GLboolean ANDROID_extension_pack_es31a;
    GLboolean ARM_shader_framebuffer_fetch_depth_stencil;
    GLboolean ATI_meminfo;
