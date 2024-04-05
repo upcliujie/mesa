@@ -818,7 +818,7 @@ dzn_meta_clears_get_vs(struct dzn_device *device, bool arrayed)
       ralloc_free(nir);
    }
 
-   return &device->clears.vs;
+   return vs;
 }
 
 static const D3D12_SHADER_BYTECODE *

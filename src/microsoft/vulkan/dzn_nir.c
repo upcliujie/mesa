@@ -1006,23 +1006,24 @@ dzn_nir_clear_vs(bool arrayed)
    out_pos->data.location = VARYING_SLOT_POS;
    out_pos->data.driver_location = 0;
 
-   nir_ssa_def *vertex = nir_load_vertex_id_zero_base(&b);
-   nir_ssa_def *one = nir_imm_float(&b, 1.0f);
-   nir_ssa_def *neg_one = nir_imm_float(&b, -1.0f);
-   nir_ssa_def *x = nir_bcsel(&b, nir_ieq_imm(&b, nir_iand_imm(&b, vertex, 1), 0),
-                              neg_one, one);
-   nir_ssa_def *y = nir_bcsel(&b, nir_ieq_imm(&b, nir_iand_imm(&b, vertex, 2), 0),
-                              one, neg_one);
-   nir_ssa_def *pos = nir_vec4(&b, x, y, one, one);
+   nir_def *vertex = nir_load_vertex_id_zero_base(&b);
+   nir_def *one = nir_imm_float(&b, 1.0f);
+   nir_def *neg_one = nir_imm_float(&b, -1.0f);
+   nir_def *x = nir_bcsel(&b, nir_ieq_imm(&b, nir_iand_imm(&b, vertex, 1), 0),
+                          neg_one, one);
+   nir_def *y = nir_bcsel(&b, nir_ieq_imm(&b, nir_iand_imm(&b, vertex, 2), 0),
+                          one, neg_one);
+   nir_def *pos = nir_vec4(&b, x, y, one, one);
 
    nir_store_var(&b, out_pos, pos, 0xf);
 
    if (arrayed) {
-      nir_ssa_def *ubo = dzn_nir_create_bo_desc(&b, nir_var_mem_ubo, 0, 0, "layer_ubo", 0);
-      nir_ssa_def *layer = nir_load_ubo(&b, 1, 32, ubo, nir_imm_int(&b, 0),
+      nir_def *ubo = dzn_nir_create_bo_desc(&b, nir_var_mem_ubo, 0, 0, "layer_ubo", 0);
+      nir_def *layer = nir_load_ubo(&b, 1, 32, ubo, nir_imm_int(&b, 0),
                                         .align_mul = 16, .align_offset = 0, .range_base = 0, .range = ~0);
       nir_variable *out_layer = nir_variable_create(b.shader, nir_var_shader_out, glsl_uint_type(), "layer");
       out_layer->data.location = VARYING_SLOT_LAYER;
+      out_layer->data.driver_location = 1;
       nir_store_var(&b, out_layer, layer, 1);
    }
 
@@ -1037,10 +1038,11 @@ dzn_nir_clear_fs(const struct dzn_nir_clear_fs_info *info)
                                      dxil_get_base_nir_compiler_options(),
                                      "dzn_meta_clear_fs()");
    b.shader->info.internal = true;
+   unsigned driver_location = 0;
    for (uint32_t i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i) {
       if (info->color_formats[i] != PIPE_FORMAT_NONE) {
          const struct glsl_type *type;
-         nir_ssa_def *vec_comps[4];
+         nir_def *vec_comps[4];
          if (util_format_is_pure_uint(info->color_formats[i])) {
             type = glsl_ivec4_type();
             for (uint32_t j = 0; j < 4; ++j)
@@ -1058,12 +1060,14 @@ dzn_nir_clear_fs(const struct dzn_nir_clear_fs_info *info)
          sprintf(name, "color%d", i);
          nir_variable *var = nir_variable_create(b.shader, nir_var_shader_out, type, name);
          var->data.location = FRAG_RESULT_DATA0 + i;
+         var->data.driver_location = driver_location++;
          nir_store_var(&b, var, nir_vec(&b, vec_comps, 4), 0xf);
       }
    }
    if (info->write_depth) {
       nir_variable *var = nir_variable_create(b.shader, nir_var_shader_out, glsl_float_type(), "depth");
       var->data.location = FRAG_RESULT_DEPTH;
+      var->data.driver_location = driver_location++;
       nir_store_var(&b, var, nir_imm_float(&b, info->depth), 1);
    }
    return b.shader;
