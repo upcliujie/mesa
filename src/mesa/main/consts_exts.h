@@ -231,6 +231,7 @@ struct gl_extensions
    GLboolean AMD_seamless_cubemap_per_texture;
    GLboolean AMD_vertex_shader_layer;
    GLboolean AMD_vertex_shader_viewport_index;
+   GLboolean AMD_blend_minmax_factor;
    GLboolean ANDROID_extension_pack_es31a;
    GLboolean ARM_shader_framebuffer_fetch_depth_stencil;
    GLboolean ATI_meminfo;

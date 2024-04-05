@@ -6,9 +6,9 @@
 
 #include	"si_info.h"
 
-void	si_print_cb_blend_control		(unsigned cb_blendn_control, unsigned n)				// CB:CB_BLEND[0-7]_CONTROL
+void	si_print_cb_blendn_control		(unsigned cb_blendn_control, unsigned n)				// CB:CB_BLEND[0-7]_CONTROL
 {
-	printf	("si_print_cb_blend_control (b)\n");
+	printf	("si_print_cb_blendn_control (b)\n");
 
 	printf	("CB:CB_BLEND[%d]_CONTROL\n", n);
 
@@ -149,7 +149,7 @@ void	si_print_cb_blend_control		(unsigned cb_blendn_control, unsigned n)				// C
 			(((cb_blendn_control & 0x80000000) >> 31) == 0x00) ? "false"                          :
 			(((cb_blendn_control & 0x80000000) >> 31) == 0x01) ? "true"                           : "");
 
-	printf	("si_print_cb_blend_control (e)\n");
+	printf	("si_print_cb_blendn_control (e)\n");
 }
 
 void	si_print_pipe_rt_blend_state	(const struct pipe_rt_blend_state *state)
