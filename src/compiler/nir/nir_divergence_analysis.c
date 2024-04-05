@@ -1252,13 +1252,21 @@ nir_update_instr_divergence(nir_shader *shader, nir_instr *instr)
 
    if (instr->type == nir_instr_type_phi) {
       nir_cf_node *prev = nir_cf_node_prev(&instr->block->cf_node);
-      /* can only update gamma/if phis */
-      if (!prev || prev->type != nir_cf_node_if)
-         return false;
+      nir_phi_instr *phi = nir_instr_as_phi(instr);
 
-      nir_if *nif = nir_cf_node_as_if(prev);
+      if (!prev) {
+         nir_loop *loop = nir_cf_node_as_loop(instr->block->cf_node.parent);
+         nir_block *preheader = nir_cf_node_cf_tree_prev(&loop->cf_node);
+         visit_loop_header_phi(phi, preheader, loop->divergent_continue);
+      } else if (prev->type == nir_cf_node_if) {
+         nir_if *nif = nir_cf_node_as_if(prev);
+         visit_if_merge_phi(phi, nir_src_is_divergent(nif->condition));
+      } else {
+         assert(prev->type == nir_cf_node_loop);
+         nir_loop *loop = nir_cf_node_as_loop(prev);
+         visit_loop_exit_phi(phi, loop->divergent_break);
+      }
 
-      visit_if_merge_phi(nir_instr_as_phi(instr), nir_src_is_divergent(nif->condition));
       return true;
    }
 
