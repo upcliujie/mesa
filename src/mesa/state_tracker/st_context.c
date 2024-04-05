@@ -605,8 +605,16 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
       !screen->get_param(screen, PIPE_CAP_FLATSHADE);
    st->lower_alpha_test =
       !screen->get_param(screen, PIPE_CAP_ALPHA_TEST);
-   st->lower_point_size =
-      !screen->get_param(screen, PIPE_CAP_POINT_SIZE_FIXED);
+   switch (screen->get_param(screen, PIPE_CAP_POINT_SIZE_FIXED)) {
+   case PIPE_POINT_SIZE_LOWER_ALWAYS:
+      st->lower_point_size = true;
+      st->add_point_size = true;
+      break;
+   case PIPE_POINT_SIZE_LOWER_USER_ONLY:
+      st->lower_point_size = true;
+      break;
+   default: break;
+   }
    st->lower_two_sided_color =
       !screen->get_param(screen, PIPE_CAP_TWO_SIDED_COLOR);
    st->lower_ucp =
@@ -975,16 +983,16 @@ st_destroy_context(struct st_context *st)
 
    st_destroy_program_variants(st);
 
-   st_context_free_zombie_objects(st);
-
-   simple_mtx_destroy(&st->zombie_sampler_views.mutex);
-   simple_mtx_destroy(&st->zombie_shaders.mutex);
-
    /* Do not release debug_output yet because it might be in use by other threads.
     * These threads will be terminated by _mesa_free_context_data and
     * st_destroy_context_priv.
     */
    _mesa_free_context_data(ctx, false);
+
+   st_context_free_zombie_objects(st);
+
+   simple_mtx_destroy(&st->zombie_sampler_views.mutex);
+   simple_mtx_destroy(&st->zombie_shaders.mutex);
 
    /* This will free the st_context too, so 'st' must not be accessed
     * afterwards. */

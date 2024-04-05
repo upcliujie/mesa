@@ -34,12 +34,14 @@
 #include "util/u_atomic.h"
 #include "vulkan/vulkan_core.h"
 #include "radv_cs.h"
+#include "radv_entrypoints.h"
 #include "radv_perfcounter.h"
-#include "radv_private.h"
 #include "radv_query.h"
+#include "radv_rmv.h"
 #include "sid.h"
 #include "vk_acceleration_structure.h"
 #include "vk_common_entrypoints.h"
+#include "vk_shader_module.h"
 
 #define TIMESTAMP_NOT_READY UINT64_MAX
 
@@ -1206,7 +1208,7 @@ radv_destroy_query_pool(struct radv_device *device, const VkAllocationCallbacks 
       radv_pc_deinit_query_pool((struct radv_pc_query_pool *)pool);
 
    if (pool->bo)
-      radv_bo_destroy(device, pool->bo);
+      radv_bo_destroy(device, &pool->vk.base, pool->bo);
 
    radv_rmv_log_resource_destroy(device, (uint64_t)radv_query_pool_to_handle(pool));
    vk_query_pool_finish(&pool->vk);
@@ -1305,8 +1307,8 @@ radv_create_query_pool(struct radv_device *device, const VkQueryPoolCreateInfo *
        (pCreateInfo->queryType == VK_QUERY_TYPE_MESH_PRIMITIVES_GENERATED_EXT && pdev->info.gfx_level >= GFX11))
       pool->size += 4 * pCreateInfo->queryCount;
 
-   result = radv_bo_create(device, pool->size, 64, RADEON_DOMAIN_GTT, RADEON_FLAG_NO_INTERPROCESS_SHARING,
-                               RADV_BO_PRIORITY_QUERY_POOL, 0, false, &pool->bo);
+   result = radv_bo_create(device, &pool->vk.base, pool->size, 64, RADEON_DOMAIN_GTT,
+                           RADEON_FLAG_NO_INTERPROCESS_SHARING, RADV_BO_PRIORITY_QUERY_POOL, 0, false, &pool->bo);
    if (result != VK_SUCCESS) {
       radv_destroy_query_pool(device, pAllocator, pool);
       return vk_error(device, result);
@@ -1327,15 +1329,15 @@ VKAPI_ATTR VkResult VKAPI_CALL
 radv_CreateQueryPool(VkDevice _device, const VkQueryPoolCreateInfo *pCreateInfo,
                      const VkAllocationCallbacks *pAllocator, VkQueryPool *pQueryPool)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_device, device, _device);
    return radv_create_query_pool(device, pCreateInfo, pAllocator, pQueryPool);
 }
 
 VKAPI_ATTR void VKAPI_CALL
 radv_DestroyQueryPool(VkDevice _device, VkQueryPool _pool, const VkAllocationCallbacks *pAllocator)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_query_pool, pool, _pool);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_query_pool, pool, _pool);
 
    if (!pool)
       return;
@@ -1368,8 +1370,8 @@ VKAPI_ATTR VkResult VKAPI_CALL
 radv_GetQueryPoolResults(VkDevice _device, VkQueryPool queryPool, uint32_t firstQuery, uint32_t queryCount,
                          size_t dataSize, void *pData, VkDeviceSize stride, VkQueryResultFlags flags)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
    const struct radv_physical_device *pdev = radv_device_physical(device);
    char *data = pData;
    VkResult result = VK_SUCCESS;
@@ -1733,9 +1735,9 @@ radv_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer, VkQueryPool queryPoo
                              uint32_t queryCount, VkBuffer dstBuffer, VkDeviceSize dstOffset, VkDeviceSize stride,
                              VkQueryResultFlags flags)
 {
-   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
-   RADV_FROM_HANDLE(radv_buffer, dst_buffer, dstBuffer);
+   VK_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_buffer, dst_buffer, dstBuffer);
    struct radv_device *device = radv_cmd_buffer_device(cmd_buffer);
    const struct radv_physical_device *pdev = radv_device_physical(device);
    const struct radv_instance *instance = radv_physical_device_instance(pdev);
@@ -1934,8 +1936,8 @@ query_clear_value(VkQueryType type)
 VKAPI_ATTR void VKAPI_CALL
 radv_CmdResetQueryPool(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t firstQuery, uint32_t queryCount)
 {
-   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
    struct radv_device *device = radv_cmd_buffer_device(cmd_buffer);
    const struct radv_physical_device *pdev = radv_device_physical(device);
    uint32_t value = query_clear_value(pool->vk.query_type);
@@ -1967,8 +1969,8 @@ radv_CmdResetQueryPool(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uin
 VKAPI_ATTR void VKAPI_CALL
 radv_ResetQueryPool(VkDevice _device, VkQueryPool queryPool, uint32_t firstQuery, uint32_t queryCount)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
    const struct radv_physical_device *pdev = radv_device_physical(device);
 
    uint32_t value = query_clear_value(pool->vk.query_type);
@@ -2519,8 +2521,8 @@ VKAPI_ATTR void VKAPI_CALL
 radv_CmdBeginQueryIndexedEXT(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t query,
                              VkQueryControlFlags flags, uint32_t index)
 {
-   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
    struct radv_device *device = radv_cmd_buffer_device(cmd_buffer);
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
    uint64_t va = radv_buffer_get_va(pool->bo);
@@ -2544,8 +2546,8 @@ radv_CmdBeginQueryIndexedEXT(VkCommandBuffer commandBuffer, VkQueryPool queryPoo
 VKAPI_ATTR void VKAPI_CALL
 radv_CmdEndQueryIndexedEXT(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t query, uint32_t index)
 {
-   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
    uint64_t va = radv_buffer_get_va(pool->bo);
    uint64_t avail_va = va + pool->availability_offset + 4 * query;
    va += pool->stride * query;
@@ -2598,8 +2600,8 @@ VKAPI_ATTR void VKAPI_CALL
 radv_CmdWriteTimestamp2(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool,
                         uint32_t query)
 {
-   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
    struct radv_device *device = radv_cmd_buffer_device(cmd_buffer);
    const struct radv_physical_device *pdev = radv_device_physical(device);
    const struct radv_instance *instance = radv_physical_device_instance(pdev);
@@ -2653,8 +2655,8 @@ radv_CmdWriteAccelerationStructuresPropertiesKHR(VkCommandBuffer commandBuffer, 
                                                  const VkAccelerationStructureKHR *pAccelerationStructures,
                                                  VkQueryType queryType, VkQueryPool queryPool, uint32_t firstQuery)
 {
-   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   RADV_FROM_HANDLE(radv_query_pool, pool, queryPool);
+   VK_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(radv_query_pool, pool, queryPool);
    struct radv_device *device = radv_cmd_buffer_device(cmd_buffer);
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
    uint64_t pool_va = radv_buffer_get_va(pool->bo);
@@ -2667,7 +2669,7 @@ radv_CmdWriteAccelerationStructuresPropertiesKHR(VkCommandBuffer commandBuffer, 
    ASSERTED unsigned cdw_max = radeon_check_space(device->ws, cs, 6 * accelerationStructureCount);
 
    for (uint32_t i = 0; i < accelerationStructureCount; ++i) {
-      RADV_FROM_HANDLE(vk_acceleration_structure, accel_struct, pAccelerationStructures[i]);
+      VK_FROM_HANDLE(vk_acceleration_structure, accel_struct, pAccelerationStructures[i]);
       uint64_t va = vk_acceleration_structure_get_va(accel_struct);
 
       switch (queryType) {

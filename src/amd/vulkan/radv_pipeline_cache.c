@@ -21,6 +21,7 @@
  * IN THE SOFTWARE.
  */
 
+#include "radv_pipeline_cache.h"
 #include "util/disk_cache.h"
 #include "util/macros.h"
 #include "util/mesa-blake3.h"
@@ -30,7 +31,8 @@
 #include "aco_interface.h"
 #include "nir_serialize.h"
 #include "radv_debug.h"
-#include "radv_private.h"
+#include "radv_descriptor_set.h"
+#include "radv_pipeline_rt.h"
 #include "radv_shader.h"
 #include "vk_pipeline.h"
 #include "vk_util.h"
@@ -91,7 +93,7 @@ void
 radv_hash_rt_shaders(const struct radv_device *device, unsigned char *hash, const struct radv_ray_tracing_stage *stages,
                      const VkRayTracingPipelineCreateInfoKHR *pCreateInfo, const struct radv_ray_tracing_group *groups)
 {
-   RADV_FROM_HANDLE(radv_pipeline_layout, layout, pCreateInfo->layout);
+   VK_FROM_HANDLE(radv_pipeline_layout, layout, pCreateInfo->layout);
    struct mesa_sha1 ctx;
 
    _mesa_sha1_init(&ctx);
@@ -116,7 +118,7 @@ radv_hash_rt_shaders(const struct radv_device *device, unsigned char *hash, cons
 
    if (pCreateInfo->pLibraryInfo) {
       for (uint32_t i = 0; i < pCreateInfo->pLibraryInfo->libraryCount; ++i) {
-         RADV_FROM_HANDLE(radv_pipeline, lib_pipeline, pCreateInfo->pLibraryInfo->pLibraries[i]);
+         VK_FROM_HANDLE(radv_pipeline, lib_pipeline, pCreateInfo->pLibraryInfo->pLibraries[i]);
          struct radv_ray_tracing_pipeline *lib = radv_pipeline_to_ray_tracing(lib_pipeline);
          _mesa_sha1_update(&ctx, lib->sha1, SHA1_DIGEST_LENGTH);
       }
@@ -263,6 +265,7 @@ radv_pipeline_cache_object_create(struct vk_device *device, unsigned num_shaders
    object->data_size = data_size;
    memcpy(object->sha1, hash, SHA1_DIGEST_LENGTH);
    memset(object->shaders, 0, sizeof(object->shaders[0]) * num_shaders);
+   memset(object->data, 0, data_size);
 
    return object;
 }

@@ -80,7 +80,6 @@ struct ntv_context {
    size_t num_defs;
 
    struct hash_table *vars; /* nir_variable -> SpvId */
-   unsigned outputs[VARYING_SLOT_MAX * 4];
 
    const SpvId *block_ids;
    size_t num_blocks;
@@ -888,11 +887,6 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
          if (var->data.location >= 0)
             spirv_builder_emit_location(&ctx->builder, var_id,
                                         var->data.driver_location);
-      }
-      /* tcs can't do xfb */
-      if (ctx->stage != MESA_SHADER_TESS_CTRL && var->data.location >= 0) {
-         unsigned idx = var->data.location << 2 | var->data.location_frac;
-         ctx->outputs[idx] = var_id;
       }
       emit_interpolation(ctx, var_id, var->data.interpolation);
    } else {
@@ -2760,6 +2754,7 @@ emit_interpolate(struct ntv_context *ctx, nir_intrinsic_instr *intr)
    SpvId ptr = get_src(ctx, &intr->src[0], &ptype);
    SpvId result;
    const struct glsl_type *gtype = nir_src_as_deref(intr->src[0])->type;
+   assert(glsl_get_vector_elements(gtype) == intr->num_components);
    assert(ptype == get_nir_alu_type(gtype));
    if (intr->intrinsic == nir_intrinsic_interp_deref_at_centroid)
       result = emit_builtin_unop(ctx, op, get_glsl_type(ctx, gtype), ptr);

@@ -494,8 +494,8 @@ zink_create_sampler_state(struct pipe_context *pctx,
       sci.maxLod = MAX2(state->max_lod, state->min_lod);
    } else {
       sci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-      sci.minLod = 0;
-      sci.maxLod = 0.25f;
+      sci.minLod = CLAMP(state->min_lod, 0.0f, 0.25f);
+      sci.maxLod = CLAMP(state->max_lod, 0.0f, 0.25f);
    }
 
    if (!sci.unnormalizedCoordinates) {
@@ -711,12 +711,7 @@ update_descriptor_state_ubo(struct zink_context *ctx, gl_shader_stage shader, un
          ctx->di.t.ubos[shader][slot].range = VK_WHOLE_SIZE;
       }
    }
-   if (!slot) {
-      if (res)
-         ctx->di.push_valid |= BITFIELD64_BIT(shader);
-      else
-         ctx->di.push_valid &= ~BITFIELD64_BIT(shader);
-   }
+
    return res;
 }
 
@@ -3386,8 +3381,8 @@ static void
 stall(struct zink_context *ctx)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   sync_flush(ctx, zink_batch_state(ctx->last_fence));
-   zink_screen_timeline_wait(screen, ctx->last_fence->batch_id, OS_TIMEOUT_INFINITE);
+   sync_flush(ctx, ctx->last_batch_state);
+   zink_screen_timeline_wait(screen, ctx->last_batch_state->fence.batch_id, OS_TIMEOUT_INFINITE);
    zink_batch_reset_all(ctx);
 }
 
@@ -3849,7 +3844,7 @@ zink_flush(struct pipe_context *pctx,
    bool deferred = flags & PIPE_FLUSH_DEFERRED;
    bool deferred_fence = false;
    struct zink_batch *batch = &ctx->batch;
-   struct zink_fence *fence = NULL;
+   struct zink_batch_state *bs = NULL;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    VkSemaphore export_sem = VK_NULL_HANDLE;
 
@@ -3914,10 +3909,10 @@ zink_flush(struct pipe_context *pctx,
    if (!batch->has_work) {
        if (pfence) {
           /* reuse last fence */
-          fence = ctx->last_fence;
+          bs = ctx->last_batch_state;
        }
        if (!deferred) {
-          struct zink_batch_state *last = zink_batch_state(ctx->last_fence);
+          struct zink_batch_state *last = ctx->last_batch_state;
           if (last) {
              sync_flush(ctx, last);
              if (last->is_device_lost)
@@ -3927,7 +3922,7 @@ zink_flush(struct pipe_context *pctx,
        if (ctx->tc && !ctx->track_renderpasses)
          tc_driver_internal_flush_notify(ctx->tc);
    } else {
-      fence = &batch->state->fence;
+      bs = batch->state;
       if (deferred && !(flags & PIPE_FLUSH_FENCE_FD) && pfence)
          deferred_fence = true;
       else
@@ -3948,11 +3943,11 @@ zink_flush(struct pipe_context *pctx,
       }
 
       assert(!mfence->fence);
-      mfence->fence = fence;
+      mfence->fence = &bs->fence;
       mfence->sem = export_sem;
-      if (fence) {
-         mfence->submit_count = zink_batch_state(fence)->usage.submit_count;
-         util_dynarray_append(&fence->mfences, struct zink_tc_fence *, mfence);
+      if (bs) {
+         mfence->submit_count = bs->usage.submit_count;
+         util_dynarray_append(&bs->fence.mfences, struct zink_tc_fence *, mfence);
       }
       if (export_sem) {
          pipe_reference(NULL, &mfence->reference);
@@ -3960,20 +3955,20 @@ zink_flush(struct pipe_context *pctx,
       }
 
       if (deferred_fence) {
-         assert(fence);
+         assert(bs);
          mfence->deferred_ctx = pctx;
-         assert(!ctx->deferred_fence || ctx->deferred_fence == fence);
-         ctx->deferred_fence = fence;
+         assert(!ctx->deferred_fence || ctx->deferred_fence == &bs->fence);
+         ctx->deferred_fence = &bs->fence;
       }
 
-      if (!fence || flags & TC_FLUSH_ASYNC) {
+      if (!bs || flags & TC_FLUSH_ASYNC) {
          if (!util_queue_fence_is_signalled(&mfence->ready))
             util_queue_fence_signal(&mfence->ready);
       }
    }
-   if (fence) {
+   if (bs) {
       if (!(flags & (PIPE_FLUSH_DEFERRED | PIPE_FLUSH_ASYNC)))
-         sync_flush(ctx, zink_batch_state(fence));
+         sync_flush(ctx, bs);
    }
 }
 
@@ -3984,7 +3979,7 @@ zink_fence_wait(struct pipe_context *pctx)
 
    if (ctx->batch.has_work)
       pctx->flush(pctx, NULL, PIPE_FLUSH_HINT_FINISH);
-   if (ctx->last_fence)
+   if (ctx->last_batch_state)
       stall(ctx);
 }
 
@@ -3995,7 +3990,7 @@ zink_wait_on_batch(struct zink_context *ctx, uint64_t batch_id)
    if (!batch_id) {
       /* not submitted yet */
       flush_batch(ctx, true);
-      bs = zink_batch_state(ctx->last_fence);
+      bs = ctx->last_batch_state;
       assert(bs);
       batch_id = bs->fence.batch_id;
    }

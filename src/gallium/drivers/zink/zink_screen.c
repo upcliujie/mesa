@@ -1005,10 +1005,11 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED:
       return 1;
 
+   case PIPE_CAP_POINT_SIZE_FIXED:
+      return screen->info.have_KHR_maintenance5 ? PIPE_POINT_SIZE_LOWER_USER_ONLY : PIPE_POINT_SIZE_LOWER_ALWAYS;
    case PIPE_CAP_FLATSHADE:
    case PIPE_CAP_ALPHA_TEST:
    case PIPE_CAP_CLIP_PLANES:
-   case PIPE_CAP_POINT_SIZE_FIXED:
    case PIPE_CAP_TWO_SIDED_COLOR:
       return 0;
 
@@ -1843,8 +1844,8 @@ zink_flush_frontbuffer(struct pipe_screen *pscreen,
    if (ctx->batch.swapchain || ctx->needs_present) {
       ctx->batch.has_work = true;
       pctx->flush(pctx, NULL, PIPE_FLUSH_END_OF_FRAME);
-      if (ctx->last_fence && screen->threaded_submit) {
-         struct zink_batch_state *bs = zink_batch_state(ctx->last_fence);
+      if (ctx->last_batch_state && screen->threaded_submit) {
+         struct zink_batch_state *bs = ctx->last_batch_state;
          util_queue_fence_wait(&bs->flush_completed);
       }
    }

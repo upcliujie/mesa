@@ -25,15 +25,20 @@
  * IN THE SOFTWARE.
  */
 
+#include "vk_alloc.h"
+#include "vk_log.h"
+
 #include "radv_buffer.h"
+#include "radv_device.h"
+#include "radv_entrypoints.h"
 #include "radv_event.h"
-#include "radv_private.h"
+#include "radv_rmv.h"
 
 static void
 radv_destroy_event(struct radv_device *device, const VkAllocationCallbacks *pAllocator, struct radv_event *event)
 {
    if (event->bo)
-      radv_bo_destroy(device, event->bo);
+      radv_bo_destroy(device, &event->base, event->bo);
 
    radv_rmv_log_resource_destroy(device, (uint64_t)radv_event_to_handle(event));
    vk_object_base_finish(&event->base);
@@ -63,9 +68,9 @@ radv_create_event(struct radv_device *device, const VkEventCreateInfo *pCreateIn
       bo_flags = RADEON_FLAG_CPU_ACCESS;
    }
 
-   result =
-      radv_bo_create(device, 8, 8, bo_domain, RADEON_FLAG_VA_UNCACHED | RADEON_FLAG_NO_INTERPROCESS_SHARING | bo_flags,
-                     RADV_BO_PRIORITY_FENCE, 0, is_internal, &event->bo);
+   result = radv_bo_create(device, &event->base, 8, 8, bo_domain,
+                           RADEON_FLAG_VA_UNCACHED | RADEON_FLAG_NO_INTERPROCESS_SHARING | bo_flags,
+                           RADV_BO_PRIORITY_FENCE, 0, is_internal, &event->bo);
    if (result != VK_SUCCESS) {
       radv_destroy_event(device, pAllocator, event);
       return vk_error(device, result);
@@ -88,7 +93,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 radv_CreateEvent(VkDevice _device, const VkEventCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator,
                  VkEvent *pEvent)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_device, device, _device);
    VkResult result = radv_create_event(device, pCreateInfo, pAllocator, pEvent, false);
    if (result != VK_SUCCESS)
       return result;
@@ -99,8 +104,8 @@ radv_CreateEvent(VkDevice _device, const VkEventCreateInfo *pCreateInfo, const V
 VKAPI_ATTR void VKAPI_CALL
 radv_DestroyEvent(VkDevice _device, VkEvent _event, const VkAllocationCallbacks *pAllocator)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_event, event, _event);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_event, event, _event);
 
    if (!event)
       return;
@@ -111,8 +116,8 @@ radv_DestroyEvent(VkDevice _device, VkEvent _event, const VkAllocationCallbacks 
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_GetEventStatus(VkDevice _device, VkEvent _event)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_event, event, _event);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_event, event, _event);
 
    if (vk_device_is_lost(&device->vk))
       return VK_ERROR_DEVICE_LOST;
@@ -125,7 +130,7 @@ radv_GetEventStatus(VkDevice _device, VkEvent _event)
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_SetEvent(VkDevice _device, VkEvent _event)
 {
-   RADV_FROM_HANDLE(radv_event, event, _event);
+   VK_FROM_HANDLE(radv_event, event, _event);
    *event->map = 1;
 
    return VK_SUCCESS;
@@ -134,7 +139,7 @@ radv_SetEvent(VkDevice _device, VkEvent _event)
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_ResetEvent(VkDevice _device, VkEvent _event)
 {
-   RADV_FROM_HANDLE(radv_event, event, _event);
+   VK_FROM_HANDLE(radv_event, event, _event);
    *event->map = 0;
 
    return VK_SUCCESS;

@@ -1055,6 +1055,8 @@ gl_nir_add_point_size(nir_shader *nir)
       nir_store_deref(&b, deref, nir_imm_float(&b, 1.0), BITFIELD_BIT(0));
    }
 
+   nir->info.outputs_written |= VARYING_BIT_PSIZ;
+
    /* We always modify the entrypoint */
    nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
    return true;
@@ -1426,6 +1428,7 @@ gl_nir_link_spirv(const struct gl_constants *consts,
    if (!prelink_lowering(consts, exts, prog, linked_shader, num_shaders))
       return false;
 
+   gl_nir_link_assign_xfb_resources(consts, prog);
    gl_nir_lower_optimize_varyings(consts, prog, true);
 
    if (!linked_shader[0]->Program->nir->info.io_lowered) {
@@ -1459,7 +1462,6 @@ gl_nir_link_spirv(const struct gl_constants *consts,
       return false;
 
    gl_nir_link_assign_atomic_counter_resources(consts, prog);
-   gl_nir_link_assign_xfb_resources(consts, prog);
 
    return true;
 }

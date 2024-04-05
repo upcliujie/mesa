@@ -38,7 +38,9 @@
 #include "util/u_atomic.h"
 #include "radv_cs.h"
 #include "radv_debug.h"
-#include "radv_private.h"
+#include "radv_entrypoints.h"
+#include "radv_nir_to_llvm.h"
+#include "radv_printf.h"
 #include "radv_sdma.h"
 #include "radv_shader_args.h"
 
@@ -50,6 +52,7 @@
 #endif
 #include "aco_interface.h"
 #include "sid.h"
+#include "vk_debug_report.h"
 #include "vk_format.h"
 #include "vk_nir.h"
 #include "vk_semaphore.h"
@@ -198,7 +201,7 @@ radv_optimize_nir(struct nir_shader *shader, bool optimize_conservatively)
 }
 
 void
-radv_optimize_nir_algebraic(nir_shader *nir, bool opt_offsets)
+radv_optimize_nir_algebraic(nir_shader *nir, bool opt_offsets, bool opt_mqsad)
 {
    bool more_algebraic = true;
    while (more_algebraic) {
@@ -219,6 +222,8 @@ radv_optimize_nir_algebraic(nir_shader *nir, bool opt_offsets)
       };
       NIR_PASS(_, nir, nir_opt_offsets, &offset_options);
    }
+   if (opt_mqsad)
+      NIR_PASS(_, nir, nir_opt_mqsad);
 
    /* Do late algebraic optimization to turn add(a,
     * neg(b)) back into subs, then the mandatory cleanup
@@ -740,14 +745,10 @@ radv_consider_culling(const struct radv_physical_device *pdev, struct nir_shader
    /* Shader based culling efficiency can depend on PS throughput.
     * Estimate an upper limit for PS input param count based on GPU info.
     */
-   unsigned max_ps_params;
-   unsigned max_render_backends = pdev->info.max_render_backends;
-   unsigned max_se = pdev->info.max_se;
+   unsigned max_ps_params = 8;
 
-   if (max_render_backends / max_se == 4)
-      max_ps_params = 6; /* Navi21 and other GFX10.3 dGPUs. */
-   else
-      max_ps_params = 4; /* Navi 1x. */
+   if (pdev->info.gfx_level >= GFX10_3 && pdev->info.has_dedicated_vram)
+      max_ps_params = 12; /* GFX10.3 and newer discrete GPUs. */
 
    /* TODO: consider other heuristics here, such as PS execution time */
    if (util_bitcount64(ps_inputs_read & ~VARYING_BIT_POS) > max_ps_params)
@@ -849,7 +850,7 @@ radv_lower_ngg(struct radv_device *device, struct radv_shader_stage *ngg_stage,
       assert(info->is_ngg);
 
       if (info->has_ngg_culling)
-         radv_optimize_nir_algebraic(nir, false);
+         radv_optimize_nir_algebraic(nir, false, false);
 
       options.num_vertices_per_primitive = num_vertices_per_prim;
       options.early_prim_export = info->has_ngg_early_prim_export;
@@ -973,7 +974,7 @@ radv_create_shader_arena(struct radv_device *device, struct radv_shader_free_lis
       flags |= RADEON_FLAG_PREFER_LOCAL_BO;
 
    VkResult result;
-   result = radv_bo_create(device, arena_size, RADV_SHADER_ALLOC_ALIGNMENT, RADEON_DOMAIN_VRAM, flags,
+   result = radv_bo_create(device, NULL, arena_size, RADV_SHADER_ALLOC_ALIGNMENT, RADEON_DOMAIN_VRAM, flags,
                            RADV_BO_PRIORITY_SHADER, replay_va, true, &arena->bo);
    if (result != VK_SUCCESS)
       goto fail;
@@ -1010,7 +1011,7 @@ fail:
    if (alloc)
       free_block_obj(device, alloc);
    if (arena && arena->bo)
-      radv_bo_destroy(device, arena->bo);
+      radv_bo_destroy(device, NULL, arena->bo);
    free(arena);
    return NULL;
 }
@@ -1164,7 +1165,7 @@ fail:
    free(alloc);
    if (arena) {
       free(arena->list.next);
-      radv_bo_destroy(device, arena->bo);
+      radv_bo_destroy(device, NULL, arena->bo);
    }
    free(arena);
    return NULL;
@@ -1235,7 +1236,7 @@ radv_free_shader_memory(struct radv_device *device, union radv_shader_arena_bloc
       struct radv_shader_arena *arena = hole->arena;
       free_block_obj(device, hole);
 
-      radv_bo_destroy(device, arena->bo);
+      radv_bo_destroy(device, NULL, arena->bo);
       list_del(&arena->list);
       free(arena);
    } else if (free_list) {
@@ -1331,7 +1332,7 @@ radv_destroy_shader_arenas(struct radv_device *device)
       free(block);
 
    list_for_each_entry_safe (struct radv_shader_arena, arena, &device->shader_arenas, list) {
-      radv_bo_destroy(device, arena->bo);
+      radv_bo_destroy(device, NULL, arena->bo);
       free(arena);
    }
    mtx_destroy(&device->shader_arena_mutex);
@@ -1399,7 +1400,7 @@ radv_destroy_shader_upload_queue(struct radv_device *device)
       if (submission->cs)
          ws->cs_destroy(submission->cs);
       if (submission->bo)
-         radv_bo_destroy(device, submission->bo);
+         radv_bo_destroy(device, NULL, submission->bo);
       list_del(&submission->list);
       free(submission);
    }
@@ -1914,10 +1915,10 @@ radv_shader_dma_resize_upload_buf(struct radv_device *device, struct radv_shader
                                   uint64_t size)
 {
    if (submission->bo)
-      radv_bo_destroy(device, submission->bo);
+      radv_bo_destroy(device, NULL, submission->bo);
 
    VkResult result = radv_bo_create(
-      device, size, RADV_SHADER_ALLOC_ALIGNMENT, RADEON_DOMAIN_GTT,
+      device, NULL, size, RADV_SHADER_ALLOC_ALIGNMENT, RADEON_DOMAIN_GTT,
       RADEON_FLAG_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING | RADEON_FLAG_32BIT | RADEON_FLAG_GTT_WC,
       RADV_BO_PRIORITY_UPLOAD_BUFFER, 0, true, &submission->bo);
    if (result != VK_SUCCESS)

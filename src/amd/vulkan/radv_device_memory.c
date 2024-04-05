@@ -25,9 +25,14 @@
  * IN THE SOFTWARE.
  */
 
+#include "radv_device_memory.h"
+#include "radv_android.h"
 #include "radv_buffer.h"
+#include "radv_entrypoints.h"
 #include "radv_image.h"
-#include "radv_private.h"
+#include "radv_rmv.h"
+
+#include "vk_log.h"
 
 void
 radv_device_memory_init(struct radv_device_memory *mem, struct radv_device *device, struct radeon_winsys_bo *bo)
@@ -64,7 +69,7 @@ radv_free_memory(struct radv_device *device, const VkAllocationCallbacks *pAlloc
 
       if (device->use_global_bo_list)
          device->ws->buffer_make_resident(device->ws, mem->bo, false);
-      radv_bo_destroy(device, mem->bo);
+      radv_bo_destroy(device, &mem->base, mem->bo);
       mem->bo = NULL;
    }
 
@@ -183,7 +188,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
           * spec and can be removed after we support modifiers. */
          result = radv_image_create_layout(device, create_info, NULL, NULL, mem->image);
          if (result != VK_SUCCESS) {
-            radv_bo_destroy(device, mem->bo);
+            radv_bo_destroy(device, &mem->base, mem->bo);
             goto fail;
          }
       }
@@ -199,7 +204,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
    } else {
       const struct radv_physical_device *pdev = radv_device_physical(device);
       const struct radv_instance *instance = radv_physical_device_instance(pdev);
-      uint64_t alloc_size = align_u64(pAllocateInfo->allocationSize, 4096);
+      uint64_t alloc_size = align64(pAllocateInfo->allocationSize, 4096);
       uint32_t heap_index;
 
       heap_index = pdev->memory_properties.memoryTypes[pAllocateInfo->memoryTypeIndex].heapIndex;
@@ -242,8 +247,8 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
          mtx_unlock(&device->overallocation_mutex);
       }
 
-      result = radv_bo_create(device, alloc_size, pdev->info.max_alignment, domain, flags, priority, replay_address,
-                              is_internal, &mem->bo);
+      result = radv_bo_create(device, &mem->base, alloc_size, pdev->info.max_alignment, domain, flags, priority,
+                              replay_address, is_internal, &mem->bo);
 
       if (result != VK_SUCCESS) {
          if (device->overallocation_disallowed) {
@@ -268,6 +273,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
 
    *pMem = radv_device_memory_to_handle(mem);
    radv_rmv_log_heap_create(device, *pMem, is_internal, flags_info ? flags_info->flags : 0);
+
    return VK_SUCCESS;
 
 fail:
@@ -280,15 +286,15 @@ VKAPI_ATTR VkResult VKAPI_CALL
 radv_AllocateMemory(VkDevice _device, const VkMemoryAllocateInfo *pAllocateInfo,
                     const VkAllocationCallbacks *pAllocator, VkDeviceMemory *pMem)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_device, device, _device);
    return radv_alloc_memory(device, pAllocateInfo, pAllocator, pMem, false);
 }
 
 VKAPI_ATTR void VKAPI_CALL
 radv_FreeMemory(VkDevice _device, VkDeviceMemory _mem, const VkAllocationCallbacks *pAllocator)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_device_memory, mem, _mem);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_device_memory, mem, _mem);
 
    radv_free_memory(device, pAllocator, mem);
 }
@@ -296,8 +302,8 @@ radv_FreeMemory(VkDevice _device, VkDeviceMemory _mem, const VkAllocationCallbac
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_MapMemory2KHR(VkDevice _device, const VkMemoryMapInfoKHR *pMemoryMapInfo, void **ppData)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_device_memory, mem, pMemoryMapInfo->memory);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_device_memory, mem, pMemoryMapInfo->memory);
    void *fixed_address = NULL;
    bool use_fixed_address = false;
 
@@ -327,8 +333,8 @@ radv_MapMemory2KHR(VkDevice _device, const VkMemoryMapInfoKHR *pMemoryMapInfo, v
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_UnmapMemory2KHR(VkDevice _device, const VkMemoryUnmapInfoKHR *pMemoryUnmapInfo)
 {
-   RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_device_memory, mem, pMemoryUnmapInfo->memory);
+   VK_FROM_HANDLE(radv_device, device, _device);
+   VK_FROM_HANDLE(radv_device_memory, mem, pMemoryUnmapInfo->memory);
 
    vk_rmv_log_cpu_map(&device->vk, mem->bo->va, true);
    if (mem->user_ptr == NULL)
@@ -352,7 +358,7 @@ radv_InvalidateMappedMemoryRanges(VkDevice _device, uint32_t memoryRangeCount, c
 VKAPI_ATTR uint64_t VKAPI_CALL
 radv_GetDeviceMemoryOpaqueCaptureAddress(VkDevice device, const VkDeviceMemoryOpaqueCaptureAddressInfo *pInfo)
 {
-   RADV_FROM_HANDLE(radv_device_memory, mem, pInfo->memory);
+   VK_FROM_HANDLE(radv_device_memory, mem, pInfo->memory);
    return radv_buffer_get_va(mem->bo);
 }
 
