@@ -24,8 +24,10 @@
 #include "dzn_private.h"
 
 #include "vk_alloc.h"
+#include "vk_common_entrypoints.h"
 #include "vk_debug_report.h"
 #include "vk_format.h"
+#include "vk_framebuffer.h"
 #include "vk_util.h"
 
 #include "dxil_spirv_nir.h"
@@ -4568,6 +4570,110 @@ dzn_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
    ID3D12GraphicsCommandList1_CopyBufferRegion(cmdbuf->cmdlist, buf->res, dstOffset, src_res, src_offset, size);
 }
 
+static void
+dzn_clear_attachments_with_draw(struct dzn_cmd_buffer *cmdbuf,
+                                uint32_t attachmentCount,
+                                const VkClearAttachment *pAttachments,
+                                uint32_t rectCount,
+                                const VkClearRect *pRects)
+{
+   struct dzn_device *device = container_of(cmdbuf->vk.base.device, struct dzn_device, vk);
+   struct dzn_physical_device *pdev = container_of(device->vk.physical, struct dzn_physical_device, vk);
+
+   struct dzn_meta_clear_key clear_key;
+   memset(&clear_key, 0, sizeof(clear_key));
+   clear_key.view_mask = 1;
+   for (uint32_t i = 0; i < attachmentCount; ++i) {
+      if (pAttachments[i].aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+         uint32_t color_idx = pAttachments[i].colorAttachment;
+         if (cmdbuf->state.render.attachments.colors[color_idx].iview) {
+            memcpy(&clear_key.fs.color[color_idx], &pAttachments[i].clearValue, sizeof(pAttachments[i].clearValue));
+            clear_key.fs.color_formats[color_idx] =
+               vk_format_to_pipe_format(cmdbuf->state.render.attachments.colors[color_idx].iview->vk.view_format);
+            if (!clear_key.sample_count)
+               clear_key.sample_count = cmdbuf->state.render.attachments.colors[color_idx].iview->vk.image->samples;
+         }
+      } else if (pAttachments[i].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) {
+         if (cmdbuf->state.render.attachments.depth.iview) {
+            clear_key.fs.write_depth = 1;
+            clear_key.fs.depth = pAttachments[i].clearValue.depthStencil.depth;
+            clear_key.dsv_format = cmdbuf->state.render.attachments.depth.iview->dsv_desc.Format;
+            if (!clear_key.sample_count)
+               clear_key.sample_count = cmdbuf->state.render.attachments.depth.iview->vk.image->samples;
+         }
+      } else if (pAttachments[i].aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) {
+         if (cmdbuf->state.render.attachments.depth.iview) {
+            clear_key.clear_stencil = 1;
+            if (!clear_key.sample_count)
+               clear_key.sample_count = cmdbuf->state.render.attachments.depth.iview->vk.image->samples;
+            ID3D12GraphicsCommandList_OMSetStencilRef(cmdbuf->cmdlist, pAttachments[i].clearValue.depthStencil.stencil);
+            cmdbuf->state.dirty |= DZN_CMD_DIRTY_STENCIL_REF;
+         }
+      }
+   }
+
+   if (cmdbuf->state.multiview.view_mask > 1) {
+      if ((cmdbuf->state.multiview.view_mask & ~((1 << D3D12_MAX_VIEW_INSTANCE_COUNT) - 1)) == 0 && /* Uses only views 0 thru 3 */
+          pdev->options3.ViewInstancingTier > D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED /* Actually supported */) {
+            clear_key.view_mask = cmdbuf->state.multiview.view_mask;
+      } else {
+         clear_key.arrayed_clear = 1;
+      }
+   } else {
+      for (uint32_t i = 0; i < rectCount; ++i) {
+         if (pRects[i].baseArrayLayer > 0 || pRects[i].layerCount > 1) {
+            clear_key.arrayed_clear = 1;
+            break;
+         }
+      }
+   }
+
+   const struct dzn_meta_context *ctx = dzn_meta_clears_get_context(device, &clear_key);
+   assert(ctx);
+   if (!ctx || !ctx->pipeline_state)
+      return;
+
+   ID3D12GraphicsCommandList_SetPipelineState(cmdbuf->cmdlist, ctx->pipeline_state);
+   cmdbuf->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |= DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
+
+   ID3D12GraphicsCommandList_SetGraphicsRootSignature(cmdbuf->cmdlist, ctx->root_sig);
+   cmdbuf->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].root_sig = NULL;
+
+   bool is_multiview = cmdbuf->state.multiview.view_mask != 1;
+   bool is_native_multiview = clear_key.view_mask != 1;
+   if (is_native_multiview)
+      ID3D12GraphicsCommandList1_SetViewInstanceMask(cmdbuf->cmdlist, clear_key.view_mask);
+
+   ID3D12GraphicsCommandList_IASetPrimitiveTopology(cmdbuf->cmdlist, D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+   for (uint32_t i = 0; i < rectCount; ++i) {
+      D3D12_VIEWPORT vp = {
+         pRects[i].rect.offset.x,
+         pRects[i].rect.offset.y,
+         pRects[i].rect.extent.width,
+         pRects[i].rect.extent.height,
+         0.0f, 1.0f
+      };
+      ID3D12GraphicsCommandList_RSSetViewports(cmdbuf->cmdlist, 1, &vp);
+
+      D3D12_RECT scissor;
+      dzn_translate_rect(&scissor, &pRects[i].rect);
+      ID3D12GraphicsCommandList_RSSetScissorRects(cmdbuf->cmdlist, 1, &scissor);
+
+      uint32_t layer_mask = is_multiview && !is_native_multiview ? cmdbuf->state.multiview.view_mask : (1 << pRects[i].layerCount) - 1;
+      uint32_t num_layers = is_multiview && !is_native_multiview ? cmdbuf->state.multiview.num_views : pRects[i].layerCount;
+      if (num_layers == VK_REMAINING_ARRAY_LAYERS)
+         num_layers = cmdbuf->state.render.layer_count - pRects[i].baseArrayLayer;
+      for (uint32_t layer = 0; layer < num_layers; ++layer) {
+         if (!(layer_mask & (1 << layer)))
+            continue;
+         if (clear_key.arrayed_clear)
+            ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstant(cmdbuf->cmdlist, 0, layer + pRects[i].baseArrayLayer, 0);
+         ID3D12GraphicsCommandList_DrawInstanced(cmdbuf->cmdlist, 4, 1, 0, 0);
+      }
+   }
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
                         uint32_t attachmentCount,
@@ -4576,6 +4682,11 @@ dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
                         const VkClearRect *pRects)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
+
+   if (cmdbuf->vk.render_pass && cmdbuf->state.use_d3d_render_pass) {
+      dzn_clear_attachments_with_draw(cmdbuf, attachmentCount, pAttachments, rectCount, pRects);
+      return;
+   }
 
    for (unsigned i = 0; i < attachmentCount; i++) {
       VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -4889,6 +5000,43 @@ dzn_rendering_attachment_initial_transition(struct dzn_cmd_buffer *cmdbuf,
 }
 
 static void
+dzn_copy_rendering_state(struct dzn_cmd_buffer *cmdbuf,
+                         const VkRenderingInfo *pRenderingInfo)
+{
+   cmdbuf->state.render.attachments.color_count = pRenderingInfo->colorAttachmentCount;
+   for (uint32_t i = 0; i < pRenderingInfo->colorAttachmentCount; i++) {
+      const VkRenderingAttachmentInfo *att = &pRenderingInfo->pColorAttachments[i];
+      VK_FROM_HANDLE(dzn_image_view, iview, att->imageView);
+
+      cmdbuf->state.render.attachments.colors[i].iview = iview;
+      cmdbuf->state.render.attachments.colors[i].layout = att->imageLayout;
+
+      dzn_rendering_attachment_initial_transition(cmdbuf, att,
+                                                  VK_IMAGE_ASPECT_COLOR_BIT);
+   }
+
+   if (pRenderingInfo->pDepthAttachment) {
+      const VkRenderingAttachmentInfo *att = pRenderingInfo->pDepthAttachment;
+
+      cmdbuf->state.render.attachments.depth.iview =
+         dzn_image_view_from_handle(att->imageView);
+      cmdbuf->state.render.attachments.depth.layout = att->imageLayout;
+      dzn_rendering_attachment_initial_transition(cmdbuf, att,
+                                                  VK_IMAGE_ASPECT_DEPTH_BIT);
+   }
+
+   if (pRenderingInfo->pStencilAttachment) {
+      const VkRenderingAttachmentInfo *att = pRenderingInfo->pStencilAttachment;
+
+      cmdbuf->state.render.attachments.stencil.iview =
+         dzn_image_view_from_handle(att->imageView);
+      cmdbuf->state.render.attachments.stencil.layout = att->imageLayout;
+      dzn_rendering_attachment_initial_transition(cmdbuf, att,
+                                                  VK_IMAGE_ASPECT_STENCIL_BIT);
+   }
+}
+
+static void
 dzn_begin_rendering_immediate(struct dzn_cmd_buffer *cmdbuf,
                               const VkRenderingInfo *pRenderingInfo)
 {
@@ -4900,8 +5048,6 @@ dzn_begin_rendering_immediate(struct dzn_cmd_buffer *cmdbuf,
       const VkRenderingAttachmentInfo *att = &pRenderingInfo->pColorAttachments[i];
       VK_FROM_HANDLE(dzn_image_view, iview, att->imageView);
 
-      cmdbuf->state.render.attachments.colors[i].iview = iview;
-      cmdbuf->state.render.attachments.colors[i].layout = att->imageLayout;
       cmdbuf->state.render.attachments.colors[i].resolve.mode = att->resolveMode;
       cmdbuf->state.render.attachments.colors[i].resolve.iview =
          dzn_image_view_from_handle(att->resolveImageView);
@@ -4916,40 +5062,28 @@ dzn_begin_rendering_immediate(struct dzn_cmd_buffer *cmdbuf,
 
       struct dzn_image *img = container_of(iview->vk.image, struct dzn_image, vk);
       rt_handles[i] = dzn_cmd_buffer_get_rtv(cmdbuf, img, &iview->rtv_desc);
-      dzn_rendering_attachment_initial_transition(cmdbuf, att,
-                                                  VK_IMAGE_ASPECT_COLOR_BIT);
    }
 
    if (pRenderingInfo->pDepthAttachment) {
       const VkRenderingAttachmentInfo *att = pRenderingInfo->pDepthAttachment;
 
-      cmdbuf->state.render.attachments.depth.iview =
-         dzn_image_view_from_handle(att->imageView);
-      cmdbuf->state.render.attachments.depth.layout = att->imageLayout;
       cmdbuf->state.render.attachments.depth.resolve.mode = att->resolveMode;
       cmdbuf->state.render.attachments.depth.resolve.iview =
          dzn_image_view_from_handle(att->resolveImageView);
       cmdbuf->state.render.attachments.depth.resolve.layout =
          att->resolveImageLayout;
       cmdbuf->state.render.attachments.depth.store_op = att->storeOp;
-      dzn_rendering_attachment_initial_transition(cmdbuf, att,
-                                                  VK_IMAGE_ASPECT_DEPTH_BIT);
    }
 
    if (pRenderingInfo->pStencilAttachment) {
       const VkRenderingAttachmentInfo *att = pRenderingInfo->pStencilAttachment;
 
-      cmdbuf->state.render.attachments.stencil.iview =
-         dzn_image_view_from_handle(att->imageView);
-      cmdbuf->state.render.attachments.stencil.layout = att->imageLayout;
       cmdbuf->state.render.attachments.stencil.resolve.mode = att->resolveMode;
       cmdbuf->state.render.attachments.stencil.resolve.iview =
          dzn_image_view_from_handle(att->resolveImageView);
       cmdbuf->state.render.attachments.stencil.resolve.layout =
          att->resolveImageLayout;
       cmdbuf->state.render.attachments.stencil.store_op = att->storeOp;
-      dzn_rendering_attachment_initial_transition(cmdbuf, att,
-                                                  VK_IMAGE_ASPECT_STENCIL_BIT);
    }
 
    if (pRenderingInfo->pDepthAttachment || pRenderingInfo->pStencilAttachment) {
@@ -5363,6 +5497,275 @@ dzn_CreateRenderPass2(VkDevice _device,
    return VK_SUCCESS;
 }
 
+static void
+dzn_fill_resolve_desc(const struct dzn_cmd_buffer *cmdbuf,
+                      const struct dzn_image_view *src,
+                      const struct dzn_image_view *dst,
+                      uint32_t view_mask,
+                      VkImageAspectFlagBits aspect,
+                      D3D12_RENDER_PASS_ENDING_ACCESS_RESOLVE_PARAMETERS *desc,
+                      D3D12_RENDER_PASS_ENDING_ACCESS_RESOLVE_SUBRESOURCE_PARAMETERS **sub_descs)
+{
+   const struct dzn_image *src_image = container_of(src->vk.image, struct dzn_image, vk);
+   const struct dzn_image *dst_image = container_of(dst->vk.image, struct dzn_image, vk);
+   desc->pSrcResource = src_image->res;
+   desc->pDstResource = dst_image->res;
+   uint32_t num_views = util_bitcount(view_mask);
+   desc->SubresourceCount = num_views;
+   desc->pSubresourceParameters = *sub_descs;
+
+   VkImageSubresourceLayers src_layers = { .baseArrayLayer = src->vk.base_array_layer, .mipLevel = src->vk.base_mip_level };
+   VkImageSubresourceLayers dst_layers = { .baseArrayLayer = dst->vk.base_array_layer, .mipLevel = dst->vk.base_mip_level };
+   for (uint32_t i = 0; i < num_views; ++i) {
+      uint32_t view_index = u_bit_scan(&view_mask);
+      D3D12_RENDER_PASS_ENDING_ACCESS_RESOLVE_SUBRESOURCE_PARAMETERS *sub_desc = (*sub_descs) + i;
+      sub_desc->SrcSubresource = dzn_image_layers_get_subresource_index(src_image, &src_layers, aspect, view_index);
+      sub_desc->DstSubresource = dzn_image_layers_get_subresource_index(dst_image, &dst_layers, aspect, view_index);
+      dzn_translate_rect(&sub_desc->SrcRect, &cmdbuf->vk.render_area);
+      sub_desc->DstX = sub_desc->SrcRect.left;
+      sub_desc->DstY = sub_desc->SrcRect.right;
+   }
+   *sub_descs += num_views;
+}
+
+static void
+dzn_begin_rendering_pass(struct dzn_cmd_buffer *cmdbuf)
+{
+   const struct vk_render_pass *pass = cmdbuf->vk.render_pass;
+   const struct dzn_render_pass *dpass = container_of(pass, struct dzn_render_pass, vk);
+   const struct vk_subpass *subpass = &pass->subpasses[cmdbuf->vk.subpass_idx];
+   const struct dzn_subpass *dsubpass = &dpass->subpasses[cmdbuf->vk.subpass_idx];
+   D3D12_RENDER_PASS_FLAGS flags = dsubpass->flags | D3D12_RENDER_PASS_FLAG_ALLOW_UAV_WRITES;
+
+   uint32_t num_resolve_descs = 0;
+   uint32_t num_views = util_bitcount(subpass->view_mask);
+   for (uint32_t i = 0; i < subpass->color_resolve_count; ++i) {
+      if (subpass->color_resolve_attachments[i].attachment != VK_ATTACHMENT_UNUSED)
+         num_resolve_descs += num_views;
+   }
+   if (subpass->depth_stencil_resolve_attachment) {
+      if (subpass->depth_resolve_mode != VK_RESOLVE_MODE_NONE)
+         num_resolve_descs += num_views;
+      if (subpass->stencil_resolve_mode != VK_RESOLVE_MODE_NONE)
+         num_resolve_descs += num_views;
+   }
+
+   uint32_t depth_att_idx = subpass->depth_stencil_attachment ? subpass->depth_stencil_attachment->attachment : VK_ATTACHMENT_UNUSED;
+   D3D12_RENDER_PASS_DEPTH_STENCIL_DESC ds_desc;
+
+   uint32_t num_rt_descs = 0;
+   for (uint32_t i = 0; i < pass->attachment_count; ++i) {
+      bool is_depth = (pass->attachments[i].aspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0;
+      if (dsubpass->attachments[i].beginning.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS &&
+          dsubpass->attachments[i].stencil_beginning.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS)
+         continue;
+      if (is_depth) {
+         assert(depth_att_idx == i || depth_att_idx == VK_ATTACHMENT_UNUSED);
+         depth_att_idx = i;
+      } else {
+         num_rt_descs++;
+      }
+   }
+   for (uint32_t i = 0; i < subpass->color_count; ++i) {
+      if (subpass->color_attachments[i].attachment == VK_ATTACHMENT_UNUSED)
+         num_rt_descs++;
+   }
+
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, D3D12_RENDER_PASS_RENDER_TARGET_DESC, rt_descs, num_rt_descs);
+   VK_MULTIALLOC_DECL(&ma, D3D12_RENDER_PASS_ENDING_ACCESS_RESOLVE_SUBRESOURCE_PARAMETERS, resolve_descs, num_resolve_descs);
+   if (ma.size)
+      vk_multialloc_alloc(&ma, &cmdbuf->vk.pool->alloc, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+
+   D3D12_RENDER_PASS_RENDER_TARGET_DESC *current_rt_desc = rt_descs;
+   /* Iterate through subpass color attachments first so that we can mix null RTVs into the right spots */
+   uint32_t deferred_color_clear_mask = 0;
+   for (uint32_t c = 0; c < subpass->color_count; ++c) {
+      uint32_t i = subpass->color_attachments[c].attachment;
+      if (i == VK_ATTACHMENT_UNUSED) {
+         current_rt_desc->cpuDescriptor = dzn_cmd_buffer_get_null_rtv(cmdbuf);
+         current_rt_desc->BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+         current_rt_desc->EndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+      } else {
+         const struct dzn_subpass_attachment *dsubatt = &dsubpass->attachments[i];
+         const struct vk_attachment_state *att_state = &cmdbuf->vk.attachments[i];
+         const struct dzn_image_view *iview = container_of(att_state->image_view, struct dzn_image_view, vk);
+         const struct dzn_image *image = container_of(iview->vk.image, struct dzn_image, vk);
+
+         current_rt_desc->cpuDescriptor = dzn_cmd_buffer_get_rtv(cmdbuf, image, &iview->rtv_desc);
+         current_rt_desc->BeginningAccess = dsubatt->beginning;
+         if (current_rt_desc->BeginningAccess.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR) {
+            current_rt_desc->BeginningAccess.Clear.ClearValue.Format = iview->rtv_desc.Format;
+            if (util_format_is_pure_sint(vk_format_to_pipe_format(iview->vk.view_format))) {
+               for (uint32_t chan = 0; chan < 4; ++chan) {
+                  current_rt_desc->BeginningAccess.Clear.ClearValue.Color[chan] = (float)att_state->clear_value.color.int32[chan];
+                  if ((int32_t)current_rt_desc->BeginningAccess.Clear.ClearValue.Color[chan] != att_state->clear_value.color.int32[chan]) {
+                     current_rt_desc->BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+                     deferred_color_clear_mask |= (1 << c);
+                     break;
+                  }
+               }
+            } else if (util_format_is_pure_uint(vk_format_to_pipe_format(iview->vk.view_format))) {
+               for (uint32_t chan = 0; chan < 4; ++chan) {
+                  current_rt_desc->BeginningAccess.Clear.ClearValue.Color[chan] = (float)att_state->clear_value.color.uint32[chan];
+                  if ((uint32_t)current_rt_desc->BeginningAccess.Clear.ClearValue.Color[chan] != att_state->clear_value.color.uint32[chan]) {
+                     current_rt_desc->BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+                     deferred_color_clear_mask |= (1 << c);
+                     break;
+                  }
+               }
+            } else {
+               memcpy(current_rt_desc->BeginningAccess.Clear.ClearValue.Color, att_state->clear_value.color.float32, sizeof(float) * 4);
+            }
+         }
+         current_rt_desc->EndingAccess = dsubatt->ending;
+         if (current_rt_desc->EndingAccess.Type == D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_RESOLVE) {
+            current_rt_desc->EndingAccess.Resolve.Format = iview->rtv_desc.Format;
+
+            /* Find the resolve attachment */
+            for (uint32_t r = 0; r < subpass->color_resolve_count; ++r) {
+               if (subpass->color_attachments[r].attachment == i) {
+                  const struct dzn_image_view *resolve_iview =
+                     container_of(cmdbuf->vk.attachments[subpass->color_resolve_attachments[r].attachment].image_view, struct dzn_image_view, vk);
+                  dzn_fill_resolve_desc(cmdbuf, iview, resolve_iview, subpass->view_mask,
+                                        VK_IMAGE_ASPECT_COLOR_BIT, &current_rt_desc->EndingAccess.Resolve, &resolve_descs);
+                  break;
+               }
+            }
+         }
+      }
+      current_rt_desc++;
+   }
+   for (uint32_t i = 0; i < pass->attachment_count; ++i) {
+      const struct dzn_subpass_attachment *dsubatt = &dsubpass->attachments[i];
+      bool is_depth = (pass->attachments[i].aspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0;
+      if (dsubatt->beginning.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS &&
+          dsubatt->stencil_beginning.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS)
+         continue;
+
+      const struct vk_attachment_state *att_state = &cmdbuf->vk.attachments[i];
+      const struct dzn_image_view *iview = container_of(att_state->image_view, struct dzn_image_view, vk);
+      const struct dzn_image *image = container_of(iview->vk.image, struct dzn_image, vk);
+      if (is_depth) {
+         ds_desc.cpuDescriptor = dzn_cmd_buffer_get_dsv(cmdbuf, image, &iview->dsv_desc);
+         ds_desc.DepthBeginningAccess = dsubatt->beginning;
+         if (ds_desc.DepthBeginningAccess.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR) {
+            ds_desc.DepthBeginningAccess.Clear.ClearValue.Format = iview->dsv_desc.Format;
+            ds_desc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth = att_state->clear_value.depthStencil.depth;
+         }
+         ds_desc.StencilBeginningAccess = dsubatt->stencil_beginning;
+         if (ds_desc.StencilBeginningAccess.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR) {
+            ds_desc.StencilBeginningAccess.Clear.ClearValue.Format = iview->dsv_desc.Format;
+            ds_desc.StencilBeginningAccess.Clear.ClearValue.DepthStencil.Stencil = att_state->clear_value.depthStencil.stencil;
+         }
+
+         const struct dzn_image_view *resolve_iview = subpass->depth_stencil_resolve_attachment ?
+            container_of(cmdbuf->vk.attachments[subpass->depth_stencil_resolve_attachment->attachment].image_view, struct dzn_image_view, vk) :
+            NULL;
+         ds_desc.DepthEndingAccess = dsubatt->ending;
+         if (ds_desc.DepthEndingAccess.Type == D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_RESOLVE) {
+            ds_desc.DepthEndingAccess.Resolve.Format = iview->dsv_desc.Format;
+            dzn_fill_resolve_desc(cmdbuf, iview, resolve_iview, subpass->view_mask,
+                                  VK_IMAGE_ASPECT_DEPTH_BIT, &ds_desc.DepthEndingAccess.Resolve, &resolve_descs);
+         }
+         ds_desc.StencilEndingAccess = dsubatt->ending;
+         if (ds_desc.StencilEndingAccess.Type == D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_RESOLVE) {
+            ds_desc.StencilEndingAccess.Resolve.Format = iview->dsv_desc.Format;
+            dzn_fill_resolve_desc(cmdbuf, iview, resolve_iview, subpass->view_mask,
+                                  VK_IMAGE_ASPECT_STENCIL_BIT, &ds_desc.StencilEndingAccess.Resolve, &resolve_descs);
+         }
+      } else if (dsubatt->beginning.Type == D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE_LOCAL_SRV) {
+         current_rt_desc->cpuDescriptor = dzn_cmd_buffer_get_rtv(cmdbuf, image, &iview->rtv_desc);
+         current_rt_desc->BeginningAccess = dsubatt->beginning;
+         current_rt_desc->EndingAccess = dsubatt->ending;
+         assert(current_rt_desc->EndingAccess.Type != D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_RESOLVE);
+         ++current_rt_desc;
+      }
+   }
+   
+   ID3D12GraphicsCommandList8_BeginRenderPass(cmdbuf->cmdlist8, num_rt_descs, rt_descs,
+                                              depth_att_idx == VK_ATTACHMENT_UNUSED ? NULL : &ds_desc, flags);
+
+   if (ma.size)
+      vk_free(&cmdbuf->vk.pool->alloc, rt_descs);
+
+   if (deferred_color_clear_mask) {
+      VkClearAttachment clear_data[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
+      uint32_t num_clear_attachments = 0;
+      u_foreach_bit(c, deferred_color_clear_mask) {
+         uint32_t att_idx = subpass->color_attachments[c].attachment;
+         clear_data[num_clear_attachments].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+         clear_data[num_clear_attachments].clearValue = cmdbuf->vk.attachments[att_idx].clear_value;
+         clear_data[num_clear_attachments].colorAttachment = c;
+         num_clear_attachments++;
+      }
+      VkClearRect clear_rect = {
+         .baseArrayLayer = 0,
+         .layerCount = cmdbuf->state.multiview.num_views > 1 ? 1 : cmdbuf->state.render.layer_count,
+         .rect = cmdbuf->vk.render_area,
+      };
+      dzn_clear_attachments_with_draw(cmdbuf, num_clear_attachments, clear_data, 1, &clear_rect);
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
+                        const VkRenderPassBeginInfo *pRenderPassBeginInfo,
+                        const VkSubpassBeginInfo *pSubpassBeginInfo)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
+   VK_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
+
+   if (pass->can_use_d3d_render_passes && cmdbuf->cmdlist8) {
+      cmdbuf->state.use_d3d_render_pass = true;
+
+      VK_FROM_HANDLE(vk_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
+      /* Late compatibility checks need to be done here:
+       * - We can't do resolves unless the source and dest format match exactly
+       * - D3D render passes don't take rects except for resolves, so we can't do clears/discards unless the render area
+       *   covers the whole attachment
+       */
+      for (uint32_t s = 0; s < pass->vk.subpass_count && cmdbuf->state.use_d3d_render_pass; ++s) {
+         const struct vk_subpass *subpass = &pass->vk.subpasses[s];
+         if (subpass->depth_stencil_resolve_attachment) {
+            VK_FROM_HANDLE(vk_image_view, src, framebuffer->attachments[subpass->depth_stencil_attachment->attachment]);
+            VK_FROM_HANDLE(vk_image_view, dst, framebuffer->attachments[subpass->depth_stencil_resolve_attachment->attachment]);
+            if (src->view_format != dst->view_format) {
+               cmdbuf->state.use_d3d_render_pass = false;
+               break;
+            }
+         }
+         for (uint32_t c = 0; c < subpass->color_resolve_count; ++c) {
+            if (subpass->color_resolve_attachments[c].attachment == VK_ATTACHMENT_UNUSED)
+               continue;
+            VK_FROM_HANDLE(vk_image_view, src, framebuffer->attachments[subpass->color_attachments[c].attachment]);
+            VK_FROM_HANDLE(vk_image_view, dst, framebuffer->attachments[subpass->color_resolve_attachments[c].attachment]);
+            if (src->view_format != dst->view_format) {
+               cmdbuf->state.use_d3d_render_pass = false;
+               break;
+            }
+         }
+      }
+      for (uint32_t a = 0; a < pass->vk.attachment_count && cmdbuf->state.use_d3d_render_pass; ++a) {
+         const struct vk_render_pass_attachment *att = &pass->vk.attachments[a];
+         if (att->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ||
+             att->load_op == VK_ATTACHMENT_LOAD_OP_DONT_CARE ||
+             att->store_op == VK_ATTACHMENT_STORE_OP_DONT_CARE) {
+            VK_FROM_HANDLE(vk_image_view, iview, framebuffer->attachments[a]);
+            if (pRenderPassBeginInfo->renderArea.offset.x != 0 ||
+                pRenderPassBeginInfo->renderArea.offset.y != 0 ||
+                pRenderPassBeginInfo->renderArea.extent.width != iview->extent.width ||
+                pRenderPassBeginInfo->renderArea.extent.height != iview->extent.height) {
+               cmdbuf->state.use_d3d_render_pass = false;
+               break;
+            }
+         }
+      }
+   }
+
+   vk_common_CmdBeginRenderPass2(commandBuffer, pRenderPassBeginInfo, pSubpassBeginInfo);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBeginRendering(VkCommandBuffer commandBuffer,
                       const VkRenderingInfo *pRenderingInfo)
@@ -5389,7 +5792,12 @@ dzn_CmdBeginRendering(VkCommandBuffer commandBuffer,
    cmdbuf->state.multiview.num_views = MAX2(util_bitcount(pRenderingInfo->viewMask), 1);
    cmdbuf->state.multiview.view_mask = MAX2(pRenderingInfo->viewMask, 1);
 
-   dzn_begin_rendering_immediate(cmdbuf, pRenderingInfo);
+   dzn_copy_rendering_state(cmdbuf, pRenderingInfo);
+
+   if (cmdbuf->vk.render_pass && cmdbuf->state.use_d3d_render_pass)
+      dzn_begin_rendering_pass(cmdbuf);
+   else
+      dzn_begin_rendering_immediate(cmdbuf, pRenderingInfo);
 }
 
 static void
@@ -5416,12 +5824,21 @@ dzn_end_rendering_immediate(struct dzn_cmd_buffer *cmdbuf)
    }
 }
 
+static void
+dzn_end_rendering_pass(struct dzn_cmd_buffer *cmdbuf)
+{
+   ID3D12GraphicsCommandList8_EndRenderPass(cmdbuf->cmdlist8);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdEndRendering(VkCommandBuffer commandBuffer)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
 
-   dzn_end_rendering_immediate(cmdbuf);
+   if (cmdbuf->vk.render_pass && cmdbuf->state.use_d3d_render_pass)
+      dzn_end_rendering_pass(cmdbuf);
+   else
+      dzn_end_rendering_immediate(cmdbuf);
 
    memset(&cmdbuf->state.render, 0, sizeof(cmdbuf->state.render));
 }

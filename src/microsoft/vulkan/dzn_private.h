@@ -670,6 +670,7 @@ struct dzn_cmd_buffer_state {
       uint32_t num_views;
       uint32_t view_mask;
    } multiview;
+   bool use_d3d_render_pass;
 };
 
 struct dzn_cmd_buffer_rtv_key {
