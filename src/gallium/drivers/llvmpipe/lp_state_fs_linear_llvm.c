@@ -328,6 +328,9 @@ llvmpipe_fs_variant_linear_llvm(struct llvmpipe_context *lp,
 
    LLVMPositionBuilderAtEnd(builder, block);
 
+   LLVMSetCurrentDebugLocation2(
+      gallivm->builder, LLVMDIBuilderCreateDebugLocation(gallivm->context, 0, 0, gallivm->di_function, NULL));
+
    struct lp_build_context bld;
    lp_build_context_init(&bld, gallivm, fs_type);
 
