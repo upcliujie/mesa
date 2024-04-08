@@ -216,10 +216,14 @@ typedef struct
    nir_variable *primitive_count_var;
    nir_variable *vertex_count_var;
 
+   /* True if the shader has waves that don't execute the API shader at all. */
+   bool has_non_api_waves;
    /* True if the lowering needs to insert the layer output. */
    bool insert_layer_output;
    /* True if cull flags are used */
    bool uses_cull_flags;
+   /* True if the output vertex and primitive counts are workgroup-uniform. */
+   bool output_counts_workgroup_uniform;
 
    struct {
       /* Bitmask of components used: 4 bits per slot, 1 bit per component. */
@@ -4022,6 +4026,10 @@ lower_ms_set_vertex_and_primitive_count(nir_builder *b,
                                         nir_intrinsic_instr *intrin,
                                         lower_ngg_ms_state *s)
 {
+   /* Remember if the output vertex and primitive counts are both workgroup-uniform. */
+   s->output_counts_workgroup_uniform =
+      !intrin->src[0].ssa->divergent && !intrin->src[1].ssa->divergent;
+
    /* If either the number of vertices or primitives is zero, set both of them to zero. */
    nir_def *num_vtx = nir_read_first_invocation(b, intrin->src[0].ssa);
    nir_def *num_prm = nir_read_first_invocation(b, intrin->src[1].ssa);
@@ -4231,21 +4239,30 @@ set_ms_final_output_counts(nir_builder *b,
    nir_def *num_prm = nir_load_var(b, s->primitive_count_var);
    nir_def *num_vtx = nir_load_var(b, s->vertex_count_var);
 
-   if (s->hw_workgroup_size <= s->wave_size) {
-      /* Single-wave mesh shader workgroup. */
+   const bool one_subgroup = s->hw_workgroup_size <= s->wave_size;
+
+   if (one_subgroup || (s->output_counts_workgroup_uniform && !s->has_non_api_waves)) {
+      /* Shortcut for the following two use cases:
+       * - When the output counts are known to be workgroup-uniform
+           and all waves execute the API shader,
+       * - When we know the mesh shader only has one subgroup.
+       */
+      nir_if *if_wave_0 = NULL;
+      if (!one_subgroup)
+         if_wave_0 = nir_push_if(b, nir_ieq_imm(b, nir_load_subgroup_id(b), 0));
+
       alloc_vertices_and_primitives(b, num_vtx, num_prm);
+
+      if (!one_subgroup)
+         nir_pop_if(b, if_wave_0);
+
       *out_num_prm = num_prm;
       *out_num_vtx = num_vtx;
       return;
    }
 
-   /* Multi-wave mesh shader workgroup:
+   /* Multi-wave mesh shader workgroup with workgroup-divergent output counts:
     * We need to use LDS to distribute the correct values to the other waves.
-    *
-    * TODO:
-    * If we can prove that the values are workgroup-uniform, we can skip this
-    * and just use whatever the current wave has. However, NIR divergence analysis
-    * currently doesn't support this.
     */
 
    nir_def *zero = nir_imm_int(b, 0);
@@ -4665,12 +4682,15 @@ handle_smaller_ms_api_workgroup(nir_builder *b,
     *    barrier on the extra waves.
     */
    assert(s->hw_workgroup_size % s->wave_size == 0);
-   bool scan_barriers = ALIGN(s->api_workgroup_size, s->wave_size) < s->hw_workgroup_size;
-   bool can_shrink_barriers = s->api_workgroup_size <= s->wave_size;
-   bool need_additional_barriers = scan_barriers && !can_shrink_barriers;
+   const unsigned num_api_waves = DIV_ROUND_UP(s->api_workgroup_size, s->wave_size);
+   const unsigned num_hw_waves = DIV_ROUND_UP(s->hw_workgroup_size, s->wave_size);
+   const bool scan_barriers = num_api_waves < num_hw_waves;
+   const bool can_shrink_barriers = s->api_workgroup_size <= s->wave_size;
 
-   unsigned api_waves_in_flight_addr = s->layout.lds.workgroup_info_addr + lds_ms_num_api_waves;
-   unsigned num_api_waves = DIV_ROUND_UP(s->api_workgroup_size, s->wave_size);
+   bool need_additional_barriers = scan_barriers && !can_shrink_barriers;
+   const unsigned api_waves_in_flight_addr = s->layout.lds.workgroup_info_addr + lds_ms_num_api_waves;
+
+   s->has_non_api_waves = scan_barriers;
 
    /* Scan the shader for workgroup barriers. */
    if (scan_barriers) {
@@ -4959,6 +4979,8 @@ ac_nir_lower_ngg_ms(nir_shader *shader,
    unsigned api_workgroup_size = shader->info.workgroup_size[0] *
                                  shader->info.workgroup_size[1] *
                                  shader->info.workgroup_size[2];
+
+   nir_workgroup_divergence_analysis(shader);
 
    lower_ngg_ms_state state = {
       .layout = layout,
