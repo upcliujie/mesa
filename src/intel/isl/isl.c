@@ -1125,6 +1125,11 @@ isl_surf_choose_tiling(const struct isl_device *dev,
       CHOOSE(ISL_TILING_64);
    }
 
+   if (isl_surf_usage_is_depth_or_stencil(info->usage)) {
+      /* Prefer TILE64 for depth/stencil surfaces. */
+      CHOOSE(ISL_TILING_64);
+   }
+
    /* For sparse images, prefer the formats that use the standard block
     * shapes.
     */
