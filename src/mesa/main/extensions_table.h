@@ -8,7 +8,6 @@
 
 EXT(3DFX_texture_compression_FXT1           , TDFX_texture_compression_FXT1          , GLL, GLC,  x ,  x , 1999)
 
-EXT(AMD_blend_minmax_factor                 , AMD_blend_minmax_factor                , GLL, GLC, ES1, ES2, 2024)
 EXT(AMD_compressed_ATC_texture              , AMD_compressed_ATC_texture             ,  x ,  x , ES1, ES2, 2008)
 EXT(AMD_conservative_depth                  , ARB_conservative_depth                 , GLL, GLC,  x ,  x , 2009)
 EXT(AMD_depth_clamp_separate                , AMD_depth_clamp_separate               , GLL, GLC,  x ,  x , 2009)
@@ -224,6 +223,7 @@ EXT(EXT_blend_equation_separate             , EXT_blend_equation_separate       
 EXT(EXT_blend_func_extended                 , ARB_blend_func_extended                ,  x ,  x ,  x , ES2, 2015)
 EXT(EXT_blend_func_separate                 , dummy_true                             , GLL,  x ,  x ,  x , 1999)
 EXT(EXT_blend_minmax                        , dummy_true                             , GLL,  x , ES1, ES2, 1995)
+//EXT(EXT_blend_minmax_factor                 , EXT_blend_minmax_factor                , GLL, GLC, ES1, ES2, 2024)
 EXT(EXT_blend_subtract                      , dummy_true                             , GLL,  x ,  x ,  x , 1995)
 EXT(EXT_buffer_storage                      , ARB_buffer_storage                     ,  x ,  x ,  x ,  31, 2015)
 EXT(EXT_clear_texture                       , dummy_true                             ,  x ,  x ,  x ,  31, 2016)
