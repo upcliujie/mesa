@@ -4593,7 +4593,7 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
 
    if (any_indirects) {
       nir_convert_to_lcssa(nir, true, true);
-      NIR_PASS_V(nir, nir_divergence_analysis);
+      NIR_PASS_V(nir, nir_divergence_analysis, 0);
       NIR_PASS_V(nir, bi_lower_divergent_indirects,
                  pan_subgroup_size(gpu_id >> 12));
    }

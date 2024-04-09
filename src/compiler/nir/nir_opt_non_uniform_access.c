@@ -232,7 +232,7 @@ bool
 nir_opt_non_uniform_access(nir_shader *shader)
 {
    NIR_PASS(_, shader, nir_convert_to_lcssa, true, true);
-   nir_divergence_analysis(shader);
+   nir_divergence_analysis(shader, 0);
 
    bool progress = nir_shader_instructions_pass(shader,
                                                 nir_opt_non_uniform_access_instr,

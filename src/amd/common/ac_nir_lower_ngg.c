@@ -1124,7 +1124,7 @@ analyze_shader_before_culling(nir_shader *shader, lower_ngg_nogs_state *s)
    /* LCSSA is needed to get correct results from divergence analysis. */
    nir_convert_to_lcssa(shader, true, true);
    /* We need divergence info for culling shaders. */
-   nir_divergence_analysis(shader);
+   nir_divergence_analysis(shader, 0);
 
    nir_foreach_function_impl(impl, shader) {
       nir_foreach_block(block, impl) {

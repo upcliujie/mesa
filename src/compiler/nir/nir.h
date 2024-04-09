@@ -3668,6 +3668,9 @@ typedef enum {
    nir_divergence_multiple_workgroup_per_compute_subgroup = (1 << 5),
    nir_divergence_shader_record_ptr_uniform = (1 << 6),
    nir_divergence_uniform_load_tears = (1 << 7),
+   /* Whether phis for divergent merges with undef and a uniform source can be considered uniform. */
+   nir_divergence_uniformize_phi_if = (1 << 8),
+   nir_divergence_uniformize_phi_loop_header = (1 << 9),
 } nir_divergence_options;
 
 typedef enum {
@@ -6500,7 +6503,7 @@ bool nir_repair_ssa(nir_shader *shader);
 
 void nir_convert_loop_to_lcssa(nir_loop *loop);
 bool nir_convert_to_lcssa(nir_shader *shader, bool skip_invariants, bool skip_bool_invariants);
-void nir_divergence_analysis(nir_shader *shader);
+void nir_divergence_analysis(nir_shader *shader, nir_divergence_options additional_options);
 void nir_vertex_divergence_analysis(nir_shader *shader);
 bool nir_update_instr_divergence(nir_shader *shader, nir_instr *instr);
 bool nir_has_divergent_loop(nir_shader *shader);

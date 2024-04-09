@@ -1098,7 +1098,7 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
     * anv_nir_lower_ubo_loads.
     */
    NIR_PASS(_, nir, nir_convert_to_lcssa, true, true);
-   nir_divergence_analysis(nir);
+   nir_divergence_analysis(nir, 0);
 
    NIR_PASS(_, nir, anv_nir_lower_ubo_loads);
 
