@@ -291,7 +291,7 @@ st_update_blend( struct st_context *st )
          blend->rt[i].rgb_func =
             translate_blend(ctx->Color.Blend[j].EquationRGB);
 
-         if (//!ctx->Extensions.EXT_blend_minmax_factor &&
+         if (!ctx->Extensions.EXT_blend_minmax_factor &&
 
              (ctx->Color.Blend[i].EquationRGB == GL_MIN ||
               ctx->Color.Blend[i].EquationRGB == GL_MAX)) {
@@ -309,7 +309,7 @@ st_update_blend( struct st_context *st )
          blend->rt[i].alpha_func =
             translate_blend(ctx->Color.Blend[j].EquationA);
 
-         if (//!ctx->Extensions.EXT_blend_minmax_factor &&
+         if (!ctx->Extensions.EXT_blend_minmax_factor &&
 
              (ctx->Color.Blend[i].EquationA == GL_MIN ||
               ctx->Color.Blend[i].EquationA == GL_MAX)) {
