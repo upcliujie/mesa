@@ -2,25 +2,7 @@
  * Copyright © 2018 Valve Corporation
  * Copyright © 2018 Google
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
- *
+ * SPDX-License-Identifier: MIT
  */
 
 #include "aco_instruction_selection.h"
@@ -74,12 +56,12 @@ struct if_context {
    bool exec_potentially_empty_break_old;
    bool had_divergent_discard_old;
    bool had_divergent_discard_then;
+   bool has_divergent_continue_old;
+   bool has_divergent_continue_then;
    uint16_t exec_potentially_empty_break_depth_old;
 
    unsigned BB_if_idx;
    unsigned invert_idx;
-   bool uniform_has_then_branch;
-   bool then_branch_divergent;
    Block BB_invert;
    Block BB_endif;
 };
@@ -94,7 +76,7 @@ struct loop_context {
    bool divergent_if_old;
 };
 
-static bool visit_cf_list(struct isel_context* ctx, struct exec_list* list);
+static void visit_cf_list(struct isel_context* ctx, struct exec_list* list);
 
 static void
 add_logical_edge(unsigned pred_idx, Block* succ)
@@ -9357,6 +9339,15 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       break;
    }
    case nir_intrinsic_cmat_muladd_amd: visit_cmat_muladd(ctx, instr); break;
+   case nir_intrinsic_unit_test_amd:
+      bld.pseudo(aco_opcode::p_unit_test, Operand::c32(nir_intrinsic_base(instr)),
+                 get_ssa_temp(ctx, instr->src[0].ssa));
+      break;
+   case nir_intrinsic_unit_test_uniform_amd:
+   case nir_intrinsic_unit_test_divergent_amd:
+      bld.pseudo(aco_opcode::p_unit_test, Definition(get_ssa_temp(ctx, &instr->def)),
+                 Operand::c32(nir_intrinsic_base(instr)));
+      break;
    default:
       isel_err(&instr->instr, "Unimplemented intrinsic instr");
       abort();
@@ -10220,31 +10211,9 @@ end_loop(isel_context* ctx, loop_context* lc)
    ctx->cf_info.has_branch = false;
    ctx->program->next_loop_depth--;
 
-   // TODO: if the loop has not a single exit, we must add one °°
    /* emit loop successor block */
    ctx->block = ctx->program->insert_block(std::move(lc->loop_exit));
    append_logical_start(ctx->block);
-
-#if 0
-   // TODO: check if it is beneficial to not branch on continues
-   /* trim linear phis in loop header */
-   for (auto&& instr : loop_entry->instructions) {
-      if (instr->opcode == aco_opcode::p_linear_phi) {
-         aco_ptr<Instruction> new_phi{create_instruction(aco_opcode::p_linear_phi, Format::PSEUDO, loop_entry->linear_predecessors.size(), 1)};
-         new_phi->definitions[0] = instr->definitions[0];
-         for (unsigned i = 0; i < new_phi->operands.size(); i++)
-            new_phi->operands[i] = instr->operands[i];
-         /* check that the remaining operands are all the same */
-         for (unsigned i = new_phi->operands.size(); i < instr->operands.size(); i++)
-            assert(instr->operands[i].tempId() == instr->operands.back().tempId());
-         instr.swap(new_phi);
-      } else if (instr->opcode == aco_opcode::p_phi) {
-         continue;
-      } else {
-         break;
-      }
-   }
-#endif
 
    ctx->cf_info.parent_loop.header_idx = lc->header_idx_old;
    ctx->cf_info.parent_loop.exit = lc->exit_old;
@@ -10436,31 +10405,13 @@ visit_loop(isel_context* ctx, nir_loop* loop)
    loop_context lc;
    begin_loop(ctx, &lc);
 
-   bool unreachable = visit_cf_list(ctx, &loop->body);
+   visit_cf_list(ctx, &loop->body);
 
    unsigned loop_header_idx = ctx->cf_info.parent_loop.header_idx;
 
-   /* Fixup phis in loop header from unreachable blocks.
-    * has_branch/has_divergent_branch also indicates if the loop ends with a
-    * break/continue instruction, but we don't emit those if unreachable=true */
-   if (unreachable) {
-      assert(ctx->cf_info.has_branch || ctx->cf_info.parent_loop.has_divergent_branch);
-      bool linear = ctx->cf_info.has_branch;
-      bool logical = ctx->cf_info.has_branch || ctx->cf_info.parent_loop.has_divergent_branch;
-      for (aco_ptr<Instruction>& instr : ctx->program->blocks[loop_header_idx].instructions) {
-         if ((logical && instr->opcode == aco_opcode::p_phi) ||
-             (linear && instr->opcode == aco_opcode::p_linear_phi)) {
-            /* the last operand should be the one that needs to be removed */
-            instr->operands.pop_back();
-         } else if (!is_phi(instr)) {
-            break;
-         }
-      }
-   }
-
-   /* Fixup linear phis in loop header from expecting a continue. Both this fixup
-    * and the previous one shouldn't both happen at once because a break in the
-    * merge block would get CSE'd */
+   /* We add an operand when creating ACO phis for NIR ones in case if it might end with a divergent
+    * break, in which case we need to insert a linear continue edge. Fixup linear phis by either
+    * removing that operand if it's not actually necessary, or give it the correct value. */
    if (nir_loop_last_block(loop)->successors[0] != nir_loop_first_block(loop)) {
       unsigned num_vals = ctx->cf_info.has_branch ? 1 : (ctx->block->index - loop_header_idx + 1);
       Operand* const vals = (Operand*)alloca(num_vals * sizeof(Operand));
@@ -10475,19 +10426,6 @@ visit_loop(isel_context* ctx, nir_loop* loop)
             break;
          }
       }
-   }
-
-   /* NIR seems to allow this, and even though the loop exit has no predecessors, SSA defs from the
-    * loop header are live. Handle this without complicating the ACO IR by creating a dummy break.
-    */
-   if (nir_cf_node_cf_tree_next(&loop->cf_node)->predecessors->entries == 0) {
-      Builder bld(ctx->program, ctx->block);
-      Temp cond = bld.copy(bld.def(s1, scc), Operand::zero());
-      if_context ic;
-      begin_uniform_if_then(ctx, &ic, cond);
-      emit_loop_break(ctx);
-      begin_uniform_if_else(ctx, &ic);
-      end_uniform_if(ctx, &ic);
    }
 
    end_loop(ctx, &lc);
@@ -10557,7 +10495,6 @@ begin_divergent_if_else(isel_context* ctx, if_context* ic,
       add_logical_edge(BB_then_logical->index, &ic->BB_endif);
    BB_then_logical->kind |= block_kind_uniform;
    assert(!ctx->cf_info.has_branch);
-   ic->then_branch_divergent = ctx->cf_info.parent_loop.has_divergent_branch;
    ctx->cf_info.parent_loop.has_divergent_branch = false;
    ctx->program->next_divergent_if_logical_depth--;
 
@@ -10622,7 +10559,7 @@ end_divergent_if(isel_context* ctx, if_context* ic)
    ctx->program->next_divergent_if_logical_depth--;
 
    assert(!ctx->cf_info.has_branch);
-   ctx->cf_info.parent_loop.has_divergent_branch &= ic->then_branch_divergent;
+   ctx->cf_info.parent_loop.has_divergent_branch = false;
 
    /** emit linear else block */
    Block* BB_else_linear = ctx->program->create_and_insert_block();
@@ -10656,6 +10593,9 @@ end_divergent_if(isel_context* ctx, if_context* ic)
       ctx->cf_info.exec_potentially_empty_break_depth = UINT16_MAX;
    }
    ctx->cf_info.had_divergent_discard |= ic->had_divergent_discard_then;
+
+   /* We shouldn't create unreachable blocks. */
+   assert(!ctx->block->logical_preds.empty());
 }
 
 static void
@@ -10682,6 +10622,7 @@ begin_uniform_if_then(isel_context* ctx, if_context* ic, Temp cond)
    ctx->cf_info.parent_loop.has_divergent_branch = false;
 
    ic->had_divergent_discard_old = ctx->cf_info.had_divergent_discard;
+   ic->has_divergent_continue_old = ctx->cf_info.parent_loop.has_divergent_continue;
 
    /** emit then block */
    ctx->program->next_uniform_if_depth++;
@@ -10696,10 +10637,7 @@ begin_uniform_if_else(isel_context* ctx, if_context* ic)
 {
    Block* BB_then = ctx->block;
 
-   ic->uniform_has_then_branch = ctx->cf_info.has_branch;
-   ic->then_branch_divergent = ctx->cf_info.parent_loop.has_divergent_branch;
-
-   if (!ic->uniform_has_then_branch) {
+   if (!ctx->cf_info.has_branch) {
       append_logical_end(BB_then);
       /* branch from then block to endif block */
       aco_ptr<Instruction> branch;
@@ -10707,7 +10645,7 @@ begin_uniform_if_else(isel_context* ctx, if_context* ic)
       branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
       BB_then->instructions.emplace_back(std::move(branch));
       add_linear_edge(BB_then->index, &ic->BB_endif);
-      if (!ic->then_branch_divergent)
+      if (!ctx->cf_info.parent_loop.has_divergent_branch)
          add_logical_edge(BB_then->index, &ic->BB_endif);
       BB_then->kind |= block_kind_uniform;
    }
@@ -10717,6 +10655,9 @@ begin_uniform_if_else(isel_context* ctx, if_context* ic)
 
    ic->had_divergent_discard_then = ctx->cf_info.had_divergent_discard;
    ctx->cf_info.had_divergent_discard = ic->had_divergent_discard_old;
+
+   ic->has_divergent_continue_then = ctx->cf_info.parent_loop.has_divergent_continue;
+   ctx->cf_info.parent_loop.has_divergent_continue = ic->has_divergent_continue_old;
 
    /** emit else block */
    Block* BB_else = ctx->program->create_and_insert_block();
@@ -10743,19 +10684,21 @@ end_uniform_if(isel_context* ctx, if_context* ic)
       BB_else->kind |= block_kind_uniform;
    }
 
-   ctx->cf_info.has_branch &= ic->uniform_has_then_branch;
-   ctx->cf_info.parent_loop.has_divergent_branch &= ic->then_branch_divergent;
+   ctx->cf_info.has_branch = false;
+   ctx->cf_info.parent_loop.has_divergent_branch = false;
    ctx->cf_info.had_divergent_discard |= ic->had_divergent_discard_then;
+   ctx->cf_info.parent_loop.has_divergent_continue |= ic->has_divergent_continue_then;
 
    /** emit endif merge block */
    ctx->program->next_uniform_if_depth--;
-   if (!ctx->cf_info.has_branch) {
-      ctx->block = ctx->program->insert_block(std::move(ic->BB_endif));
-      append_logical_start(ctx->block);
-   }
+   ctx->block = ctx->program->insert_block(std::move(ic->BB_endif));
+   append_logical_start(ctx->block);
+
+   /* We shouldn't create unreachable blocks. */
+   assert(!ctx->block->logical_preds.empty());
 }
 
-static bool
+static void
 visit_if(isel_context* ctx, nir_if* if_stmt)
 {
    Temp cond = get_ssa_temp(ctx, if_stmt->condition.ssa);
@@ -10824,25 +10767,19 @@ visit_if(isel_context* ctx, nir_if* if_stmt)
 
       end_divergent_if(ctx, &ic);
    }
-
-   return !ctx->cf_info.has_branch && !ctx->block->logical_preds.empty();
 }
 
-static bool
+static void
 visit_cf_list(isel_context* ctx, struct exec_list* list)
 {
    foreach_list_typed (nir_cf_node, node, node, list) {
       switch (node->type) {
       case nir_cf_node_block: visit_block(ctx, nir_cf_node_as_block(node)); break;
-      case nir_cf_node_if:
-         if (!visit_if(ctx, nir_cf_node_as_if(node)))
-            return true;
-         break;
+      case nir_cf_node_if: visit_if(ctx, nir_cf_node_as_if(node)); break;
       case nir_cf_node_loop: visit_loop(ctx, nir_cf_node_as_loop(node)); break;
       default: unreachable("unimplemented cf list type");
       }
    }
-   return false;
 }
 
 static void

@@ -543,20 +543,21 @@ if with_glx != 'disabled'
   endif
 endif
 
-with_glvnd = get_option('glvnd')
-glvnd_vendor_name = get_option('glvnd-vendor-name')
+_glvnd = get_option('glvnd') \
+  .require(not with_platform_windows,
+           error_message: 'glvnd cannot be used on Windows') \
+  .require(with_glx != 'xlib',
+           error_message: 'Cannot build glvnd support for GLX that is not DRI based.') \
+  .require(with_glx != 'disabled' or with_egl,
+           error_message: 'glvnd requires DRI based GLX and/or EGL') \
+  .require(get_option('egl-lib-suffix') == '',
+           error_message: '''EGL lib suffix can't be used with libglvnd''')
+dep_glvnd = dependency('libglvnd', version : '>= 1.3.2', required : _glvnd)
+with_glvnd = dep_glvnd.found()
 if with_glvnd
-  if with_platform_windows
-    error('glvnd cannot be used on Windows')
-  elif with_glx == 'xlib'
-    error('Cannot build glvnd support for GLX that is not DRI based.')
-  elif with_glx == 'disabled' and not with_egl
-    error('glvnd requires DRI based GLX and/or EGL')
-  endif
-  if get_option('egl-lib-suffix') != ''
-    error('''EGL lib suffix can't be used with libglvnd''')
-  endif
+  pre_args += '-DUSE_LIBGLVND=1'
 endif
+glvnd_vendor_name = get_option('glvnd-vendor-name')
 
 if with_vulkan_icd_dir == ''
   with_vulkan_icd_dir = join_paths(get_option('datadir'), 'vulkan/icd.d')
@@ -1892,12 +1893,6 @@ if dep_elf.found()
   pre_args += '-DUSE_LIBELF'
 elif with_gallium_radeonsi
   error('Gallium driver radeonsi requires libelf')
-endif
-
-dep_glvnd = null_dep
-if with_glvnd
-  dep_glvnd = dependency('libglvnd', version : '>= 1.3.2')
-  pre_args += '-DUSE_LIBGLVND=1'
 endif
 
 dep_valgrind = dependency('valgrind', required : get_option('valgrind'))

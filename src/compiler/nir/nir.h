@@ -606,6 +606,16 @@ typedef struct nir_variable {
        */
       unsigned explicit_location : 1;
 
+      /* Was the array implicitly sized during linking */
+      unsigned implicit_sized_array : 1;
+
+      /**
+       * Highest element accessed with a constant array index
+       *
+       * Not used for non-array variables. -1 is never accessed.
+       */
+      int max_array_access;
+
       /**
        * Is this varying used by transform feedback?
        *
@@ -645,6 +655,11 @@ typedef struct nir_variable {
        * block.
        */
       unsigned from_named_ifc_block : 1;
+
+      /**
+       * Unsized array buffer variable.
+       */
+      unsigned from_ssbo_unsized_array : 1;
 
       /**
        * Non-zero if the variable must be a shader input. This is useful for
@@ -3510,6 +3525,23 @@ typedef struct nir_function {
    /* from SPIR-V function control */
    bool should_inline;
    bool dont_inline; /* from SPIR-V */
+
+   /**
+    * Is this function a subroutine type declaration
+    * e.g. subroutine void type1(float arg1);
+    */
+   bool is_subroutine;
+
+   /**
+    * Is this function associated to a subroutine type
+    * e.g. subroutine (type1, type2) function_name { function_body };
+    * would have num_subroutine_types 2,
+    * and pointers to the type1 and type2 types.
+    */
+   int num_subroutine_types;
+   const struct glsl_type **subroutine_types;
+
+   int subroutine_index;
 } nir_function;
 
 typedef enum {
@@ -3567,6 +3599,7 @@ typedef enum {
    nir_divergence_single_frag_shading_rate_per_subgroup = (1 << 4),
    nir_divergence_multiple_workgroup_per_compute_subgroup = (1 << 5),
    nir_divergence_shader_record_ptr_uniform = (1 << 6),
+   nir_divergence_uniform_load_tears = (1 << 7),
 } nir_divergence_options;
 
 typedef enum {
@@ -4105,6 +4138,9 @@ typedef struct nir_shader_compiler_options {
 
    /** Lower VARYING_SLOT_LAYER in FS to SYSTEM_VALUE_LAYER_ID. */
    bool lower_layer_fs_input_to_sysval;
+
+   /** clip/cull distance and tess level arrays use compact semantics */
+   bool compact_arrays;
 
    /** Options determining lowering and behavior of inputs and outputs. */
    nir_io_options io_options;
