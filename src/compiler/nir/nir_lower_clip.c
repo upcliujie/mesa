@@ -95,7 +95,8 @@ create_clipdist_vars(nir_shader *shader, nir_variable **io_vars,
 }
 
 static void
-store_clipdist_output(nir_builder *b, int location, int location_offset,
+store_clipdist_output(nir_builder *b, nir_variable *out,
+                      int location, int location_offset,
                       nir_def **val, bool use_clipdist_array)
 {
    unsigned num_slots = use_clipdist_array ? b->shader->info.clip_distance_array_size : 4;
@@ -115,7 +116,8 @@ store_clipdist_output(nir_builder *b, int location, int location_offset,
                        .src_type = nir_type_float32,
                        .write_mask = 0x1,
                        .component = i,
-                       .io_semantics = semantics);
+                       .io_semantics = semantics,
+                       .base = out->data.driver_location);
    }
 }
 
@@ -316,14 +318,14 @@ lower_clip_outputs(nir_builder *b, nir_variable *position,
             nir_store_var(b, out[1], nir_vec(b, &clipdist[4], 4), 0xf);
       } else if (use_clipdist_array) {
          /* always emit first half of array */
-         store_clipdist_output(b, VARYING_SLOT_CLIP_DIST0, 0, &clipdist[0], use_clipdist_array);
+         store_clipdist_output(b, out[0], VARYING_SLOT_CLIP_DIST0, 0, &clipdist[0], use_clipdist_array);
          if (ucp_enables & 0xf0)
-            store_clipdist_output(b, VARYING_SLOT_CLIP_DIST0, 1, &clipdist[4], use_clipdist_array);
+            store_clipdist_output(b, out[0], VARYING_SLOT_CLIP_DIST0, 1, &clipdist[4], use_clipdist_array);
       } else {
          /* always emit first half of array */
-         store_clipdist_output(b, VARYING_SLOT_CLIP_DIST0, 0, &clipdist[0], use_clipdist_array);
+         store_clipdist_output(b, out[0], VARYING_SLOT_CLIP_DIST0, 0, &clipdist[0], use_clipdist_array);
          if (ucp_enables & 0xf0)
-            store_clipdist_output(b, VARYING_SLOT_CLIP_DIST1, 0, &clipdist[4], use_clipdist_array);
+            store_clipdist_output(b, out[1], VARYING_SLOT_CLIP_DIST1, 0, &clipdist[4], use_clipdist_array);
       }
    }
 }
@@ -382,7 +384,6 @@ nir_lower_clip_vs(nir_shader *shader, unsigned ucp_enables, bool use_vars,
 
    lower_clip_outputs(&b, position, clipvertex, out, ucp_enables, use_vars,
                       use_clipdist_array, clipplane_state_tokens);
-   nir_recompute_io_bases(shader, nir_var_shader_out);
 
    nir_metadata_preserve(impl, nir_metadata_dominance);
 
