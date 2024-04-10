@@ -1238,7 +1238,7 @@ void si_shader_dump_stats_for_shader_db(struct si_screen *screen, struct si_shad
        * for performance and can be optimized.
        */
       if (shader->key.ge.as_ls)
-         num_ls_outputs = shader->selector->info.lshs_vertex_stride / 16;
+         num_ls_outputs = util_last_bit64(shader->selector->info.outputs_written_before_tes_gs);
       else if (shader->selector->stage == MESA_SHADER_TESS_CTRL)
          num_hs_outputs = util_last_bit64(shader->selector->info.outputs_written_before_tes_gs);
       else if (shader->key.ge.as_es)
@@ -1796,9 +1796,6 @@ static bool si_lower_io_to_mem(struct si_shader *shader, nir_shader *nir,
                  sel->screen->info.gfx_level,
                  ~0ULL, ~0U, /* no TES inputs filter */
                  shader->wave_size,
-                 /* ALL TCS inputs are passed by register. */
-                 key->ge.opt.same_patch_vertices &&
-                 !(sel->info.base.inputs_read & ~sel->info.tcs_vgpr_only_inputs),
                  sel->info.tessfactors_are_def_in_all_invocs);
       return true;
    } else if (nir->info.stage == MESA_SHADER_TESS_EVAL) {

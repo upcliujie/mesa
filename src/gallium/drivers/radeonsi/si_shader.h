@@ -448,7 +448,6 @@ struct si_shader_info {
    uint8_t clipdist_mask;
    uint8_t culldist_mask;
 
-   uint16_t lshs_vertex_stride;
    uint16_t esgs_vertex_stride;
    uint16_t gsvs_vertex_size;
    uint8_t gs_input_verts_per_prim;
