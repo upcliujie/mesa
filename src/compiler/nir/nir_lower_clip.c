@@ -99,7 +99,7 @@ store_clipdist_output(nir_builder *b, nir_variable *out,
                       int location, int location_offset,
                       nir_def **val, bool use_clipdist_array)
 {
-   unsigned num_slots = use_clipdist_array ? b->shader->info.clip_distance_array_size : 4;
+   unsigned num_slots = b->shader->info.clip_distance_array_size;
    nir_io_semantics semantics = {
       .location = location,
       .num_slots = num_slots,
