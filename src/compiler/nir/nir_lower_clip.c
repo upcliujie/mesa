@@ -322,8 +322,8 @@ lower_clip_outputs(nir_builder *b, nir_variable *position,
          if (ucp_enables & 0xf0)
             store_clipdist_output(b, out[0], VARYING_SLOT_CLIP_DIST0, 1, &clipdist[4], use_clipdist_array);
       } else {
-         /* always emit first half of array */
-         store_clipdist_output(b, out[0], VARYING_SLOT_CLIP_DIST0, 0, &clipdist[0], use_clipdist_array);
+         if (ucp_enables & 0x0f)
+            store_clipdist_output(b, out[0], VARYING_SLOT_CLIP_DIST0, 0, &clipdist[0], use_clipdist_array);
          if (ucp_enables & 0xf0)
             store_clipdist_output(b, out[1], VARYING_SLOT_CLIP_DIST1, 0, &clipdist[4], use_clipdist_array);
       }
