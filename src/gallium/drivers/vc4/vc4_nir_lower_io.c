@@ -171,7 +171,9 @@ vc4_nir_lower_vertex_attr(struct vc4_compile *c, nir_builder *b,
 {
         b->cursor = nir_before_instr(&intr->instr);
 
-        int attr = nir_intrinsic_base(intr);
+        unsigned location = nir_intrinsic_io_semantics(intr).location;
+        int attr = location >= VERT_ATTRIB_GENERIC0 ?
+                   location - VERT_ATTRIB_GENERIC0 : location;
         enum pipe_format format = c->vs_key->attr_formats[attr];
         uint32_t attr_size = util_format_get_blocksize(format);
 
@@ -187,8 +189,13 @@ vc4_nir_lower_vertex_attr(struct vc4_compile *c, nir_builder *b,
         nir_def *vpm_reads[4];
         for (int i = 0; i < align(attr_size, 4) / 4; i++)
                 vpm_reads[i] = nir_load_input(b, 1, 32, nir_imm_int(b, 0),
-                                              .base = nir_intrinsic_base(intr),
+                                              .base = attr,
                                               .component = i);
+
+        nir_variable *var =
+                nir_find_variable_with_location(c->s, nir_var_shader_in, location);
+        assert(var);
+        var->data.driver_location = attr;
 
         bool format_warned = false;
         const struct util_format_description *desc =
@@ -227,19 +234,14 @@ vc4_nir_lower_fs_input(struct vc4_compile *c, nir_builder *b,
                 return;
         }
 
-        nir_variable *input_var =
-                nir_find_variable_with_driver_location(c->s, nir_var_shader_in,
-                                                       nir_intrinsic_base(intr));
-        assert(input_var);
-
-        int comp = nir_intrinsic_component(intr);
-
         /* Lower away point coordinates, and fix up PNTC. */
-        if (util_varying_is_point_coord(input_var->data.location,
+        unsigned location = nir_intrinsic_io_semantics(intr).location;
+        if (util_varying_is_point_coord(location,
                                         c->fs_key->point_sprite_mask)) {
                 assert(intr->num_components == 1);
 
                 nir_def *result = &intr->def;
+                int comp = nir_intrinsic_component(intr);
 
                 switch (comp) {
                 case 0:
@@ -274,14 +276,10 @@ static void
 vc4_nir_lower_output(struct vc4_compile *c, nir_builder *b,
                      nir_intrinsic_instr *intr)
 {
-        nir_variable *output_var =
-                nir_find_variable_with_driver_location(c->s, nir_var_shader_out,
-                                                       nir_intrinsic_base(intr));
-        assert(output_var);
-
+        unsigned location = nir_intrinsic_io_semantics(intr).location;
         if (c->stage == QSTAGE_COORD &&
-            output_var->data.location != VARYING_SLOT_POS &&
-            output_var->data.location != VARYING_SLOT_PSIZ) {
+            location != VARYING_SLOT_POS &&
+            location != VARYING_SLOT_PSIZ) {
                 nir_instr_remove(&intr->instr);
                 return;
         }
