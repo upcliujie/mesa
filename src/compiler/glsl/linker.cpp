@@ -121,7 +121,7 @@ public:
    {
       ir_variable *const var = ir->lhs->variable_referenced();
 
-      return check_variable_name(var->name);
+      return check_variable_name(var);
    }
 
    virtual ir_visitor_status visit_enter(ir_call *ir)
@@ -134,7 +134,7 @@ public:
          if (sig_param->data.mode == ir_var_function_out ||
              sig_param->data.mode == ir_var_function_inout) {
             ir_variable *var = param_rval->variable_referenced();
-            if (var && check_variable_name(var->name) == visit_stop)
+            if (var && check_variable_name(var) == visit_stop)
                return visit_stop;
          }
       }
@@ -142,7 +142,7 @@ public:
       if (ir->return_deref != NULL) {
          ir_variable *const var = ir->return_deref->variable_referenced();
 
-         if (check_variable_name(var->name) == visit_stop)
+         if (check_variable_name(var) == visit_stop)
             return visit_stop;
       }
 
@@ -150,18 +150,31 @@ public:
    }
 
 private:
-   ir_visitor_status check_variable_name(const char *name)
+   ir_visitor_status found_variable(find_variable *const var)
+   {
+      if (var->found)
+         return visit_continue_with_parent;
+
+      var->found = true;
+
+      assert(num_found < num_variables);
+      if (++num_found == num_variables)
+         return visit_stop;
+      return visit_continue_with_parent;
+   }
+
+   ir_visitor_status check_variable_name(ir_variable *const var)
    {
       for (unsigned i = 0; i < num_variables; ++i) {
-         if (strcmp(variables[i]->name, name) == 0) {
-            if (!variables[i]->found) {
-               variables[i]->found = true;
-
-               assert(num_found < num_variables);
-               if (++num_found == num_variables)
-                  return visit_stop;
-            }
-            break;
+         if (strcmp(variables[i]->name, var->name) == 0)
+            return found_variable(variables[i]);
+         if (var->is_interface_instance() && var->get_interface_type()) {
+            const struct glsl_type *type = var->get_interface_type();
+            for (unsigned j = 0; j < type->length; j++)
+               if (strcmp(variables[i]->name, type->fields.structure[j].name) == 0) {
+                  if (found_variable(variables[i]) == visit_stop)
+                     return visit_stop;
+               }
          }
       }
 
@@ -460,16 +473,37 @@ analyze_clip_cull_usage(struct gl_shader_program *prog,
       }
 
       if (gl_ClipDistance.found) {
+         const struct 
          ir_variable *clip_distance_var =
                 shader->symbols->get_variable("gl_ClipDistance");
-         assert(clip_distance_var);
-         info->clip_distance_array_size = clip_distance_var->type->length;
+         if (clip_distance_var) {
+            info->clip_distance_array_size = clip_distance_var->type->length;
+         } else {
+            clip_distance_var = shader->symbols->get_variable("gl_out");
+            const struct glsl_type *type = clip_distance_var->get_interface_type();
+            for (unsigned j = 0; j < type->length; j++)
+               if (!strcmp("gl_ClipDistance", type->fields.structure[j].name)) {
+                  info->clip_distance_array_size = type->fields.structure[j].type->length;
+                  break;
+               }
+         }
+         assert(info->clip_distance_array_size);
       }
       if (gl_CullDistance.found) {
          ir_variable *cull_distance_var =
                 shader->symbols->get_variable("gl_CullDistance");
-         assert(cull_distance_var);
-         info->cull_distance_array_size = cull_distance_var->type->length;
+         if (cull_distance_var) {
+            info->cull_distance_array_size = cull_distance_var->type->length;
+         } else {
+            cull_distance_var = shader->symbols->get_variable("gl_out");
+            const struct glsl_type *type = cull_distance_var->get_interface_type();
+            for (unsigned j = 0; j < type->length; j++)
+               if (!strcmp("gl_CullDistance", type->fields.structure[j].name)) {
+                  info->cull_distance_array_size = type->fields.structure[j].type->length;
+                  break;
+               }
+         }
+         assert(info->cull_distance_array_size);
       }
       /* From the ARB_cull_distance spec:
        *
@@ -571,7 +605,8 @@ validate_tess_eval_shader_executable(struct gl_shader_program *prog,
  */
 static void
 validate_fragment_shader_executable(struct gl_shader_program *prog,
-                                    struct gl_linked_shader *shader)
+                                    struct gl_linked_shader *shader,
+                                    const struct gl_constants *consts)
 {
    if (shader == NULL)
       return;
@@ -580,6 +615,7 @@ validate_fragment_shader_executable(struct gl_shader_program *prog,
    find_variable gl_FragData("gl_FragData");
    find_variable * const variables[] = { &gl_FragColor, &gl_FragData, NULL };
    find_assignments(shader->ir, variables);
+   analyze_clip_cull_usage(prog, shader, consts, &shader->Program->info);
 
    if (gl_FragColor.found && gl_FragData.found) {
       linker_error(prog,  "fragment shader writes to both "
@@ -2355,7 +2391,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
             validate_vertex_shader_executable(prog, sh, consts);
             break;
          case MESA_SHADER_TESS_CTRL:
-            /* nothing to be done */
+            analyze_clip_cull_usage(prog, sh, consts, &sh->Program->info);
             break;
          case MESA_SHADER_TESS_EVAL:
             validate_tess_eval_shader_executable(prog, sh, consts);
@@ -2364,7 +2400,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
             validate_geometry_shader_executable(prog, sh, consts);
             break;
          case MESA_SHADER_FRAGMENT:
-            validate_fragment_shader_executable(prog, sh);
+            validate_fragment_shader_executable(prog, sh, consts);
             break;
          }
          if (!prog->data->LinkStatus) {
