@@ -1242,7 +1242,10 @@ opcode: CP_LOAD_STATE4 (30) (4 dwords)
 	<reg32 offset="0" name="0">
 		<bitfield name="REG" low="0" high="17" type="hex"/>
 		<!-- number of registers/dwords copied is max(CNT, 1). -->
-		<bitfield name="CNT" low="18" high="29" type="uint"/>
+		<bitfield name="CNT" low="18" high="27" type="uint"/>
+		<!-- Increment offset in OFFSET regs, allowing to append data to a buffer -->
+		<bitfield name="INCREMENT_OFFSET" pos="28" type="boolean" varset="chip" variants="A7XX-"/>
+		<bitfield name="SKIP_WAIT_FOR_ME" pos="29" type="boolean" varset="chip" variants="A7XX-"/>
 		<bitfield name="64B" pos="30" type="boolean"/>
 		<bitfield name="ACCUMULATE" pos="31" type="boolean"/>
 	</reg32>
@@ -1253,10 +1256,13 @@ opcode: CP_LOAD_STATE4 (30) (4 dwords)
 		<bitfield name="DEST_HI" low="0" high="31"/>
 	</reg32>
 	<reg32 offset="3" name="3">
-		<bitfield name="OFFSET0" low="0" high="17" type="hex"/>
-		<bitfield name="OFFSET0_SCRATCH" pos="19" type="boolean"/>
+		<bitfield name="OFFSET_REG" low="0" high="17" type="hex"/>
+		<bitfield name="OFFSET_SCRATCH" pos="19" type="boolean"/>
 	</reg32>
-	<!-- followed by an optional identical OFFSET1 dword -->
+	<reg32 offset="4" name="4">
+		<bitfield name="OFFSET_REG_HI" low="0" high="17" type="hex"/>
+		<bitfield name="OFFSET_SCRATCH" pos="19" type="boolean"/>
+	</reg32>
 </domain>
 
 <domain name="CP_REG_TO_MEM_OFFSET_MEM" width="32">
