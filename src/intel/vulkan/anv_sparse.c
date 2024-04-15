@@ -643,14 +643,12 @@ anv_init_sparse_bindings(struct anv_device *device,
    if (device->physical->sparse_type == ANV_SPARSE_TYPE_TRTT)
       alloc_flags |= ANV_BO_ALLOC_TRTT;
 
-   sparse->address = anv_vma_alloc(device, size, ANV_SPARSE_BLOCK_SIZE,
-                                   alloc_flags,
-                                   intel_48b_address(client_address),
-                                   &sparse->vma_heap);
-   sparse->size = size;
+   uint64_t address = anv_vma_alloc(device, size, ANV_SPARSE_BLOCK_SIZE,
+                                    alloc_flags,
+                                    intel_48b_address(client_address),
+                                    &sparse->vma_heap);
 
-   out_address->bo = NULL;
-   out_address->offset = sparse->address;
+   *out_address = anv_address_from_u64(address);
 
    struct anv_vm_bind bind = {
       .bo = NULL, /* That's a NULL binding. */
@@ -669,9 +667,12 @@ anv_init_sparse_bindings(struct anv_device *device,
    };
    VkResult res = anv_sparse_bind(device, &submit);
    if (res != VK_SUCCESS) {
-      anv_vma_free(device, sparse->vma_heap, sparse->address, sparse->size);
+      anv_vma_free(device, sparse->vma_heap, address, size);
       return res;
    }
+
+   sparse->address = address;
+   sparse->size = size;
 
    return VK_SUCCESS;
 }

@@ -89,6 +89,7 @@ static const driOptionDescription anv_dri_options[] = {
       DRI_CONF_ANV_QUERY_CLEAR_WITH_BLORP_THRESHOLD(6)
       DRI_CONF_ANV_QUERY_COPY_WITH_SHADER_THRESHOLD(6)
       DRI_CONF_ANV_FORCE_INDIRECT_DESCRIPTORS(false)
+      DRI_CONF_ANV_DISABLE_TRTT_DESCRIPTOR_BUFFER(false)
       DRI_CONF_SHADER_SPILLING_RATE(0)
       DRI_CONF_OPT_B(intel_tbimr, true, "Enable TBIMR tiled rendering")
    DRI_CONF_SECTION_END
@@ -343,7 +344,8 @@ get_device_extensions(const struct anv_physical_device *device,
       .EXT_depth_clip_control                = true,
       .EXT_depth_range_unrestricted          = device->info.ver >= 20,
       .EXT_depth_clip_enable                 = true,
-      .EXT_descriptor_buffer                 = true,
+      .EXT_descriptor_buffer                 = !(device->has_sparse && device->sparse_uses_trtt) ||
+                                               !device->instance->disable_trtt_descriptor_buffer,
       .EXT_descriptor_indexing               = true,
 #ifdef VK_USE_PLATFORM_DISPLAY_KHR
       .EXT_display_control                   = true,
@@ -2628,6 +2630,8 @@ anv_init_dri_options(struct anv_instance *instance)
             driQueryOptionb(&instance->dri_options, "anv_disable_fcv");
     instance->external_memory_implicit_sync =
             driQueryOptionb(&instance->dri_options, "anv_external_memory_implicit_sync");
+    instance->disable_trtt_descriptor_buffer =
+            driQueryOptionb(&instance->dri_options, "anv_disable_trtt_decriptor_buffer");
 }
 
 VkResult anv_CreateInstance(
@@ -5043,6 +5047,23 @@ VkResult anv_CreateBuffer(
                              VK_BUFFER_CREATE_SPARSE_ALIASED_BIT))
       fprintf(stderr, "=== %s %s:%d flags:0x%08x\n", __func__, __FILE__,
               __LINE__, pCreateInfo->flags);
+
+   /* In theory this puts us out of spec. This failure is here to let us
+    * disable the extension in case we run into this.
+    */
+   const VkBufferUsageFlags descriptor_buffer_usages =
+      VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT |
+      VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT |
+      VK_BUFFER_USAGE_PUSH_DESCRIPTORS_DESCRIPTOR_BUFFER_BIT_EXT;
+   const VkBufferCreateFlags sparse_flags =
+      VK_BUFFER_CREATE_SPARSE_BINDING_BIT |
+      VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT |
+      VK_BUFFER_CREATE_SPARSE_ALIASED_BIT;
+   if (device->physical->has_sparse &&
+       device->physical->sparse_uses_trtt &&
+       (pCreateInfo->usage & descriptor_buffer_usages) != 0 &&
+       (pCreateInfo->flags & sparse_flags) != 0)
+      return vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
 
    /* Don't allow creating buffers bigger than our address space.  The real
     * issue here is that we may align up the buffer size and we don't want
