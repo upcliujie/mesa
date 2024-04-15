@@ -299,6 +299,10 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
    fs_reg sample_mask = inst->src[FB_WRITE_LOGICAL_SRC_OMASK];
    const unsigned components =
       inst->src[FB_WRITE_LOGICAL_SRC_COMPONENTS].ud;
+  const fs_reg desc_rts = inst->src[FB_WRITE_LOGICAL_SRC_DESC_RTS];
+  const fs_reg ex_desc_rts = inst->src[FB_WRITE_LOGICAL_SRC_EX_DESC_RTS];
+
+  assert(desc_rts.file == ex_desc_rts.file);
 
    assert(inst->target != 0 || src0_alpha.file == BAD_FILE);
 
@@ -307,7 +311,8 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
    unsigned length = 0;
 
    if (devinfo->ver < 11 &&
-      (color1.file != BAD_FILE || key->nr_color_regions > 1)) {
+      (color1.file != BAD_FILE || key->nr_color_regions > 1 ||
+       desc_rts.file != BAD_FILE)) {
       assert(devinfo->ver < 20);
 
       /* From the Sandy Bridge PRM, volume 4, page 198:
@@ -358,11 +363,13 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
       }
 
       /* Set the render target index for choosing BLEND_STATE. */
-      if (inst->target > 0) {
+      if (desc_rts.file != BAD_FILE) {
+         ubld.group(1, 0).MOV(component(header, 2), component(desc_rts, inst->target));
+      } else if (inst->target > 0) {
          ubld.group(1, 0).MOV(component(header, 2), brw_imm_ud(inst->target));
       }
 
-      if (prog_data->uses_kill) {
+      if (prog_data->uses_kill || desc_rts.file != BAD_FILE) {
          ubld.group(1, 0).MOV(retype(component(header, 15),
                                      BRW_REGISTER_TYPE_UW),
                               brw_sample_mask_reg(bld));
@@ -466,7 +473,9 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
    /* XXX - Bit 13 Per-sample PS enable */
    inst->desc =
       (inst->group / 16) << 11 | /* rt slot group */
-      brw_fb_write_desc(devinfo, inst->target, msg_ctl, inst->last_rt,
+      brw_fb_write_desc(devinfo,
+                        desc_rts.file != BAD_FILE ? 0 : inst->target,
+                        msg_ctl, inst->last_rt,
                         0 /* coarse_rt_write */);
 
    fs_reg desc = brw_imm_ud(0);
@@ -478,33 +487,52 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
       desc = ubld.vgrf(BRW_REGISTER_TYPE_UD);
       ubld.AND(desc, dynamic_msaa_flags(prog_data),
                brw_imm_ud(INTEL_MSAA_FLAG_COARSE_RT_WRITES));
-      desc = component(desc, 0);
    }
 
-   uint32_t ex_desc = 0;
+   if (desc_rts.file != BAD_FILE) {
+      const fs_builder &ubld = bld.exec_all().group(8, 0);
+      if (desc.file == VGRF)
+         ubld.OR(desc, desc, component(desc_rts, inst->target));
+      else
+         desc = component(desc_rts, inst->target);
+   }
+
+   fs_reg ex_desc = brw_imm_ud(0);
+   uint32_t ex_desc_imm = 0;
    if (devinfo->ver >= 20) {
-      ex_desc = inst->target << 21 |
-                (key->nr_color_regions == 0) << 20 |
-                (src0_alpha.file != BAD_FILE) << 15 |
-                (src_stencil.file != BAD_FILE) << 14 |
-                (src_depth.file != BAD_FILE) << 13 |
-                (sample_mask.file != BAD_FILE) << 12;
-   } else if (devinfo->ver >= 11) {
-      /* Set the "Render Target Index" and "Src0 Alpha Present" fields
-       * in the extended message descriptor, in lieu of using a header.
-       */
-      ex_desc = inst->target << 12 | (src0_alpha.file != BAD_FILE) << 15;
+      ex_desc_imm = (src0_alpha.file != BAD_FILE) << 15 |
+                    (src_stencil.file != BAD_FILE) << 14 |
+                    (src_depth.file != BAD_FILE) << 13 |
+                    (sample_mask.file != BAD_FILE) << 12;
 
-      if (key->nr_color_regions == 0)
-         ex_desc |= 1 << 20; /* Null Render Target */
+      if (ex_desc_rts.file != BAD_FILE) {
+         const fs_builder &ubld = bld.exec_all().group(1, 0);
+         ex_desc = ubld.vgrf(BRW_REGISTER_TYPE_UD);
+         ubld.MOV(ex_desc, component(ex_desc_rts, inst->target));
+      } else {
+         ex_desc_imm |= (key->nr_color_regions == 0) << 20;
+         ex_desc_imm |= inst->target << 21;
+      }
+   } else if (devinfo->ver >= 11) {
+      /* Set the "Render Target Index" and "Src0 Alpha Present" fields in the
+       * extended message descriptor, in lieu of using a header.
+       */
+      ex_desc_imm |= (src0_alpha.file != BAD_FILE) << 15;
+
+      if (ex_desc_rts.file != BAD_FILE) {
+         ex_desc = component(ex_desc_rts, inst->target);
+      } else {
+         ex_desc_imm |= (key->nr_color_regions == 0) << 20; /* Null Render Target */
+         ex_desc_imm |= inst->target << 12;
+      }
    }
-   inst->ex_desc = ex_desc;
+   inst->ex_desc = ex_desc_imm;
 
    inst->opcode = SHADER_OPCODE_SEND;
    inst->resize_sources(3);
    inst->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
-   inst->src[0] = desc;
-   inst->src[1] = brw_imm_ud(0);
+   inst->src[0] = component(desc, 0);
+   inst->src[1] = component(ex_desc, 0);
    inst->src[2] = payload;
    inst->mlen = regs_written(load);
    inst->ex_mlen = 0;
@@ -2992,6 +3020,81 @@ brw_fs_lower_uniform_pull_constant_loads(fs_visitor &s)
       }
 
       progress = true;
+   }
+
+   return progress;
+}
+
+bool
+brw_fs_lower_send_indirect_messages(fs_visitor &s)
+{
+   const intel_device_info *devinfo = s.devinfo;
+   bool progress = false;
+
+   foreach_block_and_inst (block, fs_inst, inst, s.cfg) {
+      if (inst->opcode != SHADER_OPCODE_SEND)
+         continue;
+
+      const fs_builder ubld = fs_builder(&s, block, inst).exec_all().group(1, 0);
+
+      /* Descriptor */
+      const unsigned rlen = inst->dst.is_null() ? 0 : inst->size_written / REG_SIZE;
+      uint32_t desc_imm = inst->desc |
+         brw_message_desc(devinfo, inst->mlen, rlen, inst->header_size);
+
+      assert(inst->src[0].file != BAD_FILE);
+      assert(inst->src[1].file != BAD_FILE);
+
+      fs_reg desc = inst->src[0];
+      if (desc.file == IMM) {
+         inst->src[0] = brw_imm_ud(desc.ud | desc_imm);
+      } else {
+         fs_reg addr_reg = ubld.vaddr(BRW_REGISTER_TYPE_UD, 0);
+         ubld.OR(addr_reg, desc, brw_imm_ud(desc_imm));
+         inst->src[0] = addr_reg;
+      }
+
+      /* Extended descriptor */
+      fs_reg ex_desc = inst->src[1];
+      uint32_t ex_desc_imm = inst->ex_desc |
+         brw_message_ex_desc(devinfo, inst->ex_mlen);
+
+      if (ex_desc.file == IMM)
+         ex_desc_imm |= ex_desc.ud;
+
+      bool needs_addr_reg = false;
+      if (ex_desc.file != IMM)
+         needs_addr_reg = true;
+      if (devinfo->ver < 12 && ex_desc.file == IMM &&
+          (ex_desc_imm & INTEL_MASK(15, 12)) != 0)
+         needs_addr_reg = true;
+
+      if (inst->send_ex_bso) {
+         needs_addr_reg = true;
+         /* When using the extended bindless offset, the whole extended
+          * descriptor is the surface handle.
+          */
+         ex_desc_imm = 0;
+      } else {
+         if (needs_addr_reg)
+            ex_desc_imm |=  inst->sfid | inst->eot << 5;
+      }
+
+      if (needs_addr_reg) {
+         fs_reg addr_reg = ubld.vaddr(BRW_REGISTER_TYPE_UD, 2);
+         if (ex_desc.file == IMM)
+            ubld.MOV(addr_reg, brw_imm_ud(ex_desc_imm));
+         else if (ex_desc_imm == 0)
+            ubld.MOV(addr_reg, ex_desc);
+         else
+            ubld.OR(addr_reg, ex_desc, brw_imm_ud(ex_desc_imm));
+         inst->src[1] = addr_reg;
+      } else {
+         inst->src[1] = brw_imm_ud(ex_desc_imm);
+      }
+
+      progress = true;
+      s.invalidate_analysis(DEPENDENCY_INSTRUCTIONS | DEPENDENCY_VARIABLES);
    }
 
    return progress;

@@ -30,15 +30,17 @@
 
 void
 anv_nir_compute_push_layout(nir_shader *nir,
-                            const struct anv_physical_device *pdevice,
+                            const struct anv_device *device,
                             enum brw_robustness_flags robust_flags,
                             bool fragment_dynamic,
+                            bool fragment_output_dynamic,
                             struct brw_stage_prog_data *prog_data,
                             struct anv_pipeline_bind_map *map,
                             const struct anv_pipeline_push_map *push_map,
                             enum anv_descriptor_set_layout_type desc_type,
                             void *mem_ctx)
 {
+   const struct anv_physical_device *pdevice = device->physical;
    const struct brw_compiler *compiler = pdevice->compiler;
    const struct intel_device_info *devinfo = compiler->devinfo;
    memset(map->push_ranges, 0, sizeof(map->push_ranges));
@@ -115,12 +117,24 @@ anv_nir_compute_push_layout(nir_shader *nir,
       push_end = MAX2(push_end, push_reg_mask_end);
    }
 
-   if (nir->info.stage == MESA_SHADER_FRAGMENT && fragment_dynamic) {
+   if (fragment_dynamic) {
       const uint32_t fs_msaa_flags_start =
          offsetof(struct anv_push_constants, gfx.fs_msaa_flags);
       const uint32_t fs_msaa_flags_end = fs_msaa_flags_start + sizeof(uint32_t);
       push_start = MIN2(push_start, fs_msaa_flags_start);
       push_end = MAX2(push_end, fs_msaa_flags_end);
+   }
+
+   if (fragment_output_dynamic) {
+      const uint32_t fs_map_start =
+         MIN2(offsetof(struct anv_push_constants, gfx.fs_rt_map),
+              offsetof(struct anv_push_constants, gfx.fs_active_rts));
+      const uint32_t fs_map_end =
+         MAX2(offsetof(struct anv_push_constants, gfx.fs_rt_map),
+              offsetof(struct anv_push_constants, gfx.fs_active_rts)) +
+         sizeof(uint32_t);
+      push_start = MIN2(push_start, fs_map_start);
+      push_end = MAX2(push_end, fs_map_end);
    }
 
    if (nir->info.stage == MESA_SHADER_COMPUTE && devinfo->verx10 < 125) {
@@ -310,15 +324,24 @@ anv_nir_compute_push_layout(nir_shader *nir,
       map->push_ranges[0] = push_constant_range;
    }
 
-   if (nir->info.stage == MESA_SHADER_FRAGMENT && fragment_dynamic) {
+   if (fragment_dynamic) {
       struct brw_wm_prog_data *wm_prog_data =
          container_of(prog_data, struct brw_wm_prog_data, base);
 
       const uint32_t fs_msaa_flags_offset =
          offsetof(struct anv_push_constants, gfx.fs_msaa_flags);
       assert(fs_msaa_flags_offset >= push_start);
-      wm_prog_data->msaa_flags_param =
-         (fs_msaa_flags_offset - push_start) / 4;
+      wm_prog_data->msaa_flags_param = (fs_msaa_flags_offset - push_start) / 4;
+   }
+
+   if (fragment_output_dynamic) {
+      struct brw_wm_prog_data *wm_prog_data =
+         container_of(prog_data, struct brw_wm_prog_data, base);
+
+      wm_prog_data->rt_map_param =
+         (offsetof(struct anv_push_constants, gfx.fs_rt_map) - push_start) / 4;
+      wm_prog_data->rt_active_param =
+         (offsetof(struct anv_push_constants, gfx.fs_active_rts) - push_start) / 4;
    }
 
 #if 0

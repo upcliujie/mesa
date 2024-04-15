@@ -305,7 +305,7 @@ anv_device_get_internal_shader(struct anv_device *device,
    };
 
    struct anv_shader_bin *bin =
-      p_atomic_read(&device->internal_kernels[name]);
+      p_atomic_read(&device->internal_kernels.binaries[name]);
    if (bin != NULL) {
       *out_bin = bin;
       return VK_SUCCESS;
@@ -318,7 +318,7 @@ anv_device_get_internal_shader(struct anv_device *device,
                                    sizeof(internal_kernels[name].key),
                                    NULL);
    if (bin != NULL) {
-      p_atomic_set(&device->internal_kernels[name], bin);
+      p_atomic_set(&device->internal_kernels.binaries[name], bin);
       *out_bin = bin;
       return VK_SUCCESS;
    }
@@ -345,7 +345,7 @@ anv_device_get_internal_shader(struct anv_device *device,
     */
    anv_shader_bin_unref(device, bin);
 
-   p_atomic_set(&device->internal_kernels[name], bin);
+   p_atomic_set(&device->internal_kernels.binaries[name], bin);
 
    *out_bin = bin;
    return VK_SUCCESS;
@@ -358,7 +358,7 @@ anv_device_init_internal_kernels(struct anv_device *device)
       intel_get_default_l3_weights(device->info,
                                    true /* wants_dc_cache */,
                                    false /* needs_slm */);
-   device->internal_kernels_l3_config = intel_get_l3_config(device->info, w);
+   device->internal_kernels.l3_config = intel_get_l3_config(device->info, w);
 
    return VK_SUCCESS;
 }

@@ -298,7 +298,8 @@ public:
 
    fs_inst *emit_single_fb_write(const brw::fs_builder &bld,
                                  fs_reg color1, fs_reg color2,
-                                 fs_reg src0_alpha, unsigned components);
+                                 fs_reg src0_alpha, unsigned components,
+                                 fs_reg desc_rts, fs_reg ex_desc_rts);
    void do_emit_fb_writes(int nr_color_regions, bool replicate_alpha);
    void emit_fb_writes();
    void emit_urb_writes(const fs_reg &gs_vertex_count = fs_reg());
@@ -562,6 +563,20 @@ namespace brw {
                     BRW_REGISTER_TYPE_UD);
    }
 
+   inline fs_reg
+   rt_map_param(const struct brw_wm_prog_data *wm_prog_data)
+   {
+      return fs_reg(UNIFORM, wm_prog_data->rt_map_param,
+                    BRW_REGISTER_TYPE_UD);
+   }
+
+   inline fs_reg
+   rt_active_param(const struct brw_wm_prog_data *wm_prog_data)
+   {
+      return fs_reg(UNIFORM, wm_prog_data->rt_active_param,
+                    BRW_REGISTER_TYPE_UD);
+   }
+
    void
    check_dynamic_msaa_flag(const fs_builder &bld,
                            const struct brw_wm_prog_data *wm_prog_data,
@@ -613,7 +628,9 @@ bool brw_fs_lower_sends_overlapping_payload(fs_visitor &s);
 bool brw_fs_lower_simd_width(fs_visitor &s);
 bool brw_fs_lower_sub_sat(fs_visitor &s);
 bool brw_fs_lower_uniform_pull_constant_loads(fs_visitor &s);
+bool brw_fs_lower_send_indirect_messages(fs_visitor &s);
 
+bool brw_fs_opt_address_reg_load(fs_visitor &s);
 bool brw_fs_opt_algebraic(fs_visitor &s);
 bool brw_fs_opt_bank_conflicts(fs_visitor &s);
 bool brw_fs_opt_cmod_propagation(fs_visitor &s);

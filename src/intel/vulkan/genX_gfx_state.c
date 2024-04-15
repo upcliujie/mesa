@@ -142,8 +142,10 @@ get_cps_state_offset(struct anv_cmd_buffer *cmd_buffer, bool cps_enabled,
 static bool
 has_ds_feedback_loop(const struct vk_dynamic_graphics_state *dyn)
 {
-   return dyn->feedback_loops & (VK_IMAGE_ASPECT_DEPTH_BIT |
-                                 VK_IMAGE_ASPECT_STENCIL_BIT);
+   return (dyn->feedback_loops & (VK_IMAGE_ASPECT_DEPTH_BIT |
+                                  VK_IMAGE_ASPECT_STENCIL_BIT)) ||
+      dyn->ial.depth_att != MESA_VK_ATTACHMENT_UNUSED ||
+      dyn->ial.stencil_att != MESA_VK_ATTACHMENT_UNUSED;
 }
 
 UNUSED static bool
@@ -903,11 +905,11 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
        BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_ALPHA_TO_ONE_ENABLE) ||
        BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_WRITE_MASKS) ||
        BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_ENABLES) ||
-       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_EQUATIONS)) {
+       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_CB_BLEND_EQUATIONS) ||
+       BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_COLOR_ATTACHMENT_MAP)) {
       const uint8_t color_writes = dyn->cb.color_write_enables;
       const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
-      bool has_writeable_rt =
-         anv_pipeline_has_stage(pipeline, MESA_SHADER_FRAGMENT) &&
+      bool has_writeable_rt = wm_prog_data != NULL &&
          (color_writes & ((1u << gfx->color_att_count) - 1)) != 0;
 
       SET(BLEND_STATE, blend.AlphaToCoverageEnable,

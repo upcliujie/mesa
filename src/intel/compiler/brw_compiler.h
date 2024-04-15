@@ -289,6 +289,12 @@ enum brw_sometimes {
    BRW_ALWAYS
 };
 
+enum brw_rt_remap {
+   BRW_RT_REMAP_NONE    = 0,
+   BRW_RT_REMAP_STATIC  = 1,
+   BRW_RT_REMAP_DYNAMIC = 2,
+};
+
 static inline enum brw_sometimes
 brw_sometimes_invert(enum brw_sometimes x)
 {
@@ -330,8 +336,17 @@ struct brw_wm_prog_key {
    bool coherent_fb_fetch:1;
    bool ignore_sample_mask_out:1;
    bool coarse_pixel:1;
+   /**
+    * How to remap color outputs
+    */
+   enum brw_rt_remap remap_color_outputs:2;
 
-   uint64_t padding:36;
+   uint32_t padding:2;
+
+   /**
+    * Array of 4 bit values mapping the render target to its actually output.
+    */
+   uint32_t color_output_map;
 };
 
 struct brw_cs_prog_key {
@@ -626,6 +641,11 @@ struct brw_wm_prog_data {
     */
    uint8_t dispatch_multi;
 
+   /**
+    * Bitfield of color outputs written by the shader.
+    */
+   uint8_t written_color_outputs;
+
    bool computed_stencil;
    bool early_fragment_tests;
    bool post_depth_coverage;
@@ -673,7 +693,27 @@ struct brw_wm_prog_data {
     */
    enum brw_sometimes alpha_to_coverage;
 
+   /**
+    * Shader remapping state of color outputs.
+    */
+   enum brw_rt_remap remap_color_outputs;
+
+   /**
+    * Location of the dynamic msaa params in push constants.
+    */
    unsigned msaa_flags_param;
+
+   /**
+    * Location of the render target mapping params in push constants (value is
+    * 32bits, 4bits per render target).
+    */
+   unsigned rt_map_param;
+
+   /**
+    * Location of the bitfield of render target acitve params in push
+    * constants (value is 32bits, only first 8bits used).
+    */
+   unsigned rt_active_param;
 
    /**
     * Mask of which interpolation modes are required by the fragment shader.

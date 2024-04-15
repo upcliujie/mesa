@@ -351,6 +351,21 @@ brw_fs_opt_algebraic(fs_visitor &s)
             inst->sources = 1;
 
             progress = true;
+         } else if (inst->src[1].file == IMM && inst->src[1].ud == 0) {
+            inst->opcode = BRW_OPCODE_MOV;
+            inst->src[1] = reg_undef;
+            inst->sources = 1;
+
+            progress = true;
+         }
+         break;
+      case BRW_OPCODE_SHR:
+         if (inst->src[1].file == IMM && inst->src[1].ud == 0) {
+            inst->opcode = BRW_OPCODE_MOV;
+            inst->src[1] = reg_undef;
+            inst->sources = 1;
+
+            progress = true;
          }
          break;
 

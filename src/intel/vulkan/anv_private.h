@@ -1873,13 +1873,11 @@ struct anv_device {
 
     enum anv_rt_bvh_build_method                bvh_build_method;
 
-    /** Draw generation shader
-     *
-     * Generates direct draw calls out of indirect parameters. Used to
-     * workaround slowness with indirect draw calls.
-     */
-    struct anv_shader_bin                      *internal_kernels[ANV_INTERNAL_KERNEL_COUNT];
-    const struct intel_l3_config               *internal_kernels_l3_config;
+    /** Various internal shaders to speed things up */
+    struct {
+       struct anv_shader_bin                      *binaries[ANV_INTERNAL_KERNEL_COUNT];
+       const struct intel_l3_config               *l3_config;
+    } internal_kernels;
 
     pthread_mutex_t                             mutex;
     pthread_cond_t                              queue_submit;
@@ -3365,6 +3363,12 @@ struct anv_push_constants {
          /** Dynamic MSAA value */
          uint32_t fs_msaa_flags;
 
+         /** Mapping of render targets (array of 4bit elements) */
+         uint32_t fs_rt_map;
+
+         /** Bitfield of active render targets */
+         uint32_t fs_active_rts;
+
          /** Dynamic TCS input vertices */
          uint32_t tcs_input_vertices;
       } gfx;
@@ -4367,6 +4371,10 @@ anv_shader_bin_unref(struct anv_device *device, struct anv_shader_bin *shader)
    vk_pipeline_cache_object_unref(&device->vk, &shader->base);
 }
 
+/* Describe a shader executable for VK_KHR_pipeline_executable_properties. You
+ * can have multiple of those structure for each of the SIMD variant of a
+ * anv_shader_bin.
+ */
 struct anv_pipeline_executable {
    gl_shader_stage stage;
 
@@ -4418,6 +4426,7 @@ struct anv_pipeline {
    /* Layout of the sets used by the pipeline. */
    struct anv_pipeline_sets_layout              layout;
 
+   /* Array of anv_pipeline_executable for pipeline executable properties. */
    struct util_dynarray                         executables;
 
    const struct intel_l3_config *               l3_config;
@@ -4544,6 +4553,19 @@ struct anv_graphics_pipeline {
    uint32_t                                     vertex_input_elems;
    uint32_t                                     vertex_input_data[2 * 31 /* MAX_VES + 2 internal */];
 
+   /* Bitfield of written color ouputs by the fragment shader (masked
+    * according to the render pass color attachments available as well as the
+    * color output locations from the KHR_dynamic_rendering_local_read
+    * extension)
+    */
+   uint8_t                                      written_color_outputs;
+
+   /* An array of 4bit values mapping render targets (shader output index) to
+    * attachments (binding table offset)
+    */
+   uint32_t                                     fs_rt_map;
+
+   /* Bitfield of dynamic bits passed into the shader */
    enum intel_msaa_flags                        fs_msaa_flags;
 
    /* Pre computed CS instructions that can directly be copied into
@@ -5622,7 +5644,8 @@ static inline const struct anv_surface_state *
 anv_image_view_texture_surface_state(const struct anv_image_view *iview,
                                      uint32_t plane, VkImageLayout layout)
 {
-   return layout == VK_IMAGE_LAYOUT_GENERAL ?
+   return (layout == VK_IMAGE_LAYOUT_GENERAL ||
+           layout == VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ_KHR) ?
           &iview->planes[plane].general_sampler :
           &iview->planes[plane].optimal_sampler;
 }
@@ -5740,6 +5763,21 @@ anv_is_dual_src_blend_equation(const struct vk_color_blend_attachment_state *cb)
           anv_is_dual_src_blend_factor(cb->dst_color_blend_factor) &&
           anv_is_dual_src_blend_factor(cb->src_alpha_blend_factor) &&
           anv_is_dual_src_blend_factor(cb->dst_alpha_blend_factor);
+}
+
+static inline uint32_t
+anv_build_fs_color_map(const struct vk_color_attachment_location_state *cal)
+{
+   uint32_t map = 0;
+   uint8_t fs_map[MAX_RTS];
+   memset(fs_map, MESA_VK_ATTACHMENT_UNUSED, sizeof(MAX_RTS));
+   for (uint32_t i = 0; i < MAX_RTS; i++) {
+      if (cal->color_map[i] != MESA_VK_ATTACHMENT_UNUSED) {
+         map |= i << (4 * cal->color_map[i]);
+         fs_map[cal->color_map[i]] = i;
+      }
+   }
+   return map;
 }
 
 VkFormatFeatureFlags2

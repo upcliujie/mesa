@@ -546,18 +546,19 @@ fs_inst::can_change_types() const
 }
 
 void
-fs_reg::init()
+fs_reg::init(enum brw_reg_file file, unsigned nr, enum brw_reg_type type)
 {
    memset((void*)this, 0, sizeof(*this));
-   type = BRW_REGISTER_TYPE_UD;
-   stride = 1;
+   this->file = file;
+   this->type = type;
+   this->nr = nr;
+   this->stride = (file == UNIFORM ? 0 : 1);
 }
 
 /** Generic unset register constructor. */
 fs_reg::fs_reg()
 {
-   init();
-   this->file = BAD_FILE;
+   init(BAD_FILE, 0, BRW_REGISTER_TYPE_UD);
 }
 
 fs_reg::fs_reg(struct ::brw_reg reg) :
@@ -917,6 +918,12 @@ fs_inst::size_read(int arg) const
       }
       break;
 
+   case FS_OPCODE_FB_WRITE_LOGICAL:
+      if (arg == FB_WRITE_LOGICAL_SRC_DESC_RTS ||
+          arg == FB_WRITE_LOGICAL_SRC_EX_DESC_RTS)
+         return REG_SIZE;
+      break;
+
    case FS_OPCODE_FB_READ:
    case FS_OPCODE_INTERPOLATE_AT_SAMPLE:
    case FS_OPCODE_INTERPOLATE_AT_SHARED_OFFSET:
@@ -1070,6 +1077,19 @@ fs_inst::has_sampler_residency() const
    }
 }
 
+bool
+fs_inst::uses_address_register() const
+{
+   switch (opcode) {
+   case SHADER_OPCODE_BROADCAST:
+   case SHADER_OPCODE_SHUFFLE:
+   case SHADER_OPCODE_MOV_INDIRECT:
+      return true;
+   default:
+      return false;
+   }
+}
+
 static enum brw_reg_type
 brw_type_for_base_type(const struct glsl_type *type)
 {
@@ -1132,20 +1152,12 @@ fs_visitor::vgrf(const glsl_type *const type)
 
 fs_reg::fs_reg(enum brw_reg_file file, unsigned nr)
 {
-   init();
-   this->file = file;
-   this->nr = nr;
-   this->type = BRW_REGISTER_TYPE_F;
-   this->stride = (file == UNIFORM ? 0 : 1);
+   init(file, nr, BRW_REGISTER_TYPE_F);
 }
 
 fs_reg::fs_reg(enum brw_reg_file file, unsigned nr, enum brw_reg_type type)
 {
-   init();
-   this->file = file;
-   this->nr = nr;
-   this->type = type;
-   this->stride = (file == UNIFORM ? 0 : 1);
+   init(file, nr, type);
 }
 
 /* For SIMD16, we need to follow from the uniform setup of SIMD8 dispatch.
@@ -1349,18 +1361,24 @@ fs_visitor::assign_curb_setup()
          fs_inst *send = ubld.emit(SHADER_OPCODE_SEND, dest, srcs, 4);
 
          send->sfid = GFX12_SFID_UGM;
-         send->desc = lsc_msg_desc(devinfo, LSC_OP_LOAD,
-                                   LSC_ADDR_SURFTYPE_FLAT,
-                                   LSC_ADDR_SIZE_A32,
-                                   LSC_DATA_SIZE_D32,
-                                   num_regs * 8 /* num_channels */,
-                                   true /* transpose */,
-                                   LSC_CACHE(devinfo, LOAD, L1STATE_L3MOCS));
+         uint32_t desc = lsc_msg_desc(devinfo, LSC_OP_LOAD,
+                                      LSC_ADDR_SURFTYPE_FLAT,
+                                      LSC_ADDR_SIZE_A32,
+                                      LSC_DATA_SIZE_D32,
+                                      num_regs * 8 /* num_channels */,
+                                      true /* transpose */,
+                                      LSC_CACHE(devinfo, LOAD, L1STATE_L3MOCS));
          send->header_size = 0;
          send->mlen = lsc_msg_addr_len(devinfo, LSC_ADDR_SIZE_A32, 1);
          send->size_written =
             lsc_msg_dest_len(devinfo, LSC_DATA_SIZE_D32, num_regs * 8) * REG_SIZE;
          send->send_is_volatile = true;
+
+         send->src[0] = brw_imm_ud(desc |
+                                   brw_message_desc(devinfo,
+                                                    send->mlen,
+                                                    send->size_written / REG_SIZE,
+                                                    send->header_size));
 
          i += num_regs;
       }
@@ -2124,19 +2142,21 @@ fs_visitor::emit_repclear_shader()
 
       write = bld.emit(SHADER_OPCODE_SEND);
       write->resize_sources(3);
-      write->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
-      write->src[0] = brw_imm_ud(0);
-      write->src[1] = brw_imm_ud(0);
-      write->src[2] = i == 0 ? color_output : header;
-      write->check_tdr = true;
-      write->send_has_side_effects = true;
-      write->desc = brw_fb_write_desc(devinfo, i,
-         BRW_DATAPORT_RENDER_TARGET_WRITE_SIMD16_SINGLE_SOURCE_REPLICATED,
-         i == key->nr_color_regions - 1, false);
 
       /* We can use a headerless message for the first render target */
       write->header_size = i == 0 ? 0 : 2;
       write->mlen = 1 + write->header_size;
+
+      write->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
+      write->src[0] = brw_imm_ud(
+         brw_fb_write_desc(devinfo, i,
+                           BRW_DATAPORT_RENDER_TARGET_WRITE_SIMD16_SINGLE_SOURCE_REPLICATED,
+                           i == key->nr_color_regions - 1, false) |
+         brw_message_desc(devinfo, write->mlen, 0 /* rlen */, write->header_size));
+      write->src[1] = brw_imm_ud(0);
+      write->src[2] = i == 0 ? color_output : header;
+      write->check_tdr = true;
+      write->send_has_side_effects = true;
    }
    write->eot = true;
    write->last_rt = true;
@@ -2608,7 +2628,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file) const
          fprintf(file, "null");
          break;
       case BRW_ARF_ADDRESS:
-         fprintf(file, "a0.%d", inst->dst.subnr);
+         fprintf(file, "a0.%d-%d", inst->dst.subnr, inst->dst.arfnr);
          break;
       case BRW_ARF_ACCUMULATOR:
          if (inst->dst.subnr == 0)
@@ -2710,7 +2730,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file) const
             fprintf(file, "null");
             break;
          case BRW_ARF_ADDRESS:
-            fprintf(file, "a0.%d", inst->src[i].subnr);
+            fprintf(file, "a0.%d-%d", inst->src[i].subnr, inst->src[i].arfnr);
             break;
          case BRW_ARF_ACCUMULATOR:
             if (inst->src[i].subnr == 0)
@@ -2758,7 +2778,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file) const
          fprintf(file, ":%s", brw_reg_type_to_letters(inst->src[i].type));
       }
 
-      if (i < inst->sources - 1 && inst->src[i + 1].file != BAD_FILE)
+      if (i < inst->sources - 1)
          fprintf(file, ", ");
    }
 
@@ -3714,6 +3734,8 @@ brw_nir_populate_wm_prog_data(nir_shader *shader,
    prog_data->computed_stencil =
       shader->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_STENCIL);
 
+   prog_data->remap_color_outputs = key->remap_color_outputs;
+
    prog_data->sample_shading =
       shader->info.fs.uses_sample_shading ||
       shader->info.outputs_read;
@@ -3928,6 +3950,11 @@ brw_compile_fs(const struct brw_compiler *compiler,
       }
       v8->limit_dispatch_width(16, "SIMD32 not supported with coarse"
                                " pixel shading.\n");
+   }
+
+   if (key->remap_color_outputs == BRW_RT_REMAP_DYNAMIC) {
+      v8->limit_dispatch_width(16, "SIMD32 hangs with dynamic remapping of "
+                                   "RT writes.\n");
    }
 
    if (!has_spilled &&
