@@ -45,6 +45,7 @@ vulkan_lite_runtime_files = files(
   'vk_graphics_state.c',
   'vk_image.c',
   'vk_log.c',
+  'vk_meta_object_list.c',
   'vk_object.c',
   'vk_physical_device.c',
   'vk_pipeline_layout.c',
@@ -66,7 +67,6 @@ vulkan_lite_runtime_files = files(
 vulkan_lite_runtime_deps = [
   vulkan_wsi_deps,
   idep_mesautil,
-  idep_nir_headers,
   idep_vulkan_util,
 ]
 
