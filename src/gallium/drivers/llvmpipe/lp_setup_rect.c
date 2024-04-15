@@ -36,7 +36,7 @@
 #include "lp_rast.h"
 #include "lp_state_fs.h"
 #include "lp_state_setup.h"
-
+#include "lp_context.h"
 
 #define NUM_CHANNELS 4
 
@@ -491,8 +491,12 @@ do_rect_ccw(struct lp_setup_context *setup,
             const float (*v5)[4],
             bool front)
 {
+   struct llvmpipe_context *lp_context = llvmpipe_context(setup->pipe);
    const float (*rv0)[4], (*rv1)[4], (*rv2)[4], (*rv3)[4];  /* rect verts */
 
+   if (lp_context->active_statistics_queries) {
+      lp_context->pipeline_statistics.c_primitives+=2;
+   }
 #define SAME_POS(A, B)   (A[0][0] == B[0][0] && \
                           A[0][1] == B[0][1] && \
                           A[0][2] == B[0][2] && \

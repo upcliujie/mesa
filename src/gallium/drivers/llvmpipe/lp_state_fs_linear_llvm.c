@@ -188,7 +188,7 @@ llvm_fragment_body(struct lp_build_context *bld,
          unsigned cbuf = var->data.location - FRAG_RESULT_DATA0 + s;
          lp_build_name(output, "cbuf%u", cbuf);
 
-         if (var->data.location < FRAG_RESULT_DATA0 || s > 0)
+         if (var->data.location != FRAG_RESULT_DATA0 || s > 0)
             continue;
 
          /* Perform alpha test if necessary */
