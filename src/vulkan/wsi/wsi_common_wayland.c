@@ -1968,6 +1968,7 @@ static void
 presentation_frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
 {
    struct wsi_wl_present_id *id = data;
+
    wsi_wl_presentation_update_present_id(id);
    wl_callback_destroy(callback);
 }
@@ -1977,7 +1978,7 @@ static const struct wl_callback_listener pres_frame_listener = {
 };
 
 static void
-frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
+fifo_frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
 {
    struct wsi_wl_swapchain *chain = data;
 
@@ -1987,8 +1988,8 @@ frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
    wl_callback_destroy(callback);
 }
 
-static const struct wl_callback_listener frame_listener = {
-   frame_handle_done,
+static const struct wl_callback_listener fifo_frame_listener = {
+   fifo_frame_handle_done,
 };
 
 static VkResult
@@ -2062,7 +2063,7 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
 
    if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR) {
       chain->frame.callback = wl_surface_frame(wsi_wl_surface->surface);
-      wl_callback_add_listener(chain->frame.callback, &frame_listener, chain);
+      wl_callback_add_listener(chain->frame.callback, &fifo_frame_listener, chain);
       chain->frame.ready = false;
    } else {
       /* If we present MAILBOX, any subsequent presentation in FIFO can replace this image. */
