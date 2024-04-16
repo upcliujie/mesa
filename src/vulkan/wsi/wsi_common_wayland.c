@@ -171,8 +171,6 @@ struct wsi_wl_swapchain {
    struct wsi_wl_surface *wsi_wl_surface;
    struct wp_tearing_control_v1 *tearing_control;
 
-   struct wl_callback *frame;
-
    VkExtent2D extent;
    VkFormat vk_format;
    enum wsi_wl_buffer_type buffer_type;
@@ -186,7 +184,6 @@ struct wsi_wl_swapchain {
    const uint64_t *drm_modifiers;
 
    VkPresentModeKHR present_mode;
-   bool fifo_ready;
 
    struct {
       pthread_mutex_t lock; /* protects all members */
@@ -199,6 +196,11 @@ struct wsi_wl_swapchain {
       struct wl_surface *surface;
       bool dispatch_in_progress;
    } present_ids;
+
+   struct {
+      bool ready;
+      struct wl_callback *callback;
+   } frame;
 
    struct wsi_wl_image images[0];
 };
@@ -1979,8 +1981,8 @@ frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
 {
    struct wsi_wl_swapchain *chain = data;
 
-   chain->frame = NULL;
-   chain->fifo_ready = true;
+   chain->frame.callback = NULL;
+   chain->frame.ready = true;
 
    wl_callback_destroy(callback);
 }
@@ -2020,7 +2022,7 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
 
    /* For EXT_swapchain_maintenance1. We might have transitioned from FIFO to MAILBOX.
     * In this case we need to let the FIFO request complete, before presenting MAILBOX. */
-   while (!chain->fifo_ready) {
+   while (!chain->frame.ready) {
       int ret = wl_display_dispatch_queue(wsi_wl_surface->display->wl_display,
                                           wsi_wl_surface->display->queue);
       if (ret < 0)
@@ -2059,12 +2061,12 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
    }
 
    if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR) {
-      chain->frame = wl_surface_frame(wsi_wl_surface->surface);
-      wl_callback_add_listener(chain->frame, &frame_listener, chain);
-      chain->fifo_ready = false;
+      chain->frame.callback = wl_surface_frame(wsi_wl_surface->surface);
+      wl_callback_add_listener(chain->frame.callback, &frame_listener, chain);
+      chain->frame.ready = false;
    } else {
       /* If we present MAILBOX, any subsequent presentation in FIFO can replace this image. */
-      chain->fifo_ready = true;
+      chain->frame.ready = true;
    }
 
    if (present_id > 0) {
@@ -2265,8 +2267,8 @@ wsi_wl_swapchain_chain_free(struct wsi_wl_swapchain *chain,
    if (!chain->retired)
       wl_display_flush(wsi_wl_surface->display->wl_display);
 
-   if (chain->frame)
-      wl_callback_destroy(chain->frame);
+   if (chain->frame.callback)
+      wl_callback_destroy(chain->frame.callback);
    if (chain->tearing_control)
       wp_tearing_control_v1_destroy(chain->tearing_control);
 
@@ -2518,7 +2520,7 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
                          chain->present_ids.queue);
    }
 
-   chain->fifo_ready = true;
+   chain->frame.ready = true;
 
    for (uint32_t i = 0; i < chain->base.image_count; i++) {
       result = wsi_wl_image_init(chain, &chain->images[i],
