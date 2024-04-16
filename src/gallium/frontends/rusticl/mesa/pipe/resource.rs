@@ -2,12 +2,16 @@ use mesa_rust_gen::*;
 
 use std::{
     mem,
+    num::NonZeroU64,
     ptr::{self, NonNull},
 };
+
+use crate::pipe::screen::PipeScreen;
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct PipeResource {
     pipe: NonNull<pipe_resource>,
+    address: Option<NonZeroU64>,
     pub is_user: bool,
 }
 
@@ -66,11 +70,16 @@ impl AppImgInfo {
 }
 
 impl PipeResource {
-    pub(super) fn new(res: *mut pipe_resource, is_user: bool) -> Option<Self> {
-        Some(Self {
+    pub(super) fn new(res: *mut pipe_resource, screen: &PipeScreen, is_user: bool) -> Option<Self> {
+        let mut res = Self {
             pipe: NonNull::new(res)?,
+            address: None,
             is_user: is_user,
-        })
+        };
+
+        res.address = screen.resource_get_address(&res);
+
+        Some(res)
     }
 
     pub(super) fn pipe(&self) -> *mut pipe_resource {
@@ -80,6 +89,14 @@ impl PipeResource {
     fn as_ref(&self) -> &pipe_resource {
         // SAFETY: it contains a valid pointer
         unsafe { self.pipe.as_ref() }
+    }
+
+    pub fn address(&self) -> Option<NonZeroU64> {
+        self.address
+    }
+
+    pub fn bind(&self) -> u32 {
+        self.as_ref().bind
     }
 
     pub fn width(&self) -> u32 {
@@ -99,7 +116,7 @@ impl PipeResource {
     }
 
     pub fn is_buffer(&self) -> bool {
-        self.as_ref().target() == pipe_texture_target::PIPE_BUFFER
+        self.target() == pipe_texture_target::PIPE_BUFFER
     }
 
     pub fn is_linear(&self) -> bool {
@@ -108,6 +125,10 @@ impl PipeResource {
 
     pub fn is_staging(&self) -> bool {
         self.as_ref().usage() == pipe_resource_usage::PIPE_USAGE_STAGING
+    }
+
+    pub fn target(&self) -> pipe_texture_target {
+        self.as_ref().target()
     }
 
     pub fn pipe_image_view(
