@@ -1019,6 +1019,36 @@ add_primary_surface(struct anv_device *device,
       .usage = isl_usage,
       .tiling_flags = isl_tiling_flags);
 
+   /* If we succeed in creating the image surface, check if we should disable
+    * CCS based on the number of tiles used by the image.
+    */
+   if (ok) {
+      struct isl_tile_info tile_info;
+      isl_surf_get_tile_info(&anv_surf->isl, &tile_info);
+      uint32_t tile_count =
+         DIV_ROUND_UP(width, tile_info.logical_extent_el.w) *
+         DIV_ROUND_UP(height, tile_info.logical_extent_el.h) *
+         DIV_ROUND_UP(image->vk.extent.depth, tile_info.logical_extent_el.d) *
+         image->vk.array_layers;
+
+      if (tile_count < device->physical->instance->ccs_tile_threshold) {
+         ok = isl_surf_init(&device->isl_dev, &anv_surf->isl,
+                            .dim = vk_to_isl_surf_dim[image->vk.image_type],
+                            .format = plane_format.isl_format,
+                            .width = width,
+                            .height = height,
+                            .depth = image->vk.extent.depth,
+                            .levels = image->vk.mip_levels,
+                            .array_len = image->vk.array_layers,
+                            .samples = image->vk.samples,
+                            .min_alignment_B = 0,
+                            .row_pitch_B = stride,
+                            .usage = isl_usage,
+                            .tiling_flags = isl_tiling_flags);
+         assert(ok);
+      }
+   }
+
    if (!ok) {
       /* TODO: Should return
        * VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT in come cases.
