@@ -1783,6 +1783,7 @@ void
 zink_destroy_gfx_program(struct zink_screen *screen,
                          struct zink_gfx_program *prog)
 {
+   printf("destroying prog %p\n", prog);
    unsigned max_idx = ARRAY_SIZE(prog->pipelines[0][0]);
    if (screen->info.have_EXT_extended_dynamic_state) {
       /* only need first 3/4 for point/line/tri/patch */

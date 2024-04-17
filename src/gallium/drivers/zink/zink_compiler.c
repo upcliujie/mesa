@@ -6273,6 +6273,7 @@ zink_gfx_shader_free(struct zink_screen *screen, struct zink_shader *shader)
    util_queue_fence_wait(&shader->precompile.fence);
    set_foreach(shader->programs, entry) {
       struct zink_gfx_program *prog = (void*)entry->key;
+      printf("\t prog %p\n", prog);
       printf("is uber %b\n", prog->is_uber_program);
       gl_shader_stage stage = shader->info.stage;
       assert(stage < ZINK_GFX_SHADER_COUNT);
@@ -6305,6 +6306,7 @@ zink_gfx_shader_free(struct zink_screen *screen, struct zink_shader *shader)
          }
 
       }
+      // Crashes when run twice on the same program
       if (prog->is_uber_program) {
          while (util_dynarray_contains(&shader->pipeline_libs, struct zink_gfx_lib_cache*)) {
             struct zink_gfx_lib_cache *libs = util_dynarray_pop(&shader->pipeline_libs, struct zink_gfx_lib_cache*);
