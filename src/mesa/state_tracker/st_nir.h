@@ -49,6 +49,10 @@ char *st_finalize_nir(struct st_context *st, struct gl_program *prog,
                       bool is_before_variants,
                       bool is_draw_shader);
 
+bool
+st_is_variable_used(struct gl_shader_program *shader_program,
+                    struct gl_shader_variable const *variable);
+
 void st_nir_assign_vs_in_locations(struct nir_shader *nir);
 void st_nir_assign_varying_locations(struct st_context *st,
                                      struct nir_shader *nir);
