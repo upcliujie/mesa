@@ -34,7 +34,6 @@
 #include "intel_kmd.h"
 
 #include "intel/dev/intel_wa.h"
-
 #include "intel/dev/intel_device_info_gen.h"
 
 #ifdef __cplusplus
@@ -85,20 +84,14 @@ extern "C" {
 
 #endif
 
+#ifndef BUILDING_INTEL_COMPILER
+
 static inline bool
 intel_device_info_slice_available(const struct intel_device_info *devinfo,
                                   int slice)
 {
    assert(slice < INTEL_DEVICE_MAX_SLICES);
    return (devinfo->slice_masks & (1U << slice)) != 0;
-}
-
-static inline bool
-intel_device_info_subslice_available(const struct intel_device_info *devinfo,
-                                     int slice, int subslice)
-{
-   return (devinfo->subslice_masks[slice * devinfo->subslice_slice_stride +
-                                   subslice / 8] & (1U << (subslice % 8))) != 0;
 }
 
 static inline bool
@@ -134,6 +127,36 @@ intel_device_info_eu_total(const struct intel_device_info *devinfo)
    return total;
 }
 
+int intel_device_name_to_pci_device_id(const char *name);
+
+static inline uint64_t
+intel_device_info_timebase_scale(const struct intel_device_info *devinfo,
+                                 uint64_t gpu_timestamp)
+{
+   /* Try to avoid going over the 64bits when doing the scaling */
+   uint64_t upper_ts = gpu_timestamp >> 32;
+   uint64_t lower_ts = gpu_timestamp & 0xffffffff;
+   uint64_t upper_scaled_ts = upper_ts * 1000000000ull / devinfo->timestamp_frequency;
+   uint64_t lower_scaled_ts = lower_ts * 1000000000ull / devinfo->timestamp_frequency;
+   return (upper_scaled_ts << 32) + lower_scaled_ts;
+}
+
+static inline bool
+intel_vram_all_mappable(const struct intel_device_info *devinfo)
+{
+   return devinfo->mem.vram.unmappable.size == 0;
+}
+
+#endif /* TEST_COMPILER_KEY */
+
+static inline bool
+intel_device_info_subslice_available(const struct intel_device_info *devinfo,
+                                     int slice, int subslice)
+{
+   return (devinfo->subslice_masks[slice * devinfo->subslice_slice_stride +
+                                   subslice / 8] & (1U << (subslice % 8))) != 0;
+}
+
 /**
  * Computes the bound of dualsubslice ID that can be used on this device.
  *
@@ -157,26 +180,6 @@ intel_device_info_dual_subslice_id_bound(const struct intel_device_info *devinfo
    }
    unreachable("Invalid topology");
    return 0;
-}
-
-int intel_device_name_to_pci_device_id(const char *name);
-
-static inline uint64_t
-intel_device_info_timebase_scale(const struct intel_device_info *devinfo,
-                                 uint64_t gpu_timestamp)
-{
-   /* Try to avoid going over the 64bits when doing the scaling */
-   uint64_t upper_ts = gpu_timestamp >> 32;
-   uint64_t lower_ts = gpu_timestamp & 0xffffffff;
-   uint64_t upper_scaled_ts = upper_ts * 1000000000ull / devinfo->timestamp_frequency;
-   uint64_t lower_scaled_ts = lower_ts * 1000000000ull / devinfo->timestamp_frequency;
-   return (upper_scaled_ts << 32) + lower_scaled_ts;
-}
-
-static inline bool
-intel_vram_all_mappable(const struct intel_device_info *devinfo)
-{
-   return devinfo->mem.vram.unmappable.size == 0;
 }
 
 bool intel_get_device_info_from_fd(int fh, struct intel_device_info *devinfo, int min_ver, int max_ver);
