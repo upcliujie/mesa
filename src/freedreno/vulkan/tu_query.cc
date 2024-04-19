@@ -1087,6 +1087,7 @@ tu_CmdBeginQuery(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, commandBuffer);
    TU_FROM_HANDLE(tu_query_pool, pool, queryPool);
    assert(query < pool->size);
+   tu_fsdt_end_draw_table(cmdbuf);
 
    switch (pool->type) {
    case VK_QUERY_TYPE_OCCLUSION:
@@ -1127,6 +1128,7 @@ tu_CmdBeginQueryIndexedEXT(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, commandBuffer);
    TU_FROM_HANDLE(tu_query_pool, pool, queryPool);
    assert(query < pool->size);
+   tu_fsdt_end_draw_table(cmdbuf);
 
    switch (pool->type) {
    case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
@@ -1577,6 +1579,7 @@ tu_CmdEndQuery(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, commandBuffer);
    TU_FROM_HANDLE(tu_query_pool, pool, queryPool);
    assert(query < pool->size);
+   tu_fsdt_end_draw_table(cmdbuf);
 
    switch (pool->type) {
    case VK_QUERY_TYPE_OCCLUSION:
@@ -1614,6 +1617,7 @@ tu_CmdEndQueryIndexedEXT(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, commandBuffer);
    TU_FROM_HANDLE(tu_query_pool, pool, queryPool);
    assert(query < pool->size);
+   tu_fsdt_end_draw_table(cmdbuf);
 
    switch (pool->type) {
    case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
@@ -1637,6 +1641,7 @@ tu_CmdWriteTimestamp2(VkCommandBuffer commandBuffer,
 {
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    TU_FROM_HANDLE(tu_query_pool, pool, queryPool);
+   tu_fsdt_end_draw_table(cmd);
 
    /* Inside a render pass, just write the timestamp multiple times so that
     * the user gets the last one if we use GMEM. There isn't really much

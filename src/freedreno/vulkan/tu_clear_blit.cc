@@ -2612,6 +2612,8 @@ tu_CmdResolveImage2(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    TU_FROM_HANDLE(tu_image, src_image, pResolveImageInfo->srcImage);
    TU_FROM_HANDLE(tu_image, dst_image, pResolveImageInfo->dstImage);
+   tu_fsdt_end_draw_table(cmd);
+
    const struct blit_ops *ops = &r2d_ops<CHIP>;
    struct tu_cs *cs = &cmd->cs;
 
@@ -3236,6 +3238,8 @@ tu_CmdClearAttachments(VkCommandBuffer commandBuffer,
 {
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
+   tu_fsdt_end_draw_table(cmd);
+
 
    /* sysmem path behaves like a draw, note we don't have a way of using different
     * flushes for sysmem/gmem, so this needs to be outside of the cond_exec
