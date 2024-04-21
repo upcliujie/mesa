@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from lava.exceptions import (
     MesaCIException,
+    MesaCIKillException,
     MesaCIKnownIssueException,
     MesaCIParseException,
     MesaCITimeoutError,
@@ -67,7 +68,7 @@ class LAVAJob:
         return self.__exception
 
     @exception.setter
-    def exception(self, exception: Exception) -> None:
+    def exception(self, exception: BaseException) -> None:
         self.__exception = repr(exception)
         self.log["dut_job_fail_reason"] = self.__exception
 
@@ -166,8 +167,8 @@ class LAVAJob:
                 break
         return lava_lines[:last_line]
 
-    def handle_exception(self, exception: Exception):
-        print_log(exception)
+    def handle_exception(self, exception: BaseException):
+        print_log(str(exception))
         self.cancel()
         self.exception = exception
 
@@ -181,6 +182,10 @@ class LAVAJob:
         elif isinstance(exception, KeyboardInterrupt):
             self.status = "interrupted"
             print_log("LAVA job submitter was interrupted. Cancelling the job.")
+            raise
+        elif isinstance(exception, MesaCIKillException):
+            self.status = "interrupted"
+            print_log("LAVA job submitter was killed. Cancelling the job.")
             raise
         else:
             self.status = "job_submitter_error"
