@@ -51,6 +51,28 @@ gfx10_format_table_c = custom_target(
   depend_files : ['../registers/regdb.py']
 )
 
+libdrm_amdgpu_loader_h = custom_target(
+ 'libdrm_amdgpu_loader_h',
+ input : files(
+   'libdrm_amdgpu_gen_loader.py',
+   dep_libdrm_amdgpu.get_variable('includedir') + '/libdrm/amdgpu.h',
+ ),
+ output : 'libdrm_amdgpu_loader.h',
+ command : [prog_python, '@INPUT@', 'header'],
+ capture : true,
+)
+
+libdrm_amdgpu_loader_c = custom_target(
+ 'libdrm_amdgpu_loader_c',
+ input : files(
+   'libdrm_amdgpu_gen_loader.py',
+   dep_libdrm_amdgpu.get_variable('includedir') + '/libdrm/amdgpu.h',
+ ),
+ output : 'libdrm_amdgpu_loader.c',
+ command : [prog_python, '@INPUT@', 'source'],
+ capture : true,
+)
+
 amd_common_files = files(
   'ac_binary.c',
   'ac_binary.h',
@@ -119,7 +141,7 @@ endif
 
 libamd_common = static_library(
   'amd_common',
-  [amd_common_files, sid_tables_h, amdgfxregs_h, gfx10_format_table_c],
+  [amd_common_files, sid_tables_h, amdgfxregs_h, gfx10_format_table_c, libdrm_amdgpu_loader_c, libdrm_amdgpu_loader_h],
   include_directories : [
     inc_include, inc_src, inc_amd,
   ],
