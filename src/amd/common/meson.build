@@ -62,6 +62,8 @@ libdrm_amdgpu_loader_h = custom_target(
  capture : true,
 )
 
+idep_libdrm_amdgpu_loader_h = declare_dependency(sources : [libdrm_amdgpu_loader_h])
+
 libdrm_amdgpu_loader_c = custom_target(
  'libdrm_amdgpu_loader_c',
  input : files(
@@ -146,7 +148,7 @@ libamd_common = static_library(
     inc_include, inc_src, inc_amd,
   ],
   dependencies : [
-    dep_thread, dep_elf, dep_libdrm_amdgpu, dep_valgrind,
+    dep_thread, dep_elf, dep_libdrm_amdgpu, idep_libdrm_amdgpu_loader_h, dep_valgrind,
     idep_mesautil, idep_nir_headers, idep_nir
   ],
   gnu_symbol_visibility : 'hidden',
@@ -175,7 +177,7 @@ if with_tests and not with_platform_windows
       include_directories : [
         inc_amd, inc_include, inc_src,
       ],
-      dependencies: [idep_amdgfxregs_h, dep_libdrm_amdgpu, idep_mesautil],
+      dependencies: [idep_amdgfxregs_h, dep_libdrm_amdgpu, idep_libdrm_amdgpu_loader_h, idep_mesautil],
     ),
     suite: ['amd']
   )
@@ -191,7 +193,7 @@ if with_tests and not with_platform_windows
         include_directories : [
           inc_amd, inc_include, inc_src,
         ],
-        dependencies: [idep_amdgfxregs_h, dep_libdrm_amdgpu, idep_mesautil, dep_openmp],
+        dependencies: [idep_amdgfxregs_h, dep_libdrm_amdgpu, idep_libdrm_amdgpu_loader_h, idep_mesautil, dep_openmp],
       ),
       suite: ['amd']
     )
