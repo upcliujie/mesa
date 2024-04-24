@@ -227,7 +227,7 @@ get_push_range_address(struct anv_cmd_buffer *cmd_buffer,
        * writes to it for workarounds but always at the bottom.  The higher
        * bytes should be all zeros.
        */
-      assert(range->length * 32 <= 2048);
+      assert(range->length_B <= 2048);
       return (struct anv_address) {
          .bo = cmd_buffer->device->workaround_bo,
          .offset = 1024,
@@ -242,7 +242,7 @@ get_push_range_address(struct anv_cmd_buffer *cmd_buffer,
  * The range is relative to the start of the buffer, not the start of the
  * range.  The returned range may be smaller than
  *
- *    (range->start + range->length) * 32;
+ *    range->start_B + range->length_B;
  */
 static uint32_t
 get_push_range_bound_size(struct anv_cmd_buffer *cmd_buffer,
@@ -256,8 +256,8 @@ get_push_range_bound_size(struct anv_cmd_buffer *cmd_buffer,
       struct anv_descriptor_set *set =
          gfx_state->base.descriptors[range->index];
       struct anv_state state = set->desc_surface_mem;
-      assert(range->start * 32 < state.alloc_size);
-      assert((range->start + range->length) * 32 <= state.alloc_size);
+      assert(range->start_B < state.alloc_size);
+      assert((range->start_B + range->length_B) <= state.alloc_size);
       return state.alloc_size;
    }
 
@@ -266,7 +266,7 @@ get_push_range_bound_size(struct anv_cmd_buffer *cmd_buffer,
          range->index].layout->descriptor_buffer_surface_size;
 
    case ANV_DESCRIPTOR_SET_PUSH_CONSTANTS:
-      return (range->start + range->length) * 32;
+      return range->start_B + range->length_B;
 
    default: {
       assert(range->set < MAX_SETS);
@@ -282,7 +282,7 @@ get_push_range_bound_size(struct anv_cmd_buffer *cmd_buffer,
          if (!desc->buffer)
             return 0;
 
-         if (range->start * 32 > desc->bind_range)
+         if (range->start_B > desc->bind_range)
             return 0;
 
          return desc->bind_range;
@@ -369,11 +369,11 @@ cmd_buffer_emit_push_constant(struct anv_cmd_buffer *cmd_buffer,
             const struct anv_push_range *range = &bind_map->push_ranges[i];
 
             /* At this point we only have non-empty ranges */
-            assert(range->length > 0);
+            assert(range->length_B > 0);
 
-            c.ConstantBody.ReadLength[i + shift] = range->length;
+            c.ConstantBody.ReadLength[i + shift] = range->length_B / 32;
             c.ConstantBody.Buffer[i + shift] =
-               anv_address_add(buffers[i], range->start * 32);
+               anv_address_add(buffers[i], range->start_B);
          }
       }
    }
@@ -419,8 +419,8 @@ cmd_buffer_emit_push_constant_all(struct anv_cmd_buffer *cmd_buffer,
          &cmd_buffer->batch, dw + 2 + i * 2,
          &(struct GENX(3DSTATE_CONSTANT_ALL_DATA)) {
             .PointerToConstantBuffer =
-               anv_address_add(buffers[i], range->start * 32),
-            .ConstantBufferReadLength = range->length,
+               anv_address_add(buffers[i], range->start_B),
+            .ConstantBufferReadLength = range->length_B / 32,
          });
    }
 }
@@ -456,15 +456,14 @@ cmd_buffer_flush_gfx_push_constants(struct anv_cmd_buffer *cmd_buffer,
          unsigned range_start_reg = 0;
          for (unsigned i = 0; i < 4; i++) {
             const struct anv_push_range *range = &bind_map->push_ranges[i];
-            if (range->length == 0)
+            if (range->length_B == 0)
                continue;
 
             unsigned bound_size =
                get_push_range_bound_size(cmd_buffer, shader, range);
-            if (bound_size >= range->start * 32) {
+            if (bound_size >= range->start_B) {
                unsigned bound_regs =
-                  MIN2(DIV_ROUND_UP(bound_size, 32) - range->start,
-                       range->length);
+                  MIN2(bound_size - range->start_B, range->length_B) / 32;
                assert(range_start_reg + bound_regs <= 64);
                push->push_reg_mask[stage] |= BITFIELD64_RANGE(range_start_reg,
                                                               bound_regs);
@@ -474,7 +473,7 @@ cmd_buffer_flush_gfx_push_constants(struct anv_cmd_buffer *cmd_buffer,
                mesa_to_vk_shader_stage(stage);
             gfx_state->base.push_constants_data_dirty = true;
 
-            range_start_reg += range->length;
+            range_start_reg += range->length_B / 32;
          }
       }
    }
@@ -508,17 +507,17 @@ cmd_buffer_flush_gfx_push_constants(struct anv_cmd_buffer *cmd_buffer,
           */
          for (unsigned i = 0; i < 4; i++) {
             const struct anv_push_range *range = &bind_map->push_ranges[i];
-            if (range->length == 0)
+            if (range->length_B == 0)
                break;
 
             buffers[i] = get_push_range_address(cmd_buffer, shader, range);
-            max_push_range = MAX2(max_push_range, range->length);
+            max_push_range = MAX2(max_push_range, range->length_B / 32);
             buffer_count++;
          }
 
          /* We have at most 4 buffers but they should be tightly packed */
          for (unsigned i = buffer_count; i < 4; i++)
-            assert(bind_map->push_ranges[i].length == 0);
+            assert(bind_map->push_ranges[i].length_B == 0);
       }
 
 #if GFX_VER >= 12
@@ -578,7 +577,7 @@ cmd_buffer_flush_mesh_inline_data(struct anv_cmd_buffer *cmd_buffer,
 
       anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_TASK_SHADER_DATA), data) {
          const struct anv_push_range *range = &bind_map->push_ranges[0];
-         if (range->length > 0) {
+         if (range->length_B > 0) {
             struct anv_address buffer =
                get_push_range_address(cmd_buffer, shader, range);
 
@@ -601,7 +600,7 @@ cmd_buffer_flush_mesh_inline_data(struct anv_cmd_buffer *cmd_buffer,
 
       anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_MESH_SHADER_DATA), data) {
          const struct anv_push_range *range = &bind_map->push_ranges[0];
-         if (range->length > 0) {
+         if (range->length_B > 0) {
             struct anv_address buffer =
                get_push_range_address(cmd_buffer, shader, range);
 
