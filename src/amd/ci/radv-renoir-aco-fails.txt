@@ -3,3 +3,8 @@ dEQP-VK.api.version_check.unavailable_entry_points,Fail
 
 # New CTS failures in 1.3.8.0.
 dEQP-VK.api.get_device_proc_addr.non_enabled,Fail
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-VK.pipeline.monolithic.timestamp.calibrated.dev_domain_test,Fail
+

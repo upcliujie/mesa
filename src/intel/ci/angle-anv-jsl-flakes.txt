@@ -5,3 +5,8 @@ dEQP-GLES31.functional.copy_image.*viewclass_.*
 
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/9794
 .*dEQP-GLES31.functional.draw_indirect.compute_interop.large.*
+
+# Nightly run expectations update (pipeline 1144146)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e0d0190ea1a7781013b638ccd98236eb8ee00d7...3114917986c03413720d35416455879a7ad4be09
+dEQP-GLES3.functional.multisample.fbo_max_samples.constancy_sample_coverage
+

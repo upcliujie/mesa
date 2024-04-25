@@ -608,3 +608,8 @@ spec@ext_texture_array@copyteximage 1d_array samples=2,Fail
 spec@ext_texture_array@copyteximage 1d_array samples=4,Fail
 spec@ext_texture_array@copyteximage 1d_array samples=6,Fail
 spec@ext_texture_array@copyteximage 1d_array samples=8,Fail
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+spec@ext_timer_query@time-elapsed,Fail
+

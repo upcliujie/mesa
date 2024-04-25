@@ -12,3 +12,47 @@ dEQP-VK.tessellation.invariance.primitive_set.quads_equal_spacing_cw_point_mode
 
 # Updated by ci-collate, found in this job run: https://gitlab.freedesktop.org/mesa/mesa/-/jobs/56260513
 dEQP-VK.tessellation.invariance.outer_edge_index_independence.triangles_equal_spacing_cw_point_mode
+
+# Nightly run expectations update (pipeline 1144146)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e0d0190ea1a7781013b638ccd98236eb8ee00d7...3114917986c03413720d35416455879a7ad4be09
+dEQP-VK.clipping.user_defined.clip_distance_dynamic_index.vert_geom.1
+dEQP-VK.renderpass2.fragment_density_map.2_views.render.divisible_density_size.2_samples.static_subsampled_2_1_multiviewport
+
+# Nightly run expectations update (pipeline 1146313)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/22f64a1fe31f64f08e4ce48f66bb8408d16df2f3...c891a384e784266ccc825c116f1733278dadbca8
+dEQP-VK.tessellation.invariance.outer_edge_symmetry.quads_fractional_even_spacing_cw_point_mode
+
+# Nightly run expectations update (pipeline 1147173)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c891a384e784266ccc825c116f1733278dadbca8...acbf3ad1fbace42f395a49586f49a7f1c12480ee
+bypass-dEQP-VK.renderpass2.fragment_density_map.2_views.render.divisible_density_size.2_samples.static_subsampled_2_1_multiviewport
+dEQP-VK.pipeline.fast_linked_library.cache.merge.vertex_stage_tessellation_control_stage_tessellation_evaluation_stage_fragment_stage.src_from_data_dst_hit
+
+# Nightly run expectations update (pipeline 1147723)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/acbf3ad1fbace42f395a49586f49a7f1c12480ee...0cb852050d668c6f5d9dbb8b35e970d23ad6bd9a
+dEQP-VK.tessellation.invariance.outer_edge_index_independence.quads_equal_spacing_cw_point_mode
+
+# Nightly run expectations update (pipeline 1150246)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/27dba224d329df47706c77de36d814e3ae63304a...c603dee104b89c8ca4917efc0ad92265541dd43c
+dEQP-VK.binding_model.shader_access.primary_cmd_buf.sampler_mutable.tess_eval.single_descriptor.3d
+
+# Nightly run expectations update (pipeline 1152159)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/24b6a047eee5b57863a4dcceef72bb344794d8c5...9e056fc962875a0765768b31f2c7a987d4ba52b0
+dEQP-VK.tessellation.invariance.outer_edge_index_independence.triangles_equal_spacing_ccw_point_mode
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+dEQP-VK.binding_model.descriptor_buffer.push_template.compute_comp_sets4_push_set0
+
+# Nightly run expectations update (pipeline 1158209)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/40f39482e15cb5aa14abef6661a4d785bb6cd4b1...042b8a65d33d94e24ef037d0b1550ad70b6b4517
+dEQP-VK.binding_model.shader_access.secondary_cmd_buf.bind.combined_image_sampler_mutable.tess_eval.single_descriptor.1d_array
+
+# Nightly run expectations update (pipeline 1160134)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/04f232ed99bb68ef7c5169173253d4cdfa840bce...e5f133ccc426a197c48a4e88f5377f943f078180
+dEQP-VK.binding_model.shader_access.secondary_cmd_buf.bind.with_template.sampler_mutable.tess_ctrl.descriptor_array.1d_base_mip
+
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-VK.clipping.user_defined.clip_distance.vert_tess_geom.3
+

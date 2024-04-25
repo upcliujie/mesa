@@ -28,3 +28,32 @@ dEQP-GLES31.functional.copy_image.mixed.viewclass_64_bits_mixed.signed_r11_eac_r
 KHR-GL46.packed_pixels.varied_rectangle.rgb10_a2ui
 spec@arb_tessellation_shader@execution@variable-indexing@tcs-output-array-vec3-index-wr-before-barrier
 
+# Nightly run expectations update (pipeline 1144146)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e0d0190ea1a7781013b638ccd98236eb8ee00d7...3114917986c03413720d35416455879a7ad4be09
+KHR-GL46.tessellation_shader.tessellation_shader_tc_barriers.barrier_guarded_write_calls
+
+# Nightly run expectations update (pipeline 1150246)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/27dba224d329df47706c77de36d814e3ae63304a...c603dee104b89c8ca4917efc0ad92265541dd43c
+spec@glsl-1.50@execution@redeclare-pervertex-out-subset-gs
+
+# Nightly run expectations update (pipeline 1151282)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c603dee104b89c8ca4917efc0ad92265541dd43c...24b6a047eee5b57863a4dcceef72bb344794d8c5
+spec@arb_tessellation_shader@execution@variable-indexing@tcs-output-array-float-index-wr
+
+# Nightly run expectations update (pipeline 1152159)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/24b6a047eee5b57863a4dcceef72bb344794d8c5...9e056fc962875a0765768b31f2c7a987d4ba52b0
+spec@arb_tessellation_shader@execution@variable-indexing@tcs-output-array-vec4-index-wr
+
+# Nightly run expectations update (pipeline 1153550)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9...6cc780173a8b1f427b434d59c4a32c5f553e661c
+spec@arb_tessellation_shader@execution@variable-indexing@tcs-output-array-vec2-index-wr
+spec@arb_tessellation_shader@execution@variable-indexing@tes-input-array-vec3-index-rd
+
+# Nightly run expectations update (pipeline 1156232)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/899263ecfc8251ffff375d70b4c5d44f192112b0...363a90d0c45cfc25fba6f8e59e6c53fb610846e8
+dEQP-GLES31.functional.tessellation.user_defined_io.per_vertex_block.vertex_io_array_size_shader_builtin.quads_explicit_tcs_out_size
+
+# Nightly run expectations update (pipeline 1157230)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/363a90d0c45cfc25fba6f8e59e6c53fb610846e8...40f39482e15cb5aa14abef6661a4d785bb6cd4b1
+spec@arb_tessellation_shader@execution@variable-indexing@tes-input-array-vec2-index-rd
+

@@ -1200,3 +1200,8 @@ spec@glsl-1.10@execution@glsl-1.10-built-in-uniform-state,Fail
 
 # Couldn't reproduce locally
 spec@oes_packed_depth_stencil@depth_stencil texture gles2,Fail
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+spec@ext_framebuffer_object@fbo-flushing-2,Fail
+

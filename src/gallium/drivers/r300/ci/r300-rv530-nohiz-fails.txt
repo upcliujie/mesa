@@ -406,7 +406,6 @@ spec@!opengl 1.1@draw-pixel-with-texture,Fail
 spec@!opengl 1.1@getteximage-formats,Fail
 spec@!opengl 1.1@getteximage-simple,Fail
 spec@!opengl 1.1@gl-1.1-read-pixels-after-display-list,Fail
-spec@!opengl 1.1@gl-1.2-texture-base-level,Fail
 spec@!opengl 1.1@gl_select - alpha-test enabled,Fail
 spec@!opengl 1.1@gl_select - depth-test enabled,Fail
 spec@!opengl 1.1@gl_select - no test function,Fail
@@ -438,7 +437,6 @@ spec@!opengl 1.4@triangle-rasterization-fbo,Fail
 
 spec@!opengl 1.5@depth-tex-compare,Fail
 
-spec@!opengl 2.0@depth-tex-modes-glsl,Fail
 spec@!opengl 2.0@gl-2.0-edgeflag,Fail
 spec@!opengl 2.0@gl-2.0-edgeflag-immediate,Fail
 spec@!opengl 2.0@occlusion-query-discard,Fail
@@ -467,7 +465,6 @@ spec@arb_draw_buffers@fbo-mrt-alphatest,Fail
 spec@arb_fragment_coord_conventions@fp-arb-fragment-coord-conventions-integer,Fail
 
 spec@arb_fragment_program@fp-formats,Fail
-spec@arb_fragment_program@fp-indirections2,Fail
 
 spec@arb_framebuffer_object@fbo-attachments-blit-scaled-linear,Fail
 spec@arb_framebuffer_object@fbo-blit-stretch,Fail
@@ -673,7 +670,6 @@ spec@ext_texture_compression_rgtc@rgtc-teximage-01,Fail
 spec@ext_texture_compression_rgtc@rgtc-teximage-02,Fail
 
 spec@ext_texture_compression_s3tc@s3tc-errors,Fail
-spec@ext_texture_compression_s3tc@s3tc-errors_gles2,Fail
 
 spec@ext_texture_format_bgra8888@api-errors,Fail
 
@@ -863,10 +859,6 @@ spec@nv_conditional_render@drawpixels,Fail
 spec@nv_conditional_render@vertex_array,Fail
 
 spec@nv_texture_env_combine4@nv_texture_env_combine4-combine,Fail
-
-spec@oes_texture_float@oes_texture_float,Fail
-spec@oes_texture_float@oes_texture_float half,Fail
-
 
 # Xnine tests
 

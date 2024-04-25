@@ -1,1 +1,6 @@
 dEQP-GLES2.functional.fragment_ops.interaction.basic_shader.94
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+dEQP-GLES2.functional.fragment_ops.interaction.basic_shader.46
+
