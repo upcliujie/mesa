@@ -494,7 +494,16 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
 #endif
 #endif
 
-   if (info->surf->dim_layout == ISL_DIM_LAYOUT_GFX9_1D) {
+   if (info->surf->tiling == ISL_TILING_W) {
+      /* From the Broadwell PRM Vol 2d, RENDER_SURFACE_STATE::SurfacePitch:
+       *
+       *    "If the surface is a stencil buffer (and thus has Tile Mode set
+       *    to TILEMODE_WMAJOR), the pitch must be set to 2x the value
+       *    computed based on width, as the stencil buffer is stored with two
+       *    rows interleaved."
+       */
+      s.SurfacePitch = info->surf->row_pitch_B * 2 - 1;
+   } else if (info->surf->dim_layout == ISL_DIM_LAYOUT_GFX9_1D) {
       /* For gfx9 1-D textures, surface pitch is ignored */
       s.SurfacePitch = 0;
    } else {
