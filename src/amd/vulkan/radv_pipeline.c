@@ -646,6 +646,27 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
    NIR_PASS_V(stage->nir, ac_nir_lower_intrinsics_to_args, gfx_level, radv_select_hw_stage(&stage->info, gfx_level),
               &stage->args.ac);
    NIR_PASS_V(stage->nir, radv_nir_lower_abi, gfx_level, stage, gfx_state, pdev->info.address32_hi);
+
+   bool vectorizable_vs_inputs = stage->stage == MESA_SHADER_VERTEX && !stage->info.vs.use_per_attribute_vb_descs;
+   if ((io_to_mem || lowered_ngg || vectorizable_vs_inputs) && !stage->key.optimisations_disabled) {
+      NIR_PASS(_, stage->nir, nir_opt_constant_folding);
+      NIR_PASS(_, stage->nir, nir_opt_cse);
+      nir_variable_mode modes = nir_var_mem_shared | nir_var_shader_out | nir_var_mem_task_payload;
+      if (vectorizable_vs_inputs || stage->stage != MESA_SHADER_VERTEX)
+         modes |= nir_var_shader_in;
+      const nir_load_store_vectorize_options late_vectorize_opts = {
+         .modes = modes,
+         .callback = ac_nir_mem_vectorize_callback,
+         .cb_data = &gfx_level,
+         .robust_modes = 0,
+         /* On GFX6, read2/write2 is out-of-bounds if the offset register is negative, even if
+          * the final offset is not.
+          */
+         .has_shared2_amd = gfx_level >= GFX7,
+      };
+      NIR_PASS(_, stage->nir, nir_opt_load_store_vectorize, &late_vectorize_opts);
+   }
+
    radv_optimize_nir_algebraic(
       stage->nir, io_to_mem || lowered_ngg || stage->stage == MESA_SHADER_COMPUTE || stage->stage == MESA_SHADER_TASK,
       gfx_level >= GFX7);
