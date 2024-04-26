@@ -5,10 +5,6 @@ wayland-dEQP-EGL.functional.resize.surface_size.shrink,Fail
 wayland-dEQP-EGL.functional.resize.surface_size.stretch_width,Fail
 wayland-dEQP-EGL.functional.resize.surface_size.stretch_height,Fail
 
-spec@egl_chromium_sync_control@conformance@eglGetSyncValuesCHROMIUM_ust_test,Fail
-spec@egl_chromium_sync_control@conformance@eglGetSyncValuesCHROMIUM_msc_and_sbc_test,Fail
-spec@egl_chromium_sync_control@conformance,Fail
-
 spec@ext_image_dma_buf_import@ext_image_dma_buf_import-export,Fail
 spec@ext_image_dma_buf_import@ext_image_dma_buf_import-refcount,Fail
 spec@ext_image_dma_buf_import@ext_image_dma_buf_import-sample_uyvy,Fail
@@ -578,10 +574,6 @@ spec@arb_viewport_array@display-list,Fail
 glx@glx-multi-window-single-context,Fail
 spec@arb_timer_query@timestamp-get,Fail
 
-# SIGKILL
-spec@arb_gpu_shader_fp64@execution@arb_gpu_shader_fp64-fs-getuniformdv,Crash
-spec@arb_gpu_shader_fp64@execution@arb_gpu_shader_fp64-gs-getuniformdv,Crash
-
 spec@arb_fragment_layer_viewport@layer-no-gs,Fail
 
 # sparse_backing_alloc: Assertion `bo->u.sparse.num_backing_pages < DIV_ROUND_UP(bo->base.size, ZINK_SPARSE_BUFFER_PAGE_SIZE)' failed
@@ -590,4 +582,12 @@ KHR-GL46.sparse_texture_tests.SparseTextureCommitment,Crash
 # uprev Piglit in Mesa
 spec@arb_shader_storage_buffer_object@max-ssbo-size@fs,Crash
 spec@arb_shader_storage_buffer_object@max-ssbo-size@vs,Crash
+
+# Nightly run expectations update (pipeline 1147173)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c891a384e784266ccc825c116f1733278dadbca8...acbf3ad1fbace42f395a49586f49a7f1c12480ee
+glx@glx-buffer-age vblank_mode=0,Fail
+glx@glx-multithread-shader-compile,Fail
+glx@glx_ext_import_context@free context,Fail
+glx@glx-pixmap-life,Fail
+glx@glx-query-drawable-glxpbuffer-glx_height,Fail
 

@@ -42,3 +42,75 @@ spec@glsl-1.50@execution@redeclare-pervertex-out-subset-gs
 spec@!opengl 1.0@rasterpos
 spec@!opengl 1.1@depthstencil-default_fb-blit samples=4
 spec@!opengl 1.1@depthstencil-default_fb-copypixels samples=6
+
+# Nightly run expectations update (pipeline 1144146)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e0d0190ea1a7781013b638ccd98236eb8ee00d7...3114917986c03413720d35416455879a7ad4be09
+KHR-GL46.tessellation_shader.tessellation_shader_tc_barriers.barrier_guarded_write_calls
+
+# Nightly run expectations update (pipeline 1146313)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/22f64a1fe31f64f08e4ce48f66bb8408d16df2f3...c891a384e784266ccc825c116f1733278dadbca8
+spec@arb_depth_buffer_float@fbo-depthstencil-gl_depth32f_stencil8-blit
+
+# Nightly run expectations update (pipeline 1147173)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c891a384e784266ccc825c116f1733278dadbca8...acbf3ad1fbace42f395a49586f49a7f1c12480ee
+spec@arb_fragment_program@fp-long-alu
+
+# Nightly run expectations update (pipeline 1151282)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c603dee104b89c8ca4917efc0ad92265541dd43c...24b6a047eee5b57863a4dcceef72bb344794d8c5
+spec@arb_fragment_program@fp-indirections2
+spec@nv_copy_depth_to_color@nv_copy_depth_to_color
+
+# Nightly run expectations update (pipeline 1156232)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/899263ecfc8251ffff375d70b4c5d44f192112b0...363a90d0c45cfc25fba6f8e59e6c53fb610846e8
+spec@arb_framebuffer_object@mixed-buffer-sizes
+
+# Nightly run expectations update (pipeline 1157230)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/363a90d0c45cfc25fba6f8e59e6c53fb610846e8...40f39482e15cb5aa14abef6661a4d785bb6cd4b1
+spec@!opengl 1.1@teximage-scale-bias
+
+# Nightly run expectations update (pipeline 1158209)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/40f39482e15cb5aa14abef6661a4d785bb6cd4b1...042b8a65d33d94e24ef037d0b1550ad70b6b4517
+spec@arb_vertex_program@arb_vertex_program-property-bindings
+spec@arb_tessellation_shader@execution@variable-indexing@tcs-output-array-vec4-index-wr
+
+# Nightly run expectations update (pipeline 1162038)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/62aab1437e2d7ee17daeffb30f0a9b0432262921...4fc3f1154595636897de8de8701a0432552174fe
+KHR-GL46.packed_pixels.varied_rectangle.rg16f
+KHR-GL46.packed_pixels.varied_rectangle.compressed_signed_red_rgtc1
+KHR-GL46.draw_indirect.basic-buffer-subData
+KHR-GL46.shaders.uniform_block.single_basic_type.shared.row_major_mediump_mat2x3
+KHR-GL46.packed_pixels.varied_rectangle.r16i
+spec@arb_tessellation_shader@execution@built-in-functions@tcs-roundeven-float
+KHR-GL46.direct_state_access.renderbuffers_storage_multisample
+KHR-GL46.gpu_shader_fp64.builtin.step_dvec3
+KHR-GL46.packed_pixels.varied_rectangle.rg32i
+KHR-GL46.packed_pixels.varied_rectangle.r11f_g11f_b10f
+KHR-GL46.texture_gather.offset-gather-int-2darray
+spec@glsl-1.10@execution@built-in-functions@vs-op-ne-bvec4-bvec4-using-if
+KHR-GL46.packed_pixels.varied_rectangle.rgba32f
+KHR-GL46.packed_pixels.varied_rectangle.rgba16
+spec@glsl-1.30@execution@texelfetch fs sampler1darray 1x281-501x281
+KHR-GL46.packed_pixels.varied_rectangle.r8
+KHR-GL46.packed_pixels.varied_rectangle.rgba8_snorm
+KHR-GL46.packed_pixels.varied_rectangle.r8ui
+spec@arb_tessellation_shader@execution@tes-input@tes-input-mat3
+KHR-GL46.packed_pixels.varied_rectangle.rg8i
+KHR-GL46.shaders.uniform_block.single_basic_type.shared.column_major_mediump_mat3x2
+KHR-GL46.texture_gather.plain-gather-float-2d-rgb
+KHR-GL46.packed_pixels.varied_rectangle.rgb16_snorm
+KHR-GL46.packed_pixels.varied_rectangle.rgb8i
+KHR-GL46.packed_pixels.varied_rectangle.rgba32i
+KHR-GL46.packed_pixels.varied_rectangle.rgba16_snorm
+KHR-GL46.direct_state_access.renderbuffers_storage
+KHR-GL46.packed_pixels.varied_rectangle.compressed_rgba
+KHR-GL46.packed_pixels.varied_rectangle.rg16_snorm
+KHR-GL46.texture_gather.offsets-gather-depth-2d
+spec@glsl-4.30@execution@built-in-functions@cs-op-bitor-uint-uint
+KHR-GL46.texture_view.view_sampling
+KHR-GL46.packed_pixels.varied_rectangle.rg8ui
+KHR-GL46.packed_pixels.varied_rectangle.rgb10
+KHR-GL46.draw_elements_base_vertex_tests.overflow
+KHR-GL46.draw_indirect.basic-mode-drawElements-triangle_strip
+KHR-GL46.tessellation_shader.tessellation_shader_tc_barriers.barrier_guarded_read_calls
+KHR-GL46.direct_state_access.buffers_data
+

@@ -14,3 +14,42 @@ dEQP-VK.memory.mapping.suballocation.sub.1048577.offset_0.size_1048575.subinvali
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_npot_diff_format_noclear
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_diff_format_clear
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_same_format_noclear
+
+# Nightly run expectations update (pipeline 1147723)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/acbf3ad1fbace42f395a49586f49a7f1c12480ee...0cb852050d668c6f5d9dbb8b35e970d23ad6bd9a
+dEQP-VK.memory.mapping.dedicated_alloc.buffer.sub.1048577.offset_0.size_1048575.flush
+
+# Nightly run expectations update (pipeline 1153003)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e056fc962875a0765768b31f2c7a987d4ba52b0...7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9
+dEQP-VK.memory.mapping.dedicated_alloc.image.sub.1048577.offset_0.size_1048575.subflush_separate
+
+# Nightly run expectations update (pipeline 1155139)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4a19047d329a49ed34fe05346ae1d298d2907e3e...899263ecfc8251ffff375d70b4c5d44f192112b0
+dEQP-VK.memory.mapping.dedicated_alloc.buffer.full.1048577.remap
+
+# Nightly run expectations update (pipeline 1159078)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/042b8a65d33d94e24ef037d0b1550ad70b6b4517...d097a60d5762df2d557362deea84e275794d1e35
+dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_same_format_clear
+dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_diff_format_noclear
+
+# Nightly run expectations update (pipeline 1160134)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/04f232ed99bb68ef7c5169173253d4cdfa840bce...e5f133ccc426a197c48a4e88f5377f943f078180
+dEQP-VK.renderpass.suballocation.attachment_allocation.input_output.71
+
+# Nightly run expectations update (pipeline 1161090)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/e5f133ccc426a197c48a4e88f5377f943f078180...62aab1437e2d7ee17daeffb30f0a9b0432262921
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s3_l232_check_group_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.tri_and_box.stride_3.offset_7.use_libs.isect_or_miss
+
+# Nightly run expectations update (pipeline 1162038)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/62aab1437e2d7ee17daeffb30f0a9b0432262921...4fc3f1154595636897de8de8701a0432552174fe
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s3_l22_l22_aabbs_check_group_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.triangles.stride_3.offset_7.use_libs.miss
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.boxes.stride_5.offset_7.use_libs.chit_or_isect_or_miss
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s3_l22_l22_check_group_handles
+dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_npot_diff_format_clear
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.tri_and_box.stride_3.offset_7.use_libs.miss
+

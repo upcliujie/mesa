@@ -238,3 +238,94 @@ spec@ati_texture_compression_3dc@texwrap formats@GL_COMPRESSED_LUMINANCE_ALPHA_3
 spec@ati_texture_compression_3dc@texwrap formats@GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI- swizzled
 spec@glsl-1.10@execution@copy-propagation@glsl-fs-copy-propagation-texcoords-1
 
+# Nightly run expectations update (pipeline 1145346)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/3114917986c03413720d35416455879a7ad4be09...22f64a1fe31f64f08e4ce48f66bb8408d16df2f3
+spec@arb_separate_shader_objects@400 combinations by location
+dEQP-GLES2.functional.shaders.random.texture.fragment.132
+dEQP-GLES2.functional.shaders.random.all_features.fragment.45
+dEQP-GLES2.functional.texture.size.2d.64x64_rgba4444_mipmap
+
+# Nightly run expectations update (pipeline 1146313)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/22f64a1fe31f64f08e4ce48f66bb8408d16df2f3...c891a384e784266ccc825c116f1733278dadbca8
+dEQP-GLES2.functional.fbo.render.stencil_clear.tex2d_rgba_stencil_index8
+
+# Nightly run expectations update (pipeline 1149245)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/e808a1ead42772ddc71fa4359aef890f119c9229...27dba224d329df47706c77de36d814e3ae63304a
+dEQP-GLES2.functional.uniform_api.random.47
+
+# Nightly run expectations update (pipeline 1150246)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/27dba224d329df47706c77de36d814e3ae63304a...c603dee104b89c8ca4917efc0ad92265541dd43c
+dEQP-GLES2.functional.fbo.render.shared_depthbuffer.tex2d_rgb_depth_component16
+
+# Nightly run expectations update (pipeline 1151282)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c603dee104b89c8ca4917efc0ad92265541dd43c...24b6a047eee5b57863a4dcceef72bb344794d8c5
+dEQP-GLES2.functional.texture.format.rgb888_2d_npot
+dEQP-GLES2.functional.uniform_api.value.assigned.by_value.render.basic.samplerCube_both
+dEQP-GLES2.functional.fbo.render.color.mix_tex2d_rgb
+dEQP-GLES2.functional.texture.format.a8_cube_npot
+
+# Nightly run expectations update (pipeline 1152159)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/24b6a047eee5b57863a4dcceef72bb344794d8c5...9e056fc962875a0765768b31f2c7a987d4ba52b0
+dEQP-GLES2.functional.shaders.random.texture.vertex.12
+dEQP-GLES2.functional.shaders.random.texture.fragment.133
+dEQP-GLES2.functional.shaders.random.texture.fragment.99
+dEQP-GLES2.functional.fbo.render.stencil.npot_tex2d_rgba_stencil_index8
+dEQP-GLES2.functional.shaders.random.texture.vertex.6
+dEQP-GLES2.functional.fbo.render.color.blend_rbo_rgb5_a1_depth_component16
+dEQP-GLES2.functional.shaders.random.texture.vertex.43
+dEQP-GLES2.functional.uniform_api.value.assigned.by_pointer.render.struct_in_array.sampler2D_samplerCube_fragment
+dEQP-GLES2.functional.fbo.render.color_clear.tex2d_rgb_depth_component16
+dEQP-GLES2.functional.shaders.random.all_features.fragment.42
+
+# Nightly run expectations update (pipeline 1153003)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e056fc962875a0765768b31f2c7a987d4ba52b0...7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9
+dEQP-GLES2.functional.shaders.random.all_features.fragment.52
+dEQP-GLES2.functional.texture.format.etc1_cube_pot
+dEQP-GLES2.functional.shaders.random.texture.fragment.74
+dEQP-GLES2.functional.fbo.render.color_clear.tex2d_rgba_depth_component16
+dEQP-GLES2.functional.uniform_api.value.assigned.by_value.render.basic_array.sampler2D_fragment
+dEQP-GLES2.functional.shaders.random.texture.fragment.58
+dEQP-GLES2.functional.uniform_api.value.initial.render.basic.sampler2D_fragment
+dEQP-GLES2.functional.shaders.random.texture.fragment.73
+dEQP-GLES2.functional.shaders.random.all_features.fragment.84
+
+# Nightly run expectations update (pipeline 1153550)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9...6cc780173a8b1f427b434d59c4a32c5f553e661c
+spec@khr_texture_compression_astc@miptree-gles ldr
+spec@khr_texture_compression_astc@miptree-gles ldr@LDR Profile
+dEQP-GLES2.functional.shaders.random.texture.fragment.19
+dEQP-GLES2.functional.shaders.random.texture.fragment.55
+dEQP-GLES2.functional.shaders.random.all_features.fragment.17
+dEQP-GLES2.functional.fbo.render.resize.tex2d_rgba
+dEQP-GLES2.functional.fbo.render.color.mix_npot_tex2d_rgb_depth_component16
+dEQP-GLES2.functional.uniform_api.value.assigned.by_pointer.render.basic_struct.sampler2D_samplerCube_vertex
+dEQP-GLES2.functional.texture.filtering.2d.nearest_linear_mirror_rgba8888_pot
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+dEQP-GLES2.functional.shaders.random.texture.fragment.39
+dEQP-GLES2.functional.shaders.random.texture.fragment.111
+dEQP-GLES2.functional.fbo.render.color.mix_tex2d_rgba_depth_component16
+dEQP-GLES2.functional.shaders.random.texture.fragment.20
+dEQP-GLES2.functional.shaders.random.texture.fragment.124
+
+# Nightly run expectations update (pipeline 1156232)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/899263ecfc8251ffff375d70b4c5d44f192112b0...363a90d0c45cfc25fba6f8e59e6c53fb610846e8
+dEQP-GLES2.functional.fbo.render.stencil.npot_rbo_rgb5_a1_stencil_index8
+
+# Nightly run expectations update (pipeline 1158209)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/40f39482e15cb5aa14abef6661a4d785bb6cd4b1...042b8a65d33d94e24ef037d0b1550ad70b6b4517
+dEQP-GLES2.functional.texture.size.cube.64x64_rgb888
+
+
+# Nightly run expectations update (pipeline 1159078)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/042b8a65d33d94e24ef037d0b1550ad70b6b4517...d097a60d5762df2d557362deea84e275794d1e35
+spec@glsl-1.10@execution@samplers@glsl-fs-texture2d-branching
+spec@glsl-1.10@execution@samplers@glsl-fs-texture2d-masked-2
+spec@glsl-1.10@execution@glsl-fs-uniform-sampler-array
+dEQP-GLES2.functional.uniform_api.value.assigned.by_pointer.render.basic_array.sampler2D_both
+
+# Nightly run expectations update (pipeline 1160134)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/04f232ed99bb68ef7c5169173253d4cdfa840bce...e5f133ccc426a197c48a4e88f5377f943f078180
+spec@arb_depth_texture@depth-tex-modes
+

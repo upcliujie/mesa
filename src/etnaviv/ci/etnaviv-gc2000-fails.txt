@@ -1963,3 +1963,16 @@ spec@arb_texture_cube_map@copyteximage cube samples=4,Fail
 
 spec@arb_texture_rectangle@copyteximage rect samples=2,Fail
 spec@arb_texture_rectangle@copyteximage rect samples=4,Fail
+
+# Nightly run expectations update (pipeline 1153550)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9...6cc780173a8b1f427b434d59c4a32c5f553e661c
+dEQP-GLES2.functional.fbo.render.color.blend_rbo_rgb565,Fail
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+dEQP-GLES2.functional.depth_stencil_clear.depth_stencil_scissored_masked,Fail
+
+# Nightly run expectations update (pipeline 1159078)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/042b8a65d33d94e24ef037d0b1550ad70b6b4517...d097a60d5762df2d557362deea84e275794d1e35
+spec@ext_packed_depth_stencil@fbo-depthstencil-gl_depth24_stencil8-drawpixels-float-and-ushort,Fail
+

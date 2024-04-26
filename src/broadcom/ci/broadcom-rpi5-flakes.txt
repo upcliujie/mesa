@@ -59,3 +59,105 @@ dEQP-VK.wsi.(xcb|xlib).maintenance1.present_modes.heterogenous.fifo_relaxed_imme
 dEQP-VK.wsi.(xcb|xlib).maintenance1.present_modes.heterogenous.immediate_fifo_mailbox
 dEQP-VK.wsi.(xcb|xlib).maintenance1.present_modes.heterogenous.immediate_immediate_fifo
 dEQP-VK.wsi.(xcb|xlib).maintenance1.present_modes.mailbox.query
+
+# Nightly run expectations update
+dEQP-VK.image.swapchain_mutable.wayland.2d.b8g8r8a8_srgb_r8g8b8a8_unorm_draw_load_format_list
+dEQP-VK.image.swapchain_mutable.wayland.2d_array.b8g8r8a8_srgb_r8g8b8a8_srgb_copy_copy_format_list
+dEQP-VK.memory.pipeline_barrier.transfer_dst_uniform_texel_buffer.8192
+dEQP-VK.spirv_assembly.type.scalar.i8.shift_left_logical_shift16_tesse
+dEQP-VK.synchronization2.cross_instance.suballocated.write_blit_image_read_image_tess_eval.image_128x128_r32g32b32a32_sfloat_binary_semaphore_fence_fd
+dEQP-VK.wsi.xcb.maintenance1.present_modes.heterogenous.immediate_mailbox_fifo_relaxed
+dEQP-VK.wsi.xcb.maintenance1.scaling.demand.aspect_stretch.min_min.swapchain_bigger_same_aspect
+dEQP-VK.wsi.xcb.maintenance1.scaling.resize_window.demand.aspect_stretch.center_center.swapchain_taller
+dEQP-VK.wsi.xcb.maintenance1.scaling.resize_window.immediate.aspect_stretch.center_max.swapchain_smaller_same_aspect
+dEQP-VK.wsi.xlib.maintenance1.present_modes.heterogenous.demand_continuous_continuous
+dEQP-VK.wsi.xlib.maintenance1.present_modes.heterogenous.fifo_mailbox_mailbox
+dEQP-VK.wsi.xlib.swapchain.simulate_oom.clipped
+
+# Nightly run expectations update (pipeline 1145346)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/3114917986c03413720d35416455879a7ad4be09...22f64a1fe31f64f08e4ce48f66bb8408d16df2f3
+dEQP-VK.wsi.xlib.maintenance1.scaling.resize_window.immediate.aspect_stretch.min_min.same_size_and_aspect
+
+# Nightly run expectations update (pipeline 1147723)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/acbf3ad1fbace42f395a49586f49a7f1c12480ee...0cb852050d668c6f5d9dbb8b35e970d23ad6bd9a
+dEQP-VK.wsi.xcb.maintenance1.scaling.resize_window.immediate.one_to_one.center_center.swapchain_bigger_taller_aspect
+dEQP-VK.wsi.xlib.maintenance1.deferred_alloc.mailbox.bind_image
+
+# Nightly run expectations update (pipeline 1148273)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/0cb852050d668c6f5d9dbb8b35e970d23ad6bd9a...e808a1ead42772ddc71fa4359aef890f119c9229
+dEQP-VK.wsi.wayland.maintenance1.scaling.mailbox.one_to_one.min_min.swapchain_bigger_same_aspect
+dEQP-VK.pipeline.monolithic.image.suballocation.sampling_type.combined.view_type.cube_array.format.astc_10x10_unorm_block.count_1.size.32x32_array_of_36
+dEQP-VK.image.swapchain_mutable.wayland.2d_array.b8g8r8a8_srgb_r8g8b8a8_unorm_copy_texture_format_list
+dEQP-VK.memory_model.message_passing.ext.u32.noncoherent.fence_atomic.atomicwrite.subgroup.payload_local.buffer.guard_local.image.frag
+dEQP-VK.api.copy_and_blit.core.blit_image.simple_tests.mirror_subregions_3d.linear
+
+# Nightly run expectations update (pipeline 1149245)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/e808a1ead42772ddc71fa4359aef890f119c9229...27dba224d329df47706c77de36d814e3ae63304a
+dEQP-VK.wsi.xcb.maintenance1.present_modes.heterogenous.mailbox_immediate_immediate
+dEQP-VK.wsi.xlib.maintenance1.release_images.immediate.no_scaling.resize_window
+dEQP-VK.wsi.xcb.maintenance1.present_modes.heterogenous.mailbox_immediate_continuous
+
+# Nightly run expectations update (pipeline 1150246)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/27dba224d329df47706c77de36d814e3ae63304a...c603dee104b89c8ca4917efc0ad92265541dd43c
+dEQP-VK.wsi.xcb.maintenance1.scaling.resize_window.immediate.one_to_one.max_min.swapchain_smaller_wider_aspect
+dEQP-VK.wsi.xcb.maintenance1.present_modes.heterogenous.continuous_continuous_demand
+
+# Nightly run expectations update (pipeline 1151282)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c603dee104b89c8ca4917efc0ad92265541dd43c...24b6a047eee5b57863a4dcceef72bb344794d8c5
+dEQP-VK.wsi.xlib.maintenance1.present_modes.heterogenous.demand_immediate_fifo
+dEQP-VK.wsi.xlib.incremental_present.scale_none.mailbox.identity.inherit.reference
+
+# Nightly run expectations update (pipeline 1152159)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/24b6a047eee5b57863a4dcceef72bb344794d8c5...9e056fc962875a0765768b31f2c7a987d4ba52b0
+dEQP-VK.memory_model.message_passing.ext.u32.noncoherent.atomic_atomic.atomicwrite.device.payload_local.image.guard_local.buffer.frag
+
+# Nightly run expectations update (pipeline 1153550)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9...6cc780173a8b1f427b434d59c4a32c5f553e661c
+dEQP-VK.wsi.xlib.swapchain.render.2swapchains2
+dEQP-VK.wsi.xlib.swapchain.create.present_mode
+dEQP-VK.image.swapchain_mutable.wayland.2d_array.b8g8r8a8_unorm_b8g8r8a8_srgb_draw_copy_format_list
+dEQP-VK.wsi.wayland.swapchain.private_data.exclusive_nonzero_queues
+
+# Nightly run expectations update (pipeline 1157230)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/363a90d0c45cfc25fba6f8e59e6c53fb610846e8...40f39482e15cb5aa14abef6661a4d785bb6cd4b1
+dEQP-VK.draw.dynamic_rendering.complete_secondary_cmd_buff.multiple_interpolation.structured.no_sample_decoration.4_samples
+dEQP-VK.wsi.xlib.incremental_present.scale_none.fifo_relaxed.identity.inherit.incremental_present
+dEQP-VK.wsi.xlib.maintenance1.deferred_alloc.fifo.bind_image_multi_swapchain
+dEQP-VK.wsi.xcb.incremental_present.scale_none.immediate.identity.opaque.reference
+dEQP-VK.wsi.xlib.maintenance1.present_fence.mailbox.mult_swapchain_ordering
+dEQP-VK.image.swapchain_mutable.wayland.2d_array.b8g8r8a8_srgb_r8g8b8a8_srgb_draw_copy_format_list
+dEQP-VK.wsi.xlib.maintenance1.deferred_alloc.mailbox.bind_image_multi_swapchain
+dEQP-VK.wsi.xlib.maintenance1.present_modes.heterogenous.fifo_immediate_fifo_relaxed
+dEQP-VK.wsi.xcb.maintenance1.scaling.resize_window.demand.aspect_stretch.center_center.swapchain_bigger_wider_aspect
+
+# Nightly run expectations update (pipeline 1158209)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/40f39482e15cb5aa14abef6661a4d785bb6cd4b1...042b8a65d33d94e24ef037d0b1550ad70b6b4517
+dEQP-VK.wsi.xcb.maintenance1.scaling.continuous.aspect_stretch.center_min.swapchain_taller
+dEQP-VK.memory.pipeline_barrier.transfer_dst_uniform_texel_buffer.65536
+dEQP-VK.api.image_clearing.dedicated_allocation.clear_depth_stencil_image.2d.remaining_array_layers_twostep.d24_unorm_s8_uint_separate_layouts_depth_64x11
+
+# Nightly run expectations update (pipeline 1159078)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/042b8a65d33d94e24ef037d0b1550ad70b6b4517...d097a60d5762df2d557362deea84e275794d1e35
+dEQP-VK.wsi.xcb.maintenance1.present_modes.heterogenous.mailbox_fifo_relaxed_immediate
+dEQP-VK.wsi.xcb.swapchain.simulate_oom.image_swapchain_create_info
+dEQP-VK.wsi.xcb.maintenance1.present_modes.heterogenous.immediate_immediate_mailbox
+dEQP-VK.wsi.wayland.incremental_present.scale_none.fifo.inherit.pre_multiplied.reference
+
+# Nightly run expectations update (pipeline 1160134)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/04f232ed99bb68ef7c5169173253d4cdfa840bce...e5f133ccc426a197c48a4e88f5377f943f078180
+dEQP-VK.wsi.xlib.maintenance1.scaling.resize_window.fifo_relaxed.query.verify_compatible_present_modes
+dEQP-VK.wsi.xcb.maintenance1.scaling.immediate.query.verify_compatible_present_modes
+dEQP-VK.wsi.xcb.maintenance1.scaling.fifo.aspect_stretch.min_min.swapchain_smaller_same_aspect
+
+# Nightly run expectations update (pipeline 1161090)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/e5f133ccc426a197c48a4e88f5377f943f078180...62aab1437e2d7ee17daeffb30f0a9b0432262921
+dEQP-VK.wsi.xlib.incremental_present.scale_none.fifo.identity.inherit.reference
+dEQP-VK.wsi.xcb.maintenance1.scaling.immediate.aspect_stretch.min_center.swapchain_bigger_same_aspect
+dEQP-VK.wsi.xlib.surface.query_formats
+dEQP-VK.wsi.xcb.incremental_present.scale_none.fifo.identity.pre_multiplied.reference
+dEQP-VK.image.swapchain_mutable.wayland.2d.r8g8b8a8_unorm_r8g8b8a8_srgb_copy_copy_format_list
+
+# Nightly run expectations update (pipeline 1162048)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/62aab1437e2d7ee17daeffb30f0a9b0432262921...4fc3f1154595636897de8de8701a0432552174fe
+dEQP-VK.texture.shadow.2d_array.nearest.greater_or_equal_d24_unorm_s8_uint
+

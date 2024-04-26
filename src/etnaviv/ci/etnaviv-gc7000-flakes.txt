@@ -231,3 +231,19 @@ dEQP-GLES2.functional.vertex_arrays.single_attribute.output_types.user_ptr_0_0_f
 # Nightly run expectations update
 dEQP-GLES2.functional.texture.specification.random_teximage2d.cube_4
 
+# Nightly run expectations update (pipeline 1145346)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/3114917986c03413720d35416455879a7ad4be09...22f64a1fe31f64f08e4ce48f66bb8408d16df2f3
+dEQP-GLES2.functional.texture.specification.texsubimage2d_empty_tex.rgba4444_cube
+
+# Nightly run expectations update (pipeline 1153550)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9...6cc780173a8b1f427b434d59c4a32c5f553e661c
+dEQP-GLES2.functional.fbo.render.recreate_colorbuffer.rebind_tex2d_rgba_stencil_index8
+
+# Nightly run expectations update (pipeline 1157230)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/363a90d0c45cfc25fba6f8e59e6c53fb610846e8...40f39482e15cb5aa14abef6661a4d785bb6cd4b1
+dEQP-GLES2.functional.shaders.preprocessor.comments.comment_trick_1_fragment
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-GLES2.functional.texture.specification.basic_copytexsubimage2d.cube_rgba
+
