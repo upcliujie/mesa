@@ -402,6 +402,10 @@
    DRI_CONF_OPT_B(block_on_depleted_buffers, def, \
                   "Block clients using buffer backpressure until new buffer is available to reduce latency")
 
+#define DRI_CONF_WAYLAND_MIN_SYNC_FREQUENCY(def) \
+   DRI_CONF_OPT_I(wayland_min_sync_frequency, def, 0, 1000, \
+                  "Limit the blocking of vkQueuePresent/eglSwapBuffers to no more than 1/frequency (in Hz). Frequency of 0 for unlimited blocking.")
+
 #define DRI_CONF_VK_WSI_FORCE_BGRA8_UNORM_FIRST(def) \
    DRI_CONF_OPT_B(vk_wsi_force_bgra8_unorm_first, def, \
                   "Force vkGetPhysicalDeviceSurfaceFormatsKHR to return VK_FORMAT_B8G8R8A8_UNORM as the first format")

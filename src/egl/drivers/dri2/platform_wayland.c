@@ -50,7 +50,8 @@
 #include "kopper_interface.h"
 #include "loader.h"
 #include "loader_dri_helper.h"
-#include <loader_wayland_helper.h>
+#include "loader_wayland_helper.h"
+#include "util/timespec.h"
 
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
 #include "wayland-drm-client-protocol.h"
@@ -747,6 +748,14 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
    dri2_surf->base.SwapInterval = dri2_dpy->default_swap_interval;
 
+   dri2_surf->throttle_ready = true;
+   dri2_surf->has_lowest_tick_rate = dri2_dpy->min_sync_frequency != 0;
+   timespec_from_nsec(&dri2_surf->lowest_tick_rate,
+                      dri2_surf->has_lowest_tick_rate ?
+                      (uint64_t)NSEC_PER_SEC / dri2_dpy->min_sync_frequency : 0);
+   clock_gettime(CLOCK_MONOTONIC, &dri2_surf->last_throttle_callback);
+   clock_gettime(CLOCK_MONOTONIC, &dri2_surf->last_swap_buffers);
+
    return &dri2_surf->base;
 
 cleanup_dmabuf_feedback:
@@ -1298,8 +1307,23 @@ wayland_throttle_callback(void *data, struct wl_callback *callback,
                           uint32_t time)
 {
    struct dri2_egl_surface *dri2_surf = data;
+   struct timespec deadline;
+   struct timespec now;
 
    dri2_surf->throttle_callback = NULL;
+
+   clock_gettime(CLOCK_MONOTONIC, &now);
+   timespec_add(&deadline,
+                &dri2_surf->last_throttle_callback,
+                &dri2_surf->lowest_tick_rate);
+
+   if (!dri2_surf->has_lowest_tick_rate ||
+       !timespec_after(&now, &deadline))
+      dri2_surf->throttle_ready = true;
+
+   dri2_surf->last_throttle_callback.tv_sec = now.tv_sec;
+   dri2_surf->last_throttle_callback.tv_nsec = now.tv_nsec;
+
    wl_callback_destroy(callback);
 }
 
@@ -1470,6 +1494,9 @@ dri2_wl_swap_buffers_with_damage(_EGLDisplay *disp, _EGLSurface *draw,
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
    struct dri2_egl_surface *dri2_surf = dri2_egl_surface(draw);
+   struct timespec deadline;
+   struct timespec now;
+   struct timespec remaining_timeout;
 
    if (!dri2_surf->wl_win)
       return _eglError(EGL_BAD_NATIVE_WINDOW, "dri2_swap_buffers");
@@ -1487,10 +1514,28 @@ dri2_wl_swap_buffers_with_damage(_EGLDisplay *disp, _EGLSurface *draw,
    dri2_flush_drawable_for_swapbuffers(disp, draw);
    dri2_dpy->flush->invalidate(dri2_surf->dri_drawable);
 
-   while (dri2_surf->throttle_callback != NULL)
-      if (wl_display_dispatch_queue(dri2_dpy->wl_dpy, dri2_surf->wl_queue) ==
-          -1)
+   timespec_add(&deadline,
+                &dri2_surf->last_swap_buffers,
+                &dri2_surf->lowest_tick_rate);
+
+   while (!dri2_surf->throttle_ready) {
+      struct timespec *dispatch_timeout = NULL;
+
+      clock_gettime(CLOCK_MONOTONIC, &now);
+      timespec_sub_saturate(&remaining_timeout, &deadline, &now);
+      if (dri2_surf->has_lowest_tick_rate)
+         dispatch_timeout = &remaining_timeout;
+
+      int ret = wl_display_dispatch_queue_timeout(dri2_dpy->wl_dpy,
+                                                  dri2_surf->wl_queue,
+                                                  dispatch_timeout);
+      if (ret < 0)
          return -1;
+      if (ret == 0)
+         break;
+   }
+
+   clock_gettime(CLOCK_MONOTONIC, &dri2_surf->last_swap_buffers);
 
    for (int i = 0; i < ARRAY_SIZE(dri2_surf->color_buffers); i++)
       if (dri2_surf->color_buffers[i].age > 0)
@@ -1501,13 +1546,14 @@ dri2_wl_swap_buffers_with_damage(_EGLDisplay *disp, _EGLSurface *draw,
    if (update_buffers_if_needed(dri2_surf) < 0)
       return _eglError(EGL_BAD_ALLOC, "dri2_swap_buffers");
 
-   if (draw->SwapInterval > 0) {
+   if (draw->SwapInterval > 0 && dri2_surf->throttle_callback == NULL) {
       dri2_surf->throttle_callback =
          wl_surface_frame(dri2_surf->wl_surface_wrapper);
       wl_callback_add_listener(dri2_surf->throttle_callback, &throttle_listener,
                                dri2_surf);
    }
 
+   dri2_surf->throttle_ready = false;
    dri2_surf->back->age = 1;
    dri2_surf->current = dri2_surf->back;
    dri2_surf->back = NULL;
@@ -2112,6 +2158,12 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
    dri2_setup_screen(disp);
 
    dri2_wl_setup_swap_interval(disp);
+
+   dri2_dpy->min_sync_frequency = 20;
+   if (dri2_dpy->config)
+      dri2_dpy->config->configQueryi(dri2_dpy->dri_screen_render_gpu,
+                                     "wayland_min_sync_frequency",
+                                     &dri2_dpy->min_sync_frequency);
 
    if (dri2_dpy->wl_drm) {
       /* To use Prime, we must have _DRI_IMAGE v7 at least. createImageFromFds

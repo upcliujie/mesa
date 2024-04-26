@@ -55,6 +55,7 @@
 #include <util/u_dynarray.h>
 #include <util/anon_file.h>
 #include <util/os_time.h>
+#include <util/xmlconfig.h>
 
 #include <loader/loader_wayland_helper.h>
 
@@ -128,6 +129,7 @@ struct wsi_wayland {
    struct wsi_interface base;
 
    struct wsi_device *wsi;
+   int min_sync_frequency;
 
    const VkAllocationCallbacks *alloc;
    VkPhysicalDevice physical_device;
@@ -171,8 +173,6 @@ struct wsi_wl_swapchain {
    struct wsi_wl_surface *wsi_wl_surface;
    struct wp_tearing_control_v1 *tearing_control;
 
-   struct wl_callback *frame;
-
    VkExtent2D extent;
    VkFormat vk_format;
    enum wsi_wl_buffer_type buffer_type;
@@ -186,7 +186,6 @@ struct wsi_wl_swapchain {
    const uint64_t *drm_modifiers;
 
    VkPresentModeKHR present_mode;
-   bool fifo_ready;
 
    struct {
       pthread_mutex_t lock; /* protects all members */
@@ -199,6 +198,15 @@ struct wsi_wl_swapchain {
       struct wl_surface *surface;
       bool dispatch_in_progress;
    } present_ids;
+
+   struct {
+      bool ready;
+      struct wl_callback *callback;
+      bool has_lowest_tick_rate;
+      struct timespec lowest_tick_rate;
+      struct timespec last_callback;
+      struct timespec last_queue_present;
+   } frame;
 
    struct wsi_wl_image images[0];
 };
@@ -1944,6 +1952,7 @@ static void
 presentation_frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
 {
    struct wsi_wl_present_id *id = data;
+
    wsi_wl_presentation_update_present_id(id);
    wl_callback_destroy(callback);
 }
@@ -1953,18 +1962,31 @@ static const struct wl_callback_listener pres_frame_listener = {
 };
 
 static void
-frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
+fifo_frame_handle_done(void *data, struct wl_callback *callback, uint32_t serial)
 {
    struct wsi_wl_swapchain *chain = data;
+   struct timespec deadline;
+   struct timespec now;
 
-   chain->frame = NULL;
-   chain->fifo_ready = true;
+   chain->frame.callback = NULL;
+
+   clock_gettime(CLOCK_MONOTONIC, &now);
+   timespec_add(&deadline,
+                &chain->frame.last_callback,
+                &chain->frame.lowest_tick_rate);
+
+   if (!chain->frame.has_lowest_tick_rate ||
+       !timespec_after(&now, &deadline))
+      chain->frame.ready = true;
+
+   chain->frame.last_callback.tv_sec = now.tv_sec;
+   chain->frame.last_callback.tv_nsec = now.tv_nsec;
 
    wl_callback_destroy(callback);
 }
 
-static const struct wl_callback_listener frame_listener = {
-   frame_handle_done,
+static const struct wl_callback_listener fifo_frame_listener = {
+   fifo_frame_handle_done,
 };
 
 static VkResult
@@ -1989,6 +2011,9 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
       return VK_ERROR_OUT_OF_DATE_KHR;
 
    struct wsi_wl_surface *wsi_wl_surface = chain->wsi_wl_surface;
+   struct timespec deadline;
+   struct timespec now;
+   struct timespec remaining_timeout;
 
    if (chain->buffer_type == WSI_WL_BUFFER_SHM_MEMCPY) {
       struct wsi_wl_image *image = &chain->images[image_index];
@@ -1996,13 +2021,27 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
              image->base.row_pitches[0] * chain->extent.height);
    }
 
+   timespec_add(&deadline,
+                &chain->frame.last_queue_present,
+                &chain->frame.lowest_tick_rate);
+
    /* For EXT_swapchain_maintenance1. We might have transitioned from FIFO to MAILBOX.
     * In this case we need to let the FIFO request complete, before presenting MAILBOX. */
-   while (!chain->fifo_ready) {
-      int ret = wl_display_dispatch_queue(wsi_wl_surface->display->wl_display,
-                                          wsi_wl_surface->display->queue);
+   while (!chain->frame.ready) {
+      struct timespec *dispatch_timeout = NULL;
+
+      clock_gettime(CLOCK_MONOTONIC, &now);
+      timespec_sub_saturate(&remaining_timeout, &deadline, &now);
+      if (chain->frame.has_lowest_tick_rate)
+         dispatch_timeout = &remaining_timeout;
+
+      int ret = wl_display_dispatch_queue_timeout(wsi_wl_surface->display->wl_display,
+                                                  wsi_wl_surface->display->queue,
+                                                  dispatch_timeout);
       if (ret < 0)
          return VK_ERROR_OUT_OF_DATE_KHR;
+      if (ret == 0)
+         break;
    }
 
    if (chain->base.image_info.explicit_sync) {
@@ -2037,12 +2076,14 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
    }
 
    if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR) {
-      chain->frame = wl_surface_frame(wsi_wl_surface->surface);
-      wl_callback_add_listener(chain->frame, &frame_listener, chain);
-      chain->fifo_ready = false;
+      if (chain->frame.callback == NULL) {
+         chain->frame.callback = wl_surface_frame(wsi_wl_surface->surface);
+         wl_callback_add_listener(chain->frame.callback, &fifo_frame_listener, chain);
+      }
+      chain->frame.ready = false;
    } else {
       /* If we present MAILBOX, any subsequent presentation in FIFO can replace this image. */
-      chain->fifo_ready = true;
+      chain->frame.ready = true;
    }
 
    if (present_id > 0) {
@@ -2069,6 +2110,8 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
       wl_list_insert(&chain->present_ids.outstanding_list, &id->link);
       pthread_mutex_unlock(&chain->present_ids.lock);
    }
+
+   clock_gettime(CLOCK_MONOTONIC, &chain->frame.last_queue_present);
 
    chain->images[image_index].busy = true;
    wl_surface_commit(wsi_wl_surface->surface);
@@ -2243,8 +2286,8 @@ wsi_wl_swapchain_chain_free(struct wsi_wl_swapchain *chain,
    if (!chain->retired)
       wl_display_flush(wsi_wl_surface->display->wl_display);
 
-   if (chain->frame)
-      wl_callback_destroy(chain->frame);
+   if (chain->frame.callback)
+      wl_callback_destroy(chain->frame.callback);
    if (chain->tearing_control)
       wp_tearing_control_v1_destroy(chain->tearing_control);
 
@@ -2306,6 +2349,8 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
                                 const VkAllocationCallbacks* pAllocator,
                                 struct wsi_swapchain **swapchain_out)
 {
+   struct wsi_wayland *wsi =
+      (struct wsi_wayland *)wsi_device->wsi[VK_ICD_WSI_PLATFORM_WAYLAND];
    struct wsi_wl_surface *wsi_wl_surface =
       wl_container_of((VkIcdSurfaceWayland *)icd_surface, wsi_wl_surface, base);
    struct wsi_wl_swapchain *chain;
@@ -2496,7 +2541,13 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
                          chain->present_ids.queue);
    }
 
-   chain->fifo_ready = true;
+   chain->frame.ready = true;
+   chain->frame.has_lowest_tick_rate = wsi->min_sync_frequency != 0;
+   timespec_from_nsec(&chain->frame.lowest_tick_rate,
+                      chain->frame.has_lowest_tick_rate ?
+                      (uint64_t)NSEC_PER_SEC / wsi->min_sync_frequency : 0);
+   clock_gettime(CLOCK_MONOTONIC, &chain->frame.last_callback);
+   clock_gettime(CLOCK_MONOTONIC, &chain->frame.last_queue_present);
 
    for (uint32_t i = 0; i < chain->base.image_count; i++) {
       result = wsi_wl_image_init(chain, &chain->images[i],
@@ -2525,7 +2576,8 @@ fail:
 VkResult
 wsi_wl_init_wsi(struct wsi_device *wsi_device,
                 const VkAllocationCallbacks *alloc,
-                VkPhysicalDevice physical_device)
+                VkPhysicalDevice physical_device,
+                const struct driOptionCache *dri_options)
 {
    struct wsi_wayland *wsi;
    VkResult result;
@@ -2540,6 +2592,14 @@ wsi_wl_init_wsi(struct wsi_device *wsi_device,
    wsi->physical_device = physical_device;
    wsi->alloc = alloc;
    wsi->wsi = wsi_device;
+   wsi->min_sync_frequency = 20;
+
+   if (dri_options) {
+      if (driCheckOption(dri_options, "wayland_min_sync_frequency", DRI_INT)) {
+         wsi->min_sync_frequency =
+            driQueryOptioni(dri_options, "wayland_min_sync_frequency");
+      }
+   }
 
    wsi->base.get_support = wsi_wl_surface_get_support;
    wsi->base.get_capabilities2 = wsi_wl_surface_get_capabilities2;
