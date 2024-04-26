@@ -45,3 +45,91 @@ dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_npot_
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_same_format_clear
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_same_format_noclear
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.whole_image
+
+# Nightly run expectations update (pipeline 1144146)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e0d0190ea1a7781013b638ccd98236eb8ee00d7...3114917986c03413720d35416455879a7ad4be09
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s1_l1_l1_aabbs_check_all_handles
+
+# Nightly run expectations update (pipeline 1145346)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/3114917986c03413720d35416455879a7ad4be09...22f64a1fe31f64f08e4ce48f66bb8408d16df2f3
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s3_l11_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s2_l23_check_all_handles
+dEQP-VK.pipeline.fast_linked_library.image.suballocation.sampling_type.combined.view_type.1d_array.format.r8g8b8a8_sint.count_8.size.443x1_array_of_6
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s0_l1_l1_aabbs_check_all_handles
+
+# Nightly run expectations update (pipeline 1147723)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/acbf3ad1fbace42f395a49586f49a7f1c12480ee...0cb852050d668c6f5d9dbb8b35e970d23ad6bd9a
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s0_l2_l3_check_all_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s0_l11_check_all_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s3_l22_l22_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s1_l1_l1_aabbs_check_all_handles
+
+# Nightly run expectations update (pipeline 1149245)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/e808a1ead42772ddc71fa4359aef890f119c9229...27dba224d329df47706c77de36d814e3ae63304a
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s1_l1_check_capture_replay_handles
+
+# Nightly run expectations update (pipeline 1150246)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/27dba224d329df47706c77de36d814e3ae63304a...c603dee104b89c8ca4917efc0ad92265541dd43c
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s3_l232_aabbs_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s0_l11_check_capture_replay_handles
+
+# Nightly run expectations update (pipeline 1152159)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/24b6a047eee5b57863a4dcceef72bb344794d8c5...9e056fc962875a0765768b31f2c7a987d4ba52b0
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation..*handles
+
+# Nightly run expectations update (pipeline 1153003)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e056fc962875a0765768b31f2c7a987d4ba52b0...7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s0_l1_check_all_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s3_l2_l3_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s3_l11_check_all_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s3_l22_l22_check_capture_replay_handles
+
+# Nightly run expectations update (pipeline 1153550)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9...6cc780173a8b1f427b434d59c4a32c5f553e661c
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s3_l22_l22_aabbs_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s0_l1_aabbs_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s0_l2_l3_aabbs_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s0_l1_check_capture_replay_handles
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s0_l11_aabbs_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s2_l23_check_all_handles
+dEQP-VK.pipeline.shader_object_linked_binary.sampler.view_type.1d.format.a4b4g4r4_unorm_pack16.min_reduce.comp_b_g_r_a.min
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation_dho.s3_l22_l22_check_capture_replay_handles
+
+# Nightly run expectations update (pipeline 1156232)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/899263ecfc8251ffff375d70b4c5d44f192112b0...363a90d0c45cfc25fba6f8e59e6c53fb610846e8
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s0_l2_l3_aabbs_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s0_l1_aabbs_check_capture_replay_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s0_l1_l1_aabbs_check_all_handles
+dEQP-VK.pipeline.shader_object_unlinked_spirv.vertex_input.multiple_attributes.binding_one_to_one.attributes.uint.vec3.float16_t
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.multithreaded_compilation.s3_l2_l3_check_capture_replay_handles
+
+# Nightly run expectations update (pipeline 1157230)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/363a90d0c45cfc25fba6f8e59e6c53fb610846e8...40f39482e15cb5aa14abef6661a4d785bb6cd4b1
+dEQP-VK.pipeline.monolithic.image.suballocation.sampling_type.separate.view_type.1d.format.r32_sint.count_8.size.443x1
+
+# Nightly run expectations update (pipeline 1158209)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/40f39482e15cb5aa14abef6661a4d785bb6cd4b1...042b8a65d33d94e24ef037d0b1550ad70b6b4517
+dEQP-VK.api.copy_and_blit.sparse.image_to_image.array.array_to_array_layers
+
+# Nightly run expectations update (pipeline 1160134)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/04f232ed99bb68ef7c5169173253d4cdfa840bce...e5f133ccc426a197c48a4e88f5377f943f078180
+dEQP-VK.pipeline.shader_object_linked_binary.render_to_image.dedicated_allocation.2d.small.a2b10g10r10_uint_pack32_s8_uint
+
+# Nightly run expectations update (pipeline 1162038)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/62aab1437e2d7ee17daeffb30f0a9b0432262921...4fc3f1154595636897de8de8701a0432552174fe
+dEQP-VK.ray_tracing_pipeline.pipeline_library.configurations.singlethreaded_compilation.s0_l23_aabbs_check_group_handles
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.triangles.stride_5.offset_7.use_libs.chit_or_miss
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.triangles.stride_3.offset_7.use_libs.chit_or_miss
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.tri_and_box.stride_5.offset_7.use_libs.any_or_chit_or_miss
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.triangles.stride_3.offset_7.use_libs.any_or_chit
+
+# Nightly run expectations update (pipeline 1163872)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/ce1bbd241eb1ff69254000232a42a840893206dc...8ebf07eccd1f7476033e0151b9eb19a51d871c51
+dEQP-VK.ray_tracing_pipeline.pipeline_no_null_shaders_flag.gpu.boxes.stride_5.offset_7.use_libs.any
+

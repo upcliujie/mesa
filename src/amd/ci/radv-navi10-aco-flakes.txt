@@ -13,3 +13,20 @@ dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_npot_
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_diff_format_clear
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_diff_format_noclear
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.whole_image_diff_format
+
+# Nightly run expectations update (pipeline 1151282)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c603dee104b89c8ca4917efc0ad92265541dd43c...24b6a047eee5b57863a4dcceef72bb344794d8c5
+dEQP-VK.pipeline.monolithic.image.suballocation.sampling_type.separate.view_type.2d_array.format.r8g8_srgb.count_1.size.13x23_array_of_3
+
+# Nightly run expectations update (pipeline 1153003)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e056fc962875a0765768b31f2c7a987d4ba52b0...7de43c4fb8fbd310bab1d6e302ae8db4debb2cf9
+dEQP-VK.pipeline.monolithic.image.suballocation.sampling_type.separate.view_type.3d.format.r8g8b8a8_unorm.count_8.size.11x11x11
+
+# Nightly run expectations update (pipeline 1160134)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/04f232ed99bb68ef7c5169173253d4cdfa840bce...e5f133ccc426a197c48a4e88f5377f943f078180
+dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_npot_diff_format_clear
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-VK.pipeline.monolithic.image.suballocation.sampling_type.separate.view_type.3d.format.r16g16_sfloat.count_4.size.11x11x11
+

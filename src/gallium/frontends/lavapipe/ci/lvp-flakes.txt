@@ -12,3 +12,24 @@ dEQP-VK.rasterization.provoking_vertex.transform_feedback.first.line_strip_with_
 dEQP-VK.rasterization.provoking_vertex.transform_feedback.per_pipeline.triangle_strip_with_adjacency
 dEQP-VK.rasterization.provoking_vertex.transform_feedback.last.triangle_list_with_adjacency
 
+# Nightly run expectations update (pipeline 1150246)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/27dba224d329df47706c77de36d814e3ae63304a...c603dee104b89c8ca4917efc0ad92265541dd43c
+dEQP-VK.ray_tracing_pipeline.misc.recursiveTraces_tri_14
+nir-stress=dEQP-VK.binding_model.descriptorset_random.sets4.runtimesize.ubolimitlow.sbolimitlow.sampledimglow.lowimgsingletex.noiub.nouab.sect.noia.5
+dEQP-VK.ray_tracing_pipeline.misc.recursiveTraces_AABB_15
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-VK.dynamic_rendering.primary_cmd_buff.suballocation.formats.r16g16b16a16_uint.input.load.dont_care.draw
+dEQP-VK.dynamic_rendering.primary_cmd_buff.suballocation.formats.r32_uint.input.load.dont_care.draw
+dEQP-VK.dynamic_rendering.primary_cmd_buff.suballocation.formats.r16_sint.input.load.dont_care.draw
+dEQP-VK.dynamic_rendering.primary_cmd_buff.dedicated_allocation.formats.r32g32_sint.input.load.dont_care.draw
+dEQP-VK.dynamic_rendering.graphics_pipeline_library.dedicated_allocation.formats.r8g8_uint.input.load.dont_care.draw
+dEQP-VK.dynamic_rendering.graphics_pipeline_library.suballocation.formats.r16_sfloat.input.load.dont_care.draw
+
+# Nightly run expectations update (pipeline 1163872)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/ce1bbd241eb1ff69254000232a42a840893206dc...8ebf07eccd1f7476033e0151b9eb19a51d871c51
+dEQP-VK.dynamic_rendering.primary_cmd_buff.suballocation.formats.r16_unorm.input.load.dont_care.draw
+dEQP-VK.dynamic_rendering.primary_cmd_buff.suballocation.formats.r8g8_sint.input.load.dont_care.draw
+dEQP-VK.dynamic_rendering.primary_cmd_buff.suballocation.formats.a2b10g10r10_uint_pack32.input.load.dont_care.draw
+

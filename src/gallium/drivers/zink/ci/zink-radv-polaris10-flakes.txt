@@ -31,3 +31,27 @@ dEQP-GLES31.functional.fbo.no_attachments.npot_size.17x17
 # Fail: https://gitlab.freedesktop.org/mesa/mesa/-/jobs/56268639
 # Success: https://gitlab.freedesktop.org/mesa/mesa/-/jobs/56260518
 dEQP-GLES31.functional.fbo.no_attachments.npot_size.31x31
+
+# Nightly run expectations update (pipeline 1144146)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/9e0d0190ea1a7781013b638ccd98236eb8ee00d7...3114917986c03413720d35416455879a7ad4be09
+KHR-GL46.tessellation_shader.tessellation_shader_tc_barriers.barrier_guarded_write_calls
+
+# Nightly run expectations update (pipeline 1152159)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/24b6a047eee5b57863a4dcceef72bb344794d8c5...9e056fc962875a0765768b31f2c7a987d4ba52b0
+spec@arb_query_buffer_object@coherency.*
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+spec@arb_timer_query@timestamp-get
+
+# Nightly run expectations update (pipeline 1163872)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/ce1bbd241eb1ff69254000232a42a840893206dc...8ebf07eccd1f7476033e0151b9eb19a51d871c51
+spec@arb_query_buffer_object@coherency@indirect-dispatch-GL_GEOMETRY_SHADER_INVOCATIONS
+spec@arb_query_buffer_object@coherency@index-buffer-GL_GEOMETRY_SHADER_INVOCATIONS
+spec@arb_query_buffer_object@coherency@indirect-draw-GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED
+spec@arb_query_buffer_object@coherency@indirect-dispatch-GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED
+spec@arb_query_buffer_object@coherency@indirect-draw-GL_GEOMETRY_SHADER_INVOCATIONS
+spec@arb_query_buffer_object@coherency@index-buffer-GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED
+spec@arb_query_buffer_object@coherency@indirect-draw-count-GL_GEOMETRY_SHADER_INVOCATIONS
+spec@arb_query_buffer_object@coherency@indirect-draw-count-GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED
+

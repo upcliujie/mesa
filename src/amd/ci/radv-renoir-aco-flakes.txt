@@ -7,3 +7,12 @@ dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_d
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_same_format_clear
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.whole_image
 dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.whole_image_diff_format
+
+# Nightly run expectations update (pipeline 1161090)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/e5f133ccc426a197c48a4e88f5377f943f078180...62aab1437e2d7ee17daeffb30f0a9b0432262921
+dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_npot_diff_format_noclear
+
+# Nightly run expectations update (pipeline 1163872)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/ce1bbd241eb1ff69254000232a42a840893206dc...8ebf07eccd1f7476033e0151b9eb19a51d871c51
+dEQP-VK.api.copy_and_blit.sparse.image_to_image.simple_tests.partial_image_pot_same_format_noclear
+

@@ -225,10 +225,77 @@ KHR-GLES31.core.tessellation_shader.tessellation_shader_tc_barriers.barrier_guar
 glx@glx-visuals-depth -pixmap
 glx@glx-visuals-stencil -pixmap
 
-
 # Nightly run expectations update
 dEQP-VK.binding_model.shader_access.primary_cmd_buf.storage_buffer.tess_eval.multiple_contiguous_descriptors.offset_view_nonzero
 dEQP-VK.binding_model.shader_access.primary_cmd_buf.storage_image.tess_eval.multiple_descriptor_sets.multiple_discontiguous_descriptors.2d
 dEQP-VK.binding_model.shader_access.secondary_cmd_buf.storage_buffer_dynamic.tess_ctrl.multiple_descriptor_sets.descriptor_array.offset_view_zero_dynamic_zero
 dEQP-VK.spirv_assembly.instruction.graphics.indexing.input.struct.opinboundsaccesschain_u32_tesse
+
+# Nightly run expectations update (pipeline 1147173)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c891a384e784266ccc825c116f1733278dadbca8...acbf3ad1fbace42f395a49586f49a7f1c12480ee
+dEQP-VK.tessellation.invariance.primitive_set.isolines_fractional_odd_spacing_cw
+
+# Nightly run expectations update (pipeline 1147723)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/acbf3ad1fbace42f395a49586f49a7f1c12480ee...0cb852050d668c6f5d9dbb8b35e970d23ad6bd9a
+dEQP-VK.pipeline.monolithic.interface_matching.vector_length.out_ivec4_in_ivec4_member_of_block_vert_tesc_tese_out_frag_in
+
+# Nightly run expectations update (pipeline 1148273)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/0cb852050d668c6f5d9dbb8b35e970d23ad6bd9a...e808a1ead42772ddc71fa4359aef890f119c9229
+dEQP-VK.tessellation.misc_draw.fill_overlap_quads_equal_spacing
+dEQP-VK.synchronization2.op.single_queue.timeline_semaphore.write_ssbo_tess_control_read_copy_buffer.buffer_16384_specialized_access_flag
+
+# Nightly run expectations update (pipeline 1150246)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/27dba224d329df47706c77de36d814e3ae63304a...c603dee104b89c8ca4917efc0ad92265541dd43c
+dEQP-VK.query_pool.statistics_query.reset_after_copy.geometry_shader_invocations.primary.64bits_cmdcopyquerypoolresults_triangle_list_clear_color
+
+# Nightly run expectations update (pipeline 1151282)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/c603dee104b89c8ca4917efc0ad92265541dd43c...24b6a047eee5b57863a4dcceef72bb344794d8c5
+dEQP-VK.spirv_assembly.instruction.graphics.image_sampler.imagesample.combined_image_sampler.optypeimage_mismatch.rgba8i.depth_property.non_depth.shader_tesse
+
+# Nightly run expectations update (pipeline 1154074)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/6cc780173a8b1f427b434d59c4a32c5f553e661c...4a19047d329a49ed34fe05346ae1d298d2907e3e
+dEQP-VK.tessellation.invariance.outer_edge_index_independence.triangles_fractional_odd_spacing_ccw
+dEQP-VK.transform_feedback.primitives_generated_query.get.queue_reset.32bit.tese.xfb.empty_frag.patch_list.pgq_default_xfb_default.two_draws.pqg_first.after
+
+# Nightly run expectations update (pipeline 1155139)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4a19047d329a49ed34fe05346ae1d298d2907e3e...899263ecfc8251ffff375d70b4c5d44f192112b0
+dEQP-VK.tessellation.invariance.outer_edge_index_independence.triangles_equal_spacing_cw_point_mode
+
+# Nightly run expectations update (pipeline 1156232)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/899263ecfc8251ffff375d70b4c5d44f192112b0...363a90d0c45cfc25fba6f8e59e6c53fb610846e8
+dEQP-VK.binding_model.shader_access.primary_cmd_buf.with_template.storage_image.geometry.single_descriptor.2d_array_base_slice
+
+# Nightly run expectations update (pipeline 1157230)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/363a90d0c45cfc25fba6f8e59e6c53fb610846e8...40f39482e15cb5aa14abef6661a4d785bb6cd4b1
+dEQP-VK.binding_model.shader_access.primary_cmd_buf.bind.combined_image_sampler_mutable.tess_eval.multiple_descriptor_sets.multiple_contiguous_descriptors.cube_array_base_slice
+dEQP-VK.tessellation.invariance.outer_edge_symmetry.triangles_equal_spacing_ccw_point_mode
+dEQP-VK.binding_model.shader_access.primary_cmd_buf.bind.with_push.storage_image.tess_eval.multiple_contiguous_descriptors.cube
+
+# Nightly run expectations update (pipeline 1159605)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/d097a60d5762df2d557362deea84e275794d1e35...04f232ed99bb68ef7c5169173253d4cdfa840bce
+dEQP-VK.transform_feedback.primitives_generated_query.get.host_reset.32bit.geom.xfb.rast.line_list.pgq_0_xfb_1.single_draw.pqg_first.before_with_availability
+
+# Nightly run expectations update (pipeline 1160134)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/04f232ed99bb68ef7c5169173253d4cdfa840bce...e5f133ccc426a197c48a4e88f5377f943f078180
+dEQP-VK.binding_model.shader_access.secondary_cmd_buf.bind.with_push_template.storage_image.tess_ctrl.multiple_contiguous_descriptors.2d_base_mip
+
+# Nightly run expectations update (pipeline 1161090)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/e5f133ccc426a197c48a4e88f5377f943f078180...62aab1437e2d7ee17daeffb30f0a9b0432262921
+dEQP-VK.spirv_assembly.instruction.graphics.variable_pointers.single_buffer_read_only_graphics.opcopyobject_vec4_first_input_geom
+dEQP-VK.tessellation.invariance.outer_edge_division.quads_fractional_odd_spacing
+dEQP-VK.renderpass2.fragment_density_map.2_views.render.non_divisible_density_size.2_samples.static_subsampled_1_2_multiviewport
+
+# Nightly run expectations update (pipeline 1162038)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/62aab1437e2d7ee17daeffb30f0a9b0432262921...4fc3f1154595636897de8de8701a0432552174fe
+dEQP-VK.tessellation.invariance.outer_edge_index_independence.quads_equal_spacing_ccw_point_mode
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+dEQP-VK.tessellation.invariance.primitive_set.triangles_equal_spacing_cw_point_mode
+gmem-dEQP-VK.clipping.user_defined.clip_cull_distance.vert_tess.8_fragmentshader_read
+
+# Nightly run expectations update (pipeline 1163872)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/ce1bbd241eb1ff69254000232a42a840893206dc...8ebf07eccd1f7476033e0151b9eb19a51d871c51
+gmem-dEQP-VK.pipeline.pipeline_library.interface_matching.decoration_mismatch.out_noperspective_in_flat_member_of_structure_in_block_vert_out_tesc_in_tese_geom_frag
+dEQP-VK.tessellation.invariance.outer_edge_symmetry.quads_equal_spacing_ccw_point_mode
 

@@ -50,3 +50,12 @@ spec@arb_vertex_buffer_object@vbo-subdata-many drawrangeelements
 # Nightly run expectations update
 spec@glsl-1.20@execution@variable-indexing@fs-uniform-mat2-rd
 
+# Nightly run expectations update (pipeline 1145346)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/3114917986c03413720d35416455879a7ad4be09...22f64a1fe31f64f08e4ce48f66bb8408d16df2f3
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 146 s=d=z32f_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 292 s=z24_s8
+
+# Nightly run expectations update (pipeline 1162938)
+# https://gitlab.freedesktop.org/mesa/mesa/-/compare/4fc3f1154595636897de8de8701a0432552174fe...ce1bbd241eb1ff69254000232a42a840893206dc
+spec@!opengl 1.1@masked-clear
+
