@@ -2235,9 +2235,8 @@ emit_alu_b2f64(const nir_alu_instr& alu, Shader& shader)
    auto& value_factory = shader.value_factory();
 
    for (unsigned i = 0; i < alu.def.num_components; ++i) {
-      auto ir = new AluInstr(op2_and_int,
+      auto ir = new AluInstr(op1_mov,
                         value_factory.dest(alu.def, 2 * i, pin_group),
-                        value_factory.src(alu.src[0], i),
                         value_factory.zero(),
                         {alu_write});
       shader.emit_instruction(ir);
