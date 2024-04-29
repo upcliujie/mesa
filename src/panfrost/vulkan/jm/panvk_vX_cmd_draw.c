@@ -32,6 +32,7 @@
 #include "pan_shader.h"
 
 #include "vk_format.h"
+#include "vk_meta.h"
 #include "vk_pipeline_layout.h"
 
 struct panvk_draw_info {
