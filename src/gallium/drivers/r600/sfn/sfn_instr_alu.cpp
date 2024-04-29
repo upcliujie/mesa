@@ -2342,7 +2342,13 @@ emit_alu_f2f32(const nir_alu_instr& alu, Shader& shader)
 {
    auto& value_factory = shader.value_factory();
 
-   auto dest = value_factory.dest(alu.def, 0, pin_free, 5);
+   /* The scheduler is currently not capable of switching dest channels
+    * for instructions that use mre than one slot, so randomize the
+    * slots from the start to give it a chance to merge fp64 groups.
+    */
+   int mask = rand() & 1  ? 1 : 4;
+
+   auto dest = value_factory.dest(alu.def, 0, pin_free, mask);
 
    AluInstr::SrcValues srcs = {
       value_factory.src64(alu.src[0], 0, 1),
