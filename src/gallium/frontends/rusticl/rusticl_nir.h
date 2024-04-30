@@ -7,6 +7,7 @@ struct rusticl_lower_state {
     size_t format_arr_loc;
     size_t order_arr_loc;
     size_t work_dim_loc;
+    size_t prog_var;
 };
 
 bool rusticl_lower_intrinsics(nir_shader *nir, struct rusticl_lower_state *state);
