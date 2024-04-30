@@ -6263,7 +6263,7 @@ typedef void* <name>MTLSharedEvent_id</name>;
             <member optional="true" noautovalidity="true"><type>void</type>*     <name>pNext</name></member>
             <member><type>VkBool32</type>                                        <name>legacyVertexAttributes</name></member>
         </type>
-        <type category="struct" name="VkPhysicalDeviceLegacyVertexAttributesPropertiesEXT">
+        <type category="struct" name="VkPhysicalDeviceLegacyVertexAttributesPropertiesEXT" structextends="VkPhysicalDeviceProperties2">
             <member values="VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LEGACY_VERTEX_ATTRIBUTES_PROPERTIES_EXT"><type>VkStructureType</type> <name>sType</name></member>
             <member optional="true" noautovalidity="true"><type>void</type>*     <name>pNext</name></member>
             <member><type>VkBool32</type>                                        <name>nativeUnalignedPerformance</name></member>
