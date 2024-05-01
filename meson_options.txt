@@ -536,6 +536,6 @@ option(
 option(
   'amber',
   type : 'boolean',
-  value : false,
+  value : true,
   description : 'Configure build for legacy devices (coexist with Mesa >= 22.0)'
 )
