@@ -1105,6 +1105,7 @@ fs_visitor::dump_constant_ranges() const
       fprintf(stderr, "block%04u range=[%03u, %03u] reg=%02u (%s)\n",
               r.block, r.offset_B, r.length_B, r.reg_offset,
               r.block == BRW_UBO_RANGE_PUSH_CONSTANT ? "push-constants" :
+              r.block == BRW_UBO_RANGE_DRIVER_INTERNAL ? "driver-constants" :
               "ubo");
    }
 }
