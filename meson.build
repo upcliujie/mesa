@@ -303,7 +303,8 @@ with_any_intel = [
 with_any_nouveau = with_gallium_nouveau or with_nouveau_vk
 
 if get_option('panfrost-clc') != 'system'
-  with_panfrost_clc = get_option('panfrost-clc') == 'enabled'
+  with_panfrost_clc = get_option('panfrost-clc') == 'enabled' or \
+                      with_panfrost_vk or with_gallium_panfrost
 else
   with_panfrost_clc = false
 endif
