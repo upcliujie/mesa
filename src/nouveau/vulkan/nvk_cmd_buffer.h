@@ -163,6 +163,8 @@ struct nvk_cmd_buffer {
    struct util_dynarray pushes;
 
    uint64_t tls_space_needed;
+
+   VkQueueFlagBits queue_flags;
 };
 
 VK_DEFINE_HANDLE_CASTS(nvk_cmd_buffer, vk.base, VkCommandBuffer,
