@@ -85,7 +85,7 @@ zero_vram(struct nvk_device *dev, struct nouveau_ws_bo *bo)
       .remap_enable = REMAP_ENABLE_TRUE,
    });
 
-   return nvk_queue_submit_simple(&dev->queue, nv_push_dw_count(&push),
+   return nvk_queue_submit_simple(&dev->queues[0][0], nv_push_dw_count(&push),
                                   push_data, 1, &bo);
 }
 
