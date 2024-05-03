@@ -45,7 +45,6 @@ gtest-runner \
     --flakes $INSTALL/$GPU_VERSION-flakes.txt \
     --fraction-start ${CI_NODE_INDEX:-1} \
     --fraction $((${CI_NODE_TOTAL:-1} * ${GTEST_FRACTION:-1})) \
-    --env "LD_PRELOAD=$TEST_LD_PRELOAD" \
     $GTEST_RUNNER_OPTIONS
 
 GTEST_EXITCODE=$?

@@ -9,6 +9,12 @@ Add.Op/input_size_8_weight_size_5_input_channels_1_output_channels_128_stride_2_
 Add.Op/input_size_8_weight_size_5_input_channels_1_output_channels_160_stride_2_padding_same_1_is_signed_0
 Add.Op/input_size_8_weight_size_5_input_channels_1_output_channels_256_stride_2_padding_same_1_is_signed_0
 
+# These ones require a reshuffle mode that isn't supported.
+# Skip them to avoid NPU hangs.
+Conv2D.Op/input_size_[0-9]*_weight_size_5_input_channels_1_output_channels_[0-9]*_stride_2_padding_same_1_is_signed_0
+DepthwiseConv2D.Op/input_size_[0-9]*_weight_size_5_channels_1_stride_2_padding_same_1_is_signed_0
+Add.Op/input_size_[0-9]*_weight_size_5_input_channels_1_output_channels_[0-9]*_stride_2_padding_same_1_is_signed_0
+
 # No idea why this one is failing, needs investigation.
 # It takes a long time, so better skip for now.
 MobileDet.Whole

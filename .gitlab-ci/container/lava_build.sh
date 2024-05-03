@@ -132,6 +132,7 @@ CONTAINER_EPHEMERAL=(
     libx11-xcb-dev
     libxcb-dri2-0-dev
     libxkbcommon-dev
+    libxtensor-dev
     libwayland-dev
     ninja-build
     openssh-server
@@ -168,6 +169,7 @@ PKG_CI=(
   bash ca-certificates curl
   initramfs-tools jq netcat-openbsd dropbear openssh-server
   libasan8
+  libflatbuffers2
   git
   python3-dev python3-pip python3-setuptools python3-wheel
   weston # Wayland
@@ -243,6 +245,10 @@ fi
 ############### Building
 STRIP_CMD="${GCC_ARCH}-strip"
 mkdir -p $ROOTFS/usr/lib/$GCC_ARCH
+
+############### Install TensorFlow Lite
+. .gitlab-ci/container/build-tflite.sh
+mv /tflite-libs/* $ROOTFS/usr/lib/$GCC_ARCH/.
 
 ############### Build Vulkan validation layer (for zink)
 if [ "$DEBIAN_ARCH" = "amd64" ]; then
