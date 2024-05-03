@@ -34,7 +34,7 @@
 /* Max size of a bound cbuf */
 #define NVK_MAX_CBUF_SIZE (1u << 16)
 
-#define NVK_MAX_QUEUE_FAMILIES 1
+#define NVK_MAX_QUEUE_FAMILIES 2
 
 struct nvk_addr_range {
    uint64_t addr;

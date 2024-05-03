@@ -1286,6 +1286,12 @@ nvk_create_drm_physical_device(struct vk_instance *_instance,
                      VK_QUEUE_SPARSE_BINDING_BIT,
       .queue_count = 1,
    };
+   pdev->queue_families[pdev->queue_family_count++] = (struct nvk_queue_family) {
+      .queue_flags = VK_QUEUE_TRANSFER_BIT |
+                     VK_QUEUE_SPARSE_BINDING_BIT,
+      .queue_count = 1,
+   };
+
    assert(pdev->queue_family_count <= ARRAY_SIZE(pdev->queue_families));
 
    unsigned st_idx = 0;
