@@ -667,11 +667,6 @@ impl Device {
         load_screens().filter_map(Device::new)
     }
 
-    pub fn address_bits(&self) -> cl_uint {
-        self.screen
-            .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_ADDRESS_BITS)
-    }
-
     pub fn const_max_size(&self) -> cl_ulong {
         min(
             // Needed to fix the `api min_max_constant_buffer_size` CL CTS test as it can't really
@@ -885,35 +880,6 @@ impl Device {
         endianness == (pipe_endian::PIPE_ENDIAN_LITTLE as i32)
     }
 
-    pub fn local_mem_size(&self) -> cl_ulong {
-        self.screen
-            .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE)
-    }
-
-    pub fn max_block_sizes(&self) -> Vec<usize> {
-        let v: Vec<u64> = self
-            .screen
-            .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE);
-        v.into_iter().map(|v| v as usize).collect()
-    }
-
-    pub fn max_clock_freq(&self) -> cl_uint {
-        self.screen
-            .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY)
-    }
-
-    pub fn max_compute_units(&self) -> cl_uint {
-        self.screen
-            .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS)
-    }
-
-    pub fn max_grid_dimensions(&self) -> cl_uint {
-        ComputeParam::<u64>::compute_param(
-            self.screen.as_ref(),
-            pipe_compute_cap::PIPE_COMPUTE_CAP_GRID_DIMENSION,
-        ) as cl_uint
-    }
-
     pub fn max_mem_alloc(&self) -> cl_ulong {
         // TODO: at the moment gallium doesn't support bigger buffers
         min(self.compute_info.max_mem_alloc_size, 0x80000000)
@@ -921,13 +887,6 @@ impl Device {
 
     pub fn max_samplers(&self) -> cl_uint {
         self.shader_param(pipe_shader_cap::PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS) as cl_uint
-    }
-
-    pub fn max_threads_per_block(&self) -> usize {
-        ComputeParam::<u64>::compute_param(
-            self.screen.as_ref(),
-            pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK,
-        ) as usize
     }
 
     pub fn param_max_size(&self) -> usize {
@@ -967,13 +926,6 @@ impl Device {
         SetBitIndices::from_msb(self.compute_info.subgroup_sizes)
             .map(|bit| 1 << bit)
             .collect()
-    }
-
-    pub fn max_subgroups(&self) -> u32 {
-        ComputeParam::<u32>::compute_param(
-            self.screen.as_ref(),
-            pipe_compute_cap::PIPE_COMPUTE_CAP_MAX_SUBGROUPS,
-        )
     }
 
     pub fn subgroups_supported(&self) -> bool {
