@@ -706,10 +706,37 @@ v3d_upload_sampler_state_variant(void *map,
                          * values to the expected format.
                          */
                         if (variant < V3D_SAMPLER_STATE_32) {
-                                border.ui[0] = _mesa_float_to_half(border.f[0]);
-                                border.ui[1] = _mesa_float_to_half(border.f[1]);
-                                border.ui[2] = _mesa_float_to_half(border.f[2]);
-                                border.ui[3] = _mesa_float_to_half(border.f[3]);
+                                /* FIXME: this is not good enough, we probably need
+                                 * more variants to better specify the clamping for
+                                 * all formats. See failures in:
+                                 * dEQP-GLES31.functional.texture.border_clamp*
+                                 */
+                                switch (variant) {
+                                case V3D_SAMPLER_STATE_F16_UNORM:
+                                case V3D_SAMPLER_STATE_F16_BGRA_UNORM:
+                                case V3D_SAMPLER_STATE_F16_LA_UNORM:
+                                case V3D_SAMPLER_STATE_F16_A_UNORM:
+                                        border.ui[0] = (uint32_t) (border.f[0] * (float) 0xffff);
+                                        border.ui[1] = (uint32_t) (border.f[1] * (float) 0xffff);
+                                        border.ui[2] = (uint32_t) (border.f[2] * (float) 0xffff);
+                                        border.ui[3] = (uint32_t) (border.f[3] * (float) 0xffff);
+                                        break;
+                                case V3D_SAMPLER_STATE_F16_SNORM:
+                                case V3D_SAMPLER_STATE_F16_BGRA_SNORM:
+                                case V3D_SAMPLER_STATE_F16_LA_SNORM:
+                                case V3D_SAMPLER_STATE_F16_A_SNORM:
+                                        border.ui[0] = (uint32_t) (border.f[0] * (float) 0x3fff);
+                                        border.ui[1] = (uint32_t) (border.f[1] * (float) 0x3fff);
+                                        border.ui[2] = (uint32_t) (border.f[2] * (float) 0x3fff);
+                                        border.ui[3] = (uint32_t) (border.f[3] * (float) 0x3fff);
+                                        break;
+                                default:
+                                        border.ui[0] = _mesa_float_to_half(border.f[0]);
+                                        border.ui[1] = _mesa_float_to_half(border.f[1]);
+                                        border.ui[2] = _mesa_float_to_half(border.f[2]);
+                                        border.ui[3] = _mesa_float_to_half(border.f[3]);
+                                        break;
+                                };
                         }
 #endif
                         sampler.border_color_word_0 = border.ui[0];
