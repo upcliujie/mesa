@@ -39,17 +39,6 @@
 using namespace clover;
 
 namespace {
-   template<typename T>
-   std::vector<T>
-   get_compute_param(pipe_screen *pipe, pipe_shader_ir ir_format,
-                     pipe_compute_cap cap) {
-      int sz = pipe->get_compute_param(pipe, ir_format, cap, NULL);
-      std::vector<T> v(sz / sizeof(T));
-
-      pipe->get_compute_param(pipe, ir_format, cap, &v.front());
-      return v;
-   }
-
    cl_version
    get_highest_supported_version(const device &dev) {
       // All the checks below assume that the device supports FULL_PROFILE
@@ -192,6 +181,7 @@ device::device(clover::platform &platform, pipe_loader_device *ldev) :
          return;
       }
 #endif
+      pipe->query_compute_info(pipe, ir_format(), &compute_info);
    }
    if (pipe)
       pipe->destroy(pipe);
@@ -283,20 +273,17 @@ device::max_samplers() const {
 
 cl_ulong
 device::max_mem_global() const {
-   return get_compute_param<uint64_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE)[0];
+   return compute_info.max_global_size;
 }
 
 cl_ulong
 device::max_mem_local() const {
-   return get_compute_param<uint64_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE)[0];
+   return compute_info.max_shared_mem_size;
 }
 
 cl_ulong
 device::max_mem_input() const {
-   return get_compute_param<uint64_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_MAX_INPUT_SIZE)[0];
+   return compute_info.max_input_size;
 }
 
 cl_ulong
@@ -313,26 +300,22 @@ device::max_const_buffers() const {
 
 size_t
 device::max_threads_per_block() const {
-   return get_compute_param<uint64_t>(
-      pipe, ir_format(), PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK)[0];
+   return compute_info.max_threads_per_block;
 }
 
 cl_ulong
 device::max_mem_alloc_size() const {
-   return get_compute_param<uint64_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE)[0];
+   return compute_info.max_mem_alloc_size;
 }
 
 cl_uint
 device::max_clock_frequency() const {
-   return get_compute_param<uint32_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY)[0];
+   return compute_info.max_clock_frequency;
 }
 
 cl_uint
 device::max_compute_units() const {
-   return get_compute_param<uint32_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS)[0];
+   return compute_info.max_compute_units;
 }
 
 cl_uint
@@ -342,9 +325,7 @@ device::max_printf_buffer_size() const {
 
 bool
 device::image_support() const {
-   bool supports_images = get_compute_param<uint32_t>(pipe, ir_format(),
-                                                      PIPE_COMPUTE_CAP_IMAGES_SUPPORTED)[0];
-   if (!supports_images)
+   if (!compute_info.images_supported)
       return false;
 
    /* If the gallium driver supports images, but does not support the
@@ -428,15 +409,16 @@ device::allows_user_pointers() const {
 
 std::vector<size_t>
 device::max_block_size() const {
-   auto v = get_compute_param<uint64_t>(pipe, ir_format(),
-                                        PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE);
-   return { v.begin(), v.end() };
+   return {
+      compute_info.max_block_size[0],
+      compute_info.max_block_size[1],
+      compute_info.max_block_size[2],
+   };
 }
 
 cl_uint
 device::subgroup_size() const {
-   cl_uint subgroup_sizes =
-      get_compute_param<uint32_t>(pipe, ir_format(), PIPE_COMPUTE_CAP_SUBGROUP_SIZES)[0];
+   cl_uint subgroup_sizes = compute_info.subgroup_sizes;
    if (!subgroup_sizes)
       return 0;
    return 1 << (util_last_bit(subgroup_sizes) - 1);
@@ -444,8 +426,7 @@ device::subgroup_size() const {
 
 cl_uint
 device::address_bits() const {
-   return get_compute_param<uint32_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_ADDRESS_BITS)[0];
+   return compute_info.address_bits;
 }
 
 std::string
@@ -469,9 +450,7 @@ device::ir_format() const {
 
 std::string
 device::ir_target() const {
-   std::vector<char> target = get_compute_param<char>(
-      pipe, ir_format(), PIPE_COMPUTE_CAP_IR_TARGET);
-   return { target.data() };
+   return { compute_info.ir_target };
 }
 
 enum pipe_endian

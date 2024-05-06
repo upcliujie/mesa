@@ -31,6 +31,7 @@
 #include "core/binary.hpp"
 #include "util/lazy.hpp"
 #include "pipe-loader/pipe_loader.h"
+#include "pipe/p_state.h"
 
 struct nir_shader;
 struct disk_cache;
@@ -123,6 +124,7 @@ namespace clover {
    private:
       pipe_screen *pipe;
       pipe_loader_device *ldev;
+      struct pipe_compute_info compute_info;
    };
 }
 
