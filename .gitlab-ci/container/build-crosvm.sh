@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2086 # we want word splitting
 
+# When changing this file, you need to bump the following
+# .gitlab-ci/image-tags.yml tags:
+# For CrosVM
+# DEBIAN_BASE_TAG
+# DEBIAN_X86_64_TEST_GL_TAG
+# DEBIAN_X86_64_TEST_VK_TAG
+# KERNEL_ROOTFS_TAG
+# For Virglrenderer
+# DEBIAN_BASE_TAG
+# DEBIAN_X86_64_TEST_GL_TAG
+
 set -ex
 
 git config --global user.email "mesa@example.com"
@@ -12,7 +23,7 @@ pushd /platform/crosvm
 git checkout "$CROSVM_VERSION"
 git submodule update --init
 
-VIRGLRENDERER_VERSION=d9c002fac153b834a2c17731f2b85c36e333e102
+VIRGLRENDERER_VERSION=2aeffe412d868614e54d95c457278a6ed09fdca2
 rm -rf third_party/virglrenderer
 git clone --single-branch -b main --no-checkout https://gitlab.freedesktop.org/virgl/virglrenderer.git third_party/virglrenderer
 pushd third_party/virglrenderer
