@@ -9,16 +9,13 @@ use mesa_rust_util::has_required_feature;
 use mesa_rust_util::ptr::ThreadSafeCPtr;
 use mesa_rust_util::string::*;
 
-use std::convert::TryInto;
 use std::ffi::CStr;
-use std::mem::size_of;
 use std::os::raw::c_schar;
 use std::os::raw::c_uchar;
 use std::os::raw::c_void;
 use std::ptr;
 use std::sync::Arc;
 
-#[derive(PartialEq)]
 pub struct PipeScreen {
     ldev: PipeLoaderDevice,
     screen: ThreadSafeCPtr<pipe_screen>,
@@ -26,49 +23,6 @@ pub struct PipeScreen {
 
 pub const UUID_SIZE: usize = PIPE_UUID_SIZE as usize;
 const LUID_SIZE: usize = PIPE_LUID_SIZE as usize;
-
-// until we have a better solution
-pub trait ComputeParam<T> {
-    fn compute_param(&self, cap: pipe_compute_cap) -> T;
-}
-
-macro_rules! compute_param_impl {
-    ($ty:ty) => {
-        impl ComputeParam<$ty> for PipeScreen {
-            fn compute_param(&self, cap: pipe_compute_cap) -> $ty {
-                let size = self.compute_param_wrapped(cap, ptr::null_mut());
-                let mut d = [0; size_of::<$ty>()];
-                if size == 0 {
-                    return Default::default();
-                }
-                assert_eq!(size as usize, d.len());
-                self.compute_param_wrapped(cap, d.as_mut_ptr().cast());
-                <$ty>::from_ne_bytes(d)
-            }
-        }
-    };
-}
-
-compute_param_impl!(u32);
-compute_param_impl!(u64);
-
-impl ComputeParam<Vec<u64>> for PipeScreen {
-    fn compute_param(&self, cap: pipe_compute_cap) -> Vec<u64> {
-        let size = self.compute_param_wrapped(cap, ptr::null_mut());
-        let elems = (size / 8) as usize;
-
-        let mut res: Vec<u64> = Vec::new();
-        let mut d: Vec<u8> = vec![0; size as usize];
-
-        self.compute_param_wrapped(cap, d.as_mut_ptr().cast());
-        for i in 0..elems {
-            let offset = i * 8;
-            let slice = &d[offset..offset + 8];
-            res.push(u64::from_ne_bytes(slice.try_into().expect("")));
-        }
-        res
-    }
-}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ResourceType {
@@ -290,14 +244,13 @@ impl PipeScreen {
         unsafe { self.screen().get_shader_param.unwrap()(self.screen.as_ptr(), t, cap) }
     }
 
-    fn compute_param_wrapped(&self, cap: pipe_compute_cap, ptr: *mut c_void) -> i32 {
+    pub fn compute_info(&self, ptr: &mut pipe_compute_info) {
         unsafe {
-            self.screen().get_compute_param.unwrap()(
+            self.screen().query_compute_info.unwrap()(
                 self.screen.as_ptr(),
                 pipe_shader_ir::PIPE_SHADER_IR_NIR,
-                cap,
                 ptr,
-            )
+            );
         }
     }
 
@@ -474,11 +427,11 @@ fn has_required_cbs(screen: *mut pipe_screen) -> bool {
         & has_required_feature!(screen, fence_finish)
         & has_required_feature!(screen, fence_reference)
         & has_required_feature!(screen, get_compiler_options)
-        & has_required_feature!(screen, get_compute_param)
         & has_required_feature!(screen, get_name)
         & has_required_feature!(screen, get_param)
         & has_required_feature!(screen, get_shader_param)
         & has_required_feature!(screen, get_timestamp)
         & has_required_feature!(screen, is_format_supported)
+        & has_required_feature!(screen, query_compute_info)
         & has_required_feature!(screen, resource_create)
 }

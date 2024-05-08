@@ -273,7 +273,7 @@ impl ProgramBuild {
                 .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE),
             &d.lib_clc,
             &mut spec_constants,
-            d.address_bits(),
+            d.compute_info.address_bits,
             log.as_mut(),
         );
 
@@ -646,7 +646,7 @@ impl Program {
                     get_disk_cache(),
                     dev.cl_features(),
                     &dev.spirv_extensions,
-                    dev.address_bits(),
+                    dev.compute_info.address_bits,
                 );
 
                 if Platform::dbg().validate_spirv {

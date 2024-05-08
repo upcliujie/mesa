@@ -416,58 +416,35 @@ nv50_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
    return 0.0f;
 }
 
-static int
-nv50_screen_get_compute_param(struct pipe_screen *pscreen,
+static void
+nv50_screen_query_compute_info(struct pipe_screen *pscreen,
                               enum pipe_shader_ir ir_type,
-                              enum pipe_compute_cap param, void *data)
+                              struct pipe_compute_info *info)
 {
    struct nv50_screen *screen = nv50_screen(pscreen);
    struct nouveau_device *dev = screen->base.device;
+   const int global_mem = nouveau_device_get_global_mem_size(dev);
 
-#define RET(x) do {                  \
-   if (data)                         \
-      memcpy(data, x, sizeof(x));    \
-   return sizeof(x);                 \
-} while (0)
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {65535, 65535, 65535},
+      .max_block_size = {512, 512, 64},
+      .max_threads_per_block = 512,
 
-   switch (param) {
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      RET((uint64_t []) { 3 });
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      RET(((uint64_t []) { 65535, 65535, 65535 }));
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      RET(((uint64_t []) { 512, 512, 64 }));
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      RET((uint64_t []) { 512 });
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE: /* g0-15[] */
-      RET((uint64_t []) { nouveau_device_get_global_mem_size(dev) });
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE: /* s[] */
-      RET((uint64_t []) { 16 << 10 });
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE: /* l[] */
-      RET((uint64_t []) { 16 << 10 });
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE: /* c[], arbitrary limit */
-      RET((uint64_t []) { 4096 });
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      RET((uint32_t []) { 32 });
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-      RET((uint32_t []) { 0 });
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-      RET((uint64_t []) { nouveau_device_get_global_mem_size(dev) });
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t []) { 0 });
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-      RET((uint32_t []) { screen->mp_count });
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-      RET((uint32_t []) { 512 }); /* FIXME: arbitrary limit */
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      RET((uint32_t []) { 32 });
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      RET((uint64_t []) { 0 });
-   default:
-      return 0;
-   }
+      .max_global_size = global_mem,
+      .max_shared_mem_size = 16 << 10,
+      .max_input_size = 4096,
+      .max_mem_alloc_size = global_mem,
 
-#undef RET
+      .address_bits = 32,
+      /* FIXME: arbitrary limit */
+      .max_clock_frequency = 512,
+
+      .max_compute_units = screen->mp_count,
+
+      .images_supported = false,
+   };
 }
 
 static void
@@ -894,9 +871,9 @@ nv50_screen_create(struct nouveau_device *dev)
    pscreen->get_param = nv50_screen_get_param;
    pscreen->get_shader_param = nv50_screen_get_shader_param;
    pscreen->get_paramf = nv50_screen_get_paramf;
-   pscreen->get_compute_param = nv50_screen_get_compute_param;
    pscreen->get_driver_query_info = nv50_screen_get_driver_query_info;
    pscreen->get_driver_query_group_info = nv50_screen_get_driver_query_group_info;
+   pscreen->query_compute_info = nv50_screen_query_compute_info;
 
    /* nir stuff */
    pscreen->get_compiler_options = nv50_screen_get_compiler_options;

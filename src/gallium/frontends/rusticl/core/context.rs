@@ -178,7 +178,7 @@ impl Context {
     pub fn max_mem_alloc(&self) -> u64 {
         self.devs
             .iter()
-            .map(|dev| dev.max_mem_alloc())
+            .map(|dev| dev.compute_info.max_mem_alloc_size)
             .min()
             .unwrap()
     }

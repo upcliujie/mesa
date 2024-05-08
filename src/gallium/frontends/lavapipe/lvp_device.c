@@ -730,20 +730,9 @@ static void
 lvp_get_properties(const struct lvp_physical_device *device, struct vk_properties *p)
 {
    VkSampleCountFlags sample_counts = VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT;
+   struct pipe_compute_info compute_info;
 
-   uint64_t grid_size[3], block_size[3];
-   uint64_t max_threads_per_block, max_local_size;
-
-   device->pscreen->get_compute_param(device->pscreen, PIPE_SHADER_IR_NIR,
-                                       PIPE_COMPUTE_CAP_MAX_GRID_SIZE, grid_size);
-   device->pscreen->get_compute_param(device->pscreen, PIPE_SHADER_IR_NIR,
-                                       PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE, block_size);
-   device->pscreen->get_compute_param(device->pscreen, PIPE_SHADER_IR_NIR,
-                                       PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK,
-                                       &max_threads_per_block);
-   device->pscreen->get_compute_param(device->pscreen, PIPE_SHADER_IR_NIR,
-                                       PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE,
-                                       &max_local_size);
+   device->pscreen->query_compute_info(device->pscreen, PIPE_SHADER_IR_NIR, &compute_info);
 
    const uint64_t max_render_targets = device->pscreen->get_param(device->pscreen, PIPE_CAP_MAX_RENDER_TARGETS);
 
@@ -812,10 +801,10 @@ lvp_get_properties(const struct lvp_physical_device *device, struct vk_propertie
                                                      PIPE_SHADER_CAP_MAX_SHADER_BUFFERS) +
                                                   device->pscreen->get_shader_param(device->pscreen, MESA_SHADER_FRAGMENT,
                                                      PIPE_SHADER_CAP_MAX_SHADER_IMAGES),
-      .maxComputeSharedMemorySize               = max_local_size,
-      .maxComputeWorkGroupCount                 = { grid_size[0], grid_size[1], grid_size[2] },
-      .maxComputeWorkGroupInvocations           = max_threads_per_block,
-      .maxComputeWorkGroupSize                  = { block_size[0], block_size[1], block_size[2] },
+      .maxComputeSharedMemorySize               = compute_info.max_shared_mem_size,
+      .maxComputeWorkGroupCount                 = { compute_info.max_grid_size[0], compute_info.max_grid_size[1], compute_info.max_grid_size[2] },
+      .maxComputeWorkGroupInvocations           = compute_info.max_threads_per_block,
+      .maxComputeWorkGroupSize                  = { compute_info.max_block_size[0], compute_info.max_block_size[1], compute_info.max_block_size[2] },
       .subPixelPrecisionBits                    = device->pscreen->get_param(device->pscreen, PIPE_CAP_RASTERIZER_SUBPIXEL_BITS),
       .subTexelPrecisionBits                    = 8,
       .mipmapPrecisionBits                      = 4,

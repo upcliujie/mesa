@@ -93,17 +93,6 @@ dd_screen_get_paramf(struct pipe_screen *_screen,
 }
 
 static int
-dd_screen_get_compute_param(struct pipe_screen *_screen,
-                            enum pipe_shader_ir ir_type,
-                            enum pipe_compute_cap param,
-                            void *ret)
-{
-   struct pipe_screen *screen = dd_screen(_screen)->screen;
-
-   return screen->get_compute_param(screen, ir_type, param, ret);
-}
-
-static int
 dd_screen_get_shader_param(struct pipe_screen *_screen,
                            enum pipe_shader_type shader,
                            enum pipe_shader_cap param)
@@ -119,6 +108,16 @@ dd_screen_get_timestamp(struct pipe_screen *_screen)
    struct pipe_screen *screen = dd_screen(_screen)->screen;
 
    return screen->get_timestamp(screen);
+}
+
+static void
+dd_screen_query_compute_info(struct pipe_screen *_screen,
+                             enum pipe_shader_ir ir_type,
+                             struct pipe_compute_info *info)
+{
+   struct pipe_screen *screen = dd_screen(_screen)->screen;
+
+   screen->query_compute_info(screen, ir_type, info);
 }
 
 static void dd_screen_query_memory_info(struct pipe_screen *_screen,
@@ -623,11 +622,10 @@ ddebug_screen_create(struct pipe_screen *screen)
    SCR_INIT(get_disk_shader_cache);
    dscreen->base.get_param = dd_screen_get_param;
    dscreen->base.get_paramf = dd_screen_get_paramf;
-   dscreen->base.get_compute_param = dd_screen_get_compute_param;
    dscreen->base.get_shader_param = dd_screen_get_shader_param;
+   dscreen->base.query_compute_info = dd_screen_query_compute_info;
    dscreen->base.query_memory_info = dd_screen_query_memory_info;
    /* get_video_param */
-   /* get_compute_param */
    SCR_INIT(get_timestamp);
    dscreen->base.context_create = dd_screen_context_create;
    dscreen->base.is_format_supported = dd_screen_is_format_supported;

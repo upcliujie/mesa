@@ -420,75 +420,6 @@ zink_screen_get_pipeline_cache(struct zink_screen *screen, struct zink_program *
       util_queue_add_job(&screen->cache_get_thread, pg, &pg->cache_fence, cache_get_job, NULL, 0);
 }
 
-static int
-zink_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
-                       enum pipe_compute_cap param, void *ret)
-{
-   struct zink_screen *screen = zink_screen(pscreen);
-#define RET(x) do {                  \
-   if (ret)                          \
-      memcpy(ret, x, sizeof(x));     \
-   return sizeof(x);                 \
-} while (0)
-
-   switch (param) {
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      RET((uint32_t []){ 64 });
-
-   case PIPE_COMPUTE_CAP_IR_TARGET:
-      if (ret)
-         strcpy(ret, "nir");
-      return 4;
-
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      RET((uint64_t []) { 3 });
-
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      RET(((uint64_t []) { screen->info.props.limits.maxComputeWorkGroupCount[0],
-                           screen->info.props.limits.maxComputeWorkGroupCount[1],
-                           screen->info.props.limits.maxComputeWorkGroupCount[2] }));
-
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      /* MaxComputeWorkGroupSize[0..2] */
-      RET(((uint64_t []) {screen->info.props.limits.maxComputeWorkGroupSize[0],
-                          screen->info.props.limits.maxComputeWorkGroupSize[1],
-                          screen->info.props.limits.maxComputeWorkGroupSize[2]}));
-
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      RET((uint64_t []) { screen->info.props.limits.maxComputeWorkGroupInvocations });
-
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      RET((uint64_t []) { screen->info.props.limits.maxComputeSharedMemorySize });
-
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t []) { 1 });
-
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      RET((uint32_t []) { screen->info.props11.subgroupSize });
-
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-      RET((uint64_t []) { screen->clamp_video_mem });
-
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-      RET((uint64_t []) { screen->total_video_mem });
-
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-      // no way in vulkan to retrieve this information.
-      RET((uint32_t []) { 1 });
-
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-      // XXX: I think these are for Clover...
-      return 0;
-
-   default:
-      unreachable("unknown compute param");
-   }
-}
-
 static uint32_t
 get_smallest_buffer_heap(struct zink_screen *screen)
 {
@@ -2531,6 +2462,38 @@ zink_get_loader_version(struct zink_screen *screen)
 }
 
 static void
+zink_query_compute_info(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
+                        struct pipe_compute_info *info)
+{
+   struct zink_screen *screen = zink_screen(pscreen);
+   struct VkPhysicalDeviceLimits *limits = &screen->info.props.limits;
+
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {limits->maxComputeWorkGroupCount[0],
+                        limits->maxComputeWorkGroupCount[1],
+                        limits->maxComputeWorkGroupCount[2]},
+      .max_block_size = {limits->maxComputeWorkGroupSize[0],
+                         limits->maxComputeWorkGroupSize[1],
+                         limits->maxComputeWorkGroupSize[2]},
+      .max_threads_per_block = limits->maxComputeWorkGroupInvocations,
+      .max_variable_threads_per_block = limits->maxComputeWorkGroupInvocations,
+
+      .address_bits = 64,
+      
+      .max_shared_mem_size = limits->maxComputeSharedMemorySize,
+      .subgroup_sizes = screen->info.props11.subgroupSize,
+
+      .max_mem_alloc_size = screen->clamp_video_mem,
+      .max_global_size = screen->total_video_mem,
+
+      // no way in vulkan to retrieve this information.
+      .max_compute_units = 1,
+   };
+}
+
+static void
 zink_query_memory_info(struct pipe_screen *pscreen, struct pipe_memory_info *info)
 {
    struct zink_screen *screen = zink_screen(pscreen);
@@ -3493,8 +3456,8 @@ zink_internal_create_screen(const struct pipe_screen_config *config, int64_t dev
    screen->base.is_parallel_shader_compilation_finished = zink_is_parallel_shader_compilation_finished;
    screen->base.get_vendor = zink_get_vendor;
    screen->base.get_device_vendor = zink_get_device_vendor;
-   screen->base.get_compute_param = zink_get_compute_param;
    screen->base.get_timestamp = zink_get_timestamp;
+   screen->base.query_compute_info = zink_query_compute_info;
    screen->base.query_memory_info = zink_query_memory_info;
    screen->base.get_param = zink_get_param;
    screen->base.get_paramf = zink_get_paramf;

@@ -791,44 +791,26 @@ svga_get_shader_param(struct pipe_screen *screen, enum pipe_shader_type shader,
    }
 }
 
-
-static int
-svga_sm5_get_compute_param(struct pipe_screen *screen,
-                           enum pipe_shader_ir ir_type,
-                           enum pipe_compute_cap param,
-                           void *ret)
+static void
+svga_sm5_query_compute_info(struct pipe_screen *screen,
+                            enum pipe_shader_ir ir_type,
+                            struct pipe_compute_info *info)
 {
    ASSERTED struct svga_screen *svgascreen = svga_screen(screen);
    ASSERTED struct svga_winsys_screen *sws = svgascreen->sws;
-   uint64_t *iret = (uint64_t *)ret;
 
    assert(sws->have_gl43);
 
-   switch (param) {
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      iret[0] = 65535;
-      iret[1] = 65535;
-      iret[2] = 65535;
-      return 3 * sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      iret[0] = 1024;
-      iret[1] = 1024;
-      iret[2] = 64;
-      return 3 * sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      *iret = 1024;
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      *iret = 32768;
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      *iret = 0;
-      return sizeof(uint64_t);
-   default:
-      debug_printf("Unexpected compute param %u\n", param);
-   }
-   return 0;
+   *info = (struct pipe_compute_info)
+   {
+      .max_grid_size = {65535, 65535, 65535},
+      .max_block_size = {1024, 1024, 64},
+      .max_threads_per_block = 1024,
+      .max_shared_mem_size = 32768
+   };
+
 }
+
 
 static void
 svga_fence_reference(struct pipe_screen *screen,
@@ -1074,7 +1056,7 @@ svga_screen_create(struct svga_winsys_screen *sws)
 
    screen->get_driver_query_info = svga_get_driver_query_info;
 
-   screen->get_compute_param = svga_sm5_get_compute_param;
+   screen->query_compute_info = svga_sm5_query_compute_info;
 
    svgascreen->sws = sws;
 

@@ -188,7 +188,7 @@ impl CLInfoObj<cl_kernel_sub_group_info, (cl_device_id, usize, *const c_void, us
                 for subgroup_size in kernel.subgroup_sizes(dev) {
                     let threads = subgroups * subgroup_size;
 
-                    if threads > dev.max_threads_per_block() {
+                    if threads > dev.compute_info.max_threads_per_block as usize {
                         continue;
                     }
 
@@ -206,7 +206,7 @@ impl CLInfoObj<cl_kernel_sub_group_info, (cl_device_id, usize, *const c_void, us
             }
             CL_KERNEL_MAX_NUM_SUB_GROUPS => {
                 let threads = kernel.max_threads_per_block(dev);
-                let max_groups = dev.max_subgroups();
+                let max_groups = dev.compute_info.max_subgroups;
 
                 let mut result = 0;
                 for sgs in kernel.subgroup_sizes(dev) {
@@ -539,7 +539,7 @@ fn enqueue_ndrange_kernel(
 
     // CL_INVALID_WORK_DIMENSION if work_dim is not a valid value (i.e. a value between 1 and
     // CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS).
-    if work_dim == 0 || work_dim > q.device.max_grid_dimensions() {
+    if work_dim == 0 || work_dim > q.device.compute_info.grid_dimension as u32 {
         return Err(CL_INVALID_WORK_DIMENSION);
     }
 
@@ -548,8 +548,8 @@ fn enqueue_ndrange_kernel(
     let local_work_size = unsafe { kernel_work_arr_or_default(local_work_size, work_dim) };
     let global_work_offset = unsafe { kernel_work_arr_or_default(global_work_offset, work_dim) };
 
-    let device_bits = q.device.address_bits();
-    let device_max = u64::MAX >> (u64::BITS - device_bits);
+    let device_bits = q.device.compute_info.address_bits;
+    let device_max = u64::MAX >> (u64::BITS - device_bits as u32);
 
     let mut threads = 0;
     for i in 0..work_dim as usize {
@@ -563,7 +563,7 @@ fn enqueue_ndrange_kernel(
         // local_work_size[0], … local_work_size[work_dim - 1] is greater than the corresponding
         // values specified by
         // CL_DEVICE_MAX_WORK_ITEM_SIZES[0], …, CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim - 1].
-        if lws > q.device.max_block_sizes()[i] {
+        if lws > q.device.compute_info.max_block_size[i] as usize {
             return Err(CL_INVALID_WORK_ITEM_SIZE);
         }
 
@@ -712,7 +712,7 @@ fn get_kernel_suggested_local_work_size_khr(
 
     // CL_INVALID_WORK_DIMENSION if work_dim is not a valid value (i.e. a value between 1 and
     // CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS).
-    if work_dim == 0 || work_dim > queue.device.max_grid_dimensions() {
+    if work_dim == 0 || work_dim > queue.device.compute_info.grid_dimension.into() {
         return Err(CL_INVALID_WORK_DIMENSION);
     }
 
@@ -725,8 +725,8 @@ fn get_kernel_suggested_local_work_size_khr(
 
     let global_work_offset = unsafe { kernel_work_arr_or_default(global_work_offset, work_dim) };
 
-    let device_bits = queue.device.address_bits();
-    let device_max = u64::MAX >> (u64::BITS - device_bits);
+    let device_bits = queue.device.compute_info.address_bits;
+    let device_max = u64::MAX >> (u64::BITS - device_bits as u32);
     for i in 0..work_dim as usize {
         let gws = global_work_size[i];
         let gwo = global_work_offset[i];

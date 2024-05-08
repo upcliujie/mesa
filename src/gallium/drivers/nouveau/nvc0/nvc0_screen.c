@@ -506,74 +506,53 @@ nvc0_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
    return 0.0f;
 }
 
-static int
-nvc0_screen_get_compute_param(struct pipe_screen *pscreen,
+static void
+nvc0_screen_query_compute_info(struct pipe_screen *pscreen,
                               enum pipe_shader_ir ir_type,
-                              enum pipe_compute_cap param, void *data)
+                              struct pipe_compute_info *info)
 {
    struct nvc0_screen *screen = nvc0_screen(pscreen);
    struct nouveau_device *dev = screen->base.device;
    const uint16_t obj_class = screen->compute->oclass;
+   const uint64_t global_mem = nouveau_device_get_global_mem_size(dev);
 
-#define RET(x) do {                  \
-   if (data)                         \
-      memcpy(data, x, sizeof(x));    \
-   return sizeof(x);                 \
-} while (0)
+   *info = (struct pipe_compute_info)
+   {
+      .grid_dimension = 3,
+      .max_grid_size = {
+         (obj_class >= NVE4_COMPUTE_CLASS) ? 0x7fffffff : 0x0000ffff,
+         0x0000ffff,
+         0x0000ffff
+      },
+      .max_block_size = {1024, 1024, 62},
+      .max_threads_per_block = 1024,
+      .max_variable_threads_per_block = (obj_class >= NVE4_COMPUTE_CLASS) ? 1024 : 512,
 
-   switch (param) {
-   case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-      RET((uint64_t []) { 3 });
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      if (obj_class >= NVE4_COMPUTE_CLASS) {
-         RET(((uint64_t []) { 0x7fffffff, 65535, 65535 }));
-      } else {
-         RET(((uint64_t []) { 65535, 65535, 65535 }));
-      }
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      RET(((uint64_t []) { 1024, 1024, 64 }));
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      RET((uint64_t []) { 1024 });
-   case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-      if (obj_class >= NVE4_COMPUTE_CLASS) {
-         RET((uint64_t []) { 1024 });
-      } else {
-         RET((uint64_t []) { 512 });
-      }
-   case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE: /* g[] */
-      RET((uint64_t []) { nouveau_device_get_global_mem_size(dev) });
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE: /* s[] */
-      switch (obj_class) {
+      .max_global_size = global_mem,
+      .max_input_size = 4096,
+      .max_mem_alloc_size = global_mem,
+
+      .address_bits = 64,
+      .max_clock_frequency = 512,
+
+      .subgroup_sizes = 32,
+      .max_subgroups = 0,
+      .max_compute_units = screen->mp_count_compute,
+      .images_supported = NVC0_MAX_IMAGES,
+
+   };
+   
+   switch (obj_class) {
       case GM200_COMPUTE_CLASS:
-         RET((uint64_t []) { 96 << 10 });
+         info->max_shared_mem_size =  96 << 10;
+         break;
       case GM107_COMPUTE_CLASS:
-         RET((uint64_t []) { 64 << 10 });
+         info->max_shared_mem_size =  64 << 10;
+         break;
       default:
-         RET((uint64_t []) { 48 << 10 });
-      }
-   case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE: /* l[] */
-      RET((uint64_t []) { 512 << 10 });
-   case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE: /* c[], arbitrary limit */
-      RET((uint64_t []) { 4096 });
-   case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-      RET((uint32_t []) { 32 });
-   case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-      RET((uint32_t []) { 0 });
-   case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-      RET((uint64_t []) { nouveau_device_get_global_mem_size(dev) });
-   case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t []) { NVC0_MAX_IMAGES });
-   case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-      RET((uint32_t []) { screen->mp_count_compute });
-   case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-      RET((uint32_t []) { 512 }); /* FIXME: arbitrary limit */
-   case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-      RET((uint32_t []) { 64 });
-   default:
-      return 0;
+         info->max_shared_mem_size =  48 << 10;
+         break;
    }
-
-#undef RET
 }
 
 static void
@@ -809,7 +788,7 @@ nvc0_screen_init_compute(struct nvc0_screen *screen)
    struct nouveau_object *chan = screen->base.channel;
    int ret;
 
-   screen->base.base.get_compute_param = nvc0_screen_get_compute_param;
+   screen->base.base.query_compute_info = nvc0_screen_query_compute_info;
 
    ret = nouveau_object_mclass(chan, computes);
    if (ret < 0) {

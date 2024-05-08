@@ -614,51 +614,6 @@ virgl_get_paramf(struct pipe_screen *screen, enum pipe_capf param)
    return 0.0;
 }
 
-static int
-virgl_get_compute_param(struct pipe_screen *screen,
-                        enum pipe_shader_ir ir_type,
-                        enum pipe_compute_cap param,
-                        void *ret)
-{
-   struct virgl_screen *vscreen = virgl_screen(screen);
-   if (!(vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_COMPUTE_SHADER))
-      return 0;
-   switch (param) {
-   case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-      if (ret) {
-         uint64_t *grid_size = ret;
-         grid_size[0] = vscreen->caps.caps.v2.max_compute_grid_size[0];
-         grid_size[1] = vscreen->caps.caps.v2.max_compute_grid_size[1];
-         grid_size[2] = vscreen->caps.caps.v2.max_compute_grid_size[2];
-      }
-      return 3 * sizeof(uint64_t) ;
-   case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-      if (ret) {
-         uint64_t *block_size = ret;
-         block_size[0] = vscreen->caps.caps.v2.max_compute_block_size[0];
-         block_size[1] = vscreen->caps.caps.v2.max_compute_block_size[1];
-         block_size[2] = vscreen->caps.caps.v2.max_compute_block_size[2];
-      }
-      return 3 * sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-      if (ret) {
-         uint64_t *max_threads_per_block = ret;
-         *max_threads_per_block = vscreen->caps.caps.v2.max_compute_work_group_invocations;
-      }
-      return sizeof(uint64_t);
-   case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-      if (ret) {
-         uint64_t *max_local_size = ret;
-         /* Value reported by the closed source driver. */
-         *max_local_size = vscreen->caps.caps.v2.max_compute_shared_memory_size;
-      }
-      return sizeof(uint64_t);
-   default:
-      break;
-   }
-   return 0;
-}
-
 static bool
 has_format_bit(struct virgl_supported_format_mask *mask,
                enum virgl_formats fmt)
@@ -1007,6 +962,30 @@ fixup_formats(union virgl_caps *caps, struct virgl_supported_format_mask *mask)
       mask->bitmask[i] = caps->v1.sampler.bitmask[i];
 }
 
+static void
+virgl_query_compute_info(struct pipe_screen *screen,
+                        enum pipe_shader_ir ir_type,
+                        struct pipe_compute_info *info)
+{
+   struct virgl_screen *vscreen = virgl_screen(screen);
+   struct virgl_caps_v2 *v2 = &vscreen->caps.caps.v2;
+
+   if (!(v2->capability_bits & VIRGL_CAP_COMPUTE_SHADER))
+      return;
+
+   *info = (struct pipe_compute_info)
+   {
+      .max_grid_size = {v2->max_compute_grid_size[0],
+                        v2->max_compute_grid_size[1],
+                        v2->max_compute_grid_size[2]},
+      .max_block_size = {v2->max_compute_block_size[0],
+                         v2->max_compute_block_size[1],
+                         v2->max_compute_block_size[2]},
+      .max_threads_per_block = v2->max_compute_work_group_invocations,
+      .max_shared_mem_size = v2->max_compute_shared_memory_size,
+   };
+}
+
 static void virgl_query_memory_info(struct pipe_screen *screen, struct pipe_memory_info *info)
 {
    struct virgl_screen *vscreen = virgl_screen(screen);
@@ -1187,7 +1166,6 @@ virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *c
    screen->base.get_param = virgl_get_param;
    screen->base.get_shader_param = virgl_get_shader_param;
    screen->base.get_video_param = virgl_get_video_param;
-   screen->base.get_compute_param = virgl_get_compute_param;
    screen->base.get_paramf = virgl_get_paramf;
    screen->base.get_compiler_options = virgl_get_compiler_options;
    screen->base.is_format_supported = virgl_is_format_supported;
@@ -1201,6 +1179,7 @@ virgl_create_screen(struct virgl_winsys *vws, const struct pipe_screen_config *c
    screen->base.fence_finish = virgl_fence_finish;
    screen->base.fence_get_fd = virgl_fence_get_fd;
    screen->base.query_memory_info = virgl_query_memory_info;
+   screen->base.query_compute_info = virgl_query_compute_info;
    screen->base.get_disk_shader_cache = virgl_get_disk_shader_cache;
    screen->base.is_dmabuf_modifier_supported = virgl_is_dmabuf_modifier_supported;
    screen->base.get_dmabuf_modifier_planes = virgl_get_dmabuf_modifier_planes;

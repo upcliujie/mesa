@@ -771,7 +771,6 @@ class Interpreter(parser.SimpleTraceDumper):
             ('pipe_screen', 'get_param'),
             ('pipe_screen', 'get_paramf'),
             ('pipe_screen', 'get_shader_param'),
-            ('pipe_screen', 'get_compute_param'),
             ('pipe_screen', 'get_disk_shader_cache'),
             ('pipe_context', 'clear_render_target'), # XXX workaround trace bugs
             ('pipe_context', 'flush_resource'),

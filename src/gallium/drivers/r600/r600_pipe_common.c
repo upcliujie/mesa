@@ -891,150 +891,6 @@ static unsigned get_max_threads_per_block(struct r600_common_screen *screen,
 	return 256;
 }
 
-static int r600_get_compute_param(struct pipe_screen *screen,
-        enum pipe_shader_ir ir_type,
-        enum pipe_compute_cap param,
-        void *ret)
-{
-	struct r600_common_screen *rscreen = (struct r600_common_screen *)screen;
-
-	//TODO: select these params by asic
-	switch (param) {
-	case PIPE_COMPUTE_CAP_IR_TARGET: {
-		const char *gpu;
-		const char *triple = "r600--";
-		gpu = r600_get_llvm_processor_name(rscreen->family);
-		if (ret) {
-			sprintf(ret, "%s-%s", gpu, triple);
-		}
-		/* +2 for dash and terminating NIL byte */
-		return (strlen(triple) + strlen(gpu) + 2) * sizeof(char);
-	}
-	case PIPE_COMPUTE_CAP_GRID_DIMENSION:
-		if (ret) {
-			uint64_t *grid_dimension = ret;
-			grid_dimension[0] = 3;
-		}
-		return 1 * sizeof(uint64_t);
-
-	case PIPE_COMPUTE_CAP_MAX_GRID_SIZE:
-		if (ret) {
-			uint64_t *grid_size = ret;
-			grid_size[0] = 65535;
-			grid_size[1] = 65535;
-			grid_size[2] = 65535;
-		}
-		return 3 * sizeof(uint64_t) ;
-
-	case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
-		if (ret) {
-			uint64_t *block_size = ret;
-			unsigned threads_per_block = get_max_threads_per_block(rscreen, ir_type);
-			block_size[0] = threads_per_block;
-			block_size[1] = threads_per_block;
-			block_size[2] = threads_per_block;
-		}
-		return 3 * sizeof(uint64_t);
-
-	case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
-		if (ret) {
-			uint64_t *max_threads_per_block = ret;
-			*max_threads_per_block = get_max_threads_per_block(rscreen, ir_type);
-		}
-		return sizeof(uint64_t);
-	case PIPE_COMPUTE_CAP_ADDRESS_BITS:
-		if (ret) {
-			uint32_t *address_bits = ret;
-			address_bits[0] = 32;
-		}
-		return 1 * sizeof(uint32_t);
-
-	case PIPE_COMPUTE_CAP_MAX_GLOBAL_SIZE:
-		if (ret) {
-			uint64_t *max_global_size = ret;
-			uint64_t max_mem_alloc_size;
-
-			r600_get_compute_param(screen, ir_type,
-				PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE,
-				&max_mem_alloc_size);
-
-			/* In OpenCL, the MAX_MEM_ALLOC_SIZE must be at least
-			 * 1/4 of the MAX_GLOBAL_SIZE.  Since the
-			 * MAX_MEM_ALLOC_SIZE is fixed for older kernels,
-			 * make sure we never report more than
-			 * 4 * MAX_MEM_ALLOC_SIZE.
-			 */
-			*max_global_size = MIN2(4 * max_mem_alloc_size,
-						rscreen->info.max_heap_size_kb * 1024ull);
-		}
-		return sizeof(uint64_t);
-
-	case PIPE_COMPUTE_CAP_MAX_LOCAL_SIZE:
-		if (ret) {
-			uint64_t *max_local_size = ret;
-			/* Value reported by the closed source driver. */
-			*max_local_size = 32768;
-		}
-		return sizeof(uint64_t);
-
-	case PIPE_COMPUTE_CAP_MAX_INPUT_SIZE:
-		if (ret) {
-			uint64_t *max_input_size = ret;
-			/* Value reported by the closed source driver. */
-			*max_input_size = 1024;
-		}
-		return sizeof(uint64_t);
-
-	case PIPE_COMPUTE_CAP_MAX_MEM_ALLOC_SIZE:
-		if (ret) {
-			uint64_t *max_mem_alloc_size = ret;
-
-			*max_mem_alloc_size = (rscreen->info.max_heap_size_kb / 4) * 1024ull;
-		}
-		return sizeof(uint64_t);
-
-	case PIPE_COMPUTE_CAP_MAX_CLOCK_FREQUENCY:
-		if (ret) {
-			uint32_t *max_clock_frequency = ret;
-			*max_clock_frequency = rscreen->info.max_gpu_freq_mhz;
-		}
-		return sizeof(uint32_t);
-
-	case PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS:
-		if (ret) {
-			uint32_t *max_compute_units = ret;
-			*max_compute_units = rscreen->info.num_cu;
-		}
-		return sizeof(uint32_t);
-
-	case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-		if (ret) {
-			uint32_t *images_supported = ret;
-			*images_supported = 0;
-		}
-		return sizeof(uint32_t);
-	case PIPE_COMPUTE_CAP_MAX_PRIVATE_SIZE:
-		break; /* unused */
-	case PIPE_COMPUTE_CAP_SUBGROUP_SIZES:
-		if (ret) {
-			uint32_t *subgroup_size = ret;
-			*subgroup_size = r600_wavefront_size(rscreen->family);
-		}
-		return sizeof(uint32_t);
-	case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
-		if (ret) {
-			uint64_t *max_variable_threads_per_block = ret;
-			*max_variable_threads_per_block = 0;
-		}
-		return sizeof(uint64_t);
-        case PIPE_COMPUTE_CAP_MAX_SUBGROUPS:
-           return 0;
-	}
-
-        fprintf(stderr, "unknown PIPE_COMPUTE_CAP %d\n", param);
-        return 0;
-}
-
 static uint64_t r600_get_timestamp(struct pipe_screen *screen)
 {
 	struct r600_common_screen *rscreen = (struct r600_common_screen*)screen;
@@ -1104,6 +960,49 @@ static bool r600_fence_finish(struct pipe_screen *screen,
 	}
 
 	return rws->fence_wait(rws, rfence->gfx, timeout);
+}
+
+static void r600_query_compute_info(struct pipe_screen *screen,
+				   enum pipe_shader_ir ir_type,
+				   struct pipe_compute_info *info)
+{
+	struct r600_common_screen *rscreen = (struct r600_common_screen *)screen;
+
+	const char *gpu = r600_get_llvm_processor_name(rscreen->family);
+	const char *triple = "r600--";
+	const uint32_t threads_per_block = get_max_threads_per_block(rscreen, ir_type);
+	// sprintf(info->ir_target, "%s-%s", gpu, triple);
+	const uint64_t max_mem_alloc_size = (rscreen->info.max_heap_size_kb / 4) * 1024ull;
+	//TODO: select these params by asic
+	*info = (struct pipe_compute_info)
+	{
+		.grid_dimension = 3,
+		.max_grid_size = {65535, 65535, 65535},
+		.max_block_size = {threads_per_block, threads_per_block, threads_per_block},
+		.max_threads_per_block = threads_per_block,
+
+		/* In OpenCL, the MAX_MEM_ALLOC_SIZE must be at least
+		 * 1/4 of the MAX_GLOBAL_SIZE.  Since the
+		 * MAX_MEM_ALLOC_SIZE is fixed for older kernels,
+		 * make sure we never report more than
+		 * 4 * MAX_MEM_ALLOC_SIZE.
+		 */
+		.max_global_size =
+		      MIN2(4 * max_mem_alloc_size, rscreen->info.max_heap_size_kb * 1024ull),
+		/* Value reported by the closed source driver. */
+		.max_shared_mem_size = 32768,
+		/* Value reported by the closed source driver. */
+		.max_input_size = 1024,
+		.max_mem_alloc_size = max_mem_alloc_size,
+
+		.address_bits = 32,
+		.max_clock_frequency = rscreen->info.max_gpu_freq_mhz,
+
+		.subgroup_size = r600_wavefront_size(rscreen->family),
+		.max_compute_units = rscreen->info.num_cu,
+
+		.images_supported = false,
+	};
 }
 
 static void r600_query_memory_info(struct pipe_screen *screen,
@@ -1264,7 +1163,6 @@ bool r600_common_screen_init(struct r600_common_screen *rscreen,
 	rscreen->b.get_vendor = r600_get_vendor;
 	rscreen->b.get_device_vendor = r600_get_device_vendor;
 	rscreen->b.get_disk_shader_cache = r600_get_disk_shader_cache;
-	rscreen->b.get_compute_param = r600_get_compute_param;
 	rscreen->b.get_screen_fd = r600_get_screen_fd;
 	rscreen->b.get_paramf = r600_get_paramf;
 	rscreen->b.get_timestamp = r600_get_timestamp;
@@ -1273,6 +1171,7 @@ bool r600_common_screen_init(struct r600_common_screen *rscreen,
 	rscreen->b.fence_reference = r600_fence_reference;
 	rscreen->b.resource_destroy = r600_resource_destroy;
 	rscreen->b.resource_from_user_memory = r600_buffer_from_user_memory;
+        rscreen->b.query_compute_info = r600_query_compute_info;
 	rscreen->b.query_memory_info = r600_query_memory_info;
 	rscreen->b.get_device_uuid = r600_get_device_uuid;
 	rscreen->b.get_driver_uuid = r600_get_driver_uuid;

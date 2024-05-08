@@ -48,7 +48,6 @@ lst_enum_include = [
     "pipe_map_flags",
     "pipe_cap",
     "pipe_capf",
-    "pipe_compute_cap",
     "pipe_video_cap",
     "pipe_video_profile",
     "pipe_video_entrypoint",

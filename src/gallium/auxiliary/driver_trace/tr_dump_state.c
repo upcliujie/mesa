@@ -871,6 +871,35 @@ void trace_dump_image_view(const struct pipe_image_view *state)
    trace_dump_struct_end();
 }
 
+void trace_dump_compute_info(const struct pipe_compute_info *state)
+{
+   if (!trace_dumping_enabled_locked())
+      return;
+
+   if (!state) {
+      trace_dump_null();
+      return;
+   }
+
+   trace_dump_struct_begin("pipe_compute_info");
+   trace_dump_member(string, state, ir_target);
+   trace_dump_member(uint, state, grid_dimension);
+   trace_dump_member_array(uint, state, max_grid_size);
+   trace_dump_member_array(uint, state, max_block_size);
+   trace_dump_member(uint, state, max_threads_per_block);
+   trace_dump_member(uint, state, max_global_size);
+   trace_dump_member(uint, state, max_shared_mem_size);
+   trace_dump_member(uint, state, max_input_size);
+   trace_dump_member(uint, state, max_mem_alloc_size);
+   trace_dump_member(uint, state, address_bits);
+   trace_dump_member(uint, state, max_clock_frequency);
+   trace_dump_member(uint, state, subgroup_sizes);
+   trace_dump_member(uint, state, max_subgroups);
+   trace_dump_member(uint, state, max_compute_units);
+   trace_dump_member(uint, state, max_variable_threads_per_block);
+   trace_dump_member(bool, state, images_supported);
+   trace_dump_struct_end();
+}
 
 void trace_dump_memory_info(const struct pipe_memory_info *state)
 {

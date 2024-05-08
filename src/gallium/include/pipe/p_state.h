@@ -1209,6 +1209,104 @@ struct pipe_device_reset_callback
 };
 
 /**
+ * Information about compute capabilities
+ */
+struct pipe_compute_info
+{
+   /**
+    * Maximum grid size in block units.
+    */
+   uint32_t max_grid_size[3];
+
+   /**
+    * Maximum block size in thread units.
+    */
+   uint32_t max_block_size[3];
+
+   /**
+    * Maximum number of threads that a single block can contain. This may be less than the product
+    * of the components of MAX_BLOCK_SIZE and is usually limited by the number of threads that can
+    * be resident simultaneously on a compute unit.
+    *
+    * See pipe_compute_state_object_info
+    */
+   uint32_t max_threads_per_block;
+
+   /**
+    * Maximum variable number of threads that a single block can contain. This is similar to
+    * max_threads_per_block, except that the variable size is not known a compile-time but at
+    * dispatch-time.
+    */
+   uint32_t max_variable_threads_per_block;
+
+   /**
+    * Maximum size of the LOCAL TGSI resource. NIR shared memory size.
+    */
+   uint32_t max_shared_mem_size;
+
+   /**
+    * Ored power of two sizes of a basic execution unit in threads. Also known as wavefront size,
+    * warp size or SIMD width. E.g. "64 | 32".
+    */
+   uint32_t subgroup_sizes;
+
+   /**
+    * The max amount of subgroups there can be inside a block. Non 0 indicates support for OpenCL
+    * subgroups including implementing ``get_compute_state_subgroup_size`` if multiple subgroup
+    * sizes are supported.
+    */
+   uint32_t max_subgroups;
+
+   /**
+    * Maximum number of compute units.
+    */
+   uint32_t max_compute_units;
+
+   /**
+    * Maximum frequency of the GPU clock in MHz.
+    */
+   uint32_t max_clock_frequency;
+
+   /**
+    * The device address space size specified as an unsigned integer value in bits. Either 64 or 32.
+    */
+   uint8_t address_bits;
+
+   /**
+    * Number of supported dimensions for grid and block coordinates.
+    */
+   uint8_t grid_dimension;
+
+   /**
+    * Maximum size of the GLOBAL resource. Deprecated in favor of query_memory_info.
+    */
+   uint64_t max_global_size;
+
+   /**
+    * Maximum size of a memory object allocation in bytes.
+    */
+   uint64_t max_mem_alloc_size;
+
+   /* the following ones exist for compatiblity with clover or for fallback paths in rusticl */
+
+   /**
+    * The LLVM target of the form "processor-arch-manufacturer-os" that will be passed on to the
+    * compiler. This is only used by clover for PIPE_SHADER_IR_NATIVE drivers.
+    */
+   char *ir_target;
+
+   /**
+    * Maximum size of the INPUT resource.
+    */
+   uint32_t max_input_size;
+
+   /**
+    * Whether images are supported with Clover. non-zero means yes, zero means no.
+    */
+   bool images_supported;
+};
+
+/**
  * Information about memory usage. All sizes are in kilobytes.
  */
 struct pipe_memory_info

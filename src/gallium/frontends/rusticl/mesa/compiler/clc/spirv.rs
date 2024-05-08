@@ -93,7 +93,7 @@ impl SPIRVBin {
         cache: &Option<DiskCache>,
         features: clc_optional_features,
         spirv_extensions: &[CString],
-        address_bits: u32,
+        address_bits: u8,
     ) -> (Option<Self>, String) {
         let mut hash_key = None;
         let has_includes = args.iter().any(|a| a.as_bytes()[0..2] == *b"-I");
@@ -149,7 +149,7 @@ impl SPIRVBin {
             features: features,
             use_llvm_spirv_target: false,
             allowed_spirv_extensions: spirv_extensions.as_ptr(),
-            address_bits: address_bits,
+            address_bits: address_bits.into(),
         };
         let mut msgs: Vec<String> = Vec::new();
         let logger = create_clc_logger(&mut msgs);
@@ -302,7 +302,7 @@ impl SPIRVBin {
     fn get_spirv_options(
         library: bool,
         clc_shader: *const nir_shader,
-        address_bits: u32,
+        address_bits: u8,
         log: Option<&mut Vec<String>>,
     ) -> spirv_to_nir_options {
         let global_addr_format;
@@ -363,7 +363,7 @@ impl SPIRVBin {
         nir_options: *const nir_shader_compiler_options,
         libclc: &NirShader,
         spec_constants: &mut [nir_spirv_specialization],
-        address_bits: u32,
+        address_bits: u8,
         log: Option<&mut Vec<String>>,
     ) -> Option<NirShader> {
         let c_entry = CString::new(entry_point.as_bytes()).unwrap();
@@ -385,15 +385,14 @@ impl SPIRVBin {
         NirShader::new(nir)
     }
 
-    pub fn get_lib_clc(screen: &PipeScreen) -> Option<NirShader> {
+    pub fn get_lib_clc(screen: &PipeScreen, address_bits: u8) -> Option<NirShader> {
         let nir_options = screen.nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE);
-        let address_bits = screen.compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_ADDRESS_BITS);
         let spirv_options = Self::get_spirv_options(true, ptr::null(), address_bits, None);
         let shader_cache = DiskCacheBorrowed::as_ptr(&screen.shader_cache());
 
         NirShader::new(unsafe {
             nir_load_libclc_shader(
-                address_bits,
+                address_bits.into(),
                 shader_cache,
                 &spirv_options,
                 nir_options,
