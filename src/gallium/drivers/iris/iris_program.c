@@ -3234,14 +3234,6 @@ iris_create_compute_state(struct pipe_context *ctx,
       nir = (void *)state->prog;
       break;
 
-   case PIPE_SHADER_IR_NIR_SERIALIZED: {
-      struct blob_reader reader;
-      const struct pipe_binary_program_header *hdr = state->prog;
-      blob_reader_init(&reader, hdr->blob, hdr->num_bytes);
-      nir = nir_deserialize(NULL, options, &reader);
-      break;
-   }
-
    default:
       unreachable("Unsupported IR");
    }

@@ -39,27 +39,9 @@ endif
 
 pipe_loader_install_dir = join_paths(get_option('libdir'), 'gallium-pipe')
 
-_kmsro_targets = [
-   driver_kmsro, driver_v3d, driver_vc4, driver_freedreno, driver_etnaviv,
-   driver_panfrost, driver_lima, driver_asahi,
-]
-
-if with_gallium_v3d
-   _kmsro_targets += [idep_xmlconfig, dep_expat]
-endif
-
 pipe_loaders = [
-  [with_gallium_i915, 'i915', driver_i915, []],
-  [with_gallium_crocus, 'crocus', [driver_crocus, idep_xmlconfig], []],
-  [with_gallium_iris, 'iris', [driver_iris, idep_xmlconfig], []],
-  [with_gallium_nouveau, 'nouveau', driver_nouveau, []],
-  [with_gallium_r300, 'r300', driver_r300, []],
   [with_gallium_r600, 'r600', driver_r600, []],
   [with_gallium_radeonsi, 'radeonsi', [driver_radeonsi, idep_xmlconfig], []],
-  [with_gallium_freedreno, 'msm', driver_freedreno, []],
-  [with_gallium_kmsro, 'kmsro', _kmsro_targets, [libpipe_loader_dynamic]],
-  [with_gallium_svga, 'vmwgfx', driver_svga, []],
-  [with_gallium_softpipe, 'swrast', driver_swrast, [libwsw, libws_null, libswdri, libswkmsdri]],
 ]
 
 foreach x : pipe_loaders
@@ -69,11 +51,10 @@ foreach x : pipe_loaders
 
   pipe_sym_config = configuration_data()
 
-  foreach d : [[x[1] in ['r300', 'r600', 'radeonsi'], 'radeon_drm_winsys_create'],
+  foreach d : [[x[1] in ['r600', 'radeonsi'], 'radeon_drm_winsys_create'],
                [x[1] == 'radeonsi', 'amdgpu_winsys_create'],
                [x[1] == 'radeonsi' and with_llvm, 'ac_init_shared_llvm_once'],
-               [x[1] != 'swrast', 'driver_descriptor'],
-               [x[1] == 'swrast', 'swrast_driver_descriptor']]
+               [true, 'driver_descriptor']]
     if d[0]
       pipe_sym_config.set(d[1], d[1] + ';')
     else
