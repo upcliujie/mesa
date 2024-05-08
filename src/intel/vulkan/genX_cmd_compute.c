@@ -140,7 +140,7 @@ genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
        * so flag push constants as dirty if we change the pipeline.
        */
       cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_COMPUTE_BIT;
-      comp_state->base.driver_constants_data_dirty = true;
+      comp_state->base.push_constants_data_dirty = true;
    }
 
    cmd_buffer->state.descriptors_dirty |=
@@ -182,21 +182,21 @@ genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (cmd_buffer->state.push_constants_dirty & VK_SHADER_STAGE_COMPUTE_BIT) {
-
-      if (comp_state->base.push_constants_state.alloc_size == 0 ||
+      if (comp_state->base.combined_constants_state.alloc_size == 0 ||
           comp_state->base.push_constants_data_dirty ||
           comp_state->base.driver_constants_data_dirty) {
-         comp_state->base.push_constants_state =
-            anv_cmd_buffer_cs_push_constants(cmd_buffer);
+         comp_state->base.combined_constants_state =
+            anv_cmd_buffer_combined_push_constants(cmd_buffer,
+                                                   &comp_state->base);
          comp_state->base.push_constants_data_dirty = false;
          comp_state->base.driver_constants_data_dirty = false;
       }
 
 #if GFX_VERx10 < 125
-      if (comp_state->base.push_constants_state.alloc_size) {
+      if (comp_state->base.combined_constants_state.alloc_size) {
          anv_batch_emit(&cmd_buffer->batch, GENX(MEDIA_CURBE_LOAD), curbe) {
-            curbe.CURBETotalDataLength    = comp_state->base.push_constants_state.alloc_size;
-            curbe.CURBEDataStartAddress   = comp_state->base.push_constants_state.offset;
+            curbe.CURBETotalDataLength    = comp_state->base.combined_constants_state.alloc_size;
+            curbe.CURBEDataStartAddress   = comp_state->base.combined_constants_state.offset;
          }
       }
 #endif
@@ -302,8 +302,13 @@ get_push_constants_address(struct anv_cmd_buffer *cmd_buffer,
                            const struct anv_shader_bin *shader)
 {
    struct anv_cmd_compute_state *comp_state = &cmd_buffer->state.compute;
-   return anv_state_pool_state_address(&cmd_buffer->device->general_state_pool,
-                                       comp_state->base.push_constants_state);
+   const struct anv_push_range *range =
+      anv_pipeline_bind_map_get_push_constant_range(&shader->bind_map);
+   if (range == NULL)
+      return ANV_NULL_ADDRESS;
+   return anv_state_pool_state_address(
+      &cmd_buffer->device->general_state_pool,
+      comp_state->base.combined_constants_state);
 }
 
 static inline void
