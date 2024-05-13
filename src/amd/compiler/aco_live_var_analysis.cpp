@@ -9,6 +9,15 @@
 
 namespace aco {
 
+namespace {
+bool
+has_arbitrary_fixed_operands(Instruction* instr)
+{
+   return instr->opcode == aco_opcode::p_return || instr->opcode == aco_opcode::p_jump_to_epilog ||
+          instr->opcode == aco_opcode::p_end_with_regs;
+}
+} // namespace
+
 RegisterDemand
 get_live_changes(aco_ptr<Instruction>& instr)
 {
@@ -35,6 +44,28 @@ get_additional_operand_demand(Instruction* instr)
    int op_idx = get_op_fixed_to_def(instr);
    if (op_idx != -1 && !instr->operands[op_idx].isKill())
       additional_demand += instr->definitions[0].getTemp();
+
+   if (!has_arbitrary_fixed_operands(instr))
+      return additional_demand;
+
+   for (Operand op : instr->operands) {
+      if (op.isTemp() && op.isFixed() && !op.isFirstKill()) {
+         for (Operand op2 : instr->operands) {
+            if (!op2.isTemp())
+               continue;
+            if (op2 == op)
+               break;
+
+            /* The operand needs to reside in two different registers at the same time: A copy will
+             * be necessary.
+             */
+            if (op2.tempId() == op.tempId() && op2.isFixed() && op2.physReg() != op.physReg()) {
+               additional_demand += op.getTemp();
+               break;
+            }
+         }
+      }
+   }
 
    return additional_demand;
 }
