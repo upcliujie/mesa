@@ -254,15 +254,23 @@ nvk_queue_submit(struct vk_queue *vk_queue,
 {
    struct nvk_queue *queue = container_of(vk_queue, struct nvk_queue, vk);
    struct nvk_device *dev = nvk_queue_device(queue);
+   struct nvk_physical_device *pdev = nvk_device_physical(dev);
    VkResult result;
 
    if (vk_queue_is_lost(&queue->vk))
       return VK_ERROR_DEVICE_LOST;
 
-   result = nvk_queue_state_update(dev, &queue->state);
-   if (result != VK_SUCCESS) {
-      return vk_queue_set_lost(&queue->vk, "Failed to update queue base "
-                                           "pointers pushbuf");
+   const struct nvk_queue_family *queue_family =
+      &pdev->queue_families[queue->vk.queue_family_index];
+
+   VkQueueFlags queue_flags = queue_family->queue_flags;
+
+   if (queue_flags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) {
+      result = nvk_queue_state_update(dev, &queue->state);
+      if (result != VK_SUCCESS) {
+         return vk_queue_set_lost(&queue->vk, "Failed to update queue base "
+                                  "pointers pushbuf");
+      }
    }
 
    const bool sync = dev->ws_dev->debug_flags & NVK_DEBUG_PUSH_SYNC;
@@ -324,6 +332,9 @@ nvk_queue_init_context_state(struct nvk_queue *queue,
          return result;
    }
 
+
+   if (nv_push_dw_count(&push) == 0)
+       return VK_SUCCESS;
    return nvk_queue_submit_simple(queue, nv_push_dw_count(&push),
                                   push_data, 0, NULL);
 }

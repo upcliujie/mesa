@@ -64,6 +64,10 @@ nvk_create_cmd_buffer(struct vk_command_pool *vk_pool,
 {
    struct nvk_cmd_pool *pool = container_of(vk_pool, struct nvk_cmd_pool, vk);
    struct nvk_device *dev = nvk_cmd_pool_device(pool);
+   struct nvk_physical_device *pdev = nvk_device_physical(dev);
+   const struct nvk_queue_family *queue_family =
+      &pdev->queue_families[vk_pool->queue_family_index];
+   const VkQueueFlags queue_flags = queue_family->queue_flags;
    struct nvk_cmd_buffer *cmd;
    VkResult result;
 
@@ -79,9 +83,13 @@ nvk_create_cmd_buffer(struct vk_command_pool *vk_pool,
       return result;
    }
 
-   cmd->vk.dynamic_graphics_state.vi = &cmd->state.gfx._dynamic_vi;
-   cmd->vk.dynamic_graphics_state.ms.sample_locations =
-      &cmd->state.gfx._dynamic_sl;
+   cmd->queue_flags = queue_flags;
+
+   if (queue_flags & VK_QUEUE_GRAPHICS_BIT) {
+      cmd->vk.dynamic_graphics_state.vi = &cmd->state.gfx._dynamic_vi;
+      cmd->vk.dynamic_graphics_state.ms.sample_locations =
+         &cmd->state.gfx._dynamic_sl;
+   }
 
    list_inithead(&cmd->bos);
    list_inithead(&cmd->gart_bos);
@@ -303,8 +311,10 @@ nvk_BeginCommandBuffer(VkCommandBuffer commandBuffer,
    P_MTHD(p, NV90B5, NOP);
    P_NV90B5_NOP(p, 0);
 
-   nvk_cmd_buffer_begin_compute(cmd, pBeginInfo);
-   nvk_cmd_buffer_begin_graphics(cmd, pBeginInfo);
+   if (cmd->queue_flags & VK_QUEUE_COMPUTE_BIT)
+      nvk_cmd_buffer_begin_compute(cmd, pBeginInfo);
+   if (cmd->queue_flags & VK_QUEUE_GRAPHICS_BIT)
+      nvk_cmd_buffer_begin_graphics(cmd, pBeginInfo);
 
    return VK_SUCCESS;
 }
@@ -477,6 +487,9 @@ nvk_cmd_flush_wait_dep(struct nvk_cmd_buffer *cmd,
    if (!barriers)
       return;
 
+   if (!(cmd->queue_flags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)))
+      return;
+
    struct nv_push *p = nvk_cmd_buffer_push(cmd, 4);
 
    if (barriers & NVK_BARRIER_FLUSH_SHADER_DATA) {
@@ -537,6 +550,9 @@ nvk_cmd_invalidate_deps(struct nvk_cmd_buffer *cmd,
    }
 
    if (!barriers)
+      return;
+
+   if (!(cmd->queue_flags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)))
       return;
 
    struct nv_push *p = nvk_cmd_buffer_push(cmd, 8);

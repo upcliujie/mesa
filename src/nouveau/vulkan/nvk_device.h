@@ -45,7 +45,8 @@ struct nvk_device {
    struct nouveau_ws_bo *zero_page;
    struct nouveau_ws_bo *vab_memory;
 
-   struct nvk_queue queue;
+   struct nvk_queue *queues[NVK_MAX_QUEUE_FAMILIES];
+   int queue_count[NVK_MAX_QUEUE_FAMILIES];
 
    struct vk_meta_device meta;
 };

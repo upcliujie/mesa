@@ -122,6 +122,17 @@ nvk_slm_area_ensure(struct nvk_device *dev,
    return VK_SUCCESS;
 }
 
+static void
+nvk_device_queue_finish(struct nvk_device *dev)
+{
+   for (unsigned i = 0; i < NVK_MAX_QUEUE_FAMILIES; i++) {
+      for (unsigned q = 0; q < dev->queue_count[i]; q++)
+         nvk_queue_finish(dev, &dev->queues[i][q]);
+      if (dev->queue_count[i])
+         vk_free(&dev->vk.alloc, dev->queues[i]);
+   }
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 nvk_CreateDevice(VkPhysicalDevice physicalDevice,
                  const VkDeviceCreateInfo *pCreateInfo,
@@ -241,10 +252,24 @@ nvk_CreateDevice(VkPhysicalDevice physicalDevice,
          goto fail_zero_page;
    }
 
-   result = nvk_queue_init(dev, &dev->queue,
-                           &pCreateInfo->pQueueCreateInfos[0], 0);
-   if (result != VK_SUCCESS)
-      goto fail_vab_memory;
+   for (unsigned i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
+      const VkDeviceQueueCreateInfo *queue_create = &pCreateInfo->pQueueCreateInfos[i];
+      uint32_t qfi = queue_create->queueFamilyIndex;
+
+      dev->queues[qfi] = vk_zalloc(&dev->vk.alloc, queue_create->queueCount * sizeof(struct nvk_queue), 8,
+                                     VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
+      if (!dev->queues[qfi]) {
+         result = VK_ERROR_OUT_OF_HOST_MEMORY;
+         goto fail_queue;
+      }
+      dev->queue_count[qfi] = queue_create->queueCount;
+      for (unsigned q = 0; q < queue_create->queueCount; q++) {
+         result = nvk_queue_init(dev, &dev->queues[qfi][q], queue_create, q);
+         if (result != VK_SUCCESS)
+            goto fail_queue;
+      }
+   }
 
    struct vk_pipeline_cache_create_info cache_info = {
       .weak_ref = true,
@@ -266,8 +291,7 @@ nvk_CreateDevice(VkPhysicalDevice physicalDevice,
 fail_mem_cache:
    vk_pipeline_cache_destroy(dev->vk.mem_cache, NULL);
 fail_queue:
-   nvk_queue_finish(dev, &dev->queue);
-fail_vab_memory:
+   nvk_device_queue_finish(dev);
    if (dev->vab_memory)
       nouveau_ws_bo_destroy(dev->vab_memory);
 fail_zero_page:
@@ -303,7 +327,9 @@ nvk_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
    nvk_device_finish_meta(dev);
 
    vk_pipeline_cache_destroy(dev->vk.mem_cache, NULL);
-   nvk_queue_finish(dev, &dev->queue);
+
+   nvk_device_queue_finish(dev);
+
    if (dev->vab_memory)
       nouveau_ws_bo_destroy(dev->vab_memory);
    nouveau_ws_bo_destroy(dev->zero_page);
