@@ -198,7 +198,7 @@ impl CLInfo<cl_device_info> for cl_device_id {
             // TODO proper retrival from devices
             CL_DEVICE_MEM_BASE_ADDR_ALIGN => cl_prop::<cl_uint>(0x1000),
             CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE => {
-                cl_prop::<cl_uint>(size_of::<cl_ulong16>() as cl_uint)
+                cl_prop::<cl_uint>(size_of::<[cl_ulong; 16]>() as cl_uint)
             }
             CL_DEVICE_NAME => cl_prop::<&str>(&dev.screen().name()),
             CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR => cl_prop::<cl_uint>(1),
@@ -322,8 +322,10 @@ fn get_device_ids(
     devices: *mut cl_device_id,
     num_devices: *mut cl_uint,
 ) -> CLResult<()> {
-    // CL_INVALID_PLATFORM if platform is not a valid platform.
-    platform.get_ref()?;
+    if !platform.is_null() {
+        // CL_INVALID_PLATFORM if platform is not a valid platform.
+        platform.get_ref()?;
+    }
 
     // CL_INVALID_DEVICE_TYPE if device_type is not a valid value.
     check_cl_device_type(device_type)?;

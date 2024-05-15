@@ -13,7 +13,9 @@ use std::mem::MaybeUninit;
 #[cl_info_entrypoint(cl_get_platform_info)]
 impl CLInfo<cl_platform_info> for cl_platform_id {
     fn query(&self, q: cl_platform_info, _: &[u8]) -> CLResult<Vec<MaybeUninit<u8>>> {
-        self.get_ref()?;
+        if !self.is_null() {
+            self.get_ref()?;
+        }
         Ok(match q {
             // TODO spirv
             CL_PLATFORM_EXTENSIONS => cl_prop(PLATFORM_EXTENSION_STR),
@@ -77,26 +79,26 @@ fn unload_platform_compiler(platform: cl_platform_id) -> CLResult<()> {
 #[test]
 fn test_get_platform_info() {
     let mut s: usize = 0;
-    let mut r = get_platform_info(
-        ptr::null(),
+    let mut r = cl_get_platform_info(
+        std::ptr::null_mut(),
         CL_PLATFORM_EXTENSIONS,
         0,
-        ptr::null_mut(),
+        std::ptr::null_mut(),
         &mut s,
     );
-    assert!(r.is_ok());
+    assert!(r == CL_SUCCESS as i32);
     assert!(s > 0);
 
     let mut v: Vec<u8> = vec![0; s];
-    r = get_platform_info(
-        ptr::null(),
+    r = cl_get_platform_info(
+        std::ptr::null_mut(),
         CL_PLATFORM_EXTENSIONS,
         s,
         v.as_mut_ptr().cast(),
         &mut s,
     );
 
-    assert!(r.is_ok());
+    assert!(r == CL_SUCCESS as i32);
     assert_eq!(s, v.len());
     assert!(!v[0..s - 2].contains(&0));
     assert_eq!(v[s - 1], 0);

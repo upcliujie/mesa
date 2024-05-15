@@ -180,6 +180,8 @@ rusticl_opencl_bindings_rs = rust.bindgen(
     '--raw-line', 'unsafe impl std::marker::Sync for _cl_image_desc {}',
     '--allowlist-type', 'cl_.*',
     '--allowlist-var', 'CL_.*',
+    # bindgen doesn't handle them pretty well and we won't need them anyway
+    '--blocklist-type', 'cl_.*(2|3|4|8|16)',
     # needed for gl_sharing extension
     '--allowlist-var', 'GL_.*',
     '--allowlist-var', 'MESA_GLINTEROP_.*',
@@ -381,12 +383,6 @@ rusticl_mesa_bindings_rs = rust.bindgen(
   ],
 )
 
-idep_rusticl_gen = declare_dependency(
-  sources: [
-    rusticl_opencl_bindings_rs,
-  ],
-)
-
 libmesa_rust_gen = static_library(
   'mesa_rust_gen',
   rusticl_mesa_bindings_rs,
@@ -465,7 +461,25 @@ librusticl = static_library(
     rusticl_opencl_gen,
     rusticl_proc_macros,
   ],
-  dependencies : [
-    idep_rusticl_gen,
-  ],
 )
+
+if with_tests
+  librusticl_test = static_library(
+    'rusticl_test',
+    'test/lib.rs',
+    rust_abi : 'c',
+  )
+
+  rust.test('rusticl_opencl_gen_test', rusticl_opencl_gen)
+  rust.test('rusticl_llvm_gen_test', rusticl_llvm_gen)
+  rust.test('rusticl_proc_macros_test', rusticl_proc_macros)
+  rust.test('libc_rust_gen_test', libc_rust_gen)
+  rust.test('libmesa_rust_gen_test', libmesa_rust_gen)
+  rust.test('libmesa_rust_util_test', libmesa_rust_util)
+  rust.test('libmesa_rust_test', libmesa_rust)
+  rust.test('rusticl_test', librusticl,
+    link_with : [
+      librusticl_test,
+    ],
+  )
+endif
