@@ -282,8 +282,19 @@ static rvcn_dec_message_avc_t get_h264_msg(struct radeon_decoder *dec,
       dec->ref_codec.bts = CODEC_8_BITS;
       dec->ref_codec.index = result.decoded_pic_idx;
       dec->ref_codec.ref_size = 16;
-      memset(dec->ref_codec.ref_list, 0xff, sizeof(dec->ref_codec.ref_list));
-      memcpy(dec->ref_codec.ref_list, result.ref_frame_list, sizeof(result.ref_frame_list));
+
+      if (result.curr_pic_ref_frame_num) {
+         memset(dec->ref_codec.ref_list, 0xff, sizeof(dec->ref_codec.ref_list));
+         memcpy(dec->ref_codec.ref_list, result.ref_frame_list, sizeof(result.ref_frame_list));
+      } else {
+         /* Restore previous reference frames when client misbehaves and send no valid picture_id.
+          * If there are no valid picture_id's in the picture params, all reference frames will be
+          * reset to NULL in the frontend. This leads to protection fault. This error behavior is
+          * observed during Steam link game, Skyrim in ChromeOs platform.
+          */
+         memcpy(result.ref_frame_list, dec->ref_codec.ref_list, sizeof(result.ref_frame_list));
+      }
+
    }
 
 end:
