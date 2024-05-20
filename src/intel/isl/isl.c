@@ -1890,6 +1890,18 @@ isl_calc_array_pitch_el_rows_gfx4_2d(
       pitch_el_rows = isl_align(pitch_el_rows, tile_info->logical_extent_el.height);
    }
 
+   /* From Wa_14020040029:
+    *
+    * For Tile4 with Depth buffer and single-LOD surfaces:
+    * Use QPitch which is multiple of 8-rows.
+    */
+   if (intel_needs_workaround(dev->info, 14020040029) &&
+       tile_info->tiling == ISL_TILING_4 &&
+       (isl_surf_usage_is_depth(info->usage) && info->levels == 1)) {
+      pitch_el_rows = isl_align(pitch_el_rows, 8);
+   }
+
+
    return pitch_el_rows;
 }
 
