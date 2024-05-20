@@ -1140,6 +1140,11 @@ isl_surf_choose_tiling(const struct isl_device *dev,
       CHOOSE(ISL_TILING_SKL_Ys);
    }
 
+   /* Prefer Tile64 on Xe2 with depth buffers*/
+   if ((ISL_GFX_VER(dev) >= 20) && isl_surf_usage_is_depth(info->usage)) {
+	  CHOOSE(ISL_TILING_64_XE2);
+   }
+
    /* Choose suggested 4K tilings first, then 64K tilings:
     *
     * Then following quotes can be found in the SKL PRMs,
