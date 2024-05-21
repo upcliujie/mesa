@@ -1200,15 +1200,20 @@ anv_cmd_buffer_push_constants(struct anv_cmd_buffer *cmd_buffer,
                               struct anv_cmd_pipeline_state *pipe_state,
                               uint32_t alignment)
 {
+   assert(pipe_state->push_constant_written_size <=
+          sizeof(pipe_state->push_constants));
+
+   uint32_t aligned_size =
+      align(pipe_state->push_constant_written_size, alignment);
+   if (aligned_size == 0)
+      return ANV_STATE_NULL;
+
    struct anv_state state =
-      anv_cmd_buffer_alloc_temporary_state(cmd_buffer,
-                                           sizeof(pipe_state->push_constants),
-                                           alignment);
+      anv_cmd_buffer_alloc_temporary_state(cmd_buffer, aligned_size, alignment);
    if (state.alloc_size == 0)
       return state;
 
-   memcpy(state.map, pipe_state->push_constants,
-          sizeof(pipe_state->push_constants));
+   memcpy(state.map, pipe_state->push_constants, aligned_size);
 
    return state;
 }
@@ -1315,7 +1320,8 @@ anv_cmd_buffer_combined_push_constants(struct anv_cmd_buffer *cmd_buffer,
       /* RT pipelines have their own path */
       assert(pipe_state->pipeline->type == ANV_PIPELINE_GRAPHICS);
 
-      memcpy(state.map, pipe_state->push_constants, MAX_PUSH_CONSTANTS_SIZE);
+      memcpy(state.map, pipe_state->push_constants,
+             pipe_state->push_constant_written_size);
       memcpy(state.map + MAX_PUSH_CONSTANTS_SIZE,
              &pipe_state->driver_constants,
              sizeof(pipe_state->driver_constants));
@@ -1364,6 +1370,9 @@ void anv_CmdPushConstants2KHR(
 
       memcpy(pipe_state->push_constants + pInfo->offset,
              pInfo->pValues, pInfo->size);
+      pipe_state->push_constant_written_size = MAX2(
+         pipe_state->push_constant_written_size,
+         pInfo->offset + pInfo->size);
       pipe_state->push_constants_data_dirty = true;
    }
    if (pInfo->stageFlags & VK_SHADER_STAGE_COMPUTE_BIT) {
@@ -1372,6 +1381,9 @@ void anv_CmdPushConstants2KHR(
 
       memcpy(pipe_state->push_constants + pInfo->offset,
              pInfo->pValues, pInfo->size);
+      pipe_state->push_constant_written_size = MAX2(
+         pipe_state->push_constant_written_size,
+         pInfo->offset + pInfo->size);
       pipe_state->push_constants_data_dirty = true;
    }
    if (pInfo->stageFlags & ANV_RT_STAGE_BITS) {
@@ -1380,6 +1392,9 @@ void anv_CmdPushConstants2KHR(
 
       memcpy(pipe_state->push_constants + pInfo->offset,
              pInfo->pValues, pInfo->size);
+      pipe_state->push_constant_written_size = MAX2(
+         pipe_state->push_constant_written_size,
+         pInfo->offset + pInfo->size);
       pipe_state->push_constants_data_dirty = true;
    }
 
