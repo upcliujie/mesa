@@ -438,12 +438,14 @@ vk_meta_create_graphics_pipeline(struct vk_device *device,
    VkPipelineColorBlendAttachmentState cb_att[MESA_VK_MAX_COLOR_ATTACHMENTS];
    if (info_local.pColorBlendState == NULL) {
       for (uint32_t i = 0; i < render->color_attachment_count; i++) {
+         VkColorComponentFlags wr_mask =
+            render->color_attachment_write_masks[i]
+               ?: (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                   VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
+
          cb_att[i] = (VkPipelineColorBlendAttachmentState) {
             .blendEnable = false,
-            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
-                              VK_COLOR_COMPONENT_G_BIT |
-                              VK_COLOR_COMPONENT_B_BIT |
-                              VK_COLOR_COMPONENT_A_BIT,
+            .colorWriteMask = wr_mask,
          };
       }
       cb_info = (VkPipelineColorBlendStateCreateInfo) {
@@ -556,4 +558,15 @@ vk_meta_create_buffer_view(struct vk_command_buffer *cmd,
                                   VK_OBJECT_TYPE_BUFFER_VIEW,
                                   (uint64_t)*buffer_view_out);
    return VK_SUCCESS;
+}
+
+VkDeviceAddress
+vk_meta_buffer_address(struct vk_device *device, VkBuffer buffer)
+{
+   return device->dispatch_table.GetBufferDeviceAddress(
+      vk_device_to_handle(device),
+      &(VkBufferDeviceAddressInfo) {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+         .buffer = buffer,
+      });
 }
