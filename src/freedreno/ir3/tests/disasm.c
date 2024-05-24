@@ -40,7 +40,7 @@
 #include "ir3_assembler.h"
 #include "ir3_shader.h"
 
-#include "isa/isa.h"
+#include "freedreno/isa/ir3-isa.h"
 
 /* clang-format off */
 /* Note: @anholt's 4xx disasm was done on an a418 Nexus 5x */
@@ -78,8 +78,8 @@ static const struct test {
    INSTR_6XX(00804040_00000003, "braa p0.x, p0.y, #3"),
    INSTR_6XX(07820000_00000000, "prede"),
    INSTR_6XX(00800063_0000001e, "brac.3 #30"),
-   INSTR_6XX(06820000_00000000, "predt p0.x"),
-   INSTR_6XX(07020000_00000000, "predf p0.x"),
+   INSTR_6XX(06820000_00000000, "predt"),
+   INSTR_6XX(07020000_00000000, "predf"),
    INSTR_6XX(07820000_00000000, "prede"),
 
    /* cat1 */
@@ -380,6 +380,9 @@ static const struct test {
    INSTR_6XX(c0260000_00478400, "ldc.offset2.1.imm r0.x, r0.x, 0"), /* ldc.1.mode0.base0 r0.x, r0.x, 0 */
    INSTR_6XX(c0260000_00478600, "ldc.offset3.1.imm r0.x, r0.x, 0"), /* ldc.1.mode0.base0 r0.x, r0.x, 0 */
 
+   /* dEQP-VK.glsl.arrays.length.float_fragment */
+   INSTR_6XX(c02600c1_00c7a900, "ldc.u.offset0.3.imm.base0 r48.y, 0, 0"), /* ldc.u.3.mode4.base0 sr48.y, 0, 0 */
+
    /* dEQP-VK.glsl.conditionals.if.if_else_vertex */
    INSTR_6XX(c0360000_00c78100, "ldc.1.k.imm.base0 c[a1.x], 0, 0"), /* ldc.1.k.mode4.base0 c[a1.x], 0, 0 */
    /* custom */
@@ -392,6 +395,9 @@ static const struct test {
    INSTR_6XX(c0860008_01860001, "ldp.u32 r2.x, p[r6.x], 1"),
    /* Custom stp based on above to catch a disasm bug. */
    INSTR_6XX(c1465b00_0180022a, "stp.u32 p[r11.y+256], r5.y, 1"),
+
+   INSTR_6XX(c0160010_00b001a1, "ldg.k.u32 c[16], g[r48.x+208], 1"),
+   INSTR_6XX(c0160188_00b01261, "ldg.k.u32 c[a1.x+136], g[r48.x+2352], 1"),
 
    /* Atomic: */
 #if 0
@@ -510,12 +516,12 @@ main(int argc, char **argv)
          strtoll(&test->instr[9], NULL, 16),
          strtoll(&test->instr[0], NULL, 16),
       };
-      isa_disasm(code, 8, fdisasm,
-                 &(struct isa_decode_options){
-                    .gpu_id = dev_info->chip * 100,
-                    .show_errors = true,
-                    .no_match_cb = print_raw,
-                 });
+      ir3_isa_disasm(code, 8, fdisasm,
+                     &(struct isa_decode_options){
+                        .gpu_id = dev_info->chip * 100,
+                        .show_errors = true,
+                        .no_match_cb = print_raw,
+                     });
       fflush(fdisasm);
 
       trim(disasm_output);

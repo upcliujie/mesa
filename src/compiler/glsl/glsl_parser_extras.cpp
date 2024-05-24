@@ -33,7 +33,7 @@
 #include "util/u_atomic.h" /* for p_atomic_cmpxchg */
 #include "util/ralloc.h"
 #include "util/disk_cache.h"
-#include "util/mesa-sha1.h"
+#include "util/mesa-blake3.h"
 #include "ast.h"
 #include "glsl_parser_extras.h"
 #include "glsl_parser.h"
@@ -741,6 +741,7 @@ static const _mesa_glsl_extension _mesa_glsl_supported_extensions[] = {
    /* All other extensions go here, sorted alphabetically.
     */
    EXT(AMD_conservative_depth),
+   EXT(AMD_gpu_shader_half_float),
    EXT(AMD_gpu_shader_int64),
    EXT(AMD_shader_stencil_export),
    EXT(AMD_shader_trinary_minmax),
@@ -979,7 +980,8 @@ _mesa_glsl_can_implicitly_convert(const glsl_type *from, const glsl_type *desire
       return false;
 
    /* int and uint can be converted to float. */
-   if (glsl_type_is_float(desired) && glsl_type_is_integer_32(from))
+   if (glsl_type_is_float(desired) && (glsl_type_is_integer_32(from) ||
+       glsl_type_is_float_16(from)))
       return true;
 
    /* With GLSL 4.0, ARB_gpu_shader5, or MESA_shader_integer_functions, int
@@ -998,7 +1000,7 @@ _mesa_glsl_can_implicitly_convert(const glsl_type *from, const glsl_type *desire
 
    /* Conversions from different types to double. */
    if ((!state || state->has_double()) && glsl_type_is_double(desired)) {
-      if (glsl_type_is_float(from))
+      if (glsl_type_is_float_16_32(from))
          return true;
       if (glsl_type_is_integer_32(from))
          return true;
@@ -2191,6 +2193,7 @@ do_late_parsing_checks(struct _mesa_glsl_parse_state *state)
 
 static void
 opt_shader_and_create_symbol_table(const struct gl_constants *consts,
+                                   const struct gl_extensions *exts,
                                    struct glsl_symbol_table *source_symbols,
                                    struct gl_shader *shader)
 {
@@ -2227,6 +2230,17 @@ opt_shader_and_create_symbol_table(const struct gl_constants *consts,
 
    optimize_dead_builtin_variables(shader->ir, other);
 
+   lower_vector_derefs(shader);
+
+   lower_packing_builtins(shader->ir, exts->ARB_shading_language_packing,
+                          exts->ARB_gpu_shader5,
+                          consts->GLSLHasHalfFloatPacking);
+   do_mat_op_to_vec(shader->ir);
+
+   lower_instructions(shader->ir, exts->ARB_gpu_shader5);
+
+   do_vec_index_to_cond_assign(shader->ir);
+
    validate_ir_tree(shader->ir);
 
    /* Retain any live IR, but trash the rest. */
@@ -2248,8 +2262,7 @@ opt_shader_and_create_symbol_table(const struct gl_constants *consts,
 
 static bool
 can_skip_compile(struct gl_context *ctx, struct gl_shader *shader,
-                 const char *source,
-                 const uint8_t source_sha1[SHA1_DIGEST_LENGTH],
+                 const char *source, const blake3_hash source_blake3,
                  bool force_recompile, bool source_has_shader_include)
 {
    if (!force_recompile) {
@@ -2273,13 +2286,13 @@ can_skip_compile(struct gl_context *ctx, struct gl_shader *shader,
              */
             if (source_has_shader_include) {
                shader->FallbackSource = strdup(source);
-               memcpy(shader->fallback_source_sha1, source_sha1,
-                      SHA1_DIGEST_LENGTH);
+               memcpy(shader->fallback_source_blake3, source_blake3,
+                      BLAKE3_OUT_LEN);
             } else {
                shader->FallbackSource = NULL;
             }
-            memcpy(shader->compiled_source_sha1, source_sha1,
-                   SHA1_DIGEST_LENGTH);
+            memcpy(shader->compiled_source_blake3, source_blake3,
+                   BLAKE3_OUT_LEN);
             return true;
          }
       }
@@ -2300,14 +2313,14 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
                           bool dump_ast, bool dump_hir, bool force_recompile)
 {
    const char *source;
-   const uint8_t *source_sha1;
+   const uint8_t *source_blake3;
 
    if (force_recompile && shader->FallbackSource) {
       source = shader->FallbackSource;
-      source_sha1 = shader->fallback_source_sha1;
+      source_blake3 = shader->fallback_source_blake3;
    } else {
       source = shader->Source;
-      source_sha1 = shader->source_sha1;
+      source_blake3 = shader->source_blake3;
    }
 
    /* Note this will be true for shaders the have #include inside comments
@@ -2322,7 +2335,7 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
     * keep duplicate copies of the shader include source tree and paths.
     */
    if (!source_has_shader_include &&
-       can_skip_compile(ctx, shader, source, source_sha1, force_recompile,
+       can_skip_compile(ctx, shader, source, source_blake3, force_recompile,
                         false))
       return;
 
@@ -2343,7 +2356,7 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
     * include.
     */
    if (source_has_shader_include &&
-       can_skip_compile(ctx, shader, source, source_sha1, force_recompile,
+       can_skip_compile(ctx, shader, source, source_blake3, force_recompile,
                         true))
       return;
 
@@ -2397,7 +2410,8 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
       lower_builtins(shader->ir);
       assign_subroutine_indexes(state);
       lower_subroutine(shader->ir, state);
-      opt_shader_and_create_symbol_table(&ctx->Const, state->symbols, shader);
+      opt_shader_and_create_symbol_table(&ctx->Const, &ctx->Extensions,
+                                         state->symbols, shader);
    }
 
    if (!force_recompile) {
@@ -2408,7 +2422,7 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
        */
       if (source_has_shader_include) {
          shader->FallbackSource = strdup(source);
-         memcpy(shader->fallback_source_sha1, source_sha1, SHA1_DIGEST_LENGTH);
+         memcpy(shader->fallback_source_blake3, source_blake3, BLAKE3_OUT_LEN);
       } else {
          shader->FallbackSource = NULL;
       }
@@ -2418,7 +2432,7 @@ _mesa_glsl_compile_shader(struct gl_context *ctx, struct gl_shader *shader,
    ralloc_free(state);
 
    if (shader->CompileStatus == COMPILE_SUCCESS)
-      memcpy(shader->compiled_source_sha1, source_sha1, SHA1_DIGEST_LENGTH);
+      memcpy(shader->compiled_source_blake3, source_blake3, BLAKE3_OUT_LEN);
 
    if (ctx->Cache && shader->CompileStatus == COMPILE_SUCCESS) {
       char sha1_buf[41];
@@ -2472,10 +2486,6 @@ do_common_optimization(exec_list *ir, bool linked,
       }                                                                 \
    } while (false)
 
-   if (linked) {
-      OPT(do_function_inlining, ir);
-      OPT(do_dead_functions, ir);
-   }
    OPT(propagate_invariance, ir);
    OPT(do_if_simplification, ir);
    OPT(opt_flatten_nested_if_blocks, ir);

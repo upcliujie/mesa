@@ -60,7 +60,7 @@
 #define VL_VA_DRIVER(ctx) ((vlVaDriver *)ctx->pDriverData)
 #define VL_VA_PSCREEN(ctx) (VL_VA_DRIVER(ctx)->vscreen->pscreen)
 
-#define VL_VA_MAX_IMAGE_FORMATS 16
+#define VL_VA_MAX_IMAGE_FORMATS 17
 #define VL_VA_ENC_GOP_COEFF 16
 
 #define UINT_TO_PTR(x) ((void*)(uintptr_t)(x))
@@ -138,6 +138,8 @@ VaFourccToPipeFormat(unsigned format)
       return PIPE_FORMAT_Y8_400_UNORM;
    case VA_FOURCC('4','4','4','P'):
       return PIPE_FORMAT_Y8_U8_V8_444_UNORM;
+   case VA_FOURCC('4','2','2','V'):
+      return PIPE_FORMAT_Y8_U8_V8_440_UNORM;
    default:
       assert(0);
       return PIPE_FORMAT_NONE;
@@ -178,6 +180,8 @@ PipeFormatToVaFourcc(enum pipe_format p_format)
       return VA_FOURCC('Y','8','0','0');
    case PIPE_FORMAT_Y8_U8_V8_444_UNORM:
       return VA_FOURCC('4','4','4','P');
+   case PIPE_FORMAT_Y8_U8_V8_440_UNORM:
+      return VA_FOURCC('4','2','2','V');
    default:
       assert(0);
       return -1;
@@ -297,6 +301,8 @@ typedef struct {
    vl_csc_matrix csc;
    mtx_t mutex;
    char vendor_string[256];
+
+   bool has_external_handles;
 } vlVaDriver;
 
 typedef struct {
@@ -444,6 +450,9 @@ VAStatus vlVaBeginPicture(VADriverContextP ctx, VAContextID context, VASurfaceID
 VAStatus vlVaRenderPicture(VADriverContextP ctx, VAContextID context, VABufferID *buffers, int num_buffers);
 VAStatus vlVaEndPicture(VADriverContextP ctx, VAContextID context);
 VAStatus vlVaSyncSurface(VADriverContextP ctx, VASurfaceID render_target);
+#if VA_CHECK_VERSION(1, 15, 0)
+VAStatus vlVaSyncSurface2(VADriverContextP ctx, VASurfaceID surface, uint64_t timeout_ns);
+#endif
 VAStatus vlVaQuerySurfaceStatus(VADriverContextP ctx, VASurfaceID render_target, VASurfaceStatus *status);
 VAStatus vlVaQuerySurfaceError(VADriverContextP ctx, VASurfaceID render_target,
                                VAStatus error_status, void **error_info);
@@ -537,7 +546,7 @@ void vlVaHandlePictureParameterBufferVP9(vlVaDriver *drv, vlVaContext *context, 
 void vlVaHandleSliceParameterBufferVP9(vlVaContext *context, vlVaBuffer *buf);
 void vlVaDecoderVP9BitstreamHeader(vlVaContext *context, vlVaBuffer *buf);
 void vlVaHandlePictureParameterBufferAV1(vlVaDriver *drv, vlVaContext *context, vlVaBuffer *buf);
-void vlVaHandleSliceParameterBufferAV1(vlVaContext *context, vlVaBuffer *buf, unsigned num_slices);
+void vlVaHandleSliceParameterBufferAV1(vlVaContext *context, vlVaBuffer *buf, unsigned num_slices, unsigned slice_offset);
 void getEncParamPresetH264(vlVaContext *context);
 void getEncParamPresetH265(vlVaContext *context);
 void getEncParamPresetAV1(vlVaContext *context);

@@ -9,8 +9,8 @@
 #include "nvk_image.h"
 #include "nvk_physical_device.h"
 
-#include "nvk_cl9097.h"
-#include "nvk_clb197.h"
+#include "nv_push_cl9097.h"
+#include "nv_push_clb197.h"
 
 static VkResult
 nvk_cmd_bind_map_buffer(struct vk_command_buffer *vk_cmd,
@@ -60,11 +60,12 @@ struct nvk_meta_save {
    struct vk_vertex_input_state _dynamic_vi;
    struct vk_sample_locations_state _dynamic_sl;
    struct vk_dynamic_graphics_state dynamic;
-   struct nvk_graphics_pipeline *pipeline;
+   struct nvk_shader *shaders[MESA_SHADER_MESH + 1];
    struct nvk_addr_range vb0;
    struct nvk_descriptor_set *desc0;
    bool has_push_desc0;
    struct nvk_push_descriptor_set push_desc0;
+   uint8_t set_dynamic_buffer_start[NVK_MAX_SETS];
    uint8_t push[128];
 };
 
@@ -72,21 +73,30 @@ static void
 nvk_meta_begin(struct nvk_cmd_buffer *cmd,
                struct nvk_meta_save *save)
 {
+   const struct nvk_descriptor_state *desc = &cmd->state.gfx.descriptors;
+
    save->dynamic = cmd->vk.dynamic_graphics_state;
    save->_dynamic_vi = cmd->state.gfx._dynamic_vi;
    save->_dynamic_sl = cmd->state.gfx._dynamic_sl;
 
-   save->pipeline = cmd->state.gfx.pipeline;
+   STATIC_ASSERT(sizeof(cmd->state.gfx.shaders) == sizeof(save->shaders));
+   memcpy(save->shaders, cmd->state.gfx.shaders, sizeof(save->shaders));
+
    save->vb0 = cmd->state.gfx.vb0;
 
-   save->desc0 = cmd->state.gfx.descriptors.sets[0];
-   save->has_push_desc0 = cmd->state.gfx.descriptors.push[0];
+   save->desc0 = desc->sets[0];
+   save->has_push_desc0 = desc->push[0];
    if (save->has_push_desc0)
-      save->push_desc0 = *cmd->state.gfx.descriptors.push[0];
+      save->push_desc0 = *desc->push[0];
 
-   STATIC_ASSERT(sizeof(save->push) ==
-                 sizeof(cmd->state.gfx.descriptors.root.push));
-   memcpy(save->push, cmd->state.gfx.descriptors.root.push, sizeof(save->push));
+   STATIC_ASSERT(sizeof(save->set_dynamic_buffer_start) ==
+                sizeof(desc->root.set_dynamic_buffer_start));
+   memcpy(save->set_dynamic_buffer_start,
+          desc->root.set_dynamic_buffer_start,
+          sizeof(save->set_dynamic_buffer_start));
+
+   STATIC_ASSERT(sizeof(save->push) == sizeof(desc->root.push));
+   memcpy(save->push, desc->root.push, sizeof(save->push));
 
    struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
    P_IMMD(p, NV9097, SET_STATISTICS_COUNTER, {
@@ -128,15 +138,24 @@ static void
 nvk_meta_end(struct nvk_cmd_buffer *cmd,
              struct nvk_meta_save *save)
 {
+   struct nvk_descriptor_state *desc = &cmd->state.gfx.descriptors;
+
    if (save->desc0) {
-      cmd->state.gfx.descriptors.sets[0] = save->desc0;
-      cmd->state.gfx.descriptors.root.sets[0] = nvk_descriptor_set_addr(save->desc0);
-      cmd->state.gfx.descriptors.sets_dirty |= BITFIELD_BIT(0);
-      cmd->state.gfx.descriptors.push_dirty &= ~BITFIELD_BIT(0);
+      desc->sets[0] = save->desc0;
+      desc->root.sets[0] = nvk_descriptor_set_addr(save->desc0);
    } else if (save->has_push_desc0) {
-      *cmd->state.gfx.descriptors.push[0] = save->push_desc0;
-      cmd->state.gfx.descriptors.push_dirty |= BITFIELD_BIT(0);
+      *desc->push[0] = save->push_desc0;
+      desc->push_dirty |= BITFIELD_BIT(0);
    }
+
+   /* Restore set_dynaic_buffer_start because meta binding set 0 can disturb
+    * all dynamic buffers starts for all sets.
+    */
+   STATIC_ASSERT(sizeof(save->set_dynamic_buffer_start) ==
+                sizeof(desc->root.set_dynamic_buffer_start));
+   memcpy(desc->root.set_dynamic_buffer_start,
+          save->set_dynamic_buffer_start,
+          sizeof(save->set_dynamic_buffer_start));
 
    /* Restore the dynamic state */
    assert(save->dynamic.vi == &cmd->state.gfx._dynamic_vi);
@@ -148,12 +167,16 @@ nvk_meta_end(struct nvk_cmd_buffer *cmd,
           cmd->vk.dynamic_graphics_state.set,
           sizeof(cmd->vk.dynamic_graphics_state.set));
 
-   if (save->pipeline)
-      nvk_cmd_bind_graphics_pipeline(cmd, save->pipeline);
+   for (uint32_t stage = 0; stage < ARRAY_SIZE(save->shaders); stage++) {
+      if (stage == MESA_SHADER_COMPUTE)
+         continue;
+
+      nvk_cmd_bind_graphics_shader(cmd, stage, save->shaders[stage]);
+   }
 
    nvk_cmd_bind_vertex_buffer(cmd, 0, save->vb0);
 
-   memcpy(cmd->state.gfx.descriptors.root.push, save->push, sizeof(save->push));
+   memcpy(desc->root.push, save->push, sizeof(save->push));
 
    struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
    P_IMMD(p, NV9097, SET_STATISTICS_COUNTER, {

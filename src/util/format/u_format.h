@@ -554,6 +554,12 @@ static inline bool
 util_format_is_srgb(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
+
+   assert(desc);
+   if (!desc) {
+      return false;
+   }
+
    return desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB;
 }
 
@@ -1000,6 +1006,49 @@ util_format_get_component_bits(enum pipe_format format,
    }
 }
 
+static inline unsigned
+util_format_get_component_shift(enum pipe_format format,
+                                enum util_format_colorspace colorspace,
+                                unsigned component)
+{
+   const struct util_format_description *desc = util_format_description(format);
+   enum util_format_colorspace desc_colorspace;
+
+   assert(format);
+   if (!format) {
+      return 0;
+   }
+
+   assert(component < 4);
+
+   /* Treat RGB and SRGB as equivalent. */
+   if (colorspace == UTIL_FORMAT_COLORSPACE_SRGB) {
+      colorspace = UTIL_FORMAT_COLORSPACE_RGB;
+   }
+   if (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB) {
+      desc_colorspace = UTIL_FORMAT_COLORSPACE_RGB;
+   } else {
+      desc_colorspace = desc->colorspace;
+   }
+
+   if (desc_colorspace != colorspace) {
+      return 0;
+   }
+
+   switch (desc->swizzle[component]) {
+   case PIPE_SWIZZLE_X:
+      return desc->channel[0].shift;
+   case PIPE_SWIZZLE_Y:
+      return desc->channel[1].shift;
+   case PIPE_SWIZZLE_Z:
+      return desc->channel[2].shift;
+   case PIPE_SWIZZLE_W:
+      return desc->channel[3].shift;
+   default:
+      return 0;
+   }
+}
+
 /**
  * Given a linear RGB colorspace format, return the corresponding SRGB
  * format, or PIPE_FORMAT_NONE if none.
@@ -1423,6 +1472,7 @@ util_format_get_plane_format(enum pipe_format format, unsigned plane)
    case PIPE_FORMAT_Y8_U8_V8_444_UNORM:
    case PIPE_FORMAT_Y8_400_UNORM:
    case PIPE_FORMAT_R8_G8_B8_UNORM:
+   case PIPE_FORMAT_Y8_U8_V8_440_UNORM:
       return PIPE_FORMAT_R8_UNORM;
    case PIPE_FORMAT_NV12:
    case PIPE_FORMAT_Y8_U8V8_422_UNORM:
@@ -1483,6 +1533,7 @@ util_format_get_plane_height(enum pipe_format format, unsigned plane,
    case PIPE_FORMAT_P016:
    case PIPE_FORMAT_P030:
    case PIPE_FORMAT_Y16_U16_V16_420_UNORM:
+   case PIPE_FORMAT_Y8_U8_V8_440_UNORM:
       return !plane ? height : (height + 1) / 2;
    case PIPE_FORMAT_YV16:
    default:
@@ -1513,12 +1564,9 @@ util_format_get_first_non_void_channel(enum pipe_format format)
 
    for (i = 0; i < 4; i++)
       if (desc->channel[i].type != UTIL_FORMAT_TYPE_VOID)
-         break;
+         return i;
 
-   if (i == 4)
-       return -1;
-
-   return i;
+   return -1;
 }
 
 /**
@@ -1756,6 +1804,10 @@ enum pipe_format
 util_format_get_array(const enum util_format_type type, const unsigned bits,
                       const unsigned nr_components, const bool normalized,
                       const bool pure_integer);
+
+unsigned util_format_get_last_component(enum pipe_format format);
+int util_format_get_largest_non_void_channel(enum pipe_format format);
+unsigned util_format_get_max_channel_size(enum pipe_format format);
 
 #ifdef __cplusplus
 } // extern "C" {

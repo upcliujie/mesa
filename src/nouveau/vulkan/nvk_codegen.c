@@ -14,7 +14,7 @@
 #include "pipe/p_defines.h"
 #include "pipe/p_shader_tokens.h"
 
-#include "nvk_cl9097.h"
+#include "nv_push_cl9097.h"
 
 uint64_t
 nvk_cg_get_prog_debug(void)
@@ -174,7 +174,7 @@ nvk_cg_optimize_nir(nir_shader *nir)
       }
    } while (progress);
 
-   NIR_PASS(progress, nir, nir_opt_shrink_vectors);
+   NIR_PASS(progress, nir, nir_opt_shrink_vectors, true);
    NIR_PASS(progress, nir, nir_remove_dead_variables,
             nir_var_function_temp | nir_var_shader_in | nir_var_shader_out, NULL);
 }

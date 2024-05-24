@@ -1,25 +1,7 @@
 /*
  * Copyright © 2020 Valve Corporation
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
- *
+ * SPDX-License-Identifier: MIT
  */
 #include "helpers.h"
 
@@ -1235,7 +1217,7 @@ BEGIN_TEST(optimize.mad_mix.input_conv.basic)
       //! p_unit_test 0, %res0
       writeout(0, fmul(a, f2f32(a16)));
 
-      //! v1: %res1 = v_fma_mix_f32 1.0, %a, lo(%a16)
+      //! v1: %res1 = v_fma_mix_f32 1.0, lo(%a16), %a
       //! p_unit_test 1, %res1
       writeout(1, fadd(a, f2f32(a16)));
 
@@ -1426,7 +1408,7 @@ BEGIN_TEST(optimize.mad_mix.output_conv.basic)
       Temp a16 = inputs[3];
       Temp b16 = inputs[4];
 
-      //! v2b: %res0 = v_fma_mixlo_f16 %a, %b, -0
+      //! v2b: %res0 = v_fma_mixlo_f16 %a, %b, -lo(0)
       //! p_unit_test 0, %res0
       writeout(0, f2f16(fmul(a, b)));
 
@@ -1438,7 +1420,7 @@ BEGIN_TEST(optimize.mad_mix.output_conv.basic)
       //! p_unit_test 2, %res2
       writeout(2, f2f16(fma(a, b, c)));
 
-      //! v2b: %res3 = v_fma_mixlo_f16 lo(%a16), %b, -0
+      //! v2b: %res3 = v_fma_mixlo_f16 lo(%a16), %b, -lo(0)
       //! p_unit_test 3, %res3
       writeout(3, f2f16(fmul(f2f32(a16), b)));
 
@@ -1630,7 +1612,7 @@ BEGIN_TEST(optimize.mad_mix.fma.precision)
       //! p_unit_test 5, %res5
       writeout(5, f2f32(fadd(a16, b16)));
 
-      //! v2b: %res6_tmp = v_fma_mixlo_f16 %a, %b, -0
+      //! v2b: %res6_tmp = v_fma_mixlo_f16 %a, %b, -lo(0)
       //! v2b: %res6 = v_add_f16 %res6_tmp, %a16
       //! p_unit_test 6, %res6
       writeout(6, fadd(f2f16(fmul(a, b)), a16));
@@ -1659,11 +1641,11 @@ BEGIN_TEST(optimize.mad_mix.clamp)
       //! p_unit_test 0, %res0
       writeout(0, fsat(fmul(f2f32(a16), a)));
 
-      //! v2b: %res1 = v_fma_mixlo_f16 %a, %a, -0 clamp
+      //! v2b: %res1 = v_fma_mixlo_f16 %a, %a, -lo(0) clamp
       //! p_unit_test 1, %res1
       writeout(1, f2f16(fsat(fmul(a, a))));
 
-      //! v2b: %res2 = v_fma_mixlo_f16 %a, %a, -0 clamp
+      //! v2b: %res2 = v_fma_mixlo_f16 %a, %a, -lo(0) clamp
       //! p_unit_test 2, %res2
       writeout(2, fsat(f2f16(fmul(a, a))));
 
@@ -1711,7 +1693,7 @@ BEGIN_TEST(optimize.mad_mix.cast)
       //! p_unit_test 4, %res4
       writeout(4, fsat(u2u16(fmul(f2f32(a16), a))));
 
-      //! v2b: %res5_mul = v_fma_mixlo_f16 %a, %a, -0
+      //! v2b: %res5_mul = v_fma_mixlo_f16 %a, %a, -lo(0)
       //! v1: %res5 = v_add_f32 %res5_mul, 0 clamp
       //! p_unit_test 5, %res5
       writeout(5, fsat(bld.as_uniform(f2f16(fmul(a, a)))));
@@ -1722,7 +1704,7 @@ BEGIN_TEST(optimize.mad_mix.cast)
       writeout(6, fadd(f2f32(u2u16(fmul(a, a))), a));
 
       //! v2b: %res7_mul = v_mul_f16 %a16, %a16
-      //! v1: %res7 = v_fma_mix_f32 1.0, %res7_mul, lo(%a16)
+      //! v1: %res7 = v_fma_mix_f32 1.0, lo(%a16), %res7_mul
       //! p_unit_test 7, %res7
       writeout(7, fadd(bld.as_uniform(fmul(a16, a16)), f2f32(a16)));
 

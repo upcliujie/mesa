@@ -25,7 +25,16 @@
 
 #include "vk_object.h"
 
+#include "util/detect_os.h"
 #include "util/u_math.h"
+
+#if DETECT_OS_ANDROID
+enum android_buffer_type {
+   ANDROID_BUFFER_NONE = 0,
+   ANDROID_BUFFER_NATIVE,
+   ANDROID_BUFFER_HARDWARE,
+};
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +58,7 @@ struct vk_image {
    VkSampleCountFlagBits samples;
    VkImageTiling tiling;
    VkImageUsageFlags usage;
+   VkSharingMode sharing_mode;
 
    /* Derived from format */
    VkImageAspectFlags aspects;
@@ -59,10 +69,13 @@ struct vk_image {
    /* VK_KHR_external_memory */
    VkExternalMemoryHandleTypeFlags external_handle_types;
 
+   /* VK_EXT_image_compression_control */
+   VkImageCompressionFlagsEXT compr_flags;
+
    /* wsi_image_create_info::scanout */
    bool wsi_legacy_scanout;
 
-#ifndef _WIN32
+#if DETECT_OS_LINUX || DETECT_OS_BSD
    /* VK_EXT_drm_format_modifier
     *
     * Initialized by vk_image_create/init() to DRM_FORMAT_MOD_INVALID.  It's
@@ -75,7 +88,10 @@ struct vk_image {
    uint64_t drm_format_mod;
 #endif
 
-#ifdef ANDROID
+#if DETECT_OS_ANDROID
+   enum android_buffer_type android_buffer_type;
+   VkDeviceMemory anb_memory;
+
    /* AHARDWAREBUFFER_FORMAT for this image or 0
     *
     * A default is provided by the Vulkan runtime code based on the VkFormat
@@ -369,6 +385,34 @@ VkImageLayout vk_att_ref_stencil_layout(const VkAttachmentReference2 *att_ref,
                                         const VkAttachmentDescription2 *attachments);
 VkImageLayout vk_att_desc_stencil_layout(const VkAttachmentDescription2 *att_desc,
                                            bool final);
+
+#if DETECT_OS_ANDROID
+static inline bool
+vk_image_is_android_native_buffer(struct vk_image *image)
+{
+   return image->android_buffer_type == ANDROID_BUFFER_NATIVE;
+}
+#else
+static inline bool
+vk_image_is_android_native_buffer(struct vk_image *image)
+{
+   return false;
+}
+#endif /* DETECT_OS_ANDROID */
+
+#if DETECT_OS_ANDROID && ANDROID_API_LEVEL >= 26
+static inline bool
+vk_image_is_android_hardware_buffer(struct vk_image *image)
+{
+   return image->android_buffer_type == ANDROID_BUFFER_HARDWARE;
+}
+#else
+static inline bool
+vk_image_is_android_hardware_buffer(struct vk_image *image)
+{
+   return false;
+}
+#endif
 
 #ifdef __cplusplus
 }

@@ -24,6 +24,7 @@
 #include "tu_cs.h"
 #include "tu_device.h"
 #include "tu_dynamic_rendering.h"
+#include "tu_rmv.h"
 
 static int
 safe_ioctl(int fd, unsigned long request, void *arg)
@@ -117,6 +118,12 @@ kgsl_bo_init(struct tu_device *dev,
 
    *out_bo = bo;
 
+   TU_RMV(bo_allocate, dev, bo);
+   if (flags & TU_BO_ALLOC_INTERNAL_RESOURCE) {
+      TU_RMV(internal_resource_create, dev, bo);
+      TU_RMV(resource_name, dev, bo, name);
+   }
+
    return VK_SUCCESS;
 }
 
@@ -178,18 +185,17 @@ kgsl_bo_export_dmabuf(struct tu_device *dev, struct tu_bo *bo)
 }
 
 static VkResult
-kgsl_bo_map(struct tu_device *dev, struct tu_bo *bo)
+kgsl_bo_map(struct tu_device *dev, struct tu_bo *bo, void *placed_addr)
 {
-   if (bo->map)
-      return VK_SUCCESS;
-
    uint64_t offset = bo->gem_handle << 12;
-   void *map = mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED,
+   void *map = mmap(placed_addr, bo->size, PROT_READ | PROT_WRITE,
+                    MAP_SHARED | (placed_addr != NULL ? MAP_FIXED : 0),
                     dev->physical_device->local_fd, offset);
    if (map == MAP_FAILED)
       return vk_error(dev, VK_ERROR_MEMORY_MAP_FAILED);
 
    bo->map = map;
+   TU_RMV(bo_map, dev, bo);
 
    return VK_SUCCESS;
 }
@@ -207,8 +213,12 @@ kgsl_bo_finish(struct tu_device *dev, struct tu_bo *bo)
    if (!p_atomic_dec_zero(&bo->refcnt))
       return;
 
-   if (bo->map)
+   if (bo->map) {
+      TU_RMV(bo_unmap, dev, bo);
       munmap(bo->map, bo->size);
+   }
+
+   TU_RMV(bo_destroy, dev, bo);
 
    struct kgsl_gpumem_free_id req = {
       .id = bo->gem_handle
@@ -226,7 +236,7 @@ kgsl_sync_cache(VkDevice _device,
                 uint32_t count,
                 const VkMappedMemoryRange *ranges)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
 
    struct kgsl_gpuobj_sync_obj *sync_list =
       (struct kgsl_gpuobj_sync_obj *) vk_zalloc(
@@ -240,7 +250,7 @@ kgsl_sync_cache(VkDevice _device,
    };
 
    for (uint32_t i = 0; i < count; i++) {
-      TU_FROM_HANDLE(tu_device_memory, mem, ranges[i].memory);
+      VK_FROM_HANDLE(tu_device_memory, mem, ranges[i].memory);
 
       sync_list[i].op = op;
       sync_list[i].id = mem->bo->gem_handle;
@@ -529,7 +539,7 @@ kgsl_syncobj_wait(struct tu_device *device,
    }
 
    case KGSL_SYNCOBJ_STATE_FD: {
-      int ret = sync_wait(device->fd, get_relative_ms(abs_timeout_ns));
+      int ret = sync_wait(s->fd, get_relative_ms(abs_timeout_ns));
       if (ret) {
          assert(errno == ETIME);
          return VK_TIMEOUT;
@@ -1261,7 +1271,8 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
          bool free_data = i == submission_data->last_buffer_with_tracepoints;
          if (submission_data->cmd_trace_data[i].trace)
             u_trace_flush(submission_data->cmd_trace_data[i].trace,
-                          submission_data, free_data);
+                          submission_data, queue->device->vk.current_frame,
+                          free_data);
 
          if (!submission_data->cmd_trace_data[i].timestamp_copy_cs) {
             /* u_trace is owned by cmd_buffer */
@@ -1275,7 +1286,7 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
    pthread_mutex_unlock(&queue->device->submit_mutex);
    pthread_cond_broadcast(&queue->device->timeline_cond);
 
-   u_trace_context_process(&queue->device->trace_context, true);
+   u_trace_context_process(&queue->device->trace_context, false);
 
    if (cmd_buffers != (struct tu_cmd_buffer **) vk_submit->command_buffers)
       vk_free(&queue->device->vk.alloc, cmd_buffers);

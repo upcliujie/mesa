@@ -85,7 +85,7 @@ cmod_propagation_test::cmod_propagation_test()
 
    bld = fs_builder(v).at_end();
 
-   devinfo->ver = 7;
+   devinfo->ver = 9;
    devinfo->verx10 = devinfo->ver * 10;
 }
 
@@ -118,7 +118,7 @@ cmod_propagation(fs_visitor *v)
       v->cfg->dump();
    }
 
-   bool ret = v->opt_cmod_propagation();
+   bool ret = brw_fs_opt_cmod_propagation(*v);
 
    if (print) {
       fprintf(stderr, "\n= After =\n");
@@ -130,9 +130,9 @@ cmod_propagation(fs_visitor *v)
 
 TEST_F(cmod_propagation_test, basic)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), dest, zero, BRW_CONDITIONAL_GE);
@@ -161,9 +161,9 @@ TEST_F(cmod_propagation_test, basic)
 
 TEST_F(cmod_propagation_test, basic_other_flag)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), dest, zero, BRW_CONDITIONAL_GE)
@@ -194,9 +194,9 @@ TEST_F(cmod_propagation_test, basic_other_flag)
 
 TEST_F(cmod_propagation_test, cmp_nonzero)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    fs_reg nonzero(brw_imm_f(1.0f));
    bld.ADD(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), dest, nonzero, BRW_CONDITIONAL_GE);
@@ -226,8 +226,8 @@ TEST_F(cmod_propagation_test, cmp_nonzero)
 
 TEST_F(cmod_propagation_test, non_cmod_instruction)
 {
-   fs_reg dest = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
    fs_reg zero(brw_imm_ud(0u));
    bld.FBL(dest, src0);
    bld.CMP(bld.null_reg_ud(), dest, zero, BRW_CONDITIONAL_GE);
@@ -257,7 +257,7 @@ TEST_F(cmod_propagation_test, non_cmod_instruction)
 
 TEST_F(cmod_propagation_test, non_cmod_livechannel)
 {
-   fs_reg dest = v->vgrf(glsl_uint_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_UD);
    fs_reg zero(brw_imm_d(0));
    bld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, dest)->exec_size = 32;
    bld.CMP(bld.null_reg_d(), dest, zero, BRW_CONDITIONAL_Z)->exec_size = 32;
@@ -288,10 +288,10 @@ TEST_F(cmod_propagation_test, non_cmod_livechannel)
 
 TEST_F(cmod_propagation_test, intervening_flag_write)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), src2, zero, BRW_CONDITIONAL_GE);
@@ -325,10 +325,10 @@ TEST_F(cmod_propagation_test, intervening_flag_write)
 
 TEST_F(cmod_propagation_test, intervening_mismatch_flag_write)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), src2, zero, BRW_CONDITIONAL_GE)
@@ -365,11 +365,11 @@ TEST_F(cmod_propagation_test, intervening_mismatch_flag_write)
 
 TEST_F(cmod_propagation_test, intervening_flag_read)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest0, src0, src1);
    set_predicate(BRW_PREDICATE_NORMAL, bld.SEL(dest1, src2, zero));
@@ -403,11 +403,11 @@ TEST_F(cmod_propagation_test, intervening_flag_read)
 
 TEST_F(cmod_propagation_test, intervening_mismatch_flag_read)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest0, src0, src1);
    set_predicate(BRW_PREDICATE_NORMAL, bld.SEL(dest1, src2, zero))
@@ -444,13 +444,21 @@ TEST_F(cmod_propagation_test, intervening_mismatch_flag_read)
 
 TEST_F(cmod_propagation_test, intervening_dest_write)
 {
-   fs_reg dest = v->vgrf(glsl_vec4_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_vec2_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F, 4);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F, 2);
    fs_reg zero(brw_imm_f(0.0f));
+
+   fs_reg tex_srcs[TEX_LOGICAL_NUM_SRCS];
+   tex_srcs[TEX_LOGICAL_SRC_COORDINATE] = src2;
+   tex_srcs[TEX_LOGICAL_SRC_SURFACE] = brw_imm_ud(0);
+   tex_srcs[TEX_LOGICAL_SRC_COORD_COMPONENTS] = brw_imm_ud(2);
+   tex_srcs[TEX_LOGICAL_SRC_GRAD_COMPONENTS] = brw_imm_ud(0);
+   tex_srcs[TEX_LOGICAL_SRC_RESIDENCY] = brw_imm_ud(0);
+
    bld.ADD(offset(dest, bld, 2), src0, src1);
-   bld.emit(SHADER_OPCODE_TEX, dest, src2)
+   bld.emit(SHADER_OPCODE_TEX_LOGICAL, dest, tex_srcs, TEX_LOGICAL_NUM_SRCS)
       ->size_written = 4 * REG_SIZE;
    bld.CMP(bld.null_reg_f(), offset(dest, bld, 2), zero, BRW_CONDITIONAL_GE);
 
@@ -475,7 +483,7 @@ TEST_F(cmod_propagation_test, intervening_dest_write)
    EXPECT_EQ(2, block0->end_ip);
    EXPECT_EQ(BRW_OPCODE_ADD, instruction(block0, 0)->opcode);
    EXPECT_EQ(BRW_CONDITIONAL_NONE, instruction(block0, 0)->conditional_mod);
-   EXPECT_EQ(SHADER_OPCODE_TEX, instruction(block0, 1)->opcode);
+   EXPECT_EQ(SHADER_OPCODE_TEX_LOGICAL, instruction(block0, 1)->opcode);
    EXPECT_EQ(BRW_CONDITIONAL_NONE, instruction(block0, 0)->conditional_mod);
    EXPECT_EQ(BRW_OPCODE_CMP, instruction(block0, 2)->opcode);
    EXPECT_EQ(BRW_CONDITIONAL_GE, instruction(block0, 2)->conditional_mod);
@@ -483,11 +491,11 @@ TEST_F(cmod_propagation_test, intervening_dest_write)
 
 TEST_F(cmod_propagation_test, intervening_flag_read_same_value)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    set_condmod(BRW_CONDITIONAL_GE, bld.ADD(dest0, src0, src1));
    set_predicate(BRW_PREDICATE_NORMAL, bld.SEL(dest1, src2, zero));
@@ -521,9 +529,9 @@ TEST_F(cmod_propagation_test, intervening_flag_read_same_value)
 
 TEST_F(cmod_propagation_test, negate)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest, src0, src1);
    dest.negate = true;
@@ -553,9 +561,9 @@ TEST_F(cmod_propagation_test, negate)
 
 TEST_F(cmod_propagation_test, movnz)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.CMP(dest, src0, src1, BRW_CONDITIONAL_GE);
    set_condmod(BRW_CONDITIONAL_NZ,
                bld.MOV(bld.null_reg_f(), dest));
@@ -584,12 +592,12 @@ TEST_F(cmod_propagation_test, movnz)
 
 TEST_F(cmod_propagation_test, different_types_cmod_with_zero)
 {
-   fs_reg dest = v->vgrf(glsl_int_type());
-   fs_reg src0 = v->vgrf(glsl_int_type());
-   fs_reg src1 = v->vgrf(glsl_int_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_D);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_D);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest, src0, src1);
-   bld.CMP(bld.null_reg_f(), retype(dest, BRW_REGISTER_TYPE_F), zero,
+   bld.CMP(bld.null_reg_f(), retype(dest, BRW_TYPE_F), zero,
            BRW_CONDITIONAL_GE);
 
    /* = Before =
@@ -617,12 +625,12 @@ TEST_F(cmod_propagation_test, different_types_cmod_with_zero)
 
 TEST_F(cmod_propagation_test, andnz_one)
 {
-   fs_reg dest = v->vgrf(glsl_int_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    fs_reg one(brw_imm_d(1));
 
-   bld.CMP(retype(dest, BRW_REGISTER_TYPE_F), src0, zero, BRW_CONDITIONAL_L);
+   bld.CMP(retype(dest, BRW_TYPE_F), src0, zero, BRW_CONDITIONAL_L);
    set_condmod(BRW_CONDITIONAL_NZ,
                bld.AND(bld.null_reg_d(), dest, one));
 
@@ -645,18 +653,18 @@ TEST_F(cmod_propagation_test, andnz_one)
    EXPECT_EQ(0, block0->end_ip);
    EXPECT_EQ(BRW_OPCODE_CMP, instruction(block0, 0)->opcode);
    EXPECT_EQ(BRW_CONDITIONAL_L, instruction(block0, 0)->conditional_mod);
-   EXPECT_TRUE(retype(dest, BRW_REGISTER_TYPE_F)
+   EXPECT_TRUE(retype(dest, BRW_TYPE_F)
                .equals(instruction(block0, 0)->dst));
 }
 
 TEST_F(cmod_propagation_test, andnz_non_one)
 {
-   fs_reg dest = v->vgrf(glsl_int_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    fs_reg nonone(brw_imm_d(38));
 
-   bld.CMP(retype(dest, BRW_REGISTER_TYPE_F), src0, zero, BRW_CONDITIONAL_L);
+   bld.CMP(retype(dest, BRW_TYPE_F), src0, zero, BRW_CONDITIONAL_L);
    set_condmod(BRW_CONDITIONAL_NZ,
                bld.AND(bld.null_reg_d(), dest, nonone));
 
@@ -685,8 +693,8 @@ TEST_F(cmod_propagation_test, andnz_non_one)
 
 TEST_F(cmod_propagation_test, cmp_cmpnz)
 {
-   fs_reg dst0 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0));
 
    bld.CMP(dst0, src0, zero, BRW_CONDITIONAL_NZ);
@@ -712,8 +720,8 @@ TEST_F(cmod_propagation_test, cmp_cmpnz)
 
 TEST_F(cmod_propagation_test, cmp_cmpg)
 {
-   fs_reg dst0 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0));
 
    bld.CMP(dst0, src0, zero, BRW_CONDITIONAL_NZ);
@@ -741,8 +749,8 @@ TEST_F(cmod_propagation_test, cmp_cmpg)
 
 TEST_F(cmod_propagation_test, plnnz_cmpnz)
 {
-   fs_reg dst0 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0));
 
    set_condmod(BRW_CONDITIONAL_NZ, bld.PLN(dst0, src0, zero));
@@ -768,8 +776,8 @@ TEST_F(cmod_propagation_test, plnnz_cmpnz)
 
 TEST_F(cmod_propagation_test, plnnz_cmpz)
 {
-   fs_reg dst0 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0));
 
    set_condmod(BRW_CONDITIONAL_NZ, bld.PLN(dst0, src0, zero));
@@ -795,9 +803,9 @@ TEST_F(cmod_propagation_test, plnnz_cmpz)
 
 TEST_F(cmod_propagation_test, plnnz_sel_cmpz)
 {
-   fs_reg dst0 = v->vgrf(glsl_float_type());
-   fs_reg dst1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dst1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0));
 
    set_condmod(BRW_CONDITIONAL_NZ, bld.PLN(dst0, src0, zero));
@@ -829,8 +837,8 @@ TEST_F(cmod_propagation_test, plnnz_sel_cmpz)
 
 TEST_F(cmod_propagation_test, cmp_cmpg_D)
 {
-   fs_reg dst0 = v->vgrf(glsl_int_type());
-   fs_reg src0 = v->vgrf(glsl_int_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_D);
    fs_reg zero(brw_imm_d(0));
    fs_reg one(brw_imm_d(1));
 
@@ -859,8 +867,8 @@ TEST_F(cmod_propagation_test, cmp_cmpg_D)
 
 TEST_F(cmod_propagation_test, cmp_cmpg_UD)
 {
-   fs_reg dst0 = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
    fs_reg zero(brw_imm_ud(0));
 
    bld.CMP(dst0, src0, zero, BRW_CONDITIONAL_NZ);
@@ -886,8 +894,8 @@ TEST_F(cmod_propagation_test, cmp_cmpg_UD)
 
 TEST_F(cmod_propagation_test, cmp_cmpl_D)
 {
-   fs_reg dst0 = v->vgrf(glsl_int_type());
-   fs_reg src0 = v->vgrf(glsl_int_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_D);
    fs_reg zero(brw_imm_d(0));
 
    bld.CMP(dst0, src0, zero, BRW_CONDITIONAL_NZ);
@@ -913,8 +921,8 @@ TEST_F(cmod_propagation_test, cmp_cmpl_D)
 
 TEST_F(cmod_propagation_test, cmp_cmpl_UD)
 {
-   fs_reg dst0 = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
+   fs_reg dst0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
    fs_reg zero(brw_imm_ud(0));
 
    bld.CMP(dst0, src0, zero, BRW_CONDITIONAL_NZ);
@@ -942,12 +950,12 @@ TEST_F(cmod_propagation_test, cmp_cmpl_UD)
 
 TEST_F(cmod_propagation_test, andz_one)
 {
-   fs_reg dest = v->vgrf(glsl_int_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    fs_reg one(brw_imm_d(1));
 
-   bld.CMP(retype(dest, BRW_REGISTER_TYPE_F), src0, zero, BRW_CONDITIONAL_L);
+   bld.CMP(retype(dest, BRW_TYPE_F), src0, zero, BRW_CONDITIONAL_L);
    set_condmod(BRW_CONDITIONAL_Z,
                bld.AND(bld.null_reg_d(), dest, one));
 
@@ -976,9 +984,9 @@ TEST_F(cmod_propagation_test, andz_one)
 
 TEST_F(cmod_propagation_test, add_not_merge_with_compare)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L);
 
@@ -1009,9 +1017,9 @@ TEST_F(cmod_propagation_test, add_not_merge_with_compare)
 
 TEST_F(cmod_propagation_test, subtract_merge_with_compare)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest, src0, negate(src1));
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L);
 
@@ -1037,8 +1045,8 @@ TEST_F(cmod_propagation_test, subtract_merge_with_compare)
 
 TEST_F(cmod_propagation_test, subtract_immediate_merge_with_compare)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg one(brw_imm_f(1.0f));
    fs_reg negative_one(brw_imm_f(-1.0f));
 
@@ -1067,10 +1075,10 @@ TEST_F(cmod_propagation_test, subtract_immediate_merge_with_compare)
 
 TEST_F(cmod_propagation_test, subtract_merge_with_compare_intervening_add)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest0, src0, negate(src1));
    bld.ADD(dest1, src0, src1);
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L);
@@ -1101,10 +1109,10 @@ TEST_F(cmod_propagation_test, subtract_merge_with_compare_intervening_add)
 
 TEST_F(cmod_propagation_test, subtract_not_merge_with_compare_intervening_partial_write)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest0, src0, negate(src1));
    set_predicate(BRW_PREDICATE_NORMAL, bld.ADD(dest1, src0, negate(src1)));
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L);
@@ -1136,10 +1144,10 @@ TEST_F(cmod_propagation_test, subtract_not_merge_with_compare_intervening_partia
 
 TEST_F(cmod_propagation_test, subtract_not_merge_with_compare_intervening_add)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest0, src0, negate(src1));
    set_condmod(BRW_CONDITIONAL_EQ, bld.ADD(dest1, src0, src1));
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L);
@@ -1171,9 +1179,9 @@ TEST_F(cmod_propagation_test, subtract_not_merge_with_compare_intervening_add)
 
 TEST_F(cmod_propagation_test, add_merge_with_compare)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest, src0, src1);
    bld.CMP(bld.null_reg_f(), src0, negate(src1), BRW_CONDITIONAL_L);
 
@@ -1199,9 +1207,9 @@ TEST_F(cmod_propagation_test, add_merge_with_compare)
 
 TEST_F(cmod_propagation_test, negative_subtract_merge_with_compare)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest, src1, negate(src0));
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L);
 
@@ -1230,11 +1238,11 @@ TEST_F(cmod_propagation_test, negative_subtract_merge_with_compare)
 
 TEST_F(cmod_propagation_test, subtract_delete_compare)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
 
    set_condmod(BRW_CONDITIONAL_L, bld.ADD(dest, src0, negate(src1)));
    set_predicate(BRW_PREDICATE_NORMAL, bld.MOV(dest1, src2));
@@ -1269,11 +1277,11 @@ TEST_F(cmod_propagation_test, subtract_delete_compare_other_flag)
    /* This test is the same as subtract_delete_compare but it explicitly used
     * flag f0.1 for the subtraction and the comparison.
     */
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
 
    set_condmod(BRW_CONDITIONAL_L, bld.ADD(dest, src0, negate(src1)))
       ->flag_subreg = 1;
@@ -1308,9 +1316,9 @@ TEST_F(cmod_propagation_test, subtract_delete_compare_other_flag)
 
 TEST_F(cmod_propagation_test, subtract_to_mismatch_flag)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
 
    set_condmod(BRW_CONDITIONAL_L, bld.ADD(dest, src0, negate(src1)));
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L)
@@ -1343,9 +1351,9 @@ TEST_F(cmod_propagation_test, subtract_to_mismatch_flag)
 TEST_F(cmod_propagation_test,
        subtract_merge_with_compare_intervening_mismatch_flag_write)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
 
    bld.ADD(dest0, src0, negate(src1));
    bld.CMP(bld.null_reg_f(), src0, src1, BRW_CONDITIONAL_L)
@@ -1390,11 +1398,11 @@ TEST_F(cmod_propagation_test,
 TEST_F(cmod_propagation_test,
        subtract_merge_with_compare_intervening_mismatch_flag_read)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
 
    bld.ADD(dest0, src0, negate(src1));
@@ -1430,10 +1438,10 @@ TEST_F(cmod_propagation_test,
 
 TEST_F(cmod_propagation_test, subtract_delete_compare_derp)
 {
-   fs_reg dest0 = v->vgrf(glsl_float_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
 
    set_condmod(BRW_CONDITIONAL_L, bld.ADD(dest0, src0, negate(src1)));
    set_predicate(BRW_PREDICATE_NORMAL, bld.ADD(dest1, negate(src0), src1));
@@ -1465,12 +1473,12 @@ TEST_F(cmod_propagation_test, subtract_delete_compare_derp)
 
 TEST_F(cmod_propagation_test, signed_unsigned_comparison_mismatch)
 {
-   fs_reg dest0 = v->vgrf(glsl_int_type());
-   fs_reg src0 = v->vgrf(glsl_int_type());
-   src0.type = BRW_REGISTER_TYPE_W;
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_D);
+   src0.type = BRW_TYPE_W;
 
    bld.ASR(dest0, negate(src0), brw_imm_d(15));
-   bld.CMP(bld.null_reg_ud(), retype(dest0, BRW_REGISTER_TYPE_UD),
+   bld.CMP(bld.null_reg_ud(), retype(dest0, BRW_TYPE_UD),
            brw_imm_ud(0u), BRW_CONDITIONAL_LE);
 
    /* = Before =
@@ -1496,12 +1504,12 @@ TEST_F(cmod_propagation_test, signed_unsigned_comparison_mismatch)
 
 TEST_F(cmod_propagation_test, ior_f2i_nz)
 {
-   fs_reg dest = bld.vgrf(BRW_REGISTER_TYPE_D);
-   fs_reg src0 = bld.vgrf(BRW_REGISTER_TYPE_D);
-   fs_reg src1 = bld.vgrf(BRW_REGISTER_TYPE_D);
+   fs_reg dest = bld.vgrf(BRW_TYPE_D);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_D);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_D);
 
    bld.OR(dest, src0, src1);
-   bld.MOV(bld.null_reg_d(), retype(dest, BRW_REGISTER_TYPE_F))
+   bld.MOV(bld.null_reg_d(), retype(dest, BRW_TYPE_F))
       ->conditional_mod = BRW_CONDITIONAL_NZ;
 
    /* = Before =
@@ -1589,8 +1597,8 @@ TEST_F(cmod_propagation_test, fadd_fmov_nz)
     * 0: add.nz(8)       dest:F  src0:F  src1:F
     */
    test_mov_prop(BRW_CONDITIONAL_NZ,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_F,
+                 BRW_TYPE_F,
+                 BRW_TYPE_F,
                  true);
 }
 
@@ -1604,8 +1612,8 @@ TEST_F(cmod_propagation_test, fadd_fmov_z)
     * 0: add.z(8)        dest:F  src0:F  src1:F
     */
    test_mov_prop(BRW_CONDITIONAL_Z,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_F,
+                 BRW_TYPE_F,
+                 BRW_TYPE_F,
                  true);
 }
 
@@ -1619,8 +1627,8 @@ TEST_F(cmod_propagation_test, fadd_fmov_l)
     * 0: add.l(8)        dest:F  src0:F  src1:F
     */
    test_mov_prop(BRW_CONDITIONAL_L,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_F,
+                 BRW_TYPE_F,
+                 BRW_TYPE_F,
                  true);
 }
 
@@ -1634,8 +1642,8 @@ TEST_F(cmod_propagation_test, fadd_fmov_g)
     * 0: add.g(8)        dest:F  src0:F  src1:F
     */
    test_mov_prop(BRW_CONDITIONAL_G,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_F,
+                 BRW_TYPE_F,
+                 BRW_TYPE_F,
                  true);
 }
 
@@ -1649,8 +1657,8 @@ TEST_F(cmod_propagation_test, fadd_fmov_le)
     * 0: add.le(8)        dest:F  src0:F  src1:F
     */
    test_mov_prop(BRW_CONDITIONAL_LE,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_F,
+                 BRW_TYPE_F,
+                 BRW_TYPE_F,
                  true);
 }
 
@@ -1664,8 +1672,8 @@ TEST_F(cmod_propagation_test, fadd_fmov_ge)
     * 0: add.ge(8)       dest:F  src0:F  src1:F
     */
    test_mov_prop(BRW_CONDITIONAL_GE,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_F,
+                 BRW_TYPE_F,
+                 BRW_TYPE_F,
                  true);
 }
 
@@ -1679,8 +1687,8 @@ TEST_F(cmod_propagation_test, iadd_imov_nz)
     * 0: add.nz(8)       dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_NZ,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_D,
+                 BRW_TYPE_D,
                  true);
 }
 
@@ -1694,8 +1702,8 @@ TEST_F(cmod_propagation_test, iadd_imov_z)
     * 0: add.z(8)        dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_Z,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_D,
+                 BRW_TYPE_D,
                  true);
 }
 
@@ -1709,8 +1717,8 @@ TEST_F(cmod_propagation_test, iadd_imov_l)
     * 0: add.l(8)        dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_L,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_D,
+                 BRW_TYPE_D,
                  true);
 }
 
@@ -1724,8 +1732,8 @@ TEST_F(cmod_propagation_test, iadd_imov_g)
     * 0: add.g(8)        dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_G,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_D,
+                 BRW_TYPE_D,
                  true);
 }
 
@@ -1739,8 +1747,8 @@ TEST_F(cmod_propagation_test, iadd_imov_le)
     * 0: add.le(8)       dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_LE,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_D,
+                 BRW_TYPE_D,
                  true);
 }
 
@@ -1754,8 +1762,8 @@ TEST_F(cmod_propagation_test, iadd_imov_ge)
     * 0: add.ge(8)       dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_GE,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_D,
+                 BRW_TYPE_D,
                  true);
 }
 
@@ -1769,8 +1777,8 @@ TEST_F(cmod_propagation_test, iadd_umov_nz)
     * 0: add.nz(8)       dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_NZ,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_D,
+                 BRW_TYPE_UD,
                  true);
 }
 
@@ -1784,8 +1792,8 @@ TEST_F(cmod_propagation_test, iadd_umov_z)
     * 0: add.z(8)        dest:D  src0:D  src1:D
     */
    test_mov_prop(BRW_CONDITIONAL_Z,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_D,
+                 BRW_TYPE_UD,
                  true);
 }
 
@@ -1807,8 +1815,8 @@ TEST_F(cmod_propagation_test, iadd_umov_l)
     * it.
     */
    test_mov_prop(BRW_CONDITIONAL_L,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_D,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1825,8 +1833,8 @@ TEST_F(cmod_propagation_test, iadd_umov_g)
     * propagating NZ instead of G to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_G,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_D,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1843,8 +1851,8 @@ TEST_F(cmod_propagation_test, iadd_umov_le)
     * propagating Z instead of LE to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_LE,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_D,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1866,8 +1874,8 @@ TEST_F(cmod_propagation_test, iadd_umov_ge)
     * eliminated it.
     */
    test_mov_prop(BRW_CONDITIONAL_GE,
-                 BRW_REGISTER_TYPE_D,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_D,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1889,8 +1897,8 @@ TEST_F(cmod_propagation_test, fadd_f2u_nz)
     * zero.
     */
    test_mov_prop(BRW_CONDITIONAL_NZ,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_F,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1909,8 +1917,8 @@ TEST_F(cmod_propagation_test, fadd_f2u_z)
     * propagate the Z back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_Z,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_F,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1929,8 +1937,8 @@ TEST_F(cmod_propagation_test, fadd_f2u_l)
     * propagate the L back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_L,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_F,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1949,8 +1957,8 @@ TEST_F(cmod_propagation_test, fadd_f2u_g)
     * propagate the G back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_G,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_F,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1969,8 +1977,8 @@ TEST_F(cmod_propagation_test, fadd_f2u_le)
     * propagate the LE back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_LE,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_F,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -1989,8 +1997,8 @@ TEST_F(cmod_propagation_test, fadd_f2u_ge)
     * propagate the GE back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_GE,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_UD,
+                 BRW_TYPE_F,
+                 BRW_TYPE_UD,
                  false);
 }
 
@@ -2007,8 +2015,8 @@ TEST_F(cmod_propagation_test, fadd_f2i_nz)
     * to propagate the NZ back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_NZ,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_F,
+                 BRW_TYPE_D,
                  false);
 }
 
@@ -2027,8 +2035,8 @@ TEST_F(cmod_propagation_test, fadd_f2i_z)
     * propagate the Z back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_Z,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_F,
+                 BRW_TYPE_D,
                  false);
 }
 
@@ -2047,8 +2055,8 @@ TEST_F(cmod_propagation_test, fadd_f2i_l)
     * propagate the L back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_L,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_F,
+                 BRW_TYPE_D,
                  false);
 }
 
@@ -2067,8 +2075,8 @@ TEST_F(cmod_propagation_test, fadd_f2i_g)
     * propagate the G back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_G,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_F,
+                 BRW_TYPE_D,
                  false);
 }
 
@@ -2087,8 +2095,8 @@ TEST_F(cmod_propagation_test, fadd_f2i_le)
     * propagate the LE back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_LE,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_F,
+                 BRW_TYPE_D,
                  false);
 }
 
@@ -2107,8 +2115,8 @@ TEST_F(cmod_propagation_test, fadd_f2i_ge)
     * propagate the GE back to the ADD.
     */
    test_mov_prop(BRW_CONDITIONAL_GE,
-                 BRW_REGISTER_TYPE_F,
-                 BRW_REGISTER_TYPE_D,
+                 BRW_TYPE_F,
+                 BRW_TYPE_D,
                  false);
 }
 
@@ -2184,7 +2192,7 @@ TEST_F(cmod_propagation_test, float_saturate_nz_cmp)
     * 0: add.sat.nz.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2202,7 +2210,7 @@ TEST_F(cmod_propagation_test, float_saturate_nz_mov)
     * 0: add.sat.nz.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2220,7 +2228,7 @@ TEST_F(cmod_propagation_test, float_saturate_z_cmp)
     * 0: add.sat.z.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2238,7 +2246,7 @@ TEST_F(cmod_propagation_test, float_saturate_z_mov)
     * 0: add.sat.z.f0(8) dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2256,7 +2264,7 @@ TEST_F(cmod_propagation_test, float_saturate_g_cmp)
     * 0: add.sat.g.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2274,7 +2282,7 @@ TEST_F(cmod_propagation_test, float_saturate_g_mov)
     * 0: add.sat.g.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2292,7 +2300,7 @@ TEST_F(cmod_propagation_test, float_saturate_le_cmp)
     * 0: add.sat.le.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2310,7 +2318,7 @@ TEST_F(cmod_propagation_test, float_saturate_le_mov)
     * 0: add.sat.le.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2328,7 +2336,7 @@ TEST_F(cmod_propagation_test, float_saturate_l_cmp)
     * 0: add.sat.l.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2346,7 +2354,7 @@ TEST_F(cmod_propagation_test, float_saturate_l_mov)
     * 0: add.sat.l.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2364,7 +2372,7 @@ TEST_F(cmod_propagation_test, float_saturate_ge_cmp)
     * 0: add.sat.ge.f0(8)  dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2382,7 +2390,7 @@ TEST_F(cmod_propagation_test, float_saturate_ge_mov)
     * 0: add.sat.ge.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F,
+                      BRW_TYPE_F, BRW_TYPE_F,
                       true);
 }
 
@@ -2397,7 +2405,7 @@ TEST_F(cmod_propagation_test, int_saturate_nz_cmp)
     * 0: add.sat.nz.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2412,7 +2420,7 @@ TEST_F(cmod_propagation_test, uint_saturate_nz_cmp)
     * 0: add.sat.nz.f0(8)    dest:UD  src0:UD  src1:UD
     */
    test_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_UD, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_UD, BRW_TYPE_D,
                       true);
 }
 
@@ -2427,7 +2435,7 @@ TEST_F(cmod_propagation_test, int_saturate_nz_mov)
     * 0: add.sat.nz.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2442,7 +2450,7 @@ TEST_F(cmod_propagation_test, int_saturate_z_cmp)
     * 0: add.sat.z.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2457,7 +2465,7 @@ TEST_F(cmod_propagation_test, uint_saturate_z_cmp)
     * 0: add.sat.z.f0(8)    dest:UD  src0:UD  src1:UD
     */
    test_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_UD, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_UD, BRW_TYPE_D,
                       true);
 }
 
@@ -2475,7 +2483,7 @@ TEST_F(cmod_propagation_test, int_saturate_z_mov)
     * 0: add.sat.z.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2490,7 +2498,7 @@ TEST_F(cmod_propagation_test, int_saturate_g_cmp)
     * 0: add.sat.g.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2505,7 +2513,7 @@ TEST_F(cmod_propagation_test, int_saturate_g_mov)
     * 0: add.sat.g.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2520,7 +2528,7 @@ TEST_F(cmod_propagation_test, int_saturate_le_cmp)
     * 0: add.sat.le.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2535,7 +2543,7 @@ TEST_F(cmod_propagation_test, int_saturate_le_mov)
     * 0: add.sat.le.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2550,7 +2558,7 @@ TEST_F(cmod_propagation_test, int_saturate_l_cmp)
     * 0: add.sat.l.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2565,7 +2573,7 @@ TEST_F(cmod_propagation_test, int_saturate_l_mov)
     * 0: add.sat.l.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2580,7 +2588,7 @@ TEST_F(cmod_propagation_test, int_saturate_ge_cmp)
     * 0: add.sat.ge.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2595,7 +2603,7 @@ TEST_F(cmod_propagation_test, int_saturate_ge_mov)
     * 0: add.sat.ge.f0(8)    dest  src0  src1
     */
    test_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_MOV,
-                      BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D,
+                      BRW_TYPE_D, BRW_TYPE_D,
                       true);
 }
 
@@ -2604,9 +2612,9 @@ TEST_F(cmod_propagation_test, not_to_or)
    /* Exercise propagation of conditional modifier from a NOT instruction to
     * another ALU instruction as performed by cmod_propagate_not.
     */
-   fs_reg dest = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
    bld.OR(dest, src0, src1);
    set_condmod(BRW_CONDITIONAL_NZ, bld.NOT(bld.null_reg_ud(), dest));
 
@@ -2637,9 +2645,9 @@ TEST_F(cmod_propagation_test, not_to_and)
    /* Exercise propagation of conditional modifier from a NOT instruction to
     * another ALU instruction as performed by cmod_propagate_not.
     */
-   fs_reg dest = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
    bld.AND(dest, src0, src1);
    set_condmod(BRW_CONDITIONAL_NZ, bld.NOT(bld.null_reg_ud(), dest));
 
@@ -2675,9 +2683,9 @@ TEST_F(cmod_propagation_test, not_to_uadd)
     * restriction is just the the destination type of the ALU instruction is
     * the same as the source type of the NOT instruction.
     */
-   fs_reg dest = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
    bld.ADD(dest, src0, src1);
    set_condmod(BRW_CONDITIONAL_NZ, bld.NOT(bld.null_reg_ud(), dest));
 
@@ -2715,9 +2723,9 @@ TEST_F(cmod_propagation_test, not_to_fadd_to_ud)
     * restriction is just the the destination type of the ALU instruction is
     * the same as the source type of the NOT instruction.
     */
-   fs_reg dest = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest, src0, src1);
    set_condmod(BRW_CONDITIONAL_NZ, bld.NOT(bld.null_reg_ud(), dest));
 
@@ -2755,13 +2763,13 @@ TEST_F(cmod_propagation_test, not_to_fadd)
     * restriction is just the the destination type of the ALU instruction is
     * the same as the source type of the NOT instruction.
     */
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
    bld.ADD(dest, src0, src1);
    set_condmod(BRW_CONDITIONAL_NZ,
                bld.NOT(bld.null_reg_ud(),
-                       retype(dest, BRW_REGISTER_TYPE_UD)));
+                       retype(dest, BRW_TYPE_UD)));
 
    /* = Before =
     *
@@ -2792,11 +2800,11 @@ TEST_F(cmod_propagation_test, not_to_or_intervening_flag_read_compatible_value)
    /* Exercise propagation of conditional modifier from a NOT instruction to
     * another ALU instruction as performed by cmod_propagate_not.
     */
-   fs_reg dest0 = v->vgrf(glsl_uint_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    set_condmod(BRW_CONDITIONAL_Z, bld.OR(dest0, src0, src1));
    set_predicate(BRW_PREDICATE_NORMAL, bld.SEL(dest1, src2, zero));
@@ -2834,11 +2842,11 @@ TEST_F(cmod_propagation_test,
    /* Exercise propagation of conditional modifier from a NOT instruction to
     * another ALU instruction as performed by cmod_propagate_not.
     */
-   fs_reg dest0 = v->vgrf(glsl_uint_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    set_condmod(BRW_CONDITIONAL_Z, bld.OR(dest0, src0, src1))
       ->flag_subreg = 1;
@@ -2879,11 +2887,11 @@ TEST_F(cmod_propagation_test, not_to_or_intervening_flag_read_incompatible_value
    /* Exercise propagation of conditional modifier from a NOT instruction to
     * another ALU instruction as performed by cmod_propagate_not.
     */
-   fs_reg dest0 = v->vgrf(glsl_uint_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    set_condmod(BRW_CONDITIONAL_NZ, bld.OR(dest0, src0, src1));
    set_predicate(BRW_PREDICATE_NORMAL, bld.SEL(dest1, src2, zero));
@@ -2921,10 +2929,10 @@ TEST_F(cmod_propagation_test, not_to_or_intervening_mismatch_flag_write)
    /* Exercise propagation of conditional modifier from a NOT instruction to
     * another ALU instruction as performed by cmod_propagate_not.
     */
-   fs_reg dest0 = v->vgrf(glsl_uint_type());
-   fs_reg dest1 = v->vgrf(glsl_uint_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
 
    bld.OR(dest0, src0, src1);
    set_condmod(BRW_CONDITIONAL_Z, bld.OR(dest1, src0, src1))
@@ -2964,11 +2972,11 @@ TEST_F(cmod_propagation_test, not_to_or_intervening_mismatch_flag_read)
    /* Exercise propagation of conditional modifier from a NOT instruction to
     * another ALU instruction as performed by cmod_propagate_not.
     */
-   fs_reg dest0 = v->vgrf(glsl_uint_type());
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_uint_type());
-   fs_reg src1 = v->vgrf(glsl_uint_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
+   fs_reg dest0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_UD);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
 
    bld.OR(dest0, src0, src1);
@@ -3006,8 +3014,8 @@ TEST_F(cmod_propagation_test, not_to_or_intervening_mismatch_flag_read)
 
 TEST_F(cmod_propagation_test, cmp_to_add_float_e)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg neg10(brw_imm_f(-10.0f));
    fs_reg pos10(brw_imm_f(10.0f));
 
@@ -3036,8 +3044,8 @@ TEST_F(cmod_propagation_test, cmp_to_add_float_e)
 
 TEST_F(cmod_propagation_test, cmp_to_add_float_g)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg neg10(brw_imm_f(-10.0f));
    fs_reg pos10(brw_imm_f(10.0f));
 
@@ -3064,8 +3072,8 @@ TEST_F(cmod_propagation_test, cmp_to_add_float_g)
 
 TEST_F(cmod_propagation_test, cmp_to_add_float_le)
 {
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
+   fs_reg dest = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
    fs_reg neg10(brw_imm_f(-10.0f));
    fs_reg pos10(brw_imm_f(10.0f));
 
@@ -3090,14 +3098,14 @@ TEST_F(cmod_propagation_test, cmp_to_add_float_le)
    EXPECT_EQ(BRW_CONDITIONAL_LE, instruction(block0, 0)->conditional_mod);
 }
 
-TEST_F(cmod_propagation_test, prop_across_sel_gfx7)
+TEST_F(cmod_propagation_test, prop_across_sel)
 {
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg dest2 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
-   fs_reg src3 = v->vgrf(glsl_float_type());
+   fs_reg dest1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg dest2 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src0 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src1 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src2 = bld.vgrf(BRW_TYPE_F);
+   fs_reg src3 = bld.vgrf(BRW_TYPE_F);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest1, src0, src1);
    bld.emit_minmax(dest2, src2, src3, BRW_CONDITIONAL_GE);
@@ -3129,91 +3137,3 @@ TEST_F(cmod_propagation_test, prop_across_sel_gfx7)
    EXPECT_EQ(BRW_CONDITIONAL_GE, instruction(block0, 1)->conditional_mod);
 }
 
-TEST_F(cmod_propagation_test, prop_across_sel_gfx5)
-{
-   devinfo->ver = 5;
-   devinfo->verx10 = devinfo->ver * 10;
-
-   fs_reg dest1 = v->vgrf(glsl_float_type());
-   fs_reg dest2 = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg src2 = v->vgrf(glsl_float_type());
-   fs_reg src3 = v->vgrf(glsl_float_type());
-   fs_reg zero(brw_imm_f(0.0f));
-   bld.ADD(dest1, src0, src1);
-   bld.emit_minmax(dest2, src2, src3, BRW_CONDITIONAL_GE);
-   bld.CMP(bld.null_reg_f(), dest1, zero, BRW_CONDITIONAL_GE);
-
-   /* = Before =
-    *
-    * 0: add(8)        dest1 src0  src1
-    * 1: sel.ge(8)     dest2 src2  src3
-    * 2: cmp.ge.f0(8)  null  dest1 0.0f
-    *
-    * = After =
-    * (no changes)
-    *
-    * On Gfx4 and Gfx5, sel.l (for min) and sel.ge (for max) are implemented
-    * using a separate cmpn and sel instruction.  This lowering occurs in
-    * fs_vistor::lower_minmax which is called a long time after the first
-    * calls to cmod_propagation.
-    */
-
-   v->calculate_cfg();
-   bblock_t *block0 = v->cfg->blocks[0];
-
-   EXPECT_EQ(0, block0->start_ip);
-   EXPECT_EQ(2, block0->end_ip);
-
-   EXPECT_FALSE(cmod_propagation(v));
-   EXPECT_EQ(0, block0->start_ip);
-   EXPECT_EQ(2, block0->end_ip);
-   EXPECT_EQ(BRW_OPCODE_ADD, instruction(block0, 0)->opcode);
-   EXPECT_EQ(BRW_CONDITIONAL_NONE, instruction(block0, 0)->conditional_mod);
-   EXPECT_EQ(BRW_OPCODE_SEL, instruction(block0, 1)->opcode);
-   EXPECT_EQ(BRW_CONDITIONAL_GE, instruction(block0, 1)->conditional_mod);
-   EXPECT_EQ(BRW_OPCODE_CMP, instruction(block0, 2)->opcode);
-   EXPECT_EQ(BRW_CONDITIONAL_GE, instruction(block0, 2)->conditional_mod);
-}
-
-TEST_F(cmod_propagation_test, prop_into_sel_gfx5)
-{
-   devinfo->ver = 5;
-   devinfo->verx10 = devinfo->ver * 10;
-
-   fs_reg dest = v->vgrf(glsl_float_type());
-   fs_reg src0 = v->vgrf(glsl_float_type());
-   fs_reg src1 = v->vgrf(glsl_float_type());
-   fs_reg zero(brw_imm_f(0.0f));
-   bld.emit_minmax(dest, src0, src1, BRW_CONDITIONAL_GE);
-   bld.CMP(bld.null_reg_f(), dest, zero, BRW_CONDITIONAL_GE);
-
-   /* = Before =
-    *
-    * 0: sel.ge(8)     dest  src0  src1
-    * 1: cmp.ge.f0(8)  null  dest  0.0f
-    *
-    * = After =
-    * (no changes)
-    *
-    * Do not copy propagate into a sel.cond instruction.  While it does modify
-    * the flags, the flags are not based on the result compared with zero (as
-    * with most other instructions).  The result is based on the sources
-    * compared with each other (like cmp.cond).
-    */
-
-   v->calculate_cfg();
-   bblock_t *block0 = v->cfg->blocks[0];
-
-   EXPECT_EQ(0, block0->start_ip);
-   EXPECT_EQ(1, block0->end_ip);
-
-   EXPECT_FALSE(cmod_propagation(v));
-   EXPECT_EQ(0, block0->start_ip);
-   EXPECT_EQ(1, block0->end_ip);
-   EXPECT_EQ(BRW_OPCODE_SEL, instruction(block0, 0)->opcode);
-   EXPECT_EQ(BRW_CONDITIONAL_GE, instruction(block0, 0)->conditional_mod);
-   EXPECT_EQ(BRW_OPCODE_CMP, instruction(block0, 1)->opcode);
-   EXPECT_EQ(BRW_CONDITIONAL_GE, instruction(block0, 1)->conditional_mod);
-}

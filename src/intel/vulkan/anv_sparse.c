@@ -64,25 +64,6 @@ dump_anv_vm_bind(struct anv_device *device,
 }
 
 static void
-dump_vk_sparse_memory_bind(const VkSparseMemoryBind *bind)
-{
-   if (!INTEL_DEBUG(DEBUG_SPARSE))
-      return;
-
-   if (bind->memory != VK_NULL_HANDLE) {
-      struct anv_bo *bo = anv_device_memory_from_handle(bind->memory)->bo;
-      sparse_debug("bo:%04u ", bo->gem_handle);
-   } else {
-      sparse_debug("bo:---- ");
-   }
-
-   sparse_debug("res_offset:%08"PRIx64" size:%08"PRIx64" "
-                "mem_offset:%08"PRIx64" flags:0x%08x\n",
-                bind->resourceOffset, bind->size, bind->memoryOffset,
-                bind->flags);
-}
-
-static void
 dump_anv_image(struct anv_image *i)
 {
    if (!INTEL_DEBUG(DEBUG_SPARSE))
@@ -201,70 +182,97 @@ vk_extent3d_el_to_px(const VkExtent3D extent_el,
 static bool
 isl_tiling_supports_standard_block_shapes(enum isl_tiling tiling)
 {
-   return tiling == ISL_TILING_64 ||
+   return isl_tiling_is_64(tiling) ||
           tiling == ISL_TILING_ICL_Ys ||
           tiling == ISL_TILING_SKL_Ys;
 }
 
+static const VkExtent3D block_shapes_2d_1sample[] = {
+   /* 8 bits:   */ { .width = 256, .height = 256, .depth = 1 },
+   /* 16 bits:  */ { .width = 256, .height = 128, .depth = 1 },
+   /* 32 bits:  */ { .width = 128, .height = 128, .depth = 1 },
+   /* 64 bits:  */ { .width = 128, .height =  64, .depth = 1 },
+   /* 128 bits: */ { .width =  64, .height =  64, .depth = 1 },
+};
+static const VkExtent3D block_shapes_3d_1sample[] = {
+   /* 8 bits:   */ { .width = 64, .height = 32, .depth = 32 },
+   /* 16 bits:  */ { .width = 32, .height = 32, .depth = 32 },
+   /* 32 bits:  */ { .width = 32, .height = 32, .depth = 16 },
+   /* 64 bits:  */ { .width = 32, .height = 16, .depth = 16 },
+   /* 128 bits: */ { .width = 16, .height = 16, .depth = 16 },
+};
+static const VkExtent3D block_shapes_2d_2samples[] = {
+   /* 8 bits:   */ { .width = 128, .height = 256, .depth = 1 },
+   /* 16 bits:  */ { .width = 128, .height = 128, .depth = 1 },
+   /* 32 bits:  */ { .width =  64, .height = 128, .depth = 1 },
+   /* 64 bits:  */ { .width =  64, .height =  64, .depth = 1 },
+   /* 128 bits: */ { .width =  32, .height =  64, .depth = 1 },
+};
+static const VkExtent3D block_shapes_2d_4samples[] = {
+   /* 8 bits:   */ { .width = 128, .height = 128, .depth = 1 },
+   /* 16 bits:  */ { .width = 128, .height =  64, .depth = 1 },
+   /* 32 bits:  */ { .width =  64, .height =  64, .depth = 1 },
+   /* 64 bits:  */ { .width =  64, .height =  32, .depth = 1 },
+   /* 128 bits: */ { .width =  32, .height =  32, .depth = 1 },
+};
+static const VkExtent3D block_shapes_2d_8samples[] = {
+   /* 8 bits:   */ { .width = 64, .height = 128, .depth = 1 },
+   /* 16 bits:  */ { .width = 64, .height =  64, .depth = 1 },
+   /* 32 bits:  */ { .width = 32, .height =  64, .depth = 1 },
+   /* 64 bits:  */ { .width = 32, .height =  32, .depth = 1 },
+   /* 128 bits: */ { .width = 16, .height =  32, .depth = 1 },
+};
+static const VkExtent3D block_shapes_2d_16samples[] = {
+   /* 8 bits:   */ { .width = 64, .height = 64, .depth = 1 },
+   /* 16 bits:  */ { .width = 64, .height = 32, .depth = 1 },
+   /* 32 bits:  */ { .width = 32, .height = 32, .depth = 1 },
+   /* 64 bits:  */ { .width = 32, .height = 16, .depth = 1 },
+   /* 128 bits: */ { .width = 16, .height = 16, .depth = 1 },
+};
+
 static VkExtent3D
 anv_sparse_get_standard_image_block_shape(enum isl_format format,
                                           VkImageType image_type,
+                                          VkSampleCountFlagBits samples,
                                           uint16_t texel_size)
 {
    const struct isl_format_layout *layout = isl_format_get_layout(format);
    VkExtent3D block_shape = { .width = 0, .height = 0, .depth = 0 };
 
-   switch (image_type) {
-   case VK_IMAGE_TYPE_1D:
-      /* 1D images don't have a standard block format. */
-      assert(false);
-      break;
-   case VK_IMAGE_TYPE_2D:
-      switch (texel_size) {
-      case 8:
-         block_shape = (VkExtent3D) { .width = 256, .height = 256, .depth = 1 };
+   int table_idx = ffs(texel_size) - 4;
+
+   switch (samples) {
+   case VK_SAMPLE_COUNT_1_BIT:
+      switch (image_type) {
+      case VK_IMAGE_TYPE_1D:
+         /* 1D images don't have a standard block format. */
+         assert(false);
          break;
-      case 16:
-         block_shape = (VkExtent3D) { .width = 256, .height = 128, .depth = 1 };
+      case VK_IMAGE_TYPE_2D:
+         block_shape = block_shapes_2d_1sample[table_idx];
          break;
-      case 32:
-         block_shape = (VkExtent3D) { .width = 128, .height = 128, .depth = 1 };
-         break;
-      case 64:
-         block_shape = (VkExtent3D) { .width = 128, .height = 64, .depth = 1 };
-         break;
-      case 128:
-         block_shape = (VkExtent3D) { .width = 64, .height = 64, .depth = 1 };
+      case VK_IMAGE_TYPE_3D:
+         block_shape = block_shapes_3d_1sample[table_idx];
          break;
       default:
-         fprintf(stderr, "unexpected texel_size %d\n", texel_size);
+         fprintf(stderr, "unexpected image_type %d\n", image_type);
          assert(false);
       }
       break;
-   case VK_IMAGE_TYPE_3D:
-      switch (texel_size) {
-      case 8:
-         block_shape = (VkExtent3D) { .width = 64, .height = 32, .depth = 32 };
-         break;
-      case 16:
-         block_shape = (VkExtent3D) { .width = 32, .height = 32, .depth = 32 };
-         break;
-      case 32:
-         block_shape = (VkExtent3D) { .width = 32, .height = 32, .depth = 16 };
-         break;
-      case 64:
-         block_shape = (VkExtent3D) { .width = 32, .height = 16, .depth = 16 };
-         break;
-      case 128:
-         block_shape = (VkExtent3D) { .width = 16, .height = 16, .depth = 16 };
-         break;
-      default:
-         fprintf(stderr, "unexpected texel_size %d\n", texel_size);
-         assert(false);
-      }
+   case VK_SAMPLE_COUNT_2_BIT:
+      block_shape = block_shapes_2d_2samples[table_idx];
+      break;
+   case VK_SAMPLE_COUNT_4_BIT:
+      block_shape = block_shapes_2d_4samples[table_idx];
+      break;
+   case VK_SAMPLE_COUNT_8_BIT:
+      block_shape = block_shapes_2d_8samples[table_idx];
+      break;
+   case VK_SAMPLE_COUNT_16_BIT:
+      block_shape = block_shapes_2d_16samples[table_idx];
       break;
    default:
-      fprintf(stderr, "unexpected image_type %d\n", image_type);
+      fprintf(stderr, "unexpected sample count: %d\n", samples);
       assert(false);
    }
 
@@ -327,7 +335,9 @@ trtt_make_page_table_bo(struct anv_device *device, struct anv_bo **bo)
    struct anv_trtt *trtt = &device->trtt;
 
    result = anv_device_alloc_bo(device, "trtt-page-table",
-                                ANV_TRTT_PAGE_TABLE_BO_SIZE, 0, 0, bo);
+                                ANV_TRTT_PAGE_TABLE_BO_SIZE |
+                                ANV_BO_ALLOC_INTERNAL,
+                                0, 0, bo);
    if (result != VK_SUCCESS)
       return result;
 
@@ -594,6 +604,9 @@ anv_sparse_bind_trtt(struct anv_device *device,
    if (trtt_submit.l3l2_binds_len || trtt_submit.l1_binds_len)
       result = anv_genX(device->info, write_trtt_entries)(&trtt_submit);
 
+   if (result == VK_SUCCESS)
+      ANV_RMV(vm_binds, device, sparse_submit->binds, sparse_submit->binds_len);
+
 out:
    pthread_mutex_unlock(&trtt->mutex);
    STACK_ARRAY_FINISH(l1_binds);
@@ -606,48 +619,11 @@ anv_sparse_bind_vm_bind(struct anv_device *device,
                         struct anv_sparse_submission *submit)
 {
    struct anv_queue *queue = submit->queue;
-   VkResult result;
 
    if (!queue)
       assert(submit->wait_count == 0 && submit->signal_count == 0);
 
-   /* TODO: make both the syncs and signals be passed as part of the vm_bind
-    * ioctl so they can be waited asynchronously. For now this doesn't matter
-    * as we're doing synchronous vm_bind, but later when we make it async this
-    * will make a difference.
-    */
-   result = vk_sync_wait_many(&device->vk, submit->wait_count, submit->waits,
-                              VK_SYNC_WAIT_COMPLETE, INT64_MAX);
-   if (result != VK_SUCCESS)
-      return vk_queue_set_lost(&queue->vk, "vk_sync_wait failed");
-
-   /* FIXME: here we were supposed to issue a single vm_bind ioctl by calling
-    * vm_bind(device, num_binds, binds), but for an unknown reason some
-    * shader-related tests fail when we do that, so work around it for now.
-    * See: https://gitlab.freedesktop.org/drm/xe/kernel/-/issues/746
-    */
-   for (int b = 0; b < submit->binds_len; b++) {
-      struct anv_sparse_submission s = {
-         .queue = submit->queue,
-         .binds = &submit->binds[b],
-         .binds_len = 1,
-         .binds_capacity = 1,
-         .wait_count = 0,
-         .signal_count = 0,
-      };
-      int rc = device->kmd_backend->vm_bind(device, &s);
-      if (rc)
-         return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
-   }
-
-   for (uint32_t i = 0; i < submit->signal_count; i++) {
-      struct vk_sync_signal *s = &submit->signals[i];
-      result = vk_sync_signal(&device->vk, s->sync, s->signal_value);
-      if (result != VK_SUCCESS)
-         return vk_queue_set_lost(&queue->vk, "vk_sync_signal failed");
-   }
-
-   return VK_SUCCESS;
+   return device->kmd_backend->vm_bind(device, submit, ANV_VM_BIND_FLAG_NONE);
 }
 
 VkResult
@@ -659,7 +635,7 @@ anv_sparse_bind(struct anv_device *device,
          dump_anv_vm_bind(device, &submit->binds[b]);
    }
 
-   return device->physical->sparse_uses_trtt ?
+   return device->physical->sparse_type == ANV_SPARSE_TYPE_TRTT ?
             anv_sparse_bind_trtt(device, submit) :
             anv_sparse_bind_vm_bind(device, submit);
 }
@@ -674,7 +650,7 @@ anv_init_sparse_bindings(struct anv_device *device,
 {
    uint64_t size = align64(size_, ANV_SPARSE_BLOCK_SIZE);
 
-   if (device->physical->sparse_uses_trtt)
+   if (device->physical->sparse_type == ANV_SPARSE_TYPE_TRTT)
       alloc_flags |= ANV_BO_ALLOC_TRTT;
 
    sparse->address = anv_vma_alloc(device, size, ANV_SPARSE_BLOCK_SIZE,
@@ -707,18 +683,21 @@ anv_init_sparse_bindings(struct anv_device *device,
       return res;
    }
 
+   p_atomic_inc(&device->num_sparse_resources);
    return VK_SUCCESS;
 }
 
-VkResult
+void
 anv_free_sparse_bindings(struct anv_device *device,
                          struct anv_sparse_binding_data *sparse)
 {
    if (!sparse->address)
-      return VK_SUCCESS;
+      return;
 
    sparse_debug("%s: address:0x%016"PRIx64" size:0x%08"PRIx64"\n",
                 __func__, sparse->address, sparse->size);
+
+   p_atomic_dec(&device->num_sparse_resources);
 
    struct anv_vm_bind unbind = {
       .bo = 0,
@@ -736,12 +715,16 @@ anv_free_sparse_bindings(struct anv_device *device,
       .signal_count = 0,
    };
    VkResult res = anv_sparse_bind(device, &submit);
+
+   /* Our callers don't have a way to signal failure to the upper layers, so
+    * just keep the vma if we fail to unbind it. Still, let's have an
+    * assertion because this really shouldn't be happening.
+    */
+   assert(res == VK_SUCCESS);
    if (res != VK_SUCCESS)
-      return res;
+      return;
 
    anv_vma_free(device, sparse->vma_heap, sparse->address, sparse->size);
-
-   return VK_SUCCESS;
 }
 
 static VkExtent3D
@@ -783,6 +766,7 @@ VkSparseImageFormatProperties
 anv_sparse_calc_image_format_properties(struct anv_physical_device *pdevice,
                                         VkImageAspectFlags aspect,
                                         VkImageType vk_image_type,
+                                        VkSampleCountFlagBits vk_samples,
                                         struct isl_surf *surf)
 {
    const struct isl_format_layout *isl_layout =
@@ -797,7 +781,8 @@ anv_sparse_calc_image_format_properties(struct anv_physical_device *pdevice,
 
    if (vk_image_type != VK_IMAGE_TYPE_1D) {
       VkExtent3D std_shape =
-         anv_sparse_get_standard_image_block_shape(surf->format, vk_image_type,
+         anv_sparse_get_standard_image_block_shape(surf->format,
+                                                   vk_image_type, vk_samples,
                                                    bpb);
       /* YUV formats don't work with Tile64, which is required if we want to
        * claim standard block shapes. The spec requires us to support all
@@ -832,6 +817,7 @@ anv_sparse_calc_image_format_properties(struct anv_physical_device *pdevice,
        * since non-opaque binds are not supported. Still, dEQP seems to care.
        */
       assert(is_standard || is_known_nonstandard_format);
+      assert(!(is_standard && is_known_nonstandard_format));
    }
 
    uint32_t block_size = granularity.width * granularity.height *
@@ -880,7 +866,6 @@ anv_sparse_calc_miptail_properties(struct anv_device *device,
                                    VkDeviceSize *imageMipTailOffset,
                                    VkDeviceSize *imageMipTailStride)
 {
-   assert(__builtin_popcount(vk_aspect) == 1);
    const uint32_t plane = anv_image_aspect_to_plane(image, vk_aspect);
    struct isl_surf *surf = &image->planes[plane].primary_surface.isl;
    uint64_t binding_plane_offset =
@@ -988,18 +973,50 @@ vk_bind_to_anv_vm_bind(struct anv_sparse_binding_data *sparse,
    return anv_bind;
 }
 
-VkResult
+static VkResult
 anv_sparse_bind_resource_memory(struct anv_device *device,
                                 struct anv_sparse_binding_data *sparse,
+                                uint64_t resource_size,
                                 const VkSparseMemoryBind *vk_bind,
                                 struct anv_sparse_submission *submit)
 {
    struct anv_vm_bind bind = vk_bind_to_anv_vm_bind(sparse, vk_bind);
+   uint64_t rem = vk_bind->size % ANV_SPARSE_BLOCK_SIZE;
 
-   if (vk_bind->size % ANV_SPARSE_BLOCK_SIZE != 0)
-      return vk_error(device, VK_ERROR_VALIDATION_FAILED_EXT);
+   if (rem != 0) {
+      if (vk_bind->resourceOffset + vk_bind->size == resource_size)
+         bind.size += ANV_SPARSE_BLOCK_SIZE - rem;
+      else
+         return vk_error(device, VK_ERROR_VALIDATION_FAILED_EXT);
+   }
 
    return anv_sparse_submission_add(device, submit, &bind);
+}
+
+VkResult
+anv_sparse_bind_buffer(struct anv_device *device,
+                       struct anv_buffer *buffer,
+                       const VkSparseMemoryBind *vk_bind,
+                       struct anv_sparse_submission *submit)
+{
+   return anv_sparse_bind_resource_memory(device, &buffer->sparse_data,
+                                          buffer->vk.size,
+                                          vk_bind, submit);
+}
+
+VkResult
+anv_sparse_bind_image_opaque(struct anv_device *device,
+                             struct anv_image *image,
+                             const VkSparseMemoryBind *vk_bind,
+                             struct anv_sparse_submission *submit)
+{
+   struct anv_image_binding *b =
+      &image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN];
+   assert(!image->disjoint);
+
+   return anv_sparse_bind_resource_memory(device, &b->sparse_data,
+                                          b->memory_range.size,
+                                          vk_bind, submit);
 }
 
 VkResult
@@ -1013,7 +1030,6 @@ anv_sparse_bind_image_memory(struct anv_queue *queue,
    uint32_t mip_level = bind->subresource.mipLevel;
    uint32_t array_layer = bind->subresource.arrayLayer;
 
-   assert(__builtin_popcount(aspect) == 1);
    assert(!(bind->flags & VK_SPARSE_MEMORY_BIND_METADATA_BIT));
 
    struct anv_image_binding *img_binding = image->disjoint ?
@@ -1027,18 +1043,19 @@ anv_sparse_bind_image_memory(struct anv_queue *queue,
       image->planes[plane].primary_surface.memory_range.offset;
    const struct isl_format_layout *layout =
       isl_format_get_layout(surf->format);
-   struct isl_tile_info tile_info;
-   isl_surf_get_tile_info(surf, &tile_info);
 
-   sparse_debug("\n=== [%s:%d] [%s] BEGIN\n", __FILE__, __LINE__, __func__);
-   sparse_debug("--> mip_level:%d array_layer:%d\n",
-                mip_level, array_layer);
-   sparse_debug("aspect:0x%x plane:%d\n", aspect, plane);
-   sparse_debug("binding offset: [%d, %d, %d] extent: [%d, %d, %d]\n",
-                bind->offset.x, bind->offset.y, bind->offset.z,
-                bind->extent.width, bind->extent.height, bind->extent.depth);
-   dump_anv_image(image);
-   dump_isl_surf(surf);
+   if (INTEL_DEBUG(DEBUG_SPARSE)) {
+      sparse_debug("%s:", __func__);
+      sparse_debug("mip_level:%d array_layer:%d\n", mip_level, array_layer);
+      sparse_debug("aspect:0x%x plane:%d\n", aspect, plane);
+      sparse_debug("binding offset: [%d, %d, %d] extent: [%d, %d, %d]\n",
+                   bind->offset.x, bind->offset.y, bind->offset.z,
+                   bind->extent.width, bind->extent.height,
+                   bind->extent.depth);
+      dump_anv_image(image);
+      dump_isl_surf(surf);
+      sparse_debug("\n");
+   }
 
    VkExtent3D block_shape_px =
       anv_sparse_calc_block_shape(device->physical, surf);
@@ -1063,7 +1080,10 @@ anv_sparse_bind_image_memory(struct anv_queue *queue,
     * either 4k or 64k depending on the tiling format. */
    const uint64_t block_size_B = block_shape_el.width * (layout->bpb / 8) *
                                  block_shape_el.height *
-                                 block_shape_el.depth;
+                                 block_shape_el.depth *
+                                 image->vk.samples;
+   assert(block_size_B == (64 * 1024) || block_size_B == 4096);
+
    /* How many blocks are necessary to form a whole line on this image? */
    const uint32_t blocks_per_line = surf->row_pitch_B / (layout->bpb / 8) /
                                     block_shape_el.width;
@@ -1125,7 +1145,6 @@ anv_sparse_bind_image_memory(struct anv_queue *queue,
       }
    }
 
-   sparse_debug("\n=== [%s:%d] [%s] END\n", __FILE__, __LINE__, __func__);
    return VK_SUCCESS;
 }
 
@@ -1173,8 +1192,16 @@ anv_sparse_image_check_support(struct anv_physical_device *pdevice,
    if (tiling == VK_IMAGE_TILING_LINEAR)
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
-   /* TODO: not supported yet. */
-   if (samples != VK_SAMPLE_COUNT_1_BIT)
+   if ((samples & VK_SAMPLE_COUNT_2_BIT &&
+        !pdevice->vk.supported_features.sparseResidency2Samples) ||
+       (samples & VK_SAMPLE_COUNT_4_BIT &&
+        !pdevice->vk.supported_features.sparseResidency4Samples) ||
+       (samples & VK_SAMPLE_COUNT_8_BIT &&
+        !pdevice->vk.supported_features.sparseResidency8Samples) ||
+       (samples & VK_SAMPLE_COUNT_16_BIT &&
+        !pdevice->vk.supported_features.sparseResidency16Samples) ||
+       samples & VK_SAMPLE_COUNT_32_BIT ||
+       samples & VK_SAMPLE_COUNT_64_BIT)
       return VK_ERROR_FEATURE_NOT_PRESENT;
 
    /* While the Vulkan spec allows us to support depth/stencil sparse images
@@ -1190,6 +1217,13 @@ anv_sparse_image_check_support(struct anv_physical_device *pdevice,
     */
    VkImageAspectFlags aspects = vk_format_aspects(vk_format);
    if (aspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+      /* For multi-sampled images, the image layouts for color and
+       * depth/stencil are different, and only the color layout is compatible
+       * with the standard block shapes.
+       */
+      if (samples != VK_SAMPLE_COUNT_1_BIT)
+         return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
       /* For 125+, isl_gfx125_filter_tiling() claims 3D is not supported.
        * For the previous platforms, isl_gfx6_filter_tiling() says only 2D is
        * supported.
@@ -1227,6 +1261,28 @@ anv_sparse_image_check_support(struct anv_physical_device *pdevice,
           isl_layout->bpb != 32 && isl_layout->bpb != 64 &&
           isl_layout->bpb != 128)
          return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+      /* ISL_TILING_64_XE2_BIT's block shapes are not always Vulkan's standard
+       * block shapes, so exclude what's non-standard.
+       */
+      if (pdevice->info.ver == 20) {
+         switch (samples) {
+         case VK_SAMPLE_COUNT_2_BIT:
+            if (isl_layout->bpb == 128)
+               return VK_ERROR_FORMAT_NOT_SUPPORTED;
+            break;
+         case VK_SAMPLE_COUNT_8_BIT:
+             if (isl_layout->bpb == 8 || isl_layout->bpb == 32)
+               return VK_ERROR_FORMAT_NOT_SUPPORTED;
+            break;
+         case VK_SAMPLE_COUNT_16_BIT:
+            if (isl_layout->bpb == 64)
+               return VK_ERROR_FORMAT_NOT_SUPPORTED;
+            break;
+         default:
+            break;
+         }
+      }
    }
 
    /* These YUV formats are considered by Vulkan to be compressed 2x1 blocks.

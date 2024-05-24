@@ -101,7 +101,8 @@ struct u_trace_chunk {
    struct util_queue_fence fence;
 
    bool last; /* this chunk is last in batch */
-   bool eof;  /* this chunk is last in frame */
+   bool eof;  /* this chunk is last in frame, unless frame_nr is set */
+   uint32_t frame_nr; /* frame idx from the driver */
 
    void *flush_data; /* assigned by u_trace_flush */
 
@@ -385,7 +386,7 @@ u_trace_state_init_once(void)
    u_trace_state.enabled_traces =
       debug_get_flags_option("MESA_GPU_TRACES", config_control, 0);
    const char *tracefile_name = debug_get_option_trace_file();
-   if (tracefile_name && !__check_suid()) {
+   if (tracefile_name && __normal_user()) {
       u_trace_state.trace_file = fopen(tracefile_name, "w");
       if (u_trace_state.trace_file != NULL) {
          atexit(trace_file_fini);
@@ -503,6 +504,10 @@ u_trace_context_fini(struct u_trace_context *utctx)
 #endif
 
    if (utctx->out) {
+      if (utctx->batch_nr > 0) {
+         utctx->out_printer->end_of_frame(utctx);
+      }
+
       utctx->out_printer->end(utctx);
       fflush(utctx->out);
    }
@@ -554,6 +559,15 @@ process_chunk(void *job, void *gdata, int thread_index)
 {
    struct u_trace_chunk *chunk = job;
    struct u_trace_context *utctx = chunk->utctx;
+
+   if (chunk->frame_nr != U_TRACE_FRAME_UNKNOWN &&
+       chunk->frame_nr != utctx->frame_nr) {
+      if (utctx->out) {
+         utctx->out_printer->end_of_frame(utctx);
+      }
+      utctx->frame_nr = chunk->frame_nr;
+      utctx->start_of_frame = true;
+   }
 
    if (utctx->start_of_frame) {
       utctx->start_of_frame = false;
@@ -852,12 +866,16 @@ u_trace_appendv(struct u_trace *ut,
 }
 
 void
-u_trace_flush(struct u_trace *ut, void *flush_data, bool free_data)
+u_trace_flush(struct u_trace *ut,
+              void *flush_data,
+              uint32_t frame_nr,
+              bool free_data)
 {
    list_for_each_entry (struct u_trace_chunk, chunk, &ut->trace_chunks,
                         node) {
       chunk->flush_data = flush_data;
       chunk->free_flush_data = false;
+      chunk->frame_nr = frame_nr;
    }
 
    if (free_data && !list_is_empty(&ut->trace_chunks)) {

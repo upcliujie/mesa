@@ -27,9 +27,11 @@ EPHEMERAL=(
 DEPS=(
     bindgen
     bison
+    cbindgen
     ccache
     clang-devel
     flex
+    flatbuffers-compiler
     gcc
     gcc-c++
     gettext
@@ -41,6 +43,7 @@ DEPS=(
     "pkgconfig(SPIRV-Tools)"
     "pkgconfig(dri2proto)"
     "pkgconfig(expat)"
+    "pkgconfig(flatbuffers)"
     "pkgconfig(glproto)"
     "pkgconfig(libclc)"
     "pkgconfig(libelf)"
@@ -66,6 +69,7 @@ DEPS=(
     "pkgconfig(xfixes)"
     "pkgconfig(xrandr)"
     "pkgconfig(xshmfence)"
+    "pkgconfig(xtensor)"
     "pkgconfig(xxf86vm)"
     "pkgconfig(zlib)"
     procps-ng
@@ -73,6 +77,7 @@ DEPS=(
     python3-devel
     python3-mako
     python3-ply
+    python3-pycparser
     rust-packaging
     vulkan-headers
     spirv-tools-devel
@@ -96,8 +101,8 @@ tar -xvf $XORGMACROS_VERSION.tar.bz2 && rm $XORGMACROS_VERSION.tar.bz2
 cd $XORGMACROS_VERSION; ./configure; make install; cd ..
 rm -rf $XORGMACROS_VERSION
 
-# We need at least 1.3.1 for rusticl
-pip install meson==1.3.1
+# We need at least 1.4.0 for rusticl
+pip install meson==1.4.0
 
 . .gitlab-ci/container/build-mold.sh
 

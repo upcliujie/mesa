@@ -177,7 +177,7 @@ _mesa_get_shader_capture_path(void)
    static const char *path = NULL;
 
    if (!read_env_var) {
-      path = getenv("MESA_SHADER_CAPTURE_PATH");
+      path = secure_getenv("MESA_SHADER_CAPTURE_PATH");
       read_env_var = true;
 
 #if ANDROID_SHADER_CAPTURE
@@ -412,12 +412,12 @@ create_shader(struct gl_context *ctx, GLenum type)
    struct gl_shader *sh;
    GLuint name;
 
-   _mesa_HashLockMutex(ctx->Shared->ShaderObjects);
-   name = _mesa_HashFindFreeKeyBlock(ctx->Shared->ShaderObjects, 1);
+   _mesa_HashLockMutex(&ctx->Shared->ShaderObjects);
+   name = _mesa_HashFindFreeKeyBlock(&ctx->Shared->ShaderObjects, 1);
    sh = _mesa_new_shader(name, _mesa_shader_enum_to_shader_stage(type));
    sh->Type = type;
-   _mesa_HashInsertLocked(ctx->Shared->ShaderObjects, name, sh, true);
-   _mesa_HashUnlockMutex(ctx->Shared->ShaderObjects);
+   _mesa_HashInsertLocked(&ctx->Shared->ShaderObjects, name, sh);
+   _mesa_HashUnlockMutex(&ctx->Shared->ShaderObjects);
 
    return name;
 }
@@ -442,17 +442,17 @@ create_shader_program(struct gl_context *ctx)
    GLuint name;
    struct gl_shader_program *shProg;
 
-   _mesa_HashLockMutex(ctx->Shared->ShaderObjects);
+   _mesa_HashLockMutex(&ctx->Shared->ShaderObjects);
 
-   name = _mesa_HashFindFreeKeyBlock(ctx->Shared->ShaderObjects, 1);
+   name = _mesa_HashFindFreeKeyBlock(&ctx->Shared->ShaderObjects, 1);
 
    shProg = _mesa_new_shader_program(name);
 
-   _mesa_HashInsertLocked(ctx->Shared->ShaderObjects, name, shProg, true);
+   _mesa_HashInsertLocked(&ctx->Shared->ShaderObjects, name, shProg);
 
    assert(shProg->RefCount == 1);
 
-   _mesa_HashUnlockMutex(ctx->Shared->ShaderObjects);
+   _mesa_HashUnlockMutex(&ctx->Shared->ShaderObjects);
 
    return name;
 }
@@ -1154,7 +1154,7 @@ get_shader_source(struct gl_context *ctx, GLuint shader, GLsizei maxLength,
  */
 static void
 set_shader_source(struct gl_shader *sh, const GLchar *source,
-                  const uint8_t original_sha1[SHA1_DIGEST_LENGTH])
+                  const blake3_hash original_blake3)
 {
    assert(sh);
 
@@ -1173,7 +1173,7 @@ set_shader_source(struct gl_shader *sh, const GLchar *source,
        * fallback.
        */
       sh->FallbackSource = sh->Source;
-      memcpy(sh->fallback_source_sha1, sh->source_sha1, SHA1_DIGEST_LENGTH);
+      memcpy(sh->fallback_source_blake3, sh->source_blake3, BLAKE3_OUT_LEN);
       sh->Source = source;
    } else {
       /* free old shader source string and install new one */
@@ -1181,7 +1181,7 @@ set_shader_source(struct gl_shader *sh, const GLchar *source,
       sh->Source = source;
    }
 
-   memcpy(sh->source_sha1, original_sha1, SHA1_DIGEST_LENGTH);
+   memcpy(sh->source_blake3, original_blake3, BLAKE3_OUT_LEN);
 }
 
 static void
@@ -1356,14 +1356,12 @@ link_program(struct gl_context *ctx, struct gl_shader_program *shProg,
          _mesa_use_program(ctx, stage, shProg, prog, ctx->_Shader);
       }
 
-      if (ctx->Pipeline.Objects) {
-         struct update_programs_in_pipeline_params params = {
-            .ctx = ctx,
-            .shProg = shProg
-         };
-         _mesa_HashWalk(ctx->Pipeline.Objects, update_programs_in_pipeline,
-                        &params);
-      }
+      struct update_programs_in_pipeline_params params = {
+         .ctx = ctx,
+         .shProg = shProg
+      };
+      _mesa_HashWalk(&ctx->Pipeline.Objects, update_programs_in_pipeline,
+                     &params);
    }
 
 #ifndef CUSTOM_SHADER_REPLACEMENT
@@ -1971,7 +1969,7 @@ _mesa_dump_shader_source(const gl_shader_stage stage, const char *source,
    if (!path_exists)
       return;
 
-   dump_path = getenv("MESA_SHADER_DUMP_PATH");
+   dump_path = secure_getenv("MESA_SHADER_DUMP_PATH");
    if (!dump_path) {
       path_exists = false;
       return;
@@ -2147,8 +2145,8 @@ shader_source(struct gl_context *ctx, GLuint shaderObj, GLsizei count,
    source[totalLength - 2] = '\0';
 
    /* Compute the original source sha1 before shader replacement. */
-   uint8_t original_sha1[SHA1_DIGEST_LENGTH];
-   _mesa_sha1_compute(source, strlen(source), original_sha1);
+   blake3_hash original_blake3;
+   _mesa_blake3_compute(source, strlen(source), original_blake3);
 
 #ifdef ENABLE_SHADER_CACHE
    GLcharARB *replacement;
@@ -2156,16 +2154,16 @@ shader_source(struct gl_context *ctx, GLuint shaderObj, GLsizei count,
    /* Dump original shader source to MESA_SHADER_DUMP_PATH and replace
     * if corresponding entry found from MESA_SHADER_READ_PATH.
     */
-   _mesa_dump_shader_source(sh->Stage, source, original_sha1);
+   _mesa_dump_shader_source(sh->Stage, source, original_blake3);
 
-   replacement = _mesa_read_shader_source(sh->Stage, source, original_sha1);
+   replacement = _mesa_read_shader_source(sh->Stage, source, original_blake3);
    if (replacement) {
       free(source);
       source = replacement;
    }
 #endif /* ENABLE_SHADER_CACHE */
 
-   set_shader_source(sh, source, original_sha1);
+   set_shader_source(sh, source, original_blake3);
 
    free(offsets);
 }
@@ -2362,6 +2360,10 @@ _mesa_ShaderBinary(GLint n, const GLuint* shaders, GLenum binaryformat,
 {
    GET_CURRENT_CONTEXT(ctx);
    struct gl_shader **sh;
+
+   /* no binary data can be loaded if length==0 */
+   if (!length)
+      binary = NULL;
 
    /* Page 68, section 7.2 'Shader Binaries" of the of the OpenGL ES 3.1, and
     * page 88 of the OpenGL 4.5 specs state:
@@ -2638,39 +2640,6 @@ _mesa_use_program(struct gl_context *ctx, gl_shader_stage stage,
 
 }
 
-
-/**
- * Copy program-specific data generated by linking from the gl_shader_program
- * object to the gl_program object referred to by the gl_linked_shader.
- *
- * This function expects _mesa_reference_program() to have been previously
- * called setting the gl_linked_shaders program reference.
- */
-void
-_mesa_copy_linked_program_data(const struct gl_shader_program *src,
-                               struct gl_linked_shader *dst_sh)
-{
-   assert(dst_sh->Program);
-
-   struct gl_program *dst = dst_sh->Program;
-
-   dst->info.separate_shader = src->SeparateShader;
-
-   switch (dst_sh->Stage) {
-   case MESA_SHADER_GEOMETRY: {
-      dst->info.gs.vertices_in = src->Geom.VerticesIn;
-      dst->info.gs.uses_end_primitive = src->Geom.UsesEndPrimitive;
-      dst->info.gs.active_stream_mask = src->Geom.ActiveStreamMask;
-      break;
-   }
-   case MESA_SHADER_FRAGMENT: {
-      dst->info.fs.depth_layout = src->FragDepthLayout;
-      break;
-   }
-   default:
-      break;
-   }
-}
 
 /**
  * ARB_separate_shader_objects: Compile & Link Program

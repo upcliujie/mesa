@@ -21,8 +21,10 @@
  * IN THE SOFTWARE.
  */
 
+#include "intel_nir.h"
 #include "brw_nir_rt.h"
 #include "brw_nir_rt_builder.h"
+#include "intel_nir.h"
 
 static bool
 resize_deref(nir_builder *b, nir_deref_instr *deref,
@@ -454,7 +456,7 @@ brw_nir_create_raygen_trampoline(const struct brw_compiler *compiler,
    nir_def *raygen_bsr_addr =
       nir_if_phi(&b, raygen_indirect_bsr_addr, raygen_param_bsr_addr);
 
-   nir_def *global_id = nir_load_workgroup_id_zero_base(&b);
+   nir_def *global_id = nir_load_workgroup_id(&b);
    nir_def *simd_channel = nir_load_subgroup_invocation(&b);
    nir_def *local_x =
       nir_ubfe(&b, simd_channel, nir_imm_int(&b, 0),
@@ -525,10 +527,9 @@ brw_nir_create_raygen_trampoline(const struct brw_compiler *compiler,
       }
    }
 
-   NIR_PASS_V(nir, brw_nir_lower_cs_intrinsics);
+   NIR_PASS_V(nir, brw_nir_lower_cs_intrinsics, devinfo, NULL);
 
-   const bool is_scalar = true;
-   brw_nir_optimize(nir, is_scalar, devinfo);
+   brw_nir_optimize(nir, devinfo);
 
    return nir;
 }

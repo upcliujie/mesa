@@ -98,7 +98,9 @@ static void radeon_enc_encode_params_h264(struct radeon_encoder *enc)
 
 static void radeon_enc_quality_params(struct radeon_encoder *enc)
 {
-   enc->enc_pic.quality_params.vbaq_mode = enc->enc_pic.quality_modes.vbaq_mode;
+   enc->enc_pic.quality_params.vbaq_mode =
+      enc->enc_pic.rc_session_init.rate_control_method != RENCODE_RATE_CONTROL_METHOD_NONE ?
+      enc->enc_pic.quality_modes.vbaq_mode : 0;
    enc->enc_pic.quality_params.scene_change_sensitivity = 0;
    enc->enc_pic.quality_params.scene_change_min_idr_interval = 0;
    enc->enc_pic.quality_params.two_pass_search_center_map_mode =
@@ -301,7 +303,8 @@ static void radeon_enc_slice_header(struct radeon_encoder *enc)
       radeon_enc_code_fixed_bits(enc, 0x1, 1); /* direct_spatial_mv_pred_flag */
 
    /* ref_pic_list_modification() */
-   if (enc->enc_pic.picture_type != PIPE_H2645_ENC_PICTURE_TYPE_IDR) {
+   if (enc->enc_pic.picture_type != PIPE_H2645_ENC_PICTURE_TYPE_IDR &&
+       enc->enc_pic.picture_type != PIPE_H2645_ENC_PICTURE_TYPE_I) {
       radeon_enc_code_fixed_bits(enc, 0x0, 1);
 
       /* long-term reference */
@@ -347,6 +350,7 @@ static void radeon_enc_slice_header(struct radeon_encoder *enc)
    }
 
    if ((enc->enc_pic.picture_type != PIPE_H2645_ENC_PICTURE_TYPE_IDR) &&
+       (enc->enc_pic.picture_type != PIPE_H2645_ENC_PICTURE_TYPE_I) &&
        (enc->enc_pic.spec_misc.cabac_enable))
       radeon_enc_code_ue(enc, enc->enc_pic.spec_misc.cabac_init_idc);
 
@@ -504,10 +508,12 @@ static void radeon_enc_session_init(struct radeon_encoder *enc)
       enc->enc_pic.session_init.aligned_picture_width = align(enc->base.width, 64);
    }
    enc->enc_pic.session_init.aligned_picture_height = align(enc->base.height, 16);
+
    enc->enc_pic.session_init.padding_width =
-      enc->enc_pic.session_init.aligned_picture_width - enc->base.width;
+      (enc->enc_pic.crop_left + enc->enc_pic.crop_right) * 2;
    enc->enc_pic.session_init.padding_height =
-      enc->enc_pic.session_init.aligned_picture_height - enc->base.height;
+      (enc->enc_pic.crop_top + enc->enc_pic.crop_bottom) * 2;
+
    enc->enc_pic.session_init.slice_output_enabled = 0;
    enc->enc_pic.session_init.display_remote = 0;
    enc->enc_pic.session_init.pre_encode_mode = enc->enc_pic.quality_modes.pre_encode_mode;

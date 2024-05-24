@@ -8,6 +8,8 @@
 set -e
 set -o xtrace
 
+export LLVM_VERSION="${LLVM_VERSION:=16}"
+
 EPHEMERAL=(
 )
 
@@ -16,6 +18,7 @@ DEPS=(
     bash
     bison
     ccache
+    clang16-dev
     cmake
     clang-dev
     coreutils
@@ -27,8 +30,10 @@ DEPS=(
     gettext
     glslang
     linux-headers
+    llvm16-static
     llvm16-dev
     meson
+    mold
     expat-dev
     elfutils-dev
     libdrm-dev
@@ -37,7 +42,9 @@ DEPS=(
     libpciaccess-dev
     zlib-dev
     python3-dev
+    py3-cparser
     py3-mako
+    py3-packaging
     py3-ply
     vulkan-headers
     spirv-tools-dev
@@ -47,6 +54,10 @@ DEPS=(
 )
 
 apk --no-cache add "${DEPS[@]}" "${EPHEMERAL[@]}"
+
+. .gitlab-ci/container/build-llvm-spirv.sh
+
+. .gitlab-ci/container/build-libclc.sh
 
 . .gitlab-ci/container/container_pre_build.sh
 

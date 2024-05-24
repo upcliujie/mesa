@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __AGX_BO_H
-#define __AGX_BO_H
+#pragma once
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -84,15 +83,6 @@ struct agx_bo {
    /* Syncobj handle of the current writer, if any */
    uint32_t writer_syncobj;
 
-   /* Globally unique value (system wide) for tracing. Exists for resources,
-    * command buffers, GPU submissions, segments, segmentent lists, encoders,
-    * accelerators, and channels. Corresponds to Instruments' magic table
-    * metal-gpu-submission-to-command-buffer-id */
-   uint64_t guid;
-
-   /* Human-readable label, or NULL if none */
-   char *name;
-
    /* Owner */
    struct agx_device *dev;
 
@@ -131,5 +121,3 @@ struct agx_bo *agx_bo_cache_fetch(struct agx_device *dev, size_t size,
                                   size_t align, uint32_t flags,
                                   const bool dontwait);
 void agx_bo_cache_evict_all(struct agx_device *dev);
-
-#endif

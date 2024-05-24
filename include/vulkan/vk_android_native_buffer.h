@@ -18,7 +18,7 @@
 #define __VK_ANDROID_NATIVE_BUFFER_H__
 
 /* MESA: A hack to avoid #ifdefs in driver code. */
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include <cutils/native_handle.h>
 #include <vulkan/vulkan.h>
 
@@ -66,7 +66,18 @@ extern "C" {
  * This version of the extension is largely designed to clean up the mix of
  * GrallocUsage and GrallocUsage2
  */
-#define VK_ANDROID_NATIVE_BUFFER_SPEC_VERSION 9
+/*
+ * NOTE ON VK_ANDROID_NATIVE_BUFFER_SPEC_VERSION 10
+ *
+ * This version of the extension cleans up a bug introduced in version 9
+ */
+/*
+ * NOTE ON VK_ANDROID_NATIVE_BUFFER_SPEC_VERSION 11
+ *
+ * This version of the extension deprecates the last of grallocusage and
+ * extends VkNativeBufferANDROID to support passing AHardwareBuffer*
+ */
+#define VK_ANDROID_NATIVE_BUFFER_SPEC_VERSION 11
 #define VK_ANDROID_NATIVE_BUFFER_EXTENSION_NAME "VK_ANDROID_native_buffer"
 
 #define VK_ANDROID_NATIVE_BUFFER_ENUM(type, id) \
@@ -80,6 +91,8 @@ extern "C" {
     VK_ANDROID_NATIVE_BUFFER_ENUM(VkStructureType, 2)
 #define VK_STRUCTURE_TYPE_GRALLOC_USAGE_INFO_ANDROID \
     VK_ANDROID_NATIVE_BUFFER_ENUM(VkStructureType, 3)
+#define VK_STRUCTURE_TYPE_GRALLOC_USAGE_INFO_2_ANDROID \
+    VK_ANDROID_NATIVE_BUFFER_ENUM(VkStructureType, 4)
 
 /* clang-format off */
 typedef enum VkSwapchainImageUsageFlagBitsANDROID {
@@ -110,6 +123,9 @@ typedef struct {
  * usage: gralloc usage requested when the buffer was allocated
  * usage2: gralloc usage requested when the buffer was allocated
  * usage3: gralloc usage requested when the buffer was allocated
+ * ahb: The AHardwareBuffer* from the actual ANativeWindowBuffer. Caller
+ *      maintains ownership of resource. AHardwareBuffer pointer is only valid
+ *      for the duration of the function call
  */
 typedef struct {
     VkStructureType                   sType;
@@ -120,6 +136,7 @@ typedef struct {
     int                               usage; /* DEPRECATED in SPEC_VERSION 6 */
     VkNativeBufferUsage2ANDROID       usage2; /* DEPRECATED in SPEC_VERSION 9 */
     uint64_t                          usage3; /* ADDED in SPEC_VERSION 9 */
+    struct AHardwareBuffer*           ahb; /* ADDED in SPEC_VERSION 11 */
 } VkNativeBufferANDROID;
 
 /*
@@ -155,6 +172,8 @@ typedef struct {
  * pNext: NULL or a pointer to a structure extending this structure
  * format: value specifying the format the image will be created with
  * imageUsage: bitmask of VkImageUsageFlagBits describing intended usage
+ *
+ * DEPRECATED in SPEC_VERSION 10
  */
 typedef struct {
     VkStructureType                   sType;
@@ -162,6 +181,25 @@ typedef struct {
     VkFormat                          format;
     VkImageUsageFlags                 imageUsage;
 } VkGrallocUsageInfoANDROID;
+
+/*
+ * struct VkGrallocUsageInfo2ANDROID
+ *
+ * sType: VK_STRUCTURE_TYPE_GRALLOC_USAGE_INFO_2_ANDROID
+ * pNext: NULL or a pointer to a structure extending this structure
+ * format: value specifying the format the image will be created with
+ * imageUsage: bitmask of VkImageUsageFlagBits describing intended usage
+ * swapchainImageUsage: is a bitmask of VkSwapchainImageUsageFlagsANDROID
+ *
+ * DEPRECATED in SPEC_VERSION 11
+ */
+typedef struct {
+    VkStructureType                   sType;
+    const void*                       pNext;
+    VkFormat                          format;
+    VkImageUsageFlags                 imageUsage;
+    VkSwapchainImageUsageFlagsANDROID swapchainImageUsage;
+} VkGrallocUsageInfo2ANDROID;
 
 /* DEPRECATED in SPEC_VERSION 6 */
 typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainGrallocUsageANDROID)(
@@ -179,10 +217,16 @@ typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainGrallocUsage2ANDROID)(
     uint64_t*                         grallocConsumerUsage,
     uint64_t*                         grallocProducerUsage);
 
-/* ADDED in SPEC_VERSION 9 */
+/* DEPRECATED in SPEC_VERSION 10 */
 typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainGrallocUsage3ANDROID)(
     VkDevice                          device,
     const VkGrallocUsageInfoANDROID*  grallocUsageInfo,
+    uint64_t*                         grallocUsage);
+
+/* DEPRECATED in SPEC_VERSION 11 */
+typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainGrallocUsage4ANDROID)(
+    VkDevice                          device,
+    const VkGrallocUsageInfo2ANDROID* grallocUsageInfo,
     uint64_t*                         grallocUsage);
 
 typedef VkResult (VKAPI_PTR *PFN_vkAcquireImageANDROID)(
@@ -219,10 +263,17 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainGrallocUsage2ANDROID(
     uint64_t*                         grallocProducerUsage
 );
 
-/* ADDED in SPEC_VERSION 9 */
+/* DEPRECATED in SPEC_VERSION 10 */
 VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainGrallocUsage3ANDROID(
     VkDevice                          device,
     const VkGrallocUsageInfoANDROID*  grallocUsageInfo,
+    uint64_t*                         grallocUsage
+);
+
+/* DEPRECATED in SPEC_VERSION 11 */
+VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainGrallocUsage4ANDROID(
+    VkDevice                          device,
+    const VkGrallocUsageInfo2ANDROID* grallocUsageInfo,
     uint64_t*                         grallocUsage
 );
 

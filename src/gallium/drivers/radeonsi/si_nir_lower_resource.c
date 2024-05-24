@@ -35,11 +35,14 @@ static nir_def *load_ubo_desc_fast_path(nir_builder *b, nir_def *addr_lo,
       S_008F0C_DST_SEL_X(V_008F0C_SQ_SEL_X) | S_008F0C_DST_SEL_Y(V_008F0C_SQ_SEL_Y) |
       S_008F0C_DST_SEL_Z(V_008F0C_SQ_SEL_Z) | S_008F0C_DST_SEL_W(V_008F0C_SQ_SEL_W);
 
-   if (sel->screen->info.gfx_level >= GFX11)
-      rsrc3 |= S_008F0C_FORMAT(V_008F0C_GFX11_FORMAT_32_FLOAT) |
+   if (sel->screen->info.gfx_level >= GFX12)
+      rsrc3 |= S_008F0C_FORMAT_GFX12(V_008F0C_GFX11_FORMAT_32_FLOAT) |
+               S_008F0C_OOB_SELECT(V_008F0C_OOB_SELECT_RAW);
+   else if (sel->screen->info.gfx_level >= GFX11)
+      rsrc3 |= S_008F0C_FORMAT_GFX10(V_008F0C_GFX11_FORMAT_32_FLOAT) |
                S_008F0C_OOB_SELECT(V_008F0C_OOB_SELECT_RAW);
    else if (sel->screen->info.gfx_level >= GFX10)
-      rsrc3 |= S_008F0C_FORMAT(V_008F0C_GFX10_FORMAT_32_FLOAT) |
+      rsrc3 |= S_008F0C_FORMAT_GFX10(V_008F0C_GFX10_FORMAT_32_FLOAT) |
                S_008F0C_OOB_SELECT(V_008F0C_OOB_SELECT_RAW) | S_008F0C_RESOURCE_LEVEL(1);
    else
       rsrc3 |= S_008F0C_NUM_FORMAT(V_008F0C_BUF_NUM_FORMAT_FLOAT) |
@@ -347,6 +350,11 @@ static bool lower_resource_intrinsic(nir_builder *b, nir_intrinsic_instr *intrin
          enum glsl_sampler_dim dim = nir_intrinsic_image_dim(intrin);
          desc_type = dim == GLSL_SAMPLER_DIM_BUF ? AC_DESC_BUFFER : AC_DESC_IMAGE;
       }
+
+      /* Check if the instruction already sources a descriptor and doesn't need to be lowered. */
+      if (intrin->src[0].ssa->num_components == (desc_type == AC_DESC_BUFFER ? 4 : 8) &&
+          intrin->src[0].ssa->bit_size == 32)
+         return false;
 
       bool is_load =
          intrin->intrinsic == nir_intrinsic_bindless_image_load ||

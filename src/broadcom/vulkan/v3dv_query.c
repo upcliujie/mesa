@@ -47,7 +47,8 @@ kperfmon_create(struct v3dv_device *device,
                            DRM_IOCTL_V3D_PERFMON_CREATE,
                            &req);
       if (ret)
-         fprintf(stderr, "Failed to create perfmon for query %d: %s\n", query, strerror(ret));
+         fprintf(stderr, "Failed to create perfmon for query %d: %s\n", query,
+                 strerror(errno));
 
       pool->queries[query].perf.kperfmon_ids[i] = req.id;
    }
@@ -73,7 +74,7 @@ kperfmon_destroy(struct v3dv_device *device,
 
       if (ret) {
          fprintf(stderr, "Failed to destroy perfmon %u: %s\n",
-                 req.id, strerror(ret));
+                 req.id, strerror(errno));
       }
    }
 }
@@ -654,7 +655,7 @@ write_performance_query_result(struct v3dv_device *device,
                            &req);
 
       if (ret) {
-         fprintf(stderr, "failed to get perfmon values: %s\n", strerror(ret));
+         fprintf(stderr, "failed to get perfmon values: %s\n", strerror(errno));
          return vk_error(device, VK_ERROR_DEVICE_LOST);
       }
    }
@@ -1349,7 +1350,8 @@ v3dv_EnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR(
 {
    V3DV_FROM_HANDLE(v3dv_physical_device, pDevice, physicalDevice);
 
-   return v3dv_X(pDevice, enumerate_performance_query_counters)(pCounterCount,
+   return v3dv_X(pDevice, enumerate_performance_query_counters)(pDevice,
+                                                                pCounterCount,
                                                                 pCounters,
                                                                 pCounterDescriptions);
 }

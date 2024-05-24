@@ -27,9 +27,7 @@
 #include "zink_types.h"
 
 #define ZINK_MAP_TEMPORARY (PIPE_MAP_DRV_PRV << 0)
-#define ZINK_BIND_SAMPLER_DESCRIPTOR (1u << 26)
-#define ZINK_BIND_RESOURCE_DESCRIPTOR (1u << 27)
-#define ZINK_BIND_DESCRIPTOR (ZINK_BIND_SAMPLER_DESCRIPTOR | ZINK_BIND_RESOURCE_DESCRIPTOR)
+#define ZINK_BIND_DESCRIPTOR (1u << 27)
 #define ZINK_BIND_MUTABLE (1u << 28)
 #define ZINK_BIND_DMABUF (1u << 29)
 #define ZINK_BIND_TRANSIENT (1u << 30) //transient fb attachment
@@ -44,7 +42,8 @@ zink_screen_resource_init(struct pipe_screen *pscreen);
 
 void
 zink_context_resource_init(struct pipe_context *pctx);
-
+void
+zink_screen_buffer_unmap(struct pipe_screen *pscreen, struct pipe_transfer *ptrans);
 void
 zink_get_depth_stencil_resources(struct pipe_resource *res,
                                  struct zink_resource **out_z,
@@ -173,23 +172,21 @@ zink_resource_object_usage_unset(struct zink_resource_object *obj, struct zink_b
 }
 
 static inline void
-zink_batch_resource_usage_set(struct zink_batch *batch, struct zink_resource *res, bool write, bool is_buffer)
+zink_batch_resource_usage_set(struct zink_batch_state *bs, struct zink_resource *res, bool write, bool is_buffer)
 {
    if (!is_buffer) {
       if (res->obj->dt) {
-         VkSemaphore acquire = zink_kopper_acquire_submit(zink_screen(batch->state->ctx->base.screen), res);
+         VkSemaphore acquire = zink_kopper_acquire_submit(zink_screen(bs->ctx->base.screen), res);
          if (acquire)
-            util_dynarray_append(&batch->state->acquires, VkSemaphore, acquire);
+            util_dynarray_append(&bs->acquires, VkSemaphore, acquire);
       }
       if (write) {
          if (!res->valid && res->fb_bind_count)
-            batch->state->ctx->rp_loadop_changed = true;
+            bs->ctx->rp_loadop_changed = true;
          res->valid = true;
       }
    }
-   zink_resource_usage_set(res, batch->state, write);
-
-   batch->has_work = true;
+   zink_resource_usage_set(res, bs, write);
 }
 
 void

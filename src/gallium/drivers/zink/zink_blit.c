@@ -70,15 +70,12 @@ blit_resolve(struct zink_context *ctx, const struct pipe_blit_info *info, bool *
    if (src->obj->dt)
       *needs_present_readback = zink_kopper_acquire_readback(ctx, src, &use_src);
 
-   struct zink_batch *batch = &ctx->batch;
    zink_resource_setup_transfer_layouts(ctx, use_src, dst);
    VkCommandBuffer cmdbuf = *needs_present_readback ?
-                            ctx->batch.state->cmdbuf :
+                            ctx->bs->cmdbuf :
                             zink_get_cmdbuf(ctx, src, dst);
-   if (cmdbuf == ctx->batch.state->cmdbuf)
-      zink_flush_dgc_if_enabled(ctx);
-   zink_batch_reference_resource_rw(batch, use_src, false);
-   zink_batch_reference_resource_rw(batch, dst, true);
+   zink_batch_reference_resource_rw(ctx, use_src, false);
+   zink_batch_reference_resource_rw(ctx, dst, true);
 
    bool marker = zink_cmd_debug_marker_begin(ctx, cmdbuf, "blit_resolve(%s->%s, %dx%d->%dx%d)",
                                              util_format_short_name(info->src.format),
@@ -277,15 +274,12 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info, bool *n
    if (src->obj->dt)
       *needs_present_readback = zink_kopper_acquire_readback(ctx, src, &use_src);
 
-   struct zink_batch *batch = &ctx->batch;
    zink_resource_setup_transfer_layouts(ctx, use_src, dst);
    VkCommandBuffer cmdbuf = *needs_present_readback ?
-                            ctx->batch.state->cmdbuf :
+                            ctx->bs->cmdbuf :
                             zink_get_cmdbuf(ctx, src, dst);
-   if (cmdbuf == ctx->batch.state->cmdbuf)
-      zink_flush_dgc_if_enabled(ctx);
-   zink_batch_reference_resource_rw(batch, use_src, false);
-   zink_batch_reference_resource_rw(batch, dst, true);
+   zink_batch_reference_resource_rw(ctx, use_src, false);
+   zink_batch_reference_resource_rw(ctx, dst, true);
 
    bool marker = zink_cmd_debug_marker_begin(ctx, cmdbuf, "blit_native(%s->%s, %dx%d->%dx%d)",
                                              util_format_short_name(info->src.format),
@@ -362,13 +356,20 @@ zink_blit(struct pipe_context *pctx,
    bool stencil_blit = false;
    if (!util_blitter_is_blit_supported(ctx->blitter, info)) {
       if (util_format_is_depth_or_stencil(info->src.resource->format)) {
-         struct pipe_blit_info depth_blit = *info;
-         depth_blit.mask = PIPE_MASK_Z;
-         stencil_blit = util_blitter_is_blit_supported(ctx->blitter, &depth_blit);
-         if (stencil_blit) {
-            zink_blit_begin(ctx, ZINK_BLIT_SAVE_FB | ZINK_BLIT_SAVE_FS | ZINK_BLIT_SAVE_TEXTURES);
-            util_blitter_blit(ctx->blitter, &depth_blit);
+         if (info->mask & PIPE_MASK_Z) {
+            struct pipe_blit_info depth_blit = *info;
+            depth_blit.mask = PIPE_MASK_Z;
+            if (util_blitter_is_blit_supported(ctx->blitter, &depth_blit)) {
+               zink_blit_begin(ctx, ZINK_BLIT_SAVE_FB | ZINK_BLIT_SAVE_FS | ZINK_BLIT_SAVE_TEXTURES);
+               util_blitter_blit(ctx->blitter, &depth_blit);
+            } else {
+               mesa_loge("ZINK: depth blit unsupported %s -> %s",
+                         util_format_short_name(info->src.resource->format),
+                         util_format_short_name(info->dst.resource->format));
+            }
          }
+         if (info->mask & PIPE_MASK_S)
+            stencil_blit = true;
       }
       if (!stencil_blit) {
          mesa_loge("ZINK: blit unsupported %s -> %s",
@@ -412,14 +413,13 @@ zink_blit(struct pipe_context *pctx,
    if (whole)
       pctx->invalidate_resource(pctx, info->dst.resource);
 
-   zink_flush_dgc_if_enabled(ctx);
    ctx->unordered_blitting = !(info->render_condition_enable && ctx->render_condition_active) &&
                              zink_screen(ctx->base.screen)->info.have_KHR_dynamic_rendering &&
                              !needs_present_readback &&
-                             zink_get_cmdbuf(ctx, src, dst) == ctx->batch.state->reordered_cmdbuf;
-   VkCommandBuffer cmdbuf = ctx->batch.state->cmdbuf;
+                             zink_get_cmdbuf(ctx, src, dst) == ctx->bs->reordered_cmdbuf;
+   VkCommandBuffer cmdbuf = ctx->bs->cmdbuf;
    VkPipeline pipeline = ctx->gfx_pipeline_state.pipeline;
-   bool in_rp = ctx->batch.in_rp;
+   bool in_rp = ctx->in_rp;
    uint64_t tc_data = ctx->dynamic_fb.tc_info.data;
    bool queries_disabled = ctx->queries_disabled;
    bool rp_changed = ctx->rp_changed || (!ctx->fb_state.zsbuf && util_format_is_depth_or_stencil(info->dst.format));
@@ -427,11 +427,10 @@ zink_blit(struct pipe_context *pctx,
    bool rp_tc_info_updated = ctx->rp_tc_info_updated;
    if (ctx->unordered_blitting) {
       /* for unordered blit, swap the unordered cmdbuf for the main one for the whole op to avoid conditional hell */
-      ctx->batch.state->cmdbuf = ctx->batch.state->reordered_cmdbuf;
-      ctx->batch.in_rp = false;
+      ctx->bs->cmdbuf = ctx->bs->reordered_cmdbuf;
+      ctx->in_rp = false;
       ctx->rp_changed = true;
       ctx->queries_disabled = true;
-      ctx->batch.state->has_barriers = true;
       ctx->pipeline_changed[0] = true;
       zink_reset_ds3_states(ctx);
       zink_select_draw_vbo(ctx);
@@ -473,13 +472,13 @@ zink_blit(struct pipe_context *pctx,
    ctx->clears_enabled = clears_enabled;
    if (ctx->unordered_blitting) {
       zink_batch_no_rp(ctx);
-      ctx->batch.in_rp = in_rp;
+      ctx->in_rp = in_rp;
       ctx->gfx_pipeline_state.rp_state = zink_update_rendering_info(ctx);
       ctx->rp_changed = rp_changed;
       ctx->rp_tc_info_updated |= rp_tc_info_updated;
       ctx->queries_disabled = queries_disabled;
       ctx->dynamic_fb.tc_info.data = tc_data;
-      ctx->batch.state->cmdbuf = cmdbuf;
+      ctx->bs->cmdbuf = cmdbuf;
       ctx->gfx_pipeline_state.pipeline = pipeline;
       ctx->pipeline_changed[0] = true;
       ctx->ds3_states = ds3_states;
@@ -501,7 +500,8 @@ zink_blit_begin(struct zink_context *ctx, enum zink_blit_flags flags)
    util_blitter_save_vertex_elements(ctx->blitter, ctx->element_state);
    util_blitter_save_viewport(ctx->blitter, ctx->vp_state.viewport_states);
 
-   util_blitter_save_vertex_buffer_slot(ctx->blitter, ctx->vertex_buffers);
+   util_blitter_save_vertex_buffers(ctx->blitter, ctx->vertex_buffers,
+                                    util_last_bit(ctx->gfx_pipeline_state.vertex_buffers_enabled_mask));
    util_blitter_save_vertex_shader(ctx->blitter, ctx->gfx_stages[MESA_SHADER_VERTEX]);
    util_blitter_save_tessctrl_shader(ctx->blitter, ctx->gfx_stages[MESA_SHADER_TESS_CTRL]);
    util_blitter_save_tesseval_shader(ctx->blitter, ctx->gfx_stages[MESA_SHADER_TESS_EVAL]);

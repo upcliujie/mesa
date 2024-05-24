@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __AGX_NIR_LOWER_VBO_H
-#define __AGX_NIR_LOWER_VBO_H
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -22,13 +21,16 @@ extern "C" {
  * be small so it can be embedded into a shader key.
  */
 struct agx_attribute {
+   /* If instanced, Zero means all get the same value (Vulkan semantics). */
    uint32_t divisor;
    uint32_t stride;
    uint16_t src_offset;
-   uint8_t buf;
 
    /* pipe_format, all vertex formats should be <= 255 */
    uint8_t format;
+
+   unsigned buf   : 7;
+   bool instanced : 1;
 };
 
 bool agx_nir_lower_vbo(nir_shader *shader, struct agx_attribute *attribs);
@@ -36,6 +38,4 @@ bool agx_vbo_supports_format(enum pipe_format format);
 
 #ifdef __cplusplus
 } /* extern C */
-#endif
-
 #endif

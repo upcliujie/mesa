@@ -13,6 +13,7 @@
 #include "tu_common.h"
 
 #include "vk_buffer.h"
+#include "vk_device_memory.h"
 
 #include "tu_autotune.h"
 #include "tu_pass.h"
@@ -20,6 +21,7 @@
 #include "tu_suballoc.h"
 #include "tu_util.h"
 
+#include "common/freedreno_rd_output.h"
 #include "util/vma.h"
 #include "util/u_vector.h"
 
@@ -31,7 +33,7 @@
 #define TU_BORDER_COLOR_COUNT 4096
 #define TU_BORDER_COLOR_BUILTIN 6
 
-#define TU_BLIT_SHADER_SIZE 1024
+#define TU_BLIT_SHADER_SIZE 4096
 
 /* extra space in vsc draw/prim streams */
 #define VSC_PAD 0x40
@@ -87,8 +89,15 @@ struct tu_physical_device
 
    uint32_t gmem_size;
    uint64_t gmem_base;
+
+   uint32_t usable_gmem_size_gmem;
    uint32_t ccu_offset_gmem;
    uint32_t ccu_offset_bypass;
+   uint32_t ccu_depth_offset_bypass;
+   uint32_t vpc_attr_buf_offset_gmem;
+   uint32_t vpc_attr_buf_size_gmem;
+   uint32_t vpc_attr_buf_offset_bypass;
+   uint32_t vpc_attr_buf_size_bypass;
 
    /* Amount of usable descriptor sets, this excludes any reserved set */
    uint32_t usable_sets;
@@ -123,6 +132,8 @@ struct tu_physical_device
    struct vk_sync_type syncobj_type;
    struct vk_sync_timeline_type timeline_type;
    const struct vk_sync_type *sync_types[3];
+
+   uint32_t device_count;
 };
 VK_DEFINE_HANDLE_CASTS(tu_physical_device, vk.base, VkPhysicalDevice,
                        VK_OBJECT_TYPE_PHYSICAL_DEVICE)
@@ -156,6 +167,14 @@ struct tu_instance
     * core, this is enabled by default.
     */
    bool reserve_descriptor_set;
+
+   /* Allow out of bounds UBO access by disabling lowering of UBO loads for
+    * indirect access, which rely on the UBO bounds specified in the shader,
+    * rather than the bound UBO size which isn't known until draw time.
+    *
+    * See: https://github.com/doitsujin/dxvk/issues/3861
+    */
+   bool allow_oob_indirect_ubo_loads;
 };
 VK_DEFINE_HANDLE_CASTS(tu_instance, vk.base, VkInstance,
                        VK_OBJECT_TYPE_INSTANCE)
@@ -193,7 +212,7 @@ struct tu6_global
       uint32_t pad[7];
    } flush_base[4];
 
-   alignas(16) uint32_t cs_indirect_xyz[3];
+   alignas(16) uint32_t cs_indirect_xyz[12];
 
    volatile uint32_t vtx_stats_query_not_running;
 
@@ -233,15 +252,6 @@ struct tu_pvtmem_bo {
       uint32_t per_fiber_size, per_sp_size;
 };
 
-#ifdef ANDROID
-enum tu_gralloc_type
-{
-   TU_GRALLOC_UNKNOWN,
-   TU_GRALLOC_CROS,
-   TU_GRALLOC_OTHER,
-};
-#endif
-
 struct tu_virtio_device;
 
 struct tu_device
@@ -253,6 +263,7 @@ struct tu_device
    int queue_count[TU_MAX_QUEUE_FAMILIES];
 
    struct tu_physical_device *physical_device;
+   uint32_t device_idx;
    int fd;
 
    struct ir3_compiler *compiler;
@@ -375,11 +386,6 @@ struct tu_device
    struct tu_cs *dbg_cmdbuf_stomp_cs;
    struct tu_cs *dbg_renderpass_stomp_cs;
 
-#ifdef ANDROID
-   const void *gralloc;
-   enum tu_gralloc_type gralloc_type;
-#endif
-
 #ifdef TU_HAS_VIRTIO
    struct tu_virtio_device *vdev;
 #endif
@@ -397,19 +403,21 @@ struct tu_device
 
    bool use_z24uint_s8uint;
    bool use_lrz;
+
+   struct fd_rd_output rd_output;
 };
 VK_DEFINE_HANDLE_CASTS(tu_device, vk.base, VkDevice, VK_OBJECT_TYPE_DEVICE)
 
 struct tu_device_memory
 {
-   struct vk_object_base base;
+   struct vk_device_memory vk;
 
    struct tu_bo *bo;
 
    /* for dedicated allocations */
    struct tu_image *image;
 };
-VK_DEFINE_NONDISP_HANDLE_CASTS(tu_device_memory, base, VkDeviceMemory,
+VK_DEFINE_NONDISP_HANDLE_CASTS(tu_device_memory, vk.base, VkDeviceMemory,
                                VK_OBJECT_TYPE_DEVICE_MEMORY)
 
 struct tu_buffer

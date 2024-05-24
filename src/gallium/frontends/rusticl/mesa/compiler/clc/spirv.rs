@@ -25,6 +25,10 @@ pub struct SPIRVBin {
     info: Option<clc_parsed_spirv>,
 }
 
+// Safety: SPIRVBin is not mutable and is therefore Send and Sync, needed due to `clc_binary::data`
+unsafe impl Send for SPIRVBin {}
+unsafe impl Sync for SPIRVBin {}
+
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct SPIRVKernelArg {
     pub name: String,
@@ -190,37 +194,32 @@ impl SPIRVBin {
         let mut out = clc_binary::default();
         let res = unsafe { clc_link_spirv(&linker_args, &logger, &mut out) };
 
-        let info;
-        if !library {
+        let info = if !library && res {
             let mut pspirv = clc_parsed_spirv::default();
             let res = unsafe { clc_parse_spirv(&out, &logger, &mut pspirv) };
-
-            if res {
-                info = Some(pspirv);
-            } else {
-                info = None;
-            }
-        } else {
-            info = None;
-        }
-
-        let res = if res {
-            Some(SPIRVBin {
-                spirv: out,
-                info: info,
-            })
+            res.then_some(pspirv)
         } else {
             None
         };
+
+        let res = res.then_some(SPIRVBin {
+            spirv: out,
+            info: info,
+        });
         (res, msgs.join("\n"))
     }
 
-    pub fn clone_on_validate(&self, options: &clc_validator_options) -> (Option<Self>, String) {
+    pub fn validate(&self, options: &clc_validator_options) -> (bool, String) {
         let mut msgs: Vec<String> = Vec::new();
         let logger = create_clc_logger(&mut msgs);
         let res = unsafe { clc_validate_spirv(&self.spirv, &logger, options) };
 
-        (res.then(|| self.clone()), msgs.join("\n"))
+        (res, msgs.join("\n"))
+    }
+
+    pub fn clone_on_validate(&self, options: &clc_validator_options) -> (Option<Self>, String) {
+        let (res, msgs) = self.validate(options);
+        (res.then(|| self.clone()), msgs)
     }
 
     fn kernel_infos(&self) -> &[clc_kernel_info] {
@@ -300,10 +299,34 @@ impl SPIRVBin {
         }
     }
 
+    fn get_spirv_capabilities() -> spirv_capabilities {
+        spirv_capabilities {
+            Addresses: true,
+            Float16: true,
+            Float16Buffer: true,
+            Float64: true,
+            GenericPointer: true,
+            Groups: true,
+            GroupNonUniformShuffle: true,
+            GroupNonUniformShuffleRelative: true,
+            Int8: true,
+            Int16: true,
+            Int64: true,
+            Kernel: true,
+            ImageBasic: true,
+            ImageReadWrite: true,
+            Linkage: true,
+            LiteralSampler: true,
+            Vector16: true,
+            ..Default::default()
+        }
+    }
+
     fn get_spirv_options(
         library: bool,
         clc_shader: *const nir_shader,
         address_bits: u32,
+        caps: &spirv_capabilities,
         log: Option<&mut Vec<String>>,
     ) -> spirv_to_nir_options {
         let global_addr_format;
@@ -329,25 +352,8 @@ impl SPIRVBin {
             float_controls_execution_mode: float_controls::FLOAT_CONTROLS_DENORM_FLUSH_TO_ZERO_FP32
                 as u32,
 
-            caps: spirv_supported_capabilities {
-                address: true,
-                float16: true,
-                float64: true,
-                generic_pointers: true,
-                groups: true,
-                subgroup_shuffle: true,
-                int8: true,
-                int16: true,
-                int64: true,
-                kernel: true,
-                kernel_image: true,
-                kernel_image_read_write: true,
-                linkage: true,
-                literal_sampler: true,
-                printf: true,
-                ..Default::default()
-            },
-
+            printf: true,
+            capabilities: caps,
             constant_addr_format: global_addr_format,
             global_addr_format: global_addr_format,
             shared_addr_format: offset_addr_format,
@@ -368,7 +374,9 @@ impl SPIRVBin {
         log: Option<&mut Vec<String>>,
     ) -> Option<NirShader> {
         let c_entry = CString::new(entry_point.as_bytes()).unwrap();
-        let spirv_options = Self::get_spirv_options(false, libclc.get_nir(), address_bits, log);
+        let spirv_caps = Self::get_spirv_capabilities();
+        let spirv_options =
+            Self::get_spirv_options(false, libclc.get_nir(), address_bits, &spirv_caps, log);
 
         let nir = unsafe {
             spirv_to_nir(
@@ -389,7 +397,9 @@ impl SPIRVBin {
     pub fn get_lib_clc(screen: &PipeScreen) -> Option<NirShader> {
         let nir_options = screen.nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE);
         let address_bits = screen.compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_ADDRESS_BITS);
-        let spirv_options = Self::get_spirv_options(true, ptr::null(), address_bits, None);
+        let spirv_caps = Self::get_spirv_capabilities();
+        let spirv_options =
+            Self::get_spirv_options(false, ptr::null(), address_bits, &spirv_caps, None);
         let shader_cache = DiskCacheBorrowed::as_ptr(&screen.shader_cache());
 
         NirShader::new(unsafe {

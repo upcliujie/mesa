@@ -446,8 +446,7 @@ static void vpe_bg_degam(
         compute_degam(output_tf->tf, (double)bg_color->rgba.g, &degam_g, true);
         compute_degam(output_tf->tf, (double)bg_color->rgba.b, &degam_b, true);
         break;
-    case TRANSFER_FUNC_LINEAR_0_125:
-    case TRANSFER_FUNC_LINEAR_0_1:
+    case TRANSFER_FUNC_LINEAR:
         break;
     default:
         VPE_ASSERT(0);
@@ -471,8 +470,7 @@ static void vpe_bg_inverse_gamut_remap(enum color_space output_cs,
         bg_rgb[2] = (double)bg_color->rgba.b;
 
         switch (output_tf->tf) {
-        case TRANSFER_FUNC_LINEAR_0_1:
-        case TRANSFER_FUNC_LINEAR_0_125:
+        case TRANSFER_FUNC_LINEAR:
             /* Since linear output uses Bt709, and this conversion is only needed
              * when the tone mapping is enabled on (Bt2020) input, it is needed to
              * apply the reverse of Bt2020 -> Bt709 on the background color to
@@ -581,10 +579,25 @@ enum vpe_status vpe_bg_color_outside_cs_gamut(
     return VPE_STATUS_OK;
 }
 
-// These two checks are only neccessary for VPE1.0 and contain alot of quirks to work around VPE 1.0 limitations.
+static inline bool is_target_rect_equal_to_dest_rect(const struct vpe_priv *vpe_priv)
+{
+    const struct vpe_rect *target_rect = &vpe_priv->output_ctx.target_rect;
+    const struct vpe_rect *dst_rect = &vpe_priv->stream_ctx[0].stream.scaling_info.dst_rect;
+
+    return (target_rect->height == dst_rect ->height) && (target_rect->width  == dst_rect ->width) &&
+           (target_rect->x == dst_rect ->x) && (target_rect->y == dst_rect ->y);
+}
+
+// These two checks are only necessary for VPE1.0 and contain a lot of quirks to work around VPE 1.0
+// limitations.
 enum vpe_status vpe_is_valid_bg_color(const struct vpe_priv *vpe_priv, struct vpe_color *bg_color) {
 
     enum vpe_status status = VPE_STATUS_OK;
+
+    /* no need for background filling as for target rect equal to dest rect */
+    if (is_target_rect_equal_to_dest_rect(vpe_priv)) {
+        return VPE_STATUS_OK;
+    }
 
     status = is_valid_blend(vpe_priv, bg_color);
 

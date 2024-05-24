@@ -21,6 +21,8 @@
 
 #include <fcntl.h>
 
+#include "vulkan/vulkan_android.h"
+
 #include "util/mesa-sha1.h"
 #include "vk_descriptors.h"
 #include "vk_util.h"
@@ -28,6 +30,7 @@
 #include "tu_device.h"
 #include "tu_image.h"
 #include "tu_formats.h"
+#include "tu_rmv.h"
 
 static inline uint8_t *
 pool_base(struct tu_descriptor_pool *pool)
@@ -114,7 +117,7 @@ tu_CreateDescriptorSetLayout(
    const VkAllocationCallbacks *pAllocator,
    VkDescriptorSetLayout *pSetLayout)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
    struct tu_descriptor_set_layout *set_layout;
 
    assert(pCreateInfo->sType ==
@@ -277,14 +280,16 @@ tu_CreateDescriptorSetLayout(
    if (pCreateInfo->flags &
        VK_DESCRIPTOR_SET_LAYOUT_CREATE_EMBEDDED_IMMUTABLE_SAMPLERS_BIT_EXT) {
       result = tu_bo_init_new(device, &set_layout->embedded_samplers,
-                              set_layout->size, TU_BO_ALLOC_ALLOW_DUMP,
+                              set_layout->size,
+                              (enum tu_bo_alloc_flags) (TU_BO_ALLOC_ALLOW_DUMP |
+                                                        TU_BO_ALLOC_INTERNAL_RESOURCE),
                               "embedded samplers");
       if (result != VK_SUCCESS) {
          vk_object_free(&device->vk, pAllocator, set_layout);
          return vk_error(device, result);
       }
 
-      result = tu_bo_map(device, set_layout->embedded_samplers);
+      result = tu_bo_map(device, set_layout->embedded_samplers, NULL);
       if (result != VK_SUCCESS) {
          tu_bo_finish(device, set_layout->embedded_samplers);
          vk_object_free(&device->vk, pAllocator, set_layout);
@@ -317,7 +322,7 @@ tu_GetDescriptorSetLayoutSupport(
    const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
    VkDescriptorSetLayoutSupport *pSupport)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
 
    VkDescriptorSetLayoutBinding *bindings = NULL;
    VkResult result = vk_create_sorted_bindings(
@@ -416,7 +421,7 @@ tu_GetDescriptorSetLayoutSizeEXT(
    VkDescriptorSetLayout _layout,
    VkDeviceSize *pLayoutSizeInBytes)
 {
-   TU_FROM_HANDLE(tu_descriptor_set_layout, layout, _layout);
+   VK_FROM_HANDLE(tu_descriptor_set_layout, layout, _layout);
 
    *pLayoutSizeInBytes = layout->size;
 }
@@ -428,7 +433,7 @@ tu_GetDescriptorSetLayoutBindingOffsetEXT(
    uint32_t binding,
    VkDeviceSize *pOffset)
 {
-   TU_FROM_HANDLE(tu_descriptor_set_layout, layout, _layout);
+   VK_FROM_HANDLE(tu_descriptor_set_layout, layout, _layout);
 
    assert(binding < layout->binding_count);
    *pOffset = layout->binding[binding].offset;
@@ -506,7 +511,7 @@ tu_CreatePipelineLayout(VkDevice _device,
                         const VkAllocationCallbacks *pAllocator,
                         VkPipelineLayout *pPipelineLayout)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
    struct tu_pipeline_layout *layout;
 
    assert(pCreateInfo->sType ==
@@ -520,7 +525,7 @@ tu_CreatePipelineLayout(VkDevice _device,
 
    layout->num_sets = pCreateInfo->setLayoutCount;
    for (uint32_t set = 0; set < pCreateInfo->setLayoutCount; set++) {
-      TU_FROM_HANDLE(tu_descriptor_set_layout, set_layout,
+      VK_FROM_HANDLE(tu_descriptor_set_layout, set_layout,
                      pCreateInfo->pSetLayouts[set]);
 
       assert(set < device->physical_device->usable_sets);
@@ -551,8 +556,8 @@ tu_DestroyPipelineLayout(VkDevice _device,
                          VkPipelineLayout _pipelineLayout,
                          const VkAllocationCallbacks *pAllocator)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_pipeline_layout, pipeline_layout, _pipelineLayout);
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_pipeline_layout, pipeline_layout, _pipelineLayout);
 
    if (!pipeline_layout)
       return;
@@ -722,7 +727,7 @@ tu_CreateDescriptorPool(VkDevice _device,
                         const VkAllocationCallbacks *pAllocator,
                         VkDescriptorPool *pDescriptorPool)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
    struct tu_descriptor_pool *pool;
    uint64_t size = sizeof(struct tu_descriptor_pool);
    uint64_t bo_size = 0, dynamic_size = 0;
@@ -802,7 +807,7 @@ tu_CreateDescriptorPool(VkDevice _device,
          if (ret)
             goto fail_alloc;
 
-         ret = tu_bo_map(device, pool->bo);
+         ret = tu_bo_map(device, pool->bo, NULL);
          if (ret)
             goto fail_map;
       } else {
@@ -820,6 +825,8 @@ tu_CreateDescriptorPool(VkDevice _device,
 
    list_inithead(&pool->desc_sets);
 
+   TU_RMV(descriptor_pool_create, device, pCreateInfo, pool);
+
    *pDescriptorPool = tu_descriptor_pool_to_handle(pool);
    return VK_SUCCESS;
 
@@ -835,11 +842,13 @@ tu_DestroyDescriptorPool(VkDevice _device,
                          VkDescriptorPool _pool,
                          const VkAllocationCallbacks *pAllocator)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_descriptor_pool, pool, _pool);
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_descriptor_pool, pool, _pool);
 
    if (!pool)
       return;
+
+   TU_RMV(resource_destroy, device, pool);
 
    list_for_each_entry_safe(struct tu_descriptor_set, set,
                             &pool->desc_sets, pool_link) {
@@ -867,8 +876,8 @@ tu_ResetDescriptorPool(VkDevice _device,
                        VkDescriptorPool descriptorPool,
                        VkDescriptorPoolResetFlags flags)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_descriptor_pool, pool, descriptorPool);
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_descriptor_pool, pool, descriptorPool);
 
    list_for_each_entry_safe(struct tu_descriptor_set, set,
                             &pool->desc_sets, pool_link) {
@@ -894,8 +903,8 @@ tu_AllocateDescriptorSets(VkDevice _device,
                           const VkDescriptorSetAllocateInfo *pAllocateInfo,
                           VkDescriptorSet *pDescriptorSets)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_descriptor_pool, pool, pAllocateInfo->descriptorPool);
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_descriptor_pool, pool, pAllocateInfo->descriptorPool);
 
    VkResult result = VK_SUCCESS;
    uint32_t i;
@@ -908,7 +917,7 @@ tu_AllocateDescriptorSets(VkDevice _device,
 
    /* allocate a set of buffers for each shader to contain descriptors */
    for (i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-      TU_FROM_HANDLE(tu_descriptor_set_layout, layout,
+      VK_FROM_HANDLE(tu_descriptor_set_layout, layout,
              pAllocateInfo->pSetLayouts[i]);
 
       assert(!(layout->flags & VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR));
@@ -938,11 +947,11 @@ tu_FreeDescriptorSets(VkDevice _device,
                       uint32_t count,
                       const VkDescriptorSet *pDescriptorSets)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_descriptor_pool, pool, descriptorPool);
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_descriptor_pool, pool, descriptorPool);
 
    for (uint32_t i = 0; i < count; i++) {
-      TU_FROM_HANDLE(tu_descriptor_set, set, pDescriptorSets[i]);
+      VK_FROM_HANDLE(tu_descriptor_set, set, pDescriptorSets[i]);
 
       if (set) {
          vk_descriptor_set_layout_unref(&device->vk, &set->layout->vk);
@@ -976,7 +985,7 @@ write_texel_buffer_descriptor(uint32_t *dst, const VkBufferView buffer_view)
    if (buffer_view == VK_NULL_HANDLE) {
       memset(dst, 0, A6XX_TEX_CONST_DWORDS * sizeof(uint32_t));
    } else {
-      TU_FROM_HANDLE(tu_buffer_view, view, buffer_view);
+      VK_FROM_HANDLE(tu_buffer_view, view, buffer_view);
 
       memcpy(dst, view->descriptor, sizeof(view->descriptor));
    }
@@ -985,7 +994,7 @@ write_texel_buffer_descriptor(uint32_t *dst, const VkBufferView buffer_view)
 static VkDescriptorAddressInfoEXT
 buffer_info_to_address(const VkDescriptorBufferInfo *buffer_info)
 {
-   TU_FROM_HANDLE(tu_buffer, buffer, buffer_info->buffer);
+   VK_FROM_HANDLE(tu_buffer, buffer, buffer_info->buffer);
 
    uint32_t range = buffer ? vk_buffer_range(&buffer->vk, buffer_info->offset, buffer_info->range) : 0;
    uint64_t va = buffer ? buffer->iova + buffer_info->offset : 0;
@@ -1085,7 +1094,7 @@ write_image_descriptor(uint32_t *dst,
       return;
    }
 
-   TU_FROM_HANDLE(tu_image_view, iview, image_info->imageView);
+   VK_FROM_HANDLE(tu_image_view, iview, image_info->imageView);
 
    if (descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
       memcpy(dst, iview->view.storage_descriptor, sizeof(iview->view.storage_descriptor));
@@ -1103,7 +1112,7 @@ write_combined_image_sampler_descriptor(uint32_t *dst,
    write_image_descriptor(dst, descriptor_type, image_info);
    /* copy over sampler state */
    if (has_sampler) {
-      TU_FROM_HANDLE(tu_sampler, sampler, image_info->sampler);
+      VK_FROM_HANDLE(tu_sampler, sampler, image_info->sampler);
 
       memcpy(dst + A6XX_TEX_CONST_DWORDS, sampler->descriptor, sizeof(sampler->descriptor));
    }
@@ -1112,7 +1121,7 @@ write_combined_image_sampler_descriptor(uint32_t *dst,
 static void
 write_sampler_descriptor(uint32_t *dst, VkSampler _sampler)
 {
-   TU_FROM_HANDLE(tu_sampler, sampler, _sampler);
+   VK_FROM_HANDLE(tu_sampler, sampler, _sampler);
 
    memcpy(dst, sampler->descriptor, sizeof(sampler->descriptor));
 }
@@ -1131,7 +1140,7 @@ tu_GetDescriptorEXT(
    size_t dataSize,
    void *pDescriptor)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
    uint32_t *dest = (uint32_t *) pDescriptor;
 
    switch (pDescriptorInfo->type) {
@@ -1188,7 +1197,7 @@ tu_update_descriptor_sets(const struct tu_device *device,
    uint32_t i, j;
    for (i = 0; i < descriptorWriteCount; i++) {
       const VkWriteDescriptorSet *writeset = &pDescriptorWrites[i];
-      TU_FROM_HANDLE(tu_descriptor_set, set, dstSetOverride ?: writeset->dstSet);
+      VK_FROM_HANDLE(tu_descriptor_set, set, dstSetOverride ?: writeset->dstSet);
       const struct tu_descriptor_set_binding_layout *binding_layout =
          set->layout->binding + writeset->dstBinding;
       uint32_t *ptr = set->mapped_ptr;
@@ -1295,9 +1304,9 @@ tu_update_descriptor_sets(const struct tu_device *device,
 
    for (i = 0; i < descriptorCopyCount; i++) {
       const VkCopyDescriptorSet *copyset = &pDescriptorCopies[i];
-      TU_FROM_HANDLE(tu_descriptor_set, src_set,
+      VK_FROM_HANDLE(tu_descriptor_set, src_set,
                        copyset->srcSet);
-      TU_FROM_HANDLE(tu_descriptor_set, dst_set,
+      VK_FROM_HANDLE(tu_descriptor_set, dst_set,
                        copyset->dstSet);
       const struct tu_descriptor_set_binding_layout *src_binding_layout =
          src_set->layout->binding + copyset->srcBinding;
@@ -1380,7 +1389,7 @@ tu_UpdateDescriptorSets(VkDevice _device,
                         uint32_t descriptorCopyCount,
                         const VkCopyDescriptorSet *pDescriptorCopies)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
    tu_update_descriptor_sets(device, VK_NULL_HANDLE,
                              descriptorWriteCount, pDescriptorWrites,
                              descriptorCopyCount, pDescriptorCopies);
@@ -1393,13 +1402,13 @@ tu_CreateDescriptorUpdateTemplate(
    const VkAllocationCallbacks *pAllocator,
    VkDescriptorUpdateTemplate *pDescriptorUpdateTemplate)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
    struct tu_descriptor_set_layout *set_layout = NULL;
    const uint32_t entry_count = pCreateInfo->descriptorUpdateEntryCount;
    uint32_t dst_entry_count = 0;
 
    if (pCreateInfo->templateType == VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR) {
-      TU_FROM_HANDLE(tu_pipeline_layout, pipeline_layout, pCreateInfo->pipelineLayout);
+      VK_FROM_HANDLE(tu_pipeline_layout, pipeline_layout, pCreateInfo->pipelineLayout);
 
       /* descriptorSetLayout should be ignored for push descriptors
        * and instead it refers to pipelineLayout and set.
@@ -1407,7 +1416,7 @@ tu_CreateDescriptorUpdateTemplate(
       assert(pCreateInfo->set < device->physical_device->usable_sets);
       set_layout = pipeline_layout->set[pCreateInfo->set].layout;
    } else {
-      TU_FROM_HANDLE(tu_descriptor_set_layout, _set_layout,
+      VK_FROM_HANDLE(tu_descriptor_set_layout, _set_layout,
                      pCreateInfo->descriptorSetLayout);
       set_layout = _set_layout;
    }
@@ -1536,8 +1545,8 @@ tu_DestroyDescriptorUpdateTemplate(
    VkDescriptorUpdateTemplate descriptorUpdateTemplate,
    const VkAllocationCallbacks *pAllocator)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_descriptor_update_template, templ,
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_descriptor_update_template, templ,
                   descriptorUpdateTemplate);
 
    if (!templ)
@@ -1553,7 +1562,7 @@ tu_update_descriptor_set_with_template(
    VkDescriptorUpdateTemplate descriptorUpdateTemplate,
    const void *pData)
 {
-   TU_FROM_HANDLE(tu_descriptor_update_template, templ,
+   VK_FROM_HANDLE(tu_descriptor_update_template, templ,
                   descriptorUpdateTemplate);
 
    for (uint32_t i = 0; i < templ->entry_count; i++) {
@@ -1639,8 +1648,8 @@ tu_UpdateDescriptorSetWithTemplate(
    VkDescriptorUpdateTemplate descriptorUpdateTemplate,
    const void *pData)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_descriptor_set, set, descriptorSet);
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_descriptor_set, set, descriptorSet);
 
    tu_update_descriptor_set_with_template(device, set, descriptorUpdateTemplate, pData);
 }
@@ -1652,7 +1661,7 @@ tu_CreateSamplerYcbcrConversion(
    const VkAllocationCallbacks *pAllocator,
    VkSamplerYcbcrConversion *pYcbcrConversion)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_device, device, _device);
    struct tu_sampler_ycbcr_conversion *conversion;
 
    conversion = (struct tu_sampler_ycbcr_conversion *) vk_object_alloc(
@@ -1661,7 +1670,9 @@ tu_CreateSamplerYcbcrConversion(
    if (!conversion)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   conversion->format = pCreateInfo->format;
+   conversion->format =
+      vk_select_android_external_format(pCreateInfo->pNext, pCreateInfo->format);
+
    conversion->ycbcr_model = pCreateInfo->ycbcrModel;
    conversion->ycbcr_range = pCreateInfo->ycbcrRange;
    conversion->components = pCreateInfo->components;
@@ -1678,8 +1689,8 @@ tu_DestroySamplerYcbcrConversion(VkDevice _device,
                                  VkSamplerYcbcrConversion ycbcrConversion,
                                  const VkAllocationCallbacks *pAllocator)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
-   TU_FROM_HANDLE(tu_sampler_ycbcr_conversion, ycbcr_conversion, ycbcrConversion);
+   VK_FROM_HANDLE(tu_device, device, _device);
+   VK_FROM_HANDLE(tu_sampler_ycbcr_conversion, ycbcr_conversion, ycbcrConversion);
 
    if (!ycbcr_conversion)
       return;

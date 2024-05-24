@@ -4,8 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "util/compiler.h"
 #include "agx_compiler.h"
 #include "agx_debug.h"
+#include "agx_opcodes.h"
 
 /* Validatation doesn't make sense in release builds */
 #ifndef NDEBUG
@@ -41,6 +43,7 @@ agx_validate_block_form(agx_block *block)
 
    agx_foreach_instr_in_block(block, I) {
       switch (I->op) {
+      case AGX_OPCODE_PRELOAD:
       case AGX_OPCODE_ELSE_ICMP:
       case AGX_OPCODE_ELSE_FCMP:
          agx_validate_assert(state == AGX_BLOCK_STATE_CF_ELSE);
@@ -51,6 +54,11 @@ agx_validate_block_form(agx_block *block)
                              state == AGX_BLOCK_STATE_PHI);
 
          state = AGX_BLOCK_STATE_PHI;
+         break;
+
+      case AGX_OPCODE_EXPORT:
+         agx_validate_assert(agx_num_successors(block) == 0);
+         state = AGX_BLOCK_STATE_CF;
          break;
 
       default:
@@ -65,6 +73,16 @@ agx_validate_block_form(agx_block *block)
    }
 
    return true;
+}
+
+/*
+ * Only moves and phis use stack. Phis cannot use moves due to their
+ * parallel nature, so we allow phis to take memory, later lowered to moves.
+ */
+static bool
+is_stack_valid(agx_instr *I)
+{
+   return (I->op == AGX_OPCODE_MOV) || (I->op == AGX_OPCODE_PHI);
 }
 
 static bool
@@ -90,7 +108,12 @@ agx_validate_sources(agx_instr *I)
          agx_validate_assert(src.value < (1 << (ldst ? 16 : 8)));
       } else if (I->op == AGX_OPCODE_COLLECT && !agx_is_null(src)) {
          agx_validate_assert(src.size == I->src[0].size);
+      } else if (I->op == AGX_OPCODE_PHI) {
+         agx_validate_assert(src.size == I->dest[0].size);
+         agx_validate_assert(!agx_is_null(src));
       }
+
+      agx_validate_assert(!src.memory || is_stack_valid(I));
    }
 
    return true;
@@ -115,6 +138,9 @@ agx_validate_defs(agx_instr *I, BITSET_WORD *defs)
          return false;
 
       BITSET_SET(defs, I->dest[d].value);
+
+      if (I->dest[d].memory && !is_stack_valid(I))
+         return false;
    }
 
    return true;
@@ -127,6 +153,11 @@ agx_write_registers(const agx_instr *I, unsigned d)
    unsigned size = agx_size_align_16(I->dest[d].size);
 
    switch (I->op) {
+   case AGX_OPCODE_MOV:
+   case AGX_OPCODE_PHI:
+      /* Tautological */
+      return agx_index_size_16(I->dest[d]);
+
    case AGX_OPCODE_ITER:
    case AGX_OPCODE_ITERPROJ:
       assert(1 <= I->channels && I->channels <= 4);
@@ -156,36 +187,50 @@ agx_write_registers(const agx_instr *I, unsigned d)
    }
 }
 
+struct dim_info {
+   unsigned comps;
+   bool array;
+};
+
+static struct dim_info
+agx_dim_info(enum agx_dim dim)
+{
+   switch (dim) {
+   case AGX_DIM_1D:
+      return (struct dim_info){1, false};
+   case AGX_DIM_1D_ARRAY:
+      return (struct dim_info){1, true};
+   case AGX_DIM_2D:
+      return (struct dim_info){2, false};
+   case AGX_DIM_2D_ARRAY:
+      return (struct dim_info){2, true};
+   case AGX_DIM_2D_MS:
+      return (struct dim_info){3, false};
+   case AGX_DIM_3D:
+      return (struct dim_info){3, false};
+   case AGX_DIM_CUBE:
+      return (struct dim_info){3, false};
+   case AGX_DIM_CUBE_ARRAY:
+      return (struct dim_info){3, true};
+   case AGX_DIM_2D_MS_ARRAY:
+      return (struct dim_info){2, true};
+   default:
+      unreachable("invalid dim");
+   }
+}
+
 /*
- * Return number of registers required for coordinates for a
- * texture/image instruction. We handle layer + sample index as 32-bit even when
- * only the lower 16-bits are present.
+ * Return number of registers required for coordinates for a texture/image
+ * instruction. We handle layer + sample index as 32-bit even when only the
+ * lower 16-bits are present. LOD queries do not take a layer.
  */
 static unsigned
 agx_coordinate_registers(const agx_instr *I)
 {
-   switch (I->dim) {
-   case AGX_DIM_1D:
-      return 2 * 1;
-   case AGX_DIM_1D_ARRAY:
-      return 2 * 2;
-   case AGX_DIM_2D:
-      return 2 * 2;
-   case AGX_DIM_2D_ARRAY:
-      return 2 * 3;
-   case AGX_DIM_2D_MS:
-      return 2 * 3;
-   case AGX_DIM_3D:
-      return 2 * 3;
-   case AGX_DIM_CUBE:
-      return 2 * 3;
-   case AGX_DIM_CUBE_ARRAY:
-      return 2 * 4;
-   case AGX_DIM_2D_MS_ARRAY:
-      return 2 * 3;
-   }
+   struct dim_info dim = agx_dim_info(I->dim);
+   bool has_array = !I->query_lod;
 
-   unreachable("Invalid texture dimension");
+   return 2 * (dim.comps + (has_array && dim.array));
 }
 
 static unsigned
@@ -194,8 +239,25 @@ agx_read_registers(const agx_instr *I, unsigned s)
    unsigned size = agx_size_align_16(I->src[s].size);
 
    switch (I->op) {
+   case AGX_OPCODE_MOV:
+   case AGX_OPCODE_EXPORT:
+      /* Tautological */
+      return agx_index_size_16(I->src[0]);
+
+   case AGX_OPCODE_PHI:
+      if (I->src[s].type == AGX_INDEX_IMMEDIATE)
+         return size;
+      else
+         return agx_index_size_16(I->dest[0]);
+
    case AGX_OPCODE_SPLIT:
       return I->nr_dests * agx_size_align_16(agx_split_width(I));
+
+   case AGX_OPCODE_UNIFORM_STORE:
+      if (s == 0)
+         return util_bitcount(I->mask) * size;
+      else
+         return size;
 
    case AGX_OPCODE_DEVICE_STORE:
    case AGX_OPCODE_LOCAL_STORE:
@@ -352,7 +414,7 @@ agx_validate_sr(const agx_instr *I)
 {
    bool none = (I->op == AGX_OPCODE_GET_SR);
    bool coverage = (I->op == AGX_OPCODE_GET_SR_COVERAGE);
-   bool barrier = false; /* unused so far, will be GET_SR_BARRIER */
+   bool barrier = (I->op == AGX_OPCODE_GET_SR_BARRIER);
 
    /* Filter get_sr instructions */
    if (!(none || coverage || barrier))
@@ -365,9 +427,9 @@ agx_validate_sr(const agx_instr *I)
    case AGX_SR_IS_ACTIVE_THREAD:
       return coverage;
 
-   case AGX_SR_OPFIFO_CMD:
-   case AGX_SR_OPFIFO_DATA_L:
-   case AGX_SR_OPFIFO_DATA_H:
+   case AGX_SR_HELPER_OP:
+   case AGX_SR_HELPER_ARG_L:
+   case AGX_SR_HELPER_ARG_H:
       return barrier;
 
    default:

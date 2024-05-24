@@ -295,7 +295,7 @@ bool vpe_has_per_pixel_alpha(enum vpe_surface_pixel_format format)
 // another function is needed here.
 static bool is_HDR(enum vpe_transfer_function tf)
 {
-    return (tf == VPE_TF_PQ || tf == VPE_TF_G10);
+    return (tf == VPE_TF_PQ || tf == VPE_TF_G10 || tf == VPE_TF_HLG);
 }
 
 enum vpe_status vpe_check_output_support(struct vpe *vpe, const struct vpe_build_param *param)
@@ -321,12 +321,9 @@ enum vpe_status vpe_check_output_support(struct vpe *vpe, const struct vpe_build
     }
 
     // pitch
-    if ((surface_info->plane_size.surface_pitch *
-            vpe_get_element_size_in_bytes(surface_info->format, 0) %
-            vpe->caps->plane_caps.pitch_alignment) ||
-        ((uint32_t)(surface_info->plane_size.surface_size.x +
-                    (int32_t)surface_info->plane_size.surface_size.width) >
-            surface_info->plane_size.surface_pitch)) {
+    if ((uint32_t)(surface_info->plane_size.surface_size.x +
+                   (int32_t)surface_info->plane_size.surface_size.width) >
+        surface_info->plane_size.surface_pitch) {
         vpe_log("pitch alignment not supported %lu. %lu\n", surface_info->plane_size.surface_pitch,
             vpe->caps->plane_caps.pitch_alignment);
         return VPE_STATUS_PITCH_ALIGNMENT_NOT_SUPPORTED;
@@ -356,12 +353,9 @@ enum vpe_status vpe_check_output_support(struct vpe *vpe, const struct vpe_build
     }
 
     if (surface_info->address.type == VPE_PLN_ADDR_TYPE_VIDEO_PROGRESSIVE) {
-        if (((uint32_t)surface_info->plane_size.chroma_pitch *
-                vpe_get_element_size_in_bytes(surface_info->format, 1) %
-                vpe->caps->plane_caps.pitch_alignment) ||
-            ((uint32_t)(surface_info->plane_size.chroma_size.x +
-                        (int32_t)surface_info->plane_size.chroma_size.width) >
-                surface_info->plane_size.chroma_pitch)) {
+        if ((uint32_t)(surface_info->plane_size.chroma_size.x +
+                       (int32_t)surface_info->plane_size.chroma_size.width) >
+            surface_info->plane_size.chroma_pitch) {
             vpe_log("chroma pitch alignment not supported %u. %u\n",
                 surface_info->plane_size.chroma_pitch, vpe->caps->plane_caps.pitch_alignment);
             return VPE_STATUS_PITCH_ALIGNMENT_NOT_SUPPORTED;
@@ -430,12 +424,9 @@ enum vpe_status vpe_check_input_support(struct vpe *vpe, const struct vpe_stream
     }
 
     // pitch & address
-    if ((surface_info->plane_size.surface_pitch *
-            vpe_get_element_size_in_bytes(surface_info->format, 0) %
-            vpe->caps->plane_caps.pitch_alignment) ||
-        ((uint32_t)(surface_info->plane_size.surface_size.x +
-                    (int32_t)surface_info->plane_size.surface_size.width) >
-            surface_info->plane_size.surface_pitch)) {
+    if ((uint32_t)(surface_info->plane_size.surface_size.x +
+                   (int32_t)surface_info->plane_size.surface_size.width) >
+        surface_info->plane_size.surface_pitch) {
 
         vpe_log("pitch alignment not supported %d. %d\n", surface_info->plane_size.surface_pitch,
             vpe->caps->plane_caps.pitch_alignment);
@@ -451,12 +442,9 @@ enum vpe_status vpe_check_input_support(struct vpe *vpe, const struct vpe_stream
         }
 
         if (vpe_is_dual_plane_format(surface_info->format)) {
-            if ((surface_info->plane_size.chroma_pitch *
-                    vpe_get_element_size_in_bytes(surface_info->format, 1) %
-                    vpe->caps->plane_caps.pitch_alignment) ||
-                ((uint32_t)(surface_info->plane_size.chroma_size.x +
-                            (int32_t)surface_info->plane_size.chroma_size.width) >
-                    surface_info->plane_size.chroma_pitch)) {
+            if ((uint32_t)(surface_info->plane_size.chroma_size.x +
+                           (int32_t)surface_info->plane_size.chroma_size.width) >
+                surface_info->plane_size.chroma_pitch) {
                 vpe_log("chroma pitch alignment not supported %d. %d\n",
                     surface_info->plane_size.chroma_pitch, vpe->caps->plane_caps.pitch_alignment);
                 return VPE_STATUS_PITCH_ALIGNMENT_NOT_SUPPORTED;
@@ -553,10 +541,10 @@ enum vpe_status vpe_check_input_support(struct vpe *vpe, const struct vpe_stream
 }
 
 enum vpe_status vpe_cache_tone_map_params(
-    struct stream_ctx *stream_ctx, const struct vpe_build_param *param)
+    struct stream_ctx *stream_ctx, const struct vpe_stream *stream)
 {
-
-    stream_ctx->update_3dlut = stream_ctx->update_3dlut || param->streams->tm_params.update_3dlut;
+    stream_ctx->update_3dlut = stream_ctx->update_3dlut || stream->tm_params.update_3dlut ||
+            stream->tm_params.UID || (stream_ctx->stream.flags.geometric_scaling != stream->flags.geometric_scaling);
 
     return VPE_STATUS_OK;
 }
@@ -565,27 +553,24 @@ enum vpe_status vpe_check_tone_map_support(
     struct vpe *vpe, const struct vpe_stream *stream, const struct vpe_build_param *param)
 {
     enum vpe_status status = VPE_STATUS_OK;
+    bool input_is_hdr = is_HDR(stream->surface_info.cs.tf);
+    bool is_3D_lut_enabled = stream->tm_params.enable_3dlut || stream->tm_params.UID;
+    bool is_hlg = stream->tm_params.shaper_tf == VPE_TF_HLG;
+    bool is_in_lum_greater_than_out_lum = stream->hdr_metadata.max_mastering > param->hdr_metadata.max_mastering;
 
-    // If tone map enabled but bad luminance reject.
-    if (stream->tm_params.enable_3dlut &&
-        stream->hdr_metadata.max_mastering <= param->hdr_metadata.max_mastering) {
-        status = VPE_STATUS_BAD_TONE_MAP_PARAMS;
-        goto exit;
+    // Check if Tone Mapping parameters are valid
+    if (is_3D_lut_enabled) {
+        if ((stream->tm_params.lut_data == NULL) ||
+            (!input_is_hdr) ||
+            (!is_hlg && !is_in_lum_greater_than_out_lum)) {
+            status = VPE_STATUS_BAD_TONE_MAP_PARAMS;
+        }
+    } else {
+        if (is_hlg ||
+            (input_is_hdr && is_in_lum_greater_than_out_lum)) {
+            status = VPE_STATUS_BAD_TONE_MAP_PARAMS;
+        }
     }
 
-    // If tone map enabled but input is not HDR, reject.
-    if (stream->tm_params.enable_3dlut && !is_HDR(stream->surface_info.cs.tf)) {
-        status = VPE_STATUS_BAD_TONE_MAP_PARAMS;
-        goto exit;
-    }
-
-    // If tone map case but enable tm flag is not set or 3dlut pointer is null reject.
-    if (stream->hdr_metadata.max_mastering > param->hdr_metadata.max_mastering &&
-        is_HDR(stream->surface_info.cs.tf) &&
-        (!stream->tm_params.enable_3dlut || stream->tm_params.lut_data == NULL)) {
-        status = VPE_STATUS_BAD_HDR_METADATA;
-    }
-
-exit:
     return status;
 }

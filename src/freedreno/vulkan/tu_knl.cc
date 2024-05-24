@@ -16,10 +16,13 @@
 #include <sys/sysmacros.h>
 #endif
 
+#include <sys/mman.h>
+
 #include "util/libdrm.h"
 
 #include "tu_device.h"
 #include "tu_knl.h"
+#include "tu_rmv.h"
 
 
 VkResult
@@ -55,9 +58,38 @@ tu_bo_finish(struct tu_device *dev, struct tu_bo *bo)
 }
 
 VkResult
-tu_bo_map(struct tu_device *dev, struct tu_bo *bo)
+tu_bo_map(struct tu_device *dev, struct tu_bo *bo, void *placed_addr)
 {
-   return dev->instance->knl->bo_map(dev, bo);
+   if (bo->map && (placed_addr == NULL || placed_addr == bo->map))
+      return VK_SUCCESS;
+   else if (bo->map)
+      /* The BO is already mapped, but with a different address. */
+      return vk_errorf(dev, VK_ERROR_MEMORY_MAP_FAILED, "Cannot remap BO to a different address");
+
+   return dev->instance->knl->bo_map(dev, bo, placed_addr);
+}
+
+VkResult
+tu_bo_unmap(struct tu_device *dev, struct tu_bo *bo, bool reserve)
+{
+   if (!bo->map)
+      return VK_SUCCESS;
+
+   TU_RMV(bo_unmap, dev, bo);
+
+   if (reserve) {
+      void *map = mmap(bo->map, bo->size, PROT_NONE,
+                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+      if (map == MAP_FAILED)
+         return vk_errorf(dev, VK_ERROR_MEMORY_MAP_FAILED,
+                          "Failed to replace mapping with reserved memory");
+   } else {
+      munmap(bo->map, bo->size);
+   }
+
+   bo->map = NULL;
+
+   return VK_SUCCESS;
 }
 
 void tu_bo_allow_dump(struct tu_device *dev, struct tu_bo *bo)
@@ -187,7 +219,7 @@ l1_dcache_size()
       return 0;
 
 #if DETECT_ARCH_AARCH64 &&                                                   \
-   (!defined(_SC_LEVEL1_DCACHE_LINESIZE) || defined(ANDROID))
+   (!defined(_SC_LEVEL1_DCACHE_LINESIZE) || DETECT_OS_ANDROID)
    /* Bionic does not implement _SC_LEVEL1_DCACHE_LINESIZE properly: */
    uint64_t ctr_el0;
    asm("mrs\t%x0, ctr_el0" : "=r"(ctr_el0));
@@ -247,7 +279,7 @@ tu_physical_device_try_create(struct vk_instance *vk_instance,
 #ifdef TU_HAS_VIRTIO
       result = tu_knl_drm_virtio_load(instance, fd, version, &device);
 #endif
-   } else {
+   } else if (TU_DEBUG(STARTUP)) {
       result = vk_startup_errorf(instance, VK_ERROR_INCOMPATIBLE_DRIVER,
                                  "device %s (%s) is not compatible with turnip",
                                  path, version->name);

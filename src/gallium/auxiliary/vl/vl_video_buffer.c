@@ -79,6 +79,7 @@ vl_video_buffer_plane_order(enum pipe_format format)
    case PIPE_FORMAT_NV12:
    case PIPE_FORMAT_NV21:
    case PIPE_FORMAT_Y8_U8_V8_444_UNORM:
+   case PIPE_FORMAT_Y8_U8_V8_440_UNORM:
    case PIPE_FORMAT_R8G8B8A8_UNORM:
    case PIPE_FORMAT_R8G8B8X8_UNORM:
    case PIPE_FORMAT_B8G8R8A8_UNORM:
@@ -118,21 +119,21 @@ vl_video_buffer_is_format_supported(struct pipe_screen *screen,
    vl_get_video_buffer_formats(screen, format, resource_formats);
 
    for (i = 0; i < VL_NUM_COMPONENTS; ++i) {
-      enum pipe_format format = resource_formats[i];
+      enum pipe_format fmt = resource_formats[i];
 
-      if (format == PIPE_FORMAT_NONE)
+      if (fmt == PIPE_FORMAT_NONE)
          continue;
 
       /* we at least need to sample from it */
-      if (!screen->is_format_supported(screen, format, PIPE_TEXTURE_2D, 0, 0, PIPE_BIND_SAMPLER_VIEW))
-         return false;
+      if (!screen->is_format_supported(screen, fmt, PIPE_TEXTURE_2D, 0, 0, PIPE_BIND_SAMPLER_VIEW))
+         continue;
 
-      format = vl_video_buffer_surface_format(format);
-      if (!screen->is_format_supported(screen, format, PIPE_TEXTURE_2D, 0, 0, PIPE_BIND_RENDER_TARGET))
-         return false;
+      fmt = vl_video_buffer_surface_format(fmt);
+      if (screen->is_format_supported(screen, fmt, PIPE_TEXTURE_2D, 0, 0, PIPE_BIND_RENDER_TARGET))
+         return true;
    }
 
-   return true;
+   return false;
 }
 
 unsigned
@@ -535,5 +536,6 @@ vl_video_buffer_create_as_resource(struct pipe_context *pipe,
    struct pipe_video_buffer vidtemplate = *tmpl;
    vidtemplate.width = templ.width0;
    vidtemplate.height = templ.height0 * array_size;
+   vidtemplate.contiguous_planes = true;
    return vl_video_buffer_create_ex2(pipe, &vidtemplate, resources);
 }

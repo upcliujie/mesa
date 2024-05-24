@@ -3,21 +3,25 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __AGX_HELPERS_H
-#define __AGX_HELPERS_H
+#pragma once
 
 #include <stdbool.h>
 #include "asahi/compiler/agx_compile.h"
 #include "asahi/layout/layout.h"
-#include "pipe/p_defines.h"
 #include "agx_pack.h"
 #include "agx_ppp.h"
 
-#define AGX_MAX_VIEWPORTS (16)
+#define AGX_MAX_OCCLUSION_QUERIES (65536)
+#define AGX_MAX_VIEWPORTS         (16)
 
 #define agx_push(ptr, T, cfg)                                                  \
    for (unsigned _loop = 0; _loop < 1; ++_loop, ptr += AGX_##T##_LENGTH)       \
       agx_pack(ptr, T, cfg)
+
+#define agx_push_packed(ptr, src, T)                                           \
+   STATIC_ASSERT(sizeof(src) == AGX_##T##_LENGTH);                             \
+   memcpy(ptr, &src, sizeof(src));                                             \
+   ptr += sizeof(src);
 
 static inline enum agx_sampler_states
 agx_translate_sampler_state_count(unsigned count, bool extended)
@@ -78,6 +82,19 @@ agx_translate_layout(enum ail_tiling tiling)
    unreachable("Invalid tiling");
 }
 
+static enum agx_sample_count
+agx_translate_sample_count(unsigned samples)
+{
+   switch (samples) {
+   case 2:
+      return AGX_SAMPLE_COUNT_2;
+   case 4:
+      return AGX_SAMPLE_COUNT_4;
+   default:
+      unreachable("Invalid sample count");
+   }
+}
+
 static inline enum agx_index_size
 agx_translate_index_size(uint8_t size_B)
 {
@@ -90,17 +107,10 @@ agx_translate_index_size(uint8_t size_B)
    return __builtin_ctz(size_B);
 }
 
-static enum agx_pass_type
-agx_pass_type_for_shader(struct agx_shader_info *info)
+static inline uint8_t
+agx_index_size_to_B(enum agx_index_size size)
 {
-   if (info->reads_tib && info->writes_sample_mask)
-      return AGX_PASS_TYPE_TRANSLUCENT_PUNCH_THROUGH;
-   else if (info->reads_tib)
-      return AGX_PASS_TYPE_TRANSLUCENT;
-   else if (info->writes_sample_mask)
-      return AGX_PASS_TYPE_PUNCH_THROUGH;
-   else
-      return AGX_PASS_TYPE_OPAQUE;
+   return 1 << size;
 }
 
 static enum agx_conservative_depth
@@ -127,7 +137,9 @@ agx_ppp_fragment_face_2(struct agx_ppp_update *ppp,
 {
    agx_ppp_push(ppp, FRAGMENT_FACE_2, cfg) {
       cfg.object_type = object_type;
-      cfg.conservative_depth = agx_translate_depth_layout(info->depth_layout);
+      cfg.conservative_depth =
+         info ? agx_translate_depth_layout(info->depth_layout)
+              : AGX_CONSERVATIVE_DEPTH_UNCHANGED;
    }
 }
 
@@ -140,22 +152,3 @@ agx_pack_line_width(float line_width)
    /* Clamp to maximum line width */
    return MIN2(line_width_fixed, 0xFF);
 }
-
-static enum agx_shade_model
-agx_translate_shade_model(struct agx_varyings_fs *fs, unsigned binding,
-                          bool first_provoking_vertex)
-{
-   if (fs->bindings[binding].smooth) {
-      if (fs->bindings[binding].perspective)
-         return AGX_SHADE_MODEL_PERSPECTIVE;
-      else
-         return AGX_SHADE_MODEL_LINEAR;
-   } else {
-      if (!first_provoking_vertex)
-         return AGX_SHADE_MODEL_FLAT_VERTEX_2;
-      else
-         return AGX_SHADE_MODEL_FLAT_VERTEX_0;
-   }
-}
-
-#endif

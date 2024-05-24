@@ -7,20 +7,23 @@ use mesa_rust_gen::*;
 use rusticl_opencl_gen::*;
 
 use std::env;
-use std::sync::Arc;
+use std::ptr::addr_of;
+use std::ptr::addr_of_mut;
 use std::sync::Once;
 
 #[repr(C)]
 pub struct Platform {
     dispatch: &'static cl_icd_dispatch,
-    pub devs: Vec<Arc<Device>>,
+    pub devs: Vec<Device>,
 }
 
 pub struct PlatformDebug {
     pub allow_invalid_spirv: bool,
     pub clc: bool,
     pub program: bool,
+    pub max_grid_size: u64,
     pub sync_every_event: bool,
+    pub validate_spirv: bool,
 }
 
 pub struct PlatformFeatures {
@@ -53,6 +56,7 @@ gen_cl_exts!([
     (1, 0, 0, "cl_khr_icd"),
     (1, 0, 0, "cl_khr_il_program"),
     (1, 0, 0, "cl_khr_spirv_no_integer_wrap_decoration"),
+    (1, 0, 0, "cl_khr_suggested_local_work_size"),
 ]);
 
 static mut PLATFORM: Platform = Platform {
@@ -63,7 +67,9 @@ static mut PLATFORM_DBG: PlatformDebug = PlatformDebug {
     allow_invalid_spirv: false,
     clc: false,
     program: false,
+    max_grid_size: 0,
     sync_every_event: false,
+    validate_spirv: false,
 };
 static mut PLATFORM_FEATURES: PlatformFeatures = PlatformFeatures {
     fp16: false,
@@ -71,7 +77,8 @@ static mut PLATFORM_FEATURES: PlatformFeatures = PlatformFeatures {
 };
 
 fn load_env() {
-    let debug = unsafe { &mut PLATFORM_DBG };
+    // SAFETY: no other references exist at this point
+    let debug = unsafe { &mut *addr_of_mut!(PLATFORM_DBG) };
     if let Ok(debug_flags) = env::var("RUSTICL_DEBUG") {
         for flag in debug_flags.split(',') {
             match flag {
@@ -79,13 +86,20 @@ fn load_env() {
                 "clc" => debug.clc = true,
                 "program" => debug.program = true,
                 "sync" => debug.sync_every_event = true,
+                "validate" => debug.validate_spirv = true,
                 "" => (),
                 _ => eprintln!("Unknown RUSTICL_DEBUG flag found: {}", flag),
             }
         }
     }
 
-    let features = unsafe { &mut PLATFORM_FEATURES };
+    debug.max_grid_size = env::var("RUSTICL_MAX_WORK_GROUPS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(u64::MAX);
+
+    // SAFETY: no other references exist at this point
+    let features = unsafe { &mut *addr_of_mut!(PLATFORM_FEATURES) };
     if let Ok(feature_flags) = env::var("RUSTICL_FEATURES") {
         for flag in feature_flags.split(',') {
             match flag {
@@ -106,17 +120,17 @@ impl Platform {
     pub fn get() -> &'static Self {
         debug_assert!(PLATFORM_ONCE.is_completed());
         // SAFETY: no mut references exist at this point
-        unsafe { &PLATFORM }
+        unsafe { &*addr_of!(PLATFORM) }
     }
 
     pub fn dbg() -> &'static PlatformDebug {
         debug_assert!(PLATFORM_ENV_ONCE.is_completed());
-        unsafe { &PLATFORM_DBG }
+        unsafe { &*addr_of!(PLATFORM_DBG) }
     }
 
     pub fn features() -> &'static PlatformFeatures {
         debug_assert!(PLATFORM_ENV_ONCE.is_completed());
-        unsafe { &PLATFORM_FEATURES }
+        unsafe { &*addr_of!(PLATFORM_FEATURES) }
     }
 
     fn init(&mut self) {

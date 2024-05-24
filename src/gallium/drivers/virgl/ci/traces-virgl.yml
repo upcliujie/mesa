@@ -10,9 +10,6 @@ traces:
   gputest/furmark-v2.trace:
     gl-virgl:
       checksum: 57ddd36b117adc9216c65c10d914a37e
-  gputest/pixmark-piano-v2.trace:
-    gl-virgl:
-      checksum: cbe50265c2d1a114fd75bf12407fbad9
   gputest/triangle-v2.trace:
     gl-virgl:
       checksum: 7812de00011a3a059892e36cea19c696
@@ -33,7 +30,7 @@ traces:
       checksum: 73ccaff82ea764057fb0f93f0024cf84
   gputest/pixmark-volplosion-v2.trace:
     gl-virgl:
-      checksum: aef0b32ce99a3b25d35304ca08032833
+      checksum: 62761bc1ec6ed28c85302ec9d1e57329
   gputest/plot3d-v2.trace:
     gl-virgl:
       checksum: 96f9fdf530e6041a4f56762b8378f22e

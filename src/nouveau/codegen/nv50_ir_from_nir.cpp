@@ -1615,7 +1615,6 @@ Converter::convert(nir_intrinsic_op intr)
    case nir_intrinsic_load_vertex_id:
       return SV_VERTEX_ID;
    case nir_intrinsic_load_workgroup_id:
-   case nir_intrinsic_load_workgroup_id_zero_base:
       return SV_CTAID;
    case nir_intrinsic_load_work_dim:
       return SV_WORK_DIM;
@@ -1903,7 +1902,6 @@ Converter::visit(nir_intrinsic_instr *insn)
    case nir_intrinsic_load_tess_level_outer:
    case nir_intrinsic_load_vertex_id:
    case nir_intrinsic_load_workgroup_id:
-   case nir_intrinsic_load_workgroup_id_zero_base:
    case nir_intrinsic_load_work_dim: {
       const DataType dType = getDType(insn);
       SVSemantic sv = convert(op);
@@ -3465,7 +3463,7 @@ nvir_nir_shader_compiler_options(int chipset, uint8_t shader_type)
    op.unify_interfaces = false;
    op.use_interpolated_input_intrinsics = true;
    op.lower_mul_2x32_64 = true; // TODO
-   op.lower_rotate = (chipset < NVISA_GV100_CHIPSET);
+   op.has_rotate32 = (chipset >= NVISA_GV100_CHIPSET);
    op.has_imul24 = false;
    op.has_fmulz = (chipset > NVISA_G80_CHIPSET);
    op.intel_vec4 = false;

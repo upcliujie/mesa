@@ -249,6 +249,7 @@ enum ChipFamily
     ADDR_CHIP_FAMILY_VI,
     ADDR_CHIP_FAMILY_AI,
     ADDR_CHIP_FAMILY_NAVI,
+    ADDR_CHIP_FAMILY_UNKNOWN,
 };
 
 /**
@@ -652,24 +653,6 @@ static inline VOID SafeAssign(
 static inline VOID SafeAssign(
     UINT_64*    pLVal,  ///< [in] Pointer to left val
     UINT_64     rVal)   ///< [in] Right value
-{
-    if (pLVal)
-    {
-        *pLVal = rVal;
-    }
-}
-
-/**
-****************************************************************************************************
-*   SafeAssign
-*
-*   @brief
-*       NULL pointer safe assignment for AddrTileMode
-****************************************************************************************************
-*/
-static inline VOID SafeAssign(
-    AddrTileMode*    pLVal, ///< [in] Pointer to left val
-    AddrTileMode     rVal)  ///< [in] Right value
 {
     if (pLVal)
     {

@@ -26,6 +26,7 @@ struct amd_ip_info {
    uint8_t ver_minor;
    uint8_t ver_rev;
    uint8_t num_queues;
+   uint8_t num_instances;
    uint32_t ib_alignment;
    uint32_t ib_pad_dw_mask;
 };
@@ -96,12 +97,14 @@ struct radeon_info {
    bool has_small_prim_filter_sample_loc_bug;
    bool has_ls_vgpr_init_bug;
    bool has_pops_missed_overlap_bug;
+   bool has_null_index_buffer_clamping_bug;
    bool has_zero_index_buffer_bug;
    bool has_image_load_dcc_bug;
    bool has_two_planes_iterate256_bug;
    bool has_vgt_flush_ngg_legacy_bug;
    bool has_cs_regalloc_hang_bug;
    bool has_async_compute_threadgroup_bug;
+   bool has_async_compute_align32_bug;
    bool has_32bit_predication;
    bool has_3d_cube_border_color_mipmap;
    bool has_image_opcodes;
@@ -115,8 +118,11 @@ struct radeon_info {
    bool has_taskmesh_indirect0_bug;
    bool sdma_supports_sparse;      /* Whether SDMA can safely access sparse resources. */
    bool sdma_supports_compression; /* Whether SDMA supports DCC and HTILE. */
+   bool has_set_context_pairs;
    bool has_set_context_pairs_packed;
+   bool has_set_sh_pairs;
    bool has_set_sh_pairs_packed;
+   bool has_set_uconfig_pairs;
 
    /* conformant_trunc_coord is equal to TA_CNTL2.TRUNCATE_COORD_MODE, which exists since gfx11.
     *
@@ -164,6 +170,7 @@ struct radeon_info {
    uint32_t max_tcc_blocks;
    uint32_t tcc_cache_line_size;
    bool tcc_rb_non_coherent; /* whether L2 inv is needed for render->texture transitions */
+   bool cp_sdma_ge_use_system_memory_scope;
    unsigned pc_lines;
    uint32_t lds_size_per_workgroup;
    uint32_t lds_alloc_granularity;
@@ -182,6 +189,9 @@ struct radeon_info {
    uint32_t uvd_fw_version;
    uint32_t vce_fw_version;
    uint32_t vce_harvest_config;
+   uint32_t vcn_dec_version;
+   uint32_t vcn_enc_major_version;
+   uint32_t vcn_enc_minor_version;
    struct video_caps_info {
       struct video_codec_cap {
          uint32_t valid;
@@ -203,9 +213,7 @@ struct radeon_info {
    uint32_t max_submitted_ibs[AMD_NUM_IP_TYPES];
    bool is_amdgpu;
    bool has_userptr;
-   bool has_syncobj;
    bool has_timeline_syncobj;
-   bool has_fence_to_handle;
    bool has_local_buffers;
    bool has_bo_metadata;
    bool has_eqaa_surface_allocator;
@@ -254,7 +262,14 @@ struct radeon_info {
    uint32_t max_vgpr_alloc;
    uint32_t wave64_vgpr_alloc_granularity;
    uint32_t max_scratch_waves;
-   uint32_t attribute_ring_size_per_se;
+
+   /* Pos, prim, and attribute rings. */
+   uint32_t attribute_ring_size_per_se;   /* GFX11+ */
+   uint32_t pos_ring_size_per_se;         /* GFX12+ */
+   uint32_t prim_ring_size_per_se;        /* GFX12+ */
+   uint32_t pos_ring_offset;              /* GFX12+ */
+   uint32_t prim_ring_offset;             /* GFX12+ */
+   uint32_t total_attribute_pos_prim_ring_size; /* GFX11+ */
 
    /* Render backends (color + depth blocks). */
    uint32_t r300_num_gb_pipes;

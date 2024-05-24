@@ -71,7 +71,8 @@ count_movs_from_if(const intel_device_info *devinfo,
    int then_movs = 0;
    foreach_inst_in_block(fs_inst, inst, then_block) {
       if (then_movs == MAX_MOVS || inst->opcode != BRW_OPCODE_MOV ||
-          inst->flags_written(devinfo))
+          inst->flags_written(devinfo) ||
+          (devinfo->ver >= 20 && get_exec_type_size(inst) > 4))
          break;
 
       then_mov[then_movs] = inst;
@@ -81,7 +82,8 @@ count_movs_from_if(const intel_device_info *devinfo,
    int else_movs = 0;
    foreach_inst_in_block(fs_inst, inst, else_block) {
       if (else_movs == MAX_MOVS || inst->opcode != BRW_OPCODE_MOV ||
-          inst->flags_written(devinfo))
+          inst->flags_written(devinfo) ||
+          (devinfo->ver >= 20 && get_exec_type_size(inst) > 4))
          break;
 
       else_mov[else_movs] = inst;
@@ -126,11 +128,11 @@ count_movs_from_if(const intel_device_info *devinfo,
  * If src0 is an immediate value, we promote it to a temporary GRF.
  */
 bool
-fs_visitor::opt_peephole_sel()
+brw_fs_opt_peephole_sel(fs_visitor &s)
 {
    bool progress = false;
 
-   foreach_block (block, cfg) {
+   foreach_block (block, s.cfg) {
       /* IF instructions, by definition, can only be found at the ends of
        * basic blocks.
        */
@@ -154,7 +156,7 @@ fs_visitor::opt_peephole_sel()
       if (else_block == NULL)
          continue;
 
-      int movs = count_movs_from_if(devinfo, then_mov, else_mov, then_block, else_block);
+      int movs = count_movs_from_if(s.devinfo, then_mov, else_mov, then_block, else_block);
 
       if (movs == 0)
          continue;
@@ -188,7 +190,7 @@ fs_visitor::opt_peephole_sel()
          continue;
 
       for (int i = 0; i < movs; i++) {
-         const fs_builder ibld = fs_builder(this, then_block, then_mov[i])
+         const fs_builder ibld = fs_builder(&s, then_block, then_mov[i])
                                  .at(block, if_inst);
 
          if (then_mov[i]->src[0].equals(else_mov[i]->src[0])) {
@@ -206,7 +208,7 @@ fs_visitor::opt_peephole_sel()
 
             /* 64-bit immediates can't be placed in src1. */
             fs_reg src1(else_mov[i]->src[0]);
-            if (src1.file == IMM && type_sz(src1.type) == 8) {
+            if (src1.file == IMM && brw_type_size_bytes(src1.type) == 8) {
                src1 = ibld.vgrf(else_mov[i]->src[0].type);
                ibld.MOV(src1, else_mov[i]->src[0]);
             }
@@ -223,7 +225,7 @@ fs_visitor::opt_peephole_sel()
    }
 
    if (progress)
-      invalidate_analysis(DEPENDENCY_INSTRUCTIONS | DEPENDENCY_VARIABLES);
+      s.invalidate_analysis(DEPENDENCY_INSTRUCTIONS | DEPENDENCY_VARIABLES);
 
    return progress;
 }

@@ -1,33 +1,19 @@
 /*
  * Copyright © 2020 Valve Corporation
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
- *
+ * SPDX-License-Identifier: MIT
  */
+#include "ac_descriptors.h"
 #include "ac_shader_util.h"
 #include "nir.h"
 #include "nir_builder.h"
+#include "radv_descriptor_set.h"
+#include "radv_device.h"
 #include "radv_nir.h"
-#include "radv_private.h"
+#include "radv_physical_device.h"
 #include "radv_shader.h"
 #include "radv_shader_args.h"
+#include "sid.h"
 
 typedef struct {
    enum amd_gfx_level gfx_level;
@@ -153,20 +139,11 @@ visit_load_vulkan_descriptor(nir_builder *b, apply_layout_state *state, nir_intr
 static nir_def *
 load_inline_buffer_descriptor(nir_builder *b, apply_layout_state *state, nir_def *rsrc)
 {
-   uint32_t desc_type = S_008F0C_DST_SEL_X(V_008F0C_SQ_SEL_X) | S_008F0C_DST_SEL_Y(V_008F0C_SQ_SEL_Y) |
-                        S_008F0C_DST_SEL_Z(V_008F0C_SQ_SEL_Z) | S_008F0C_DST_SEL_W(V_008F0C_SQ_SEL_W);
-   if (state->gfx_level >= GFX11) {
-      desc_type |= S_008F0C_FORMAT(V_008F0C_GFX11_FORMAT_32_FLOAT) | S_008F0C_OOB_SELECT(V_008F0C_OOB_SELECT_RAW);
-   } else if (state->gfx_level >= GFX10) {
-      desc_type |= S_008F0C_FORMAT(V_008F0C_GFX10_FORMAT_32_FLOAT) | S_008F0C_OOB_SELECT(V_008F0C_OOB_SELECT_RAW) |
-                   S_008F0C_RESOURCE_LEVEL(1);
-   } else {
-      desc_type |=
-         S_008F0C_NUM_FORMAT(V_008F0C_BUF_NUM_FORMAT_FLOAT) | S_008F0C_DATA_FORMAT(V_008F0C_BUF_DATA_FORMAT_32);
-   }
+   uint32_t desc[4];
 
-   return nir_vec4(b, rsrc, nir_imm_int(b, S_008F04_BASE_ADDRESS_HI(state->address32_hi)), nir_imm_int(b, 0xffffffff),
-                   nir_imm_int(b, desc_type));
+   ac_build_raw_buffer_descriptor(state->gfx_level, (uint64_t)state->address32_hi << 32, 0xffffffff, desc);
+
+   return nir_vec4(b, rsrc, nir_imm_int(b, desc[1]), nir_imm_int(b, desc[2]), nir_imm_int(b, desc[3]));
 }
 
 static nir_def *
@@ -499,19 +476,20 @@ apply_layout_to_tex(nir_builder *b, apply_layout_state *state, nir_tex_instr *te
 }
 
 void
-radv_nir_apply_pipeline_layout(nir_shader *shader, struct radv_device *device, const struct radv_shader_info *info,
-                               const struct radv_shader_args *args, const struct radv_shader_layout *layout)
+radv_nir_apply_pipeline_layout(nir_shader *shader, struct radv_device *device, const struct radv_shader_stage *stage)
 {
+   const struct radv_physical_device *pdev = radv_device_physical(device);
+   const struct radv_instance *instance = radv_physical_device_instance(pdev);
+
    apply_layout_state state = {
-      .gfx_level = device->physical_device->rad_info.gfx_level,
-      .address32_hi = device->physical_device->rad_info.address32_hi,
-      .disable_aniso_single_level = device->instance->drirc.disable_aniso_single_level,
-      .has_image_load_dcc_bug = device->physical_device->rad_info.has_image_load_dcc_bug,
-      .disable_tg4_trunc_coord =
-         !device->physical_device->rad_info.conformant_trunc_coord && !device->disable_trunc_coord,
-      .args = args,
-      .info = info,
-      .layout = layout,
+      .gfx_level = pdev->info.gfx_level,
+      .address32_hi = pdev->info.address32_hi,
+      .disable_aniso_single_level = instance->drirc.disable_aniso_single_level,
+      .has_image_load_dcc_bug = pdev->info.has_image_load_dcc_bug,
+      .disable_tg4_trunc_coord = !pdev->info.conformant_trunc_coord && !device->disable_trunc_coord,
+      .args = &stage->args,
+      .info = &stage->info,
+      .layout = &stage->layout,
    };
 
    nir_builder b;
