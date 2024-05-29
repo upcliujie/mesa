@@ -364,7 +364,7 @@ nvk_CmdCopyBuffer2(VkCommandBuffer commandBuffer,
 
       P_IMMD(p, NV90B5, LAUNCH_DMA, {
              .data_transfer_type = DATA_TRANSFER_TYPE_NON_PIPELINED,
-             .multi_line_enable = MULTI_LINE_ENABLE_TRUE,
+             .multi_line_enable = MULTI_LINE_ENABLE_FALSE,
              .flush_enable = FLUSH_ENABLE_TRUE,
              .src_memory_layout = SRC_MEMORY_LAYOUT_PITCH,
              .dst_memory_layout = DST_MEMORY_LAYOUT_PITCH,
