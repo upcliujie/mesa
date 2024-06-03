@@ -1,10 +1,13 @@
 use mesa_rust_gen::*;
 
-use std::{mem, ptr};
+use std::{
+    mem,
+    ptr::{self, NonNull},
+};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct PipeResource {
-    pipe: *mut pipe_resource,
+    pipe: NonNull<pipe_resource>,
     pub is_user: bool,
 }
 
@@ -64,38 +67,35 @@ impl AppImgInfo {
 
 impl PipeResource {
     pub(super) fn new(res: *mut pipe_resource, is_user: bool) -> Option<Self> {
-        if res.is_null() {
-            return None;
-        }
-
         Some(Self {
-            pipe: res,
+            pipe: NonNull::new(res)?,
             is_user: is_user,
         })
     }
 
     pub(super) fn pipe(&self) -> *mut pipe_resource {
-        self.pipe
+        self.pipe.as_ptr()
     }
 
     fn as_ref(&self) -> &pipe_resource {
-        unsafe { self.pipe.as_ref().unwrap() }
+        // SAFETY: it contains a valid pointer
+        unsafe { self.pipe.as_ref() }
     }
 
     pub fn width(&self) -> u32 {
-        unsafe { self.pipe.as_ref().unwrap().width0 }
+        self.as_ref().width0
     }
 
     pub fn height(&self) -> u16 {
-        unsafe { self.pipe.as_ref().unwrap().height0 }
+        self.as_ref().height0
     }
 
     pub fn depth(&self) -> u16 {
-        unsafe { self.pipe.as_ref().unwrap().depth0 }
+        self.as_ref().depth0
     }
 
     pub fn array_size(&self) -> u16 {
-        unsafe { self.pipe.as_ref().unwrap().array_size }
+        self.as_ref().array_size
     }
 
     pub fn is_buffer(&self) -> bool {
@@ -177,7 +177,7 @@ impl PipeResource {
     ) -> pipe_sampler_view {
         let mut res = pipe_sampler_view::default();
         unsafe {
-            u_sampler_view_default_template(&mut res, self.pipe, format);
+            u_sampler_view_default_template(&mut res, self.pipe(), format);
         }
 
         if let Some(app_img_info) = app_img_info {
@@ -198,6 +198,6 @@ impl PipeResource {
 
 impl Drop for PipeResource {
     fn drop(&mut self) {
-        unsafe { pipe_resource_reference(&mut self.pipe, ptr::null_mut()) }
+        unsafe { pipe_resource_reference(&mut self.pipe.as_ptr(), ptr::null_mut()) }
     }
 }
