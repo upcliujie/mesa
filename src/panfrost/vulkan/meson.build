@@ -29,6 +29,7 @@ panvk_entrypoints = custom_target(
     prog_python, '@INPUT0@', '--xml', '@INPUT1@', '--proto', '--weak',
     '--out-h', '@OUTPUT0@', '--out-c', '@OUTPUT1@', '--prefix', 'panvk',
     '--device-prefix', 'panvk_v6', '--device-prefix', 'panvk_v7',
+    '--device-prefix', 'panvk_v10',
     '--beta', with_vulkan_beta.to_string()
   ],
   depend_files : vk_entrypoints_gen_depend_files,
@@ -77,17 +78,23 @@ jm_files = [
   'jm/panvk_vX_queue.c',
 ]
 
-common_per_arch_files = [
-  panvk_entrypoints[0],
-  'panvk_vX_blend.c',
-  'panvk_vX_buffer_view.c',
-  'panvk_vX_device.c',
-  'panvk_vX_image_view.c',
-  'panvk_vX_sampler.c',
-  'panvk_vX_shader.c',
+csf_archs = [10]
+csf_inc_dir = ['csf']
+csf_files = [
+  'csf/panvk_vX_queue.c',
 ]
 
 foreach arch : [6, 7]
+  common_per_arch_files = [
+    panvk_entrypoints[0],
+    'panvk_vX_blend.c',
+    'panvk_vX_buffer_view.c',
+    'panvk_vX_device.c',
+    'panvk_vX_image_view.c',
+    'panvk_vX_sampler.c',
+    'panvk_vX_shader.c',
+  ]
+
   per_arch_files = common_per_arch_files
   inc_panvk_per_arch = []
 
@@ -99,6 +106,45 @@ foreach arch : [6, 7]
   if arch in jm_archs
     inc_panvk_per_arch += jm_inc_dir
     per_arch_files += jm_files
+  endif
+
+  panvk_per_arch_libs += static_library(
+    'panvk_v@0@'.format(arch),
+    per_arch_files,
+    include_directories : [
+      inc_include,
+      inc_src,
+      inc_panfrost,
+      inc_panvk_per_arch,
+    ],
+    dependencies : [
+      idep_nir_headers,
+      idep_pan_packers,
+      idep_vulkan_util_headers,
+      idep_vulkan_runtime_headers,
+      idep_vulkan_wsi_headers,
+      dep_libdrm,
+      dep_valgrind,
+    ],
+    c_args : [no_override_init_args, panvk_flags, '-DPAN_ARCH=@0@'.format(arch)],
+  )
+endforeach
+
+foreach arch : [10]
+   common_per_arch_files = [
+     panvk_entrypoints[0],
+     'panvk_vX_buffer_view.c',
+     'panvk_vX_device.c',
+     'panvk_vX_image_view.c',
+     'panvk_vX_sampler.c',
+   ]
+
+  per_arch_files = common_per_arch_files
+  inc_panvk_per_arch = []
+
+  if arch in csf_archs
+    inc_panvk_per_arch += csf_inc_dir
+    per_arch_files += csf_files
   endif
 
   panvk_per_arch_libs += static_library(

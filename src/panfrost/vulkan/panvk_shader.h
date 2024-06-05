@@ -16,7 +16,6 @@
 
 #include "pan_desc.h"
 
-#include "panvk_descriptor_set.h"
 #include "panvk_macros.h"
 #include "panvk_pipeline_layout.h"
 
