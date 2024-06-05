@@ -21,10 +21,25 @@
 #include "nv_push_clc3c0.h"
 #include "nv_push_clc397.h"
 
-static void
-nvk_queue_state_init(struct nvk_queue_state *qs)
+static VkResult
+nvk_queue_state_init(struct nvk_device *dev, struct nvk_queue_state *qs)
 {
+   struct nouveau_ws_bo *push_bo;
+   void *push_map;
+   push_bo = nouveau_ws_bo_new_mapped(dev->ws_dev, 256 * 4, 0,
+                                      NOUVEAU_WS_BO_GART |
+                                      NOUVEAU_WS_BO_MAP |
+                                      NOUVEAU_WS_BO_NO_SHARE,
+                                      NOUVEAU_WS_BO_WR, &push_map);
+   if (push_bo == NULL)
+      return vk_error(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
    memset(qs, 0, sizeof(*qs));
+
+   qs->push.bo = push_bo;
+   qs->push.bo_map = push_map;
+
+   return VK_SUCCESS;
 }
 
 static void
@@ -116,18 +131,8 @@ nvk_queue_state_update(struct nvk_device *dev,
    if (!dirty)
       return VK_SUCCESS;
 
-   struct nouveau_ws_bo *push_bo;
-   void *push_map;
-   push_bo = nouveau_ws_bo_new_mapped(dev->ws_dev, 256 * 4, 0,
-                                      NOUVEAU_WS_BO_GART |
-                                      NOUVEAU_WS_BO_MAP |
-                                      NOUVEAU_WS_BO_NO_SHARE,
-                                      NOUVEAU_WS_BO_WR, &push_map);
-   if (push_bo == NULL)
-      return vk_error(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY);
-
    struct nv_push push;
-   nv_push_init(&push, push_map, 256);
+   nv_push_init(&push, qs->push.bo_map, 256);
    struct nv_push *p = &push;
 
    if (qs->images.bo) {
@@ -236,13 +241,6 @@ nvk_queue_state_update(struct nvk_device *dev,
     */
    P_IMMD(p, NV9097, SET_SHADER_LOCAL_MEMORY_WINDOW, 0xff << 24);
 
-   if (qs->push.bo) {
-      nouveau_ws_bo_unmap(qs->push.bo, qs->push.bo_map);
-      nouveau_ws_bo_destroy(qs->push.bo);
-   }
-
-   qs->push.bo = push_bo;
-   qs->push.bo_map = push_map;
    qs->push.dw_count = nv_push_dw_count(&push);
 
    return VK_SUCCESS;
@@ -356,11 +354,13 @@ nvk_queue_init(struct nvk_device *dev, struct nvk_queue *queue,
 
    queue->vk.driver_submit = nvk_queue_submit;
 
-   nvk_queue_state_init(&queue->state);
+   result = nvk_queue_state_init(dev, &queue->state);
+   if (result != VK_SUCCESS)
+      goto fail_init;
 
    result = nvk_queue_init_drm_nouveau(dev, queue, queue_flags);
    if (result != VK_SUCCESS)
-      goto fail_init;
+      goto fail_state;
 
    result = nvk_queue_init_context_state(queue, queue_flags);
    if (result != VK_SUCCESS)
@@ -370,6 +370,11 @@ nvk_queue_init(struct nvk_device *dev, struct nvk_queue *queue,
 
 fail_drm:
    nvk_queue_finish_drm_nouveau(dev, queue);
+fail_state:
+   if (queue->state.push.bo) {
+      nouveau_ws_bo_unmap(queue->state.push.bo, queue->state.push.bo_map);
+      nouveau_ws_bo_destroy(queue->state.push.bo);
+   }
 fail_init:
    vk_queue_finish(&queue->vk);
 
