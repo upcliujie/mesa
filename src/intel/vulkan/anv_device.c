@@ -3469,9 +3469,9 @@ VkResult anv_CreateDevice(
       goto fail_queue_cond;
 
    const uint32_t min_gem_allocation_size =
-      (intel_device_info_is_mtl(device->info) ||
-       device->info->platform == INTEL_PLATFORM_LNL) ?
-      2 * 1024 * 1024 : 64 * 1024;
+      /* (intel_device_info_is_mtl(device->info) || */
+      /*  device->info->platform == INTEL_PLATFORM_LNL) ? */
+      2 * 1024 * 1024 /* : 64 * 1024 */;
 
    anv_shared_bo_pool_init(&device->shared_bo_pool, device,
                            min_gem_allocation_size);
