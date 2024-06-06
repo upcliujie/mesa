@@ -244,6 +244,7 @@ void
 process_live_temps_per_block(live_ctx& ctx, Block* block)
 {
    RegisterDemand new_demand;
+   RegisterDemand real_block_demand;
    block->register_demand = RegisterDemand();
    unsigned linear_vgpr_demand = 0;
    IDSet live = compute_live_out(ctx, block, linear_vgpr_demand);
@@ -374,6 +375,10 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
       get_additional_operand_demand(insn, before_instr, insn->register_demand);
       insn->register_demand.update(before_instr);
       block->register_demand.update(insn->register_demand);
+      if (insn->isCall())
+         real_block_demand.update(insn->register_demand - insn->call().blocked_abi_demand);
+      else
+         real_block_demand.update(insn->register_demand);
    }
 
    /* handle phi definitions */
@@ -435,6 +440,7 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
    block->live_in_demand = new_demand;
    block->live_in_demand.sgpr += 2; /* Add 2 SGPRs for potential long-jumps. */
    block->register_demand.update(block->live_in_demand);
+   ctx.program->max_real_reg_demand.update(real_block_demand);
    ctx.program->max_reg_demand.update(block->register_demand);
    ctx.handled_once = std::min(ctx.handled_once, block->index);
 
@@ -575,7 +581,8 @@ max_suitable_waves(Program* program, uint16_t waves)
 }
 
 void
-update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
+update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand,
+                        const RegisterDemand new_real_demand)
 {
    assert(program->min_waves >= 1);
    uint16_t sgpr_limit = get_addr_sgpr_from_waves(program, program->min_waves);
@@ -587,9 +594,10 @@ update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
       program->num_waves = 0;
       program->max_reg_demand = new_demand;
    } else {
-      program->num_waves = program->dev.physical_sgprs / get_sgpr_alloc(program, new_demand.sgpr);
+      program->num_waves =
+         program->dev.physical_sgprs / get_sgpr_alloc(program, new_real_demand.sgpr);
       uint16_t vgpr_demand =
-         get_vgpr_alloc(program, new_demand.vgpr) + program->config->num_shared_vgprs / 2;
+         get_vgpr_alloc(program, new_real_demand.vgpr) + program->config->num_shared_vgprs / 2;
       program->num_waves =
          std::min<uint16_t>(program->num_waves, program->dev.physical_vgprs / vgpr_demand);
       program->num_waves = std::min(program->num_waves, program->dev.max_waves_per_simd);
@@ -608,6 +616,7 @@ live_var_analysis(Program* program)
    program->live.memory.release();
    program->live.live_in.resize(program->blocks.size(), IDSet(program->live.memory));
    program->max_reg_demand = RegisterDemand();
+   program->max_real_reg_demand = RegisterDemand();
    program->needs_vcc = program->gfx_level >= GFX10;
 
    live_ctx ctx;
@@ -623,7 +632,7 @@ live_var_analysis(Program* program)
 
    /* calculate the program's register demand and number of waves */
    if (program->progress < CompilationProgress::after_ra)
-      update_vgpr_sgpr_demand(program, program->max_reg_demand);
+      update_vgpr_sgpr_demand(program, program->max_reg_demand, program->max_real_reg_demand);
 }
 
 } // namespace aco
