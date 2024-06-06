@@ -313,13 +313,21 @@ sanity:
 test-sigterm:
   before_script: []
   after_script:
+    - set +e
+    - ps aux
+    - cat sigterm_test.log
+    - cat /tmp/sigterm_test.log
+    - killall sigterm_test.sh
+    - kill $(pidof sigterm_test.sh)
+    - kill $(< sigterm_test.pid)
     - cat sigterm_test.log
     - cat /tmp/sigterm_test.log
   artifacts:
     paths:
       - sigterm_test.log
   script:
-  - sh .gitlab-ci/sigterm_test.sh | tee sigterm_test.log
+  - ( .gitlab-ci/sigterm_test.sh & echo $! > sigterm_test.pid ) | tee sigterm_test.log
+  - wait $(< /tmp/sigterm_test.pid)
   interruptible: true
   stage: sanity
   needs: []
