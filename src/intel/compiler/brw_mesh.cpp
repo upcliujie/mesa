@@ -362,7 +362,7 @@ brw_compile_task(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base, &prog_data->base.base,
                   MESA_SHADER_TASK);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       g.enable_debug(ralloc_asprintf(params->base.mem_ctx,
                                      "%s task shader %s",
                                      nir->info.label ? nir->info.label
@@ -1595,7 +1595,7 @@ brw_compile_mesh(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base, &prog_data->base.base,
                   MESA_SHADER_MESH);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       g.enable_debug(ralloc_asprintf(params->base.mem_ctx,
                                      "%s mesh shader %s",
                                      nir->info.label ? nir->info.label

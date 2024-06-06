@@ -117,7 +117,7 @@ brw_compile_vs(const struct brw_compiler *compiler,
    fs_generator g(compiler, &params->base,
                   &prog_data->base.base,
                   MESA_SHADER_VERTEX);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       const char *debug_name =
          ralloc_asprintf(params->base.mem_ctx, "%s vertex shader %s",
                          nir->info.label ? nir->info.label :

@@ -255,7 +255,7 @@ brw_compile_gs(const struct brw_compiler *compiler,
 
       fs_generator g(compiler, &params->base,
                      &prog_data->base.base, MESA_SHADER_GEOMETRY);
-      if (unlikely(debug_enabled)) {
+      if (unlikely(debug_enabled || params->base.archiver)) {
          const char *label =
             nir->info.label ? nir->info.label : "unnamed";
          char *name = ralloc_asprintf(params->base.mem_ctx,

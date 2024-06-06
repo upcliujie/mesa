@@ -149,7 +149,7 @@ brw_compile_tcs(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base,
                   &prog_data->base.base, MESA_SHADER_TESS_CTRL);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       g.enable_debug(ralloc_asprintf(params->base.mem_ctx,
                                      "%s tessellation control shader %s",
                                      nir->info.label ? nir->info.label

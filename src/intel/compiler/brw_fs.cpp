@@ -4032,7 +4032,8 @@ brw_compile_fs(const struct brw_compiler *compiler,
    fs_generator g(compiler, &params->base, &prog_data->base,
                   MESA_SHADER_FRAGMENT);
 
-   if (unlikely(debug_enabled)) {
+   debug_archiver *archiver = params->base.archiver;
+   if (unlikely(debug_enabled || archiver)) {
       g.enable_debug(ralloc_asprintf(params->base.mem_ctx,
                                      "%s fragment shader %s",
                                      nir->info.label ?
@@ -4283,7 +4284,7 @@ brw_compile_cs(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base, &prog_data->base,
                   MESA_SHADER_COMPUTE);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       char *name = ralloc_asprintf(params->base.mem_ctx,
                                    "%s compute shader %s",
                                    nir->info.label ?
@@ -4461,7 +4462,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base, &prog_data->base,
                   shader->info.stage);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       char *name = ralloc_asprintf(params->base.mem_ctx,
                                    "%s %s shader %s",
                                    shader->info.label ?
@@ -4480,7 +4481,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
    uint64_t *resume_sbt = ralloc_array(params->base.mem_ctx,
                                        uint64_t, num_resume_shaders);
    for (unsigned i = 0; i < num_resume_shaders; i++) {
-      if (INTEL_DEBUG(DEBUG_RT)) {
+      if (INTEL_DEBUG(DEBUG_RT) || params->base.archiver) {
          char *name = ralloc_asprintf(params->base.mem_ctx,
                                       "%s %s resume(%u) shader %s",
                                       shader->info.label ?
