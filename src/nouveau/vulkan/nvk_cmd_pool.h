@@ -13,7 +13,8 @@
 
 /* Recyclable command buffer BO, used for both push buffers and upload */
 struct nvk_cmd_bo {
-   struct nouveau_ws_bo *bo;
+   uint64_t upload_size;
+   uint64_t upload_addr;
 
    void *map;
 

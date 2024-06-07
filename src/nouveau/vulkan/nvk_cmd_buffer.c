@@ -150,7 +150,7 @@ nvk_cmd_buffer_flush_push(struct nvk_cmd_buffer *cmd)
 
       struct nvk_cmd_push push = {
          .map = cmd->push.start,
-         .addr = cmd->push_bo->bo->offset + bo_offset,
+         .addr = cmd->push_bo->upload_addr + bo_offset,
          .range = nv_push_dw_count(&cmd->push) * 4,
       };
       util_dynarray_append(&cmd->pushes, struct nvk_cmd_push, push);
@@ -206,7 +206,7 @@ nvk_cmd_buffer_upload_alloc(struct nvk_cmd_buffer *cmd,
 
    assert(offset <= NVK_CMD_BO_SIZE);
    if (cmd->upload_bo != NULL && size <= NVK_CMD_BO_SIZE - offset) {
-      *addr = cmd->upload_bo->bo->offset + offset;
+      *addr = cmd->upload_bo->upload_addr + offset;
       *ptr = (char *)cmd->upload_bo->map + offset;
 
       cmd->upload_offset = offset + size;
@@ -219,7 +219,7 @@ nvk_cmd_buffer_upload_alloc(struct nvk_cmd_buffer *cmd,
    if (unlikely(result != VK_SUCCESS))
       return result;
 
-   *addr = bo->bo->offset;
+   *addr = bo->upload_addr;
    *ptr = bo->map;
 
    /* Pick whichever of the current upload BO and the new BO will have more
@@ -262,7 +262,7 @@ nvk_cmd_buffer_cond_render_alloc(struct nvk_cmd_buffer *cmd,
 
    assert(offset <= NVK_CMD_BO_SIZE);
    if (cmd->cond_render_gart_bo != NULL && size <= NVK_CMD_BO_SIZE - offset) {
-      *addr = cmd->cond_render_gart_bo->bo->offset + offset;
+      *addr = cmd->cond_render_gart_bo->upload_addr + offset;
 
       cmd->cond_render_gart_offset = offset + size;
 
@@ -274,7 +274,7 @@ nvk_cmd_buffer_cond_render_alloc(struct nvk_cmd_buffer *cmd,
    if (unlikely(result != VK_SUCCESS))
       return result;
 
-   *addr = bo->bo->offset;
+   *addr = bo->upload_addr;
 
    /* Pick whichever of the current upload BO and the new BO will have more
     * room left to be the BO for the next upload.  If our upload size is
