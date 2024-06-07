@@ -207,6 +207,14 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
       if (is_phi(insn))
          break;
 
+      unsigned linear_vgpr_demand = 0;
+
+      if (has_arbitrary_fixed_operands(insn)) {
+         for (unsigned t : live) {
+            if (ctx.program->temp_rc[t].is_linear_vgpr())
+               linear_vgpr_demand += ctx.program->temp_rc[t].size();
+         }
+      }
       ctx.program->needs_vcc |= instr_needs_vcc(insn);
       insn->register_demand = RegisterDemand(new_demand.vgpr, new_demand.sgpr);
 
@@ -217,6 +225,10 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
          }
          if (definition.isFixed() && definition.physReg() == vcc)
             ctx.program->needs_vcc = true;
+         if (has_arbitrary_fixed_operands(insn) && definition.isFixed() &&
+             definition.regClass().type() == RegType::vgpr)
+            block->register_demand.update(
+               RegisterDemand((int16_t)(definition.physReg().reg() - 256 + linear_vgpr_demand), 0));
 
          const Temp temp = definition.getTemp();
          const size_t n = live.erase(temp.id());
@@ -243,18 +255,23 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
             continue;
          if (operand.isFixed() && operand.physReg() == vcc)
             ctx.program->needs_vcc = true;
-         const Temp temp = operand.getTemp();
-         const bool inserted = live.insert(temp.id()).second;
-         if (inserted) {
-            operand.setFirstKill(true);
-            for (unsigned j = i + 1; j < insn->operands.size(); ++j) {
-               if (insn->operands[j].isTemp() && insn->operands[j].tempId() == operand.tempId()) {
-                  insn->operands[j].setFirstKill(false);
-                  insn->operands[j].setKill(true);
+         if (has_arbitrary_fixed_operands(insn) && operand.isFixed() &&
+                operand.regClass().type() == RegType::vgpr)
+               block->register_demand.update(
+                  RegisterDemand((int16_t)(operand.physReg().reg() - 256 + linear_vgpr_demand), 0));
+            const Temp temp = operand.getTemp();
+            const bool inserted = live.insert(temp.id()).second;
+            if (inserted) {
+               operand.setFirstKill(true);
+               for (unsigned j = i + 1; j < insn->operands.size(); ++j) {
+                  if (insn->operands[j].isTemp() &&
+                      insn->operands[j].tempId() == operand.tempId()) {
+                     insn->operands[j].setFirstKill(false);
+                     insn->operands[j].setKill(true);
+                  }
                }
-            }
-            if (operand.isLateKill())
-               insn->register_demand += temp;
+               if (operand.isLateKill())
+                  insn->register_demand += temp;
             new_demand += temp;
          }
       }
