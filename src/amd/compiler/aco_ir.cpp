@@ -840,6 +840,34 @@ get_operand_size(aco_ptr<Instruction>& instr, unsigned index)
       return 0;
 }
 
+SrcDestInfo
+get_operand_info(enum amd_gfx_level gfx_level, Instruction* instr, unsigned index)
+{
+   assert(index < 4);
+   SrcDestInfo res = instr_info.operands[(int)instr->opcode][index];
+   if (index < 3 && (instr->opcode == aco_opcode::v_fma_mix_f32 ||
+                     instr->opcode == aco_opcode::v_fma_mixlo_f16 ||
+                     instr->opcode == aco_opcode::v_fma_mixhi_f16))
+      res.bitsize = instr->valu().opsel_hi[index] ? 16 : 32;
+   return res;
+}
+
+SrcDestInfo
+get_definition_info(enum amd_gfx_level gfx_level, Instruction* instr, unsigned index)
+{
+   assert(index < 4);
+   /* Before GFX10 v_cmpx also writes VCC. */
+   if (instr->isVOPC() && gfx_level < GFX10 && index < 2) {
+      SrcDestInfo res = instr_info.definitions[(int)instr->opcode][0];
+      if (!res.should_be_fixed)
+         return index == 0 ? res : SrcDestInfo{};
+
+      res.should_be_fixed = index;
+      return res;
+   }
+   return instr_info.definitions[(int)instr->opcode][index];
+}
+
 bool
 needs_exec_mask(const Instruction* instr)
 {

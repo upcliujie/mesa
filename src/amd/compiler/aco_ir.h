@@ -2242,6 +2242,46 @@ uint16_t get_addr_vgpr_from_waves(Program* program, uint16_t max_waves);
 
 bool uses_scratch(Program* program);
 
+struct SrcDestInfo {
+   aco_type type;
+   uint8_t bitsize;
+   uint8_t components;
+   bool should_be_fixed;
+   PhysReg reg;
+
+   inline unsigned bytes() { return (bitsize * components) / 8; }
+   inline unsigned dwords() { return DIV_ROUND_UP(bytes(), 4); }
+   inline unsigned constant_size()
+   {
+      switch (type) {
+      case alu_bfloat: /* XXX might be useful some day. */
+      case alu_invalid_type:
+      case alu_bool: return 0;
+      case alu_float:
+         if (bitsize == 16 && (components == 1 || components == 2))
+            return 16;
+         else if (bitsize == 32 && components == 1)
+            return 32;
+         else if (bitsize == 64 && components == 1)
+            return 64;
+         return 0;
+      case alu_uint:
+         if (bitsize == 16 && (components == 1 || components == 2))
+            return 32; /* 16bit int alu uses 32bit float constants. */
+         else if (bitsize == 32 && components == 1)
+            return 32;
+         else if (bitsize == 64 && components == 1)
+            return 64;
+         return 0;
+      case alu_int: assert(bitsize == 64 && components == 1); return 64;
+      }
+      return 0;
+   }
+};
+
+SrcDestInfo get_operand_info(enum amd_gfx_level gfx_level, Instruction* instr, unsigned index);
+SrcDestInfo get_definition_info(enum amd_gfx_level gfx_level, Instruction* instr, unsigned index);
+
 typedef struct {
    const int16_t opcode_gfx7[static_cast<int>(aco_opcode::num_opcodes)];
    const int16_t opcode_gfx9[static_cast<int>(aco_opcode::num_opcodes)];
@@ -2256,8 +2296,8 @@ typedef struct {
    /* sizes used for input/output modifiers and constants */
    const unsigned operand_size[static_cast<int>(aco_opcode::num_opcodes)];
    const instr_class classes[static_cast<int>(aco_opcode::num_opcodes)];
-   const uint32_t definitions[static_cast<int>(aco_opcode::num_opcodes)];
-   const uint32_t operands[static_cast<int>(aco_opcode::num_opcodes)];
+   const SrcDestInfo definitions[static_cast<int>(aco_opcode::num_opcodes)][4];
+   const SrcDestInfo operands[static_cast<int>(aco_opcode::num_opcodes)][4];
 } Info;
 
 extern const Info instr_info;
