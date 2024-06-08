@@ -70,12 +70,32 @@ extern const aco::Info instr_info = {
    },
    {
       % for name in opcode_names:
-      ${hex(instructions[name].definitions)},
+      {
+         % for definition in instructions[name].definitions:
+         {
+            ${definition.alu_type.name},
+            ${definition.bitsize},
+            ${definition.components},
+            ${int(definition.fixed_reg is not None)},
+            ${definition.fixed_reg if definition.fixed_reg is not None else "PhysReg{0}"},
+         },
+         % endfor
+      },
       % endfor
    },
    {
       % for name in opcode_names:
-      ${hex(instructions[name].operands)},
+      {
+         % for operand in instructions[name].operands:
+         {
+            ${operand.alu_type.name},
+            ${operand.bitsize},
+            ${operand.components},
+            ${int(operand.fixed_reg is not None)},
+            ${operand.fixed_reg if operand.fixed_reg is not None else "PhysReg{0}"},
+         },
+         % endfor
+      },
       % endfor
    },
 };
