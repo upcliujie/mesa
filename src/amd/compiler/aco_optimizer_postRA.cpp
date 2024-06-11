@@ -605,8 +605,9 @@ try_combine_dpp(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
       if (op_used_twice)
          continue;
 
+      SrcDestInfo op_info = get_operand_info(ctx.program->gfx_level, instr.get(), i);
       bool input_mods = can_use_input_modifiers(ctx.program->gfx_level, instr->opcode, i) &&
-                        get_operand_size(instr, i) == 32;
+                        op_info.bitsize == 32 && op_info.components == 1;
       bool mov_uses_mods = mov->valu().neg[0] || mov->valu().abs[0];
       if (((dpp8 && ctx.program->gfx_level < GFX11) || !input_mods) && mov_uses_mods)
          continue;

@@ -1836,8 +1836,6 @@ unsigned get_mimg_nsa_dwords(const Instruction* instr);
 
 unsigned get_vopd_opy_start(const Instruction* instr);
 
-unsigned get_operand_size(aco_ptr<Instruction>& instr, unsigned index);
-
 bool should_form_clause(const Instruction* a, const Instruction* b);
 
 enum vmem_type : uint8_t {
@@ -2293,8 +2291,6 @@ typedef struct {
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> is_atomic;
    const char* name[static_cast<int>(aco_opcode::num_opcodes)];
    const aco::Format format[static_cast<int>(aco_opcode::num_opcodes)];
-   /* sizes used for input/output modifiers and constants */
-   const unsigned operand_size[static_cast<int>(aco_opcode::num_opcodes)];
    const instr_class classes[static_cast<int>(aco_opcode::num_opcodes)];
    const SrcDestInfo definitions[static_cast<int>(aco_opcode::num_opcodes)][4];
    const SrcDestInfo operands[static_cast<int>(aco_opcode::num_opcodes)][4];
