@@ -3140,13 +3140,14 @@ decode_get_bo(void *v_batch, bool ppgtt, uint64_t address)
    struct anv_batch_bo **bbo;
    u_vector_foreach(bbo, &device->cmd_buffer_being_decoded->seen_bbos) {
       /* The decoder zeroes out the top 16 bits, so we need to as well */
-      uint64_t bo_address = (*bbo)->bo->offset & (~0ull >> 16);
+      uint64_t bo_address = anv_address_physical(
+         anv_shared_bo_address((*bbo)->bo)) & (~0ull >> 16);
 
       if (address >= bo_address && address < bo_address + (*bbo)->bo->size) {
          return (struct intel_batch_decode_bo) {
             .addr = bo_address,
             .size = (*bbo)->bo->size,
-            .map = (*bbo)->bo->map,
+            .map = anv_shared_bo_map((*bbo)->bo),
          };
       }
 
@@ -3520,6 +3521,14 @@ VkResult anv_CreateDevice(
    if (result != VK_SUCCESS)
       goto fail_queue_cond;
 
+   const uint32_t min_gem_allocation_size =
+      /* (intel_device_info_is_mtl(device->info) || */
+      /*  device->info->platform == INTEL_PLATFORM_LNL) ? */
+      2 * 1024 * 1024 /* : 64 * 1024 */;
+
+   anv_shared_bo_pool_init(&device->shared_bo_pool, device,
+                           min_gem_allocation_size);
+
    anv_bo_pool_init(&device->batch_bo_pool, device, "batch",
                     ANV_BO_ALLOC_MAPPED |
                     ANV_BO_ALLOC_HOST_CACHED_COHERENT |
@@ -3539,7 +3548,8 @@ VkResult anv_CreateDevice(
                                    .base_address = 0,
                                    .start_offset = device->physical->va.general_state_pool.addr,
                                    .block_size   = 16384,
-                                   .max_size     = device->physical->va.general_state_pool.size
+                                   .max_size     = device->physical->va.general_state_pool.size,
+                                   .initial_size = min_gem_allocation_size,
                                 });
    if (result != VK_SUCCESS)
       goto fail_batch_bo_pool;
@@ -3550,6 +3560,7 @@ VkResult anv_CreateDevice(
                                    .base_address = device->physical->va.dynamic_state_pool.addr,
                                    .block_size   = 16384,
                                    .max_size     = device->physical->va.dynamic_state_pool.size,
+                                   .initial_size = min_gem_allocation_size,
                                 });
    if (result != VK_SUCCESS)
       goto fail_general_state_pool;
@@ -3561,6 +3572,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.dynamic_state_db_pool.addr,
                                       .block_size   = 16384,
                                       .max_size     = device->physical->va.dynamic_state_db_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
       if (result != VK_SUCCESS)
          goto fail_dynamic_state_pool;
@@ -3591,6 +3603,7 @@ VkResult anv_CreateDevice(
                                    .base_address = device->physical->va.instruction_state_pool.addr,
                                    .block_size   = 16384,
                                    .max_size     = device->physical->va.instruction_state_pool.size,
+                                   .initial_size = min_gem_allocation_size,
                                 });
    if (result != VK_SUCCESS)
       goto fail_reserved_array_pool;
@@ -3605,6 +3618,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.scratch_surface_state_pool.addr,
                                       .block_size   = 4096,
                                       .max_size     = device->physical->va.scratch_surface_state_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
       if (result != VK_SUCCESS)
          goto fail_instruction_state_pool;
@@ -3616,6 +3630,7 @@ VkResult anv_CreateDevice(
                                       .start_offset = device->physical->va.scratch_surface_state_pool.size,
                                       .block_size   = 4096,
                                       .max_size     = device->physical->va.internal_surface_state_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
    } else {
       result = anv_state_pool_init(&device->internal_surface_state_pool, device,
@@ -3624,6 +3639,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.internal_surface_state_pool.addr,
                                       .block_size   = 4096,
                                       .max_size     = device->physical->va.internal_surface_state_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
    }
    if (result != VK_SUCCESS)
@@ -3636,6 +3652,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.bindless_surface_state_pool.addr,
                                       .block_size   = 4096,
                                       .max_size     = device->physical->va.bindless_surface_state_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
       if (result != VK_SUCCESS)
          goto fail_internal_surface_state_pool;
@@ -3651,6 +3668,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.binding_table_pool.addr,
                                       .block_size   = BINDING_TABLE_POOL_BLOCK_SIZE,
                                       .max_size     = device->physical->va.binding_table_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
    } else {
       /* The binding table should be in front of the surface states in virtual
@@ -3669,6 +3687,7 @@ VkResult anv_CreateDevice(
                                       .start_offset = bt_pool_offset,
                                       .block_size   = BINDING_TABLE_POOL_BLOCK_SIZE,
                                       .max_size     = device->physical->va.internal_surface_state_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
    }
    if (result != VK_SUCCESS)
@@ -3681,6 +3700,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.indirect_push_descriptor_pool.addr,
                                       .block_size   = 4096,
                                       .max_size     = device->physical->va.indirect_push_descriptor_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
       if (result != VK_SUCCESS)
          goto fail_binding_table_pool;
@@ -3698,6 +3718,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.push_descriptor_buffer_pool.addr,
                                       .block_size   = 4096,
                                       .max_size     = device->physical->va.push_descriptor_buffer_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
       if (result != VK_SUCCESS)
          goto fail_indirect_push_descriptor_pool;
@@ -3710,6 +3731,7 @@ VkResult anv_CreateDevice(
                                       .base_address = device->physical->va.aux_tt_pool.addr,
                                       .block_size   = 16384,
                                       .max_size     = device->physical->va.aux_tt_pool.size,
+                                      .initial_size = min_gem_allocation_size,
                                    });
       if (result != VK_SUCCESS)
          goto fail_push_descriptor_buffer_pool;
@@ -4049,6 +4071,7 @@ VkResult anv_CreateDevice(
    if (device->vk.enabled_extensions.KHR_acceleration_structure)
       anv_bo_pool_finish(&device->bvh_bo_pool);
    anv_bo_pool_finish(&device->batch_bo_pool);
+   anv_shared_bo_pool_fini(&device->shared_bo_pool);
    anv_bo_cache_finish(&device->bo_cache);
  fail_queue_cond:
    pthread_cond_destroy(&device->queue_submit);
@@ -4188,6 +4211,8 @@ void anv_DestroyDevice(
    if (device->vk.enabled_extensions.KHR_acceleration_structure)
       anv_bo_pool_finish(&device->bvh_bo_pool);
    anv_bo_pool_finish(&device->batch_bo_pool);
+
+   anv_shared_bo_pool_fini(&device->shared_bo_pool);
 
    anv_bo_cache_finish(&device->bo_cache);
 
@@ -4521,8 +4546,9 @@ VkResult anv_AllocateMemory(
              fd_info->handleType ==
                VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT);
 
-      result = anv_device_import_bo(device, fd_info->fd, alloc_flags,
-                                    client_address, &mem->bo);
+      result = anv_shared_bo_pool_from_fd(&device->shared_bo_pool,
+                                          fd_info->fd, alloc_flags,
+                                          client_address, &mem->bo);
       if (result != VK_SUCCESS)
          goto fail;
 
@@ -4540,7 +4566,7 @@ VkResult anv_AllocateMemory(
                             "VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT: "
                             "%"PRIu64"B > %"PRIu64"B",
                             aligned_alloc_size, mem->bo->size);
-         anv_device_release_bo(device, mem->bo);
+         anv_shared_bo_pool_release(&device->shared_bo_pool, mem->bo);
          goto fail;
       }
 
@@ -4567,12 +4593,12 @@ VkResult anv_AllocateMemory(
       assert(mem->vk.import_handle_type ==
              VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT);
 
-      result = anv_device_import_bo_from_host_ptr(device,
-                                                  mem->vk.host_ptr,
-                                                  mem->vk.size,
-                                                  alloc_flags,
-                                                  client_address,
-                                                  &mem->bo);
+      result = anv_shared_bo_pool_from_host_ptr(&device->shared_bo_pool,
+                                                mem->vk.host_ptr,
+                                                mem->vk.size,
+                                                alloc_flags,
+                                                client_address,
+                                                &mem->bo);
       if (result != VK_SUCCESS)
          goto fail;
 
@@ -4593,8 +4619,10 @@ VkResult anv_AllocateMemory(
 
    /* Regular allocate (not importing memory). */
 
-   result = anv_device_alloc_bo(device, "user", pAllocateInfo->allocationSize,
-                                alloc_flags, client_address, &mem->bo);
+   result = anv_shared_bo_pool_alloc(&device->shared_bo_pool,
+                                     "user", pAllocateInfo->allocationSize, 4096,
+                                     alloc_flags, dedicated_info != NULL,
+                                     client_address, &mem->bo);
    if (result != VK_SUCCESS)
       goto fail;
 
@@ -4606,11 +4634,12 @@ VkResult anv_AllocateMemory(
        */
       if (image->vk.wsi_legacy_scanout) {
          const struct isl_surf *surf = &image->planes[0].primary_surface.isl;
-         result = anv_device_set_bo_tiling(device, mem->bo,
+         result = anv_device_set_bo_tiling(device,
+                                           anv_shared_bo_bo(mem->bo),
                                            surf->row_pitch_B,
                                            surf->tiling);
          if (result != VK_SUCCESS) {
-            anv_device_release_bo(device, mem->bo);
+            anv_shared_bo_pool_release(&device->shared_bo_pool, mem->bo);
             goto fail;
          }
       }
@@ -4620,7 +4649,7 @@ VkResult anv_AllocateMemory(
    mem_heap_used = p_atomic_add_return(&mem_heap->used, mem->bo->size);
    if (mem_heap_used > mem_heap->size) {
       p_atomic_add(&mem_heap->used, -mem->bo->size);
-      anv_device_release_bo(device, mem->bo);
+      anv_shared_bo_pool_release(&device->shared_bo_pool, mem->bo);
       result = vk_errorf(device, VK_ERROR_OUT_OF_DEVICE_MEMORY,
                          "Out of heap memory");
       goto fail;
@@ -4655,7 +4684,7 @@ VkResult anv_GetMemoryFdKHR(
    assert(pGetFdInfo->handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT ||
           pGetFdInfo->handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT);
 
-   return anv_device_export_bo(dev, mem->bo, pFd);
+   return anv_device_export_bo(dev, anv_shared_bo_bo(mem->bo), pFd);
 }
 
 VkResult anv_GetMemoryFdPropertiesKHR(
@@ -4735,7 +4764,7 @@ void anv_FreeMemory(
    p_atomic_add(&device->physical->memory.heaps[mem->type->heapIndex].used,
                 -mem->bo->size);
 
-   anv_device_release_bo(device, mem->bo);
+   anv_shared_bo_pool_release(&device->shared_bo_pool, mem->bo);
 
    ANV_RMV(resource_destroy, device, mem);
 
@@ -4800,26 +4829,23 @@ VkResult anv_MapMemory2KHR(
    }
 
    /* GEM will fail to map if the offset isn't 4k-aligned.  Round down. */
-   uint64_t map_offset;
-   if (!device->physical->info.has_mmap_offset)
-      map_offset = offset & ~4095ull;
-   else
-      map_offset = 0;
-   assert(offset >= map_offset);
-   uint64_t map_size = (offset + size) - map_offset;
+   uint64_t map_offset = (mem->bo->address.offset + offset) & ~4095ull;
+   assert((mem->bo->address.offset + offset) >= map_offset);
+   uint64_t map_size = (mem->bo->address.offset + offset + size) - map_offset;
 
    /* Let's map whole pages */
    map_size = align64(map_size, 4096);
 
    void *map;
-   VkResult result = anv_device_map_bo(device, mem->bo, map_offset,
+   VkResult result = anv_device_map_bo(device,
+                                       anv_shared_bo_bo(mem->bo), map_offset,
                                        map_size, placed_addr, &map);
    if (result != VK_SUCCESS)
       return result;
 
    mem->map = map;
    mem->map_size = map_size;
-   mem->map_delta = (offset - map_offset);
+   mem->map_delta = (mem->bo->address.offset + offset - map_offset);
    *ppData = mem->map + mem->map_delta;
 
    return VK_SUCCESS;
@@ -4836,7 +4862,8 @@ VkResult anv_UnmapMemory2KHR(
       return VK_SUCCESS;
 
    VkResult result =
-      anv_device_unmap_bo(device, mem->bo, mem->map, mem->map_size,
+      anv_device_unmap_bo(device, anv_shared_bo_bo(mem->bo),
+                          mem->map, mem->map_size,
                           pMemoryUnmapInfo->flags & VK_MEMORY_UNMAP_RESERVE_BIT_EXT);
    if (result != VK_SUCCESS)
       return result;
@@ -4934,10 +4961,8 @@ anv_bind_buffer_memory(struct anv_device *device,
    if (mem) {
       assert(pBindInfo->memoryOffset < mem->vk.size);
       assert(mem->vk.size - pBindInfo->memoryOffset >= buffer->vk.size);
-      buffer->address = (struct anv_address) {
-         .bo = mem->bo,
-         .offset = pBindInfo->memoryOffset,
-      };
+      buffer->address = anv_address_add(
+         anv_shared_bo_address(mem->bo), pBindInfo->memoryOffset);
    } else {
       buffer->address = ANV_NULL_ADDRESS;
    }
@@ -5274,9 +5299,11 @@ uint64_t anv_GetDeviceMemoryOpaqueCaptureAddress(
 {
    ANV_FROM_HANDLE(anv_device_memory, memory, pInfo->memory);
 
-   assert(memory->bo->alloc_flags & ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS);
+   assert(anv_shared_bo_bo(memory->bo)->alloc_flags &
+          ANV_BO_ALLOC_CLIENT_VISIBLE_ADDRESS);
 
-   return intel_48b_address(memory->bo->offset);
+   return intel_48b_address(
+      anv_address_physical(anv_shared_bo_address(memory->bo)));
 }
 
 void
