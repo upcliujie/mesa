@@ -14,8 +14,6 @@ namespace aco {
 
 <%
 opcode_names = sorted(instructions.keys())
-can_use_input_modifiers = "".join([instructions[name].input_mod for name in reversed(opcode_names)])
-can_use_output_modifiers = "".join([instructions[name].output_mod for name in reversed(opcode_names)])
 is_atomic = "".join([instructions[name].is_atomic for name in reversed(opcode_names)])
 %>
 
@@ -45,8 +43,6 @@ extern const aco::Info instr_info = {
       ${instructions[name].op.gfx12},
       % endfor
    },
-   std::bitset<${len(opcode_names)}>("${can_use_input_modifiers}"),
-   std::bitset<${len(opcode_names)}>("${can_use_output_modifiers}"),
    std::bitset<${len(opcode_names)}>("${is_atomic}"),
    {
       % for name in opcode_names:
@@ -73,6 +69,7 @@ extern const aco::Info instr_info = {
             ${definition.components},
             ${int(definition.fixed_reg is not None)},
             ${definition.fixed_reg if definition.fixed_reg is not None else "PhysReg{0}"},
+            ${int(definition.mods)},
          },
          % endfor
       },
@@ -88,6 +85,7 @@ extern const aco::Info instr_info = {
             ${operand.components},
             ${int(operand.fixed_reg is not None)},
             ${operand.fixed_reg if operand.fixed_reg is not None else "PhysReg{0}"},
+            ${int(operand.mods)},
          },
          % endfor
       },

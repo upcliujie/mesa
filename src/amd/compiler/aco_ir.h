@@ -1809,7 +1809,6 @@ is_dead(const std::vector<uint16_t>& uses, const Instruction* instr)
    return !(get_sync_info(instr).semantics & (semantic_volatile | semantic_acqrel));
 }
 
-bool can_use_input_modifiers(amd_gfx_level gfx_level, aco_opcode op, int idx);
 bool can_use_opsel(amd_gfx_level gfx_level, aco_opcode op, int idx);
 bool instr_is_16bit(amd_gfx_level gfx_level, aco_opcode op);
 uint8_t get_gfx11_true16_mask(aco_opcode op);
@@ -2246,6 +2245,7 @@ struct SrcDestInfo {
    uint8_t components;
    bool should_be_fixed;
    PhysReg reg;
+   bool mods;
 
    inline unsigned bytes() { return (bitsize * components) / 8; }
    inline unsigned dwords() { return DIV_ROUND_UP(bytes(), 4); }
@@ -2286,8 +2286,6 @@ typedef struct {
    const int16_t opcode_gfx10[static_cast<int>(aco_opcode::num_opcodes)];
    const int16_t opcode_gfx11[static_cast<int>(aco_opcode::num_opcodes)];
    const int16_t opcode_gfx12[static_cast<int>(aco_opcode::num_opcodes)];
-   const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_input_modifiers;
-   const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_output_modifiers;
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> is_atomic;
    const char* name[static_cast<int>(aco_opcode::num_opcodes)];
    const aco::Format format[static_cast<int>(aco_opcode::num_opcodes)];
