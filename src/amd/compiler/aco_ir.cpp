@@ -502,19 +502,6 @@ convert_to_DPP(amd_gfx_level gfx_level, aco_ptr<Instruction>& instr, bool dpp8)
 }
 
 bool
-can_use_input_modifiers(amd_gfx_level gfx_level, aco_opcode op, int idx)
-{
-   if (op == aco_opcode::v_mov_b32)
-      return gfx_level >= GFX10;
-
-   if (op == aco_opcode::v_ldexp_f16 || op == aco_opcode::v_ldexp_f32 ||
-       op == aco_opcode::v_ldexp_f64)
-      return idx == 0;
-
-   return instr_info.can_use_input_modifiers[(int)op];
-}
-
-bool
 can_use_opsel(amd_gfx_level gfx_level, aco_opcode op, int idx)
 {
    /* opsel is only GFX9+ */
@@ -821,6 +808,8 @@ get_operand_info(enum amd_gfx_level gfx_level, Instruction* instr, unsigned inde
 {
    assert(index < 4);
    SrcDestInfo res = instr_info.operands[(int)instr->opcode][index];
+   if (index == 0 && instr->opcode == aco_opcode::v_mov_b32 && gfx_level >= GFX10)
+      res.mods = true;
    if (index < 3 && (instr->opcode == aco_opcode::v_fma_mix_f32 ||
                      instr->opcode == aco_opcode::v_fma_mixlo_f16 ||
                      instr->opcode == aco_opcode::v_fma_mixhi_f16))
