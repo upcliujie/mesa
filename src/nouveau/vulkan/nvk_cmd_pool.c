@@ -7,6 +7,7 @@
 #include "nvk_device.h"
 #include "nvk_entrypoints.h"
 #include "nvk_physical_device.h"
+#include <nvk_heap.h>
 
 static VkResult
 nvk_cmd_bo_create(struct nvk_cmd_pool *pool, bool force_gart, struct nvk_cmd_bo **bo_out)
@@ -16,28 +17,26 @@ nvk_cmd_bo_create(struct nvk_cmd_pool *pool, bool force_gart, struct nvk_cmd_bo 
 
    bo = vk_zalloc(&pool->vk.alloc, sizeof(*bo), 8,
                   VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (bo == NULL)
-      return vk_error(pool, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   uint32_t flags = NOUVEAU_WS_BO_GART | NOUVEAU_WS_BO_MAP | NOUVEAU_WS_BO_NO_SHARE;
-   if (force_gart)
-      assert(flags & NOUVEAU_WS_BO_GART);
-   bo->bo = nouveau_ws_bo_new_mapped(dev->ws_dev, NVK_CMD_BO_SIZE, 0,
-                                     flags, NOUVEAU_WS_BO_WR, &bo->map);
-   if (bo->bo == NULL) {
-      vk_free(&pool->vk.alloc, bo);
-      return vk_error(pool, VK_ERROR_OUT_OF_DEVICE_MEMORY);
-   }
+   VkResult result = nvk_heap_alloc(dev, &dev->cmd_bo_heap, NVK_CMD_BO_SIZE, NVK_CMD_BO_SIZE,
+                                    &bo->upload_addr, &bo->map);
+   if (result != VK_SUCCESS)
+      return result;
 
    *bo_out = bo;
+   
+   bo->upload_size = NVK_CMD_BO_SIZE;
+   
    return VK_SUCCESS;
 }
 
 static void
 nvk_cmd_bo_destroy(struct nvk_cmd_pool *pool, struct nvk_cmd_bo *bo)
 {
-   nouveau_ws_bo_unmap(bo->bo, bo->map);
-   nouveau_ws_bo_destroy(bo->bo);
+   struct nvk_device *dev = nvk_cmd_pool_device(pool);
+
+   nvk_heap_free(dev, &dev->cmd_bo_heap, bo->upload_addr, bo->upload_size);
+   
    vk_free(&pool->vk.alloc, bo);
 }
 
