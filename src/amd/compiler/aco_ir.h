@@ -19,7 +19,6 @@
 #include "amd_family.h"
 #include <algorithm>
 #include <bitset>
-#include <memory>
 #include <vector>
 
 typedef struct nir_shader nir_shader;
