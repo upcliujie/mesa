@@ -15,7 +15,7 @@
 namespace aco {
 
 void
-print_phys_reg(PhysReg reg, FILE* output, unsigned bytes, unsigned flags)
+print_phys_reg(PhysReg reg, FILE* output, unsigned bytes, unsigned flags, char range_separator)
 {
    if (reg >= 128 && reg <= 192) {
       fprintf(output, "%d", reg - 128);
@@ -40,7 +40,7 @@ print_phys_reg(PhysReg reg, FILE* output, unsigned bytes, unsigned flags)
    case 245: fprintf(output, "-2.0"); return;
    case 246: fprintf(output, "4.0"); return;
    case 247: fprintf(output, "-4.0"); return;
-   case 248: fprintf(output, "1/(2*PI)"); return;
+   case 248: fprintf(output, "0.15915494"); return;
    case 253: fprintf(output, "scc"); return;
    }
 
@@ -52,7 +52,7 @@ print_phys_reg(PhysReg reg, FILE* output, unsigned bytes, unsigned flags)
    } else {
       fprintf(output, "%c[%d", is_vgpr ? 'v' : 's', r);
       if (size > 1)
-         fprintf(output, "-%d]", r + size - 1);
+         fprintf(output, "%c%d]", range_separator, r + size - 1);
       else
          fprintf(output, "]");
    }
