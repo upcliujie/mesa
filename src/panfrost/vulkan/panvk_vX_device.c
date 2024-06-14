@@ -11,8 +11,11 @@
 
 #include "vk_cmd_enqueue_entrypoints.h"
 #include "vk_common_entrypoints.h"
+#include "vk_log.h"
 
+#if PAN_ARCH <= 9
 #include "panvk_cmd_buffer.h"
+#endif
 #include "panvk_device.h"
 #include "panvk_entrypoints.h"
 #include "panvk_instance.h"
@@ -101,7 +104,9 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
     * whole struct.
     */
    device->vk.command_dispatch_table = &device->cmd_dispatch;
+#if PAN_ARCH <= 9
    device->vk.command_buffer_ops = &panvk_per_arch(cmd_buffer_ops);
+#endif
 
    device->kmod.allocator = (struct pan_kmod_allocator){
       .zalloc = panvk_kmod_zalloc,
@@ -128,10 +133,13 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
       pan_kmod_vm_create(device->kmod.dev, PAN_KMOD_VM_FLAG_AUTO_VA,
                          user_va_start, user_va_end - user_va_start);
 
-   device->tiler_heap = panvk_priv_bo_create(
-      device, 128 * 1024 * 1024,
-      PAN_KMOD_BO_FLAG_NO_MMAP | PAN_KMOD_BO_FLAG_ALLOC_ON_FAULT,
-      &device->vk.alloc, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   unsigned arch = pan_arch(physical_device->kmod.props.gpu_prod_id);
+   if (arch < 10) {
+      device->tiler_heap = panvk_priv_bo_create(
+         device, 128 * 1024 * 1024,
+         PAN_KMOD_BO_FLAG_NO_MMAP | PAN_KMOD_BO_FLAG_ALLOC_ON_FAULT,
+         &device->vk.alloc, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   }
 
    device->sample_positions = panvk_priv_bo_create(
       device, panfrost_sample_positions_buffer_size(), 0, &device->vk.alloc,
@@ -140,8 +148,10 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
 
    vk_device_set_drm_fd(&device->vk, device->kmod.dev->fd);
 
+#if PAN_ARCH <= 7
    panvk_per_arch(blend_shader_cache_init)(device);
    panvk_per_arch(meta_init)(device);
+#endif
 
    for (unsigned i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
       const VkDeviceQueueCreateInfo *queue_create =
@@ -175,13 +185,15 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
 fail:
    for (unsigned i = 0; i < PANVK_MAX_QUEUE_FAMILIES; i++) {
       for (unsigned q = 0; q < device->queue_count[i]; q++)
-         panvk_queue_finish(&device->queues[i][q]);
+         panvk_per_arch(queue_finish)(&device->queues[i][q]);
       if (device->queue_count[i])
          vk_object_free(&device->vk, NULL, device->queues[i]);
    }
 
+#if PAN_ARCH <= 7
    panvk_per_arch(meta_cleanup)(device);
    panvk_per_arch(blend_shader_cache_cleanup)(device);
+#endif
    panvk_priv_bo_destroy(device->tiler_heap, &device->vk.alloc);
    panvk_priv_bo_destroy(device->sample_positions, &device->vk.alloc);
    pan_kmod_vm_destroy(device->kmod.vm);
@@ -200,13 +212,15 @@ panvk_per_arch(destroy_device)(struct panvk_device *device,
 
    for (unsigned i = 0; i < PANVK_MAX_QUEUE_FAMILIES; i++) {
       for (unsigned q = 0; q < device->queue_count[i]; q++)
-         panvk_queue_finish(&device->queues[i][q]);
+         panvk_per_arch(queue_finish)(&device->queues[i][q]);
       if (device->queue_count[i])
          vk_object_free(&device->vk, NULL, device->queues[i]);
    }
 
+#if PAN_ARCH <= 7
    panvk_per_arch(meta_cleanup)(device);
    panvk_per_arch(blend_shader_cache_cleanup)(device);
+#endif
    panvk_priv_bo_destroy(device->tiler_heap, &device->vk.alloc);
    panvk_priv_bo_destroy(device->sample_positions, &device->vk.alloc);
    pan_kmod_vm_destroy(device->kmod.vm);

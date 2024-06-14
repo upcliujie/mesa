@@ -628,7 +628,8 @@ panvk_physical_device_init(struct panvk_physical_device *device,
                        path);
    }
 
-   if (strcmp(version->name, "panfrost")) {
+   if (strcmp(version->name, "panfrost") &&
+       strcmp(version->name, "panthor")) {
       drmFreeVersion(version);
       close(fd);
       return vk_errorf(instance, VK_ERROR_INCOMPATIBLE_DRIVER,
@@ -647,7 +648,7 @@ panvk_physical_device_init(struct panvk_physical_device *device,
 
    unsigned arch = pan_arch(device->kmod.props.gpu_prod_id);
 
-   if (arch <= 5 || arch >= 8) {
+   if (arch <= 5) {
       result = vk_errorf(instance, VK_ERROR_INCOMPATIBLE_DRIVER,
                          "%s not supported", device->model->name);
       goto fail;
@@ -845,6 +846,7 @@ panvk_GetPhysicalDeviceExternalFenceProperties(
 
 DEVICE_PER_ARCH_FUNCS(6);
 DEVICE_PER_ARCH_FUNCS(7);
+DEVICE_PER_ARCH_FUNCS(10);
 
 VKAPI_ATTR VkResult VKAPI_CALL
 panvk_CreateDevice(VkPhysicalDevice physicalDevice,

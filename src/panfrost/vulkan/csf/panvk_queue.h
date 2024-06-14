@@ -1,5 +1,5 @@
 /*
- * Copyright © 2021 Collabora Ltd.
+ * Copyright © 2024 Collabora Ltd.
  * SPDX-License-Identifier: MIT
  */
 
@@ -12,25 +12,24 @@
 
 #include <stdint.h>
 
-#include "panvk_device.h"
-
 #include "vk_queue.h"
 
 struct panvk_queue {
    struct vk_queue vk;
-   uint32_t sync;
+
+   /* Number of CS queues */
+   int pqueue_count;
+
+   uint32_t group_handle;
+
+   /* Sync timeline, only used for debugging */
+   struct {
+      uint32_t handle;
+      uint64_t point;
+   } sync;
 };
 
 VK_DEFINE_HANDLE_CASTS(panvk_queue, vk.base, VkQueue, VK_OBJECT_TYPE_QUEUE)
-
-static inline void
-panvk_queue_finish(struct panvk_queue *queue)
-{
-   struct panvk_device *dev = to_panvk_device(queue->vk.base.device);
-
-   vk_queue_finish(&queue->vk);
-   drmSyncobjDestroy(dev->vk.drm_fd, queue->sync);
-}
 
 static inline struct panvk_device *
 panvk_queue_get_device(const struct panvk_queue *queue)

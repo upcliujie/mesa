@@ -302,6 +302,15 @@ panvk_queue_submit(struct vk_queue *vk_queue, struct vk_queue_submit *submit)
    return VK_SUCCESS;
 }
 
+void
+panvk_per_arch(queue_finish)(struct panvk_queue *queue)
+{
+   struct panvk_device *dev = panvk_queue_get_device(queue);
+
+   vk_queue_finish(&queue->vk);
+   drmSyncobjDestroy(dev->vk.drm_fd, queue->sync);
+}
+
 VkResult
 panvk_per_arch(queue_init)(struct panvk_device *device,
                            struct panvk_queue *queue, int idx,
