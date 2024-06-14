@@ -302,6 +302,12 @@ with_any_intel = [
 ].contains(true)
 with_any_nouveau = with_gallium_nouveau or with_nouveau_vk
 
+if get_option('panfrost-clc') != 'system'
+  with_panfrost_clc = get_option('panfrost-clc') == 'enabled'
+else
+  with_panfrost_clc = false
+endif
+
 # needed in the loader
 if with_nouveau_vk
   pre_args += '-DHAVE_NVK'
@@ -837,7 +843,7 @@ if with_gallium_rusticl
 endif
 
 with_clover_spirv = with_gallium_clover and get_option('opencl-spirv')
-with_clc = with_microsoft_clc or with_intel_clc or with_gallium_asahi or with_gallium_rusticl or with_clover_spirv
+with_clc = with_microsoft_clc or with_intel_clc or with_gallium_asahi or with_gallium_rusticl or with_clover_spirv or with_panfrost_clc
 
 dep_clc = null_dep
 if with_gallium_clover or with_clc

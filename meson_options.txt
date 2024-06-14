@@ -739,3 +739,13 @@ option(
                 'the default driconf file is hardcoded into Mesa. ' +
                 'Requires expat.'
 )
+
+option(
+  'panfrost-clc',
+  type : 'combo',
+  value : 'auto',
+  choices : [
+    'enabled', 'system', 'auto'
+  ],
+  description : 'Build the panfrost-clc compiler or use a system version.'
+)
