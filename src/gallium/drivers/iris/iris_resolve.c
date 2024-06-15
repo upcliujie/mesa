@@ -91,6 +91,7 @@ resolve_sampler_views(struct iris_context *ice,
    if (info == NULL)
       return;
 
+   bool found_feedback_loop = false;
    int i;
    BITSET_FOREACH_SET(i, shs->bound_sampler_views, IRIS_MAX_TEXTURES) {
       if (!BITSET_TEST(info->textures_used, i))
@@ -100,9 +101,10 @@ resolve_sampler_views(struct iris_context *ice,
 
       if (isv->res->base.b.target != PIPE_BUFFER) {
          if (consider_framebuffer) {
-            disable_rb_aux_buffer(ice, draw_aux_buffer_disabled, isv->res,
-                                  isv->view.base_level, isv->view.levels,
-                                  "for sampling");
+            found_feedback_loop |=
+               disable_rb_aux_buffer(ice, draw_aux_buffer_disabled, isv->res,
+                                     isv->view.base_level, isv->view.levels,
+                                     "for sampling");
          }
 
          iris_resource_prepare_texture(ice, isv->res, isv->view.format,
@@ -113,6 +115,11 @@ resolve_sampler_views(struct iris_context *ice,
 
       iris_emit_buffer_barrier_for(batch, isv->res->bo,
                                    IRIS_DOMAIN_SAMPLER_READ);
+   }
+
+   if (ice->state.rendering_feedback_loop != found_feedback_loop) {
+      ice->state.rendering_feedback_loop = found_feedback_loop;
+      ice->state.dirty |= IRIS_DIRTY_RENDERING_FEEDBACK_LOOP;
    }
 }
 
@@ -242,7 +249,8 @@ iris_predraw_resolve_framebuffer(struct iris_context *ice,
       }
    }
 
-   if (ice->state.stage_dirty & IRIS_STAGE_DIRTY_BINDINGS_FS) {
+   if ((ice->state.stage_dirty & IRIS_STAGE_DIRTY_BINDINGS_FS) ||
+       (ice->state.dirty & IRIS_DIRTY_RENDERING_FEEDBACK_LOOP)) {
       for (unsigned i = 0; i < cso_fb->nr_cbufs; i++) {
          struct iris_surface *surf = (void *) cso_fb->cbufs[i];
          if (!surf)
