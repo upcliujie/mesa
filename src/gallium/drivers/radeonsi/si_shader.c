@@ -2494,6 +2494,7 @@ struct nir_shader *si_get_nir_shader(struct si_shader *shader,
             si_select_hw_stage(nir->info.stage, key, sel->screen->info.gfx_level),
             &args->ac);
    NIR_PASS(progress, nir, si_nir_lower_abi, shader, args);
+   NIR_PASS(progress, nir, nir_opt_shrink_vectors, true);
 
    NIR_PASS_V(nir, nir_convert_to_lcssa, true, true); /* required by divergence analysis */
    NIR_PASS_V(nir, nir_divergence_analysis); /* required by ac_nir_scalarize_overfetched_load_callback */
