@@ -60,6 +60,8 @@ nvk_nak_stages(const struct nv_device_info *info)
       { "gs", BITFIELD64_BIT(MESA_SHADER_GEOMETRY) },
       { "fs", BITFIELD64_BIT(MESA_SHADER_FRAGMENT) },
       { "cs", BITFIELD64_BIT(MESA_SHADER_COMPUTE) },
+      { "task", BITFIELD64_BIT(MESA_SHADER_TASK) },
+      { "mesh", BITFIELD64_BIT(MESA_SHADER_MESH) },
       { "all", all },
       { NULL, 0 },
    };
