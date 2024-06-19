@@ -33,6 +33,11 @@ struct vk_shader_module;
 static inline uint32_t
 nvk_cbuf_binding_for_stage(gl_shader_stage stage)
 {
+   if (stage == MESA_SHADER_MESH)
+      return 0;
+   else if (stage == MESA_SHADER_TASK)
+      return 1;
+
    return stage;
 }
 

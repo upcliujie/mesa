@@ -598,7 +598,7 @@ nvk_cmd_bind_shaders(struct vk_command_buffer *vk_cmd,
    }
 }
 
-#define NVK_VK_GRAPHICS_STAGE_BITS VK_SHADER_STAGE_ALL_GRAPHICS
+#define NVK_VK_GRAPHICS_STAGE_BITS (VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT)
 
 void
 nvk_cmd_dirty_cbufs_for_descriptors(struct nvk_cmd_buffer *cmd,

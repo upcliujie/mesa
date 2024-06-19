@@ -1218,6 +1218,11 @@ mesa_to_nv9097_shader_type(gl_shader_stage stage)
 static uint32_t
 nvk_pipeline_bind_group(gl_shader_stage stage)
 {
+   if (stage == MESA_SHADER_MESH)
+      return 0;
+   else if (stage == MESA_SHADER_TASK)
+      return 1;
+
    return stage;
 }
 
@@ -2501,7 +2506,7 @@ nvk_flush_descriptors(struct nvk_cmd_buffer *cmd)
 
    /* Find cbuf maps for the 5 cbuf groups */
    const struct nvk_shader *cbuf_shaders[5] = { NULL, };
-   for (gl_shader_stage stage = 0; stage < MESA_SHADER_STAGES; stage++) {
+   for (gl_shader_stage stage = 0; stage < MESA_SHADER_MESH + 1; stage++) {
       const struct nvk_shader *shader = cmd->state.gfx.shaders[stage];
       if (shader == NULL)
          continue;
