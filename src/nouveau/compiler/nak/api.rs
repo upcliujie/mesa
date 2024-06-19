@@ -226,6 +226,8 @@ impl ShaderBin {
                 ShaderStageInfo::Geometry(_) => MESA_SHADER_GEOMETRY,
                 ShaderStageInfo::TessellationInit(_) => MESA_SHADER_TESS_CTRL,
                 ShaderStageInfo::Tessellation(_) => MESA_SHADER_TESS_EVAL,
+                ShaderStageInfo::Task => MESA_SHADER_TASK,
+                ShaderStageInfo::Mesh(_) => MESA_SHADER_MESH,
             },
             sm: sm.sm(),
             num_gprs: if sm.sm() >= 70 {
@@ -278,9 +280,23 @@ impl ShaderBin {
                         },
                     }
                 }
-                _ => nak_shader_info__bindgen_ty_1 {
-                    _pad: [0; 136],
-                },
+                ShaderStageInfo::Mesh(mesh_info) => {
+                    nak_shader_info__bindgen_ty_1 {
+                        mesh: nak_shader_info__bindgen_ty_1__bindgen_ty_4 {
+                            max_vertices: mesh_info.max_vertices,
+                            max_primitives: mesh_info.max_primitives,
+                            // The max local size supported by hardware is the size of a WARP (32)
+                            local_size: mesh_info.local_size.min(32),
+                            topology: mesh_info.output_topology,
+                            has_gs_sph: mesh_info.has_gs_sph,
+                            gs_hdr: sph::encode_gs_mesh_header(
+                                sm.sm(),
+                                mesh_info,
+                            ),
+                        },
+                    }
+                }
+                _ => nak_shader_info__bindgen_ty_1 { _pad: [0; 136] },
             },
             vtg: match &info.io {
                 ShaderIoInfo::Vtg(io) => nak_shader_info__bindgen_ty_2 {

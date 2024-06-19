@@ -5480,22 +5480,92 @@ impl DisplayOp for OpCS2R {
 }
 impl_display_for_op!(OpCS2R);
 
+#[derive(PartialEq)]
+pub enum IsbeAccessType {
+    Map,
+    Patch,
+    Primitive,
+    Attribute,
+}
+
+impl fmt::Display for IsbeAccessType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IsbeAccessType::Map => write!(f, "map"),
+            IsbeAccessType::Patch => write!(f, "patch"),
+            IsbeAccessType::Primitive => write!(f, "prim"),
+            IsbeAccessType::Attribute => write!(f, "attr"),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(SrcsAsSlice, DstsAsSlice)]
 pub struct OpIsberd {
     #[dst_type(GPR)]
     pub dst: Dst,
 
-    #[src_type(SSA)]
-    pub idx: Src,
+    #[src_type(GPR)]
+    pub offset: Src,
+
+    pub mem_type: MemType,
+    pub access_type: IsbeAccessType,
+    pub output: bool,
+    pub skew: bool,
 }
 
 impl DisplayOp for OpIsberd {
     fn fmt_op(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "isberd [{}]", self.idx)
+        write!(f, "isberd")?;
+
+        if self.output {
+            write!(f, ".o")?;
+        }
+
+        write!(f, ".{}", self.access_type)?;
+
+        if self.skew {
+            write!(f, ".skew")?;
+        }
+
+        write!(f, "{} {} [{}]", self.mem_type, self.dst, self.offset)
     }
 }
 impl_display_for_op!(OpIsberd);
+
+#[repr(C)]
+#[derive(SrcsAsSlice, DstsAsSlice)]
+pub struct OpIsbewr {
+    #[src_type(GPR)]
+    pub offset: Src,
+
+    #[src_type(GPR)]
+    pub data: Src,
+
+    pub mem_type: MemType,
+    pub access_type: IsbeAccessType,
+    pub output: bool,
+    pub skew: bool,
+}
+
+impl DisplayOp for OpIsbewr {
+    fn fmt_op(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "isbewr")?;
+
+        if self.output {
+            write!(f, ".o")?;
+        }
+
+        write!(f, ".{}", self.access_type)?;
+
+        if self.skew {
+            write!(f, ".skew")?;
+        }
+
+        write!(f, "{} [{}] {}", self.mem_type, self.offset, self.data)
+    }
+}
+impl_display_for_op!(OpIsbewr);
 
 #[repr(C)]
 #[derive(SrcsAsSlice, DstsAsSlice)]
@@ -6178,6 +6248,7 @@ pub enum Op {
     Bar(OpBar),
     CS2R(OpCS2R),
     Isberd(OpIsberd),
+    Isbewr(OpIsbewr),
     Kill(OpKill),
     Nop(OpNop),
     PixLd(OpPixLd),
@@ -6561,7 +6632,8 @@ impl Instr {
             | Op::RegOut(_)
             | Op::Out(_)
             | Op::OutFinal(_)
-            | Op::Annotate(_) => false,
+            | Op::Annotate(_)
+            | Op::Isbewr(_) => false,
             Op::BMov(op) => !op.clear,
             _ => true,
         }
@@ -6680,6 +6752,7 @@ impl Instr {
             Op::Bar(_)
             | Op::CS2R(_)
             | Op::Isberd(_)
+            | Op::Isbewr(_)
             | Op::Kill(_)
             | Op::PixLd(_)
             | Op::S2R(_) => false,
@@ -7057,6 +7130,17 @@ pub struct TessellationShaderInfo {
 }
 
 #[derive(Debug)]
+pub struct MeshShaderInfo {
+    pub has_task_shader: bool,
+    pub has_gs_sph: bool,
+    pub primitive_io: VtgIoInfo,
+    pub max_vertices: u16,
+    pub max_primitives: u16,
+    pub output_topology: nak_mesh_topology,
+    pub local_size: u16,
+}
+
+#[derive(Debug)]
 pub enum ShaderStageInfo {
     Compute(ComputeShaderInfo),
     Vertex,
@@ -7064,6 +7148,8 @@ pub enum ShaderStageInfo {
     Geometry(GeometryShaderInfo),
     TessellationInit(TessellationInitShaderInfo),
     Tessellation(TessellationShaderInfo),
+    Task,
+    Mesh(MeshShaderInfo),
 }
 
 #[derive(Debug, Default)]
