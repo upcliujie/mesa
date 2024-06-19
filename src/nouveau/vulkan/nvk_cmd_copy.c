@@ -350,33 +350,25 @@ nvk_CmdCopyBuffer2(VkCommandBuffer commandBuffer,
       uint64_t dst_addr = nvk_buffer_address(dst, region->dstOffset);
       uint64_t size = region->size;
 
-      while (size) {
-         struct nv_push *p = nvk_cmd_buffer_push(cmd, 10);
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 10);
 
-         P_MTHD(p, NV90B5, OFFSET_IN_UPPER);
-         P_NV90B5_OFFSET_IN_UPPER(p, src_addr >> 32);
-         P_NV90B5_OFFSET_IN_LOWER(p, src_addr & 0xffffffff);
-         P_NV90B5_OFFSET_OUT_UPPER(p, dst_addr >> 32);
-         P_NV90B5_OFFSET_OUT_LOWER(p, dst_addr & 0xffffffff);
+      P_MTHD(p, NV90B5, OFFSET_IN_UPPER);
+      P_NV90B5_OFFSET_IN_UPPER(p, src_addr >> 32);
+      P_NV90B5_OFFSET_IN_LOWER(p, src_addr & 0xffffffff);
+      P_NV90B5_OFFSET_OUT_UPPER(p, dst_addr >> 32);
+      P_NV90B5_OFFSET_OUT_LOWER(p, dst_addr & 0xffffffff);
 
-         unsigned bytes = MIN2(size, 1 << 17);
+      P_MTHD(p, NV90B5, LINE_LENGTH_IN);
+      P_NV90B5_LINE_LENGTH_IN(p, size);
+      P_NV90B5_LINE_COUNT(p, 1);
 
-         P_MTHD(p, NV90B5, LINE_LENGTH_IN);
-         P_NV90B5_LINE_LENGTH_IN(p, bytes);
-         P_NV90B5_LINE_COUNT(p, 1);
-
-         P_IMMD(p, NV90B5, LAUNCH_DMA, {
-                .data_transfer_type = DATA_TRANSFER_TYPE_NON_PIPELINED,
-                .multi_line_enable = MULTI_LINE_ENABLE_TRUE,
-                .flush_enable = FLUSH_ENABLE_TRUE,
-                .src_memory_layout = SRC_MEMORY_LAYOUT_PITCH,
-                .dst_memory_layout = DST_MEMORY_LAYOUT_PITCH,
-         });
-
-         src_addr += bytes;
-         dst_addr += bytes;
-         size -= bytes;
-      }
+      P_IMMD(p, NV90B5, LAUNCH_DMA, {
+             .data_transfer_type = DATA_TRANSFER_TYPE_NON_PIPELINED,
+             .multi_line_enable = MULTI_LINE_ENABLE_FALSE,
+             .flush_enable = FLUSH_ENABLE_TRUE,
+             .src_memory_layout = SRC_MEMORY_LAYOUT_PITCH,
+             .dst_memory_layout = DST_MEMORY_LAYOUT_PITCH,
+      });
    }
 }
 
@@ -728,9 +720,7 @@ nvk_CmdFillBuffer(VkCommandBuffer commandBuffer,
    uint64_t dst_addr = nvk_buffer_address(dst_buffer, dstOffset);
    size = vk_buffer_range(&dst_buffer->vk, dstOffset, size);
 
-   uint32_t max_dim = 1 << 15;
-
-   struct nv_push *p = nvk_cmd_buffer_push(cmd, 7);
+   struct nv_push *p = nvk_cmd_buffer_push(cmd, 15);
 
    P_IMMD(p, NV90B5, SET_REMAP_CONST_A, data);
    P_IMMD(p, NV90B5, SET_REMAP_COMPONENTS, {
@@ -744,47 +734,27 @@ nvk_CmdFillBuffer(VkCommandBuffer commandBuffer,
    });
 
    P_MTHD(p, NV90B5, PITCH_IN);
-   P_NV90B5_PITCH_IN(p, max_dim * 4);
-   P_NV90B5_PITCH_OUT(p, max_dim * 4);
+   P_NV90B5_PITCH_IN(p, size);
+   P_NV90B5_PITCH_OUT(p, size);
 
-   while (size >= 4) {
-      struct nv_push *p = nvk_cmd_buffer_push(cmd, 8);
+   P_MTHD(p, NV90B5, OFFSET_OUT_UPPER);
+   P_NV90B5_OFFSET_OUT_UPPER(p, dst_addr >> 32);
+   P_NV90B5_OFFSET_OUT_LOWER(p, dst_addr & 0xffffffff);
 
-      P_MTHD(p, NV90B5, OFFSET_OUT_UPPER);
-      P_NV90B5_OFFSET_OUT_UPPER(p, dst_addr >> 32);
-      P_NV90B5_OFFSET_OUT_LOWER(p, dst_addr & 0xffffffff);
+   P_MTHD(p, NV90B5, LINE_LENGTH_IN);
+   P_NV90B5_LINE_LENGTH_IN(p, size / 4);
+   P_NV90B5_LINE_COUNT(p, 1);
 
-      uint64_t width, height;
-      if (size >= (uint64_t)max_dim * (uint64_t)max_dim * 4) {
-         width = height = max_dim;
-      } else if (size >= max_dim * 4) {
-         width = max_dim;
-         height = size / (max_dim * 4);
-      } else {
-         width = size / 4;
-         height = 1;
-      }
+   P_IMMD(p, NV90B5, LAUNCH_DMA, {
+      .data_transfer_type = DATA_TRANSFER_TYPE_NON_PIPELINED,
+      .multi_line_enable = MULTI_LINE_ENABLE_FALSE,
+      .flush_enable = FLUSH_ENABLE_TRUE,
+      .src_memory_layout = SRC_MEMORY_LAYOUT_PITCH,
+      .dst_memory_layout = DST_MEMORY_LAYOUT_PITCH,
+      .remap_enable = REMAP_ENABLE_TRUE,
+   });
+ }
 
-      uint64_t dma_size = (uint64_t)width * (uint64_t)height * 4;
-      assert(dma_size <= size);
-
-      P_MTHD(p, NV90B5, LINE_LENGTH_IN);
-      P_NV90B5_LINE_LENGTH_IN(p, width);
-      P_NV90B5_LINE_COUNT(p, height);
-
-      P_IMMD(p, NV90B5, LAUNCH_DMA, {
-         .data_transfer_type = DATA_TRANSFER_TYPE_NON_PIPELINED,
-         .multi_line_enable = height > 1,
-         .flush_enable = FLUSH_ENABLE_TRUE,
-         .src_memory_layout = SRC_MEMORY_LAYOUT_PITCH,
-         .dst_memory_layout = DST_MEMORY_LAYOUT_PITCH,
-         .remap_enable = REMAP_ENABLE_TRUE,
-      });
-
-      dst_addr += dma_size;
-      size -= dma_size;
-   }
-}
 
 VKAPI_ATTR void VKAPI_CALL
 nvk_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
