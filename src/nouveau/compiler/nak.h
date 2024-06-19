@@ -56,7 +56,8 @@ static_assert(sizeof(struct nak_fs_key) == 8, "This struct has no holes");
 
 void nak_postprocess_nir(nir_shader *nir, const struct nak_compiler *nak,
                          nir_variable_mode robust2_modes,
-                         const struct nak_fs_key *fs_key);
+                         const struct nak_fs_key *fs_key,
+                         bool has_task_shader);
 
 enum ENUM_PACKED nak_ts_domain {
    NAK_TS_DOMAIN_ISOLINE = 0,
@@ -197,7 +198,8 @@ struct nak_shader_bin *
 nak_compile_shader(nir_shader *nir, bool dump_asm,
                    const struct nak_compiler *nak,
                    nir_variable_mode robust2_modes,
-                   const struct nak_fs_key *fs_key);
+                   const struct nak_fs_key *fs_key,
+                   bool has_task_shader);
 
 struct nak_qmd_cbuf {
    uint32_t index;

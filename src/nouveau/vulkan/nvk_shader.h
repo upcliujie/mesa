@@ -123,13 +123,16 @@ nvk_nir_lower_descriptors(nir_shader *nir,
                           const struct vk_pipeline_robustness_state *rs,
                           uint32_t set_layout_count,
                           struct vk_descriptor_set_layout * const *set_layouts,
+                          bool has_task_shader,
                           struct nvk_cbuf_map *cbuf_map_out);
+bool nvk_nir_lower_mesh(nir_shader *nir);
 void
 nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
               const struct vk_pipeline_robustness_state *rs,
               bool is_multiview,
               uint32_t set_layout_count,
               struct vk_descriptor_set_layout * const *set_layouts,
+              VkShaderCreateFlagsEXT shader_flags,
               struct nvk_cbuf_map *cbuf_map_out);
 
 VkResult

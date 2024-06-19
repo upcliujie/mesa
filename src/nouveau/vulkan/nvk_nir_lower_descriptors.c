@@ -56,6 +56,7 @@ struct lower_descriptors_ctx {
 
    bool use_bindless_cbuf;
    bool clamp_desc_array_bounds;
+   bool has_task_shader;
    nir_address_format ubo_addr_format;
    nir_address_format ssbo_addr_format;
 
@@ -988,6 +989,8 @@ static bool
 try_lower_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
                  const struct lower_descriptors_ctx *ctx)
 {
+   const gl_shader_stage stage = b->shader->info.stage;
+
    switch (intrin->intrinsic) {
    case nir_intrinsic_load_constant:
       return lower_load_constant(b, intrin, ctx);
@@ -999,10 +1002,20 @@ try_lower_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
       unreachable("Should have been lowered by nir_lower_cs_intrinsics()");
 
    case nir_intrinsic_load_num_workgroups:
+      /* We use ISBE.ATTR to pass this from task. */
+      if (stage == MESA_SHADER_MESH && ctx->has_task_shader)
+         return false;
+
+      if (stage == MESA_SHADER_MESH)
+         return lower_sysval_to_root_table(b, intrin, draw.mesh.group_count, ctx);
+
       return lower_sysval_to_root_table(b, intrin, cs.group_count, ctx);
 
    case nir_intrinsic_load_base_workgroup_id:
-      return lower_sysval_to_root_table(b, intrin, cs.base_group, ctx);
+      if (stage == MESA_SHADER_COMPUTE)
+         return lower_sysval_to_root_table(b, intrin, cs.base_group, ctx);
+
+      return false;
 
    case nir_intrinsic_load_push_constant:
       return lower_load_push_constant(b, intrin, ctx);
@@ -1345,6 +1358,7 @@ nvk_nir_lower_descriptors(nir_shader *nir,
                           const struct vk_pipeline_robustness_state *rs,
                           uint32_t set_layout_count,
                           struct vk_descriptor_set_layout * const *set_layouts,
+                          bool has_task_shader,
                           struct nvk_cbuf_map *cbuf_map_out)
 {
    struct lower_descriptors_ctx ctx = {
@@ -1356,6 +1370,7 @@ nvk_nir_lower_descriptors(nir_shader *nir,
          rs->images != VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DISABLED_EXT,
       .ssbo_addr_format = nvk_ssbo_addr_format(pdev, rs->storage_buffers),
       .ubo_addr_format = nvk_ubo_addr_format(pdev, rs->uniform_buffers),
+      .has_task_shader = has_task_shader,
    };
 
    assert(set_layout_count <= NVK_MAX_SETS);

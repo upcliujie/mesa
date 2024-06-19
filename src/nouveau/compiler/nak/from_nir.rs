@@ -18,7 +18,7 @@ use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::ops::Index;
 
-fn init_info_from_nir(nir: &nir_shader) -> ShaderInfo {
+fn init_info_from_nir(nir: &nir_shader, has_task_shader: bool) -> ShaderInfo {
     ShaderInfo {
         num_gprs: 0,
         num_instrs: 0,
@@ -118,8 +118,7 @@ fn init_info_from_nir(nir: &nir_shader) -> ShaderInfo {
                 let info_mesh = unsafe { &nir.info.__bindgen_anon_1.mesh };
 
                 ShaderStageInfo::Mesh(MeshShaderInfo {
-                    // TODO: Implement this
-                    has_task_shader: false,
+                    has_task_shader,
                     has_gs_sph: false,
                     primitive_io: VtgIoInfo {
                         sysvals_in: SysValInfo::default(),
@@ -383,11 +382,11 @@ struct ShaderFromNir<'a> {
 }
 
 impl<'a> ShaderFromNir<'a> {
-    fn new(nir: &'a nir_shader, sm: &'a dyn ShaderModel) -> Self {
+    fn new(nir: &'a nir_shader, sm: &'a dyn ShaderModel, has_task_shader: bool) -> Self {
         Self {
             nir: nir,
             sm: sm,
-            info: init_info_from_nir(nir),
+            info: init_info_from_nir(nir, has_task_shader),
             float_ctl: ShaderFloatControls::from_nir(nir),
             cfg: CFGBuilder::new(),
             label_alloc: LabelAllocator::new(),
@@ -3782,6 +3781,7 @@ impl<'a> ShaderFromNir<'a> {
 pub fn nak_shader_from_nir<'a>(
     ns: &'a nir_shader,
     sm: &'a dyn ShaderModel,
+    has_task_shader: bool,
 ) -> Shader<'a> {
-    ShaderFromNir::new(ns, sm).parse_shader()
+    ShaderFromNir::new(ns, sm, has_task_shader).parse_shader()
 }

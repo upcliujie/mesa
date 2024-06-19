@@ -394,8 +394,9 @@ pub extern "C" fn nak_compile_shader(
     nak: *const nak_compiler,
     robust2_modes: nir_variable_mode,
     fs_key: *const nak_fs_key,
+    has_task_shader: bool,
 ) -> *mut nak_shader_bin {
-    unsafe { nak_postprocess_nir(nir, nak, robust2_modes, fs_key) };
+    unsafe { nak_postprocess_nir(nir, nak, robust2_modes, fs_key, has_task_shader) };
     let nak = unsafe { &*nak };
     let nir = unsafe { &*nir };
     let fs_key = if fs_key.is_null() {
@@ -412,7 +413,7 @@ pub extern "C" fn nak_compile_shader(
         panic!("Unsupported shader model");
     };
 
-    let mut s = nak_shader_from_nir(nir, sm.as_ref());
+    let mut s = nak_shader_from_nir(nir, sm.as_ref(), has_task_shader);
 
     if DEBUG.print() {
         eprintln!("NAK IR:\n{}", &s);
