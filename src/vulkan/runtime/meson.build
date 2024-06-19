@@ -81,6 +81,10 @@ if with_platform_android
 endif
 
 if with_vulkan_wddm2
+  vulkan_lite_runtime_files += files(
+    'vk_wddm2_monitored_fence.c',
+    'vk_wddm2_monitored_fence.h',
+  )
   vulkan_lite_runtime_deps += dep_libdxg
 endif
 
