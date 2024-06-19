@@ -249,7 +249,7 @@ impl ShaderBin {
                                 cs_info.local_size[2],
                             ],
                             smem_size: cs_info.smem_size,
-                            _pad: Default::default(),
+                            _pad: [0; 128],
                         },
                     }
                 }
@@ -265,7 +265,7 @@ impl ShaderBin {
                             post_depth_coverage: fs_info.post_depth_coverage,
                             uses_sample_shading: fs_info.uses_sample_shading,
                             early_fragment_tests: fs_info.early_fragment_tests,
-                            _pad: Default::default(),
+                            _pad: [0; 131],
                         },
                     }
                 }
@@ -275,12 +275,12 @@ impl ShaderBin {
                             domain: ts_info.domain as u8,
                             spacing: ts_info.spacing as u8,
                             prims: ts_info.primitives as u8,
-                            _pad: Default::default(),
+                            _pad: [0; 133],
                         },
                     }
                 }
                 _ => nak_shader_info__bindgen_ty_1 {
-                    _pad: Default::default(),
+                    _pad: [0; 136],
                 },
             },
             vtg: match &info.io {
