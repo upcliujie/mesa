@@ -1186,6 +1186,9 @@ nvk_cmd_bind_graphics_shader(struct nvk_cmd_buffer *cmd,
    if (cmd->state.gfx.shaders[stage] == shader)
       return;
 
+   bool shader_stage_is_switching = cmd->state.gfx.shaders[stage] == NULL ||
+                                    shader == NULL;
+
    cmd->state.gfx.shaders[stage] = shader;
    cmd->state.gfx.shaders_dirty |= BITFIELD_BIT(stage);
 
@@ -1199,17 +1202,53 @@ nvk_cmd_bind_graphics_shader(struct nvk_cmd_buffer *cmd,
    /* Emitting SET_HYBRID_ANTI_ALIAS_CONTROL requires the fragment shader */
    if (stage == MESA_SHADER_FRAGMENT)
       BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_MS_RASTERIZATION_SAMPLES);
+
+
+   /* In case of mesh or task bind/unbind we need to mirror the dirty flag for the vertex stage */
+   if (stage == MESA_SHADER_TASK || stage == MESA_SHADER_MESH)
+      cmd->state.gfx.shaders_dirty |= BITFIELD_BIT(MESA_SHADER_VERTEX);
+
+   /* In case of mesh bind/unbind we need to mirror the dirty flag for the tess and geometry stage */
+   if (stage == MESA_SHADER_MESH) {
+      cmd->state.gfx.shaders_dirty |= BITFIELD_BIT(MESA_SHADER_TESS_CTRL);
+      cmd->state.gfx.shaders_dirty |= BITFIELD_BIT(MESA_SHADER_GEOMETRY);
+
+      /* If we are removing or adding a mesh shader, the type of pipeline is changing, we need to invalidate rasterization state */
+      if (shader_stage_is_switching) {
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_RASTERIZER_DISCARD_ENABLE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_CLAMP_ENABLE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_CLIP_ENABLE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_POLYGON_MODE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_CULL_MODE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_FRONT_FACE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_CONSERVATIVE_MODE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_EXTRA_PRIMITIVE_OVERESTIMATION_SIZE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_RASTERIZATION_ORDER_AMD);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_PROVOKING_VERTEX);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_RASTERIZATION_STREAM);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_BIAS_ENABLE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_DEPTH_BIAS_FACTORS);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_LINE_WIDTH);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_LINE_MODE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_LINE_STIPPLE_ENABLE);
+         BITSET_SET(dyn->dirty, MESA_VK_DYNAMIC_RS_LINE_STIPPLE);
+      }
+   }
 }
 
 static uint32_t
-mesa_to_nv9097_shader_type(gl_shader_stage stage)
+mesa_to_nv9097_shader_type(gl_shader_stage stage, bool has_task_shader)
 {
+   if (stage == MESA_SHADER_MESH)
+      return has_task_shader ? NV9097_SET_PIPELINE_SHADER_TYPE_TESSELLATION : NV9097_SET_PIPELINE_SHADER_TYPE_VERTEX;
+
    static const uint32_t mesa_to_nv9097[] = {
       [MESA_SHADER_VERTEX]    = NV9097_SET_PIPELINE_SHADER_TYPE_VERTEX,
       [MESA_SHADER_TESS_CTRL] = NV9097_SET_PIPELINE_SHADER_TYPE_TESSELLATION_INIT,
       [MESA_SHADER_TESS_EVAL] = NV9097_SET_PIPELINE_SHADER_TYPE_TESSELLATION,
       [MESA_SHADER_GEOMETRY]  = NV9097_SET_PIPELINE_SHADER_TYPE_GEOMETRY,
       [MESA_SHADER_FRAGMENT]  = NV9097_SET_PIPELINE_SHADER_TYPE_PIXEL,
+      [MESA_SHADER_TASK]      = NV9097_SET_PIPELINE_SHADER_TYPE_VERTEX,
    };
    assert(stage < ARRAY_SIZE(mesa_to_nv9097));
    return mesa_to_nv9097[stage];
@@ -1232,18 +1271,46 @@ nvk_flush_shaders(struct nvk_cmd_buffer *cmd)
    if (cmd->state.gfx.shaders_dirty == 0)
       return;
 
+   struct nvk_device *dev = nvk_cmd_buffer_device(cmd);
+   struct nvk_physical_device *pdev = nvk_device_physical(dev);
+
    /* Map shader types to shaders */
    struct nvk_shader *type_shader[6] = { NULL, };
    uint32_t types_dirty = 0;
 
-   const uint32_t gfx_stages = BITFIELD_BIT(MESA_SHADER_VERTEX) |
-                               BITFIELD_BIT(MESA_SHADER_TESS_CTRL) |
-                               BITFIELD_BIT(MESA_SHADER_TESS_EVAL) |
-                               BITFIELD_BIT(MESA_SHADER_GEOMETRY) |
-                               BITFIELD_BIT(MESA_SHADER_FRAGMENT);
+   uint32_t gfx_stages;
+   uint32_t vtg_stages;
+
+   bool has_task_shader = cmd->state.gfx.shaders[MESA_SHADER_TASK] != NULL;
+   bool has_mesh_shader = cmd->state.gfx.shaders[MESA_SHADER_MESH] != NULL;
+
+   /* In case of mesh pipeline, only enable task, mesh and fragment */
+   if (has_mesh_shader) {
+      gfx_stages = BITFIELD_BIT(MESA_SHADER_TASK) |
+                   BITFIELD_BIT(MESA_SHADER_MESH) |
+                   BITFIELD_BIT(MESA_SHADER_FRAGMENT);
+      vtg_stages = BITFIELD_BIT(MESA_SHADER_TASK) |
+                   BITFIELD_BIT(MESA_SHADER_MESH);
+   }
+
+   else {
+      gfx_stages = BITFIELD_BIT(MESA_SHADER_VERTEX) |
+                   BITFIELD_BIT(MESA_SHADER_TESS_CTRL) |
+                   BITFIELD_BIT(MESA_SHADER_TESS_EVAL) |
+                   BITFIELD_BIT(MESA_SHADER_GEOMETRY) |
+                   BITFIELD_BIT(MESA_SHADER_FRAGMENT);
+      vtg_stages = BITFIELD_BIT(MESA_SHADER_VERTEX) |
+                   BITFIELD_BIT(MESA_SHADER_TESS_EVAL) |
+                   BITFIELD_BIT(MESA_SHADER_GEOMETRY);
+   }
+
+   if (pdev->info.cls_eng3d >= TURING_A) {
+      struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
+      P_IMMD(p, NVC597, SET_MESH_CONTROL, has_mesh_shader);
+   }
 
    u_foreach_bit(stage, cmd->state.gfx.shaders_dirty & gfx_stages) {
-      uint32_t type = mesa_to_nv9097_shader_type(stage);
+      uint32_t type = mesa_to_nv9097_shader_type(stage, has_task_shader);
       types_dirty |= BITFIELD_BIT(type);
 
       /* Only copy non-NULL shaders because mesh/task alias with vertex and
@@ -1298,7 +1365,39 @@ nvk_flush_shaders(struct nvk_cmd_buffer *cmd)
       P_NVC397_SET_PIPELINE_BINDING(p, idx,
          nvk_pipeline_bind_group(shader->info.stage));
 
-      if (shader->info.stage == MESA_SHADER_FRAGMENT) {
+      if (shader->info.stage == MESA_SHADER_TASK) {
+         assert(0 && "todo");
+      } else if (shader->info.stage == MESA_SHADER_MESH) {
+         assert(shader->info.mesh.max_vertices != 0);
+         assert(shader->info.mesh.max_primitives != 0);
+
+         p = nvk_cmd_buffer_push(cmd, 11);
+
+         P_IMMD(p, NVC597, SET_MESH_SHADER_A, {
+            .output_topology  = shader->info.mesh.topology,
+            .max_vertex = shader->info.mesh.max_vertices,
+            .max_primitive = shader->info.mesh.max_primitives,
+         });
+         /* XXX: Investigate shared_mem_lines */
+         P_NVC597_SET_MESH_SHADER_B(p, {
+            .shared_mem_lines = 0,
+            .thread_count = shader->info.mesh.local_size,
+         });
+
+         P_IMMD(p, NV9097, SET_PIPELINE_SHADER(NV9097_SET_PIPELINE_SHADER_TYPE_GEOMETRY), {
+            .enable  = shader->info.mesh.has_gs_sph,
+            .type    = TYPE_GEOMETRY,
+         });
+
+         if (shader->info.mesh.has_gs_sph) {
+            uint64_t gs_hdr_addr = shader->gs_hdr_addr;
+            P_MTHD(p, NVC397, SET_PIPELINE_PROGRAM_ADDRESS_A(NV9097_SET_PIPELINE_SHADER_TYPE_GEOMETRY));
+            P_NVC397_SET_PIPELINE_PROGRAM_ADDRESS_A(p, NV9097_SET_PIPELINE_SHADER_TYPE_GEOMETRY, gs_hdr_addr >> 32);
+            P_NVC397_SET_PIPELINE_PROGRAM_ADDRESS_B(p, NV9097_SET_PIPELINE_SHADER_TYPE_GEOMETRY, gs_hdr_addr);
+            P_IMMD(p, NVC397, SET_GS_MODE, TYPE_ANY);
+         }
+
+      } else if (shader->info.stage == MESA_SHADER_FRAGMENT) {
          p = nvk_cmd_buffer_push(cmd, 9);
 
          P_MTHD(p, NVC397, SET_SUBTILING_PERF_KNOB_A);
@@ -1326,11 +1425,6 @@ nvk_flush_shaders(struct nvk_cmd_buffer *cmd)
          });
       }
    }
-
-   const uint32_t vtg_stages = BITFIELD_BIT(MESA_SHADER_VERTEX) |
-                               BITFIELD_BIT(MESA_SHADER_TESS_EVAL) |
-                               BITFIELD_BIT(MESA_SHADER_GEOMETRY);
-   const uint32_t vtgm_stages = vtg_stages | BITFIELD_BIT(MESA_SHADER_MESH);
 
    if (cmd->state.gfx.shaders_dirty & vtg_stages) {
       struct nak_xfb_info *xfb = NULL;
@@ -1362,11 +1456,9 @@ nvk_flush_shaders(struct nvk_cmd_buffer *cmd)
             }
          }
       }
-   }
 
-   if (cmd->state.gfx.shaders_dirty & vtgm_stages) {
       struct nvk_shader *last_vtgm = NULL;
-      u_foreach_bit(stage, vtgm_stages) {
+      u_foreach_bit(stage, vtg_stages) {
          if (cmd->state.gfx.shaders[stage] != NULL)
             last_vtgm = cmd->state.gfx.shaders[stage];
       }
