@@ -405,6 +405,7 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
 
    nir_lower_compute_system_values_options csv_options = {
       .has_base_workgroup_id = true,
+      .lower_local_invocation_index = nir->info.stage == MESA_SHADER_COMPUTE,
    };
    NIR_PASS(_, nir, nir_lower_compute_system_values, &csv_options);
 
