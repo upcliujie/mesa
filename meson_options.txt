@@ -302,7 +302,7 @@ option(
   'vulkan-layers',
   type : 'array',
   value : [],
-  choices : ['device-select', 'intel-nullhw', 'overlay'],
+  choices : ['device-select', 'intel-nullhw', 'overlay', 'vram-report-limit'],
   description : 'List of vulkan layers to build'
 )
 
