@@ -798,110 +798,110 @@ for (name, defs, ops, num, cls) in default_class(SOPP, InstrClass.Salu):
 # SMEM instructions: sbase input (2 sgpr), potentially 2 offset inputs, 1 sdata input/output
 # Unlike GFX10, GFX10.3 does not have SMEM store, atomic or scratch instructions
 SMEM = {
-   ("s_load_dword",               op(0x00)), #s_load_b32 in GFX11
-   ("s_load_dwordx2",             op(0x01)), #s_load_b64 in GFX11
-   ("s_load_dwordx3",             op(gfx12=0x05)), #s_load_b96 in GFX12
-   ("s_load_dwordx4",             op(0x02)), #s_load_b128 in GFX11
-   ("s_load_dwordx8",             op(0x03)), #s_load_b256 in GFX11
-   ("s_load_dwordx16",            op(0x04)), #s_load_b512 in GFX11
-   ("s_load_sbyte",               op(gfx12=0x08)), #s_load_i8 in GFX12
-   ("s_load_ubyte",               op(gfx12=0x09)), #s_load_u8 in GFX12
-   ("s_load_sshort",              op(gfx12=0x0a)), #s_load_i16 in GFX12
-   ("s_load_ushort",              op(gfx12=0x0b)), #s_load_u16 in GFX12
-   ("s_scratch_load_dword",       op(gfx9=0x05, gfx11=-1)),
-   ("s_scratch_load_dwordx2",     op(gfx9=0x06, gfx11=-1)),
-   ("s_scratch_load_dwordx4",     op(gfx9=0x07, gfx11=-1)),
-   ("s_buffer_load_dword",        op(0x08, gfx12=0x10)), #s_buffer_load_b32 in GFX11
-   ("s_buffer_load_dwordx2",      op(0x09, gfx12=0x11)), #s_buffer_load_b64 in GFX11
-   ("s_buffer_load_dwordx3",      op(gfx12=0x15)), #s_buffer_load_b96 in GFX12
-   ("s_buffer_load_dwordx4",      op(0x0a, gfx12=0x12)), #s_buffer_load_b128 in GFX11
-   ("s_buffer_load_dwordx8",      op(0x0b, gfx12=0x13)), #s_buffer_load_b256 in GFX11
-   ("s_buffer_load_dwordx16",     op(0x0c, gfx12=0x14)), #s_buffer_load_b512 in GFX11
-   ("s_buffer_load_sbyte",        op(gfx12=0x18)), #s_buffer_load_i8 in GFX12
-   ("s_buffer_load_ubyte",        op(gfx12=0x19)), #s_buffer_load_u8 in GFX12
-   ("s_buffer_load_sshort",       op(gfx12=0x1a)), #s_buffer_load_i16 in GFX12
-   ("s_buffer_load_ushort",       op(gfx12=0x1b)), #s_buffer_load_u16 in GFX12
-   ("s_store_dword",              op(gfx8=0x10, gfx11=-1)),
-   ("s_store_dwordx2",            op(gfx8=0x11, gfx11=-1)),
-   ("s_store_dwordx4",            op(gfx8=0x12, gfx11=-1)),
-   ("s_scratch_store_dword",      op(gfx9=0x15, gfx11=-1)),
-   ("s_scratch_store_dwordx2",    op(gfx9=0x16, gfx11=-1)),
-   ("s_scratch_store_dwordx4",    op(gfx9=0x17, gfx11=-1)),
-   ("s_buffer_store_dword",       op(gfx8=0x18, gfx11=-1)),
-   ("s_buffer_store_dwordx2",     op(gfx8=0x19, gfx11=-1)),
-   ("s_buffer_store_dwordx4",     op(gfx8=0x1a, gfx11=-1)),
-   ("s_gl1_inv",                  op(gfx8=0x1f, gfx11=0x20, gfx12=-1)),
-   ("s_dcache_inv",               op(0x1f, gfx8=0x20, gfx11=0x21)),
-   ("s_dcache_wb",                op(gfx8=0x21, gfx11=-1)),
-   ("s_dcache_inv_vol",           op(gfx7=0x1d, gfx8=0x22, gfx10=-1)),
-   ("s_dcache_wb_vol",            op(gfx8=0x23, gfx10=-1)),
-   ("s_memtime",                  op(0x1e, gfx8=0x24, gfx11=-1)), #GFX6-GFX10
-   ("s_memrealtime",              op(gfx8=0x25, gfx11=-1)),
-   ("s_atc_probe",                op(gfx8=0x26, gfx11=0x22)),
-   ("s_atc_probe_buffer",         op(gfx8=0x27, gfx11=0x23)),
-   ("s_dcache_discard",           op(gfx9=0x28, gfx11=-1)),
-   ("s_dcache_discard_x2",        op(gfx9=0x29, gfx11=-1)),
-   ("s_get_waveid_in_workgroup",  op(gfx10=0x2a, gfx11=-1)),
-   ("s_buffer_atomic_swap",       op(gfx9=0x40, gfx11=-1)),
-   ("s_buffer_atomic_cmpswap",    op(gfx9=0x41, gfx11=-1)),
-   ("s_buffer_atomic_add",        op(gfx9=0x42, gfx11=-1)),
-   ("s_buffer_atomic_sub",        op(gfx9=0x43, gfx11=-1)),
-   ("s_buffer_atomic_smin",       op(gfx9=0x44, gfx11=-1)),
-   ("s_buffer_atomic_umin",       op(gfx9=0x45, gfx11=-1)),
-   ("s_buffer_atomic_smax",       op(gfx9=0x46, gfx11=-1)),
-   ("s_buffer_atomic_umax",       op(gfx9=0x47, gfx11=-1)),
-   ("s_buffer_atomic_and",        op(gfx9=0x48, gfx11=-1)),
-   ("s_buffer_atomic_or",         op(gfx9=0x49, gfx11=-1)),
-   ("s_buffer_atomic_xor",        op(gfx9=0x4a, gfx11=-1)),
-   ("s_buffer_atomic_inc",        op(gfx9=0x4b, gfx11=-1)),
-   ("s_buffer_atomic_dec",        op(gfx9=0x4c, gfx11=-1)),
-   ("s_buffer_atomic_swap_x2",    op(gfx9=0x60, gfx11=-1)),
-   ("s_buffer_atomic_cmpswap_x2", op(gfx9=0x61, gfx11=-1)),
-   ("s_buffer_atomic_add_x2",     op(gfx9=0x62, gfx11=-1)),
-   ("s_buffer_atomic_sub_x2",     op(gfx9=0x63, gfx11=-1)),
-   ("s_buffer_atomic_smin_x2",    op(gfx9=0x64, gfx11=-1)),
-   ("s_buffer_atomic_umin_x2",    op(gfx9=0x65, gfx11=-1)),
-   ("s_buffer_atomic_smax_x2",    op(gfx9=0x66, gfx11=-1)),
-   ("s_buffer_atomic_umax_x2",    op(gfx9=0x67, gfx11=-1)),
-   ("s_buffer_atomic_and_x2",     op(gfx9=0x68, gfx11=-1)),
-   ("s_buffer_atomic_or_x2",      op(gfx9=0x69, gfx11=-1)),
-   ("s_buffer_atomic_xor_x2",     op(gfx9=0x6a, gfx11=-1)),
-   ("s_buffer_atomic_inc_x2",     op(gfx9=0x6b, gfx11=-1)),
-   ("s_buffer_atomic_dec_x2",     op(gfx9=0x6c, gfx11=-1)),
-   ("s_atomic_swap",              op(gfx9=0x80, gfx11=-1)),
-   ("s_atomic_cmpswap",           op(gfx9=0x81, gfx11=-1)),
-   ("s_atomic_add",               op(gfx9=0x82, gfx11=-1)),
-   ("s_atomic_sub",               op(gfx9=0x83, gfx11=-1)),
-   ("s_atomic_smin",              op(gfx9=0x84, gfx11=-1)),
-   ("s_atomic_umin",              op(gfx9=0x85, gfx11=-1)),
-   ("s_atomic_smax",              op(gfx9=0x86, gfx11=-1)),
-   ("s_atomic_umax",              op(gfx9=0x87, gfx11=-1)),
-   ("s_atomic_and",               op(gfx9=0x88, gfx11=-1)),
-   ("s_atomic_or",                op(gfx9=0x89, gfx11=-1)),
-   ("s_atomic_xor",               op(gfx9=0x8a, gfx11=-1)),
-   ("s_atomic_inc",               op(gfx9=0x8b, gfx11=-1)),
-   ("s_atomic_dec",               op(gfx9=0x8c, gfx11=-1)),
-   ("s_atomic_swap_x2",           op(gfx9=0xa0, gfx11=-1)),
-   ("s_atomic_cmpswap_x2",        op(gfx9=0xa1, gfx11=-1)),
-   ("s_atomic_add_x2",            op(gfx9=0xa2, gfx11=-1)),
-   ("s_atomic_sub_x2",            op(gfx9=0xa3, gfx11=-1)),
-   ("s_atomic_smin_x2",           op(gfx9=0xa4, gfx11=-1)),
-   ("s_atomic_umin_x2",           op(gfx9=0xa5, gfx11=-1)),
-   ("s_atomic_smax_x2",           op(gfx9=0xa6, gfx11=-1)),
-   ("s_atomic_umax_x2",           op(gfx9=0xa7, gfx11=-1)),
-   ("s_atomic_and_x2",            op(gfx9=0xa8, gfx11=-1)),
-   ("s_atomic_or_x2",             op(gfx9=0xa9, gfx11=-1)),
-   ("s_atomic_xor_x2",            op(gfx9=0xaa, gfx11=-1)),
-   ("s_atomic_inc_x2",            op(gfx9=0xab, gfx11=-1)),
-   ("s_atomic_dec_x2",            op(gfx9=0xac, gfx11=-1)),
-   ("s_prefetch_inst",            op(gfx12=0x24)),
-   ("s_prefetch_inst_pc_rel",     op(gfx12=0x25)),
-   ("s_prefetch_data",            op(gfx12=0x26)),
-   ("s_buffer_prefetch_data",     op(gfx12=0x27)),
-   ("s_prefetch_data_pc_rel",     op(gfx12=0x28)),
+   ("s_load_dword",               dst(U32), src(), op(0x00)), #s_load_b32 in GFX11
+   ("s_load_dwordx2",             dst(U64), src(), op(0x01)), #s_load_b64 in GFX11
+   ("s_load_dwordx3",             dst(U96), src(), op(gfx12=0x05)), #s_load_b96 in GFX12
+   ("s_load_dwordx4",             dst(U128), src(), op(0x02)), #s_load_b128 in GFX11
+   ("s_load_dwordx8",             dst(U256), src(), op(0x03)), #s_load_b256 in GFX11
+   ("s_load_dwordx16",            dst(U512), src(), op(0x04)), #s_load_b512 in GFX11
+   ("s_load_sbyte",               dst(U8), src(), op(gfx12=0x08)), #s_load_i8 in GFX12
+   ("s_load_ubyte",               dst(U8), src(), op(gfx12=0x09)), #s_load_u8 in GFX12
+   ("s_load_sshort",              dst(U16), src(), op(gfx12=0x0a)), #s_load_i16 in GFX12
+   ("s_load_ushort",              dst(U16), src(), op(gfx12=0x0b)), #s_load_u16 in GFX12
+   ("s_scratch_load_dword",       dst(U32), src(), op(gfx9=0x05, gfx11=-1)),
+   ("s_scratch_load_dwordx2",     dst(U64), src(), op(gfx9=0x06, gfx11=-1)),
+   ("s_scratch_load_dwordx4",     dst(U128), src(), op(gfx9=0x07, gfx11=-1)),
+   ("s_buffer_load_dword",        dst(U32), src(), op(0x08, gfx12=0x10)), #s_buffer_load_b32 in GFX11
+   ("s_buffer_load_dwordx2",      dst(U64), src(), op(0x09, gfx12=0x11)), #s_buffer_load_b64 in GFX11
+   ("s_buffer_load_dwordx3",      dst(U96), src(), op(gfx12=0x15)), #s_buffer_load_b96 in GFX12
+   ("s_buffer_load_dwordx4",      dst(U128), src(), op(0x0a, gfx12=0x12)), #s_buffer_load_b128 in GFX11
+   ("s_buffer_load_dwordx8",      dst(U256), src(), op(0x0b, gfx12=0x13)), #s_buffer_load_b256 in GFX11
+   ("s_buffer_load_dwordx16",     dst(U512), src(), op(0x0c, gfx12=0x14)), #s_buffer_load_b512 in GFX11
+   ("s_buffer_load_sbyte",        dst(U8), src(), op(gfx12=0x18)), #s_buffer_load_i8 in GFX12
+   ("s_buffer_load_ubyte",        dst(U8), src(), op(gfx12=0x19)), #s_buffer_load_u8 in GFX12
+   ("s_buffer_load_sshort",       dst(U16), src(), op(gfx12=0x1a)), #s_buffer_load_i16 in GFX12
+   ("s_buffer_load_ushort",       dst(U16), src(), op(gfx12=0x1b)), #s_buffer_load_u16 in GFX12
+   ("s_store_dword",              dst(), src(), op(gfx8=0x10, gfx11=-1)),
+   ("s_store_dwordx2",            dst(), src(), op(gfx8=0x11, gfx11=-1)),
+   ("s_store_dwordx4",            dst(), src(), op(gfx8=0x12, gfx11=-1)),
+   ("s_scratch_store_dword",      dst(), src(), op(gfx9=0x15, gfx11=-1)),
+   ("s_scratch_store_dwordx2",    dst(), src(), op(gfx9=0x16, gfx11=-1)),
+   ("s_scratch_store_dwordx4",    dst(), src(), op(gfx9=0x17, gfx11=-1)),
+   ("s_buffer_store_dword",       dst(), src(), op(gfx8=0x18, gfx11=-1)),
+   ("s_buffer_store_dwordx2",     dst(), src(), op(gfx8=0x19, gfx11=-1)),
+   ("s_buffer_store_dwordx4",     dst(), src(), op(gfx8=0x1a, gfx11=-1)),
+   ("s_gl1_inv",                  dst(), src(), op(gfx8=0x1f, gfx11=0x20, gfx12=-1)),
+   ("s_dcache_inv",               dst(), src(), op(0x1f, gfx8=0x20, gfx11=0x21)),
+   ("s_dcache_wb",                dst(), src(), op(gfx8=0x21, gfx11=-1)),
+   ("s_dcache_inv_vol",           dst(), src(), op(gfx7=0x1d, gfx8=0x22, gfx10=-1)),
+   ("s_dcache_wb_vol",            dst(), src(), op(gfx8=0x23, gfx10=-1)),
+   ("s_memtime",                  dst(U64), src(), op(0x1e, gfx8=0x24, gfx11=-1)), #GFX6-GFX10
+   ("s_memrealtime",              dst(U64), src(), op(gfx8=0x25, gfx11=-1)),
+   ("s_atc_probe",                dst(), src(), op(gfx8=0x26, gfx11=0x22)),
+   ("s_atc_probe_buffer",         dst(), src(), op(gfx8=0x27, gfx11=0x23)),
+   ("s_dcache_discard",           dst(), src(), op(gfx9=0x28, gfx11=-1)),
+   ("s_dcache_discard_x2",        dst(), src(), op(gfx9=0x29, gfx11=-1)),
+   ("s_get_waveid_in_workgroup",  dst(), src(), op(gfx10=0x2a, gfx11=-1)),
+   ("s_buffer_atomic_swap",       dst(), src(), op(gfx9=0x40, gfx11=-1)),
+   ("s_buffer_atomic_cmpswap",    dst(), src(), op(gfx9=0x41, gfx11=-1)),
+   ("s_buffer_atomic_add",        dst(), src(), op(gfx9=0x42, gfx11=-1)),
+   ("s_buffer_atomic_sub",        dst(), src(), op(gfx9=0x43, gfx11=-1)),
+   ("s_buffer_atomic_smin",       dst(), src(), op(gfx9=0x44, gfx11=-1)),
+   ("s_buffer_atomic_umin",       dst(), src(), op(gfx9=0x45, gfx11=-1)),
+   ("s_buffer_atomic_smax",       dst(), src(), op(gfx9=0x46, gfx11=-1)),
+   ("s_buffer_atomic_umax",       dst(), src(), op(gfx9=0x47, gfx11=-1)),
+   ("s_buffer_atomic_and",        dst(), src(), op(gfx9=0x48, gfx11=-1)),
+   ("s_buffer_atomic_or",         dst(), src(), op(gfx9=0x49, gfx11=-1)),
+   ("s_buffer_atomic_xor",        dst(), src(), op(gfx9=0x4a, gfx11=-1)),
+   ("s_buffer_atomic_inc",        dst(), src(), op(gfx9=0x4b, gfx11=-1)),
+   ("s_buffer_atomic_dec",        dst(), src(), op(gfx9=0x4c, gfx11=-1)),
+   ("s_buffer_atomic_swap_x2",    dst(), src(), op(gfx9=0x60, gfx11=-1)),
+   ("s_buffer_atomic_cmpswap_x2", dst(), src(), op(gfx9=0x61, gfx11=-1)),
+   ("s_buffer_atomic_add_x2",     dst(), src(), op(gfx9=0x62, gfx11=-1)),
+   ("s_buffer_atomic_sub_x2",     dst(), src(), op(gfx9=0x63, gfx11=-1)),
+   ("s_buffer_atomic_smin_x2",    dst(), src(), op(gfx9=0x64, gfx11=-1)),
+   ("s_buffer_atomic_umin_x2",    dst(), src(), op(gfx9=0x65, gfx11=-1)),
+   ("s_buffer_atomic_smax_x2",    dst(), src(), op(gfx9=0x66, gfx11=-1)),
+   ("s_buffer_atomic_umax_x2",    dst(), src(), op(gfx9=0x67, gfx11=-1)),
+   ("s_buffer_atomic_and_x2",     dst(), src(), op(gfx9=0x68, gfx11=-1)),
+   ("s_buffer_atomic_or_x2",      dst(), src(), op(gfx9=0x69, gfx11=-1)),
+   ("s_buffer_atomic_xor_x2",     dst(), src(), op(gfx9=0x6a, gfx11=-1)),
+   ("s_buffer_atomic_inc_x2",     dst(), src(), op(gfx9=0x6b, gfx11=-1)),
+   ("s_buffer_atomic_dec_x2",     dst(), src(), op(gfx9=0x6c, gfx11=-1)),
+   ("s_atomic_swap",              dst(), src(), op(gfx9=0x80, gfx11=-1)),
+   ("s_atomic_cmpswap",           dst(), src(), op(gfx9=0x81, gfx11=-1)),
+   ("s_atomic_add",               dst(), src(), op(gfx9=0x82, gfx11=-1)),
+   ("s_atomic_sub",               dst(), src(), op(gfx9=0x83, gfx11=-1)),
+   ("s_atomic_smin",              dst(), src(), op(gfx9=0x84, gfx11=-1)),
+   ("s_atomic_umin",              dst(), src(), op(gfx9=0x85, gfx11=-1)),
+   ("s_atomic_smax",              dst(), src(), op(gfx9=0x86, gfx11=-1)),
+   ("s_atomic_umax",              dst(), src(), op(gfx9=0x87, gfx11=-1)),
+   ("s_atomic_and",               dst(), src(), op(gfx9=0x88, gfx11=-1)),
+   ("s_atomic_or",                dst(), src(), op(gfx9=0x89, gfx11=-1)),
+   ("s_atomic_xor",               dst(), src(), op(gfx9=0x8a, gfx11=-1)),
+   ("s_atomic_inc",               dst(), src(), op(gfx9=0x8b, gfx11=-1)),
+   ("s_atomic_dec",               dst(), src(), op(gfx9=0x8c, gfx11=-1)),
+   ("s_atomic_swap_x2",           dst(), src(), op(gfx9=0xa0, gfx11=-1)),
+   ("s_atomic_cmpswap_x2",        dst(), src(), op(gfx9=0xa1, gfx11=-1)),
+   ("s_atomic_add_x2",            dst(), src(), op(gfx9=0xa2, gfx11=-1)),
+   ("s_atomic_sub_x2",            dst(), src(), op(gfx9=0xa3, gfx11=-1)),
+   ("s_atomic_smin_x2",           dst(), src(), op(gfx9=0xa4, gfx11=-1)),
+   ("s_atomic_umin_x2",           dst(), src(), op(gfx9=0xa5, gfx11=-1)),
+   ("s_atomic_smax_x2",           dst(), src(), op(gfx9=0xa6, gfx11=-1)),
+   ("s_atomic_umax_x2",           dst(), src(), op(gfx9=0xa7, gfx11=-1)),
+   ("s_atomic_and_x2",            dst(), src(), op(gfx9=0xa8, gfx11=-1)),
+   ("s_atomic_or_x2",             dst(), src(), op(gfx9=0xa9, gfx11=-1)),
+   ("s_atomic_xor_x2",            dst(), src(), op(gfx9=0xaa, gfx11=-1)),
+   ("s_atomic_inc_x2",            dst(), src(), op(gfx9=0xab, gfx11=-1)),
+   ("s_atomic_dec_x2",            dst(), src(), op(gfx9=0xac, gfx11=-1)),
+   ("s_prefetch_inst",            dst(), src(), op(gfx12=0x24)),
+   ("s_prefetch_inst_pc_rel",     dst(), src(), op(gfx12=0x25)),
+   ("s_prefetch_data",            dst(), src(), op(gfx12=0x26)),
+   ("s_buffer_prefetch_data",     dst(), src(), op(gfx12=0x27)),
+   ("s_prefetch_data_pc_rel",     dst(), src(), op(gfx12=0x28)),
 }
-for (name, num) in SMEM:
-   insn(name, num, Format.SMEM, InstrClass.SMem, is_atomic = "atomic" in name)
+for (name, defs, ops, num) in SMEM:
+   insn(name, num, Format.SMEM, InstrClass.SMem, is_atomic = "atomic" in name, definitions = noMods(defs), operands = noMods(ops))
 
 
 # VOP2 instructions: 2 inputs, 1 output (+ optional vcc)
@@ -1452,198 +1452,198 @@ for (name, defs, ops, num, cls) in default_class(VOP3, InstrClass.Valu32):
 
 
 VOPD = {
-   ("v_dual_fmac_f32",         op(gfx11=0x00)),
-   ("v_dual_fmaak_f32",        op(gfx11=0x01)),
-   ("v_dual_fmamk_f32",        op(gfx11=0x02)),
-   ("v_dual_mul_f32",          op(gfx11=0x03)),
-   ("v_dual_add_f32",          op(gfx11=0x04)),
-   ("v_dual_sub_f32",          op(gfx11=0x05)),
-   ("v_dual_subrev_f32",       op(gfx11=0x06)),
-   ("v_dual_mul_dx9_zero_f32", op(gfx11=0x07)),
-   ("v_dual_mov_b32",          op(gfx11=0x08)),
-   ("v_dual_cndmask_b32",      op(gfx11=0x09)),
-   ("v_dual_max_f32",          op(gfx11=0x0a)),
-   ("v_dual_min_f32",          op(gfx11=0x0b)),
-   ("v_dual_dot2acc_f32_f16",  op(gfx11=0x0c)),
-   ("v_dual_dot2acc_f32_bf16", op(gfx11=0x0d)),
-   ("v_dual_add_nc_u32",       op(gfx11=0x10)),
-   ("v_dual_lshlrev_b32",      op(gfx11=0x11)),
-   ("v_dual_and_b32",          op(gfx11=0x12)),
+   ("v_dual_fmac_f32",         dst(F32), src(F32, F32), op(gfx11=0x00)),
+   ("v_dual_fmaak_f32",        dst(F32), src(F32, F32), op(gfx11=0x01)),
+   ("v_dual_fmamk_f32",        dst(F32), src(F32, F32), op(gfx11=0x02)),
+   ("v_dual_mul_f32",          dst(F32), src(F32, F32), op(gfx11=0x03)),
+   ("v_dual_add_f32",          dst(F32), src(F32, F32), op(gfx11=0x04)),
+   ("v_dual_sub_f32",          dst(F32), src(F32, F32), op(gfx11=0x05)),
+   ("v_dual_subrev_f32",       dst(F32), src(F32, F32), op(gfx11=0x06)),
+   ("v_dual_mul_dx9_zero_f32", dst(F32), src(F32, F32), op(gfx11=0x07)),
+   ("v_dual_mov_b32",          dst(U32), src(U32), op(gfx11=0x08)),
+   ("v_dual_cndmask_b32",      dst(U32), src(U32, U32), op(gfx11=0x09)),
+   ("v_dual_max_f32",          dst(F32), src(F32, F32), op(gfx11=0x0a)),
+   ("v_dual_min_f32",          dst(F32), src(F32, F32), op(gfx11=0x0b)),
+   ("v_dual_dot2acc_f32_f16",  dst(F32), src(PkF16, PkF16), op(gfx11=0x0c)),
+   ("v_dual_dot2acc_f32_bf16", dst(F32), src(PkF16, PkF16), op(gfx11=0x0d)),
+   ("v_dual_add_nc_u32",       dst(U32), src(U32, U32), op(gfx11=0x10)),
+   ("v_dual_lshlrev_b32",      dst(U32), src(U32, U32), op(gfx11=0x11)),
+   ("v_dual_and_b32",          dst(U32), src(U32, U32), op(gfx11=0x12)),
 }
-for (name, num) in VOPD:
-   insn(name, num, format = Format.VOPD, cls = InstrClass.Valu32)
+for (name, defs, ops, num) in VOPD:
+   insn(name, num, format = Format.VOPD, cls = InstrClass.Valu32, definitions = defs, operands = ops)
 
 
 # DS instructions: 3 inputs (1 addr, 2 data), 1 output
 DS = {
-   ("ds_add_u32",              op(0x00)),
-   ("ds_sub_u32",              op(0x01)),
-   ("ds_rsub_u32",             op(0x02)),
-   ("ds_inc_u32",              op(0x03)),
-   ("ds_dec_u32",              op(0x04)),
-   ("ds_min_i32",              op(0x05)),
-   ("ds_max_i32",              op(0x06)),
-   ("ds_min_u32",              op(0x07)),
-   ("ds_max_u32",              op(0x08)),
-   ("ds_and_b32",              op(0x09)),
-   ("ds_or_b32",               op(0x0a)),
-   ("ds_xor_b32",              op(0x0b)),
-   ("ds_mskor_b32",            op(0x0c)),
-   ("ds_write_b32",            op(0x0d)), #ds_store_b32 in GFX11
-   ("ds_write2_b32",           op(0x0e)), #ds_store_2addr_b32 in GFX11
-   ("ds_write2st64_b32",       op(0x0f)), #ds_store_2addr_stride64_b32 in GFX11
-   ("ds_cmpst_b32",            op(0x10)), #ds_cmpstore_b32 in GFX11
-   ("ds_cmpst_f32",            op(0x11, gfx12=-1)), #ds_cmpstore_f32 in GFX11
-   ("ds_min_f32",              op(0x12)), #ds_min_num_f32 in GFX12
-   ("ds_max_f32",              op(0x13)), #ds_max_num_f32 in GFX12
-   ("ds_nop",                  op(gfx7=0x14)),
-   ("ds_add_f32",              op(gfx8=0x15)),
-   ("ds_write_addtid_b32",     op(gfx8=0x1d, gfx10=0xb0)), #ds_store_addtid_b32 in GFX11
-   ("ds_write_b8",             op(0x1e)), #ds_store_b8 in GFX11
-   ("ds_write_b16",            op(0x1f)), #ds_store_b16 in GFX11
-   ("ds_add_rtn_u32",          op(0x20)),
-   ("ds_sub_rtn_u32",          op(0x21)),
-   ("ds_rsub_rtn_u32",         op(0x22)),
-   ("ds_inc_rtn_u32",          op(0x23)),
-   ("ds_dec_rtn_u32",          op(0x24)),
-   ("ds_min_rtn_i32",          op(0x25)),
-   ("ds_max_rtn_i32",          op(0x26)),
-   ("ds_min_rtn_u32",          op(0x27)),
-   ("ds_max_rtn_u32",          op(0x28)),
-   ("ds_and_rtn_b32",          op(0x29)),
-   ("ds_or_rtn_b32",           op(0x2a)),
-   ("ds_xor_rtn_b32",          op(0x2b)),
-   ("ds_mskor_rtn_b32",        op(0x2c)),
-   ("ds_wrxchg_rtn_b32",       op(0x2d)), #ds_storexchg_rtn_b32 in GFX11
-   ("ds_wrxchg2_rtn_b32",      op(0x2e)), #ds_storexchg_2addr_rtn_b32 in GFX11
-   ("ds_wrxchg2st64_rtn_b32",  op(0x2f)), #ds_storexchg_2addr_stride64_rtn_b32 in GFX11
-   ("ds_cmpst_rtn_b32",        op(0x30)), #ds_cmpstore_rtn_b32 in GFX11
-   ("ds_cmpst_rtn_f32",        op(0x31, gfx12=-1)), #ds_cmpstore_rtn_f32 in GFX11
-   ("ds_min_rtn_f32",          op(0x32)), #ds_min_num_rtn_f32 in GFX12
-   ("ds_max_rtn_f32",          op(0x33)), #ds_max_num_rtn_f32 in GFX12
-   ("ds_wrap_rtn_b32",         op(gfx7=0x34, gfx12=-1)),
-   ("ds_add_rtn_f32",          op(gfx8=0x35, gfx10=0x55, gfx11=0x79)),
-   ("ds_read_b32",             op(0x36)), #ds_load_b32 in GFX11
-   ("ds_read2_b32",            op(0x37)), #ds_load_2addr_b32 in GFX11
-   ("ds_read2st64_b32",        op(0x38)), #ds_load_2addr_stride64_b32 in GFX11
-   ("ds_read_i8",              op(0x39)), #ds_load_i8 in GFX11
-   ("ds_read_u8",              op(0x3a)), #ds_load_u8 in GFX11
-   ("ds_read_i16",             op(0x3b)), #ds_load_i16 in GFX11
-   ("ds_read_u16",             op(0x3c)), #ds_load_u16 in GFX11
-   ("ds_swizzle_b32",          op(0x35, gfx8=0x3d, gfx10=0x35)), #data1 & offset, no addr/data2
-   ("ds_permute_b32",          op(gfx8=0x3e, gfx10=0xb2)),
-   ("ds_bpermute_b32",         op(gfx8=0x3f, gfx10=0xb3)),
-   ("ds_add_u64",              op(0x40)),
-   ("ds_sub_u64",              op(0x41)),
-   ("ds_rsub_u64",             op(0x42)),
-   ("ds_inc_u64",              op(0x43)),
-   ("ds_dec_u64",              op(0x44)),
-   ("ds_min_i64",              op(0x45)),
-   ("ds_max_i64",              op(0x46)),
-   ("ds_min_u64",              op(0x47)),
-   ("ds_max_u64",              op(0x48)),
-   ("ds_and_b64",              op(0x49)),
-   ("ds_or_b64",               op(0x4a)),
-   ("ds_xor_b64",              op(0x4b)),
-   ("ds_mskor_b64",            op(0x4c)),
-   ("ds_write_b64",            op(0x4d)), #ds_store_b64 in GFX11
-   ("ds_write2_b64",           op(0x4e)), #ds_store_2addr_b64 in GFX11
-   ("ds_write2st64_b64",       op(0x4f)), #ds_store_2addr_stride64_b64 in GFX11
-   ("ds_cmpst_b64",            op(0x50)), #ds_cmpstore_b64 in GFX11
-   ("ds_cmpst_f64",            op(0x51, gfx12=-1)), #ds_cmpstore_f64 in GFX11
-   ("ds_min_f64",              op(0x52)), #ds_min_num_f64 in GFX12
-   ("ds_max_f64",              op(0x53)), #ds_max_num_f64 in GFX12
-   ("ds_write_b8_d16_hi",      op(gfx9=0x54, gfx10=0xa0)), #ds_store_b8_d16_hi in GFX11
-   ("ds_write_b16_d16_hi",     op(gfx9=0x55, gfx10=0xa1)), #ds_store_b16_d16_hi in GFX11
-   ("ds_read_u8_d16",          op(gfx9=0x56, gfx10=0xa2)), #ds_load_u8_d16 in GFX11
-   ("ds_read_u8_d16_hi",       op(gfx9=0x57, gfx10=0xa3)), #ds_load_u8_d16_hi in GFX11
-   ("ds_read_i8_d16",          op(gfx9=0x58, gfx10=0xa4)), #ds_load_i8_d16 in GFX11
-   ("ds_read_i8_d16_hi",       op(gfx9=0x59, gfx10=0xa5)), #ds_load_i8_d16_hi in GFX11
-   ("ds_read_u16_d16",         op(gfx9=0x5a, gfx10=0xa6)), #ds_load_u16_d16 in GFX11
-   ("ds_read_u16_d16_hi",      op(gfx9=0x5b, gfx10=0xa7)), #ds_load_u16_d16_hi in GFX11
-   ("ds_add_rtn_u64",          op(0x60)),
-   ("ds_sub_rtn_u64",          op(0x61)),
-   ("ds_rsub_rtn_u64",         op(0x62)),
-   ("ds_inc_rtn_u64",          op(0x63)),
-   ("ds_dec_rtn_u64",          op(0x64)),
-   ("ds_min_rtn_i64",          op(0x65)),
-   ("ds_max_rtn_i64",          op(0x66)),
-   ("ds_min_rtn_u64",          op(0x67)),
-   ("ds_max_rtn_u64",          op(0x68)),
-   ("ds_and_rtn_b64",          op(0x69)),
-   ("ds_or_rtn_b64",           op(0x6a)),
-   ("ds_xor_rtn_b64",          op(0x6b)),
-   ("ds_mskor_rtn_b64",        op(0x6c)),
-   ("ds_wrxchg_rtn_b64",       op(0x6d)), #ds_storexchg_rtn_b64 in GFX11
-   ("ds_wrxchg2_rtn_b64",      op(0x6e)), #ds_storexchg_2addr_rtn_b64 in GFX11
-   ("ds_wrxchg2st64_rtn_b64",  op(0x6f)), #ds_storexchg_2addr_stride64_rtn_b64 in GFX11
-   ("ds_cmpst_rtn_b64",        op(0x70)), #ds_cmpstore_rtn_b64 in GFX11
-   ("ds_cmpst_rtn_f64",        op(0x71, gfx12=-1)), #ds_cmpstore_rtn_f64 in GFX11
-   ("ds_min_rtn_f64",          op(0x72)), #ds_min_num_f64 in GFX12
-   ("ds_max_rtn_f64",          op(0x73)), #ds_max_num_f64 in GFX12
-   ("ds_read_b64",             op(0x76)), #ds_load_b64 in GFX11
-   ("ds_read2_b64",            op(0x77)), #ds_load_2addr_b64 in GFX11
-   ("ds_read2st64_b64",        op(0x78)), #ds_load_2addr_stride64_b64 in GFX11
-   ("ds_condxchg32_rtn_b64",   op(gfx7=0x7e)),
-   ("ds_add_src2_u32",         op(0x80, gfx11=-1)),
-   ("ds_sub_src2_u32",         op(0x81, gfx11=-1)),
-   ("ds_rsub_src2_u32",        op(0x82, gfx11=-1)),
-   ("ds_inc_src2_u32",         op(0x83, gfx11=-1)),
-   ("ds_dec_src2_u32",         op(0x84, gfx11=-1)),
-   ("ds_min_src2_i32",         op(0x85, gfx11=-1)),
-   ("ds_max_src2_i32",         op(0x86, gfx11=-1)),
-   ("ds_min_src2_u32",         op(0x87, gfx11=-1)),
-   ("ds_max_src2_u32",         op(0x88, gfx11=-1)),
-   ("ds_and_src2_b32",         op(0x89, gfx11=-1)),
-   ("ds_or_src2_b32",          op(0x8a, gfx11=-1)),
-   ("ds_xor_src2_b32",         op(0x8b, gfx11=-1)),
-   ("ds_write_src2_b32",       op(0x8d, gfx11=-1)),
-   ("ds_min_src2_f32",         op(0x92, gfx11=-1)),
-   ("ds_max_src2_f32",         op(0x93, gfx11=-1)),
-   ("ds_add_src2_f32",         op(gfx8=0x95, gfx11=-1)),
-   ("ds_gws_sema_release_all", op(gfx7=0x18, gfx8=0x98, gfx10=0x18, gfx12=-1)),
-   ("ds_gws_init",             op(0x19, gfx8=0x99, gfx10=0x19, gfx12=-1)),
-   ("ds_gws_sema_v",           op(0x1a, gfx8=0x9a, gfx10=0x1a, gfx12=-1)),
-   ("ds_gws_sema_br",          op(0x1b, gfx8=0x9b, gfx10=0x1b, gfx12=-1)),
-   ("ds_gws_sema_p",           op(0x1c, gfx8=0x9c, gfx10=0x1c, gfx12=-1)),
-   ("ds_gws_barrier",          op(0x1d, gfx8=0x9d, gfx10=0x1d, gfx12=-1)),
-   ("ds_read_addtid_b32",      op(gfx8=0xb6, gfx10=0xb1)), #ds_load_addtid_b32 in GFX11
-   ("ds_consume",              op(0x3d, gfx8=0xbd, gfx10=0x3d)),
-   ("ds_append",               op(0x3e, gfx8=0xbe, gfx10=0x3e)),
-   ("ds_ordered_count",        op(0x3f, gfx8=0xbf, gfx10=0x3f, gfx12=-1)),
-   ("ds_add_src2_u64",         op(0xc0, gfx11=-1)),
-   ("ds_sub_src2_u64",         op(0xc1, gfx11=-1)),
-   ("ds_rsub_src2_u64",        op(0xc2, gfx11=-1)),
-   ("ds_inc_src2_u64",         op(0xc3, gfx11=-1)),
-   ("ds_dec_src2_u64",         op(0xc4, gfx11=-1)),
-   ("ds_min_src2_i64",         op(0xc5, gfx11=-1)),
-   ("ds_max_src2_i64",         op(0xc6, gfx11=-1)),
-   ("ds_min_src2_u64",         op(0xc7, gfx11=-1)),
-   ("ds_max_src2_u64",         op(0xc8, gfx11=-1)),
-   ("ds_and_src2_b64",         op(0xc9, gfx11=-1)),
-   ("ds_or_src2_b64",          op(0xca, gfx11=-1)),
-   ("ds_xor_src2_b64",         op(0xcb, gfx11=-1)),
-   ("ds_write_src2_b64",       op(0xcd, gfx11=-1)),
-   ("ds_min_src2_f64",         op(0xd2, gfx11=-1)),
-   ("ds_max_src2_f64",         op(0xd3, gfx11=-1)),
-   ("ds_write_b96",            op(gfx7=0xde)), #ds_store_b96 in GFX11
-   ("ds_write_b128",           op(gfx7=0xdf)), #ds_store_b128 in GFX11
-   ("ds_condxchg32_rtn_b128",  op(gfx7=0xfd, gfx9=-1)),
-   ("ds_read_b96",             op(gfx7=0xfe)), #ds_load_b96 in GFX11
-   ("ds_read_b128",            op(gfx7=0xff)), #ds_load_b128 in GFX11
-   ("ds_add_gs_reg_rtn",       op(gfx11=0x7a, gfx12=-1)),
-   ("ds_sub_gs_reg_rtn",       op(gfx11=0x7b, gfx12=-1)),
-   ("ds_cond_sub_u32",         op(gfx12=0x98)),
-   ("ds_sub_clamp_u32",        op(gfx12=0x99)),
-   ("ds_cond_sub_rtn",         op(gfx12=0xa8)),
-   ("ds_sub_clamp_rtn_u32",    op(gfx12=0xa9)),
-   ("ds_pk_add_f16",           op(gfx12=0x9a)),
-   ("ds_pk_add_rtn_f16",       op(gfx12=0xaa)),
-   ("ds_pk_add_bf16",          op(gfx12=0x9b)),
-   ("ds_pk_add_rtn_bf16",      op(gfx12=0xab)),
+   ("ds_add_u32",              dst(), op(0x00)),
+   ("ds_sub_u32",              dst(), op(0x01)),
+   ("ds_rsub_u32",             dst(), op(0x02)),
+   ("ds_inc_u32",              dst(), op(0x03)),
+   ("ds_dec_u32",              dst(), op(0x04)),
+   ("ds_min_i32",              dst(), op(0x05)),
+   ("ds_max_i32",              dst(), op(0x06)),
+   ("ds_min_u32",              dst(), op(0x07)),
+   ("ds_max_u32",              dst(), op(0x08)),
+   ("ds_and_b32",              dst(), op(0x09)),
+   ("ds_or_b32",               dst(), op(0x0a)),
+   ("ds_xor_b32",              dst(), op(0x0b)),
+   ("ds_mskor_b32",            dst(), op(0x0c)),
+   ("ds_write_b32",            dst(), op(0x0d)), #ds_store_b32 in GFX11
+   ("ds_write2_b32",           dst(), op(0x0e)), #ds_store_2addr_b32 in GFX11
+   ("ds_write2st64_b32",       dst(), op(0x0f)), #ds_store_2addr_stride64_b32 in GFX11
+   ("ds_cmpst_b32",            dst(), op(0x10)), #ds_cmpstore_b32 in GFX11
+   ("ds_cmpst_f32",            dst(), op(0x11, gfx12=-1)), #ds_cmpstore_f32 in GFX11
+   ("ds_min_f32",              dst(), op(0x12)), #ds_min_num_f32 in GFX12
+   ("ds_max_f32",              dst(), op(0x13)), #ds_max_num_f32 in GFX12
+   ("ds_nop",                  dst(), op(gfx7=0x14)),
+   ("ds_add_f32",              dst(), op(gfx8=0x15)),
+   ("ds_write_addtid_b32",     dst(), op(gfx8=0x1d, gfx10=0xb0)), #ds_store_addtid_b32 in GFX11
+   ("ds_write_b8",             dst(), op(0x1e)), #ds_store_b8 in GFX11
+   ("ds_write_b16",            dst(), op(0x1f)), #ds_store_b16 in GFX11
+   ("ds_add_rtn_u32",          dst(U32), op(0x20)),
+   ("ds_sub_rtn_u32",          dst(U32), op(0x21)),
+   ("ds_rsub_rtn_u32",         dst(U32), op(0x22)),
+   ("ds_inc_rtn_u32",          dst(U32), op(0x23)),
+   ("ds_dec_rtn_u32",          dst(U32), op(0x24)),
+   ("ds_min_rtn_i32",          dst(U32), op(0x25)),
+   ("ds_max_rtn_i32",          dst(U32), op(0x26)),
+   ("ds_min_rtn_u32",          dst(U32), op(0x27)),
+   ("ds_max_rtn_u32",          dst(U32), op(0x28)),
+   ("ds_and_rtn_b32",          dst(U32), op(0x29)),
+   ("ds_or_rtn_b32",           dst(U32), op(0x2a)),
+   ("ds_xor_rtn_b32",          dst(U32), op(0x2b)),
+   ("ds_mskor_rtn_b32",        dst(U32), op(0x2c)),
+   ("ds_wrxchg_rtn_b32",       dst(U32), op(0x2d)), #ds_storexchg_rtn_b32 in GFX11
+   ("ds_wrxchg2_rtn_b32",      dst(U32), op(0x2e)), #ds_storexchg_2addr_rtn_b32 in GFX11
+   ("ds_wrxchg2st64_rtn_b32",  dst(U32), op(0x2f)), #ds_storexchg_2addr_stride64_rtn_b32 in GFX11
+   ("ds_cmpst_rtn_b32",        dst(U32), op(0x30)), #ds_cmpstore_rtn_b32 in GFX11
+   ("ds_cmpst_rtn_f32",        dst(U32), op(0x31, gfx12=-1)), #ds_cmpstore_rtn_f32 in GFX11
+   ("ds_min_rtn_f32",          dst(U32), op(0x32)), #ds_min_num_rtn_f32 in GFX12
+   ("ds_max_rtn_f32",          dst(U32), op(0x33)), #ds_max_num_rtn_f32 in GFX12
+   ("ds_wrap_rtn_b32",         dst(U32), op(gfx7=0x34, gfx12=-1)),
+   ("ds_add_rtn_f32",          dst(U32), op(gfx8=0x35, gfx10=0x55, gfx11=0x79)),
+   ("ds_read_b32",             dst(U32), op(0x36)), #ds_load_b32 in GFX11
+   ("ds_read2_b32",            dst(U64), op(0x37)), #ds_load_2addr_b32 in GFX11
+   ("ds_read2st64_b32",        dst(U64), op(0x38)), #ds_load_2addr_stride64_b32 in GFX11
+   ("ds_read_i8",              dst(U32), op(0x39)), #ds_load_i8 in GFX11
+   ("ds_read_u8",              dst(U32), op(0x3a)), #ds_load_u8 in GFX11
+   ("ds_read_i16",             dst(U32), op(0x3b)), #ds_load_i16 in GFX11
+   ("ds_read_u16",             dst(U32), op(0x3c)), #ds_load_u16 in GFX11
+   ("ds_swizzle_b32",          dst(U32), op(0x35, gfx8=0x3d, gfx10=0x35)), #data1 & offset, no addr/data2
+   ("ds_permute_b32",          dst(), op(gfx8=0x3e, gfx10=0xb2)),
+   ("ds_bpermute_b32",         dst(), op(gfx8=0x3f, gfx10=0xb3)),
+   ("ds_add_u64",              dst(), op(0x40)),
+   ("ds_sub_u64",              dst(), op(0x41)),
+   ("ds_rsub_u64",             dst(), op(0x42)),
+   ("ds_inc_u64",              dst(), op(0x43)),
+   ("ds_dec_u64",              dst(), op(0x44)),
+   ("ds_min_i64",              dst(), op(0x45)),
+   ("ds_max_i64",              dst(), op(0x46)),
+   ("ds_min_u64",              dst(), op(0x47)),
+   ("ds_max_u64",              dst(), op(0x48)),
+   ("ds_and_b64",              dst(), op(0x49)),
+   ("ds_or_b64",               dst(), op(0x4a)),
+   ("ds_xor_b64",              dst(), op(0x4b)),
+   ("ds_mskor_b64",            dst(), op(0x4c)),
+   ("ds_write_b64",            dst(), op(0x4d)), #ds_store_b64 in GFX11
+   ("ds_write2_b64",           dst(), op(0x4e)), #ds_store_2addr_b64 in GFX11
+   ("ds_write2st64_b64",       dst(), op(0x4f)), #ds_store_2addr_stride64_b64 in GFX11
+   ("ds_cmpst_b64",            dst(), op(0x50)), #ds_cmpstore_b64 in GFX11
+   ("ds_cmpst_f64",            dst(), op(0x51, gfx12=-1)), #ds_cmpstore_f64 in GFX11
+   ("ds_min_f64",              dst(), op(0x52)), #ds_min_num_f64 in GFX12
+   ("ds_max_f64",              dst(), op(0x53)), #ds_max_num_f64 in GFX12
+   ("ds_write_b8_d16_hi",      dst(), op(gfx9=0x54, gfx10=0xa0)), #ds_store_b8_d16_hi in GFX11
+   ("ds_write_b16_d16_hi",     dst(), op(gfx9=0x55, gfx10=0xa1)), #ds_store_b16_d16_hi in GFX11
+   ("ds_read_u8_d16",          dst(U32), op(gfx9=0x56, gfx10=0xa2)), #ds_load_u8_d16 in GFX11
+   ("ds_read_u8_d16_hi",       dst(U32), op(gfx9=0x57, gfx10=0xa3)), #ds_load_u8_d16_hi in GFX11
+   ("ds_read_i8_d16",          dst(U32), op(gfx9=0x58, gfx10=0xa4)), #ds_load_i8_d16 in GFX11
+   ("ds_read_i8_d16_hi",       dst(U32), op(gfx9=0x59, gfx10=0xa5)), #ds_load_i8_d16_hi in GFX11
+   ("ds_read_u16_d16",         dst(U32), op(gfx9=0x5a, gfx10=0xa6)), #ds_load_u16_d16 in GFX11
+   ("ds_read_u16_d16_hi",      dst(U32), op(gfx9=0x5b, gfx10=0xa7)), #ds_load_u16_d16_hi in GFX11
+   ("ds_add_rtn_u64",          dst(U64), op(0x60)),
+   ("ds_sub_rtn_u64",          dst(U64), op(0x61)),
+   ("ds_rsub_rtn_u64",         dst(U64), op(0x62)),
+   ("ds_inc_rtn_u64",          dst(U64), op(0x63)),
+   ("ds_dec_rtn_u64",          dst(U64), op(0x64)),
+   ("ds_min_rtn_i64",          dst(U64), op(0x65)),
+   ("ds_max_rtn_i64",          dst(U64), op(0x66)),
+   ("ds_min_rtn_u64",          dst(U64), op(0x67)),
+   ("ds_max_rtn_u64",          dst(U64), op(0x68)),
+   ("ds_and_rtn_b64",          dst(U64), op(0x69)),
+   ("ds_or_rtn_b64",           dst(U64), op(0x6a)),
+   ("ds_xor_rtn_b64",          dst(U64), op(0x6b)),
+   ("ds_mskor_rtn_b64",        dst(U64), op(0x6c)),
+   ("ds_wrxchg_rtn_b64",       dst(U64), op(0x6d)), #ds_storexchg_rtn_b64 in GFX11
+   ("ds_wrxchg2_rtn_b64",      dst(U64), op(0x6e)), #ds_storexchg_2addr_rtn_b64 in GFX11
+   ("ds_wrxchg2st64_rtn_b64",  dst(U64), op(0x6f)), #ds_storexchg_2addr_stride64_rtn_b64 in GFX11
+   ("ds_cmpst_rtn_b64",        dst(U64), op(0x70)), #ds_cmpstore_rtn_b64 in GFX11
+   ("ds_cmpst_rtn_f64",        dst(U64), op(0x71, gfx12=-1)), #ds_cmpstore_rtn_f64 in GFX11
+   ("ds_min_rtn_f64",          dst(U64), op(0x72)), #ds_min_num_f64 in GFX12
+   ("ds_max_rtn_f64",          dst(U64), op(0x73)), #ds_max_num_f64 in GFX12
+   ("ds_read_b64",             dst(U64), op(0x76)), #ds_load_b64 in GFX11
+   ("ds_read2_b64",            dst(U128), op(0x77)), #ds_load_2addr_b64 in GFX11
+   ("ds_read2st64_b64",        dst(U128), op(0x78)), #ds_load_2addr_stride64_b64 in GFX11
+   ("ds_condxchg32_rtn_b64",   dst(U64), op(gfx7=0x7e)),
+   ("ds_add_src2_u32",         dst(), op(0x80, gfx11=-1)),
+   ("ds_sub_src2_u32",         dst(), op(0x81, gfx11=-1)),
+   ("ds_rsub_src2_u32",        dst(), op(0x82, gfx11=-1)),
+   ("ds_inc_src2_u32",         dst(), op(0x83, gfx11=-1)),
+   ("ds_dec_src2_u32",         dst(), op(0x84, gfx11=-1)),
+   ("ds_min_src2_i32",         dst(), op(0x85, gfx11=-1)),
+   ("ds_max_src2_i32",         dst(), op(0x86, gfx11=-1)),
+   ("ds_min_src2_u32",         dst(), op(0x87, gfx11=-1)),
+   ("ds_max_src2_u32",         dst(), op(0x88, gfx11=-1)),
+   ("ds_and_src2_b32",         dst(), op(0x89, gfx11=-1)),
+   ("ds_or_src2_b32",          dst(), op(0x8a, gfx11=-1)),
+   ("ds_xor_src2_b32",         dst(), op(0x8b, gfx11=-1)),
+   ("ds_write_src2_b32",       dst(), op(0x8d, gfx11=-1)),
+   ("ds_min_src2_f32",         dst(), op(0x92, gfx11=-1)),
+   ("ds_max_src2_f32",         dst(), op(0x93, gfx11=-1)),
+   ("ds_add_src2_f32",         dst(), op(gfx8=0x95, gfx11=-1)),
+   ("ds_gws_sema_release_all", dst(), op(gfx7=0x18, gfx8=0x98, gfx10=0x18, gfx12=-1)),
+   ("ds_gws_init",             dst(), op(0x19, gfx8=0x99, gfx10=0x19, gfx12=-1)),
+   ("ds_gws_sema_v",           dst(), op(0x1a, gfx8=0x9a, gfx10=0x1a, gfx12=-1)),
+   ("ds_gws_sema_br",          dst(), op(0x1b, gfx8=0x9b, gfx10=0x1b, gfx12=-1)),
+   ("ds_gws_sema_p",           dst(), op(0x1c, gfx8=0x9c, gfx10=0x1c, gfx12=-1)),
+   ("ds_gws_barrier",          dst(), op(0x1d, gfx8=0x9d, gfx10=0x1d, gfx12=-1)),
+   ("ds_read_addtid_b32",      dst(U32), op(gfx8=0xb6, gfx10=0xb1)), #ds_load_addtid_b32 in GFX11
+   ("ds_consume",              dst(), op(0x3d, gfx8=0xbd, gfx10=0x3d)),
+   ("ds_append",               dst(), op(0x3e, gfx8=0xbe, gfx10=0x3e)),
+   ("ds_ordered_count",        dst(), op(0x3f, gfx8=0xbf, gfx10=0x3f, gfx12=-1)),
+   ("ds_add_src2_u64",         dst(), op(0xc0, gfx11=-1)),
+   ("ds_sub_src2_u64",         dst(), op(0xc1, gfx11=-1)),
+   ("ds_rsub_src2_u64",        dst(), op(0xc2, gfx11=-1)),
+   ("ds_inc_src2_u64",         dst(), op(0xc3, gfx11=-1)),
+   ("ds_dec_src2_u64",         dst(), op(0xc4, gfx11=-1)),
+   ("ds_min_src2_i64",         dst(), op(0xc5, gfx11=-1)),
+   ("ds_max_src2_i64",         dst(), op(0xc6, gfx11=-1)),
+   ("ds_min_src2_u64",         dst(), op(0xc7, gfx11=-1)),
+   ("ds_max_src2_u64",         dst(), op(0xc8, gfx11=-1)),
+   ("ds_and_src2_b64",         dst(), op(0xc9, gfx11=-1)),
+   ("ds_or_src2_b64",          dst(), op(0xca, gfx11=-1)),
+   ("ds_xor_src2_b64",         dst(), op(0xcb, gfx11=-1)),
+   ("ds_write_src2_b64",       dst(), op(0xcd, gfx11=-1)),
+   ("ds_min_src2_f64",         dst(), op(0xd2, gfx11=-1)),
+   ("ds_max_src2_f64",         dst(), op(0xd3, gfx11=-1)),
+   ("ds_write_b96",            dst(), op(gfx7=0xde)), #ds_store_b96 in GFX11
+   ("ds_write_b128",           dst(), op(gfx7=0xdf)), #ds_store_b128 in GFX11
+   ("ds_condxchg32_rtn_b128",  dst(U128), op(gfx7=0xfd, gfx9=-1)),
+   ("ds_read_b96",             dst(U96), op(gfx7=0xfe)), #ds_load_b96 in GFX11
+   ("ds_read_b128",            dst(U128), op(gfx7=0xff)), #ds_load_b128 in GFX11
+   ("ds_add_gs_reg_rtn",       dst(U32), op(gfx11=0x7a, gfx12=-1)),
+   ("ds_sub_gs_reg_rtn",       dst(U32), op(gfx11=0x7b, gfx12=-1)),
+   ("ds_cond_sub_u32",         dst(), op(gfx12=0x98)),
+   ("ds_sub_clamp_u32",        dst(), op(gfx12=0x99)),
+   ("ds_cond_sub_rtn",         dst(U32), op(gfx12=0xa8)),
+   ("ds_sub_clamp_rtn_u32",    dst(U32), op(gfx12=0xa9)),
+   ("ds_pk_add_f16",           dst(), op(gfx12=0x9a)),
+   ("ds_pk_add_rtn_f16",       dst(U32), op(gfx12=0xaa)),
+   ("ds_pk_add_bf16",          dst(), op(gfx12=0x9b)),
+   ("ds_pk_add_rtn_bf16",      dst(U32), op(gfx12=0xab)),
 }
-for (name, num) in DS:
-    insn(name, num, Format.DS, InstrClass.DS)
+for (name, defs, num) in DS:
+    insn(name, num, Format.DS, InstrClass.DS, definitions = noMods(defs))
 
 
 # LDSDIR instructions:
@@ -1656,119 +1656,119 @@ for (name, num) in LDSDIR:
 
 # MUBUF instructions:
 MUBUF = {
-   ("buffer_load_format_x",         op(0x00)),
-   ("buffer_load_format_xy",        op(0x01)),
-   ("buffer_load_format_xyz",       op(0x02)),
-   ("buffer_load_format_xyzw",      op(0x03)),
-   ("buffer_store_format_x",        op(0x04)),
-   ("buffer_store_format_xy",       op(0x05)),
-   ("buffer_store_format_xyz",      op(0x06)),
-   ("buffer_store_format_xyzw",     op(0x07)),
-   ("buffer_load_format_d16_x",     op(gfx8=0x08, gfx10=0x80, gfx11=0x08)),
-   ("buffer_load_format_d16_xy",    op(gfx8=0x09, gfx10=0x81, gfx11=0x09)),
-   ("buffer_load_format_d16_xyz",   op(gfx8=0x0a, gfx10=0x82, gfx11=0x0a)),
-   ("buffer_load_format_d16_xyzw",  op(gfx8=0x0b, gfx10=0x83, gfx11=0x0b)),
-   ("buffer_store_format_d16_x",    op(gfx8=0x0c, gfx10=0x84, gfx11=0x0c)),
-   ("buffer_store_format_d16_xy",   op(gfx8=0x0d, gfx10=0x85, gfx11=0x0d)),
-   ("buffer_store_format_d16_xyz",  op(gfx8=0x0e, gfx10=0x86, gfx11=0x0e)),
-   ("buffer_store_format_d16_xyzw", op(gfx8=0x0f, gfx10=0x87, gfx11=0x0f)),
-   ("buffer_load_ubyte",            op(0x08, gfx8=0x10, gfx10=0x08, gfx11=0x10)),
-   ("buffer_load_sbyte",            op(0x09, gfx8=0x11, gfx10=0x09, gfx11=0x11)),
-   ("buffer_load_ushort",           op(0x0a, gfx8=0x12, gfx10=0x0a, gfx11=0x12)),
-   ("buffer_load_sshort",           op(0x0b, gfx8=0x13, gfx10=0x0b, gfx11=0x13)),
-   ("buffer_load_dword",            op(0x0c, gfx8=0x14, gfx10=0x0c, gfx11=0x14)),
-   ("buffer_load_dwordx2",          op(0x0d, gfx8=0x15, gfx10=0x0d, gfx11=0x15)),
-   ("buffer_load_dwordx3",          op(gfx7=0x0f, gfx8=0x16, gfx10=0x0f, gfx11=0x16)),
-   ("buffer_load_dwordx4",          op(0x0e, gfx8=0x17, gfx10=0x0e, gfx11=0x17)),
-   ("buffer_store_byte",            op(0x18)),
-   ("buffer_store_byte_d16_hi",     op(gfx9=0x19, gfx11=0x24)),
-   ("buffer_store_short",           op(0x1a, gfx11=0x19)),
-   ("buffer_store_short_d16_hi",    op(gfx9=0x1b, gfx11=0x25)),
-   ("buffer_store_dword",           op(0x1c, gfx11=0x1a)),
-   ("buffer_store_dwordx2",         op(0x1d, gfx11=0x1b)),
-   ("buffer_store_dwordx3",         op(gfx7=0x1f, gfx8=0x1e, gfx10=0x1f, gfx11=0x1c)),
-   ("buffer_store_dwordx4",         op(0x1e, gfx8=0x1f, gfx10=0x1e, gfx11=0x1d)),
-   ("buffer_load_ubyte_d16",        op(gfx9=0x20, gfx11=0x1e)),
-   ("buffer_load_ubyte_d16_hi",     op(gfx9=0x21)),
-   ("buffer_load_sbyte_d16",        op(gfx9=0x22, gfx11=0x1f)),
-   ("buffer_load_sbyte_d16_hi",     op(gfx9=0x23, gfx11=0x22)),
-   ("buffer_load_short_d16",        op(gfx9=0x24, gfx11=0x20)),
-   ("buffer_load_short_d16_hi",     op(gfx9=0x25, gfx11=0x23)),
-   ("buffer_load_format_d16_hi_x",  op(gfx9=0x26)),
-   ("buffer_store_format_d16_hi_x", op(gfx9=0x27)),
-   ("buffer_store_lds_dword",       op(gfx8=0x3d, gfx10=-1)),
-   ("buffer_wbinvl1",               op(0x71, gfx8=0x3e, gfx10=-1)),
-   ("buffer_wbinvl1_vol",           op(0x70, gfx8=0x3f, gfx10=-1)),
-   ("buffer_atomic_swap",           op(0x30, gfx8=0x40, gfx10=0x30, gfx11=0x33)),
-   ("buffer_atomic_cmpswap",        op(0x31, gfx8=0x41, gfx10=0x31, gfx11=0x34)),
-   ("buffer_atomic_add",            op(0x32, gfx8=0x42, gfx10=0x32, gfx11=0x35)),
-   ("buffer_atomic_sub",            op(0x33, gfx8=0x43, gfx10=0x33, gfx11=0x36)),
-   ("buffer_atomic_rsub",           op(0x34, gfx7=-1)),
-   ("buffer_atomic_smin",           op(0x35, gfx8=0x44, gfx10=0x35, gfx11=0x38)),
-   ("buffer_atomic_umin",           op(0x36, gfx8=0x45, gfx10=0x36, gfx11=0x39)),
-   ("buffer_atomic_smax",           op(0x37, gfx8=0x46, gfx10=0x37, gfx11=0x3a)),
-   ("buffer_atomic_umax",           op(0x38, gfx8=0x47, gfx10=0x38, gfx11=0x3b)),
-   ("buffer_atomic_and",            op(0x39, gfx8=0x48, gfx10=0x39, gfx11=0x3c)),
-   ("buffer_atomic_or",             op(0x3a, gfx8=0x49, gfx10=0x3a, gfx11=0x3d)),
-   ("buffer_atomic_xor",            op(0x3b, gfx8=0x4a, gfx10=0x3b, gfx11=0x3e)),
-   ("buffer_atomic_inc",            op(0x3c, gfx8=0x4b, gfx10=0x3c, gfx11=0x3f)),
-   ("buffer_atomic_dec",            op(0x3d, gfx8=0x4c, gfx10=0x3d, gfx11=0x40)),
-   ("buffer_atomic_fcmpswap",       op(0x3e, gfx8=-1, gfx10=0x3e, gfx11=0x50, gfx12=-1)),
-   ("buffer_atomic_fmin",           op(0x3f, gfx8=-1, gfx10=0x3f, gfx11=0x51)),
-   ("buffer_atomic_fmax",           op(0x40, gfx8=-1, gfx10=0x40, gfx11=0x52)),
-   ("buffer_atomic_swap_x2",        op(0x50, gfx8=0x60, gfx10=0x50, gfx11=0x41)),
-   ("buffer_atomic_cmpswap_x2",     op(0x51, gfx8=0x61, gfx10=0x51, gfx11=0x42)),
-   ("buffer_atomic_add_x2",         op(0x52, gfx8=0x62, gfx10=0x52, gfx11=0x43)),
-   ("buffer_atomic_sub_x2",         op(0x53, gfx8=0x63, gfx10=0x53, gfx11=0x44)),
-   ("buffer_atomic_rsub_x2",        op(0x54, gfx7=-1)),
-   ("buffer_atomic_smin_x2",        op(0x55, gfx8=0x64, gfx10=0x55, gfx11=0x45)),
-   ("buffer_atomic_umin_x2",        op(0x56, gfx8=0x65, gfx10=0x56, gfx11=0x46)),
-   ("buffer_atomic_smax_x2",        op(0x57, gfx8=0x66, gfx10=0x57, gfx11=0x47)),
-   ("buffer_atomic_umax_x2",        op(0x58, gfx8=0x67, gfx10=0x58, gfx11=0x48)),
-   ("buffer_atomic_and_x2",         op(0x59, gfx8=0x68, gfx10=0x59, gfx11=0x49)),
-   ("buffer_atomic_or_x2",          op(0x5a, gfx8=0x69, gfx10=0x5a, gfx11=0x4a)),
-   ("buffer_atomic_xor_x2",         op(0x5b, gfx8=0x6a, gfx10=0x5b, gfx11=0x4b)),
-   ("buffer_atomic_inc_x2",         op(0x5c, gfx8=0x6b, gfx10=0x5c, gfx11=0x4c)),
-   ("buffer_atomic_dec_x2",         op(0x5d, gfx8=0x6c, gfx10=0x5d, gfx11=0x4d)),
-   ("buffer_atomic_fcmpswap_x2",    op(0x5e, gfx8=-1, gfx10=0x5e, gfx11=-1)),
-   ("buffer_atomic_fmin_x2",        op(0x5f, gfx8=-1, gfx10=0x5f, gfx11=-1)),
-   ("buffer_atomic_fmax_x2",        op(0x60, gfx8=-1, gfx10=0x60, gfx11=-1)),
-   ("buffer_gl0_inv",               op(gfx10=0x71, gfx11=0x2b, gfx12=-1)),
-   ("buffer_gl1_inv",               op(gfx10=0x72, gfx11=0x2c, gfx12=-1)),
-   ("buffer_atomic_csub",           op(gfx10=0x34, gfx11=0x37)), #GFX10.3+. seems glc must be set. buffer_atomic_csub_u32 in GFX11
-   ("buffer_load_lds_b32",          op(gfx11=0x31, gfx12=-1)),
-   ("buffer_load_lds_format_x",     op(gfx11=0x32, gfx12=-1)),
-   ("buffer_load_lds_i8",           op(gfx11=0x2e, gfx12=-1)),
-   ("buffer_load_lds_i16",          op(gfx11=0x30, gfx12=-1)),
-   ("buffer_load_lds_u8",           op(gfx11=0x2d, gfx12=-1)),
-   ("buffer_load_lds_u16",          op(gfx11=0x2f, gfx12=-1)),
-   ("buffer_atomic_add_f32",        op(gfx11=0x56)),
-   ("buffer_atomic_pk_add_f16",     op(gfx12=0x59)),
-   ("buffer_atomic_pk_add_bf16",    op(gfx12=0x5a)),
+   ("buffer_load_format_x",         dst(U32), src(U128, U32, U32), op(0x00)),
+   ("buffer_load_format_xy",        dst(U64), src(U128, U32, U32), op(0x01)),
+   ("buffer_load_format_xyz",       dst(U96), src(U128, U32, U32), op(0x02)),
+   ("buffer_load_format_xyzw",      dst(U128), src(U128, U32, U32), op(0x03)),
+   ("buffer_store_format_x",        dst(), src(U128, U32, U32, U32), op(0x04)),
+   ("buffer_store_format_xy",       dst(), src(U128, U32, U32, U64), op(0x05)),
+   ("buffer_store_format_xyz",      dst(), src(U128, U32, U32, U96), op(0x06)),
+   ("buffer_store_format_xyzw",     dst(), src(U128, U32, U32, U128), op(0x07)),
+   ("buffer_load_format_d16_x",     dst(U32), src(U128, U32, U32), op(gfx8=0x08, gfx10=0x80, gfx11=0x08)),
+   ("buffer_load_format_d16_xy",    dst(U32), src(U128, U32, U32), op(gfx8=0x09, gfx10=0x81, gfx11=0x09)),
+   ("buffer_load_format_d16_xyz",   dst(U64), src(U128, U32, U32), op(gfx8=0x0a, gfx10=0x82, gfx11=0x0a)),
+   ("buffer_load_format_d16_xyzw",  dst(U64), src(U128, U32, U32), op(gfx8=0x0b, gfx10=0x83, gfx11=0x0b)),
+   ("buffer_store_format_d16_x",    dst(), src(U128, U32, U32, U32), op(gfx8=0x0c, gfx10=0x84, gfx11=0x0c)),
+   ("buffer_store_format_d16_xy",   dst(), src(U128, U32, U32, U32), op(gfx8=0x0d, gfx10=0x85, gfx11=0x0d)),
+   ("buffer_store_format_d16_xyz",  dst(), src(U128, U32, U32, U64), op(gfx8=0x0e, gfx10=0x86, gfx11=0x0e)),
+   ("buffer_store_format_d16_xyzw", dst(), src(U128, U32, U32, U64), op(gfx8=0x0f, gfx10=0x87, gfx11=0x0f)),
+   ("buffer_load_ubyte",            dst(U8), src(U128, U32, U32), op(0x08, gfx8=0x10, gfx10=0x08, gfx11=0x10)),
+   ("buffer_load_sbyte",            dst(U8), src(U128, U32, U32), op(0x09, gfx8=0x11, gfx10=0x09, gfx11=0x11)),
+   ("buffer_load_ushort",           dst(U16), src(U128, U32, U32), op(0x0a, gfx8=0x12, gfx10=0x0a, gfx11=0x12)),
+   ("buffer_load_sshort",           dst(U16), src(U128, U32, U32), op(0x0b, gfx8=0x13, gfx10=0x0b, gfx11=0x13)),
+   ("buffer_load_dword",            dst(U32), src(U128, U32, U32), op(0x0c, gfx8=0x14, gfx10=0x0c, gfx11=0x14)),
+   ("buffer_load_dwordx2",          dst(U64), src(U128, U32, U32), op(0x0d, gfx8=0x15, gfx10=0x0d, gfx11=0x15)),
+   ("buffer_load_dwordx3",          dst(U96), src(U128, U32, U32), op(gfx7=0x0f, gfx8=0x16, gfx10=0x0f, gfx11=0x16)),
+   ("buffer_load_dwordx4",          dst(U128), src(U128, U32, U32), op(0x0e, gfx8=0x17, gfx10=0x0e, gfx11=0x17)),
+   ("buffer_store_byte",            dst(), src(U128, U32, U32, U8), op(0x18)),
+   ("buffer_store_byte_d16_hi",     dst(), src(U128, U32, U32, U8), op(gfx9=0x19, gfx11=0x24)),
+   ("buffer_store_short",           dst(), src(U128, U32, U32, U16), op(0x1a, gfx11=0x19)),
+   ("buffer_store_short_d16_hi",    dst(), src(U128, U32, U32, U16), op(gfx9=0x1b, gfx11=0x25)),
+   ("buffer_store_dword",           dst(), src(U128, U32, U32, U32), op(0x1c, gfx11=0x1a)),
+   ("buffer_store_dwordx2",         dst(), src(U128, U32, U32, U64), op(0x1d, gfx11=0x1b)),
+   ("buffer_store_dwordx3",         dst(), src(U128, U32, U32, U96), op(gfx7=0x1f, gfx8=0x1e, gfx10=0x1f, gfx11=0x1c)),
+   ("buffer_store_dwordx4",         dst(), src(U128, U32, U32, U128), op(0x1e, gfx8=0x1f, gfx10=0x1e, gfx11=0x1d)),
+   ("buffer_load_ubyte_d16",        dst(U16), src(U128, U32, U32), op(gfx9=0x20, gfx11=0x1e)),
+   ("buffer_load_ubyte_d16_hi",     dst(U16), src(U128, U32, U32), op(gfx9=0x21)),
+   ("buffer_load_sbyte_d16",        dst(U16), src(U128, U32, U32), op(gfx9=0x22, gfx11=0x1f)),
+   ("buffer_load_sbyte_d16_hi",     dst(U16), src(U128, U32, U32), op(gfx9=0x23, gfx11=0x22)),
+   ("buffer_load_short_d16",        dst(U16), src(U128, U32, U32), op(gfx9=0x24, gfx11=0x20)),
+   ("buffer_load_short_d16_hi",     dst(U16), src(U128, U32, U32), op(gfx9=0x25, gfx11=0x23)),
+   ("buffer_load_format_d16_hi_x",  dst(U16), src(U128, U32, U32), op(gfx9=0x26)),
+   ("buffer_store_format_d16_hi_x", dst(), src(), op(gfx9=0x27)),
+   ("buffer_store_lds_dword",       dst(), src(), op(gfx8=0x3d, gfx10=-1)),
+   ("buffer_wbinvl1",               dst(), src(), op(0x71, gfx8=0x3e, gfx10=-1)),
+   ("buffer_wbinvl1_vol",           dst(), src(), op(0x70, gfx8=0x3f, gfx10=-1)),
+   ("buffer_atomic_swap",           dst(), src(U128, U32, U32, U32), op(0x30, gfx8=0x40, gfx10=0x30, gfx11=0x33)),
+   ("buffer_atomic_cmpswap",        dst(), src(U128, U32, U32, U64), op(0x31, gfx8=0x41, gfx10=0x31, gfx11=0x34)),
+   ("buffer_atomic_add",            dst(), src(U128, U32, U32, U32), op(0x32, gfx8=0x42, gfx10=0x32, gfx11=0x35)),
+   ("buffer_atomic_sub",            dst(), src(U128, U32, U32, U32), op(0x33, gfx8=0x43, gfx10=0x33, gfx11=0x36)),
+   ("buffer_atomic_rsub",           dst(), src(U128, U32, U32, U32), op(0x34, gfx7=-1)),
+   ("buffer_atomic_smin",           dst(), src(U128, U32, U32, U32), op(0x35, gfx8=0x44, gfx10=0x35, gfx11=0x38)),
+   ("buffer_atomic_umin",           dst(), src(U128, U32, U32, U32), op(0x36, gfx8=0x45, gfx10=0x36, gfx11=0x39)),
+   ("buffer_atomic_smax",           dst(), src(U128, U32, U32, U32), op(0x37, gfx8=0x46, gfx10=0x37, gfx11=0x3a)),
+   ("buffer_atomic_umax",           dst(), src(U128, U32, U32, U32), op(0x38, gfx8=0x47, gfx10=0x38, gfx11=0x3b)),
+   ("buffer_atomic_and",            dst(), src(U128, U32, U32, U32), op(0x39, gfx8=0x48, gfx10=0x39, gfx11=0x3c)),
+   ("buffer_atomic_or",             dst(), src(U128, U32, U32, U32), op(0x3a, gfx8=0x49, gfx10=0x3a, gfx11=0x3d)),
+   ("buffer_atomic_xor",            dst(), src(U128, U32, U32, U32), op(0x3b, gfx8=0x4a, gfx10=0x3b, gfx11=0x3e)),
+   ("buffer_atomic_inc",            dst(), src(U128, U32, U32, U32), op(0x3c, gfx8=0x4b, gfx10=0x3c, gfx11=0x3f)),
+   ("buffer_atomic_dec",            dst(), src(U128, U32, U32, U32), op(0x3d, gfx8=0x4c, gfx10=0x3d, gfx11=0x40)),
+   ("buffer_atomic_fcmpswap",       dst(), src(U128, U32, U32, U64), op(0x3e, gfx8=-1, gfx10=0x3e, gfx11=0x50, gfx12=-1)),
+   ("buffer_atomic_fmin",           dst(), src(U128, U32, U32, U32), op(0x3f, gfx8=-1, gfx10=0x3f, gfx11=0x51)),
+   ("buffer_atomic_fmax",           dst(), src(U128, U32, U32, U32), op(0x40, gfx8=-1, gfx10=0x40, gfx11=0x52)),
+   ("buffer_atomic_swap_x2",        dst(), src(U128, U32, U32, U64), op(0x50, gfx8=0x60, gfx10=0x50, gfx11=0x41)),
+   ("buffer_atomic_cmpswap_x2",     dst(), src(U128, U32, U32, U128), op(0x51, gfx8=0x61, gfx10=0x51, gfx11=0x42)),
+   ("buffer_atomic_add_x2",         dst(), src(U128, U32, U32, U64), op(0x52, gfx8=0x62, gfx10=0x52, gfx11=0x43)),
+   ("buffer_atomic_sub_x2",         dst(), src(U128, U32, U32, U64), op(0x53, gfx8=0x63, gfx10=0x53, gfx11=0x44)),
+   ("buffer_atomic_rsub_x2",        dst(), src(U128, U32, U32, U64), op(0x54, gfx7=-1)),
+   ("buffer_atomic_smin_x2",        dst(), src(U128, U32, U32, U64), op(0x55, gfx8=0x64, gfx10=0x55, gfx11=0x45)),
+   ("buffer_atomic_umin_x2",        dst(), src(U128, U32, U32, U64), op(0x56, gfx8=0x65, gfx10=0x56, gfx11=0x46)),
+   ("buffer_atomic_smax_x2",        dst(), src(U128, U32, U32, U64), op(0x57, gfx8=0x66, gfx10=0x57, gfx11=0x47)),
+   ("buffer_atomic_umax_x2",        dst(), src(U128, U32, U32, U64), op(0x58, gfx8=0x67, gfx10=0x58, gfx11=0x48)),
+   ("buffer_atomic_and_x2",         dst(), src(U128, U32, U32, U64), op(0x59, gfx8=0x68, gfx10=0x59, gfx11=0x49)),
+   ("buffer_atomic_or_x2",          dst(), src(U128, U32, U32, U64), op(0x5a, gfx8=0x69, gfx10=0x5a, gfx11=0x4a)),
+   ("buffer_atomic_xor_x2",         dst(), src(U128, U32, U32, U64), op(0x5b, gfx8=0x6a, gfx10=0x5b, gfx11=0x4b)),
+   ("buffer_atomic_inc_x2",         dst(), src(U128, U32, U32, U64), op(0x5c, gfx8=0x6b, gfx10=0x5c, gfx11=0x4c)),
+   ("buffer_atomic_dec_x2",         dst(), src(U128, U32, U32, U64), op(0x5d, gfx8=0x6c, gfx10=0x5d, gfx11=0x4d)),
+   ("buffer_atomic_fcmpswap_x2",    dst(), src(U128, U32, U32, U128), op(0x5e, gfx8=-1, gfx10=0x5e, gfx11=-1)),
+   ("buffer_atomic_fmin_x2",        dst(), src(U128, U32, U32, U64), op(0x5f, gfx8=-1, gfx10=0x5f, gfx11=-1)),
+   ("buffer_atomic_fmax_x2",        dst(), src(U128, U32, U32, U64), op(0x60, gfx8=-1, gfx10=0x60, gfx11=-1)),
+   ("buffer_gl0_inv",               dst(), src(), op(gfx10=0x71, gfx11=0x2b, gfx12=-1)),
+   ("buffer_gl1_inv",               dst(), src(), op(gfx10=0x72, gfx11=0x2c, gfx12=-1)),
+   ("buffer_atomic_csub",           dst(), src(U128), op(gfx10=0x34, gfx11=0x37)), #GFX10.3+. seems glc must be set. buffer_atomic_csub_u32 in GFX11
+   ("buffer_load_lds_b32",          dst(), src(U128), op(gfx11=0x31, gfx12=-1)),
+   ("buffer_load_lds_format_x",     dst(), src(U128), op(gfx11=0x32, gfx12=-1)),
+   ("buffer_load_lds_i8",           dst(), src(U128), op(gfx11=0x2e, gfx12=-1)),
+   ("buffer_load_lds_i16",          dst(), src(U128), op(gfx11=0x30, gfx12=-1)),
+   ("buffer_load_lds_u8",           dst(), src(U128), op(gfx11=0x2d, gfx12=-1)),
+   ("buffer_load_lds_u16",          dst(), src(U128), op(gfx11=0x2f, gfx12=-1)),
+   ("buffer_atomic_add_f32",        dst(), src(U128, U32, U32, U32), op(gfx11=0x56)),
+   ("buffer_atomic_pk_add_f16",     dst(), src(U128, U32, U32, U16), op(gfx12=0x59)),
+   ("buffer_atomic_pk_add_bf16",    dst(), src(U128, U32, U32, U16), op(gfx12=0x5a)),
 }
-for (name, num) in MUBUF:
-    insn(name, num, Format.MUBUF, InstrClass.VMem, is_atomic = "atomic" in name)
+for (name, defs, ops, num) in MUBUF:
+    insn(name, num, Format.MUBUF, InstrClass.VMem, is_atomic = "atomic" in name, definitions = noMods(defs), operands = noMods(ops))
 
 MTBUF = {
-   ("tbuffer_load_format_x",         op(0x00)),
-   ("tbuffer_load_format_xy",        op(0x01)),
-   ("tbuffer_load_format_xyz",       op(0x02)),
-   ("tbuffer_load_format_xyzw",      op(0x03)),
-   ("tbuffer_store_format_x",        op(0x04)),
-   ("tbuffer_store_format_xy",       op(0x05)),
-   ("tbuffer_store_format_xyz",      op(0x06)),
-   ("tbuffer_store_format_xyzw",     op(0x07)),
-   ("tbuffer_load_format_d16_x",     op(gfx8=0x08)),
-   ("tbuffer_load_format_d16_xy",    op(gfx8=0x09)),
-   ("tbuffer_load_format_d16_xyz",   op(gfx8=0x0a)),
-   ("tbuffer_load_format_d16_xyzw",  op(gfx8=0x0b)),
-   ("tbuffer_store_format_d16_x",    op(gfx8=0x0c)),
-   ("tbuffer_store_format_d16_xy",   op(gfx8=0x0d)),
-   ("tbuffer_store_format_d16_xyz",  op(gfx8=0x0e)),
-   ("tbuffer_store_format_d16_xyzw", op(gfx8=0x0f)),
+   ("tbuffer_load_format_x",         dst(U32), src(U128, U32, U32), op(0x00)),
+   ("tbuffer_load_format_xy",        dst(U64), src(U128, U32, U32), op(0x01)),
+   ("tbuffer_load_format_xyz",       dst(U96), src(U128, U32, U32), op(0x02)),
+   ("tbuffer_load_format_xyzw",      dst(U128), src(U128, U32, U32), op(0x03)),
+   ("tbuffer_store_format_x",        dst(), src(U128, U32, U32, U32), op(0x04)),
+   ("tbuffer_store_format_xy",       dst(), src(U128, U32, U32, U64), op(0x05)),
+   ("tbuffer_store_format_xyz",      dst(), src(U128, U32, U32, U96), op(0x06)),
+   ("tbuffer_store_format_xyzw",     dst(), src(U128, U32, U32, U128), op(0x07)),
+   ("tbuffer_load_format_d16_x",     dst(U32), src(U128, U32, U32), op(gfx8=0x08)),
+   ("tbuffer_load_format_d16_xy",    dst(U32), src(U128, U32, U32), op(gfx8=0x09)),
+   ("tbuffer_load_format_d16_xyz",   dst(U64), src(U128, U32, U32), op(gfx8=0x0a)),
+   ("tbuffer_load_format_d16_xyzw",  dst(U64), src(U128, U32, U32), op(gfx8=0x0b)),
+   ("tbuffer_store_format_d16_x",    dst(), src(U128, U32, U32, U32), op(gfx8=0x0c)),
+   ("tbuffer_store_format_d16_xy",   dst(), src(U128, U32, U32, U64), op(gfx8=0x0d)),
+   ("tbuffer_store_format_d16_xyz",  dst(), src(U128, U32, U32, U96), op(gfx8=0x0e)),
+   ("tbuffer_store_format_d16_xyzw", dst(), src(U128, U32, U32, U128), op(gfx8=0x0f)),
 }
-for (name, num) in MTBUF:
-    insn(name, num, Format.MTBUF, InstrClass.VMem)
+for (name, defs, ops, num) in MTBUF:
+    insn(name, num, Format.MTBUF, InstrClass.VMem, definitions = noMods(defs), operands = noMods(ops))
 
 
 MIMG = {
