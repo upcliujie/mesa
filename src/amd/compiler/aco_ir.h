@@ -1835,6 +1835,12 @@ unsigned get_mimg_nsa_dwords(const Instruction* instr);
 
 unsigned get_vopd_opy_start(const Instruction* instr);
 
+static inline aco_mimg_op_info
+aco_mimg_op_info_get_op(aco_mimg_op_info info)
+{
+   return (aco_mimg_op_info)(info & (util_next_power_of_two(aco_mimg_op_info::count) - 1));
+}
+
 bool should_form_clause(const Instruction* a, const Instruction* b);
 
 enum vmem_type : uint8_t {
@@ -2293,6 +2299,8 @@ typedef struct {
    const instr_class classes[static_cast<int>(aco_opcode::num_opcodes)];
    const SrcDestInfo definitions[static_cast<int>(aco_opcode::num_opcodes)][4];
    const SrcDestInfo operands[static_cast<int>(aco_opcode::num_opcodes)][4];
+   const std::unordered_map<aco_opcode, aco_mimg_op_info> mimg_infos;
+   const std::unordered_map<aco_mimg_op_info, aco_opcode> sample_opcodes;
 } Info;
 
 extern const Info instr_info;
