@@ -2477,7 +2477,7 @@ dri2_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 
    configs = dri_init_screen(screen, pscreen);
    if (!configs)
-      goto fail;
+      return NULL;
 
    screen->can_share_buffer = true;
    screen->auto_fake_front = dri_with_format(screen);
@@ -2497,11 +2497,6 @@ dri2_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    screen->release_buffer = dri2_release_buffer;
 
    return configs;
-
-fail:
-   pipe_loader_release(&screen->dev, 1);
-
-   return NULL;
 }
 
 /**
@@ -2522,7 +2517,7 @@ dri_swrast_kms_init_screen(struct dri_screen *screen, bool driver_name_is_inferr
 #endif
 
    if (!pscreen)
-       goto fail;
+       return NULL;
 
    dri_init_options(screen);
    dri2_init_screen_extensions(screen, pscreen, true);
@@ -2551,8 +2546,6 @@ dri_swrast_kms_init_screen(struct dri_screen *screen, bool driver_name_is_inferr
    return configs;
 
 fail:
-   dri_release_screen(screen);
-
 #endif // GALLIUM_SOFTPIPE
    return NULL;
 }
