@@ -803,7 +803,6 @@ adjust_max_used_regs(ra_ctx& ctx, RegClass rc, unsigned reg)
 enum UpdateRenames {
    rename_not_killed_ops = 0x1,
    fill_killed_ops = 0x2,
-   rename_precolored_ops = 0x4,
 };
 MESA_DEFINE_CPP_ENUM_BITFIELD_OPERATORS(UpdateRenames);
 
@@ -901,8 +900,7 @@ update_renames(ra_ctx& ctx, RegisterFile& reg_file, std::vector<parallelcopy>& p
             continue;
          if (op.tempId() == copy.op.tempId()) {
             /* only rename precolored operands if the copy-location matches */
-            bool omit_renaming = (flags & rename_precolored_ops) && op.isPrecolored() &&
-                                 op.physReg() != copy.def.physReg();
+            bool omit_renaming = op.isPrecolored() && op.physReg() != copy.def.physReg();
 
             /* Omit renaming in some cases for p_create_vector in order to avoid
              * unnecessary shuffle code. */
@@ -2178,8 +2176,7 @@ handle_fixed_operands(ra_ctx& ctx, RegisterFile& register_file,
    }
 
    get_regs_for_copies(ctx, tmp_file, parallelcopy, blocking_vars, instr, PhysRegInterval());
-   update_renames(ctx, register_file, parallelcopy, instr,
-                  rename_not_killed_ops | fill_killed_ops | rename_precolored_ops);
+   update_renames(ctx, register_file, parallelcopy, instr, rename_not_killed_ops | fill_killed_ops);
 }
 
 void
