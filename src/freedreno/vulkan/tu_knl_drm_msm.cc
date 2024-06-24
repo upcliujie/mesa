@@ -1242,6 +1242,9 @@ tu_knl_drm_msm_load(struct tu_instance *instance,
    device->has_set_iova = !tu_drm_get_va_prop(device, &device->va_start,
                                               &device->va_size);
 
+   /* TODO: Get it via MSM param when available. */
+   device->uche_trap_base = 0x1fffffffff000ull;
+
    /* Even if kernel is new enough, the GPU itself may not support it. */
    device->has_cached_coherent_memory =
       (device->msm_minor_version >= 8) &&

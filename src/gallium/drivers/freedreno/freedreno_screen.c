@@ -1118,6 +1118,9 @@ fd_screen_create(int fd,
    if (fd_pipe_get_param(screen->pipe, FD_TIMESTAMP, &val) == 0)
       screen->has_timestamp = true;
 
+   /* TODO: Get it via MSM param when available. */
+   screen->uche_trap_base = 0x1fffffffff000ull;
+
    screen->dev_id = fd_pipe_dev_id(screen->pipe);
 
    if (fd_pipe_get_param(screen->pipe, FD_GPU_ID, &val)) {
