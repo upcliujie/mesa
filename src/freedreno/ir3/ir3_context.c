@@ -123,7 +123,15 @@ ir3_context_init(struct ir3_compiler *compiler, struct ir3_shader *shader,
 
    NIR_PASS(progress, ctx->s, nir_convert_to_lcssa, true, true);
 
-   NIR_PASS(progress, ctx->s, nir_lower_phis_to_scalar, true);
+   bool phis_to_scalar_progress = false;
+   NIR_PASS(phis_to_scalar_progress, ctx->s, nir_lower_phis_to_scalar, true);
+
+   if (phis_to_scalar_progress) {
+      progress = true;
+
+      /* Clean up vecs created by nir_lower_phis_to_scalar. */
+      NIR_PASS(progress, ctx->s, nir_copy_prop);
+   }
 
    /* This has to go at the absolute end to make sure that all SSA defs are
     * correctly marked.
