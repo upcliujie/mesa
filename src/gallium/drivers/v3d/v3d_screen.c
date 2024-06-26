@@ -631,7 +631,7 @@ v3d_screen_is_format_supported(struct pipe_screen *pscreen,
                 return false;
         }
 
-        if ((usage & PIPE_BIND_SAMPLER_VIEW) &&
+        if ((usage & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE)) &&
             !v3d_tex_format_supported(&screen->devinfo, format)) {
                 return false;
         }
