@@ -641,10 +641,6 @@
    DRI_CONF_OPT_I(radv_override_uniform_offset_alignment, def, 0, 128, \
                   "Override the minUniformBufferOffsetAlignment exposed to the application. (0 = default)")
 
-#define DRI_CONF_RADV_ZERO_VRAM(def) \
-   DRI_CONF_OPT_B(radv_zero_vram, def, \
-                  "Initialize to zero all VRAM allocations")
-
 #define DRI_CONF_RADV_INVARIANT_GEOM(def) \
    DRI_CONF_OPT_B(radv_invariant_geom, def, \
                   "Mark geometry-affecting outputs as invariant")
