@@ -277,6 +277,9 @@ static bool
 v3d42_nir_lower_image_store(nir_builder *b, nir_intrinsic_instr *instr)
 {
         enum pipe_format format = nir_intrinsic_format(instr);
+        // TODO: OpenCL images don't have a format
+        // atm we have this information on the image object:
+        //   (image_dim=2D, image_array=false, format=none, access=writeonly, range_base=160, src_type=float32)
         assert(format != PIPE_FORMAT_NONE);
         const struct util_format_description *desc =
                 util_format_description(format);
@@ -354,6 +357,7 @@ static bool
 v3d71_nir_lower_image_store(nir_builder *b, nir_intrinsic_instr *instr)
 {
         enum pipe_format format = nir_intrinsic_format(instr);
+        // TODO: OpenCL images don't have a format
         assert(format != PIPE_FORMAT_NONE);
         const struct util_format_description *desc =
                 util_format_description(format);
