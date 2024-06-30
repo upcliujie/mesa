@@ -205,6 +205,13 @@ UNUSED static uint8_t
 isl_get_render_compression_format(enum isl_format format,
                                   enum isl_tiling tiling)
 {
+   /* Bspec 58797 (r58646):
+    *
+    *   Enabling compression is not legal for TileX surfaces
+    */
+   if (tiling == ISL_TILING_X)
+      return CMF_DISABLE_WRITE_COMPRESSION;
+
    /* Bspec 63919 (r60413):
     *
     *   Table "[Enumeration] UNIFIED_COMPRESSION_FORMAT"
