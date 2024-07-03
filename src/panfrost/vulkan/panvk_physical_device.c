@@ -83,6 +83,7 @@ get_device_extensions(const struct panvk_physical_device *device,
       .EXT_buffer_device_address = true,
       .EXT_custom_border_color = true,
       .EXT_graphics_pipeline_library = true,
+      .EXT_host_query_reset = true,
       .EXT_index_type_uint8 = true,
       .EXT_pipeline_creation_cache_control = true,
       .EXT_pipeline_creation_feedback = true,
@@ -106,6 +107,7 @@ get_features(const struct panvk_physical_device *device,
       .logicOp = true,
       .wideLines = true,
       .largePoints = true,
+      .occlusionQueryPrecise = true,
       .textureCompressionETC2 = true,
       .textureCompressionASTC_LDR = true,
       .samplerAnisotropy = true,
@@ -167,7 +169,7 @@ get_features(const struct panvk_physical_device *device,
       .uniformBufferStandardLayout = false,
       .shaderSubgroupExtendedTypes = false,
       .separateDepthStencilLayouts = false,
-      .hostQueryReset = false,
+      .hostQueryReset = true,
       .timelineSemaphore = false,
       .bufferDeviceAddress = true,
       .bufferDeviceAddressCaptureReplay = false,
@@ -232,6 +234,33 @@ get_features(const struct panvk_physical_device *device,
       /* VK_EXT_shader_module_identifier */
       .shaderModuleIdentifier = true,
    };
+}
+
+static uint64_t
+get_gpu_system_timestamp_frequency()
+{
+#if DETECT_ARCH_AARCH64
+   uint64_t ret;
+   __asm__ volatile("mrs \t%0, cntfrq_el0" : "=r"(ret));
+   return ret;
+#elif DETECT_ARCH_ARM
+   uint32_t ret;
+   __asm__ volatile("mrc p15, 0, %0, c14, c0, 0" : "=r"(ret));
+   return ret;
+#else
+   return 0;
+#endif
+}
+
+float
+panvk_get_gpu_system_timestamp_period(const struct panvk_physical_device *device)
+{
+   uint64_t freq = get_gpu_system_timestamp_frequency();
+
+   if (!freq)
+      return 1;
+
+   return 1000000000.0 / (float)freq;
 }
 
 static void
@@ -445,8 +474,9 @@ get_device_properties(const struct panvk_instance *instance,
       .sampledImageStencilSampleCounts = sample_counts,
       .storageImageSampleCounts = VK_SAMPLE_COUNT_1_BIT,
       .maxSampleMaskWords = 1,
+      /* XXX: Requires a new uapi version on Panfrost */
       .timestampComputeAndGraphics = false,
-      .timestampPeriod = 0,
+      .timestampPeriod = panvk_get_gpu_system_timestamp_period(device),
       .maxClipDistances = 0,
       .maxCullDistances = 0,
       .maxCombinedClipAndCullDistances = 0,
@@ -787,6 +817,7 @@ static const VkQueueFamilyProperties panvk_queue_family_properties = {
    .queueFlags =
       VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
    .queueCount = 1,
+   /* XXX: Requires a new uapi version on Panfrost */
    .timestampValidBits = 0,
    .minImageTransferGranularity = {1, 1, 1},
 };

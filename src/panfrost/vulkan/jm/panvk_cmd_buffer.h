@@ -80,6 +80,11 @@ struct panvk_attrib_buf {
    unsigned size;
 };
 
+struct panvk_occlusion_query_state {
+   mali_ptr ptr;
+   enum mali_occlusion_mode mode;
+};
+
 struct panvk_cmd_graphics_state {
    struct panvk_descriptor_state desc_state;
 
@@ -89,6 +94,8 @@ struct panvk_cmd_graphics_state {
    } dynamic;
 
    uint32_t dirty;
+
+   struct panvk_occlusion_query_state occlusion_query;
 
    struct panvk_graphics_sysvals sysvals;
 
@@ -272,6 +279,8 @@ struct panvk_cmd_meta_graphics_save_ctx {
       mali_ptr attribs;
       mali_ptr attrib_bufs;
    } vs;
+
+   struct panvk_occlusion_query_state occlusion_query;
 };
 
 void panvk_per_arch(cmd_meta_gfx_start)(
