@@ -3,3 +3,5 @@ VK_EXT_legacy_vertex_attributes on lavapipe, ANV, Turnip and RADV
 VK_MESA_image_alignment_control on RADV
 VK_EXT_shader_replicated_composites on ANV, dozen, hasvk, lavapipe, nvk, RADV, and Turnip
 VK_KHR_maintenance5 on v3dv
+VK_EXT_legacy_vertex_attributes on lavapipe
+All Vulkan video extensions enabled by default on RADV
