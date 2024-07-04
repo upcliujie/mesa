@@ -158,9 +158,9 @@ brw_fs_optimize(fs_visitor &s)
       OPT(brw_fs_lower_simd_width);
    }
 
-   OPT(brw_fs_lower_sends_overlapping_payload);
-
    OPT(brw_fs_lower_uniform_pull_constant_loads);
+
+   OPT(brw_fs_lower_sends_overlapping_payload);
 
    OPT(brw_fs_lower_indirect_mov);
 
@@ -523,4 +523,3 @@ brw_fs_opt_remove_extra_rounding_modes(fs_visitor &s)
 
    return progress;
 }
-
