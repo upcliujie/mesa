@@ -42,7 +42,7 @@ get_temp_registers(aco_ptr<Instruction>& instr)
    }
 
    for (Operand op : instr->operands) {
-      if (op.isFirstKill()) {
+      if (op.isFirstKill() || op.isCopyKill()) {
          demand_before += op.getTemp();
          if (op.isLateKill())
             demand_after += op.getTemp();
@@ -206,6 +206,8 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
          Operand& operand = insn->operands[i];
          if (!operand.isTemp() || operand.isKill())
             continue;
+
+         const Temp temp = operand.getTemp();
          if (operand.isFixed()) {
             ctx.program->needs_vcc |= operand.physReg() == vcc;
             /* Check if this operand gets overwritten by a precolored definition */
@@ -213,16 +215,24 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
                             [=](Definition def)
                             { return def.isFixed() && def.physReg() == operand.physReg(); }))
                operand.setClobbered(true);
+
+            /* Check if this temp is fixed to a different register as well */
+            for (unsigned j = i + 1; j < insn->operands.size(); ++j) {
+               if (insn->operands[j].isTemp() && insn->operands[j].getTemp() == temp &&
+                   insn->operands[j].isFixed() &&
+                   operand.physReg() != insn->operands[j].physReg()) {
+                  operand_demand += temp;
+                  insn->operands[j].setCopyKill(true);
+               }
+            }
          }
-         const Temp temp = operand.getTemp();
+
          const bool inserted = live.insert(temp.id()).second;
          if (inserted) {
             operand.setFirstKill(true);
             for (unsigned j = i + 1; j < insn->operands.size(); ++j) {
-               if (insn->operands[j].isTemp() && insn->operands[j].tempId() == operand.tempId()) {
-                  insn->operands[j].setFirstKill(false);
+               if (insn->operands[j].isTemp() && insn->operands[j].getTemp() == temp)
                   insn->operands[j].setKill(true);
-               }
             }
             if (operand.isLateKill())
                insn->register_demand += temp;
