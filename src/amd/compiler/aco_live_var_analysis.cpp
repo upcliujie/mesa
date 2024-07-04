@@ -199,6 +199,11 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
          }
       }
 
+      /* Check if a definition clobbers some operand */
+      int op_idx = get_op_fixed_to_def(insn);
+      if (op_idx != -1u)
+         insn->operands[op_idx].setClobbered(true);
+
       /* we need to do this in a separate loop because the next one can
        * setKill() for several operands at once and we don't want to
        * overwrite that in a later iteration */
@@ -210,8 +215,14 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
          Operand& operand = insn->operands[i];
          if (!operand.isTemp())
             continue;
-         if (operand.isFixed() && operand.physReg() == vcc)
-            ctx.program->needs_vcc = true;
+         if (operand.isFixed()) {
+            ctx.program->needs_vcc |= operand.physReg() == vcc;
+            /* Check if this operand gets overwritten by a precolored definition */
+            if (std::any_of(insn->definitions.begin(), insn->definitions.end(),
+                            [=](Definition def)
+                            { return def.isFixed() && def.physReg() == operand.physReg(); }))
+               operand.setClobbered(true);
+         }
          const Temp temp = operand.getTemp();
          const bool inserted = live.insert(temp.id()).second;
          if (inserted) {
