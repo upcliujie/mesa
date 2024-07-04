@@ -66,6 +66,25 @@ nouveau_copy_rect_buffer(struct nvk_buffer *buf,
    };
 }
 
+static struct nouveau_copy_buffer
+nouveau_copy_rect_memory(const struct nvk_image *img,
+                         const struct nvk_image_plane *plane,
+                         const VkMemoryToImageCopyEXT *info,
+                         struct vk_image_buffer_layout buffer_layout)
+{
+   unsigned start_layer = (dst->vk.image_type == VK_IMAGE_TYPE_3D) ?
+      info->imageOffset.z : info->imageSubresource.baseArrayLayer;
+   unsigned layer_stride_B =
+      plane.nil.levels[info->imageSubresource.mipLevel].row_stride_B;
+   return (struct nouveau_copy_buffer) {
+      .base_addr = (uint64_t) info->pHostPointer + start_layer * layer_stride_B,
+      .image_type = img->vk.image_type,
+      .bpp = buffer_layout.element_size_B,
+      .row_stride = buffer_layout.row_stride_B,
+      .array_stride = buffer_layout.image_stride_B,
+   };
+}
+
 static struct nil_Offset4D_Pixels
 vk_to_nil_offset(VkOffset3D offset, uint32_t base_array_layer)
 {
@@ -820,4 +839,462 @@ nvk_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
       .src_memory_layout = SRC_MEMORY_LAYOUT_PITCH,
       .dst_memory_layout = DST_MEMORY_LAYOUT_PITCH,
    });
+}
+
+/* TODO: remove helpers and merge them with Vk entrypoints. They are split just
+ * for ease of editing. 
+ */
+
+static void
+nvk_copy_memory_to_image(struct nvk_image *dst,
+                         const VkMemoryToImageCopyEXT *info,
+                         bool no_swizzle)
+{
+   struct vk_image_buffer_layout buffer_layout =
+      vk_memory_to_image_copy_layout(&dst->vk, info);
+   
+   const VkExtent3D extent_px =
+      vk_image_sanitize_extent(&dst->vk, info->imageExtent);
+   const uint32_t layer_count =
+      vk_image_subresource_layer_count(&dst->vk, info->imageSubresource);
+   const struct nil_Extent4D_Pixels extent4d_px =
+      vk_to_nil_extent(extent_px, layer_count);
+   
+   const VkImageAspectFlagBits aspects = info->imageSubresource.aspectMask;
+   uint8_t plane = nvk_image_aspects_to_plane(dst, aspects);
+
+   struct nouveau_copy copy = {
+      .src = nouveau_copy_rect_memory(dst,
+                                      dst->planes[plane],
+                                      info,
+                                      buffer_layout),
+      .dst = nouveau_copy_rect_image(dst, &dst->planes[plane],
+                                     info->imageOffset,
+                                     &info->imageSubresource),
+      .extent_el = nil_extent4d_px_to_el(extent4d_px, dst->planes[plane].nil.format,
+                                         dst->planes[plane].nil.sample_layout),
+   };
+   
+   /* TODO: I think all this remapping doesn't work with host_image_copy, but not sure
+    * what to do with the weird depth stencil formats, so leaving commented out for now
+    */
+   /*struct nouveau_copy copy2 = { 0 };
+   
+   switch (dst->vk.format) {
+      case VK_FORMAT_D32_SFLOAT_S8_UINT:
+         if (aspects == VK_IMAGE_ASPECT_DEPTH_BIT) {
+            copy.remap.comp_size = 4;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_X;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_NO_WRITE;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+         } else {
+            assert(aspects == VK_IMAGE_ASPECT_STENCIL_BIT);
+            copy2.dst = copy.dst;
+            copy2.extent_el = copy.extent_el;
+            copy.dst = copy2.src =
+               nouveau_copy_rect_image(dst, &dst->stencil_copy_temp,
+                                       info->imageOffset,
+                                       info->imageSubresource);
+
+            copy.remap.comp_size = 1;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_X;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_NO_WRITE;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+
+            copy2.remap.comp_size = 2;
+            copy2.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_NO_WRITE;
+            copy2.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy2.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_SRC_X;
+            copy2.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+         }
+         break;
+      case VK_FORMAT_D24_UNORM_S8_UINT:
+         if (aspects == VK_IMAGE_ASPECT_DEPTH_BIT) {
+            copy.remap.comp_size = 1;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_X;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_SRC_Y;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_SRC_Z;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+         } else {
+            assert(aspects == VK_IMAGE_ASPECT_STENCIL_BIT);
+            copy.remap.comp_size = 1;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_NO_WRITE;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_NO_WRITE;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_SRC_X;
+         }
+         break;
+      default:
+         copy.remap = nouveau_copy_remap_format(dst->vk.format);
+         break;
+   }
+   */
+   assert(copy->extent_el.depth == 1 || copy->extent_el.array_len == 1);
+   
+   VkDeviceSize src_addr_B = copy->src.base_addr;
+   VkDeviceSize dst_addr_B = copy->dst.base_addr;
+   
+   for (unsigned z = 0; z < layer_count; z++) {
+      uint64_t layer_size_B = nil_image_level_size_B(dst->planes[plane].nil,
+                                                     info->imageSubresource.mipLevel);
+
+      uint64_t src_layer_stride_B = no_swizzle ? layer_size_B :
+      (buffer_layout.row_length * buffer_layout.image_height * copy.dst.bpp);
+
+      if (no_swizzle) {
+         memcpy(dst_addr_B, src_addr_B, src_layer_stride_B);
+      } else if (!copy->dst.tiling.is_tiled) {
+         uint32_t src_pitch_B = buffer_layout.row_length * copy.dst.bpp;
+         uint32_t dst_pitch_B =
+            dst->planes[plane].nil.levels[info->imageSubresource.mipLevel].row_stride_B;
+         for (unsigned y = 0; y < extent.height; y++) {
+            memcpy(dst_addr_B + dst_pitch_B * (y + info->imageOffset.y) +
+                   info->imageOffset.x * copy.dst.bpp,
+                   src_addr_B + src_pitch_B * y,
+                   extent.width * copy.dst.bpp);
+         }
+      } else {
+         const VkOffset3D offset_px =
+         vk_image_sanitize_offset(&dst->vk, info->imageOffset);
+         const struct nil_Offset4D_Pixels offset4d_px =
+         vk_to_nil_offset(offset_px, info->imageSubresource.baseArrayLayer);
+         
+         /*nil_linear_to_tiled(offset4d_px,
+                             extent4d_px,
+                             info->imageSubresource.mipLevel,
+                             dst->planes[plane].nil,
+                             buffer_layout.row_length * copy.dst.bpp,
+                             slice,
+                             src_addr_B,
+                             dst_addr_B);*/
+      }
+
+      src_addr_B += src_layer_stride_B;
+
+      if (copy->dst.image_type != VK_IMAGE_TYPE_3D)
+         dst_addr_B += (z + copy->dst.offset_el.a) * copy->dst.array_stride;
+
+      if (!copy->dst.tiling.is_tiled) {
+         dst_addr_B += copy->dst.offset_el.x * copy->dst.bpp +
+                     copy->dst.offset_el.y * copy->dst.row_stride;
+      }
+   }
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_CopyMemoryToImageEXT(VkDevice _device,
+                         const VkCopyMemoryToImageInfoEXT *info)
+{
+   VK_FROM_HANDLE(nvk_image, dst_image, info->dstImage);
+
+   /* From the EXT spec:
+    * VK_HOST_IMAGE_COPY_MEMCPY_EXT specifies that no memory layout swizzling is
+    * to be applied during data copy. For copies between memory and images, this
+    * flag indicates that image data in host memory is swizzled in exactly the
+    * same way as the image data on the device. Using this flag indicates that
+    * the implementations may use a simple memory copy to transfer the data
+    * between the host memory and the device memory. The format of the swizzled
+    * data in host memory is platform dependent and is not defined in this
+    * specification.
+    */
+   const bool no_swizzle = pCopyImageToImageInfo->flags &
+      VK_HOST_IMAGE_COPY_MEMCPY_EXT;
+
+   for (unsigned r = 0; r < info->regionCount; r++) {
+      nvk_copy_memory_to_image(dst_image, &info->pRegions[r],
+                               no_swizzle);
+   }
+
+   return VK_SUCCESS;
+}
+
+static void
+nvk_copy_image_to_memory(struct nvk_image *src,
+                         const VkImageToMemoryCopyEXT *info,
+                         bool no_swizzle)
+{
+   struct vk_image_buffer_layout buffer_layout =
+      vk_image_to_memory_copy_layout(&src->vk, info);
+   
+   const VkExtent3D extent_px =
+      vk_image_sanitize_extent(&src->vk, info->imageExtent);
+   const uint32_t layer_count =
+      vk_image_subresource_layer_count(&src->vk, info->imageSubresource);
+   const struct nil_Extent4D_Pixels extent4d_px =
+      vk_to_nil_extent(extent_px, layer_count);
+   
+   const VkImageAspectFlagBits aspects = info->imageSubresource.aspectMask;
+   uint8_t plane = nvk_image_aspects_to_plane(src, aspects);
+
+   struct nouveau_copy copy = {
+      .src = nouveau_copy_rect_image(src, &src->planes[plane],
+                                     info->imageOffset,
+                                     &info->imageSubresource),
+      .dst = nouveau_copy_rect_memory(src,
+                                      src->planes[plane],
+                                      info,
+                                      buffer_layout),
+      .extent_el = nil_extent4d_px_to_el(extent4d_px, src->planes[plane].nil.format,
+                                         src->planes[plane].nil.sample_layout),
+   };
+   
+   /* TODO: I think all this remapping doesn't work with host_image_copy, but not sure
+    * what to do with the weird depth stencil formats, so leaving commented out for now
+    */
+   /*struct nouveau_copy copy2 = { 0 };
+   
+   switch (src->vk.format) {
+      case VK_FORMAT_D32_SFLOAT_S8_UINT:
+         if (aspects == VK_IMAGE_ASPECT_DEPTH_BIT) {
+            copy.remap.comp_size = 4;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_X;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_NO_WRITE;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+         } else {
+            assert(aspects == VK_IMAGE_ASPECT_STENCIL_BIT);
+            copy2.dst = copy.dst;
+            copy2.extent_el = copy.extent_el;
+            copy.dst = copy2.src =
+               nouveau_copy_rect_image(src, &src->stencil_copy_temp,
+                                       region->imageOffset,
+                                       &region->imageSubresource);
+
+            copy.remap.comp_size = 2;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_Z;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_NO_WRITE;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+
+            copy2.remap.comp_size = 1;
+            copy2.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_X;
+            copy2.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy2.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_NO_WRITE;
+            copy2.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+         }
+         break;
+      case VK_FORMAT_D24_UNORM_S8_UINT:
+         if (aspects == VK_IMAGE_ASPECT_DEPTH_BIT) {
+            copy.remap.comp_size = 1;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_X;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_SRC_Y;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_SRC_Z;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+         } else {
+            assert(aspects == VK_IMAGE_ASPECT_STENCIL_BIT);
+            copy.remap.comp_size = 1;
+            copy.remap.dst[0] = NV90B5_SET_REMAP_COMPONENTS_DST_X_SRC_W;
+            copy.remap.dst[1] = NV90B5_SET_REMAP_COMPONENTS_DST_Y_NO_WRITE;
+            copy.remap.dst[2] = NV90B5_SET_REMAP_COMPONENTS_DST_Z_NO_WRITE;
+            copy.remap.dst[3] = NV90B5_SET_REMAP_COMPONENTS_DST_W_NO_WRITE;
+         }
+         break;
+      default:
+         copy.remap = nouveau_copy_remap_format(src->vk.format);
+         break;
+   }
+   */
+
+   assert(copy->extent_el.depth == 1 || copy->extent_el.array_len == 1);
+   
+   VkDeviceSize src_addr_B = copy->src.base_addr;
+   VkDeviceSize dst_addr_B = copy->dst.base_addr;
+
+   for (unsigned z = 0; z < layer_count; z++) {
+      uint64_t layer_size_B = nil_image_level_size_B(src->planes[plane].nil,
+                                                     info->imageSubresource.mipLevel);
+
+      uint64_t dst_layer_stride_B = no_swizzle ? layer_size_B :
+      (buffer_layout.row_length * buffer_layout.image_height * copy.src.bpp);
+
+      if (no_swizzle) {
+         memcpy(dst_addr_B, src_addr_B, dst_layer_stride_B);
+      } else if (!copy->src.tiling.is_tiled) {
+         uint32_t src_pitch_B =
+            src->planes[plane].nil.levels[info->imageSubresource.mipLevel].row_stride_B;
+         uint32_t dst_pitch_B = buffer_layout.row_length * copy.dst.bpp;
+
+         for (unsigned y = 0; y < extent.height; y++) {
+            memcpy(dst_addr_B + dst_pitch_B * y,
+                   src_addr_B + src_pitch_B * (y + info->imageOffset.y) + info->imageOffset.x * copy.src.bpp,
+                   info->imageExtent.width * copy.src.bpp);
+         }
+      } else {
+         const VkOffset3D offset_px =
+         vk_image_sanitize_offset(&dst->vk, info->imageOffset);
+         const struct nil_Offset4D_Pixels offset4d_px =
+         vk_to_nil_offset(offset_px, info->imageSubresource.baseArrayLayer);
+         
+         /*nil_tiled_to_linear(offset4d_px,
+                               extent4d_px,
+                               info->imageSubresource.mipLevel,
+                               dst->planes[plane].nil,
+                               buffer_layout.row_length * copy.dst.bpp,
+                               slice,
+                               src_addr_B,
+                               dst_addr_B);*/
+      }
+
+      if (copy->src.image_type != VK_IMAGE_TYPE_3D)
+         src_addr_B += (z + copy->src.offset_el.a) * copy->src.array_stride;
+
+      if (!copy->src.tiling.is_tiled) {
+         src_addr_B += copy->src.offset_el.x * copy->src.bpp +
+                     copy->src.offset_el.y * copy->src.row_stride;
+      }
+
+      dst_addr_B += dst_layer_stride_B;
+   }
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_CopyImageToMemoryEXT(VkDevice _device,
+                         const VkCopyImageToMemoryInfoEXT *info)
+{
+   VK_FROM_HANDLE(nvk_image, image, info->srcImage);
+
+   const bool no_swizzle = pCopyImageToImageInfo->flags &
+      VK_HOST_IMAGE_COPY_MEMCPY_EXT;
+
+   for (unsigned r = 0; r < info->regionCount; r++) {
+      nvk_copy_image_to_memory(image, &info->pRegions[r],
+                               no_swizzle);
+   }
+
+   return VK_SUCCESS;
+}
+
+static void
+nvk_copy_image_to_image(struct nvk_image *src,
+                        struct nvk_image *dst,
+                        const VkImageCopy2 *info,
+                        bool no_swizzle)
+{
+   /* From the Vulkan 1.3.217 spec:
+    *
+    *    "When copying between compressed and uncompressed formats the
+    *    extent members represent the texel dimensions of the source image
+    *    and not the destination."
+    */
+   const VkExtent3D extent_px =
+      vk_image_sanitize_extent(&src->vk, region->extent);
+   const uint32_t layer_count =
+      vk_image_subresource_layer_count(&src->vk, &region->srcSubresource);
+   const struct nil_Extent4D_Pixels extent4d_px =
+      vk_to_nil_extent(extent_px, layer_count);
+
+   const VkImageAspectFlagBits src_aspects =
+      region->srcSubresource.aspectMask;
+   uint8_t src_plane = nvk_image_aspects_to_plane(src, src_aspects);
+
+   const VkImageAspectFlagBits dst_aspects =
+      region->dstSubresource.aspectMask;
+   uint8_t dst_plane = nvk_image_aspects_to_plane(dst, dst_aspects);
+
+   struct nouveau_copy copy = {
+      .src = nouveau_copy_rect_image(src, &src->planes[src_plane],
+                                     info->srcOffset,
+                                     &info->srcSubresource),
+      .dst = nouveau_copy_rect_image(dst, &dst->planes[dst_plane],
+                                     info->dstOffset,
+                                     &info->dstSubresource),
+      .extent_el = nil_extent4d_px_to_el(extent4d_px, src->planes[src_plane].nil.format,
+                                         src->planes[src_plane].nil.sample_layout),
+   };
+
+   assert(src_aspects == region->srcSubresource.aspectMask);
+
+   uint32_t src_layer_stride_B =
+      src->planes[src_plane].nil.levels[info->imageSubresource.mipLevel].row_stride_B;
+   uint64_t src_layer_size_B = nil_image_level_size_B(src->planes[src_plane].nil,
+                                                      info->imageSubresource.mipLevel);
+   
+   uint32_t dst_layer_stride_B =
+      dst->planes[dst_plane].nil.levels[info->imageSubresource.mipLevel].row_stride_B;
+   uint64_t dst_layer_size_B = nil_image_level_size_B(dst->planes[dst_plane].nil,
+                                                      info->imageSubresource.mipLevel);
+
+   VkDeviceSize src_addr_B = copy->src.base_addr;
+   VkDeviceSize dst_addr_B = copy->dst.base_addr;
+
+   for (unsigned z = 0; z < layer_count; z++) {
+
+      if (no_swizzle) {
+         assert(src_layer_size_B == dst_layer_size_B);
+         memcpy(dst_addr_B, src_addr_B, dst_layer_size_B);
+      } else if (!copy->src.tiling.is_tiled && !copy->dst.tiling.is_tiled) {
+         for (unsigned y = 0; y < extent.height; y++) {
+            memcpy(dst_addr_B + dst_layer_stride_B * (y + info->dstOffset.y) + info->dstOffset.x * copy.dst.bpp,
+                   src_addr_B + src_layer_stride_B * (y + info->srcOffset.y) + info->srcOffset.x * copy.src.bpp,
+                   extent.width * copy.src.bpp);
+         }
+      } else if (!copy->src.tiling.is_tiled) {
+         /*nil_linear_to_tiled(offset4d_px,
+                             extent4d_px,
+                             info->imageSubresource.mipLevel,
+                             dst->planes[plane].nil,
+                             buffer_layout.row_length * copy.dst.bpp,
+                             slice,
+                             src_addr_B + src_layer_stride_B * info->srcOffset.y + info->srcOffset.x * copy.src.bpp,
+                             dst_addr_B);*/
+      } else if (!copy->dst.tiling.is_tiled) {
+         /*nil_tiled_to_linear(offset4d_px,
+                               extent4d_px,
+                               info->imageSubresource.mipLevel,
+                               dst->planes[plane].nil,
+                               buffer_layout.row_length * copy.dst.bpp,
+                               slice,
+                               src_addr_B,
+                               dst_addr_B + dst_layer_stride_B * info->dstOffset.y + info->dstOffset.x * copy.dst.bpp);*/
+      } else {
+         /* TODO: Tiled to Tiled case */
+      }
+
+      if (copy->src.image_type != VK_IMAGE_TYPE_3D)
+         src_addr_B += (z + copy->src.offset_el.a) * copy->src.array_stride;
+
+      if (copy->dst.image_type != VK_IMAGE_TYPE_3D)
+         dst_addr_B += (z + copy->dst.offset_el.a) * copy->dst.array_stride;
+
+      if (!copy->src.tiling.is_tiled) {
+         src_addr_B += copy->src.offset_el.x * copy->src.bpp +
+                       copy->src.offset_el.y * copy->src.row_stride;
+      }
+
+      if (!copy->dst.tiling.is_tiled) {
+         dst_addr_B += copy->dst.offset_el.x * copy->dst.bpp +
+                       copy->dst.offset_el.y * copy->dst.row_stride;
+      }
+   }
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_CopyImageToImageEXT(VkDevice _device,
+                        const VkCopyImageToImageInfoEXT *pCopyImageToImageInfo)
+{
+   VK_FROM_HANDLE(nvk_image, src, pCopyImageToImageInfo->srcImage);
+   VK_FROM_HANDLE(nvk_image, dst, pCopyImageToImageInfo->dstImage);
+   
+   const bool no_swizzle = pCopyImageToImageInfo->flags &
+      VK_HOST_IMAGE_COPY_MEMCPY_EXT;
+
+   for (unsigned r = 0; r < pCopyImageToImageInfo->regionCount; r++) {
+      nvk_copy_image_to_image(src, dst,
+                              pCopyImageToImageInfo->pRegions + r,
+                              no_swizzle);
+   }
+
+   return VK_SUCCESS;
+}
+
+
+VKAPI_ATTR VkResult VKAPI_CALL
+nvk_TransitionImageLayoutEXT(VkDevice device,
+                             uint32_t transitionCount,
+                             const VkHostImageLayoutTransitionInfoEXT *transitions)
+{
+   /* TODO: Not really sure what we should be doing here */
+   return VK_SUCCESS;
 }
