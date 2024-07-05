@@ -1216,6 +1216,7 @@ try_constant_propagate_value(brw_reg val, brw_reg_type dst_type,
    case SHADER_OPCODE_BYTE_SCATTERED_WRITE_LOGICAL:
    case SHADER_OPCODE_BYTE_SCATTERED_READ_LOGICAL:
    case FS_OPCODE_UNIFORM_PULL_CONSTANT_LOAD:
+   case FS_OPCODE_VARYING_PULL_CONSTANT_LOAD_LOGICAL:
    case SHADER_OPCODE_BROADCAST:
    case BRW_OPCODE_MAD:
    case BRW_OPCODE_LRP:
@@ -1223,6 +1224,13 @@ try_constant_propagate_value(brw_reg val, brw_reg_type dst_type,
    case SHADER_OPCODE_SHUFFLE:
       inst->src[arg] = val;
       progress = true;
+      break;
+
+   case SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL:
+      if (arg == 0) {
+         inst->src[arg] = val;
+         progress = true;
+      }
       break;
 
    default:
