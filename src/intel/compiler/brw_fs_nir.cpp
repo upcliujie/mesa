@@ -1941,6 +1941,7 @@ get_nir_def(nir_to_brw_state &ntb, const nir_def &def, bool all_sources_uniform)
          nir_instr_as_intrinsic(def.parent_instr);
 
       switch (instr->intrinsic) {
+      case nir_intrinsic_load_mesh_inline_data_intel:
       case nir_intrinsic_load_workgroup_id:
          is_scalar = true;
          break;
@@ -4993,12 +4994,7 @@ try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
          }
 
          case nir_intrinsic_load_mesh_inline_data_intel: {
-            assert(ntb.s.stage == MESA_SHADER_MESH ||
-                   ntb.s.stage == MESA_SHADER_TASK);
-            const task_mesh_thread_payload &payload = ntb.s.task_mesh_payload();
-            brw_reg data = offset(payload.inline_parameter, 1,
-                                  nir_intrinsic_align_offset(intrin));
-            return retype(data, brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size));
+            unreachable("load_mesh_inline_data_intel should already be is_scalar");
          }
 
          case nir_intrinsic_load_btd_local_arg_addr_intel: {
@@ -5150,15 +5146,7 @@ try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
          }
 
          case nir_intrinsic_load_mesh_inline_data_intel: {
-            assert(ntb.s.stage == MESA_SHADER_MESH ||
-                   ntb.s.stage == MESA_SHADER_TASK);
-            const task_mesh_thread_payload &payload = ntb.s.task_mesh_payload();
-            brw_reg data = retype(
-               offset(payload.inline_parameter, 1,
-                      nir_intrinsic_align_offset(intrin)),
-               brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size));
-            ubld8.MOV(data, &ntb.resource_insts[def->index]);
-            break;
+            unreachable("load_mesh_inline_data_intel should already be is_scalar");
          }
 
          case nir_intrinsic_load_btd_local_arg_addr_intel: {
@@ -6056,10 +6044,16 @@ fs_nir_emit_task_mesh_intrinsic(nir_to_brw_state &ntb, const fs_builder &bld,
    if (nir_intrinsic_infos[instr->intrinsic].has_dest)
       dest = get_nir_def(ntb, instr->def);
 
+   const fs_builder xbld = dest.is_scalar
+      ? bld.exec_all().group(8 * reg_unit(s.devinfo), 0) : bld;
+
    switch (instr->intrinsic) {
    case nir_intrinsic_load_mesh_inline_data_intel: {
       brw_reg data = offset(payload.inline_parameter, 1, nir_intrinsic_align_offset(instr));
-      bld.MOV(dest, retype(data, dest.type));
+      const enum brw_reg_type dtype =
+         brw_type_with_size(BRW_TYPE_D, instr->def.bit_size);
+
+      xbld.MOV(retype(dest, dtype), retype(data, dtype));
       break;
    }
 
