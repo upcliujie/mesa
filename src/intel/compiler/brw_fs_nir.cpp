@@ -1941,6 +1941,9 @@ get_nir_def(nir_to_brw_state &ntb, const nir_def &def, bool all_sources_uniform)
          nir_instr_as_intrinsic(def.parent_instr);
 
       switch (instr->intrinsic) {
+      case nir_intrinsic_load_btd_global_arg_addr_intel:
+      case nir_intrinsic_load_btd_local_arg_addr_intel:
+      case nir_intrinsic_load_btd_shader_type_intel:
       case nir_intrinsic_load_mesh_inline_data_intel:
       case nir_intrinsic_load_reloc_const_intel:
       case nir_intrinsic_load_workgroup_id:
@@ -4817,17 +4820,20 @@ fs_nir_emit_bs_intrinsic(nir_to_brw_state &ntb,
    if (nir_intrinsic_infos[instr->intrinsic].has_dest)
       dest = get_nir_def(ntb, instr->def);
 
+   const fs_builder xbld = dest.is_scalar
+      ? bld.exec_all().group(8 * reg_unit(s.devinfo), 0) : bld;
+
    switch (instr->intrinsic) {
    case nir_intrinsic_load_btd_global_arg_addr_intel:
-      bld.MOV(dest, retype(payload.global_arg_ptr, dest.type));
+      xbld.MOV(dest, retype(payload.global_arg_ptr, dest.type));
       break;
 
    case nir_intrinsic_load_btd_local_arg_addr_intel:
-      bld.MOV(dest, retype(payload.local_arg_ptr, dest.type));
+      xbld.MOV(dest, retype(payload.local_arg_ptr, dest.type));
       break;
 
    case nir_intrinsic_load_btd_shader_type_intel:
-      payload.load_shader_type(bld, dest);
+      payload.load_shader_type(xbld, dest);
       break;
 
    default:
@@ -4999,15 +5005,11 @@ try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
          }
 
          case nir_intrinsic_load_btd_local_arg_addr_intel: {
-            assert(brw_shader_stage_is_bindless(ntb.s.stage));
-            const bs_thread_payload &payload = ntb.s.bs_payload();
-            return retype(payload.local_arg_ptr, BRW_TYPE_Q);
+            unreachable("load_btd_local_arg_addr_intel should already be is_scalar");
          }
 
          case nir_intrinsic_load_btd_global_arg_addr_intel: {
-            assert(brw_shader_stage_is_bindless(ntb.s.stage));
-            const bs_thread_payload &payload = ntb.s.bs_payload();
-            return retype(payload.global_arg_ptr, BRW_TYPE_Q);
+            unreachable("load_btd_global_arg_addr_intel should already be is_scalar");
          }
 
          default:
@@ -5151,19 +5153,11 @@ try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
          }
 
          case nir_intrinsic_load_btd_local_arg_addr_intel: {
-            assert(brw_shader_stage_is_bindless(ntb.s.stage));
-            const bs_thread_payload &payload = ntb.s.bs_payload();
-            ubld8.MOV(retype(payload.local_arg_ptr, BRW_TYPE_Q),
-                      &ntb.resource_insts[def->index]);
-            break;
+            unreachable("load_btd_local_arg_addr_intel should already be is_scalar");
          }
 
          case nir_intrinsic_load_btd_global_arg_addr_intel: {
-            assert(brw_shader_stage_is_bindless(ntb.s.stage));
-            const bs_thread_payload &payload = ntb.s.bs_payload();
-            ubld8.MOV(retype(payload.global_arg_ptr, BRW_TYPE_Q),
-                      &ntb.resource_insts[def->index]);
-            break;
+            unreachable("load_btd_global_arg_addr_intel should already be is_scalar");
          }
 
          case nir_intrinsic_load_reloc_const_intel: {
