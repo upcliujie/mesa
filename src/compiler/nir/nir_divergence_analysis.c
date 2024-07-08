@@ -578,7 +578,6 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
    case nir_intrinsic_load_desc_set_dynamic_index_intel:
    case nir_intrinsic_load_global_constant_bounded:
    case nir_intrinsic_load_global_constant_offset:
-   case nir_intrinsic_resource_intel:
    case nir_intrinsic_load_reg:
    case nir_intrinsic_load_reg_indirect:
    case nir_intrinsic_load_frag_size_ir3:
@@ -593,6 +592,24 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
       }
       break;
    }
+
+   case nir_intrinsic_resource_intel:
+      /* Not having the non_uniform flag with divergent sources is undefined
+       * behavior. The Intel driver defines it pick the lowest numbered live
+       * SIMD lane (via emit_uniformize).
+       */
+      is_divergent = false;
+      if ((nir_intrinsic_resource_access_intel(instr) &
+           nir_resource_intel_non_uniform) != 0) {
+         unsigned num_srcs = nir_intrinsic_infos[instr->intrinsic].num_srcs;
+         for (unsigned i = 0; i < num_srcs; i++) {
+            if (instr->src[i].ssa->divergent) {
+               is_divergent = true;
+               break;
+            }
+         }
+      }
+      break;
 
    case nir_intrinsic_shuffle:
       is_divergent = instr->src[0].ssa->divergent &&
