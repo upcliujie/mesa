@@ -114,10 +114,13 @@ static const driOptionDescription anv_dri_options[] = {
       DRI_CONF_ANV_MESH_CONV_PRIM_ATTRS_TO_VERT_ATTRS(-2)
       DRI_CONF_FORCE_VK_VENDOR()
       DRI_CONF_FAKE_SPARSE(false)
-#if DETECT_OS_ANDROID && ANDROID_API_LEVEL >= 34
+#if DETECT_OS_ANDROID
+      DRI_CONF_GLOBAL_PRIORITY_HINT(true)
+#if ANDROID_API_LEVEL >= 34
       DRI_CONF_VK_REQUIRE_ASTC(true)
 #else
       DRI_CONF_VK_REQUIRE_ASTC(false)
+#endif
 #endif
    DRI_CONF_SECTION_END
 
