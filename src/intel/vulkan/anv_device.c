@@ -2737,6 +2737,8 @@ anv_init_dri_options(struct anv_instance *instance)
        driQueryOptionb(&instance->dri_options, "compression_control_enabled");
     instance->anv_fake_nonlocal_memory =
             driQueryOptionb(&instance->dri_options, "anv_fake_nonlocal_memory");
+    instance->global_priority_hint =
+            driQueryOptionb(&instance->dri_options, "global_priority_hint");
 
     instance->stack_ids = driQueryOptioni(&instance->dri_options, "intel_stack_id");
     switch (instance->stack_ids) {
@@ -2857,6 +2859,7 @@ void anv_GetPhysicalDeviceQueueFamilyProperties2(
     VkQueueFamilyProperties2*                   pQueueFamilyProperties)
 {
    ANV_FROM_HANDLE(anv_physical_device, pdevice, physicalDevice);
+   struct anv_instance *instance = pdevice->instance;
    VK_OUTARRAY_MAKE_TYPED(VkQueueFamilyProperties2, out,
                           pQueueFamilyProperties, pQueueFamilyPropertyCount);
 
@@ -2882,7 +2885,8 @@ void anv_GetPhysicalDeviceQueueFamilyProperties2(
 
                uint32_t count = 0;
                for (unsigned i = 0; i < ARRAY_SIZE(all_priorities); i++) {
-                  if (all_priorities[i] > pdevice->max_context_priority)
+                  if (!instance->global_priority_hint &&
+                      all_priorities[i] > pdevice->max_context_priority)
                      break;
 
                   properties->priorities[count++] = all_priorities[i];
