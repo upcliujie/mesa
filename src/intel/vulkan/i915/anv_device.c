@@ -248,13 +248,13 @@ anv_i915_set_queue_parameters(
     * is returned.
     */
    if (physical_device->max_context_priority >= VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR) {
-      int err = anv_gem_set_context_param(device->fd, context_id,
-                                          I915_CONTEXT_PARAM_PRIORITY,
-                                          priority);
-      if (err != 0 && priority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR) {
+      if (priority > physical_device->max_context_priority)
          return vk_error(device, VK_ERROR_NOT_PERMITTED_KHR);
-      }
    }
+
+   anv_gem_set_context_param(device->fd, context_id,
+                              I915_CONTEXT_PARAM_PRIORITY,
+                              priority);
 
    return VK_SUCCESS;
 }
