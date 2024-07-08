@@ -15,6 +15,7 @@
 #include "drm-uapi/xe_drm.h"
 
 #define FIELD_PREP_ULL(_mask, _val) (((_val) << (ffsll(_mask) - 1)) & (_mask))
+#define ENOUGH_SPACE(space_left, header_size) ((space_left) >= (header_size))
 
 uint64_t xe_perf_get_oa_format(struct intel_perf_config *perf)
 {
@@ -193,7 +194,7 @@ xe_perf_stream_set_metrics_id(int perf_stream_fd, uint64_t metrics_set_id)
 }
 
 static int
-xe_perf_stream_read_error(int perf_stream_fd, uint8_t *buffer, size_t buffer_len)
+xe_perf_stream_read_error(int perf_stream_fd, uint8_t *buffer)
 {
    struct drm_xe_oa_stream_status status = {};
    struct intel_perf_record_header *header;
@@ -243,7 +244,7 @@ xe_perf_stream_read_samples(struct intel_perf_config *perf_config, int perf_stre
 
    if (len <= 0) {
       if (errno == EIO)
-         return xe_perf_stream_read_error(perf_stream_fd, buffer, buffer_len);
+         return xe_perf_stream_read_error(perf_stream_fd, buffer);
 
       return len < 0 ? -errno : 0;
    }
@@ -270,4 +271,139 @@ xe_perf_stream_read_samples(struct intel_perf_config *perf_config, int perf_stre
    }
 
    return offset - buffer;
+}
+
+int
+xe_perf_eustall_stream_read_samples(int perf_stream_fd, uint8_t *buffer,
+                                    size_t buffer_len)
+{
+   int len;
+
+   if (buffer_len < sizeof(struct drm_xe_eu_stall_data_header))
+      return -ENOSPC;
+
+   do {
+      len = read(perf_stream_fd, buffer, buffer_len);
+   } while (len < 0 && errno == EINTR);
+
+   if (unlikely(len < 0 && errno == EAGAIN))
+      len = 0;
+
+   return len < 0 ? -errno : len;
+}
+
+static int
+first_rendering_gt_id(int drm_fd) {
+   struct intel_query_engine_info *engine_info =
+      intel_engine_get_info(drm_fd, INTEL_KMD_TYPE_XE);
+   for (int i = 0; i < engine_info->num_engines; i++) {
+      if (engine_info->engines[i].engine_class == INTEL_ENGINE_CLASS_RENDER)
+         return engine_info->engines[i].gt_id;
+   }
+   return -1;
+}
+
+
+int
+xe_perf_eustall_stream_open(int drm_fd, size_t gpu_buf_size,
+                            uint64_t poll_period_ns, uint32_t sample_rate,
+                            uint32_t min_event_count, bool enable)
+{
+   struct drm_xe_ext_set_property props[DRM_XE_EU_STALL_PROP_MAX] = {};
+   struct drm_xe_observation_param observation_param = {
+      .observation_type = DRM_XE_OBSERVATION_TYPE_EU_STALL,
+      .observation_op = DRM_XE_OBSERVATION_OP_STREAM_OPEN,
+      .param = (uintptr_t)&props,
+   };
+   uint32_t i = 0;
+   int fd, flags;
+   int gt_id = first_rendering_gt_id(drm_fd);
+   assert(gt_id >= 0);
+
+   oa_prop_set(props, &i, DRM_XE_EU_STALL_PROP_BUF_SZ, gpu_buf_size);
+   oa_prop_set(props, &i, DRM_XE_EU_STALL_PROP_SAMPLE_RATE, sample_rate);
+   oa_prop_set(props, &i, DRM_XE_EU_STALL_PROP_POLL_PERIOD, poll_period_ns);
+   oa_prop_set(props, &i, DRM_XE_EU_STALL_PROP_EVENT_REPORT_COUNT, min_event_count);
+   oa_prop_set(props, &i, DRM_XE_EU_STALL_PROP_GT_ID, gt_id);
+   oa_prop_set(props, &i, DRM_XE_EU_STALL_PROP_OPEN_DISABLED, !enable);
+
+   fd = intel_ioctl(drm_fd, DRM_IOCTL_XE_OBSERVATION, &observation_param);
+   if (fd < 0)
+      return -errno;
+
+   flags = fcntl(fd, F_GETFL, 0);
+   flags |= O_CLOEXEC | O_NONBLOCK;
+   if (fcntl(fd, F_SETFL, flags)) {
+      close(fd);
+      return -1;
+   }
+
+   return fd;
+}
+
+
+static void
+eustall_accumulate(struct intel_perf_query_eustall_result *result,
+                   struct drm_xe_eu_stall_data_xe2* stall_data)
+{
+   struct intel_perf_query_eustall_event* stall_result;
+   uint32_t ip_addr = (uint32_t)stall_data->ip_addr;
+   struct hash_entry *e = _mesa_hash_table_search(result->accumulator,
+                                                  (const void*)&ip_addr);
+   if (e) {
+      stall_result = e->data;
+   } else {
+      stall_result = calloc(1, sizeof(struct intel_perf_query_eustall_event));
+      stall_result->ip_addr = ip_addr;
+      _mesa_hash_table_insert(result->accumulator,
+                              (const void*)&stall_result->ip_addr,
+                              stall_result);
+   }
+
+   stall_result->tdr_count += stall_data->tdr_count;
+   stall_result->other_count += stall_data->other_count;
+   stall_result->control_count += stall_data->control_count;
+   stall_result->pipestall_count += stall_data->pipestall_count;
+   stall_result->send_count += stall_data->send_count;
+   stall_result->dist_acc_count += stall_data->dist_acc_count;
+   stall_result->sbid_count += stall_data->sbid_count;
+   stall_result->sync_count += stall_data->sync_count;
+   stall_result->inst_fetch_count += stall_data->inst_fetch_count;
+   stall_result->active_count += stall_data->active_count;
+
+   result->records_accumulated++;
+}
+
+int
+xe_perf_query_result_eustall_accumulate(struct intel_perf_query_eustall_result *result,
+                                        const uint8_t *start,
+                                        const uint8_t *end)
+{
+   const uint8_t *offset = start;
+   size_t header_size = sizeof(struct drm_xe_eu_stall_data_header);
+
+   while (ENOUGH_SPACE(end - offset, header_size)) {
+      struct drm_xe_eu_stall_data_header *header =
+         (struct drm_xe_eu_stall_data_header*)offset;
+      size_t record_size = header->record_size;
+      size_t bytes_to_parse = header->num_records * header->record_size;
+
+      /* Sanity check. If record size not equal to expected, then
+       * may be looking at corrupted data or wrong memory location.
+       */
+      if (unlikely(
+            header->record_size != sizeof(struct drm_xe_eu_stall_data_xe2) ||
+            !ENOUGH_SPACE(end - offset, bytes_to_parse))) {
+         assert(false);
+         break;
+      }
+      offset += header_size;
+
+      const uint8_t *parse_end = offset + bytes_to_parse;
+      while (ENOUGH_SPACE(parse_end - offset, record_size)) {
+         eustall_accumulate(result, (struct drm_xe_eu_stall_data_xe2*)offset);
+         offset += record_size;
+      }
+   }
+   return offset - start;
 }

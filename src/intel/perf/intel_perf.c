@@ -1652,3 +1652,42 @@ intel_perf_stream_set_metrics_id(struct intel_perf_config *perf_config,
          return -1;
    }
 }
+
+int
+intel_perf_query_result_eustall_accumulate(struct intel_perf_query_eustall_result *result,
+                                           const void *start, const void *end)
+{
+   return xe_perf_query_result_eustall_accumulate(result, start, end);
+}
+
+void
+intel_perf_query_eustall_result_clear(struct intel_perf_query_eustall_result *result)
+{
+   memset(result, 0, sizeof(*result));
+   result->hw_id = INTEL_PERF_INVALID_CTX_ID;
+}
+
+int
+intel_perf_eustall_stream_open(struct intel_device_info *devinfo, int drm_fd,
+                               size_t gpu_buf_size, uint64_t poll_period_ns,
+                               uint32_t sample_rate, uint32_t min_event_count,
+                               bool enable)
+{
+   if (devinfo->ver >= 20 &&
+       devinfo->kmd_type == INTEL_KMD_TYPE_XE)
+      return xe_perf_eustall_stream_open(drm_fd, gpu_buf_size, poll_period_ns,
+                                         sample_rate, min_event_count, enable);
+   return -1;
+}
+
+int
+intel_perf_eustall_stream_read_samples(struct intel_device_info *devinfo,
+                                       int perf_stream_fd, uint8_t *buffer,
+                                       size_t buffer_len)
+{
+   if (devinfo->ver >= 20 &&
+       devinfo->kmd_type == INTEL_KMD_TYPE_XE)
+      return xe_perf_eustall_stream_read_samples(perf_stream_fd,
+                                                 buffer, buffer_len);
+   return -1;
+}
