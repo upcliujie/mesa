@@ -1614,6 +1614,12 @@ tu_knl_kgsl_load(struct tu_instance *instance, int fd)
    if (get_kgsl_prop(fd, KGSL_PROP_UCHE_GMEM_VADDR, &gmem_iova, sizeof(gmem_iova)))
       goto fail;
 
+   if (get_kgsl_prop(fd, KGSL_PROP_UCHE_TRAP_BASE, &device->uche_trap_base,
+                     sizeof(device->uche_trap_base))) {
+      /* It is known to be hardcoded to */
+      device->uche_trap_base = 0x1fffffffff000ull;
+   }
+
    /* kgsl version check? */
 
    device->instance = instance;
