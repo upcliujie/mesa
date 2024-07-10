@@ -751,10 +751,13 @@ panvk_per_arch(CmdCopyImage2)(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_image, dst, pCopyImageInfo->dstImage);
    VK_FROM_HANDLE(panvk_image, src, pCopyImageInfo->srcImage);
+   struct panvk_cmd_meta_graphics_save_ctx save = {0};
 
+   panvk_per_arch(cmd_meta_gfx_start)(cmdbuf, &save);
    for (unsigned i = 0; i < pCopyImageInfo->regionCount; i++) {
       panvk_meta_copy_img2img(cmdbuf, src, dst, &pCopyImageInfo->pRegions[i]);
    }
+   panvk_per_arch(cmd_meta_gfx_end)(cmdbuf, &save);
 }
 
 static unsigned
@@ -1164,11 +1167,14 @@ panvk_per_arch(CmdCopyBufferToImage2)(
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_buffer, buf, pCopyBufferToImageInfo->srcBuffer);
    VK_FROM_HANDLE(panvk_image, img, pCopyBufferToImageInfo->dstImage);
+   struct panvk_cmd_meta_graphics_save_ctx save = {0};
 
+   panvk_per_arch(cmd_meta_gfx_start)(cmdbuf, &save);
    for (unsigned i = 0; i < pCopyBufferToImageInfo->regionCount; i++) {
       panvk_meta_copy_buf2img(cmdbuf, buf, img,
                               &pCopyBufferToImageInfo->pRegions[i]);
    }
+   panvk_per_arch(cmd_meta_gfx_end)(cmdbuf, &save);
 }
 
 static const struct panvk_meta_copy_format_info panvk_meta_copy_img2buf_fmts[] =
@@ -1611,11 +1617,14 @@ panvk_per_arch(CmdCopyImageToBuffer2)(
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_buffer, buf, pCopyImageToBufferInfo->dstBuffer);
    VK_FROM_HANDLE(panvk_image, img, pCopyImageToBufferInfo->srcImage);
+   struct panvk_cmd_meta_compute_save_ctx save = {0};
 
+   panvk_per_arch(cmd_meta_compute_start)(cmdbuf, &save);
    for (unsigned i = 0; i < pCopyImageToBufferInfo->regionCount; i++) {
       panvk_meta_copy_img2buf(cmdbuf, buf, img,
                               &pCopyImageToBufferInfo->pRegions[i]);
    }
+   panvk_per_arch(cmd_meta_compute_end)(cmdbuf, &save);
 }
 
 struct panvk_meta_copy_buf2buf_info {
@@ -1746,10 +1755,13 @@ panvk_per_arch(CmdCopyBuffer2)(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_buffer, src, pCopyBufferInfo->srcBuffer);
    VK_FROM_HANDLE(panvk_buffer, dst, pCopyBufferInfo->dstBuffer);
+   struct panvk_cmd_meta_compute_save_ctx save = {0};
 
+   panvk_per_arch(cmd_meta_compute_start)(cmdbuf, &save);
    for (unsigned i = 0; i < pCopyBufferInfo->regionCount; i++) {
       panvk_meta_copy_buf2buf(cmdbuf, src, dst, &pCopyBufferInfo->pRegions[i]);
    }
+   panvk_per_arch(cmd_meta_compute_end)(cmdbuf, &save);
 }
 
 struct panvk_meta_fill_buf_info {
@@ -1893,8 +1905,11 @@ panvk_per_arch(CmdFillBuffer)(VkCommandBuffer commandBuffer, VkBuffer dstBuffer,
 {
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_buffer, dst, dstBuffer);
+   struct panvk_cmd_meta_compute_save_ctx save = {0};
 
+   panvk_per_arch(cmd_meta_compute_start)(cmdbuf, &save);
    panvk_meta_fill_buf(cmdbuf, dst, fillSize, dstOffset, data);
+   panvk_per_arch(cmd_meta_compute_end)(cmdbuf, &save);
 }
 
 static void
@@ -1943,8 +1958,11 @@ panvk_per_arch(CmdUpdateBuffer)(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_buffer, dst, dstBuffer);
+   struct panvk_cmd_meta_compute_save_ctx save = {0};
 
+   panvk_per_arch(cmd_meta_compute_start)(cmdbuf, &save);
    panvk_meta_update_buf(cmdbuf, dst, dstOffset, dataSize, pData);
+   panvk_per_arch(cmd_meta_compute_end)(cmdbuf, &save);
 }
 
 void
