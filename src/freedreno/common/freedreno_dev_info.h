@@ -279,6 +279,17 @@ struct fd_dev_info {
       bool enable_tp_ubwc_flag_hint;
 
       bool storage_8bit;
+
+      /* Whether the ray_intersection instruction is present. */
+      bool has_ray_intersection;
+
+      /* Whether features may be fused off by the SW_FUSE. So far, this is
+       * just raytracing.
+       */
+      bool has_sw_fuse;
+
+      /* a750-specific HW bug workaround for ray tracing */
+      bool has_rt_workaround;
    } a7xx;
 };
 

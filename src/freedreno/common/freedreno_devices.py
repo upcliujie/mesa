@@ -830,6 +830,7 @@ a7xx_740 = A7XXProps(
         # Most devices with a740 have blob v6xx which doesn't have
         # this hint set. Match them for better compatibility by default.
         enable_tp_ubwc_flag_hint = False,
+        has_ray_intersection = True,
     )
 
 a7xx_740_a32 = A7XXProps(
@@ -840,6 +841,7 @@ a7xx_740_a32 = A7XXProps(
         supports_ibo_ubwc = True,
         fs_must_have_non_zero_constlen_quirk = True,
         enable_tp_ubwc_flag_hint = False,
+        has_ray_intersection = True,
     )
 
 a7xx_750 = A7XXProps(
@@ -858,6 +860,9 @@ a7xx_750 = A7XXProps(
         no_gs_hw_binning_quirk = True,
         gs_vpc_adjacency_quirk = True,
         storage_8bit = True,
+        has_ray_intersection = True,
+        has_sw_fuse = True,
+        has_rt_workaround = True,
     )
 
 a730_magic_regs = dict(
