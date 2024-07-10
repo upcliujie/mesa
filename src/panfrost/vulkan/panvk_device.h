@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "vk_device.h"
+#include "vk_meta.h"
 
 #include "panvk_blend.h"
 #include "panvk_instance.h"
@@ -38,6 +39,7 @@ struct panvk_device {
 
    struct panvk_blend_shader_cache blend_shader_cache;
    struct panvk_meta meta;
+   struct vk_meta_device vk_meta;
 
    struct {
       struct panvk_priv_bo *shader_bo;
