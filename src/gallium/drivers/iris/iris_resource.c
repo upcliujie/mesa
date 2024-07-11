@@ -763,6 +763,12 @@ iris_resource_configure_main(const struct iris_screen *screen,
    else if (isl_drm_modifier_needs_display_layout(modifier))
       usage |= ISL_SURF_USAGE_DISPLAY_BIT;
 
+   if (templ->bind & PIPE_BIND_SHARED)
+      usage &= ~ISL_SURF_USAGE_PREFER_TILE64;
+
+   if (templ->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT)
+      usage &= ~ISL_SURF_USAGE_PREFER_TILE64;
+
    if (templ->target == PIPE_TEXTURE_CUBE ||
        templ->target == PIPE_TEXTURE_CUBE_ARRAY) {
       usage |= ISL_SURF_USAGE_CUBE_BIT;

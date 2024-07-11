@@ -1713,6 +1713,12 @@ anv_image_init(struct anv_device *device, struct anv_image *image,
       }
    }
 
+   const bool aux_disabled = INTEL_DEBUG(DEBUG_NO_CCS) ||
+      (isl_extra_usage_flags & ISL_SURF_USAGE_DISABLE_AUX_BIT);
+
+   if (!aux_disabled)
+      isl_extra_usage_flags |= ISL_SURF_USAGE_PREFER_TILE64;
+
    if (mod_explicit_info) {
       r = add_all_surfaces_explicit_layout(device, image, fmt_list,
                                            mod_explicit_info, isl_tiling_flags,
