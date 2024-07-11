@@ -14,6 +14,7 @@ compile_args_panfrost = [
   '-Wno-pointer-arith'
 ]
 
+subdir('clc')
 subdir('shared')
 subdir('util')
 subdir('midgard')
