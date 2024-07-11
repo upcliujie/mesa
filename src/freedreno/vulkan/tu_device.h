@@ -225,6 +225,8 @@ struct tu6_global
 
    alignas(16) uint32_t cs_indirect_xyz[12];
 
+   uint32_t vsc_state[32];
+
    volatile uint32_t vtx_stats_query_not_running;
 
    /* To know when renderpass stats for autotune are valid */
