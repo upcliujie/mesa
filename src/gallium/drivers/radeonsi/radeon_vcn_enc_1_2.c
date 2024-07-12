@@ -834,7 +834,7 @@ static void radeon_enc_nalu_aud(struct radeon_encoder *enc)
       radeon_enc_code_fixed_bits(enc, 0x0, 1);
       radeon_enc_code_fixed_bits(enc, 35, 6);
       radeon_enc_code_fixed_bits(enc, 0x0, 6);
-      radeon_enc_code_fixed_bits(enc, 0x1, 3);
+      radeon_enc_code_fixed_bits(enc, enc->enc_pic.temporal_id + 1, 3);
    }
    radeon_enc_byte_align(enc);
    radeon_enc_set_emulation_prevention(enc, true);
@@ -1029,7 +1029,7 @@ static void radeon_enc_slice_header_hevc(struct radeon_encoder *enc)
    radeon_enc_code_fixed_bits(enc, 0x0, 1);
    radeon_enc_code_fixed_bits(enc, enc->enc_pic.nal_unit_type, 6);
    radeon_enc_code_fixed_bits(enc, 0x0, 6);
-   radeon_enc_code_fixed_bits(enc, 0x1, 3);
+   radeon_enc_code_fixed_bits(enc, enc->enc_pic.temporal_id + 1, 3);
 
    radeon_enc_flush_headers(enc);
    instruction[inst_index] = RENCODE_HEADER_INSTRUCTION_COPY;
@@ -1456,6 +1456,9 @@ static void encode(struct radeon_encoder *enc)
          }
       } while (++i < enc->enc_pic.num_temporal_layers);
    }
+
+   enc->enc_pic.layer_sel.temporal_layer_index = enc->enc_pic.temporal_id;
+   enc->layer_select(enc);
 
    enc->encode_headers(enc);
    enc->ctx(enc);

@@ -515,26 +515,29 @@ static void radeon_vcn_enc_hevc_get_rc_param(struct radeon_encoder *enc,
 {
    uint32_t frame_rate_den, frame_rate_num, max_qp;
 
-   enc->enc_pic.rc_layer_init[0].target_bit_rate = pic->rc[0].target_bitrate;
-   enc->enc_pic.rc_layer_init[0].peak_bit_rate = pic->rc[0].peak_bitrate;
-   frame_rate_den = pic->rc[0].frame_rate_den;
-   frame_rate_num = pic->rc[0].frame_rate_num;
-   radeon_vcn_enc_invalid_frame_rate(&frame_rate_den, &frame_rate_num);
-   enc->enc_pic.rc_layer_init[0].frame_rate_den = frame_rate_den;
-   enc->enc_pic.rc_layer_init[0].frame_rate_num = frame_rate_num;
-   enc->enc_pic.rc_layer_init[0].vbv_buffer_size = pic->rc[0].vbv_buffer_size;
-   enc->enc_pic.rc_layer_init[0].avg_target_bits_per_picture =
-      radeon_vcn_per_frame_integer(pic->rc[0].target_bitrate,
-            frame_rate_den,
-            frame_rate_num);
-   enc->enc_pic.rc_layer_init[0].peak_bits_per_picture_integer =
-      radeon_vcn_per_frame_integer(pic->rc[0].peak_bitrate,
-            frame_rate_den,
-            frame_rate_num);
-   enc->enc_pic.rc_layer_init[0].peak_bits_per_picture_fractional =
-      radeon_vcn_per_frame_frac(pic->rc[0].peak_bitrate,
-            frame_rate_den,
-            frame_rate_num);
+   enc->enc_pic.num_temporal_layers = pic->seq.num_temporal_layers ? pic->seq.num_temporal_layers : 1;
+   for (int i = 0; i < enc->enc_pic.num_temporal_layers; i++) {
+      enc->enc_pic.rc_layer_init[i].target_bit_rate = pic->rc[i].target_bitrate;
+      enc->enc_pic.rc_layer_init[i].peak_bit_rate = pic->rc[i].peak_bitrate;
+      frame_rate_den = pic->rc[i].frame_rate_den;
+      frame_rate_num = pic->rc[i].frame_rate_num;
+      radeon_vcn_enc_invalid_frame_rate(&frame_rate_den, &frame_rate_num);
+      enc->enc_pic.rc_layer_init[i].frame_rate_den = frame_rate_den;
+      enc->enc_pic.rc_layer_init[i].frame_rate_num = frame_rate_num;
+      enc->enc_pic.rc_layer_init[i].vbv_buffer_size = pic->rc[i].vbv_buffer_size;
+      enc->enc_pic.rc_layer_init[i].avg_target_bits_per_picture =
+         radeon_vcn_per_frame_integer(pic->rc[i].target_bitrate,
+               frame_rate_den,
+               frame_rate_num);
+      enc->enc_pic.rc_layer_init[i].peak_bits_per_picture_integer =
+         radeon_vcn_per_frame_integer(pic->rc[i].peak_bitrate,
+               frame_rate_den,
+               frame_rate_num);
+      enc->enc_pic.rc_layer_init[i].peak_bits_per_picture_fractional =
+         radeon_vcn_per_frame_frac(pic->rc[i].peak_bitrate,
+               frame_rate_den,
+               frame_rate_num);
+   }
    enc->enc_pic.rc_session_init.vbv_buffer_level = pic->rc[0].vbv_buf_lv;
    enc->enc_pic.rc_per_pic.qp_obs = pic->rc[0].quant_i_frames;
    enc->enc_pic.rc_per_pic.min_qp_app_obs = pic->rc[0].min_qp;
@@ -646,7 +649,6 @@ static void radeon_vcn_enc_hevc_get_param(struct radeon_encoder *enc,
    /* use fixed value for max_poc until new feature added */
    enc->enc_pic.max_poc = 16;
    enc->enc_pic.log2_max_poc = 4;
-   enc->enc_pic.num_temporal_layers = 1;
    enc->enc_pic.pic_order_cnt = pic->pic_order_cnt % enc->enc_pic.max_poc;
    enc->enc_pic.chroma_format_idc = pic->seq.chroma_format_idc;
    enc->enc_pic.pic_width_in_luma_samples = pic->seq.pic_width_in_luma_samples;
@@ -677,6 +679,7 @@ static void radeon_vcn_enc_hevc_get_param(struct radeon_encoder *enc,
       pic->seq.sample_adaptive_offset_enabled_flag;
    enc->enc_pic.pcm_enabled_flag = pic->seq.pcm_enabled_flag;
    enc->enc_pic.sps_temporal_mvp_enabled_flag = pic->seq.sps_temporal_mvp_enabled_flag;
+   enc->enc_pic.temporal_id = pic->pic.temporal_id;
    radeon_vcn_enc_hevc_get_spec_misc_param(enc, pic);
    radeon_vcn_enc_hevc_get_dbk_param(enc, pic);
    radeon_vcn_enc_hevc_get_rc_param(enc, pic);
