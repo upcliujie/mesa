@@ -40,6 +40,10 @@
 
 DEBUG_GET_ONCE_BOOL_OPTION(mpeg4, "VAAPI_MPEG4_ENABLED", false)
 
+#define PACKED_HEADERS_H264  (VA_ENC_PACKED_HEADER_SEQUENCE)
+#define PACKED_HEADERS_HEVC  (VA_ENC_PACKED_HEADER_SEQUENCE)
+#define PACKED_HEADERS_AV1   (VA_ENC_PACKED_HEADER_SEQUENCE | VA_ENC_PACKED_HEADER_PICTURE)
+
 VAStatus
 vlVaQueryConfigProfiles(VADriverContextP ctx, VAProfile *profile_list, int *num_profiles)
 {
@@ -275,11 +279,11 @@ vlVaGetConfigAttributes(VADriverContextP ctx, VAProfile profile, VAEntrypoint en
          case VAConfigAttribEncPackedHeaders:
             value = VA_ENC_PACKED_HEADER_NONE;
             if ((u_reduce_video_profile(ProfileToPipe(profile)) == PIPE_VIDEO_FORMAT_MPEG4_AVC))
-               value |= VA_ENC_PACKED_HEADER_SEQUENCE;
+               value |= PACKED_HEADERS_H264;
             if ((u_reduce_video_profile(ProfileToPipe(profile)) == PIPE_VIDEO_FORMAT_HEVC))
-               value |= VA_ENC_PACKED_HEADER_SEQUENCE;
+               value |= PACKED_HEADERS_HEVC;
             else if (u_reduce_video_profile(ProfileToPipe(profile)) == PIPE_VIDEO_FORMAT_AV1)
-               value |= (VA_ENC_PACKED_HEADER_SEQUENCE | VA_ENC_PACKED_HEADER_PICTURE);
+               value |= PACKED_HEADERS_AV1;
             break;
          case VAConfigAttribEncMaxSlices:
          {
@@ -719,12 +723,12 @@ vlVaCreateConfig(VADriverContextP ctx, VAProfile profile, VAEntrypoint entrypoin
       if (attrib_list[i].type == VAConfigAttribEncPackedHeaders) {
          if (config->entrypoint != PIPE_VIDEO_ENTRYPOINT_ENCODE ||
              (((attrib_list[i].value != 0)) &&
-              ((attrib_list[i].value != 1) || u_reduce_video_profile(ProfileToPipe(profile))
-               != PIPE_VIDEO_FORMAT_MPEG4_AVC) &&
-              ((attrib_list[i].value != 1) || u_reduce_video_profile(ProfileToPipe(profile))
-               != PIPE_VIDEO_FORMAT_HEVC) &&
-              ((attrib_list[i].value > 3) || u_reduce_video_profile(ProfileToPipe(profile))
-               != PIPE_VIDEO_FORMAT_AV1))) {
+              ((attrib_list[i].value & PACKED_HEADERS_H264) != attrib_list[i].value ||
+               u_reduce_video_profile(ProfileToPipe(profile)) != PIPE_VIDEO_FORMAT_MPEG4_AVC) &&
+              ((attrib_list[i].value & PACKED_HEADERS_HEVC) != attrib_list[i].value ||
+               u_reduce_video_profile(ProfileToPipe(profile)) != PIPE_VIDEO_FORMAT_HEVC) &&
+              ((attrib_list[i].value & PACKED_HEADERS_AV1) != attrib_list[i].value ||
+               u_reduce_video_profile(ProfileToPipe(profile)) != PIPE_VIDEO_FORMAT_AV1))) {
             FREE(config);
             return VA_STATUS_ERROR_INVALID_VALUE;
          }
