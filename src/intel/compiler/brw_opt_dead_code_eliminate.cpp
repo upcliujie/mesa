@@ -73,7 +73,7 @@ can_omit_write(const fs_inst *inst)
 }
 
 bool
-brw_fs_opt_dead_code_eliminate(fs_visitor &s)
+brw_opt_dead_code_eliminate(fs_visitor &s)
 {
    const intel_device_info *devinfo = s.devinfo;
 

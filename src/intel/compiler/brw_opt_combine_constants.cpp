@@ -1265,7 +1265,7 @@ parcel_out_registers(struct imm *imm, unsigned len, const bblock_t *cur_block,
 }
 
 bool
-brw_fs_opt_combine_constants(fs_visitor &s)
+brw_opt_combine_constants(fs_visitor &s)
 {
    const intel_device_info *devinfo = s.devinfo;
    void *const_ctx = ralloc_context(NULL);

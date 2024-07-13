@@ -99,7 +99,7 @@ has_continue(const struct loop_continue_tracking *s)
 }
 
 bool
-brw_fs_opt_predicated_break(fs_visitor &s)
+brw_opt_predicated_break(fs_visitor &s)
 {
    bool progress = false;
    struct loop_continue_tracking state = { {0, }, 0 };
