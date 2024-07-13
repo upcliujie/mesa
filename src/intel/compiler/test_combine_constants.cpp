@@ -10,8 +10,8 @@
 
 using namespace brw;
 
-struct FSCombineConstantsTest : public ::testing::Test {
-   FSCombineConstantsTest() {
+struct CombineConstantsTest : public ::testing::Test {
+   CombineConstantsTest() {
       mem_ctx = ralloc_context(NULL);
 
       devinfo = {};
@@ -33,7 +33,7 @@ struct FSCombineConstantsTest : public ::testing::Test {
                               &prog_data.base, nir, 8, false, false);
    }
 
-   ~FSCombineConstantsTest() override {
+   ~CombineConstantsTest() override {
       delete shader;
       ralloc_free(mem_ctx);
       mem_ctx = NULL;
@@ -73,7 +73,7 @@ make_builder(fs_visitor *s)
    return fs_builder(s, s->dispatch_width).at_end();
 }
 
-TEST_F(FSCombineConstantsTest, Simple)
+TEST_F(CombineConstantsTest, Simple)
 {
    fs_builder bld = make_builder(shader);
 
@@ -98,7 +98,7 @@ TEST_F(FSCombineConstantsTest, Simple)
    ASSERT_EQ(bblock_end(block)->opcode, BRW_OPCODE_SEL);
 }
 
-TEST_F(FSCombineConstantsTest, DoContainingDo)
+TEST_F(CombineConstantsTest, DoContainingDo)
 {
    fs_builder bld = make_builder(shader);
 
