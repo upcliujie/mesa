@@ -53,7 +53,7 @@ libintel_compiler_brw_files = files(
   'brw_fs_nir.cpp',
   'brw_fs_reg_allocate.cpp',
   'brw_fs_thread_payload.cpp',
-  'brw_fs_validate.cpp',
+  'brw_validate.cpp',
   'brw_fs_visitor.cpp',
   'brw_inst.h',
   'brw_ir.h',

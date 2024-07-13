@@ -591,9 +591,9 @@ int brw_get_subgroup_id_param_index(const intel_device_info *devinfo,
 void nir_to_brw(fs_visitor *s);
 
 #ifndef NDEBUG
-void brw_fs_validate(const fs_visitor &s);
+void brw_validate(const fs_visitor &s);
 #else
-static inline void brw_fs_validate(const fs_visitor &s) {}
+static inline void brw_validate(const fs_visitor &s) {}
 #endif
 
 void brw_calculate_cfg(fs_visitor &s);
