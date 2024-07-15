@@ -2339,11 +2339,15 @@ static void anv_add_resource_barrier(struct anv_cmd_buffer *cmd_buffer,
                                      const enum GENX(RESOURCE_BARRIER_STAGE) signalStage,
                                      const VkAccessFlags2 srcAccessMask,
                                      const VkPipelineStageFlags2 dstStageMask,
-                                     const VkAccessFlags2 dstAccessMask)
+                                     const VkAccessFlags2 dstAccessMask,
+                                     struct anv_address drawid_addr)
 {
    struct anv_device *device = cmd_buffer->device;
    const struct intel_device_info *devinfo = device->info;
    assert(devinfo->ver >= 20);
+
+   if (anv_address_is_null(drawid_addr))
+      drawid_addr = cmd_buffer->device->workaround_address;
 
    struct GENX(RESOURCE_BARRIER_BODY) body = { 0 };
    anv_resource_barrier_body_for_access_flags(cmd_buffer, &body,
@@ -2351,7 +2355,7 @@ static void anv_add_resource_barrier(struct anv_cmd_buffer *cmd_buffer,
    body.SignalStage = signalStage;
    body.WaitStage =
       anv_resource_barrier_wait_stage(cmd_buffer, dstStageMask);
-   body.BarrierIDAddress = cmd_buffer->device->workaround_address;
+   body.BarrierIDAddress = drawid_addr;
 
    if (body.SignalStage && !body.WaitStage) {
       anv_emit_barrier_for_type(cmd_buffer, body, RESOURCE_BARRIER_TYPE_SIGNAL);
@@ -2388,7 +2392,8 @@ static void fill_access_mask_for_stage(struct anv_cmd_buffer *cmd_buffer,
 }
 
 static void anv_resource_barriers_from_info(struct anv_cmd_buffer *cmd_buffer,
-                                            const VkDependencyInfo *info)
+                                            const VkDependencyInfo *info,
+                                            const struct anv_address drawid_addr)
 {
    UNUSED struct intel_access_mask access_mask_per_stage[MAX_HW_STAGES] = { 0 };
    for (uint32_t i = 0; i < info->memoryBarrierCount; i++) {
@@ -2433,7 +2438,8 @@ static void anv_resource_barriers_from_info(struct anv_cmd_buffer *cmd_buffer,
                                i,
                                access_mask.srcAccess,
                                access_mask.dstStageMask,
-                               access_mask.dstAccess);
+                               access_mask.dstAccess,
+                               drawid_addr);
 
    }
 }
@@ -4773,8 +4779,8 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
                                   i,
                                   access_mask.srcAccess,
                                   access_mask.dstStageMask,
-                                  access_mask.dstAccess);
-
+                                  access_mask.dstAccess,
+                                  ANV_NULL_ADDRESS);
       }
 
 #endif // GFX_VER >= 20
@@ -6295,7 +6301,12 @@ void genX(CmdSetEvent2)(
 
    if (devinfo->ver >= 20 && INTEL_DEBUG(DEBUG_USEBARRIERS)) {
 #if GFX_VER >= 20
-      anv_resource_barriers_from_info(cmd_buffer, pDependencyInfo);
+      const struct anv_address drawid_addr =
+         anv_state_pool_state_address(&cmd_buffer->device->dynamic_state_pool,
+                                      event->state);
+      anv_resource_barriers_from_info(cmd_buffer,
+                                      pDependencyInfo,
+                                      drawid_addr);
 #endif
    } else {
       for (uint32_t i = 0; i < pDependencyInfo->memoryBarrierCount; i++)
@@ -6369,16 +6380,32 @@ void genX(CmdWaitEvents2)(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
 
-   for (uint32_t i = 0; i < eventCount; i++) {
-      ANV_FROM_HANDLE(anv_event, event, pEvents[i]);
+   const struct intel_device_info *devinfo = cmd_buffer->device->info;
 
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_SEMAPHORE_WAIT), sem) {
-         sem.WaitMode            = PollingMode;
-         sem.CompareOperation    = COMPARE_SAD_EQUAL_SDD;
-         sem.SemaphoreDataDword  = VK_EVENT_SET;
-         sem.SemaphoreAddress    = anv_state_pool_state_address(
-            &cmd_buffer->device->dynamic_state_pool,
-            event->state);
+   if (devinfo->ver >= 20 && INTEL_DEBUG(DEBUG_USEBARRIERS)) {
+#if GFX_VER >= 20
+      for (uint32_t i = 0; i < eventCount; i++) {
+         ANV_FROM_HANDLE(anv_event, event, pEvents[i]);
+         const struct anv_address drawid_addr =
+            anv_state_pool_state_address(&cmd_buffer->device->dynamic_state_pool,
+                                       event->state);
+         anv_resource_barriers_from_info(cmd_buffer,
+                                         pDependencyInfos,
+                                         drawid_addr);
+      }
+#endif
+   } else {
+      for (uint32_t i = 0; i < eventCount; i++) {
+         ANV_FROM_HANDLE(anv_event, event, pEvents[i]);
+
+         anv_batch_emit(&cmd_buffer->batch, GENX(MI_SEMAPHORE_WAIT), sem) {
+            sem.WaitMode            = PollingMode;
+            sem.CompareOperation    = COMPARE_SAD_EQUAL_SDD;
+            sem.SemaphoreDataDword  = VK_EVENT_SET;
+            sem.SemaphoreAddress    = anv_state_pool_state_address(
+               &cmd_buffer->device->dynamic_state_pool,
+               event->state);
+         }
       }
    }
 
