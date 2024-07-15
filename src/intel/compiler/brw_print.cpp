@@ -307,6 +307,8 @@ brw_instruction_name(const struct brw_isa_info *isa, enum opcode op)
       return "read_arch_reg";
    case SHADER_OPCODE_LOAD_SUBGROUP_INVOCATION:
       return "load_subgroup_invocation";
+   case SHADER_OPCODE_REDUCE:
+      return "reduce";
    }
 
    unreachable("not reached");
