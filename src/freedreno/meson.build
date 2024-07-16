@@ -6,7 +6,10 @@ inc_freedreno_rnn = include_directories('rnn')
 
 rnn_src_path = dir_source_root + '/src/freedreno/registers'
 rnn_install_path = get_option('datadir') + '/freedreno/registers'
-rnn_path = rnn_src_path + ':' + get_option('prefix') + '/' + rnn_install_path
+rnn_path = get_option('prefix') + '/' + rnn_install_path
+if with_tools_for_development
+  rnn_path = rnn_src_path + ':' + rnn_path
+endif
 
 dep_lua = dependency('lua54', 'lua53', 'lua52', 'lua', required: false,
                      allow_fallback: true, version: '>=5.2')
