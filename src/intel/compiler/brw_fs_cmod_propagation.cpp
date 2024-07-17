@@ -298,7 +298,8 @@ opt_cmod_propagation_local(const intel_device_info *devinfo, bblock_t *block)
                 scan_inst->flags_written(devinfo) != flags_written)
                break;
 
-            if (scan_inst->is_partial_write() ||
+            if (scan_inst->predicate ||
+                !scan_inst->dst.is_contiguous() ||
                 scan_inst->dst.offset != inst->src[0].offset ||
                 scan_inst->exec_size != inst->exec_size)
                break;
