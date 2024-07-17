@@ -3103,7 +3103,7 @@ radv_emit_null_ds_state(struct radv_cmd_buffer *cmd_buffer)
    /* On GFX11, DB_Z_INFO.NUM_SAMPLES should always match MSAA_EXPOSED_SAMPLES. It affects VRS,
     * occlusion queries and Primitive Ordered Pixel Shading if depth and stencil are not bound.
     */
-   if (gfx_level == GFX11) {
+   if (gfx_level == GFX11 || gfx_level == GFX11_5) {
       num_samples = util_logbase2(radv_get_rasterization_samples(cmd_buffer));
       radv_gfx11_set_db_render_control(device, 1, &db_render_control);
    }
