@@ -53,17 +53,22 @@
  * avoid evaluating arguments (which are often function calls) more than once.
  */
 
-static unsigned _min(unsigned a, unsigned b)
+ALWAYS_INLINE static unsigned _min(unsigned a, unsigned b)
 {
    return (a < b) ? a : b;
 }
 
-static float _maxf(float a, float b)
+ALWAYS_INLINE static unsigned _max(unsigned a, unsigned b)
 {
    return (a > b) ? a : b;
 }
 
-static int _clamp(int a, int min, int max)
+ALWAYS_INLINE static float _maxf(float a, float b)
+{
+   return (a > b) ? a : b;
+}
+
+ALWAYS_INLINE static int _clamp(int a, int min, int max)
 {
    if (a < min)
       return min;
