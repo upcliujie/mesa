@@ -91,6 +91,14 @@ if with_nouveau_vk
                  '--out-rs-mthd', '@OUTPUT0@'],
     )
 
+    cl_rs_generated += custom_target(
+      'nvh_' + cl + '_mthd_debug.rs',
+      input : ['class_parser.py', 'nvidia/classes/'+cl+'.h'],
+      output : ['nvh_classes_'+cl+'_mthd_debug.rs'],
+      command : [prog_python, '@INPUT0@', '--in-h', '@INPUT1@',
+                 '--out-rs-debug', '@OUTPUT0@'],
+    )
+
     fs = import('fs')
     if cl.endswith('c0') and fs.is_file('nvidia/classes/'+cl+'qmd.h')
       cl_rs_generated += custom_target(
