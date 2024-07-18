@@ -148,7 +148,7 @@ kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 
    configs = dri_init_screen(screen, pscreen);
    if (!configs)
-      goto fail;
+      return NULL;
 
    assert(pscreen->get_param(pscreen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY));
    screen->has_reset_status_query = true;
@@ -173,9 +173,6 @@ kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    screen->create_drawable = kopper_create_drawable;
 
    return configs;
-fail:
-   pipe_loader_release(&screen->dev, 1);
-   return NULL;
 }
 
 // copypasta alert

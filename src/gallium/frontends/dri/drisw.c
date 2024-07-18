@@ -608,7 +608,7 @@ drisw_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    dri_init_options(screen);
    configs = dri_init_screen(screen, pscreen);
    if (!configs)
-      goto fail;
+      return NULL;
 
    if (pscreen->get_param(pscreen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY)) {
       screen->extensions = drisw_robust_screen_extensions;
@@ -634,9 +634,6 @@ drisw_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    screen->create_drawable = drisw_create_drawable;
 
    return configs;
-fail:
-   pipe_loader_release(&screen->dev, 1);
-   return NULL;
 }
 
 /* swrast copy sub buffer entrypoint. */
