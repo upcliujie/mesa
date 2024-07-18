@@ -1778,8 +1778,9 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
       /* Some of the optimizations can generate 64-bit integer multiplication
        * that must be lowered.
        */
-      if (OPT(nir_lower_int64))
-         brw_nir_optimize(nir, devinfo);
+      OPT(nir_lower_int64);
+
+      brw_nir_optimize(nir, devinfo);
 
       OPT(nir_lower_subgroups, &subgroups_options);
    }
