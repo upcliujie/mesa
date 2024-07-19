@@ -1917,6 +1917,8 @@ tu6_sysmem_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 
       tu_cs_emit_regs(cs, A6XX_GRAS_UNKNOWN_8110(0x2));
       tu_cs_emit_regs(cs, A7XX_RB_UNKNOWN_8E09(0x4));
+
+      tu_cs_emit_regs(cs, A7XX_RB_BLIT_CLEAR_MODE(.clear_mode = CLEAR_MODE_SYSMEM));
    }
 
    tu_cs_emit_pkt7(cs, CP_SET_MARKER, 1);
@@ -1983,6 +1985,8 @@ tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 
       tu_cs_emit_regs(cs, A6XX_GRAS_UNKNOWN_8110(0x2));
       tu_cs_emit_regs(cs, A7XX_RB_UNKNOWN_8E09(0x4));
+
+      tu_cs_emit_regs(cs, A7XX_RB_BLIT_CLEAR_MODE(.clear_mode = CLEAR_MODE_GMEM));
    }
 
    tu_emit_cache_flush_ccu<CHIP>(cmd, cs, TU_CMD_CCU_GMEM);
@@ -4356,16 +4360,19 @@ tu_emit_subpass_begin_gmem(struct tu_cmd_buffer *cmd)
       }
    }
 
-   /* Emit gmem clears that are first used in this subpass. */
-   emitted_scissor = false;
-   for (uint32_t i = 0; i < cmd->state.pass->attachment_count; ++i) {
-      struct tu_render_pass_attachment *att = &cmd->state.pass->attachments[i];
-      if (att->clear_mask && att->first_subpass_idx == subpass_idx) {
-         if (!emitted_scissor) {
-            tu6_emit_blit_scissor(cmd, cs, false);
-            emitted_scissor = true;
+   if (!cmd->device->physical_device->info->a7xx.has_generic_clear) {
+      /* Emit gmem clears that are first used in this subpass. */
+      emitted_scissor = false;
+      for (uint32_t i = 0; i < cmd->state.pass->attachment_count; ++i) {
+         struct tu_render_pass_attachment *att =
+            &cmd->state.pass->attachments[i];
+         if (att->clear_mask && att->first_subpass_idx == subpass_idx) {
+            if (!emitted_scissor) {
+               tu6_emit_blit_scissor(cmd, cs, false);
+               emitted_scissor = true;
+            }
+            tu_clear_gmem_attachment<CHIP>(cmd, cs, i);
          }
-         tu_clear_gmem_attachment<CHIP>(cmd, cs, i);
       }
    }
 
@@ -4381,6 +4388,9 @@ template <chip CHIP>
 static void
 tu_emit_subpass_begin_sysmem(struct tu_cmd_buffer *cmd)
 {
+   if (cmd->device->physical_device->info->a7xx.has_generic_clear)
+      return;
+
    struct tu_cs *cs = &cmd->draw_cs;
    uint32_t subpass_idx = cmd->state.subpass - cmd->state.pass->subpasses;
 
@@ -4391,6 +4401,30 @@ tu_emit_subpass_begin_sysmem(struct tu_cmd_buffer *cmd)
          tu_clear_sysmem_attachment<CHIP>(cmd, cs, i);
    }
    tu_cond_exec_end(cs); /* sysmem */
+}
+
+static void
+tu7_emit_subpass_clear(struct tu_cmd_buffer *cmd)
+{
+   if (cmd->state.render_area.extent.width == 0 ||
+       cmd->state.render_area.extent.height == 0)
+      return;
+
+   struct tu_cs *cs = &cmd->draw_cs;
+   uint32_t subpass_idx = cmd->state.subpass - cmd->state.pass->subpasses;
+
+   bool emitted_scissor = false;
+   for (uint32_t i = 0; i < cmd->state.pass->attachment_count; ++i) {
+      struct tu_render_pass_attachment *att =
+         &cmd->state.pass->attachments[i];
+      if (att->clear_mask && att->first_subpass_idx == subpass_idx) {
+         if (!emitted_scissor) {
+            tu6_emit_blit_scissor(cmd, cs, false);
+            emitted_scissor = true;
+         }
+         tu7_generic_clear_attachment(cmd, cs, i);
+      }
+   }
 }
 
 /* emit loads, clears, and mrt/zs/msaa/ubwc state for the subpass that is
@@ -4408,6 +4442,9 @@ tu_emit_subpass_begin(struct tu_cmd_buffer *cmd)
 
    tu_emit_subpass_begin_gmem<CHIP>(cmd);
    tu_emit_subpass_begin_sysmem<CHIP>(cmd);
+   if (cmd->device->physical_device->info->a7xx.has_generic_clear) {
+      tu7_emit_subpass_clear(cmd);
+   }
 
    tu6_emit_zs<CHIP>(cmd, cmd->state.subpass, &cmd->draw_cs);
    tu6_emit_mrt<CHIP>(cmd, cmd->state.subpass, &cmd->draw_cs);
