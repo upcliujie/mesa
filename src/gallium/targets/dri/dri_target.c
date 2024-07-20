@@ -70,7 +70,7 @@ DEFINE_LOADER_DRM_ENTRYPOINT(msm)
 DEFINE_LOADER_DRM_ENTRYPOINT(kgsl)
 #endif
 
-#if defined(GALLIUM_VIRGL) || (defined(GALLIUM_FREEDRENO) && !defined(PIPE_LOADER_DYNAMIC))
+#if defined(HAVE_VIRGL) || ((defined(HAVE_FREEDRENO) || defined(HAVE_IRIS)) && !defined(PIPE_LOADER_DYNAMIC))
 DEFINE_LOADER_DRM_ENTRYPOINT(virtio_gpu)
 #endif
 
