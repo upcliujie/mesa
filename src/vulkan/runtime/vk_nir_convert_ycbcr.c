@@ -349,7 +349,10 @@ lower_ycbcr_tex_instr(nir_builder *b, nir_instr *instr, void *_state)
    if (format_ycbcr_info == NULL)
       return false;
 
-   b->cursor = nir_before_instr(&tex->instr);
+   if (!state->options->hack)
+      b->cursor = nir_before_instr(&tex->instr);
+   else
+      b->cursor = nir_after_instr(&tex->instr);
 
    VkFormat y_format = VK_FORMAT_UNDEFINED;
    for (uint32_t p = 0; p < format_ycbcr_info->n_planes; p++) {
@@ -428,15 +431,23 @@ lower_ycbcr_tex_instr(nir_builder *b, nir_instr *instr, void *_state)
       }
    }
 
-   nir_def *result = nir_vec(b, swizzled_comp, 4);
+   nir_def *result;
+   if (!state->options->hack)
+      result = nir_vec(b, swizzled_comp, 4);
+   else
+      result = &tex->def;
    if (conversion->ycbcr_model != VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY) {
       result = nir_convert_ycbcr_to_rgb(b, conversion->ycbcr_model,
                                            conversion->ycbcr_range,
                                            result,
                                            swizzled_bpcs);
    }
-
-   nir_def_replace(&tex->def, result);
+   if (!state->options->hack)
+      nir_def_replace(&tex->def, result);
+   else {
+      nir_def_rewrite_uses_after(&tex->def, result, result->parent_instr);
+      b->cursor = nir_before_instr(&tex->instr);
+   }
 
    return true;
 }

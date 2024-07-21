@@ -48,6 +48,8 @@ typedef const struct vk_ycbcr_conversion_state *
 struct nir_vk_lower_ycbcr_tex_options {
    nir_vk_ycbcr_conversion_lookup_cb lookup_cb;
    const void *lookup_cb_data;
+
+   bool hack;
 };
 
 bool nir_vk_lower_ycbcr_tex(nir_shader *nir,
