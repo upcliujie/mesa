@@ -405,8 +405,7 @@ trtt_get_page_table_bo(struct anv_device *device, struct anv_bo **bo,
 }
 
 static VkResult
-anv_trtt_init_context_state(struct anv_device *device,
-                            struct anv_async_submit *submit)
+anv_trtt_init_queues_state(struct anv_device *device)
 {
    struct anv_trtt *trtt = &device->trtt;
 
@@ -417,25 +416,52 @@ anv_trtt_init_context_state(struct anv_device *device,
 
    trtt->l3_mirror = vk_zalloc(&device->vk.alloc, 4096, 8,
                                 VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
-   if (!trtt->l3_mirror) {
-      result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-      return result;
-   }
+   if (!trtt->l3_mirror)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    /* L3 has 512 entries, so we can have up to 512 L2 tables. */
    trtt->l2_mirror = vk_zalloc(&device->vk.alloc, 512 * 4096, 8,
                                VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
    if (!trtt->l2_mirror) {
-      result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-      goto fail_free_l3;
+      vk_free(&device->vk.alloc, trtt->l3_mirror);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
-   result = anv_genX(device->info, init_trtt_context_state)(device, submit);
+   struct anv_async_submit submits[device->queue_count];
+   int submits_used = 0;
+   for (uint32_t i = 0; i < device->queue_count; i++) {
+      struct anv_queue *q = &device->queues[i];
 
-   return result;
+      result = anv_async_submit_init(&submits[submits_used], q,
+                                     &device->batch_bo_pool, false, true);
+      if (result != VK_SUCCESS)
+         break;
 
-fail_free_l3:
-   vk_free(&device->vk.alloc, trtt->l3_mirror);
+      struct anv_async_submit *submit = &submits[submits_used++];
+
+      result = anv_genX(device->info, init_trtt_context_state)(submit);
+      if (result != VK_SUCCESS) {
+         anv_async_submit_fini(submit);
+         submits_used--;
+         break;
+      }
+
+      anv_genX(device->info, async_submit_end)(submit);
+
+      result = device->kmd_backend->queue_exec_async(submit, 0, NULL, 1,
+                                                     &submit->signal);
+      if (result != VK_SUCCESS) {
+         anv_async_submit_fini(submit);
+         submits_used--;
+         break;
+      }
+   }
+
+   for (uint32_t i = 0; i < submits_used; i++) {
+      anv_async_submit_wait(&submits[i]);
+      anv_async_submit_fini(&submits[i]);
+   }
+
    return result;
 }
 
@@ -598,7 +624,34 @@ anv_sparse_bind_trtt(struct anv_device *device,
    VkResult result;
 
    /* TR-TT submission needs a queue even when the API entry point doesn't
-    * give one, such as resource creation. */
+    * provide one, such as resource creation. We pick this queue from the user
+    * created queues at init_device_state() under anv_CreateDevice.
+    *
+    * It is technically possible for the user to create sparse resources even
+    * when they don't have a sparse queue: they won't be able to bind the
+    * resource but they should still be able to use the resource and rely on
+    * its unbound behavior. We haven't spotted any real world application or
+    * even test suite that exercises this behavior.
+    *
+    * For now let's just print an error message and return, which means that
+    * resource creation will succeed but the behavior will be undefined if the
+    * resource is used, which goes against our claim that we support the
+    * sparseResidencyNonResidentStrict property.
+    *
+    * TODO: be fully spec-compliant here. Maybe have a device-internal queue
+    * independent of the application's queues for the TR-TT operations.
+    */
+   if (!trtt->queue) {
+      static bool warned = false;
+      if (unlikely(!warned)) {
+         fprintf(stderr, "FIXME: application has created a sparse resource "
+                 "but no queues capable of binding sparse resources were "
+                 "created. Using these resources will result in undefined "
+                 "behavior.\n");
+         warned = true;
+      }
+      return VK_SUCCESS;
+   }
    if (!sparse_submit->queue)
       sparse_submit->queue = trtt->queue;
 
@@ -626,9 +679,11 @@ anv_sparse_bind_trtt(struct anv_device *device,
    /* If the TRTT L3 table was never set, initialize it as part of this
     * submission.
     */
-   if (!trtt->l3_addr)
-      anv_trtt_init_context_state(device, &submit->base);
-
+   if (!trtt->l3_addr) {
+      result = anv_trtt_init_queues_state(device);
+      if (result != VK_SUCCESS)
+         goto error_add_bind;
+   }
    assert(trtt->l3_addr);
 
    /* These capacities are conservative estimations. For L1 binds the
