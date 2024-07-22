@@ -228,6 +228,7 @@ anv_i915_set_queue_parameters(
       const VkDeviceQueueGlobalPriorityCreateInfoKHR *queue_priority)
 {
    struct anv_physical_device *physical_device = device->physical;
+   struct anv_instance *instance = physical_device->instance;
 
    /* Here we tell the kernel not to attempt to recover our context but
     * immediately (on the next batchbuffer submission) report that the
@@ -245,16 +246,21 @@ anv_i915_set_queue_parameters(
    /* As per spec, the driver implementation may deny requests to acquire
     * a priority above the default priority (MEDIUM) if the caller does not
     * have sufficient privileges. In this scenario VK_ERROR_NOT_PERMITTED_KHR
-    * is returned.
+    * is returned by default unless global_priority_hint is set; in which case
+    * the priority is lowered to the default (MEDIUM).
     */
    if (physical_device->max_context_priority >= VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR) {
-      int err = anv_gem_set_context_param(device->fd, context_id,
-                                          I915_CONTEXT_PARAM_PRIORITY,
-                                          priority);
-      if (err != 0 && priority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR) {
-         return vk_error(device, VK_ERROR_NOT_PERMITTED_KHR);
+      if (priority > physical_device->max_context_priority) {
+         if (instance->global_priority_hint)
+            priority = VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR;
+         else
+            return vk_error(device, VK_ERROR_NOT_PERMITTED_KHR);
       }
    }
+
+   anv_gem_set_context_param(device->fd, context_id,
+                              I915_CONTEXT_PARAM_PRIORITY,
+                              priority);
 
    return VK_SUCCESS;
 }

@@ -340,6 +340,10 @@
    DRI_CONF_OPT_B(vk_require_astc, def, \
                   "Implement emulated ASTC on HW that does not support it")
 
+#define DRI_CONF_GLOBAL_PRIORITY_HINT(def) \
+   DRI_CONF_OPT_B(global_priority_hint,def, \
+                  "Treat global priority as a hint and fallback to default priority for non-permitted priorities")
+
 /**
  * \brief Image quality-related options
  */

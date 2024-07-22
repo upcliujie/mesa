@@ -55,6 +55,7 @@ create_engine(struct anv_device *device,
               bool create_companion_rcs_engine)
 {
    struct anv_physical_device *physical = device->physical;
+   struct anv_instance *instance = physical->instance;
    uint32_t queue_family_index =
       create_companion_rcs_engine ?
       anv_get_first_render_queue_index(physical) :
@@ -66,18 +67,23 @@ create_engine(struct anv_device *device,
    const VkDeviceQueueGlobalPriorityCreateInfoKHR *queue_priority =
       vk_find_struct_const(pCreateInfo->pNext,
                            DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO_KHR);
-   const VkQueueGlobalPriorityKHR priority = queue_priority ?
-                                             queue_priority->globalPriority :
-                                             VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR;
+   VkQueueGlobalPriorityKHR priority = queue_priority ?
+                                       queue_priority->globalPriority :
+                                       VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR;
 
    /* As per spec, the driver implementation may deny requests to acquire
     * a priority above the default priority (MEDIUM) if the caller does not
     * have sufficient privileges. In this scenario VK_ERROR_NOT_PERMITTED_KHR
-    * is returned.
+    * is returned by default unless global_priority_hint is set; in which case
+    * the priority is lowered to the default (MEDIUM).
     */
    if (physical->max_context_priority >= VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR) {
-      if (priority > physical->max_context_priority)
-         return vk_error(device, VK_ERROR_NOT_PERMITTED_KHR);
+      if (priority > physical->max_context_priority) {
+         if (instance->global_priority_hint)
+            priority = VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR;
+         else
+            return vk_error(device, VK_ERROR_NOT_PERMITTED_KHR);
+      }
    }
 
    instances = vk_alloc(&device->vk.alloc,

@@ -1276,6 +1276,7 @@ struct anv_instance {
     bool                                        disable_fcv;
     bool                                        compression_control_enabled;
     bool                                        anv_fake_nonlocal_memory;
+    bool                                        global_priority_hint;
 
     /* HW workarounds */
     bool                                        no_16bit;
