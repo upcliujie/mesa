@@ -38,6 +38,7 @@ nak_nir_workgroup_has_one_subgroup(const nir_shader *nir)
        */
       return true;
 
+   case MESA_SHADER_TASK:
    case MESA_SHADER_MESH:
       /*
        * Mesh runs on the Tesselation stage and follows the same rules.
@@ -576,7 +577,8 @@ nak_nir_lower_system_value_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
    }
 
    case nir_intrinsic_load_local_invocation_index: {
-      if (b->shader->info.stage != MESA_SHADER_MESH)
+      if (b->shader->info.stage != MESA_SHADER_TASK &&
+          b->shader->info.stage != MESA_SHADER_MESH)
          return false;
 
       const uint32_t idx = nak_sysval_sysval_idx(SYSTEM_VALUE_SUBGROUP_INVOCATION);
@@ -1067,7 +1069,7 @@ nak_postprocess_nir(nir_shader *nir,
    OPT(nir, nir_opt_load_store_vectorize, &vectorize_opts);
 
    nir_lower_mem_access_bit_sizes_options mem_bit_size_options = {
-      .modes = nir_var_mem_constant | nir_var_mem_ubo | nir_var_mem_generic,
+      .modes = nir_var_mem_constant | nir_var_mem_ubo | nir_var_mem_generic | nir_var_mem_task_payload,
       .callback = is_mesh_stage ? nak_mesh_mem_access_size_align : nak_mem_access_size_align,
    };
    OPT(nir, nir_lower_mem_access_bit_sizes, &mem_bit_size_options);
@@ -1112,6 +1114,11 @@ nak_postprocess_nir(nir_shader *nir,
       OPT(nir, nir_opt_constant_folding);
       OPT(nir, nak_nir_lower_fs_inputs, nak, fs_key);
       OPT(nir, nak_nir_lower_fs_outputs);
+      break;
+
+   case MESA_SHADER_TASK:
+      OPT(nir, nak_nir_lower_task_intrinsics);
+      OPT(nir, nir_opt_constant_folding);
       break;
 
    case MESA_SHADER_MESH:

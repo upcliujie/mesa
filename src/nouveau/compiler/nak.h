@@ -165,6 +165,11 @@ struct nak_shader_info {
          uint32_t gs_hdr[32];
       } mesh;
 
+      struct {
+         uint16_t local_size;
+         uint8_t _pad[134];
+      } task;
+
       /* Used to initialize the union for other stages */
       uint8_t _pad[136];
    };

@@ -1255,12 +1255,12 @@ mesa_to_nv9097_shader_type(gl_shader_stage stage, bool has_task_shader)
 }
 
 static uint32_t
-nvk_pipeline_bind_group(gl_shader_stage stage)
+nvk_pipeline_bind_group(gl_shader_stage stage, bool has_task_shader)
 {
    if (stage == MESA_SHADER_MESH)
-      return 0;
+      return has_task_shader ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
    else if (stage == MESA_SHADER_TASK)
-      return 1;
+      return MESA_SHADER_VERTEX;
 
    return stage;
 }
@@ -1306,7 +1306,7 @@ nvk_flush_shaders(struct nvk_cmd_buffer *cmd)
 
    if (pdev->info.cls_eng3d >= TURING_A) {
       struct nv_push *p = nvk_cmd_buffer_push(cmd, 2);
-      P_IMMD(p, NVC597, SET_MESH_CONTROL, has_mesh_shader);
+      P_IMMD(p, NVC597, SET_MESH_CONTROL, has_task_shader || has_mesh_shader);
    }
 
    u_foreach_bit(stage, cmd->state.gfx.shaders_dirty & gfx_stages) {
@@ -1324,7 +1324,7 @@ nvk_flush_shaders(struct nvk_cmd_buffer *cmd)
 
          const struct nvk_cbuf_map *cbuf_map = &shader->cbuf_map;
          struct nvk_cbuf_group *cbuf_group =
-            &cmd->state.gfx.cbuf_groups[nvk_cbuf_binding_for_stage(stage)];
+            &cmd->state.gfx.cbuf_groups[nvk_cbuf_binding_for_stage(stage, has_task_shader)];
          for (uint32_t i = 0; i < cbuf_map->cbuf_count; i++) {
             if (memcmp(&cbuf_group->cbufs[i], &cbuf_map->cbufs[i],
                        sizeof(cbuf_group->cbufs[i])) != 0) {
@@ -1363,10 +1363,17 @@ nvk_flush_shaders(struct nvk_cmd_buffer *cmd)
       P_MTHD(p, NVC397, SET_PIPELINE_REGISTER_COUNT(idx));
       P_NVC397_SET_PIPELINE_REGISTER_COUNT(p, idx, shader->info.num_gprs);
       P_NVC397_SET_PIPELINE_BINDING(p, idx,
-         nvk_pipeline_bind_group(shader->info.stage));
+         nvk_pipeline_bind_group(shader->info.stage, has_task_shader));
 
       if (shader->info.stage == MESA_SHADER_TASK) {
-         assert(0 && "todo");
+         p = nvk_cmd_buffer_push(cmd, 2);
+
+         /* XXX: Investigate local_buffer_lines and output_to_m_s_lines */
+         P_IMMD(p, NVC597, SET_MESH_INIT_SHADER, {
+            .thread_count = shader->info.task.local_size,
+            .local_buffer_lines = 1,
+            .output_to_m_s_lines = 1,
+         });
       } else if (shader->info.stage == MESA_SHADER_MESH) {
          assert(shader->info.mesh.max_vertices != 0);
          assert(shader->info.mesh.max_primitives != 0);
@@ -2596,6 +2603,8 @@ nvk_flush_descriptors(struct nvk_cmd_buffer *cmd)
 
    nvk_cmd_buffer_flush_push_descriptors(cmd, desc);
 
+   bool has_task_shader = cmd->state.gfx.shaders[MESA_SHADER_TASK] != NULL;
+
    /* Find cbuf maps for the 5 cbuf groups */
    const struct nvk_shader *cbuf_shaders[5] = { NULL, };
    for (gl_shader_stage stage = 0; stage < MESA_SHADER_MESH + 1; stage++) {
@@ -2603,7 +2612,7 @@ nvk_flush_descriptors(struct nvk_cmd_buffer *cmd)
       if (shader == NULL)
          continue;
 
-      uint32_t group = nvk_cbuf_binding_for_stage(stage);
+      uint32_t group = nvk_cbuf_binding_for_stage(stage, has_task_shader);
       assert(group < ARRAY_SIZE(cbuf_shaders));
       cbuf_shaders[group] = shader;
    }

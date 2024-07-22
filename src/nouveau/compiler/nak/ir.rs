@@ -7130,6 +7130,11 @@ pub struct TessellationShaderInfo {
 }
 
 #[derive(Debug)]
+pub struct TaskShaderInfo {
+    pub local_size: u16,
+}
+
+#[derive(Debug)]
 pub struct MeshShaderInfo {
     pub has_task_shader: bool,
     pub has_gs_sph: bool,
@@ -7148,7 +7153,7 @@ pub enum ShaderStageInfo {
     Geometry(GeometryShaderInfo),
     TessellationInit(TessellationInitShaderInfo),
     Tessellation(TessellationShaderInfo),
-    Task,
+    Task(TaskShaderInfo),
     Mesh(MeshShaderInfo),
 }
 

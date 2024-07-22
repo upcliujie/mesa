@@ -206,7 +206,7 @@ struct lower_mesh_intrinsics_ctx {
 };
 
 bool nak_nir_lower_mesh_intrinsics(nir_shader *nir, struct lower_mesh_intrinsics_ctx *ctx);
-
+bool nak_nir_lower_task_intrinsics(nir_shader *nir);
 
 enum nak_interp_mode {
    NAK_INTERP_MODE_PERSPECTIVE,

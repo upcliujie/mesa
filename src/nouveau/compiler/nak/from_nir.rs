@@ -113,7 +113,11 @@ fn init_info_from_nir(nir: &nir_shader, has_task_shader: bool) -> ShaderInfo {
                     },
                 })
             }
-            MESA_SHADER_TASK => ShaderStageInfo::Task,
+            MESA_SHADER_TASK => ShaderStageInfo::Task(TaskShaderInfo {
+                local_size: nir.info.workgroup_size[0]
+                    * nir.info.workgroup_size[1]
+                    * nir.info.workgroup_size[2],
+            }),
             MESA_SHADER_MESH => {
                 let info_mesh = unsafe { &nir.info.__bindgen_anon_1.mesh };
 
@@ -382,7 +386,11 @@ struct ShaderFromNir<'a> {
 }
 
 impl<'a> ShaderFromNir<'a> {
-    fn new(nir: &'a nir_shader, sm: &'a dyn ShaderModel, has_task_shader: bool) -> Self {
+    fn new(
+        nir: &'a nir_shader,
+        sm: &'a dyn ShaderModel,
+        has_task_shader: bool,
+    ) -> Self {
         Self {
             nir: nir,
             sm: sm,
@@ -2614,7 +2622,7 @@ impl<'a> ShaderFromNir<'a> {
                                 }
                             }
                         }
-                        ShaderStageInfo::Task => (),
+                        ShaderStageInfo::Task(_) => (),
                         _ => panic!(
                             "ISBEWR is only expected on Mesh and Task stages"
                         ),
@@ -2674,7 +2682,7 @@ impl<'a> ShaderFromNir<'a> {
                                 }
                             }
                         }
-                        ShaderStageInfo::Task => (),
+                        ShaderStageInfo::Task(_) => (),
                         _ => panic!(
                             "ISBEWR is only expected on Mesh and Task stages"
                         ),

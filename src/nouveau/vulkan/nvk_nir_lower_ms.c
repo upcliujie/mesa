@@ -34,38 +34,6 @@ lower_set_vertex_and_primitive_count(nir_builder *b,
 }
 
 static bool
-lower_mesh_workgroup_id_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
-                               void *data)
-{
-   if (intrin->intrinsic != nir_intrinsic_load_local_invocation_id)
-      return false;
-
-   b->cursor = nir_before_instr(&intrin->instr);
-
-   nir_def *workgroup_index = nir_load_local_invocation_index(b);
-   nir_def *workgroup_size = nir_imm_ivec3(b, b->shader->info.workgroup_size[0],
-                                           b->shader->info.workgroup_size[1],
-                                           b->shader->info.workgroup_size[2]);
-
-   nir_def *comps[3];
-   assert(intrin->def.num_components <= 3);
-
-   nir_def *workgroup_size_x = nir_channel(b, workgroup_size, 0);
-   nir_def *workgroup_size_y = nir_channel(b, workgroup_size, 1);
-   nir_def *workgroup_size_z = nir_channel(b, workgroup_size, 2);
-
-   comps[0] = nir_imod(b, workgroup_index, workgroup_size_x);
-   comps[1] = nir_imod(b, nir_idiv(b, workgroup_index, workgroup_size_x), workgroup_size_y);
-   comps[2] = nir_imod(b, nir_idiv(b, workgroup_index, nir_imul(b, workgroup_size_x, workgroup_size_y)), workgroup_size_z);
-
-   nir_def *workgroup_id = nir_vec(b, comps, intrin->def.num_components);
-   nir_def_rewrite_uses(&intrin->def, workgroup_id);
-   nir_instr_remove(&intrin->instr);
-
-   return true;
-}
-
-static bool
 lower_local_invocation_index_to_arg(nir_builder *b, nir_instr *instr,
                                     void *data)
 {
@@ -82,14 +50,29 @@ lower_local_invocation_index_to_arg(nir_builder *b, nir_instr *instr,
    return true;
 }
 
+static bool
+lower_task_payload_intrin(nir_builder *b, nir_intrinsic_instr *intrin,
+                          void *data)
+{
+   if (intrin->intrinsic != nir_intrinsic_store_task_payload &&
+       intrin->intrinsic != nir_intrinsic_load_task_payload)
+      return false;
+
+   unsigned base = nir_intrinsic_base(intrin);
+   nir_intrinsic_set_base(intrin, base + 0x20);
+   return true;
+}
+
 bool nvk_nir_lower_mesh(nir_shader *nir) {
    /* First, we avoid ensure that set_vertex_and_primitive_count will only be called on the first local invocation */
    nir_shader_intrinsics_pass(nir, lower_set_vertex_and_primitive_count,
                               nir_metadata_none,
                               NULL);
 
-   /* We then lower the workgroup and local invocation ids to use their respective index */
-   nir_shader_intrinsics_pass(nir, lower_mesh_workgroup_id_intrin,
+   /**
+    * We now ensure to offset the task payload for private values.
+    */
+   nir_shader_intrinsics_pass(nir, lower_task_payload_intrin,
                               nir_metadata_block_index | nir_metadata_dominance,
                               NULL);
 
@@ -154,5 +137,7 @@ bool nvk_nir_lower_mesh(nir_shader *nir) {
    /* And destroy the metadata as everything changed */
    nir_metadata_preserve(entry_function->impl, nir_metadata_none);
 
+   nir_opt_dce(nir);
+   nir_opt_dead_cf(nir);
    return true;
 }

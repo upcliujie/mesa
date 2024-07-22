@@ -48,6 +48,7 @@ impl From<&ShaderStageInfo> for ShaderType {
                     ShaderType::Vertex
                 }
             }
+            ShaderStageInfo::Task(_) => ShaderType::Vertex,
             _ => panic!("Invalid ShaderStageInfo {:?}", value),
         }
     }

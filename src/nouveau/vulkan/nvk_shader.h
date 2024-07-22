@@ -31,12 +31,12 @@ struct vk_shader_module;
 #define NVC0_MAX_SHADER_HEADER_SIZE TU102_SHADER_HEADER_SIZE
 
 static inline uint32_t
-nvk_cbuf_binding_for_stage(gl_shader_stage stage)
+nvk_cbuf_binding_for_stage(gl_shader_stage stage, bool has_task_shader)
 {
    if (stage == MESA_SHADER_MESH)
-      return 0;
+      return has_task_shader ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
    else if (stage == MESA_SHADER_TASK)
-      return 1;
+      return MESA_SHADER_VERTEX;
 
    return stage;
 }

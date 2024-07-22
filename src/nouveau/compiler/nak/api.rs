@@ -226,7 +226,7 @@ impl ShaderBin {
                 ShaderStageInfo::Geometry(_) => MESA_SHADER_GEOMETRY,
                 ShaderStageInfo::TessellationInit(_) => MESA_SHADER_TESS_CTRL,
                 ShaderStageInfo::Tessellation(_) => MESA_SHADER_TESS_EVAL,
-                ShaderStageInfo::Task => MESA_SHADER_TASK,
+                ShaderStageInfo::Task(_) => MESA_SHADER_TASK,
                 ShaderStageInfo::Mesh(_) => MESA_SHADER_MESH,
             },
             sm: sm.sm(),
@@ -277,6 +277,15 @@ impl ShaderBin {
                             spacing: ts_info.spacing as u8,
                             prims: ts_info.primitives as u8,
                             _pad: [0; 133],
+                        },
+                    }
+                }
+                ShaderStageInfo::Task(task_info) => {
+                    nak_shader_info__bindgen_ty_1 {
+                        task: nak_shader_info__bindgen_ty_1__bindgen_ty_5 {
+                            // The max local size supported by hardware is the size of a WARP (32)
+                            local_size: task_info.local_size.min(32),
+                            _pad: [0; 134],
                         },
                     }
                 }
@@ -396,7 +405,9 @@ pub extern "C" fn nak_compile_shader(
     fs_key: *const nak_fs_key,
     has_task_shader: bool,
 ) -> *mut nak_shader_bin {
-    unsafe { nak_postprocess_nir(nir, nak, robust2_modes, fs_key, has_task_shader) };
+    unsafe {
+        nak_postprocess_nir(nir, nak, robust2_modes, fs_key, has_task_shader)
+    };
     let nak = unsafe { &*nak };
     let nir = unsafe { &*nir };
     let fs_key = if fs_key.is_null() {

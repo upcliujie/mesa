@@ -408,11 +408,32 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
    nir_lower_compute_system_values_options csv_options = {
       .has_base_workgroup_id = nir->info.stage == MESA_SHADER_COMPUTE,
       .lower_local_invocation_index = nir->info.stage == MESA_SHADER_COMPUTE,
+      .lower_cs_local_id_to_index = nir->info.stage == MESA_SHADER_TASK || nir->info.stage == MESA_SHADER_MESH,
       .lower_workgroup_id_to_index = nir->info.stage == MESA_SHADER_TASK || nir->info.stage == MESA_SHADER_MESH,
    };
    NIR_PASS(_, nir, nir_lower_compute_system_values, &csv_options);
 
-   if (nir->info.stage == MESA_SHADER_MESH) {
+   if (!nir->info.shared_memory_explicit_layout) {
+      NIR_PASS(_, nir, nir_lower_vars_to_explicit_types,
+               nir_var_mem_shared, shared_var_info);
+   }
+   NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_shared,
+            nir_address_format_32bit_offset);
+
+   if (nir->info.stage == MESA_SHADER_TASK ||
+       nir->info.stage == MESA_SHADER_MESH) {
+      if (!nir->info.shared_memory_explicit_layout) {
+         NIR_PASS(_, nir, nir_lower_vars_to_explicit_types,
+                  nir_var_mem_task_payload, shared_var_info);
+      }
+      NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_task_payload,
+               nir_address_format_32bit_offset);
+
+      if (nir->info.stage == MESA_SHADER_TASK) {
+         nir_lower_task_shader_options ts_opts = { 0 };
+         nir_lower_task_shader(nir, ts_opts);
+      }
+
       NIR_PASS(_, nir, nvk_nir_lower_mesh);
    }
 
