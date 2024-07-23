@@ -125,6 +125,13 @@ struct v3d_resource {
         uint32_t initialized_buffers;
 
         /**
+         * Bitmask of PIPE_CLEAR_* for which parts of the resource have been
+         * invalidated by a glInvalidateFramebuffer so they don't need to be
+         * stored after a draw or do not need to be loaded after bind.
+         */
+        uint32_t invalidated;
+
+        /**
          * A serial ID that is incremented every time a new BO is bound to a
          * resource. We use this to track scenarios where we might need to
          * update other resources to point to the new BO (like sampler states
