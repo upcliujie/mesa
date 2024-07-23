@@ -158,9 +158,19 @@ brw_fs_optimize(fs_visitor &s)
       OPT(brw_fs_lower_simd_width);
    }
 
-   OPT(brw_fs_lower_sends_overlapping_payload);
-
    OPT(brw_fs_lower_uniform_pull_constant_loads);
+
+   if (OPT(brw_fs_lower_send_indirect_messages)) {
+      /* No need for standard copy_propagation since opt_address_reg_load will
+       * only optimize defs.
+       */
+      if (OPT(brw_fs_opt_copy_propagation_defs))
+         OPT(brw_fs_opt_algebraic);
+      OPT(brw_fs_opt_address_reg_load);
+      OPT(brw_fs_opt_dead_code_eliminate);
+   }
+
+   OPT(brw_fs_lower_sends_overlapping_payload);
 
    OPT(brw_fs_lower_indirect_mov);
 
@@ -523,4 +533,3 @@ brw_fs_opt_remove_extra_rounding_modes(fs_visitor &s)
 
    return progress;
 }
-

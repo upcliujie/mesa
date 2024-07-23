@@ -164,8 +164,9 @@ typedef struct brw_reg {
          unsigned address_mode:1;       /* relative addressing, hopefully! */
          unsigned pad0:16;
          unsigned subnr:5;              /* :1 in align16 */
+         unsigned arfnr;
       };
-      uint32_t bits;
+      uint64_t bits;
    };
 
    union {
@@ -215,6 +216,9 @@ typedef struct brw_reg {
    bool is_negative_one() const;
    bool is_null() const;
    bool is_accumulator() const;
+   bool is_address() const;
+
+   unsigned address_slot(unsigned byte_offset) const;
 
    /**
     * Return the size in bytes of a single logical component of the
@@ -393,6 +397,7 @@ brw_make_reg(enum brw_reg_file file,
    reg.pad0 = 0;
    reg.subnr = subnr * brw_type_size_bytes(type);
    reg.nr = nr;
+   reg.arfnr = 0;
 
    /* Could do better: If the reg is r5.3<0;1,0>, we probably want to
     * set swizzle and writemask to W, as the lower bits of subnr will

@@ -122,6 +122,11 @@ public:
     */
    bool has_sampler_residency() const;
 
+   /**
+    * Return true if this instruction is using the address register.
+    */
+   bool uses_address_register() const;
+
    /** @{
     * Annotation for the generated IR.  One of the two can be set.
     */
@@ -194,10 +199,6 @@ public:
          bool check_tdr:1; /**< Only valid for SEND; turns it into a SENDC */
          bool send_has_side_effects:1; /**< Only valid for SHADER_OPCODE_SEND */
          bool send_is_volatile:1; /**< Only valid for SHADER_OPCODE_SEND */
-         bool send_ex_desc_scratch:1; /**< Only valid for SHADER_OPCODE_SEND, use
-                                       *   the scratch surface offset to build
-                                       *   extended descriptor
-                                       */
          bool send_ex_bso:1; /**< Only for SHADER_OPCODE_SEND, use extended
                               *   bindless surface offset (26bits instead of
                               *   20bits)

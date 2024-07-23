@@ -254,14 +254,14 @@ uint32_t
 hash_reg(uint32_t hash, const brw_reg &r)
 {
    struct {
-      uint64_t u64;
-      uint32_t u32;
-      uint16_t u16a;
-      uint16_t u16b;
+      uint64_t u64a;
+      uint64_t u64b;
+      uint32_t u32a;
+      uint32_t u32b;
    } data = {
-      .u64 = r.u64, .u32 = r.bits, .u16a = r.offset, .u16b = r.stride
+      .u64a = r.u64, .u64b = r.bits, .u32a = r.offset, .u32b = r.stride
    };
-   STATIC_ASSERT(sizeof(data) == 16); /* ensure there's no padding */
+   STATIC_ASSERT(sizeof(data) == 24); /* ensure there's no padding */
    hash = HASH(hash, data);
    return hash;
 }

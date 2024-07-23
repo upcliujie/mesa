@@ -1042,6 +1042,19 @@ fs_inst::has_sampler_residency() const
    }
 }
 
+bool
+fs_inst::uses_address_register() const
+{
+   switch (opcode) {
+   case SHADER_OPCODE_BROADCAST:
+   case SHADER_OPCODE_SHUFFLE:
+   case SHADER_OPCODE_MOV_INDIRECT:
+      return true;
+   default:
+      return false;
+   }
+}
+
 /* For SIMD16, we need to follow from the uniform setup of SIMD8 dispatch.
  * This brings in those uniform definitions
  */
@@ -1246,18 +1259,24 @@ fs_visitor::assign_curb_setup()
          fs_inst *send = ubld.emit(SHADER_OPCODE_SEND, dest, srcs, 4);
 
          send->sfid = GFX12_SFID_UGM;
-         send->desc = lsc_msg_desc(devinfo, LSC_OP_LOAD,
-                                   LSC_ADDR_SURFTYPE_FLAT,
-                                   LSC_ADDR_SIZE_A32,
-                                   LSC_DATA_SIZE_D32,
-                                   num_regs * 8 /* num_channels */,
-                                   true /* transpose */,
-                                   LSC_CACHE(devinfo, LOAD, L1STATE_L3MOCS));
+         uint32_t desc = lsc_msg_desc(devinfo, LSC_OP_LOAD,
+                                      LSC_ADDR_SURFTYPE_FLAT,
+                                      LSC_ADDR_SIZE_A32,
+                                      LSC_DATA_SIZE_D32,
+                                      num_regs * 8 /* num_channels */,
+                                      true /* transpose */,
+                                      LSC_CACHE(devinfo, LOAD, L1STATE_L3MOCS));
          send->header_size = 0;
          send->mlen = lsc_msg_addr_len(devinfo, LSC_ADDR_SIZE_A32, 1);
          send->size_written =
             lsc_msg_dest_len(devinfo, LSC_DATA_SIZE_D32, num_regs * 8) * REG_SIZE;
          send->send_is_volatile = true;
+
+         send->src[0] = brw_imm_ud(desc |
+                                   brw_message_desc(devinfo,
+                                                    send->mlen,
+                                                    send->size_written / REG_SIZE,
+                                                    send->header_size));
 
          i += num_regs;
       }
@@ -2020,19 +2039,21 @@ fs_visitor::emit_repclear_shader()
 
       write = bld.emit(SHADER_OPCODE_SEND);
       write->resize_sources(3);
-      write->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
-      write->src[0] = brw_imm_ud(0);
-      write->src[1] = brw_imm_ud(0);
-      write->src[2] = i == 0 ? color_output : header;
-      write->check_tdr = true;
-      write->send_has_side_effects = true;
-      write->desc = brw_fb_write_desc(devinfo, i,
-         BRW_DATAPORT_RENDER_TARGET_WRITE_SIMD16_SINGLE_SOURCE_REPLICATED,
-         i == key->nr_color_regions - 1, false);
 
       /* We can use a headerless message for the first render target */
       write->header_size = i == 0 ? 0 : 2;
       write->mlen = 1 + write->header_size;
+
+      write->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
+      write->src[0] = brw_imm_ud(
+         brw_fb_write_desc(devinfo, i,
+                           BRW_DATAPORT_RENDER_TARGET_WRITE_SIMD16_SINGLE_SOURCE_REPLICATED,
+                           i == key->nr_color_regions - 1, false) |
+         brw_message_desc(devinfo, write->mlen, 0 /* rlen */, write->header_size));
+      write->src[1] = brw_imm_ud(0);
+      write->src[2] = i == 0 ? color_output : header;
+      write->check_tdr = true;
+      write->send_has_side_effects = true;
    }
    write->eot = true;
    write->last_rt = true;
@@ -2506,7 +2527,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file, const brw:
          fprintf(file, "null");
          break;
       case BRW_ARF_ADDRESS:
-         fprintf(file, "a0.%d", inst->dst.subnr);
+         fprintf(file, "a0.%d-%d", inst->dst.subnr, inst->dst.arfnr);
          break;
       case BRW_ARF_ACCUMULATOR:
          if (inst->dst.subnr == 0)
@@ -2617,7 +2638,7 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file, const brw:
             fprintf(file, "null");
             break;
          case BRW_ARF_ADDRESS:
-            fprintf(file, "a0.%d", inst->src[i].subnr);
+            fprintf(file, "a0.%d-%d", inst->src[i].subnr, inst->src[i].arfnr);
             break;
          case BRW_ARF_ACCUMULATOR:
             if (inst->src[i].subnr == 0)
