@@ -538,6 +538,7 @@ handleVAEncMiscParameterTypeTemporalLayer(vlVaContext *context, VAEncMiscParamet
       break;
 
    case PIPE_VIDEO_FORMAT_HEVC:
+      status = vlVaHandleVAEncMiscParameterTypeTemporalLayerHEVC(context, misc);
       break;
 
    default:
