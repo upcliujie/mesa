@@ -142,6 +142,7 @@ brw_fs_optimize(fs_visitor &s)
    OPT(brw_fs_lower_sub_sat);
 
    progress = false;
+   OPT(brw_fs_lower_load_subgroup_invocation);
    OPT(brw_fs_lower_derivatives);
    OPT(brw_fs_lower_regioning);
    if (progress) {
@@ -165,8 +166,6 @@ brw_fs_optimize(fs_visitor &s)
    OPT(brw_fs_lower_indirect_mov);
 
    OPT(brw_fs_lower_find_live_channel);
-
-   OPT(brw_fs_lower_load_subgroup_invocation);
 }
 
 static unsigned
