@@ -174,17 +174,22 @@ xe_vm_bind_op(struct anv_device *device,
               struct anv_sparse_submission *submit,
               enum anv_vm_bind_flags flags)
 {
+   struct anv_queue *queue = submit->queue;
    VkResult result = VK_SUCCESS;
+   int ret;
+   const bool has_queue_sync = queue && queue->sync;
+   const bool do_sync = flags & ANV_VM_BIND_FLAG_SYNC || has_queue_sync;
    const bool signal_bind_timeline =
       flags & ANV_VM_BIND_FLAG_SIGNAL_BIND_TIMELINE;
 
    int num_syncs = submit->wait_count + submit->signal_count +
-                   signal_bind_timeline;
+                   do_sync + signal_bind_timeline;
    STACK_ARRAY(struct drm_xe_sync, xe_syncs, num_syncs);
    if (!xe_syncs)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    int sync_idx = 0;
+   int timeline_sync_idx = -1, submit_sync_idx = -1;
    for (int s = 0; s < submit->wait_count; s++) {
       xe_syncs[sync_idx++] =
          vk_sync_to_drm_xe_sync(submit->waits[s].sync,
@@ -197,7 +202,26 @@ xe_vm_bind_op(struct anv_device *device,
                                 submit->signals[s].signal_value,
                                 true);
    }
+   if (has_queue_sync) {
+      xe_syncs[sync_idx++] = vk_sync_to_drm_xe_sync(queue->sync, 0, true);
+   } else if (do_sync) {
+      struct drm_syncobj_create syncobj_create = {};
+      ret = intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_CREATE,
+                        &syncobj_create);
+      if (ret) {
+         result = vk_device_set_lost(&device->vk, "syncobj create failed: %m");
+         goto out_syncs;
+      }
+
+      submit_sync_idx = sync_idx;
+      xe_syncs[sync_idx++] = (struct drm_xe_sync) {
+         .type = DRM_XE_SYNC_TYPE_SYNCOBJ,
+         .flags = DRM_XE_SYNC_FLAG_SIGNAL,
+         .handle = syncobj_create.handle,
+      };
+   }
    if (signal_bind_timeline) {
+      timeline_sync_idx = sync_idx;
       xe_syncs[sync_idx++] = (struct drm_xe_sync) {
          .type = DRM_XE_SYNC_TYPE_TIMELINE_SYNCOBJ,
          .flags = DRM_XE_SYNC_FLAG_SIGNAL,
@@ -221,7 +245,7 @@ xe_vm_bind_op(struct anv_device *device,
    if (submit->binds_len > 1) {
       if (!xe_binds_stackarray) {
          result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-         goto out_syncs;
+         goto out_submit_sync;
       }
 
       xe_binds = xe_binds_stackarray;
@@ -234,28 +258,71 @@ xe_vm_bind_op(struct anv_device *device,
       xe_binds[i] = anv_vm_bind_to_drm_xe_vm_bind(device, &submit->binds[i]);
 
    if (signal_bind_timeline) {
-      xe_syncs[num_syncs - 1].timeline_value =
+      xe_syncs[timeline_sync_idx].timeline_value =
          intel_bind_timeline_bind_begin(&device->bind_timeline);
    }
-   int ret = intel_ioctl(device->fd, DRM_IOCTL_XE_VM_BIND, &args);
+   ret = intel_ioctl(device->fd, DRM_IOCTL_XE_VM_BIND, &args);
    int errno_ = errno;
    if (signal_bind_timeline)
       intel_bind_timeline_bind_end(&device->bind_timeline);
 
    if (ret) {
+      /* These errors can happen during normal driver operation (i.e., they
+       * don't necessarily mean a bug in our driver):
+       *   ENOMEM: Out of Kernel memory.
+       *   EBUSY:  Temporarily out of resources for a multiple VM_BIND job.
+       *           Retry with lower number of VM_BIND operations. Does not
+       *           occur with single VM_BIND job.
+       *   ENOSPC: Graphics memory is overcommitted, unbind resources and then
+       *           retry.
+       *
+       * Both ENOMEM and EBUSY mean we're out of host memory, it's just that
+       * when we're guaranteed to not get EBUSY if we issue one bind per
+       * ioctl.
+       */
       assert(errno_ != EINVAL);
-      if (errno_ == ENOMEM)
+      if (errno_ == ENOMEM || errno_ == EBUSY)
          result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+      else if (errno_ == ENOSPC)
+         result = vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
       else
          result = vk_device_set_lost(&device->vk,
                                      "vm_bind failed with errno %d", errno_);
       goto out_stackarray;
    }
 
+   if (has_queue_sync) {
+      result = vk_sync_wait(&device->vk, queue->sync, 0,
+                            VK_SYNC_WAIT_COMPLETE, UINT64_MAX);
+
+   } else if (do_sync) {
+      struct drm_syncobj_wait syncobj_wait = {
+         .handles = (intptr_t)&xe_syncs[submit_sync_idx].handle,
+         .timeout_nsec = INT64_MAX,
+         .count_handles = 1,
+         .flags = 0,
+      };
+      ret = intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_WAIT, &syncobj_wait);
+      if (ret)
+         result = vk_device_set_lost(&device->vk, "syncobj wait failed: %m");
+   }
+
    ANV_RMV(vm_binds, device, submit->binds, submit->binds_len);
 
 out_stackarray:
    STACK_ARRAY_FINISH(xe_binds_stackarray);
+out_submit_sync:
+   if (do_sync && !has_queue_sync) {
+      struct drm_syncobj_destroy syncobj_destroy = {
+         .handle = xe_syncs[submit_sync_idx].handle,
+      };
+      ret = intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY,
+                        &syncobj_destroy);
+      if (ret && result == VK_SUCCESS) {
+         result = vk_device_set_lost(&device->vk,
+                                     "syncobj destory failed: %m");
+      }
+   }
 out_syncs:
    STACK_ARRAY_FINISH(xe_syncs);
 
