@@ -1754,7 +1754,7 @@ if with_clc
 endif
 draw_with_llvm = get_option('draw-use-llvm')
 llvm_with_orcjit = get_option('llvm-orcjit') \
-  .disable_auto_if(true) \
+  .disable_auto_if(not ['riscv32', 'riscv64', 'loongarch64'].contains(host_machine.cpu_family())) \
   .allowed()
 if draw_with_llvm
   llvm_modules += 'native'
