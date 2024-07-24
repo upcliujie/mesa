@@ -434,8 +434,8 @@ option(
 
 option (
   'llvm-orcjit',
-  type : 'boolean',
-  value : false,
+  type : 'feature',
+  deprecated: {'true': 'enabled', 'false': 'disabled'},
   description: 'Build llvmpipe with LLVM ORCJIT support.'
 )
 
