@@ -795,22 +795,34 @@ brw_fs_lower_load_subgroup_invocation(fs_visitor &s)
       if (inst->opcode != SHADER_OPCODE_LOAD_SUBGROUP_INVOCATION)
          continue;
 
+      const struct brw_cs_prog_data *cs_prog_data =
+         gl_shader_stage_uses_workgroup(s.stage) ? brw_cs_prog_data(s.prog_data)
+                                                 : NULL;
+
       const fs_builder abld =
          fs_builder(&s, block, inst).annotate("SubgroupInvocation", NULL);
-      const fs_builder ubld8 = abld.group(8, 0).exec_all();
-      if (s.dispatch_width == 8) {
-         assert(inst->dst.type == BRW_TYPE_UD);
-         brw_reg uw = retype(inst->dst, BRW_TYPE_UW);
-         ubld8.MOV(uw, brw_imm_v(0x76543210));
-         ubld8.MOV(inst->dst, uw);
+
+      if (cs_prog_data && cs_prog_data->generate_local_id &&
+          !s.nir->info.workgroup_size_variable &&
+          (cs_prog_data->local_size[0] % s.dispatch_width == 0)) {
+         abld.AND(inst->dst, s.cs_payload().local_invocation_id[0],
+                             brw_imm_ud(s.dispatch_width - 1));
       } else {
-         assert(inst->dst.type == BRW_TYPE_UW);
-         abld.UNDEF(inst->dst);
-         ubld8.MOV(inst->dst, brw_imm_v(0x76543210));
-         ubld8.ADD(byte_offset(inst->dst, 16), inst->dst, brw_imm_uw(8u));
-         if (s.dispatch_width > 16) {
-            const fs_builder ubld16 = abld.group(16, 0).exec_all();
-            ubld16.ADD(byte_offset(inst->dst, 32), inst->dst, brw_imm_uw(16u));
+         const fs_builder ubld8 = abld.group(8, 0).exec_all();
+         if (s.dispatch_width == 8) {
+            assert(inst->dst.type == BRW_TYPE_UD);
+            brw_reg uw = retype(inst->dst, BRW_TYPE_UW);
+            ubld8.MOV(uw, brw_imm_v(0x76543210));
+            ubld8.MOV(inst->dst, uw);
+         } else {
+            assert(inst->dst.type == BRW_TYPE_UW);
+            abld.UNDEF(inst->dst);
+            ubld8.MOV(inst->dst, brw_imm_v(0x76543210));
+            ubld8.ADD(byte_offset(inst->dst, 16), inst->dst, brw_imm_uw(8u));
+            if (s.dispatch_width > 16) {
+               const fs_builder ubld16 = abld.group(16, 0).exec_all();
+               ubld16.ADD(byte_offset(inst->dst, 32), inst->dst, brw_imm_uw(16u));
+            }
          }
       }
 
