@@ -78,10 +78,12 @@ panvk_per_arch(CreateImageView)(VkDevice _device,
 {
    VK_FROM_HANDLE(panvk_device, device, _device);
    VK_FROM_HANDLE(panvk_image, image, pCreateInfo->image);
+   bool driver_internal =
+      (pCreateInfo->flags & VK_IMAGE_VIEW_CREATE_DRIVER_INTERNAL_BIT_MESA) != 0;
    struct panvk_image_view *view;
 
-   view = vk_image_view_create(&device->vk, false, pCreateInfo, pAllocator,
-                               sizeof(*view));
+   view = vk_image_view_create(&device->vk, driver_internal, pCreateInfo,
+                               pAllocator, sizeof(*view));
    if (view == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -193,12 +195,13 @@ panvk_per_arch(CreateImageView)(VkDevice _device,
       pan_pack(view->descs.img_attrib_buf[1].opaque,
                ATTRIBUTE_BUFFER_CONTINUATION_3D, cfg) {
          unsigned level = view->pview.first_level;
+         VkExtent3D extent = vk_image_view_mip_level_extent(&view->vk, 0);
 
-         cfg.s_dimension = u_minify(image->pimage.layout.width, level);
-         cfg.t_dimension = u_minify(image->pimage.layout.height, level);
+         cfg.s_dimension = extent.width;
+         cfg.t_dimension = extent.height;
          cfg.r_dimension =
             view->pview.dim == MALI_TEXTURE_DIMENSION_3D
-               ? u_minify(image->pimage.layout.depth, level)
+               ? extent.depth
                : (view->pview.last_layer - view->pview.first_layer + 1);
          cfg.row_stride = image->pimage.layout.slices[level].row_stride;
          if (cfg.r_dimension > 1) {

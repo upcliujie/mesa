@@ -673,7 +673,7 @@ GENX(panfrost_new_texture)(const struct pan_image_view *iview, void *out,
        pan_image_view_get_plane(iview, 1) != NULL)
       array_size *= 2;
 
-   unsigned width;
+   unsigned width, height, depth;
 
    if (iview->buf.size) {
       assert(iview->dim == MALI_TEXTURE_DIMENSION_1D);
@@ -683,17 +683,35 @@ GENX(panfrost_new_texture)(const struct pan_image_view *iview, void *out,
       assert(layout->height == 1 && layout->depth == 1);
       assert(iview->buf.offset + iview->buf.size <= layout->width);
       width = iview->buf.size;
+      height = 1;
+      depth = 1;
    } else {
       width = u_minify(layout->width, iview->first_level);
+      height = u_minify(layout->height, iview->first_level);
+      depth = u_minify(layout->depth, iview->first_level);
+      if (layout->format != format &&
+          (util_format_is_compressed(layout->format) ||
+           util_format_is_compressed(format))) {
+         width =
+            DIV_ROUND_UP(width, util_format_get_blockwidth(layout->format));
+         height =
+            DIV_ROUND_UP(height, util_format_get_blockheight(layout->format));
+         depth =
+            DIV_ROUND_UP(depth, util_format_get_blockdepth(layout->format));
+         width *= util_format_get_blockwidth(format);
+         height *= util_format_get_blockheight(format);
+         depth *= util_format_get_blockheight(format);
+      }
    }
+
 
    pan_pack(out, TEXTURE, cfg) {
       cfg.dimension = iview->dim;
       cfg.format = mali_format;
       cfg.width = width;
-      cfg.height = u_minify(layout->height, iview->first_level);
+      cfg.height = height;
       if (iview->dim == MALI_TEXTURE_DIMENSION_3D)
-         cfg.depth = u_minify(layout->depth, iview->first_level);
+         cfg.depth = depth;
       else
          cfg.sample_count = layout->nr_samples;
       cfg.swizzle = panfrost_translate_swizzle_4(swizzle);
