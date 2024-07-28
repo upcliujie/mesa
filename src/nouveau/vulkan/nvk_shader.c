@@ -22,8 +22,6 @@
 #include "nir_builder.h"
 #include "compiler/spirv/nir_spirv.h"
 
-#include "nv50_ir_driver.h"
-
 #include "util/mesa-sha1.h"
 #include "util/u_debug.h"
 
@@ -71,29 +69,17 @@ nvk_nak_stages(const struct nv_device_info *info)
       return parse_debug_string(env_str, flags);
 }
 
-static bool
-use_nak(const struct nvk_physical_device *pdev, gl_shader_stage stage)
-{
-   return nvk_nak_stages(&pdev->info) & mesa_to_vk_shader_stage(stage);
-}
-
 uint64_t
 nvk_physical_device_compiler_flags(const struct nvk_physical_device *pdev)
 {
    bool no_cbufs = pdev->debug_flags & NVK_DEBUG_NO_CBUF;
-   uint64_t prog_debug = nvk_cg_get_prog_debug();
-   uint64_t prog_optimize = nvk_cg_get_prog_optimize();
    uint64_t nak_stages = nvk_nak_stages(&pdev->info);
    uint64_t nak_flags = nak_debug_flags(pdev->nak);
 
-   assert(prog_debug <= UINT8_MAX);
-   assert(prog_optimize < 16);
    assert(nak_stages <= UINT32_MAX);
    assert(nak_flags <= UINT16_MAX);
 
-   return prog_debug
-      | (prog_optimize << 8)
-      | ((uint64_t)no_cbufs << 12)
+   return ((uint64_t)no_cbufs << 12)
       | (nak_stages << 16)
       | (nak_flags << 48);
 }
@@ -106,10 +92,7 @@ nvk_get_nir_options(struct vk_physical_device *vk_pdev,
    const struct nvk_physical_device *pdev =
       container_of(vk_pdev, struct nvk_physical_device, vk);
 
-   if (use_nak(pdev, stage))
-      return nak_nir_options(pdev->nak);
-   else
-      return nvk_cg_nir_options(pdev, stage);
+   return nak_nir_options(pdev->nak);
 }
 
 nir_address_format
@@ -173,10 +156,7 @@ nvk_preprocess_nir(struct vk_physical_device *vk_pdev, nir_shader *nir)
    NIR_PASS_V(nir, nir_lower_io_to_temporaries,
               nir_shader_get_entrypoint(nir), true, false);
 
-   if (use_nak(pdev, nir->info.stage))
-      nak_preprocess_nir(nir, pdev->nak);
-   else
-      nvk_cg_preprocess_nir(nir);
+   nak_preprocess_nir(nir, pdev->nak);
 }
 
 static void
@@ -382,9 +362,8 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
    if (nir->info.stage == MESA_SHADER_FRAGMENT) {
       NIR_PASS(_, nir, nir_lower_input_attachments,
                &(nir_input_attachment_options) {
-                  .use_fragcoord_sysval = use_nak(pdev, nir->info.stage),
-                  .use_layer_id_sysval = use_nak(pdev, nir->info.stage) ||
-                                         is_multiview,
+                  .use_fragcoord_sysval = true,
+                  .use_layer_id_sysval = true,
                   .use_view_id_for_layer = is_multiview,
                });
    }
@@ -437,8 +416,7 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
    assert(pdev->info.cls_eng3d >= MAXWELL_A || !nir_has_image_var(nir));
 
    struct nvk_cbuf_map *cbuf_map = NULL;
-   if (use_nak(pdev, nir->info.stage) &&
-       !(pdev->debug_flags & NVK_DEBUG_NO_CBUF)) {
+   if (!(pdev->debug_flags & NVK_DEBUG_NO_CBUF)) {
       cbuf_map = cbuf_map_out;
 
       /* Large constant support assumes cbufs */
@@ -549,12 +527,8 @@ nvk_compile_nir(struct nvk_device *dev, nir_shader *nir,
    struct nvk_physical_device *pdev = nvk_device_physical(dev);
    VkResult result;
 
-   if (use_nak(pdev, nir->info.stage)) {
-      result = nvk_compile_nir_with_nak(pdev, nir, shader_flags, rs,
-                                       fs_key, shader);
-   } else {
-      result = nvk_cg_compile_nir(pdev, nir, fs_key, shader);
-   }
+   result = nvk_compile_nir_with_nak(pdev, nir, shader_flags, rs,
+                                    fs_key, shader);
    if (result != VK_SUCCESS)
       return result;
 
