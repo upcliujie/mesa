@@ -693,7 +693,7 @@ tu_image_init(struct tu_device *device, struct tu_image *image,
       }
    }
 
-   if (TU_DEBUG(NOUBWC)) {
+   if (TU_DEBUG(NOUBWC) || device->physical_device->info->a6xx.is_a702) {
       image->ubwc_enabled = false;
    }
 

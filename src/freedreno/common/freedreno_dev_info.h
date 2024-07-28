@@ -191,6 +191,9 @@ struct fd_dev_info {
        */
       bool has_coherent_ubwc_flag_caches;
 
+      /* A702 cuts A LOT of things.. */
+      bool is_a702;
+
       struct {
          uint32_t PC_POWER_CNTL;
          uint32_t TPL1_DBG_ECO_CNTL;
