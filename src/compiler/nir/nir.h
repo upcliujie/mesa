@@ -1341,6 +1341,9 @@ nir_atomic_op_type(nir_atomic_op op)
    unreachable("Invalid nir_atomic_op");
 }
 
+nir_op
+nir_atomic_op_to_alu(nir_atomic_op op);
+
 /** Returns nir_op_vec<num_components> or nir_op_mov if num_components == 1
  *
  * This is subtly different from nir_op_is_vec() which returns false for
@@ -5925,6 +5928,8 @@ bool nir_lower_uniforms_to_ubo(nir_shader *shader, bool dword_packed, bool load_
 bool nir_lower_is_helper_invocation(nir_shader *shader);
 
 bool nir_lower_single_sampled(nir_shader *shader);
+
+bool nir_lower_atomics(nir_shader *shader, nir_instr_filter_cb filter);
 
 typedef struct nir_lower_subgroups_options {
    /* In addition to the boolean lowering options below, this optional callback
