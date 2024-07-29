@@ -1106,9 +1106,9 @@ for (name, defs, ops, num, cls) in default_class(VOP1, InstrClass.Valu32):
 
 VOPC_CLASS = {
    ("v_cmp_class_f32",  dst(VCC), src(F32, U32), op(0x88, gfx8=0x10, gfx10=0x88, gfx11=0x7e)),
-   ("v_cmp_class_f16",  dst(VCC), src(F16, U16), op(gfx8=0x14, gfx10=0x8f, gfx11=0x7d)),
+   ("v_cmp_class_f16",  dst(VCC), src(F16, U32), op(gfx8=0x14, gfx10=0x8f, gfx11=0x7d)),
    ("v_cmpx_class_f32", dst(EXEC), src(F32, U32), op(0x98, gfx8=0x11, gfx10=0x98, gfx11=0xfe)),
-   ("v_cmpx_class_f16", dst(EXEC), src(F16, U16), op(gfx8=0x15, gfx10=0x9f, gfx11=0xfd)),
+   ("v_cmpx_class_f16", dst(EXEC), src(F16, U32), op(gfx8=0x15, gfx10=0x9f, gfx11=0xfd)),
    ("v_cmp_class_f64",  dst(VCC), src(F64, U32), op(0xa8, gfx8=0x12, gfx10=0xa8, gfx11=0x7f), InstrClass.ValuDouble),
    ("v_cmpx_class_f64", dst(EXEC), src(F64, U32), op(0xb8, gfx8=0x13, gfx10=0xb8, gfx11=0xff), InstrClass.ValuDouble),
 }
