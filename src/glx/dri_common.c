@@ -71,20 +71,12 @@ dri_loader_get_extensions(const char *driver_name);
 _X_HIDDEN const __DRIextension **
 driOpenDriver(const char *driverName, bool driver_name_is_inferred)
 {
-   void *glhandle;
-
-   /* Attempt to make sure libGL symbols will be visible to the driver */
-   glhandle = dlopen(GL_LIB_NAME, RTLD_NOW | RTLD_GLOBAL);
-
    const __DRIextension **extensions = dri_loader_get_extensions(driverName);
 
    if (!extensions && driver_name_is_inferred) {
       glx_message(_LOADER_WARNING,
            "MESA-LOADER: glx: failed to open %s: driver not built!\n", driverName);
    }
-
-   if (glhandle)
-      dlclose(glhandle);
 
    return extensions;
 }
