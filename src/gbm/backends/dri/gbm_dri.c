@@ -254,14 +254,6 @@ dri_loader_get_extensions(const char *driver_name);
 static const __DRIextension **
 dri_open_driver(struct gbm_dri_device *dri)
 {
-   /* Temporarily work around dri driver libs that need symbols in libglapi
-    * but don't automatically link it in.
-    */
-   /* XXX: Library name differs on per platforms basis. Update this as
-    * osx/cygwin/windows/bsd gets support for GBM..
-    */
-   dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
-
    return dri_loader_get_extensions(dri->driver_name);
 }
 
