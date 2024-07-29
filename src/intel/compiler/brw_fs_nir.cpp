@@ -552,6 +552,22 @@ optimize_extract_to_float(nir_to_brw_state &ntb, const fs_builder &bld,
    op0.type = brw_type_for_nir_type(devinfo,
       (nir_alu_type)(nir_op_infos[src0->op].input_types[0] |
                      nir_src_bit_size(src0->src[0].src)));
+
+   /* It is not documented in the Bspec, but DG2 and newer platforms cannot do
+    * direct byte-to-float conversions from scalars. MR !30140 has more
+    * details.
+    */
+   if (devinfo->verx10 >= 125 && bytes == 1) {
+      if (is_uniform(op0))
+         return false;
+
+      const unsigned eight = reg_unit(ntb.devinfo) * 8;
+      if (op0.is_scalar && ntb.bld.dispatch_width() == eight) {
+         assert(bld.dispatch_width() == eight);
+         op0.is_scalar = false;
+      }
+   }
+
    op0 = offset_to_component(op0, bld, src0->src[0].swizzle[0]);
 
    /* Bspec "Register Region Restrictions" for Xe says:
