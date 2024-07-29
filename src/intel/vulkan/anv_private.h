@@ -1288,6 +1288,7 @@ struct anv_instance {
     bool                                        disable_fcv;
     bool                                        compression_control_enabled;
     bool                                        anv_fake_nonlocal_memory;
+    bool                                        anv_no_compressed_memory_type;
 
     /* HW workarounds */
     bool                                        no_16bit;

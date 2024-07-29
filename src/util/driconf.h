@@ -794,6 +794,10 @@
    DRI_CONF_OPT_B(anv_fake_nonlocal_memory, def, \
                   "Present host-visible device-local memory types as non device-local")
 
+#define DRI_CONF_ANV_NO_COMPRESSED_MEMORY_TYPE(def) \
+   DRI_CONF_OPT_B(anv_no_compressed_memory_type, def, \
+                  "Do not expose a memory type specific for compression")
+
 /**
  * \brief HASVK specific configuration options
  */

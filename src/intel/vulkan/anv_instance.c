@@ -33,6 +33,7 @@ static const driOptionDescription anv_dri_options[] = {
       DRI_CONF_OPT_B(intel_tbimr, true, "Enable TBIMR tiled rendering")
       DRI_CONF_ANV_COMPRESSION_CONTROL_ENABLED(false)
       DRI_CONF_ANV_FAKE_NONLOCAL_MEMORY(false)
+      DRI_CONF_ANV_NO_COMPRESSED_MEMORY_TYPE(false)
       DRI_CONF_OPT_E(intel_stack_id, 512, 256, 2048,
                      "Control the number stackIDs (i.e. number of unique rays in the RT subsytem)",
                      DRI_CONF_ENUM(256,  "256 stackids")
@@ -172,6 +173,8 @@ anv_init_dri_options(struct anv_instance *instance)
        driQueryOptionb(&instance->dri_options, "compression_control_enabled");
     instance->anv_fake_nonlocal_memory =
             driQueryOptionb(&instance->dri_options, "anv_fake_nonlocal_memory");
+    instance->anv_no_compressed_memory_type =
+       driQueryOptionb(&instance->dri_options, "anv_no_compressed_memory_type");
 
     instance->stack_ids = driQueryOptioni(&instance->dri_options, "intel_stack_id");
     switch (instance->stack_ids) {
