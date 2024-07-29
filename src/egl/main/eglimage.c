@@ -102,24 +102,6 @@ _eglParseMESADrmImageAttribs(_EGLImageAttribs *attrs, _EGLDisplay *disp,
 }
 
 static EGLint
-_eglParseWLBindWaylandDisplayAttribs(_EGLImageAttribs *attrs, _EGLDisplay *disp,
-                                     EGLint attr, EGLint val)
-{
-   if (!disp->Extensions.WL_bind_wayland_display)
-      return EGL_BAD_PARAMETER;
-
-   switch (attr) {
-   case EGL_WAYLAND_PLANE_WL:
-      attrs->PlaneWL = val;
-      break;
-   default:
-      return EGL_BAD_PARAMETER;
-   }
-
-   return EGL_SUCCESS;
-}
-
-static EGLint
 _eglParseEXTImageDmaBufImportAttribs(_EGLImageAttribs *attrs, _EGLDisplay *disp,
                                      EGLint attr, EGLint val)
 {
@@ -297,10 +279,6 @@ _eglParseImageAttribList(_EGLImageAttribs *attrs, _EGLDisplay *disp,
          continue;
 
       err = _eglParseMESADrmImageAttribs(attrs, disp, attr, val);
-      if (err == EGL_SUCCESS)
-         continue;
-
-      err = _eglParseWLBindWaylandDisplayAttribs(attrs, disp, attr, val);
       if (err == EGL_SUCCESS)
          continue;
 

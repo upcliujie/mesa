@@ -686,7 +686,6 @@ dri2_initialize_drm(_EGLDisplay *disp)
    dri2_dpy->device_name =
       loader_get_device_name_for_fd(dri2_dpy->fd_render_gpu);
 #endif
-   dri2_set_WL_bind_wayland_display(disp);
 
    /* Fill vtbl last to prevent accidentally calling virtual function during
     * initialization.
