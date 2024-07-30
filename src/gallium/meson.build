@@ -56,7 +56,7 @@ if with_gallium_llvmpipe and with_gallium_softpipe
   driver_swrast = declare_dependency(
     dependencies : [ driver_softpipe, driver_llvmpipe ],
   )
-elif with_gallium_llvmpipe
+elif with_any_llvmpipe
   driver_swrast = driver_llvmpipe
 elif with_gallium_softpipe
   driver_swrast = driver_softpipe
