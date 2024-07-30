@@ -103,7 +103,11 @@ if with_gallium_asahi or with_tools.contains('asahi')
 endif
 if with_gallium
   subdir('mesa')
+endif
+if with_gallium_or_lvp
   subdir('gallium')
+endif
+if with_gallium
   if with_glx == 'dri'
      subdir('glx')
   endif
