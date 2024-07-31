@@ -1,32 +1,5 @@
 # Copyright © 2022 Collabora, Ltd.
 # SPDX-License-Identifier: MIT
-if meson.version().version_compare('< 1.3.0')
-  error('NVK requires meson 1.3.0 or newer')
-endif
-
-add_languages('rust', required: true)
-rust = import('rust')
-
-rc = meson.get_compiler('rust')
-if rc.version().version_compare('< 1.73.0')
-  error('NAK requires Rust 1.73.0')
-endif
-
-bindgen_version = find_program('bindgen').version()
-
-if bindgen_version == 'unknown'
-  error('Failed to detect bindgen version. If you are using bindgen 0.69.0, ' +
-        'please either update to 0.69.1 or downgrade to 0.68.1. You can ' +
-        'install the latest version for your user with ' +
-        '`cargo install bindgen-cli`.')
-endif
-
-if bindgen_version.version_compare('< 0.65')
-  error('NAK requires bindgen 0.65 or newer. If your distribution does not ' +
-        'ship a recent enough version, you can install the latest version ' +
-        'for your user with `cargo install bindgen-cli`.')
-endif
-
 nak_rust_args = [
   '-Aclippy::identity_op',
   '-Aclippy::len_zero',

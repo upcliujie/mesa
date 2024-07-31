@@ -1153,7 +1153,7 @@ impl Kernel {
                         // TODO 32 bit
                         let pot = cmp::min(*size, 0x80);
                         variable_local_size =
-                            align(variable_local_size, pot.next_power_of_two() as u64);
+                            variable_local_size.next_multiple_of(pot.next_power_of_two() as u64);
                         if q.device.address_bits() == 64 {
                             let variable_local_size: [u8; 8] = variable_local_size.to_ne_bytes();
                             input.extend_from_slice(&variable_local_size);
@@ -1266,7 +1266,7 @@ impl Kernel {
             let mut globals: Vec<*mut u32> = Vec::with_capacity(resource_info.len());
             for (res, offset) in resource_info {
                 resources.push(res);
-                globals.push(unsafe { input.as_mut_ptr().add(offset) }.cast());
+                globals.push(unsafe { input.as_mut_ptr().byte_add(offset) }.cast());
             }
 
             let temp_cso;
@@ -1293,9 +1293,9 @@ impl Kernel {
                 .map(|val| cmp::min(val, u32::MAX as usize))
                 .collect();
 
-            for z in 0..div_round_up(grid[2], hw_max_grid[2]) {
-                for y in 0..div_round_up(grid[1], hw_max_grid[1]) {
-                    for x in 0..div_round_up(grid[0], hw_max_grid[0]) {
+            for z in 0..grid[2].div_ceil(hw_max_grid[2]) {
+                for y in 0..grid[1].div_ceil(hw_max_grid[1]) {
+                    for x in 0..grid[0].div_ceil(hw_max_grid[0]) {
                         if let Some(workgroup_id_offset_loc) = workgroup_id_offset_loc {
                             let this_offsets =
                                 [x * hw_max_grid[0], y * hw_max_grid[1], z * hw_max_grid[2]];
@@ -1479,8 +1479,8 @@ impl Kernel {
             return 0;
         }
 
-        let threads = block.iter().product();
-        div_round_up(threads, subgroup_size)
+        let threads: usize = block.iter().product();
+        threads.div_ceil(subgroup_size)
     }
 
     pub fn subgroup_size_for_block(&self, dev: &Device, block: &[usize]) -> usize {

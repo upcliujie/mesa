@@ -16,7 +16,6 @@ use mesa_rust::pipe::resource::*;
 use mesa_rust::pipe::screen::ResourceType;
 use mesa_rust::pipe::transfer::*;
 use mesa_rust_gen::*;
-use mesa_rust_util::math::*;
 use mesa_rust_util::properties::Properties;
 use mesa_rust_util::ptr::AllocSize;
 use mesa_rust_util::ptr::TrackedPointers;
@@ -353,10 +352,10 @@ fn sw_copy(
         if src_row_pitch == dst_row_pitch && region[1] * pixel_size == src_row_pitch {
             unsafe {
                 ptr::copy(
-                    src.add(
+                    src.byte_add(
                         (*src_origin + [0, 0, z]) * [pixel_size, src_row_pitch, src_slice_pitch],
                     ),
-                    dst.add(
+                    dst.byte_add(
                         (*dst_origin + [0, 0, z]) * [pixel_size, dst_row_pitch, dst_slice_pitch],
                     ),
                     region[0] * region[1] * pixel_size,
@@ -366,11 +365,11 @@ fn sw_copy(
             for y in 0..region[1] {
                 unsafe {
                     ptr::copy(
-                        src.add(
+                        src.byte_add(
                             (*src_origin + [0, y, z])
                                 * [pixel_size, src_row_pitch, src_slice_pitch],
                         ),
-                        dst.add(
+                        dst.byte_add(
                             (*dst_origin + [0, y, z])
                                 * [pixel_size, dst_row_pitch, dst_slice_pitch],
                         ),
@@ -437,7 +436,7 @@ impl MemBase {
         let host_ptr = if parent.host_ptr().is_null() {
             0
         } else {
-            unsafe { parent.host_ptr().add(offset) as usize }
+            unsafe { parent.host_ptr().byte_add(offset) as usize }
         };
 
         Arc::new(Buffer {
@@ -727,7 +726,7 @@ impl MemBase {
         let host_ptr = self.host_ptr();
         let ptr = unsafe {
             let ptr = if !host_ptr.is_null() {
-                host_ptr.add(offset)
+                host_ptr.byte_add(offset)
             } else {
                 alloc::alloc(layout).cast()
             };
@@ -1271,8 +1270,8 @@ impl Image {
         // make sure we allocate multiples of 4 bytes so drivers don't read out of bounds or
         // unaligned.
         // TODO: use div_ceil once it's available
-        let pixel_size = self.image_format.pixel_size().unwrap().into();
-        let mut new_pattern: Vec<u32> = vec![0; div_round_up(pixel_size, size_of::<u32>())];
+        let pixel_size: usize = self.image_format.pixel_size().unwrap().into();
+        let mut new_pattern: Vec<u32> = vec![0; pixel_size.div_ceil(size_of::<u32>())];
 
         // we don't support CL_DEPTH for now
         assert!(pattern.len() == 4);
