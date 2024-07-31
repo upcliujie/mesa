@@ -231,6 +231,8 @@ if [ "${DEQP_TARGET}" != 'android' ]; then
             /deqp/mustpass/
     fi
 
+    zstd --rm -8 --threads=${FDO_CI_CONCURRENT:-4} /deqp/mustpass/*.txt
+
     # Save *some* executor utils, but otherwise strip things down
     # to reduct deqp build size:
     mkdir /deqp/executor.save

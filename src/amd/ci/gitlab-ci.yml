@@ -55,7 +55,7 @@ radv-raven-vkcts:x86_64:
     - .lava-asus-CM1400CXA-dalboz:x86_64
   parallel: 9
   variables:
-    DEQP_VER: vk
+    DEQP_SUITE: radv-raven-vkcts
     DEQP_FRACTION: 6
 
 amd-raven-skqp:x86_64:
