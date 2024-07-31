@@ -46,6 +46,7 @@ if cc.get_argument_syntax() == 'msvc'
 else
   idep_getopt = null_dep
 endif
+subdir('x11')
 if with_gallium or with_gbm or with_platform_wayland
   subdir('loader')
 endif
@@ -104,9 +105,6 @@ endif
 if with_gallium
   subdir('mesa')
   subdir('gallium')
-  if with_glx == 'dri'
-     subdir('glx')
-  endif
   # This has to be here since it requires libgallium, and subdir cannot
   # contain ..
   if with_tests
@@ -115,6 +113,14 @@ if with_gallium
   if with_tests and with_shared_glapi
     subdir('mesa/state_tracker/tests')
   endif
+  if with_dri
+    if with_gallium or with_gbm or with_platform_wayland
+      subdir('loader_dri3')
+    endif
+  endif
+endif
+if with_glx == 'dri'
+  subdir('glx')
 endif
 if with_gbm
   subdir('gbm')

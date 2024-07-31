@@ -49,7 +49,6 @@ typedef struct __DRIversionRec		__DRIversion;
 
 typedef struct __DRIcoreExtensionRec		__DRIcoreExtension;
 typedef struct __DRIextensionRec		__DRIextension;
-typedef struct __DRIcopySubBufferExtensionRec	__DRIcopySubBufferExtension;
 typedef struct __DRIswapControlExtensionRec	__DRIswapControlExtension;
 typedef struct __DRIframeTrackingExtensionRec	__DRIframeTrackingExtension;
 typedef struct __DRImediaStreamCounterExtensionRec	__DRImediaStreamCounterExtension;
@@ -112,18 +111,6 @@ struct __DRIextensionRec {
 #define __DRI_READ_DRAWABLE_VERSION 1
 
 /**
- * Used by drivers that implement the GLX_MESA_copy_sub_buffer extension.
- *
- * Used by the X server in swrast mode.
- */
-#define __DRI_COPY_SUB_BUFFER "DRI_CopySubBuffer"
-#define __DRI_COPY_SUB_BUFFER_VERSION 1
-struct __DRIcopySubBufferExtensionRec {
-    __DRIextension base;
-    void (*copySubBuffer)(__DRIdrawable *drawable, int x, int y, int w, int h);
-};
-
-/**
  * Used by drivers that implement the GLX_SGI_swap_control or
  * GLX_MESA_swap_control extension.
  *
@@ -179,17 +166,6 @@ struct __DRItexBufferExtensionRec {
 
     /**
      * Method to override base texture image with the contents of a
-     * __DRIdrawable.
-     *
-     * For GLX_EXT_texture_from_pixmap with AIGLX.  Deprecated in favor of
-     * setTexBuffer2 in version 2 of this interface.  Not used by post-2011 X.
-     */
-    void (*setTexBuffer)(__DRIcontext *pDRICtx,
-			 int target,
-			 __DRIdrawable *pDraw);
-
-    /**
-     * Method to override base texture image with the contents of a
      * __DRIdrawable, including the required texture format attribute.
      *
      * For GLX_EXT_texture_from_pixmap with AIGLX.  Used by the X server since
@@ -201,20 +177,6 @@ struct __DRItexBufferExtensionRec {
 			  int target,
 			  int format,
 			  __DRIdrawable *pDraw);
-    /**
-     * Called from glXReleaseTexImageEXT().
-     *
-     * This was used by i965 in 24952160fde9 ("i965: Use finish_external instead
-     * of make_shareable in setTexBuffer2") to note when the user mis-used the
-     * interface in a way that would produce rendering bugs, and try to recover
-     * from them.  This has only ever been used from inside the Mesa tree and
-     * was never used by the X server.
-     *
-     * \since 3
-     */
-    void (*releaseTexBuffer)(__DRIcontext *pDRICtx,
-			int target,
-			__DRIdrawable *pDraw);
 };
 
 /**
@@ -2162,13 +2124,6 @@ struct __DRImesaCoreExtensionRec {
 #define MESA_INTERFACE_VERSION_STRING PACKAGE_VERSION MESA_GIT_SHA1
    const char *version_string;
 
-   /* Screen creation function regardless of DRI2, image, or swrast backend.
-    * (Nothing uses the old __DRI_CORE screen create).
-    *
-    * If not associated with a DRM fd (non-swkms swrast), the fd argument should
-    * be -1.
-    */
-   __DRIcreateNewScreen2Func createNewScreen;
 
    __DRIcreateContextAttribsFunc createContext;
 
@@ -2177,6 +2132,12 @@ struct __DRImesaCoreExtensionRec {
 
    int (*queryCompatibleRenderOnlyDeviceFd)(int kms_only_fd);
 
+   /* Screen creation function regardless of DRI2, image, or swrast backend.
+    * (Nothing uses the old __DRI_CORE screen create).
+    *
+    * If not associated with a DRM fd (non-swkms swrast), the fd argument should
+    * be -1.
+    */
    /* version 2 */
    __DRIcreateNewScreen3Func createNewScreen3;
 };

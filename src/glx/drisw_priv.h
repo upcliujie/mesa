@@ -39,19 +39,14 @@ struct drisw_screen
 
    __DRIscreen *driScreen;
    __GLXDRIscreen vtable;
-   const __DRIcoreExtension *core;
-   const __DRImesaCoreExtension *mesa;
-   const __DRIswrastExtension *swrast;
-   const __DRIkopperExtension *kopper;
    const __DRI2flushExtension *f;
    const __DRI2configQueryExtension *config;
-   const __DRItexBufferExtension *texBuffer;
-   const __DRIcopySubBufferExtension *copySubBuffer;
    const __DRI2rendererQueryExtension *rendererQuery;
 
    const __DRIconfig **driver_configs;
 
    char *name;
+   bool kopper;
 };
 
 struct drisw_drawable

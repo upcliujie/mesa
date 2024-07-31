@@ -103,17 +103,12 @@ struct __DriverContextConfig {
 #define __DRIVER_CONTEXT_ATTRIB_NO_ERROR         (1 << 3)
 #define __DRIVER_CONTEXT_ATTRIB_PROTECTED        (1 << 4)
 
-__DRIscreen *
+PUBLIC __DRIscreen *
 driCreateNewScreen3(int scrn, int fd,
                     const __DRIextension **loader_extensions,
                     const __DRIextension **driver_extensions,
                     const __DRIconfig ***driver_configs, bool driver_name_is_inferred, void *data);
-__DRIscreen *
-driCreateNewScreen2(int scrn, int fd,
-                    const __DRIextension **loader_extensions,
-                    const __DRIextension **driver_extensions,
-                    const __DRIconfig ***driver_configs, void *data);
-__DRIcontext *
+PUBLIC __DRIcontext *
 driCreateContextAttribs(__DRIscreen *psp, int api,
                         const __DRIconfig *config,
                         __DRIcontext *shared,
@@ -124,7 +119,51 @@ driCreateContextAttribs(__DRIscreen *psp, int api,
 
 extern uint32_t
 driImageFormatToSizedInternalGLFormat(uint32_t image_format);
-
+PUBLIC unsigned int
+driGetAPIMask(__DRIscreen *screen);
+PUBLIC __DRIdrawable *
+driCreateNewDrawable(__DRIscreen *psp, const __DRIconfig *config, void *data);
 extern const __DRIimageDriverExtension driImageDriverExtension;
+PUBLIC void driDestroyScreen(__DRIscreen *psp);
+PUBLIC const __DRIextension **driGetExtensions(__DRIscreen *psp);
+PUBLIC int
+driGetConfigAttrib(const __DRIconfig *config, unsigned int attrib, unsigned int *value);
+PUBLIC int
+driIndexConfigAttrib(const __DRIconfig *config, int index, unsigned int *attrib, unsigned int *value);
+PUBLIC void
+driDestroyDrawable(__DRIdrawable *pdp);
+PUBLIC void
+driSwapBuffers(__DRIdrawable *pdp);
+PUBLIC void
+driSwapBuffersWithDamage(__DRIdrawable *pdp, int nrects, const int *rects);
+PUBLIC __DRIcontext *
+driCreateNewContext(__DRIscreen *screen, const __DRIconfig *config, __DRIcontext *shared, void *data);
+PUBLIC int
+driCopyContext(__DRIcontext *dest, __DRIcontext *src, unsigned long mask);
+PUBLIC void
+driDestroyContext(__DRIcontext *pcp);
+PUBLIC int driBindContext(__DRIcontext *pcp, __DRIdrawable *pdp, __DRIdrawable *prp);
+PUBLIC int driUnbindContext(__DRIcontext *pcp);
 
+
+PUBLIC int64_t
+kopperSwapBuffers(__DRIdrawable *dPriv, uint32_t flush_flags);
+PUBLIC int64_t
+kopperSwapBuffersWithDamage(__DRIdrawable *dPriv, uint32_t flush_flags, int nrects, const int *rects);
+PUBLIC __DRIdrawable *
+kopperCreateNewDrawable(__DRIscreen *psp,
+                        const __DRIconfig *config,
+                        void *data,
+                        __DRIkopperDrawableInfo *info);
+PUBLIC void
+kopperSetSwapInterval(__DRIdrawable *dPriv, int interval);
+PUBLIC int
+kopperQueryBufferAge(__DRIdrawable *dPriv);
+
+PUBLIC void
+driswCopySubBuffer(__DRIdrawable *pdp, int x, int y, int w, int h);
+
+PUBLIC void
+dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
+                    GLint format, __DRIdrawable *dPriv);
 #endif /* _DRI_UTIL_H_ */

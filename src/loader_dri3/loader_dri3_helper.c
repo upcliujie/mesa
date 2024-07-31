@@ -39,6 +39,7 @@
 #include "util/macros.h"
 #include "util/simple_mtx.h"
 #include "drm-uapi/drm_fourcc.h"
+#include "dri_util.h"
 
 /**
  * A cached blit context.
@@ -166,15 +167,14 @@ loader_dri3_blit_context_get(struct loader_dri3_drawable *draw)
    simple_mtx_lock(&blit_context.mtx);
 
    if (blit_context.ctx && blit_context.cur_screen != draw->dri_screen_render_gpu) {
-      blit_context.core->destroyContext(blit_context.ctx);
+      driDestroyContext(blit_context.ctx);
       blit_context.ctx = NULL;
    }
 
    if (!blit_context.ctx) {
-      blit_context.ctx = draw->ext->core->createNewContext(draw->dri_screen_render_gpu,
+      blit_context.ctx = driCreateNewContext(draw->dri_screen_render_gpu,
                                                            NULL, NULL, NULL);
       blit_context.cur_screen = draw->dri_screen_render_gpu;
-      blit_context.core = draw->ext->core;
    }
 
    return blit_context.ctx;
@@ -353,7 +353,7 @@ loader_dri3_drawable_fini(struct loader_dri3_drawable *draw)
 {
    int i;
 
-   draw->ext->core->destroyDrawable(draw->dri_drawable);
+   driDestroyDrawable(draw->dri_drawable);
 
    for (i = 0; i < ARRAY_SIZE(draw->buffers); i++)
       dri3_free_render_buffer(draw, i);
@@ -441,10 +441,7 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
    dri3_update_max_num_back(draw);
 
    /* Create a new drawable */
-   draw->dri_drawable =
-      draw->ext->image_driver->createNewDrawable(dri_screen_render_gpu,
-                                                 dri_config,
-                                                 draw);
+   draw->dri_drawable = driCreateNewDrawable(dri_screen_render_gpu, dri_config, draw);
 
    if (!draw->dri_drawable)
       return 1;
@@ -452,7 +449,7 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
    cookie = xcb_get_geometry(draw->conn, draw->drawable);
    reply = xcb_get_geometry_reply(draw->conn, cookie, &error);
    if (reply == NULL || error != NULL) {
-      draw->ext->core->destroyDrawable(draw->dri_drawable);
+      driDestroyDrawable(draw->dri_drawable);
       return 1;
    }
 
@@ -1274,56 +1271,6 @@ loader_dri3_query_buffer_age(struct loader_dri3_drawable *draw)
    mtx_unlock(&draw->mtx);
 
    return ret;
-}
-
-/** loader_dri3_open
- *
- * Wrapper around xcb_dri3_open
- */
-int
-loader_dri3_open(xcb_connection_t *conn,
-                 xcb_window_t root,
-                 uint32_t provider)
-{
-   xcb_dri3_open_cookie_t       cookie;
-   xcb_dri3_open_reply_t        *reply;
-   xcb_xfixes_query_version_cookie_t fixes_cookie;
-   xcb_xfixes_query_version_reply_t *fixes_reply;
-   int                          fd;
-   const xcb_query_extension_reply_t *extension;
-
-   xcb_prefetch_extension_data(conn, &xcb_dri3_id);
-   extension = xcb_get_extension_data(conn, &xcb_dri3_id);
-   if (!(extension && extension->present))
-      return -1;
-
-   cookie = xcb_dri3_open(conn,
-                          root,
-                          provider);
-
-   reply = xcb_dri3_open_reply(conn, cookie, NULL);
-
-   if (!reply || reply->nfd != 1) {
-      free(reply);
-      return -1;
-   }
-
-   fd = xcb_dri3_open_reply_fds(conn, reply)[0];
-   free(reply);
-   fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
-
-   /* let the server know our xfixes level */
-   fixes_cookie = xcb_xfixes_query_version(conn,
-                                           XCB_XFIXES_MAJOR_VERSION,
-                                           XCB_XFIXES_MINOR_VERSION);
-   fixes_reply = xcb_xfixes_query_version_reply(conn, fixes_cookie, NULL);
-   if (fixes_reply->major_version < 2) {
-      close(fd);
-      fd = -1;
-   }
-   free(fixes_reply);
-
-   return fd;
 }
 
 static uint32_t
@@ -2357,7 +2304,7 @@ loader_dri3_close_screen(__DRIscreen *dri_screen)
 {
    simple_mtx_lock(&blit_context.mtx);
    if (blit_context.ctx && blit_context.cur_screen == dri_screen) {
-      blit_context.core->destroyContext(blit_context.ctx);
+      driDestroyContext(blit_context.ctx);
       blit_context.ctx = NULL;
    }
    simple_mtx_unlock(&blit_context.mtx);
@@ -2413,74 +2360,4 @@ dri3_find_back_alloc(struct loader_dri3_drawable *draw)
    }
 
    return back;
-}
-
-/* Only request versions of these protocols which we actually support. */
-#define DRI3_SUPPORTED_MAJOR 1
-#define PRESENT_SUPPORTED_MAJOR 1
-
-#ifdef HAVE_DRI3_MODIFIERS
-#define DRI3_SUPPORTED_MINOR 2
-#define PRESENT_SUPPORTED_MINOR 2
-#else
-#define PRESENT_SUPPORTED_MINOR 0
-#define DRI3_SUPPORTED_MINOR 0
-#endif
-
-bool
-loader_dri3_check_multibuffer(xcb_connection_t *c, bool *err)
-{
-   xcb_dri3_query_version_cookie_t      dri3_cookie;
-   xcb_dri3_query_version_reply_t       *dri3_reply;
-   xcb_present_query_version_cookie_t   present_cookie;
-   xcb_present_query_version_reply_t    *present_reply;
-   xcb_generic_error_t                  *error;
-   const xcb_query_extension_reply_t    *extension;
-
-   xcb_prefetch_extension_data(c, &xcb_dri3_id);
-   xcb_prefetch_extension_data(c, &xcb_present_id);
-
-   extension = xcb_get_extension_data(c, &xcb_dri3_id);
-   if (!(extension && extension->present))
-      goto error;
-
-   extension = xcb_get_extension_data(c, &xcb_present_id);
-   if (!(extension && extension->present))
-      goto error;
-
-   dri3_cookie = xcb_dri3_query_version(c,
-                                        DRI3_SUPPORTED_MAJOR,
-                                        DRI3_SUPPORTED_MINOR);
-   present_cookie = xcb_present_query_version(c,
-                                              PRESENT_SUPPORTED_MAJOR,
-                                              PRESENT_SUPPORTED_MINOR);
-
-   dri3_reply = xcb_dri3_query_version_reply(c, dri3_cookie, &error);
-   if (!dri3_reply) {
-      free(error);
-      goto error;
-   }
-
-   int dri3Major = dri3_reply->major_version;
-   int dri3Minor = dri3_reply->minor_version;
-   free(dri3_reply);
-
-   present_reply = xcb_present_query_version_reply(c, present_cookie, &error);
-   if (!present_reply) {
-      free(error);
-      goto error;
-   }
-   int presentMajor = present_reply->major_version;
-   int presentMinor = present_reply->minor_version;
-   free(present_reply);
-
-#ifdef HAVE_DRI3_MODIFIERS
-   if ((dri3Major > 1 || (dri3Major == 1 && dri3Minor >= 2)) &&
-       (presentMajor > 1 || (presentMajor == 1 && presentMinor >= 2)))
-      return true;
-#endif
-   return false;
-error:
-   *err = true;
-   return false;
 }

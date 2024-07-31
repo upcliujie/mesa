@@ -252,7 +252,7 @@ dri_drawable_validate_att(struct dri_context *ctx,
 /**
  * These are used for GLX_EXT_texture_from_pixmap
  */
-static void
+void
 dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
                     GLint format, __DRIdrawable *dPriv)
 {
@@ -300,19 +300,10 @@ dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
    }
 }
 
-static void
-dri_set_tex_buffer(__DRIcontext *pDRICtx, GLint target,
-                   __DRIdrawable *dPriv)
-{
-   dri_set_tex_buffer2(pDRICtx, target, __DRI_TEXTURE_FORMAT_RGBA, dPriv);
-}
-
 const __DRItexBufferExtension driTexBufferExtension = {
    .base = { __DRI_TEX_BUFFER, 2 },
 
-   .setTexBuffer       = dri_set_tex_buffer,
    .setTexBuffer2      = dri_set_tex_buffer2,
-   .releaseTexBuffer   = NULL,
 };
 
 /**

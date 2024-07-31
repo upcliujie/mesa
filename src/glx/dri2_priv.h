@@ -44,13 +44,9 @@ struct dri2_screen {
 
    __DRIscreen *driScreen;
    __GLXDRIscreen vtable;
-   const __DRIdri2Extension *dri2;
-   const __DRIcoreExtension *core;
-   const __DRImesaCoreExtension *mesa;
 
    const __DRI2flushExtension *f;
    const __DRI2configQueryExtension *config;
-   const __DRItexBufferExtension *texBuffer;
    const __DRI2throttleExtension *throttle;
    const __DRI2rendererQueryExtension *rendererQuery;
    const __DRI2interopExtension *interop;
