@@ -429,9 +429,9 @@ optimizations.extend([
 
    (('~flrp', a, 0.0, c), ('fadd', ('fmul', ('fneg', a), c), a)),
 
-   (('ftrunc@16', a), ('bcsel', ('flt', a, 0.0), ('fneg', ('ffloor', ('fabs', a))), ('ffloor', ('fabs', a))), 'options->lower_ftrunc'),
-   (('ftrunc@32', a), ('bcsel', ('flt', a, 0.0), ('fneg', ('ffloor', ('fabs', a))), ('ffloor', ('fabs', a))), 'options->lower_ftrunc'),
-   (('ftrunc@64', a), ('bcsel', ('flt', a, 0.0), ('fneg', ('ffloor', ('fabs', a))), ('ffloor', ('fabs', a))),
+   (('ftrunc@16', a), ('fmul', ('fsign', a), ('ffloor', ('fabs', a))), 'options->lower_ftrunc'),
+   (('ftrunc@32', a), ('fmul', ('fsign', a), ('ffloor', ('fabs', a))), 'options->lower_ftrunc'),
+   (('ftrunc@64', a), ('fmul', ('fsign', a), ('ffloor', ('fabs', a))),
     '(options->lower_ftrunc || (options->lower_doubles_options & nir_lower_dtrunc)) && !(options->lower_doubles_options & nir_lower_dfloor)'),
 
    (('ffloor@16', a), ('fsub', a, ('ffract', a)), 'options->lower_ffloor'),
