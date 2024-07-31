@@ -48,6 +48,8 @@
 #include <vndk/hardware_buffer.h>
 #endif
 
+uint64_t os_page_size = 4096;
+
 static int
 tu_device_get_cache_uuid(struct tu_physical_device *device, void *uuid)
 {
@@ -211,10 +213,10 @@ get_device_extensions(const struct tu_physical_device *device,
       .KHR_shader_terminate_invocation = true,
       .KHR_spirv_1_4 = true,
       .KHR_storage_buffer_storage_class = true,
-   #ifdef TU_USE_WSI_PLATFORM
+#ifdef TU_USE_WSI_PLATFORM
       .KHR_swapchain = true,
       .KHR_swapchain_mutable_format = true,
-   #endif
+#endif
       .KHR_synchronization2 = true,
       .KHR_timeline_semaphore = true,
       .KHR_uniform_buffer_standard_layout = true,
@@ -608,9 +610,9 @@ tu_get_features(struct tu_physical_device *pdevice,
    features->mutableDescriptorType = true;
 
    /* VK_EXT_nested_command_buffer */
-   features->nestedCommandBuffer = true,
-   features->nestedCommandBufferRendering = true,
-   features->nestedCommandBufferSimultaneousUse = true,
+   features->nestedCommandBuffer = true;
+   features->nestedCommandBufferRendering = true;
+   features->nestedCommandBufferSimultaneousUse = true;
 
    /* VK_EXT_non_seamless_cube_map */
    features->nonSeamlessCubeMap = true;
@@ -1026,13 +1028,13 @@ tu_get_properties(struct tu_physical_device *pdevice,
    /* VK_KHR_vertex_attribute_divisor */
    props->maxVertexAttribDivisor = UINT32_MAX;
    props->supportsNonZeroFirstInstance = true;
-   
+
    /* VK_EXT_custom_border_color */
    props->maxCustomBorderColorSamplers = TU_BORDER_COLOR_COUNT;
 
    /* VK_KHR_performance_query */
    props->allowCommandBufferQueryCopies = false;
-   
+
    /* VK_EXT_robustness2 */
    /* see write_buffer_descriptor() */
    props->robustStorageBufferAccessSizeAlignment = 4;
@@ -1044,8 +1046,8 @@ tu_get_properties(struct tu_physical_device *pdevice,
    props->transformFeedbackPreservesTriangleFanProvokingVertex = false;
 
    /* VK_KHR_line_rasterization */
-  props->lineSubPixelPrecisionBits = 8;
-  
+   props->lineSubPixelPrecisionBits = 8;
+
    /* VK_EXT_physical_device_drm */
    props->drmHasPrimary = pdevice->has_master;
    props->drmPrimaryMajor = pdevice->master_major;
@@ -1063,20 +1065,19 @@ tu_get_properties(struct tu_physical_device *pdevice,
           sizeof(props->shaderModuleIdentifierAlgorithmUUID));
 
    /* VK_EXT_map_memory_placed */
-   uint64_t os_page_size = 4096;
    os_get_page_size(&os_page_size);
-   props->minPlacedMemoryMapAlignment = os_page_size,
+   props->minPlacedMemoryMapAlignment = os_page_size;
 
    /* VK_EXT_multi_draw */
    props->maxMultiDrawCount = 2048;
 
    /* VK_EXT_nested_command_buffer */
-   props->maxCommandBufferNestingLevel = UINT32_MAX,
+   props->maxCommandBufferNestingLevel = UINT32_MAX;
 
    /* VK_EXT_graphics_pipeline_library */
    props->graphicsPipelineLibraryFastLinking = true;
    props->graphicsPipelineLibraryIndependentInterpolationDecoration = true;
-   
+
    /* VK_EXT_extended_dynamic_state3 */
    props->dynamicPrimitiveTopologyUnrestricted = true;
 
@@ -1121,7 +1122,7 @@ tu_get_properties(struct tu_physical_device *pdevice,
    props->combinedImageSamplerDensityMapDescriptorSize = 2 * A6XX_TEX_CONST_DWORDS * 4;
 
    /* VK_EXT_legacy_vertex_attributes */
-   props->nativeUnalignedPerformance = true,
+   props->nativeUnalignedPerformance = true;
 
    /* VK_EXT_fragment_density_map*/
    props->minFragmentDensityTexelSize = (VkExtent2D) { MIN_FDM_TEXEL_SIZE, MIN_FDM_TEXEL_SIZE };
@@ -2265,7 +2266,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    if (physical_device->has_set_iova) {
       mtx_init(&device->vma_mutex, mtx_plain);
       util_vma_heap_init(&device->vma, physical_device->va_start,
-                         ROUND_DOWN_TO(physical_device->va_size, 4096));
+                         ROUND_DOWN_TO(physical_device->va_size, os_page_size));
    }
 
    if (TU_DEBUG(BOS))
