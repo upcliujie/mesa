@@ -46,6 +46,7 @@ nir_lower_image_ms(nir_builder *b, nir_intrinsic_instr *intr,
    if (nir_intrinsic_image_dim(intr) != GLSL_SAMPLER_DIM_MS)
       return false;
 
+   bool is_array = nir_intrinsic_image_array(intr);
    b->cursor = nir_before_instr(&intr->instr);
 
    nir_def *coord = intr->src[1].ssa;
@@ -53,13 +54,20 @@ nir_lower_image_ms(nir_builder *b, nir_intrinsic_instr *intr,
 
    /* image2DMS is treated by panfrost as if it were a 3D image, so
     * the sample index is in src[2]. We need to put this into the coordinates
-    * in the Z component
+    * in the Z component; for arrays, the previous Z component has to move up
+    * to W
     */
+   if (is_array)
+      coord = nir_vector_insert_imm(b, coord, nir_channel(b, coord, 2), 3);
+
+   /* insert index into source */
    nir_src_rewrite(&intr->src[1],
                    nir_vector_insert_imm(b, coord,
                                          nir_channel(b, index, 0),
                                          2) );
-   nir_intrinsic_set_image_dim(intr, GLSL_SAMPLER_DIM_3D);
+   /* reset the index to 0 */
+   nir_src_rewrite(&intr->src[2], nir_imm_int(b, 0));
+
    return true;
 }
 
