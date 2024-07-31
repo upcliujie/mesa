@@ -8,10 +8,6 @@ use crate::image::{
 };
 use crate::ILog2Ceil;
 
-// TODO: There's probably a better solution than this to get pointers for buffers
-extern crate libc;
-use libc::c_char;
-
 use std::cmp::{min, max}
 
 pub const GOB_WIDTH_B: u32 = 64;
@@ -283,270 +279,34 @@ impl Tiling {
 //      --------------------------
 //      x5 y2 y1 x4 y0 x3 x2 x1 x0
 //
-// TODO: Element ordering within a sector
+// Which would look something like this:
+// fn get_pixel_offset(
+//      x: usize,
+//      y: usize,
+//  ) -> usize {
+//      (x & 15)       |
+//      (y & 1)  << 4  |
+//      (x & 16) << 1  |
+//      (y & 2)  << 5  |
+//      (x & 32) << 3
+//  }
+//
 //
 
-impl Tiling {
-    
-    // Utility functions
-
-    /// Get an offset into a pixel inside a GOB
-    /// TODO: double-check + account for different bpp, and incorporate GOB address
-    fn get_pixel_offset(
-        x: usize,
-        y: usize,
-    ) -> usize {
-        (x & 15)       |
-        (y & 1)  << 4  |
-        (x & 16) << 1  |
-        (y & 2)  << 5  |
-        (x & 32) << 3
-    }
-
-    /// Get a byte offset of a point
-    fn get_byte_offset(
-        x: usize,
-        y: usize,
-        z: usize,
-        row_stride_B: usize,
-        slice_stride_B: usize,
-    ) -> usize {
-        x +
-        y * row_stride_B +
-        z * slice_stride_B
-    }
-    
-    /// Get a linear offset into a block from tiled point coordinates
-    fn get_block_offset(
-        x: usize,
-        y: usize,
-        z: usize,
-        row_stride_tl: usize,
-        slice_stride_tl: usize,
-        tiling: Self,
-    ) -> usize {
-        (x >> 6) +
-        (y >> (3 + tiling.y_log2)) * row_stride_tl +
-        (z >> tiling.z_log2) * slice_stride_tl
-    }
-
-    /// Get a linear offset into a GOB from tiled point coordinates
-    fn get_gob_offset(
-        x: usize,
-        y: usize,
-        z: usize,
-        x_mask: usize,
-        y_mask: usize,
-        z_mask: usize,
-        tiling: Self,
-    ) -> usize {
-        ((x >> tiling.x_log2) & x_mask) +
-        ((y >> 3) & y_mask) +
-        ((z & z_mask) << tiling.y_log2)
-    }
-
-    // Block/GOB granularity copy functions
-    //
-    // For the general case, blocks and GOBs are comprised of 9 parts as outlined below:
-    //
-    //                   x_start   x_whole_tile_start   x_whole_tile_end x_end
-    //          
-    //         y_start    |---------|--------------------------|---------|
-    //                    |         |                          |         |
-    // y_whole_tile_start |---------|--------------------------|---------|
-    //                    |         |                          |         |
-    //                    |         |      whole tile area     |         |
-    //                    |         |                          |         |
-    //   y_whole_tile_end |---------|--------------------------|---------|
-    //                    |         |                          |         |
-    //      y_end         |---------|--------------------------|---------|
-    //
-    // The whole block/GOB areas are fully aligned and can be fast-pathed, while
-    // the other unaligned/incomplete areas need dedicated handling
-
-    fn small_unaligned_memcpy(
-        start_px: Extent4D<units::Pixels>,
-        extent_px: Extent4D<units::Pixels>,
-        miplevel: u8, 
-        nil: Image,
-        pitch: usize,
-        slice: usize,
-        Bpp: u8,
-        src: *const c_char,
-        dst: *const c_char,
-    ) {
-        //TODO: This would handle each individual part alone.
-    }
-
-    fn optimized_big_memcpy(
-        start_px: Extent4D<units::Pixels>,
-        extent_px: Extent4D<units::Pixels>,
-        miplevel: u8, 
-        nil: Image,
-        pitch: usize,
-        slice: usize,
-        Bpp: u8,
-        src: *const c_char,
-        dst: *const c_char,
-    ) {
-        //TODO: This would handle splitting the blocks and handle each of the 9 parts.
-    }
-
-    // High level copy functions (buffer/image granularity)
-
-    /// Copy a region bound by start_px and extent_px to a buffer arranged 
-    /// in a tiled layout.
-    pub fn linear_to_tiled(
-        start_px: Extent4D<units::Pixels>,
-        extent_px: Extent4D<units::Pixels>,
-        miplevel: u8, 
-        nil: Image,
-        pitch: usize,
-        slice: usize,
-        Bpp: u8,
-        src: *const c_char,
-        dst: *const c_char,
-    ) {
-        // TODO: Write the memcpy() equivalent. There are multiple ways in Rust
-        // but unsure of the best yet
-
-        // Temporary constant to specify whether we use the naive implementation
-        // or the optimized
-        const NAIVE_COPY_MTHD: bool = true;
-
-        let start_B = start_px.to_B(nil.format, nil.sample_layout);
-        let extent_B = extent_px.to_B(nil.format, nil.sample_layout);
-
-        let tiling: Self = nil.levels[miplevel as usize].tiling;
-        let start_tl = start_px.to_tl(tiling, nil.format, nil.sample_layout);
-        let extent_tl = extent_px.to_tl(tiling, nil.format, nil.sample_layout);
-
-        let row_stride_tl = extent_tl.width;
-        let slice_stride_tl = extent_tl.width * extent_tl.height;
-
-        let start_gob = start_B.to_GOB((tiling.gob_height_is_8));
-        let extent_gob = extent_B.to_GOB((tiling.gob_height_is_8));
-        
-        let x_mask = (1 << tiling.x_log2) - 1;
-        let y_mask = (1 << tiling.y_log2) - 1;
-        let z_mask = (1 << tiling.z_log2) - 1;
-
-        if NAIVE_COPY_MTHD {
-            for z_px in start_px.depth..extent_px.depth {
-                for y_px in start_px.height..extent_px.height {
-                    for x_px in start_px.width..extent_px.width {
-                        
-                        let gob_addr_B = src +
-                        (y_px / (8 * block_height)) * 512 * block_height * image_width_in_gobs +
-                        (x_px * Bpp / 64) * 512 * block_height +
-                        (y_px % (8 * block_height) / 8) * 512;
-                        
-                        let px_addr_B = gob_addr_B +
-                        ((x_px * Bpp % 64) / 32) * 256 + ((y_px % 8) / 2) * 64 +
-                        ((x_px * Bpp % 32) / 16) * 32 + (y_px % 2) * 16 + (x_px * Bpp % 16);
-
-                        let linear_addr_B = x_B + y_B * pitch + z_B * slice;
-
-                        // rust_memcpy(linear_addr_B, tiled_addr_B, px_size_B);
-                    }
-                }
-            }
-        } else {
-            //TODO: use optimized copy functions above
-            for z_tl in start_tl.depth..extent_tl.depth {
-                for y_tl in start_tl.height..extent_tl.height {
-                    for x_tl in start_tl.width..extent_tl.width {
-                        // TODO: Walk GOBs, and enter copy function for each GOB
-                    }
-                }
-            }
-        }
-    }
-
-    /// Copy a region bound by start_px and extent_px to a buffer arranged 
-    /// in a linear layout.
-    pub fn tiled_to_linear(
-        start_px: Extent4D<units::Pixels>,
-        extent_px: Extent4D<units::Pixels>,
-        miplevel: u8, 
-        nil: Image,
-        src: *const c_char,
-        dst: *const c_char,
-    ) {
-        // Temporary constant to specify whether we use the naive implementation
-        // or the optimized
-        const NAIVE_COPY_MTHD: bool = true;
-
-        let start_B = start_px.to_B(nil.format, nil.sample_layout);
-        let extent_B = extent_px.to_B(nil.format, nil.sample_layout);
-
-        let tiling: Self = nil.levels[miplevel as usize].tiling;
-        let start_tl = start_px.to_tl(tiling, nil.format, nil.sample_layout);
-        let extent_tl = extent_px.to_tl(tiling, nil.format, nil.sample_layout);
-
-        let tile_size_B = tiling.size_B();   
-
-        let row_stride_tl = extent_tl.width;
-        let slice_stride_tl = extent_tl.width * extent_tl.height;
-        
-        let x_mask = (1 << tiling.x_log2) - 1;
-        let y_mask = (1 << tiling.y_log2) - 1;
-        let z_mask = (1 << tiling.z_log2) - 1;
-
-        if NAIVE_COPY_MTHD {
-            for z_px in start_px.depth..extent_px.depth {
-                for y_px in start_px.height..extent_px.height {
-                    for x_px in start_px.width..extent_px.width {
-                        
-                        let gob_addr_B = src +
-                        (y_px / (8 * block_height)) * 512 * block_height * image_width_in_gobs +
-                        (x_px * Bpp / 64) * 512 * block_height +
-                        (y_px % (8 * block_height) / 8) * 512;
-                        
-                        let px_addr_B = gob_addr_B +
-                        ((x_px * Bpp % 64) / 32) * 256 + ((y_px % 8) / 2) * 64 +
-                        ((x_px * Bpp % 32) / 16) * 32 + (y_px % 2) * 16 + (x_px * Bpp % 16);
-
-                        let linear_addr_B = x_B + y_B * pitch + z_B * slice;
-
-                        // rust_memcpy(tiled_addr_B, linear_addr_B, px_size_B);
-                    }
-                }
-            }
-        } else {
-            //TODO: use optimized copy functions above
-            for z_tl in start_tl.depth..extent_tl.depth {
-                for y_tl in start_tl.height..extent_tl.height {
-                    for x_tl in start_tl.width..extent_tl.width {
-                        
-                    }
-                }
-            }
-        }
-    }
-}
+// The way our implementation will work is by splitting an image into tiles, then
+// each tile will be broken into its GOBs, and finally each GOB into sectors,
+// where each sector will be copied into its position.
+//
+// For code sharing and cleanliness, we write everything to be very generic,
+// so as to be shared between Linear <-> Tiled and Tiled <-> Linear paths, and
+// (ab)use Rust's traits to specialize the last level (copy_gob/copy_whole_gob)
+// for a particular direction.
+//
+// The copy_x and copy_whole_x distinction is made because if we can guarantee
+// that tiles/gobs are whole and aligned, we can skip all bounds checking and
+// copy things in fast and tight loops
 
 trait LinearTiledCopy {
-    unsafe fn copy_sector(
-        x_start: i32,
-        y_start: i32,
-        x_end: i32,
-        y_end: i32,
-        linear: usize,
-        tiled: usize,
-    ) {
-        for y in y_start..y_end {
-            // rust_memcpy(tiled + y * SECTOR_WIDTH_B + x_start, linear + (y - y_start) * GOB_WIDTH_B, SECTOR_WIDTH_B);
-        }
-    }
-
-    // No bounding box for this one
-    unsafe fn copy_whole_sector(linear: usize, tiled: usize) {
-        for y in 0..SECTOR_HEIGHT {
-            // rust_memcpy(tiled + y * SECTOR_WIDTH_B, linear + y * GOB_WIDTH_B, SECTOR_WIDTH_B);
-        }      
-    }
-    
     // No 3D GOBs for now
     unsafe fn copy_gob(
         x_start: i32,
@@ -579,22 +339,28 @@ trait LinearTiledCopy {
                 && z_start <= 0
                 && x_end >= SECTOR_WIDTH_B
                 && y_end >= SECTOR_HEIGHT
-                   {
-                       copy_whole_sector(tiled, linear);
-                   } else {
-                        x_min = std::cmp::max(x_start, 0);
-                        x_max = std::cmp::min(x_end, SECTOR_WIDTH_B);
-                        y_min = std::cmp::max(y_start, 0);
-                        y_max = std::cmp::min(y_end, SECTOR_HEIGHT);
-                        copy_sector(
-                            x_min,
-                            y_min,
-                            x_max,
-                            y_max,
-                            linear,
-                            tiled,
-                       );
-             }
+                {
+                    for y in 0..SECTOR_HEIGHT {
+                        unsafe {
+                            std::ptr::copy_nonoverlapping(linear + y * GOB_WIDTH_B,
+                                                          tiled + y * SECTOR_WIDTH_B,
+                                                          SECTOR_WIDTH_B);
+                        }
+                    }      
+                } else {
+                    x_min = std::cmp::max(x_start, 0);
+                    x_max = std::cmp::min(x_end, SECTOR_WIDTH_B);
+                    y_min = std::cmp::max(y_start, 0);
+                    y_max = std::cmp::min(y_end, SECTOR_HEIGHT);
+
+                    for y in y_start..y_end {
+                        unsafe {
+                            std::ptr::copy_nonoverlapping(linear + (y - y_min) * GOB_WIDTH_B,
+                                                          tiled + y * SECTOR_WIDTH_B + x_min,
+                                                          x_max);
+                        }
+                    }
+                }
 
             // Sectors within a GOB are arranged as follows:
             // +----------+----------+----------+----------+
@@ -622,16 +388,55 @@ trait LinearTiledCopy {
 
     // No bounding box for this one
     unsafe fn copy_whole_gob(linear: usize, tiled: usize) {
-        // Implementation
+        let x_sector = 0;
+        let y_sector = 0;
+
+        // A GOB is 512B, and a sector is 32B, so there are 16 sectors in a GOB
+        // TODO: Not sure if it's a good idea to have it constant due to generational changes
+        for sector_idx in 0..16 {
+            let tiled = tiled.wrapping_add(sector_idx * SECTOR_SIZE_B);
+            let linear = linear.wrapping_add(y_sector * GOB_WIDTH_B + x_sector);
+
+            for y in 0..SECTOR_HEIGHT {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(linear + y * GOB_WIDTH_B,
+                                                  tiled + y * SECTOR_WIDTH_B,
+                                                  SECTOR_WIDTH_B);
+                }
+            }      
+
+            // Sectors within a GOB are arranged as follows:
+            // +----------+----------+----------+----------+
+            // | Sector 0 | Sector 1 | Sector 0 | Sector 1 |
+            // +----------+----------+----------+----------+
+            // | Sector 2 | Sector 3 | Sector 2 | Sector 3 |
+            // +----------+----------+----------+----------+
+            // | Sector 4 | Sector 5 | Sector 4 | Sector 5 |
+            // +----------+----------+----------+----------+
+            // | Sector 6 | Sector 7 | Sector 6 | Sector 7 |
+            // +----------+----------+----------+----------+
+            // Thus, we need to adhere to this structure as well.
+
+            if sector_idx % 2 == 0
+                x_sector = x_sector + SECTOR_WIDTH_B;
+            else if sector_idx % 4 == 1 {
+                x_sector = x_sector - SECTOR_WIDTH_B;
+                y_sector = y_sector + SECTOR_HEIGHT;
+            } else if sector_idx == 3 {
+                x_sector = x_sector + SECTOR_WIDTH_B;
+                y_sector = y_sector - SECTOR_HEIGHT;
+            }
+        }
     }
 
     unsafe fn copy_tile(
-        x_start: u32,
-        y_start: u32,
-        z_start: u32,
-        x_end: u32,
-        y_end: u32,
-        z_end: u32,
+        x_start: i32,
+        y_start: i32,
+        z_start: i32,
+        x_end: i32,
+        y_end: i32,
+        z_end: i32,
+        tiling: Tiling,
         linear: usize,
         tiled: usize,
     ) {
@@ -650,56 +455,95 @@ trait LinearTiledCopy {
         // the correct width, we just need to divide by gob_height_B, and loop
         // over the vertical dimension
 
-        // gob_width_B = tl_w_B
-        let x_start_gob = x_start / tl_w_B;
-        let y_start_gob = y_start / gob_height_B;
+        let gob_height = gob_height(tiling.gob_height_is_8);
+        let tl_d_B = 1_i32 << tiling.z_log2;
+        
+        let x_start_gob = x_start / GOB_WIDTH_B;
+        let y_start_gob = y_start / gob_height;
 
-        let z_start_tl = z_start / tl_d;
+        let x_end_gob = x_end.div_ceil(GOB_WIDTH_B);
+        let y_end_gob = y_end.div_ceil(gob_height);
 
-        let x_end_gob = x_end.div_ceil(tl_w_B);
-        let y_end_gob = y_end.div_ceil(gob_height_B);
-
+        let z_start_tl = z_start / tl_d_B;
         let z_end_tl = z_end.div_ceil(tl_d_B);
-
-        let x_B = x_start - x_end;
 
         for z_tl in z_start_tl..z_end_tl {
            let z_B = z_tl * tl_d_B;
            for y_gob in y_gob_start..y_gob_end {
-             let y_B = y_gob * gob_height_B;
-             let gob_offset = ((x_end_B >> 6) & (1 << tiling.x_log2)) +
+             let y_B = y_gob * gob_height;
+             let gob_offset = ((x_end >> 6) & (1 << tiling.x_log2)) +
                               ((y_B >> 3) & (1 << tiling.y_log2)) +
                               ((z_tl & (1 << tiling.z_log2)) << tiling.y_log2);
-             let tiled = tiled.wrapping_add(gob_offset * (gob_height_B * tl_w_B));
+             let tiled = tiled.wrapping_add(gob_offset * (gob_height * GOB_WIDTH_B));
 
             if x_start <= 0
-                && y_start <= 0
-                && z_start <= 0
-                && x_end >= tl_w_B
-                && y_end >= gob_height_B
-                   {
-                       copy_whole_gob(tiled, linear);
-                   } else {
-                        x_min = std::cmp::max(x_start, 0);
-                        x_max = std::cmp::min(x_end, tl_w_B);
-                        y_min = std::cmp::max(y_start, 0);
-                        y_max = std::cmp::min(y_end, gob_height_B);
-                        copy_gob(
-                            x_min,
-                            y_min,
-                            x_max,
-                            y_max,
-                            linear,
-                            tiled,
-                        );
-             }
-           }
+            && y_start <= 0
+            && z_start <= 0
+            && x_end >= GOB_WIDTH_B
+            && y_end >= gob_height
+                {
+                    copy_whole_gob(tiled, linear);
+                } else {
+                    x_min = std::cmp::max(x_start, 0);
+                    x_max = std::cmp::min(x_end, GOB_WIDTH_B);
+                    y_min = std::cmp::max(y_start, 0);
+                    y_max = std::cmp::min(y_end, gob_height);
+                    copy_gob(
+                        x_min,
+                        y_min,
+                        x_max,
+                        y_max,
+                        linear,
+                        tiled,
+                    );
+                }
+            }
         }
     }
 
-    // No bounding box for this one
-    unsafe fn copy_whole_tile(linear: usize, tiled: usize) {
-        // Implementation
+    // No bounding box for this one, however we do need one for Z as GOBs are 2D
+    // and essentially the 3rd dimension is like another layer of GOBs
+    unsafe fn copy_whole_tile(
+        z_start: i32,
+        z_end: i32,
+        tiling: Tiling,
+        linear: usize, 
+        tiled: usize
+    ) {
+        // Now it is time to break down the tile we have into GOBs. A block
+        // is composed of GOBs arranged vertically as follows:
+        //      +---------------------------+
+        //      |           GOB 0           |
+        //      +---------------------------+
+        //      |           GOB 1           |
+        //      +---------------------------+
+        //      |           GOB 2           |
+        //      +---------------------------+
+        //      |           GOB 3           |
+        //      +---------------------------+
+        // So an individual tile, assuming it is of tile_width_B, already has
+        // the correct width, we just need to divide by gob_height_B, and loop
+        // over the vertical dimension
+
+        let gob_height = gob_height(tiling.gob_height_is_8);
+        let tl_d_B = 1_i32 << tiling.z_log2;
+        
+        let z_start_tl = z_start / tl_d_B;
+        let z_end_tl = z_end.div_ceil(tl_d_B);
+
+        for z_tl in z_start_tl..z_end_tl {
+           let z_B = z_tl * tl_d_B;
+           for y_gob in 0..gob_height {
+                let y_B = y_gob * gob_height;
+                let gob_offset = ((GOB_WIDTH_B >> 6) & (1 << tiling.x_log2)) +
+                                 ((y_B >> 3) & (1 << tiling.y_log2)) +
+                                 ((z_tl & (1 << tiling.z_log2)) << tiling.y_log2);
+                
+                let tiled = tiled.wrapping_add(gob_offset * (gob_height * GOB_WIDTH_B));
+
+                copy_whole_gob(tiled, linear);
+           }
+        }
     }
 
     unsafe fn copy(
@@ -736,7 +580,9 @@ trait LinearTiledCopy {
         //      y_end         |---------|--------------------------|---------|
         //
         // The whole block/GOB areas are fully aligned and can be fast-pathed, while
-        // the other unaligned/incomplete areas need dedicated handling
+        // the other unaligned/incomplete areas need dedicated handling. So the
+        // idea here is to split the image, and use our fast `copy_whole_tile`
+        // function for whole tiles, and handle the rest with the normal `copy_tile`
 
         let x_start = start_B.width as i32;
         let y_start = start_B.height as i32;
@@ -762,12 +608,14 @@ trait LinearTiledCopy {
         let z_end_tl = z_end.div_ceil(tl_d_B);
 
         for z_tl in z_start_tl..z_end_tl {
+            // These are done here to make the inner loops tighter
             let z_B = z_tl * tl_d_B;
             let linear = linear.wrapping_add(z_B * plane_stride_B);
             let tiled = tiled.wrapping_add(z_tl * lvl_extent_tl.width * lvl_extent_tl.height * tile_size_B);
             let z_start = z_start - z_B;
             let z_end = z_end - z_B;
             for y_tl in y_start_tl..y_end_tl {
+                // See above, done here to tighten the inner loop
                 let y_B = y_tl * tl_h_B;
                 let linear = linear.wrapping_add(y_B * row_stride_B);
                 let tiled = tiled.wrapping_add(y_tl * lvl_extent_tl.width * tile_size_B);
@@ -786,7 +634,7 @@ trait LinearTiledCopy {
                     && y_end >= tl_h_B
                     && z_end >= tl_d_B
                     {
-                        copy_whole_tile(tiled, linear);
+                        copy_whole_tile(z_start, z_end, tiling, tiled, linear);
                     } else {
                         x_min = std::cmp::max(x_B, 0);
                         x_max = std::cmp::min(x_end, tl_w_B);
@@ -801,6 +649,7 @@ trait LinearTiledCopy {
                             x_max,
                             y_max,
                             z_max,
+                            tiling,
                             linear,
                             tiled,
                         );
