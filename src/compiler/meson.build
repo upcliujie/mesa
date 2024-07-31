@@ -66,7 +66,7 @@ subdir('spirv')
 if with_clc
   subdir('clc')
 endif
-if with_gallium
+if with_gallium_non_vk
   subdir('glsl')
 endif
 subdir('isaspec')

@@ -202,17 +202,6 @@ if with_gallium_swrast
   pre_args += '-DHAVE_SWRAST'
 endif
 
-with_gallium = gallium_drivers.length() != 0
-with_gallium_kmsro = system_has_kms_drm and [
-  with_gallium_asahi,
-  with_gallium_etnaviv,
-  with_gallium_freedreno,
-  with_gallium_lima,
-  with_gallium_panfrost,
-  with_gallium_v3d,
-  with_gallium_vc4,
-].contains(true)
-
 _vulkan_drivers = get_option('vulkan-drivers')
 if _vulkan_drivers.contains('auto')
   if system_has_kms_drm
@@ -264,6 +253,18 @@ endif
 
 with_any_llvmpipe = with_gallium_llvmpipe or with_swrast_vk
 
+with_gallium_non_vk = gallium_drivers.length() != 0
+with_gallium = with_gallium_non_vk or with_swrast_vk
+with_gallium_kmsro = system_has_kms_drm and [
+  with_gallium_asahi,
+  with_gallium_etnaviv,
+  with_gallium_freedreno,
+  with_gallium_lima,
+  with_gallium_panfrost,
+  with_gallium_v3d,
+  with_gallium_vc4,
+].contains(true)
+
 freedreno_kmds = get_option('freedreno-kmds')
 if freedreno_kmds.length() != 0 and freedreno_kmds != [ 'msm' ] and with_freedreno_vk
   if freedreno_kmds.contains('msm')
@@ -280,7 +281,7 @@ if freedreno_kmds.length() != 0 and freedreno_kmds != [ 'msm' ] and with_freedre
 endif
 
 with_dri = false
-if with_gallium and system_has_kms_drm
+if with_gallium_non_vk and system_has_kms_drm
   _glx = get_option('glx')
   _egl = get_option('egl')
   if _glx == 'dri' or _egl.enabled() or (_glx == 'disabled' and _egl.allowed())
@@ -411,7 +412,7 @@ if with_glx == 'auto'
     with_glx = 'disabled'
   elif host_machine.system() == 'windows'
     with_glx = 'disabled'
-  elif with_gallium
+  elif with_gallium_non_vk
     # Even when building just gallium drivers the user probably wants dri
     with_glx = 'dri'
   elif with_platform_x11 and with_any_opengl and not with_any_vk
@@ -423,7 +424,7 @@ if with_glx == 'auto'
   endif
 endif
 if with_glx == 'dri'
-   if with_gallium
+   if with_gallium_non_vk
       with_dri = true
    endif
 endif
@@ -432,7 +433,7 @@ if not with_opengl and with_glx != 'disabled'
   error('Building GLX without OpenGL is not supported.')
 endif
 
-if not (with_dri or with_gallium or with_glx != 'disabled')
+if not (with_dri or with_gallium_non_vk or with_glx != 'disabled')
   with_gles1 = false
   with_gles2 = false
   with_opengl = false
@@ -1867,7 +1868,7 @@ elif with_amd_vk and with_aco_tests
   error('ACO tests require LLVM, but LLVM is disabled.')
 elif with_swrast_vk
   error('lavapipe requires LLVM and is enabled, but LLVM is disabled.')
-elif with_gallium_llvmpipe
+elif with_any_llvmpipe
   error('llvmpipe requires LLVM and is enabled, but LLVM is disabled.')
 elif with_gallium_clover
   error('The OpenCL "Clover" state tracker requires LLVM, but LLVM is disabled.')
@@ -2447,7 +2448,7 @@ endif
 summary(llvm_summary, section: 'LLVM', bool_yn: true, list_sep: ' ')
 
 gallium_summary = {'Enabled': with_gallium}
-if with_gallium
+if with_gallium_non_vk
   gallium_summary += {'Drivers': gallium_drivers}
   gallium_summary += {'Platforms': _platforms}
 
