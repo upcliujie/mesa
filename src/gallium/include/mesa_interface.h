@@ -60,7 +60,6 @@ typedef struct __DRIbufferRec			__DRIbuffer;
 typedef struct __DRIdri2ExtensionRec		__DRIdri2Extension;
 typedef struct __DRIdri2LoaderExtensionRec	__DRIdri2LoaderExtension;
 typedef struct __DRI2flushExtensionRec	__DRI2flushExtension;
-typedef struct __DRI2throttleExtensionRec	__DRI2throttleExtension;
 typedef struct __DRI2fenceExtensionRec          __DRI2fenceExtension;
 typedef struct __DRI2interopExtensionRec	__DRI2interopExtension;
 typedef struct __DRI2blobExtensionRec           __DRI2blobExtension;
@@ -230,24 +229,6 @@ struct __DRI2flushExtensionRec {
                              __DRIdrawable *drawable,
                              unsigned flags,
                              enum __DRI2throttleReason throttle_reason);
-};
-
-
-/**
- * Extension that the driver uses to request
- * throttle callbacks.
- *
- * Not used by the X server.
- */
-
-#define __DRI2_THROTTLE "DRI2_Throttle"
-#define __DRI2_THROTTLE_VERSION 1
-
-struct __DRI2throttleExtensionRec {
-   __DRIextension base;
-   void (*throttle)(__DRIcontext *ctx,
-		    __DRIdrawable *drawable,
-		    enum __DRI2throttleReason reason);
 };
 
 /**
@@ -1785,9 +1766,6 @@ typedef struct __DRIconfigOptionsExtensionRec {
  * This allows the window system layer (either EGL or GLX) to query aspects of
  * hardware and driver support without creating a context.
  */
-#define __DRI2_RENDERER_QUERY "DRI_RENDERER_QUERY"
-#define __DRI2_RENDERER_QUERY_VERSION 1
-
 #define __DRI2_RENDERER_VENDOR_ID                             0x0000
 #define __DRI2_RENDERER_DEVICE_ID                             0x0001
 #define __DRI2_RENDERER_VERSION                               0x0002
@@ -1801,14 +1779,6 @@ typedef struct __DRIconfigOptionsExtensionRec {
 #define __DRI2_RENDERER_OPENGL_ES2_PROFILE_VERSION            0x000a
 
 #define __DRI2_RENDERER_PREFER_BACK_BUFFER_REUSE              0x000f
-
-typedef struct __DRI2rendererQueryExtensionRec __DRI2rendererQueryExtension;
-struct __DRI2rendererQueryExtensionRec {
-   __DRIextension base;
-
-   int (*queryInteger)(__DRIscreen *screen, int attribute, unsigned int *val);
-   int (*queryString)(__DRIscreen *screen, int attribute, const char **val);
-};
 
 /**
  * Image Loader extension. Drivers use this to allocate color buffers

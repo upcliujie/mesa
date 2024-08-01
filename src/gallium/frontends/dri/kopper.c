@@ -61,21 +61,12 @@ static struct dri_drawable *
 kopper_create_drawable(struct dri_screen *screen, const struct gl_config *visual,
                        bool isPixmap, void *loaderPrivate);
 
-static inline void
-kopper_invalidate_drawable(__DRIdrawable *dPriv)
-{
-   struct dri_drawable *drawable = dri_drawable(dPriv);
-
-   drawable->lastStamp++;
-
-   p_atomic_inc(&drawable->base.stamp);
-}
 
 static const __DRI2flushExtension driVkFlushExtension = {
     .base = { __DRI2_FLUSH, 4 },
 
     .flush                = dri_flush_drawable,
-    .invalidate           = kopper_invalidate_drawable,
+    .invalidate           = dri_invalidate_drawable,
     .flush_with_flags     = dri_flush,
 };
 
@@ -87,8 +78,7 @@ const __DRIkopperExtension driKopperExtension;
 
 static const __DRIextension *drivk_screen_extensions[] = {
    &driTexBufferExtension.base,
-   &dri2RendererQueryExtension.base,
-   &dri2ConfigQueryExtension.base,
+   &dri2GalliumConfigQueryExtension.base,
    &dri2FenceExtension.base,
    &dri2Robustness.base,
    &driVkImageExtension.base,
@@ -100,8 +90,7 @@ static const __DRIextension *drivk_screen_extensions[] = {
 
 static const __DRIextension *drivk_sw_screen_extensions[] = {
    &driTexBufferExtension.base,
-   &dri2RendererQueryExtension.base,
-   &dri2ConfigQueryExtension.base,
+   &dri2GalliumConfigQueryExtension.base,
    &dri2FenceExtension.base,
    &dri2Robustness.base,
    &driVkImageExtensionSw.base,
@@ -622,7 +611,8 @@ kopper_copy_to_front(struct pipe_context *pipe,
 {
    kopper_present_texture(pipe, drawable, ptex, nrects, boxes);
 
-   kopper_invalidate_drawable(opaque_dri_drawable(drawable));
+   drawable->lastStamp++;
+   p_atomic_inc(&drawable->base.stamp);
 }
 
 static bool

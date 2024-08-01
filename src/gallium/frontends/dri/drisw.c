@@ -506,7 +506,7 @@ drisw_update_tex_buffer(struct dri_drawable *drawable,
 static __DRIimageExtension driSWImageExtension = {
     .base = { __DRI_IMAGE, 6 },
 
-    .createImageFromRenderbuffer  = dri2_create_image_from_renderbuffer,
+    .createImageFromRenderbuffer  = dri_create_image_from_renderbuffer,
     .createImageFromTexture = dri2_create_from_texture,
     .destroyImage = dri2_destroy_image,
 };
@@ -524,8 +524,7 @@ static const __DRIrobustnessExtension dri2Robustness = {
 static const __DRIextension *drisw_screen_extensions[] = {
    &driSWImageExtension.base,
    &driTexBufferExtension.base,
-   &dri2RendererQueryExtension.base,
-   &dri2ConfigQueryExtension.base,
+   &dri2GalliumConfigQueryExtension.base,
    &dri2FenceExtension.base,
    &dri2FlushControlExtension.base,
    NULL
@@ -534,8 +533,7 @@ static const __DRIextension *drisw_screen_extensions[] = {
 static const __DRIextension *drisw_robust_screen_extensions[] = {
    &driSWImageExtension.base,
    &driTexBufferExtension.base,
-   &dri2RendererQueryExtension.base,
-   &dri2ConfigQueryExtension.base,
+   &dri2GalliumConfigQueryExtension.base,
    &dri2FenceExtension.base,
    &dri2Robustness.base,
    &dri2FlushControlExtension.base,

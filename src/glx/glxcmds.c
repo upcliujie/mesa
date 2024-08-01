@@ -32,6 +32,7 @@
 #include <xcb/xcb.h>
 #include <xcb/glx.h>
 #include "GL/mesa_glinterop.h"
+#include "dri_util.h"
 
 #if defined(GLX_DIRECT_RENDERING) && (!defined(GLX_USE_APPLEGL) || defined(GLX_USE_APPLE))
 
@@ -2415,12 +2416,7 @@ MesaGLInteropGLXQueryDeviceInfo(Display *dpy, GLXContext context,
       return MESA_GLINTEROP_INVALID_CONTEXT;
    }
 
-   if (!gc->vtable->interop_query_device_info) {
-      __glXUnlock();
-      return MESA_GLINTEROP_UNSUPPORTED;
-   }
-
-   ret = gc->vtable->interop_query_device_info(gc, out);
+   ret = dri_interop_query_device_info(gc->driContext, out);
    __glXUnlock();
    return ret;
 }
@@ -2440,12 +2436,7 @@ MesaGLInteropGLXExportObject(Display *dpy, GLXContext context,
       return MESA_GLINTEROP_INVALID_CONTEXT;
    }
 
-   if (!gc->vtable->interop_export_object) {
-      __glXUnlock();
-      return MESA_GLINTEROP_UNSUPPORTED;
-   }
-
-   ret = gc->vtable->interop_export_object(gc, in, out);
+   ret = dri_interop_export_object(gc->driContext, in, out);
    __glXUnlock();
    return ret;
 }
@@ -2466,12 +2457,7 @@ MesaGLInteropGLXFlushObjects(Display *dpy, GLXContext context,
       return MESA_GLINTEROP_INVALID_CONTEXT;
    }
 
-   if (!gc->vtable->interop_flush_objects) {
-      __glXUnlock();
-      return MESA_GLINTEROP_UNSUPPORTED;
-   }
-
-   ret = gc->vtable->interop_flush_objects(gc, count, resources, out);
+   ret = dri_interop_flush_objects(gc->driContext, count, resources, out);
    __glXUnlock();
    return ret;
 }

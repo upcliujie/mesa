@@ -446,11 +446,11 @@ drisw_bind_context(struct glx_context *context, GLXDrawable draw, GLXDrawable re
                                pdraw ? pdraw->driDrawable : NULL,
                                pread ? pread->driDrawable : NULL))
       return GLXBadContext;
-   if (psc->f) {
+   if (psc->kopper) {
       if (pdraw)
-         psc->f->invalidate(pdraw->driDrawable);
+         dri_invalidate_drawable(pdraw->driDrawable);
       if (pread && (!pdraw || pread->driDrawable != pdraw->driDrawable))
-         psc->f->invalidate(pread->driDrawable);
+         dri_invalidate_drawable(pread->driDrawable);
    }
 
    return Success;
@@ -690,7 +690,7 @@ driswCreateDrawable(struct glx_screen *base, XID xDrawable,
             .is_pixmap = !(type & GLX_WINDOW_BIT),
          });
 
-      pdp->swapInterval = dri_get_initial_swap_interval(psc->driScreen, psc->config);
+      pdp->swapInterval = dri_get_initial_swap_interval(psc->driScreen);
       kopperSetSwapInterval(pdp->driDrawable, pdp->swapInterval);
    }
    else
@@ -793,31 +793,16 @@ driswBindExtensions(struct drisw_screen *psc, const __DRIextension **extensions)
    if (!(psc->base.display->driver & (GLX_DRIVER_ZINK_INFER | GLX_DRIVER_ZINK_YES)))
       __glXEnableDirectExtension(&psc->base, "GLX_MESA_copy_sub_buffer");
 
-   /* FIXME: Figure out what other extensions can be ported here from dri2. */
-   static const struct dri_extension_match exts[] = {
-       { __DRI2_RENDERER_QUERY, 1, offsetof(struct drisw_screen, rendererQuery), true },
-       { __DRI2_FLUSH, 1, offsetof(struct drisw_screen, f), true },
-       { __DRI2_CONFIG_QUERY, 1, offsetof(struct drisw_screen, config), true },
-   };
-   loader_bind_extensions(psc, exts, ARRAY_SIZE(exts), extensions);
-
    /* Extensions where we don't care about the extension struct */
    for (i = 0; extensions[i]; i++) {
       if (strcmp(extensions[i]->name, __DRI2_ROBUSTNESS) == 0)
          __glXEnableDirectExtension(&psc->base,
                                     "GLX_ARB_create_context_robustness");
-
-      if (strcmp(extensions[i]->name, __DRI2_FLUSH_CONTROL) == 0) {
-          __glXEnableDirectExtension(&psc->base,
-                                     "GLX_ARB_context_flush_control");
-      }
    }
 
    __glXEnableDirectExtension(&psc->base, "GLX_EXT_texture_from_pixmap");
-
-   if (psc->rendererQuery) {
-      __glXEnableDirectExtension(&psc->base, "GLX_MESA_query_renderer");
-   }
+   __glXEnableDirectExtension(&psc->base, "GLX_ARB_context_flush_control");
+   __glXEnableDirectExtension(&psc->base, "GLX_MESA_query_renderer");
 
    if (psc->kopper) {
        __glXEnableDirectExtension(&psc->base, "GLX_EXT_buffer_age");
@@ -827,6 +812,7 @@ driswBindExtensions(struct drisw_screen *psc, const __DRIextension **extensions)
        // This needs to check whether RELAXED is available
        // __glXEnableDirectExtension(&psc->base, "GLX_EXT_swap_control_tear");
    }
+   __glXEnableDirectExtension(&psc->base, "GLX_MESA_gl_interop");
 }
 
 static int
@@ -868,7 +854,7 @@ driswKopperSetSwapInterval(__GLXDRIdrawable *pdraw, int interval)
    struct drisw_drawable *pdp = (struct drisw_drawable *) pdraw;
    struct drisw_screen *psc = (struct drisw_screen *) pdp->base.psc;
 
-   if (!dri_valid_swap_interval(psc->driScreen, psc->config, interval))
+   if (!dri_valid_swap_interval(psc->driScreen, interval))
       return GLX_BAD_VALUE;
 
    kopperSetSwapInterval(pdp->driDrawable, interval);

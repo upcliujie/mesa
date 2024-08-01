@@ -578,19 +578,11 @@ dri_flush_drawable(__DRIdrawable *dPriv)
 /**
  * dri_throttle - A DRI2ThrottleExtension throttling function.
  */
-static void
+void
 dri_throttle(__DRIcontext *cPriv, __DRIdrawable *dPriv,
              enum __DRI2throttleReason reason)
 {
    dri_flush(cPriv, dPriv, 0, reason);
 }
-
-
-const __DRI2throttleExtension dri2ThrottleExtension = {
-    .base = { __DRI2_THROTTLE, 1 },
-
-    .throttle          = dri_throttle,
-};
-
 
 /* vim: set sw=3 ts=8 sts=3 expandtab: */
