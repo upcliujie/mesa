@@ -817,11 +817,6 @@ brw_fs_lower_load_subgroup_invocation(fs_visitor &s)
 
       inst->remove(block);
       progress = true;
-
-      /* Currently this is only ever emitted once, so there's no point in
-       * continuing to look for more cases.  Drop if we ever re-emit it.
-       */
-      break;
    }
 
    if (progress)
