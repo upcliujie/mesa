@@ -2184,10 +2184,8 @@ dri2_create_image_wayland_wl_buffer(_EGLDisplay *disp, _EGLContext *ctx,
 {
    struct wl_drm_buffer *buffer;
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
-   const struct wl_drm_components_descriptor *f;
    __DRIimage *dri_image;
    _EGLImageAttribs attrs;
-   int32_t plane;
 
    buffer = wayland_drm_buffer_get(dri2_dpy->wl_server_drm,
                                    (struct wl_resource *)_buffer);
@@ -2197,17 +2195,7 @@ dri2_create_image_wayland_wl_buffer(_EGLDisplay *disp, _EGLContext *ctx,
    if (!_eglParseImageAttribList(&attrs, disp, attr_list))
       return NULL;
 
-   plane = attrs.PlaneWL;
-   f = buffer->driver_format;
-   if (plane < 0 || plane >= f->nplanes) {
-      _eglError(EGL_BAD_PARAMETER,
-                "dri2_create_image_wayland_wl_buffer (plane out of bounds)");
-      return NULL;
-   }
-
-   dri_image = dri2_dpy->image->fromPlanar(buffer->driver_buffer, plane, NULL);
-   if (dri_image == NULL && plane == 0)
-      dri_image = dri2_dpy->image->dupImage(buffer->driver_buffer, NULL);
+   dri_image = dri2_dpy->image->dupImage(buffer->driver_buffer, NULL);
    if (dri_image == NULL) {
       _eglError(EGL_BAD_PARAMETER, "dri2_create_image_wayland_wl_buffer");
       return NULL;
@@ -3629,11 +3617,6 @@ const _EGLDriver _eglDriver = {
    .ExportDMABUFImageMESA = dri2_export_dma_buf_image_mesa,
    .QueryDmaBufFormatsEXT = dri2_query_dma_buf_formats,
    .QueryDmaBufModifiersEXT = dri2_query_dma_buf_modifiers,
-#endif
-#ifdef HAVE_WAYLAND_PLATFORM
-   .BindWaylandDisplayWL = dri2_bind_wayland_display_wl,
-   .UnbindWaylandDisplayWL = dri2_unbind_wayland_display_wl,
-   .QueryWaylandBufferWL = dri2_query_wayland_buffer_wl,
 #endif
    .GetSyncValuesCHROMIUM = dri2_get_sync_values_chromium,
    .GetMscRateANGLE = dri2_get_msc_rate_angle,

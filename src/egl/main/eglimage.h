@@ -58,9 +58,6 @@ struct _egl_image_attribs {
    EGLint DRMBufferUseMESA;
    EGLint DRMBufferStrideMESA;
 
-   /* EGL_WL_bind_wayland_display */
-   EGLint PlaneWL;
-
    /* EGL_EXT_image_dma_buf_import and
     * EGL_EXT_image_dma_buf_import_modifiers */
    struct _egl_image_attrib_int DMABufFourCC;

@@ -2338,7 +2338,6 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
 
    dri2_wl_add_configs_for_visuals(disp);
 
-   dri2_set_WL_bind_wayland_display(disp);
    /* When cannot convert EGLImage to wl_buffer when on a different gpu,
     * because the buffer of the EGLImage has likely a tiling mode the server
     * gpu won't support. These is no way to check for now. Thus do not support
@@ -3003,9 +3002,6 @@ dri2_initialize_wayland_swrast(_EGLDisplay *disp)
 
    dri2_wl_add_configs_for_visuals(disp);
 
-   if (disp->Options.Zink && dri2_dpy->fd_render_gpu >= 0 &&
-       (dri2_dpy->wl_dmabuf || dri2_dpy->wl_drm))
-      dri2_set_WL_bind_wayland_display(disp);
    disp->Extensions.EXT_buffer_age = EGL_TRUE;
    disp->Extensions.EXT_swap_buffers_with_damage = EGL_TRUE;
    disp->Extensions.EXT_present_opaque = EGL_TRUE;

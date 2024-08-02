@@ -154,15 +154,6 @@ struct _egl_driver {
                                     EGLint *name, EGLint *handle,
                                     EGLint *stride);
 
-   /* for EGL_WL_bind_wayland_display */
-   EGLBoolean (*BindWaylandDisplayWL)(_EGLDisplay *disp,
-                                      struct wl_display *display);
-   EGLBoolean (*UnbindWaylandDisplayWL)(_EGLDisplay *disp,
-                                        struct wl_display *display);
-   EGLBoolean (*QueryWaylandBufferWL)(_EGLDisplay *displ,
-                                      struct wl_resource *buffer,
-                                      EGLint attribute, EGLint *value);
-
    /* for EGL_WL_create_wayland_buffer_from_image */
    struct wl_buffer *(*CreateWaylandBufferFromImageWL)(_EGLDisplay *disp,
                                                        _EGLImage *img);

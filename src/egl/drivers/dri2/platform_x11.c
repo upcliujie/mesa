@@ -1836,11 +1836,6 @@ dri2_initialize_x11_swrast(_EGLDisplay *disp)
       disp->Extensions.NOK_texture_from_pixmap = EGL_TRUE;
       disp->Extensions.CHROMIUM_sync_control = EGL_TRUE;
       disp->Extensions.EXT_swap_buffers_with_damage = !!dri2_dpy->kopper;
-
-#ifdef HAVE_DRI3
-      if (dri2_dpy->multibuffers_available)
-         dri2_set_WL_bind_wayland_display(disp);
-#endif
    } else {
       disp->Extensions.EXT_swap_buffers_with_damage = EGL_TRUE;
    }
@@ -1919,8 +1914,6 @@ dri2_initialize_x11_dri3(_EGLDisplay *disp)
    disp->Extensions.ANGLE_sync_control_rate = EGL_TRUE;
    disp->Extensions.EXT_buffer_age = EGL_TRUE;
    disp->Extensions.EXT_swap_buffers_with_damage = EGL_TRUE;
-
-   dri2_set_WL_bind_wayland_display(disp);
 
    dri2_x11_add_configs_for_visuals(dri2_dpy, disp, false);
 
@@ -2021,8 +2014,6 @@ dri2_initialize_x11_dri2(_EGLDisplay *disp)
    disp->Extensions.NV_post_sub_buffer = EGL_TRUE;
    disp->Extensions.CHROMIUM_sync_control = EGL_TRUE;
    disp->Extensions.ANGLE_sync_control_rate = EGL_TRUE;
-
-   dri2_set_WL_bind_wayland_display(disp);
 
    dri2_x11_add_configs_for_visuals(dri2_dpy, disp, true);
 
