@@ -39,6 +39,12 @@
 #include "bifrost_nir.h"
 #include "compiler.h"
 
+/* extract architecture version from a bifrost GPU id;
+   for bifrost and above the GPU id contains the
+   architecture in the upper bits
+*/
+#define PAN_ARCH(gpuid) ((gpuid)>>12)
+
 /* clang-format off */
 static const struct debug_named_value bifrost_debug_options[] = {
    {"msgs",       BIFROST_DBG_MSGS,		   "Print debug messages"},
@@ -4593,7 +4599,7 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
       nir_convert_to_lcssa(nir, true, true);
       NIR_PASS_V(nir, nir_divergence_analysis);
       NIR_PASS_V(nir, bi_lower_divergent_indirects,
-                 pan_subgroup_size(gpu_id >> 12));
+                 pan_subgroup_size(PAN_ARCH(gpu_id)));
    }
 }
 
@@ -4891,7 +4897,7 @@ bifrost_preprocess_nir(nir_shader *nir, unsigned gpu_id)
    }
 
    /* lower MSAA load/stores to 3D load/stores */
-   NIR_PASS_V(nir, pan_nir_lower_image_ms);
+   NIR_PASS_V(nir, pan_nir_lower_image_ms, PAN_ARCH(gpu_id));
 
    /* Get rid of any global vars before we lower to scratch. */
    NIR_PASS_V(nir, nir_lower_global_vars_to_local);
@@ -4999,7 +5005,7 @@ bi_compile_variant_nir(nir_shader *nir,
    ctx->nir = nir;
    ctx->stage = nir->info.stage;
    ctx->quirks = bifrost_get_quirks(inputs->gpu_id);
-   ctx->arch = inputs->gpu_id >> 12;
+   ctx->arch = PAN_ARCH(inputs->gpu_id);
    ctx->info = info;
    ctx->idvs = idvs;
    ctx->malloc_idvs = (ctx->arch >= 9) && !inputs->no_idvs;
