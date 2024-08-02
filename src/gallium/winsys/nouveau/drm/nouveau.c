@@ -13,7 +13,6 @@
 #include "nvif/ioctl.h"
 
 #include "nv_push.h"
-#include "nv_device_info.h"
 
 #include "util/bitscan.h"
 #include "util/list.h"
@@ -412,6 +411,39 @@ nouveau_device_new(struct nouveau_object *parent, struct nouveau_device **pdev)
       goto done;
 
    nvdev->base.chipset = info.chipset;
+   nvdev->base.info.chipset = info.chipset;
+   switch (info.platform) {
+   case NV_DEVICE_INFO_V0_PCI:
+   case NV_DEVICE_INFO_V0_AGP:
+   case NV_DEVICE_INFO_V0_PCIE:
+      nvdev->base.info.type = NV_DEVICE_TYPE_DIS;
+      break;
+   case NV_DEVICE_INFO_V0_IGP:
+      nvdev->base.info.type = NV_DEVICE_TYPE_IGP;
+      break;
+   case NV_DEVICE_INFO_V0_SOC:
+      nvdev->base.info.type = NV_DEVICE_TYPE_SOC;
+      break;
+   default:
+      unreachable("unhandled nvidia device type");
+      break;
+   }
+
+   drmDevicePtr drm_device;
+   ret = drmGetDevice2(drm->fd, 0, &drm_device);
+   if (ret)
+      goto done;
+
+   if (drm_device->bustype == DRM_BUS_PCI) {
+      nvdev->base.info.pci.domain       = drm_device->businfo.pci->domain;
+      nvdev->base.info.pci.bus          = drm_device->businfo.pci->bus;
+      nvdev->base.info.pci.dev          = drm_device->businfo.pci->dev;
+      nvdev->base.info.pci.func         = drm_device->businfo.pci->func;
+      nvdev->base.info.pci.revision_id  = drm_device->deviceinfo.pci->revision_id;
+      nvdev->base.info.device_id        = drm_device->deviceinfo.pci->device_id;
+   }
+
+   drmFreeDevice(&drm_device);
 
    ret = nouveau_getparam(dev, NOUVEAU_GETPARAM_FB_SIZE, &v);
    if (ret)
@@ -452,10 +484,10 @@ nouveau_device_set_classes_for_debug(struct nouveau_device *dev,
                                      uint32_t cls_m2mf,
                                      uint32_t cls_copy)
 {
-   dev->cls_eng3d = cls_eng3d;
-   dev->cls_compute = cls_compute;
-   dev->cls_m2mf = cls_m2mf;
-   dev->cls_copy = cls_copy;
+   dev->info.cls_eng3d = cls_eng3d;
+   dev->info.cls_compute = cls_compute;
+   dev->info.cls_m2mf = cls_m2mf;
+   dev->info.cls_copy = cls_copy;
 }
 
 void
@@ -1098,18 +1130,12 @@ pushbuf_dump(struct nouveau_device *dev,
       if (!bo->map)
          continue;
 
-      if (dev->cls_eng3d) {
-         struct nv_device_info info = {
-            .cls_eng3d = dev->cls_eng3d,
-            .cls_compute = dev->cls_compute,
-            .cls_m2mf = dev->cls_m2mf,
-            .cls_copy = dev->cls_copy,
-         };
+      if (dev->info.cls_eng3d) {
          struct nv_push push = {
             .start = bgn,
             .end = end
          };
-         vk_push_print(nouveau_out, &push, &info);
+         vk_push_print(nouveau_out, &push, &dev->info);
       } else {
          while (bgn < end)
             err("\t0x%08x\n", *bgn++);
