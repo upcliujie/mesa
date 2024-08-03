@@ -1456,7 +1456,10 @@ build_explicit_io_load(nir_builder *b, nir_intrinsic_instr *intrin,
             op = nir_intrinsic_load_ubo;
          break;
       case nir_var_mem_ssbo:
-         if (addr_format_is_global(addr_format, mode))
+         if (addr_format_is_global(addr_format, mode) &&
+             (nir_intrinsic_access(intrin) & ACCESS_NON_WRITEABLE))
+            op = nir_intrinsic_load_global_constant;
+         else if (addr_format_is_global(addr_format, mode))
             op = nir_intrinsic_load_global;
          else
             op = nir_intrinsic_load_ssbo;
