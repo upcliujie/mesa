@@ -4896,9 +4896,6 @@ bifrost_preprocess_nir(nir_shader *nir, unsigned gpu_id)
          psiz->data.precision = GLSL_PRECISION_MEDIUM;
    }
 
-   /* lower MSAA load/stores to 3D load/stores */
-   NIR_PASS_V(nir, pan_nir_lower_image_ms, PAN_ARCH(gpu_id));
-
    /* Get rid of any global vars before we lower to scratch. */
    NIR_PASS_V(nir, nir_lower_global_vars_to_local);
 
@@ -4981,6 +4978,10 @@ bifrost_preprocess_nir(nir_shader *nir, unsigned gpu_id)
               });
 
    NIR_PASS_V(nir, nir_lower_image_atomics_to_global);
+
+   /* lower MSAA load/stores to 3D load/stores */
+   NIR_PASS_V(nir, pan_nir_lower_image_ms, PAN_ARCH(gpu_id));
+
    NIR_PASS_V(nir, nir_lower_alu_to_scalar, bi_scalarize_filter, NULL);
    NIR_PASS_V(nir, nir_lower_load_const_to_scalar);
    NIR_PASS_V(nir, nir_lower_phis_to_scalar, true);
