@@ -57,7 +57,7 @@ endif
 cpp_args_addrlib += cpp.get_supported_arguments(
   ['-Wno-unused-variable', '-Wno-unused-local-typedefs',
    '-Wno-unused-but-set-variable', '-Wno-maybe-uninitialized',
-   '-Wno-self-assign', '/wd4189']
+   '-Wno-self-assign', '/wd4189', '-Wno-inconsistent-missing-override']
 )
 
 libamdgpu_addrlib = static_library(
