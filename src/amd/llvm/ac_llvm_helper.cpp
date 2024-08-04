@@ -17,9 +17,14 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Utils.h>
 #include <llvm/CodeGen/Passes.h>
-#include <llvm/Transforms/IPO/AlwaysInliner.h>
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/IPO/AlwaysInliner.h>
 #include <llvm/Transforms/IPO/SCCP.h>
+#include <llvm/Transforms/Scalar/EarlyCSE.h>
+#include <llvm/Transforms/Scalar/LICM.h>
+#include <llvm/Transforms/Scalar/SROA.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 
 #include <cstring>
@@ -234,6 +239,90 @@ struct raw_memory_ostream : public raw_pwrite_stream {
    }
 };
 
+/* The middle-end optimization passes are run using
+ * the LLVM's new pass manager infrastructure.
+ */
+struct ac_midend_optimizer
+{
+   TargetMachine *target_machine;
+   bool check_ir;
+
+   ac_midend_optimizer(TargetMachine *arg_target_machine, bool arg_check_ir)
+      : target_machine(arg_target_machine), check_ir(arg_check_ir)
+   {
+   }
+
+   void run(Module &module)
+   {
+      /* Build the pipeline and optimize.
+       * Any custom analyses should be registered
+       * before LLVM's default analysis sets.
+       */
+      PassBuilder pass_builder(target_machine, PipelineTuningOptions(), {});
+
+      /* Should be declared in this order only, so that they are destroyed in the
+       * correct order due to inter-analysis-manager references.
+       */
+      LoopAnalysisManager lam;
+      FunctionAnalysisManager fam;
+      CGSCCAnalysisManager cam;
+      ModuleAnalysisManager mam;
+
+      /* Pass Managers */
+      LoopPassManager lpm;
+      FunctionPassManager fpm;
+      ModulePassManager mpm;
+
+      TargetLibraryInfoImpl target_library_info(Triple(target_machine->getTargetTriple()));
+      fam.registerPass(
+         [&] { return TargetLibraryAnalysis(target_library_info); }
+      );
+
+      pass_builder.registerModuleAnalyses(mam);
+      pass_builder.registerCGSCCAnalyses(cam);
+      pass_builder.registerFunctionAnalyses(fam);
+      pass_builder.registerLoopAnalyses(lam);
+      pass_builder.crossRegisterProxies(lam, fam, cam, mam);
+
+      if (check_ir)
+         mpm.addPass(VerifierPass());
+
+      /* Adding inliner pass to the module pass manager directly
+       * ensures that the pass is run on all functions first, which makes sure
+       * that the following passes are only run on the remaining non-inline
+       * function, so it removes useless work done on dead inline functions.
+       */
+      mpm.addPass(AlwaysInlinerPass());
+
+      /* The following set of passes run on an individual function/loop first
+       * before proceeding to the next.
+       */
+#if LLVM_VERSION_MAJOR >= 16
+      fpm.addPass(SROAPass(SROAOptions::ModifyCFG));
+#else
+      // Old version of the code
+      fpm.addPass(SROAPass());
+#endif
+
+      lpm.addPass(LICMPass(LICMOptions()));
+      fpm.addPass(createFunctionToLoopPassAdaptor(std::move(lpm), true));
+      fpm.addPass(SimplifyCFGPass());
+      fpm.addPass(EarlyCSEPass(true));
+      fpm.addPass(InstCombinePass());
+
+      mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
+
+      /* The accumulated analyses results after run() seems to interfere,
+       * if the persistent set of builder and pass managers are reused to
+       * optimize a subsequent LLVM module. This can result in bizarre
+       * behaviour that could lead to unexpected crashes sometimes.
+       * Hence, the whole pipeline needs to be rebuilt for a subsequent
+       * module optimization.
+       */
+      mpm.run(module, mam);
+   }
+};
+
 /* The LLVM compiler is represented as a pass manager containing passes for
  * optimizations, instruction selection, and code generation.
  */
@@ -277,41 +366,27 @@ bool ac_compile_module_to_elf(struct ac_compiler_passes *p, LLVMModuleRef module
    return true;
 }
 
-LLVMPassManagerRef ac_create_passmgr(LLVMTargetLibraryInfoRef target_library_info,
-                                     bool check_ir)
+ac_midend_optimizer *ac_create_midend_optimizer(LLVMTargetMachineRef tm,
+                                                bool check_ir)
 {
-   LLVMPassManagerRef passmgr = LLVMCreatePassManager();
-   if (!passmgr)
-      return NULL;
+   TargetMachine *TM = reinterpret_cast<TargetMachine *>(tm);
+   return new ac_midend_optimizer(TM, check_ir);
+}
 
-   if (target_library_info)
-      LLVMAddTargetLibraryInfo(target_library_info, passmgr);
+void ac_destroy_midend_optimiser(ac_midend_optimizer *meo)
+{
+   if (meo)
+      delete meo;
+}
 
-   if (check_ir)
-      unwrap(passmgr)->add(createVerifierPass());
+bool ac_optimize_module(ac_midend_optimizer *meo, LLVMModuleRef module)
+{
+   if (!meo)
+      return false;
 
-   unwrap(passmgr)->add(createAlwaysInlinerLegacyPass());
-
-   /* Normally, the pass manager runs all passes on one function before
-    * moving onto another. Adding a barrier no-op pass forces the pass
-    * manager to run the inliner on all functions first, which makes sure
-    * that the following passes are only run on the remaining non-inline
-    * function, so it removes useless work done on dead inline functions.
-    */
-   unwrap(passmgr)->add(createBarrierNoopPass());
-
-   #if LLVM_VERSION_MAJOR >= 16
-   unwrap(passmgr)->add(createSROAPass(true));
-   #else
-   unwrap(passmgr)->add(createSROAPass());
-   #endif
-   /* TODO: restore IPSCCP */
-   unwrap(passmgr)->add(createLICMPass());
-   unwrap(passmgr)->add(createCFGSimplificationPass());
-   /* This is recommended by the instruction combining pass. */
-   unwrap(passmgr)->add(createEarlyCSEPass(true));
-   unwrap(passmgr)->add(createInstructionCombiningPass());
-   return passmgr;
+   /* Runs all the middle-end optimizations, no code generation */
+   meo->run(*unwrap(module));
+   return true;
 }
 
 LLVMValueRef ac_build_atomic_rmw(struct ac_llvm_context *ctx, LLVMAtomicRMWBinOp op,
