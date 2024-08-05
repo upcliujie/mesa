@@ -10,14 +10,14 @@
 using namespace brw;
 
 void
-brw_fs_optimize(fs_visitor &s)
+brw_optimize(fs_visitor &s)
 {
    const nir_shader *nir = s.nir;
 
    s.debug_optimizer(nir, "start", 0, 0);
 
    /* Start by validating the shader we currently have. */
-   brw_fs_validate(s);
+   brw_validate(s);
 
    bool progress = false;
    int iteration = 0;
@@ -30,19 +30,19 @@ brw_fs_optimize(fs_visitor &s)
       if (this_progress)                                                \
          s.debug_optimizer(nir, #pass, iteration, pass_num);            \
                                                                         \
-      brw_fs_validate(s);                                               \
+      brw_validate(s);                                                  \
                                                                         \
       progress = progress || this_progress;                             \
       this_progress;                                                    \
    })
 
    s.assign_constant_locations();
-   OPT(brw_fs_lower_constant_loads);
+   OPT(brw_lower_constant_loads);
 
    if (s.compiler->lower_dpas)
-      OPT(brw_fs_lower_dpas);
+      OPT(brw_lower_dpas);
 
-   OPT(brw_fs_opt_split_virtual_grfs);
+   OPT(brw_opt_split_virtual_grfs);
 
    /* Before anything else, eliminate dead code.  The results of some NIR
     * instructions may effectively be calculated twice.  Once when the
@@ -50,123 +50,123 @@ brw_fs_optimize(fs_visitor &s)
     * encountered.  Wipe those away before algebraic optimizations and
     * especially copy propagation can mix things up.
     */
-   OPT(brw_fs_opt_dead_code_eliminate);
+   OPT(brw_opt_dead_code_eliminate);
 
-   OPT(brw_fs_opt_remove_extra_rounding_modes);
+   OPT(brw_opt_remove_extra_rounding_modes);
 
-   OPT(brw_fs_opt_eliminate_find_live_channel);
+   OPT(brw_opt_eliminate_find_live_channel);
 
    do {
       progress = false;
       pass_num = 0;
       iteration++;
 
-      OPT(brw_fs_opt_algebraic);
-      OPT(brw_fs_opt_cse_defs);
-      if (!OPT(brw_fs_opt_copy_propagation_defs))
-         OPT(brw_fs_opt_copy_propagation);
-      OPT(brw_fs_opt_cmod_propagation);
-      OPT(brw_fs_opt_dead_code_eliminate);
-      OPT(brw_fs_opt_peephole_sel);
-      OPT(brw_fs_opt_dead_control_flow_eliminate);
-      OPT(brw_fs_opt_saturate_propagation);
-      OPT(brw_fs_opt_register_coalesce);
+      OPT(brw_opt_algebraic);
+      OPT(brw_opt_cse_defs);
+      if (!OPT(brw_opt_copy_propagation_defs))
+         OPT(brw_opt_copy_propagation);
+      OPT(brw_opt_cmod_propagation);
+      OPT(brw_opt_dead_code_eliminate);
+      OPT(brw_opt_peephole_sel);
+      OPT(brw_opt_dead_control_flow_eliminate);
+      OPT(brw_opt_saturate_propagation);
+      OPT(brw_opt_register_coalesce);
 
-      OPT(brw_fs_opt_compact_virtual_grfs);
+      OPT(brw_opt_compact_virtual_grfs);
    } while (progress);
 
    progress = false;
    pass_num = 0;
 
-   OPT(brw_fs_opt_predicated_break);
+   OPT(brw_opt_predicated_break);
 
-   if (OPT(brw_fs_lower_pack)) {
-      OPT(brw_fs_opt_register_coalesce);
-      OPT(brw_fs_opt_dead_code_eliminate);
+   if (OPT(brw_lower_pack)) {
+      OPT(brw_opt_register_coalesce);
+      OPT(brw_opt_dead_code_eliminate);
    }
 
-   OPT(brw_fs_lower_csel);
-   OPT(brw_fs_lower_simd_width);
-   OPT(brw_fs_lower_barycentrics);
-   OPT(brw_fs_lower_logical_sends);
+   OPT(brw_lower_csel);
+   OPT(brw_lower_simd_width);
+   OPT(brw_lower_barycentrics);
+   OPT(brw_lower_logical_sends);
 
    /* After logical SEND lowering. */
 
-   if (OPT(brw_fs_opt_copy_propagation_defs) || OPT(brw_fs_opt_copy_propagation))
-      OPT(brw_fs_opt_algebraic);
+   if (OPT(brw_opt_copy_propagation_defs) || OPT(brw_opt_copy_propagation))
+      OPT(brw_opt_algebraic);
 
    /* Identify trailing zeros LOAD_PAYLOAD of sampler messages.
     * Do this before splitting SENDs.
     */
-   if (OPT(brw_fs_opt_zero_samples) && (OPT(brw_fs_opt_copy_propagation_defs) || OPT(brw_fs_opt_copy_propagation)))
-      OPT(brw_fs_opt_algebraic);
+   if (OPT(brw_opt_zero_samples) && (OPT(brw_opt_copy_propagation_defs) || OPT(brw_opt_copy_propagation)))
+      OPT(brw_opt_algebraic);
 
-   OPT(brw_fs_opt_split_sends);
-   OPT(brw_fs_workaround_nomask_control_flow);
+   OPT(brw_opt_split_sends);
+   OPT(brw_workaround_nomask_control_flow);
 
    if (progress) {
-      if (OPT(brw_fs_opt_copy_propagation_defs) || OPT(brw_fs_opt_copy_propagation))
-         OPT(brw_fs_opt_algebraic);
+      if (OPT(brw_opt_copy_propagation_defs) || OPT(brw_opt_copy_propagation))
+         OPT(brw_opt_algebraic);
 
       /* Run after logical send lowering to give it a chance to CSE the
        * LOAD_PAYLOAD instructions created to construct the payloads of
        * e.g. texturing messages in cases where it wasn't possible to CSE the
        * whole logical instruction.
        */
-      OPT(brw_fs_opt_cse_defs);
-      OPT(brw_fs_opt_register_coalesce);
-      OPT(brw_fs_opt_dead_code_eliminate);
-      OPT(brw_fs_opt_peephole_sel);
+      OPT(brw_opt_cse_defs);
+      OPT(brw_opt_register_coalesce);
+      OPT(brw_opt_dead_code_eliminate);
+      OPT(brw_opt_peephole_sel);
    }
 
-   OPT(brw_fs_opt_remove_redundant_halts);
+   OPT(brw_opt_remove_redundant_halts);
 
-   if (OPT(brw_fs_lower_load_payload)) {
-      OPT(brw_fs_opt_split_virtual_grfs);
+   if (OPT(brw_lower_load_payload)) {
+      OPT(brw_opt_split_virtual_grfs);
 
-      OPT(brw_fs_opt_register_coalesce);
-      OPT(brw_fs_lower_simd_width);
-      OPT(brw_fs_opt_dead_code_eliminate);
+      OPT(brw_opt_register_coalesce);
+      OPT(brw_lower_simd_width);
+      OPT(brw_opt_dead_code_eliminate);
    }
 
-   OPT(brw_fs_lower_alu_restrictions);
+   OPT(brw_lower_alu_restrictions);
 
-   OPT(brw_fs_opt_combine_constants);
-   if (OPT(brw_fs_lower_integer_multiplication)) {
+   OPT(brw_opt_combine_constants);
+   if (OPT(brw_lower_integer_multiplication)) {
       /* If lower_integer_multiplication made progress, it may have produced
        * some 32x32-bit MULs in the process of lowering 64-bit MULs.  Run it
        * one more time to clean those up if they exist.
        */
-      OPT(brw_fs_lower_integer_multiplication);
+      OPT(brw_lower_integer_multiplication);
    }
-   OPT(brw_fs_lower_sub_sat);
+   OPT(brw_lower_sub_sat);
 
    progress = false;
-   OPT(brw_fs_lower_derivatives);
-   OPT(brw_fs_lower_regioning);
+   OPT(brw_lower_derivatives);
+   OPT(brw_lower_regioning);
    if (progress) {
       /* Try both copy propagation passes.  The defs one will likely not be
        * able to handle everything at this point.
        */
-      const bool cp1 = OPT(brw_fs_opt_copy_propagation_defs);
-      const bool cp2 = OPT(brw_fs_opt_copy_propagation);
+      const bool cp1 = OPT(brw_opt_copy_propagation_defs);
+      const bool cp2 = OPT(brw_opt_copy_propagation);
       if (cp1 || cp2) {
-         OPT(brw_fs_opt_algebraic);
-         OPT(brw_fs_opt_combine_constants);
+         OPT(brw_opt_algebraic);
+         OPT(brw_opt_combine_constants);
       }
-      OPT(brw_fs_opt_dead_code_eliminate);
-      OPT(brw_fs_lower_simd_width);
+      OPT(brw_opt_dead_code_eliminate);
+      OPT(brw_lower_simd_width);
    }
 
-   OPT(brw_fs_lower_sends_overlapping_payload);
+   OPT(brw_lower_sends_overlapping_payload);
 
-   OPT(brw_fs_lower_uniform_pull_constant_loads);
+   OPT(brw_lower_uniform_pull_constant_loads);
 
-   OPT(brw_fs_lower_indirect_mov);
+   OPT(brw_lower_indirect_mov);
 
-   OPT(brw_fs_lower_find_live_channel);
+   OPT(brw_lower_find_live_channel);
 
-   OPT(brw_fs_lower_load_subgroup_invocation);
+   OPT(brw_lower_load_subgroup_invocation);
 }
 
 static unsigned
@@ -195,7 +195,7 @@ load_payload_sources_read_for_size(fs_inst *lp, unsigned size_read)
  */
 
 bool
-brw_fs_opt_zero_samples(fs_visitor &s)
+brw_opt_zero_samples(fs_visitor &s)
 {
    bool progress = false;
 
@@ -272,7 +272,7 @@ brw_fs_opt_zero_samples(fs_visitor &s)
  * payload concatenation altogether.
  */
 bool
-brw_fs_opt_split_sends(fs_visitor &s)
+brw_opt_split_sends(fs_visitor &s)
 {
    bool progress = false;
 
@@ -352,7 +352,7 @@ brw_fs_opt_split_sends(fs_visitor &s)
  * halt-target
  */
 bool
-brw_fs_opt_remove_redundant_halts(fs_visitor &s)
+brw_opt_remove_redundant_halts(fs_visitor &s)
 {
    bool progress = false;
 
@@ -401,7 +401,7 @@ brw_fs_opt_remove_redundant_halts(fs_visitor &s)
  * analysis.
  */
 bool
-brw_fs_opt_eliminate_find_live_channel(fs_visitor &s)
+brw_opt_eliminate_find_live_channel(fs_visitor &s)
 {
    bool progress = false;
    unsigned depth = 0;
@@ -484,7 +484,7 @@ out:
  * mode once is enough for the full vector/matrix
  */
 bool
-brw_fs_opt_remove_extra_rounding_modes(fs_visitor &s)
+brw_opt_remove_extra_rounding_modes(fs_visitor &s)
 {
    bool progress = false;
    unsigned execution_mode = s.nir->info.float_controls_execution_mode;

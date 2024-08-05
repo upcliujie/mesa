@@ -1602,7 +1602,7 @@ brw_stage_has_packed_dispatch(ASSERTED const struct intel_device_info *devinfo,
     * the NIR front-end before changing this assertion. It can be temporarily
     * enabled by setting the macro below to true.
     */
-   #define ENABLE_FS_TEST_DISPATCH_PACKING false
+   #define ENABLE_TEST_DISPATCH_PACKING false
    assert(devinfo->ver <= 20);
 
    switch (stage) {

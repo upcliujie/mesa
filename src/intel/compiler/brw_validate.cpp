@@ -88,7 +88,7 @@
 
 #ifndef NDEBUG
 void
-brw_fs_validate(const fs_visitor &s)
+brw_validate(const fs_visitor &s)
 {
    const intel_device_info *devinfo = s.devinfo;
 

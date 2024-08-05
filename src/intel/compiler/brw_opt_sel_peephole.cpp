@@ -128,7 +128,7 @@ count_movs_from_if(const intel_device_info *devinfo,
  * If src0 is an immediate value, we promote it to a temporary GRF.
  */
 bool
-brw_fs_opt_peephole_sel(fs_visitor &s)
+brw_opt_peephole_sel(fs_visitor &s)
 {
    bool progress = false;
 

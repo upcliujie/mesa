@@ -65,7 +65,7 @@ brw_imm_for_type(uint64_t value, enum brw_reg_type type)
 }
 
 bool
-brw_fs_opt_algebraic(fs_visitor &s)
+brw_opt_algebraic(fs_visitor &s)
 {
    const intel_device_info *devinfo = s.devinfo;
    bool progress = false;

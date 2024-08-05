@@ -38,7 +38,7 @@ using namespace brw;
  *   - then in if/else/endif
  */
 bool
-brw_fs_opt_dead_control_flow_eliminate(fs_visitor &s)
+brw_opt_dead_control_flow_eliminate(fs_visitor &s)
 {
    bool progress = false;
 
