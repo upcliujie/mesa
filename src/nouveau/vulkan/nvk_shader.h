@@ -31,8 +31,13 @@ struct vk_shader_module;
 #define NVC0_MAX_SHADER_HEADER_SIZE TU102_SHADER_HEADER_SIZE
 
 static inline uint32_t
-nvk_cbuf_binding_for_stage(gl_shader_stage stage)
+nvk_cbuf_binding_for_stage(gl_shader_stage stage, bool has_task_shader)
 {
+   if (stage == MESA_SHADER_MESH)
+      return has_task_shader ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
+   else if (stage == MESA_SHADER_TASK)
+      return MESA_SHADER_VERTEX;
+
    return stage;
 }
 
@@ -89,6 +94,11 @@ struct nvk_shader {
     */
    uint64_t hdr_addr;
 
+   /* Address of the GS shader header (or 0 if not present) for mesh
+    * shaders.
+    */
+   uint64_t gs_hdr_addr;
+
    /* Address of the start of the shader data section */
    uint64_t data_addr;
 };
@@ -113,13 +123,16 @@ nvk_nir_lower_descriptors(nir_shader *nir,
                           const struct vk_pipeline_robustness_state *rs,
                           uint32_t set_layout_count,
                           struct vk_descriptor_set_layout * const *set_layouts,
+                          bool has_task_shader,
                           struct nvk_cbuf_map *cbuf_map_out);
+bool nvk_nir_lower_mesh(nir_shader *nir);
 void
 nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
               const struct vk_pipeline_robustness_state *rs,
               bool is_multiview,
               uint32_t set_layout_count,
               struct vk_descriptor_set_layout * const *set_layouts,
+              VkShaderCreateFlagsEXT shader_flags,
               struct nvk_cbuf_map *cbuf_map_out);
 
 VkResult

@@ -26,6 +26,9 @@ static const nvk_mme_builder_func mme_builders[NVK_MME_COUNT] = {
    [NVK_MME_SET_CONSERVATIVE_RASTER_STATE] = nvk_mme_set_conservative_raster_state,
    [NVK_MME_SET_VIEWPORT_MIN_MAX_Z]        = nvk_mme_set_viewport_min_max_z,
    [NVK_MME_SET_Z_CLAMP]                   = nvk_mme_set_z_clamp,
+   [NVK_MME_DRAW_MESH]                     = nvk_mme_draw_mesh,
+   [NVK_MME_DRAW_MESH_INDIRECT]            = nvk_mme_draw_mesh_indirect,
+   [NVK_MME_DRAW_MESH_INDIRECT_COUNT]      = nvk_mme_draw_mesh_indirect_count,
 };
 
 uint32_t *

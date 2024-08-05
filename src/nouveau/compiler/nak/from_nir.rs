@@ -18,7 +18,7 @@ use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::ops::Index;
 
-fn init_info_from_nir(nir: &nir_shader) -> ShaderInfo {
+fn init_info_from_nir(nir: &nir_shader, has_task_shader: bool) -> ShaderInfo {
     ShaderInfo {
         num_gprs: 0,
         num_instrs: 0,
@@ -113,6 +113,46 @@ fn init_info_from_nir(nir: &nir_shader) -> ShaderInfo {
                     },
                 })
             }
+            MESA_SHADER_TASK => ShaderStageInfo::Task(TaskShaderInfo {
+                local_size: nir.info.workgroup_size[0]
+                    * nir.info.workgroup_size[1]
+                    * nir.info.workgroup_size[2],
+            }),
+            MESA_SHADER_MESH => {
+                let info_mesh = unsafe { &nir.info.__bindgen_anon_1.mesh };
+
+                ShaderStageInfo::Mesh(MeshShaderInfo {
+                    has_task_shader,
+                    has_gs_sph: false,
+                    primitive_io: VtgIoInfo {
+                        sysvals_in: SysValInfo::default(),
+                        sysvals_in_d: 0,
+                        sysvals_out: SysValInfo::default(),
+                        sysvals_out_d: 0,
+                        attr_in: [0; 4],
+                        attr_out: [0; 4],
+                        store_req_start: 0,
+                        store_req_end: u8::MAX,
+                        clip_enable: 0,
+                        cull_enable: 0,
+                        xfb: None,
+                    },
+                    max_vertices: info_mesh.max_vertices_out,
+                    max_primitives: info_mesh.max_primitives_out,
+                    local_size: nir.info.workgroup_size[0]
+                        * nir.info.workgroup_size[1]
+                        * nir.info.workgroup_size[2],
+                    output_topology: match info_mesh.primitive_type {
+                        MESA_PRIM_POINTS => NAK_MESH_TOPOLOGY_POINTS,
+                        MESA_PRIM_LINES => NAK_MESH_TOPOLOGY_LINES,
+                        MESA_PRIM_TRIANGLES => NAK_MESH_TOPOLOGY_TRIANGLES,
+                        _ => panic!(
+                            "Invalid MESH primitive type {}",
+                            info_mesh.primitive_type
+                        ),
+                    },
+                })
+            }
             _ => panic!("Unknown shader stage"),
         },
         io: match nir.info.stage() {
@@ -151,6 +191,38 @@ fn init_info_from_nir(nir: &nir_shader) -> ShaderInfo {
                     // TODO: figure out how to fill this.
                     store_req_start: u8::MAX,
                     store_req_end: 0,
+
+                    clip_enable: clip_enable.try_into().unwrap(),
+                    cull_enable: cull_enable.try_into().unwrap(),
+                    xfb: if nir.xfb_info.is_null() {
+                        None
+                    } else {
+                        Some(Box::new(unsafe {
+                            nak_xfb_from_nir(nir.xfb_info)
+                        }))
+                    },
+                })
+            }
+            MESA_SHADER_TASK | MESA_SHADER_MESH => {
+                let num_clip = nir.info.clip_distance_array_size();
+                let num_cull = nir.info.cull_distance_array_size();
+                let clip_enable = (1_u32 << num_clip) - 1;
+                let cull_enable = ((1_u32 << num_cull) - 1) << num_clip;
+
+                ShaderIoInfo::Vtg(VtgIoInfo {
+                    sysvals_in: SysValInfo {
+                        ab: 0,
+                        // Required to get task index
+                        c: 1 << 15,
+                    },
+                    sysvals_in_d: 0,
+                    sysvals_out: SysValInfo::default(),
+                    sysvals_out_d: 0,
+                    attr_in: [0; 4],
+                    attr_out: [0; 4],
+
+                    store_req_start: 0,
+                    store_req_end: u8::MAX,
 
                     clip_enable: clip_enable.try_into().unwrap(),
                     cull_enable: cull_enable.try_into().unwrap(),
@@ -314,11 +386,15 @@ struct ShaderFromNir<'a> {
 }
 
 impl<'a> ShaderFromNir<'a> {
-    fn new(nir: &'a nir_shader, sm: &'a dyn ShaderModel) -> Self {
+    fn new(
+        nir: &'a nir_shader,
+        sm: &'a dyn ShaderModel,
+        has_task_shader: bool,
+    ) -> Self {
         Self {
             nir: nir,
             sm: sm,
-            info: init_info_from_nir(nir),
+            info: init_info_from_nir(nir, has_task_shader),
             float_ctl: ShaderFloatControls::from_nir(nir),
             cfg: CFGBuilder::new(),
             label_alloc: LabelAllocator::new(),
@@ -2508,12 +2584,119 @@ impl<'a> ShaderFromNir<'a> {
                 self.set_dst(&intrin.def, dst);
             }
             nir_intrinsic_isberd_nv => {
+                let flags = intrin.flags();
+                let flags: nak_nir_isbe_flags =
+                    unsafe { std::mem::transmute_copy(&flags) };
+
+                let base: u16 = u16::try_from(intrin.range_base()).unwrap();
+                let range = u16::try_from(intrin.range()).unwrap();
+                let range = base..(base + range);
+                assert!(intrin.def.num_components() == 1);
+
+                let size_B = intrin.def.bit_size() / 8;
+
+                let access_type = match flags.mode() {
+                    NAK_ISBE_MODE_MAP => IsbeAccessType::Map,
+                    NAK_ISBE_MODE_PATCH => IsbeAccessType::Patch,
+                    NAK_ISBE_MODE_PRIM => IsbeAccessType::Primitive,
+                    NAK_ISBE_MODE_ATTR => IsbeAccessType::Attribute,
+                    _ => panic!("Invalid ISBE mode {}", flags.mode()),
+                };
+
+                if base != 0 {
+                    assert!(self.sm.sm() >= 75);
+                    match &mut self.info.stage {
+                        ShaderStageInfo::Mesh(mesh) => {
+                            // In case the write is per primitive, we require a GS SPH to be present.
+                            if flags.per_primitive() {
+                                mesh.has_gs_sph = true;
+                                mesh.primitive_io.mark_attrs_written(range);
+                            } else {
+                                match &mut self.info.io {
+                                    ShaderIoInfo::Vtg(io) => {
+                                        io.mark_attrs_written(range);
+                                    }
+                                    _ => panic!(
+                                        "Mesh must have ShaderIoInfo::Vtg"
+                                    ),
+                                }
+                            }
+                        }
+                        ShaderStageInfo::Task(_) => (),
+                        _ => panic!(
+                            "ISBEWR is only expected on Mesh and Task stages"
+                        ),
+                    }
+                }
+
                 let dst = b.alloc_ssa(RegFile::GPR, 1);
                 b.push_op(OpIsberd {
                     dst: dst.into(),
-                    idx: self.get_src(&srcs[0]),
+                    offset: self.get_src(&srcs[0]),
+                    output: flags.output(),
+                    skew: flags.skew(),
+                    mem_type: MemType::from_size(size_B, false),
+                    access_type,
                 });
                 self.set_dst(&intrin.def, dst);
+            }
+            nir_intrinsic_isbewr_nv => {
+                let flags = intrin.flags();
+                let flags: nak_nir_isbe_flags =
+                    unsafe { std::mem::transmute_copy(&flags) };
+
+                let base: u16 = u16::try_from(intrin.range_base()).unwrap();
+                let range = u16::try_from(intrin.range()).unwrap();
+                let range = base..(base + range);
+                assert!(srcs[0].num_components() == 1);
+
+                let size_B = srcs[0].bit_size() / 8;
+
+                let access_type = match flags.mode() {
+                    NAK_ISBE_MODE_MAP => IsbeAccessType::Map,
+                    NAK_ISBE_MODE_PATCH => {
+                        panic!("PATCH mode is invalid in ISBEWR")
+                    }
+                    NAK_ISBE_MODE_PRIM => {
+                        panic!("PRIM mode is invalid in ISBEWR")
+                    }
+                    NAK_ISBE_MODE_ATTR => IsbeAccessType::Attribute,
+                    _ => panic!("Invalid ISBE mode {}", flags.mode()),
+                };
+
+                if base != 0 {
+                    match &mut self.info.stage {
+                        ShaderStageInfo::Mesh(mesh) => {
+                            // In case the write is per primitive, we require a GS SPH to be present.
+                            if flags.per_primitive() {
+                                mesh.has_gs_sph = true;
+                                mesh.primitive_io.mark_attrs_written(range);
+                            } else {
+                                match &mut self.info.io {
+                                    ShaderIoInfo::Vtg(io) => {
+                                        io.mark_attrs_written(range);
+                                    }
+                                    _ => panic!(
+                                        "Mesh must have ShaderIoInfo::Vtg"
+                                    ),
+                                }
+                            }
+                        }
+                        ShaderStageInfo::Task(_) => (),
+                        _ => panic!(
+                            "ISBEWR is only expected on Mesh and Task stages"
+                        ),
+                    }
+                }
+
+                b.push_op(OpIsbewr {
+                    offset: self.get_src(&srcs[1]),
+                    data: self.get_src(&srcs[0]),
+                    output: flags.output(),
+                    skew: flags.skew(),
+                    mem_type: MemType::from_size(size_B, false),
+                    access_type,
+                });
             }
             nir_intrinsic_load_barycentric_at_offset_nv => (),
             nir_intrinsic_load_barycentric_centroid => (),
@@ -3606,6 +3789,7 @@ impl<'a> ShaderFromNir<'a> {
 pub fn nak_shader_from_nir<'a>(
     ns: &'a nir_shader,
     sm: &'a dyn ShaderModel,
+    has_task_shader: bool,
 ) -> Shader<'a> {
-    ShaderFromNir::new(ns, sm).parse_shader()
+    ShaderFromNir::new(ns, sm, has_task_shader).parse_shader()
 }

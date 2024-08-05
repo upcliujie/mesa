@@ -2271,8 +2271,15 @@ intrinsic("ldcx_nv", dest_comp=0, src_comp=[1, 1],
           flags=[CAN_ELIMINATE, CAN_REORDER])
 intrinsic("load_sysval_nv", dest_comp=1, src_comp=[], bit_sizes=[32, 64],
           indices=[ACCESS, BASE], flags=[CAN_ELIMINATE])
-intrinsic("isberd_nv", dest_comp=1, src_comp=[1], bit_sizes=[32],
-          flags=[CAN_ELIMINATE, CAN_REORDER])
+# src[] = { offset }.
+# FLAGS is struct nak_nir_isbe_flags
+intrinsic("isberd_nv", dest_comp=1, src_comp=[1], bit_sizes=[8, 16, 32],
+          indices=[RANGE_BASE, RANGE, FLAGS, ACCESS],
+          flags=[CAN_ELIMINATE])
+# src[] = { data, offset }.
+# FLAGS is struct nak_nir_isbe_flags
+intrinsic("isbewr_nv", src_comp=[0, 1], bit_sizes=[8, 16, 32],
+          indices=[RANGE_BASE, RANGE, FLAGS, ACCESS], flags=[])
 intrinsic("al2p_nv", dest_comp=1, src_comp=[1], bit_sizes=[32],
           indices=[BASE, FLAGS], flags=[CAN_ELIMINATE, CAN_REORDER])
 # src[] = { vtx, offset }.

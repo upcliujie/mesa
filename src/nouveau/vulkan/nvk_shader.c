@@ -51,7 +51,8 @@ nvk_nak_stages(const struct nv_device_info *info)
       VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT |
       VK_SHADER_STAGE_GEOMETRY_BIT |
       VK_SHADER_STAGE_FRAGMENT_BIT |
-      VK_SHADER_STAGE_COMPUTE_BIT;
+      VK_SHADER_STAGE_COMPUTE_BIT |
+      VK_SHADER_STAGE_MESH_BIT_EXT;
 
    const struct debug_control flags[] = {
       { "vs", BITFIELD64_BIT(MESA_SHADER_VERTEX) },
@@ -60,6 +61,8 @@ nvk_nak_stages(const struct nv_device_info *info)
       { "gs", BITFIELD64_BIT(MESA_SHADER_GEOMETRY) },
       { "fs", BITFIELD64_BIT(MESA_SHADER_FRAGMENT) },
       { "cs", BITFIELD64_BIT(MESA_SHADER_COMPUTE) },
+      { "task", BITFIELD64_BIT(MESA_SHADER_TASK) },
+      { "mesh", BITFIELD64_BIT(MESA_SHADER_MESH) },
       { "all", all },
       { NULL, 0 },
    };
@@ -375,6 +378,7 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
               bool is_multiview,
               uint32_t set_layout_count,
               struct vk_descriptor_set_layout * const *set_layouts,
+              VkShaderCreateFlagsEXT shader_flags,
               struct nvk_cbuf_map *cbuf_map_out)
 {
    struct nvk_physical_device *pdev = nvk_device_physical(dev);
@@ -402,9 +406,36 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
             lookup_ycbcr_conversion, &ycbcr_state);
 
    nir_lower_compute_system_values_options csv_options = {
-      .has_base_workgroup_id = true,
+      .has_base_workgroup_id = nir->info.stage == MESA_SHADER_COMPUTE,
+      .lower_local_invocation_index = nir->info.stage == MESA_SHADER_COMPUTE,
+      .lower_cs_local_id_to_index = nir->info.stage == MESA_SHADER_TASK || nir->info.stage == MESA_SHADER_MESH,
+      .lower_workgroup_id_to_index = nir->info.stage == MESA_SHADER_TASK || nir->info.stage == MESA_SHADER_MESH,
    };
    NIR_PASS(_, nir, nir_lower_compute_system_values, &csv_options);
+
+   if (!nir->info.shared_memory_explicit_layout) {
+      NIR_PASS(_, nir, nir_lower_vars_to_explicit_types,
+               nir_var_mem_shared, shared_var_info);
+   }
+   NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_shared,
+            nir_address_format_32bit_offset);
+
+   if (nir->info.stage == MESA_SHADER_TASK ||
+       nir->info.stage == MESA_SHADER_MESH) {
+      if (!nir->info.shared_memory_explicit_layout) {
+         NIR_PASS(_, nir, nir_lower_vars_to_explicit_types,
+                  nir_var_mem_task_payload, shared_var_info);
+      }
+      NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_task_payload,
+               nir_address_format_32bit_offset);
+
+      if (nir->info.stage == MESA_SHADER_TASK) {
+         nir_lower_task_shader_options ts_opts = { 0 };
+         nir_lower_task_shader(nir, ts_opts);
+      }
+
+      NIR_PASS(_, nir, nvk_nir_lower_mesh);
+   }
 
    /* Lower push constants before lower_descriptors */
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_push_const,
@@ -457,8 +488,11 @@ nvk_lower_nir(struct nvk_device *dev, nir_shader *nir,
       };
    }
 
+   const bool has_task_shader =
+      (shader_flags & VK_SHADER_CREATE_NO_TASK_SHADER_BIT_EXT) == 0;
+
    NIR_PASS(_, nir, nvk_nir_lower_descriptors, pdev, rs,
-            set_layout_count, set_layouts, cbuf_map);
+            set_layout_count, set_layouts, has_task_shader, cbuf_map);
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_global,
             nir_address_format_64bit_global);
    NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_ssbo,
@@ -524,6 +558,8 @@ nvk_compile_nir_with_nak(struct nvk_physical_device *pdev,
 {
    const bool dump_asm =
       shader_flags & VK_SHADER_CREATE_CAPTURE_INTERNAL_REPRESENTATIONS_BIT_MESA;
+   const bool has_task_shader =
+      (shader_flags & VK_SHADER_CREATE_NO_TASK_SHADER_BIT_EXT) == 0;
 
    nir_variable_mode robust2_modes = 0;
    if (rs->uniform_buffers == VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_2_EXT)
@@ -531,7 +567,7 @@ nvk_compile_nir_with_nak(struct nvk_physical_device *pdev,
    if (rs->storage_buffers == VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_2_EXT)
       robust2_modes |= nir_var_mem_ssbo;
 
-   shader->nak = nak_compile_shader(nir, dump_asm, pdev->nak, robust2_modes, fs_key);
+   shader->nak = nak_compile_shader(nir, dump_asm, pdev->nak, robust2_modes, fs_key, has_task_shader);
    shader->info = shader->nak->info;
    shader->code_ptr = shader->nak->code;
    shader->code_size = shader->nak->code_size;
@@ -614,6 +650,16 @@ nvk_shader_upload(struct nvk_device *dev, struct nvk_shader *shader)
    assert(code_offset % alignment == 0);
    total_size += shader->code_size;
 
+   const bool has_mesh_gs_sph = shader->info.stage == MESA_SHADER_MESH &&
+                                shader->info.mesh.has_gs_sph;
+
+   uint32_t gs_hdr_offset = 0;
+   if (has_mesh_gs_sph) {
+      total_size = align(total_size, nvk_min_cbuf_alignment(&pdev->info));
+      gs_hdr_offset = total_size;
+      total_size += hdr_size;
+   }
+
    uint32_t data_offset = 0;
    if (shader->data_size > 0) {
       uint32_t cbuf_alignment = nvk_min_cbuf_alignment(&pdev->info);
@@ -630,6 +676,8 @@ nvk_shader_upload(struct nvk_device *dev, struct nvk_shader *shader)
    assert(hdr_size <= sizeof(shader->info.hdr));
    memcpy(data + hdr_offset, shader->info.hdr, hdr_size);
    memcpy(data + code_offset, shader->code_ptr, shader->code_size);
+   if (has_mesh_gs_sph)
+      memcpy(data + gs_hdr_offset, shader->info.mesh.gs_hdr, hdr_size);
    if (shader->data_size > 0)
       memcpy(data + data_offset, shader->data_ptr, shader->data_size);
 
@@ -651,6 +699,7 @@ nvk_shader_upload(struct nvk_device *dev, struct nvk_shader *shader)
          assert(shader->upload_addr - heap_base_addr < UINT32_MAX);
          shader->hdr_addr -= heap_base_addr;
       }
+      shader->gs_hdr_addr = shader->upload_addr + gs_hdr_offset;
       shader->data_addr = shader->upload_addr + data_offset;
    }
    free(data);
@@ -711,7 +760,7 @@ nvk_compile_shader(struct nvk_device *dev,
 
    nvk_lower_nir(dev, nir, info->robustness, is_multiview,
                  info->set_layout_count, info->set_layouts,
-                 &shader->cbuf_map);
+                 info->flags, &shader->cbuf_map);
 
    struct nak_fs_key fs_key_tmp, *fs_key = NULL;
    if (nir->info.stage == MESA_SHADER_FRAGMENT) {

@@ -598,7 +598,7 @@ nvk_cmd_bind_shaders(struct vk_command_buffer *vk_cmd,
    }
 }
 
-#define NVK_VK_GRAPHICS_STAGE_BITS VK_SHADER_STAGE_ALL_GRAPHICS
+#define NVK_VK_GRAPHICS_STAGE_BITS (VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT)
 
 void
 nvk_cmd_dirty_cbufs_for_descriptors(struct nvk_cmd_buffer *cmd,
@@ -610,9 +610,11 @@ nvk_cmd_dirty_cbufs_for_descriptors(struct nvk_cmd_buffer *cmd,
       return;
 
    uint32_t groups = 0;
+   bool has_task_shader = false;
    u_foreach_bit(i, stages & NVK_VK_GRAPHICS_STAGE_BITS) {
       gl_shader_stage stage = vk_to_mesa_shader_stage(1 << i);
-      uint32_t g = nvk_cbuf_binding_for_stage(stage);
+      has_task_shader |= stage == MESA_SHADER_TASK;
+      uint32_t g = nvk_cbuf_binding_for_stage(stage, has_task_shader);
       groups |= BITFIELD_BIT(g);
    }
 

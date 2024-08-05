@@ -30,7 +30,9 @@ enum nvk_mme {
    NVK_MME_SET_CONSERVATIVE_RASTER_STATE,
    NVK_MME_SET_VIEWPORT_MIN_MAX_Z,
    NVK_MME_SET_Z_CLAMP,
-
+   NVK_MME_DRAW_MESH,
+   NVK_MME_DRAW_MESH_INDIRECT,
+   NVK_MME_DRAW_MESH_INDIRECT_COUNT,
    NVK_MME_COUNT,
 };
 
@@ -54,6 +56,9 @@ enum nvk_mme_scratch {
    NVK_MME_SCRATCH_CB0_FIRST_VERTEX,
    NVK_MME_SCRATCH_CB0_DRAW_INDEX,
    NVK_MME_SCRATCH_CB0_VIEW_INDEX,
+   NVK_MME_SCRATCH_CB0_MESH_GROUP_COUNT_X,
+   NVK_MME_SCRATCH_CB0_MESH_GROUP_COUNT_Y,
+   NVK_MME_SCRATCH_CB0_MESH_GROUP_COUNT_Z,
 
    NVK_MME_SCRATCH_VIEWPORT0_MIN_Z,
    NVK_MME_SCRATCH_VIEWPORT0_MAX_Z,
@@ -153,5 +158,8 @@ void nvk_mme_set_write_mask(struct mme_builder *b);
 void nvk_mme_set_conservative_raster_state(struct mme_builder *b);
 void nvk_mme_set_viewport_min_max_z(struct mme_builder *b);
 void nvk_mme_set_z_clamp(struct mme_builder *b);
+void nvk_mme_draw_mesh(struct mme_builder *b);
+void nvk_mme_draw_mesh_indirect(struct mme_builder *b);
+void nvk_mme_draw_mesh_indirect_count(struct mme_builder *b);
 
 #endif /* NVK_MME_H */

@@ -4,7 +4,10 @@
 extern crate bitview;
 extern crate nvidia_headers;
 
-use crate::ir::{ShaderInfo, ShaderIoInfo, ShaderModel, ShaderStageInfo};
+use crate::ir::{
+    MeshShaderInfo, ShaderInfo, ShaderIoInfo, ShaderModel, ShaderStageInfo,
+    VtgIoInfo,
+};
 use bitview::{
     BitMutView, BitMutViewable, BitView, BitViewable, SetBit, SetField,
     SetFieldU64,
@@ -38,6 +41,14 @@ impl From<&ShaderStageInfo> for ShaderType {
                 ShaderType::TessellationInit
             }
             ShaderStageInfo::Tessellation(_) => ShaderType::Tessellation,
+            ShaderStageInfo::Mesh(info) => {
+                if info.has_task_shader {
+                    ShaderType::Tessellation
+                } else {
+                    ShaderType::Vertex
+                }
+            }
+            ShaderStageInfo::Task(_) => ShaderType::Vertex,
             _ => panic!("Invalid ShaderStageInfo {:?}", value),
         }
     }
@@ -235,6 +246,17 @@ impl ShaderProgramHeader {
     pub fn set_gs_passthrough_enable(&mut self, gs_passthrough_enable: bool) {
         assert!(self.shader_type == ShaderType::Geometry);
         self.set_bit(24, gs_passthrough_enable);
+    }
+
+    // TODO: Seems present most of the time on mesh/task but not always?
+    #[inline]
+    #[allow(unused)]
+    pub fn set_isbe_unknown_bit(&mut self, isbe_write_access_enable: bool) {
+        assert!(
+            self.shader_type == ShaderType::Vertex
+                || self.shader_type == ShaderType::Tessellation
+        );
+        self.set_bit(25, isbe_write_access_enable);
     }
 
     #[inline]
@@ -461,6 +483,27 @@ impl ShaderProgramHeader {
     }
 }
 
+pub fn encode_vtg_io(sph: &mut ShaderProgramHeader, io: &VtgIoInfo) {
+    sph.set_imap_system_values_ab(io.sysvals_in.ab);
+    sph.set_imap_system_values_c(io.sysvals_in.c);
+    sph.set_imap_system_values_d_vtg(io.sysvals_in_d);
+
+    for (index, value) in io.attr_in.iter().enumerate() {
+        sph.set_imap_vector_vtg(index, *value);
+    }
+
+    for (index, value) in io.attr_out.iter().enumerate() {
+        sph.set_omap_vector(index, *value);
+    }
+
+    sph.set_store_req_start(io.store_req_start);
+    sph.set_store_req_end(io.store_req_end);
+
+    sph.set_omap_system_values_ab(io.sysvals_out.ab);
+    sph.set_omap_system_values_c(io.sysvals_out.c);
+    sph.set_omap_system_values_d_vtg(io.sysvals_out_d);
+}
+
 pub fn encode_header(
     sm: &dyn ShaderModel,
     shader_info: &ShaderInfo,
@@ -484,26 +527,7 @@ pub fn encode_header(
     sph.set_shader_local_memory_crs_size(crs_size);
 
     match &shader_info.io {
-        ShaderIoInfo::Vtg(io) => {
-            sph.set_imap_system_values_ab(io.sysvals_in.ab);
-            sph.set_imap_system_values_c(io.sysvals_in.c);
-            sph.set_imap_system_values_d_vtg(io.sysvals_in_d);
-
-            for (index, value) in io.attr_in.iter().enumerate() {
-                sph.set_imap_vector_vtg(index, *value);
-            }
-
-            for (index, value) in io.attr_out.iter().enumerate() {
-                sph.set_omap_vector(index, *value);
-            }
-
-            sph.set_store_req_start(io.store_req_start);
-            sph.set_store_req_end(io.store_req_end);
-
-            sph.set_omap_system_values_ab(io.sysvals_out.ab);
-            sph.set_omap_system_values_c(io.sysvals_out.c);
-            sph.set_omap_system_values_d_vtg(io.sysvals_out_d);
-        }
+        ShaderIoInfo::Vtg(io) => encode_vtg_io(&mut sph, io),
         ShaderIoInfo::Fragment(io) => {
             sph.set_imap_system_values_ab(io.sysvals_in.ab);
             sph.set_imap_system_values_c(io.sysvals_in.c);
@@ -563,6 +587,28 @@ pub fn encode_header(
         }
         _ => {}
     };
+
+    sph.data
+}
+
+pub fn encode_gs_mesh_header(
+    sm: u8,
+    mesh_info: &MeshShaderInfo,
+) -> [u32; CURRENT_MAX_SHADER_HEADER_SIZE] {
+    // If there is no usage of per primitive output, we can skip the GS stage.
+    if !mesh_info.has_gs_sph {
+        return [0_u32; CURRENT_MAX_SHADER_HEADER_SIZE];
+    }
+
+    let mut sph = ShaderProgramHeader::new(ShaderType::Geometry, sm);
+    sph.set_sass_version(1);
+    sph.set_gs_passthrough_enable(true);
+    sph.set_stream_out_mask(0);
+    sph.set_threads_per_input_primitive(1);
+    sph.set_output_topology(OutputTopology::PointList);
+    sph.set_max_output_vertex_count(1);
+
+    encode_vtg_io(&mut sph, &mesh_info.primitive_io);
 
     sph.data
 }
