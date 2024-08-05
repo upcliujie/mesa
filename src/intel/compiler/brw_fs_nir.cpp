@@ -367,21 +367,11 @@ emit_system_values_block(nir_to_brw_state &ntb, nir_block *block)
 static void
 fs_nir_emit_system_values(nir_to_brw_state &ntb)
 {
-   const fs_builder &bld = ntb.bld;
    fs_visitor &s = ntb.s;
 
    ntb.system_values = ralloc_array(ntb.mem_ctx, brw_reg, SYSTEM_VALUE_MAX);
    for (unsigned i = 0; i < SYSTEM_VALUE_MAX; i++) {
       ntb.system_values[i] = brw_reg();
-   }
-
-   /* Always emit SUBGROUP_INVOCATION.  Dead code will clean it up if we
-    * never end up using it.
-    */
-   {
-      brw_reg &reg = ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION];
-      reg = bld.vgrf(s.dispatch_width < 16 ? BRW_TYPE_UD : BRW_TYPE_UW);
-      bld.emit(SHADER_OPCODE_LOAD_SUBGROUP_INVOCATION, reg);
    }
 
    nir_function_impl *impl = nir_shader_get_entrypoint((nir_shader *)s.nir);
@@ -2626,8 +2616,7 @@ emit_gs_input_load(nir_to_brw_state &ntb, const brw_reg &dst,
           * by 32 (shifting by 5), and add the two together.  This is
           * the final indirect byte offset.
           */
-         brw_reg sequence =
-            ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION];
+         brw_reg sequence = bld.LOAD_SUBGROUP_INVOCATION();
 
          /* channel_offsets = 4 * sequence = <28, 24, 20, 16, 12, 8, 4, 0> */
          brw_reg channel_offsets = bld.SHL(sequence, brw_imm_ud(2u));
@@ -2875,7 +2864,7 @@ get_tcs_multi_patch_icp_handle(nir_to_brw_state &ntb, const fs_builder &bld,
     * by the GRF size (by shifting), and add the two together.  This is
     * the final indirect byte offset.
     */
-   brw_reg sequence = ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION];
+   brw_reg sequence = bld.LOAD_SUBGROUP_INVOCATION();
 
    /* Offsets will be 0, 4, 8, ... */
    brw_reg channel_offsets = bld.SHL(sequence, brw_imm_ud(2u));
@@ -4763,74 +4752,23 @@ fs_nir_emit_bs_intrinsic(nir_to_brw_state &ntb,
    }
 }
 
-static brw_reg
-brw_nir_reduction_op_identity(const fs_builder &bld,
-                              nir_op op, brw_reg_type type)
-{
-   nir_const_value value =
-      nir_alu_binop_identity(op, brw_type_size_bits(type));
-
-   switch (brw_type_size_bytes(type)) {
-   case 1:
-      if (type == BRW_TYPE_UB) {
-         return brw_imm_uw(value.u8);
-      } else {
-         assert(type == BRW_TYPE_B);
-         return brw_imm_w(value.i8);
-      }
-   case 2:
-      return retype(brw_imm_uw(value.u16), type);
-   case 4:
-      return retype(brw_imm_ud(value.u32), type);
-   case 8:
-      if (type == BRW_TYPE_DF)
-         return brw_imm_df(value.f64);
-      else
-         return retype(brw_imm_u64(value.u64), type);
-   default:
-      unreachable("Invalid type size");
-   }
-}
-
-static opcode
-brw_op_for_nir_reduction_op(nir_op op)
+static brw_reduce_op
+brw_reduce_op_for_nir_reduction_op(nir_op op)
 {
    switch (op) {
-   case nir_op_iadd: return BRW_OPCODE_ADD;
-   case nir_op_fadd: return BRW_OPCODE_ADD;
-   case nir_op_imul: return BRW_OPCODE_MUL;
-   case nir_op_fmul: return BRW_OPCODE_MUL;
-   case nir_op_imin: return BRW_OPCODE_SEL;
-   case nir_op_umin: return BRW_OPCODE_SEL;
-   case nir_op_fmin: return BRW_OPCODE_SEL;
-   case nir_op_imax: return BRW_OPCODE_SEL;
-   case nir_op_umax: return BRW_OPCODE_SEL;
-   case nir_op_fmax: return BRW_OPCODE_SEL;
-   case nir_op_iand: return BRW_OPCODE_AND;
-   case nir_op_ior:  return BRW_OPCODE_OR;
-   case nir_op_ixor: return BRW_OPCODE_XOR;
-   default:
-      unreachable("Invalid reduction operation");
-   }
-}
-
-static brw_conditional_mod
-brw_cond_mod_for_nir_reduction_op(nir_op op)
-{
-   switch (op) {
-   case nir_op_iadd: return BRW_CONDITIONAL_NONE;
-   case nir_op_fadd: return BRW_CONDITIONAL_NONE;
-   case nir_op_imul: return BRW_CONDITIONAL_NONE;
-   case nir_op_fmul: return BRW_CONDITIONAL_NONE;
-   case nir_op_imin: return BRW_CONDITIONAL_L;
-   case nir_op_umin: return BRW_CONDITIONAL_L;
-   case nir_op_fmin: return BRW_CONDITIONAL_L;
-   case nir_op_imax: return BRW_CONDITIONAL_GE;
-   case nir_op_umax: return BRW_CONDITIONAL_GE;
-   case nir_op_fmax: return BRW_CONDITIONAL_GE;
-   case nir_op_iand: return BRW_CONDITIONAL_NONE;
-   case nir_op_ior:  return BRW_CONDITIONAL_NONE;
-   case nir_op_ixor: return BRW_CONDITIONAL_NONE;
+   case nir_op_iadd: return BRW_REDUCE_OP_ADD;
+   case nir_op_fadd: return BRW_REDUCE_OP_ADD;
+   case nir_op_imul: return BRW_REDUCE_OP_MUL;
+   case nir_op_fmul: return BRW_REDUCE_OP_MUL;
+   case nir_op_imin: return BRW_REDUCE_OP_MIN;
+   case nir_op_umin: return BRW_REDUCE_OP_MIN;
+   case nir_op_fmin: return BRW_REDUCE_OP_MIN;
+   case nir_op_imax: return BRW_REDUCE_OP_MAX;
+   case nir_op_umax: return BRW_REDUCE_OP_MAX;
+   case nir_op_fmax: return BRW_REDUCE_OP_MAX;
+   case nir_op_iand: return BRW_REDUCE_OP_AND;
+   case nir_op_ior:  return BRW_REDUCE_OP_OR;
+   case nir_op_ixor: return BRW_REDUCE_OP_XOR;
    default:
       unreachable("Invalid reduction operation");
    }
@@ -5230,8 +5168,7 @@ swizzle_nir_scratch_addr(nir_to_brw_state &ntb,
 {
    fs_visitor &s = ntb.s;
 
-   const brw_reg &chan_index =
-      ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION];
+   const brw_reg chan_index = bld.LOAD_SUBGROUP_INVOCATION();
    const unsigned chan_index_bits = ffs(s.dispatch_width) - 1;
 
    if (nir_src_is_const(nir_addr_src)) {
@@ -7333,8 +7270,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
       break;
 
    case nir_intrinsic_load_subgroup_invocation:
-      bld.MOV(retype(dest, BRW_TYPE_D),
-              ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION]);
+      bld.MOV(retype(dest, BRW_TYPE_D), bld.LOAD_SUBGROUP_INVOCATION());
       break;
 
    case nir_intrinsic_load_subgroup_eq_mask:
@@ -7391,7 +7327,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
        * 0b...1111, invocations 4-7 will have 0b...11110000 and so on.
        */
       brw_reg invoc_ud = bld.vgrf(BRW_TYPE_UD);
-      bld.MOV(invoc_ud, ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION]);
+      bld.MOV(invoc_ud, bld.LOAD_SUBGROUP_INVOCATION());
       brw_reg quad_mask =
          bld.SHL(brw_imm_ud(0xF), bld.AND(invoc_ud, brw_imm_ud(0xFFFFFFFC)));
 
@@ -7655,8 +7591,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
           * MOVs or else fall back to doing indirects.
           */
          brw_reg idx = bld.vgrf(BRW_TYPE_W);
-         bld.XOR(idx, ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION],
-                      brw_imm_w(0x2));
+         bld.XOR(idx, bld.LOAD_SUBGROUP_INVOCATION(), brw_imm_w(0x2));
          bld.emit(SHADER_OPCODE_SHUFFLE, retype(dest, value.type), value, idx);
       }
       break;
@@ -7676,8 +7611,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
           * MOVs or else fall back to doing indirects.
           */
          brw_reg idx = bld.vgrf(BRW_TYPE_W);
-         bld.XOR(idx, ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION],
-                      brw_imm_w(0x3));
+         bld.XOR(idx, bld.LOAD_SUBGROUP_INVOCATION(), brw_imm_w(0x3));
          bld.emit(SHADER_OPCODE_SHUFFLE, retype(dest, value.type), value, idx);
       }
       break;
@@ -7685,90 +7619,37 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
 
    case nir_intrinsic_reduce: {
       brw_reg src = get_nir_src(ntb, instr->src[0]);
-      nir_op redop = (nir_op)nir_intrinsic_reduction_op(instr);
+      nir_op op = (nir_op)nir_intrinsic_reduction_op(instr);
+      enum brw_reduce_op brw_op = brw_reduce_op_for_nir_reduction_op(op);
       unsigned cluster_size = nir_intrinsic_cluster_size(instr);
       if (cluster_size == 0 || cluster_size > s.dispatch_width)
          cluster_size = s.dispatch_width;
 
       /* Figure out the source type */
       src.type = brw_type_for_nir_type(devinfo,
-         (nir_alu_type)(nir_op_infos[redop].input_types[0] |
+         (nir_alu_type)(nir_op_infos[op].input_types[0] |
                         nir_src_bit_size(instr->src[0])));
 
-      brw_reg identity = brw_nir_reduction_op_identity(bld, redop, src.type);
-      opcode brw_op = brw_op_for_nir_reduction_op(redop);
-      brw_conditional_mod cond_mod = brw_cond_mod_for_nir_reduction_op(redop);
-
-      /* Set up a register for all of our scratching around and initialize it
-       * to reduction operation's identity value.
-       */
-      brw_reg scan = bld.vgrf(src.type);
-      bld.exec_all().emit(SHADER_OPCODE_SEL_EXEC, scan, src, identity);
-
-      bld.emit_scan(brw_op, scan, cluster_size, cond_mod);
-
-      dest.type = src.type;
-      if (cluster_size * brw_type_size_bytes(src.type) >= REG_SIZE * 2) {
-         /* In this case, CLUSTER_BROADCAST instruction isn't needed because
-          * the distance between clusters is at least 2 GRFs.  In this case,
-          * we don't need the weird striding of the CLUSTER_BROADCAST
-          * instruction and can just do regular MOVs.
-          */
-         assert((cluster_size * brw_type_size_bytes(src.type)) % (REG_SIZE * 2) == 0);
-         const unsigned groups =
-            (s.dispatch_width * brw_type_size_bytes(src.type)) / (REG_SIZE * 2);
-         const unsigned group_size = s.dispatch_width / groups;
-         for (unsigned i = 0; i < groups; i++) {
-            const unsigned cluster = (i * group_size) / cluster_size;
-            const unsigned comp = cluster * cluster_size + (cluster_size - 1);
-            bld.group(group_size, i).MOV(horiz_offset(dest, i * group_size),
-                                         component(scan, comp));
-         }
-      } else {
-         bld.emit(SHADER_OPCODE_CLUSTER_BROADCAST, dest, scan,
-                  brw_imm_ud(cluster_size - 1), brw_imm_ud(cluster_size));
-      }
+      bld.emit(SHADER_OPCODE_REDUCE, retype(dest, src.type), src,
+               brw_imm_ud(brw_op), brw_imm_ud(cluster_size));
       break;
    }
 
    case nir_intrinsic_inclusive_scan:
    case nir_intrinsic_exclusive_scan: {
       brw_reg src = get_nir_src(ntb, instr->src[0]);
-      nir_op redop = (nir_op)nir_intrinsic_reduction_op(instr);
+      nir_op op = (nir_op)nir_intrinsic_reduction_op(instr);
+      enum brw_reduce_op brw_op = brw_reduce_op_for_nir_reduction_op(op);
 
       /* Figure out the source type */
       src.type = brw_type_for_nir_type(devinfo,
-         (nir_alu_type)(nir_op_infos[redop].input_types[0] |
+         (nir_alu_type)(nir_op_infos[op].input_types[0] |
                         nir_src_bit_size(instr->src[0])));
 
-      brw_reg identity = brw_nir_reduction_op_identity(bld, redop, src.type);
-      opcode brw_op = brw_op_for_nir_reduction_op(redop);
-      brw_conditional_mod cond_mod = brw_cond_mod_for_nir_reduction_op(redop);
+      enum opcode opcode = instr->intrinsic == nir_intrinsic_exclusive_scan ?
+            SHADER_OPCODE_EXCLUSIVE_SCAN : SHADER_OPCODE_INCLUSIVE_SCAN;
 
-      /* Set up a register for all of our scratching around and initialize it
-       * to reduction operation's identity value.
-       */
-      brw_reg scan = bld.vgrf(src.type);
-      const fs_builder allbld = bld.exec_all();
-      allbld.emit(SHADER_OPCODE_SEL_EXEC, scan, src, identity);
-
-      if (instr->intrinsic == nir_intrinsic_exclusive_scan) {
-         /* Exclusive scan is a bit harder because we have to do an annoying
-          * shift of the contents before we can begin.  To make things worse,
-          * we can't do this with a normal stride; we have to use indirects.
-          */
-         brw_reg shifted = bld.vgrf(src.type);
-         brw_reg idx = bld.vgrf(BRW_TYPE_W);
-         allbld.ADD(idx, ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION],
-                         brw_imm_w(-1));
-         allbld.emit(SHADER_OPCODE_SHUFFLE, shifted, scan, idx);
-         allbld.group(1, 0).MOV(horiz_offset(shifted, 0), identity);
-         scan = shifted;
-      }
-
-      bld.emit_scan(brw_op, scan, s.dispatch_width, cond_mod);
-
-      bld.MOV(retype(dest, src.type), scan);
+      bld.emit(opcode, retype(dest, src.type), src, brw_imm_ud(brw_op));
       break;
    }
 
@@ -8055,10 +7936,9 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
             bld.SHL(bld.AND(raw_id, brw_imm_ud(INTEL_MASK(2, 0))),
                     brw_imm_ud(4));
 
-         /* LaneID[0:3] << 0 (Use nir SYSTEM_VALUE_SUBGROUP_INVOCATION) */
+         /* LaneID[0:3] << 0 (Use subgroup invocation) */
          assert(bld.dispatch_width() <= 16); /* Limit to 4 bits */
-         bld.ADD(dst, bld.OR(eu, tid),
-                 ntb.system_values[SYSTEM_VALUE_SUBGROUP_INVOCATION]);
+         bld.ADD(dst, bld.OR(eu, tid), bld.LOAD_SUBGROUP_INVOCATION());
          break;
       }
       default:
