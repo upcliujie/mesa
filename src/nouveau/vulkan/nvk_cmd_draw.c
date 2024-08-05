@@ -412,6 +412,7 @@ nvk_push_draw_state_init(struct nvk_queue *queue, struct nv_push *p)
    P_IMMD(p, NV9097, SET_ANTI_ALIAS_ENABLE, V_TRUE);
 
    if (pdev->info.cls_eng3d >= MAXWELL_B) {
+      P_IMMD(p, NVB197, SET_POST_PS_INITIAL_COVERAGE, true);
       P_IMMD(p, NVB197, SET_OFFSET_RENDER_TARGET_INDEX,
                         BY_VIEWPORT_INDEX_FALSE);
    }
@@ -1941,10 +1942,10 @@ vk_sample_location(const struct vk_sample_locations_state *sl,
    return sl->locations[(x + y * sl->grid_size.width) * sl->per_pixel + s];
 }
 
-static struct nvk_sample_location
-vk_to_nvk_sample_location(VkSampleLocationEXT loc)
+static struct nak_sample_location
+vk_to_nak_sample_location(VkSampleLocationEXT loc)
 {
-   return (struct nvk_sample_location) {
+   return (struct nak_sample_location) {
       .x_u4 = util_bitpack_ufixed_clamp(loc.x, 0, 3, 4),
       .y_u4 = util_bitpack_ufixed_clamp(loc.y, 0, 3, 4),
    };
@@ -1982,15 +1983,35 @@ nvk_flush_ms_state(struct nvk_cmd_buffer *cmd)
 
       struct nvk_shader *fs = cmd->state.gfx.shaders[MESA_SHADER_FRAGMENT];
       const float min_sample_shading = fs != NULL ? fs->min_sample_shading : 0;
-      uint32_t min_samples = ceilf(dyn->ms.rasterization_samples *
-                                   min_sample_shading);
-      min_samples = util_next_power_of_two(MAX2(1, min_samples));
+      uint32_t num_passes = ceilf(dyn->ms.rasterization_samples *
+                                  min_sample_shading);
+      num_passes = util_next_power_of_two(MAX2(1, num_passes));
 
       P_IMMD(p, NV9097, SET_HYBRID_ANTI_ALIAS_CONTROL, {
-         .passes = min_samples,
-         .centroid = min_samples > 1 ? CENTROID_PER_PASS
-                                     : CENTROID_PER_FRAGMENT,
+         .passes = num_passes,
+         .centroid = num_passes > 1 ? CENTROID_PER_PASS
+                                    : CENTROID_PER_FRAGMENT,
       });
+
+      if (dyn->ms.rasterization_samples > 0) {
+         assert(util_is_power_of_two_or_zero(dyn->ms.rasterization_samples));
+         assert(util_is_power_of_two_nonzero(num_passes));
+         uint32_t samples_per_pass = dyn->ms.rasterization_samples / num_passes;
+
+         struct nak_sample_mask push_sm[NVK_MAX_SAMPLES];
+         for (uint32_t s = 0; s < dyn->ms.rasterization_samples; s++) {
+            const uint32_t pass = s / samples_per_pass;
+            const uint32_t sample_mask =
+               BITFIELD_MASK(samples_per_pass) << (pass * samples_per_pass);
+            push_sm[s] = (struct nak_sample_mask) {
+               .sample_mask = sample_mask,
+            };
+         }
+         nvk_descriptor_state_set_root_array(cmd, &cmd->state.gfx.descriptors,
+                                             draw.sample_masks,
+                                             0, dyn->ms.rasterization_samples,
+                                             push_sm);
+      }
    }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_ALPHA_TO_COVERAGE_ENABLE) ||
@@ -2013,23 +2034,23 @@ nvk_flush_ms_state(struct nvk_cmd_buffer *cmd)
          sl = vk_standard_sample_locations_state(samples);
       }
 
-      struct nvk_sample_location push_sl[NVK_MAX_SAMPLES];
+      struct nak_sample_location push_sl[NVK_MAX_SAMPLES];
       for (uint32_t i = 0; i < sl->per_pixel; i++)
-         push_sl[i] = vk_to_nvk_sample_location(sl->locations[i]);
+         push_sl[i] = vk_to_nak_sample_location(sl->locations[i]);
 
       nvk_descriptor_state_set_root_array(cmd, &cmd->state.gfx.descriptors,
                                           draw.sample_locations,
                                           0, NVK_MAX_SAMPLES, push_sl);
 
       if (nvk_cmd_buffer_3d_cls(cmd) >= MAXWELL_B) {
-         struct nvk_sample_location loc[16];
+         struct nak_sample_location loc[16];
          for (uint32_t n = 0; n < ARRAY_SIZE(loc); n++) {
             const uint32_t s = n % sl->per_pixel;
             const uint32_t px = n / sl->per_pixel;
             const uint32_t x = px % 2;
             const uint32_t y = px / 2;
 
-            loc[n] = vk_to_nvk_sample_location(vk_sample_location(sl, x, y, s));
+            loc[n] = vk_to_nak_sample_location(vk_sample_location(sl, x, y, s));
          }
 
          struct nv_push *p = nvk_cmd_buffer_push(cmd, 5);

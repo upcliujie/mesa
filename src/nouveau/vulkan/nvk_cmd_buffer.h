@@ -29,13 +29,6 @@ struct nvk_push_descriptor_set;
 struct nvk_shader;
 struct vk_shader;
 
-struct nvk_sample_location {
-   uint8_t x_u4:4;
-   uint8_t y_u4:4;
-};
-static_assert(sizeof(struct nvk_sample_location) == 1,
-              "This struct has no holes");
-
 /** Root descriptor table.  This gets pushed to the GPU directly */
 struct nvk_root_descriptor_table {
    union {
@@ -44,7 +37,8 @@ struct nvk_root_descriptor_table {
          uint32_t base_instance;
          uint32_t draw_index;
          uint32_t view_index;
-         struct nvk_sample_location sample_locations[NVK_MAX_SAMPLES];
+         struct nak_sample_location sample_locations[NVK_MAX_SAMPLES];
+         struct nak_sample_mask sample_masks[NVK_MAX_SAMPLES];
       } draw;
       struct {
          uint32_t base_group[3];
@@ -68,7 +62,7 @@ struct nvk_root_descriptor_table {
    union nvk_buffer_descriptor dynamic_buffers[NVK_MAX_DYNAMIC_BUFFERS];
 
    /* enfore alignment to 0x100 as needed pre pascal */
-   uint8_t __padding[0x48];
+   uint8_t __padding[0x38];
 };
 
 /* helper macro for computing root descriptor byte offsets */
