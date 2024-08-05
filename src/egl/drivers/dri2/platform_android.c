@@ -616,7 +616,6 @@ droid_query_buffer_age(_EGLDisplay *disp, _EGLSurface *surface)
 static EGLBoolean
 droid_swap_buffers(_EGLDisplay *disp, _EGLSurface *draw)
 {
-   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
    struct dri2_egl_surface *dri2_surf = dri2_egl_surface(draw);
    const bool has_mutable_rb = _eglSurfaceHasMutableRenderBuffer(draw);
 
@@ -655,7 +654,7 @@ droid_swap_buffers(_EGLDisplay *disp, _EGLSurface *draw)
    if (dri2_surf->buffer)
       droid_window_enqueue_buffer(disp, dri2_surf);
 
-   dri2_dpy->flush->invalidate(dri2_surf->dri_drawable);
+   dri_invalidate_drawable(dri2_surf->dri_drawable);
 
    /* Update the shared buffer mode */
    if (has_mutable_rb &&
@@ -924,9 +923,6 @@ droid_display_shared_buffer(__DRIdrawable *driDrawable, int fence_fd,
    if (ANativeWindow_dequeueBuffer(dri2_surf->window, &dri2_surf->buffer,
                                    &fence_fd)) {
       /* Tear down the surface because it no longer has a back buffer. */
-      struct dri2_egl_display *dri2_dpy =
-         dri2_egl_display(dri2_surf->base.Resource.Display);
-
       _eglLog(_EGL_WARNING, "%s: ANativeWindow_dequeueBuffer failed", __func__);
 
       dri2_surf->base.Lost = true;
@@ -938,7 +934,7 @@ droid_display_shared_buffer(__DRIdrawable *driDrawable, int fence_fd,
          dri2_surf->dri_image_back = NULL;
       }
 
-      dri2_dpy->flush->invalidate(dri2_surf->dri_drawable);
+      dri_invalidate_drawable(dri2_surf->dri_drawable);
       return;
    }
 
@@ -989,7 +985,7 @@ droid_load_driver(_EGLDisplay *disp, bool swrast)
    }
 
    dri2_dpy->loader_extensions = droid_image_loader_extensions;
-   if (!dri2_load_driver_dri3(disp)) {
+   if (!dri2_load_driver(disp)) {
       goto error;
    }
 
@@ -1151,11 +1147,6 @@ dri2_initialize_android(_EGLDisplay *disp)
 
    dri2_dpy->fd_display_gpu = dri2_dpy->fd_render_gpu;
 
-   if (!dri2_setup_extensions(disp)) {
-      err = "DRI2: failed to setup extensions";
-      goto cleanup;
-   }
-
    if (!dri2_setup_device(disp, false)) {
       err = "DRI2: failed to setup EGLDevice";
       goto cleanup;
@@ -1190,7 +1181,7 @@ dri2_initialize_android(_EGLDisplay *disp)
 
    dri2_dpy->front_rendering_usage = 0;
 #if ANDROID_API_LEVEL >= 24
-   if (dri2_dpy->mutable_render_buffer &&
+   if (!dri2_dpy->swrast_not_kms &&
        dri2_dpy->loader_extensions == droid_image_loader_extensions &&
        /* In big GL, front rendering is done at the core API level by directly
         * rendering on the front buffer. However, in ES, the front buffer is

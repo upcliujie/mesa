@@ -2029,8 +2029,8 @@ static const __DRI2interopExtension dri2InteropExtension = {
 /**
  * \brief the DRI2bufferDamageExtension set_damage_region method
  */
-static void
-dri2_set_damage_region(__DRIdrawable *dPriv, unsigned int nrects, int *rects)
+void
+dri_set_damage_region(__DRIdrawable *dPriv, unsigned int nrects, int *rects)
 {
    struct dri_drawable *drawable = dri_drawable(dPriv);
    struct pipe_box *boxes = NULL;
@@ -2074,9 +2074,9 @@ static const __DRI2bufferDamageExtension dri2BufferDamageExtensionTempl = {
 /**
  * \brief the DRI2blobExtension set_cache_funcs method
  */
-static void
-set_blob_cache_funcs(__DRIscreen *sPriv, __DRIblobCacheSet set,
-                     __DRIblobCacheGet get)
+void
+dri_set_blob_cache_funcs(__DRIscreen *sPriv, __DRIblobCacheSet set,
+                         __DRIblobCacheGet get)
 {
    struct dri_screen *screen = dri_screen(sPriv);
    struct pipe_screen *pscreen = screen->base.screen;
@@ -2094,7 +2094,7 @@ set_blob_cache_funcs(__DRIscreen *sPriv, __DRIblobCacheSet set,
 
 static const __DRI2blobExtension driBlobExtension = {
    .base = { __DRI2_BLOB, 1 },
-   .set_cache_funcs = set_blob_cache_funcs
+   .set_cache_funcs = dri_set_blob_cache_funcs
 };
 
 static const __DRImutableRenderBufferDriverExtension driMutableRenderBufferExtension = {
@@ -2164,11 +2164,9 @@ dri2_init_screen_extensions(struct dri_screen *screen,
 
    *nExt++ = &screen->image_extension.base;
 
-   if (!is_kms_screen) {
+   if (!is_kms_screen && pscreen->set_damage_region) {
       screen->buffer_damage_extension = dri2BufferDamageExtensionTempl;
-      if (pscreen->set_damage_region)
-         screen->buffer_damage_extension.set_damage_region =
-            dri2_set_damage_region;
+      screen->buffer_damage_extension.set_damage_region = dri_set_damage_region;
       *nExt++ = &screen->buffer_damage_extension.base;
    }
 

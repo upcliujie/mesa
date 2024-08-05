@@ -417,8 +417,6 @@ static void
 resize_callback(struct wl_egl_window *wl_win, void *data)
 {
    struct dri2_egl_surface *dri2_surf = data;
-   struct dri2_egl_display *dri2_dpy =
-      dri2_egl_display(dri2_surf->base.Resource.Display);
 
    if (dri2_surf->base.Width == wl_win->width &&
        dri2_surf->base.Height == wl_win->height)
@@ -437,7 +435,7 @@ resize_callback(struct wl_egl_window *wl_win, void *data)
       dri2_surf->base.Width = wl_win->width;
       dri2_surf->base.Height = wl_win->height;
    }
-   dri2_dpy->flush->invalidate(dri2_surf->dri_drawable);
+   dri_invalidate_drawable(dri2_surf->dri_drawable);
 }
 
 static void
@@ -793,7 +791,7 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
    dri2_surf->wl_win = window;
    dri2_surf->wl_win->driver_private = dri2_surf;
    dri2_surf->wl_win->destroy_window_callback = destroy_window_callback;
-   if (dri2_dpy->flush)
+   if (!dri2_dpy->swrast_not_kms)
       dri2_surf->wl_win->resize_callback = resize_callback;
 
    if (!dri2_create_drawable(dri2_dpy, config, dri2_surf, dri2_surf))
@@ -1638,7 +1636,7 @@ dri2_wl_swap_buffers_with_damage(_EGLDisplay *disp, _EGLSurface *draw,
     *     and glthread causes troubles (see #7624 and #8136)
     */
    dri2_flush_drawable_for_swapbuffers(disp, draw);
-   dri2_dpy->flush->invalidate(dri2_surf->dri_drawable);
+   dri_invalidate_drawable(dri2_surf->dri_drawable);
 
    while (dri2_surf->throttle_callback != NULL)
       if (loader_wayland_dispatch(dri2_dpy->wl_dpy, dri2_surf->wl_queue, NULL) ==
@@ -1711,10 +1709,10 @@ dri2_wl_swap_buffers_with_damage(_EGLDisplay *disp, _EGLSurface *draw,
          dri2_surf->base.Height, 0, 0, dri2_surf->base.Width,
          dri2_surf->base.Height, 0);
 
-      if (dri2_dpy->flush) {
+      if (dri2_dpy->swrast_not_kms) {
          __DRIdrawable *dri_drawable = dri2_dpy->vtbl->get_dri_drawable(draw);
 
-         dri2_dpy->flush->flush(dri_drawable);
+         dri_flush_drawable(dri_drawable);
       }
    }
 
@@ -2282,15 +2280,12 @@ dri2_initialize_wayland_drm(_EGLDisplay *disp)
    }
 
    dri2_dpy->loader_extensions = dri2_loader_extensions;
-   if (!dri2_load_driver_dri3(disp)) {
+   if (!dri2_load_driver(disp)) {
       _eglError(EGL_BAD_ALLOC, "DRI2: failed to load driver");
       goto cleanup;
    }
 
    if (!dri2_create_screen(disp))
-      goto cleanup;
-
-   if (!dri2_setup_extensions(disp))
       goto cleanup;
 
    if (!dri2_setup_device(disp, false)) {
@@ -2958,15 +2953,12 @@ dri2_initialize_wayland_swrast(_EGLDisplay *disp)
       dri2_initialize_wayland_drm_extensions(dri2_dpy);
 
    dri2_dpy->driver_name = strdup(disp->Options.Zink ? "zink" : "swrast");
-   if (!dri2_load_driver_swrast(disp))
+   if (!dri2_load_driver(disp))
       goto cleanup;
 
    dri2_dpy->loader_extensions = disp->Options.Zink ? kopper_swrast_loader_extensions : swrast_loader_extensions;
 
    if (!dri2_create_screen(disp))
-      goto cleanup;
-
-   if (!dri2_setup_extensions(disp))
       goto cleanup;
 
    if (!dri2_setup_device(disp, true)) {

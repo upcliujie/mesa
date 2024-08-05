@@ -50,7 +50,7 @@
 #include "util/log.h"
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include "loader_x11.h"
 #include "kopper_interface.h"
 #include "loader.h"
 #include "platform_x11.h"
@@ -616,8 +616,8 @@ dri2_query_surface(_EGLDisplay *disp, _EGLSurface *surf, EGLint attribute,
          bool changed = surf->Width != w || surf->Height != h;
          surf->Width = w;
          surf->Height = h;
-         if (changed && dri2_dpy->flush)
-            dri2_dpy->flush->invalidate(drawable);
+         if (changed && !dri2_dpy->swrast_not_kms)
+            dri_invalidate_drawable(drawable);
       }
       break;
    default:
@@ -1034,7 +1034,7 @@ dri2_copy_region(_EGLDisplay *disp, _EGLSurface *draw,
       return EGL_TRUE;
 
    assert(!dri2_dpy->kopper);
-   dri2_dpy->flush->flush(dri2_surf->dri_drawable);
+   dri_flush_drawable(dri2_surf->dri_drawable);
 
    if (dri2_surf->have_fake_front)
       render_attachment = XCB_DRI2_ATTACHMENT_BUFFER_FAKE_FRONT_LEFT;
@@ -1093,8 +1093,7 @@ dri2_x11_swap_buffers_msc(_EGLDisplay *disp, _EGLSurface *draw, int64_t msc,
     * happened.  The driver should still be using the viewport hack to catch
     * window resizes.
     */
-   if (dri2_dpy->flush->base.version >= 3 && dri2_dpy->flush->invalidate)
-      dri2_dpy->flush->invalidate(dri2_surf->dri_drawable);
+   dri_invalidate_drawable(dri2_surf->dri_drawable);
 
    return swap_count;
 }
@@ -1115,7 +1114,7 @@ dri2_x11_swap_buffers(_EGLDisplay *disp, _EGLSurface *draw)
       kopperSwapBuffers(dri2_surf->dri_drawable,
                                     __DRI2_FLUSH_INVALIDATE_ANCILLARY);
       return EGL_TRUE;
-   } else if (!dri2_dpy->flush) {
+   } else if (dri2_dpy->swrast) {
       /* aka the swrast path, which does the swap in the gallium driver. */
       driSwapBuffers(dri2_surf->dri_drawable);
       return EGL_TRUE;
@@ -1241,8 +1240,8 @@ dri2_x11_copy_buffers(_EGLDisplay *disp, _EGLSurface *surf,
    STATIC_ASSERT(sizeof(uintptr_t) == sizeof(native_pixmap_target));
    target = (uintptr_t)native_pixmap_target;
 
-   if (dri2_dpy->flush)
-      dri2_dpy->flush->flush(dri2_surf->dri_drawable);
+   if (!dri2_dpy->swrast_not_kms)
+      dri_flush_drawable(dri2_surf->dri_drawable);
    else {
       /* This should not be a swapBuffers, because it could present an
        * incomplete frame, and it could invalidate the back buffer if it's not
@@ -1777,6 +1776,23 @@ check_xshm(struct dri2_egl_display *dri2_dpy)
    return ret;
 }
 
+static EGLBoolean
+dri2_x11_check_multibuffers(_EGLDisplay *disp)
+{
+   struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
+
+#ifdef HAVE_DRI3_MODIFIERS
+   bool err;
+   dri2_dpy->multibuffers_available = x11_dri3_check_multibuffer(dri2_dpy->conn, &err);
+
+   if (disp->Options.Zink && !disp->Options.ForceSoftware &&
+       !dri2_dpy->multibuffers_available &&
+       !debug_get_bool_option("LIBGL_KOPPER_DRI2", false))
+      return EGL_FALSE;
+#endif
+
+   return EGL_TRUE;
+}
 
 static EGLBoolean
 dri2_initialize_x11_swrast(_EGLDisplay *disp)
@@ -1799,7 +1815,7 @@ dri2_initialize_x11_swrast(_EGLDisplay *disp)
        !debug_get_bool_option("LIBGL_KOPPER_DRI2", false))
       dri3_x11_connect(dri2_dpy, disp->Options.ForceSoftware);
 #endif
-   if (!dri2_load_driver_swrast(disp))
+   if (!dri2_load_driver(disp))
       goto cleanup;
 
    if (check_xshm(dri2_dpy)) {
@@ -1811,7 +1827,7 @@ dri2_initialize_x11_swrast(_EGLDisplay *disp)
    if (!dri2_create_screen(disp))
       goto cleanup;
 
-   if (!dri2_setup_extensions(disp))
+   if (!dri2_x11_check_multibuffers(disp))
       goto cleanup;
 
    if (!dri2_setup_device(disp, true)) {
@@ -1886,7 +1902,7 @@ dri2_initialize_x11_dri3(_EGLDisplay *disp)
    if (status != DRI2_EGL_DRIVER_LOADED)
       goto cleanup;
 
-   if (!dri2_load_driver_dri3(disp))
+   if (!dri2_load_driver(disp))
       goto cleanup;
 
    dri2_dpy->loader_extensions = dri3_image_loader_extensions;
@@ -1897,7 +1913,7 @@ dri2_initialize_x11_dri3(_EGLDisplay *disp)
    if (!dri2_create_screen(disp))
       goto cleanup;
 
-   if (!dri2_setup_extensions(disp))
+   if (!dri2_x11_check_multibuffers(disp))
       goto cleanup;
 
    if (!dri2_setup_device(disp, false)) {
@@ -2000,7 +2016,7 @@ dri2_initialize_x11_dri2(_EGLDisplay *disp)
    if (!dri2_create_screen(disp))
       goto cleanup;
 
-   if (!dri2_setup_extensions(disp))
+   if (!dri2_x11_check_multibuffers(disp))
       goto cleanup;
 
    if (!dri2_setup_device(disp, false)) {

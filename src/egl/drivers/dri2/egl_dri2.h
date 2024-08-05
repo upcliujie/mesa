@@ -242,16 +242,6 @@ struct dri2_egl_display {
    __DRIscreen *dri_screen_display_gpu;
    bool own_dri_screen;
    const __DRIconfig **driver_configs;
-   const __DRI2flushExtension *flush;
-   const __DRI2flushControlExtension *flush_control;
-   const __DRItexBufferExtension *tex_buffer;
-   const __DRI2configQueryExtension *config;
-   const __DRI2fenceExtension *fence;
-   const __DRI2bufferDamageExtension *buffer_damage;
-   const __DRI2blobExtension *blob;
-   const __DRI2interopExtension *interop;
-   const __DRIconfigOptionsExtension *configOptions;
-   const __DRImutableRenderBufferDriverExtension *mutable_render_buffer;
    /* fd of the GPU used for rendering. */
    int fd_render_gpu;
    /* fd of the GPU used for display. If the same GPU is used for display
@@ -269,6 +259,7 @@ struct dri2_egl_display {
    bool invalidate_available;
    bool kopper;
    bool swrast;
+   bool swrast_not_kms;
    int min_swap_interval;
    int max_swap_interval;
    int default_swap_interval;
@@ -472,16 +463,7 @@ void
 dri2_setup_swap_interval(_EGLDisplay *disp, int max_swap_interval);
 
 EGLBoolean
-dri2_load_driver_swrast(_EGLDisplay *disp);
-
-EGLBoolean
-dri2_load_driver_dri3(_EGLDisplay *disp);
-
-EGLBoolean
 dri2_create_screen(_EGLDisplay *disp);
-
-EGLBoolean
-dri2_setup_extensions(_EGLDisplay *disp);
 
 EGLBoolean
 dri2_setup_device(_EGLDisplay *disp, EGLBoolean software);

@@ -305,4 +305,29 @@ PUBLIC bool
 dri2_query_compression_modifiers(__DRIscreen *_screen, uint32_t fourcc,
                                  enum __DRIFixedRateCompression rate, int max,
                                  uint64_t *modifiers, int *count);
+
+PUBLIC void
+dri_set_damage_region(__DRIdrawable *dPriv, unsigned int nrects, int *rects);
+
+PUBLIC unsigned
+dri_fence_get_caps(__DRIscreen *_screen);
+PUBLIC void *
+dri_create_fence(__DRIcontext *_ctx);
+PUBLIC void *
+dri_create_fence_fd(__DRIcontext *_ctx, int fd);
+PUBLIC int
+dri_get_fence_fd(__DRIscreen *_screen, void *_fence);
+PUBLIC void *
+dri_get_fence_from_cl_event(__DRIscreen *_screen, intptr_t cl_event);
+PUBLIC void
+dri_destroy_fence(__DRIscreen *_screen, void *_fence);
+PUBLIC GLboolean
+dri_client_wait_sync(__DRIcontext *_ctx, void *_fence, unsigned flags,
+                      uint64_t timeout);
+PUBLIC void
+dri_server_wait_sync(__DRIcontext *_ctx, void *_fence, unsigned flags);
+
+PUBLIC void
+dri_set_blob_cache_funcs(__DRIscreen *sPriv, __DRIblobCacheSet set,
+                         __DRIblobCacheGet get);
 #endif /* _DRI_UTIL_H_ */
