@@ -43,12 +43,52 @@ nir_opt_cse_impl(nir_function_impl *impl)
    nir_metadata_require(impl, nir_metadata_dominance);
 
    bool progress = false;
-   nir_foreach_block(block, impl) {
+   for (nir_block *block = nir_start_block(impl); block;) {
+      nir_block *loop_header = NULL;
+
       nir_foreach_instr_safe(instr, block) {
-         if (nir_instr_set_add_or_rewrite(instr_set, instr, dominates)) {
+         nir_instr *match = nir_instr_set_add(instr_set, instr, dominates);
+         if (match) {
+            nir_def *def = nir_instr_def(instr);
+            nir_def *new_def = nir_instr_def(match);
+
+            /* Rewrite the uses */
+            nir_foreach_use_including_if_safe(use_src, def) {
+               if (!nir_src_is_if(use_src)) {
+                  nir_instr *phi = nir_src_parent_instr(use_src);
+                  if (phi->type == nir_instr_type_phi && nir_block_dominates(phi->block, block)) {
+                     /* This is a loop header phi that we have already visited. */
+                     nir_instr_set_remove(instr_set, phi);
+                     nir_src_rewrite(use_src, new_def);
+
+                     /* Revisit the block if there's a CSE opportunity. */
+                     if ((!loop_header || nir_block_dominates(phi->block, loop_header)) &&
+                         nir_instr_set_add(instr_set, phi, dominates))
+                        loop_header = phi->block;
+
+                     continue;
+                  }
+               }
+
+               nir_src_rewrite(use_src, new_def);
+            }
+
             progress = true;
             nir_instr_remove(instr);
          }
+      }
+
+      if (loop_header) {
+         for (nir_block *revisit = loop_header; ; revisit = nir_block_cf_tree_next(revisit)) {
+            /* Remove entries before we invalidate them by modifying their sources. */
+            nir_foreach_instr(instr, revisit)
+               nir_instr_set_remove(instr_set, instr);
+            if (revisit == block)
+               break;
+         }
+         block = loop_header;
+      } else {
+         block = nir_block_cf_tree_next(block);
       }
    }
 
