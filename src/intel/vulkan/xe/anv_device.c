@@ -148,11 +148,28 @@ anv_xe_physical_device_init_memory_types(struct anv_physical_device *device)
          .heapIndex = 0,
       };
    } else {
+      /* Some games require a memory type without the HOST_COHERENT_BIT (no idea why).
+       * To address this, here adding the LOCAL_BIT for platforms older than
+       * gfx20 and introducing a memory type with propertyFlags equal to 0 for
+       * gfx20+ because gfx20+ already has a memory type with DEVICE_LOCAL_BIT
+       * for compressed memory types. The description of DEVICE_LOCAL_BIT
+       * indicates it should only be set for the most efficient memory type,
+       * which aligns with the nature of compressed x un-compressed memory.
+       */
       if (device->info.ver >= 20) {
+         device->memory.types[device->memory.type_count++] = (struct anv_memory_type) {
+            .propertyFlags = 0,
+            .heapIndex = 0,
+         };
          device->memory.types[device->memory.type_count++] = (struct anv_memory_type) {
             .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             .heapIndex = 0,
             .compressed = true,
+         };
+      } else {
+         device->memory.types[device->memory.type_count++] = (struct anv_memory_type) {
+            .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            .heapIndex = 0,
          };
       }
       device->memory.types[device->memory.type_count++] = (struct anv_memory_type) {
