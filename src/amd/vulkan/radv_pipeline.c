@@ -481,7 +481,7 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
       stage->stage == MESA_SHADER_FRAGMENT && !radv_use_llvm_for_stage(pdev, stage->stage);
    if (fix_derivs_in_divergent_cf) {
       NIR_PASS(_, stage->nir, nir_convert_to_lcssa, true, true);
-      nir_divergence_analysis(stage->nir);
+      nir_divergence_analysis(stage->nir, 0);
    }
    NIR_PASS(_, stage->nir, ac_nir_lower_tex,
             &(ac_nir_lower_tex_options){
@@ -614,7 +614,7 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
    if (stage->nir->info.bit_sizes_int & (8 | 16)) {
       if (gfx_level >= GFX8) {
          NIR_PASS(_, stage->nir, nir_convert_to_lcssa, true, true);
-         nir_divergence_analysis(stage->nir);
+         nir_divergence_analysis(stage->nir, nir_divergence_uniformize_phi_if);
       }
 
       if (nir_lower_bit_size(stage->nir, lower_bit_size_callback, device)) {

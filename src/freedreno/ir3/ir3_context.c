@@ -128,7 +128,7 @@ ir3_context_init(struct ir3_compiler *compiler, struct ir3_shader *shader,
    /* This has to go at the absolute end to make sure that all SSA defs are
     * correctly marked.
     */
-   NIR_PASS_V(ctx->s, nir_divergence_analysis);
+   NIR_PASS_V(ctx->s, nir_divergence_analysis, 0);
 
    /* Super crude heuristic to limit # of tex prefetch in small
     * shaders.  This completely ignores loops.. but that's really
