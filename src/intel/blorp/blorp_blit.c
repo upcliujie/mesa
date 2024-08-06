@@ -3110,7 +3110,8 @@ static void
 do_buffer_copy(struct blorp_batch *batch,
                struct blorp_address *src,
                struct blorp_address *dst,
-               int width, int height, int block_size)
+               int width, int height, int block_size,
+               bool repeat_src)
 {
    /* The actual format we pick doesn't matter as blorp will throw it away.
     * The only thing that actually matters is the size.
@@ -3118,8 +3119,8 @@ do_buffer_copy(struct blorp_batch *batch,
    enum isl_format format = isl_format_for_size(block_size);
 
    UNUSED bool ok;
-   struct isl_surf surf;
-   ok = isl_surf_init(batch->blorp->isl_dev, &surf,
+   struct isl_surf dst_surf;
+   ok = isl_surf_init(batch->blorp->isl_dev, &dst_surf,
                       .dim = ISL_SURF_DIM_2D,
                       .format = format,
                       .width = width,
@@ -3133,30 +3134,51 @@ do_buffer_copy(struct blorp_batch *batch,
                       .tiling_flags = ISL_TILING_LINEAR_BIT);
    assert(ok);
 
+   struct isl_surf src_surf = dst_surf;
+   if (repeat_src) {
+      src_surf.logical_level0_px.h = 1;
+      src_surf.phys_level0_sa.h = 1;
+   }
+
    struct blorp_surf src_blorp_surf = {
-      .surf = &surf,
+      .surf = &src_surf,
       .addr = *src,
    };
 
    struct blorp_surf dst_blorp_surf = {
-      .surf = &surf,
+      .surf = &dst_surf,
       .addr = *dst,
    };
 
    blorp_copy(batch, &src_blorp_surf, 0, 0, &dst_blorp_surf, 0, 0,
-              0, 0, 0, 0, width, height);
+              0, 0, 0, 0, width, repeat_src ? 1 : height);
 }
 
 void
-blorp_buffer_copy(struct blorp_batch *batch,
-                  struct blorp_address src,
-                  struct blorp_address dst, uint64_t size)
+blorp_buffer_copy_repeat(struct blorp_batch *batch,
+                         struct blorp_address src, uint64_t src_size,
+                         struct blorp_address dst, uint64_t dst_size)
 {
    const struct intel_device_info *devinfo = batch->blorp->isl_dev->info;
-   uint64_t copy_size = size;
+   uint64_t copy_size = dst_size;
 
    /* This is maximum possible width/height our HW can handle */
    uint64_t max_surface_dim = 1 << (devinfo->ver >= 7 ? 14 : 13);
+
+   if (max_surface_dim < src_size && src_size < dst_size) {
+      /* For really large sources, do a bunch of "regular" buffer copies */
+      while (copy_size > src_size) {
+         blorp_buffer_copy_repeat(batch, src, src_size, dst, src_size);
+         copy_size -= src_size;
+         dst.offset += src_size;
+      }
+
+      blorp_buffer_copy_repeat(batch, src, copy_size, dst, copy_size);
+      return;
+   }
+
+   if (src_size > dst_size)
+      src_size = dst_size;
 
    /* First, we compute the biggest format that can be used with the
     * given offsets and size.
@@ -3164,32 +3186,53 @@ blorp_buffer_copy(struct blorp_batch *batch,
    int bs = 16;
    bs = gcd_pow2_u64(bs, src.offset);
    bs = gcd_pow2_u64(bs, dst.offset);
-   bs = gcd_pow2_u64(bs, size);
+   bs = gcd_pow2_u64(bs, src_size);
+   bs = gcd_pow2_u64(bs, dst_size);
+
+   uint32_t width, src_stride;
+   if (src_size == dst_size) {
+      /* No repeat */
+      width = max_surface_dim;
+      src_stride = width * bs;
+   } else {
+      assert(src_size < max_surface_dim);
+      width = src_size / bs;
+      src_stride = 0;
+   }
 
    /* First, we make a bunch of max-sized copies */
-   uint64_t max_copy_size = max_surface_dim * max_surface_dim * bs;
+   uint64_t max_copy_size = width * max_surface_dim * bs;
    while (copy_size >= max_copy_size) {
-      do_buffer_copy(batch, &src, &dst, max_surface_dim, max_surface_dim, bs);
+      do_buffer_copy(batch, &src, &dst, max_surface_dim, max_surface_dim, bs, src_stride == 0);
       copy_size -= max_copy_size;
-      src.offset += max_copy_size;
+      src.offset += src_stride * max_surface_dim;;
       dst.offset += max_copy_size;
    }
 
    /* Now make a max-width copy */
-   uint64_t height = copy_size / (max_surface_dim * bs);
+   uint64_t height = copy_size / (width * bs);
    assert(height < max_surface_dim);
    if (height != 0) {
-      uint64_t rect_copy_size = height * max_surface_dim * bs;
-      do_buffer_copy(batch, &src, &dst, max_surface_dim, height, bs);
+      uint64_t rect_copy_size = height * height * bs;
+      do_buffer_copy(batch, &src, &dst, width, height, bs, src_stride == 0);
       copy_size -= rect_copy_size;
-      src.offset += rect_copy_size;
+      src.offset += src_stride * height;
       dst.offset += rect_copy_size;
    }
 
    /* Finally, make a small copy to finish it off */
    if (copy_size != 0) {
-      do_buffer_copy(batch, &src, &dst, copy_size / bs, 1, bs);
+      do_buffer_copy(batch, &src, &dst, copy_size / bs, 1, bs, false);
    }
+}
+
+void
+blorp_buffer_copy(struct blorp_batch *batch,
+                  struct blorp_address src,
+                  struct blorp_address dst,
+                  uint64_t size)
+{
+   blorp_buffer_copy_repeat(batch, src, size, dst, size);
 }
 
 static void
