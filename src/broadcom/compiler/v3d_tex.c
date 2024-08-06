@@ -228,19 +228,8 @@ v3d_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr)
 {
         unsigned texture_idx = instr->texture_index;
 
-        /* For instructions that don't have a sampler (i.e. txf) we bind
-         * default sampler state via the backend_flags to handle precision.
-         */
-        unsigned sampler_idx = nir_tex_instr_need_sampler(instr) ?
-                               instr->sampler_index : instr->backend_flags;
-
-        /* Even if the texture operation doesn't need a sampler by
-         * itself, we still need to add the sampler configuration
-         * parameter if the output is 32 bit
-         */
-        assert(sampler_idx < c->key->num_samplers_used);
         bool output_type_32_bit =
-                c->key->sampler[sampler_idx].return_size == 32;
+                instr->backend_flags == V3D_TEX_PRECISION_32BIT;
 
         struct V3D42_TMU_CONFIG_PARAMETER_0 p0_unpacked = {
         };
@@ -338,7 +327,7 @@ v3d_vir_emit_tex(struct v3d_compile *c, nir_tex_instr *instr)
                          * driver to decide which sampler to put in the actual
                          * address field.
                          */
-                        p1_packed |= sampler_idx << 24;
+                        p1_packed |= instr->sampler_index << 24;
 
                         vir_WRTMUC(c, QUNIFORM_TMU_CONFIG_P1, p1_packed);
                 } else {

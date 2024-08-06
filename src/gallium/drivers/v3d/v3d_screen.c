@@ -159,9 +159,6 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
         case PIPE_CAP_TEXTURE_QUERY_LOD:
                 return 1;
 
-        case PIPE_CAP_TEXTURE_SAMPLER_INDEPENDENT:
-                return 0;
-
         case PIPE_CAP_PACKED_UNIFORMS:
                 /* We can't enable this flag, because it results in load_ubo
                  * intrinsics across a 16b boundary, but v3d's TMU general
@@ -635,7 +632,7 @@ v3d_screen_is_format_supported(struct pipe_screen *pscreen,
                 return false;
         }
 
-        if ((usage & PIPE_BIND_SAMPLER_VIEW) &&
+        if ((usage & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_SHADER_IMAGE)) &&
             !v3d_tex_format_supported(&screen->devinfo, format)) {
                 return false;
         }

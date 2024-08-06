@@ -595,13 +595,7 @@ type_size_vec4(const struct glsl_type *type, bool bindless)
 static enum nir_lower_tex_packing
 lower_tex_packing_cb(const nir_tex_instr *tex, const void *data)
 {
-   struct v3d_compile *c = (struct v3d_compile *) data;
-
-   int sampler_index = nir_tex_instr_need_sampler(tex) ?
-      tex->sampler_index : tex->backend_flags;
-
-   assert(sampler_index < c->key->num_samplers_used);
-   return c->key->sampler[sampler_index].return_size == 16 ?
+   return tex->backend_flags == V3D_TEX_PRECISION_16BIT ?
       nir_lower_tex_packing_16 : nir_lower_tex_packing_none;
 }
 
@@ -739,19 +733,8 @@ v3d_lower_nir(struct v3d_compile *c)
 
                 .lower_rect = false, /* XXX: Use this on V3D 3.x */
                 .lower_txp = ~0,
-                /* Apply swizzles to all samplers. */
-                .swizzle_result = ~0,
                 .lower_invalid_implicit_lod = true,
         };
-
-        /* Lower the format swizzle and (for 32-bit returns)
-         * ARB_texture_swizzle-style swizzle.
-         */
-        assert(c->key->num_tex_used <= ARRAY_SIZE(c->key->tex));
-        for (int i = 0; i < c->key->num_tex_used; i++) {
-                for (int j = 0; j < 4; j++)
-                        tex_options.swizzles[i][j] = c->key->tex[i].swizzle[j];
-        }
 
         tex_options.lower_tex_packing_cb = lower_tex_packing_cb;
         tex_options.lower_tex_packing_data = c;

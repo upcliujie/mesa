@@ -186,21 +186,29 @@ write_tmu_p1(struct v3d_job *job,
         uint32_t unit = v3d_unit_data_get_unit(data);
         struct pipe_sampler_state *psampler = texstate->samplers[unit];
         struct v3d_sampler_state *sampler = v3d_sampler_state(psampler);
-        struct pipe_sampler_view *psview = texstate->textures[unit];
-        struct v3d_sampler_view *sview = v3d_sampler_view(psview);
+
         int variant = 0;
 
         /* If we are being asked by the compiler to write parameter 1, then we
          * need that. So if we are at this point, we should expect to have a
-         * sampler and psampler. As an additional assert, we can check that we
-         * are not on a texel buffer case, as these don't have a sampler.
+         * sampler and psampler.
          */
-        assert(psview->target != PIPE_BUFFER);
         assert(sampler);
         assert(psampler);
 
-        if (sampler->border_color_variants)
+        // TODO: we assume sampler == texture, which is only legal for OpenGL.
+        // However OpenCL doesn't have custom border colors. Maybe other APIs
+        // care about this?
+        if (sampler->border_color_variants) {
+                struct pipe_sampler_view *psview = texstate->textures[unit];
+                struct v3d_sampler_view *sview = v3d_sampler_view(psview);
+
+                // As an additional assert, we can check that we are not on a
+                // texel buffer case, as these don't have a sampler.
+                assert(psview->target != PIPE_BUFFER);
+
                 variant = sview->sampler_variant;
+        }
 
         uint32_t p1_packed = v3d_unit_data_get_offset(data);
         v3d_pack_unnormalized_coordinates(&job->v3d->screen->devinfo, &p1_packed,

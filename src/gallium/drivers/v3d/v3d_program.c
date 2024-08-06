@@ -308,15 +308,9 @@ lower_textures_cb(nir_builder *b, nir_instr *instr, void *_state)
         if (instr->type != nir_instr_type_tex)
                 return false;
 
+        /* FIXME: handle low precision qualifiers */
         nir_tex_instr *tex = nir_instr_as_tex(instr);
-        if (nir_tex_instr_need_sampler(tex))
-                return false;
-
-        /* Use the texture index as sampler index for the purposes of
-         * lower_tex_packing, since in GL we currently make packing
-         * decisions based on texture format.
-         */
-        tex->backend_flags = tex->texture_index;
+        tex->backend_flags = V3D_TEX_PRECISION_32BIT;
         return true;
 }
 
@@ -564,73 +558,14 @@ static void
 v3d_setup_shared_key(struct v3d_context *v3d, struct v3d_key *key,
                      struct v3d_texture_stateobj *texstate)
 {
-        const struct v3d_device_info *devinfo = &v3d->screen->devinfo;
-
-        key->num_tex_used = texstate->num_textures;
-        key->num_samplers_used = texstate->num_textures;
-        assert(key->num_tex_used == key->num_samplers_used);
-        for (int i = 0; i < texstate->num_textures; i++) {
-                struct pipe_sampler_view *sampler = texstate->textures[i];
-
-                if (!sampler)
-                        continue;
-
-                key->sampler[i].return_size =
-                        v3d_get_tex_return_size(devinfo, sampler->format);
-
-                /* For 16-bit, we set up the sampler to always return 2
-                 * channels (meaning no recompiles for most statechanges),
-                 * while for 32 we actually scale the returns with channels.
-                 */
-                if (key->sampler[i].return_size == 16) {
-                        key->sampler[i].return_channels = 2;
-                } else {
-                        key->sampler[i].return_channels = 4;
-                }
-
-                /* We let the sampler state handle the swizzle.
-                 */
-                key->tex[i].swizzle[0] = PIPE_SWIZZLE_X;
-                key->tex[i].swizzle[1] = PIPE_SWIZZLE_Y;
-                key->tex[i].swizzle[2] = PIPE_SWIZZLE_Z;
-                key->tex[i].swizzle[3] = PIPE_SWIZZLE_W;
-        }
+   /* Nothing to do at present here */
 }
 
 static void
 v3d_setup_shared_precompile_key(struct v3d_uncompiled_shader *uncompiled,
                                 struct v3d_key *key)
 {
-        nir_shader *s = uncompiled->base.ir.nir;
-
-        /* The shader may have gaps in the texture bindings, so figure out
-         * the largest binding in use and setup the number of textures and
-         * samplers from there instead of just the texture count from shader
-         * info.
-         */
-        key->num_tex_used = 0;
-        key->num_samplers_used = 0;
-        for (int i = V3D_MAX_TEXTURE_SAMPLERS - 1; i >= 0; i--) {
-                if (s->info.textures_used[0] & (1 << i)) {
-                        key->num_tex_used = i + 1;
-                        key->num_samplers_used = i + 1;
-                        break;
-                }
-        }
-
-        /* Note that below we access they key's texture and sampler fields
-         * using the same index. On OpenGL they are the same (they are
-         * combined)
-         */
-        for (int i = 0; i < s->info.num_textures; i++) {
-                key->sampler[i].return_size = 16;
-                key->sampler[i].return_channels = 2;
-
-                key->tex[i].swizzle[0] = PIPE_SWIZZLE_X;
-                key->tex[i].swizzle[1] = PIPE_SWIZZLE_Y;
-                key->tex[i].swizzle[2] = PIPE_SWIZZLE_Z;
-                key->tex[i].swizzle[3] = PIPE_SWIZZLE_W;
-        }
+   /* Nothing to do at present here */
 }
 
 static void
