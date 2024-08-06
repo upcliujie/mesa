@@ -83,3 +83,49 @@ TEST_F(nir_opt_cse_test, rewrite_header_phis)
 
    nir_validate_shader(b->shader, NULL);
 }
+
+TEST_F(nir_opt_cse_test, break_and_exit_interrupted)
+{
+   /*
+    * Test that blocks between a break block and the loop exit do not interfere with CSE between
+    * those two blocks.
+    *
+    * loop {
+    *     block b1:  // preds: b0 b4
+    *     1     %1 = load_const (false)
+    *                // succs: b2 b3
+    *     if %1 (false) {
+    *         block b2:  // preds: b1
+    *         32    %2 = ineg %0 (0x0)
+    *                    break
+    *                    // succs: b5
+    *     } else {
+    *         block b3:  // preds: b1, succs: b4
+    *     }
+    *     block b4:  // preds: b3
+    *     32    %3 = ineg %0 (0x0)
+    *                // succs: b1
+    * }
+    * block b5:  // preds: b2
+    * 32    %4 = ineg %0 (0x0)
+    */
+   nir_def *src = nir_imm_int(b, 0);
+
+   nir_push_loop(b);
+
+   nir_push_if(b, nir_imm_false(b));
+   nir_ineg(b, src);
+   nir_jump(b, nir_jump_break);
+   nir_pop_if(b, NULL);
+
+   nir_ineg(b, src);
+
+   nir_pop_loop(b, NULL);
+
+   nir_ineg(b, src);
+
+   ASSERT_TRUE(nir_opt_cse(b->shader));
+   ASSERT_EQ(count_alu(), 2);
+
+   nir_validate_shader(b->shader, NULL);
+}

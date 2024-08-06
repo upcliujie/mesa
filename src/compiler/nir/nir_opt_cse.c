@@ -33,6 +33,29 @@ dominates(const nir_instr *old_instr, const nir_instr *new_instr)
    return nir_block_dominates(old_instr->block, new_instr->block);
 }
 
+static nir_block *
+block_dom_tree_next(nir_block *block)
+{
+   if (block->num_dom_children)
+      return block->dom_children[0];
+
+   while (true) {
+      nir_block *parent = block->imm_dom;
+      if (!parent)
+         return NULL;
+
+      assert(parent->num_dom_children > 0);
+      unsigned index = 0;
+      for (; parent->dom_children[index] != block; index++)
+         assert(index + 1 != parent->num_dom_children);
+
+      if (index + 1 == parent->num_dom_children)
+         block = parent;
+      else
+         return parent->dom_children[index + 1];
+   }
+}
+
 static bool
 nir_opt_cse_impl(nir_function_impl *impl)
 {
@@ -79,7 +102,7 @@ nir_opt_cse_impl(nir_function_impl *impl)
       }
 
       if (loop_header) {
-         for (nir_block *revisit = loop_header; ; revisit = nir_block_cf_tree_next(revisit)) {
+         for (nir_block *revisit = loop_header; ; revisit = block_dom_tree_next(revisit)) {
             /* Remove entries before we invalidate them by modifying their sources. */
             nir_foreach_instr(instr, revisit)
                nir_instr_set_remove(instr_set, instr);
@@ -88,7 +111,7 @@ nir_opt_cse_impl(nir_function_impl *impl)
          }
          block = loop_header;
       } else {
-         block = nir_block_cf_tree_next(block);
+         block = block_dom_tree_next(block);
       }
    }
 
