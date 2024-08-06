@@ -3036,6 +3036,11 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
    /* Disable sample counting in order to not affect occlusion query. */
    tu_cs_emit_regs(cs, A6XX_RB_SAMPLE_COUNT_CONTROL(.disable = true));
 
+   tu_cs_emit_regs(cs, A6XX_RB_DITHER_CNTL());
+   if (CHIP >= A7XX) {
+      tu_cs_emit_regs(cs, A7XX_SP_DITHER_CNTL());
+   }
+
    if (cmd->state.prim_generated_query_running_before_rp) {
       tu_emit_event_write<CHIP>(cmd, cs, FD_STOP_PRIMITIVE_CTRS);
    }
@@ -3124,6 +3129,23 @@ tu_clear_sysmem_attachments(struct tu_cmd_buffer *cmd,
 
    /* Re-enable sample counting. */
    tu_cs_emit_regs(cs, A6XX_RB_SAMPLE_COUNT_CONTROL(.disable = false));
+
+   if (cmd->state.subpass->legacy_dithering_enabled) {
+      const uint32_t dither_cntl =
+         A6XX_RB_DITHER_CNTL(.dither_mode_mrt0 = DITHER_ALWAYS,
+                             .dither_mode_mrt1 = DITHER_ALWAYS,
+                             .dither_mode_mrt2 = DITHER_ALWAYS,
+                             .dither_mode_mrt3 = DITHER_ALWAYS,
+                             .dither_mode_mrt4 = DITHER_ALWAYS,
+                             .dither_mode_mrt5 = DITHER_ALWAYS,
+                             .dither_mode_mrt6 = DITHER_ALWAYS,
+                             .dither_mode_mrt7 = DITHER_ALWAYS, )
+            .value;
+      tu_cs_emit_regs(cs, A6XX_RB_DITHER_CNTL(.dword = dither_cntl));
+      if (CHIP >= A7XX) {
+         tu_cs_emit_regs(cs, A7XX_SP_DITHER_CNTL(.dword = dither_cntl));
+      }
+   }
 
    if (cmd->state.prim_generated_query_running_before_rp) {
       tu_emit_event_write<CHIP>(cmd, cs, FD_START_PRIMITIVE_CTRS);
