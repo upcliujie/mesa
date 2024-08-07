@@ -3127,8 +3127,7 @@ do_buffer_copy(struct blorp_batch *batch,
                       .array_len = 1,
                       .samples = 1,
                       .row_pitch_B = width * block_size,
-                      .usage = ISL_SURF_USAGE_TEXTURE_BIT |
-                               ISL_SURF_USAGE_RENDER_TARGET_BIT,
+                      .usage = ISL_SURF_USAGE_RENDER_TARGET_BIT,
                       .tiling_flags = ISL_TILING_LINEAR_BIT);
    assert(ok);
 
