@@ -35,6 +35,7 @@
 #include "util/bitset.h"
 #include "util/list.h"
 #include "util/sparse_array.h"
+#include "util/timespec.h"
 #include "util/u_dynarray.h"
 
 #include "panfrost/util/pan_ir.h"
@@ -225,6 +226,19 @@ static inline bool
 pan_is_bifrost(const struct panfrost_device *dev)
 {
    return dev->arch >= 6 && dev->arch <= 7;
+}
+
+static inline uint64_t
+pan_gpu_time_to_ns(struct panfrost_device *dev, uint64_t gpu_time)
+{
+   /* Try to avoid going over the 64bits when doing the scaling */
+   uint64_t upper_ts = gpu_time >> 32;
+   uint64_t lower_ts = gpu_time & 0xffffffff;
+   uint64_t upper_scaled_ts = upper_ts * NSEC_PER_SEC / dev->kmod.props.timestamp_frequency;
+   uint64_t lower_scaled_ts = lower_ts * NSEC_PER_SEC / dev->kmod.props.timestamp_frequency;
+   uint64_t result = (upper_scaled_ts << 32) + lower_scaled_ts;
+
+   return result;
 }
 
 #if defined(__cplusplus)
