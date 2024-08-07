@@ -158,6 +158,81 @@ ir3_nir_should_vectorize_mem(unsigned align_mul, unsigned align_offset,
    return true;
 }
 
+static unsigned
+ir3_lower_bit_size(const nir_instr *instr, UNUSED void *data)
+{
+   if (instr->type == nir_instr_type_intrinsic) {
+      nir_intrinsic_instr *intrinsic = nir_instr_as_intrinsic(instr);
+      switch (intrinsic->intrinsic) {
+      case nir_intrinsic_exclusive_scan:
+      case nir_intrinsic_inclusive_scan:
+      case nir_intrinsic_quad_broadcast:
+      case nir_intrinsic_quad_swap_diagonal:
+      case nir_intrinsic_quad_swap_horizontal:
+      case nir_intrinsic_quad_swap_vertical:
+      case nir_intrinsic_reduce:
+         return intrinsic->def.bit_size == 8 ? 16 : 0;
+      default:
+         break;
+      }
+   }
+
+   if (instr->type == nir_instr_type_alu) {
+      nir_alu_instr *alu = nir_instr_as_alu(instr);
+      switch (alu->op) {
+      case nir_op_iabs:
+      case nir_op_iadd_sat:
+      case nir_op_imax:
+      case nir_op_imin:
+      case nir_op_ineg:
+      case nir_op_ishl:
+      case nir_op_ishr:
+      case nir_op_isub_sat:
+      case nir_op_uadd_sat:
+      case nir_op_umax:
+      case nir_op_umin:
+      case nir_op_ushr:
+         return alu->def.bit_size == 8 ? 16 : 0;
+      case nir_op_ieq:
+      case nir_op_ige:
+      case nir_op_ilt:
+      case nir_op_ine:
+      case nir_op_uge:
+      case nir_op_ult:
+         return nir_src_bit_size(alu->src[0].src) == 8 ? 16 : 0;
+      default:
+         break;
+      }
+   }
+
+   return 0;
+}
+
+static void
+ir3_get_variable_size_align_bytes(const glsl_type *type, unsigned *size, unsigned *align)
+{
+   switch (type->base_type) {
+   case GLSL_TYPE_ARRAY:
+   case GLSL_TYPE_INTERFACE:
+   case GLSL_TYPE_STRUCT:
+      glsl_size_align_handle_array_and_structs(type, ir3_get_variable_size_align_bytes,
+                                               size, align);
+      break;
+   case GLSL_TYPE_UINT8:
+   case GLSL_TYPE_INT8:
+      /* 8-bit values are handled through 16-bit half-registers, so the resulting size
+       * and alignment value has to be doubled to reflect the actual variable size
+       * requirement.
+       */
+      *size = 2 * glsl_get_components(type);
+      *align = 2;
+      break;
+   default:
+      glsl_get_natural_size_align_bytes(type, size, align);
+      break;
+   }
+}
+
 #define OPT(nir, pass, ...)                                                    \
    ({                                                                          \
       bool this_progress = false;                                              \
@@ -221,6 +296,7 @@ ir3_optimize_loop(struct ir3_compiler *compiler, nir_shader *s)
       progress |= OPT(s, nir_opt_algebraic);
       progress |= OPT(s, nir_lower_alu);
       progress |= OPT(s, nir_lower_pack);
+      progress |= OPT(s, nir_lower_bit_size, ir3_lower_bit_size, NULL);
       progress |= OPT(s, nir_opt_constant_folding);
 
       const nir_opt_offsets_options offset_options = {
@@ -804,7 +880,8 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
     */
    if (so->compiler->has_pvtmem) {
       progress |= OPT(s, nir_lower_vars_to_scratch, nir_var_function_temp,
-                      16 * 16 /* bytes */, glsl_get_natural_size_align_bytes);
+                      16 * 16 /* bytes */,
+                      ir3_get_variable_size_align_bytes, glsl_get_natural_size_align_bytes);
    }
 
    /* Lower scratch writemasks */
