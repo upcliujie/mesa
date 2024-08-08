@@ -1584,6 +1584,59 @@ read_call(read_ctx *ctx)
 }
 
 static void
+write_debug_info(write_ctx *ctx, const nir_debug_info_instr *di)
+{
+   blob_write_uint8(ctx->blob, di->type);
+
+   switch (di->type) {
+   case nir_debug_info_src_loc:
+      blob_write_uint32(ctx->blob, di->src_loc.line);
+      blob_write_uint32(ctx->blob, di->src_loc.column);
+      blob_write_uint32(ctx->blob, di->src_loc.spirv_offset);
+      blob_write_uint8(ctx->blob, di->src_loc.has_line);
+      if (di->src_loc.has_line)
+         write_src(ctx, &di->src_loc.filename);
+      return;
+   case nir_debug_info_string:
+      blob_write_string(ctx->blob, di->string);
+      write_def(ctx, &di->def, (union packed_instr){ 0 }, di->instr.type);
+      return;
+   }
+
+   unreachable("Unimplemented nir_debug_info_type");
+}
+
+static nir_debug_info_instr *
+read_debug_info(read_ctx *ctx)
+{
+   nir_debug_info_type type = blob_read_uint8(ctx->blob);
+
+   switch (type) {
+   case nir_debug_info_src_loc: {
+      nir_debug_info_instr *di = nir_debug_info_instr_create(ctx->nir, 0);
+      di->type = type;
+      di->src_loc.line = blob_read_uint32(ctx->blob);
+      di->src_loc.column = blob_read_uint32(ctx->blob);
+      di->src_loc.spirv_offset = blob_read_uint32(ctx->blob);
+      di->src_loc.has_line = blob_read_uint8(ctx->blob);
+      if (di->src_loc.has_line)
+         read_src(ctx, &di->src_loc.filename);
+      return di;
+   }
+   case nir_debug_info_string: {
+      const char *string = ralloc_strdup(ctx->nir, blob_read_string(ctx->blob));
+      nir_debug_info_instr *di = nir_debug_info_instr_create(ctx->nir, strlen(string));
+      di->type = type;
+      strcpy(di->string, string);
+      read_def(ctx, &di->def, &di->instr, (union packed_instr){ 0 });
+      return di;
+   }
+   }
+
+   unreachable("Unimplemented nir_debug_info_type");
+}
+
+static void
 write_instr(write_ctx *ctx, const nir_instr *instr)
 {
    /* We have only 4 bits for the instruction type. */
@@ -1617,6 +1670,9 @@ write_instr(write_ctx *ctx, const nir_instr *instr)
    case nir_instr_type_call:
       blob_write_uint32(ctx->blob, instr->type);
       write_call(ctx, nir_instr_as_call(instr));
+      break;
+   case nir_instr_type_debug_info:
+      write_debug_info(ctx, nir_instr_as_debug_info(instr));
       break;
    case nir_instr_type_parallel_copy:
       unreachable("Cannot write parallel copies");
@@ -1667,6 +1723,9 @@ read_instr(read_ctx *ctx, nir_block *block)
       break;
    case nir_instr_type_call:
       instr = &read_call(ctx)->instr;
+      break;
+   case nir_instr_type_debug_info:
+      instr = &read_debug_info(ctx)->instr;
       break;
    case nir_instr_type_parallel_copy:
       unreachable("Cannot read parallel copies");
