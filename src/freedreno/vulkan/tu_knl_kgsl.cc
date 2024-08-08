@@ -1301,7 +1301,7 @@ kgsl_queue_submit(struct tu_queue *queue, struct vk_queue_submit *vk_submit)
 
    uint64_t gpu_offset = 0;
 #if HAVE_PERFETTO
-   if (profiling_buffer) {
+   if (tu_perfetto_enabled() && profiling_buffer) {
       /* We need to wait for KGSL to queue the GPU command before we can read
        * the timestamp. Since this is just for profiling and doesn't take too
        * long, we can just busy-wait for it.
