@@ -298,13 +298,12 @@ nvk_queue_buffer_bind(struct nvk_queue *queue,
    VK_FROM_HANDLE(nvk_buffer, buffer, bind_info->buffer);
    VkResult result;
 
-   const uint32_t bind_count = bind_info->bindCount;
-   if (bind_count == 0)
+   if (bind_info->bindCount == 0)
       return VK_SUCCESS;
 
-   STACK_ARRAY(struct nvkmd_ctx_bind, binds, bind_count);
+   STACK_ARRAY(struct nvkmd_ctx_bind, binds, bind_info->bindCount);
 
-   for (unsigned i = 0; i < bind_count; i++) {
+   for (unsigned i = 0; i < bind_info->bindCount; i++) {
       const VkSparseMemoryBind *bind = &bind_info->pBinds[i];
       VK_FROM_HANDLE(nvk_device_memory, mem, bind->memory);
 
@@ -319,7 +318,7 @@ nvk_queue_buffer_bind(struct nvk_queue *queue,
    }
 
    result = nvkmd_ctx_bind(queue->bind_ctx, &queue->vk.base,
-                           bind_count, binds);
+                           bind_info->bindCount, binds);
 
    STACK_ARRAY_FINISH(binds);
 

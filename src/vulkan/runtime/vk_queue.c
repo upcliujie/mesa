@@ -1243,7 +1243,8 @@ vk_common_QueueBindSparse(VkQueue _queue,
       STACK_ARRAY(VkSemaphoreSubmitInfo, signal_semaphore_infos,
                   pBindInfo[i].signalSemaphoreCount);
 
-      if (!wait_semaphore_infos || !signal_semaphore_infos) {
+      if ((pBindInfo[i].waitSemaphoreCount > 0 && !wait_semaphore_infos) ||
+          (pBindInfo[i].signalSemaphoreCount > 0 && !signal_semaphore_infos)) {
          STACK_ARRAY_FINISH(wait_semaphore_infos);
          STACK_ARRAY_FINISH(signal_semaphore_infos);
          return vk_error(queue, VK_ERROR_OUT_OF_HOST_MEMORY);
