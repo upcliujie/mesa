@@ -3230,6 +3230,8 @@ generate_fragment(struct llvmpipe_context *lp,
       if (LLVMGetTypeKind(arg_types[i]) == LLVMPointerTypeKind)
          lp_add_function_attr(function, i + 1, LP_FUNC_ATTR_NOALIAS);
 
+   lp_function_add_debug_info(gallivm, function, func_type);
+
    if (variant->gallivm->cache->data_size) {
       gallivm_stub_func(gallivm, function);
       return;
@@ -3276,6 +3278,9 @@ generate_fragment(struct llvmpipe_context *lp,
    builder = gallivm->builder;
    assert(builder);
    LLVMPositionBuilderAtEnd(builder, block);
+
+   LLVMSetCurrentDebugLocation2(
+      gallivm->builder, LLVMDIBuilderCreateDebugLocation(gallivm->context, 0, 0, gallivm->di_function, NULL));
 
    /* code generated texture sampling */
    struct lp_build_sampler_soa *sampler =
