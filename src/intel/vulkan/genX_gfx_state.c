@@ -452,8 +452,10 @@ calculate_tile_dimensions(struct anv_cmd_buffer *cmd_buffer,
  * reemission if the values are changing.
  *
  * Nothing is emitted in the batch buffer.
+ *
+ * Returns a mask for state that we want to leave dirty afterwards.
  */
-void
+anv_cmd_dirty_mask_t
 genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
 {
    UNUSED struct anv_device *device = cmd_buffer->device;
@@ -465,6 +467,7 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
    struct anv_gfx_dynamic_state *hw_state = &gfx->dyn_state;
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
    struct anv_instance *instance = cmd_buffer->device->physical->instance;
+   anv_cmd_dirty_mask_t dirty_state_mask = 0;
 
 #define GET(field) hw_state->field
 #define SET(bit, field, value)                               \
@@ -563,7 +566,8 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if ((gfx->dirty & ANV_CMD_DIRTY_PIPELINE) ||
-       (gfx->dirty & ANV_CMD_DIRTY_FS_MSAA_FLAGS)) {
+       (gfx->dirty & ANV_CMD_DIRTY_FS_MSAA_FLAGS) ||
+       (gfx->dirty & ANV_CMD_DIRTY_COARSE_PIXEL_ACTIVE)) {
       if (wm_prog_data) {
          const struct anv_shader_bin *fs_bin =
             pipeline->base.shaders[MESA_SHADER_FRAGMENT];
@@ -614,15 +618,24 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
          SET(PS_EXTRA, ps_extra.PixelShaderIsPerSample,
              brw_wm_prog_data_is_persample(wm_prog_data, gfx->fs_msaa_flags));
 #if GFX_VER >= 11
-         SET(PS_EXTRA, ps_extra.PixelShaderIsPerCoarsePixel,
-             brw_wm_prog_data_is_coarse(wm_prog_data, gfx->fs_msaa_flags));
+         const bool uses_coarse_pixel =
+            brw_wm_prog_data_is_coarse(wm_prog_data, gfx->fs_msaa_flags);
+         SET(PS_EXTRA, ps_extra.PixelShaderIsPerCoarsePixel, uses_coarse_pixel);
 #endif
 #if GFX_VERx10 >= 125
-         /* TODO: We should only require this when the last geometry shader
-          *       uses a fragment shading rate that is not constant.
-          */
-         SET(PS_EXTRA, ps_extra.EnablePSDependencyOnCPsizeChange,
-             brw_wm_prog_data_is_coarse(wm_prog_data, gfx->fs_msaa_flags));
+         enum anv_coarse_pixel_state cps_state = uses_coarse_pixel ?
+            ANV_COARSE_PIXEL_STATE_ENABLED : ANV_COARSE_PIXEL_STATE_DISABLED;
+         bool cps_state_toggled =
+            genX(cmd_buffer_set_coarse_pixel_active)(cmd_buffer, cps_state);
+         if (cps_state_toggled)
+            dirty_state_mask |= ANV_CMD_DIRTY_COARSE_PIXEL_ACTIVE;
+
+         const bool needs_ps_dependency =
+            /* TODO: We should only require this when the last geometry shader
+             *       uses a fragment shading rate that is not constant.
+             */
+            uses_coarse_pixel || cps_state_toggled;
+         SET(PS_EXTRA, ps_extra.EnablePSDependencyOnCPsizeChange, needs_ps_dependency);
 #endif
          SET(WM, wm.BarycentricInterpolationMode,
              wm_prog_data_barycentric_modes(wm_prog_data, gfx->fs_msaa_flags));
@@ -1515,6 +1528,8 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
 #undef SET_STAGE
 
    vk_dynamic_graphics_state_clear_dirty(&cmd_buffer->vk.dynamic_graphics_state);
+
+   return dirty_state_mask;
 }
 
 static void
