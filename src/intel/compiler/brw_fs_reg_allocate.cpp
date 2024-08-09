@@ -199,7 +199,7 @@ void fs_visitor::calculate_payload_ranges(bool allow_spilling,
                continue;
 
             for (unsigned j = reg_nr / reg_unit(devinfo);
-                 j < DIV_ROUND_UP(reg_nr + regs_read(inst, i),
+                 j < DIV_ROUND_UP(reg_nr + regs_read(devinfo, inst, i),
                                   reg_unit(devinfo));
                  j++) {
                payload_last_use_ip[j] = use_ip;
@@ -817,7 +817,7 @@ fs_reg_alloc::set_spill_costs()
    foreach_block_and_inst(block, fs_inst, inst, fs->cfg) {
       for (unsigned int i = 0; i < inst->sources; i++) {
 	 if (inst->src[i].file == VGRF)
-            spill_costs[inst->src[i].nr] += regs_read(inst, i) * block_scale;
+            spill_costs[inst->src[i].nr] += regs_read(devinfo, inst, i) * block_scale;
       }
 
       if (inst->dst.file == VGRF)
@@ -962,7 +962,7 @@ fs_reg_alloc::spill_reg(unsigned spill_reg)
       for (unsigned int i = 0; i < inst->sources; i++) {
 	 if (inst->src[i].file == VGRF &&
              inst->src[i].nr == spill_reg) {
-            int count = regs_read(inst, i);
+            int count = regs_read(devinfo, inst, i);
             int subset_spill_offset = spill_offset +
                ROUND_DOWN_TO(inst->src[i].offset, REG_SIZE);
             brw_reg unspill_dst = alloc_spill_reg(count, ip);

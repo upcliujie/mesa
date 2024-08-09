@@ -29,6 +29,10 @@
 #include "brw_eu.h"
 #include "brw_fs.h"
 
+static brw_reg offset_to_component(const brw_reg &reg,
+                                   const brw::fs_builder &bld,
+                                   unsigned delta);
+
 namespace brw {
    /**
     * Toolbox to assemble an FS IR program out of individual instructions.
@@ -381,8 +385,17 @@ namespace brw {
          const brw_reg chan_index = vgrf(BRW_TYPE_UD);
          const brw_reg dst = vgrf(src.type);
 
-         ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index);
-         ubld.emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
+         if (is_uniform(src)) {
+            /* Must make a copy of the source (which will hopefully be
+             * eliminated by copy-prop) because some callers will modify the
+             * value in the returned register and expect the input register
+             * contents to be constant.
+             */
+            ubld.MOV(dst, component(src, 0));
+         } else {
+            ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index);
+            ubld.emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
+         }
 
          return brw_reg(component(dst, 0));
       }
@@ -391,8 +404,9 @@ namespace brw {
       move_to_vgrf(const brw_reg &src, unsigned num_components) const
       {
          brw_reg *const src_comps = new brw_reg[num_components];
+
          for (unsigned i = 0; i < num_components; i++)
-            src_comps[i] = offset(src, dispatch_width(), i);
+            src_comps[i] = offset_to_component(src, *this, i);
 
          const brw_reg dst = vgrf(src.type, num_components);
          LOAD_PAYLOAD(dst, src_comps, num_components, 0);
@@ -974,6 +988,31 @@ namespace brw {
 static inline brw_reg
 offset(const brw_reg &reg, const brw::fs_builder &bld, unsigned delta)
 {
+   return offset(reg, bld.dispatch_width(), delta);
+}
+
+/**
+ * Offset by a number of components into a VGRF
+ *
+ * It is assumed that the VGRF represents a vector (e.g., returned by
+ * load_uniform or a texture operation). Convergent and divergent values are
+ * stored differently, so care must be taken to offset properly.
+ *
+ * \NOTE: This should **NEVER** be used for a destination as it may set the
+ * stride to zero.
+ *
+ * FIXME: This could have a better name.
+ */
+static inline brw_reg
+offset_to_component(const brw_reg &reg, const brw::fs_builder &bld, unsigned delta)
+{
+   /* If the value is convergent (stored as one or more SIMD8), offset using
+    * SIMD8 and select component 0.
+    */
+   if (reg.is_scalar)
+      return component(offset(reg, 8 * reg_unit(bld.shader->devinfo), delta), 0);
+
+   /* Offset to the component assuming the value is stored as "width" size. */
    return offset(reg, bld.dispatch_width(), delta);
 }
 

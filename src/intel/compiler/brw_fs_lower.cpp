@@ -636,19 +636,32 @@ brw_fs_lower_alu_restrictions(fs_visitor &s)
             assert(!inst->saturate);
             assert(!inst->src[0].abs);
             assert(!inst->src[0].negate);
-            const brw::fs_builder ibld(&s, block, inst);
 
-            enum brw_reg_type type = brw_type_with_size(inst->dst.type, 32);
+            if ((inst->dst.type == BRW_TYPE_UQ ||
+                 inst->dst.type == BRW_TYPE_Q) &&
+                devinfo->has_64bit_float) {
+               inst->dst.type = BRW_TYPE_DF;
+               inst->src[0].type = BRW_TYPE_DF;
+            } else if (inst->dst.type == BRW_TYPE_DF &&
+                       devinfo->has_64bit_int) {
+               inst->dst.type = BRW_TYPE_Q;
+               inst->src[0].type = BRW_TYPE_Q;
+            } else {
+               const brw::fs_builder ibld(&s, block, inst);
 
-            if (!inst->is_partial_write())
-               ibld.emit_undef_for_dst(inst);
+               enum brw_reg_type type = brw_type_with_size(inst->dst.type, 32);
 
-            ibld.MOV(subscript(inst->dst, type, 1),
-                     subscript(inst->src[0], type, 1));
-            ibld.MOV(subscript(inst->dst, type, 0),
-                     subscript(inst->src[0], type, 0));
+               if (!inst->is_partial_write())
+                  ibld.emit_undef_for_dst(inst);
 
-            inst->remove(block);
+               ibld.MOV(subscript(inst->dst, type, 1),
+                        subscript(inst->src[0], type, 1));
+               ibld.MOV(subscript(inst->dst, type, 0),
+                        subscript(inst->src[0], type, 0));
+
+               inst->remove(block);
+            }
+
             progress = true;
          }
          break;
@@ -749,6 +762,7 @@ brw_fs_lower_vgrf_to_fixed_grf(const struct intel_device_info *devinfo, fs_inst 
    new_reg = byte_offset(new_reg, reg->offset);
    new_reg.abs = reg->abs;
    new_reg.negate = reg->negate;
+   new_reg.is_scalar = reg->is_scalar;
 
    *reg = new_reg;
 }

@@ -687,6 +687,33 @@ brw_alu3(struct brw_codegen *p, unsigned opcode, struct brw_reg dest,
       brw_inst_set_3src_a16_dst_subreg_nr(devinfo, inst, dest.subnr / 4);
       brw_inst_set_3src_a16_dst_writemask(devinfo, inst, dest.writemask);
 
+      if (src0.is_scalar && src0.hstride == BRW_HORIZONTAL_STRIDE_0 &&
+          brw_type_size_bytes(src0.type) > 4) {
+         assert(brw_inst_exec_size(devinfo, inst) == BRW_EXECUTE_8);
+         src0.width = BRW_WIDTH_8;
+         src0.hstride = BRW_HORIZONTAL_STRIDE_1;
+         src0.vstride = BRW_VERTICAL_STRIDE_8;
+         src0.swizzle = BRW_SWIZZLE_XYZW;
+      }
+
+      if (src1.is_scalar && src1.hstride == BRW_HORIZONTAL_STRIDE_0 &&
+          brw_type_size_bytes(src1.type) > 4) {
+         assert(brw_inst_exec_size(devinfo, inst) == BRW_EXECUTE_8);
+         src1.width = BRW_WIDTH_8;
+         src1.hstride = BRW_HORIZONTAL_STRIDE_1;
+         src1.vstride = BRW_VERTICAL_STRIDE_8;
+         src1.swizzle = BRW_SWIZZLE_XYZW;
+      }
+
+      if (src2.is_scalar && src2.hstride == BRW_HORIZONTAL_STRIDE_0 &&
+          brw_type_size_bytes(src2.type) > 4) {
+         assert(brw_inst_exec_size(devinfo, inst) == BRW_EXECUTE_8);
+         src2.width = BRW_WIDTH_8;
+         src2.hstride = BRW_HORIZONTAL_STRIDE_1;
+         src2.vstride = BRW_VERTICAL_STRIDE_8;
+         src2.swizzle = BRW_SWIZZLE_XYZW;
+      }
+
       assert(src0.file == BRW_GENERAL_REGISTER_FILE);
       brw_inst_set_3src_a16_src0_swizzle(devinfo, inst, src0.swizzle);
       brw_inst_set_3src_a16_src0_subreg_nr(devinfo, inst, get_3src_subreg_nr(src0));

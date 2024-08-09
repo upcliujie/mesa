@@ -766,7 +766,8 @@ fs_inst::components_read(unsigned i) const
 
    case SHADER_OPCODE_A64_UNTYPED_WRITE_LOGICAL:
       assert(src[A64_LOGICAL_ARG].file == IMM);
-      return i == A64_LOGICAL_SRC ? src[A64_LOGICAL_ARG].ud : 1;
+      return i == A64_LOGICAL_SRC && !is_uniform(src[i]) ?
+             src[A64_LOGICAL_ARG].ud : 1;
 
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_LOGICAL:
       assert(src[A64_LOGICAL_ARG].file == IMM);
@@ -826,7 +827,7 @@ fs_inst::components_read(unsigned i) const
 }
 
 unsigned
-fs_inst::size_read(int arg) const
+fs_inst::size_read(const struct intel_device_info *devinfo, int arg) const
 {
    switch (opcode) {
    case SHADER_OPCODE_SEND:
@@ -908,7 +909,9 @@ fs_inst::size_read(int arg) const
    case FIXED_GRF:
    case VGRF:
    case ATTR:
-      return components_read(arg) * src[arg].component_size(exec_size);
+      /* Regardless of exec_size, values marked as scalar are SIMD8. */
+      return components_read(arg) *
+             src[arg].component_size(src[arg].is_scalar ? 8 * reg_unit(devinfo) : exec_size);
    }
    return 0;
 }
@@ -954,7 +957,7 @@ fs_inst::flags_read(const intel_device_info *devinfo) const
    } else {
       unsigned mask = 0;
       for (int i = 0; i < sources; i++) {
-         mask |= brw_fs_flag_mask(src[i], size_read(i));
+         mask |= brw_fs_flag_mask(src[i], size_read(devinfo, i));
       }
       return mask;
    }
@@ -999,6 +1002,29 @@ fs_inst::has_sampler_residency() const
    default:
       return false;
    }
+}
+
+/* \sa inst_is_raw_move in brw_eu_validate. */
+bool
+fs_inst::is_raw_move() const
+{
+   if (opcode != BRW_OPCODE_MOV)
+      return false;
+
+   if (src[0].file == IMM) {
+      if (brw_type_is_vector_imm(src[0].type))
+         return false;
+   } else if (src[0].negate || src[0].abs) {
+      return false;
+   }
+
+   if (saturate)
+      return false;
+
+   return src[0].type == dst.type ||
+          (brw_type_is_int(src[0].type) &&
+           brw_type_is_int(dst.type) &&
+           brw_type_size_bits(src[0].type) == brw_type_size_bits(dst.type));
 }
 
 /* For SIMD16, we need to follow from the uniform setup of SIMD8 dispatch.
@@ -1205,7 +1231,11 @@ fs_visitor::assign_curb_setup()
             brw_reg.abs = inst->src[i].abs;
             brw_reg.negate = inst->src[i].negate;
 
-            assert(inst->src[i].stride == 0);
+            /* The combination of is_scalar for load_uniform, copy prop, and
+             * lower_btd_logical_send can generate a MOV from a UNIFORM with
+             * exec size 2 and stride of 1.
+             */
+            assert(inst->src[i].stride == 0 || inst->exec_size == 2);
             inst->src[i] = byte_offset(
                retype(brw_reg, inst->src[i].type),
                inst->src[i].offset % 4);
