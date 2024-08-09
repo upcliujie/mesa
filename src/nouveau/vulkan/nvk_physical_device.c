@@ -43,20 +43,6 @@
 #include "clc5c0.h"
 #include "clc997.h"
 
-static bool
-nvk_use_nak(const struct nv_device_info *info)
-{
-   const VkShaderStageFlags vk10_stages =
-      VK_SHADER_STAGE_VERTEX_BIT |
-      VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT |
-      VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT |
-      VK_SHADER_STAGE_GEOMETRY_BIT |
-      VK_SHADER_STAGE_FRAGMENT_BIT |
-      VK_SHADER_STAGE_COMPUTE_BIT;
-
-   return !(vk10_stages & ~nvk_nak_stages(info));
-}
-
 static uint32_t
 nvk_get_vk_version(const struct nv_device_info *info)
 {
@@ -64,10 +50,6 @@ nvk_get_vk_version(const struct nv_device_info *info)
    const uint32_t version_override = vk_get_version_override();
    if (version_override)
       return version_override;
-
-   /* If we're using codegen for anything, lock to version 1.0 */
-   if (!nvk_use_nak(info))
-      return VK_MAKE_VERSION(1, 0, VK_HEADER_VERSION);
 
    return VK_MAKE_VERSION(1, 3, VK_HEADER_VERSION);
 }
@@ -139,8 +121,7 @@ nvk_get_device_extensions(const struct nvk_instance *instance,
       .KHR_sampler_mirror_clamp_to_edge = true,
       .KHR_sampler_ycbcr_conversion = true,
       .KHR_separate_depth_stencil_layouts = true,
-      .KHR_shader_atomic_int64 = info->cls_eng3d >= MAXWELL_A &&
-                                 nvk_use_nak(info),
+      .KHR_shader_atomic_int64 = info->cls_eng3d >= MAXWELL_A,
       .KHR_shader_clock = true,
       .KHR_shader_draw_parameters = true,
       .KHR_shader_expect_assume = true,
@@ -150,8 +131,8 @@ nvk_get_device_extensions(const struct nvk_instance *instance,
       .KHR_shader_maximal_reconvergence = true,
       .KHR_shader_non_semantic_info = true,
       .KHR_shader_subgroup_extended_types = true,
-      .KHR_shader_subgroup_rotate = nvk_use_nak(info),
-      .KHR_shader_subgroup_uniform_control_flow = nvk_use_nak(info),
+      .KHR_shader_subgroup_rotate = true,
+      .KHR_shader_subgroup_uniform_control_flow = true,
       .KHR_shader_terminate_invocation =
          (nvk_nak_stages(info) & VK_SHADER_STAGE_FRAGMENT_BIT) != 0,
       .KHR_spirv_1_4 = true,
@@ -165,7 +146,7 @@ nvk_get_device_extensions(const struct nvk_instance *instance,
       .KHR_uniform_buffer_standard_layout = true,
       .KHR_variable_pointers = true,
       .KHR_vertex_attribute_divisor = true,
-      .KHR_vulkan_memory_model = nvk_use_nak(info),
+      .KHR_vulkan_memory_model = true,
       .KHR_workgroup_memory_explicit_layout = true,
       .KHR_zero_initialize_workgroup_memory = true,
       .EXT_4444_formats = true,
@@ -221,10 +202,9 @@ nvk_get_device_extensions(const struct nvk_instance *instance,
       .EXT_robustness2 = true,
       .EXT_sample_locations = info->cls_eng3d >= MAXWELL_B,
       .EXT_sampler_filter_minmax = info->cls_eng3d >= MAXWELL_B,
-      .EXT_scalar_block_layout = nvk_use_nak(info),
+      .EXT_scalar_block_layout = true,
       .EXT_separate_stencil_usage = true,
-      .EXT_shader_image_atomic_int64 = info->cls_eng3d >= MAXWELL_A &&
-                                       nvk_use_nak(info),
+      .EXT_shader_image_atomic_int64 = info->cls_eng3d >= MAXWELL_A,
       .EXT_shader_demote_to_helper_invocation = true,
       .EXT_shader_module_identifier = true,
       .EXT_shader_object = true,
@@ -331,13 +311,12 @@ nvk_get_device_features(const struct nv_device_info *info,
       .storageBuffer8BitAccess = true,
       .uniformAndStorageBuffer8BitAccess = true,
       .storagePushConstant8 = true,
-      .shaderBufferInt64Atomics = info->cls_eng3d >= MAXWELL_A &&
-                                  nvk_use_nak(info),
+      .shaderBufferInt64Atomics = info->cls_eng3d >= MAXWELL_A,
       .shaderSharedInt64Atomics = false, /* TODO */
       /* TODO: Fp16 is currently busted on Turing and Volta due to instruction
        * scheduling issues.  Re-enable it once those are sorted.
        */
-      .shaderFloat16 = info->sm >= 80 && nvk_use_nak(info),
+      .shaderFloat16 = info->sm >= 80,
       .shaderInt8 = true,
       .descriptorIndexing = true,
       .shaderInputAttachmentArrayDynamicIndexing = true,
@@ -361,7 +340,7 @@ nvk_get_device_features(const struct nv_device_info *info,
       .descriptorBindingVariableDescriptorCount = true,
       .runtimeDescriptorArray = true,
       .samplerFilterMinmax = info->cls_eng3d >= MAXWELL_B,
-      .scalarBlockLayout = nvk_use_nak(info),
+      .scalarBlockLayout = true,
       .imagelessFramebuffer = true,
       .uniformBufferStandardLayout = true,
       .shaderSubgroupExtendedTypes = true,
@@ -371,12 +350,12 @@ nvk_get_device_features(const struct nv_device_info *info,
       .bufferDeviceAddress = true,
       .bufferDeviceAddressCaptureReplay = true,
       .bufferDeviceAddressMultiDevice = false,
-      .vulkanMemoryModel = nvk_use_nak(info),
-      .vulkanMemoryModelDeviceScope = nvk_use_nak(info),
-      .vulkanMemoryModelAvailabilityVisibilityChains = nvk_use_nak(info),
+      .vulkanMemoryModel = true,
+      .vulkanMemoryModelDeviceScope = true,
+      .vulkanMemoryModelAvailabilityVisibilityChains = true,
       .shaderOutputViewportIndex = info->cls_eng3d >= MAXWELL_B,
       .shaderOutputLayer = info->cls_eng3d >= MAXWELL_B,
-      .subgroupBroadcastDynamicId = nvk_use_nak(info),
+      .subgroupBroadcastDynamicId = true,
 
       /* Vulkan 1.3 */
       .robustImageAccess = true,
@@ -435,8 +414,8 @@ nvk_get_device_features(const struct nv_device_info *info,
       .shaderMaximalReconvergence = true,
 
       /* VK_KHR_shader_subgroup_rotate */
-      .shaderSubgroupRotate = nvk_use_nak(info),
-      .shaderSubgroupRotateClustered = nvk_use_nak(info),
+      .shaderSubgroupRotate = true,
+      .shaderSubgroupRotateClustered = true,
 
       /* VK_KHR_vertex_attribute_divisor */
       .vertexAttributeInstanceRateDivisor = true,
@@ -445,8 +424,8 @@ nvk_get_device_features(const struct nv_device_info *info,
       /* VK_KHR_workgroup_memory_explicit_layout */
       .workgroupMemoryExplicitLayout = true,
       .workgroupMemoryExplicitLayoutScalarBlockLayout = true,
-      .workgroupMemoryExplicitLayout8BitAccess = nvk_use_nak(info),
-      .workgroupMemoryExplicitLayout16BitAccess = nvk_use_nak(info),
+      .workgroupMemoryExplicitLayout8BitAccess = true,
+      .workgroupMemoryExplicitLayout16BitAccess = true,
 
       /* VK_EXT_4444_formats */
       .formatA4R4G4B4 = true,
@@ -588,10 +567,8 @@ nvk_get_device_features(const struct nv_device_info *info,
       .nullDescriptor = true,
 
       /* VK_EXT_shader_image_atomic_int64 */
-      .shaderImageInt64Atomics = info->cls_eng3d >= MAXWELL_A &&
-                                 nvk_use_nak(info),
-      .sparseImageInt64Atomics = info->cls_eng3d >= MAXWELL_A &&
-                                 nvk_use_nak(info),
+      .shaderImageInt64Atomics = info->cls_eng3d >= MAXWELL_A,
+      .sparseImageInt64Atomics = info->cls_eng3d >= MAXWELL_A,
 
       /* VK_EXT_shader_module_identifier */
       .shaderModuleIdentifier = true,
@@ -603,7 +580,7 @@ nvk_get_device_features(const struct nv_device_info *info,
       .shaderReplicatedComposites = true,
 
       /* VK_KHR_shader_subgroup_uniform_control_flow */
-      .shaderSubgroupUniformControlFlow = nvk_use_nak(info),
+      .shaderSubgroupUniformControlFlow = true,
 
       /* VK_EXT_texel_buffer_alignment */
       .texelBufferAlignment = true,

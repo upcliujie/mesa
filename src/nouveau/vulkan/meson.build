@@ -15,7 +15,6 @@ nvk_files = files(
   'nvk_cmd_meta.c',
   'nvk_cmd_pool.c',
   'nvk_cmd_pool.h',
-  'nvk_codegen.c',
   'nvk_debug.h',
   'nvk_descriptor_set.h',
   'nvk_descriptor_set.c',
@@ -108,8 +107,7 @@ libnvk = static_library(
     inc_include,
     inc_src,
   ],
-  link_with : [libnouveau_codegen],
-  dependencies : [nvk_deps, idep_nouveau_codegen],
+  dependencies : [nvk_deps],
   gnu_symbol_visibility : 'hidden',
 )
 
