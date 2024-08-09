@@ -19,6 +19,10 @@
 #include "nv_push_clc3c0.h"
 #include "nv_push_clc397.h"
 
+static VkResult
+nvk_queue_submit_simple(struct nvk_queue *queue,
+                        uint32_t dw_count, const uint32_t *dw);
+
 static void
 nvk_queue_state_init(struct nvk_queue_state *qs)
 {
@@ -35,25 +39,11 @@ nvk_queue_state_finish(struct nvk_device *dev,
       nvkmd_mem_unref(qs->samplers.mem);
    if (qs->slm.mem)
       nvkmd_mem_unref(qs->slm.mem);
-   if (qs->push.mem)
-      nvkmd_mem_unref(qs->push.mem);
 }
 
-static void
-nvk_queue_state_dump_push(struct nvk_device *dev,
-                          struct nvk_queue_state *qs, FILE *fp)
-{
-   struct nvk_physical_device *pdev = nvk_device_physical(dev);
-
-   struct nv_push push = {
-      .start = (uint32_t *)qs->push.mem->map,
-      .end = (uint32_t *)qs->push.mem->map + qs->push.dw_count,
-   };
-   vk_push_print(fp, &push, &pdev->info);
-}
-
-VkResult
+static VkResult
 nvk_queue_state_update(struct nvk_device *dev,
+                       struct nvk_queue *queue,
                        struct nvk_queue_state *qs)
 {
    struct nvk_physical_device *pdev = nvk_device_physical(dev);
@@ -102,25 +92,12 @@ nvk_queue_state_update(struct nvk_device *dev,
          nvkmd_mem_unref(mem);
    }
 
-   /* TODO: We're currently depending on kernel reference counting to protect
-    * us here.  If we ever stop reference counting in the kernel, we will
-    * either need to delay destruction or hold on to our extra BO references
-    * and insert a GPU stall here if anything has changed before dropping our
-    * old references.
-    */
-
    if (!dirty)
       return VK_SUCCESS;
 
-   struct nvkmd_mem *push_mem;
-   VkResult result = nvkmd_dev_alloc_mapped_mem(dev->nvkmd, &dev->vk.base,
-                                                256 * 4, 0, NVKMD_MEM_LOCAL,
-                                                NVKMD_MEM_MAP_WR, &push_mem);
-   if (result != VK_SUCCESS)
-      return result;
-
+   uint32_t push_data[64];
    struct nv_push push;
-   nv_push_init(&push, push_mem->map, 256);
+   nv_push_init(&push, push_data, 256);
    struct nv_push *p = &push;
 
    if (qs->images.mem) {
@@ -229,13 +206,7 @@ nvk_queue_state_update(struct nvk_device *dev,
     */
    P_IMMD(p, NV9097, SET_SHADER_LOCAL_MEMORY_WINDOW, 0xff << 24);
 
-   if (qs->push.mem)
-      nvkmd_mem_unref(qs->push.mem);
-
-   qs->push.mem = push_mem;
-   qs->push.dw_count = nv_push_dw_count(&push);
-
-   return VK_SUCCESS;
+   return nvk_queue_submit_simple(queue, nv_push_dw_count(p), push_data);
 }
 
 static VkResult
@@ -286,19 +257,9 @@ nvk_queue_submit_exec(struct nvk_queue *queue,
    const bool sync = pdev->debug_flags & NVK_DEBUG_PUSH_SYNC;
 
    if (submit->command_buffer_count > 0) {
-      result = nvk_queue_state_update(dev, &queue->state);
+      result = nvk_queue_state_update(dev, queue, &queue->state);
       if (result != VK_SUCCESS)
          return result;
-
-      if (queue->state.push.mem != NULL) {
-         struct nvkmd_ctx_exec exec = {
-            .addr = queue->state.push.mem->va->addr,
-            .size_B = queue->state.push.dw_count * 4,
-         };
-         result = nvkmd_ctx_exec(queue->exec_ctx, &queue->vk.base, 1, &exec);
-         if (result != VK_SUCCESS)
-            goto fail;
-      }
 
       uint64_t upload_time_point;
       result = nvk_upload_queue_flush(dev, &dev->upload, &upload_time_point);
@@ -365,8 +326,6 @@ nvk_queue_submit_exec(struct nvk_queue *queue,
 fail:
    if ((sync && result != VK_SUCCESS) ||
        (pdev->debug_flags & NVK_DEBUG_PUSH_DUMP)) {
-      nvk_queue_state_dump_push(dev, &queue->state, stderr);
-
       for (unsigned i = 0; i < submit->command_buffer_count; i++) {
          struct nvk_cmd_buffer *cmd =
             container_of(submit->command_buffers[i], struct nvk_cmd_buffer, vk);
@@ -383,7 +342,6 @@ nvk_queue_submit(struct vk_queue *vk_queue,
                  struct vk_queue_submit *submit)
 {
    struct nvk_queue *queue = container_of(vk_queue, struct nvk_queue, vk);
-   struct nvk_device *dev = nvk_queue_device(queue);
    VkResult result;
 
    if (vk_queue_is_lost(&queue->vk))
