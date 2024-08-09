@@ -754,7 +754,6 @@ driswDestroyScreen(struct glx_screen *base)
    driDestroyScreen(psc->driScreen);
    driDestroyConfigs(psc->driver_configs);
    psc->driScreen = NULL;
-   free(psc->name);
    free(psc);
 }
 
@@ -762,7 +761,7 @@ static char *
 drisw_get_driver_name(struct glx_screen *glx_screen)
 {
    struct drisw_screen *psc = (struct drisw_screen *) glx_screen;
-   return strdup(psc->name);
+   return strdup(psc->base.driverName);
 }
 
 static const struct glx_screen_vtable drisw_screen_vtable = {
@@ -772,48 +771,6 @@ static const struct glx_screen_vtable drisw_screen_vtable = {
    .query_renderer_string  = drisw_query_renderer_string,
    .get_driver_name        = drisw_get_driver_name,
 };
-
-static void
-driswBindExtensions(struct drisw_screen *psc, const __DRIextension **extensions)
-{
-   int i;
-
-   __glXEnableDirectExtension(&psc->base, "GLX_SGI_make_current_read");
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_create_context");
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_create_context_profile");
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_create_context_no_error");
-   __glXEnableDirectExtension(&psc->base, "GLX_EXT_no_config_context");
-
-   /* DRISW version >= 2 implies support for OpenGL ES. */
-   __glXEnableDirectExtension(&psc->base,
-                              "GLX_EXT_create_context_es_profile");
-   __glXEnableDirectExtension(&psc->base,
-                              "GLX_EXT_create_context_es2_profile");
-
-   if (!(psc->base.display->driver & (GLX_DRIVER_ZINK_INFER | GLX_DRIVER_ZINK_YES)))
-      __glXEnableDirectExtension(&psc->base, "GLX_MESA_copy_sub_buffer");
-
-   /* Extensions where we don't care about the extension struct */
-   for (i = 0; extensions[i]; i++) {
-      if (strcmp(extensions[i]->name, __DRI2_ROBUSTNESS) == 0)
-         __glXEnableDirectExtension(&psc->base,
-                                    "GLX_ARB_create_context_robustness");
-   }
-
-   __glXEnableDirectExtension(&psc->base, "GLX_EXT_texture_from_pixmap");
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_context_flush_control");
-   __glXEnableDirectExtension(&psc->base, "GLX_MESA_query_renderer");
-
-   if (psc->kopper) {
-       __glXEnableDirectExtension(&psc->base, "GLX_EXT_buffer_age");
-       __glXEnableDirectExtension(&psc->base, "GLX_EXT_swap_control");
-       __glXEnableDirectExtension(&psc->base, "GLX_SGI_swap_control");
-       __glXEnableDirectExtension(&psc->base, "GLX_MESA_swap_control");
-       // This needs to check whether RELAXED is available
-       // __glXEnableDirectExtension(&psc->base, "GLX_EXT_swap_control_tear");
-   }
-   __glXEnableDirectExtension(&psc->base, "GLX_MESA_gl_interop");
-}
 
 static int
 check_xshm(Display *dpy)
@@ -876,7 +833,6 @@ driswCreateScreen(int screen, struct glx_display *priv, enum glx_driver glx_driv
 {
    __GLXDRIscreen *psp;
    const __DRIconfig **driver_configs;
-   const __DRIextension **extensions;
    struct drisw_screen *psc;
    struct glx_config *configs = NULL, *visuals = NULL;
    const __DRIextension **loader_extensions_local;
@@ -896,10 +852,7 @@ driswCreateScreen(int screen, struct glx_display *priv, enum glx_driver glx_driv
       return NULL;
    }
 
-   extensions = driOpenDriver(driver, driver_name_is_inferred);
-   if (extensions == NULL)
-      goto handle_error;
-   psc->name = strdup(driver);
+   psc->base.driverName = strdup(driver);
 
    if (glx_driver)
       loader_extensions_local = kopper_extensions_noshm;
@@ -908,16 +861,14 @@ driswCreateScreen(int screen, struct glx_display *priv, enum glx_driver glx_driv
    else
       loader_extensions_local = loader_extensions_shm;
 
-   psc->driScreen = driCreateNewScreen3(screen, -1, loader_extensions_local, extensions,
+   psc->driScreen = driCreateNewScreen3(screen, -1, loader_extensions_local,
+                                        glx_driver ? DRI_SCREEN_KOPPER : DRI_SCREEN_SWRAST,
                                         &driver_configs, driver_name_is_inferred, psc);
    if (psc->driScreen == NULL) {
       if (!glx_driver || !driver_name_is_inferred)
          ErrorMessageF("glx: failed to create drisw screen\n");
       goto handle_error;
    }
-
-   extensions = driGetExtensions(psc->driScreen);
-   driswBindExtensions(psc, extensions);
 
    configs = driConvertConfigs(psc->base.configs, driver_configs);
    visuals = driConvertConfigs(psc->base.visuals, driver_configs);
@@ -938,6 +889,8 @@ driswCreateScreen(int screen, struct glx_display *priv, enum glx_driver glx_driv
    psc->base.context_vtable = &drisw_context_vtable;
    psp = &psc->vtable;
    psc->base.driScreen = psp;
+   psc->base.frontend_screen = psc->driScreen;
+   psc->base.can_EXT_texture_from_pixmap = true;
    psp->destroyScreen = driswDestroyScreen;
    psp->createDrawable = driswCreateDrawable;
    psp->swapBuffers = driswSwapBuffers;
@@ -953,7 +906,7 @@ driswCreateScreen(int screen, struct glx_display *priv, enum glx_driver glx_driv
       psp->maxSwapInterval = 1;
    }
 
-   priv->driver = glx_driver;
+   priv->driver = glx_driver ? GLX_DRIVER_ZINK_YES : GLX_DRIVER_SW;
 
    return &psc->base;
 

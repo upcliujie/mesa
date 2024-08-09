@@ -44,51 +44,7 @@
 #include <X11/Xlib-xcb.h>
 #include <xcb/xproto.h>
 #include "dri_util.h"
-
-#ifndef RTLD_NOW
-#define RTLD_NOW 0
-#endif
-#ifndef RTLD_GLOBAL
-#define RTLD_GLOBAL 0
-#endif
-
-#ifndef GL_LIB_NAME
-#define GL_LIB_NAME "libGL.so.1"
-#endif
-
-const __DRIextension **
-dri_loader_get_extensions(const char *driver_name);
-
-/**
- * Try to \c dlopen the named driver.
- *
- * \param driverName - a name like "i965", "radeon", "nouveau", etc.
- * \param out_driver_handle - Address to return the resulting dlopen() handle.
- *
- * \returns
- * The __DRIextension entrypoint table for the driver, or \c NULL if driver
- * file not found.
- */
-_X_HIDDEN const __DRIextension **
-driOpenDriver(const char *driverName, bool driver_name_is_inferred)
-{
-   void *glhandle;
-
-   /* Attempt to make sure libGL symbols will be visible to the driver */
-   glhandle = dlopen(GL_LIB_NAME, RTLD_NOW | RTLD_GLOBAL);
-
-   const __DRIextension **extensions = dri_loader_get_extensions(driverName);
-
-   if (!extensions && driver_name_is_inferred) {
-      glx_message(_LOADER_WARNING,
-           "MESA-LOADER: glx: failed to open %s: driver not built!\n", driverName);
-   }
-
-   if (glhandle)
-      dlclose(glhandle);
-
-   return extensions;
-}
+#include "pipe-loader/pipe_loader.h"
 
 #define __ATTRIB(attrib, field) \
     { attrib, offsetof(struct glx_config, field) }
@@ -734,29 +690,6 @@ clear_driver_config_cache()
    }
 }
 
-static char *
-get_driver_config(const char *driverName)
-{
-   char *config = NULL;
-   const __DRIextension **extensions = driOpenDriver(driverName, false);
-   if (extensions) {
-      for (int i = 0; extensions[i]; i++) {
-         if (strcmp(extensions[i]->name, __DRI_CONFIG_OPTIONS) != 0)
-            continue;
-
-         __DRIconfigOptionsExtension *ext =
-            (__DRIconfigOptionsExtension *)extensions[i];
-
-         if (ext->base.version >= 2)
-            config = ext->getXml(driverName);
-
-         break;
-      }
-   }
-
-   return config;
-}
-
 /*
  * Exported function for obtaining a driver's option list (UTF-8 encoded XML).
  *
@@ -782,7 +715,7 @@ glXGetDriverConfig(const char *driverName)
    if (!e)
       goto out;
 
-   e->config = get_driver_config(driverName);
+   e->config = pipe_loader_get_driinfo_xml(driverName);
    e->driverName = strdup(driverName);
    if (!e->config || !e->driverName) {
       free(e->config);

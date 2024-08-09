@@ -33,7 +33,6 @@
 #include "state_tracker/st_context.h"
 #include "zink/zink_public.h"
 #include "zink/zink_kopper.h"
-#include "driver_trace/tr_screen.h"
 
 #include "dri_screen.h"
 #include "dri_context.h"
@@ -54,58 +53,15 @@
 #include "drm-uapi/drm_fourcc.h"
 #endif
 
-extern const __DRIimageExtension driVkImageExtension;
-extern const __DRIimageExtension driVkImageExtensionSw;
-
 static struct dri_drawable *
 kopper_create_drawable(struct dri_screen *screen, const struct gl_config *visual,
                        bool isPixmap, void *loaderPrivate);
 
-
-static const __DRI2flushExtension driVkFlushExtension = {
-    .base = { __DRI2_FLUSH, 4 },
-
-    .flush                = dri_flush_drawable,
-    .invalidate           = dri_invalidate_drawable,
-    .flush_with_flags     = dri_flush,
-};
-
-static const __DRIrobustnessExtension dri2Robustness = {
-   .base = { __DRI2_ROBUSTNESS, 1 }
-};
-
-const __DRIkopperExtension driKopperExtension;
-
-static const __DRIextension *drivk_screen_extensions[] = {
-   &driTexBufferExtension.base,
-   &dri2GalliumConfigQueryExtension.base,
-   &dri2FenceExtension.base,
-   &dri2Robustness.base,
-   &driVkImageExtension.base,
-   &dri2FlushControlExtension.base,
-   &driVkFlushExtension.base,
-   &driKopperExtension.base,
-   NULL
-};
-
-static const __DRIextension *drivk_sw_screen_extensions[] = {
-   &driTexBufferExtension.base,
-   &dri2GalliumConfigQueryExtension.base,
-   &dri2FenceExtension.base,
-   &dri2Robustness.base,
-   &driVkImageExtensionSw.base,
-   &dri2FlushControlExtension.base,
-   &driVkFlushExtension.base,
-   NULL
-};
-
-static const __DRIconfig **
+const __DRIconfig **
 kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 {
    const __DRIconfig **configs;
    struct pipe_screen *pscreen = NULL;
-
-   (void) mtx_init(&screen->opencl_func_mutex, mtx_plain);
 
    if (!screen->kopper_loader) {
       fprintf(stderr, "mesa: Kopper interface not found!\n"
@@ -132,22 +88,12 @@ kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    if (!pscreen)
       return NULL;
 
-   dri_init_options(screen);
-   screen->unwrapped_screen = trace_screen_unwrap(pscreen);
-
    configs = dri_init_screen(screen, pscreen);
    if (!configs)
       goto fail;
 
    assert(pscreen->get_param(pscreen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY));
-   screen->has_reset_status_query = true;
-   screen->has_dmabuf = pscreen->get_param(pscreen, PIPE_CAP_DMABUF);
-   screen->has_modifiers = pscreen->query_dmabuf_modifiers != NULL;
    screen->is_sw = zink_kopper_is_cpu(pscreen);
-   if (screen->has_dmabuf)
-      screen->extensions = drivk_screen_extensions;
-   else
-      screen->extensions = drivk_sw_screen_extensions;
 
    screen->create_drawable = kopper_create_drawable;
 
@@ -200,7 +146,6 @@ dri3_create_image_from_buffers(xcb_connection_t *c,
                                xcb_dri3_buffers_from_pixmap_reply_t *bp_reply,
                                uint32_t fourcc,
                                struct dri_screen *screen,
-                               const __DRIimageExtension *image,
                                void *loaderPrivate)
 {
    __DRIimage                           *ret;
@@ -221,7 +166,7 @@ dri3_create_image_from_buffers(xcb_connection_t *c,
       offsets[i] = offsets_in[i];
    }
 
-   ret = image->createImageFromDmaBufs(opaque_dri_screen(screen),
+   ret = dri2_from_dma_bufs(opaque_dri_screen(screen),
                                        bp_reply->width,
                                        bp_reply->height,
                                        fourcc,
@@ -243,7 +188,6 @@ dri3_create_image(xcb_connection_t *c,
                   xcb_dri3_buffer_from_pixmap_reply_t *bp_reply,
                   uint32_t fourcc,
                   struct dri_screen *screen,
-                  const __DRIimageExtension *image,
                   void *loaderPrivate)
 {
    int                                  *fds;
@@ -257,12 +201,12 @@ dri3_create_image(xcb_connection_t *c,
    stride = bp_reply->stride;
    offset = 0;
 
-   /* createImageFromDmaBufs creates a wrapper __DRIimage structure which
+   /* dri2_from_dma_bufs creates a wrapper __DRIimage structure which
     * can deal with multiple planes for things like Yuv images. So, once
     * we've gotten the planar wrapper, pull the single plane out of it and
     * discard the wrapper.
     */
-   image_planar = image->createImageFromDmaBufs(opaque_dri_screen(screen),
+   image_planar = dri2_from_dma_bufs(opaque_dri_screen(screen),
                                                 bp_reply->width,
                                                 bp_reply->height,
                                                 fourcc,
@@ -274,12 +218,12 @@ dri3_create_image(xcb_connection_t *c,
    if (!image_planar)
       return NULL;
 
-   ret = image->fromPlanar(image_planar, 0, loaderPrivate);
+   ret = dri2_from_planar(image_planar, 0, loaderPrivate);
 
    if (!ret)
       ret = image_planar;
    else
-      image->destroyImage(image_planar);
+      dri2_destroy_image(image_planar);
 
    return ret;
 }
@@ -347,7 +291,7 @@ kopper_get_pixmap_buffer(struct dri_drawable *drawable,
       }
       drawable->image =
          dri3_create_image_from_buffers(conn, bps_reply, fourcc,
-                                        screen, &driVkImageExtension,
+                                        screen,
                                         drawable);
       if (!drawable->image)
          return NULL;
@@ -370,7 +314,7 @@ kopper_get_pixmap_buffer(struct dri_drawable *drawable,
       }
 
       drawable->image = dri3_create_image(conn, bp_reply, fourcc,
-                                       screen, &driVkImageExtension,
+                                       screen,
                                        drawable);
       if (!drawable->image)
          return NULL;
@@ -922,32 +866,5 @@ kopperQueryBufferAge(__DRIdrawable *dPriv)
    return zink_kopper_query_buffer_age(ctx->st->pipe, ptex);
 }
 
-const __DRIkopperExtension driKopperExtension = {
-   .base = { __DRI_KOPPER, 1 },
-   .createNewDrawable          = kopperCreateNewDrawable,
-   .swapBuffers                = kopperSwapBuffers,
-   .swapBuffersWithDamage      = kopperSwapBuffersWithDamage,
-   .setSwapInterval            = kopperSetSwapInterval,
-   .queryBufferAge             = kopperQueryBufferAge,
-};
-
-static const struct __DRImesaCoreExtensionRec mesaCoreExtension = {
-   .base = { __DRI_MESA, 2 },
-   .version_string = MESA_INTERFACE_VERSION_STRING,
-   .createContext = driCreateContextAttribs,
-   .initScreen = kopper_init_screen,
-   .createNewScreen3 = driCreateNewScreen3,
-};
-
-const __DRIextension *galliumvk_driver_extensions[] = {
-   &driCoreExtension.base,
-   &mesaCoreExtension.base,
-   &driSWRastExtension.base,
-   &driDRI2Extension.base,
-   &driImageDriverExtension.base,
-   &driKopperExtension.base,
-   &gallium_config_options.base,
-   NULL
-};
 
 /* vim: set sw=3 ts=8 sts=3 expandtab: */

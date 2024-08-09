@@ -514,12 +514,16 @@ struct glx_screen
    bool force_direct_context;
    bool allow_invalid_glx_destroy_window;
    bool keep_native_window_glx_drawable;
+   bool can_EXT_texture_from_pixmap;
+
+   char *driverName;
 
 #if defined(GLX_DIRECT_RENDERING) && (!defined(GLX_USE_APPLEGL) || defined(GLX_USE_APPLE))
     /**
      * Per screen direct rendering interface functions and data.
      */
    __GLXDRIscreen *driScreen;
+   __DRIscreen *frontend_screen;
 #endif
 
     /**

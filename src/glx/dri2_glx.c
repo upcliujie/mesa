@@ -589,7 +589,6 @@ dri2DestroyScreen(struct glx_screen *base)
    /* Free the direct rendering per screen data */
    driDestroyScreen(psc->driScreen);
    driDestroyConfigs(psc->driver_configs);
-   free(psc->driverName);
    close(psc->fd);
    free(psc);
 }
@@ -822,70 +821,10 @@ static const struct glx_context_vtable dri2_context_vtable = {
    .wait_x              = dri2_wait_x,
 };
 
-static void
-dri2BindExtensions(struct dri2_screen *psc, struct glx_display * priv,
-                   const char *driverName)
-{
-   const unsigned mask = driGetAPIMask(psc->driScreen);
-   const __DRIextension **extensions;
-   int i;
-
-   extensions = driGetExtensions(psc->driScreen);
-
-   __glXEnableDirectExtension(&psc->base, "GLX_EXT_swap_control");
-   __glXEnableDirectExtension(&psc->base, "GLX_SGI_swap_control");
-   __glXEnableDirectExtension(&psc->base, "GLX_MESA_swap_control");
-   __glXEnableDirectExtension(&psc->base, "GLX_SGI_make_current_read");
-
-   /*
-    * GLX_INTEL_swap_event is broken on the server side, where it's
-    * currently unconditionally enabled. This completely breaks
-    * systems running on drivers which don't support that extension.
-    * There's no way to test for its presence on this side, so instead
-    * of disabling it unconditionally, just disable it for drivers
-    * which are known to not support it.
-    *
-    * This was fixed in xserver 1.15.0 (190b03215), so now we only
-    * disable the broken driver.
-    */
-   if (strcmp(driverName, "vmwgfx") != 0) {
-      __glXEnableDirectExtension(&psc->base, "GLX_INTEL_swap_event");
-   }
-
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_create_context");
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_create_context_profile");
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_create_context_no_error");
-   __glXEnableDirectExtension(&psc->base, "GLX_EXT_no_config_context");
-
-   if ((mask & ((1 << __DRI_API_GLES) |
-                (1 << __DRI_API_GLES2) |
-                (1 << __DRI_API_GLES3))) != 0) {
-      __glXEnableDirectExtension(&psc->base,
-                                 "GLX_EXT_create_context_es_profile");
-      __glXEnableDirectExtension(&psc->base,
-                                 "GLX_EXT_create_context_es2_profile");
-   }
-
-   /* Extensions where we don't care about the extension struct */
-   for (i = 0; extensions[i]; i++) {
-      if (strcmp(extensions[i]->name, __DRI2_ROBUSTNESS) == 0)
-         __glXEnableDirectExtension(&psc->base,
-                                    "GLX_ARB_create_context_robustness");
-   }
-
-   __glXEnableDirectExtension(&psc->base, "GLX_EXT_texture_from_pixmap");
-   __glXEnableDirectExtension(&psc->base, "GLX_ARB_context_flush_control");
-   __glXEnableDirectExtension(&psc->base, "GLX_MESA_query_renderer");
-
-   __glXEnableDirectExtension(&psc->base, "GLX_MESA_gl_interop");
-}
-
 static char *
 dri2_get_driver_name(struct glx_screen *glx_screen)
 {
-    struct dri2_screen *psc = (struct dri2_screen *)glx_screen;
-
-    return psc->driverName;
+    return glx_screen->driverName;
 }
 
 static const struct glx_screen_vtable dri2_screen_vtable = {
@@ -907,7 +846,6 @@ struct glx_screen *
 dri2CreateScreen(int screen, struct glx_display * priv, bool driver_name_is_inferred)
 {
    const __DRIconfig **driver_configs;
-   const __DRIextension **extensions;
    struct dri2_screen *psc;
    __GLXDRIscreen *psp;
    struct glx_config *configs = NULL, *visuals = NULL;
@@ -957,21 +895,15 @@ dri2CreateScreen(int screen, struct glx_display * priv, bool driver_name_is_infe
       free(driverName);
       driverName = loader_driverName;
    }
-   psc->driverName = driverName;
+   psc->base.driverName = driverName;
 
-   extensions = driOpenDriver(driverName, driver_name_is_inferred);
-   if (extensions == NULL)
-      goto handle_error;
-
-   psc->driScreen = driCreateNewScreen3(screen, psc->fd, loader_extensions, extensions,
+   psc->driScreen = driCreateNewScreen3(screen, psc->fd, loader_extensions, DRI_SCREEN_DRI3,
                                         &driver_configs, driver_name_is_inferred, psc);
 
    if (psc->driScreen == NULL) {
       ErrorMessageF("glx: failed to create dri2 screen\n");
       goto handle_error;
    }
-
-   dri2BindExtensions(psc, priv, driverName);
 
    configs = driConvertConfigs(psc->base.configs, driver_configs);
    visuals = driConvertConfigs(psc->base.visuals, driver_configs);
@@ -992,6 +924,7 @@ dri2CreateScreen(int screen, struct glx_display * priv, bool driver_name_is_infe
    psc->base.context_vtable = &dri2_context_vtable;
    psp = &psc->vtable;
    psc->base.driScreen = psp;
+   psc->base.frontend_screen = psc->driScreen;
    psp->destroyScreen = dri2DestroyScreen;
    psp->createDrawable = dri2CreateDrawable;
    psp->swapBuffers = dri2SwapBuffers;
@@ -1009,6 +942,8 @@ dri2CreateScreen(int screen, struct glx_display * priv, bool driver_name_is_infe
    psp->setSwapInterval = dri2SetSwapInterval;
    psp->getSwapInterval = dri2GetSwapInterval;
    psp->maxSwapInterval = INT_MAX;
+
+   psc->base.can_EXT_texture_from_pixmap = true;
 
    __glXEnableDirectExtension(&psc->base, "GLX_OML_sync_control");
    __glXEnableDirectExtension(&psc->base, "GLX_SGI_video_sync");
@@ -1040,7 +975,6 @@ dri2CreateScreen(int screen, struct glx_display * priv, bool driver_name_is_infe
    /* DRI2 supports SubBuffer through DRI2CopyRegion, so it's always
     * available.*/
    psp->copySubBuffer = dri2CopySubBuffer;
-   __glXEnableDirectExtension(&psc->base, "GLX_MESA_copy_sub_buffer");
 
    free(deviceName);
 
