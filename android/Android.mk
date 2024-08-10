@@ -28,6 +28,12 @@ MESA3D_TOP := $(dir $(LOCAL_PATH))
 
 MESA3D_VERSION = $(shell cat $(MESA3D_TOP)/VERSION)
 LIBDRM_VERSION = $(shell cat external/libdrm/meson.build | grep -o "\<version\>\s*:\s*'\w*\.\w*\.\w*'" | grep -o "\w*\.\w*\.\w*" | head -1)
+LLVM_VERSION_MAJOR = $(shell \
+    if [ -f external/llvm-project/cmake/Modules/LLVMVersion.cmake ]; then \
+        grep 'set.LLVM_VERSION_MAJOR ' external/llvm-project/cmake/Modules/LLVMVersion.cmake | grep -o '[0-9]\+'; \
+    else \
+        grep 'set.LLVM_VERSION_MAJOR ' external/llvm-project/llvm/CMakeLists.txt | grep -o '[0-9]\+'; \
+    fi)
 
 MESA_VK_LIB_SUFFIX_amd := radeon
 MESA_VK_LIB_SUFFIX_intel := intel
@@ -87,8 +93,8 @@ MESON_GEN_PKGCONFIGS += DirectX-Headers
 endif
 
 ifneq ($(MESON_GEN_LLVM_STUB),)
-MESON_LLVM_VERSION := 12.0.0
-LOCAL_SHARED_LIBRARIES += libLLVM12
+MESON_LLVM_VERSION := $(LLVM_VERSION_MAJOR).0.0
+LOCAL_SHARED_LIBRARIES += libLLVM$(LLVM_VERSION_MAJOR)
 endif
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30; echo $$?), 0)
