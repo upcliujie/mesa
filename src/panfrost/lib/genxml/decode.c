@@ -483,6 +483,9 @@ GENX(pandecode_blend_descs)(struct pandecode_context *ctx, mali_ptr blend,
                             unsigned count, mali_ptr frag_shader,
                             unsigned gpu_id)
 {
+   if (frag_shader == 0)
+      frag_shader = (mali_ptr)(0xffffffff00000000 & (uint64_t)blend);
+
    for (unsigned i = 0; i < count; ++i) {
       struct mali_blend_packed *PANDECODE_PTR_VAR(ctx, blend_descs, blend);
 
