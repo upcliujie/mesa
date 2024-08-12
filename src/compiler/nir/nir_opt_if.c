@@ -1161,7 +1161,9 @@ opt_if_merge(nir_if *nif)
        * opt_if_evaluate_condition_use will optimize it later.
        */
       if (nir_block_ends_in_jump(nir_if_last_then_block(nif)) ||
-          nir_block_ends_in_jump(nir_if_last_else_block(nif)))
+          nir_block_ends_in_jump(nir_if_last_else_block(nif)) ||
+          nir_block_ends_in_jump(nir_if_last_then_block(next_if)) ||
+          nir_block_ends_in_jump(nir_if_last_else_block(next_if)))
          return false;
 
       simple_merge_if(nif, next_if, true, true);
