@@ -1115,6 +1115,7 @@ Rusticl environment variables
 
    - ``allow_invalid_spirv`` disables validation of any input SPIR-V
    - ``clc`` dumps all OpenCL C source being compiled
+   - ``no_variants`` disable kernel variants (e.g. specialized binaries for offsets == 0)
    - ``perf`` prints a warning when hitting slow paths once
    - ``perfspam`` same as perf, but doesn't skip same warnings
    - ``program`` dumps compilation logs to stderr
