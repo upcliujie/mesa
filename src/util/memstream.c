@@ -117,3 +117,17 @@ u_memstream_flush(struct u_memstream *mem)
 
    return 0;
 }
+
+int
+u_memstream_reset(struct u_memstream *mem)
+{
+   FILE *const f = mem->f;
+   int ret;
+
+   rewind(f);
+   ret = fwrite("\0", 1, 1, f);
+   if (ret)
+      return ret;
+
+   return u_memstream_flush(mem);
+}

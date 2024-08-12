@@ -68,6 +68,9 @@ u_memstream_get(const struct u_memstream *mem)
 int
 u_memstream_flush(struct u_memstream *mem);
 
+int
+u_memstream_reset(struct u_memstream *mem);
+
 #ifdef __cplusplus
 }
 #endif
