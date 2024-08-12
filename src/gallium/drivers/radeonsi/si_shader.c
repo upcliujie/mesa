@@ -2502,7 +2502,7 @@ struct nir_shader *si_get_nir_shader(struct si_shader *shader,
                .lower_shuffle_to_swizzle_amd = true,
                .lower_ballot_bit_count_to_mbcnt_amd = true,
                .lower_inverse_ballot = !sel->screen->use_aco && LLVM_VERSION_MAJOR < 17,
-               .lower_boolean_reduce = true,
+               .lower_boolean_reduce = sel->screen->use_aco,
                .lower_boolean_shuffle = true,
             });
 
