@@ -613,8 +613,8 @@ static bool r300_is_blending_supported(struct r300_screen *rscreen,
     if (desc->channel[c].normalized &&
         desc->channel[c].type == UTIL_FORMAT_TYPE_UNSIGNED &&
         desc->channel[c].size >= 4 &&
-        desc->channel[c].size <= 10) {
-        /* RGB10_A2, RGBA8, RGB5_A1, RGBA4, RGB565 */
+        desc->channel[c].size <= 8) {
+        /* RGBA8, RGB5_A1, RGBA4, RGB565 */
         if (desc->nr_channels >= 3)
             return true;
 
