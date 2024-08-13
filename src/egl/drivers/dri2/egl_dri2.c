@@ -809,10 +809,24 @@ dri2_create_screen(_EGLDisplay *disp)
 
    int screen_fd = -1;
    if (!dri2_dpy->swrast) {
-#ifdef HAVE_DRM_PLATFORM
-      if (!dri2_dpy->kopper || dri2_dpy->gbm_dri)
-#endif
-          screen_fd = dri2_dpy->fd_render_gpu;
+      switch (disp->Platform) {
+      case _EGL_PLATFORM_SURFACELESS:
+      case _EGL_PLATFORM_DEVICE:
+      case _EGL_PLATFORM_DRM:
+      case _EGL_PLATFORM_WAYLAND:
+      case _EGL_PLATFORM_ANDROID:
+         screen_fd = dri2_dpy->fd_render_gpu;
+         break;
+      case _EGL_PLATFORM_X11:
+      case _EGL_PLATFORM_XCB:
+         /* no kopper fd on x11 only */
+         if (!dri2_dpy->kopper)
+            screen_fd = dri2_dpy->fd_render_gpu;
+         break;
+      default:
+         unreachable("uh-oh");
+         break;
+      }
    }
    dri2_dpy->dri_screen_render_gpu = driCreateNewScreen3(
       0, screen_fd, dri2_dpy->loader_extensions, type,
