@@ -20,6 +20,65 @@
 
 namespace aco {
 
+namespace {
+
+void
+calc_indices(Program* program)
+{
+   std::vector<uint32_t> logical_size(program->blocks.size());
+   std::vector<uint32_t> linear_size(program->blocks.size());
+   std::vector<small_vec<uint32_t, 4>> logical_children(program->blocks.size());
+   std::vector<small_vec<uint32_t, 4>> linear_children(program->blocks.size());
+
+   for (int i = program->blocks.size() - 1; i >= 0; i--) {
+      Block& block = program->blocks[i];
+
+      logical_size[i]++;
+      linear_size[i]++;
+
+      if (block.logical_idom != -1 && block.logical_idom != i) {
+         assert(i > block.logical_idom);
+         logical_children[block.logical_idom].push_back(i);
+         logical_size[block.logical_idom] += logical_size[i];
+      }
+      if (block.linear_idom != i) {
+         assert(i > block.linear_idom);
+         linear_children[block.linear_idom].push_back(i);
+         linear_size[block.linear_idom] += linear_size[i];
+      }
+   }
+
+   for (unsigned i = 0; i < program->blocks.size(); i++) {
+      Block& block = program->blocks[i];
+      if (block.logical_idom == (int)i) {
+         block.logical_dom_pre_index = i;
+         block.logical_dom_post_index = i + logical_size[i] - 1;
+      }
+      if (block.linear_idom == (int)i) {
+         block.linear_dom_pre_index = i;
+         block.linear_dom_post_index = i + linear_size[i] - 1;
+      }
+
+      unsigned start = block.logical_dom_pre_index;
+      for (unsigned j = 0; j < logical_children[i].size(); j++) {
+         unsigned child = logical_children[i][j];
+         program->blocks[child].logical_dom_pre_index = start;
+         program->blocks[child].logical_dom_post_index = start + logical_size[child] - 1;
+         start += logical_size[child];
+      }
+
+      start = block.linear_dom_pre_index;
+      for (unsigned j = 0; j < linear_children[i].size(); j++) {
+         unsigned child = linear_children[i][j];
+         program->blocks[child].linear_dom_pre_index = start;
+         program->blocks[child].linear_dom_post_index = start + linear_size[child] - 1;
+         start += linear_size[child];
+      }
+   }
+}
+
+} /* end namespace */
+
 void
 dominator_tree(Program* program)
 {
@@ -72,6 +131,8 @@ dominator_tree(Program* program)
       block.logical_idom = new_logical_idom;
       block.linear_idom = new_linear_idom;
    }
+
+   calc_indices(program);
 }
 
 } // namespace aco
