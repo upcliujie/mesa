@@ -1361,10 +1361,13 @@ v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
         if (v3d->zsa && job->zsbuf && v3d->zsa->base.depth_enabled) {
                 struct v3d_resource *rsc = v3d_resource(job->zsbuf->texture);
                 v3d_job_add_bo(job, rsc->bo);
-                job->load |= PIPE_CLEAR_DEPTH & ~clear_mask;
-                if (v3d->zsa->base.depth_writemask)
+                if (!(rsc->invalidated & PIPE_CLEAR_DEPTH))
+                        job->load |= PIPE_CLEAR_DEPTH & ~clear_mask;
+                if (v3d->zsa->base.depth_writemask) {
                         job->store |= PIPE_CLEAR_DEPTH;
-                rsc->initialized_buffers = PIPE_CLEAR_DEPTH;
+                        rsc->invalidated &= ~PIPE_CLEAR_DEPTH;
+                }
+                rsc->initialized_buffers |= PIPE_CLEAR_DEPTH;
         }
 
         if (v3d->zsa && job->zsbuf && v3d->zsa->base.stencil[0].enabled) {
@@ -1373,11 +1376,12 @@ v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
                         rsc = rsc->separate_stencil;
 
                 v3d_job_add_bo(job, rsc->bo);
-
-                job->load |= PIPE_CLEAR_STENCIL & ~clear_mask;
+                if (!(rsc->invalidated & PIPE_CLEAR_STENCIL))
+                        job->load |= PIPE_CLEAR_STENCIL & ~clear_mask;
                 if (v3d->zsa->base.stencil[0].writemask ||
                     v3d->zsa->base.stencil[1].writemask) {
                         job->store |= PIPE_CLEAR_STENCIL;
+                        rsc->invalidated &= ~PIPE_CLEAR_STENCIL;
                 }
                 rsc->initialized_buffers |= PIPE_CLEAR_STENCIL;
         }
@@ -1389,10 +1393,12 @@ v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
                 if (job->store & bit || !job->cbufs[i])
                         continue;
                 struct v3d_resource *rsc = v3d_resource(job->cbufs[i]->texture);
-
-                job->load |= bit & ~clear_mask;
-                if (v3d->blend->base.rt[blend_rt].colormask)
+                if (!(rsc->invalidated & bit))
+                        job->load |= bit & ~clear_mask;
+                if (v3d->blend->base.rt[blend_rt].colormask){
                         job->store |= bit;
+                        rsc->invalidated &= ~bit;
+                }
                 v3d_job_add_bo(job, rsc->bo);
         }
 

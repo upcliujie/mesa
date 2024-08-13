@@ -121,12 +121,29 @@ v3d_invalidate_resource(struct pipe_context *pctx, struct pipe_resource *prsc)
 
         struct hash_entry *entry = _mesa_hash_table_search(v3d->write_jobs,
                                                            prsc);
-        if (!entry)
+        if (!entry) {
+                rsc->invalidated = ~0;
                 return;
+        }
 
         struct v3d_job *job = entry->data;
-        if (job->key.zsbuf && job->key.zsbuf->texture == prsc)
+        if (job->key.zsbuf && job->key.zsbuf->texture == prsc) {
                 job->store &= ~(PIPE_CLEAR_DEPTH | PIPE_CLEAR_STENCIL);
+                rsc->invalidated |= (PIPE_CLEAR_DEPTH | PIPE_CLEAR_STENCIL);
+                if (job->write_prscs)
+                        _mesa_set_remove_key(job->write_prscs, prsc);
+                return;
+        }
+
+        for (int i = 0; i < job->nr_cbufs; i++) {
+                if (job->cbufs[i] && job->cbufs[i]->texture == prsc) {
+                        job->store &= ~(PIPE_CLEAR_COLOR0 << i);
+                        rsc->invalidated |= PIPE_CLEAR_COLOR0 << i;
+                        if (job->write_prscs)
+                                _mesa_set_remove_key(job->write_prscs, prsc);
+                        return;
+                }
+        }
 }
 
 /**
