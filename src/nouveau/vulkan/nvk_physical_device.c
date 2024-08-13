@@ -197,6 +197,7 @@ nvk_get_device_extensions(const struct nvk_instance *instance,
       .EXT_external_memory_dma_buf = true,
       .EXT_graphics_pipeline_library = true,
       .EXT_host_query_reset = true,
+      .EXT_host_image_copy = true,
       .EXT_image_2d_view_of_3d = true,
       .EXT_image_robustness = true,
       .EXT_image_sliced_view_of_3d = true,
@@ -541,6 +542,9 @@ nvk_get_device_features(const struct nv_device_info *info,
 
       /* VK_EXT_graphics_pipeline_library */
       .graphicsPipelineLibrary = true,
+   
+      /* VK_EXT_host_image_copy */
+      .hostImageCopy = true,
 
       /* VK_EXT_image_2d_view_of_3d */
       .image2DViewOf3D = true,
