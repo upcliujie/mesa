@@ -2900,6 +2900,7 @@ static const __DRIextension *kopper_swrast_loader_extensions[] = {
    &kopper_swrast_loader_extension.base,
    &image_lookup_extension.base,
    &kopper_loader_extension.base,
+   &use_invalidate.base,
    NULL,
 };
 
