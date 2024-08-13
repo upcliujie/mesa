@@ -389,6 +389,8 @@
     - .b2c-deqp-test
   variables:
     DEQP_VER: vk
+    # Enable experimental NV DGC extensions
+    radv_dgc: true
 
 ############### vkd3d-proton
 .vkd3d-kabini-valve:

@@ -128,6 +128,9 @@ VARS=(
     # Dead code within Mesa CI, but required by virglrender CI
     # (because they include our files in their CI)
     VK_DRIVER_FILES
+
+    # Experimental drirc entry to enable NV DGC extensions on RADV.
+    radv_dgc
 )
 
 for var in "${VARS[@]}"; do
