@@ -1395,6 +1395,7 @@ struct drm_xe_wait_user_fence {
 enum drm_xe_observation_type {
 	/** @DRM_XE_OBSERVATION_TYPE_OA: OA observation stream type */
 	DRM_XE_OBSERVATION_TYPE_OA,
+	DRM_XE_OBSERVATION_TYPE_EU_STALL,
 };
 
 /**
@@ -1656,6 +1657,89 @@ struct drm_xe_oa_config {
 	 * registers. Expected length of buffer is: (2 * sizeof(u32) * @n_regs).
 	 */
 	__u64 regs_ptr;
+};
+
+enum drm_xe_eu_stall_property_id {
+	/**
+	 * @DRM_XE_EU_STALL_PROP_BUF_SZ: Per DSS Memory Buffer Size.
+	 * Valid values are 128 KB, 256 KB, and 512 KB.
+	 */
+	DRM_XE_EU_STALL_PROP_BUF_SZ = 1,
+
+	/**
+	 * @DRM_XE_EU_STALL_PROP_SAMPLE_RATE: Sampling rate
+	 * in multiples of 251 cycles. Valid values are 1 to 7.
+	 * If the value is 1, sampling interval is 251 cycles.
+	 * If the value is 7, sampling interval is 7 x 251 cycles.
+	 */
+	DRM_XE_EU_STALL_PROP_SAMPLE_RATE,
+
+	/**
+	 * @DRM_XE_EU_STALL_PROP_POLL_PERIOD: EU stall data
+	 * poll period in nanoseconds. should be at least 100000 ns.
+	 */
+	DRM_XE_EU_STALL_PROP_POLL_PERIOD,
+
+	/**
+	 * @DRM_XE_EU_STALL_PROP_EVENT_REPORT_COUNT: Minimum number of
+	 * EU stall data rows to be present in the kernel buffer for
+	 * poll() to set POLLIN (data present).
+	 */
+	DRM_XE_EU_STALL_PROP_EVENT_REPORT_COUNT,
+
+	/**
+	 * @DRM_XE_EU_STALL_PROP_GT_ID: GT ID of the GT on which
+	 * EU stall data will be captured.
+	 */
+	DRM_XE_EU_STALL_PROP_GT_ID,
+
+	/**
+	 * @DRM_XE_EU_STALL_PROP_OPEN_DISABLED: A value of 1 will open
+	 * the EU stall data stream without enabling EU stall sampling.
+	 */
+	DRM_XE_EU_STALL_PROP_OPEN_DISABLED,
+
+	DRM_XE_EU_STALL_PROP_MAX
+};
+
+struct drm_xe_eu_stall_data_xe2 {
+	__u64 ip_addr:29;
+	__u64 tdr_count:8;
+	__u64 other_count:8;
+	__u64 control_count:8;
+	__u64 pipestall_count:8;
+	__u64 send_count:8;
+	__u64 dist_acc_count:8;
+	__u64 sbid_count:8;
+	__u64 sync_count:8;
+	__u64 inst_fetch_count:8;
+	__u64 active_count:8;
+	__u64 ex_id:3;
+	__u64 end_flag:1;
+	__u64 unused_zeros:15;
+	__u64 reserved[6];
+} __attribute__((packed));
+
+/**
+ * struct drm_xe_eu_stall_data_header - EU stall data header.
+ * Header with additional information that the driver adds
+ * before EU stall data of each subslice during read().
+ */
+struct drm_xe_eu_stall_data_header {
+	/** @subslice: subslice number from which the following data
+	 * has been captured.
+	 */
+	__u16 subslice;
+	/** @flags: flags */
+	__u16 flags;
+/* EU stall data dropped by the HW due to memory buffer being full */
+#define XE_EU_STALL_FLAG_OVERFLOW_DROP	(1 << 0)
+	/** @record_size: size of each EU stall data record */
+	__u16 record_size;
+	/** @num_records: number of records following the header */
+	__u16 num_records;
+	/** @reserved: Reserved */
+	__u16 reserved[4];
 };
 
 /**
