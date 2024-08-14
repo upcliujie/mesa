@@ -22,12 +22,13 @@
  */
 
 #include "compiler/nir/nir_builder.h"
+#include "util/macros.h"
 #include "pan_ir.h"
 
 static void
 lower_xfb_output(nir_builder *b, nir_intrinsic_instr *intr,
                  unsigned start_component, unsigned num_components,
-                 unsigned buffer, unsigned offset_words)
+                 unsigned buffer, unsigned offset_words, bool read_count_buf)
 {
    assert(buffer < MAX_XFB_BUFFERS);
    assert(nir_intrinsic_component(intr) == 0); // TODO
@@ -51,6 +52,13 @@ lower_xfb_output(nir_builder *b, nir_intrinsic_instr *intr,
       b, buf,
       nir_u2u64(b, nir_iadd_imm(b, nir_imul_imm(b, index, stride), offset)));
 
+   if (read_count_buf) {
+      nir_def *count_buf = nir_load_xfb_position(b, 32, .base = buffer);
+      nir_def *position = nir_load_global(b, count_buf, 32, 1, 32);
+      position = nir_u2u64(b, nir_imul_imm(b, position, stride));
+      addr = nir_iadd(b, addr, position);
+   }
+
    nir_def *src = intr->src[0].ssa;
    nir_def *value =
       nir_channels(b, src, BITFIELD_MASK(num_components) << start_component);
@@ -58,7 +66,7 @@ lower_xfb_output(nir_builder *b, nir_intrinsic_instr *intr,
 }
 
 static bool
-lower_xfb(nir_builder *b, nir_intrinsic_instr *intr, UNUSED void *data)
+lower_xfb(nir_builder *b, nir_intrinsic_instr *intr, void *data)
 {
    /* In transform feedback programs, vertex ID becomes zero-based, so apply
     * that lowering even on Valhall.
@@ -88,7 +96,7 @@ lower_xfb(nir_builder *b, nir_intrinsic_instr *intr, UNUSED void *data)
             continue;
 
          lower_xfb_output(b, intr, i * 2 + j, xfb.out[j].num_components,
-                          xfb.out[j].buffer, xfb.out[j].offset);
+                          xfb.out[j].buffer, xfb.out[j].offset, *(bool *)data);
          progress = true;
       }
    }
@@ -98,8 +106,8 @@ lower_xfb(nir_builder *b, nir_intrinsic_instr *intr, UNUSED void *data)
 }
 
 bool
-pan_lower_xfb(nir_shader *nir)
+pan_lower_xfb(nir_shader *nir, bool read_count_buf)
 {
-   return nir_shader_intrinsics_pass(
-      nir, lower_xfb, nir_metadata_control_flow, NULL);
+   return nir_shader_intrinsics_pass(nir, lower_xfb, nir_metadata_control_flow,
+                                     &read_count_buf);
 }
