@@ -683,6 +683,12 @@ static const int extra_EXT_disjoint_timer_query[] = {
    EXTRA_END
 };
 
+static const int extra_version_43_KHR_shader_subgroup[] = {
+   EXTRA_VERSION_43,
+   EXT(KHR_shader_subgroup),
+   EXTRA_END
+};
+
 
 /* This is the big table describing all the enums we accept in
  * glGet*v().  The table is partitioned into six parts: enums
