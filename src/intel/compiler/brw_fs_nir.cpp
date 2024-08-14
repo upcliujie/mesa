@@ -1571,18 +1571,24 @@ fs_nir_emit_alu(nir_to_brw_state &ntb, nir_alu_instr *instr,
       assert(instr->def.bit_size == 32);
       assert(nir_src_bit_size(instr->src[0].src) == 32);
 
-      bld.FBH(retype(result, BRW_TYPE_UD), op[0]);
+      brw_reg tmp = bld.FBH(retype(op[0], BRW_TYPE_D));
+      brw_reg neg_tmp = tmp;
+
+      neg_tmp.negate = true;
 
       /* FBH counts from the MSB side, while GLSL's findMSB() wants the count
        * from the LSB side. If FBH didn't return an error (0xFFFFFFFF), then
        * subtract the result from 31 to convert the MSB count into an LSB
        * count.
        */
-      bld.CMP(bld.null_reg_d(), result, brw_imm_d(-1), BRW_CONDITIONAL_NZ);
+      brw_reg count_from_lsb = bld.ADD(neg_tmp, brw_imm_w(31));
 
-      inst = bld.ADD(result, result, brw_imm_d(31));
-      inst->predicate = BRW_PREDICATE_NORMAL;
-      inst->src[0].negate = true;
+      /* The high word of the FBH result will be 0xffff or 0x0000. After
+       * calculating 31 - fbh, we can obtain the correct result for
+       * ifind_msb(0) by ORing the (sign extended) upper word of the
+       * intermediate result.
+       */
+      bld.OR(result, count_from_lsb, subscript(tmp, BRW_TYPE_W, 1));
       break;
    }
 
@@ -1633,8 +1639,9 @@ fs_nir_emit_alu(nir_to_brw_state &ntb, nir_alu_instr *instr,
     */
    case nir_op_ishl:
       if (instr->def.bit_size < 32) {
-         bld.AND(result, op[1], brw_imm_ud(instr->def.bit_size - 1));
-         bld.SHL(result, op[0], result);
+         bld.SHL(result,
+                 op[0],
+                 bld.AND(op[1], brw_imm_ud(instr->def.bit_size - 1)));
       } else {
          bld.SHL(result, op[0], op[1]);
       }
@@ -1642,8 +1649,9 @@ fs_nir_emit_alu(nir_to_brw_state &ntb, nir_alu_instr *instr,
       break;
    case nir_op_ishr:
       if (instr->def.bit_size < 32) {
-         bld.AND(result, op[1], brw_imm_ud(instr->def.bit_size - 1));
-         bld.ASR(result, op[0], result);
+         bld.ASR(result,
+                 op[0],
+                 bld.AND(op[1], brw_imm_ud(instr->def.bit_size - 1)));
       } else {
          bld.ASR(result, op[0], op[1]);
       }
@@ -1651,8 +1659,9 @@ fs_nir_emit_alu(nir_to_brw_state &ntb, nir_alu_instr *instr,
       break;
    case nir_op_ushr:
       if (instr->def.bit_size < 32) {
-         bld.AND(result, op[1], brw_imm_ud(instr->def.bit_size - 1));
-         bld.SHR(result, op[0], result);
+         bld.SHR(result,
+                 op[0],
+                 bld.AND(op[1], brw_imm_ud(instr->def.bit_size - 1)));
       } else {
          bld.SHR(result, op[0], op[1]);
       }
