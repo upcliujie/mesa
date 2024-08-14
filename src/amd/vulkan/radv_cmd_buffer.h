@@ -75,7 +75,8 @@ enum radv_dynamic_state_bits {
    RADV_DYNAMIC_SAMPLE_LOCATIONS_ENABLE = 1ull << 49,
    RADV_DYNAMIC_ALPHA_TO_ONE_ENABLE = 1ull << 50,
    RADV_DYNAMIC_COLOR_ATTACHMENT_MAP = 1ull << 51,
-   RADV_DYNAMIC_ALL = (1ull << 52) - 1,
+   RADV_DYNAMIC_INPUT_ATTACHMENT_MAP = 1ull << 52,
+   RADV_DYNAMIC_ALL = (1ull << 53) - 1,
 };
 
 enum radv_cmd_dirty_bits {
@@ -92,7 +93,8 @@ enum radv_cmd_dirty_bits {
    RADV_CMD_DIRTY_STREAMOUT_ENABLE = 1ull << 10,
    RADV_CMD_DIRTY_GRAPHICS_SHADERS = 1ull << 11,
    RADV_CMD_DIRTY_COLOR_OUTPUT = 1ull << 12,
-   RADV_CMD_DIRTY_ALL = (1ull << 13) - 1,
+   RADV_CMD_DIRTY_FBFETCH_OUTPUT = 1ull << 13,
+   RADV_CMD_DIRTY_ALL = (1ull << 14) - 1,
 };
 
 enum radv_cmd_flush_bits {
@@ -183,6 +185,9 @@ struct radv_attachment {
 struct radv_rendering_state {
    bool active;
    bool has_image_views;
+   bool has_input_attachment_no_concurrent_writes;
+   bool ds_att_decompressed;
+   uint8_t color_att_decompressed;
    VkRect2D area;
    uint32_t layer_count;
    uint32_t view_mask;
@@ -446,6 +451,7 @@ struct radv_cmd_state {
    bool uses_vrs_coarse_shading;
    bool uses_dynamic_patch_control_points;
    bool uses_dynamic_vertex_binding_stride;
+   bool uses_fbfetch_output;
 };
 
 struct radv_enc_state {

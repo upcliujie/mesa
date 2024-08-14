@@ -164,6 +164,13 @@ radv_bind_dynamic_state(struct radv_cmd_buffer *cmd_buffer, const struct radv_dy
       dest_mask |= RADV_DYNAMIC_COLOR_ATTACHMENT_MAP;
    }
 
+   if (memcmp(&dest->vk.ial, &src->vk.ial, sizeof(src->vk.ial))) {
+      typed_memcpy(dest->vk.ial.color_map, src->vk.ial.color_map, MAX_RTS);
+      dest->vk.ial.depth_att = src->vk.ial.depth_att;
+      dest->vk.ial.stencil_att = src->vk.ial.stencil_att;
+      dest_mask |= RADV_DYNAMIC_INPUT_ATTACHMENT_MAP;
+   }
+
 #define RADV_CMP_COPY(field, flag)                                                                                     \
    if (copy_mask & flag) {                                                                                             \
       if (dest->field != src->field) {                                                                                 \
@@ -253,6 +260,10 @@ radv_bind_dynamic_state(struct radv_cmd_buffer *cmd_buffer, const struct radv_dy
 
    if (pdev->info.rbplus_allowed && (dest_mask & RADV_DYNAMIC_COLOR_WRITE_MASK)) {
       cmd_buffer->state.dirty |= RADV_CMD_DIRTY_RBPLUS;
+   }
+
+   if (dest_mask & (RADV_DYNAMIC_COLOR_ATTACHMENT_MAP | RADV_DYNAMIC_INPUT_ATTACHMENT_MAP)) {
+      cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FBFETCH_OUTPUT;
    }
 }
 
@@ -8090,6 +8101,11 @@ radv_bind_fragment_shader(struct radv_cmd_buffer *cmd_buffer, const struct radv_
        previous_ps->info.ps.pops_is_per_sample != ps->info.ps.pops_is_per_sample)
       cmd_buffer->state.dirty |= RADV_CMD_DIRTY_DB_SHADER_CONTROL;
 
+   if (!previous_ps || cmd_buffer->state.uses_fbfetch_output != ps->info.ps.uses_fbfetch_output) {
+      cmd_buffer->state.uses_fbfetch_output = ps->info.ps.uses_fbfetch_output;
+      cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FBFETCH_OUTPUT;
+   }
+
    /* Re-emit the PS epilog when a new fragment shader is bound. */
    if (ps->info.has_epilog)
       cmd_buffer->state.emitted_ps_epilog = NULL;
@@ -9162,6 +9178,159 @@ radv_CmdSetRenderingAttachmentLocationsKHR(VkCommandBuffer commandBuffer,
    }
 
    state->dirty_dynamic |= RADV_DYNAMIC_COLOR_ATTACHMENT_MAP;
+   state->dirty |= RADV_CMD_DIRTY_FBFETCH_OUTPUT;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+radv_CmdSetRenderingInputAttachmentIndicesKHR(VkCommandBuffer commandBuffer,
+                                              const VkRenderingInputAttachmentIndexInfoKHR *pLocationInfo)
+{
+   VK_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   struct radv_cmd_state *state = &cmd_buffer->state;
+
+   assert(pLocationInfo->colorAttachmentCount <= MESA_VK_MAX_COLOR_ATTACHMENTS);
+   for (uint32_t i = 0; i < pLocationInfo->colorAttachmentCount; i++) {
+      uint8_t val;
+
+      if (!pLocationInfo->pColorAttachmentInputIndices) {
+         val = i;
+      } else if (pLocationInfo->pColorAttachmentInputIndices[i] == VK_ATTACHMENT_UNUSED) {
+         val = MESA_VK_ATTACHMENT_UNUSED;
+      } else {
+         val = pLocationInfo->pColorAttachmentInputIndices[i];
+      }
+
+      state->dynamic.vk.ial.color_map[i] = val;
+   }
+
+   state->dynamic.vk.ial.depth_att = (pLocationInfo->pDepthInputAttachmentIndex == NULL ||
+                                      *pLocationInfo->pDepthInputAttachmentIndex == VK_ATTACHMENT_UNUSED)
+                                        ? MESA_VK_ATTACHMENT_UNUSED
+                                        : *pLocationInfo->pDepthInputAttachmentIndex;
+   state->dynamic.vk.ial.stencil_att = (pLocationInfo->pStencilInputAttachmentIndex == NULL ||
+                                        *pLocationInfo->pStencilInputAttachmentIndex == VK_ATTACHMENT_UNUSED)
+                                          ? MESA_VK_ATTACHMENT_UNUSED
+                                          : *pLocationInfo->pStencilInputAttachmentIndex;
+
+   state->dirty_dynamic |= RADV_DYNAMIC_INPUT_ATTACHMENT_MAP;
+   state->dirty |= RADV_CMD_DIRTY_FBFETCH_OUTPUT;
+}
+
+static void
+radv_handle_color_fbfetch_output(struct radv_cmd_buffer *cmd_buffer, uint32_t index)
+{
+   const struct radv_device *device = radv_cmd_buffer_device(cmd_buffer);
+   struct radv_rendering_state *render = &cmd_buffer->state.render;
+   const struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
+   struct radv_attachment *att = &render->color_att[index];
+
+   if (!att->iview)
+      return;
+
+   const struct radv_image *image = att->iview->image;
+   if (!(image->vk.usage & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT))
+      return;
+
+   if (!radv_layout_dcc_compressed(device, image, att->iview->vk.base_mip_level, att->layout,
+                                   radv_image_queue_family_mask(att->iview->image, cmd_buffer->qf, cmd_buffer->qf)))
+      return;
+
+   const uint32_t color_att_idx = d->vk.cal.color_map[index];
+   if (color_att_idx == MESA_VK_ATTACHMENT_UNUSED)
+      return;
+
+   if (d->vk.ial.color_map[color_att_idx] != color_att_idx)
+      return;
+
+   const VkImageSubresourceRange range = {
+      .aspectMask = att->iview->vk.aspects,
+      .baseMipLevel = att->iview->vk.base_mip_level,
+      .levelCount = att->iview->vk.level_count,
+      .baseArrayLayer = att->iview->vk.base_array_layer,
+      .layerCount = att->iview->vk.layer_count,
+   };
+
+   /* Consider previous rendering work for WAW hazards. */
+   cmd_buffer->state.flush_bits |= radv_src_access_flush(cmd_buffer, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                                         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, att->iview->image);
+
+   /* Force a transition to FEEDBACK_LOOP_OPTIMAL to decompress DCC. */
+   radv_handle_image_transition(cmd_buffer, att->iview->image, att->layout,
+                                VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT, RADV_QUEUE_GENERAL,
+                                RADV_QUEUE_GENERAL, &range, NULL);
+
+   att->layout = VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT;
+   render->color_att_decompressed |= 1 << index;
+
+   cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
+}
+
+static void
+radv_handle_depth_fbfetch_output(struct radv_cmd_buffer *cmd_buffer)
+{
+   const struct radv_device *device = radv_cmd_buffer_device(cmd_buffer);
+   struct radv_rendering_state *render = &cmd_buffer->state.render;
+   const struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
+   struct radv_attachment *att = &render->ds_att;
+
+   if (!att->iview)
+      return;
+
+   const struct radv_image *image = att->iview->image;
+   if (!(image->vk.usage & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT))
+      return;
+
+   if (!radv_layout_is_htile_compressed(
+          device, att->iview->image, att->layout,
+          radv_image_queue_family_mask(att->iview->image, cmd_buffer->qf, cmd_buffer->qf)))
+      return;
+
+   if (d->vk.ial.depth_att == MESA_VK_ATTACHMENT_UNUSED && d->vk.ial.stencil_att == MESA_VK_ATTACHMENT_UNUSED)
+      return;
+
+   const VkImageSubresourceRange range = {
+      .aspectMask = att->iview->vk.aspects,
+      .baseMipLevel = att->iview->vk.base_mip_level,
+      .levelCount = att->iview->vk.level_count,
+      .baseArrayLayer = att->iview->vk.base_array_layer,
+      .layerCount = att->iview->vk.layer_count,
+   };
+
+   /* Force a transition to FEEDBACK_LOOP_OPTIMAL to decompress HTILE. */
+   radv_handle_image_transition(cmd_buffer, att->iview->image, att->layout,
+                                VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT, RADV_QUEUE_GENERAL,
+                                RADV_QUEUE_GENERAL, &range, NULL);
+
+   att->layout = VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT;
+   render->ds_att_decompressed = true;
+
+   cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
+}
+
+static void
+radv_handle_fbfetch_output(struct radv_cmd_buffer *cmd_buffer)
+{
+   const struct radv_rendering_state *render = &cmd_buffer->state.render;
+
+   cmd_buffer->state.dirty &= ~RADV_CMD_DIRTY_FBFETCH_OUTPUT;
+
+   /* Nothing to do when dynamic rendering doesn't use concurrent input attachment writes. */
+   if (render->has_input_attachment_no_concurrent_writes)
+      return;
+
+   /* Nothing to do when the bound fragment shader doesn't use subpass input attachments. */
+   if (!cmd_buffer->state.uses_fbfetch_output)
+      return;
+
+   /* Check if any color attachments are compressed and also used as input attachments. */
+   for (uint32_t i = 0; i < render->color_att_count; i++) {
+      if (!(render->color_att_decompressed & (1 << i)))
+         radv_handle_color_fbfetch_output(cmd_buffer, i);
+   }
+
+   /* Check if the depth/stencil attachment is compressed and also used as input attachment. */
+   if (!render->ds_att_decompressed)
+      radv_handle_depth_fbfetch_output(cmd_buffer);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -9216,13 +9385,19 @@ radv_CmdExecuteCommands(VkCommandBuffer commandBuffer, uint32_t commandBufferCou
 
       primary->shader_upload_seq = MAX2(primary->shader_upload_seq, secondary->shader_upload_seq);
 
-      if (!secondary->state.render.has_image_views && primary->state.render.active &&
-          (primary->state.dirty & RADV_CMD_DIRTY_FRAMEBUFFER)) {
-         /* Emit the framebuffer state from primary if secondary
-          * has been recorded without a framebuffer, otherwise
-          * fast color/depth clears can't work.
-          */
-         radv_emit_framebuffer_state(primary);
+      primary->state.uses_fbfetch_output |= secondary->state.uses_fbfetch_output;
+
+      if (!secondary->state.render.has_image_views) {
+         if (primary->state.dirty & RADV_CMD_DIRTY_FBFETCH_OUTPUT)
+            radv_handle_fbfetch_output(primary);
+
+         if (primary->state.render.active && (primary->state.dirty & RADV_CMD_DIRTY_FRAMEBUFFER)) {
+            /* Emit the framebuffer state from primary if secondary
+             * has been recorded without a framebuffer, otherwise
+             * fast color/depth clears can't work.
+             */
+            radv_emit_framebuffer_state(primary);
+         }
       }
 
       if (secondary->gang.cs) {
@@ -9504,6 +9679,8 @@ radv_CmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo *pRe
    struct radv_rendering_state *render = &cmd_buffer->state.render;
    render->active = true;
    render->has_image_views = true;
+   render->has_input_attachment_no_concurrent_writes =
+      !!(pRenderingInfo->flags & VK_RENDERING_INPUT_ATTACHMENT_NO_CONCURRENT_WRITES_BIT_MESA);
    render->area = pRenderingInfo->renderArea;
    render->view_mask = pRenderingInfo->viewMask;
    render->layer_count = pRenderingInfo->layerCount;
@@ -9517,7 +9694,7 @@ radv_CmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo *pRe
    render->ds_att_aspects = ds_att_aspects;
    render->vrs_att = vrs_att;
    render->vrs_texel_size = vrs_texel_size;
-   cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
+   cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER | RADV_CMD_DIRTY_FBFETCH_OUTPUT;
 
    if (pdev->info.rbplus_allowed)
       cmd_buffer->state.dirty |= RADV_CMD_DIRTY_RBPLUS;
@@ -10983,6 +11160,9 @@ radv_before_draw(struct radv_cmd_buffer *cmd_buffer, const struct radv_draw_info
        */
       cmd_buffer->state.last_index_type = -1;
    }
+
+   if (cmd_buffer->state.dirty & RADV_CMD_DIRTY_FBFETCH_OUTPUT)
+      radv_handle_fbfetch_output(cmd_buffer);
 
    if (cmd_buffer->state.dirty & RADV_CMD_DIRTY_GRAPHICS_SHADERS) {
       radv_bind_graphics_shaders(cmd_buffer);
