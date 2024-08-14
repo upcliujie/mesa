@@ -1456,6 +1456,7 @@ static inline unsigned
 ir3_reg_file_offset(const struct ir3_register *reg, unsigned num,
                     bool mergedregs, enum ir3_reg_file *file)
 {
+   assert(!(reg->flags & (IR3_REG_IMMED | IR3_REG_CONST)));
    unsigned size = reg_elem_size(reg);
    if (!is_reg_gpr(reg)) {
       *file = IR3_FILE_NONGPR;
@@ -2104,6 +2105,15 @@ soft_sy_delay(struct ir3_instruction *instr, struct ir3 *shader)
       else
          return 109 + components;
    }
+}
+
+/* Some instructions don't immediately consume their sources so may introduce a
+ * WAR hazard.
+ */
+static inline bool
+is_war_hazard_producer(struct ir3_instruction *instr)
+{
+   return is_tex(instr) || is_mem(instr) || is_ss_producer(instr);
 }
 
 bool ir3_opt_predicates(struct ir3 *ir, struct ir3_shader_variant *v);
