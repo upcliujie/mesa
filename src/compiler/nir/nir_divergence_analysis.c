@@ -271,6 +271,7 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
    case nir_intrinsic_load_core_id_agx:
    case nir_intrinsic_load_samples_log2_agx:
    case nir_intrinsic_load_active_subgroup_count_agx:
+   case nir_intrinsic_load_call_return_address_amd:
       is_divergent = false;
       break;
 
@@ -728,7 +729,6 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
    case nir_intrinsic_load_packed_passthrough_primitive_amd:
    case nir_intrinsic_load_initial_edgeflags_amd:
    case nir_intrinsic_gds_atomic_add_amd:
-   case nir_intrinsic_load_rt_arg_scratch_offset_amd:
    case nir_intrinsic_load_intersection_opaque_amd:
    case nir_intrinsic_load_vector_arg_amd:
    case nir_intrinsic_load_btd_stack_id_intel:
@@ -784,6 +784,7 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
    case nir_intrinsic_load_active_subgroup_invocation_agx:
    case nir_intrinsic_load_sample_mask:
    case nir_intrinsic_quad_ballot_agx:
+   case nir_intrinsic_load_return_param_amd:
       is_divergent = true;
       break;
 
@@ -981,9 +982,10 @@ update_instr_divergence(nir_instr *instr, struct divergence_state *state)
       return visit_def(&nir_instr_as_undef(instr)->def, state);
    case nir_instr_type_deref:
       return visit_deref(state->shader, nir_instr_as_deref(instr), state);
+   case nir_instr_type_call:
+      return false;
    case nir_instr_type_jump:
    case nir_instr_type_phi:
-   case nir_instr_type_call:
    case nir_instr_type_parallel_copy:
    default:
       unreachable("NIR divergence analysis: Unsupported instruction type.");
@@ -1251,7 +1253,9 @@ nir_divergence_analysis(nir_shader *shader)
       .first_visit = true,
    };
 
-   visit_cf_list(&nir_shader_get_entrypoint(shader)->body, &state);
+   nir_foreach_function_impl(impl, shader) {
+      visit_cf_list(&impl->body, &state);
+   }
 }
 
 /* Compute divergence between vertices of the same primitive. This uses
@@ -1270,7 +1274,9 @@ nir_vertex_divergence_analysis(nir_shader *shader)
       .first_visit = true,
    };
 
-   visit_cf_list(&nir_shader_get_entrypoint(shader)->body, &state);
+   nir_foreach_function_impl(impl, shader) {
+      visit_cf_list(&impl->body, &state);
+   }
 }
 
 bool
