@@ -2037,6 +2037,7 @@ public:
    bool has_color_exports = false;
    bool is_prolog = false;
    bool is_epilog = false;
+   bool is_opengl = false;
 
    std::vector<uint8_t> constant_data;
    Temp private_segment_buffer;
