@@ -2792,7 +2792,7 @@ static const struct wl_shm_listener shm_listener = {
 };
 
 static void
-registry_handle_global_swrast(void *data, struct wl_registry *registry,
+registry_handle_global_kopper(void *data, struct wl_registry *registry,
                               uint32_t name, const char *interface,
                               uint32_t version)
 {
@@ -2802,19 +2802,35 @@ registry_handle_global_swrast(void *data, struct wl_registry *registry,
       dri2_dpy->wl_shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
       wl_shm_add_listener(dri2_dpy->wl_shm, &shm_listener, dri2_dpy);
    }
-   if (dri2_dpy->fd_render_gpu != -1 || dri2_dpy->fd_display_gpu != -1) {
-      if (strcmp(interface, wl_drm_interface.name) == 0) {
-         dri2_dpy->wl_drm_version = MIN2(version, 2);
-         dri2_dpy->wl_drm_name = name;
-      } else if (strcmp(interface, zwp_linux_dmabuf_v1_interface.name) == 0 &&
-                 version >= 3) {
-         dri2_dpy->wl_dmabuf = wl_registry_bind(
-            registry, name, &zwp_linux_dmabuf_v1_interface,
-            MIN2(version,
-                 ZWP_LINUX_DMABUF_V1_GET_DEFAULT_FEEDBACK_SINCE_VERSION));
-         zwp_linux_dmabuf_v1_add_listener(dri2_dpy->wl_dmabuf, &dmabuf_listener,
-                                          dri2_dpy);
-      }
+   if (strcmp(interface, wl_drm_interface.name) == 0) {
+      dri2_dpy->wl_drm_version = MIN2(version, 2);
+      dri2_dpy->wl_drm_name = name;
+   } else if (strcmp(interface, zwp_linux_dmabuf_v1_interface.name) == 0 &&
+               version >= 3) {
+      dri2_dpy->wl_dmabuf = wl_registry_bind(
+         registry, name, &zwp_linux_dmabuf_v1_interface,
+         MIN2(version,
+               ZWP_LINUX_DMABUF_V1_GET_DEFAULT_FEEDBACK_SINCE_VERSION));
+      zwp_linux_dmabuf_v1_add_listener(dri2_dpy->wl_dmabuf, &dmabuf_listener,
+                                       dri2_dpy);
+   }
+}
+
+static const struct wl_registry_listener registry_listener_kopper = {
+   .global = registry_handle_global_kopper,
+   .global_remove = registry_handle_global_remove,
+};
+
+static void
+registry_handle_global_swrast(void *data, struct wl_registry *registry,
+                              uint32_t name, const char *interface,
+                              uint32_t version)
+{
+   struct dri2_egl_display *dri2_dpy = data;
+
+   if (strcmp(interface, wl_shm_interface.name) == 0) {
+      dri2_dpy->wl_shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+      wl_shm_add_listener(dri2_dpy->wl_shm, &shm_listener, dri2_dpy);
    }
 }
 
@@ -2900,6 +2916,7 @@ static const __DRIextension *kopper_swrast_loader_extensions[] = {
    &kopper_swrast_loader_extension.base,
    &image_lookup_extension.base,
    &kopper_loader_extension.base,
+   &use_invalidate.base,
    NULL,
 };
 
@@ -2938,8 +2955,12 @@ dri2_initialize_wayland_swrast(_EGLDisplay *disp)
       wl_display_dispatch_pending(dri2_dpy->wl_dpy);
 
    dri2_dpy->wl_registry = wl_display_get_registry(dri2_dpy->wl_dpy_wrapper);
-   wl_registry_add_listener(dri2_dpy->wl_registry, &registry_listener_swrast,
-                            dri2_dpy);
+   if (disp->Options.Zink)
+      wl_registry_add_listener(dri2_dpy->wl_registry, &registry_listener_kopper,
+                              dri2_dpy);
+   else
+      wl_registry_add_listener(dri2_dpy->wl_registry, &registry_listener_swrast,
+                              dri2_dpy);
 
    if (roundtrip(dri2_dpy) < 0 || dri2_dpy->wl_shm == NULL)
       goto cleanup;
@@ -2952,6 +2973,29 @@ dri2_initialize_wayland_swrast(_EGLDisplay *disp)
    if (disp->Options.Zink) {
       if (!dri2_initialize_wayland_drm_extensions(dri2_dpy) && !disp->Options.ForceSoftware)
          goto cleanup;
+
+      if (!disp->Options.ForceSoftware) {
+         loader_get_user_preferred_fd(&dri2_dpy->fd_render_gpu,
+                                       &dri2_dpy->fd_display_gpu);
+
+         if (dri2_dpy->fd_render_gpu != dri2_dpy->fd_display_gpu) {
+            free(dri2_dpy->device_name);
+            dri2_dpy->device_name =
+               loader_get_device_name_for_fd(dri2_dpy->fd_render_gpu);
+            if (!dri2_dpy->device_name) {
+               _eglError(EGL_BAD_ALLOC, "wayland-egl: failed to get device name "
+                                          "for requested GPU");
+               goto cleanup;
+            }
+         }
+
+         /* we have to do the check now, because loader_get_user_preferred_fd
+            * will return a render-node when the requested gpu is different
+            * to the server, but also if the client asks for the same gpu than
+            * the server by requesting its pci-id */
+         dri2_dpy->is_render_node =
+            drmGetNodeTypeFromFd(dri2_dpy->fd_render_gpu) == DRM_NODE_RENDER;
+      }
    }
 
    dri2_dpy->driver_name = strdup(disp->Options.Zink ? "zink" : "swrast");
@@ -2963,7 +3007,7 @@ dri2_initialize_wayland_swrast(_EGLDisplay *disp)
    if (!dri2_create_screen(disp))
       goto cleanup;
 
-   if (!dri2_setup_device(disp, true)) {
+   if (!dri2_setup_device(disp, disp->Options.ForceSoftware)) {
       _eglError(EGL_NOT_INITIALIZED, "DRI2: failed to setup EGLDevice");
       goto cleanup;
    }
