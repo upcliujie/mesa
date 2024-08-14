@@ -1546,50 +1546,17 @@ blorp_update_clear_color(UNUSED struct blorp_batch *batch,
 
 #else
 
-   /* According to Wa_2201730850, in the Clear Color Programming Note under
-    * the Red channel, "Software shall write the converted Depth Clear to this
-    * dword." The only depth formats listed under the red channel are IEEE_FP
-    * and UNORM24_X8. These two requirements are incompatible with the UNORM16
-    * depth format, so just ignore that case and simply perform the conversion
-    * for all depth formats.
-    */
-   union isl_color_value fixed_color = info->clear_color;
-   if (GFX_VER == 12 && isl_surf_usage_is_depth(info->surf.usage)) {
-      isl_color_value_pack(&info->clear_color, info->surf.format,
-                           fixed_color.u32);
-   }
-
    for (int i = 0; i < 4; i++) {
       blorp_emit(batch, GENX(MI_STORE_DATA_IMM), sdi) {
          sdi.Address = info->clear_color_addr;
          sdi.Address.offset += i * 4;
-         sdi.ImmediateData = fixed_color.u32[i];
+         sdi.ImmediateData = info->clear_color.u32[i];
 #if GFX_VER >= 12
          if (i == 3)
             sdi.ForceWriteCompletionCheck = true;
 #endif
       }
    }
-
-   /* The RENDER_SURFACE_STATE::ClearColor field states that software should
-    * write the converted depth value 16B after the clear address:
-    *
-    *    3D Sampler will always fetch clear depth from the location 16-bytes
-    *    above this address, where the clear depth, converted to native
-    *    surface format by software, will be stored.
-    *
-    */
-#if GFX_VER >= 12
-   if (isl_surf_usage_is_depth(info->surf.usage)) {
-      blorp_emit(batch, GENX(MI_STORE_DATA_IMM), sdi) {
-         sdi.Address = info->clear_color_addr;
-         sdi.Address.offset += 4 * 4;
-         sdi.ImmediateData = fixed_color.u32[0];
-         sdi.ForceWriteCompletionCheck = true;
-      }
-   }
-#endif
-
 #endif
 }
 
@@ -1606,16 +1573,10 @@ blorp_uses_bti_rt_writes(const struct blorp_batch *batch, const struct blorp_par
 static void
 blorp_exec_3d(struct blorp_batch *batch, const struct blorp_params *params)
 {
-   if (!(batch->flags & BLORP_BATCH_NO_UPDATE_CLEAR_COLOR)) {
-      if (params->fast_clear_op == ISL_AUX_OP_FAST_CLEAR &&
-          params->dst.clear_color_addr.buffer != NULL) {
-         blorp_update_clear_color(batch, &params->dst);
-      }
-
-      if (params->hiz_op == ISL_AUX_OP_FAST_CLEAR &&
-          params->depth.clear_color_addr.buffer != NULL) {
-         blorp_update_clear_color(batch, &params->depth);
-      }
+   if (!(batch->flags & BLORP_BATCH_NO_UPDATE_CLEAR_COLOR) &&
+       params->fast_clear_op == ISL_AUX_OP_FAST_CLEAR &&
+       params->dst.clear_color_addr.buffer != NULL) {
+      blorp_update_clear_color(batch, &params->dst);
    }
 
    if (params->hiz_op != ISL_AUX_OP_NONE) {
