@@ -1718,8 +1718,12 @@ radv_BindImageMemory2(VkDevice _device, uint32_t bindInfoCount, const VkBindImag
          .pNext = image->disjoint ? &plane : NULL,
          .image = pBindInfos[i].image,
       };
+      VkMemoryRequirements2 dedicated_reqs = {
+         .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
+      };
       VkMemoryRequirements2 reqs = {
          .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+         .pNext = &dedicated_reqs,
       };
 
       radv_GetImageMemoryRequirements2(_device, &info, &reqs);
@@ -1731,6 +1735,10 @@ radv_BindImageMemory2(VkDevice _device, uint32_t bindInfoCount, const VkBindImag
             return vk_errorf(device, VK_ERROR_UNKNOWN, "Device memory object too small for the image.\n");
          }
       }
+
+      VkMemoryDedicatedRequirements *dedicatedReqs = (VkMemoryDedicatedRequirements *)reqs.pNext;
+      if (dedicatedReqs->requiresDedicatedAllocation && !mem->image && !mem->buffer)
+         return vk_errorf(device, VK_ERROR_UNKNOWN, "Shareable image must be dedicated or linear.\n");
 
       radv_bind_image_memory(device, image, bind_idx, mem->bo, pBindInfos[i].memoryOffset,
                              reqs.memoryRequirements.size);
