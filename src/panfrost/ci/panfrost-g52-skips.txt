@@ -17,8 +17,16 @@ dEQP-VK.spirv_assembly.instruction.compute.vector_shuffle.vector_shuffle
 # Seems to timeout occasionally
 dEQP-VK.api.object_management.max_concurrent.query_pool
 
-# not implemented
+# resolve not supported yet
 dEQP-VK.api.copy_and_blit.core.resolve_image.*
+dEQP-VK.pipeline.fast_linked_library.timestamp.transfer_tests.*with_resolve_image_method*
+dEQP-VK.pipeline.monolithic.timestamp.transfer_tests.*with_resolve_image_method*
+
+# indirect draw not supported yet
+dEQP-VK.pipeline.monolithic.timestamp.*.draw_indirect*
+dEQP-VK.pipeline.fast_linked_library.timestamp.*.draw_indirect*
+dEQP-VK.pipeline.monolithic.timestamp.*.draw_indirect*
+dEQP-VK.pipeline.pipeline_library.timestamp.*.draw_indirect*
 
 # Causes a GPU timeout
 spec@!opengl 1.1@longprim

@@ -28,7 +28,7 @@ libpanvk_files = files(
   'panvk_mempool.c',
   'panvk_physical_device.c',
   'panvk_priv_bo.c',
-  'panvk_query.c',
+  'panvk_query_pool.c',
   'panvk_wsi.c',
 )
 libpanvk_files += [sha1_h]
@@ -56,6 +56,7 @@ jm_files = [
   'jm/panvk_vX_cmd_dispatch.c',
   'jm/panvk_vX_cmd_draw.c',
   'jm/panvk_vX_cmd_event.c',
+  'jm/panvk_vX_cmd_query.c',
   'jm/panvk_vX_meta.c',
   'jm/panvk_vX_meta_blit.c',
   'jm/panvk_vX_meta_clear.c',

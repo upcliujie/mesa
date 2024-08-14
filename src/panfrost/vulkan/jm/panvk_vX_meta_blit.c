@@ -156,6 +156,9 @@ panvk_per_arch(CmdBlitImage2)(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_image, src, pBlitImageInfo->srcImage);
    VK_FROM_HANDLE(panvk_image, dst, pBlitImageInfo->dstImage);
+   struct panvk_cmd_meta_graphics_save_ctx save = {0};
+
+   panvk_per_arch(cmd_meta_gfx_start)(cmdbuf, &save);
 
    for (unsigned i = 0; i < pBlitImageInfo->regionCount; i++) {
       const VkImageBlit2 *region = &pBlitImageInfo->pRegions[i];
@@ -221,6 +224,7 @@ panvk_per_arch(CmdBlitImage2)(VkCommandBuffer commandBuffer,
 
       panvk_meta_blit(cmdbuf, &info, src, dst);
    }
+   panvk_per_arch(cmd_meta_gfx_end)(cmdbuf, &save);
 }
 
 VKAPI_ATTR void VKAPI_CALL

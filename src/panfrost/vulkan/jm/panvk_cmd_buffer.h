@@ -80,6 +80,11 @@ struct panvk_attrib_buf {
    unsigned size;
 };
 
+struct panvk_occlusion_query_state {
+   mali_ptr ptr;
+   enum mali_occlusion_mode mode;
+};
+
 struct panvk_cmd_graphics_state {
    struct panvk_descriptor_state desc_state;
 
@@ -90,13 +95,15 @@ struct panvk_cmd_graphics_state {
 
    uint32_t dirty;
 
+   struct panvk_occlusion_query_state occlusion_query;
+
    struct panvk_graphics_sysvals sysvals;
 
    struct panvk_shader_link link;
    bool linked;
 
    struct {
-      struct panvk_shader *shader;
+      const struct panvk_shader *shader;
       mali_ptr rsd;
 #if PAN_ARCH <= 7
       struct panvk_shader_desc_state desc;
@@ -104,7 +111,7 @@ struct panvk_cmd_graphics_state {
    } fs;
 
    struct {
-      struct panvk_shader *shader;
+      const struct panvk_shader *shader;
       mali_ptr attribs;
       mali_ptr attrib_bufs;
 #if PAN_ARCH <= 7
@@ -219,5 +226,69 @@ void panvk_per_arch(cmd_bind_shaders)(struct vk_command_buffer *vk_cmd,
                                       uint32_t stage_count,
                                       const gl_shader_stage *stages,
                                       struct vk_shader **const shaders);
+
+struct panvk_cmd_meta_compute_save_ctx {
+   struct {
+      const struct panvk_shader *shader;
+      struct panvk_shader_desc_state desc;
+   } cs;
+   const struct panvk_descriptor_set *set0;
+   struct {
+      struct panvk_opaque_desc desc_storage[MAX_PUSH_DESCS];
+      mali_ptr descs_dev_addr;
+      uint32_t desc_count;
+   } push_set0;
+   struct panvk_push_constant_state push_constants;
+};
+
+void panvk_per_arch(cmd_meta_compute_start)(
+   struct panvk_cmd_buffer *cmdbuf,
+   struct panvk_cmd_meta_compute_save_ctx *save_ctx);
+
+void panvk_per_arch(cmd_meta_compute_end)(
+   struct panvk_cmd_buffer *cmdbuf,
+   const struct panvk_cmd_meta_compute_save_ctx *save_ctx);
+
+struct panvk_cmd_meta_graphics_save_ctx {
+   const struct panvk_graphics_pipeline *pipeline;
+   const struct panvk_descriptor_set *set0;
+   struct {
+      struct panvk_opaque_desc desc_storage[MAX_PUSH_DESCS];
+      mali_ptr descs_dev_addr;
+      uint32_t desc_count;
+   } push_set0;
+   struct panvk_push_constant_state push_constants;
+   struct vk_vertex_input_state vi;
+   struct panvk_attrib_buf vb0;
+
+   struct {
+      struct vk_dynamic_graphics_state all;
+      struct vk_vertex_input_state vi;
+      struct vk_sample_locations_state sl;
+   } dyn_state;
+
+   struct {
+      const struct panvk_shader *shader;
+      struct panvk_shader_desc_state desc;
+      mali_ptr rsd;
+   } fs;
+
+   struct {
+      const struct panvk_shader *shader;
+      struct panvk_shader_desc_state desc;
+      mali_ptr attribs;
+      mali_ptr attrib_bufs;
+   } vs;
+
+   struct panvk_occlusion_query_state occlusion_query;
+};
+
+void panvk_per_arch(cmd_meta_gfx_start)(
+   struct panvk_cmd_buffer *cmdbuf,
+   struct panvk_cmd_meta_graphics_save_ctx *save_ctx);
+
+void panvk_per_arch(cmd_meta_gfx_end)(
+   struct panvk_cmd_buffer *cmdbuf,
+   const struct panvk_cmd_meta_graphics_save_ctx *save_ctx);
 
 #endif

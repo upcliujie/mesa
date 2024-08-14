@@ -12,6 +12,7 @@
 #include "vk_cmd_enqueue_entrypoints.h"
 #include "vk_common_entrypoints.h"
 
+#include "panvk_buffer.h"
 #include "panvk_cmd_buffer.h"
 #include "panvk_device.h"
 #include "panvk_entrypoints.h"
@@ -84,6 +85,42 @@ panvk_device_cleanup_mempools(struct panvk_device *dev)
 {
    panvk_pool_cleanup(&dev->mempools.rw);
    panvk_pool_cleanup(&dev->mempools.exec);
+}
+
+static VkResult
+panvk_meta_cmd_bind_map_buffer(struct vk_command_buffer *cmd,
+                               struct vk_meta_device *meta, VkBuffer buf,
+                               void **map_out)
+{
+   VK_FROM_HANDLE(panvk_buffer, buffer, buf);
+   struct panvk_cmd_buffer *cmdbuf =
+      container_of(cmd, struct panvk_cmd_buffer, vk);
+   struct panfrost_ptr mem =
+      pan_pool_alloc_aligned(&cmdbuf->desc_pool.base, buffer->vk.size, 64);
+
+   buffer->dev_addr = mem.gpu;
+   *map_out = mem.cpu;
+   return VK_SUCCESS;
+}
+
+static VkResult
+panvk_meta_init(struct panvk_device *device)
+{
+   VkResult result = vk_meta_device_init(&device->vk, &device->vk_meta);
+   if (result != VK_SUCCESS)
+      return result;
+
+   device->vk_meta.use_stencil_export = true;
+   device->vk_meta.max_bind_map_buffer_size_B = 64 * 1024;
+   device->vk_meta.cmd_bind_map_buffer = panvk_meta_cmd_bind_map_buffer;
+
+   return VK_SUCCESS;
+}
+
+static void
+panvk_meta_cleanup(struct panvk_device *device)
+{
+   vk_meta_device_finish(&device->vk, &device->vk_meta);
 }
 
 /* Always reserve the lower 32MB. */
@@ -210,6 +247,10 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
 
    panvk_per_arch(meta_init)(device);
 
+   result = panvk_meta_init(device);
+   if (result != VK_SUCCESS)
+      goto fail_vk_meta;
+
    for (unsigned i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
       const VkDeviceQueueCreateInfo *queue_create =
          &pCreateInfo->pQueueCreateInfos[i];
@@ -247,6 +288,9 @@ fail:
          vk_object_free(&device->vk, NULL, device->queues[i]);
    }
 
+   panvk_meta_cleanup(device);
+
+fail_vk_meta:
    panvk_per_arch(meta_cleanup)(device);
    panvk_per_arch(blend_shader_cache_cleanup)(device);
 
@@ -279,6 +323,7 @@ panvk_per_arch(destroy_device)(struct panvk_device *device,
    }
 
    panvk_per_arch(meta_cleanup)(device);
+   panvk_meta_cleanup(device);
    panvk_per_arch(blend_shader_cache_cleanup)(device);
    panvk_priv_bo_unref(device->tiler_heap);
    panvk_priv_bo_unref(device->sample_positions);
@@ -306,4 +351,57 @@ panvk_per_arch(GetRenderingAreaGranularityKHR)(
    VkExtent2D *pGranularity)
 {
    *pGranularity = (VkExtent2D){32, 32};
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+panvk_per_arch(GetCalibratedTimestampsKHR)(
+   VkDevice _device, uint32_t timestampCount,
+   const VkCalibratedTimestampInfoKHR *pTimestampInfos, uint64_t *pTimestamps,
+   uint64_t *pMaxDeviation)
+{
+   VK_FROM_HANDLE(panvk_device, device, _device);
+   struct panvk_physical_device *pdev =
+      to_panvk_physical_device(device->vk.physical);
+   uint64_t max_clock_period = 0;
+   uint64_t begin, end;
+   int d;
+
+#ifdef CLOCK_MONOTONIC_RAW
+   begin = vk_clock_gettime(CLOCK_MONOTONIC_RAW);
+#else
+   begin = vk_clock_gettime(CLOCK_MONOTONIC);
+#endif
+
+   for (d = 0; d < timestampCount; d++) {
+      switch (pTimestampInfos[d].timeDomain) {
+      case VK_TIME_DOMAIN_DEVICE_KHR:
+         pTimestamps[d] = panvk_get_gpu_system_timestamp_value(pdev);
+         max_clock_period =
+            MAX2(max_clock_period, panvk_get_gpu_system_timestamp_period(pdev));
+         break;
+      case VK_TIME_DOMAIN_CLOCK_MONOTONIC_KHR:
+         pTimestamps[d] = vk_clock_gettime(CLOCK_MONOTONIC);
+         max_clock_period = MAX2(max_clock_period, 1);
+         break;
+
+#ifdef CLOCK_MONOTONIC_RAW
+      case VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_KHR:
+         pTimestamps[d] = begin;
+         break;
+#endif
+      default:
+         pTimestamps[d] = 0;
+         break;
+      }
+   }
+
+#ifdef CLOCK_MONOTONIC_RAW
+   end = vk_clock_gettime(CLOCK_MONOTONIC_RAW);
+#else
+   end = vk_clock_gettime(CLOCK_MONOTONIC);
+#endif
+
+   *pMaxDeviation = vk_time_max_deviation(begin, end, max_clock_period);
+
+   return VK_SUCCESS;
 }

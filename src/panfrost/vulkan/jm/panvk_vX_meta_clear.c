@@ -385,11 +385,14 @@ panvk_per_arch(CmdClearColorImage)(VkCommandBuffer commandBuffer, VkImage image,
 {
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_image, img, image);
+   struct panvk_cmd_meta_graphics_save_ctx save = {0};
 
    panvk_per_arch(cmd_close_batch)(cmdbuf);
+   panvk_per_arch(cmd_meta_gfx_start)(cmdbuf, &save);
 
    for (unsigned i = 0; i < rangeCount; i++)
       panvk_meta_clear_color_img(cmdbuf, img, pColor, &pRanges[i]);
+   panvk_per_arch(cmd_meta_gfx_end)(cmdbuf, &save);
 }
 
 static void
@@ -465,11 +468,14 @@ panvk_per_arch(CmdClearDepthStencilImage)(
 {
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(panvk_image, img, image);
+   struct panvk_cmd_meta_graphics_save_ctx save = {0};
 
    panvk_per_arch(cmd_close_batch)(cmdbuf);
+   panvk_per_arch(cmd_meta_gfx_start)(cmdbuf, &save);
 
    for (unsigned i = 0; i < rangeCount; i++)
       panvk_meta_clear_zs_img(cmdbuf, img, pDepthStencil, &pRanges[i]);
+   panvk_per_arch(cmd_meta_gfx_end)(cmdbuf, &save);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -482,7 +488,9 @@ panvk_per_arch(CmdClearAttachments)(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    const struct vk_subpass *subpass =
       &cmdbuf->vk.render_pass->subpasses[cmdbuf->vk.subpass_idx];
+   struct panvk_cmd_meta_graphics_save_ctx save = {0};
 
+   panvk_per_arch(cmd_meta_gfx_start)(cmdbuf, &save);
    for (unsigned i = 0; i < attachmentCount; i++) {
       for (unsigned j = 0; j < rectCount; j++) {
 
@@ -501,6 +509,7 @@ panvk_per_arch(CmdClearAttachments)(VkCommandBuffer commandBuffer,
                                      &pAttachments[i].clearValue, &pRects[j]);
       }
    }
+   panvk_per_arch(cmd_meta_gfx_end)(cmdbuf, &save);
 }
 
 static void
