@@ -95,12 +95,25 @@ anv_device_perf_init(struct anv_device *device)
 }
 
 static int
-anv_device_perf_open(struct anv_device *device, uint64_t metric_id)
+anv_device_perf_open(struct anv_device *device, struct anv_queue *queue, uint64_t metric_id)
 {
+   uint32_t context_or_exec_queue_id;
    uint64_t period_exponent = 31; /* slowest sampling period */
 
+   switch (device->physical->info->kmd_type) {
+   case INTEL_KMD_TYPE_I915:
+      context_or_exec_queue_id =  device->physical->has_vm_control ? queue->context_id : device->context_id;
+      break;
+   case INTEL_KMD_TYPE_XE:
+      context_or_exec_queue_id = queue->exec_queue_id;
+      break;
+   default:
+      unreachable("missing");
+      context_or_exec_queue_id = 0;
+   }
+
    return intel_perf_stream_open(device->physical->perf, device->fd,
-                                 device->context_id, metric_id,
+                                 context_or_exec_queue_id, metric_id,
                                  period_exponent, true, true);
 }
 
@@ -225,7 +238,7 @@ VkResult anv_QueueSetPerformanceConfigurationINTEL(
 
    if (!INTEL_DEBUG(DEBUG_NO_OACONFIG)) {
       if (device->perf_fd < 0) {
-         device->perf_fd = anv_device_perf_open(device, config->config_id);
+         device->perf_fd = anv_device_perf_open(device, queue, config->config_id);
          if (device->perf_fd < 0)
             return VK_ERROR_INITIALIZATION_FAILED;
       } else {
