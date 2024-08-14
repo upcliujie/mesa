@@ -257,6 +257,7 @@ with_microsoft_vk = _vulkan_drivers.contains('microsoft-experimental')
 with_nouveau_vk = _vulkan_drivers.contains('nouveau')
 with_asahi_vk = _vulkan_drivers.contains('asahi')
 with_any_vk = _vulkan_drivers.length() != 0
+with_vulkan_wddm2 = false
 
 if with_any_vk and host_machine.system() == 'windows' and meson.version().version_compare('< 1.3')
   error('Vulkan drivers on Windows require meson 1.3 or newer')
@@ -576,7 +577,7 @@ if with_gallium_kmsro and (with_platform_x11 and not with_dri3)
 endif
 
 dep_dxheaders = null_dep
-if with_gallium_d3d12 or with_microsoft_clc or with_microsoft_vk
+if with_gallium_d3d12 or with_microsoft_clc or with_microsoft_vk or with_vulkan_wddm2
   dep_dxheaders = dependency('directx-headers', required : false)
   if not dep_dxheaders.found()
     dep_dxheaders = dependency('DirectX-Headers',
@@ -585,6 +586,12 @@ if with_gallium_d3d12 or with_microsoft_clc or with_microsoft_vk
       required : with_gallium_d3d12 or with_microsoft_vk
     )
   endif
+endif
+
+dep_libdxg = null_dep
+if with_vulkan_wddm2
+  dep_libdxg = dependency('libdxg', fallback : ['libdxg'], required : true)
+  pre_args += '-DHAVE_LIBDXG'
 endif
 
 _with_gallium_d3d12_video = get_option('gallium-d3d12-video')
