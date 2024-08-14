@@ -244,11 +244,14 @@ iris-kbl-traces-performance:
   variables:
     GPU_VERSION: intel-kbl
 
-intel-tgl-skqp:
+intel-tgl-skqp+cl:
   extends:
     - .lava-acer-cp514-2h-1130g7-volteer:x86_64
     - .intel-tgl-test
+  rules:
+    - !reference [.intel-tgl-test, rules]
+    - !reference [.rusticl-rules, rules]
   variables:
-    DEQP_SUITE: intel-tgl-skqp
+    DEQP_SUITE: intel-tgl-skqp+cl
     VK_DRIVER: intel
     HWCI_START_XORG: 1
