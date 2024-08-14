@@ -14,15 +14,6 @@ kopperSwapBuffersWithDamage(__DRIdrawable *dPriv, uint32_t flush_flags, int nrec
    return 0;
 }
 
-__DRIdrawable *
-kopperCreateNewDrawable(__DRIscreen *psp,
-                        const __DRIconfig *config,
-                        void *data,
-                        __DRIkopperDrawableInfo *info)
-{
-   return NULL;
-}
-
 void
 kopperSetSwapInterval(__DRIdrawable *dPriv, int interval)
 {

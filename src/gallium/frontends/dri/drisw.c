@@ -545,7 +545,7 @@ drisw_allocate_textures(struct dri_context *stctx,
    drawable->old_h = height;
 }
 
-static void
+void
 drisw_update_tex_buffer(struct dri_drawable *drawable,
                         struct dri_context *ctx,
                         struct pipe_resource *res)
@@ -603,30 +603,21 @@ static const struct drisw_loader_funcs drisw_shm_lf = {
    .put_image_shm = drisw_put_image_shm
 };
 
-static struct dri_drawable *
-drisw_create_drawable(struct dri_screen *screen, const struct gl_config * visual,
-                      bool isPixmap, void *loaderPrivate)
+void
+drisw_init_drawable(struct dri_drawable *drawable, bool isPixmap, int alphaBits)
 {
-   struct dri_drawable *drawable = dri_create_drawable(screen, visual, isPixmap,
-                                                       loaderPrivate);
-   if (!drawable)
-      return NULL;
-
    drawable->allocate_textures = drisw_allocate_textures;
    drawable->update_drawable_info = drisw_update_drawable_info;
    drawable->flush_frontbuffer = drisw_flush_frontbuffer;
    drawable->update_tex_buffer = drisw_update_tex_buffer;
    drawable->swap_buffers = drisw_swap_buffers;
    drawable->swap_buffers_with_damage = drisw_swap_buffers_with_damage;
-
-   return drawable;
 }
 
-const __DRIconfig **
+struct pipe_screen *
 drisw_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 {
    const __DRIswrastLoaderExtension *loader = screen->swrast_loader;
-   const __DRIconfig **configs;
    struct pipe_screen *pscreen = NULL;
    const struct drisw_loader_funcs *lf = &drisw_lf;
 
@@ -648,19 +639,7 @@ drisw_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    if (success)
       pscreen = pipe_loader_create_screen(screen->dev, driver_name_is_inferred);
 
-   if (!pscreen)
-      return NULL;
-
-   configs = dri_init_screen(screen, pscreen);
-   if (!configs)
-      goto fail;
-
-   screen->create_drawable = drisw_create_drawable;
-
-   return configs;
-fail:
-   pipe_loader_release(&screen->dev, 1);
-   return NULL;
+   return pscreen;
 }
 
 /* swrast copy sub buffer entrypoint. */

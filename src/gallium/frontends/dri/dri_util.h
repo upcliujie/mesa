@@ -107,7 +107,8 @@ PUBLIC __DRIscreen *
 driCreateNewScreen3(int scrn, int fd,
                     const __DRIextension **loader_extensions,
                     enum dri_screen_type type,
-                    const __DRIconfig ***driver_configs, bool driver_name_is_inferred, void *data);
+                    const __DRIconfig ***driver_configs, bool driver_name_is_inferred,
+                    bool has_multibuffer, void *data);
 PUBLIC __DRIcontext *
 driCreateContextAttribs(__DRIscreen *psp, int api,
                         const __DRIconfig *config,
@@ -122,7 +123,8 @@ driImageFormatToSizedInternalGLFormat(uint32_t image_format);
 PUBLIC unsigned int
 driGetAPIMask(__DRIscreen *screen);
 PUBLIC __DRIdrawable *
-driCreateNewDrawable(__DRIscreen *psp, const __DRIconfig *config, void *data);
+dri_create_drawable(__DRIscreen *psp, const __DRIconfig *config,
+                    bool isPixmap, void *loaderPrivate);
 extern const __DRIimageDriverExtension driImageDriverExtension;
 PUBLIC void driDestroyScreen(__DRIscreen *psp);
 PUBLIC int

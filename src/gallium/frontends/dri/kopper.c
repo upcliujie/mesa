@@ -38,8 +38,7 @@
 #include "dri_context.h"
 #include "dri_drawable.h"
 #include "dri_helpers.h"
-#include "dri_query_renderer.h"
-#include "loader_dri_helper.h"
+#include "loader_dri3_helper.h"
 
 #include <vulkan/vulkan.h>
 
@@ -57,10 +56,9 @@ static struct dri_drawable *
 kopper_create_drawable(struct dri_screen *screen, const struct gl_config *visual,
                        bool isPixmap, void *loaderPrivate);
 
-const __DRIconfig **
+struct pipe_screen *
 kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 {
-   const __DRIconfig **configs;
    struct pipe_screen *pscreen = NULL;
 
    if (!screen->kopper_loader) {
@@ -88,19 +86,10 @@ kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    if (!pscreen)
       return NULL;
 
-   configs = dri_init_screen(screen, pscreen);
-   if (!configs)
-      goto fail;
-
    assert(pscreen->get_param(pscreen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY));
    screen->is_sw = zink_kopper_is_cpu(pscreen);
 
-   screen->create_drawable = kopper_create_drawable;
-
-   return configs;
-fail:
-   pipe_loader_release(&screen->dev, 1);
-   return NULL;
+   return pscreen;
 }
 
 // copypasta alert
@@ -140,116 +129,6 @@ pipe_format_to_fourcc(enum pipe_format format)
    }
 }
 
-#ifdef HAVE_DRI3_MODIFIERS
-static __DRIimage *
-dri3_create_image_from_buffers(xcb_connection_t *c,
-                               xcb_dri3_buffers_from_pixmap_reply_t *bp_reply,
-                               uint32_t fourcc,
-                               struct dri_screen *screen,
-                               void *loaderPrivate)
-{
-   __DRIimage                           *ret;
-   int                                  *fds;
-   uint32_t                             *strides_in, *offsets_in;
-   int                                   strides[4], offsets[4];
-   unsigned                              error;
-   int                                   i;
-
-   if (bp_reply->nfd > 4)
-      return NULL;
-
-   fds = xcb_dri3_buffers_from_pixmap_reply_fds(c, bp_reply);
-   strides_in = xcb_dri3_buffers_from_pixmap_strides(bp_reply);
-   offsets_in = xcb_dri3_buffers_from_pixmap_offsets(bp_reply);
-   for (i = 0; i < bp_reply->nfd; i++) {
-      strides[i] = strides_in[i];
-      offsets[i] = offsets_in[i];
-   }
-
-   ret = dri2_from_dma_bufs(opaque_dri_screen(screen),
-                                       bp_reply->width,
-                                       bp_reply->height,
-                                       fourcc,
-                                       bp_reply->modifier,
-                                       fds, bp_reply->nfd,
-                                       strides, offsets,
-                                       0, 0, 0, 0, /* UNDEFINED */
-                                       0, &error, loaderPrivate);
-
-   for (i = 0; i < bp_reply->nfd; i++)
-      close(fds[i]);
-
-   return ret;
-}
-#endif
-
-static __DRIimage *
-dri3_create_image(xcb_connection_t *c,
-                  xcb_dri3_buffer_from_pixmap_reply_t *bp_reply,
-                  uint32_t fourcc,
-                  struct dri_screen *screen,
-                  void *loaderPrivate)
-{
-   int                                  *fds;
-   __DRIimage                           *image_planar, *ret;
-   int                                  stride, offset;
-
-   /* Get an FD for the pixmap object
-    */
-   fds = xcb_dri3_buffer_from_pixmap_reply_fds(c, bp_reply);
-
-   stride = bp_reply->stride;
-   offset = 0;
-
-   /* dri2_from_dma_bufs creates a wrapper __DRIimage structure which
-    * can deal with multiple planes for things like Yuv images. So, once
-    * we've gotten the planar wrapper, pull the single plane out of it and
-    * discard the wrapper.
-    */
-   image_planar = dri2_from_dma_bufs(opaque_dri_screen(screen),
-                                                bp_reply->width,
-                                                bp_reply->height,
-                                                fourcc,
-                                                DRM_FORMAT_MOD_INVALID, fds, 1,
-                                                &stride, &offset,
-                                                0, 0, 0, 0, 0,
-                                                NULL, loaderPrivate);
-   close(fds[0]);
-   if (!image_planar)
-      return NULL;
-
-   ret = dri2_from_planar(image_planar, 0, loaderPrivate);
-
-   if (!ret)
-      ret = image_planar;
-   else
-      dri2_destroy_image(image_planar);
-
-   return ret;
-}
-
-
-static void
-handle_in_fence(struct dri_context *ctx, __DRIimage *img)
-{
-   struct pipe_context *pipe = ctx->st->pipe;
-   struct pipe_fence_handle *fence;
-   int fd = img->in_fence_fd;
-
-   if (fd == -1)
-      return;
-
-   validate_fence_fd(fd);
-
-   img->in_fence_fd = -1;
-
-   pipe->create_fence_fd(pipe, &fence, fd, PIPE_FD_TYPE_NATIVE_SYNC);
-   pipe->fence_server_sync(pipe, fence);
-   pipe->screen->fence_reference(pipe->screen, &fence, NULL);
-
-   close(fd);
-}
-
 /** kopper_get_pixmap_buffer
  *
  * Get the DRM object for a pixmap from the X server and
@@ -277,54 +156,10 @@ kopper_get_pixmap_buffer(struct dri_drawable *drawable,
     */
    struct dri_screen *screen = drawable->screen;
 
-#ifdef HAVE_DRI3_MODIFIERS
-   if (drawable->has_modifiers) {
-      xcb_dri3_buffers_from_pixmap_cookie_t bps_cookie;
-      xcb_dri3_buffers_from_pixmap_reply_t *bps_reply;
-      xcb_generic_error_t *error;
-
-      bps_cookie = xcb_dri3_buffers_from_pixmap(conn, pixmap);
-      bps_reply = xcb_dri3_buffers_from_pixmap_reply(conn, bps_cookie, &error);
-      if (!bps_reply) {
-         mesa_loge("kopper: could not create texture from pixmap (%u)", error->error_code);
-         return NULL;
-      }
-      drawable->image =
-         dri3_create_image_from_buffers(conn, bps_reply, fourcc,
-                                        screen,
-                                        drawable);
-      if (!drawable->image)
-         return NULL;
-      width = bps_reply->width;
-      height = bps_reply->height;
-      free(bps_reply);
-   } else
-#endif
-   {
-#ifdef HAVE_DRI3
-      xcb_dri3_buffer_from_pixmap_cookie_t bp_cookie;
-      xcb_dri3_buffer_from_pixmap_reply_t *bp_reply;
-      xcb_generic_error_t *error;
-
-      bp_cookie = xcb_dri3_buffer_from_pixmap(conn, pixmap);
-      bp_reply = xcb_dri3_buffer_from_pixmap_reply(conn, bp_cookie, &error);
-      if (!bp_reply) {
-         mesa_loge("kopper: could not create texture from pixmap (%u)", error->error_code);
-         return NULL;
-      }
-
-      drawable->image = dri3_create_image(conn, bp_reply, fourcc,
-                                       screen,
-                                       drawable);
-      if (!drawable->image)
-         return NULL;
-      width = bp_reply->width;
-      height = bp_reply->height;
-      free(bp_reply);
-#else
+   drawable->image = loader_dri3_get_pixmap_buffer(conn, pixmap, opaque_dri_screen(screen),
+                                                   fourcc, drawable->screen->dmabuf_import, &width, &height, drawable);
+   if (!drawable->image)
       return NULL;
-#endif
-   }
 
    drawable->w = width;
    drawable->h = height;
@@ -489,7 +324,7 @@ XXX do this once swapinterval is hooked up
          else if (is_pixmap && statts[i] == ST_ATTACHMENT_FRONT_LEFT && !screen->is_sw) {
             drawable->textures[statts[i]] = kopper_get_pixmap_buffer(drawable, format);
             if (drawable->textures[statts[i]])
-               handle_in_fence(ctx, drawable->image);
+               dri_image_fence_sync(ctx, drawable->image);
          }
 #endif
          if (!drawable->textures[statts[i]])
@@ -652,42 +487,9 @@ kopper_update_tex_buffer(struct dri_drawable *drawable,
                          struct pipe_resource *res)
 {
    struct dri_screen *screen = drawable->screen;
-   struct st_context *st_ctx = (struct st_context *)ctx->st;
-   struct pipe_context *pipe = st_ctx->pipe;
-   struct pipe_transfer *transfer;
-   char *map;
-   int x, y, w, h;
-   int ximage_stride, line;
    if (screen->has_dmabuf || drawable->is_window || drawable->info.bos.sType != VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR)
       return;
-   int cpp = util_format_get_blocksize(res->format);
-
-   /* Wait for glthread to finish because we can't use pipe_context from
-    * multiple threads.
-    */
-   _mesa_glthread_finish(ctx->st->ctx);
-
-   get_drawable_info(drawable, &x, &y, &w, &h);
-
-   map = pipe_texture_map(pipe, res,
-                          0, 0, // level, layer,
-                          PIPE_MAP_WRITE,
-                          x, y, w, h, &transfer);
-
-   /* Copy the Drawable content to the mapped texture buffer */
-   if (!get_image_shm(drawable, x, y, w, h, res))
-      get_image(drawable, x, y, w, h, map);
-
-   /* The pipe transfer has a pitch rounded up to the nearest 64 pixels.
-      get_image() has a pitch rounded up to 4 bytes.  */
-   ximage_stride = ((w * cpp) + 3) & -4;
-   for (line = h-1; line; --line) {
-      memmove(&map[line * transfer->stride],
-              &map[line * ximage_stride],
-              ximage_stride);
-   }
-
-   pipe_texture_unmap(pipe, transfer);
+   drisw_update_tex_buffer(drawable, ctx, res);
 }
 
 static void
@@ -702,20 +504,11 @@ kopper_swap_buffers(struct dri_drawable *drawable);
 static void
 kopper_swap_buffers_with_damage(struct dri_drawable *drawable, int nrects, const int *rects);
 
-static struct dri_drawable *
-kopper_create_drawable(struct dri_screen *screen, const struct gl_config *visual,
-                       bool isPixmap, void *loaderPrivate)
+void
+kopper_init_drawable(struct dri_drawable *drawable, bool isPixmap, int alphaBits)
 {
-   /* always pass !pixmap because it isn't "handled" or relevant */
-   struct dri_drawable *drawable = dri_create_drawable(screen, visual, false,
-                                                       loaderPrivate);
-   if (!drawable)
-      return NULL;
+   struct dri_screen *screen = drawable->screen;
 
-   // relocate references to the old struct
-   drawable->base.visual = &drawable->stvis;
-
-   // and fill in the vtable
    drawable->allocate_textures = kopper_allocate_textures;
    drawable->update_drawable_info = kopper_update_drawable_info;
    drawable->flush_frontbuffer = kopper_flush_frontbuffer;
@@ -724,13 +517,11 @@ kopper_create_drawable(struct dri_screen *screen, const struct gl_config *visual
    drawable->swap_buffers = kopper_swap_buffers;
    drawable->swap_buffers_with_damage = kopper_swap_buffers_with_damage;
 
-   drawable->info.has_alpha = visual->alphaBits > 0;
+   drawable->info.has_alpha = alphaBits > 0;
    if (screen->kopper_loader->SetSurfaceCreateInfo)
       screen->kopper_loader->SetSurfaceCreateInfo(drawable->loaderPrivate,
                                                   &drawable->info);
    drawable->is_window = !isPixmap && drawable->info.bos.sType != 0;
-
-   return drawable;
 }
 
 int64_t
@@ -804,23 +595,6 @@ static void
 kopper_swap_buffers(struct dri_drawable *drawable)
 {
    kopper_swap_buffers_with_damage(drawable, 0, NULL);
-}
-
-__DRIdrawable *
-kopperCreateNewDrawable(__DRIscreen *psp,
-                        const __DRIconfig *config,
-                        void *data,
-                        __DRIkopperDrawableInfo *info)
-{
-    assert(data != NULL);
-
-    struct dri_screen *screen = dri_screen(psp);
-    struct dri_drawable *drawable =
-       screen->create_drawable(screen, &config->modes, info->is_pixmap, data);
-   if (drawable)
-      drawable->has_modifiers = screen->has_modifiers && info->multiplanes_available;
-
-    return opaque_dri_drawable(drawable);
 }
 
 void

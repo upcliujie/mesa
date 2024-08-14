@@ -389,27 +389,6 @@ dri2_set_in_fence_fd(__DRIimage *img, int fd)
    sync_accumulate("dri", &img->in_fence_fd, fd);
 }
 
-static void
-handle_in_fence(struct dri_context *ctx, __DRIimage *img)
-{
-   struct pipe_context *pipe = ctx->st->pipe;
-   struct pipe_fence_handle *fence;
-   int fd = img->in_fence_fd;
-
-   if (fd == -1)
-      return;
-
-   validate_fence_fd(fd);
-
-   img->in_fence_fd = -1;
-
-   pipe->create_fence_fd(pipe, &fence, fd, PIPE_FD_TYPE_NATIVE_SYNC);
-   pipe->fence_server_sync(pipe, fence);
-   pipe->screen->fence_reference(pipe->screen, &fence, NULL);
-
-   close(fd);
-}
-
 /*
  * Backend functions for pipe_frontend_drawable.
  */
@@ -519,7 +498,7 @@ dri2_allocate_textures(struct dri_context *ctx,
          drawable->h = texture->height0;
 
          pipe_resource_reference(buf, texture);
-         handle_in_fence(ctx, images.front);
+         dri_image_fence_sync(ctx, images.front);
       }
 
       if (images.image_mask & __DRI_IMAGE_BUFFER_BACK) {
@@ -531,7 +510,7 @@ dri2_allocate_textures(struct dri_context *ctx,
          drawable->h = texture->height0;
 
          pipe_resource_reference(buf, texture);
-         handle_in_fence(ctx, images.back);
+         dri_image_fence_sync(ctx, images.back);
       }
 
       if (images.image_mask & __DRI_IMAGE_BUFFER_SHARED) {
@@ -543,7 +522,7 @@ dri2_allocate_textures(struct dri_context *ctx,
          drawable->h = texture->height0;
 
          pipe_resource_reference(buf, texture);
-         handle_in_fence(ctx, images.back);
+         dri_image_fence_sync(ctx, images.back);
 
          ctx->is_shared_buffer_bound = true;
       } else {
@@ -1818,7 +1797,7 @@ dri2_blit_image(__DRIcontext *context, __DRIimage *dst, __DRIimage *src,
     */
    _mesa_glthread_finish(ctx->st->ctx);
 
-   handle_in_fence(ctx, dst);
+   dri_image_fence_sync(ctx, dst);
 
    memset(&blit, 0, sizeof(blit));
    blit.dst.resource = dst->texture;
@@ -1875,7 +1854,7 @@ dri2_map_image(__DRIcontext *context, __DRIimage *image,
     */
    _mesa_glthread_finish(ctx->st->ctx);
 
-   handle_in_fence(ctx, image);
+   dri_image_fence_sync(ctx, image);
 
    struct pipe_resource *resource = image->texture;
    while (plane--)
@@ -2007,21 +1986,13 @@ dri_set_blob_cache_funcs(__DRIscreen *sPriv, __DRIblobCacheSet set,
  * Backend function init_screen.
  */
 
-static struct dri_drawable *
-dri2_create_drawable(struct dri_screen *screen, const struct gl_config *visual,
-                     bool isPixmap, void *loaderPrivate)
+void
+dri2_init_drawable(struct dri_drawable *drawable, bool isPixmap, int alphaBits)
 {
-   struct dri_drawable *drawable = dri_create_drawable(screen, visual, isPixmap,
-                                                       loaderPrivate);
-   if (!drawable)
-      return NULL;
-
    drawable->allocate_textures = dri2_allocate_textures;
    drawable->flush_frontbuffer = dri2_flush_frontbuffer;
    drawable->update_tex_buffer = dri2_update_tex_buffer;
    drawable->flush_swapbuffers = dri2_flush_swapbuffers;
-
-   return drawable;
 }
 
 /**
@@ -2029,35 +2000,20 @@ dri2_create_drawable(struct dri_screen *screen, const struct gl_config *visual,
  *
  * Returns the struct gl_config supported by this driver.
  */
-const __DRIconfig **
+struct pipe_screen *
 dri2_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 {
-   const __DRIconfig **configs;
    struct pipe_screen *pscreen = NULL;
+
+   screen->can_share_buffer = true;
+   screen->auto_fake_front = dri_with_format(screen);
 
 #ifdef HAVE_LIBDRM
    if (pipe_loader_drm_probe_fd(&screen->dev, screen->fd, false))
       pscreen = pipe_loader_create_screen(screen->dev, driver_name_is_inferred);
 #endif
 
-   if (!pscreen)
-       return NULL;
-
-   configs = dri_init_screen(screen, pscreen);
-   if (!configs)
-      goto fail;
-
-   screen->can_share_buffer = true;
-   screen->auto_fake_front = dri_with_format(screen);
-
-   screen->create_drawable = dri2_create_drawable;
-
-   return configs;
-
-fail:
-   pipe_loader_release(&screen->dev, 1);
-
-   return NULL;
+   return pscreen;
 }
 
 /**
@@ -2065,36 +2021,19 @@ fail:
  *
  * Returns the struct gl_config supported by this driver.
  */
-const __DRIconfig **
+struct pipe_screen *
 dri_swrast_kms_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 {
-#if defined(HAVE_SWRAST)
-   const __DRIconfig **configs;
    struct pipe_screen *pscreen = NULL;
+   screen->can_share_buffer = false;
+   screen->auto_fake_front = dri_with_format(screen);
 
-#ifdef HAVE_DRISW_KMS
+#if defined(HAVE_DRISW_KMS) && defined(HAVE_SWRAST)
    if (pipe_loader_sw_probe_kms(&screen->dev, screen->fd))
       pscreen = pipe_loader_create_screen(screen->dev, driver_name_is_inferred);
 #endif
 
-   if (!pscreen)
-       return NULL;
-
-   configs = dri_init_screen(screen, pscreen);
-   if (!configs)
-      goto fail;
-
-   screen->can_share_buffer = false;
-   screen->auto_fake_front = dri_with_format(screen);
-   screen->create_drawable = dri2_create_drawable;
-
-   return configs;
-
-fail:
-   pipe_loader_release(&screen->dev, 1);
-
-#endif // HAVE_SWRAST
-   return NULL;
+   return pscreen;
 }
 
 int

@@ -129,13 +129,7 @@ struct dri_screen
    /* kopper */
    struct pipe_screen *unwrapped_screen;
    bool has_dmabuf;
-   bool has_modifiers;
    bool is_sw;
-
-   struct dri_drawable *(*create_drawable)(struct dri_screen *screen,
-                                           const struct gl_config *glVis,
-                                           bool pixmapBuffer,
-                                           void *loaderPrivate);
 };
 
 /** cast wrapper */
@@ -207,7 +201,8 @@ dri_init_options(struct dri_screen *screen);
 
 const __DRIconfig **
 dri_init_screen(struct dri_screen *screen,
-                struct pipe_screen *pscreen);
+                struct pipe_screen *pscreen,
+                bool has_multibuffer);
 
 void
 dri_release_screen(struct dri_screen * screen);
@@ -215,13 +210,13 @@ dri_release_screen(struct dri_screen * screen);
 void
 dri_destroy_screen(struct dri_screen *screen);
 
-const __DRIconfig **
+struct pipe_screen *
 dri2_init_screen(struct dri_screen *screen, bool driver_name_is_inferred);
-const __DRIconfig **
+struct pipe_screen *
 dri_swrast_kms_init_screen(struct dri_screen *screen, bool driver_name_is_inferred);
-const __DRIconfig **
+struct pipe_screen *
 kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred);
-const __DRIconfig **
+struct pipe_screen *
 drisw_init_screen(struct dri_screen *screen, bool driver_name_is_inferred);
 
 extern const struct __DriverAPIRec dri_swrast_kms_driver_api;

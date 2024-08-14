@@ -91,7 +91,7 @@ typedef struct __GLXDRIdrawableRec __GLXDRIdrawable;
 
 struct __GLXDRIscreenRec {
 
-   void (*destroyScreen)(struct glx_screen *psc);
+   void (*deinitScreen)(struct glx_screen *psc);
 
    __GLXDRIdrawable *(*createDrawable)(struct glx_screen *psc,
 				       XID drawable,
@@ -112,7 +112,6 @@ struct __GLXDRIscreenRec {
 		     int64_t *msc, int64_t *sbc);
    int (*setSwapInterval)(__GLXDRIdrawable *pdraw, int interval);
    int (*getSwapInterval)(__GLXDRIdrawable *pdraw);
-   int (*getBufferAge)(__GLXDRIdrawable *pdraw);
    void (*bindTexImage)(__GLXDRIdrawable *pdraw, int buffer, const int *attribs);
 
    int maxSwapInterval;
@@ -129,6 +128,8 @@ struct __GLXDRIdrawableRec
    GLenum textureFormat;        /* EXT_texture_from_pixmap support */
    unsigned long eventMask;
    int refcount;
+
+   __DRIdrawable *dri_drawable;
 };
 
 /*
@@ -522,8 +523,9 @@ struct glx_screen
     /**
      * Per screen direct rendering interface functions and data.
      */
-   __GLXDRIscreen *driScreen;
+   __GLXDRIscreen driScreen;
    __DRIscreen *frontend_screen;
+   const __DRIconfig **driver_configs;
 #endif
 
     /**

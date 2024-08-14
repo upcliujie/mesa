@@ -801,7 +801,7 @@ dri2_create_screen(_EGLDisplay *disp)
          if (strcmp(dri2_dpy->driver_name, driver_name_display_gpu) == 0) {
             dri2_dpy->dri_screen_display_gpu = driCreateNewScreen3(
                0, dri2_dpy->fd_display_gpu, dri2_dpy->loader_extensions,
-               type, &dri2_dpy->driver_configs, false, disp);
+               type, &dri2_dpy->driver_configs, false, dri2_dpy->multibuffers_available, disp);
          }
          free(driver_name_display_gpu);
       }
@@ -809,14 +809,28 @@ dri2_create_screen(_EGLDisplay *disp)
 
    int screen_fd = -1;
    if (!dri2_dpy->swrast) {
-#ifdef HAVE_DRM_PLATFORM
-      if (!dri2_dpy->kopper || dri2_dpy->gbm_dri)
-#endif
-          screen_fd = dri2_dpy->fd_render_gpu;
+      switch (disp->Platform) {
+      case _EGL_PLATFORM_SURFACELESS:
+      case _EGL_PLATFORM_DEVICE:
+      case _EGL_PLATFORM_DRM:
+      case _EGL_PLATFORM_WAYLAND:
+      case _EGL_PLATFORM_ANDROID:
+         screen_fd = dri2_dpy->fd_render_gpu;
+         break;
+      case _EGL_PLATFORM_X11:
+      case _EGL_PLATFORM_XCB:
+         /* no kopper fd on x11 only */
+         if (!dri2_dpy->kopper)
+            screen_fd = dri2_dpy->fd_render_gpu;
+         break;
+      default:
+         unreachable("uh-oh");
+         break;
+      }
    }
    dri2_dpy->dri_screen_render_gpu = driCreateNewScreen3(
       0, screen_fd, dri2_dpy->loader_extensions, type,
-      &dri2_dpy->driver_configs, false, disp);
+      &dri2_dpy->driver_configs, false, dri2_dpy->multibuffers_available, disp);
 
    if (dri2_dpy->dri_screen_render_gpu == NULL) {
       _eglLog(_EGL_WARNING, "egl: failed to create dri2 screen");
@@ -1377,20 +1391,9 @@ dri2_create_drawable(struct dri2_egl_display *dri2_dpy,
                      const __DRIconfig *config,
                      struct dri2_egl_surface *dri2_surf, void *loaderPrivate)
 {
-   if (dri2_dpy->kopper) {
-      dri2_surf->dri_drawable = kopperCreateNewDrawable(
-         dri2_dpy->dri_screen_render_gpu, config, loaderPrivate,
-         &(__DRIkopperDrawableInfo){
-#if defined(HAVE_X11_PLATFORM) && defined(HAVE_DRI3)
-            .multiplanes_available = dri2_dpy->multibuffers_available,
-#endif
-            .is_pixmap = dri2_surf->base.Type == EGL_PBUFFER_BIT ||
-                         dri2_surf->base.Type == EGL_PIXMAP_BIT,
-         });
-   } else {
-      dri2_surf->dri_drawable = driCreateNewDrawable(
-         dri2_dpy->dri_screen_render_gpu, config, loaderPrivate);
-   }
+   bool is_pixmap = dri2_surf->base.Type == EGL_PBUFFER_BIT ||
+                    dri2_surf->base.Type == EGL_PIXMAP_BIT;
+   dri2_surf->dri_drawable = dri_create_drawable(dri2_dpy->dri_screen_render_gpu, config, is_pixmap, loaderPrivate);
    if (dri2_surf->dri_drawable == NULL)
       return _eglError(EGL_BAD_ALLOC, "createNewDrawable");
 

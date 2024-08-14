@@ -618,7 +618,8 @@ dri_set_background_context(struct st_context *st,
 
 const __DRIconfig **
 dri_init_screen(struct dri_screen *screen,
-                struct pipe_screen *pscreen)
+                struct pipe_screen *pscreen,
+                bool has_multibuffer)
 {
    screen->base.screen = pscreen;
    screen->base.get_egl_image = dri_get_egl_image;
@@ -646,15 +647,16 @@ dri_init_screen(struct dri_screen *screen,
    if (pscreen->get_param(pscreen, PIPE_CAP_DEVICE_PROTECTED_CONTEXT))
       screen->has_protected_context = true;
    screen->has_reset_status_query = pscreen->get_param(pscreen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY);
-   screen->has_modifiers = pscreen->query_dmabuf_modifiers != NULL;
 
 
 #ifdef HAVE_LIBDRM
-   int dmabuf_caps = pscreen->get_param(pscreen, PIPE_CAP_DMABUF);
-   if (dmabuf_caps & DRM_PRIME_CAP_IMPORT)
-      screen->dmabuf_import = true;
-   if (screen->dmabuf_import && dmabuf_caps & DRM_PRIME_CAP_EXPORT)
-      screen->has_dmabuf = true;
+   if (has_multibuffer) {
+      int dmabuf_caps = pscreen->get_param(pscreen, PIPE_CAP_DMABUF);
+      if (dmabuf_caps & DRM_PRIME_CAP_IMPORT)
+         screen->dmabuf_import = pscreen->query_dmabuf_modifiers != NULL;
+      if (screen->dmabuf_import && dmabuf_caps & DRM_PRIME_CAP_EXPORT)
+         screen->has_dmabuf = true;
+   }
 #endif
 
    return dri_fill_in_modes(screen);
