@@ -611,6 +611,7 @@ vlVaQuerySurfaceAttributes(VADriverContextP ctx, VAConfigID config_id,
    }
 
    if (config->rt_format & VA_RT_FORMAT_YUV420_10 ||
+       config->rt_format & VA_RT_FORMAT_YUV420_12 ||
        (config->rt_format & VA_RT_FORMAT_YUV420 &&
         config->entrypoint == PIPE_VIDEO_ENTRYPOINT_ENCODE)) {
       attribs[i].type = VASurfaceAttribPixelFormat;
@@ -622,6 +623,11 @@ vlVaQuerySurfaceAttributes(VADriverContextP ctx, VAConfigID config_id,
       attribs[i].value.type = VAGenericValueTypeInteger;
       attribs[i].flags = VA_SURFACE_ATTRIB_GETTABLE | VA_SURFACE_ATTRIB_SETTABLE;
       attribs[i].value.value.i = VA_FOURCC_P016;
+      i++;
+      attribs[i].type = VASurfaceAttribPixelFormat;
+      attribs[i].value.type = VAGenericValueTypeInteger;
+      attribs[i].flags = VA_SURFACE_ATTRIB_GETTABLE | VA_SURFACE_ATTRIB_SETTABLE;
+      attribs[i].value.value.i = VA_FOURCC_P012;
       i++;
    }
 
@@ -1195,6 +1201,7 @@ vlVaCreateSurfaces2(VADriverContextP ctx, unsigned int format,
        VA_RT_FORMAT_YUV422 != format &&
        VA_RT_FORMAT_YUV444 != format &&
        VA_RT_FORMAT_YUV400 != format &&
+       VA_RT_FORMAT_YUV420_12 != format &&
        VA_RT_FORMAT_YUV420_10BPP != format &&
        VA_RT_FORMAT_RGBP != format &&
        VA_RT_FORMAT_RGB32 != format &&
@@ -1563,6 +1570,8 @@ static uint32_t pipe_format_to_drm_format(enum pipe_format format)
       return DRM_FORMAT_NV12;
    case PIPE_FORMAT_P010:
       return DRM_FORMAT_P010;
+   case PIPE_FORMAT_P012:
+      return DRM_FORMAT_P012;
    case PIPE_FORMAT_YUYV:
    case PIPE_FORMAT_R8G8_R8B8_UNORM:
       return DRM_FORMAT_YUYV;
