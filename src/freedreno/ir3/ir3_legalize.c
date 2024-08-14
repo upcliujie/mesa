@@ -423,7 +423,10 @@ legalize_block(struct ir3_legalize_ctx *ctx, struct ir3_block *block)
       if (is_input(n)) {
          struct ir3_register *inloc = n->srcs[0];
          assert(inloc->flags & IR3_REG_IMMED);
-         ctx->max_bary = MAX2(ctx->max_bary, inloc->iim_val);
+
+         int last_inloc =
+            inloc->iim_val + ((inloc->flags & IR3_REG_R) ? n->repeat : 0);
+         ctx->max_bary = MAX2(ctx->max_bary, last_inloc);
       }
 
       if ((last_n && is_barrier(last_n)) || n->opc == OPC_SHPE) {
@@ -1369,6 +1372,43 @@ dbg_nop_sched(struct ir3 *ir, struct ir3_shader_variant *so)
    }
 }
 
+static void
+dbg_expand_rpt(struct ir3 *ir)
+{
+   foreach_block (block, &ir->block_list) {
+      foreach_instr_safe (instr, &block->instr_list) {
+         if (instr->repeat == 0 || instr->opc == OPC_NOP ||
+             instr->opc == OPC_SWZ || instr->opc == OPC_GAT ||
+             instr->opc == OPC_SCT) {
+            continue;
+         }
+
+         for (unsigned i = 0; i <= instr->repeat; ++i) {
+            struct ir3_instruction *rpt = ir3_instr_clone(instr);
+            ir3_instr_move_before(rpt, instr);
+            rpt->repeat = 0;
+
+            foreach_dst (dst, rpt) {
+               dst->num += i;
+               dst->wrmask = 1;
+            }
+
+            foreach_src (src, rpt) {
+               if (!(src->flags & IR3_REG_R))
+                  continue;
+
+               src->num += i;
+               src->uim_val += i;
+               src->wrmask = 1;
+               src->flags &= ~IR3_REG_R;
+            }
+         }
+
+         list_delinit(&instr->node);
+      }
+   }
+}
+
 struct ir3_helper_block_data {
    /* Whether helper invocations may be used on any path starting at the
     * beginning of the block.
@@ -1694,6 +1734,10 @@ ir3_legalize(struct ir3 *ir, struct ir3_shader_variant *so, int *max_bary)
    }
 
    assert(ctx->early_input_release || ctx->compiler->gen >= 5);
+
+   if (ir3_shader_debug & IR3_DBG_EXPANDRPT) {
+      dbg_expand_rpt(ir);
+   }
 
    /* process each block: */
    do {

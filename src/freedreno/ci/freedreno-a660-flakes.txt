@@ -2,6 +2,8 @@ KHR-GL46.buffer_storage.map_persistent_dispatch
 KHR-GL46.buffer_storage.map_persistent_flush
 KHR-GL46.shader_subroutine.control_flow_and_returned_subroutine_values_used_as_subroutine_input
 dEQP-VK.fragment_operations.scissor.multi_viewport.scissor_7
+dEQP-GLES31.functional.image_load_store.3d.load_store.r32i_single_layer
+dEQP-GLES3.functional.shaders.struct.uniform.dynamic_loop_nested_struct_array_vertex
 
 # Updated by ci-collate, found in this job run: https://gitlab.freedesktop.org/mesa/mesa/-/jobs/56164989
 bypass-dEQP-VK.renderpass2.fragment_density_map.2_views.render.non_divisible_density_size.2_samples.static_subsampled_2_1_multiviewport
