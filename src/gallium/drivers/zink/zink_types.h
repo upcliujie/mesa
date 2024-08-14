@@ -1805,6 +1805,11 @@ struct zink_context {
    unsigned shader_has_inlinable_uniforms_mask;
    unsigned inlinable_uniforms_valid_mask;
 
+   struct zink_resource *(*ubo_update_func_resource)(struct zink_context *, gl_shader_stage, unsigned, struct zink_resource *);
+   struct zink_resource *(*ubo_update_func_null)(struct zink_context *, gl_shader_stage, unsigned);
+   struct zink_resource *(*ssbo_update_func_resource)(struct zink_context *, gl_shader_stage, unsigned, struct zink_resource *);
+   struct zink_resource *(*ssbo_update_func_null)(struct zink_context *, gl_shader_stage, unsigned);
+
    struct pipe_constant_buffer ubos[MESA_SHADER_STAGES][PIPE_MAX_CONSTANT_BUFFERS];
    struct pipe_shader_buffer ssbos[MESA_SHADER_STAGES][PIPE_MAX_SHADER_BUFFERS];
    uint32_t writable_ssbos[MESA_SHADER_STAGES];
