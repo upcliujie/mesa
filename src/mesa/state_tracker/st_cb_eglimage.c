@@ -451,6 +451,8 @@ st_bind_egl_image(struct gl_context *ctx,
          unreachable("unexpected emulated format");
          break;
       }
+   } else if (stimg->format == PIPE_FORMAT_NV12) {
+      texFormat = st_pipe_format_to_mesa_format(PIPE_FORMAT_YUYV);
    } else {
       texFormat = st_pipe_format_to_mesa_format(stimg->format);
       /* Use previously derived internalformat as specified by
