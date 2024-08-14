@@ -238,12 +238,12 @@ lower_urb_write_logical_send_xe2(const fs_builder &bld, fs_inst *inst)
    inst->sfid = BRW_SFID_URB;
 
    enum lsc_opcode op = mask ? LSC_OP_STORE_CMASK : LSC_OP_STORE;
-   inst->desc = lsc_msg_desc_wcmask(devinfo, op,
+   inst->desc = lsc_msg_desc(devinfo, op,
                              LSC_ADDR_SURFTYPE_FLAT, LSC_ADDR_SIZE_A32,
-                             LSC_DATA_SIZE_D32, src_comps /* num_channels */,
+                             LSC_DATA_SIZE_D32,
+                             mask ? mask : src_comps /* num_channels */,
                              false /* transpose */,
-                             LSC_CACHE(devinfo, STORE, L1UC_L3UC),
-                             mask);
+                             LSC_CACHE(devinfo, STORE, L1UC_L3UC));
 
 
    /* Update the original instruction. */
@@ -1743,7 +1743,7 @@ lower_lsc_surface_logical_send(const fs_builder &bld, fs_inst *inst)
    case SHADER_OPCODE_TYPED_SURFACE_READ_LOGICAL:
    case SHADER_OPCODE_UNTYPED_SURFACE_READ_LOGICAL:
       num_components = arg.ud;
-      inst->desc = lsc_msg_desc(devinfo, LSC_OP_LOAD_CMASK,
+      inst->desc = lsc_msg_desc(devinfo, LSC_OP_LOAD,
                                 surf_type, LSC_ADDR_SIZE_A32,
                                 LSC_DATA_SIZE_D32, num_components,
                                 false /* transpose */,
@@ -1752,7 +1752,7 @@ lower_lsc_surface_logical_send(const fs_builder &bld, fs_inst *inst)
    case SHADER_OPCODE_TYPED_SURFACE_WRITE_LOGICAL:
    case SHADER_OPCODE_UNTYPED_SURFACE_WRITE_LOGICAL:
       num_components = arg.ud;
-      inst->desc = lsc_msg_desc(devinfo, LSC_OP_STORE_CMASK,
+      inst->desc = lsc_msg_desc(devinfo, LSC_OP_STORE,
                                 surf_type, LSC_ADDR_SIZE_A32,
                                 LSC_DATA_SIZE_D32, num_components,
                                 false /* transpose */,
@@ -2055,7 +2055,7 @@ lower_lsc_a64_logical_send(const fs_builder &bld, fs_inst *inst)
    switch (inst->opcode) {
    case SHADER_OPCODE_A64_UNTYPED_READ_LOGICAL:
       num_components = arg;
-      inst->desc = lsc_msg_desc(devinfo, LSC_OP_LOAD_CMASK,
+      inst->desc = lsc_msg_desc(devinfo, LSC_OP_LOAD,
                                 LSC_ADDR_SURFTYPE_FLAT, LSC_ADDR_SIZE_A64,
                                 LSC_DATA_SIZE_D32, num_components,
                                 false /* transpose */,
@@ -2063,7 +2063,7 @@ lower_lsc_a64_logical_send(const fs_builder &bld, fs_inst *inst)
       break;
    case SHADER_OPCODE_A64_UNTYPED_WRITE_LOGICAL:
       num_components = arg;
-      inst->desc = lsc_msg_desc(devinfo, LSC_OP_STORE_CMASK,
+      inst->desc = lsc_msg_desc(devinfo, LSC_OP_STORE,
                                 LSC_ADDR_SURFTYPE_FLAT, LSC_ADDR_SIZE_A64,
                                 LSC_DATA_SIZE_D32, num_components,
                                 false /* transpose */,
@@ -2313,7 +2313,7 @@ lower_lsc_varying_pull_constant_logical_send(const fs_builder &bld,
 
    if (alignment >= 4) {
       inst->desc =
-         lsc_msg_desc(devinfo, LSC_OP_LOAD_CMASK,
+         lsc_msg_desc(devinfo, LSC_OP_LOAD,
                       surf_type, LSC_ADDR_SIZE_A32,
                       LSC_DATA_SIZE_D32,
                       4 /* num_channels */,
