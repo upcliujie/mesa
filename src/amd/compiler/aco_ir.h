@@ -31,6 +31,7 @@ extern uint64_t debug_flags;
 enum {
    DEBUG_VALIDATE_IR = 0x1,
    DEBUG_VALIDATE_RA = 0x2,
+   DEBUG_VALIDATE_LIVE_VARS = 0x4,
    DEBUG_FORCE_WAITCNT = 0x8,
    DEBUG_NO_VN = 0x10,
    DEBUG_NO_OPT = 0x20,
@@ -2188,6 +2189,7 @@ bool print_asm(Program* program, std::vector<uint32_t>& binary, unsigned exec_si
 bool validate_ir(Program* program);
 bool validate_cfg(Program* program);
 bool validate_ra(Program* program);
+bool validate_live_vars(Program* program);
 
 void collect_presched_stats(Program* program);
 void collect_preasm_stats(Program* program);
@@ -2223,8 +2225,8 @@ void _aco_err(Program* program, const char* file, unsigned line, const char* fmt
 int get_op_fixed_to_def(Instruction* instr);
 
 /* utilities for dealing with register demand */
-RegisterDemand get_live_changes(aco_ptr<Instruction>& instr);
-RegisterDemand get_temp_registers(aco_ptr<Instruction>& instr);
+RegisterDemand get_live_changes(Instruction* instr);
+RegisterDemand get_temp_registers(Instruction* instr);
 
 /* number of sgprs that need to be allocated but might notbe addressable as s0-s105 */
 uint16_t get_extra_sgprs(Program* program);
