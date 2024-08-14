@@ -404,6 +404,7 @@ populate_base_prog_key(struct anv_pipeline_stage *stage,
    stage->key.base.robust_flags = anv_get_robust_flags(&stage->rstate);
    stage->key.base.limit_trig_input_range =
       device->physical->instance->limit_trig_input_range;
+   stage->key.base.vue_map_mode = INTEL_VUE_MAP_MODE_SEPARATE_VK;
 }
 
 static void
@@ -1228,7 +1229,7 @@ anv_pipeline_compile_vs(const struct brw_compiler *compiler,
    brw_compute_vue_map(compiler->devinfo,
                        &vs_stage->prog_data.vs.base.vue_map,
                        vs_stage->nir->info.outputs_written,
-                       vs_stage->nir->info.separate_shader,
+                       INTEL_VUE_MAP_MODE_SEPARATE_VK,
                        pos_slots);
 
    vs_stage->num_stats = 1;
@@ -1404,7 +1405,7 @@ anv_pipeline_compile_gs(const struct brw_compiler *compiler,
    brw_compute_vue_map(compiler->devinfo,
                        &gs_stage->prog_data.gs.base.vue_map,
                        gs_stage->nir->info.outputs_written,
-                       gs_stage->nir->info.separate_shader, 1);
+                       INTEL_VUE_MAP_MODE_SEPARATE_VK, 1);
 
    gs_stage->num_stats = 1;
 
@@ -1592,7 +1593,7 @@ anv_pipeline_compile_fs(const struct brw_compiler *compiler,
       brw_compute_vue_map(compiler->devinfo,
                           &prev_vue_map,
                           fs_stage->nir->info.inputs_read,
-                          fs_stage->nir->info.separate_shader,
+                          INTEL_VUE_MAP_MODE_SEPARATE_VK,
                           pos_slots);
 
       fs_stage->key.wm.input_slots_valid = prev_vue_map.slots_valid;
