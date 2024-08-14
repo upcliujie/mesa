@@ -35,6 +35,7 @@ enum HEVCNALUnitType {
     HEVC_NAL_VPS        = 32,
     HEVC_NAL_SPS        = 33,
     HEVC_NAL_PPS        = 34,
+    HEVC_NAL_AUD        = 35,
     HEVC_NAL_PREFIX_SEI    = 39,
 };
 
@@ -279,6 +280,12 @@ vlVaHandleVAEncSequenceParameterBufferTypeHEVC(vlVaDriver *drv, vlVaContext *con
    context->desc.h265enc.seq.time_scale = time_scale;
    context->desc.h265enc.rc.frame_rate_num = time_scale;
    context->desc.h265enc.rc.frame_rate_den = num_units_in_tick;
+
+   if (!(context->desc.base.packed_headers & VA_ENC_PACKED_HEADER_SEQUENCE)) {
+      context->desc.h265enc.header_flags.vps = 1;
+      context->desc.h265enc.header_flags.sps = 1;
+      context->desc.h265enc.header_flags.pps = 1;
+   }
 
    return VA_STATUS_SUCCESS;
 }
@@ -690,7 +697,7 @@ static void parseEncSeiPayloadH265(vlVaContext *context, struct vl_rbsp *rbsp, i
 {
    switch (payloadType) {
    case MASTERING_DISPLAY_COLOUR_VOLUME:
-      context->desc.h265enc.metadata_flags.hdr_mdcv = 1;
+      context->desc.h265enc.header_flags.hdr_mdcv = 1;
       for (int32_t i = 0; i < 3; i++) {
          context->desc.h265enc.metadata_hdr_mdcv.primary_chromaticity_x[i] = vl_rbsp_u(rbsp, 16);
          context->desc.h265enc.metadata_hdr_mdcv.primary_chromaticity_y[i] = vl_rbsp_u(rbsp, 16);
@@ -701,7 +708,7 @@ static void parseEncSeiPayloadH265(vlVaContext *context, struct vl_rbsp *rbsp, i
       context->desc.h265enc.metadata_hdr_mdcv.luminance_min = vl_rbsp_u(rbsp, 32);
       break;
    case CONTENT_LIGHT_LEVEL_INFO:
-      context->desc.h265enc.metadata_flags.hdr_cll = 1;
+      context->desc.h265enc.header_flags.hdr_cll = 1;
       context->desc.h265enc.metadata_hdr_cll.max_cll= vl_rbsp_u(rbsp, 16);
       context->desc.h265enc.metadata_hdr_cll.max_fall= vl_rbsp_u(rbsp, 16);
       break;
@@ -761,12 +768,18 @@ vlVaHandleVAEncPackedHeaderDataBufferTypeHEVC(vlVaContext *context, vlVaBuffer *
       vl_rbsp_init(&rbsp, &vlc, ~0, context->packed_header_emulation_bytes);
 
       switch(nal_unit_type) {
+      case HEVC_NAL_VPS:
+         context->desc.h265enc.header_flags.vps = 1;
+         break;
       case HEVC_NAL_SPS:
          parseEncSpsParamsH265(context, &rbsp);
-         break;
-      case HEVC_NAL_VPS:
+         context->desc.h265enc.header_flags.sps = 1;
          break;
       case HEVC_NAL_PPS:
+         context->desc.h265enc.header_flags.pps = 1;
+         break;
+      case HEVC_NAL_AUD:
+         context->desc.h265enc.header_flags.aud = 1;
          break;
       case HEVC_NAL_PREFIX_SEI:
          parseEncSeiH265(context, &rbsp);
