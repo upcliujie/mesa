@@ -389,7 +389,8 @@ midgard_preprocess_nir(nir_shader *nir, unsigned gpu_id)
       NIR_PASS_V(nir, midgard_nir_lod_errata);
 
    /* lower MSAA image operations to 3D load before coordinate lowering */
-   NIR_PASS_V(nir, pan_nir_lower_image_ms);
+   /* pass 0 for the gpu arch; anything under 6 indicates we are midgard */
+   NIR_PASS_V(nir, pan_nir_lower_image_ms, 0);
 
    /* Midgard image ops coordinates are 16-bit instead of 32-bit */
    NIR_PASS_V(nir, midgard_nir_lower_image_bitsize);
@@ -697,6 +698,7 @@ emit_alu(compiler_context *ctx, nir_alu_instr *instr)
       ALU_CASE_CMP(b2f32, iand);
       ALU_CASE_CMP(b2f16, iand);
       ALU_CASE_CMP(b2i32, iand);
+      ALU_CASE_CMP(b2i16, iand);
 
       ALU_CASE(frcp, frcp);
       ALU_CASE(frsq, frsqrt);
@@ -1300,11 +1302,11 @@ static midgard_instruction
 emit_image_op(compiler_context *ctx, nir_intrinsic_instr *instr)
 {
    enum glsl_sampler_dim dim = nir_intrinsic_image_dim(instr);
-   unsigned nr_dim = glsl_get_sampler_dim_coordinate_components(dim);
+   unsigned nr_dim = (dim == GLSL_SAMPLER_DIM_MS) ?
+      glsl_get_sampler_dim_coordinate_components(GLSL_SAMPLER_DIM_3D) :
+      glsl_get_sampler_dim_coordinate_components(dim);
    bool is_array = nir_intrinsic_image_array(instr);
    bool is_store = instr->intrinsic == nir_intrinsic_image_store;
-
-   assert(dim != GLSL_SAMPLER_DIM_MS && "MSAA'd image not lowered");
 
    unsigned coord_reg = nir_src_index(ctx, &instr->src[1]);
    emit_explicit_constant(ctx, coord_reg);
