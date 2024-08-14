@@ -331,7 +331,7 @@ impl<'a> ShaderFromNir<'a> {
             end_block_id: 0,
             ssa_map: HashMap::new(),
             saturated: HashSet::new(),
-            nir_instr_printer: NirInstrPrinter::new(),
+            nir_instr_printer: NirInstrPrinter::new().unwrap(),
         }
     }
 
@@ -3282,6 +3282,7 @@ impl<'a> ShaderFromNir<'a> {
                 let annotation = self
                     .nir_instr_printer
                     .instr_to_string(ni)
+                    .unwrap()
                     .split_whitespace()
                     .collect::<Vec<_>>()
                     .join(" ");
@@ -3330,6 +3331,7 @@ impl<'a> ShaderFromNir<'a> {
                 let annotation = self
                     .nir_instr_printer
                     .instr_to_string(ni)
+                    .unwrap()
                     .split_whitespace()
                     .collect::<Vec<_>>()
                     .join(" ");
@@ -3407,6 +3409,7 @@ impl<'a> ShaderFromNir<'a> {
                     let annotation = self
                         .nir_instr_printer
                         .instr_to_string(ni)
+                        .unwrap()
                         .split_whitespace()
                         .collect::<Vec<_>>()
                         .join(" ");
