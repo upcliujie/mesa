@@ -256,6 +256,20 @@ generated code annotated with the samples.
 You can obtain a call graph via
 `Gprof2Dot <https://github.com/jrfonseca/gprof2dot#linux-perf>`__.
 
+FlameGraph support
+~~~~~~~~~~~~~~~~~~~~~~
+
+Outside Linux, it is possible to generate a
+`FlameGraph https://github.com/brendangregg/FlameGraph`__:
+with resolved JIT symbols.
+
+Set the environment variable ``JIT_SYMBOL_MAP_DIR`` to a directory path,
+and LLVMpipe will create a ``jit-symbols-XXXXX.map`` file inside with
+the symbol address table. It also dumps assembly code to
+``jit-symbols-XXXXX.map.asm``. Run both files through the
+``bin/flamegraph_map_lp_jit.py`` script to map addresses to JIT symbols,
+and annotate the disassembly with the sample counts.
+
 Unit testing
 ------------
 
