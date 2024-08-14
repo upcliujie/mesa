@@ -502,22 +502,28 @@ if not have_mtls_dialect
   if meson.is_cross_build() and not meson.can_run_host_binaries()
     warning('cannot auto-detect -mtls-dialect when cross-compiling, using compiler default')
   else
-    # -fpic to force dynamic tls, otherwise TLS relaxation defeats check
-    gnu2_test = cc.run('int __thread x; int main() { return x; }',
-                       args: ['-mtls-dialect=gnu2', '-fpic'],
-                       name: '-mtls-dialect=gnu2')
-    if gnu2_test.returncode() == 0 and (
-          # check for lld 13 bug: https://gitlab.freedesktop.org/mesa/mesa/-/issues/5665
-          host_machine.cpu_family() != 'x86_64' or
-          # get_linker_id misses LDFLAGS=-fuse-ld=lld: https://github.com/mesonbuild/meson/issues/6377
-          #cc.get_linker_id() != 'ld.lld' or
-          cc.links('''int __thread x; int y; int main() { __asm__(
-                "leaq x@TLSDESC(%rip), %rax\n"
-                "movq y@GOTPCREL(%rip), %rdx\n"
-                "call *x@TLSCALL(%rax)\n"); }''', name: 'split TLSDESC')
-          )
-      c_cpp_args += '-mtls-dialect=gnu2'
-    endif
+    # The way to specify the TLSDESC dialect is architecture-specific.
+    # We probe both because there is not a fallback guaranteed to work for all
+    # future architectures.
+    foreach tlsdesc_arg : ['-mtls-dialect=gnu2', '-mtls-dialect=desc']
+      # -fpic to force dynamic tls, otherwise TLS relaxation defeats check
+      tlsdesc_test = cc.run('int __thread x; int main() { return x; }',
+                            args: [tlsdesc_arg, '-fpic'],
+                            name: tlsdesc_arg)
+      if tlsdesc_test.returncode() == 0 and (
+            # check for lld 13 bug: https://gitlab.freedesktop.org/mesa/mesa/-/issues/5665
+            host_machine.cpu_family() != 'x86_64' or
+            # get_linker_id misses LDFLAGS=-fuse-ld=lld: https://github.com/mesonbuild/meson/issues/6377
+            #cc.get_linker_id() != 'ld.lld' or
+            cc.links('''int __thread x; int y; int main() { __asm__(
+                  "leaq x@TLSDESC(%rip), %rax\n"
+                  "movq y@GOTPCREL(%rip), %rdx\n"
+                  "call *x@TLSCALL(%rax)\n"); }''', name: 'split TLSDESC')
+            )
+        c_cpp_args += tlsdesc_arg
+        break
+      endif
+    endforeach
   endif
 endif
 
@@ -1785,13 +1791,18 @@ if with_clc
   llvm_optional_modules += ['all-targets', 'windowsdriver', 'frontendhlsl', 'frontenddriver']
 endif
 draw_with_llvm = get_option('draw-use-llvm')
-llvm_with_orcjit = get_option('llvm-orcjit')
 if draw_with_llvm
   llvm_modules += 'native'
   # lto is needded with LLVM>=15, but we don't know what LLVM verrsion we are using yet
   llvm_optional_modules += ['lto']
 endif
 amd_with_llvm = get_option('amd-use-llvm')
+
+# MCJIT is deprecated in LLVM and will not accept new architecture ports,
+# so any architecture not in the exhaustive list will have to rely on LLVM
+# ORCJIT for llvmpipe functionality.
+llvm_has_mcjit = host_machine.cpu_family() in ['aarch64', 'arm', 'ppc', 'ppc64', 's390x', 'x86', 'x86_64']
+llvm_with_orcjit = get_option('llvm-orcjit') or not llvm_has_mcjit
 
 if with_amd_vk or with_gallium_radeonsi or with_clc or llvm_with_orcjit
   _llvm_version = '>= 15.0.0'
