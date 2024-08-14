@@ -50,6 +50,7 @@
 #include "compiler/nir/nir_serialize.h"
 #include "util/pan_lower_framebuffer.h"
 #include "decode.h"
+#include "pan_device.h"
 #include "pan_fence.h"
 #include "pan_screen.h"
 #include "pan_util.h"
@@ -584,10 +585,46 @@ panfrost_destroy(struct pipe_context *pipe)
 static struct pipe_query *
 panfrost_create_query(struct pipe_context *pipe, unsigned type, unsigned index)
 {
+   struct panfrost_context *ctx = pan_context(pipe);
+   struct panfrost_device *dev = pan_device(ctx->base.screen);
    struct panfrost_query *q = rzalloc(pipe, struct panfrost_query);
 
    q->type = type;
    q->index = index;
+
+   unsigned size = 0;
+
+   switch (q->type) {
+   case PIPE_QUERY_OCCLUSION_COUNTER:
+   case PIPE_QUERY_OCCLUSION_PREDICATE:
+   case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
+      size = sizeof(uint64_t) * dev->core_id_range;
+      break;
+   case PIPE_QUERY_TIMESTAMP:
+      size = sizeof(uint64_t);
+      break;
+   case PIPE_QUERY_TIME_ELAPSED:
+      size = sizeof(uint64_t) * 2;
+      break;
+   default:
+      break;
+   }
+
+   /* Allocate a resource for the query results to be stored */
+   if (size > 0 && !q->rsrc) {
+      q->rsrc =
+         pipe_buffer_create(ctx->base.screen, PIPE_BIND_QUERY_BUFFER, 0, size);
+
+      if (!q->rsrc) {
+         ralloc_free(q);
+         return NULL;
+      }
+
+      /* Default to 0 if nothing at all drawn. */
+      uint8_t *zeroes = alloca(size);
+      memset(zeroes, 0, size);
+      pipe_buffer_write(pipe, q->rsrc, 0, size, zeroes);
+   }
 
    return (struct pipe_query *)q;
 }
@@ -603,6 +640,17 @@ panfrost_destroy_query(struct pipe_context *pipe, struct pipe_query *q)
    ralloc_free(q);
 }
 
+static void
+panfrost_emit_write_timestamp(struct panfrost_context *ctx,
+                              struct panfrost_resource *rsrc, unsigned offset,
+                              const char *reason)
+{
+   struct panfrost_screen *screen = pan_screen(ctx->base.screen);
+   struct panfrost_batch *batch = panfrost_get_fresh_batch_for_fbo(ctx, reason);
+
+   screen->vtbl.emit_write_timestamp(batch, rsrc, offset);
+}
+
 static bool
 panfrost_begin_query(struct pipe_context *pipe, struct pipe_query *q)
 {
@@ -616,12 +664,6 @@ panfrost_begin_query(struct pipe_context *pipe, struct pipe_query *q)
    case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE: {
       unsigned size = sizeof(uint64_t) * dev->core_id_range;
 
-      /* Allocate a resource for the query results to be stored */
-      if (!query->rsrc) {
-         query->rsrc = pipe_buffer_create(ctx->base.screen,
-                                          PIPE_BIND_QUERY_BUFFER, 0, size);
-      }
-
       /* Default to 0 if nothing at all drawn. */
       uint8_t *zeroes = alloca(size);
       memset(zeroes, 0, size);
@@ -630,6 +672,23 @@ panfrost_begin_query(struct pipe_context *pipe, struct pipe_query *q)
       query->msaa = (ctx->pipe_framebuffer.samples > 1);
       ctx->occlusion_query = query;
       ctx->dirty |= PAN_DIRTY_OQ;
+      break;
+   }
+
+   case PIPE_QUERY_TIMESTAMP:
+   case PIPE_QUERY_TIMESTAMP_DISJOINT:
+      /* This is a no op on query start */
+      break;
+
+   case PIPE_QUERY_TIME_ELAPSED: {
+      struct panfrost_resource *rsrc = pan_resource(query->rsrc);
+
+      /* In case no batch is required, this will use the CPU side value. */
+      uint64_t *timestamp = (uint64_t *)rsrc->bo->ptr.cpu;
+      timestamp[0] = pan_kmod_query_timestamp(dev->kmod.dev);
+      timestamp[1] = UINT64_MAX;
+
+      panfrost_emit_write_timestamp(ctx, rsrc, 0, "TIME_ELAPSED begin_query");
       break;
    }
 
@@ -648,7 +707,6 @@ panfrost_begin_query(struct pipe_context *pipe, struct pipe_query *q)
       break;
 
    default:
-      /* TODO: timestamp queries, etc? */
       break;
    }
 
@@ -659,6 +717,7 @@ static bool
 panfrost_end_query(struct pipe_context *pipe, struct pipe_query *q)
 {
    struct panfrost_context *ctx = pan_context(pipe);
+   struct panfrost_device *dev = pan_device(ctx->base.screen);
    struct panfrost_query *query = (struct panfrost_query *)q;
 
    switch (query->type) {
@@ -668,6 +727,30 @@ panfrost_end_query(struct pipe_context *pipe, struct pipe_query *q)
       ctx->occlusion_query = NULL;
       ctx->dirty |= PAN_DIRTY_OQ;
       break;
+   case PIPE_QUERY_TIMESTAMP: {
+      struct panfrost_resource *rsrc = pan_resource(query->rsrc);
+
+      /* In case no batch is required, this will use the CPU side value. */
+      uint64_t *timestamp = (uint64_t *)rsrc->bo->ptr.cpu;
+      *timestamp = pan_kmod_query_timestamp(dev->kmod.dev);
+
+      panfrost_emit_write_timestamp(ctx, rsrc, 0, "TIMESTAMP end_query");
+      break;
+   }
+   case PIPE_QUERY_TIMESTAMP_DISJOINT:
+      /* This is a no op */
+      break;
+   case PIPE_QUERY_TIME_ELAPSED: {
+      struct panfrost_resource *rsrc = pan_resource(query->rsrc);
+
+      /* In case no batch is required, this will use the CPU side value. */
+      uint64_t *timestamp = (uint64_t *)rsrc->bo->ptr.cpu;
+      timestamp[1] = pan_kmod_query_timestamp(dev->kmod.dev);
+
+      panfrost_emit_write_timestamp(ctx, rsrc, sizeof(uint64_t),
+                                    "TIME_ELAPSED end_query");
+      break;
+   }
    case PIPE_QUERY_PRIMITIVES_GENERATED:
       query->end = ctx->prims_generated;
       break;
@@ -715,6 +798,31 @@ panfrost_get_query_result(struct pipe_context *pipe, struct pipe_query *q,
       }
 
       break;
+
+   case PIPE_QUERY_TIMESTAMP: {
+      panfrost_flush_writer(ctx, rsrc, "Timestamp query");
+      panfrost_bo_wait(rsrc->bo, INT64_MAX, false);
+      uint64_t *timestamp = (uint64_t *)rsrc->bo->ptr.cpu;
+
+      vresult->u64 = pan_gpu_time_to_ns(dev, *timestamp);
+      break;
+   }
+
+   case PIPE_QUERY_TIMESTAMP_DISJOINT: {
+      vresult->timestamp_disjoint.frequency =
+         dev->kmod.props.timestamp_frequency;
+      vresult->timestamp_disjoint.disjoint = false;
+      break;
+   }
+
+   case PIPE_QUERY_TIME_ELAPSED: {
+      panfrost_flush_writer(ctx, rsrc, "Time elapsed query");
+      panfrost_bo_wait(rsrc->bo, INT64_MAX, false);
+      uint64_t *timestamp = (uint64_t *)rsrc->bo->ptr.cpu;
+
+      vresult->u64 = pan_gpu_time_to_ns(dev, timestamp[1] - timestamp[0]);
+      break;
+   }
 
    case PIPE_QUERY_PRIMITIVES_GENERATED:
    case PIPE_QUERY_PRIMITIVES_EMITTED:
