@@ -31,6 +31,15 @@
 #include "ir3_nir.h"
 #include "ir3_shader.h"
 
+nir_def *
+ir3_get_shared_driver_ubo(nir_builder *b, const struct ir3_driver_ubo *ubo)
+{
+   assert(ubo->idx > 0);
+
+   /* Binning shader shared ir3_driver_ubo definitions but not shader info */
+   b->shader->info.num_ubos = MAX2(b->shader->info.num_ubos, ubo->idx + 1);
+   return nir_imm_int(b, ubo->idx);
+}
 
 nir_def *
 ir3_get_driver_ubo(nir_builder *b, struct ir3_driver_ubo *ubo)
@@ -42,13 +51,18 @@ ir3_get_driver_ubo(nir_builder *b, struct ir3_driver_ubo *ubo)
       if (b->shader->info.num_ubos == 0)
          b->shader->info.num_ubos++;
       ubo->idx = b->shader->info.num_ubos++;
-   } else {
-      assert(ubo->idx != 0);
-      /* Binning shader shared ir3_driver_ubo definitions but not shader info */
-      b->shader->info.num_ubos = MAX2(b->shader->info.num_ubos, ubo->idx + 1);
+      return nir_imm_int(b, ubo->idx);
    }
 
-   return nir_imm_int(b, ubo->idx);
+   return ir3_get_shared_driver_ubo(b, ubo);
+}
+
+nir_def *
+ir3_get_driver_consts_ubo(nir_builder *b, struct ir3_shader_variant *v)
+{
+   if (v->binning_pass)
+      return ir3_get_shared_driver_ubo(b, &ir3_const_state(v)->consts_ubo);
+   return ir3_get_driver_ubo(b, &ir3_const_state_mut(v)->consts_ubo);
 }
 
 nir_def *
@@ -804,6 +818,36 @@ lower_ucp_vs(struct ir3_shader_variant *so)
    return so->type == last_geom_stage;
 }
 
+static bool
+output_slot_used_for_binning(gl_varying_slot slot)
+{
+   return slot == VARYING_SLOT_POS || slot == VARYING_SLOT_PSIZ ||
+          slot == VARYING_SLOT_CLIP_DIST0 || slot == VARYING_SLOT_CLIP_DIST1 ||
+          slot == VARYING_SLOT_VIEWPORT;
+}
+
+static bool
+remove_nonbinning_output(nir_builder *b, nir_intrinsic_instr *intr, void *data)
+{
+   if (intr->intrinsic != nir_intrinsic_store_output)
+      return false;
+
+   nir_io_semantics io = nir_intrinsic_io_semantics(intr);
+
+   if (output_slot_used_for_binning(io.location))
+      return false;
+
+   nir_instr_remove(&intr->instr);
+   return true;
+}
+
+static bool
+lower_binning(nir_shader *s)
+{
+   return nir_shader_intrinsics_pass(s, remove_nonbinning_output,
+                                     nir_metadata_control_flow, NULL);
+}
+
 void
 ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 {
@@ -847,6 +891,15 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
          break;
       default:
          break;
+      }
+   }
+
+   if (so->binning_pass) {
+      if (OPT(s, lower_binning)) {
+         progress = true;
+
+         /* outputs_written has changed. */
+         nir_shader_gather_info(s, nir_shader_get_entrypoint(s));
       }
    }
 
@@ -1023,7 +1076,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
     * passes:
     */
    if (!so->binning_pass)
-      ir3_setup_const_state(s, so, ir3_const_state(so));
+      ir3_setup_const_state(s, so, ir3_const_state_mut(so));
 }
 
 bool
