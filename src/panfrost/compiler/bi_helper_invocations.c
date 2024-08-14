@@ -200,6 +200,15 @@ bi_helper_block_update(BITSET_WORD *deps, bi_block *block)
    bool progress = false;
 
    bi_foreach_instr_in_block_rev(block, I) {
+      /* If the instructtion is anything else than ATEST or BLEND, we need to
+       * track the sources */
+      if (I->op != BI_OPCODE_ATEST && I->op != BI_OPCODE_BLEND) {
+         bi_foreach_ssa_src(I, s) {
+            progress |= !BITSET_TEST(deps, I->src[s].value);
+            BITSET_SET(deps, I->src[s].value);
+         }
+      }
+
       /* If a destination is required by helper invocation... */
       bi_foreach_dest(I, d) {
          if (!BITSET_TEST(deps, I->dest[d].value))

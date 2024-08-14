@@ -4056,6 +4056,7 @@ emit_loop(bi_context *ctx, nir_loop *nloop)
    ctx->continue_block = create_empty_block(ctx);
    ctx->break_block = create_empty_block(ctx);
    ctx->after_block = ctx->continue_block;
+   ctx->after_block->loop_header = true;
 
    /* Emit the body itself */
    emit_cf_list(ctx, &nloop->body);
@@ -4530,10 +4531,29 @@ mem_access_size_align_cb(nir_intrinsic_op intrin, uint8_t bytes,
    };
 }
 
+static bool
+mem_vectorize_cb(unsigned align_mul, unsigned align_offset, unsigned bit_size,
+                 unsigned num_components, nir_intrinsic_instr *low,
+                 nir_intrinsic_instr *high, void *data)
+{
+   /* Must be aligned to the size of the load */
+   unsigned align = nir_combined_align(align_mul, align_offset);
+   if ((bit_size / 8) > align)
+      return false;
+
+   if (num_components > 4)
+      return false;
+
+   if (bit_size > 32)
+      return false;
+
+   return true;
+}
+
 static void
 bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
 {
-   NIR_PASS(_, nir, nir_lower_pack);
+   NIR_PASS_V(nir, nir_opt_shrink_stores, true);
 
    bool progress;
 
@@ -4558,6 +4578,14 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
       NIR_PASS(progress, nir, nir_opt_shrink_vectors, false);
       NIR_PASS(progress, nir, nir_opt_loop_unroll);
    } while (progress);
+
+   NIR_PASS(
+      progress, nir, nir_opt_load_store_vectorize,
+      &(const nir_load_store_vectorize_options){
+         .modes = nir_var_mem_global | nir_var_mem_shared | nir_var_shader_temp,
+         .callback = mem_vectorize_cb,
+      });
+   NIR_PASS(progress, nir, nir_lower_pack);
 
    /* TODO: Why is 64-bit getting rematerialized?
     * KHR-GLES31.core.shader_image_load_store.basic-allTargets-atomicFS */
@@ -5129,14 +5157,14 @@ bi_compile_variant_nir(nir_shader *nir,
        * mod_prop_backward to fuse VAR_TEX */
       if (ctx->arch == 7 && ctx->stage == MESA_SHADER_FRAGMENT &&
           !(bifrost_debug & BIFROST_DBG_NOPRELOAD)) {
-         bi_opt_dead_code_eliminate(ctx);
+         bi_opt_dce(ctx, false);
          bi_opt_message_preload(ctx);
          bi_opt_copy_prop(ctx);
       }
 
-      bi_opt_dead_code_eliminate(ctx);
+      bi_opt_dce(ctx, false);
       bi_opt_cse(ctx);
-      bi_opt_dead_code_eliminate(ctx);
+      bi_opt_dce(ctx, false);
       if (!ctx->inputs->no_ubo_to_push)
          bi_opt_reorder_push(ctx);
       bi_validate(ctx, "Optimization passes");
@@ -5162,7 +5190,7 @@ bi_compile_variant_nir(nir_shader *nir,
       /* We need to clean up after constant lowering */
       if (likely(optimize)) {
          bi_opt_cse(ctx);
-         bi_opt_dead_code_eliminate(ctx);
+         bi_opt_dce(ctx, false);
       }
 
       bi_validate(ctx, "Valhall passes");
@@ -5180,8 +5208,10 @@ bi_compile_variant_nir(nir_shader *nir,
     * under valid scheduling. Helpers are only defined for fragment
     * shaders, so this analysis is only required in fragment shaders.
     */
-   if (ctx->stage == MESA_SHADER_FRAGMENT)
+   if (ctx->stage == MESA_SHADER_FRAGMENT) {
+      bi_opt_dce(ctx, false);
       bi_analyze_helper_requirements(ctx);
+   }
 
    /* Fuse TEXC after analyzing helper requirements so the analysis
     * doesn't have to know about dual textures */
@@ -5199,7 +5229,7 @@ bi_compile_variant_nir(nir_shader *nir,
    /* Lowering FAU can create redundant moves. Run CSE+DCE to clean up. */
    if (likely(optimize)) {
       bi_opt_cse(ctx);
-      bi_opt_dead_code_eliminate(ctx);
+      bi_opt_dce(ctx, false);
    }
 
    bi_validate(ctx, "Late lowering");
