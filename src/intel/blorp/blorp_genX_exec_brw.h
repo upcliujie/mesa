@@ -1172,6 +1172,15 @@ blorp_emit_surface_state(struct blorp_batch *batch,
    const bool use_clear_address =
       GFX_VER >= 10 && (surface->clear_color_addr.buffer != NULL);
 
+   /* Instead of making use of the hardware's clear color conversion feature
+    * on gfx11-12, BLORP writes the software-converted pixel directly in
+    * blorp_update_clear_color. If the aux-op engages the hardware feature,
+    * provide a substitute address to avoid any collision.
+    */
+   const struct blorp_address op_clear_addr =
+      aux_op == ISL_AUX_OP_FAST_CLEAR ? blorp_get_workaround_address(batch) :
+                                        surface->clear_color_addr;
+
    isl_surf_fill_state(batch->blorp->isl_dev, state,
                        .surf = &surf, .view = &surface->view,
                        .aux_surf = &surface->aux_surf, .aux_usage = aux_usage,
@@ -1180,8 +1189,7 @@ blorp_emit_surface_state(struct blorp_batch *batch,
                        .aux_address = !use_aux_address ? 0 :
                           blorp_get_surface_address(batch, surface->aux_addr),
                        .clear_address = !use_clear_address ? 0 :
-                          blorp_get_surface_address(batch,
-                                                    surface->clear_color_addr),
+                          blorp_get_surface_address(batch, op_clear_addr),
                        .mocs = surface->addr.mocs,
                        .clear_color = surface->clear_color,
                        .use_clear_address = use_clear_address);
@@ -1206,7 +1214,7 @@ blorp_emit_surface_state(struct blorp_batch *batch,
       uint32_t *clear_addr = state + isl_dev->ss.clear_color_state_offset;
       blorp_surface_reloc(batch, state_offset +
                           isl_dev->ss.clear_color_state_offset,
-                          surface->clear_color_addr, *clear_addr);
+                          op_clear_addr, *clear_addr);
 #else
       /* Fast clears just whack the AUX surface and don't actually use the
        * clear color for anything.  We can avoid the MI memcpy on that case.
@@ -1513,83 +1521,55 @@ blorp_update_clear_color(UNUSED struct blorp_batch *batch,
                          const struct blorp_surface_info *info)
 {
    assert(info->clear_color_addr.buffer != NULL);
-#if GFX_VER == 11
-   /* 2 QWORDS */
-   const unsigned inlinedata_dw = 2 * 2;
-   const unsigned num_dwords = GENX(MI_ATOMIC_length) + inlinedata_dw;
 
-   struct blorp_address clear_addr = info->clear_color_addr;
-   uint32_t *dw = blorp_emitn(batch, GENX(MI_ATOMIC), num_dwords,
-                              .DataSize = MI_ATOMIC_QWORD,
-                              .ATOMICOPCODE = MI_ATOMIC_OP_MOVE8B,
-                              .InlineData = true,
-                              .MemoryAddress = clear_addr);
-   /* dw starts at dword 1, but we need to fill dwords 3 and 5 */
+   uint32_t pixel[4];
+   isl_color_value_pack(&info->clear_color, info->surf.format, pixel);
+
+#if GFX_VER == 12
+   uint32_t *dw = blorp_emitn(batch, GENX(MI_STORE_DATA_IMM), 3 + 6,
+                              .ForceWriteCompletionCheck = true,
+                              .StoreQword = true,
+                              .Address = info->clear_color_addr);
+   /* dw starts at dword 1 */
+   if (isl_surf_usage_is_depth(info->surf.usage)) {
+      /* According to Wa_2201730850, in the Clear Color Programming Note under
+       * the Red channel, "Software shall write the converted Depth Clear to
+       * this dword." The only depth formats listed under the red channel are
+       * IEEE_FP and UNORM24_X8. These two requirements are incompatible with
+       * the UNORM16 depth format, so just ignore that case and simply perform
+       * the conversion for all depth formats.
+       */
+      dw[2] = pixel[0];
+   } else {
+      dw[2] = info->clear_color.u32[0];
+   }
+   dw[3] = info->clear_color.u32[1];
+   dw[4] = info->clear_color.u32[2];
+   dw[5] = info->clear_color.u32[3];
+   dw[6] = pixel[0];
+   dw[7] = pixel[1];
+
+#elif GFX_VER == 11
+   uint32_t *dw = blorp_emitn(batch, GENX(MI_STORE_DATA_IMM), 3 + 6,
+                              .StoreQword = true,
+                              .Address = info->clear_color_addr);
+   /* dw starts at dword 1 */
    dw[2] = info->clear_color.u32[0];
-   dw[3] = 0;
-   dw[4] = info->clear_color.u32[1];
-   dw[5] = 0;
-
-   clear_addr.offset += 8;
-   dw = blorp_emitn(batch, GENX(MI_ATOMIC), num_dwords,
-                    .DataSize = MI_ATOMIC_QWORD,
-                    .ATOMICOPCODE = MI_ATOMIC_OP_MOVE8B,
-                    .CSSTALL = true,
-                    .ReturnDataControl = true,
-                    .InlineData = true,
-                    .MemoryAddress = clear_addr);
-   /* dw starts at dword 1, but we need to fill dwords 3 and 5 */
-   dw[2] = info->clear_color.u32[2];
-   dw[3] = 0;
-   dw[4] = info->clear_color.u32[3];
-   dw[5] = 0;
+   dw[3] = info->clear_color.u32[1];
+   dw[4] = info->clear_color.u32[2];
+   dw[5] = info->clear_color.u32[3];
+   dw[6] = pixel[0];
+   dw[7] = pixel[1];
 
 #else
-
-   /* According to Wa_2201730850, in the Clear Color Programming Note under
-    * the Red channel, "Software shall write the converted Depth Clear to this
-    * dword." The only depth formats listed under the red channel are IEEE_FP
-    * and UNORM24_X8. These two requirements are incompatible with the UNORM16
-    * depth format, so just ignore that case and simply perform the conversion
-    * for all depth formats.
-    */
-   union isl_color_value fixed_color = info->clear_color;
-   if (GFX_VER == 12 && isl_surf_usage_is_depth(info->surf.usage)) {
-      isl_color_value_pack(&info->clear_color, info->surf.format,
-                           fixed_color.u32);
-   }
 
    for (int i = 0; i < 4; i++) {
       blorp_emit(batch, GENX(MI_STORE_DATA_IMM), sdi) {
          sdi.Address = info->clear_color_addr;
          sdi.Address.offset += i * 4;
-         sdi.ImmediateData = fixed_color.u32[i];
-#if GFX_VER >= 12
-         if (i == 3)
-            sdi.ForceWriteCompletionCheck = true;
-#endif
+         sdi.ImmediateData = info->clear_color.u32[i];
       }
    }
-
-   /* The RENDER_SURFACE_STATE::ClearColor field states that software should
-    * write the converted depth value 16B after the clear address:
-    *
-    *    3D Sampler will always fetch clear depth from the location 16-bytes
-    *    above this address, where the clear depth, converted to native
-    *    surface format by software, will be stored.
-    *
-    */
-#if GFX_VER >= 12
-   if (isl_surf_usage_is_depth(info->surf.usage)) {
-      blorp_emit(batch, GENX(MI_STORE_DATA_IMM), sdi) {
-         sdi.Address = info->clear_color_addr;
-         sdi.Address.offset += 4 * 4;
-         sdi.ImmediateData = fixed_color.u32[0];
-         sdi.ForceWriteCompletionCheck = true;
-      }
-   }
-#endif
-
 #endif
 }
 
