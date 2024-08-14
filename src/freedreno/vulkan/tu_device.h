@@ -123,6 +123,8 @@ struct tu_physical_device
    bool has_cached_non_coherent_memory;
    uintptr_t level1_dcache_size;
 
+   bool has_preemption;
+
    struct {
       uint32_t type_count;
       VkMemoryPropertyFlags types[VK_MAX_MEMORY_TYPES];
@@ -232,6 +234,8 @@ struct tu6_global
    } flush_base[4];
 
    alignas(16) uint32_t cs_indirect_xyz[12];
+
+   uint32_t vsc_state[32];
 
    volatile uint32_t vtx_stats_query_not_running;
 
