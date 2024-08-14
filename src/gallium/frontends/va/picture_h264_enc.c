@@ -41,6 +41,7 @@ vlVaHandleVAEncPictureParameterBufferTypeH264(vlVaDriver *drv, vlVaContext *cont
 {
    VAEncPictureParameterBufferH264 *h264;
    vlVaBuffer *coded_buf;
+   vlVaSurface *surf;
 
    h264 = buf->data;
    if (h264->pic_fields.bits.idr_pic_flag == 1)
@@ -56,6 +57,15 @@ vlVaHandleVAEncPictureParameterBufferTypeH264(vlVaDriver *drv, vlVaContext *cont
       context->desc.h264enc.i_remain--;
 
    context->desc.h264enc.p_remain = context->desc.h264enc.gop_size - context->desc.h264enc.gop_cnt - context->desc.h264enc.i_remain;
+
+   /* We only use the surface id, destroy buffer to save memory */
+   surf = handle_table_get(drv->htab, h264->CurrPic.picture_id);
+   if (!surf)
+      return VA_STATUS_ERROR_INVALID_PARAMETER;
+   if (surf->buffer) {
+      surf->buffer->destroy(surf->buffer);
+      surf->buffer = NULL;
+   }
 
    coded_buf = handle_table_get(drv->htab, h264->coded_buf);
    if (!coded_buf)

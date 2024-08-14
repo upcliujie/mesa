@@ -864,8 +864,6 @@ struct pipe_h265_enc_picture_desc
    struct pipe_h265_enc_rate_control rc;
 
    enum pipe_h2645_enc_picture_type picture_type;
-   unsigned decoded_curr_pic;
-   unsigned reference_frames[16];
    unsigned frame_num;
    unsigned pic_order_cnt;
    unsigned pic_order_cnt_type;

@@ -490,12 +490,6 @@ static int fill_h265_enc_picture_desc(const struct pipe_picture_desc *desc,
     ITEM_SET(vh265, h265, rc.min_qp);
 
     ITEM_SET(vh265, h265, picture_type);
-    ITEM_SET(vh265, h265, decoded_curr_pic);
-
-    for (i = 0; i < 16; i++) {
-        ITEM_SET(vh265, h265, reference_frames[i]);
-    }
-
     ITEM_SET(vh265, h265, frame_num);
     ITEM_SET(vh265, h265, pic_order_cnt);
     ITEM_SET(vh265, h265, pic_order_cnt_type);

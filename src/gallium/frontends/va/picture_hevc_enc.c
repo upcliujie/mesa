@@ -48,16 +48,21 @@ vlVaHandleVAEncPictureParameterBufferTypeHEVC(vlVaDriver *drv, vlVaContext *cont
 {
    VAEncPictureParameterBufferHEVC *h265;
    vlVaBuffer *coded_buf;
-   int i;
+   vlVaSurface *surf;
 
    h265 = buf->data;
-   context->desc.h265enc.decoded_curr_pic = h265->decoded_curr_pic.picture_id;
    context->desc.h265enc.not_referenced = !h265->pic_fields.bits.reference_pic_flag;
-
-   for (i = 0; i < 15; i++)
-      context->desc.h265enc.reference_frames[i] = h265->reference_frames[i].picture_id;
-
    context->desc.h265enc.pic_order_cnt = h265->decoded_curr_pic.pic_order_cnt;
+
+   /* We only use the surface id, destroy buffer to save memory */
+   surf = handle_table_get(drv->htab, h265->decoded_curr_pic.picture_id);
+   if (!surf)
+      return VA_STATUS_ERROR_INVALID_PARAMETER;
+   if (surf->buffer) {
+      surf->buffer->destroy(surf->buffer);
+      surf->buffer = NULL;
+   }
+
    coded_buf = handle_table_get(drv->htab, h265->coded_buf);
    if (!coded_buf)
       return VA_STATUS_ERROR_INVALID_BUFFER;
